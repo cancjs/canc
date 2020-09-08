@@ -1,0 +1,21 @@
+assets
+scripts
+
+#tests
+test
+coverage
+jest.config.js
+tsconfig.test.json
+
+#build tools
+.travis.yml
+.jenkins.yml
+.codeclimate.yml
+
+#linters
+.jscsrc
+.jshintrc
+.eslint*
+
+lerna.*
+rollup.config.js

@@ -1,0 +1,32 @@
+{
+  "name": "@cancjs/coroutine",
+  "version": "0.0.0",
+  "description": "",
+  "keywords": [],
+  "main": "index.js",
+  "types": "index.d.ts",
+  "author": "ex-machine",
+  "license": "MIT",
+  "homepage": "https://github.com/ex-machine/canc/packages/canc-promise#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ex-machine/canc.git",
+    "directory": "packages/canc-coroutine"
+  },
+  "bugs": {
+    "url": "https://github.com/ex-machine/canc/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "rimraf dist && rollup --config ./rollup.config.js",
+    "check": "tsc --noEmit --project ./tsconfig.prod.json",
+    "format": "cross-env DEBUG=eslint:cli-engine eslint --fix --ext .ts,.tsx ./src",
+    "format:all": "cross-env DEBUG=eslint:cli-engine eslint --fix --ext .js,.jsx,.ts,.tsx --ignore-pattern '!.eslintrc.js' .",
+    "lint": "eslint --ext .ts,.tsx ./src",
+    "lint:all": "cross-env DEBUG=eslint:cli-engine eslint --ext .js,.jsx,.ts,.tsx --ignore-pattern '!.eslintrc.js' .",
+    "test": "jest --colors",
+    "test:watch": "jest --colors --watch"
+  }
+}
