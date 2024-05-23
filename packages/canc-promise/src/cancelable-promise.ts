@@ -3,7 +3,7 @@ import { CancelError, isCancelError } from './cancel-error';
 
 
 export type TPromiseExecutor<T> = (resolve: (value?: T | PromiseLike<T>) => void, reject: (reason?: any) => void) => void;
-export type TCancelablePromiseExecutor<T> = (resolve: (value?: T | PromiseLike<T>) => void, reject: (reason?: any) => void, addOnCancel: (onCancel: TOnCancel) => void) => void;
+export type TCancelablePromiseExecutor<T> = (resolve: (value?: T | PromiseLike<T>) => void, reject: (reason?: any) => void, handleCancel: (onCancel: TOnCancel) => void) => void;
 export type TCancelReason = string | object | CancelError;
 export type TCancelFn = (reason?: TCancelReason) => void;
 export type TOnCancel = TCancelFn;
@@ -258,7 +258,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 			throw new TypeError(`CancelablePromise constructor cannot be invoked without 'new'`);
 		}
 
-		this.addOnCancel = this.addOnCancel.bind(this);
+		this.handleCancel = this.handleCancel.bind(this);
 
 		this.cancel = this.cancel.bind(this);
 
@@ -289,7 +289,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 				((resolve, reject) => {
 					this._resolve = resolve;
 					this._reject = reject;
-					executor(resolve, reject, this.addOnCancel);
+					executor(resolve, reject, this.handleCancel);
 				}) as TPromiseExecutor<T>
 			],
 			new.target
@@ -347,14 +347,16 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		}
 	}
 
-	addOnCancel(onCancel: TOnCancel): void {
+	handleCancel(onCancel: TOnCancel): CancelablePromise<T> {
 		if (this.isCancelable) {
-			if (isFunction(onCancel)) {
+			if (isFunction(onCancel) && !this._cancelHandlers.includes(onCancel)) {
 				this._cancelHandlers.push(onCancel);
 			}
 		} else if (this.strict) {
 			throw new Error(`${this.isCanceled ? 'Canceled' : 'Settled'} promise cannot add cancel handler`);
 		}
+
+		return this;
 	}
 
 	cancel(reason?: any): void | CancelablePromise<PromiseSettledResult<unknown>[]> {
@@ -414,7 +416,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 				// Optimized finally
 				childPromise.then(onComplete, onComplete);
 			} else {
-				childPromise.addOnCancel(onComplete);
+				childPromise.handleCancel(onComplete);
 			}
 		}
 	}
@@ -429,8 +431,8 @@ Object.setPrototypeOf(CancelablePromise.prototype, _Promise.prototype);
 
 export function forceCancelable<T>(promise: PromiseLike<T>, options?: TCancelablePromiseOptions): CancelablePromise<T> {
 	return new CancelablePromise(
-		(resolve, _reject, addOnCancel) => {
-			addOnCancel((reason?: any) => {
+		(resolve, _reject, handleCancel) => {
+			handleCancel((reason?: any) => {
 				if (isCancelable(promise)) {
 					promise.cancel(reason);
 				}
