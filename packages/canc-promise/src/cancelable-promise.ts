@@ -25,8 +25,15 @@ export interface ICancelable<T = any> extends PromiseLike<T> {
 	cancel(reason?: any): any;
 }
 
+export interface ICancelablePromiseWithResolvers<T> {
+    promise: CancelablePromise<T>;
+    resolve: (value: T | PromiseLike<T>) => void;
+    reject: (reason?: any) => void;
+		cancel: (reason?: any) => void | CancelablePromise<PromiseSettledResult<unknown>[]>
+}
+
 // Extends PromiseConstructor interface, as defined in
-// lib.es2015.promise, lib.es2015.iterable, lib.es2015.symbol.wellknown, lib.es2018.promise, lib.es2020.promise
+// lib.es2015.promise, lib.es2015.iterable, lib.es2015.symbol.wellknown, lib.es2018.promise, lib.es2020.promise, lib.es2021.promise.d.ts, lib.esnext.promise.d.ts
 export interface ICancelablePromiseConstructor extends PromiseConstructor {
 	readonly [Symbol.species]: PromiseConstructor;
 
@@ -66,6 +73,14 @@ export interface ICancelablePromiseConstructor extends PromiseConstructor {
 	allSettled<T>(values: Iterable<T>, options?: TCancelablePromiseOptions): CancelablePromise<PromiseSettledResult<T extends PromiseLike<infer U> ? U : T>[]>;
 
 	/**
+	 * The any function returns a promise that is fulfilled by the first given promise to be fulfilled, or rejected with an AggregateError containing an array of rejection reasons if all of the given promises are rejected. It resolves all elements of the passed iterable to promises as it runs this algorithm.
+	 * @param values An array or iterable of Promises.
+	 * @returns A new Promise.
+	 */
+	any<T extends readonly unknown[] | []>(values: T): CancelablePromise<Awaited<T[number]>>;
+	any<T>(values: Iterable<T | PromiseLike<T>>): CancelablePromise<Awaited<T>>;
+
+	/**
 	 * Creates a Promise that is resolved or rejected when any of the provided Promises are resolved
 	 * or rejected.
 	 * @param values An array of Promises.
@@ -89,6 +104,12 @@ export interface ICancelablePromiseConstructor extends PromiseConstructor {
 	 */
 	resolve<T>(value: T | PromiseLike<T>, options?: TCancelablePromiseOptions): CancelablePromise<T>;
 	resolve(): CancelablePromise<void>;
+
+	/**
+	 * Creates a new Promise and returns it in an object, along with its resolve and reject functions.
+	 * @returns An object with the properties `promise`, `resolve`, and `reject`.
+	 */
+	withResolvers<T>(): ICancelablePromiseWithResolvers<T>;
 }
 
 function noop() {/**/}
@@ -102,13 +123,13 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		strict: false
 	};
 
-	static all<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>(values: readonly [T1 | PromiseLike<T1>, T2 | PromiseLike<T2>, T3 | PromiseLike<T3>, T4 | PromiseLike <T4>, T5 | PromiseLike<T5>, T6 | PromiseLike<T6>, T7 | PromiseLike<T7>, T8 | PromiseLike<T8>, T9 | PromiseLike<T9>, T10 | PromiseLike<T10>], options?: TCancelablePromiseOptions): CancelablePromise<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]>;
-	static all<T1, T2, T3, T4, T5, T6, T7, T8, T9>(values: readonly [T1 | PromiseLike<T1>, T2 | PromiseLike<T2>, T3 | PromiseLike<T3>, T4 | PromiseLike <T4>, T5 | PromiseLike<T5>, T6 | PromiseLike<T6>, T7 | PromiseLike<T7>, T8 | PromiseLike<T8>, T9 | PromiseLike<T9>], options?: TCancelablePromiseOptions): CancelablePromise<[T1, T2, T3, T4, T5, T6, T7, T8, T9]>;
-	static all<T1, T2, T3, T4, T5, T6, T7, T8>(values: readonly [T1 | PromiseLike<T1>, T2 | PromiseLike<T2>, T3 | PromiseLike<T3>, T4 | PromiseLike <T4>, T5 | PromiseLike<T5>, T6 | PromiseLike<T6>, T7 | PromiseLike<T7>, T8 | PromiseLike<T8>], options?: TCancelablePromiseOptions): CancelablePromise<[T1, T2, T3, T4, T5, T6, T7, T8]>;
-	static all<T1, T2, T3, T4, T5, T6, T7>(values: readonly [T1 | PromiseLike<T1>, T2 | PromiseLike<T2>, T3 | PromiseLike<T3>, T4 | PromiseLike <T4>, T5 | PromiseLike<T5>, T6 | PromiseLike<T6>, T7 | PromiseLike<T7>], options?: TCancelablePromiseOptions): CancelablePromise<[T1, T2, T3, T4, T5, T6, T7]>;
-	static all<T1, T2, T3, T4, T5, T6>(values: readonly [T1 | PromiseLike<T1>, T2 | PromiseLike<T2>, T3 | PromiseLike<T3>, T4 | PromiseLike <T4>, T5 | PromiseLike<T5>, T6 | PromiseLike<T6>], options?: TCancelablePromiseOptions): CancelablePromise<[T1, T2, T3, T4, T5, T6]>;
-	static all<T1, T2, T3, T4, T5>(values: readonly [T1 | PromiseLike<T1>, T2 | PromiseLike<T2>, T3 | PromiseLike<T3>, T4 | PromiseLike <T4>, T5 | PromiseLike<T5>], options?: TCancelablePromiseOptions): CancelablePromise<[T1, T2, T3, T4, T5]>;
-	static all<T1, T2, T3, T4>(values: readonly [T1 | PromiseLike<T1>, T2 | PromiseLike<T2>, T3 | PromiseLike<T3>, T4 | PromiseLike <T4>], options?: TCancelablePromiseOptions): CancelablePromise<[T1, T2, T3, T4]>;
+	static all<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>(values: readonly [T1 | PromiseLike<T1>, T2 | PromiseLike<T2>, T3 | PromiseLike<T3>, T4 | PromiseLike<T4>, T5 | PromiseLike<T5>, T6 | PromiseLike<T6>, T7 | PromiseLike<T7>, T8 | PromiseLike<T8>, T9 | PromiseLike<T9>, T10 | PromiseLike<T10>], options?: TCancelablePromiseOptions): CancelablePromise<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]>;
+	static all<T1, T2, T3, T4, T5, T6, T7, T8, T9>(values: readonly [T1 | PromiseLike<T1>, T2 | PromiseLike<T2>, T3 | PromiseLike<T3>, T4 | PromiseLike<T4>, T5 | PromiseLike<T5>, T6 | PromiseLike<T6>, T7 | PromiseLike<T7>, T8 | PromiseLike<T8>, T9 | PromiseLike<T9>], options?: TCancelablePromiseOptions): CancelablePromise<[T1, T2, T3, T4, T5, T6, T7, T8, T9]>;
+	static all<T1, T2, T3, T4, T5, T6, T7, T8>(values: readonly [T1 | PromiseLike<T1>, T2 | PromiseLike<T2>, T3 | PromiseLike<T3>, T4 | PromiseLike<T4>, T5 | PromiseLike<T5>, T6 | PromiseLike<T6>, T7 | PromiseLike<T7>, T8 | PromiseLike<T8>], options?: TCancelablePromiseOptions): CancelablePromise<[T1, T2, T3, T4, T5, T6, T7, T8]>;
+	static all<T1, T2, T3, T4, T5, T6, T7>(values: readonly [T1 | PromiseLike<T1>, T2 | PromiseLike<T2>, T3 | PromiseLike<T3>, T4 | PromiseLike<T4>, T5 | PromiseLike<T5>, T6 | PromiseLike<T6>, T7 | PromiseLike<T7>], options?: TCancelablePromiseOptions): CancelablePromise<[T1, T2, T3, T4, T5, T6, T7]>;
+	static all<T1, T2, T3, T4, T5, T6>(values: readonly [T1 | PromiseLike<T1>, T2 | PromiseLike<T2>, T3 | PromiseLike<T3>, T4 | PromiseLike<T4>, T5 | PromiseLike<T5>, T6 | PromiseLike<T6>], options?: TCancelablePromiseOptions): CancelablePromise<[T1, T2, T3, T4, T5, T6]>;
+	static all<T1, T2, T3, T4, T5>(values: readonly [T1 | PromiseLike<T1>, T2 | PromiseLike<T2>, T3 | PromiseLike<T3>, T4 | PromiseLike<T4>, T5 | PromiseLike<T5>], options?: TCancelablePromiseOptions): CancelablePromise<[T1, T2, T3, T4, T5]>;
+	static all<T1, T2, T3, T4>(values: readonly [T1 | PromiseLike<T1>, T2 | PromiseLike<T2>, T3 | PromiseLike<T3>, T4 | PromiseLike<T4>], options?: TCancelablePromiseOptions): CancelablePromise<[T1, T2, T3, T4]>;
 	static all<T1, T2, T3>(values: readonly [T1 | PromiseLike<T1>, T2 | PromiseLike<T2>, T3 | PromiseLike<T3>], options?: TCancelablePromiseOptions): CancelablePromise<[T1, T2, T3]>;
 	static all<T1, T2>(values: readonly [T1 | PromiseLike<T1>, T2 | PromiseLike<T2>], options?: TCancelablePromiseOptions): CancelablePromise<[T1, T2]>;
 	static all<T>(values: readonly (T | PromiseLike<T>)[], options?: TCancelablePromiseOptions): CancelablePromise<T[]>;
@@ -126,9 +147,9 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 				const index = count++;
 				const chainOptions = this._getChainOptions(options);
 				const promise = this.resolve(promiseOrValue, chainOptions)
-				.then(
-					(value) => {
-						results[index] = value;
+					.then(
+						(value) => {
+							results[index] = value;
 
 							if (!--count) {
 								resultsPromise._resolve(results);
@@ -159,13 +180,51 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 				const chainOptions = this._getChainOptions(options);
 
 				return this.resolve(promiseOrValue, chainOptions)
-				.then(
-					(value) => ({ status: 'fulfilled', value }),
-					(reason) => ({ status: 'rejected', reason })
-				) as CancelablePromise<PromiseSettledResult<any>>;
+					.then(
+						(value) => ({status: 'fulfilled', value}),
+						(reason) => ({status: 'rejected', reason})
+					) as CancelablePromise<PromiseSettledResult<any>>;
 			}),
 			options
 		);
+	}
+
+	static any<T extends readonly unknown[] | []>(values: T, options?: TCancelablePromiseOptions): CancelablePromise<Awaited<T[number]>>;
+	static any<T>(values: Iterable<T | PromiseLike<T>>, options?: TCancelablePromiseOptions): CancelablePromise<Awaited<T>>;
+
+	static any<T>(values: Iterable<T | PromiseLike<T>>, options?: TCancelablePromiseOptions): CancelablePromise<Awaited<T>> {
+		const resultPromise = new this<Awaited<T>>(noop, options);
+
+		const errors: Error[] = [];
+		let count = 0;
+
+		try {
+			for (const promiseOrValue of values) {
+				count++;
+				const chainOptions = this._getChainOptions(options);
+				const promise = this.resolve(promiseOrValue, chainOptions)
+					.then(value => {
+						resultPromise._resolve(value);
+					})
+					.catch(error => {
+						errors.push(error);
+
+						if (errors.length === count) {
+							resultPromise._reject(new AggregateError(errors));
+						}
+					});
+
+				promise._chain(resultPromise);
+			}
+
+			if (!count) {
+				resultPromise._reject(new AggregateError(errors));
+			}
+		} catch (error) {
+			resultPromise._reject(error);
+		}
+
+		return resultPromise;
 	}
 
 	static race<T>(values: readonly T[], options?: TCancelablePromiseOptions): CancelablePromise<T extends PromiseLike<infer U> ? U : T>;
@@ -216,6 +275,17 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 				},
 				options
 			);
+		}
+	}
+
+	static withResolvers<T>(options?: TCancelablePromiseOptions): ICancelablePromiseWithResolvers<T> {
+		const promise = new this<T>(noop, options);
+
+		return {
+			promise,
+			resolve: promise._resolve,
+			reject: promise._reject,
+			cancel: promise.cancel,
 		}
 	}
 
@@ -406,7 +476,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 				if (this._completedChainsCount >= this._chainsCount && this.isCancelable) {
 					const error = new CancelError(`Bubbled on ${bubbleOnComplete ? 'settling' : 'cancel'}`);
 					error.isBubbled = true;
-
+  
 					// eslint-disable-next-line @typescript-eslint/no-floating-promises
 					this.cancel(error);
 				}
