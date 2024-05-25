@@ -410,7 +410,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 			};
 
 			if (bubbleOnComplete) {
-				// TODO?: finally
+				// finally
 				childPromise.then(onComplete, onComplete);
 			} else {
 				childPromise.addOnCancel(onComplete);
