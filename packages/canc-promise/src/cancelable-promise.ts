@@ -1,25 +1,51 @@
 import { isCancelable, isFunction, isObject } from '../../_util';
 import { CancelError, isCancelError } from './cancel-error';
 
-
 export type TPromiseExecutor<T> = (resolve: (value?: T | PromiseLike<T>) => void, reject: (reason?: any) => void) => void;
 export type TCancelablePromiseExecutor<T> = (resolve: (value?: T | PromiseLike<T>) => void, reject: (reason?: any) => void, handleCancel: (onCancel: TOnCancel) => void) => void;
 export type TCancelReason = string | object | CancelError;
 export type TCancelFn = (reason?: TCancelReason) => void;
 export type TOnCancel = TCancelFn;
-export type TCancelRefObj = { cancel?: TCancelFn | null };
-export type TCancelRef = ((onCancel: TOnCancel) => void) | { cancel?: TCancelFn | null };
 
-export type TCancelablePromiseChainOptions = {
+export interface ICancelRef {
+	cancel?: TCancelFn | null;
+	readonly canceled?: boolean;
+}
+
+export interface ICancelablePromiseChainOptions {
 	asyncCancel?: boolean;
 	bubble?: boolean;
 	strict?: boolean;
-};
+}
 
-export type TCancelablePromiseOptions = TCancelablePromiseChainOptions & {
-	onCancel?: TOnCancel;
-	cancelRef?: TCancelRef;
-};
+interface IAbortEvent {
+	type: 'abort';
+	target: IAbortSignal;
+}
+
+interface IAbortEventListener {
+	(e: IAbortEvent): void;
+}
+
+interface IAbortEventListenerObject {
+	handleEvent(e: IAbortEvent): void;
+}
+
+type TAbortEventListenerOrObject = IAbortEventListener | IAbortEventListenerObject;
+
+interface IAbortSignal {
+	readonly aborted: boolean;
+	readonly reason: any;
+	onabort: ((this: IAbortSignal, ev: IAbortEvent) => any) | null;
+	throwIfAborted(): void;
+	addEventListener(type: 'abort', listener: TAbortEventListenerOrObject, options?: unknown): void;
+	removeEventListener(type: 'abort', listener: TAbortEventListenerOrObject, options?: unknown): void;
+}
+
+export interface TCancelablePromiseOptions extends ICancelablePromiseChainOptions {
+	ref?: ICancelRef;
+	signal?: IAbortSignal;
+}
 
 export interface ICancelable<T = any> extends PromiseLike<T> {
 	cancel(reason?: any): any;
@@ -117,7 +143,7 @@ function noop() {/**/}
 class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	static readonly [Symbol.species]: PromiseConstructor;
 
-	protected static _defaultOptions: Required<TCancelablePromiseChainOptions> = {
+	protected static _defaultOptions: Required<ICancelablePromiseChainOptions> = {
 		asyncCancel: true,
 		bubble: true,
 		strict: false
@@ -289,7 +315,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		}
 	}
 
-	protected static _getChainOptions(options?: TCancelablePromiseChainOptions): Required<TCancelablePromiseChainOptions> {
+	protected static _getChainOptions(options?: ICancelablePromiseChainOptions): Required<ICancelablePromiseChainOptions> {
 		const chainOptions = { ...this._defaultOptions };
 
 		if (options) {
@@ -322,6 +348,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	protected _completedChainsCount = 0;
 	protected _isCanceled = false;
 	protected _isSettled = false;
+	protected _signal?: IAbortSignal;
 
 	constructor(executor: TCancelablePromiseExecutor<T>, options?: TCancelablePromiseOptions) {
 		if (!(this instanceof CancelablePromise)) {
@@ -338,16 +365,38 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 
 		// Instance options
 		if (options) {
-			const { cancelRef } = options;
+			const { ref, signal} = options;
 
-			// TODO: ref isCanceled state
-			if (isFunction(cancelRef)) {
-				cancelRef(this.cancel);
-			} else if (isObject(cancelRef)) {
-				if (cancelRef.cancel) {
+			if (signal) {
+				if (signal.aborted) {
+					throw new Error('Aborted signal cannot be reused');
+				} else {
+					this._signal = signal;
+
+					const onAbort = (e: IAbortEvent) => {
+						this.cancel(signal.reason);
+					};
+
+					this.handleCancel(() => {
+						signal.removeEventListener('abort', onAbort);
+					});
+
+					signal.addEventListener('abort', onAbort, { once: true });
+				}
+			}
+
+			if (ref) {
+				if ('canceled' in ref) {
 					throw new Error('Cancel ref cannot be reused');
 				} else {
-					cancelRef.cancel = this.cancel;
+					Object.defineProperty(ref, 'canceled', {
+						configurable: true,
+						get: () => {
+							return this.isCanceled;
+						}
+					});
+
+					ref.cancel = this.cancel;
 				}
 			}
 		}
@@ -516,7 +565,7 @@ export function forceCancelable<T>(promise: PromiseLike<T>, options?: TCancelabl
 
 export { CancelablePromise };
 
-export function createCancelRef(): TCancelRefObj {
+export function createCancelRef(): ICancelRef {
 	return { cancel: null };
 }
 
