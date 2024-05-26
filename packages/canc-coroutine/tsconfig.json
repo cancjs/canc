@@ -1,7 +1,0 @@
-// Dummy tsconfig used by IDE TS & ESLint
-// for both production and test code
-// https://github.com/microsoft/vscode/issues/12463
-{
-  "extends": "../../tsconfig",
-  "include": ["src"]
-}

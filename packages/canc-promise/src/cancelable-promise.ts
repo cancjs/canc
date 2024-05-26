@@ -120,27 +120,27 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 
 		try {
 			const results: TAll[] = [];
-			let amount = 0;
+			let count = 0;
 
 			for (const promiseOrValue of values) {
-				const index = amount++;
+				const index = count++;
 				const chainOptions = this._getChainOptions(options);
 				const promise = this.resolve(promiseOrValue, chainOptions)
 				.then(
 					(value) => {
 						results[index] = value;
 
-						if (!--amount) {
-							resultsPromise._resolve(results);
-						}
-					},
-					resultsPromise._reject
-				);
+							if (!--count) {
+								resultsPromise._resolve(results);
+							}
+						},
+						resultsPromise._reject
+					);
 
 				promise._chain(resultsPromise);
 			}
 
-			if (!amount) {
+			if (!count) {
 				resultsPromise._resolve(results);
 			}
 		} catch (error) {
@@ -238,7 +238,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		return chainOptions;
 	}
 
-	readonly [Symbol.toStringTag]: string;
+	readonly [Symbol.toStringTag]!: string;
 
 	asyncCancel!: boolean;
 	bubble!: boolean;
@@ -254,7 +254,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 
 	constructor(executor: TCancelablePromiseExecutor<T>, options?: TCancelablePromiseOptions) {
 		if (!(this instanceof CancelablePromise)) {
-			throw new TypeError(`Constructor CancelablePromise requires 'new'`);
+			throw new TypeError(`CancelablePromise constructor cannot be invoked without 'new'`);
 		}
 
 		this.addOnCancel = this.addOnCancel.bind(this);
@@ -303,7 +303,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 				this._isSettled = true;
 				throw reason;
 			}
-		);
+		) as CancelablePromise<T>;
 	}
 
 	get isCanceled(): boolean {
@@ -410,7 +410,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 			};
 
 			if (bubbleOnComplete) {
-				// finally
+				// Optimized finally
 				childPromise.then(onComplete, onComplete);
 			} else {
 				childPromise.addOnCancel(onComplete);
@@ -444,13 +444,8 @@ export function forceCancelable<T>(promise: PromiseLike<T>, options?: TCancelabl
 // const _CancelablePromise: ICancelablePromiseConstructor = CancelablePromise;
 
 // export { _CancelablePromise as CancelablePromise };
+
 export { CancelablePromise };
-
-// var cp= _CancelablePromise.resolve(1).then().finally()//.then(a => a);
-
-// var p = Promise.all([1, Promise.resolve('s')]).then(r => r);
-
-// var p = _CancelablePromise.all([1, Promise.resolve('s')]).then(r => r);
 
 export function createCancelRef(): TCancelRefObj {
 	return { cancel: null };
