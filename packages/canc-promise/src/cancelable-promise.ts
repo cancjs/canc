@@ -356,7 +356,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		}
 	}
 
-	cancel(reason?: any): void | CancelablePromise<PromiseSettledResult<any[]>> {
+	cancel(reason?: any): void | CancelablePromise<PromiseSettledResult<unknown>[]> {
 		if (this.isCancelable) {
 			this._isCanceled = true;
 
@@ -376,7 +376,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 
 					this._cancelHandlers.length = 0;
 
-					return This.allSettled(handlerPromises) as any;
+					return This.allSettled(handlerPromises);
 				} else {
 					try {
 						for (const handler of this._cancelHandlers) {
