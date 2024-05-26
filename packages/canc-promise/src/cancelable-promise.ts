@@ -458,3 +458,9 @@ export function catchCancel<T extends any>(error: T): CancelError | never {
 		throw error;
 	}
 }
+
+export function suppressCancel<T extends any>(error: T): void | never {
+	if (!isCancelError(error)) {
+		throw error;
+	}
+}
