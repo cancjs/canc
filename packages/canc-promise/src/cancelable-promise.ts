@@ -441,10 +441,6 @@ export function forceCancelable<T>(promise: PromiseLike<T>, options?: TCancelabl
 	);
 }
 
-// const _CancelablePromise: ICancelablePromiseConstructor = CancelablePromise;
-
-// export { _CancelablePromise as CancelablePromise };
-
 export { CancelablePromise };
 
 export function createCancelRef(): TCancelRefObj {
