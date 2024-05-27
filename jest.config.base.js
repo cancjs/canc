@@ -69,9 +69,12 @@ module.exports = {
 
   // A set of global variables that need to be available in all test environments
   globals: {
+    // Deprecated
+    /*
     "ts-jest": {
-      "tsConfig": "tsconfig.test.json"
+      "tsconfig": "tsconfig.test.json"
     }
+    */
   },
 
   // The maximum amount of workers used to run your tests. Can be specified as % or a number. E.g. maxWorkers: 10% will use 10% of your CPU amount + 1 as the maximum worker number. maxWorkers: 2 will use a maximum of 2 workers.
@@ -92,7 +95,9 @@ module.exports = {
   // ],
 
   // A map from regular expressions to module names or to arrays of module names that allow to stub out resources with a single module
-  // moduleNameMapper: {},
+  moduleNameMapper: {
+    '^@cancjs/(.*)$': '<rootDir>/packages/canc-$1/src',
+  },
 
   // An array of regexp pattern strings, matched against all module paths before considered 'visible' to the module loader
   modulePathIgnorePatterns: ['/~~', '~~/'],
@@ -179,7 +184,9 @@ module.exports = {
 
   // A map from regular expressions to paths to transformers
   transform: {
-    "^.+\\.(ts|tsx)$": "ts-jest"
+    "^.+\\.tsx?$": ["ts-jest", {
+      "tsconfig": "tsconfig.test.json"
+    }]
   },
 
   // An array of regexp pattern strings that are matched against all source file paths, matched files will skip transformation
