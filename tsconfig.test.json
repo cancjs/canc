@@ -2,7 +2,11 @@
   "extends": "./tsconfig.base",
   "compilerOptions": {
     "module": "commonjs",
-    "types": ["node", "jest"]
+    "types": ["node", "jest"],
+    "baseUrl": ".",
+    "paths": {
+      "@cancjs/*": ["packages/canc-*/src"],
+    }
   },
   "exclude": [
     "node_modules",
