@@ -403,7 +403,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 
 		// eslint-disable-next-line no-constructor-return
 		return Reflect.construct(
-			_Promise,
+			Promise_,
 			[
 				((resolve, reject) => {
 					this._resolve = resolve;
@@ -438,7 +438,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		const This = this.constructor as typeof CancelablePromise;
 		const chainOptions = This._getChainOptions(this);
 		const promise = This.resolve(
-			_Promise.prototype.then.call(this, onFulfilled, onRejected) as Promise<TResult1>,
+			Promise_.prototype.then.call(this, onFulfilled, onRejected) as Promise<TResult1>,
 			chainOptions
 		);
 
@@ -542,43 +542,10 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 }
 
 // Capture global Promise
-const _Promise = Promise;
+const NativePromise = Promise;
 
-Object.setPrototypeOf(CancelablePromise, _Promise);
+Object.setPrototypeOf(CancelablePromise, NativePromise);
 
-Object.setPrototypeOf(CancelablePromise.prototype, _Promise.prototype);
-
-export function forceCancelable<T>(promise: PromiseLike<T>, options?: TCancelablePromiseOptions): CancelablePromise<T> {
-	return new CancelablePromise(
-		(resolve, _reject, handleCancel) => {
-			handleCancel((reason?: any) => {
-				if (isCancelable(promise)) {
-					promise.cancel(reason);
-				}
-			});
-
-			resolve(promise);
-		},
-		options
-	);
-}
+Object.setPrototypeOf(CancelablePromise.prototype, NativePromise.prototype);
 
 export { CancelablePromise };
-
-export function createCancelRef(): ICancelRef {
-	return { cancel: null };
-}
-
-export function catchCancel<T extends any>(error: T): CancelError | never {
-	if (isCancelError(error)) {
-		return error;
-	} else {
-		throw error;
-	}
-}
-
-export function suppressCancel<T extends any>(error: T): void | never {
-	if (!isCancelError(error)) {
-		throw error;
-	}
-}
