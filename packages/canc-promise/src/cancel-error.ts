@@ -4,7 +4,7 @@ import { isObject } from '../../_util';
 export const isCancelError = (error: any): error is CancelError => isObject(error) && typeof error.message === 'string' && error.name === 'CancelError';
 
 export class CancelError extends Error {
-	readonly [Symbol.toStringTag]: string;
+	readonly [Symbol.toStringTag]!: string;
 
 	name: string;
 	isBubbled: boolean;

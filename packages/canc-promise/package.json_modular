@@ -1,8 +1,0 @@
-//  "type": "module",
-
-  "main": "./dist/index.cjs.js",
-
-  "exports": {
-    "import": "./dist/index.esm.js",
-    "require": "./dist/index.cjs.js"
-  }
