@@ -1,5 +1,6 @@
 import { isCancelable, isFunction, isObject } from '../../_util';
-import { CancelError, isCancelError } from './cancel-error';
+import { CancelError } from './cancel-error';
+import { isCancelError } from './helpers';
 
 export type TPromiseExecutor<T> = (resolve: (value?: T | PromiseLike<T>) => void, reject: (reason?: any) => void) => void;
 export type TCancelablePromiseExecutor<T> = (resolve: (value?: T | PromiseLike<T>) => void, reject: (reason?: any) => void, handleCancel: (onCancel: TOnCancel) => void) => void;
@@ -143,6 +144,8 @@ function noop() {/**/}
 class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	static readonly [Symbol.species]: PromiseConstructor;
 
+  protected static _pendingInternalCall= false;
+		
 	protected static _defaultOptions: Required<ICancelablePromiseChainOptions> = {
 		asyncCancel: true,
 		bubble: true,
@@ -355,13 +358,48 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 			throw new TypeError(`CancelablePromise constructor cannot be invoked without 'new'`);
 		}
 
-		this.handleCancel = this.handleCancel.bind(this);
+		// Synchronous calls in executor
+		let handleCancelFn = this.handleCancel.bind(this);
 
-		this.cancel = this.cancel.bind(this);
+		// Compatible with ES5 transpilation target
+		// eslint-disable-next-line no-constructor-return
+		const instance = Reflect.construct(
+			NativePromise,
+			[
+				((resolve, reject) => {
+					this._resolve = resolve;
+					this._reject = reject;
+
+					function handleCancel(onCancel: TOnCancel): CancelablePromise<T>  {
+						return handleCancelFn(onCancel);
+					}
+
+					executor(resolve, reject, handleCancel);
+				}) as TPromiseExecutor<T>
+			],
+			new.target
+		) as CancelablePromise<T>;
+
+		// Asynchronous calls in executor
+		// cancelHandlers are shared between `this` and `instance`
+		handleCancelFn = instance.handleCancel.bind(instance);
+
+		// Avoid recursive call in the constructor from .then
+		if (!new.target._pendingInternalCall) {
+			const onFinally = () => {
+				instance._isSettled = true;
+			};
+
+			instance._then(onFinally, onFinally);
+		}
+
+		Object.assign(instance, this);
+
+		instance.cancel = instance.cancel.bind(instance);
 
 		// Chain options
 		// eslint-disable-next-line @typescript-eslint/no-floating-promises
-		Object.assign(this, new.target._getChainOptions(options));
+		Object.assign(instance, new.target._getChainOptions(options));
 
 		// Instance options
 		if (options) {
@@ -371,13 +409,13 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 				if (signal.aborted) {
 					throw new Error('Aborted signal cannot be reused');
 				} else {
-					this._signal = signal;
+					instance._signal = signal;
 
 					const onAbort = (e: IAbortEvent) => {
-						this.cancel(signal.reason);
+						instance.cancel(signal.reason);
 					};
 
-					this.handleCancel(() => {
+					instance.handleCancel(() => {
 						signal.removeEventListener('abort', onAbort);
 					});
 
@@ -392,38 +430,16 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 					Object.defineProperty(ref, 'canceled', {
 						configurable: true,
 						get: () => {
-							return this.isCanceled;
+							return instance.isCanceled;
 						}
 					});
 
-					ref.cancel = this.cancel;
+					ref.cancel = instance.cancel;
 				}
 			}
 		}
 
-		// eslint-disable-next-line no-constructor-return
-		return Reflect.construct(
-			Promise_,
-			[
-				((resolve, reject) => {
-					this._resolve = resolve;
-					this._reject = reject;
-					executor(resolve, reject, this.handleCancel);
-				}) as TPromiseExecutor<T>
-			],
-			new.target
-		)
-		// TODO?: force bubble
-		.then(
-			(value: any) => {
-				this._isSettled = true;
-				return value;
-			},
-			(reason: any) => {
-				this._isSettled = true;
-				throw reason;
-			}
-		) as CancelablePromise<T>;
+		return instance;
 	}
 
 	get isCanceled(): boolean {
@@ -438,7 +454,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		const This = this.constructor as typeof CancelablePromise;
 		const chainOptions = This._getChainOptions(this);
 		const promise = This.resolve(
-			Promise_.prototype.then.call(this, onFulfilled, onRejected) as Promise<TResult1>,
+			this._then(onFulfilled, onRejected),
 			chainOptions
 		);
 
@@ -514,6 +530,17 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		}
 	}
 
+	protected _then<TResult1 = T, TResult2 = never>(onFulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onRejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): CancelablePromise<TResult1 | TResult2> {
+		const This = this.constructor as typeof CancelablePromise;
+		// Calls CancelablePromise constructor internally
+		try {
+			This._pendingInternalCall = true;
+			return NativePromise.prototype.then.call(this, onFulfilled, onRejected) as CancelablePromise<TResult1>;
+		} finally {
+			This._pendingInternalCall = false;
+		}
+	}
+
 	protected _chain(childPromise: CancelablePromise<any>, bubbleOnComplete?: boolean): void {
 		if (this.bubble && this.isCancelable) {
 			this._chainsCount++;
@@ -525,7 +552,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 				if (this._completedChainsCount >= this._chainsCount && this.isCancelable) {
 					const error = new CancelError(`Bubbled on ${bubbleOnComplete ? 'settling' : 'cancel'}`);
 					error.isBubbled = true;
-  
+
 					// eslint-disable-next-line @typescript-eslint/no-floating-promises
 					this.cancel(error);
 				}
