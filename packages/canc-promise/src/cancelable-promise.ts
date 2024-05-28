@@ -204,8 +204,9 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	static resolve(): CancelablePromise<void>;
 
 	static resolve<T>(value?: T | PromiseLike<T>, options?: TCancelablePromiseOptions): CancelablePromise<T> {
+		// TODO: compare options
 		if (value instanceof this && value.constructor === this && !options) {
-			// Return unmodified promise similarly to Promise.resove
+			// Return unmodified promise similarly to Promise.resolve
 			return value;
 		} else {
 			// Wrap other promise instances or reconfigure same instances
