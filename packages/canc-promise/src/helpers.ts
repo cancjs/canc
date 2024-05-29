@@ -1,5 +1,5 @@
 import { CancelError, isCancelError } from './cancel-error';
-import { CancelablePromise, ICancelRef, TCancelablePromiseOptions } from './cancelable-promise';
+import { CancelablePromise, ICancelRef, ICancelablePromiseOptions } from './cancelable-promise';
 import { isCancelable } from '../../_util';
 
 export function createCancelRef(): ICancelRef {
@@ -29,7 +29,7 @@ export function suppressCancel<T extends any>(error: T): void | never {
   }
 }
 
-export function forceCancelable<T>(promise: PromiseLike<T>, options?: TCancelablePromiseOptions): CancelablePromise<T> {
+export function forceCancelable<T>(promise: PromiseLike<T>, options?: ICancelablePromiseOptions): CancelablePromise<T> {
   return new CancelablePromise(
     (resolve, _reject, handleCancel) => {
       handleCancel((reason?: any) => {
