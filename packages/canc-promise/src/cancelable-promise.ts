@@ -59,88 +59,10 @@ export interface ICancelablePromiseWithResolvers<T> {
 		cancel: (reason?: any) => void | CancelablePromise<PromiseSettledResult<unknown>[]>
 }
 
-// Extends PromiseConstructor interface, as defined in
-// lib.es2015.promise, lib.es2015.iterable, lib.es2015.symbol.wellknown, lib.es2018.promise, lib.es2020.promise, lib.es2021.promise.d.ts, lib.esnext.promise.d.ts
-export interface ICancelablePromiseConstructor extends PromiseConstructor {
-	readonly [Symbol.species]: PromiseConstructor;
-
-	readonly prototype: CancelablePromise<any>;
-
-	/**
-	 * Creates a new Promise.
-	 * @param executor A callback used to initialize the promise.
-	 */
-	new <T>(executor: TCancelablePromiseExecutor<T>, options?: ICancelablePromiseOptions): CancelablePromise<T>;
-
-	/**
-	 * Creates a Promise that is resolved with an array of results when all of the provided Promises
-	 * resolve, or rejected when any Promise is rejected.
-	 * @param values An array of Promises.
-	 * @returns A new Promise.
-	 */
-	all<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>(values: readonly [T1 | PromiseLike<T1>, T2 | PromiseLike<T2>, T3 | PromiseLike<T3>, T4 | PromiseLike <T4>, T5 | PromiseLike<T5>, T6 | PromiseLike<T6>, T7 | PromiseLike<T7>, T8 | PromiseLike<T8>, T9 | PromiseLike<T9>, T10 | PromiseLike<T10>], options?: ICancelablePromiseOptions): CancelablePromise<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]>;
-	all<T1, T2, T3, T4, T5, T6, T7, T8, T9>(values: readonly [T1 | PromiseLike<T1>, T2 | PromiseLike<T2>, T3 | PromiseLike<T3>, T4 | PromiseLike <T4>, T5 | PromiseLike<T5>, T6 | PromiseLike<T6>, T7 | PromiseLike<T7>, T8 | PromiseLike<T8>, T9 | PromiseLike<T9>], options?: ICancelablePromiseOptions): CancelablePromise<[T1, T2, T3, T4, T5, T6, T7, T8, T9]>;
-	all<T1, T2, T3, T4, T5, T6, T7, T8>(values: readonly [T1 | PromiseLike<T1>, T2 | PromiseLike<T2>, T3 | PromiseLike<T3>, T4 | PromiseLike <T4>, T5 | PromiseLike<T5>, T6 | PromiseLike<T6>, T7 | PromiseLike<T7>, T8 | PromiseLike<T8>], options?: ICancelablePromiseOptions): CancelablePromise<[T1, T2, T3, T4, T5, T6, T7, T8]>;
-	all<T1, T2, T3, T4, T5, T6, T7>(values: readonly [T1 | PromiseLike<T1>, T2 | PromiseLike<T2>, T3 | PromiseLike<T3>, T4 | PromiseLike <T4>, T5 | PromiseLike<T5>, T6 | PromiseLike<T6>, T7 | PromiseLike<T7>], options?: ICancelablePromiseOptions): CancelablePromise<[T1, T2, T3, T4, T5, T6, T7]>;
-	all<T1, T2, T3, T4, T5, T6>(values: readonly [T1 | PromiseLike<T1>, T2 | PromiseLike<T2>, T3 | PromiseLike<T3>, T4 | PromiseLike <T4>, T5 | PromiseLike<T5>, T6 | PromiseLike<T6>], options?: ICancelablePromiseOptions): CancelablePromise<[T1, T2, T3, T4, T5, T6]>;
-	all<T1, T2, T3, T4, T5>(values: readonly [T1 | PromiseLike<T1>, T2 | PromiseLike<T2>, T3 | PromiseLike<T3>, T4 | PromiseLike <T4>, T5 | PromiseLike<T5>], options?: ICancelablePromiseOptions): CancelablePromise<[T1, T2, T3, T4, T5]>;
-	all<T1, T2, T3, T4>(values: readonly [T1 | PromiseLike<T1>, T2 | PromiseLike<T2>, T3 | PromiseLike<T3>, T4 | PromiseLike <T4>], options?: ICancelablePromiseOptions): CancelablePromise<[T1, T2, T3, T4]>;
-	all<T1, T2, T3>(values: readonly [T1 | PromiseLike<T1>, T2 | PromiseLike<T2>, T3 | PromiseLike<T3>], options?: ICancelablePromiseOptions): CancelablePromise<[T1, T2, T3]>;
-	all<T1, T2>(values: readonly [T1 | PromiseLike<T1>, T2 | PromiseLike<T2>], options?: ICancelablePromiseOptions): CancelablePromise<[T1, T2]>;
-	all<T>(values: readonly (T | PromiseLike<T>)[], options?: ICancelablePromiseOptions): CancelablePromise<T[]>;
-	all<TAll>(values: Iterable<TAll | PromiseLike<TAll>>, options?: ICancelablePromiseOptions): CancelablePromise<TAll[]>;
-
-	/**
-	 * Creates a Promise that is resolved with an array of results when all
-	 * of the provided Promises resolve or reject.
-	 * @param values An array of Promises.
-	 * @returns A new Promise.
-	 */
-	allSettled<T extends readonly unknown[] | readonly [unknown]>(values: T, options?: ICancelablePromiseOptions): CancelablePromise<{ -readonly [P in keyof T]: PromiseSettledResult<T[P] extends PromiseLike<infer U> ? U : T[P]> }>;
-	allSettled<T>(values: Iterable<T>, options?: ICancelablePromiseOptions): CancelablePromise<PromiseSettledResult<T extends PromiseLike<infer U> ? U : T>[]>;
-
-	/**
-	 * The any function returns a promise that is fulfilled by the first given promise to be fulfilled, or rejected with an AggregateError containing an array of rejection reasons if all of the given promises are rejected. It resolves all elements of the passed iterable to promises as it runs this algorithm.
-	 * @param values An array or iterable of Promises.
-	 * @returns A new Promise.
-	 */
-	any<T extends readonly unknown[] | []>(values: T): CancelablePromise<Awaited<T[number]>>;
-	any<T>(values: Iterable<T | PromiseLike<T>>): CancelablePromise<Awaited<T>>;
-
-	/**
-	 * Creates a Promise that is resolved or rejected when any of the provided Promises are resolved
-	 * or rejected.
-	 * @param values An array of Promises.
-	 * @returns A new Promise.
-	 */
-	race<T>(values: readonly T[], options?: ICancelablePromiseOptions): CancelablePromise<T extends PromiseLike<infer U> ? U : T>;
-	race<T>(values: Iterable<T>, options?: ICancelablePromiseOptions): CancelablePromise<T extends PromiseLike<infer U> ? U : T>;
-	race<T>(values: Iterable<T | PromiseLike<T>>, options?: ICancelablePromiseOptions): CancelablePromise<T>;
-
-	/**
-	 * Creates a new rejected promise for the provided reason.
-	 * @param reason The reason the promise was rejected.
-	 * @returns A new rejected Promise.
-	 */
-	reject<T = never>(reason?: any, options?: ICancelablePromiseOptions): CancelablePromise<T>;
-
-	/**
-	 * Creates a new resolved promise for the provided value.
-	 * @param value A promise.
-	 * @returns A promise whose internal state matches the provided promise.
-	 */
-	resolve<T>(value: T | PromiseLike<T>, options?: ICancelablePromiseOptions): CancelablePromise<T>;
-	resolve(): CancelablePromise<void>;
-
-	/**
-	 * Creates a new Promise and returns it in an object, along with its resolve and reject functions.
-	 * @returns An object with the properties `promise`, `resolve`, and `reject`.
-	 */
-	withResolvers<T>(): ICancelablePromiseWithResolvers<T>;
-}
-
 function noop() {/**/}
 
+// Extends PromiseConstructor, as defined in
+// lib.es2015.promise, lib.es2015.iterable, lib.es2015.symbol.wellknown, lib.es2018.promise, lib.es2020.promise, lib.es2021.promise.d.ts, lib.esnext.promise.d.ts
 class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	static readonly [Symbol.species]: PromiseConstructor;
 
@@ -152,6 +74,13 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		strict: false
 	};
 
+	/**
+	 * Creates a Promise that is resolved with an array of results when all of the provided Promises
+	 * resolve, or rejected when any Promise is rejected.
+	 * @param values An array of Promises.
+	 * @param [options]
+	 * @returns A new Promise.
+	 */
 	static all<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>(values: readonly [T1 | PromiseLike<T1>, T2 | PromiseLike<T2>, T3 | PromiseLike<T3>, T4 | PromiseLike<T4>, T5 | PromiseLike<T5>, T6 | PromiseLike<T6>, T7 | PromiseLike<T7>, T8 | PromiseLike<T8>, T9 | PromiseLike<T9>, T10 | PromiseLike<T10>], options?: ICancelablePromiseOptions): CancelablePromise<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]>;
 	static all<T1, T2, T3, T4, T5, T6, T7, T8, T9>(values: readonly [T1 | PromiseLike<T1>, T2 | PromiseLike<T2>, T3 | PromiseLike<T3>, T4 | PromiseLike<T4>, T5 | PromiseLike<T5>, T6 | PromiseLike<T6>, T7 | PromiseLike<T7>, T8 | PromiseLike<T8>, T9 | PromiseLike<T9>], options?: ICancelablePromiseOptions): CancelablePromise<[T1, T2, T3, T4, T5, T6, T7, T8, T9]>;
 	static all<T1, T2, T3, T4, T5, T6, T7, T8>(values: readonly [T1 | PromiseLike<T1>, T2 | PromiseLike<T2>, T3 | PromiseLike<T3>, T4 | PromiseLike<T4>, T5 | PromiseLike<T5>, T6 | PromiseLike<T6>, T7 | PromiseLike<T7>, T8 | PromiseLike<T8>], options?: ICancelablePromiseOptions): CancelablePromise<[T1, T2, T3, T4, T5, T6, T7, T8]>;
@@ -200,6 +129,13 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		return resultsPromise;
 	}
 
+	/**
+	 * Creates a Promise that is resolved with an array of results when all
+	 * of the provided Promises resolve or reject.
+	 * @param values An array of Promises.
+	 * @param [options]
+	 * @returns A new Promise.
+	 */
 	static allSettled<T extends readonly unknown[] | readonly [unknown]>(values: T, options?: ICancelablePromiseOptions): CancelablePromise<{ -readonly [P in keyof T]: PromiseSettledResult<T[P] extends PromiseLike<infer U> ? U : T[P]> }>;
 	static allSettled<T>(values: Iterable<T>, options?: ICancelablePromiseOptions): CancelablePromise<PromiseSettledResult<T extends PromiseLike<infer U> ? U : T>[]>;
 
@@ -218,6 +154,12 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		);
 	}
 
+	/**
+	 * The any function returns a promise that is fulfilled by the first given promise to be fulfilled, or rejected with an AggregateError containing an array of rejection reasons if all of the given promises are rejected. It resolves all elements of the passed iterable to promises as it runs this algorithm.
+	 * @param values An array or iterable of Promises.
+	 * @param [options]
+	 * @returns A new Promise.
+	 */
 	static any<T extends readonly unknown[] | []>(values: T, options?: ICancelablePromiseOptions): CancelablePromise<Awaited<T[number]>>;
 	static any<T>(values: Iterable<T | PromiseLike<T>>, options?: ICancelablePromiseOptions): CancelablePromise<Awaited<T>>;
 
@@ -256,6 +198,13 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		return resultPromise;
 	}
 
+	/**
+	 * Creates a Promise that is resolved or rejected when any of the provided Promises are resolved
+	 * or rejected.
+	 * @param values An array of Promises.
+	 * @param [options]
+	 * @returns A new Promise.
+	 */
 	static race<T>(values: readonly T[], options?: ICancelablePromiseOptions): CancelablePromise<T extends PromiseLike<infer U> ? U : T>;
 	static race<T>(values: Iterable<T>, options?: ICancelablePromiseOptions): CancelablePromise<T extends PromiseLike<infer U> ? U : T>;
 	static race<T>(values: Iterable<T | PromiseLike<T>>, options?: ICancelablePromiseOptions): CancelablePromise<T>;
@@ -279,6 +228,12 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		return resultPromise;
 	}
 
+	/**
+	 * Creates a new rejected promise for the provided reason.
+	 * @param reason The reason the promise was rejected.
+	 * @param [options]
+	 * @returns A new rejected Promise.
+	 */
 	static reject<T = never>(reason?: any, options?: ICancelablePromiseOptions): CancelablePromise<T> {
 		return new this(
 			(_resolve, reject) => {
@@ -288,6 +243,11 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		);
 	}
 
+	/**
+	 * Creates a new resolved promise for the provided value.
+	 * @param value A promise.
+	 * @returns A promise whose internal state matches the provided promise.
+	 */
 	static resolve<T>(value: T | PromiseLike<T>, options?: ICancelablePromiseOptions): CancelablePromise<T>;
 	static resolve(): CancelablePromise<void>;
 
@@ -306,6 +266,11 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		}
 	}
 
+	/**
+	 * Creates a new Promise and returns it in an object, along with its resolve and reject functions.
+	 * @param [options]
+	 * @returns An object with the properties `promise`, `resolve`, and `reject`.
+	 */
 	static withResolvers<T>(options?: ICancelablePromiseOptions): ICancelablePromiseWithResolvers<T> {
 		const promise = new this<T>(noop, options);
 
@@ -376,6 +341,11 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	protected _isSettled = false;
 	protected _signal?: IAbortSignal;
 
+	/**
+	 * Creates a new Promise.
+	 * @param executor A callback used to initialize the promise.
+	 * @param [options]
+	 */
 	constructor(executor: TCancelablePromiseExecutor<T>, options?: ICancelablePromiseOptions) {
 		if (!(this instanceof CancelablePromise)) {
 			throw new TypeError(`CancelablePromise constructor cannot be invoked without 'new'`);
@@ -473,6 +443,12 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		return !this._isSettled && !this._isCanceled;
 	}
 
+	/**
+	 * Attaches callbacks for the resolution and/or rejection of the Promise.
+	 * @param onFulfilled The callback to execute when the Promise is resolved.
+	 * @param onRejected The callback to execute when the Promise is rejected.
+	 * @returns A Promise for the completion of which ever callback is executed.
+	 */
 	then<TResult1 = T, TResult2 = never>(onFulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onRejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): CancelablePromise<TResult1 | TResult2> {
 		const This = this.constructor as typeof CancelablePromise;
 		const normalizedOptions = This._getOptions(this);
@@ -486,10 +462,21 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		return promise;
 	}
 
+	/**
+	 * Attaches a callback for only the rejection of the Promise.
+	 * @param onRejected The callback to execute when the Promise is rejected.
+	 * @returns A Promise for the completion of the callback.
+	 */
 	catch<TResult = never>(onRejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): CancelablePromise<T | TResult> {
 		return this.then(null, onRejected);
 	}
 
+	/**
+	 * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+	 * resolved value cannot be modified from the callback.
+	 * @param onFinally The callback to execute when the Promise is settled (fulfilled or rejected).
+	 * @returns A Promise for the completion of the callback.
+	 */
 	finally(onFinally?: (() => void) | undefined | null): CancelablePromise<T> {
 		if (typeof onFinally === 'function') {
 			const This = this.constructor as typeof CancelablePromise;
