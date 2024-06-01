@@ -67,7 +67,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	static readonly [Symbol.species]: PromiseConstructor;
 
   protected static _pendingInternalCall= false;
-		
+
 	protected static _defaultOptions: Required<ICancelablePromiseFlagOptions> = {
 		asyncCancel: true,
 		bubble: true,
@@ -352,6 +352,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 			throw new TypeError(`CancelablePromise constructor cannot be invoked without 'new'`);
 		}
 
+		const This = new.target;
 		// Synchronous calls in executor
 		let handleCancelFn = this.handleCancel.bind(this);
 
@@ -371,7 +372,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 					executor(resolve, reject, handleCancel);
 				}) as TPromiseExecutor<T>
 			],
-			new.target
+			This
 		) as CancelablePromise<T>;
 
 		// Asynchronous calls in executor
@@ -379,7 +380,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		handleCancelFn = instance.handleCancel.bind(instance);
 
 		// Avoid recursive call in the constructor from .then
-		if (!new.target._pendingInternalCall) {
+		if (!This._pendingInternalCall) {
 			const onFinally = () => {
 				instance._isSettled = true;
 			};
@@ -391,45 +392,45 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 
 		instance.cancel = instance.cancel.bind(instance);
 
-		// Chain options
-		// eslint-disable-next-line @typescript-eslint/no-floating-promises
-		Object.assign(instance, new.target._getOptions(options));
+		const normalizedOptions = This._getOptions(options);
 
-		// Instance options
-		if (options) {
-			const { ref, signal} = options;
+		// Flag options
+		instance.bubble = normalizedOptions.bubble;
+		instance.strict = normalizedOptions.strict;
+		instance.asyncCancel = normalizedOptions.asyncCancel;
 
-			if (signal) {
-				if (signal.aborted) {
-					throw new Error('Aborted signal cannot be reused');
-				} else {
-					instance._signal = signal;
+		const { ref, signal} = normalizedOptions;
 
-					const onAbort = (e: IAbortEvent) => {
-						instance.cancel(signal.reason);
-					};
+		if (signal) {
+			if (signal.aborted) {
+				throw new Error('Aborted signal cannot be reused');
+			} else {
+				instance._signal = signal;
 
-					instance.handleCancel(() => {
-						signal.removeEventListener('abort', onAbort);
-					});
+				const onAbort = (e: IAbortEvent) => {
+					instance.cancel(signal.reason);
+				};
 
-					signal.addEventListener('abort', onAbort, { once: true });
-				}
+				instance.handleCancel(() => {
+					signal.removeEventListener('abort', onAbort);
+				});
+
+				signal.addEventListener('abort', onAbort, { once: true });
 			}
+		}
 
-			if (ref) {
-				if ('canceled' in ref) {
-					throw new Error('Cancel ref cannot be reused');
-				} else {
-					Object.defineProperty(ref, 'canceled', {
-						configurable: true,
-						get: () => {
-							return instance.isCanceled;
-						}
-					});
+		if (ref) {
+			if ('canceled' in ref) {
+				throw new Error('Cancel ref cannot be reused');
+			} else {
+				Object.defineProperty(ref, 'canceled', {
+					configurable: true,
+					get: () => {
+						return instance.isCanceled;
+					}
+				});
 
-					ref.cancel = instance.cancel;
-				}
+				ref.cancel = instance.cancel;
 			}
 		}
 
