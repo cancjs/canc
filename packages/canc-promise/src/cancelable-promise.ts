@@ -246,6 +246,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	/**
 	 * Creates a new resolved promise for the provided value.
 	 * @param value A promise.
+	 * @param [options]
 	 * @returns A promise whose internal state matches the provided promise.
 	 */
 	static resolve<T>(value: T | PromiseLike<T>, options?: ICancelablePromiseOptions): CancelablePromise<T>;
