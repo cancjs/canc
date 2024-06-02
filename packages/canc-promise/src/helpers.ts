@@ -1,6 +1,8 @@
-import { CancelError, isCancelError } from './cancel-error';
-import { CancelablePromise, ICancelRef, ICancelablePromiseOptions } from './cancelable-promise';
-import { isCancelable } from '../../_util';
+import { CancelError } from './cancel-error';
+import { CancelablePromise, ICancelablePromiseOptions, ICancelRef } from './cancelable-promise';
+import { isCancelable, isObject } from '../../_util';
+
+export const isCancelError = (error: any): error is CancelError => isObject(error) && typeof error.message === 'string' && error.name === 'CancelError';
 
 export function createCancelRef(): ICancelRef {
   return { cancel: null };
@@ -31,14 +33,14 @@ export function suppressCancel<T extends any>(error: T): void | never {
 
 export function forceCancelable<T>(promise: PromiseLike<T>, options?: ICancelablePromiseOptions): CancelablePromise<T> {
   return new CancelablePromise(
-    (resolve, _reject, handleCancel) => {
-      handleCancel((reason?: any) => {
-        if (isCancelable(promise)) {
-          promise.cancel(reason);
-        }
-      });
+    (resolve, reject, handleCancel) => {
+      promise.then(resolve, reject);
 
-      resolve(promise);
+      if (isCancelable(promise)) {
+        handleCancel((reason?: any) => {
+          promise.cancel(reason);
+        });
+      }
     },
     options
   );
