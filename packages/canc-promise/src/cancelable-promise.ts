@@ -1,4 +1,4 @@
-import { isCancelable, isFunction, isObject } from '../../_util';
+import { isCancelable, isFunction, isObject, isThenable } from '../../_util';
 import { CancelError } from './cancel-error';
 import { isCancelError } from './helpers';
 
@@ -7,6 +7,7 @@ export type TCancelablePromiseExecutor<T> = (resolve: (value?: T | PromiseLike<T
 export type TCancelReason = string | object | CancelError;
 export type TCancelFn = (reason?: TCancelReason) => void;
 export type TOnCancel = TCancelFn;
+export type TCancelablePromiseStates = 'PENDING' | 'FORCE_PENDING' | 'FULFILLED' | 'REJECTED' | 'CANCELED';
 
 export interface ICancelRef {
 	cancel?: TCancelFn | null;
@@ -15,6 +16,7 @@ export interface ICancelRef {
 
 export interface ICancelablePromiseFlagOptions {
 	asyncCancel?: boolean;
+	forceCancelable?: boolean;
 	bubble?: boolean;
 	strict?: boolean;
 }
@@ -61,6 +63,14 @@ export interface ICancelablePromiseWithResolvers<T> {
 
 function noop() {/**/}
 
+const states = {
+	PENDING: 'PENDING',
+	FORCE_PENDING: 'FORCE_PENDING',
+	FULFILLED: 'FULFILLED',
+	REJECTED: 'REJECTED',
+	CANCELED: 'CANCELED',
+} as { [key in TCancelablePromiseStates]: key };
+
 // Extends PromiseConstructor, as defined in
 // lib.es2015.promise, lib.es2015.iterable, lib.es2015.symbol.wellknown, lib.es2018.promise, lib.es2020.promise, lib.es2021.promise.d.ts, lib.esnext.promise.d.ts
 class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
@@ -68,8 +78,9 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 
   protected static _pendingInternalCall= false;
 
-	protected static _defaultOptions: Required<ICancelablePromiseFlagOptions> = {
+	static defaultOptions: Required<ICancelablePromiseFlagOptions> = {
 		asyncCancel: true,
+		forceCancelable: true,
 		bubble: true,
 		strict: false
 	};
@@ -284,7 +295,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	}
 
 	protected static _getOptions(options?: ICancelablePromiseOptions) {
-		const mergedOptions: ICancelablePromiseOptions & Required<ICancelablePromiseFlagOptions> = { ...this._defaultOptions };
+		const mergedOptions: ICancelablePromiseOptions & Required<ICancelablePromiseFlagOptions> = { ...this.defaultOptions };
 
 		if (options) {
 			if ('bubble' in options) {
@@ -297,6 +308,10 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 
 			if ('asyncCancel' in options) {
 				mergedOptions.asyncCancel = !!options.asyncCancel;
+			}
+
+			if ('forceCancelable' in options) {
+				mergedOptions.forceCancelable = !!options.forceCancelable;
 			}
 
 			if ('ref' in options) {
@@ -330,6 +345,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	readonly [Symbol.toStringTag]!: string;
 
 	asyncCancel!: boolean;
+	forceCancelable!: boolean;
 	bubble!: boolean;
 	strict!: boolean;
 
@@ -338,7 +354,8 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	protected _cancelHandlers: TOnCancel[] = [];
 	protected _chainsCount = 0;
 	protected _completedChainsCount = 0;
-	protected _isCanceled = false;
+	protected _internalState: TCancelablePromiseStates  = 'PENDING';
+	// Reflects promise state via public methods
 	protected _isSettled = false;
 	protected _signal?: IAbortSignal;
 
@@ -353,21 +370,63 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		}
 
 		const This = new.target;
-		// Synchronous calls in executor
-		let handleCancelFn = this.handleCancel.bind(this);
+		// `this` when executor calls are synchronous, otherwise NativePromise instance
+		let instance: CancelablePromise<T> = this;
+
+		const normalizedOptions = This._getOptions(options);
 
 		// Compatible with ES5 transpilation target
 		// eslint-disable-next-line no-constructor-return
-		const instance = Reflect.construct(
+		instance = Reflect.construct(
 			NativePromise,
 			[
-				((resolve, reject) => {
+				((resolve_, reject_) => {
+					function resolve(value?: T | PromiseLike<T>): void {
+						// Prevent cancelation in case of early state changes
+						if (instance._internalState === states.PENDING) {
+							if (isThenable(value)) {
+								if (normalizedOptions.forceCancelable) {
+									value.then(
+										value_ => {
+											if (instance._internalState === states.PENDING) {
+												instance._internalState = states.FULFILLED;
+											}
+
+											resolve_(value_);
+										},
+										reject);
+								} else {
+									instance._internalState = states.FORCE_PENDING;
+									resolve_(value);
+								}
+							} else {
+								instance._internalState = states.FULFILLED;
+								resolve_(value);
+							}
+						} else {
+							resolve_(value);
+						}
+					}
+
+					function reject(reason?: any): void {
+						if (instance._internalState === states.PENDING) {
+							if (isCancelError(reason)) {
+								instance._internalState = states.CANCELED;
+							} else {
+								instance._internalState = states.REJECTED;
+							}
+						}
+
+						reject_(reason);
+					}
+
+					function handleCancel(onCancel: TOnCancel): CancelablePromise<T> {
+						// cancelHandlers are shared between `this` and NativePromise instance
+						return instance.handleCancel(onCancel);
+					}
+
 					this._resolve = resolve;
 					this._reject = reject;
-
-					function handleCancel(onCancel: TOnCancel): CancelablePromise<T>  {
-						return handleCancelFn(onCancel);
-					}
 
 					executor(resolve, reject, handleCancel);
 				}) as TPromiseExecutor<T>
@@ -375,29 +434,15 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 			This
 		) as CancelablePromise<T>;
 
-		// Asynchronous calls in executor
-		// cancelHandlers are shared between `this` and `instance`
-		handleCancelFn = instance.handleCancel.bind(instance);
-
-		// Avoid recursive call in the constructor from .then
-		if (!This._pendingInternalCall) {
-			const onFinally = () => {
-				instance._isSettled = true;
-			};
-
-			instance._then(onFinally, onFinally);
-		}
-
 		Object.assign(instance, this);
 
 		instance.cancel = instance.cancel.bind(instance);
-
-		const normalizedOptions = This._getOptions(options);
 
 		// Flag options
 		instance.bubble = normalizedOptions.bubble;
 		instance.strict = normalizedOptions.strict;
 		instance.asyncCancel = normalizedOptions.asyncCancel;
+		instance.forceCancelable = normalizedOptions.forceCancelable;
 
 		const { ref, signal} = normalizedOptions;
 
@@ -434,15 +479,24 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 			}
 		}
 
+		// Avoid recursive call in the constructor from .then
+		if (!This._pendingInternalCall) {
+			const onFinally = () => {
+				instance._isSettled = true;
+			};
+
+			instance._then(onFinally, onFinally);
+		}
+
 		return instance;
 	}
 
 	get isCanceled(): boolean {
-		return this._isCanceled;
+		return this._internalState === states.CANCELED;
 	}
 
 	get isCancelable(): boolean {
-		return !this._isSettled && !this._isCanceled;
+		return !this._isSettled && (this._internalState === states.PENDING);
 	}
 
 	/**
@@ -508,7 +562,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 
 	cancel(reason?: any): void | CancelablePromise<PromiseSettledResult<unknown>[]> {
 		if (this.isCancelable) {
-			this._isCanceled = true;
+			this._internalState = states.CANCELED;
 
 			const error = isObject(reason) ? reason : new CancelError(reason);
 			this._reject(error);
@@ -577,6 +631,10 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 				childPromise.handleCancel(onComplete);
 			}
 		}
+	}
+
+	protected _nextTick(callback: () => void): Promise<void> {
+		return NativePromise.resolve().then(callback);
 	}
 }
 
