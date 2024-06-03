@@ -17,17 +17,37 @@ export function createAbortSignal() {
   };
 }
 
-export function catchCancel<T extends any>(error: T): CancelError | never {
-  if (isCancelError(error)) {
-    return error;
+export function catchCancel<TResult extends any>(promise: CancelablePromise<TResult>): CancelablePromise<TResult | CancelError>;
+export function catchCancel<TError extends any>(error: TError): CancelError | never;
+export function catchCancel<TResult extends any, TError extends any>(errorOrPromise: CancelablePromise<TResult> | TError): CancelablePromise<TResult | CancelError> | CancelError | never {
+  if (errorOrPromise instanceof CancelablePromise) {
+    return (errorOrPromise as CancelablePromise<TResult>)
+      .catch((error: any) => {
+        if (isCancelError(error)) {
+          return error as CancelError;
+        } else {
+            throw error;
+        }
+      });
+  } else if (isCancelError(errorOrPromise)) {
+    return errorOrPromise as CancelError;
   } else {
-    throw error;
+    throw errorOrPromise;
   }
 }
 
-export function suppressCancel<T extends any>(error: T): void | never {
-  if (!isCancelError(error)) {
-    throw error;
+export function suppressCancel<TResult extends any>(promise: CancelablePromise<TResult>): CancelablePromise<TResult | void>;
+export function suppressCancel<TError extends any>(error: TError): void | never;
+export function suppressCancel<TResult extends any, TError extends any>(errorOrPromise: CancelablePromise<TResult> | TError): CancelablePromise<TResult | void> | void | never {
+  if (errorOrPromise instanceof CancelablePromise) {
+    return (errorOrPromise as CancelablePromise<TResult | void>)
+      .catch((error: any) => {
+        if (!isCancelError(error)) {
+          throw error;
+        }
+      });
+  } else if (!isCancelError(errorOrPromise)) {
+    throw errorOrPromise;
   }
 }
 
