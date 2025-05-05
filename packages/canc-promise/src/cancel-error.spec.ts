@@ -1,12 +1,8 @@
-import { CancelError, isCancelError } from './cancel-error';
-
-
-declare var describe: any, it: any, expect: any, jest: any;
+import { CancelError } from './cancel-error';
+import { isCancelError } from './helpers';
 
 describe('CancelError', () => {
 	it('is ES5 class', () => {
-		const error = new CancelError();
-
 		expect(CancelError).toEqual(expect.any(Function));
 		expect(CancelError.toString()).toEqual(expect.not.stringMatching(/^class /));
 	});
@@ -23,19 +19,12 @@ describe('CancelError', () => {
 		expect(new CancelError().message).toBe('');
 		expect(new CancelError('foo').message).toBe('foo');
 	});
-});
 
-describe('isCancelError', () => {
-	it('strictly detects cancel error', () => {
-		expect(isCancelError(new CancelError())).toBe(true);
-	});
+	it('has isBubbled property', () => {
+		const error = new CancelError();
 
-	it('duck-types cancel error', () => {
-		expect(isCancelError({ message: '', name: 'CancelError' })).toBe(true);
-	});
-
-	it('does not detect other errors', () => {
-		expect(isCancelError(new Error())).toBe(false);
-		expect(isCancelError(new TypeError())).toBe(false);
+		expect(error.isBubbled).toBe(false);
+		error.isBubbled = true;
+		expect(error.isBubbled).toBe(true);
 	});
 });

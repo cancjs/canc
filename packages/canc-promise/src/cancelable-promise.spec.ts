@@ -1,4 +1,4 @@
-import * as canc_promise from './..';
+import * as canc_promise from './index';
 
 describe.skip('', () => {
 	beforeEach(() => {
@@ -41,7 +41,7 @@ describe('Native Promise capture', () => {
 
 	beforeEach(() => {
 		jest.resetModules();
-		CancelablePromise = require('../cancelable-promise').CancelablePromise;
+		CancelablePromise = require('./cancelable-promise').CancelablePromise;
 
 		promiseGetterSpy = jest.spyOn(global, 'Promise', 'get')
 		.mockImplementation(() => {
@@ -54,7 +54,7 @@ describe('Native Promise capture', () => {
 		expect(promiseGetterSpy).not.toBeCalled();
 	});
 
-	it.only('constructs fulfilled promise', (): any => {
+	it('constructs fulfilled promise', (): any => {
 		// expect(true).toBe(true);
 		//
 		// return;
@@ -205,34 +205,5 @@ describe('Native Promise capture', () => {
 				expect(reason).toBe(2);
 			}
 		);
-	});
-
-	it('extends global Promise', () => {
-	 	it('captures global Promise on import', async () => {
-		const NativePromise = Promise;
-		// const NativePromiseProxy = new Proxy(NativePromise, {});
-		const nativePromise = new NativePromise<never>((_resolve) => {});
-
-		const NativePromiseSpy = jest.spyOn(global, 'Promise')
-		.mockReturnValue(nativePromise);
-
-		const { CancelablePromise } = require('../cancelable-promise');
-
-		expect(NativePromiseSpy.isPrototypeOf(CancelablePromise)).toBe(true);
-
-		const cancelablePromise = new CancelablePromise((_resolve: any) => {});
-
-		expect(cancelablePromise).toEqual(expect.any(NativePromiseSpy));
-	});
-
-
-		// const NativePromise = Promise;
-		// const NativePromiseProxy = new Proxy(NativePromise, {});
-		// const nativePromise = new NativePromise<never>((_resolve) => {});
-		// const promise = NativePromise.resolve();
-
-		// const NativePromiseSpy = jest.spyOn(global, 'Promise')
-		// .mockReturnValue(nativePromise);
-
 	});
 });
