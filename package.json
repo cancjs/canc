@@ -11,10 +11,10 @@
     "yarn": ">=1"
   },
   "scripts": {
-    "build": "lerna run build --stream",
-    "test": "lerna run test --stream",
-    "publish": "lerna publish from-git",
-    "version": "lerna version --no-push"
+    "build": "cross-env NODE_OPTIONS=--no-deprecation lerna run build --stream",
+    "test": "cross-env NODE_OPTIONS=--no-deprecation lerna run test --stream",
+    "publish": "cross-env NODE_OPTIONS=--no-deprecation lerna publish from-git",
+    "version": "cross-env NODE_OPTIONS=--no-deprecation lerna version --no-push"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "~25.0.8",
