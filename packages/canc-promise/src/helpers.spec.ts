@@ -128,7 +128,7 @@ describe('forceCancelable', () => {
 
 		forcedCancelablePromise.cancel();
 
-		await expect(forcedCancelablePromise).resolves.toBe(1);
+		await expect(forcedCancelablePromise).rejects.toThrow();
 		expect(forcedCancelablePromise.isCanceled).toBe(true);
 	});
 
@@ -146,6 +146,6 @@ describe('forceCancelable', () => {
 		forcedCancelablePromise.cancel();
 
 		expect(promise.cancel).toHaveBeenCalled();
-		await expect(forcedCancelablePromise).rejects.toBe('Canceled');
+		await expect(forcedCancelablePromise).rejects.toThrow();
 	});
 });

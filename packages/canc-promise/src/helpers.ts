@@ -50,7 +50,7 @@ export function suppressCancel<TResult extends any, TError extends any>(errorOrP
     throw errorOrPromise;
   }
 }
-var s = suppressCancel(CancelablePromise.resolve(4))
+
 export function forceCancelable<T>(promise: PromiseLike<T>, options?: ICancelablePromiseOptions): CancelablePromise<T> {
   return new CancelablePromise(
     (resolve, reject, handleCancel) => {
