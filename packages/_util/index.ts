@@ -1,4 +1,4 @@
-import { ICancelable } from '@cancjs/promise';
+import type { ICancelable } from '@cancjs/promise';
 
 
 export const isObject = (value: any): value is Object => !!value && typeof value === 'object';
