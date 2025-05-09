@@ -1,4 +1,4 @@
-import { isCancelable, isFunction, isObject, isThenable } from '../../_util';
+import { isFunction, isObject, isThenable } from '../../_util';
 import { CancelError } from './cancel-error';
 import { isCancelError } from './helpers';
 
@@ -15,9 +15,13 @@ export interface ICancelRef {
 }
 
 export interface ICancelablePromiseFlagOptions {
+	/** cancel() asynchronously settles failed cancelation handlers instead of throwing */
 	asyncCancel?: boolean;
+	/** Keeps the current promise cancelable when native promise is provided through resolve() */
 	forceCancelable?: boolean;
+	/** Cancelation propagates to parent promise */
 	bubble?: boolean;
+	/** Throw on cancelation problems */
 	strict?: boolean;
 }
 
@@ -354,10 +358,10 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	protected _cancelHandlers: TOnCancel[] = [];
 	protected _chainsCount = 0;
 	protected _completedChainsCount = 0;
-	protected _internalState: TCancelablePromiseStates  = 'PENDING';
-	// Reflects promise state via public methods
-	protected _isSettled = false;
 	protected _signal?: IAbortSignal;
+	// Reflect promise state via public fields
+	protected _internalState: TCancelablePromiseStates  = 'PENDING';
+	protected _isSettled = false;
 
 	/**
 	 * Creates a new Promise.
@@ -607,7 +611,12 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		}
 	}
 
-	protected _chain(childPromise: CancelablePromise<any>, bubbleOnComplete?: boolean): void {
+/**
+ * Connects the current and the next promise in the chain and propagates the cancelation to the parent promises
+ * @param childPromise The next promise in the chain
+ * @param bubbleOnComplete Makes the cancelation bubble on completion of the child promise, e.g. race()
+ */
+ protected _chain(childPromise: CancelablePromise<any>, bubbleOnComplete?: boolean): void {
 		if (this.bubble && this.isCancelable) {
 			this._chainsCount++;
 			// console.log('chains', this._chainsCount, this._completedChainsCount);
