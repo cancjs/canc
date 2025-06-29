@@ -1,0 +1,9 @@
+{
+ "extends": "../../tsconfig.base",
+ "compilerOptions": {
+ "lib": ["es2022", "decorators"],
+ "outDir": "build",
+ "rootDir": "src",
+ },
+ "include": ["src"],
+}
