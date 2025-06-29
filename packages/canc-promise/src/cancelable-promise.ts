@@ -7,6 +7,15 @@ export type TCancelablePromiseExecutor<T> = (resolve: (value?: T | PromiseLike<T
 export type TCancelReason = string | object | CancelError;
 export type TCancelFn = (reason?: TCancelReason) => void;
 export type TOnCancel = TCancelFn;
+
+export interface IHandleCancelOptions {
+	/**
+	 * Fire the handler even if the promise is ALREADY canceled at registration time. The handler is
+	 * called asynchronously (microtask) with the original cancel reason instead of being a silent
+	 * no-op. Under `strict` this also suppresses the throw for this call. Default: false.
+	 */
+	immediate?: boolean;
+}
 export type TCancelablePromiseStates = 'PENDING' | 'FORCE_PENDING' | 'FULFILLED' | 'REJECTED' | 'CANCELED';
 
 export interface ICancelRef {
@@ -413,6 +422,10 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	// effects (rejection suppression + cancel-handler firing) on the real instance.
 	protected _pendingSyncCancel = false;
 	protected _pendingSyncCancelReason: any = undefined;
+	// Retains the original cancel reason once canceled, so a late handleCancel({immediate:true})
+	// registration can fire with the same reason.
+	protected _canceledReason: any = undefined;
+	protected _isCanceledReasonSet = false;
 
 	/**
 	 * Creates a new Promise.
@@ -687,10 +700,21 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		}
 	}
 
-	handleCancel(onCancel: TOnCancel): CancelablePromise<T> {
+	handleCancel(onCancel: TOnCancel, options?: IHandleCancelOptions): CancelablePromise<T> {
 		if (this.isCancelable) {
 			if (isFunction(onCancel) && !this._cancelHandlers.includes(onCancel)) {
 				this._cancelHandlers.push(onCancel);
+			}
+		} else if (options && options.immediate && this.isCanceled) {
+			// Immediate opt-in: the promise is already canceled, fire the handler
+			// asynchronously (microtask) with the original cancel reason instead of a silent no-op.
+			// This also suppresses the strict throw for this call.
+			if (isFunction(onCancel)) {
+				const reason = this._isCanceledReasonSet ? this._canceledReason : undefined;
+
+				NativePromise.resolve().then(() => {
+					onCancel(reason);
+				});
 			}
 		} else if (this.strict) {
 			throw new Error(`${this.isCanceled ? 'Canceled' : 'Settled'} promise cannot add cancel handler`);
@@ -762,6 +786,10 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	 * State (CANCELED) must already be set by the caller.
 	 */
 	protected _runCancellation(reason?: any): void | CancelablePromise<PromiseSettledResult<unknown>[]> {
+		// Retain the original reason for late immediate handlers.
+		this._canceledReason = reason;
+		this._isCanceledReasonSet = true;
+
 		// Suppress uncaught rejection (targeted — only for canceled promises).
 		this.catch(noop);
 
