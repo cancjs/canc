@@ -42,10 +42,10 @@ export interface ICancelable<T = any> extends PromiseLike<T> {
 }
 
 export interface ICancelablePromiseWithResolvers<T> {
- promise: CancelablePromise<T>;
- resolve: (value: T | PromiseLike<T>) => void;
- reject: (reason?: any) => void;
-		cancel: (reason?: any) => void | CancelablePromise<PromiseSettledResult<unknown>[]>
+	promise: CancelablePromise<T>;
+	resolve: (value: T | PromiseLike<T>) => void;
+	reject: (reason?: any) => void;
+	cancel: (reason?: any) => void | CancelablePromise<PromiseSettledResult<unknown>[]>
 }
 
 function noop() {/**/}
@@ -63,7 +63,7 @@ const states = {
 class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	static readonly [Symbol.species]: PromiseConstructor;
 
- protected static _pendingInternalCall= false;
+	protected static _pendingInternalCall= false;
 
 	static defaultOptions: Required<ICancelablePromiseFlagOptions> = {
 		asyncCancel: true,
@@ -103,16 +103,16 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 				const index = count++;
 				const normalizedOptions = this._getOptions(options);
 				const promise = this.resolve(promiseOrValue, normalizedOptions)
-					.then(
-						(value) => {
-							results[index] = value;
+				.then(
+					(value) => {
+						results[index] = value;
 
-							if (!--count) {
-								resultsPromise._resolve(results);
-							}
-						},
-						resultsPromise._reject
-					);
+						if (!--count) {
+							resultsPromise._resolve(results);
+						}
+					},
+					resultsPromise._reject
+				);
 
 				promise._chain(resultsPromise);
 			}
@@ -143,10 +143,10 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 				const normalizedOptions = this._getOptions(options);
 
 				return this.resolve(promiseOrValue, normalizedOptions)
-					.then(
-						(value) => ({status: 'fulfilled', value}),
-						(reason) => ({status: 'rejected', reason})
-					) as CancelablePromise<PromiseSettledResult<any>>;
+				.then(
+					(value) => ({ status: 'fulfilled', value }),
+					(reason) => ({ status: 'rejected', reason })
+				) as CancelablePromise<PromiseSettledResult<any>>;
 			}),
 			options
 		);
@@ -174,17 +174,17 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 				const index = count++;
 				const normalizedOptions = this._getOptions(options);
 				const promise = this.resolve(promiseOrValue, normalizedOptions)
-					.then(value => {
-						resultPromise._resolve(value);
-					})
-					.catch(error => {
-						errors[index] = error;
-						rejectedCount++;
+				.then(value => {
+					resultPromise._resolve(value);
+				})
+				.catch(error => {
+					errors[index] = error;
+					rejectedCount++;
 
-						if (rejectedCount === count) {
-							resultPromise._reject(createAggregateError(errors, 'All promises were rejected'));
-						}
-					});
+					if (rejectedCount === count) {
+						resultPromise._reject(createAggregateError(errors, 'All promises were rejected'));
+					}
+				});
 
 				promise._chain(resultPromise);
 			}
@@ -347,7 +347,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	// Listener management for abort signals: maps each signal to its registered listener
 	// function so we can remove it on settle. Supports both single signal and array.
 	protected _abortSignals: IAbortSignal[] = [];
-	protected _abortListeners: Map<IAbortSignal, any> = new Map();
+	protected _abortListeners = new Map<IAbortSignal, any>();
 	// Reflect promise state via public fields
 	protected _internalState: TCancelablePromiseStates = 'PENDING';
 	// Set when an external CancelError rejection transitions the promise to CANCELED while
@@ -389,7 +389,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		}
 
 		// Compatible with ES5 transpilation target
-		// eslint-disable-next-line no-constructor-return
+		 
 		instance = Reflect.construct(
 			NativePromise,
 			[
@@ -507,7 +507,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		instance.asyncCancel = normalizedOptions.asyncCancel;
 		instance.forceCancelable = normalizedOptions.forceCancelable;
 
-		const { ref, signal} = normalizedOptions;
+		const { ref, signal } = normalizedOptions;
 
 		if (signal) {
 			// Support both single signal and array of signals.
@@ -583,7 +583,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	 * @param onRejected The callback to execute when the Promise is rejected.
 	 * @returns A Promise for the completion of which ever callback is executed.
 	 */
-	then<TResult1 = T, TResult2 = never>(onFulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onRejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): CancelablePromise<TResult1 | TResult2> {
+	then<TResult1 = T, TResult2 = never>(onFulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | null, onRejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null): CancelablePromise<TResult1 | TResult2> {
 		const This = this.constructor as typeof CancelablePromise;
 		const normalizedOptions = This._getOptions(this);
 		const promise = This.resolve(
@@ -601,7 +601,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	 * @param onRejected The callback to execute when the Promise is rejected.
 	 * @returns A Promise for the completion of the callback.
 	 */
-	catch<TResult = never>(onRejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): CancelablePromise<T | TResult> {
+	catch<TResult = never>(onRejected?: ((reason: any) => TResult | PromiseLike<TResult>) | null): CancelablePromise<T | TResult> {
 		return this.then(null, onRejected);
 	}
 
@@ -611,7 +611,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	 * @param onFinally The callback to execute when the Promise is settled (fulfilled or rejected).
 	 * @returns A Promise for the completion of the callback.
 	 */
-	finally(onFinally?: (() => void) | undefined | null): CancelablePromise<T> {
+	finally(onFinally?: (() => void) | null): CancelablePromise<T> {
 		if (typeof onFinally === 'function') {
 			const This = this.constructor as typeof CancelablePromise;
 
@@ -638,13 +638,37 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		return this;
 	}
 
+	/**
+	 * Cancels a pending promise, rejecting it with a {@link CancelError}.
+	 *
+	 * The reason is normalized: a {@link CancelError} passes through unchanged; any other
+	 * object becomes the `cause` of a fresh {@link CancelError}; a string/undefined becomes its
+	 * message. Registered cancel handlers still receive the original `reason`.
+	 *
+	 * Return contract: in `asyncCancel` mode (default) returns a promise that settles once all
+	 * cancel handlers have settled, an empty `allSettled` result when there are none, so the
+	 * result is always awaitable. In `asyncCancel:false` (sync) mode handlers run synchronously and
+	 * `cancel()` returns `undefined`.
+	 *
+	 * On an already-settled/canceled promise this is a silent no-op unless `strict`, which throws.
+	 * @param reason The cancellation reason.
+	 */
 	cancel(reason?: any): void | CancelablePromise<PromiseSettledResult<unknown>[]> {
 		if (this.isCancelable) {
 			// Set CANCELED BEFORE _reject so the reject wrapper's external-cancel branch is
 			// skipped (no double firing of handlers on the cancel() path).
 			this._internalState = states.CANCELED;
 
-			const error = isObject(reason) ? reason : new CancelError(reason);
+			// Normalize the cancellation reason into a CancelError:
+			// - an existing CancelError (brand-checked) passes through unwrapped;
+			// - any other object is preserved as `cause` of a fresh CancelError (arbitrary-object
+			// reason support — the raw object is never used as the rejection reason directly);
+			// - a string/undefined becomes the CancelError message.
+			const error = isCancelError(reason)
+				? reason
+				: isObject(reason)
+					? new CancelError(undefined, { cause: reason })
+					: new CancelError(reason);
 			this._reject(error);
 
 			// Settlement effects (listener cleanup) are already called in the reject wrapper
@@ -667,18 +691,23 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		// Suppress uncaught rejection (targeted — only for canceled promises).
 		this.catch(noop);
 
-		if (this._cancelHandlers.length) {
-			const This = this.constructor as typeof CancelablePromise;
+		const This = this.constructor as typeof CancelablePromise;
 
-			if (this.asyncCancel) {
-				const handlerPromises = this._cancelHandlers.map(
-					handler => new This(resolve => resolve(handler(reason)))
-				);
+		if (this.asyncCancel) {
+			// Always-return contract: asyncCancel resolves to the settlement of all cancel
+			// handlers. With no handlers this is an empty allSettled, still a promise, so callers
+			// (and Symbol.asyncDispose) can uniformly await cancellation completion.
+			const handlerPromises = this._cancelHandlers.map(
+				handler => new This(resolve => resolve(handler(reason)))
+			);
 
-				this._cancelHandlers.length = 0;
+			this._cancelHandlers.length = 0;
 
-				return This.allSettled(handlerPromises);
-			} else {
+			return This.allSettled(handlerPromises);
+		} else {
+			// Sync mode returns undefined (documented split): handlers fire synchronously and any
+			// throw would surface immediately, so there is nothing to await.
+			if (this._cancelHandlers.length) {
 				try {
 					for (const handler of this._cancelHandlers) {
 						handler(reason);
@@ -707,7 +736,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		this._abortSignals.length = 0;
 	}
 
-	protected _then<TResult1 = T, TResult2 = never>(onFulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onRejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): CancelablePromise<TResult1 | TResult2> {
+	protected _then<TResult1 = T, TResult2 = never>(onFulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | null, onRejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null): CancelablePromise<TResult1 | TResult2> {
 		const This = this.constructor as typeof CancelablePromise;
 		// Calls CancelablePromise constructor internally
 		try {
@@ -718,12 +747,12 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		}
 	}
 
-/**
+	/**
  * Connects the current and the next promise in the chain and propagates the cancelation to the parent promises
  * @param childPromise The next promise in the chain
  * @param bubbleOnComplete Makes the cancelation bubble on completion of the child promise, e.g. race()
  */
- protected _chain(childPromise: CancelablePromise<any>, bubbleOnComplete?: boolean): void {
+	protected _chain(childPromise: CancelablePromise<any>, bubbleOnComplete?: boolean): void {
 		if (this.bubble && this.isCancelable) {
 			this._chainsCount++;
 			// console.log('chains', this._chainsCount, this._completedChainsCount);
@@ -735,7 +764,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 					const error = new CancelError(`Bubbled on ${bubbleOnComplete ? 'settling' : 'cancel'}`);
 					error.isBubbled = true;
 
-					// eslint-disable-next-line @typescript-eslint/no-floating-promises
+					 
 					this.cancel(error);
 				}
 			};

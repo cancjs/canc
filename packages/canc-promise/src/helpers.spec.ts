@@ -18,8 +18,10 @@ describe('isCancelError', () => {
 		expect(isCancelError(new CancelError())).toBe(true);
 	});
 
-	it('duck-types cancel error', () => {
-		expect(isCancelError({ message: '', name: 'CancelError' })).toBe(true);
+	// Detection is brand-based, not name-based. A foreign object merely named 'CancelError' is
+	// NOT a canc CancelError and must not be matched (false-suppression regression).
+	it('does not match a foreign name-only lookalike', () => {
+		expect(isCancelError({ message: '', name: 'CancelError' })).toBe(false);
 	});
 
 	it('does not detect other errors', () => {
