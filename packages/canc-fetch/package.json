@@ -3,9 +3,26 @@
  "version": "0.0.0",
  "description": "",
  "keywords": [],
- "main": "dist/index.js",
- "types": "dist/index.d.ts",
- "author": "ex-machine",
+ "main": "dist/index.cjs",
+ "module": "dist/index.mjs",
+ "unpkg": "dist/index.umd.min.js",
+ "jsdelivr": "dist/index.umd.min.js",
+ "types": "dist/types/index.d.ts",
+ "sideEffects": false,
+ "files": [
+ "dist"
+ ],
+ "exports": {
+ ".": {
+ "types": "./dist/types/index.d.ts",
+ "import": "./dist/index.mjs",
+ "require": "./dist/index.cjs"
+ }
+ },
+ "engines": {
+ "node": ">=18"
+ },
+ "author": "bisubus",
  "license": "MIT",
  "homepage": "https://github.com/cancjs/canc/packages/canc-fetch#readme",
  "repository": {
