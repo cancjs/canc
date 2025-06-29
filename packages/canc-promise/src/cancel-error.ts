@@ -13,6 +13,10 @@ export class CancelError extends Error {
 
 	name: string;
 	isBubbled: boolean;
+	// Marks a CancelError produced by explicit resource disposal via Symbol.dispose /
+	// Symbol.asyncDispose. Lets consumers distinguish a scope-exit disposal cancel from an
+	// ordinary cancel().
+	isDisposed: boolean;
 	cause?: any;
 	readonly [CANCEL_ERROR_BRAND]!: true;
 

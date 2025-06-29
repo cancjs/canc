@@ -781,6 +781,31 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	}
 
 	/**
+	 * Explicit-resource-management disposal, shared by [Symbol.dispose] and [Symbol.asyncDispose].
+	 * An internal NO-THROW cancel: it bypasses `strict` (dispose-after-settle and shielded disposal
+	 * are both normal, expected no-ops, never errors) and cancels a genuinely pending, non-shielded
+	 * promise with a dispose-marked CancelError.
+	 *
+	 * @returns The handler-settlement promise in asyncCancel mode (so `[Symbol.asyncDispose]` and
+	 * `await using` can await cleanup); otherwise undefined.
+	 */
+	protected _dispose(): void | CancelablePromise<PromiseSettledResult<unknown>[]> {
+		// Shielded or already-settled/canceled → silent no-op (never throw, unlike cancel() strict).
+		if (this.shield || !this.isCancelable) {
+			return;
+		}
+
+		const error = new CancelError('Disposed');
+		error.isDisposed = true;
+
+		this._internalState = states.CANCELED;
+		this._reject(error);
+		this._runSettlementEffects();
+
+		return this._runCancellation(error);
+	}
+
+	/**
 	 * Cancellation side effects shared by cancel() and the external-CancelError reject path:
 	 * suppresses the promise's own unhandled rejection and fires registered cancel handlers.
 	 * State (CANCELED) must already be set by the caller.
@@ -891,5 +916,37 @@ const NativePromise = Promise;
 Object.setPrototypeOf(CancelablePromise, NativePromise);
 
 Object.setPrototypeOf(CancelablePromise.prototype, NativePromise.prototype);
+
+// Explicit Resource Management wiring. Feature-detected and attached at module load so there
+// is ZERO footprint on runtimes without the symbols (es5/legacy engines): the prototype simply
+// lacks the methods, `using`/`await using` isn't available there anyway, and the type-only fields
+// keep the public surface stable. `_dispose` is the internal no-throw cancel (bypasses strict).
+const SymbolDispose: symbol | undefined = (Symbol as any).dispose;
+const SymbolAsyncDispose: symbol | undefined = (Symbol as any).asyncDispose;
+
+if (typeof SymbolDispose === 'symbol') {
+	// Sync disposal: fire-and-forget cancel — returns undefined.
+	Object.defineProperty(CancelablePromise.prototype, SymbolDispose, {
+		configurable: true,
+		writable: true,
+		value: function (this: CancelablePromise<any>): void {
+			(this as any)._dispose();
+		}
+	});
+}
+
+if (typeof SymbolAsyncDispose === 'symbol') {
+	// Async disposal: returns the handler-settlement promise so `await using` awaits cleanup.
+	Object.defineProperty(CancelablePromise.prototype, SymbolAsyncDispose, {
+		configurable: true,
+		writable: true,
+		value: function (this: CancelablePromise<any>): PromiseLike<unknown> {
+			const result = (this as any)._dispose();
+			// Always await-able: a no-op disposal (settled/shielded) returns undefined → normalize to
+			// a resolved promise so `await using` never throws on scope exit.
+			return result || NativePromise.resolve([]);
+		}
+	});
+}
 
 export { CancelablePromise };
