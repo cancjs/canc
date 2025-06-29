@@ -1,4 +1,4 @@
-import { isFunction, isObject, isThenable } from '../../_util';
+import { createAggregateError, isFunction, isObject, isThenable } from '../../_util';
 import { CancelError } from './cancel-error';
 import { isCancelError } from './helpers';
 
@@ -181,22 +181,25 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	static any<T>(values: Iterable<T | PromiseLike<T>>, options?: ICancelablePromiseOptions): CancelablePromise<Awaited<T>> {
 		const resultPromise = new this<Awaited<T>>(noop, options);
 
-		const errors: Error[] = [];
+		// Indexed by input position (spec order), not settlement order
+		const errors: any[] = [];
 		let count = 0;
+		let rejectedCount = 0;
 
 		try {
 			for (const promiseOrValue of values) {
-				count++;
+				const index = count++;
 				const normalizedOptions = this._getOptions(options);
 				const promise = this.resolve(promiseOrValue, normalizedOptions)
 					.then(value => {
 						resultPromise._resolve(value);
 					})
 					.catch(error => {
-						errors.push(error);
+						errors[index] = error;
+						rejectedCount++;
 
-						if (errors.length === count) {
-							resultPromise._reject(new AggregateError(errors));
+						if (rejectedCount === count) {
+							resultPromise._reject(createAggregateError(errors, 'All promises were rejected'));
 						}
 					});
 
@@ -204,7 +207,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 			}
 
 			if (!count) {
-				resultPromise._reject(new AggregateError(errors));
+				resultPromise._reject(createAggregateError(errors, 'All promises were rejected'));
 			}
 		} catch (error) {
 			resultPromise._reject(error);
