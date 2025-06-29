@@ -364,7 +364,12 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	protected _signal?: IAbortSignal;
 	// Reflect promise state via public fields
 	protected _internalState: TCancelablePromiseStates = 'PENDING';
-	protected _isSettled = false;
+	// Set when an external CancelError rejection transitions the promise to CANCELED while
+	// `instance` is still the temporary `this` (synchronous executor, before Reflect.construct
+	// returns the real promise). Post-construct code then runs the deferred cancellation side
+	// effects (rejection suppression + cancel-handler firing) on the real instance.
+	protected _pendingSyncCancel = false;
+	protected _pendingSyncCancelReason: any = undefined;
 
 	/**
 	 * Creates a new Promise.
@@ -379,6 +384,9 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		const This = new.target;
 		// `this` when executor calls are synchronous, otherwise NativePromise instance
 		let instance: CancelablePromise<T> = this;
+		// Stable reference to the temporary constructor `this` used to detect synchronous
+		// executor settlement (before Reflect.construct returns the real promise instance).
+		const tempThis = this;
 
 		const normalizedOptions = This._getOptions(options);
 
@@ -416,15 +424,47 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 					}
 
 					function reject(reason?: any): void {
+						// Pre-aborted signal handling: if a pre-aborted signal was detected
+						// during setup, the first rejection wraps signal.reason as cause in a
+						// CancelError. Treat it as external CancelError for parity.
+						if (preAbortedSignalReason !== undefined) {
+							const wrappedError = new CancelError(undefined, { cause: preAbortedSignalReason });
+							reason = wrappedError;
+							preAbortedSignalReason = undefined;
+						}
+
+						// Cancellation parity: an external rejection carrying a CancelError
+						// transitions the promise to CANCELED exactly like cancel(), and must fire
+						// registered cancel handlers + suppress its own unhandled rejection.
+						//
+						// cancel() sets state CANCELED itself BEFORE calling _reject, so this
+						// PENDING->CANCELED branch is skipped on the cancel() path -> handlers fire
+						// exactly once (no double-fire). It only triggers for genuinely external
+						// CancelError rejections (executor reject / handler throw / adopted thenable).
+						let externalCancel = false;
+
 						if (instance._internalState === states.PENDING) {
 							if (isCancelError(reason)) {
 								instance._internalState = states.CANCELED;
+								externalCancel = true;
 							} else {
 								instance._internalState = states.REJECTED;
 							}
 						}
 
 						reject_(reason);
+
+						if (externalCancel) {
+							if (instance === tempThis) {
+								// Synchronous executor: `instance` is still the temporary `this`
+								// (not yet a real promise) — .catch() would throw. Defer the
+								// cancellation side effects to the post-construct step.
+								instance._pendingSyncCancel = true;
+								instance._pendingSyncCancelReason = reason;
+							} else {
+								instance._runCancellation(reason);
+							}
+						}
 					}
 
 					function handleCancel(onCancel: TOnCancel): CancelablePromise<T> {
@@ -486,13 +526,15 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 			}
 		}
 
-		// Avoid recursive call in the constructor from .then
-		if (!This._pendingInternalCall) {
-			const onFinally = () => {
-				instance._isSettled = true;
-			};
-
-			instance._then(onFinally, onFinally);
+		// Run cancellation side effects deferred from a synchronous external CancelError
+		// rejection (temp-`this` gotcha): now that `instance` is the real promise, suppress the
+		// rejection and fire cancel handlers. Skipped for internal derived-promise construction
+		// (species via then) — those never carry a deferred external cancel.
+		if (instance._pendingSyncCancel && !This._pendingInternalCall) {
+			instance._pendingSyncCancel = false;
+			const reason = instance._pendingSyncCancelReason;
+			instance._pendingSyncCancelReason = undefined;
+			instance._runCancellation(reason);
 		}
 
 		return instance;
@@ -503,7 +545,10 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	}
 
 	get isCancelable(): boolean {
-		return !this._isSettled && (this._internalState === states.PENDING);
+		// Settled-ness is derived purely from the internal state machine now. A promise is
+		// cancelable only while genuinely PENDING; FORCE_PENDING (forceCancelable:false adoption),
+		// FULFILLED, REJECTED and CANCELED are all non-cancelable.
+		return this._internalState === states.PENDING;
 	}
 
 	/**
@@ -569,37 +614,48 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 
 	cancel(reason?: any): void | CancelablePromise<PromiseSettledResult<unknown>[]> {
 		if (this.isCancelable) {
+			// Set CANCELED BEFORE _reject so the reject wrapper's external-cancel branch is
+			// skipped (no double firing of handlers on the cancel() path).
 			this._internalState = states.CANCELED;
 
 			const error = isObject(reason) ? reason : new CancelError(reason);
 			this._reject(error);
 
-			// Suppress uncaught rejection
-			this.catch(noop);
-
-			if (this._cancelHandlers.length) {
-				const This = this.constructor as typeof CancelablePromise;
-
-				if (this.asyncCancel) {
-					const handlerPromises = this._cancelHandlers.map(
-						handler => new This(resolve => resolve(handler(reason)))
-					);
-
-					this._cancelHandlers.length = 0;
-
-					return This.allSettled(handlerPromises);
-				} else {
-					try {
-						for (const handler of this._cancelHandlers) {
-							handler(reason);
-						}
-					} finally {
-						this._cancelHandlers.length = 0;
-					}
-				}
-			}
+			return this._runCancellation(reason);
 		} else if (this.strict) {
 			throw new Error(`${this.isCanceled ? 'Canceled' : 'Settled'} promise cannot be canceled`);
+		}
+	}
+
+	/**
+	 * Cancellation side effects shared by cancel() and the external-CancelError reject path:
+	 * suppresses the promise's own unhandled rejection and fires registered cancel handlers.
+	 * State (CANCELED) must already be set by the caller.
+	 */
+	protected _runCancellation(reason?: any): void | CancelablePromise<PromiseSettledResult<unknown>[]> {
+		// Suppress uncaught rejection (targeted — only for canceled promises).
+		this.catch(noop);
+
+		if (this._cancelHandlers.length) {
+			const This = this.constructor as typeof CancelablePromise;
+
+			if (this.asyncCancel) {
+				const handlerPromises = this._cancelHandlers.map(
+					handler => new This(resolve => resolve(handler(reason)))
+				);
+
+				this._cancelHandlers.length = 0;
+
+				return This.allSettled(handlerPromises);
+			} else {
+				try {
+					for (const handler of this._cancelHandlers) {
+						handler(reason);
+					}
+				} finally {
+					this._cancelHandlers.length = 0;
+				}
+			}
 		}
 	}
 
