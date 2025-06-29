@@ -27,31 +27,14 @@ export interface ICancelablePromiseFlagOptions {
 
 export interface ICancelablePromiseOptions extends ICancelablePromiseFlagOptions {
 	ref?: ICancelRef;
-	signal?: IAbortSignal;
+	signal?: IAbortSignal | IAbortSignal[];
 }
-
-interface IAbortEvent {
-	type: 'abort';
-	target: IAbortSignal;
-}
-
-interface IAbortEventListener {
-	(e: IAbortEvent): void;
-}
-
-interface IAbortEventListenerObject {
-	handleEvent(e: IAbortEvent): void;
-}
-
-type TAbortEventListenerOrObject = IAbortEventListener | IAbortEventListenerObject;
 
 interface IAbortSignal {
 	readonly aborted: boolean;
-	readonly reason: any;
-	onabort: ((this: IAbortSignal, ev: IAbortEvent) => any) | null;
-	throwIfAborted(): void;
-	addEventListener(type: 'abort', listener: TAbortEventListenerOrObject, options?: unknown): void;
-	removeEventListener(type: 'abort', listener: TAbortEventListenerOrObject, options?: unknown): void;
+	readonly reason?: any;
+	addEventListener(type: 'abort', listener: any, options?: unknown): void;
+	removeEventListener(type: 'abort', listener: any, options?: unknown): void;
 }
 
 export interface ICancelable<T = any> extends PromiseLike<T> {
@@ -361,7 +344,10 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	protected _cancelHandlers: TOnCancel[] = [];
 	protected _chainsCount = 0;
 	protected _completedChainsCount = 0;
-	protected _signal?: IAbortSignal;
+	// Listener management for abort signals: maps each signal to its registered listener
+	// function so we can remove it on settle. Supports both single signal and array.
+	protected _abortSignals: IAbortSignal[] = [];
+	protected _abortListeners: Map<IAbortSignal, any> = new Map();
 	// Reflect promise state via public fields
 	protected _internalState: TCancelablePromiseStates = 'PENDING';
 	// Set when an external CancelError rejection transitions the promise to CANCELED while
@@ -387,8 +373,20 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		// Stable reference to the temporary constructor `this` used to detect synchronous
 		// executor settlement (before Reflect.construct returns the real promise instance).
 		const tempThis = this;
+		// Flag set if a pre-aborted signal is detected; tells the executor's reject wrapper
+		// to treat the first rejection as external CancelError for pre-abort handling.
+		let preAbortedSignalReason: any = undefined;
 
 		const normalizedOptions = This._getOptions(options);
+
+		// Pre-check for aborted signals, if found, mark for deferred handling in reject wrapper.
+		if (normalizedOptions.signal) {
+			const signals = Array.isArray(normalizedOptions.signal) ? normalizedOptions.signal : [normalizedOptions.signal];
+			const preAbortedSignal = signals.find(s => s.aborted);
+			if (preAbortedSignal && !normalizedOptions.strict) {
+				preAbortedSignalReason = preAbortedSignal.reason;
+			}
+		}
 
 		// Compatible with ES5 transpilation target
 		// eslint-disable-next-line no-constructor-return
@@ -405,6 +403,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 										value_ => {
 											if (instance._internalState === states.PENDING) {
 												instance._internalState = states.FULFILLED;
+												instance._runSettlementEffects();
 											}
 
 											resolve_(value_);
@@ -412,10 +411,12 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 										reject);
 								} else {
 									instance._internalState = states.FORCE_PENDING;
+									instance._runSettlementEffects();
 									resolve_(value);
 								}
 							} else {
 								instance._internalState = states.FULFILLED;
+								instance._runSettlementEffects();
 								resolve_(value);
 							}
 						} else {
@@ -442,6 +443,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 						// exactly once (no double-fire). It only triggers for genuinely external
 						// CancelError rejections (executor reject / handler throw / adopted thenable).
 						let externalCancel = false;
+						let wasSettled = false;
 
 						if (instance._internalState === states.PENDING) {
 							if (isCancelError(reason)) {
@@ -450,9 +452,16 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 							} else {
 								instance._internalState = states.REJECTED;
 							}
+							wasSettled = true;
 						}
 
 						reject_(reason);
+
+						// Run settlement effects (e.g., abort listener cleanup) only once on
+						// PENDING→settled transition.
+						if (wasSettled) {
+							instance._runSettlementEffects();
+						}
 
 						if (externalCancel) {
 							if (instance === tempThis) {
@@ -475,7 +484,14 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 					this._resolve = resolve;
 					this._reject = reject;
 
-					executor(resolve, reject, handleCancel);
+					// Pre-aborted signal: call the wrapper reject function (not reject_
+					// directly) so the wrapping logic runs. Pass undefined; the wrapper will wrap
+					// it as CancelError with cause = signal.reason.
+					if (preAbortedSignalReason !== undefined) {
+						reject(undefined);
+					} else {
+						executor(resolve, reject, handleCancel);
+					}
 				}) as TPromiseExecutor<T>
 			],
 			This
@@ -494,20 +510,30 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		const { ref, signal} = normalizedOptions;
 
 		if (signal) {
-			if (signal.aborted) {
-				throw new Error('Aborted signal cannot be reused');
+			// Support both single signal and array of signals.
+			const signals = Array.isArray(signal) ? signal : [signal];
+
+			// Check for pre-aborted signals.
+			const preAbortedSignal = signals.find(s => s.aborted);
+			if (preAbortedSignal) {
+				// strict:true throws; otherwise return already-canceled promise
+				// (pre-check already detected and set preAbortedSignalReason flag).
+				if (normalizedOptions.strict) {
+					throw new Error('Aborted signal cannot be reused');
+				}
+				// Non-strict pre-abort: already handled by executor rejecting immediately.
 			} else {
-				instance._signal = signal;
+				// Non-aborted: register abort listeners for all signals (first-abort-wins).
+				// Listener cleanup happens via _runSettlementEffects on settle.
+				for (const sig of signals) {
+					const onAbort = () => {
+						instance.cancel(sig.reason);
+					};
 
-				const onAbort = (e: IAbortEvent) => {
-					instance.cancel(signal.reason);
-				};
-
-				instance.handleCancel(() => {
-					signal.removeEventListener('abort', onAbort);
-				});
-
-				signal.addEventListener('abort', onAbort, { once: true });
+					instance._abortSignals.push(sig);
+					instance._abortListeners.set(sig, onAbort);
+					sig.addEventListener('abort', onAbort, { once: true });
+				}
 			}
 		}
 
@@ -621,6 +647,11 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 			const error = isObject(reason) ? reason : new CancelError(reason);
 			this._reject(error);
 
+			// Settlement effects (listener cleanup) are already called in the reject wrapper
+			// after state transition (reject() is synchronous), but call again to ensure
+			// cleanup on cancel path. The map-based tracking prevents double-cleanup.
+			this._runSettlementEffects();
+
 			return this._runCancellation(reason);
 		} else if (this.strict) {
 			throw new Error(`${this.isCanceled ? 'Canceled' : 'Settled'} promise cannot be canceled`);
@@ -657,6 +688,23 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 				}
 			}
 		}
+	}
+
+	/**
+	 * Settlement side effects run whenever the promise settles (any way: FULFILLED, REJECTED, CANCELED).
+	 * Currently: clean up abort-signal listeners to prevent unbounded listener accumulation.
+	 */
+	protected _runSettlementEffects(): void {
+		// Remove all registered abort listeners to prevent listener leaks when a promise settles
+		// before its signal(s) abort.
+		for (const signal of this._abortSignals) {
+			const listener = this._abortListeners.get(signal);
+			if (listener) {
+				signal.removeEventListener('abort', listener, { once: true });
+				this._abortListeners.delete(signal);
+			}
+		}
+		this._abortSignals.length = 0;
 	}
 
 	protected _then<TResult1 = T, TResult2 = never>(onFulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onRejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): CancelablePromise<TResult1 | TResult2> {
