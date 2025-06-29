@@ -22,10 +22,10 @@
  "scripts": {
  "build": "rimraf dist && rollup --config ./rollup.config.js",
  "check": "tsc --noEmit --project ./tsconfig.prod.json",
- "format": "cross-env DEBUG=eslint:cli-engine eslint --fix --ext .ts,.tsx ./src",
- "format:all": "cross-env DEBUG=eslint:cli-engine eslint --fix --ext .js,.jsx,.ts,.tsx --ignore-pattern '!.eslintrc.js' .",
- "lint": "eslint --ext .ts,.tsx ./src",
- "lint:all": "cross-env DEBUG=eslint:cli-engine eslint --ext .js,.jsx,.ts,.tsx --ignore-pattern '!.eslintrc.js' .",
+ "format": "eslint --fix ./src",
+ "format:all": "eslint --fix .",
+ "lint": "eslint ./src",
+ "lint:all": "eslint .",
  "test": "jest --colors",
  "test:watch": "jest --colors --watch"
  }
