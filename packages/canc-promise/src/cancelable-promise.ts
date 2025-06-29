@@ -82,7 +82,15 @@ const states = {
 // Extends PromiseConstructor, as defined in
 // lib.es2015.promise, lib.es2015.iterable, lib.es2015.symbol.wellknown, lib.es2018.promise, lib.es2020.promise, lib.es2021.promise.d.ts, lib.esnext.promise.d.ts
 class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
-	static readonly [Symbol.species]: PromiseConstructor;
+	// `declare`d on purpose: under the current es5 target + useDefineForClassFields:false this
+	// field already emits nothing, so species resolves via the inherited native Promise getter
+	// (returns `this`, i.e. CancelablePromise, satisfying SpeciesConstructor). `declare` makes
+	// that "no emit" EXPLICIT rather than incidental. If the TS target is ever bumped to es2022+
+	// (defineForClassFields:true by default there), a bare (non-declare) static field would emit
+	// an own `undefined` property that shadows the inherited getter, breaking SpeciesConstructor
+	// resolution (it would fall back to native %Promise%, silently downgrading every
+	// then()-derived promise to a plain native Promise, see species-regression.spec.ts).
+	static declare readonly [Symbol.species]: PromiseConstructor;
 
 	protected static _pendingInternalCall= false;
 
@@ -114,8 +122,10 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	static all<TAll>(values: Iterable<TAll | PromiseLike<TAll>>, options?: ICancelablePromiseOptions): CancelablePromise<TAll[]>;
 
 	static all<TAll>(values: Iterable<TAll | PromiseLike<TAll>>, options?: ICancelablePromiseOptions): CancelablePromise<TAll[]> {
-		// A deferred to work around referring to the promise in executor
-		const resultsPromise = new this<TAll[]>(noop, options);
+		// Deferred-construction pattern to work around referring to the promise from inside its own
+		// executor (todo: "new (noop) -> withResolvers") — withResolvers() is the same
+		// `new this(noop, options)` internally, just named/shaped for this exact use.
+		const { promise: resultsPromise, resolve: resolveResults, reject: rejectResults } = this.withResolvers<TAll[]>(options);
 
 		try {
 			const results: TAll[] = [];
@@ -134,7 +144,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 						results[index] = value;
 
 						if (!--count) {
-							resultsPromise._resolve(results);
+							resolveResults(results);
 						}
 					},
 					(error) => {
@@ -144,7 +154,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 							// that have bubble:true (doc: remaining pending inputs are canceled).
 							this._cancelLosers(inputs, promise);
 						}
-						resultsPromise._reject(error);
+						rejectResults(error);
 					}
 				);
 
@@ -152,10 +162,10 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 			}
 
 			if (!count) {
-				resultsPromise._resolve(results);
+				resolveResults(results);
 			}
 		} catch (error) {
-			resultsPromise._reject(error);
+			rejectResults(error);
 		}
 
 		return resultsPromise;
@@ -196,7 +206,8 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	static any<T>(values: Iterable<T | PromiseLike<T>>, options?: ICancelablePromiseOptions): CancelablePromise<Awaited<T>>;
 
 	static any<T>(values: Iterable<T | PromiseLike<T>>, options?: ICancelablePromiseOptions): CancelablePromise<Awaited<T>> {
-		const resultPromise = new this<Awaited<T>>(noop, options);
+		// Deferred-construction pattern (todo: "new (noop) -> withResolvers") — see all() above.
+		const { promise: resultPromise, resolve: resolveResult, reject: rejectResult } = this.withResolvers<Awaited<T>>(options);
 
 		// Indexed by input position (spec order), not settlement order
 		const errors: any[] = [];
@@ -219,14 +230,16 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 						// that have bubble:true (doc: losers are canceled).
 						this._cancelLosers(inputs, promise);
 					}
-					resultPromise._resolve(value);
+					// value is T (unresolved-thenable element type), not yet Awaited<T> — same
+					// looseness the previous `resultPromise._resolve(value)` (typed `any`) had.
+					resolveResult(value as Awaited<T>);
 				})
 				.catch(error => {
 					errors[index] = error;
 					rejectedCount++;
 
 					if (rejectedCount === count) {
-						resultPromise._reject(createAggregateError(errors, 'All promises were rejected'));
+						rejectResult(createAggregateError(errors, 'All promises were rejected'));
 					}
 				});
 
@@ -234,10 +247,10 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 			}
 
 			if (!count) {
-				resultPromise._reject(createAggregateError(errors, 'All promises were rejected'));
+				rejectResult(createAggregateError(errors, 'All promises were rejected'));
 			}
 		} catch (error) {
-			resultPromise._reject(error);
+			rejectResult(error);
 		}
 
 		return resultPromise;
@@ -255,19 +268,19 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	static race<T>(values: Iterable<T | PromiseLike<T>>, options?: ICancelablePromiseOptions): CancelablePromise<T>;
 
 	static race<T>(values: Iterable<T | PromiseLike<T>>, options?: ICancelablePromiseOptions): CancelablePromise<T> {
-		// A deferred to work around referring to the promise in executor
-		const resultPromise = new this<T>(noop, options);
+		// Deferred-construction pattern (todo: "new (noop) -> withResolvers") — see all() above.
+		const { promise: resultPromise, resolve: resolveResult, reject: rejectResult } = this.withResolvers<T>(options);
 
 		try {
 			for (const promiseOrValue of values) {
 				const normalizedOptions = this._getOptions(options);
 				const promise = this.resolve<T>(promiseOrValue, normalizedOptions)
-				.then(resultPromise._resolve, resultPromise._reject);
+				.then(resolveResult, rejectResult);
 
 				promise._chain(resultPromise, true);
 			}
 		} catch (error) {
-			resultPromise._reject(error);
+			rejectResult(error);
 		}
 
 		return resultPromise;
@@ -397,7 +410,12 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		}
 	}
 
-	readonly [Symbol.toStringTag]!: string;
+	// `declare`: type-only, same "no emit" rationale as the static species field above.
+	// Never actually assigned; the inherited Promise.prototype[Symbol.toStringTag] getter
+	// ("Promise") is what callers observe. Keeping it declare-only avoids a future
+	// defineForClassFields:true target creating an own `undefined` property that would shadow
+	// that inherited getter.
+	declare readonly [Symbol.toStringTag]: string;
 
 	asyncCancel!: boolean;
 	forceCancelable!: boolean;
@@ -458,8 +476,26 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 			}
 		}
 
-		// Compatible with ES5 transpilation target
-		 
+		// Compatible with ES5 transpilation target: we deliberately do NOT write
+		// `class CancelablePromise extends Promise` + `super(executor)`. An ES5-target
+		// transpile of `class X extends Y` calls Y as a plain function via `Y.call(this, ...)`
+		// (or a `_super.apply` helper) — but native Promise's internal slots can only be initialized
+		// by `new Promise(...)`/`Reflect.construct`, so a transpiled `super()` into a native Promise
+		// throws ("Failed to construct 'Promise': Please use the 'new' operator") on ES5-targeting
+		// engines/transpilers (this is the same reason every other "extend a native built-in"
+		// ES5-transpile guide reaches for Reflect.construct). `Reflect.construct(NativePromise, args,
+		// new.target)` builds a genuine native Promise instance whose prototype is `new.target.prototype`
+		// (so `instanceof CancelablePromise` / subclasses still hold, and Promise's species/then
+		// machinery treats it as a first-class Promise) while surviving ES5 downleveling, because
+		// `Reflect.construct` is a plain runtime call, not `class`/`super` syntax that needs special
+		// transpiler support.
+		//
+		// The returned native instance becomes the REAL `instance` we hand back from the
+		// constructor; the original `this` (`tempThis`) is only used transiently while the executor
+		// runs synchronously (see reject()'s `instance === tempThis` branch above/below) and is then
+		// discarded — `Object.assign(instance, this)` below copies over anything the synchronous
+		// executor stashed on `this` (e.g. `_resolve`/`_reject`) onto the real instance.
+
 		instance = Reflect.construct(
 			NativePromise,
 			[
@@ -904,15 +940,35 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 			}
 		}
 	}
-
-	protected _nextTick(callback: () => void): Promise<void> {
-		return NativePromise.resolve().then(callback);
-	}
 }
 
-// Capture global Promise
+// Capture global Promise. Read ONCE here, at module load, into a module-scope `const`, never
+// replaced with a live `global.Promise`/`Promise` lookup anywhere else in this file. Rationale:
+// some environments swap or wrap the global Promise AFTER this module has loaded (zone.js patches
+// it for change detection, polyfill loaders may install a different implementation later, tests
+// may stub it), if internal code re-read the live global on every use, CancelablePromise's
+// behavior would silently depend on load-order / later patching instead of the Promise
+// implementation that was actually present when this class was defined. Capturing once makes the
+// dependency deterministic and testable (see "Native Promise capture" suite in
+// cancelable-promise.spec.ts, which spies on the global getter and asserts it is never touched
+// again after this line runs). Every native-Promise use below (Reflect.construct target,
+// NativePromise.resolve/prototype.then.call, etc.) goes through this captured binding.
 const NativePromise = Promise;
 
+// Wires CancelablePromise into the Promise prototype/static chain WITHOUT
+// `class CancelablePromise extends Promise` + `super()`, see the long comment on
+// the Reflect.construct block above for why `super()` into native Promise cannot survive an
+// ES5-target transpile. `Object.setPrototypeOf` reproduces the two links `extends` would have
+// wired for us:
+// - constructor chain: CancelablePromise inherits Promise's OWN static members (resolve/reject/
+// all/race/etc. as fallbacks, and — key for species — the default `[Symbol.species]` getter
+// that returns `this`, which is what makes the `declare`d species field above resolve
+// correctly without any explicit getter of our own).
+// - prototype chain: CancelablePromise.prototype inherits Promise.prototype (toString,
+// Symbol.toStringTag getter, etc.) so instances still duck/brand-check as real Promises.
+// Both links point at the CAPTURED `NativePromise`, not whatever `Promise` may be at this point in
+// module evaluation, keeping this consistent with the capture above (a stray `Promise` here
+// instead of `NativePromise` would silently reintroduce a live-global dependency).
 Object.setPrototypeOf(CancelablePromise, NativePromise);
 
 Object.setPrototypeOf(CancelablePromise.prototype, NativePromise.prototype);
