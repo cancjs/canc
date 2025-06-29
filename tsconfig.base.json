@@ -20,6 +20,7 @@
  // "noEmit": true, /* Do not emit outputs. */
  // "importHelpers": true, /* Import emit helpers from 'tslib'. */
  "downlevelIteration": true, /* Provide full support for iterables in 'for-of', spread, and destructuring when targeting 'ES5' or 'ES3'. */
+ "useDefineForClassFields": false, /* species emit hazard */
  // "isolatedModules": true, /* Transpile each file as a separate module (similar to 'ts.transpileModule'). */
 
  /* Strict Type-Checking Options */
@@ -75,8 +76,8 @@
  ],
  "exclude": [
  "node_modules",
- "**/~~**/*",
- "**/**~~/*",
+ "**/~~*",
+ "**/*~~*",
  "**/build/**/*",
  "**/dist/**/*",
  "**/__tests__/**/*",
@@ -84,6 +85,6 @@
  "**/*.spec.ts",
  "**/*.spec.tsx",
  "**/*.test.ts",
- "**/*.test.tsx",
+ "**/*.test.tsx"
  ]
 }
