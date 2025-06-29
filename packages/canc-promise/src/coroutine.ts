@@ -1,75 +1,85 @@
-import { CancelablePromise } from './cancelable-promise';
+import { CancelablePromise, ICancelablePromiseOptions } from './cancelable-promise';
 import { isFunction } from '../../_util';
 
-type TCoroutineGenFn<TThis extends any = any> = {
-  (this: TThis, ...args: any[]): Generator,
-  displayName?: string,
-};
+export type TGeneratorLike<PYield = unknown, PReturn = any, PNext = unknown> = Omit<Generator<PYield, PReturn, PNext>, typeof Symbol.iterator>;
 
-type TCoroutineReturn<TFn extends TCoroutineGenFn, TReturn = ReturnType<TFn>> = Awaited<TReturn extends Generator<unknown, infer R, unknown> ? R : never>;
+interface IFn extends Function {
+ displayName?: string;
+}
 
-export function cancAsync<TFn extends TCoroutineGenFn<TThis>, TArgs extends any[] = Parameters<TFn>, TReturn extends any = TCoroutineReturn<TFn>, TThis extends any = any>(genFn: TFn, ctx?: TThis) {
-  if (!isFunction(genFn)) {
-    throw new TypeError('Argument is not a function');
-  }
+export interface IGeneratorLikeFn<TThis extends any = any> extends IFn {
+ (this: TThis, ...args: any[]): TGeneratorLike;
+}
 
-  const isCtx = arguments.length > 1;
-  const genFnName = genFn.displayName || genFn.name;
+type TCoroutineReturn<TFn extends IGeneratorLikeFn, TReturn = ReturnType<TFn>> = Awaited<TReturn extends Generator<unknown, infer R, unknown> ? R : never>;
 
-  coroutine.displayName = 'coroutine';
+export function cancAsync<TFn extends IGeneratorLikeFn<TThis>, TArgs extends any[] = Parameters<TFn>, TReturn extends any = TCoroutineReturn<TFn>, TThis extends any = any>(genFn: TFn, ctx?: TThis, options?: ICancelablePromiseOptions) {
+ if (!isFunction(genFn)) {
+ throw new TypeError('Argument is not a function');
+ }
 
-  if (genFnName) {
-    coroutine.displayName += ` ${genFnName}`;
-  }
+ const isCtx = ctx !== undefined;
+ const genFnName = genFn.displayName || genFn.name;
 
-  function coroutine(this: any, ...args: TArgs) {
-    const promise = new CancelablePromise<TReturn>((resolve, reject, handleCancel) => {
-      const gen: Generator = genFn.apply(isCtx ? ctx : this, args);
+ coroutine.displayName = 'coroutine';
 
-      handleCancel((reason) => {
-        gen.return(undefined);
-      });
+ if (genFnName) {
+ coroutine.displayName += ` ${genFnName}`;
+ }
 
-      function onFulfilled(value: any) {
-        try {
-          step(gen.next(value));
-        } catch (err) {
-          reject(err);
-        }
-      }
+ function coroutine(this: any, ...args: TArgs) {
+ const { promise: coroutinePromise, resolve, reject } = CancelablePromise.withResolvers(options);
 
-      function onRejected(value: any) {
-        try {
-          step(gen.throw(value));
-        } catch (err) {
-          reject(err);
-        }
-      }
+ try {
+ const gen: Generator = genFn.apply(isCtx ? ctx : this, args);
 
-      function step(result: any) {
-        if (result.done) {
-          if (!promise.isCanceled) {
-            resolve(result.value);
-          }
-        } else {
-          CancelablePromise.resolve(result.value).then(onFulfilled, onRejected);
-        }
-      }
+ coroutinePromise.handleCancel(() => {
+ gen.return(undefined);
+ });
 
-      step(gen.next());
-    });
+ const step = (result: any) => {
+ if (result.done) {
+ if (!coroutinePromise.isCanceled) {
+ resolve(result.value);
+ }
+ } else {
+ const promise = CancelablePromise.resolve(result.value, options).then(onFulfilled, onRejected);
+ promise['_chain'](coroutinePromise);
+ }
+ };
 
-    return promise;
-  }
+ const onFulfilled = (value: any) => {
+ try {
+ step(gen.next(value));
+ } catch (err) {
+ reject(err);
+ }
+ };
 
-  return coroutine;
+ const onRejected = (value: any) => {
+ try {
+ step(gen.throw(value));
+ } catch (err) {
+ reject(err);
+ }
+ };
+
+ step(gen.next());
+ } catch (err) {
+ reject(err);
+ }
+
+ return coroutinePromise;
+ }
+
+ return coroutine;
 }
 
 // https://github.com/microsoft/TypeScript/issues/36855#issuecomment-588286256
 function createYielder<TProduce, TSend>(_call: (y: TProduce) => TSend): (arg: TProduce) => Generator<TProduce, TSend, TSend> {
-  return function* (arg: TProduce): Generator<TProduce, TSend, TSend> {
-    return yield arg;
-  }
+ return function* (arg: TProduce): Generator<TProduce, TSend, TSend> {
+ return yield arg;
+ }
 }
 
 type cancAwait = <T>(value: Promise<T> | T) => T;
