@@ -23,6 +23,18 @@ export interface ICancelablePromiseFlagOptions {
 	bubble?: boolean;
 	/** Throw on cancelation problems */
 	strict?: boolean;
+	/**
+	 * Protects this promise's own pending work from cancelation initiated from below or outside:
+	 * a direct `cancel()` is a silent no-op (or throws under `strict`), and a bubble-cancel arriving
+	 * from canceled children is stopped here.
+	 *
+	 * This is an UPWARD/self shield only. Unlike Kotlin's `NonCancellable` or `asyncio.shield`,
+	 * which protect a running job from cancellation of the whole scope, `shield` does NOT stop
+	 * downward propagation: if this promise's own upstream is canceled or rejected, this promise
+	 * still adopts that rejection (native Promise semantics — down-propagation cannot be intercepted
+	 * without breaking try/catch). It is per-node and is not inherited by `then`-derived children.
+	 */
+	shield?: boolean;
 }
 
 export interface ICancelablePromiseOptions extends ICancelablePromiseFlagOptions {
@@ -69,7 +81,8 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		asyncCancel: true,
 		forceCancelable: true,
 		bubble: true,
-		strict: false
+		strict: false,
+		shield: false
 	};
 
 	/**
@@ -326,6 +339,10 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 				mergedOptions.forceCancelable = !!options.forceCancelable;
 			}
 
+			if ('shield' in options) {
+				mergedOptions.shield = !!options.shield;
+			}
+
 			if ('ref' in options) {
 				mergedOptions.ref = options.ref || undefined;
 			}
@@ -343,7 +360,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 			return false;
 		}
 
-		const keys: Array<keyof ICancelablePromiseOptions> = ['asyncCancel', 'forceCancelable', 'bubble', 'strict', 'ref', 'signal'];
+		const keys: Array<keyof ICancelablePromiseOptions> = ['asyncCancel', 'forceCancelable', 'bubble', 'strict', 'shield', 'ref', 'signal'];
 
 		for (const key of keys) {
 			if (options[key] !== undefined && instance[key] !== options[key]) {
@@ -362,8 +379,10 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	 */
 	protected static _cancelLosers(inputs: CancelablePromise<any>[], winner: CancelablePromise<any>): void {
 		for (const input of inputs) {
-			if (input !== winner && input.isCancelable && input.bubble) {
-				 
+			// Shielded inputs are skipped: their cancel() is a no-op anyway, but skipping keeps
+			// the doctrine explicit, a shielded loser is never canceled by a combinator.
+			if (input !== winner && input.isCancelable && input.bubble && !input.shield) {
+
 				input.cancel(new CancelError('Canceled as loser in combinator'));
 			}
 		}
@@ -375,6 +394,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	forceCancelable!: boolean;
 	bubble!: boolean;
 	strict!: boolean;
+	shield!: boolean;
 
 	protected _resolve!: (value?: any) => void;
 	protected _reject!: (reason?: any) => void;
@@ -543,6 +563,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		instance.strict = normalizedOptions.strict;
 		instance.asyncCancel = normalizedOptions.asyncCancel;
 		instance.forceCancelable = normalizedOptions.forceCancelable;
+		instance.shield = normalizedOptions.shield;
 
 		const { ref, signal } = normalizedOptions;
 
@@ -623,6 +644,9 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	then<TResult1 = T, TResult2 = never>(onFulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | null, onRejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null): CancelablePromise<TResult1 | TResult2> {
 		const This = this.constructor as typeof CancelablePromise;
 		const normalizedOptions = This._getOptions(this);
+		// Shield is per-node and never inherited by then-derived children: a child of a shielded
+		// promise is itself normally cancelable.
+		normalizedOptions.shield = false;
 		const promise = This.resolve(
 			this._then(onFulfilled, onRejected),
 			normalizedOptions
@@ -691,6 +715,19 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	 * @param reason The cancellation reason.
 	 */
 	cancel(reason?: any): void | CancelablePromise<PromiseSettledResult<unknown>[]> {
+		// Shield: a shielded promise protects its own pending work from cancelation initiated
+		// from below/outside — a direct cancel() is a silent no-op (strict → throw), and a
+		// bubble-cancel from children (which arrives via this same cancel() call in _chain) is
+		// stopped here. Down-propagation is untouched: an upstream cancel/reject reaches this
+		// promise through the _reject wrapper, not through cancel(), so shielded nodes still settle.
+		if (this.shield && this.isCancelable) {
+			if (this.strict) {
+				throw new Error('Shielded promise cannot be canceled');
+			}
+
+			return;
+		}
+
 		if (this.isCancelable) {
 			// Set CANCELED BEFORE _reject so the reject wrapper's external-cancel branch is
 			// skipped (no double firing of handlers on the cancel() path).
