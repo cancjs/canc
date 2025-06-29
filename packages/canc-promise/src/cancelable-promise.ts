@@ -97,13 +97,17 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 
 		try {
 			const results: TAll[] = [];
+			const inputs: CancelablePromise<any>[] = []; // Track all inputs for loser-cancellation
 			let count = 0;
+			let hasRejected = false; // Guard to cancel losers only on first rejection
 
 			for (const promiseOrValue of values) {
 				const index = count++;
 				const normalizedOptions = this._getOptions(options);
-				const promise = this.resolve(promiseOrValue, normalizedOptions)
-				.then(
+				const promise = this.resolve(promiseOrValue, normalizedOptions);
+				inputs.push(promise);
+
+				promise.then(
 					(value) => {
 						results[index] = value;
 
@@ -111,7 +115,15 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 							resultsPromise._resolve(results);
 						}
 					},
-					resultsPromise._reject
+					(error) => {
+						if (!hasRejected) {
+							hasRejected = true;
+							// Cancel-losers: on first rejection, cancel all other pending inputs
+							// that have bubble:true (doc: remaining pending inputs are canceled).
+							this._cancelLosers(inputs, promise);
+						}
+						resultsPromise._reject(error);
+					}
 				);
 
 				promise._chain(resultsPromise);
@@ -166,15 +178,25 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 
 		// Indexed by input position (spec order), not settlement order
 		const errors: any[] = [];
+		const inputs: CancelablePromise<any>[] = []; // Track all inputs for loser-cancellation
 		let count = 0;
 		let rejectedCount = 0;
+		let hasFulfilled = false; // Guard to cancel losers only on first fulfill
 
 		try {
 			for (const promiseOrValue of values) {
 				const index = count++;
 				const normalizedOptions = this._getOptions(options);
-				const promise = this.resolve(promiseOrValue, normalizedOptions)
-				.then(value => {
+				const promise = this.resolve(promiseOrValue, normalizedOptions);
+				inputs.push(promise);
+
+				promise.then(value => {
+					if (!hasFulfilled) {
+						hasFulfilled = true;
+						// Cancel-losers: on first fulfill, cancel all other pending inputs
+						// that have bubble:true (doc: losers are canceled).
+						this._cancelLosers(inputs, promise);
+					}
 					resultPromise._resolve(value);
 				})
 				.catch(error => {
@@ -330,6 +352,21 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		}
 
 		return false;
+	}
+
+	/**
+	 * Cancel-losers doctrine: cancel all pending inputs except the winner/rejector.
+	 * Respects bubble:false inputs, they are never canceled (by the loser-cancellation mechanism).
+	 * @param inputs All input promises in the combinator
+	 * @param winner The promise that settled first (fulfill in any(), reject in all())
+	 */
+	protected static _cancelLosers(inputs: CancelablePromise<any>[], winner: CancelablePromise<any>): void {
+		for (const input of inputs) {
+			if (input !== winner && input.isCancelable && input.bubble) {
+				 
+				input.cancel(new CancelError('Canceled as loser in combinator'));
+			}
+		}
 	}
 
 	readonly [Symbol.toStringTag]!: string;
