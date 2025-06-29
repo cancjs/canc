@@ -51,7 +51,7 @@ describe('Native Promise capture', () => {
 
 	afterEach(() => {
 		promiseGetterSpy.mockRestore();
-		expect(promiseGetterSpy).not.toBeCalled();
+		expect(promiseGetterSpy).not.toHaveBeenCalled();
 	});
 
 	it('constructs fulfilled promise', (): any => {
