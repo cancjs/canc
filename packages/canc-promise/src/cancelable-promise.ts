@@ -59,9 +59,9 @@ export interface ICancelable<T = any> extends PromiseLike<T> {
 }
 
 export interface ICancelablePromiseWithResolvers<T> {
-    promise: CancelablePromise<T>;
-    resolve: (value: T | PromiseLike<T>) => void;
-    reject: (reason?: any) => void;
+ promise: CancelablePromise<T>;
+ resolve: (value: T | PromiseLike<T>) => void;
+ reject: (reason?: any) => void;
 		cancel: (reason?: any) => void | CancelablePromise<PromiseSettledResult<unknown>[]>
 }
 
@@ -80,7 +80,7 @@ const states = {
 class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	static readonly [Symbol.species]: PromiseConstructor;
 
-  protected static _pendingInternalCall= false;
+ protected static _pendingInternalCall= false;
 
 	static defaultOptions: Required<ICancelablePromiseFlagOptions> = {
 		asyncCancel: true,
@@ -335,7 +335,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 			return false;
 		}
 
-		const keys: Array<keyof ICancelablePromiseOptions> = ['asyncCancel', 'bubble', 'strict', 'ref', 'signal'];
+		const keys: Array<keyof ICancelablePromiseOptions> = ['asyncCancel', 'forceCancelable', 'bubble', 'strict', 'ref', 'signal'];
 
 		for (const key of keys) {
 			if (options[key] !== undefined && instance[key] !== options[key]) {
@@ -360,7 +360,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	protected _completedChainsCount = 0;
 	protected _signal?: IAbortSignal;
 	// Reflect promise state via public fields
-	protected _internalState: TCancelablePromiseStates  = 'PENDING';
+	protected _internalState: TCancelablePromiseStates = 'PENDING';
 	protected _isSettled = false;
 
 	/**

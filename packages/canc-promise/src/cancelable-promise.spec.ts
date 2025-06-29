@@ -206,4 +206,24 @@ describe('Native Promise capture', () => {
 			}
 		);
 	});
+
+	// forceCancelable must participate in options-changed comparison in .resolve()
+	it('.resolve() wraps with new instance when forceCancelable option differs', () => {
+		const original = new CancelablePromise(resolve => resolve('value'));
+
+		expect(original.forceCancelable).toBe(true);
+
+		const wrapped = CancelablePromise.resolve(original, { forceCancelable: false });
+
+		expect(wrapped).not.toBe(original);
+		expect(wrapped.forceCancelable).toBe(false);
+	});
+
+	it('.resolve() returns same instance when options are unchanged', () => {
+		const original = new CancelablePromise(resolve => resolve('value'), { forceCancelable: true });
+
+		const same = CancelablePromise.resolve(original, { forceCancelable: true });
+
+		expect(same).toBe(original);
+	});
 });
