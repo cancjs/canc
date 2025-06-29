@@ -79,6 +79,17 @@ describe('catchCancel', () => {
 			expect(err).toBe(error);
 		}
 	});
+
+	// todo: duck-check widening, a plain native Promise (foreign thenable) rejecting with a
+	// CancelError is caught and returned, not just CancelablePromise instances.
+	it('catches a CancelError from a plain native Promise', async () => {
+		const nativePromise = Promise.reject(new CancelError('native reject'));
+
+		const result = catchCancel(nativePromise as any);
+
+		expect(result).toBeInstanceOf(CancelablePromise);
+		await expect(result).resolves.toBeInstanceOf(CancelError);
+	});
 });
 
 describe('suppressCancel', () => {
@@ -95,6 +106,29 @@ describe('suppressCancel', () => {
 		} catch (err) {
 			expect(err).toBe(error);
 		}
+	});
+
+	// todo: widened to a duck-check (isThenable) instead of `instanceof CancelablePromise`, so
+	// a PLAIN native Promise rejecting with a CancelError is also suppressed correctly, the
+	// brand-based isCancelError (`Symbol.for('@cancjs/promise:CancelError')`) makes this
+	// detection copy/realm-safe regardless of what produced the rejection (mirrors the brand
+	// check pattern used in cancel-error.spec.ts).
+	it('suppresses a plain native Promise rejecting with a CancelError', async () => {
+		const nativePromise = Promise.reject(new CancelError('native reject'));
+
+		const result = suppressCancel(nativePromise as any);
+
+		expect(result).toBeInstanceOf(CancelablePromise);
+		await expect(result).resolves.toBe(undefined);
+	});
+
+	it('rethrows via a plain native Promise rejecting with a non-CancelError', async () => {
+		const error = new TypeError('boom');
+		const nativePromise = Promise.reject(error);
+
+		const result = suppressCancel(nativePromise as any);
+
+		await expect(result).rejects.toBe(error);
 	});
 });
 
