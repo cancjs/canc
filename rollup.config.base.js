@@ -1,13 +1,12 @@
+import fs from 'fs';
+import path from 'path';
 import rollupCommonjs from '@rollup/plugin-commonjs';
-import { eslint as rollupEslint } from 'rollup-plugin-eslint';
+import rollupTerser from '@rollup/plugin-terser';
+import rollupTypescript from '@rollup/plugin-typescript';
 import rollupExternals from 'rollup-plugin-node-externals';
 import rollupFilesize from 'rollup-plugin-filesize';
 // import rollupProgress from 'rollup-plugin-progress';
 import rollupResolve from '@rollup/plugin-node-resolve';
-import rollupSourceMaps from 'rollup-plugin-sourcemaps';
-import rollupTsTreeshaking from 'rollup-plugin-ts-treeshaking';
-import rollupTypescript from 'rollup-plugin-typescript2';
-import { terser as rollupTerser } from 'rollup-plugin-terser';
 
 
 const isVerbose = (process.argv.slice(2).indexOf('--silent') === -1);
@@ -20,46 +19,108 @@ const trace = () => ({
 	}
 });
 
-const createUmdCommonConfig = (options = { name: 'LibraryName' }) => ({
+// rootDir has to cover packages/_util (relative-imported shared internal code,
+// invariant 8 — inlined per package, not a real dependency) or TS throws TS6059.
+// That widens declarationDir's mirrored output to dist/types/packages/<pkg>/src/*
+// plus a stray packages/_util/*.d.ts. Flatten to dist/types/*.d.ts after emit and
+// drop the _util declarations — they're implementation detail, never re-exported
+// from a package's public entry (verified: index.d.ts has no _util references).
+const flattenDeclarations = () => ({
+	name: 'flatten-declarations',
+	writeBundle() {
+		const pkgName = path.basename(process.cwd());
+		const nestedSrcDir = path.join('dist/types/packages', pkgName, 'src');
+
+		if (!fs.existsSync(nestedSrcDir)) {
+			return;
+		}
+
+		for (const entry of fs.readdirSync(nestedSrcDir)) {
+			fs.renameSync(path.join(nestedSrcDir, entry), path.join('dist/types', entry));
+		}
+		fs.rmSync('dist/types/packages', { recursive: true, force: true });
+	}
+});
+
+// Declaration emit runs once (on the cjs build) and lands in dist/types;
+// other outputs reuse the same tsconfig w/ declaration emit disabled so
+// tsc doesn't run redundantly / race to write the same .d.ts files.
+const createTypescriptPlugin = (emitDeclaration) => rollupTypescript({
+	tsconfig: './tsconfig.prod.json',
+	outDir: 'dist',
+	...(emitDeclaration
+		? { declaration: true, declarationDir: 'dist/types' }
+		: { declaration: false, declarationMap: false }),
+	noEmitOnError: true
+});
+
+const createCommonConfig = (emitDeclaration) => ({
 	input: 'src/index.ts',
-	output: {
-		file: '',
-		format: 'commonjs',
-		name: options.name,
-		sourcemap: true
-	},
 	plugins: [
 		isVerbose && trace(),
 		// isVerbose && rollupProgress(),
-		rollupEslint({
-			parserOptions: {
-				project: './tsconfig.prod.json'
-			}
-		}),
-		rollupTypescript({ tsconfig: './tsconfig.prod.json' }),
 		rollupExternals(),
 		rollupResolve(),
-		rollupTsTreeshaking(),
+		createTypescriptPlugin(emitDeclaration),
 		rollupCommonjs()
 	]
 });
 
-const createUmdDevConfig = (options) => {
-	const config = createUmdCommonConfig(options);
+const createCjsConfig = () => {
+	const config = createCommonConfig(true);
 
-	config.output.file = 'dist/index.js';
+	config.output = {
+		file: 'dist/index.cjs',
+		format: 'cjs',
+		exports: 'named',
+		sourcemap: true
+	};
 	config.plugins.push(
-		rollupSourceMaps(),
+		flattenDeclarations(),
 		isVerbose && rollupFilesize({ showMinifiedSize: false })
 	);
 
 	return config;
 };
 
-const createUmdProdConfig = (options) => {
-	const config = createUmdCommonConfig(options);
+const createEsmConfig = () => {
+	const config = createCommonConfig(false);
 
-	config.output.file = 'dist/index.min.js';
+	config.output = {
+		file: 'dist/index.mjs',
+		format: 'es',
+		sourcemap: true
+	};
+	config.plugins.push(isVerbose && rollupFilesize({ showMinifiedSize: false }));
+
+	return config;
+};
+
+const createUmdConfig = (options) => {
+	const config = createCommonConfig(false);
+
+	config.output = {
+		file: 'dist/index.umd.js',
+		format: 'umd',
+		name: options.name,
+		exports: 'named',
+		sourcemap: true
+	};
+	config.plugins.push(isVerbose && rollupFilesize({ showMinifiedSize: false }));
+
+	return config;
+};
+
+const createUmdMinConfig = (options) => {
+	const config = createCommonConfig(false);
+
+	config.output = {
+		file: 'dist/index.umd.min.js',
+		format: 'umd',
+		name: options.name,
+		exports: 'named',
+		sourcemap: true
+	};
 	config.plugins.push(
 		rollupTerser({
 			output: {
@@ -71,16 +132,17 @@ const createUmdProdConfig = (options) => {
 				}
 			}
 		}),
-		rollupSourceMaps(),
 		isVerbose && rollupFilesize({ showMinifiedSize: false })
 	);
 
 	return config;
 };
 
-export const createConfigs = (options) => [
-	createUmdDevConfig(options),
-	createUmdProdConfig(options)
+export const createConfigs = (options = { name: 'LibraryName' }) => [
+	createCjsConfig(),
+	createEsmConfig(),
+	createUmdConfig(options),
+	createUmdMinConfig(options)
 ];
 
 export default null;

@@ -3,7 +3,7 @@
  "compilerOptions": {
  "lib": ["es2022", "decorators"],
  "outDir": "build",
- "rootDir": "src",
+ "rootDir": "../..",
  },
- "include": ["src"],
+ "include": ["src", "../_util"],
 }
