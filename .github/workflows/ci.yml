@@ -1,0 +1,63 @@
+name: CI
+
+on:
+ push:
+ branches:
+ - main
+ - develop
+ pull_request:
+
+jobs:
+ lint:
+ runs-on: ubuntu-latest
+ steps:
+ - uses: actions/checkout@v4
+ - uses: actions/setup-node@v4
+ with:
+ node-version: '20.x'
+ cache: 'yarn'
+ - run: yarn install --frozen-lockfile
+ - run: yarn lint
+
+ test:
+ runs-on: ${{ matrix.os }}
+ strategy:
+ matrix:
+ os: [ubuntu-latest, windows-latest]
+ node-version: ['20.x', '18.x']
+ steps:
+ - uses: actions/checkout@v4
+ - uses: actions/setup-node@v4
+ with:
+ node-version: ${{ matrix.node-version }}
+ cache: 'yarn'
+ - run: yarn install --frozen-lockfile
+ - run: yarn test
+
+ build:
+ runs-on: ${{ matrix.os }}
+ strategy:
+ matrix:
+ os: [ubuntu-latest, windows-latest]
+ node-version: ['20.x', '18.x']
+ steps:
+ - uses: actions/checkout@v4
+ - uses: actions/setup-node@v4
+ with:
+ node-version: ${{ matrix.node-version }}
+ cache: 'yarn'
+ - run: yarn install --frozen-lockfile
+ - run: yarn build
+
+ ts-version-matrix:
+ # Stub for : TypeScript version matrix testing
+ # Will be filled in with explicit TS version matrix once tsc declaration strategy finalized
+ runs-on: ubuntu-latest
+ steps:
+ - uses: actions/checkout@v4
+ - uses: actions/setup-node@v4
+ with:
+ node-version: '20.x'
+ cache: 'yarn'
+ - run: yarn install --frozen-lockfile
+ # TODO: Add TS 4.2+ compatibility matrix
