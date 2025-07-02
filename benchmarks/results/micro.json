@@ -1,0 +1,230 @@
+{
+ "suite": "micro",
+ "env": {
+ "node": "v24.6.0",
+ "platform": "win32",
+ "arch": "x64",
+ "cpuModel": "12th Gen Intel(R) Core(TM) i7-12700KF",
+ "cpuCount": 16,
+ "timestamp": "2026-07-10T11:18:10.926Z"
+ },
+ "tasks": [
+ {
+ "name": "a/construct-resolve native",
+ "opsPerSec": 9264981.470040562,
+ "marginPct": 1.645807144152961,
+ "samples": 926500,
+ "meanMs": 0.0001079332973555987
+ },
+ {
+ "name": "a/construct-resolve canc",
+ "opsPerSec": 543206.1975564291,
+ "marginPct": 2.580088824938204,
+ "samples": 54321,
+ "meanMs": 0.0018409215588821011
+ },
+ {
+ "name": "a/construct-resolve bluebird",
+ "opsPerSec": 567076.5975402738,
+ "marginPct": 4.363763812374614,
+ "samples": 56708,
+ "meanMs": 0.0017634302038517468
+ },
+ {
+ "name": "b/chain-1 native",
+ "opsPerSec": 8316679.999990734,
+ "marginPct": 1.5042270752426312,
+ "samples": 831668,
+ "meanMs": 0.0001202402881920567
+ },
+ {
+ "name": "b/chain-1 canc",
+ "opsPerSec": 373127.76123389974,
+ "marginPct": 1.9799181911604986,
+ "samples": 37313,
+ "meanMs": 0.0026800471685437996
+ },
+ {
+ "name": "b/chain-1 bluebird",
+ "opsPerSec": 626621.8539166121,
+ "marginPct": 1.4242640080451536,
+ "samples": 62663,
+ "meanMs": 0.001595858800247135
+ },
+ {
+ "name": "b/chain-10 native",
+ "opsPerSec": 2085207.914794755,
+ "marginPct": 2.0442132449017643,
+ "samples": 208521,
+ "meanMs": 0.00047956848470836013
+ },
+ {
+ "name": "b/chain-10 canc",
+ "opsPerSec": 87600.363959972,
+ "marginPct": 2.64106371481207,
+ "samples": 8761,
+ "meanMs": 0.011415477685194764
+ },
+ {
+ "name": "b/chain-10 bluebird",
+ "opsPerSec": 279988.3200700533,
+ "marginPct": 1.922937179965939,
+ "samples": 27999,
+ "meanMs": 0.0035715775563416336
+ },
+ {
+ "name": "b/chain-100 native",
+ "opsPerSec": 314637.1682653225,
+ "marginPct": 2.8935162779803845,
+ "samples": 31464,
+ "meanMs": 0.0031782640478023086
+ },
+ {
+ "name": "b/chain-100 canc",
+ "opsPerSec": 11763.18911350352,
+ "marginPct": 2.8560566259637343,
+ "samples": 1177,
+ "meanMs": 0.08501096006796768
+ },
+ {
+ "name": "b/chain-100 bluebird",
+ "opsPerSec": 59195.678715449874,
+ "marginPct": 1.8455894627873055,
+ "samples": 5920,
+ "meanMs": 0.016893125000001112
+ },
+ {
+ "name": "c/fanout-100 native",
+ "opsPerSec": 170248.35336989246,
+ "marginPct": 1.8372521127635901,
+ "samples": 17039,
+ "meanMs": 0.005873771934976288
+ },
+ {
+ "name": "c/fanout-100 canc",
+ "opsPerSec": 5492.063967566948,
+ "marginPct": 2.8139494613386753,
+ "samples": 550,
+ "meanMs": 0.18208090909090638
+ },
+ {
+ "name": "c/fanout-100 bluebird",
+ "opsPerSec": 53174.25718023178,
+ "marginPct": 2.230834528564457,
+ "samples": 5318,
+ "meanMs": 0.01880609251598089
+ },
+ {
+ "name": "d/all-10 native",
+ "opsPerSec": 1451909.9999972137,
+ "marginPct": 1.6041462884820863,
+ "samples": 145191,
+ "meanMs": 0.0006887479251481973
+ },
+ {
+ "name": "d/all-10 canc",
+ "opsPerSec": 54188.482722472814,
+ "marginPct": 2.466041535218424,
+ "samples": 5419,
+ "meanMs": 0.01845410592360587
+ },
+ {
+ "name": "d/all-10 bluebird",
+ "opsPerSec": 512069.9999997718,
+ "marginPct": 1.6106416443311016,
+ "samples": 51207,
+ "meanMs": 0.0019528580076951308
+ },
+ {
+ "name": "d/all-1000 native",
+ "opsPerSec": 23206.031768573055,
+ "marginPct": 2.5746501481067257,
+ "samples": 2321,
+ "meanMs": 0.04309224472209237
+ },
+ {
+ "name": "d/all-1000 canc",
+ "opsPerSec": 531.7352391774563,
+ "marginPct": 7.59861895076442,
+ "samples": 54,
+ "meanMs": 1.8806351851852148
+ },
+ {
+ "name": "d/all-1000 bluebird",
+ "opsPerSec": 33325.501057357855,
+ "marginPct": 2.1725752759664014,
+ "samples": 3333,
+ "meanMs": 0.030007050705069968
+ },
+ {
+ "name": "d/race-10 native",
+ "opsPerSec": 475224.772528408,
+ "marginPct": 1.4503844131647599,
+ "samples": 47523,
+ "meanMs": 0.0021042674073566358
+ },
+ {
+ "name": "d/race-10 canc",
+ "opsPerSec": 32679.934640135045,
+ "marginPct": 2.117297669805035,
+ "samples": 3268,
+ "meanMs": 0.03059981640146474
+ },
+ {
+ "name": "d/race-10 bluebird",
+ "opsPerSec": 378989.6210102162,
+ "marginPct": 1.3309316781307672,
+ "samples": 37899,
+ "meanMs": 0.00263859468587675
+ },
+ {
+ "name": "d/race-1000 native",
+ "opsPerSec": 5578.086716256005,
+ "marginPct": 3.974748221392684,
+ "samples": 558,
+ "meanMs": 0.1792729390681106
+ },
+ {
+ "name": "d/race-1000 canc",
+ "opsPerSec": 316.30211200850545,
+ "marginPct": 8.457271482249412,
+ "samples": 32,
+ "meanMs": 3.1615343750000306
+ },
+ {
+ "name": "d/race-1000 bluebird",
+ "opsPerSec": 11807.945417500932,
+ "marginPct": 2.7702372096497765,
+ "samples": 1181,
+ "meanMs": 0.08468873835729865
+ },
+ {
+ "name": "e/cancel-storm-50 canc",
+ "opsPerSec": 3123.4657097349996,
+ "marginPct": 3.8487594787969064,
+ "samples": 313,
+ "meanMs": 0.32015718849842656
+ },
+ {
+ "name": "e/cancel-storm-50 bluebird",
+ "opsPerSec": 102276.52259820695,
+ "marginPct": 2.1550035720344605,
+ "samples": 10228,
+ "meanMs": 0.00977741493938445
+ },
+ {
+ "name": "f/coroutine-100 native-async",
+ "opsPerSec": 224573.487368655,
+ "marginPct": 2.397567723799422,
+ "samples": 22458,
+ "meanMs": 0.004452885386058157
+ },
+ {
+ "name": "f/coroutine-100 canc-cancAsync",
+ "opsPerSec": 3989.756624845683,
+ "marginPct": 6.247197169722986,
+ "samples": 399,
+ "meanMs": 0.25064185463660416
+ }
+ ]
+}
