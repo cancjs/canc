@@ -11,7 +11,8 @@
  },
  "scripts": {
  "bench": "node cli.js",
- "bench:report": "node lib/report.js"
+ "bench:report": "node lib/report.js",
+ "bench:browser": "node browser-lane.js"
  },
  "dependencies": {
  "@types/node": "~20.12.12",
@@ -20,6 +21,7 @@
  "tinybench": "~2.9.0"
  },
  "devDependencies": {
- "@types/bluebird": "~3.5.42"
+ "@types/bluebird": "~3.5.42",
+ "playwright": "~1.61.1"
  }
 }
