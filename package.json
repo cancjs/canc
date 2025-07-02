@@ -5,7 +5,8 @@
  "author": "bisubus",
  "license": "MIT",
  "workspaces": [
- "packages/*"
+ "packages/*",
+ "benchmarks"
  ],
  "engines": {
  "yarn": ">=1"
@@ -15,7 +16,9 @@
  "test": "cross-env NODE_OPTIONS=--no-deprecation lerna run test --stream",
  "lint": "cross-env NODE_OPTIONS=--no-deprecation lerna run lint --stream",
  "publish": "cross-env NODE_OPTIONS=--no-deprecation lerna publish from-git",
- "version": "cross-env NODE_OPTIONS=--no-deprecation lerna version --no-push"
+ "version": "cross-env NODE_OPTIONS=--no-deprecation lerna version --no-push",
+ "bench": "yarn workspace @cancjs/benchmarks bench",
+ "bench:report": "yarn workspace @cancjs/benchmarks bench:report"
  },
  "devDependencies": {
  "@eslint/js": "~9.39.0",

@@ -1,0 +1,27 @@
+{
+ "suite": "smoke",
+ "env": {
+ "node": "v24.6.0",
+ "platform": "win32",
+ "arch": "x64",
+ "cpuModel": "12th Gen Intel(R) Core(TM) i7-12700KF",
+ "cpuCount": 16,
+ "timestamp": "2026-07-10T11:15:24.253Z"
+ },
+ "tasks": [
+ {
+ "name": "native-promise-resolve",
+ "opsPerSec": 11055577.888847573,
+ "marginPct": 0.7340120707723065,
+ "samples": 1105560,
+ "meanMs": 0.0000904520785845813
+ },
+ {
+ "name": "noop",
+ "opsPerSec": 24860765.139239166,
+ "marginPct": 0.4227964392570631,
+ "samples": 2486079,
+ "meanMs": 0.00004022402345218422
+ }
+ ]
+}

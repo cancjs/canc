@@ -1,0 +1,25 @@
+{
+ "name": "@cancjs/benchmarks",
+ "version": "0.0.0",
+ "private": true,
+ "description": "Benchmark harness for canc packages vs native Promise / bluebird",
+ "author": "bisubus",
+ "license": "MIT",
+ "main": "cli.js",
+ "bin": {
+ "canc-bench": "./cli.js"
+ },
+ "scripts": {
+ "bench": "node cli.js",
+ "bench:report": "node lib/report.js"
+ },
+ "dependencies": {
+ "@types/node": "~20.12.12",
+ "bluebird": "~3.7.2",
+ "mitata": "~1.0.34",
+ "tinybench": "~2.9.0"
+ },
+ "devDependencies": {
+ "@types/bluebird": "~3.5.42"
+ }
+}
