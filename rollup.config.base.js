@@ -1,5 +1,7 @@
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
+import { execFileSync } from 'child_process';
 import rollupCommonjs from '@rollup/plugin-commonjs';
 import rollupTerser from '@rollup/plugin-terser';
 import rollupTypescript from '@rollup/plugin-typescript';
@@ -42,6 +44,43 @@ const flattenDeclarations = () => ({
 	}
 });
 
+// TS floor = 4.2. downlevel-dts rewrites the handful of newer d.ts syntax
+// forms it knows about (asserts predicates <3.7, template literal types <4.1,
+// paired get/set <3.6...) into a dist/types-ts4.2/ variant. It does NOT know
+// about `Awaited<T>` (lib-defined starting TS 4.5, per its own transform list —
+// verified empty in node_modules/downlevel-dts/index.js) so a follow-up patch
+// script injects a local shadow type alias into any file still referencing the
+// bare name post-downlevel (scripts/patch-awaited.js — see comment there).
+// CLI (not the internal `main` export) — that's undocumented API, stick to the
+// public contract.
+const TS_FLOOR = '4.2';
+const repoRoot = path.dirname(fileURLToPath(import.meta.url));
+
+const downlevelTypes = () => ({
+	name: 'downlevel-types',
+	writeBundle() {
+		const typesDir = 'dist/types';
+
+		if (!fs.existsSync(typesDir)) {
+			return;
+		}
+
+		const variantDir = `dist/types-ts${TS_FLOOR}`;
+
+		fs.rmSync(variantDir, { recursive: true, force: true });
+		execFileSync(
+			process.execPath,
+			[path.join(repoRoot, 'node_modules/downlevel-dts/index.js'), typesDir, variantDir, `--to=${TS_FLOOR}`],
+			{ stdio: isVerbose ? 'inherit' : 'ignore' }
+		);
+		execFileSync(
+			process.execPath,
+			[path.join(repoRoot, 'scripts/patch-awaited.js'), variantDir],
+			{ stdio: isVerbose ? 'inherit' : 'ignore' }
+		);
+	}
+});
+
 // Declaration emit runs once (on the cjs build) and lands in dist/types;
 // other outputs reuse the same tsconfig w/ declaration emit disabled so
 // tsc doesn't run redundantly / race to write the same .d.ts files.
@@ -77,6 +116,7 @@ const createCjsConfig = () => {
 	};
 	config.plugins.push(
 		flattenDeclarations(),
+		downlevelTypes(),
 		isVerbose && rollupFilesize({ showMinifiedSize: false })
 	);
 

@@ -11,6 +11,9 @@
  "engines": {
  "yarn": ">=1"
  },
+ "resolutions": {
+ "downlevel-dts/typescript": "~5.9.3"
+ },
  "scripts": {
  "build": "cross-env NODE_OPTIONS=--no-deprecation lerna run build --stream",
  "test": "cross-env NODE_OPTIONS=--no-deprecation lerna run test --stream",
@@ -31,6 +34,7 @@
  "@types/jest": "~30.0.0",
  "@types/node": "~20.12.12",
  "cross-env": "~7.0.3",
+ "downlevel-dts": "~0.11.0",
  "eslint": "~9.39.0",
  "fast-check": "~4.9.0",
  "globals": "~17.7.0",
