@@ -11,7 +11,7 @@
  },
  "scripts": {
  "bench": "node cli.js",
- "bench:report": "node lib/report.js",
+ "bench:report": "node generate-report.js",
  "bench:browser": "node browser-lane.js"
  },
  "dependencies": {
