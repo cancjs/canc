@@ -50,8 +50,12 @@ jobs:
  - run: yarn build
 
  ts-version-matrix:
- # Stub for : TypeScript version matrix testing
- # Will be filled in with explicit TS version matrix once tsc declaration strategy finalized
+ # P4-2/P4-3: type-check fixture projects that import the BUILT @cancjs/*
+ # packages against a matrix of pinned TypeScript versions (floor 4.2 .. latest).
+ # The runner packs each package, installs the tarball + a pinned tsc into each
+ # isolated fixture, then runs `tsc --noEmit`. The `latest` lane also compiles
+ # the P4-3 type-level assertion suite. See tests-types/matrix.config.json.
+ needs: build
  runs-on: ubuntu-latest
  steps:
  - uses: actions/checkout@v4
@@ -60,4 +64,7 @@ jobs:
  node-version: '20.x'
  cache: 'yarn'
  - run: yarn install --frozen-lockfile
- # TODO: Add TS 4.2+ compatibility matrix
+ # Build the packages so the matrix type-checks against real dist, not src.
+ - run: yarn build
+ - name: TS version matrix (+ type assertions)
+ run: yarn workspace @cancjs/tests-types matrix

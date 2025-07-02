@@ -6,7 +6,8 @@
  "license": "MIT",
  "workspaces": [
  "packages/*",
- "benchmarks"
+ "benchmarks",
+ "tests-types"
  ],
  "engines": {
  "yarn": ">=1"
