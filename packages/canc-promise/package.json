@@ -1,7 +1,7 @@
 {
  "name": "@cancjs/promise",
  "version": "0.0.0",
- "description": "",
+ "description": "<p align=\"center\">\r <img src=\"../../assets/canc-logo.png\" width=\"483\" title=\"canc &#x2BBF; A crafty foundation for cancelable promises\" alt=\"canc &#x2BBF; a crafty foundation for cancelable promises\">\r </p>",
  "keywords": [],
  "main": "dist/index.cjs",
  "module": "dist/index.mjs",
@@ -12,8 +12,16 @@
  "files": [
  "dist"
  ],
+ "typesVersions": {
+ "<4.7": {
+ "dist/types/*": [
+ "dist/types-ts4.2/*"
+ ]
+ }
+ },
  "exports": {
  ".": {
+ "types@<4.7": "./dist/types-ts4.2/index.d.ts",
  "types": "./dist/types/index.d.ts",
  "import": "./dist/index.mjs",
  "require": "./dist/index.cjs"
@@ -27,7 +35,7 @@
  "homepage": "https://github.com/cancjs/canc/packages/canc-promise#readme",
  "repository": {
  "type": "git",
- "url": "https://github.com/cancjs/canc.git",
+ "url": "git+https://github.com/cancjs/canc.git",
  "directory": "packages/canc-promise"
  },
  "bugs": {
@@ -37,7 +45,7 @@
  "access": "public"
  },
  "scripts": {
- "build": "rimraf dist && rollup --config ./rollup.config.js",
+ "build": "rimraf dist && rollup --config ./rollup.config.mjs",
  "check": "tsc --noEmit --project ./tsconfig.prod.json",
  "format": "eslint --fix ./src",
  "format:all": "eslint --fix .",
@@ -45,5 +53,6 @@
  "lint:all": "eslint .",
  "test": "jest --colors",
  "test:watch": "jest --colors --watch"
- }
+ },
+ "type": "commonjs"
 }
