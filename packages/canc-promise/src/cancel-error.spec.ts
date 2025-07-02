@@ -20,6 +20,12 @@ describe('CancelError', () => {
 		expect(new CancelError('foo').message).toBe('foo');
 	});
 
+	// Default-param branch (`reason = ''`): explicit `undefined` argument (arg present, triggers
+	// default substitution) vs the omitted-arg case above.
+	it('defaults message when reason is explicitly undefined', () => {
+		expect(new CancelError(undefined).message).toBe('');
+	});
+
 	it('has isBubbled property', () => {
 		const error = new CancelError();
 
@@ -39,6 +45,12 @@ describe('CancelError', () => {
 
 	it('omits cause when not provided', () => {
 		expect('cause' in new CancelError()).toBe(false);
+	});
+
+	// Options object provided but without a `cause` key (distinct branch from "no options at
+	// all" above and from "cause provided" above).
+	it('omits cause when options given without cause', () => {
+		expect('cause' in new CancelError('boom', {})).toBe(false);
 	});
 });
 

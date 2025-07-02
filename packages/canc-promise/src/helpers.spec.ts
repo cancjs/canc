@@ -90,6 +90,17 @@ describe('catchCancel', () => {
 		expect(result).toBeInstanceOf(CancelablePromise);
 		await expect(result).resolves.toBeInstanceOf(CancelError);
 	});
+
+	// Non-CancelError rejection through the thenable branch must rethrow, not just the CancelError
+	// side already covered above.
+	it('rethrows via a plain native Promise rejecting with a non-CancelError', async () => {
+		const error = new TypeError('boom');
+		const nativePromise = Promise.reject(error);
+
+		const result = catchCancel(nativePromise as any);
+
+		await expect(result).rejects.toBe(error);
+	});
 });
 
 describe('suppressCancel', () => {
@@ -166,6 +177,17 @@ describe('forceCancelable', () => {
 
 		await expect(forcedCancelablePromise).rejects.toThrow();
 		expect(forcedCancelablePromise.isCanceled).toBe(true);
+	});
+
+	// isCancelable(promise) false branch, plain non-cancelable promise, no third-party .cancel
+	// to invoke.
+	it('does not attempt to cancel a plain non-cancelable promise', async () => {
+		const promise = Promise.resolve(1);
+
+		const forcedCancelablePromise = forceCancelable(promise as any);
+		forcedCancelablePromise.cancel();
+
+		await expect(forcedCancelablePromise).rejects.toThrow();
 	});
 
 	it('cancels third-party cancelable when cancelled', async () => {
