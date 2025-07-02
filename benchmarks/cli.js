@@ -34,8 +34,24 @@ async function main() {
  }
 
  const suiteModule = require(suiteFile);
- const { result, outFile } = await runSuite(suiteModule);
- const md = resultToMarkdown(result);
+
+ let result;
+ let md;
+ let outFile;
+
+ if (typeof suiteModule.run === 'function') {
+ // Self-rendering suite (e.g. macro-realworld): does its own timing/memory
+ // sampling and returns { result, md }. Standard ops/sec suites use `cases`.
+ ({ result, md } = await suiteModule.run());
+ outFile = path.join(RESULTS_DIR, `${suiteModule.name || suiteName}.json`);
+ if (!fs.existsSync(RESULTS_DIR)) {
+ fs.mkdirSync(RESULTS_DIR, { recursive: true });
+ }
+ fs.writeFileSync(outFile, JSON.stringify(result, null, 2) + '\n');
+ } else {
+ ({ result, outFile } = await runSuite(suiteModule));
+ md = resultToMarkdown(result);
+ }
 
  const mdFile = path.join(RESULTS_DIR, `${suiteName}.md`);
  fs.writeFileSync(mdFile, md + '\n');

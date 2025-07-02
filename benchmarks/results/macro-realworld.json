@@ -1,0 +1,83 @@
+{
+ "suite": "macro-realworld",
+ "env": {
+ "node": "v24.6.0",
+ "platform": "win32",
+ "arch": "x64",
+ "cpuModel": "12th Gen Intel(R) Core(TM) i7-12700KF",
+ "cpuCount": 16,
+ "timestamp": "2026-07-10T11:20:52.829Z"
+ },
+ "params": {
+ "waterfallRuns": 20000,
+ "waterfallCancelRate": 0.3,
+ "lifecycleRuns": 10000,
+ "lifecycleRequests": 3,
+ "inflightSample": 1000
+ },
+ "results": {
+ "native": {
+ "name": "native (Promise + AbortController)",
+ "waterfall": {
+ "usPerOp": 1.329840625,
+ "usPerRun": 10.638725,
+ "totalMs": 212.7745,
+ "runs": 20000
+ },
+ "lifecycle": {
+ "usPerOp": 3.5871799999999996,
+ "usPerRun": 10.76154,
+ "totalMs": 107.6154,
+ "runs": 10000
+ },
+ "lifecycleComparable": true,
+ "memory": {
+ "supported": true,
+ "bytesPer1k": 1249008,
+ "kbPer1k": 1219.734375
+ }
+ },
+ "canc": {
+ "name": "canc (CancelablePromise)",
+ "waterfall": {
+ "usPerOp": 3.185565,
+ "usPerRun": 25.48452,
+ "totalMs": 509.6904,
+ "runs": 20000
+ },
+ "lifecycle": {
+ "usPerOp": 16.934553333333334,
+ "usPerRun": 50.80366,
+ "totalMs": 508.0366,
+ "runs": 10000
+ },
+ "lifecycleComparable": true,
+ "memory": {
+ "supported": true,
+ "bytesPer1k": 5391352,
+ "kbPer1k": 5264.9921875
+ }
+ },
+ "bluebird": {
+ "name": "bluebird (cancellation:true)",
+ "waterfall": {
+ "usPerOp": 1.8865368750000002,
+ "usPerRun": 15.092295000000002,
+ "totalMs": 301.8459,
+ "runs": 20000
+ },
+ "lifecycle": {
+ "usPerOp": 0.6994933333333333,
+ "usPerRun": 2.09848,
+ "totalMs": 20.9848,
+ "runs": 10000
+ },
+ "lifecycleComparable": false,
+ "memory": {
+ "supported": true,
+ "bytesPer1k": 871832,
+ "kbPer1k": 851.3984375
+ }
+ }
+ }
+}
