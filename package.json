@@ -28,6 +28,7 @@
  "@types/node": "~20.12.12",
  "cross-env": "~7.0.3",
  "eslint": "~9.39.0",
+ "fast-check": "~4.9.0",
  "globals": "~17.7.0",
  "jest": "~30.4.2",
  "lerna": "~9.0.7",

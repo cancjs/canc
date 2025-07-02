@@ -3739,6 +3739,13 @@ exponential-backoff@^3.1.1:
  resolved "https://registry.npmjs.org/exponential-backoff/-/exponential-backoff-3.1.1.tgz#64ac7526fe341ab18a39016cd22c787d01e00bf6"
  integrity sha512-dX7e/LHVJ6W3DE1MHWi9S1EYzDESENfLrYohG2G++ovZrYOkm4Knwa0mc1cn84xJOR4KEU0WSchhLbd0UklbHw==
 
+fast-check@~4.9.0:
+ version "4.9.0"
+ resolved "https://registry.npmjs.org/fast-check/-/fast-check-4.9.0.tgz#6337eb9861442b2534bb56a1406afd33dc018e78"
+ integrity sha512-7ms6T7SybUev/PQITciI0yLM2pOSFy5zpG8Ty7tQofcVaQUvrMXp6CBwqF6fThLCLOrfBtuHAtwq6Yu4XPCllg==
+ dependencies:
+ pure-rand "^8.0.0"
+
 fast-deep-equal@^3.1.1:
  version "3.1.1"
  resolved "https://registry.npmjs.org/fast-deep-equal/-/fast-deep-equal-3.1.1.tgz#545145077c501491e33b15ec408c294376e94ae4"
@@ -6726,6 +6733,11 @@ pure-rand@^7.0.0:
  version "7.0.1"
  resolved "https://registry.npmjs.org/pure-rand/-/pure-rand-7.0.1.tgz#6f53a5a9e3e4a47445822af96821ca509ed37566"
  integrity sha512-oTUZM/NAZS8p7ANR3SHh30kXB+zK2r2BPcEn/awJIbOvq82WoMN4p62AWWp3Hhw50G0xMsw1mhIBLqHw64EcNQ==
+
+pure-rand@^8.0.0:
+ version "8.4.2"
+ resolved "https://registry.npmjs.org/pure-rand/-/pure-rand-8.4.2.tgz#c83a7284ba06fe80e22d04077c48cd93dbecd883"
+ integrity sha512-vvuOGgcuPJAirlHvuQw1TrOiw7ptaIXXmIbNuiNOY6lNGJJH49PQ1Kj4nd783nPdQhQdicgOjVI2yI/9BD6/Ng==
 
 quick-lru@^4.0.1:
  version "4.0.1"
