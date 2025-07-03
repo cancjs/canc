@@ -1,208 +1,82 @@
 <p align="center">
-  <img src="../../assets/canc-logo.png" width="483" title="canc &#x2BBF; A crafty foundation for cancelable promises" alt="canc &#x2BBF; a crafty foundation for cancelable promises">
+ <img src="../../assets/canc-logo.png" width="483" title="canc &#x2BBF; A crafty foundation for cancelable promises" alt="canc &#x2BBF; a crafty foundation for cancelable promises">
 </p>
 
 <h1 align="center">@cancjs/promise</h1>
 
 <p align="center">
-  <a href="https://travis-ci.org/vuetifyjs/vuetify">
-    <img src="https://img.shields.io/travis/vuetifyjs/vuetify/dev.svg?style=flat-square" alt="Travis CI"></a>
-  <a href="https://codecov.io/gh/vuetifyjs/vuetify">
-    <img src="https://img.shields.io/codecov/c/github/vuetifyjs/vuetify.svg?style=flat-square" alt="Coverage"></a>
-  <a href="https://github.com/vuetifyjs/vuetify/blob/master/LICENSE.md">
-    <img src="https://img.shields.io/npm/l/vuetify.svg?style=flat-square" alt="License"></a>
-  <!--<br>-->
-  <a href="https://www.npmjs.com/package/react">
-    <img src="https://flat.badgen.net/badgesize/normal/ex-machine/canc/packages/canc-promise/dist/umd.min.js" alt="min bundle size"></a>
-  <a href="https://www.npmjs.com/package/react">
-    <img src="https://flat.badgen.net/badgesize/gzip/ex-machine/canc/packages/canc-promise/dist/umd.min.js" alt="min+gzip bundle size"></a>
-</p>
-
-<p align="center">
-Cancelable promise ecosystem based on native <code>Promise</code>: coroutines, async iterators, decorators, utilities, third-party library helpers.
+Cancelable promise implementation based on native <code>Promise</code>.
 </p>
 
 ---
 
-<!--
-## Table of Contents
--->
-
-## Introduction
-
 ## Features
 
-* cancelable promise implementation built on top of ES Promise
-* UMD and ESM builds for modern and legacy browsers and Node.js
-* TypeScript-ready
+* cancelable promise implementation built on top of native ES `Promise`
+* cancellation is a special rejection (`CancelError`) — normal `try`/`catch`/`.then`/`.catch`
+ semantics preserved
+* two-way cancellation: propagates down the chain, bubbles back up when every consumer has
+ canceled and the value is unconsumed
+* CJS, ESM and UMD builds; TypeScript types down to TS 4.2
 
-## Getting Started
+See the [root README](../../README.md) for the full ecosystem and cancellation model.
 
-### Installation
+## Install
 
-#### NPM
-
-```
-npm i -S @cancjs/promise
-```
-
-#### Yarn
-
-```
+```sh
+npm install @cancjs/promise
+# or
 yarn add @cancjs/promise
 ```
 
-### Usage
-
-## Documentation
-
-## How It Works
-
-Cancellation is a special form of promise rejection with cancel error that triggers registered handlers for the entire cancellation-aware promise chain.
-
-`canc` promises implement two-way cancellation mechanism that treats promise chains as subscriptions:
-
-* cancellation propagates down the promise chain when parent promise is canceled
-
-* cancellation bubbles up the chain when all child promises are canceled and parent promise value is no longer consumed
-
-Cancellation bubbling can be explicitly disabled on parent promise in case a promise causes side effects that shouldn't be implicitly discarded.
-
-## Compatibility
-
-The package relies on following ECMAScript 2015+ features: `Symbol`, `Reflect`, `Promise` (ES2018 for `finally`, ES2020 for `allSettled`), `Object.assign`, `Object.setPrototypeOf`.
-
-### Native Support
-
-Supported in modern browsers and Node.js:
-
-* Node.js 6
-* Chrome 49
-* Opera 36
-* Edge 12
-* Firefox 42
-* Safari macOS/iOS 10
-* Android 7 (WebView)
-
-### Polyfilled Support
-
-Supported in legacy browsers and Node.js with `core-js` or `polyfill.io`:
-
-* Node.js 0.10
-* Chrome 5
-* Opera 12
-* Edge 12
-* IE 11
-* Firefox 4
-* Safari macOS/iOS 5
-* Android 4.4 (WebView, browser)
-
-The incompatibility between native and polyfilled `Promise` and `Reflect` in engines with incomplete ES6 support requires to match globals before polyfilling:
-
-<details>
-  <summary>In cross-platform modular environment</summary>
+## Usage
 
 ```js
-var _global = typeof globalThis !== 'undefined' && globalThis
-  || typeof self !== 'undefined' && self
-  || typeof global !== 'undefined' && global;
+const { CancelablePromise, CancelError } = require('@cancjs/promise');
+// or: import { CancelablePromise, CancelError } from '@cancjs/promise';
 
-if (!('Reflect' in _global) && 'Promise' in _global)
-  delete _global.Promise;
+const promise = new CancelablePromise((resolve, reject, onCancel) => {
+ const id = setTimeout(resolve, 1000, 'done');
+ onCancel(() => clearTimeout(id));
+});
 
-require('core-js/stable');
-```
-</details>
+promise
+ .then((value) => console.log(value))
+ .catch((err) => {
+ if (err instanceof CancelError) {
+ console.log('canceled');
+ }
+ });
 
-
-<details>
-  <summary>In browsers</summary>
-
-```html
-<script>
-if (!('Reflect' in window) && 'Promise' in window)
-  delete window.Promise;
-</script>
-<!-- no es2020 allSettled yet -->
-<script src="https://polyfill.io/v3/polyfill.min.js?features=es2015,es2018&flags=always,gated"></script>
-```
-</details>
-
-## Examples
-
-Can be found in [examples](https://github.com/ex-machine/canc/tree/master/examples) section.
-
-<!--
-### Component with uncancelable promises:
-
-```js
-class Component {
-  createHook() {
-    fetchFooBar();
-  }
-
-  async fetchFooBar() {
-    let foo = await fetchFoo();
-
-    // safeguard
-    if (this._destroyed)
-        return;
-
-    // the framework causes an error if the instance has been destroyed
-    this.updateState({ foo });
-
-    // cannot be stopped even if the result isn't needed
-    let bar = await fetchBar({ foo, retries: 10 });
-
-    // safeguard
-    if (this._destroyed)
-        return;
-
-    this.updateState({ bar });
-  }
-
-  destroyHook() {
-    this._destroyed = true;
-  }
-}
+promise.cancel();
 ```
 
+## Build targets
 
-```js
-class Component {
-  createHook() {
-    fetchFooBarBaz();
-  }
+All four build outputs are produced from the same ES5-targeted TypeScript source (`target: es5`
+in `tsconfig.base.json`), only module wrapping differs between formats: `dist/index.cjs` is
+CommonJS for `require()` and Node.js (`main` field), `dist/index.mjs` is an ES module for
+`import` and bundlers (`module` field), `dist/index.umd.js` is UMD for `<script>` tags/AMD/
+CommonJS fallback, and `dist/index.umd.min.js` is the minified UMD build used by `unpkg`/
+`jsdelivr`.
 
-  async fetchFooBarBaz() {
-    // retries cannot be stopped even if they aren't usable
-    let one = await fetchFoo({ retryTimes: 5});
-    if (this._destroyed) return;
-    this.updateState({ one });
-    let two = await actionTwo(one);
-    if (this._destroyed) return;
-    this.updateState({ one });
-  }
+## TypeScript support
 
-  destroyHook() {
-    this._destroyed = true;
-  }
-}
-```
--->
+TypeScript floor is 4.2. Two `.d.ts` variants ship, resolved automatically, no consumer
+configuration needed. TS >= 4.7 reads `exports["."].types` conditions and gets
+`dist/types/index.d.ts`. Older TS falls back to `typesVersions` (pre-4.7 resolvers don't support
+the `exports.types` condition) and gets `dist/types-ts4.2/index.d.ts`.
 
-<!--
-## Related
+`dist/types-ts4.2/` is generated from `dist/types/` via `downlevel-dts`, plus a follow-up patch
+for `Awaited<T>` (lib-defined starting TS 4.5, not covered by `downlevel-dts`'s own transform
+list). Verified against a pinned TS version matrix: 4.2, 4.7, 5.0, 5.4, latest.
 
-## Status
--->
+## Engines
 
-
-
-## Contributing
-
-You are welcome to participate through issues and pull requests!
+`node >= 18` (declared in `package.json` engines), the tested and supported Node.js baseline for
+the published package. See the [root README Compatibility section](../../README.md#compatibility)
+for browser/engine notes, including QuickJS, XS (Moddable) and Hermes.
 
 ## License
 
-[MIT](LICENSE)
+[MIT](../../LICENSE)
