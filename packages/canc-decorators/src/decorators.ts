@@ -1,9 +1,24 @@
 import { isFunction } from '../../_util';
-// cancAsync moved from @cancjs/promise to @cancjs/coroutine (extraction) — update import.
+// cancAsync moved from @cancjs/promise to @cancjs/coroutine.
 import { async as cancAsync } from '@cancjs/coroutine';
 
-type TMethodDecoratorContext = ClassMethodDecoratorContext | ClassGetterDecoratorContext | ClassFieldDecoratorContext;
-type TMethodDecorator = (method: any, context: TMethodDecoratorContext) => void;
+/**
+ * ES / TC39 stage-3 decorators (native TS 5+, `experimentalDecorators: false`).
+ *
+ * bind:false → proto-level wrap: the decorator RETURNS the wrapped function so it replaces the
+ * method on the prototype once; `this` flows through the coroutine at call time.
+ * bind:true → per-instance initializer: `addInitializer` installs an own, ctx-bound property on
+ * each instance (isolation guaranteed — no shared state across instances).
+ *
+ * Field decorators (arrow-fn class fields) receive `value === undefined` and must RETURN an
+ * initializer-transformer `(initialValue) => wrapped`; they never see the fn as first arg.
+ */
+
+type TMethodDecoratorContext =
+ | ClassMethodDecoratorContext
+ | ClassGetterDecoratorContext
+ | ClassFieldDecoratorContext;
+type TMethodDecorator = (value: any, context: TMethodDecoratorContext) => any;
 
 interface IMethodDecoratorOptions {
  bind?: boolean;
@@ -18,82 +33,109 @@ function setProperty(target: any, key: string | symbol, value: any) {
  });
 }
 
-export function AsyncMethod(value: any, context: TMethodDecoratorContext): void;
-export function AsyncMethod(options?: IMethodDecoratorOptions): TMethodDecorator;
-export function AsyncMethod(...args: [IMethodDecoratorOptions?] | [any, TMethodDecoratorContext]) {
- if (args.length > 1) {
- return AsyncMethod()(...args as [any, TMethodDecoratorContext]);
- }
-
- const [options] = args as [IMethodDecoratorOptions?];
- const isBind = options?.bind ?? false;
-
- return (originalMethod: any, context: TMethodDecoratorContext): any => {
- const propertyKey = context.name;
- const isMethod = (context.kind === 'method' || context.kind === 'field') && isFunction(originalMethod);
- 
- if (!isMethod) {
- throw new TypeError(`'${String(propertyKey)}' is not a method and cannot be decorated`);
- }
-
+function assertDecoratable(propertyKey: string | symbol, context: TMethodDecoratorContext) {
  if (context.private) {
  throw new TypeError(`'${String(propertyKey)}' is private and cannot be decorated`);
  }
-
- context.addInitializer(function (this: any) {
- setProperty(this, propertyKey, cancAsync(originalMethod, isBind ? this : undefined));
- });
-
- return originalMethod;
- };
 }
 
-export function BindMethod(value: any, context: TMethodDecoratorContext): void;
-export function BindMethod(options?: IMethodDecoratorOptions): TMethodDecorator;
-export function BindMethod(...args: [IMethodDecoratorOptions?] | [any, TMethodDecoratorContext]) {
- if (args.length > 1) {
- return BindMethod()(...args as [any, TMethodDecoratorContext]);
- }
-
- const [options] = args as [IMethodDecoratorOptions?];
- const isBind = options?.bind ?? true;
-
- return (originalMethod: any, context: TMethodDecoratorContext): any => {
+/**
+ * Shared implementation. `wrap` decides whether the produced function is coroutine-wrapped
+ * (`AsyncMethod`) or a plain pass-through (`BindMethod`).
+ */
+function makeDecorator(
+ isBind: boolean,
+ wrap: (fn: Function, ctx: any) => Function,
+) {
+ return (value: any, context: TMethodDecoratorContext): any => {
  const propertyKey = context.name;
- const isMethod = (context.kind === 'method' || context.kind === 'field') && isFunction(originalMethod);
- const isGetter = (context.kind === 'getter');
+ assertDecoratable(propertyKey, context);
 
- if (!isMethod) {
- throw new TypeError(`'${String(propertyKey)}' is not a method and cannot be decorated`);
- }
+ // --- getter ---
+ if (context.kind === 'getter') {
+ // Unified getter semantics across flavors: evaluate the user getter lazily (first access),
+ // then install an own, immutable property so the result is memoized PER INSTANCE (never on
+ // the prototype — that was the cross-instance corruption bug). Self-replacing own-property.
+ const originalGetter = value as () => any;
 
- if (context.private) {
- throw new TypeError(`'${String(propertyKey)}' is private and cannot be decorated`);
- }
+ return function (this: any) {
+ const raw = originalGetter.call(this);
 
- context.addInitializer(function (this: any) {
- let boundMethod: Function | undefined;
-
- if (isGetter) {
- boundMethod = (context as ClassGetterDecoratorContext).access.get(this) as Function;
-
- if (!isFunction(boundMethod)) {
+ if (!isFunction(raw)) {
  throw new TypeError(`'${String(propertyKey)}' getter result is not a function`);
  }
 
- if (isBind) {
- boundMethod = boundMethod.bind(this);
- }
- } else if (isBind) {
- boundMethod = originalMethod.bind(this);
+ const result = wrap(raw, isBind ? this : undefined);
+ setProperty(this, propertyKey, result);
+
+ return result;
+ };
  }
 
- // No-op for unbound non-getter methods
- if (boundMethod) {
- setProperty(this, propertyKey, boundMethod);
+ // --- field (arrow-fn class field) ---
+ if (context.kind === 'field') {
+ // value is undefined here; return an initializer-transformer that receives the field's
+ // initial value (the arrow fn) at construction time, per instance → isolation for free.
+ return function (this: any, initialValue: any) {
+ if (!isFunction(initialValue)) {
+ throw new TypeError(`'${String(propertyKey)}' is not a method and cannot be decorated`);
  }
+
+ return wrap(initialValue, isBind ? this : undefined);
+ };
+ }
+
+ // --- method ---
+ if (context.kind === 'method') {
+ if (!isFunction(value)) {
+ throw new TypeError(`'${String(propertyKey)}' is not a method and cannot be decorated`);
+ }
+
+ if (isBind) {
+ // bind:true → per-instance own-bound property. Prototype method left intact.
+ const originalMethod = value as Function;
+
+ (context as ClassMethodDecoratorContext).addInitializer(function (this: any) {
+ setProperty(this, propertyKey, wrap(originalMethod, this));
  });
 
- return originalMethod;
+ return value;
+ }
+
+ // bind:false → proto-level wrap: return the wrapped fn; `this` flows through at call time.
+ return wrap(value as Function, undefined);
+ }
+
+ throw new TypeError(`'${String(propertyKey)}' is not a method and cannot be decorated`);
  };
+}
+
+function isOptions(args: any[]): args is [IMethodDecoratorOptions?] {
+ // Called as `@AsyncMethod` / `@AsyncMethod()` / `@AsyncMethod({ ... })` → single (or zero) arg;
+ // called as raw decorator `@AsyncMethod` the runtime passes (value, context) → 2 args.
+ return args.length < 2;
+}
+
+export function AsyncMethod(value: any, context: TMethodDecoratorContext): any;
+export function AsyncMethod(options?: IMethodDecoratorOptions): TMethodDecorator;
+export function AsyncMethod(...args: [IMethodDecoratorOptions?] | [any, TMethodDecoratorContext]) {
+ if (!isOptions(args)) {
+ return AsyncMethod()(...(args as [any, TMethodDecoratorContext]));
+ }
+
+ const isBind = args[0]?.bind ?? false;
+
+ return makeDecorator(isBind, (fn, ctx) => cancAsync(fn as any, ctx));
+}
+
+export function BindMethod(value: any, context: TMethodDecoratorContext): any;
+export function BindMethod(options?: IMethodDecoratorOptions): TMethodDecorator;
+export function BindMethod(...args: [IMethodDecoratorOptions?] | [any, TMethodDecoratorContext]) {
+ if (!isOptions(args)) {
+ return BindMethod()(...(args as [any, TMethodDecoratorContext]));
+ }
+
+ const isBind = args[0]?.bind ?? true;
+
+ return makeDecorator(isBind, (fn, ctx) => (ctx !== undefined ? fn.bind(ctx) : fn));
 }

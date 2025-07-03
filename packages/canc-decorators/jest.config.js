@@ -14,16 +14,10 @@ function mergeTsJestConfig(options) {
 
 module.exports = {
  ...baseConfig,
- /*
-	globals: {
-	 ...baseConfig.globals,
-		'ts-jest': {
-		 ...baseConfig.globals['ts-jest'],
-			tsconfig: '<rootDir>/../../tsconfig.test.json'
-		}
-	},
- */
  transform: {
+ 'decorators\\.spec\\.ts$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.stage3.json' }],
+ 'decorators-legacy\\.spec\\.ts$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.legacy.json' }],
+ 'decorators-babel-legacy\\.spec\\.ts$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.babel-legacy.json' }],
  ...mergeTsJestConfig({ tsconfig: '<rootDir>/../../tsconfig.json' })
  },
  displayName: packageJson.name,

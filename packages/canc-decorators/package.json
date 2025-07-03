@@ -39,6 +39,9 @@
  "scripts": {
  "build": "rimraf dist && rollup --config ./rollup.config.js",
  "check": "tsc --noEmit --project ./tsconfig.prod.json",
+ "check:stage3": "tsc --noEmit --project ./tsconfig.stage3.json",
+ "check:legacy": "tsc --noEmit --project ./tsconfig.legacy.json",
+ "check:babel-legacy": "tsc --noEmit --project ./tsconfig.babel-legacy.json",
  "format": "eslint --fix ./src",
  "format:all": "eslint --fix .",
  "lint": "eslint ./src",

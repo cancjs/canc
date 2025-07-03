@@ -1,14 +1,25 @@
 import { isFunction } from '../../_util';
-// cancAsync moved from @cancjs/promise to @cancjs/coroutine (extraction) — update import.
+// cancAsync moved from @cancjs/promise to @cancjs/coroutine.
 import { async as cancAsync } from '@cancjs/coroutine';
+
+/**
+ * TS legacy decorators (`experimentalDecorators: true`). Runtime shape:
+ * method/getter → (target=prototype, propertyKey, descriptor)
+ * field/prop → (target=prototype, propertyKey) [no descriptor]
+ *
+ * bind:false → proto-level wrap (rewrite descriptor.value once on the prototype).
+ * bind:true → per-instance: a lazy accessor that, on first read, installs an own, ctx-bound
+ * immutable property on the INSTANCE (self-replacing own-property). The previous
+ * implementation cached bound methods in a Map stored on the prototype keyed by
+ * property name — the first instance's bound method leaked to every other instance
+ * and pinned the first instance forever. Per-instance own-property fixes both.
+ */
 
 type TLegacyMethodDecorator = MethodDecorator | PropertyDecorator;
 
 interface IMethodDecoratorOptions {
  bind?: boolean;
 }
-
-const memoizedBoundMapKey = Symbol('canc bound methods');
 
 function setProperty(target: any, key: string | symbol, value: any) {
  Object.defineProperty(target, key, {
@@ -19,139 +30,144 @@ function setProperty(target: any, key: string | symbol, value: any) {
  });
 }
 
-// Late bind via a descriptor
-function lateBindMethod({target, descriptor, propertyKey, originalMethod, wrapAsync = false}: {
- target: any;
- descriptor: PropertyDescriptor;
- propertyKey: string;
- originalMethod: Function,
- wrapAsync?: boolean
-}) {
- if (!(memoizedBoundMapKey in target)) {
- setProperty(target, memoizedBoundMapKey, new Map());
- }
-
- const memoizedBoundMethodsMap: Map<string, Function> = target[memoizedBoundMapKey];
-
- descriptor.get = function (this: any) {
- let boundMethod: Function;
-
- if (memoizedBoundMethodsMap.has(propertyKey)) {
- boundMethod = memoizedBoundMethodsMap.get(propertyKey)!;
- } else {
- if (wrapAsync) {
- boundMethod = cancAsync(originalMethod as GeneratorFunction, this);
- } else {
- boundMethod = originalMethod.bind(this);
- }
- memoizedBoundMethodsMap.set(propertyKey, boundMethod);
- }
-
- return boundMethod;
- };
-
- delete descriptor.value;
+/**
+ * Install a lazy, per-instance accessor on the PROTOTYPE. On first read from any instance it
+ * computes `produce(this)` and defines it as an own, immutable property on that instance, which
+ * then shadows this prototype accessor for that instance only. No shared cross-instance state,
+ * and once an instance is discarded nothing pins it (contrast: prototype Map).
+ */
+function definePerInstanceAccessor(
+ target: any,
+ propertyKey: string | symbol,
+ produce: (self: any) => Function,
+) {
+ Object.defineProperty(target, propertyKey, {
+ configurable: true,
+ enumerable: false,
+ get(this: any) {
+ const value = produce(this);
+ setProperty(this, propertyKey, value);
+ return value;
+ },
+ set(this: any, value: any) {
+ // Allow subclasses / manual assignment to override, matching a normal own field.
+ setProperty(this, propertyKey, value);
+ },
+ });
 }
 
-export function LegacyAsyncMethod(target: any, propertyKey: string): void;
-export function LegacyAsyncMethod(target: any, propertyKey: string, descriptor: PropertyDescriptor): void;
-export function LegacyAsyncMethod(options?: IMethodDecoratorOptions): TLegacyMethodDecorator;
-export function LegacyAsyncMethod(...args: [IMethodDecoratorOptions?] | [any, string] | [any, string, PropertyDescriptor]) {
- if (args.length > 1) {
- return LegacyAsyncMethod()(...args as [any, string, PropertyDescriptor]) as TLegacyMethodDecorator;
+function makeLegacyDecorator(
+ isBind: boolean,
+ wrap: (fn: Function, ctx: any) => Function,
+) {
+ return (target: any, propertyKey: string | symbol, descriptor?: PropertyDescriptor) => {
+ const isProtoMethod = !!descriptor && !descriptor.get;
+ const isGetter = !!descriptor && !!descriptor.get;
+
+ // --- getter ---
+ if (isGetter) {
+ const originalGetter = descriptor!.get!;
+
+ descriptor!.get = function (this: any) {
+ const raw = originalGetter.call(this);
+
+ if (!isFunction(raw)) {
+ throw new TypeError(`'${String(propertyKey)}' getter result is not a function`);
  }
 
- const [options] = args as [IMethodDecoratorOptions?];
- const isBind = options?.bind ?? false;
+ const value = wrap(raw, isBind ? this : undefined);
+ // Memoize per instance (own-property shadows this accessor for this instance only).
+ setProperty(this, propertyKey, value);
 
- return (target: any, propertyKey: string, descriptor?: PropertyDescriptor) => {
- const isProtoMethod = !!descriptor;
- const originalMethod = isProtoMethod ? descriptor.value : target[propertyKey];
+ return value;
+ };
+
+ return;
+ }
+
+ // --- proto method ---
+ if (isProtoMethod) {
+ const originalMethod = descriptor!.value as Function;
 
  if (!isFunction(originalMethod)) {
  throw new TypeError(`'${String(propertyKey)}' is not a method and cannot be decorated`);
  }
 
- if (isProtoMethod) {
  if (isBind) {
- lateBindMethod({target, descriptor, propertyKey, originalMethod, wrapAsync: true});
+ // bind:true → lazy per-instance own-bound property.
+ delete descriptor!.value;
+ delete (descriptor as any).writable;
+ definePerInstanceAccessor(target, propertyKey, (self) => wrap(originalMethod, self));
  } else {
- descriptor.value = cancAsync(originalMethod);
+ // bind:false → proto wrap once.
+ descriptor!.value = wrap(originalMethod, undefined);
  }
- } else {
- if (isBind) {
- target[propertyKey] = cancAsync(originalMethod, target);
- } else {
- target[propertyKey] = cancAsync(originalMethod);
+
+ return;
  }
- }
+
+ // --- field / property (no descriptor) ---
+ // The initial value is not observable here in the TS-legacy runtime; install a lazy accessor
+ // that wraps the field's initial value on first read. Because class-field initializers run in
+ // the constructor and assign via [[Set]], our accessor's setter captures that initial value
+ // and re-installs the wrapped own-property per instance.
+ definePerInstanceFieldAccessor(target, propertyKey, isBind, wrap);
  };
 }
 
-const memoizedGetterMapKey = Symbol('canc getter methods');
+/**
+ * Field path: the accessor's setter receives the field's initial value at construction, wraps it,
+ * and defines a per-instance own-property. Reads before assignment yield undefined (matches an
+ * uninitialized field).
+ */
+function definePerInstanceFieldAccessor(
+ target: any,
+ propertyKey: string | symbol,
+ isBind: boolean,
+ wrap: (fn: Function, ctx: any) => Function,
+) {
+ Object.defineProperty(target, propertyKey, {
+ configurable: true,
+ enumerable: true,
+ get() {
+ return undefined;
+ },
+ set(this: any, initialValue: any) {
+ if (!isFunction(initialValue)) {
+ throw new TypeError(`'${String(propertyKey)}' is not a method and cannot be decorated`);
+ }
 
-export function LegacyBindMethod(target: any, propertyKey: string): void;
-export function LegacyBindMethod(target: any, propertyKey: string, descriptor: PropertyDescriptor): void;
-export function LegacyBindMethod(options?: IMethodDecoratorOptions): TLegacyMethodDecorator;
-export function LegacyBindMethod(...args: [IMethodDecoratorOptions?] | [any, string] | [any, string, PropertyDescriptor]) {
+ setProperty(this, propertyKey, wrap(initialValue, isBind ? this : undefined));
+ },
+ });
+}
+
+export function LegacyAsyncMethod(target: any, propertyKey: string | symbol): void;
+export function LegacyAsyncMethod(target: any, propertyKey: string | symbol, descriptor: PropertyDescriptor): void;
+export function LegacyAsyncMethod(options?: IMethodDecoratorOptions): TLegacyMethodDecorator;
+export function LegacyAsyncMethod(
+ ...args: [IMethodDecoratorOptions?] | [any, string | symbol] | [any, string | symbol, PropertyDescriptor]
+) {
  if (args.length > 1) {
- return LegacyBindMethod()(...args as [any, string, PropertyDescriptor]) as TLegacyMethodDecorator;
+ return LegacyAsyncMethod()(...(args as [any, string, PropertyDescriptor])) as TLegacyMethodDecorator;
  }
 
- const [options] = args as [IMethodDecoratorOptions?];
- const isBind = options?.bind ?? true;
+ const isBind = (args[0] as IMethodDecoratorOptions | undefined)?.bind ?? false;
 
- return (target: any, propertyKey: string, descriptor?: PropertyDescriptor) => {
- const isProtoMethod = !!descriptor;
- const isGetter = isProtoMethod && !!descriptor.get;
- let originalMethod: Function | undefined;
+ return makeLegacyDecorator(isBind, (fn, ctx) => cancAsync(fn as any, ctx)) as TLegacyMethodDecorator;
+}
 
- if (!isGetter) {
- originalMethod = isProtoMethod ? descriptor.value : target[propertyKey];
+export function LegacyBindMethod(target: any, propertyKey: string | symbol): void;
+export function LegacyBindMethod(target: any, propertyKey: string | symbol, descriptor: PropertyDescriptor): void;
+export function LegacyBindMethod(options?: IMethodDecoratorOptions): TLegacyMethodDecorator;
+export function LegacyBindMethod(
+ ...args: [IMethodDecoratorOptions?] | [any, string | symbol] | [any, string | symbol, PropertyDescriptor]
+) {
+ if (args.length > 1) {
+ return LegacyBindMethod()(...(args as [any, string, PropertyDescriptor])) as TLegacyMethodDecorator;
  }
 
- if (!isGetter && !isFunction(originalMethod)) {
- throw new TypeError(`'${String(propertyKey)}' is not a method or getter and cannot be decorated`);
- }
+ const isBind = (args[0] as IMethodDecoratorOptions | undefined)?.bind ?? true;
 
- if (isGetter) {
- if (!(memoizedGetterMapKey in target)) {
- setProperty(target, memoizedGetterMapKey, new Map());
- }
-
- const memoizedGetterMethodsMap: Map<string, Function> = target[memoizedGetterMapKey];
-
- const originalGetter = descriptor.get!;
-
- descriptor.get = function (this: any) {
- let getterMethod: Function;
-
- if (memoizedGetterMethodsMap.has(propertyKey)) {
- getterMethod = memoizedGetterMethodsMap.get(propertyKey)!;
- } else {
- getterMethod = originalGetter.call(this);
- const isGetterMethod = isFunction(getterMethod);
-
- if (isGetterMethod && isBind) {
- getterMethod = getterMethod.bind(this);
- }
-
- // Prevent multiple errors for non-function getter result too
- memoizedGetterMethodsMap.set(propertyKey, getterMethod);
-
- if (!isGetterMethod) {
- throw new TypeError(`'${String(propertyKey)}' getter result is not a function`);
- }
- }
-
- return getterMethod;
- };
- } else if (originalMethod && isBind) {
- if (isProtoMethod) {
- lateBindMethod({target, descriptor, propertyKey, originalMethod, wrapAsync: false});
- } else {
- setProperty(target, propertyKey, originalMethod.bind(target));
- }
- }
- }
+ return makeLegacyDecorator(isBind, (fn, ctx) => (ctx !== undefined ? fn.bind(ctx) : fn)) as TLegacyMethodDecorator;
 }
