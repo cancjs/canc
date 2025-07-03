@@ -19,9 +19,10 @@ import CancelablePromise, {
  catchCancel,
  suppressCancel,
  forceCancelable,
- async as cancAsync,
- await as cancAwait,
 } from '@cancjs/promise';
+
+// coroutine (cancAsync/cancAwait) lives in its own package now; core no longer re-exports it.
+import { async as cancAsync, await as cancAwait } from '@cancjs/coroutine';
 
 import type {
  ICancelablePromiseOptions,

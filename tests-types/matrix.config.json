@@ -1,7 +1,8 @@
 {
  "comment": "TS version matrix for P4-2. Each entry becomes an isolated fixture project with its own pinned TypeScript and its own installed tarball of the built packages. moduleResolution is chosen per version so the intended d.ts resolution path is exercised: TS<4.7 has no `exports`/`node16` support so it falls through package.json `typesVersions` to dist/types-ts4.2; TS>=4.7 reads the `exports.types@<4.7` / `types` conditions.",
  "packages": [
- "canc-promise"
+ "canc-promise",
+ "canc-coroutine"
  ],
  "versions": [
  { "id": "4.2", "typescript": "4.2.4", "moduleResolution": "node", "lib": ["es2020", "dom"] },

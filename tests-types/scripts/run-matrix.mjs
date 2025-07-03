@@ -12,8 +12,9 @@
  * diverge freely),
  * 4. runs the fixture-local `tsc --noEmit` and records pass/fail.
  *
- * The `latest` lane additionally compiles the P4-3 type-assertion suite
- * (common/type-assertions.ts) via its `typeAssertions` flag.
+ * The `latest` lane additionally compiles the type-assertion suites
+ * (common/type-assertions.ts + common/coroutine-types.ts) via its
+ * `typeAssertions` flag.
  *
  * Flags:
  * --setup-only pack + install fixtures, don't run tsc
@@ -107,6 +108,7 @@ function writeFixture(version, tarballs) {
  const files = ['../common/api-smoke.ts'];
  if (version.typeAssertions) {
  files.push('../common/type-assertions.ts');
+ files.push('../common/coroutine-types.ts');
  }
 
  // Downlevel-friendly tsconfig. moduleResolution per version drives which
