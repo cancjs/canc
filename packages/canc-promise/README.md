@@ -77,6 +77,42 @@ list). Verified against a pinned TS version matrix: 4.2, 4.7, 5.0, 5.4, latest.
 the published package. See the [root README Compatibility section](../../README.md#compatibility)
 for browser/engine notes, including QuickJS, XS (Moddable) and Hermes.
 
+## Pluggable implementation
+
+Ecosystem packages (toolbox, lazy-promise, coroutine) pick which promise implementation to build
+on through a small registry exported here. Register one implementation at app startup and every
+consumer that has no more specific override uses it:
+
+```js
+const { setPromiseImpl, getPromiseImpl } = require('@cancjs/promise');
+
+setPromiseImpl(MyPromiseImpl); // default is CancelablePromise
+getPromiseImpl(); // MyPromiseImpl
+setPromiseImpl(); // clears the registration, back to CancelablePromise
+```
+
+Consumers resolve the implementation for each call in this order, highest first: a per-call
+`options.impl`, then the consumer's own class static, then the registry set here, then the built-in
+`CancelablePromise`. Per-call and static injection pass the implementation by reference, so they
+always work. The registry is the convenience layer for the common case where one implementation
+applies process-wide.
+
+### Troubleshooting: registration seems to be ignored
+
+The registry is module state in this package. It works app-wide because ecosystem packages declare
+`@cancjs/promise` as a `peerDependency`, so the package manager installs a single shared copy. If
+two different versions of `@cancjs/promise` end up in the same dependency tree, each carries its
+own registry: a `setPromiseImpl` call made through one copy is invisible to code reading through
+the other, so the second copy silently falls back to its built-in default.
+
+Symptoms: `setPromiseImpl` runs without error but a consumer still uses `CancelablePromise`, or
+`getPromiseImpl()` returns a different value than the one you set.
+
+Fixes: keep `@cancjs/promise` deduplicated to one version (align the peer ranges across your
+ecosystem packages, run `npm ls @cancjs/promise` / `yarn why @cancjs/promise` to confirm a single
+copy). When you cannot guarantee a single copy, pass the implementation explicitly through per-call
+options or a class static instead of relying on the registry.
+
 ## License
 
 [MIT](../../LICENSE)

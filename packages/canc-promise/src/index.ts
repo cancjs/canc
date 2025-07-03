@@ -9,3 +9,4 @@ export * from './cancel-error';
 // shim. The `async`/`await` aliases now live on @cancjs/coroutine's own entry point instead;
 // import cancAsync/cancAwait (or the async/await aliases) from '@cancjs/coroutine'.
 export * from './helpers';
+export * from './impl-registry';
