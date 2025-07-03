@@ -232,4 +232,49 @@ function createYielder<TProduce, TSend>(_call: (y: TProduce) => TSend): (arg: TP
 }
 
 type cancAwait = <T>(value: Promise<T> | T) => T;
-export const cancAwait = createYielder(null as unknown as cancAwait);
+
+/**
+ * One-shot combinator helpers for the typed `yield*` path.
+ *
+ * `cancAwait.all([...])` and its siblings fold a combinator into a single
+ * yielded step: they build the corresponding `CancelablePromise.all/race/any/
+ * allSettled` and yield THAT one promise, so at runtime the coroutine driver
+ * still awaits exactly one value (identical handling to `yield combined`). The
+ * value they carry over `yield*` is the combinator's own result, so tuple
+ * inference is preserved:
+ *
+ * const [n, s] = yield* cancAwait.all([Promise.resolve(1), Promise.resolve('a')]);
+ * // ^ number ^ string — tuple, not `unknown[]`
+ *
+ * The argument/return types are taken verbatim from `CancelablePromise`'s own
+ * combinator overloads (`typeof CancelablePromise.all`, ...), so every arity /
+ * heterogeneous-tuple overload the class ships is inherited here for free — no
+ * parallel overload set to keep in sync.
+ */
+type TCombinator<TStatic extends (...args: any[]) => CancelablePromise<any>> =
+ <TArgs extends Parameters<TStatic>>(...args: TArgs) => Generator<
+ ReturnType<TStatic>,
+ ReturnType<TStatic> extends CancelablePromise<infer R> ? R : never,
+ ReturnType<TStatic> extends CancelablePromise<infer R> ? R : never
+ >;
+
+interface ICancAwait {
+ <T>(value: Promise<T> | T): Generator<Promise<T> | T, T, T>;
+ all: TCombinator<typeof CancelablePromise.all>;
+ race: TCombinator<typeof CancelablePromise.race>;
+ any: TCombinator<typeof CancelablePromise.any>;
+ allSettled: TCombinator<typeof CancelablePromise.allSettled>;
+}
+
+function makeCombinator(build: (...args: any[]) => CancelablePromise<any>) {
+ return function* (...args: any[]): Generator<any, any, any> {
+ return yield build.apply(CancelablePromise, args);
+ };
+}
+
+export const cancAwait = createYielder(null as unknown as cancAwait) as ICancAwait;
+
+cancAwait.all = makeCombinator(CancelablePromise.all) as ICancAwait['all'];
+cancAwait.race = makeCombinator(CancelablePromise.race) as ICancAwait['race'];
+cancAwait.any = makeCombinator(CancelablePromise.any) as ICancAwait['any'];
+cancAwait.allSettled = makeCombinator(CancelablePromise.allSettled) as ICancAwait['allSettled'];

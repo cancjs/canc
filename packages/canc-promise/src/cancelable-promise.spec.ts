@@ -283,7 +283,7 @@ describe('coverage completion', () => {
 	});
 });
 
-// F5 fallback test + AggregateError fallback test live outside the Native-Promise-capture guard above:
+// AggregateError fallback test lives outside the Native-Promise-capture guard describe above:
 // that describe's beforeEach spies on the global `Promise` getter and throws on access,
 // which would fire spuriously here since isolateModules re-requires the module fresh.
 describe('any() AggregateError ponyfill fallback', () => {
