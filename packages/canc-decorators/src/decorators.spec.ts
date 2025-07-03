@@ -19,6 +19,22 @@ function gc() {
  }
 }
 
+// FinalizationRegistry callbacks are best-effort: one collection is rarely enough to run them.
+// Drive several GC cycles across macrotask turns until the predicate holds or the cap is reached.
+async function forceCollect(done: () => boolean, cycles = 25, gap = 20): Promise<void> {
+ for (let i = 0; i < cycles && !done(); i++) {
+ gc();
+ await delay(gap);
+ }
+}
+
+// Access a property for its side effect (materializing a per-instance own-bound method) without
+// retaining the result. A plain `const x = inst.method` is downleveled to a function-scoped `var`
+// under the es5 target and would pin the instance for the whole test, defeating the GC assertion.
+function touch(_value: unknown): void {
+ // intentionally empty
+}
+
 // ============================================================================
 // AsyncMethod tests
 // ============================================================================
@@ -28,8 +44,8 @@ describe('decorators (ES stage-3) — AsyncMethod', () => {
  it('proto method wraps at decoration time', async () => {
  class C {
  @AsyncMethod()
- *method() {
- yield Promise.resolve(42);
+ *method(): Generator<any, any, any> {
+ return yield Promise.resolve(42);
  }
  }
 
@@ -42,8 +58,8 @@ describe('decorators (ES stage-3) — AsyncMethod', () => {
  it('field arrow fn returns wrapped initializer', async () => {
  class C {
  @AsyncMethod()
- method = async function* (this: any) {
- yield Promise.resolve(99);
+ method = function* (this: any): Generator<any, any, any> {
+ return yield Promise.resolve(99);
  };
  }
 
@@ -90,8 +106,8 @@ describe('decorators (ES stage-3) — AsyncMethod', () => {
  }
 
  @AsyncMethod()
- *method() {
- yield Promise.resolve(this.id);
+ *method(): Generator<any, any, any> {
+ return yield Promise.resolve(this.id);
  }
  }
 
@@ -107,8 +123,8 @@ describe('decorators (ES stage-3) — AsyncMethod', () => {
  it('per-instance method is bound at construction', async () => {
  class C {
  @AsyncMethod({ bind: true })
- *method() {
- yield Promise.resolve(this);
+ *method(): Generator<any, any, any> {
+ return yield Promise.resolve(this);
  }
  }
 
@@ -128,8 +144,8 @@ describe('decorators (ES stage-3) — AsyncMethod', () => {
  }
 
  @AsyncMethod({ bind: true })
- method = async function* (this: any) {
- yield Promise.resolve(this.id);
+ method = function* (this: any): Generator<any, any, any> {
+ return yield Promise.resolve(this.id);
  };
  }
 
@@ -144,8 +160,8 @@ describe('decorators (ES stage-3) — AsyncMethod', () => {
  class C {
  @AsyncMethod({ bind: true })
  get method() {
- return function* (this: any) {
- yield Promise.resolve(this);
+ return function* (this: any): Generator<any, any, any> {
+ return yield Promise.resolve(this);
  };
  }
  }
@@ -166,8 +182,8 @@ describe('decorators (ES stage-3) — AsyncMethod', () => {
  }
 
  @AsyncMethod({ bind: true })
- *method() {
- yield Promise.resolve(this.id);
+ *method(): Generator<any, any, any> {
+ return yield Promise.resolve(this.id);
  }
  }
 
@@ -248,8 +264,15 @@ describe('decorators (ES stage-3) — AsyncMethod', () => {
  }
 
  const finalized: boolean[] = [];
+ // Registry must outlive inst1, otherwise it is collected alongside inst1 and its callback
+ // never runs.
+ const registry = new FinalizationRegistry(() => {
+ finalized.push(true);
+ });
 
- {
+ // inst1 lives ONLY in this nested sync function. If it were a local of the async test body
+ // it would be captured by the es5 generator state machine and pinned across the awaits below.
+ const registerInstance1 = () => {
  const inst1 = new (class {
  @AsyncMethod({ bind: true })
  *method() {
@@ -257,13 +280,10 @@ describe('decorators (ES stage-3) — AsyncMethod', () => {
  }
  })();
 
- const _ = inst1.method;
-
- const registry = new FinalizationRegistry(() => {
- finalized.push(true);
- });
+ touch(inst1.method);
  registry.register(inst1, 'instance1');
- }
+ };
+ registerInstance1();
 
  const inst2 = new (class {
  @AsyncMethod({ bind: true })
@@ -272,10 +292,9 @@ describe('decorators (ES stage-3) — AsyncMethod', () => {
  }
  })();
 
- const _ = inst2.method;
+ touch(inst2.method);
 
- gc();
- await delay(10);
+ await forceCollect(() => finalized.length > 0);
 
  expect(finalized.length).toBeGreaterThan(0);
  expect(finalized[0]).toBe(true);
@@ -436,8 +455,15 @@ describe('decorators (ES stage-3) — BindMethod', () => {
  }
 
  const finalized: boolean[] = [];
+ // Registry must outlive inst1, otherwise it is collected alongside inst1 and its callback
+ // never runs.
+ const registry = new FinalizationRegistry(() => {
+ finalized.push(true);
+ });
 
- {
+ // inst1 lives ONLY in this nested sync function. If it were a local of the async test body
+ // it would be captured by the es5 generator state machine and pinned across the awaits below.
+ const registerInstance1 = () => {
  const inst1 = new (class {
  @BindMethod()
  method() {
@@ -445,13 +471,10 @@ describe('decorators (ES stage-3) — BindMethod', () => {
  }
  })();
 
- const _ = inst1.method;
-
- const registry = new FinalizationRegistry(() => {
- finalized.push(true);
- });
+ touch(inst1.method);
  registry.register(inst1, 'instance1');
- }
+ };
+ registerInstance1();
 
  const inst2 = new (class {
  @BindMethod()
@@ -460,10 +483,9 @@ describe('decorators (ES stage-3) — BindMethod', () => {
  }
  })();
 
- const _ = inst2.method;
+ touch(inst2.method);
 
- gc();
- await delay(10);
+ await forceCollect(() => finalized.length > 0);
 
  expect(finalized.length).toBeGreaterThan(0);
  expect(finalized[0]).toBe(true);

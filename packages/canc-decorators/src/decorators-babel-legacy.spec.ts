@@ -19,12 +19,46 @@ function gc() {
  }
 }
 
-function* simpleGenerator() {
- yield Promise.resolve(42);
+// FinalizationRegistry callbacks are best-effort: one collection is rarely enough to run them.
+// Drive several GC cycles across macrotask turns until the predicate holds or the cap is reached.
+async function forceCollect(done: () => boolean, cycles = 25, gap = 20): Promise<void> {
+ for (let i = 0; i < cycles && !done(); i++) {
+ gc();
+ await delay(gap);
+ }
 }
 
-function* idGenerator(this: any) {
- yield Promise.resolve(this.id);
+// Access a property for its side effect (materializing a per-instance own-bound method) without
+// retaining the result. A plain `const x = inst.method` is downleveled to a function-scoped `var`
+// under the es5 target and would pin the instance for the whole test, defeating the GC assertion.
+function touch(_value: unknown): void {
+ // intentionally empty
+}
+
+function* simpleGenerator(): Generator<any, any, any> {
+ return yield Promise.resolve(42);
+}
+
+function* idGenerator(this: any): Generator<any, any, any> {
+ return yield Promise.resolve(this.id);
+}
+
+/**
+ * Emulate babel loose-mode class-field construction for a decorated field. Babel does not put the
+ * field descriptor on the prototype; it invokes the (decorator-rewritten) `initializer` with the
+ * instance as `this` during construction and assigns the returned value as an own property. The
+ * decorator functions return the mutated descriptor, so applying that descriptor's initializer is
+ * exactly what the babel runtime does per instance.
+ */
+function applyBabelField(instance: any, key: string | symbol, descriptor: any) {
+ const value = descriptor.initializer ? descriptor.initializer.call(instance) : undefined;
+ Object.defineProperty(instance, key, {
+ value,
+ writable: true,
+ enumerable: true,
+ configurable: true,
+ });
+ return instance;
 }
 
 describe('decorators (babel-legacy) — BabelLegacyAsyncMethod', () => {
@@ -44,7 +78,7 @@ describe('decorators (babel-legacy) — BabelLegacyAsyncMethod', () => {
  BabelLegacyAsyncMethod(C.prototype, 'method', descriptor);
  Object.defineProperty(C.prototype, 'method', descriptor);
 
- const inst = new C();
+ const inst = new C() as any;
  const result = await inst.method();
 
  expect(result).toBe(42);
@@ -57,8 +91,8 @@ describe('decorators (babel-legacy) — BabelLegacyAsyncMethod', () => {
 
  const descriptor = {
  initializer: function (this: any) {
- return async function* (that: any) {
- yield Promise.resolve(that.id);
+ return function* (this: any): Generator<any, any, any> {
+ return yield Promise.resolve(this.id);
  };
  },
  writable: true,
@@ -67,10 +101,10 @@ describe('decorators (babel-legacy) — BabelLegacyAsyncMethod', () => {
  };
 
  BabelLegacyAsyncMethod(C.prototype, 'method', descriptor);
- Object.defineProperty(C.prototype, 'method', descriptor);
 
- const inst = new C();
+ const inst = new C() as any;
  inst.id = 99;
+ applyBabelField(inst, 'method', descriptor);
  const result = await inst.method();
 
  expect(result).toBe(99);
@@ -95,8 +129,8 @@ describe('decorators (babel-legacy) — BabelLegacyAsyncMethod', () => {
  BabelLegacyAsyncMethod(C.prototype, 'method', descriptor);
  Object.defineProperty(C.prototype, 'method', descriptor);
 
- const inst1 = new C();
- const inst2 = new C();
+ const inst1 = new C() as any;
+ const inst2 = new C() as any;
 
  const fn1a = inst1.method;
  expect(callCount).toBe(1);
@@ -129,8 +163,8 @@ describe('decorators (babel-legacy) — BabelLegacyAsyncMethod', () => {
  BabelLegacyAsyncMethod(C.prototype, 'method', descriptor);
  Object.defineProperty(C.prototype, 'method', descriptor);
 
- const inst1 = new C(10);
- const inst2 = new C(20);
+ const inst1 = new C(10) as any;
+ const inst2 = new C(20) as any;
 
  expect(await inst1.method()).toBe(10);
  expect(await inst2.method()).toBe(20);
@@ -142,7 +176,7 @@ describe('decorators (babel-legacy) — BabelLegacyAsyncMethod', () => {
  class C {}
 
  const descriptor = {
- value: function (this: any) {
+ value: function* (this: any): Generator<any, any, any> {
  return this;
  },
  writable: true,
@@ -153,7 +187,7 @@ describe('decorators (babel-legacy) — BabelLegacyAsyncMethod', () => {
  BabelLegacyAsyncMethod({ bind: true })(C.prototype, 'method', descriptor);
  Object.defineProperty(C.prototype, 'method', descriptor);
 
- const inst = new C();
+ const inst = new C() as any;
  const method = inst.method;
  const resultThis = await method();
 
@@ -171,8 +205,8 @@ describe('decorators (babel-legacy) — BabelLegacyAsyncMethod', () => {
 
  const descriptor = {
  initializer: function (this: any) {
- return async function* (that: any) {
- yield Promise.resolve(that.id);
+ return function* (this: any): Generator<any, any, any> {
+ return yield Promise.resolve(this.id);
  };
  },
  writable: true,
@@ -181,9 +215,9 @@ describe('decorators (babel-legacy) — BabelLegacyAsyncMethod', () => {
  };
 
  BabelLegacyAsyncMethod({ bind: true })(C.prototype, 'method', descriptor);
- Object.defineProperty(C.prototype, 'method', descriptor);
 
- const inst = new C(42);
+ const inst = new C(42) as any;
+ applyBabelField(inst, 'method', descriptor);
  const method = inst.method;
  const result = await method();
 
@@ -204,9 +238,9 @@ describe('decorators (babel-legacy) — BabelLegacyAsyncMethod', () => {
  }
 
  const descriptor = {
- value: function (this: any) {
+ value: function* (this: any): Generator<any, any, any> {
  log.push(this.id);
- return Promise.resolve();
+ yield Promise.resolve();
  },
  writable: true,
  enumerable: false,
@@ -216,8 +250,8 @@ describe('decorators (babel-legacy) — BabelLegacyAsyncMethod', () => {
  BabelLegacyAsyncMethod(C.prototype, 'method', descriptor);
  Object.defineProperty(C.prototype, 'method', descriptor);
 
- const inst1 = new C(1);
- const inst2 = new C(2);
+ const inst1 = new C(1) as any;
+ const inst2 = new C(2) as any;
 
  await inst1.method();
  await inst2.method();
@@ -237,9 +271,9 @@ describe('decorators (babel-legacy) — BabelLegacyAsyncMethod', () => {
  }
 
  const descriptor = {
- value: function (this: any) {
+ value: function* (this: any): Generator<any, any, any> {
  log.push(this.id);
- return Promise.resolve();
+ yield Promise.resolve();
  },
  writable: true,
  enumerable: false,
@@ -249,8 +283,8 @@ describe('decorators (babel-legacy) — BabelLegacyAsyncMethod', () => {
  BabelLegacyAsyncMethod({ bind: true })(C.prototype, 'method', descriptor);
  Object.defineProperty(C.prototype, 'method', descriptor);
 
- const inst1 = new C(1);
- const inst2 = new C(2);
+ const inst1 = new C(1) as any;
+ const inst2 = new C(2) as any;
 
  const method1 = inst1.method;
  const method2 = inst2.method;
@@ -270,8 +304,15 @@ describe('decorators (babel-legacy) — BabelLegacyAsyncMethod', () => {
  }
 
  const finalized: boolean[] = [];
+ // Registry must outlive inst1, otherwise it is collected alongside inst1 and its callback
+ // never runs.
+ const registry = new FinalizationRegistry(() => {
+ finalized.push(true);
+ });
 
- {
+ // inst1 lives ONLY in this nested sync function. If it were a local of the async test body
+ // it would be captured by the es5 generator state machine and pinned across the awaits below.
+ const registerInstance1 = () => {
  class C {}
 
  const descriptor = {
@@ -286,14 +327,12 @@ describe('decorators (babel-legacy) — BabelLegacyAsyncMethod', () => {
  BabelLegacyAsyncMethod({ bind: true })(C.prototype, 'method', descriptor);
  Object.defineProperty(C.prototype, 'method', descriptor);
 
- const inst1 = new C();
- const _ = inst1.method;
+ const inst1 = new C() as any;
+ touch(inst1.method);
 
- const registry = new FinalizationRegistry(() => {
- finalized.push(true);
- });
  registry.register(inst1, 'instance1');
- }
+ };
+ registerInstance1();
 
  {
  class C2 {}
@@ -310,12 +349,12 @@ describe('decorators (babel-legacy) — BabelLegacyAsyncMethod', () => {
  BabelLegacyAsyncMethod({ bind: true })(C2.prototype, 'method', descriptor);
  Object.defineProperty(C2.prototype, 'method', descriptor);
 
- const inst2 = new C2();
- const _ = inst2.method;
+ const inst2 = new C2() as any;
+ touch(inst2.method);
 
- gc();
- await delay(10);
  }
+
+ await forceCollect(() => finalized.length > 0);
 
  expect(finalized.length).toBeGreaterThan(0);
  expect(finalized[0]).toBe(true);
@@ -346,7 +385,7 @@ describe('decorators (babel-legacy) — BabelLegacyBindMethod', () => {
  BabelLegacyBindMethod(C.prototype, 'method', descriptor);
  Object.defineProperty(C.prototype, 'method', descriptor);
 
- const inst = new C(50);
+ const inst = new C(50) as any;
  const method = inst.method;
  const result = method();
 
@@ -364,8 +403,8 @@ describe('decorators (babel-legacy) — BabelLegacyBindMethod', () => {
 
  const descriptor = {
  initializer: function (this: any) {
- return function (that: any) {
- return that.id;
+ return function (this: any) {
+ return this.id;
  };
  },
  writable: true,
@@ -374,9 +413,9 @@ describe('decorators (babel-legacy) — BabelLegacyBindMethod', () => {
  };
 
  BabelLegacyBindMethod(C.prototype, 'method', descriptor);
- Object.defineProperty(C.prototype, 'method', descriptor);
 
- const inst = new C(75);
+ const inst = new C(75) as any;
+ applyBabelField(inst, 'method', descriptor);
  const method = inst.method;
  const result = method();
 
@@ -404,8 +443,8 @@ describe('decorators (babel-legacy) — BabelLegacyBindMethod', () => {
  BabelLegacyBindMethod(C.prototype, 'method', descriptor);
  Object.defineProperty(C.prototype, 'method', descriptor);
 
- const inst1 = new C(111);
- const inst2 = new C(222);
+ const inst1 = new C(111) as any;
+ const inst2 = new C(222) as any;
 
  const fn1 = inst1.method;
  const fn2 = inst2.method;
@@ -438,7 +477,7 @@ describe('decorators (babel-legacy) — BabelLegacyBindMethod', () => {
  BabelLegacyBindMethod({ bind: false })(C.prototype, 'method', descriptor);
  Object.defineProperty(C.prototype, 'method', descriptor);
 
- const inst = new C(11);
+ const inst = new C(11) as any;
  const method = inst.method;
 
  expect(() => method()).toThrow();
@@ -470,8 +509,8 @@ describe('decorators (babel-legacy) — BabelLegacyBindMethod', () => {
  BabelLegacyBindMethod(C.prototype, 'method', descriptor);
  Object.defineProperty(C.prototype, 'method', descriptor);
 
- const inst1 = new C(1);
- const inst2 = new C(2);
+ const inst1 = new C(1) as any;
+ const inst2 = new C(2) as any;
 
  inst1.method();
  inst2.method();
@@ -488,8 +527,15 @@ describe('decorators (babel-legacy) — BabelLegacyBindMethod', () => {
  }
 
  const finalized: boolean[] = [];
+ // Registry must outlive inst1, otherwise it is collected alongside inst1 and its callback
+ // never runs.
+ const registry = new FinalizationRegistry(() => {
+ finalized.push(true);
+ });
 
- {
+ // inst1 lives ONLY in this nested sync function. If it were a local of the async test body
+ // it would be captured by the es5 generator state machine and pinned across the awaits below.
+ const registerInstance1 = () => {
  class C {}
 
  const descriptor = {
@@ -504,14 +550,12 @@ describe('decorators (babel-legacy) — BabelLegacyBindMethod', () => {
  BabelLegacyBindMethod(C.prototype, 'method', descriptor);
  Object.defineProperty(C.prototype, 'method', descriptor);
 
- const inst1 = new C();
- const _ = inst1.method;
+ const inst1 = new C() as any;
+ touch(inst1.method);
 
- const registry = new FinalizationRegistry(() => {
- finalized.push(true);
- });
  registry.register(inst1, 'instance1');
- }
+ };
+ registerInstance1();
 
  {
  class C2 {}
@@ -528,12 +572,12 @@ describe('decorators (babel-legacy) — BabelLegacyBindMethod', () => {
  BabelLegacyBindMethod(C2.prototype, 'method', descriptor);
  Object.defineProperty(C2.prototype, 'method', descriptor);
 
- const inst2 = new C2();
- const _ = inst2.method;
+ const inst2 = new C2() as any;
+ touch(inst2.method);
 
- gc();
- await delay(10);
  }
+
+ await forceCollect(() => finalized.length > 0);
 
  expect(finalized.length).toBeGreaterThan(0);
  expect(finalized[0]).toBe(true);
@@ -555,10 +599,10 @@ describe('decorators (babel-legacy) — error handling', () => {
 
  BabelLegacyAsyncMethod(C.prototype, 'method', descriptor);
 
- const inst = new C();
- // Trigger the setter to apply the initializer
- inst.method = undefined;
- inst.method;
+ const inst = new C() as any;
+ // Babel invokes the (rewritten) initializer per instance at construction; it must reject a
+ // non-function initial value.
+ applyBabelField(inst, 'method', descriptor);
  }).toThrow(TypeError);
  });
 
@@ -577,7 +621,7 @@ describe('decorators (babel-legacy) — error handling', () => {
  BabelLegacyBindMethod(C.prototype, 'method', descriptor);
  Object.defineProperty(C.prototype, 'method', descriptor);
 
- new C().method;
+ (new C() as any).method;
  }).toThrow(TypeError);
  });
 });
