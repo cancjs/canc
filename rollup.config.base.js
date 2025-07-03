@@ -93,8 +93,12 @@ const createTypescriptPlugin = (emitDeclaration) => rollupTypescript({
 	noEmitOnError: true
 });
 
-const createCommonConfig = (emitDeclaration) => ({
-	input: 'src/index.ts',
+// An entry descriptor. `input` is the source module; `base` is the output basename under dist/
+// (dist/<base>.cjs etc). Declaration emit runs only for the entry that requests it.
+const defaultEntry = { input: 'src/index.ts', base: 'index' };
+
+const createCommonConfig = (emitDeclaration, entry) => ({
+	input: entry.input,
 	plugins: [
 		isVerbose && trace(),
 		// isVerbose && rollupProgress(),
@@ -105,29 +109,30 @@ const createCommonConfig = (emitDeclaration) => ({
 	]
 });
 
-const createCjsConfig = () => {
-	const config = createCommonConfig(true);
+const createCjsConfig = (entry, emitDeclaration) => {
+	const config = createCommonConfig(emitDeclaration, entry);
 
 	config.output = {
-		file: 'dist/index.cjs',
+		file: `dist/${entry.base}.cjs`,
 		format: 'cjs',
 		exports: 'named',
 		sourcemap: true
 	};
-	config.plugins.push(
-		flattenDeclarations(),
-		downlevelTypes(),
-		isVerbose && rollupFilesize({ showMinifiedSize: false })
-	);
+	// Declaration flatten/downlevel run once, on the declaration-emitting entry, to avoid two
+	// tsc passes racing to write the same dist/types files.
+	if (emitDeclaration) {
+		config.plugins.push(flattenDeclarations(), downlevelTypes());
+	}
+	config.plugins.push(isVerbose && rollupFilesize({ showMinifiedSize: false }));
 
 	return config;
 };
 
-const createEsmConfig = () => {
-	const config = createCommonConfig(false);
+const createEsmConfig = (entry) => {
+	const config = createCommonConfig(false, entry);
 
 	config.output = {
-		file: 'dist/index.mjs',
+		file: `dist/${entry.base}.mjs`,
 		format: 'es',
 		sourcemap: true
 	};
@@ -136,11 +141,11 @@ const createEsmConfig = () => {
 	return config;
 };
 
-const createUmdConfig = (options) => {
-	const config = createCommonConfig(false);
+const createUmdConfig = (entry, options) => {
+	const config = createCommonConfig(false, entry);
 
 	config.output = {
-		file: 'dist/index.umd.js',
+		file: `dist/${entry.base}.umd.js`,
 		format: 'umd',
 		name: options.name,
 		exports: 'named',
@@ -151,11 +156,11 @@ const createUmdConfig = (options) => {
 	return config;
 };
 
-const createUmdMinConfig = (options) => {
-	const config = createCommonConfig(false);
+const createUmdMinConfig = (entry, options) => {
+	const config = createCommonConfig(false, entry);
 
 	config.output = {
-		file: 'dist/index.umd.min.js',
+		file: `dist/${entry.base}.umd.min.js`,
 		format: 'umd',
 		name: options.name,
 		exports: 'named',
@@ -178,11 +183,23 @@ const createUmdMinConfig = (options) => {
 	return config;
 };
 
-export const createConfigs = (options = { name: 'LibraryName' }) => [
-	createCjsConfig(),
-	createEsmConfig(),
-	createUmdConfig(options),
-	createUmdMinConfig(options)
+// Build all four output formats for one entry. The primary entry (declaration emit on) drives the
+// .d.ts pass; additional twin entries reuse the same tsconfig with declaration emit disabled.
+const createEntryConfigs = (entry, options, emitDeclaration) => [
+	createCjsConfig(entry, emitDeclaration),
+	createEsmConfig(entry),
+	createUmdConfig(entry, options),
+	createUmdMinConfig(entry, options)
 ];
+
+export const createConfigs = (options = { name: 'LibraryName' }) =>
+	createEntryConfigs(defaultEntry, options, true);
+
+// Multi-entry variant for packages that ship twin entry points (e.g. a `-native` flavor). The
+// first entry emits declarations; the rest reuse the same type output. Each entry needs a distinct
+// `base` and may set its own UMD global `name`.
+export const createMultiConfigs = (entries, options = { name: 'LibraryName' }) =>
+	entries.flatMap((entry, index) =>
+		createEntryConfigs(entry, { name: entry.name || options.name }, index === 0));
 
 export default null;
