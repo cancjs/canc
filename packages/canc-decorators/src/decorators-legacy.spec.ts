@@ -1,14 +1,10 @@
-import { AsyncMethod, BindMethod } from './decorators';
+import { LegacyAsyncMethod, LegacyBindMethod } from './decorators-legacy';
 
 /**
- * ES / TC39 stage-3 decorators matrix.
+ * TS legacy decorators matrix (`experimentalDecorators: true`).
  *
- * Matrix: 3 decorator types (AsyncMethod/BindMethod, no param vs bind:true/false) ×
- * 3 member types (method, field, getter) × 2 instance isolation matrix (2+ instances,
- * each gets own-bound fn, no cross-instance state corruption).
- *
- * GC assertion: instance1 discarded while instance2 active; instance1 must be collectable
- * (verifies fix for prototype-based Map caching that pinned instances forever).
+ * Same matrix as ES stage-3: 3 decorator types × 3 member types × 2 instance isolation +
+ * GC assertion.
  */
 
 const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
@@ -19,15 +15,11 @@ function gc() {
  }
 }
 
-// ============================================================================
-// AsyncMethod tests
-// ============================================================================
-
-describe('decorators (ES stage-3) — AsyncMethod', () => {
+describe('decorators (TS legacy) — LegacyAsyncMethod', () => {
  describe('bind:false (default)', () => {
  it('proto method wraps at decoration time', async () => {
  class C {
- @AsyncMethod()
+ @LegacyAsyncMethod()
  *method() {
  yield Promise.resolve(42);
  }
@@ -41,7 +33,7 @@ describe('decorators (ES stage-3) — AsyncMethod', () => {
 
  it('field arrow fn returns wrapped initializer', async () => {
  class C {
- @AsyncMethod()
+ @LegacyAsyncMethod()
  method = async function* (this: any) {
  yield Promise.resolve(99);
  };
@@ -53,11 +45,11 @@ describe('decorators (ES stage-3) — AsyncMethod', () => {
  expect(result).toBe(99);
  });
 
- it('getter is memoized per instance (called once)', () => {
+ it('getter is memoized per instance', () => {
  let callCount = 0;
 
  class C {
- @AsyncMethod()
+ @LegacyAsyncMethod()
  get method() {
  callCount++;
  return function* () {
@@ -89,7 +81,7 @@ describe('decorators (ES stage-3) — AsyncMethod', () => {
  this.id = id;
  }
 
- @AsyncMethod()
+ @LegacyAsyncMethod()
  *method() {
  yield Promise.resolve(this.id);
  }
@@ -106,7 +98,7 @@ describe('decorators (ES stage-3) — AsyncMethod', () => {
  describe('bind:true', () => {
  it('per-instance method is bound at construction', async () => {
  class C {
- @AsyncMethod({ bind: true })
+ @LegacyAsyncMethod({ bind: true })
  *method() {
  yield Promise.resolve(this);
  }
@@ -127,7 +119,7 @@ describe('decorators (ES stage-3) — AsyncMethod', () => {
  this.id = id;
  }
 
- @AsyncMethod({ bind: true })
+ @LegacyAsyncMethod({ bind: true })
  method = async function* (this: any) {
  yield Promise.resolve(this.id);
  };
@@ -142,7 +134,7 @@ describe('decorators (ES stage-3) — AsyncMethod', () => {
 
  it('per-instance getter is bound at construction', async () => {
  class C {
- @AsyncMethod({ bind: true })
+ @LegacyAsyncMethod({ bind: true })
  get method() {
  return function* (this: any) {
  yield Promise.resolve(this);
@@ -165,7 +157,7 @@ describe('decorators (ES stage-3) — AsyncMethod', () => {
  this.id = id;
  }
 
- @AsyncMethod({ bind: true })
+ @LegacyAsyncMethod({ bind: true })
  *method() {
  yield Promise.resolve(this.id);
  }
@@ -194,7 +186,7 @@ describe('decorators (ES stage-3) — AsyncMethod', () => {
  this.id = id;
  }
 
- @AsyncMethod()
+ @LegacyAsyncMethod()
  *method() {
  log.push(this.id);
  yield Promise.resolve();
@@ -220,7 +212,7 @@ describe('decorators (ES stage-3) — AsyncMethod', () => {
  this.id = id;
  }
 
- @AsyncMethod({ bind: true })
+ @LegacyAsyncMethod({ bind: true })
  *method() {
  log.push(this.id);
  yield Promise.resolve();
@@ -251,7 +243,7 @@ describe('decorators (ES stage-3) — AsyncMethod', () => {
 
  {
  const inst1 = new (class {
- @AsyncMethod({ bind: true })
+ @LegacyAsyncMethod({ bind: true })
  *method() {
  yield Promise.resolve(42);
  }
@@ -266,7 +258,7 @@ describe('decorators (ES stage-3) — AsyncMethod', () => {
  }
 
  const inst2 = new (class {
- @AsyncMethod({ bind: true })
+ @LegacyAsyncMethod({ bind: true })
  *method() {
  yield Promise.resolve(99);
  }
@@ -283,11 +275,7 @@ describe('decorators (ES stage-3) — AsyncMethod', () => {
  });
 });
 
-// ============================================================================
-// BindMethod tests
-// ============================================================================
-
-describe('decorators (ES stage-3) — BindMethod', () => {
+describe('decorators (TS legacy) — LegacyBindMethod', () => {
  describe('bind:true (default)', () => {
  it('proto method is bound per instance at construction', async () => {
  class C {
@@ -297,7 +285,7 @@ describe('decorators (ES stage-3) — BindMethod', () => {
  this.id = id;
  }
 
- @BindMethod()
+ @LegacyBindMethod()
  method() {
  return this.id;
  }
@@ -318,7 +306,7 @@ describe('decorators (ES stage-3) — BindMethod', () => {
  this.id = id;
  }
 
- @BindMethod()
+ @LegacyBindMethod()
  method = function (this: any) {
  return this.id;
  };
@@ -339,7 +327,7 @@ describe('decorators (ES stage-3) — BindMethod', () => {
  this.id = id;
  }
 
- @BindMethod()
+ @LegacyBindMethod()
  get method() {
  return () => this.id;
  }
@@ -360,7 +348,7 @@ describe('decorators (ES stage-3) — BindMethod', () => {
  this.id = id;
  }
 
- @BindMethod()
+ @LegacyBindMethod()
  method() {
  return this.id;
  }
@@ -387,7 +375,7 @@ describe('decorators (ES stage-3) — BindMethod', () => {
  this.id = id;
  }
 
- @BindMethod({ bind: false })
+ @LegacyBindMethod({ bind: false })
  method() {
  return this.id;
  }
@@ -411,7 +399,7 @@ describe('decorators (ES stage-3) — BindMethod', () => {
  this.id = id;
  }
 
- @BindMethod()
+ @LegacyBindMethod()
  method() {
  log.push(this.id);
  return this.id;
@@ -439,7 +427,7 @@ describe('decorators (ES stage-3) — BindMethod', () => {
 
  {
  const inst1 = new (class {
- @BindMethod()
+ @LegacyBindMethod()
  method() {
  return 42;
  }
@@ -454,7 +442,7 @@ describe('decorators (ES stage-3) — BindMethod', () => {
  }
 
  const inst2 = new (class {
- @BindMethod()
+ @LegacyBindMethod()
  method() {
  return 99;
  }
@@ -471,35 +459,31 @@ describe('decorators (ES stage-3) — BindMethod', () => {
  });
 });
 
-// ============================================================================
-// Error cases
-// ============================================================================
-
-describe('decorators (ES stage-3) — error handling', () => {
- it('AsyncMethod rejects non-method field', () => {
+describe('decorators (TS legacy) — error handling', () => {
+ it('LegacyAsyncMethod rejects non-method field', () => {
  expect(() => {
  class C {
- @AsyncMethod()
+ @LegacyAsyncMethod()
  notAMethod = 42;
  }
  new C();
  }).toThrow(TypeError);
  });
 
- it('BindMethod rejects non-method field', () => {
+ it('LegacyBindMethod rejects non-method field', () => {
  expect(() => {
  class C {
- @BindMethod()
+ @LegacyBindMethod()
  notAMethod = 'string';
  }
  new C();
  }).toThrow(TypeError);
  });
 
- it('BindMethod rejects non-function getter result', () => {
+ it('LegacyBindMethod rejects non-function getter result', () => {
  expect(() => {
  class C {
- @BindMethod()
+ @LegacyBindMethod()
  get method() {
  return 'not a function';
  }

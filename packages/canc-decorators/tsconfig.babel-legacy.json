@@ -1,0 +1,13 @@
+// Per-flavor fixture tsconfig: babel-legacy decorators. The decorator functions are compiled as
+// plain TS (no decorator syntax in the spec — babel's descriptor shape is constructed by hand and
+// applied manually, so no babel toolchain is needed to exercise the runtime). Kept as a distinct
+// fixture so `check:babel-legacy` proves the source + spec type-check independently.
+{
+ "extends": "../../tsconfig.test",
+ "compilerOptions": {
+ "experimentalDecorators": false,
+ "useDefineForClassFields": false,
+ "lib": ["es2022"]
+ },
+ "include": ["src/decorators-babel-legacy.ts", "src/decorators-babel-legacy.spec.ts"]
+}

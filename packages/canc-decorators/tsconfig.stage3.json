@@ -1,0 +1,11 @@
+// Per-flavor fixture tsconfig: ES / TC39 stage-3 decorators (native, TS 5+).
+// Used by ts-jest for stage-3 spec files and by `check:stage3` to prove they compile.
+{
+ "extends": "../../tsconfig.test",
+ "compilerOptions": {
+ "experimentalDecorators": false,
+ "useDefineForClassFields": false,
+ "lib": ["es2022", "decorators"]
+ },
+ "include": ["src/decorators.ts", "src/decorators.spec.ts"]
+}
