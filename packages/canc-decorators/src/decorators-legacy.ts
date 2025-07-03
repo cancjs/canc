@@ -1,5 +1,6 @@
 import { isFunction } from '../../_util';
-import { async as cancAsync } from '@cancjs/promise';
+// cancAsync moved from @cancjs/promise to @cancjs/coroutine (extraction) — update import.
+import { async as cancAsync } from '@cancjs/coroutine';
 
 type TLegacyMethodDecorator = MethodDecorator | PropertyDecorator;
 

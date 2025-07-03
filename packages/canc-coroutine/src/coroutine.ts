@@ -1,4 +1,4 @@
-import { CancelablePromise, ICancelablePromiseOptions } from './cancelable-promise';
+import { CancelablePromise, ICancelablePromiseOptions } from '@cancjs/promise';
 import { isFunction } from '../../_util';
 
 export type TGeneratorLike<PYield = unknown, PReturn = any, PNext = unknown> = Omit<Generator<PYield, PReturn, PNext>, typeof Symbol.iterator>;
@@ -44,6 +44,12 @@ export function cancAsync<TFn extends IGeneratorLikeFn<TThis>, TArgs extends any
  }
  } else {
  const promise = CancelablePromise.resolve(result.value, options).then(onFulfilled, onRejected);
+ // Sanctioned internal cross-package hook (P5-1): `_chain` is `protected` on
+ // CancelablePromise (TS-only privacy) — this bracket-string access is the documented,
+ // smallest-surface way for canc-coroutine to link the yielded-value promise into the
+ // parent chain (propagates cancel + bubble bookkeeping) without widening the public
+ // d.ts surface. Do not rename/inline; do not access via `as any` cast (bracket form is
+ // the established convention — grep `_chain` before changing its signature).
  promise['_chain'](coroutinePromise);
  }
  };
