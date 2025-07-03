@@ -75,15 +75,20 @@ export function cancAsync<TFn extends IGeneratorLikeFn<TThis>, TArgs extends any
  let canceled = false;
 
  // Override cancel() to prevent immediate settlement and let the finally drain own it. D23:
- // a finally that throws replaces the CancelError rejection.
+ // a finally that throws replaces the CancelError rejection. But if the generator is already
+ // done (completed naturally or errored), the coroutine is already settled, so cancel is a no-op
+ // (either way, isCancelable will be false).
  const originalCancel = coroutinePromise.cancel.bind(coroutinePromise);
  coroutinePromise.cancel = function(reason?: any) {
- if (!canceled) {
+ if (!canceled && genDone === false) {
  canceled = true;
  canceledReason = reason;
  drainFinally();
+ } else if (genDone === false) {
+ // Re-cancel while drain is in progress: no-op (re-entrancy guarded in drainFinally)
  }
- // Don't call originalCancel; the drain owns settlement. Re-cancel is a no-op.
+ // If genDone is true, the coroutine is already settled (resolved/rejected); cancel is no-op
+ // like normal Promise.cancel on a settled promise.
  };
 
  const step = (result: any) => {
