@@ -36,6 +36,12 @@
  "publishConfig": {
  "access": "public"
  },
+ "peerDependencies": {
+ "@cancjs/promise": "^0.0.0"
+ },
+ "devDependencies": {
+ "@cancjs/promise": "0.0.0"
+ },
  "scripts": {
  "build": "rimraf dist && rollup --config ./rollup.config.js",
  "check": "tsc --noEmit --project ./tsconfig.prod.json",
