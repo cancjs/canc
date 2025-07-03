@@ -1,14 +1,14 @@
 <h1 align="center">
-  <img src="./assets/canc-logo.png" width="725" title="canc &#x2BBF; A crafty foundation for cancelable promises" alt="canc &#x2BBF; a crafty foundation for cancelable promises">
+ <img src="./assets/canc-logo.png" width="725" title="canc &#x2BBF; A crafty foundation for cancelable promises" alt="canc &#x2BBF; a crafty foundation for cancelable promises">
 </h1>
 
 <p align="center">
-  <a href="https://travis-ci.org/vuetifyjs/vuetify">
-    <img src="https://img.shields.io/travis/vuetifyjs/vuetify/dev.svg?style=flat-square" alt="Travis CI"></a>
-  <a href="https://github.com/vuetifyjs/vuetify/blob/master/LICENSE.md">
-    <img src="https://img.shields.io/npm/l/vuetify.svg?style=flat-square" alt="License"></a>
-  <a href="#contributing">
-    <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square" alt="PRs Welcome"></a>
+ <a href="https://travis-ci.org/vuetifyjs/vuetify">
+ <img src="https://img.shields.io/travis/vuetifyjs/vuetify/dev.svg?style=flat-square" alt="Travis CI"></a>
+ <a href="https://github.com/vuetifyjs/vuetify/blob/master/LICENSE.md">
+ <img src="https://img.shields.io/npm/l/vuetify.svg?style=flat-square" alt="License"></a>
+ <a href="#contributing">
+ <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square" alt="PRs Welcome"></a>
 </p>
 
 <p align="center">
@@ -42,80 +42,80 @@ Cancelable promise ecosystem based on native <code>Promise</code>: coroutines, a
 Cancellation-aware promise utilities:
 
 <table>
-  <thead>
-    <tr>
-      <th>Name</th>
-      <th>Version</th>
-      <th>Description</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>
-        <a href="https://github.com/ex-machine/canc/tree/master/packages/canc-promise">@cancjs/promise</a>
-      </td>
-      <td>
-        <a href="https://www.npmjs.com/package/@cancjs/promise">
-          <img src="https://img.shields.io/npm/v/@cancjs/promise.svg?style=flat-square" alt="Version">
-        </a>
-      </td>
-      <td>
-        Cancelable promise implementation based on ES Promise
-      </td>
-    </tr>
-    <tr>
-      <td>
-        <a href="https://github.com/ex-machine/canc/tree/master/packages/canc-coroutine">@cancjs/coroutine</a>
-      </td>
-      <td>
-        <a href="https://www.npmjs.com/package/@cancjs/coroutine">
-          <img src="https://img.shields.io/npm/v/@cancjs/coroutine.svg?style=flat-square" alt="Version">
-        </a>
-      </td>
-      <td>
-        Cancelable generator-based drop-in replacements for <code>async..await</code> and async iterators
-      </td>
-    </tr>
-    <tr>
-      <td>
-        <a href="https://github.com/ex-machine/canc/tree/master/packages/canc-fetch">@cancjs/fetch</a>
-      </td>
-      <td>
-        <a href="https://www.npmjs.com/package/@cancjs/fetch">
-          <img src="https://img.shields.io/npm/v/@cancjs/fetch.svg?style=flat-square" alt="Version">
-        </a>
-      </td>
-      <td>
-        Cross-platform Fetch API that uses cancelable promises
-      </td>
-    </tr>
-    <tr>
-      <td>
-        <a href="https://github.com/ex-machine/canc/tree/master/packages/canc-lazy-promise">@cancjs/lazy-promise</a>
-      </td>
-      <td>
-        <a href="https://www.npmjs.com/package/@cancjs/lazy-promise">
-          <img src="https://img.shields.io/npm/v/@cancjs/lazy-promise.svg?style=flat-square" alt="Version">
-        </a>
-      </td>
-      <td>
-        Cancelable lazily evaluated promise-like class
-      </td>
-    </tr>
-    <tr>
-      <td>
-        <a href="https://github.com/ex-machine/canc/tree/master/packages/canc-toolbox">@cancjs/toolbox</a>
-      </td>
-      <td>
-        <a href="https://www.npmjs.com/package/@cancjs/toolbox">
-          <img src="https://img.shields.io/npm/v/@cancjs/toolbox.svg?style=flat-square" alt="Version">
-        </a>
-      </td>
-      <td>
-        A collection of cancellation-aware promise helper functions and ponyfills
-      </td>
-    </tr>
-  </tbody>
+ <thead>
+ <tr>
+ <th>Name</th>
+ <th>Version</th>
+ <th>Description</th>
+ </tr>
+ </thead>
+ <tbody>
+ <tr>
+ <td>
+ <a href="https://github.com/cancjs/canc/tree/master/packages/canc-promise">@cancjs/promise</a>
+ </td>
+ <td>
+ <a href="https://www.npmjs.com/package/@cancjs/promise">
+ <img src="https://img.shields.io/npm/v/@cancjs/promise.svg?style=flat-square" alt="Version">
+ </a>
+ </td>
+ <td>
+ Cancelable promise implementation based on ES Promise
+ </td>
+ </tr>
+ <tr>
+ <td>
+ <a href="https://github.com/cancjs/canc/tree/master/packages/canc-coroutine">@cancjs/coroutine</a>
+ </td>
+ <td>
+ <a href="https://www.npmjs.com/package/@cancjs/coroutine">
+ <img src="https://img.shields.io/npm/v/@cancjs/coroutine.svg?style=flat-square" alt="Version">
+ </a>
+ </td>
+ <td>
+ Cancelable generator-based drop-in replacements for <code>async..await</code> and async iterators
+ </td>
+ </tr>
+ <tr>
+ <td>
+ <a href="https://github.com/cancjs/canc/tree/master/packages/canc-fetch">@cancjs/fetch</a>
+ </td>
+ <td>
+ <a href="https://www.npmjs.com/package/@cancjs/fetch">
+ <img src="https://img.shields.io/npm/v/@cancjs/fetch.svg?style=flat-square" alt="Version">
+ </a>
+ </td>
+ <td>
+ Cross-platform Fetch API that uses cancelable promises
+ </td>
+ </tr>
+ <tr>
+ <td>
+ <a href="https://github.com/cancjs/canc/tree/master/packages/canc-lazy-promise">@cancjs/lazy-promise</a>
+ </td>
+ <td>
+ <a href="https://www.npmjs.com/package/@cancjs/lazy-promise">
+ <img src="https://img.shields.io/npm/v/@cancjs/lazy-promise.svg?style=flat-square" alt="Version">
+ </a>
+ </td>
+ <td>
+ Cancelable lazily evaluated promise-like class
+ </td>
+ </tr>
+ <tr>
+ <td>
+ <a href="https://github.com/cancjs/canc/tree/master/packages/canc-toolbox">@cancjs/toolbox</a>
+ </td>
+ <td>
+ <a href="https://www.npmjs.com/package/@cancjs/toolbox">
+ <img src="https://img.shields.io/npm/v/@cancjs/toolbox.svg?style=flat-square" alt="Version">
+ </a>
+ </td>
+ <td>
+ A collection of cancellation-aware promise helper functions and ponyfills
+ </td>
+ </tr>
+ </tbody>
 </table>
 
 ### Native Promises
@@ -123,54 +123,54 @@ Cancellation-aware promise utilities:
 General-purpose promise utilities that use built-in `Promise` as promise implementation where applicable:
 
 <table>
-  <thead>
-    <tr>
-      <th>Package</th>
-      <th>Version</th>
-      <th>Description</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>
-        <a href="https://github.com/ex-machine/canc/tree/master/packages/canc-coroutine-native">@cancjs/coroutine-native</a>
-      </td>
-      <td>
-        <a href="https://www.npmjs.com/package/@cancjs/coroutine-native">
-          <img src="https://img.shields.io/npm/v/@cancjs/coroutine-native.svg?style=flat-square" alt="Version">
-        </a>
-      </td>
-      <td>
-        Generator-based drop-in replacements for <code>async..await</code> and async iterators
-      </td>
-    </tr>
-    <tr>
-      <td>
-        <a href="https://github.com/ex-machine/canc/tree/master/packages/canc-lazy-promise-native">@cancjs/lazy-promise-native</a>
-      </td>
-      <td>
-        <a href="https://www.npmjs.com/package/@cancjs/lazy-promise-native">
-          <img src="https://img.shields.io/npm/v/@cancjs/lazy-promise-native.svg?style=flat-square" alt="Version">
-        </a>
-      </td>
-      <td>
-        Lazily evaluated promise-like class
-      </td>
-    </tr>
-    <tr>
-      <td>
-        <a href="https://github.com/ex-machine/canc/tree/master/packages/canc-toolbox">@cancjs/toolbox</a>
-      </td>
-      <td>
-        <a href="https://www.npmjs.com/package/@cancjs/toolbox">
-          <img src="https://img.shields.io/npm/v/@cancjs/toolbox.svg?style=flat-square" alt="Version">
-        </a>
-      </td>
-      <td>
-        A collection of promise helper functions
-      </td>
-    </tr>
-  </tbody>
+ <thead>
+ <tr>
+ <th>Package</th>
+ <th>Version</th>
+ <th>Description</th>
+ </tr>
+ </thead>
+ <tbody>
+ <tr>
+ <td>
+ <a href="https://github.com/cancjs/canc/tree/master/packages/canc-coroutine-native">@cancjs/coroutine-native</a>
+ </td>
+ <td>
+ <a href="https://www.npmjs.com/package/@cancjs/coroutine-native">
+ <img src="https://img.shields.io/npm/v/@cancjs/coroutine-native.svg?style=flat-square" alt="Version">
+ </a>
+ </td>
+ <td>
+ Generator-based drop-in replacements for <code>async..await</code> and async iterators
+ </td>
+ </tr>
+ <tr>
+ <td>
+ <a href="https://github.com/cancjs/canc/tree/master/packages/canc-lazy-promise-native">@cancjs/lazy-promise-native</a>
+ </td>
+ <td>
+ <a href="https://www.npmjs.com/package/@cancjs/lazy-promise-native">
+ <img src="https://img.shields.io/npm/v/@cancjs/lazy-promise-native.svg?style=flat-square" alt="Version">
+ </a>
+ </td>
+ <td>
+ Lazily evaluated promise-like class
+ </td>
+ </tr>
+ <tr>
+ <td>
+ <a href="https://github.com/cancjs/canc/tree/master/packages/canc-toolbox">@cancjs/toolbox</a>
+ </td>
+ <td>
+ <a href="https://www.npmjs.com/package/@cancjs/toolbox">
+ <img src="https://img.shields.io/npm/v/@cancjs/toolbox.svg?style=flat-square" alt="Version">
+ </a>
+ </td>
+ <td>
+ A collection of promise helper functions
+ </td>
+ </tr>
+ </tbody>
 </table>
 
 <!--
@@ -238,6 +238,47 @@ See [examples](#examples) for more use cases.
 
 Packages rely on following ECMAScript 2015+ features: `Symbol` (ES2018 for async iterators), `Reflect`, `Promise` (ES2018 for `finally`, ES2020 for `allSettled`), `Object.assign`, `Object.setPrototypeOf`.
 
+### TypeScript
+
+TypeScript floor is 4.2. Each package ships two `.d.ts` variants and resolves the right one
+automatically, no consumer configuration needed. TS >= 4.7 reads `exports["."].types` and gets
+`dist/types/*.d.ts`. Older TS falls back to `typesVersions` (pre-4.7 resolvers don't read
+`exports.types`) and gets `dist/types-ts4.2/*.d.ts`.
+
+The `-ts4.2` variant is produced from the standard output via `downlevel-dts`, plus a follow-up
+patch for `Awaited<T>` which predates `downlevel-dts`'s own transform coverage. Verified against
+a pinned matrix (TS 4.2 / 4.7 / 5.0 / 5.4 / latest) by compiling fixture projects against the
+built tarballs.
+
+### Build targets
+
+All four build outputs (CJS, ESM, UMD, minified UMD) compile from the same ES5-targeted
+TypeScript source, only the module wrapper differs. CJS is `dist/index.cjs` (`main` field), ESM
+is `dist/index.mjs` (`module` field), UMD is `dist/index.umd.js` and `dist/index.umd.min.js`
+(`<script>`/AMD/CommonJS fallback, `unpkg`/`jsdelivr` fields). `downlevelIteration` is on; no
+`class`, `#private`, bigint, or `WeakRef` in core source.
+
+### Engines
+
+`node >= 18` per package `engines` field. That's the tested and supported Node.js baseline, not
+a hard floor imposed by the ES5 output itself, the compiled code runs on much older engines too.
+
+### Alternative engines (QuickJS, XS/Moddable, Hermes)
+
+Not part of the tested CI matrix, but source targets ES5 with guarded ES2018+ feature use
+(`AggregateError` etc), so it should work in principle.
+
+* **QuickJS** - spec-compliant ES2020 engine; expected to work with native `Promise`/`Reflect`,
+ no known incompatibilities.
+* **XS (Moddable)** - targets ES2023 with some omissions on constrained builds; verify `Reflect`
+ and `Promise.allSettled` availability for your build profile before relying on bubbling behavior.
+* **Hermes** (React Native) - ships its own `Promise` polyfill (bytecode-compiled, not a native
+ spec-engine `Promise`). Species (`Symbol.species`) and microtask-ordering quirks are the usual
+ hazard surface on polyfilled `Promise`, so treat those code paths as the risk area if you rely
+ on Hermes.
+
+None of the above are covered by the TS version matrix or CI; treat as best-effort.
+
 ### Native Support
 
 Supported in modern browsers and Node.js:
@@ -266,15 +307,15 @@ Supported in legacy browsers and Node.js with `core-js` or `polyfill.io`:
 The incompatibility between native and polyfilled `Promise` and `Reflect` in engines with incomplete ES6 support (Node.js 0.12 to 5, etc) requires to match globals before polyfilling:
 
 <details>
-  <summary>Modular environment</summary>
+ <summary>Modular environment</summary>
 
 ```js
 var _global = typeof globalThis !== 'undefined' && globalThis
-  || typeof self !== 'undefined' && self
-  || typeof global !== 'undefined' && global;
+ || typeof self !== 'undefined' && self
+ || typeof global !== 'undefined' && global;
 
 if (!('Reflect' in _global) && 'Promise' in _global)
-  delete _global.Promise;
+ delete _global.Promise;
 
 require('core-js/stable');
 ```
@@ -282,12 +323,12 @@ require('core-js/stable');
 
 
 <details>
-  <summary>Browser webpage</summary>
+ <summary>Browser webpage</summary>
 
 ```html
 <script>
 if (!('Reflect' in window) && 'Promise' in window)
-  delete window.Promise;
+ delete window.Promise;
 </script>
 <!-- no es2020 allSettled yet -->
 <script src="https://polyfill.io/v3/polyfill.min.js?features=es2015,es2018&flags=always,gated"></script>
@@ -296,63 +337,63 @@ if (!('Reflect' in window) && 'Promise' in window)
 
 ## Examples
 
-Can be found in [examples](https://github.com/ex-machine/canc/tree/master/examples) section.
+Can be found in [examples](https://github.com/cancjs/canc/tree/master/examples) section.
 
 <!--
 ### Component with uncancelable promises:
 
 ```js
 class Component {
-  createHook() {
-    fetchFooBar();
-  }
+ createHook() {
+ fetchFooBar();
+ }
 
-  async fetchFooBar() {
-    let foo = await fetchFoo();
+ async fetchFooBar() {
+ let foo = await fetchFoo();
 
-    // safeguard
-    if (this._destroyed)
-        return;
+ // safeguard
+ if (this._destroyed)
+ return;
 
-    // the framework causes an error if the instance has been destroyed
-    this.updateState({ foo });
+ // the framework causes an error if the instance has been destroyed
+ this.updateState({ foo });
 
-    // cannot be stopped even if the result isn't needed
-    let bar = await fetchBar({ foo, retries: 10 });
+ // cannot be stopped even if the result isn't needed
+ let bar = await fetchBar({ foo, retries: 10 });
 
-    // safeguard
-    if (this._destroyed)
-        return;
+ // safeguard
+ if (this._destroyed)
+ return;
 
-    this.updateState({ bar });
-  }
+ this.updateState({ bar });
+ }
 
-  destroyHook() {
-    this._destroyed = true;
-  }
+ destroyHook() {
+ this._destroyed = true;
+ }
 }
 ```
 
 
 ```js
 class Component {
-  createHook() {
-    fetchFooBarBaz();
-  }
+ createHook() {
+ fetchFooBarBaz();
+ }
 
-  async fetchFooBarBaz() {
-    // retries cannot be stopped even if they aren't usable
-    let one = await fetchFoo({ retryTimes: 5});
-    if (this._destroyed) return;
-    this.updateState({ one });
-    let two = await actionTwo(one);
-    if (this._destroyed) return;
-    this.updateState({ one });
-  }
+ async fetchFooBarBaz() {
+ // retries cannot be stopped even if they aren't usable
+ let one = await fetchFoo({ retryTimes: 5});
+ if (this._destroyed) return;
+ this.updateState({ one });
+ let two = await actionTwo(one);
+ if (this._destroyed) return;
+ this.updateState({ one });
+ }
 
-  destroyHook() {
-    this._destroyed = true;
-  }
+ destroyHook() {
+ this._destroyed = true;
+ }
 }
 ```
 -->
