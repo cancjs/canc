@@ -1,5 +1,5 @@
 import { cancAsync, cancAwait } from './coroutine';
-import { suppressCancel } from './helpers';
+import { suppressCancel } from '@cancjs/promise';
 
 describe('cancAsync', () => {
  // Pre-existing scratch/placeholder smoke test (present since initial coroutine draft,

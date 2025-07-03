@@ -44,6 +44,7 @@
  "baseUrl": ".", /* needed so prod builds (tsconfig.prod.json → this) resolve @cancjs/* aliases same as dev tsconfig.json — see P0-5 note */
  "paths": {
  "@cancjs/promise": ["./packages/canc-promise/src/index"],
+ "@cancjs/coroutine": ["./packages/canc-coroutine/src/index"],
  "@cancjs/fetch": ["./packages/canc-fetch/src/index"],
  "@cancjs/decorators": ["./packages/canc-decorators/src/index"]
  },

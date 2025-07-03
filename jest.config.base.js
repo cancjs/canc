@@ -1,6 +1,8 @@
 // For a detailed explanation regarding each configuration property, visit:
 // https://jestjs.io/docs/en/configuration.html
 
+const path = require('path');
+
 module.exports = {
  // All imported modules in your tests should be mocked automatically
  // automock: false,
@@ -104,8 +106,14 @@ module.exports = {
  // ],
 
  // A map from regular expressions to module names or to arrays of module names that allow to stub out resources with a single module
+ // P5-1 fix: `<rootDir>` here is per-package (see rootDir note above, same hazard as
+ // collectCoverageFrom) — a package that imports a SIBLING @cancjs/* package by name (e.g.
+ // canc-coroutine importing @cancjs/promise) resolved to `<own-pkg>/packages/canc-promise/src`,
+ // which doesn't exist. Anchor to the monorepo root (this file's own directory, always the repo
+ // root regardless of which package's rootDir jest is invoked with) instead of the `<rootDir>`
+ // token.
  moduleNameMapper: {
- '^@cancjs/(.*)$': '<rootDir>/packages/canc-$1/src',
+ '^@cancjs/(.*)$': path.join(__dirname, 'packages/canc-$1/src'),
  },
 
  // An array of regexp pattern strings, matched against all module paths before considered 'visible' to the module loader

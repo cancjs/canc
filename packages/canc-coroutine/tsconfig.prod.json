@@ -1,9 +1,8 @@
 {
  "extends": "../../tsconfig.base",
  "compilerOptions": {
- "lib": ["es2022", "decorators"],
  "outDir": "build",
  "rootDir": "../..",
  },
- "include": ["src", "../_util", "../canc-coroutine/src"],
+ "include": ["src", "../_util", "../canc-promise/src"],
 }

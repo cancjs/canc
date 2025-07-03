@@ -27,7 +27,8 @@ module.exports = {
  ...mergeTsJestConfig({ tsconfig: '<rootDir>/../../tsconfig.json' })
  },
  displayName: packageJson.name,
- // coverage gate. coroutine.ts excluded (, placeholder/broken spec today).
+ // coverage gate. coroutine.ts moved out to @cancjs/coroutine — its
+ // own coverage lives in that package's jest config now.
  // Global entry required by ts-jest coverage instrumentation even w/ only per-file thresholds.
  coverageThreshold: {
  global: {
