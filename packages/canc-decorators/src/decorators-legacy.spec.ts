@@ -15,13 +15,29 @@ function gc() {
  }
 }
 
+// FinalizationRegistry callbacks are best-effort: one collection is rarely enough to run them.
+// Drive several GC cycles across macrotask turns until the predicate holds or the cap is reached.
+async function forceCollect(done: () => boolean, cycles = 25, gap = 20): Promise<void> {
+ for (let i = 0; i < cycles && !done(); i++) {
+ gc();
+ await delay(gap);
+ }
+}
+
+// Access a property for its side effect (materializing a per-instance own-bound method) without
+// retaining the result. A plain `const x = inst.method` is downleveled to a function-scoped `var`
+// under the es5 target and would pin the instance for the whole test, defeating the GC assertion.
+function touch(_value: unknown): void {
+ // intentionally empty
+}
+
 describe('decorators (TS legacy) — LegacyAsyncMethod', () => {
  describe('bind:false (default)', () => {
  it('proto method wraps at decoration time', async () => {
  class C {
  @LegacyAsyncMethod()
- *method() {
- yield Promise.resolve(42);
+ *method(): Generator<any, any, any> {
+ return yield Promise.resolve(42);
  }
  }
 
@@ -34,8 +50,8 @@ describe('decorators (TS legacy) — LegacyAsyncMethod', () => {
  it('field arrow fn returns wrapped initializer', async () => {
  class C {
  @LegacyAsyncMethod()
- method = async function* (this: any) {
- yield Promise.resolve(99);
+ method = function* (this: any): Generator<any, any, any> {
+ return yield Promise.resolve(99);
  };
  }
 
@@ -82,8 +98,8 @@ describe('decorators (TS legacy) — LegacyAsyncMethod', () => {
  }
 
  @LegacyAsyncMethod()
- *method() {
- yield Promise.resolve(this.id);
+ *method(): Generator<any, any, any> {
+ return yield Promise.resolve(this.id);
  }
  }
 
@@ -99,8 +115,8 @@ describe('decorators (TS legacy) — LegacyAsyncMethod', () => {
  it('per-instance method is bound at construction', async () => {
  class C {
  @LegacyAsyncMethod({ bind: true })
- *method() {
- yield Promise.resolve(this);
+ *method(): Generator<any, any, any> {
+ return yield Promise.resolve(this);
  }
  }
 
@@ -120,8 +136,8 @@ describe('decorators (TS legacy) — LegacyAsyncMethod', () => {
  }
 
  @LegacyAsyncMethod({ bind: true })
- method = async function* (this: any) {
- yield Promise.resolve(this.id);
+ method = function* (this: any): Generator<any, any, any> {
+ return yield Promise.resolve(this.id);
  };
  }
 
@@ -136,8 +152,8 @@ describe('decorators (TS legacy) — LegacyAsyncMethod', () => {
  class C {
  @LegacyAsyncMethod({ bind: true })
  get method() {
- return function* (this: any) {
- yield Promise.resolve(this);
+ return function* (this: any): Generator<any, any, any> {
+ return yield Promise.resolve(this);
  };
  }
  }
@@ -158,8 +174,8 @@ describe('decorators (TS legacy) — LegacyAsyncMethod', () => {
  }
 
  @LegacyAsyncMethod({ bind: true })
- *method() {
- yield Promise.resolve(this.id);
+ *method(): Generator<any, any, any> {
+ return yield Promise.resolve(this.id);
  }
  }
 
@@ -241,33 +257,40 @@ describe('decorators (TS legacy) — LegacyAsyncMethod', () => {
 
  const finalized: boolean[] = [];
 
- {
- const inst1 = new (class {
+ class GcA {
  @LegacyAsyncMethod({ bind: true })
  *method() {
  yield Promise.resolve(42);
  }
- })();
-
- const _ = inst1.method;
-
- const registry = new FinalizationRegistry(() => {
- finalized.push(true);
- });
- registry.register(inst1, 'instance1');
  }
 
- const inst2 = new (class {
+ class GcB {
  @LegacyAsyncMethod({ bind: true })
  *method() {
  yield Promise.resolve(99);
  }
- })();
+ }
 
- const _ = inst2.method;
+ // Registry must outlive inst1, otherwise it is collected alongside inst1 and its callback
+ // never runs.
+ const registry = new FinalizationRegistry(() => {
+ finalized.push(true);
+ });
 
- gc();
- await delay(10);
+ // inst1 lives ONLY in this nested sync function. If it were a local of the async test body
+ // it would be captured by the es5 generator state machine and pinned across the awaits below.
+ const registerInstance1 = () => {
+ const inst1 = new GcA();
+ touch(inst1.method);
+ registry.register(inst1, 'instance1');
+ };
+ registerInstance1();
+
+ const inst2 = new GcB();
+
+ touch(inst2.method);
+
+ await forceCollect(() => finalized.length > 0);
 
  expect(finalized.length).toBeGreaterThan(0);
  expect(finalized[0]).toBe(true);
@@ -425,33 +448,40 @@ describe('decorators (TS legacy) — LegacyBindMethod', () => {
 
  const finalized: boolean[] = [];
 
- {
- const inst1 = new (class {
+ class GcA {
  @LegacyBindMethod()
  method() {
  return 42;
  }
- })();
-
- const _ = inst1.method;
-
- const registry = new FinalizationRegistry(() => {
- finalized.push(true);
- });
- registry.register(inst1, 'instance1');
  }
 
- const inst2 = new (class {
+ class GcB {
  @LegacyBindMethod()
  method() {
  return 99;
  }
- })();
+ }
 
- const _ = inst2.method;
+ // Registry must outlive inst1, otherwise it is collected alongside inst1 and its callback
+ // never runs.
+ const registry = new FinalizationRegistry(() => {
+ finalized.push(true);
+ });
 
- gc();
- await delay(10);
+ // inst1 lives ONLY in this nested sync function. If it were a local of the async test body
+ // it would be captured by the es5 generator state machine and pinned across the awaits below.
+ const registerInstance1 = () => {
+ const inst1 = new GcA();
+ touch(inst1.method);
+ registry.register(inst1, 'instance1');
+ };
+ registerInstance1();
+
+ const inst2 = new GcB();
+
+ touch(inst2.method);
+
+ await forceCollect(() => finalized.length > 0);
 
  expect(finalized.length).toBeGreaterThan(0);
  expect(finalized[0]).toBe(true);

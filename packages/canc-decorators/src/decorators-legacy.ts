@@ -15,8 +15,6 @@ import { async as cancAsync } from '@cancjs/coroutine';
  * and pinned the first instance forever. Per-instance own-property fixes both.
  */
 
-type TLegacyMethodDecorator = MethodDecorator | PropertyDecorator;
-
 interface IMethodDecoratorOptions {
  bind?: boolean;
 }
@@ -142,32 +140,36 @@ function definePerInstanceFieldAccessor(
  });
 }
 
+// Return type `any` on the factory overload is deliberate: a `MethodDecorator | PropertyDecorator`
+// union is not resolvable in a legacy decorator position (TS rejects it with "unable to resolve
+// signature"), and the same decorator must be usable on methods, getters and fields alike. `any`
+// lets the single runtime decorator apply in every member position.
 export function LegacyAsyncMethod(target: any, propertyKey: string | symbol): void;
 export function LegacyAsyncMethod(target: any, propertyKey: string | symbol, descriptor: PropertyDescriptor): void;
-export function LegacyAsyncMethod(options?: IMethodDecoratorOptions): TLegacyMethodDecorator;
+export function LegacyAsyncMethod(options?: IMethodDecoratorOptions): any;
 export function LegacyAsyncMethod(
  ...args: [IMethodDecoratorOptions?] | [any, string | symbol] | [any, string | symbol, PropertyDescriptor]
 ) {
  if (args.length > 1) {
- return LegacyAsyncMethod()(...(args as [any, string, PropertyDescriptor])) as TLegacyMethodDecorator;
+ return LegacyAsyncMethod()(...(args as [any, string, PropertyDescriptor]));
  }
 
  const isBind = (args[0] as IMethodDecoratorOptions | undefined)?.bind ?? false;
 
- return makeLegacyDecorator(isBind, (fn, ctx) => cancAsync(fn as any, ctx)) as TLegacyMethodDecorator;
+ return makeLegacyDecorator(isBind, (fn, ctx) => cancAsync(fn as any, ctx));
 }
 
 export function LegacyBindMethod(target: any, propertyKey: string | symbol): void;
 export function LegacyBindMethod(target: any, propertyKey: string | symbol, descriptor: PropertyDescriptor): void;
-export function LegacyBindMethod(options?: IMethodDecoratorOptions): TLegacyMethodDecorator;
+export function LegacyBindMethod(options?: IMethodDecoratorOptions): any;
 export function LegacyBindMethod(
  ...args: [IMethodDecoratorOptions?] | [any, string | symbol] | [any, string | symbol, PropertyDescriptor]
 ) {
  if (args.length > 1) {
- return LegacyBindMethod()(...(args as [any, string, PropertyDescriptor])) as TLegacyMethodDecorator;
+ return LegacyBindMethod()(...(args as [any, string, PropertyDescriptor]));
  }
 
  const isBind = (args[0] as IMethodDecoratorOptions | undefined)?.bind ?? true;
 
- return makeLegacyDecorator(isBind, (fn, ctx) => (ctx !== undefined ? fn.bind(ctx) : fn)) as TLegacyMethodDecorator;
+ return makeLegacyDecorator(isBind, (fn, ctx) => (ctx !== undefined ? fn.bind(ctx) : fn));
 }
