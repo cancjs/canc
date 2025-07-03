@@ -20,8 +20,6 @@ import CancelablePromise, {
  suppressCancel,
  forceCancelable,
  createCancelRef,
- async as cancAsync,
- await as cancAwait,
 } from '@cancjs/promise';
 import type {
  ICancelablePromiseWithResolvers,
@@ -29,7 +27,7 @@ import type {
  ICancelablePromiseOptions,
  ICancelRef,
 } from '@cancjs/promise';
-import type { Equal, Expect, IsAny, Not } from './assert-type';
+import type { Equal, Expect } from './assert-type';
 
 declare const p: CancelablePromise<number>;
 
@@ -105,24 +103,8 @@ type _wrResolveArg = Expect<Equal<Parameters<typeof wr.resolve>[0], string | Pro
 // @ts-expect-error resolve() is typed to the promise value, not an arbitrary shape
 wr.resolve(123);
 
-// ============================================================ cancAsync / cancAwait
-// cancAwait yields the awaited value type into `yield*`.
-const gen = cancAwait(Promise.resolve(42));
-type _cancAwaitYield = Expect<Equal<ReturnType<(typeof gen)['next']>, IteratorResult<number | Promise<number>, number>>>;
-
-const co = cancAsync(function* () {
- const n = yield* cancAwait(Promise.resolve(1));
- type _yieldTyped = Expect<Equal<typeof n, number>>;
- return n;
-});
-// current contract: cancAsync return is CancelablePromise<unknown>
-const coResult = co();
-type _coResult = Expect<Equal<typeof coResult, CancelablePromise<unknown>>>;
-// ...and definitely not silently `any`
-type _coNotAny = Expect<Not<IsAny<typeof coResult>>>;
-
-// @ts-expect-error cancAsync's first arg must be a generator function, not a plain value
-cancAsync(123);
+// coroutine (cancAsync / cancAwait) type assertions live in ./coroutine-types.ts
+// (the @cancjs/coroutine package owns that surface after the coroutine extraction).
 
 // ============================================================ helpers
 const cc = catchCancel(Promise.resolve(7));
