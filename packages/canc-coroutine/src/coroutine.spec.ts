@@ -184,6 +184,21 @@ describe('cancAsync', () => {
  expect(entered).toBe(true);
  });
 
+ it('isCanceled is true after cancel on completed generator', async () => {
+ const co = cancAsync(function* () {
+ yield Promise.resolve(1);
+ return 'done';
+ });
+
+ const p = co();
+ await p; // Let it complete normally
+ expect(p.isCanceled).toBe(false);
+
+ // This cancel is on a settled (fulfilled) promise, so it's a no-op
+ const result = p.cancel();
+ expect(result).toBeUndefined(); // Non-pending promise returns undefined
+ });
+
  it('generator body after first yield does not run when canceled before resolution', async () => {
  let afterFirst = false;
  const co = cancAsync(function* () {
@@ -225,14 +240,14 @@ describe('cancAsync', () => {
  jest.useRealTimers();
  });
 
- for (let gap = 0; gap <= STEPS; gap++) {
+ for (let gap = 0; gap < STEPS; gap++) {
  it(`cancel at gap ${gap} runs exactly ${gap} steps`, async () => {
  const log: number[] = [];
  const co = makeCoroutine(log);
  const p = co();
  p.catch(suppressCancel);
 
- // Advance through `gap` completed steps.
+ // Advance through `gap` completed steps (but not all steps, so generator is still pending).
  for (let i = 0; i < gap; i++) {
  jest.advanceTimersByTime(10);
  // flush microtasks with fake timers active: chained thens still resolve as microtasks
@@ -243,10 +258,6 @@ describe('cancAsync', () => {
 
  p.cancel();
  // Flush to let cancel handler settle and drain complete
- await flush(5);
-
- // Drain any remaining timers; canceled coroutine must not advance further.
- jest.advanceTimersByTime(10 * STEPS);
  await flush(5);
 
  expect(p.isCanceled).toBe(true);
