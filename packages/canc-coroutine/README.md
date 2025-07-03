@@ -157,6 +157,10 @@ there is the canonical source for the proto/instance decision; this page adds th
 
 ## Documentation
 
+- [`yield` vs `yield*`](docs/yield-vs-yield-star.md) — why `yield* cancAwait(promise)` is typed and
+ bare `yield promise` is not, the TypeScript limitation behind it, the typed combinator helpers
+ (`cancAwait.all/race/any/allSettled`), and how redux-saga and MobX `flow` hit the same wall.
+
 ## Contributing
 
 You are welcome to participate through issues and pull requests!

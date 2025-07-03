@@ -246,24 +246,53 @@ type cancAwait = <T>(value: Promise<T> | T) => T;
  * const [n, s] = yield* cancAwait.all([Promise.resolve(1), Promise.resolve('a')]);
  * // ^ number ^ string — tuple, not `unknown[]`
  *
- * The argument/return types are taken verbatim from `CancelablePromise`'s own
- * combinator overloads (`typeof CancelablePromise.all`, ...), so every arity /
- * heterogeneous-tuple overload the class ships is inherited here for free — no
- * parallel overload set to keep in sync.
+ * Tuple inference has to be reconstructed here rather than projected off the
+ * static. `Parameters`/`ReturnType` only see the LAST overload of an overloaded
+ * function (for `all` that's the variadic `Iterable` fallback,
+ * `CancelablePromise<T[]>`), and matching the overload set structurally erases
+ * each overload's own generics to `unknown`. So each combinator's generator
+ * signature is declared directly over a tuple type param and maps the element
+ * types the same way the native `lib.es*` combinator lib does. The mapped
+ * result is the `yield*` value type, so `const [n, s] = yield* cancAwait.all(...)`
+ * infers `[number, string]`, not `unknown[]`.
  */
-type TCombinator<TStatic extends (...args: any[]) => CancelablePromise<any>> =
- <TArgs extends Parameters<TStatic>>(...args: TArgs) => Generator<
- ReturnType<TStatic>,
- ReturnType<TStatic> extends CancelablePromise<infer R> ? R : never,
- ReturnType<TStatic> extends CancelablePromise<infer R> ? R : never
- >;
+type TAwaitedTuple<T extends readonly unknown[]> = { -readonly [K in keyof T]: Awaited<T[K]> };
+type TSettledTuple<T extends readonly unknown[]> = { -readonly [K in keyof T]: PromiseSettledResult<Awaited<T[K]>> };
+
+interface ICancAwaitAll {
+ <T extends readonly unknown[] | []>(
+ values: readonly [...T],
+ options?: ICancelablePromiseOptions,
+ ): Generator<CancelablePromise<TAwaitedTuple<T>>, TAwaitedTuple<T>, TAwaitedTuple<T>>;
+}
+
+interface ICancAwaitRace {
+ <T extends readonly unknown[] | []>(
+ values: readonly [...T],
+ options?: ICancelablePromiseOptions,
+ ): Generator<CancelablePromise<Awaited<T[number]>>, Awaited<T[number]>, Awaited<T[number]>>;
+}
+
+interface ICancAwaitAny {
+ <T extends readonly unknown[] | []>(
+ values: readonly [...T],
+ options?: ICancelablePromiseOptions,
+ ): Generator<CancelablePromise<Awaited<T[number]>>, Awaited<T[number]>, Awaited<T[number]>>;
+}
+
+interface ICancAwaitAllSettled {
+ <T extends readonly unknown[] | []>(
+ values: readonly [...T],
+ options?: ICancelablePromiseOptions,
+ ): Generator<CancelablePromise<TSettledTuple<T>>, TSettledTuple<T>, TSettledTuple<T>>;
+}
 
 interface ICancAwait {
  <T>(value: Promise<T> | T): Generator<Promise<T> | T, T, T>;
- all: TCombinator<typeof CancelablePromise.all>;
- race: TCombinator<typeof CancelablePromise.race>;
- any: TCombinator<typeof CancelablePromise.any>;
- allSettled: TCombinator<typeof CancelablePromise.allSettled>;
+ all: ICancAwaitAll;
+ race: ICancAwaitRace;
+ any: ICancAwaitAny;
+ allSettled: ICancAwaitAllSettled;
 }
 
 function makeCombinator(build: (...args: any[]) => CancelablePromise<any>) {
