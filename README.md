@@ -3,10 +3,8 @@
 </h1>
 
 <p align="center">
- <a href="https://travis-ci.org/vuetifyjs/vuetify">
- <img src="https://img.shields.io/travis/vuetifyjs/vuetify/dev.svg?style=flat-square" alt="Travis CI"></a>
- <a href="https://github.com/vuetifyjs/vuetify/blob/master/LICENSE.md">
- <img src="https://img.shields.io/npm/l/vuetify.svg?style=flat-square" alt="License"></a>
+ <a href="LICENSE">
+ <img src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" alt="License"></a>
  <a href="#contributing">
  <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square" alt="PRs Welcome"></a>
 </p>
@@ -223,6 +221,24 @@ See [examples](#examples) for more use cases.
 
 * **Observables aren't a magic bullet**. Observables can provide a superset of promise features, as well as cancellation. However, observables don't offer expressive sugar similar to `async..await`, cancellation may be lost in promise interop. Observables are push-based and cannot displace pull-based `async*` async iterators. [RxJS](https://github.com/ReactiveX/rxjs) is commonly used implementation with complex API, no [native observable](https://github.com/tc39/proposal-observable) implementation exists yet.
 
+### Comparison
+
+| | `canc` | native + `AbortController` | [p-cancelable](https://github.com/sindresorhus/p-cancelable) | [alkemics/CancelablePromise](https://github.com/alkemics/CancelablePromise) | [c-promise2](https://github.com/DigitalBrainJS/c-promise) | [Bluebird](http://bluebirdjs.com/docs/api/cancellation.html) |
+|---|---|---|---|---|---|---|
+| Native `Promise` subclass | yes | n/a | no (wraps) | no (wraps) | no (wraps) | no (own implementation) |
+| Deep (chain-wide) cancellation | yes | manual (thread signal yourself) | no (single promise) | no (single promise) | yes | yes |
+| Rejection-based (normal try/catch) | yes | yes (`AbortError`) | yes | no (silent skip) | no (never settles) | no (never settles by default) |
+| Two-way propagation (bubble up + flow down) | yes | no | no | no | no | no |
+| `AbortSignal` interop | yes (`@cancjs/fetch`, toolbox helpers) | native | no | no | no | no |
+| Actively maintained | yes | n/a (platform) | yes | no | no | no (cancellation feature frozen) |
+
+`canc` is the only entry that combines a native `Promise` subclass with deep, two-way,
+rejection-based cancellation. `AbortController` is the maintained platform primitive but only
+threads a signal, it doesn't propagate cancellation through a chain on its own. The `p-*`-style
+packages and alkemics wrap a single promise and skip silently instead of rejecting. c-promise2 has
+deep cancellation but isn't a `Promise` subclass and has gone quiet. Bluebird's two-way
+cancellation predates today's `async..await`-centric ecosystem, is off by default, and promises
+never settle on cancel instead of rejecting.
 
 <!--
 ## Getting Started
@@ -281,63 +297,22 @@ None of the above are covered by the TS version matrix or CI; treat as best-effo
 
 ### Native Support
 
-Supported in modern browsers and Node.js:
+Tested and supported: Node.js 18+ (CI matrix runs 18.x and 20.x on Linux and Windows), and current
+evergreen browsers with native `Symbol`, `Reflect`, `Promise` (including `finally`/`allSettled`),
+`Object.assign`, `Object.setPrototypeOf`.
 
-* Chrome 49
-* Opera 36
-* Edge 12
-* Firefox 42
-* Safari macOS/iOS 10
-* Android 7 (WebView)
-* Node.js 6
+The compiled output targets ES5 (see [Build targets](#build-targets)), so it runs on older engines
+too, but only the Node 18+ / evergreen-browser baseline above is covered by CI.
 
-### Polyfilled Support
+### Legacy / Polyfilled Support
 
-Supported in legacy browsers and Node.js with `core-js` or `polyfill.io`:
-
-* Chrome 5
-* Opera 12
-* Edge 12
-* IE 11
-* Firefox 4
-* Safari macOS/iOS 5
-* Android 4.4 (WebView, browser)
-* Node.js 0.10
-
-The incompatibility between native and polyfilled `Promise` and `Reflect` in engines with incomplete ES6 support (Node.js 0.12 to 5, etc) requires to match globals before polyfilling:
-
-<details>
- <summary>Modular environment</summary>
-
-```js
-var _global = typeof globalThis !== 'undefined' && globalThis
- || typeof self !== 'undefined' && self
- || typeof global !== 'undefined' && global;
-
-if (!('Reflect' in _global) && 'Promise' in _global)
- delete _global.Promise;
-
-require('core-js/stable');
-```
-</details>
-
-
-<details>
- <summary>Browser webpage</summary>
-
-```html
-<script>
-if (!('Reflect' in window) && 'Promise' in window)
- delete window.Promise;
-</script>
-<!-- no es2020 allSettled yet -->
-<script src="https://polyfill.io/v3/polyfill.min.js?features=es2015,es2018&flags=always,gated"></script>
-```
-</details>
+Older browser and Node.js targets (IE11, Node 6, polyfilled ES5 via `core-js`/`polyfill.io`, and
+similar) are not part of the current test matrix or package set. That support is planned for
+future `-legacy` package entries rather than claimed here; see the package list above.
 
 ## Examples
 
-Can be found in [examples](https://github.com/cancjs/canc/tree/master/examples) section.
+Runnable and reference examples live in [examples](https://github.com/cancjs/canc/tree/master/examples): a Node.js request waterfall, coroutine and combinator demos, decorator flavors, and a React unmount-cancel pattern.
 
 <!--
 ### Component with uncancelable promises:
