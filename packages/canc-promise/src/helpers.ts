@@ -1,11 +1,23 @@
 import { CANCEL_ERROR_BRAND, CancelError } from './cancel-error';
-import { CancelablePromise, ICancelablePromiseOptions, ICancelRef } from './cancelable-promise';
+import { CANCEL_PROMISE_BRAND, CancelablePromise, ICancelableHelperOptions, ICancelRef } from './cancelable-promise';
 import { isCancelable, isObject, isThenable } from '../../_util';
 
 // Brand check: a foreign error merely named 'CancelError' is NOT matched, only objects carrying
 // the shared Symbol.for brand set by the CancelError constructor. Cross-realm/cross-copy safe
 // because the brand comes from the global symbol registry.
 export const isCancelError = (error: any): error is CancelError => isObject(error) && error[CANCEL_ERROR_BRAND] === true;
+
+// Brand check: same rationale as isCancelError, but for CancelablePromise instances. Duck-types
+// via CANCEL_PROMISE_BRAND (set on the prototype at module load) instead of `instanceof
+// CancelablePromise`, so a different @cancjs/promise copy (dual-package hazard) is still
+// recognized.
+export const isCancPromise = (value: any): value is CancelablePromise<any> => isObject(value) && value[CANCEL_PROMISE_BRAND] === true;
+
+// AbortController/AbortSignal reject with a DOMException whose name is 'AbortError'. There is no
+// brand to key on (it is a platform error, not ours), so detection matches the name, the same
+// convention every AbortSignal consumer uses. Works for a real DOMException and for a plain Error
+// stand-in in runtimes without DOMException.
+export const isAbortError = (error: any): boolean => isObject(error) && (error as { name?: unknown }).name === 'AbortError';
 
 export function createCancelRef(): ICancelRef {
 	return { cancel: null };
@@ -64,8 +76,13 @@ export function suppressCancel<TResult extends any, TError extends any>(errorOrP
 	}
 }
 
-export function forceCancelable<T>(promise: PromiseLike<T>, options?: ICancelablePromiseOptions): CancelablePromise<T> {
-	return new CancelablePromise(
+// Renamed from forceCancelable: that name collided with the unrelated `forceCancelable` option
+// on ICancelablePromiseFlagOptions (this function wraps a promise into a cancelable one; the
+// option keeps a promise cancelable when a native promise is adopted through resolve()).
+export function makeCancelable<T>(promise: PromiseLike<T>, options?: ICancelableHelperOptions): CancelablePromise<T> {
+	const This = options?.CancelablePromise || CancelablePromise;
+
+	return new This(
 		(resolve, reject, handleCancel) => {
 			promise.then(resolve, reject);
 
@@ -78,3 +95,6 @@ export function forceCancelable<T>(promise: PromiseLike<T>, options?: ICancelabl
 		options
 	);
 }
+
+/** @deprecated use `makeCancelable` */
+export const forceCancelable = makeCancelable;
