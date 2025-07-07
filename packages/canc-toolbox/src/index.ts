@@ -12,6 +12,18 @@ export { waitFor, waitForFactory, IWaitForOptions } from './wait-for';
 export { minDelay, minDelayFactory } from './min-delay';
 export { retry, retryFactory, IRetryOptions } from './retry';
 
+export {
+	suppress,
+	suppressFactory,
+	suppressAbort,
+	suppressAbortFactory,
+	interopTimeout,
+	interopTimeoutFactory,
+	toAbortSignal,
+	withSignal,
+	SuppressCategory,
+} from './abort-interop';
+
 export { IToolboxOptions, THandleCancel, TToolboxExecutor } from './options';
 
 /**
