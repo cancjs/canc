@@ -2,6 +2,12 @@ import { createAggregateError, isFunction, isObject, isThenable } from '../../_u
 import { CancelError } from './cancel-error';
 import { isCancelError } from './helpers';
 
+// Agent-wide brand: same rationale as CANCEL_ERROR_BRAND in cancel-error.ts. A Symbol.for
+// registry entry is identical across realms and across duplicated package copies, so duck-typing
+// via this brand (isCancPromise) is collision-proof and works across dual-package-hazard copies,
+// unlike `instanceof CancelablePromise`.
+export const CANCEL_PROMISE_BRAND = Symbol.for('@cancjs/promise:CancelablePromise');
+
 export type TPromiseExecutor<T> = (resolve: (value?: T | PromiseLike<T>) => void, reject: (reason?: any) => void) => void;
 export type TCancelablePromiseExecutor<T> = (resolve: (value?: T | PromiseLike<T>) => void, reject: (reason?: any) => void, handleCancel: (onCancel: TOnCancel) => void) => void;
 export type TCancelReason = string | object | CancelError;
@@ -49,6 +55,15 @@ export interface ICancelablePromiseFlagOptions {
 export interface ICancelablePromiseOptions extends ICancelablePromiseFlagOptions {
 	ref?: ICancelRef;
 	signal?: IAbortSignal | IAbortSignal[];
+}
+
+/**
+ * Common shape for options accepted by standalone cancelation helpers (forceCancelable/
+ * makeCancelable and friends): lets a caller swap in a different CancelablePromise-compatible
+ * constructor instead of always using the built-in class.
+ */
+export interface ICancelableHelperOptions extends ICancelablePromiseOptions {
+	CancelablePromise?: typeof CancelablePromise;
 }
 
 interface IAbortSignal {
@@ -341,6 +356,23 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		}
 	}
 
+	/**
+	 * Invokes `fn` with `args`, wrapping both a synchronous throw and the returned value/promise
+	 * into a single settled CancelablePromise. Lets callers use `.catch`/cancelation uniformly
+	 * around code that may throw synchronously instead of always rejecting asynchronously.
+	 * @param fn Function to invoke, may throw synchronously or return a value/thenable.
+	 * @param args Arguments passed through to `fn`.
+	 */
+	static try<T, TArgs extends any[]>(fn: (...args: TArgs) => T | PromiseLike<T>, ...args: TArgs): CancelablePromise<T> {
+		return new this<T>((resolve, reject) => {
+			try {
+				resolve(fn(...args));
+			} catch (error) {
+				reject(error);
+			}
+		});
+	}
+
 	protected static _getOptions(options?: ICancelablePromiseOptions) {
 		const mergedOptions: ICancelablePromiseOptions & Required<ICancelablePromiseFlagOptions> = { ...this.defaultOptions };
 
@@ -403,7 +435,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		for (const input of inputs) {
 			// Shielded inputs are skipped: their cancel() is a no-op anyway, but skipping keeps
 			// the doctrine explicit, a shielded loser is never canceled by a combinator.
-			if (input !== winner && input.isCancelable && input.bubble && !input.shield) {
+			if (input !== winner && input.cancelable && input.bubble && !input.shield) {
 
 				input.cancel(new CancelError('Canceled as loser in combinator'));
 			}
@@ -416,6 +448,10 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	// defineForClassFields:true target creating an own `undefined` property that would shadow
 	// that inherited getter.
 	declare readonly [Symbol.toStringTag]: string;
+
+	// `declare`: assigned once on the prototype at module load (below, alongside the
+	// setPrototypeOf wiring), not per-instance — every instance inherits the same brand value.
+	declare readonly [CANCEL_PROMISE_BRAND]: true;
 
 	asyncCancel!: boolean;
 	forceCancelable!: boolean;
@@ -651,7 +687,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 				Object.defineProperty(ref, 'canceled', {
 					configurable: true,
 					get: () => {
-						return instance.isCanceled;
+						return instance.canceled;
 					}
 				});
 
@@ -673,15 +709,39 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		return instance;
 	}
 
-	get isCanceled(): boolean {
+	get canceled(): boolean {
 		return this._internalState === states.CANCELED;
 	}
 
-	get isCancelable(): boolean {
+	/** @deprecated use `canceled` */
+	get isCanceled(): boolean {
+		return this.canceled;
+	}
+
+	get cancelable(): boolean {
 		// Settled-ness is derived purely from the internal state machine now. A promise is
 		// cancelable only while genuinely PENDING; FORCE_PENDING (forceCancelable:false adoption),
 		// FULFILLED, REJECTED and CANCELED are all non-cancelable.
 		return this._internalState === states.PENDING;
+	}
+
+	/** @deprecated use `cancelable` */
+	get isCancelable(): boolean {
+		return this.cancelable;
+	}
+
+	/**
+	 * Snapshot of this promise's active cancelation options (flags + ref/signal not included,
+	 * those are one-shot constructor inputs, not ongoing state).
+	 */
+	get options(): Required<ICancelablePromiseFlagOptions> {
+		return {
+			asyncCancel: this.asyncCancel,
+			forceCancelable: this.forceCancelable,
+			bubble: this.bubble,
+			strict: this.strict,
+			shield: this.shield,
+		};
 	}
 
 	/**
@@ -737,11 +797,11 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	}
 
 	handleCancel(onCancel: TOnCancel, options?: IHandleCancelOptions): CancelablePromise<T> {
-		if (this.isCancelable) {
+		if (this.cancelable) {
 			if (isFunction(onCancel) && !this._cancelHandlers.includes(onCancel)) {
 				this._cancelHandlers.push(onCancel);
 			}
-		} else if (options && options.immediate && this.isCanceled) {
+		} else if (options && options.immediate && this.canceled) {
 			// Immediate opt-in: the promise is already canceled, fire the handler
 			// asynchronously (microtask) with the original cancel reason instead of a silent no-op.
 			// This also suppresses the strict throw for this call.
@@ -753,7 +813,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 				});
 			}
 		} else if (this.strict) {
-			throw new Error(`${this.isCanceled ? 'Canceled' : 'Settled'} promise cannot add cancel handler`);
+			throw new Error(`${this.canceled ? 'Canceled' : 'Settled'} promise cannot add cancel handler`);
 		}
 
 		return this;
@@ -780,7 +840,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		// bubble-cancel from children (which arrives via this same cancel() call in _chain) is
 		// stopped here. Down-propagation is untouched: an upstream cancel/reject reaches this
 		// promise through the _reject wrapper, not through cancel(), so shielded nodes still settle.
-		if (this.shield && this.isCancelable) {
+		if (this.shield && this.cancelable) {
 			if (this.strict) {
 				throw new Error('Shielded promise cannot be canceled');
 			}
@@ -788,7 +848,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 			return;
 		}
 
-		if (this.isCancelable) {
+		if (this.cancelable) {
 			// Set CANCELED BEFORE _reject so the reject wrapper's external-cancel branch is
 			// skipped (no double firing of handlers on the cancel() path).
 			this._internalState = states.CANCELED;
@@ -812,7 +872,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 
 			return this._runCancellation(reason);
 		} else if (this.strict) {
-			throw new Error(`${this.isCanceled ? 'Canceled' : 'Settled'} promise cannot be canceled`);
+			throw new Error(`${this.canceled ? 'Canceled' : 'Settled'} promise cannot be canceled`);
 		}
 	}
 
@@ -827,7 +887,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	 */
 	protected _dispose(): void | CancelablePromise<PromiseSettledResult<unknown>[]> {
 		// Shielded or already-settled/canceled → silent no-op (never throw, unlike cancel() strict).
-		if (this.shield || !this.isCancelable) {
+		if (this.shield || !this.cancelable) {
 			return;
 		}
 
@@ -851,7 +911,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		this._canceledReason = reason;
 		this._isCanceledReasonSet = true;
 
-		// Suppress uncaught rejection (targeted — only for canceled promises).
+		// Suppress unhandled rejection (targeted — only for canceled promises).
 		this.catch(noop);
 
 		const This = this.constructor as typeof CancelablePromise;
@@ -916,16 +976,16 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
  * @param bubbleOnComplete Makes the cancelation bubble on completion of the child promise, e.g. race()
  */
 	protected _chain(childPromise: CancelablePromise<any>, bubbleOnComplete?: boolean): void {
-		if (this.bubble && this.isCancelable) {
+		if (this.bubble && this.cancelable) {
 			this._chainsCount++;
 			// console.log('chains', this._chainsCount, this._completedChainsCount);
 
 			const onComplete = () => {
 				this._completedChainsCount++;
 
-				if (this._completedChainsCount >= this._chainsCount && this.isCancelable) {
+				if (this._completedChainsCount >= this._chainsCount && this.cancelable) {
 					const error = new CancelError(`Bubbled on ${bubbleOnComplete ? 'settling' : 'cancel'}`);
-					error.isBubbled = true;
+					error.bubbled = true;
 
 					 
 					this.cancel(error);
@@ -972,6 +1032,16 @@ const NativePromise = Promise;
 Object.setPrototypeOf(CancelablePromise, NativePromise);
 
 Object.setPrototypeOf(CancelablePromise.prototype, NativePromise.prototype);
+
+// Duck-token brand: every instance (via the prototype) carries CANCEL_PROMISE_BRAND, so
+// isCancPromise (helpers.ts) can identify a genuine canc CancelablePromise across realms/copies
+// without `instanceof` (which fails across dual-package-hazard copies of this module).
+Object.defineProperty(CancelablePromise.prototype, CANCEL_PROMISE_BRAND, {
+	configurable: false,
+	enumerable: false,
+	writable: false,
+	value: true
+});
 
 // Explicit Resource Management wiring. Feature-detected and attached at module load so there
 // is ZERO footprint on runtimes without the symbols (es5/legacy engines): the prototype simply
