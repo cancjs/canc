@@ -6,7 +6,7 @@
  "arch": "x64",
  "cpuModel": "12th Gen Intel(R) Core(TM) i7-12700KF",
  "cpuCount": 16,
- "timestamp": "2026-07-11T03:36:31.376Z"
+ "timestamp": "2026-07-11T05:47:47.352Z"
  },
  "allocation": [
  {
@@ -19,15 +19,15 @@
  {
  "name": "canc",
  "count": 10000,
- "heapDeltaBytes": 14779488,
- "heapDeltaPerPromise": 1478,
+ "heapDeltaBytes": 3580104,
+ "heapDeltaPerPromise": 358,
  "gcDuringAlloc": 0
  },
  {
  "name": "bluebird",
  "count": 10000,
- "heapDeltaBytes": 1411480,
- "heapDeltaPerPromise": 141,
+ "heapDeltaBytes": 1214776,
+ "heapDeltaPerPromise": 121,
  "gcDuringAlloc": 0
  }
  ]

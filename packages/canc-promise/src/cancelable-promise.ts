@@ -94,6 +94,15 @@ const states = {
 	CANCELED: 'CANCELED',
 } as { [key in TCancelablePromiseStates]: key };
 
+// Packed flag bits for the per-instance `_flags` int. Replacing five boolean own-properties with
+// one small integer is the bulk of the per-instance memory reduction; the public boolean read/write
+// API (`p.bubble` etc) is preserved by prototype getter/setters that read/write these bits.
+const FLAG_ASYNC_CANCEL = 1;
+const FLAG_FORCE_CANCELABLE = 2;
+const FLAG_BUBBLE = 4;
+const FLAG_STRICT = 8;
+const FLAG_SHIELD = 16;
+
 // Extends PromiseConstructor, as defined in
 // lib.es2015.promise, lib.es2015.iterable, lib.es2015.symbol.wellknown, lib.es2018.promise, lib.es2020.promise, lib.es2021.promise.d.ts, lib.esnext.promise.d.ts
 class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
@@ -352,7 +361,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 			promise,
 			resolve: promise._resolve,
 			reject: promise._reject,
-			cancel: promise.cancel,
+			cancel: promise._getBoundCancel(),
 		}
 	}
 
@@ -453,33 +462,53 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	// setPrototypeOf wiring), not per-instance — every instance inherits the same brand value.
 	declare readonly [CANCEL_PROMISE_BRAND]: true;
 
-	asyncCancel!: boolean;
-	forceCancelable!: boolean;
-	bubble!: boolean;
-	strict!: boolean;
-	shield!: boolean;
+	// Per-instance own-property layout (kept deliberately small — see the memory notes below):
+	// _flags packed booleans (asyncCancel/forceCancelable/bubble/strict/shield),
+	// read/written through the prototype getters/setters below
+	// _internalState state-machine string
+	// _resolve/_reject the wrapped settlement functions
+	// _cancelHandlers lazily allocated only when handleCancel() actually registers one
+	// _abortSignals/_abortListeners lazily allocated only when a signal is wired
+	// _chainsCount/_completedChainsCount bubble bookkeeping (only touched when chained)
+	// _pendingSyncCancel(+Reason) transient sync-executor cancel handoff
+	// _canceledReason/_isCanceledReasonSet retained for late immediate handlers
+	// cancel bound copy, installed lazily on first read (see the accessor below)
+	// The five public flag booleans (asyncCancel/forceCancelable/bubble/strict/shield) are NOT
+	// per-instance fields anymore; they live in `_flags` and are exposed via prototype
+	// getter/setters, so reading/writing `p.bubble` keeps working unchanged.
 
+	// Cold fields default-valued on the PROTOTYPE (assigned once at module load, see below), NOT
+	// per-instance. `declare` = zero per-instance emit; a read falls through to the shared prototype
+	// default and a write lazily creates an own property only for the promises that actually diverge
+	// (chained, canceled, sync-cancel handoff). A plain resolved/rejected promise therefore carries
+	// none of these as own slots. Layout summary and rationale in the memory note above.
+	declare protected _chainsCount: number;
+	declare protected _completedChainsCount: number;
+	declare protected _pendingSyncCancel: boolean;
+	declare protected _pendingSyncCancelReason: any;
+	declare protected _canceledReason: any;
+	declare protected _isCanceledReasonSet: boolean;
+
+	// Always own properties (per-instance): the settlement wrappers, the state machine, the packed
+	// flags. These differ per promise, so a prototype default would not help.
 	protected _resolve!: (value?: any) => void;
 	protected _reject!: (reason?: any) => void;
-	protected _cancelHandlers: TOnCancel[] = [];
-	protected _chainsCount = 0;
-	protected _completedChainsCount = 0;
-	// Listener management for abort signals: maps each signal to its registered listener
-	// function so we can remove it on settle. Supports both single signal and array.
-	protected _abortSignals: IAbortSignal[] = [];
-	protected _abortListeners = new Map<IAbortSignal, any>();
-	// Reflect promise state via public fields
+	// Initialized eagerly (not declare-only): the executor's resolve/reject wrappers read
+	// `_internalState` on `tempThis` while it still runs synchronously, before the constructor's
+	// copy block migrates it to the real instance, so the PENDING default must exist up front.
 	protected _internalState: TCancelablePromiseStates = 'PENDING';
-	// Set when an external CancelError rejection transitions the promise to CANCELED while
-	// `instance` is still the temporary `this` (synchronous executor, before Reflect.construct
-	// returns the real promise). Post-construct code then runs the deferred cancellation side
-	// effects (rejection suppression + cancel-handler firing) on the real instance.
-	protected _pendingSyncCancel = false;
-	protected _pendingSyncCancelReason: any = undefined;
-	// Retains the original cancel reason once canceled, so a late handleCancel({immediate:true})
-	// registration can fire with the same reason.
-	protected _canceledReason: any = undefined;
-	protected _isCanceledReasonSet = false;
+	protected _flags!: number;
+
+	// Lazily allocated on first handleCancel() registration — most promises never register a
+	// cancel handler, so the array is not created up front.
+	protected _cancelHandlers?: TOnCancel[];
+	// Listener management for abort signals: maps each signal to its registered listener
+	// function so we can remove it on settle. Lazily allocated only when a signal is wired
+	// (the common case has no signal, so both stay undefined).
+	protected _abortSignals?: IAbortSignal[];
+	protected _abortListeners?: Map<IAbortSignal, any>;
+	// Bound `cancel`, created lazily only when a detached reference is requested (withResolvers/ref).
+	protected _boundCancel?: TCancelFn;
 
 	/**
 	 * Creates a new Promise.
@@ -639,16 +668,39 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 			This
 		) as CancelablePromise<T>;
 
-		Object.assign(instance, this);
+		// Initialize the real instance's own-property layout explicitly. The field initializers at
+		// the top of the class run against `tempThis` inside the constructor body, but the object
+		// returned by `Reflect.construct` (running native Promise's constructor) is a DIFFERENT
+		// object that never ran them — the previous `Object.assign(instance, this)` migrated the
+		// whole eager field set over. Enumerating the exact layout here (instead of a blanket
+		// Object.assign of every field plus leftovers) keeps the instance lean: the lazily-allocated
+		// `_cancelHandlers`/`_abortSignals`/`_abortListeners`/`_boundCancel` are intentionally NOT
+		// created here — they stay absent until first use. Only the settlement wrappers, the state
+		// the synchronous executor may have advanced, a synchronously-registered cancel handler, and
+		// the deferred sync-cancel handoff are carried over from `tempThis`.
+		instance._resolve = tempThis._resolve;
+		instance._reject = tempThis._reject;
+		instance._internalState = tempThis._internalState;
+		// The cold fields (`_chainsCount`, cancel-reason retention, etc.) intentionally stay on the
+		// prototype default here — only a synchronously-registered cancel handler and the deferred
+		// sync-cancel handoff can have diverged on `tempThis` during the executor, so carry just
+		// those, and only when actually present, to avoid materializing own properties needlessly.
+		if (tempThis._cancelHandlers) {
+			instance._cancelHandlers = tempThis._cancelHandlers;
+		}
+		if (tempThis._pendingSyncCancel) {
+			instance._pendingSyncCancel = true;
+			instance._pendingSyncCancelReason = tempThis._pendingSyncCancelReason;
+		}
 
-		instance.cancel = instance.cancel.bind(instance);
-
-		// Flag options
-		instance.bubble = normalizedOptions.bubble;
-		instance.strict = normalizedOptions.strict;
-		instance.asyncCancel = normalizedOptions.asyncCancel;
-		instance.forceCancelable = normalizedOptions.forceCancelable;
-		instance.shield = normalizedOptions.shield;
+		// Packed flag options (one int instead of five boolean own-properties).
+		let flags = 0;
+		if (normalizedOptions.asyncCancel) flags |= FLAG_ASYNC_CANCEL;
+		if (normalizedOptions.forceCancelable) flags |= FLAG_FORCE_CANCELABLE;
+		if (normalizedOptions.bubble) flags |= FLAG_BUBBLE;
+		if (normalizedOptions.strict) flags |= FLAG_STRICT;
+		if (normalizedOptions.shield) flags |= FLAG_SHIELD;
+		instance._flags = flags;
 
 		const { ref, signal } = normalizedOptions;
 
@@ -667,14 +719,17 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 				// Non-strict pre-abort: already handled by executor rejecting immediately.
 			} else {
 				// Non-aborted: register abort listeners for all signals (first-abort-wins).
-				// Listener cleanup happens via _runSettlementEffects on settle.
+				// Listener cleanup happens via _runSettlementEffects on settle. The tracking
+				// array/map are allocated here (lazily) — only signal-wired promises pay for them.
+				const abortSignals: IAbortSignal[] = instance._abortSignals = [];
+				const abortListeners = instance._abortListeners = new Map<IAbortSignal, any>();
 				for (const sig of signals) {
 					const onAbort = () => {
 						instance.cancel(sig.reason);
 					};
 
-					instance._abortSignals.push(sig);
-					instance._abortListeners.set(sig, onAbort);
+					abortSignals.push(sig);
+					abortListeners.set(sig, onAbort);
 					sig.addEventListener('abort', onAbort, { once: true });
 				}
 			}
@@ -691,7 +746,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 					}
 				});
 
-				ref.cancel = instance.cancel;
+				ref.cancel = instance._getBoundCancel();
 			}
 		}
 
@@ -707,6 +762,28 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		}
 
 		return instance;
+	}
+
+	// Flag accessors backed by the packed `_flags` int (see the memory notes on the field block).
+	// Getters/setters keep the public boolean read/write API identical to the former own-property
+	// fields while storing all five flags in a single integer.
+	get asyncCancel(): boolean { return (this._flags & FLAG_ASYNC_CANCEL) !== 0; }
+	set asyncCancel(v: boolean) { this._setFlag(FLAG_ASYNC_CANCEL, v); }
+	get forceCancelable(): boolean { return (this._flags & FLAG_FORCE_CANCELABLE) !== 0; }
+	set forceCancelable(v: boolean) { this._setFlag(FLAG_FORCE_CANCELABLE, v); }
+	get bubble(): boolean { return (this._flags & FLAG_BUBBLE) !== 0; }
+	set bubble(v: boolean) { this._setFlag(FLAG_BUBBLE, v); }
+	get strict(): boolean { return (this._flags & FLAG_STRICT) !== 0; }
+	set strict(v: boolean) { this._setFlag(FLAG_STRICT, v); }
+	get shield(): boolean { return (this._flags & FLAG_SHIELD) !== 0; }
+	set shield(v: boolean) { this._setFlag(FLAG_SHIELD, v); }
+
+	private _setFlag(bit: number, value: boolean): void {
+		if (value) {
+			this._flags |= bit;
+		} else {
+			this._flags &= ~bit;
+		}
 	}
 
 	get canceled(): boolean {
@@ -798,8 +875,13 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 
 	handleCancel(onCancel: TOnCancel, options?: IHandleCancelOptions): CancelablePromise<T> {
 		if (this.cancelable) {
-			if (isFunction(onCancel) && !this._cancelHandlers.includes(onCancel)) {
-				this._cancelHandlers.push(onCancel);
+			if (isFunction(onCancel)) {
+				// Allocate the handlers array on first registration — most promises never register
+				// a cancel handler, so the array stays absent for the common case.
+				const handlers = this._cancelHandlers || (this._cancelHandlers = []);
+				if (!handlers.includes(onCancel)) {
+					handlers.push(onCancel);
+				}
 			}
 		} else if (options && options.immediate && this.canceled) {
 			// Immediate opt-in: the promise is already canceled, fire the handler
@@ -877,6 +959,20 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	}
 
 	/**
+	 * Returns a `cancel` bound to this instance for the detached call sites (`withResolvers().cancel`
+	 * and `ref.cancel`) that hand the function out on its own. The bound copy is created on demand
+	 * and cached as an own property so every promise no longer pays for a per-instance bound `cancel`;
+	 * the normal `p.cancel(...)` method call stays prototype-dispatched and allocates nothing.
+	 */
+	protected _getBoundCancel(): TCancelFn {
+		let bound = this._boundCancel;
+		if (!bound) {
+			bound = this._boundCancel = this.cancel.bind(this);
+		}
+		return bound;
+	}
+
+	/**
 	 * Explicit-resource-management disposal, shared by [Symbol.dispose] and [Symbol.asyncDispose].
 	 * An internal NO-THROW cancel: it bypasses `strict` (dispose-after-settle and shielded disposal
 	 * are both normal, expected no-ops, never errors) and cancels a genuinely pending, non-shielded
@@ -916,27 +1012,31 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 
 		const This = this.constructor as typeof CancelablePromise;
 
+		const handlers = this._cancelHandlers;
+
 		if (this.asyncCancel) {
 			// Always-return contract: asyncCancel resolves to the settlement of all cancel
 			// handlers. With no handlers this is an empty allSettled, still a promise, so callers
 			// (and Symbol.asyncDispose) can uniformly await cancellation completion.
-			const handlerPromises = this._cancelHandlers.map(
-				handler => new This(resolve => resolve(handler(reason)))
-			);
+			const handlerPromises = handlers
+				? handlers.map(handler => new This(resolve => resolve(handler(reason))))
+				: [];
 
-			this._cancelHandlers.length = 0;
+			if (handlers) {
+				handlers.length = 0;
+			}
 
 			return This.allSettled(handlerPromises);
 		} else {
 			// Sync mode returns undefined (documented split): handlers fire synchronously and any
 			// throw would surface immediately, so there is nothing to await.
-			if (this._cancelHandlers.length) {
+			if (handlers?.length) {
 				try {
-					for (const handler of this._cancelHandlers) {
+					for (const handler of handlers) {
 						handler(reason);
 					}
 				} finally {
-					this._cancelHandlers.length = 0;
+					handlers.length = 0;
 				}
 			}
 		}
@@ -947,16 +1047,29 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	 * Currently: clean up abort-signal listeners to prevent unbounded listener accumulation.
 	 */
 	protected _runSettlementEffects(): void {
+		// Release the settlement wrappers once the promise has settled — they close over the whole
+		// executor scope (by far the largest per-instance retained cost) and can never be invoked
+		// again after settlement (cancel()/resolve()/reject() are all no-ops on a settled promise).
+		// `withResolvers`/`ref` already captured their own references at construction time, so nulling
+		// the fields here does not affect callers still holding the functions.
+		this._resolve = undefined as any;
+		this._reject = undefined as any;
+
 		// Remove all registered abort listeners to prevent listener leaks when a promise settles
-		// before its signal(s) abort.
-		for (const signal of this._abortSignals) {
-			const listener = this._abortListeners.get(signal);
-			if (listener) {
-				signal.removeEventListener('abort', listener, { once: true });
-				this._abortListeners.delete(signal);
+		// before its signal(s) abort. Both structures are absent unless a signal was wired, so the
+		// common (no-signal) path does nothing here.
+		const abortSignals = this._abortSignals;
+		if (abortSignals) {
+			const abortListeners = this._abortListeners!;
+			for (const signal of abortSignals) {
+				const listener = abortListeners.get(signal);
+				if (listener) {
+					signal.removeEventListener('abort', listener, { once: true });
+					abortListeners.delete(signal);
+				}
 			}
+			abortSignals.length = 0;
 		}
-		this._abortSignals.length = 0;
 	}
 
 	protected _then<TResult1 = T, TResult2 = never>(onFulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | null, onRejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null): CancelablePromise<TResult1 | TResult2> {
@@ -1041,6 +1154,21 @@ Object.defineProperty(CancelablePromise.prototype, CANCEL_PROMISE_BRAND, {
 	enumerable: false,
 	writable: false,
 	value: true
+});
+
+// Prototype defaults for the cold per-instance fields. Declaring these on the prototype (rather
+// than initializing them in every constructor) means a promise that never chains, cancels, or takes
+// the sync-cancel handoff carries none of them as own properties: reads fall through to these shared
+// defaults and a write (e.g. `_chainsCount++`) materializes an own property only for the promises
+// that actually diverge. This is the bulk of the per-instance shrink for the common resolved/
+// rejected promise. Kept non-enumerable so it does not affect key enumeration / the `options` shape.
+Object.defineProperties(CancelablePromise.prototype, {
+	_chainsCount: { value: 0, writable: true, enumerable: false, configurable: true },
+	_completedChainsCount: { value: 0, writable: true, enumerable: false, configurable: true },
+	_pendingSyncCancel: { value: false, writable: true, enumerable: false, configurable: true },
+	_pendingSyncCancelReason: { value: undefined, writable: true, enumerable: false, configurable: true },
+	_canceledReason: { value: undefined, writable: true, enumerable: false, configurable: true },
+	_isCanceledReasonSet: { value: false, writable: true, enumerable: false, configurable: true },
 });
 
 // Explicit Resource Management wiring. Feature-detected and attached at module load so there
