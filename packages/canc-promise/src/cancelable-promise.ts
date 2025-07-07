@@ -103,6 +103,12 @@ const FLAG_BUBBLE = 4;
 const FLAG_STRICT = 8;
 const FLAG_SHIELD = 16;
 
+// Shared stand-in options for internal/species construction (`_then` -> native then -> ctor). The
+// resolve/reject wrappers only read `forceCancelable`; the derived promise's real flags are set by
+// the calling `then()` immediately after construction, so nothing else here is observed. Reused (not
+// reallocated) on every derived-promise construction on the hot chain path.
+const INTERNAL_CALL_OPTIONS = { forceCancelable: true } as ReturnType<typeof CancelablePromise['_getOptions']>;
+
 // Extends PromiseConstructor, as defined in
 // lib.es2015.promise, lib.es2015.iterable, lib.es2015.symbol.wellknown, lib.es2018.promise, lib.es2020.promise, lib.es2021.promise.d.ts, lib.esnext.promise.d.ts
 class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
@@ -530,10 +536,23 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		// to treat the first rejection as external CancelError for pre-abort handling.
 		let preAbortedSignalReason: any = undefined;
 
-		const normalizedOptions = This._getOptions(options);
+		// Internal/species construction fast path: `_then` sets `_pendingInternalCall` while native
+		// then() constructs the derived promise via species. Those calls carry no options, no signal,
+		// no ref, and the caller (`then`) overwrites `_flags` right after, so the whole options-
+		// normalization + signal-precheck + post-construct wiring is dead work here. Skip it: the
+		// derived promise is always forceCancelable (default) so its resolve wrapper adopts the
+		// settled value, and the executor is the minimal native-then reaction.
+		const isInternalCall = This._pendingInternalCall;
+
+		// Only normalize options on the public path. On the internal path `normalizedOptions` is a
+		// tiny stand-in read by the resolve/reject wrappers (they only consult `forceCancelable`,
+		// which defaults to true) — no allocation of the full merged-options object.
+		const normalizedOptions = isInternalCall
+			? INTERNAL_CALL_OPTIONS
+			: This._getOptions(options);
 
 		// Pre-check for aborted signals, if found, mark for deferred handling in reject wrapper.
-		if (normalizedOptions.signal) {
+		if (!isInternalCall && normalizedOptions.signal) {
 			const signals = Array.isArray(normalizedOptions.signal) ? normalizedOptions.signal : [normalizedOptions.signal];
 			const preAbortedSignal = signals.find(s => s.aborted);
 			if (preAbortedSignal && !normalizedOptions.strict) {
@@ -693,6 +712,15 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 			instance._pendingSyncCancelReason = tempThis._pendingSyncCancelReason;
 		}
 
+		// Internal/species construction: the calling `then()` overwrites `_flags` immediately and
+		// there is never a signal or ref, so skip the flag unpacking and the signal/ref wiring
+		// entirely. Seed `_flags` with the default (forceCancelable) so any flag read before `then`
+		// assigns is still well-defined.
+		if (isInternalCall) {
+			instance._flags = FLAG_FORCE_CANCELABLE;
+			return instance;
+		}
+
 		// Packed flag options (one int instead of five boolean own-properties).
 		let flags = 0;
 		if (normalizedOptions.asyncCancel) flags |= FLAG_ASYNC_CANCEL;
@@ -828,15 +856,15 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	 * @returns A Promise for the completion of which ever callback is executed.
 	 */
 	then<TResult1 = T, TResult2 = never>(onFulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | null, onRejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null): CancelablePromise<TResult1 | TResult2> {
-		const This = this.constructor as typeof CancelablePromise;
-		const normalizedOptions = This._getOptions(this);
-		// Shield is per-node and never inherited by then-derived children: a child of a shielded
-		// promise is itself normally cancelable.
-		normalizedOptions.shield = false;
-		const promise = This.resolve(
-			this._then(onFulfilled, onRejected),
-			normalizedOptions
-		);
+		// `_then` runs native then() through the species machinery, so its result is already a
+		// CancelablePromise of the right (possibly subclass) constructor. The derived child inherits
+		// this promise's flags except `shield` (per-node, never inherited). Rather than round-trip
+		// through `_getOptions` + `resolve` (which rebuilt an options object and then reconstructed
+		// the promise whenever the parent's flags differed from the fresh default), copy the packed
+		// flags straight across as a single integer and clear the shield bit. Behaviorally identical
+		// to the old resolve-reconstruct path, minus the per-call allocation and comparison.
+		const promise = this._then(onFulfilled, onRejected);
+		promise._flags = this._flags & ~FLAG_SHIELD;
 
 		this._chain(promise);
 

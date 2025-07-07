@@ -6,302 +6,302 @@
  "arch": "x64",
  "cpuModel": "12th Gen Intel(R) Core(TM) i7-12700KF",
  "cpuCount": 16,
- "timestamp": "2026-07-11T05:21:30.299Z"
+ "timestamp": "2026-07-11T05:57:12.316Z"
  },
  "tasks": [
  {
  "name": "a/construct-resolve native",
- "opsPerSec": 10023239.99997566,
- "marginPct": 6.13675972033448,
- "samples": 1002324,
- "meanMs": 0.00009976813884556574
+ "opsPerSec": 11295258.704814006,
+ "marginPct": 4.268599238331695,
+ "samples": 1129527,
+ "meanMs": 0.00008853272210346125
  },
  {
  "name": "a/construct-resolve canc",
- "opsPerSec": 743192.568075771,
- "marginPct": 1.5421012136344248,
- "samples": 74320,
- "meanMs": 0.001345546286326758
+ "opsPerSec": 1583068.4169318678,
+ "marginPct": 1.9418706507487165,
+ "samples": 158307,
+ "meanMs": 0.000631684638076535
  },
  {
  "name": "a/construct-resolve bluebird",
- "opsPerSec": 701242.9875690195,
- "marginPct": 1.6624052212020253,
- "samples": 70125,
- "meanMs": 0.0014260392156885211
+ "opsPerSec": 720172.0781072361,
+ "marginPct": 13.33605031185746,
+ "samples": 72018,
+ "meanMs": 0.0013885570274096305
  },
  {
  "name": "b/chain-1 native",
- "opsPerSec": 9562940.437068155,
- "marginPct": 1.6901189162930774,
- "samples": 956295,
- "meanMs": 0.00010457034701625561
+ "opsPerSec": 9915409.999989089,
+ "marginPct": 1.5700428946661806,
+ "samples": 991541,
+ "meanMs": 0.0001008531165126909
  },
  {
  "name": "b/chain-1 canc",
- "opsPerSec": 409270.50775498396,
- "marginPct": 11.535983625827804,
- "samples": 40946,
- "meanMs": 0.0024433717579246273
+ "opsPerSec": 1031321.7494256877,
+ "marginPct": 1.7413548029580852,
+ "samples": 103133,
+ "meanMs": 0.0009696295075294108
  },
  {
  "name": "b/chain-1 bluebird",
- "opsPerSec": 628396.2296224489,
- "marginPct": 11.045741832397429,
- "samples": 62840,
- "meanMs": 0.0015913526416299743
+ "opsPerSec": 725047.099811918,
+ "marginPct": 1.4398555941442428,
+ "samples": 72505,
+ "meanMs": 0.0013792207433964037
  },
  {
  "name": "b/chain-10 native",
- "opsPerSec": 2340920.636314902,
- "marginPct": 1.5924062818898779,
- "samples": 234093,
- "meanMs": 0.00042718235914832584
+ "opsPerSec": 2520214.9595675496,
+ "marginPct": 1.3790625877741731,
+ "samples": 252022,
+ "meanMs": 0.00039679154994445105
  },
  {
  "name": "b/chain-10 canc",
- "opsPerSec": 118895.8386456044,
- "marginPct": 1.88038425288145,
- "samples": 11890,
- "meanMs": 0.008410723296891184
+ "opsPerSec": 246073.10995297675,
+ "marginPct": 1.8781289729884316,
+ "samples": 24608,
+ "meanMs": 0.0040638328998690455
  },
  {
  "name": "b/chain-10 bluebird",
- "opsPerSec": 337185.61658711353,
- "marginPct": 0.9691350627402532,
- "samples": 33719,
- "meanMs": 0.002965725555323755
+ "opsPerSec": 346022.38750743424,
+ "marginPct": 1.9239902606994623,
+ "samples": 34603,
+ "meanMs": 0.0028899864173629955
  },
  {
  "name": "b/chain-100 native",
- "opsPerSec": 360332.07269451907,
- "marginPct": 1.4227175828124825,
- "samples": 36034,
- "meanMs": 0.0027752178498076027
+ "opsPerSec": 338930.17102511594,
+ "marginPct": 1.5992823137067895,
+ "samples": 33894,
+ "meanMs": 0.002950460258452165
  },
  {
  "name": "b/chain-100 canc",
- "opsPerSec": 14537.790255882192,
- "marginPct": 1.8047839495993738,
- "samples": 1454,
- "meanMs": 0.06878624484181055
+ "opsPerSec": 30934.9266720324,
+ "marginPct": 1.9671129596476236,
+ "samples": 3094,
+ "meanMs": 0.03232592113767893
  },
  {
  "name": "b/chain-100 bluebird",
- "opsPerSec": 78789.44847386243,
- "marginPct": 1.1479510985228167,
- "samples": 7879,
- "meanMs": 0.012692054829292776
+ "opsPerSec": 70752.28800060006,
+ "marginPct": 1.6821276497650404,
+ "samples": 7076,
+ "meanMs": 0.01413381854155047
  },
  {
  "name": "c/fanout-100 native",
- "opsPerSec": 196956.6517370194,
- "marginPct": 1.9009945555644565,
- "samples": 19696,
- "meanMs": 0.0050772593419958255
+ "opsPerSec": 148699.70260072133,
+ "marginPct": 2.239442654771042,
+ "samples": 14870,
+ "meanMs": 0.006724963012771682
  },
  {
  "name": "c/fanout-100 canc",
- "opsPerSec": 5839.667138973202,
- "marginPct": 1.840707374661267,
- "samples": 584,
- "meanMs": 0.17124263698629774
+ "opsPerSec": 10826.459747662147,
+ "marginPct": 2.30369253216124,
+ "samples": 1083,
+ "meanMs": 0.09236629732225612
  },
  {
  "name": "c/fanout-100 bluebird",
- "opsPerSec": 58076.16697299633,
- "marginPct": 1.746083635805135,
- "samples": 5808,
- "meanMs": 0.017218767217625948
+ "opsPerSec": 58664.485538334906,
+ "marginPct": 1.8731930358469233,
+ "samples": 5867,
+ "meanMs": 0.01704608829044516
  },
  {
  "name": "d/all-10 native",
- "opsPerSec": 1611210.332738702,
- "marginPct": 1.406445389363928,
- "samples": 161122,
- "meanMs": 0.0006206514318339932
+ "opsPerSec": 1534162.3291896223,
+ "marginPct": 1.4060071465820871,
+ "samples": 153417,
+ "meanMs": 0.0006518215060907027
  },
  {
  "name": "d/all-10 canc",
- "opsPerSec": 54212.13923981011,
- "marginPct": 7.1048729045586265,
- "samples": 5422,
- "meanMs": 0.018446053116931063
+ "opsPerSec": 112406.85260813595,
+ "marginPct": 1.7138759328360837,
+ "samples": 11241,
+ "meanMs": 0.00889625478160235
  },
  {
  "name": "d/all-10 bluebird",
- "opsPerSec": 641674.8666013486,
- "marginPct": 2.0037549762304843,
- "samples": 64168,
- "meanMs": 0.0015584216431859517
+ "opsPerSec": 607123.3216440723,
+ "marginPct": 1.3215921776263035,
+ "samples": 60713,
+ "meanMs": 0.0016471118211898515
  },
  {
  "name": "d/all-1000 native",
- "opsPerSec": 26717.435126232413,
- "marginPct": 2.499226120455287,
- "samples": 2672,
- "meanMs": 0.03742874251496371
+ "opsPerSec": 28673.519784531756,
+ "marginPct": 2.20320186776626,
+ "samples": 2868,
+ "meanMs": 0.03487538354253463
  },
  {
  "name": "d/all-1000 canc",
- "opsPerSec": 668.5399088390608,
- "marginPct": 5.236467828706848,
- "samples": 67,
- "meanMs": 1.4957970149254507
+ "opsPerSec": 1136.4803204476277,
+ "marginPct": 6.615181302834006,
+ "samples": 114,
+ "meanMs": 0.8799096491227654
  },
  {
  "name": "d/all-1000 bluebird",
- "opsPerSec": 31370.776991556097,
- "marginPct": 1.9722229401456663,
- "samples": 3138,
- "meanMs": 0.03187680050988742
+ "opsPerSec": 33999.72800217667,
+ "marginPct": 1.5523154037264741,
+ "samples": 3400,
+ "meanMs": 0.029411999999999407
  },
  {
  "name": "d/race-10 native",
- "opsPerSec": 572328.8553425212,
- "marginPct": 1.275656955459287,
- "samples": 57233,
- "meanMs": 0.001747247217513663
+ "opsPerSec": 615711.995743328,
+ "marginPct": 0.9621246316442945,
+ "samples": 61572,
+ "meanMs": 0.0016241359708977804
  },
  {
  "name": "d/race-10 canc",
- "opsPerSec": 36768.124825632105,
- "marginPct": 2.1441862709793766,
- "samples": 3677,
- "meanMs": 0.027197470764211275
+ "opsPerSec": 71116.65751707247,
+ "marginPct": 1.5637975322022868,
+ "samples": 7112,
+ "meanMs": 0.014061403262097028
  },
  {
  "name": "d/race-10 bluebird",
- "opsPerSec": 422169.1556614605,
- "marginPct": 1.6350228954264152,
- "samples": 42217,
- "meanMs": 0.0023687187625850738
+ "opsPerSec": 418989.16202177334,
+ "marginPct": 1.2740495405075616,
+ "samples": 41899,
+ "meanMs": 0.0023866965798700866
  },
  {
  "name": "d/race-1000 native",
- "opsPerSec": 6052.186627064509,
- "marginPct": 2.8038643374157877,
- "samples": 606,
- "meanMs": 0.16522953795379405
+ "opsPerSec": 6400.674217664162,
+ "marginPct": 2.0551748358027573,
+ "samples": 641,
+ "meanMs": 0.15623354134167075
  },
  {
  "name": "d/race-1000 canc",
- "opsPerSec": 359.91506004581447,
- "marginPct": 5.631254276441829,
- "samples": 36,
- "meanMs": 2.7784333333334468
+ "opsPerSec": 716.4315037504505,
+ "marginPct": 6.0327590986053305,
+ "samples": 73,
+ "meanMs": 1.3958068493151063
  },
  {
  "name": "d/race-1000 bluebird",
- "opsPerSec": 14076.18535377447,
- "marginPct": 2.2576822445538056,
- "samples": 1408,
- "meanMs": 0.07104197443179122
+ "opsPerSec": 14799.822402131891,
+ "marginPct": 1.7742264367382052,
+ "samples": 1480,
+ "meanMs": 0.06756837837837511
  },
  {
  "name": "e/cancel-storm-50 canc",
- "opsPerSec": 3633.4561454827276,
- "marginPct": 3.171789392352035,
- "samples": 364,
- "meanMs": 0.27522005494499885
+ "opsPerSec": 6814.807116976402,
+ "marginPct": 2.1691864587879652,
+ "samples": 682,
+ "meanMs": 0.14673929618769324
  },
  {
  "name": "e/cancel-storm-50 bluebird",
- "opsPerSec": 102921.66334522878,
- "marginPct": 1.2318474662095382,
- "samples": 10293,
- "meanMs": 0.009716127465271458
+ "opsPerSec": 123132.24266884735,
+ "marginPct": 1.5223953480152046,
+ "samples": 12314,
+ "meanMs": 0.00812134968327838
  },
  {
  "name": "h/bubble-leaf-10 canc",
- "opsPerSec": 4268.510289908642,
- "marginPct": 2.25023134974825,
- "samples": 427,
- "meanMs": 0.2342737704918131
+ "opsPerSec": 4555.221572568623,
+ "marginPct": 1.9880321329940756,
+ "samples": 456,
+ "meanMs": 0.21952828947376857
  },
  {
  "name": "i/allSettled-100 native",
- "opsPerSec": 96614.10653937934,
- "marginPct": 1.3578143818818087,
- "samples": 9662,
- "meanMs": 0.010350455392271375
+ "opsPerSec": 91939.54030230007,
+ "marginPct": 1.2946629200150706,
+ "samples": 9194,
+ "meanMs": 0.01087671307374356
  },
  {
  "name": "i/allSettled-100 canc",
- "opsPerSec": 4252.986824726655,
- "marginPct": 2.2075441419034716,
- "samples": 426,
- "meanMs": 0.2351288732394019
+ "opsPerSec": 7040.488300307344,
+ "marginPct": 1.9001173460377532,
+ "samples": 705,
+ "meanMs": 0.1420356028368581
  },
  {
  "name": "i/any-100 native",
- "opsPerSec": 51674.57416968006,
- "marginPct": 1.5078433924436312,
- "samples": 5168,
- "meanMs": 0.01935187693499655
+ "opsPerSec": 54673.60318839165,
+ "marginPct": 1.2852653240931455,
+ "samples": 5468,
+ "meanMs": 0.01829036210681503
  },
  {
  "name": "i/any-100 canc",
- "opsPerSec": 3778.6074983922945,
- "marginPct": 3.4000051705327445,
- "samples": 379,
- "meanMs": 0.26464775725594036
+ "opsPerSec": 6307.918386930283,
+ "marginPct": 3.1617941094238065,
+ "samples": 631,
+ "meanMs": 0.1585309033281017
  },
  {
  "name": "j/signal-construct native",
- "opsPerSec": 9208360.79159723,
- "marginPct": 1.1752532877530708,
- "samples": 920837,
- "meanMs": 0.00010859696124336431
+ "opsPerSec": 10203339.796713913,
+ "marginPct": 2.0556008550384464,
+ "samples": 1020335,
+ "meanMs": 0.00009800712511035454
  },
  {
  "name": "j/signal-construct canc",
- "opsPerSec": 23112.835021136103,
- "marginPct": 1.8402661289539373,
- "samples": 2312,
- "meanMs": 0.04326600346022136
+ "opsPerSec": 24935.262300167902,
+ "marginPct": 23.099726324281917,
+ "samples": 2494,
+ "meanMs": 0.04010384923816368
  },
  {
  "name": "k/then-settled native",
- "opsPerSec": 9891559.999970132,
- "marginPct": 3.3724324120036737,
- "samples": 989156,
- "meanMs": 0.0001010962881489896
+ "opsPerSec": 8789291.210728357,
+ "marginPct": 17.73421151175253,
+ "samples": 878930,
+ "meanMs": 0.0001137748171069111
  },
  {
  "name": "k/then-settled canc",
- "opsPerSec": 574994.2500580526,
- "marginPct": 1.3076339696039359,
- "samples": 57500,
- "meanMs": 0.0017391478260852834
+ "opsPerSec": 1301934.7922632124,
+ "marginPct": 18.826509291232824,
+ "samples": 130194,
+ "meanMs": 0.0007680876230841444
  },
  {
  "name": "l/handleCancel-register native",
- "opsPerSec": 9264460.73558146,
- "marginPct": 1.1113864147164536,
- "samples": 926447,
- "meanMs": 0.00010793936404299928
+ "opsPerSec": 10366309.633707788,
+ "marginPct": 1.261280752878589,
+ "samples": 1036632,
+ "meanMs": 0.00009646634485509993
  },
  {
  "name": "l/handleCancel-register canc",
- "opsPerSec": 568447.4941569334,
- "marginPct": 1.7940934492401437,
- "samples": 56846,
- "meanMs": 0.0017591774267262867
+ "opsPerSec": 1405615.7831607086,
+ "marginPct": 1.5044172717263316,
+ "samples": 140562,
+ "meanMs": 0.0007114319659611184
  },
  {
  "name": "f/coroutine-100 native-async",
- "opsPerSec": 252034.45524233105,
- "marginPct": 2.394316724999602,
- "samples": 25204,
- "meanMs": 0.003967711474363695
+ "opsPerSec": 298884.6200770996,
+ "marginPct": 1.7825840276077285,
+ "samples": 29889,
+ "meanMs": 0.003345772692291903
  },
  {
  "name": "f/coroutine-100 canc-cancAsync",
- "opsPerSec": 4198.954460339743,
- "marginPct": 21.893131405914353,
- "samples": 420,
- "meanMs": 0.23815452380950297
+ "opsPerSec": 9976.927106449535,
+ "marginPct": 9.722554920125452,
+ "samples": 998,
+ "meanMs": 0.10023126252506696
  }
  ]
 }
