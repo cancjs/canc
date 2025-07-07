@@ -1,9 +1,9 @@
 'use strict';
 
 /**
- * P3-2 micro benchmark suites. Isolated hot-path costs of CancelablePromise vs
+ * Micro benchmark suites. Isolated hot-path costs of CancelablePromise vs
  * native Promise vs bluebird. NOT representative of real apps —
- * see macro suite (P3-3) for that. µbenchmarks lie; treat these as relative
+ * see macro suite for that. µbenchmarks lie; treat these as relative
  * signal, not absolute truth.
  *
  * Cases (each: native, CancelablePromise, and bluebird where the API allows):
@@ -16,13 +16,22 @@
  * f) coroutine step loop vs native async/await (cancAsync vs async fn, 100 awaits)
  * g) allocation pressure: 10k promises, heapUsed delta + GC count
  * (run via `node --expose-gc suites/micro.js`; perf_hooks GC observer)
+ * h) bubble path: depth-10 chain, cancel the LEAF, measure bubble-to-root cost
+ * (canc only; complements case (e) which cancels root and propagates down)
+ * i) allSettled / any width 100 (native + canc; bluebird lacks a comparable any())
+ * j) signal-wired construct+settle: option { signal } listener add/remove cost
+ * k) then() on an already-settled promise (hot resubscription)
+ * l) executor handleCancel registration cost
  *
  * Deopt discipline: every case is monomorphic — a case never mixes impls or
  * feeds a callback polymorphic inputs. Each impl gets its own case so V8 keeps
  * the call sites monomorphic and the numbers comparable.
  */
 
-const { CancelablePromise, async: cancAsync, await: cancAwait } = require('../../packages/canc-promise/dist/index.cjs');
+const { CancelablePromise } = require('../../packages/canc-promise/dist/index.cjs');
+// Coroutine helpers live in @cancjs/coroutine, not the promise core; case (f) compares
+// its cancAsync loop against a native async fn.
+const { async: cancAsync, await: cancAwait } = require('../../packages/canc-coroutine/dist/index.cjs');
 const Bluebird = require('bluebird');
 
 // bluebird cancellation is opt-in and global; enable once so case (e) works.
@@ -107,6 +116,38 @@ function buildBbChain(depth) {
  return { root, tail };
 }
 
+// h) bubble path: build a depth-N chain with bubble:true, cancel the LEAF (tail).
+// Cancellation bubbles UP to root (all children canceled + value unconsumed), so
+// this measures the up-propagation cost, complementing case (e) which cancels the
+// root and propagates DOWN. bluebird has no equivalent bubble-to-root semantics.
+function buildBubbleChain(depth) {
+ const root = new CancelablePromise(() => {
+ // never settles — stays pending until the bubble reaches it
+ }, { bubble: true });
+ let tail = root;
+ for (let i = 0; i < depth; i++) tail = tail.then((x) => x + 1, undefined, { bubble: true });
+ return { root, tail };
+}
+
+// i) allSettled / any width N over already-resolved promises (reuse *ResolvedArray).
+// bluebird has no native any(); allSettled maps to reflect() with different shape,
+// so these new combinator cases compare native vs canc only.
+
+// j) signal-wired construct: option { signal } adds an abort listener on construct and
+// removes it on settle. Common real usage (fetch-style). Measures listener add/remove
+// overhead vs a plain construct+resolve. One controller reused across iterations —
+// the listener is added then removed each op, so no accumulation.
+const sharedController = new AbortController();
+
+// k) then() on an already-settled promise — hot resubscription. A single settled root is
+// reused; each op attaches one then() child. Measures the derived-promise construction
+// cost isolated from chain-building.
+const settledCanc = CancelablePromise.resolve(1);
+const settledNative = Promise.resolve(1);
+
+// l) handleCancel registration: executor registers one onCancel handler. Isolates the
+// _cancelHandlers array allocation + registration cost vs a plain construct.
+
 // f) coroutine: cancAsync generator doing N awaits vs equivalent async fn.
 const AWAITS = 100;
 
@@ -187,6 +228,50 @@ const cases = [
  root.cancel();
  void tail;
  return Bluebird.resolve();
+ },
+ },
+
+ // h) bubble path: depth-10 chain, cancel the LEAF, bubble to root (canc only —
+ // bluebird has no bubble-to-root semantics)
+ {
+ name: 'h/bubble-leaf-10 canc',
+ fn() {
+ const { root, tail } = buildBubbleChain(10);
+ const settled = tail.catch(() => {});
+ tail.cancel();
+ void root;
+ return settled;
+ },
+ },
+
+ // i) allSettled / any width 100 (native + canc; bluebird has no comparable any())
+ { name: 'i/allSettled-100 native', fn() { return Promise.allSettled(nativeResolvedArray(100)); } },
+ { name: 'i/allSettled-100 canc', fn() { return CancelablePromise.allSettled(cancResolvedArray(100)); } },
+ { name: 'i/any-100 native', fn() { return Promise.any(nativeResolvedArray(100)); } },
+ { name: 'i/any-100 canc', fn() { return CancelablePromise.any(cancResolvedArray(100)); } },
+
+ // j) signal-wired construct + settle (listener add/remove cost)
+ { name: 'j/signal-construct native', fn() { return new Promise((res) => res(1)); } },
+ {
+ name: 'j/signal-construct canc',
+ fn() {
+ return new CancelablePromise((res) => res(1), { signal: sharedController.signal });
+ },
+ },
+
+ // k) then() on already-settled promise (hot resubscription)
+ { name: 'k/then-settled native', fn() { return settledNative.then((x) => x + 1); } },
+ { name: 'k/then-settled canc', fn() { return settledCanc.then((x) => x + 1); } },
+
+ // l) executor handleCancel registration
+ { name: 'l/handleCancel-register native', fn() { return new Promise((res) => res(1)); } },
+ {
+ name: 'l/handleCancel-register canc',
+ fn() {
+ return new CancelablePromise((res, _rej, handleCancel) => {
+ handleCancel(() => {});
+ res(1);
+ });
  },
  },
 
