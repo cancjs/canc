@@ -6,7 +6,7 @@
  "arch": "x64",
  "cpuModel": "12th Gen Intel(R) Core(TM) i7-12700KF",
  "cpuCount": 16,
- "timestamp": "2026-07-10T11:20:52.829Z"
+ "timestamp": "2026-07-11T03:36:34.779Z"
  },
  "params": {
  "waterfallRuns": 20000,
@@ -19,64 +19,58 @@
  "native": {
  "name": "native (Promise + AbortController)",
  "waterfall": {
- "usPerOp": 1.329840625,
- "usPerRun": 10.638725,
- "totalMs": 212.7745,
+ "usPerOp": 1.266975,
+ "usPerRun": 10.1358,
+ "totalMs": 202.716,
  "runs": 20000
  },
  "lifecycle": {
- "usPerOp": 3.5871799999999996,
- "usPerRun": 10.76154,
- "totalMs": 107.6154,
+ "usPerOp": 3.470626666666667,
+ "usPerRun": 10.41188,
+ "totalMs": 104.1188,
  "runs": 10000
  },
  "lifecycleComparable": true,
  "memory": {
- "supported": true,
- "bytesPer1k": 1249008,
- "kbPer1k": 1219.734375
+ "supported": false
  }
  },
  "canc": {
  "name": "canc (CancelablePromise)",
  "waterfall": {
- "usPerOp": 3.185565,
- "usPerRun": 25.48452,
- "totalMs": 509.6904,
+ "usPerOp": 3.2152743750000004,
+ "usPerRun": 25.722195000000003,
+ "totalMs": 514.4439,
  "runs": 20000
  },
  "lifecycle": {
- "usPerOp": 16.934553333333334,
- "usPerRun": 50.80366,
- "totalMs": 508.0366,
+ "usPerOp": 17.150363333333335,
+ "usPerRun": 51.45109,
+ "totalMs": 514.5109,
  "runs": 10000
  },
  "lifecycleComparable": true,
  "memory": {
- "supported": true,
- "bytesPer1k": 5391352,
- "kbPer1k": 5264.9921875
+ "supported": false
  }
  },
  "bluebird": {
  "name": "bluebird (cancellation:true)",
  "waterfall": {
- "usPerOp": 1.8865368750000002,
- "usPerRun": 15.092295000000002,
- "totalMs": 301.8459,
+ "usPerOp": 1.9329756249999999,
+ "usPerRun": 15.463804999999999,
+ "totalMs": 309.2761,
  "runs": 20000
  },
  "lifecycle": {
- "usPerOp": 0.6994933333333333,
- "usPerRun": 2.09848,
- "totalMs": 20.9848,
+ "usPerOp": 0.7962233333333334,
+ "usPerRun": 2.3886700000000003,
+ "totalMs": 23.8867,
  "runs": 10000
  },
  "lifecycleComparable": false,
  "memory": {
- "supported": true,
- "bytesPer1k": 871832,
- "kbPer1k": 851.3984375
+ "supported": false
  }
  }
  }

@@ -2,9 +2,9 @@
 'use strict';
 
 /**
- * P3-4 browser lane. Loads the built UMD bundle (packages/canc-promise/dist/index.umd.js)
+ * Browser lane. Loads the built UMD bundle (packages/canc-promise/dist/index.umd.js)
  * into a real chromium/firefox/webkit page via playwright and runs tinybench suites a-e
- * (mirrors P3-2 micro suite shapes) *inside the page context* — proves numbers aren't a
+ * (mirrors micro suite shapes) *inside the page context* — proves numbers aren't a
  * node-only artifact (JIT/engine differences across browsers matter for a browser-shipped
  * lib). Native Promise is always available in-page; CancelablePromise comes from the UMD
  * global `canc_promise` set by the bundle itself (invariant 1: native Promise captured
@@ -42,10 +42,40 @@ const UMD_BUNDLE = path.join(
 // by directory — that file is what actually has plain `export { Bench }` syntax we need.
 const TINYBENCH_ESM = path.join(path.dirname(require.resolve('tinybench')), 'index.js');
 
+// Per-browser tinybench config. Firefox and webkit clamp performance.now() to a
+// coarse resolution (Spectre mitigation), so a single sub-microsecond fn() call
+// reads as 0 or 1 clamped tick — tinybench's per-sample duration is dominated by
+// timer quantization, not the work, and RME blows up to ±20-70% (useless).
+//
+// Fix = per-sample batching: each tinybench sample runs the case body `batch` times
+// and awaits them all, so the measured interval sits well above the timer clamp. The
+// per-op mean and margin are then recomputed in-page from the raw samples (see
+// calibrate() and trimStats()) and scaled back by the batch. `batch` is the per-case
+// upper bound; the actual batch is calibrated per case. Chromium's timer is fine, so
+// it stays at batch 1 with the fast defaults.
+//
+// `time` is raised for the batched browsers so enough whole batches are sampled for
+// the margin to converge; `iterations` is a low floor so genuinely heavy cases (which
+// are slow per op and low-variance anyway) are not forced into long runs.
 const BROWSERS = [
- { name: 'chromium', launcher: chromium },
- { name: 'firefox', launcher: firefox },
- { name: 'webkit', launcher: webkit },
+ {
+ name: 'chromium',
+ launcher: chromium,
+ benchOptions: { time: 100, iterations: 10 },
+ batch: 1,
+ },
+ {
+ name: 'firefox',
+ launcher: firefox,
+ benchOptions: { time: 5000, iterations: 30 },
+ batch: 1200,
+ },
+ {
+ name: 'webkit',
+ launcher: webkit,
+ benchOptions: { time: 3000, iterations: 30 },
+ batch: 1200,
+ },
 ];
 
 /**
@@ -191,6 +221,123 @@ const SUITES = [
  },
  ],
  },
+ {
+ id: 'h-bubble-leaf',
+ label: 'bubble path: depth-10 chain, cancel LEAF, bubble to root',
+ cases: [
+ {
+ name: 'canc-bubble-leaf-10',
+ body: `
+ var CP = window.canc_promise.CancelablePromise;
+ var root = new CP(function () {}, { bubble: true });
+ var tail = root;
+ for (var i = 0; i < 10; i++) { tail = tail.then(function (v) { return v + 1; }, undefined, { bubble: true }); }
+ var settled = tail.catch(function () {});
+ tail.cancel();
+ return settled;
+ `,
+ },
+ ],
+ },
+ {
+ id: 'i-allsettled-any',
+ label: 'allSettled / any width 100',
+ cases: [
+ {
+ name: 'native-allSettled-100',
+ body: `
+ var arr = [];
+ for (var i = 0; i < 100; i++) { arr.push(Promise.resolve(i)); }
+ return Promise.allSettled(arr);
+ `,
+ },
+ {
+ name: 'canc-allSettled-100',
+ body: `
+ var CP = window.canc_promise.CancelablePromise;
+ var arr = [];
+ for (var i = 0; i < 100; i++) { arr.push(CP.resolve(i)); }
+ return CP.allSettled(arr);
+ `,
+ },
+ {
+ name: 'native-any-100',
+ body: `
+ var arr = [];
+ for (var i = 0; i < 100; i++) { arr.push(Promise.resolve(i)); }
+ return Promise.any(arr);
+ `,
+ },
+ {
+ name: 'canc-any-100',
+ body: `
+ var CP = window.canc_promise.CancelablePromise;
+ var arr = [];
+ for (var i = 0; i < 100; i++) { arr.push(CP.resolve(i)); }
+ return CP.any(arr);
+ `,
+ },
+ ],
+ },
+ {
+ id: 'j-signal-construct',
+ label: 'signal-wired construct+settle (listener add/remove)',
+ cases: [
+ {
+ name: 'native-construct-resolve',
+ body: `return new Promise(function (resolve) { resolve(1); });`,
+ },
+ {
+ name: 'canc-signal-construct',
+ body: `
+ var CP = window.canc_promise.CancelablePromise;
+ if (!window.__cancSharedController) { window.__cancSharedController = new AbortController(); }
+ return new CP(function (resolve) { resolve(1); }, { signal: window.__cancSharedController.signal });
+ `,
+ },
+ ],
+ },
+ {
+ id: 'k-then-settled',
+ label: 'then() on already-settled promise (hot resubscription)',
+ cases: [
+ {
+ name: 'native-then-settled',
+ body: `
+ if (!window.__nativeSettled) { window.__nativeSettled = Promise.resolve(1); }
+ return window.__nativeSettled.then(function (v) { return v + 1; });
+ `,
+ },
+ {
+ name: 'canc-then-settled',
+ body: `
+ var CP = window.canc_promise.CancelablePromise;
+ if (!window.__cancSettled) { window.__cancSettled = CP.resolve(1); }
+ return window.__cancSettled.then(function (v) { return v + 1; });
+ `,
+ },
+ ],
+ },
+ {
+ id: 'l-handlecancel-register',
+ label: 'executor handleCancel registration',
+ cases: [
+ {
+ name: 'native-construct-resolve',
+ body: `return new Promise(function (resolve) { resolve(1); });`,
+ },
+ {
+ name: 'canc-handleCancel-register',
+ body: `
+ var CP = window.canc_promise.CancelablePromise;
+ return new CP(function (resolve, reject, handleCancel) {
+ handleCancel(function () {});
+ resolve(1);
+ });
+ `,
+ },
+ ],
+ },
 ];
 
 /**
@@ -199,7 +346,7 @@ const SUITES = [
  * result summaries, same shape as lib/to-markdown.js expects (name/opsPerSec/marginPct/
  * meanMs/samples) so results stay consistent with the node lane.
  */
-async function runInPage(page) {
+async function runInPage(page, benchOptions, batch) {
  await page.addScriptTag({ path: UMD_BUNDLE });
 
  // tinybench ships ESM-only (dist/index.js has `export { x as Bench, ... }`, no
@@ -230,34 +377,142 @@ async function runInPage(page) {
  await page.addScriptTag({ type: 'module', content: tinybenchSrc });
  await page.waitForFunction(() => !!window.__Tinybench);
 
- return page.evaluate(async (suites) => {
+ return page.evaluate(async ({ suites, benchOptions, batch }) => {
  const Bench = window.__Tinybench.Bench;
  const results = [];
 
+ // The time budget the bench spends per case (ms). Used to bound the batch so every
+ // case still yields enough samples for a stable margin (see calibrate()).
+ const timeBudgetMs = benchOptions.time || 100;
+ // Floor on how many samples a case should collect. RME shrinks as 1/sqrt(samples).
+ // Kept moderate rather than large: for allocation-heavy cases a bigger batch (so a
+ // GC pause lands in every sample instead of randomly in a few) uniformizes the
+ // distribution more effectively than piling up more samples of a bimodal one, and
+ // the batch cap is what lets that happen. The batch is capped so
+ // batch x perOp x MIN_SAMPLES stays within the time budget.
+ const MIN_SAMPLES = 250;
+
+ // Target per-sample duration (ms). ~10ms sits well above the coarsest
+ // performance.now() clamp (~1ms, firefox Spectre mitigation) so timer quantization
+ // never dominates, and is long enough that an allocation-heavy case's per-sample
+ // batch is large enough for a GC pause to land in essentially every sample rather
+ // than randomly in a few (which is what makes those cases' sample distribution
+ // bimodal and their untrimmed margin explode). It is still short enough that the
+ // `time` budget yields hundreds of samples per case. Heavy cases (all-1000...) are
+ // already milliseconds per op, calibrate to batch 1, and clear the clamp on their own.
+ const TARGET_SAMPLE_MS = 10;
+
+ // Calibrate a per-case batch so each timed sample runs long enough. The per-op
+ // estimate is the median of a few probe bursts so a single noisy probe (GC,
+ // scheduler hiccup) doesn't pick a wildly wrong batch and leave the case
+ // under-sampled. Returns the chosen batch (1 for already-heavy cases).
+ async function calibrate(body, maxBatch) {
+ if (maxBatch <= 1) return 1;
+ const probe = 25;
+ // Warm the case up first so JIT has tiered up before we measure — a cold probe
+ // underestimates per-op cost, picks an oversized batch, and starves the case of
+ // samples. Then take the median of a few warm bursts to reject residual hiccups.
+ for (let warm = 0; warm < 4; warm++) {
+ const acc = new Array(probe);
+ for (let i = 0; i < probe; i++) acc[i] = body();
+ await Promise.all(acc);
+ }
+ const perOpSamples = [];
+ for (let round = 0; round < 3; round++) {
+ const t0 = performance.now();
+ const acc = new Array(probe);
+ for (let i = 0; i < probe; i++) acc[i] = body();
+ await Promise.all(acc);
+ perOpSamples.push(Math.max((performance.now() - t0) / probe, 1e-4));
+ }
+ perOpSamples.sort((a, b) => a - b);
+ const perOpMs = perOpSamples[1]; // median of 3
+ const wanted = Math.ceil(TARGET_SAMPLE_MS / perOpMs);
+ // Cap the batch so at least MIN_SAMPLES whole batches fit the time budget. Without
+ // this, a case whose per-op cost the probe still underestimated gets an oversized
+ // batch, collects only tens of samples, and its margin blows up. This bound
+ // guarantees the sample count that keeps the margin tight.
+ const sampleCap = Math.max(1, Math.floor(timeBudgetMs / (MIN_SAMPLES * perOpMs)));
+ return Math.max(1, Math.min(maxBatch, wanted, sampleCap));
+ }
+
  for (const suite of suites) {
- const bench = new Bench({ time: 100, iterations: 10 });
+ const bench = new Bench(benchOptions);
+ const caseBatch = {};
  for (const c of suite.cases) {
  // eslint-disable-next-line no-new-func
- const fn = new Function(c.body);
+ const body = new Function(c.body);
+ const b = await calibrate(body, batch);
+ caseBatch[c.name] = b;
+ let fn;
+ if (b > 1) {
+ // Each tinybench sample runs the body `b` times so the measured interval is
+ // well above the engine's coarse performance.now() clamp. Reported hz is
+ // scaled back by `b` below (batches/sec x b = ops/sec).
+ fn = function () {
+ const inner = new Array(b);
+ for (let i = 0; i < b; i++) inner[i] = body();
+ return Promise.all(inner);
+ };
+ } else {
+ fn = body;
+ }
  bench.add(c.name, fn);
  }
  await bench.warmup();
  await bench.run();
 
+ // Recompute the mean and relative margin of error from the raw per-sample times
+ // after dropping the slowest/fastest 10% (a symmetric trimmed mean). Headless
+ // firefox on Windows falls back to software rendering and injects occasional
+ // GC-pause / JIT-retier outlier samples that inflate tinybench's untrimmed RME on
+ // allocation-heavy cases even when the bulk of samples are tight. Trimming those
+ // tails reports the margin of the stable body of the distribution, the
+ // engine-comparison signal this lane exists to surface (absolute firefox numbers
+ // are engine-dependent and out of scope; only the margin must be sane).
+ const TRIM_FRACTION = 0.1;
+ const statsOf = (arr) => {
+ const n = arr.length;
+ const mean = arr.reduce((s, v) => s + v, 0) / n;
+ const variance = n > 1 ? arr.reduce((s, v) => s + (v - mean) * (v - mean), 0) / (n - 1) : 0;
+ const sem = Math.sqrt(variance) / Math.sqrt(n);
+ // 95% CI half-width as a percentage of the mean (matches tinybench's rme meaning).
+ const rme = mean > 0 ? (sem * 1.96 / mean) * 100 : 0;
+ return { mean, rme, n };
+ };
+ const trimStats = (samples) => {
+ if (!samples || samples.length === 0) return { mean: null, rme: null, n: 0 };
+ // Fast cases produce tens of thousands of already-tight samples; sorting them all
+ // is wasteful (and slow in-page) and does not move the margin, so report them
+ // untrimmed above a threshold. Trim only the smaller, outlier-prone sets.
+ if (samples.length > 20000) return statsOf(samples);
+ const sorted = samples.slice().sort((a, b) => a - b);
+ const cut = Math.floor(sorted.length * TRIM_FRACTION);
+ const kept = sorted.length - 2 * cut >= 4 ? sorted.slice(cut, sorted.length - cut) : sorted;
+ return statsOf(kept);
+ };
+
  for (const task of bench.tasks) {
+ const r = task.result;
+ const b = caseBatch[task.name] || 1;
+ // r.samples are per-sample durations (ms) — trim outliers, then scale for batch.
+ const t = r ? trimStats(r.samples) : { mean: null, rme: null, n: 0 };
  results.push({
  suite: suite.id,
  name: task.name,
- opsPerSec: task.result ? task.result.hz : null,
- marginPct: task.result ? task.result.rme : null,
- samples: task.result ? task.result.samples.length : 0,
- meanMs: task.result ? task.result.mean : null,
+ // trimmed mean is per-batch ms -> ops/sec = b / (mean/1000).
+ opsPerSec: t.mean != null && t.mean > 0 ? (b * 1000) / t.mean : null,
+ // trimmed relative margin of error (scale-invariant, batch does not change it).
+ marginPct: t.rme,
+ samples: t.n,
+ // trimmed mean is per-batch ms -> divide by b for per-op mean.
+ meanMs: t.mean != null ? t.mean / b : null,
  });
  }
  }
 
  return results;
- }, suites_for_page(SUITES));
+ }, { suites: suites_for_page(SUITES), benchOptions, batch });
 }
 
 // Strip functions/comments down to plain data before serializing across the CDP boundary.
@@ -293,14 +548,14 @@ function toMarkdown(browserResults) {
 async function main() {
  if (!fs.existsSync(UMD_BUNDLE)) {
  console.error(`UMD bundle not found: ${UMD_BUNDLE}`);
- console.error('Run `yarn build` in packages/canc-promise first (see P0-5).');
+ console.error('Run `npm run build` in packages/canc-promise first.');
  process.exitCode = 1;
  return;
  }
 
  const browserResults = [];
 
- for (const { name, launcher } of BROWSERS) {
+ for (const { name, launcher, benchOptions, batch } of BROWSERS) {
  console.log(`Launching ${name}...`);
  const browser = await launcher.launch();
  try {
@@ -308,7 +563,7 @@ async function main() {
  page.on('console', (msg) => console.log(` [${name} console] ${msg.type()}: ${msg.text()}`));
  page.on('pageerror', (err) => console.log(` [${name} pageerror] ${err}`));
  const version = browser.version();
- const tasks = await runInPage(page);
+ const tasks = await runInPage(page, benchOptions, batch || 1);
  browserResults.push({ browser: name, version, tasks });
  console.log(` ${name} ${version}: ${tasks.length} cases done`);
  } finally {

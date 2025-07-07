@@ -6,22 +6,22 @@
  "arch": "x64",
  "cpuModel": "12th Gen Intel(R) Core(TM) i7-12700KF",
  "cpuCount": 16,
- "timestamp": "2026-07-10T11:15:24.253Z"
+ "timestamp": "2026-07-11T03:17:56.602Z"
  },
  "tasks": [
  {
  "name": "native-promise-resolve",
- "opsPerSec": 11055577.888847573,
- "marginPct": 0.7340120707723065,
- "samples": 1105560,
- "meanMs": 0.0000904520785845813
+ "opsPerSec": 12166477.833522916,
+ "marginPct": 10.769709658461451,
+ "samples": 1216649,
+ "meanMs": 0.00008219305650191127
  },
  {
  "name": "noop",
- "opsPerSec": 24860765.139239166,
- "marginPct": 0.4227964392570631,
- "samples": 2486079,
- "meanMs": 0.00004022402345218422
+ "opsPerSec": 24705099.99999517,
+ "marginPct": 0.7603515123816429,
+ "samples": 2470510,
+ "meanMs": 0.00004047747226282005
  }
  ]
 }
