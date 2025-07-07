@@ -1,0 +1,18 @@
+{
+ "compilerOptions": {
+ "target": "es2022",
+ "module": "esnext",
+ "moduleResolution": "bundler",
+ "lib": ["es2022", "dom", "decorators"],
+ "experimentalDecorators": false,
+ "useDefineForClassFields": false,
+ "strict": true,
+ "noEmit": true,
+ "skipLibCheck": true,
+ "paths": {
+ "@cancjs/decorators": ["../../packages/canc-decorators/src/index"],
+ "@cancjs/coroutine": ["../../packages/canc-coroutine/src/index"]
+ }
+ },
+ "include": ["stage3.ts"]
+}
