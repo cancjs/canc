@@ -6,7 +6,7 @@
  "arch": "x64",
  "cpuModel": "12th Gen Intel(R) Core(TM) i7-12700KF",
  "cpuCount": 16,
- "timestamp": "2026-07-11T05:55:43.363Z"
+ "timestamp": "2026-07-11T09:18:01.896Z"
  },
  "params": {
  "waterfallRuns": 20000,
@@ -19,57 +19,57 @@
  "native": {
  "name": "native (Promise + AbortController)",
  "waterfall": {
- "usPerOp": 1.155699375,
- "usPerRun": 9.245595,
- "totalMs": 184.9119,
+ "usPerOp": 1.2010049999999999,
+ "usPerRun": 9.608039999999999,
+ "totalMs": 192.1608,
  "runs": 20000
  },
  "lifecycle": {
- "usPerOp": 3.2998933333333333,
- "usPerRun": 9.89968,
- "totalMs": 98.9968,
+ "usPerOp": 3.648973333333333,
+ "usPerRun": 10.94692,
+ "totalMs": 109.4692,
  "runs": 10000
  },
  "lifecycleComparable": true,
  "memory": {
  "supported": true,
- "bytesPer1k": 1294776,
- "kbPer1k": 1264.4296875
+ "bytesPer1k": 1241024,
+ "kbPer1k": 1211.9375
  }
  },
  "canc": {
  "name": "canc (CancelablePromise)",
  "waterfall": {
- "usPerOp": 1.97692,
- "usPerRun": 15.81536,
- "totalMs": 316.3072,
+ "usPerOp": 2.19883625,
+ "usPerRun": 17.59069,
+ "totalMs": 351.8138,
  "runs": 20000
  },
  "lifecycle": {
- "usPerOp": 12.884476666666666,
- "usPerRun": 38.65343,
- "totalMs": 386.5343,
+ "usPerOp": 16.929466666666666,
+ "usPerRun": 50.7884,
+ "totalMs": 507.884,
  "runs": 10000
  },
  "lifecycleComparable": true,
  "memory": {
  "supported": true,
- "bytesPer1k": 3110376,
- "kbPer1k": 3037.4765625
+ "bytesPer1k": 3114520,
+ "kbPer1k": 3041.5234375
  }
  },
  "bluebird": {
  "name": "bluebird (cancellation:true)",
  "waterfall": {
- "usPerOp": 1.726584375,
- "usPerRun": 13.812675,
- "totalMs": 276.2535,
+ "usPerOp": 1.941574375,
+ "usPerRun": 15.532595,
+ "totalMs": 310.6519,
  "runs": 20000
  },
  "lifecycle": {
- "usPerOp": 0.63137,
- "usPerRun": 1.89411,
- "totalMs": 18.9411,
+ "usPerOp": 0.66221,
+ "usPerRun": 1.98663,
+ "totalMs": 19.8663,
  "runs": 10000
  },
  "lifecycleComparable": false,
