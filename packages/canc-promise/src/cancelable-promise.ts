@@ -1024,7 +1024,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 			// cleanup on cancel path. The map-based tracking prevents double-cleanup.
 			this._runSettlementEffects();
 
-			return this._runCancellation(reason);
+			return this._runCancellation(reason, true);
 		} else if (this.strict) {
 			throw new Error(`${this.canceled ? 'Canceled' : 'Settled'} promise cannot be canceled`);
 		}
@@ -1066,38 +1066,73 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		this._reject(error);
 		this._runSettlementEffects();
 
-		return this._runCancellation(error);
+		return this._runCancellation(error, true);
 	}
 
 	/**
 	 * Cancellation side effects shared by cancel() and the external-CancelError reject path:
 	 * suppresses the promise's own unhandled rejection and fires registered cancel handlers.
 	 * State (CANCELED) must already be set by the caller.
+	 *
+	 * `needsReturn` is true only for the explicit `cancel()`/`_dispose()` callers whose return value
+	 * is consumed (always-return contract). The bubble/external-CancelError reject paths discard
+	 * the return, so they pass false and skip constructing the settlement promise entirely — the
+	 * decisive win for cancel storms, where every node in the chain is canceled but only the caller's
+	 * return is ever awaited.
 	 */
-	protected _runCancellation(reason?: any): void | CancelablePromise<PromiseSettledResult<unknown>[]> {
+	protected _runCancellation(reason?: any, needsReturn?: boolean): void | CancelablePromise<PromiseSettledResult<unknown>[]> {
 		// Retain the original reason for late immediate handlers.
 		this._canceledReason = reason;
 		this._isCanceledReasonSet = true;
 
-		// Suppress unhandled rejection (targeted — only for canceled promises).
-		this.catch(noop);
-
-		const This = this.constructor as typeof CancelablePromise;
+		// Suppress unhandled rejection (targeted — only for canceled promises). Go through `_then`
+		// (not the public `catch`) so the derived suppression child takes the internal-construction
+		// fast path (no options normalization, no signal/ref wiring) and none of `then()`'s chain
+		// bookkeeping (`_chain`, flag copy) runs. Registering this no-op rejection reaction is what
+		// marks the rejection handled for the host; the child itself is discarded.
+		this._then(undefined, noop);
 
 		const handlers = this._cancelHandlers;
 
 		if (this.asyncCancel) {
-			// Always-return contract: asyncCancel resolves to the settlement of all cancel
-			// handlers. With no handlers this is an empty allSettled, still a promise, so callers
-			// (and Symbol.asyncDispose) can uniformly await cancellation completion.
-			const handlerPromises = handlers
-				? handlers.map(handler => new This(resolve => resolve(handler(reason))))
-				: [];
-
-			if (handlers) {
-				handlers.length = 0;
+			// No handlers (the common case): nothing to run. Only the consumed-return callers pay
+			// for the empty-allSettled stand-in; the discard-return paths (bubble, external cancel)
+			// build nothing.
+			if (!handlers || handlers.length === 0) {
+				return needsReturn ? (this.constructor as typeof CancelablePromise).resolve([]) : undefined;
 			}
 
+			// Discard-return paths (bubble/external-cancel cascade — every node in a canceled chain):
+			// the caller ignores the return, so skip the allSettled + per-handler combinator machinery
+			// entirely. Handlers still run asynchronously (asyncCancel timing preserved) with their
+			// own rejections swallowed, matching the observable no-unhandled-rejection behavior of the
+			// allSettled path but without constructing an all()/withResolvers per canceled node. This
+			// is the dominant cost in a cancel storm, where the bubble bookkeeping registers an
+			// onComplete handler on every intermediate node.
+			if (!needsReturn) {
+				const pending = handlers.slice();
+				handlers.length = 0;
+				void NativePromise.resolve().then(() => {
+					for (const handler of pending) {
+						try {
+							const r = handler(reason);
+							if (isThenable(r)) {
+								(r as PromiseLike<unknown>).then(noop, noop);
+							}
+						} catch (_e) {
+							// asyncCancel swallows handler failures; nothing consumes them here.
+						}
+					}
+				});
+				return undefined;
+			}
+
+			const This = this.constructor as typeof CancelablePromise;
+			const handlerPromises = handlers.map(handler => new This(resolve => resolve(handler(reason))));
+			handlers.length = 0;
+
+			// Consumed-return path (explicit cancel()/dispose): allSettled drives the handlers and
+			// gives the caller an awaitable that settles once all handlers settle.
 			return This.allSettled(handlerPromises);
 		} else {
 			// Sync mode returns undefined (documented split): handlers fire synchronously and any
