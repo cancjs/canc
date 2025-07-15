@@ -576,6 +576,11 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		// Stable reference to the temporary constructor `this` used to detect synchronous
 		// executor settlement (before Reflect.construct returns the real promise instance).
 		const tempThis = this;
+		// Captured settlement wrappers from executor closures; persists across settlement-effects
+		// cleanup (which nulls tempThis._resolve/_reject after execution). Needed for withResolvers
+		// to provide a usable reject/resolve pair even if the promise settled during construction.
+		let capturedResolve: any;
+		let capturedReject: any;
 		// Flag set if a pre-aborted signal is detected; tells the executor's reject wrapper
 		// to treat the first rejection as external CancelError for pre-abort handling.
 		let preAbortedSignalReason: any = undefined;
@@ -717,6 +722,10 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 
 					this._resolve = resolve;
 					this._reject = reject;
+					// Capture settlement wrappers outside the executor scope so they survive
+					// settlement-effects cleanup (which nulls these fields after execution).
+					capturedResolve = resolve;
+					capturedReject = reject;
 
 					// Pre-aborted signal: call the wrapper reject function (not reject_
 					// directly) so the wrapping logic runs. Pass undefined; the wrapper will wrap
@@ -741,8 +750,11 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		// created here — they stay absent until first use. Only the settlement wrappers, the state
 		// the synchronous executor may have advanced, a synchronously-registered cancel handler, and
 		// the deferred sync-cancel handoff are carried over from `tempThis`.
-		instance._resolve = tempThis._resolve;
-		instance._reject = tempThis._reject;
+		// Use captured references (set in executor closure) instead of tempThis._resolve/_reject,
+		// as those may have been cleared by _runSettlementEffects if the promise settled early
+		// (e.g., pre-aborted signal in constructor).
+		instance._resolve = capturedResolve || tempThis._resolve;
+		instance._reject = capturedReject || tempThis._reject;
 		instance._internalState = tempThis._internalState;
 		// The cold fields (`_chainsCount`, cancel-reason retention, etc.) intentionally stay on the
 		// prototype default here — only a synchronously-registered cancel handler and the deferred
