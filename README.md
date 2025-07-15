@@ -240,6 +240,39 @@ deep cancellation but isn't a `Promise` subclass and has gone quiet. Bluebird's 
 cancellation predates today's `async..await`-centric ecosystem, is off by default, and promises
 never settle on cancel instead of rejecting.
 
+## Performance
+
+`canc` wraps every `Promise` operation in cancellation bookkeeping, and that costs something.
+Full numbers (methodology, machine specs, per-suite breakdowns, browser-lane results) live in
+[`docs/benchmarks.md`](docs/benchmarks.md); the short version:
+
+In a simulated request waterfall (5 sequential + 3 parallel requests, 30% canceled mid-flight),
+`canc` runs well under a microsecond slower per request than a hand-rolled native `Promise` +
+`AbortController` baseline, a relative tax that has ranged from roughly 20% to 80% across repeated runs depending on machine
+load, typically landing in the 25-50% band, that is
+dwarfed by any real network or timer latency. **For I/O-bound flows (the common case), this
+overhead is negligible.** A fraction of a microsecond of bookkeeping disappears next to a request
+that takes milliseconds. The cost shows up more in tight, cancellation-heavy loops (a
+mount/unmount-cancel component lifecycle simulation runs several times slower than native) and in
+raw construct/chain throughput under isolated microbenchmarks, where `canc` lands roughly one order
+of magnitude behind native `Promise` and is mixed against Bluebird depending on the shape of the
+chain. Combinator internals (`all`/`race`/`any`/`allSettled`) were reworked to skip an extra
+per-item allocation; the measured effect ranges from a modest win to roughly noise-level depending
+on the case and run (see `docs/benchmarks.md`), and combinators remain well short of native and
+mixed against Bluebird.
+
+Memory follows the same pattern. A single `canc` promise costs a few hundred bytes more than a
+native one. For high-concurrency workloads (thousands of promises in flight at once, long-lived
+subscriptions, or streaming/pagination patterns that keep many chains alive), budget roughly an
+extra 2 MB of retained heap per 1,000 in-flight promises versus native. If a workload creates and
+discards promises faster than it can await them, this is the number to watch.
+
+None of this changes the tradeoff to make in a given app: `canc` gives you real, rejection-based,
+two-way cancellation without hand-wiring `AbortController` through every call site. Where that's
+worth a few hundred bytes and a low single-digit-microsecond tax per operation, it's worth using;
+where a hot loop constructs and cancels promises far faster than any I/O it wraps, measure against
+your own budget first.
+
 <!--
 ## Getting Started
 
