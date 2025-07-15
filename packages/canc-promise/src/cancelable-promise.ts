@@ -576,14 +576,15 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		// Stable reference to the temporary constructor `this` used to detect synchronous
 		// executor settlement (before Reflect.construct returns the real promise instance).
 		const tempThis = this;
-		// Captured settlement wrappers from executor closures; persists across settlement-effects
-		// cleanup (which nulls tempThis._resolve/_reject after execution). Needed for withResolvers
-		// to provide a usable reject/resolve pair even if the promise settled during construction.
-		let capturedResolve: any;
-		let capturedReject: any;
-		// Flag set if a pre-aborted signal is detected; tells the executor's reject wrapper
-		// to treat the first rejection as external CancelError for pre-abort handling.
-		let preAbortedSignalReason: any = undefined;
+		// Set when a non-strict pre-aborted signal is detected. The executor is NOT run in that
+		// case (the promise is born canceled); the rejection is deferred to the real instance after
+		// Reflect.construct so it settles the returned promise, not the throwaway temp `this`. This
+		// mirrors the _pendingSyncCancel handoff and keeps settler-release working normally (the
+		// executor never settles synchronously, so the returned promise's live resolve/reject
+		// wrappers survive for withResolvers to hand out).
+		let pendingPreAbortReason: any = undefined;
+		// Sentinel so a signal whose reason is genuinely undefined still triggers the deferred path.
+		let hasPendingPreAbort = false;
 
 		// Internal/species construction fast path: `_then` sets `_pendingInternalCall` while native
 		// then() constructs the derived promise via species. Those calls carry no options, no signal,
@@ -600,12 +601,19 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 			? INTERNAL_CALL_OPTIONS
 			: This._getOptions(options);
 
-		// Pre-check for aborted signals, if found, mark for deferred handling in reject wrapper.
+		// Pre-check for aborted signals BEFORE construction. `strict` throws here (executor must
+		// never run for a strict pre-aborted signal); non-strict marks the deferred handoff so the
+		// executor is skipped and the born-canceled rejection is applied to the real instance after
+		// Reflect.construct.
 		if (!isInternalCall && normalizedOptions.signal) {
 			const signals = Array.isArray(normalizedOptions.signal) ? normalizedOptions.signal : [normalizedOptions.signal];
 			const preAbortedSignal = signals.find(s => s.aborted);
-			if (preAbortedSignal && !normalizedOptions.strict) {
-				preAbortedSignalReason = preAbortedSignal.reason;
+			if (preAbortedSignal) {
+				if (normalizedOptions.strict) {
+					throw new Error('Aborted signal cannot be reused');
+				}
+				pendingPreAbortReason = preAbortedSignal.reason;
+				hasPendingPreAbort = true;
 			}
 		}
 
@@ -664,15 +672,6 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 					}
 
 					function reject(reason?: any): void {
-						// Pre-aborted signal handling: if a pre-aborted signal was detected
-						// during setup, the first rejection wraps signal.reason as cause in a
-						// CancelError. Treat it as external CancelError for parity.
-						if (preAbortedSignalReason !== undefined) {
-							const wrappedError = new CancelError(undefined, { cause: preAbortedSignalReason });
-							reason = wrappedError;
-							preAbortedSignalReason = undefined;
-						}
-
 						// Cancellation parity: an external rejection carrying a CancelError
 						// transitions the promise to CANCELED exactly like cancel(), and must fire
 						// registered cancel handlers + suppress its own unhandled rejection.
@@ -722,17 +721,13 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 
 					this._resolve = resolve;
 					this._reject = reject;
-					// Capture settlement wrappers outside the executor scope so they survive
-					// settlement-effects cleanup (which nulls these fields after execution).
-					capturedResolve = resolve;
-					capturedReject = reject;
 
-					// Pre-aborted signal: call the wrapper reject function (not reject_
-					// directly) so the wrapping logic runs. Pass undefined; the wrapper will wrap
-					// it as CancelError with cause = signal.reason.
-					if (preAbortedSignalReason !== undefined) {
-						reject(undefined);
-					} else {
+					// Non-strict pre-aborted signal: the promise is born canceled, so the executor
+					// does not run. The deferred rejection is applied to the real instance after
+					// Reflect.construct (see the post-construct handoff below), which keeps the live
+					// settlement wrappers intact for withResolvers and lets settler-release happen
+					// naturally at that later settle.
+					if (!hasPendingPreAbort) {
 						executor(resolve, reject, handleCancel);
 					}
 				}) as TPromiseExecutor<T>
@@ -749,12 +744,11 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		// `_cancelHandlers`/`_abortSignals`/`_abortListeners`/`_boundCancel` are intentionally NOT
 		// created here — they stay absent until first use. Only the settlement wrappers, the state
 		// the synchronous executor may have advanced, a synchronously-registered cancel handler, and
-		// the deferred sync-cancel handoff are carried over from `tempThis`.
-		// Use captured references (set in executor closure) instead of tempThis._resolve/_reject,
-		// as those may have been cleared by _runSettlementEffects if the promise settled early
-		// (e.g., pre-aborted signal in constructor).
-		instance._resolve = capturedResolve || tempThis._resolve;
-		instance._reject = capturedReject || tempThis._reject;
+		// the deferred sync-cancel handoff are carried over from `tempThis`. The executor never
+		// settles synchronously on the pre-abort path (it does not run), so the wrappers migrated
+		// here are always live and settler-release stays intact.
+		instance._resolve = tempThis._resolve;
+		instance._reject = tempThis._reject;
 		instance._internalState = tempThis._internalState;
 		// The cold fields (`_chainsCount`, cancel-reason retention, etc.) intentionally stay on the
 		// prototype default here — only a synchronously-registered cancel handler and the deferred
@@ -788,34 +782,25 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 
 		const { ref, signal } = normalizedOptions;
 
-		if (signal) {
+		// Pre-aborted signals are already handled by the deferred handoff below (strict threw
+		// before construction), so no listeners are wired for them — the promise is born canceled.
+		if (signal && !hasPendingPreAbort) {
 			// Support both single signal and array of signals.
 			const signals = Array.isArray(signal) ? signal : [signal];
 
-			// Check for pre-aborted signals.
-			const preAbortedSignal = signals.find(s => s.aborted);
-			if (preAbortedSignal) {
-				// strict:true throws; otherwise return already-canceled promise
-				// (pre-check already detected and set preAbortedSignalReason flag).
-				if (normalizedOptions.strict) {
-					throw new Error('Aborted signal cannot be reused');
-				}
-				// Non-strict pre-abort: already handled by executor rejecting immediately.
-			} else {
-				// Non-aborted: register abort listeners for all signals (first-abort-wins).
-				// Listener cleanup happens via _runSettlementEffects on settle. The tracking
-				// array/map are allocated here (lazily) — only signal-wired promises pay for them.
-				const abortSignals: IAbortSignal[] = instance._abortSignals = [];
-				const abortListeners = instance._abortListeners = new Map<IAbortSignal, any>();
-				for (const sig of signals) {
-					const onAbort = () => {
-						instance.cancel(sig.reason);
-					};
+			// Non-aborted: register abort listeners for all signals (first-abort-wins).
+			// Listener cleanup happens via _runSettlementEffects on settle. The tracking
+			// array/map are allocated here (lazily) — only signal-wired promises pay for them.
+			const abortSignals: IAbortSignal[] = instance._abortSignals = [];
+			const abortListeners = instance._abortListeners = new Map<IAbortSignal, any>();
+			for (const sig of signals) {
+				const onAbort = () => {
+					instance.cancel(sig.reason);
+				};
 
-					abortSignals.push(sig);
-					abortListeners.set(sig, onAbort);
-					sig.addEventListener('abort', onAbort, { once: true });
-				}
+				abortSignals.push(sig);
+				abortListeners.set(sig, onAbort);
+				sig.addEventListener('abort', onAbort, { once: true });
 			}
 		}
 
@@ -832,6 +817,30 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 
 				ref.cancel = instance._getBoundCancel();
 			}
+		}
+
+		// Deferred pre-aborted-signal handoff. The executor was skipped, so the promise is born
+		// pending. Mark it CANCELED synchronously (so `canceled`/`cancelable` observe the final
+		// state in the same tick as construction, matching the previous behavior) and retain the
+		// reason for late immediate handlers, but defer the native-promise rejection + unhandled-
+		// suppression to a microtask. Deferring lets the constructor return with the live `_resolve`/
+		// `_reject` wrappers still attached, so `withResolvers`/`ref` hand out usable settlers before
+		// settlement nulls them; the extra microtask only delays the `.catch`/`await` rejection, which
+		// the pre-abort specs already tolerate (they assert the reason after a macrotask flush).
+		if (hasPendingPreAbort) {
+			const preAbortError = new CancelError(undefined, { cause: pendingPreAbortReason });
+			instance._internalState = states.CANCELED;
+			instance._canceledReason = preAbortError;
+			instance._isCanceledReasonSet = true;
+			const settle = instance._reject;
+			NativePromise.resolve().then(() => {
+				// `_reject` sees state already CANCELED, so its own PENDING->settled transition is
+				// skipped; drive the native rejection + settlement effects + cancellation cascade
+				// explicitly, mirroring the cancel() path.
+				settle(preAbortError);
+				instance._runSettlementEffects();
+				instance._runCancellation(preAbortError);
+			});
 		}
 
 		// Run cancellation side effects deferred from a synchronous external CancelError
