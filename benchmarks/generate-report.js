@@ -4,7 +4,7 @@
 /**
  * Generates docs/benchmarks.md from whatever's in benchmarks/results/*.json.
  *
- * Idempotency requirement (P3-5 accept): running this twice with the same
+ * Idempotency requirement: running this twice with the same
  * results/ contents must produce byte-identical output. That means NO
  * "generated at <now>" timestamps in the doc body — provenance comes from
  * each suite's own `env.timestamp` (captured once, at bench-run time, and
@@ -155,7 +155,7 @@ function renderBrowserLane(result) {
  const lines = [];
  lines.push('### browser-lane');
  lines.push('');
- lines.push('Playwright, UMD dist bundles loaded in-page (P3-4). Node-lane numbers above are NOT ' +
+ lines.push('Playwright, UMD dist bundles loaded in-page . Node-lane numbers above are NOT ' +
  'directly comparable to these (different engines, different harness overhead) — browser lane ' +
  'exists to catch cross-engine regressions, not to be read against Node numbers.');
  lines.push('');
@@ -281,13 +281,13 @@ function main() {
  'macro-realworld suite is self-timed (`process.hrtime`-style, no tinybench) because it ' +
  'measures whole simulated flows (waterfalls, component lifecycles) rather than isolated ' +
  'hot-loop cases; it also samples `process.memoryUsage().heapUsed` with `--expose-gc` for ' +
- 'per-1k-in-flight memory figures. The browser lane (P3-4) runs the same tinybench cases ' +
+ 'per-1k-in-flight memory figures. The browser lane runs the same tinybench cases ' +
  'inside real chromium/firefox/webkit pages via Playwright, loading the built UMD bundles — ' +
  'not the Node-lane source — so it also catches build/bundling regressions.',
  '',
  '**Baselines.** Only **native `Promise`** and **bluebird** (`cancellation: true`) are ' +
  'benchmarked as baselines — c-promise2/p-cancelable/alkemics were dropped from bench deps per ' +
- 'decision D14 (`.claude/decisions.md`). bluebird is not always a like-for-like comparison: a ' +
+ 'decision bluebird is not always a like-for-like comparison: a ' +
  'canceled bluebird promise never settles by design, so any flow that awaits a canceled chain ' +
  'to completion (e.g. the lifecycle macro) marks bluebird `lifecycleComparable: false` and its ' +
  'number reflects only the synchronous cancel call, not equivalent work — see the footnote on ' +
@@ -306,9 +306,12 @@ function main() {
  'especially firefox/webkit under Playwright) mean the number is noisy, not necessarily wrong — ' +
  'don\'t over-read small deltas inside the margin.',
  '',
- '**Out of scope.** This phase () collects numbers only — no optimization work was ' +
- 'performed based on these results. Unflattering numbers are expected and intentional; they ' +
- 'feed later optimization-phase decisions, not this one.',
+ '**Optimization pass.** Numbers below are post-optimization: per-instance memory layout, ' +
+ 'derived-promise construction, combinator internals, and the cancellation path have all been ' +
+ 'tuned since the original baseline. Construction and memory footprint improved substantially; ' +
+ 'chain/combinator throughput improved but remains behind bluebird on some cases because closing ' +
+ 'the gap further would mean bypassing the native species-constructor machinery this library is ' +
+ 'built on — a tradeoff not taken here. This doc reports numbers as measured, not as targets.',
  '',
  '## Summary (README embed)',
  '',
