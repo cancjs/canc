@@ -34,6 +34,14 @@ function extractFlagOptions(options?: ICancelablePromiseOptions): TFlagOptions {
  return flags;
 }
 
+function isEmptyFlags(flags: TFlagOptions): boolean {
+ for (const _key in flags) {
+ return false;
+ }
+
+ return true;
+}
+
 export function cancAsync<TFn extends IGeneratorLikeFn<TThis>, TArgs extends any[] = Parameters<TFn>, TReturn extends any = TCoroutineReturn<TFn>, TThis extends any = any>(genFn: TFn, ctx?: TThis, options?: ICancelablePromiseOptions) {
  if (!isFunction(genFn)) {
  throw new TypeError('Argument is not a function');
@@ -43,7 +51,15 @@ export function cancAsync<TFn extends IGeneratorLikeFn<TThis>, TArgs extends any
  const genFnName = genFn.displayName || genFn.name;
 
  // Per-step wrappers carry only flag options; the signal/ref live on `coroutinePromise`.
+ // Computed once here, not per yielded step (options never change across a coroutine's life).
  const stepOptions = extractFlagOptions(options);
+ // When no flag options are set, a yielded value that is already a same-constructor
+ // CancelablePromise needs no wrapping: `CancelablePromise.resolve(value, {})` returns it
+ // unchanged, so the step can subscribe with `.then()` directly and skip the resolve() round-trip
+ // (its instanceof/constructor check plus the seven-key option comparison) on every step. With
+ // flags present the wrapper still reconfigures the value, so the fast path is gated on this being
+ // empty.
+ const stepOptionsEmpty = isEmptyFlags(stepOptions);
  // Finally-drain steps run SHIELDED so cancellation can never abort in-flight cleanup: a shielded
  // wrapper's cancel() is a no-op and it is not chained to the (already canceled) coroutine
  // promise. Everything else inherits the coroutine's flag options.
@@ -107,7 +123,16 @@ export function cancAsync<TFn extends IGeneratorLikeFn<TThis>, TArgs extends any
  return;
  }
 
- const promise = CancelablePromise.resolve(result.value, stepOptions).then(onFulfilled, onRejected);
+ // Fast path: a yielded value that is already a same-constructor CancelablePromise, with no
+ // per-step flag options to apply, needs no resolve() wrap — subscribe with `.then()`
+ // directly. Otherwise fall back to resolve() to wrap raw values / foreign thenables and to
+ // reconfigure flags when the coroutine carries them.
+ const value = result.value;
+ const source =
+ stepOptionsEmpty && value instanceof CancelablePromise && value.constructor === CancelablePromise
+ ? value
+ : CancelablePromise.resolve(value, stepOptions);
+ const promise = source.then(onFulfilled, onRejected);
  // Sanctioned internal cross-package hook: `_chain` is `protected` on CancelablePromise
  // (TS-only privacy), this bracket-string access is the documented, smallest-surface way
  // for canc-coroutine to link the yielded-value promise into the parent chain (propagates
