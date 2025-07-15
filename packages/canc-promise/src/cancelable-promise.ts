@@ -162,13 +162,18 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 			const inputs: CancelablePromise<any>[] = []; // Track all inputs for loser-cancellation
 			let count = 0;
 			let hasRejected = false; // Guard to cancel losers only on first rejection
+			// Options are identical for every item, so normalize once instead of per iteration.
+			const normalizedOptions = this._getOptions(options);
 
 			for (const promiseOrValue of values) {
 				const index = count++;
-				const normalizedOptions = this._getOptions(options);
-				const promise = this.resolve(promiseOrValue, normalizedOptions);
+				const promise = this._adopt(promiseOrValue, normalizedOptions);
 				inputs.push(promise);
 
+				// `.then` (not `_then`): the then()-level input->derived chain is load-bearing here.
+				// It raises this input's chain count so that canceling the RESULT promise does not
+				// prematurely bubble down and cancel still-pending inputs; `promise._chain(resultsPromise)`
+				// below is the other half of that count.
 				promise.then(
 					(value) => {
 						results[index] = value;
@@ -212,16 +217,21 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	static allSettled<T>(values: Iterable<T>, options?: ICancelablePromiseOptions): CancelablePromise<PromiseSettledResult<T extends PromiseLike<infer U> ? U : T>[]>;
 
 	static allSettled<T>(values: Iterable<T>, options?: ICancelablePromiseOptions): CancelablePromise<PromiseSettledResult<any>[] | { [P in keyof any]: PromiseSettledResult<any> }> {
-		return this.all(
-			[...values].map(promiseOrValue => {
-				const normalizedOptions = this._getOptions(options);
+		// Options are identical for every item, so normalize once instead of per iteration.
+		// The spread stays outside any try so an iterable that throws while iterating surfaces
+		// synchronously (documented behavior), not as a rejected aggregate.
+		const normalizedOptions = this._getOptions(options);
 
-				return this.resolve(promiseOrValue, normalizedOptions)
-				.then(
+		return this.all(
+			[...values].map(promiseOrValue =>
+				// `_adopt` reuses a same-constructor canc input as-is and only wraps raw values /
+				// foreign thenables, dropping the former unconditional resolve() wrap that ran a full
+				// construction per item on top of the one all() performs on the mapped result.
+				this._adopt(promiseOrValue, normalizedOptions).then(
 					(value) => ({ status: 'fulfilled', value }),
 					(reason) => ({ status: 'rejected', reason })
-				) as CancelablePromise<PromiseSettledResult<any>>;
-			}),
+				) as CancelablePromise<PromiseSettledResult<any>>
+			),
 			options
 		);
 	}
@@ -246,13 +256,18 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		let rejectedCount = 0;
 		let hasFulfilled = false; // Guard to cancel losers only on first fulfill
 
+		// Options are identical for every item, so normalize once instead of per iteration.
+		const normalizedOptions = this._getOptions(options);
+
 		try {
 			for (const promiseOrValue of values) {
 				const index = count++;
-				const normalizedOptions = this._getOptions(options);
-				const promise = this.resolve(promiseOrValue, normalizedOptions);
+				const promise = this._adopt(promiseOrValue, normalizedOptions);
 				inputs.push(promise);
 
+				// `.then().catch()` (not a single `_then`): the two then()-derived children raise
+				// this input's chain count so canceling the RESULT promise does not bubble down and
+				// cancel still-pending inputs; `promise._chain(resultPromise)` is the other half.
 				promise.then(value => {
 					if (!hasFulfilled) {
 						hasFulfilled = true;
@@ -301,10 +316,15 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		// Deferred-construction pattern (todo: "new (noop) -> withResolvers") — see all() above.
 		const { promise: resultPromise, resolve: resolveResult, reject: rejectResult } = this.withResolvers<T>(options);
 
+		// Options are identical for every item, so normalize once instead of per iteration.
+		const normalizedOptions = this._getOptions(options);
+
 		try {
 			for (const promiseOrValue of values) {
-				const normalizedOptions = this._getOptions(options);
-				const promise = this.resolve<T>(promiseOrValue, normalizedOptions)
+				// `.then` (not `_then`) is required here: race relies on the then()-level
+				// input->derived chain so a cancel of the result promise bubbles back through the
+				// derived child to the input (see the race bubble tests).
+				const promise = this._adopt<T>(promiseOrValue, normalizedOptions)
 				.then(resolveResult, rejectResult);
 
 				promise._chain(resultPromise, true);
@@ -422,6 +442,30 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		}
 
 		return mergedOptions;
+	}
+
+	/**
+	 * Combinator input adoption. Behaviorally identical to `resolve(value, normalizedOptions)` but
+	 * with the fast path inlined: an already-same-constructor CancelablePromise whose options are
+	 * unchanged is returned as-is (fast instanceof + constructor check), skipping the extra static
+	 * dispatch. Any other input (raw value, native thenable, reconfigured canc promise) falls back to
+	 * a direct construction. `normalizedOptions` must already be normalized (hoisted once per
+	 * combinator call, not per item).
+	 */
+	protected static _adopt<T>(value: T | PromiseLike<T>, normalizedOptions: ICancelablePromiseOptions): CancelablePromise<T> {
+		if (value instanceof this && value.constructor === this && !this._checkOptionsChanged(value as any, normalizedOptions)) {
+			// Same-constructor canc promise with unchanged options: reuse as-is (matches resolve()).
+			return value as unknown as CancelablePromise<T>;
+		}
+		// Wrap raw values / native thenables / reconfigured canc promises. Constructing directly
+		// (instead of routing back through resolve) avoids repeating the instanceof + options check
+		// that just failed above.
+		return new this<T>(
+			(resolve) => {
+				resolve(value);
+			},
+			normalizedOptions
+		);
 	}
 
 	protected static _checkOptionsChanged(instance: ICancelablePromiseOptions, options?: ICancelablePromiseOptions): boolean {
