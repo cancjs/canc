@@ -1016,6 +1016,11 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	 * result is always awaitable. In `asyncCancel:false` (sync) mode handlers run synchronously and
 	 * `cancel()` returns `undefined`.
 	 *
+	 * Handler timing: registered cancel handlers START synchronously the moment the cancel takes
+	 * effect, regardless of what triggered it (an explicit `cancel()`, an upstream rejection, or a
+	 * bubble from settled children). What a handler returns is still awaited asynchronously by the
+	 * `asyncCancel` settlement promise; only the handler's invocation is synchronous.
+	 *
 	 * On an already-settled/canceled promise this is a silent no-op unless `strict`, which throws.
 	 * @param reason The cancellation reason.
 	 */
@@ -1137,26 +1142,26 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 
 			// Discard-return paths (bubble/external-cancel cascade — every node in a canceled chain):
 			// the caller ignores the return, so skip the allSettled + per-handler combinator machinery
-			// entirely. Handlers still run asynchronously (asyncCancel timing preserved) with their
-			// own rejections swallowed, matching the observable no-unhandled-rejection behavior of the
-			// allSettled path but without constructing an all()/withResolvers per canceled node. This
-			// is the dominant cost in a cancel storm, where the bubble bookkeeping registers an
-			// onComplete handler on every intermediate node.
+			// entirely. Handlers run synchronously here, the same way the consumed-return path below
+			// starts each handler synchronously inside its settlement-promise executor, so a handler's
+			// start time does not depend on which path canceled the promise. Their own rejections are
+			// swallowed (thenable results absorbed with a noop reaction), matching the allSettled
+			// path's no-unhandled-rejection behavior without constructing an all()/withResolvers per
+			// canceled node. This is the dominant cost in a cancel storm, where the bubble bookkeeping
+			// registers an onComplete handler on every intermediate node.
 			if (!needsReturn) {
 				const pending = handlers.slice();
 				handlers.length = 0;
-				void NativePromise.resolve().then(() => {
-					for (const handler of pending) {
-						try {
-							const r = handler(reason);
-							if (isThenable(r)) {
-								(r as PromiseLike<unknown>).then(noop, noop);
-							}
-						} catch (_e) {
-							// asyncCancel swallows handler failures; nothing consumes them here.
+				for (const handler of pending) {
+					try {
+						const r = handler(reason);
+						if (isThenable(r)) {
+							(r as PromiseLike<unknown>).then(noop, noop);
 						}
+					} catch (_e) {
+						// asyncCancel swallows handler failures; nothing consumes them here.
 					}
-				});
+				}
 				return undefined;
 			}
 
