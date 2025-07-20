@@ -48,7 +48,7 @@ export function waitForFactory(boundImpl?: PromiseImpl) {
 					return;
 				}
 
-				Promise.resolve(result).then(
+				Impl.resolve(result).then(
 					(value) => {
 						if (value) {
 							finish(() => resolve());

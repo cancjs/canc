@@ -59,7 +59,7 @@ export function timeoutFactory(boundImpl?: PromiseImpl) {
 				reject(new TimeoutError());
 			}, ms);
 
-			Promise.resolve(promise).then(
+			Impl.resolve(promise).then(
 				(value) => {
 					if (settled) return;
 					settled = true;

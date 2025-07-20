@@ -43,7 +43,7 @@ export function retryFactory(boundImpl?: PromiseImpl) {
 			const attempt = (n: number) => {
 				if (canceled) return;
 
-				Promise.resolve()
+				Impl.resolve()
 					.then(() => input(n))
 					.then(
 						(value) => {

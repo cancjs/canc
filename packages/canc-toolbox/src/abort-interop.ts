@@ -13,6 +13,11 @@ export type SuppressCategory = 'abort' | 'cancel';
 // typed view instead of augmenting the platform type.
 const abortSignalAny = (AbortSignal as unknown as { any(signals: AbortSignal[]): AbortSignal }).any;
 
+// withSignal has no toolbox options and always returns a plain native promise, so there is no
+// resolved Impl to route through; capture the native constructor once at module load instead of
+// reading the live global on every call.
+const NativePromise = Promise;
+
 function isObject(value: unknown): value is object {
 	return typeof value === 'object' && value !== null;
 }
@@ -50,7 +55,7 @@ export function suppressFactory(boundImpl?: PromiseImpl) {
 		const Impl = resolveImpl(options, boundImpl);
 
 		return construct<T | void>(Impl, (resolve, reject, handleCancel?: THandleCancel) => {
-			Promise.resolve(promise).then(
+			Impl.resolve(promise).then(
 				(value) => resolve(value),
 				(reason) => {
 					if (matchesCategory(reason, categories)) {
@@ -128,7 +133,7 @@ export function interopTimeoutFactory(boundImpl?: PromiseImpl) {
 
 			combined.addEventListener('abort', onAbort, { once: true });
 
-			Promise.resolve(promise).then(
+			Impl.resolve(promise).then(
 				(value) => {
 					if (settled) return;
 					settled = true;
@@ -193,10 +198,10 @@ export function withSignal<T>(signal: AbortSignal | undefined, promiseOrFn: ((si
 
 	// No signal: pass the value straight through so optional-cancellation call sites need no branch.
 	if (signal === undefined) {
-		return Promise.resolve(source);
+		return NativePromise.resolve(source);
 	}
 
-	return new Promise<T>((resolve, reject) => {
+	return new NativePromise<T>((resolve, reject) => {
 		// A signal's abort reason is a DOMException AbortError (an Error) at runtime.
 		const abortReason = () => signal.reason as Error;
 
@@ -208,7 +213,7 @@ export function withSignal<T>(signal: AbortSignal | undefined, promiseOrFn: ((si
 		const onAbort = () => reject(abortReason());
 		signal.addEventListener('abort', onAbort, { once: true });
 
-		Promise.resolve(source).then(
+		NativePromise.resolve(source).then(
 			(value) => {
 				signal.removeEventListener('abort', onAbort);
 				resolve(value);
