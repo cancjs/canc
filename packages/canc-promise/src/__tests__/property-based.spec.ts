@@ -152,7 +152,7 @@ describe('Property-based (fast-check) tests', () => {
 						expect(isCancelError(err)).toBe(true);
 						expect(err.name).toBe('CancelError');
 						expect(typeof err.isBubbled).toBe('boolean');
-						expect(typeof err.isDisposed).toBe('boolean');
+						expect(typeof err.disposed).toBe('boolean');
 					}
 
 					// Invariant 3: Settlement results are consistent
@@ -249,7 +249,7 @@ describe('Property-based (fast-check) tests', () => {
 			expect(err.name).toBe('CancelError');
 			expect(err.message).toBe('test reason');
 			expect(err.isBubbled).toBe(false);
-			expect(err.isDisposed).toBe(false);
+			expect(err.disposed).toBe(false);
 			expect(isCancelError(err)).toBe(true);
 		});
 
