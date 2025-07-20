@@ -9,11 +9,20 @@ class MockAbortSignal {
 	aborted = false;
 	reason: any = undefined;
 	onabort: ((this: any, event: any) => any) | null = null;
-	private listeners: Array<(event: any) => void> = [];
+	listeners: Array<(event: any) => void> = [];
 
 	addEventListener(type: string, listener: (event: any) => void): void {
 		if (type === 'abort') {
 			this.listeners.push(listener);
+		}
+	}
+
+	removeEventListener(type: string, listener: (event: any) => void): void {
+		if (type === 'abort') {
+			const index = this.listeners.indexOf(listener);
+			if (index !== -1) {
+				this.listeners.splice(index, 1);
+			}
 		}
 	}
 
@@ -28,6 +37,65 @@ class MockAbortSignal {
 			}
 		}
 		return true;
+	}
+}
+
+// Native-like signal: `onabort` is a prototype accessor (so `'onabort' in signal` is always true,
+// as on a real AbortSignal) backed by a private field, plus real add/removeEventListener. Lets the
+// tests assert the factory takes the addEventListener path and never overwrites onabort.
+class NativeLikeAbortSignal {
+	aborted = false;
+	reason: any = undefined;
+	private _onabort: ((this: any, event: any) => any) | null = null;
+	listeners: Array<(event: any) => void> = [];
+
+	get onabort(): ((this: any, event: any) => any) | null {
+		return this._onabort;
+	}
+
+	set onabort(value: ((this: any, event: any) => any) | null) {
+		this._onabort = value;
+	}
+
+	addEventListener(type: string, listener: (event: any) => void): void {
+		if (type === 'abort') {
+			this.listeners.push(listener);
+		}
+	}
+
+	removeEventListener(type: string, listener: (event: any) => void): void {
+		if (type === 'abort') {
+			const index = this.listeners.indexOf(listener);
+			if (index !== -1) {
+				this.listeners.splice(index, 1);
+			}
+		}
+	}
+
+	dispatchEvent(event: any): boolean {
+		if (event?.type === 'abort') {
+			this.aborted = true;
+			if (typeof this._onabort === 'function') {
+				this._onabort.call(this, event);
+			}
+			for (const listener of this.listeners.slice()) {
+				listener(event);
+			}
+		}
+		return true;
+	}
+}
+
+// Ancient-polyfill signal: onabort assignment only, no addEventListener/removeEventListener.
+class OnabortOnlyAbortSignal {
+	aborted = false;
+	onabort: ((this: any, event: any) => any) | null = null;
+
+	fireAbort(event: any): void {
+		this.aborted = true;
+		if (typeof this.onabort === 'function') {
+			this.onabort.call(this, event);
+		}
 	}
 }
 
@@ -228,6 +296,149 @@ describe('cancelableFetchFactory', () => {
 
 		expect(error).toBe(networkError);
 		expect(isCancelError(error)).toBe(false);
+	});
+});
+
+
+describe('signal interop', () => {
+	function makeNativeFactory(signal: any) {
+		const backing = deferredFetch();
+		const cancelableFetch = cancelableFetchFactory({
+			fetch: backing.fetch,
+			AbortController: MockAbortController as any,
+			Event: MockEvent as any,
+		});
+		const promise = cancelableFetch('/api', { signal });
+		return { cancelableFetch, promise, ...backing };
+	}
+
+	it('wires a native signal via addEventListener without touching onabort', async () => {
+		const external = new NativeLikeAbortSignal();
+		const addSpy = jest.spyOn(external, 'addEventListener');
+		const onabortSetSpy = jest.fn();
+		const descriptor = Object.getOwnPropertyDescriptor(NativeLikeAbortSignal.prototype, 'onabort')!;
+		Object.defineProperty(external, 'onabort', {
+			configurable: true,
+			get: descriptor.get,
+			set(value) {
+				onabortSetSpy(value);
+				descriptor.set!.call(this, value);
+			},
+		});
+
+		const { promise, resolveWith } = makeNativeFactory(external);
+		await flush();
+
+		expect(addSpy).toHaveBeenCalledWith('abort', expect.any(Function));
+		expect(onabortSetSpy).not.toHaveBeenCalled();
+
+		resolveWith('ok');
+		await promise;
+	});
+
+	it('still cancels when the caller reassigns onabort after wiring', async () => {
+		const external = new NativeLikeAbortSignal();
+		const { promise, calls } = makeNativeFactory(external);
+		await flush();
+
+		// Caller overwrites onabort after the fetch was wired; the addEventListener path must not
+		// depend on onabort, so an external abort still cancels.
+		external.onabort = () => {};
+		external.dispatchEvent(new MockEvent('abort'));
+
+		let error: any;
+		try {
+			await promise;
+		} catch (e) {
+			error = e;
+		}
+
+		expect(calls[0].signal.aborted).toBe(true);
+		expect(isCancelError(error)).toBe(true);
+	});
+
+	it('leaves no residual listeners on a long-lived signal after many settled fetches', async () => {
+		const external = new NativeLikeAbortSignal();
+		const backing = deferredFetch();
+		const cancelableFetch = cancelableFetchFactory({
+			fetch: backing.fetch,
+			AbortController: MockAbortController as any,
+			Event: MockEvent as any,
+		});
+
+		for (let i = 0; i < 20; i++) {
+			const promise = cancelableFetch('/api', { signal: external });
+			await flush();
+			backing.resolveWith('ok');
+			await promise;
+		}
+
+		expect(external.listeners).toHaveLength(0);
+	});
+
+	it('detaches the listener after a rejected fetch too', async () => {
+		const external = new NativeLikeAbortSignal();
+		const backing = deferredFetch();
+		const cancelableFetch = cancelableFetchFactory({
+			fetch: backing.fetch,
+			AbortController: MockAbortController as any,
+			Event: MockEvent as any,
+		});
+
+		const promise = cancelableFetch('/api', { signal: external });
+		await flush();
+		backing.rejectWith(new Error('network down'));
+
+		try {
+			await promise;
+		} catch {
+			// expected network error
+		}
+
+		expect(external.listeners).toHaveLength(0);
+	});
+
+	it('short-circuits a pre-aborted native signal', async () => {
+		const external = new NativeLikeAbortSignal();
+		external.aborted = true;
+
+		const { promise, calls } = makeNativeFactory(external);
+
+		let error: any;
+		try {
+			await promise;
+		} catch (e) {
+			error = e;
+		}
+
+		expect(calls[0].signal.aborted).toBe(true);
+		expect(isCancelError(error)).toBe(true);
+	});
+
+	it('falls back to onabort for a polyfill without addEventListener', async () => {
+		const external = new OnabortOnlyAbortSignal();
+		const backing = deferredFetch();
+		const cancelableFetch = cancelableFetchFactory({
+			fetch: backing.fetch,
+			AbortController: MockAbortController as any,
+			Event: MockEvent as any,
+		});
+
+		const promise = cancelableFetch('/api', { signal: external });
+		await flush();
+
+		expect(typeof external.onabort).toBe('function');
+		external.fireAbort(new MockEvent('abort'));
+
+		let error: any;
+		try {
+			await promise;
+		} catch (e) {
+			error = e;
+		}
+
+		expect(backing.calls[0].signal.aborted).toBe(true);
+		expect(isCancelError(error)).toBe(true);
 	});
 });
 
