@@ -1019,14 +1019,20 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	 * On an already-settled/canceled promise this is a silent no-op unless `strict`, which throws.
 	 * @param reason The cancellation reason.
 	 */
-	cancel(reason?: any): void | CancelablePromise<PromiseSettledResult<unknown>[]> {
+	cancel(reason?: any, _disposing?: boolean): void | CancelablePromise<PromiseSettledResult<unknown>[]> {
+		// `_disposing` is the internal disposal path (Symbol.dispose / Symbol.asyncDispose via
+		// _dispose): it suppresses the strict throws (disposal is always a no-throw no-op on a
+		// shielded or already-settled promise, never an error) WITHOUT mutating public state, and it
+		// marks the fresh CancelError as disposed. Routing dispose through cancel() means an
+		// overridden cancel (e.g. the coroutine finally-drain) governs disposal too.
+
 		// Shield: a shielded promise protects its own pending work from cancelation initiated
 		// from below/outside — a direct cancel() is a silent no-op (strict → throw), and a
 		// bubble-cancel from children (which arrives via this same cancel() call in _chain) is
 		// stopped here. Down-propagation is untouched: an upstream cancel/reject reaches this
 		// promise through the _reject wrapper, not through cancel(), so shielded nodes still settle.
 		if (this.shield && this.cancelable) {
-			if (this.strict) {
+			if (this.strict && !_disposing) {
 				throw new Error('Shielded promise cannot be canceled');
 			}
 
@@ -1048,6 +1054,11 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 				: isObject(reason)
 					? new CancelError(undefined, { cause: reason })
 					: new CancelError(reason);
+
+			if (_disposing) {
+				error.disposed = true;
+			}
+
 			this._reject(error);
 
 			// Settlement effects (listener cleanup) are already called in the reject wrapper
@@ -1056,7 +1067,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 			this._runSettlementEffects();
 
 			return this._runCancellation(reason, true);
-		} else if (this.strict) {
+		} else if (this.strict && !_disposing) {
 			throw new Error(`${this.canceled ? 'Canceled' : 'Settled'} promise cannot be canceled`);
 		}
 	}
@@ -1085,19 +1096,10 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	 * `await using` can await cleanup); otherwise undefined.
 	 */
 	protected _dispose(): void | CancelablePromise<PromiseSettledResult<unknown>[]> {
-		// Shielded or already-settled/canceled → silent no-op (never throw, unlike cancel() strict).
-		if (this.shield || !this.cancelable) {
-			return;
-		}
-
-		const error = new CancelError('Disposed');
-		error.isDisposed = true;
-
-		this._internalState = states.CANCELED;
-		this._reject(error);
-		this._runSettlementEffects();
-
-		return this._runCancellation(error, true);
+		// Route through the instance's (possibly overridden) cancel so subclasses like the coroutine
+		// finally-drain govern disposal too. `_disposing` suppresses the strict throw and marks the
+		// CancelError as disposed; shielded / already-settled promises no-op inside cancel().
+		return this.cancel('Disposed', true);
 	}
 
 	/**

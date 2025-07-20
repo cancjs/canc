@@ -12,7 +12,7 @@ import { isCancelError } from './helpers';
  * - dispose after settle = silent no-op;
  * - shielded = no-op;
  * - disposing a strict promise does NOT throw;
- * - reason = CancelError with the dispose marker (isDisposed).
+ * - reason = CancelError with the dispose marker (disposed).
  */
 
 const NativePromise = Promise;
@@ -51,7 +51,7 @@ describeSync('P1-11 Symbol.dispose (sync)', () => {
 		await promise.catch(err => { caught = err; });
 
 		expect(isCancelError(caught)).toBe(true);
-		expect((caught as CancelError).isDisposed).toBe(true);
+		expect((caught as CancelError).disposed).toBe(true);
 	});
 
 	it('dispose is fire-and-forget: returns undefined', () => {
@@ -125,7 +125,7 @@ describeAsync('P1-11 Symbol.asyncDispose (async)', () => {
 		await promise.catch(err => { caught = err; });
 
 		expect(isCancelError(caught)).toBe(true);
-		expect((caught as CancelError).isDisposed).toBe(true);
+		expect((caught as CancelError).disposed).toBe(true);
 	});
 
 	it('asyncDispose after settle is a silent no-op (still awaitable)', async () => {
@@ -153,6 +153,44 @@ describeAsync('P1-11 Symbol.asyncDispose (async)', () => {
 
 		expect(promise.isCanceled).toBe(false);
 		await expect(promise).resolves.toBe(4);
+	});
+});
+
+describe('_dispose routes through an overridden cancel', () => {
+	it('invokes an own-property cancel override instead of duplicating reject logic', () => {
+		const promise = new CancelablePromise<number>(() => {/**/});
+		let overrideCalls = 0;
+		let overrideDisposing: any;
+
+		const original = promise.cancel.bind(promise);
+		(promise as any).cancel = function (reason?: any, disposing?: boolean) {
+			overrideCalls++;
+			overrideDisposing = disposing;
+			return original(reason, disposing);
+		};
+
+		(promise as any)._dispose();
+
+		expect(overrideCalls).toBe(1);
+		expect(overrideDisposing).toBe(true);
+		expect(promise.isCanceled).toBe(true);
+		promise.catch(() => {/**/});
+	});
+
+	it('override sees the disposal path even for a strict promise (no throw)', () => {
+		const promise = new CancelablePromise<number>(() => {/**/}, { strict: true });
+		let sawDisposing = false;
+
+		const original = promise.cancel.bind(promise);
+		(promise as any).cancel = function (reason?: any, disposing?: boolean) {
+			sawDisposing = disposing === true;
+			return original(reason, disposing);
+		};
+
+		expect(() => (promise as any)._dispose()).not.toThrow();
+		expect(sawDisposing).toBe(true);
+		expect(promise.isCanceled).toBe(true);
+		promise.catch(() => {/**/});
 	});
 });
 
