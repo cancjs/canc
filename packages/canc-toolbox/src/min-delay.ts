@@ -25,7 +25,7 @@ export function minDelayFactory(boundImpl?: PromiseImpl) {
 				handleCancel(() => clearTimeout(id));
 			}
 
-			Promise.resolve(promise).then(
+			Impl.resolve(promise).then(
 				(result) => {
 					value = result;
 					settled = true;
