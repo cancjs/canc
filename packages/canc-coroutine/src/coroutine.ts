@@ -1,5 +1,5 @@
-import { CancelablePromise, ICancelablePromiseOptions, CancelError } from '@cancjs/promise';
-import { isFunction } from '../../_util';
+import { CancelablePromise, ICancelablePromiseOptions, CancelError, isCancelError } from '@cancjs/promise';
+import { isFunction, isObject } from '../../_util';
 
 export type TGeneratorLike<PYield = unknown, PReturn = any, PNext = unknown> = Omit<Generator<PYield, PReturn, PNext>, typeof Symbol.iterator>;
 
@@ -89,22 +89,71 @@ export function cancAsync<TFn extends IGeneratorLikeFn<TThis>, TArgs extends any
  // Track when cancel() was called so ordinary steps can check. The handleCancel hook runs
  // post-settlement, so we track it independently to mark the generator as canceled early.
  let canceled = false;
+ // Set when the cancel came through the disposal path (Symbol.dispose / Symbol.asyncDispose):
+ // the drain's terminal CancelError is marked `disposed` for parity with core _dispose.
+ let disposing = false;
+
+ // Deferred that settles when the finally drain completes. Deposited on the first cancel that
+ // starts a drain; the drain's terminal branches (pumpFinally done / any sync-or-async throw)
+ // resolve it. cancel() returns it so `await coroutinePromise.cancel(reason)` resolves only
+ // AFTER cleanup has run (awaitable-cancel contract). In sync (asyncCancel:false) mode there
+ // is nothing to await and cancel() returns undefined, matching core.
+ let drainDeferred: { promise: CancelablePromise<any>; resolve: (v?: any) => void } | undefined;
+ const settleDrain = () => {
+ if (drainDeferred) {
+ drainDeferred.resolve();
+ }
+ };
 
  // Override cancel() to prevent immediate settlement and let the finally drain own it. D23:
  // a finally that throws replaces the CancelError rejection. But if the generator is already
  // done (completed naturally or errored), the coroutine is already settled, so cancel is a no-op
  // (either way, isCancelable will be false).
- const originalCancel = coroutinePromise.cancel.bind(coroutinePromise);
- coroutinePromise.cancel = function(reason?: any) {
- if (!canceled && genDone === false) {
+ //
+ // Guards (shield / strict / already-settled) are delegated to the prototype semantics before
+ // draining: a shielded coroutine promise never drains (cancel is a no-op); a strict one throws
+ // on a settled/canceled promise unless this is the internal disposal path (`_disposing`).
+ coroutinePromise.cancel = function(reason?: any, _disposing?: boolean): any {
+ const self = coroutinePromise;
+
+ // Re-cancel while a drain is already in progress: return the SAME awaitable so every caller
+ // (including dispose) awaits the one cleanup run. Guarded before the shield/settled checks so
+ // a second cancel does not re-trip a strict throw.
+ if (canceled && !genDone) {
+ return self.asyncCancel ? drainDeferred!.promise : undefined;
+ }
+
+ // Shield: never drain — a shielded promise's cancel is a no-op (strict → throw unless
+ // disposing), matching core cancel(). Returns undefined like core's shielded no-op.
+ if (self.shield && self.cancelable) {
+ if (self.strict && !_disposing) {
+ throw new Error('Shielded promise cannot be canceled');
+ }
+ return undefined;
+ }
+
+ // Already settled/canceled (or generator finished): silent no-op like core, strict throws
+ // unless disposing. Returns undefined (core cancel() on a settled promise returns undefined).
+ if (genDone || !self.cancelable) {
+ if (self.strict && !_disposing) {
+ throw new Error(`${self.canceled ? 'Canceled' : 'Settled'} promise cannot be canceled`);
+ }
+ return undefined;
+ }
+
+ // Fresh cancel on a live coroutine: start the finally drain and own settlement.
  canceled = true;
  canceledReason = reason;
- drainFinally();
- } else if (genDone === false) {
- // Re-cancel while drain is in progress: no-op (re-entrancy guarded in drainFinally)
+ disposing = _disposing === true;
+
+ if (self.asyncCancel) {
+ const d = CancelablePromise.withResolvers<any>({ shield: true });
+ drainDeferred = { promise: d.promise, resolve: d.resolve as (v?: any) => void };
  }
- // If genDone is true, the coroutine is already settled (resolved/rejected); cancel is no-op
- // like normal Promise.cancel on a settled promise.
+
+ drainFinally();
+
+ return self.asyncCancel ? drainDeferred!.promise : undefined;
  };
 
  const step = (result: any) => {
@@ -188,6 +237,7 @@ export function cancAsync<TFn extends IGeneratorLikeFn<TThis>, TArgs extends any
  // A finally block threw synchronously: surface it as the coroutine rejection.
  genDone = true;
  reject(err);
+ settleDrain();
  return;
  }
 
@@ -199,10 +249,20 @@ export function cancAsync<TFn extends IGeneratorLikeFn<TThis>, TArgs extends any
  // When the generator reports done, settles the coroutine promise as canceled.
  const pumpFinally = (result: IteratorResult<any>) => {
  if (result.done) {
- // Finally drain complete: settle the coroutine as canceled.
+ // Finally drain complete: settle the coroutine as canceled, preserving the ORIGINAL
+ // cancel reason normalized exactly like core cancel() (CancelError passthrough /
+ // object → cause / string|undefined → message).
  genDone = true;
- const error = new CancelError(undefined);
+ const error = isCancelError(canceledReason)
+ ? canceledReason
+ : isObject(canceledReason)
+ ? new CancelError(undefined, { cause: canceledReason })
+ : new CancelError(canceledReason);
+ if (disposing) {
+ error.disposed = true;
+ }
  reject(error);
+ settleDrain();
  return;
  }
 
@@ -217,6 +277,7 @@ export function cancAsync<TFn extends IGeneratorLikeFn<TThis>, TArgs extends any
  // Finally block threw after a yield: surface it as the rejection.
  genDone = true;
  reject(err);
+ settleDrain();
  return;
  }
  pumpFinally(next);
@@ -229,6 +290,7 @@ export function cancAsync<TFn extends IGeneratorLikeFn<TThis>, TArgs extends any
  // Finally block threw after a yield in the error handler: surface it.
  genDone = true;
  reject(err);
+ settleDrain();
  return;
  }
  pumpFinally(next);

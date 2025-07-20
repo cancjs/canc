@@ -606,3 +606,238 @@ describe('cancAsync', () => {
  });
  });
 });
+
+describe('cancel/dispose contract', () => {
+ const asyncDisposeSym = (Symbol as any).asyncDispose as symbol | undefined;
+
+ describe('awaitable cancel through finally drain', () => {
+ it('await cancel() resolves only AFTER an async finally block completes', async () => {
+ let cleanupDone = false;
+
+ const co = cancAsync(function* () {
+ try {
+ yield new CancelablePromise<void>(() => {});
+ } finally {
+ yield Promise.resolve();
+ cleanupDone = true;
+ }
+ });
+
+ const p = co();
+ await flush(2);
+
+ // The awaited cancel() must not resolve before cleanup ran.
+ await p.cancel('stop');
+ expect(cleanupDone).toBe(true);
+
+ await expect(p.catch((e: any) => e)).resolves.toBeInstanceOf(CancelError);
+ });
+
+ it('cancel() returns a promise (asyncCancel default)', async () => {
+ const co = cancAsync(function* () {
+ yield new CancelablePromise<void>(() => {});
+ });
+
+ const p = co();
+ await flush();
+ const ret = p.cancel();
+ expect(ret).toBeInstanceOf(Promise);
+ await ret;
+ });
+
+ it('re-cancel during drain returns the SAME awaitable and cleanup runs once', async () => {
+ let finallyRuns = 0;
+
+ const co = cancAsync(function* () {
+ try {
+ yield new CancelablePromise<void>(() => {});
+ } finally {
+ yield Promise.resolve();
+ finallyRuns++;
+ }
+ });
+
+ const p = co();
+ await flush(2);
+
+ const first = p.cancel();
+ const second = p.cancel();
+ expect(second).toBe(first);
+
+ await first;
+ expect(finallyRuns).toBe(1);
+ });
+
+ it('cancel() returns undefined in sync (asyncCancel:false) mode', async () => {
+ const co = cancAsync(function* () {
+ try {
+ yield new CancelablePromise<void>(() => {});
+ } finally {
+ /* sync cleanup */
+ }
+ }, undefined, { asyncCancel: false });
+
+ const p = co();
+ await flush(2);
+ const ret = p.cancel();
+ expect(ret).toBeUndefined();
+ await p.catch(() => {});
+ });
+ });
+
+ describe('reason preservation through drain', () => {
+ it('drain rejects with the ORIGINAL CancelError identity', async () => {
+ const original = new CancelError('boom');
+
+ const co = cancAsync(function* () {
+ try {
+ yield new CancelablePromise<void>(() => {});
+ } finally {
+ /* sync cleanup */
+ }
+ });
+
+ const p = co();
+ await flush(2);
+ await p.cancel(original);
+
+ const err = await p.catch((e: any) => e);
+ expect(err).toBe(original);
+ });
+
+ it('object reason lands as the cause of the drain CancelError', async () => {
+ const reasonObj = { code: 42 };
+
+ const co = cancAsync(function* () {
+ try {
+ yield new CancelablePromise<void>(() => {});
+ } finally {
+ /* sync cleanup */
+ }
+ });
+
+ const p = co();
+ await flush(2);
+ await p.cancel(reasonObj);
+
+ const err = await p.catch((e: any) => e);
+ expect(isCancelError(err)).toBe(true);
+ expect((err as CancelError).cause).toBe(reasonObj);
+ });
+
+ it('string reason becomes the drain CancelError message', async () => {
+ const co = cancAsync(function* () {
+ try {
+ yield new CancelablePromise<void>(() => {});
+ } finally {
+ /* sync cleanup */
+ }
+ });
+
+ const p = co();
+ await flush(2);
+ await p.cancel('user-stop');
+
+ const err = await p.catch((e: any) => e);
+ expect(isCancelError(err)).toBe(true);
+ expect((err as Error).message).toBe('user-stop');
+ });
+ });
+
+ describe('override honors shield / strict', () => {
+ it('a shielded coroutine promise survives cancel()', async () => {
+ let finallyRan = false;
+
+ const co = cancAsync(function* () {
+ try {
+ yield Promise.resolve(1);
+ return 'ok';
+ } finally {
+ finallyRan = true;
+ }
+ }, undefined, { shield: true });
+
+ const p = co();
+ p.cancel('nope');
+ await flush();
+
+ // Shielded: cancel is a no-op, the coroutine completes normally.
+ expect(p.isCanceled).toBe(false);
+ await expect(p).resolves.toBe('ok');
+ expect(finallyRan).toBe(true);
+ });
+
+ it('strict + shielded coroutine throws on cancel()', async () => {
+ const co = cancAsync(function* () {
+ yield new CancelablePromise<void>(() => {});
+ }, undefined, { shield: true, strict: true });
+
+ const p = co();
+ await flush();
+ expect(() => p.cancel()).toThrow();
+ // still pending / not canceled
+ expect(p.isCanceled).toBe(false);
+ });
+
+ it('strict coroutine cancel-after-settle throws', async () => {
+ const co = cancAsync(function* () {
+ return 'done';
+ }, undefined, { strict: true });
+
+ const p = co();
+ await expect(p).resolves.toBe('done');
+
+ expect(() => p.cancel()).toThrow();
+ });
+ });
+
+ describe('dispose routes through the drain', () => {
+ const runIf = asyncDisposeSym ? it : it.skip;
+
+ runIf('await using (asyncDispose) completes cleanup before scope continues', async () => {
+ let cleanupDone = false;
+
+ const co = cancAsync(function* () {
+ try {
+ yield new CancelablePromise<void>(() => {});
+ } finally {
+ yield Promise.resolve();
+ cleanupDone = true;
+ }
+ });
+
+ const p = co();
+ await flush(2);
+
+ // Simulate `await using op = co(); ... scope exit`.
+ await (p as any)[asyncDisposeSym!]();
+ expect(cleanupDone).toBe(true);
+
+ const err = await p.catch((e: any) => e);
+ expect(isCancelError(err)).toBe(true);
+ expect((err as CancelError).disposed).toBe(true);
+ });
+
+ runIf('dispose-during-drain is idempotent (cleanup runs once)', async () => {
+ let finallyRuns = 0;
+
+ const co = cancAsync(function* () {
+ try {
+ yield new CancelablePromise<void>(() => {});
+ } finally {
+ yield Promise.resolve();
+ finallyRuns++;
+ }
+ });
+
+ const p = co();
+ await flush(2);
+
+ const a = (p as any)[asyncDisposeSym!]();
+ const b = (p as any)[asyncDisposeSym!]();
+ await Promise.all([a, b]);
+
+ expect(finallyRuns).toBe(1);
+ });
+ });
+});
