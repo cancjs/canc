@@ -25,6 +25,7 @@ interface PolyfilledAbortSignal {
 	aborted?: boolean;
 	onabort?: ((this: any, event: any) => any) | null;
 	addEventListener?: (type: string, listener: (event: any) => void) => void;
+	removeEventListener?: (type: string, listener: (event: any) => void) => void;
 	dispatchEvent?: (event: any) => boolean;
 }
 
@@ -69,12 +70,30 @@ export const cancelableFetchFactory = (config: CancelableFetchConfig = {}) => {
 				}
 			};
 
+			// Detaches whatever we wired onto the caller's long-lived signal, so a signal reused across
+			// many fetches does not accumulate listeners. Reassigned when a signal is present.
+			let detachSignal = () => {};
+
 			if (originalSignal) {
 				if (originalSignal.aborted) {
 					// Pre-aborted input: abort our controller immediately, before fetch runs.
 					abortedExternally = true;
 					onAbort();
+				} else if (isFunction(originalSignal.addEventListener)) {
+					// Native signals (and modern polyfills) expose addEventListener; prefer it. It does
+					// not mutate the caller's object, and survives the caller reassigning onabort later.
+					const externalAbortListener = () => {
+						abortedExternally = true;
+						onAbort();
+					};
+					originalSignal.addEventListener('abort', externalAbortListener);
+
+					if (isFunction(originalSignal.removeEventListener)) {
+						detachSignal = () => originalSignal.removeEventListener!('abort', externalAbortListener);
+					}
 				} else if ('onabort' in originalSignal) {
+					// Legacy-polyfill fallback: no addEventListener, so chain onabort. Restore the original
+					// handler on settle so the signal is left as we found it.
 					const originalOnAbort = originalSignal.onabort;
 
 					originalSignal.onabort = function (this: any, event: any) {
@@ -85,23 +104,30 @@ export const cancelableFetchFactory = (config: CancelableFetchConfig = {}) => {
 							originalOnAbort.call(this, event);
 						}
 					};
-				} else if (isFunction(originalSignal.addEventListener)) {
-					originalSignal.addEventListener('abort', () => {
-						abortedExternally = true;
-						onAbort();
-					});
+
+					detachSignal = () => {
+						originalSignal.onabort = originalOnAbort ?? null;
+					};
 				}
 			}
 
 			handleCancel(() => onAbort());
 
-			_fetch(input, { ...init, signal }).then(resolve_, (reason: any) => {
-				if (isAbortError(reason)) {
-					reject(new CancelError(reason.message, { cause: reason }));
-				} else {
-					reject(reason);
-				}
-			});
+			const settle = <T>(callback: (value: T) => void) => (value: T) => {
+				detachSignal();
+				callback(value);
+			};
+
+			_fetch(input, { ...init, signal }).then(
+				settle(resolve_),
+				settle((reason: any) => {
+					if (isAbortError(reason)) {
+						reject(new CancelError(reason.message, { cause: reason }));
+					} else {
+						reject(reason);
+					}
+				})
+			);
 		});
 	};
 };
