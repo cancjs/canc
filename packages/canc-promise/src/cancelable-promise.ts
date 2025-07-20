@@ -107,7 +107,9 @@ const FLAG_SHIELD = 16;
 // resolve/reject wrappers only read `forceCancelable`; the derived promise's real flags are set by
 // the calling `then()` immediately after construction, so nothing else here is observed. Reused (not
 // reallocated) on every derived-promise construction on the hot chain path.
-const INTERNAL_CALL_OPTIONS = { forceCancelable: true } as ReturnType<typeof CancelablePromise['_getOptions']>;
+// Frozen so an accidental future mutation (e.g. assigning a signal on it) cannot poison every
+// derived promise that shares this single stand-in object.
+const INTERNAL_CALL_OPTIONS = Object.freeze({ forceCancelable: true }) as ReturnType<typeof CancelablePromise['_getOptions']>;
 
 // Extends PromiseConstructor, as defined in
 // lib.es2015.promise, lib.es2015.iterable, lib.es2015.symbol.wellknown, lib.es2018.promise, lib.es2020.promise, lib.es2021.promise.d.ts, lib.esnext.promise.d.ts
@@ -645,7 +647,15 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 						// Prevent cancelation in case of early state changes
 						if (instance._internalState === states.PENDING) {
 							if (isThenable(value)) {
-								if (normalizedOptions.forceCancelable) {
+								// On the internal (then-derived) path the shared stand-in options always
+								// say forceCancelable:true, so read the live flag instead: then() copies the
+								// parent's packed flags onto the child right after construction, and this
+								// wrapper only runs on a later microtask, so the inherited bit is already set.
+								// The public path keeps consulting the normalized options (correct there).
+								const forceCancelable = isInternalCall
+									? (instance._flags & FLAG_FORCE_CANCELABLE) !== 0
+									: normalizedOptions.forceCancelable;
+								if (forceCancelable) {
 									value.then(
 										value_ => {
 											if (instance._internalState === states.PENDING) {

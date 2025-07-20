@@ -540,4 +540,125 @@ describe('state machine matrix', () => {
 			expect(isCancelError(err)).toBe(true);
 		});
 	});
+
+	describe('derived-child inherits forceCancelable through thenable adoption', () => {
+		// A then-derived child copies the parent's flags. When the parent is forceCancelable:false,
+		// the child must go FORCE_PENDING (non-cancelable) while adopting a thenable returned by the
+		// handler, and cancel() on it must be a no-op. Previously the internal-construction resolve
+		// wrapper consulted a shared stand-in that always said forceCancelable:true, so the inherited
+		// false was ignored: getter and behavior contradicted each other.
+
+		it('parent {forceCancelable:false} -> handler returns thenable: child stays non-cancelable', async () => {
+			let releaseInner: (v: string) => void = () => {};
+			const inner = new NativePromise<string>(res => { releaseInner = res; });
+
+			const parent = new CancelablePromise<number>(resolve => resolve(1), { forceCancelable: false });
+			const child = parent.then(() => inner);
+
+			// Flags copied by then(): getter reflects the inherited false.
+			expect(child.forceCancelable).toBe(false);
+
+			// Let the fulfillment reaction fire and adopt the still-pending inner thenable.
+			await macrotask();
+
+			// Getter and behavior AGREE: FORCE_PENDING => non-cancelable.
+			expect(child.isCancelable).toBe(false);
+			expect(child.isCanceled).toBe(false);
+
+			releaseInner('inner-done');
+			await expect(child).resolves.toBe('inner-done');
+		});
+
+		it('parent {forceCancelable:false} -> child adopting thenable: cancel() is a no-op', async () => {
+			let releaseInner: (v: string) => void = () => {};
+			const inner = new NativePromise<string>(res => { releaseInner = res; });
+
+			const parent = new CancelablePromise<number>(resolve => resolve(1), { forceCancelable: false });
+			const child = parent.then(() => inner);
+
+			await macrotask();
+
+			expect(() => child.cancel('nope')).not.toThrow();
+			expect(child.isCanceled).toBe(false);
+
+			releaseInner('survived');
+			await expect(child).resolves.toBe('survived');
+		});
+
+		it('flags are assigned before the adoption reaction fires (microtask ordering)', async () => {
+			// then() copies flags synchronously right after construction; the resolve wrapper runs on
+			// a later microtask. So at adoption time the inherited bit is already present.
+			let releaseInner: (v: string) => void = () => {};
+			const inner = new NativePromise<string>(res => { releaseInner = res; });
+
+			const parent = new CancelablePromise<number>(resolve => resolve(1), { forceCancelable: false });
+			const child = parent.then(() => inner);
+
+			// Synchronously after then() returns, before any reaction has run.
+			expect(child.forceCancelable).toBe(false);
+
+			releaseInner('v');
+			await expect(child).resolves.toBe('v');
+		});
+
+		it('parent {forceCancelable:false} -> handler returns a sync value: child settles normally', async () => {
+			const parent = new CancelablePromise<number>(resolve => resolve(1), { forceCancelable: false });
+			const child = parent.then(v => v + 41);
+
+			expect(child.forceCancelable).toBe(false);
+			await expect(child).resolves.toBe(42);
+			expect(child.isCanceled).toBe(false);
+			expect(child.isCancelable).toBe(false);
+		});
+
+		it('catch-derived child inherits forceCancelable:false through thenable adoption', async () => {
+			let releaseInner: (v: string) => void = () => {};
+			const inner = new NativePromise<string>(res => { releaseInner = res; });
+
+			const parent = new CancelablePromise<number>((_r, reject) => reject('boom'), { forceCancelable: false });
+			const child = parent.catch(() => inner);
+
+			expect(child.forceCancelable).toBe(false);
+			await macrotask();
+			expect(child.isCancelable).toBe(false);
+
+			releaseInner('recovered');
+			await expect(child).resolves.toBe('recovered');
+		});
+
+		it('finally-derived child inherits forceCancelable:false through thenable adoption', async () => {
+			let releaseInner: (v: void) => void = () => {};
+			const inner = new NativePromise<void>(res => { releaseInner = res; });
+
+			const parent = new CancelablePromise<number>(resolve => resolve(7), { forceCancelable: false });
+			const child = parent.finally(() => inner);
+
+			expect(child.forceCancelable).toBe(false);
+			await macrotask();
+			expect(child.isCancelable).toBe(false);
+
+			releaseInner();
+			await expect(child).resolves.toBe(7);
+		});
+
+		it('forceCancelable:true default (unchanged): child adopting thenable stays cancelable', async () => {
+			let releaseInner: (v: string) => void = () => {};
+			const inner = new NativePromise<string>(res => { releaseInner = res; });
+
+			const parent = new CancelablePromise<number>(resolve => resolve(1)); // default forceCancelable:true
+			const child = parent.then(() => inner);
+
+			expect(child.forceCancelable).toBe(true);
+			await macrotask();
+
+			// Default: still cancelable while adopting.
+			expect(child.isCancelable).toBe(true);
+			// eslint-disable-next-line @typescript-eslint/no-floating-promises
+			child.cancel('early');
+			expect(child.isCanceled).toBe(true);
+			await expect(child).rejects.toBeInstanceOf(CancelError);
+
+			releaseInner('late');
+		});
+	});
 });
