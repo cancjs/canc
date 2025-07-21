@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import { AsyncMethod, BindMethod } from './decorators';
 
 /**
@@ -528,5 +529,95 @@ describe('decorators (ES stage-3) — error handling', () => {
  }
  new C().method;
  }).toThrow(TypeError);
+ });
+});
+
+// ============================================================================
+// Metadata preservation (SetMetadata-style fn-level + key-level metadata)
+// ============================================================================
+//
+// A SetMetadata-style helper (nest's @SetMetadata et al) attaches metadata to the METHOD FUNCTION
+// itself via reflect-metadata, keyed on that function's identity. Our decorator replaces the method
+// with a coroutine/bound wrapper, so unless we copy the metadata across it is silently lost.
+// Key-level metadata (keyed on prototype + property key) is never touched by wrapping and must also
+// survive. Both decorator orders are exercised.
+
+const FN_META = 'fn-meta-key';
+const KEY_META = 'key-meta-key';
+
+// Stage-3 method decorator: writes metadata onto the method FUNCTION identity (SetMetadata style).
+function SetFnMeta(value: string) {
+ return function (target: Function, _context: ClassMethodDecoratorContext): void {
+ Reflect.defineMetadata(FN_META, value, target);
+ };
+}
+
+describe('decorators (stage-3) — metadata preservation', () => {
+ it('fn-level metadata survives AsyncMethod (meta below canc)', () => {
+ class C {
+ @AsyncMethod()
+ @SetFnMeta('guards')
+ *method(): Generator<any, any, any> {
+ return yield Promise.resolve(1);
+ }
+ }
+
+ const installed = C.prototype.method as Function;
+ expect(Reflect.getOwnMetadata(FN_META, installed)).toBe('guards');
+ });
+
+ it('fn-level metadata survives AsyncMethod (meta above canc)', () => {
+ class C {
+ @SetFnMeta('interceptors')
+ @AsyncMethod()
+ *method(): Generator<any, any, any> {
+ return yield Promise.resolve(1);
+ }
+ }
+
+ const installed = C.prototype.method as Function;
+ expect(Reflect.getOwnMetadata(FN_META, installed)).toBe('interceptors');
+ });
+
+ it('fn-level metadata survives BindMethod bind:false', () => {
+ class C {
+ @BindMethod({ bind: false })
+ @SetFnMeta('roles')
+ method() {
+ return 1;
+ }
+ }
+
+ const installed = C.prototype.method as Function;
+ expect(Reflect.getOwnMetadata(FN_META, installed)).toBe('roles');
+ });
+
+ it('key-level metadata (prototype + propertyKey) is untouched by wrapping', () => {
+ class C {
+ @AsyncMethod()
+ *method(): Generator<any, any, any> {
+ return yield Promise.resolve(1);
+ }
+ }
+
+ Reflect.defineMetadata(KEY_META, 'controller', C.prototype, 'method');
+ expect(Reflect.getMetadata(KEY_META, C.prototype, 'method')).toBe('controller');
+ expect(typeof C.prototype.method).toBe('function');
+ });
+
+ it('own name and arity are copied from the original onto the wrapper', () => {
+ // A named function expression carries a stable name/length through es5 emit (unlike class
+ // methods, whose names are erased under the decorator transform). AsyncMethod produces a fresh
+ // coroutine wrapper, so name/length must be copied across.
+ class C {
+ @AsyncMethod({ bind: false })
+ method = function* original(this: any, _a: unknown, _b: unknown): Generator<any, any, any> {
+ return yield Promise.resolve(1);
+ };
+ }
+
+ const installed = new C().method as Function;
+ expect(installed.name).toBe('original');
+ expect(installed.length).toBe(2);
  });
 });

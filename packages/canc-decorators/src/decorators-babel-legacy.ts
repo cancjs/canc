@@ -1,4 +1,4 @@
-import { isFunction } from '../../_util';
+import { isFunction, copyFunctionMetadata } from '../../_util';
 // cancAsync moved from @cancjs/promise to @cancjs/coroutine.
 import { async as cancAsync } from '@cancjs/coroutine';
 
@@ -52,7 +52,7 @@ function makeBabelDecorator(
  throw new TypeError(`'${String(propertyKey)}' getter result is not a function`);
  }
 
- const value = wrap(raw, isBind ? this : undefined);
+ const value = copyFunctionMetadata(raw, wrap(raw, isBind ? this : undefined));
  setProperty(this, propertyKey, value);
 
  return value;
@@ -72,7 +72,7 @@ function makeBabelDecorator(
  throw new TypeError(`'${String(propertyKey)}' is not a method and cannot be decorated`);
  }
 
- return wrap(initialValue, isBind ? this : undefined);
+ return copyFunctionMetadata(initialValue, wrap(initialValue, isBind ? this : undefined));
  };
 
  return descriptor;
@@ -92,7 +92,7 @@ function makeBabelDecorator(
  delete descriptor.writable;
 
  descriptor.get = function (this: any) {
- const value = wrap(originalMethod, this);
+ const value = copyFunctionMetadata(originalMethod, wrap(originalMethod, this));
  setProperty(this, propertyKey, value);
  return value;
  };
@@ -100,8 +100,9 @@ function makeBabelDecorator(
  setProperty(this, propertyKey, value);
  };
  } else {
- // bind:false → proto wrap once.
- descriptor.value = wrap(originalMethod, undefined);
+ // bind:false → proto wrap once. Preserve metadata another decorator attached to the original
+ // method function (SetMetadata-style), otherwise it is lost on the wrapper.
+ descriptor.value = copyFunctionMetadata(originalMethod, wrap(originalMethod, undefined));
  }
 
  return descriptor;

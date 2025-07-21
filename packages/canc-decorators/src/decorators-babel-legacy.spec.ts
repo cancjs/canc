@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import { BabelLegacyAsyncMethod, BabelLegacyBindMethod } from './decorators-babel-legacy';
 
 /**
@@ -623,5 +624,80 @@ describe('decorators (babel-legacy) — error handling', () => {
 
  (new C() as any).method;
  }).toThrow(TypeError);
+ });
+});
+
+// ============================================================================
+// Metadata preservation (SetMetadata-style fn-level + key-level metadata)
+// ============================================================================
+//
+// Babel-legacy SetMetadata style: metadata attached to the method function (descriptor.value)
+// before our decorator rewrites descriptor.value with the coroutine/bound wrapper. The metadata
+// must be copied onto the wrapper. Key-level metadata (prototype + property key) is untouched.
+
+const FN_META = 'fn-meta-key';
+const KEY_META = 'key-meta-key';
+
+function methodDescriptor(fn: Function): any {
+ return { value: fn, writable: true, enumerable: false, configurable: true };
+}
+
+describe('decorators (babel legacy) — metadata preservation', () => {
+ it('fn-level metadata survives BabelLegacyAsyncMethod bind:false', () => {
+ function original(): Generator<any, any, any> {
+ return (function* () {
+ return yield Promise.resolve(1);
+ })();
+ }
+ // SetMetadata style: metadata sits on the original method fn before our decorator wraps it.
+ Reflect.defineMetadata(FN_META, 'guards', original);
+
+ const descriptor = methodDescriptor(original);
+ BabelLegacyAsyncMethod(class {}.prototype, 'method', descriptor);
+
+ expect(descriptor.value).not.toBe(original);
+ expect(Reflect.getOwnMetadata(FN_META, descriptor.value)).toBe('guards');
+ });
+
+ it('fn-level metadata survives BabelLegacyBindMethod bind:false', () => {
+ function original() {
+ return 1;
+ }
+ Reflect.defineMetadata(FN_META, 'roles', original);
+
+ const descriptor = methodDescriptor(original);
+ (BabelLegacyBindMethod({ bind: false }) as any)(class {}.prototype, 'method', descriptor);
+
+ // bind:false BindMethod keeps the original function identity, so its metadata is inherently
+ // preserved; the assertion still guards against accidental loss.
+ expect(Reflect.getOwnMetadata(FN_META, descriptor.value)).toBe('roles');
+ });
+
+ it('key-level metadata (prototype + propertyKey) is untouched by wrapping', () => {
+ class C {}
+ function original(): Generator<any, any, any> {
+ return (function* () {
+ return yield Promise.resolve(1);
+ })();
+ }
+ const descriptor = methodDescriptor(original);
+ BabelLegacyAsyncMethod(C.prototype, 'method', descriptor);
+ Object.defineProperty(C.prototype, 'method', descriptor);
+
+ Reflect.defineMetadata(KEY_META, 'controller', C.prototype, 'method');
+ expect(Reflect.getMetadata(KEY_META, C.prototype, 'method')).toBe('controller');
+ expect(typeof descriptor.value).toBe('function');
+ });
+
+ it('own name and arity are copied from the original onto the wrapper', () => {
+ function* original(this: any, _a: unknown, _b: unknown): Generator<any, any, any> {
+ return yield Promise.resolve(1);
+ }
+ const descriptor = methodDescriptor(original);
+ BabelLegacyAsyncMethod(class {}.prototype, 'method', descriptor);
+
+ expect(descriptor.value).not.toBe(original);
+ expect(descriptor.value.name).toBe('original');
+ expect(descriptor.value.length).toBe(2);
  });
 });

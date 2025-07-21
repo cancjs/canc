@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import { LegacyAsyncMethod, LegacyBindMethod } from './decorators-legacy';
 
 /**
@@ -520,5 +521,95 @@ describe('decorators (TS legacy) — error handling', () => {
  }
  new C().method;
  }).toThrow(TypeError);
+ });
+});
+
+// ============================================================================
+// Metadata preservation (SetMetadata-style fn-level + key-level metadata)
+// ============================================================================
+//
+// TS-legacy SetMetadata style: attach metadata to the method function (descriptor.value) identity.
+// Our decorator rewrites descriptor.value with the coroutine/bound wrapper; the metadata must be
+// copied across. Key-level metadata (prototype + property key) is never touched by wrapping.
+
+const FN_META = 'fn-meta-key';
+const KEY_META = 'key-meta-key';
+
+// Legacy method decorator writing metadata onto the method FUNCTION (SetMetadata style).
+// Typed `any` at the decorator boundary: a legacy decorator that must apply on methods here stacks
+// with the library decorators, and TS's method-vs-property overload resolution across the stack is
+// too strict to accept a precisely-typed local helper. The runtime shape is a normal legacy method
+// decorator reading `descriptor.value`.
+const SetFnMeta = (value: string): any =>
+ (_target: any, _key: string | symbol, descriptor: PropertyDescriptor): void => {
+ Reflect.defineMetadata(FN_META, value, descriptor.value);
+ };
+
+describe('decorators (TS legacy) — metadata preservation', () => {
+ it('fn-level metadata survives LegacyAsyncMethod (meta below canc)', () => {
+ class C {
+ @LegacyAsyncMethod()
+ @SetFnMeta('guards')
+ *method(): Generator<any, any, any> {
+ return yield Promise.resolve(1);
+ }
+ }
+
+ const installed = C.prototype.method as Function;
+ expect(Reflect.getOwnMetadata(FN_META, installed)).toBe('guards');
+ });
+
+ it('fn-level metadata survives LegacyAsyncMethod (meta above canc)', () => {
+ class C {
+ @SetFnMeta('interceptors')
+ @LegacyAsyncMethod()
+ *method(): Generator<any, any, any> {
+ return yield Promise.resolve(1);
+ }
+ }
+
+ const installed = C.prototype.method as Function;
+ expect(Reflect.getOwnMetadata(FN_META, installed)).toBe('interceptors');
+ });
+
+ it('fn-level metadata survives LegacyBindMethod bind:false', () => {
+ class C {
+ @LegacyBindMethod({ bind: false })
+ @SetFnMeta('roles')
+ method() {
+ return 1;
+ }
+ }
+
+ const installed = C.prototype.method as Function;
+ expect(Reflect.getOwnMetadata(FN_META, installed)).toBe('roles');
+ });
+
+ it('key-level metadata (prototype + propertyKey) is untouched by wrapping', () => {
+ class C {
+ @LegacyAsyncMethod()
+ *method(): Generator<any, any, any> {
+ return yield Promise.resolve(1);
+ }
+ }
+
+ Reflect.defineMetadata(KEY_META, 'controller', C.prototype, 'method');
+ expect(Reflect.getMetadata(KEY_META, C.prototype, 'method')).toBe('controller');
+ expect(typeof C.prototype.method).toBe('function');
+ });
+
+ it('own name and arity are copied from the original onto the wrapper', () => {
+ // A named function expression keeps its name/length through es5 emit; AsyncMethod builds a
+ // fresh coroutine wrapper, so name/length must be copied across.
+ class C {
+ @LegacyAsyncMethod({ bind: false })
+ method = function* original(this: any, _a: unknown, _b: unknown): Generator<any, any, any> {
+ return yield Promise.resolve(1);
+ };
+ }
+
+ const installed = new C().method as Function;
+ expect(installed.name).toBe('original');
+ expect(installed.length).toBe(2);
  });
 });
