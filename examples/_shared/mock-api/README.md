@@ -1,4 +1,4 @@
-# @canc-examples/mock-api
+# @shared/mock-api
 
 Signal-aware fake API shared by the canc examples.
 
@@ -22,7 +22,7 @@ the cancellation code around it.
 ## Usage
 
 ```ts
-import { createMockApi } from '@canc-examples/mock-api';
+import { createMockApi } from '@shared/mock-api';
 
 const mock = createMockApi({ latency: 50 });
 

@@ -1,5 +1,5 @@
 {
- "name": "@canc-examples/demo-promise-basics",
+ "name": "demo-promise-basics",
  "version": "0.0.0",
  "private": true,
  "description": "placeholder, see example task",
@@ -10,7 +10,7 @@
  "typecheck": "tsc --noEmit --project tsconfig.json"
  },
  "dependencies": {
- "@canc-examples/mock-api": "*",
+ "@shared/mock-api": "*",
  "@cancjs/promise": "link:../../packages/canc-promise"
  },
  "devDependencies": {

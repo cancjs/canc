@@ -20,8 +20,8 @@ yarn
 ## Run
 
 ```
-yarn workspace @canc-examples/demo-promise-basics start:vanilla
-yarn workspace @canc-examples/demo-promise-basics start:canc
+yarn workspace demo-promise-basics start:vanilla
+yarn workspace demo-promise-basics start:canc
 ```
 
 Both entries do the same tiny task (load a profile, then lose interest). The vanilla entry
