@@ -36,6 +36,9 @@
  "publishConfig": {
  "access": "public"
  },
+ "devDependencies": {
+ "reflect-metadata": "~0.2.2"
+ },
  "scripts": {
  "build": "rimraf dist && rollup --config ./rollup.config.js",
  "check": "tsc --noEmit --project ./tsconfig.prod.json",

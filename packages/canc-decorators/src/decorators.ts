@@ -1,4 +1,4 @@
-import { isFunction } from '../../_util';
+import { isFunction, copyFunctionMetadata } from '../../_util';
 // cancAsync moved from @cancjs/promise to @cancjs/coroutine.
 import { async as cancAsync } from '@cancjs/coroutine';
 
@@ -65,7 +65,7 @@ function makeDecorator(
  throw new TypeError(`'${String(propertyKey)}' getter result is not a function`);
  }
 
- const result = wrap(raw, isBind ? this : undefined);
+ const result = copyFunctionMetadata(raw, wrap(raw, isBind ? this : undefined));
  setProperty(this, propertyKey, result);
 
  return result;
@@ -81,7 +81,7 @@ function makeDecorator(
  throw new TypeError(`'${String(propertyKey)}' is not a method and cannot be decorated`);
  }
 
- return wrap(initialValue, isBind ? this : undefined);
+ return copyFunctionMetadata(initialValue, wrap(initialValue, isBind ? this : undefined));
  };
  }
 
@@ -96,14 +96,14 @@ function makeDecorator(
  const originalMethod = value as Function;
 
  (context as ClassMethodDecoratorContext).addInitializer(function (this: any) {
- setProperty(this, propertyKey, wrap(originalMethod, this));
+ setProperty(this, propertyKey, copyFunctionMetadata(originalMethod, wrap(originalMethod, this)));
  });
 
  return value;
  }
 
  // bind:false → proto-level wrap: return the wrapped fn; `this` flows through at call time.
- return wrap(value as Function, undefined);
+ return copyFunctionMetadata(value as Function, wrap(value as Function, undefined));
  }
 
  throw new TypeError(`'${String(propertyKey)}' is not a method and cannot be decorated`);
