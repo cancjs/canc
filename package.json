@@ -23,7 +23,9 @@
  "version": "cross-env NODE_OPTIONS=--no-deprecation lerna version --no-push",
  "bench": "yarn workspace @cancjs/benchmarks bench",
  "bench:report": "yarn workspace @cancjs/benchmarks bench:report",
- "bench:browser": "yarn workspace @cancjs/benchmarks bench:browser"
+ "bench:browser": "yarn workspace @cancjs/benchmarks bench:browser",
+ "examples:test": "yarn --cwd examples examples:test",
+ "examples:typecheck": "yarn --cwd examples examples:typecheck"
  },
  "devDependencies": {
  "@eslint/js": "~9.39.0",

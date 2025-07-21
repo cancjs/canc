@@ -1,0 +1,18 @@
+{
+ "name": "@canc-examples/demo-promise-basics",
+ "version": "0.0.0",
+ "private": true,
+ "description": "placeholder, see example task",
+ "scripts": {
+ "start:vanilla": "tsx src/main-vanilla.ts",
+ "start:canc": "tsx src/main-canc.ts",
+ "test": "jest --colors",
+ "typecheck": "tsc --noEmit --project tsconfig.json"
+ },
+ "dependencies": {
+ "@cancjs/promise": "link:../../packages/canc-promise"
+ },
+ "devDependencies": {
+ "tsx": "4.23.0"
+ }
+}

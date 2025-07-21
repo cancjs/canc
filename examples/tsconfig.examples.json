@@ -1,0 +1,29 @@
+{
+ "compilerOptions": {
+ "target": "es2020",
+ "module": "nodenext",
+ "moduleResolution": "nodenext",
+ "lib": ["es2022", "dom"],
+ "types": ["node", "jest"],
+
+ "strict": true,
+ "esModuleInterop": true,
+ "forceConsistentCasingInFileNames": true,
+ "resolveJsonModule": true,
+ "skipLibCheck": true,
+ "noEmit": true,
+
+ "declaration": false,
+ "sourceMap": false
+ },
+ "include": [
+ "_shared/**/*.ts",
+ "demo-promise-basics/**/*.ts"
+ ],
+ "exclude": [
+ "**/node_modules/**",
+ "**/dist/**",
+ "**/~~*",
+ "**/*~~*"
+ ]
+}
