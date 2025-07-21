@@ -2,7 +2,7 @@
 // Proves the shared mock-api resolves through the examples workspace and that a canceled
 // CancelablePromise carries its cancellation into the fake network (aborted marker).
 import CancelablePromise, { isCancelError } from '@cancjs/promise';
-import { createMockApi } from '@canc-examples/mock-api';
+import { createMockApi } from '@shared/mock-api';
 
 describe('demo-promise-basics + mock-api smoke', () => {
  it('cancel() aborts the in-flight mock request', async () => {

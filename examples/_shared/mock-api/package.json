@@ -1,5 +1,5 @@
 {
- "name": "@canc-examples/mock-api",
+ "name": "@shared/mock-api",
  "version": "0.0.0",
  "private": true,
  "description": "Signal-aware fake API for canc examples. Aux code, not a copy target.",
