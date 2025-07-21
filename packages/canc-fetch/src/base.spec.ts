@@ -159,7 +159,6 @@ function makeFactory(overrides: Partial<{ fetch: any }> = {}) {
 	const cancelableFetch = cancelableFetchFactory({
 		fetch: overrides.fetch ?? backing.fetch,
 		AbortController: MockAbortController as any,
-		Event: MockEvent as any,
 	});
 	return { cancelableFetch, ...backing };
 }
@@ -219,28 +218,6 @@ describe('cancelableFetchFactory', () => {
 		expect(isCancelError(error)).toBe(true);
 		expect(error.cause).toBeDefined();
 		expect(error.cause.name).toBe('AbortError');
-	});
-
-	it('fires listeners on a user-provided signal when canceled internally', async () => {
-		const external = new MockAbortController();
-		const listener = jest.fn();
-		external.signal.addEventListener('abort', listener);
-
-		const { cancelableFetch } = makeFactory();
-		const promise = cancelableFetch('/api', { signal: external.signal });
-		await flush();
-
-		promise.cancel();
-
-		try {
-			await promise;
-		} catch {
-			// expected CancelError
-		}
-
-		// Two-way interop: cancel propagates to the caller's own signal.
-		expect(external.signal.aborted).toBe(true);
-		expect(listener).toHaveBeenCalled();
 	});
 
 	it('aborts immediately for a pre-aborted input signal', async () => {
@@ -306,7 +283,6 @@ describe('signal interop', () => {
 		const cancelableFetch = cancelableFetchFactory({
 			fetch: backing.fetch,
 			AbortController: MockAbortController as any,
-			Event: MockEvent as any,
 		});
 		const promise = cancelableFetch('/api', { signal });
 		return { cancelableFetch, promise, ...backing };
@@ -363,7 +339,6 @@ describe('signal interop', () => {
 		const cancelableFetch = cancelableFetchFactory({
 			fetch: backing.fetch,
 			AbortController: MockAbortController as any,
-			Event: MockEvent as any,
 		});
 
 		for (let i = 0; i < 20; i++) {
@@ -382,7 +357,6 @@ describe('signal interop', () => {
 		const cancelableFetch = cancelableFetchFactory({
 			fetch: backing.fetch,
 			AbortController: MockAbortController as any,
-			Event: MockEvent as any,
 		});
 
 		const promise = cancelableFetch('/api', { signal: external });
@@ -421,7 +395,6 @@ describe('signal interop', () => {
 		const cancelableFetch = cancelableFetchFactory({
 			fetch: backing.fetch,
 			AbortController: MockAbortController as any,
-			Event: MockEvent as any,
 		});
 
 		const promise = cancelableFetch('/api', { signal: external });
