@@ -49,6 +49,20 @@ jobs:
  - run: yarn install --frozen-lockfile
  - run: yarn build
 
+ decorators-babel-stage3:
+ # Proves the stage-3 decorator flavor (@cancjs/decorators default export) compiles and runs
+ # correctly under babel's decorator transform, not just native TS 5+ emit. Runs standalone
+ # (not folded into the root `test` job) so a babel-lane regression is unambiguous in CI output.
+ runs-on: ubuntu-latest
+ steps:
+ - uses: actions/checkout@v4
+ - uses: actions/setup-node@v4
+ with:
+ node-version: '20.x'
+ cache: 'yarn'
+ - run: yarn install --frozen-lockfile
+ - run: yarn workspace @cancjs/decorators test
+
  ts-version-matrix:
  # P4-2/P4-3: type-check fixture projects that import the BUILT @cancjs/*
  # packages against a matrix of pinned TypeScript versions (floor 4.2 .. latest).
