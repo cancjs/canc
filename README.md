@@ -345,7 +345,7 @@ future `-legacy` package entries rather than claimed here; see the package list 
 
 ## Examples
 
-Runnable and reference examples live in [examples](https://github.com/cancjs/canc/tree/master/examples): a Node.js request waterfall, coroutine and combinator demos, decorator flavors, and a React unmount-cancel pattern.
+Runnable examples live in [examples](https://github.com/cancjs/canc/tree/master/examples), a separate yarn workspace with its own README.
 
 <!--
 ### Component with uncancelable promises:
