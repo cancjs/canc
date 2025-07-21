@@ -78,3 +78,23 @@ function copyOwnProperty(source: Function, target: Function, key: 'name' | 'leng
 		}
 	}
 }
+
+// Stage-3 decorators pass `(value, context)` where context is an object carrying `kind`; legacy
+// (TS `experimentalDecorators` and babel legacy) decorators pass `(target, propertyKey, descriptor?)`
+// where the second argument is the property key itself (string or symbol). The two call shapes are
+// distinguishable on the second argument alone, which lets each decorator flavor detect being
+// invoked with the wrong transform's output and fail with a message pointing at the right import
+// instead of a confusing shape-mismatch crash deeper in the implementation.
+export const isLegacyShapedSecondArg = (value: any): value is string | symbol =>
+	typeof value === 'string' || typeof value === 'symbol';
+
+export const isStage3Context = (value: any): value is { kind: string } =>
+	isObject(value) && typeof (value as any).kind === 'string';
+
+// Babel-legacy descriptors always carry an `initializer` key for fields (a function, or explicitly
+// null when uninitialized) and a real descriptor object for methods/getters/setters. TS-legacy never
+// passes a descriptor for fields at all (2-arg call) and never sets `initializer`. Presence of the
+// `initializer` key (own or inherited via the object literal babel emits) is therefore a reliable
+// tell that a babel-legacy-shaped descriptor was handed to a TS-legacy decorator.
+export const isBabelLegacyDescriptor = (descriptor: any): boolean =>
+	isObject(descriptor) && 'initializer' in descriptor;

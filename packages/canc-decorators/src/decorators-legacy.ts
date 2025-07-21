@@ -1,4 +1,4 @@
-import { isFunction, copyFunctionMetadata } from '../../_util';
+import { isFunction, copyFunctionMetadata, isStage3Context, isBabelLegacyDescriptor } from '../../_util';
 // cancAsync moved from @cancjs/promise to @cancjs/coroutine.
 import { async as cancAsync } from '@cancjs/coroutine';
 
@@ -54,11 +54,42 @@ function definePerInstanceAccessor(
  });
 }
 
+// Stage-3 decorators invoke as (value, context) — the second argument is always a context
+// object carrying `kind`. A TS-legacy decorator receiving that shape means it was applied under
+// `experimentalDecorators: false` (stage-3 compiler output); fail with a message pointing at the
+// stage-3 entry point instead of crashing on `propertyKey` being an object.
+function assertLegacyCallShape(propertyKey: any): void {
+ if (isStage3Context(propertyKey)) {
+ throw new Error(
+ `This decorator is for TS legacy decorators ('experimentalDecorators: true') only. It was `
+ + `called with stage-3 (ES / TC39) decorator arguments (value, context). Import from `
+ + `'@cancjs/decorators' for stage-3 decorators.`,
+ );
+ }
+}
+
+// Babel-legacy descriptors always carry an `initializer` key (methods/getters get a real
+// descriptor without it; fields get one set to a function or explicit null). TS-legacy never
+// produces that shape — its field calls omit the descriptor entirely. Seeing it here means this
+// decorator was applied under babel's legacy decorator transform instead of TS's.
+function assertNotBabelLegacyDescriptor(descriptor: any): void {
+ if (isBabelLegacyDescriptor(descriptor)) {
+ throw new Error(
+ `This decorator is for TS legacy decorators ('experimentalDecorators: true') only. It was `
+ + `called with a babel-legacy-shaped descriptor. Import from `
+ + `'@cancjs/decorators/babel-legacy' for babel legacy decorators.`,
+ );
+ }
+}
+
 function makeLegacyDecorator(
  isBind: boolean,
  wrap: (fn: Function, ctx: any) => Function,
 ) {
  return (target: any, propertyKey: string | symbol, descriptor?: PropertyDescriptor) => {
+ assertLegacyCallShape(propertyKey);
+ assertNotBabelLegacyDescriptor(descriptor);
+
  const isProtoMethod = !!descriptor && !descriptor.get;
  const isGetter = !!descriptor && !!descriptor.get;
 

@@ -1,4 +1,4 @@
-import { isFunction, copyFunctionMetadata } from '../../_util';
+import { isFunction, copyFunctionMetadata, isStage3Context } from '../../_util';
 // cancAsync moved from @cancjs/promise to @cancjs/coroutine.
 import { async as cancAsync } from '@cancjs/coroutine';
 
@@ -33,11 +33,27 @@ function setProperty(target: any, key: string | symbol, value: any) {
  });
 }
 
+// Stage-3 decorators invoke as (value, context) — the second argument is always a context
+// object carrying `kind`. A babel-legacy decorator receiving that shape means it was applied
+// under stage-3 (native TS 5+ / babel's non-legacy plugin version) output; fail with a message
+// pointing at the stage-3 entry point instead of crashing on `propertyKey` being an object.
+function assertBabelLegacyCallShape(propertyKey: any): void {
+ if (isStage3Context(propertyKey)) {
+ throw new Error(
+ `This decorator is for babel legacy decorators only. It was called with stage-3 (ES / `
+ + `TC39) decorator arguments (value, context). Import from '@cancjs/decorators' for `
+ + `stage-3 decorators.`,
+ );
+ }
+}
+
 function makeBabelDecorator(
  isBind: boolean,
  wrap: (fn: Function, ctx: any) => Function,
 ) {
  return (target: any, propertyKey: string | symbol, descriptor: IBabelPropertyDescriptor) => {
+ assertBabelLegacyCallShape(propertyKey);
+
  const isField = isFunction(descriptor?.initializer) || descriptor?.initializer === null;
  const isGetter = !!descriptor?.get;
 

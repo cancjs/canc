@@ -1,4 +1,4 @@
-import { isFunction, copyFunctionMetadata } from '../../_util';
+import { isFunction, copyFunctionMetadata, isLegacyShapedSecondArg } from '../../_util';
 // cancAsync moved from @cancjs/promise to @cancjs/coroutine.
 import { async as cancAsync } from '@cancjs/coroutine';
 
@@ -39,6 +39,34 @@ function assertDecoratable(propertyKey: string | symbol, context: TMethodDecorat
  }
 }
 
+const SUPPORTED_KINDS = ['method', 'field', 'getter'];
+
+// Legacy (TS experimentalDecorators / babel legacy) decorators invoke as
+// (target, propertyKey, descriptor?) — the second argument is the property key, a string or
+// symbol. Stage-3 decorators invoke as (value, context) — the second argument is always a
+// context object. A string/symbol second argument here means this decorator was applied under
+// the wrong compiler flavor; fail with a message pointing at the matching entry point instead of
+// crashing later on a missing `context.kind`.
+function assertStage3CallShape(secondArg: any): void {
+ if (isLegacyShapedSecondArg(secondArg)) {
+ throw new Error(
+ `This decorator is stage-3 (ES / TC39) only. It was called with legacy decorator arguments `
+ + `(target, propertyKey, descriptor). Import from '@cancjs/decorators/legacy' for TS `
+ + `experimentalDecorators, or '@cancjs/decorators/babel-legacy' for babel legacy decorators.`,
+ );
+ }
+}
+
+function assertSupportedKind(propertyKey: string | symbol, context: TMethodDecoratorContext): void {
+ const kind = (context as { kind: string }).kind;
+ if (!SUPPORTED_KINDS.includes(kind)) {
+ throw new TypeError(
+ `'${String(propertyKey)}' has unsupported decorator kind '${kind}'. `
+ + `Supported kinds: ${SUPPORTED_KINDS.join(', ')}.`,
+ );
+ }
+}
+
 /**
  * Shared implementation. `wrap` decides whether the produced function is coroutine-wrapped
  * (`AsyncMethod`) or a plain pass-through (`BindMethod`).
@@ -48,8 +76,10 @@ function makeDecorator(
  wrap: (fn: Function, ctx: any) => Function,
 ) {
  return (value: any, context: TMethodDecoratorContext): any => {
+ assertStage3CallShape(context);
  const propertyKey = context.name;
  assertDecoratable(propertyKey, context);
+ assertSupportedKind(propertyKey, context);
 
  // --- getter ---
  if (context.kind === 'getter') {
@@ -106,6 +136,7 @@ function makeDecorator(
  return copyFunctionMetadata(value as Function, wrap(value as Function, undefined));
  }
 
+ // Unreachable: assertSupportedKind above throws for any kind outside SUPPORTED_KINDS.
  throw new TypeError(`'${String(propertyKey)}' is not a method and cannot be decorated`);
  };
 }

@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { BabelLegacyAsyncMethod, BabelLegacyBindMethod } from './decorators-babel-legacy';
+import { AsyncMethod } from './decorators';
 
 /**
  * Babel legacy decorators matrix.
@@ -699,5 +700,44 @@ describe('decorators (babel legacy) — metadata preservation', () => {
  expect(descriptor.value).not.toBe(original);
  expect(descriptor.value.name).toBe('original');
  expect(descriptor.value.length).toBe(2);
+ });
+});
+
+// ============================================================================
+// Flavor mismatch guard (wrong-shaped invocation)
+// ============================================================================
+
+describe('decorators (babel legacy) — flavor mismatch guard', () => {
+ it('BabelLegacyAsyncMethod rejects stage-3 call shape (value, context)', () => {
+ function* method(): Generator<any, any, any> {
+ return yield Promise.resolve(1);
+ }
+
+ expect(() => {
+ (BabelLegacyAsyncMethod() as any)(method, { kind: 'method', name: 'method' });
+ }).toThrow(/stage-3/i);
+
+ expect(() => {
+ (BabelLegacyAsyncMethod() as any)(method, { kind: 'method', name: 'method' });
+ }).toThrow(/@cancjs\/decorators/);
+ });
+
+ it('BabelLegacyBindMethod rejects stage-3 call shape (value, context)', () => {
+ function method() {}
+
+ expect(() => {
+ (BabelLegacyBindMethod() as any)(method, { kind: 'method', name: 'method' });
+ }).toThrow(/@cancjs\/decorators/);
+ });
+
+ it('cross-call via actual stage-3 entry point throws the guard error, not a shape crash', () => {
+ function* method(): Generator<any, any, any> {
+ return yield Promise.resolve(1);
+ }
+
+ expect(() => {
+ // AsyncMethod applied with legacy args (target, propertyKey, descriptor) instead of (value, context).
+ (AsyncMethod as any)({}, 'method', { value: method, configurable: true, writable: true });
+ }).toThrow(/@cancjs\/decorators\/legacy/);
  });
 });

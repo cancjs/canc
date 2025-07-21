@@ -1,5 +1,7 @@
 import 'reflect-metadata';
 import { LegacyAsyncMethod, LegacyBindMethod } from './decorators-legacy';
+import { AsyncMethod } from './decorators';
+import { BabelLegacyAsyncMethod } from './decorators-babel-legacy';
 
 /**
  * TS legacy decorators matrix (`experimentalDecorators: true`).
@@ -611,5 +613,74 @@ describe('decorators (TS legacy) — metadata preservation', () => {
  const installed = new C().method as Function;
  expect(installed.name).toBe('original');
  expect(installed.length).toBe(2);
+ });
+});
+
+// ============================================================================
+// Flavor mismatch guard (wrong-shaped invocation)
+// ============================================================================
+
+describe('decorators (TS legacy) — flavor mismatch guard', () => {
+ it('LegacyAsyncMethod rejects stage-3 call shape (value, context)', () => {
+ function* method(): Generator<any, any, any> {
+ return yield Promise.resolve(1);
+ }
+
+ expect(() => {
+ (LegacyAsyncMethod() as any)(method, { kind: 'method', name: 'method' });
+ }).toThrow(/stage-3/i);
+
+ expect(() => {
+ (LegacyAsyncMethod() as any)(method, { kind: 'method', name: 'method' });
+ }).toThrow(/@cancjs\/decorators/);
+ });
+
+ it('LegacyBindMethod rejects stage-3 call shape (value, context)', () => {
+ function method() {}
+
+ expect(() => {
+ (LegacyBindMethod() as any)(method, { kind: 'method', name: 'method' });
+ }).toThrow(/@cancjs\/decorators/);
+ });
+
+ it('LegacyAsyncMethod rejects babel-legacy-shaped descriptor (has `initializer`)', () => {
+ class C {}
+
+ expect(() => {
+ (LegacyAsyncMethod() as any)(C.prototype, 'field', {
+ initializer: () => function* () {},
+ configurable: true,
+ });
+ }).toThrow(/babel-legacy/i);
+ });
+
+ it('cross-call via actual stage-3 entry point throws the guard error, not a shape crash', () => {
+ function* method(): Generator<any, any, any> {
+ return yield Promise.resolve(1);
+ }
+
+ expect(() => {
+ // AsyncMethod applied with legacy args (target, propertyKey, descriptor) instead of (value, context).
+ (AsyncMethod as any)({}, 'method', { value: method, configurable: true, writable: true });
+ }).toThrow(/@cancjs\/decorators\/legacy/);
+ });
+
+ it('LegacyAsyncMethod accepts a babel-legacy import used correctly elsewhere without cross-contamination', () => {
+ // Sanity: babel-legacy entry point itself still works when called with its own shape, proving
+ // the guard above is about shape detection, not blanket rejection of `initializer`-bearing objects.
+ const descriptor = {
+ initializer: function (this: any) {
+ return function* (this: any): Generator<any, any, any> {
+ return yield Promise.resolve(7);
+ };
+ },
+ writable: true,
+ enumerable: true,
+ configurable: true,
+ };
+
+ expect(() => {
+ BabelLegacyAsyncMethod({}, 'field', descriptor as any);
+ }).not.toThrow();
  });
 });
