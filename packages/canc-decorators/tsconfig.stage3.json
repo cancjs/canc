@@ -7,5 +7,5 @@
  "useDefineForClassFields": false,
  "lib": ["es2022", "decorators"]
  },
- "include": ["src/decorators.ts", "src/decorators.spec.ts"]
+ "include": ["src/decorators.ts", "src/decorators.spec.ts", "src/decorators.matrix.ts"]
 }
