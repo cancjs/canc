@@ -1,0 +1,25 @@
+{
+ "name": "canc-examples",
+ "version": "0.0.0",
+ "private": true,
+ "description": "Runnable canc examples. Separate yarn root, not part of the published monorepo.",
+ "workspaces": [
+ "_shared/*",
+ "demo-promise-basics"
+ ],
+ "engines": {
+ "yarn": ">=1"
+ },
+ "scripts": {
+ "examples:test": "jest --colors",
+ "examples:typecheck": "tsc --noEmit --project tsconfig.examples.json"
+ },
+ "devDependencies": {
+ "@types/jest": "30.0.0",
+ "@types/node": "20.12.12",
+ "jest": "30.4.2",
+ "ts-jest": "29.4.11",
+ "tsx": "4.23.0",
+ "typescript": "5.9.3"
+ }
+}
