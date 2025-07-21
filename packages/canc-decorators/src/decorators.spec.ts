@@ -1,5 +1,7 @@
 import 'reflect-metadata';
 import { AsyncMethod, BindMethod } from './decorators';
+import { LegacyAsyncMethod } from './decorators-legacy';
+import { BabelLegacyAsyncMethod } from './decorators-babel-legacy';
 
 /**
  * ES / TC39 stage-3 decorators matrix.
@@ -619,5 +621,143 @@ describe('decorators (stage-3) — metadata preservation', () => {
  const installed = new C().method as Function;
  expect(installed.name).toBe('original');
  expect(installed.length).toBe(2);
+ });
+});
+
+// ============================================================================
+// Flavor mismatch guard (wrong-shaped invocation)
+// ============================================================================
+//
+// Each decorator flavor is invoked directly (bypassing decorator syntax) with the runtime call
+// shape another flavor's compiler output would produce. AsyncMethod/BindMethod share the guard
+// (makeDecorator), so one representative per shape is enough to cover both.
+
+describe('decorators (ES stage-3) — flavor mismatch guard', () => {
+ it('AsyncMethod rejects TS-legacy call shape (target, propertyKey, descriptor)', () => {
+ class C {
+ method() {}
+ }
+
+ expect(() => {
+ (AsyncMethod() as any)(C.prototype, 'method', Object.getOwnPropertyDescriptor(C.prototype, 'method'));
+ }).toThrow(/legacy/i);
+
+ expect(() => {
+ (AsyncMethod() as any)(C.prototype, 'method', Object.getOwnPropertyDescriptor(C.prototype, 'method'));
+ }).toThrow(/@cancjs\/decorators\/legacy/);
+ });
+
+ it('BindMethod rejects TS-legacy call shape (target, propertyKey, descriptor)', () => {
+ class C {
+ method() {}
+ }
+
+ expect(() => {
+ (BindMethod() as any)(C.prototype, 'method', Object.getOwnPropertyDescriptor(C.prototype, 'method'));
+ }).toThrow(/@cancjs\/decorators\/legacy/);
+ });
+
+ it('AsyncMethod rejects TS-legacy field call shape (target, propertyKey) — no descriptor', () => {
+ class C {}
+
+ expect(() => {
+ (AsyncMethod() as any)(C.prototype, 'field');
+ }).toThrow(/@cancjs\/decorators\/legacy/);
+ });
+
+ it('AsyncMethod rejects babel-legacy call shape (target, propertyKey, descriptor w/ initializer)', () => {
+ class C {}
+
+ expect(() => {
+ (AsyncMethod() as any)(C.prototype, 'field', { initializer: () => function* () {}, configurable: true });
+ }).toThrow(/@cancjs\/decorators\/(legacy|babel-legacy)/);
+ });
+
+ it('cross-call via actual legacy entry points throws the guard error, not a shape crash', () => {
+ class C {
+ method() {}
+ }
+
+ // LegacyAsyncMethod applied with stage-3 args (value, context) instead of (target, key, descriptor).
+ expect(() => {
+ (LegacyAsyncMethod as any)(C.prototype.method, { kind: 'method', name: 'method' });
+ }).toThrow(/@cancjs\/decorators/);
+
+ expect(() => {
+ (BabelLegacyAsyncMethod as any)(C.prototype.method, { kind: 'method', name: 'method' });
+ }).toThrow(/@cancjs\/decorators/);
+ });
+});
+
+// ============================================================================
+// Accessor / unsupported-kind handling
+// ============================================================================
+
+describe('decorators (ES stage-3) — unsupported kind handling', () => {
+ // Real `accessor` class-field decorator syntax expects a (target: {get,set}, context) shape
+ // distinct from method/field/getter decorators (TS types it as a separate overload family), so
+ // exercising the runtime guard through actual decorator syntax fights the type checker for no
+ // behavioral benefit. Invoking the returned decorator directly with a manufactured
+ // ClassAccessorDecoratorContext-shaped object (kind: 'accessor') proves the same runtime path:
+ // makeDecorator's assertSupportedKind sees the same `context.kind` a TS 5 `accessor` field
+ // transform would actually pass.
+ function accessorContext(name: string): any {
+ return { kind: 'accessor', name, private: false, static: false, addInitializer: () => {} };
+ }
+
+ it('AsyncMethod on an `accessor` kind throws a TypeError naming the kind and supported kinds', () => {
+ expect(() => {
+ (AsyncMethod() as any)({ get() {}, set() {} }, accessorContext('method'));
+ }).toThrow(TypeError);
+
+ let message = '';
+ try {
+ (AsyncMethod() as any)({ get() {}, set() {} }, accessorContext('method'));
+ } catch (error) {
+ message = (error as Error).message;
+ }
+
+ expect(message).toMatch(/accessor/);
+ expect(message).toMatch(/method, field, getter/);
+ });
+
+ it('BindMethod on an `accessor` kind throws a TypeError naming the kind and supported kinds', () => {
+ let message = '';
+ try {
+ (BindMethod() as any)({ get() {}, set() {} }, accessorContext('method'));
+ } catch (error) {
+ message = (error as Error).message;
+ }
+
+ expect(message).toMatch(/accessor/);
+ expect(message).toMatch(/method, field, getter/);
+ });
+
+ it('setter kind throws a TypeError naming the kind and supported kinds', () => {
+ const setterContext: any = { kind: 'setter', name: 'method', private: false, static: false };
+
+ let message = '';
+ try {
+ (AsyncMethod() as any)(function () {}, setterContext);
+ } catch (error) {
+ message = (error as Error).message;
+ }
+
+ expect(message).toMatch(/setter/);
+ expect(message).toMatch(/method, field, getter/);
+ });
+
+ it('class kind throws a TypeError naming the kind and supported kinds', () => {
+ const classContext: any = { kind: 'class', name: 'C' };
+
+ let message = '';
+ try {
+ (AsyncMethod() as any)(class {}, classContext);
+ } catch (error) {
+ message = (error as Error).message;
+ }
+
+ expect(message).toMatch(/class/);
+ expect(message).toMatch(/method, field, getter/);
  });
 });
