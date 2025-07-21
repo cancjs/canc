@@ -10,6 +10,7 @@
  "typecheck": "tsc --noEmit --project tsconfig.json"
  },
  "dependencies": {
+ "@canc-examples/mock-api": "*",
  "@cancjs/promise": "link:../../packages/canc-promise"
  },
  "devDependencies": {
