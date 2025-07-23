@@ -69,6 +69,10 @@ export interface Deployment {
  id: string;
  status: 'pending' | 'deployed' | 'failed';
 }
+export interface Payment {
+ id: string;
+ status: 'pending' | 'completed' | 'failed';
+}
 
 const PRODUCTS: Product[] = [
  { id: 'p1', name: 'Keyboard', price: 49 },
@@ -119,6 +123,11 @@ const DEPLOYMENTS: Deployment[] = [
  { id: 'dep1', status: 'deployed' },
  { id: 'dep2', status: 'pending' },
  { id: 'dep3', status: 'failed' },
+];
+const PAYMENTS: Payment[] = [
+ { id: 'pay1', status: 'completed' },
+ { id: 'pay2', status: 'failed' },
+ { id: 'pay3', status: 'pending' },
 ];
 
 function clone<T>(value: T): T {
@@ -178,6 +187,9 @@ export interface Domains {
  };
  deployments: {
  getStatus(id: string, signal?: AbortSignalLike): Promise<'pending' | 'deployed' | 'failed'>;
+ };
+ payments: {
+ charge(id: string, signal?: AbortSignalLike): Promise<string>;
  };
 }
 
@@ -288,6 +300,20 @@ export function createDomains(api: MockApi): Domains {
  const found = DEPLOYMENTS.find((d) => d.id === id);
  if (!found) throw new Error(`no deployment ${id}`);
  return found.status;
+ },
+ signal
+ ),
+ },
+ payments: {
+ charge: (id, signal) =>
+ api.respond(
+ 'payments.charge',
+ { id },
+ () => {
+ const found = PAYMENTS.find((p) => p.id === id);
+ if (!found) throw new Error(`no payment ${id}`);
+ if (found.status === 'failed') throw new Error('Payment failed');
+ return `txn-${id}-${Date.now()}`;
  },
  signal
  ),
