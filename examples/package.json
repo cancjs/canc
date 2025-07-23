@@ -5,7 +5,16 @@
  "description": "Runnable canc examples. Separate yarn root, not part of the published monorepo.",
  "workspaces": [
  "_shared/*",
- "demo-promise-basics"
+ "demo-promise-basics",
+ "demo-async-dispose",
+ "demo-chain-propagation",
+ "demo-combinators",
+ "demo-coroutine",
+ "demo-lazy-promise",
+ "demo-fetch",
+ "demo-toolbox",
+ "demo-signal-interop",
+ "demo-decorators"
  ],
  "engines": {
  "yarn": ">=1"
