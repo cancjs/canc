@@ -1,8 +1,8 @@
-import { runAllVanilla } from "./all-vanilla";
-import { runAnyVanilla } from "./any-vanilla";
-import { runRaceVanilla } from "./race-vanilla";
-import { runAllSettledVanilla } from "./all-settled-vanilla";
-import { runIsolationVanilla } from "./isolation-vanilla";
+import { runAllVanilla } from "./all-vanilla.js";
+import { runAnyVanilla } from "./any-vanilla.js";
+import { runRaceVanilla } from "./race-vanilla.js";
+import { runAllSettledVanilla } from "./all-settled-vanilla.js";
+import { runIsolationVanilla } from "./isolation-vanilla.js";
 
 async function main(): Promise<void> {
  console.log("=== Promise (vanilla) Combinators ===\n");
