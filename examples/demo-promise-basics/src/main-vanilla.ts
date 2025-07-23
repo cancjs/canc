@@ -1,24 +1,54 @@
-// placeholder, see example task
-import { loadProfile } from './profile';
+import { createMockApi, isAbortError } from '@shared/mock-api';
+import { loadProfile, loadProfileAbortable } from './profile-service-vanilla';
 
 async function main(): Promise<void> {
- const controller = new AbortController();
- const pending = loadProfile('u1', 50, controller.signal);
+ const mockApi = createMockApi({ latency: 100, jitter: 0, trace: console.log });
 
- // The caller loses interest. With a plain promise the only lever is an AbortController
- // threaded all the way down, plus a name check to tell abort apart from real failures.
+ // Uncancelable: load, cancel, but the fetch keeps running.
+ {
+ console.log('vanilla: start load (uncancelable)');
+ const pending = loadProfile(mockApi, 'p1');
+ // The caller loses interest immediately — but the network call continues.
+ setTimeout(() => {
+ console.log('vanilla: lost interest, but call keeps running');
+ }, 10);
+
+ try {
+ await pending;
+ console.log('vanilla: profile loaded (wasted work — we stopped caring)');
+ } catch (error) {
+ throw error;
+ }
+ }
+
+ console.log('');
+
+ // Abortable workaround: thread AbortSignal through, check error.name === 'AbortError'.
+ {
+ console.log('vanilla: start load (abortable)');
+ const controller = new AbortController();
+ const pending = loadProfileAbortable(mockApi, 'p1', controller.signal);
+ // The caller loses interest after short delay.
+ setTimeout(() => {
  controller.abort();
+ console.log('vanilla: aborted');
+ }, 30);
 
  try {
  await pending;
  console.log('vanilla: profile loaded');
  } catch (error) {
- if (error instanceof DOMException && error.name === 'AbortError') {
- console.log('vanilla: aborted');
+ if (isAbortError(error)) {
+ console.log('vanilla: caught AbortError — had to thread signal through, check name');
  } else {
  throw error;
+ }
  }
  }
 }
 
 main();
+
+
+
+

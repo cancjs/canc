@@ -1,4 +1,3 @@
-// placeholder, see example task
 const base = require('../jest.config.base.js');
 
 module.exports = {
@@ -6,3 +5,4 @@ module.exports = {
  displayName: 'demo-promise-basics',
  rootDir: '.',
 };
+
