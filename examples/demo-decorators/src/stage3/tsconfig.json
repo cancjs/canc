@@ -1,0 +1,9 @@
+{
+ "extends": "../../../tsconfig.examples.json",
+ "compilerOptions": {
+ "experimentalDecorators": false,
+ "useDefineForClassFields": false,
+ "lib": ["es2022", "dom", "decorators"]
+ },
+ "include": ["issue-client.ts"]
+}
