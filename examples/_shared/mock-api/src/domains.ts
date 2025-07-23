@@ -73,6 +73,14 @@ export interface Payment {
  id: string;
  status: 'pending' | 'completed' | 'failed';
 }
+export interface Inventory {
+ id: string;
+ quantity: number;
+}
+export interface Mail {
+ to: string;
+ subject: string;
+}
 
 const PRODUCTS: Product[] = [
  { id: 'p1', name: 'Keyboard', price: 49 },
@@ -128,6 +136,11 @@ const PAYMENTS: Payment[] = [
  { id: 'pay1', status: 'completed' },
  { id: 'pay2', status: 'failed' },
  { id: 'pay3', status: 'pending' },
+];
+const INVENTORY: Inventory[] = [
+ { id: 'inv1', quantity: 10 },
+ { id: 'inv2', quantity: 0 },
+ { id: 'inv3', quantity: 5 },
 ];
 
 function clone<T>(value: T): T {
@@ -190,6 +203,15 @@ export interface Domains {
  };
  payments: {
  charge(id: string, signal?: AbortSignalLike): Promise<string>;
+ };
+ inventory: {
+ check(id: string, signal?: AbortSignalLike): Promise<number>;
+ };
+ mail: {
+ send(to: string, signal?: AbortSignalLike): Promise<void>;
+ };
+ gateway: {
+ process(data: any, signal?: AbortSignalLike): Promise<string>;
  };
 }
 
@@ -315,6 +337,39 @@ export function createDomains(api: MockApi): Domains {
  if (found.status === 'failed') throw new Error('Payment failed');
  return `txn-${id}-${Date.now()}`;
  },
+ signal
+ ),
+ },
+ inventory: {
+ check: (id, signal) =>
+ api.respond(
+ 'inventory.check',
+ { id },
+ () => {
+ const found = INVENTORY.find((i) => i.id === id);
+ if (!found) throw new Error(`no inventory ${id}`);
+ return found.quantity;
+ },
+ signal
+ ),
+ },
+ mail: {
+ send: (to, signal) =>
+ api.respond(
+ 'mail.send',
+ { to },
+ () => {
+ return undefined;
+ },
+ signal
+ ),
+ },
+ gateway: {
+ process: (data, signal) =>
+ api.respond(
+ 'gateway.process',
+ { data },
+ () => `processed-${Date.now()}`,
  signal
  ),
  },
