@@ -1,8 +1,8 @@
-import { runAllCanc } from "./all-canc";
-import { runAnyCanc } from "./any-canc";
-import { runRaceCanc } from "./race-canc";
-import { runAllSettledCanc } from "./all-settled-canc";
-import { runIsolationCanc } from "./isolation-canc";
+import { runAllCanc } from "./all-canc.js";
+import { runAnyCanc } from "./any-canc.js";
+import { runRaceCanc } from "./race-canc.js";
+import { runAllSettledCanc } from "./all-settled-canc.js";
+import { runIsolationCanc } from "./isolation-canc.js";
 
 async function main(): Promise<void> {
  console.log("=== CancelablePromise Combinators ===\n");
