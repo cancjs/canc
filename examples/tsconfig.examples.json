@@ -6,6 +6,7 @@
  "lib": ["es2022", "dom"],
  "types": ["node", "jest"],
 
+ "baseUrl": ".",
  "strict": true,
  "esModuleInterop": true,
  "forceConsistentCasingInFileNames": true,
@@ -14,11 +15,20 @@
  "noEmit": true,
 
  "declaration": false,
- "sourceMap": false
+ "sourceMap": false,
+
+ "paths": {
+ "@shared/*": ["_shared/*/src"]
+ }
  },
  "include": [
  "_shared/**/*.ts",
- "demo-promise-basics/**/*.ts"
+ "demo-promise-basics/**/*.ts",
+ "demo-async-dispose/**/*.ts",
+ "demo-chain-propagation/**/*.ts",
+ "demo-coroutine/**/*.ts",
+ "demo-lazy-promise/**/*.ts",
+ "demo-fetch/**/*.ts"
  ],
  "exclude": [
  "**/node_modules/**",
