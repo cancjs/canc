@@ -5,7 +5,7 @@
 module.exports = {
  clearMocks: true,
  testEnvironment: 'node',
- roots: ['<rootDir>/src', '<rootDir>/test'],
+ testMatch: ['<rootDir>/src/**/*.spec.ts', '<rootDir>/test/**/*.spec.ts'],
  testPathIgnorePatterns: ['/node_modules/', '/~~', '~~/'],
  modulePathIgnorePatterns: ['/~~', '~~/'],
  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
