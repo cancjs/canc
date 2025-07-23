@@ -128,19 +128,19 @@ const DOCS: Array<{ id: string; text: string }> = [
  { id: 'd3', text: 'Shield protects cleanup from cancel.' },
 ];
 const DEPLOYMENTS: Deployment[] = [
- { id: 'dep1', status: 'deployed' },
- { id: 'dep2', status: 'pending' },
- { id: 'dep3', status: 'failed' },
+ { id: 'deploy-1', status: 'deployed' },
+ { id: 'deploy-2', status: 'pending' },
+ { id: 'deploy-3', status: 'failed' },
 ];
 const PAYMENTS: Payment[] = [
- { id: 'pay1', status: 'completed' },
- { id: 'pay2', status: 'failed' },
- { id: 'pay3', status: 'pending' },
+ { id: 'payment-1', status: 'completed' },
+ { id: 'payment-2', status: 'failed' },
+ { id: 'payment-3', status: 'pending' },
 ];
 const INVENTORY: Inventory[] = [
- { id: 'inv1', quantity: 10 },
- { id: 'inv2', quantity: 0 },
- { id: 'inv3', quantity: 5 },
+ { id: 'product-1', quantity: 10 },
+ { id: 'product-2', quantity: 0 },
+ { id: 'product-3', quantity: 5 },
 ];
 
 function clone<T>(value: T): T {
@@ -211,7 +211,7 @@ export interface Domains {
  send(to: string, signal?: AbortSignalLike): Promise<void>;
  };
  gateway: {
- process(data: any, signal?: AbortSignalLike): Promise<string>;
+ call(data: any, signal?: AbortSignalLike): Promise<{ transactionId: string }>;
  };
 }
 
@@ -365,11 +365,11 @@ export function createDomains(api: MockApi): Domains {
  ),
  },
  gateway: {
- process: (data, signal) =>
+ call: (data, signal) =>
  api.respond(
- 'gateway.process',
+ 'gateway.call',
  { data },
- () => `processed-${Date.now()}`,
+ () => ({ transactionId: `txn-${Date.now()}` }),
  signal
  ),
  },
