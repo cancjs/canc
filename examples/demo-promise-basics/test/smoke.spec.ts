@@ -1,27 +1,30 @@
-// placeholder, see example task
-import CancelablePromise, { isCancelError } from '@cancjs/promise';
+import { isCancelError } from '@cancjs/promise';
+import { createMockApi } from '@shared/mock-api';
+import { loadProfile } from '../src/profile-service-canc';
 
 describe('demo-promise-basics smoke', () => {
- it('cancel() rejects with a CancelError caught by ordinary try/catch', async () => {
- let handlerRan = false;
- const p = new CancelablePromise<string>((resolve, _reject, handleCancel) => {
- handleCancel(() => {
- handlerRan = true;
- });
- setTimeout(() => resolve('done'), 50);
- });
+ it('cancel() stops the underlying request and rejects with CancelError', async () => {
+ const mockApi = createMockApi({ seedMode: true });
 
- p.cancel();
+ // Create a cancelable profile load.
+ const pending = loadProfile(mockApi, 'p1');
+
+ // Cancel before the latency completes.
+ pending.cancel();
 
  let caught: unknown;
  try {
- await p;
+ await pending;
  } catch (error) {
  caught = error;
  }
 
- expect(handlerRan).toBe(true);
+ // The rejection must be a CancelError, caught by ordinary try/catch.
  expect(isCancelError(caught)).toBe(true);
- expect(p.isCanceled).toBe(true);
+ expect(pending.isCanceled).toBe(true);
+
+ // The mock API must have logged an abort (proving cancel reached the network call).
+ const abortCall = mockApi.api.calls.find((call) => call.status === 'aborted');
+ expect(abortCall).toBeDefined();
  });
 });

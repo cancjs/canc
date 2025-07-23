@@ -2,7 +2,7 @@
  "name": "demo-promise-basics",
  "version": "0.0.0",
  "private": true,
- "description": "placeholder, see example task",
+ "description": "Promise basics: cancellation as rejection, try/catch semantics, cancel handlers.",
  "scripts": {
  "start:vanilla": "tsx src/main-vanilla.ts",
  "start:canc": "tsx src/main-canc.ts",
@@ -14,6 +14,11 @@
  "@cancjs/promise": "link:../../packages/canc-promise"
  },
  "devDependencies": {
- "tsx": "4.23.0"
+ "@types/jest": "30.0.0",
+ "@types/node": "20.12.12",
+ "jest": "30.4.2",
+ "ts-jest": "29.4.11",
+ "tsx": "4.23.0",
+ "typescript": "5.9.3"
  }
 }
