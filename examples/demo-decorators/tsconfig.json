@@ -1,0 +1,10 @@
+{
+ "extends": "../tsconfig.examples.json",
+ "compilerOptions": {
+ "experimentalDecorators": false,
+ "useDefineForClassFields": false,
+ "lib": ["es2022", "dom", "decorators"]
+ },
+ "include": ["src/**/*.ts", "test/**/*.ts"],
+ "exclude": ["src/ts-legacy/**/*.ts"]
+}
