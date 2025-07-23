@@ -65,6 +65,10 @@ export interface DocChunk {
  text: string;
  embedding: number[];
 }
+export interface Deployment {
+ id: string;
+ status: 'pending' | 'deployed' | 'failed';
+}
 
 const PRODUCTS: Product[] = [
  { id: 'p1', name: 'Keyboard', price: 49 },
@@ -110,6 +114,11 @@ const DOCS: Array<{ id: string; text: string }> = [
  { id: 'd1', text: 'Cancellation is a special rejection.' },
  { id: 'd2', text: 'Bubble propagates cancel upward.' },
  { id: 'd3', text: 'Shield protects cleanup from cancel.' },
+];
+const DEPLOYMENTS: Deployment[] = [
+ { id: 'dep1', status: 'deployed' },
+ { id: 'dep2', status: 'pending' },
+ { id: 'dep3', status: 'failed' },
 ];
 
 function clone<T>(value: T): T {
@@ -166,6 +175,9 @@ export interface Domains {
  chat: {
  /** Streams tokens with a per-token delay, aborting mid-stream when the signal fires. */
  stream(prompt: string, signal?: AbortSignalLike): AsyncGenerator<string, void, void>;
+ };
+ deployments: {
+ getStatus(id: string, signal?: AbortSignalLike): Promise<'pending' | 'deployed' | 'failed'>;
  };
 }
 
@@ -266,6 +278,19 @@ export function createDomains(api: MockApi): Domains {
  },
  chat: {
  stream: (prompt, signal) => streamTokens(api, prompt, signal),
+ },
+ deployments: {
+ getStatus: (id, signal) =>
+ api.respond(
+ 'deployments.getStatus',
+ { id },
+ () => {
+ const found = DEPLOYMENTS.find((d) => d.id === id);
+ if (!found) throw new Error(`no deployment ${id}`);
+ return found.status;
+ },
+ signal
+ ),
  },
  };
 }
