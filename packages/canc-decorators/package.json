@@ -56,5 +56,9 @@
  "lint:all": "eslint .",
  "test": "jest --colors",
  "test:watch": "jest --colors --watch"
+ },
+ "peerDependencies": {
+ "@cancjs/promise": "^0.0.0",
+ "@cancjs/coroutine": "^0.0.0"
  }
 }
