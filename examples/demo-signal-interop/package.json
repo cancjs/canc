@@ -12,13 +12,13 @@
  "typecheck": "tsc --noEmit"
  },
  "dependencies": {
- "@cancjs/promise": "link:../../packages/promise",
- "@cancjs/toolbox": "link:../../packages/toolbox"
+ "@cancjs/promise": "link:../../packages/canc-promise",
+ "@cancjs/toolbox": "link:../../packages/canc-toolbox"
  },
  "devDependencies": {
  "@types/jest": "29.5.12",
  "@types/node": "20.12.5",
- "jest": "29.7.0",
+ "jest": "30.4.2",
  "ts-jest": "29.1.2",
  "tsx": "4.7.0",
  "typescript": "5.4.2"
