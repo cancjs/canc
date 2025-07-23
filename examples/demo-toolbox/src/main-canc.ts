@@ -1,4 +1,4 @@
-import { createMockApiBundle } from '@shared/mock-api';
+import { createMockApi } from '@shared/mock-api';
 import { waitForDeployment as waitForDep } from './poll-deploy-canc';
 import { chargeWithRetry } from './retry-payment-canc';
 import { fetchInventoryWithTimeout } from './inventory-timeout-canc';
@@ -7,7 +7,7 @@ import { callGatewayWithSignal } from './gateway-signal-canc';
 import { cleanupPaymentRecord } from './suppress-canc';
 
 async function main() {
- const mockApi = createMockApiBundle();
+ const mockApi = createMockApi();
 
  console.log('=== canc: waitForDeployment ===');
  try {

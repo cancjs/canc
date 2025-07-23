@@ -16,7 +16,7 @@
  "@types/jest": "29.5.12",
  "@types/node": "20.12.5",
  "jest": "30.4.2",
- "ts-jest": "29.1.2",
+ "ts-jest": "29.4.11",
  "typescript": "5.4.2",
  "tsx": "4.7.0"
  }
