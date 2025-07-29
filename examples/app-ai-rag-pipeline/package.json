@@ -1,0 +1,26 @@
+{
+ "name": "app-ai-rag-pipeline",
+ "version": "0.0.0",
+ "private": true,
+ "description": "Ask-the-manual RAG pipeline: embed, parallel retrieve, rerank, generate as one cancelable flow.",
+ "scripts": {
+ "start:vanilla": "tsx src/main-vanilla.ts",
+ "start:canc": "tsx src/main-canc.ts",
+ "test": "jest --colors",
+ "typecheck": "tsc --noEmit --project tsconfig.json"
+ },
+ "dependencies": {
+ "@shared/mock-api": "*",
+ "@cancjs/promise": "link:../../packages/canc-promise",
+ "@cancjs/coroutine": "link:../../packages/canc-coroutine",
+ "@cancjs/toolbox": "link:../../packages/canc-toolbox"
+ },
+ "devDependencies": {
+ "@types/jest": "30.0.0",
+ "@types/node": "20.12.12",
+ "jest": "30.4.2",
+ "ts-jest": "29.4.11",
+ "tsx": "4.23.0",
+ "typescript": "5.9.3"
+ }
+}
