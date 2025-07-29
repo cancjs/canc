@@ -1,0 +1,28 @@
+{
+ "name": "app-fastify-mongoose",
+ "version": "0.0.0",
+ "private": true,
+ "description": "Hotel availability search on Fastify + Mongoose: client disconnect cancels the query chain.",
+ "scripts": {
+ "start:vanilla": "tsx src/main-vanilla.ts",
+ "start:canc": "tsx src/main-canc.ts",
+ "test": "jest --colors",
+ "typecheck": "tsc --noEmit --project tsconfig.json"
+ },
+ "dependencies": {
+ "@cancjs/promise": "link:../../packages/canc-promise",
+ "@cancjs/coroutine": "link:../../packages/canc-coroutine",
+ "fastify": "5.10.0",
+ "fastify-plugin": "6.0.0",
+ "mongoose": "9.7.4"
+ },
+ "devDependencies": {
+ "@types/jest": "30.0.0",
+ "@types/node": "20.12.12",
+ "jest": "30.4.2",
+ "mockingoose": "3.0.0",
+ "ts-jest": "29.4.11",
+ "tsx": "4.23.0",
+ "typescript": "5.9.3"
+ }
+}
