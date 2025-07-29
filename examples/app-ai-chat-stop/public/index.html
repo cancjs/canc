@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+ <head>
+ <meta charset="utf-8" />
+ <meta name="viewport" content="width=device-width, initial-scale=1" />
+ <title>Support chat — Stop button demo</title>
+ <style>
+ body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 2rem auto; padding: 0 1rem; }
+ #reply { white-space: pre-wrap; border: 1px solid #ccc; border-radius: 6px; padding: 1rem; min-height: 4rem; }
+ .row { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+ input { flex: 1; padding: 0.5rem; }
+ button { padding: 0.5rem 1rem; }
+ </style>
+ </head>
+ <body>
+ <h1>Support chat</h1>
+ <div class="row">
+ <input id="prompt" value="How do I reset my password and update my billing address" />
+ <button id="send">Send</button>
+ <button id="stop" disabled>Stop</button>
+ </div>
+ <div id="reply"></div>
+
+ <script>
+ const promptInput = document.getElementById('prompt');
+ const reply = document.getElementById('reply');
+ const sendButton = document.getElementById('send');
+ const stopButton = document.getElementById('stop');
+ let controller = null;
+
+ async function send() {
+ reply.textContent = '';
+ controller = new AbortController();
+ sendButton.disabled = true;
+ stopButton.disabled = false;
+
+ try {
+ const res = await fetch('/chat', {
+ method: 'POST',
+ headers: { 'content-type': 'application/json' },
+ body: JSON.stringify({ prompt: promptInput.value }),
+ // Stop aborts this fetch, which closes the socket and cancels the server chain.
+ signal: controller.signal,
+ });
+ const reader = res.body.getReader();
+ const decoder = new TextDecoder();
+ for (;;) {
+ const { value, done } = await reader.read();
+ if (done) break;
+ reply.textContent += decoder.decode(value, { stream: true });
+ }
+ } catch (error) {
+ if (error.name !== 'AbortError') throw error;
+ } finally {
+ sendButton.disabled = false;
+ stopButton.disabled = true;
+ }
+ }
+
+ sendButton.addEventListener('click', send);
+ stopButton.addEventListener('click', () => controller && controller.abort());
+ // Leaving the page also aborts, so the server stops billing for an abandoned reply.
+ window.addEventListener('beforeunload', () => controller && controller.abort());
+ </script>
+ </body>
+</html>
