@@ -172,11 +172,12 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 				const promise = this._adopt(promiseOrValue, normalizedOptions);
 				inputs.push(promise);
 
-				// `.then` (not `_then`): the then()-level input->derived chain is load-bearing here.
-				// It raises this input's chain count so that canceling the RESULT promise does not
-				// prematurely bubble down and cancel still-pending inputs; `promise._chain(resultsPromise)`
-				// below is the other half of that count.
-				promise.then(
+				// `_subscribe` + `_chainInput` (not a species `.then()`): the per-item reaction is a
+				// pure sink and the input's chain-count is raised explicitly instead of as a side
+				// effect of constructing a derived child. Keeping the input at the same total count
+				// preserves the oracle that canceling the RESULT promise does not bubble down and
+				// cancel still-pending inputs.
+				promise._subscribe(
 					(value) => {
 						results[index] = value;
 
@@ -195,7 +196,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 					}
 				);
 
-				promise._chain(resultsPromise);
+				promise._chainInput(resultsPromise);
 			}
 
 			if (!count) {
@@ -267,30 +268,33 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 				const promise = this._adopt(promiseOrValue, normalizedOptions);
 				inputs.push(promise);
 
-				// `.then().catch()` (not a single `_then`): the two then()-derived children raise
-				// this input's chain count so canceling the RESULT promise does not bubble down and
-				// cancel still-pending inputs; `promise._chain(resultPromise)` is the other half.
-				promise.then(value => {
-					if (!hasFulfilled) {
-						hasFulfilled = true;
-						// Cancel-losers: on first fulfill, cancel all other pending inputs
-						// that have bubble:true (doc: losers are canceled).
-						this._cancelLosers(inputs, promise);
-					}
-					// value is T (unresolved-thenable element type), not yet Awaited<T> — same
-					// looseness the previous `resultPromise._resolve(value)` (typed `any`) had.
-					resolveResult(value as Awaited<T>);
-				})
-				.catch(error => {
-					errors[index] = error;
-					rejectedCount++;
+				// `_subscribe` + `_chainInput` (not a species `.then().catch()`): a single per-item
+				// reaction sink plus explicit chain-count accounting. The input reaches the same
+				// total count the derived children raised, so canceling the RESULT promise does not
+				// bubble down and cancel still-pending inputs.
+				promise._subscribe(
+					value => {
+						if (!hasFulfilled) {
+							hasFulfilled = true;
+							// Cancel-losers: on first fulfill, cancel all other pending inputs
+							// that have bubble:true (doc: losers are canceled).
+							this._cancelLosers(inputs, promise);
+						}
+						// value is T (unresolved-thenable element type), not yet Awaited<T> — same
+						// looseness the previous `resultPromise._resolve(value)` (typed `any`) had.
+						resolveResult(value as Awaited<T>);
+					},
+					error => {
+						errors[index] = error;
+						rejectedCount++;
 
-					if (rejectedCount === count) {
-						rejectResult(createAggregateError(errors, 'All promises were rejected'));
+						if (rejectedCount === count) {
+							rejectResult(createAggregateError(errors, 'All promises were rejected'));
+						}
 					}
-				});
+				);
 
-				promise._chain(resultPromise);
+				promise._chainInput(resultPromise);
 			}
 
 			if (!count) {
@@ -323,11 +327,12 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 
 		try {
 			for (const promiseOrValue of values) {
-				// `.then` (not `_then`) is required here: race relies on the then()-level
-				// input->derived chain so a cancel of the result promise bubbles back through the
-				// derived child to the input (see the race bubble tests).
-				const promise = this._adopt<T>(promiseOrValue, normalizedOptions)
-				.then(resolveResult, rejectResult);
+				// `_subscribe` (pure reaction sink, no species child) plus a single bubbleOnComplete
+				// `_chain` of the result directly onto the input. Race keeps one chain ref per input,
+				// so canceling or settling the result bubbles straight back to the pending inputs (see
+				// the race bubble tests), the cascade race wants (unlike all()/any()).
+				const promise = this._adopt<T>(promiseOrValue, normalizedOptions);
+				promise._subscribe(resolveResult, rejectResult);
 
 				promise._chain(resultPromise, true);
 			}
