@@ -1229,34 +1229,92 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	}
 
 	/**
- * Connects the current and the next promise in the chain and propagates the cancelation to the parent promises
- * @param childPromise The next promise in the chain
- * @param bubbleOnComplete Makes the cancelation bubble on completion of the child promise, e.g. race()
- */
-	protected _chain(childPromise: CancelablePromise<any>, bubbleOnComplete?: boolean): void {
-		if (this.bubble && this.cancelable) {
-			this._chainsCount++;
-			// console.log('chains', this._chainsCount, this._completedChainsCount);
-
-			const onComplete = () => {
-				this._completedChainsCount++;
-
-				if (this._completedChainsCount >= this._chainsCount && this.cancelable) {
-					const error = new CancelError(`Bubbled on ${bubbleOnComplete ? 'settling' : 'cancel'}`);
-					error.bubbled = true;
-
-					 
-					this.cancel(error);
-				}
-			};
-
-			if (bubbleOnComplete) {
-				// Optimized finally
-				childPromise.then(onComplete, onComplete);
-			} else {
-				childPromise.handleCancel(onComplete);
-			}
+	 * Bubble-count core shared by `_chain` and `_chainInput`. When this promise participates in
+	 * bubbling (`bubble && cancelable`), raise its chain count by one and return the matching
+	 * `onComplete` completion callback; the caller decides how that completion is wired (a child's
+	 * `handleCancel`, a settle reaction, or a native subscription). Returns `undefined` when this
+	 * promise does not bubble, so the caller skips wiring entirely.
+	 *
+	 * The completion semantics are identical to the previous inline `_chain` closure: on each
+	 * completion increment `_completedChainsCount`, and once every counted ref has completed while
+	 * still cancelable, bubble-cancel this promise with a `bubbled` CancelError.
+	 */
+	protected _addChainRef(bubbleOnComplete?: boolean): (() => void) | undefined {
+		if (!(this.bubble && this.cancelable)) {
+			return undefined;
 		}
+
+		this._chainsCount++;
+
+		return () => {
+			this._completedChainsCount++;
+
+			if (this._completedChainsCount >= this._chainsCount && this.cancelable) {
+				const error = new CancelError(`Bubbled on ${bubbleOnComplete ? 'settling' : 'cancel'}`);
+				error.bubbled = true;
+
+				this.cancel(error);
+			}
+		};
+	}
+
+	/**
+	 * Internal settlement subscription: attach `onFulfilled`/`onRejected` reactions to this promise
+	 * WITHOUT constructing a derived CancelablePromise. `NativePromise.prototype.then.call` is used
+	 * with the species machinery NOT engaged (`_pendingInternalCall` stays false), so `new.target`
+	 * inside the native then resolves to the native Promise constructor and the returned object is a
+	 * plain native promise, never a canc species. The reactions still run at A+ timing and, because a
+	 * rejection reaction is attached, this source counts as handled for the host (no unhandled
+	 * rejection), exactly like the per-item `.then()` it replaces. The throwaway native promise is
+	 * never returned to a caller nor chained.
+	 */
+	protected _subscribe(onFulfilled?: ((value: T) => any) | null, onRejected?: ((reason: any) => any) | null): void {
+		NativePromise.prototype.then.call(this, onFulfilled as any, onRejected as any);
+	}
+
+	/**
+	 * Connects the current and the next promise in the chain and propagates the cancelation to the parent promises
+	 * @param childPromise The next promise in the chain
+	 * @param bubbleOnComplete Makes the cancelation bubble on completion of the child promise, e.g. race()
+	 */
+	protected _chain(childPromise: CancelablePromise<any>, bubbleOnComplete?: boolean): void {
+		const onComplete = this._addChainRef(bubbleOnComplete);
+		if (!onComplete) {
+			return;
+		}
+
+		if (bubbleOnComplete) {
+			// Optimized finally
+			childPromise.then(onComplete, onComplete);
+		} else {
+			childPromise.handleCancel(onComplete);
+		}
+	}
+
+	/**
+	 * Combinator per-item chain accounting without a species child. Reproduces the exact bubble-count
+	 * effect the per-item `.then()`/`.then().catch()` plus `input._chain(resultPromise)` pair produces
+	 * today, but with no derived canc promise: the input's count is raised once for the internal
+	 * consumer (completed on the input's own cancel, matching a `handleCancel`-registered onComplete)
+	 * and once for the result-as-child via the real `_chain(resultPromise)`. Keeping the input at the
+	 * same total count preserves the "canceling the result does NOT cascade to inputs" oracle: a
+	 * single completed ref never satisfies the count, so the input stays pending.
+	 *
+	 * @param resultPromise The combinator result promise (chained as this input's downstream child).
+	 * @param bubbleOnComplete Race-style completion timing for the result chain (settle vs cancel).
+	 */
+	protected _chainInput(resultPromise: CancelablePromise<any>, bubbleOnComplete?: boolean): void {
+		// Internal-consumer ref: same increment the per-item derived child raised via its own `_chain`.
+		// Its completion is wired to THIS input's cancel (handleCancel), mirroring the old derived
+		// child whose `onComplete` fired on that child's cancel, so it does not complete when the
+		// result is canceled — the count-padding that keeps the input alive.
+		const onComplete = this._addChainRef();
+		if (onComplete) {
+			this.handleCancel(onComplete);
+		}
+
+		// Result-as-child ref: unchanged real chain of the result promise onto this input.
+		this._chain(resultPromise, bubbleOnComplete);
 	}
 }
 
