@@ -275,10 +275,9 @@ describe('coverage completion', () => {
 		expect(promise.isCanceled).toBe(true);
 	});
 
-	it('constructor accepts a falsy-but-present ref/signal option (options merge falsy branch)', () => {
+	it('constructor accepts a falsy-but-present signal option (options merge falsy branch)', () => {
 		const { CancelablePromise } = canc_promise;
 
-		expect(() => new CancelablePromise<number>(() => {/**/}, { ref: null as any })).not.toThrow();
 		expect(() => new CancelablePromise<number>(() => {/**/}, { signal: null as any })).not.toThrow();
 	});
 });

@@ -1,15 +1,15 @@
 import { CancelablePromise, ICancelablePromiseFlagOptions } from '../cancelable-promise';
 import { CancelError } from '../cancel-error';
-import { isCancelError } from '../helpers';
+import { createAbortSignal, isCancelError } from '../helpers';
 
 /**
- * Options/signal/ref.
+ * Options/signal.
  *
  * Covers: defaultOptions override + restore; per-option inheritance through then() (flags
- * inherit, signal/ref do NOT, regression lock); strict throws matrix (cancel/handleCancel on
+ * inherit, signal does NOT, regression lock); strict throws matrix (cancel/handleCancel on
  * settled/canceled); asyncCancel sync vs async handler settle ordering; signal abort -> cancel
  * w/ signal.reason as cause; listener cleanup (black-box re-run); multiple promises one signal;
- * ref: canceled getter lifecycle + reuse throw.
+ * branded createAbortSignal migration (signals as the sole destructurable-cancel mechanism).
  */
 
 const NativePromise = Promise;
@@ -96,7 +96,7 @@ describe('per-option inheritance through then() — flags inherit', () => {
 	});
 });
 
-describe('per-option inheritance through then() — signal/ref do NOT inherit', () => {
+describe('per-option inheritance through then() — signal does NOT inherit', () => {
 	it('signal is NOT propagated to a then()-derived child: aborting it does not cancel the child', async () => {
 		const controller = new AbortController();
 		const parent = new CancelablePromise<number>(resolve => resolve(1), { signal: controller.signal });
@@ -110,26 +110,6 @@ describe('per-option inheritance through then() — signal/ref do NOT inherit', 
 
 		expect(child.isCanceled).toBe(false);
 		await expect(child).resolves.toBe(1);
-	});
-
-	it('ref is NOT propagated to a then()-derived child: canceling the child (bubble:false) does not touch the parent ref', async () => {
-		// bubble:false isolates this from the (separate, legitimate) upward-bubble mechanism —
-		// otherwise child.cancel() would bubble up and cancel the parent anyway, which would be a
-		// false positive for "ref inherited by child".
-		const ref: { cancel?: any; canceled?: boolean } = {};
-		const parent = new CancelablePromise<number>(() => {/**/}, { ref, bubble: false });
-		const child = parent.then(v => v);
-
-		child.cancel();
-
-		await macrotask();
-
-		expect(child.isCanceled).toBe(true);
-		// The ref was bound to the parent only; the child has no ref of its own, and (with
-		// bubble:false) canceling the child never reaches the parent.
-		expect(ref.canceled).toBe(false);
-		expect(parent.isCanceled).toBe(false);
-		parent.cancel();
 	});
 
 	it('CancelablePromise.resolve(sameInstance, {}) with no changed keys returns same instance', () => {
@@ -458,72 +438,19 @@ describe('multiple promises, one signal', () => {
 	});
 });
 
-describe('ref: canceled getter lifecycle + reuse throw', () => {
-	it('ref.canceled is false while pending', () => {
-		const ref: { cancel?: any; canceled?: boolean } = {};
-		const promise = new CancelablePromise<number>(() => {/**/}, { ref });
+describe('branded createAbortSignal migration (replaces cancel refs)', () => {
+	it('destructurable abort cancels the promise with a branded CancelError carrying the message', async () => {
+		const { abort, signal } = createAbortSignal();
+		const promise = new CancelablePromise<number>(() => {/**/}, { signal });
 
-		expect(ref.canceled).toBe(false);
-		promise.cancel();
-	});
+		abort('x');
 
-	it('ref.canceled becomes true after cancel()', () => {
-		const ref: { cancel?: any; canceled?: boolean } = {};
-		const promise = new CancelablePromise<number>(() => {/**/}, { ref });
-
-		promise.cancel();
-
-		expect(ref.canceled).toBe(true);
-	});
-
-	it('ref.canceled stays false when the promise settles normally (not canceled)', async () => {
-		const ref: { cancel?: any; canceled?: boolean } = {};
-		const promise = new CancelablePromise<number>(resolve => resolve(5), { ref });
-
-		await promise;
-
-		expect(ref.canceled).toBe(false);
-	});
-
-	it('ref.cancel is bound to the promise instance and cancels it when invoked', async () => {
-		const ref: { cancel?: any; canceled?: boolean } = {};
-		const promise = new CancelablePromise<number>(() => {/**/}, { ref });
-
-		ref.cancel!('via-ref');
-
-		await macrotask();
-
-		expect(promise.isCanceled).toBe(true);
 		const error: any = await promise.catch(e => e);
+
 		expect(isCancelError(error)).toBe(true);
-	});
-
-	it('reusing an already-bound ref object on a second promise throws', () => {
-		const ref: { cancel?: any; canceled?: boolean } = {};
-		const promise1 = new CancelablePromise<number>(() => {/**/}, { ref });
-
-		expect(() => {
-			// eslint-disable-next-line no-new
-			new CancelablePromise<number>(() => {/**/}, { ref });
-		}).toThrow(/reused/i);
-
-		promise1.cancel();
-	});
-
-	it('a fresh ref object (from createCancelRef-shaped literal) works on a new promise after reuse throw', () => {
-		const ref: { cancel?: any; canceled?: boolean } = {};
-		const promise1 = new CancelablePromise<number>(() => {/**/}, { ref });
-
-		expect(() => {
-			// eslint-disable-next-line no-new
-			new CancelablePromise<number>(() => {/**/}, { ref });
-		}).toThrow();
-
-		const freshRef: { cancel?: any; canceled?: boolean } = {};
-		const promise2 = new CancelablePromise<number>(() => {/**/}, { ref: freshRef });
-
-		expect(freshRef.canceled).toBe(false);
-		promise1.cancel();
-		promise2.cancel();
+		expect(error.message).toBe('x');
+		expect(promise.isCanceled).toBe(true);
+		// signal.aborted replaces the removed ref.canceled flag.
+		expect(signal.aborted).toBe(true);
 	});
 });

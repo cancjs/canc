@@ -1,5 +1,5 @@
 import { CANCEL_ERROR_BRAND, CancelError } from './cancel-error';
-import { CANCEL_PROMISE_BRAND, CancelablePromise, ICancelableHelperOptions, ICancelRef } from './cancelable-promise';
+import { CANCEL_PROMISE_BRAND, CancelablePromise, ICancelableHelperOptions } from './cancelable-promise';
 import { isCancelable, isObject, isThenable } from '../../_util';
 
 // Brand check: a foreign error merely named 'CancelError' is NOT matched, only objects carrying
@@ -19,15 +19,24 @@ export const isCancPromise = (value: any): value is CancelablePromise<any> => is
 // stand-in in runtimes without DOMException.
 export const isAbortError = (error: any): boolean => isObject(error) && (error as { name?: unknown }).name === 'AbortError';
 
-export function createCancelRef(): ICancelRef {
-	return { cancel: null };
-}
-
-export function createAbortSignal() {
+export function createAbortSignal(reason?: any) {
 	const controller = new AbortController();
 
 	return {
-		abort: controller.abort.bind(controller),
+		// The bound abort mints a branded CancelError as the signal reason (unless it is already a
+		// CancelError, which passes through). Aborting this signal therefore reads as a genuine
+		// cancellation: spec-compliant consumers (e.g. fetch, which rejects with signal.reason)
+		// reject with our CancelError directly, and a {signal}-option promise cancels with that exact
+		// error. Normalization mirrors cancel(): a string/undefined becomes the message, any other
+		// object becomes the cause.
+		abort: (r: any = reason) =>
+			controller.abort(
+				isCancelError(r)
+					? r
+					: isObject(r)
+						? new CancelError(undefined, { cause: r })
+						: new CancelError(r)
+			),
 		signal: controller.signal
 	};
 }

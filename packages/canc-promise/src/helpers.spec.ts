@@ -2,7 +2,6 @@ import { CancelError } from './cancel-error';
 import {
 	catchCancel,
 	createAbortSignal,
-	createCancelRef,
 	forceCancelable,
 	isCancelError,
 	suppressCancel
@@ -30,12 +29,6 @@ describe('isCancelError', () => {
 	});
 });
 
-describe('createCancelRef', () => {
-	it('returns empty ref object', () => {
-		expect(createCancelRef()).toEqual({ cancel: null });
-	});
-});
-
 describe('createAbortSignal', () => {
 	let result: ReturnType<typeof createAbortSignal>;
 
@@ -50,7 +43,7 @@ describe('createAbortSignal', () => {
 		});
 	});
 
-	it('returns bound abort', () => {
+	it('brands the reason: abort(string) sets signal.reason to a CancelError with that message', () => {
 		const { abort, signal } = result;
 
 		const spy = jest.fn();
@@ -58,8 +51,46 @@ describe('createAbortSignal', () => {
 
 		expect(() => { abort('reason') }).not.toThrow();
 		expect(signal.aborted).toBe(true);
-		expect(signal.reason).toBe('reason');
+		expect(isCancelError(signal.reason)).toBe(true);
+		expect(signal.reason.message).toBe('reason');
 		expect(spy).toHaveBeenCalled();
+	});
+
+	it('abort() with no argument sets signal.reason to a fresh CancelError', () => {
+		const { abort, signal } = result;
+
+		abort();
+
+		expect(signal.aborted).toBe(true);
+		expect(isCancelError(signal.reason)).toBe(true);
+	});
+
+	it('abort(cancelError) passes an existing CancelError through unwrapped (same identity)', () => {
+		const { abort, signal } = result;
+		const cancelError = new CancelError('preexisting');
+
+		abort(cancelError);
+
+		expect(signal.reason).toBe(cancelError);
+	});
+
+	it('abort(object) wraps a non-CancelError object as the CancelError cause', () => {
+		const { abort, signal } = result;
+		const reason = { x: 1 };
+
+		abort(reason);
+
+		expect(isCancelError(signal.reason)).toBe(true);
+		expect(signal.reason.cause).toBe(reason);
+	});
+
+	it('uses the default reason passed at creation when abort() is called with no argument', () => {
+		const { abort, signal } = createAbortSignal('default-reason');
+
+		abort();
+
+		expect(isCancelError(signal.reason)).toBe(true);
+		expect(signal.reason.message).toBe('default-reason');
 	});
 });
 

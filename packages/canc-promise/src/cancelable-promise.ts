@@ -24,11 +24,6 @@ export interface IHandleCancelOptions {
 }
 export type TCancelablePromiseStates = 'PENDING' | 'FORCE_PENDING' | 'FULFILLED' | 'REJECTED' | 'CANCELED';
 
-export interface ICancelRef {
-	cancel?: TCancelFn | null;
-	readonly canceled?: boolean;
-}
-
 export interface ICancelablePromiseFlagOptions {
 	/** cancel() asynchronously settles failed cancelation handlers instead of throwing */
 	asyncCancel?: boolean;
@@ -53,7 +48,6 @@ export interface ICancelablePromiseFlagOptions {
 }
 
 export interface ICancelablePromiseOptions extends ICancelablePromiseFlagOptions {
-	ref?: ICancelRef;
 	signal?: IAbortSignal | IAbortSignal[];
 }
 
@@ -439,10 +433,6 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 				mergedOptions.shield = !!options.shield;
 			}
 
-			if ('ref' in options) {
-				mergedOptions.ref = options.ref || undefined;
-			}
-
 			if ('signal' in options) {
 				mergedOptions.signal = options.signal || undefined;
 			}
@@ -480,7 +470,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 			return false;
 		}
 
-		const keys: Array<keyof ICancelablePromiseOptions> = ['asyncCancel', 'forceCancelable', 'bubble', 'strict', 'shield', 'ref', 'signal'];
+		const keys: Array<keyof ICancelablePromiseOptions> = ['asyncCancel', 'forceCancelable', 'bubble', 'strict', 'shield', 'signal'];
 
 		for (const key of keys) {
 			if (options[key] !== undefined && instance[key] !== options[key]) {
@@ -564,7 +554,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	// (the common case has no signal, so both stay undefined).
 	protected _abortSignals?: IAbortSignal[];
 	protected _abortListeners?: Map<IAbortSignal, any>;
-	// Bound `cancel`, created lazily only when a detached reference is requested (withResolvers/ref).
+	// Bound `cancel`, created lazily only when a detached reference is requested (withResolvers).
 	protected _boundCancel?: TCancelFn;
 
 	/**
@@ -595,7 +585,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 
 		// Internal/species construction fast path: `_then` sets `_pendingInternalCall` while native
 		// then() constructs the derived promise via species. Those calls carry no options, no signal,
-		// no ref, and the caller (`then`) overwrites `_flags` right after, so the whole options-
+		// and the caller (`then`) overwrites `_flags` right after, so the whole options-
 		// normalization + signal-precheck + post-construct wiring is dead work here. Skip it: the
 		// derived promise is always forceCancelable (default) so its resolve wrapper adopts the
 		// settled value, and the executor is the minimal native-then reaction.
@@ -778,7 +768,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		}
 
 		// Internal/species construction: the calling `then()` overwrites `_flags` immediately and
-		// there is never a signal or ref, so skip the flag unpacking and the signal/ref wiring
+		// there is never a signal, so skip the flag unpacking and the signal wiring
 		// entirely. Seed `_flags` with the default (forceCancelable) so any flag read before `then`
 		// assigns is still well-defined.
 		if (isInternalCall) {
@@ -795,7 +785,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		if (normalizedOptions.shield) flags |= FLAG_SHIELD;
 		instance._flags = flags;
 
-		const { ref, signal } = normalizedOptions;
+		const { signal } = normalizedOptions;
 
 		// Pre-aborted signals are already handled by the deferred handoff below (strict threw
 		// before construction), so no listeners are wired for them — the promise is born canceled.
@@ -819,27 +809,12 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 			}
 		}
 
-		if (ref) {
-			if ('canceled' in ref) {
-				throw new Error('Cancel ref cannot be reused');
-			} else {
-				Object.defineProperty(ref, 'canceled', {
-					configurable: true,
-					get: () => {
-						return instance.canceled;
-					}
-				});
-
-				ref.cancel = instance._getBoundCancel();
-			}
-		}
-
 		// Deferred pre-aborted-signal handoff. The executor was skipped, so the promise is born
 		// pending. Mark it CANCELED synchronously (so `canceled`/`cancelable` observe the final
 		// state in the same tick as construction, matching the previous behavior) and retain the
 		// reason for late immediate handlers, but defer the native-promise rejection + unhandled-
 		// suppression to a microtask. Deferring lets the constructor return with the live `_resolve`/
-		// `_reject` wrappers still attached, so `withResolvers`/`ref` hand out usable settlers before
+		// `_reject` wrappers still attached, so `withResolvers` hands out usable settlers before
 		// settlement nulls them; the extra microtask only delays the `.catch`/`await` rejection, which
 		// the pre-abort specs already tolerate (they assert the reason after a macrotask flush).
 		if (hasPendingPreAbort) {
@@ -916,7 +891,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	}
 
 	/**
-	 * Snapshot of this promise's active cancelation options (flags + ref/signal not included,
+	 * Snapshot of this promise's active cancelation options (flags + signal not included,
 	 * those are one-shot constructor inputs, not ongoing state).
 	 */
 	get options(): Required<ICancelablePromiseFlagOptions> {
@@ -1083,8 +1058,8 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	}
 
 	/**
-	 * Returns a `cancel` bound to this instance for the detached call sites (`withResolvers().cancel`
-	 * and `ref.cancel`) that hand the function out on its own. The bound copy is created on demand
+	 * Returns a `cancel` bound to this instance for the detached call site (`withResolvers().cancel`)
+	 * that hands the function out on its own. The bound copy is created on demand
 	 * and cached as an own property so every promise no longer pays for a per-instance bound `cancel`;
 	 * the normal `p.cancel(...)` method call stays prototype-dispatched and allocates nothing.
 	 */
@@ -1130,7 +1105,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 
 		// Suppress unhandled rejection (targeted — only for canceled promises). Go through `_then`
 		// (not the public `catch`) so the derived suppression child takes the internal-construction
-		// fast path (no options normalization, no signal/ref wiring) and none of `then()`'s chain
+		// fast path (no options normalization, no signal wiring) and none of `then()`'s chain
 		// bookkeeping (`_chain`, flag copy) runs. Registering this no-op rejection reaction is what
 		// marks the rejection handled for the host; the child itself is discarded.
 		this._then(undefined, noop);
@@ -1200,7 +1175,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		// Release the settlement wrappers once the promise has settled — they close over the whole
 		// executor scope (by far the largest per-instance retained cost) and can never be invoked
 		// again after settlement (cancel()/resolve()/reject() are all no-ops on a settled promise).
-		// `withResolvers`/`ref` already captured their own references at construction time, so nulling
+		// `withResolvers` already captured its own references at construction time, so nulling
 		// the fields here does not affect callers still holding the functions.
 		this._resolve = undefined as any;
 		this._reject = undefined as any;
