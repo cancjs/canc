@@ -20,7 +20,7 @@ describe('native twin', () => {
 	it('exposes the reduced export set (timing + retry helpers, no pluggable-impl surface)', () => {
 		const nativeKeys = Object.keys(native).sort();
 		expect(nativeKeys).toEqual(
-			['TimeoutError', 'defer', 'delay', 'isTimeoutError', 'minDelay', 'retry', 'timeout', 'waitFor'].sort(),
+			['TimeoutError', 'defer', 'delay', 'isTimeoutError', 'minDelay', 'promisify', 'promisifyAll', 'retry', 'timeout', 'waitFor'].sort(),
 		);
 	});
 
