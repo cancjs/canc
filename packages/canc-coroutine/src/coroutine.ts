@@ -13,10 +13,10 @@ export interface IGeneratorLikeFn<TThis extends any = any> extends IFn {
 
 type TCoroutineReturn<TFn extends IGeneratorLikeFn, TReturn = ReturnType<TFn>> = Awaited<TReturn extends Generator<unknown, infer R, unknown> ? R : never>;
 
-// Flag-only options passed to per-step yielded-value wrappers: the coroutine-level `signal`/`ref`
+// Flag-only options passed to per-step yielded-value wrappers: the coroutine-level `signal`
 // MUST NOT be re-applied to every yielded value, doing so re-subscribes the same AbortSignal on
 // every step (listener amplification) and, once the signal is already aborted, makes the per-step
-// wrapper constructor throw mid-coroutine. Signal/ref belong to the OUTER coroutine promise only;
+// wrapper constructor throw mid-coroutine. The signal belongs to the OUTER coroutine promise only;
 // steps inherit just the behavioral flags.
 type TFlagOptions = Pick<ICancelablePromiseOptions, 'asyncCancel' | 'forceCancelable' | 'bubble' | 'strict' | 'shield'>;
 
@@ -50,7 +50,7 @@ export function cancAsync<TFn extends IGeneratorLikeFn<TThis>, TArgs extends any
  const isCtx = ctx !== undefined;
  const genFnName = genFn.displayName || genFn.name;
 
- // Per-step wrappers carry only flag options; the signal/ref live on `coroutinePromise`.
+ // Per-step wrappers carry only flag options; the signal lives on `coroutinePromise`.
  // Computed once here, not per yielded step (options never change across a coroutine's life).
  const stepOptions = extractFlagOptions(options);
  // When no flag options are set, a yielded value that is already a same-constructor
