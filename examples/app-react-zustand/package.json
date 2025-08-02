@@ -1,0 +1,36 @@
+{
+ "name": "app-react-zustand",
+ "version": "0.0.0",
+ "private": true,
+ "description": "Media library browser backed by a zustand store: switching albums cancels the previous track load.",
+ "scripts": {
+ "dev:vanilla": "vite --config vite.config.ts --mode vanilla",
+ "dev:canc": "vite --config vite.config.ts --mode canc",
+ "start:vanilla": "vite build --config vite.config.ts --mode vanilla && vite preview --config vite.config.ts --mode vanilla",
+ "start:canc": "vite build --config vite.config.ts --mode canc && vite preview --config vite.config.ts --mode canc",
+ "test": "jest --colors",
+ "typecheck": "tsc --noEmit --project tsconfig.json"
+ },
+ "dependencies": {
+ "@shared/mock-api": "*",
+ "@cancjs/promise": "link:../../packages/canc-promise",
+ "react": "19.2.7",
+ "react-dom": "19.2.7",
+ "zustand": "5.0.14"
+ },
+ "devDependencies": {
+ "@testing-library/dom": "10.4.1",
+ "@testing-library/jest-dom": "6.9.1",
+ "@testing-library/react": "16.3.2",
+ "@types/jest": "30.0.0",
+ "@types/node": "20.12.12",
+ "@types/react": "19.2.17",
+ "@types/react-dom": "19.2.3",
+ "@vitejs/plugin-react": "6.0.3",
+ "jest": "30.4.2",
+ "jest-environment-jsdom": "30.4.1",
+ "ts-jest": "29.4.11",
+ "typescript": "5.9.3",
+ "vite": "8.1.5"
+ }
+}
