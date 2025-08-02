@@ -26,6 +26,18 @@ export {
 
 export { IToolboxOptions, THandleCancel, TToolboxExecutor } from './options';
 
+export { cancelify, cancelifyFactory, ICancelifyOptions, TCancelifyFn } from './signal-thread';
+
+export {
+	promisify,
+	promisifyFactory,
+	promisifyAll,
+	promisifyAllFactory,
+	IPromisifyOptions,
+	IPromisifyAllOptions,
+	TCallbackFn,
+} from './promisify';
+
 /**
  * A defer whose promise is always a CancelablePromise, regardless of the registered implementation.
  * Canc-only: the native twin has no cancelable defer to expose, so this export is excluded there.
