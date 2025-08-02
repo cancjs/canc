@@ -1,0 +1,17 @@
+{
+ "compilerOptions": {
+ "target": "es2020",
+ "module": "nodenext",
+ "moduleResolution": "nodenext",
+ "lib": ["es2022", "dom", "dom.iterable"],
+ "types": ["node"],
+ "strict": true,
+ "esModuleInterop": true,
+ "skipLibCheck": true,
+ "noEmit": true,
+ "experimentalDecorators": true,
+ "emitDecoratorMetadata": true,
+ "useDefineForClassFields": false
+ },
+ "include": ["store-legacy.ts", "boot-legacy.ts"]
+}
