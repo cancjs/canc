@@ -9,6 +9,7 @@ import { timeoutFactory } from './timeout';
 import { waitForFactory } from './wait-for';
 import { minDelayFactory } from './min-delay';
 import { retryFactory } from './retry';
+import { promisifyFactory, promisifyAllFactory } from './promisify';
 
 const NativePromise = Promise as unknown as PromiseImpl;
 
@@ -18,5 +19,10 @@ export const timeout = timeoutFactory(NativePromise);
 export const waitFor = waitForFactory(NativePromise);
 export const minDelay = minDelayFactory(NativePromise);
 export const retry = retryFactory(NativePromise);
+
+// Native twins: a native Promise cannot be canceled, so the short-circuit cancel path is an inert
+// detach only and the handleCancel/signal-injection hooks never fire.
+export const promisify = promisifyFactory(NativePromise);
+export const promisifyAll = promisifyAllFactory(NativePromise);
 
 export { TimeoutError, isTimeoutError } from './timeout';
