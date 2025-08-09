@@ -1,0 +1,12 @@
+{
+ "extends": "../tsconfig.examples.json",
+ "compilerOptions": {
+ "experimentalDecorators": true,
+ "useDefineForClassFields": false,
+ "emitDecoratorMetadata": true,
+ "lib": ["es2022", "dom", "dom.iterable"],
+ "types": ["node", "jest"],
+ "skipLibCheck": true
+ },
+ "include": ["src/**/*.ts"]
+}

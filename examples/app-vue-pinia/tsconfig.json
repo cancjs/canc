@@ -1,0 +1,13 @@
+{
+ "extends": "../tsconfig.examples.json",
+ "compilerOptions": {
+ "jsx": "preserve",
+ "lib": ["es2022", "dom", "dom.iterable"],
+ "baseUrl": ".",
+ "paths": {
+ "@/stores/checkout": ["./src/stores/checkout-canc.ts"],
+ "@/*": ["./src/*"]
+ }
+ },
+ "include": ["src/**/*.ts", "src/**/*.vue", "test/**/*.ts"]
+}

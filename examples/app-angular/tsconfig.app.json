@@ -1,0 +1,10 @@
+{
+ "extends": "./tsconfig.json",
+ "compilerOptions": {
+ "outDir": "./dist/out-tsc",
+ "types": []
+ },
+ "files": ["src/main-canc.ts", "src/main-vanilla.ts"],
+ "include": ["src/**/*.ts"],
+ "exclude": ["src/**/*.spec.ts"]
+}
