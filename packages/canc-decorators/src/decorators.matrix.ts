@@ -101,16 +101,16 @@ export function runStage3Matrix({
  expect(result).toBe(99);
  });
 
- it('getter is memoized per instance (called once)', () => {
+ it('getter returning a coroutine is memoized per instance (called once)', () => {
  let callCount = 0;
 
  class C {
  @AsyncMethod()
  get method() {
  callCount++;
- return function* () {
- yield Promise.resolve(5);
- };
+ return cancAsync(function* (): Generator<any, any, any> {
+ return yield Promise.resolve(5);
+ });
  }
  }
 
@@ -801,32 +801,18 @@ export function runStage3Matrix({
  // per instance, and for bind:true binds it to the instance so a detached call keeps `this`.
 
  describe('decorators (ES stage-3) — getter returns a coroutine', () => {
- it('memoizes the returned coroutine once per instance', () => {
- let calls = 0;
+ // Sentinel returned when the coroutine runs with no bound/call-site `this` (an unbound detached
+ // call under bind:false — the documented unsafe edge).
+ const SENTINEL = -1;
 
- class C {
- @AsyncMethod()
- get run() {
- calls++;
- return cancAsync(function* (): Generator<any, any, any> {
- return yield Promise.resolve(1);
- });
- }
+ // Shared coroutine body: reports the instance id, or the sentinel when `this` is missing.
+ function* idBody(this: { id: number } | undefined): Generator<any, any, any> {
+ return yield Promise.resolve(this ? this.id : SENTINEL);
  }
 
- const inst1 = new C();
- const inst2 = new C();
-
- const first = inst1.run;
- const second = inst1.run;
-
- expect(calls).toBe(1);
- expect(first).toBe(second);
- expect(inst2.run).not.toBe(first);
- expect(calls).toBe(2);
- });
-
- it('resolves and is a cancelable promise; passing this keeps a detached call correct', async () => {
+ // Case 1: @AsyncMethod() get m() { return cancAsync(fn, this) }
+ // inst.m() resolves; a detached call still resolves because `, this` bound the coroutine.
+ it('AsyncMethod with `, this` — call and detached call both resolve the instance id', async () => {
  class C {
  id: number;
 
@@ -836,9 +822,7 @@ export function runStage3Matrix({
 
  @AsyncMethod()
  get run() {
- return cancAsync(function* (this: C): Generator<any, any, any> {
- return yield Promise.resolve(this.id);
- }, this);
+ return cancAsync(idBody, this);
  }
  }
 
@@ -848,12 +832,131 @@ export function runStage3Matrix({
  expect(typeof (promise as any).cancel).toBe('function');
  expect(await promise).toBe(7);
 
- // Detached: `, this` bound the coroutine, so `this.id` still resolves.
  const detached = inst.run;
-
  expect(await detached()).toBe(7);
  });
 
+ // Case 2: memoized once per instance; same identity across accesses; distinct per instance;
+ // each instance resolves its own id.
+ it('memoizes the returned coroutine once per instance, isolated across instances', async () => {
+ let calls = 0;
+
+ class C {
+ id: number;
+
+ constructor(id: number) {
+ this.id = id;
+ }
+
+ @AsyncMethod()
+ get run() {
+ calls++;
+ return cancAsync(idBody, this);
+ }
+ }
+
+ const inst1 = new C(11);
+ const inst2 = new C(22);
+
+ const first = inst1.run;
+ const second = inst1.run;
+
+ expect(calls).toBe(1);
+ expect(first).toBe(second);
+
+ const other = inst2.run;
+ expect(calls).toBe(2);
+ expect(other).not.toBe(first);
+
+ expect(await first()).toBe(11);
+ expect(await other()).toBe(22);
+ });
+
+ // Case 3: @AsyncMethod() get m() { return cancAsync(fn) } (omit `, this`).
+ // A normal call carries call-site `this`; a detached call loses it (documented unsafe edge).
+ it('AsyncMethod without `, this` — call-site this works, detached call loses this', async () => {
+ class C {
+ id: number;
+
+ constructor(id: number) {
+ this.id = id;
+ }
+
+ @AsyncMethod()
+ get run() {
+ return cancAsync(idBody);
+ }
+ }
+
+ const inst = new C(9);
+
+ expect(await inst.run()).toBe(9);
+
+ // Detached: no bound this, so the coroutine sees `this === undefined` and returns the sentinel.
+ const detached = inst.run;
+ expect(await detached()).toBe(SENTINEL);
+ });
+
+ // Case 4: @BindMethod() get m() { return cancAsync(fn) } (omit `, this`).
+ // The decorator binds the coroutine to the instance, so a detached call keeps this.
+ it('BindMethod without `, this` — decorator binds, detached call resolves the instance id', async () => {
+ class C {
+ id: number;
+
+ constructor(id: number) {
+ this.id = id;
+ }
+
+ @BindMethod()
+ get run() {
+ return cancAsync(idBody);
+ }
+ }
+
+ const inst = new C(3);
+ const detached = inst.run;
+
+ expect(await detached()).toBe(3);
+ });
+
+ // Case 5: @BindMethod() get m() { return cancAsync(fn, this) }.
+ // The `.bind` is a no-op over an already-bound coroutine; detached call still resolves.
+ it('BindMethod with `, this` — bind is a no-op, detached call still resolves the instance id', async () => {
+ class C {
+ id: number;
+
+ constructor(id: number) {
+ this.id = id;
+ }
+
+ @BindMethod()
+ get run() {
+ return cancAsync(idBody, this);
+ }
+ }
+
+ const inst = new C(5);
+ const detached = inst.run;
+
+ expect(await detached()).toBe(5);
+ });
+
+ // Case 6: a non-function getter result is rejected.
+ it('throws a TypeError when the getter result is not a function', () => {
+ expect(() => {
+ class C {
+ @AsyncMethod()
+ get run() {
+ return 42 as any;
+ }
+ }
+
+ new C().run;
+ }).toThrow(TypeError);
+ });
+
+ // Case 7: cancellation. inst.m() is a CancelablePromise; cancel surfaces a CancelError through
+ // try/catch; canceling inst1's call leaves inst2's independent call untouched.
  it('cancel surfaces a CancelError and does not disturb another instance', async () => {
  class C {
  @AsyncMethod()
@@ -870,6 +973,8 @@ export function runStage3Matrix({
  const pending1 = inst1.run();
  const pending2 = inst2.run();
 
+ expect(typeof (pending1 as any).cancel).toBe('function');
+
  (pending1 as any).cancel();
 
  let caught: unknown;
@@ -881,47 +986,22 @@ export function runStage3Matrix({
 
  expect(isCancelError(caught)).toBe(true);
 
- const resolved = inst2.run();
+ // inst2's call is still pending (not disturbed by inst1's cancel); resolve it deterministically.
+ let disturbed: unknown;
+ const race = Promise.race([
+ pending2.then(() => 'settled', (error: unknown) => { disturbed = error; return 'rejected'; }),
+ delay(20).then(() => 'pending'),
+ ]);
+
+ expect(await race).toBe('pending');
+ expect(disturbed).toBeUndefined();
+
  (pending2 as any).cancel();
- (resolved as any).cancel();
-
- // inst2's fresh call is independent of inst1's canceled one.
- expect(typeof (resolved as any).cancel).toBe('function');
- });
-
- it('bind:true binds the returned coroutine so a detached call keeps this', async () => {
- class C {
- id: number;
-
- constructor(id: number) {
- this.id = id;
+ try {
+ await pending2;
+ } catch {
+ // canceled on purpose to avoid an unhandled rejection.
  }
-
- @BindMethod()
- get run() {
- return cancAsync(function* (this: C): Generator<any, any, any> {
- return yield Promise.resolve(this.id);
- });
- }
- }
-
- const inst = new C(3);
- const detached = inst.run;
-
- expect(await detached()).toBe(3);
- });
-
- it('throws a TypeError when the getter result is not a function', () => {
- expect(() => {
- class C {
- @AsyncMethod()
- get run() {
- return 42 as any;
- }
- }
-
- new C().run;
- }).toThrow(TypeError);
  });
  });
 }
