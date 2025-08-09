@@ -1,4 +1,4 @@
-import { cancAsync, cancAwait } from '@cancjs/coroutine';
+import { cancAsync, cancAwait, AsyncResult } from '@cancjs/coroutine';
 import { findRooms, loadRates, aggregateOccupancy } from './mock/db';
 import { AvailabilityResult } from './availability';
 
@@ -10,7 +10,7 @@ import { AvailabilityResult } from './availability';
 export const searchAvailability = cancAsync(function* (
  hotelId: string,
  date: string
-): Generator<unknown, AvailabilityResult, any> {
+): AsyncResult<AvailabilityResult> {
  const rooms = yield* cancAwait(findRooms(hotelId, date));
  const roomIds = rooms.map((r: { _id: string }) => r._id);
 
