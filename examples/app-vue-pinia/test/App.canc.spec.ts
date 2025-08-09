@@ -1,0 +1,55 @@
+import { render, screen, waitFor, fireEvent } from '@testing-library/vue';
+import { createPinia } from 'pinia';
+import App from '../src/App.vue';
+import { createCheckoutRouter } from '../src/router';
+import { useCheckoutStore } from '../src/stores/checkout-canc';
+import { mockCalls } from '../src/mock/checkout-api';
+
+describe('app-vue-pinia canc', () => {
+ beforeEach(() => {
+ mockCalls.length = 0;
+ });
+
+ async function mountApp() {
+ const pinia = createPinia();
+ const router = createCheckoutRouter(true);
+ router.push('/address');
+ await router.isReady();
+ render(App, { global: { plugins: [pinia, router] } });
+ return { pinia, router };
+ }
+
+ it('advancing address -> shipping fast cancels the abandoned validate call', async () => {
+ const { router } = await mountApp();
+
+ await fireEvent.update(screen.getByTestId('line1'), '1 Infinite Loop');
+ await fireEvent.click(screen.getByTestId('validate-address'));
+ // navigate away before the mock validate call (80ms+jitter) settles
+ await router.push('/shipping');
+
+ await waitFor(() => {
+ const calls = mockCalls.filter((call) => call.endpoint === 'checkout.validateAddress');
+ expect(calls.some((call) => call.status === 'aborted')).toBe(true);
+ });
+
+ const store = useCheckoutStore();
+ // the aborted run never lands: no address-error state, and status was reset by the step move
+ expect(store.address).toBeNull();
+ });
+
+ it('back-navigation cancels the outstanding shipping quote', async () => {
+ const { router } = await mountApp();
+ const store = useCheckoutStore();
+ store.address = { addressId: 'addr-1', line1: '1 Infinite Loop', city: 'Cupertino' };
+ await router.push('/shipping');
+
+ await fireEvent.click(screen.getByTestId('quote-shipping'));
+ await router.push('/address');
+
+ await waitFor(() => {
+ const calls = mockCalls.filter((call) => call.endpoint === 'checkout.quoteShipping');
+ expect(calls.some((call) => call.status === 'aborted')).toBe(true);
+ });
+ expect(store.shipping).toBeNull();
+ });
+});
