@@ -12,13 +12,17 @@ import { IssueClient as BabelLegacyClient } from './babel-legacy/issue-client.js
 
 type ClientCtor = new (api: MockApiBundle) => IssueClientShape;
 
-// A decorated method keeps its generator return type statically (a decorator cannot rewrite the
-// declared signature), so the classes do not structurally match ClientCtor; cast through unknown.
+// manual has no decorator, so its fields keep their own declared Promise-returning type and
+// satisfy ClientCtor with no cast. stage3 and ts-legacy decorate the getters: a stage-3 decorator
+// with a non-void return type redefines the decorated member's type to the decorator's own
+// declared return (AsyncMethod/BindMethod return `any`), so the class no longer structurally
+// matches ClientCtor from the outside even though every call site still gets a real
+// CancelablePromise at runtime. babel-legacy is untyped JS (see the import above).
 const flavors: Array<[string, ClientCtor]> = [
  ['stage3', Stage3Client as unknown as ClientCtor],
  ['ts-legacy', TsLegacyClient as unknown as ClientCtor],
  ['babel-legacy', BabelLegacyClient as unknown as ClientCtor],
- ['manual', ManualClient as unknown as ClientCtor],
+ ['manual', ManualClient],
 ];
 
 describe('demo-decorators: every flavor runs the same scenario', () => {

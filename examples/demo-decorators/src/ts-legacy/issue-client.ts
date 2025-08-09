@@ -4,12 +4,14 @@
 // // importing the wrong flavor throws: "This decorator is for TS legacy decorators
 // // ('experimentalDecorators: true') only... Import from '@cancjs/decorators' for stage-3."
 //
-// Same IssueClient shape as every other flavor; only the wiring differs. A decorator cannot rewrite
-// the declared method type, so the generator methods stay typed as generators (not Promise); the
-// class satisfies IssueClientShape structurally at the call sites, not via `implements`.
+// Getter style: the getter returns a ready coroutine (`cancAsync(fn, this)`); the decorator only
+// memoizes it (and binds, for LegacyBindMethod). Each coroutine body is a named function with an
+// explicit AsyncResult<T> return type, so TypeScript infers the getter's return type without a
+// class-internal circular lookup; the class then satisfies IssueClientShape structurally, no cast
+// anywhere.
 
 import { LegacyAsyncMethod, LegacyBindMethod } from '@cancjs/decorators';
-import { await as cancAwait } from '@cancjs/coroutine';
+import { async as cancAsync, await as cancAwait, AsyncResult } from '@cancjs/coroutine';
 import CancelablePromise from '@cancjs/promise';
 import type { CommentAck, Issue, MockApiBundle } from '../issue-types.js';
 
@@ -23,29 +25,45 @@ function abortable<T>(run: (signal: AbortSignal) => Promise<T>): CancelablePromi
  });
 }
 
-export class IssueClient {
- constructor(private readonly api: MockApiBundle) {}
-
- // Proto-level (default, bind:false): `this` flows from the call site.
- @LegacyAsyncMethod()
- *searchIssues(query: string): Generator<unknown, Issue[]> {
+function* searchIssuesBody(this: IssueClient, query: string): AsyncResult<Issue[]> {
  const issues = yield* cancAwait(abortable((signal) => this.api.issues.list(signal)));
  return issues.filter((issue) => issue.title.toLowerCase().includes(query.toLowerCase()));
- }
+}
 
- // Per-instance (bind:true): safe to detach and pass as a handler.
- @LegacyBindMethod()
- *loadIssue(id: number): Generator<unknown, Issue> {
+function* loadIssueBody(this: IssueClient, id: number): AsyncResult<Issue> {
  const issues = yield* cancAwait(abortable((signal) => this.api.issues.list(signal)));
  const found = issues.find((issue) => issue.id === id);
  if (!found) throw new Error(`no issue ${id}`);
  return found;
+}
+
+// saveComment reads the issue back and echoes the comment (mock API has no write endpoint). A
+// decorated accessor's type, seen from outside its own getter body, does not carry the getter's
+// inferred return type, so this one internal call needs a type argument; nothing outside this
+// module (the class consumers in main.ts, scenario.ts, issue-client.spec.ts) needs a cast.
+function* saveCommentBody(this: IssueClient, id: number, comment: string): AsyncResult<CommentAck> {
+ const issue = yield* cancAwait(this.loadIssue(id) as Promise<Issue>);
+ return { issueId: id, comment, issueTitle: issue.title };
+}
+
+export class IssueClient {
+ // Not private: the coroutine bodies live outside the class (named functions, for clean type
+ // inference on the getters below) and need to read it via `this.api`.
+ constructor(readonly api: MockApiBundle) {}
+
+ // Proto-level (default, bind:false): `, this` binds the coroutine itself, so `this` is safe even
+ // detached; the getter runs once and its result is memoized on the instance.
+ @LegacyAsyncMethod() get searchIssues() {
+ return cancAsync(searchIssuesBody, this);
  }
 
- // saveComment reads the issue back and echoes the comment (mock API has no write endpoint).
- @LegacyAsyncMethod()
- *saveComment(id: number, comment: string): Generator<unknown, CommentAck> {
- const issue = yield* cancAwait(this.loadIssue(id) as unknown as Promise<Issue>);
- return { issueId: id, comment, issueTitle: issue.title };
+ // Per-instance (bind:true): the decorator also binds, so detaching and passing it as a handler
+ // is safe even without `, this` on the coroutine.
+ @LegacyBindMethod() get loadIssue() {
+ return cancAsync(loadIssueBody, this);
+ }
+
+ @LegacyAsyncMethod() get saveComment() {
+ return cancAsync(saveCommentBody, this);
  }
 }
