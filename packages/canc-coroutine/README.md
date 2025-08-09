@@ -14,6 +14,15 @@ rejection/cancellation.
 
 ## Features
 
+- `AsyncResult<T>`: a type alias for annotating a coroutine body's return type, in place of
+ writing out `Generator<unknown, T, any>` on every generator function:
+
+ ```ts
+ function* load(url: string): AsyncResult<Data> {
+ return yield* cancAwait(fetch(url));
+ }
+ ```
+
 ## Getting Started
 
 ### Installation
