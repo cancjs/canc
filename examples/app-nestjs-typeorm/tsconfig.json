@@ -1,0 +1,12 @@
+{
+ "extends": "../tsconfig.examples.json",
+ "compilerOptions": {
+ "module": "commonjs",
+ "moduleResolution": "node",
+ "experimentalDecorators": true,
+ "emitDecoratorMetadata": true,
+ "useDefineForClassFields": false,
+ "lib": ["es2022", "dom"]
+ },
+ "include": ["src/**/*.ts"]
+}
