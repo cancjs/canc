@@ -1,4 +1,6 @@
 import 'reflect-metadata';
+import { async as cancAsync } from '@cancjs/coroutine';
+import { isCancelError } from '@cancjs/promise';
 import { BabelLegacyAsyncMethod, BabelLegacyBindMethod } from './decorators-babel-legacy';
 import { AsyncMethod } from './decorators';
 
@@ -706,6 +708,261 @@ describe('decorators (babel legacy) — metadata preservation', () => {
 // ============================================================================
 // Flavor mismatch guard (wrong-shaped invocation)
 // ============================================================================
+
+// ============================================================================
+// Getter returns a coroutine (new semantics) — full this-matrix
+// ============================================================================
+//
+// The user builds the coroutine themselves with cancAsync inside the getter and returns it. The
+// decorator no longer wraps a bare generator function; it only memoizes the returned coroutine
+// per instance, and for bind:true binds it to the instance so a detached call keeps `this`.
+
+describe('decorators (babel-legacy) — getter returns a coroutine', () => {
+ // Sentinel returned when the coroutine runs with no bound/call-site `this` (an unbound detached
+ // call under bind:false — the documented unsafe edge).
+ const SENTINEL = -1;
+
+ // Shared coroutine body: reports the instance id, or the sentinel when `this` is missing.
+ function* idBody(this: { id: number } | undefined): Generator<any, any, any> {
+ return yield Promise.resolve(this ? this.id : SENTINEL);
+ }
+
+ // Case 1: BabelLegacyAsyncMethod on a getter returning cancAsync(fn, this).
+ // inst.m() resolves; a detached call still resolves because `, this` bound the coroutine.
+ it('BabelLegacyAsyncMethod with `, this` — call and detached call both resolve the instance id', async () => {
+ class C {
+ id: number;
+
+ constructor(id: number) {
+ this.id = id;
+ }
+ }
+
+ const descriptor: any = {
+ get(this: any) {
+ return cancAsync(idBody, this);
+ },
+ enumerable: false,
+ configurable: true,
+ };
+
+ BabelLegacyAsyncMethod(C.prototype, 'run', descriptor);
+ Object.defineProperty(C.prototype, 'run', descriptor);
+
+ const inst = new C(7) as any;
+ const promise = inst.run();
+
+ expect(typeof promise.cancel).toBe('function');
+ expect(await promise).toBe(7);
+
+ const detached = inst.run;
+ expect(await detached()).toBe(7);
+ });
+
+ // Case 2: memoized once per instance; same identity across accesses; distinct per instance;
+ // each instance resolves its own id.
+ it('memoizes the returned coroutine once per instance, isolated across instances', async () => {
+ let calls = 0;
+
+ class C {
+ id: number;
+
+ constructor(id: number) {
+ this.id = id;
+ }
+ }
+
+ const descriptor: any = {
+ get(this: any) {
+ calls++;
+ return cancAsync(idBody, this);
+ },
+ enumerable: false,
+ configurable: true,
+ };
+
+ BabelLegacyAsyncMethod(C.prototype, 'run', descriptor);
+ Object.defineProperty(C.prototype, 'run', descriptor);
+
+ const inst1 = new C(11) as any;
+ const inst2 = new C(22) as any;
+
+ const first = inst1.run;
+ const second = inst1.run;
+
+ expect(calls).toBe(1);
+ expect(first).toBe(second);
+
+ const other = inst2.run;
+ expect(calls).toBe(2);
+ expect(other).not.toBe(first);
+
+ expect(await first()).toBe(11);
+ expect(await other()).toBe(22);
+ });
+
+ // Case 3: BabelLegacyAsyncMethod on a getter returning cancAsync(fn) (omit `, this`).
+ // A normal call carries call-site `this`; a detached call loses it (documented unsafe edge).
+ it('BabelLegacyAsyncMethod without `, this` — call-site this works, detached call loses this', async () => {
+ class C {
+ id: number;
+
+ constructor(id: number) {
+ this.id = id;
+ }
+ }
+
+ const descriptor: any = {
+ get() {
+ return cancAsync(idBody);
+ },
+ enumerable: false,
+ configurable: true,
+ };
+
+ BabelLegacyAsyncMethod(C.prototype, 'run', descriptor);
+ Object.defineProperty(C.prototype, 'run', descriptor);
+
+ const inst = new C(9) as any;
+
+ expect(await inst.run()).toBe(9);
+
+ // Detached: no bound this, so the coroutine sees `this === undefined` and returns the sentinel.
+ const detached = inst.run;
+ expect(await detached()).toBe(SENTINEL);
+ });
+
+ // Case 4: BabelLegacyBindMethod on a getter returning cancAsync(fn) (omit `, this`).
+ // The decorator binds the coroutine to the instance, so a detached call keeps this.
+ it('BabelLegacyBindMethod without `, this` — decorator binds, detached call resolves the instance id', async () => {
+ class C {
+ id: number;
+
+ constructor(id: number) {
+ this.id = id;
+ }
+ }
+
+ const descriptor: any = {
+ get() {
+ return cancAsync(idBody);
+ },
+ enumerable: false,
+ configurable: true,
+ };
+
+ BabelLegacyBindMethod(C.prototype, 'run', descriptor);
+ Object.defineProperty(C.prototype, 'run', descriptor);
+
+ const inst = new C(3) as any;
+ const detached = inst.run;
+
+ expect(await detached()).toBe(3);
+ });
+
+ // Case 5: BabelLegacyBindMethod on a getter returning cancAsync(fn, this).
+ // The `.bind` is a no-op over an already-bound coroutine; detached call still resolves.
+ it('BabelLegacyBindMethod with `, this` — bind is a no-op, detached call still resolves the instance id', async () => {
+ class C {
+ id: number;
+
+ constructor(id: number) {
+ this.id = id;
+ }
+ }
+
+ const descriptor: any = {
+ get(this: any) {
+ return cancAsync(idBody, this);
+ },
+ enumerable: false,
+ configurable: true,
+ };
+
+ BabelLegacyBindMethod(C.prototype, 'run', descriptor);
+ Object.defineProperty(C.prototype, 'run', descriptor);
+
+ const inst = new C(5) as any;
+ const detached = inst.run;
+
+ expect(await detached()).toBe(5);
+ });
+
+ // Case 6: a non-function getter result is rejected.
+ it('throws a TypeError when the getter result is not a function', () => {
+ expect(() => {
+ class C {}
+
+ const descriptor: any = {
+ get() {
+ return 42;
+ },
+ enumerable: false,
+ configurable: true,
+ };
+
+ BabelLegacyAsyncMethod(C.prototype, 'run', descriptor);
+ Object.defineProperty(C.prototype, 'run', descriptor);
+
+ (new C() as any).run;
+ }).toThrow(TypeError);
+ });
+
+ // Case 7: cancellation. inst.m() is a CancelablePromise; cancel surfaces a CancelError through
+ // try/catch; canceling inst1's call leaves inst2's independent call untouched.
+ it('cancel surfaces a CancelError and does not disturb another instance', async () => {
+ class C {}
+
+ const descriptor: any = {
+ get() {
+ return cancAsync(function* (): Generator<any, any, any> {
+ return yield new Promise(() => {});
+ });
+ },
+ enumerable: false,
+ configurable: true,
+ };
+
+ BabelLegacyAsyncMethod(C.prototype, 'run', descriptor);
+ Object.defineProperty(C.prototype, 'run', descriptor);
+
+ const inst1 = new C() as any;
+ const inst2 = new C() as any;
+
+ const pending1 = inst1.run();
+ const pending2 = inst2.run();
+
+ expect(typeof pending1.cancel).toBe('function');
+
+ pending1.cancel();
+
+ let caught: unknown;
+ try {
+ await pending1;
+ } catch (error) {
+ caught = error;
+ }
+
+ expect(isCancelError(caught)).toBe(true);
+
+ // inst2's call is still pending (not disturbed by inst1's cancel); resolve it deterministically.
+ let disturbed: unknown;
+ const race = Promise.race([
+ pending2.then(() => 'settled', (error: unknown) => { disturbed = error; return 'rejected'; }),
+ delay(20).then(() => 'pending'),
+ ]);
+
+ expect(await race).toBe('pending');
+ expect(disturbed).toBeUndefined();
+
+ pending2.cancel();
+ try {
+ await pending2;
+ } catch {
+ // canceled on purpose to avoid an unhandled rejection.
+ }
+ });
+});
 
 describe('decorators (babel legacy) — flavor mismatch guard', () => {
  it('BabelLegacyAsyncMethod rejects stage-3 call shape (value, context)', () => {

@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { async as cancAsync } from '@cancjs/coroutine';
+import { isCancelError } from '@cancjs/promise';
 import { LegacyAsyncMethod, LegacyBindMethod } from './decorators-legacy';
 import { AsyncMethod } from './decorators';
 import { BabelLegacyAsyncMethod } from './decorators-babel-legacy';
@@ -621,6 +622,219 @@ describe('decorators (TS legacy) — metadata preservation', () => {
 // ============================================================================
 // Flavor mismatch guard (wrong-shaped invocation)
 // ============================================================================
+
+// ============================================================================
+// Getter returns a coroutine (new semantics) — full this-matrix
+// ============================================================================
+//
+// The user builds the coroutine themselves with cancAsync inside the getter and returns it. The
+// decorator no longer wraps a bare generator function; it only memoizes the returned coroutine
+// per instance, and for bind:true binds it to the instance so a detached call keeps `this`.
+
+describe('decorators (TS legacy) — getter returns a coroutine', () => {
+ // Sentinel returned when the coroutine runs with no bound/call-site `this` (an unbound detached
+ // call under bind:false — the documented unsafe edge).
+ const SENTINEL = -1;
+
+ // Shared coroutine body: reports the instance id, or the sentinel when `this` is missing.
+ function* idBody(this: { id: number } | undefined): Generator<any, any, any> {
+ return yield Promise.resolve(this ? this.id : SENTINEL);
+ }
+
+ // Case 1: @LegacyAsyncMethod() get m() { return cancAsync(fn, this) }
+ // inst.m() resolves; a detached call still resolves because `, this` bound the coroutine.
+ it('LegacyAsyncMethod with `, this` — call and detached call both resolve the instance id', async () => {
+ class C {
+ id: number;
+
+ constructor(id: number) {
+ this.id = id;
+ }
+
+ @LegacyAsyncMethod()
+ get run() {
+ return cancAsync(idBody, this);
+ }
+ }
+
+ const inst = new C(7);
+ const promise = inst.run();
+
+ expect(typeof (promise as any).cancel).toBe('function');
+ expect(await promise).toBe(7);
+
+ const detached = inst.run;
+ expect(await detached()).toBe(7);
+ });
+
+ // Case 2: memoized once per instance; same identity across accesses; distinct per instance;
+ // each instance resolves its own id.
+ it('memoizes the returned coroutine once per instance, isolated across instances', async () => {
+ let calls = 0;
+
+ class C {
+ id: number;
+
+ constructor(id: number) {
+ this.id = id;
+ }
+
+ @LegacyAsyncMethod()
+ get run() {
+ calls++;
+ return cancAsync(idBody, this);
+ }
+ }
+
+ const inst1 = new C(11);
+ const inst2 = new C(22);
+
+ const first = inst1.run;
+ const second = inst1.run;
+
+ expect(calls).toBe(1);
+ expect(first).toBe(second);
+
+ const other = inst2.run;
+ expect(calls).toBe(2);
+ expect(other).not.toBe(first);
+
+ expect(await first()).toBe(11);
+ expect(await other()).toBe(22);
+ });
+
+ // Case 3: @LegacyAsyncMethod() get m() { return cancAsync(fn) } (omit `, this`).
+ // A normal call carries call-site `this`; a detached call loses it (documented unsafe edge).
+ it('LegacyAsyncMethod without `, this` — call-site this works, detached call loses this', async () => {
+ class C {
+ id: number;
+
+ constructor(id: number) {
+ this.id = id;
+ }
+
+ @LegacyAsyncMethod()
+ get run() {
+ return cancAsync(idBody);
+ }
+ }
+
+ const inst = new C(9);
+
+ expect(await inst.run()).toBe(9);
+
+ // Detached: no bound this, so the coroutine sees `this === undefined` and returns the sentinel.
+ const detached = inst.run;
+ expect(await detached()).toBe(SENTINEL);
+ });
+
+ // Case 4: @LegacyBindMethod() get m() { return cancAsync(fn) } (omit `, this`).
+ // The decorator binds the coroutine to the instance, so a detached call keeps this.
+ it('LegacyBindMethod without `, this` — decorator binds, detached call resolves the instance id', async () => {
+ class C {
+ id: number;
+
+ constructor(id: number) {
+ this.id = id;
+ }
+
+ @LegacyBindMethod()
+ get run() {
+ return cancAsync(idBody);
+ }
+ }
+
+ const inst = new C(3);
+ const detached = inst.run;
+
+ expect(await detached()).toBe(3);
+ });
+
+ // Case 5: @LegacyBindMethod() get m() { return cancAsync(fn, this) }.
+ // The `.bind` is a no-op over an already-bound coroutine; detached call still resolves.
+ it('LegacyBindMethod with `, this` — bind is a no-op, detached call still resolves the instance id', async () => {
+ class C {
+ id: number;
+
+ constructor(id: number) {
+ this.id = id;
+ }
+
+ @LegacyBindMethod()
+ get run() {
+ return cancAsync(idBody, this);
+ }
+ }
+
+ const inst = new C(5);
+ const detached = inst.run;
+
+ expect(await detached()).toBe(5);
+ });
+
+ // Case 6: a non-function getter result is rejected.
+ it('throws a TypeError when the getter result is not a function', () => {
+ expect(() => {
+ class C {
+ @LegacyAsyncMethod()
+ get run() {
+ return 42 as any;
+ }
+ }
+
+ new C().run;
+ }).toThrow(TypeError);
+ });
+
+ // Case 7: cancellation. inst.m() is a CancelablePromise; cancel surfaces a CancelError through
+ // try/catch; canceling inst1's call leaves inst2's independent call untouched.
+ it('cancel surfaces a CancelError and does not disturb another instance', async () => {
+ class C {
+ @LegacyAsyncMethod()
+ get run() {
+ return cancAsync(function* (): Generator<any, any, any> {
+ return yield new Promise(() => {});
+ });
+ }
+ }
+
+ const inst1 = new C();
+ const inst2 = new C();
+
+ const pending1 = inst1.run();
+ const pending2 = inst2.run();
+
+ expect(typeof (pending1 as any).cancel).toBe('function');
+
+ (pending1 as any).cancel();
+
+ let caught: unknown;
+ try {
+ await pending1;
+ } catch (error) {
+ caught = error;
+ }
+
+ expect(isCancelError(caught)).toBe(true);
+
+ // inst2's call is still pending (not disturbed by inst1's cancel); resolve it deterministically.
+ let disturbed: unknown;
+ const race = Promise.race([
+ pending2.then(() => 'settled', (error: unknown) => { disturbed = error; return 'rejected'; }),
+ delay(20).then(() => 'pending'),
+ ]);
+
+ expect(await race).toBe('pending');
+ expect(disturbed).toBeUndefined();
+
+ (pending2 as any).cancel();
+ try {
+ await pending2;
+ } catch {
+ // canceled on purpose to avoid an unhandled rejection.
+ }
+ });
+});
 
 describe('decorators (TS legacy) — flavor mismatch guard', () => {
  it('LegacyAsyncMethod rejects stage-3 call shape (value, context)', () => {
