@@ -24,12 +24,12 @@ function toCancelError(reason?: any): CancelError {
 }
 
 /**
- * Build an outbound cancel-signal off a promise node's `handleCancel`. The underlying controller is
- * not constructed until the returned signal is first USED (any property access), so a callback that
- * ignores the signal costs nothing (no controller, no listener). On first use the injected
- * `AbortController` ctor (or the ambient global, read at that moment, never at module load) builds a
- * controller and a single cancel handler is wired to abort it with a branded CancelError. Every
- * access thereafter forwards to the same real signal.
+ * Build an outbound cancel-signal off a promise node's `handleCancel`. A single controller is
+ * constructed via the injected `AbortController` ctor (or the ambient global, read at call time,
+ * never at module load), and one cancel handler is wired to abort it with a branded CancelError, so
+ * an aborted signal reads as a genuine cancellation. The real `signal` is returned directly, so the
+ * value handed to the callback is a plain AbortSignal (no Proxy — keeps the helper usable on ES5 /
+ * low-end engines where Proxy cannot be polyfilled).
  *
  * When `handleCancel` is undefined (a native, non-cancelable implementation) `signal` is `undefined`,
  * so callbacks can detect the no-cancel case with `signal === undefined`. Cleanup needs nothing here:
@@ -44,56 +44,16 @@ export function makeCancelSignal(
 		return { signal: undefined };
 	}
 
-	let real: any;
+	const Ctor: AbortControllerCtor = AbortControllerCtor || (AbortController as unknown as AbortControllerCtor);
+	const controller = new Ctor();
 
-	// Materialize the controller + wiring on first touch, then memoize. Kept off the hot path so a
-	// signal-ignoring callback never triggers it.
-	const materialize = (): any => {
-		if (real) {
-			return real;
-		}
+	// The core passes the raw cancel reason to this handler; brand it so signal.reason is a
+	// CancelError. The core removes this single handler on settle.
+	(handleCancel as unknown as (onCancel: (reason?: any) => void) => void)((reason?: any) => {
+		controller.abort(toCancelError(reason));
+	});
 
-		const Ctor: AbortControllerCtor = AbortControllerCtor || (AbortController as unknown as AbortControllerCtor);
-		const controller = new Ctor();
-		real = controller.signal;
-
-		// The core passes the raw cancel reason to this handler; brand it so signal.reason is a
-		// CancelError. The core removes this single handler on settle.
-		(handleCancel as unknown as (onCancel: (reason?: any) => void) => void)((reason?: any) => {
-			controller.abort(toCancelError(reason));
-		});
-
-		return real;
-	};
-
-	// A Proxy stand-in so the signal can be handed to the callback eagerly (as the (signal, args)
-	// contract requires) while the controller is still built lazily: the first property read, write,
-	// or has-check forwards to the freshly materialized real signal. A callback that never touches
-	// the parameter leaves the controller unbuilt.
-	const signal = new Proxy(
-		{},
-		{
-			get(_target, prop) {
-				const target = materialize();
-				const value = target[prop];
-				// Bind methods (e.g. addEventListener) back to the real signal so a platform
-				// AbortSignal's illegal-invocation guard is satisfied.
-				return typeof value === 'function' ? value.bind(target) : value;
-			},
-			set(_target, prop, value) {
-				materialize()[prop] = value;
-				return true;
-			},
-			has(_target, prop) {
-				return prop in materialize();
-			},
-			getPrototypeOf() {
-				return Reflect.getPrototypeOf(materialize());
-			},
-		},
-	);
-
-	return { signal };
+	return { signal: controller.signal };
 }
 
 export interface ICancelifyOptions extends IToolboxOptions {
