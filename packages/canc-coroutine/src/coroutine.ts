@@ -3,6 +3,10 @@ import { isFunction, isObject } from '../../_util';
 
 export type TGeneratorLike<PYield = unknown, PReturn = any, PNext = unknown> = Omit<Generator<PYield, PReturn, PNext>, typeof Symbol.iterator>;
 
+// `PNext` is `any`: a coroutine body mixes bare `yield` (raw value in, no send type) with
+// `yield*` (typed send value from `cancAwait`), so no single `PNext` fits every yield in the body.
+export type AsyncResult<T = void> = Generator<unknown, T, any>;
+
 interface IFn extends Function {
  displayName?: string;
 }
