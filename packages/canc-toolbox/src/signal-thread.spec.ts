@@ -47,7 +47,7 @@ describe('makeCancelSignal', () => {
 		expect(makeCancelSignal(undefined).signal).toBeUndefined();
 	});
 
-	it('lazily materializes on first touch and forwards reads/writes/has to the real signal', () => {
+	it('constructs one controller, returns the real signal, and wires a single branded cancel handler', () => {
 		const { ctor } = makeSpyControllerCtor();
 		let registered: ((reason?: any) => void) | undefined;
 		const handleCancel = jest.fn((onCancel: (reason?: any) => void) => {
@@ -55,21 +55,15 @@ describe('makeCancelSignal', () => {
 		});
 
 		const holder = makeCancelSignal(handleCancel as any, ctor);
-		// Capturing the signal must not build a controller.
-		const signal = holder.signal;
-		expect(ctor).not.toHaveBeenCalled();
 
-		// First property read materializes the controller and wires a single cancel handler.
-		expect(signal.aborted).toBe(false);
+		// One controller built, one cancel handler registered — the returned value is the plain,
+		// real AbortSignal (no Proxy: ES5-safe).
 		expect(ctor).toHaveBeenCalledTimes(1);
 		expect(handleCancel).toHaveBeenCalledTimes(1);
 
-		// has + set traps forward to the real signal.
+		const signal = holder.signal;
+		expect(signal.aborted).toBe(false);
 		expect('aborted' in signal).toBe(true);
-		signal.custom = 7;
-		expect(signal.custom).toBe(7);
-		// getPrototypeOf trap.
-		expect(Object.getPrototypeOf(signal)).not.toBeNull();
 
 		// The wired handler brands the reason.
 		registered!('boom');
@@ -171,12 +165,12 @@ describe('cancelify', () => {
 		expect(isCancelError(reason)).toBe(true);
 	});
 
-	it('allocates NO controller when fn never reads the signal', async () => {
+	it('allocates one controller per call even when fn ignores the signal (eager, ES5-safe)', async () => {
 		const { ctor } = makeSpyControllerCtor();
 		const wrapped = cancelify(() => 'value', { AbortController: ctor });
 
 		await expect(wrapped()).resolves.toBe('value');
-		expect(ctor).not.toHaveBeenCalled();
+		expect(ctor).toHaveBeenCalledTimes(1);
 	});
 
 	it('rejects when fn rejects (reject passthrough)', async () => {
@@ -190,8 +184,7 @@ describe('cancelify', () => {
 		let sig: any;
 		const wrapped = cancelify(
 			(signal: any) => {
-				// Touch a property so the injected ctor is exercised (lazy: capture alone would not).
-				sig = signal.aborted === false ? signal : signal;
+				sig = signal;
 				return 'x';
 			},
 			{ AbortController: ctor },
