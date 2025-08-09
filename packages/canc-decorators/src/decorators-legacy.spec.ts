@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { async as cancAsync } from '@cancjs/coroutine';
 import { LegacyAsyncMethod, LegacyBindMethod } from './decorators-legacy';
 import { AsyncMethod } from './decorators';
 import { BabelLegacyAsyncMethod } from './decorators-babel-legacy';
@@ -151,17 +152,18 @@ describe('decorators (TS legacy) — LegacyAsyncMethod', () => {
  expect(result).toBe(42);
  });
 
- it('per-instance getter is bound at construction', async () => {
+ it('getter returns a coroutine memoized and bound per instance', async () => {
  class C {
  @LegacyAsyncMethod({ bind: true })
  get method() {
- return function* (this: any): Generator<any, any, any> {
+ return cancAsync(function* (this: any): Generator<any, any, any> {
  return yield Promise.resolve(this);
- };
+ });
  }
  }
 
  const inst = new C();
+ // Detached call: bind:true bound the coroutine to the instance, so `this` survives.
  const method = inst.method;
  const resultThis = await method();
 

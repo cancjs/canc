@@ -1,4 +1,6 @@
 import 'reflect-metadata';
+import { async as cancAsync } from '@cancjs/coroutine';
+import { isCancelError } from '@cancjs/promise';
 
 /**
  * ES / TC39 stage-3 decorators matrix, shared between the ts-jest lane (decorators.spec.ts,
@@ -186,17 +188,18 @@ export function runStage3Matrix({
  expect(result).toBe(42);
  });
 
- it('per-instance getter is bound at construction', async () => {
+ it('getter returns a coroutine memoized and bound per instance', async () => {
  class C {
  @AsyncMethod({ bind: true })
  get method() {
- return function* (this: any): Generator<any, any, any> {
+ return cancAsync(function* (this: any): Generator<any, any, any> {
  return yield Promise.resolve(this);
- };
+ });
  }
  }
 
  const inst = new C();
+ // Detached call: bind:true bound the coroutine to the instance, so `this` survives.
  const method = inst.method;
  const resultThis = await method();
 
@@ -786,6 +789,139 @@ export function runStage3Matrix({
 
  expect(message).toMatch(/class/);
  expect(message).toMatch(/method, field, getter/);
+ });
+ });
+
+ // ============================================================================
+ // Getter returns a coroutine (new semantics)
+ // ============================================================================
+ //
+ // The user builds the coroutine themselves with cancAsync inside the getter and returns it. The
+ // decorator no longer wraps a bare generator function; it only memoizes the returned coroutine
+ // per instance, and for bind:true binds it to the instance so a detached call keeps `this`.
+
+ describe('decorators (ES stage-3) — getter returns a coroutine', () => {
+ it('memoizes the returned coroutine once per instance', () => {
+ let calls = 0;
+
+ class C {
+ @AsyncMethod()
+ get run() {
+ calls++;
+ return cancAsync(function* (): Generator<any, any, any> {
+ return yield Promise.resolve(1);
+ });
+ }
+ }
+
+ const inst1 = new C();
+ const inst2 = new C();
+
+ const first = inst1.run;
+ const second = inst1.run;
+
+ expect(calls).toBe(1);
+ expect(first).toBe(second);
+ expect(inst2.run).not.toBe(first);
+ expect(calls).toBe(2);
+ });
+
+ it('resolves and is a cancelable promise; passing this keeps a detached call correct', async () => {
+ class C {
+ id: number;
+
+ constructor(id: number) {
+ this.id = id;
+ }
+
+ @AsyncMethod()
+ get run() {
+ return cancAsync(function* (this: C): Generator<any, any, any> {
+ return yield Promise.resolve(this.id);
+ }, this);
+ }
+ }
+
+ const inst = new C(7);
+ const promise = inst.run();
+
+ expect(typeof (promise as any).cancel).toBe('function');
+ expect(await promise).toBe(7);
+
+ // Detached: `, this` bound the coroutine, so `this.id` still resolves.
+ const detached = inst.run;
+
+ expect(await detached()).toBe(7);
+ });
+
+ it('cancel surfaces a CancelError and does not disturb another instance', async () => {
+ class C {
+ @AsyncMethod()
+ get run() {
+ return cancAsync(function* (): Generator<any, any, any> {
+ return yield new Promise(() => {});
+ });
+ }
+ }
+
+ const inst1 = new C();
+ const inst2 = new C();
+
+ const pending1 = inst1.run();
+ const pending2 = inst2.run();
+
+ (pending1 as any).cancel();
+
+ let caught: unknown;
+ try {
+ await pending1;
+ } catch (error) {
+ caught = error;
+ }
+
+ expect(isCancelError(caught)).toBe(true);
+
+ const resolved = inst2.run();
+ (pending2 as any).cancel();
+ (resolved as any).cancel();
+
+ // inst2's fresh call is independent of inst1's canceled one.
+ expect(typeof (resolved as any).cancel).toBe('function');
+ });
+
+ it('bind:true binds the returned coroutine so a detached call keeps this', async () => {
+ class C {
+ id: number;
+
+ constructor(id: number) {
+ this.id = id;
+ }
+
+ @BindMethod()
+ get run() {
+ return cancAsync(function* (this: C): Generator<any, any, any> {
+ return yield Promise.resolve(this.id);
+ });
+ }
+ }
+
+ const inst = new C(3);
+ const detached = inst.run;
+
+ expect(await detached()).toBe(3);
+ });
+
+ it('throws a TypeError when the getter result is not a function', () => {
+ expect(() => {
+ class C {
+ @AsyncMethod()
+ get run() {
+ return 42 as any;
+ }
+ }
+
+ new C().run;
+ }).toThrow(TypeError);
  });
  });
 }
