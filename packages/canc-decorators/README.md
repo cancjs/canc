@@ -32,6 +32,135 @@ yarn add @cancjs/decorators
 
 ### Usage
 
+`@AsyncMethod`/`@BindMethod` (and the `Legacy`/`BabelLegacy` counterparts for the other two
+decorator flavors) apply to three kinds of class members: methods, arrow-fn fields, and getters.
+Method and field decoration wraps a generator function with `cancAsync` for you. Getter decoration
+works differently and is the one to reach for in TypeScript (see below).
+
+## Two styles: method/field vs getter
+
+There are two ways to attach a coroutine to a class, and they are not interchangeable in
+TypeScript.
+
+**Method style** (`@AsyncMethod() *load() { ... }`) decorates a generator method directly. It is
+the shorter annotation, but a method decorator cannot change the declared type of the method it
+decorates: TypeScript still sees the method's return type as the generator, while at runtime
+`cancAsync` has replaced it with a function returning a `CancelablePromise`. Every call site sees
+the wrong type and needs a cast to use the real return value. This is a TypeScript limitation, not
+a bug in this package, and there is no decorator that fixes it. Use method style in plain JavaScript,
+where there is no static type to be wrong; do not use it in TypeScript.
+
+**Getter style** (`@AsyncMethod() get load() { return cancAsync(fn, this) }`) sidesteps the problem:
+a getter's return type is inferred from its body like any other function, so `cancAsync`'s return
+type flows through to the property. Calling `loader.load(url)` directly on the class gets the real,
+specific type (`CancelablePromise<Data>`), no cast.
+
+One boundary still needs a cast: a stage-3 (or legacy) decorator that returns a non-void value
+redefines the decorated member's declared type to the decorator's own return type, which is `any`
+here (a decorator cannot see into the specific getter it decorates). So if a decorated class needs
+to satisfy an independent, undecorated interface (a shared shape with plain `Promise`-returning
+methods, used to treat several implementations uniformly), TypeScript sees the class's own shape as
+`any` on that member and the assignment needs a cast at the class level, even though every call
+still runs the real coroutine and returns a real `CancelablePromise`. This is still a real
+improvement over method style, whose call sites are wrong unconditionally; getter style is correct
+everywhere except that one cross-interface boundary. The no-decorator forms below (constructor
+field / class field) do not have this gap either, since there is no decorator redeclaring the
+member's type.
+
+```ts
+// Getter style (TypeScript): correct type, no cast at the call site
+class Loader {
+ @AsyncMethod()
+ get load() {
+ return cancAsync(function* (this: Loader, url: string) {
+ const data = yield* cancAwait(fetch(url));
+ return data;
+ }, this);
+ }
+}
+
+const loader = new Loader();
+loader.load('/x'); // CancelablePromise<Data>, inferred
+
+// Method style (JavaScript only): type-unsafe if used in TypeScript
+class Loader {
+ @AsyncMethod()
+ *load(url) {
+ const data = yield* cancAwait(fetch(url));
+ return data;
+ }
+}
+```
+
+### Getter semantics
+
+The getter is expected to return an already-built coroutine (whatever `cancAsync(fn, ctx?)`
+returns), not a bare generator function. The decorator's job on a getter is narrower than on a
+method: it never calls `cancAsync` itself, it only memoizes the getter's result on the instance,
+and optionally binds it.
+
+- `@AsyncMethod() get x() { return cancAsync(fn) }` memoizes only. The returned function keeps
+ whatever `this` binding `cancAsync` gave it: if the coroutine's second argument was omitted,
+ that means call-site `this` (works as `instance.x()`, breaks if detached: `const f = instance.x;
+ f()` fails because `this` is `undefined` inside the coroutine).
+- `@BindMethod() get x() { return cancAsync(fn) }` memoizes and additionally calls `.bind(this)`
+ on the result, so the memoized function is detach-safe regardless of what `cancAsync` was given.
+
+Getter results are always memoized per instance (first access builds and caches; later accesses
+return the same function), independent of the `bind` option and independent of any other
+instance's getter of the same name.
+
+### The `, this` idiom
+
+`cancAsync(fn, this)` (passing the instance as `cancAsync`'s second argument) binds the
+coroutine's `this` at creation time, regardless of how the result is later called or whether
+`@BindMethod` also binds it. This is the robust default: the same getter body works whether the
+decorator is `@AsyncMethod` or `@BindMethod`, and whether the result is called as a method or
+detached first.
+
+Passing `, this` is not strictly required for a method that is always called as
+`instance.method()` (plain call-site `this` already resolves correctly there), but it is the
+idiom to reach for by default, because it removes one failure mode: a coroutine created without
+`, this` and paired with `@AsyncMethod` (not `@BindMethod`) throws once detached, since nothing
+supplies `this` at call time.
+
+`@BindMethod`'s own `.bind(this)` is a harmless no-op on a coroutine already created with `, this`
+(the coroutine ignores the caller-supplied `this` once it has its own bound context). It only
+matters when the coroutine was built without `, this`; then `@AsyncMethod` leaves it call-site
+bound and `@BindMethod` binds it for you.
+
+Typing `this` inside the coroutine body needs a `function (this: T) { ... }` parameter (a
+TypeScript-only annotation, erased at runtime) regardless of which idiom is used.
+
+### No-decorator equivalents
+
+Getter-style decoration is sugar for building the coroutine once per instance and memoizing it
+yourself. Both forms are valid TypeScript with no decorator at all:
+
+```ts
+// Constructor field, eager
+class Loader {
+ constructor() {
+ this.load = cancAsync(function* (this: Loader, url: string) {
+ const data = yield* cancAwait(fetch(url));
+ return data;
+ }, this); // call-site `this` == whatever `, this` above bound; equivalent to @AsyncMethod
+ }
+}
+
+// Class field, eager, no constructor needed
+class Loader {
+ load = cancAsync(function* (this: Loader, url: string) {
+ const data = yield* cancAwait(fetch(url));
+ return data;
+ }, this);
+}
+```
+
+Pick a getter (lazy: built on first access) or a field (eager: built for every instance whether or
+not it is used) by that tradeoff. Both give the same inferred type as the decorated getter, with no
+decorator required.
+
 ## Class-method placement
 
 `@AsyncMethod`/`@BindMethod` (and their `Legacy`/babel-legacy counterparts) wrap a method with
