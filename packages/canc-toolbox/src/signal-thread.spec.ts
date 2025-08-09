@@ -43,11 +43,11 @@ function makeSpyControllerCtor() {
 }
 
 describe('makeCancelSignal', () => {
-	it('yields undefined when there is no handleCancel (native impl)', () => {
-		expect(makeCancelSignal(undefined).signal).toBeUndefined();
+	it('getSignal() yields undefined when there is no handleCancel (native impl)', () => {
+		expect(makeCancelSignal(undefined).getSignal()).toBeUndefined();
 	});
 
-	it('constructs one controller, returns the real signal, and wires a single branded cancel handler', () => {
+	it('builds nothing until getSignal() is first called, then wires a single branded cancel handler', () => {
 		const { ctor } = makeSpyControllerCtor();
 		let registered: ((reason?: any) => void) | undefined;
 		const handleCancel = jest.fn((onCancel: (reason?: any) => void) => {
@@ -56,14 +56,20 @@ describe('makeCancelSignal', () => {
 
 		const holder = makeCancelSignal(handleCancel as any, ctor);
 
-		// One controller built, one cancel handler registered — the returned value is the plain,
-		// real AbortSignal (no Proxy: ES5-safe).
+		// Never calling getSignal() constructs no controller and registers no handler.
+		expect(ctor).not.toHaveBeenCalled();
+		expect(handleCancel).not.toHaveBeenCalled();
+
+		// First getSignal() call materializes the controller + wires exactly one handler; the value
+		// is the plain, real AbortSignal (no Proxy: ES5-safe).
+		const signal = holder.getSignal();
 		expect(ctor).toHaveBeenCalledTimes(1);
 		expect(handleCancel).toHaveBeenCalledTimes(1);
-
-		const signal = holder.signal;
 		expect(signal.aborted).toBe(false);
-		expect('aborted' in signal).toBe(true);
+
+		// A second call returns the same signal without rebuilding.
+		expect(holder.getSignal()).toBe(signal);
+		expect(ctor).toHaveBeenCalledTimes(1);
 
 		// The wired handler brands the reason.
 		registered!('boom');
@@ -80,7 +86,7 @@ describe('makeCancelSignal', () => {
 			registered = onCancel;
 		}) as any;
 
-		const signal = makeCancelSignal(handleCancel, ctor).signal;
+		const signal = makeCancelSignal(handleCancel, ctor).getSignal();
 		expect(signal.aborted).toBe(false);
 
 		const existing = new CancelError('already');
@@ -95,7 +101,7 @@ describe('makeCancelSignal', () => {
 			registered = onCancel;
 		}) as any;
 
-		const signal = makeCancelSignal(handleCancel, ctor).signal;
+		const signal = makeCancelSignal(handleCancel, ctor).getSignal();
 		expect(signal.aborted).toBe(false);
 
 		const cause = { code: 'X' };
@@ -106,10 +112,10 @@ describe('makeCancelSignal', () => {
 });
 
 describe('cancelify', () => {
-	it('materializes the ambient AbortController when none is injected', async () => {
+	it('materializes the ambient AbortController when getSignal() is called', async () => {
 		let aborted: boolean | undefined;
-		const wrapped = cancelify((signal: any) => {
-			aborted = signal.aborted;
+		const wrapped = cancelify((getSignal: any) => {
+			aborted = getSignal().aborted;
 			return new Promise<never>(() => {});
 		});
 
@@ -122,10 +128,10 @@ describe('cancelify', () => {
 		expect(isCancelError(reason)).toBe(true);
 	});
 
-	it('passes the outbound signal and the call-args array to fn', async () => {
+	it('passes the getSignal thunk and the call-args array to fn', async () => {
 		let received: { signal: any; args: any[] } | undefined;
-		const wrapped = cancelify((signal: any, args: any[]) => {
-			received = { signal, args };
+		const wrapped = cancelify((getSignal: any, args: any[]) => {
+			received = { signal: getSignal(), args };
 			return 'ok';
 		});
 
@@ -139,10 +145,10 @@ describe('cancelify', () => {
 		const { ctor, instances } = makeSpyControllerCtor();
 		let captured: any;
 		const wrapped = cancelify(
-			(signal: any) => {
-				captured = signal;
-				// Touch the signal the way a real consumer (fetch) would, materializing the controller.
-				expect(signal.aborted).toBe(false);
+			(getSignal: any) => {
+				// Call getSignal() the way a real consumer (fetch) would, materializing the controller.
+				captured = getSignal();
+				expect(captured.aborted).toBe(false);
 				// Never settle, so the cancel window stays open.
 				return new Promise<never>(() => {});
 			},
@@ -165,12 +171,12 @@ describe('cancelify', () => {
 		expect(isCancelError(reason)).toBe(true);
 	});
 
-	it('allocates one controller per call even when fn ignores the signal (eager, ES5-safe)', async () => {
+	it('allocates NO controller when fn never calls getSignal (lazy thunk)', async () => {
 		const { ctor } = makeSpyControllerCtor();
 		const wrapped = cancelify(() => 'value', { AbortController: ctor });
 
 		await expect(wrapped()).resolves.toBe('value');
-		expect(ctor).toHaveBeenCalledTimes(1);
+		expect(ctor).not.toHaveBeenCalled();
 	});
 
 	it('rejects when fn rejects (reject passthrough)', async () => {
@@ -183,8 +189,8 @@ describe('cancelify', () => {
 		const { ctor } = makeSpyControllerCtor();
 		let sig: any;
 		const wrapped = cancelify(
-			(signal: any) => {
-				sig = signal;
+			(getSignal: any) => {
+				sig = getSignal();
 				return 'x';
 			},
 			{ AbortController: ctor },
@@ -221,11 +227,11 @@ describe('cancelify', () => {
 	});
 
 	describe('native impl', () => {
-		it('hands fn signal === undefined and still runs it', async () => {
+		it('hands fn a getSignal that returns undefined and still runs it', async () => {
 			let sig: any = 'sentinel';
 			const nativeCancelify = cancelifyFactory(Promise as any);
-			const wrapped = nativeCancelify((signal: any) => {
-				sig = signal;
+			const wrapped = nativeCancelify((getSignal: any) => {
+				sig = getSignal();
 				return 'native';
 			});
 

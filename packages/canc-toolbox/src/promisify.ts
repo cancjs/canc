@@ -1,7 +1,7 @@
 import { CancelablePromise, PromiseImpl } from '@cancjs/promise';
 import { lazy, nativeLazy } from '@cancjs/lazy-promise';
 import { IToolboxOptions, THandleCancel, construct, resolveImpl } from './options';
-import { makeCancelSignal } from './signal-thread';
+import { makeCancelSignal, TGetSignal } from './signal-thread';
 
 /** The registered promisify.custom symbol, referenced via Symbol.for to avoid importing node:util. */
 const kCustom = Symbol.for('nodejs.util.promisify.custom');
@@ -21,14 +21,16 @@ export interface IPromisifyOptions extends IToolboxOptions {
 	custom?: boolean;
 	/**
 	 * Invoke-time hook: normalize the call args and/or place the outbound cancel signal for
-	 * signal-aware callback APIs. `signal` is undefined on a native / non-cancelable implementation.
+	 * signal-aware callback APIs. `getSignal()` materializes the signal on first call (undefined on a
+	 * native / non-cancelable implementation); a hook that never calls it allocates no controller.
 	 */
-	transformArgs?: (args: any[], signal: any) => any[];
+	transformArgs?: (args: any[], getSignal: TGetSignal) => any[];
 	/**
 	 * Cancel-time teardown hook. `handle` is the synchronous return value of the underlying call
 	 * (e.g. a ClientRequest or ChildProcess), so the hook can stop the work imperatively.
+	 * `getSignal()` returns the outbound signal if one was materialized (undefined otherwise).
 	 */
-	handleCancel?: (handle: any, args: any[], signal: any, reason?: any) => void;
+	handleCancel?: (handle: any, args: any[], getSignal: TGetSignal, reason?: any) => void;
 	/** Return a LazyPromise: the underlying call is deferred until the first await. Default false. */
 	lazy?: boolean;
 	/** AbortController implementation used to mint the outbound signal. Defaults to the ambient global. */
@@ -107,11 +109,11 @@ export function promisifyFactory(boundImpl?: PromiseImpl) {
 				}
 
 				const holder = makeCancelSignal(handleCancel, AbortControllerCtor);
-				const signal = holder.signal;
+				const getSignal = holder.getSignal;
 
 				let args = callArgs;
 				if (transformArgs) {
-					args = transformArgs(callArgs.slice(), signal);
+					args = transformArgs(callArgs.slice(), getSignal);
 				}
 
 				// Short-circuit guard: once cancel settles the promise, a late callback is a no-op.
@@ -131,7 +133,7 @@ export function promisifyFactory(boundImpl?: PromiseImpl) {
 					(handleCancel as unknown as (onCancel: (reason?: any) => void) => void)((reason?: any) => {
 						settled = true;
 						if (onCancelHook) {
-							onCancelHook(handle, args, signal, reason);
+							onCancelHook(handle, args, getSignal, reason);
 						}
 					});
 				}

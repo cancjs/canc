@@ -77,7 +77,7 @@ describe('promisify', () => {
 		expect(() => fire!()).not.toThrow();
 	});
 
-	it('invokes the imperative handleCancel hook with (handle, args, signal, reason)', async () => {
+	it('invokes the imperative handleCancel hook with (handle, args, getSignal, reason)', async () => {
 		const handle = { id: 'req' };
 		const fn = (_a: string, _cb: (err: any) => void) => handle;
 		const onCancel = jest.fn();
@@ -87,9 +87,10 @@ describe('promisify', () => {
 		await promise.catch(() => {});
 
 		expect(onCancel).toHaveBeenCalledTimes(1);
-		const [gotHandle, gotArgs, , gotReason] = onCancel.mock.calls[0];
+		const [gotHandle, gotArgs, getSignal, gotReason] = onCancel.mock.calls[0];
 		expect(gotHandle).toBe(handle);
 		expect(gotArgs).toEqual(['x']);
+		expect(typeof getSignal).toBe('function');
 		// The core hands cancel handlers the original reason, matching cancelable-promise semantics.
 		expect(gotReason).toBe('teardown');
 	});
@@ -100,8 +101,8 @@ describe('promisify', () => {
 			// never call cb: keep the cancel window open
 		};
 		const promise = promisify(fn, {
-			transformArgs: (args, signal) => {
-				args[0] = { ...(args[0] || {}), signal };
+			transformArgs: (args, getSignal) => {
+				args[0] = { ...(args[0] || {}), signal: getSignal() };
 				captured = args[0].signal;
 				return args;
 			},
@@ -125,9 +126,9 @@ describe('promisify', () => {
 		const onCancel = jest.fn();
 
 		const promise = promisify(fn, {
-			transformArgs: (args, signal) => {
-				signalSeen = signal;
-				args[0] = { ...(args[0] || {}), signal };
+			transformArgs: (args, getSignal) => {
+				signalSeen = getSignal();
+				args[0] = { ...(args[0] || {}), signal: signalSeen };
 				return args;
 			},
 			handleCancel: onCancel,
