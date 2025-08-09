@@ -1,6 +1,8 @@
 // Manual flavor: no decorators at all. Constructor wiring with cancAsync(this.method, this) is the
-// exact desugaring the decorators apply. Works under any toolchain (no transform required), so it
-// doubles as the no-decorator baseline twin for this demo.
+// exact desugaring the getter-style decorators apply (@AsyncMethod/@BindMethod on a getter memoize
+// a coroutine you hand it yourself; this does the same assignment by hand, once, in the constructor).
+// Works under any toolchain (no transform required), so it doubles as the no-decorator baseline twin
+// for this demo.
 //
 // This is the -vanilla counterpart in spirit, but a plain-promise vanilla twin teaches nothing new
 // here (the lesson is decorator wiring vs manual wiring, not cancelable vs uncancelable), so the
@@ -22,8 +24,10 @@ function abortable<T>(run: (signal: AbortSignal) => Promise<T>): CancelablePromi
 
 export class IssueClient implements IssueClientShape {
  constructor(private readonly api: MockApiBundle) {
- // Equivalent to @AsyncMethod() / @BindMethod({ bind: true }): wrap each generator method as a
- // coroutine bound to this instance. loadIssue is per-instance bound (detachable handler).
+ // Equivalent to @AsyncMethod() / @BindMethod({ bind: true }): assign each coroutine, bound to
+ // this instance, once. loadIssue is bound (detachable handler). cancAsync's own return typing
+ // does not narrow past the generator's yield type here, so the field types above are the
+ // source of truth; the cast just restates them at the assignment.
  this.searchIssues = cancAsync(this.searchIssuesGen, this) as unknown as IssueClient['searchIssues'];
  this.loadIssue = cancAsync(this.loadIssueGen, this) as unknown as IssueClient['loadIssue'];
  this.saveComment = cancAsync(this.saveCommentGen, this) as unknown as IssueClient['saveComment'];
@@ -46,7 +50,7 @@ export class IssueClient implements IssueClientShape {
  }
 
  private *saveCommentGen(id: number, comment: string): Generator<unknown, CommentAck> {
- const issue = yield* cancAwait(this.loadIssue(id) as unknown as Promise<Issue>);
+ const issue = yield* cancAwait(this.loadIssue(id));
  return { issueId: id, comment, issueTitle: issue.title };
  }
 }

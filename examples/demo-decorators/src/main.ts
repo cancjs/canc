@@ -13,8 +13,11 @@ import type { IssueClientShape, MockApiBundle } from './issue-types.js';
 type Flavor = 'stage3' | 'ts-legacy' | 'manual';
 type ClientCtor = new (api: MockApiBundle) => IssueClientShape;
 
-// A decorated method keeps its generator return type statically (a decorator cannot rewrite the
-// declared signature), so the classes do not structurally match ClientCtor; cast through unknown.
+// manual has no decorator, so its fields keep their own declared Promise-returning type and match
+// ClientCtor with no cast. stage3 and ts-legacy decorate the getters: a stage-3 decorator with a
+// non-void return type redefines the decorated member's type to the decorator's own declared
+// return, so the class no longer structurally matches ClientCtor from the outside even though
+// every call site still gets a real CancelablePromise at runtime.
 async function loadClientClass(flavor: Flavor): Promise<ClientCtor> {
  switch (flavor) {
  case 'stage3':
@@ -22,7 +25,7 @@ async function loadClientClass(flavor: Flavor): Promise<ClientCtor> {
  case 'ts-legacy':
  return (await import('./ts-legacy/issue-client.js')).IssueClient as unknown as ClientCtor;
  case 'manual':
- return (await import('./manual/issue-client.js')).IssueClient as unknown as ClientCtor;
+ return (await import('./manual/issue-client.js')).IssueClient;
  default:
  throw new Error(`unknown flavor: ${flavor as string}`);
  }
