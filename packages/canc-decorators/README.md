@@ -114,8 +114,8 @@ instance's getter of the same name.
 
 `cancAsync(fn, this)` (passing the instance as `cancAsync`'s second argument) binds the
 coroutine's `this` at creation time, regardless of how the result is later called or whether
-`@BindMethod` also binds it. This is the robust default: the same getter body works whether the
-decorator is `@AsyncMethod` or `@BindMethod`, and whether the result is called as a method or
+`@BindMethod` also binds it. This is the default to reach for: the same getter body works whether
+the decorator is `@AsyncMethod` or `@BindMethod`, and whether the result is called as a method or
 detached first.
 
 Passing `, this` is not strictly required for a method that is always called as
@@ -169,25 +169,25 @@ option:
 
 | Placement | `bind` | Mechanism | `this` binding | Memory |
 |---|---|---|---|---|
-| **Proto-level** | `false` (default for `@AsyncMethod`) | decorator returns the wrapped fn, replacing the method on the prototype once | Late-bound — flows from call site (`obj.method()`) | One wrapped fn shared across all instances |
-| **Per-instance** | `true` (default for `@BindMethod`) | `addInitializer` (ES stage-3) / lazy self-replacing own-property accessor (legacy, babel-legacy) installs an own, ctx-bound property on each instance | Early-bound — fixed to the instance | One wrapped fn per instance |
+| **Proto-level** | `false` (default for `@AsyncMethod`) | decorator returns the wrapped fn, replacing the method on the prototype once | Late-bound (flows from call site, `obj.method()`) | One wrapped fn shared across all instances |
+| **Per-instance** | `true` (default for `@BindMethod`) | `addInitializer` (ES stage-3) / lazy self-replacing own-property accessor (legacy, babel-legacy) installs an own, ctx-bound property on each instance | Early-bound (fixed to the instance) | One wrapped fn per instance |
 
 Default to proto-level (`bind:false`) unless the method is detached from its instance (passed as
 a bare callback: `setTimeout(obj.method)`, event handler, prop). Only pay the per-instance cost
 when you need the method to keep working without `.bind()` at the call site.
 
-Getters and arrow-fn class fields are always memoized **per instance** regardless of `bind` —
-memoizing a getter's produced function on the prototype was the original cross-instance
-corruption bug (a class field's initial value is inherently per-instance already). `bind` only
+Getters and arrow-fn class fields are always memoized **per instance** regardless of `bind`
+(memoizing a getter's produced function on the prototype was the original cross-instance
+corruption bug; a class field's initial value is inherently per-instance already). `bind` only
 changes whether the produced function itself is ctx-bound.
 
 ### `super` interaction
 
-- Proto-level (`bind:false`) methods sit on the prototype like any normal method — `super.method()`
+- Proto-level (`bind:false`) methods sit on the prototype like any normal method. `super.method()`
  from a subclass calls the wrapped parent implementation directly, standard prototype-chain
  lookup, no special handling needed.
 - Per-instance (`bind:true`) methods are **own properties on the instance**, not on the
- prototype — they do not participate in `super` lookup. `super.method()` in a subclass still
+ prototype, so they do not participate in `super` lookup. `super.method()` in a subclass still
  resolves to the *parent prototype's* method (unbound unless the parent's own initializer already
  ran for this instance). If a class hierarchy relies on `super.method()` reaching the
  cancelable/bound behavior, prefer proto-level placement (`bind:false`) at the level(s) `super`
@@ -198,15 +198,15 @@ changes whether the produced function itself is ctx-bound.
 
 ### Memory implications
 
-- Proto-level: **O(1)** — one wrapped function total, defined once at class-decoration time.
+- Proto-level: **O(1)**, one wrapped function total, defined once at class-decoration time.
 - Per-instance: **O(n)** in instance count. Each bound function closes over its instance. The
  2-instance isolation + GC regression tests (`decorators.spec.ts`, `decorators-legacy.spec.ts`)
  lock in that a discarded instance is still collectable (`FinalizationRegistry`) despite another
- instance's decorator-produced function remaining alive — this only holds because placement is a
+ instance's decorator-produced function remaining alive. This only holds because placement is a
  **self-replacing own-property** (own-property shadows the prototype accessor, or is installed
  directly via `addInitializer`), never a `Map`/registry keyed by property name living on the
  prototype. That old pattern pinned the first bound instance forever and leaked its bound method
- to every other instance — do not reintroduce a shared cache for `bind:true` placement.
+ to every other instance; do not reintroduce a shared cache for `bind:true` placement.
 
 ### Decorator vs manual `cancAsync(this.method, this)`
 
@@ -214,7 +214,7 @@ The decorators are sugar over the same `cancAsync(fn, ctx)` call `@cancjs/corout
 directly:
 
 ```ts
-// decorator (bind:true) — per-instance
+// decorator (bind:true), per-instance
 class Loader {
  @AsyncMethod({ bind: true })
  *load(url: string) { /* ... */ }
@@ -230,7 +230,7 @@ class Loader {
 ```
 
 ```ts
-// decorator (bind:false, default) — proto-level
+// decorator (bind:false, default), proto-level
 class Loader {
  @AsyncMethod()
  *load(url: string) { /* ... */ }
@@ -246,7 +246,7 @@ Loader.prototype.load = cancAsync(Loader.prototype.load);
 Use the decorator when your toolchain supports one of the three flavors (declarative, co-located,
 consistent isolation guarantees already tested here). Fall back to manual wiring when decorators
 aren't available, or when the wrap site needs to be something the decorator can't express (e.g.
-conditional wrapping). Both paths carry the identical proto/instance memory tradeoff above — the
+conditional wrapping). Both paths carry the identical proto/instance memory tradeoff above; the
 decorator does not add or remove overhead versus wiring `cancAsync` by hand.
 
 ### Inheritance cases
