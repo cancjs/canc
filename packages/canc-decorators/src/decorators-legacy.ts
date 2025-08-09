@@ -95,6 +95,9 @@ function makeLegacyDecorator(
 
  // --- getter ---
  if (isGetter) {
+ // The user returns a ready coroutine (a cancAsync result) from the getter, so the decorator
+ // never wraps it. It optionally binds the function to the instance (bind:true), then memoizes
+ // per instance.
  const originalGetter = descriptor!.get!;
 
  descriptor!.get = function (this: any) {
@@ -104,7 +107,7 @@ function makeLegacyDecorator(
  throw new TypeError(`'${String(propertyKey)}' getter result is not a function`);
  }
 
- const value = copyFunctionMetadata(raw, wrap(raw, isBind ? this : undefined));
+ const value = isBind ? copyFunctionMetadata(raw, raw.bind(this)) : raw;
  // Memoize per instance (own-property shadows this accessor for this instance only).
  setProperty(this, propertyKey, value);
 
