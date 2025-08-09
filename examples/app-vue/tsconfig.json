@@ -1,0 +1,10 @@
+{
+ "extends": "../tsconfig.examples.json",
+ "compilerOptions": {
+ "jsx": "preserve",
+ "lib": ["es2022", "dom", "dom.iterable"],
+ "types": ["node", "jest"],
+ "verbatimModuleSyntax": false
+ },
+ "include": ["src/**/*.ts", "src/**/*.vue"]
+}
