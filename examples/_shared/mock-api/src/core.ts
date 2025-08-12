@@ -7,6 +7,10 @@
 // - records started/completed/aborted markers on a shared call log so a test (or a demo's
 // console) can assert the request was really in flight when it was canceled.
 
+import { mulberry32, attachAbort, type AbortSignalLike } from '@shared/util';
+
+export type { AbortSignalLike };
+
 export type CallStatus = 'started' | 'completed' | 'aborted' | 'failed';
 
 export interface CallRecord {
@@ -50,29 +54,6 @@ export class AbortError extends Error {
 
 export function isAbortError(error: unknown): error is { name: 'AbortError' } {
  return typeof error === 'object' && error !== null && (error as { name?: unknown }).name === 'AbortError';
-}
-
-// Minimal structural signal so this file does not depend on DOM lib types being present.
-export interface AbortSignalLike {
- readonly aborted: boolean;
- reason?: unknown;
- addEventListener?: (type: 'abort', listener: () => void) => void;
- removeEventListener?: (type: 'abort', listener: () => void) => void;
- // Widened so a native AbortSignal (whose onabort is typed with `this: AbortSignal`) is
- // structurally assignable to this shape.
- onabort?: ((...args: any[]) => any) | null;
-}
-
-// Deterministic PRNG (mulberry32). Small, seedable, good enough for reproducible jitter/picks.
-function mulberry32(seed: number): () => number {
- let a = seed >>> 0;
- return () => {
- a |= 0;
- a = (a + 0x6d2b79f5) | 0;
- let t = Math.imul(a ^ (a >>> 15), 1 | a);
- t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
- return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
- };
 }
 
 /**
@@ -170,25 +151,4 @@ export class MockApi {
  });
  });
  }
-}
-
-// Attaches an abort listener across native signals and legacy onabort-only polyfills, returning a
-// detach fn (or undefined when there is nothing to detach).
-function attachAbort(signal: AbortSignalLike | undefined, onAbort: () => void): (() => void) | undefined {
- if (!signal) return undefined;
- if (typeof signal.addEventListener === 'function') {
- signal.addEventListener('abort', onAbort);
- return () => signal.removeEventListener?.('abort', onAbort);
- }
- if ('onabort' in signal) {
- const previous = signal.onabort;
- signal.onabort = function (this: unknown, ev: unknown) {
- onAbort();
- if (typeof previous === 'function') previous.call(this, ev);
- };
- return () => {
- signal.onabort = previous ?? null;
- };
- }
- return undefined;
 }
