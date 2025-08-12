@@ -1,4 +1,5 @@
 import { Subject } from 'rxjs';
+import { sleep } from '@shared/util';
 import { SearchRecord, tailLines } from './mock/log-source';
 import { renderTail, clickTwoLines } from './viewer';
 import { contextSearches, render } from './search-canc';
@@ -14,7 +15,7 @@ async function main(): Promise<void> {
  await clickTwoLines(clicks);
 
  // Nothing left running in the background — the abandoned first search was canceled.
- await new Promise((r) => setTimeout(r, 80));
+ await sleep(80);
 
  const completed = searchLog.filter((r) => r.status === 'completed');
  const aborted = searchLog.filter((r) => r.status === 'aborted');

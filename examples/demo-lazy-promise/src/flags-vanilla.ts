@@ -1,5 +1,7 @@
 // Vanilla approach: memoized-thunk caching, no reset mechanism.
 
+import { sleep } from '@shared/util';
+
 export interface Flags {
  featureAlpha: boolean;
  featureBeta: boolean;
@@ -18,7 +20,7 @@ export function getFlagsVanilla(): Promise<Flags> {
 
 async function fetchFlagsFromAPI(): Promise<Flags> {
  // Simulate async fetch (e.g., config service).
- await new Promise(resolve => setTimeout(resolve, 50));
+ await sleep(50);
  return {
  featureAlpha: true,
  featureBeta: false,

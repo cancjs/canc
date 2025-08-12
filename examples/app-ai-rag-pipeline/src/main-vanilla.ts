@@ -1,3 +1,4 @@
+import { sleep } from '@shared/util';
 import { createMockApi } from '@shared/mock-api';
 import { ragPipeline } from './pipeline-vanilla';
 import { answerWithCache } from './cache-race-vanilla';
@@ -28,7 +29,7 @@ async function main(): Promise<void> {
  console.log('vanilla: cache wins race');
  const winner = await answerWithCache(race, QUERY);
  console.log(`vanilla: winner = "${winner.text}"`);
- await new Promise((r) => setTimeout(r, 300));
+ await sleep(300);
  console.log(`vanilla: calls = ${race.api.calls.length} (pipeline ran even though cache won)`);
 }
 

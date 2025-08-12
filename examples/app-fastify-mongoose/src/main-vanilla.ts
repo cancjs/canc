@@ -1,5 +1,6 @@
 import http from 'node:http';
 import Fastify from 'fastify';
+import { sleep } from '@shared/util';
 import { cancellationPlugin } from './hooks-vanilla';
 import { searchAvailability } from './availability-service-vanilla';
 import { installMocks, queryLog, resetQueryLog } from './mock/db';
@@ -53,7 +54,7 @@ async function main() {
  resetQueryLog();
  await requestThenDisconnect(port);
  // Give the uncancelable chain time to run every query for the dead socket.
- await new Promise((r) => setTimeout(r, QUERY_LATENCY_MS * 4));
+ await sleep(QUERY_LATENCY_MS * 4);
 
  const issued = queryLog.map((q) => q.op) as string[];
  console.log('Queries issued:', issued.join(', ') || '(none)');

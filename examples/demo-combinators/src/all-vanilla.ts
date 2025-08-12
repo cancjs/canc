@@ -1,6 +1,8 @@
 // Promise.all: native behavior keeps remaining widgets running after one fails.
 // All promises settle independently (wasted work on canceled request).
 
+import { sleep } from "@shared/util";
+
 const completed: string[] = [];
 
 function loadWidget(name: string, delay: number): Promise<string> {
@@ -34,7 +36,7 @@ async function runAllVanilla(): Promise<void> {
  }
 
  // Wait for all to settle
- await new Promise((r) => setTimeout(r, 100));
+ await sleep(100);
  console.log(`Vanilla all - completed: ${completed.length}`);
 }
 

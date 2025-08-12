@@ -2,6 +2,7 @@
 // Demonstrates cancel propagation (down to losers on first win).
 
 import { CancelablePromise } from "@cancjs/promise";
+import { sleep } from "@shared/util";
 
 const completed: string[] = [];
 const canceled: string[] = [];
@@ -41,7 +42,7 @@ async function runAnyCanc(): Promise<void> {
  }
 
  // Wait for cancellations
- await new Promise((r) => setTimeout(r, 150));
+ await sleep(150);
  console.log(
  `Canc any - canceled: ${canceled.length}`
  );

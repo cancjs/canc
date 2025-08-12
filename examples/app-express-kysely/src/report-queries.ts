@@ -2,6 +2,7 @@
 // only thing the twins differ on is HOW they sequence and cancel them. Keeping the raw kysely
 // here keeps the twin services focused on the cancellation mechanics, not on SQL.
 
+import { sleep } from '@shared/util';
 import { CHUNK_ROWS, SEED_ORDER_COUNT, ReportDb, sql } from './mock/db';
 
 export interface OrderRowView {
@@ -66,7 +67,7 @@ export const CHUNK_LATENCY_MS = 25;
  */
 export function grandTotalChunk(rdb: ReportDb, chunkIndex: number): Promise<number> {
  const offset = chunkIndex * CHUNK_ROWS;
- return new Promise<void>((resolve) => setTimeout(resolve, CHUNK_LATENCY_MS)).then(() =>
+ return sleep(CHUNK_LATENCY_MS).then(() =>
  rdb.db
  .selectFrom('orders')
  .select((eb) => eb.fn.sum(sql<number>`quantity * unit_price`).as('subtotal'))

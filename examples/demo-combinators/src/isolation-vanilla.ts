@@ -1,6 +1,8 @@
 // Without cancellation support, isolation requires manual flag tracking.
 // When one widget fails, dependent widgets must manually check _isCanceled.
 
+import { sleep } from "@shared/util";
+
 const completed: string[] = [];
 let isCanceled = false;
 
@@ -38,7 +40,7 @@ async function runIsolationVanilla(): Promise<void> {
  // keeps running (isolation not automatic)
  }
 
- await new Promise((r) => setTimeout(r, 100));
+ await sleep(100);
  console.log(`Vanilla isolation - completed: ${completed.length}`);
 }
 

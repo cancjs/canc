@@ -3,6 +3,7 @@
 // vanilla vs canc difference is visible without a browser.
 
 import http from 'node:http';
+import { sleep } from '@shared/util';
 import { UsageLog } from './chat';
 
 export async function runScenario(port: number, log: UsageLog, flavor: string): Promise<void> {
@@ -27,7 +28,7 @@ export async function runScenario(port: number, log: UsageLog, flavor: string): 
  });
 
  // Give the server a moment to observe the disconnect and settle the handler chain.
- await new Promise((resolve) => setTimeout(resolve, 200));
+ await sleep(200);
 
  console.log(`${flavor}: received ${received.length} token chunks before Stop`);
  const entry = log.entries[log.entries.length - 1];

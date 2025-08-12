@@ -1,3 +1,4 @@
+import { sleep } from '@shared/util';
 import { PortfolioStore as CancStore } from '../src/portfolio-store-canc';
 import { PortfolioStore as StandardStore } from '../src/flavors/store-standard';
 import { PortfolioStore as VanillaStore } from '../src/portfolio-store-vanilla';
@@ -6,9 +7,6 @@ import { makeMarketApi } from '../src/portfolio';
 // Requests settle on a real 40ms timer; a cancel is synchronous. So selecting then immediately
 // re-selecting cancels while the first symbol's requests are still pending. Waiting past the
 // latency lets whatever survived complete. No arbitrary sleeps: the two waits bracket one latency.
-function settle(ms = 120): Promise<void> {
- return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 describe('canc store: deep cancel', () => {
  it('aborts the previous symbol requests on switch and writes only the last symbol', async () => {
@@ -17,7 +15,7 @@ describe('canc store: deep cancel', () => {
 
  store.select('BTC');
  store.select('ETH');
- await settle();
+ await sleep(120);
 
  const btc = api.callsFor('BTC');
  expect(btc.length).toBeGreaterThan(0);
@@ -33,7 +31,7 @@ describe('canc store: deep cancel', () => {
 
  store.select('BTC');
  store.select('ETH');
- await settle();
+ await sleep(120);
 
  const mobxWarnings = warn.mock.calls.flat().filter((arg) => typeof arg === 'string' && /\[MobX\]/.test(arg));
  expect(mobxWarnings).toEqual([]);
@@ -48,7 +46,7 @@ describe('standard-decorators flavor: deep cancel', () => {
 
  store.select('BTC');
  store.select('ETH');
- await settle();
+ await sleep(120);
 
  const btc = api.callsFor('BTC');
  expect(btc.some((c) => c.status === 'aborted')).toBe(true);
@@ -63,7 +61,7 @@ describe('vanilla store: shallow cancel (the gap we teach)', () => {
 
  store.select('BTC');
  store.select('ETH');
- await settle();
+ await sleep(120);
 
  const btc = api.callsFor('BTC');
  // mobx flow cannot abort the underlying request: both BTC requests complete despite the switch.

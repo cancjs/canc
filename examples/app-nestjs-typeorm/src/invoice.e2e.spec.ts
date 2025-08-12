@@ -3,16 +3,13 @@ import http from 'node:http';
 import request from 'supertest';
 import type { INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { sleep } from '@shared/util';
 import { AppModule as CancModule } from './app.module-canc';
 import { AppModule as VanillaModule } from './app.module-vanilla';
 import { createDataSource, SEED_CUSTOMER_COUNT } from './mock/db';
 import { countInvoices } from './invoice-repo';
 import { BillingTierGuard } from './billing-metadata';
 import type { DataSource } from 'typeorm';
-
-function delay(ms: number): Promise<void> {
- return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 async function boot(module: any): Promise<{ app: INestApplication; dataSource: DataSource; port: number }> {
  const dataSource = await createDataSource();
@@ -31,9 +28,9 @@ async function countAfterDisconnect(dataSource: DataSource, port: number): Promi
  );
  req.on('error', () => {});
  req.end();
- await delay(60);
+ await sleep(60);
  req.destroy();
- await delay(600);
+ await sleep(600);
  return countInvoices(dataSource.manager);
 }
 

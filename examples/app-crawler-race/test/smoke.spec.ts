@@ -1,3 +1,4 @@
+import { sleep } from '@shared/util';
 import { createMockApi } from '@shared/mock-api';
 import { firstQuote as firstQuoteCanc } from '../src/compare-canc';
 import { firstQuote as firstQuoteVanilla } from '../src/compare-vanilla';
@@ -16,7 +17,7 @@ describe('app-crawler-race smoke', () => {
 
  await firstQuoteCanc(mockApi, TARGET_PART);
  // Let any straggler abort markers flush.
- await new Promise((resolve) => setTimeout(resolve, 80));
+ await sleep(80);
 
  expect(quoteCalls(mockApi, 'completed')).toBe(1);
  expect(quoteCalls(mockApi, 'aborted')).toBe(SUPPLIER_IDS.length - 1);
@@ -26,7 +27,7 @@ describe('app-crawler-race smoke', () => {
  const mockApi = createMockApi({ latency: 40, jitter: 0 });
 
  await firstQuoteVanilla(mockApi, TARGET_PART);
- await new Promise((resolve) => setTimeout(resolve, 80));
+ await sleep(80);
 
  // Inverted assertion documenting the leak: no aborts, all N complete.
  expect(quoteCalls(mockApi, 'aborted')).toBe(0);
@@ -46,7 +47,7 @@ describe('app-crawler-race smoke', () => {
  } catch {
  canceled = true;
  }
- await new Promise((resolve) => setTimeout(resolve, 80));
+ await sleep(80);
 
  expect(canceled).toBe(true);
  // Total depth-2 pages if the crawl ran fully = 3 root + 6 children = 9.

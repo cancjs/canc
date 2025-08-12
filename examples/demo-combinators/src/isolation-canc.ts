@@ -2,6 +2,7 @@
 // When all siblings cancel, the isolated input survives (remains pending).
 
 import { CancelablePromise } from "@cancjs/promise";
+import { sleep } from "@shared/util";
 
 const completed: string[] = [];
 const canceled: string[] = [];
@@ -46,7 +47,7 @@ async function runIsolationCanc(): Promise<void> {
  // canceled here — but "news" survives due to bubble:false
  }
 
- await new Promise((r) => setTimeout(r, 100));
+ await sleep(100);
  console.log(
  `Canc isolation - completed: ${completed.length}, canceled: ${canceled.length}`
  );

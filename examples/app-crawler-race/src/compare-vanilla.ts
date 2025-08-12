@@ -4,6 +4,7 @@
 // completion. In a real price-comparison backend that is N-1 supplier calls whose results are
 // thrown away: wasted bandwidth, wasted supplier rate-limit budget, wasted money.
 
+import { sleep } from '@shared/util';
 import type { MockApiBundle } from '@shared/mock-api';
 import { quotePart, SUPPLIER_IDS, TARGET_PART } from './aux/catalog';
 import type { PartQuote } from './types';
@@ -37,7 +38,7 @@ export async function compareVanilla(mockApi: MockApiBundle): Promise<void> {
  console.log(`vanilla: winner ${winner.supplierId} at ${winner.amount}`);
 
  // Give the losing requests time to finish so their completed markers land in the call log.
- await new Promise((resolve) => setTimeout(resolve, 120));
+ await sleep(120);
  const completed = mockApi.api.calls.filter(
  (call) => call.endpoint === 'catalog.quote' && call.status === 'completed'
  ).length;

@@ -6,15 +6,12 @@
 import http from 'node:http';
 import type { INestApplication } from '@nestjs/common';
 import type { DataSource } from 'typeorm';
+import { sleep } from '@shared/util';
 import { countInvoices } from './invoice-repo';
 
 interface AppBundle {
  app: INestApplication;
  dataSource: DataSource;
-}
-
-function delay(ms: number): Promise<void> {
- return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export async function runDisconnectScenario(
@@ -41,12 +38,12 @@ export async function runDisconnectScenario(
  request.end();
 
  // Let the first couple of chunks run, then hang up.
- await delay(60);
+ await sleep(60);
  request.destroy();
 
  // Wait past the point where an uncancelled bulk run would have committed every chunk, so the two
  // flavors are compared at the same late moment: canc rolled back, vanilla committed.
- await delay(600);
+ await sleep(600);
  const after = await countInvoices(dataSource.manager);
 
  console.log(`[${flavor}] invoice count: ${before} before, ${after} after disconnect`);

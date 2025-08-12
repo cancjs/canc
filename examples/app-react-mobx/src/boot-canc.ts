@@ -6,6 +6,7 @@
 // (src/flavors/legacy/boot-legacy.ts). All three share the same deep-cancel behavior; the flavor
 // only changes how the store is declared.
 
+import { sleep } from '@shared/util';
 import { makeMarketApi } from './portfolio';
 import type { Symbol } from './portfolio';
 
@@ -27,9 +28,9 @@ async function main(): Promise<void> {
  store.select('BTC');
  // Switch away before BTC's requests finish. The cancFlow run is canceled, which aborts the BTC
  // quote+history requests at the network before they complete.
- await delay(10);
+ await sleep(10);
  store.select('ETH');
- await delay(120);
+ await sleep(120);
 
  const btc = api.callsFor('BTC');
  console.log(`\nflavor: ${process.env.STORE_FLAVOR ?? 'auto'}`);
@@ -37,10 +38,6 @@ async function main(): Promise<void> {
  console.log(`aborted after switch: ${btc.filter((c) => c.status === 'aborted').length}`);
  console.log(`final loaded symbol: ${store.loaded?.symbol}`);
  console.log('Done.');
-}
-
-function delay(ms: number): Promise<void> {
- return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 main();
