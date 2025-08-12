@@ -3,6 +3,30 @@ import { isFunction, isObject } from '../../_util';
 
 export type TGeneratorLike<PYield = unknown, PReturn = any, PNext = unknown> = Omit<Generator<PYield, PReturn, PNext>, typeof Symbol.iterator>;
 
+// Brand for BreakError, mirroring CancelError's Symbol.for approach: detection keys on the brand,
+// not on `name`, so it survives realm boundaries and duplicated package copies.
+const BREAK_ERROR_BRAND = Symbol.for('@cancjs/coroutine:BreakError');
+
+// Thrown from an `each` callback (or by user code) to stop the loop cleanly, as an alternative to
+// returning `false`. A break is normal loop termination, not an error: the coroutine resolves past
+// the loop rather than rejecting.
+export class BreakError extends Error {
+ readonly [BREAK_ERROR_BRAND]!: true;
+
+ constructor(message = '') {
+ super(message);
+
+ Object.setPrototypeOf(this, new.target.prototype);
+
+ this.name = 'BreakError';
+ this[BREAK_ERROR_BRAND] = true;
+ }
+}
+
+export function isBreakError(value: unknown): value is BreakError {
+ return isObject(value) && (value as any)[BREAK_ERROR_BRAND] === true;
+}
+
 // `PNext` is `any`: a coroutine body mixes bare `yield` (raw value in, no send type) with
 // `yield*` (typed send value from `cancAwait`), so no single `PNext` fits every yield in the body.
 export type AsyncResult<T = void> = Generator<unknown, T, any>;
@@ -378,12 +402,28 @@ interface ICancAwaitAllSettled {
  ): Generator<CancelablePromise<TSettledTuple<T>>, TSettledTuple<T>, TSettledTuple<T>>;
 }
 
+// `each` accepts an async iterable or a sync iterable whose members may be promises: both are
+// driven one pull at a time, awaiting each value at a coroutine cancellation point. The callback
+// runs per item; returning `false` (or throwing `BreakError`) stops the loop cleanly.
+type TEachSource<T> = AsyncIterable<T> | Iterable<T | Promise<T>>;
+type TEachCallback<T> = (value: T, index: number) => void | false | Promise<void | false>;
+
+interface ICancAwaitEach {
+ <T>(source: TEachSource<T>, cb: TEachCallback<T>): Generator<unknown, void, any>;
+}
+
+interface ICancAwaitIter {
+ <T>(source: TEachSource<T>): Generator<unknown, T[], any>;
+}
+
 interface ICancAwait {
  <T>(value: Promise<T> | T): Generator<Promise<T> | T, T, T>;
  all: ICancAwaitAll;
  race: ICancAwaitRace;
  any: ICancAwaitAny;
  allSettled: ICancAwaitAllSettled;
+ each: ICancAwaitEach;
+ iter: ICancAwaitIter;
 }
 
 function makeCombinator(build: (...args: any[]) => CancelablePromise<any>) {
@@ -398,3 +438,100 @@ cancAwait.all = makeCombinator(CancelablePromise.all) as ICancAwait['all'];
 cancAwait.race = makeCombinator(CancelablePromise.race) as ICancAwait['race'];
 cancAwait.any = makeCombinator(CancelablePromise.any) as ICancAwait['any'];
 cancAwait.allSettled = makeCombinator(CancelablePromise.allSettled) as ICancAwait['allSettled'];
+
+// Resolves a source to a step iterator plus a flag for how each yielded step should be awaited.
+// An async iterable's `.next()` returns a promise of `{ value, done }`, so the whole result is the
+// cancellation point. A plain (sync) iterable returns `{ value, done }` synchronously but its values
+// may be promises, so the VALUE is the cancellation point. Either way the driver awaits one thing
+// per pull.
+function getStepIterator(source: any): { it: any; async: boolean } {
+ if (source != null && isFunction(source[Symbol.asyncIterator])) {
+ return { it: source[Symbol.asyncIterator](), async: true };
+ }
+
+ if (source != null && isFunction(source[Symbol.iterator])) {
+ return { it: source[Symbol.iterator](), async: false };
+ }
+
+ throw new TypeError('Argument is not iterable');
+}
+
+// Runs the source iterator's `return()` (its `finally` cleanup). Called from the loop's `finally`,
+// which the coroutine's cancel-drain reaches via `gen.return()`. The cancel reason cannot be
+// forwarded here: when `gen.return(reason)` unwinds a `yield*`-delegated generator, the reason is not
+// bound anywhere inside the delegate's `finally` (it only surfaces as the outer return value). What
+// matters for cleanup is that `source.return()` runs at all, so the source generator's own `finally`
+// executes. A source with no `return` (a bare iterator) or one that throws during cleanup must not
+// mask the in-flight cancel, so cleanup errors are swallowed. Returns the (possibly promise) result
+// so the caller can await it.
+function returnStepIterator(it: any): any {
+ if (it == null || !isFunction(it.return)) {
+ return undefined;
+ }
+
+ try {
+ return it.return();
+ } catch {
+ return undefined;
+ }
+}
+
+cancAwait.each = function* each(source: any, cb: (value: any, index: number) => any): Generator<unknown, void, any> {
+ const { it, async } = getStepIterator(source);
+ let index = 0;
+
+ try {
+ while (true) {
+ // One cancellation point per pull: for an async source, await the `.next()` promise; for a sync
+ // source, await the yielded VALUE (which may be a promise). The bare `yield` hands the awaited
+ // thing to the coroutine driver.
+ const result: IteratorResult<any> = async ? yield it.next() : it.next();
+
+ if (result.done) {
+ break;
+ }
+
+ const value = async ? result.value : yield result.value;
+
+ // `cb` may return a promise (await it before the next pull) or a plain value. A `false` result
+ // stops the loop cleanly, like a native `break`.
+ const outcome = cb(value, index++);
+ const settled = isObject(outcome) && isFunction((outcome as any).then) ? yield outcome : outcome;
+
+ if (settled === false) {
+ break;
+ }
+ }
+ } catch (err) {
+ // A BreakError is a clean stop (native `break`), not a failure: swallow it and let cleanup run.
+ // Any other throw propagates out of this generator to reject the coroutine, still after cleanup.
+ if (!isBreakError(err)) {
+ throw err;
+ }
+ } finally {
+ // Runs on normal completion, on break, on a thrown error, AND on coroutine cancel (the driver's
+ // cancel-drain reaches here via gen.return()). Await source cleanup so its own `finally` settles.
+ yield returnStepIterator(it);
+ }
+} as ICancAwait['each'];
+
+cancAwait.iter = function* iter(source: any): Generator<unknown, any[], any> {
+ const { it, async } = getStepIterator(source);
+ const collected: any[] = [];
+
+ try {
+ while (true) {
+ const result: IteratorResult<any> = async ? yield it.next() : it.next();
+
+ if (result.done) {
+ break;
+ }
+
+ collected.push(async ? result.value : yield result.value);
+ }
+ } finally {
+ yield returnStepIterator(it);
+ }
+
+ return collected;
+} as ICancAwait['iter'];
