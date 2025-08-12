@@ -27,6 +27,20 @@ export function isBreakError(value: unknown): value is BreakError {
  return isObject(value) && (value as any)[BREAK_ERROR_BRAND] === true;
 }
 
+// Sentinel yielded by `each`/`iter` as the very last statement of their `finally`, after source
+// cleanup. When the coroutine is canceled mid-`yield*`, the cancel-drain unwinds via gen.return();
+// resuming the delegate's finally-yield with gen.next() would let JS forget the return-completion
+// and run the parent's post-`yield*` code (a `yield*` completing normally does not re-throw the
+// return). The drain detects this sentinel and resumes with gen.return() instead, re-asserting the
+// unwind so parent code after the loop stays dormant on cancel. On the normal (non-cancel) drive
+// the sentinel is just a plain yielded value the driver resumes with next(), harmless: the delegate
+// then returns and the parent continues as usual.
+const RETURN_UNWIND = Symbol.for('@cancjs/coroutine:returnUnwind');
+
+function isReturnUnwind(value: unknown): boolean {
+ return value === RETURN_UNWIND;
+}
+
 // `PNext` is `any`: a coroutine body mixes bare `yield` (raw value in, no send type) with
 // `yield*` (typed send value from `cancAwait`), so no single `PNext` fits every yield in the body.
 export type AsyncResult<T = void> = Generator<unknown, T, any>;
@@ -113,6 +127,12 @@ export function cancAsync<TFn extends IGeneratorLikeFn<TThis>, TArgs extends any
  // Re-entrancy guard for the cancel-triggered finally drain: a single cancel() must not spawn
  // overlapping drains, and post-cancel ordinary steps must go inert.
  let draining = false;
+ // Set while a gen.next()/throw()/return() call is on the stack. A cancel() triggered
+ // synchronously from inside a running step (e.g. calling promise.cancel() from within an `each`
+ // callback) must not call gen.return() re-entrantly: the generator is still executing and
+ // gen.return() would throw "Generator is already executing". When set, drainFinally defers the
+ // drain to a microtask so it runs after the current step unwinds.
+ let executing = false;
  let canceledReason: any = undefined;
  // Track when cancel() was called so ordinary steps can check. The handleCancel hook runs
  // post-settlement, so we track it independently to mark the generator as canceled early.
@@ -226,12 +246,25 @@ export function cancAsync<TFn extends IGeneratorLikeFn<TThis>, TArgs extends any
  return;
  }
 
+ let result: IteratorResult<any>;
+ executing = true;
  try {
- step(gen.next(value));
+ result = gen.next(value);
  } catch (err) {
  genDone = true;
  reject(err);
+ return;
+ } finally {
+ executing = false;
  }
+ // A cancel() re-entered from inside this step (e.g. cb called promise.cancel()) deferred its
+ // drain past `executing`; run it now that the generator is off the stack, and drop this step's
+ // (now inert) result.
+ if (canceled) {
+ drainFinally();
+ return;
+ }
+ step(result);
  };
 
  const onRejected = (value: any) => {
@@ -239,12 +272,22 @@ export function cancAsync<TFn extends IGeneratorLikeFn<TThis>, TArgs extends any
  return;
  }
 
+ let result: IteratorResult<any>;
+ executing = true;
  try {
- step(gen.throw(value));
+ result = gen.throw(value);
  } catch (err) {
  genDone = true;
  reject(err);
+ return;
+ } finally {
+ executing = false;
  }
+ if (canceled) {
+ drainFinally();
+ return;
+ }
+ step(result);
  };
 
  // Cancel-triggered finally drain. Calls gen.return(reason) to run the generator's finally
@@ -256,9 +299,17 @@ export function cancAsync<TFn extends IGeneratorLikeFn<TThis>, TArgs extends any
  if (draining || genDone) {
  return;
  }
+ // Re-entrant cancel from inside a running step: the generator is still on the stack, so
+ // gen.return() here would throw "Generator is already executing". Bail; the step's own
+ // post-run check (onFulfilled/onRejected) calls drainFinally() again once the generator
+ // unwinds. `canceled`/`canceledReason` are already set by cancel(), so nothing is lost.
+ if (executing) {
+ return;
+ }
  draining = true;
 
  let result: IteratorResult<any>;
+ executing = true;
  try {
  result = gen.return(canceledReason);
  } catch (err) {
@@ -267,6 +318,8 @@ export function cancAsync<TFn extends IGeneratorLikeFn<TThis>, TArgs extends any
  reject(err);
  settleDrain();
  return;
+ } finally {
+ executing = false;
  }
 
  pumpFinally(result);
@@ -291,6 +344,25 @@ export function cancAsync<TFn extends IGeneratorLikeFn<TThis>, TArgs extends any
  }
  reject(error);
  settleDrain();
+ return;
+ }
+
+ // A `each`/`iter` delegate ends its finally with the RETURN_UNWIND sentinel. Resuming it with
+ // gen.next() would let the parent run its post-`yield*` code (JS drops the return-completion
+ // once a `yield*` finishes normally). Resume with gen.return() to re-assert the unwind so the
+ // parent stays dormant; the sentinel is the delegate's LAST finally statement, so nothing in
+ // the delegate is skipped by the return-resume.
+ if (isReturnUnwind(result.value)) {
+ let next: IteratorResult<any>;
+ try {
+ next = gen.return(canceledReason);
+ } catch (err) {
+ genDone = true;
+ reject(err);
+ settleDrain();
+ return;
+ }
+ pumpFinally(next);
  return;
  }
 
@@ -326,7 +398,18 @@ export function cancAsync<TFn extends IGeneratorLikeFn<TThis>, TArgs extends any
  );
  };
 
- step(gen.next());
+ executing = true;
+ let first: IteratorResult<any>;
+ try {
+ first = gen.next();
+ } finally {
+ executing = false;
+ }
+ if (canceled) {
+ drainFinally();
+ } else {
+ step(first);
+ }
  } catch (err) {
  // Sync-throw generators: genFn.apply(...) or the first gen.next() throwing synchronously
  // rejects the coroutine.
@@ -462,18 +545,32 @@ function getStepIterator(source: any): { it: any; async: boolean } {
 // bound anywhere inside the delegate's `finally` (it only surfaces as the outer return value). What
 // matters for cleanup is that `source.return()` runs at all, so the source generator's own `finally`
 // executes. A source with no `return` (a bare iterator) or one that throws during cleanup must not
-// mask the in-flight cancel, so cleanup errors are swallowed. Returns the (possibly promise) result
-// so the caller can await it.
+// mask the in-flight cancel, so cleanup errors are swallowed, whether they surface synchronously
+// (a thrown `return()`) or asynchronously (a `return()` that returns a rejected promise). Returns a
+// value the caller can `yield`/await; any rejection is neutralized here so it never orphans as an
+// unhandled rejection or clobbers the cancel outcome.
 function returnStepIterator(it: any): any {
  if (it == null || !isFunction(it.return)) {
  return undefined;
  }
 
+ let result: any;
  try {
- return it.return();
+ result = it.return();
  } catch {
  return undefined;
  }
+
+ // An async `return()` may reject once its cleanup fails; swallow that too. Return a promise that
+ // resolves regardless so the awaiting `yield` never sees the rejection.
+ if (isObject(result) && isFunction((result as any).then)) {
+ return (result as PromiseLike<any>).then(
+ () => undefined,
+ () => undefined,
+ );
+ }
+
+ return result;
 }
 
 cancAwait.each = function* each(source: any, cb: (value: any, index: number) => any): Generator<unknown, void, any> {
@@ -512,6 +609,10 @@ cancAwait.each = function* each(source: any, cb: (value: any, index: number) => 
  // Runs on normal completion, on break, on a thrown error, AND on coroutine cancel (the driver's
  // cancel-drain reaches here via gen.return()). Await source cleanup so its own `finally` settles.
  yield returnStepIterator(it);
+ // On a cancel-drain the driver resumes this on the RETURN_UNWIND sentinel to re-assert the
+ // return, keeping the parent's post-`yield*` code dormant. On any normal exit it is an inert
+ // yielded value. Must be the LAST statement here (a return-resume skips anything after it).
+ yield RETURN_UNWIND;
  }
 } as ICancAwait['each'];
 
@@ -531,6 +632,9 @@ cancAwait.iter = function* iter(source: any): Generator<unknown, any[], any> {
  }
  } finally {
  yield returnStepIterator(it);
+ // See `each`: re-assert the cancel-drain's return-unwind so the parent's post-`yield*` code stays
+ // dormant. Inert on any normal exit. Must be the LAST statement in this finally.
+ yield RETURN_UNWIND;
  }
 
  return collected;
