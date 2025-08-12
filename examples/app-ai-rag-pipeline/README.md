@@ -20,31 +20,30 @@ The cancelable pipeline reads like pseudocode. Cancellation is ambient, there ar
 checks:
 
 ```ts
-const runPipeline = cancAsync(function* (mockApi, query, signal) {
+cancAsync(function* () {
  // embed the query — canceled here, nothing below runs
  yield* cancAwait(embed(query, signal));
 
- // parallel retrieve — both legs needed, so this is `all`, not a race
- const [vector, keyword] = yield* cancAwait.all([
- vectorSearch(mockApi, query, signal),
- keywordSearch(mockApi, query, signal),
- ]);
- const hits = mergeHits(vector, keyword);
+ // parallel retrieve, collected as a finite set with iter
+ const legs = yield* cancAwait.iter(retrieveLegs(ragApi, query, signal));
+ const hits = mergeHits(legs);
 
  // rerank the merged hits — canceled here, generate never starts
  const ranked = yield* cancAwait(rerank(query, hits, signal));
 
- // generate the answer from the top chunks — an abort mid-stream stops emitting tokens
- const stream = generate(mockApi, ranked.slice(0, 3).map((c) => c.text).join(' '), signal);
+ // generate the answer, consuming the token stream with each as it arrives
+ const context = ranked.slice(0, 3).map((c) => c.text).join(' ');
  let text = '';
- while (true) {
- const next = yield* cancAwait(stream.next());
- if (next.done) break;
- text += next.value;
- }
+ yield* cancAwait.each(generate(chatApi, context, signal), (token) => {
+ text += token;
+ });
  return { query, text, sources: ranked.slice(0, 3).map((c) => c.id) };
 });
 ```
+
+The two iterator helpers show side by side: `iter` buffers a bounded source (the retrieval legs)
+into an array, and `each` consumes an open stream (the answer tokens) one at a time. Both cancel
+their source when the pipeline is canceled.
 
 ## The cost of not canceling
 

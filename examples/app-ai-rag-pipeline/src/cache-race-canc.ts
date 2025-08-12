@@ -8,17 +8,17 @@
 import { CancelablePromise } from '@cancjs/promise';
 import { ragPipeline } from './pipeline-canc';
 import { RagAnswer } from './pipeline';
-import type { MockApiBundle } from '@shared/mock-api';
+import type { RagApi, ChatApi } from '@shared/mock-api';
 
-export function answerWithCache(mockApi: MockApiBundle, query: string): CancelablePromise<RagAnswer> {
+export function answerWithCache(ragApi: RagApi, chatApi: ChatApi, query: string): CancelablePromise<RagAnswer> {
  return CancelablePromise.race([
- lookupCache(mockApi, query),
- ragPipeline(mockApi, query),
+ lookupCache(query),
+ ragPipeline(ragApi, chatApi, query),
  ]);
 }
 
 // A fast semantic-cache lookup. Resolves quickly when there is a cached answer for the query.
-function lookupCache(mockApi: MockApiBundle, query: string): CancelablePromise<RagAnswer> {
+function lookupCache(query: string): CancelablePromise<RagAnswer> {
  return new CancelablePromise((resolve) => {
  setTimeout(() => {
  resolve({ query, text: `cached: ${query}`, sources: ['cache'] });

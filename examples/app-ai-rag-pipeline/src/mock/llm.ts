@@ -18,13 +18,13 @@
 // The pipeline calls generate(prompt, signal) either way, so cancellation reaches the model call
 // through the same signal it uses for every other step.
 
-import type { AbortSignalLike, MockApiBundle } from '@shared/mock-api';
+import type { AbortSignalLike, ChatApi } from '@shared/mock-api';
 
 /** Streams the answer token by token, honoring `signal`. Yields strings; join for the full text. */
 export function generate(
- mockApi: MockApiBundle,
+ chatApi: ChatApi,
  prompt: string,
  signal?: AbortSignalLike,
 ): AsyncGenerator<string, void, void> {
- return mockApi.chat.stream(prompt, signal);
+ return chatApi.stream(prompt, signal);
 }
