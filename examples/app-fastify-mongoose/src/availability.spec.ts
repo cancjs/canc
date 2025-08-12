@@ -1,5 +1,6 @@
 import http from 'node:http';
 import Fastify, { FastifyInstance } from 'fastify';
+import { sleep } from '@shared/util';
 import { cancellationPlugin as cancPlugin } from './hooks-canc';
 import { cancellationPlugin as vanillaPlugin } from './hooks-vanilla';
 import { searchAvailability as searchCanc } from './availability-service-canc';
@@ -59,7 +60,7 @@ describe('app-fastify-mongoose availability search', () => {
  const port = await portOf(app);
 
  await requestThenDisconnect(port);
- await new Promise((r) => setTimeout(r, QUERY_LATENCY_MS * 4));
+ await sleep(QUERY_LATENCY_MS * 4);
 
  const issued = queryLog.map((q) => q.op);
  // First query started before the disconnect landed.
@@ -76,7 +77,7 @@ describe('app-fastify-mongoose availability search', () => {
  const port = await portOf(app);
 
  await requestThenDisconnect(port);
- await new Promise((r) => setTimeout(r, QUERY_LATENCY_MS * 4));
+ await sleep(QUERY_LATENCY_MS * 4);
 
  const issued = queryLog.map((q) => q.op);
  // Uncancelable: every query runs for the dead socket.

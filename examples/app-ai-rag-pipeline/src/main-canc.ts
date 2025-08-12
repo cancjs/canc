@@ -1,4 +1,5 @@
 import { isCancelError } from '@cancjs/promise';
+import { sleep } from '@shared/util';
 import { createMockApi } from '@shared/mock-api';
 import { ragPipeline } from './pipeline-canc';
 import { answerWithCache } from './cache-race-canc';
@@ -33,7 +34,7 @@ async function main(): Promise<void> {
  console.log('canc: cache wins race');
  const winner = await answerWithCache(race, QUERY);
  console.log(`canc: winner = "${winner.text}"`);
- await new Promise((r) => setTimeout(r, 300));
+ await sleep(300);
  const raceAborted = race.api.calls.filter((c) => c.status === 'aborted').length;
  console.log(`canc: calls = ${race.api.calls.length}, aborted = ${raceAborted} (pipeline canceled, no wasted work)`);
 }

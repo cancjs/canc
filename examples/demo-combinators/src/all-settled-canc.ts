@@ -2,6 +2,7 @@
 // Inputs settle independently; no cancellation on first reject (by design).
 
 import { CancelablePromise } from "@cancjs/promise";
+import { sleep } from "@shared/util";
 
 const completed: string[] = [];
 
@@ -35,7 +36,7 @@ async function runAllSettledCanc(): Promise<void> {
  // (allSettled never rejects on input failure)
  }
 
- await new Promise((r) => setTimeout(r, 100));
+ await sleep(100);
  console.log(`Canc allSettled - completed: ${completed.length}`);
 }
 

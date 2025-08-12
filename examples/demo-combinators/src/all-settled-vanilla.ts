@@ -1,6 +1,8 @@
 // Promise.allSettled: waits for all to settle (never rejects on individual failures).
 // Native behavior: no cancel, all complete.
 
+import { sleep } from "@shared/util";
+
 const completed: string[] = [];
 
 function loadWidget(name: string, delay: number): Promise<string> {
@@ -31,7 +33,7 @@ async function runAllSettledVanilla(): Promise<void> {
  // (no cancel)
  }
 
- await new Promise((r) => setTimeout(r, 100));
+ await sleep(100);
  console.log(`Vanilla allSettled - completed: ${completed.length}`);
 }
 

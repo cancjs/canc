@@ -1,5 +1,7 @@
 // Promise.race: first to settle (win or fail) returns. Remaining keep running.
 
+import { sleep } from "@shared/util";
+
 const settled: string[] = [];
 
 function loadWidget(name: string, delay: number): Promise<string> {
@@ -27,7 +29,7 @@ async function runRaceVanilla(): Promise<void> {
  }
 
  // Wait to see remaining settle (wasted work)
- await new Promise((r) => setTimeout(r, 150));
+ await sleep(150);
  console.log(`Vanilla race - all settled: ${settled.length}`);
 }
 

@@ -1,4 +1,5 @@
 import { isCancelError } from '@cancjs/promise';
+import { sleep } from '@shared/util';
 import { createMockApi } from '@shared/mock-api';
 import type { MockApiBundle } from '@shared/mock-api';
 import { ragPipeline } from './pipeline-canc';
@@ -52,7 +53,7 @@ describe('rag pipeline (canc)', () => {
  const winner = await answerWithCache(mockApi, QUERY);
  expect(winner.text).toContain('cached');
  // let any un-canceled work settle before asserting nothing further ran.
- await new Promise((r) => setTimeout(r, 120));
+ await sleep(120);
  expect(chatCalls(mockApi)).toBe(0);
  expect(abortedCalls(mockApi)).toBeGreaterThan(0);
  });

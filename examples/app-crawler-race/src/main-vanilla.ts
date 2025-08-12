@@ -1,3 +1,4 @@
+import { sleep } from '@shared/util';
 import { createMockApi } from '@shared/mock-api';
 import { compareVanilla, firstQuote } from './compare-vanilla';
 import { crawlVanilla, crawlAllSuppliers } from './crawl-vanilla';
@@ -19,7 +20,7 @@ async function main(): Promise<void> {
  setTimeout(cancel, 30); // no-op — the crawl cannot be stopped
  await result;
  const winner = await firstQuote(mockApi, TARGET_PART);
- await new Promise((resolve) => setTimeout(resolve, 120));
+ await sleep(120);
  const pageStarted = mockApi.api.calls.filter((call) => call.endpoint === 'catalog.page').length;
  const quoteCompleted = mockApi.api.calls.filter(
  (call) => call.endpoint === 'catalog.quote' && call.status === 'completed'

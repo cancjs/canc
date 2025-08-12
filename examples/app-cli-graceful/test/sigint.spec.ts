@@ -1,5 +1,6 @@
 import { readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
+import { sleep } from '@shared/util';
 
 // Windows cannot deliver a real SIGINT to a child process (Node on win32 has no POSIX signals;
 // child.kill('SIGINT') terminates the process directly instead of invoking its handler), so this
@@ -32,7 +33,7 @@ describe('app-cli-graceful SIGINT', () => {
  await import('../src/main-canc.js');
 
  // let the backup start and get a download or two in flight before interrupting
- await new Promise((resolve) => setTimeout(resolve, 15));
+ await sleep(15);
  process.emit('SIGINT', 'SIGINT');
 
  await exitedPromise;

@@ -5,6 +5,7 @@
 
 import http from 'node:http';
 import type { Express } from 'express';
+import { sleep } from '@shared/util';
 import { aggregateChunkCount } from './report-queries';
 import type { ReportDb } from './mock/db';
 
@@ -33,13 +34,13 @@ export async function runDisconnectScenario(
  request.on('error', () => {}); // destroying the socket surfaces here; expected
 
  // Let the first couple of slices run, then hang up.
- await delay(40);
+ await sleep(40);
  const runBeforeDisconnect = countAggregateQueries(rdb);
  request.destroy();
 
  // Wait past the point where an uncancelled report would have finished every slice, so the two
  // flavors are compared at the same late moment: canc frozen, vanilla complete.
- await delay(400);
+ await sleep(400);
  const runAfterDisconnect = countAggregateQueries(rdb);
 
  console.log(
@@ -60,6 +61,3 @@ function countAggregateQueries(rdb: ReportDb): number {
  return rdb.queryLog.filter((sql) => sql.includes('"id" >') && sql.includes('"id" <=')).length;
 }
 
-function delay(ms: number): Promise<void> {
- return new Promise((resolve) => setTimeout(resolve, ms));
-}

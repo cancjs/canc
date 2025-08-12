@@ -1,6 +1,7 @@
 import http from 'node:http';
 import request from 'supertest';
 import type { Express } from 'express';
+import { sleep } from '@shared/util';
 import { createApp as createCancApp } from './main-canc';
 import { createApp as createVanillaApp } from './main-vanilla';
 import { aggregateChunkCount } from './report-queries';
@@ -8,10 +9,6 @@ import type { ReportDb } from './mock/db';
 
 function countAggregateQueries(rdb: ReportDb): number {
  return rdb.queryLog.filter((sql) => sql.includes('"id" >') && sql.includes('"id" <=')).length;
-}
-
-function delay(ms: number): Promise<void> {
- return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function withServer<T>(app: Express, fn: (port: number) => Promise<T>): Promise<T> {
@@ -34,9 +31,9 @@ async function slicesAfterDisconnect(app: Express, rdb: ReportDb, path: string):
  return withServer(app, async (port) => {
  const req = http.get(`http://127.0.0.1:${port}${path}`);
  req.on('error', () => {});
- await delay(40);
+ await sleep(40);
  req.destroy();
- await delay(400);
+ await sleep(400);
  return countAggregateQueries(rdb);
  });
 }

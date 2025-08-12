@@ -5,6 +5,7 @@
 // N-1 are aborted the instant a winner appears: bandwidth saved, supplier budget saved, money saved.
 
 import { CancelablePromise } from '@cancjs/promise';
+import { sleep } from '@shared/util';
 import type { MockApiBundle } from '@shared/mock-api';
 import { quotePart, SUPPLIER_IDS, TARGET_PART } from './aux/catalog';
 import type { PartQuote } from './types';
@@ -46,7 +47,7 @@ export async function compareCanc(mockApi: MockApiBundle): Promise<void> {
  console.log(`canc: winner ${winner.supplierId} at ${winner.amount}`);
 
  // Wait the same amount of time; the losers were aborted, so no extra completions appear.
- await new Promise((resolve) => setTimeout(resolve, 120));
+ await sleep(120);
  const completed = mockApi.api.calls.filter(
  (call) => call.endpoint === 'catalog.quote' && call.status === 'completed'
  ).length;

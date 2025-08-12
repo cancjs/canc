@@ -1,5 +1,7 @@
 // Promise.any: first to fulfill wins. Remaining losers keep running (native behavior).
 
+import { sleep } from "@shared/util";
+
 const completed: string[] = [];
 
 function loadWidget(name: string, delay: number): Promise<string> {
@@ -33,7 +35,7 @@ async function runAnyVanilla(): Promise<void> {
  }
 
  // Wait to see how many losers still complete
- await new Promise((r) => setTimeout(r, 150));
+ await sleep(150);
  console.log(`Vanilla any - losers completed: ${completed.length}`);
 }
 

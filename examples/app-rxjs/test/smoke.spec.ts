@@ -1,5 +1,6 @@
 import { Subject, Observable, EmptyError, firstValueFrom, of } from 'rxjs';
 import CancelablePromise, { isCancelError } from '@cancjs/promise';
+import { sleep } from '@shared/util';
 import { SearchRecord } from '../src/mock/log-source';
 import { clickTwoLines } from '../src/viewer';
 import { toCancelablePromise, fromCancelable } from '../src/lib/canc-rxjs';
@@ -14,7 +15,7 @@ async function runScenario(
  const log: SearchRecord[] = [];
  wire(clicks, log).subscribe(() => {});
  await clickTwoLines(clicks);
- await new Promise((r) => setTimeout(r, 80));
+ await sleep(80);
  return log;
 }
 
@@ -87,7 +88,7 @@ describe('app-rxjs smoke', () => {
 
  const subscription = fromCancelable(factory).subscribe({ error: () => {} });
  subscription.unsubscribe();
- await new Promise((r) => setTimeout(r, 0));
+ await sleep(0);
 
  expect(log.map((r) => r.status)).toEqual(['started', 'aborted']);
  });

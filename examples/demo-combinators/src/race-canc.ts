@@ -2,6 +2,7 @@
 // Demonstrates cancel of losers on any settlement.
 
 import { CancelablePromise } from "@cancjs/promise";
+import { sleep } from "@shared/util";
 
 const settled: string[] = [];
 const canceled: string[] = [];
@@ -36,7 +37,7 @@ async function runRaceCanc(): Promise<void> {
  }
 
  // canceled here — losers canceled
- await new Promise((r) => setTimeout(r, 150));
+ await sleep(150);
  console.log(`Canc race - canceled: ${canceled.length}`);
 }
 

@@ -1,5 +1,6 @@
 import http from 'node:http';
 import Fastify from 'fastify';
+import { sleep } from '@shared/util';
 import { cancellationPlugin } from './hooks-canc';
 import { searchAvailability } from './availability-service-canc';
 import { installMocks, queryLog, resetQueryLog } from './mock/db';
@@ -53,7 +54,7 @@ async function main() {
  resetQueryLog();
  await requestThenDisconnect(port);
  // Give the canceled chain a beat to settle before reading the log.
- await new Promise((r) => setTimeout(r, QUERY_LATENCY_MS * 4));
+ await sleep(QUERY_LATENCY_MS * 4);
 
  const issued = queryLog.map((q) => q.op) as string[];
  console.log('Queries issued:', issued.join(', ') || '(none)');
