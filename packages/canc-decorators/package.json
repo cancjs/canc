@@ -17,6 +17,16 @@
  "types": "./dist/types/index.d.ts",
  "import": "./dist/index.mjs",
  "require": "./dist/index.cjs"
+ },
+ "./legacy": {
+ "types": "./dist/types/legacy.d.ts",
+ "import": "./dist/legacy.mjs",
+ "require": "./dist/legacy.cjs"
+ },
+ "./babel-legacy": {
+ "types": "./dist/types/babel-legacy.d.ts",
+ "import": "./dist/babel-legacy.mjs",
+ "require": "./dist/babel-legacy.cjs"
  }
  },
  "engines": {
