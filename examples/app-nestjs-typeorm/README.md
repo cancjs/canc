@@ -13,10 +13,11 @@ to cancel mid-run.
 
 ## What it shows
 
-- **Request-scoped cancellation interceptor.** A `NestInterceptor` turns the handler result into a
- cancelable root and cancels it when the client disconnects, so the controller chain stops instead
- of finishing work for a dead socket. Controller handlers return cancelable promises and Nest
- awaits them unchanged, because a `CancelablePromise` is a native `Promise` subclass.
+- **Request-scoped cancellation interceptor.** Each handler returns its cancelable service call and
+ leaves the same promise on the request. A `NestInterceptor` reads that promise when the client
+ disconnects and cancels it, so the controller chain stops instead of finishing work for a dead
+ socket. The handler calls no interceptor plumbing of its own. Nest awaits the returned cancelable
+ promise unchanged, because a `CancelablePromise` is a native `Promise` subclass.
 - **Decorators that coexist.** The decorated `InvoiceService` carries Nest's `@Injectable` and a
  custom `@BillingTier` marker (a `SetMetadata` decorator) on the same methods that canc's
  `@AsyncMethod` wraps. A guard reads the marker at request time, which proves canc's wrapper
@@ -56,7 +57,7 @@ prints the invoice count before and after. canc leaves it unchanged; vanilla sho
 
 The teaching payload lives in `-vanilla` / `-canc` twins. Read them side by side:
 
-- `cancel.interceptor-vanilla.ts` vs `cancel.interceptor-canc.ts` (the passthrough vs the cancel root)
+- `cancel.interceptor-vanilla.ts` vs `cancel.interceptor-canc.ts` (the passthrough vs the disconnect cancel)
 - `invoice.service-vanilla.ts` vs `invoice.service-canc.ts` (plain async vs decorated coroutine)
 - `invoice.controller-vanilla.ts` vs `invoice.controller-canc.ts`
 - `app.module-vanilla.ts` vs `app.module-canc.ts`
