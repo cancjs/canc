@@ -2,13 +2,19 @@
 // first so switching albums is one line, and state is only ever written from the run that survived.
 
 import { create } from 'zustand';
-import { CancelablePromise } from '@cancjs/promise';
+import type { CancelablePromise } from '@cancjs/promise';
+import { cancelify } from '@cancjs/toolbox';
 import { mediaApi } from './mock/media-api';
 import type { LibraryState } from './types';
 
 interface CancLibraryState extends LibraryState {
  currentLoad: CancelablePromise<void> | null;
 }
+
+// getSignal() is called only when a load is actually started, so an uncanceled load wires no
+// AbortController at all.
+const loadTracks = cancelify((getSignal, [albumId]: [string]) => mediaApi.tracks(albumId, getSignal()));
+const loadAlbumsList = cancelify((getSignal) => mediaApi.albums(getSignal()));
 
 export const useLibraryStore = create<CancLibraryState>((set, get) => ({
  albums: [],
@@ -23,13 +29,8 @@ export const useLibraryStore = create<CancLibraryState>((set, get) => ({
 
  set({ currentAlbumId: albumId, tracks: [], status: 'loading' });
 
- const load = new CancelablePromise<void>((resolve, reject, handleCancel) => {
- const controller = new AbortController();
- mediaApi.tracks(albumId, controller.signal).then((tracks) => {
+ const load = loadTracks(albumId).then((tracks) => {
  set({ tracks, status: 'loaded' });
- resolve();
- }, reject);
- handleCancel(() => controller.abort());
  });
  load.catch(() => {});
 
@@ -43,7 +44,10 @@ export const useLibraryStore = create<CancLibraryState>((set, get) => ({
  },
 }));
 
-export async function loadAlbums(): Promise<void> {
- const albums = await mediaApi.albums();
+export function loadAlbums(): CancelablePromise<void> {
+ const load = loadAlbumsList().then((albums) => {
  useLibraryStore.setState({ albums });
+ });
+ load.catch(() => {});
+ return load;
 }

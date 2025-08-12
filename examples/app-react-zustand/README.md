@@ -70,8 +70,8 @@ about without mounting a component.
  cancels A's load, so `tracks` only ever reflects B. The vanilla store lets A's request finish
  anyway (its result is just discarded); both track requests still hit the mock API.
 - **One cancel call, not a counter.** The canc store has no request-id bookkeeping. Cancelling the
- previous `CancelablePromise` is enough, because the cancel reaches the `AbortController` wired
- in `handleCancel`.
+ previous `CancelablePromise` is enough: `loadTracks`/`loadAlbumsList` are `cancelify`'d wrappers
+ around `mediaApi`, so canceling the promise aborts the underlying call automatically.
 - **Unmount cancels too.** `reset()` is called from the component's cleanup effect on unmount, and
  in the canc store that cancels whatever load was still outstanding.
 
@@ -79,4 +79,6 @@ about without mounting a component.
 
 `src/store-canc.ts`'s pattern, one `CancelablePromise` field per in-flight action, cancel it
 before starting the next, is the reusable piece for any zustand store with switchable async
-actions. `src/mock/media-api.ts` is scaffolding for this demo, not something to copy.
+actions. Wrapping the API calls with `cancelify` instead of hand-building a `CancelablePromise`
+and `AbortController` is the reusable piece for the API layer itself. `src/mock/media-api.ts` is
+scaffolding for this demo, not something to copy.
