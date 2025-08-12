@@ -1,0 +1,21 @@
+{
+ "name": "@shared/lib",
+ "version": "0.0.0",
+ "private": true,
+ "description": "Publishable-tidy canc helper code shared by canc examples (future @cancjs/* seeds)",
+ "main": "src/index.ts",
+ "types": "src/index.ts",
+ "scripts": {
+ "test": "jest --colors",
+ "typecheck": "tsc --noEmit --project tsconfig.json"
+ },
+ "dependencies": {
+ "@cancjs/promise": "link:../../../packages/canc-promise"
+ },
+ "devDependencies": {
+ "@types/jest": "30.0.0",
+ "jest": "30.4.2",
+ "ts-jest": "29.4.11",
+ "typescript": "5.9.3"
+ }
+}
