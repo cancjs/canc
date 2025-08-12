@@ -5,7 +5,7 @@
 
 import { configure, observable, action } from 'mobx';
 import { AsyncMethod } from '@cancjs/decorators';
-import type { CancelablePromise } from '@cancjs/promise';
+import { createAbortSignal, type CancelablePromise } from '@cancjs/promise';
 import { WATCHLIST, makeMarketApi } from '../portfolio';
 import type { Symbol, Loaded, Quote, HistoryPoint, MarketApi } from '../portfolio';
 
@@ -17,22 +17,23 @@ interface LoadResult {
 }
 
 // Loader client: canc stage-3 @AsyncMethod turns the generator into a CancelablePromise-returning
-// method. It owns the AbortController so canceling the returned run aborts the request in flight.
+// method. It mints one canc-aware signal per run so canceling the returned run aborts the request
+// in flight and reads as a genuine cancellation, not a bare DOMException.
 class QuoteLoader {
- private controller = new AbortController();
+ private cancelSignal = createAbortSignal();
 
  constructor(private readonly api: MarketApi) {}
 
  @AsyncMethod
  *load(symbol: Symbol): Generator<Promise<any>, LoadResult, any> {
- this.controller = new AbortController();
- const quote = yield this.api.quote(symbol, this.controller.signal);
- const history = yield this.api.history(symbol, this.controller.signal);
+ this.cancelSignal = createAbortSignal();
+ const quote = yield this.api.quote(symbol, this.cancelSignal.signal);
+ const history = yield this.api.history(symbol, this.cancelSignal.signal);
  return { quote, history };
  }
 
  abort(): void {
- this.controller.abort();
+ this.cancelSignal.abort();
  }
 }
 
