@@ -2,7 +2,7 @@
  "compilerOptions": {
  "target": "es2020",
  "module": "commonjs",
- "lib": ["es2022", "dom"],
+ "lib": ["es2022"],
  "moduleResolution": "node",
  "strict": true,
  "esModuleInterop": true,
@@ -13,6 +13,5 @@
  "declarationMap": true,
  "sourceMap": true
  },
- "include": ["**/*.ts", "**/*.tsx"],
- "exclude": ["node_modules", "**/*.spec.ts"]
+ "include": ["src"]
 }
