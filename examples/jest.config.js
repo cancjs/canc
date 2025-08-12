@@ -1,5 +1,23 @@
-// Aggregate runner for all example smoke suites. Each example ships its own jest.config.js
-// extending ./jest.config.base.js; this root config runs them as jest projects.
 module.exports = {
- projects: ['<rootDir>/_shared/mock-api', '<rootDir>/demo-promise-basics', '<rootDir>/demo-chain-propagation', '<rootDir>/demo-coroutine', '<rootDir>/demo-decorators', '<rootDir>/demo-fetch', '<rootDir>/demo-toolbox', '<rootDir>/demo-combinators', '<rootDir>/demo-async-dispose', '<rootDir>/demo-lazy-promise', '<rootDir>/demo-signal-interop'],
+ clearMocks: true,
+ testEnvironment: 'node',
+ testMatch: ['<rootDir>/test/**/*.spec.ts'],
+ testPathIgnorePatterns: ['/node_modules/', '/~~', '~~/'],
+ modulePathIgnorePatterns: ['/~~', '~~/'],
+ moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
+ moduleNameMapper: {
+ '^@shared/(.+)$': '<rootDir>/_shared/$1',
+ },
+ transform: {
+ '^.+\\.tsx?$': ['ts-jest', {
+ tsconfig: {
+ target: 'es2020',
+ module: 'commonjs',
+ moduleResolution: 'node',
+ lib: ['es2020'],
+ esModuleInterop: true,
+ strict: true,
+ },
+ }],
+ },
 };
