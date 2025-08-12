@@ -10,6 +10,10 @@ module.exports = {
  modulePathIgnorePatterns: ['/~~', '~~/'],
  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
  moduleNameMapper: {
+ // Shared packages are written nodenext-style (explicit .js on relative imports, resolved
+ // against their .ts source by TS consumers). Jest's CJS transform needs the extension
+ // stripped so its own resolver still finds the .ts file.
+ '^(\\.{1,2}/.*)\\.js$': '$1',
  '^@shared/(.+)$': '<rootDir>/../_shared/$1',
  },
  transform: {
