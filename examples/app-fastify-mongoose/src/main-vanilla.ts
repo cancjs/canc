@@ -1,7 +1,6 @@
 import http from 'node:http';
 import Fastify from 'fastify';
 import { sleep } from '@shared/util';
-import { cancellationPlugin } from './hooks-vanilla';
 import { searchAvailability } from './availability-service-vanilla';
 import { installMocks, queryLog, resetQueryLog } from './mock/db';
 
@@ -10,7 +9,6 @@ const QUERY_LATENCY_MS = 50;
 
 async function buildServer() {
  const app = Fastify();
- await app.register(cancellationPlugin);
 
  app.get<{ Querystring: { hotelId?: string; date?: string } }>(
  '/availability',
@@ -18,8 +16,8 @@ async function buildServer() {
  const hotelId = request.query.hotelId ?? 'grand-plaza';
  const date = request.query.date ?? '2026-08-01';
 
- const work = searchAvailability(hotelId, date);
- const result = await request.cancelOnClose(work);
+ // no cancellation counterpart, this runs to completion even for a dead socket
+ const result = await searchAvailability(hotelId, date);
  return reply.send(result);
  }
  );
