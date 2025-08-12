@@ -4,7 +4,7 @@
 // so no stale state is written for an abandoned symbol.
 
 import { configure, makeAutoObservable, action } from 'mobx';
-import type { CancelablePromise } from '@cancjs/promise';
+import { createAbortSignal, type CancelablePromise } from '@cancjs/promise';
 import { cancFlow } from './lib/canc-flow';
 import { WATCHLIST, makeMarketApi } from './portfolio';
 import type { Symbol, Loaded, MarketApi } from './portfolio';
@@ -40,18 +40,18 @@ export class PortfolioStore {
  }
 
  loadSymbol(symbol: Symbol): CancelablePromise<void> {
- // The controller aborts the request at the network the moment this run is canceled, so a stale
+ // The signal aborts the request at the network the moment this run is canceled, so a stale
  // symbol's quote+history are cut off in flight instead of running to completion.
- const controller = new AbortController();
+ const cancelSignal = createAbortSignal();
  const run = cancFlow(function* (this: PortfolioStore): Generator<Promise<any>, void, any> {
  this.loading = true;
- const quote = yield this.api.quote(symbol, controller.signal);
- const history = yield this.api.history(symbol, controller.signal);
+ const quote = yield this.api.quote(symbol, cancelSignal.signal);
+ const history = yield this.api.history(symbol, cancelSignal.signal);
  // Reached only when the run was not canceled: safe to write, this is still the current symbol.
  this.loaded = { symbol, quote, history };
  this.loading = false;
  }, this)();
- run.catch(() => controller.abort());
+ run.catch(() => cancelSignal.abort());
  return run;
  }
 }
