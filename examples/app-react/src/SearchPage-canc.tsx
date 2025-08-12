@@ -1,19 +1,15 @@
 import { type ReactNode, useMemo, useState } from 'react';
-import { CancelablePromise, suppressCancel } from '@cancjs/promise';
+import { cancelify } from '@cancjs/toolbox';
 
 import { useCancelableEffect } from './lib/use-cancelable-effect';
 import { usePromiseState } from './lib/use-promise-state';
 import { FlightRow } from './FlightRow-canc';
 import type { FlightApi, FlightDestination } from './mock/api';
 
-// A cancelable destination search. handleCancel wires the abort so cancel() reaches the fake
-// network — an aborted search shows up as an `aborted` marker in api.calls.
-function searchDestinations(api: FlightApi, query: string): CancelablePromise<FlightDestination[]> {
- return new CancelablePromise<FlightDestination[]>((resolve, reject, handleCancel) => {
- const controller = new AbortController();
- handleCancel(() => controller.abort());
- api.searchDestinations(query, controller.signal).then(resolve, reject);
- });
+// A cancelable destination search. cancelify hands the fn an outbound signal that aborts when the
+// returned promise is canceled (an aborted search shows up as an `aborted` marker in api.calls).
+function searchDestinations(api: FlightApi, query: string) {
+ return cancelify((getSignal, [q]: [string]) => api.searchDestinations(q, getSignal()))(query);
 }
 
 // Typeahead destination search. Every keystroke starts a fresh search chain; the effect cleanup
@@ -25,8 +21,7 @@ export function SearchPage({ api }: { api: FlightApi }): ReactNode {
 
  useCancelableEffect(() => {
  if (!search) return;
- // Superseded searches are canceled — swallow the CancelError as a normal outcome.
- suppressCancel(search);
+ // Superseded searches are canceled (the hook suppresses that CancelError itself).
  return search;
  }, [search]);
 
