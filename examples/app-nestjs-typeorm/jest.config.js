@@ -14,7 +14,7 @@ module.exports = {
  tsconfig: {
  target: 'es2021',
  module: 'commonjs',
- moduleResolution: 'node',
+ moduleResolution: 'bundler',
  lib: ['es2022', 'dom'],
  esModuleInterop: true,
  experimentalDecorators: true,

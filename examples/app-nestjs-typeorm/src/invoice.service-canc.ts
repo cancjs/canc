@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { LegacyAsyncMethod } from '@cancjs/decorators';
+import { AsyncMethod } from '@cancjs/decorators/legacy';
 import { await as cancAwait } from '@cancjs/coroutine';
 import { BillingTier } from './billing-metadata';
 import {
@@ -30,10 +30,10 @@ export class InvoiceService {
  // emit constructor param metadata, so Nest cannot infer the token from the type alone.
  constructor(@Inject(DataSource) private readonly dataSource: DataSource) {}
 
- // @LegacyAsyncMethod wraps the method (applied last, runs first is reversed: the marker below is
- // set before this wraps, so the wrapper must carry the marker forward). This is the coexistence
- // proof the guard checks.
- @LegacyAsyncMethod()
+ // @AsyncMethod (the experimental-decorators build) wraps the method. Decorators apply bottom-up,
+ // so @BillingTier sets its marker first and the wrapper carries it forward. This is the
+ // coexistence proof the guard checks.
+ @AsyncMethod()
  @BillingTier('standard')
  *listInvoices(): Generator<unknown, number, any> {
  return yield* cancAwait(countInvoices(this.dataSource.manager));
@@ -45,7 +45,7 @@ export class InvoiceService {
  * transaction rolls back. The rollback is driven by the surrounding coroutine's finally, which
  * canc runs SHIELDED, so cancellation can never abort the cleanup half-done.
  */
- @LegacyAsyncMethod()
+ @AsyncMethod()
  @BillingTier('bulk')
  *generateAll(): Generator<unknown, BulkResult, any> {
  const before = yield* cancAwait(countInvoices(this.dataSource.manager));
@@ -68,7 +68,7 @@ export class InvoiceService {
  }
  yield* cancAwait(queryRunner.commitTransaction());
  } finally {
- // shielded: canceled here — this cleanup is driven to completion regardless. A partial run
+ // shielded: canceled here, this cleanup is driven to completion regardless. A partial run
  // rolls back so the invoice count is left exactly as it was before the request started.
  if (!queryRunner.isTransactionActive) {
  // committed already; nothing to undo
