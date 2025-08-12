@@ -4,8 +4,13 @@
  "private": true,
  "description": "Examples workspace for canc",
  "workspaces": [
+ "_shared/mock-api",
  "_shared/util",
- "_shared/lib"
+ "_shared/lib",
+ "app-ai-chat-stop",
+ "app-react-mobx",
+ "app-react-zustand",
+ "app-vue"
  ],
  "scripts": {
  "typecheck": "tsc --noEmit --project tsconfig.examples.json",

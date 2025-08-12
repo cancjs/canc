@@ -15,12 +15,12 @@ const loading = ref(false);
 // cannot overwrite the list for the current filter (the awaited-watch footgun this example is about).
 watch(
  category,
- (next) => {
+ (filterCategory) => {
  loading.value = true;
  const controller = new AbortController();
  let stale = false;
  props.api
- .listProducts(next, controller.signal)
+ .listProducts(filterCategory, controller.signal)
  .then((list) => {
  // stale guard: drop a response for a filter the user has already changed away from.
  if (stale) return;
