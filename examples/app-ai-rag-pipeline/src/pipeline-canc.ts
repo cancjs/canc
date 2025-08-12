@@ -1,60 +1,58 @@
 // The "ask the manual" pipeline, cancelable version. Same shape as pipeline-vanilla.ts, but built
 // with cancAsync so one cancel() aborts the in-flight step and skips everything below it.
 //
-// Cancellation is ambient inside the coroutine: no per-step checks. A signal derived from the
-// pipeline's own cancellation is threaded into each mock call, so the abort reaches the simulated
-// network and shows up as an aborted marker in mockApi.calls.
+// Cancellation is ambient inside the coroutine: no per-step checks. createAbortSignal mints one
+// canc-aware signal for the whole run, threaded into each mock call; the coroutine's finally aborts
+// it on cancel, so the abort reaches the simulated network and shows up as an aborted marker in the
+// call log.
 
-import { CancelablePromise } from '@cancjs/promise';
+import { CancelablePromise, createAbortSignal } from '@cancjs/promise';
 import { cancAsync, cancAwait } from '@cancjs/coroutine';
-import { embed, keywordSearch, mergeHits, vectorSearch, RagAnswer } from './pipeline';
+import { embed, mergeHits, retrieveLegs, RagAnswer } from './pipeline';
 import { generate } from './mock/llm';
 import { rerank } from './mock/rerank';
-import type { MockApiBundle } from '@shared/mock-api';
+import type { RagApi, ChatApi } from '@shared/mock-api';
 
-export function ragPipeline(mockApi: MockApiBundle, query: string): CancelablePromise<RagAnswer> {
- // Wire the pipeline's cancellation to a native signal the steps can use. handleCancel fires when
- // this promise is canceled, whether by an explicit cancel() or by losing a race(). It aborts the
- // controller, so one cancel aborts the in-flight step at the mock-api boundary and skips the rest.
- return new CancelablePromise<RagAnswer>((resolve, reject, handleCancel) => {
- const controller = new AbortController();
- (runPipeline(mockApi, query, controller.signal) as Promise<RagAnswer>).then(resolve, reject);
- handleCancel(() => controller.abort());
- });
-}
+export function ragPipeline(ragApi: RagApi, chatApi: ChatApi, query: string): CancelablePromise<RagAnswer> {
+ // One canc-aware signal for the whole run. Aborting it reads as a genuine cancellation, so a
+ // spec-compliant client rejects the in-flight request with a CancelError.
+ const cancelSignal = createAbortSignal();
 
-const runPipeline = cancAsync(function* (mockApi: MockApiBundle, query: string, signal: AbortSignal): any {
+ return cancAsync(function* () {
  let cost = 0;
+ let done = false;
  try {
  // embed the query — canceled here, nothing below runs
- yield* cancAwait(embed(query, signal));
+ yield* cancAwait(embed(query, cancelSignal.signal));
  cost += 1;
 
- // parallel retrieve — both legs needed, so this is `all`, not a race
- const [vector, keyword] = yield* cancAwait.all([
- vectorSearch(mockApi, query, signal),
- keywordSearch(mockApi, query, signal),
- ]);
- const hits = mergeHits(vector, keyword);
+ // parallel retrieve, collected as a finite set. The two legs are a bounded source, so iter
+ // buffers them into an array for a clean merge, the finite-collect counterpart of the token
+ // stream's each below.
+ const legs = yield* cancAwait.iter(retrieveLegs(ragApi, query, cancelSignal.signal));
+ const hits = mergeHits(legs);
  cost += 2;
 
  // rerank the merged hits — canceled here, generate never starts
- const ranked = yield* cancAwait(rerank(query, hits, signal));
+ const ranked = yield* cancAwait(rerank(query, hits, cancelSignal.signal));
  cost += 1;
 
- // generate the answer from the top chunks — an abort mid-stream stops emitting tokens
- const context = ranked.slice(0, 3).map((chunk: { text: string }) => chunk.text).join(' ');
- const stream = generate(mockApi, context, signal);
+ // generate the answer from the top chunks. each consumes the token stream as it arrives; a
+ // cancel stops the pull between tokens and cancels the stream at its source.
+ const context = ranked.slice(0, 3).map((chunk) => chunk.text).join(' ');
  let text = '';
- while (true) {
- const next: IteratorResult<string, void> = yield* cancAwait(stream.next());
- if (next.done) break;
- text += next.value;
- }
+ yield* cancAwait.each(generate(chatApi, context, cancelSignal.signal), (token) => {
+ text += token;
+ });
 
- return { query, text, sources: ranked.slice(0, 3).map((chunk: { id: string }) => chunk.id) } as RagAnswer;
+ done = true;
+ return { query, text, sources: ranked.slice(0, 3).map((chunk) => chunk.id) } as RagAnswer;
  } finally {
- // Shielded on cancel: log the partial cost so a canceled request is still accounted for.
+ // Always runs (normal end or cancel). On cancel it aborts the outbound signal so the in-flight
+ // step stops at the mock-api boundary, then logs the partial cost so a canceled run is still
+ // accounted for.
+ if (!done) cancelSignal.abort();
  console.log(`[pipeline] settled after ${cost} paid step(s)`);
  }
-});
+ })() as CancelablePromise<RagAnswer>;
+}

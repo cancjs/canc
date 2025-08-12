@@ -18,7 +18,7 @@ function abortedCalls(mockApi: MockApiBundle): number {
 describe('rag pipeline (canc)', () => {
  it('runs the full pipeline through to a generated answer', async () => {
  const mockApi = createMockApi({ latency: 5, jitter: 0 });
- const answer = await ragPipeline(mockApi, QUERY);
+ const answer = await ragPipeline(mockApi.rag, mockApi.chat, QUERY);
  expect(answer.query).toBe(QUERY);
  expect(answer.text.length).toBeGreaterThan(0);
  expect(chatCalls(mockApi)).toBeGreaterThan(0);
@@ -27,7 +27,7 @@ describe('rag pipeline (canc)', () => {
 
  it('cancel during rerank aborts the in-flight step and generate never runs', async () => {
  const mockApi = createMockApi({ latency: 20, jitter: 0 });
- const pending = ragPipeline(mockApi, QUERY);
+ const pending = ragPipeline(mockApi.rag, mockApi.chat, QUERY);
  // embed (20) + parallel retrieve (20) settle by ~40ms; rerank (40) is in flight after that.
  setTimeout(() => pending.cancel(), 55);
 
@@ -50,7 +50,7 @@ describe('rag pipeline (canc)', () => {
  const mockApi = createMockApi({ latency: 60, jitter: 0 });
  // cache resolves at ~20ms; embed (~5ms) is done, so the parallel retrieve (60ms) is in flight
  // when the race is lost, and those calls abort.
- const winner = await answerWithCache(mockApi, QUERY);
+ const winner = await answerWithCache(mockApi.rag, mockApi.chat, QUERY);
  expect(winner.text).toContain('cached');
  // let any un-canceled work settle before asserting nothing further ran.
  await sleep(120);
