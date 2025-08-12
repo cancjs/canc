@@ -4,7 +4,8 @@
  "private": true,
  "description": "Examples workspace for canc",
  "workspaces": [
- "_shared/util"
+ "_shared/util",
+ "_shared/lib"
  ],
  "scripts": {
  "typecheck": "tsc --noEmit --project tsconfig.examples.json",
