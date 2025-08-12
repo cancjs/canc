@@ -6,8 +6,9 @@ is listening to.
 
 ## What it shows
 
-- A Fastify plugin that turns a dropped connection into a cancellation. The `close` event on the
- raw request cancels the handler's in-flight promise.
+- A route handler written as a `cancAsync` generator, wrapped with `cancAsyncRoute`
+ (`src/lib/cancelable-route.ts`). The `close` event on the raw request cancels the handler's
+ coroutine; the handler still owns `reply.send` and full control of the response.
 - A three-step query chain built with `cancAsync` / `cancAwait`: find rooms, load their nightly
  rates, aggregate occupancy from existing bookings. Cancellation is ambient, so no step needs a
  manual disconnect check.
@@ -61,13 +62,13 @@ Use `diff` or a side-by-side viewer:
 
 ```bash
 diff src/availability-service-vanilla.ts src/availability-service-canc.ts
-diff src/hooks-vanilla.ts src/hooks-canc.ts
+diff src/main-vanilla.ts src/main-canc.ts
 ```
 
 The service twins align step for step. The only differences are `await` becoming
 `yield* cancAwait` inside a `cancAsync` generator, and the comment at each step changing from
-"this always runs" to "canceled here, this is skipped". The hook twins show the wiring that exists
-only on the canc side.
+"this always runs" to "canceled here, this is skipped". The route handlers differ by the
+`cancAsyncRoute` wrapper, which exists only on the canc side.
 
 ## Honesty notes
 
@@ -94,4 +95,6 @@ in `src/mock/db.ts` and `src/mock/models.ts`; treat them as a black box.
 
 ## Helper code
 
-None in this example (`src/lib` not used).
+`src/lib/cancelable-route.ts` wraps a generator route handler as a `cancAsync` coroutine and
+cancels it on client disconnect. It has no example-specific dependencies; copy it into an app that
+needs the same wiring.

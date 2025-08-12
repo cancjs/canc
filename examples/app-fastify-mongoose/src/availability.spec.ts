@@ -1,8 +1,8 @@
 import http from 'node:http';
 import Fastify, { FastifyInstance } from 'fastify';
 import { sleep } from '@shared/util';
-import { cancellationPlugin as cancPlugin } from './hooks-canc';
-import { cancellationPlugin as vanillaPlugin } from './hooks-vanilla';
+import { cancAwait } from '@cancjs/coroutine';
+import { cancAsyncRoute } from './lib/cancelable-route';
 import { searchAvailability as searchCanc } from './availability-service-canc';
 import { searchAvailability as searchVanilla } from './availability-service-vanilla';
 import { installMocks, queryLog, resetQueryLog } from './mock/db';
@@ -12,16 +12,17 @@ const QUERY_LATENCY_MS = 50;
 async function buildServer(flavor: 'canc' | 'vanilla'): Promise<FastifyInstance> {
  const app = Fastify();
  if (flavor === 'canc') {
- await app.register(cancPlugin);
- app.get('/availability', async (request, reply) => {
- const work = searchCanc('grand-plaza', '2026-08-01');
- return reply.send(await request.cancelOnClose(work));
- });
+ app.get(
+ '/availability',
+ cancAsyncRoute(function* (_request, reply) {
+ const result = yield* cancAwait(searchCanc('grand-plaza', '2026-08-01'));
+ reply.send(result);
+ })
+ );
  } else {
- await app.register(vanillaPlugin);
- app.get('/availability', async (request, reply) => {
- const work = searchVanilla('grand-plaza', '2026-08-01');
- return reply.send(await request.cancelOnClose(work));
+ app.get('/availability', async (_request, reply) => {
+ const result = await searchVanilla('grand-plaza', '2026-08-01');
+ return reply.send(result);
  });
  }
  return app;

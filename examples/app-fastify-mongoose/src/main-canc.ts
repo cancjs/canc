@@ -1,7 +1,8 @@
 import http from 'node:http';
 import Fastify from 'fastify';
 import { sleep } from '@shared/util';
-import { cancellationPlugin } from './hooks-canc';
+import { cancAwait } from '@cancjs/coroutine';
+import { cancAsyncRoute } from './lib/cancelable-route';
 import { searchAvailability } from './availability-service-canc';
 import { installMocks, queryLog, resetQueryLog } from './mock/db';
 
@@ -10,18 +11,16 @@ const QUERY_LATENCY_MS = 50;
 
 async function buildServer() {
  const app = Fastify();
- await app.register(cancellationPlugin);
 
  app.get<{ Querystring: { hotelId?: string; date?: string } }>(
  '/availability',
- async (request, reply) => {
- const hotelId = request.query.hotelId ?? 'grand-plaza';
- const date = request.query.date ?? '2026-08-01';
+ cancAsyncRoute(function* (request, reply) {
+ const hotelId = (request.query as { hotelId?: string }).hotelId ?? 'grand-plaza';
+ const date = (request.query as { date?: string }).date ?? '2026-08-01';
 
- const work = searchAvailability(hotelId, date);
- const result = await request.cancelOnClose(work);
- return reply.send(result);
- }
+ const result = yield* cancAwait(searchAvailability(hotelId, date));
+ reply.send(result); // handler owns the response, full control
+ })
  );
 
  return app;
