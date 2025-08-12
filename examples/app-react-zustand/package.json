@@ -14,6 +14,7 @@
  "dependencies": {
  "@shared/mock-api": "*",
  "@cancjs/promise": "link:../../packages/canc-promise",
+ "@cancjs/toolbox": "link:../../packages/canc-toolbox",
  "react": "19.2.7",
  "react-dom": "19.2.7",
  "zustand": "5.0.14"
