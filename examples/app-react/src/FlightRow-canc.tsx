@@ -1,17 +1,14 @@
 import { type ReactNode, useMemo, useState } from 'react';
-import { CancelablePromise, suppressCancel } from '@cancjs/promise';
+import { cancelify } from '@cancjs/toolbox';
 
 import { useCancelableEffect } from './lib/use-cancelable-effect';
 import { usePromiseState } from './lib/use-promise-state';
 import type { FlightApi, FlightDestination, FlightDetails } from './mock/api';
 
-// A cancelable details prefetch. handleCancel wires the abort so cancel() reaches the fake network.
-function prefetchDetails(api: FlightApi, id: string): CancelablePromise<FlightDetails> {
- return new CancelablePromise<FlightDetails>((resolve, reject, handleCancel) => {
- const controller = new AbortController();
- handleCancel(() => controller.abort());
- api.flightDetails(id, controller.signal).then(resolve, reject);
- });
+// A cancelable details prefetch. cancelify hands the fn an outbound signal that aborts when the
+// returned promise is canceled.
+function prefetchDetails(api: FlightApi, id: string) {
+ return cancelify((getSignal, [flightId]: [string]) => api.flightDetails(flightId, getSignal()))(id);
 }
 
 // One destination row. Hovering prefetches its details; unhovering (or unmounting) cancels that
@@ -26,8 +23,7 @@ export function FlightRow({ api, destination }: { api: FlightApi; destination: F
 
  useCancelableEffect(() => {
  if (!prefetch) return;
- // A canceled prefetch is expected (the user unhovered) — swallow its CancelError.
- suppressCancel(prefetch);
+ // A canceled prefetch is expected (the user unhovered); the hook suppresses its CancelError.
  return prefetch;
  }, [prefetch]);
 
