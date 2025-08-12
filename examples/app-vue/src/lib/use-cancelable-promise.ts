@@ -13,21 +13,27 @@ export interface UseCancelablePromise<T> {
 }
 
 /**
- * Runs `factory` once and tracks the resulting `CancelablePromise` as reactive state. The chain is
+ * Runs `source` once and tracks the resulting `CancelablePromise` as reactive state. The chain is
  * canceled automatically when the surrounding effect scope is disposed (component unmount, or an
  * enclosing `effectScope().stop()`), so a pending request never outlives the component that started
  * it. A `CancelError` settles quietly: `pending` clears and `error` stays empty, since a canceled
  * request has no result and no failure to report.
  *
+ * `source` is either an already-started `CancelablePromise` or a factory that returns one. The
+ * factory form is preferred: it defers starting the chain until this composable runs, so the request
+ * begins on setup rather than whenever the caller happened to construct it.
+ *
  * The single concern here is "own one cancelable chain and stop it on scope exit". For a chain that
  * should restart when reactive inputs change, drive the factory from `useCancelableWatch` instead.
  */
-export function useCancelablePromise<T>(factory: () => CancelablePromise<T>): UseCancelablePromise<T> {
+export function useCancelablePromise<T>(
+ source: CancelablePromise<T> | (() => CancelablePromise<T>)
+): UseCancelablePromise<T> {
  const data = shallowRef<T>();
  const error = ref<unknown>();
  const pending = ref(false);
 
- const promise = factory();
+ const promise = typeof source === 'function' ? source() : source;
  pending.value = true;
 
  promise.then(

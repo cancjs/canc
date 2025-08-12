@@ -15,6 +15,7 @@
  },
  "dependencies": {
  "@cancjs/promise": "link:../../packages/canc-promise",
+ "@cancjs/toolbox": "link:../../packages/canc-toolbox",
  "@shared/mock-api": "*",
  "vue": "3.5.40"
  },
