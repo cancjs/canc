@@ -3,6 +3,7 @@
 // completes on the server: started climbs to 100, aborted stays 0. That gap is the lesson.
 
 import { WebSocket } from 'ws';
+import { sleep } from '@shared/util';
 import { MockApi } from '@shared/mock-api';
 import { startServer } from './server-vanilla';
 import { ServerMessage } from './protocol';
@@ -52,7 +53,7 @@ function runScenario(
  console.log(`cancel at ${message.percent}%`);
  cancelAt30(ws, jobId);
  // Wait for the WHOLE export to finish anyway, then report: nothing was actually stopped.
- setTimeout(report, 700);
+ void sleep(700).then(report);
  }
  if (message.type === 'canceled') console.log('server ack: canceled (sending only)');
  });

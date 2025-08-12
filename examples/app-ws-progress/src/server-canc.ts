@@ -108,8 +108,9 @@ function runJob(
  jobs: Map<string, CancelablePromise<void>>,
 ): CancelablePromise<void> {
  const job = new CancelablePromise<void>((resolve, reject, onCancel) => {
- // The job's own signal, threaded into every transcode chunk so a cancel aborts the chunk in
- // flight. Both cancel paths (message + close) reach the encoder through it.
+ // Each job owns its own signal, distinct from the connection root. This per-job controller
+ // threads cancellation into the transcode encoder (the chunk in flight), while the connection
+ // root handles the scope (all jobs at once when the connection closes). Two separate concerns.
  const controller = new AbortController();
  const iter = exportJob({ api, signal: controller.signal });
 
