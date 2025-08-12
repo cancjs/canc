@@ -1,4 +1,5 @@
 import { WebSocket } from 'ws';
+import { sleep } from '@shared/util';
 import { MockApi } from '@shared/mock-api';
 import { startServer as startCanc, ServerHandle } from '../src/server-canc';
 import { startServer as startVanilla } from '../src/server-vanilla';
@@ -29,7 +30,7 @@ function driveOne(port: number, cancelAt30: CancelAt30, settleMs: number, api: M
  if (message.type === 'progress' && message.percent >= 30 && !canceled) {
  canceled = true;
  cancelAt30(ws, jobId);
- setTimeout(report, settleMs);
+ void sleep(settleMs).then(report);
  }
  });
  });

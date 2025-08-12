@@ -3,6 +3,7 @@
 // the cancel point and the chunk in flight is marked aborted.
 
 import { WebSocket } from 'ws';
+import { sleep } from '@shared/util';
 import { MockApi } from '@shared/mock-api';
 import { startServer } from './server-canc';
 import { ServerMessage } from './protocol';
@@ -52,7 +53,7 @@ function runScenario(
  console.log(`cancel at ${message.percent}%`);
  cancelAt30(ws, jobId);
  // Let the server settle the cancel, confirm no more chunks start, then report.
- setTimeout(report, 80);
+ void sleep(80).then(report);
  }
  if (message.type === 'canceled') console.log('server ack: canceled');
  });
