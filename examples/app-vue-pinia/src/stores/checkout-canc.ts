@@ -3,15 +3,25 @@
 // call can never land after the wizard has already moved past it.
 
 import { defineStore } from 'pinia';
-import { CancelablePromise } from '@cancjs/promise';
+import { CancelablePromise, isCancelError } from '@cancjs/promise';
 import { cancAsync, cancAwait } from '@cancjs/coroutine';
+import { cancelify } from '@cancjs/toolbox';
 import {
  validateAddress,
  quoteShipping,
  fetchShippingRecap,
  confirmReview,
 } from '../mock/checkout-api';
-import { STEP_ORDER, type CheckoutState, type StepName } from '../types';
+import { STEP_ORDER, type CheckoutState, type StepName, type ReviewSummary } from '../types';
+
+// getSignal() is called only when a step's action actually starts, so an uncanceled call wires no
+// AbortController at all.
+const validateAddressCall = cancelify((getSignal, [line1, city]: [string, string]) =>
+ validateAddress(line1, city, getSignal())
+);
+const quoteShippingCall = cancelify((getSignal, [addressId]: [string]) =>
+ quoteShipping(addressId, getSignal())
+);
 
 interface CancCheckoutState extends CheckoutState {
  addressLoad: CancelablePromise<void> | null;
@@ -39,14 +49,9 @@ export const useCheckoutStore = defineStore('checkout-canc', {
  this.addressLoad?.cancel();
  this.addressStatus = 'loading';
 
- const load = new CancelablePromise<void>((resolve, reject, handleCancel) => {
- const controller = new AbortController();
- validateAddress(line1, city, controller.signal).then((address) => {
+ const load = validateAddressCall(line1, city).then((address) => {
  this.address = address;
  this.addressStatus = 'done';
- resolve();
- }, reject);
- handleCancel(() => controller.abort());
  });
  load.catch(() => {});
  this.addressLoad = load;
@@ -58,14 +63,9 @@ export const useCheckoutStore = defineStore('checkout-canc', {
  this.shippingLoad?.cancel();
  this.shippingStatus = 'loading';
 
- const load = new CancelablePromise<void>((resolve, reject, handleCancel) => {
- const controller = new AbortController();
- quoteShipping(this.address!.addressId, controller.signal).then((shipping) => {
+ const load = quoteShippingCall(this.address.addressId).then((shipping) => {
  this.shipping = shipping;
  this.shippingStatus = 'done';
- resolve();
- }, reject);
- handleCancel(() => controller.abort());
  });
  load.catch(() => {});
  this.shippingLoad = load;
@@ -79,11 +79,11 @@ export const useCheckoutStore = defineStore('checkout-canc', {
  const addressId = this.address.addressId;
  const shippingId = this.shipping.shippingId;
 
- const run = cancAsync(function* () {
+ const run = cancAsync(function* (): Generator<unknown, ReviewSummary, any> {
  const recap = yield* cancAwait(fetchShippingRecap(shippingId));
  const review = yield* cancAwait(confirmReview(addressId, shippingId, recap.amount));
  return review;
- });
+ }) as () => CancelablePromise<ReviewSummary>;
 
  const load = run().then((review) => {
  this.review = review;
@@ -112,21 +112,16 @@ export const useCheckoutStore = defineStore('checkout-canc', {
  this.shippingStatus = 'loading';
  this.shipping = { shippingId: 'pending', addressId: this.address.addressId, carrier: 'estimating...', amount: 0 };
 
- const load = new CancelablePromise<void>((resolve, reject, handleCancel) => {
- const controller = new AbortController();
- quoteShipping(this.address!.addressId, controller.signal).then((shipping) => {
+ const load = quoteShippingCall(this.address.addressId).then((shipping) => {
  this.shipping = shipping;
  this.shippingStatus = 'done';
- resolve();
- }, reject);
- handleCancel(() => {
- controller.abort();
+ });
+ load.catch((err) => {
+ if (!isCancelError(err)) return;
  // rollback: drop the optimistic placeholder so the UI does not show a fake quote
  this.shipping = null;
  this.shippingStatus = 'idle';
  });
- });
- load.catch(() => {});
  this.shippingLoad = load;
  },
 

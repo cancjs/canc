@@ -15,6 +15,7 @@
  "@shared/mock-api": "*",
  "@cancjs/promise": "link:../../packages/canc-promise",
  "@cancjs/coroutine": "link:../../packages/canc-coroutine",
+ "@cancjs/toolbox": "link:../../packages/canc-toolbox",
  "pinia": "4.0.2",
  "vue": "3.5.40",
  "vue-router": "5.2.0"
