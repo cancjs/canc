@@ -1,30 +1,40 @@
-import { createMockApi } from '@shared/mock-api';
+import { createMockApi, type MockApiBundle } from '@shared/mock-api';
 import { loadProductProfile } from './page-load-canc';
 import { report } from './report';
 
+type ProductsApi = MockApiBundle['products'];
+type MusicApi = MockApiBundle['music'];
+type InvoicesApi = MockApiBundle['invoices'];
+
 async function runScenarios(): Promise<void> {
  const mockApi = createMockApi();
+ const { products: productsApi, music: musicApi, invoices: invoicesApi } = mockApi;
 
- // Scenario 1: Down — source canceled mid-chain
+ // Scenario 1: Down (source canceled mid-chain)
  console.log('\n=== Scenario 1: Down (source canceled) ===');
- await runDownScenario(mockApi);
+ await runDownScenario(mockApi, productsApi, musicApi, invoicesApi);
 
- // Scenario 2: Up/bubble — both consumers canceled
+ // Scenario 2: Up/bubble (both consumers canceled)
  console.log('\n=== Scenario 2: Up/bubble (consumers canceled) ===');
- await runBubbleScenario(mockApi);
+ await runBubbleScenario(mockApi, productsApi, musicApi, invoicesApi);
 
- // Scenario 3: Partial — one consumer canceled
+ // Scenario 3: Partial (one consumer canceled)
  console.log('\n=== Scenario 3: Partial (one consumer canceled) ===');
- await runPartialScenario(mockApi);
+ await runPartialScenario(mockApi, productsApi, musicApi, invoicesApi);
 
- // Scenario 4: Shield — audit survives
+ // Scenario 4: Shield (audit survives)
  console.log('\n=== Scenario 4: Shield (audit isolated) ===');
- await runShieldScenario(mockApi);
+ await runShieldScenario(mockApi, productsApi, musicApi, invoicesApi);
 }
 
-async function runDownScenario(mockApi: ReturnType<typeof createMockApi>): Promise<void> {
+async function runDownScenario(
+ mockApi: MockApiBundle,
+ productsApi: ProductsApi,
+ musicApi: MusicApi,
+ invoicesApi: InvoicesApi
+): Promise<void> {
  report('starting product load');
- const profilePromise = loadProductProfile(mockApi, 'prod-1');
+ const profilePromise = loadProductProfile(productsApi, musicApi, invoicesApi, 'prod-1');
 
  // Simulate: user leaves before completion.
  // Calling cancel() on the promise immediately rejects with CancelError.
@@ -33,7 +43,7 @@ async function runDownScenario(mockApi: ReturnType<typeof createMockApi>): Promi
  profilePromise.cancel();
 
  try {
- // canceled here — nothing below runs
+ // canceled here, nothing below runs
  await profilePromise;
  } catch (err) {
  report(`load canceled: ${err instanceof Error ? err.constructor.name : String(err)}`);
@@ -43,9 +53,14 @@ async function runDownScenario(mockApi: ReturnType<typeof createMockApi>): Promi
  console.log('Mock API calls:', mockApi.api.calls.map(c => `${c.endpoint}(${c.status})`).join(', '));
 }
 
-async function runBubbleScenario(mockApi: ReturnType<typeof createMockApi>): Promise<void> {
+async function runBubbleScenario(
+ mockApi: MockApiBundle,
+ productsApi: ProductsApi,
+ musicApi: MusicApi,
+ invoicesApi: InvoicesApi
+): Promise<void> {
  report('starting product load');
- const profilePromise = loadProductProfile(mockApi, 'prod-2');
+ const profilePromise = loadProductProfile(productsApi, musicApi, invoicesApi, 'prod-2');
 
  report('user abandoned page');
  // Cancel both the image and reviews consumers, which triggers bubble-up:
@@ -54,7 +69,7 @@ async function runBubbleScenario(mockApi: ReturnType<typeof createMockApi>): Pro
  profilePromise.cancel();
 
  try {
- // canceled here — nothing below runs
+ // canceled here, nothing below runs
  await profilePromise;
  } catch (err) {
  report(`load canceled: ${err instanceof Error ? err.constructor.name : String(err)}`);
@@ -64,9 +79,14 @@ async function runBubbleScenario(mockApi: ReturnType<typeof createMockApi>): Pro
  console.log('Mock API calls:', mockApi.api.calls.map(c => `${c.endpoint}(${c.status})`).join(', '));
 }
 
-async function runPartialScenario(mockApi: ReturnType<typeof createMockApi>): Promise<void> {
+async function runPartialScenario(
+ mockApi: MockApiBundle,
+ productsApi: ProductsApi,
+ musicApi: MusicApi,
+ invoicesApi: InvoicesApi
+): Promise<void> {
  report('starting product load');
- const profilePromise = loadProductProfile(mockApi, 'prod-3', { bubble: false });
+ const profilePromise = loadProductProfile(productsApi, musicApi, invoicesApi, 'prod-3', { bubble: false });
 
  report('user abandoned page');
  // Cancel the image consumer only. Since image has bubble:false, its cancellation
@@ -75,7 +95,7 @@ async function runPartialScenario(mockApi: ReturnType<typeof createMockApi>): Pr
  profilePromise.cancel();
 
  try {
- // canceled here — nothing below runs
+ // canceled here, nothing below runs
  await profilePromise;
  } catch (err) {
  report(`load canceled: ${err instanceof Error ? err.constructor.name : String(err)}`);
@@ -87,9 +107,14 @@ async function runPartialScenario(mockApi: ReturnType<typeof createMockApi>): Pr
  console.log('Mock API calls:', mockApi.api.calls.map(c => `${c.endpoint}(${c.status})`).join(', '));
 }
 
-async function runShieldScenario(mockApi: ReturnType<typeof createMockApi>): Promise<void> {
+async function runShieldScenario(
+ mockApi: MockApiBundle,
+ productsApi: ProductsApi,
+ musicApi: MusicApi,
+ invoicesApi: InvoicesApi
+): Promise<void> {
  report('starting product load');
- const profilePromise = loadProductProfile(mockApi, 'prod-4', { shield: true });
+ const profilePromise = loadProductProfile(productsApi, musicApi, invoicesApi, 'prod-4', { shield: true });
 
  report('canceling source');
  // Even though the source is canceled, the audit-log node (shielded) survives the cancellation.
@@ -98,7 +123,7 @@ async function runShieldScenario(mockApi: ReturnType<typeof createMockApi>): Pro
  profilePromise.cancel();
 
  try {
- // canceled here — nothing below runs
+ // canceled here, nothing below runs
  await profilePromise;
  } catch (err) {
  report(`load canceled: ${err instanceof Error ? err.constructor.name : String(err)}`);
