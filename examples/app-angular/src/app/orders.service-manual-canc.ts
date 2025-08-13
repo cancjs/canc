@@ -7,23 +7,19 @@
 
 import { Injectable, inject } from '@angular/core';
 import { async as cancAsync, await as cancAwait } from '@cancjs/coroutine';
-import { CancelablePromise } from '@cancjs/promise';
+import { cancelify } from '@cancjs/toolbox';
 
 import { ORDERS_API } from './orders.api';
 import type { OrderSummary, OrderDetail, OrdersServiceShape } from './orders.types';
 
-// Wrap a signal-aware API call as a CancelablePromise so a coroutine cancel() aborts the request.
-function abortable<T>(run: (signal: AbortSignal) => Promise<T>): CancelablePromise<T> {
- return new CancelablePromise<T>((resolve, reject, handleCancel) => {
- const controller = new AbortController();
- handleCancel(() => controller.abort());
- run(controller.signal).then(resolve, reject);
- });
-}
-
 @Injectable()
 export class OrdersServiceManual implements OrdersServiceShape {
  private readonly api = inject(ORDERS_API);
+
+ // Wrap each signal-aware API call as a CancelablePromise so a coroutine cancel() aborts the
+ // request. getSignal() is only materialized if the underlying call reaches for it.
+ private readonly listOrders = cancelify((getSignal) => this.api.listOrders(getSignal()));
+ private readonly orderDetail = cancelify((getSignal, [id]: [string]) => this.api.orderDetail(id, getSignal()));
 
  constructor() {
  // Equivalent to @AsyncMethod(): wrap each generator method as a coroutine bound to this instance.
@@ -35,10 +31,10 @@ export class OrdersServiceManual implements OrdersServiceShape {
  detail!: (id: string) => Promise<OrderDetail>;
 
  private *listGen(): Generator<unknown, OrderSummary[]> {
- return yield* cancAwait(abortable((signal) => this.api.listOrders(signal)));
+ return yield* cancAwait(this.listOrders());
  }
 
  private *detailGen(id: string): Generator<unknown, OrderDetail> {
- return yield* cancAwait(abortable((signal) => this.api.orderDetail(id, signal)));
+ return yield* cancAwait(this.orderDetail(id));
  }
 }

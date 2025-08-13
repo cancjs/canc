@@ -30,7 +30,7 @@ yarn workspace app-angular typecheck
 
 ## What each flavor does
 
-- **canc**: `orders.service-canc.ts` uses `@LegacyAsyncMethod` (TS-legacy decorator flavor from `@cancjs/decorators/legacy`) on generator methods. `orders.service-manual-canc.ts` shows the equivalent non-decorator path: explicit `cancAsync(gen, this)` wiring in the constructor. Both return `CancelablePromise`, so `detail-pane.component-canc.ts` can hold the promise and cancel it on row selection change or component destroy. An `abortable()` helper wraps the mock API call to wire `AbortSignal` cancellation.
+- **canc**: `orders.service-canc.ts` uses `@AsyncMethod` (TS-legacy decorator flavor from `@cancjs/decorators/legacy`) on generator methods. `orders.service-manual-canc.ts` shows the equivalent non-decorator path: explicit `cancAsync(gen, this)` wiring in the constructor. Both return `CancelablePromise`, so `detail-pane.component-canc.ts` can hold the promise and cancel it on row selection change or component destroy. Each mock API call is wrapped with toolbox `cancelify`, which wires `AbortSignal` cancellation without any hand-built promise machinery.
 - **vanilla**: `orders.service-vanilla.ts` is plain async methods with no cancellation. `detail-pane.component-vanilla.ts` implements a request-id staleness guard to discard stale results — a manual workaround for the race. Switching the `ORDERS_SERVICE` DI token in the test shows both flavors against identical components.
 
 ## Files to diff
@@ -43,7 +43,7 @@ The service layer differences are the core lessons:
 
 ## Copy the helper
 
-`src/lib/to-cancelable.ts` bridges Angular's `HttpClient` Observable to `CancelablePromise` using `firstValueFrom` + subscription teardown, proving two cancellation systems can cooperate. It is written to be copied straight into your own project. It is the seed of a future `@cancjs/angular` package.
+`src/lib/to-cancelable-promise.ts` bridges Angular's `HttpClient` Observable to `CancelablePromise` using `firstValueFrom` + subscription teardown, proving two cancellation systems can cooperate. It is written to be copied straight into your own project. It is the seed of a future `@cancjs/angular` package.
 
 ## Notes
 
