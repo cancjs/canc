@@ -4,7 +4,8 @@ import { loadProductProfile } from './page-load-canc';
 describe('demo-chain-propagation scenarios', () => {
  it('bubble scenario: canceling both consumers bubbles up to source', async () => {
  const mockApi = createMockApi();
- const profilePromise = loadProductProfile(mockApi, 'prod-test');
+ const { products: productsApi, music: musicApi, invoices: invoicesApi } = mockApi;
+ const profilePromise = loadProductProfile(productsApi, musicApi, invoicesApi, 'prod-test');
 
  profilePromise.cancel();
 
@@ -16,7 +17,7 @@ describe('demo-chain-propagation scenarios', () => {
  expect(err instanceof Error && err.constructor.name).toBe('CancelError');
  }
 
- // When bubble-up occurs, the source's AbortController was aborted.
+ // When bubble-up occurs, the legs cancel too.
  // The mock API log should show aborted statuses.
  const callStatuses = mockApi.api.calls.map(c => c.status);
  expect(callStatuses.some(s => s === 'aborted')).toBe(true);
@@ -24,7 +25,8 @@ describe('demo-chain-propagation scenarios', () => {
 
  it('partial scenario with bubble:false: source completes despite image cancelation', async () => {
  const mockApi = createMockApi();
- const profilePromise = loadProductProfile(mockApi, 'prod-test-2', { bubble: false });
+ const { products: productsApi, music: musicApi, invoices: invoicesApi } = mockApi;
+ const profilePromise = loadProductProfile(productsApi, musicApi, invoicesApi, 'prod-test-2', { bubble: false });
 
  profilePromise.cancel();
 
@@ -44,7 +46,8 @@ describe('demo-chain-propagation scenarios', () => {
 
  it('shield scenario: shielded audit survives cancellation', async () => {
  const mockApi = createMockApi();
- const profilePromise = loadProductProfile(mockApi, 'prod-test-3', { shield: true });
+ const { products: productsApi, music: musicApi, invoices: invoicesApi } = mockApi;
+ const profilePromise = loadProductProfile(productsApi, musicApi, invoicesApi, 'prod-test-3', { shield: true });
 
  profilePromise.cancel();
 
