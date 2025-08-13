@@ -14,7 +14,7 @@ import type { Observable, Subscription } from 'rxjs';
  * Only the first emission is used, mirroring `firstValueFrom`. A source that completes without
  * emitting rejects with the given `emptyError` (default `EmptyError`-shaped).
  */
-export function toCancelable<T>(source: Observable<T>, emptyError?: () => unknown): CancelablePromise<T> {
+export function toCancelablePromise<T>(source: Observable<T>, emptyError?: () => unknown): CancelablePromise<T> {
  return new CancelablePromise<T>((resolve, reject, handleCancel) => {
  let settled = false;
 

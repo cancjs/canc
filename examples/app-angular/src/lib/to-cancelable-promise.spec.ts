@@ -1,13 +1,13 @@
 import { Observable, Subject } from 'rxjs';
 
-import { toCancelable } from './to-cancelable';
+import { toCancelablePromise } from './to-cancelable-promise';
 
-describe('toCancelable', () => {
+describe('toCancelablePromise', () => {
  it('resolves with the first emitted value', async () => {
  const source = new Observable<number>((subscriber) => {
  subscriber.next(42);
  });
- await expect(toCancelable(source)).resolves.toBe(42);
+ await expect(toCancelablePromise(source)).resolves.toBe(42);
  });
 
  it('unsubscribes from the source when the promise is canceled (Angular-side abort)', () => {
@@ -19,7 +19,7 @@ describe('toCancelable', () => {
  };
  });
 
- const promise = toCancelable(source);
+ const promise = toCancelablePromise(source);
  expect(unsubscribed).toBe(false);
  promise.cancel();
  expect(unsubscribed).toBe(true);
@@ -27,7 +27,7 @@ describe('toCancelable', () => {
 
  it('does not resolve after cancel even if the source emits late', async () => {
  const subject = new Subject<number>();
- const promise = toCancelable(subject);
+ const promise = toCancelablePromise(subject);
  const onFulfilled = jest.fn();
  promise.then(onFulfilled, () => {});
 
