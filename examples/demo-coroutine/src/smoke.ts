@@ -1,9 +1,9 @@
 /**
  * Smoke test: cancel during charge and verify reservation is released.
  */
-import { CancelError } from '@cancjs/promise';
+import { isCancelError } from '@cancjs/promise';
 import { createMockApi } from '@shared/mock-api';
-import { addCheckoutOperations } from './aux';
+import { addCheckoutOperations } from './mock/checkout-ops';
 import { createCheckoutCancelable } from './checkout-canc';
 
 async function runSmoke() {
@@ -15,6 +15,7 @@ async function runSmoke() {
  (id) => ops.addPoints(id),
  (id, chargeId) => ops.confirm(id, chargeId),
  (id) => ops.releaseReservation(id),
+ (id) => ops.legacyConfirmEmail(id),
  );
 
  console.log('Smoke test: cancel during charge → reservation released');
@@ -27,7 +28,7 @@ async function runSmoke() {
  console.error('FAIL: should have thrown CancelError');
  process.exit(1);
  } catch (err) {
- if (!(err instanceof CancelError)) {
+ if (!isCancelError(err)) {
  console.error(`FAIL: wrong error type: ${err}`);
  process.exit(1);
  }
