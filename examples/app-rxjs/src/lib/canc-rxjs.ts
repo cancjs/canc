@@ -5,7 +5,7 @@
 // Two bridges, one in each direction:
 // - toCancelablePromise(observable): take the first value of a stream as a promise, and make
 // the promise's cancel() unsubscribe the stream (running its teardown).
-// - fromCancelable(factory): wrap a cancelable-promise factory as an Observable, and make the
+// - fromCancelablePromise(factory): wrap a cancelable-promise factory as an Observable, and make the
 // Observable's unsubscribe cancel the promise.
 
 import CancelablePromise from '@cancjs/promise';
@@ -63,7 +63,7 @@ export function toCancelablePromise<T>(observable: Subscribable<T>): CancelableP
  *
  * A factory (not a live promise) is required so each subscription owns its own cancelable work.
  */
-export function fromCancelable<T>(factory: () => CancelablePromise<T>): Observable<T> {
+export function fromCancelablePromise<T>(factory: () => CancelablePromise<T>): Observable<T> {
  return new Observable<T>((subscriber) => {
  const promise = factory();
  promise.then(

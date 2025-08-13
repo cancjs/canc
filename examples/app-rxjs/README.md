@@ -18,7 +18,7 @@ The two flavors differ only in how the search is plugged into `switchMap`:
 
 - vanilla wraps the search promise with `from(promise)`. Switching away unsubscribes, but the
  promise runs to the end. Both searches complete.
-- canc wraps a cancelable-promise factory with `fromCancelable(factory)`. Switching away
+- canc wraps a cancelable-promise factory with `fromCancelablePromise(factory)`. Switching away
  unsubscribes, and unsubscribe cancels the promise, which aborts the search. The first search is
  aborted, the second completes.
 
@@ -34,7 +34,7 @@ example, so copy it into your own project freely and adapt it.
  `cancel()` unsubscribes the source, so its teardown runs. If the stream completes without ever
  emitting, the promise rejects with RxJS `EmptyError`, matching `firstValueFrom`. An empty stream
  is not treated as a cancellation.
-- `fromCancelable(factory)` wraps a cancelable-promise factory as an Observable. Unsubscribing
+- `fromCancelablePromise(factory)` wraps a cancelable-promise factory as an Observable. Unsubscribing
  before the promise settles cancels it, so its cancel handlers run and the underlying work
  aborts. This is the symmetric partner of `toCancelablePromise`: there, cancel unsubscribes;
  here, unsubscribe cancels.
@@ -52,8 +52,8 @@ Build the packages once from the monorepo root (`yarn build`), then install here
 ## Files to diff
 
 `src/search-vanilla.ts` against `src/search-canc.ts`. They share names, order, and structure; the
-only mechanical difference is `from(promise)` versus `fromCancelable(factory)` and the small
-cancelable-search helper the canc flavor needs.
+only mechanical difference is `from(promise)` versus `fromCancelablePromise(factory)` and the canc
+flavor's `cancelify`-wrapped search call.
 
 ## Note on scope
 
