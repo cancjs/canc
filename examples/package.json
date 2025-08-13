@@ -12,7 +12,10 @@
  "app-react-mobx",
  "app-react-zustand",
  "app-vue",
- "app-vue-pinia"
+ "app-vue-pinia",
+ "demo-chain-propagation",
+ "demo-coroutine",
+ "demo-promise-basics"
  ],
  "scripts": {
  "typecheck": "tsc --noEmit --project tsconfig.examples.json",

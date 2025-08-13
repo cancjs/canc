@@ -1,6 +1,6 @@
 import { createMockApi } from '@shared/mock-api';
-import { CancelError } from '@cancjs/promise';
-import { addCheckoutOperations } from './aux';
+import { isCancelError } from '@cancjs/promise';
+import { addCheckoutOperations } from './mock/checkout-ops';
 import { createCheckoutCancelable } from './checkout-canc';
 
 async function runCanc() {
@@ -12,6 +12,7 @@ async function runCanc() {
  (orderId) => ops.addPoints(orderId),
  (orderId, chargeId) => ops.confirm(orderId, chargeId),
  (resId) => ops.releaseReservation(resId),
+ (orderId) => ops.legacyConfirmEmail(orderId),
  );
 
  console.log('=== Cancelable Checkout (cancAsync) ===\n');
@@ -39,7 +40,7 @@ async function runCanc() {
  await checkoutOp;
  console.log(`✓ Checkout succeeded\n`);
  } catch (err: any) {
- if (err instanceof CancelError) {
+ if (isCancelError(err)) {
  console.log(`✓ Checkout canceled (reservation released)\n`);
  } else {
  console.log(`✗ Error: ${err.message}\n`);
@@ -55,7 +56,7 @@ async function runCanc() {
  await checkoutOp2;
  console.log(`✓ Checkout succeeded\n`);
  } catch (err: any) {
- if (err instanceof CancelError) {
+ if (isCancelError(err)) {
  console.log(`✓ Checkout canceled immediately (never reserved)\n`);
  } else {
  console.log(`✗ Error: ${err.message}\n`);

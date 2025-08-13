@@ -1,5 +1,5 @@
 import { createMockApi } from '@shared/mock-api';
-import { addCheckoutOperations } from './aux';
+import { addCheckoutOperations } from './mock/checkout-ops';
 import { createCheckoutVanilla } from './checkout-vanilla';
 
 async function runVanilla() {
@@ -11,15 +11,17 @@ async function runVanilla() {
  ops.addPoints,
  ops.confirm,
  ops.releaseReservation,
+ ops.legacyConfirmEmail,
  );
 
  console.log('=== Vanilla Checkout (AbortSignal) ===\n');
 
- // Happy path
+ // Happy path. checkout() requires a signal even when nothing aborts it,
+ // unlike the canc flavor where cancellation is opt-in per call.
  console.log('Scenario: happy path');
- const controller1 = new AbortController();
+ const happyPathController = new AbortController();
  try {
- const result = await checkout('order-001', controller1.signal);
+ const result = await checkout('order-001', happyPathController.signal);
  console.log(`✓ Checkout succeeded: ${result.confirmationId}\n`);
  } catch (err: any) {
  console.log(`✗ Error: ${err.message}\n`);
