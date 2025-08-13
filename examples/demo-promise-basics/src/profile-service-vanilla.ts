@@ -12,7 +12,7 @@ export function loadProfile(mockApi: MockApiBundle, userId: string): Promise<Pro
 /**
  * Attempted cancellation with AbortController: threads the signal down, listens for the abort
  * event, and checks error.name === 'AbortError' at the call site. The boilerplate teaches
- * why canc matters—every cleanup point needs manual wiring.
+ * why canc matters: every cleanup point needs manual wiring.
  * cancellation requires threading and name-checking; regular catch alone is not enough.
  */
 export function loadProfileAbortable(
