@@ -11,6 +11,7 @@
  },
  "dependencies": {
  "@cancjs/promise": "link:../../packages/canc-promise",
+ "@cancjs/toolbox": "link:../../packages/canc-toolbox",
  "rxjs": "7.8.2"
  },
  "devDependencies": {

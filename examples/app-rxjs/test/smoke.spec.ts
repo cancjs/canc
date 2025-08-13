@@ -3,7 +3,7 @@ import CancelablePromise, { isCancelError } from '@cancjs/promise';
 import { sleep } from '@shared/util';
 import { SearchRecord } from '../src/mock/log-source';
 import { clickTwoLines } from '../src/viewer';
-import { toCancelablePromise, fromCancelable } from '../src/lib/canc-rxjs';
+import { toCancelablePromise, fromCancelablePromise } from '../src/lib/canc-rxjs';
 import { contextSearches as cancContextSearches } from '../src/search-canc';
 import { contextSearches as vanillaContextSearches } from '../src/search-vanilla';
 
@@ -69,7 +69,7 @@ describe('app-rxjs smoke', () => {
  await expect(toCancelablePromise(of<number>())).rejects.toBeInstanceOf(EmptyError);
  });
 
- it('fromCancelable: unsubscribe cancels the promise (teardown -> abort marker)', async () => {
+ it('fromCancelablePromise: unsubscribe cancels the promise (teardown -> abort marker)', async () => {
  const log: SearchRecord[] = [];
  const factory = () =>
  new CancelablePromise<number>((resolve, reject, handleCancel) => {
@@ -86,7 +86,7 @@ describe('app-rxjs smoke', () => {
  setTimeout(() => resolve(1), 1000);
  });
 
- const subscription = fromCancelable(factory).subscribe({ error: () => {} });
+ const subscription = fromCancelablePromise(factory).subscribe({ error: () => {} });
  subscription.unsubscribe();
  await sleep(0);
 
