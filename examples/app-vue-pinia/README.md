@@ -49,27 +49,28 @@ Both stores expose the same shape: `step`, `validateAddress`, `quoteShipping`, `
  still completes on the wire; only the state write is skipped. `goToStep` cannot stop anything
  already in flight either, it just bumps the relevant counter. `dispose()` bumps all counters.
 
-## Rollback in cancel handler
+## Rollback on cancel
 
 The canc store demonstrates **one** instance of a pattern worth seeing: `quoteShippingOptimistic`
 shows how to handle an optimistic UI update that must be rolled back when the user navigates away.
 
 In the canc version:
 ```typescript
-const load = new CancelablePromise<void>((resolve, reject, handleCancel) => {
- // ... start the async work ...
- handleCancel(() => {
- controller.abort();
+const load = quoteShippingCall(this.address.addressId).then((shipping) => {
+ this.shipping = shipping;
+ this.shippingStatus = 'done';
+});
+load.catch((err) => {
+ if (!isCancelError(err)) return;
  // Rollback the optimistic placeholder when canceled
  this.shipping = null;
  this.shippingStatus = 'idle';
- });
 });
 ```
 
-In the vanilla version, there is no cancel hook to rollback from — an optimistic placeholder can
+In the vanilla version, there is no cancel signal to rollback from (an optimistic placeholder can
 only be corrected after the real response lands, or the UI remains in a misleading state until
-the user navigates again. This is the bloat the example illustrates.
+the user navigates again). This is the bloat the example illustrates.
 
 ## Cancel in the store, not in the component
 
@@ -97,15 +98,14 @@ lives in the store, where it can be tested and reasoned about without mounting c
  address state. The vanilla store lets the request finish anyway (its result is just
  discarded); both validate requests still hit the mock API.
 - **One cancel call per step, not request-id counters.** The canc store has no request-id
- bookkeeping. One `addressLoad?.cancel()` call is enough, because cancel reaches the
- `AbortController` wired in `handleCancel`.
+ bookkeeping. One `addressLoad?.cancel()` call is enough, because cancel reaches the signal a
+ `cancelify`'d call wires up internally.
 - **Dispose cleanup.** When the pinia store is disposed (e.g., on app unmount), the canc
  version cancels every step still outstanding in one `dispose()` call.
-- **Rollback in the cancel handler.** `quoteShippingOptimistic` shows how to react to a cancel
- event: undo an optimistic UI update when the user navigates away before the real response
- arrives. The vanilla version has no cancel hook, so the optimistic state either persists as
- incorrect, or the UI must check request-id staleness every time a response arrives — more
- bookkeeping.
+- **Rollback on cancel.** `quoteShippingOptimistic` shows how to react to a cancel event: undo
+ an optimistic UI update when the user navigates away before the real response arrives. The
+ vanilla version has no cancel signal, so the optimistic state either persists as incorrect, or
+ the UI must check request-id staleness every time a response arrives (more bookkeeping).
 
 ## Honesty note
 
@@ -118,9 +118,9 @@ for what the API layer sees.
 
 ## Copying
 
-The store pattern — one `CancelablePromise` field per in-flight action per step, cancel it
-before starting the next — is the reusable piece for any Pinia store with step or tab navigation
-where each step has async work that should not leak into other steps. The `handleCancel` hook
-for rolling back optimistic updates is optional, but shown here as a teaching pattern.
+The store pattern (one `CancelablePromise` field per in-flight action per step, cancel it
+before starting the next) is the reusable piece for any Pinia store with step or tab navigation
+where each step has async work that should not leak into other steps. Catching `isCancelError`
+to roll back an optimistic update is optional, but shown here as a teaching pattern.
 
 `src/mock/checkout-api.ts` is scaffolding for this demo, not something to copy.
