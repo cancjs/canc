@@ -1,12 +1,12 @@
 import { isCancelError } from '@cancjs/promise';
 import { createMockApi } from '@shared/mock-api';
-import { loadProfile } from '../src/profile-service-canc';
+import { loadProfileCancelable } from '../src/profile-service-canc';
 
 describe('demo-promise-basics + mock-api integration', () => {
  it('cancel() aborts the in-flight mock request', async () => {
  const mock = createMockApi({ latency: 50, jitter: 0 });
 
- const pending = loadProfile(mock, 'p1');
+ const pending = loadProfileCancelable(mock.products, 'p1');
 
  pending.cancel();
 

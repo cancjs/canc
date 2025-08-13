@@ -8,14 +8,14 @@ async function main(): Promise<void> {
  {
  console.log('vanilla: start load (uncancelable)');
  const pending = loadProfile(mockApi, 'p1');
- // The caller loses interest immediately — but the network call continues.
+ // The caller loses interest immediately, but the network call continues.
  setTimeout(() => {
  console.log('vanilla: lost interest, but call keeps running');
  }, 10);
 
  try {
  await pending;
- console.log('vanilla: profile loaded (wasted work — we stopped caring)');
+ console.log('vanilla: profile loaded (wasted work, we stopped caring)');
  } catch (error) {
  throw error;
  }
@@ -39,12 +39,17 @@ async function main(): Promise<void> {
  console.log('vanilla: profile loaded');
  } catch (error) {
  if (isAbortError(error)) {
- console.log('vanilla: caught AbortError — had to thread signal through, check name');
+ console.log('vanilla: caught AbortError, had to thread signal through, check name');
  } else {
  throw error;
  }
  }
  }
+
+ console.log('');
+
+ // (no two-way counterpart. An AbortController only aborts when its holder calls abort();
+ // it has no notion of "every consumer lost interest, stop on its own." See -canc.)
 }
 
 main();
