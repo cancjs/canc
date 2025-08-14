@@ -8,22 +8,35 @@
  "_shared/util",
  "_shared/lib",
  "app-ai-chat-stop",
+ "app-ai-rag-pipeline",
  "app-angular",
  "app-axios",
+ "app-cli-graceful",
  "app-crawler-race",
+ "app-express-kysely",
+ "app-fastify-mongoose",
+ "app-nestjs-typeorm",
+ "app-react",
  "app-react-mobx",
  "app-react-zustand",
+ "app-rxjs",
  "app-vue",
  "app-vue-pinia",
+ "app-ws-progress",
  "demo-async-dispose",
  "demo-chain-propagation",
  "demo-combinators",
  "demo-coroutine",
- "demo-promise-basics"
+ "demo-decorators",
+ "demo-fetch",
+ "demo-lazy-promise",
+ "demo-promise-basics",
+ "demo-signal-interop",
+ "demo-toolbox"
  ],
  "scripts": {
- "typecheck": "tsc --noEmit --project tsconfig.examples.json",
- "test": "jest --colors"
+ "examples:typecheck": "tsc --noEmit --project tsconfig.examples.json",
+ "examples:test": "jest --colors"
  },
  "devDependencies": {
  "@types/jest": "^29.5.0",
