@@ -1,10 +1,11 @@
-import { writeFileSync } from 'node:fs';
+import { writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { SiteApi } from './mock/site-api';
 import { runBackup } from './backup-vanilla';
 import { Manifest } from './manifest';
 
-const manifestPath = join(__dirname, '..', 'backup-manifest.vanilla.json');
+const outDir = join(__dirname, '..', 'out');
+const manifestPath = join(outDir, 'backup-manifest.vanilla.json');
 
 async function main(): Promise<void> {
  const api = new SiteApi({ latency: 40, jitter: 10, trace: console.log });
@@ -28,6 +29,7 @@ async function main(): Promise<void> {
  await runBackup(api, manifest, () => aborted);
 
  // manifest may be half-written -- exit raced the flush if SIGINT landed near process.exit
+ mkdirSync(outDir, { recursive: true });
  writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
  console.log(`vanilla: manifest written (partial=${manifest.partial}) at ${manifestPath}`);
 

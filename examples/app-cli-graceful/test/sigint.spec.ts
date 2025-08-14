@@ -8,7 +8,7 @@ import { sleep } from '@shared/util';
 // The handler code under test is identical to what a real Ctrl-C would invoke.
 
 const cwd = join(__dirname, '..');
-const manifestPath = join(cwd, 'backup-manifest.canc.json');
+const manifestPath = join(cwd, 'out', 'backup-manifest.canc.json');
 
 describe('app-cli-graceful SIGINT', () => {
  afterEach(() => {

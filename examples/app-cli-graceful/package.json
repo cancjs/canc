@@ -11,7 +11,9 @@
  },
  "dependencies": {
  "@cancjs/promise": "link:../../packages/canc-promise",
- "@cancjs/coroutine": "link:../../packages/canc-coroutine"
+ "@cancjs/coroutine": "link:../../packages/canc-coroutine",
+ "@shared/lib": "*",
+ "@shared/util": "*"
  },
  "devDependencies": {
  "@types/jest": "30.0.0",
