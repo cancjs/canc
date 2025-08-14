@@ -9,6 +9,7 @@
  "_shared/lib",
  "app-ai-chat-stop",
  "app-angular",
+ "app-axios",
  "app-react-mobx",
  "app-react-zustand",
  "app-vue",
