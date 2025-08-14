@@ -13,6 +13,7 @@
  "app-react-zustand",
  "app-vue",
  "app-vue-pinia",
+ "demo-async-dispose",
  "demo-chain-propagation",
  "demo-coroutine",
  "demo-promise-basics"
