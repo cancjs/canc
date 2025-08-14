@@ -1,4 +1,4 @@
-import { CancelablePromise, CancelError } from '@cancjs/promise';
+import { CancelablePromise, CancelError, isCancelError } from '@cancjs/promise';
 
 /**
  * Cancel-aware concurrency pool. Runs at most `limit` jobs at once.
@@ -65,7 +65,7 @@ export function createPool(limit: number): Pool {
  );
  },
  rejectQueued: (r) => {
- reject(r instanceof CancelError ? r : new CancelError('Canceled while queued'));
+ reject(isCancelError(r) ? r : new CancelError('Canceled while queued'));
  },
  };
 
