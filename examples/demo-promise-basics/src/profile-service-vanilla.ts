@@ -1,12 +1,14 @@
 import { Profile } from './profile';
 import type { MockApiBundle } from '@shared/mock-api';
 
+type ProductsApi = MockApiBundle['products'];
+
 /**
  * Plain promise: no cancellation support. The result is discarded when the caller loses
  * interest, but the mock API call completes anyway (wasted work).
  */
-export function loadProfile(mockApi: MockApiBundle, userId: string): Promise<Profile> {
- return mockApi.products.get(userId);
+export function loadProfile(productsApi: ProductsApi, userId: string): Promise<Profile> {
+ return productsApi.get(userId);
 }
 
 /**
@@ -16,9 +18,9 @@ export function loadProfile(mockApi: MockApiBundle, userId: string): Promise<Pro
  * cancellation requires threading and name-checking; regular catch alone is not enough.
  */
 export function loadProfileAbortable(
- mockApi: MockApiBundle,
+ productsApi: ProductsApi,
  userId: string,
  signal: AbortSignal
 ): Promise<Profile> {
- return mockApi.products.get(userId, signal);
+ return productsApi.get(userId, signal);
 }

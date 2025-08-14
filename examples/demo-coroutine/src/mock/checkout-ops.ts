@@ -1,4 +1,4 @@
-import type { MockApiBundle, AbortSignalLike } from '@shared/mock-api';
+import type { MockApi, AbortSignalLike } from '@shared/mock-api';
 
 /**
  * Checkout-specific operations for the demo.
@@ -20,8 +20,7 @@ export interface Confirmation {
  orderId: string;
 }
 
-export function addCheckoutOperations(apiBundle: MockApiBundle) {
- const api = apiBundle.api;
+export function addCheckoutOperations(api: MockApi) {
  return {
  reserveStock: (orderId: string, signal?: AbortSignalLike): Promise<StockReservation> =>
  api.respond(

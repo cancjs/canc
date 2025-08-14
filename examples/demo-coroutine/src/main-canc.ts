@@ -4,7 +4,7 @@ import { addCheckoutOperations } from './mock/checkout-ops';
 import { createCheckoutCancelable } from './checkout-canc';
 
 async function runCanc() {
- const api = createMockApi({ latency: 50, jitter: 0, trace: console.log });
+ const { api } = createMockApi({ latency: 50, jitter: 0, trace: console.log });
  const ops = addCheckoutOperations(api);
  const checkout = createCheckoutCancelable(
  (orderId) => ops.reserveStock(orderId),

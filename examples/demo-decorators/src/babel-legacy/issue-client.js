@@ -24,21 +24,21 @@ function abortable(run) {
 }
 
 export class IssueClient {
- constructor(api) {
- this.api = api;
+ constructor(issuesApi) {
+ this.issuesApi = issuesApi;
  }
 
  // Proto-level (default, bind:false): `this` flows from the call site.
  @AsyncMethod()
  *searchIssues(query) {
- const issues = yield* cancAwait(abortable((signal) => this.api.issues.list(signal)));
+ const issues = yield* cancAwait(abortable((signal) => this.issuesApi.list(signal)));
  return issues.filter((issue) => issue.title.toLowerCase().includes(query.toLowerCase()));
  }
 
  // Per-instance (bind:true): safe to detach and pass as a handler.
  @BindMethod()
  *loadIssue(id) {
- const issues = yield* cancAwait(abortable((signal) => this.api.issues.list(signal)));
+ const issues = yield* cancAwait(abortable((signal) => this.issuesApi.list(signal)));
  const found = issues.find((issue) => issue.id === id);
  if (!found) throw new Error(`no issue ${id}`);
  return found;

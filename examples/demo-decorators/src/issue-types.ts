@@ -3,7 +3,8 @@
 
 import type { Issue, MockApiBundle } from '@shared/mock-api';
 
-export type { Issue, MockApiBundle };
+export type { Issue };
+export type IssuesApi = MockApiBundle['issues'];
 
 /** Acknowledgement returned by saveComment. The mock API has no write endpoint, so the client
  * reads the issue back and echoes the comment; see the README honesty note. */

@@ -7,11 +7,11 @@ import { callGatewayWithSignal } from './gateway-signal-canc';
 import { cleanupPaymentRecord } from './suppress-canc';
 
 async function main() {
- const mockApi = createMockApi();
+ const { deployments, payments, inventory, mail, gateway, invoices } = createMockApi();
 
  console.log('=== canc: waitForDeployment ===');
  try {
- const status = await waitForDep(mockApi, 'deploy-1');
+ const status = await waitForDep(deployments, 'deploy-1');
  console.log('Deployment status:', status);
  } catch (err) {
  console.error('Error:', (err as Error).message);
@@ -19,7 +19,7 @@ async function main() {
 
  console.log('\n=== canc: chargeWithRetry ===');
  try {
- const result = await chargeWithRetry(mockApi, 'payment-1');
+ const result = await chargeWithRetry(payments, 'payment-1');
  console.log('Charge result:', result);
  } catch (err) {
  console.error('Error:', (err as Error).message);
@@ -27,15 +27,15 @@ async function main() {
 
  console.log('\n=== canc: fetchInventoryWithTimeout ===');
  try {
- const inventory = await fetchInventoryWithTimeout(mockApi, 'product-1');
- console.log('Inventory:', inventory);
+ const inventoryLevel = await fetchInventoryWithTimeout(inventory, 'product-1');
+ console.log('Inventory:', inventoryLevel);
  } catch (err) {
  console.error('Error:', (err as Error).message);
  }
 
  console.log('\n=== canc: sendEmailWithDelay ===');
  try {
- await sendEmailWithDelay(mockApi, 'user@example.com');
+ await sendEmailWithDelay(mail, 'user@example.com');
  console.log('Email sent');
  } catch (err) {
  console.error('Error:', (err as Error).message);
@@ -44,7 +44,7 @@ async function main() {
  console.log('\n=== canc: callGatewayWithSignal ===');
  try {
  const controller = new AbortController();
- const txn = await callGatewayWithSignal(mockApi, controller.signal);
+ const txn = await callGatewayWithSignal(gateway, controller.signal);
  console.log('Transaction ID:', txn.transactionId);
  } catch (err) {
  console.error('Error:', (err as Error).message);
@@ -52,7 +52,7 @@ async function main() {
 
  console.log('\n=== canc: cleanupPaymentRecord ===');
  try {
- await cleanupPaymentRecord(mockApi, 'record-1');
+ await cleanupPaymentRecord(invoices, 'record-1');
  console.log('Cleanup done');
  } catch (err) {
  console.error('Error:', (err as Error).message);
