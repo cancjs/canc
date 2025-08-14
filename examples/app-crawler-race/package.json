@@ -2,7 +2,7 @@
  "name": "app-crawler-race",
  "version": "0.0.0",
  "private": true,
- "description": "Supplier price comparison: any() cancels losing quote requests, cancel-aware pool drains a depth-2 catalog crawl.",
+ "description": "Site-health crawl: one cancel() on the crawl root prunes the whole in-flight depth-2 fetch subtree.",
  "scripts": {
  "start:vanilla": "tsx src/main-vanilla.ts",
  "start:canc": "tsx src/main-canc.ts",
@@ -10,8 +10,11 @@
  "typecheck": "tsc --noEmit --project tsconfig.json"
  },
  "dependencies": {
+ "@shared/lib": "*",
  "@shared/mock-api": "*",
- "@cancjs/promise": "link:../../packages/canc-promise"
+ "@shared/util": "*",
+ "@cancjs/promise": "link:../../packages/canc-promise",
+ "@cancjs/toolbox": "link:../../packages/canc-toolbox"
  },
  "devDependencies": {
  "@types/jest": "30.0.0",

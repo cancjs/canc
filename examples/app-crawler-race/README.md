@@ -1,11 +1,11 @@
 # app-crawler-race
 
-Supplier price comparison. The same part is quoted from several suppliers at once and the first
-answer wins; each supplier's catalog is crawled two levels deep to locate the part. Cancellation
-turns "first answer wins" into real savings and makes an abandoned crawl stop instead of running to
-completion.
+A site-health crawl. Starting from the home page, the crawler fans out two levels deep through a
+fixed-concurrency pool, fetching every linked page and reporting the broken (404) ones. Partway
+through, the operator hits Stop. With canc, one `cancel()` on the crawl root prunes the entire
+in-flight subtree at every depth. The vanilla twin threads a hand-rolled abort and still leaks.
 
-Domain: quoting an industrial part (`bearing-6203`) from three suppliers.
+Domain: crawling your own website to find dead links.
 
 ## Prerequisites
 
@@ -27,46 +27,44 @@ yarn workspace app-crawler-race start:canc
 yarn workspace app-crawler-race test
 ```
 
-Both entries run three scenarios: the any() quote race, an abandoned catalog crawl, and the two
-combined (crawl, then quote).
+Both entries crawl the site depth-2, then abandon the crawl mid-flight, and print how many page
+fetches were started, aborted, or completed.
 
 ## What it shows
 
-- **any() cancels losers, and that is money.** `CancelablePromise.any` resolves with the first
- supplier to answer and cancels the rest. Each canceled input aborts its request, so exactly one
- quote call completes and the other N-1 are aborted. The vanilla twin uses `Promise.any`: it
- returns the same winner but the N-1 losing requests keep running to completion. For N suppliers
- that is N-1 supplier calls whose results are discarded. Every one of those is bandwidth you paid
- for and, against a metered supplier API, quota or money you spent for nothing. The canc twin
- spends one call; the vanilla twin spends N.
-- **race() vs any().** Both cancel the losers in the canc flavor. `any()` waits for the first
- *fulfillment* (a rejecting supplier is ignored until all reject); `race()` takes the first
- *settlement* (a fast rejection wins the race). The `firstQuoteRace` functions in
- `compare-vanilla.ts` / `compare-canc.ts` show the variant.
-- **Cancel-aware concurrency pool.** `src/lib/pool.ts` runs at most 4 catalog-page fetches at once.
- Canceling the crawl root drains the pool: in-flight page fetches are aborted and queued pages
- never start (born-canceled). One `cancel()` at the top reaches every level of the depth-2 crawl.
+- **One cancel() prunes the whole subtree.** The crawl root is a `CancelablePromise`. Its cancel
+ handler calls `pool.cancelAll()` once. That drains the pool in a single call: pages still queued
+ never start (born-canceled) and pages in flight are aborted at the request boundary. There is no
+ per-level plumbing. The same cancel reaches a fetch at depth 0 and a fetch at depth 2 alike,
+ because cancellation propagates down the tree of cancelable nodes on its own.
+- **The vanilla twin makes the fair attempt and still leaks.** `crawl-vanilla.ts` threads a real
+ abort: the queue tracks each running fetch's `AbortController` and Stop aborts them. But a queued
+ fetch has no controller yet, so draining the queue cannot stop it, and the fetches dispatched a
+ tick before Stop already left with their own signal. The result: aborting the running fetches
+ makes the crawl reject, yet the queued and in-flight pages run to completion anyway. The
+ `completed` count keeps climbing after Stop. That is the grandchild leak the pool avoids.
+- **Cancel-aware concurrency pool.** The pool comes from `@shared/lib` (`createPool`). It runs at
+ most four fetches at once and exposes `cancelAll(reason)`, which drops the queue and cancels every
+ in-flight job. It is a seed for a future published p-limit-style package.
 
 ## File map (what to diff)
 
-- `src/compare-vanilla.ts` vs `src/compare-canc.ts`: the quote race. Same function order and
- comment anchors; the bodies differ only in `Promise.any` vs `CancelablePromise.any` (plus the
- abort wiring the canc side needs).
-- `src/crawl-vanilla.ts` vs `src/crawl-canc.ts`: the depth-2 crawl. Vanilla threads pages through a
- plain queue with no cancel path; canc threads them through the cancel-aware pool.
-- `src/main-vanilla.ts` vs `src/main-canc.ts`: the three scenarios, same narrative.
+- `src/crawl-vanilla.ts` vs `src/crawl-canc.ts`: the crawl. Same `visit` recursion and function
+ order. Vanilla threads a per-fetch `AbortController` through a plain queue with a best-effort
+ abort; canc runs each fetch as a `cancelify` node through the shared pool and cancels the root.
+- `src/main-vanilla.ts` vs `src/main-canc.ts`: the scenario, same narrative.
 
 ## Copy freely
 
-`src/lib/pool.ts` is written to be lifted into your own project as-is. It depends only on
-`@cancjs/promise`. It is a seed for a future published p-limit-style package; until then, copy it.
+The pool lives in `@shared/lib` and depends only on `@cancjs/promise`. Copy it into your own
+project as-is; it is a seed for a future published package.
 
 ## Honesty notes
 
 Cancellation here stops work at the request boundary. `cancel()` aborts the mock API's in-flight
-call (you see `aborted` markers in `mockApi.api.calls`) and prevents queued calls from starting. It
-does not reach into a supplier's servers to undo work they already began; a request already
-answered is already answered. What you save is the calls you never send and the in-flight calls you
-abort locally.
+fetches (you see `aborted` markers in `api.calls`) and prevents queued fetches from starting. It
+does not reach into a real web server to undo work a request already triggered there. What you save
+is the fetches you never send and the in-flight fetches you abort locally.
 
-`src/aux/` is scaffolding standing in for real supplier APIs. Treat it as a black box.
+`src/mock/` is scaffolding standing in for a real website and its HTTP layer. Treat it as a black
+box.

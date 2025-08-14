@@ -1,72 +1,66 @@
 import { sleep } from '@shared/util';
-import { createMockApi } from '@shared/mock-api';
-import { firstQuote as firstQuoteCanc } from '../src/compare-canc';
-import { firstQuote as firstQuoteVanilla } from '../src/compare-vanilla';
-import { crawlAllSuppliers as crawlCanc } from '../src/crawl-canc';
-import { crawlAllSuppliers as crawlVanilla } from '../src/crawl-vanilla';
-import { SUPPLIER_IDS, TARGET_PART } from '../src/aux/catalog';
+import { MockApi } from '@shared/mock-api';
+import { crawlSite as crawlSiteCanc } from '../src/crawl-canc';
+import { crawlSite as crawlSiteVanilla } from '../src/crawl-vanilla';
+import { TOTAL_PAGES } from '../src/mock/site';
 
-const quoteCalls = (mockApi: ReturnType<typeof createMockApi>, status: string) =>
- mockApi.api.calls.filter((call) => call.endpoint === 'catalog.quote' && call.status === status).length;
-const pageCalls = (mockApi: ReturnType<typeof createMockApi>, status?: string) =>
- mockApi.api.calls.filter((call) => call.endpoint === 'catalog.page' && (!status || call.status === status)).length;
+const pageCalls = (api: MockApi, status?: string) =>
+ api.calls.filter((call) => call.endpoint === 'site.page' && (!status || call.status === status)).length;
+
+/** Resolves once `count` page fetches have started, so a test can cancel at a deterministic point. */
+function afterStarted(api: MockApi, count: number): Promise<void> {
+ return new Promise((resolve) => {
+ const check = () => (pageCalls(api) >= count ? resolve() : setTimeout(check, 2));
+ check();
+ });
+}
 
 describe('app-crawler-race smoke', () => {
- it('any(): winner completes, the other N-1 quote requests are aborted', async () => {
- const mockApi = createMockApi({ latency: 40, jitter: 0 });
+ it('canc: one cancel() aborts in-flight fetches and stops the queued ones', async () => {
+ const api = new MockApi({ latency: 30, jitter: 0 });
 
- await firstQuoteCanc(mockApi, TARGET_PART);
- // Let any straggler abort markers flush.
- await sleep(80);
-
- expect(quoteCalls(mockApi, 'completed')).toBe(1);
- expect(quoteCalls(mockApi, 'aborted')).toBe(SUPPLIER_IDS.length - 1);
- });
-
- it('vanilla any(): every supplier request runs to completion (the bug we teach)', async () => {
- const mockApi = createMockApi({ latency: 40, jitter: 0 });
-
- await firstQuoteVanilla(mockApi, TARGET_PART);
- await sleep(80);
-
- // Inverted assertion documenting the leak: no aborts, all N complete.
- expect(quoteCalls(mockApi, 'aborted')).toBe(0);
- expect(quoteCalls(mockApi, 'completed')).toBe(SUPPLIER_IDS.length);
- });
-
- it('crawl root cancel: in-flight pages aborted, queued pages never started', async () => {
- const mockApi = createMockApi({ latency: 40, jitter: 0 });
-
- const { result, cancel } = crawlCanc(mockApi);
- // Cancel after the root pages are in flight but before their children can be fetched.
- setTimeout(cancel, 15);
+ const crawl = crawlSiteCanc(api, 2);
+ // Cancel once the crawl has fanned out past the first page, so both aborts and drops happen.
+ await afterStarted(api, 3);
+ crawl.cancel('stopped');
 
  let canceled = false;
  try {
- await result;
+ await crawl;
  } catch {
  canceled = true;
  }
+ // Give a full latency window to settle, proving none complete after the cancel.
  await sleep(80);
 
  expect(canceled).toBe(true);
- // Total depth-2 pages if the crawl ran fully = 3 root + 6 children = 9.
- const fullCrawl = SUPPLIER_IDS.length * 3;
- expect(pageCalls(mockApi)).toBeLessThan(fullCrawl);
- // At least one active fetch was aborted, and nothing completed after cancel drained the queue.
- expect(pageCalls(mockApi, 'aborted')).toBeGreaterThan(0);
+ // Some pages were in flight and got aborted.
+ expect(pageCalls(api, 'aborted')).toBeGreaterThan(0);
+ // Some pages never started at all: the cancel drained the queue before they got a slot.
+ expect(pageCalls(api)).toBeLessThan(TOTAL_PAGES);
+ // Every started page either finished before the cancel or was aborted, none left pending.
+ expect(pageCalls(api, 'aborted') + pageCalls(api, 'completed')).toBe(pageCalls(api));
  });
 
- it('vanilla crawl: cancel is a no-op, every catalog page is fetched', async () => {
- const mockApi = createMockApi({ latency: 40, jitter: 0 });
+ it('vanilla leaks where canc prunes: more pages complete under the same Stop', async () => {
+ // Same site, same concurrency, canceled at the same deterministic point for both flavors.
+ const cancApi = new MockApi({ latency: 30, jitter: 0 });
+ const cancCrawl = crawlSiteCanc(cancApi, 2);
+ await afterStarted(cancApi, 3);
+ cancCrawl.cancel('stopped');
+ await cancCrawl.catch(() => {});
 
- const { result, cancel } = crawlVanilla(mockApi);
- setTimeout(cancel, 15);
- await result;
+ const vanillaApi = new MockApi({ latency: 30, jitter: 0 });
+ const vanilla = crawlSiteVanilla(vanillaApi, 2);
+ await afterStarted(vanillaApi, 3);
+ vanilla.cancel();
+ await vanilla.result.catch(() => {});
 
- // Inverted assertion: the full depth-2 tree is fetched despite the abandon.
- const fullCrawl = SUPPLIER_IDS.length * 3;
- expect(pageCalls(mockApi, 'aborted')).toBe(0);
- expect(pageCalls(mockApi, 'completed')).toBe(fullCrawl);
+ // Let both settle fully so leaked vanilla fetches land in its log.
+ await sleep(150);
+
+ // The leak: the vanilla queue keeps pumping past Stop, so it completes strictly more pages than
+ // the canc crawl, whose one cancel() drained the pool.
+ expect(pageCalls(vanillaApi, 'completed')).toBeGreaterThan(pageCalls(cancApi, 'completed'));
  });
 });
