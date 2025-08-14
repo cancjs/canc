@@ -37,7 +37,7 @@ async function runAllCanc(): Promise<void> {
  try {
  await results;
  } catch {
- // canceled here — remaining inputs canceled automatically
+ // canceled here: remaining inputs canceled automatically
  }
 
  // Wait for cancellations to propagate

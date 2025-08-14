@@ -38,13 +38,13 @@ async function runIsolationCanc(): Promise<void> {
  loadWidget("sales", 50),
  loadWidget("traffic", 50),
  loadWidget("alerts", 10),
- loadWidget("news", 50, true) // bubble:false — isolated
+ loadWidget("news", 50, true) // bubble:false (isolated)
  ]);
 
  try {
  await results;
  } catch {
- // canceled here — but "news" survives due to bubble:false
+ // canceled here, but "news" survives due to bubble:false
  }
 
  await sleep(100);

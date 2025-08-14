@@ -10,7 +10,8 @@
  "typecheck": "tsc --noEmit"
  },
  "dependencies": {
- "@cancjs/promise": "link:../../packages/canc-promise"
+ "@cancjs/promise": "link:../../packages/canc-promise",
+ "@shared/util": "link:../_shared/util"
  },
  "devDependencies": {
  "@types/jest": "29.5.12",

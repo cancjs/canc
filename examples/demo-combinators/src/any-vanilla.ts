@@ -8,7 +8,7 @@ function loadWidget(name: string, delay: number): Promise<string> {
  return new Promise((resolve, reject) => {
  setTimeout(() => {
  if (name === "news") {
- // First to finish — winner
+ // First to finish: winner
  resolve(name);
  } else {
  // Losers stay running (wasted work)

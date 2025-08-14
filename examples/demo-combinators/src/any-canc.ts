@@ -38,7 +38,7 @@ async function runAnyCanc(): Promise<void> {
  const winner = await result;
  console.log(`Canc any - winner: ${winner}`);
  } catch {
- // canceled here — loser inputs canceled
+ // canceled here: loser inputs canceled
  }
 
  // Wait for cancellations

@@ -15,6 +15,7 @@
  "app-vue-pinia",
  "demo-async-dispose",
  "demo-chain-propagation",
+ "demo-combinators",
  "demo-coroutine",
  "demo-promise-basics"
  ],
