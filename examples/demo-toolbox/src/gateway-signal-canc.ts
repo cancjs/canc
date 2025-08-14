@@ -1,28 +1,23 @@
-import CancelablePromise from '@cancjs/promise';
+import { createAbortSignal } from '@cancjs/promise';
 import type { MockApiBundle } from '@shared/mock-api';
 
 /**
- * CancelablePromise gateway: cancel() or external signal → both abort the call.
- * handleCancel() wires the signal down to the mock API. No manual error-name checks.
- * Cancellation is just a rejection—no special case handling needed.
+ * Gateway call with signal interop. External AbortSignal from the caller and an internal
+ * cancel via createAbortSignal are wired together. A cancellation or external signal
+ * abort both stop the call immediately. Cancellation is a rejection; no special error-name
+ * handling needed.
  */
 export function callGatewayWithSignal(
  mockApi: MockApiBundle,
  signal: AbortSignal
-): CancelablePromise<{ transactionId: string }> {
- return new CancelablePromise((resolve, reject, handleCancel) => {
- const controller = new AbortController();
+): Promise<{ transactionId: string }> {
+ const { signal: innerSignal, abort } = createAbortSignal();
 
- const onAbort = () => controller.abort();
+ // Thread both signals together.
+ const onAbort = () => abort();
  signal.addEventListener('abort', onAbort);
- handleCancel(() => {
- signal.removeEventListener('abort', onAbort);
- controller.abort();
- });
 
- mockApi.gateway.call({ method: 'pay', amount: 100 }, controller.signal).then(
- resolve,
- reject
- );
+ return mockApi.gateway.call({ method: 'pay', amount: 100 }, innerSignal).finally(() => {
+ signal.removeEventListener('abort', onAbort);
  });
 }

@@ -2,7 +2,8 @@ import type { MockApiBundle } from '@shared/mock-api';
 
 /**
  * Retries payment up to 3 times with exponential backoff. Plain promise: if the caller cancels
- * mid-backoff, the next attempt still runs anyway (state update on unmounted component, wasted work).
+ * mid-backoff, the next attempt still runs (state update on unmounted component, wasted work).
+ * Requires a separate AbortController/flag to cancel the retry loop from outside.
  */
 export function chargeWithRetry(
  mockApi: MockApiBundle,

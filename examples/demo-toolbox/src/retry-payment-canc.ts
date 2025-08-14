@@ -1,45 +1,18 @@
 import CancelablePromise from '@cancjs/promise';
+import { retry } from '@cancjs/toolbox';
 import type { MockApiBundle } from '@shared/mock-api';
 
 /**
- * CancelablePromise retry: cancel() stops backoff loops immediately. handleCancel clears the
- * backoff timer AND cancels any in-flight charge attempt. No state update on unmounted.
+ * Retries payment up to 3 times with exponential backoff using the toolbox retry utility
+ * bound to CancelablePromise. cancel() stops backoff loops immediately and clears all
+ * pending timers. No state update on unmounted component.
  */
 export function chargeWithRetry(
  mockApi: MockApiBundle,
  paymentId: string
-): CancelablePromise<string> {
- return new CancelablePromise((resolve, reject, handleCancel) => {
- let attempt = 0;
- let timeoutId: NodeJS.Timeout | null = null;
- let chargePromise: CancelablePromise<string> | null = null;
-
- const cleanup = () => {
- if (timeoutId !== null) {
- clearTimeout(timeoutId);
- timeoutId = null;
- }
- if (chargePromise && chargePromise.canceled !== true) {
- chargePromise.cancel();
- }
- };
- handleCancel(cleanup);
-
- const tryCharge = () => {
- attempt++;
- chargePromise = new CancelablePromise((res, rej) => {
- mockApi.payments.charge(paymentId).then(res, rej);
- });
-
- chargePromise.then(resolve, (err) => {
- if (attempt < 3) {
- const delay = Math.pow(2, attempt) * 100;
- timeoutId = setTimeout(tryCharge, delay);
- } else {
- reject(err);
- }
- });
- };
- tryCharge();
- });
+): Promise<string> {
+ return retry(
+ () => mockApi.payments.charge(paymentId),
+ { retries: 3, minTimeout: 100, factor: 2, impl: CancelablePromise as any }
+ );
 }
