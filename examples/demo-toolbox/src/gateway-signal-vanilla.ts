@@ -2,7 +2,7 @@ import type { MockApiBundle } from '@shared/mock-api';
 
 /**
  * Gateway call threaded with AbortSignal. Vanilla: all signal wiring is manual (controller
- * creation, thread-down, error-name check). Cancellation coupling is loose—a caller must
+ * creation, thread-down, error-name check). Cancellation coupling is loose; a caller must
  * manage the signal lifecycle.
  */
 export function callGatewayWithSignal(

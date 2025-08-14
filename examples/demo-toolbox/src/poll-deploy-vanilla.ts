@@ -1,8 +1,9 @@
 import type { MockApiBundle } from '@shared/mock-api';
 
 /**
- * Polls deployment status until it reaches 'deployed' or 'failed'. Plain promise: the poller
- * keeps running after the caller loses interest (e.g. user navigates away). Wasted API calls.
+ * Polls deployment status until it reaches deployed or failed. Plain promise: the poller
+ * keeps running after the caller loses interest (user navigates away, wasted API calls).
+ * Cancellation requires manual flag tracking or a separate mechanism outside this function.
  */
 export function waitForDeployment(
  mockApi: MockApiBundle,

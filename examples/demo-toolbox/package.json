@@ -11,7 +11,8 @@
  },
  "dependencies": {
  "@shared/mock-api": "*",
- "@cancjs/promise": "link:../../packages/canc-promise"
+ "@cancjs/promise": "link:../../packages/canc-promise",
+ "@cancjs/toolbox": "link:../../packages/canc-toolbox"
  },
  "devDependencies": {
  "@types/jest": "30.0.0",
