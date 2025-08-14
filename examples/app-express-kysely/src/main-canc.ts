@@ -1,14 +1,12 @@
 import express from 'express';
-import { cancelOnDisconnect } from './middleware-canc';
 import { createReportRouter } from './routes-canc';
 import { createReportDb } from './mock/db';
 import { runDisconnectScenario } from './scenario';
 
-/** Builds the canc server: disconnect middleware installed before the report routes. */
+/** Builds the canc server. The report route cancels itself on disconnect, no middleware needed. */
 export function createApp() {
  const rdb = createReportDb();
  const app = express();
- app.use(cancelOnDisconnect);
  app.use(createReportRouter(rdb));
  return { app, rdb };
 }

@@ -33,8 +33,9 @@ disconnect point; the vanilla run finishes every slice.
 
 ## What it shows
 
-- `cancelOnDisconnect` middleware (canc) installs a per-request cancellation root. `req.on('close')`
- cancels the in-flight report, so the coroutine stops at its next step.
+- `cancAsyncRoute` (`src/lib/cancelable-route.ts`, canc) wraps a generator route handler as a
+ `cancAsync` coroutine and cancels it on `req.on('close')`. The handler keeps the normal
+ `(req, res, next)` shape and owns the response; the wrapper only adds the cancellation wiring.
 - `buildReport` (canc) is a `cancAsync` coroutine: a page query, a per-customer totals query, then
  a slow grand-total aggregate split into slices. Each step is a `cancAwait`, so cancellation is
  ambient. No signal is threaded through the handler.
@@ -47,10 +48,12 @@ disconnect point; the vanilla run finishes every slice.
 - `src/report-service-vanilla.ts` vs `src/report-service-canc.ts`: the report chain, with and
  without cancellation. The vanilla file adds a second `buildReportAbortable` function showing the
  manual-signal cost; the canc file needs no such second flavor.
-- `src/middleware-vanilla.ts` vs `src/middleware-canc.ts`: disconnect wiring. Vanilla exposes an
- AbortSignal the handler must thread by hand; canc exposes a `run` that cancels the op for you.
+- `src/middleware-vanilla.ts`: disconnect wiring for the abortable workaround, exposing an
+ AbortSignal the handler threads by hand. The canc flavor needs no such middleware: cancellation
+ is wired per-route by `cancAsyncRoute`.
 - `src/routes-vanilla.ts` vs `src/routes-canc.ts`: route handlers. Vanilla needs a second
- `/orders/report-abortable` route for the workaround; canc has one report route.
+ `/orders/report-abortable` route for the workaround; canc has one report route, written as a
+ generator passed to `cancAsyncRoute`.
 
 ## Honesty notes
 
@@ -66,5 +69,5 @@ disconnect point; the vanilla run finishes every slice.
 
 ## Copying
 
-`src/middleware-canc.ts` and the coroutine shape in `src/report-service-canc.ts` are the reusable
-pieces. The `src/mock/` database is scaffolding for this demo, not something to copy.
+`src/lib/cancelable-route.ts` and the coroutine shape in `src/report-service-canc.ts` are the
+reusable pieces. The `src/mock/` database is scaffolding for this demo, not something to copy.
