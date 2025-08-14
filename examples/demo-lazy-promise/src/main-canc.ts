@@ -1,6 +1,6 @@
 // Canc main: run scenarios to show lazy-promise cancellation behavior.
 
-import { CancelError } from '@cancjs/promise';
+import { isCancelError } from '@cancjs/promise';
 import { lazy } from '@cancjs/lazy-promise';
 import { getFlagsCanc } from './flags-canc';
 
@@ -28,7 +28,7 @@ async function scenario1LazyStart() {
  try {
  await p3;
  } catch (err) {
- console.log(' p3 rejected with CancelError (executor never ran):', err instanceof CancelError ? '✓' : err);
+ console.log(' p3 rejected with CancelError (executor never ran):', isCancelError(err) ? '✓' : err);
  }
 }
 
@@ -57,7 +57,7 @@ async function scenario3CancelBeforeStart() {
  try {
  await fresh;
  } catch (err) {
- console.log('Subscription rejects with CancelError:', err instanceof CancelError ? '(CancelError)' : err);
+ console.log('Subscription rejects with CancelError:', isCancelError(err) ? '(CancelError)' : err);
  }
 }
 
