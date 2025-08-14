@@ -3,7 +3,9 @@
  "compilerOptions": {
  "experimentalDecorators": false,
  "useDefineForClassFields": false,
- "lib": ["es2022", "dom", "decorators"]
+ "lib": ["es2022", "dom", "decorators"],
+ "module": "Node16",
+ "moduleResolution": "Node16"
  },
  "include": ["src/**/*.ts", "test/**/*.ts"],
  "exclude": ["src/ts-legacy/**/*.ts"]

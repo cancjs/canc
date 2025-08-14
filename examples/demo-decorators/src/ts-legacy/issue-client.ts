@@ -5,12 +5,12 @@
 // // ('experimentalDecorators: true') only... Import from '@cancjs/decorators' for stage-3."
 //
 // Getter style: the getter returns a ready coroutine (`cancAsync(fn, this)`); the decorator only
-// memoizes it (and binds, for LegacyBindMethod). Each coroutine body is a named function with an
+// memoizes it (and binds, for BindMethod). Each coroutine body is a named function with an
 // explicit AsyncResult<T> return type, so TypeScript infers the getter's return type without a
 // class-internal circular lookup; the class then satisfies IssueClientShape structurally, no cast
 // anywhere.
 
-import { LegacyAsyncMethod, LegacyBindMethod } from '@cancjs/decorators';
+import { AsyncMethod, BindMethod } from '@cancjs/decorators/legacy';
 import { async as cancAsync, await as cancAwait, AsyncResult } from '@cancjs/coroutine';
 import CancelablePromise from '@cancjs/promise';
 import type { CommentAck, Issue, MockApiBundle } from '../issue-types.js';
@@ -53,17 +53,17 @@ export class IssueClient {
 
  // Proto-level (default, bind:false): `, this` binds the coroutine itself, so `this` is safe even
  // detached; the getter runs once and its result is memoized on the instance.
- @LegacyAsyncMethod() get searchIssues() {
+ @AsyncMethod() get searchIssues() {
  return cancAsync(searchIssuesBody, this);
  }
 
  // Per-instance (bind:true): the decorator also binds, so detaching and passing it as a handler
  // is safe even without `, this` on the coroutine.
- @LegacyBindMethod() get loadIssue() {
+ @BindMethod() get loadIssue() {
  return cancAsync(loadIssueBody, this);
  }
 
- @LegacyAsyncMethod() get saveComment() {
+ @AsyncMethod() get saveComment() {
  return cancAsync(saveCommentBody, this);
  }
 }

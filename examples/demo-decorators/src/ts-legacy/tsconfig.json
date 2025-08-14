@@ -2,7 +2,19 @@
  "extends": "../../../tsconfig.examples.json",
  "compilerOptions": {
  "experimentalDecorators": true,
- "useDefineForClassFields": false
+ "useDefineForClassFields": false,
+ "target": "es2020",
+ "module": "Node16",
+ "lib": ["es2022", "dom"],
+ "moduleResolution": "Node16",
+ "strict": true,
+ "esModuleInterop": true,
+ "skipLibCheck": true,
+ "forceConsistentCasingInFileNames": true,
+ "resolveJsonModule": true,
+ "declaration": true,
+ "declarationMap": true,
+ "sourceMap": true
  },
  "include": ["issue-client.ts"]
 }

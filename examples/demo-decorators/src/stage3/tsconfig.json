@@ -3,7 +3,18 @@
  "compilerOptions": {
  "experimentalDecorators": false,
  "useDefineForClassFields": false,
- "lib": ["es2022", "dom", "decorators"]
+ "target": "es2020",
+ "module": "Node16",
+ "lib": ["es2022", "dom", "decorators"],
+ "moduleResolution": "Node16",
+ "strict": true,
+ "esModuleInterop": true,
+ "skipLibCheck": true,
+ "forceConsistentCasingInFileNames": true,
+ "resolveJsonModule": true,
+ "declaration": true,
+ "declarationMap": true,
+ "sourceMap": true
  },
  "include": ["issue-client.ts"]
 }
