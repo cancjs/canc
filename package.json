@@ -42,6 +42,7 @@
  "fast-check": "~4.9.0",
  "globals": "~17.7.0",
  "jest": "~30.4.2",
+ "jest-environment-jsdom": "~30.4.1",
  "lerna": "~9.0.7",
  "rimraf": "~5.0.7",
  "rollup": "~4.62.2",
