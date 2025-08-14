@@ -7,6 +7,7 @@ import {
  CancelablePromise,
  CancelError,
  isAbortError,
+ isCancelError,
 } from '@cancjs/promise';
 import { suppressAbort, suppress } from '@cancjs/toolbox';
 import { setTimeout } from 'timers/promises';
@@ -26,9 +27,9 @@ export async function classifyAbortErrorCanc() {
  console.log('[canc] result:', result);
  } catch (err: unknown) {
  // Inspect CancelError: .aborted + .cause
- if (err instanceof CancelError) {
- if (err.aborted) {
- console.log('[canc] aborted — cause:', err.cause?.name);
+ if (isCancelError(err)) {
+ if ((err as CancelError).aborted) {
+ console.log('[canc] aborted — cause:', (err as CancelError).cause?.name);
  } else {
  console.log('[canc] canceled');
  }
