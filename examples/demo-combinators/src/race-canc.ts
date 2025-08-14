@@ -36,7 +36,7 @@ async function runRaceCanc(): Promise<void> {
  // Race completed
  }
 
- // canceled here — losers canceled
+ // canceled here: losers canceled
  await sleep(150);
  console.log(`Canc race - canceled: ${canceled.length}`);
 }
