@@ -10,7 +10,7 @@
 
 import { async as cancAsync, await as cancAwait } from '@cancjs/coroutine';
 import CancelablePromise from '@cancjs/promise';
-import type { CommentAck, Issue, IssueClientShape, MockApiBundle } from '../issue-types.js';
+import type { CommentAck, Issue, IssueClientShape, IssuesApi } from '../issue-types.js';
 
 // Wrap a signal-aware mock-api call as a CancelablePromise so a coroutine cancel() aborts the
 // underlying request. Shared by all flavors via copy (kept inline to preserve twin alignment).
@@ -23,7 +23,7 @@ function abortable<T>(run: (signal: AbortSignal) => Promise<T>): CancelablePromi
 }
 
 export class IssueClient implements IssueClientShape {
- constructor(private readonly api: MockApiBundle) {
+ constructor(private readonly issuesApi: IssuesApi) {
  // Equivalent to @AsyncMethod() / @BindMethod({ bind: true }): assign each coroutine, bound to
  // this instance, once. loadIssue is bound (detachable handler). cancAsync's own return typing
  // does not narrow past the generator's yield type here, so the field types above are the
@@ -38,12 +38,12 @@ export class IssueClient implements IssueClientShape {
  saveComment!: (id: number, comment: string) => Promise<CommentAck>;
 
  private *searchIssuesGen(query: string): Generator<unknown, Issue[]> {
- const issues = yield* cancAwait(abortable((signal) => this.api.issues.list(signal)));
+ const issues = yield* cancAwait(abortable((signal) => this.issuesApi.list(signal)));
  return issues.filter((issue) => issue.title.toLowerCase().includes(query.toLowerCase()));
  }
 
  private *loadIssueGen(id: number): Generator<unknown, Issue> {
- const issues = yield* cancAwait(abortable((signal) => this.api.issues.list(signal)));
+ const issues = yield* cancAwait(abortable((signal) => this.issuesApi.list(signal)));
  const found = issues.find((issue) => issue.id === id);
  if (!found) throw new Error(`no issue ${id}`);
  return found;

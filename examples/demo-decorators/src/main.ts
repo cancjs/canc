@@ -8,10 +8,10 @@
 
 import { createMockApi } from '@shared/mock-api';
 import { runScenario } from './scenario.js';
-import type { IssueClientShape, MockApiBundle } from './issue-types.js';
+import type { IssueClientShape, IssuesApi } from './issue-types.js';
 
 type Flavor = 'stage3' | 'ts-legacy' | 'manual';
-type ClientCtor = new (api: MockApiBundle) => IssueClientShape;
+type ClientCtor = new (issuesApi: IssuesApi) => IssueClientShape;
 
 // manual has no decorator, so its fields keep their own declared Promise-returning type and match
 // ClientCtor with no cast. stage3 and ts-legacy decorate the getters: a stage-3 decorator with a
@@ -35,9 +35,9 @@ async function main(): Promise<void> {
  const flavor = (process.argv[2] as Flavor) ?? 'stage3';
  const IssueClient = await loadClientClass(flavor);
 
- const mockApi = createMockApi({ latency: 40, jitter: 0 });
- const clientA = new IssueClient(mockApi);
- const clientB = new IssueClient(mockApi);
+ const { issues } = createMockApi({ latency: 40, jitter: 0 });
+ const clientA = new IssueClient(issues);
+ const clientB = new IssueClient(issues);
 
  console.log(`--- ${flavor} ---`);
  const result = await runScenario(clientA, clientB);

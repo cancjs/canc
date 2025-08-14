@@ -2,12 +2,12 @@ import { createMockApi, isAbortError } from '@shared/mock-api';
 import { loadProfile, loadProfileAbortable } from './profile-service-vanilla';
 
 async function main(): Promise<void> {
- const mockApi = createMockApi({ latency: 100, jitter: 0, trace: console.log });
+ const { products } = createMockApi({ latency: 100, jitter: 0, trace: console.log });
 
  // Uncancelable: load, cancel, but the fetch keeps running.
  {
  console.log('vanilla: start load (uncancelable)');
- const pending = loadProfile(mockApi, 'p1');
+ const pending = loadProfile(products, 'p1');
  // The caller loses interest immediately, but the network call continues.
  setTimeout(() => {
  console.log('vanilla: lost interest, but call keeps running');
@@ -27,7 +27,7 @@ async function main(): Promise<void> {
  {
  console.log('vanilla: start load (abortable)');
  const controller = new AbortController();
- const pending = loadProfileAbortable(mockApi, 'p1', controller.signal);
+ const pending = loadProfileAbortable(products, 'p1', controller.signal);
  // The caller loses interest after short delay.
  setTimeout(() => {
  controller.abort();

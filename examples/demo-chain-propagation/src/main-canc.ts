@@ -5,30 +5,30 @@ import { report } from './report';
 type ProductsApi = MockApiBundle['products'];
 type MusicApi = MockApiBundle['music'];
 type InvoicesApi = MockApiBundle['invoices'];
+type MockApi = MockApiBundle['api'];
 
 async function runScenarios(): Promise<void> {
- const mockApi = createMockApi();
- const { products: productsApi, music: musicApi, invoices: invoicesApi } = mockApi;
+ const { api, products: productsApi, music: musicApi, invoices: invoicesApi } = createMockApi();
 
  // Scenario 1: Down (source canceled mid-chain)
  console.log('\n=== Scenario 1: Down (source canceled) ===');
- await runDownScenario(mockApi, productsApi, musicApi, invoicesApi);
+ await runDownScenario(api, productsApi, musicApi, invoicesApi);
 
  // Scenario 2: Up/bubble (both consumers canceled)
  console.log('\n=== Scenario 2: Up/bubble (consumers canceled) ===');
- await runBubbleScenario(mockApi, productsApi, musicApi, invoicesApi);
+ await runBubbleScenario(api, productsApi, musicApi, invoicesApi);
 
  // Scenario 3: Partial (one consumer canceled)
  console.log('\n=== Scenario 3: Partial (one consumer canceled) ===');
- await runPartialScenario(mockApi, productsApi, musicApi, invoicesApi);
+ await runPartialScenario(api, productsApi, musicApi, invoicesApi);
 
  // Scenario 4: Shield (audit survives)
  console.log('\n=== Scenario 4: Shield (audit isolated) ===');
- await runShieldScenario(mockApi, productsApi, musicApi, invoicesApi);
+ await runShieldScenario(api, productsApi, musicApi, invoicesApi);
 }
 
 async function runDownScenario(
- mockApi: MockApiBundle,
+ api: MockApi,
  productsApi: ProductsApi,
  musicApi: MusicApi,
  invoicesApi: InvoicesApi
@@ -50,11 +50,11 @@ async function runDownScenario(
  }
 
  report('source aborted successfully');
- console.log('Mock API calls:', mockApi.api.calls.map(c => `${c.endpoint}(${c.status})`).join(', '));
+ console.log('Mock API calls:', api.calls.map(c => `${c.endpoint}(${c.status})`).join(', '));
 }
 
 async function runBubbleScenario(
- mockApi: MockApiBundle,
+ api: MockApi,
  productsApi: ProductsApi,
  musicApi: MusicApi,
  invoicesApi: InvoicesApi
@@ -76,11 +76,11 @@ async function runBubbleScenario(
  }
 
  report('source aborted (bubble-up from both consumers)');
- console.log('Mock API calls:', mockApi.api.calls.map(c => `${c.endpoint}(${c.status})`).join(', '));
+ console.log('Mock API calls:', api.calls.map(c => `${c.endpoint}(${c.status})`).join(', '));
 }
 
 async function runPartialScenario(
- mockApi: MockApiBundle,
+ api: MockApi,
  productsApi: ProductsApi,
  musicApi: MusicApi,
  invoicesApi: InvoicesApi
@@ -104,11 +104,11 @@ async function runPartialScenario(
  // When one consumer is isolated (bubble:false), the source does NOT cancel.
  // It completes normally.
  report('source completed (image isolated via bubble:false)');
- console.log('Mock API calls:', mockApi.api.calls.map(c => `${c.endpoint}(${c.status})`).join(', '));
+ console.log('Mock API calls:', api.calls.map(c => `${c.endpoint}(${c.status})`).join(', '));
 }
 
 async function runShieldScenario(
- mockApi: MockApiBundle,
+ api: MockApi,
  productsApi: ProductsApi,
  musicApi: MusicApi,
  invoicesApi: InvoicesApi
@@ -130,7 +130,7 @@ async function runShieldScenario(
  }
 
  report('audit completed despite source cancellation (shield:true)');
- console.log('Mock API calls:', mockApi.api.calls.map(c => `${c.endpoint}(${c.status})`).join(', '));
+ console.log('Mock API calls:', api.calls.map(c => `${c.endpoint}(${c.status})`).join(', '));
 }
 
 runScenarios().catch(console.error);

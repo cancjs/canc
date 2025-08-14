@@ -7,7 +7,7 @@ import { addCheckoutOperations } from './mock/checkout-ops';
 import { createCheckoutCancelable } from './checkout-canc';
 
 async function runSmoke() {
- const api = createMockApi({ latency: 50, jitter: 0 });
+ const { api } = createMockApi({ latency: 50, jitter: 0 });
  const ops = addCheckoutOperations(api);
  const checkout = createCheckoutCancelable(
  (id) => ops.reserveStock(id),
@@ -35,11 +35,11 @@ async function runSmoke() {
  }
 
  // Verify releaseReservation was called (appears in mock api logs)
- const calls = (api.api as any).calls;
- const releaseCall = calls.find((c: any) => c.endpoint === 'checkout.releaseReservation');
+ const calls = api.calls;
+ const releaseCall = calls.find((c) => c.endpoint === 'checkout.releaseReservation');
  if (!releaseCall) {
  console.error('FAIL: releaseReservation was not called');
- console.error('Calls made:', calls.map((c: any) => c.endpoint));
+ console.error('Calls made:', calls.map((c) => c.endpoint));
  process.exit(1);
  }
 

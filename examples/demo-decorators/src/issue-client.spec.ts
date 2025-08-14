@@ -1,6 +1,6 @@
 import { createMockApi } from '@shared/mock-api';
 import { runScenario } from './scenario.js';
-import type { IssueClientShape, MockApiBundle } from './issue-types.js';
+import type { IssueClientShape, IssuesApi } from './issue-types.js';
 
 import { IssueClient as Stage3Client } from './stage3/issue-client.js';
 import { IssueClient as TsLegacyClient } from './ts-legacy/issue-client.js';
@@ -10,7 +10,7 @@ import { IssueClient as ManualClient } from './manual/issue-client.js';
 // @ts-expect-error no declaration for the untyped .js flavor
 import { IssueClient as BabelLegacyClient } from './babel-legacy/issue-client.js';
 
-type ClientCtor = new (api: MockApiBundle) => IssueClientShape;
+type ClientCtor = new (issuesApi: IssuesApi) => IssueClientShape;
 
 // manual has no decorator, so its fields keep their own declared Promise-returning type and
 // satisfy ClientCtor with no cast. stage3 and ts-legacy decorate the getters: a stage-3 decorator
@@ -30,8 +30,8 @@ describe('demo-decorators: every flavor runs the same scenario', () => {
  // Fixed, small latency (no jitter) keeps the cancel deterministic: the request is still in
  // flight when clientA cancels, so the abort reaches the simulated request boundary.
  const mockApi = createMockApi({ latency: 20, jitter: 0 });
- const clientA = new IssueClient(mockApi);
- const clientB = new IssueClient(mockApi);
+ const clientA = new IssueClient(mockApi.issues);
+ const clientB = new IssueClient(mockApi.issues);
 
  const result = await runScenario(clientA, clientB);
 

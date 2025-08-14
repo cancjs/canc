@@ -1,6 +1,8 @@
 import { createAbortSignal } from '@cancjs/promise';
 import type { MockApiBundle } from '@shared/mock-api';
 
+type GatewayApi = MockApiBundle['gateway'];
+
 /**
  * Gateway call with signal interop. External AbortSignal from the caller and an internal
  * cancel via createAbortSignal are wired together. A cancellation or external signal
@@ -8,7 +10,7 @@ import type { MockApiBundle } from '@shared/mock-api';
  * handling needed.
  */
 export function callGatewayWithSignal(
- mockApi: MockApiBundle,
+ gatewayApi: GatewayApi,
  signal: AbortSignal
 ): Promise<{ transactionId: string }> {
  const { signal: innerSignal, abort } = createAbortSignal();
@@ -17,7 +19,7 @@ export function callGatewayWithSignal(
  const onAbort = () => abort();
  signal.addEventListener('abort', onAbort);
 
- return mockApi.gateway.call({ method: 'pay', amount: 100 }, innerSignal).finally(() => {
+ return gatewayApi.call({ method: 'pay', amount: 100 }, innerSignal).finally(() => {
  signal.removeEventListener('abort', onAbort);
  });
 }

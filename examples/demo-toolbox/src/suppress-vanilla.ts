@@ -1,16 +1,18 @@
 import type { MockApiBundle } from '@shared/mock-api';
 
+type InvoicesApi = MockApiBundle['invoices'];
+
 /**
  * Cleanup that should never fail (shield). Vanilla: manual try/catch plus error.name
  * laddering to swallow abort-type errors while preserving real errors. Tedious plus
  * error-prone.
  */
 export function cleanupPaymentRecord(
- mockApi: MockApiBundle,
+ invoicesApi: InvoicesApi,
  recordId: string
 ): Promise<void> {
  return new Promise((resolve) => {
- mockApi.invoices.list().then(
+ invoicesApi.list().then(
  () => resolve(),
  (err: any) => {
  if (err.name === 'AbortError' || err.name === 'CanceledError') {

@@ -12,7 +12,7 @@
 import { AsyncMethod, BindMethod } from '@cancjs/decorators';
 import { async as cancAsync, await as cancAwait, AsyncResult } from '@cancjs/coroutine';
 import CancelablePromise from '@cancjs/promise';
-import type { CommentAck, Issue, MockApiBundle } from '../issue-types.js';
+import type { CommentAck, Issue, IssuesApi } from '../issue-types.js';
 
 // Wrap a signal-aware mock-api call as a CancelablePromise so a coroutine cancel() aborts the
 // underlying request. Shared by all flavors via copy (kept inline to preserve twin alignment).
@@ -25,12 +25,12 @@ function abortable<T>(run: (signal: AbortSignal) => Promise<T>): CancelablePromi
 }
 
 function* searchIssuesBody(this: IssueClient, query: string): AsyncResult<Issue[]> {
- const issues = yield* cancAwait(abortable((signal) => this.api.issues.list(signal)));
+ const issues = yield* cancAwait(abortable((signal) => this.issuesApi.list(signal)));
  return issues.filter((issue) => issue.title.toLowerCase().includes(query.toLowerCase()));
 }
 
 function* loadIssueBody(this: IssueClient, id: number): AsyncResult<Issue> {
- const issues = yield* cancAwait(abortable((signal) => this.api.issues.list(signal)));
+ const issues = yield* cancAwait(abortable((signal) => this.issuesApi.list(signal)));
  const found = issues.find((issue) => issue.id === id);
  if (!found) throw new Error(`no issue ${id}`);
  return found;
@@ -47,8 +47,8 @@ function* saveCommentBody(this: IssueClient, id: number, comment: string): Async
 
 export class IssueClient {
  // Not private: the coroutine bodies live outside the class (named functions, for clean type
- // inference on the getters below) and need to read it via `this.api`.
- constructor(readonly api: MockApiBundle) {}
+ // inference on the getters below) and need to read it via `this.issuesApi`.
+ constructor(readonly issuesApi: IssuesApi) {}
 
  // Proto-level (default, bind:false): `, this` binds the coroutine itself, so `this` is safe even
  // detached; the getter runs once and its result is memoized on the instance.
