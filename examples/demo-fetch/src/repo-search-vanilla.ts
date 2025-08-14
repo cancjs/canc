@@ -7,8 +7,8 @@ async function searchRepos(query: string, fetch: any): Promise<Repo> {
  const res = await fetch(`/products`);
  if (!res.ok) throw new Error(`Search failed: ${res.status}`);
  const products = await res.json() as Array<{ id: string; name: string }>;
+ if (!products.length) throw new Error('No items found');
  const top = products[0];
- if (!top) throw new Error('No items found');
 
  // Fetch details of top hit. If caller cancels now, this completes anyway (wasted work).
  const detailRes = await fetch(`/products/${top.id}`);
