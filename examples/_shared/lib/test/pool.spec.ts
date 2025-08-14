@@ -1,4 +1,5 @@
 import { CancelablePromise, isCancelError } from '@cancjs/promise';
+import { sleep } from '../../util/src/sleep';
 import { createPool } from '../src/pool';
 
 /** A job that resolves after `ms`, tracking whether it ever started running. */
@@ -48,7 +49,7 @@ describe('createPool', () => {
  const queued = pool.run(makeJob(50, started));
 
  // Let the first job claim its slot before canceling the pool.
- await new Promise((resolve) => setTimeout(resolve, 5));
+ await sleep(5);
  expect(started.count).toBe(1);
 
  pool.cancelAll('shutdown');

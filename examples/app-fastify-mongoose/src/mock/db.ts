@@ -2,6 +2,7 @@
 // layer talking to MongoDB. Each call is recorded so the tests can assert which queries the
 // handler actually issued (and, on cancel, which ones it skipped). Black box for the reader.
 
+import { sleep } from '@shared/util';
 import mockingoose from 'mockingoose';
 import { RoomModel, RateModel, BookingModel, Room, Rate, Booking } from './models';
 
@@ -44,25 +45,21 @@ export function installMocks(latencyMs = 0): void {
 
 let currentLatency = 0;
 
-function delay(ms: number): Promise<void> {
- return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 export async function findRooms(hotelId: string, date: string): Promise<Room[]> {
  queryLog.push({ op: 'findRooms' });
- if (currentLatency) await delay(currentLatency);
+ if (currentLatency) await sleep(currentLatency);
  return RoomModel.find({ hotelId }).lean().exec() as Promise<Room[]>;
 }
 
 export async function loadRates(roomIds: string[], date: string): Promise<Rate[]> {
  queryLog.push({ op: 'loadRates' });
- if (currentLatency) await delay(currentLatency);
+ if (currentLatency) await sleep(currentLatency);
  return RateModel.find({ roomId: { $in: roomIds }, date }).lean().exec() as Promise<Rate[]>;
 }
 
 export async function aggregateOccupancy(roomIds: string[], date: string): Promise<number> {
  queryLog.push({ op: 'aggregateOccupancy' });
- if (currentLatency) await delay(currentLatency);
+ if (currentLatency) await sleep(currentLatency);
  const bookings = (await BookingModel.find({
  roomId: { $in: roomIds },
  date,

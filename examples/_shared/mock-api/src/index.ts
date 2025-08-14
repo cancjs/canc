@@ -20,6 +20,8 @@ export type {
  PricePoint,
  Issue,
  DocChunk,
+ RagApi,
+ ChatApi,
 } from './domains';
 
 export { createMockFetch } from './mock-fetch';

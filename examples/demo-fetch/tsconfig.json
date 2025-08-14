@@ -1,0 +1,10 @@
+{
+ "extends": "../tsconfig.examples.json",
+ "compilerOptions": {
+ "outDir": "./dist",
+ "paths": {
+ "@shared/*": ["../_shared/*/src"]
+ }
+ },
+ "include": ["src", "test"]
+}
