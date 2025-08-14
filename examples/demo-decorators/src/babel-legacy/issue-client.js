@@ -9,7 +9,7 @@
 // is no static type to preserve or lose. The other flavors are TypeScript, where a method decorator
 // cannot retype the declared method, so they use the getter style instead (see stage3/ts-legacy).
 
-import { BabelLegacyAsyncMethod, BabelLegacyBindMethod } from '@cancjs/decorators';
+import { AsyncMethod, BindMethod } from '@cancjs/decorators/babel-legacy';
 import { await as cancAwait } from '@cancjs/coroutine';
 import CancelablePromise from '@cancjs/promise';
 
@@ -29,14 +29,14 @@ export class IssueClient {
  }
 
  // Proto-level (default, bind:false): `this` flows from the call site.
- @BabelLegacyAsyncMethod()
+ @AsyncMethod()
  *searchIssues(query) {
  const issues = yield* cancAwait(abortable((signal) => this.api.issues.list(signal)));
  return issues.filter((issue) => issue.title.toLowerCase().includes(query.toLowerCase()));
  }
 
  // Per-instance (bind:true): safe to detach and pass as a handler.
- @BabelLegacyBindMethod()
+ @BindMethod()
  *loadIssue(id) {
  const issues = yield* cancAwait(abortable((signal) => this.api.issues.list(signal)));
  const found = issues.find((issue) => issue.id === id);
@@ -45,7 +45,7 @@ export class IssueClient {
  }
 
  // saveComment reads the issue back and echoes the comment (mock API has no write endpoint).
- @BabelLegacyAsyncMethod()
+ @AsyncMethod()
  *saveComment(id, comment) {
  const issue = yield* cancAwait(this.loadIssue(id));
  return { issueId: id, comment, issueTitle: issue.title };
