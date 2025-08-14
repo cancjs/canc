@@ -1,27 +1,23 @@
 import { Router } from 'express';
-import { isCancelError } from '@cancjs/promise';
+import { cancAwait } from '@cancjs/coroutine';
+import { cancAsyncRoute } from './lib/cancelable-route';
 import { buildReport } from './report-service-canc';
 import type { ReportDb } from './mock/db';
 
 /**
- * canc routes. The report handler hands its work to `res.locals.run`, which cancels it if the
- * client disconnects. A CancelError just means the client left, so there is nothing to send.
+ * canc routes. The report handler is a generator wrapped by `cancAsyncRoute`, which cancels the
+ * coroutine if the client disconnects. Cancellation is handled by the wrapper, not the handler.
  */
 export function createReportRouter(rdb: ReportDb): Router {
  const router = Router();
 
- router.get('/orders/report', (req, res, next) => {
- const run = res.locals.run;
- if (!run) return next(new Error('cancelOnDisconnect middleware not installed'));
-
- run(() => buildReport(rdb)).then(
- (report) => res.json(report),
- (error) => {
- if (isCancelError(error)) return; // canceled here — nothing below runs, socket already gone
- next(error);
- },
+ router.get(
+ '/orders/report',
+ cancAsyncRoute(function* (req, res) {
+ const report = yield* cancAwait(buildReport(rdb));
+ res.json(report); // handler owns the response, full control
+ }),
  );
- });
 
  router.get('/products', (_req, res, next) => {
  rdb.db
