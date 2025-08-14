@@ -21,15 +21,16 @@ force-exit immediately.
 
 ## What it shows
 
-- `src/lib/pool.ts`: a small cancel-aware concurrency pool. Canceling the pool's promise cancels
- every in-flight download and never starts a queued one.
+- `@shared/lib`'s `createPool`: a small cancel-aware concurrency pool. Canceling a job's promise
+ while queued removes it from the queue so it never starts; `cancelAll()` cancels every in-flight
+ job and drains the rest.
 - `src/backup-canc.ts`: the pool driven from a `cancAsync` coroutine (the task tree root). One
- `root.cancel()` call in `main-canc.ts` cancels every in-flight download; the coroutine's
+ `backupTask.cancel()` call in `main-canc.ts` cancels every in-flight download; the coroutine's
  `finally` still runs (shielded from cancellation) so the partial manifest is always buildable
  from up-to-date data.
-- `src/main-canc.ts`: SIGINT wiring. First Ctrl-C calls `await root.cancel()` and only exits after
- it settles, so the manifest write is ordered strictly after cleanup instead of racing it. Second
- Ctrl-C forces `process.exit(1)` immediately.
+- `src/main-canc.ts`: SIGINT wiring. First Ctrl-C calls `await backupTask.cancel()` and only exits
+ after it settles, so the manifest write is ordered strictly after cleanup instead of racing it.
+ Second Ctrl-C forces `process.exit(1)` immediately.
 - `src/backup-vanilla.ts` / `src/main-vanilla.ts`: the same shape with a `let aborted = false`
  flag checked between downloads. A download already in flight when the flag flips keeps running
  to completion (wasted work); the manifest write can still race a forced second-Ctrl-C exit.
@@ -39,12 +40,17 @@ force-exit immediately.
 - `src/backup-vanilla.ts` vs `src/backup-canc.ts`
 - `src/main-vanilla.ts` vs `src/main-canc.ts`
 
+## Output
+
+Both entries write their manifest under `out/` (created at runtime, gitignored): `out/backup-
+manifest.canc.json` and `out/backup-manifest.vanilla.json`.
+
 ## Shutdown ordering
 
-The canc entry's SIGINT handler awaits `root.cancel()` before anything else happens: cancellation
-reaches every in-flight download immediately (synchronous cancel dispatch), and the awaited
-promise only settles once the coroutine's shielded cleanup has produced the final manifest data.
-`main-canc.ts` writes the manifest and exits only after that await resolves, so shutdown is
+The canc entry's SIGINT handler awaits `backupTask.cancel()` before anything else happens:
+cancellation reaches every in-flight download immediately (synchronous cancel dispatch), and the
+awaited promise only settles once the coroutine's shielded cleanup has produced the final manifest
+data. `main-canc.ts` writes the manifest and exits only after that await resolves, so shutdown is
 ordered: cancel dispatched -> downloads stopped -> manifest data finalized -> file written -> exit.
 The vanilla entry has no such ordering: the aborted flag stops new downloads from starting, but an
 in-flight one keeps running, and the process can exit while a partial write or a stray timer is
@@ -60,4 +66,5 @@ the signal to the network layer the same way; see `demo-fetch` for a wire-level 
 
 ## Copying this code
 
-`src/lib/pool.ts` is written to be copied into your own project.
+The concurrency pool (`@shared/lib`'s `createPool`) is written to be copied into your own
+project; see `examples/_shared/lib`.
