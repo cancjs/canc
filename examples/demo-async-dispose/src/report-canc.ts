@@ -1,50 +1,44 @@
-import CancelablePromise from '@cancjs/promise';
-import { Report } from './report';
-import type { MockApiBundle } from '@shared/mock-api';
+import { CancelablePromise } from '@cancjs/promise';
+import { cancAsync, cancAwait } from '@cancjs/coroutine';
+import { cancelify } from '@cancjs/toolbox';
+import { Report } from './report-shared';
+import type { RagApi } from '@shared/mock-api';
 
 /**
- * Disposable report generator using async disposal: an AsyncDisposable returning a CancelablePromise.
- * Leaving the scope (return/throw/early-exit) auto-cancels an unfinished report; await using waits
- * for cleanup handlers to settle before continuing.
+ * Report generation with async disposal. Built from cancelify wrappers and a cancAsync coroutine,
+ * so the returned CancelablePromise gets Symbol.asyncDispose for free: await using cancels an
+ * unfinished report on scope exit, no manual dispose wiring anywhere in this file.
  */
-export function generateReport(
- mockApi: MockApiBundle,
- reportId: string
-): CancelablePromise<Report> & AsyncDisposable {
- let cancelled = false;
+export function generateReport(ragApi: RagApi, reportId: string): CancelablePromise<Report> & AsyncDisposable {
+ const fetchChunks = cancelify((getSignal, [id]: [string]) => ragApi.search(id, getSignal()));
+ const renderAndUpload = cancelify((getSignal, [id]: [string]) => ragApi.search(id, getSignal()));
 
- const promise = new CancelablePromise<Report>(async (resolve, reject, handleCancel) => {
- const controller = new AbortController();
-
- handleCancel(() => {
- cancelled = true;
- controller.abort();
- });
-
- try {
- // Fetch data chunks — the underlying call stops if canceled.
- // canceled here — nothing below runs
- const chunks = await mockApi.rag.search(reportId, controller.signal);
+ const coroutine = cancAsync(function* () {
+ // Fetch data chunks. Canceled here, nothing below runs.
+ const chunks = yield* cancAwait(fetchChunks(reportId));
  const report: Report = {
  id: reportId,
  title: 'Report',
  chunkCount: chunks.length,
  };
- // Render and upload (simulate — these also stop if canceled).
- // canceled here — nothing below runs
- await mockApi.rag.search(reportId, controller.signal);
- resolve(report);
- } catch (error) {
- reject(error);
- }
- });
 
- // Attach the async disposal protocol: leaving the scope calls [Symbol.asyncDispose].
- (promise as any)[Symbol.asyncDispose] = async function () {
- if (!cancelled) {
- await promise.cancel();
- }
- };
+ // Render and upload (simulated). Still canceled here, nothing below runs.
+ yield* cancAwait(renderAndUpload(reportId));
 
- return promise as any;
+ return report;
+ })();
+
+ // Audit write is shielded: it always runs to completion, even when the steps above were
+ // canceled mid-flight. Built as its own shielded node, constructed only when cleanup actually
+ // starts (not eagerly), and attached with .finally() rather than yielded inside the coroutine's
+ // own try/finally, so the shield does not depend on the coroutine's cancel reaching an
+ // in-flight step at the same moment its own cleanup step settles. A hand-rolled AbortController
+ // equivalent needs a second, deliberately unwired controller to get the same guarantee (see
+ // report-vanilla.ts).
+ const writeAuditLog = () =>
+ new CancelablePromise<void>((resolve, reject) => {
+ ragApi.search(reportId).then(() => resolve(), reject);
+ }, { shield: true });
+
+ return coroutine.finally(writeAuditLog) as CancelablePromise<Report> & AsyncDisposable;
 }
