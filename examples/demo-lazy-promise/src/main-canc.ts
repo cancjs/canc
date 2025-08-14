@@ -15,12 +15,21 @@ async function scenario1LazyStart() {
  console.log('Calling getFlagsCanc.then() multiple times (no subscription yet)...');
  const p1 = getFlagsCanc.then((f) => f);
  const p2 = getFlagsCanc.then((f) => f);
+ const p3 = getFlagsCanc.then((f) => f);
  console.log('Executor has NOT run yet — cancellation can still skip it.');
- console.log('Now subscribing (await)...');
+ console.log('Cancel p3 before any subscription...');
+ (p3 as any).cancel(new Error('Canceled before start'));
+ console.log('Now subscribing p1 and p2...');
  const flags = await p1;
  console.log('Executor ran on first subscription.');
  const flags2 = await p2;
  console.log('Second subscriber got same result (executor shared):', flags === flags2);
+ console.log('Third subscriber (p3) was canceled before start:');
+ try {
+ await p3;
+ } catch (err) {
+ console.log(' p3 rejected with CancelError (executor never ran):', err instanceof CancelError ? '✓' : err);
+ }
 }
 
 async function scenario2SharedConsumers() {
