@@ -1,7 +1,7 @@
-// Shared, flavor-free types for the price comparison example.
+// Shared, flavor-free types for the site-health crawl.
 
-export interface PartQuote {
- supplierId: string;
- part: string;
- amount: number;
+/** The outcome of one crawl: every page visited, and the broken (404) links found. */
+export interface CrawlReport {
+ visited: string[];
+ broken: string[];
 }

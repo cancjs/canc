@@ -1,80 +1,90 @@
-// Crawl each supplier's catalog to depth 2, looking for the target part, then quote it.
+// Crawl a site depth-2, reporting broken (404) links, with a hand-rolled cancellation attempt.
 //
-// The crawl walks the root page, then its child pages, fetching each through a fixed-concurrency
-// queue. Vanilla has no way to stop a crawl in progress: once the caller loses interest there is no
-// cancel path, so every queued page still gets fetched and every in-flight fetch still completes.
+// Every page fetch runs through a plain concurrency queue. Cancellation is threaded by hand: each
+// crawl level owns an AbortController and the queue tracks controllers so Stop can abort them. It
+// still leaks: a queued fetch has no controller yet, so draining the queue cannot abort what has
+// not started, and deeper fetches dispatched a tick before Stop already left with their own signal.
 
-import type { MockApiBundle } from '@shared/mock-api';
-import { fetchCatalogPage, ROOT_PAGE, SUPPLIER_IDS } from './aux/catalog';
+import { sleep } from '@shared/util';
+import { createSiteApi, HOME_URL, type Page } from './mock/site';
+import type { CrawlReport } from './types';
+import type { MockApi } from '@shared/mock-api';
 
-// A minimal concurrency queue with no cancellation. (no cancellation counterpart — see crawl-canc.ts)
+// A minimal concurrency queue. It collects the controllers of running jobs so a caller can try to
+// abort them, but a queued job has no controller yet, so it cannot be aborted before it starts.
 function createQueue(limit: number) {
  let active = 0;
  const waiting: Array<() => void> = [];
+ const running = new Set<AbortController>();
+ const pump = () => {
+ while (active < limit && waiting.length > 0) waiting.shift()?.();
+ };
  const next = () => {
  active--;
  pump();
  };
- const pump = () => {
- while (active < limit && waiting.length > 0) {
- const start = waiting.shift();
- start?.();
- }
- };
- return function run<T>(job: () => Promise<T>): Promise<T> {
- return new Promise<T>((resolve, reject) => {
- // no cancel-while-queued path — a queued job always runs eventually
+ const run = <T>(job: (signal: AbortSignal) => Promise<T>): Promise<T> =>
+ new Promise<T>((resolve, reject) => {
  const start = () => {
  active++;
- job().then(resolve, reject).finally(next);
+ const controller = new AbortController();
+ running.add(controller);
+ job(controller.signal)
+ .then(resolve, reject)
+ .finally(() => {
+ running.delete(controller);
+ next();
+ });
  };
+ // no cancel-while-queued path, a queued job always runs eventually once it gets a slot
  waiting.push(start);
  pump();
  });
+ const abortRunning = () => {
+ for (const controller of running) controller.abort();
+ running.clear();
  };
+ return { run, abortRunning };
 }
 
-/** Depth-2 crawl of one supplier's catalog. Returns every part number found. */
-async function crawlSupplier(
- mockApi: MockApiBundle,
- run: <T>(job: () => Promise<T>) => Promise<T>,
- supplierId: string
-): Promise<string[]> {
- const root = await run(() => fetchCatalogPage(mockApi, supplierId, ROOT_PAGE));
- const childPages = await Promise.all(
- root.childPages.map((pageId) => run(() => fetchCatalogPage(mockApi, supplierId, pageId)))
- );
- return [...root.parts, ...childPages.flatMap((page) => page.parts)];
-}
+/** Runs a depth-2 site-health crawl with a best-effort abort path. */
+export function crawlSite(api: MockApi, concurrency: number): { result: Promise<CrawlReport>; cancel: () => void } {
+ const site = createSiteApi(api);
+ const queue = createQueue(concurrency);
 
-export function crawlAllSuppliers(mockApi: MockApiBundle): {
- result: Promise<Record<string, string[]>>;
- cancel: () => void;
-} {
- const run = createQueue(4);
+ const visited: string[] = [];
+ const broken: string[] = [];
 
- const result = (async () => {
- const entries = await Promise.all(
- SUPPLIER_IDS.map(async (supplierId) => [supplierId, await crawlSupplier(mockApi, run, supplierId)] as const)
- );
- return Object.fromEntries(entries);
- })();
+ const visit = async (url: string, depth: number): Promise<void> => {
+ const page: Page = await queue.run((signal) => site.fetchPage(url, signal));
+ visited.push(url);
+ if (page.status === 404) broken.push(url);
+ if (depth > 0) await Promise.all(page.links.map((link) => visit(link, depth - 1)));
+ };
 
- // cancel() cannot stop the crawl — queued pages still fetch, in-flight pages still complete
- const cancel = () => {};
+ const result = visit(HOME_URL, 2).then(() => ({ visited, broken }));
+ // Aborts only what is running now. Queued pages have no controller so they still start, and the
+ // fetches dispatched a tick before this call keep running (grandchildren leak).
+ const cancel = () => queue.abortRunning();
 
  return { result, cancel };
 }
 
-export async function crawlVanilla(mockApi: MockApiBundle): Promise<void> {
- console.log('vanilla: crawling supplier catalogs depth-2');
- const { result, cancel } = crawlAllSuppliers(mockApi);
+export async function crawlVanilla(api: MockApi): Promise<void> {
+ console.log('vanilla: crawling site depth-2');
+ const { result, cancel } = crawlSite(api, 4);
 
- // The caller abandons the crawl early, but there is no working cancel path.
- setTimeout(cancel, 30);
+ // The operator hits Stop while the crawl is deep into fanning out (grandchildren in flight).
+ setTimeout(cancel, 40);
 
- const found = await result;
- const started = mockApi.api.calls.filter((call) => call.endpoint === 'catalog.page').length;
- console.log(`vanilla: crawl finished, page fetches started = ${started} (nothing was skipped)`);
- console.log(`vanilla: found parts for ${Object.keys(found).length} suppliers`);
+ // Aborting running fetches makes the crawl reject, but the fetches already dispatched keep going.
+ await result.catch(() => {});
+ // Wait for the leaked fetches to land in the log, proving Stop did not actually stop the crawl.
+ await sleep(120);
+
+ const reportStarted = api.calls.filter((call) => call.endpoint === 'site.page').length;
+ const reportCompleted = api.calls.filter(
+ (call) => call.endpoint === 'site.page' && call.status === 'completed'
+ ).length;
+ console.log(`vanilla: page fetches started = ${reportStarted}, completed = ${reportCompleted} (queued and in-flight pages still ran)`);
 }
