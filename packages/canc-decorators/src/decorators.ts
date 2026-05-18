@@ -18,10 +18,15 @@ type TMethodDecoratorContext =
  | ClassMethodDecoratorContext
  | ClassGetterDecoratorContext
  | ClassFieldDecoratorContext;
-type TMethodDecorator = (value: any, context: TMethodDecoratorContext) => any;
 
 interface IMethodDecoratorOptions {
  bind?: boolean;
+}
+
+interface IMemberDecorator {
+ <This, Value>(value: (this: This) => Value, context: ClassGetterDecoratorContext<This, Value>): (this: This) => Value;
+ <This, Fn extends (...a: any[]) => any>(value: Fn, context: ClassMethodDecoratorContext<This, Fn>): Fn;
+ <This, Value>(value: undefined, context: ClassFieldDecoratorContext<This, Value>): (this: This, init: Value) => Value;
 }
 
 function setProperty(target: any, key: string | symbol, value: any) {
@@ -148,11 +153,22 @@ function isOptions(args: any[]): args is [IMethodDecoratorOptions?] {
  return args.length < 2;
 }
 
-export function AsyncMethod(value: any, context: TMethodDecoratorContext): any;
-export function AsyncMethod(options?: IMethodDecoratorOptions): TMethodDecorator;
-export function AsyncMethod(...args: [IMethodDecoratorOptions?] | [any, TMethodDecoratorContext]) {
+// Stage-3 decorator return types redefine the decorated member's type. Returning `any` here would
+// erase every decorated getter/method to `any`/`unknown` at the call site, so these overloads stay
+// generic and identity-preserving: the member's own declared type survives decoration.
+//
+// A getter's inferred return type is kept, so a getter that returns `cancAsync(...)` needs no cast.
+// A method decorator's return must be assignable to the original method type, so a generator method
+// cannot be retyped to a promise-returning one (TypeScript error TS1270). Method style therefore
+// stays type-wrong in TypeScript (use it only in plain JavaScript); getter and field styles are
+// exact. Background: https://github.com/microsoft/TypeScript/issues/4881
+export function AsyncMethod<This, Value>(value: (this: This) => Value, context: ClassGetterDecoratorContext<This, Value>): (this: This) => Value;
+export function AsyncMethod<This, Fn extends (...a: any[]) => any>(value: Fn, context: ClassMethodDecoratorContext<This, Fn>): Fn;
+export function AsyncMethod<This, Value>(value: undefined, context: ClassFieldDecoratorContext<This, Value>): (this: This, init: Value) => Value;
+export function AsyncMethod(options?: IMethodDecoratorOptions): IMemberDecorator;
+export function AsyncMethod(...args: any[]): any {
  if (!isOptions(args)) {
- return AsyncMethod()(...(args as [any, TMethodDecoratorContext]));
+ return (AsyncMethod() as (...a: any[]) => any)(...args);
  }
 
  const isBind = args[0]?.bind ?? false;
@@ -160,11 +176,13 @@ export function AsyncMethod(...args: [IMethodDecoratorOptions?] | [any, TMethodD
  return makeDecorator(isBind, (fn, ctx) => cancAsync(fn as any, ctx));
 }
 
-export function BindMethod(value: any, context: TMethodDecoratorContext): any;
-export function BindMethod(options?: IMethodDecoratorOptions): TMethodDecorator;
-export function BindMethod(...args: [IMethodDecoratorOptions?] | [any, TMethodDecoratorContext]) {
+export function BindMethod<This, Value>(value: (this: This) => Value, context: ClassGetterDecoratorContext<This, Value>): (this: This) => Value;
+export function BindMethod<This, Fn extends (...a: any[]) => any>(value: Fn, context: ClassMethodDecoratorContext<This, Fn>): Fn;
+export function BindMethod<This, Value>(value: undefined, context: ClassFieldDecoratorContext<This, Value>): (this: This, init: Value) => Value;
+export function BindMethod(options?: IMethodDecoratorOptions): IMemberDecorator;
+export function BindMethod(...args: any[]): any {
  if (!isOptions(args)) {
- return BindMethod()(...(args as [any, TMethodDecoratorContext]));
+ return (BindMethod() as (...a: any[]) => any)(...args);
  }
 
  const isBind = args[0]?.bind ?? true;
