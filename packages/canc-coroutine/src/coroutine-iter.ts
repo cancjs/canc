@@ -288,7 +288,8 @@ export const cancIterForAwait = (function* cancIterForAwait(
  let settled: void | false;
 
  if (isGenerator(outcome)) {
- settled = yield* outcome; // bare-generator cb: delegate, its cancIterAwait steps run on the driver
+ // bare-generator cb: delegate, its cancIterAwait steps run on the driver
+ settled = yield* (outcome as Generator<TAwaited<any>, void, any>);
  } else if (isThenable(outcome)) {
  settled = yield awaited(outcome); // cancAsync-coroutine cb (CancelablePromise): marker pull
  } else {
