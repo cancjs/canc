@@ -60,10 +60,10 @@ a close can only set a flag that stops SENDING frames. Every chunk still transco
  `events.on(ws, 'message', { signal })` async iterator, fed a signal derived from the connection
  root with `toAbortSignal`. When the root cancels, the signal aborts and the native iterator ends,
  so the read loop unwinds with the rest of the tree. No hand-written close plumbing.
-- **`cancAsyncIter` export job (canc).** The export is a cancelable async generator: `awaited(...)`
- transcodes a chunk internally, `yield` emits a progress percentage to the sender's `for await`.
- Canceling the iterator runs its `finally` and stops it, and the threaded `AbortSignal` aborts the
- chunk in flight.
+- **`cancIterAsync` export job (canc).** The export is a cancelable async generator: `yield*
+ cancIterAwait(...)` transcodes a chunk internally (typed, no cast), `yield` emits a progress
+ percentage to the sender's `for await`. Canceling the iterator runs its `finally` and stops it,
+ and the threaded `AbortSignal` aborts the chunk in flight.
 - **`suppress` for the ack (canc).** The `canceled` ack is sent inside `suppress(['cancel'], ...)`
  so it still goes out even though the job chain is in the middle of canceling.
 
@@ -73,7 +73,7 @@ a close can only set a flag that stops SENDING frames. Every chunk still transco
  stopped job ids and can only gate sending; canc owns a cancel root, a job map, and a signal-fed
  message loop.
 - `src/export-job-vanilla.ts` vs `src/export-job-canc.ts`: the transcode job. Vanilla is a plain
- async generator with no way to stop the work; canc is a `cancAsyncIter` generator threading an
+ async generator with no way to stop the work; canc is a `cancIterAsync` generator threading an
  `AbortSignal` into each chunk.
 - `src/main-vanilla.ts` vs `src/main-canc.ts`: the scripted runs. Same scenarios; the printed chunk
  counts diverge.
@@ -89,7 +89,7 @@ WebSocket instead because it keeps that strength (each connection still owns a j
 tears down) and adds the second, client-driven cancel path for free: the browser can send an
 explicit `{ type: 'cancel' }` frame up the same socket without opening a separate request. An SSE
 version would drop the explicit-message path and cancel only on the request close. Everything else,
-the connection-scoped tree, the `cancAsyncIter` export job, the `finally` cleanup, would be
+the connection-scoped tree, the `cancIterAsync` export job, the `finally` cleanup, would be
 identical.
 
 ## Honesty notes
@@ -104,6 +104,6 @@ identical.
 
 ## Copying
 
-The connection-scoped root pattern in `src/server-canc.ts` and the `cancAsyncIter` job in
+The connection-scoped root pattern in `src/server-canc.ts` and the `cancIterAsync` job in
 `src/export-job-canc.ts` are the reusable pieces. `src/mock/transcode.ts` is scaffolding for this
 demo, not something to copy.

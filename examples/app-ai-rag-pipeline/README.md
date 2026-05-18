@@ -24,26 +24,26 @@ cancAsync(function* () {
  // embed the query — canceled here, nothing below runs
  yield* cancAwait(embed(query, signal));
 
- // parallel retrieve, collected as a finite set with iter
- const legs = yield* cancAwait.iter(retrieveLegs(ragApi, query, signal));
+ // parallel retrieve, collected as a finite set with cancAwait.all
+ const legs = yield* cancAwait.all(retrieveLegs(ragApi, query, signal));
  const hits = mergeHits(legs);
 
  // rerank the merged hits — canceled here, generate never starts
  const ranked = yield* cancAwait(rerank(query, hits, signal));
 
- // generate the answer, consuming the token stream with each as it arrives
+ // generate the answer, consuming the token stream with cancForAwait
  const context = ranked.slice(0, 3).map((c) => c.text).join(' ');
  let text = '';
- yield* cancAwait.each(generate(chatApi, context, signal), (token) => {
+ yield* cancForAwait(generate(chatApi, context, signal), (token) => {
  text += token;
  });
  return { query, text, sources: ranked.slice(0, 3).map((c) => c.id) };
 });
 ```
 
-The two iterator helpers show side by side: `iter` buffers a bounded source (the retrieval legs)
-into an array, and `each` consumes an open stream (the answer tokens) one at a time. Both cancel
-their source when the pipeline is canceled.
+The two iterator combinators show side by side: `cancAwait.all` buffers a bounded source (the
+retrieval legs) into an array, and `cancForAwait` consumes an open stream (the answer tokens) one
+at a time. Both cancel their source when the pipeline is canceled.
 
 ## The cost of not canceling
 

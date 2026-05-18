@@ -9,17 +9,31 @@
 
 Cancelable async/await replacement built on generators. `cancAsync` (aliased `async`) turns a
 generator function into a function returning a `CancelablePromise`; `cancAwait` (aliased `await`,
-used as `yield* cancAwait(promise)`) yields a value and resumes with its resolution, or throws on
-rejection/cancellation.
+used as `yield* cancAwait(promise)`) suspends the coroutine on a promise and resumes with its
+resolved value, or throws on rejection/cancellation.
+
+For async iterators, use the mirror namespace: `cancIterAsync` wraps a generator function into a
+function returning an async generator; `cancIterAwait` (used as `yield* cancIterAwait(promise)`)
+suspends internally and resumes typed, and `cancForAwait` streams an async iterable with
+per-item cancellation.
 
 ## Features
 
-- `AsyncResult<T>`: a type alias for annotating a coroutine body's return type, in place of
- writing out `Generator<unknown, T, any>` on every generator function:
+- **Type inference via `yield*` delegation**: typed resumed values without casts.
+ ```ts
+ const data = yield* cancAwait(fetch(url)); // data: Response (typed)
+ ```
+
+- `AsyncResult<T>` and `AsyncIterResult<E, R>`: type aliases for annotating coroutine body
+ return types in place of writing out `Generator<unknown, T, any>` on every function:
 
  ```ts
  function* load(url: string): AsyncResult<Data> {
  return yield* cancAwait(fetch(url));
+ }
+
+ function* export(src: AsyncIterable<Item>): AsyncIterResult<Progress, void> {
+ yield* cancForAwait(src, (item) => { /* process item */ });
  }
  ```
 
@@ -164,11 +178,56 @@ Cross-linked from the `@cancjs/decorators` README (`## Class-method placement`).
 table there is the canonical source for the proto/instance decision; this page adds the
 coroutine-body (`super`, generator-per-instance memory) specifics on top of it.
 
+## Mirror namespaces
+
+The API is available under two namespaces for different use cases:
+
+- **`canc` namespace** (main): `cancAsync`, `cancAwait`, `cancForAwait`, plus combinators
+ `cancAwait.all/race/any/allSettled`. Default for promise-based coroutines. Import from main entry:
+ `import { cancAsync, cancAwait, cancForAwait } from '@cancjs/coroutine'`, or use the aliases:
+ `import * as canc from '@cancjs/coroutine'` then `canc.async`, `canc.await`, `canc.forAwait`.
+
+- **`cancIter` namespace** (subpath import): `cancIterAsync`, `cancIterAwait`, `cancIterForAwait`,
+ `cancIterDelegate`, `AsyncIterResult`. Prefer when working primarily with async iterators; the
+ names align with iterator concepts. Import with
+ `import * as cancIter from '@cancjs/coroutine/iter'` and use `cancIter.async`, `cancIter.await`,
+ `cancIter.forAwait`, `cancIter.delegate`, or cherry-pick individual named exports.
+
+The two namespaces are completely parallel: `cancIterAsync` and `cancAsync` are the same at runtime;
+pick whichever naming convention fits your mental model. Use `canc` for promise chains, `cancIter`
+when your coroutine drives async generators.
+
+## Streaming with `cancForAwait`
+
+Inside a `cancAsync` coroutine, use `cancForAwait` to drive an async iterator with per-item
+cancellation:
+
+```ts
+yield* cancForAwait(stream, (item) => {
+ // Process each item. Body can use yield* cancAwait(work).
+ // Return false to break early; return undefined (or omit) to continue.
+});
+```
+
+Collect all items into an array:
+
+```ts
+const allItems = yield* cancForAwait.toArray(stream);
+```
+
+Callback forms: sync function, bare generator function (with `yield*` in the body), or
+`cancAsync` coroutine. Canceling the parent coroutine stops the stream and cleans up via
+`finally`.
+
 ## Documentation
 
 - [`yield` vs `yield*`](docs/yield-vs-yield-star.md): why `yield* cancAwait(promise)` is typed and
  bare `yield promise` is not, the TypeScript limitation behind it, the typed combinator helpers
  (`cancAwait.all/race/any/allSettled`), and how redux-saga and MobX `flow` hit the same wall.
+- **Async iterators in the mirror namespace**: for iterator-driven coroutines, use `cancIterAsync`
+ with `cancIterAwait` (typed internal await via `yield*`) and `cancIterForAwait`/`cancIterDelegate`
+ for streaming. See the example READMEs for streaming patterns (`app-ws-progress`,
+ `app-ai-rag-pipeline`).
 
 ## Contributing
 

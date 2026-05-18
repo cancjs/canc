@@ -14,7 +14,7 @@ export async function ragPipeline(ragApi: RagApi, chatApi: ChatApi, query: strin
  await embed(query);
 
  // parallel retrieve, collected as a finite set. Drain the bounded leg source into an array, the
- // same shape the canc flavor buffers with cancAwait.iter.
+ // same shape the canc flavor buffers with cancForAwait.toArray.
  const legs: DocChunk[][] = [];
  for await (const leg of retrieveLegs(ragApi, query)) {
  legs.push(leg);
