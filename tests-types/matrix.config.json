@@ -1,14 +1,15 @@
 {
- "comment": "TS version matrix for P4-2. Each entry becomes an isolated fixture project with its own pinned TypeScript and its own installed tarball of the built packages. moduleResolution is chosen per version so the intended d.ts resolution path is exercised: TS<4.7 has no `exports`/`node16` support so it falls through package.json `typesVersions` to dist/types-ts4.2; TS>=4.7 reads the `exports.types@<4.7` / `types` conditions.",
+ "comment": "TS version matrix for P4-2. Each entry becomes an isolated fixture project with its own pinned TypeScript and its own installed tarball of the built packages. moduleResolution is chosen per version so the intended d.ts resolution path is exercised: TS<4.7 has no `exports`/`node16` support so it falls through package.json `typesVersions` to dist/types-ts4.2; TS>=4.7 reads the `exports.types@<4.7` / `types` conditions. `decoratorTypes:true` additionally materialises three extra fixture projects per version (stage-3, ts-legacy, babel-legacy audit) compiling the decorator member-type-preservation assertions against `@cancjs/decorators`; stage-3 (TC39) decorator syntax needs TS 5.0+, so only the 5.0/5.4/latest lanes set it (4.2/4.7 reject the syntax).",
  "packages": [
  "canc-promise",
- "canc-coroutine"
+ "canc-coroutine",
+ "canc-decorators"
  ],
  "versions": [
  { "id": "4.2", "typescript": "4.2.4", "moduleResolution": "node", "lib": ["es2020", "dom"] },
  { "id": "4.7", "typescript": "4.7.4", "moduleResolution": "node16", "lib": ["es2022", "dom"] },
- { "id": "5.0", "typescript": "5.0.4", "moduleResolution": "bundler", "lib": ["es2022", "dom"] },
- { "id": "5.4", "typescript": "5.4.5", "moduleResolution": "bundler", "lib": ["es2022", "dom"] },
- { "id": "latest", "typescript": "latest", "moduleResolution": "bundler", "lib": ["es2022", "dom"], "typeAssertions": true }
+ { "id": "5.0", "typescript": "5.0.4", "moduleResolution": "bundler", "lib": ["es2022", "dom"], "decoratorTypes": true },
+ { "id": "5.4", "typescript": "5.4.5", "moduleResolution": "bundler", "lib": ["es2022", "dom"], "decoratorTypes": true },
+ { "id": "latest", "typescript": "latest", "moduleResolution": "bundler", "lib": ["es2022", "dom"], "typeAssertions": true, "decoratorTypes": true }
  ]
 }
