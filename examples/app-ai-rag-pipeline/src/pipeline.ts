@@ -49,7 +49,7 @@ export function keywordSearch(ragApi: RagApi, query: string, signal?: AbortSigna
 
 // The retrieval legs as a bounded async source: both legs start at once, then the generator yields
 // each result as it settles, and completes. Both flavors drain it to a finite array, the canc flavor
-// with cancAwait.iter, the vanilla flavor with a for-await loop. This is the "collect a finite set"
+// with cancForAwait.toArray, the vanilla flavor with a for-await loop. This is the "collect a finite set"
 // shape, the mirror of the token stream's "consume as it arrives" shape below. Starting both legs up
 // front keeps both requests in flight, so a cancel aborts them together at the mock-api boundary.
 export async function* retrieveLegs(
