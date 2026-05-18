@@ -22,6 +22,8 @@
  */
 import CancelablePromise from '@cancjs/promise';
 import { async as cancAsync, await as cancAwait } from '@cancjs/coroutine';
+import { async as cancIterAsync, await as cancIterAwait } from '@cancjs/coroutine/iter';
+import type { AsyncIterResult } from '@cancjs/coroutine/iter';
 import type { Equal, Expect, IsAny, Not } from './assert-type';
 
 // ============================================================ typed path: yield*
@@ -93,5 +95,50 @@ cancAsync(function* () {
 
 // @ts-expect-error all() requires an iterable, not a bare value
 cancAwait.all(123);
+
+// ============================================================ cancIterAsync: typed internal await (no cast tax)
+// Annotated: AsyncIterResult pins the emit (E) and return (R) types explicitly.
+const producerAnnotated = cancIterAsync(function* (): AsyncIterResult<number, void> {
+ const decoded = yield* cancIterAwait(Promise.resolve(1));
+ type _decodedNumber = Expect<Equal<typeof decoded, number>>;
+ yield 42;
+});
+type _producerAnnotatedEmit = Expect<Equal<
+ ReturnType<typeof producerAnnotated> extends AsyncGenerator<infer E, any> ? E : never,
+ number
+>>;
+
+// Inferred: no AsyncIterResult annotation, emit + return still resolve without a cast. The emitted
+// value flows through a typed local rather than a bare numeric literal: TS only widens a literal
+// yield to its base type when TYield is inferred alone, not when it shares the position with a
+// `yield*` delegate's contribution (a known literal-widening limit of generator type inference,
+// not a cancIterAsync defect) — an emit source typed as `number` sidesteps that limit the same way
+// a real producer would (the emitted value is virtually always a computed, not literal, expression).
+const producerInferred = cancIterAsync(function* () {
+ const decoded = yield* cancIterAwait(Promise.resolve(1));
+ type _decodedInferredNumber = Expect<Equal<typeof decoded, number>>;
+ const emitted: number = decoded * 2;
+ yield emitted;
+ return 'done';
+});
+
+async function consumeInferred() {
+ for await (const percent of producerInferred()) {
+ type _percentNumber = Expect<Equal<typeof percent, number>>;
+ void percent;
+ }
+}
+void consumeInferred;
+
+// cancAsync return type is inferred without an AsyncResult annotation, but the current contract
+// (see `_coResult` above) always widens the coroutine's return to CancelablePromise<unknown> — the
+// generator's own `yield*` delegate value is still precisely typed (no cast).
+declare function fetchUser(id: string): Promise<{ id: string }>;
+const load = cancAsync(function* (id: string) {
+ const user = yield* cancAwait(fetchUser(id));
+ type _userType = Expect<Equal<typeof user, { id: string }>>;
+ return user;
+});
+type _loadResult = Expect<Equal<ReturnType<typeof load>, CancelablePromise<unknown>>>;
 
 export {};

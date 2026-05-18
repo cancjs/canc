@@ -1,4 +1,4 @@
-import { cancAsync, cancAwait, BreakError, isBreakError } from './coroutine';
+import { cancAsync, cancAwait, cancForAwait, BreakError, isBreakError } from './coroutine';
 import { CancelablePromise, CancelError, isCancelError, suppressCancel } from '@cancjs/promise';
 
 // Deterministic microtask flush (mirrors coroutine.spec): drains the microtask queue N times so
@@ -55,11 +55,11 @@ function makeControllableSource<T>() {
  return { source, deliver, state };
 }
 
-describe('cancAwait.each', () => {
+describe('cancForAwait', () => {
  it('drains a finite async source, callback sees every value in order with index', async () => {
  const seen: Array<[number, number]> = [];
  const co = cancAsync(function* () {
- yield* cancAwait.each(makeAsyncSource([10, 20, 30]), (value: number, index: number) => {
+ yield* cancForAwait(makeAsyncSource([10, 20, 30]), (value: number, index: number) => {
  seen.push([index, value]);
  });
  return 'done';
@@ -78,7 +78,7 @@ describe('cancAwait.each', () => {
  const seen: number[] = [];
 
  const co = cancAsync(function* () {
- yield* cancAwait.each(source, (value: number) => {
+ yield* cancForAwait(source, (value: number) => {
  seen.push(value);
  });
  });
@@ -111,7 +111,7 @@ describe('cancAwait.each', () => {
  const seen: number[] = [];
 
  const co = cancAsync(function* () {
- yield* cancAwait.each(makeAsyncSource([1, 2, 3, 4], () => {
+ yield* cancForAwait(makeAsyncSource([1, 2, 3, 4], () => {
  returned = true;
  }), (value: number) => {
  seen.push(value);
@@ -132,7 +132,7 @@ describe('cancAwait.each', () => {
  const seen: number[] = [];
 
  const co = cancAsync(function* () {
- yield* cancAwait.each(makeAsyncSource([1, 2, 3, 4], () => {
+ yield* cancForAwait(makeAsyncSource([1, 2, 3, 4], () => {
  returned = true;
  }), (value: number) => {
  seen.push(value);
@@ -153,7 +153,7 @@ describe('cancAwait.each', () => {
  const boom = new Error('boom');
 
  const co = cancAsync(function* () {
- yield* cancAwait.each(makeAsyncSource([1, 2, 3], () => {
+ yield* cancForAwait(makeAsyncSource([1, 2, 3], () => {
  returned = true;
  }), (value: number) => {
  if (value === 2) {
@@ -171,13 +171,16 @@ describe('cancAwait.each', () => {
  const order: string[] = [];
 
  const co = cancAsync(function* () {
- yield* cancAwait.each(makeAsyncSource([1, 2]), (value: number) => {
+ // Discouraged path (docs): a callback returning a bare native promise, not a CancelablePromise,
+ // still works at runtime but breaks the per-item cancel chain. Cast needed only because the
+ // type intentionally steers callers toward a CancelablePromise return.
+ yield* cancForAwait(makeAsyncSource([1, 2]), ((value: number) => {
  order.push(`start:${value}`);
 
  return Promise.resolve().then(() => {
  order.push(`end:${value}`);
  });
- });
+ }) as any);
  });
 
  await co();
@@ -189,11 +192,12 @@ describe('cancAwait.each', () => {
  const seen: number[] = [];
 
  const co = cancAsync(function* () {
- yield* cancAwait.each(makeAsyncSource([1, 2, 3]), (value: number) => {
+ // Discouraged path (docs): see the comment above, same bare-native-promise cast.
+ yield* cancForAwait(makeAsyncSource([1, 2, 3]), ((value: number) => {
  seen.push(value);
 
  return Promise.resolve(value === 2 ? false : undefined);
- });
+ }) as any);
  return 'ok';
  });
 
@@ -205,7 +209,7 @@ describe('cancAwait.each', () => {
  const seen: number[] = [];
 
  const co = cancAsync(function* () {
- yield* cancAwait.each([Promise.resolve(1), Promise.resolve(2), 3], (value: number) => {
+ yield* cancForAwait([Promise.resolve(1), Promise.resolve(2), 3], (value: number) => {
  seen.push(value);
  });
  });
@@ -224,7 +228,7 @@ describe('cancAwait.each', () => {
 
  const viaEach: number[] = [];
  const co = cancAsync(function* () {
- yield* cancAwait.each(makeAsyncSource(values), (value: number) => {
+ yield* cancForAwait(makeAsyncSource(values), (value: number) => {
  viaEach.push(value);
  });
  });
@@ -234,10 +238,67 @@ describe('cancAwait.each', () => {
  });
 });
 
-describe('cancAwait.iter', () => {
+describe('cancForAwait — generator-fn callback', () => {
+ it('runs a cancelable per-item body via yield* delegate (bare generator fn)', async () => {
+ const order: string[] = [];
+ const work = (v: number) =>
+ new CancelablePromise<number>((resolve) => {
+ Promise.resolve().then(() => resolve(v * 10));
+ });
+
+ const co = cancAsync(function* () {
+ yield* cancForAwait(makeAsyncSource([1, 2]), function* (value: number) {
+ order.push(`start:${value}`);
+ const doubled = yield* cancAwait(work(value));
+ order.push(`end:${value}:${doubled}`);
+ });
+ return 'done';
+ });
+
+ await expect(co()).resolves.toBe('done');
+ expect(order).toEqual(['start:1', 'end:1:10', 'start:2', 'end:2:20']);
+ });
+
+ it('canceling the coroutine mid-item stops the generator-fn cb body', async () => {
+ const order: string[] = [];
+ let workSettled = false;
+ const { source, deliver } = makeControllableSource<number>();
+
+ const co = cancAsync(function* () {
+ yield* cancForAwait(source, function* (value: number) {
+ order.push(`start:${value}`);
+ // Never-settling cancelable work: cancel must stop this cb body mid-flight.
+ yield* cancAwait(
+ new CancelablePromise<void>(() => {
+ /* never settles */
+ }),
+ );
+ workSettled = true;
+ order.push('unreached');
+ });
+ });
+
+ const p = co();
+ p.catch(suppressCancel);
+
+ deliver(0, 1);
+ await flush();
+ expect(order).toEqual(['start:1']);
+
+ p.cancel();
+ await flush();
+
+ const err = await p.catch((e: any) => e);
+ expect(isCancelError(err)).toBe(true);
+ expect(workSettled).toBe(false);
+ expect(order).toEqual(['start:1']);
+ });
+});
+
+describe('cancForAwait.toArray', () => {
  it('collects a finite async source into an array in order', async () => {
  const co = cancAsync(function* () {
- const items = yield* cancAwait.iter(makeAsyncSource([1, 2, 3]));
+ const items = yield* cancForAwait.toArray(makeAsyncSource([1, 2, 3]));
  return items;
  });
 
@@ -246,7 +307,7 @@ describe('cancAwait.iter', () => {
 
  it('collects a sync iterable of promises in order', async () => {
  const co = cancAsync(function* () {
- const items = yield* cancAwait.iter([Promise.resolve('a'), Promise.resolve('b')]);
+ const items = yield* cancForAwait.toArray([Promise.resolve('a'), Promise.resolve('b')]);
  return items;
  });
 
@@ -257,7 +318,7 @@ describe('cancAwait.iter', () => {
  const { source, deliver, state } = makeControllableSource<number>();
 
  const co = cancAsync(function* () {
- return yield* cancAwait.iter(source);
+ return yield* cancForAwait.toArray(source);
  });
 
  const p = co();

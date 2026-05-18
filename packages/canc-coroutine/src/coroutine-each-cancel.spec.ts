@@ -1,4 +1,4 @@
-import { cancAsync, cancAwait, BreakError } from './coroutine';
+import { cancAsync, cancForAwait, BreakError } from './coroutine';
 import { CancelablePromise, CancelError, isCancelError, suppressCancel } from '@cancjs/promise';
 
 // Deterministic microtask flush (mirrors coroutine-each.spec): drains the microtask queue N times
@@ -76,7 +76,7 @@ function trackUnhandled() {
  };
 }
 
-describe('cancAwait.each / iter — cancel semantics (bugs 1-4)', () => {
+describe('cancForAwait / cancForAwait.toArray — cancel semantics (bugs 1-4)', () => {
  // BUG 1: finally-drain must preserve return-unwind. Code AFTER the `yield* each(...)` in the
  // coroutine body must NOT execute when the coroutine is canceled mid-stream.
  it('bug1: code after yield* each does not run on cancel (return-unwind preserved)', async () => {
@@ -84,7 +84,7 @@ describe('cancAwait.each / iter — cancel semantics (bugs 1-4)', () => {
  let completed = false;
 
  const co = cancAsync(function* () {
- yield* cancAwait.each(source, () => {
+ yield* cancForAwait(source, () => {
  /* consume */
  });
  // This line represents parent code after the delegated loop. On cancel it MUST NOT run.
@@ -119,7 +119,7 @@ describe('cancAwait.each / iter — cancel semantics (bugs 1-4)', () => {
  const { source, deliver, state } = makeControllableSource<number>({ rejectPendingOnReturn: true });
 
  const co = cancAsync(function* () {
- yield* cancAwait.each(source, () => {
+ yield* cancForAwait(source, () => {
  /* consume */
  });
  });
@@ -155,7 +155,7 @@ describe('cancAwait.each / iter — cancel semantics (bugs 1-4)', () => {
  const { source, deliver, state } = makeControllableSource<number>({ returnRejects: true });
 
  const co = cancAsync(function* () {
- yield* cancAwait.each(source, () => {
+ yield* cancForAwait(source, () => {
  /* consume */
  });
  });
@@ -200,7 +200,7 @@ describe('cancAwait.each / iter — cancel semantics (bugs 1-4)', () => {
  let p: CancelablePromise<any>;
  const co = cancAsync(function* () {
  try {
- yield* cancAwait.each(source, (value: number) => {
+ yield* cancForAwait(source, (value: number) => {
  if (value === 1) {
  // Re-entrant cancel: synchronous, during a driver step.
  p.cancel();
@@ -221,13 +221,13 @@ describe('cancAwait.each / iter — cancel semantics (bugs 1-4)', () => {
  expect(sourceReturnRan).toBe(true);
  });
 
- // bug1 for iter: code after a `yield* iter` must also stay dormant on cancel.
- it('bug1/iter: code after yield* iter does not run on cancel', async () => {
+ // bug1 for toArray: code after a `yield* cancForAwait.toArray` must also stay dormant on cancel.
+ it('bug1/toArray: code after yield* cancForAwait.toArray does not run on cancel', async () => {
  const { source, deliver, state } = makeControllableSource<number>();
  let completed = false;
 
  const co = cancAsync(function* () {
- yield* cancAwait.iter(source);
+ yield* cancForAwait.toArray(source);
  completed = true;
  });
 
@@ -253,7 +253,7 @@ describe('cancAwait.each / iter — cancel semantics (bugs 1-4)', () => {
 
  const co = cancAsync(function* () {
  try {
- yield* cancAwait.each(source, () => {
+ yield* cancForAwait(source, () => {
  /* consume */
  });
  order.push('post-loop'); // must NOT run
@@ -284,7 +284,7 @@ describe('cancAwait.each / iter — cancel semantics (bugs 1-4)', () => {
  it('regression: code after yield* each runs on normal completion', async () => {
  let completed = false;
  const co = cancAsync(function* () {
- yield* cancAwait.each(
+ yield* cancForAwait(
  (async function* () {
  yield 1;
  yield 2;
