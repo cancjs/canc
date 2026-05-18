@@ -6,6 +6,7 @@
  "scripts": {
  "matrix": "node ./scripts/run-matrix.mjs",
  "matrix:setup": "node ./scripts/run-matrix.mjs --setup-only",
- "matrix:latest": "node ./scripts/run-matrix.mjs --only latest"
+ "matrix:latest": "node ./scripts/run-matrix.mjs --only latest",
+ "matrix:decorators": "node ./scripts/run-matrix.mjs --only 5.0,5.4,latest"
  }
 }
