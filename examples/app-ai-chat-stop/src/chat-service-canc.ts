@@ -5,7 +5,7 @@
 // request; the coroutine's finally aborts it on cancel, so a Stop aborts the in-flight request and
 // stops token billing rather than only dropping the local pull.
 
-import { cancAsync, cancAwait } from '@cancjs/coroutine';
+import { cancAsync, cancAwait, cancForAwait } from '@cancjs/coroutine';
 import { CancelablePromise, createAbortSignal } from '@cancjs/promise';
 import { createLlm } from './aux/llm';
 import { ChatRequest, UsageLog } from './chat';
@@ -26,9 +26,9 @@ export function streamChat(req: ChatRequest, sink: ChatSink, log: UsageLog): Can
  let completed = false;
  try {
  yield* cancAwait(llm.moderate(req.prompt, cancelSignal.signal));
- // Stream tokens as they arrive; each cancels the source on coroutine cancel, so a Stop stops
- // the pull between tokens and nothing below runs for a dead socket.
- yield* cancAwait.each(llm.stream(req.prompt, cancelSignal.signal), (token) => {
+ // Stream tokens as they arrive; cancForAwait cancels the source on coroutine cancel, so a Stop
+ // stops the pull between tokens and nothing below runs for a dead socket.
+ yield* cancForAwait(llm.stream(req.prompt, cancelSignal.signal), (token) => {
  sink.write(token);
  });
  completed = true;
