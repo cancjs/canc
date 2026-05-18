@@ -7,7 +7,7 @@
 // call log.
 
 import { CancelablePromise, createAbortSignal } from '@cancjs/promise';
-import { cancAsync, cancAwait } from '@cancjs/coroutine';
+import { cancAsync, cancAwait, cancForAwait } from '@cancjs/coroutine';
 import { embed, mergeHits, retrieveLegs, RagAnswer } from './pipeline';
 import { generate } from './mock/llm';
 import { rerank } from './mock/rerank';
@@ -26,22 +26,22 @@ export function ragPipeline(ragApi: RagApi, chatApi: ChatApi, query: string): Ca
  yield* cancAwait(embed(query, cancelSignal.signal));
  cost += 1;
 
- // parallel retrieve, collected as a finite set. The two legs are a bounded source, so iter
- // buffers them into an array for a clean merge, the finite-collect counterpart of the token
- // stream's each below.
- const legs = yield* cancAwait.iter(retrieveLegs(ragApi, query, cancelSignal.signal));
- const hits = mergeHits(legs);
+ // parallel retrieve, collected as a finite set. The two legs are a bounded source, so
+ // cancForAwait.toArray buffers them into an array for a clean merge, the finite-collect
+ // counterpart of the token stream's cancForAwait below.
+ const legResultsArr = yield* cancForAwait.toArray(retrieveLegs(ragApi, query, cancelSignal.signal));
+ const hits = mergeHits(legResultsArr);
  cost += 2;
 
  // rerank the merged hits — canceled here, generate never starts
  const ranked = yield* cancAwait(rerank(query, hits, cancelSignal.signal));
  cost += 1;
 
- // generate the answer from the top chunks. each consumes the token stream as it arrives; a
- // cancel stops the pull between tokens and cancels the stream at its source.
+ // generate the answer from the top chunks. cancForAwait consumes the token stream as it
+ // arrives; a cancel stops the pull between tokens and cancels the stream at its source.
  const context = ranked.slice(0, 3).map((chunk) => chunk.text).join(' ');
  let text = '';
- yield* cancAwait.each(generate(chatApi, context, cancelSignal.signal), (token) => {
+ yield* cancForAwait(generate(chatApi, context, cancelSignal.signal), (token) => {
  text += token;
  });
 
