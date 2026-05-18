@@ -1,5 +1,5 @@
 import { CancelablePromise, ICancelablePromiseOptions, CancelError, isCancelError } from '@cancjs/promise';
-import { isFunction, isObject } from '../../_util';
+import { isFunction, isObject, isThenable, isGenerator } from '../../_util';
 
 export type TGeneratorLike<PYield = unknown, PReturn = any, PNext = unknown> = Omit<Generator<PYield, PReturn, PNext>, typeof Symbol.iterator>;
 
@@ -488,15 +488,20 @@ interface ICancAwaitAllSettled {
 // `each` accepts an async iterable or a sync iterable whose members may be promises: both are
 // driven one pull at a time, awaiting each value at a coroutine cancellation point. The callback
 // runs per item; returning `false` (or throwing `BreakError`) stops the loop cleanly.
-type TEachSource<T> = AsyncIterable<T> | Iterable<T | Promise<T>>;
-type TEachCallback<T> = (value: T, index: number) => void | false | Promise<void | false>;
+export type TEachSource<T> = AsyncIterable<T> | Iterable<T | Promise<T>>;
 
-interface ICancAwaitEach {
- <T>(source: TEachSource<T>, cb: TEachCallback<T>): Generator<unknown, void, any>;
-}
+// The `cancForAwait` callback runs per item; returning `false` (or throwing `BreakError`) stops the
+// loop cleanly. Three forms are dispatched at runtime: a plain function (sync outcome), a generator
+// function (so `yield`/`yield*` inside the body can await, driven with `yield*`), or one returning a
+// CancelablePromise (awaited with a bare `yield`).
+export type TForAwaitCallback<T> =
+ | ((value: T, index: number) => void | false)
+ | ((value: T, index: number) => Generator<unknown, void | false, any>)
+ | ((value: T, index: number) => CancelablePromise<void | false>);
 
-interface ICancAwaitIter {
- <T>(source: TEachSource<T>): Generator<unknown, T[], any>;
+interface ICancForAwait {
+ <T>(source: TEachSource<T>, cb: TForAwaitCallback<T>): Generator<unknown, void, any>;
+ toArray<T>(source: TEachSource<T>): Generator<unknown, T[], any>;
 }
 
 interface ICancAwait {
@@ -505,8 +510,6 @@ interface ICancAwait {
  race: ICancAwaitRace;
  any: ICancAwaitAny;
  allSettled: ICancAwaitAllSettled;
- each: ICancAwaitEach;
- iter: ICancAwaitIter;
 }
 
 function makeCombinator(build: (...args: any[]) => CancelablePromise<any>) {
@@ -527,7 +530,7 @@ cancAwait.allSettled = makeCombinator(CancelablePromise.allSettled) as ICancAwai
 // cancellation point. A plain (sync) iterable returns `{ value, done }` synchronously but its values
 // may be promises, so the VALUE is the cancellation point. Either way the driver awaits one thing
 // per pull.
-function getStepIterator(source: any): { it: any; async: boolean } {
+export function getStepIterator(source: any): { it: any; async: boolean } {
  if (source != null && isFunction(source[Symbol.asyncIterator])) {
  return { it: source[Symbol.asyncIterator](), async: true };
  }
@@ -549,7 +552,7 @@ function getStepIterator(source: any): { it: any; async: boolean } {
 // (a thrown `return()`) or asynchronously (a `return()` that returns a rejected promise). Returns a
 // value the caller can `yield`/await; any rejection is neutralized here so it never orphans as an
 // unhandled rejection or clobbers the cancel outcome.
-function returnStepIterator(it: any): any {
+export function returnStepIterator(it: any): any {
  if (it == null || !isFunction(it.return)) {
  return undefined;
  }
@@ -573,7 +576,12 @@ function returnStepIterator(it: any): any {
  return result;
 }
 
-cancAwait.each = function* each(source: any, cb: (value: any, index: number) => any): Generator<unknown, void, any> {
+// Streaming for-await over a source: pull one item per step, run the callback, await its outcome,
+// repeat. The callback outcome is dispatched three ways so an `await` inside the body works: a bare
+// generator (from a generator-fn callback) is driven with `yield*`; a thenable/CancelablePromise is
+// awaited with a bare `yield`; a plain value is used as-is. Returning `false` (or throwing
+// `BreakError`) stops the loop cleanly. `cancForAwait.toArray` collects instead of running a callback.
+export const cancForAwait = (function* cancForAwait(source: any, cb: (value: any, index: number) => any): Generator<unknown, void, any> {
  const { it, async } = getStepIterator(source);
  let index = 0;
 
@@ -590,10 +598,11 @@ cancAwait.each = function* each(source: any, cb: (value: any, index: number) => 
 
  const value = async ? result.value : yield result.value;
 
- // `cb` may return a promise (await it before the next pull) or a plain value. A `false` result
- // stops the loop cleanly, like a native `break`.
+ // Three callback forms: a generator (drive it with `yield*` so `await`s in the body run at
+ // coroutine cancellation points), a thenable (await with a bare `yield`), or a plain value. A
+ // `false` result stops the loop cleanly, like a native `break`.
  const outcome = cb(value, index++);
- const settled = isObject(outcome) && isFunction((outcome as any).then) ? yield outcome : outcome;
+ const settled = isGenerator(outcome) ? yield* outcome : isThenable(outcome) ? yield outcome : outcome;
 
  if (settled === false) {
  break;
@@ -614,9 +623,9 @@ cancAwait.each = function* each(source: any, cb: (value: any, index: number) => 
  // yielded value. Must be the LAST statement here (a return-resume skips anything after it).
  yield RETURN_UNWIND;
  }
-} as ICancAwait['each'];
+}) as ICancForAwait;
 
-cancAwait.iter = function* iter(source: any): Generator<unknown, any[], any> {
+cancForAwait.toArray = (function* toArray(source: any): Generator<unknown, any[], any> {
  const { it, async } = getStepIterator(source);
  const collected: any[] = [];
 
@@ -632,10 +641,10 @@ cancAwait.iter = function* iter(source: any): Generator<unknown, any[], any> {
  }
  } finally {
  yield returnStepIterator(it);
- // See `each`: re-assert the cancel-drain's return-unwind so the parent's post-`yield*` code stays
- // dormant. Inert on any normal exit. Must be the LAST statement in this finally.
+ // See `cancForAwait`: re-assert the cancel-drain's return-unwind so the parent's post-`yield*`
+ // code stays dormant. Inert on any normal exit. Must be the LAST statement in this finally.
  yield RETURN_UNWIND;
  }
 
  return collected;
-} as ICancAwait['iter'];
+}) as ICancForAwait['toArray'];

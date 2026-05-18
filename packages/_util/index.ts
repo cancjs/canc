@@ -7,6 +7,8 @@ export const isFunction = (value: any): value is Function => typeof value === 'f
 
 export const isThenable = (obj: any): obj is PromiseLike<any> => isObject(obj) && isFunction(obj.then);
 
+export const isGenerator = (value: any): value is Generator => isObject(value) && isFunction(value.next) && isFunction(value[Symbol.iterator]);
+
 export const isCancelable = (obj: any): obj is ICancelable => isThenable(obj) && isFunction((obj as Partial<ICancelable>).cancel);
 
 // Feature-detect native AggregateError (missing in older engines, e.g. pre-2021 QuickJS/Hermes);
