@@ -55,17 +55,16 @@ a getter's return type is inferred from its body like any other function, so `ca
 type flows through to the property. Calling `loader.load(url)` directly on the class gets the real,
 specific type (`CancelablePromise<Data>`), no cast.
 
-One boundary still needs a cast: a stage-3 (or legacy) decorator that returns a non-void value
-redefines the decorated member's declared type to the decorator's own return type, which is `any`
-here (a decorator cannot see into the specific getter it decorates). So if a decorated class needs
-to satisfy an independent, undecorated interface (a shared shape with plain `Promise`-returning
-methods, used to treat several implementations uniformly), TypeScript sees the class's own shape as
-`any` on that member and the assignment needs a cast at the class level, even though every call
-still runs the real coroutine and returns a real `CancelablePromise`. This is still a real
-improvement over method style, whose call sites are wrong unconditionally; getter style is correct
-everywhere except that one cross-interface boundary. The no-decorator forms below (constructor
-field / class field) do not have this gap either, since there is no decorator redeclaring the
-member's type.
+The decorated getter's own member type is exact: no cast is needed to call it directly on the class
+or to read its return type. One separate boundary can still need a cast: `cancAsync` itself returns
+a `CancelablePromise` typed by what the generator body infers, and a generator body's inferred
+value type does not always match a shared interface's declared return value one for one. If a
+decorated class needs to satisfy an independent, undecorated interface (a shared shape with plain
+`Promise`-returning methods, used to treat several implementations uniformly) and that mismatch
+shows up, the assignment needs a cast at the class level, even though every call still runs the
+real coroutine and returns a real `CancelablePromise` with the right runtime value. This is not a
+decorator limitation: the same cast would be needed calling `cancAsync` directly with no decorator
+at all.
 
 ```ts
 // Getter style (TypeScript): correct type, no cast at the call site
