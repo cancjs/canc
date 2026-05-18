@@ -128,6 +128,9 @@ function makeBabelDecorator(
  };
 }
 
+// Babel legacy decorator return value never redefines the decorated member's own type (same as TS
+// legacy), so the `any` positions below do not erase anything at the call site; no
+// identity-preserving overloads needed here.
 export function BabelLegacyAsyncMethod(target: any, propertyKey: string | symbol, descriptor: PropertyDescriptor): any;
 export function BabelLegacyAsyncMethod(options?: IMethodDecoratorOptions): MethodDecorator | PropertyDecorator;
 export function BabelLegacyAsyncMethod(

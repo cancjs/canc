@@ -184,7 +184,9 @@ function definePerInstanceFieldAccessor(
 // Return type `any` on the factory overload is deliberate: a `MethodDecorator | PropertyDecorator`
 // union is not resolvable in a legacy decorator position (TS rejects it with "unable to resolve
 // signature"), and the same decorator must be usable on methods, getters and fields alike. `any`
-// lets the single runtime decorator apply in every member position.
+// lets the single runtime decorator apply in every member position. Unlike stage-3, a TS legacy
+// decorator return value never redefines the decorated member's own type, so this `any` does not
+// erase anything at the call site; no identity-preserving overloads needed here.
 export function LegacyAsyncMethod(target: any, propertyKey: string | symbol): void;
 export function LegacyAsyncMethod(target: any, propertyKey: string | symbol, descriptor: PropertyDescriptor): void;
 export function LegacyAsyncMethod(options?: IMethodDecoratorOptions): any;

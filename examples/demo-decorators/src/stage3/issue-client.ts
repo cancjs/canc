@@ -36,10 +36,11 @@ function* loadIssueBody(this: IssueClient, id: number): AsyncResult<Issue> {
  return found;
 }
 
-// saveComment reads the issue back and echoes the comment (mock API has no write endpoint). A
-// decorated accessor's type, seen from outside its own getter body, does not carry the getter's
-// inferred return type, so this one internal call needs a type argument; nothing outside this
-// module (the class consumers in main.ts, scenario.ts, issue-client.spec.ts) needs a cast.
+// saveComment reads the issue back and echoes the comment (mock API has no write endpoint).
+// loadIssue's declared type is exact (CancelablePromise<Issue>, decorator-preserved), but
+// cancAsync's own return type is always CancelablePromise<unknown> regardless of the generator
+// body's return type, so this one internal call needs a cast; nothing outside this module (the
+// class consumers in main.ts, scenario.ts, issue-client.spec.ts) needs one.
 function* saveCommentBody(this: IssueClient, id: number, comment: string): AsyncResult<CommentAck> {
  const issue = yield* cancAwait(this.loadIssue(id) as Promise<Issue>);
  return { issueId: id, comment, issueTitle: issue.title };

@@ -13,11 +13,11 @@ import { IssueClient as BabelLegacyClient } from './babel-legacy/issue-client.js
 type ClientCtor = new (issuesApi: IssuesApi) => IssueClientShape;
 
 // manual has no decorator, so its fields keep their own declared Promise-returning type and
-// satisfy ClientCtor with no cast. stage3 and ts-legacy decorate the getters: a stage-3 decorator
-// with a non-void return type redefines the decorated member's type to the decorator's own
-// declared return (AsyncMethod/BindMethod return `any`), so the class no longer structurally
-// matches ClientCtor from the outside even though every call site still gets a real
-// CancelablePromise at runtime. babel-legacy is untyped JS (see the import above).
+// satisfy ClientCtor with no cast. stage3 and ts-legacy decorate getters that return
+// cancAsync(...); the decorator preserves the getter's own type, but cancAsync itself always
+// returns CancelablePromise<unknown>, so the class does not structurally match ClientCtor's plain
+// Promise<T>-returning methods from the outside, even though every call site still gets a real,
+// correctly-valued CancelablePromise at runtime. babel-legacy is untyped JS (see the import above).
 const flavors: Array<[string, ClientCtor]> = [
  ['stage3', Stage3Client as unknown as ClientCtor],
  ['ts-legacy', TsLegacyClient as unknown as ClientCtor],
