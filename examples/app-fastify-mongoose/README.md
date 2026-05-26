@@ -9,9 +9,11 @@ is listening to.
 - A route handler written as a `cancAsync` generator, wrapped with `cancAsyncRoute`
  (`src/lib/cancelable-route.ts`). The `close` event on the raw request cancels the handler's
  coroutine; the handler still owns `reply.send` and full control of the response.
-- A three-step query chain built with `cancAsync` / `cancAwait`: find rooms, load their nightly
- rates, aggregate occupancy from existing bookings. Cancellation is ambient, so no step needs a
- manual disconnect check.
+- A cancelable repository boundary (`src/mock/db.ts`): the three queries (find rooms, load their
+ nightly rates, aggregate occupancy) are wrapped with `cancelify` into canc-native fns, so the
+ service awaits them with no signal threading.
+- A three-step query chain built with `cancAsync` / `cancAwait` over that boundary. Cancellation is
+ ambient, so no step needs a manual disconnect check.
 - The vanilla twin runs the identical chain with plain promises. A disconnect cannot stop it, so
  every query still runs and the result is built for a client that already left.
 
@@ -76,8 +78,12 @@ Cancellation here works at the chain level. It stops the handler between queries
 been sent to MongoDB, Mongoose cannot recall it, so canc does not kill a running statement. What it
 does is skip every query that has not started yet and discard the partial result, which is what
 frees the server from finishing work for a client that has gone. This is the same story as the
-express-kysely example on a different stack. If you need the database itself to stop mid-statement,
-that is a driver-level concern outside this example.
+express-kysely example on a different stack.
+
+Mongoose does not expose an AbortSignal on a query, so the cancelified repository wrappers in
+`src/mock/db.ts` do not forward a signal to the driver. They add chain-level cancellation only. If
+you need the database itself to stop mid-statement, that is a driver-level concern outside this
+example.
 
 ## Why plain vanilla, not a workaround
 

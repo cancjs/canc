@@ -12,6 +12,7 @@
  "dependencies": {
  "@cancjs/promise": "link:../../packages/canc-promise",
  "@cancjs/coroutine": "link:../../packages/canc-coroutine",
+ "@cancjs/toolbox": "link:../../packages/canc-toolbox",
  "fastify": "5.10.0",
  "fastify-plugin": "6.0.0",
  "mongoose": "9.7.4"
