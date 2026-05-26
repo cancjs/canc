@@ -41,9 +41,9 @@ const co = cancAsync(function* () {
  return n + s.length;
 });
 
-// current contract: cancAsync return is CancelablePromise<unknown>
+// cancAsync now infers its return type from the generator's own return value.
 const coResult = co();
-type _coResult = Expect<Equal<typeof coResult, CancelablePromise<unknown>>>;
+type _coResult = Expect<Equal<typeof coResult, CancelablePromise<number>>>;
 // ...and definitely not silently `any`
 type _coNotAny = Expect<Not<IsAny<typeof coResult>>>;
 
@@ -130,15 +130,15 @@ async function consumeInferred() {
 }
 void consumeInferred;
 
-// cancAsync return type is inferred without an AsyncResult annotation, but the current contract
-// (see `_coResult` above) always widens the coroutine's return to CancelablePromise<unknown> — the
-// generator's own `yield*` delegate value is still precisely typed (no cast).
+// cancAsync return type is inferred without an AsyncResult annotation: the generator's own
+// return value now flows through to the coroutine's return type (see `_coResult` above), same as
+// its `yield*` delegate values.
 declare function fetchUser(id: string): Promise<{ id: string }>;
 const load = cancAsync(function* (id: string) {
  const user = yield* cancAwait(fetchUser(id));
  type _userType = Expect<Equal<typeof user, { id: string }>>;
  return user;
 });
-type _loadResult = Expect<Equal<ReturnType<typeof load>, CancelablePromise<unknown>>>;
+type _loadResult = Expect<Equal<ReturnType<typeof load>, CancelablePromise<{ id: string }>>>;
 
 export {};

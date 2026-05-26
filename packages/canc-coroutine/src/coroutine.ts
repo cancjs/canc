@@ -113,8 +113,8 @@ export function cancAsync<TFn extends IGeneratorLikeFn<TThis>, TArgs extends any
  coroutine.displayName += ` ${genFnName}`;
  }
 
- function coroutine(this: any, ...args: TArgs) {
- const { promise: coroutinePromise, resolve, reject } = CancelablePromise.withResolvers(options);
+ function coroutine(this: any, ...args: TArgs): CancelablePromise<TReturn> {
+ const { promise: coroutinePromise, resolve, reject } = CancelablePromise.withResolvers<TReturn>(options);
 
  try {
  // `this` threading: an explicitly supplied `ctx` wins; otherwise the call-site `this` of the
