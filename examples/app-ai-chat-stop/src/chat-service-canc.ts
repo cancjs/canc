@@ -38,5 +38,5 @@ export function streamChat(req: ChatRequest, sink: ChatSink, log: UsageLog): Can
  if (!completed) cancelSignal.abort();
  log.record({ prompt: req.prompt, tokens: llm.usage().tokens, canceled: !completed });
  }
- })() as CancelablePromise<void>;
+ })();
 }
