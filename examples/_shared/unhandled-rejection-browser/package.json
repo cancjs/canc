@@ -1,0 +1,17 @@
+{
+ "name": "@shared/unhandled-rejection-browser",
+ "version": "0.0.0",
+ "private": true,
+ "description": "Browser unhandledrejection guard for canc examples: ignores CancelError, lets everything else surface",
+ "main": "src/index.ts",
+ "types": "src/index.ts",
+ "scripts": {
+ "typecheck": "tsc --noEmit --project tsconfig.json"
+ },
+ "dependencies": {
+ "@cancjs/promise": "link:../../../packages/canc-promise"
+ },
+ "devDependencies": {
+ "typescript": "5.9.3"
+ }
+}
