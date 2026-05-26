@@ -60,12 +60,13 @@ in-flight HTTP request and stops token billing at the provider.
 - `src/chat-service-vanilla.ts` vs `src/chat-service-canc.ts`: the streaming payload. Vanilla holds
  two functions (an uncancelable one and an abortable workaround) so the file mapping stays one to
  one; canc holds one coroutine whose cancellation drives the signal.
-- `src/aux/llm.ts`: the LLM boundary (mock or real). Treat it as a black box, this is your OpenAI
+- `src/mock/llm.ts`: the LLM boundary (mock or real). Treat it as a black box, this is your OpenAI
  client.
 
-The canc bridge worth studying is `toAbortSignal(promise)` in `chat-service-canc.ts`. It turns the
-coroutine's cancellation into the AbortSignal the SDK consumes, so one `cancel()` reaches all the
-way down to the in-flight request.
+The canc bridge worth studying is `streamTurn` in `chat-service-canc.ts`, a `cancelify`-wrapped
+function that owns the AbortSignal for the whole moderate-then-stream turn. The coroutine never
+sees the signal at all; canceling `streamChat(...)` cancels `streamTurn`, which aborts the signal
+the SDK consumes, so one `cancel()` reaches all the way down to the in-flight request.
 
 ## Plumbing line count, vanilla vs canc
 
