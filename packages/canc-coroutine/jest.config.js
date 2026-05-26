@@ -1,3 +1,4 @@
+const path = require('path');
 const baseConfig = require('../../jest.config.base');
 const packageJson = require('./package.json');
 
@@ -14,6 +15,7 @@ function mergeTsJestConfig(options) {
 
 module.exports = {
  ...baseConfig,
+ cacheDirectory: path.join(__dirname, 'node_modules', '.cache', 'jest'),
  transform: {
  ...mergeTsJestConfig({ tsconfig: '<rootDir>/../../tsconfig.json' })
  },
