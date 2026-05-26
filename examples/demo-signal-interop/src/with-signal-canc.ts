@@ -6,7 +6,9 @@
 import { CancelablePromise } from '@cancjs/promise';
 import { setTimeout } from 'timers/promises';
 
-// Canc wrapper: just { signal } option
+// Canc wrapper: just { signal } option.
+// Adopts caller's existing AbortSignal (inbound direction).
+// Counterpart: cancelify produces a signal from a CancelablePromise (outbound direction).
 export function withSignalCanc<T>(
  signal: AbortSignal,
  work: () => Promise<T>,
