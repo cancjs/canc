@@ -11,6 +11,7 @@ const PRODUCTS: Product[] = [
  { id: 'p1', name: 'Keyboard', price: 49 },
  { id: 'p2', name: 'Mouse', price: 25 },
  { id: 'p3', name: 'Monitor', price: 199 },
+ { id: 'p4', name: 'Headphones', price: 79 },
 ];
 
 export interface ProductsApi {

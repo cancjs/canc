@@ -34,7 +34,7 @@ async function runDownScenario(
  invoicesApi: InvoicesApi
 ): Promise<void> {
  report('starting product load');
- const profilePromise = loadProductProfile(productsApi, musicApi, invoicesApi, 'prod-1');
+ const profilePromise = loadProductProfile(productsApi, musicApi, invoicesApi, 'p1');
 
  // Simulate: user leaves before completion.
  // Calling cancel() on the promise immediately rejects with CancelError.
@@ -60,7 +60,7 @@ async function runBubbleScenario(
  invoicesApi: InvoicesApi
 ): Promise<void> {
  report('starting product load');
- const profilePromise = loadProductProfile(productsApi, musicApi, invoicesApi, 'prod-2');
+ const profilePromise = loadProductProfile(productsApi, musicApi, invoicesApi, 'p2');
 
  report('user abandoned page');
  // Cancel both the image and reviews consumers, which triggers bubble-up:
@@ -86,7 +86,7 @@ async function runPartialScenario(
  invoicesApi: InvoicesApi
 ): Promise<void> {
  report('starting product load');
- const profilePromise = loadProductProfile(productsApi, musicApi, invoicesApi, 'prod-3', { bubble: false });
+ const profilePromise = loadProductProfile(productsApi, musicApi, invoicesApi, 'p3', { bubble: false });
 
  report('user abandoned page');
  // Cancel the image consumer only. Since image has bubble:false, its cancellation
@@ -114,7 +114,7 @@ async function runShieldScenario(
  invoicesApi: InvoicesApi
 ): Promise<void> {
  report('starting product load');
- const profilePromise = loadProductProfile(productsApi, musicApi, invoicesApi, 'prod-4', { shield: true });
+ const profilePromise = loadProductProfile(productsApi, musicApi, invoicesApi, 'p4', { shield: true });
 
  report('canceling source');
  // Even though the source is canceled, the audit-log node (shielded) survives the cancellation.

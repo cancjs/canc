@@ -34,7 +34,7 @@ async function runDownScenario(
  invoicesApi: InvoicesApi
 ): Promise<void> {
  report('starting product load');
- const profilePromise = loadProductProfile(productsApi, musicApi, invoicesApi, 'prod-1');
+ const profilePromise = loadProductProfile(productsApi, musicApi, invoicesApi, 'p1');
 
  // Simulate: user leaves before completion.
  // In vanilla, there is no way to cancel from here.
@@ -60,7 +60,7 @@ async function runBubbleScenario(
  invoicesApi: InvoicesApi
 ): Promise<void> {
  report('starting product load');
- const profilePromise = loadProductProfile(productsApi, musicApi, invoicesApi, 'prod-2');
+ const profilePromise = loadProductProfile(productsApi, musicApi, invoicesApi, 'p2');
 
  // In vanilla, you might keep the promise around and hope nothing else happens.
  report('user abandoned page (no cancellation possible)');
@@ -82,7 +82,7 @@ async function runPartialScenario(
  invoicesApi: InvoicesApi
 ): Promise<void> {
  report('starting product load');
- const profilePromise = loadProductProfile(productsApi, musicApi, invoicesApi, 'prod-3');
+ const profilePromise = loadProductProfile(productsApi, musicApi, invoicesApi, 'p3');
 
  report('user abandoned page (no selective cancellation)');
 
@@ -103,7 +103,7 @@ async function runShieldScenario(
  invoicesApi: InvoicesApi
 ): Promise<void> {
  report('starting product load');
- const profilePromise = loadProductProfile(productsApi, musicApi, invoicesApi, 'prod-4');
+ const profilePromise = loadProductProfile(productsApi, musicApi, invoicesApi, 'p4');
 
  report('user abandoned page');
 
