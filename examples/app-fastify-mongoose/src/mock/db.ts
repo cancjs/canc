@@ -3,6 +3,7 @@
 // handler actually issued (and, on cancel, which ones it skipped). Black box for the reader.
 
 import { sleep } from '@shared/util';
+import { cancelify } from '@cancjs/toolbox';
 import mockingoose from 'mockingoose';
 import { RoomModel, RateModel, BookingModel, Room, Rate, Booking } from './models';
 
@@ -45,19 +46,22 @@ export function installMocks(latencyMs = 0): void {
 
 let currentLatency = 0;
 
-export async function findRooms(hotelId: string, date: string): Promise<Room[]> {
+// Raw Mongoose queries. Mongoose does not expose an AbortSignal on a query, so these stay plain
+// promises: once a statement is sent to MongoDB it cannot be recalled from here. The cancelable
+// wrappers below add chain-level cancellation (skip a query that has not started yet).
+async function runFindRooms(hotelId: string): Promise<Room[]> {
  queryLog.push({ op: 'findRooms' });
  if (currentLatency) await sleep(currentLatency);
  return RoomModel.find({ hotelId }).lean().exec() as Promise<Room[]>;
 }
 
-export async function loadRates(roomIds: string[], date: string): Promise<Rate[]> {
+async function runLoadRates(roomIds: string[], date: string): Promise<Rate[]> {
  queryLog.push({ op: 'loadRates' });
  if (currentLatency) await sleep(currentLatency);
  return RateModel.find({ roomId: { $in: roomIds }, date }).lean().exec() as Promise<Rate[]>;
 }
 
-export async function aggregateOccupancy(roomIds: string[], date: string): Promise<number> {
+async function runAggregateOccupancy(roomIds: string[], date: string): Promise<number> {
  queryLog.push({ op: 'aggregateOccupancy' });
  if (currentLatency) await sleep(currentLatency);
  const bookings = (await BookingModel.find({
@@ -68,3 +72,16 @@ export async function aggregateOccupancy(roomIds: string[], date: string): Promi
  .exec()) as Booking[];
  return roomIds.length ? bookings.length / roomIds.length : 0;
 }
+
+// Cancelable repository boundary: canc-native versions of the queries above. The service awaits
+// these directly and never threads a signal. Canceling the chain (client disconnect) stops it
+// between steps, so a query that has not started yet is never issued.
+export const findRooms = cancelify((_getSignal, [hotelId]: [string, string]) => runFindRooms(hotelId));
+
+export const loadRates = cancelify((_getSignal, [roomIds, date]: [string[], string]) =>
+ runLoadRates(roomIds, date)
+);
+
+export const aggregateOccupancy = cancelify((_getSignal, [roomIds, date]: [string[], string]) =>
+ runAggregateOccupancy(roomIds, date)
+);

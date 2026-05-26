@@ -11,23 +11,25 @@ export async function searchAvailability(
  date: string
 ): Promise<AvailabilityResult> {
  const rooms = await findRooms(hotelId, date);
- const roomIds = rooms.map((r) => r._id);
+ const roomIds = rooms.map((room) => room._id);
 
  // no cancellation counterpart, this always runs even if the client already left
  const rates = await loadRates(roomIds, date);
- const averageRate = rates.length
- ? rates.reduce((sum, r) => sum + r.amount, 0) / rates.length
+ const rateAmounts = rates.map((rate) => rate.amount);
+ const averageRate = rateAmounts.length
+ ? rateAmounts.reduce((sum, amount) => sum + amount, 0) / rateAmounts.length
  : 0;
 
  // no cancellation counterpart, the aggregate keeps querying for a dead socket
  const occupancy = await aggregateOccupancy(roomIds, date);
 
  // result is returned to nobody when the connection is already closed
- return {
+ const result: AvailabilityResult = {
  hotelId,
  date,
  roomsFound: rooms.length,
  averageRate,
  occupancy,
  };
+ return result;
 }
