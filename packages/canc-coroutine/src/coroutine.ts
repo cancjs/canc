@@ -141,6 +141,15 @@ export function cancAsync<TFn extends IGeneratorLikeFn<TThis>, TArgs extends any
  // the drain's terminal CancelError is marked `disposed` for parity with core _dispose.
  let disposing = false;
 
+ // The in-flight try-body step's source promise (the CancelablePromise holding the underlying
+ // op's AbortController). Tracked so a cancel that triggers the finally drain can abort THIS
+ // outstanding step directly: when a finally block itself yields, the coroutine promise stays
+ // pending while the finally drains, so the ordinary bubble-up that would cancel this source
+ // is deferred behind the finally settling (and can be lost in a race). Canceling it here at
+ // drain start makes scope-exit abort the in-flight work immediately, regardless of the
+ // finally's duration. Cleared once the step settles.
+ let pendingSource: CancelablePromise<any> | undefined;
+
  // Deferred that settles when the finally drain completes. Deposited on the first cancel that
  // starts a drain; the drain's terminal branches (pumpFinally done / any sync-or-async throw)
  // resolve it. cancel() returns it so `await coroutinePromise.cancel(reason)` resolves only
@@ -229,6 +238,10 @@ export function cancAsync<TFn extends IGeneratorLikeFn<TThis>, TArgs extends any
  stepOptionsEmpty && value instanceof CancelablePromise && value.constructor === CancelablePromise
  ? value
  : CancelablePromise.resolve(value, stepOptions);
+ // Remember the outstanding step so the finally drain can abort it directly (see
+ // pendingSource). A cancel arriving before this step settles must reach this source even
+ // when the coroutine's finally yields and keeps the coroutine promise pending.
+ pendingSource = source;
  const promise = source.then(onFulfilled, onRejected);
  // Sanctioned internal cross-package hook: `_chain` is `protected` on CancelablePromise
  // (TS-only privacy), this bracket-string access is the documented, smallest-surface way
@@ -241,6 +254,8 @@ export function cancAsync<TFn extends IGeneratorLikeFn<TThis>, TArgs extends any
  };
 
  const onFulfilled = (value: any) => {
+ // This step settled: it is no longer the outstanding try-body step to abort on drain.
+ pendingSource = undefined;
  // Coroutine canceled while this step was in flight: drop it (drainFinally owns the rest).
  if (canceled || genDone) {
  return;
@@ -268,6 +283,7 @@ export function cancAsync<TFn extends IGeneratorLikeFn<TThis>, TArgs extends any
  };
 
  const onRejected = (value: any) => {
+ pendingSource = undefined;
  if (canceled || genDone) {
  return;
  }
@@ -307,6 +323,17 @@ export function cancAsync<TFn extends IGeneratorLikeFn<TThis>, TArgs extends any
  return;
  }
  draining = true;
+
+ // Abort the outstanding try-body step directly. The ordinary path relies on the coroutine
+ // promise settling to bubble a cancel up to this source, but a finally that yields keeps the
+ // coroutine promise pending for the whole drain, so that bubble is deferred (or lost in a
+ // race with the step's own settlement). Canceling the source here fires its cancel handlers
+ // (the underlying op's abort) at cancel() time, before the finally starts draining.
+ const outstanding = pendingSource;
+ pendingSource = undefined;
+ if (outstanding && outstanding.cancelable) {
+ outstanding.cancel(canceledReason);
+ }
 
  let result: IteratorResult<any>;
  executing = true;

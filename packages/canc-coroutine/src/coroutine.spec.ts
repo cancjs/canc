@@ -476,6 +476,94 @@ describe('cancAsync', () => {
  });
  });
 
+ describe('try-step cancel when the finally also yields', () => {
+ // Self-contained cancelify-equivalent: a CancelablePromise backed by a real timer whose
+ // handleCancel aborts an AbortController. The executor wires the signal's abort to
+ // clearTimeout + reject and records the abort, so a test can assert the underlying op was
+ // aborted (not just that the coroutine settled). No mock-api, no toolbox dependency.
+ const makeTimerStep = (tag: string, ms: number, aborts: string[]) => {
+ const controller = new AbortController();
+ const signal = controller.signal;
+ return new CancelablePromise<string>((resolve, reject, handleCancel) => {
+ const t = setTimeout(() => resolve(tag), ms);
+ signal.addEventListener('abort', () => {
+ aborts.push(tag);
+ clearTimeout(t);
+ reject(new Error(`aborted ${tag}`));
+ });
+ handleCancel(() => controller.abort());
+ });
+ };
+
+ it('aborts the pending try step at cancel() time when the finally step is equal length', async () => {
+ const aborts: string[] = [];
+ const p = cancAsync(function* () {
+ try {
+ yield makeTimerStep('try', 50, aborts);
+ return 'ok';
+ } finally {
+ yield makeTimerStep('audit', 50, aborts);
+ }
+ })();
+
+ await flush(3);
+ p.cancel('scope exit');
+ // The try step's abort fires in the drain triggered synchronously by cancel(), not deferred
+ // behind the finally step settling. One microtask flush is enough; the 50ms timers never run.
+ await flush(3);
+
+ expect(aborts).toContain('try');
+ p.catch(() => {});
+ });
+
+ it('aborts the pending try step even when the finally step is shorter', async () => {
+ const aborts: string[] = [];
+ const p = cancAsync(function* () {
+ try {
+ yield makeTimerStep('try', 50, aborts);
+ return 'ok';
+ } finally {
+ yield makeTimerStep('audit', 10, aborts);
+ }
+ })();
+
+ await flush(3);
+ p.cancel('scope exit');
+ await flush(3);
+
+ expect(aborts).toContain('try');
+ p.catch(() => {});
+ });
+
+ it('still runs the shielded finally cleanup while aborting the try step', async () => {
+ const aborts: string[] = [];
+ let cleanupRan = false;
+ const p = cancAsync(function* () {
+ try {
+ yield makeTimerStep('try', 50, aborts);
+ return 'ok';
+ } finally {
+ yield new CancelablePromise<void>((resolve) => {
+ Promise.resolve().then(() => Promise.resolve()).then(() => {
+ cleanupRan = true;
+ resolve();
+ });
+ });
+ }
+ })();
+
+ await flush(3);
+ p.cancel('scope exit');
+ await flush(20);
+
+ // The try step was aborted...
+ expect(aborts).toContain('try');
+ // ...and the finally's own cleanup yield still ran to completion (shielded, uncancelable).
+ expect(cleanupRan).toBe(true);
+ await expect(p.catch((e: any) => e)).resolves.toBeInstanceOf(CancelError);
+ });
+ });
+
  describe('gen.throw / gen.next on done generator', () => {
  it('does not re-enter a completed generator after cancel', async () => {
  let extraSteps = 0;
