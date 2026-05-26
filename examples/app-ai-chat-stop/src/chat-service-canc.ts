@@ -1,12 +1,11 @@
-// Canc chat service: a cancAsync coroutine whose cancellation drives the LLM's AbortSignal.
-//
-// One flavor is enough here: cancel() flows down the chain, abandoning the coroutine, so there is
-// no manual abort bookkeeping to mirror. createAbortSignal mints one canc-aware signal for the whole
-// request; the coroutine's finally aborts it on cancel, so a Stop aborts the in-flight request and
-// stops token billing rather than only dropping the local pull.
+// Canc chat service: the LLM boundary is cancelified once, so the coroutine body reads like plain
+// async/await with no signal in sight. Canceling the chat cancels the wrapped call, which aborts
+// the underlying signal, so a Stop stops the in-flight request and token billing rather than only
+// dropping the local pull.
 
-import { cancAsync, cancAwait, cancForAwait } from '@cancjs/coroutine';
-import { CancelablePromise, createAbortSignal } from '@cancjs/promise';
+import { cancAsync, cancAwait } from '@cancjs/coroutine';
+import { cancelify } from '@cancjs/toolbox';
+import { CancelablePromise } from '@cancjs/promise';
 import { createLlm } from './mock/llm';
 import { ChatRequest, UsageLog } from './chat';
 
@@ -14,28 +13,30 @@ export interface ChatSink {
  write(token: string): void;
 }
 
-// Cancelable: the coroutine's own cancellation aborts the signal the LLM sees. Stop cancels the
-// chain, the signal fires, and nothing below the cancel point runs (no wasted paid tokens).
+const llm = createLlm();
+
+// Cancelified once: getSignal() is called a single time and the signal stays live for the whole
+// moderate-then-stream turn, since the wrapping promise only settles once streamTurn resolves.
+// That is what lets a Stop abort mid-stream, not just before the first token.
+const streamTurn = cancelify(async (getSignal, [prompt, sink]: [string, ChatSink]) => {
+ const signal = getSignal();
+ await llm.moderate(prompt, signal);
+ for await (const token of llm.stream(prompt, signal)) {
+ sink.write(token);
+ }
+});
+
+// Cancelable: canceling the returned promise cancels streamTurn, which aborts the signal the LLM
+// sees. Stop cancels the chain, and nothing below the cancel point runs (no wasted paid tokens).
 export function streamChat(req: ChatRequest, sink: ChatSink, log: UsageLog): CancelablePromise<void> {
- const llm = createLlm();
- // One canc-aware signal for the whole request. Aborting it reads as a genuine cancellation, so a
- // spec-compliant client rejects the in-flight request with our CancelError.
- const cancelSignal = createAbortSignal();
+ let completed = false;
 
  return cancAsync(function* () {
- let completed = false;
  try {
- yield* cancAwait(llm.moderate(req.prompt, cancelSignal.signal));
- // Stream tokens as they arrive; cancForAwait cancels the source on coroutine cancel, so a Stop
- // stops the pull between tokens and nothing below runs for a dead socket.
- yield* cancForAwait(llm.stream(req.prompt, cancelSignal.signal), (token) => {
- sink.write(token);
- });
+ yield* cancAwait(streamTurn(req.prompt, sink));
  completed = true;
  } finally {
- // The finally always runs (normal end or cancel). On cancel it aborts the outbound signal so
- // the in-flight request stops at the provider, then records what was billed either way.
- if (!completed) cancelSignal.abort();
+ // Real cleanup, not abort bookkeeping: records what was billed either way.
  log.record({ prompt: req.prompt, tokens: llm.usage().tokens, canceled: !completed });
  }
  })();
