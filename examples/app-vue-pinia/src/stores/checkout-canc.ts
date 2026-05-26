@@ -12,7 +12,7 @@ import {
  fetchShippingRecap,
  confirmReview,
 } from '../mock/checkout-api';
-import { STEP_ORDER, type CheckoutState, type StepName, type ReviewSummary } from '../types';
+import { STEP_ORDER, type CheckoutState, type StepName } from '../types';
 
 // getSignal() is called only when a step's action actually starts, so an uncanceled call wires no
 // AbortController at all.
@@ -78,17 +78,14 @@ export const useCheckoutStore = defineStore('checkout-canc', {
  this.reviewStatus = 'loading';
  const addressId = this.address.addressId;
  const shippingId = this.shipping.shippingId;
+ const store = this;
 
- const run = cancAsync(function* (): Generator<unknown, ReviewSummary, any> {
+ const load = cancAsync(function* () {
  const recap = yield* cancAwait(fetchShippingRecap(shippingId));
  const review = yield* cancAwait(confirmReview(addressId, shippingId, recap.amount));
- return review;
- });
-
- const load = run().then((review) => {
- this.review = review;
- this.reviewStatus = 'done';
- });
+ store.review = review;
+ store.reviewStatus = 'done';
+ })();
  load.catch(() => {});
  this.reviewLoad = load;
  },
