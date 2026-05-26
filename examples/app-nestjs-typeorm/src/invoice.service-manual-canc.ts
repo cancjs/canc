@@ -30,14 +30,14 @@ export class InvoiceServiceManual implements InvoiceServiceLike {
 
  @BillingTier('standard')
  listInvoices(): CancelablePromise<number> {
- return cancAsync(function* (this: InvoiceServiceManual): Generator<unknown, number, any> {
+ return cancAsync(function* (this: InvoiceServiceManual) {
  return yield* cancAwait(countInvoices(this.dataSource.manager));
  }).call(this) as CancelablePromise<number>;
  }
 
  @BillingTier('bulk')
  generateAll(): CancelablePromise<BulkResult> {
- return cancAsync(function* (this: InvoiceServiceManual): Generator<unknown, BulkResult, any> {
+ return cancAsync(function* (this: InvoiceServiceManual) {
  const before = yield* cancAwait(countInvoices(this.dataSource.manager));
  const customers = yield* cancAwait(fetchCustomers(this.dataSource.manager, LIST_LIMIT));
  const groups = chunk(customers, CHUNK_CUSTOMERS);

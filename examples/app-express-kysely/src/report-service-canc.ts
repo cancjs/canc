@@ -1,6 +1,5 @@
 import { cancAsync, cancAwait } from '@cancjs/coroutine';
 import {
- ReportPayload,
  aggregateChunkCount,
  fetchOrdersPage,
  fetchTopCustomers,
@@ -17,7 +16,7 @@ const TOP_CUSTOMER_LIMIT = 10;
  * middleware does this on client disconnect), the coroutine stops at its current `yield*` and the
  * remaining slices never run.
  */
-export const buildReport = cancAsync(function* (rdb: ReportDb): Generator<unknown, ReportPayload, any> {
+export const buildReport = cancAsync(function* (rdb: ReportDb) {
  const page = yield* cancAwait(fetchOrdersPage(rdb, PAGE_LIMIT));
 
  const topCustomers = yield* cancAwait(fetchTopCustomers(rdb, TOP_CUSTOMER_LIMIT));
