@@ -13,7 +13,9 @@ module.exports = {
  // Respect "browser" field in package.json when resolving modules
  // browser: false,
 
- // The directory where Jest should store its cached dependency information
+ // cacheDirectory is intentionally set PER PACKAGE, not here: __dirname in this base file is the
+ // monorepo root, so a value here would share one cache dir across every package's ts-jest
+ // compilation, the exact race this setup avoids.
  // cacheDirectory: "",
 
  // Automatically clear mock calls and instances between every test
