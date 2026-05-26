@@ -16,34 +16,39 @@ not the data.
 
 ## The pipeline
 
-The cancelable pipeline reads like pseudocode. Cancellation is ambient, there are no per-step
-checks:
+The cancelable pipeline reads like pseudocode. Each mock call is cancelified once at the module's
+top, so the coroutine body itself carries no signal at all:
 
 ```ts
+const embedQuery = cancelify((getSignal, [query]) => embed(query, getSignal()));
+// ...rerank, retrieveLegsSource, generateAnswer wrapped the same way
+
 cancAsync(function* () {
  // embed the query — canceled here, nothing below runs
- yield* cancAwait(embed(query, signal));
+ yield* cancAwait(embedQuery(query));
 
- // parallel retrieve, collected as a finite set with cancAwait.all
- const legs = yield* cancAwait.all(retrieveLegs(ragApi, query, signal));
- const hits = mergeHits(legs);
+ // parallel retrieve, collected as a finite set with cancForAwait.toArray
+ const legsSource = yield* cancAwait(retrieveLegsSource(ragApi, query));
+ const legResultsArr = yield* cancForAwait.toArray(legsSource);
+ const hits = mergeHits(legResultsArr);
 
  // rerank the merged hits — canceled here, generate never starts
- const ranked = yield* cancAwait(rerank(query, hits, signal));
+ const ranked = yield* cancAwait(rerankHits(query, hits));
 
  // generate the answer, consuming the token stream with cancForAwait
  const context = ranked.slice(0, 3).map((c) => c.text).join(' ');
  let text = '';
- yield* cancForAwait(generate(chatApi, context, signal), (token) => {
+ const tokenStream = yield* cancAwait(generateAnswer(chatApi, context));
+ yield* cancForAwait(tokenStream, (token) => {
  text += token;
  });
  return { query, text, sources: ranked.slice(0, 3).map((c) => c.id) };
 });
 ```
 
-The two iterator combinators show side by side: `cancAwait.all` buffers a bounded source (the
-retrieval legs) into an array, and `cancForAwait` consumes an open stream (the answer tokens) one
-at a time. Both cancel their source when the pipeline is canceled.
+The two iterator combinators show side by side: `cancForAwait.toArray` buffers a bounded source
+(the retrieval legs) into an array, and `cancForAwait` consumes an open stream (the answer tokens)
+one at a time. Both cancel their source when the pipeline is canceled.
 
 ## The cost of not canceling
 
@@ -95,10 +100,10 @@ diff src/main-vanilla.ts src/main-canc.ts
 
 ## Notes
 
-- **Where cancellation stops:** each step is a signal-aware call. The pipeline's cancellation is
- wired to a native AbortSignal that is threaded into every step, so a cancel aborts the request
- that is in flight and shows up as an aborted marker in `mockApi.calls`. Steps that already
- completed are not undone; steps below the cancel point never start.
+- **Where cancellation stops:** each step is cancelified once at the mock-API boundary, so
+ canceling the coroutine aborts whichever step is in flight and shows up as an aborted marker in
+ `mockApi.calls`. Steps that already completed are not undone; steps below the cancel point never
+ start.
 - **Rerank is aux, not a network call**, so a cancel during rerank rejects the rerank promise rather
  than leaving a mock marker. The proof it worked is that the generate step (the `chat.token` calls)
  never runs.

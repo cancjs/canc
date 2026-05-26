@@ -3,6 +3,7 @@
 
 import type { AbortSignalLike, DocChunk, RagApi } from '@shared/mock-api';
 import { AbortError, isAbortError } from '@shared/mock-api';
+import { attachAbort } from '@shared/util';
 
 export interface RagAnswer {
  query: string;
@@ -52,20 +53,33 @@ export function keywordSearch(ragApi: RagApi, query: string, signal?: AbortSigna
 // with cancForAwait.toArray, the vanilla flavor with a for-await loop. This is the "collect a finite set"
 // shape, the mirror of the token stream's "consume as it arrives" shape below. Starting both legs up
 // front keeps both requests in flight, so a cancel aborts them together at the mock-api boundary.
+//
+// The generator owns its own AbortController and mirrors any incoming signal into it, so an early
+// `.return()` (a consumer stopping the pull, e.g. a canceled coroutine) aborts both legs even though
+// the caller's own signal has already settled by then. The vanilla flavor never returns early, so this
+// finally is a harmless no-op there.
 export async function* retrieveLegs(
  ragApi: RagApi,
  query: string,
  signal?: AbortSignalLike,
 ): AsyncGenerator<DocChunk[], void, void> {
+ const controller = new AbortController();
+ const detach = attachAbort(signal, () => controller.abort());
+ try {
  // A cancel abandons this generator between pulls, so a leg still in flight rejects with an
- // AbortError that nobody is awaiting. Absorb that abort here: the pipeline already accounts for the
- // cancel, so an unconsumed leg's abort is expected, not a failure to surface.
- const legs = [vectorSearch(ragApi, query, signal), keywordSearch(ragApi, query, signal)].map(
- (leg) => leg.catch(ignoreAbort),
- );
+ // AbortError that nobody is awaiting. Absorb that abort here: the pipeline already accounts for
+ // the cancel, so an unconsumed leg's abort is expected, not a failure to surface.
+ const legs = [
+ vectorSearch(ragApi, query, controller.signal),
+ keywordSearch(ragApi, query, controller.signal),
+ ].map((leg) => leg.catch(ignoreAbort));
  for (const leg of legs) {
  const hits = await leg;
  if (hits) yield hits;
+ }
+ } finally {
+ detach?.();
+ controller.abort();
  }
 }
 
