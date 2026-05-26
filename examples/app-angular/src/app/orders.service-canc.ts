@@ -11,7 +11,7 @@
 
 import { Injectable, inject } from '@angular/core';
 import { AsyncMethod } from '@cancjs/decorators/legacy';
-import { await as cancAwait } from '@cancjs/coroutine';
+import { await as cancAwait, AsyncResult } from '@cancjs/coroutine';
 import { cancelify } from '@cancjs/toolbox';
 
 import { ORDERS_API } from './orders.api';
@@ -27,12 +27,12 @@ export class OrdersService {
  private readonly orderDetail = cancelify((getSignal, [id]: [string]) => this.api.orderDetail(id, getSignal()));
 
  @AsyncMethod()
- *list(): Generator<unknown, OrderSummary[]> {
+ *list(): AsyncResult<OrderSummary[]> {
  return yield* cancAwait(this.listOrders());
  }
 
  @AsyncMethod()
- *detail(id: string): Generator<unknown, OrderDetail> {
+ *detail(id: string): AsyncResult<OrderDetail> {
  return yield* cancAwait(this.orderDetail(id));
  }
 }

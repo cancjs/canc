@@ -30,11 +30,11 @@ export class OrdersServiceManual implements OrdersServiceShape {
  list!: () => Promise<OrderSummary[]>;
  detail!: (id: string) => Promise<OrderDetail>;
 
- private *listGen(): Generator<unknown, OrderSummary[]> {
+ private *listGen() {
  return yield* cancAwait(this.listOrders());
  }
 
- private *detailGen(id: string): Generator<unknown, OrderDetail> {
+ private *detailGen(id: string) {
  return yield* cancAwait(this.orderDetail(id));
  }
 }

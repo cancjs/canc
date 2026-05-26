@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { AsyncMethod } from '@cancjs/decorators/legacy';
-import { await as cancAwait } from '@cancjs/coroutine';
+import { await as cancAwait, AsyncResult } from '@cancjs/coroutine';
 import { BillingTier } from './billing-metadata';
 import {
  BulkResult,
@@ -35,7 +35,7 @@ export class InvoiceService {
  // coexistence proof the guard checks.
  @AsyncMethod()
  @BillingTier('standard')
- *listInvoices(): Generator<unknown, number, any> {
+ *listInvoices(): AsyncResult<number> {
  return yield* cancAwait(countInvoices(this.dataSource.manager));
  }
 
@@ -47,7 +47,7 @@ export class InvoiceService {
  */
  @AsyncMethod()
  @BillingTier('bulk')
- *generateAll(): Generator<unknown, BulkResult, any> {
+ *generateAll(): AsyncResult<BulkResult> {
  const before = yield* cancAwait(countInvoices(this.dataSource.manager));
  const customers = yield* cancAwait(fetchCustomers(this.dataSource.manager, LIST_LIMIT));
  const groups = chunk(customers, CHUNK_CUSTOMERS);
