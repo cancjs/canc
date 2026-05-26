@@ -73,6 +73,7 @@ function searchReposWithExternal(
 
 // Pre-aborted signal: promise born-canceled (no fetch starts).
 function searchReposPreAborted(query: string, fetch: any): CancelablePromise<Repo> {
+ // Demonstrates pre-aborted signal making fetch reject immediately on construction.
  const abortController = new AbortController();
  abortController.abort();
 

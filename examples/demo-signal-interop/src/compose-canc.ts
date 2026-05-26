@@ -12,6 +12,7 @@ async function slowerFetch(): Promise<string> {
 }
 
 export async function composeTimeoutAndSignalCanc() {
+ // Demonstrates AbortSignal interop: user-controlled abort signal composed with timeout.
  const userController = new AbortController();
  const userSignal = userController.signal;
 
@@ -37,6 +38,7 @@ export async function composeTimeoutAndSignalCanc() {
 }
 
 export async function composeMultipleSignalsCanc() {
+ // Demonstrates AbortSignal interop: composing multiple independent controllers.
  const userController = new AbortController();
  const timeoutController = new AbortController();
 

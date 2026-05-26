@@ -43,6 +43,7 @@ async function main() {
 
  console.log('\n=== canc: callGatewayWithSignal ===');
  try {
+ // Demonstrates external AbortSignal at the call site for signal interop.
  const controller = new AbortController();
  const txn = await callGatewayWithSignal(gateway, controller.signal);
  console.log('Transaction ID:', txn.transactionId);

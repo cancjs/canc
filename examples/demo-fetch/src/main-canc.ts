@@ -28,6 +28,7 @@ async function main() {
  console.log('\n=== Scenario 2: external abort signal ===');
  api.reset();
  try {
+ // Demonstrates external AbortSignal driving fetch cancellation.
  const controller = new AbortController();
  const promise = searchReposWithExternal('', fetch, controller.signal);
  // External abort mid-detail fetch.
