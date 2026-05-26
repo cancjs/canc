@@ -19,11 +19,8 @@ export function SearchPage({ api }: { api: FlightApi }): ReactNode {
 
  const search = useMemo(() => (query ? searchDestinations(api, query) : undefined), [api, query]);
 
- useCancelableEffect(() => {
- if (!search) return;
  // Superseded searches are canceled (the hook suppresses that CancelError itself).
- return search;
- }, [search]);
+ useCancelableEffect(() => search, [search]);
 
  const results = usePromiseState(search);
 
