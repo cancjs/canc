@@ -83,7 +83,7 @@ export const useCheckoutStore = defineStore('checkout-canc', {
  const recap = yield* cancAwait(fetchShippingRecap(shippingId));
  const review = yield* cancAwait(confirmReview(addressId, shippingId, recap.amount));
  return review;
- }) as () => CancelablePromise<ReviewSummary>;
+ });
 
  const load = run().then((review) => {
  this.review = review;

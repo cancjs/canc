@@ -54,5 +54,5 @@ export function ragPipeline(ragApi: RagApi, chatApi: ChatApi, query: string): Ca
  if (!done) cancelSignal.abort();
  console.log(`[pipeline] settled after ${cost} paid step(s)`);
  }
- })() as CancelablePromise<RagAnswer>;
+ })();
 }

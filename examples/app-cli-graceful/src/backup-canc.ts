@@ -46,5 +46,5 @@ export function runBackup(api: SiteApi, manifest: Manifest): CancelablePromise<v
  }
  manifest.partial = started.size < urls.length;
  }
- })() as CancelablePromise<void>;
+ })();
 }
