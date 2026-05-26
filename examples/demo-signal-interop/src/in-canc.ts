@@ -18,6 +18,7 @@ function mockFetch(url: string, signal?: AbortSignal): Promise<string> {
 }
 
 export async function signalToPromiseCanc() {
+ // Demonstrates AbortSignal interop: feeding external signal into CancelablePromise.
  const controller = new AbortController();
  const signal = controller.signal;
 
@@ -42,6 +43,7 @@ export async function signalToPromiseCanc() {
 }
 
 export async function signalArrayCanc() {
+ // Demonstrates AbortSignal interop: composing multiple signals as an array (first-wins).
  const controller1 = new AbortController();
  const controller2 = new AbortController();
  const signals = [controller1.signal, controller2.signal];
@@ -66,6 +68,7 @@ export async function signalArrayCanc() {
 }
 
 export async function preAbortedSignalCanc() {
+ // Demonstrates AbortSignal interop: pre-aborted signal making the promise born-canceled.
  const controller = new AbortController();
  controller.abort(); // Pre-abort
 

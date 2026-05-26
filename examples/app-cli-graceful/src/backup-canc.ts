@@ -1,5 +1,6 @@
 import { CancelablePromise } from '@cancjs/promise';
 import { cancAsync, cancAwait } from '@cancjs/coroutine';
+import { cancelify } from '@cancjs/toolbox';
 import { createPool } from '@shared/lib';
 import { SiteApi } from './mock/site-api';
 import { Manifest, ManifestEntry } from './manifest';
@@ -20,18 +21,12 @@ export function runBackup(api: SiteApi, manifest: Manifest): CancelablePromise<v
  const downloadPool = createPool(CONCURRENCY);
 
  try {
- const downloadOne = (url: string): CancelablePromise<void> =>
- new CancelablePromise((resolve, reject, handleCancel) => {
- const controller = new AbortController();
- handleCancel(() => controller.abort());
- api.download(url, controller.signal).then(
- () => {
+ const downloadOne = cancelify(
+ (getSignal, [url]: [string]) =>
+ api.download(url, getSignal()).then(() => {
  manifest.entries.push({ url, status: 'saved' });
- resolve();
- },
- (error) => reject(error)
- );
- });
+ }),
+ ) as (url: string) => CancelablePromise<void>;
 
  const jobs = urls.map((url) => downloadPool.run(() => downloadOne(url)));
  yield* cancAwait(Promise.all(jobs));
