@@ -14,7 +14,7 @@
  "@shared/util": "link:../_shared/util"
  },
  "devDependencies": {
- "@types/jest": "29.5.12",
+ "@types/jest": "30.0.0",
  "@types/node": "20.12.5",
  "jest": "30.4.2",
  "ts-jest": "29.4.11",

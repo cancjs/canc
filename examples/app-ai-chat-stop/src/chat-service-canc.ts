@@ -7,7 +7,7 @@
 
 import { cancAsync, cancAwait, cancForAwait } from '@cancjs/coroutine';
 import { CancelablePromise, createAbortSignal } from '@cancjs/promise';
-import { createLlm } from './aux/llm';
+import { createLlm } from './mock/llm';
 import { ChatRequest, UsageLog } from './chat';
 
 export interface ChatSink {

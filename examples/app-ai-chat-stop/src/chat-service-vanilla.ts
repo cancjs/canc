@@ -4,7 +4,7 @@
 // file mapping stays one-to-one. The uncancelable flavor is the money shot: after the user hits
 // Stop the socket is gone, but the loop keeps pulling tokens we are billed for.
 
-import { createLlm, isAbortError, Llm } from './aux/llm';
+import { createLlm, isAbortError, Llm } from './mock/llm';
 import { ChatRequest, UsageLog } from './chat';
 
 export interface ChatSink {
