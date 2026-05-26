@@ -9,5 +9,6 @@
  "@/*": ["./src/*"]
  }
  },
- "include": ["src/**/*.ts", "src/**/*.vue", "test/**/*.ts"]
+ "include": ["src/**/*.ts", "src/**/*.vue", "test/**/*.ts"],
+ "exclude": []
 }
