@@ -21,11 +21,8 @@ export function FlightRow({ api, destination }: { api: FlightApi; destination: F
  [hovering, api, destination.id]
  );
 
- useCancelableEffect(() => {
- if (!prefetch) return;
  // A canceled prefetch is expected (the user unhovered); the hook suppresses its CancelError.
- return prefetch;
- }, [prefetch]);
+ useCancelableEffect(() => prefetch, [prefetch]);
 
  const details = usePromiseState(prefetch);
 
