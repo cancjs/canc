@@ -25,6 +25,7 @@
  "app-rxjs",
  "app-vue",
  "app-vue-pinia",
+ "app-vue-suspense",
  "app-ws-progress",
  "demo-async-dispose",
  "demo-chain-propagation",
