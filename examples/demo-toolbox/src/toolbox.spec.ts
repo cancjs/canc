@@ -15,7 +15,7 @@ describe('Toolbox utilities - cancellation behavior', () => {
 
  test('waitForDeployment: cancel stops polling immediately', async () => {
  const { deployments } = createMockApi({ seedMode: true });
- const promise = waitForDepCanc(deployments, 'deploy-1') as any;
+ const promise = waitForDepCanc(deployments, 'deploy-1');
 
  jest.advanceTimersByTime(50);
  promise.cancel?.();
@@ -33,7 +33,7 @@ describe('Toolbox utilities - cancellation behavior', () => {
 
  test('chargeWithRetry: cancel stops retry loop and in-flight attempt', async () => {
  const { payments } = createMockApi({ seedMode: true });
- const promise = chargeWithRetryCanc(payments, 'payment-1') as any;
+ const promise = chargeWithRetryCanc(payments, 'payment-1');
 
  jest.advanceTimersByTime(50);
  promise.cancel?.();
@@ -52,7 +52,7 @@ describe('Toolbox utilities - cancellation behavior', () => {
 
  test('sendEmailWithDelay: cancel clears the delay timer', async () => {
  const { mail } = createMockApi({ seedMode: true });
- const promise = sendEmailWithDelayCanc(mail, 'user@example.com') as any;
+ const promise = sendEmailWithDelayCanc(mail, 'user@example.com');
 
  // Timer is pending before cancel.
  expect(jest.getTimerCount()).toBeGreaterThan(0);
