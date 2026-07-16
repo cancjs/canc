@@ -53,7 +53,6 @@ export const useCheckoutStore = defineStore('checkout-canc', {
  this.address = address;
  this.addressStatus = 'done';
  });
- load.catch(() => {});
  this.addressLoad = load;
  },
 
@@ -67,7 +66,6 @@ export const useCheckoutStore = defineStore('checkout-canc', {
  this.shipping = shipping;
  this.shippingStatus = 'done';
  });
- load.catch(() => {});
  this.shippingLoad = load;
  },
 
@@ -86,7 +84,6 @@ export const useCheckoutStore = defineStore('checkout-canc', {
  store.review = review;
  store.reviewStatus = 'done';
  })();
- load.catch(() => {});
  this.reviewLoad = load;
  },
 
