@@ -2,6 +2,7 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/vue';
 import { createPinia, setActivePinia } from 'pinia';
 import App from '../src/App.vue';
 import { createCheckoutRouter } from '../src/router';
+import { CHECKOUT_STORE_KEY } from '../src/store-key';
 import { useCheckoutStore } from '../src/stores/checkout-canc';
 import { mockCalls } from '../src/mock/checkout-api';
 
@@ -15,10 +16,10 @@ describe('app-vue-pinia canc', () => {
  // the router's beforeEach reads the store on the very first navigation below, before
  // render() has a chance to install pinia onto an app instance
  setActivePinia(pinia);
- const router = createCheckoutRouter(true);
+ const router = createCheckoutRouter(useCheckoutStore, true);
  router.push('/address');
  await router.isReady();
- render(App, { global: { plugins: [pinia, router] } });
+ render(App, { global: { plugins: [pinia, router], provide: { [CHECKOUT_STORE_KEY as symbol]: useCheckoutStore } } });
  return { pinia, router };
  }
 

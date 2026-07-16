@@ -1,7 +1,7 @@
 const base = require('../jest.config.base.js');
 
-// Two jest projects, one per flavor, mirroring vite's --mode split: each maps the
-// `@/stores/checkout` alias the shared step components/router import to that flavor's store file.
+// Two jest projects, one per flavor: each runs only that flavor's spec file, which imports the
+// matching store module directly.
 function project(flavor) {
  return {
  ...base,
@@ -14,8 +14,6 @@ function project(flavor) {
  moduleNameMapper: {
  ...base.moduleNameMapper,
  '^@shared/(.+)$': '<rootDir>/../_shared/$1',
- '^@/stores/checkout$': `<rootDir>/src/stores/checkout-${flavor}.ts`,
- '^@/(.*)$': '<rootDir>/src/$1',
  // pinia's diagnostics reporter (nostics) and devtools integration ship ESM-only with no
  // CJS build anywhere in their dependency chain (nostics, @vue/devtools-kit,
  // perfect-debounce). Neither is part of the store behavior under test, so both are
