@@ -23,6 +23,7 @@
  "**/*.spec.ts",
  "~~legacy examples/**",
  "app-vue-pinia/**",
+ "app-vue-suspense/**",
  "app-react-mobx/**",
  "app-react/**",
  "app-react-suspense/**",
