@@ -17,3 +17,9 @@ yarn examples:typecheck
 ```
 
 See `demo-promise-basics/README.md` for the runnable start scripts.
+
+## app-react-suspense
+
+Travel details loaded under React Suspense. A `CancelableSuspense` boundary cancels the abandoned
+request when the user picks another destination mid-load, next to a naive in-child attempt that
+leaks. See `app-react-suspense/README.md`.
