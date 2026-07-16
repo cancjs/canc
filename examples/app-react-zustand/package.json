@@ -4,10 +4,10 @@
  "private": true,
  "description": "Media library browser backed by a zustand store: switching albums cancels the previous track load.",
  "scripts": {
- "dev:vanilla": "vite --config vite.config.ts --mode vanilla",
- "dev:canc": "vite --config vite.config.ts --mode canc",
- "start:vanilla": "vite build --config vite.config.ts --mode vanilla && vite preview --config vite.config.ts --mode vanilla",
- "start:canc": "vite build --config vite.config.ts --mode canc && vite preview --config vite.config.ts --mode canc",
+ "dev:vanilla": "vite --config vite.config.ts --open /vanilla.html",
+ "dev:canc": "vite --config vite.config.ts --open /canc.html",
+ "start:vanilla": "vite build --config vite.config.ts && vite preview --config vite.config.ts --open /vanilla.html",
+ "start:canc": "vite build --config vite.config.ts && vite preview --config vite.config.ts --open /canc.html",
  "test": "jest --colors",
  "typecheck": "tsc --noEmit --project tsconfig.json"
  },

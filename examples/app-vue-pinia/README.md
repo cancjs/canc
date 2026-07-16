@@ -85,8 +85,8 @@ lives in the store, where it can be tested and reasoned about without mounting c
  payload; everything else is shared plumbing.
 - `src/steps/AddressStep.vue`, `src/steps/ShippingStep.vue`, `src/steps/ReviewStep.vue`:
  identical, thin components. All policy lives in the store.
-- `src/main-vanilla.ts` / `src/main-canc.ts`: entry points (identical, differ only in which
- store they import via the vite alias).
+- `src/main-vanilla.ts` / `src/main-canc.ts`: entry points, differ only in which store module
+ they import and provide.
 - `src/router.ts`: shared router with step names and `beforeEach` hook.
 - `src/mock/checkout-api.ts` is shared scaffolding wrapping `@shared/mock-api`'s checkout
  domain — pretend this is your API client.

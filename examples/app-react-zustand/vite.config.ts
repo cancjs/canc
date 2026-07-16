@@ -1,16 +1,14 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// One vite config, two modes. `--mode vanilla` builds vanilla.html, `--mode canc` builds
-// canc.html; each is a standalone entry importing only its own flavor's modules.
-export default defineConfig(({ mode }) => ({
+// Two standalone HTML entries, vanilla.html and canc.html, each loading its own main-*.tsx. No
+// build-time flavor switch: `dev:vanilla`/`dev:canc` just open the matching URL on the same dev
+// server, and the production build emits both pages.
+export default defineConfig({
  plugins: [react()],
  build: {
  rollupOptions: {
- input: mode === 'canc' ? 'canc.html' : 'vanilla.html',
+ input: ['vanilla.html', 'canc.html'],
  },
  },
- preview: {
- open: mode === 'canc' ? '/canc.html' : '/vanilla.html',
- },
-}));
+});

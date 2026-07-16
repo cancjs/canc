@@ -1,9 +1,10 @@
 <!-- Dumb, store-driven step. All cancellation policy lives in the store -- this component only
  ever reads state and dispatches actions. -->
 <script setup lang="ts">
-import { useCheckoutStore } from '@/stores/checkout';
+import { inject } from 'vue';
+import { CHECKOUT_STORE_KEY } from '../store-key';
 
-const store = useCheckoutStore();
+const store = inject(CHECKOUT_STORE_KEY)!();
 
 function prepare() {
  store.prepareReview();

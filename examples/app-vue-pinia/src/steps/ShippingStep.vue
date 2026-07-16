@@ -1,10 +1,11 @@
 <!-- Dumb, store-driven step. All cancellation policy lives in the store -- this component only
  ever reads state and dispatches actions. -->
 <script setup lang="ts">
+import { inject } from 'vue';
 import { useRouter } from 'vue-router';
-import { useCheckoutStore } from '@/stores/checkout';
+import { CHECKOUT_STORE_KEY } from '../store-key';
 
-const store = useCheckoutStore();
+const store = inject(CHECKOUT_STORE_KEY)!();
 const router = useRouter();
 
 function quote() {
