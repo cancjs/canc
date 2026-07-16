@@ -90,6 +90,27 @@ describe('canc FlightRow', () => {
  expect(countByStatus(api.calls, 'flights.details', 'aborted')).toBe(1);
  expect(countByStatus(api.calls, 'flights.details', 'completed')).toBe(0);
  });
+
+ it('fires the effect-only warm-cache prefetch on hover and cancels it on unhover', async () => {
+ const api = createFlightApi({ latency: LATENCY });
+ render(<CancFlightRow api={api} destination={{ id: 'lhr', city: 'London', code: 'LHR' }} />);
+
+ const row = screen.getByTestId('row-lhr');
+ fireEvent.mouseEnter(row);
+ await act(async () => {
+ await Promise.resolve();
+ });
+ fireEvent.mouseLeave(row);
+ await act(async () => {
+ jest.advanceTimersByTime(LATENCY);
+ await Promise.resolve();
+ });
+
+ // The warm prefetch is a useCancelableEffect side effect: it starts on hover and its cancel
+ // aborts on unhover, with no render state involved.
+ expect(countByStatus(api.calls, 'flights.warm', 'aborted')).toBe(1);
+ expect(countByStatus(api.calls, 'flights.warm', 'completed')).toBe(0);
+ });
 });
 
 describe('vanilla FlightRow', () => {

@@ -19,7 +19,7 @@ export interface PromiseState<T> {
  */
 export function usePromiseState<T>(promise: PromiseLike<T> | undefined): PromiseState<T> {
  const [state, setState] = useState<PromiseState<T>>({ status: 'idle' });
- const latest = useRef<PromiseLike<T>>();
+ const latest = useRef<PromiseLike<T> | undefined>(undefined);
 
  useEffect(() => {
  latest.current = promise;

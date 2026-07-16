@@ -1,30 +1,29 @@
-import { type ReactNode, useMemo, useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { cancelify } from '@cancjs/toolbox';
 
+import { useCancelable } from './lib/use-cancelable';
 import { useCancelableEffect } from './lib/use-cancelable-effect';
-import { usePromiseState } from './lib/use-promise-state';
-import type { FlightApi, FlightDestination, FlightDetails } from './mock/api';
-
-// A cancelable details prefetch. cancelify hands the fn an outbound signal that aborts when the
-// returned promise is canceled.
-function prefetchDetails(api: FlightApi, id: string) {
- return cancelify((getSignal, [flightId]: [string]) => api.flightDetails(flightId, getSignal()))(id);
-}
+import type { FlightApi, FlightDestination } from './mock/api';
 
 // One destination row. Hovering prefetches its details; unhovering (or unmounting) cancels that
 // prefetch so an abandoned hover never finishes its request.
 export function FlightRow({ api, destination }: { api: FlightApi; destination: FlightDestination }): ReactNode {
  const [hovering, setHovering] = useState(false);
 
- const prefetch = useMemo(
- () => (hovering ? prefetchDetails(api, destination.id) : undefined),
+ // Details prefetch has render state (the loading text and the result), so it uses useCancelable.
+ const details = useCancelable(
+ (getSignal) =>
+ hovering ? api.flightDetails(destination.id, getSignal()) : Promise.resolve(undefined),
  [hovering, api, destination.id]
  );
 
- // A canceled prefetch is expected (the user unhovered); the hook suppresses its CancelError.
- useCancelableEffect(() => prefetch, [prefetch]);
-
- const details = usePromiseState(prefetch);
+ // Warm the cache as a side effect: fire-and-forget, nothing rendered from it. useCancelableEffect
+ // earns its place here, where there is no settlement state to track, only a run to cancel on
+ // unhover/unmount. Returning undefined for the not-hovering case is a no-op cleanup.
+ useCancelableEffect(
+ () => (hovering ? cancelify((getSignal) => api.warmDetails(destination.id, getSignal()))() : undefined),
+ [hovering, api, destination.id]
+ );
 
  return (
  <li
