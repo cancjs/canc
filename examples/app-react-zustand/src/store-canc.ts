@@ -32,7 +32,6 @@ export const useLibraryStore = create<CancLibraryState>((set, get) => ({
  const load = loadTracks(albumId).then((tracks) => {
  set({ tracks, status: 'loaded' });
  });
- load.catch(() => {});
 
  set({ currentLoad: load });
  },
@@ -48,6 +47,5 @@ export function loadAlbums(): CancelablePromise<void> {
  const load = loadAlbumsList().then((albums) => {
  useLibraryStore.setState({ albums });
  });
- load.catch(() => {});
  return load;
 }
