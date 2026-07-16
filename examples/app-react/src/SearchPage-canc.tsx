@@ -1,28 +1,19 @@
-import { type ReactNode, useMemo, useState } from 'react';
-import { cancelify } from '@cancjs/toolbox';
+import { type ReactNode, useState } from 'react';
 
-import { useCancelableEffect } from './lib/use-cancelable-effect';
-import { usePromiseState } from './lib/use-promise-state';
+import { useCancelable } from './lib/use-cancelable';
 import { FlightRow } from './FlightRow-canc';
-import type { FlightApi, FlightDestination } from './mock/api';
+import type { FlightApi } from './mock/api';
 
-// A cancelable destination search. cancelify hands the fn an outbound signal that aborts when the
-// returned promise is canceled (an aborted search shows up as an `aborted` marker in api.calls).
-function searchDestinations(api: FlightApi, query: string) {
- return cancelify((getSignal, [q]: [string]) => api.searchDestinations(q, getSignal()))(query);
-}
-
-// Typeahead destination search. Every keystroke starts a fresh search chain; the effect cleanup
-// cancels the previous one, so only the search for the current text ever completes.
+// Typeahead destination search. Every keystroke re-runs the search under a fresh cancelable chain;
+// useCancelable cancels the previous run, so only the search for the current text ever completes
+// (an aborted search shows up as an `aborted` marker in api.calls).
 export function SearchPage({ api }: { api: FlightApi }): ReactNode {
  const [query, setQuery] = useState('');
 
- const search = useMemo(() => (query ? searchDestinations(api, query) : undefined), [api, query]);
-
- // Superseded searches are canceled (the hook suppresses that CancelError itself).
- useCancelableEffect(() => search, [search]);
-
- const results = usePromiseState(search);
+ const results = useCancelable(
+ (getSignal) => (query ? api.searchDestinations(query, getSignal()) : Promise.resolve([])),
+ [api, query]
+ );
 
  return (
  <div>

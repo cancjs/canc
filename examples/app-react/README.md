@@ -38,10 +38,12 @@ watch the mock API log which requests start, complete, and abort.
 
 ## What each flavor does
 
-- **canc**: `SearchPage-canc.tsx` runs each search as a `CancelablePromise`; `useCancelableEffect`
- returns it, so the effect cleanup cancels the superseded search. `FlightRow-canc.tsx` does the
- same for the hover prefetch. `usePromiseState` keeps the latest result and treats a `CancelError`
- as "nothing to show" rather than an error.
+- **canc**: `SearchPage-canc.tsx` runs each search through `useCancelable`, one hook that starts a
+ `CancelablePromise` per keystroke, cancels the superseded one, and returns its settlement as
+ render state. `FlightRow-canc.tsx` does the same for the hover details, and adds a fire-and-forget
+ warm-cache prefetch through `useCancelableEffect` to show the low-level effect-only case (a run to
+ cancel on cleanup, no state to render). A canceled run is treated as "nothing to show" rather than
+ an error.
 - **vanilla**: `SearchPage-vanilla.tsx` is the hand-rolled workaround: an `AbortController` per
  effect, an `isMounted` ref to guard `setState`, and a request-id compare so a slow response
  cannot overwrite a newer one. `FlightRow-vanilla.tsx` is a plain fetch with no cancellation at
@@ -57,10 +59,20 @@ The side-by-side is the point. Same file names modulo the suffix, same function 
 
 ## Copy the hooks
 
-`src/lib/` holds the React helpers this example prototypes: `useCancelableEffect`,
-`usePromiseState`, `useCancelableCallback`. They carry no example-specific code and are written to
-be lifted straight into your own project. Copy them freely. They are the seed of a future
-`@cancjs/react` package.
+`src/lib/` holds the React helpers this example prototypes. They carry no example-specific code and
+are written to be lifted straight into your own project. Copy them freely. They are the seed of a
+future `@cancjs/react` package.
+
+- `useCancelable(factory, deps)`: fetch-on-dependency-change in one call. Runs the factory as a
+ `CancelablePromise`, re-runs and cancels the previous run when `deps` change, cancels the last run
+ on unmount, and returns `{ status, value, error }`. Reach for this first.
+- `useCancelableEffect(callback, deps)`: the low-level effect-only primitive. Use it when you start
+ a cancelable run but render nothing from it (fire-and-forget analytics or a warm-cache prefetch).
+ Returning a `CancelablePromise` makes its `cancel()` the effect cleanup.
+- `usePromiseState(promise)`: tracks one promise's settlement as render state, for manual control
+ when you build the chain yourself. `useCancelable` composes it internally.
+- `useCancelableCallback(factory)`: latest-wins imperative runner for event handlers, where each
+ call cancels the previous still-pending one.
 
 ## Notes
 

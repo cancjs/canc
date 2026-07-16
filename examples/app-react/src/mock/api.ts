@@ -42,6 +42,8 @@ export interface FlightApi {
  readonly calls: MockApi['calls'];
  searchDestinations(query: string, signal?: AbortSignalLike): Promise<FlightDestination[]>;
  flightDetails(id: string, signal?: AbortSignalLike): Promise<FlightDetails>;
+ /** Fire-and-forget: warm the details cache for a hovered row. No result is rendered. */
+ warmDetails(id: string, signal?: AbortSignalLike): Promise<void>;
 }
 
 /**
@@ -82,5 +84,7 @@ export function createFlightApi(options: { latency?: number; trace?: (line: stri
  },
  signal
  ),
+ warmDetails: (id, signal) =>
+ api.respond('flights.warm', { id }, () => undefined, signal),
  };
 }

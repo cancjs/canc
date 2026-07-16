@@ -13,7 +13,7 @@ export function useCancelableCallback<TArgs extends unknown[], TResult>(
  run: (...args: TArgs) => CancelablePromise<TResult>;
  cancelPending: () => void;
 } {
- const pending = useRef<CancelablePromise<TResult>>();
+ const pending = useRef<CancelablePromise<TResult> | undefined>(undefined);
 
  const cancelPending = useCallback(() => {
  pending.current?.cancel();
