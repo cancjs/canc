@@ -25,6 +25,7 @@
  "app-vue-pinia/**",
  "app-react-mobx/**",
  "app-react/**",
+ "app-react-suspense/**",
  "app-express-kysely/**",
  "demo-decorators/**"
  ]
