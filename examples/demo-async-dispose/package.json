@@ -4,7 +4,8 @@
  "private": true,
  "description": "Async disposal and resource cleanup: await using report generation.",
  "engines": {
- "node": ">=24"
+ "node": ">=24",
+ "npm": ">=9"
  },
  "scripts": {
  "start:vanilla": "tsx src/main-vanilla.ts",

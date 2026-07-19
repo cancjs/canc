@@ -23,5 +23,8 @@
  "devDependencies": {
  "@types/bluebird": "~3.5.42",
  "playwright": "~1.61.1"
+ },
+ "engines": {
+ "npm": ">=9"
  }
 }

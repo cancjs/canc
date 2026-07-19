@@ -9,5 +9,8 @@
  "typecheck": "tsc --noEmit"
  },
  "type": "module",
- "keywords": []
+ "keywords": [],
+ "engines": {
+ "npm": ">=9"
+ }
 }
