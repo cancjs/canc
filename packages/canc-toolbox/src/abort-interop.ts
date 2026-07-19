@@ -1,5 +1,5 @@
-import { ICancelable, PromiseImpl, isAbortError, isCancelError } from '@cancjs/promise';
-import { IToolboxOptions, construct, resolveImpl, THandleCancel } from './options';
+import { CancelablePromise, ICancelable, isAbortError, isCancelError } from '@cancjs/promise';
+import { IToolboxOptions, THandleCancel } from './options';
 
 /**
  * The reason categories a suppress filter recognizes. `'cancel'` matches a canc CancelError (any
@@ -46,47 +46,39 @@ function matchesCategory(reason: unknown, categories: readonly SuppressCategory[
  * else. Resolves to the fulfilled value or `undefined` when a matched rejection was suppressed. The
  * returned promise is built through the resolved implementation, so it is cancelable by default.
  */
-export function suppressFactory(boundImpl?: PromiseImpl) {
-	return function suppress<T>(
-		categories: readonly SuppressCategory[],
-		promise: T | PromiseLike<T>,
-		options?: IToolboxOptions,
-	): Promise<T | void> {
-		const Impl = resolveImpl(options, boundImpl);
+export function suppress<T>(
+	categories: readonly SuppressCategory[],
+	promise: T | PromiseLike<T>,
+	options?: IToolboxOptions,
+): Promise<T | void> {
+	return new CancelablePromise<T | void>((resolve, reject, handleCancel?: THandleCancel) => {
+		CancelablePromise.resolve(promise).then(
+			(value) => resolve(value),
+			(reason) => {
+				if (matchesCategory(reason, categories)) {
+					resolve(undefined);
+				} else {
+					reject(reason);
+				}
+			},
+		);
 
-		return construct<T | void>(Impl, (resolve, reject, handleCancel?: THandleCancel) => {
-			Impl.resolve(promise).then(
-				(value) => resolve(value),
-				(reason) => {
-					if (matchesCategory(reason, categories)) {
-						resolve(undefined);
-					} else {
-						reject(reason);
-					}
-				},
-			);
-
-			if (typeof handleCancel === 'function') {
-				handleCancel(() => {
-					if (isCancelable(promise)) {
-						(promise as ICancelable).cancel();
-					}
-				});
-			}
-		}, options);
-	};
+		if (typeof handleCancel === 'function') {
+			handleCancel(() => {
+				if (isCancelable(promise)) {
+					(promise as ICancelable).cancel();
+				}
+			});
+		}
+	}, options);
 }
 
 /**
  * Swallow AbortError rejections (bare or wrapped in a CancelError) and rethrow everything else.
  * Shorthand for `suppress(['abort'], promise)`.
  */
-export function suppressAbortFactory(boundImpl?: PromiseImpl) {
-	const suppress = suppressFactory(boundImpl);
-
-	return function suppressAbort<T>(promise: T | PromiseLike<T>, options?: IToolboxOptions): Promise<T | void> {
-		return suppress(['abort'], promise, options);
-	};
+export function suppressAbort<T>(promise: T | PromiseLike<T>, options?: IToolboxOptions): Promise<T | void> {
+	return suppress(['abort'], promise, options);
 }
 
 function isCancelable(value: unknown): value is ICancelable {
@@ -100,65 +92,61 @@ function isCancelable(value: unknown): value is ICancelable {
  * them via AbortSignal.any so a single abort listener drives cancellation. The underlying promise is
  * canceled (if cancelable) when either the signal or the timeout wins, leaving no detached work.
  */
-export function interopTimeoutFactory(boundImpl?: PromiseImpl) {
-	return function interopTimeout<T>(
-		promise: T | PromiseLike<T>,
-		ms: number,
-		signal?: AbortSignal,
-		options?: IToolboxOptions,
-	): Promise<T> {
-		const Impl = resolveImpl(options, boundImpl);
+export function interopTimeout<T>(
+	promise: T | PromiseLike<T>,
+	ms: number,
+	signal?: AbortSignal,
+	options?: IToolboxOptions,
+): Promise<T> {
+	return new CancelablePromise<T>((resolve, reject, handleCancel?: THandleCancel) => {
+		const timeoutSignal = AbortSignal.timeout(ms);
+		// Compose the external signal (if any) with the timeout so one listener covers both. When
+		// no external signal is supplied, race against the timeout alone.
+		const combined = signal ? abortSignalAny([signal, timeoutSignal]) : timeoutSignal;
 
-		return construct<T>(Impl, (resolve, reject, handleCancel?: THandleCancel) => {
-			const timeoutSignal = AbortSignal.timeout(ms);
-			// Compose the external signal (if any) with the timeout so one listener covers both. When
-			// no external signal is supplied, race against the timeout alone.
-			const combined = signal ? abortSignalAny([signal, timeoutSignal]) : timeoutSignal;
+		let settled = false;
 
-			let settled = false;
+		const onAbort = () => {
+			if (settled) return;
+			settled = true;
+			if (isCancelable(promise)) {
+				(promise as ICancelable).cancel(combined.reason);
+			}
+			reject(combined.reason);
+		};
 
-			const onAbort = () => {
+		if (combined.aborted) {
+			onAbort();
+			return;
+		}
+
+		combined.addEventListener('abort', onAbort, { once: true });
+
+		CancelablePromise.resolve(promise).then(
+			(value) => {
 				if (settled) return;
 				settled = true;
+				combined.removeEventListener('abort', onAbort);
+				resolve(value);
+			},
+			(reason) => {
+				if (settled) return;
+				settled = true;
+				combined.removeEventListener('abort', onAbort);
+				reject(reason);
+			},
+		);
+
+		if (typeof handleCancel === 'function') {
+			handleCancel(() => {
+				settled = true;
+				combined.removeEventListener('abort', onAbort);
 				if (isCancelable(promise)) {
-					(promise as ICancelable).cancel(combined.reason);
+					(promise as ICancelable).cancel();
 				}
-				reject(combined.reason);
-			};
-
-			if (combined.aborted) {
-				onAbort();
-				return;
-			}
-
-			combined.addEventListener('abort', onAbort, { once: true });
-
-			Impl.resolve(promise).then(
-				(value) => {
-					if (settled) return;
-					settled = true;
-					combined.removeEventListener('abort', onAbort);
-					resolve(value);
-				},
-				(reason) => {
-					if (settled) return;
-					settled = true;
-					combined.removeEventListener('abort', onAbort);
-					reject(reason);
-				},
-			);
-
-			if (typeof handleCancel === 'function') {
-				handleCancel(() => {
-					settled = true;
-					combined.removeEventListener('abort', onAbort);
-					if (isCancelable(promise)) {
-						(promise as ICancelable).cancel();
-					}
-				});
-			}
-		}, options);
-	};
+			});
+		}
+	}, options);
 }
 
 /**
@@ -227,6 +215,3 @@ export function withSignal<T>(signal: AbortSignal | undefined, promiseOrFn: ((si
 	});
 }
 
-export const suppress = suppressFactory();
-export const suppressAbort = suppressAbortFactory();
-export const interopTimeout = interopTimeoutFactory();

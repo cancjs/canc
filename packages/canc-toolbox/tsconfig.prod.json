@@ -4,5 +4,5 @@
  "outDir": "build",
  "rootDir": "../..",
  },
- "include": ["src", "../_util", "../canc-promise/src"],
+ "include": ["src", "../_util", "../_toolbox", "../canc-promise/src"],
 }

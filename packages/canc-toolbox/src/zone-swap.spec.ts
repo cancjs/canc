@@ -1,8 +1,5 @@
 import { CancelablePromise } from '@cancjs/promise';
-import { timeout } from './timeout';
-import { minDelay } from './min-delay';
-import { waitFor } from './wait-for';
-import { retry } from './retry';
+import { timeout, minDelay, waitFor, retry } from './index';
 import { suppress, interopTimeout, withSignal } from './abort-interop';
 
 // regression: internal subscriptions (`promise.then(...)`) used to be built off a bare
