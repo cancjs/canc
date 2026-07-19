@@ -15,25 +15,28 @@ import { on } from 'events';
 import { join } from 'path';
 import express from 'express';
 import { WebSocketServer, WebSocket } from 'ws';
-import { CancelablePromise, CancelError } from '@cancjs/promise';
+import { CancelablePromise, CancelError, isCancelError } from '@cancjs/promise';
+import { cancAsync, cancForAwait } from '@cancjs/coroutine';
 import { toAbortSignal, suppress } from '@cancjs/toolbox';
-import { MockApi } from '@shared/mock-api';
 import { exportJob } from './export-job-canc';
+import { createTranscoder, Transcoder, ExportBackend } from './mock/transcode';
 import { ClientMessage, ServerMessage, parseClientMessage } from './protocol';
 
 export interface ServerHandle {
  port: number;
- api: MockApi;
  close: () => Promise<void>;
 }
 
-export function startServer(api: MockApi, port = 0): Promise<ServerHandle> {
+export function startServer(backend: ExportBackend, port = 0): Promise<ServerHandle> {
  const app = express();
  app.use(express.static(join(__dirname, '../public')));
  const http = createServer(app);
  const wss = new WebSocketServer({ server: http });
 
- wss.on('connection', (ws) => handleConnection(ws, api));
+ // Build the canc-native transcoder once at the root, the only place the raw backend is touched.
+ // Every handler below takes that transcoder, never the backend bundle.
+ const transcode = createTranscoder(backend);
+ wss.on('connection', (ws) => handleConnection(ws, transcode));
 
  return new Promise((resolve) => {
  http.listen(port, () => {
@@ -41,7 +44,6 @@ export function startServer(api: MockApi, port = 0): Promise<ServerHandle> {
  const actualPort = typeof address === 'object' && address ? address.port : port;
  resolve({
  port: actualPort,
- api,
  close: () => new Promise<void>((done) => {
  for (const client of wss.clients) client.terminate();
  wss.close();
@@ -52,9 +54,9 @@ export function startServer(api: MockApi, port = 0): Promise<ServerHandle> {
  });
 }
 
-function handleConnection(ws: WebSocket, api: MockApi): void {
- // The connection's cancel root. Pending forever until the connection ends; canceling it cancels
- // every job below.
+function handleConnection(ws: WebSocket, transcode: Transcoder): void {
+ // The connection's cancel root: an intentional scope handle. A pending-forever CancelablePromise,
+ // never resolved; canceling it cancels every job below. This is the only hand-built primitive.
  const connectionRoot = new CancelablePromise<void>(() => {});
  const jobs = new Map<string, CancelablePromise<void>>();
 
@@ -63,12 +65,12 @@ function handleConnection(ws: WebSocket, api: MockApi): void {
  // When the root cancels, drop every remaining job (the tree cancel).
  connectionRoot.then(undefined, () => { for (const job of jobs.values()) job.cancel(); });
 
- void readMessages(ws, api, connectionRoot, jobs);
+ void readMessages(ws, transcode, connectionRoot, jobs);
 }
 
 async function readMessages(
  ws: WebSocket,
- api: MockApi,
+ transcode: Transcoder,
  connectionRoot: CancelablePromise<void>,
  jobs: Map<string, CancelablePromise<void>>,
 ): Promise<void> {
@@ -78,7 +80,7 @@ async function readMessages(
  for await (const [raw] of on(ws, 'message', { signal })) {
  const message = parseClientMessage(String(raw));
  if (!message) continue;
- dispatch(message, ws, api, jobs);
+ dispatch(message, ws, transcode, jobs);
  }
  } catch (error) {
  if ((error as { name?: string }).name !== 'AbortError') throw error;
@@ -89,12 +91,12 @@ async function readMessages(
 function dispatch(
  message: ClientMessage,
  ws: WebSocket,
- api: MockApi,
+ transcode: Transcoder,
  jobs: Map<string, CancelablePromise<void>>,
 ): void {
  if (message.type === 'start') {
  if (jobs.has(message.jobId)) return;
- jobs.set(message.jobId, runJob(message.jobId, ws, api, jobs));
+ jobs.set(message.jobId, runJob(message.jobId, ws, transcode, jobs));
  } else {
  // First cancel path: explicit message. Cancel the one job; its ack is sent from runJob.
  jobs.get(message.jobId)?.cancel();
@@ -104,35 +106,28 @@ function dispatch(
 function runJob(
  jobId: string,
  ws: WebSocket,
- api: MockApi,
+ transcode: Transcoder,
  jobs: Map<string, CancelablePromise<void>>,
 ): CancelablePromise<void> {
- const job = new CancelablePromise<void>((resolve, reject, onCancel) => {
- // Each job owns its own signal, distinct from the connection root. This per-job controller
- // threads cancellation into the transcode encoder (the chunk in flight), while the connection
- // root handles the scope (all jobs at once when the connection closes). Two separate concerns.
- const controller = new AbortController();
- const iter = exportJob({ api, signal: controller.signal });
-
- (async () => {
- for await (const percent of iter) {
+ // The job is a coroutine that consumes the export stream. Its own cancel runs the iterator's
+ // `return()` for us, which aborts the chunk in flight and stops every later chunk.
+ const job = cancAsync(function* () {
+ const progressStream = exportJob(transcode);
+ yield* cancForAwait(progressStream, (percent) => {
  send(ws, { type: 'progress', jobId, percent: Number(percent) });
- }
- resolve();
- })().catch(reject);
-
- // Cancel = abort the in-flight chunk, stop the iterator (runs its finally), ack the client.
- onCancel(() => {
- controller.abort();
- void iter.return?.(undefined);
- // Shielded so the ack still sends even though the job chain is canceling.
- void suppress(['cancel'], (async () => send(ws, { type: 'canceled', jobId }))());
  });
- });
+ })();
 
  job.then(
  () => { jobs.delete(jobId); send(ws, { type: 'done', jobId }); },
- () => { jobs.delete(jobId); },
+ (error) => {
+ jobs.delete(jobId);
+ // Cancel = ack the client. Shielded so the ack still sends even though the job chain is
+ // canceling. A real failure is left to surface, not acked as a cancel.
+ if (isCancelError(error)) {
+ void suppress(['cancel'], (async () => send(ws, { type: 'canceled', jobId }))());
+ }
+ },
  );
 
  return job;

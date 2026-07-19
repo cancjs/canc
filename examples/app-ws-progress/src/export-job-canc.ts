@@ -1,28 +1,25 @@
 // The export job: a cancelable async generator that yields progress percentages while it
 // transcodes the video chunk by chunk. This is the teaching payload.
 //
+// The underlying transcoder is signal-aware, so it is cancelified ONCE at its boundary into a
+// canc-native `transcode(chunk)`. The job never sees a signal or an AbortController: it just calls
+// `transcode` and lets its own cancellation abort whatever chunk is in flight.
+//
 // `cancIterAsync` turns a plain generator into a cancelable async iterator. Inside it:
 // - `yield* cancIterAwait(x)` suspends on `x` without emitting it (an internal await),
 // - `yield x` emits `x` to the `for await` consumer.
 // Canceling the iterator (its `.next()` promise, or a `.return()` / break) runs the generator's
-// `finally` and stops it. We thread the job's AbortSignal into each transcode call, so a cancel
-// aborts the chunk that is in flight and every later chunk simply never starts.
+// `finally` and stops it. Because `transcode` is cancelable, canceling the job aborts the chunk in
+// flight and every later chunk simply never starts.
 
 import { cancIterAsync, cancIterAwait, AsyncIterResult } from '@cancjs/coroutine';
-import { MockApi } from '@shared/mock-api';
-import { transcodeChunk, TOTAL_CHUNKS } from './mock/transcode';
+import { Transcoder, TOTAL_CHUNKS } from './mock/transcode';
 
-export interface ExportJobDeps {
- api: MockApi;
- signal: AbortSignal;
-}
-
-export const exportJob = cancIterAsync(function* (deps: ExportJobDeps): AsyncIterResult<number, void> {
- const { api, signal } = deps;
+export const exportJob = cancIterAsync(function* (transcode: Transcoder): AsyncIterResult<number, void> {
  try {
  for (let index = 1; index <= TOTAL_CHUNKS; index++) {
- // Internal await: transcode one chunk. The signal aborts it the moment the job is canceled.
- yield* cancIterAwait(transcodeChunk(api, { index, total: TOTAL_CHUNKS }, signal));
+ // Internal await: transcode one chunk. Canceling the job aborts it the moment it fires.
+ yield* cancIterAwait(transcode({ index, total: TOTAL_CHUNKS }));
  // Emit progress to the consumer. Canceled here -> nothing below runs, no further chunk starts.
  yield Math.round((index / TOTAL_CHUNKS) * 100);
  }
