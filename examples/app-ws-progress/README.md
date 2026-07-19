@@ -62,8 +62,9 @@ a close can only set a flag that stops SENDING frames. Every chunk still transco
  so the read loop unwinds with the rest of the tree. No hand-written close plumbing.
 - **`cancIterAsync` export job (canc).** The export is a cancelable async generator: `yield*
  cancIterAwait(...)` transcodes a chunk internally (typed, no cast), `yield` emits a progress
- percentage to the sender's `for await`. Canceling the iterator runs its `finally` and stops it,
- and the threaded `AbortSignal` aborts the chunk in flight.
+ percentage to the sender's `for await`. The transcoder is cancelified once at its boundary
+ (`createTranscoder`), so the job calls `transcode(chunk)` with no signal of its own. Canceling the
+ iterator runs its `finally` and aborts the chunk in flight through that cancelified boundary.
 - **`suppress` for the ack (canc).** The `canceled` ack is sent inside `suppress(['cancel'], ...)`
  so it still goes out even though the job chain is in the middle of canceling.
 
@@ -73,8 +74,8 @@ a close can only set a flag that stops SENDING frames. Every chunk still transco
  stopped job ids and can only gate sending; canc owns a cancel root, a job map, and a signal-fed
  message loop.
 - `src/export-job-vanilla.ts` vs `src/export-job-canc.ts`: the transcode job. Vanilla is a plain
- async generator with no way to stop the work; canc is a `cancIterAsync` generator threading an
- `AbortSignal` into each chunk.
+ async generator with no way to stop the work; canc is a `cancIterAsync` generator over a
+ cancelified transcoder, so a job cancel aborts the chunk in flight with no signal in the loop.
 - `src/main-vanilla.ts` vs `src/main-canc.ts`: the scripted runs. Same scenarios; the printed chunk
  counts diverge.
 
