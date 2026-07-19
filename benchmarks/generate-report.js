@@ -234,7 +234,7 @@ function buildSummaryTable(resultsByFile) {
 
 function main() {
  if (!fs.existsSync(RESULTS_DIR)) {
- console.error('No results/ dir yet — run `yarn bench <suite>` first.');
+ console.error('No results/ dir yet — run `npm run bench <suite>` first.');
  process.exitCode = 1;
  return;
  }
@@ -245,7 +245,7 @@ function main() {
  .sort();
 
  if (files.length === 0) {
- console.error('No result JSON files yet — run `yarn bench <suite>` first.');
+ console.error('No result JSON files yet — run `npm run bench <suite>` first.');
  process.exitCode = 1;
  return;
  }
@@ -263,7 +263,7 @@ function main() {
  const doc = [
  '# canc benchmarks',
  '',
- '**Generated doc — do not hand-edit.** Regenerate with `yarn bench:report` after ' +
+ '**Generated doc — do not hand-edit.** Regenerate with `npm run bench:report` after ' +
  '(re)running suites; source data lives in `benchmarks/results/*.json`, generator is ' +
  '`benchmarks/generate-report.js`.',
  '',

@@ -25,7 +25,7 @@ module.exports = {
  collectCoverage: true,
 
  // An array of glob patterns indicating a set of files for which coverage information should be collected
- // NOTE: rootDir is per-package (packages/canc-*) both for standalone `jest` runs (yarn test via
+ // NOTE: rootDir is per-package (packages/canc-*) both for standalone `jest` runs (npm test via
  // lerna) and for root multi-project runs (each project's rootDir = its package dir) — glob must
  // be relative to package rootDir, NOT prefixed with 'packages/*' (that never matches, coverage
  // silently collected 0 files, threshold never enforced — fixed).

@@ -73,7 +73,7 @@ function packPackages() {
  const pkgDir = path.join(repoRoot, 'packages', pkg);
  const distTypes = path.join(pkgDir, 'dist', 'types', 'index.d.ts');
  if (!fs.existsSync(distTypes)) {
- throw new Error(`Package "${pkg}" is not built (${distTypes} missing). Run \`yarn workspace @cancjs/${pkg.replace('canc-', '')} build\` first.`);
+ throw new Error(`Package "${pkg}" is not built (${distTypes} missing). Run \`npm run build --workspace=@cancjs/${pkg.replace('canc-', '')}\` first.`);
  }
  // `npm pack --pack-destination` writes the tarball and prints its filename.
  const out = run(npmCmd, ['pack', '--pack-destination', tarballsDir], { cwd: pkgDir }).trim();
