@@ -19,7 +19,7 @@ async function main() {
  const suiteName = process.argv[2];
 
  if (!suiteName) {
- console.error('Usage: yarn bench <suite>');
+ console.error('Usage: npm run bench <suite>');
  console.error(`Available suites: ${listSuites().join(', ') || '(none)'}`);
  process.exitCode = 1;
  return;

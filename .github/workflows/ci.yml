@@ -15,9 +15,9 @@ jobs:
  - uses: actions/setup-node@v4
  with:
  node-version: '20.x'
- cache: 'yarn'
- - run: yarn install --frozen-lockfile
- - run: yarn lint
+ cache: 'npm'
+ - run: npm ci
+ - run: npm run lint
 
  test:
  runs-on: ${{ matrix.os }}
@@ -30,9 +30,9 @@ jobs:
  - uses: actions/setup-node@v4
  with:
  node-version: ${{ matrix.node-version }}
- cache: 'yarn'
- - run: yarn install --frozen-lockfile
- - run: yarn test
+ cache: 'npm'
+ - run: npm ci
+ - run: npm test
 
  build:
  runs-on: ${{ matrix.os }}
@@ -45,9 +45,9 @@ jobs:
  - uses: actions/setup-node@v4
  with:
  node-version: ${{ matrix.node-version }}
- cache: 'yarn'
- - run: yarn install --frozen-lockfile
- - run: yarn build
+ cache: 'npm'
+ - run: npm ci
+ - run: npm run build
 
  decorators-babel-stage3:
  # Proves the stage-3 decorator flavor (@cancjs/decorators default export) compiles and runs
@@ -59,9 +59,9 @@ jobs:
  - uses: actions/setup-node@v4
  with:
  node-version: '20.x'
- cache: 'yarn'
- - run: yarn install --frozen-lockfile
- - run: yarn workspace @cancjs/decorators test
+ cache: 'npm'
+ - run: npm ci
+ - run: npm run test --workspace=@cancjs/decorators
 
  ts-version-matrix:
  # P4-2/P4-3: type-check fixture projects that import the BUILT @cancjs/*
@@ -76,9 +76,9 @@ jobs:
  - uses: actions/setup-node@v4
  with:
  node-version: '20.x'
- cache: 'yarn'
- - run: yarn install --frozen-lockfile
+ cache: 'npm'
+ - run: npm ci
  # Build the packages so the matrix type-checks against real dist, not src.
- - run: yarn build
+ - run: npm run build
  - name: TS version matrix (+ type assertions)
- run: yarn workspace @cancjs/tests-types matrix
+ run: npm run matrix --workspace=@cancjs/tests-types

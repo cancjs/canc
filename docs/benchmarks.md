@@ -1,6 +1,6 @@
 # canc benchmarks
 
-**Generated doc — do not hand-edit.** Regenerate with `yarn bench:report` after (re)running suites; source data lives in `benchmarks/results/*.json`, generator is `benchmarks/generate-report.js`.
+**Generated doc — do not hand-edit.** Regenerate with `npm run bench:report` after (re)running suites; source data lives in `benchmarks/results/*.json`, generator is `benchmarks/generate-report.js`.
 
 ## Methodology
 
