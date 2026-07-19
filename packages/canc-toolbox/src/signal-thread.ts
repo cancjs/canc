@@ -1,6 +1,6 @@
-import { CancelError, CancelablePromise, PromiseImpl, isCancelError } from '@cancjs/promise';
-import { lazy, nativeLazy } from '@cancjs/lazy-promise';
-import { IToolboxOptions, THandleCancel, construct, resolveImpl } from './options';
+import { CancelError, CancelablePromise, isCancelError } from '@cancjs/promise';
+import { lazy } from '@cancjs/lazy-promise';
+import { IToolboxOptions, THandleCancel } from './options';
 
 /** Structural AbortController, so no dependency on the ambient DOM/Node type in envs that polyfill it. */
 type AbortControllerCtor = new () => { abort(reason?: any): void; signal: any };
@@ -85,38 +85,30 @@ export type TCancelifyFn<A extends any[], R> = (getSignal: TGetSignal, args: A) 
 
 /**
  * Add cancellation to an already-promise-returning fn by handing it an outbound signal that aborts
- * when the returned promise is canceled. `boundImpl` fixes the promise implementation (the native
- * twin binds Promise); an unbound factory resolves the implementation per call through the registry.
+ * when the returned promise is canceled. The result is always a CancelablePromise; calling
+ * `getSignal()` inside fn materializes and wires the controller, while a fn that never calls it
+ * constructs nothing.
  */
-export function cancelifyFactory(boundImpl?: PromiseImpl) {
-	return function cancelify<A extends any[], R>(
-		fn: TCancelifyFn<A, R>,
-		options?: ICancelifyOptions,
-	): (...callArgs: A) => CancelablePromise<R> {
-		const Impl = resolveImpl(options, boundImpl);
-		const Ctor = options?.AbortController;
+export function cancelify<A extends any[], R>(
+	fn: TCancelifyFn<A, R>,
+	options?: ICancelifyOptions,
+): (...callArgs: A) => CancelablePromise<R> {
+	const Ctor = options?.AbortController;
 
-		return function (...callArgs: A): CancelablePromise<R> {
-			const run = (
-				resolve: (value: R | PromiseLike<R>) => void,
-				reject: (reason?: any) => void,
-				handleCancel?: THandleCancel,
-			) => {
-				const holder = makeCancelSignal(handleCancel, Ctor);
-				// Calling getSignal() inside fn materializes and wires the controller; a fn that never
-				// calls it constructs nothing.
-				Impl.resolve(fn(holder.getSignal, callArgs)).then(resolve, reject);
-			};
-
-			if (options?.lazy) {
-				const makeLazy = Impl === (Promise as unknown as PromiseImpl) ? nativeLazy : lazy;
-
-				return makeLazy(run, options) as unknown as CancelablePromise<R>;
-			}
-
-			return construct<R>(Impl, run, options) as CancelablePromise<R>;
+	return function (...callArgs: A): CancelablePromise<R> {
+		const run = (
+			resolve: (value: R | PromiseLike<R>) => void,
+			reject: (reason?: any) => void,
+			handleCancel?: THandleCancel,
+		) => {
+			const holder = makeCancelSignal(handleCancel, Ctor);
+			CancelablePromise.resolve(fn(holder.getSignal, callArgs)).then(resolve, reject);
 		};
+
+		if (options?.lazy) {
+			return lazy(run, options) as unknown as CancelablePromise<R>;
+		}
+
+		return new CancelablePromise<R>(run, options);
 	};
 }
-
-export const cancelify = cancelifyFactory();

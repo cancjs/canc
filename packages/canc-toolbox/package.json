@@ -25,12 +25,6 @@
  "types": "./dist/types/index.d.ts",
  "import": "./dist/index.mjs",
  "require": "./dist/index.cjs"
- },
- "./native": {
- "types@<4.7": "./dist/types-ts4.2/native.d.ts",
- "types": "./dist/types/native.d.ts",
- "import": "./dist/native.mjs",
- "require": "./dist/native.cjs"
  }
  },
  "engines": {

@@ -1,40 +1,38 @@
 import { CancelablePromise } from '@cancjs/promise';
-import { delay as delayImpl } from './delay';
-import { deferFactory, IDeferred } from './defer';
-import { timeout as timeoutImpl } from './timeout';
-import { waitFor as waitForImpl } from './wait-for';
-import { minDelay as minDelayImpl } from './min-delay';
-import { retry as retryImpl } from './retry';
+import * as tb from '../../_toolbox';
 import { IToolboxOptions } from './options';
-import { IWaitForOptions } from './wait-for';
-import { IRetryOptions } from './retry';
 
-// Prebound canc utilities. Each resolves its implementation through the layered precedence
-// (per-call options.impl, then the registered impl, then the built-in CancelablePromise), so a
-// bare `delay(100)` is cancelable by default and honors setPromiseImpl. The factories are generic
-// over the implementation and type their result as Promise<T>; these prebound entries default to
-// CancelablePromise, so they are surfaced with a CancelablePromise<T> return type and callers can
-// `.cancel()` them without a cast.
-export const delay: <T = void>(ms: number, value?: T, options?: IToolboxOptions) => CancelablePromise<T> = delayImpl as never;
-export const timeout: <T>(promise: T | PromiseLike<T>, ms?: number, options?: IToolboxOptions) => CancelablePromise<T> = timeoutImpl as never;
-export const waitFor: (condition: () => unknown, options?: IWaitForOptions) => CancelablePromise<void> = waitForImpl as never;
-export const minDelay: <T>(promise: T | PromiseLike<T>, ms: number, options?: IToolboxOptions) => CancelablePromise<T> = minDelayImpl as never;
-export const retry: <T>(input: (attempt: number) => T | PromiseLike<T>, options?: IRetryOptions) => CancelablePromise<T> = retryImpl as never;
+// Prebound canc utilities. Each binds the toolbox algorithm to CancelablePromise, so a bare
+// `delay(100)` is cancelable by default and surfaces a CancelablePromise<T> return type callers can
+// `.cancel()` without a cast.
+export const delay = <T = void>(ms: number, value?: T, options?: IToolboxOptions): CancelablePromise<T> =>
+	tb.delay(CancelablePromise as any, ms, value, options) as CancelablePromise<T>;
 
-export { delayFactory } from './delay';
-export { deferFactory, IDeferred } from './defer';
-export { timeoutFactory, TimeoutError, isTimeoutError } from './timeout';
-export { waitForFactory, IWaitForOptions } from './wait-for';
-export { minDelayFactory } from './min-delay';
-export { retryFactory, IRetryOptions } from './retry';
+export const timeout = <T>(promise: T | PromiseLike<T>, ms?: number, options?: IToolboxOptions): CancelablePromise<T> =>
+	tb.timeout(CancelablePromise as any, promise, ms, options) as CancelablePromise<T>;
+
+export const waitFor = (condition: () => unknown, options?: tb.IWaitForOptions): CancelablePromise<void> =>
+	tb.waitFor(CancelablePromise as any, condition, options) as CancelablePromise<void>;
+
+export const minDelay = <T>(promise: T | PromiseLike<T>, ms: number, options?: IToolboxOptions): CancelablePromise<T> =>
+	tb.minDelay(CancelablePromise as any, promise, ms, options) as CancelablePromise<T>;
+
+export const retry = <T>(input: (attempt: number) => T | PromiseLike<T>, options?: tb.IRetryOptions): CancelablePromise<T> =>
+	tb.retry(CancelablePromise as any, input, options) as CancelablePromise<T>;
+
+export const promisify = (fn: tb.TCallbackFn, options?: tb.IPromisifyOptions): (...args: any[]) => CancelablePromise<any> =>
+	tb.promisify(CancelablePromise as any, fn, options) as (...args: any[]) => CancelablePromise<any>;
+
+export const promisifyAll = <T extends object>(source: T, options?: tb.IPromisifyAllOptions): any =>
+	tb.promisifyAll(CancelablePromise as any, source, options);
+
+export { TimeoutError, isTimeoutError } from '../../_toolbox';
+export type { IWaitForOptions, IRetryOptions, IPromisifyOptions, IPromisifyAllOptions, TCallbackFn, IDeferred } from '../../_toolbox';
 
 export {
 	suppress,
-	suppressFactory,
 	suppressAbort,
-	suppressAbortFactory,
 	interopTimeout,
-	interopTimeoutFactory,
 	toAbortSignal,
 	withSignal,
 	SuppressCategory,
@@ -42,32 +40,18 @@ export {
 
 export { IToolboxOptions, THandleCancel, TToolboxExecutor } from './options';
 
-export { cancelify, cancelifyFactory, ICancelifyOptions, TCancelifyFn } from './signal-thread';
-
-export {
-	promisify,
-	promisifyFactory,
-	promisifyAll,
-	promisifyAllFactory,
-	IPromisifyOptions,
-	IPromisifyAllOptions,
-	TCallbackFn,
-} from './promisify';
+export { cancelify, ICancelifyOptions, TCancelifyFn } from './signal-thread';
 
 /**
  * A deferred whose promise is a CancelablePromise, so the holder can cancel it directly.
  */
-export interface ICancelableDeferred<T> extends IDeferred<T> {
+export interface ICancelableDeferred<T> extends tb.IDeferred<T> {
 	promise: CancelablePromise<T>;
 }
 
 /**
- * A defer whose promise is always a CancelablePromise, regardless of the registered implementation.
- * Canc-only: the native twin has no cancelable defer to expose, so this export is excluded there.
+ * A defer whose promise is always a CancelablePromise, so the holder can cancel it directly.
  */
 export function deferCancelable<T = void>(options?: IToolboxOptions): ICancelableDeferred<T> {
-	return deferFactory(CancelablePromise as unknown as import('@cancjs/promise').PromiseImpl)({
-		...options,
-		impl: undefined,
-	}) as ICancelableDeferred<T>;
+	return tb.defer<T>(CancelablePromise as any, options) as ICancelableDeferred<T>;
 }

@@ -1,5 +1,5 @@
 import { CancelablePromise, CancelError, isCancelError } from '@cancjs/promise';
-import { cancelify, cancelifyFactory, makeCancelSignal } from './signal-thread';
+import { cancelify, makeCancelSignal } from './signal-thread';
 
 // A minimal AbortController stand-in that records construction and abort calls, so tests can assert
 // that reading (or not reading) the injected signal controls whether a controller is ever built.
@@ -223,20 +223,6 @@ describe('cancelify', () => {
 			const reason = await Promise.resolve(promise).catch((e) => e);
 			expect(isCancelError(reason)).toBe(true);
 			expect(fn).not.toHaveBeenCalled();
-		});
-	});
-
-	describe('native impl', () => {
-		it('hands fn a getSignal that returns undefined and still runs it', async () => {
-			let sig: any = 'sentinel';
-			const nativeCancelify = cancelifyFactory(Promise as any);
-			const wrapped = nativeCancelify((getSignal: any) => {
-				sig = getSignal();
-				return 'native';
-			});
-
-			await expect(wrapped()).resolves.toBe('native');
-			expect(sig).toBeUndefined();
 		});
 	});
 });
