@@ -13,9 +13,9 @@
  },
  "dependencies": {
  "@shared/mock-api": "*",
- "@cancjs/promise": "link:../../packages/canc-promise",
- "@cancjs/coroutine": "link:../../packages/canc-coroutine",
- "@cancjs/decorators": "link:../../packages/canc-decorators"
+ "@cancjs/promise": "file:../../packages/canc-promise",
+ "@cancjs/coroutine": "file:../../packages/canc-coroutine",
+ "@cancjs/decorators": "file:../../packages/canc-decorators"
  },
  "devDependencies": {
  "@babel/core": "7.29.7",

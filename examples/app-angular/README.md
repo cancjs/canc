@@ -6,13 +6,13 @@ Two service implementations are shown side-by-side to teach the decorator and no
 
 ## Prerequisites
 
-The example consumes the built `dist` of `@cancjs/promise`, `@cancjs/coroutine`, and `@cancjs/decorators` through yarn `link:` paths. Build the monorepo first, then install this workspace:
+The example consumes the built `dist` of `@cancjs/promise`, `@cancjs/coroutine`, and `@cancjs/decorators` through npm `file:` paths. Build the monorepo first, then install this workspace:
 
 ```
 cd ../../ # monorepo root (canc)
-yarn build
+npm run build
 cd examples
-yarn
+npm install
 ```
 
 ## Run
@@ -20,10 +20,10 @@ yarn
 Two flavors, each its own Angular CLI configuration and dev server:
 
 ```
-yarn workspace app-angular start:canc # runs ng serve -c canc
-yarn workspace app-angular start:vanilla # runs ng serve -c vanilla
-yarn workspace app-angular test
-yarn workspace app-angular typecheck
+npm run start:canc --workspace=app-angular # runs ng serve -c canc
+npm run start:vanilla --workspace=app-angular # runs ng serve -c vanilla
+npm run test --workspace=app-angular
+npm run typecheck --workspace=app-angular
 ```
 
 `start:canc` / `start:vanilla` are aliases of the `dev:*` scripts. Open the browser console to watch the mock API log which requests start, complete, and abort.

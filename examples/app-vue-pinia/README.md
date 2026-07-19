@@ -9,24 +9,24 @@ that the UI has already moved past.
 
 ## Prerequisites
 
-The examples consume the built `dist` of each `@cancjs/*` package through a yarn `link:`.
+The examples consume the built `dist` of each `@cancjs/*` package through a npm `file:`.
 Build the monorepo first, then install this workspace:
 
 ```
 cd ../../ # monorepo root (canc)
-yarn build
+npm run build
 cd examples
-yarn
+npm install
 ```
 
 ## Run
 
 ```
-yarn workspace app-vue-pinia dev:vanilla
-yarn workspace app-vue-pinia dev:canc
-yarn workspace app-vue-pinia start:vanilla # production build + preview
-yarn workspace app-vue-pinia start:canc
-yarn workspace app-vue-pinia test
+npm run dev:vanilla --workspace=app-vue-pinia
+npm run dev:canc --workspace=app-vue-pinia
+npm run start:vanilla --workspace=app-vue-pinia # production build + preview
+npm run start:canc --workspace=app-vue-pinia
+npm run test --workspace=app-vue-pinia
 ```
 
 Open the printed preview URL, fill in an address, click Continue, then navigate back to address

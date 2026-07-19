@@ -18,9 +18,9 @@ Dashboard bootstrap scenario: parallel widget loads (sales, traffic, alerts, new
 
 Install dependencies first in the repo root:
 ```bash
-yarn build
+npm run build
 cd examples
-yarn
+npm install
 ```
 
 Then in this directory:

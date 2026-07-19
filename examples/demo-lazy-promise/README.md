@@ -23,19 +23,19 @@ With LazyPromise: executor = fetch, teardown = abort, reset = re-fetch on all-ca
 
 ```bash
 # Install (from examples/ root)
-yarn
+npm install
 
 # Vanilla baseline (memoized-thunk, no cancel)
-yarn start:vanilla
+npm run start:vanilla
 
 # Canc flavor (LazyPromise, cancellable)
-yarn start:canc
+npm run start:canc
 
 # Tests
-yarn test
+npm run test
 
 # Type check both
-yarn typecheck
+npm run typecheck
 ```
 
 ## Files to Diff

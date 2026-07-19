@@ -9,22 +9,22 @@ Domain: crawling your own website to find dead links.
 
 ## Prerequisites
 
-The examples consume the built `dist` of each `@cancjs/*` package through a yarn `link:`. Build the
+The examples consume the built `dist` of each `@cancjs/*` package through a npm `file:`. Build the
 monorepo first, then install this workspace:
 
 ```
 cd ../../ # monorepo root (canc)
-yarn build
+npm run build
 cd examples
-yarn
+npm install
 ```
 
 ## Run
 
 ```
-yarn workspace app-crawler-race start:vanilla
-yarn workspace app-crawler-race start:canc
-yarn workspace app-crawler-race test
+npm run start:vanilla --workspace=app-crawler-race
+npm run start:canc --workspace=app-crawler-race
+npm run test --workspace=app-crawler-race
 ```
 
 Both entries crawl the site depth-2, then abandon the crawl mid-flight, and print how many page

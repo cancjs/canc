@@ -30,14 +30,14 @@ Build the monorepo first so `packages/*/dist` exists:
 
 ```bash
 cd ../.. # monorepo root
-yarn build
+npm run build
 ```
 
 Then install this example's dependencies:
 
 ```bash
 cd examples/app-fastify-mongoose
-yarn install
+npm install
 ```
 
 ### Both flavors
@@ -45,8 +45,8 @@ yarn install
 Each entry boots a Fastify server, fires one request, and destroys the socket mid-search:
 
 ```bash
-yarn start:vanilla # every query runs for the dead socket
-yarn start:canc # the chain stops, later queries are skipped
+npm run start:vanilla # every query runs for the dead socket
+npm run start:canc # the chain stops, later queries are skipped
 ```
 
 The canc run reports the skipped queries; the vanilla run reports the queries it still ran.
@@ -54,8 +54,8 @@ The canc run reports the skipped queries; the vanilla run reports the queries it
 ### Typecheck and tests
 
 ```bash
-yarn typecheck
-yarn test
+npm run typecheck
+npm run test
 ```
 
 ## Files to compare

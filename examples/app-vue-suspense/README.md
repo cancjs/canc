@@ -9,24 +9,24 @@ The `-canc` flavor cancels the abandoned load (an `aborted` marker in the mock c
 
 ## Prerequisites
 
-The example consumes the built `dist` of each `@cancjs/*` package through a yarn `link:`. Build the
+The example consumes the built `dist` of each `@cancjs/*` package through a npm `file:`. Build the
 monorepo first, then install this workspace:
 
 ```
 cd ../../ # monorepo root (canc)
-yarn build
+npm run build
 cd examples
-yarn
+npm install
 ```
 
 ## Run
 
 ```
-yarn workspace app-vue-suspense dev:vanilla
-yarn workspace app-vue-suspense dev:canc
-yarn workspace app-vue-suspense start:vanilla # production build + preview
-yarn workspace app-vue-suspense start:canc
-yarn workspace app-vue-suspense test
+npm run dev:vanilla --workspace=app-vue-suspense
+npm run dev:canc --workspace=app-vue-suspense
+npm run start:vanilla --workspace=app-vue-suspense # production build + preview
+npm run start:canc --workspace=app-vue-suspense
+npm run test --workspace=app-vue-suspense
 ```
 
 Open the printed preview URL, open a product, then open another while the first is still loading.

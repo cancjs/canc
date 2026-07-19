@@ -18,22 +18,22 @@ below the cancel point runs.
 
 ## Prerequisites
 
-The examples consume the built `dist` of each `@cancjs/*` package through a yarn `link:`. Build the
+The examples consume the built `dist` of each `@cancjs/*` package through a npm `file:`. Build the
 monorepo first, then install this workspace:
 
 ```
 cd ../../ # monorepo root (canc)
-yarn build
+npm run build
 cd examples
-yarn
+npm install
 ```
 
 ## Run
 
 ```
-yarn workspace app-ai-chat-stop start:vanilla
-yarn workspace app-ai-chat-stop start:canc
-yarn workspace app-ai-chat-stop test
+npm run start:vanilla --workspace=app-ai-chat-stop
+npm run start:canc --workspace=app-ai-chat-stop
+npm run test --workspace=app-ai-chat-stop
 ```
 
 Each entry boots the express server on an ephemeral port, then drives a scripted Stop (send a

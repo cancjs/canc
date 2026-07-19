@@ -22,14 +22,14 @@ Build the monorepo first to generate `/packages/*/dist`:
 
 ```bash
 cd ../.. # back to monorepo root
-yarn build
+npm run build
 ```
 
 Then enter the examples workspace:
 
 ```bash
 cd examples/demo-coroutine
-yarn install
+npm install
 ```
 
 ### Vanilla flavor (with AbortSignal)
@@ -37,7 +37,7 @@ yarn install
 Shows the same checkout using native AbortSignal threading. Every step must check the signal after awaiting:
 
 ```bash
-yarn start:vanilla
+npm run start:vanilla
 ```
 
 Look for the comments marking signal-check sites. The vanilla version has 5 signal touchpoints vs. 0 in the canc version.
@@ -47,19 +47,19 @@ Look for the comments marking signal-check sites. The vanilla version has 5 sign
 The same checkout using `cancAsync`. Cancellation is ambient, no per-step checks:
 
 ```bash
-yarn start:canc
+npm run start:canc
 ```
 
 ### Both flavors typecheck
 
 ```bash
-yarn typecheck
+npm run typecheck
 ```
 
 ### Smoke tests
 
 ```bash
-yarn test
+npm run test
 ```
 
 ## Files to compare

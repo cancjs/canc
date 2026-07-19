@@ -345,7 +345,7 @@ future `-legacy` package entries rather than claimed here; see the package list 
 
 ## Examples
 
-Runnable examples live in [examples](https://github.com/cancjs/canc/tree/master/examples), a separate yarn workspace with its own README.
+Runnable examples live in [examples](https://github.com/cancjs/canc/tree/master/examples), a separate npm install root with its own README.
 
 <!--
 ### Component with uncancelable promises:

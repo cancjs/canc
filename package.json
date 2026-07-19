@@ -9,11 +9,10 @@
  "benchmarks",
  "tests-types"
  ],
- "engines": {
- "yarn": ">=1"
- },
- "resolutions": {
- "downlevel-dts/typescript": "~5.9.3"
+ "overrides": {
+ "downlevel-dts": {
+ "typescript": "~5.9.3"
+ }
  },
  "scripts": {
  "build": "cross-env NODE_OPTIONS=--no-deprecation lerna run build --stream",
@@ -21,11 +20,11 @@
  "lint": "cross-env NODE_OPTIONS=--no-deprecation lerna run lint --stream",
  "publish": "cross-env NODE_OPTIONS=--no-deprecation lerna publish from-git",
  "version": "cross-env NODE_OPTIONS=--no-deprecation lerna version --no-push",
- "bench": "yarn workspace @cancjs/benchmarks bench",
- "bench:report": "yarn workspace @cancjs/benchmarks bench:report",
- "bench:browser": "yarn workspace @cancjs/benchmarks bench:browser",
- "examples:test": "yarn --cwd examples examples:test",
- "examples:typecheck": "yarn --cwd examples examples:typecheck"
+ "bench": "npm run bench --workspace=@cancjs/benchmarks",
+ "bench:report": "npm run bench:report --workspace=@cancjs/benchmarks",
+ "bench:browser": "npm run bench:browser --workspace=@cancjs/benchmarks",
+ "examples:test": "npm --prefix examples run examples:test",
+ "examples:typecheck": "npm --prefix examples run examples:typecheck"
  },
  "devDependencies": {
  "@eslint/js": "~9.39.0",

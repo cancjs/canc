@@ -8,12 +8,12 @@ immediate exit.
 
 ```
 cd ../../ # monorepo root (canc)
-yarn build
+npm run build
 cd examples
-yarn
-yarn workspace app-cli-graceful start:vanilla
-yarn workspace app-cli-graceful start:canc
-yarn workspace app-cli-graceful test
+npm install
+npm run start:vanilla --workspace=app-cli-graceful
+npm run start:canc --workspace=app-cli-graceful
+npm run test --workspace=app-cli-graceful
 ```
 
 Press Ctrl-C once while either entry is running to trigger a graceful stop; press it again to

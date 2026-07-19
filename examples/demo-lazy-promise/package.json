@@ -11,8 +11,8 @@
  },
  "dependencies": {
  "@shared/mock-api": "*",
- "@cancjs/promise": "link:../../packages/canc-promise",
- "@cancjs/lazy-promise": "link:../../packages/canc-lazy-promise"
+ "@cancjs/promise": "file:../../packages/canc-promise",
+ "@cancjs/lazy-promise": "file:../../packages/canc-lazy-promise"
  },
  "devDependencies": {
  "@types/jest": "30.0.0",

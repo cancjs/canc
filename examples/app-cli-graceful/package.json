@@ -10,8 +10,8 @@
  "typecheck": "tsc --noEmit --project tsconfig.json"
  },
  "dependencies": {
- "@cancjs/promise": "link:../../packages/canc-promise",
- "@cancjs/coroutine": "link:../../packages/canc-coroutine",
+ "@cancjs/promise": "file:../../packages/canc-promise",
+ "@cancjs/coroutine": "file:../../packages/canc-coroutine",
  "@shared/lib": "*",
  "@shared/util": "*"
  },

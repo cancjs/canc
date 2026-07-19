@@ -7,22 +7,22 @@ side-by-side code.
 
 ## Prerequisites
 
-The examples consume the built `dist` of each `@cancjs/*` package through a yarn `link:`.
+The examples consume the built `dist` of each `@cancjs/*` package through a npm `file:`.
 Build the monorepo first, then install this workspace:
 
 ```
 cd ../../ # monorepo root (canc)
-yarn build
+npm run build
 cd examples
-yarn
+npm install
 ```
 
 ## Run
 
 ```
-yarn workspace demo-promise-basics start:vanilla
-yarn workspace demo-promise-basics start:canc
-yarn workspace demo-promise-basics test
+npm run start:vanilla --workspace=demo-promise-basics
+npm run start:canc --workspace=demo-promise-basics
+npm run test --workspace=demo-promise-basics
 ```
 
 The vanilla entry shows two functions:
@@ -60,5 +60,5 @@ The canc entry runs three scenarios:
  shows the source auto-canceling in response. Vanilla has no counterpart, only the source of
  truth for interest tracking would have to be built by hand.
 - This is a pilot; its exact anatomy (files, functions, comments, outputs) serves as the
- reference for all later examples. Verify mechanics with `yarn examples:test` from the
+ reference for all later examples. Verify mechanics with `npm run examples:test` from the
  examples root.

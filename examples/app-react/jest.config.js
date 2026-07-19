@@ -8,15 +8,6 @@ module.exports = {
  testEnvironment: 'jsdom',
  testMatch: ['<rootDir>/src/**/*.spec.tsx'],
  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
- // The examples yarn root also hosts a React 19 example, so pin this example's React to its own
- // nested copy — otherwise jest hoisting mixes two React versions and rendering fails.
- moduleNameMapper: {
- ...base.moduleNameMapper,
- '^react$': '<rootDir>/node_modules/react',
- '^react-dom$': '<rootDir>/node_modules/react-dom',
- '^react-dom/(.*)$': '<rootDir>/node_modules/react-dom/$1',
- '^react/(.*)$': '<rootDir>/node_modules/react/$1',
- },
  transform: {
  '^.+\\.[tj]sx?$': ['ts-jest', {
  tsconfig: {

@@ -9,7 +9,7 @@
  "typecheck": "tsc --noEmit --project tsconfig.json"
  },
  "dependencies": {
- "@cancjs/promise": "link:../../../packages/canc-promise"
+ "@cancjs/promise": "file:../../../packages/canc-promise"
  },
  "devDependencies": {
  "typescript": "5.9.3"

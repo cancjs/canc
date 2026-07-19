@@ -9,22 +9,22 @@ Domain: a user exports a video, watches the progress bar, then cancels or just c
 
 ## Prerequisites
 
-The examples consume the built `dist` of each `@cancjs/*` package through a yarn `link:`.
+The examples consume the built `dist` of each `@cancjs/*` package through a npm `file:`.
 Build the monorepo first, then install this workspace:
 
 ```
 cd ../../ # monorepo root (canc)
-yarn build
+npm run build
 cd examples
-yarn
+npm install
 ```
 
 ## Run
 
 ```
-yarn workspace app-ws-progress start:vanilla
-yarn workspace app-ws-progress start:canc
-yarn workspace app-ws-progress test
+npm run start:vanilla --workspace=app-ws-progress
+npm run start:canc --workspace=app-ws-progress
+npm run test --workspace=app-ws-progress
 ```
 
 Each entry boots the server, starts an export, cancels it at ~30%, and prints how many transcode

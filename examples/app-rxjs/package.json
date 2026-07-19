@@ -10,8 +10,8 @@
  "typecheck": "tsc --noEmit --project tsconfig.json"
  },
  "dependencies": {
- "@cancjs/promise": "link:../../packages/canc-promise",
- "@cancjs/toolbox": "link:../../packages/canc-toolbox",
+ "@cancjs/promise": "file:../../packages/canc-promise",
+ "@cancjs/toolbox": "file:../../packages/canc-toolbox",
  "rxjs": "7.8.2"
  },
  "devDependencies": {

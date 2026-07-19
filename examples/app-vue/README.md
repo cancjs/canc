@@ -12,14 +12,14 @@ request was really stopped.
 
 ## Prerequisites
 
-The example consumes the built `dist` of `@cancjs/promise` through a yarn `link:`. Build the
+The example consumes the built `dist` of `@cancjs/promise` through a npm `file:`. Build the
 monorepo first, then install this workspace:
 
 ```
 cd ../../ # monorepo root (canc)
-yarn build
+npm run build
 cd examples
-yarn
+npm install
 ```
 
 ## Run
@@ -27,12 +27,12 @@ yarn
 Two flavors, each its own Vite dev server and HTML entry:
 
 ```
-yarn workspace app-vue start:canc # canc.html + src/main-canc.ts
-yarn workspace app-vue start:vanilla # vanilla.html + src/main-vanilla.ts
-yarn workspace app-vue dev:canc # same, with HMR
-yarn workspace app-vue dev:vanilla
-yarn workspace app-vue test
-yarn workspace app-vue typecheck
+npm run start:canc --workspace=app-vue # canc.html + src/main-canc.ts
+npm run start:vanilla --workspace=app-vue # vanilla.html + src/main-vanilla.ts
+npm run dev:canc --workspace=app-vue # same, with HMR
+npm run dev:vanilla --workspace=app-vue
+npm run test --workspace=app-vue
+npm run typecheck --workspace=app-vue
 ```
 
 Open the browser console to watch the mock API log which catalog and image requests start,

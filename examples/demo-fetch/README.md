@@ -16,20 +16,20 @@ GitHub-style repository search. Search endpoint returns a list; follow-up readme
 
 ## Running
 
-Requires: Node.js, `yarn build` in monorepo root (consumes dist packages).
+Requires: Node.js, `npm run build` in monorepo root (consumes dist packages).
 
 ```bash
 # Uncancelable + workaround flavor
-yarn start:vanilla
+npm run start:vanilla
 
 # Clean cancellation via canc-fetch + canc-toolbox
-yarn start:canc
+npm run start:canc
 
 # Smoke tests
-yarn test
+npm run test
 
 # Type check
-yarn typecheck
+npm run typecheck
 ```
 
 ## File Map

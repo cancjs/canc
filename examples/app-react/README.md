@@ -12,14 +12,14 @@ proving the request was really stopped.
 
 ## Prerequisites
 
-The example consumes the built `dist` of `@cancjs/promise` through a yarn `link:`. Build the
+The example consumes the built `dist` of `@cancjs/promise` through a npm `file:`. Build the
 monorepo first, then install this workspace:
 
 ```
 cd ../../ # monorepo root (canc)
-yarn build
+npm run build
 cd examples
-yarn
+npm install
 ```
 
 ## Run
@@ -27,10 +27,10 @@ yarn
 Two flavors, each its own Vite dev server and HTML entry:
 
 ```
-yarn workspace app-react dev:canc # canc.html + src/main-canc.tsx
-yarn workspace app-react dev:vanilla # vanilla.html + src/main-vanilla.tsx
-yarn workspace app-react test
-yarn workspace app-react typecheck
+npm run dev:canc --workspace=app-react # canc.html + src/main-canc.tsx
+npm run dev:vanilla --workspace=app-react # vanilla.html + src/main-vanilla.tsx
+npm run test --workspace=app-react
+npm run typecheck --workspace=app-react
 ```
 
 `start:canc` / `start:vanilla` are aliases of the `dev:*` scripts. Open the browser console to
