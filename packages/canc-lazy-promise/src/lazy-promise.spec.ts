@@ -1,7 +1,7 @@
 import { CancelablePromise, CancelError, setPromiseImpl } from '@cancjs/promise';
-import { lazy, nativeLazy, LazyPromise, NativeLazyPromise } from './lazy-promise';
+import { lazy, CancelableLazyPromise } from './lazy-promise';
 
-describe('LazyPromise', () => {
+describe('CancelableLazyPromise', () => {
 	afterEach(() => {
 		// Clear any registry override a test may have set.
 		setPromiseImpl(undefined);
@@ -153,39 +153,11 @@ describe('LazyPromise', () => {
 		});
 
 		it('honors a class static override', async () => {
-			class MyLazy<T> extends LazyPromise<T> {
+			class MyLazy<T> extends CancelableLazyPromise<T> {
 				static PromiseImpl = Promise as any;
 			}
 			const p = new MyLazy<number>((resolve) => resolve(9));
 			expect(await p).toBe(9);
-		});
-	});
-
-	describe('native twin', () => {
-		it('runs lazily and caches a single execution', async () => {
-			const executor = jest.fn((resolve: (v: number) => void) => resolve(3));
-			const p = nativeLazy<number>(executor);
-
-			expect(executor).not.toHaveBeenCalled();
-			const [a, b] = await Promise.all([Promise.resolve(p.then((v) => v)), Promise.resolve(p.then((v) => v))]);
-
-			expect(executor).toHaveBeenCalledTimes(1);
-			expect([a, b]).toEqual([3, 3]);
-		});
-
-		it('uses native Promise as the impl', () => {
-			expect(NativeLazyPromise.PromiseImpl).toBe(Promise);
-		});
-
-		it('runs returned teardown on cancel', async () => {
-			const teardown = jest.fn();
-			const p = nativeLazy<number>(() => teardown);
-
-			p.then(() => undefined, () => undefined);
-			await Promise.resolve();
-			p.cancel();
-
-			expect(teardown).toHaveBeenCalledTimes(1);
 		});
 	});
 });
