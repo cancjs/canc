@@ -9,22 +9,22 @@ Domain: an operator opens an orders report, then closes the tab before it finish
 
 ## Prerequisites
 
-The examples consume the built `dist` of each `@cancjs/*` package through a yarn `link:`.
+The examples consume the built `dist` of each `@cancjs/*` package through a npm `file:`.
 Build the monorepo first, then install this workspace:
 
 ```
 cd ../../ # monorepo root (canc)
-yarn build
+npm run build
 cd examples
-yarn
+npm install
 ```
 
 ## Run
 
 ```
-yarn workspace app-express-kysely start:vanilla
-yarn workspace app-express-kysely start:canc
-yarn workspace app-express-kysely test
+npm run start:vanilla --workspace=app-express-kysely
+npm run start:canc --workspace=app-express-kysely
+npm run test --workspace=app-express-kysely
 ```
 
 Each entry boots the server, starts an orders report, destroys the client socket partway through,

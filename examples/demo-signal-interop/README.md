@@ -17,10 +17,10 @@ signal-based APIs and vice versa.
 
 ```bash
 # Vanilla: AbortController manual threading + listener cleanup
-yarn start:vanilla
+npm run start:vanilla
 
 # Canc: { signal } option + auto cleanup
-yarn start:canc
+npm run start:canc
 ```
 
 ## File map
@@ -120,8 +120,8 @@ orchestrates at the promise boundary.
 ## Testing
 
 ```bash
-yarn test # smoke tests for both entries
-yarn typecheck # both flavors type-check
+npm run test # smoke tests for both entries
+npm run typecheck # both flavors type-check
 ```
 
 ## Copy & adapt

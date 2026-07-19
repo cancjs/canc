@@ -8,24 +8,24 @@ page) should not let a stale response overwrite what the user is actually lookin
 
 ## Prerequisites
 
-The examples consume the built `dist` of each `@cancjs/*` package through a yarn `link:`.
+The examples consume the built `dist` of each `@cancjs/*` package through a npm `file:`.
 Build the monorepo first, then install this workspace:
 
 ```
 cd ../../ # monorepo root (canc)
-yarn build
+npm run build
 cd examples
-yarn
+npm install
 ```
 
 ## Run
 
 ```
-yarn workspace app-react-zustand dev:vanilla
-yarn workspace app-react-zustand dev:canc
-yarn workspace app-react-zustand start:vanilla # production build + preview
-yarn workspace app-react-zustand start:canc
-yarn workspace app-react-zustand test
+npm run dev:vanilla --workspace=app-react-zustand
+npm run dev:canc --workspace=app-react-zustand
+npm run start:vanilla --workspace=app-react-zustand # production build + preview
+npm run start:canc --workspace=app-react-zustand
+npm run test --workspace=app-react-zustand
 ```
 
 Open the printed preview URL, click an album, then click another one quickly.

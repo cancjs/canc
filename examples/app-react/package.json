@@ -14,8 +14,8 @@
  "typecheck": "tsc --noEmit --project tsconfig.json"
  },
  "dependencies": {
- "@cancjs/promise": "link:../../packages/canc-promise",
- "@cancjs/toolbox": "link:../../packages/canc-toolbox",
+ "@cancjs/promise": "file:../../packages/canc-promise",
+ "@cancjs/toolbox": "file:../../packages/canc-toolbox",
  "@shared/mock-api": "*",
  "react": "19.2.7",
  "react-dom": "19.2.7"

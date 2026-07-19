@@ -6,22 +6,22 @@ ordering, shield survival, and disposal-after-settle semantics.
 
 ## Prerequisites
 
-The examples consume the built `dist` of each `@cancjs/*` package through a yarn `link:`.
+The examples consume the built `dist` of each `@cancjs/*` package through a npm `file:`.
 Build the monorepo first, then install this workspace:
 
 ```
 cd ../../ # monorepo root (canc)
-yarn build
+npm run build
 cd examples
-yarn
+npm install
 ```
 
 ## Run
 
 ```
-yarn workspace demo-async-dispose start:vanilla
-yarn workspace demo-async-dispose start:canc
-yarn workspace demo-async-dispose test
+npm run start:vanilla --workspace=demo-async-dispose
+npm run start:canc --workspace=demo-async-dispose
+npm run test --workspace=demo-async-dispose
 ```
 
 Both entries run four scenarios: happy path, error thrown mid-scope, early return, and a

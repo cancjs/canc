@@ -41,13 +41,13 @@ example, so copy it into your own project freely and adapt it.
 
 ## Run
 
-Build the packages once from the monorepo root (`yarn build`), then install here (`yarn` in the
+Build the packages once from the monorepo root (`npm run build`), then install here (`npm install` in the
 `examples/` root).
 
-- `yarn start:vanilla` runs the leaking flavor.
-- `yarn start:canc` runs the canceling flavor.
-- `yarn test` runs the smoke suite.
-- `yarn typecheck` typechecks both flavors.
+- `npm run start:vanilla` runs the leaking flavor.
+- `npm run start:canc` runs the canceling flavor.
+- `npm run test` runs the smoke suite.
+- `npm run typecheck` typechecks both flavors.
 
 ## Files to diff
 

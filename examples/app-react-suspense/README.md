@@ -11,14 +11,14 @@ The `-vanilla` flavor cannot, so the abandoned request finishes anyway.
 
 ## Prerequisites
 
-The example consumes the built `dist` of each `@cancjs/*` package through a yarn `link:`. Build the
+The example consumes the built `dist` of each `@cancjs/*` package through a npm `file:`. Build the
 monorepo first, then install this workspace:
 
 ```
 cd ../../ # monorepo root (canc)
-yarn build
+npm run build
 cd examples
-yarn
+npm install
 ```
 
 ## Run
@@ -26,10 +26,10 @@ yarn
 Two flavors, each its own Vite dev server and HTML entry:
 
 ```
-yarn workspace app-react-suspense dev:canc # canc.html + src/main-canc.tsx
-yarn workspace app-react-suspense dev:vanilla # vanilla.html + src/main-vanilla.tsx
-yarn workspace app-react-suspense test
-yarn workspace app-react-suspense typecheck
+npm run dev:canc --workspace=app-react-suspense # canc.html + src/main-canc.tsx
+npm run dev:vanilla --workspace=app-react-suspense # vanilla.html + src/main-vanilla.tsx
+npm run test --workspace=app-react-suspense
+npm run typecheck --workspace=app-react-suspense
 ```
 
 `start:canc` / `start:vanilla` are aliases of the `dev:*` scripts. Open the browser console to watch

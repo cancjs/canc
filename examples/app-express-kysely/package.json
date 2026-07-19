@@ -10,9 +10,9 @@
  "typecheck": "tsc --noEmit --project tsconfig.json"
  },
  "dependencies": {
- "@cancjs/promise": "link:../../packages/canc-promise",
- "@cancjs/coroutine": "link:../../packages/canc-coroutine",
- "@cancjs/toolbox": "link:../../packages/canc-toolbox",
+ "@cancjs/promise": "file:../../packages/canc-promise",
+ "@cancjs/coroutine": "file:../../packages/canc-coroutine",
+ "@cancjs/toolbox": "file:../../packages/canc-toolbox",
  "better-sqlite3": "12.11.1",
  "express": "5.2.1",
  "kysely": "0.29.3"

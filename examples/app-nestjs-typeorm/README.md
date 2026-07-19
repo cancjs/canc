@@ -37,17 +37,17 @@ Build the canc packages first (the example consumes their built output):
 
 ```
 # from the monorepo root
-yarn build
+npm run build
 # then, in this examples root
-yarn
+npm install
 ```
 
 Then from this directory:
 
 ```
-yarn start:canc # cancels mid-bulk, rolls back, count unchanged
-CANC_MANUAL=1 yarn start:canc # same, using the no-decorator service
-yarn start:vanilla # no cancellation: the full bulk run commits
+npm run start:canc # cancels mid-bulk, rolls back, count unchanged
+CANC_MANUAL=1 npm run start:canc # same, using the no-decorator service
+npm run start:vanilla # no cancellation: the full bulk run commits
 ```
 
 Each entry boots the app, starts a bulk generation, destroys the client socket partway through, and

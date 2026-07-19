@@ -24,14 +24,14 @@ Six scenarios demonstrating how CancelablePromise improves control over async wo
 
 ## Running
 
-Requires built @cancjs/promise; run `yarn build` in the monorepo root first.
+Requires built @cancjs/promise; run `npm run build` in the monorepo root first.
 
 ```bash
-yarn install
-yarn start:vanilla # Plain promises: see the waste comments
-yarn start:canc # CancelablePromise: cancellation just works
-yarn test # Specs: timer count + abort markers
-yarn typecheck # Both flavors must type-check
+npm install
+npm run start:vanilla # Plain promises: see the waste comments
+npm run start:canc # CancelablePromise: cancellation just works
+npm run test # Specs: timer count + abort markers
+npm run typecheck # Both flavors must type-check
 ```
 
 ## Files to study

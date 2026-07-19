@@ -11,9 +11,9 @@
  },
  "dependencies": {
  "@shared/mock-api": "*",
- "@cancjs/promise": "link:../../packages/canc-promise",
- "@cancjs/coroutine": "link:../../packages/canc-coroutine",
- "@cancjs/toolbox": "link:../../packages/canc-toolbox",
+ "@cancjs/promise": "file:../../packages/canc-promise",
+ "@cancjs/coroutine": "file:../../packages/canc-coroutine",
+ "@cancjs/toolbox": "file:../../packages/canc-toolbox",
  "express": "5.2.1"
  },
  "optionalDependencies": {

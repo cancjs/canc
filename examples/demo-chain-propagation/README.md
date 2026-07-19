@@ -23,11 +23,11 @@ Special options:
 ## Run both flavors
 
 ```bash
-yarn install
-yarn start:vanilla # Plain promises: all calls complete regardless
-yarn start:canc # CancelablePromise: see the cancellation in action
-yarn test # Smoke tests: bubble and partial scenarios
-yarn typecheck # Type-check both entrypoints
+npm install
+npm run start:vanilla # Plain promises: all calls complete regardless
+npm run start:canc # CancelablePromise: see the cancellation in action
+npm run test # Smoke tests: bubble and partial scenarios
+npm run typecheck # Type-check both entrypoints
 ```
 
 ## Files to study

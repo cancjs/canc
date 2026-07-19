@@ -61,22 +61,22 @@ mock-api boundary, and no later step is ever started.
 
 ## Prerequisites
 
-The examples consume the built `dist` of each `@cancjs/*` package through a yarn `link:`. Build the
+The examples consume the built `dist` of each `@cancjs/*` package through a npm `file:`. Build the
 monorepo first, then install this workspace:
 
 ```
 cd ../../ # monorepo root (canc)
-yarn build
+npm run build
 cd examples
-yarn
+npm install
 ```
 
 ## Run
 
 ```
-yarn workspace app-ai-rag-pipeline start:vanilla
-yarn workspace app-ai-rag-pipeline start:canc
-yarn workspace app-ai-rag-pipeline test
+npm run start:vanilla --workspace=app-ai-rag-pipeline
+npm run start:canc --workspace=app-ai-rag-pipeline
+npm run test --workspace=app-ai-rag-pipeline
 ```
 
 Each entry runs three scenarios: a full run, a cancel during rerank, and a race where a cached

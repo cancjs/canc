@@ -39,17 +39,17 @@ Build the workspace packages first (the example consumes their built `dist`):
 
 ```
 # from the monorepo root
-yarn build
+npm run build
 # then, from examples/
-yarn
+npm install
 ```
 
 Then, from `examples/demo-decorators/`:
 
-- `yarn start:vanilla` runs the manual flavor.
-- `yarn start:canc` runs the stage-3 flavor.
-- `yarn start:legacy` runs the TS-legacy flavor (its own tsconfig turns on `experimentalDecorators`).
-- `yarn start:all` runs the manual, stage-3, and TS-legacy flavors in sequence for a side-by-side read.
+- `npm run start:vanilla` runs the manual flavor.
+- `npm run start:canc` runs the stage-3 flavor.
+- `npm run start:legacy` runs the TS-legacy flavor (its own tsconfig turns on `experimentalDecorators`).
+- `npm run start:all` runs the manual, stage-3, and TS-legacy flavors in sequence for a side-by-side read.
 
 The babel-legacy flavor needs Babel's transform to run, so it is exercised by the smoke test rather
 than a `start` script.
