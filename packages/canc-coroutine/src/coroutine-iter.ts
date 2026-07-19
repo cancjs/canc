@@ -106,6 +106,12 @@ export function cancIterAsync(genFn: IGeneratorLikeFn, options: TCancelableCorou
  let currentStep: TAsyncGeneratorStep | null = null;
  let queuedStep: TAsyncGeneratorStep | null = null;
  let done = false;
+ // Distinct from `done` (which is also true on normal completion): set only by a cancel, so a
+ // source that settles AFTER cancel can be dropped instead of driving the (torn-down) generator.
+ let canceled = false;
+ // The in-flight awaited source (internal await or the completed-return awaitable). Tracked so a
+ // cancel arriving mid-await can abort the underlying op by canceling this source directly.
+ let pendingSource: CancelablePromise<any> | undefined;
 
  const asyncGen = {
  [Symbol.asyncIterator]() {
@@ -171,20 +177,39 @@ export function cancIterAsync(genFn: IGeneratorLikeFn, options: TCancelableCorou
 
  if (result.done) {
  // A completed generator's return value is never awaited-as-internal — it is the final
- // `{ value, done: true }` result. Resolve the awaitable then settle.
- CancelablePromise.resolve(settledValue).then(
- (value) => settle('return', value),
- (error) => settle('throw', error),
+ // `{ value, done: true }` result. Resolve the awaitable then settle. Track it as the
+ // outstanding source so a cancel mid-await aborts it.
+ pendingSource = CancelablePromise.resolve(settledValue);
+ pendingSource.then(
+ (value) => {
+ if (canceled) return;
+ pendingSource = undefined;
+ settle('return', value);
+ },
+ (error) => {
+ if (canceled) return;
+ pendingSource = undefined;
+ settle('throw', error);
+ },
  );
  return;
  }
 
  if (isAwaitedValue) {
  // Internal await: suspend on the value, feed the outcome back into the generator, do NOT
- // emit to the consumer.
- CancelablePromise.resolve(settledValue).then(
- (value) => resume('next', value),
- (error) => resume('throw', error),
+ // emit to the consumer. Track the source so a cancel mid-await aborts the underlying op.
+ pendingSource = CancelablePromise.resolve(settledValue);
+ pendingSource.then(
+ (value) => {
+ if (canceled) return;
+ pendingSource = undefined;
+ resume('next', value);
+ },
+ (error) => {
+ if (canceled) return;
+ pendingSource = undefined;
+ resume('throw', error);
+ },
  );
  } else {
  // Plain yield: emit to the consumer as `{ value, done: false }`.
@@ -218,6 +243,16 @@ export function cancIterAsync(genFn: IGeneratorLikeFn, options: TCancelableCorou
  }
 
  done = true;
+ canceled = true;
+
+ // Abort the in-flight awaited source directly. Its `.then` continuations are already gated on
+ // `canceled`, so canceling here fires the underlying op's cancel handlers (the abort) without
+ // driving the generator, which is about to be torn down below.
+ const outstanding = pendingSource;
+ pendingSource = undefined;
+ if (outstanding && outstanding.cancelable) {
+ outstanding.cancel(reason);
+ }
 
  // Run the generator's cleanup (`finally` blocks) synchronously.
  try {

@@ -793,6 +793,62 @@ describe('cancIterAsync — cancel mid-cancIterForAwait/cancIterDelegate runs su
  });
 });
 
+// Cancel aborts the in-flight awaited source (the underlying op is canceled, not just abandoned).
+describe('cancIterAsync — cancel aborts in-flight source', () => {
+ it('cancel fires the awaited source cancel handler (abort)', async () => {
+ let aborted = 0;
+ // A never-settling source that records its own cancellation.
+ const source = new CancelablePromise((_resolve, _reject, handleCancel) => {
+ handleCancel(() => {
+ aborted++;
+ });
+ });
+
+ const it = cancIterAsync(function* (): AsyncIterResult<unknown> {
+ yield* cancIterAwait(source);
+ yield 'unreached';
+ })();
+
+ const p = it.next() as CancelablePromise<any>;
+ await flush();
+ p.cancel();
+ await p.catch(suppressCancel);
+ await flush();
+
+ expect(aborted).toBe(1);
+ });
+
+ it('a source settling after cancel does not crash the driver', async () => {
+ let resolveSource!: (v: number) => void;
+ const source = new CancelablePromise<number>((resolve) => {
+ resolveSource = resolve;
+ });
+
+ const it = cancIterAsync(function* (): AsyncIterResult<number> {
+ const n = yield* cancIterAwait(source);
+ yield n;
+ })();
+
+ const p = it.next() as CancelablePromise<any>;
+ p.catch(suppressCancel);
+
+ await flush();
+ // Cancel while the producer is suspended on the await, then settle the source LATER.
+ setTimeout(() => p.cancel(), 0);
+ await new Promise((r) => setTimeout(r, 5));
+
+ let threw: any;
+ try {
+ resolveSource(42);
+ await flush();
+ } catch (e) {
+ threw = e;
+ }
+
+ expect(threw).toBeUndefined();
+ });
+});
+
 // Native-parity table (printed in spec output)
 describe('cancIterAsync — native-parity table', () => {
  it('every recorded scenario matches native async-generator output', () => {
