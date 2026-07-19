@@ -32,5 +32,8 @@
  "typescript": "5.9.3",
  "vite": "6.4.3",
  "vue-tsc": "3.3.7"
+ },
+ "engines": {
+ "npm": ">=9"
  }
 }

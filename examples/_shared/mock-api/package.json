@@ -8,5 +8,8 @@
  "scripts": {
  "test": "jest --colors",
  "typecheck": "tsc --noEmit --project tsconfig.json"
+ },
+ "engines": {
+ "npm": ">=9"
  }
 }
