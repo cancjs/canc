@@ -162,7 +162,7 @@ export function cancAsync<TFn extends IGeneratorLikeFn<TThis>, TArgs extends any
  }
  };
 
- // Override cancel() to prevent immediate settlement and let the finally drain own it. D23:
+ // Override cancel() to prevent immediate settlement and let the finally drain own it.
  // a finally that throws replaces the CancelError rejection. But if the generator is already
  // done (completed naturally or errored), the coroutine is already settled, so cancel is a no-op
  // (either way, isCancelable will be false).
@@ -512,6 +512,16 @@ interface ICancAwaitAllSettled {
  ): Generator<CancelablePromise<TSettledTuple<T>>, TSettledTuple<T>, TSettledTuple<T>>;
 }
 
+// Mirrors `CancelablePromise.try`: folds a possibly-sync-throwing call into a single yielded step.
+// The `yield*` value is the call's own (awaited) result, same tuple/union-free shape as a plain
+// `cancAwait(value)` — there is only one return type here, no tuple to reconstruct.
+interface ICancAwaitTry {
+ <T, TArgs extends any[]>(
+ fn: (...args: TArgs) => T | PromiseLike<T>,
+ ...args: TArgs
+ ): Generator<CancelablePromise<Awaited<T>>, Awaited<T>, Awaited<T>>;
+}
+
 // `each` accepts an async iterable or a sync iterable whose members may be promises: both are
 // driven one pull at a time, awaiting each value at a coroutine cancellation point. The callback
 // runs per item; returning `false` (or throwing `BreakError`) stops the loop cleanly.
@@ -537,6 +547,7 @@ interface ICancAwait {
  race: ICancAwaitRace;
  any: ICancAwaitAny;
  allSettled: ICancAwaitAllSettled;
+ try: ICancAwaitTry;
 }
 
 function makeCombinator(build: (...args: any[]) => CancelablePromise<any>) {
@@ -551,6 +562,7 @@ cancAwait.all = makeCombinator(CancelablePromise.all) as ICancAwait['all'];
 cancAwait.race = makeCombinator(CancelablePromise.race) as ICancAwait['race'];
 cancAwait.any = makeCombinator(CancelablePromise.any) as ICancAwait['any'];
 cancAwait.allSettled = makeCombinator(CancelablePromise.allSettled) as ICancAwait['allSettled'];
+cancAwait.try = makeCombinator(CancelablePromise.try) as ICancAwait['try'];
 
 // Resolves a source to a step iterator plus a flag for how each yielded step should be awaited.
 // An async iterable's `.next()` returns a promise of `{ value, done }`, so the whole result is the

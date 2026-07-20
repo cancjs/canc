@@ -849,6 +849,132 @@ describe('cancGenAsync — cancel aborts in-flight source', () => {
  });
 });
 
+describe('cancGenAwait — combinator parity (all/race/any/allSettled/try)', () => {
+ it('all(): resolves the tuple as an internal await, not emitted to the consumer', async () => {
+ const producer = cancGenAsync(function* (): AsyncGenResult<string, void> {
+ const [n, s] = yield* cancGenAwait.all([Promise.resolve(1), Promise.resolve('a')]);
+ yield `combined:${n}:${s}`;
+ });
+
+ const { values } = await drain(producer());
+
+ // Only the bare `yield` surfaces to the consumer — the combinator's own tuple never does.
+ expect(values).toEqual(['combined:1:a']);
+ });
+
+ it('race(): winner value threads through yield*, loser gets canceled', async () => {
+ let loserCanceled = false;
+ const loser = new CancelablePromise<string>((_resolve, _reject, handleCancel) => {
+ handleCancel(() => {
+ loserCanceled = true;
+ });
+ });
+ const winner = new CancelablePromise<string>((resolve) => {
+ Promise.resolve().then(() => resolve('fast'));
+ });
+
+ const producer = cancGenAsync(function* (): AsyncGenResult<string, void> {
+ const value = yield* cancGenAwait.race([winner, loser]);
+ yield value;
+ });
+
+ const { values } = await drain(producer());
+ await flush(3);
+
+ expect(values).toEqual(['fast']);
+ expect(loserCanceled).toBe(true);
+ });
+
+ it('any(): first fulfillment wins, other pending input canceled', async () => {
+ let loserCanceled = false;
+ const loser = new CancelablePromise<string>((_resolve, _reject, handleCancel) => {
+ handleCancel(() => {
+ loserCanceled = true;
+ });
+ });
+ const winner = new CancelablePromise<string>((resolve) => {
+ Promise.resolve().then(() => resolve('winner'));
+ });
+
+ const producer = cancGenAsync(function* (): AsyncGenResult<string, void> {
+ const value = yield* cancGenAwait.any([winner, loser]);
+ yield value;
+ });
+
+ const { values } = await drain(producer());
+ await flush(3);
+
+ expect(values).toEqual(['winner']);
+ expect(loserCanceled).toBe(true);
+ });
+
+ it('allSettled(): never cancels a pending input, resolves full settled tuple', async () => {
+ let canceled = false;
+ const slow = new CancelablePromise<number>((resolve, _reject, handleCancel) => {
+ handleCancel(() => {
+ canceled = true;
+ });
+ Promise.resolve().then(() => Promise.resolve()).then(() => resolve(2));
+ });
+
+ const producer = cancGenAsync(function* (): AsyncGenResult<PromiseSettledResult<number>[], void> {
+ const settled = yield* cancGenAwait.allSettled([Promise.resolve(1), slow]);
+ yield settled;
+ });
+
+ const { values } = await drain(producer());
+
+ expect(values).toEqual([[
+ { status: 'fulfilled', value: 1 },
+ { status: 'fulfilled', value: 2 },
+ ]]);
+ expect(canceled).toBe(false);
+ });
+
+ it('try(): wraps a sync-returning fn and threads its value through yield*', async () => {
+ const producer = cancGenAsync(function* (): AsyncGenResult<number, void> {
+ const value = yield* cancGenAwait.try(() => 2);
+ yield value;
+ });
+
+ const { values } = await drain(producer());
+
+ expect(values).toEqual([2]);
+ });
+
+ it('try(): a synchronously-throwing fn rejects the driven step (not silently swallowed)', async () => {
+ const boom = new Error('try-boom');
+ const producer = cancGenAsync(function* (): AsyncGenResult<number, void> {
+ yield* cancGenAwait.try((): number => {
+ throw boom;
+ });
+ yield 999; // unreached
+ });
+
+ const it = producer();
+ await expect(it.next()).rejects.toBe(boom);
+ });
+
+ it('emit-vs-await contract: a bare `yield` from a combinator WOULD leak into the consumer (anti-stub guard)', async () => {
+ // Sanity check on the test itself: prove drain() actually surfaces whatever a combinator yields
+ // bare, unresolved, so the "not emitted" assertions above are meaningful (they would fail if a
+ // real combinator did a bare `yield build(...)` instead of `yield awaited(build(...))` — the
+ // driver only resolves+hides `awaited(...)` values; anything else, including a raw combined
+ // CancelablePromise, is emitted to the consumer as-is).
+ const leaky = cancGenAsync(function* (): AsyncGenResult<any, void> {
+ // Simulates what a combinator would produce if it forgot to wrap in `awaited(...)`.
+ yield CancelablePromise.all([Promise.resolve(1), Promise.resolve('a')]);
+ });
+
+ const { values } = await drain(leaky());
+
+ // The bare yield DID leak the (unresolved) combined promise straight to the consumer, proving
+ // drain() would have caught a real combinator regression the same way.
+ expect(values).toHaveLength(1);
+ expect(values[0]).toBeInstanceOf(CancelablePromise);
+ });
+});
+
 // Native-parity table (printed in spec output)
 describe('cancGenAsync — native-parity table', () => {
  it('every recorded scenario matches native async-generator output', () => {
