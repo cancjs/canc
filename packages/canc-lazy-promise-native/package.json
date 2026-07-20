@@ -1,7 +1,7 @@
 {
  "name": "@cancjs/lazy-promise-native",
  "version": "0.0.0",
- "description": "Lazy Promise caching on native Promise (no cancellation).",
+ "description": "Lazily-evaluated promise: the executor runs on first subscription, result cached (no cancellation).",
  "keywords": [
  "lazy",
  "promise",
