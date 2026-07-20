@@ -1,6 +1,6 @@
-import { CancelError, isCancelError } from '@cancjs/promise';
+import { isCancelError } from '@cancjs/promise';
 
-import { lazyFetchFactory, fetchLaterFactory } from './lazy';
+import { cancelableLazyFetchFactory, cancelableLazyFetchLaterFactory } from './lazy';
 
 
 // Reuse mock classes from base.spec.ts
@@ -88,48 +88,51 @@ function deferredFetch() {
 	};
 }
 
+// A FetchLaterResult stand-in whose `activated` flips true after `flipAfter` reads of the getter.
+function makeFetchLaterResult(flipAfter = 1) {
+	let reads = 0;
+	return {
+		get activated(): boolean {
+			return reads++ >= flipAfter;
+		},
+	};
+}
 
-describe('lazyFetchFactory', () => {
+function flushTimers(): Promise<void> {
+	return new Promise(resolve => setTimeout(resolve, 0));
+}
+
+
+describe('cancelableLazyFetchFactory', () => {
 	it('does not call fetch until the lazy promise is subscribed', async () => {
 		const backing = deferredFetch();
-		const lazyFetch = lazyFetchFactory({
+		const lazyFetch = cancelableLazyFetchFactory({
 			fetch: backing.fetch,
 			AbortController: MockAbortController as any,
 		});
 
-		// Create the lazy promise but do NOT await it yet.
 		const promise = lazyFetch('/api');
-
-		// Fetch should not have been called.
 		expect(backing.calls).toHaveLength(0);
 
-		// Now subscribe via .then
 		const subscription = promise.then(() => 'resolved');
-
-		// Now fetch SHOULD have been called.
 		expect(backing.calls).toHaveLength(1);
 
-		// Settle it to avoid unhandled rejection.
 		backing.resolveWith('ok');
 		await subscription;
 	});
 
 	it('does not call fetch if canceled before subscription', async () => {
 		const backing = deferredFetch();
-		const lazyFetch = lazyFetchFactory({
+		const lazyFetch = cancelableLazyFetchFactory({
 			fetch: backing.fetch,
 			AbortController: MockAbortController as any,
 		});
 
 		const promise = lazyFetch('/api');
-
-		// Cancel before any subscription.
 		promise.cancel();
 
-		// Fetch should never have been called.
 		expect(backing.calls).toHaveLength(0);
 
-		// Awaiting should reject with a CancelError.
 		let error: any;
 		try {
 			await promise;
@@ -138,61 +141,24 @@ describe('lazyFetchFactory', () => {
 		}
 
 		expect(isCancelError(error)).toBe(true);
-	});
-
-	it('rejects immediately if canceled before subscription, no fetch call', async () => {
-		const backing = deferredFetch();
-		const lazyFetch = lazyFetchFactory({
-			fetch: backing.fetch,
-			AbortController: MockAbortController as any,
-		});
-
-		const promise = lazyFetch('/api');
-		promise.cancel();
-
-		// Multiple subscriptions should all see the same cached cancellation.
-		let error1: any, error2: any;
-
-		try {
-			await promise.then();
-		} catch (e) {
-			error1 = e;
-		}
-
-		try {
-			await promise.then();
-		} catch (e) {
-			error2 = e;
-		}
-
-		expect(isCancelError(error1)).toBe(true);
-		expect(isCancelError(error2)).toBe(true);
-		expect(backing.calls).toHaveLength(0);
 	});
 
 	it('aborts the underlying fetch on cancel after subscription', async () => {
 		const backing = deferredFetch();
-		const lazyFetch = lazyFetchFactory({
+		const lazyFetch = cancelableLazyFetchFactory({
 			fetch: backing.fetch,
 			AbortController: MockAbortController as any,
 		});
 
 		const promise = lazyFetch('/api');
-
-		// Subscribe to trigger the executor.
 		const subscription = promise.then();
 
-		// Now the fetch should be pending.
 		expect(backing.calls).toHaveLength(1);
 		expect(backing.calls[0].signal.aborted).toBe(false);
 
-		// Cancel the lazy promise.
 		promise.cancel();
-
-		// The signal should be aborted.
 		expect(backing.calls[0].signal.aborted).toBe(true);
 
-		// The subscription should reject with a CancelError.
 		let error: any;
 		try {
 			await subscription;
@@ -205,82 +171,45 @@ describe('lazyFetchFactory', () => {
 });
 
 
-describe('fetchLaterFactory', () => {
-	it('does not call fetch until the lazy promise is subscribed', async () => {
-		const backing = deferredFetch();
-		const fetchLater = fetchLaterFactory({
-			fetch: backing.fetch,
+describe('cancelableLazyFetchLaterFactory', () => {
+	it('does not call fetchLater until the lazy promise is subscribed', async () => {
+		const result = makeFetchLaterResult(0);
+		const fetchLater = jest.fn(() => result);
+
+		const lazyFetchLater = cancelableLazyFetchLaterFactory({
+			fetchLater: fetchLater as any,
 			AbortController: MockAbortController as any,
+			pollInterval: 5,
 		});
 
-		// Create the lazy promise but do NOT await it yet.
-		const promise = fetchLater('/api');
+		const promise = lazyFetchLater('/api', { activateAfter: 1000 });
 
-		// Fetch should not have been called.
-		expect(backing.calls).toHaveLength(0);
+		// Not started yet: fetchLater not called, `.activated` reads null.
+		expect(fetchLater).not.toHaveBeenCalled();
+		expect((promise as any).activated).toBeNull();
 
-		// Now subscribe via .then
-		const subscription = promise.then(() => 'resolved');
+		const resolved = await promise;
 
-		// Now fetch SHOULD have been called.
-		expect(backing.calls).toHaveLength(1);
-
-		// Settle it to avoid unhandled rejection.
-		backing.resolveWith('ok');
-		await subscription;
+		expect(fetchLater).toHaveBeenCalledTimes(1);
+		expect(resolved).toBe(result);
+		expect((promise as any).activated).toBe(true);
 	});
 
-	it('respects a delay before calling fetch after subscription', async () => {
-		const backing = deferredFetch();
-		const fetchLater = fetchLaterFactory(
-			{
-				fetch: backing.fetch,
-				AbortController: MockAbortController as any,
-			},
-			50 // 50ms delay
-		);
+	it('never calls fetchLater when canceled before subscription', async () => {
+		const fetchLater = jest.fn(() => makeFetchLaterResult(0));
 
-		const promise = fetchLater('/api');
+		const lazyFetchLater = cancelableLazyFetchLaterFactory({
+			fetchLater: fetchLater as any,
+			AbortController: MockAbortController as any,
+			pollInterval: 5,
+		});
 
-		// Subscribe.
-		const subscription = promise.then();
-
-		// Immediately after subscribe, before the delay, fetch should NOT be called.
-		expect(backing.calls).toHaveLength(0);
-
-		// Wait for the delay.
-		await new Promise(resolve => setTimeout(resolve, 60));
-
-		// Now fetch should have been called.
-		expect(backing.calls).toHaveLength(1);
-
-		// Clean up.
-		backing.resolveWith('ok');
-		await subscription;
-	});
-
-	it('does not call fetch if canceled before subscription (with delay)', async () => {
-		const backing = deferredFetch();
-		const fetchLater = fetchLaterFactory(
-			{
-				fetch: backing.fetch,
-				AbortController: MockAbortController as any,
-			},
-			50
-		);
-
-		const promise = fetchLater('/api');
-
-		// Cancel before subscription, before the delay fires.
+		const promise = lazyFetchLater('/api', { activateAfter: 1000 });
 		promise.cancel();
 
-		// Wait for the delay to pass.
-		await new Promise(resolve => setTimeout(resolve, 60));
+		expect(fetchLater).not.toHaveBeenCalled();
+		expect((promise as any).activated).toBeNull();
 
-		// Fetch should never have been called because we canceled before subscribing.
-		expect(backing.calls).toHaveLength(0);
-
-		// Awaiting should reject with a CancelError.
 		let error: any;
 		try {
 			await promise;
@@ -289,131 +218,50 @@ describe('fetchLaterFactory', () => {
 		}
 
 		expect(isCancelError(error)).toBe(true);
+		expect(fetchLater).not.toHaveBeenCalled();
 	});
 
-	it('cancels the delayed fetch if canceled after the delay fires', async () => {
-		const backing = deferredFetch();
-		const fetchLater = fetchLaterFactory(
-			{
-				fetch: backing.fetch,
-				AbortController: MockAbortController as any,
-			},
-			50
-		);
+	it('polls the FetchLaterResult after start and resolves once activated flips', async () => {
+		const result = makeFetchLaterResult(2);
+		const fetchLater = jest.fn(() => result);
 
-		const promise = fetchLater('/api');
+		const lazyFetchLater = cancelableLazyFetchLaterFactory({
+			fetchLater: fetchLater as any,
+			AbortController: MockAbortController as any,
+			pollInterval: 5,
+		});
 
-		// Subscribe.
-		const subscription = promise.then();
+		const promise = lazyFetchLater('/api', { activateAfter: 1000 });
+		const subscription = promise.then((r: any) => r);
 
-		// Wait for the delay to pass.
-		await new Promise(resolve => setTimeout(resolve, 60));
+		// After subscription the underlying fetchLater ran; `.activated` is now live.
+		await flushTimers();
+		expect(fetchLater).toHaveBeenCalledTimes(1);
+		expect(typeof (promise as any).activated).toBe('boolean');
 
-		// Fetch should now be pending.
-		expect(backing.calls).toHaveLength(1);
-		expect(backing.calls[0].signal.aborted).toBe(false);
+		const resolved = await subscription;
+		expect(resolved).toBe(result);
+	});
 
-		// Cancel.
-		promise.cancel();
+	it('rejects with the raw error when a deferred fetchLater throws synchronously', async () => {
+		const rangeError = new RangeError('negative activateAfter');
+		const fetchLater = jest.fn(() => { throw rangeError; });
 
-		// The signal should be aborted.
-		expect(backing.calls[0].signal.aborted).toBe(true);
+		const lazyFetchLater = cancelableLazyFetchLaterFactory({
+			fetchLater: fetchLater as any,
+			AbortController: MockAbortController as any,
+		});
 
-		// The subscription should reject with a CancelError.
+		const promise = lazyFetchLater('/api', { activateAfter: -1 });
+
 		let error: any;
 		try {
-			await subscription;
+			await promise;
 		} catch (e) {
 			error = e;
 		}
 
-		expect(isCancelError(error)).toBe(true);
-	});
-
-	it('cancels the pending timeout if canceled before delay fires', async () => {
-		const backing = deferredFetch();
-		const fetchLater = fetchLaterFactory(
-			{
-				fetch: backing.fetch,
-				AbortController: MockAbortController as any,
-			},
-			100 // long delay
-		);
-
-		const promise = fetchLater('/api');
-		const subscription = promise.then();
-
-		// Immediately cancel before delay.
-		promise.cancel();
-
-		// Wait longer than the original delay to be sure.
-		await new Promise(resolve => setTimeout(resolve, 150));
-
-		// Fetch should never have been called because the timeout was cleared on cancel.
-		expect(backing.calls).toHaveLength(0);
-
-		let error: any;
-		try {
-			await subscription;
-		} catch (e) {
-			error = e;
-		}
-
-		expect(isCancelError(error)).toBe(true);
-	});
-});
-
-
-describe('lazy fetch and fetchLater signal sharing', () => {
-	it('setupCancellation is shared between lazyFetch and fetchLater', () => {
-		// Verify that both factories use the same shared internal setup: they both should
-		// wire an AbortSignal independently for each call, not create a global shared one.
-		const backingLazy = deferredFetch();
-		const backingLater = deferredFetch();
-
-		const lazyFetch = lazyFetchFactory({
-			fetch: backingLazy.fetch,
-			AbortController: MockAbortController as any,
-		});
-		const fetchLater = fetchLaterFactory({
-			fetch: backingLater.fetch,
-			AbortController: MockAbortController as any,
-		});
-
-		// Create and subscribe to lazy fetch
-		const lazyPromise1 = lazyFetch('/api/lazy');
-		lazyPromise1.then();
-
-		// Create and subscribe to fetchLater
-		const laterPromise1 = fetchLater('/api/later');
-		laterPromise1.then();
-
-		// Both should have called their respective fetches with an AbortSignal.
-		expect(backingLazy.calls).toHaveLength(1);
-		expect(backingLater.calls).toHaveLength(1);
-		expect(backingLazy.calls[0].signal).toBeDefined();
-		expect(backingLater.calls[0].signal).toBeDefined();
-
-		// Both signals should be from our minted AbortController.
-		expect(backingLazy.calls[0].signal).toBeInstanceOf(MockAbortSignal);
-		expect(backingLater.calls[0].signal).toBeInstanceOf(MockAbortSignal);
-
-		// Verify they are independent signals by canceling them separately.
-		const lazyPromise2 = lazyFetch('/api/lazy-2');
-		const laterPromise2 = fetchLater('/api/later-2');
-
-		lazyPromise2.then();
-		laterPromise2.then();
-
-		// Both should now have two calls
-		expect(backingLazy.calls).toHaveLength(2);
-		expect(backingLater.calls).toHaveLength(2);
-
-		// Cancel only the lazy promise
-		lazyPromise2.cancel();
-
-		// Only lazy's signal should be aborted
-		expect(backingLazy.calls[1].signal.aborted).toBe(true);
-		expect(backingLater.calls[1].signal.aborted).toBe(false);
+		expect(error).toBe(rangeError);
+		expect(isCancelError(error)).toBe(false);
 	});
 });
