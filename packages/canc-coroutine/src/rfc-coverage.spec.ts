@@ -1,5 +1,5 @@
 import { cancAsync, cancAwait, cancForAwait } from './coroutine';
-import { cancIterAsync, cancIterAwait, cancIterDelegate, AsyncIterResult } from './coroutine-iter';
+import { cancGenAsync, cancGenAwait, cancGenDelegate, AsyncGenResult } from './coroutine-gen';
 import { CancelablePromise, CancelError, catchCancel, isCancelError, suppressCancel } from '@cancjs/promise';
 
 // Fills the GAP rows in ../../.claude/rfc-coroutine-coverage.md against rfc-coroutine.md. Every
@@ -371,9 +371,9 @@ describe('rfc §6 DON\'T — non-cancelable async callback escapes the cancel ch
  });
 });
 
-describe('rfc §8 — cancForAwait.toArray consuming a cancIterAsync producer end-to-end', () => {
+describe('rfc §8 — cancForAwait.toArray consuming a cancGenAsync producer end-to-end', () => {
  it('collects a real producer\'s emitted values via consumer-side toArray', async () => {
- const producer = cancIterAsync(function* (): Generator<number, void> {
+ const producer = cancGenAsync(function* (): Generator<number, void> {
  yield 1;
  yield 2;
  yield 3;
@@ -387,13 +387,13 @@ describe('rfc §8 — cancForAwait.toArray consuming a cancIterAsync producer en
  await expect(co()).resolves.toEqual([1, 2, 3]);
  });
 
- it('cancel mid-collect over a cancIterAsync producer runs the producer finally', async () => {
+ it('cancel mid-collect over a cancGenAsync producer runs the producer finally', async () => {
  let producerCleanedUp = false;
 
- const producer = cancIterAsync(function* (): AsyncIterResult<number, void> {
+ const producer = cancGenAsync(function* (): AsyncGenResult<number, void> {
  try {
  yield 1;
- yield* cancIterAwait(
+ yield* cancGenAwait(
  new CancelablePromise<void>(() => {
  /* never settles */
  }),
@@ -434,7 +434,7 @@ describe('rfc §10 — helpers only inside their driving coroutine', () => {
  expect(called).toBe(false);
  });
 
- it('cancIterDelegate called outside a producer is an undriven generator: sub-source never pulled', async () => {
+ it('cancGenDelegate called outside a producer is an undriven generator: sub-source never pulled', async () => {
  let pulled = false;
 
  async function* sub() {
@@ -442,7 +442,7 @@ describe('rfc §10 — helpers only inside their driving coroutine', () => {
  yield 1;
  }
 
- const gen = cancIterDelegate(sub());
+ const gen = cancGenDelegate(sub());
 
  expect(typeof (gen as any).next).toBe('function');
  await flush(3);

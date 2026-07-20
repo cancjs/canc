@@ -1,4 +1,4 @@
-import { cancIterAsync, cancIterAwait, cancIterForAwait, cancIterDelegate, awaited, AsyncIterResult } from './coroutine-iter';
+import { cancGenAsync, cancGenAwait, cancGenForAwait, cancGenDelegate, awaited, AsyncGenResult } from './coroutine-gen';
 import { CancelablePromise, CancelError, isCancelError, suppressCancel } from '@cancjs/promise';
 
 // Helpers
@@ -37,12 +37,12 @@ function recordParity(scenario: string, native: any, canc: any) {
  return { native: n, canc: c };
 }
 
-// Native-parity tests: build both a native async generator and a canc coroutine-iter,
+// Native-parity tests: build both a native async generator and a canc coroutine-gen,
 // run identical driver scripts, assert identical output.
-describe('cancIterAsync — native async-generator parity', () => {
+describe('cancGenAsync — native async-generator parity', () => {
  it('empty generator: no emissions, done immediately', async () => {
  async function* nativeGen(): AsyncGenerator<never, void> {}
- const cancGen = cancIterAsync(function* (): Generator<never, void> {});
+ const cancGen = cancGenAsync(function* (): Generator<never, void> {});
 
  const nat = await drain(nativeGen());
  const canc = await drain(cancGen());
@@ -58,7 +58,7 @@ describe('cancIterAsync — native async-generator parity', () => {
  yield 2;
  yield 3;
  }
- const cancGen = cancIterAsync(function* (): Generator<number, void> {
+ const cancGen = cancGenAsync(function* (): Generator<number, void> {
  yield 1;
  yield 2;
  yield 3;
@@ -79,10 +79,10 @@ describe('cancIterAsync — native async-generator parity', () => {
  const b: number = await Promise.resolve(20);
  yield a + b;
  }
- const cancGen = cancIterAsync(function* (): AsyncIterResult<number> {
- const a = yield* cancIterAwait(Promise.resolve(10));
+ const cancGen = cancGenAsync(function* (): AsyncGenResult<number> {
+ const a = yield* cancGenAwait(Promise.resolve(10));
  yield a;
- const b = yield* cancIterAwait(Promise.resolve(20));
+ const b = yield* cancGenAwait(Promise.resolve(20));
  yield a + b;
  });
 
@@ -99,7 +99,7 @@ describe('cancIterAsync — native async-generator parity', () => {
  yield 1;
  return 99;
  }
- const cancGen = cancIterAsync(function* (): Generator<number, number> {
+ const cancGen = cancGenAsync(function* (): Generator<number, number> {
  yield 1;
  return 99;
  });
@@ -118,9 +118,9 @@ describe('cancIterAsync — native async-generator parity', () => {
  yield 1;
  return await Promise.resolve(42);
  }
- const cancGen = cancIterAsync(function* (): AsyncIterResult<number, number> {
+ const cancGen = cancGenAsync(function* (): AsyncGenResult<number, number> {
  yield 1;
- return yield* cancIterAwait(Promise.resolve(42));
+ return yield* cancGenAwait(Promise.resolve(42));
  });
 
  const nat = await drain(nativeGen());
@@ -137,7 +137,7 @@ describe('cancIterAsync — native async-generator parity', () => {
  yield (x as number) * 2;
  }
  function makeCanc() {
- return cancIterAsync(function* (): Generator<number, void, any> {
+ return cancGenAsync(function* (): Generator<number, void, any> {
  const x = yield 1;
  yield x * 2;
  })();
@@ -169,7 +169,7 @@ describe('cancIterAsync — native async-generator parity', () => {
  }
  }
  function makeCanc() {
- return cancIterAsync(function* (): Generator<string, void, any> {
+ return cancGenAsync(function* (): Generator<string, void, any> {
  try {
  yield 1 as any;
  } catch (e) {
@@ -202,7 +202,7 @@ describe('cancIterAsync — native async-generator parity', () => {
  nativeLog.push('finally');
  }
  }
- const cancGen = cancIterAsync(function* (): Generator<number, any, any> {
+ const cancGen = cancGenAsync(function* (): Generator<number, any, any> {
  try {
  yield 1;
  yield 2;
@@ -235,9 +235,9 @@ describe('cancIterAsync — native async-generator parity', () => {
  yield `err:${e}`;
  }
  }
- const cancGen = cancIterAsync(function* (): AsyncIterResult<string> {
+ const cancGen = cancGenAsync(function* (): AsyncGenResult<string> {
  try {
- yield* cancIterAwait<string>(CancelablePromise.reject('nope'));
+ yield* cancGenAwait<string>(CancelablePromise.reject('nope'));
  yield 'unreached';
  } catch (e) {
  yield `err:${e}`;
@@ -257,7 +257,7 @@ describe('cancIterAsync — native async-generator parity', () => {
  yield 1;
  throw new Error('sync-boom');
  }
- const cancGen = cancIterAsync(function* (): Generator<number, void> {
+ const cancGen = cancGenAsync(function* (): Generator<number, void> {
  yield 1;
  throw new Error('sync-boom');
  });
@@ -292,9 +292,9 @@ describe('cancIterAsync — native async-generator parity', () => {
  yield 'b';
  yield 'c';
  }
- const cancGen = cancIterAsync(function* (): AsyncIterResult<string> {
+ const cancGen = cancGenAsync(function* (): AsyncGenResult<string> {
  yield 'a';
- yield* cancIterAwait(Promise.resolve());
+ yield* cancGenAwait(Promise.resolve());
  yield 'b';
  yield 'c';
  });
@@ -311,15 +311,15 @@ describe('cancIterAsync — native async-generator parity', () => {
 });
 
 // Protocol correctness
-describe('cancIterAsync — protocol', () => {
+describe('cancGenAsync — protocol', () => {
  it('exposes Symbol.asyncIterator returning self', () => {
- const it = cancIterAsync(function* () {})();
+ const it = cancGenAsync(function* () {})();
  expect(typeof (it as any)[Symbol.asyncIterator]).toBe('function');
  expect((it as any)[Symbol.asyncIterator]()).toBe(it);
  });
 
  it('next() returns a CancelablePromise', () => {
- const it = cancIterAsync(function* () {
+ const it = cancGenAsync(function* () {
  yield 1;
  })();
  const p = it.next();
@@ -328,14 +328,14 @@ describe('cancIterAsync — protocol', () => {
  });
 
  it('has next / throw / return methods', () => {
- const it = cancIterAsync(function* () {})();
+ const it = cancGenAsync(function* () {})();
  expect(typeof it.next).toBe('function');
  expect(typeof it.throw).toBe('function');
  expect(typeof it.return).toBe('function');
  });
 
  it('post-completion next() reports done', async () => {
- const it = cancIterAsync(function* (): Generator<number, void> {
+ const it = cancGenAsync(function* (): Generator<number, void> {
  yield 1;
  })();
  await it.next();
@@ -347,12 +347,12 @@ describe('cancIterAsync — protocol', () => {
  });
 
  it('throws TypeError for non-function argument', () => {
- expect(() => cancIterAsync(123 as any)).toThrow(TypeError);
+ expect(() => cancGenAsync(123 as any)).toThrow(TypeError);
  });
 
  it('threads `this` through to the generator function', async () => {
  const ctx = { base: 100 };
- const gen = cancIterAsync(function* (this: typeof ctx): Generator<number, void> {
+ const gen = cancGenAsync(function* (this: typeof ctx): Generator<number, void> {
  yield this.base + 1;
  });
  const it = gen.call(ctx);
@@ -361,7 +361,7 @@ describe('cancIterAsync — protocol', () => {
  });
 
  it('passes constructor args to the generator function', async () => {
- const gen = cancIterAsync(function* (a: number, b: number): Generator<number, void> {
+ const gen = cancGenAsync(function* (a: number, b: number): Generator<number, void> {
  yield a + b;
  });
  const it = gen(3, 4);
@@ -370,12 +370,12 @@ describe('cancIterAsync — protocol', () => {
 });
 
 // Queued-call ordering
-describe('cancIterAsync — queued call ordering', () => {
+describe('cancGenAsync — queued call ordering', () => {
  it('serves concurrently-issued next() calls FIFO', async () => {
- const it = cancIterAsync(function* (): AsyncIterResult<string> {
- yield* cancIterAwait(Promise.resolve());
+ const it = cancGenAsync(function* (): AsyncGenResult<string> {
+ yield* cancGenAwait(Promise.resolve());
  yield 'a';
- yield* cancIterAwait(Promise.resolve());
+ yield* cancGenAwait(Promise.resolve());
  yield 'b';
  yield 'c';
  })();
@@ -390,9 +390,9 @@ describe('cancIterAsync — queued call ordering', () => {
 
  it('queued next() and return() interleave in issue order', async () => {
  const log: string[] = [];
- const it = cancIterAsync(function* (): AsyncIterResult<string, any> {
+ const it = cancGenAsync(function* (): AsyncGenResult<string, any> {
  try {
- yield* cancIterAwait(Promise.resolve());
+ yield* cancGenAwait(Promise.resolve());
  yield 'a';
  yield 'b';
  } finally {
@@ -415,9 +415,9 @@ describe('cancIterAsync — queued call ordering', () => {
  });
 
  it('all queued values arrive without loss under rapid firing', async () => {
- const it = cancIterAsync(function* (): AsyncIterResult<number> {
+ const it = cancGenAsync(function* (): AsyncGenResult<number> {
  for (let i = 0; i < 5; i++) {
- yield* cancIterAwait(microtask());
+ yield* cancGenAwait(microtask());
  yield i;
  }
  })();
@@ -429,10 +429,10 @@ describe('cancIterAsync — queued call ordering', () => {
 });
 
 // Cancellation
-describe('cancIterAsync — cancellation', () => {
+describe('cancGenAsync — cancellation', () => {
  it('cancel current step rejects it with CancelError', async () => {
- const it = cancIterAsync(function* (): AsyncIterResult<unknown> {
- yield* cancIterAwait(new Promise(() => {}));
+ const it = cancGenAsync(function* (): AsyncGenResult<unknown> {
+ yield* cancGenAwait(new Promise(() => {}));
  yield 'unreached';
  })();
 
@@ -448,9 +448,9 @@ describe('cancIterAsync — cancellation', () => {
 
  it('cancel runs generator finally (cleanup)', async () => {
  const log: string[] = [];
- const it = cancIterAsync(function* (): AsyncIterResult<unknown> {
+ const it = cancGenAsync(function* (): AsyncGenResult<unknown> {
  try {
- yield* cancIterAwait(new Promise(() => {}));
+ yield* cancGenAwait(new Promise(() => {}));
  } finally {
  log.push('cleanup');
  }
@@ -464,8 +464,8 @@ describe('cancIterAsync — cancellation', () => {
  });
 
  it('cancel drains queued steps with CancelError', async () => {
- const it = cancIterAsync(function* (): AsyncIterResult<string> {
- yield* cancIterAwait(new Promise(() => {}));
+ const it = cancGenAsync(function* (): AsyncGenResult<string> {
+ yield* cancGenAwait(new Promise(() => {}));
  yield 'a';
  yield 'b';
  })();
@@ -487,9 +487,9 @@ describe('cancIterAsync — cancellation', () => {
 
  it('cancel mid-iteration stops further emissions', async () => {
  let reached = false;
- const it = cancIterAsync(function* (): AsyncIterResult<string> {
+ const it = cancGenAsync(function* (): AsyncGenResult<string> {
  yield 'first';
- yield* cancIterAwait(new Promise(() => {}));
+ yield* cancGenAwait(new Promise(() => {}));
  reached = true;
  yield 'second';
  })();
@@ -506,8 +506,8 @@ describe('cancIterAsync — cancellation', () => {
  });
 
  it('post-cancel next() reports done', async () => {
- const it = cancIterAsync(function* (): AsyncIterResult<string> {
- yield* cancIterAwait(new Promise(() => {}));
+ const it = cancGenAsync(function* (): AsyncGenResult<string> {
+ yield* cancGenAwait(new Promise(() => {}));
  yield 'x';
  })();
 
@@ -520,8 +520,8 @@ describe('cancIterAsync — cancellation', () => {
  });
 
  it('cancel with a custom string reason wraps into CancelError message', async () => {
- const it = cancIterAsync(function* (): AsyncIterResult<unknown> {
- yield* cancIterAwait(new Promise(() => {}));
+ const it = cancGenAsync(function* (): AsyncGenResult<unknown> {
+ yield* cancGenAwait(new Promise(() => {}));
  })();
 
  const p1 = it.next() as CancelablePromise<any>;
@@ -538,10 +538,10 @@ describe('cancIterAsync — cancellation', () => {
 });
 
 // for-await + break (iterator.return path)
-describe('cancIterAsync — for-await break', () => {
+describe('cancGenAsync — for-await break', () => {
  it('break in for-await calls return() and runs finally', async () => {
  const log: string[] = [];
- const gen = cancIterAsync(function* (): Generator<number, void, any> {
+ const gen = cancGenAsync(function* (): Generator<number, void, any> {
  try {
  yield 1;
  yield 2;
@@ -572,7 +572,7 @@ describe('cancIterAsync — for-await break', () => {
  /* native cleanup */
  }
  }
- const cancGen = cancIterAsync(function* (): Generator<number, void, any> {
+ const cancGen = cancGenAsync(function* (): Generator<number, void, any> {
  let i = 0;
  while (true) {
  yield i++;
@@ -597,9 +597,9 @@ describe('cancIterAsync — for-await break', () => {
 });
 
 // transformYield hook
-describe('cancIterAsync — transformYield', () => {
+describe('cancGenAsync — transformYield', () => {
  it('transforms each yielded value before emission', async () => {
- const it = cancIterAsync(
+ const it = cancGenAsync(
  function* (): Generator<number, void> {
  yield 1;
  yield 2;
@@ -612,7 +612,7 @@ describe('cancIterAsync — transformYield', () => {
  });
 
  it('transformYield can promote a value to awaited (internal await)', async () => {
- const it = cancIterAsync(
+ const it = cancGenAsync(
  function* (): Generator<string, void> {
  yield 5 as any;
  yield 'done';
@@ -626,9 +626,9 @@ describe('cancIterAsync — transformYield', () => {
 
  it('transformYield is applied to internal-await values too', async () => {
  const seen: any[] = [];
- const it = cancIterAsync(
- function* (): AsyncIterResult<number> {
- const r = yield* cancIterAwait(Promise.resolve(3));
+ const it = cancGenAsync(
+ function* (): AsyncGenResult<number> {
+ const r = yield* cancGenAwait(Promise.resolve(3));
  yield r;
  },
  {
@@ -645,8 +645,8 @@ describe('cancIterAsync — transformYield', () => {
  });
 });
 
-// cancIterDelegate / cancIterForAwait: producer-side consume + re-emit helpers
-describe('cancIterDelegate — re-emit a sub async-iterable', () => {
+// cancGenDelegate / cancGenForAwait: producer-side consume + re-emit helpers
+describe('cancGenDelegate — re-emit a sub async-iterable', () => {
  it('re-emits the sub-iterable items to the consumer for-await, in order', async () => {
  async function* sub(): AsyncGenerator<number, void> {
  yield 1;
@@ -654,8 +654,8 @@ describe('cancIterDelegate — re-emit a sub async-iterable', () => {
  yield 3;
  }
 
- const cancGen = cancIterAsync(function* (): AsyncIterResult<number> {
- yield* cancIterDelegate(sub());
+ const cancGen = cancGenAsync(function* (): AsyncGenResult<number> {
+ yield* cancGenDelegate(sub());
  });
 
  const { values } = await drain(cancGen());
@@ -663,8 +663,8 @@ describe('cancIterDelegate — re-emit a sub async-iterable', () => {
  });
 
  it('re-emits a sync iterable of promises, resolving each before emit', async () => {
- const cancGen = cancIterAsync(function* (): AsyncIterResult<string> {
- yield* cancIterDelegate([Promise.resolve('a'), Promise.resolve('b'), 'c']);
+ const cancGen = cancGenAsync(function* (): AsyncGenResult<string> {
+ yield* cancGenDelegate([Promise.resolve('a'), Promise.resolve('b'), 'c']);
  });
 
  const { values } = await drain(cancGen());
@@ -672,12 +672,12 @@ describe('cancIterDelegate — re-emit a sub async-iterable', () => {
  });
 });
 
-describe('cancIterForAwait — consume inside a producer', () => {
+describe('cancGenForAwait — consume inside a producer', () => {
  it('runs cb per item and does not emit any of them to the consumer', async () => {
  const seen: Array<[number, number]> = [];
 
- const cancGen = cancIterAsync(function* (): AsyncIterResult<string> {
- yield* cancIterForAwait([10, 20, 30] as const, (value: number, index: number) => {
+ const cancGen = cancGenAsync(function* (): AsyncGenResult<string> {
+ yield* cancGenForAwait([10, 20, 30] as const, (value: number, index: number) => {
  seen.push([index, value]);
  });
  yield 'done';
@@ -699,8 +699,8 @@ describe('cancIterForAwait — consume inside a producer', () => {
  yield 3;
  }
 
- const cancGen = cancIterAsync(function* (): AsyncIterResult<number[]> {
- const items = yield* cancIterForAwait.toArray(sub());
+ const cancGen = cancGenAsync(function* (): AsyncGenResult<number[]> {
+ const items = yield* cancGenForAwait.toArray(sub());
  yield items;
  });
 
@@ -710,7 +710,7 @@ describe('cancIterForAwait — consume inside a producer', () => {
 });
 
 // A controllable async source: each pull blocks on an externally-resolved promise, so a test can
-// hold the outer cancIterAsync mid-consumption and cancel it deterministically while a sub pull is
+// hold the outer cancGenAsync mid-consumption and cancel it deterministically while a sub pull is
 // genuinely in flight (mirrors coroutine-each-cancel.spec.ts's makeControllableSource).
 function makeControllableSource<T>() {
  const gate: Array<{ promise: Promise<T>; resolve: (v: T) => void }> = [];
@@ -741,13 +741,13 @@ function makeControllableSource<T>() {
  return { source, deliver, state };
 }
 
-describe('cancIterAsync — cancel mid-cancIterForAwait/cancIterDelegate runs sub return() cleanup', () => {
- it('cancel mid-cancIterForAwait (sub pull in flight) runs the sub source finally', async () => {
+describe('cancGenAsync — cancel mid-cancGenForAwait/cancGenDelegate runs sub return() cleanup', () => {
+ it('cancel mid-cancGenForAwait (sub pull in flight) runs the sub source finally', async () => {
  const { source, deliver, state } = makeControllableSource<number>();
  const seen: number[] = [];
 
- const cancGen = cancIterAsync(function* (): AsyncIterResult<never> {
- yield* cancIterForAwait(source, (value: number) => {
+ const cancGen = cancGenAsync(function* (): AsyncGenResult<never> {
+ yield* cancGenForAwait(source, (value: number) => {
  seen.push(value);
  });
  });
@@ -768,11 +768,11 @@ describe('cancIterAsync — cancel mid-cancIterForAwait/cancIterDelegate runs su
  expect(state.finallyRan).toBe(true);
  });
 
- it('cancel mid-cancIterDelegate (sub pull in flight) runs the sub source finally', async () => {
+ it('cancel mid-cancGenDelegate (sub pull in flight) runs the sub source finally', async () => {
  const { source, deliver, state } = makeControllableSource<number>();
 
- const cancGen = cancIterAsync(function* (): AsyncIterResult<number> {
- yield* cancIterDelegate(source);
+ const cancGen = cancGenAsync(function* (): AsyncGenResult<number> {
+ yield* cancGenDelegate(source);
  });
 
  const it = cancGen();
@@ -794,7 +794,7 @@ describe('cancIterAsync — cancel mid-cancIterForAwait/cancIterDelegate runs su
 });
 
 // Cancel aborts the in-flight awaited source (the underlying op is canceled, not just abandoned).
-describe('cancIterAsync — cancel aborts in-flight source', () => {
+describe('cancGenAsync — cancel aborts in-flight source', () => {
  it('cancel fires the awaited source cancel handler (abort)', async () => {
  let aborted = 0;
  // A never-settling source that records its own cancellation.
@@ -804,8 +804,8 @@ describe('cancIterAsync — cancel aborts in-flight source', () => {
  });
  });
 
- const it = cancIterAsync(function* (): AsyncIterResult<unknown> {
- yield* cancIterAwait(source);
+ const it = cancGenAsync(function* (): AsyncGenResult<unknown> {
+ yield* cancGenAwait(source);
  yield 'unreached';
  })();
 
@@ -824,8 +824,8 @@ describe('cancIterAsync — cancel aborts in-flight source', () => {
  resolveSource = resolve;
  });
 
- const it = cancIterAsync(function* (): AsyncIterResult<number> {
- const n = yield* cancIterAwait(source);
+ const it = cancGenAsync(function* (): AsyncGenResult<number> {
+ const n = yield* cancGenAwait(source);
  yield n;
  })();
 
@@ -850,7 +850,7 @@ describe('cancIterAsync — cancel aborts in-flight source', () => {
 });
 
 // Native-parity table (printed in spec output)
-describe('cancIterAsync — native-parity table', () => {
+describe('cancGenAsync — native-parity table', () => {
  it('every recorded scenario matches native async-generator output', () => {
  const header = 'scenario | native === canc';
  const sep = '--------------------------------|-----------------';
