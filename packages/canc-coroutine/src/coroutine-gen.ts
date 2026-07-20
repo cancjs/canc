@@ -49,21 +49,90 @@ export const awaited = <T = any>(value: T | TAwaited<T>): TAwaited<T> => ({
  [awaitedSymbol]: isAwaited(value) ? value[awaitedSymbol] : value,
 });
 
+// Same tuple/union types as `cancAwait.all/race/any/allSettled/try` (coroutine.ts), re-declared here
+// (not imported) since the combinator's RESULT shape is identical between the two worlds and only
+// the yielded carrier differs: bare value vs the `awaited(...)` marker.
+type TGenAwaitedTuple<T extends readonly unknown[]> = { -readonly [K in keyof T]: Awaited<T[K]> };
+type TGenSettledTuple<T extends readonly unknown[]> = { -readonly [K in keyof T]: PromiseSettledResult<Awaited<T[K]>> };
+
+interface ICancGenAwaitAll {
+ <T extends readonly unknown[] | []>(
+ values: readonly [...T],
+ options?: ICancelablePromiseOptions,
+ ): Generator<TAwaited<TGenAwaitedTuple<T>>, TGenAwaitedTuple<T>, TGenAwaitedTuple<T>>;
+}
+
+interface ICancGenAwaitRace {
+ <T extends readonly unknown[] | []>(
+ values: readonly [...T],
+ options?: ICancelablePromiseOptions,
+ ): Generator<TAwaited<Awaited<T[number]>>, Awaited<T[number]>, Awaited<T[number]>>;
+}
+
+interface ICancGenAwaitAny {
+ <T extends readonly unknown[] | []>(
+ values: readonly [...T],
+ options?: ICancelablePromiseOptions,
+ ): Generator<TAwaited<Awaited<T[number]>>, Awaited<T[number]>, Awaited<T[number]>>;
+}
+
+interface ICancGenAwaitAllSettled {
+ <T extends readonly unknown[] | []>(
+ values: readonly [...T],
+ options?: ICancelablePromiseOptions,
+ ): Generator<TAwaited<TGenSettledTuple<T>>, TGenSettledTuple<T>, TGenSettledTuple<T>>;
+}
+
+interface ICancGenAwaitTry {
+ <T, TArgs extends any[]>(
+ fn: (...args: TArgs) => T | PromiseLike<T>,
+ ...args: TArgs
+ ): Generator<TAwaited<Awaited<T>>, Awaited<T>, Awaited<T>>;
+}
+
 /**
  * Internal await inside a `cancGenAsync` body: suspend on `value`, resume with its resolution, typed
  * via `yield*` (delegate `TReturn`), unlike the un-typeable bare `yield`. Wraps the value in the
  * `awaited` marker so the driver treats it as an internal await, NOT an emit. Mirror of `cancAwait`
- * for the `async *` world (`cancGen.await`).
+ * for the `async *` world (`cancGen.await`), including the same `.all/.race/.any/.allSettled/.try`
+ * combinator surface below.
  *
  * const n = yield* cancGenAwait(Promise.resolve(1)); // n: number, no cast
  */
-export function cancGenAwait<T>(
+export interface ICancGenAwait {
+ <T>(value: Promise<T> | T): Generator<TAwaited<Awaited<T>>, Awaited<T>, Awaited<T>>;
+ all: ICancGenAwaitAll;
+ race: ICancGenAwaitRace;
+ any: ICancGenAwaitAny;
+ allSettled: ICancGenAwaitAllSettled;
+ try: ICancGenAwaitTry;
+}
+
+function cancGenAwaitImpl<T>(
  value: Promise<T> | T,
 ): Generator<TAwaited<Awaited<T>>, Awaited<T>, Awaited<T>> {
  return (function* (): Generator<TAwaited<Awaited<T>>, Awaited<T>, Awaited<T>> {
  return yield awaited(value) as TAwaited<Awaited<T>>;
  })();
 }
+
+// Gen-world analog of coroutine.ts's `makeCombinator`: same one-step fold, but the built promise is
+// wrapped in the `awaited(...)` marker instead of a bare `yield`, so the `cancGenAsync` driver treats
+// it as an INTERNAL await (never emitted to the consumer's `for await`), matching every other
+// `cancGenAwait` step.
+function makeGenCombinator(build: (...args: any[]) => CancelablePromise<any>) {
+ return function* (...args: any[]): Generator<TAwaited<any>, any, any> {
+ return yield awaited(build.apply(CancelablePromise, args));
+ };
+}
+
+export const cancGenAwait = cancGenAwaitImpl as ICancGenAwait;
+
+cancGenAwait.all = makeGenCombinator(CancelablePromise.all) as ICancGenAwait['all'];
+cancGenAwait.race = makeGenCombinator(CancelablePromise.race) as ICancGenAwait['race'];
+cancGenAwait.any = makeGenCombinator(CancelablePromise.any) as ICancGenAwait['any'];
+cancGenAwait.allSettled = makeGenCombinator(CancelablePromise.allSettled) as ICancGenAwait['allSettled'];
+cancGenAwait.try = makeGenCombinator(CancelablePromise.try) as ICancGenAwait['try'];
 
 /**
  * Body annotation for a `cancGenAsync` generator. `E` = emit type (what the consumer's `for await`

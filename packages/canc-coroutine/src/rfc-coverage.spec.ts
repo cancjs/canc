@@ -130,6 +130,37 @@ describe('rfc §2 — cancAwait combinators, runtime behavior inside a coroutine
  ]);
  expect(canceled).toBe(false);
  });
+
+ it('cancAwait.try: wraps a sync-returning fn and resolves its value through yield*', async () => {
+ const co = cancAsync(function* () {
+ const x = yield* cancAwait.try(() => 1);
+ return x;
+ });
+
+ await expect(co()).resolves.toBe(1);
+ });
+
+ it('cancAwait.try: a synchronously-throwing fn rejects the coroutine', async () => {
+ const boom = new Error('try-boom');
+ const co = cancAsync(function* () {
+ yield* cancAwait.try((): number => {
+ throw boom;
+ });
+ return 'unreached';
+ });
+
+ const err = await co().catch((e: any) => e);
+ expect(err).toBe(boom);
+ });
+
+ it('cancAwait.try: forwards args to fn and resolves an async result', async () => {
+ const co = cancAsync(function* () {
+ const sum = yield* cancAwait.try((a: number, b: number) => Promise.resolve(a + b), 2, 3);
+ return sum;
+ });
+
+ await expect(co()).resolves.toBe(5);
+ });
 });
 
 describe('rfc §3 — catchCancel and in-body catch vs coroutine cancel', () => {

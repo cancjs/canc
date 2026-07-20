@@ -90,7 +90,11 @@ cancAsync(function* () {
  [PromiseSettledResult<number>, PromiseSettledResult<string>]
  >>;
 
- return { tuple, raced, anied, settled };
+ // try() — the fn's own (awaited) return type, no tuple to reconstruct.
+ const tried = yield* cancAwait.try(() => 1);
+ type _tryNumber = Expect<Equal<typeof tried, number>>;
+
+ return { tuple, raced, anied, settled, tried };
 });
 
 // @ts-expect-error all() requires an iterable, not a bare value
@@ -129,6 +133,46 @@ async function consumeInferred() {
  }
 }
 void consumeInferred;
+
+// ============================================================ cancGenAwait: combinator parity (all/race/any/allSettled/try)
+const producerWithCombinators = cancGenAsync(function* () {
+ const [n, s] = yield* cancGenAwait.all([Promise.resolve(1), Promise.resolve('a')]);
+ type _genAllTuple = Expect<Equal<[typeof n, typeof s], [number, string]>>;
+
+ const raced = yield* cancGenAwait.race([Promise.resolve(1), Promise.resolve('a')]);
+ type _genRaceUnion = Expect<Equal<typeof raced, number | string>>;
+
+ const anied = yield* cancGenAwait.any([Promise.resolve(1), Promise.resolve('a')] as const);
+ type _genAnyUnion = Expect<Equal<typeof anied, number | string>>;
+
+ const settled = yield* cancGenAwait.allSettled([Promise.resolve(1), Promise.resolve('a')] as const);
+ type _genAllSettledTuple = Expect<Equal<
+ typeof settled,
+ [PromiseSettledResult<number>, PromiseSettledResult<string>]
+ >>;
+
+ const tried = yield* cancGenAwait.try(() => 2);
+ type _genTryNumber = Expect<Equal<typeof tried, number>>;
+
+ // Only bare `yield`s are emitted to the consumer — every combinator step above is an internal
+ // await (wrapped in the `awaited(...)` marker), never part of the emit type.
+ yield `n=${n} s=${s} raced=${raced} anied=${anied} tried=${tried}`;
+
+ return settled;
+});
+type _producerWithCombinatorsEmit = Expect<Equal<
+ ReturnType<typeof producerWithCombinators> extends AsyncGenerator<infer E, any> ? E : never,
+ string
+>>;
+
+async function consumeCombinators() {
+ for await (const line of producerWithCombinators()) {
+ // Consumer sees only the bare-yield string emit, never a combinator's tuple/union result.
+ type _lineString = Expect<Equal<typeof line, string>>;
+ void line;
+ }
+}
+void consumeCombinators;
 
 // cancAsync return type is inferred without an AsyncResult annotation: the generator's own
 // return value now flows through to the coroutine's return type (see `_coResult` above), same as
