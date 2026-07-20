@@ -35,7 +35,7 @@ const isAbortError = (error: any): boolean =>
 // A missing config key falls back to the ambient global, read at call time (not at factory
 // creation) so importing the default entry never touches `fetch`/`AbortController` in an
 // environment that lacks them. Callers wanting eager binding pass the globals in explicitly.
-const resolve = <T>(config: CancelableFetchConfig, key: keyof CancelableFetchConfig, global: T): T =>
+const resolveDep = <T>(config: Record<string, any>, key: string, global: T): T =>
 	(key in config ? (config[key] as unknown as T) : global);
 
 // Wiring shared by every product this factory can build (immediate fetch, and the lazy/later
@@ -58,7 +58,7 @@ export const setupCancellation = (
 	init: any,
 	handleCancel: (onCancel: () => void) => void
 ): FetchCancellation => {
-	const _AbortController = resolve<AbortControllerCtor>(
+	const _AbortController = resolveDep<AbortControllerCtor>(
 		config,
 		'AbortController',
 		typeof AbortController !== 'undefined' ? AbortController : (undefined as any)
@@ -158,8 +158,8 @@ export const setupCancellation = (
 
 export const cancelableFetchFactory = (config: CancelableFetchConfig = {}) => {
 	return function cancelableFetch(input: any, init?: any): CancelablePromise<any> {
-		return new CancelablePromise<any>((resolve_, reject, handleCancel) => {
-			const _fetch = resolve<Fetch>(config, 'fetch', typeof fetch !== 'undefined' ? fetch : (undefined as any));
+		return new CancelablePromise<any>((resolve, reject, handleCancel) => {
+			const _fetch = resolveDep<Fetch>(config, 'fetch', typeof fetch !== 'undefined' ? fetch : (undefined as any));
 			const { signal, finalize, toRejection } = setupCancellation(config, input, init, handleCancel);
 
 			const settle = <T>(callback: (value: T) => void) => (value: T) => {
@@ -168,9 +168,143 @@ export const cancelableFetchFactory = (config: CancelableFetchConfig = {}) => {
 			};
 
 			_fetch(input, { ...init, signal }).then(
-				settle(resolve_),
+				settle(resolve),
 				settle((reason: any) => reject(toRejection(reason)))
 			);
 		});
+	};
+};
+
+
+// The fetchLater() API returns a FetchLaterResult synchronously (not a promise, no response body).
+// Its `activated` flag flips to true once the deferred request is actually sent. Local structural
+// stand-in so a future built-in FetchLaterResult stays assignable with no name clash.
+export interface FetchLaterResultLike {
+	readonly activated: boolean;
+}
+
+// Structural stand-in for the deferred-request init. `activateAfter` (ms) sets a send timeout;
+// absent means the browser sends at page-visit end. Everything else mirrors a normal fetch init.
+export type DeferredRequestInit = Record<string, any> & { activateAfter?: number };
+
+type FetchLater = (input: any, init?: DeferredRequestInit) => FetchLaterResultLike;
+
+// Structural timer stand-ins so the source builds without DOM/Node lib types. The handle is opaque;
+// only round-tripping it back into clearInterval matters.
+type TimerHandle = any;
+declare const setInterval: (handler: () => void, timeout?: number) => TimerHandle;
+declare const clearInterval: (handle: TimerHandle) => void;
+
+declare const fetchLater: FetchLater;
+
+export interface CancelableFetchLaterConfig extends CancelableFetchConfig {
+	fetchLater?: FetchLater;
+	// Interval, in milliseconds, at which the FetchLaterResult `activated` flag is polled when
+	// `activateAfter` is set. Defaults to 500.
+	pollInterval?: number;
+}
+
+// A CancelablePromise merged with the live FetchLaterResult. Resolves to the FetchLaterResultLike
+// (never a Response, none is exposed). `.activated` reads the live result, or null before the
+// underlying fetchLater() has been called (only possible for the lazy variant before it starts).
+export type CancelableFetchLaterPromise = CancelablePromise<FetchLaterResultLike> & {
+	readonly activated: boolean | null;
+};
+
+const DEFAULT_POLL_INTERVAL = 500;
+
+// Attach a live `.activated` getter that reads the current FetchLaterResult through `getResult`,
+// returning null before the result exists. Defined non-enumerable so it does not interfere with
+// promise internals.
+export const attachActivated = (
+	promise: CancelablePromise<FetchLaterResultLike>,
+	getResult: () => FetchLaterResultLike | null
+): CancelableFetchLaterPromise => {
+	Object.defineProperty(promise, 'activated', {
+		configurable: true,
+		enumerable: false,
+		get(): boolean | null {
+			const result = getResult();
+			return result ? result.activated : null;
+		}
+	});
+
+	return promise as CancelableFetchLaterPromise;
+};
+
+// The shared fetchLater run: call the underlying fetchLater() (mapping a sync throw to a reject),
+// then either poll `activated` (when activateAfter is set) or stay pending until cancel. `setResult`
+// stores the live FetchLaterResult so `.activated` can read it. Returns nothing; drives the promise
+// through the passed resolve/reject.
+export const runFetchLater = (
+	config: CancelableFetchLaterConfig,
+	input: any,
+	init: DeferredRequestInit | undefined,
+	resolve: (value: FetchLaterResultLike) => void,
+	reject: (reason: any) => void,
+	handleCancel: (onCancel: () => void) => void,
+	setResult: (result: FetchLaterResultLike) => void
+): void => {
+	const _fetchLater = resolveDep<FetchLater>(
+		config,
+		'fetchLater',
+		typeof fetchLater !== 'undefined' ? fetchLater : (undefined as any)
+	);
+
+	if (!isFunction(_fetchLater)) {
+		reject(new Error('fetchLater is not available; provide one via config.fetchLater'));
+		return;
+	}
+
+	const { signal, finalize } = setupCancellation(config, input, init, handleCancel);
+	handleCancel(finalize);
+
+	let result: FetchLaterResultLike;
+	try {
+		// A sync throw (quota/range/type) surfaces as a raw rejection, not a CancelError.
+		result = _fetchLater(input, { ...init, signal });
+	} catch (error) {
+		finalize();
+		reject(error);
+		return;
+	}
+
+	setResult(result);
+
+	const activateAfter = init && init.activateAfter;
+
+	if (typeof activateAfter !== 'number') {
+		// No activateAfter: the real send happens at page-end and is unobservable, so the promise
+		// stays pending until cancel. Cancel aborts the deferred send through the shared cancellation
+		// wiring (setupCancellation already registered the abort on cancel).
+		return;
+	}
+
+	const pollInterval = typeof config.pollInterval === 'number' ? config.pollInterval : DEFAULT_POLL_INTERVAL;
+
+	const intervalHandle = setInterval(() => {
+		if (result.activated) {
+			clearInterval(intervalHandle);
+			finalize();
+			resolve(result);
+		}
+	}, pollInterval);
+
+	handleCancel(() => {
+		clearInterval(intervalHandle);
+	});
+};
+
+export const cancelableFetchLaterFactory = (config: CancelableFetchLaterConfig = {}) => {
+	return function cancelableFetchLater(input: any, init?: DeferredRequestInit): CancelableFetchLaterPromise {
+		let result: FetchLaterResultLike | null = null;
+
+		const promise = new CancelablePromise<FetchLaterResultLike>((resolve, reject, handleCancel) => {
+			runFetchLater(config, input, init, resolve, reject, handleCancel, (r) => {
+				result = r;
+			});
+		});
+
+		return attachActivated(promise, () => result);
 	};
 };

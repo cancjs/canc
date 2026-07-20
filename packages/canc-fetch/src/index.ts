@@ -1,11 +1,26 @@
-import { cancelableFetchFactory, CancelableFetchConfig } from './base';
+import {
+	cancelableFetchFactory,
+	cancelableFetchLaterFactory,
+	CancelableFetchConfig,
+	CancelableFetchLaterConfig,
+	CancelableFetchLaterPromise,
+	FetchLaterResultLike,
+	DeferredRequestInit,
+} from './base';
 
 
-// Default entry: globals (`fetch`, `AbortController`, `Event`) are captured lazily on first call
-// inside the factory, so importing this module is safe even where they are absent.
+// Default entries: globals (`fetch`, `AbortController`, `fetchLater`) are captured lazily on first
+// call inside the factories, so importing this module is safe even where they are absent.
 const cancelableFetch = cancelableFetchFactory();
+const cancelableFetchLater = cancelableFetchLaterFactory();
 
 export default cancelableFetch;
 
-export { cancelableFetch, cancelableFetchFactory };
-export type { CancelableFetchConfig };
+export { cancelableFetch, cancelableFetchFactory, cancelableFetchLater, cancelableFetchLaterFactory };
+export type {
+	CancelableFetchConfig,
+	CancelableFetchLaterConfig,
+	CancelableFetchLaterPromise,
+	FetchLaterResultLike,
+	DeferredRequestInit,
+};

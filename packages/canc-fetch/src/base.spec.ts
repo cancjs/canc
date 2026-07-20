@@ -1,6 +1,6 @@
 import { CancelError, isCancelError, createCancelSignal } from '@cancjs/promise';
 
-import { cancelableFetchFactory } from './base';
+import { cancelableFetchFactory, cancelableFetchLaterFactory } from './base';
 
 
 // Minimal AbortController/AbortSignal test doubles: enough surface for the factory (signal with
@@ -550,6 +550,167 @@ describe('cancel-signal reuse (no injected AbortController)', () => {
 	});
 });
 
+// A FetchLaterResult stand-in whose `activated` flips true after `flipAfter` reads of the getter,
+// simulating the browser sending the deferred request at some later tick.
+function makeFetchLaterResult(flipAfter = 1) {
+	let reads = 0;
+	return {
+		get activated(): boolean {
+			return reads++ >= flipAfter;
+		},
+	};
+}
+
+function flushTimers(): Promise<void> {
+	return new Promise(resolve => setTimeout(resolve, 0));
+}
+
+describe('cancelableFetchLaterFactory', () => {
+	it('polls the FetchLaterResult activated flag and resolves once it flips true', async () => {
+		const result = makeFetchLaterResult(1);
+		const fetchLater = jest.fn(() => result);
+
+		const cancelableFetchLater = cancelableFetchLaterFactory({
+			fetchLater: fetchLater as any,
+			AbortController: MockAbortController as any,
+			pollInterval: 5,
+		});
+
+		const promise = cancelableFetchLater('/api', { activateAfter: 1000 });
+
+		const resolved = await promise;
+
+		expect(fetchLater).toHaveBeenCalledTimes(1);
+		expect(resolved).toBe(result);
+		// The merged `.activated` reads the live result.
+		expect(promise.activated).toBe(true);
+	});
+
+	it('passes a minted signal into fetchLater init', async () => {
+		const result = makeFetchLaterResult(0);
+		let seenSignal: any;
+		const fetchLater = jest.fn((_input: any, init: any) => {
+			seenSignal = init.signal;
+			return result;
+		});
+
+		const cancelableFetchLater = cancelableFetchLaterFactory({
+			fetchLater: fetchLater as any,
+			AbortController: MockAbortController as any,
+			pollInterval: 5,
+		});
+
+		const promise = cancelableFetchLater('/api', { activateAfter: 1000 });
+		await promise;
+
+		expect(seenSignal).toBeInstanceOf(MockAbortSignal);
+	});
+
+	it('stays pending without activateAfter and rejects with a CancelError on cancel', async () => {
+		const result = makeFetchLaterResult(1000);
+		const fetchLater = jest.fn(() => result);
+
+		const cancelableFetchLater = cancelableFetchLaterFactory({
+			fetchLater: fetchLater as any,
+			AbortController: MockAbortController as any,
+		});
+
+		const promise = cancelableFetchLater('/api');
+
+		let settled = false;
+		promise.then(
+			() => { settled = true; },
+			() => { settled = true; }
+		);
+
+		await flushTimers();
+		expect(settled).toBe(false);
+		// `.activated` is live-readable even while pending.
+		expect(typeof promise.activated).toBe('boolean');
+
+		promise.cancel();
+
+		let error: any;
+		try {
+			await promise;
+		} catch (e) {
+			error = e;
+		}
+		expect(isCancelError(error)).toBe(true);
+	});
+
+	it('clears the poll interval on cancel (no resolve after cancel)', async () => {
+		const clearSpy = jest.spyOn(global, 'clearInterval');
+		// activated never flips within the test window.
+		const result = makeFetchLaterResult(1000);
+		const fetchLater = jest.fn(() => result);
+
+		const cancelableFetchLater = cancelableFetchLaterFactory({
+			fetchLater: fetchLater as any,
+			AbortController: MockAbortController as any,
+			pollInterval: 5,
+		});
+
+		const promise = cancelableFetchLater('/api', { activateAfter: 1000 });
+
+		let resolved = false;
+		promise.then(() => { resolved = true; }, () => {});
+
+		await flushTimers();
+		promise.cancel();
+
+		expect(clearSpy).toHaveBeenCalled();
+
+		// Wait past several poll intervals; it must never resolve.
+		await new Promise(resolve => setTimeout(resolve, 30));
+		expect(resolved).toBe(false);
+
+		clearSpy.mockRestore();
+	});
+
+	it('rejects with the raw error when fetchLater throws synchronously', async () => {
+		const quotaError = new Error('QuotaExceededError');
+		quotaError.name = 'QuotaExceededError';
+		const fetchLater = jest.fn(() => { throw quotaError; });
+
+		const cancelableFetchLater = cancelableFetchLaterFactory({
+			fetchLater: fetchLater as any,
+			AbortController: MockAbortController as any,
+		});
+
+		const promise = cancelableFetchLater('/api', { activateAfter: 1000 });
+
+		let error: any;
+		try {
+			await promise;
+		} catch (e) {
+			error = e;
+		}
+
+		// Raw error, NOT a CancelError.
+		expect(error).toBe(quotaError);
+		expect(isCancelError(error)).toBe(false);
+	});
+
+	it('rejects when no fetchLater is available or injected', async () => {
+		const cancelableFetchLater = cancelableFetchLaterFactory({
+			AbortController: MockAbortController as any,
+		});
+
+		const promise = cancelableFetchLater('/api', { activateAfter: 1000 });
+
+		let error: any;
+		try {
+			await promise;
+		} catch (e) {
+			error = e;
+		}
+
+		expect(error).toBeInstanceOf(Error);
+		expect(isCancelError(error)).toBe(false);
+	});
+});
+
 describe('import safety', () => {
 	it('imports the default entry without touching fetch globals', () => {
 		// Loading the default (prebound) entry must not throw in an environment lacking fetch/
@@ -561,6 +722,8 @@ describe('import safety', () => {
 				expect(typeof mod.default).toBe('function');
 				expect(typeof mod.cancelableFetch).toBe('function');
 				expect(typeof mod.cancelableFetchFactory).toBe('function');
+				expect(typeof mod.cancelableFetchLater).toBe('function');
+				expect(typeof mod.cancelableFetchLaterFactory).toBe('function');
 			});
 		}).not.toThrow();
 	});
