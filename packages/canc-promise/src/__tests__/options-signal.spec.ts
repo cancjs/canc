@@ -1,6 +1,6 @@
 import { CancelablePromise, ICancelablePromiseFlagOptions } from '../cancelable-promise';
 import { CancelError } from '../cancel-error';
-import { createAbortSignal, isCancelError } from '../helpers';
+import { createCancelSignal, isCancelError } from '../helpers';
 
 /**
  * Options/signal.
@@ -9,7 +9,7 @@ import { createAbortSignal, isCancelError } from '../helpers';
  * inherit, signal does NOT, regression lock); strict throws matrix (cancel/handleCancel on
  * settled/canceled); asyncCancel sync vs async handler settle ordering; signal abort -> cancel
  * w/ signal.reason as cause; listener cleanup (black-box re-run); multiple promises one signal;
- * branded createAbortSignal migration (signals as the sole destructurable-cancel mechanism).
+ * branded createCancelSignal migration (signals as the sole destructurable-cancel mechanism).
  */
 
 const NativePromise = Promise;
@@ -438,12 +438,12 @@ describe('multiple promises, one signal', () => {
 	});
 });
 
-describe('branded createAbortSignal migration (replaces cancel refs)', () => {
-	it('destructurable abort cancels the promise with a branded CancelError carrying the message', async () => {
-		const { abort, signal } = createAbortSignal();
+describe('branded createCancelSignal migration (replaces cancel refs)', () => {
+	it('destructurable cancel cancels the promise with a branded CancelError carrying the message', async () => {
+		const { cancel, signal } = createCancelSignal();
 		const promise = new CancelablePromise<number>(() => {/**/}, { signal });
 
-		abort('x');
+		cancel('x');
 
 		const error: any = await promise.catch(e => e);
 

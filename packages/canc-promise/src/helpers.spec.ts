@@ -1,9 +1,10 @@
 import { CancelError } from './cancel-error';
 import {
 	catchCancel,
-	createAbortSignal,
+	createCancelSignal,
 	forceCancelable,
 	isCancelError,
+	isCancelSignal,
 	suppressCancel
 } from './helpers';
 import { CancelablePromise, ICancelable } from './cancelable-promise';
@@ -29,68 +30,101 @@ describe('isCancelError', () => {
 	});
 });
 
-describe('createAbortSignal', () => {
-	let result: ReturnType<typeof createAbortSignal>;
+describe('createCancelSignal', () => {
+	let result: ReturnType<typeof createCancelSignal>;
 
 	beforeEach(() => {
-		result = createAbortSignal();
+		result = createCancelSignal();
 	});
 
 	it('returns controller members', () => {
 		expect(result).toEqual({
-			abort: expect.any(Function),
+			cancel: expect.any(Function),
 			signal: expect.any(AbortSignal)
 		});
 	});
 
-	it('brands the reason: abort(string) sets signal.reason to a CancelError with that message', () => {
-		const { abort, signal } = result;
+	it('brands the returned signal (isCancelSignal true)', () => {
+		expect(isCancelSignal(result.signal)).toBe(true);
+	});
+
+	// Anti-stub: a raw AbortSignal carries no brand, so the check must be false — proves the brand
+	// is a real own-prop, not a no-op that returns true for any signal.
+	it('does not brand a plain AbortSignal', () => {
+		expect(isCancelSignal(new AbortController().signal)).toBe(false);
+	});
+
+	it('brand property is own and non-enumerable', () => {
+		const descriptor = Object.getOwnPropertyDescriptor(result.signal, Symbol.for('@cancjs/promise:cancel signal'));
+
+		expect(descriptor).toBeDefined();
+		expect(descriptor!.enumerable).toBe(false);
+		expect(descriptor!.value).toBe(true);
+	});
+
+	it('brands the reason: cancel(string) sets signal.reason to a CancelError with that message', () => {
+		const { cancel, signal } = result;
 
 		const spy = jest.fn();
 		signal.addEventListener('abort', spy);
 
-		expect(() => { abort('reason') }).not.toThrow();
+		expect(() => { cancel('reason') }).not.toThrow();
 		expect(signal.aborted).toBe(true);
 		expect(isCancelError(signal.reason)).toBe(true);
 		expect(signal.reason.message).toBe('reason');
 		expect(spy).toHaveBeenCalled();
 	});
 
-	it('abort() with no argument sets signal.reason to a fresh CancelError', () => {
-		const { abort, signal } = result;
+	it('cancel() with no argument sets signal.reason to a fresh CancelError', () => {
+		const { cancel, signal } = result;
 
-		abort();
+		cancel();
 
 		expect(signal.aborted).toBe(true);
 		expect(isCancelError(signal.reason)).toBe(true);
 	});
 
-	it('abort(cancelError) passes an existing CancelError through unwrapped (same identity)', () => {
-		const { abort, signal } = result;
+	it('cancel(cancelError) passes an existing CancelError through unwrapped (same identity)', () => {
+		const { cancel, signal } = result;
 		const cancelError = new CancelError('preexisting');
 
-		abort(cancelError);
+		cancel(cancelError);
 
 		expect(signal.reason).toBe(cancelError);
 	});
 
-	it('abort(object) wraps a non-CancelError object as the CancelError cause', () => {
-		const { abort, signal } = result;
+	it('cancel(object) wraps a non-CancelError object as the CancelError cause', () => {
+		const { cancel, signal } = result;
 		const reason = { x: 1 };
 
-		abort(reason);
+		cancel(reason);
 
 		expect(isCancelError(signal.reason)).toBe(true);
 		expect(signal.reason.cause).toBe(reason);
 	});
 
-	it('uses the default reason passed at creation when abort() is called with no argument', () => {
-		const { abort, signal } = createAbortSignal('default-reason');
+	it('uses the default reason passed at creation when cancel() is called with no argument', () => {
+		const { cancel, signal } = createCancelSignal('default-reason');
 
-		abort();
+		cancel();
 
 		expect(isCancelError(signal.reason)).toBe(true);
 		expect(signal.reason.message).toBe('default-reason');
+	});
+
+	it('cancels a CancelablePromise via the signal option with the exact CancelError', async () => {
+		const { cancel, signal } = createCancelSignal();
+
+		const promise = new CancelablePromise(() => { /* never settles */ }, { signal });
+
+		cancel('stop');
+
+		let caught: any;
+		await promise.catch(error => { caught = error; });
+
+		expect(isCancelError(caught)).toBe(true);
+		expect(caught).toBe(signal.reason);
+		expect(caught.message).toBe('stop');
 	});
 });
 

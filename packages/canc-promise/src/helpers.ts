@@ -19,17 +19,33 @@ export const isCancPromise = (value: any): value is CancelablePromise<any> => is
 // stand-in in runtimes without DOMException.
 export const isAbortError = (error: any): boolean => isObject(error) && (error as { name?: unknown }).name === 'AbortError';
 
-export function createAbortSignal(reason?: any) {
+// Agent-wide brand marking a "cancel signal": an AbortSignal that aborts with a CancelError.
+// Same Symbol.for-registry rationale as CANCEL_ERROR_BRAND, cross-realm/cross-copy safe.
+export const CANCEL_SIGNAL_BRAND = Symbol.for('@cancjs/promise:cancel signal');
+
+// A cancel signal is a native AbortSignal branded to mark that it aborts with a CancelError. The
+// brand is an own, non-enumerable property carrying the registry symbol.
+export type CancelSignal = AbortSignal & { readonly [CANCEL_SIGNAL_BRAND]: true };
+
+// Brand check: a plain AbortSignal (raw AbortController) is NOT a cancel signal, only a signal
+// produced by createCancelSignal carries the brand.
+export const isCancelSignal = (value: any): value is CancelSignal => isObject(value) && value[CANCEL_SIGNAL_BRAND] === true;
+
+export function createCancelSignal(reason?: any) {
 	const controller = new AbortController();
 
+	// Brand the signal so isCancelSignal recognizes it: this signal aborts with a CancelError, not
+	// a raw DOMException.
+	Object.defineProperty(controller.signal, CANCEL_SIGNAL_BRAND, { value: true });
+
 	return {
-		// The bound abort mints a branded CancelError as the signal reason (unless it is already a
+		// The bound cancel mints a branded CancelError as the signal reason (unless it is already a
 		// CancelError, which passes through). Aborting this signal therefore reads as a genuine
 		// cancellation: spec-compliant consumers (e.g. fetch, which rejects with signal.reason)
 		// reject with our CancelError directly, and a {signal}-option promise cancels with that exact
 		// error. Normalization mirrors cancel(): a string/undefined becomes the message, any other
 		// object becomes the cause.
-		abort: (r: any = reason) =>
+		cancel: (r: any = reason) =>
 			controller.abort(
 				isCancelError(r)
 					? r
@@ -37,7 +53,7 @@ export function createAbortSignal(reason?: any) {
 						? new CancelError(undefined, { cause: r })
 						: new CancelError(r)
 			),
-		signal: controller.signal
+		signal: controller.signal as CancelSignal
 	};
 }
 
