@@ -1,4 +1,4 @@
-import { CancelError, isCancelError } from '@cancjs/promise';
+import { CancelError, isCancelError, createCancelSignal } from '@cancjs/promise';
 
 import { cancelableFetchFactory } from './base';
 
@@ -415,6 +415,140 @@ describe('signal interop', () => {
 	});
 });
 
+
+// Deferred fetch honoring a REAL (native) AbortSignal: rejects with the signal's `reason` on abort,
+// exactly as a spec-compliant fetch does. Used to exercise the createCancelSignal reuse path (no
+// injected AbortController), where the signal already aborts with a CancelError.
+function nativeSignalFetch() {
+	const calls: Array<{ input: any; init: any; signal: any }> = [];
+	let settle: { resolve: (v: any) => void; reject: (e: any) => void } | null = null;
+
+	const fetch = jest.fn((input: any, init?: any) => {
+		calls.push({ input, init, signal: init?.signal });
+		return new Promise((resolve, reject) => {
+			settle = { resolve, reject };
+			const signal: AbortSignal | undefined = init?.signal;
+			if (signal) {
+				const rejectWithReason = () => reject(signal.reason as Error);
+				if (signal.aborted) {
+					rejectWithReason();
+					return;
+				}
+				signal.addEventListener('abort', rejectWithReason);
+			}
+		});
+	});
+
+	return {
+		fetch,
+		calls,
+		resolveWith: (value: any) => settle?.resolve(value),
+		rejectWith: (error: any) => settle?.reject(error),
+	};
+}
+
+describe('cancel-signal reuse (no injected AbortController)', () => {
+	it('cancels the underlying fetch with a clean CancelError on .cancel()', async () => {
+		const backing = nativeSignalFetch();
+		// No AbortController in config: the factory reuses createCancelSignal (native AbortController).
+		const cancelableFetch = cancelableFetchFactory({ fetch: backing.fetch });
+
+		const promise = cancelableFetch('/api');
+		await flush();
+		expect(backing.calls[0].signal.aborted).toBe(false);
+
+		promise.cancel();
+
+		let error: any;
+		try {
+			await promise;
+		} catch (e) {
+			error = e;
+		}
+
+		// mock fetch records the underlying abort, and the rejection is a clean CancelError.
+		expect(backing.calls[0].signal.aborted).toBe(true);
+		expect(isCancelError(error)).toBe(true);
+	});
+
+	it('maps an external native-signal abort to a CancelError', async () => {
+		const external = new AbortController();
+		const backing = nativeSignalFetch();
+		const cancelableFetch = cancelableFetchFactory({ fetch: backing.fetch });
+
+		const promise = cancelableFetch('/api', { signal: external.signal });
+		await flush();
+
+		external.abort();
+
+		let error: any;
+		try {
+			await promise;
+		} catch (e) {
+			error = e;
+		}
+
+		expect(backing.calls[0].signal.aborted).toBe(true);
+		expect(isCancelError(error)).toBe(true);
+	});
+
+	it('forwards an injected cancel signal so it cancels with its CancelError verbatim', async () => {
+		const { cancel, signal } = createCancelSignal();
+		const reason = new CancelError('stop it');
+		const backing = nativeSignalFetch();
+		const cancelableFetch = cancelableFetchFactory({ fetch: backing.fetch });
+
+		const promise = cancelableFetch('/api', { signal });
+		await flush();
+
+		cancel(reason);
+
+		let error: any;
+		try {
+			await promise;
+		} catch (e) {
+			error = e;
+		}
+
+		expect(isCancelError(error)).toBe(true);
+		expect(error).toBe(reason);
+	});
+
+	it('rejects immediately for a pre-aborted native signal', async () => {
+		const external = new AbortController();
+		external.abort();
+		const backing = nativeSignalFetch();
+		const cancelableFetch = cancelableFetchFactory({ fetch: backing.fetch });
+
+		const promise = cancelableFetch('/api', { signal: external.signal });
+
+		let error: any;
+		try {
+			await promise;
+		} catch (e) {
+			error = e;
+		}
+
+		expect(backing.calls[0].signal.aborted).toBe(true);
+		expect(isCancelError(error)).toBe(true);
+	});
+
+	it('forwards an external non-cancel init.signal into the underlying fetch', async () => {
+		const external = new AbortController();
+		const backing = nativeSignalFetch();
+		const cancelableFetch = cancelableFetchFactory({ fetch: backing.fetch });
+
+		const promise = cancelableFetch('/api', { signal: external.signal, method: 'POST' });
+		await flush();
+
+		// The underlying fetch gets our minted signal, not the caller's, and the init is preserved.
+		expect(backing.calls[0].init.method).toBe('POST');
+		expect(backing.calls[0].signal).toBeInstanceOf(AbortSignal);
+
+		backing.resolveWith('ok');
+		await promise;
+	});
+});
 
 describe('import safety', () => {
 	it('imports the default entry without touching fetch globals', () => {
