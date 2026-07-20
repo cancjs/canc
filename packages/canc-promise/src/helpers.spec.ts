@@ -2,7 +2,7 @@ import { CancelError } from './cancel-error';
 import {
 	catchCancel,
 	createCancelSignal,
-	forceCancelable,
+	makeCancelable,
 	isCancelError,
 	isCancelSignal,
 	suppressCancel
@@ -293,40 +293,40 @@ describe('suppressCancel', () => {
 	});
 });
 
-describe('forceCancelable', () => {
+describe('makeCancelable', () => {
 	it('wraps a promise', () => {
 		const promise = CancelablePromise.resolve();
-		const forcedCancelablePromise = forceCancelable(promise);
-		expect(forcedCancelablePromise).toEqual(expect.any(CancelablePromise));
-		expect(forcedCancelablePromise).not.toBe(promise);
+		const wrappedPromise = makeCancelable(promise);
+		expect(wrappedPromise).toEqual(expect.any(CancelablePromise));
+		expect(wrappedPromise).not.toBe(promise);
 	});
 
 	it('resolves with wrapped promise when cancelled', async () => {
 		const promise = CancelablePromise.resolve(1);
 
-		await expect(forceCancelable(promise)).resolves.toBe(1);
+		await expect(makeCancelable(promise)).resolves.toBe(1);
 
-		const forcedCancelablePromise = forceCancelable(promise);
+		const wrappedPromise = makeCancelable(promise);
 
 		await flushPromises();
 
-		forcedCancelablePromise.cancel();
+		wrappedPromise.cancel();
 
-		await expect(forcedCancelablePromise).resolves.toBe(1);
-		expect(forcedCancelablePromise.isCanceled).toBe(false);
+		await expect(wrappedPromise).resolves.toBe(1);
+		expect(wrappedPromise.isCanceled).toBe(false);
 	});
 
 	it('ignores wrapped promise when synchronously cancelled', async () => {
 		const promise = CancelablePromise.resolve(1);
 
-		await expect(forceCancelable(promise)).resolves.toBe(1);
+		await expect(makeCancelable(promise)).resolves.toBe(1);
 
-		const forcedCancelablePromise = forceCancelable(promise);
+		const wrappedPromise = makeCancelable(promise);
 
-		forcedCancelablePromise.cancel();
+		wrappedPromise.cancel();
 
-		await expect(forcedCancelablePromise).rejects.toThrow();
-		expect(forcedCancelablePromise.isCanceled).toBe(true);
+		await expect(wrappedPromise).rejects.toThrow();
+		expect(wrappedPromise.isCanceled).toBe(true);
 	});
 
 	// isCancelable(promise) false branch, plain non-cancelable promise, no third-party .cancel
@@ -334,10 +334,10 @@ describe('forceCancelable', () => {
 	it('does not attempt to cancel a plain non-cancelable promise', async () => {
 		const promise = Promise.resolve(1);
 
-		const forcedCancelablePromise = forceCancelable(promise as any);
-		forcedCancelablePromise.cancel();
+		const wrappedPromise = makeCancelable(promise as any);
+		wrappedPromise.cancel();
 
-		await expect(forcedCancelablePromise).rejects.toThrow();
+		await expect(wrappedPromise).rejects.toThrow();
 	});
 
 	it('cancels third-party cancelable when cancelled', async () => {
@@ -350,10 +350,10 @@ describe('forceCancelable', () => {
 			{ cancel: jest.fn(() => promiseReject('Canceled')) }
 		) as ICancelable<never>;
 
-		const forcedCancelablePromise = forceCancelable(promise);
-		forcedCancelablePromise.cancel();
+		const wrappedPromise = makeCancelable(promise);
+		wrappedPromise.cancel();
 
 		expect(promise.cancel).toHaveBeenCalled();
-		await expect(forcedCancelablePromise).rejects.toThrow();
+		await expect(wrappedPromise).rejects.toThrow();
 	});
 });

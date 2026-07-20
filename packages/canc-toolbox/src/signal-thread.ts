@@ -7,7 +7,7 @@ type AbortControllerCtor = new () => { abort(reason?: any): void; signal: any };
 
 /**
  * Normalize an arbitrary cancel reason into a branded CancelError, matching cancel() and the core
- * createAbortSignal: a CancelError passes through unwrapped, a string/undefined becomes the message,
+ * createCancelSignal: a CancelError passes through unwrapped, a string/undefined becomes the message,
  * any other object becomes the cause. This keeps an aborted outbound signal reading as a genuine
  * cancellation end-to-end (spec consumers reject with signal.reason, which is our CancelError).
  */

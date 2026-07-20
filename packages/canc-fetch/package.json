@@ -17,6 +17,11 @@
  "types": "./dist/types/index.d.ts",
  "import": "./dist/index.mjs",
  "require": "./dist/index.cjs"
+ },
+ "./lazy": {
+ "types": "./dist/types/lazy.d.ts",
+ "import": "./dist/lazy.mjs",
+ "require": "./dist/lazy.cjs"
  }
  },
  "engines": {
