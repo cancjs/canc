@@ -365,7 +365,9 @@ describe('fetchLaterFactory', () => {
 
 
 describe('lazy fetch and fetchLater signal sharing', () => {
-	it('both lazyFetch and fetchLater share the setupCancellation wiring', async () => {
+	it('setupCancellation is shared between lazyFetch and fetchLater', () => {
+		// Verify that both factories use the same shared internal setup: they both should
+		// wire an AbortSignal independently for each call, not create a global shared one.
 		const backingLazy = deferredFetch();
 		const backingLater = deferredFetch();
 
@@ -378,31 +380,40 @@ describe('lazy fetch and fetchLater signal sharing', () => {
 			AbortController: MockAbortController as any,
 		});
 
-		// Create both promises and subscribe.
-		const lazySub = lazyFetch('/api/lazy').then();
-		const laterSub = fetchLater('/api/later').then();
+		// Create and subscribe to lazy fetch
+		const lazyPromise1 = lazyFetch('/api/lazy');
+		lazyPromise1.then();
 
-		// Both should have called their respective fetches with an AbortSignal from our wiring.
+		// Create and subscribe to fetchLater
+		const laterPromise1 = fetchLater('/api/later');
+		laterPromise1.then();
+
+		// Both should have called their respective fetches with an AbortSignal.
+		expect(backingLazy.calls).toHaveLength(1);
+		expect(backingLater.calls).toHaveLength(1);
 		expect(backingLazy.calls[0].signal).toBeDefined();
 		expect(backingLater.calls[0].signal).toBeDefined();
 
-		// Both signals should be from our minted AbortController (not inherited from elsewhere).
+		// Both signals should be from our minted AbortController.
 		expect(backingLazy.calls[0].signal).toBeInstanceOf(MockAbortSignal);
 		expect(backingLater.calls[0].signal).toBeInstanceOf(MockAbortSignal);
 
-		// Canceling each promise should abort its respective signal independently.
-		const lazyProm = lazyFetch('/api/lazy-2').then();
-		const laterProm = fetchLater('/api/later-2').then();
+		// Verify they are independent signals by canceling them separately.
+		const lazyPromise2 = lazyFetch('/api/lazy-2');
+		const laterPromise2 = fetchLater('/api/later-2');
 
-		lazyProm.cancel('lazy canceled');
+		lazyPromise2.then();
+		laterPromise2.then();
 
-		// Lazy's signal should be aborted; later's should not.
+		// Both should now have two calls
+		expect(backingLazy.calls).toHaveLength(2);
+		expect(backingLater.calls).toHaveLength(2);
+
+		// Cancel only the lazy promise
+		lazyPromise2.cancel();
+
+		// Only lazy's signal should be aborted
 		expect(backingLazy.calls[1].signal.aborted).toBe(true);
 		expect(backingLater.calls[1].signal.aborted).toBe(false);
-
-		// Clean up.
-		backingLazy.resolveWith('ok');
-		backingLater.resolveWith('ok');
-		await Promise.all([lazySub, laterSub]);
 	});
 });

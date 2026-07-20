@@ -1,5 +1,5 @@
 import { CancelablePromise, CancelError } from '@cancjs/promise';
-import { CancelableLazyPromise, lazy as lazyPromise } from '@cancjs/lazy-promise';
+import { CancelableLazyPromise, lazy as lazyPromise, TLazyExecutor } from '@cancjs/lazy-promise';
 
 import { CancelableFetchConfig, setupCancellation, FetchCancellation } from './base';
 import { isFunction } from '../../_util';
@@ -16,10 +16,10 @@ declare const fetch: Fetch;
  * Lazy cancelable fetch: the fetch executor does not run until the returned promise is first
  * subscribed (`.then`/`.catch`/`.await`). Canceling before subscription skips the fetch entirely.
  */
-export const lazyFetchFactory = (config: CancelableFetchConfig = {}) => {
+const lazyFetchFactory = (config: CancelableFetchConfig = {}) => {
 	return function lazyFetch(input: any, init?: any): CancelableLazyPromise<any> {
 		return lazyPromise<any>(
-			(resolve, reject, handleCancel) => {
+			((resolve: (value: any) => void, reject: (reason: any) => void, handleCancel: (onCancel: () => void) => void) => {
 				const _fetch = (typeof config.fetch !== 'undefined' ? config.fetch : fetch) as Fetch;
 				const { signal, finalize, toRejection } = setupCancellation(config, input, init, handleCancel);
 
@@ -32,7 +32,7 @@ export const lazyFetchFactory = (config: CancelableFetchConfig = {}) => {
 					settle(resolve),
 					settle((reason: any) => reject(toRejection(reason)))
 				);
-			},
+			}) as TLazyExecutor<any>,
 		);
 	};
 };
@@ -61,7 +61,7 @@ export type { CancelableFetchConfig };
  * stops the frontend's ability to observe/react to the result, but the request may have already
  * been sent.
  */
-export const fetchLaterFactory = (config: CancelableFetchConfig = {}, delayMs?: number) => {
+const fetchLaterFactory = (config: CancelableFetchConfig = {}, delayMs?: number) => {
 	return function fetchLater(input: any, init?: any): CancelableLazyPromise<any> {
 		// Try to use native fetchLater if available; fall back to a delayed lazy fetch.
 		const nativeFetchLater = (typeof globalThis !== 'undefined' && (globalThis as any).fetchLater) as
@@ -69,7 +69,7 @@ export const fetchLaterFactory = (config: CancelableFetchConfig = {}, delayMs?: 
 			| undefined;
 
 		return lazyPromise<any>(
-			(resolve, reject, handleCancel) => {
+			((resolve: (value: any) => void, reject: (reason: any) => void, handleCancel: (onCancel: () => void) => void) => {
 				const { signal, finalize, toRejection } = setupCancellation(config, input, init, handleCancel);
 
 				const settle = <T>(callback: (value: T) => void) => (value: T) => {
@@ -97,7 +97,7 @@ export const fetchLaterFactory = (config: CancelableFetchConfig = {}, delayMs?: 
 				} else {
 					executeRequest();
 				}
-			},
+			}) as TLazyExecutor<any>,
 		);
 	};
 };
@@ -108,4 +108,4 @@ export const fetchLaterFactory = (config: CancelableFetchConfig = {}, delayMs?: 
  */
 const fetchLater = fetchLaterFactory();
 
-export { fetchLater };
+export { fetchLater, fetchLaterFactory };
