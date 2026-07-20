@@ -134,5 +134,3 @@ export function makeCancelable<T>(promise: PromiseLike<T>, options?: ICancelable
 	);
 }
 
-/** @deprecated use `makeCancelable` */
-export const forceCancelable = makeCancelable;

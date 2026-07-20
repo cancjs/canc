@@ -14,11 +14,10 @@ import CancelablePromise, {
  CancelablePromise as NamedCP,
  CancelError,
  isCancelError,
- createCancelRef,
- createAbortSignal,
+ createCancelSignal,
  catchCancel,
  suppressCancel,
- forceCancelable,
+ makeCancelable,
 } from '@cancjs/promise';
 
 // coroutine (cancAsync/cancAwait) lives in its own package now; core no longer re-exports it.
@@ -28,7 +27,6 @@ import type {
  ICancelablePromiseOptions,
  ICancelablePromiseFlagOptions,
  ICancelablePromiseWithResolvers,
- ICancelRef,
  ICancelable,
  IHandleCancelOptions,
  TCancelReason,
@@ -49,7 +47,7 @@ const p = new CancelablePromise<number>((resolve, reject, handleCancel) => {
 
 // flag options object typed on its own
 const _flags: ICancelablePromiseFlagOptions = { bubble: false };
-const _opts: ICancelablePromiseOptions = { ..._flags, ref: createCancelRef(), signal: createAbortSignal().signal };
+const _opts: ICancelablePromiseOptions = { ..._flags, signal: createCancelSignal().signal };
 void _opts;
 
 // --- then / catch / finally result types ---------------------------------
@@ -109,11 +107,10 @@ void _coroResult;
 
 // --- helpers -------------------------------------------------------------
 const _isErr: boolean = isCancelError(new CancelError());
-const _ref: ICancelRef = createCancelRef();
 const _cc = catchCancel(Promise.resolve(5)); // CancelablePromise<number | CancelError>
 const _sc = suppressCancel(Promise.resolve(5)); // CancelablePromise<number | void>
-const _fc = forceCancelable(Promise.resolve(5)); // CancelablePromise<number>
-void _isErr; void _ref; void _cc; void _sc; void _fc;
+const _mc = makeCancelable(Promise.resolve(5)); // CancelablePromise<number>
+void _isErr; void _cc; void _sc; void _mc;
 
 // --- interface/type-only surface -----------------------------------------
 const _state: TCancelablePromiseStates = 'PENDING';
@@ -123,8 +120,8 @@ void _state; void _onCancel; void _cancelable2;
 
 // --- CancelError shape ---------------------------------------------------
 const err = new CancelError('reason', { cause: new Error('c') });
-const _bubbled: boolean = err.isBubbled;
-const _disposed: boolean = err.isDisposed;
+const _bubbled: boolean = err.bubbled;
+const _disposed: boolean = err.disposed;
 void _bubbled; void _disposed;
 
 export {};

@@ -1,6 +1,6 @@
 import { CancelablePromise, ICancelableHelperOptions } from './cancelable-promise';
 import { CancelError } from './cancel-error';
-import { isCancPromise, makeCancelable, forceCancelable } from './helpers';
+import { isCancPromise, makeCancelable } from './helpers';
 
 /**
  * Owner's rename pass: new primary names + deprecation aliases for the old names.
@@ -133,9 +133,6 @@ describe('rename pass: makeCancelable (renamed forceCancelable helper)', () => {
 		await expect(wrapped).resolves.toBe(1);
 	});
 
-	it('forceCancelable alias still works and is the same function', () => {
-		expect(forceCancelable).toBe(makeCancelable);
-	});
 
 	it('accepts a custom CancelablePromise-compatible constructor via ICancelableHelperOptions', async () => {
 		let used = false;

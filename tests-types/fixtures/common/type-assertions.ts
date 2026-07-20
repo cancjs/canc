@@ -18,14 +18,12 @@ import CancelablePromise, {
  CancelError,
  catchCancel,
  suppressCancel,
- forceCancelable,
- createCancelRef,
+ makeCancelable,
 } from '@cancjs/promise';
 import type {
  ICancelablePromiseWithResolvers,
  ICancelablePromiseFlagOptions,
  ICancelablePromiseOptions,
- ICancelRef,
 } from '@cancjs/promise';
 import type { Equal, Expect } from './assert-type';
 
@@ -113,11 +111,8 @@ type _catchCancel = Expect<Equal<typeof cc, CancelablePromise<number | CancelErr
 const sc = suppressCancel(Promise.resolve(7));
 type _suppressCancel = Expect<Equal<typeof sc, CancelablePromise<number | void>>>;
 
-const fc = forceCancelable(Promise.resolve(7));
-type _forceCancelable = Expect<Equal<typeof fc, CancelablePromise<number>>>;
-
-const ref = createCancelRef();
-type _ref = Expect<Equal<typeof ref, ICancelRef>>;
+const mc = makeCancelable(Promise.resolve(7));
+type _makeCancelable = Expect<Equal<typeof mc, CancelablePromise<number>>>;
 
 // @ts-expect-error catchCancel over a value narrows to CancelError | never, not a promise-of-value
 const _bad: CancelablePromise<number> = catchCancel(new CancelError());
@@ -131,7 +126,7 @@ type _flagKeys = Expect<Equal<
  'asyncCancel' | 'forceCancelable' | 'bubble' | 'strict' | 'shield'
 >>;
 
-const opts: ICancelablePromiseOptions = { bubble: true, ref: createCancelRef() };
+const opts: ICancelablePromiseOptions = { bubble: true };
 void opts;
 
 // @ts-expect-error unknown option key is rejected by excess-property checking
