@@ -1,4 +1,5 @@
-import { createMockApi, isAbortError } from '@shared/mock-api';
+import { isAbortError } from '@cancjs/toolbox';
+import { createMockApi } from '@shared/mock-api';
 import { loadProfile, loadProfileAbortable } from './profile-service-vanilla';
 
 async function main(): Promise<void> {

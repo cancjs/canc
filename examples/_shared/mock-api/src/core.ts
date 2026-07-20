@@ -7,6 +7,7 @@
 // - records started/completed/aborted markers on a shared call log so a test (or a demo's
 // console) can assert the request was really in flight when it was canceled.
 
+import { AbortError } from '@cancjs/toolbox';
 import { mulberry32, attachAbort, type AbortSignalLike } from '@shared/util';
 
 export type { AbortSignalLike };
@@ -42,18 +43,6 @@ export interface MockApiOptions {
  seed?: number;
  /** Optional sink for trace lines. Defaults to no-op; pass `console.log` in a demo. */
  trace?: (line: string) => void;
-}
-
-/** Thrown/rejected when a call is aborted mid-latency. Shaped like a DOM AbortError. */
-export class AbortError extends Error {
- override readonly name = 'AbortError';
- constructor(message = 'The operation was aborted') {
- super(message);
- }
-}
-
-export function isAbortError(error: unknown): error is { name: 'AbortError' } {
- return typeof error === 'object' && error !== null && (error as { name?: unknown }).name === 'AbortError';
 }
 
 /**

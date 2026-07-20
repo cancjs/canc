@@ -2,7 +2,7 @@
 // only in how they thread cancellation, so everything that is not cancellation lives here.
 
 import type { AbortSignalLike, DocChunk, RagApi } from '@shared/mock-api';
-import { AbortError, isAbortError } from '@shared/mock-api';
+import { AbortError, isAbortError } from '@cancjs/toolbox';
 import { attachAbort } from '@shared/util';
 
 export interface RagAnswer {

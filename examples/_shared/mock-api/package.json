@@ -9,6 +9,9 @@
  "test": "jest --colors",
  "typecheck": "tsc --noEmit --project tsconfig.json"
  },
+ "dependencies": {
+ "@cancjs/toolbox": "file:../../packages/canc-toolbox"
+ },
  "engines": {
  "npm": ">=9"
  }

@@ -3,7 +3,7 @@
 // it is one more signal-aware network step in the pipeline, abortable like the rest.
 
 import type { AbortSignalLike, DocChunk } from '@shared/mock-api';
-import { AbortError } from '@shared/mock-api';
+import { AbortError } from '@cancjs/toolbox';
 
 export interface RankedChunk extends DocChunk {
  score: number;

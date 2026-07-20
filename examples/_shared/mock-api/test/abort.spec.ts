@@ -1,4 +1,5 @@
-import { createMockApi, isAbortError } from '../src';
+import { isAbortError } from '@cancjs/toolbox';
+import { createMockApi } from '../src';
 
 describe('mock-api abort', () => {
  it('rejects with an AbortError and records an aborted marker when canceled mid-latency', async () => {

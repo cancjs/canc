@@ -125,7 +125,7 @@ function runJob(
  // Cancel = ack the client. Shielded so the ack still sends even though the job chain is
  // canceling. A real failure is left to surface, not acked as a cancel.
  if (isCancelError(error)) {
- void suppress(['cancel'], (async () => send(ws, { type: 'canceled', jobId }))());
+ void suppress((async () => send(ws, { type: 'canceled', jobId }))());
  }
  },
  );

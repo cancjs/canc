@@ -6,7 +6,8 @@
 // the same calls through the real OpenAI SDK (an optional dependency). The call shape is
 // identical either way: a moderation check, then a token stream, both accepting an AbortSignal.
 
-import { createMockApi, isAbortError as isMockAbortError } from '@shared/mock-api';
+import { isAbortError as isMockAbortError } from '@cancjs/toolbox';
+import { createMockApi } from '@shared/mock-api';
 
 export interface Llm {
  /** Rejects when the prompt is disallowed; resolves otherwise. Honors the abort signal. */

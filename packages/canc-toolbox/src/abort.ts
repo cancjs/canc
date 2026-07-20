@@ -1,12 +1,5 @@
-import { CancelablePromise, ICancelable, isAbortError, isCancelError } from '@cancjs/promise';
+import { CancelablePromise, ICancelable, isCancelError } from '@cancjs/promise';
 import { IToolboxOptions, THandleCancel } from './options';
-
-/**
- * The reason categories a suppress filter recognizes. `'cancel'` matches a canc CancelError (any
- * cancellation, abort-driven or not); `'abort'` matches an AbortSignal abort, whether it surfaced as
- * a raw DOMException AbortError or as a CancelError carrying that abort as its cause.
- */
-export type SuppressCategory = 'abort' | 'cancel';
 
 // AbortSignal.any (ES2024 / Node 20.3+) exists at runtime in every supported target but is not
 // declared by the ambient AbortSignal typing this workspace resolves. Reference it through a narrow
@@ -23,39 +16,61 @@ function isObject(value: unknown): value is object {
 }
 
 /**
- * Whether `reason` falls into a requested category. `'abort'` is satisfied both by a bare AbortError
- * and by a CancelError whose `aborted` getter is true (abort threaded through cancellation).
+ * An error shaped like a DOM AbortError. Rejected/thrown when an operation is aborted. Matches the
+ * `name` of the DOMException a real AbortSignal produces so the same code path handles both.
  */
-function matchesCategory(reason: unknown, categories: readonly SuppressCategory[]): boolean {
-	const wantAbort = categories.includes('abort');
-	const wantCancel = categories.includes('cancel');
-
-	if (wantAbort && (isAbortError(reason) || (isCancelError(reason) && (reason as { aborted?: boolean }).aborted === true))) {
-		return true;
+export class AbortError extends Error {
+	override readonly name = 'AbortError';
+	constructor(message = 'The operation was aborted') {
+		super(message);
 	}
-
-	if (wantCancel && isCancelError(reason)) {
-		return true;
-	}
-
-	return false;
 }
 
 /**
- * Swallow rejections of `promise` whose reason matches one of `categories`, rethrowing anything
- * else. Resolves to the fulfilled value or `undefined` when a matched rejection was suppressed. The
- * returned promise is built through the resolved implementation, so it is cancelable by default.
+ * Whether `error` is an AbortError (a bare DOMException AbortError or the AbortError class above),
+ * detected by `name`. A CancelError is not an AbortError even when it carries an abort as its cause.
  */
-export function suppress<T>(
-	categories: readonly SuppressCategory[],
-	promise: T | PromiseLike<T>,
-	options?: IToolboxOptions,
-): Promise<T | void> {
+export function isAbortError(error: unknown): error is { name: 'AbortError' } {
+	return isObject(error) && (error as { name?: unknown }).name === 'AbortError';
+}
+
+/**
+ * Options recognized by {@link suppress}.
+ */
+export interface ISuppressOptions extends IToolboxOptions {
+	/**
+	 * Also swallow an AbortError, whether it surfaced as a bare DOMException AbortError or as a
+	 * CancelError whose abort drove the cancellation. Off by default: only a CancelError is swallowed.
+	 */
+	abort?: boolean;
+}
+
+/**
+ * Whether `reason` should be swallowed. A CancelError is always caught; an AbortError (bare, or a
+ * CancelError whose `aborted` getter is true) is caught only when `abort` is set.
+ */
+function isSuppressed(reason: unknown, abort: boolean | undefined): boolean {
+	if (isCancelError(reason)) {
+		return true;
+	}
+
+	return Boolean(abort && isAbortError(reason));
+}
+
+/**
+ * Swallow a cancellation of `promise` and resolve to `undefined` instead, rethrowing anything else.
+ * By default only a CancelError is swallowed; pass `{ abort: true }` to also swallow an AbortError.
+ * Resolves to the fulfilled value when the promise settles normally. The returned promise is built
+ * through the resolved implementation, so it is cancelable by default.
+ */
+export function suppress<T>(promise: T | PromiseLike<T>, options?: ISuppressOptions): Promise<T | void> {
+	const abort = options?.abort;
+
 	return new CancelablePromise<T | void>((resolve, reject, handleCancel?: THandleCancel) => {
 		CancelablePromise.resolve(promise).then(
 			(value) => resolve(value),
 			(reason) => {
-				if (matchesCategory(reason, categories)) {
+				if (isSuppressed(reason, abort)) {
 					resolve(undefined);
 				} else {
 					reject(reason);
@@ -74,15 +89,25 @@ export function suppress<T>(
 }
 
 /**
- * Swallow AbortError rejections (bare or wrapped in a CancelError) and rethrow everything else.
- * Shorthand for `suppress(['abort'], promise)`.
+ * Swallow both AbortError and CancelError rejections and rethrow everything else. Shorthand for
+ * `suppress(promise, { abort: true })`.
  */
 export function suppressAbort<T>(promise: T | PromiseLike<T>, options?: IToolboxOptions): Promise<T | void> {
-	return suppress(['abort'], promise, options);
+	return suppress(promise, { ...options, abort: true });
 }
 
 function isCancelable(value: unknown): value is ICancelable {
 	return isObject(value) && typeof (value as { cancel?: unknown }).cancel === 'function';
+}
+
+/**
+ * A plain AbortController convenience: mints a raw controller and returns its signal plus a bound
+ * `abort`. No CancelError wiring, this is the native-shaped helper. For a signal that cancels a
+ * CancelablePromise with a CancelError, use `createCancelSignal` from `@cancjs/promise`.
+ */
+export function createAbortSignal(): { signal: AbortSignal; abort: (reason?: unknown) => void } {
+	const controller = new AbortController();
+	return { signal: controller.signal, abort: controller.abort.bind(controller) };
 }
 
 /**
@@ -214,4 +239,3 @@ export function withSignal<T>(signal: AbortSignal | undefined, promiseOrFn: ((si
 		);
 	});
 }
-

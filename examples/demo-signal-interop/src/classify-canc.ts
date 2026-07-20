@@ -59,8 +59,8 @@ export async function suppressMultipleErrorsCanc() {
  mayFailTask().then(resolve, reject);
  }, { signal: AbortSignal.timeout(30) });
 
- // suppress(['abort', 'cancel']): returns promise that swallows matching errors
- const result = await suppress(['abort', 'cancel'], promise);
+ // suppress with { abort: true }: swallows both CancelError and AbortError
+ const result = await suppress(promise, { abort: true });
  if (result === undefined) {
  console.log('[canc] abort/cancel suppressed');
  } else {

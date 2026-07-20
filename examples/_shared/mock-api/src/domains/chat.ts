@@ -1,4 +1,5 @@
-import { MockApi, AbortSignalLike, AbortError } from '../core';
+import { AbortError } from '@cancjs/toolbox';
+import { MockApi, AbortSignalLike } from '../core';
 
 export interface ChatApi {
  /** Streams tokens with a per-token delay, aborting mid-stream when the signal fires. */

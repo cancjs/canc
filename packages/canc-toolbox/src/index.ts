@@ -35,8 +35,11 @@ export {
 	interopTimeout,
 	toAbortSignal,
 	withSignal,
-	SuppressCategory,
-} from './abort-interop';
+	createAbortSignal,
+	AbortError,
+	isAbortError,
+} from './abort';
+export type { ISuppressOptions } from './abort';
 
 export { IToolboxOptions, THandleCancel, TToolboxExecutor } from './options';
 
