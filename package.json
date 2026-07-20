@@ -34,7 +34,7 @@
  "@rollup/plugin-typescript": "~12.2.0",
  "@stylistic/eslint-plugin": "~5.10.0",
  "@types/jest": "~30.0.0",
- "@types/node": "~20.12.12",
+ "@types/node": "~20.19.43",
  "cross-env": "~7.0.3",
  "downlevel-dts": "~0.11.0",
  "eslint": "~9.39.0",
