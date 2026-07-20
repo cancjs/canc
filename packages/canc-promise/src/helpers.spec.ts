@@ -13,6 +13,17 @@ function flushPromises(): Promise<void> {
 	return new Promise(resolve => setTimeout(resolve, 0));
 }
 
+// Plain Error subclass, prototype reset needed for the same es5-target reason CancelError resets
+// it (see cancel-error.ts): `class extends Error` alone loses instanceof under es5 transpilation.
+class AbortError extends Error {
+	override readonly name = 'AbortError';
+
+	constructor(message?: string) {
+		super(message);
+		Object.setPrototypeOf(this, new.target.prototype);
+	}
+}
+
 describe('isCancelError', () => {
 	it('strictly detects cancel error', () => {
 		expect(isCancelError(new CancelError())).toBe(true);
@@ -166,6 +177,46 @@ describe('catchCancel', () => {
 
 		await expect(result).rejects.toBe(error);
 	});
+
+	// default behavior (no options / abort:false) leaves a bare AbortError unmatched, must
+	// still rethrow. Proves the {abort} option is not accidentally always-on.
+	it('rethrows a plain AbortError by default (no abort option)', async () => {
+		const nativePromise = Promise.reject(new AbortError());
+
+		const result = catchCancel(nativePromise as any);
+
+		await expect(result).rejects.toBeInstanceOf(AbortError);
+	});
+
+	it('with {abort:true} catches and returns a plain AbortError', async () => {
+		const abortError = new AbortError();
+		const nativePromise = Promise.reject(abortError);
+
+		const result = catchCancel(nativePromise as any, { abort: true });
+
+		await expect(result).resolves.toBe(abortError);
+	});
+
+	it('with {abort:true} returns a CancelError whose aborted getter is true', () => {
+		const cancelError = new CancelError(undefined, { cause: new AbortError() });
+
+		expect(cancelError.aborted).toBe(true);
+		expect(catchCancel(cancelError, { abort: true })).toBe(cancelError);
+	});
+
+	// Bare-error overload: without {abort}, a bare AbortError is not a CancelError, so it throws
+	// synchronously same as any other foreign error.
+	it('bare-error form: throws a plain AbortError without the abort option', () => {
+		const error = new AbortError();
+
+		expect(() => catchCancel(error)).toThrow(error);
+	});
+
+	it('bare-error form: with {abort:true} returns a plain AbortError instead of throwing', () => {
+		const error = new AbortError();
+
+		expect(catchCancel(error, { abort: true })).toBe(error);
+	});
 });
 
 describe('suppressCancel', () => {
@@ -205,6 +256,40 @@ describe('suppressCancel', () => {
 		const result = suppressCancel(nativePromise as any);
 
 		await expect(result).rejects.toBe(error);
+	});
+
+	// default behavior (no options / abort:false) must RE-THROW a bare AbortError, proving
+	// the {abort} option is opt-in, not always-on (anti-stub: would fail if abort matching were
+	// unconditional).
+	it('rethrows a plain AbortError by default (no abort option)', async () => {
+		const nativePromise = Promise.reject(new AbortError());
+
+		const result = suppressCancel(nativePromise as any);
+
+		await expect(result).rejects.toBeInstanceOf(AbortError);
+	});
+
+	// Anti-stub: this must FAIL on current (pre-P19-4) code, since a bare AbortError is not a
+	// CancelError and would rethrow without the {abort} option honored.
+	it('with {abort:true} swallows a plain AbortError (resolves)', async () => {
+		const nativePromise = Promise.reject(new AbortError());
+
+		const result = suppressCancel(nativePromise as any, { abort: true });
+
+		await expect(result).resolves.toBe(undefined);
+	});
+
+	// Bare-error overload equivalent of the pair above.
+	it('bare-error form: throws a plain AbortError without the abort option', () => {
+		const error = new AbortError();
+
+		expect(() => suppressCancel(error)).toThrow(error);
+	});
+
+	it('bare-error form: with {abort:true} returns void instead of throwing', () => {
+		const error = new AbortError();
+
+		expect(suppressCancel(error, { abort: true })).toBe(undefined);
 	});
 });
 
