@@ -1,7 +1,7 @@
 # `yield` vs `yield*` in coroutines
 
-A coroutine is a generator function driven by `cancAsync` (for promise chains) or `cancIterAsync`
-(for async iterators). Inside it you suspend on a promise and resume with its resolved value. There
+A coroutine is a generator function driven by `cancAsync` (for promise chains) or `cancGenAsync`
+(for async generators). Inside it you suspend on a promise and resume with its resolved value. There
 are two ways to write that suspend point, and they differ only in what TypeScript infers for the
 resumed value. The runtime behavior is identical.
 
@@ -55,8 +55,8 @@ returns a generator typed as `Generator<..., Awaited<T>, ...>`, so `yield* cancA
 `yield* cancAwait(...)` gets its own correct type. That is the whole trick: move the value out of the
 un-typeable `TNext` slot and into the `TReturn` slot, which delegation reads accurately.
 
-In the mirror iterator namespace, `cancIterAwait(p)` works the same way: it returns a generator typed
-to delegate, so `yield* cancIterAwait(p)` inside a `cancIterAsync` body resumes with the correct
+In the mirror generator namespace, `cancGenAwait(p)` works the same way: it returns a generator typed
+to delegate, so `yield* cancGenAwait(p)` inside a `cancGenAsync` body resumes with the correct
 resolved type, no cast required.
 
 ## Combinator helpers
