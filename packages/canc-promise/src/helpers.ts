@@ -57,9 +57,22 @@ export function createCancelSignal(reason?: any) {
 	};
 }
 
-export function catchCancel<TResult extends any>(promise: PromiseLike<TResult>): CancelablePromise<TResult | CancelError>;
-export function catchCancel<TError extends any>(error: TError): CancelError | never;
-export function catchCancel<TResult extends any, TError extends any>(errorOrPromise: PromiseLike<TResult> | TError): CancelablePromise<TResult | CancelError> | CancelError | never {
+export interface ICatchSuppressOptions {
+	/**
+	 * Also match a plain AbortSignal-driven abort: a raw AbortError, or a CancelError whose
+	 * `aborted` getter is true (its cause is an AbortError). Default false: only a genuine
+	 * CancelError is matched.
+	 */
+	abort?: boolean;
+}
+
+function isCaught(error: any, options?: ICatchSuppressOptions): boolean {
+	return isCancelError(error) || Boolean(options?.abort && (isAbortError(error) || (isCancelError(error) && error.aborted)));
+}
+
+export function catchCancel<TResult extends any>(promise: PromiseLike<TResult>, options?: ICatchSuppressOptions): CancelablePromise<TResult | CancelError>;
+export function catchCancel<TError extends any>(error: TError, options?: ICatchSuppressOptions): CancelError | TError | never;
+export function catchCancel<TResult extends any, TError extends any>(errorOrPromise: PromiseLike<TResult> | TError, options?: ICatchSuppressOptions): CancelablePromise<TResult | CancelError> | CancelError | TError | never {
 	// todo: duck-check via isThenable (not `instanceof CancelablePromise`) so foreign
 	// thenables, a plain native Promise, a different @cancjs/promise copy (dual-package hazard),
 	// another cancelable implementation — are also handled instead of falling through to the
@@ -70,33 +83,33 @@ export function catchCancel<TResult extends any, TError extends any>(errorOrProm
 	if (isThenable(errorOrPromise)) {
 		return CancelablePromise.resolve(errorOrPromise as PromiseLike<TResult>)
 		.catch((error: any) => {
-			if (isCancelError(error)) {
-				return error as CancelError;
+			if (isCaught(error, options)) {
+				return error;
 			} else {
 				throw error;
 			}
 		});
-	} else if (isCancelError(errorOrPromise)) {
-		return errorOrPromise as CancelError;
+	} else if (isCaught(errorOrPromise, options)) {
+		return errorOrPromise as CancelError | TError;
 	} else {
 		throw errorOrPromise;
 	}
 }
 
-export function suppressCancel<TResult extends any>(promise: PromiseLike<TResult>): CancelablePromise<TResult | void>;
-export function suppressCancel<TError extends any>(error: TError): void | never;
-export function suppressCancel<TResult extends any, TError extends any>(errorOrPromise: PromiseLike<TResult> | TError): CancelablePromise<TResult | void> | void | never {
+export function suppressCancel<TResult extends any>(promise: PromiseLike<TResult>, options?: ICatchSuppressOptions): CancelablePromise<TResult | void>;
+export function suppressCancel<TError extends any>(error: TError, options?: ICatchSuppressOptions): void | never;
+export function suppressCancel<TResult extends any, TError extends any>(errorOrPromise: PromiseLike<TResult> | TError, options?: ICatchSuppressOptions): CancelablePromise<TResult | void> | void | never {
 	// todo: same isThenable widening as catchCancel above, see that comment. Any thenable
 	// (native Promise, foreign cancelable, other @cancjs/promise copy) rejecting with a CancelError
 	// gets suppressed, not just CancelablePromise instances.
 	if (isThenable(errorOrPromise)) {
 		return CancelablePromise.resolve(errorOrPromise as PromiseLike<TResult>)
 		.catch((error: any) => {
-			if (!isCancelError(error)) {
+			if (!isCaught(error, options)) {
 				throw error;
 			}
 		});
-	} else if (!isCancelError(errorOrPromise)) {
+	} else if (!isCaught(errorOrPromise, options)) {
 		throw errorOrPromise;
 	}
 }
