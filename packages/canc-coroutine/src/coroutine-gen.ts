@@ -12,7 +12,7 @@ import {
 
 export type TYieldTransformFn<T = any> = (value: any) => T;
 
-export type TCancelableCoroutineIterOptions = ICancelablePromiseOptions & {
+export type TCancelableCoroutineGenOptions = ICancelablePromiseOptions & {
  transformYield?: TYieldTransformFn;
 };
 
@@ -42,22 +42,22 @@ type TAwaited<T = any> = { [awaitedSymbol]: T };
 const isAwaited = (value: any): value is TAwaited => isObject(value) && awaitedSymbol in value;
 
 // Low-level: builds the internal-await marker directly. Kept public only for the `transformYield`
-// option, which promotes a plain yielded value to an internal await. Inside a `cancIterAsync` body,
-// prefer `yield* cancIterAwait(value)` — it is typed (the resume value flows through `yield*`), while
+// option, which promotes a plain yielded value to an internal await. Inside a `cancGenAsync` body,
+// prefer `yield* cancGenAwait(value)` — it is typed (the resume value flows through `yield*`), while
 // a bare `yield awaited(value)` is not.
 export const awaited = <T = any>(value: T | TAwaited<T>): TAwaited<T> => ({
  [awaitedSymbol]: isAwaited(value) ? value[awaitedSymbol] : value,
 });
 
 /**
- * Internal await inside a `cancIterAsync` body: suspend on `value`, resume with its resolution, typed
+ * Internal await inside a `cancGenAsync` body: suspend on `value`, resume with its resolution, typed
  * via `yield*` (delegate `TReturn`), unlike the un-typeable bare `yield`. Wraps the value in the
  * `awaited` marker so the driver treats it as an internal await, NOT an emit. Mirror of `cancAwait`
- * for the `async *` world (`cancIter.await`).
+ * for the `async *` world (`cancGen.await`).
  *
- * const n = yield* cancIterAwait(Promise.resolve(1)); // n: number, no cast
+ * const n = yield* cancGenAwait(Promise.resolve(1)); // n: number, no cast
  */
-export function cancIterAwait<T>(
+export function cancGenAwait<T>(
  value: Promise<T> | T,
 ): Generator<TAwaited<Awaited<T>>, Awaited<T>, Awaited<T>> {
  return (function* (): Generator<TAwaited<Awaited<T>>, Awaited<T>, Awaited<T>> {
@@ -66,24 +66,24 @@ export function cancIterAwait<T>(
 }
 
 /**
- * Body annotation for a `cancIterAsync` generator. `E` = emit type (what the consumer's `for await`
- * sees); `R` = final return. The `| TAwaited<any>` admits `yield* cancIterAwait(...)` internal awaits;
- * the `cancIterAsync` signature strips the marker from the consumer-facing emit type. Mirror of
- * `AsyncResult`. Optional: for a body that only `yield`s emits and `yield*`s `cancIterAwait`, `E` and
+ * Body annotation for a `cancGenAsync` generator. `E` = emit type (what the consumer's `for await`
+ * sees); `R` = final return. The `| TAwaited<any>` admits `yield* cancGenAwait(...)` internal awaits;
+ * the `cancGenAsync` signature strips the marker from the consumer-facing emit type. Mirror of
+ * `AsyncResult`. Optional: for a body that only `yield`s emits and `yield*`s `cancGenAwait`, `E` and
  * `R` infer from the body. Annotate for explicitness or to pin a bare `yield`'s type.
  */
-export type AsyncIterResult<E, R = void> = Generator<E | TAwaited<any>, R, any>;
+export type AsyncGenResult<E, R = void> = Generator<E | TAwaited<any>, R, any>;
 
 // Public typed signature: the emit type flows to the consumer and the internal-await marker is
 // stripped. `Exclude<TYield, TAwaited<any>>` drops the marker (its unique `Symbol.for` key means real
 // emit types never structurally match it), so the consumer's `for await` value is exactly the emit
-// type. Mirror of `cancAsync` for the `async *` world (`cancIter.async`).
-export function cancIterAsync<TYield, TReturn, TArgs extends any[], TThis = any>(
+// type. Mirror of `cancAsync` for the `async *` world (`cancGen.async`).
+export function cancGenAsync<TYield, TReturn, TArgs extends any[], TThis = any>(
  genFn: (this: TThis, ...args: TArgs) => Generator<TYield, TReturn, any>,
- options?: TCancelableCoroutineIterOptions,
+ options?: TCancelableCoroutineGenOptions,
 ): (this: TThis, ...args: TArgs) => AsyncGenerator<Exclude<TYield, TAwaited<any>>, TReturn>;
-export function cancIterAsync(genFn: IGeneratorLikeFn, options?: TCancelableCoroutineIterOptions): (...args: any[]) => AsyncGenerator<any, any>;
-export function cancIterAsync(genFn: IGeneratorLikeFn, options: TCancelableCoroutineIterOptions = {}) {
+export function cancGenAsync(genFn: IGeneratorLikeFn, options?: TCancelableCoroutineGenOptions): (...args: any[]) => AsyncGenerator<any, any>;
+export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCoroutineGenOptions = {}) {
  if (!isFunction(genFn)) {
  throw new TypeError('Argument is not a function');
  }
@@ -91,12 +91,12 @@ export function cancIterAsync(genFn: IGeneratorLikeFn, options: TCancelableCorou
  const genFnName = genFn.displayName || genFn.name;
 
  if (genFnName) {
- coroutineIterWrapper.displayName = `coroutineIter ${genFnName}`;
+ coroutineGenWrapper.displayName = `coroutineGen ${genFnName}`;
  }
 
  const { transformYield, ...promiseOptions } = options;
 
- function coroutineIterWrapper(this: any, ...args: any[]) {
+ function coroutineGenWrapper(this: any, ...args: any[]) {
  const gen: TGeneratorLike = genFn.apply(this, args);
 
  // Linked-list queue of pending step requests. `currentStep` = the step being resolved right
@@ -284,23 +284,23 @@ export function cancIterAsync(genFn: IGeneratorLikeFn, options: TCancelableCorou
  return asyncGen;
  }
 
- return coroutineIterWrapper;
+ return coroutineGenWrapper;
 }
 
 /**
- * `for await` CONSUME inside a `cancIterAsync` producer body (`cancIter.forAwait`): pull each item of
+ * `for await` CONSUME inside a `cancGenAsync` producer body (`cancGen.forAwait`): pull each item of
  * `source` at an internal cancellation point (the pulls are marker-wrapped, so they stay internal and
  * are NEVER emitted to our consumer), running `cb` per item. `cb` has three forms (mirror of
- * `cancForAwait`): a sync fn, a bare generator fn (its `cancIterAwait` steps run inline on this
+ * `cancForAwait`): a sync fn, a bare generator fn (its `cancGenAwait` steps run inline on this
  * driver), or a `cancAsync` coroutine fn (returns a `CancelablePromise`, awaited via marker `yield`).
  * `return false` from any form breaks the loop. `.toArray` collects into an array instead.
  */
-interface ICancIterForAwait {
+interface ICancGenForAwait {
  <T>(source: TEachSource<T>, cb: TForAwaitCallback<T>): Generator<TAwaited<any>, void, any>;
  toArray<T>(source: TEachSource<T>): Generator<TAwaited<any>, T[], any>;
 }
 
-export const cancIterForAwait = (function* cancIterForAwait(
+export const cancGenForAwait = (function* cancGenForAwait(
  source: any,
  cb: (value: any, index: number) => any,
 ): Generator<TAwaited<any>, void, any> {
@@ -323,7 +323,7 @@ export const cancIterForAwait = (function* cancIterForAwait(
  let settled: void | false;
 
  if (isGenerator(outcome)) {
- // bare-generator cb: delegate, its cancIterAwait steps run on the driver
+ // bare-generator cb: delegate, its cancGenAwait steps run on the driver
  settled = yield* (outcome as Generator<TAwaited<any>, void, any>);
  } else if (isThenable(outcome)) {
  settled = yield awaited(outcome); // cancAsync-coroutine cb (CancelablePromise): marker pull
@@ -336,14 +336,14 @@ export const cancIterForAwait = (function* cancIterForAwait(
  }
  }
  } finally {
- // Runs on normal completion, break, throw, AND on cancel-drain (the cancIterAsync driver reaches
+ // Runs on normal completion, break, throw, AND on cancel-drain (the cancGenAsync driver reaches
  // here via gen.return()). Await source cleanup so its own `finally` settles. No RETURN_UNWIND: that
- // sentinel is a cancAsync-driver concern; the cancIterAsync driver drives cleanup directly.
+ // sentinel is a cancAsync-driver concern; the cancGenAsync driver drives cleanup directly.
  yield awaited(returnStepIterator(it));
  }
-} as unknown) as ICancIterForAwait;
+} as unknown) as ICancGenForAwait;
 
-cancIterForAwait.toArray = (function* toArray(source: any): Generator<TAwaited<any>, any[], any> {
+cancGenForAwait.toArray = (function* toArray(source: any): Generator<TAwaited<any>, any[], any> {
  const { it, async: isAsync } = getStepIterator(source);
  const collected: any[] = [];
 
@@ -362,16 +362,16 @@ cancIterForAwait.toArray = (function* toArray(source: any): Generator<TAwaited<a
  }
 
  return collected;
-} as unknown) as ICancIterForAwait['toArray'];
+} as unknown) as ICancGenForAwait['toArray'];
 
 /**
- * Re-emit a sub async-iterable from inside a `cancIterAsync` producer (`cancIter.delegate`): the
+ * Re-emit a sub async-iterable from inside a `cancGenAsync` producer (`cancGen.delegate`): the
  * `yield* subAsyncGen` analog. Pulls each item of `source` INTERNALLY (marker-wrapped) and EMITs it to
  * OUR consumer via a bare `yield`. A separate helper because it is delegation, not a `for await` (no
  * per-item body). Direct `yield* source` cannot work: a sync producer generator cannot `yield*` an
  * async iterable.
  */
-export function cancIterDelegate<T>(source: TEachSource<T>): Generator<T | TAwaited<any>, void, any> {
+export function cancGenDelegate<T>(source: TEachSource<T>): Generator<T | TAwaited<any>, void, any> {
  return (function* (): Generator<T | TAwaited<any>, void, any> {
  const { it, async: isAsync } = getStepIterator(source);
 

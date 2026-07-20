@@ -26,11 +26,11 @@
  "import": "./dist/index.mjs",
  "require": "./dist/index.cjs"
  },
- "./iter": {
- "types@<4.7": "./dist/types-ts4.2/iter.d.ts",
- "types": "./dist/types/iter.d.ts",
- "import": "./dist/iter.mjs",
- "require": "./dist/iter.cjs"
+ "./gen": {
+ "types@<4.7": "./dist/types-ts4.2/gen.d.ts",
+ "types": "./dist/types/gen.d.ts",
+ "import": "./dist/gen.mjs",
+ "require": "./dist/gen.cjs"
  }
  },
  "engines": {
