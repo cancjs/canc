@@ -17,6 +17,8 @@ export const isCancPromise = (value: any): value is CancelablePromise<any> => is
 // brand to key on (it is a platform error, not ours), so detection matches the name, the same
 // convention every AbortSignal consumer uses. Works for a real DOMException and for a plain Error
 // stand-in in runtimes without DOMException.
+// Duplicated (not imported) from canc-toolbox's abort.ts: toolbox depends on this package, so a
+// reverse import here would be a cycle. Keep both in sync if the name-check logic ever changes.
 export const isAbortError = (error: any): boolean => isObject(error) && (error as { name?: unknown }).name === 'AbortError';
 
 // Agent-wide brand marking a "cancel signal": an AbortSignal that aborts with a CancelError.
