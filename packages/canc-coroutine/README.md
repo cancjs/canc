@@ -12,8 +12,8 @@ generator function into a function returning a `CancelablePromise`; `cancAwait` 
 used as `yield* cancAwait(promise)`) suspends the coroutine on a promise and resumes with its
 resolved value, or throws on rejection/cancellation.
 
-For async iterators, use the mirror namespace: `cancIterAsync` wraps a generator function into a
-function returning an async generator; `cancIterAwait` (used as `yield* cancIterAwait(promise)`)
+For async iterators, use the mirror namespace: `cancGenAsync` wraps a generator function into a
+function returning an async generator; `cancGenAwait` (used as `yield* cancGenAwait(promise)`)
 suspends internally and resumes typed, and `cancForAwait` streams an async iterable with
 per-item cancellation.
 
@@ -24,7 +24,7 @@ per-item cancellation.
  const data = yield* cancAwait(fetch(url)); // data: Response (typed)
  ```
 
-- `AsyncResult<T>` and `AsyncIterResult<E, R>`: type aliases for annotating coroutine body
+- `AsyncResult<T>` and `AsyncGenResult<E, R>`: type aliases for annotating coroutine body
  return types in place of writing out `Generator<unknown, T, any>` on every function:
 
  ```ts
@@ -32,7 +32,7 @@ per-item cancellation.
  return yield* cancAwait(fetch(url));
  }
 
- function* export(src: AsyncIterable<Item>): AsyncIterResult<Progress, void> {
+ function* export(src: AsyncIterable<Item>): AsyncGenResult<Progress, void> {
  yield* cancForAwait(src, (item) => { /* process item */ });
  }
  ```
@@ -187,14 +187,14 @@ The API is available under two namespaces for different use cases:
  `import { cancAsync, cancAwait, cancForAwait } from '@cancjs/coroutine'`, or use the aliases:
  `import * as canc from '@cancjs/coroutine'` then `canc.async`, `canc.await`, `canc.forAwait`.
 
-- **`cancIter` namespace** (subpath import): `cancIterAsync`, `cancIterAwait`, `cancIterForAwait`,
- `cancIterDelegate`, `AsyncIterResult`. Prefer when working primarily with async iterators; the
- names align with iterator concepts. Import with
- `import * as cancIter from '@cancjs/coroutine/iter'` and use `cancIter.async`, `cancIter.await`,
- `cancIter.forAwait`, `cancIter.delegate`, or cherry-pick individual named exports.
+- **`cancGen` namespace** (subpath import): `cancGenAsync`, `cancGenAwait`, `cancGenForAwait`,
+ `cancGenDelegate`, `AsyncGenResult`. Prefer when working primarily with async generators; the
+ names align with the `async function*` protocol. Import with
+ `import * as cancGen from '@cancjs/coroutine/gen'` and use `cancGen.async`, `cancGen.await`,
+ `cancGen.forAwait`, `cancGen.delegate`, or cherry-pick individual named exports.
 
-The two namespaces are completely parallel: `cancIterAsync` and `cancAsync` are the same at runtime;
-pick whichever naming convention fits your mental model. Use `canc` for promise chains, `cancIter`
+The two namespaces are completely parallel: `cancGenAsync` and `cancAsync` are the same at runtime;
+pick whichever naming convention fits your mental model. Use `canc` for promise chains, `cancGen`
 when your coroutine drives async generators.
 
 ## Streaming with `cancForAwait`
@@ -224,8 +224,8 @@ Callback forms: sync function, bare generator function (with `yield*` in the bod
 - [`yield` vs `yield*`](docs/yield-vs-yield-star.md): why `yield* cancAwait(promise)` is typed and
  bare `yield promise` is not, the TypeScript limitation behind it, the typed combinator helpers
  (`cancAwait.all/race/any/allSettled`), and how redux-saga and MobX `flow` hit the same wall.
-- **Async iterators in the mirror namespace**: for iterator-driven coroutines, use `cancIterAsync`
- with `cancIterAwait` (typed internal await via `yield*`) and `cancIterForAwait`/`cancIterDelegate`
+- **Async generators in the mirror namespace**: for generator-driven coroutines, use `cancGenAsync`
+ with `cancGenAwait` (typed internal await via `yield*`) and `cancGenForAwait`/`cancGenDelegate`
  for streaming. See the example READMEs for streaming patterns (`app-ws-progress`,
  `app-ai-rag-pipeline`).
 
