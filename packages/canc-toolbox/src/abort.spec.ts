@@ -1,57 +1,104 @@
 import { CancelablePromise, CancelError, isCancelError } from '@cancjs/promise';
-import { suppress, suppressAbort, interopTimeout, toAbortSignal, withSignal } from './abort-interop';
+import { AbortError, isAbortError, createAbortSignal, suppress, suppressAbort, interopTimeout, toAbortSignal, withSignal } from './abort';
 
 function abortReason(controller = new AbortController()): Error {
 	controller.abort();
 	return controller.signal.reason as Error;
 }
 
-describe('suppress / suppressAbort', () => {
-	it('suppresses a bare AbortError under the abort category', async () => {
-		const rejected = Promise.reject(abortReason());
-		await expect(suppress(['abort'], rejected)).resolves.toBeUndefined();
+describe('AbortError / isAbortError', () => {
+	it('AbortError is named AbortError and carries a default message', () => {
+		const error = new AbortError();
+		expect(error.name).toBe('AbortError');
+		expect(error.message).toBe('The operation was aborted');
+		expect(error).toBeInstanceOf(Error);
 	});
 
-	it('suppresses a CancelError whose cause is an abort under the abort category', async () => {
+	it('detects a bare DOMException AbortError', () => {
+		expect(isAbortError(abortReason())).toBe(true);
+	});
+
+	it('detects an AbortError instance', () => {
+		expect(isAbortError(new AbortError())).toBe(true);
+	});
+
+	it('rejects a CancelError, an ordinary Error, and non-objects', () => {
+		expect(isAbortError(new CancelError('canceled'))).toBe(false);
+		expect(isAbortError(new Error('boom'))).toBe(false);
+		expect(isAbortError(undefined)).toBe(false);
+		expect(isAbortError(null)).toBe(false);
+		expect(isAbortError('AbortError')).toBe(false);
+	});
+});
+
+describe('createAbortSignal (plain convenience)', () => {
+	it('returns a signal and a bound abort with no CancelError wiring', () => {
+		const { signal, abort } = createAbortSignal();
+		expect(signal.aborted).toBe(false);
+		abort();
+		expect(signal.aborted).toBe(true);
+		// A plain abort reason is a DOMException AbortError, not a CancelError.
+		expect(isCancelError(signal.reason)).toBe(false);
+		expect(isAbortError(signal.reason)).toBe(true);
+	});
+
+	it('forwards an explicit abort reason', () => {
+		const { signal, abort } = createAbortSignal();
+		const reason = new Error('stop');
+		abort(reason);
+		expect(signal.reason).toBe(reason);
+	});
+});
+
+describe('suppress', () => {
+	it('swallows a CancelError by default', async () => {
+		await expect(suppress(Promise.reject(new CancelError('user canceled')))).resolves.toBeUndefined();
+	});
+
+	it('does NOT swallow a bare AbortError by default', async () => {
+		const reason = abortReason();
+		await expect(suppress(Promise.reject(reason))).rejects.toBe(reason);
+	});
+
+	it('swallows a bare AbortError under { abort: true }', async () => {
+		await expect(suppress(Promise.reject(abortReason()), { abort: true })).resolves.toBeUndefined();
+	});
+
+	it('swallows a CancelError whose cause is an abort under { abort: true }', async () => {
 		const cancel = new CancelError(undefined, { cause: abortReason() });
 		expect(cancel.aborted).toBe(true);
-		await expect(suppress(['abort'], Promise.reject(cancel))).resolves.toBeUndefined();
+		await expect(suppress(Promise.reject(cancel), { abort: true })).resolves.toBeUndefined();
 	});
 
-	it('does NOT suppress an ordinary CancelError under the abort-only category', async () => {
-		const cancel = new CancelError('user canceled');
-		await expect(suppress(['abort'], Promise.reject(cancel))).rejects.toBe(cancel);
+	it('rethrows an unrelated error, with or without the abort flag', async () => {
+		const boom = new Error('boom');
+		await expect(suppress(Promise.reject(boom))).rejects.toBe(boom);
+		await expect(suppress(Promise.reject(boom), { abort: true })).rejects.toBe(boom);
 	});
 
-	it('suppresses an ordinary CancelError under the cancel category', async () => {
-		const cancel = new CancelError('user canceled');
-		await expect(suppress(['cancel'], Promise.reject(cancel))).resolves.toBeUndefined();
+	it('passes a fulfilled value through', async () => {
+		await expect(suppress(Promise.resolve(42))).resolves.toBe(42);
 	});
 
-	it('suppresses both categories when both are requested', async () => {
-		await expect(suppress(['abort', 'cancel'], Promise.reject(abortReason()))).resolves.toBeUndefined();
-		await expect(suppress(['abort', 'cancel'], Promise.reject(new CancelError('x')))).resolves.toBeUndefined();
+	it('returns a cancelable promise by default', () => {
+		const promise = suppress(new Promise(() => {}));
+		expect(promise).toBeInstanceOf(CancelablePromise);
+		(promise as CancelablePromise<unknown>).cancel();
+	});
+});
+
+describe('suppressAbort', () => {
+	it('swallows a bare AbortError', async () => {
+		await expect(suppressAbort(Promise.reject(abortReason()))).resolves.toBeUndefined();
+	});
+
+	it('swallows an ordinary CancelError too', async () => {
+		await expect(suppressAbort(Promise.reject(new CancelError('user canceled')))).resolves.toBeUndefined();
 	});
 
 	it('rethrows an unrelated error', async () => {
 		const boom = new Error('boom');
-		await expect(suppress(['abort', 'cancel'], Promise.reject(boom))).rejects.toBe(boom);
-	});
-
-	it('passes a fulfilled value through', async () => {
-		await expect(suppress(['abort'], Promise.resolve(42))).resolves.toBe(42);
-	});
-
-	it('suppressAbort is the abort-only shorthand', async () => {
-		await expect(suppressAbort(Promise.reject(abortReason()))).resolves.toBeUndefined();
-		const cancel = new CancelError('user canceled');
-		await expect(suppressAbort(Promise.reject(cancel))).rejects.toBe(cancel);
-	});
-
-	it('returns a cancelable promise by default', () => {
-		const promise = suppress(['abort'], new Promise(() => {}));
-		expect(promise).toBeInstanceOf(CancelablePromise);
-		(promise as CancelablePromise<unknown>).cancel();
+		await expect(suppressAbort(Promise.reject(boom))).rejects.toBe(boom);
 	});
 });
 
@@ -75,11 +122,11 @@ describe('fetch-shaped integration: abort in -> CancelError out -> suppress filt
 		expect(isCancelError(caught)).toBe(true);
 		expect((caught as CancelError).aborted).toBe(true);
 
-		// Downstream, suppress(['abort']) filters exactly this class of rejection.
+		// Downstream, suppress({ abort: true }) filters exactly this class of rejection.
 		const controller2 = new AbortController();
 		const operation2 = new CancelablePromise<string>(() => {}, { signal: controller2.signal });
 		controller2.abort();
-		await expect(suppress(['abort'], operation2)).resolves.toBeUndefined();
+		await expect(suppress(operation2, { abort: true })).resolves.toBeUndefined();
 	});
 });
 

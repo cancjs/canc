@@ -2,7 +2,7 @@
 // exists so demos can prove a cancel() actually reached a simulated network call (see the
 // started/aborted markers in `mockApi.calls`). See README.md.
 
-export { MockApi, AbortError, isAbortError } from './core';
+export { MockApi } from './core';
 export type { CallRecord, CallStatus, MockApiOptions, AbortSignalLike } from './core';
 
 export { createDomains } from './domains';

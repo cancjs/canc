@@ -1,6 +1,6 @@
 import { CancelablePromise } from '@cancjs/promise';
 import { timeout, minDelay, waitFor, retry } from './index';
-import { suppress, interopTimeout, withSignal } from './abort-interop';
+import { suppress, interopTimeout, withSignal } from './abort';
 
 // regression: internal subscriptions (`promise.then(...)`) used to be built off a bare
 // `Promise.resolve(...)` call, a live global lookup. Under a zone.js-style monkeypatch that
@@ -95,7 +95,7 @@ describe('zone-swap probe: toolbox does not subscribe via the live global Promis
 	});
 
 	it('suppress: source subscription does not construct through the patched global', () => {
-		const done = suppress(['cancel'], RealPromise.resolve('ok'));
+		const done = suppress(RealPromise.resolve('ok'));
 
 		return done.then((value) => {
 			expect(value).toBe('ok');
