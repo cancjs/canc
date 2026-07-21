@@ -18,8 +18,8 @@ export class OrdersServiceManual implements OrdersServiceShape {
 
  // Wrap each signal-aware API call as a CancelablePromise so a coroutine cancel() aborts the
  // request. getSignal() is only materialized if the underlying call reaches for it.
- private readonly listOrders = cancelify((getSignal) => this.api.listOrders(getSignal()));
- private readonly orderDetail = cancelify((getSignal, [id]: [string]) => this.api.orderDetail(id, getSignal()));
+ private readonly listOrders = cancelify(({ getSignal }) => this.api.listOrders(getSignal()));
+ private readonly orderDetail = cancelify(({ getSignal }, [id]: [string]) => this.api.orderDetail(id, getSignal()));
 
  constructor() {
  // Equivalent to @AsyncMethod(): wrap each generator method as a coroutine bound to this instance.

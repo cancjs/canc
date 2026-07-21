@@ -17,7 +17,7 @@ import type { ResourceFactory } from './cancelable-suspense';
  */
 export function useCancelableSuspense<T>(factory: ResourceFactory<T>, deps: DependencyList): T {
  const resource: CancelablePromise<T> = useMemo(
- () => cancelify((getSignal) => factory(getSignal))(),
+ () => cancelify(({ getSignal }) => factory(getSignal))(),
  deps
  );
 

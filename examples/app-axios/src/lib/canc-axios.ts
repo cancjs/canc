@@ -24,7 +24,7 @@ export function cancAxios(instance: AxiosInstance) {
  request<T = unknown>(config: AxiosRequestConfig): CancelablePromise<T> {
  // Wrap the signal-aware axios call with cancelify so the returned promise is cancelable.
  return cancelify<[AxiosRequestConfig], T>(
- (getSignal: () => AbortSignal, [cfg]: [AxiosRequestConfig]) => {
+ ({ getSignal }: { getSignal: () => AbortSignal }, [cfg]: [AxiosRequestConfig]) => {
  return instance
  .request({
  ...cfg,

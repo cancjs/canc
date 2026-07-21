@@ -8,7 +8,7 @@ import { loadProductDetail, type ProductDetail } from './mock/catalog-api';
 
 // Cancelify the API boundary once, so the setup body awaits a canc-native call with no signal in
 // sight. getSignal() is called only when the load actually starts; canceling the run aborts it.
-const loadDetail = cancelify((getSignal, [id]: [string]) => loadProductDetail(id, getSignal()));
+const loadDetail = cancelify(({ getSignal }, [id]: [string]) => loadProductDetail(id, getSignal()));
 
 // The setup option is a generator wrapped by cancelableSetup, so the awaited load runs as one
 // cancelable coroutine tied to this component's scope. Switching products under <Suspense> tears

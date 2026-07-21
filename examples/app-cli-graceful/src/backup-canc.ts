@@ -22,7 +22,7 @@ export function runBackup(api: SiteApi, manifest: Manifest): CancelablePromise<v
 
  try {
  const downloadOne = cancelify(
- (getSignal, [url]: [string]) =>
+ ({ getSignal }, [url]: [string]) =>
  api.download(url, getSignal()).then(() => {
  manifest.entries.push({ url, status: 'saved' });
  }),

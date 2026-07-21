@@ -23,7 +23,7 @@ export type Transcoder = (chunk: TranscodeChunk) => CancelablePromise<TranscodeC
 // Cancelify the signal-aware backend at its boundary (recipe 4). `getSignal()` mints the abort
 // signal lazily and hands it to the raw call; the job that uses `transcode` never touches a signal.
 export function createTranscoder(backend: ExportBackend): Transcoder {
- return cancelify((getSignal, [chunk]: [TranscodeChunk]) => transcodeChunk(backend, chunk, getSignal()));
+ return cancelify(({ getSignal }, [chunk]: [TranscodeChunk]) => transcodeChunk(backend, chunk, getSignal()));
 }
 
 /**

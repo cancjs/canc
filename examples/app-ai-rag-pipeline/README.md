@@ -20,7 +20,7 @@ The cancelable pipeline reads like pseudocode. Each mock call is cancelified onc
 top, so the coroutine body itself carries no signal at all:
 
 ```ts
-const embedQuery = cancelify((getSignal, [query]) => embed(query, getSignal()));
+const embedQuery = cancelify(({ getSignal }, [query]) => embed(query, getSignal()));
 // ...rerank, retrieveLegsSource, generateAnswer wrapped the same way
 
 cancAsync(function* () {
