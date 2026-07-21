@@ -75,6 +75,7 @@ export function makeCancelSignal(
 
 export interface ICancelifyContext {
 	getSignal: TGetSignal;
+	handleCancel?: THandleCancel;
 }
 
 export interface ICancelifyOptions extends IToolboxOptions {
@@ -107,7 +108,7 @@ export function cancelify<A extends any[], R>(
 			handleCancel?: THandleCancel,
 		) => {
 			const holder = makeCancelSignal(handleCancel, Ctor);
-			CancelablePromise.resolve(fn({ getSignal: holder.getSignal }, callArgs)).then(resolve, reject);
+			CancelablePromise.resolve(fn({ getSignal: holder.getSignal, handleCancel }, callArgs)).then(resolve, reject);
 		};
 
 		if (options?.lazy) {
