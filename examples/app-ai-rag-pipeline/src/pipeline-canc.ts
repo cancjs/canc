@@ -15,12 +15,12 @@ import type { RankedChunk } from './mock/rerank';
 
 // Cancelified once: the coroutine calls these with no signal argument, and canceling the returned
 // promise aborts the signal the mock API sees.
-const embedQuery = cancelify((getSignal, [query]: [string]) => embed(query, getSignal()));
-const retrieveLegsSource = cancelify((getSignal, [ragApi, query]: [RagApi, string]) =>
+const embedQuery = cancelify(({ getSignal }, [query]: [string]) => embed(query, getSignal()));
+const retrieveLegsSource = cancelify(({ getSignal }, [ragApi, query]: [RagApi, string]) =>
  Promise.resolve(retrieveLegs(ragApi, query, getSignal())),
 );
-const rerankHits = cancelify((getSignal, [query, hits]: [string, DocChunk[]]) => rerank(query, hits, getSignal()));
-const generateAnswer = cancelify((getSignal, [chatApi, prompt]: [ChatApi, string]) =>
+const rerankHits = cancelify(({ getSignal }, [query, hits]: [string, DocChunk[]]) => rerank(query, hits, getSignal()));
+const generateAnswer = cancelify(({ getSignal }, [chatApi, prompt]: [ChatApi, string]) =>
  Promise.resolve(generate(chatApi, prompt, getSignal())),
 );
 

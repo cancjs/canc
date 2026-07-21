@@ -76,12 +76,12 @@ async function runAggregateOccupancy(roomIds: string[], date: string): Promise<n
 // Cancelable repository boundary: canc-native versions of the queries above. The service awaits
 // these directly and never threads a signal. Canceling the chain (client disconnect) stops it
 // between steps, so a query that has not started yet is never issued.
-export const findRooms = cancelify((_getSignal, [hotelId]: [string, string]) => runFindRooms(hotelId));
+export const findRooms = cancelify((_ctx, [hotelId]: [string, string]) => runFindRooms(hotelId));
 
-export const loadRates = cancelify((_getSignal, [roomIds, date]: [string[], string]) =>
+export const loadRates = cancelify((_ctx, [roomIds, date]: [string[], string]) =>
  runLoadRates(roomIds, date)
 );
 
-export const aggregateOccupancy = cancelify((_getSignal, [roomIds, date]: [string[], string]) =>
+export const aggregateOccupancy = cancelify(_ctx, [roomIds, date]: [string[], string]) =>
  runAggregateOccupancy(roomIds, date)
 );

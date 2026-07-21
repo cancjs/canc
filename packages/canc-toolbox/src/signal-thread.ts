@@ -72,6 +72,11 @@ export function makeCancelSignal(
 	};
 }
 
+
+export interface ICancelifyContext {
+	getSignal: TGetSignal;
+}
+
 export interface ICancelifyOptions extends IToolboxOptions {
 	/** Return a LazyPromise: the underlying fn is deferred until the first await. Default false. */
 	lazy?: boolean;
@@ -81,7 +86,7 @@ export interface ICancelifyOptions extends IToolboxOptions {
 
 /** A promise-returning fn that receives the outbound cancel-signal thunk and the call-args array.
  * Call `getSignal()` only when the underlying API needs a signal; ignoring it allocates nothing. */
-export type TCancelifyFn<A extends any[], R> = (getSignal: TGetSignal, args: A) => R | PromiseLike<R>;
+export type TCancelifyFn<A extends any[], R> = (ctx: ICancelifyContext, args: A) => R | PromiseLike<R>;
 
 /**
  * Add cancellation to an already-promise-returning fn by handing it an outbound signal that aborts
@@ -102,7 +107,7 @@ export function cancelify<A extends any[], R>(
 			handleCancel?: THandleCancel,
 		) => {
 			const holder = makeCancelSignal(handleCancel, Ctor);
-			CancelablePromise.resolve(fn(holder.getSignal, callArgs)).then(resolve, reject);
+			CancelablePromise.resolve(fn({ getSignal: holder.getSignal }, callArgs)).then(resolve, reject);
 		};
 
 		if (options?.lazy) {

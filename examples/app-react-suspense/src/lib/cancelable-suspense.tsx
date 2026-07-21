@@ -29,7 +29,7 @@ export function useCancelableResource<T>(
  factory: ResourceFactory<T>,
  deps: DependencyList
 ): CancelablePromise<T> {
- return useMemo(() => cancelify((getSignal) => factory(getSignal))(), deps);
+ return useMemo(() => cancelify(({ getSignal }) => factory(getSignal))(), deps);
 }
 
 function ResourceReader<T>({

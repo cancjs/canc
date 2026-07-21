@@ -114,7 +114,7 @@ describe('makeCancelSignal', () => {
 describe('cancelify', () => {
 	it('materializes the ambient AbortController when getSignal() is called', async () => {
 		let aborted: boolean | undefined;
-		const wrapped = cancelify((getSignal: any) => {
+		const wrapped = cancelify(({ getSignal }) => {
 			aborted = getSignal().aborted;
 			return new Promise<never>(() => {});
 		});
@@ -130,7 +130,7 @@ describe('cancelify', () => {
 
 	it('passes the getSignal thunk and the call-args array to fn', async () => {
 		let received: { signal: any; args: any[] } | undefined;
-		const wrapped = cancelify((getSignal: any, args: any[]) => {
+		const wrapped = cancelify(({ getSignal }, args: any[]) => {
 			received = { signal: getSignal(), args };
 			return 'ok';
 		});
@@ -145,7 +145,7 @@ describe('cancelify', () => {
 		const { ctor, instances } = makeSpyControllerCtor();
 		let captured: any;
 		const wrapped = cancelify(
-			(getSignal: any) => {
+			({ getSignal }) => {
 				// Call getSignal() the way a real consumer (fetch) would, materializing the controller.
 				captured = getSignal();
 				expect(captured.aborted).toBe(false);

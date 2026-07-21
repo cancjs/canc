@@ -20,7 +20,7 @@ export function contextSearches(clicks: Subject<number>, log: SearchRecord[]): O
  // fromCancelablePromise(factory): switching away unsubscribes this Observable, and unsubscribe
  // cancels the promise — the previous search is aborted, not left running (no wasted work).
  const search = () =>
- cancelify((getSignal) => searchContext(lineSeq, log, getSignal()))();
+ cancelify(({ getSignal }) => searchContext(lineSeq, log, getSignal()))();
  return fromCancelablePromise(search).pipe(mapWithSeq(lineSeq));
  })
  );

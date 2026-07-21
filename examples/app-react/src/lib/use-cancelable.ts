@@ -26,7 +26,7 @@ export type CancelableFactory<T> = (getSignal: () => AbortSignal) => Promise<T>;
  */
 export function useCancelable<T>(factory: CancelableFactory<T>, deps: DependencyList): PromiseState<T> {
  // A fresh cancelable run per deps change. cancelify supplies the abort signal to the factory.
- const run = useMemo(() => cancelify((getSignal) => factory(getSignal))(), deps);
+ const run = useMemo(() => cancelify(({ getSignal }) => factory(getSignal))(), deps);
 
  // Cancel the superseded (or unmounted) run; the hook suppresses its CancelError.
  useCancelableEffect(() => run, [run]);

@@ -10,8 +10,8 @@ import type { RagApi } from '@shared/mock-api';
  * unfinished report on scope exit, no manual dispose wiring anywhere in this file.
  */
 export function generateReport(ragApi: RagApi, reportId: string): CancelablePromise<Report> & AsyncDisposable {
- const fetchChunks = cancelify((getSignal, [id]: [string]) => ragApi.search(id, getSignal()));
- const renderAndUpload = cancelify((getSignal, [id]: [string]) => ragApi.search(id, getSignal()));
+ const fetchChunks = cancelify(({ getSignal }, [id]: [string]) => ragApi.search(id, getSignal()));
+ const renderAndUpload = cancelify(({ getSignal }, [id]: [string]) => ragApi.search(id, getSignal()));
 
  const coroutine = cancAsync(function* () {
  // Fetch data chunks. Canceled here, nothing below runs.

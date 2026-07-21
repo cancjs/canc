@@ -21,7 +21,7 @@ export function FlightRow({ api, destination }: { api: FlightApi; destination: F
  // earns its place here, where there is no settlement state to track, only a run to cancel on
  // unhover/unmount. Returning undefined for the not-hovering case is a no-op cleanup.
  useCancelableEffect(
- () => (hovering ? cancelify((getSignal) => api.warmDetails(destination.id, getSignal()))() : undefined),
+ () => (hovering ? cancelify(({ getSignal }) => api.warmDetails(destination.id, getSignal()))() : undefined),
  [hovering, api, destination.id]
  );
 
