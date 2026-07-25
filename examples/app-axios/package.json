@@ -10,6 +10,7 @@
  "typecheck": "tsc --noEmit"
  },
  "dependencies": {
+ "@cancjs/axios": "file:../../packages/canc-axios",
  "@cancjs/promise": "file:../../packages/canc-promise",
  "@cancjs/toolbox": "file:../../packages/canc-toolbox",
  "@shared/mock-api": "file:../_shared/mock-api",

@@ -1,16 +1,16 @@
 import axios from 'axios';
 import { createMockApi } from '@shared/mock-api';
-import { cancAxios } from '../src/lib/canc-axios';
+import cancelableAxios from '@cancjs/axios';
 import { isCancelError } from '@cancjs/promise';
 
 describe('app-axios smoke', () => {
- it('cancelify adapter cancels request via AbortSignal', async () => {
+ it('cancels a request via the cancelable wrapper', async () => {
  const mockBundle = createMockApi();
  const instance = axios.create({
  adapter: mockBundle.axiosAdapter as any,
  });
 
- const cancApi = cancAxios(instance);
+ const cancApi = cancelableAxios.wrap(instance);
 
  // Start a request and immediately cancel it.
  const searchPromise = cancApi.get('/issues/search', { params: { q: 'bug' } });
