@@ -28,6 +28,7 @@
  "app-react/**",
  "app-react-suspense/**",
  "app-express-kysely/**",
+ "app-fullstack-cancel/**",
  "demo-decorators/**"
  ]
 }

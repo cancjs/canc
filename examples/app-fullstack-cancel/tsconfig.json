@@ -1,0 +1,9 @@
+{
+  "extends": "../tsconfig.examples.json",
+  "compilerOptions": {
+    "lib": ["es2022", "dom", "dom.iterable"],
+    "types": ["node", "jest", "@testing-library/jest-dom"]
+  },
+  "include": ["server/**/*.ts", "client/**/*.ts", "e2e/**/*.ts"],
+  "exclude": []
+}
