@@ -1,7 +1,7 @@
 import { CancelablePromise } from '@cancjs/promise';
+import cancelableAxios, { CancelableAxiosInstance } from '@cancjs/axios';
 import { AxiosInstance } from 'axios';
 import { Issue, SearchResult } from './issues';
-import { cancAxios } from './lib/canc-axios';
 
 /**
  * Cancelable issue client. Request methods return CancelablePromise.
@@ -9,12 +9,12 @@ import { cancAxios } from './lib/canc-axios';
  * When a new search comes in before the old one completes, simply cancel the old promise.
  */
 export class CancIssuesClient {
- private cancApi: ReturnType<typeof cancAxios>;
+ private api: CancelableAxiosInstance;
  private latestSearch: CancelablePromise<SearchResult> | null = null;
  private latestDetail: CancelablePromise<Issue> | null = null;
 
  constructor(instance: AxiosInstance) {
- this.cancApi = cancAxios(instance);
+ this.api = cancelableAxios.wrap(instance);
  }
 
  searchIssues(query: string): CancelablePromise<SearchResult> {
@@ -24,9 +24,10 @@ export class CancIssuesClient {
  }
 
  // Create a new cancelable search request.
- this.latestSearch = this.cancApi.get<SearchResult>('/issues/search', {
- params: { q: query },
- });
+ // The wrapper keeps the axios signature, so the response is unwrapped here.
+ this.latestSearch = this.api
+ .get<SearchResult>('/issues/search', { params: { q: query } })
+ .then((response) => response.data);
 
  return this.latestSearch;
  }
@@ -38,7 +39,7 @@ export class CancIssuesClient {
  }
 
  // Create a new cancelable detail request.
- this.latestDetail = this.cancApi.get<Issue>(`/issues/${issueId}`);
+ this.latestDetail = this.api.get<Issue>(`/issues/${issueId}`).then((response) => response.data);
 
  return this.latestDetail;
  }

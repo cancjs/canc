@@ -19,7 +19,7 @@ async function main() {
  console.log(' Search 1 started for query "bug"');
 
  // Before search1 completes, start search2.
- // The cancAxios wrapper makes the returned promise cancelable.
+ // The wrapper makes the returned promise cancelable.
  // searchIssues internally cancels search1 before starting search2.
  const search2Promise = client.searchIssues('feature');
  console.log(' Search 2 started for query "feature" (search 1 canceled internally)');
