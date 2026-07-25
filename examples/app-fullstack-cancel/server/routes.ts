@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { cancAwait } from '@cancjs/coroutine';
-import { RequestContext, type MikroORM } from '@mikro-orm/core';
 import { cancAsyncRoute } from './lib/cancelable-route';
+import { requestEm } from './lib/canc-request-context';
 import { searchUsers } from './search-service';
 
 /**
@@ -9,18 +9,15 @@ import { searchUsers } from './search-service';
  * client disconnects. It reads the request-scoped EntityManager from the ambient context and passes
  * it down; there is no fork and no signal in sight.
  */
-export function createSearchRouter(orm: MikroORM): Router {
+export function createSearchRouter(): Router {
   const router = Router();
 
   router.get(
     '/api/search',
     cancAsyncRoute(function* (req, res) {
-      // Grab the request-scoped fork itself, not `orm.em`. `orm.em` resolves the context fork lazily
-      // through AsyncLocalStorage at each call, but the coroutine's queries run on microtasks after
-      // that context has exited, where `orm.em` would fall back to the global manager (no signal).
-      // Capturing the fork object here, while the context is live, keeps its abort signal wired for
-      // every query no matter when it runs.
-      const em = RequestContext.getEntityManager() ?? orm.em;
+      // Grab the request-scoped fork while the context is live, then pass it down. Its abort signal
+      // stays wired for every query, even those that run after the async context has moved on.
+      const em = requestEm();
       const q = typeof req.query.q === 'string' ? req.query.q : '';
       if (!q.trim()) {
         res.json([]);

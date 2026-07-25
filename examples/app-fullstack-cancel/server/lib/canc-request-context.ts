@@ -1,5 +1,5 @@
 import type { RequestHandler } from 'express';
-import { RequestContext, type MikroORM } from '@mikro-orm/core';
+import { RequestContext, type EntityManager, type MikroORM } from '@mikro-orm/core';
 import { reqSignal } from './req-signal';
 import type { InflightQueryAbortStrategy } from '../orm';
 
@@ -21,4 +21,18 @@ export function cancRequestContext(
     const fork = orm.em.fork({ signal: reqSignal(req, res), inflightQueryAbortStrategy });
     RequestContext.create(fork, next);
   };
+}
+
+/**
+ * The request-scoped EntityManager, captured while the request context is live. Grab it at the top
+ * of a handler and pass it down; its abort signal stays wired for every query. Throws if the
+ * context is missing, which means cancRequestContext() was not installed ahead of this route. That
+ * is a wiring bug worth failing loudly on, rather than silently querying an unsignaled global manager.
+ */
+export function requestEm(): EntityManager {
+  const em = RequestContext.getEntityManager();
+  if (!em) {
+    throw new Error('No request EntityManager. Install cancRequestContext(orm) before this route.');
+  }
+  return em;
 }
