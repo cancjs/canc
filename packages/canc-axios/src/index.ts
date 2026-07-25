@@ -2,6 +2,7 @@ import axios from 'axios';
 
 import { wrapAxios, ICancelableAxiosWrapOptions } from './base';
 import type {
+	AxiosInstanceLike,
 	CancelableAxiosInstance,
 	CancelableAxiosStatic,
 	ICancelContext,
@@ -22,6 +23,7 @@ export default cancelableAxios;
 export { cancelableAxios, wrapAxios };
 export { CancelScope } from './scope';
 export type {
+	AxiosInstanceLike,
 	CancelableAxiosInstance,
 	CancelableAxiosStatic,
 	ICancelContext,
