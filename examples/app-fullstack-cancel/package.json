@@ -1,0 +1,49 @@
+{
+  "name": "app-fullstack-cancel",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Browser click to database query: one client cancel propagates through axios, an express coroutine route, and MikroORM to the database.",
+  "scripts": {
+    "dev": "concurrently -n server,client -c blue,green \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:server": "tsx watch server/main.ts",
+    "dev:client": "vite",
+    "build:client": "vite build",
+    "start": "tsx server/main.ts",
+    "test": "jest --colors",
+    "test:client": "jest --colors --selectProjects client",
+    "test:e2e": "jest --colors --selectProjects e2e",
+    "typecheck": "tsc --noEmit --project tsconfig.json"
+  },
+  "dependencies": {
+    "@cancjs/promise": "file:../../packages/canc-promise",
+    "@cancjs/coroutine": "file:../../packages/canc-coroutine",
+    "@cancjs/toolbox": "file:../../packages/canc-toolbox",
+    "@cancjs/axios": "file:../../packages/canc-axios",
+    "@electric-sql/pglite": "0.2.17",
+    "@mikro-orm/core": "7.1.7",
+    "@mikro-orm/pglite": "7.1.7",
+    "@mikro-orm/postgresql": "7.1.7",
+    "axios": "1.7.9",
+    "express": "5.2.1",
+    "pg": "8.22.0"
+  },
+  "devDependencies": {
+    "@testing-library/dom": "10.4.1",
+    "@testing-library/jest-dom": "6.9.1",
+    "@types/express": "5.0.6",
+    "@types/jest": "30.0.0",
+    "@types/node": "20.12.12",
+    "@types/pg": "8.20.0",
+    "concurrently": "9.2.4",
+    "cross-env": "7.0.3",
+    "jest": "30.4.2",
+    "jest-environment-jsdom": "30.4.1",
+    "ts-jest": "29.4.11",
+    "tsx": "4.23.0",
+    "typescript": "5.9.3",
+    "vite": "6.4.3"
+  },
+  "engines": {
+    "npm": ">=9"
+  }
+}
