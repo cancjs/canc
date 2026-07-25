@@ -73,7 +73,7 @@ Prefer one middleware, then a handler with no fork and no signal in sight:
 app.use(cancRequestContext(orm, { inflightQueryAbortStrategy }));
 
 app.get('/api/search', cancAsyncRoute(function* (req, res) {
-  const em = RequestContext.getEntityManager();      // request fork, signal already bound
+  const em = requestEm();                             // request fork, signal already bound
   const hits = yield* cancAwait(searchUsers(em, q));
   res.json(hits);
 }));

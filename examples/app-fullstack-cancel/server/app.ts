@@ -14,6 +14,6 @@ export function createApp(bundle: OrmBundle): Express {
       inflightQueryAbortStrategy: bundle.inflightQueryAbortStrategy,
     }),
   );
-  app.use(createSearchRouter(bundle.orm));
+  app.use(createSearchRouter());
   return app;
 }
