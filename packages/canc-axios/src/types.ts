@@ -4,6 +4,20 @@ import type { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosStatic } fr
 import type { AbortControllerCtor } from './scope';
 
 
+/**
+ * What the wrapper needs from an axios instance. Deliberately structural: the supported range spans
+ * axios 0.22 up, and a consumer's axios types will not match the ones this package was built
+ * against. Everything beyond these three members is feature-detected at runtime.
+ */
+export interface AxiosInstanceLike {
+	request(config: any): Promise<any>;
+	defaults: any;
+	interceptors: {
+		request: any;
+		response: any;
+	};
+}
+
 export interface ICancelableAxiosOptions {
 	/** AbortController implementation used to abort the underlying request. Defaults to the ambient
 	 * global, read when a request starts. Environments with a missing or faulty polyfill pass a
@@ -80,7 +94,7 @@ export interface CancelableAxiosInstance {
 	interceptors: ICancelableAxiosInterceptors;
 
 	/** The wrapped axios instance. Reach for it when a raw native promise is wanted. */
-	readonly axios: AxiosInstance;
+	readonly axios: AxiosInstanceLike;
 }
 
 /**
@@ -90,7 +104,7 @@ export interface CancelableAxiosInstance {
  */
 export interface CancelableAxiosStatic extends CancelableAxiosInstance {
 	/** Wraps an existing axios instance, for code that builds its own. */
-	wrap(instance: AxiosInstance, options?: ICancelableAxiosOptions): CancelableAxiosInstance;
+	wrap(instance: AxiosInstanceLike, options?: ICancelableAxiosOptions): CancelableAxiosInstance;
 
 	Axios: AxiosStatic['Axios'];
 	CancelToken: AxiosStatic['CancelToken'];
