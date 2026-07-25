@@ -1,12 +1,12 @@
 <h1 align="center">
- <img src="./assets/canc-logo.png" width="725" title="canc &#x2BBF; A crafty foundation for cancelable promises" alt="canc &#x2BBF; a crafty foundation for cancelable promises">
+	<img src="./assets/canc-logo.png" width="725" title="canc &#x2BBF; A crafty foundation for cancelable promises" alt="canc &#x2BBF; a crafty foundation for cancelable promises">
 </h1>
 
 <p align="center">
- <a href="LICENSE">
- <img src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" alt="License"></a>
- <a href="#contributing">
- <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square" alt="PRs Welcome"></a>
+	<a href="LICENSE">
+		<img src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" alt="License"></a>
+	<a href="#contributing">
+		<img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square" alt="PRs Welcome"></a>
 </p>
 
 <p align="center">
@@ -15,404 +15,236 @@ Cancelable promise ecosystem based on native <code>Promise</code>: coroutines, a
 
 ---
 
-<!--
-## Table of Contents
+<!-- animated comparison (plain async/await vs AbortSignal vs canc) goes here -->
 
-## Introduction
--->
+```ts
+import * as canc from '@cancjs/coroutine';
+import { cancelableFetch } from '@cancjs/fetch';
+
+const loadTrip = canc.async(function* (tripId: string) {
+	const response = yield* canc.await(cancelableFetch(`/api/trips/${tripId}`));
+	const trip = yield* canc.await(response.json());
+
+	const [hotels, flights] = yield* canc.await.all([
+		searchHotels(trip.city),
+		searchFlights(trip.city),
+	]);
+
+	return { trip, hotels, flights };
+});
+
+const pending = loadTrip('lis-42');
+
+// The user navigated away. One call stops the whole tree: requests in flight
+// are aborted, the steps after them never run.
+pending.cancel();
+```
+
 ## Features
 
-* cancelable promise implementation built on top of ES Promise
-* generator-based cancelable replacements for `async..await` and async iterators
-* lazily evaluated cancelable promises
-* cancelable Fetch API
-* utility toolbox (`delay`, `timeout`, etc)
-* <!--* framework helpers (Angular, Express, React, Vue)--> library helpers (Axios, Bluebird, RxJS, etc)
-* decorators for TypeScript and Babel
-* base packages to be used with custom promise implementation
-* UMD and ESM builds for modern and legacy browsers and Node.js
-* TypeScript-ready
+* 🧩 cancelable promise built on native `Promise`, cancellation is a rejection you can catch
+* 🔄 two-way cancellation: it flows down the chain and bubbles back up when nobody wants the value
+* ⚡ generator coroutines that replace `async`/`await` and `async function*`
+* 🌐 cancelable Fetch API, with `AbortSignal` interop in both directions
+* 🧰 utility toolbox (`delay`, `timeout`, `retry`, `waitFor`) plus adapters that make existing APIs cancelable
+* 💤 lazily evaluated promises that never start if nobody subscribes
+* 🎀 decorators for TypeScript and Babel
+* 🔌 third-party integrations for axios, RxJS, React, Express and more
+* 🧬 twin packages on plain `Promise` for the parts that do not need cancellation
+* 📦 CJS, ESM and UMD builds for modern and legacy browsers and Node.js
+* 🔷 TypeScript-first, with types inferred through every step
 
 ## Packages
 
-### Cancelable Promises
+### Core
 
-Cancellation-aware promise utilities:
+| Package | Native twin | Description |
+|---|---|---|
+| [`@cancjs/promise`](packages/canc-promise) | ⚪ | Cancelable promise implementation based on ES `Promise` |
+| `@cancjs/promise-legacy` 🚧 | ⚪ | The same core for older engines and polyfilled `Promise` |
+| [`@cancjs/coroutine`](packages/canc-coroutine) | ⚪ | Cancelable generator-based drop-in replacements for `async`/`await` and async iterators |
+| [`@cancjs/decorators`](packages/canc-decorators) | ⚪ | Class-method decorators for coroutines, in all three decorator dialects |
 
-<table>
- <thead>
- <tr>
- <th>Name</th>
- <th>Version</th>
- <th>Description</th>
- </tr>
- </thead>
- <tbody>
- <tr>
- <td>
- <a href="https://github.com/cancjs/canc/tree/master/packages/canc-promise">@cancjs/promise</a>
- </td>
- <td>
- <a href="https://www.npmjs.com/package/@cancjs/promise">
- <img src="https://img.shields.io/npm/v/@cancjs/promise.svg?style=flat-square" alt="Version">
- </a>
- </td>
- <td>
- Cancelable promise implementation based on ES Promise
- </td>
- </tr>
- <tr>
- <td>
- <a href="https://github.com/cancjs/canc/tree/master/packages/canc-coroutine">@cancjs/coroutine</a>
- </td>
- <td>
- <a href="https://www.npmjs.com/package/@cancjs/coroutine">
- <img src="https://img.shields.io/npm/v/@cancjs/coroutine.svg?style=flat-square" alt="Version">
- </a>
- </td>
- <td>
- Cancelable generator-based drop-in replacements for <code>async..await</code> and async iterators
- </td>
- </tr>
- <tr>
- <td>
- <a href="https://github.com/cancjs/canc/tree/master/packages/canc-fetch">@cancjs/fetch</a>
- </td>
- <td>
- <a href="https://www.npmjs.com/package/@cancjs/fetch">
- <img src="https://img.shields.io/npm/v/@cancjs/fetch.svg?style=flat-square" alt="Version">
- </a>
- </td>
- <td>
- Cross-platform Fetch API that uses cancelable promises
- </td>
- </tr>
- <tr>
- <td>
- <a href="https://github.com/cancjs/canc/tree/master/packages/canc-lazy-promise">@cancjs/lazy-promise</a>
- </td>
- <td>
- <a href="https://www.npmjs.com/package/@cancjs/lazy-promise">
- <img src="https://img.shields.io/npm/v/@cancjs/lazy-promise.svg?style=flat-square" alt="Version">
- </a>
- </td>
- <td>
- Cancelable lazily evaluated promise-like class
- </td>
- </tr>
- <tr>
- <td>
- <a href="https://github.com/cancjs/canc/tree/master/packages/canc-toolbox">@cancjs/toolbox</a>
- </td>
- <td>
- <a href="https://www.npmjs.com/package/@cancjs/toolbox">
- <img src="https://img.shields.io/npm/v/@cancjs/toolbox.svg?style=flat-square" alt="Version">
- </a>
- </td>
- <td>
- A collection of cancellation-aware promise helper functions and ponyfills
- </td>
- </tr>
- </tbody>
-</table>
+### Extended
 
-### Native Promises
+| Package | Native twin | Description |
+|---|---|---|
+| [`@cancjs/fetch`](packages/canc-fetch) | ⚪ | Cross-platform Fetch API that returns cancelable promises |
+| [`@cancjs/lazy-promise`](packages/canc-lazy-promise) | [`@cancjs/lazy-promise-native`](packages/canc-lazy-promise-native) | Lazily evaluated promise-like, the executor runs on first subscription |
+| [`@cancjs/toolbox`](packages/canc-toolbox) | [`@cancjs/toolbox-native`](packages/canc-toolbox-native) | Helper functions, ponyfills and adapters for cancellation-aware code |
 
-General-purpose promise utilities that use built-in `Promise` as promise implementation where applicable:
+### Third-party integrations
 
-<table>
- <thead>
- <tr>
- <th>Package</th>
- <th>Version</th>
- <th>Description</th>
- </tr>
- </thead>
- <tbody>
- <tr>
- <td>
- <a href="https://github.com/cancjs/canc/tree/master/packages/canc-coroutine-native">@cancjs/coroutine-native</a>
- </td>
- <td>
- <a href="https://www.npmjs.com/package/@cancjs/coroutine-native">
- <img src="https://img.shields.io/npm/v/@cancjs/coroutine-native.svg?style=flat-square" alt="Version">
- </a>
- </td>
- <td>
- Generator-based drop-in replacements for <code>async..await</code> and async iterators
- </td>
- </tr>
- <tr>
- <td>
- <a href="https://github.com/cancjs/canc/tree/master/packages/canc-lazy-promise-native">@cancjs/lazy-promise-native</a>
- </td>
- <td>
- <a href="https://www.npmjs.com/package/@cancjs/lazy-promise-native">
- <img src="https://img.shields.io/npm/v/@cancjs/lazy-promise-native.svg?style=flat-square" alt="Version">
- </a>
- </td>
- <td>
- Lazily evaluated promise-like class
- </td>
- </tr>
- <tr>
- <td>
- <a href="https://github.com/cancjs/canc/tree/master/packages/canc-toolbox">@cancjs/toolbox</a>
- </td>
- <td>
- <a href="https://www.npmjs.com/package/@cancjs/toolbox">
- <img src="https://img.shields.io/npm/v/@cancjs/toolbox.svg?style=flat-square" alt="Version">
- </a>
- </td>
- <td>
- A collection of promise helper functions
- </td>
- </tr>
- </tbody>
-</table>
+Cancellation only reaches as far as the chain does, so libraries that own the work need an adapter.
+These wrap a third-party library so its requests, subscriptions and handlers join the same
+cancelable chain. Every one of them is prototyped as a working project in
+[examples](examples) before it becomes a package, so the patterns are usable today.
 
-<!--
-### Abstractions
+| Package | Description |
+|---|---|
+| `@cancjs/axios` 🚧 | Axios instances whose request methods return cancelable promises |
+| `@cancjs/react` 🚧 | Hooks that tie a cancelable task to a component lifecycle |
+| `@cancjs/express` 🚧 | Middleware that cancels a handler chain when the client disconnects |
+| `@cancjs/rxjs` 🚧 | Conversion between cancelable promises and observables, without losing cancellation |
 
-Base packages that can be provided with custom promise implementation and environment-dependent global dependencies:
--->
+⚪ no native twin, 🚧 planned, not released yet.
 
 ## How It Works
 
-Cancellation is a special form of promise rejection with cancel error that triggers registered handlers for the entire cancellation-aware promise chain.
+Cancellation is a special form of promise rejection with cancel error that triggers registered
+handlers for the entire cancellation-aware promise chain.
 
-`canc` promises implement two-way cancellation mechanism that treats promise chains as subscriptions:
+`canc` promises implement two-way cancellation mechanism that treats promise chains as
+subscriptions:
 
 * cancellation propagates down the promise chain when parent promise is canceled
 
-* cancellation bubbles up the chain when all child promises are canceled and parent promise value is no longer consumed
+* cancellation bubbles up the chain when all child promises are canceled and parent promise value
+	is no longer consumed
 
-Cancellation bubbling can be explicitly disabled on parent promise in case a promise causes side effects that shouldn't be implicitly discarded.
+Bubbling can be turned off per promise when the work causes side effects that should not be
+discarded implicitly. Both directions work through `all`, `race` and the other combinators, and
+through every coroutine step.
 
-Two-way cancellation mechanism is supported for all common ways to establish a promise chain, including `all`, `race`, etc composition methods and coroutine `yield`.
-
-A chain is cancelable only if it consists of `canc` promises. This requires to use cancellation-aware wrappers for Fetch API and third-party librararies, `async` and `async*` need to be replaced with cancelable generator-based coroutines.
+A chain is cancelable only if it consists of `canc` promises. This requires cancellation-aware
+wrappers for Fetch API and third-party libraries, and `async`/`async*` functions need to be
+replaced with generator-based coroutines. The full model lives in
+[`@cancjs/promise`](packages/canc-promise#how-it-works).
 
 ## Motivation
 
-Promise cancellation is highly beneficial in real life scenarios yet it's not a part of existing ECMAScript specification. JavaScript API like Fetch `AbortController` use their own mechanisms that aren't unified with native promises.
+Promise cancellation is highly beneficial in real life scenarios yet it's not a part of existing
+ECMAScript specification. JavaScript API like Fetch `AbortController` use their own mechanisms
+that aren't unified with native promises.
 
-<!-- applies to frontend and backend development -->
+A situation that is common in modern JavaScript applications is that a process like network
+request that stands behind long-running asynchronous task is abortable, consumers need to
+unsubscribe from results and abort initial process when it's no longer needed. This eventually
+becomes harder with uncancelable promises when a task is composed of smaller independent tasks.
 
-A situation that is common in modern JavaScript applications is that a process like network request that stands behind long-running asynchronous task is abortable, consumers need to unsubscribe from results and abort initial process when it's no longer needed. This eventually becomes harder with uncancelable promises when a task is composed of smaller independent tasks.
+### The problem, in code
 
-See [examples](#examples) for more use cases.
+Plain `async`/`await` cannot be interrupted. The caller walks away, the work does not:
 
-<!--
-### Frontend Use Cases
+```ts
+async function loadTrip(tripId: string) {
+	const trip = await fetchTrip(tripId);
+	// The user already left. Both requests below still go out.
+	const hotels = await searchHotels(trip.city);
+	const flights = await searchFlights(trip.city);
+	return { trip, hotels, flights };
+}
+```
 
-* Long-running promise tasks cannot be easily disposed on route navigation cancel or component destroy
-* Angular doesn't support change detection inside native `async`
-* React; this is handled with state management with side effects like Redux Saga
--->
+`AbortController` fixes it, and the cost is spread over every layer. The signal becomes a
+parameter of everything, every gap between steps needs a guard, and the caller has to sort
+cancellation out of real failures:
+
+```ts
+async function loadTrip(tripId: string, signal: AbortSignal) {
+	const trip = await fetchTrip(tripId, signal);
+	// Not every API takes a signal, so the gaps need manual guards.
+	const hotels = await searchHotels(trip.city);
+	signal.throwIfAborted();
+	const flights = await searchFlights(trip.city, signal);
+	return { trip, hotels, flights };
+}
+
+const controller = new AbortController();
+
+loadTrip('lis-42', controller.signal).catch((err) => {
+	if (err.name === 'AbortError') return; // expected, not a bug
+	throw err;
+});
+```
+
+With `canc` the plumbing goes away. The signature stays clean, the steps stay readable, and
+canceling the returned promise stops everything below the current step:
+
+```ts
+const loadTrip = canc.async(function* (tripId: string) {
+	const trip = yield* canc.await(fetchTrip(tripId));
+	const hotels = yield* canc.await(searchHotels(trip.city));
+	const flights = yield* canc.await(searchFlights(trip.city));
+	return { trip, hotels, flights };
+});
+
+const pending = loadTrip('lis-42');
+pending.cancel();
+```
 
 ### Background
 
-* **No official solution**. [Native cancelable promises](https://github.com/tc39/proposal-cancelable-promises) were incompatible with ES6 promise semantics, provided one-way cancellation, used unwieldy cancel tokens and have been abandoned.
+* **No official solution**. [Native cancelable promises](https://github.com/tc39/proposal-cancelable-promises)
+	were incompatible with ES6 promise semantics, provided one-way cancellation, used unwieldy
+	cancel tokens and have been abandoned.
 
-* **Bluebird stepped aside**. Bluebird has bulky stable API and has been largely superseded by ES promises where applicable, particularly due to `async..await`. [Two-way cancellation](http://bluebirdjs.com/docs/api/cancellation.html) is disabled by default and incompatible with native promise semantics.
+* **`AbortController` is the standard, and it works**. It is the platform primitive, it is not
+	going away, and `canc` interoperates with it in both directions. What it does not do is
+	propagate through a promise chain on its own. Threading a signal through every layer and
+	guarding every gap is a developer experience problem, not a missing capability, and it is the
+	problem this ecosystem exists to remove.
 
-* **No universal third-party options**. JavaScript community provides no comprehensive alternatives based on native promises. Renowned `p-*` [package collection](https://github.com/sindresorhus/promise-fun#packages) only supports one-way cancellation and targets Node.js.
+* **Bluebird is no longer an option**. Bluebird has bulky stable API and has been largely
+	superseded by ES promises, particularly due to `async`/`await`. Its
+	[two-way cancellation](http://bluebirdjs.com/docs/api/cancellation.html) is disabled by
+	default, leaves canceled promises unsettled instead of rejecting them, and the library is
+	unmaintained.
 
-* **Observables aren't a magic bullet**. Observables can provide a superset of promise features, as well as cancellation. However, observables don't offer expressive sugar similar to `async..await`, cancellation may be lost in promise interop. Observables are push-based and cannot displace pull-based `async*` async iterators. [RxJS](https://github.com/ReactiveX/rxjs) is commonly used implementation with complex API, no [native observable](https://github.com/tc39/proposal-observable) implementation exists yet.
+* **Observables are the working alternative, at a price**. RxJS has offered cancellation for
+	years and still does. The objection is ergonomic rather than functional: there is no sugar
+	comparable to `async`/`await`, cancellation is easy to lose the moment a promise enters the
+	pipeline, observables are push-based so they do not replace pull-based async iterators, and
+	adopting a large API to cancel one request is a steep trade. No
+	[native observable](https://github.com/tc39/proposal-observable) exists yet.
 
-### Comparison
-
-| | `canc` | native + `AbortController` | [p-cancelable](https://github.com/sindresorhus/p-cancelable) | [alkemics/CancelablePromise](https://github.com/alkemics/CancelablePromise) | [c-promise2](https://github.com/DigitalBrainJS/c-promise) | [Bluebird](http://bluebirdjs.com/docs/api/cancellation.html) |
-|---|---|---|---|---|---|---|
-| Native `Promise` subclass | yes | n/a | no (wraps) | no (wraps) | no (wraps) | no (own implementation) |
-| Deep (chain-wide) cancellation | yes | manual (thread signal yourself) | no (single promise) | no (single promise) | yes | yes |
-| Rejection-based (normal try/catch) | yes | yes (`AbortError`) | yes | no (silent skip) | no (never settles) | no (never settles by default) |
-| Two-way propagation (bubble up + flow down) | yes | no | no | no | no | no |
-| `AbortSignal` interop | yes (`@cancjs/fetch`, toolbox helpers) | native | no | no | no | no |
-| Actively maintained | yes | n/a (platform) | yes | no | no | no (cancellation feature frozen) |
-
-`canc` is the only entry that combines a native `Promise` subclass with deep, two-way,
-rejection-based cancellation. `AbortController` is the maintained platform primitive but only
-threads a signal, it doesn't propagate cancellation through a chain on its own. The `p-*`-style
-packages and alkemics wrap a single promise and skip silently instead of rejecting. c-promise2 has
-deep cancellation but isn't a `Promise` subclass and has gone quiet. Bluebird's two-way
-cancellation predates today's `async..await`-centric ecosystem, is off by default, and promises
-never settle on cancel instead of rejecting.
+* **No universal third-party options**. The renowned `p-*`
+	[package collection](https://github.com/sindresorhus/promise-fun#packages) only supports
+	one-way cancellation and targets Node.js. It is the closest popular attempt to extend native
+	promises for this purpose, which is why it is worth naming at all.
 
 ## Performance
 
-`canc` wraps every `Promise` operation in cancellation bookkeeping, and that costs something.
-Full numbers (methodology, machine specs, per-suite breakdowns, browser-lane results) live in
-[`docs/benchmarks.md`](docs/benchmarks.md); the short version:
+Anything built on top of native `Promise` is slower than native `Promise`, and `canc` wraps every
+operation in cancellation bookkeeping on top of that. The goal is not to win microbenchmarks, it
+is to stay irrelevant next to the I/O the promises are waiting on.
 
-In a simulated request waterfall (5 sequential + 3 parallel requests, 30% canceled mid-flight),
-`canc` runs well under a microsecond slower per request than a hand-rolled native `Promise` +
-`AbortController` baseline, a relative tax that has ranged from roughly 20% to 80% across repeated runs depending on machine
-load, typically landing in the 25-50% band, that is
-dwarfed by any real network or timer latency. **For I/O-bound flows (the common case), this
-overhead is negligible.** A fraction of a microsecond of bookkeeping disappears next to a request
-that takes milliseconds. The cost shows up more in tight, cancellation-heavy loops (a
-mount/unmount-cancel component lifecycle simulation runs several times slower than native) and in
-raw construct/chain throughput under isolated microbenchmarks, where `canc` lands roughly one order
-of magnitude behind native `Promise` and is mixed against Bluebird depending on the shape of the
-chain. Combinator internals (`all`/`race`/`any`/`allSettled`) were reworked to skip an extra
-per-item allocation; the measured effect ranges from a modest win to roughly noise-level depending
-on the case and run (see `docs/benchmarks.md`), and combinators remain well short of native and
-mixed against Bluebird.
+In a simulated request waterfall (5 sequential and 3 parallel requests, 30% canceled mid-flight)
+`canc` costs about 45% more per request operation than hand-wired `Promise` plus
+`AbortController`, and bluebird costs about 20% more. In absolute terms that is well under a
+microsecond of extra work per operation, against a request measured in milliseconds. In isolated
+hot loops the ratios grow: a 10-deep `then` chain runs roughly 9 times slower than native, where
+bluebird runs about 7 times slower. Memory follows the same shape, around 380 bytes per promise
+against 57 for native and 121 for bluebird, which starts to matter with thousands of promises in
+flight at once.
 
-Memory follows the same pattern. A single `canc` promise costs a few hundred bytes more than a
-native one. For high-concurrency workloads (thousands of promises in flight at once, long-lived
-subscriptions, or streaming/pagination patterns that keep many chains alive), budget roughly an
-extra 2 MB of retained heap per 1,000 in-flight promises versus native. If a workload creates and
-discards promises faster than it can await them, this is the number to watch.
+Bluebird is the useful yardstick here. It carried that kind of overhead in production for years
+and nobody considered it a problem, because application time goes into the network and not into
+promise machinery. Tight loops that create and cancel promises faster than any I/O they wrap are
+the exception, and a mount and unmount lifecycle simulation is several times slower than native,
+so measure that shape against your own budget.
 
-None of this changes the tradeoff to make in a given app: `canc` gives you real, rejection-based,
-two-way cancellation without hand-wiring `AbortController` through every call site. Where that's
-worth a few hundred bytes and a low single-digit-microsecond tax per operation, it's worth using;
-where a hot loop constructs and cancels promises far faster than any I/O it wraps, measure against
-your own budget first.
-
-<!--
-## Getting Started
-
-### Installation
-
-### Usage
-
-## Documentation
--->
-
-## Compatibility
-
-Packages rely on following ECMAScript 2015+ features: `Symbol` (ES2018 for async iterators), `Reflect`, `Promise` (ES2018 for `finally`, ES2020 for `allSettled`), `Object.assign`, `Object.setPrototypeOf`.
-
-### TypeScript
-
-TypeScript floor is 4.2. Each package ships two `.d.ts` variants and resolves the right one
-automatically, no consumer configuration needed. TS >= 4.7 reads `exports["."].types` and gets
-`dist/types/*.d.ts`. Older TS falls back to `typesVersions` (pre-4.7 resolvers don't read
-`exports.types`) and gets `dist/types-ts4.2/*.d.ts`.
-
-The `-ts4.2` variant is produced from the standard output via `downlevel-dts`, plus a follow-up
-patch for `Awaited<T>` which predates `downlevel-dts`'s own transform coverage. Verified against
-a pinned matrix (TS 4.2 / 4.7 / 5.0 / 5.4 / latest) by compiling fixture projects against the
-built tarballs.
-
-### Build targets
-
-All four build outputs (CJS, ESM, UMD, minified UMD) compile from the same ES5-targeted
-TypeScript source, only the module wrapper differs. CJS is `dist/index.cjs` (`main` field), ESM
-is `dist/index.mjs` (`module` field), UMD is `dist/index.umd.js` and `dist/index.umd.min.js`
-(`<script>`/AMD/CommonJS fallback, `unpkg`/`jsdelivr` fields). `downlevelIteration` is on; no
-`class`, `#private`, bigint, or `WeakRef` in core source.
-
-### Engines
-
-`node >= 18` per package `engines` field. That's the tested and supported Node.js baseline, not
-a hard floor imposed by the ES5 output itself, the compiled code runs on much older engines too.
-
-### Alternative engines (QuickJS, XS/Moddable, Hermes)
-
-Not part of the tested CI matrix, but source targets ES5 with guarded ES2018+ feature use
-(`AggregateError` etc), so it should work in principle.
-
-* **QuickJS** - spec-compliant ES2020 engine; expected to work with native `Promise`/`Reflect`,
- no known incompatibilities.
-* **XS (Moddable)** - targets ES2023 with some omissions on constrained builds; verify `Reflect`
- and `Promise.allSettled` availability for your build profile before relying on bubbling behavior.
-* **Hermes** (React Native) - ships its own `Promise` polyfill (bytecode-compiled, not a native
- spec-engine `Promise`). Species (`Symbol.species`) and microtask-ordering quirks are the usual
- hazard surface on polyfilled `Promise`, so treat those code paths as the risk area if you rely
- on Hermes.
-
-None of the above are covered by the TS version matrix or CI; treat as best-effort.
-
-### Native Support
-
-Tested and supported: Node.js 18+ (CI matrix runs 18.x and 20.x on Linux and Windows), and current
-evergreen browsers with native `Symbol`, `Reflect`, `Promise` (including `finally`/`allSettled`),
-`Object.assign`, `Object.setPrototypeOf`.
-
-The compiled output targets ES5 (see [Build targets](#build-targets)), so it runs on older engines
-too, but only the Node 18+ / evergreen-browser baseline above is covered by CI.
-
-### Legacy / Polyfilled Support
-
-Older browser and Node.js targets (IE11, Node 6, polyfilled ES5 via `core-js`/`polyfill.io`, and
-similar) are not part of the current test matrix or package set. That support is planned for
-future `-legacy` package entries rather than claimed here; see the package list above.
+Full methodology, machine specs and per-suite results live in [`docs/benchmarks.md`](docs/benchmarks.md);
+the harness itself is in [`benchmarks`](benchmarks).
 
 ## Examples
 
-Runnable examples live in [examples](https://github.com/cancjs/canc/tree/master/examples), a separate npm install root with its own README.
+[examples](examples) is a separate npm project with runnable projects, each written twice: a
+plain version and a `canc` version of the same application, so the difference is a diff and not a
+description. The vanilla side is not a strawman, it includes the real `AbortController` attempt
+wherever that is the point of the comparison.
 
-<!--
-### Component with uncancelable promises:
+It covers React, Vue, Angular, Express, Fastify, NestJS, Kysely, Mongoose, TypeORM, axios, RxJS,
+WebSockets, CLI tools and LLM streaming, plus small focused demos for each part of the ecosystem.
 
-```js
-class Component {
- createHook() {
- fetchFooBar();
- }
+## Compatibility
 
- async fetchFooBar() {
- let foo = await fetchFoo();
+Node.js 18 and later, and current browsers with native `Symbol`, `Reflect`, `Promise`,
+`Object.assign` and `Object.setPrototypeOf`. TypeScript 4.2 and later.
 
- // safeguard
- if (this._destroyed)
- return;
-
- // the framework causes an error if the instance has been destroyed
- this.updateState({ foo });
-
- // cannot be stopped even if the result isn't needed
- let bar = await fetchBar({ foo, retries: 10 });
-
- // safeguard
- if (this._destroyed)
- return;
-
- this.updateState({ bar });
- }
-
- destroyHook() {
- this._destroyed = true;
- }
-}
-```
-
-
-```js
-class Component {
- createHook() {
- fetchFooBarBaz();
- }
-
- async fetchFooBarBaz() {
- // retries cannot be stopped even if they aren't usable
- let one = await fetchFoo({ retryTimes: 5});
- if (this._destroyed) return;
- this.updateState({ one });
- let two = await actionTwo(one);
- if (this._destroyed) return;
- this.updateState({ one });
- }
-
- destroyHook() {
- this._destroyed = true;
- }
-}
-```
--->
-
-<!--
-## Related
-
-## Status
--->
-
-
+Every package ships CJS, ESM and UMD builds compiled from ES5-targeted source, so the output also
+runs on older engines that are not part of the test matrix. Per-package details are in each
+package README, starting with [`@cancjs/promise`](packages/canc-promise#compatibility).
 
 ## Contributing
 

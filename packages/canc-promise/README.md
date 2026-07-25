@@ -1,5 +1,5 @@
 <p align="center">
- <img src="../../assets/canc-logo.png" width="483" title="canc &#x2BBF; A crafty foundation for cancelable promises" alt="canc &#x2BBF; a crafty foundation for cancelable promises">
+	<img src="../../assets/canc-logo.png" width="483" title="canc &#x2BBF; A crafty foundation for cancelable promises" alt="canc &#x2BBF; a crafty foundation for cancelable promises">
 </p>
 
 <h1 align="center">@cancjs/promise</h1>
@@ -10,81 +10,242 @@ Cancelable promise implementation based on native <code>Promise</code>.
 
 ---
 
+## Introduction
+
+`CancelablePromise` is a `Promise` with a `cancel()` method. It is built on the native
+implementation, so it settles at the same microtask timing, works with `await`, and can be handed
+to any code that expects a promise.
+
+Cancellation is a rejection with a `CancelError`, not a silent skip and not a promise that never
+settles. Regular `try`/`catch` and `.catch()` keep working, and code that does not care about
+cancellation does not need to know it happened.
+
+This package is the foundation of the ecosystem. For a cancelable replacement of `async`/`await`,
+see [`@cancjs/coroutine`](../canc-coroutine).
+
 ## Features
 
-* cancelable promise implementation built on top of native ES `Promise`
-* cancellation is a special rejection (`CancelError`) — normal `try`/`catch`/`.then`/`.catch`
- semantics preserved
+* cancelable promise built on top of native ES `Promise`
+* cancellation is a special rejection (`CancelError`), normal `try`/`catch`/`.then`/`.catch`
+	semantics preserved
 * two-way cancellation: propagates down the chain, bubbles back up when every consumer has
- canceled and the value is unconsumed
-* CJS, ESM and UMD builds; TypeScript types down to TS 4.2
+	canceled and the value is unconsumed
+* combinators that cancel the promises whose results are no longer needed
+* `AbortSignal` interop in both directions
+* explicit resource management through `using` and `await using`
+* no dependencies
 
-See the [root README](../../README.md) for the full ecosystem and cancellation model.
+## Getting Started
 
-## Install
+### Installation
 
 ```sh
 npm install @cancjs/promise
-# or
-yarn add @cancjs/promise
 ```
 
-## Usage
+### Usage
+
+The executor gets a third argument for registering cleanup. It runs when the promise is canceled:
 
 ```js
-const { CancelablePromise, CancelError } = require('@cancjs/promise');
-// or: import { CancelablePromise, CancelError } from '@cancjs/promise';
+import { CancelablePromise, isCancelError } from '@cancjs/promise';
 
-const promise = new CancelablePromise((resolve, reject, onCancel) => {
- const id = setTimeout(resolve, 1000, 'done');
- onCancel(() => clearTimeout(id));
+const delayed = new CancelablePromise((resolve, reject, handleCancel) => {
+	const timerId = setTimeout(resolve, 1000, 'done');
+	handleCancel(() => clearTimeout(timerId));
 });
 
-promise
- .then((value) => console.log(value))
- .catch((err) => {
- if (err instanceof CancelError) {
- console.log('canceled');
- }
- });
+delayed
+	.then((value) => console.log(value))
+	.catch((err) => {
+		if (isCancelError(err)) {
+			console.log('canceled');
+			return;
+		}
 
-promise.cancel();
+		throw err;
+	});
+
+delayed.cancel();
 ```
 
-## Build targets
+Cancellation applies to the whole chain, not to a single promise:
 
-All four build outputs are produced from the same ES5-targeted TypeScript source (`target: es5`
-in `tsconfig.base.json`), only module wrapping differs between formats: `dist/index.cjs` is
-CommonJS for `require()` and Node.js (`main` field), `dist/index.mjs` is an ES module for
-`import` and bundlers (`module` field), `dist/index.umd.js` is UMD for `<script>` tags/AMD/
-CommonJS fallback, and `dist/index.umd.min.js` is the minified UMD build used by `unpkg`/
-`jsdelivr`.
+```js
+const report = loadOrders()
+	.then((orders) => buildReport(orders))
+	.then((rendered) => render(rendered));
 
-## TypeScript support
+// Cancels the request, the report build, and the render step.
+report.cancel();
+```
 
-TypeScript floor is 4.2. Two `.d.ts` variants ship, resolved automatically, no consumer
-configuration needed. TS >= 4.7 reads `exports["."].types` conditions and gets
-`dist/types/index.d.ts`. Older TS falls back to `typesVersions` (pre-4.7 resolvers don't support
-the `exports.types` condition) and gets `dist/types-ts4.2/index.d.ts`.
+Combinators keep the same behavior, and they stop the work whose result nobody will read:
 
-`dist/types-ts4.2/` is generated from `dist/types/` via `downlevel-dts`, plus a follow-up patch
-for `Awaited<T>` (lib-defined starting TS 4.5, not covered by `downlevel-dts`'s own transform
-list). Verified against a pinned TS version matrix: 4.2, 4.7, 5.0, 5.4, latest.
+```js
+const fastest = CancelablePromise.race([fetchPrimary(), fetchMirror()]);
+// When one wins, the other is canceled instead of running to completion.
+```
 
-## Engines
+## How It Works
 
-`node >= 18` (declared in `package.json` engines), the tested and supported Node.js baseline for
-the published package. See the [root README Compatibility section](../../README.md#compatibility)
-for browser/engine notes, including QuickJS, XS (Moddable) and Hermes.
+### Cancellation is a rejection
 
-## Pluggable implementation
+`cancel(reason)` rejects the promise with a `CancelError`. The reason is normalized: a
+`CancelError` passes through unchanged, any other object becomes its `cause`, a string becomes its
+message. Handlers registered through `handleCancel` still receive the original reason.
+
+Because it is an ordinary rejection, a canceled promise that nobody handles triggers
+`unhandledRejection` like any other. That is intentional. Suppress it deliberately with
+`suppressCancel` or a global handler, not with a blanket `.catch(() => {})`.
+
+### Down the chain
+
+Canceling a promise cancels everything derived from it. The pending step rejects with the
+`CancelError`, every step after it is skipped, and the registered cancel handlers of the canceled
+node run so in-flight work can be torn down.
+
+Down-propagation cannot be intercepted. If an upstream promise is canceled, a downstream promise
+adopts that rejection, the same way it would adopt any other rejection. This is native `Promise`
+behavior, and breaking it would break `try`/`catch`.
+
+### Up the chain
+
+A promise chain is treated as a subscription. Each derived promise counts as a consumer of its
+parent. When every consumer has been canceled and the parent's value is no longer wanted, the
+parent cancels itself and its own cleanup runs, so the original request does not keep going for
+nobody.
+
+Bubbling is on by default. Turn it off per promise with `bubble: false` when the work has side
+effects that should not be discarded implicitly, for example a write that must complete once
+started.
+
+### Combinators
+
+`race` and `any` cancel the losers once a winner settles. `all` cancels the remaining inputs on
+the first rejection. `allSettled` cancels nothing, by definition it waits for everything. Inputs
+constructed with `bubble: false` are never canceled by this mechanism.
+
+Canceling a combinator result does not cascade into its inputs, because an input may be shared
+with another consumer.
+
+### Disposal
+
+A pending promise cancels itself when it leaves a `using` or `await using` scope. The async form
+waits for the cancel handlers to settle, so cleanup finishes before the scope exits. Disposing an
+already settled promise, or a shielded one, is a no-op rather than an error.
+
+```js
+async function loadReport(id) {
+	await using request = fetchReport(id);
+	return await request;
+	// Leaving the scope early, by return or by throw, cancels a request still in flight.
+}
+```
+
+## Description
+
+### Options
+
+Every option is accepted by the constructor and by the statics, and the current values are
+readable through the `options` getter.
+
+| Option | Default | Meaning |
+|---|---|---|
+| `bubble` | `true` | Cancellation bubbles to the parent when all consumers are canceled |
+| `asyncCancel` | `true` | `cancel()` settles failing cancel handlers asynchronously instead of throwing |
+| `forceCancelable` | `true` | Keeps the promise cancelable when a native promise is passed to `resolve()` |
+| `strict` | `false` | Throws on cancellation problems instead of ignoring them |
+| `shield` | `false` | Protects this promise's own work from cancellation coming from below or outside |
+| `signal` | none | One `AbortSignal` or an array of them, first abort wins |
+
+`shield` is an upward and self shield only. A direct `cancel()` becomes a no-op and a bubble
+arriving from canceled children stops there, but a canceled or rejected upstream still propagates
+down into a shielded promise. It is per promise and is not inherited by `then`-derived children.
+
+Flags are also exposed as writable properties (`promise.bubble = false`), and the class-wide
+defaults live in `CancelablePromise.defaultOptions`.
+
+### Detecting cancellation
+
+Use the exported guards. They are brand-based, so they keep working across realms and across two
+copies of the package in one dependency tree, which `instanceof` does not:
+
+```js
+import { isCancelError, isCancPromise, isAbortError } from '@cancjs/promise';
+```
+
+A promise canceled through an `AbortSignal` rejects with a `CancelError` whose `cause` is the
+abort reason, not with a `DOMException`. Check `err.aborted` on the `CancelError` when the
+difference matters. `isAbortError` is for raw signal-driven code with no canc promise in between.
+
+`CancelError` also carries `bubbled` (the cancellation came from the consumer side) and `disposed`
+(it came from leaving a `using` scope).
+
+### Ending a cancelable flow
+
+At the boundary where a flow is consumed, cancellation is usually an expected outcome rather than
+an error. Two helpers say so explicitly:
+
+```js
+const outcome = await catchCancel(searchProducts(query));
+
+if (isCancelError(outcome)) {
+	showStatus('Search canceled');
+	return;
+}
+
+render(outcome);
+```
+
+`suppressCancel(promise)` is the shorter form when the reason does not matter: it resolves to
+`undefined` on cancellation and rethrows everything else.
+
+### AbortSignal interop
+
+Pass an existing signal to have it cancel the promise. The listener is removed when the promise
+settles, an already aborted signal cancels immediately, and an array composes several sources with
+first abort winning:
+
+```js
+const quotes = new CancelablePromise(executor, {
+	signal: [userSignal, AbortSignal.timeout(5000)],
+});
+```
+
+For the other direction, `createCancelSignal()` mints a signal that aborts with a `CancelError`,
+so downstream code that only speaks `AbortSignal` still sees a genuine cancellation.
+[`@cancjs/toolbox`](../canc-toolbox) has the higher-level wrappers, including `cancelify` and
+`toAbortSignal`.
+
+### Awaiting cleanup
+
+By default `cancel()` returns a promise that settles once every cancel handler has settled, so
+cleanup can be awaited when it matters:
+
+```js
+await checkout.cancel();
+```
+
+Handlers start synchronously the moment the cancel takes effect, whatever triggered it. Only
+waiting for their results is asynchronous. With `asyncCancel: false` handlers run synchronously
+and `cancel()` returns nothing.
+
+### Adopting a foreign promise
+
+`makeCancelable(promise)` wraps a plain promise so the chain around it is cancelable. The
+underlying work is not affected: canceling stops the chain from continuing, but the wrapped
+operation runs to completion. To close that gap, make the operation cancelable at its source with
+`cancelify` or `promisify` from [`@cancjs/toolbox`](../canc-toolbox).
+
+### Pluggable implementation
 
 Ecosystem packages (toolbox, lazy-promise, coroutine) pick which promise implementation to build
 on through a small registry exported here. Register one implementation at app startup and every
 consumer that has no more specific override uses it:
 
 ```js
-const { setPromiseImpl, getPromiseImpl } = require('@cancjs/promise');
+import { setPromiseImpl, getPromiseImpl } from '@cancjs/promise';
 
 setPromiseImpl(MyPromiseImpl); // default is CancelablePromise
 getPromiseImpl(); // MyPromiseImpl
@@ -92,26 +253,98 @@ setPromiseImpl(); // clears the registration, back to CancelablePromise
 ```
 
 Consumers resolve the implementation for each call in this order, highest first: a per-call
-`options.impl`, then the consumer's own class static, then the registry set here, then the built-in
+`options.impl`, then the consumer's own class static, then this registry, then the built-in
 `CancelablePromise`. Per-call and static injection pass the implementation by reference, so they
 always work. The registry is the convenience layer for the common case where one implementation
 applies process-wide.
 
-### Troubleshooting: registration seems to be ignored
+#### Troubleshooting: registration seems to be ignored
 
 The registry is module state in this package. It works app-wide because ecosystem packages declare
 `@cancjs/promise` as a `peerDependency`, so the package manager installs a single shared copy. If
-two different versions of `@cancjs/promise` end up in the same dependency tree, each carries its
-own registry: a `setPromiseImpl` call made through one copy is invisible to code reading through
-the other, so the second copy silently falls back to its built-in default.
+two different versions end up in the same dependency tree, each carries its own registry: a
+`setPromiseImpl` call made through one copy is invisible to code reading through the other, and
+the second copy silently falls back to its built-in default.
 
 Symptoms: `setPromiseImpl` runs without error but a consumer still uses `CancelablePromise`, or
-`getPromiseImpl()` returns a different value than the one you set.
+`getPromiseImpl()` returns a different value than the one that was set.
 
-Fixes: keep `@cancjs/promise` deduplicated to one version (align the peer ranges across your
-ecosystem packages, run `npm ls @cancjs/promise` / `yarn why @cancjs/promise` to confirm a single
-copy). When you cannot guarantee a single copy, pass the implementation explicitly through per-call
-options or a class static instead of relying on the registry.
+Fixes: keep `@cancjs/promise` deduplicated to one version, and run `npm ls @cancjs/promise` to
+confirm a single copy. When a single copy cannot be guaranteed, pass the implementation through
+per-call options or a class static instead of relying on the registry.
+
+## API
+
+### `CancelablePromise`
+
+`new CancelablePromise(executor, options?)`, where `executor` is
+`(resolve, reject, handleCancel) => void`. Also the default export.
+
+Statics, each taking an optional trailing options argument: `all`, `allSettled`, `any`, `race`,
+`resolve`, `reject`, `withResolvers`, `try`. The options configure the promise the static returns,
+and combinator inputs are adopted with them.
+
+Instance methods: `then`, `catch`, `finally`, `handleCancel(onCancel, options?)`,
+`cancel(reason?)`, `[Symbol.dispose]`, `[Symbol.asyncDispose]`.
+
+`handleCancel` registers cleanup outside the executor and returns the promise, so it chains.
+With `{ immediate: true }` the handler also fires when the promise is already canceled at
+registration time.
+
+Instance getters: `canceled`, `cancelable`, `options`. The flags `bubble`, `asyncCancel`,
+`forceCancelable`, `strict` and `shield` are readable and writable.
+
+Class-wide defaults: `CancelablePromise.defaultOptions`.
+
+### `CancelError`
+
+`new CancelError(reason?, { cause })`. Properties: `name`, `message`, `cause`, `bubbled`,
+`disposed`, and the `aborted` getter, true when the cause is an abort.
+
+### Helpers
+
+`isCancelError(error)`, `isCancPromise(value)`, `isAbortError(error)`, `isCancelSignal(value)`,
+`catchCancel(promiseOrError, options?)`, `suppressCancel(promiseOrError, options?)`,
+`makeCancelable(promise, options?)`, `createCancelSignal(reason?)`.
+
+`catchCancel` and `suppressCancel` take `{ abort: true }` to also match a plain abort, and both
+accept either a promise or a caught error.
+
+### Implementation registry
+
+`setPromiseImpl(impl?)`, `getPromiseImpl()`, `resolvePromiseImpl(options?, staticImpl?)`.
+
+## Compatibility
+
+Node.js 18 and later is the tested and supported baseline, declared in `engines`. In browsers the
+requirements are native `Symbol`, `Reflect`, `Promise` (including `finally` and `allSettled`),
+`Object.assign` and `Object.setPrototypeOf`, which every current browser provides. `using` and
+`await using` additionally need `Symbol.dispose` support or a polyfill.
+
+TypeScript 4.2 and later. Two type variants ship and the right one is selected automatically, no
+consumer configuration needed.
+
+Four builds are produced from the same ES5-targeted source, only the module wrapper differs:
+`dist/index.cjs` for `require`, `dist/index.mjs` for `import` and bundlers, `dist/index.umd.js`
+and `dist/index.umd.min.js` for `<script>` tags and CDNs.
+
+Because the output is ES5, it also runs on engines outside the test matrix, including embedded
+ones such as QuickJS, XS and Hermes. Those are not covered by CI, so treat them as best effort,
+and check `Reflect` and `Promise.allSettled` availability on constrained builds.
+
+## Documentation
+
+* [`@cancjs/coroutine`](../canc-coroutine) for the `async`/`await` replacement built on this
+	package
+* [`@cancjs/toolbox`](../canc-toolbox) for timing helpers, adapters and signal interop
+* [`@cancjs/fetch`](../canc-fetch) for cancelable requests
+* [examples](../../examples) for runnable projects, starting with `demo-promise-basics` and
+	`demo-chain-propagation`
+* [root README](../../README.md) for the ecosystem overview
+
+## Contributing
+
+You are welcome to participate through issues and pull requests!
 
 ## License
 
