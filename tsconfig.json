@@ -10,6 +10,8 @@
  "@cancjs/lazy-promise": ["./packages/canc-lazy-promise/src/index"],
  "@cancjs/coroutine": ["./packages/canc-coroutine/src/index"],
  "@cancjs/fetch": ["./packages/canc-fetch/src/index"],
+			"@cancjs/axios": ["./packages/canc-axios/src/index"],
+			"@cancjs/toolbox": ["./packages/canc-toolbox/src/index"],
  "@cancjs/decorators": ["./packages/canc-decorators/src/index"]
  }
  }
