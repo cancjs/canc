@@ -1,0 +1,67 @@
+{
+ "name": "@cancjs/axios",
+ "version": "0.0.0",
+ "description": "Cancelable promise adapter for axios.",
+ "keywords": [
+ "axios",
+ "cancel",
+ "cancelable",
+ "abort",
+ "promise"
+ ],
+ "main": "dist/index.cjs",
+ "module": "dist/index.mjs",
+ "unpkg": "dist/index.umd.min.js",
+ "jsdelivr": "dist/index.umd.min.js",
+ "types": "dist/types/index.d.ts",
+ "sideEffects": false,
+ "files": [
+ "dist"
+ ],
+ "exports": {
+ ".": {
+ "types": "./dist/types/index.d.ts",
+ "import": "./dist/index.mjs",
+ "require": "./dist/index.cjs"
+ }
+ },
+ "engines": {
+ "node": ">=18",
+ "npm": ">=9"
+ },
+ "author": "bisubus",
+ "license": "MIT",
+ "homepage": "https://github.com/cancjs/canc/packages/canc-axios#readme",
+ "repository": {
+ "type": "git",
+ "url": "https://github.com/cancjs/canc.git",
+ "directory": "packages/canc-axios"
+ },
+ "bugs": {
+ "url": "https://github.com/cancjs/canc/issues"
+ },
+ "publishConfig": {
+ "access": "public"
+ },
+ "peerDependencies": {
+ "@cancjs/promise": "*",
+ "@cancjs/toolbox": "*",
+ "axios": ">=0.22"
+ },
+ "devDependencies": {
+ "@cancjs/promise": "*",
+ "@cancjs/toolbox": "*",
+ "axios": "1.16.0",
+ "axios-legacy": "npm:axios@0.22.0"
+ },
+ "scripts": {
+ "build": "rimraf dist && rollup --config ./rollup.config.js",
+ "check": "tsc --noEmit --project ./tsconfig.prod.json",
+ "format": "eslint --fix ./src",
+ "format:all": "eslint --fix .",
+ "lint": "eslint ./src",
+ "lint:all": "eslint .",
+ "test": "jest --colors",
+ "test:watch": "jest --colors --watch"
+ }
+}

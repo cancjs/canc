@@ -1,0 +1,9 @@
+{
+ "extends": "../../tsconfig.base",
+ "compilerOptions": {
+ "lib": ["es2022"],
+ "outDir": "build",
+ "rootDir": "../..",
+ },
+ "include": ["src", "../_util", "../_toolbox", "../canc-promise/src", "../canc-toolbox/src", "../canc-lazy-promise/src"],
+}
