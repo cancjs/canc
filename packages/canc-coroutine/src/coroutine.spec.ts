@@ -929,3 +929,68 @@ describe('cancel/dispose contract', () => {
  });
  });
 });
+
+// Characterization test, not a fix: the coroutine already gets cancel propagation to a
+// sequentially-awaited inner promise through its own step-drive mechanism (cancAwait holds a
+// direct reference to the currently-awaited value and wires its cancel at the step boundary),
+// independent of canc-promise's `.then()`-return adoption fix. This is why the two-step
+// `cancAsync(function* () { yield* cancAwait(delay(ms)); return yield* cancAwait(work()); })`
+// pattern already canceled `work()` before that fix landed, and it must keep doing so afterward
+// so a future refactor of either mechanism cannot silently break the path people were told to
+// use as the workaround.
+describe('cancAwait sequential-step propagation (pre-existing, not the adoption fix)', () => {
+ it('cancel during the first cancAwait step short-circuits: the second step never constructs its inner', async () => {
+ let innerCreated = false;
+ let innerCanceled = false;
+
+ const co = cancAsync(function* () {
+ yield* cancAwait(new CancelablePromise<void>(() => {})); // never settles: stands in for delay(ms)
+ innerCreated = true;
+ const inner = new CancelablePromise<number>((_resolve, _reject, handleCancel) => {
+ handleCancel(() => {
+ innerCanceled = true;
+ });
+ });
+ return yield* cancAwait(inner);
+ });
+
+ const p = co();
+ await flush(2);
+ p.cancel();
+ await flush();
+
+ expect(innerCreated).toBe(false);
+ expect(innerCanceled).toBe(false);
+ await expect(p.catch((e: any) => e)).resolves.toBeInstanceOf(CancelError);
+ });
+
+ it('cancel after the first step settles and the second cancAwait is live: cancel reaches the awaited inner (the shipped debounce workaround)', async () => {
+ let innerCanceled = false;
+ let resolveDelay: () => void = () => undefined;
+ const delay = new CancelablePromise<void>((resolve) => {
+ resolveDelay = resolve;
+ });
+ const inner = new CancelablePromise<number>((_resolve, _reject, handleCancel) => {
+ handleCancel(() => {
+ innerCanceled = true;
+ });
+ });
+
+ const co = cancAsync(function* () {
+ yield* cancAwait(delay);
+ return yield* cancAwait(inner);
+ });
+
+ const p = co();
+ await flush(2);
+ resolveDelay();
+ await flush(4);
+
+ p.cancel();
+ await flush(4);
+
+ expect(innerCanceled).toBe(true);
+ expect(inner.isCanceled).toBe(true);
+ await expect(p.catch((e: any) => e)).resolves.toBeInstanceOf(CancelError);
+ });
+});
