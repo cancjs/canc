@@ -1,13 +1,13 @@
 import { createOrm } from './orm';
-import { createApp } from './app';
+import { createApp } from './app-canc';
 
 const PORT = Number(process.env.PORT ?? 3000);
 
 async function main(): Promise<void> {
-  const bundle = await createOrm();
-  const app = createApp(bundle);
+  const ormConnData = await createOrm();
+  const app = createApp(ormConnData);
   app.listen(PORT, () => {
-    console.log(`[server] ${bundle.driver} ready on http://127.0.0.1:${PORT} (search /api/search?q=)`);
+    console.log(`[server:canc] ${ormConnData.driver} on http://127.0.0.1:${PORT} (search /api/search?q=)`);
   });
 }
 

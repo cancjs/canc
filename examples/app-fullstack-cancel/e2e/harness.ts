@@ -14,12 +14,14 @@ export interface ServerHandle {
   stop(): Promise<void>;
 }
 
-/** Boots server/test-server.ts as a real subprocess (native ESM) and waits until it is listening. */
-export async function startServer(): Promise<ServerHandle> {
+export type Flavor = 'canc' | 'vanilla';
+
+/** Boots e2e/test-server.ts as a real subprocess (native ESM) and waits until it is listening. */
+export async function startServer(flavor: Flavor = 'canc'): Promise<ServerHandle> {
   const child: ChildProcess = spawn(
     process.execPath,
-    ['--import', 'tsx', path.join('server', 'test-server.ts')],
-    { cwd: APP_ROOT, env: { ...process.env, PORT: '0' }, stdio: ['ignore', 'pipe', 'pipe'] },
+    ['--import', 'tsx', path.join('e2e', 'test-server.ts')],
+    { cwd: APP_ROOT, env: { ...process.env, PORT: '0', CANC_FLAVOR: flavor }, stdio: ['ignore', 'pipe', 'pipe'] },
   );
 
   const port = await new Promise<number>((resolve, reject) => {
