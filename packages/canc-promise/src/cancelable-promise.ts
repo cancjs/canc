@@ -1,6 +1,6 @@
 import { createAggregateError, isFunction, isObject, isThenable } from '../../_util';
 import { CancelError } from './cancel-error';
-import { isCancelError } from './helpers';
+import { isCancelError, isCancPromise } from './helpers';
 
 // Agent-wide brand: same rationale as CANCEL_ERROR_BRAND in cancel-error.ts. A Symbol.for
 // registry entry is identical across realms and across duplicated package copies, so duck-typing
@@ -642,6 +642,30 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 						// Prevent cancelation in case of early state changes
 						if (instance._internalState === states.PENDING) {
 							if (isThenable(value)) {
+								if (value === (instance as unknown)) {
+									// Self-resolution (e.g. `p.then(() => p)`). Native Promise resolution
+									// rejects a promise resolved with itself ("Chaining cycle detected"),
+									// but the forceCancelable branch below adopts via `value.then(...)`
+									// instead of `resolve_(value)`, so it would never reach native cycle
+									// detection and would hang. Reject with the same TypeError here and do
+									// not enter the adoption-cancel branch, so self-cycles keep native
+									// semantics without linking the promise to itself.
+									reject(new TypeError('Chaining cycle detected for promise'));
+									return;
+								}
+
+								// Adopting another cancelable: link it into this promise's chain graph as
+								// a counted parent, the same wiring a declared parent gets. Cancel then
+								// reaches the adopted promise only when every counted consumer is gone and
+								// the value is unconsumed, and its own `bubble: false` / `shield: true`
+								// are honored inside `_chain`/`cancel`. This runs once per settle (not per
+								// `.then()` call), and plain values / native promises / foreign thenables
+								// never enter it.
+								const adopted = isCancPromise(value) ? value : undefined;
+								if (adopted) {
+									adopted._chain(instance);
+								}
+
 								// On the internal (then-derived) path the shared stand-in options always
 								// say forceCancelable:true, so read the live flag instead: then() copies the
 								// parent's packed flags onto the child right after construction, and this
@@ -651,16 +675,25 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 									? (instance._flags & FLAG_FORCE_CANCELABLE) !== 0
 									: normalizedOptions.forceCancelable;
 								if (forceCancelable) {
-									value.then(
-										value_ => {
-											if (instance._internalState === states.PENDING) {
-												instance._internalState = states.FULFILLED;
-												instance._runSettlementEffects();
-											}
+									const onAdopt = (value_: any): void => {
+										if (instance._internalState === states.PENDING) {
+											instance._internalState = states.FULFILLED;
+											instance._runSettlementEffects();
+										}
 
-											resolve_(value_);
-										},
-										reject);
+										resolve_(value_);
+									};
+
+									// Subscribe to the adopted value's settlement. For a cancelable value use
+									// the non-counting internal subscription: `_chain` above already raised its
+									// consumer count for THIS promise, so awaiting settlement through the counting
+									// `.then()` as well would add a phantom consumer that never completes and would
+									// keep the adopted promise alive forever.
+									if (adopted) {
+										adopted._subscribe(onAdopt, reject);
+									} else {
+										value.then(onAdopt, reject);
+									}
 								} else {
 									instance._internalState = states.FORCE_PENDING;
 									instance._runSettlementEffects();
