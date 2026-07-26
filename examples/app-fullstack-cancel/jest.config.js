@@ -18,6 +18,20 @@ const cjsTransform = {
   }],
 };
 
+const clientTransform = {
+  '^.+\\.[tj]sx?$': ['ts-jest', {
+    tsconfig: {
+      target: 'es2020',
+      module: 'commonjs',
+      moduleResolution: 'node',
+      jsx: 'react-jsx',
+      lib: ['es2020', 'dom', 'dom.iterable'],
+      esModuleInterop: true,
+      strict: true,
+    },
+  }],
+};
+
 const common = {
   moduleFileExtensions: base.moduleFileExtensions,
   moduleNameMapper: base.moduleNameMapper,
@@ -35,9 +49,10 @@ module.exports = {
     },
     {
       ...common,
+      transform: clientTransform,
       displayName: 'client',
       testEnvironment: 'jsdom',
-      testMatch: ['<rootDir>/client/**/*.spec.ts'],
+      testMatch: ['<rootDir>/client/**/*.spec.tsx'],
       setupFilesAfterEnv: ['<rootDir>/jest.setup.client.ts'],
     },
   ],

@@ -5,7 +5,7 @@ import { UserSchema, type User } from './entities/user';
 // not depend on the type being re-exported by a given driver package.
 export type InflightQueryAbortStrategy = 'ignore query' | 'cancel query' | 'kill session';
 
-export interface OrmBundle {
+export interface OrmConnectionData {
   orm: MikroORM;
   driver: 'pglite' | 'postgresql';
   /**
@@ -43,7 +43,7 @@ export function searchWhere(q: string) {
  * in-memory PGlite by default, real Postgres when PG_DB_URL is set. No code elsewhere changes
  * between the two.
  */
-export async function createOrm(options: CreateOrmOptions = {}): Promise<OrmBundle> {
+export async function createOrm(options: CreateOrmOptions = {}): Promise<OrmConnectionData> {
   const url = process.env.PG_DB_URL;
   const pkg = url ? '@mikro-orm/postgresql' : '@mikro-orm/pglite';
   // eslint-disable-next-line @typescript-eslint/no-var-requires
