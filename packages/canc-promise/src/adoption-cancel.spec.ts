@@ -9,6 +9,14 @@ import { CancelablePromise } from './cancelable-promise';
  * settlement, so an adopted promise never leaks an unhandled rejection here (no explicit `.catch`
  * on the adopted promise is needed, and adding one would register a second bubble consumer that
  * skews the count under test).
+ *
+ * Matrix: adoption path (then / catch / finally / executor resolve / resolve with differing
+ * options / allSettled's internal .then wrap) x adopted kind (pending, already-settled,
+ * already-canceled CancelablePromise; shared inner; bubble:false; shield:true; a plain native
+ * promise; a foreign thenable that happens to expose a duck-typed .cancel; a plain value) x
+ * expectation (cancel reaches it / does not, consumer-count rule for shared inners). The
+ * coroutine control row (cancAsync/cancAwait) lives in canc-coroutine's own spec directory,
+ * since canc-promise carries no dependency on canc-coroutine.
  */
 
 const NativePromise = Promise;
@@ -264,5 +272,143 @@ describe('adoption cancel propagation', () => {
 		chained = p.then(() => chained);
 
 		await expect(chained).rejects.toBeInstanceOf(TypeError);
+	});
+
+	it('already-canceled adopted inner: no-op, no throw', async () => {
+		const inner = new CancelablePromise<number>(() => undefined);
+		inner.cancel();
+		await flush();
+		expect(inner.isCanceled).toBe(true);
+
+		const outer = CancelablePromise.resolve().then(() => inner);
+		outer.catch(() => undefined);
+
+		await flush();
+		await flush();
+
+		expect(() => outer.cancel()).not.toThrow();
+		await flush();
+	});
+
+	it('foreign thenable with a duck-typed cancel: adoption does not invoke it (brand-only gate)', async () => {
+		// Not a CancelablePromise (no CANCEL_PROMISE_BRAND), so it must take the unchanged-behavior
+		// path even though it happens to expose a `.cancel` method (e.g. a LAZY promise or any other
+		// thenable-with-cancel). The adoption branch keys strictly on the brand, never duck-typing.
+		let cancelCalled = false;
+		const foreign: PromiseLike<number> & { cancel: () => void } = {
+			then(onFulfilled) {
+				setTimeout(() => onFulfilled?.(9), 5);
+				return NativePromise.resolve() as unknown as PromiseLike<never>;
+			},
+			cancel() {
+				cancelCalled = true;
+			},
+		};
+		const outer = CancelablePromise.resolve().then(() => foreign);
+		outer.catch(() => undefined);
+
+		await flush();
+		await flush();
+
+		outer.cancel();
+		await flush();
+
+		expect(cancelCalled).toBe(false);
+	});
+
+	it('plain value returned: unchanged behavior, no adoption branch entered', async () => {
+		const outer = CancelablePromise.resolve().then(() => 42);
+		outer.catch(() => undefined);
+
+		await flush();
+		await flush();
+
+		expect(() => outer.cancel()).not.toThrow();
+		await expect(outer.catch((e) => e)).resolves.toBeDefined();
+	});
+
+	it('CancelablePromise.resolve(inner, optionsThatDiffer): wraps (not identity), cancel does not reach a shielded wrapper', async () => {
+		let innerCanceled = false;
+		const inner = new CancelablePromise<number>((_resolve, _reject, handleCancel) => {
+			handleCancel(() => {
+				innerCanceled = true;
+			});
+		});
+
+		// Options differ from defaultOptions (shield defaults false), so the identity fast path in
+		// resolve() does not apply: a new wrapper is constructed and adoption runs through the same
+		// executor-resolve hook as `new CancelablePromise((resolve) => resolve(inner))`.
+		const wrapped = CancelablePromise.resolve(inner, { shield: true });
+		expect(wrapped).not.toBe(inner);
+		wrapped.catch(() => undefined);
+
+		await flush();
+		await flush();
+
+		// shield:true is on the wrapper itself (upward/self shield), so the wrapper's own cancel()
+		// no-ops before it ever reaches the adoption link; the inner stays untouched either way.
+		wrapped.cancel();
+		await flush();
+
+		expect(innerCanceled).toBe(false);
+		expect(inner.isCanceled).toBe(false);
+	});
+
+	it('CancelablePromise.resolve(inner, optionsThatDiffer) without shield: wrapping still forwards cancel to the adopted inner', async () => {
+		let innerCanceled = false;
+		const inner = new CancelablePromise<number>((_resolve, _reject, handleCancel) => {
+			handleCancel(() => {
+				innerCanceled = true;
+			});
+		});
+
+		// strict differs from the default (false), forcing the wrap without shielding the wrapper's
+		// own cancel, so this isolates the adoption-forward from the shield no-op above.
+		const wrapped = CancelablePromise.resolve(inner, { strict: true });
+		expect(wrapped).not.toBe(inner);
+		wrapped.catch(() => undefined);
+
+		await flush();
+		await flush();
+
+		wrapped.cancel();
+		await flush();
+
+		expect(innerCanceled).toBe(true);
+		expect(inner.isCanceled).toBe(true);
+	});
+
+	it('allSettled: a cancelable item keeps its declared-parent link through the internal .then wrap (control, not a new adoption path)', async () => {
+		// allSettled wraps every input in `_adopt(item).then(toSettledResult)` internally. This is not
+		// a NEW adoption path in the P26-2 sense (the item is a declared ancestor of allSettled's
+		// per-item derived child, same as any `.then()` source), but it must keep working post-fix:
+		// canceling the allSettled RESULT does not reach a still-pending item (existing loser
+		// doctrine, see cancel-losers.spec.ts), while the item settling still flows through to the
+		// result's {status, value} entry untouched by the new adoption branch.
+		const item = CancelablePromise.resolve(5);
+		const result = await CancelablePromise.allSettled([item]);
+
+		expect(result).toEqual([{ status: 'fulfilled', value: 5 }]);
+	});
+
+	it('allSettled: a still-pending cancelable item is NOT canceled by canceling the result (doctrine unchanged by adoption fix)', async () => {
+		let itemCanceled = false;
+		const item = new CancelablePromise<number>((_resolve, _reject, handleCancel) => {
+			handleCancel(() => {
+				itemCanceled = true;
+			});
+		});
+
+		const result = CancelablePromise.allSettled([item]);
+		result.catch(() => undefined);
+
+		await flush();
+		await flush();
+
+		result.cancel();
+		await flush();
+
+		expect(itemCanceled).toBe(false);
+		expect(item.isCanceled).toBe(false);
 	});
 });
