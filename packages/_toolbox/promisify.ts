@@ -1,4 +1,5 @@
 import { construct, TPromiseCtor, THandleCancel } from './construct';
+import { makeCancelSignal, TGetSignal } from './cancel-signal';
 
 /** The registered promisify.custom symbol, referenced via Symbol.for to avoid importing node:util. */
 const kCustom = Symbol.for('nodejs.util.promisify.custom');
@@ -8,47 +9,6 @@ export type TCallbackFn = (...args: any[]) => any;
 
 /** Structural AbortController, so no dependency on the ambient DOM/Node type in envs that polyfill it. */
 type AbortControllerCtor = new () => { abort(reason?: any): void; signal: any };
-
-/** Lazily materialized outbound cancel-signal. Calling `getSignal()` returns the AbortSignal (or
- * `undefined` when `Impl` is not cancelable-shaped). */
-export type TGetSignal = () => any;
-
-/**
- * Build a lazy outbound cancel-signal off a promise node's `handleCancel`. The returned `getSignal`
- * thunk constructs the controller only on its first call (via the injected `AbortController` ctor,
- * or the ambient global read at that moment, never at module load) and wires one cancel handler
- * that aborts it with the raw cancel reason. A callback that never calls `getSignal()` costs
- * nothing: no controller, no listener.
- */
-export function makeCancelSignal(
-	handleCancel: THandleCancel | undefined,
-	AbortControllerCtor?: AbortControllerCtor,
-): { getSignal: TGetSignal } {
-	// No-cancel path: nothing to hand out, and nothing to wire.
-	if (typeof handleCancel !== 'function') {
-		return { getSignal: () => undefined };
-	}
-
-	let signal: any;
-	let built = false;
-
-	return {
-		getSignal() {
-			if (!built) {
-				built = true;
-				const Ctor: AbortControllerCtor = AbortControllerCtor || (AbortController as unknown as AbortControllerCtor);
-				const controller = new Ctor();
-				signal = controller.signal;
-
-				(handleCancel as unknown as (onCancel: (reason?: any) => void) => void)((reason?: any) => {
-					controller.abort(reason);
-				});
-			}
-
-			return signal;
-		},
-	};
-}
 
 export interface IPromisifyOptions {
 	/** Node errfirst callback (default true) vs a value-first callback. */

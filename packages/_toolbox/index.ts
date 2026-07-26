@@ -10,9 +10,9 @@ export { retry, IRetryOptions } from './retry';
 export {
 	promisify,
 	promisifyAll,
-	makeCancelSignal,
 	IPromisifyOptions,
 	IPromisifyAllOptions,
 	TCallbackFn,
-	TGetSignal,
 } from './promisify';
+
+export { makeCancelSignal, TGetSignal } from './cancel-signal';
