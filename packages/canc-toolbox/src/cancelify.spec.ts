@@ -177,4 +177,41 @@ describe('cancelify', () => {
 			expect(fn).not.toHaveBeenCalled();
 		});
 	});
+
+	describe('against a real fetch-shaped call', () => {
+		it('cancels the returned promise and aborts the underlying signal with a CancelError reason', async () => {
+			let capturedInit: { signal?: AbortSignal } | undefined;
+
+			// A fetch-shaped mock: takes (url, init) and rejects when init.signal aborts, exactly like
+			// the platform fetch does.
+			const fetchLike = (signal: AbortSignal, args: [string, { signal?: AbortSignal }?]) => {
+				const [, init] = args;
+				capturedInit = { signal: init?.signal ?? signal };
+				const abortSignal = init?.signal ?? signal;
+
+				return new Promise((resolve, reject) => {
+					abortSignal.addEventListener('abort', () => {
+						reject(abortSignal.reason);
+					});
+				});
+			};
+
+			const cancelableFetch = cancelify(({ getSignal }, args: [string]) => {
+				const signal = getSignal();
+				return fetchLike(signal, [args[0], { signal }]);
+			});
+
+			const promise = cancelableFetch('https://example.test/resource');
+			await Promise.resolve();
+
+			promise.cancel();
+
+			const reason = await promise.catch((e) => e);
+
+			expect(isCancelError(reason)).toBe(true);
+			expect(promise.isCanceled).toBe(true);
+			expect(capturedInit?.signal?.aborted).toBe(true);
+			expect(isCancelError(capturedInit?.signal?.reason)).toBe(true);
+		});
+	});
 });
