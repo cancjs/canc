@@ -1,30 +1,31 @@
-import { useEffect, useRef, useState } from 'react';
-import { isCancelError, type CancelablePromise } from '@cancjs/promise';
+import { useEffect, useMemo, useState } from 'react';
+import { isCancelError } from '@cancjs/promise';
+import { debounce } from './lib/debounce';
 import type { SearchApi } from './api-canc';
 import type { UserHit } from './user-hit';
 
-// Typeahead user search. Each keystroke starts a new search and cancels the previous one, so a stale
-// response can never overwrite a newer result. A canceled search is treated as nothing happened, not
-// an error. The pending search is also canceled on unmount.
+const DEBOUNCE_MS = 250;
+
+// Typeahead user search. Typing runs a debounced search, and each run cancels the previous one (its
+// pending wait, or its in-flight request), so a stale response can never overwrite a newer result. A
+// canceled search is treated as nothing happened, not an error. The pending search is canceled on unmount.
 export function SearchPage({ api }: { api: SearchApi }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<UserHit[]>([]);
-  const searchRef = useRef<CancelablePromise<UserHit[]> | null>(null);
+  const search = useMemo(() => debounce(DEBOUNCE_MS, (text: string) => api.search(text)), [api]);
 
   function doSearch(text: string) {
-    searchRef.current?.cancel();
     if (!text.trim()) {
+      search.cancel();
       setResults([]);
       return;
     }
-    const task = api.search(text);
-    searchRef.current = task;
-    task.then(setResults, (error) => {
+    search(text).then(setResults, (error) => {
       if (!isCancelError(error)) console.error(error);
     });
   }
 
-  useEffect(() => () => void searchRef.current?.cancel(), []);
+  useEffect(() => () => search.cancel(), [search]);
 
   return (
     <div style={{ maxWidth: '32rem', margin: '2rem auto', fontFamily: 'system-ui, sans-serif' }}>
