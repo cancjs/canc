@@ -1,5 +1,5 @@
 import { CancelablePromise, CancelError, createCancelSignal, isCancelError } from '@cancjs/promise';
-import { cancelify } from './signal-thread';
+import { cancelify } from './cancelify';
 import { promisify } from './index';
 
 // Exercises cancelify + promisify + the branded createCancelSignal end-to-end, across real
@@ -25,7 +25,7 @@ describe('cancelify against a real fetch-shaped call', () => {
 		};
 
 		const cancelableFetch = cancelify(
-			(getSignal: any, args: [string]) => {
+			({ getSignal }, args: [string]) => {
 				const signal = getSignal();
 				return fetchLike(signal, [args[0], { signal }]);
 			},

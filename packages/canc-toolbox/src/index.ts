@@ -43,7 +43,7 @@ export type { ISuppressOptions } from './abort';
 
 export { IToolboxOptions, THandleCancel, TToolboxExecutor } from './options';
 
-export { cancelify, ICancelifyOptions, TCancelifyFn } from './signal-thread';
+export { cancelify, ICancelifyContext, ICancelifyOptions, TCancelifyFn } from './cancelify';
 
 /**
  * A deferred whose promise is a CancelablePromise, so the holder can cancel it directly.
