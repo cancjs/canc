@@ -380,7 +380,7 @@ describe('adoption cancel propagation', () => {
 
 	it('allSettled: a cancelable item keeps its declared-parent link through the internal .then wrap (control, not a new adoption path)', async () => {
 		// allSettled wraps every input in `_adopt(item).then(toSettledResult)` internally. This is not
-		// a NEW adoption path in the P26-2 sense (the item is a declared ancestor of allSettled's
+		// a new handler-return adoption path (the item is a declared ancestor of allSettled's
 		// per-item derived child, same as any `.then()` source), but it must keep working post-fix:
 		// canceling the allSettled RESULT does not reach a still-pending item (existing loser
 		// doctrine, see cancel-losers.spec.ts), while the item settling still flows through to the
