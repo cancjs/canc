@@ -13,7 +13,7 @@ import { suppress, interopTimeout, withSignal } from './abort';
 // the *live* global `Promise` (`new (P || (P = Promise))(...)`) to drive its own state machine.
 // That is a harness artifact, not a product bug, but it would pollute the construction count with
 // promises the test itself created. Returning a plain `.then()` chain sidesteps the helper.
-describe('zone-swap probe: toolbox does not subscribe via the live global Promise', () => {
+describe('toolbox never subscribes via the live global Promise', () => {
 	let RealPromise: typeof Promise;
 	let patchedConstructed: unknown[];
 
