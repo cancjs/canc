@@ -939,6 +939,12 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 
 	/**
 	 * Attaches callbacks for the resolution and/or rejection of the Promise.
+	 *
+	 * If a callback returns a CancelablePromise, that returned promise is adopted and linked into
+	 * the chain graph as a counted parent, the same as a declared parent: canceling the promise
+	 * returned by this call reaches the adopted promise once every counted consumer is gone and its
+	 * value is unconsumed, honoring the adopted promise's own `bubble`/`shield` options. A callback
+	 * that returns a plain native promise is not linked this way; that stays a cancellation gap.
 	 * @param onFulfilled The callback to execute when the Promise is resolved.
 	 * @param onRejected The callback to execute when the Promise is rejected.
 	 * @returns A Promise for the completion of which ever callback is executed.
@@ -971,6 +977,11 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	/**
 	 * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
 	 * resolved value cannot be modified from the callback.
+	 *
+	 * If `onFinally` returns a CancelablePromise, it is adopted the same way a `then` callback's
+	 * returned cancelable is: linked in as a counted parent, so canceling the promise returned by
+	 * this call reaches it once every counted consumer is gone. A plain native promise returned
+	 * from `onFinally` is not linked this way.
 	 * @param onFinally The callback to execute when the Promise is settled (fulfilled or rejected).
 	 * @returns A Promise for the completion of the callback.
 	 */
