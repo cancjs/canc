@@ -50,6 +50,29 @@ The two iterator combinators show side by side: `cancForAwait.toArray` buffers a
 (the retrieval legs) into an array, and `cancForAwait` consumes an open stream (the answer tokens)
 one at a time. Both cancel their source when the pipeline is canceled.
 
+## Two ways to wire cancelify
+
+Every step above uses the `getSignal()` recipe: the wrapped fn asks for an `AbortSignal` and hands
+it to a signal-aware call. That only works when the underlying API accepts a signal. Some APIs
+instead hand back an imperative cancel handle of their own, for example a job runner that returns
+`{ promise, cancel }`. For those, `cancelify` also passes a `handleCancel` function on the same
+context object. Register the handle's own `cancel` with it, and a cancel on the wrapped promise
+calls that `cancel` instead of aborting a signal:
+
+```ts
+import { cancelify } from '@cancjs/toolbox';
+
+// fn returns { promise, cancel } instead of taking a signal
+const run = cancelify(({ handleCancel }, [id]: [string]) => {
+  const { promise, cancel } = startJob(id);
+  handleCancel(cancel); // canceling the returned promise runs cancel()
+  return promise;
+});
+```
+
+Both recipes produce the same result: a `CancelablePromise` that a caller can cancel without
+knowing whether the wrapped API speaks signals or exposes its own handle.
+
 ## The cost of not canceling
 
 Without cancellation, each step above runs to the end no matter what the caller does. If the user
