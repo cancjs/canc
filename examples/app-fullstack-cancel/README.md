@@ -140,11 +140,12 @@ Postgres swap.
 ## The client is one skin
 
 `client/` is React, kept minimal on purpose: the cancellation logic is a few lines in the API layer
-and the component. Any UI layer can sit on top. For the same idea in a larger React example, see
-`../app-react`.
+and the component. Typing runs through a small cancelable debounce (`client/lib/debounce.ts`) built on
+the toolbox `delay`; canceling it stops the pending wait or the in-flight request in one call. Any UI
+layer can sit on top. For the same idea in a larger React example, see `../app-react`.
 
 ## Files to copy
 
 `server/lib/get-req-signal.ts`, `server/lib/orm-req-context.ts`, and
-`server/lib/cancelable-route.ts` are the reusable pieces. `server/orm.ts` and the seed are
-scaffolding for this demo, not something to copy.
+`server/lib/cancelable-route.ts` are the reusable pieces on the server, and `client/lib/debounce.ts`
+on the client. `server/orm.ts` and the seed are scaffolding for this demo, not something to copy.

@@ -2,35 +2,47 @@ import { useEffect, useRef, useState } from 'react';
 import type { SearchApi } from './api-vanilla';
 import type { UserHit } from './user-hit';
 
-// Typeahead user search, hand-rolled. Each keystroke aborts the previous request through an
-// AbortController, and a request id guards against a slow response overwriting a newer one. An
-// aborted request is ignored. The pending request is aborted on unmount.
+const DEBOUNCE_MS = 250;
+
+// Typeahead user search, hand-rolled. Typing is debounced with a manual timer, each keystroke aborts
+// the previous request through an AbortController, and a request id guards against a slow response
+// overwriting a newer one. An aborted request is ignored. The pending work is cleaned up on unmount.
 export function SearchPage({ api }: { api: SearchApi }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<UserHit[]>([]);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const controllerRef = useRef<AbortController | null>(null);
   const requestIdRef = useRef(0);
 
   function doSearch(text: string) {
+    clearTimeout(timerRef.current);
     controllerRef.current?.abort();
     if (!text.trim()) {
       setResults([]);
       return;
     }
-    const controller = new AbortController();
-    controllerRef.current = controller;
-    const requestId = ++requestIdRef.current;
-    api.search(text, controller.signal).then(
-      (hits) => {
-        if (requestId === requestIdRef.current) setResults(hits);
-      },
-      (error: { name?: string }) => {
-        if (error.name !== 'CanceledError' && error.name !== 'AbortError') console.error(error);
-      },
-    );
+    timerRef.current = setTimeout(() => {
+      const controller = new AbortController();
+      controllerRef.current = controller;
+      const requestId = ++requestIdRef.current;
+      api.search(text, controller.signal).then(
+        (hits) => {
+          if (requestId === requestIdRef.current) setResults(hits);
+        },
+        (error: { name?: string }) => {
+          if (error.name !== 'CanceledError' && error.name !== 'AbortError') console.error(error);
+        },
+      );
+    }, DEBOUNCE_MS);
   }
 
-  useEffect(() => () => controllerRef.current?.abort(), []);
+  useEffect(
+    () => () => {
+      clearTimeout(timerRef.current);
+      controllerRef.current?.abort();
+    },
+    [],
+  );
 
   return (
     <div style={{ maxWidth: '32rem', margin: '2rem auto', fontFamily: 'system-ui, sans-serif' }}>
