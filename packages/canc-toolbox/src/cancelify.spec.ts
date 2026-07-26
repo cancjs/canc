@@ -1,5 +1,5 @@
-import { CancelablePromise, CancelError, isCancelError } from '@cancjs/promise';
-import { cancelify, makeCancelSignal } from './signal-thread';
+import { CancelablePromise, isCancelError } from '@cancjs/promise';
+import { cancelify } from './cancelify';
 
 // A minimal AbortController stand-in that records construction and abort calls, so tests can assert
 // that reading (or not reading) the injected signal controls whether a controller is ever built.
@@ -41,75 +41,6 @@ function makeSpyControllerCtor() {
 
 	return { ctor, instances };
 }
-
-describe('makeCancelSignal', () => {
-	it('getSignal() yields undefined when there is no handleCancel (native impl)', () => {
-		expect(makeCancelSignal(undefined).getSignal()).toBeUndefined();
-	});
-
-	it('builds nothing until getSignal() is first called, then wires a single branded cancel handler', () => {
-		const { ctor } = makeSpyControllerCtor();
-		let registered: ((reason?: any) => void) | undefined;
-		const handleCancel = jest.fn((onCancel: (reason?: any) => void) => {
-			registered = onCancel;
-		});
-
-		const holder = makeCancelSignal(handleCancel as any, ctor);
-
-		// Never calling getSignal() constructs no controller and registers no handler.
-		expect(ctor).not.toHaveBeenCalled();
-		expect(handleCancel).not.toHaveBeenCalled();
-
-		// First getSignal() call materializes the controller + wires exactly one handler; the value
-		// is the plain, real AbortSignal (no Proxy: ES5-safe).
-		const signal = holder.getSignal();
-		expect(ctor).toHaveBeenCalledTimes(1);
-		expect(handleCancel).toHaveBeenCalledTimes(1);
-		expect(signal.aborted).toBe(false);
-
-		// A second call returns the same signal without rebuilding.
-		expect(holder.getSignal()).toBe(signal);
-		expect(ctor).toHaveBeenCalledTimes(1);
-
-		// The wired handler brands the reason.
-		registered!('boom');
-		expect(signal.aborted).toBe(true);
-		expect(isCancelError(signal.reason)).toBe(true);
-		expect(signal.reason.cause).toBeUndefined();
-		expect(signal.reason.message).toBe('boom');
-	});
-
-	it('passes an existing CancelError reason through unwrapped', () => {
-		const { ctor } = makeSpyControllerCtor();
-		let registered: ((reason?: any) => void) | undefined;
-		const handleCancel = ((onCancel: (reason?: any) => void) => {
-			registered = onCancel;
-		}) as any;
-
-		const signal = makeCancelSignal(handleCancel, ctor).getSignal();
-		expect(signal.aborted).toBe(false);
-
-		const existing = new CancelError('already');
-		registered!(existing);
-		expect(signal.reason).toBe(existing);
-	});
-
-	it('wraps a non-CancelError object reason as the cause', () => {
-		const { ctor } = makeSpyControllerCtor();
-		let registered: ((reason?: any) => void) | undefined;
-		const handleCancel = ((onCancel: (reason?: any) => void) => {
-			registered = onCancel;
-		}) as any;
-
-		const signal = makeCancelSignal(handleCancel, ctor).getSignal();
-		expect(signal.aborted).toBe(false);
-
-		const cause = { code: 'X' };
-		registered!(cause);
-		expect(isCancelError(signal.reason)).toBe(true);
-		expect(signal.reason.cause).toBe(cause);
-	});
-});
 
 describe('cancelify', () => {
 	it('materializes the ambient AbortController when getSignal() is called', async () => {
@@ -171,6 +102,27 @@ describe('cancelify', () => {
 		expect(isCancelError(reason)).toBe(true);
 	});
 
+	it('wires an imperative cancel handle via ctx.handleCancel', async () => {
+		const cancel = jest.fn();
+		let handlerRan = false;
+		const wrapped = cancelify(({ handleCancel }) => {
+			const promise = new Promise<never>(() => {}); // never settles
+			handleCancel(() => {
+				handlerRan = true;
+				cancel();
+			});
+			return promise;
+		});
+		const p = wrapped() as CancelablePromise<never>;
+		await Promise.resolve();
+		p.cancel();
+		const err = await p.catch((e) => e);
+		expect(isCancelError(err)).toBe(true); // the returned promise rejects a branded CancelError
+		expect(cancel).toHaveBeenCalledTimes(1); // the imperative cancel handle ran exactly once
+		expect(handlerRan).toBe(true);
+		expect(p.isCanceled).toBe(true);
+	});
+
 	it('allocates NO controller when fn never calls getSignal (lazy thunk)', async () => {
 		const { ctor } = makeSpyControllerCtor();
 		const wrapped = cancelify(() => 'value', { AbortController: ctor });
@@ -189,7 +141,7 @@ describe('cancelify', () => {
 		const { ctor } = makeSpyControllerCtor();
 		let sig: any;
 		const wrapped = cancelify(
-			(getSignal: any) => {
+			({ getSignal }) => {
 				sig = getSignal();
 				return 'x';
 			},
