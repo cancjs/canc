@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import * as canc from '@cancjs/coroutine';
 import { cancAsyncRoute } from './lib/cancelable-route';
-import { getReqEm } from './lib/orm-req-context';
+import { getReqEm } from './lib/get-req-em';
 import { searchUsers } from './search-service-canc';
 
 // canc search route. The handler is a generator wrapped by cancAsyncRoute, so it cancels when the
