@@ -1,66 +1,64 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { SearchApi } from './api-vanilla';
 import type { UserHit } from './user-hit';
 
 const DEBOUNCE_MS = 250;
 
-// A plain debounce: a timer that resets on each call. It cancels the pending wait only; the in-flight
-// request is aborted separately through the AbortController below. Kept local, not shared, because it
-// is the hand-rolled counterpart to the canc debounce (which cancels the wait and the request as one).
-function debounce<Args extends unknown[]>(ms: number, fn: (...args: Args) => void) {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const run = (...args: Args): void => {
-    clearTimeout(timer);
-    timer = setTimeout(() => fn(...args), ms);
+// Wait `ms`, or reject early if the signal aborts. A timer plus an abort listener, nothing more.
+function wait(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(resolve, ms);
+    signal.addEventListener('abort', () => {
+      clearTimeout(timer);
+      reject(signal.reason);
+    }, { once: true });
+  });
+}
+
+// A minimal debounce built on AbortSignal. Each call aborts the previous one, so only the latest runs
+// and a superseded wait or in-flight request is canceled. fn receives the signal to thread onward.
+// This is the hand-rolled counterpart to the toolbox debounce the canc side uses.
+function debounce<Args extends unknown[], R>(
+  fn: (signal: AbortSignal, ...args: Args) => Promise<R>,
+  ms: number,
+) {
+  let controller: AbortController | undefined;
+  const run = (...args: Args): Promise<R> => {
+    controller?.abort();
+    controller = new AbortController();
+    const { signal } = controller;
+    return wait(ms, signal).then(() => fn(signal, ...args));
   };
-  run.cancel = (): void => clearTimeout(timer);
+  run.cancel = (): void => {
+    controller?.abort();
+    controller = undefined;
+  };
   return run;
 }
 
-// Typeahead user search, hand-rolled. Typing is debounced, each keystroke aborts the previous request
-// through an AbortController, and a request id guards against a slow response overwriting a newer one.
-// An aborted request is ignored. The pending work is cleaned up on unmount.
+// Typeahead user search, hand-rolled. Typing runs a debounced search built on a single AbortController
+// that cancels both the pending wait and the in-flight request. Aborting a superseded request is also
+// what stops a stale response from overwriting a newer one. The pending search is canceled on unmount.
 export function SearchPage({ api }: { api: SearchApi }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<UserHit[]>([]);
-  const controllerRef = useRef<AbortController | null>(null);
-  const requestIdRef = useRef(0);
-
   const search = useMemo(
-    () =>
-      debounce(DEBOUNCE_MS, (text: string) => {
-        const controller = new AbortController();
-        controllerRef.current = controller;
-        const requestId = ++requestIdRef.current;
-        api.search(text, controller.signal).then(
-          (hits) => {
-            if (requestId === requestIdRef.current) setResults(hits);
-          },
-          (error: { name?: string }) => {
-            if (error.name !== 'CanceledError' && error.name !== 'AbortError') console.error(error);
-          },
-        );
-      }),
+    () => debounce((signal: AbortSignal, text: string) => api.search(text, signal), DEBOUNCE_MS),
     [api],
   );
 
   function doSearch(text: string) {
-    controllerRef.current?.abort();
     if (!text.trim()) {
       search.cancel();
       setResults([]);
       return;
     }
-    search(text);
+    search(text).then(setResults, (error: { name?: string }) => {
+      if (error.name !== 'AbortError' && error.name !== 'CanceledError') console.error(error);
+    });
   }
 
-  useEffect(
-    () => () => {
-      search.cancel();
-      controllerRef.current?.abort();
-    },
-    [search],
-  );
+  useEffect(() => () => search.cancel(), [search]);
 
   return (
     <div style={{ maxWidth: '32rem', margin: '2rem auto', fontFamily: 'system-ui, sans-serif' }}>
