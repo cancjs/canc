@@ -5,7 +5,7 @@ describe('index exports', () => {
 	it('exposes the reduced timing/retry/promisify surface, nothing canc-only', () => {
 		const keys = Object.keys(native).sort();
 		expect(keys).toEqual(
-			['TimeoutError', 'defer', 'delay', 'isTimeoutError', 'minDelay', 'promisify', 'promisifyAll', 'retry', 'timeout', 'waitFor'].sort(),
+			['TimeoutError', 'debounce', 'defer', 'delay', 'isTimeoutError', 'minDelay', 'promisify', 'promisifyAll', 'retry', 'throttle', 'timeout', 'waitFor'].sort(),
 		);
 	});
 

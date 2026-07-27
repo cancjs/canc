@@ -36,3 +36,8 @@ export const promisifyAll = <T extends object>(source: T, options?: IPromisifyAl
 	tb.promisifyAll(NativePromise as any, source, options);
 
 export { TimeoutError, isTimeoutError } from '../../_toolbox';
+
+export { debounce } from './debounce';
+export { throttle } from './throttle';
+export type { IDebounced, IDebounceOptions } from '../../_toolbox/debounce';
+export type { IThrottled, IThrottleOptions } from '../../_toolbox/throttle';
