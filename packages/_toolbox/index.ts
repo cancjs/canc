@@ -16,3 +16,6 @@ export {
 } from './promisify';
 
 export { makeCancelSignal, TGetSignal } from './cancel-signal';
+
+export { debounceFactory, IDebounced, IDebounceOptions, IDebounceDeps } from './debounce';
+export { throttleFactory, IThrottled, IThrottleOptions } from './throttle';
