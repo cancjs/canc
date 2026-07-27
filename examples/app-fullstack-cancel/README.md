@@ -46,12 +46,13 @@ canceled.
 The point is that route handlers never touch a signal. One middleware wires per-request cancellation
 into the ORM, and the handler reads like ordinary code.
 
-- `server/lib/get-req-signal.ts` gives each request an `AbortSignal`. Express does not provide one,
-  so this fills the gap: a lazily created controller, stored under a namespaced key, aborted when the
+- `server/lib/get-req-signal-canc.ts` gives each request an `AbortSignal`. Express does not provide
+  one, so this fills the gap: a lazily created handle, stored under a namespaced key, aborted when the
   client disconnects with a `CancelError` reason so the rejection reads as a cancellation.
-- `server/lib/orm-req-context.ts` is the middleware (`ormReqContext`). It forks a request-scoped
-  `EntityManager` bound to that signal and publishes it through MikroORM's own `RequestContext`, so
-  every query in the request cancels together. `getReqEm()` hands the handler that fork.
+- `server/lib/orm-req-context-canc.ts` is the middleware (`ormReqContext`). It forks a request-scoped
+  `EntityManager` bound to that signal and publishes it through MikroORM's `RequestContext`, so every
+  query in the request cancels together. `getReqEm()` (in `server/lib/get-req-em.ts`) hands the
+  handler that fork.
 - `server/lib/cancelable-route.ts` wraps a generator handler as a coroutine and cancels it when the
   client disconnects. Each `yield*` step is a cancellation point.
 
@@ -100,8 +101,10 @@ what canc removes.
   signal and manual `throwIfAborted` versus an ambient coroutine.
 - `server/routes-vanilla.ts` vs `server/routes-canc.ts`: reading the signal and threading it by hand
   versus a signal-free generator route.
-- `server/middleware-vanilla.ts` vs `server/lib/orm-req-context.ts`: a plain AbortController per
-  request versus the ORM-bound request context.
+- `server/lib/orm-req-context-vanilla.ts` vs `server/lib/orm-req-context-canc.ts`: the same
+  RequestContext middleware, with the fork bound to the abort signal only on the canc side.
+- `server/lib/get-req-signal-vanilla.ts` vs `server/lib/get-req-signal-canc.ts`: a plain
+  AbortController versus a canc signal handle that aborts with a CancelError.
 - `client/SearchPage-vanilla.tsx` vs `client/SearchPage-canc.tsx`: an AbortController plus a
   request-id staleness guard versus a CancelablePromise that cancels the previous search.
 - `client/api-vanilla.ts` vs `client/api-canc.ts`: a signal argument on every call versus a
@@ -146,6 +149,6 @@ layer can sit on top. For the same idea in a larger React example, see `../app-r
 
 ## Files to copy
 
-`server/lib/get-req-signal.ts`, `server/lib/orm-req-context.ts`, and
-`server/lib/cancelable-route.ts` are the reusable pieces on the server, and `client/lib/debounce.ts`
+`server/lib/get-req-signal-canc.ts`, `server/lib/orm-req-context-canc.ts`, `server/lib/get-req-em.ts`,
+and `server/lib/cancelable-route.ts` are the reusable pieces on the server, and `client/lib/debounce.ts`
 on the client. `server/orm.ts` and the seed are scaffolding for this demo, not something to copy.

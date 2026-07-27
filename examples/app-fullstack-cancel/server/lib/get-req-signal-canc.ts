@@ -2,11 +2,12 @@ import type { Request, Response } from 'express';
 import { createCancelSignal } from '@cancjs/promise';
 
 // Express (and Node's IncomingMessage) does not give you a per-request AbortSignal. This helper
-// provides one, on demand. It is the low-level primitive the request-context middleware builds on
-// and the seed of a future canc express plugin.
+// provides one, on demand. Lazy so a request that never asks for a signal never allocates one, and
+// namespaced so it never collides with another library's request property.
 //
-// Namespaced so it never collides with another library's request property, and lazy so a request
-// that never asks for a signal never allocates a controller.
+// The canc handle is a { signal, cancel } pair from createCancelSignal: it aborts with a CancelError
+// reason (not a bare DOMException), so a downstream rejection reads as a cancellation through
+// isCancelError. Compare get-req-signal-vanilla.ts, which uses a plain AbortController.
 const SIGNAL_HANDLE = Symbol.for('canc.request.signalHandle');
 
 interface SignalHandle {
@@ -14,11 +15,6 @@ interface SignalHandle {
   cancel: (reason?: unknown) => void;
 }
 
-/**
- * The request's AbortSignal, created on first use. It aborts when the client disconnects, with a
- * CancelError reason (not a bare DOMException), so a downstream rejection reads as a cancellation
- * through isCancelError.
- */
 export function getReqSignal(req: Request, res: Response): AbortSignal {
   const holder = req as unknown as Record<symbol, SignalHandle | undefined>;
   let signalHandle = holder[SIGNAL_HANDLE];
