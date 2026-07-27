@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { isCancelError } from '@cancjs/promise';
-import { debounce } from './lib/debounce';
+import { debounce } from '@cancjs/toolbox';
 import type { SearchApi } from './api-canc';
 import type { UserHit } from './user-hit';
 
@@ -12,7 +12,7 @@ const DEBOUNCE_MS = 250;
 export function SearchPage({ api }: { api: SearchApi }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<UserHit[]>([]);
-  const search = useMemo(() => debounce(DEBOUNCE_MS, (text: string) => api.search(text)), [api]);
+  const search = useMemo(() => debounce((text: string) => api.search(text), DEBOUNCE_MS), [api]);
 
   function doSearch(text: string) {
     if (!text.trim()) {
@@ -20,7 +20,7 @@ export function SearchPage({ api }: { api: SearchApi }) {
       setResults([]);
       return;
     }
-    search(text).then(setResults, (error) => {
+    search(text).then(setResults, (error: unknown) => {
       if (!isCancelError(error)) console.error(error);
     });
   }

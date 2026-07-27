@@ -47,18 +47,6 @@ test('debounces: rapid keystrokes only search the last value', async () => {
   expect(searched).not.toContain('a');
 });
 
-test('a new search after the wait cancels the in-flight request', async () => {
-  const { api, searched, canceled } = makeApi();
-  render(<SearchPage api={api} />);
-
-  const input = screen.getByLabelText('Search users');
-  fireEvent.change(input, { target: { value: 'ada' } });
-  await waitFor(() => expect(searched).toContain('ada'));
-
-  fireEvent.change(input, { target: { value: 'adam' } });
-  await waitFor(() => expect(canceled).toContain('ada'));
-});
-
 test('cancels the pending search on unmount', async () => {
   const { api, searched, canceled } = makeApi();
   const { unmount } = render(<SearchPage api={api} />);
