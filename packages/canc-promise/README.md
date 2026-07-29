@@ -1,6 +1,7 @@
-<p align="center">
-	<img src="../../assets/canc-logo.png" width="483" title="canc &#x2BBF; A crafty foundation for cancelable promises" alt="canc &#x2BBF; a crafty foundation for cancelable promises">
-</p>
+<div align="center">
+	<img src="https://raw.githubusercontent.com/cancjs/canc/master/assets/canc-logo.svg" style="width: 400px; max-width: 100%; height: auto;" title="canc &#x2BBF; A crafty foundation for cancelable promises" alt="canc &#x2BBF; A crafty foundation for cancelable promises">
+  <div>&nbsp;</div>
+</div>
 
 <h1 align="center">@cancjs/promise</h1>
 
@@ -20,8 +21,16 @@ Cancellation is a rejection with a `CancelError`, not a silent skip and not a pr
 settles. Regular `try`/`catch` and `.catch()` keep working, and code that does not care about
 cancellation does not need to know it happened.
 
-This package is the foundation of the ecosystem. For a cancelable replacement of `async`/`await`,
-see [`@cancjs/coroutine`](../canc-coroutine).
+This package is the foundation of the `canc` ecosystem. On its own it covers the promise layer:
+cancelable chains, two-way propagation, combinators, cleanup. The rest of the ecosystem builds on
+it: [coroutines](https://github.com/cancjs/canc/tree/master/packages/canc-coroutine) replace
+`async`/`await` with generator functions that cancel at every yield point, the
+[toolbox](https://github.com/cancjs/canc/tree/master/packages/canc-toolbox) adds timing helpers,
+adapters and signal interop,
+[fetch](https://github.com/cancjs/canc/tree/master/packages/canc-fetch) wraps the Fetch API, and
+[decorators](https://github.com/cancjs/canc/tree/master/packages/canc-decorators) bring cancelable
+coroutines to class methods. See the
+[repository](https://github.com/cancjs/canc) for the full ecosystem.
 
 ## Features
 
@@ -45,12 +54,13 @@ npm install @cancjs/promise
 
 ### Usage
 
-The executor gets a third argument for registering cleanup. It runs when the promise is canceled:
+The executor receives a context object for registering cleanup and obtaining a signal. Cleanup
+runs when the promise is canceled:
 
 ```js
 import { CancelablePromise, isCancelError } from '@cancjs/promise';
 
-const delayed = new CancelablePromise((resolve, reject, handleCancel) => {
+const delayed = new CancelablePromise((resolve, reject, { handleCancel }) => {
 	const timerId = setTimeout(resolve, 1000, 'done');
 	handleCancel(() => clearTimeout(timerId));
 });
@@ -86,6 +96,11 @@ Combinators keep the same behavior, and they stop the work whose result nobody w
 const fastest = CancelablePromise.race([fetchPrimary(), fetchMirror()]);
 // When one wins, the other is canceled instead of running to completion.
 ```
+
+For most real tasks, you rarely need to write `new CancelablePromise` directly.
+[`cancelify` and `promisify`](https://github.com/cancjs/canc/tree/master/packages/canc-toolbox#adapters)
+wrap existing APIs into cancelable ones at the boundary, so the rest of your code works with
+plain cancellation without managing signals or constructors.
 
 ## How It Works
 
@@ -143,6 +158,14 @@ async function loadReport(id) {
 }
 ```
 
+### Coroutines
+
+A cancelable promise chain is cancelable, but `async`/`await` functions are not, because `await`
+does not pass control back in a way that can be interrupted.
+[Coroutines](https://github.com/cancjs/canc/tree/master/packages/canc-coroutine) solve this with
+generator functions that cancel at every `yield*` point, making deep cancelable flows practical
+without manual chaining.
+
 ## Description
 
 ### Options
@@ -154,10 +177,10 @@ readable through the `options` getter.
 |---|---|---|
 | `bubble` | `true` | Cancellation bubbles to the parent when all consumers are canceled |
 | `asyncCancel` | `true` | `cancel()` settles failing cancel handlers asynchronously instead of throwing |
-| `forceCancelable` | `true` | Keeps the promise cancelable when a native promise is passed to `resolve()` |
+| `forceCancelable` | `true` | The result stays cancelable even when the executor resolves with another promise |
 | `strict` | `false` | Throws on cancellation problems instead of ignoring them |
 | `shield` | `false` | Protects this promise's own work from cancellation coming from below or outside |
-| `signal` | none | One `AbortSignal` or an array of them, first abort wins |
+| `signal` | none | Cancels the promise when the signal aborts. One `AbortSignal` or an array, first abort wins |
 
 `shield` is an upward and self shield only. A direct `cancel()` becomes a no-op and a bubble
 arriving from canceled children stops there, but a canceled or rejected upstream still propagates
@@ -213,10 +236,19 @@ const quotes = new CancelablePromise(executor, {
 });
 ```
 
+Inside the executor, `getSignal()` returns an `AbortSignal` that aborts when the promise is
+canceled, so signal-aware APIs can be connected directly:
+
+```js
+const data = new CancelablePromise((resolve, reject, { getSignal }) => {
+	fetch('/api/data', { signal: getSignal() }).then(resolve, reject);
+});
+```
+
 For the other direction, `createCancelSignal()` mints a signal that aborts with a `CancelError`,
-so downstream code that only speaks `AbortSignal` still sees a genuine cancellation.
-[`@cancjs/toolbox`](../canc-toolbox) has the higher-level wrappers, including `cancelify` and
-`toAbortSignal`.
+so downstream code that only speaks `AbortSignal` still sees a genuine cancellation. The
+[toolbox](https://github.com/cancjs/canc/tree/master/packages/canc-toolbox) has the higher-level
+wrappers, including `cancelify` and `toAbortSignal`.
 
 ### Awaiting cleanup
 
@@ -233,16 +265,19 @@ and `cancel()` returns nothing.
 
 ### Adopting a foreign promise
 
-`makeCancelable(promise)` wraps a plain promise so the chain around it is cancelable. The
-underlying work is not affected: canceling stops the chain from continuing, but the wrapped
-operation runs to completion. To close that gap, make the operation cancelable at its source with
-`cancelify` or `promisify` from [`@cancjs/toolbox`](../canc-toolbox).
+`makeCancelable(promise)` wraps an existing promise so the chain around it is cancelable. If the
+wrapped promise has its own `cancel()` method, for example a Bluebird or p-cancelable promise,
+canceling the wrapper calls through to it. If the wrapped promise is plain, canceling stops the
+chain from continuing but the underlying operation runs to completion. To add cancellation to a
+plain-promise API at its source, use
+[`cancelify` or `promisify`](https://github.com/cancjs/canc/tree/master/packages/canc-toolbox#adapters)
+from the toolbox.
 
 ### Pluggable implementation
 
-Ecosystem packages (toolbox, lazy-promise, coroutine) pick which promise implementation to build
-on through a small registry exported here. Register one implementation at app startup and every
-consumer that has no more specific override uses it:
+Ecosystem packages (toolbox, coroutine) pick which promise implementation to build on through a
+small registry exported here. Register one implementation at app startup and every consumer that
+has no more specific override uses it:
 
 ```js
 import { setPromiseImpl, getPromiseImpl } from '@cancjs/promise';
@@ -278,7 +313,9 @@ per-call options or a class static instead of relying on the registry.
 ### `CancelablePromise`
 
 `new CancelablePromise(executor, options?)`, where `executor` is
-`(resolve, reject, handleCancel) => void`. Also the default export.
+`(resolve, reject, context) => void`. The context object provides `handleCancel` for registering
+cleanup and `getSignal` for obtaining an `AbortSignal` tied to the promise. Also the default
+export.
 
 Statics, each taking an optional trailing options argument: `all`, `allSettled`, `any`, `race`,
 `resolve`, `reject`, `withResolvers`, `try`. The options configure the promise the static returns,
@@ -316,31 +353,32 @@ accept either a promise or a caught error.
 
 ## Compatibility
 
-Node.js 18 and later is the tested and supported baseline, declared in `engines`. In browsers the
-requirements are native `Symbol`, `Reflect`, `Promise` (including `finally` and `allSettled`),
-`Object.assign` and `Object.setPrototypeOf`, which every current browser provides. `using` and
-`await using` additionally need `Symbol.dispose` support or a polyfill.
+`CancelablePromise` implements `Promise` methods up to ES2026 and needs only an ES2015-compliant
+`Promise` to work correctly. No method polyfills are necessary in older environments. Signal
+interop (`signal` option, `createCancelSignal`) additionally requires a spec-compliant
+`AbortController`.
 
-TypeScript 4.2 and later. Two type variants ship and the right one is selected automatically, no
-consumer configuration needed.
+Node.js 18 and later is the tested and supported baseline, declared in `engines`. Current browsers
+are supported out of the box. TypeScript 4.2 and later. Two type variants ship and the right one
+is selected automatically.
 
 Four builds are produced from the same ES5-targeted source, only the module wrapper differs:
 `dist/index.cjs` for `require`, `dist/index.mjs` for `import` and bundlers, `dist/index.umd.js`
 and `dist/index.umd.min.js` for `<script>` tags and CDNs.
 
 Because the output is ES5, it also runs on engines outside the test matrix, including embedded
-ones such as QuickJS, XS and Hermes. Those are not covered by CI, so treat them as best effort,
-and check `Reflect` and `Promise.allSettled` availability on constrained builds.
+ones such as QuickJS, XS and Hermes.
 
 ## Documentation
 
-* [`@cancjs/coroutine`](../canc-coroutine) for the `async`/`await` replacement built on this
-	package
-* [`@cancjs/toolbox`](../canc-toolbox) for timing helpers, adapters and signal interop
-* [`@cancjs/fetch`](../canc-fetch) for cancelable requests
-* [examples](../../examples) for runnable projects, starting with `demo-promise-basics` and
-	`demo-chain-propagation`
-* [root README](../../README.md) for the ecosystem overview
+* [Coroutines](https://github.com/cancjs/canc/tree/master/packages/canc-coroutine) for the
+	`async`/`await` replacement built on this package
+* [Toolbox](https://github.com/cancjs/canc/tree/master/packages/canc-toolbox) for timing helpers,
+	adapters and signal interop
+* [Fetch](https://github.com/cancjs/canc/tree/master/packages/canc-fetch) for cancelable requests
+* [Examples](https://github.com/cancjs/canc/tree/master/examples) for runnable projects, starting
+	with `demo-promise-basics` and `demo-chain-propagation`
+* [Repository](https://github.com/cancjs/canc) for the ecosystem overview
 
 ## Contributing
 

@@ -1,6 +1,7 @@
-<p align="center">
-	<img src="../../assets/canc-logo.png" width="483" title="canc &#x2BBF; A crafty foundation for cancelable promises" alt="canc &#x2BBF; a crafty foundation for cancelable promises">
-</p>
+<div align="center">
+	<img src="https://raw.githubusercontent.com/cancjs/canc/master/assets/canc-logo.svg" style="width: 400px; max-width: 100%; height: auto;" title="canc &#x2BBF; A crafty foundation for cancelable promises" alt="canc &#x2BBF; A crafty foundation for cancelable promises">
+  <div>&nbsp;</div>
+</div>
 
 <h1 align="center">@cancjs/toolbox-native</h1>
 
@@ -12,8 +13,9 @@ A collection of promise helper functions built on native <code>Promise</code>.
 
 ## Introduction
 
-The native twin of [`@cancjs/toolbox`](../canc-toolbox). Same helpers, same options, backed by the
-built-in `Promise` and with no cancellation.
+The native twin of
+[`@cancjs/toolbox`](https://github.com/cancjs/canc/tree/master/packages/canc-toolbox). Same
+helpers, same options, backed by the built-in `Promise` and with no cancellation.
 
 Reach for it when a project wants the utility set without adopting cancelable promises, or in a
 library that should not force a promise implementation on its consumers.
@@ -63,8 +65,9 @@ Signal interop and `cancelify` have no meaning without cancellation and are twin
 options?)`, `retry(input, options?)`, `defer()`, `promisify(fn, options?)`,
 `promisifyAll(source, options?)`, `TimeoutError`, `isTimeoutError(error)`.
 
-Option shapes are identical to [`@cancjs/toolbox`](../canc-toolbox#api), minus the cancelable
-promise options.
+Option shapes are identical to
+[`@cancjs/toolbox`](https://github.com/cancjs/canc/tree/master/packages/canc-toolbox#api), minus
+the cancelable promise options.
 
 ## Compatibility
 
@@ -73,8 +76,9 @@ from ES5-targeted source, same as the rest of the ecosystem.
 
 ## Documentation
 
-* [`@cancjs/toolbox`](../canc-toolbox) for the cancelable twin
-* [root README](../../README.md) for the ecosystem overview
+* [`@cancjs/toolbox`](https://github.com/cancjs/canc/tree/master/packages/canc-toolbox) for the
+	cancelable twin
+* [Repository](https://github.com/cancjs/canc) for the ecosystem overview
 
 ## Contributing
 

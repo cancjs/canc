@@ -1,11 +1,12 @@
-<p align="center">
-	<img src="../../assets/canc-logo.png" width="483" title="canc &#x2BBF; A crafty foundation for cancelable promises" alt="canc &#x2BBF; a crafty foundation for cancelable promises">
-</p>
+<div align="center">
+	<img src="https://raw.githubusercontent.com/cancjs/canc/master/assets/canc-logo.svg" style="width: 400px; max-width: 100%; height: auto;" title="canc &#x2BBF; A crafty foundation for cancelable promises" alt="canc &#x2BBF; A crafty foundation for cancelable promises">
+  <div>&nbsp;</div>
+</div>
 
 <h1 align="center">@cancjs/toolbox</h1>
 
 <p align="center">
-A collection of cancellation-aware promise helper functions and ponyfills.
+Helper functions and adapters for cancellation-aware code.
 </p>
 
 ---
@@ -26,7 +27,8 @@ signals around, because canceling a promise reaches the underlying request on it
 * adapters that make signal-aware and callback-style APIs return cancelable promises
 * `AbortSignal` interop in both directions, including timeout composition
 * deliberate ways to end a cancelable flow instead of blanket error swallowing
-* every helper accepts [`CancelablePromise` options](../canc-promise#options)
+* every helper accepts
+	[`CancelablePromise` options](https://github.com/cancjs/canc/tree/master/packages/canc-promise#options)
 
 ## Getting Started
 
@@ -36,8 +38,7 @@ signals around, because canceling a promise reaches the underlying request on it
 npm install @cancjs/toolbox @cancjs/promise
 ```
 
-`@cancjs/promise` is a peer dependency. [`@cancjs/lazy-promise`](../canc-lazy-promise) is a peer
-dependency as well, used by `cancelify` in its lazy mode.
+`@cancjs/promise` is a peer dependency.
 
 ### Usage
 
@@ -73,10 +74,10 @@ search.cancel(); // the underlying request is aborted
 
 Helpers build their result through the resolved promise implementation, which is
 `CancelablePromise` unless something else is registered (see
-[pluggable implementation](../canc-promise#pluggable-implementation)). That is what makes the
-cleanup possible: `delay` registers a cancel handler that clears its timer, `retry` cancels the
-attempt in flight and drops the backoff wait, `waitFor` stops polling, `timeout` cancels the
-promise it was watching once the deadline wins.
+[pluggable implementation](https://github.com/cancjs/canc/tree/master/packages/canc-promise#pluggable-implementation)).
+That is what makes the cleanup possible: `delay` registers a cancel handler that clears its timer,
+`retry` cancels the attempt in flight and drops the backoff wait, `waitFor` stops polling,
+`timeout` cancels the promise it was watching once the deadline wins.
 
 `cancelify` works from the other end. It hands the wrapped function a lazy signal thunk. The
 controller is created on the first `getSignal()` call and aborted when the returned promise is
@@ -97,8 +98,7 @@ const orderApi = {
 ```
 
 `getSignal()` can be placed anywhere the underlying call wants it, not only in a trailing options
-object. With `{ lazy: true }` the wrapped function is not called until the returned promise is
-subscribed.
+object.
 
 For callback-style APIs use `promisify`, which covers error-first and value-first callbacks,
 multiple callback values, and the `nodejs.util.promisify.custom` hook. `promisifyAll` applies it
@@ -122,7 +122,8 @@ cancels the underlying promise whichever wins.
 
 `createAbortSignal()` mints a plain controller and returns its signal with a bound `abort`. For a
 signal that aborts with a `CancelError` rather than a bare `DOMException`, use
-`createCancelSignal` from [`@cancjs/promise`](../canc-promise#abortsignal-interop).
+`createCancelSignal` from
+[`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise#abortsignal-interop).
 
 ### Ending a flow
 
@@ -149,11 +150,14 @@ poll is scheduled, so slow checks never overlap.
 
 Pipeable operators for cancelable async iterables are planned as the `@cancjs/toolbox/async-iter`
 entry point 🚧. Until it lands, consume and produce async iterables with `canc.forAwait` and
-`cancGen.async` from [`@cancjs/coroutine`](../canc-coroutine).
+`cancGen.async` from
+[`@cancjs/coroutine`](https://github.com/cancjs/canc/tree/master/packages/canc-coroutine).
 
 ## API
 
-Every helper takes [`CancelablePromise` options](../canc-promise#options) as its last argument.
+Every helper takes
+[`CancelablePromise` options](https://github.com/cancjs/canc/tree/master/packages/canc-promise#options)
+as its last argument.
 
 ### Timing
 
@@ -199,17 +203,19 @@ Every helper takes [`CancelablePromise` options](../canc-promise#options) as its
 Node.js 18 and later, current browsers, TypeScript 4.2 and later. `AbortController` and
 `AbortSignal` are required by the signal interop helpers, and `interopTimeout` uses
 `AbortSignal.any`. Everything else follows
-[`@cancjs/promise`](../canc-promise#compatibility).
+[`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise#compatibility).
 
 For the same helpers on plain `Promise`, without cancellation, see
-[`@cancjs/toolbox-native`](../canc-toolbox-native).
+[`@cancjs/toolbox-native`](https://github.com/cancjs/canc/tree/master/packages/canc-toolbox-native).
 
 ## Documentation
 
-* [`@cancjs/promise`](../canc-promise) for the cancellation model and options
-* [`@cancjs/coroutine`](../canc-coroutine) for using these helpers inside a cancelable flow
-* [examples](../../examples): `demo-toolbox` for the helpers under cancellation,
-	`demo-signal-interop` for the bridges
+* [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) for the
+	cancellation model and options
+* [Coroutines](https://github.com/cancjs/canc/tree/master/packages/canc-coroutine) for using
+	these helpers inside a cancelable flow
+* [Examples](https://github.com/cancjs/canc/tree/master/examples): `demo-toolbox` for the
+	helpers under cancellation, `demo-signal-interop` for the bridges
 
 ## Contributing
 

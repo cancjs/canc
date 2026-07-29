@@ -1,11 +1,12 @@
-<p align="center">
-	<img src="../../assets/canc-logo.png" width="483" title="canc &#x2BBF; A crafty foundation for cancelable promises" alt="canc &#x2BBF; a crafty foundation for cancelable promises">
-</p>
+<div align="center">
+	<img src="https://raw.githubusercontent.com/cancjs/canc/master/assets/canc-logo.svg" style="width: 400px; max-width: 100%; height: auto;" title="canc &#x2BBF; A crafty foundation for cancelable promises" alt="canc &#x2BBF; A crafty foundation for cancelable promises">
+  <div>&nbsp;</div>
+</div>
 
 <h1 align="center">@cancjs/decorators</h1>
 
 <p align="center">
-Class-method decorators for cancelable coroutines.
+Class method decorators for cancelable coroutines.
 </p>
 
 ---
@@ -13,8 +14,10 @@ Class-method decorators for cancelable coroutines.
 ## Introduction
 
 `@AsyncMethod` and `@BindMethod` wrap a class member with `cancAsync` from
-[`@cancjs/coroutine`](../canc-coroutine), so calling the member returns a
-[`CancelablePromise`](../canc-promise) instead of a generator.
+[`@cancjs/coroutine`](https://github.com/cancjs/canc/tree/master/packages/canc-coroutine), so
+calling the member returns a
+[`CancelablePromise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) instead
+of a generator.
 
 The same two decorators ship in three dialects, one per decorator syntax a toolchain can speak:
 the standard decorators, the TypeScript legacy ones, and the Babel legacy ones. The behavior is
@@ -25,7 +28,7 @@ identical, only the wiring underneath differs.
 * declarative cancelable methods, no manual wrapping in the constructor
 * standard, TypeScript legacy and Babel legacy dialects, from separate entry points
 * prototype-level or per-instance placement, chosen with one option
-* methods, arrow-function fields and getters are all supported
+* methods, arrow-function class fields and getters are all supported
 * per-instance placement that does not leak instances
 
 ## Getting Started
@@ -241,14 +244,17 @@ Babel with the modern decorators plugin. The legacy entry point needs `experimen
 and the Babel legacy entry point needs `@babel/plugin-proposal-decorators` in legacy mode.
 `reflect-metadata` is not required.
 
-Everything else follows [`@cancjs/promise`](../canc-promise#compatibility).
+Everything else follows
+[`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise#compatibility).
 
 ## Documentation
 
-* [`@cancjs/coroutine`](../canc-coroutine#class-methods) for the coroutine side of class methods
-* [`@cancjs/promise`](../canc-promise) for the cancellation model
-* [examples](../../examples): `demo-decorators` builds one client class in all three dialects plus
-	the manual form, `app-angular` uses them in a service
+* [Coroutines](https://github.com/cancjs/canc/tree/master/packages/canc-coroutine#class-methods)
+	for the coroutine side of class methods
+* [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) for the
+	cancellation model
+* [Examples](https://github.com/cancjs/canc/tree/master/examples): `demo-decorators` builds one
+	client class in all three dialects plus the manual form, `app-angular` uses them in a service
 
 ## Contributing
 

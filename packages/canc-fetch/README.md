@@ -1,6 +1,7 @@
-<p align="center">
-	<img src="../../assets/canc-logo.png" width="483" title="canc &#x2BBF; A crafty foundation for cancelable promises" alt="canc &#x2BBF; a crafty foundation for cancelable promises">
-</p>
+<div align="center">
+	<img src="https://raw.githubusercontent.com/cancjs/canc/master/assets/canc-logo.svg" style="width: 400px; max-width: 100%; height: auto;" title="canc &#x2BBF; A crafty foundation for cancelable promises" alt="canc &#x2BBF; A crafty foundation for cancelable promises">
+  <div>&nbsp;</div>
+</div>
 
 <h1 align="center">@cancjs/fetch</h1>
 
@@ -13,7 +14,8 @@ Cross-platform Fetch API that uses cancelable promises.
 ## Introduction
 
 `cancelableFetch` has the signature of `fetch` and returns a
-[`CancelablePromise`](../canc-promise) instead of a plain one. Canceling it aborts the request.
+[`CancelablePromise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) instead
+of a plain one. Canceling it aborts the request.
 
 The controller is created and wired internally, so request code stops carrying a `signal`
 parameter. An external signal is still accepted through `init`, which keeps existing abort
@@ -26,7 +28,6 @@ plumbing working while it is being phased out.
 * accepts an external `AbortSignal` through `init`, including one that is already aborted
 * configurable `fetch` and `AbortController` implementations for tests and non-browser hosts
 * cancelable interop for the `fetchLater` API
-* lazy entry point where the request does not start until the promise is subscribed
 
 ## Getting Started
 
@@ -36,8 +37,7 @@ plumbing working while it is being phased out.
 npm install @cancjs/fetch @cancjs/promise
 ```
 
-`@cancjs/promise` is a peer dependency. The `@cancjs/fetch/lazy` entry point additionally needs
-[`@cancjs/lazy-promise`](../canc-lazy-promise), which is an optional peer dependency.
+`@cancjs/promise` is a peer dependency.
 
 ### Usage
 
@@ -129,32 +129,7 @@ beacon.cancel();
 `cancelableFetchLaterFactory` takes the same configuration as the immediate factory, plus
 `fetchLater` and `pollInterval` (how often the activation flag is checked).
 
-### Lazy requests
-
-The `@cancjs/fetch/lazy` entry point returns a
-[`CancelableLazyPromise`](../canc-lazy-promise). Nothing is sent until the promise is first
-subscribed with `then`, `catch`, `finally` or `await`, and canceling before that skips the request
-entirely:
-
-```js
-import { cancelableLazyFetch } from '@cancjs/fetch/lazy';
-
-const details = cancelableLazyFetch(`/api/products/${productId}`);
-
-// Prepared while hovering a row, sent only if the row is opened.
-if (opened) {
-	render(await details);
-} else {
-	details.cancel(); // no request was ever made
-}
-```
-
-The lazy `fetchLater` variant defers the registration itself, so no quota is reserved until the
-promise is subscribed.
-
 ## API
-
-### `@cancjs/fetch`
 
 `cancelableFetch(input, init?)` returns `CancelablePromise<Response>`. Also the default export.
 
@@ -167,27 +142,24 @@ promise is subscribed.
 `cancelableFetchLaterFactory(config?)` accepts `fetch`, `AbortController`, `fetchLater` and
 `pollInterval`.
 
-### `@cancjs/fetch/lazy`
-
-`cancelableLazyFetch(input, init?)`, `cancelableLazyFetchFactory(config?)`,
-`cancelableLazyFetchLater(input, init?)`, `cancelableLazyFetchLaterFactory(config?)`. Same
-arguments as above, returning `CancelableLazyPromise`.
-
 ## Compatibility
 
 Node.js 18 and later, current browsers, TypeScript 4.2 and later. A global `fetch` and
 `AbortController` are required unless they are supplied through a factory. `fetchLater` is not
 available everywhere, so the deferred variants need either browser support or an implementation
 passed to the factory. Everything else follows
-[`@cancjs/promise`](../canc-promise#compatibility).
+[`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise#compatibility).
 
 ## Documentation
 
-* [`@cancjs/promise`](../canc-promise) for the cancellation model and signal interop
-* [`@cancjs/coroutine`](../canc-coroutine) for requests inside a cancelable flow
-* [`@cancjs/toolbox`](../canc-toolbox) for timeouts and for making other APIs cancelable
-* [examples](../../examples): `demo-fetch` for chains, external signals and timeouts,
-	`demo-signal-interop` for the bridges in both directions
+* [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) for the
+	cancellation model and signal interop
+* [Coroutines](https://github.com/cancjs/canc/tree/master/packages/canc-coroutine) for requests
+	inside a cancelable flow
+* [Toolbox](https://github.com/cancjs/canc/tree/master/packages/canc-toolbox) for timeouts and
+	for making other APIs cancelable
+* [Examples](https://github.com/cancjs/canc/tree/master/examples): `demo-fetch` for chains,
+	external signals and timeouts, `demo-signal-interop` for the bridges in both directions
 
 ## Contributing
 
