@@ -153,31 +153,6 @@ describe('cancelify', () => {
 		expect(sig).toBeDefined();
 	});
 
-	describe('lazy', () => {
-		it('does not call fn until the promise is awaited', async () => {
-			const fn = jest.fn(() => 'late');
-			const wrapped = cancelify(fn, { lazy: true });
-
-			const promise = wrapped();
-			expect(fn).not.toHaveBeenCalled();
-
-			await expect(Promise.resolve(promise)).resolves.toBe('late');
-			expect(fn).toHaveBeenCalledTimes(1);
-		});
-
-		it('never calls fn when canceled before the first await', async () => {
-			const fn = jest.fn(() => 'never');
-			const wrapped = cancelify(fn, { lazy: true });
-
-			const promise = wrapped() as unknown as CancelablePromise<string>;
-			promise.cancel('gone');
-
-			const reason = await Promise.resolve(promise).catch((e) => e);
-			expect(isCancelError(reason)).toBe(true);
-			expect(fn).not.toHaveBeenCalled();
-		});
-	});
-
 	describe('against a real fetch-shaped call', () => {
 		it('cancels the returned promise and aborts the underlying signal with a CancelError reason', async () => {
 			let capturedInit: { signal?: AbortSignal } | undefined;

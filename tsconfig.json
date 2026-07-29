@@ -7,7 +7,6 @@
  "baseUrl": ".",
  "paths": {
  "@cancjs/promise": ["./packages/canc-promise/src/index"],
- "@cancjs/lazy-promise": ["./packages/canc-lazy-promise/src/index"],
  "@cancjs/coroutine": ["./packages/canc-coroutine/src/index"],
  "@cancjs/fetch": ["./packages/canc-fetch/src/index"],
 			"@cancjs/axios": ["./packages/canc-axios/src/index"],

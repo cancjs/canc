@@ -17,11 +17,6 @@
  "types": "./dist/types/index.d.ts",
  "import": "./dist/index.mjs",
  "require": "./dist/index.cjs"
- },
- "./lazy": {
- "types": "./dist/types/lazy.d.ts",
- "import": "./dist/lazy.mjs",
- "require": "./dist/lazy.cjs"
  }
  },
  "engines": {
@@ -43,17 +38,10 @@
  "access": "public"
  },
  "peerDependencies": {
- "@cancjs/promise": "*",
- "@cancjs/lazy-promise": "*"
- },
- "peerDependenciesMeta": {
- "@cancjs/lazy-promise": {
- "optional": true
- }
+ "@cancjs/promise": "*"
  },
  "devDependencies": {
- "@cancjs/promise": "*",
- "@cancjs/lazy-promise": "*"
+ "@cancjs/promise": "*"
  },
  "scripts": {
  "build": "rimraf dist && rollup --config ./rollup.config.js",

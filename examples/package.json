@@ -34,7 +34,6 @@
  "demo-coroutine",
  "demo-decorators",
  "demo-fetch",
- "demo-lazy-promise",
  "demo-promise-basics",
  "demo-signal-interop",
  "demo-toolbox"
