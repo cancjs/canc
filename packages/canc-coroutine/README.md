@@ -1,233 +1,342 @@
-<p align="center">
- <img src="../../assets/canc-logo.png" width="483" title="canc &#x2BBF; A crafty foundation for cancelable promises" alt="canc &#x2BBF; a crafty foundation for cancelable promises">
-</p>
+<div align="center">
+	<img src="https://raw.githubusercontent.com/cancjs/canc/master/assets/canc-logo.svg" style="width: 400px; max-width: 100%; height: auto;" title="canc &#x2BBF; A crafty foundation for cancelable promises" alt="canc &#x2BBF; A crafty foundation for cancelable promises">
+  <div>&nbsp;</div>
+</div>
 
 <h1 align="center">@cancjs/coroutine</h1>
 
+<p align="center">
+Cancelable generator-based drop-in replacements for <code>async</code>/<code>await</code> and async iterators.
+</p>
+
 ---
+
 ## Introduction
 
-Cancelable async/await replacement built on generators. `cancAsync` (aliased `async`) turns a
-generator function into a function returning a `CancelablePromise`; `cancAwait` (aliased `await`,
-used as `yield* cancAwait(promise)`) suspends the coroutine on a promise and resumes with its
-resolved value, or throws on rejection/cancellation.
+An `async` function cannot be stopped from the outside. Its promise is created and driven by the
+engine, and nothing in the language lets a caller interrupt the function between two `await`
+points.
 
-For async iterators, use the mirror namespace: `cancGenAsync` wraps a generator function into a
-function returning an async generator; `cancGenAwait` (used as `yield* cancGenAwait(promise)`)
-suspends internally and resumes typed, and `cancForAwait` streams an async iterable with
-per-item cancellation.
+This package brings that control back. A generator function wrapped with `canc.async` returns a
+[`CancelablePromise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise), and
+every step written as `yield* canc.await(...)` is a point where cancellation can take effect. The
+code keeps the shape of an `async` function, with `yield*` where `await` used to be.
+
+`cancGen.async`, in the mirror namespace, does the same for `async function*`. The
+[toolbox](https://github.com/cancjs/canc/tree/master/packages/canc-toolbox) provides adapters for
+wrapping existing APIs, and
+[decorators](https://github.com/cancjs/canc/tree/master/packages/canc-decorators) bring coroutines
+to class methods. See the [repository](https://github.com/cancjs/canc) for the full ecosystem.
 
 ## Features
 
-- **Type inference via `yield*` delegation**: typed resumed values without casts.
- ```ts
- const data = yield* cancAwait(fetch(url)); // data: Response (typed)
- ```
-
-- `AsyncResult<T>` and `AsyncGenResult<E, R>`: type aliases for annotating coroutine body
- return types in place of writing out `Generator<unknown, T, any>` on every function:
-
- ```ts
- function* load(url: string): AsyncResult<Data> {
- return yield* cancAwait(fetch(url));
- }
-
- function* export(src: AsyncIterable<Item>): AsyncGenResult<Progress, void> {
- yield* cancForAwait(src, (item) => { /* process item */ });
- }
- ```
+* direct replacements for `async` functions and async generators
+* cancellation reaches into a running coroutine, not just into the promise it returned
+* full type inference through `yield*`, no casts and no `any` steps
+* combinator helpers (`all`, `race`, `any`, `allSettled`, `try`) that preserve tuple types
+* `for await` style consumption with per-item cancellation
+* works as a class method, with or without decorators
 
 ## Getting Started
 
 ### Installation
 
-#### NPM
-
-```
-npm i -S @cancjs/coroutine
+```sh
+npm install @cancjs/coroutine @cancjs/promise
 ```
 
-#### Yarn
-
-```
-yarn add @cancjs/coroutine
-```
+`@cancjs/promise` is a peer dependency.
 
 ### Usage
 
-## Using coroutines as class methods
+```ts
+import * as canc from '@cancjs/coroutine';
 
-`cancAsync` just wraps a generator function into a plain function. It doesn't know or care
-whether that function ends up as a class method. Getting `this` right, and controlling when the
-bound wrapper is created, is on the caller. Two ways to do it: reach for
-`@cancjs/decorators`, or call `cancAsync` by hand. This section covers both, plus the
-proto-vs-instance tradeoff they share.
+const loadInvoice = canc.async(function* (invoiceId: string) {
+	const invoice = yield* canc.await(fetchInvoice(invoiceId));
+	const customer = yield* canc.await(fetchCustomer(invoice.customerId));
 
-### Proto vs instance placement (decision table)
+	return { invoice, customer };
+});
 
-Same tradeoff as the decorators package (see the `@cancjs/decorators` README). Applies
-identically whether you use the decorator or wire `cancAsync` yourself:
+const pending = loadInvoice('inv-2041');
 
-| Placement | `this` binding | Memory | When |
-|---|---|---|---|
-| **Proto-level** (wrap once, put on prototype) | Late-bound (flows from call site, `obj.method()`) | One wrapped fn shared by all instances | Default. Cheapest, no per-instance cost, matches normal method semantics (works with `super.method()`, mixins, `Object.getPrototypeOf`). |
-| **Per-instance** (wrap in constructor / initializer, own property) | Early-bound (fixed to the instance that created it) | One wrapped fn **per instance** | Only when the method is detached and passed around as a bare reference (`setTimeout(obj.method)`, event handler, callback prop) and must keep working without `.bind()` at the call site. |
+// Rejects the coroutine with a CancelError at its current step. The customer
+// request is aborted if it is already in flight, and never starts otherwise.
+pending.cancel();
+```
 
-Default to proto-level. Only pay for per-instance binding when you actually detach the method.
+Independent steps run together and cancel together:
 
-### Decorator pattern (`@cancjs/decorators`)
+```ts
+const loadDashboard = canc.async(function* () {
+	const [invoices, payments] = yield* canc.await.all([fetchInvoices(), fetchPayments()]);
+
+	return summarize(invoices, payments);
+});
+```
+
+The flat names are exported next to the namespace aliases, so this is the same code:
+
+```ts
+import { cancAsync, cancAwait } from '@cancjs/coroutine';
+
+const loadInvoice = cancAsync(function* (invoiceId: string) {
+	return yield* cancAwait(fetchInvoice(invoiceId));
+});
+```
+
+## How It Works
+
+### Where this comes from
+
+Before `async`/`await` was standardized, libraries like `co` already wrote asynchronous code in
+direct style: a generator yields a promise, a driver awaits it and resumes the generator with the
+result. TC39 standardized this exact pattern as `async`/`await` in ES2017. An `async` function
+compiles to a generator state machine with a built-in promise driver, the same architecture that
+`co` used, but hidden inside the engine and hardcoded to native `Promise`.
+
+Hiding the driver is what removes cancellation. Nobody outside the function holds the handle that
+decides whether the next step should run at all. This package puts the driver back in userland.
+The cost is a `yield*` per step. The gain is interruption at every one of them, with type inference
+that `co` never had, combinator helpers that mirror `Promise.all`/`race`/`any`, and async generator
+support for producing cancelable streams. The rest stays as close to native semantics as possible:
+`return`, `throw`, `try`/`finally` and delegation to other generators all work the way they do in
+an `async` function.
+
+### What cancel does
+
+Canceling the returned promise stops the coroutine at its current step. The step's promise is
+canceled, the `CancelError` is thrown back into the generator at the point where it is suspended,
+and the code after that point does not run.
+
+Because the error is thrown into the generator, `try`/`catch` and `try`/`finally` behave the way
+they do in an `async` function. A `finally` block still runs on cancellation, and its own steps
+run shielded, so cleanup cannot be canceled halfway:
+
+```ts
+const checkout = canc.async(function* (orderId: string) {
+	const reservation = yield* canc.await(reserveStock(orderId));
+
+	try {
+		return yield* canc.await(chargeCard(orderId));
+	} finally {
+		yield* canc.await(releaseReservation(reservation.id));
+	}
+});
+```
+
+### Why `yield*` and not `yield`
+
+At runtime `yield promise` and `yield* canc.await(promise)` do the same thing. The difference is
+typing. A bare `yield` is typed by the generator-wide next type, which TypeScript cannot narrow
+per step, so the resumed value comes back as `unknown`. `canc.await(promise)` returns a one-shot
+generator whose return type carries `Awaited<T>`, and `yield*` delegation reads that type back.
+The starred form is the one to write.
+
+The distinction also keeps the two yield roles separate. In the async generator namespace
+(`cancGen.async`), a bare `yield` emits a value to the consumer, just as it does in a native
+`async function*`. Using `yield*` for awaiting preserves that: `yield` means emit, `yield*` means
+await. The same rule applies in the regular namespace for consistency.
+
+The combinator helpers exist as `canc.await.all` and friends rather than plain statics for the
+same reason: they reconstruct tuple inference across the delegation.
+
+## Description
+
+### Two namespaces
+
+Both namespaces are the same runtime machinery with different mental models, and each has its own
+entry point:
+
+```ts
+import * as canc from '@cancjs/coroutine';       // async/await world
+import * as cancGen from '@cancjs/coroutine/gen'; // async function* world
+```
+
+In a `canc.async` body a bare `yield` is an await. In a `cancGen.async` body a bare `yield` emits
+a value to the consumer, and awaiting is always written `yield* cancGen.await(...)`. Mixing
+helpers from one namespace into a body of the other produces wrong values silently, so keep a body
+in one dialect.
+
+### Awaiting several things at once
+
+`canc.await.all`, `.race`, `.any`, `.allSettled` and `.try` fold a combinator into a single step.
+Cancellation semantics come from
+[`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise#combinators):
+`race` and `any` cancel the losers, `all` cancels the rest on the first rejection.
+
+```ts
+const [profile, orders] = yield* canc.await.all([fetchProfile(id), fetchOrders(id)]);
+```
+
+### Consuming an async iterable
+
+`canc.forAwait` walks a source and runs a callback per item. Every pull is a cancellation point,
+and canceling the coroutine closes the source:
+
+```ts
+const collectTokens = canc.async(function* (prompt: string) {
+	let answer = '';
+
+	yield* canc.forAwait(streamCompletion(prompt), (token) => {
+		answer += token;
+
+		if (answer.length > 4000) {
+			return false; // stops the loop, the source is closed
+		}
+	});
+
+	return answer;
+});
+```
+
+The callback can be a plain function, a generator function, or a coroutine. Use a generator
+function when the per-item work itself has to be cancelable:
+
+```ts
+yield* canc.forAwait(chunkStream, function* (chunk) {
+	yield* canc.await(saveChunk(chunk));
+});
+```
+
+`canc.forAwait.toArray(source)` collects a finite source into an array instead.
+
+### Producing an async iterable
+
+`cancGen.async` turns a generator function into a cancelable async generator. Inside it, `yield`
+emits and `yield* cancGen.await(...)` awaits:
+
+```ts
+import * as cancGen from '@cancjs/coroutine/gen';
+
+const exportVideo = cancGen.async(function* (chunkIds: string[]) {
+	for (let index = 0; index < chunkIds.length; index++) {
+		yield* cancGen.await(transcodeChunk(chunkIds[index])); // internal step
+		yield Math.round(((index + 1) / chunkIds.length) * 100); // progress, emitted
+	}
+});
+
+for await (const progress of exportVideo(chunkIds)) {
+	updateProgressBar(progress);
+}
+```
+
+`cancGen.forAwait` consumes another source from inside a producer without emitting its items, and
+`cancGen.delegate(source)` re-emits them. Delegation needs its own helper because a synchronous
+generator cannot `yield*` an async iterable.
+
+### Class methods
+
+`canc.async` wraps a generator function into a plain function, so placing it on a class is the
+caller's decision. The
+[decorators](https://github.com/cancjs/canc/tree/master/packages/canc-decorators) package does it
+declaratively:
 
 ```ts
 import { AsyncMethod } from '@cancjs/decorators';
 
-class Loader {
- @AsyncMethod() // proto-level wrap (default); this flows from call site
- *load(url: string) {
- const data = yield* cancAwait(fetch(url));
- return data;
- }
+class InvoiceService {
+	@AsyncMethod() // wrapped once on the prototype, `this` flows from the call site
+	*load(invoiceId: string) {
+		return yield* canc.await(fetchInvoice(invoiceId));
+	}
 
- @AsyncMethod({ bind: true }) // per-instance; safe to detach: onClick={loader.load}
- *loadBound(url: string) {
- const data = yield* cancAwait(fetch(url));
- return data;
- }
+	@AsyncMethod({ bind: true }) // per instance, safe to detach as a callback
+	*loadBound(invoiceId: string) {
+		return yield* canc.await(fetchInvoice(invoiceId));
+	}
 }
 ```
 
-See `@cancjs/decorators` README for the full proto/instance mechanism per decorator flavor
-(ES stage-3, TS legacy, babel-legacy) and the getter/field cases.
-
-### Manual pattern (`cancAsync(this.method, this)`)
-
-No decorators available (older toolchain, no stage-3/experimentalDecorators), or want the wrap
-site to be explicit: call `cancAsync` directly:
+The manual equivalent passes the context explicitly, either once on the prototype or per instance
+in the constructor:
 
 ```ts
-import { async as cancAsync } from '@cancjs/coroutine';
+class InvoiceService {
+	constructor() {
+		// per instance, equivalent to @AsyncMethod({ bind: true })
+		this.load = canc.async(this.load, this);
+	}
 
-class Loader {
- constructor() {
- // per-instance, own property; equivalent to @AsyncMethod({ bind: true })
- this.load = cancAsync(this.load, this);
- }
-
- *load(url) {
- const data = yield* cancAwait(fetch(url));
- return data;
- }
-}
-```
-
-Proto-level manual equivalent (wrap once, outside the constructor, no per-instance cost):
-
-```ts
-class Loader {
- *load(url) { /* ... */ }
+	*load(invoiceId) {
+		return yield* canc.await(fetchInvoice(invoiceId));
+	}
 }
 
-Loader.prototype.load = cancAsync(Loader.prototype.load); // no ctx: this flows from call site
+// prototype level, no per-instance cost
+InvoiceService.prototype.load = canc.async(InvoiceService.prototype.load);
 ```
 
-Decorator vs manual is purely ergonomics, same underlying `cancAsync(fn, ctx)` call, same
-proto/instance memory tradeoff. Prefer the decorator when your toolchain supports it (declarative,
-co-located with the method); fall back to manual wiring in the constructor or on the prototype
-otherwise.
+Prefer prototype placement. It costs one wrapped function per class instead of one per instance,
+keeps normal method semantics including `super.method()`, and works with mixins and subclassing.
+Reach for per-instance binding only when the method is detached and passed around as a bare
+reference. A per-instance wrapper also holds the coroutine's own state for as long as the bound
+function lives, so it must not be cached in anything that outlives the instance.
+[Decorators](https://github.com/cancjs/canc/tree/master/packages/canc-decorators) documents the
+placement mechanism per decorator dialect.
 
-### `super` interaction
+### Things that do not work
 
-`cancAsync` wraps a generator function opaquely; it does not special-case `super`. Practical
-consequences:
+* passing an `async function` or an `async function*` to `canc.async`. There is nothing to drive,
+	and the call hangs or throws. Pass a plain generator function.
+* `yield canc.await(x)` without the star. The step resumes with a generator object instead of the
+	value, and cancellation is never wired.
+* annotating a body as `Generator<unknown, T, any>`, or as `any`. Both collapse step types. Let
+	inference do its work, or use `AsyncResult<T>` where a generator has no enclosing wrapper to
+	carry its type.
+* awaiting a plain, non-cancelable promise and expecting the work to stop. The chain stops, the
+	operation does not. Make it cancelable at its source with `cancelify` or `promisify` from the
+	[toolbox](https://github.com/cancjs/canc/tree/master/packages/canc-toolbox).
 
-- Calling `super.method()` from inside a coroutine generator body works normally. `super` is
- resolved lexically at the class body, unaffected by the wrap.
-- **Overriding a proto-wrapped coroutine method in a subclass and calling `super.method()`** invokes
- the wrapped (cancelable) parent version, same as calling any wrapped prototype method. The
- subclass override does not need its own `@AsyncMethod`, but if it wants cancelable behavior of
- its own body it needs its own wrap.
-- **Per-instance (bind:true) placement does not participate in the prototype chain.** The bound
- version lives as an own property on the instance, so `super.method()` from a subclass still
- reaches the *parent's prototype* method (unbound, or bound only if the parent's own constructor
- already ran and set its own-instance property before the subclass body executes further
- binding). Prefer proto-level placement in class hierarchies where `super` calls into a coroutine
- method are expected; reserve `bind:true` for leaf classes / detached callback use.
+## API
 
-### Memory notes
+### `@cancjs/coroutine`
 
-- Proto-level: **O(1)** wrapped functions regardless of instance count. The wrap happens once,
- at class-definition time.
-- Per-instance (`bind:true`): **O(n)** wrapped functions, one per instance, each closing over that
- instance's `this`. Each also holds whatever the coroutine's own state closes over (the
- generator, in-flight step promises) for the lifetime of the bound function. Discarding the
- instance must drop the last reference to the bound function for it to be collectable. Don't
- cache per-instance bound methods in a structure keyed by class/prototype (that's the exact
- cross-instance leak bug fixed in `@cancjs/decorators`, see its README). Own-property
- (self-replacing) placement is what makes per-instance methods garbage-collectable once the
- instance itself is unreferenced.
+| Export | Alias | Description |
+|---|---|---|
+| `cancAsync(genFn, ctx?, options?)` | `canc.async` | Wraps a generator function into a function returning a `CancelablePromise` |
+| `cancAwait(value)` | `canc.await` | One step, used as `yield* cancAwait(value)` |
+| `cancAwait.all` / `.race` / `.any` / `.allSettled` / `.try` | | Combinators folded into a single step, tuple types preserved |
+| `cancForAwait(source, callback)` | `canc.forAwait` | Consumes an async or sync iterable, one cancellation point per item |
+| `cancForAwait.toArray(source)` | | Collects a source into an array |
+| `BreakError`, `isBreakError` | | Breaking out of a stream from deeper code |
+| `AsyncResult<T>` | | Return type for a generator body that has no enclosing wrapper |
 
-### Inheritance cases
+`options` are
+[`CancelablePromise` options](https://github.com/cancjs/canc/tree/master/packages/canc-promise#options)
+and configure the promise the coroutine returns. `ctx` sets `this` for the generator body.
 
-| Case | Behavior |
-|---|---|
-| Subclass does not override the coroutine method | Inherits the proto-level wrap (or, for `bind:true`, gets its own per-instance wrap via the same initializer/decorator applied by the base class). |
-| Subclass overrides with its own generator, no decorator | Plain override; not cancelable unless it wraps itself. |
-| Subclass overrides with its own `@AsyncMethod`/`cancAsync` | Independent wrap; `super.method()` reaches the parent's wrap (see `super` interaction above). |
-| Mixins applying `@AsyncMethod` to the same key at multiple levels | Last applied wins on that prototype, standard JS method-resolution rules; no special coroutine behavior. |
+### `@cancjs/coroutine/gen`
 
-Cross-linked from the `@cancjs/decorators` README (`## Class-method placement`). The mechanism
-table there is the canonical source for the proto/instance decision; this page adds the
-coroutine-body (`super`, generator-per-instance memory) specifics on top of it.
+| Export | Alias | Description |
+|---|---|---|
+| `cancGenAsync(genFn, options?)` | `cancGen.async` | Wraps a generator function into a function returning a cancelable async generator |
+| `cancGenAwait(value)` | `cancGen.await` | Internal step inside a producer, not emitted |
+| `cancGenAwait.all` / `.race` / `.any` / `.allSettled` / `.try` | | Same combinators for producer bodies |
+| `cancGenForAwait(source, callback)` | `cancGen.forAwait` | Consumes a source inside a producer without emitting its items |
+| `cancGenForAwait.toArray(source)` | | Collects a source into an array |
+| `cancGenDelegate(source)` | `cancGen.delegate` | Re-emits another async iterable to the consumer |
+| `AsyncGenResult<E, R>` | | Return type for a producer body, emit type and return type |
 
-## Mirror namespaces
+## Compatibility
 
-The API is available under two namespaces for different use cases:
-
-- **`canc` namespace** (main): `cancAsync`, `cancAwait`, `cancForAwait`, plus combinators
- `cancAwait.all/race/any/allSettled`. Default for promise-based coroutines. Import from main entry:
- `import { cancAsync, cancAwait, cancForAwait } from '@cancjs/coroutine'`, or use the aliases:
- `import * as canc from '@cancjs/coroutine'` then `canc.async`, `canc.await`, `canc.forAwait`.
-
-- **`cancGen` namespace** (subpath import): `cancGenAsync`, `cancGenAwait`, `cancGenForAwait`,
- `cancGenDelegate`, `AsyncGenResult`. Prefer when working primarily with async generators; the
- names align with the `async function*` protocol. Import with
- `import * as cancGen from '@cancjs/coroutine/gen'` and use `cancGen.async`, `cancGen.await`,
- `cancGen.forAwait`, `cancGen.delegate`, or cherry-pick individual named exports.
-
-The two namespaces are completely parallel: `cancGenAsync` and `cancAsync` are the same at runtime;
-pick whichever naming convention fits your mental model. Use `canc` for promise chains, `cancGen`
-when your coroutine drives async generators.
-
-## Streaming with `cancForAwait`
-
-Inside a `cancAsync` coroutine, use `cancForAwait` to drive an async iterator with per-item
-cancellation:
-
-```ts
-yield* cancForAwait(stream, (item) => {
- // Process each item. Body can use yield* cancAwait(work).
- // Return false to break early; return undefined (or omit) to continue.
-});
-```
-
-Collect all items into an array:
-
-```ts
-const allItems = yield* cancForAwait.toArray(stream);
-```
-
-Callback forms: sync function, bare generator function (with `yield*` in the body), or
-`cancAsync` coroutine. Canceling the parent coroutine stops the stream and cleans up via
-`finally`.
+Node.js 18 and later, current browsers, TypeScript 4.2 and later. Generators are required, so an
+ES5 build target needs `downlevelIteration`. Everything else follows
+[`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise#compatibility).
 
 ## Documentation
 
-- [`yield` vs `yield*`](docs/yield-vs-yield-star.md): why `yield* cancAwait(promise)` is typed and
- bare `yield promise` is not, the TypeScript limitation behind it, the typed combinator helpers
- (`cancAwait.all/race/any/allSettled`), and how redux-saga and MobX `flow` hit the same wall.
-- **Async generators in the mirror namespace**: for generator-driven coroutines, use `cancGenAsync`
- with `cancGenAwait` (typed internal await via `yield*`) and `cancGenForAwait`/`cancGenDelegate`
- for streaming. See the example READMEs for streaming patterns (`app-ws-progress`,
- `app-ai-rag-pipeline`).
+* [`yield` vs `yield*`](docs/yield-vs-yield-star.md) for the typing limitation behind the starred
+	form, and how redux-saga and MobX `flow` hit the same wall
+* [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) for the
+	cancellation model itself
+* [Decorators](https://github.com/cancjs/canc/tree/master/packages/canc-decorators) for class
+	methods
+* [Toolbox](https://github.com/cancjs/canc/tree/master/packages/canc-toolbox) for making existing
+	APIs cancelable
+* [Examples](https://github.com/cancjs/canc/tree/master/examples): `demo-coroutine` for the
+	basics, `app-ai-rag-pipeline` and `app-ws-progress` for streaming producers and consumers
 
 ## Contributing
 
@@ -235,4 +344,4 @@ You are welcome to participate through issues and pull requests!
 
 ## License
 
-[MIT](LICENSE)
+[MIT](../../LICENSE)
