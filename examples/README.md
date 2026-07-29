@@ -111,7 +111,6 @@ layer cancellation actually reaches.
 * [demo-fetch](demo-fetch) cancelable requests, external signals, pre-aborted signals, timeout
 	composition.
 * [demo-toolbox](demo-toolbox) pollers, retries, delays and timeouts under cancellation.
-* [demo-lazy-promise](demo-lazy-promise) lazy start, shared consumers, cancel before start, reset.
 * [demo-decorators](demo-decorators) one client class wired four ways, one per decorator dialect
 	plus the manual form.
 * [demo-signal-interop](demo-signal-interop) bridges in both directions between signals and
