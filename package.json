@@ -29,6 +29,7 @@
  "devDependencies": {
   "@eslint/js": "~10.0.1",
   "@eslint/json": "~2.0.1",
+  "@eslint/markdown": "~8.0.3",
   "@rollup/plugin-commonjs": "~25.0.8",
   "@rollup/plugin-node-resolve": "~15.2.3",
   "@rollup/plugin-terser": "~1.0.0",
