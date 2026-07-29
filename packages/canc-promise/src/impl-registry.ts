@@ -1,7 +1,7 @@
 import { CancelablePromise } from './cancelable-promise';
 
 /**
- * A promise implementation that ecosystem utilities (toolbox, lazy-promise, coroutine) can be
+ * A promise implementation that ecosystem utilities (toolbox, coroutine) can be
  * pointed at. Typed as `PromiseConstructor` because most consumers only need the standard
  * static/instance surface. Consumers that require canc-specific behavior narrow to
  * `typeof CancelablePromise` at their own call sites.

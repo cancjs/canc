@@ -1,5 +1,4 @@
 import { CancelError, CancelablePromise, isCancelError } from '@cancjs/promise';
-import { lazy } from '@cancjs/lazy-promise';
 import { makeCancelSignal, TGetSignal } from '../../_toolbox';
 import { IToolboxOptions, THandleCancel } from './options';
 
@@ -31,8 +30,6 @@ export interface ICancelifyContext {
 }
 
 export interface ICancelifyOptions extends IToolboxOptions {
-	/** Return a LazyPromise: the underlying fn is deferred until the first await. Default false. */
-	lazy?: boolean;
 	/** AbortController implementation used to mint the outbound signal. Defaults to the ambient global. */
 	AbortController?: AbortControllerCtor;
 }
@@ -59,7 +56,7 @@ export function cancelify<A extends any[], R>(
 			reject: (reason?: any) => void,
 			handleCancel?: THandleCancel,
 		) => {
-			// Both construction paths (CancelablePromise, CancelableLazyPromise) always supply
+			// Both construction paths (CancelablePromise) always supply
 			// handleCancel to the executor, so it is guaranteed defined here.
 			const holder = makeCancelSignal(handleCancel, Ctor, toCancelError);
 			CancelablePromise.resolve(fn({ getSignal: holder.getSignal, handleCancel: handleCancel! }, callArgs)).then(
@@ -67,10 +64,6 @@ export function cancelify<A extends any[], R>(
 				reject,
 			);
 		};
-
-		if (options?.lazy) {
-			return lazy(run, options) as unknown as CancelablePromise<R>;
-		}
 
 		return new CancelablePromise<R>(run, options);
 	};
