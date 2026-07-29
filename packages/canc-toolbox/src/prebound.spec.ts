@@ -1,5 +1,5 @@
 import { CancelablePromise, isCancelError } from '@cancjs/promise';
-import { delay, timeout, waitFor, minDelay, retry, deferCancelable } from './index';
+import { delay, timeout, waitFor, minDelay, retry, defer } from './index';
 
 // The prebound canc exports default to CancelablePromise, so their declared return type must be
 // CancelablePromise<T>. Each `.cancel()` below is called with no cast: if a return type ever
@@ -39,8 +39,8 @@ describe('prebound exports return CancelablePromise', () => {
 		promise.cancel();
 	});
 
-	it('deferCancelable promise exposes cancel without a cast', () => {
-		const deferred = deferCancelable<number>();
+	it('defer promise exposes cancel without a cast', () => {
+		const deferred = defer<number>();
 		expect(deferred.promise).toBeInstanceOf(CancelablePromise);
 		deferred.promise.cancel();
 	});

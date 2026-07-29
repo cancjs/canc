@@ -173,7 +173,7 @@ as its last argument.
 | Export | Description |
 |---|---|
 | `retry(input, options?)` | Retries with exponential backoff, `input` receives the attempt number |
-| `deferCancelable(options?)` | A deferred whose `promise` is cancelable |
+| `defer(options?)` | `{ promise, resolve, reject, cancel }` where `promise` is cancelable |
 
 ### Adapters
 

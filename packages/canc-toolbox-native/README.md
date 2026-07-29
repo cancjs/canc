@@ -56,7 +56,6 @@ can be stopped: `timeout` rejects but the underlying promise runs to completion,
 attempt finishes even after the returned promise has been abandoned, and a `delay` timer that
 nobody waits for still fires.
 
-`defer()` is exported here and not in the cancelable twin, which has `deferCancelable()` instead.
 Signal interop and `cancelify` have no meaning without cancellation and are twin-only.
 
 ## API

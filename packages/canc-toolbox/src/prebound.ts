@@ -31,11 +31,12 @@ export const promisifyAll = <T extends object>(source: T, options?: tb.IPromisif
  */
 export interface ICancelableDeferred<T> extends tb.IDeferred<T> {
 	promise: CancelablePromise<T>;
+	cancel: (reason?: any) => void | CancelablePromise<PromiseSettledResult<unknown>[]>;
 }
 
 /**
  * A defer whose promise is always a CancelablePromise, so the holder can cancel it directly.
  */
-export function deferCancelable<T = void>(options?: IToolboxOptions): ICancelableDeferred<T> {
+export function defer<T = void>(options?: IToolboxOptions): ICancelableDeferred<T> {
 	return tb.defer<T>(CancelablePromise as any, options) as ICancelableDeferred<T>;
 }
