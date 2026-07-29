@@ -1,44 +1,78 @@
 // @ts-check
-// Flat config (ESLint 9). Migrated from the former xo / xo-typescript .eslintrc.js.
-// The latest eslint-config-xo(-typescript) require ESLint >=10, prettier and
-// TypeScript >=6, so instead of their flat exports the base here is
-// typescript-eslint's recommended-type-checked + stylistic presets, with the
-// project's own xo-derived overrides ported on top. NO prettier, NO react/jsx.
+// Flat config (ESLint 10). Base is typescript-eslint's recommended-type-checked + stylistic
+// presets with this project's own overrides on top, replacing the former xo / xo-typescript
+// setup. Formatting is prettier, run as an ESLint rule so there is a single lint entry point and
+// a single --fix pass. No react/jsx.
+//
+// Kept structurally parallel to the eslint-plugin-canc config (same block order, same comment
+// headings) so the two can be diffed. Differences between them are scope differences, not style
+// drift: that project has no browser globals, uses projectService instead of per-package
+// projects, and lints its own rule sources with eslint-plugin-eslint-plugin.
 
 import js from '@eslint/js';
-import stylistic from '@stylistic/eslint-plugin';
+import json from '@eslint/json';
+import markdown from '@eslint/markdown';
+import { defineConfig, globalIgnores } from 'eslint/config';
+import packageJson from 'eslint-package-json';
+import prettierConfig from 'eslint-config-prettier';
+import importX from 'eslint-plugin-import-x';
+import prettier from 'eslint-plugin-prettier';
+import simpleImportSort from 'eslint-plugin-simple-import-sort';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
-export default tseslint.config(
+// Prettier options for code. Tabs match the existing sources. Shared verbatim with the
+// eslint-plugin-canc config; change them in both or in neither.
+const prettierCodeOptions = {
+	endOfLine: 'auto',
+	singleQuote: true,
+	printWidth: 120,
+	singleAttributePerLine: true,
+	experimentalTernaries: true,
+	useTabs: true,
+};
+
+// JSON keeps spaces. npm rewrites package.json when it touches it and preserves whatever indent
+// it finds, so tabs there would only invite churn.
+//
+// trailingComma must be none: prettier's jsonc parser would otherwise emit trailing commas that
+// the json/jsonc language then refuses to parse, so the two would fight over every fixed file.
+const prettierJsonOptions = {
+	endOfLine: 'auto',
+	useTabs: false,
+	tabWidth: 2,
+	trailingComma: 'none',
+};
+
+export default defineConfig(
+	// Scratch convention (`~~` prefix/suffix, files + dirs) plus build output and lockfiles.
+	// examples/ is a separate npm project with its own toolchain.
+	globalIgnores([
+		'**/~~*',
+		'**/*~~',
+		'**/*~~*',
+		'**/build/**',
+		'**/dist/**',
+		'**/coverage/**',
+		'**/node_modules/**',
+		'**/package-lock.json',
+		'examples/**',
+	]),
+
+	// Presets must stay scoped to JS/TS. Unscoped they also apply to the JSON and markdown blocks
+	// below, and core rules crash on those languages' ASTs.
 	{
-		// Scratch convention (`~~` prefix/suffix, files + dirs) plus build output
-		// and lockfiles. Mirrors the former .eslintignore.
-		ignores: [
-			'**/~~*',
-			'**/*~~',
-			'**/*~~*',
-			'**/build/**',
-			'**/dist/**',
-			'**/coverage/**',
-			'**/node_modules/**',
-			'package-lock.json',
-			'yarn.lock',
+		files: ['**/*.{ts,tsx,js,jsx,cjs,mjs}'],
+		extends: [
+			js.configs.recommended,
+			tseslint.configs.recommendedTypeChecked,
+			tseslint.configs.stylisticTypeChecked,
 		],
 	},
 
-	// Base presets. recommended-type-checked + stylistic-type-checked replace the
-	// old `xo` / `xo-typescript` extends; @stylistic supplies the layout rules the
-	// old config tuned by hand (indent, quotes, operator-linebreak, ...).
-	js.configs.recommended,
-	...tseslint.configs.recommendedTypeChecked,
-	...tseslint.configs.stylisticTypeChecked,
-
-	// Shared language options + core rule overrides (applies to every file).
+	// Shared language options + core rule overrides (every JS/TS file).
 	{
-		plugins: {
-			'@stylistic': stylistic,
-		},
+		files: ['**/*.{ts,tsx,js,jsx,cjs,mjs}'],
 		languageOptions: {
 			globals: {
 				...globals.node,
@@ -46,157 +80,217 @@ export default tseslint.config(
 			},
 		},
 		rules: {
-			// Core
-			'arrow-parens': 'off',
-			'capitalized-comments': 'off',
-			'func-names': 'off',
-			'eqeqeq': ['error', 'always', { null: 'ignore' }],
+			eqeqeq: ['error', 'always', { null: 'ignore' }],
 			'max-depth': ['error', 8],
-			'no-await-in-loop': 'off',
-			'no-else-return': 'off',
-			'no-eq-null': 'off',
-			'no-implicit-coercion': 'off',
 			'prefer-const': 'warn',
-
-			// @stylistic (layout rules extracted from ESLint core / typescript-eslint)
-			// Indentation (indent) and basic formatting are warn level — source uses mixed tabs/spaces,
-			// and formatting rules are deferred to cleanup phases.
-			'@stylistic/generator-star-spacing': ['warn', { before: false, after: true }],
-			'@stylistic/indent': ['warn', 'tab', {
-				MemberExpression: 0,
-				SwitchCase: 1,
-			}],
-			'@stylistic/no-multiple-empty-lines': ['warn', { max: 2 }],
-			'@stylistic/object-curly-spacing': ['warn', 'always'],
-			'@stylistic/operator-linebreak': ['warn', 'after', { overrides: { '?': 'before', ':': 'before' } }],
-			'@stylistic/quotes': ['warn', 'single', { avoidEscape: true, allowTemplateLiterals: 'always' }],
-			'@stylistic/yield-star-spacing': ['warn', 'after'],
 		},
 	},
 
 	// TypeScript sources.
 	{
-		files: ['**/*.ts', '**/*.tsx'],
+		files: ['**/*.{ts,tsx}'],
 		rules: {
-			// Core already checked by TypeScript
-			'getter-return': 'off',
-			'no-dupe-args': 'off',
-			'no-dupe-keys': 'off',
-			'no-unreachable': 'off',
-			'valid-typeof': 'off',
-			'no-const-assign': 'off',
-			'no-new-symbol': 'off',
-			'no-this-before-super': 'off',
-			'no-undef': 'off',
-			'no-dupe-class-members': 'off',
-			'no-redeclare': 'off',
-
-			// @typescript-eslint
 			'@typescript-eslint/array-type': 'off',
-			// ban-types was removed in typescript-eslint v8; the wrapper-object bans
-			// below are ported to its successor, no-restricted-types.
-			'@typescript-eslint/no-restricted-types': ['error', {
-				types: {
-					String: {
-						message: 'Use `string` instead.',
-						fixWith: 'string',
-					},
-					Number: {
-						message: 'Use `number` instead.',
-						fixWith: 'number',
-					},
-					Boolean: {
-						message: 'Use `boolean` instead.',
-						fixWith: 'boolean',
-					},
-					Symbol: {
-						message: 'Use `symbol` instead.',
-						fixWith: 'symbol',
-					},
-				},
-			}],
 			'@typescript-eslint/consistent-generic-constructors': 'warn',
 			'@typescript-eslint/consistent-type-assertions': 'off',
 			'@typescript-eslint/dot-notation': 'warn',
 			'@typescript-eslint/explicit-function-return-type': 'off',
-			'@typescript-eslint/no-empty-function': 'off',
-			'@typescript-eslint/member-ordering': ['error', {
-				default: [
-					'signature',
-					// Static
-					'static-field', // = ['public-static-field', 'protected-static-field', 'private-static-field']
-					'static-method', // = ['public-static-method', 'protected-static-method', 'private-static-method']
-					// Fields
-					'abstract-field', // = ['public-abstract-field', 'protected-abstract-field', 'private-abstract-field']
-					'instance-field', // = ['public-instance-field', 'protected-instance-field', 'private-instance-field']
-					// Constructor
-					'constructor', // = ['public-constructor', 'protected-constructor', 'private-constructor']
-					// Methods
-					'abstract-method', // = ['public-abstract-method', 'protected-abstract-method', 'private-abstract-method']
-					'instance-method', // = ['public-instance-method', 'protected-instance-method', 'private-instance-method']
-				],
-			}],
 			'@typescript-eslint/method-signature-style': 'off',
-			// no-throw-literal (extension rule) became only-throw-error in v8.
-			'@typescript-eslint/only-throw-error': 'off',
+			'@typescript-eslint/no-empty-function': 'off',
 			'@typescript-eslint/no-unnecessary-type-assertion': 'off',
-			// Type-aware correctness rules downgraded to warn (v8 recommended is strict, but
-			// codebase has pre-existing type debt; these fire as warnings until cleanup phases).
-			// no-explicit-any: warn (replaces v8 strict error; old xo-typescript had it off)
-			// no-unsafe-*: warn (same rationale; deferred cleanup)
-			// no-unnecessary-type-constraint: warn (pre-existing, was error in old xo too)
-			// no-duplicate-type-constituents: warn (new in v8)
-			// no-unsafe-function-type: warn (new in v8)
-			// no-prefer-function-type: warn (linting aid)
-			// unbound-method: warn
-			// no-this-alias: warn (minor correctness)
-			// no-misused-promises: warn
+			'@typescript-eslint/only-throw-error': 'off',
+			'@typescript-eslint/prefer-nullish-coalescing': 'off',
+			'@typescript-eslint/prefer-readonly-parameter-types': 'off',
+			'@typescript-eslint/promise-function-async': 'off',
+			'@typescript-eslint/restrict-plus-operands': 'off',
+			'@typescript-eslint/unified-signatures': 'off',
+
+			// Wrapper object types are never what the author meant.
+			'@typescript-eslint/no-restricted-types': [
+				'error',
+				{
+					types: {
+						String: { message: 'Use `string` instead.', fixWith: 'string' },
+						Number: { message: 'Use `number` instead.', fixWith: 'number' },
+						Boolean: { message: 'Use `boolean` instead.', fixWith: 'boolean' },
+						Symbol: { message: 'Use `symbol` instead.', fixWith: 'symbol' },
+					},
+				},
+			],
+
+			'@typescript-eslint/member-ordering': [
+				'error',
+				{
+					default: [
+						'signature',
+						'static-field',
+						'static-method',
+						'abstract-field',
+						'instance-field',
+						'constructor',
+						'abstract-method',
+						'instance-method',
+					],
+				},
+			],
+
+			'@typescript-eslint/no-floating-promises': ['error', { ignoreVoid: true, ignoreIIFE: true }],
+
+			'@typescript-eslint/no-unused-vars': [
+				'warn',
+				{
+					vars: 'all',
+					varsIgnorePattern: '^_',
+					args: 'after-used',
+					argsIgnorePattern: '^_',
+					ignoreRestSiblings: true,
+					caughtErrors: 'all',
+					caughtErrorsIgnorePattern: '^_',
+				},
+			],
+
+			// Pre-existing type debt. These stay at warn so they are visible without blocking a
+			// build, and get cleared package by package.
 			'@typescript-eslint/no-duplicate-type-constituents': 'warn',
 			'@typescript-eslint/no-explicit-any': 'warn',
-			'@typescript-eslint/no-floating-promises': ['error', { ignoreVoid: true, ignoreIIFE: true }],
 			'@typescript-eslint/no-misused-promises': 'warn',
+			'@typescript-eslint/no-require-imports': 'warn',
 			'@typescript-eslint/no-this-alias': 'warn',
+			'@typescript-eslint/no-unnecessary-type-constraint': 'warn',
 			'@typescript-eslint/no-unsafe-argument': 'warn',
 			'@typescript-eslint/no-unsafe-assignment': 'warn',
 			'@typescript-eslint/no-unsafe-call': 'warn',
 			'@typescript-eslint/no-unsafe-function-type': 'warn',
 			'@typescript-eslint/no-unsafe-member-access': 'warn',
 			'@typescript-eslint/no-unsafe-return': 'warn',
-			'@typescript-eslint/no-unnecessary-type-constraint': 'warn',
-			'@typescript-eslint/no-unused-vars': ['warn', {
-				vars: 'all',
-				varsIgnorePattern: '^_',
-				args: 'after-used',
-				ignoreRestSiblings: true,
-				argsIgnorePattern: '^_',
-				caughtErrors: 'all',
-				caughtErrorsIgnorePattern: '^_',
-			}],
-			'@typescript-eslint/no-require-imports': 'warn',
 			'@typescript-eslint/prefer-function-type': 'warn',
-			'@typescript-eslint/prefer-nullish-coalescing': 'off',
-			'@typescript-eslint/prefer-readonly-parameter-types': 'off',
-			'@typescript-eslint/promise-function-async': 'off',
 			'@typescript-eslint/unbound-method': 'warn',
-			// quotes moved to @stylistic in typescript-eslint v8.
-			'@stylistic/quotes': ['warn', 'single', { avoidEscape: true, allowTemplateLiterals: 'always' }],
-			'@typescript-eslint/restrict-plus-operands': 'off',
-			'@typescript-eslint/unified-signatures': 'off',
 		},
 	},
 
-	// JavaScript sources (config/tooling scripts): jest, rollup, eslint configs.
-	// Type-checked rules can't run on these (not in any tsconfig project), so
-	// disable them, then apply the JS-specific overrides from the old config.
+	// JavaScript sources (jest, rollup and eslint configs, scripts). Not in any tsconfig project,
+	// so type-aware rules cannot run on them.
 	{
-		files: ['**/*.js', '**/*.jsx', '**/*.cjs', '**/*.mjs'],
+		files: ['**/*.{js,jsx,cjs,mjs}'],
 		extends: [tseslint.configs.disableTypeChecked],
 		languageOptions: {
 			globals: globals.node,
 		},
 		rules: {
 			'@typescript-eslint/no-require-imports': 'warn',
-			'prefer-object-spread': 'off',
+		},
+	},
+
+	// Import hygiene. Sources already follow this grouping; the rules just keep it that way.
+	{
+		files: ['**/*.{ts,tsx,js,jsx,cjs,mjs}'],
+		plugins: {
+			'simple-import-sort': simpleImportSort,
+			'import-x': importX,
+		},
+		rules: {
+			'simple-import-sort/imports': 'error',
+			'simple-import-sort/exports': 'error',
+			'import-x/first': 'error',
+			'import-x/newline-after-import': 'error',
+			'import-x/no-duplicates': 'error',
+		},
+	},
+
+	// JSON. @eslint/json parses through the language API, which exposes real source text, so
+	// prettier/prettier runs here too and one --fix pass covers both correctness and layout.
+	{
+		files: ['**/*.json'],
+		ignores: ['**/tsconfig*.json'],
+		language: 'json/json',
+		extends: [json.configs.recommended],
+		plugins: { prettier },
+		rules: {
+			'prettier/prettier': ['error', { ...prettierJsonOptions, parser: 'json' }],
+		},
+	},
+
+	// tsconfig files carry comments, so they are JSONC whatever the extension says.
+	{
+		files: ['**/tsconfig*.json', '**/*.jsonc', '.vscode/*.json'],
+		language: 'json/jsonc',
+		extends: [json.configs.recommended],
+		plugins: { prettier },
+		rules: {
+			'prettier/prettier': ['error', { ...prettierJsonOptions, parser: 'jsonc' }],
+		},
+	},
+
+	// package.json manifests. Must come after the generic JSON block so these rules win.
+	{
+		files: ['**/package.json'],
+		language: 'json/json',
+		extends: [packageJson.configs.recommended],
+		plugins: { prettier },
+		rules: {
+			// Packages are commonjs on purpose: the build emits ES5-capable CJS alongside ESM.
+			'package-json/prefer-type-module': 'off',
+			// No CI yet, so nothing can produce provenance attestations.
+			'package-json/prefer-provenance': 'off',
+			// False positive on a workspace layout: it reads packages/*/package.json as nested
+			// manifests, but those are package roots and their exports field is honoured.
+			'package-json/no-nested-exports': 'off',
+			// main/module/unpkg/jsdelivr are kept alongside exports on purpose, for old bundlers
+			// and for the CDN entries. Dropping them would break the published surface.
+			'package-json/prefer-exports': 'off',
+			// Same reason: those legacy fields conventionally carry no ./ prefix.
+			'package-json/consistent-path-prefix': 'off',
+			// The rule infers ESM and flags the .d.ts as mismatched. These packages are commonjs
+			// with downlevelled types, which is the intended pairing.
+			'package-json/require-types-in-exports': 'off',
+			// The condition lists are exhaustive (types/import/require), so a default fallback
+			// would only mask a genuinely missing condition.
+			'package-json/require-default-condition': 'off',
+			// engines.npm is deliberate. This repo pins no packageManager field.
+			'package-json/no-package-manager-engines': 'off',
+			// A `*` range marks a workspace-linked sibling, resolved by npm workspaces.
+			'package-json/no-wildcard-dependencies': 'off',
+			// devDependencies are pinned with ~ by convention across this repo.
+			'package-json/dependency-version-range': 'off',
+
+			'prettier/prettier': ['error', { ...prettierJsonOptions, parser: 'json' }],
+		},
+	},
+
+	// Type-matrix fixture manifests. Scaffolding for the TypeScript version matrix, never
+	// published and never installed as a package, so the publishing rules do not apply. The
+	// `latest` dist-tag is the point of the latest lane.
+	{
+		files: ['tests-types/fixtures/**/package.json'],
+		rules: {
+			'package-json/no-dist-tag-dependencies': 'off',
+			'package-json/require-engines': 'off',
+			'package-json/require-fields': 'off',
+			'package-json/prefer-files-field': 'off',
+			'package-json/require-entry-point': 'off',
+			'package-json/no-empty-fields': 'off',
+		},
+	},
+
+	// Markdown. proseWrap stays at its default (preserve), so prose is never rewrapped; this only
+	// normalizes list markers, headings, fences and tables.
+	{
+		files: ['**/*.md'],
+		language: 'markdown/gfm',
+		plugins: { markdown, prettier },
+		rules: {
+			'prettier/prettier': ['error', { endOfLine: 'auto', parser: 'markdown' }],
+		},
+	},
+
+	// Code formatting. eslint-config-prettier first switches off every layout rule the presets
+	// enable, then prettier owns layout outright.
+	{
+		files: ['**/*.{ts,tsx,js,jsx,cjs,mjs}'],
+		extends: [prettierConfig],
+		plugins: { prettier },
+		rules: {
+			'prettier/prettier': ['error', prettierCodeOptions],
 		},
 	},
 );
