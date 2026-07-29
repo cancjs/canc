@@ -25,7 +25,7 @@ export interface IHandleCancelOptions {
 export type TCancelablePromiseStates = 'PENDING' | 'FORCE_PENDING' | 'FULFILLED' | 'REJECTED' | 'CANCELED';
 
 export interface ICancelablePromiseFlagOptions {
-	/** cancel() asynchronously settles failed cancelation handlers instead of throwing */
+	/** Awaitable cancel mode: cancel() returns a promise covering all transitive cleanup */
 	asyncCancel?: boolean;
 	/** Keeps the current promise cancelable when native promise is provided through resolve() */
 	forceCancelable?: boolean;
@@ -80,6 +80,11 @@ export interface ICancelablePromiseWithResolvers<T> {
 
 function noop() {/**/}
 
+// Cleanup-collector threading: the INITIATOR's cancel() allocates a collector array and sets this
+// before dispatching handlers. Synchronous re-entrant cancels (bubble, cascade) read it to push
+// their handler results into the same collector. Restored after dispatch (stack discipline).
+let _activeCollector: any[] | undefined;
+
 const states = {
 	PENDING: 'PENDING',
 	FORCE_PENDING: 'FORCE_PENDING',
@@ -119,6 +124,9 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	static declare readonly [Symbol.species]: PromiseConstructor;
 
 	protected static _pendingInternalCall= false;
+
+	/** @internal Exposed for coroutine cancel override to read the active collector. */
+	protected static get _activeCollector(): any[] | undefined { return _activeCollector; }
 
 	static defaultOptions: Required<ICancelablePromiseFlagOptions> = {
 		asyncCancel: true,
@@ -556,6 +564,9 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	protected _abortListeners?: Map<IAbortSignal, any>;
 	// Bound `cancel`, created lazily only when a detached reference is requested (withResolvers).
 	protected _boundCancel?: TCancelFn;
+	// Cleanup collector stored on the instance so async bubbles (bubbleOnComplete .then()) can
+	// read it after _activeCollector has been restored.
+	protected _collector?: any[];
 
 	/**
 	 * Creates a new Promise.
@@ -1035,68 +1046,80 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	 * object becomes the `cause` of a fresh {@link CancelError}; a string/undefined becomes its
 	 * message. Registered cancel handlers still receive the original `reason`.
 	 *
-	 * Return contract: in `asyncCancel` mode (default) returns a promise that settles once all
-	 * cancel handlers have settled, an empty `allSettled` result when there are none, so the
-	 * result is always awaitable. In `asyncCancel:false` (sync) mode handlers run synchronously and
-	 * `cancel()` returns `undefined`.
+	 * Return contract: in awaitable cancel mode (`asyncCancel`, the default) returns a promise
+	 * that settles once all cancel handlers in the entire cancellation cascade have settled,
+	 * including handlers registered on ancestor promises reached by bubble propagation. An
+	 * explicit `await cancel()` therefore postpones until the complete cleanup is done, not
+	 * just the local handlers. In non-awaitable mode (`asyncCancel:false`) handlers run
+	 * synchronously and `cancel()` returns `undefined`; a handler that returns a thenable in
+	 * this mode throws under `strict` (the handler needs async cleanup but the caller opted
+	 * out of awaiting it).
 	 *
 	 * Handler timing: registered cancel handlers START synchronously the moment the cancel takes
 	 * effect, regardless of what triggered it (an explicit `cancel()`, an upstream rejection, or a
 	 * bubble from settled children). What a handler returns is still awaited asynchronously by the
-	 * `asyncCancel` settlement promise; only the handler's invocation is synchronous.
+	 * returned settlement promise; only the invocation is synchronous.
 	 *
 	 * On an already-settled/canceled promise this is a silent no-op unless `strict`, which throws.
 	 * @param reason The cancellation reason.
 	 */
 	cancel(reason?: any, _disposing?: boolean): void | CancelablePromise<PromiseSettledResult<unknown>[]> {
-		// `_disposing` is the internal disposal path (Symbol.dispose / Symbol.asyncDispose via
-		// _dispose): it suppresses the strict throws (disposal is always a no-throw no-op on a
-		// shielded or already-settled promise, never an error) WITHOUT mutating public state, and it
-		// marks the fresh CancelError as disposed. Routing dispose through cancel() means an
-		// overridden cancel (e.g. the coroutine finally-drain) governs disposal too.
+		// Cascade: this cancel was triggered by an active cancel wave (bubble or cascade from
+		// another cancel()). Thread the existing collector instead of allocating a new one.
+		if (_activeCollector) {
+			this._cancel(reason, _disposing, _activeCollector);
+			return;
+		}
 
-		// Shield: a shielded promise protects its own pending work from cancelation initiated
-		// from below/outside — a direct cancel() is a silent no-op (strict → throw), and a
-		// bubble-cancel from children (which arrives via this same cancel() call in _chain) is
-		// stopped here. Down-propagation is untouched: an upstream cancel/reject reaches this
-		// promise through the _reject wrapper, not through cancel(), so shielded nodes still settle.
+		// Initiator: allocate a collector when asyncCancel so the returned allSettled covers
+		// all transitive teardowns reached by the synchronous cancel cascade.
+		if (this.cancelable && this.asyncCancel && !this.shield) {
+			const collector: any[] = [];
+			this._cancel(reason, _disposing, collector);
+			const This = this.constructor as typeof CancelablePromise;
+			return collector.length ? This.allSettled(collector) : This.resolve([]);
+		}
+
+		this._cancel(reason, _disposing);
+	}
+
+	/**
+	 * Protected cancel implementation. All cancel logic lives here; `cancel()` is a thin wrapper
+	 * that decides whether to allocate a collector (initiator) or thread an existing one (cascade).
+	 */
+	protected _cancel(reason?: any, disposing?: boolean, collector?: any[]): void {
 		if (this.shield && this.cancelable) {
-			if (this.strict && !_disposing) {
+			if (this.strict && !disposing) {
 				throw new Error('Shielded promise cannot be canceled');
 			}
-
 			return;
 		}
 
 		if (this.cancelable) {
-			// Set CANCELED BEFORE _reject so the reject wrapper's external-cancel branch is
-			// skipped (no double firing of handlers on the cancel() path).
 			this._internalState = states.CANCELED;
 
-			// Normalize the cancellation reason into a CancelError:
-			// - an existing CancelError (brand-checked) passes through unwrapped;
-			// - any other object is preserved as `cause` of a fresh CancelError (arbitrary-object
-			// reason support — the raw object is never used as the rejection reason directly);
-			// - a string/undefined becomes the CancelError message.
 			const error = isCancelError(reason)
 				? reason
 				: isObject(reason)
 					? new CancelError(undefined, { cause: reason })
 					: new CancelError(reason);
 
-			if (_disposing) {
+			if (disposing) {
 				error.disposed = true;
 			}
 
 			this._reject(error);
-
-			// Settlement effects (listener cleanup) are already called in the reject wrapper
-			// after state transition (reject() is synchronous), but call again to ensure
-			// cleanup on cancel path. The map-based tracking prevents double-cleanup.
 			this._runSettlementEffects();
 
-			return this._runCancellation(reason, true);
-		} else if (this.strict && !_disposing) {
+			// Store collector on instance for async bubbles (.then()-based bubbleOnComplete)
+			// to read after the synchronous _activeCollector has been restored.
+			if (collector) this._collector = collector;
+
+			const prev = _activeCollector;
+			if (collector) _activeCollector = collector;
+			this._runCancellation(reason, collector);
+			_activeCollector = prev;
+		} else if (this.strict && !disposing) {
 			throw new Error(`${this.canceled ? 'Canceled' : 'Settled'} promise cannot be canceled`);
 		}
 	}
@@ -1136,73 +1159,55 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 	 * suppresses the promise's own unhandled rejection and fires registered cancel handlers.
 	 * State (CANCELED) must already be set by the caller.
 	 *
-	 * `needsReturn` is true only for the explicit `cancel()`/`_dispose()` callers whose return value
-	 * is consumed (always-return contract). The bubble/external-CancelError reject paths discard
-	 * the return, so they pass false and skip constructing the settlement promise entirely — the
-	 * decisive win for cancel storms, where every node in the chain is canceled but only the caller's
-	 * return is ever awaited.
+	 * When a `collector` array is provided (from the initiator's cancel()), handler promises are
+	 * pushed into it instead of building a local allSettled. The initiator wraps the collector in
+	 * one top-level allSettled that covers the entire transitive cancel cascade. Without a collector,
+	 * handlers fire-and-forget (bubble/external-cancel paths).
 	 */
-	protected _runCancellation(reason?: any, needsReturn?: boolean): void | CancelablePromise<PromiseSettledResult<unknown>[]> {
-		// Retain the original reason for late immediate handlers.
+	protected _runCancellation(reason?: any, collector?: any[]): void {
 		this._canceledReason = reason;
 		this._isCanceledReasonSet = true;
 
-		// Suppress unhandled rejection (targeted — only for canceled promises). Go through `_then`
-		// (not the public `catch`) so the derived suppression child takes the internal-construction
-		// fast path (no options normalization, no signal wiring) and none of `then()`'s chain
-		// bookkeeping (`_chain`, flag copy) runs. Registering this no-op rejection reaction is what
-		// marks the rejection handled for the host; the child itself is discarded.
 		this._then(undefined, noop);
 
 		const handlers = this._cancelHandlers;
 
 		if (this.asyncCancel) {
-			// No handlers (the common case): nothing to run. Only the consumed-return callers pay
-			// for the empty-allSettled stand-in; the discard-return paths (bubble, external cancel)
-			// build nothing.
 			if (!handlers || handlers.length === 0) {
-				return needsReturn ? (this.constructor as typeof CancelablePromise).resolve([]) : undefined;
+				return;
 			}
 
-			// Discard-return paths (bubble/external-cancel cascade — every node in a canceled chain):
-			// the caller ignores the return, so skip the allSettled + per-handler combinator machinery
-			// entirely. Handlers run synchronously here, the same way the consumed-return path below
-			// starts each handler synchronously inside its settlement-promise executor, so a handler's
-			// start time does not depend on which path canceled the promise. Their own rejections are
-			// swallowed (thenable results absorbed with a noop reaction), matching the allSettled
-			// path's no-unhandled-rejection behavior without constructing an all()/withResolvers per
-			// canceled node. This is the dominant cost in a cancel storm, where the bubble bookkeeping
-			// registers an onComplete handler on every intermediate node.
-			if (!needsReturn) {
-				const pending = handlers.slice();
-				handlers.length = 0;
-				for (const handler of pending) {
-					try {
-						const r = handler(reason);
-						if (isThenable(r)) {
-							(r as PromiseLike<unknown>).then(noop, noop);
-						}
-					} catch (_e) {
-						// asyncCancel swallows handler failures; nothing consumes them here.
-					}
+			if (collector) {
+				const This = this.constructor as typeof CancelablePromise;
+				for (const handler of handlers) {
+					collector.push(new This(resolve => resolve(handler(reason))));
 				}
-				return undefined;
+				handlers.length = 0;
+				return;
 			}
 
-			const This = this.constructor as typeof CancelablePromise;
-			const handlerPromises = handlers.map(handler => new This(resolve => resolve(handler(reason))));
+			// Fire-and-forget (no collector): bubble/external-cancel cascade.
+			const pending = handlers.slice();
 			handlers.length = 0;
-
-			// Consumed-return path (explicit cancel()/dispose): allSettled drives the handlers and
-			// gives the caller an awaitable that settles once all handlers settle.
-			return This.allSettled(handlerPromises);
+			for (const handler of pending) {
+				try {
+					const r = handler(reason);
+					if (isThenable(r)) {
+						(r as PromiseLike<unknown>).then(noop, noop);
+					}
+				} catch (_e) {/**/}
+			}
 		} else {
-			// Sync mode returns undefined (documented split): handlers fire synchronously and any
-			// throw would surface immediately, so there is nothing to await.
 			if (handlers?.length) {
 				try {
 					for (const handler of handlers) {
-						handler(reason);
+						const r = handler(reason);
+						if (isThenable(r)) {
+							if (this.strict) {
+								throw new Error('Cancel handler returned a thenable in non-awaitable cancel mode. Use asyncCancel:true or make the handler synchronous');
+							}
+							(r as PromiseLike<unknown>).then(noop, noop);
+						}
 					}
 				} finally {
 					handlers.length = 0;
@@ -1308,8 +1313,17 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 		}
 
 		if (bubbleOnComplete) {
-			// Optimized finally
-			childPromise.then(onComplete, onComplete);
+			// Async bubble (race/combinator settle): restore the child's collector into
+			// _activeCollector before firing onComplete so the parent's cascade joins the
+			// same collector wave. Without this, the async .then() fires on a later microtask
+			// when _activeCollector has already been cleared.
+			const onSettled = () => {
+				const prev = _activeCollector;
+				_activeCollector = (childPromise as any)._collector;
+				onComplete();
+				_activeCollector = prev;
+			};
+			childPromise.then(onSettled, onSettled);
 		} else {
 			childPromise.handleCancel(onComplete);
 		}

@@ -206,6 +206,13 @@ export function cancAsync<TFn extends IGeneratorLikeFn<TThis>, TArgs extends any
  if (self.asyncCancel) {
  const d = CancelablePromise.withResolvers<any>({ shield: true });
  drainDeferred = { promise: d.promise, resolve: d.resolve as (v?: any) => void };
+
+ // Participate in cleanup collector: if this cancel is part of a cascade,
+ // push the drain promise so the initiator's allSettled covers coroutine cleanup.
+ const collector = (CancelablePromise as any)._activeCollector as any[] | undefined;
+ if (collector) {
+ collector.push(d.promise);
+ }
  }
 
  drainFinally();
