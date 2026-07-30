@@ -89,9 +89,18 @@ export default defineConfig(
 		},
 	},
 
-	// TypeScript sources.
+	// TypeScript sources. The project here is the root-level lint project, which is what makes
+	// `eslint .` work from the repo root: it covers the shared inlinable dirs and the tooling
+	// scripts, which belong to no package tsconfig. Each package config overrides this with its
+	// own project so a per-package run stays scoped to that package.
 	{
 		files: ['**/*.{ts,tsx}'],
+		languageOptions: {
+			parserOptions: {
+				project: ['./tsconfig.eslint.json'],
+				tsconfigRootDir: import.meta.dirname,
+			},
+		},
 		rules: {
 			'@typescript-eslint/array-type': 'off',
 			'@typescript-eslint/consistent-generic-constructors': 'warn',

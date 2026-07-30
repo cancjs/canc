@@ -1,0 +1,19 @@
+// Project used only for typed linting from the repo root.
+//
+// The root tsconfig.json is a dummy for the IDE and includes no files, and each package tsconfig
+// only includes its own src. That leaves the shared inlinable dirs (packages/_util, _toolbox,
+// _lazy) and the tooling scripts belonging to no project, so a root-level `eslint .` cannot get
+// type information for them. This config covers everything the linter should see.
+{
+	"extends": "./tsconfig.test",
+	"include": ["packages", "tests-types/scripts", "benchmarks"],
+	"exclude": [
+		"node_modules",
+		"**/node_modules/**",
+		"**/~~**/*",
+		"**/**~~/*",
+		"**/build/**/*",
+		"**/dist/**/*",
+		"tests-types/fixtures/**"
+	]
+}
