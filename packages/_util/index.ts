@@ -1,15 +1,20 @@
 import type { ICancelable } from '@cancjs/promise';
 
-
-export const isObject = (value: any): value is Object => !!value && typeof value === 'object';
+// Deliberately not a type predicate. Callers duck-type straight after the check: they read a
+// `then` method, a brand symbol, an iterator. Narrowing to `object` strips the index signature
+// those reads need, and narrowing to a record breaks the casts callers apply afterwards. Leaving
+// the argument as-is keeps every call site working on the value it actually has.
+export const isObject = (value: any): boolean => !!value && typeof value === 'object';
 
 export const isFunction = (value: any): value is Function => typeof value === 'function';
 
 export const isThenable = (obj: any): obj is PromiseLike<any> => isObject(obj) && isFunction(obj.then);
 
-export const isGenerator = (value: any): value is Generator => isObject(value) && isFunction(value.next) && isFunction(value[Symbol.iterator]);
+export const isGenerator = (value: any): value is Generator =>
+	isObject(value) && isFunction(value.next) && isFunction(value[Symbol.iterator]);
 
-export const isCancelable = (obj: any): obj is ICancelable => isThenable(obj) && isFunction((obj as Partial<ICancelable>).cancel);
+export const isCancelable = (obj: any): obj is ICancelable =>
+	isThenable(obj) && isFunction((obj as Partial<ICancelable>).cancel);
 
 // Feature-detect native AggregateError (missing in older engines, e.g. pre-2021 QuickJS/Hermes);
 // fall back to a plain Error shaped the same way (name + errors property) so callers can rely on
