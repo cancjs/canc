@@ -1,4 +1,5 @@
 import { CancelablePromise, ICancelable, isCancelError } from '@cancjs/promise';
+
 import { IToolboxOptions, TExecutorCtx } from './options';
 
 // AbortSignal.any (ES2024 / Node 20.3+) exists at runtime in every supported target but is not
@@ -12,7 +13,7 @@ const abortSignalAny = (AbortSignal as unknown as { any(signals: AbortSignal[]):
 const NativePromise = Promise;
 
 function isObject(value: unknown): value is object {
-	return typeof value === 'object' && value !== null;
+  return typeof value === 'object' && value !== null;
 }
 
 /**
@@ -20,10 +21,10 @@ function isObject(value: unknown): value is object {
  * `name` of the DOMException a real AbortSignal produces so the same code path handles both.
  */
 export class AbortError extends Error {
-	override readonly name = 'AbortError';
-	constructor(message = 'The operation was aborted') {
-		super(message);
-	}
+  override readonly name = 'AbortError';
+  constructor(message = 'The operation was aborted') {
+    super(message);
+  }
 }
 
 /**
@@ -31,18 +32,18 @@ export class AbortError extends Error {
  * detected by `name`. A CancelError is not an AbortError even when it carries an abort as its cause.
  */
 export function isAbortError(error: unknown): error is { name: 'AbortError' } {
-	return isObject(error) && (error as { name?: unknown }).name === 'AbortError';
+  return isObject(error) && (error as { name?: unknown }).name === 'AbortError';
 }
 
 /**
  * Options recognized by {@link suppress}.
  */
 export interface ISuppressOptions extends IToolboxOptions {
-	/**
-	 * Also swallow an AbortError, whether it surfaced as a bare DOMException AbortError or as a
-	 * CancelError whose abort drove the cancellation. Off by default: only a CancelError is swallowed.
-	 */
-	abort?: boolean;
+  /**
+   * Also swallow an AbortError, whether it surfaced as a bare DOMException AbortError or as a
+   * CancelError whose abort drove the cancellation. Off by default: only a CancelError is swallowed.
+   */
+  abort?: boolean;
 }
 
 /**
@@ -50,11 +51,11 @@ export interface ISuppressOptions extends IToolboxOptions {
  * CancelError whose `aborted` getter is true) is caught only when `abort` is set.
  */
 function isSuppressed(reason: unknown, abort: boolean | undefined): boolean {
-	if (isCancelError(reason)) {
-		return true;
-	}
+  if (isCancelError(reason)) {
+    return true;
+  }
 
-	return Boolean(abort && isAbortError(reason));
+  return Boolean(abort && isAbortError(reason));
 }
 
 /**
@@ -64,28 +65,28 @@ function isSuppressed(reason: unknown, abort: boolean | undefined): boolean {
  * through the resolved implementation, so it is cancelable by default.
  */
 export function suppress<T>(promise: T | PromiseLike<T>, options?: ISuppressOptions): Promise<T | void> {
-	const abort = options?.abort;
+  const abort = options?.abort;
 
-	return new CancelablePromise<T | void>((resolve, reject, ctx?: TExecutorCtx) => {
-		CancelablePromise.resolve(promise).then(
-			(value) => resolve(value),
-			(reason) => {
-				if (isSuppressed(reason, abort)) {
-					resolve(undefined);
-				} else {
-					reject(reason);
-				}
-			},
-		);
+  return new CancelablePromise<T | void>((resolve, reject, ctx?: TExecutorCtx) => {
+    CancelablePromise.resolve(promise).then(
+      (value) => resolve(value),
+      (reason) => {
+        if (isSuppressed(reason, abort)) {
+          resolve(undefined);
+        } else {
+          reject(reason);
+        }
+      },
+    );
 
-		if (ctx) {
-			ctx.handleCancel(() => {
-				if (isCancelable(promise)) {
-					(promise as ICancelable).cancel();
-				}
-			});
-		}
-	}, options);
+    if (ctx) {
+      ctx.handleCancel(() => {
+        if (isCancelable(promise)) {
+          (promise as ICancelable).cancel();
+        }
+      });
+    }
+  }, options);
 }
 
 /**
@@ -93,11 +94,11 @@ export function suppress<T>(promise: T | PromiseLike<T>, options?: ISuppressOpti
  * `suppress(promise, { abort: true })`.
  */
 export function suppressAbort<T>(promise: T | PromiseLike<T>, options?: IToolboxOptions): Promise<T | void> {
-	return suppress(promise, { ...options, abort: true });
+  return suppress(promise, { ...options, abort: true });
 }
 
 function isCancelable(value: unknown): value is ICancelable {
-	return isObject(value) && typeof (value as { cancel?: unknown }).cancel === 'function';
+  return isObject(value) && typeof (value as { cancel?: unknown }).cancel === 'function';
 }
 
 /**
@@ -106,8 +107,8 @@ function isCancelable(value: unknown): value is ICancelable {
  * CancelablePromise with a CancelError, use `createCancelSignal` from `@cancjs/promise`.
  */
 export function createAbortSignal(): { signal: AbortSignal; abort: (reason?: unknown) => void } {
-	const controller = new AbortController();
-	return { signal: controller.signal, abort: controller.abort.bind(controller) };
+  const controller = new AbortController();
+  return { signal: controller.signal, abort: controller.abort.bind(controller) };
 }
 
 /**
@@ -118,60 +119,60 @@ export function createAbortSignal(): { signal: AbortSignal; abort: (reason?: unk
  * canceled (if cancelable) when either the signal or the timeout wins, leaving no detached work.
  */
 export function interopTimeout<T>(
-	promise: T | PromiseLike<T>,
-	ms: number,
-	signal?: AbortSignal,
-	options?: IToolboxOptions,
+  promise: T | PromiseLike<T>,
+  ms: number,
+  signal?: AbortSignal,
+  options?: IToolboxOptions,
 ): Promise<T> {
-	return new CancelablePromise<T>((resolve, reject, ctx?: TExecutorCtx) => {
-		const timeoutSignal = AbortSignal.timeout(ms);
-		// Compose the external signal (if any) with the timeout so one listener covers both. When
-		// no external signal is supplied, race against the timeout alone.
-		const combined = signal ? abortSignalAny([signal, timeoutSignal]) : timeoutSignal;
+  return new CancelablePromise<T>((resolve, reject, ctx?: TExecutorCtx) => {
+    const timeoutSignal = AbortSignal.timeout(ms);
+    // Compose the external signal (if any) with the timeout so one listener covers both. When
+    // no external signal is supplied, race against the timeout alone.
+    const combined = signal ? abortSignalAny([signal, timeoutSignal]) : timeoutSignal;
 
-		let settled = false;
+    let settled = false;
 
-		const onAbort = () => {
-			if (settled) return;
-			settled = true;
-			if (isCancelable(promise)) {
-				(promise as ICancelable).cancel(combined.reason);
-			}
-			reject(combined.reason);
-		};
+    const onAbort = () => {
+      if (settled) return;
+      settled = true;
+      if (isCancelable(promise)) {
+        (promise as ICancelable).cancel(combined.reason);
+      }
+      reject(combined.reason);
+    };
 
-		if (combined.aborted) {
-			onAbort();
-			return;
-		}
+    if (combined.aborted) {
+      onAbort();
+      return;
+    }
 
-		combined.addEventListener('abort', onAbort, { once: true });
+    combined.addEventListener('abort', onAbort, { once: true });
 
-		CancelablePromise.resolve(promise).then(
-			(value) => {
-				if (settled) return;
-				settled = true;
-				combined.removeEventListener('abort', onAbort);
-				resolve(value);
-			},
-			(reason) => {
-				if (settled) return;
-				settled = true;
-				combined.removeEventListener('abort', onAbort);
-				reject(reason);
-			},
-		);
+    CancelablePromise.resolve(promise).then(
+      (value) => {
+        if (settled) return;
+        settled = true;
+        combined.removeEventListener('abort', onAbort);
+        resolve(value);
+      },
+      (reason) => {
+        if (settled) return;
+        settled = true;
+        combined.removeEventListener('abort', onAbort);
+        reject(reason);
+      },
+    );
 
-		if (ctx) {
-			ctx.handleCancel(() => {
-				settled = true;
-				combined.removeEventListener('abort', onAbort);
-				if (isCancelable(promise)) {
-					(promise as ICancelable).cancel();
-				}
-			});
-		}
-	}, options);
+    if (ctx) {
+      ctx.handleCancel(() => {
+        settled = true;
+        combined.removeEventListener('abort', onAbort);
+        if (isCancelable(promise)) {
+          (promise as ICancelable).cancel();
+        }
+      });
+    }
+  }, options);
 }
 
 /**
@@ -181,20 +182,20 @@ export function interopTimeout<T>(
  * controller's own `abort()` is also honored, so callers may compose or force-abort it.
  */
 export function toAbortSignal(promise: PromiseLike<unknown>): AbortSignal {
-	const controller = new AbortController();
+  const controller = new AbortController();
 
-	promise.then(
-		() => {
-			// Fulfilled: nothing to abort.
-		},
-		(reason) => {
-			if (!controller.signal.aborted) {
-				controller.abort(reason);
-			}
-		},
-	);
+  promise.then(
+    () => {
+      // Fulfilled: nothing to abort.
+    },
+    (reason) => {
+      if (!controller.signal.aborted) {
+        controller.abort(reason);
+      }
+    },
+  );
 
-	return controller.signal;
+  return controller.signal;
 }
 
 /**
@@ -204,38 +205,42 @@ export function toAbortSignal(promise: PromiseLike<unknown>): AbortSignal {
  * signal without branching). Aborting rejects with the signal's abort reason (a DOMException
  * AbortError); an already-aborted signal rejects immediately.
  */
-export function withSignal<T>(signal: AbortSignal | undefined, promiseOrFn: ((signal?: AbortSignal) => T | PromiseLike<T>) | T | PromiseLike<T>): Promise<T> {
-	const source: T | PromiseLike<T> = typeof promiseOrFn === 'function'
-		? (promiseOrFn as (signal?: AbortSignal) => T | PromiseLike<T>)(signal)
-		: promiseOrFn;
+export function withSignal<T>(
+  signal: AbortSignal | undefined,
+  promiseOrFn: ((signal?: AbortSignal) => T | PromiseLike<T>) | T | PromiseLike<T>,
+): Promise<T> {
+  const source: T | PromiseLike<T> =
+    typeof promiseOrFn === 'function' ?
+      (promiseOrFn as (signal?: AbortSignal) => T | PromiseLike<T>)(signal)
+    : promiseOrFn;
 
-	// No signal: pass the value straight through so optional-cancellation call sites need no branch.
-	if (signal === undefined) {
-		return NativePromise.resolve(source);
-	}
+  // No signal: pass the value straight through so optional-cancellation call sites need no branch.
+  if (signal === undefined) {
+    return NativePromise.resolve(source);
+  }
 
-	return new NativePromise<T>((resolve, reject) => {
-		// A signal's abort reason is a DOMException AbortError (an Error) at runtime.
-		const abortReason = () => signal.reason as Error;
+  return new NativePromise<T>((resolve, reject) => {
+    // A signal's abort reason is a DOMException AbortError (an Error) at runtime.
+    const abortReason = () => signal.reason as Error;
 
-		if (signal.aborted) {
-			reject(abortReason());
-			return;
-		}
+    if (signal.aborted) {
+      reject(abortReason());
+      return;
+    }
 
-		const onAbort = () => reject(abortReason());
-		signal.addEventListener('abort', onAbort, { once: true });
+    const onAbort = () => reject(abortReason());
+    signal.addEventListener('abort', onAbort, { once: true });
 
-		NativePromise.resolve(source).then(
-			(value) => {
-				signal.removeEventListener('abort', onAbort);
-				resolve(value);
-			},
-			(reason: unknown) => {
-				signal.removeEventListener('abort', onAbort);
-				// Re-propagate the source's own rejection reason unchanged.
-				reject(reason as Error);
-			},
-		);
-	});
+    NativePromise.resolve(source).then(
+      (value) => {
+        signal.removeEventListener('abort', onAbort);
+        resolve(value);
+      },
+      (reason: unknown) => {
+        signal.removeEventListener('abort', onAbort);
+        // Re-propagate the source's own rejection reason unchanged.
+        reject(reason as Error);
+      },
+    );
+  });
 }

@@ -34,15 +34,15 @@ coroutines to class methods. See the
 
 ## Features
 
-* cancelable promise built on top of native ES `Promise`
-* cancellation is a special rejection (`CancelError`), normal `try`/`catch`/`.then`/`.catch`
-	semantics preserved
-* two-way cancellation: propagates down the chain, bubbles back up when every consumer has
-	canceled and the value is unconsumed
-* combinators that cancel the promises whose results are no longer needed
-* `AbortSignal` interop in both directions
-* explicit resource management through `using` and `await using`
-* no dependencies
+- cancelable promise built on top of native ES `Promise`
+- cancellation is a special rejection (`CancelError`), normal `try`/`catch`/`.then`/`.catch`
+  semantics preserved
+- two-way cancellation: propagates down the chain, bubbles back up when every consumer has
+  canceled and the value is unconsumed
+- combinators that cancel the promises whose results are no longer needed
+- `AbortSignal` interop in both directions
+- explicit resource management through `using` and `await using`
+- no dependencies
 
 ## Getting Started
 
@@ -173,14 +173,14 @@ without manual chaining.
 Every option is accepted by the constructor and by the statics, and the current values are
 readable through the `options` getter.
 
-| Option | Default | Meaning |
-|---|---|---|
-| `bubble` | `true` | Cancellation bubbles to the parent when all consumers are canceled |
-| `asyncCancel` | `true` | `cancel()` settles failing cancel handlers asynchronously instead of throwing |
-| `forceCancelable` | `true` | The result stays cancelable even when the executor resolves with another promise |
-| `strict` | `false` | Throws on cancellation problems instead of ignoring them |
-| `shield` | `false` | Protects this promise's own work from cancellation coming from below or outside |
-| `signal` | none | Cancels the promise when the signal aborts. One `AbortSignal` or an array, first abort wins |
+| Option            | Default | Meaning                                                                                     |
+| ----------------- | ------- | ------------------------------------------------------------------------------------------- |
+| `bubble`          | `true`  | Cancellation bubbles to the parent when all consumers are canceled                          |
+| `asyncCancel`     | `true`  | `cancel()` settles failing cancel handlers asynchronously instead of throwing               |
+| `forceCancelable` | `true`  | The result stays cancelable even when the executor resolves with another promise            |
+| `strict`          | `false` | Throws on cancellation problems instead of ignoring them                                    |
+| `shield`          | `false` | Protects this promise's own work from cancellation coming from below or outside             |
+| `signal`          | none    | Cancels the promise when the signal aborts. One `AbortSignal` or an array, first abort wins |
 
 `shield` is an upward and self shield only. A direct `cancel()` becomes a no-op and a bubble
 arriving from canceled children stops there, but a canceled or rejected upstream still propagates
@@ -371,14 +371,14 @@ ones such as QuickJS, XS and Hermes.
 
 ## Documentation
 
-* [Coroutines](https://github.com/cancjs/canc/tree/master/packages/canc-coroutine) for the
-	`async`/`await` replacement built on this package
-* [Toolbox](https://github.com/cancjs/canc/tree/master/packages/canc-toolbox) for timing helpers,
-	adapters and signal interop
-* [Fetch](https://github.com/cancjs/canc/tree/master/packages/canc-fetch) for cancelable requests
-* [Examples](https://github.com/cancjs/canc/tree/master/examples) for runnable projects, starting
-	with `demo-promise-basics` and `demo-chain-propagation`
-* [Repository](https://github.com/cancjs/canc) for the ecosystem overview
+- [Coroutines](https://github.com/cancjs/canc/tree/master/packages/canc-coroutine) for the
+  `async`/`await` replacement built on this package
+- [Toolbox](https://github.com/cancjs/canc/tree/master/packages/canc-toolbox) for timing helpers,
+  adapters and signal interop
+- [Fetch](https://github.com/cancjs/canc/tree/master/packages/canc-fetch) for cancelable requests
+- [Examples](https://github.com/cancjs/canc/tree/master/examples) for runnable projects, starting
+  with `demo-promise-basics` and `demo-chain-propagation`
+- [Repository](https://github.com/cancjs/canc) for the ecosystem overview
 
 ## Contributing
 

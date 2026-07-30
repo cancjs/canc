@@ -17,8 +17,8 @@ export type THandleCancel = (onCancel: () => void) => void;
  * third argument; native Promise provides nothing (undefined).
  */
 export interface TExecutorCtx {
-	handleCancel: THandleCancel;
-	getSignal?: () => any;
+  handleCancel: THandleCancel;
+  getSignal?: () => any;
 }
 
 /**
@@ -26,7 +26,7 @@ export interface TExecutorCtx {
  * `(resolve, reject)` signature with the CancelablePromise context object.
  */
 export type TToolboxExecutor<T> = (
-	resolve: (value: T | PromiseLike<T>) => void,
-	reject: (reason?: any) => void,
-	ctx?: TExecutorCtx,
+  resolve: (value: T | PromiseLike<T>) => void,
+  reject: (reason?: any) => void,
+  ctx?: TExecutorCtx,
 ) => void;

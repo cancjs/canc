@@ -43,77 +43,77 @@ Bluebird.config({ cancellation: true });
 
 // b) then-chain of a given depth, returns the tail promise (settled).
 function nativeChain(depth) {
- let p = Promise.resolve(0);
- for (let i = 0; i < depth; i++) p = p.then((x) => x + 1);
- return p;
+  let p = Promise.resolve(0);
+  for (let i = 0; i < depth; i++) p = p.then((x) => x + 1);
+  return p;
 }
 function cancChain(depth) {
- let p = CancelablePromise.resolve(0);
- for (let i = 0; i < depth; i++) p = p.then((x) => x + 1);
- return p;
+  let p = CancelablePromise.resolve(0);
+  for (let i = 0; i < depth; i++) p = p.then((x) => x + 1);
+  return p;
 }
 function bbChain(depth) {
- let p = Bluebird.resolve(0);
- for (let i = 0; i < depth; i++) p = p.then((x) => x + 1);
- return p;
+  let p = Bluebird.resolve(0);
+  for (let i = 0; i < depth; i++) p = p.then((x) => x + 1);
+  return p;
 }
 
 // c) fanout: one root, N independent then children; await all children.
 function nativeFanout(width) {
- const root = Promise.resolve(1);
- const kids = new Array(width);
- for (let i = 0; i < width; i++) kids[i] = root.then((x) => x + 1);
- return Promise.all(kids);
+  const root = Promise.resolve(1);
+  const kids = new Array(width);
+  for (let i = 0; i < width; i++) kids[i] = root.then((x) => x + 1);
+  return Promise.all(kids);
 }
 function cancFanout(width) {
- const root = CancelablePromise.resolve(1);
- const kids = new Array(width);
- for (let i = 0; i < width; i++) kids[i] = root.then((x) => x + 1);
- return CancelablePromise.all(kids);
+  const root = CancelablePromise.resolve(1);
+  const kids = new Array(width);
+  for (let i = 0; i < width; i++) kids[i] = root.then((x) => x + 1);
+  return CancelablePromise.all(kids);
 }
 function bbFanout(width) {
- const root = Bluebird.resolve(1);
- const kids = new Array(width);
- for (let i = 0; i < width; i++) kids[i] = root.then((x) => x + 1);
- return Bluebird.all(kids);
+  const root = Bluebird.resolve(1);
+  const kids = new Array(width);
+  for (let i = 0; i < width; i++) kids[i] = root.then((x) => x + 1);
+  return Bluebird.all(kids);
 }
 
 // d) all/race over an array of already-resolved promises of a given width.
 function nativeResolvedArray(width) {
- const a = new Array(width);
- for (let i = 0; i < width; i++) a[i] = Promise.resolve(i);
- return a;
+  const a = new Array(width);
+  for (let i = 0; i < width; i++) a[i] = Promise.resolve(i);
+  return a;
 }
 function cancResolvedArray(width) {
- const a = new Array(width);
- for (let i = 0; i < width; i++) a[i] = CancelablePromise.resolve(i);
- return a;
+  const a = new Array(width);
+  for (let i = 0; i < width; i++) a[i] = CancelablePromise.resolve(i);
+  return a;
 }
 function bbResolvedArray(width) {
- const a = new Array(width);
- for (let i = 0; i < width; i++) a[i] = Bluebird.resolve(i);
- return a;
+  const a = new Array(width);
+  for (let i = 0; i < width; i++) a[i] = Bluebird.resolve(i);
+  return a;
 }
 
 // e) cancel storm: build a pending depth-N chain, cancel the root, swallow the
 // CancelError so the rejection is handled. Only canc + bluebird cancel.
 function buildCancChain(depth) {
- let never;
- const root = new CancelablePromise((_resolve) => {
- never = _resolve;
- });
- void never; // never resolved — chain stays pending until cancel
- let tail = root;
- for (let i = 0; i < depth; i++) tail = tail.then((x) => x + 1);
- return { root, tail };
+  let never;
+  const root = new CancelablePromise((_resolve) => {
+    never = _resolve;
+  });
+  void never; // never resolved — chain stays pending until cancel
+  let tail = root;
+  for (let i = 0; i < depth; i++) tail = tail.then((x) => x + 1);
+  return { root, tail };
 }
 function buildBbChain(depth) {
- const root = new Bluebird(() => {
- // never settles
- });
- let tail = root;
- for (let i = 0; i < depth; i++) tail = tail.then((x) => x + 1);
- return { root, tail };
+  const root = new Bluebird(() => {
+    // never settles
+  });
+  let tail = root;
+  for (let i = 0; i < depth; i++) tail = tail.then((x) => x + 1);
+  return { root, tail };
 }
 
 // h) bubble path: build a depth-N chain with bubble:true, cancel the LEAF (tail).
@@ -121,12 +121,15 @@ function buildBbChain(depth) {
 // this measures the up-propagation cost, complementing case (e) which cancels the
 // root and propagates DOWN. bluebird has no equivalent bubble-to-root semantics.
 function buildBubbleChain(depth) {
- const root = new CancelablePromise(() => {
- // never settles — stays pending until the bubble reaches it
- }, { bubble: true });
- let tail = root;
- for (let i = 0; i < depth; i++) tail = tail.then((x) => x + 1, undefined, { bubble: true });
- return { root, tail };
+  const root = new CancelablePromise(
+    () => {
+      // never settles — stays pending until the bubble reaches it
+    },
+    { bubble: true },
+  );
+  let tail = root;
+  for (let i = 0; i < depth; i++) tail = tail.then((x) => x + 1, undefined, { bubble: true });
+  return { root, tail };
 }
 
 // i) allSettled / any width N over already-resolved promises (reuse *ResolvedArray).
@@ -152,19 +155,19 @@ const settledNative = Promise.resolve(1);
 const AWAITS = 100;
 
 const cancLoop = cancAsync(function* () {
- let acc = 0;
- for (let i = 0; i < AWAITS; i++) {
- acc = yield* cancAwait(CancelablePromise.resolve(acc + 1));
- }
- return acc;
+  let acc = 0;
+  for (let i = 0; i < AWAITS; i++) {
+    acc = yield* cancAwait(CancelablePromise.resolve(acc + 1));
+  }
+  return acc;
 });
 
 async function nativeLoop() {
- let acc = 0;
- for (let i = 0; i < AWAITS; i++) {
- acc = await Promise.resolve(acc + 1);
- }
- return acc;
+  let acc = 0;
+  for (let i = 0; i < AWAITS; i++) {
+    acc = await Promise.resolve(acc + 1);
+  }
+  return acc;
 }
 
 // ---------------------------------------------------------------------------
@@ -172,112 +175,297 @@ async function nativeLoop() {
 // ---------------------------------------------------------------------------
 
 const cases = [
- // a) construct + resolve throughput
- { name: 'a/construct-resolve native', fn() { return new Promise((res) => res(1)); } },
- { name: 'a/construct-resolve canc', fn() { return new CancelablePromise((res) => res(1)); } },
- { name: 'a/construct-resolve bluebird', fn() { return new Bluebird((res) => res(1)); } },
+  // a) construct + resolve throughput
+  {
+    name: 'a/construct-resolve native',
+    fn() {
+      return new Promise((res) => res(1));
+    },
+  },
+  {
+    name: 'a/construct-resolve canc',
+    fn() {
+      return new CancelablePromise((res) => res(1));
+    },
+  },
+  {
+    name: 'a/construct-resolve bluebird',
+    fn() {
+      return new Bluebird((res) => res(1));
+    },
+  },
 
- // b) then-chain depths
- { name: 'b/chain-1 native', fn() { return nativeChain(1); } },
- { name: 'b/chain-1 canc', fn() { return cancChain(1); } },
- { name: 'b/chain-1 bluebird', fn() { return bbChain(1); } },
- { name: 'b/chain-10 native', fn() { return nativeChain(10); } },
- { name: 'b/chain-10 canc', fn() { return cancChain(10); } },
- { name: 'b/chain-10 bluebird', fn() { return bbChain(10); } },
- { name: 'b/chain-100 native', fn() { return nativeChain(100); } },
- { name: 'b/chain-100 canc', fn() { return cancChain(100); } },
- { name: 'b/chain-100 bluebird', fn() { return bbChain(100); } },
+  // b) then-chain depths
+  {
+    name: 'b/chain-1 native',
+    fn() {
+      return nativeChain(1);
+    },
+  },
+  {
+    name: 'b/chain-1 canc',
+    fn() {
+      return cancChain(1);
+    },
+  },
+  {
+    name: 'b/chain-1 bluebird',
+    fn() {
+      return bbChain(1);
+    },
+  },
+  {
+    name: 'b/chain-10 native',
+    fn() {
+      return nativeChain(10);
+    },
+  },
+  {
+    name: 'b/chain-10 canc',
+    fn() {
+      return cancChain(10);
+    },
+  },
+  {
+    name: 'b/chain-10 bluebird',
+    fn() {
+      return bbChain(10);
+    },
+  },
+  {
+    name: 'b/chain-100 native',
+    fn() {
+      return nativeChain(100);
+    },
+  },
+  {
+    name: 'b/chain-100 canc',
+    fn() {
+      return cancChain(100);
+    },
+  },
+  {
+    name: 'b/chain-100 bluebird',
+    fn() {
+      return bbChain(100);
+    },
+  },
 
- // c) fanout 1 -> 100 children
- { name: 'c/fanout-100 native', fn() { return nativeFanout(100); } },
- { name: 'c/fanout-100 canc', fn() { return cancFanout(100); } },
- { name: 'c/fanout-100 bluebird', fn() { return bbFanout(100); } },
+  // c) fanout 1 -> 100 children
+  {
+    name: 'c/fanout-100 native',
+    fn() {
+      return nativeFanout(100);
+    },
+  },
+  {
+    name: 'c/fanout-100 canc',
+    fn() {
+      return cancFanout(100);
+    },
+  },
+  {
+    name: 'c/fanout-100 bluebird',
+    fn() {
+      return bbFanout(100);
+    },
+  },
 
- // d) all width 10 / 1000
- { name: 'd/all-10 native', fn() { return Promise.all(nativeResolvedArray(10)); } },
- { name: 'd/all-10 canc', fn() { return CancelablePromise.all(cancResolvedArray(10)); } },
- { name: 'd/all-10 bluebird', fn() { return Bluebird.all(bbResolvedArray(10)); } },
- { name: 'd/all-1000 native', fn() { return Promise.all(nativeResolvedArray(1000)); } },
- { name: 'd/all-1000 canc', fn() { return CancelablePromise.all(cancResolvedArray(1000)); } },
- { name: 'd/all-1000 bluebird', fn() { return Bluebird.all(bbResolvedArray(1000)); } },
+  // d) all width 10 / 1000
+  {
+    name: 'd/all-10 native',
+    fn() {
+      return Promise.all(nativeResolvedArray(10));
+    },
+  },
+  {
+    name: 'd/all-10 canc',
+    fn() {
+      return CancelablePromise.all(cancResolvedArray(10));
+    },
+  },
+  {
+    name: 'd/all-10 bluebird',
+    fn() {
+      return Bluebird.all(bbResolvedArray(10));
+    },
+  },
+  {
+    name: 'd/all-1000 native',
+    fn() {
+      return Promise.all(nativeResolvedArray(1000));
+    },
+  },
+  {
+    name: 'd/all-1000 canc',
+    fn() {
+      return CancelablePromise.all(cancResolvedArray(1000));
+    },
+  },
+  {
+    name: 'd/all-1000 bluebird',
+    fn() {
+      return Bluebird.all(bbResolvedArray(1000));
+    },
+  },
 
- // d) race width 10 / 1000
- { name: 'd/race-10 native', fn() { return Promise.race(nativeResolvedArray(10)); } },
- { name: 'd/race-10 canc', fn() { return CancelablePromise.race(cancResolvedArray(10)); } },
- { name: 'd/race-10 bluebird', fn() { return Bluebird.race(bbResolvedArray(10)); } },
- { name: 'd/race-1000 native', fn() { return Promise.race(nativeResolvedArray(1000)); } },
- { name: 'd/race-1000 canc', fn() { return CancelablePromise.race(cancResolvedArray(1000)); } },
- { name: 'd/race-1000 bluebird', fn() { return Bluebird.race(bbResolvedArray(1000)); } },
+  // d) race width 10 / 1000
+  {
+    name: 'd/race-10 native',
+    fn() {
+      return Promise.race(nativeResolvedArray(10));
+    },
+  },
+  {
+    name: 'd/race-10 canc',
+    fn() {
+      return CancelablePromise.race(cancResolvedArray(10));
+    },
+  },
+  {
+    name: 'd/race-10 bluebird',
+    fn() {
+      return Bluebird.race(bbResolvedArray(10));
+    },
+  },
+  {
+    name: 'd/race-1000 native',
+    fn() {
+      return Promise.race(nativeResolvedArray(1000));
+    },
+  },
+  {
+    name: 'd/race-1000 canc',
+    fn() {
+      return CancelablePromise.race(cancResolvedArray(1000));
+    },
+  },
+  {
+    name: 'd/race-1000 bluebird',
+    fn() {
+      return Bluebird.race(bbResolvedArray(1000));
+    },
+  },
 
- // e) cancel storm depth-50 (canc + bluebird only)
- {
- name: 'e/cancel-storm-50 canc',
- fn() {
- const { root, tail } = buildCancChain(50);
- const settled = tail.catch(() => {});
- root.cancel();
- return settled;
- },
- },
- {
- name: 'e/cancel-storm-50 bluebird',
- fn() {
- const { root, tail } = buildBbChain(50);
- // bluebird cancellation does not reject; tail simply never settles, so we
- // just measure the cancel() propagation cost and resolve immediately.
- root.cancel();
- void tail;
- return Bluebird.resolve();
- },
- },
+  // e) cancel storm depth-50 (canc + bluebird only)
+  {
+    name: 'e/cancel-storm-50 canc',
+    fn() {
+      const { root, tail } = buildCancChain(50);
+      const settled = tail.catch(() => {});
+      root.cancel();
+      return settled;
+    },
+  },
+  {
+    name: 'e/cancel-storm-50 bluebird',
+    fn() {
+      const { root, tail } = buildBbChain(50);
+      // bluebird cancellation does not reject; tail simply never settles, so we
+      // just measure the cancel() propagation cost and resolve immediately.
+      root.cancel();
+      void tail;
+      return Bluebird.resolve();
+    },
+  },
 
- // h) bubble path: depth-10 chain, cancel the LEAF, bubble to root (canc only —
- // bluebird has no bubble-to-root semantics)
- {
- name: 'h/bubble-leaf-10 canc',
- fn() {
- const { root, tail } = buildBubbleChain(10);
- const settled = tail.catch(() => {});
- tail.cancel();
- void root;
- return settled;
- },
- },
+  // h) bubble path: depth-10 chain, cancel the LEAF, bubble to root (canc only —
+  // bluebird has no bubble-to-root semantics)
+  {
+    name: 'h/bubble-leaf-10 canc',
+    fn() {
+      const { root, tail } = buildBubbleChain(10);
+      const settled = tail.catch(() => {});
+      tail.cancel();
+      void root;
+      return settled;
+    },
+  },
 
- // i) allSettled / any width 100 (native + canc; bluebird has no comparable any())
- { name: 'i/allSettled-100 native', fn() { return Promise.allSettled(nativeResolvedArray(100)); } },
- { name: 'i/allSettled-100 canc', fn() { return CancelablePromise.allSettled(cancResolvedArray(100)); } },
- { name: 'i/any-100 native', fn() { return Promise.any(nativeResolvedArray(100)); } },
- { name: 'i/any-100 canc', fn() { return CancelablePromise.any(cancResolvedArray(100)); } },
+  // i) allSettled / any width 100 (native + canc; bluebird has no comparable any())
+  {
+    name: 'i/allSettled-100 native',
+    fn() {
+      return Promise.allSettled(nativeResolvedArray(100));
+    },
+  },
+  {
+    name: 'i/allSettled-100 canc',
+    fn() {
+      return CancelablePromise.allSettled(cancResolvedArray(100));
+    },
+  },
+  {
+    name: 'i/any-100 native',
+    fn() {
+      return Promise.any(nativeResolvedArray(100));
+    },
+  },
+  {
+    name: 'i/any-100 canc',
+    fn() {
+      return CancelablePromise.any(cancResolvedArray(100));
+    },
+  },
 
- // j) signal-wired construct + settle (listener add/remove cost)
- { name: 'j/signal-construct native', fn() { return new Promise((res) => res(1)); } },
- {
- name: 'j/signal-construct canc',
- fn() {
- return new CancelablePromise((res) => res(1), { signal: sharedController.signal });
- },
- },
+  // j) signal-wired construct + settle (listener add/remove cost)
+  {
+    name: 'j/signal-construct native',
+    fn() {
+      return new Promise((res) => res(1));
+    },
+  },
+  {
+    name: 'j/signal-construct canc',
+    fn() {
+      return new CancelablePromise((res) => res(1), { signal: sharedController.signal });
+    },
+  },
 
- // k) then() on already-settled promise (hot resubscription)
- { name: 'k/then-settled native', fn() { return settledNative.then((x) => x + 1); } },
- { name: 'k/then-settled canc', fn() { return settledCanc.then((x) => x + 1); } },
+  // k) then() on already-settled promise (hot resubscription)
+  {
+    name: 'k/then-settled native',
+    fn() {
+      return settledNative.then((x) => x + 1);
+    },
+  },
+  {
+    name: 'k/then-settled canc',
+    fn() {
+      return settledCanc.then((x) => x + 1);
+    },
+  },
 
- // l) executor handleCancel registration
- { name: 'l/handleCancel-register native', fn() { return new Promise((res) => res(1)); } },
- {
- name: 'l/handleCancel-register canc',
- fn() {
- return new CancelablePromise((res, _rej, handleCancel) => {
- handleCancel(() => {});
- res(1);
- });
- },
- },
+  // l) executor handleCancel registration
+  {
+    name: 'l/handleCancel-register native',
+    fn() {
+      return new Promise((res) => res(1));
+    },
+  },
+  {
+    name: 'l/handleCancel-register canc',
+    fn() {
+      return new CancelablePromise((res, _rej, handleCancel) => {
+        handleCancel(() => {});
+        res(1);
+      });
+    },
+  },
 
- // f) coroutine loop vs native async/await (100 awaits)
- { name: 'f/coroutine-100 native-async', fn() { return nativeLoop(); } },
- { name: 'f/coroutine-100 canc-cancAsync', fn() { return cancLoop(); } },
+  // f) coroutine loop vs native async/await (100 awaits)
+  {
+    name: 'f/coroutine-100 native-async',
+    fn() {
+      return nativeLoop();
+    },
+  },
+  {
+    name: 'f/coroutine-100 canc-cancAsync',
+    fn() {
+      return cancLoop();
+    },
+  },
 ];
 
 module.exports = { name: 'micro', cases };
@@ -291,108 +479,113 @@ module.exports = { name: 'micro', cases };
 const ALLOC_COUNT = 10000;
 
 function measureAllocation(label, make) {
- const { PerformanceObserver } = require('perf_hooks');
+  const { PerformanceObserver } = require('perf_hooks');
 
- let gcCount = 0;
- const obs = new PerformanceObserver((list) => {
- gcCount += list.getEntries().length;
- });
- obs.observe({ entryTypes: ['gc'], buffered: false });
+  let gcCount = 0;
+  const obs = new PerformanceObserver((list) => {
+    gcCount += list.getEntries().length;
+  });
+  obs.observe({ entryTypes: ['gc'], buffered: false });
 
- global.gc();
- const before = process.memoryUsage().heapUsed;
+  global.gc();
+  const before = process.memoryUsage().heapUsed;
 
- // Hold references so the allocation is real and not immediately collected.
- const held = new Array(ALLOC_COUNT);
- for (let i = 0; i < ALLOC_COUNT; i++) {
- held[i] = make(i);
- }
+  // Hold references so the allocation is real and not immediately collected.
+  const held = new Array(ALLOC_COUNT);
+  for (let i = 0; i < ALLOC_COUNT; i++) {
+    held[i] = make(i);
+  }
 
- const after = process.memoryUsage().heapUsed;
- const heapDelta = after - before;
+  const after = process.memoryUsage().heapUsed;
+  const heapDelta = after - before;
 
- // Settle/consume so unhandled-rejection machinery doesn't skew things, then
- // let observers flush.
- for (let i = 0; i < ALLOC_COUNT; i++) {
- if (held[i] && typeof held[i].then === 'function') held[i].then(() => {}, () => {});
- }
+  // Settle/consume so unhandled-rejection machinery doesn't skew things, then
+  // let observers flush.
+  for (let i = 0; i < ALLOC_COUNT; i++) {
+    if (held[i] && typeof held[i].then === 'function')
+      held[i].then(
+        () => {},
+        () => {},
+      );
+  }
 
- obs.disconnect();
+  obs.disconnect();
 
- return {
- name: label,
- count: ALLOC_COUNT,
- heapDeltaBytes: heapDelta,
- heapDeltaPerPromise: Math.round(heapDelta / ALLOC_COUNT),
- gcDuringAlloc: gcCount,
- };
+  return {
+    name: label,
+    count: ALLOC_COUNT,
+    heapDeltaBytes: heapDelta,
+    heapDeltaPerPromise: Math.round(heapDelta / ALLOC_COUNT),
+    gcDuringAlloc: gcCount,
+  };
 }
 
 async function runAllocationLane() {
- if (typeof global.gc !== 'function') {
- console.error('Allocation lane needs --expose-gc. Run: node --expose-gc suites/micro.js');
- process.exitCode = 1;
- return;
- }
+  if (typeof global.gc !== 'function') {
+    console.error('Allocation lane needs --expose-gc. Run: node --expose-gc suites/micro.js');
+    process.exitCode = 1;
+    return;
+  }
 
- const path = require('path');
- const fs = require('fs');
- const { captureEnv } = require('../lib/env');
- const RESULTS_DIR = path.join(__dirname, '..', 'results');
+  const path = require('path');
+  const fs = require('fs');
+  const { captureEnv } = require('../lib/env');
+  const RESULTS_DIR = path.join(__dirname, '..', 'results');
 
- // Warm up each impl before measuring so JIT/hidden-class setup isn't charged
- // to the measured allocation.
- const makers = [
- ['native', (i) => Promise.resolve(i)],
- ['canc', (i) => CancelablePromise.resolve(i)],
- ['bluebird', (i) => Bluebird.resolve(i)],
- ];
- for (const [, make] of makers) {
- for (let i = 0; i < 2000; i++) make(i).then(() => {}, () => {});
- }
- await new Promise((r) => setTimeout(r, 50));
+  // Warm up each impl before measuring so JIT/hidden-class setup isn't charged
+  // to the measured allocation.
+  const makers = [
+    ['native', (i) => Promise.resolve(i)],
+    ['canc', (i) => CancelablePromise.resolve(i)],
+    ['bluebird', (i) => Bluebird.resolve(i)],
+  ];
+  for (const [, make] of makers) {
+    for (let i = 0; i < 2000; i++)
+      make(i).then(
+        () => {},
+        () => {},
+      );
+  }
+  await new Promise((r) => setTimeout(r, 50));
 
- const rows = [];
- for (const [label, make] of makers) {
- global.gc();
- await new Promise((r) => setTimeout(r, 20));
- rows.push(measureAllocation(label, make));
- await new Promise((r) => setTimeout(r, 20));
- }
+  const rows = [];
+  for (const [label, make] of makers) {
+    global.gc();
+    await new Promise((r) => setTimeout(r, 20));
+    rows.push(measureAllocation(label, make));
+    await new Promise((r) => setTimeout(r, 20));
+  }
 
- const result = { suite: 'micro-alloc', env: captureEnv(), allocation: rows };
+  const result = { suite: 'micro-alloc', env: captureEnv(), allocation: rows };
 
- if (!fs.existsSync(RESULTS_DIR)) fs.mkdirSync(RESULTS_DIR, { recursive: true });
- fs.writeFileSync(
- path.join(RESULTS_DIR, 'micro-alloc.json'),
- JSON.stringify(result, null, 2) + '\n'
- );
+  if (!fs.existsSync(RESULTS_DIR)) fs.mkdirSync(RESULTS_DIR, { recursive: true });
+  fs.writeFileSync(path.join(RESULTS_DIR, 'micro-alloc.json'), JSON.stringify(result, null, 2) + '\n');
 
- const lines = [];
- lines.push('## Suite: micro-alloc (10k promises)');
- lines.push('');
- lines.push(
- `Node ${result.env.node} · ${result.env.platform}/${result.env.arch} · ${result.env.cpuModel} (${result.env.cpuCount} cores) · ${result.env.timestamp}`
- );
- lines.push('');
- lines.push('| Impl | count | heap delta (KB) | bytes/promise | GC during alloc |');
- lines.push('|------|------:|----------------:|--------------:|----------------:|');
- for (const r of rows) {
- lines.push(
- `| ${r.name} | ${r.count} | ${(r.heapDeltaBytes / 1024).toFixed(1)} | ${r.heapDeltaPerPromise} | ${r.gcDuringAlloc} |`
- );
- }
- lines.push('');
- const md = lines.join('\n');
- fs.writeFileSync(path.join(RESULTS_DIR, 'micro-alloc.md'), md + '\n');
+  const lines = [];
+  lines.push('## Suite: micro-alloc (10k promises)');
+  lines.push('');
+  lines.push(
+    `Node ${result.env.node} · ${result.env.platform}/${result.env.arch} · ${result.env.cpuModel} (${result.env.cpuCount} cores) · ${result.env.timestamp}`,
+  );
+  lines.push('');
+  lines.push('| Impl | count | heap delta (KB) | bytes/promise | GC during alloc |');
+  lines.push('|------|------:|----------------:|--------------:|----------------:|');
+  for (const r of rows) {
+    lines.push(
+      `| ${r.name} | ${r.count} | ${(r.heapDeltaBytes / 1024).toFixed(1)} | ${r.heapDeltaPerPromise} | ${r.gcDuringAlloc} |`,
+    );
+  }
+  lines.push('');
+  const md = lines.join('\n');
+  fs.writeFileSync(path.join(RESULTS_DIR, 'micro-alloc.md'), md + '\n');
 
- console.log(md);
- console.log('\nJSON: ' + path.join(RESULTS_DIR, 'micro-alloc.json'));
+  console.log(md);
+  console.log('\nJSON: ' + path.join(RESULTS_DIR, 'micro-alloc.json'));
 }
 
 if (require.main === module) {
- runAllocationLane().catch((err) => {
- console.error(err);
- process.exitCode = 1;
- });
+  runAllocationLane().catch((err) => {
+    console.error(err);
+    process.exitCode = 1;
+  });
 }

@@ -3,11 +3,14 @@
 // applied manually, so no babel toolchain is needed to exercise the runtime). Kept as a distinct
 // fixture so `check:babel-legacy` proves the source + spec type-check independently.
 {
- "extends": "../../tsconfig.test",
- "compilerOptions": {
- "experimentalDecorators": false,
- "useDefineForClassFields": false,
- "lib": ["es2022"]
- },
- "include": ["src/decorators-babel-legacy.ts", "src/decorators-babel-legacy.spec.ts"]
+  "extends": "../../tsconfig.test",
+  "compilerOptions": {
+    "experimentalDecorators": false,
+    "useDefineForClassFields": false,
+    "lib": ["es2022"]
+  },
+  "include": [
+    "src/decorators-babel-legacy.ts",
+    "src/decorators-babel-legacy.spec.ts"
+  ]
 }

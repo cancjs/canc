@@ -114,13 +114,13 @@ tripPromise.cancel();
 
 ### Background
 
-* **No all-round official solution**. [Native cancelable promises](https://github.com/tc39/proposal-cancelable-promises) were incompatible with ES6 promise semantics and have been abandoned. `AbortController` is the platform primitive for aborting operations, but it is a low-level signaling mechanism, not a cancellation model for promise chains. Propagation through layers, cleanup coordination and consumer tracking stay manual. `canc` can interoperate with `AbortSignal` but doesn't require it.
+- **No all-round official solution**. [Native cancelable promises](https://github.com/tc39/proposal-cancelable-promises) were incompatible with ES6 promise semantics and have been abandoned. `AbortController` is the platform primitive for aborting operations, but it is a low-level signaling mechanism, not a cancellation model for promise chains. Propagation through layers, cleanup coordination and consumer tracking stay manual. `canc` can interoperate with `AbortSignal` but doesn't require it.
 
-* **Bluebird is no longer an option**. Bluebird has bulky stable API and has been largely superseded by ES promises, particularly due to `async`/`await`. Its [two-way cancellation](https://github.com/petkaantonov/bluebird/blob/master/docs/docs/api/cancellation.md) is disabled by default, leaves canceled promises unsettled instead of rejecting them, and the library is unmaintained.
+- **Bluebird is no longer an option**. Bluebird has bulky stable API and has been largely superseded by ES promises, particularly due to `async`/`await`. Its [two-way cancellation](https://github.com/petkaantonov/bluebird/blob/master/docs/docs/api/cancellation.md) is disabled by default, leaves canceled promises unsettled instead of rejecting them, and the library is unmaintained.
 
-* **Observables aren't a magic bullet**. Observables can provide a superset of promise features, including cancellation. [RxJS](https://github.com/ReactiveX/rxjs) is the established implementation, with a notoriously complex API surface. There is no `async`/`await` equivalent for observable code, and cancellation is easy to lose in promise interop. Observables are push-based and don't displace pull-based async iterators. No [native observable](https://github.com/tc39/proposal-observable) implementation exists yet.
+- **Observables aren't a magic bullet**. Observables can provide a superset of promise features, including cancellation. [RxJS](https://github.com/ReactiveX/rxjs) is the established implementation, with a notoriously complex API surface. There is no `async`/`await` equivalent for observable code, and cancellation is easy to lose in promise interop. Observables are push-based and don't displace pull-based async iterators. No [native observable](https://github.com/tc39/proposal-observable) implementation exists yet.
 
-* **No universal third-party options**. The popular `p-*` [package collection](https://github.com/sindresorhus/promise-fun#packages) only supports one-way cancellation and targets Node.js.
+- **No universal third-party options**. The popular `p-*` [package collection](https://github.com/sindresorhus/promise-fun#packages) only supports one-way cancellation and targets Node.js.
 
 ## How It Works
 
@@ -128,9 +128,9 @@ Cancellation is a special form of promise rejection with a `CancelError`. It tri
 
 `canc` promises implement a two-way cancellation mechanism that treats promise chains as subscriptions:
 
-* cancellation propagates down the promise chain when a parent promise is canceled
+- cancellation propagates down the promise chain when a parent promise is canceled
 
-* cancellation bubbles up the chain when all child promises are canceled and the parent promise value is no longer consumed
+- cancellation bubbles up the chain when all child promises are canceled and the parent promise value is no longer consumed
 
 Both directions work through `all`, `race` and the other combinators, and through every coroutine step. The behavior can be fine-tuned per promise through options like `bubble` and `shield`, so work with side effects can be protected from implicit cancellation.
 
@@ -140,31 +140,31 @@ A chain is cancelable only if it consists of `canc` promises. This requires canc
 
 ### Core
 
-| Package | Native counterpart | Description |
-|---|---|---|
-| [`@cancjs/promise`](packages/canc-promise) | `Promise` | Cancelable promise built on native `Promise` |
-| `@cancjs/promise-legacy` 🚧 | `Promise` polyfill | The same core for older engines with polyfilled `Promise` |
+| Package                                        | Native counterpart                         | Description                                                                  |
+| ---------------------------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------- |
+| [`@cancjs/promise`](packages/canc-promise)     | `Promise`                                  | Cancelable promise built on native `Promise`                                 |
+| `@cancjs/promise-legacy` 🚧                    | `Promise` polyfill                         | The same core for older engines with polyfilled `Promise`                    |
 | [`@cancjs/coroutine`](packages/canc-coroutine) | `async`/`await`, `async*`, `for await..of` | Generator-based drop-in replacements for `async`/`await` and async iterators |
 
 ### Extended
 
-| Package | Native counterpart | Description |
-|---|---|---|
-| [`@cancjs/fetch`](packages/canc-fetch) | `fetch` + `AbortController` | Cancelable Fetch API with automatic signal management |
-| [`@cancjs/toolbox`](packages/canc-toolbox) | [`@cancjs/toolbox-native`](packages/canc-toolbox-native) | Helper functions and adapters for cancellation-aware code |
-| [`@cancjs/decorators`](packages/canc-decorators) | ✖ | Class method decorators for coroutines: standard, legacy TS/Babel |
+| Package                                          | Native counterpart                                       | Description                                                       |
+| ------------------------------------------------ | -------------------------------------------------------- | ----------------------------------------------------------------- |
+| [`@cancjs/fetch`](packages/canc-fetch)           | `fetch` + `AbortController`                              | Cancelable Fetch API with automatic signal management             |
+| [`@cancjs/toolbox`](packages/canc-toolbox)       | [`@cancjs/toolbox-native`](packages/canc-toolbox-native) | Helper functions and adapters for cancellation-aware code         |
+| [`@cancjs/decorators`](packages/canc-decorators) | ✖                                                        | Class method decorators for coroutines: standard, legacy TS/Babel |
 
 ### Third-party integrations
 
 Cancellation only reaches as far as the chain does, so libraries that own the work need an adapter. Working integrations for commonly used libraries are available in [examples](examples).
 
-| Package | Description |
-|---|---|
-| [`@cancjs/axios`](packages/canc-axios) | Axios instances whose request methods return cancelable promises |
-| `@cancjs/react` 🚧 | Hooks that tie a cancelable task to a component lifecycle. See [example](examples/app-react) |
-| `@cancjs/server-express` 🚧 | Middleware that cancels a handler chain on client disconnect. See [example](examples/app-express-kysely) |
-| `@cancjs/server-fastify` 🚧 | Plugin that cancels a handler on client disconnect. See [example](examples/app-fastify-mongoose) |
-| `@cancjs/rxjs` 🚧 | Conversion between cancelable promises and observables. See [example](examples/app-rxjs) |
+| Package                                | Description                                                                                              |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| [`@cancjs/axios`](packages/canc-axios) | Axios instances whose request methods return cancelable promises                                         |
+| `@cancjs/react` 🚧                     | Hooks that tie a cancelable task to a component lifecycle. See [example](examples/app-react)             |
+| `@cancjs/server-express` 🚧            | Middleware that cancels a handler chain on client disconnect. See [example](examples/app-express-kysely) |
+| `@cancjs/server-fastify` 🚧            | Plugin that cancels a handler on client disconnect. See [example](examples/app-fastify-mongoose)         |
+| `@cancjs/rxjs` 🚧                      | Conversion between cancelable promises and observables. See [example](examples/app-rxjs)                 |
 
 ## Performance
 

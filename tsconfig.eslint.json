@@ -5,15 +5,15 @@
 // _lazy) and the tooling scripts belonging to no project, so a root-level `eslint .` cannot get
 // type information for them. This config covers everything the linter should see.
 {
-	"extends": "./tsconfig.test",
-	"include": ["packages", "tests-types/scripts", "benchmarks"],
-	"exclude": [
-		"node_modules",
-		"**/node_modules/**",
-		"**/~~**/*",
-		"**/**~~/*",
-		"**/build/**/*",
-		"**/dist/**/*",
-		"tests-types/fixtures/**"
-	]
+  "extends": "./tsconfig.test",
+  "include": ["packages", "tests-types/scripts", "benchmarks"],
+  "exclude": [
+    "node_modules",
+    "**/node_modules/**",
+    "**/~~**/*",
+    "**/**~~/*",
+    "**/build/**/*",
+    "**/dist/**/*",
+    "tests-types/fixtures/**"
+  ]
 }

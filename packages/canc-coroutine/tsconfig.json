@@ -2,6 +2,6 @@
 // for both production and test code
 // https://github.com/microsoft/vscode/issues/12463
 {
- "extends": "../../tsconfig",
- "include": ["src"]
+  "extends": "../../tsconfig",
+  "include": ["src"]
 }

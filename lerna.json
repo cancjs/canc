@@ -1,9 +1,5 @@
 {
- "packages": [
- "packages/*",
- "benchmarks",
- "tests-types"
- ],
- "version": "independent",
- "npmClient": "npm"
+  "packages": ["packages/*", "benchmarks", "tests-types"],
+  "version": "independent",
+  "npmClient": "npm"
 }

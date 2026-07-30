@@ -6,17 +6,17 @@
  * just proves the runner + JSON + md pipeline works end to end.
  */
 module.exports = {
- name: 'smoke',
- cases: [
- {
- name: 'native-promise-resolve',
- fn() {
- return Promise.resolve(1);
- },
- },
- {
- name: 'noop',
- fn() {},
- },
- ],
+  name: 'smoke',
+  cases: [
+    {
+      name: 'native-promise-resolve',
+      fn() {
+        return Promise.resolve(1);
+      },
+    },
+    {
+      name: 'noop',
+      fn() {},
+    },
+  ],
 };

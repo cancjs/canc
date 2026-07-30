@@ -36,12 +36,12 @@ gap in this library: the type of a `yield` expression cannot depend on the opera
 The relevant TypeScript issues:
 
 - [microsoft/TypeScript#32523](https://github.com/microsoft/TypeScript/issues/32523) — request for
- per-yield contextual typing, closed as a design limitation. This is the canonical "why generators
- can't type their resumed values" thread.
+  per-yield contextual typing, closed as a design limitation. This is the canonical "why generators
+  can't type their resumed values" thread.
 - [microsoft/TypeScript#36967](https://github.com/microsoft/TypeScript/issues/36967) — open,
- tracking stronger inference for generator `next` values.
+  tracking stronger inference for generator `next` values.
 - [microsoft/TypeScript#43632](https://github.com/microsoft/TypeScript/issues/43632) — open,
- related proposal for typing the resumed value from the yielded operand.
+  related proposal for typing the resumed value from the yielded operand.
 
 Until one of those lands, `yield*` delegation is the only way to get a typed resumed value, and it
 is a permanent part of the design here rather than a workaround for a bug that will be fixed.
@@ -84,12 +84,12 @@ This is not unique to canc. Any generator-driven async abstraction runs into the
 limitation and adopts a similar convention.
 
 - **redux-saga** yields plain effect objects (`yield call(api, id)`), so the resumed value comes back
- `unknown` and must be annotated or cast (`const x: Foo = yield call(...)`). Its typed-effects
- helpers exist specifically to work around this, and the community `typed-redux-saga` package
- reintroduces the typed values through the exact `yield*` delegation trick used here.
+  `unknown` and must be annotated or cast (`const x: Foo = yield call(...)`). Its typed-effects
+  helpers exist specifically to work around this, and the community `typed-redux-saga` package
+  reintroduces the typed values through the exact `yield*` delegation trick used here.
 - **MobX** `flow` wraps a generator so `yield somePromise` runs like `await`, but the yielded value
- is typed `unknown` for the same reason, and its `flow` typings recommend casting the result. MobX
- documents this as an inherent generator constraint.
+  is typed `unknown` for the same reason, and its `flow` typings recommend casting the result. MobX
+  documents this as an inherent generator constraint.
 
 The takeaway is the same everywhere: prefer the `yield*` delegated form for typed values, and reach
 for a bare `yield` (with an explicit annotation or cast) only when delegation is inconvenient.

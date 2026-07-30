@@ -23,10 +23,10 @@
  * --keep-going run all lanes even after a failure (default: stop-on-red off,
  * we always run all and summarise)
  */
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { execFileSync } from 'node:child_process';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const testsTypesDir = path.resolve(__dirname, '..');
@@ -38,12 +38,15 @@ const config = JSON.parse(fs.readFileSync(path.join(testsTypesDir, 'matrix.confi
 const argv = process.argv.slice(2);
 const has = (f) => argv.includes(f);
 const valOf = (f) => {
- const i = argv.indexOf(f);
- return i >= 0 ? argv[i + 1] : undefined;
+  const i = argv.indexOf(f);
+  return i >= 0 ? argv[i + 1] : undefined;
 };
 const setupOnly = has('--setup-only');
 const noInstall = has('--no-install');
-const onlyList = (valOf('--only') || '').split(',').map((s) => s.trim()).filter(Boolean);
+const onlyList = (valOf('--only') || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
 
 // ---- ANSI (skip when not a TTY / NO_COLOR) --------------------------------
 const useColor = process.stdout.isTTY && !process.env.NO_COLOR;
@@ -57,79 +60,88 @@ const isWin = process.platform === 'win32';
 const npmCmd = isWin ? 'npm.cmd' : 'npm';
 
 function run(cmd, args, opts = {}) {
- // On Windows, npm/tsc are `.cmd` shims that Node >=18 refuses to spawn without
- // a shell (EINVAL). `shell:true` routes through cmd.exe; quote args to survive it.
- const shell = isWin && /\.cmd$/i.test(cmd);
- const finalArgs = shell ? args.map((a) => (/[\s"]/.test(a) ? `"${a.replace(/"/g, '\\"')}"` : a)) : args;
- return execFileSync(cmd, finalArgs, { encoding: 'utf8', stdio: 'pipe', shell, ...opts });
+  // On Windows, npm/tsc are `.cmd` shims that Node >=18 refuses to spawn without
+  // a shell (EINVAL). `shell:true` routes through cmd.exe; quote args to survive it.
+  const shell = isWin && /\.cmd$/i.test(cmd);
+  const finalArgs = shell ? args.map((a) => (/[\s"]/.test(a) ? `"${a.replace(/"/g, '\\"')}"` : a)) : args;
+  return execFileSync(cmd, finalArgs, { encoding: 'utf8', stdio: 'pipe', shell, ...opts });
 }
 
 // ---- 1. pack packages -----------------------------------------------------
 function packPackages() {
- fs.rmSync(tarballsDir, { recursive: true, force: true });
- fs.mkdirSync(tarballsDir, { recursive: true });
- const tarballs = {};
- for (const pkg of config.packages) {
- const pkgDir = path.join(repoRoot, 'packages', pkg);
- const distTypes = path.join(pkgDir, 'dist', 'types', 'index.d.ts');
- if (!fs.existsSync(distTypes)) {
- throw new Error(`Package "${pkg}" is not built (${distTypes} missing). Run \`npm run build --workspace=@cancjs/${pkg.replace('canc-', '')}\` first.`);
- }
- // `npm pack --pack-destination` writes the tarball and prints its filename.
- const out = run(npmCmd, ['pack', '--pack-destination', tarballsDir], { cwd: pkgDir }).trim();
- const file = out.split(/\r?\n/).pop().trim();
- const pkgJson = JSON.parse(fs.readFileSync(path.join(pkgDir, 'package.json'), 'utf8'));
- tarballs[pkgJson.name] = path.join(tarballsDir, file);
- console.log(dim(` packed ${pkgJson.name} -> ${file}`));
- }
- return tarballs;
+  fs.rmSync(tarballsDir, { recursive: true, force: true });
+  fs.mkdirSync(tarballsDir, { recursive: true });
+  const tarballs = {};
+  for (const pkg of config.packages) {
+    const pkgDir = path.join(repoRoot, 'packages', pkg);
+    const distTypes = path.join(pkgDir, 'dist', 'types', 'index.d.ts');
+    if (!fs.existsSync(distTypes)) {
+      throw new Error(
+        `Package "${pkg}" is not built (${distTypes} missing). Run \`npm run build --workspace=@cancjs/${pkg.replace('canc-', '')}\` first.`,
+      );
+    }
+    // `npm pack --pack-destination` writes the tarball and prints its filename.
+    const out = run(npmCmd, ['pack', '--pack-destination', tarballsDir], { cwd: pkgDir }).trim();
+    const file = out.split(/\r?\n/).pop().trim();
+    const pkgJson = JSON.parse(fs.readFileSync(path.join(pkgDir, 'package.json'), 'utf8'));
+    tarballs[pkgJson.name] = path.join(tarballsDir, file);
+    console.log(dim(` packed ${pkgJson.name} -> ${file}`));
+  }
+  return tarballs;
 }
 
 // ---- 2. materialise a fixture project -------------------------------------
 function writeFixture(version, tarballs) {
- const dir = path.join(fixturesDir, `ts-${version.id}`);
- fs.mkdirSync(dir, { recursive: true });
+  const dir = path.join(fixturesDir, `ts-${version.id}`);
+  fs.mkdirSync(dir, { recursive: true });
 
- const deps = { typescript: version.typescript };
- for (const [name, tarball] of Object.entries(tarballs)) {
- // file: URI to the packed tarball — installs the real publishable artifact.
- deps[name] = `file:${path.relative(dir, tarball).split(path.sep).join('/')}`;
- }
+  const deps = { typescript: version.typescript };
+  for (const [name, tarball] of Object.entries(tarballs)) {
+    // file: URI to the packed tarball — installs the real publishable artifact.
+    deps[name] = `file:${path.relative(dir, tarball).split(path.sep).join('/')}`;
+  }
 
- fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({
- name: `@cancjs/tests-types-ts-${version.id}`,
- version: '0.0.0',
- private: true,
- description: `Isolated TS ${version.id} fixture (generated by run-matrix.mjs — do not edit by hand).`,
- scripts: { check: 'tsc --noEmit' },
- dependencies: deps,
- }, null, 2) + '\n');
+  fs.writeFileSync(
+    path.join(dir, 'package.json'),
+    JSON.stringify(
+      {
+        name: `@cancjs/tests-types-ts-${version.id}`,
+        version: '0.0.0',
+        private: true,
+        description: `Isolated TS ${version.id} fixture (generated by run-matrix.mjs — do not edit by hand).`,
+        scripts: { check: 'tsc --noEmit' },
+        dependencies: deps,
+      },
+      null,
+      2,
+    ) + '\n',
+  );
 
- const files = ['../common/api-smoke.ts'];
- if (version.typeAssertions) {
- files.push('../common/type-assertions.ts');
- files.push('../common/coroutine-types.ts');
- }
+  const files = ['../common/api-smoke.ts'];
+  if (version.typeAssertions) {
+    files.push('../common/type-assertions.ts');
+    files.push('../common/coroutine-types.ts');
+  }
 
- // Downlevel-friendly tsconfig. moduleResolution per version drives which
- // d.ts resolution path (typesVersions vs exports.types) is exercised.
- const tsconfig = {
- compilerOptions: {
- strict: true,
- noEmit: true,
- skipLibCheck: false,
- target: 'es2019',
- module: version.moduleResolution === 'node' ? 'commonjs' : 'esnext',
- moduleResolution: version.moduleResolution,
- lib: version.lib || ['es2022', 'dom'],
- esModuleInterop: true,
- forceConsistentCasingInFileNames: true,
- types: [],
- },
- files,
- };
- fs.writeFileSync(path.join(dir, 'tsconfig.json'), JSON.stringify(tsconfig, null, 2) + '\n');
- return dir;
+  // Downlevel-friendly tsconfig. moduleResolution per version drives which
+  // d.ts resolution path (typesVersions vs exports.types) is exercised.
+  const tsconfig = {
+    compilerOptions: {
+      strict: true,
+      noEmit: true,
+      skipLibCheck: false,
+      target: 'es2019',
+      module: version.moduleResolution === 'node' ? 'commonjs' : 'esnext',
+      moduleResolution: version.moduleResolution,
+      lib: version.lib || ['es2022', 'dom'],
+      esModuleInterop: true,
+      forceConsistentCasingInFileNames: true,
+      types: [],
+    },
+    files,
+  };
+  fs.writeFileSync(path.join(dir, 'tsconfig.json'), JSON.stringify(tsconfig, null, 2) + '\n');
+  return dir;
 }
 
 // ---- 2b. materialise the decorator-type-preservation fixtures ----
@@ -138,152 +150,182 @@ function writeFixture(version, tarballs) {
 // decorator flavor, because each flavor needs its OWN `experimentalDecorators` compiler mode
 // (stage-3 requires it off; ts-legacy requires it on) — a single tsconfig cannot exercise both.
 const DECORATOR_FLAVORS = [
- { suffix: '-decorators', file: '../common/decorator-types.ts', experimentalDecorators: false, extraLib: ['decorators'] },
- { suffix: '-decorators-legacy', file: '../common/decorator-types-legacy-audit.ts', experimentalDecorators: true },
- { suffix: '-decorators-babel-legacy', file: '../common/decorator-types-babel-legacy-audit.ts', experimentalDecorators: false },
+  {
+    suffix: '-decorators',
+    file: '../common/decorator-types.ts',
+    experimentalDecorators: false,
+    extraLib: ['decorators'],
+  },
+  { suffix: '-decorators-legacy', file: '../common/decorator-types-legacy-audit.ts', experimentalDecorators: true },
+  {
+    suffix: '-decorators-babel-legacy',
+    file: '../common/decorator-types-babel-legacy-audit.ts',
+    experimentalDecorators: false,
+  },
 ];
 
 function writeDecoratorFixture(version, tarballs, flavor) {
- const dir = path.join(fixturesDir, `ts-${version.id}${flavor.suffix}`);
- fs.mkdirSync(dir, { recursive: true });
+  const dir = path.join(fixturesDir, `ts-${version.id}${flavor.suffix}`);
+  fs.mkdirSync(dir, { recursive: true });
 
- const deps = { typescript: version.typescript };
- for (const [name, tarball] of Object.entries(tarballs)) {
- deps[name] = `file:${path.relative(dir, tarball).split(path.sep).join('/')}`;
- }
+  const deps = { typescript: version.typescript };
+  for (const [name, tarball] of Object.entries(tarballs)) {
+    deps[name] = `file:${path.relative(dir, tarball).split(path.sep).join('/')}`;
+  }
 
- fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({
- name: `@cancjs/tests-types-ts-${version.id}${flavor.suffix}`,
- version: '0.0.0',
- private: true,
- description: `Isolated TS ${version.id} decorator${flavor.suffix} fixture (generated by run-matrix.mjs — do not edit by hand).`,
- scripts: { check: 'tsc --noEmit' },
- dependencies: deps,
- }, null, 2) + '\n');
+  fs.writeFileSync(
+    path.join(dir, 'package.json'),
+    JSON.stringify(
+      {
+        name: `@cancjs/tests-types-ts-${version.id}${flavor.suffix}`,
+        version: '0.0.0',
+        private: true,
+        description: `Isolated TS ${version.id} decorator${flavor.suffix} fixture (generated by run-matrix.mjs — do not edit by hand).`,
+        scripts: { check: 'tsc --noEmit' },
+        dependencies: deps,
+      },
+      null,
+      2,
+    ) + '\n',
+  );
 
- const tsconfig = {
- compilerOptions: {
- strict: true,
- noEmit: true,
- skipLibCheck: false,
- target: 'es2019',
- module: version.moduleResolution === 'node' ? 'commonjs' : 'esnext',
- moduleResolution: version.moduleResolution,
- lib: [...(version.lib || ['es2022', 'dom']), ...(flavor.extraLib || [])],
- esModuleInterop: true,
- forceConsistentCasingInFileNames: true,
- experimentalDecorators: flavor.experimentalDecorators,
- useDefineForClassFields: false,
- types: [],
- },
- files: [flavor.file],
- };
- fs.writeFileSync(path.join(dir, 'tsconfig.json'), JSON.stringify(tsconfig, null, 2) + '\n');
- return dir;
+  const tsconfig = {
+    compilerOptions: {
+      strict: true,
+      noEmit: true,
+      skipLibCheck: false,
+      target: 'es2019',
+      module: version.moduleResolution === 'node' ? 'commonjs' : 'esnext',
+      moduleResolution: version.moduleResolution,
+      lib: [...(version.lib || ['es2022', 'dom']), ...(flavor.extraLib || [])],
+      esModuleInterop: true,
+      forceConsistentCasingInFileNames: true,
+      experimentalDecorators: flavor.experimentalDecorators,
+      useDefineForClassFields: false,
+      types: [],
+    },
+    files: [flavor.file],
+  };
+  fs.writeFileSync(path.join(dir, 'tsconfig.json'), JSON.stringify(tsconfig, null, 2) + '\n');
+  return dir;
 }
 
 function installFixture(dir) {
- // Isolated install: --no-package-lock keeps the dir clean; --no-audit/--no-fund quiet.
- run(npmCmd, ['install', '--no-package-lock', '--no-audit', '--no-fund', '--silent'], { cwd: dir });
+  // Isolated install: --no-package-lock keeps the dir clean; --no-audit/--no-fund quiet.
+  run(npmCmd, ['install', '--no-package-lock', '--no-audit', '--no-fund', '--silent'], { cwd: dir });
 }
 
 function tscFor(dir) {
- const bin = path.join(dir, 'node_modules', '.bin', isWin ? 'tsc.cmd' : 'tsc');
- try {
- run(bin, ['--noEmit'], { cwd: dir });
- return { ok: true, output: '' };
- } catch (e) {
- return { ok: false, output: `${e.stdout || ''}${e.stderr || ''}`.trim() };
- }
+  const bin = path.join(dir, 'node_modules', '.bin', isWin ? 'tsc.cmd' : 'tsc');
+  try {
+    run(bin, ['--noEmit'], { cwd: dir });
+    return { ok: true, output: '' };
+  } catch (e) {
+    return { ok: false, output: `${e.stdout || ''}${e.stderr || ''}`.trim() };
+  }
 }
 
 function versionOfTsc(dir) {
- const bin = path.join(dir, 'node_modules', '.bin', isWin ? 'tsc.cmd' : 'tsc');
- try {
- return run(bin, ['--version']).trim().replace(/^Version\s+/, '');
- } catch {
- return '?';
- }
+  const bin = path.join(dir, 'node_modules', '.bin', isWin ? 'tsc.cmd' : 'tsc');
+  try {
+    return run(bin, ['--version'])
+      .trim()
+      .replace(/^Version\s+/, '');
+  } catch {
+    return '?';
+  }
 }
 
 // ---- main -----------------------------------------------------------------
 function main() {
- const versions = config.versions.filter((v) => onlyList.length === 0 || onlyList.includes(v.id));
- if (versions.length === 0) {
- console.error(red(`No versions matched --only "${onlyList.join(',')}"`));
- process.exit(2);
- }
+  const versions = config.versions.filter((v) => onlyList.length === 0 || onlyList.includes(v.id));
+  if (versions.length === 0) {
+    console.error(red(`No versions matched --only "${onlyList.join(',')}"`));
+    process.exit(2);
+  }
 
- console.log(bold(`TS matrix: packing ${config.packages.length} package(s)...`));
- const tarballs = packPackages();
+  console.log(bold(`TS matrix: packing ${config.packages.length} package(s)...`));
+  const tarballs = packPackages();
 
- const results = [];
- for (const version of versions) {
- console.log(bold(`\n[ts-${version.id}] (typescript@${version.typescript}, moduleResolution=${version.moduleResolution})`));
- const dir = writeFixture(version, tarballs);
- if (!noInstall) {
- process.stdout.write(dim(' installing... '));
- installFixture(dir);
- console.log(dim('done'));
- }
- const resolved = versionOfTsc(dir);
- if (setupOnly) {
- console.log(dim(` tsc ${resolved} ready (setup-only)`));
- results.push({ id: version.id, tsc: resolved, ok: null });
- } else {
- const { ok, output } = tscFor(dir);
- if (ok) {
- console.log(green(` PASS tsc ${resolved} --noEmit clean`));
- } else {
- console.log(red(` FAIL tsc ${resolved} --noEmit reported errors:`));
- console.log(output.split(/\r?\n/).map((l) => ' ' + l).join('\n'));
- }
- results.push({ id: version.id, tsc: resolved, ok, output });
- }
+  const results = [];
+  for (const version of versions) {
+    console.log(
+      bold(`\n[ts-${version.id}] (typescript@${version.typescript}, moduleResolution=${version.moduleResolution})`),
+    );
+    const dir = writeFixture(version, tarballs);
+    if (!noInstall) {
+      process.stdout.write(dim(' installing... '));
+      installFixture(dir);
+      console.log(dim('done'));
+    }
+    const resolved = versionOfTsc(dir);
+    if (setupOnly) {
+      console.log(dim(` tsc ${resolved} ready (setup-only)`));
+      results.push({ id: version.id, tsc: resolved, ok: null });
+    } else {
+      const { ok, output } = tscFor(dir);
+      if (ok) {
+        console.log(green(` PASS tsc ${resolved} --noEmit clean`));
+      } else {
+        console.log(red(` FAIL tsc ${resolved} --noEmit reported errors:`));
+        console.log(
+          output
+            .split(/\r?\n/)
+            .map((l) => ' ' + l)
+            .join('\n'),
+        );
+      }
+      results.push({ id: version.id, tsc: resolved, ok, output });
+    }
 
- if (version.decoratorTypes) {
- for (const flavor of DECORATOR_FLAVORS) {
- const label = `${version.id}${flavor.suffix}`;
- console.log(bold(` [ts-${label}] decorator fixture`));
- const dDir = writeDecoratorFixture(version, tarballs, flavor);
- if (!noInstall) {
- process.stdout.write(dim(' installing... '));
- installFixture(dDir);
- console.log(dim('done'));
- }
- if (setupOnly) {
- console.log(dim(` ready (setup-only)`));
- results.push({ id: label, tsc: resolved, ok: null });
- continue;
- }
- const { ok, output } = tscFor(dDir);
- if (ok) {
- console.log(green(` PASS tsc ${resolved} --noEmit clean`));
- } else {
- console.log(red(` FAIL tsc ${resolved} --noEmit reported errors:`));
- console.log(output.split(/\r?\n/).map((l) => ' ' + l).join('\n'));
- }
- results.push({ id: label, tsc: resolved, ok, output });
- }
- }
- }
+    if (version.decoratorTypes) {
+      for (const flavor of DECORATOR_FLAVORS) {
+        const label = `${version.id}${flavor.suffix}`;
+        console.log(bold(` [ts-${label}] decorator fixture`));
+        const dDir = writeDecoratorFixture(version, tarballs, flavor);
+        if (!noInstall) {
+          process.stdout.write(dim(' installing... '));
+          installFixture(dDir);
+          console.log(dim('done'));
+        }
+        if (setupOnly) {
+          console.log(dim(` ready (setup-only)`));
+          results.push({ id: label, tsc: resolved, ok: null });
+          continue;
+        }
+        const { ok, output } = tscFor(dDir);
+        if (ok) {
+          console.log(green(` PASS tsc ${resolved} --noEmit clean`));
+        } else {
+          console.log(red(` FAIL tsc ${resolved} --noEmit reported errors:`));
+          console.log(
+            output
+              .split(/\r?\n/)
+              .map((l) => ' ' + l)
+              .join('\n'),
+          );
+        }
+        results.push({ id: label, tsc: resolved, ok, output });
+      }
+    }
+  }
 
- if (setupOnly) {
- console.log(bold('\nSetup complete.'));
- return;
- }
+  if (setupOnly) {
+    console.log(bold('\nSetup complete.'));
+    return;
+  }
 
- const failed = results.filter((r) => r.ok === false);
- console.log(bold('\n──── matrix summary ────'));
- for (const r of results) {
- const tag = r.ok ? green('PASS') : red('FAIL');
- console.log(` ${tag} ts-${r.id} (tsc ${r.tsc})`);
- }
- if (failed.length) {
- console.log(red(bold(`\n${failed.length}/${results.length} lane(s) failed.`)));
- process.exit(1);
- }
- console.log(green(bold(`\nAll ${results.length} lane(s) green.`)));
+  const failed = results.filter((r) => r.ok === false);
+  console.log(bold('\n──── matrix summary ────'));
+  for (const r of results) {
+    const tag = r.ok ? green('PASS') : red('FAIL');
+    console.log(` ${tag} ts-${r.id} (tsc ${r.tsc})`);
+  }
+  if (failed.length) {
+    console.log(red(bold(`\n${failed.length}/${results.length} lane(s) failed.`)));
+    process.exit(1);
+  }
+  console.log(green(bold(`\nAll ${results.length} lane(s) green.`)));
 }
 
 main();

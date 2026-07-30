@@ -1,59 +1,53 @@
 {
- "name": "@cancjs/promise",
- "version": "0.0.0",
- "description": "<p align=\"center\">\r <img src=\"../../assets/canc-logo.png\" width=\"483\" title=\"canc &#x2BBF; A crafty foundation for cancelable promises\" alt=\"canc &#x2BBF; a crafty foundation for cancelable promises\">\r </p>",
- "keywords": [],
- "main": "dist/index.cjs",
- "module": "dist/index.mjs",
- "unpkg": "dist/index.umd.min.js",
- "jsdelivr": "dist/index.umd.min.js",
- "types": "dist/types/index.d.ts",
- "sideEffects": false,
- "files": [
- "dist"
- ],
- "typesVersions": {
- "<4.7": {
- "dist/types/*": [
- "dist/types-ts4.2/*"
- ]
- }
- },
- "exports": {
- ".": {
- "types@<4.7": "./dist/types-ts4.2/index.d.ts",
- "types": "./dist/types/index.d.ts",
- "import": "./dist/index.mjs",
- "require": "./dist/index.cjs"
- }
- },
- "engines": {
- "node": ">=18",
- "npm": ">=9"
- },
- "author": "bisubus",
- "license": "MIT",
- "homepage": "https://github.com/cancjs/canc/packages/canc-promise#readme",
- "repository": {
- "type": "git",
- "url": "git+https://github.com/cancjs/canc.git",
- "directory": "packages/canc-promise"
- },
- "bugs": {
- "url": "https://github.com/cancjs/canc/issues"
- },
- "publishConfig": {
- "access": "public"
- },
- "scripts": {
- "build": "rimraf dist && rollup --config ./rollup.config.mjs",
- "check": "tsc --noEmit --project ./tsconfig.prod.json",
- "format:src": "eslint --fix ./src",
- "format": "eslint --fix .",
- "lint:src": "eslint ./src",
- "lint": "eslint .",
- "test": "jest --colors",
- "test:watch": "jest --colors --watch"
- },
- "type": "commonjs"
+  "name": "@cancjs/promise",
+  "version": "0.0.0",
+  "description": "<p align=\"center\">\r <img src=\"../../assets/canc-logo.png\" width=\"483\" title=\"canc &#x2BBF; A crafty foundation for cancelable promises\" alt=\"canc &#x2BBF; a crafty foundation for cancelable promises\">\r </p>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cancjs/canc.git",
+    "directory": "packages/canc-promise"
+  },
+  "homepage": "https://github.com/cancjs/canc/packages/canc-promise#readme",
+  "bugs": "https://github.com/cancjs/canc/issues",
+  "author": "bisubus",
+  "type": "commonjs",
+  "exports": {
+    ".": {
+      "types@<4.7": "./dist/types-ts4.2/index.d.ts",
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "main": "dist/index.cjs",
+  "module": "dist/index.mjs",
+  "types": "dist/types/index.d.ts",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18",
+    "npm": ">=9"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "rimraf dist && rollup --config ./rollup.config.mjs",
+    "check": "tsc --noEmit --project ./tsconfig.prod.json",
+    "format:src": "eslint --fix ./src",
+    "format": "eslint --fix .",
+    "lint:src": "eslint ./src",
+    "lint": "eslint .",
+    "test": "jest --colors",
+    "test:watch": "jest --colors --watch"
+  },
+  "files": ["dist"],
+  "keywords": [],
+  "unpkg": "dist/index.umd.min.js",
+  "jsdelivr": "dist/index.umd.min.js",
+  "typesVersions": {
+    "<4.7": {
+      "dist/types/*": ["dist/types-ts4.2/*"]
+    }
+  }
 }

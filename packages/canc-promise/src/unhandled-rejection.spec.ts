@@ -42,10 +42,10 @@ Module._extensions['.ts'] = function (module, filename) {
 `;
 
 function runChild(mode: string): string[] {
-	const entry = path.join(srcDir, 'cancelable-promise.ts');
-	const errorEntry = path.join(srcDir, 'cancel-error.ts');
+  const entry = path.join(srcDir, 'cancelable-promise.ts');
+  const errorEntry = path.join(srcDir, 'cancel-error.ts');
 
-	const program = `
+  const program = `
 ${hook}
 const { CancelablePromise } = require(${JSON.stringify(entry)});
 const { CancelError } = require(${JSON.stringify(errorEntry)});
@@ -70,31 +70,31 @@ if (mode === 'plain') {
 setTimeout(function () { process.stdout.write('EVENTS:' + JSON.stringify(events)); }, 150);
 `;
 
-	const out = execFileSync(process.execPath, ['-e', program], {
-		cwd: srcDir,
-		encoding: 'utf8'
-	});
+  const out = execFileSync(process.execPath, ['-e', program], {
+    cwd: srcDir,
+    encoding: 'utf8',
+  });
 
-	const marker = out.indexOf('EVENTS:');
-	return JSON.parse(out.slice(marker + 'EVENTS:'.length));
+  const marker = out.indexOf('EVENTS:');
+  return JSON.parse(out.slice(marker + 'EVENTS:'.length));
 }
 
 describe('unhandledRejection (real node process)', () => {
-	jest.setTimeout(30000);
+  jest.setTimeout(30000);
 
-	it('item 1: plain rejection with no handler fires unhandledRejection', () => {
-		expect(runChild('plain')).toEqual(['plain']);
-	});
+  it('item 1: plain rejection with no handler fires unhandledRejection', () => {
+    expect(runChild('plain')).toEqual(['plain']);
+  });
 
-	it('item 3: sync reject(CancelError) is suppressed', () => {
-		expect(runChild('sync-cancelerror')).toEqual([]);
-	});
+  it('item 3: sync reject(CancelError) is suppressed', () => {
+    expect(runChild('sync-cancelerror')).toEqual([]);
+  });
 
-	it('item 4: async reject(CancelError) is suppressed', () => {
-		expect(runChild('async-cancelerror')).toEqual([]);
-	});
+  it('item 4: async reject(CancelError) is suppressed', () => {
+    expect(runChild('async-cancelerror')).toEqual([]);
+  });
 
-	it('item 2: cancel() is suppressed', () => {
-		expect(runChild('cancel')).toEqual([]);
-	});
+  it('item 2: cancel() is suppressed', () => {
+    expect(runChild('cancel')).toEqual([]);
+  });
 });

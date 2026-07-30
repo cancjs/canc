@@ -18,54 +18,54 @@ const path = require('path');
 const AWAITED_POLYFILL = 'type Awaited<T> = T extends PromiseLike<infer U> ? Awaited<U> : T;\n';
 
 function collectDtsFiles(dir) {
-	const out = [];
-	for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-		const full = path.join(dir, entry.name);
-		if (entry.isDirectory()) {
-			out.push(...collectDtsFiles(full));
-		} else if (entry.isFile() && entry.name.endsWith('.d.ts')) {
-			out.push(full);
-		}
-	}
-	return out;
+  const out = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      out.push(...collectDtsFiles(full));
+    } else if (entry.isFile() && entry.name.endsWith('.d.ts')) {
+      out.push(full);
+    }
+  }
+  return out;
 }
 
 function patchFile(file) {
-	const content = fs.readFileSync(file, 'utf8');
+  const content = fs.readFileSync(file, 'utf8');
 
-	const usesAwaited = /\bAwaited\s*</.test(content);
-	const declaresAwaited = /\btype\s+Awaited\b/.test(content);
+  const usesAwaited = /\bAwaited\s*</.test(content);
+  const declaresAwaited = /\btype\s+Awaited\b/.test(content);
 
-	if (!usesAwaited || declaresAwaited) {
-		return false;
-	}
+  if (!usesAwaited || declaresAwaited) {
+    return false;
+  }
 
-	fs.writeFileSync(file, AWAITED_POLYFILL + content);
-	return true;
+  fs.writeFileSync(file, AWAITED_POLYFILL + content);
+  return true;
 }
 
 function main() {
-	const dir = process.argv[2];
+  const dir = process.argv[2];
 
-	if (!dir) {
-		console.error('Usage: node scripts/patch-awaited.js <dir-of-d.ts-files>');
-		process.exit(1);
-	}
-	if (!fs.existsSync(dir)) {
-		console.error(`Directory not found: ${dir}`);
-		process.exit(1);
-	}
+  if (!dir) {
+    console.error('Usage: node scripts/patch-awaited.js <dir-of-d.ts-files>');
+    process.exit(1);
+  }
+  if (!fs.existsSync(dir)) {
+    console.error(`Directory not found: ${dir}`);
+    process.exit(1);
+  }
 
-	const patched = collectDtsFiles(dir).filter(patchFile);
+  const patched = collectDtsFiles(dir).filter(patchFile);
 
-	if (patched.length) {
-		console.log(`patch-awaited: injected Awaited polyfill into ${patched.length} file(s):`);
-		for (const file of patched) {
-			console.log(` ${file}`);
-		}
-	} else {
-		console.log('patch-awaited: no files needed patching');
-	}
+  if (patched.length) {
+    console.log(`patch-awaited: injected Awaited polyfill into ${patched.length} file(s):`);
+    for (const file of patched) {
+      console.log(` ${file}`);
+    }
+  } else {
+    console.log('patch-awaited: no files needed patching');
+  }
 }
 
 main();

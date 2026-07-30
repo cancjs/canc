@@ -22,9 +22,9 @@ library that should not force a promise implementation on its consumers.
 
 ## Features
 
-* timing and control helpers on plain `Promise`
-* callback adapters (`promisify`, `promisifyAll`) with the same options as the cancelable twin
-* no dependencies
+- timing and control helpers on plain `Promise`
+- callback adapters (`promisify`, `promisifyAll`) with the same options as the cancelable twin
+- no dependencies
 
 ## Getting Started
 
@@ -75,9 +75,9 @@ from ES5-targeted source, same as the rest of the ecosystem.
 
 ## Documentation
 
-* [`@cancjs/toolbox`](https://github.com/cancjs/canc/tree/master/packages/canc-toolbox) for the
-	cancelable twin
-* [Repository](https://github.com/cancjs/canc) for the ecosystem overview
+- [`@cancjs/toolbox`](https://github.com/cancjs/canc/tree/master/packages/canc-toolbox) for the
+  cancelable twin
+- [Repository](https://github.com/cancjs/canc) for the ecosystem overview
 
 ## Contributing
 

@@ -1,5 +1,5 @@
-import { CancelablePromise } from '../cancelable-promise';
 import { CancelError } from '../cancel-error';
+import { CancelablePromise } from '../cancelable-promise';
 
 /**
  * Internal subscription primitives (`_subscribe` / `_chainInput` + the `_addChainRef` core).
@@ -20,176 +20,209 @@ import { CancelError } from '../cancel-error';
 const NativePromise = Promise;
 
 function macrotask(): Promise<void> {
-	return new NativePromise(resolve => setTimeout(resolve, 10));
+  return new NativePromise((resolve) => setTimeout(resolve, 10));
 }
 
 // Reach protected members for white-box testing (same convention as two-way-propagation.spec.ts).
-type Internal = {
-	_subscribe(onF?: ((v: any) => any) | null, onR?: ((r: any) => any) | null): void;
-	_chainInput(resultPromise: any, bubbleOnComplete?: boolean): void;
-	_chain(child: any, bubbleOnComplete?: boolean): void;
-	_chainsCount: number;
-	_completedChainsCount: number;
-};
+interface Internal {
+  _subscribe(onF?: ((v: any) => any) | null, onR?: ((r: any) => any) | null): void;
+  _chainInput(resultPromise: any, bubbleOnComplete?: boolean): void;
+  _chain(child: any, bubbleOnComplete?: boolean): void;
+  _chainsCount: number;
+  _completedChainsCount: number;
+}
 
 function asInternal<T>(p: CancelablePromise<T>): Internal & CancelablePromise<T> {
-	return p as unknown as Internal & CancelablePromise<T>;
+  return p as unknown as Internal & CancelablePromise<T>;
 }
 
 describe('internal subscription primitives', () => {
-	describe('_subscribe', () => {
-		it('delivers the fulfilled value asynchronously (A+ timing)', async () => {
-			const p = new CancelablePromise<string>(resolve => resolve('v'));
-			let delivered: string | undefined;
-			let sync = true;
+  describe('_subscribe', () => {
+    it('delivers the fulfilled value asynchronously (A+ timing)', async () => {
+      const p = new CancelablePromise<string>((resolve) => resolve('v'));
+      let delivered: string | undefined;
+      let sync = true;
 
-			asInternal(p)._subscribe(value => { delivered = value; });
-			// Reaction must NOT have run synchronously.
-			sync = false;
-			expect(delivered).toBeUndefined();
+      asInternal(p)._subscribe((value) => {
+        delivered = value;
+      });
+      // Reaction must NOT have run synchronously.
+      sync = false;
+      expect(delivered).toBeUndefined();
 
-			await macrotask();
-			expect(sync).toBe(false);
-			expect(delivered).toBe('v');
-		});
+      await macrotask();
+      expect(sync).toBe(false);
+      expect(delivered).toBe('v');
+    });
 
-		it('delivers the rejection reason to onRejected', async () => {
-			const err = new Error('boom');
-			const p = new CancelablePromise<string>((_res, reject) => reject(err));
-			let seen: any;
+    it('delivers the rejection reason to onRejected', async () => {
+      const err = new Error('boom');
+      const p = new CancelablePromise<string>((_res, reject) => reject(err));
+      let seen: any;
 
-			asInternal(p)._subscribe(undefined, reason => { seen = reason; });
+      asInternal(p)._subscribe(undefined, (reason) => {
+        seen = reason;
+      });
 
-			await macrotask();
-			expect(seen).toBe(err);
-		});
+      await macrotask();
+      expect(seen).toBe(err);
+    });
 
-		it('does NOT return a canc species (returns void / bypasses species)', () => {
-			const p = new CancelablePromise<number>(resolve => resolve(1));
-			const ret = asInternal(p)._subscribe(() => {/**/});
-			// Contract: internal subscription is a sink, not a derived promise.
-			expect(ret).toBeUndefined();
-		});
+    it('does NOT return a canc species (returns void / bypasses species)', () => {
+      const p = new CancelablePromise<number>((resolve) => resolve(1));
+      const ret = asInternal(p)._subscribe(() => {
+        /**/
+      });
+      // Contract: internal subscription is a sink, not a derived promise.
+      expect(ret).toBeUndefined();
+    });
 
-		it('marks the source rejection handled (no unhandled rejection)', async () => {
-			const unhandled: any[] = [];
-			const onUnhandled = (reason: any) => { unhandled.push(reason); };
-			process.on('unhandledRejection', onUnhandled);
+    it('marks the source rejection handled (no unhandled rejection)', async () => {
+      const unhandled: any[] = [];
+      const onUnhandled = (reason: any) => {
+        unhandled.push(reason);
+      };
+      process.on('unhandledRejection', onUnhandled);
 
-			try {
-				const err = new Error('suppressed');
-				const p = new CancelablePromise<string>((_res, reject) => reject(err));
-				// Attaching a rejection reaction via _subscribe must count as handled.
-				asInternal(p)._subscribe(undefined, () => {/**/});
+      try {
+        const err = new Error('suppressed');
+        const p = new CancelablePromise<string>((_res, reject) => reject(err));
+        // Attaching a rejection reaction via _subscribe must count as handled.
+        asInternal(p)._subscribe(undefined, () => {
+          /**/
+        });
 
-				await macrotask();
-				expect(unhandled).not.toContain(err);
-			} finally {
-				process.off('unhandledRejection', onUnhandled);
-			}
-		});
-	});
+        await macrotask();
+        expect(unhandled).not.toContain(err);
+      } finally {
+        process.off('unhandledRejection', onUnhandled);
+      }
+    });
+  });
 
-	describe('_chainInput chain-accounting parity', () => {
-		it('raises the input chain count to 2 (internal consumer + result child), same as today', () => {
-			const input = new CancelablePromise<any>(() => {/**/});
-			const result = new CancelablePromise<any>(() => {/**/});
+  describe('_chainInput chain-accounting parity', () => {
+    it('raises the input chain count to 2 (internal consumer + result child), same as today', () => {
+      const input = new CancelablePromise<any>(() => {
+        /**/
+      });
+      const result = new CancelablePromise<any>(() => {
+        /**/
+      });
 
-			asInternal(input)._chainInput(result);
+      asInternal(input)._chainInput(result);
 
-			// Today all() reaches _chainsCount === 2 per input (internal .then() child + result chain).
-			expect(asInternal(input)._chainsCount).toBe(2);
-			expect(asInternal(input)._completedChainsCount).toBe(0);
-		});
+      // Today all() reaches _chainsCount === 2 per input (internal .then() child + result chain).
+      expect(asInternal(input)._chainsCount).toBe(2);
+      expect(asInternal(input)._completedChainsCount).toBe(0);
+    });
 
-		it('respects bubble:false input (no accounting, count stays 0)', () => {
-			const input = new CancelablePromise<any>(() => {/**/}, { bubble: false });
-			const result = new CancelablePromise<any>(() => {/**/});
+    it('respects bubble:false input (no accounting, count stays 0)', () => {
+      const input = new CancelablePromise<any>(
+        () => {
+          /**/
+        },
+        { bubble: false },
+      );
+      const result = new CancelablePromise<any>(() => {
+        /**/
+      });
 
-			asInternal(input)._chainInput(result);
+      asInternal(input)._chainInput(result);
 
-			expect(asInternal(input)._chainsCount).toBe(0);
-		});
+      expect(asInternal(input)._chainsCount).toBe(0);
+    });
 
-		it('a hand-built mini-combinator on the primitives passes oracle-1 verbatim', async () => {
-			// Mini-all() built ONLY from _subscribe + _chainInput, no per-item species child.
-			function miniAll<T>(values: CancelablePromise<T>[]): CancelablePromise<T[]> {
-				const { promise, resolve, reject } = CancelablePromise.withResolvers<T[]>();
-				const results: T[] = [];
-				let count = values.length;
+    it('a hand-built mini-combinator on the primitives passes oracle-1 verbatim', async () => {
+      // Mini-all() built ONLY from _subscribe + _chainInput, no per-item species child.
+      function miniAll<T>(values: CancelablePromise<T>[]): CancelablePromise<T[]> {
+        const { promise, resolve, reject } = CancelablePromise.withResolvers<T[]>();
+        const results: T[] = [];
+        let count = values.length;
 
-				values.forEach((input, index) => {
-					asInternal(input)._subscribe(
-						value => {
-							results[index] = value;
-							if (!--count) {
-								resolve(results);
-							}
-						},
-						error => reject(error)
-					);
-					asInternal(input)._chainInput(promise);
-				});
+        values.forEach((input, index) => {
+          asInternal(input)._subscribe(
+            (value) => {
+              results[index] = value;
+              if (!--count) {
+                resolve(results);
+              }
+            },
+            (error) => reject(error),
+          );
+          asInternal(input)._chainInput(promise);
+        });
 
-				return promise;
-			}
+        return promise;
+      }
 
-			const p1 = new CancelablePromise<any>(() => {/**/});
-			const p2 = new CancelablePromise<any>(() => {/**/});
+      const p1 = new CancelablePromise<any>(() => {
+        /**/
+      });
+      const p2 = new CancelablePromise<any>(() => {
+        /**/
+      });
 
-			const result = miniAll([p1, p2]);
-			result.catch(() => {/**/});
+      const result = miniAll([p1, p2]);
+      result.catch(() => {
+        /**/
+      });
 
-			// Oracle-1 verbatim: canceling the RESULT must NOT cascade down to still-pending inputs.
-			result.cancel();
-			await macrotask();
+      // Oracle-1 verbatim: canceling the RESULT must NOT cascade down to still-pending inputs.
+      result.cancel();
+      await macrotask();
 
-			expect(result.isCanceled).toBe(true);
-			expect(p1.isCanceled).toBe(false);
-			expect(p2.isCanceled).toBe(false);
-		});
+      expect(result.isCanceled).toBe(true);
+      expect(p1.isCanceled).toBe(false);
+      expect(p2.isCanceled).toBe(false);
+    });
 
-		it('mini-combinator still delivers values through _subscribe', async () => {
-			function miniAll<T>(values: CancelablePromise<T>[]): CancelablePromise<T[]> {
-				const { promise, resolve, reject } = CancelablePromise.withResolvers<T[]>();
-				const results: T[] = [];
-				let count = values.length;
+    it('mini-combinator still delivers values through _subscribe', async () => {
+      function miniAll<T>(values: CancelablePromise<T>[]): CancelablePromise<T[]> {
+        const { promise, resolve, reject } = CancelablePromise.withResolvers<T[]>();
+        const results: T[] = [];
+        let count = values.length;
 
-				values.forEach((input, index) => {
-					asInternal(input)._subscribe(
-						value => {
-							results[index] = value;
-							if (!--count) {
-								resolve(results);
-							}
-						},
-						error => reject(error)
-					);
-					asInternal(input)._chainInput(promise);
-				});
+        values.forEach((input, index) => {
+          asInternal(input)._subscribe(
+            (value) => {
+              results[index] = value;
+              if (!--count) {
+                resolve(results);
+              }
+            },
+            (error) => reject(error),
+          );
+          asInternal(input)._chainInput(promise);
+        });
 
-				return promise;
-			}
+        return promise;
+      }
 
-			const a = new CancelablePromise<number>(resolve => resolve(1));
-			const b = new CancelablePromise<number>(resolve => resolve(2));
+      const a = new CancelablePromise<number>((resolve) => resolve(1));
+      const b = new CancelablePromise<number>((resolve) => resolve(2));
 
-			await expect(miniAll([a, b])).resolves.toEqual([1, 2]);
-		});
-	});
+      await expect(miniAll([a, b])).resolves.toEqual([1, 2]);
+    });
+  });
 
-	describe('_addChainRef core parity with _chain', () => {
-		it('_chain still bubbles up when all children complete (unchanged behavior)', async () => {
-			const parent = new CancelablePromise<any>(() => {/**/});
-			const child = parent.then(() => {/**/});
-			child.catch(() => {/**/});
+  describe('_addChainRef core parity with _chain', () => {
+    it('_chain still bubbles up when all children complete (unchanged behavior)', async () => {
+      const parent = new CancelablePromise<any>(() => {
+        /**/
+      });
+      const child = parent.then(() => {
+        /**/
+      });
+      child.catch(() => {
+        /**/
+      });
 
-			// Sole child canceled -> parent bubbles up and cancels.
-			child.cancel(new CancelError('c'));
-			await macrotask();
+      // Sole child canceled -> parent bubbles up and cancels.
+      child.cancel(new CancelError('c'));
+      await macrotask();
 
-			expect(child.isCanceled).toBe(true);
-			expect(parent.isCanceled).toBe(true);
-		});
-	});
+      expect(child.isCanceled).toBe(true);
+      expect(parent.isCanceled).toBe(true);
+    });
+  });
 });

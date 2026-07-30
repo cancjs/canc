@@ -1,8 +1,8 @@
 {
- "extends": "../../tsconfig.base",
- "compilerOptions": {
- "outDir": "build",
- "rootDir": "../..",
- },
- "include": ["src", "../_util"],
+  "extends": "../../tsconfig.base",
+  "compilerOptions": {
+    "outDir": "build",
+    "rootDir": "../.."
+  },
+  "include": ["src", "../_util"]
 }

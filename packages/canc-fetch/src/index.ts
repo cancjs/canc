@@ -1,13 +1,12 @@
 import {
-	cancelableFetchFactory,
-	cancelableFetchLaterFactory,
-	CancelableFetchConfig,
-	CancelableFetchLaterConfig,
-	CancelableFetchLaterPromise,
-	FetchLaterResultLike,
-	DeferredRequestInit,
+  CancelableFetchConfig,
+  cancelableFetchFactory,
+  CancelableFetchLaterConfig,
+  cancelableFetchLaterFactory,
+  CancelableFetchLaterPromise,
+  DeferredRequestInit,
+  FetchLaterResultLike,
 } from './base';
-
 
 // Default entries: globals (`fetch`, `AbortController`, `fetchLater`) are captured lazily on first
 // call inside the factories, so importing this module is safe even where they are absent.
@@ -18,9 +17,9 @@ export default cancelableFetch;
 
 export { cancelableFetch, cancelableFetchFactory, cancelableFetchLater, cancelableFetchLaterFactory };
 export type {
-	CancelableFetchConfig,
-	CancelableFetchLaterConfig,
-	CancelableFetchLaterPromise,
-	FetchLaterResultLike,
-	DeferredRequestInit,
+  CancelableFetchConfig,
+  CancelableFetchLaterConfig,
+  CancelableFetchLaterPromise,
+  DeferredRequestInit,
+  FetchLaterResultLike,
 };

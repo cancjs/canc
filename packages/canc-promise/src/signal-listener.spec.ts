@@ -1,5 +1,5 @@
-import { CancelablePromise } from './cancelable-promise';
 import { CancelError } from './cancel-error';
+import { CancelablePromise } from './cancelable-promise';
 
 /**
  * Signal listener cleanup + multi-signal support.
@@ -9,239 +9,271 @@ import { CancelError } from './cancel-error';
  */
 
 function flushPromises(): Promise<void> {
-	return new Promise(resolve => setTimeout(resolve, 0));
+  return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 describe('signal listener cleanup + multi-signal', () => {
-	// (a) Settle -> removeEventListener called
-	it('(a) removeEventListener called when promise settles via fulfill', async () => {
-		const controller = new AbortController();
-		const signal = controller.signal;
-		const spy = jest.spyOn(signal, 'removeEventListener');
+  // (a) Settle -> removeEventListener called
+  it('(a) removeEventListener called when promise settles via fulfill', async () => {
+    const controller = new AbortController();
+    const signal = controller.signal;
+    const spy = jest.spyOn(signal, 'removeEventListener');
 
-		const promise = new CancelablePromise(
-			(resolve) => setTimeout(() => resolve('value'), 0),
-			{ signal }
-		);
+    const promise = new CancelablePromise((resolve) => setTimeout(() => resolve('value'), 0), { signal });
 
-		await flushPromises();
+    await flushPromises();
 
-		expect(spy).toHaveBeenCalledWith('abort', expect.any(Function), { once: true });
-		spy.mockRestore();
-	});
+    expect(spy).toHaveBeenCalledWith('abort', expect.any(Function), { once: true });
+    spy.mockRestore();
+  });
 
-	it('(a) removeEventListener called when promise settles via reject', async () => {
-		const controller = new AbortController();
-		const signal = controller.signal;
-		const spy = jest.spyOn(signal, 'removeEventListener');
+  it('(a) removeEventListener called when promise settles via reject', async () => {
+    const controller = new AbortController();
+    const signal = controller.signal;
+    const spy = jest.spyOn(signal, 'removeEventListener');
 
-		const promise = new CancelablePromise(
-			(_resolve, reject) => setTimeout(() => reject(new Error('fail')), 0),
-			{ signal }
-		);
-		promise.catch(() => {/**/});
+    const promise = new CancelablePromise((_resolve, reject) => setTimeout(() => reject(new Error('fail')), 0), {
+      signal,
+    });
+    promise.catch(() => {
+      /**/
+    });
 
-		await flushPromises();
+    await flushPromises();
 
-		expect(spy).toHaveBeenCalledWith('abort', expect.any(Function), { once: true });
-		spy.mockRestore();
-	});
+    expect(spy).toHaveBeenCalledWith('abort', expect.any(Function), { once: true });
+    spy.mockRestore();
+  });
 
-	it('(a) removeEventListener called when promise is canceled', async () => {
-		const controller = new AbortController();
-		const signal = controller.signal;
-		const spy = jest.spyOn(signal, 'removeEventListener');
+  it('(a) removeEventListener called when promise is canceled', async () => {
+    const controller = new AbortController();
+    const signal = controller.signal;
+    const spy = jest.spyOn(signal, 'removeEventListener');
 
-		const promise = new CancelablePromise(() => {/**/}, { signal });
-		// eslint-disable-next-line @typescript-eslint/no-floating-promises
-		promise.cancel();
+    const promise = new CancelablePromise(
+      () => {
+        /**/
+      },
+      { signal },
+    );
 
-		await flushPromises();
+    promise.cancel();
 
-		expect(spy).toHaveBeenCalledWith('abort', expect.any(Function), { once: true });
-		spy.mockRestore();
-	});
+    await flushPromises();
 
-	// (b) Long-lived signal + N settled promises -> zero listener growth
-	it('(b) N settled promises on one signal have zero residual listeners', async () => {
-		const controller = new AbortController();
-		const signal = controller.signal;
+    expect(spy).toHaveBeenCalledWith('abort', expect.any(Function), { once: true });
+    spy.mockRestore();
+  });
 
-		let listenerCount = 0;
-		const origAdd = signal.addEventListener.bind(signal);
-		const origRemove = signal.removeEventListener.bind(signal);
+  // (b) Long-lived signal + N settled promises -> zero listener growth
+  it('(b) N settled promises on one signal have zero residual listeners', async () => {
+    const controller = new AbortController();
+    const signal = controller.signal;
 
-		jest.spyOn(signal, 'addEventListener').mockImplementation(function (type, listener, opts) {
-			if (type === 'abort') listenerCount++;
-			return origAdd(type, listener, opts);
-		});
+    let listenerCount = 0;
+    const origAdd = signal.addEventListener.bind(signal);
+    const origRemove = signal.removeEventListener.bind(signal);
 
-		jest.spyOn(signal, 'removeEventListener').mockImplementation(function (type, listener, opts) {
-			if (type === 'abort') listenerCount--;
-			return origRemove(type, listener, opts);
-		});
+    jest.spyOn(signal, 'addEventListener').mockImplementation(function (type, listener, opts) {
+      if (type === 'abort') listenerCount++;
+      return origAdd(type, listener, opts);
+    });
 
-		const promises = Array(5).fill(0).map(() => new CancelablePromise(resolve => {
-			setTimeout(() => resolve('done'), 0);
-		}, { signal }));
+    jest.spyOn(signal, 'removeEventListener').mockImplementation(function (type, listener, opts) {
+      if (type === 'abort') listenerCount--;
+      return origRemove(type, listener, opts);
+    });
 
-		await Promise.all(promises);
-		await flushPromises();
+    const promises = Array(5)
+      .fill(0)
+      .map(
+        () =>
+          new CancelablePromise(
+            (resolve) => {
+              setTimeout(() => resolve('done'), 0);
+            },
+            { signal },
+          ),
+      );
 
-		expect(listenerCount).toBe(0);
-	});
+    await Promise.all(promises);
+    await flushPromises();
 
-	// (c) Pre-aborted signal -> already-canceled promise (no sync throw by default)
-	it('(c) pre-aborted signal returns already-canceled promise (no throw)', () => {
-		const controller = new AbortController();
-		controller.abort(new Error('pre-aborted'));
+    expect(listenerCount).toBe(0);
+  });
 
-		const promise = new CancelablePromise(() => {/**/}, { signal: controller.signal });
+  // (c) Pre-aborted signal -> already-canceled promise (no sync throw by default)
+  it('(c) pre-aborted signal returns already-canceled promise (no throw)', () => {
+    const controller = new AbortController();
+    controller.abort(new Error('pre-aborted'));
 
-		expect(promise.isCanceled).toBe(true);
-		expect(promise).rejects.toBeInstanceOf(CancelError);
-	});
+    const promise = new CancelablePromise(
+      () => {
+        /**/
+      },
+      { signal: controller.signal },
+    );
 
-	// (c) Pre-aborted + strict:true -> throws
-	it('(c) pre-aborted signal with strict:true throws', () => {
-		const controller = new AbortController();
-		controller.abort(new Error('pre-aborted-strict'));
+    expect(promise.isCanceled).toBe(true);
+    expect(promise).rejects.toBeInstanceOf(CancelError);
+  });
 
-		expect(() => {
-			new CancelablePromise(() => {/**/}, { signal: controller.signal, strict: true });
-		}).toThrow(/[Aa]borted/);
-	});
+  // (c) Pre-aborted + strict:true -> throws
+  it('(c) pre-aborted signal with strict:true throws', () => {
+    const controller = new AbortController();
+    controller.abort(new Error('pre-aborted-strict'));
 
-	// (c) Pre-aborted promise inherits signal.reason as cause
-	it('(c) pre-aborted promise rejection carries signal.reason as cause', async () => {
-		const controller = new AbortController();
-		const reason = new Error('abort-reason');
-		controller.abort(reason);
+    expect(() => {
+      new CancelablePromise(
+        () => {
+          /**/
+        },
+        { signal: controller.signal, strict: true },
+      );
+    }).toThrow(/[Aa]borted/);
+  });
 
-		const promise = new CancelablePromise(() => {/**/}, { signal: controller.signal });
+  // (c) Pre-aborted promise inherits signal.reason as cause
+  it('(c) pre-aborted promise rejection carries signal.reason as cause', async () => {
+    const controller = new AbortController();
+    const reason = new Error('abort-reason');
+    controller.abort(reason);
 
-		let caught: any = null;
-		promise.catch((err: any) => { caught = err; });
+    const promise = new CancelablePromise(
+      () => {
+        /**/
+      },
+      { signal: controller.signal },
+    );
 
-		await flushPromises();
+    let caught: any = null;
+    promise.catch((err: any) => {
+      caught = err;
+    });
 
-		expect(caught).toBeInstanceOf(CancelError);
-		expect(caught.cause).toBe(reason);
-	});
+    await flushPromises();
 
-	// (d) Abort after settle -> no-op
-	it('(d) abort after promise settles is a no-op', async () => {
-		const controller = new AbortController();
-		const signal = controller.signal;
+    expect(caught).toBeInstanceOf(CancelError);
+    expect(caught.cause).toBe(reason);
+  });
 
-		const promise = new CancelablePromise((resolve) => {
-			setTimeout(() => resolve('settled'), 0);
-		}, { signal });
+  // (d) Abort after settle -> no-op
+  it('(d) abort after promise settles is a no-op', async () => {
+    const controller = new AbortController();
+    const signal = controller.signal;
 
-		await flushPromises();
+    const promise = new CancelablePromise(
+      (resolve) => {
+        setTimeout(() => resolve('settled'), 0);
+      },
+      { signal },
+    );
 
-		expect(promise.isCanceled).toBe(false);
-		controller.abort(new Error('too-late'));
+    await flushPromises();
 
-		await flushPromises();
+    expect(promise.isCanceled).toBe(false);
+    controller.abort(new Error('too-late'));
 
-		expect(promise.isCanceled).toBe(false);
-		await expect(promise).resolves.toBe('settled');
-	});
+    await flushPromises();
 
-	// (e) Two signals, either aborts -> promise cancels, both cleaned
-	it('(e) two signals: first abort cancels, both listeners cleaned', async () => {
-		const ctrl1 = new AbortController();
-		const ctrl2 = new AbortController();
-		const signal1 = ctrl1.signal;
-		const signal2 = ctrl2.signal;
+    expect(promise.isCanceled).toBe(false);
+    await expect(promise).resolves.toBe('settled');
+  });
 
-		const spy1 = jest.spyOn(signal1, 'removeEventListener');
-		const spy2 = jest.spyOn(signal2, 'removeEventListener');
+  // (e) Two signals, either aborts -> promise cancels, both cleaned
+  it('(e) two signals: first abort cancels, both listeners cleaned', async () => {
+    const ctrl1 = new AbortController();
+    const ctrl2 = new AbortController();
+    const signal1 = ctrl1.signal;
+    const signal2 = ctrl2.signal;
 
-		const promise = new CancelablePromise(
-			() => {/**/},
-			{ signal: [signal1, signal2] as any } // Cast for now; array will be typed after impl
-		);
+    const spy1 = jest.spyOn(signal1, 'removeEventListener');
+    const spy2 = jest.spyOn(signal2, 'removeEventListener');
 
-		expect(promise.isCancelable).toBe(true);
+    const promise = new CancelablePromise(
+      () => {
+        /**/
+      },
+      { signal: [signal1, signal2] as any }, // Cast for now; array will be typed after impl
+    );
 
-		ctrl1.abort(new Error('first-abort'));
+    expect(promise.isCancelable).toBe(true);
 
-		await flushPromises();
+    ctrl1.abort(new Error('first-abort'));
 
-		expect(promise.isCanceled).toBe(true);
-		// Both listeners should be removed (first abort wins, cleanup runs)
-		expect(spy1).toHaveBeenCalledWith('abort', expect.any(Function), expect.any(Object));
-		expect(spy2).toHaveBeenCalledWith('abort', expect.any(Function), expect.any(Object));
+    await flushPromises();
 
-		spy1.mockRestore();
-		spy2.mockRestore();
-	});
+    expect(promise.isCanceled).toBe(true);
+    // Both listeners should be removed (first abort wins, cleanup runs)
+    expect(spy1).toHaveBeenCalledWith('abort', expect.any(Function), expect.any(Object));
+    expect(spy2).toHaveBeenCalledWith('abort', expect.any(Function), expect.any(Object));
 
-	it('(e) two signals: second abort no-op, both listeners already cleaned', async () => {
-		const ctrl1 = new AbortController();
-		const ctrl2 = new AbortController();
-		const signal1 = ctrl1.signal;
-		const signal2 = ctrl2.signal;
+    spy1.mockRestore();
+    spy2.mockRestore();
+  });
 
-		const promise = new CancelablePromise(
-			() => {/**/},
-			{ signal: [signal1, signal2] as any }
-		);
+  it('(e) two signals: second abort no-op, both listeners already cleaned', async () => {
+    const ctrl1 = new AbortController();
+    const ctrl2 = new AbortController();
+    const signal1 = ctrl1.signal;
+    const signal2 = ctrl2.signal;
 
-		ctrl1.abort(new Error('first'));
+    const promise = new CancelablePromise(
+      () => {
+        /**/
+      },
+      { signal: [signal1, signal2] as any },
+    );
 
-		await flushPromises();
+    ctrl1.abort(new Error('first'));
 
-		expect(promise.isCanceled).toBe(true);
-		const cancelCountAfterFirst = promise.isCanceled ? 1 : 0;
+    await flushPromises();
 
-		ctrl2.abort(new Error('second'));
+    expect(promise.isCanceled).toBe(true);
+    const cancelCountAfterFirst = promise.isCanceled ? 1 : 0;
 
-		await flushPromises();
+    ctrl2.abort(new Error('second'));
 
-		expect(promise.isCanceled).toBe(true);
-		// Second abort should not trigger another cancel (promise already canceled)
-		// This is implicit: isCanceled stays true, no additional rejection
-	});
+    await flushPromises();
 
-	// Listener count matrix: prove no growth
-	it('listener count matrix: single signal, 10 settled promises, zero residual listeners', async () => {
-		const controller = new AbortController();
-		const signal = controller.signal;
+    expect(promise.isCanceled).toBe(true);
+    // Second abort should not trigger another cancel (promise already canceled)
+    // This is implicit: isCanceled stays true, no additional rejection
+  });
 
-		let addCount = 0;
-		let removeCount = 0;
+  // Listener count matrix: prove no growth
+  it('listener count matrix: single signal, 10 settled promises, zero residual listeners', async () => {
+    const controller = new AbortController();
+    const signal = controller.signal;
 
-		const origAdd = signal.addEventListener.bind(signal);
-		const origRemove = signal.removeEventListener.bind(signal);
+    let addCount = 0;
+    let removeCount = 0;
 
-		jest.spyOn(signal, 'addEventListener').mockImplementation(function (type, listener, opts) {
-			if (type === 'abort') addCount++;
-			return origAdd(type, listener, opts);
-		});
+    const origAdd = signal.addEventListener.bind(signal);
+    const origRemove = signal.removeEventListener.bind(signal);
 
-		jest.spyOn(signal, 'removeEventListener').mockImplementation(function (type, listener, opts) {
-			if (type === 'abort') removeCount++;
-			return origRemove(type, listener, opts);
-		});
+    jest.spyOn(signal, 'addEventListener').mockImplementation(function (type, listener, opts) {
+      if (type === 'abort') addCount++;
+      return origAdd(type, listener, opts);
+    });
 
-		const promises = [];
-		for (let i = 0; i < 10; i++) {
-			promises.push(new CancelablePromise(
-				resolve => setTimeout(() => resolve(i), 0),
-				{ signal }
-			));
-		}
+    jest.spyOn(signal, 'removeEventListener').mockImplementation(function (type, listener, opts) {
+      if (type === 'abort') removeCount++;
+      return origRemove(type, listener, opts);
+    });
 
-		await Promise.all(promises);
-		await flushPromises();
+    const promises = [];
+    for (let i = 0; i < 10; i++) {
+      promises.push(new CancelablePromise((resolve) => setTimeout(() => resolve(i), 0), { signal }));
+    }
 
-		expect(addCount).toBe(10);
-		expect(removeCount).toBe(10);
-		expect(addCount - removeCount).toBe(0);
+    await Promise.all(promises);
+    await flushPromises();
 
-		console.log(`Listener count matrix: +${addCount} -${removeCount} = ${addCount - removeCount}`);
-	});
+    expect(addCount).toBe(10);
+    expect(removeCount).toBe(10);
+    expect(addCount - removeCount).toBe(0);
+
+    console.log(`Listener count matrix: +${addCount} -${removeCount} = ${addCount - removeCount}`);
+  });
 });

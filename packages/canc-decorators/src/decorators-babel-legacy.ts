@@ -1,6 +1,7 @@
-import { isFunction, copyFunctionMetadata, isStage3Context } from '../../_util';
 // cancAsync moved from @cancjs/promise to @cancjs/coroutine.
 import { async as cancAsync } from '@cancjs/coroutine';
+
+import { copyFunctionMetadata, isFunction, isStage3Context } from '../../_util';
 
 /**
  * Babel legacy decorators (`@babel/plugin-proposal-decorators` with `legacy: true` +
@@ -17,20 +18,20 @@ import { async as cancAsync } from '@cancjs/coroutine';
  */
 
 interface IBabelPropertyDescriptor extends PropertyDescriptor {
- initializer?: (() => any) | null;
+  initializer?: (() => any) | null;
 }
 
 interface IMethodDecoratorOptions {
- bind?: boolean;
+  bind?: boolean;
 }
 
 function setProperty(target: any, key: string | symbol, value: any) {
- Object.defineProperty(target, key, {
- value,
- writable: false,
- configurable: true,
- enumerable: false,
- });
+  Object.defineProperty(target, key, {
+    value,
+    writable: false,
+    configurable: true,
+    enumerable: false,
+  });
 }
 
 // Stage-3 decorators invoke as (value, context) — the second argument is always a context
@@ -38,94 +39,91 @@ function setProperty(target: any, key: string | symbol, value: any) {
 // under stage-3 (native TS 5+ / babel's non-legacy plugin version) output; fail with a message
 // pointing at the stage-3 entry point instead of crashing on `propertyKey` being an object.
 function assertBabelLegacyCallShape(propertyKey: any): void {
- if (isStage3Context(propertyKey)) {
- throw new Error(
- `This decorator is for babel legacy decorators only. It was called with stage-3 (ES / `
- + `TC39) decorator arguments (value, context). Import from '@cancjs/decorators' for `
- + `stage-3 decorators.`,
- );
- }
+  if (isStage3Context(propertyKey)) {
+    throw new Error(
+      `This decorator is for babel legacy decorators only. It was called with stage-3 (ES / ` +
+        `TC39) decorator arguments (value, context). Import from '@cancjs/decorators' for ` +
+        `stage-3 decorators.`,
+    );
+  }
 }
 
-function makeBabelDecorator(
- isBind: boolean,
- wrap: (fn: Function, ctx: any) => Function,
-) {
- return (target: any, propertyKey: string | symbol, descriptor: IBabelPropertyDescriptor) => {
- assertBabelLegacyCallShape(propertyKey);
+function makeBabelDecorator(isBind: boolean, wrap: (fn: Function, ctx: any) => Function) {
+  return (target: any, propertyKey: string | symbol, descriptor: IBabelPropertyDescriptor) => {
+    assertBabelLegacyCallShape(propertyKey);
 
- const isField = isFunction(descriptor?.initializer) || descriptor?.initializer === null;
- const isGetter = !!descriptor?.get;
+    const isField = isFunction(descriptor?.initializer) || descriptor?.initializer === null;
+    const isGetter = !!descriptor?.get;
 
- // --- getter ---
- if (isGetter) {
- // The user returns a ready coroutine (a cancAsync result) from the getter, so the decorator
- // never wraps it. It optionally binds the function to the instance (bind:true), then memoizes
- // per instance.
- const originalGetter = descriptor.get!;
+    // --- getter ---
+    if (isGetter) {
+      // The user returns a ready coroutine (a cancAsync result) from the getter, so the decorator
+      // never wraps it. It optionally binds the function to the instance (bind:true), then memoizes
+      // per instance.
+      const originalGetter = descriptor.get!;
 
- descriptor.get = function (this: any) {
- const raw = originalGetter.call(this);
+      descriptor.get = function (this: any) {
+        const raw = originalGetter.call(this);
 
- if (!isFunction(raw)) {
- throw new TypeError(`'${String(propertyKey)}' getter result is not a function`);
- }
+        if (!isFunction(raw)) {
+          throw new TypeError(`'${String(propertyKey)}' getter result is not a function`);
+        }
 
- const value = isBind ? copyFunctionMetadata(raw, raw.bind(this)) : raw;
- setProperty(this, propertyKey, value);
+        const value = isBind ? copyFunctionMetadata(raw, raw.bind(this)) : raw;
+        setProperty(this, propertyKey, value);
 
- return value;
- };
+        return value;
+      };
 
- return descriptor;
- }
+      return descriptor;
+    }
 
- // --- field (arrow-fn class property) ---
- if (isField) {
- const originalInitializer = descriptor.initializer;
+    // --- field (arrow-fn class property) ---
+    if (isField) {
+      const originalInitializer = descriptor.initializer;
 
- descriptor.initializer = function (this: any) {
- const initialValue = originalInitializer ? originalInitializer.call(this) : undefined;
+      descriptor.initializer = function (this: any) {
+        const initialValue = originalInitializer ? originalInitializer.call(this) : undefined;
 
- if (!isFunction(initialValue)) {
- throw new TypeError(`'${String(propertyKey)}' is not a method and cannot be decorated`);
- }
+        if (!isFunction(initialValue)) {
+          throw new TypeError(`'${String(propertyKey)}' is not a method and cannot be decorated`);
+        }
 
- return copyFunctionMetadata(initialValue, wrap(initialValue, isBind ? this : undefined));
- };
+        return copyFunctionMetadata(initialValue, wrap(initialValue, isBind ? this : undefined));
+      };
 
- return descriptor;
- }
+      return descriptor;
+    }
 
- // --- proto method ---
- const originalMethod = descriptor.value as Function;
+    // --- proto method ---
+    const originalMethod = descriptor.value as Function;
 
- if (!isFunction(originalMethod)) {
- throw new TypeError(`'${String(propertyKey)}' is not a method and cannot be decorated`);
- }
+    if (!isFunction(originalMethod)) {
+      throw new TypeError(`'${String(propertyKey)}' is not a method and cannot be decorated`);
+    }
 
- if (isBind) {
- // bind:true → lazy per-instance own-bound property (self-replacing own-property; no
- // prototype-level shared cache → cross-instance isolation + collectable instances).
- delete descriptor.value;
- delete descriptor.writable;
+    if (isBind) {
+      // bind:true → lazy per-instance own-bound property (self-replacing own-property; no
+      // prototype-level shared cache → cross-instance isolation + collectable instances).
+      delete descriptor.value;
+      delete descriptor.writable;
 
- descriptor.get = function (this: any) {
- const value = copyFunctionMetadata(originalMethod, wrap(originalMethod, this));
- setProperty(this, propertyKey, value);
- return value;
- };
- descriptor.set = function (this: any, value: any) {
- setProperty(this, propertyKey, value);
- };
- } else {
- // bind:false → proto wrap once. Preserve metadata another decorator attached to the original
- // method function (SetMetadata-style), otherwise it is lost on the wrapper.
- descriptor.value = copyFunctionMetadata(originalMethod, wrap(originalMethod, undefined));
- }
+      descriptor.get = function (this: any) {
+        const value = copyFunctionMetadata(originalMethod, wrap(originalMethod, this));
+        setProperty(this, propertyKey, value);
+        return value;
+      };
+      descriptor.set = function (this: any, value: any) {
+        setProperty(this, propertyKey, value);
+      };
+    } else {
+      // bind:false → proto wrap once. Preserve metadata another decorator attached to the original
+      // method function (SetMetadata-style), otherwise it is lost on the wrapper.
+      descriptor.value = copyFunctionMetadata(originalMethod, wrap(originalMethod, undefined));
+    }
 
- return descriptor;
- };
+    return descriptor;
+  };
 }
 
 // Babel legacy decorator return value never redefines the decorated member's own type (same as TS
@@ -134,31 +132,31 @@ function makeBabelDecorator(
 export function BabelLegacyAsyncMethod(target: any, propertyKey: string | symbol, descriptor: PropertyDescriptor): any;
 export function BabelLegacyAsyncMethod(options?: IMethodDecoratorOptions): MethodDecorator | PropertyDecorator;
 export function BabelLegacyAsyncMethod(
- ...args: [IMethodDecoratorOptions?] | [any, string | symbol, PropertyDescriptor]
+  ...args: [IMethodDecoratorOptions?] | [any, string | symbol, PropertyDescriptor]
 ) {
- if (args.length > 1) {
- return (makeBabelDecorator(false, (fn, ctx) => cancAsync(fn as any, ctx)) as any)(
- ...(args as [any, string | symbol, PropertyDescriptor]),
- );
- }
+  if (args.length > 1) {
+    return (makeBabelDecorator(false, (fn, ctx) => cancAsync(fn as any, ctx)) as any)(
+      ...(args as [any, string | symbol, PropertyDescriptor]),
+    );
+  }
 
- const isBind = (args[0] as IMethodDecoratorOptions | undefined)?.bind ?? false;
+  const isBind = (args[0] as IMethodDecoratorOptions | undefined)?.bind ?? false;
 
- return makeBabelDecorator(isBind, (fn, ctx) => cancAsync(fn as any, ctx)) as any;
+  return makeBabelDecorator(isBind, (fn, ctx) => cancAsync(fn as any, ctx)) as any;
 }
 
 export function BabelLegacyBindMethod(target: any, propertyKey: string | symbol, descriptor: PropertyDescriptor): any;
 export function BabelLegacyBindMethod(options?: IMethodDecoratorOptions): MethodDecorator | PropertyDecorator;
 export function BabelLegacyBindMethod(
- ...args: [IMethodDecoratorOptions?] | [any, string | symbol, PropertyDescriptor]
+  ...args: [IMethodDecoratorOptions?] | [any, string | symbol, PropertyDescriptor]
 ) {
- if (args.length > 1) {
- return (makeBabelDecorator(true, (fn, ctx) => (ctx !== undefined ? fn.bind(ctx) : fn)) as any)(
- ...(args as [any, string | symbol, PropertyDescriptor]),
- );
- }
+  if (args.length > 1) {
+    return (makeBabelDecorator(true, (fn, ctx) => (ctx !== undefined ? fn.bind(ctx) : fn)) as any)(
+      ...(args as [any, string | symbol, PropertyDescriptor]),
+    );
+  }
 
- const isBind = (args[0] as IMethodDecoratorOptions | undefined)?.bind ?? true;
+  const isBind = (args[0] as IMethodDecoratorOptions | undefined)?.bind ?? true;
 
- return makeBabelDecorator(isBind, (fn, ctx) => (ctx !== undefined ? fn.bind(ctx) : fn)) as any;
+  return makeBabelDecorator(isBind, (fn, ctx) => (ctx !== undefined ? fn.bind(ctx) : fn)) as any;
 }

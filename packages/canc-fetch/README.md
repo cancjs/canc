@@ -23,11 +23,11 @@ plumbing working while it is being phased out.
 
 ## Features
 
-* same call signature as the platform `fetch`
-* cancellation aborts the request in flight
-* accepts an external `AbortSignal` through `init`, including one that is already aborted
-* configurable `fetch` and `AbortController` implementations for tests and non-browser hosts
-* cancelable interop for the `fetchLater` API
+- same call signature as the platform `fetch`
+- cancellation aborts the request in flight
+- accepts an external `AbortSignal` through `init`, including one that is already aborted
+- configurable `fetch` and `AbortController` implementations for tests and non-browser hosts
+- cancelable interop for the `fetchLater` API
 
 ## Getting Started
 
@@ -152,14 +152,14 @@ passed to the factory. Everything else follows
 
 ## Documentation
 
-* [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) for the
-	cancellation model and signal interop
-* [Coroutines](https://github.com/cancjs/canc/tree/master/packages/canc-coroutine) for requests
-	inside a cancelable flow
-* [Toolbox](https://github.com/cancjs/canc/tree/master/packages/canc-toolbox) for timeouts and
-	for making other APIs cancelable
-* [Examples](https://github.com/cancjs/canc/tree/master/examples): `demo-fetch` for chains,
-	external signals and timeouts, `demo-signal-interop` for the bridges in both directions
+- [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) for the
+  cancellation model and signal interop
+- [Coroutines](https://github.com/cancjs/canc/tree/master/packages/canc-coroutine) for requests
+  inside a cancelable flow
+- [Toolbox](https://github.com/cancjs/canc/tree/master/packages/canc-toolbox) for timeouts and
+  for making other APIs cancelable
+- [Examples](https://github.com/cancjs/canc/tree/master/examples): `demo-fetch` for chains,
+  external signals and timeouts, `demo-signal-interop` for the bridges in both directions
 
 ## Contributing
 

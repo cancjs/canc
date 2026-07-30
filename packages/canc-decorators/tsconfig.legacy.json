@@ -1,11 +1,11 @@
 // Per-flavor fixture tsconfig: TS legacy decorators (experimentalDecorators).
 // Used by ts-jest for the legacy spec and by `check:legacy` to prove it compiles.
 {
- "extends": "../../tsconfig.test",
- "compilerOptions": {
- "experimentalDecorators": true,
- "useDefineForClassFields": false,
- "lib": ["es2022"]
- },
- "include": ["src/decorators-legacy.ts", "src/decorators-legacy.spec.ts"]
+  "extends": "../../tsconfig.test",
+  "compilerOptions": {
+    "experimentalDecorators": true,
+    "useDefineForClassFields": false,
+    "lib": ["es2022"]
+  },
+  "include": ["src/decorators-legacy.ts", "src/decorators-legacy.spec.ts"]
 }

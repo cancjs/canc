@@ -1,6 +1,7 @@
-import { CancelError, CancelablePromise, isCancelError } from '@cancjs/promise';
+import { CancelablePromise, CancelError, isCancelError } from '@cancjs/promise';
+
 import { makeCancelSignal, TGetSignal } from '../../_toolbox';
-import { IToolboxOptions, THandleCancel, TExecutorCtx } from './options';
+import { IToolboxOptions, TExecutorCtx, THandleCancel } from './options';
 
 /** Structural AbortController, so no dependency on the ambient DOM/Node type in envs that polyfill it. */
 type AbortControllerCtor = new () => { abort(reason?: any): void; signal: any };
@@ -13,25 +14,25 @@ type AbortControllerCtor = new () => { abort(reason?: any): void; signal: any };
  * Passed to makeCancelSignal as the reason normalizer so an aborted outbound signal reads branded.
  */
 export function toCancelError(reason?: any): CancelError {
-	if (isCancelError(reason)) {
-		return reason;
-	}
+  if (isCancelError(reason)) {
+    return reason;
+  }
 
-	if (reason !== null && typeof reason === 'object') {
-		return new CancelError(undefined, { cause: reason });
-	}
+  if (reason !== null && typeof reason === 'object') {
+    return new CancelError(undefined, { cause: reason });
+  }
 
-	return new CancelError(reason);
+  return new CancelError(reason);
 }
 
 export interface ICancelifyContext {
-	getSignal: TGetSignal;
-	handleCancel: THandleCancel;
+  getSignal: TGetSignal;
+  handleCancel: THandleCancel;
 }
 
 export interface ICancelifyOptions extends IToolboxOptions {
-	/** AbortController implementation used to mint the outbound signal. Defaults to the ambient global. */
-	AbortController?: AbortControllerCtor;
+  /** AbortController implementation used to mint the outbound signal. Defaults to the ambient global. */
+  AbortController?: AbortControllerCtor;
 }
 
 /** A promise-returning fn that receives the outbound cancel-signal thunk and the call-args array.
@@ -45,25 +46,21 @@ export type TCancelifyFn<A extends any[], R> = (ctx: ICancelifyContext, args: A)
  * constructs nothing.
  */
 export function cancelify<A extends any[], R>(
-	fn: TCancelifyFn<A, R>,
-	options?: ICancelifyOptions,
+  fn: TCancelifyFn<A, R>,
+  options?: ICancelifyOptions,
 ): (...callArgs: A) => CancelablePromise<R> {
-	const Ctor = options?.AbortController;
+  const Ctor = options?.AbortController;
 
-	return function (...callArgs: A): CancelablePromise<R> {
-		const run = (
-			resolve: (value: R | PromiseLike<R>) => void,
-			reject: (reason?: any) => void,
-			ctx?: TExecutorCtx,
-		) => {
-			const handleCancel = ctx?.handleCancel;
-			const holder = makeCancelSignal(handleCancel, Ctor, toCancelError);
-			CancelablePromise.resolve(fn({ getSignal: holder.getSignal, handleCancel: handleCancel! }, callArgs)).then(
-				resolve,
-				reject,
-			);
-		};
+  return function (...callArgs: A): CancelablePromise<R> {
+    const run = (resolve: (value: R | PromiseLike<R>) => void, reject: (reason?: any) => void, ctx?: TExecutorCtx) => {
+      const handleCancel = ctx?.handleCancel;
+      const holder = makeCancelSignal(handleCancel, Ctor, toCancelError);
+      CancelablePromise.resolve(fn({ getSignal: holder.getSignal, handleCancel: handleCancel! }, callArgs)).then(
+        resolve,
+        reject,
+      );
+    };
 
-		return new CancelablePromise<R>(run, options);
-	};
+    return new CancelablePromise<R>(run, options);
+  };
 }

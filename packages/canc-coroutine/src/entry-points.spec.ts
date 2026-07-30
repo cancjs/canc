@@ -1,4 +1,3 @@
-import { isCancelError, suppressCancel } from '@cancjs/promise';
 // `canc` resolves through the package name (workspace symlink + exports map), exercising the main
 // entry built by rollup. `cancGen` imports the `gen.ts` barrel itself (its only job is
 // re-exporting from coroutine-gen.ts under the cancGen.* names) rather than the
@@ -7,6 +6,8 @@ import { isCancelError, suppressCancel } from '@cancjs/promise';
 // unrelated to this package and is proven separately via a plain `require()` smoke against the
 // built dist/gen.cjs from outside jest.
 import * as canc from '@cancjs/coroutine';
+import { isCancelError, suppressCancel } from '@cancjs/promise';
+
 import * as cancGen from './gen';
 
 // Deterministic microtask flush (mirrors coroutine-each.spec): drains the microtask queue N

@@ -2,9 +2,9 @@
 // for both production and test code
 // https://github.com/microsoft/vscode/issues/12463
 {
- "extends": "../../tsconfig",
- "compilerOptions": {
- "lib": ["es2022"]
- },
- "include": ["src"]
+  "extends": "../../tsconfig",
+  "compilerOptions": {
+    "lib": ["es2022"]
+  },
+  "include": ["src"]
 }

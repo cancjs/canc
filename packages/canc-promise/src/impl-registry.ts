@@ -13,7 +13,7 @@ export type PromiseImpl = PromiseConstructor;
  * options object.
  */
 export interface IPromiseImplOptions {
-	impl?: PromiseImpl;
+  impl?: PromiseImpl;
 }
 
 // Module-scoped mutable registry. This state MUST live in the published @cancjs/promise package
@@ -36,7 +36,7 @@ let registeredImpl: PromiseImpl | undefined;
  * implementation by reference.
  */
 export function setPromiseImpl(impl?: PromiseImpl): void {
-	registeredImpl = impl;
+  registeredImpl = impl;
 }
 
 /**
@@ -44,7 +44,7 @@ export function setPromiseImpl(impl?: PromiseImpl): void {
  * registered.
  */
 export function getPromiseImpl(): PromiseImpl {
-	return registeredImpl || (CancelablePromise as unknown as PromiseImpl);
+  return registeredImpl || (CancelablePromise as unknown as PromiseImpl);
 }
 
 /**
@@ -54,5 +54,5 @@ export function getPromiseImpl(): PromiseImpl {
  * second argument.
  */
 export function resolvePromiseImpl(options?: IPromiseImplOptions, staticImpl?: PromiseImpl): PromiseImpl {
-	return options?.impl || staticImpl || getPromiseImpl();
+  return options?.impl || staticImpl || getPromiseImpl();
 }

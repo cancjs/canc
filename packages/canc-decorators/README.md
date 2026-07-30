@@ -25,11 +25,11 @@ identical, only the wiring underneath differs.
 
 ## Features
 
-* declarative cancelable methods, no manual wrapping in the constructor
-* standard, TypeScript legacy and Babel legacy dialects, from separate entry points
-* prototype-level or per-instance placement, chosen with one option
-* methods, arrow-function class fields and getters are all supported
-* per-instance placement that does not leak instances
+- declarative cancelable methods, no manual wrapping in the constructor
+- standard, TypeScript legacy and Babel legacy dialects, from separate entry points
+- prototype-level or per-instance placement, chosen with one option
+- methods, arrow-function class fields and getters are all supported
+- per-instance placement that does not leak instances
 
 ## Getting Started
 
@@ -82,10 +82,10 @@ class IssueClient {
 The decorator replaces the member with the result of `cancAsync(fn, ctx)`. Where that replacement
 lands is the one decision to make, and the `bind` option makes it:
 
-| Placement | `bind` | Mechanism | `this` binding | Memory |
-|---|---|---|---|---|
-| Prototype level | `false`, the default for `@AsyncMethod` | the decorator returns the wrapped function, replacing the method on the prototype once | late bound, flows from the call site | one wrapped function shared by all instances |
-| Per instance | `true`, the default for `@BindMethod` | an initializer (standard) or a self-replacing own-property accessor (legacy dialects) installs a bound own property on each instance | early bound, fixed to the instance | one wrapped function per instance |
+| Placement       | `bind`                                  | Mechanism                                                                                                                            | `this` binding                       | Memory                                       |
+| --------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------ | -------------------------------------------- |
+| Prototype level | `false`, the default for `@AsyncMethod` | the decorator returns the wrapped function, replacing the method on the prototype once                                               | late bound, flows from the call site | one wrapped function shared by all instances |
+| Per instance    | `true`, the default for `@BindMethod`   | an initializer (standard) or a self-replacing own-property accessor (legacy dialects) installs a bound own property on each instance | early bound, fixed to the instance   | one wrapped function per instance            |
 
 Default to prototype level. Pay for per-instance binding only when the method is detached from its
 instance and passed around as a bare reference, as in `setTimeout(client.loadIssue)` or a callback
@@ -124,11 +124,11 @@ method to every other instance, so do not reintroduce a shared cache for bound p
 
 ### Three dialects
 
-| Entry point | Toolchain | Exports |
-|---|---|---|
-| `@cancjs/decorators` | standard decorators (TypeScript 5, or Babel with the modern plugin) | `AsyncMethod`, `BindMethod` |
-| `@cancjs/decorators/legacy` | TypeScript with `experimentalDecorators` | `AsyncMethod`, `BindMethod` |
-| `@cancjs/decorators/babel-legacy` | Babel with `@babel/plugin-proposal-decorators` in legacy mode | `AsyncMethod`, `BindMethod` |
+| Entry point                       | Toolchain                                                           | Exports                     |
+| --------------------------------- | ------------------------------------------------------------------- | --------------------------- |
+| `@cancjs/decorators`              | standard decorators (TypeScript 5, or Babel with the modern plugin) | `AsyncMethod`, `BindMethod` |
+| `@cancjs/decorators/legacy`       | TypeScript with `experimentalDecorators`                            | `AsyncMethod`, `BindMethod` |
+| `@cancjs/decorators/babel-legacy` | Babel with `@babel/plugin-proposal-decorators` in legacy mode       | `AsyncMethod`, `BindMethod` |
 
 The main entry point also exports every dialect under an explicit name (`LegacyAsyncMethod`,
 `LegacyBindMethod`, `BabelLegacyAsyncMethod`, `BabelLegacyBindMethod`) for code that has to mix
@@ -221,12 +221,12 @@ IssueClient.prototype.loadIssue = cancAsync(IssueClient.prototype.loadIssue);
 
 ### Inheritance
 
-| Case | Behavior |
-|---|---|
-| Subclass does not override the member | Inherits the prototype-level wrap. A bound member gets its own per-instance wrap, because the initializer runs again through the constructor chain |
-| Subclass overrides without a decorator | The override is plain, neither wrapped nor bound |
-| Subclass overrides with its own decorator | An independent wrap, see the `super` notes above |
-| Same member decorated at several levels through mixins | Last applied wins, standard prototype semantics |
+| Case                                                   | Behavior                                                                                                                                           |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Subclass does not override the member                  | Inherits the prototype-level wrap. A bound member gets its own per-instance wrap, because the initializer runs again through the constructor chain |
+| Subclass overrides without a decorator                 | The override is plain, neither wrapped nor bound                                                                                                   |
+| Subclass overrides with its own decorator              | An independent wrap, see the `super` notes above                                                                                                   |
+| Same member decorated at several levels through mixins | Last applied wins, standard prototype semantics                                                                                                    |
 
 ## API
 
@@ -249,12 +249,12 @@ Everything else follows
 
 ## Documentation
 
-* [Coroutines](https://github.com/cancjs/canc/tree/master/packages/canc-coroutine#class-methods)
-	for the coroutine side of class methods
-* [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) for the
-	cancellation model
-* [Examples](https://github.com/cancjs/canc/tree/master/examples): `demo-decorators` builds one
-	client class in all three dialects plus the manual form, `app-angular` uses them in a service
+- [Coroutines](https://github.com/cancjs/canc/tree/master/packages/canc-coroutine#class-methods)
+  for the coroutine side of class methods
+- [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) for the
+  cancellation model
+- [Examples](https://github.com/cancjs/canc/tree/master/examples): `demo-decorators` builds one
+  client class in all three dialects plus the manual form, `app-angular` uses them in a service
 
 ## Contributing
 

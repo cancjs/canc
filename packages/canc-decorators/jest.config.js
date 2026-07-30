@@ -18,50 +18,50 @@ const packageJson = require('./package.json');
 // is the check:* tsc scripts and the type matrix, so dropping test-time type-checking loses no
 // coverage.
 function tsFlavorProject({ displayName, tsconfig, cacheName, testMatch }) {
- return {
- ...baseConfig,
- displayName,
- cacheDirectory: path.join(__dirname, 'node_modules', '.cache', cacheName),
- testMatch,
- testPathIgnorePatterns: [...baseConfig.testPathIgnorePatterns, '/babel-stage3/'],
- transform: {
- '\\.tsx?$': ['ts-jest', { tsconfig, isolatedModules: true }],
- },
- };
+  return {
+    ...baseConfig,
+    displayName,
+    cacheDirectory: path.join(__dirname, 'node_modules', '.cache', cacheName),
+    testMatch,
+    testPathIgnorePatterns: [...baseConfig.testPathIgnorePatterns, '/babel-stage3/'],
+    transform: {
+      '\\.tsx?$': ['ts-jest', { tsconfig, isolatedModules: true }],
+    },
+  };
 }
 
 const stage3Project = tsFlavorProject({
- displayName: packageJson.name,
- tsconfig: '<rootDir>/tsconfig.stage3.json',
- cacheName: 'jest-ts-stage3',
- testMatch: ['<rootDir>/src/decorators.spec.ts'],
+  displayName: packageJson.name,
+  tsconfig: '<rootDir>/tsconfig.stage3.json',
+  cacheName: 'jest-ts-stage3',
+  testMatch: ['<rootDir>/src/decorators.spec.ts'],
 });
 
 const legacyProject = tsFlavorProject({
- displayName: `${packageJson.name} (TS legacy)`,
- tsconfig: '<rootDir>/tsconfig.legacy.json',
- cacheName: 'jest-ts-legacy',
- testMatch: ['<rootDir>/src/decorators-legacy.spec.ts'],
+  displayName: `${packageJson.name} (TS legacy)`,
+  tsconfig: '<rootDir>/tsconfig.legacy.json',
+  cacheName: 'jest-ts-legacy',
+  testMatch: ['<rootDir>/src/decorators-legacy.spec.ts'],
 });
 
 const babelLegacyProject = tsFlavorProject({
- displayName: `${packageJson.name} (TS babel-legacy)`,
- tsconfig: '<rootDir>/tsconfig.babel-legacy.json',
- cacheName: 'jest-ts-babel-legacy',
- testMatch: ['<rootDir>/src/decorators-babel-legacy.spec.ts'],
+  displayName: `${packageJson.name} (TS babel-legacy)`,
+  tsconfig: '<rootDir>/tsconfig.babel-legacy.json',
+  cacheName: 'jest-ts-babel-legacy',
+  testMatch: ['<rootDir>/src/decorators-babel-legacy.spec.ts'],
 });
 
 // Non-decorator specs (subpath exports, smoke) have no decorator syntax and compile fine under the
 // root tsconfig.
 const smokeProject = tsFlavorProject({
- displayName: `${packageJson.name} (smoke)`,
- tsconfig: '<rootDir>/../../tsconfig.json',
- cacheName: 'jest-ts-smoke',
- testMatch: [
- '<rootDir>/src/subpath-exports.spec.ts',
- '<rootDir>/src/phase-12-smoke.spec.ts',
- '<rootDir>/src/phase-13-smoke.spec.ts',
- ],
+  displayName: `${packageJson.name} (smoke)`,
+  tsconfig: '<rootDir>/../../tsconfig.json',
+  cacheName: 'jest-ts-smoke',
+  testMatch: [
+    '<rootDir>/src/subpath-exports.spec.ts',
+    '<rootDir>/src/phase-12-smoke.spec.ts',
+    '<rootDir>/src/phase-13-smoke.spec.ts',
+  ],
 });
 
 const babelJestOptions = { configFile: path.join(__dirname, 'babel.config.js') };
@@ -71,15 +71,15 @@ const babelJestOptions = { configFile: path.join(__dirname, 'babel.config.js') }
 // babel.config.js's preset-typescript + preset-env + plugin-proposal-decorators "2023-05". Giving
 // this project no ts-jest transform at all keeps it fully off the ts-jest cache surface above.
 const babelStage3Project = {
- ...baseConfig,
- displayName: `${packageJson.name} (babel stage-3)`,
- cacheDirectory: path.join(__dirname, 'node_modules', '.cache', 'jest-babel'),
- testMatch: ['<rootDir>/src/babel-stage3/**/*.spec.ts'],
- transform: {
- '\\.tsx?$': ['babel-jest', babelJestOptions],
- },
+  ...baseConfig,
+  displayName: `${packageJson.name} (babel stage-3)`,
+  cacheDirectory: path.join(__dirname, 'node_modules', '.cache', 'jest-babel'),
+  testMatch: ['<rootDir>/src/babel-stage3/**/*.spec.ts'],
+  transform: {
+    '\\.tsx?$': ['babel-jest', babelJestOptions],
+  },
 };
 
 module.exports = {
- projects: [stage3Project, legacyProject, babelLegacyProject, smokeProject, babelStage3Project],
+  projects: [stage3Project, legacyProject, babelLegacyProject, smokeProject, babelStage3Project],
 };

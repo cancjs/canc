@@ -1,5 +1,6 @@
-import { cancAsync, cancForAwait } from './coroutine';
 import { isCancelError, suppressCancel } from '@cancjs/promise';
+
+import { cancAsync, cancForAwait } from './coroutine';
 
 // Deterministic microtask flush (mirrors coroutine-each.spec): drains the microtask queue N times
 // so chained then-callbacks all run, no arbitrary sleeps (testing doctrine).

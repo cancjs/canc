@@ -30,12 +30,12 @@ to class methods. See the [repository](https://github.com/cancjs/canc) for the f
 
 ## Features
 
-* direct replacements for `async` functions and async generators
-* cancellation reaches into a running coroutine, not just into the promise it returned
-* full type inference through `yield*`, no casts and no `any` steps
-* combinator helpers (`all`, `race`, `any`, `allSettled`, `try`) that preserve tuple types
-* `for await` style consumption with per-item cancellation
-* works as a class method, with or without decorators
+- direct replacements for `async` functions and async generators
+- cancellation reaches into a running coroutine, not just into the promise it returned
+- full type inference through `yield*`, no casts and no `any` steps
+- combinator helpers (`all`, `race`, `any`, `allSettled`, `try`) that preserve tuple types
+- `for await` style consumption with per-item cancellation
+- works as a class method, with or without decorators
 
 ## Getting Started
 
@@ -278,30 +278,30 @@ placement mechanism per decorator dialect.
 
 ### Things that do not work
 
-* passing an `async function` or an `async function*` to `canc.async`. There is nothing to drive,
-	and the call hangs or throws. Pass a plain generator function.
-* `yield canc.await(x)` without the star. The step resumes with a generator object instead of the
-	value, and cancellation is never wired.
-* annotating a body as `Generator<unknown, T, any>`, or as `any`. Both collapse step types. Let
-	inference do its work, or use `AsyncResult<T>` where a generator has no enclosing wrapper to
-	carry its type.
-* awaiting a plain, non-cancelable promise and expecting the work to stop. The chain stops, the
-	operation does not. Make it cancelable at its source with `cancelify` or `promisify` from the
-	[toolbox](https://github.com/cancjs/canc/tree/master/packages/canc-toolbox).
+- passing an `async function` or an `async function*` to `canc.async`. There is nothing to drive,
+  and the call hangs or throws. Pass a plain generator function.
+- `yield canc.await(x)` without the star. The step resumes with a generator object instead of the
+  value, and cancellation is never wired.
+- annotating a body as `Generator<unknown, T, any>`, or as `any`. Both collapse step types. Let
+  inference do its work, or use `AsyncResult<T>` where a generator has no enclosing wrapper to
+  carry its type.
+- awaiting a plain, non-cancelable promise and expecting the work to stop. The chain stops, the
+  operation does not. Make it cancelable at its source with `cancelify` or `promisify` from the
+  [toolbox](https://github.com/cancjs/canc/tree/master/packages/canc-toolbox).
 
 ## API
 
 ### `@cancjs/coroutine`
 
-| Export | Alias | Description |
-|---|---|---|
-| `cancAsync(genFn, ctx?, options?)` | `canc.async` | Wraps a generator function into a function returning a `CancelablePromise` |
-| `cancAwait(value)` | `canc.await` | One step, used as `yield* cancAwait(value)` |
-| `cancAwait.all` / `.race` / `.any` / `.allSettled` / `.try` | | Combinators folded into a single step, tuple types preserved |
-| `cancForAwait(source, callback)` | `canc.forAwait` | Consumes an async or sync iterable, one cancellation point per item |
-| `cancForAwait.toArray(source)` | | Collects a source into an array |
-| `BreakError`, `isBreakError` | | Breaking out of a stream from deeper code |
-| `AsyncResult<T>` | | Return type for a generator body that has no enclosing wrapper |
+| Export                                                      | Alias           | Description                                                                |
+| ----------------------------------------------------------- | --------------- | -------------------------------------------------------------------------- |
+| `cancAsync(genFn, ctx?, options?)`                          | `canc.async`    | Wraps a generator function into a function returning a `CancelablePromise` |
+| `cancAwait(value)`                                          | `canc.await`    | One step, used as `yield* cancAwait(value)`                                |
+| `cancAwait.all` / `.race` / `.any` / `.allSettled` / `.try` |                 | Combinators folded into a single step, tuple types preserved               |
+| `cancForAwait(source, callback)`                            | `canc.forAwait` | Consumes an async or sync iterable, one cancellation point per item        |
+| `cancForAwait.toArray(source)`                              |                 | Collects a source into an array                                            |
+| `BreakError`, `isBreakError`                                |                 | Breaking out of a stream from deeper code                                  |
+| `AsyncResult<T>`                                            |                 | Return type for a generator body that has no enclosing wrapper             |
 
 `options` are
 [`CancelablePromise` options](https://github.com/cancjs/canc/tree/master/packages/canc-promise#options)
@@ -309,15 +309,15 @@ and configure the promise the coroutine returns. `ctx` sets `this` for the gener
 
 ### `@cancjs/coroutine/gen`
 
-| Export | Alias | Description |
-|---|---|---|
-| `cancGenAsync(genFn, options?)` | `cancGen.async` | Wraps a generator function into a function returning a cancelable async generator |
-| `cancGenAwait(value)` | `cancGen.await` | Internal step inside a producer, not emitted |
-| `cancGenAwait.all` / `.race` / `.any` / `.allSettled` / `.try` | | Same combinators for producer bodies |
-| `cancGenForAwait(source, callback)` | `cancGen.forAwait` | Consumes a source inside a producer without emitting its items |
-| `cancGenForAwait.toArray(source)` | | Collects a source into an array |
-| `cancGenDelegate(source)` | `cancGen.delegate` | Re-emits another async iterable to the consumer |
-| `AsyncGenResult<E, R>` | | Return type for a producer body, emit type and return type |
+| Export                                                         | Alias              | Description                                                                       |
+| -------------------------------------------------------------- | ------------------ | --------------------------------------------------------------------------------- |
+| `cancGenAsync(genFn, options?)`                                | `cancGen.async`    | Wraps a generator function into a function returning a cancelable async generator |
+| `cancGenAwait(value)`                                          | `cancGen.await`    | Internal step inside a producer, not emitted                                      |
+| `cancGenAwait.all` / `.race` / `.any` / `.allSettled` / `.try` |                    | Same combinators for producer bodies                                              |
+| `cancGenForAwait(source, callback)`                            | `cancGen.forAwait` | Consumes a source inside a producer without emitting its items                    |
+| `cancGenForAwait.toArray(source)`                              |                    | Collects a source into an array                                                   |
+| `cancGenDelegate(source)`                                      | `cancGen.delegate` | Re-emits another async iterable to the consumer                                   |
+| `AsyncGenResult<E, R>`                                         |                    | Return type for a producer body, emit type and return type                        |
 
 ## Compatibility
 
@@ -327,16 +327,16 @@ ES5 build target needs `downlevelIteration`. Everything else follows
 
 ## Documentation
 
-* [`yield` vs `yield*`](docs/yield-vs-yield-star.md) for the typing limitation behind the starred
-	form, and how redux-saga and MobX `flow` hit the same wall
-* [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) for the
-	cancellation model itself
-* [Decorators](https://github.com/cancjs/canc/tree/master/packages/canc-decorators) for class
-	methods
-* [Toolbox](https://github.com/cancjs/canc/tree/master/packages/canc-toolbox) for making existing
-	APIs cancelable
-* [Examples](https://github.com/cancjs/canc/tree/master/examples): `demo-coroutine` for the
-	basics, `app-ai-rag-pipeline` and `app-ws-progress` for streaming producers and consumers
+- [`yield` vs `yield*`](docs/yield-vs-yield-star.md) for the typing limitation behind the starred
+  form, and how redux-saga and MobX `flow` hit the same wall
+- [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) for the
+  cancellation model itself
+- [Decorators](https://github.com/cancjs/canc/tree/master/packages/canc-decorators) for class
+  methods
+- [Toolbox](https://github.com/cancjs/canc/tree/master/packages/canc-toolbox) for making existing
+  APIs cancelable
+- [Examples](https://github.com/cancjs/canc/tree/master/examples): `demo-coroutine` for the
+  basics, `app-ai-rag-pipeline` and `app-ws-progress` for streaming producers and consumers
 
 ## Contributing
 

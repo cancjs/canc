@@ -23,12 +23,12 @@ signals around, because canceling a promise reaches the underlying request on it
 
 ## Features
 
-* timing and control helpers that clean up after themselves on cancellation
-* adapters that make signal-aware and callback-style APIs return cancelable promises
-* `AbortSignal` interop in both directions, including timeout composition
-* deliberate ways to end a cancelable flow instead of blanket error swallowing
-* every helper accepts
-	[`CancelablePromise` options](https://github.com/cancjs/canc/tree/master/packages/canc-promise#options)
+- timing and control helpers that clean up after themselves on cancellation
+- adapters that make signal-aware and callback-style APIs return cancelable promises
+- `AbortSignal` interop in both directions, including timeout composition
+- deliberate ways to end a cancelable flow instead of blanket error swallowing
+- every helper accepts
+  [`CancelablePromise` options](https://github.com/cancjs/canc/tree/master/packages/canc-promise#options)
 
 ## Getting Started
 
@@ -161,38 +161,38 @@ as its last argument.
 
 ### Timing
 
-| Export | Description |
-|---|---|
-| `delay(ms, value?, options?)` | Resolves with `value` after `ms`, cancel clears the timer |
+| Export                            | Description                                                    |
+| --------------------------------- | -------------------------------------------------------------- |
+| `delay(ms, value?, options?)`     | Resolves with `value` after `ms`, cancel clears the timer      |
 | `timeout(promise, ms?, options?)` | Rejects with `TimeoutError` after `ms` and cancels the promise |
-| `minDelay(promise, ms, options?)` | Settles no earlier than `ms`, for flicker-free loading states |
-| `waitFor(condition, options?)` | Resolves once `condition` is truthy, polling at `interval` |
+| `minDelay(promise, ms, options?)` | Settles no earlier than `ms`, for flicker-free loading states  |
+| `waitFor(condition, options?)`    | Resolves once `condition` is truthy, polling at `interval`     |
 
 ### Control
 
-| Export | Description |
-|---|---|
+| Export                   | Description                                                           |
+| ------------------------ | --------------------------------------------------------------------- |
 | `retry(input, options?)` | Retries with exponential backoff, `input` receives the attempt number |
-| `defer(options?)` | `{ promise, resolve, reject, cancel }` where `promise` is cancelable |
+| `defer(options?)`        | `{ promise, resolve, reject, cancel }` where `promise` is cancelable  |
 
 ### Adapters
 
-| Export | Description |
-|---|---|
-| `cancelify(fn, options?)` | Wraps a promise-returning fn, giving it a signal that aborts on cancel |
-| `promisify(fn, options?)` | Wraps a callback-style fn into one returning a cancelable promise |
-| `promisifyAll(source, options?)` | Applies `promisify` across an object's methods |
+| Export                           | Description                                                            |
+| -------------------------------- | ---------------------------------------------------------------------- |
+| `cancelify(fn, options?)`        | Wraps a promise-returning fn, giving it a signal that aborts on cancel |
+| `promisify(fn, options?)`        | Wraps a callback-style fn into one returning a cancelable promise      |
+| `promisifyAll(source, options?)` | Applies `promisify` across an object's methods                         |
 
 ### Signal interop
 
-| Export | Description |
-|---|---|
-| `toAbortSignal(promise)` | Signal that aborts when the promise cancels or rejects |
-| `withSignal(signal, promiseOrFn)` | Races work against a signal, passes through when there is none |
-| `interopTimeout(promise, ms, signal?, options?)` | External signal and deadline in one race |
-| `createAbortSignal()` | Plain `AbortController` convenience, returns `{ signal, abort }` |
-| `suppress(promise, options?)` | Swallows a cancellation, rethrows everything else |
-| `suppressAbort(promise, options?)` | Swallows a cancellation and a plain abort |
+| Export                                           | Description                                                      |
+| ------------------------------------------------ | ---------------------------------------------------------------- |
+| `toAbortSignal(promise)`                         | Signal that aborts when the promise cancels or rejects           |
+| `withSignal(signal, promiseOrFn)`                | Races work against a signal, passes through when there is none   |
+| `interopTimeout(promise, ms, signal?, options?)` | External signal and deadline in one race                         |
+| `createAbortSignal()`                            | Plain `AbortController` convenience, returns `{ signal, abort }` |
+| `suppress(promise, options?)`                    | Swallows a cancellation, rethrows everything else                |
+| `suppressAbort(promise, options?)`               | Swallows a cancellation and a plain abort                        |
 
 ### Errors
 
@@ -210,12 +210,12 @@ For the same helpers on plain `Promise`, without cancellation, see
 
 ## Documentation
 
-* [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) for the
-	cancellation model and options
-* [Coroutines](https://github.com/cancjs/canc/tree/master/packages/canc-coroutine) for using
-	these helpers inside a cancelable flow
-* [Examples](https://github.com/cancjs/canc/tree/master/examples): `demo-toolbox` for the
-	helpers under cancellation, `demo-signal-interop` for the bridges
+- [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) for the
+  cancellation model and options
+- [Coroutines](https://github.com/cancjs/canc/tree/master/packages/canc-coroutine) for using
+  these helpers inside a cancelable flow
+- [Examples](https://github.com/cancjs/canc/tree/master/examples): `demo-toolbox` for the
+  helpers under cancellation, `demo-signal-interop` for the bridges
 
 ## Contributing
 

@@ -2,17 +2,16 @@
 // for both production and test code
 // https://github.com/microsoft/vscode/issues/12463
 {
- "extends": "./tsconfig.test",
- "compilerOptions": {
- "baseUrl": ".",
- "paths": {
- "@cancjs/promise": ["./packages/canc-promise/src/index"],
- "@cancjs/coroutine": ["./packages/canc-coroutine/src/index"],
- "@cancjs/fetch": ["./packages/canc-fetch/src/index"],
-			"@cancjs/axios": ["./packages/canc-axios/src/index"],
-			"@cancjs/toolbox": ["./packages/canc-toolbox/src/index"],
- "@cancjs/decorators": ["./packages/canc-decorators/src/index"]
- }
- }
-
+  "extends": "./tsconfig.test",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@cancjs/promise": ["./packages/canc-promise/src/index"],
+      "@cancjs/coroutine": ["./packages/canc-coroutine/src/index"],
+      "@cancjs/fetch": ["./packages/canc-fetch/src/index"],
+      "@cancjs/axios": ["./packages/canc-axios/src/index"],
+      "@cancjs/toolbox": ["./packages/canc-toolbox/src/index"],
+      "@cancjs/decorators": ["./packages/canc-decorators/src/index"]
+    }
+  }
 }

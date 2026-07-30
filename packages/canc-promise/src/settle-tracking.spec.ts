@@ -1,5 +1,5 @@
-import { CancelablePromise } from './cancelable-promise';
 import { CancelError } from './cancel-error';
+import { CancelablePromise } from './cancelable-promise';
 
 /**
  * Settle tracking without unhandled-rejection suppression.
@@ -13,171 +13,194 @@ import { CancelError } from './cancel-error';
 const NativePromise = Promise;
 
 function macrotask(): Promise<void> {
-	return new NativePromise(resolve => setTimeout(resolve, 10));
+  return new NativePromise((resolve) => setTimeout(resolve, 10));
 }
 
 describe('settle tracking (state + handlers)', () => {
-	// Item 2: cancel() -> promise CANCELED, not cancelable.
-	it('item 2: cancel() transitions to CANCELED and is no longer cancelable', async () => {
-		const promise = new CancelablePromise(() => {/**/});
-		// eslint-disable-next-line @typescript-eslint/no-floating-promises
-		promise.cancel('canceled');
+  // Item 2: cancel() -> promise CANCELED, not cancelable.
+  it('item 2: cancel() transitions to CANCELED and is no longer cancelable', async () => {
+    const promise = new CancelablePromise(() => {
+      /**/
+    });
 
-		expect(promise.isCanceled).toBe(true);
-		expect(promise.isCancelable).toBe(false);
+    promise.cancel('canceled');
 
-		await expect(promise).rejects.toBeInstanceOf(CancelError);
-	});
+    expect(promise.isCanceled).toBe(true);
+    expect(promise.isCancelable).toBe(false);
 
-	// Item 3: sync reject(CancelError) in executor -> CANCELED state (parity).
-	it('item 3: sync reject(CancelError) in executor transitions to CANCELED', async () => {
-		const promise = new CancelablePromise((_resolve, reject) => reject(new CancelError('sync-cancel')));
-		promise.catch(() => {/**/});
+    await expect(promise).rejects.toBeInstanceOf(CancelError);
+  });
 
-		expect(promise.isCanceled).toBe(true);
+  // Item 3: sync reject(CancelError) in executor -> CANCELED state (parity).
+  it('item 3: sync reject(CancelError) in executor transitions to CANCELED', async () => {
+    const promise = new CancelablePromise((_resolve, reject) => reject(new CancelError('sync-cancel')));
+    promise.catch(() => {
+      /**/
+    });
 
-		await macrotask();
-	});
+    expect(promise.isCanceled).toBe(true);
 
-	// Item 4: async reject(CancelError) -> CANCELED state.
-	it('item 4: async reject(CancelError) transitions to CANCELED', async () => {
-		const promise = new CancelablePromise((_resolve, reject) => {
-			setTimeout(() => reject(new CancelError('async-cancel')), 0);
-		});
-		promise.catch(() => {/**/});
+    await macrotask();
+  });
 
-		await macrotask();
+  // Item 4: async reject(CancelError) -> CANCELED state.
+  it('item 4: async reject(CancelError) transitions to CANCELED', async () => {
+    const promise = new CancelablePromise((_resolve, reject) => {
+      setTimeout(() => reject(new CancelError('async-cancel')), 0);
+    });
+    promise.catch(() => {
+      /**/
+    });
 
-		expect(promise.isCanceled).toBe(true);
-	});
+    await macrotask();
 
-	// Item 5: throw CancelError in then-handler -> derived promise CANCELED (subchain cancel feature).
-	it('item 5: throwing CancelError in then-handler cancels the derived subchain', async () => {
-		const base = CancelablePromise.resolve('value');
-		const derived = base.then(() => {
-			throw new CancelError('thrown-in-then');
-		});
-		derived.catch(() => {/**/});
+    expect(promise.isCanceled).toBe(true);
+  });
 
-		await macrotask();
+  // Item 5: throw CancelError in then-handler -> derived promise CANCELED (subchain cancel feature).
+  it('item 5: throwing CancelError in then-handler cancels the derived subchain', async () => {
+    const base = CancelablePromise.resolve('value');
+    const derived = base.then(() => {
+      throw new CancelError('thrown-in-then');
+    });
+    derived.catch(() => {
+      /**/
+    });
 
-		expect(derived.isCanceled).toBe(true);
-	});
+    await macrotask();
 
-	// Item 6: thenable rejecting CancelError adopted via resolve() (forceCancelable) -> CANCELED.
-	it('item 6: adopted thenable rejecting CancelError cancels the outer promise', async () => {
-		const inner = new CancelablePromise((_resolve, reject) => {
-			setTimeout(() => reject(new CancelError('inner-cancel')), 0);
-		});
+    expect(derived.isCanceled).toBe(true);
+  });
 
-		const outer = CancelablePromise.resolve(inner, { forceCancelable: true });
-		outer.catch(() => {/**/});
+  // Item 6: thenable rejecting CancelError adopted via resolve() (forceCancelable) -> CANCELED.
+  it('item 6: adopted thenable rejecting CancelError cancels the outer promise', async () => {
+    const inner = new CancelablePromise((_resolve, reject) => {
+      setTimeout(() => reject(new CancelError('inner-cancel')), 0);
+    });
 
-		await macrotask();
+    const outer = CancelablePromise.resolve(inner, { forceCancelable: true });
+    outer.catch(() => {
+      /**/
+    });
 
-		expect(outer.isCanceled).toBe(true);
-	});
+    await macrotask();
 
-	// Item 7: late .catch() attach after a plain rejection still observes the reason.
-	it('item 7: late catch after plain rejection observes the rejection reason', async () => {
-		const promise = new CancelablePromise((_resolve, reject) => reject(new Error('late')));
+    expect(outer.isCanceled).toBe(true);
+  });
 
-		const caught: any[] = [];
-		promise.catch(err => { caught.push(err); });
+  // Item 7: late .catch() attach after a plain rejection still observes the reason.
+  it('item 7: late catch after plain rejection observes the rejection reason', async () => {
+    const promise = new CancelablePromise((_resolve, reject) => reject(new Error('late')));
 
-		await macrotask();
+    const caught: any[] = [];
+    promise.catch((err) => {
+      caught.push(err);
+    });
 
-		expect(caught.length).toBe(1);
-		expect(caught[0].message).toBe('late');
-	});
+    await macrotask();
 
-	// Item 8: canceled parent is not cancelable -> deriving from it does not open a live cancel chain.
-	it('item 8: canceled parent is not cancelable and children adopt cancellation', async () => {
-		const parent = new CancelablePromise(() => {/**/});
-		// eslint-disable-next-line @typescript-eslint/no-floating-promises
-		parent.cancel();
+    expect(caught.length).toBe(1);
+    expect(caught[0].message).toBe('late');
+  });
 
-		expect(parent.isCancelable).toBe(false);
+  // Item 8: canceled parent is not cancelable -> deriving from it does not open a live cancel chain.
+  it('item 8: canceled parent is not cancelable and children adopt cancellation', async () => {
+    const parent = new CancelablePromise(() => {
+      /**/
+    });
 
-		const child = parent.then(() => {/**/});
-		child.catch(() => {/**/});
+    parent.cancel();
 
-		await macrotask();
+    expect(parent.isCancelable).toBe(false);
 
-		expect(child.isCanceled).toBe(true);
-	});
+    const child = parent.then(() => {
+      /**/
+    });
+    child.catch(() => {
+      /**/
+    });
 
-	// Item 9: forceCancelable:false FORCE_PENDING path -> NOT cancelable, resolves normally.
-	it('item 9: forceCancelable:false FORCE_PENDING promise is not cancelable', async () => {
-		const inner = CancelablePromise.resolve('inner-value');
-		const promise = CancelablePromise.resolve(inner, { forceCancelable: false });
+    await macrotask();
 
-		expect(promise.isCancelable).toBe(false);
+    expect(child.isCanceled).toBe(true);
+  });
 
-		await expect(promise).resolves.toBe('inner-value');
-	});
+  // Item 9: forceCancelable:false FORCE_PENDING path -> NOT cancelable, resolves normally.
+  it('item 9: forceCancelable:false FORCE_PENDING promise is not cancelable', async () => {
+    const inner = CancelablePromise.resolve('inner-value');
+    const promise = CancelablePromise.resolve(inner, { forceCancelable: false });
 
-	// Item 10: external reject(CancelError) FIRES registered cancel handlers (full parity).
-	it('item 10: external reject(CancelError) fires registered cancel handlers', async () => {
-		const handler = jest.fn();
+    expect(promise.isCancelable).toBe(false);
 
-		const promise = new CancelablePromise((_resolve, reject, { handleCancel }) => {
-			handleCancel(handler);
-			setTimeout(() => reject(new CancelError('external')), 0);
-		});
-		promise.catch(() => {/**/});
+    await expect(promise).resolves.toBe('inner-value');
+  });
 
-		await macrotask();
+  // Item 10: external reject(CancelError) FIRES registered cancel handlers (full parity).
+  it('item 10: external reject(CancelError) fires registered cancel handlers', async () => {
+    const handler = jest.fn();
 
-		expect(promise.isCanceled).toBe(true);
-		expect(handler).toHaveBeenCalledTimes(1);
-	});
+    const promise = new CancelablePromise((_resolve, reject, { handleCancel }) => {
+      handleCancel(handler);
+      setTimeout(() => reject(new CancelError('external')), 0);
+    });
+    promise.catch(() => {
+      /**/
+    });
 
-	// No-double-fire regression: cancel() sets CANCELED before _reject, so the reject wrapper's
-	// external-cancel branch is skipped -> handlers fire exactly once.
-	it('regression: cancel() fires handlers exactly once (no double-fire via reject wrapper)', async () => {
-		const handler = jest.fn();
+    await macrotask();
 
-		const promise = new CancelablePromise((_resolve, _reject, { handleCancel }) => {
-			handleCancel(handler);
-		});
+    expect(promise.isCanceled).toBe(true);
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
 
-		// eslint-disable-next-line @typescript-eslint/no-floating-promises
-		promise.cancel('once');
+  // No-double-fire regression: cancel() sets CANCELED before _reject, so the reject wrapper's
+  // external-cancel branch is skipped -> handlers fire exactly once.
+  it('regression: cancel() fires handlers exactly once (no double-fire via reject wrapper)', async () => {
+    const handler = jest.fn();
 
-		await macrotask();
+    const promise = new CancelablePromise((_resolve, _reject, { handleCancel }) => {
+      handleCancel(handler);
+    });
 
-		expect(handler).toHaveBeenCalledTimes(1);
-	});
+    promise.cancel('once');
 
-	// handleCancel registered AFTER a synchronous external reject(CancelError) -> no-op.
-	it('handleCancel after sync reject(CancelError) in executor is a no-op', async () => {
-		const lateHandler = jest.fn();
+    await macrotask();
 
-		const promise = new CancelablePromise((_resolve, reject, { handleCancel }) => {
-			reject(new CancelError('sync-external'));
-			handleCancel(lateHandler);
-		});
-		promise.catch(() => {/**/});
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
 
-		await macrotask();
+  // handleCancel registered AFTER a synchronous external reject(CancelError) -> no-op.
+  it('handleCancel after sync reject(CancelError) in executor is a no-op', async () => {
+    const lateHandler = jest.fn();
 
-		expect(promise.isCanceled).toBe(true);
-		expect(lateHandler).not.toHaveBeenCalled();
-	});
+    const promise = new CancelablePromise((_resolve, reject, { handleCancel }) => {
+      reject(new CancelError('sync-external'));
+      handleCancel(lateHandler);
+    });
+    promise.catch(() => {
+      /**/
+    });
 
-	// External reject(CancelError) fires handlers exactly once (no double-fire on parity path).
-	it('external reject(CancelError) fires handlers exactly once', async () => {
-		const handler = jest.fn();
+    await macrotask();
 
-		const promise = new CancelablePromise((_resolve, reject, { handleCancel }) => {
-			handleCancel(handler);
-			setTimeout(() => reject(new CancelError('external-once')), 0);
-		});
-		promise.catch(() => {/**/});
+    expect(promise.isCanceled).toBe(true);
+    expect(lateHandler).not.toHaveBeenCalled();
+  });
 
-		await macrotask();
+  // External reject(CancelError) fires handlers exactly once (no double-fire on parity path).
+  it('external reject(CancelError) fires handlers exactly once', async () => {
+    const handler = jest.fn();
 
-		expect(handler).toHaveBeenCalledTimes(1);
-	});
+    const promise = new CancelablePromise((_resolve, reject, { handleCancel }) => {
+      handleCancel(handler);
+      setTimeout(() => reject(new CancelError('external-once')), 0);
+    });
+    promise.catch(() => {
+      /**/
+    });
+
+    await macrotask();
+
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
 });

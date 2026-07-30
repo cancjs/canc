@@ -22,13 +22,13 @@ header handling, interceptor chains and `create()` seeding are still axios's own
 
 ## Features
 
-* same call shapes and signatures as axios, including the full `AxiosResponse` result
-* `.cancel()` aborts the in-flight request through an AbortSignal
-* cancellation is supported through the full request lifecycle, including interceptors
-* a caller-supplied `config.signal` also rejects with a `CancelError`
-* instances from `create()` are wrapped too, with their own defaults and interceptors
-* works with the xhr, http and fetch adapters, and with axios 0.22 and up
-* no Proxy, ES5-friendly output
+- same call shapes and signatures as axios, including the full `AxiosResponse` result
+- `.cancel()` aborts the in-flight request through an AbortSignal
+- cancellation is supported through the full request lifecycle, including interceptors
+- a caller-supplied `config.signal` also rejects with a `CancelError`
+- instances from `create()` are wrapped too, with their own defaults and interceptors
+- works with the xhr, http and fetch adapters, and with axios 0.22 and up
+- no Proxy, ES5-friendly output
 
 ## Getting Started
 
@@ -169,13 +169,13 @@ browsers. Everything else follows
 
 ## Documentation
 
-* [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) for the
-	cancellation model
-* [Coroutines](https://github.com/cancjs/canc/tree/master/packages/canc-coroutine) for using
-	axios inside a cancelable flow
-* [Examples](https://github.com/cancjs/canc/tree/master/examples): `app-axios` for a side-by-side
-	comparison against a manual request registry
-* [Repository](https://github.com/cancjs/canc) for the ecosystem overview
+- [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) for the
+  cancellation model
+- [Coroutines](https://github.com/cancjs/canc/tree/master/packages/canc-coroutine) for using
+  axios inside a cancelable flow
+- [Examples](https://github.com/cancjs/canc/tree/master/examples): `app-axios` for a side-by-side
+  comparison against a manual request registry
+- [Repository](https://github.com/cancjs/canc) for the ecosystem overview
 
 ## Contributing
 

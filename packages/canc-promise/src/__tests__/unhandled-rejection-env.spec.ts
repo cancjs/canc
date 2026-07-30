@@ -38,33 +38,30 @@ Module._extensions['.ts'] = function (module, filename) {
 `;
 
 interface ChildRunResult {
-	exitCode: number;
-	stdout: string;
-	stderr: string;
+  exitCode: number;
+  stdout: string;
+  stderr: string;
 }
 
-function runChildWithFlags(
-	program: string,
-	nodeFlags: string[] = []
-): ChildRunResult {
-	const result = spawnSync(process.execPath, [...nodeFlags, '-e', program], {
-		cwd: srcDir,
-		encoding: 'utf8',
-		stdio: ['pipe', 'pipe', 'pipe']
-	});
+function runChildWithFlags(program: string, nodeFlags: string[] = []): ChildRunResult {
+  const result = spawnSync(process.execPath, [...nodeFlags, '-e', program], {
+    cwd: srcDir,
+    encoding: 'utf8',
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
 
-	return {
-		exitCode: result.status ?? 1,
-		stdout: result.stdout || '',
-		stderr: result.stderr || ''
-	};
+  return {
+    exitCode: result.status ?? 1,
+    stdout: result.stdout || '',
+    stderr: result.stderr || '',
+  };
 }
 
 function makeProgram(mode: string): string {
-	const entry = path.join(srcDir, '..', 'cancelable-promise.ts');
-	const errorEntry = path.join(srcDir, '..', 'cancel-error.ts');
+  const entry = path.join(srcDir, '..', 'cancelable-promise.ts');
+  const errorEntry = path.join(srcDir, '..', 'cancel-error.ts');
 
-	return `
+  return `
 ${hook}
 const { CancelablePromise } = require(${JSON.stringify(entry)});
 const { CancelError } = require(${JSON.stringify(errorEntry)});
@@ -260,237 +257,215 @@ if (mode === 'plain-no-handler') {
 }
 
 describe('unhandledRejection env behavior (node flags)', () => {
-	jest.setTimeout(30000);
+  jest.setTimeout(30000);
 
-	describe('default mode (node 24+: throw behavior)', () => {
-		it('plain rejection with no handler: exit non-zero, stderr shows Error', () => {
-			const program = makeProgram('plain-no-handler');
-			const result = runChildWithFlags(program);
+  describe('default mode (node 24+: throw behavior)', () => {
+    it('plain rejection with no handler: exit non-zero, stderr shows Error', () => {
+      const program = makeProgram('plain-no-handler');
+      const result = runChildWithFlags(program);
 
-			expect(result.exitCode).not.toBe(0);
-			expect(result.stderr).toMatch(/Error|plain rejection/i);
-		});
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).toMatch(/Error|plain rejection/i);
+    });
 
-		it('CancelError rejection: suppressed, exit 0, no error in stderr', () => {
-			const program = makeProgram('cancelerror-no-handler');
-			const result = runChildWithFlags(program);
+    it('CancelError rejection: suppressed, exit 0, no error in stderr', () => {
+      const program = makeProgram('cancelerror-no-handler');
+      const result = runChildWithFlags(program);
 
-			expect(result.exitCode).toBe(0);
-			expect(result.stdout).toContain('done-waiting');
-			expect(result.stderr).not.toMatch(/Error/i);
-		});
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('done-waiting');
+      expect(result.stderr).not.toMatch(/Error/i);
+    });
 
-		it('cancel() call: suppressed, exit 0', () => {
-			const program = makeProgram('cancel-call');
-			const result = runChildWithFlags(program);
+    it('cancel() call: suppressed, exit 0', () => {
+      const program = makeProgram('cancel-call');
+      const result = runChildWithFlags(program);
 
-			expect(result.exitCode).toBe(0);
-			expect(result.stdout).toContain('done-waiting');
-		});
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('done-waiting');
+    });
 
-		it('CancelError + late handler: suppressed even after async add, exit 0', () => {
-			const program = makeProgram('cancelerror-handle-later');
-			const result = runChildWithFlags(program);
+    it('CancelError + late handler: suppressed even after async add, exit 0', () => {
+      const program = makeProgram('cancelerror-handle-later');
+      const result = runChildWithFlags(program);
 
-			expect(result.exitCode).toBe(0);
-			expect(result.stdout).toContain('caught-cancel');
-		});
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('caught-cancel');
+    });
 
-		it('multiple plain rejections: first unhandled triggers, exit non-zero', () => {
-			const program = makeProgram('multiple-rejections');
-			const result = runChildWithFlags(program);
+    it('multiple plain rejections: first unhandled triggers, exit non-zero', () => {
+      const program = makeProgram('multiple-rejections');
+      const result = runChildWithFlags(program);
 
-			expect(result.exitCode).not.toBe(0);
-			expect(result.stderr).toMatch(/Error|first/i);
-		});
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).toMatch(/Error|first/i);
+    });
 
-		it('CancelError + plain rejection mix: plain rejects, exit non-zero, cancel suppressed', () => {
-			const program = makeProgram('cancelerror-mixed');
-			const result = runChildWithFlags(program);
+    it('CancelError + plain rejection mix: plain rejects, exit non-zero, cancel suppressed', () => {
+      const program = makeProgram('cancelerror-mixed');
+      const result = runChildWithFlags(program);
 
-			expect(result.exitCode).not.toBe(0);
-			expect(result.stderr).toMatch(/Error|should-fire/i);
-		});
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).toMatch(/Error|should-fire/i);
+    });
 
-		it('chain: parent CancelError rejection suppressed, exit 0', () => {
-			const program = makeProgram('chain-cancelerror');
-			const result = runChildWithFlags(program);
+    it('chain: parent CancelError rejection suppressed, exit 0', () => {
+      const program = makeProgram('chain-cancelerror');
+      const result = runChildWithFlags(program);
 
-			expect(result.exitCode).toBe(0);
-			expect(result.stdout).toContain('done-waiting');
-		});
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('done-waiting');
+    });
 
-		it('async plain rejection: exit non-zero', () => {
-			const program = makeProgram('async-plain-reject');
-			const result = runChildWithFlags(program);
+    it('async plain rejection: exit non-zero', () => {
+      const program = makeProgram('async-plain-reject');
+      const result = runChildWithFlags(program);
 
-			expect(result.exitCode).not.toBe(0);
-			expect(result.stderr).toMatch(/Error|async-plain/i);
-		});
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).toMatch(/Error|async-plain/i);
+    });
 
-		it('async CancelError rejection: suppressed, exit 0', () => {
-			const program = makeProgram('async-cancelerror-reject');
-			const result = runChildWithFlags(program);
+    it('async CancelError rejection: suppressed, exit 0', () => {
+      const program = makeProgram('async-cancelerror-reject');
+      const result = runChildWithFlags(program);
 
-			expect(result.exitCode).toBe(0);
-			expect(result.stdout).toContain('done-waiting');
-		});
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('done-waiting');
+    });
 
-		it('reject with null: fires unhandled (not CancelError), exit non-zero', () => {
-			const program = makeProgram('reject-null');
-			const result = runChildWithFlags(program);
+    it('reject with null: fires unhandled (not CancelError), exit non-zero', () => {
+      const program = makeProgram('reject-null');
+      const result = runChildWithFlags(program);
 
-			expect(result.exitCode).not.toBe(0);
-		});
+      expect(result.exitCode).not.toBe(0);
+    });
 
-		it('reject with string: fires unhandled, exit non-zero', () => {
-			const program = makeProgram('reject-string');
-			const result = runChildWithFlags(program);
+    it('reject with string: fires unhandled, exit non-zero', () => {
+      const program = makeProgram('reject-string');
+      const result = runChildWithFlags(program);
 
-			expect(result.exitCode).not.toBe(0);
-			expect(result.stderr).toMatch(/plain string rejection/i);
-		});
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).toMatch(/plain string rejection/i);
+    });
 
-		it('sync catch on plain rejection: handled, exit 0', () => {
-			const program = makeProgram('sync-handler-plain');
-			const result = runChildWithFlags(program);
+    it('sync catch on plain rejection: handled, exit 0', () => {
+      const program = makeProgram('sync-handler-plain');
+      const result = runChildWithFlags(program);
 
-			expect(result.exitCode).toBe(0);
-			expect(result.stdout).toContain('sync-caught');
-		});
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('sync-caught');
+    });
 
-		it('sync catch on CancelError: suppressed, exit 0', () => {
-			const program = makeProgram('sync-handler-cancelerror');
-			const result = runChildWithFlags(program);
+    it('sync catch on CancelError: suppressed, exit 0', () => {
+      const program = makeProgram('sync-handler-cancelerror');
+      const result = runChildWithFlags(program);
 
-			expect(result.exitCode).toBe(0);
-			expect(result.stdout).toContain('sync-caught-cancel');
-		});
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('sync-caught-cancel');
+    });
 
-		it('chain: resolve then reject plain in then-block: exit non-zero', () => {
-			const program = makeProgram('chain-plain-rejection');
-			const result = runChildWithFlags(program);
+    it('chain: resolve then reject plain in then-block: exit non-zero', () => {
+      const program = makeProgram('chain-plain-rejection');
+      const result = runChildWithFlags(program);
 
-			expect(result.exitCode).not.toBe(0);
-		});
+      expect(result.exitCode).not.toBe(0);
+    });
 
-		it('chain: resolve then reject CancelError in then-block: suppressed, exit 0', () => {
-			const program = makeProgram('chain-cancelerror-rejection');
-			const result = runChildWithFlags(program);
+    it('chain: resolve then reject CancelError in then-block: suppressed, exit 0', () => {
+      const program = makeProgram('chain-cancelerror-rejection');
+      const result = runChildWithFlags(program);
 
-			expect(result.exitCode).toBe(0);
-			expect(result.stdout).toContain('done-waiting');
-		});
-	});
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('done-waiting');
+    });
+  });
 
-	describe('warn mode (--unhandled-rejections=warn)', () => {
-		it('plain rejection: warns, exit 0 (warn allows continue)', () => {
-			const program = makeProgram('plain-no-handler');
-			const result = runChildWithFlags(program, [
-				'--unhandled-rejections=warn'
-			]);
+  describe('warn mode (--unhandled-rejections=warn)', () => {
+    it('plain rejection: warns, exit 0 (warn allows continue)', () => {
+      const program = makeProgram('plain-no-handler');
+      const result = runChildWithFlags(program, ['--unhandled-rejections=warn']);
 
-			expect(result.exitCode).toBe(0);
-			expect(result.stderr).toMatch(/UnhandledPromiseRejectionWarning|plain rejection/i);
-		});
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toMatch(/UnhandledPromiseRejectionWarning|plain rejection/i);
+    });
 
-		it('CancelError rejection: suppressed, exit 0', () => {
-			const program = makeProgram('cancelerror-no-handler');
-			const result = runChildWithFlags(program, [
-				'--unhandled-rejections=warn'
-			]);
+    it('CancelError rejection: suppressed, exit 0', () => {
+      const program = makeProgram('cancelerror-no-handler');
+      const result = runChildWithFlags(program, ['--unhandled-rejections=warn']);
 
-			expect(result.exitCode).toBe(0);
-			expect(result.stdout).toContain('done-waiting');
-		});
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('done-waiting');
+    });
 
-		it('multiple plain rejections: multiple warnings, exit 0', () => {
-			const program = makeProgram('multiple-rejections');
-			const result = runChildWithFlags(program, [
-				'--unhandled-rejections=warn'
-			]);
+    it('multiple plain rejections: multiple warnings, exit 0', () => {
+      const program = makeProgram('multiple-rejections');
+      const result = runChildWithFlags(program, ['--unhandled-rejections=warn']);
 
-			expect(result.exitCode).toBe(0);
-			expect(result.stderr).toMatch(/UnhandledPromiseRejectionWarning/i);
-		});
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toMatch(/UnhandledPromiseRejectionWarning/i);
+    });
 
-		it('chain plain rejection: warns, exit 0', () => {
-			const program = makeProgram('chain-plain-rejection');
-			const result = runChildWithFlags(program, [
-				'--unhandled-rejections=warn'
-			]);
+    it('chain plain rejection: warns, exit 0', () => {
+      const program = makeProgram('chain-plain-rejection');
+      const result = runChildWithFlags(program, ['--unhandled-rejections=warn']);
 
-			expect(result.exitCode).toBe(0);
-			expect(result.stderr).toMatch(/UnhandledPromiseRejectionWarning|chain-plain/i);
-		});
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toMatch(/UnhandledPromiseRejectionWarning|chain-plain/i);
+    });
 
-		it('chain CancelError rejection: suppressed, exit 0', () => {
-			const program = makeProgram('chain-cancelerror-rejection');
-			const result = runChildWithFlags(program, [
-				'--unhandled-rejections=warn'
-			]);
+    it('chain CancelError rejection: suppressed, exit 0', () => {
+      const program = makeProgram('chain-cancelerror-rejection');
+      const result = runChildWithFlags(program, ['--unhandled-rejections=warn']);
 
-			expect(result.exitCode).toBe(0);
-			expect(result.stdout).toContain('done-waiting');
-		});
-	});
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('done-waiting');
+    });
+  });
 
-	describe('strict mode (--unhandled-rejections=strict)', () => {
-		it('plain rejection: exits non-zero immediately', () => {
-			const program = makeProgram('plain-no-handler');
-			const result = runChildWithFlags(program, [
-				'--unhandled-rejections=strict'
-			]);
+  describe('strict mode (--unhandled-rejections=strict)', () => {
+    it('plain rejection: exits non-zero immediately', () => {
+      const program = makeProgram('plain-no-handler');
+      const result = runChildWithFlags(program, ['--unhandled-rejections=strict']);
 
-			expect(result.exitCode).not.toBe(0);
-			expect(result.stderr).toMatch(/Error|plain rejection/i);
-		});
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).toMatch(/Error|plain rejection/i);
+    });
 
-		it('CancelError rejection: still suppressed, exit 0', () => {
-			const program = makeProgram('cancelerror-no-handler');
-			const result = runChildWithFlags(program, [
-				'--unhandled-rejections=strict'
-			]);
+    it('CancelError rejection: still suppressed, exit 0', () => {
+      const program = makeProgram('cancelerror-no-handler');
+      const result = runChildWithFlags(program, ['--unhandled-rejections=strict']);
 
-			expect(result.exitCode).toBe(0);
-			expect(result.stdout).toContain('done-waiting');
-		});
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('done-waiting');
+    });
 
-		it('multiple plain rejections: exits on first, non-zero', () => {
-			const program = makeProgram('multiple-rejections');
-			const result = runChildWithFlags(program, [
-				'--unhandled-rejections=strict'
-			]);
+    it('multiple plain rejections: exits on first, non-zero', () => {
+      const program = makeProgram('multiple-rejections');
+      const result = runChildWithFlags(program, ['--unhandled-rejections=strict']);
 
-			expect(result.exitCode).not.toBe(0);
-		});
+      expect(result.exitCode).not.toBe(0);
+    });
 
-		it('chain plain rejection: exits non-zero', () => {
-			const program = makeProgram('chain-plain-rejection');
-			const result = runChildWithFlags(program, [
-				'--unhandled-rejections=strict'
-			]);
+    it('chain plain rejection: exits non-zero', () => {
+      const program = makeProgram('chain-plain-rejection');
+      const result = runChildWithFlags(program, ['--unhandled-rejections=strict']);
 
-			expect(result.exitCode).not.toBe(0);
-		});
+      expect(result.exitCode).not.toBe(0);
+    });
 
-		it('chain CancelError rejection: still suppressed, exit 0', () => {
-			const program = makeProgram('chain-cancelerror-rejection');
-			const result = runChildWithFlags(program, [
-				'--unhandled-rejections=strict'
-			]);
+    it('chain CancelError rejection: still suppressed, exit 0', () => {
+      const program = makeProgram('chain-cancelerror-rejection');
+      const result = runChildWithFlags(program, ['--unhandled-rejections=strict']);
 
-			expect(result.exitCode).toBe(0);
-			expect(result.stdout).toContain('done-waiting');
-		});
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('done-waiting');
+    });
 
-		it('reject-null: exits non-zero (not CancelError)', () => {
-			const program = makeProgram('reject-null');
-			const result = runChildWithFlags(program, [
-				'--unhandled-rejections=strict'
-			]);
+    it('reject-null: exits non-zero (not CancelError)', () => {
+      const program = makeProgram('reject-null');
+      const result = runChildWithFlags(program, ['--unhandled-rejections=strict']);
 
-			expect(result.exitCode).not.toBe(0);
-		});
-	});
+      expect(result.exitCode).not.toBe(0);
+    });
+  });
 });

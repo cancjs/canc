@@ -5,7 +5,7 @@
     "types": ["node", "jest"],
     "baseUrl": ".",
     "paths": {
-      "@cancjs/*": ["packages/canc-*/src"],
+      "@cancjs/*": ["packages/canc-*/src"]
     }
   },
   "exclude": [
@@ -13,6 +13,6 @@
     "**/~~**/*",
     "**/**~~/*",
     "**/build/**/*",
-    "**/dist/**/*",
+    "**/dist/**/*"
   ]
 }

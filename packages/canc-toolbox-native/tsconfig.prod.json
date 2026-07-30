@@ -1,8 +1,8 @@
 {
- "extends": "../../tsconfig.base",
- "compilerOptions": {
- "outDir": "build",
- "rootDir": "../..",
- },
- "include": ["src", "../_toolbox"],
+  "extends": "../../tsconfig.base",
+  "compilerOptions": {
+    "outDir": "build",
+    "rootDir": "../.."
+  },
+  "include": ["src", "../_toolbox"]
 }

@@ -1,71 +1,65 @@
 {
- "name": "@cancjs/coroutine",
- "version": "0.0.0",
- "description": "",
- "keywords": [],
- "main": "dist/index.cjs",
- "module": "dist/index.mjs",
- "unpkg": "dist/index.umd.min.js",
- "jsdelivr": "dist/index.umd.min.js",
- "types": "dist/types/index.d.ts",
- "sideEffects": false,
- "files": [
- "dist"
- ],
- "typesVersions": {
- "<4.7": {
- "dist/types/*": [
- "dist/types-ts4.2/*"
- ]
- }
- },
- "exports": {
- ".": {
- "types@<4.7": "./dist/types-ts4.2/index.d.ts",
- "types": "./dist/types/index.d.ts",
- "import": "./dist/index.mjs",
- "require": "./dist/index.cjs"
- },
- "./gen": {
- "types@<4.7": "./dist/types-ts4.2/gen.d.ts",
- "types": "./dist/types/gen.d.ts",
- "import": "./dist/gen.mjs",
- "require": "./dist/gen.cjs"
- }
- },
- "engines": {
- "node": ">=18",
- "npm": ">=9"
- },
- "author": "bisubus",
- "license": "MIT",
- "homepage": "https://github.com/cancjs/canc/packages/canc-coroutine#readme",
- "repository": {
- "type": "git",
- "url": "git+https://github.com/cancjs/canc.git",
- "directory": "packages/canc-coroutine"
- },
- "bugs": {
- "url": "https://github.com/cancjs/canc/issues"
- },
- "publishConfig": {
- "access": "public"
- },
- "scripts": {
- "build": "rimraf dist && rollup --config ./rollup.config.mjs",
- "check": "tsc --noEmit --project ./tsconfig.prod.json",
- "format:src": "eslint --fix ./src",
- "format": "eslint --fix .",
- "lint:src": "eslint ./src",
- "lint": "eslint .",
- "test": "jest --colors",
- "test:watch": "jest --colors --watch"
- },
- "type": "commonjs",
- "peerDependencies": {
- "@cancjs/promise": "^0.0.0"
- },
- "devDependencies": {
- "@cancjs/promise": "0.0.0"
- }
+  "name": "@cancjs/coroutine",
+  "version": "0.0.0",
+  "description": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cancjs/canc.git",
+    "directory": "packages/canc-coroutine"
+  },
+  "homepage": "https://github.com/cancjs/canc/packages/canc-coroutine#readme",
+  "bugs": "https://github.com/cancjs/canc/issues",
+  "author": "bisubus",
+  "type": "commonjs",
+  "exports": {
+    ".": {
+      "types@<4.7": "./dist/types-ts4.2/index.d.ts",
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    },
+    "./gen": {
+      "types@<4.7": "./dist/types-ts4.2/gen.d.ts",
+      "types": "./dist/types/gen.d.ts",
+      "import": "./dist/gen.mjs",
+      "require": "./dist/gen.cjs"
+    }
+  },
+  "main": "dist/index.cjs",
+  "module": "dist/index.mjs",
+  "types": "dist/types/index.d.ts",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18",
+    "npm": ">=9"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "rimraf dist && rollup --config ./rollup.config.mjs",
+    "check": "tsc --noEmit --project ./tsconfig.prod.json",
+    "format:src": "eslint --fix ./src",
+    "format": "eslint --fix .",
+    "lint:src": "eslint ./src",
+    "lint": "eslint .",
+    "test": "jest --colors",
+    "test:watch": "jest --colors --watch"
+  },
+  "files": ["dist"],
+  "keywords": [],
+  "devDependencies": {
+    "@cancjs/promise": "0.0.0"
+  },
+  "peerDependencies": {
+    "@cancjs/promise": "^0.0.0"
+  },
+  "unpkg": "dist/index.umd.min.js",
+  "jsdelivr": "dist/index.umd.min.js",
+  "typesVersions": {
+    "<4.7": {
+      "dist/types/*": ["dist/types-ts4.2/*"]
+    }
+  }
 }
