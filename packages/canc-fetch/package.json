@@ -46,10 +46,10 @@
  "scripts": {
  "build": "rimraf dist && rollup --config ./rollup.config.js",
  "check": "tsc --noEmit --project ./tsconfig.prod.json",
- "format": "eslint --fix ./src",
- "format:all": "eslint --fix .",
- "lint": "eslint ./src",
- "lint:all": "eslint .",
+ "format:src": "eslint --fix ./src",
+ "format": "eslint --fix .",
+ "lint:src": "eslint ./src",
+ "lint": "eslint .",
  "test": "jest --colors",
  "test:watch": "jest --colors --watch"
  }

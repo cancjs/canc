@@ -14,9 +14,7 @@
   "bench:report": "node generate-report.js",
   "bench:browser": "node browser-lane.js",
   "lint": "eslint .",
-  "lint:all": "eslint .",
-  "format": "eslint --fix .",
-  "format:all": "eslint --fix ."
+  "format": "eslint --fix ."
  },
  "dependencies": {
   "@types/node": "~20.12.12",

@@ -17,8 +17,9 @@
  "scripts": {
   "build": "cross-env NODE_OPTIONS=--no-deprecation lerna run build --stream",
   "test": "cross-env NODE_OPTIONS=--no-deprecation lerna run test --stream",
-  "lint": "cross-env NODE_OPTIONS=--no-deprecation lerna run lint --stream --no-bail",
-  "lint:all": "cross-env NODE_OPTIONS=--no-deprecation lerna run lint:all --stream --no-bail",
+  "lint": "run-p -c lint:workspaces lint:root",
+  "lint:workspaces": "cross-env NODE_OPTIONS=--no-deprecation lerna run lint --stream --no-bail",
+  "lint:root": "eslint *.{js,mjs,json,md} scripts docs",
   "publish": "cross-env NODE_OPTIONS=--no-deprecation lerna publish from-git",
   "version": "cross-env NODE_OPTIONS=--no-deprecation lerna version --no-push",
   "bench": "npm run bench --workspace=@cancjs/benchmarks",
@@ -26,10 +27,9 @@
   "bench:browser": "npm run bench:browser --workspace=@cancjs/benchmarks",
   "examples:test": "npm --prefix examples run examples:test",
   "examples:typecheck": "npm --prefix examples run examples:typecheck",
-  "format": "cross-env NODE_OPTIONS=--no-deprecation lerna run format --stream --no-bail",
-  "format:all": "cross-env NODE_OPTIONS=--no-deprecation lerna run format:all --stream --no-bail",
-  "lint:repo": "eslint *.{js,mjs,json,md} scripts docs",
-  "format:repo": "eslint --fix *.{js,mjs,json,md} scripts docs"
+  "format": "run-p -c format:workspaces format:root",
+  "format:workspaces": "cross-env NODE_OPTIONS=--no-deprecation lerna run format --stream --no-bail",
+  "format:root": "eslint --fix *.{js,mjs,json,md} scripts docs"
  },
  "devDependencies": {
   "@eslint/js": "~10.0.1",
@@ -54,6 +54,7 @@
   "jest": "~30.4.2",
   "jest-environment-jsdom": "~30.4.1",
   "lerna": "~9.0.7",
+  "npm-run-all2": "~8.0.4",
   "prettier": "~3.9.6",
   "rimraf": "~5.0.7",
   "rollup": "~4.62.2",

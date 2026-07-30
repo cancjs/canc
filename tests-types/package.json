@@ -9,9 +9,7 @@
   "matrix:latest": "node ./scripts/run-matrix.mjs --only latest",
   "matrix:decorators": "node ./scripts/run-matrix.mjs --only 5.0,5.4,latest",
   "lint": "eslint .",
-  "lint:all": "eslint .",
-  "format": "eslint --fix .",
-  "format:all": "eslint --fix ."
+  "format": "eslint --fix ."
  },
  "engines": {
   "npm": ">=9"
