@@ -1,4 +1,4 @@
-import { construct, TPromiseCtor, THandleCancel } from './construct';
+import { construct, TPromiseCtor, TExecutorCtx } from './construct';
 
 /**
  * Resolve with the value of `promise`, but never before `ms` milliseconds have elapsed. Useful for
@@ -7,7 +7,7 @@ import { construct, TPromiseCtor, THandleCancel } from './construct';
  * cancelable-shaped implementation, canceling clears the pending floor timer.
  */
 export function minDelay<T>(Impl: TPromiseCtor, promise: T | PromiseLike<T>, ms: number, options?: object): PromiseLike<T> {
-	return construct<T>(Impl, (resolve, reject, handleCancel?: THandleCancel) => {
+	return construct<T>(Impl, (resolve, reject, ctx?: TExecutorCtx) => {
 		let elapsed = false;
 		let value: T;
 		let settled = false;
@@ -17,8 +17,8 @@ export function minDelay<T>(Impl: TPromiseCtor, promise: T | PromiseLike<T>, ms:
 			if (settled) resolve(value);
 		}, ms);
 
-		if (typeof handleCancel === 'function') {
-			handleCancel(() => clearTimeout(id));
+		if (ctx) {
+			ctx.handleCancel(() => clearTimeout(id));
 		}
 
 		Impl.resolve(promise).then(

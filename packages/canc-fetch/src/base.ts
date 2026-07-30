@@ -158,7 +158,7 @@ export const setupCancellation = (
 
 export const cancelableFetchFactory = (config: CancelableFetchConfig = {}) => {
 	return function cancelableFetch(input: any, init?: any): CancelablePromise<any> {
-		return new CancelablePromise<any>((resolve, reject, handleCancel) => {
+		return new CancelablePromise<any>((resolve, reject, { handleCancel }) => {
 			const _fetch = resolveDep<Fetch>(config, 'fetch', typeof fetch !== 'undefined' ? fetch : (undefined as any));
 			const { signal, finalize, toRejection } = setupCancellation(config, input, init, handleCancel);
 
@@ -299,7 +299,7 @@ export const cancelableFetchLaterFactory = (config: CancelableFetchLaterConfig =
 	return function cancelableFetchLater(input: any, init?: DeferredRequestInit): CancelableFetchLaterPromise {
 		let result: FetchLaterResultLike | null = null;
 
-		const promise = new CancelablePromise<FetchLaterResultLike>((resolve, reject, handleCancel) => {
+		const promise = new CancelablePromise<FetchLaterResultLike>((resolve, reject, { handleCancel }) => {
 			runFetchLater(config, input, init, resolve, reject, handleCancel, (r) => {
 				result = r;
 			});

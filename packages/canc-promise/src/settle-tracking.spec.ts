@@ -121,7 +121,7 @@ describe('settle tracking (state + handlers)', () => {
 	it('item 10: external reject(CancelError) fires registered cancel handlers', async () => {
 		const handler = jest.fn();
 
-		const promise = new CancelablePromise((_resolve, reject, handleCancel) => {
+		const promise = new CancelablePromise((_resolve, reject, { handleCancel }) => {
 			handleCancel(handler);
 			setTimeout(() => reject(new CancelError('external')), 0);
 		});
@@ -138,7 +138,7 @@ describe('settle tracking (state + handlers)', () => {
 	it('regression: cancel() fires handlers exactly once (no double-fire via reject wrapper)', async () => {
 		const handler = jest.fn();
 
-		const promise = new CancelablePromise((_resolve, _reject, handleCancel) => {
+		const promise = new CancelablePromise((_resolve, _reject, { handleCancel }) => {
 			handleCancel(handler);
 		});
 
@@ -154,7 +154,7 @@ describe('settle tracking (state + handlers)', () => {
 	it('handleCancel after sync reject(CancelError) in executor is a no-op', async () => {
 		const lateHandler = jest.fn();
 
-		const promise = new CancelablePromise((_resolve, reject, handleCancel) => {
+		const promise = new CancelablePromise((_resolve, reject, { handleCancel }) => {
 			reject(new CancelError('sync-external'));
 			handleCancel(lateHandler);
 		});
@@ -170,7 +170,7 @@ describe('settle tracking (state + handlers)', () => {
 	it('external reject(CancelError) fires handlers exactly once', async () => {
 		const handler = jest.fn();
 
-		const promise = new CancelablePromise((_resolve, reject, handleCancel) => {
+		const promise = new CancelablePromise((_resolve, reject, { handleCancel }) => {
 			handleCancel(handler);
 			setTimeout(() => reject(new CancelError('external-once')), 0);
 		});

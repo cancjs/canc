@@ -13,7 +13,7 @@ function makeApi() {
   const api: SearchApi = {
     search: (query) => {
       searched.push(query);
-      return new CancelablePromise<UserHit[]>((resolve, _reject, handleCancel) => {
+      return new CancelablePromise<UserHit[]>((resolve, _reject, { handleCancel }) => {
         resolvers.set(query, resolve);
         handleCancel?.(() => canceled.push(query));
       });

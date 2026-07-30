@@ -8,7 +8,7 @@ export type TPromiseCtor = new (
 	executor: (
 		resolve: (value?: any) => void,
 		reject: (reason?: any) => void,
-		handleCancel?: (onCancel: (reason?: any) => void) => void,
+		ctx?: { handleCancel: (onCancel: (reason?: any) => void) => void; getSignal?: () => any },
 	) => void,
 	options?: object,
 ) => PromiseLike<any> & { cancel?: (reason?: any) => any };
@@ -75,16 +75,14 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
 			}
 		};
 
-		// Cancelable-family impls carry the three-arg executor + handleCancel. A plain
+		// Cancelable-family impls carry the three-arg executor with a ctx object. A plain
 		// PromiseConstructor (native twin, injected Promise) ignores the third arg, so teardown wiring
 		// falls back to the executor's return value only.
-		const inner = new Impl((resolve: (value?: any) => void, reject: (reason?: any) => void, hc) => {
-			// Some impls pass their own handleCancel as the 3rd arg; prefer it so native cancel wiring
-			// works, but always also honor an explicit return-fn teardown.
+		const inner = new Impl((resolve: (value?: any) => void, reject: (reason?: any) => void, ctx) => {
 			const returned = this._executor(
 				resolve as (value?: T | PromiseLike<T>) => void,
 				reject,
-				isFunction(hc) ? hc : handleCancel,
+				ctx ? ctx.handleCancel : handleCancel,
 			);
 
 			if (isFunction(returned)) {

@@ -72,7 +72,7 @@ describe('app-rxjs smoke', () => {
  it('fromCancelablePromise: unsubscribe cancels the promise (teardown -> abort marker)', async () => {
  const log: SearchRecord[] = [];
  const factory = () =>
- new CancelablePromise<number>((resolve, reject, handleCancel) => {
+ new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
  log.push({ lineSeq: 0, status: 'started' });
  const controller = new AbortController();
  handleCancel(() => controller.abort());

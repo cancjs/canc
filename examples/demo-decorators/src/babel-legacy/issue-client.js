@@ -16,7 +16,7 @@ import CancelablePromise from '@cancjs/promise';
 // Wrap a signal-aware mock-api call as a CancelablePromise so a coroutine cancel() aborts the
 // underlying request. Shared by all flavors via copy (kept inline to preserve twin alignment).
 function abortable(run) {
- return new CancelablePromise((resolve, reject, handleCancel) => {
+ return new CancelablePromise((resolve, reject, { handleCancel }) => {
  const controller = new AbortController();
  handleCancel(() => controller.abort());
  run(controller.signal).then(resolve, reject);

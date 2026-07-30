@@ -40,7 +40,7 @@ export function generateInvoiceChunk(
  baseId: number,
  issuedAt: number,
 ): CancelablePromise<number> {
- return new CancelablePromise<number>((resolve, reject, handleCancel) => {
+ return new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
  // If the chunk is canceled while it is still waiting, the insert below never runs, so no rows
  // are written after the transaction has been rolled back. A plain promise here would let a
  // late insert land outside the rolled-back transaction and autocommit.

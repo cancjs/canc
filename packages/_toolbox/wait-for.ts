@@ -1,4 +1,4 @@
-import { construct, TPromiseCtor, THandleCancel } from './construct';
+import { construct, TPromiseCtor, TExecutorCtx } from './construct';
 
 export interface IWaitForOptions {
 	/** Poll interval in milliseconds. Default: 20. */
@@ -18,7 +18,7 @@ export function waitFor(Impl: TPromiseCtor, condition: () => unknown, options?: 
 	const interval = options?.interval ?? 20;
 	const limit = options?.timeout ?? Infinity;
 
-	return construct<void>(Impl, (resolve, reject, handleCancel?: THandleCancel) => {
+	return construct<void>(Impl, (resolve, reject, ctx?: TExecutorCtx) => {
 		let timerId: ReturnType<typeof setTimeout> | undefined;
 		let deadlineId: ReturnType<typeof setTimeout> | undefined;
 		let settled = false;
@@ -62,8 +62,8 @@ export function waitFor(Impl: TPromiseCtor, condition: () => unknown, options?: 
 			deadlineId = setTimeout(() => finish(() => reject(new Error('waitFor timed out'))), limit);
 		}
 
-		if (typeof handleCancel === 'function') {
-			handleCancel(() => {
+		if (ctx) {
+			ctx.handleCancel(() => {
 				settled = true;
 				clearTimers();
 			});

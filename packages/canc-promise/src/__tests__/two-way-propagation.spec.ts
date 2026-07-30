@@ -98,7 +98,7 @@ describe('two-way propagation matrix', () => {
 
 		it('4. cancel parent → registered cancel handler on parent fires with the reason', async () => {
 			const handler = jest.fn();
-			const parent = new CancelablePromise<number>((_r, _j, handleCancel) => {
+			const parent = new CancelablePromise<number>((_r, _j, { handleCancel }) => {
 				handleCancel(handler);
 			});
 			silence(parent);
@@ -129,7 +129,7 @@ describe('two-way propagation matrix', () => {
 
 		it('6. cancel handlers fire in registration order (FIFO)', async () => {
 			const order: number[] = [];
-			const parent = new CancelablePromise<number>((_r, _j, handleCancel) => {
+			const parent = new CancelablePromise<number>((_r, _j, { handleCancel }) => {
 				handleCancel(() => order.push(1));
 				handleCancel(() => order.push(2));
 				handleCancel(() => order.push(3));
@@ -145,7 +145,7 @@ describe('two-way propagation matrix', () => {
 
 		it('7. sync-mode (asyncCancel:false) handlers fire synchronously in FIFO order', () => {
 			const order: string[] = [];
-			const parent = new CancelablePromise<number>((_r, _j, handleCancel) => {
+			const parent = new CancelablePromise<number>((_r, _j, { handleCancel }) => {
 				handleCancel(() => order.push('a'));
 				handleCancel(() => order.push('b'));
 			}, { asyncCancel: false });
@@ -157,7 +157,7 @@ describe('two-way propagation matrix', () => {
 
 		it('8. cancel already-canceled parent is a no-op (handlers fire once)', async () => {
 			const handler = jest.fn();
-			const parent = new CancelablePromise<number>((_r, _j, handleCancel) => {
+			const parent = new CancelablePromise<number>((_r, _j, { handleCancel }) => {
 				handleCancel(handler);
 			});
 			silence(parent);
@@ -174,7 +174,7 @@ describe('two-way propagation matrix', () => {
 		it('9. cancel reason passed to handler is the ORIGINAL, unnormalized reason', async () => {
 			let received: any;
 			const rawReason = { code: 42 };
-			const parent = new CancelablePromise<number>((_r, _j, handleCancel) => {
+			const parent = new CancelablePromise<number>((_r, _j, { handleCancel }) => {
 				handleCancel(r => { received = r; });
 			});
 			silence(parent);
@@ -339,7 +339,7 @@ describe('two-way propagation matrix', () => {
 
 		it('19. bubble does not re-fire once parent already canceled (single pass)', async () => {
 			const bubbleHandler = jest.fn();
-			const parent = new CancelablePromise<number>((_r, _j, handleCancel) => {
+			const parent = new CancelablePromise<number>((_r, _j, { handleCancel }) => {
 				handleCancel(bubbleHandler);
 			});
 			const c1 = parent.then(v => v);

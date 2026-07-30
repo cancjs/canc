@@ -27,7 +27,7 @@ import type { Subscribable, Unsubscribable } from 'rxjs';
  * CancelError, so it is caught by an ordinary try/catch on the awaiting side.
  */
 export function toCancelablePromise<T>(observable: Subscribable<T>): CancelablePromise<T> {
- return new CancelablePromise<T>((resolve, reject, handleCancel) => {
+ return new CancelablePromise<T>((resolve, reject, { handleCancel }) => {
  let settled = false;
  // Subscriber (rather than a plain observer) can tear itself down from inside next(), which is
  // needed for synchronous sources that emit during subscribe() before a Subscription is bound.
@@ -134,7 +134,7 @@ export function from<T>(observable: Subscribable<T>): CancelableAsyncIterable<T>
  // coroutine) unsubscribes. It settles when the source completes/errors.
  let settleDone: () => void = () => {};
  let failDone: (reason: unknown) => void = () => {};
- const done = new CancelablePromise<void>((resolve, reject, handleCancel) => {
+ const done = new CancelablePromise<void>((resolve, reject, { handleCancel }) => {
  settleDone = resolve;
  failDone = reject;
  handleCancel(() => stop());

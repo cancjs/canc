@@ -1,4 +1,4 @@
-import { construct, TPromiseCtor, THandleCancel } from './construct';
+import { construct, TPromiseCtor, TExecutorCtx } from './construct';
 
 export interface IRetryOptions {
 	/** Maximum number of attempts (including the first). Default: 3. */
@@ -27,12 +27,12 @@ export function retry<T>(Impl: TPromiseCtor, input: (attempt: number) => T | Pro
 	const factor = options?.factor ?? 2;
 	const maxTimeout = options?.maxTimeout ?? Infinity;
 
-	return construct<T>(Impl, (resolve, reject, handleCancel?: THandleCancel) => {
+	return construct<T>(Impl, (resolve, reject, ctx?: TExecutorCtx) => {
 		let canceled = false;
 		let backoffId: ReturnType<typeof setTimeout> | undefined;
 
-		if (typeof handleCancel === 'function') {
-			handleCancel(() => {
+		if (ctx) {
+			ctx.handleCancel(() => {
 				canceled = true;
 				if (backoffId !== undefined) clearTimeout(backoffId);
 			});

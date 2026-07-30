@@ -151,7 +151,7 @@ describe('debounce', () => {
 	it('cancel propagation: canceling returned promise cancels in-flight fn', async () => {
 		jest.useFakeTimers();
 		let innerCanceled = false;
-		const fn = () => new CancelablePromise<string>((_resolve, _reject, handleCancel) => {
+		const fn = () => new CancelablePromise<string>((_resolve, _reject, { handleCancel }) => {
 			if (handleCancel) handleCancel(() => { innerCanceled = true; });
 		});
 		const debounced = debounce(fn, 50);

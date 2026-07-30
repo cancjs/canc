@@ -798,7 +798,7 @@ describe('cancGenAsync — cancel aborts in-flight source', () => {
  it('cancel fires the awaited source cancel handler (abort)', async () => {
  let aborted = 0;
  // A never-settling source that records its own cancellation.
- const source = new CancelablePromise((_resolve, _reject, handleCancel) => {
+ const source = new CancelablePromise((_resolve, _reject, { handleCancel }) => {
  handleCancel(() => {
  aborted++;
  });
@@ -864,7 +864,7 @@ describe('cancGenAwait — combinator parity (all/race/any/allSettled/try)', () 
 
  it('race(): winner value threads through yield*, loser gets canceled', async () => {
  let loserCanceled = false;
- const loser = new CancelablePromise<string>((_resolve, _reject, handleCancel) => {
+ const loser = new CancelablePromise<string>((_resolve, _reject, { handleCancel }) => {
  handleCancel(() => {
  loserCanceled = true;
  });
@@ -887,7 +887,7 @@ describe('cancGenAwait — combinator parity (all/race/any/allSettled/try)', () 
 
  it('any(): first fulfillment wins, other pending input canceled', async () => {
  let loserCanceled = false;
- const loser = new CancelablePromise<string>((_resolve, _reject, handleCancel) => {
+ const loser = new CancelablePromise<string>((_resolve, _reject, { handleCancel }) => {
  handleCancel(() => {
  loserCanceled = true;
  });
@@ -910,7 +910,7 @@ describe('cancGenAwait — combinator parity (all/race/any/allSettled/try)', () 
 
  it('allSettled(): never cancels a pending input, resolves full settled tuple', async () => {
  let canceled = false;
- const slow = new CancelablePromise<number>((resolve, _reject, handleCancel) => {
+ const slow = new CancelablePromise<number>((resolve, _reject, { handleCancel }) => {
  handleCancel(() => {
  canceled = true;
  });

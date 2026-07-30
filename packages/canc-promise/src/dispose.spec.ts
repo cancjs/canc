@@ -108,7 +108,7 @@ describeAsync('P1-11 Symbol.asyncDispose (async)', () => {
 
 	it('asyncDispose awaits the settlement of cancel handlers', async () => {
 		const order: string[] = [];
-		const promise = new CancelablePromise<number>((_resolve, _reject, handleCancel) => {
+		const promise = new CancelablePromise<number>((_resolve, _reject, { handleCancel }) => {
 			handleCancel(() => new NativePromise<void>(r => setTimeout(() => { order.push('handler'); r(); }, 5)));
 		});
 

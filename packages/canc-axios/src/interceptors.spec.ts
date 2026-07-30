@@ -35,7 +35,7 @@ describe('interceptors', () => {
 		let inner!: CancelablePromise<any>;
 
 		api.interceptors.request.use((config) => {
-			inner = new CancelablePromise<any>((resolve, reject, handleCancel) => {
+			inner = new CancelablePromise<any>((resolve, reject, { handleCancel }) => {
 				handleCancel!(() => {});
 			}).then(() => config) as CancelablePromise<any>;
 

@@ -123,7 +123,7 @@ export function makeCancelable<T>(promise: PromiseLike<T>, options?: ICancelable
 	const This = options?.CancelablePromise || CancelablePromise;
 
 	return new This(
-		(resolve, reject, handleCancel) => {
+		(resolve, reject, { handleCancel }) => {
 			promise.then(resolve, reject);
 
 			if (isCancelable(promise)) {

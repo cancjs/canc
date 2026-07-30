@@ -49,7 +49,7 @@ describe('rfc §2 — cancAwait combinators, runtime behavior inside a coroutine
 
  it('cancAwait.all: one input rejecting cancels the rest and rejects the coroutine (not CancelError)', async () => {
  let siblingCanceled = false;
- const sibling = new CancelablePromise<number>((_resolve, _reject, handleCancel) => {
+ const sibling = new CancelablePromise<number>((_resolve, _reject, { handleCancel }) => {
  handleCancel(() => {
  siblingCanceled = true;
  });
@@ -70,7 +70,7 @@ describe('rfc §2 — cancAwait combinators, runtime behavior inside a coroutine
 
  it('cancAwait.race: winner value threads through yield*, loser gets canceled', async () => {
  let loserCanceled = false;
- const loser = new CancelablePromise<string>((_resolve, _reject, handleCancel) => {
+ const loser = new CancelablePromise<string>((_resolve, _reject, { handleCancel }) => {
  handleCancel(() => {
  loserCanceled = true;
  });
@@ -91,7 +91,7 @@ describe('rfc §2 — cancAwait combinators, runtime behavior inside a coroutine
 
  it('cancAwait.any: first fulfillment wins, other pending input canceled', async () => {
  let loserCanceled = false;
- const loser = new CancelablePromise<string>((_resolve, _reject, handleCancel) => {
+ const loser = new CancelablePromise<string>((_resolve, _reject, { handleCancel }) => {
  handleCancel(() => {
  loserCanceled = true;
  });
@@ -112,7 +112,7 @@ describe('rfc §2 — cancAwait combinators, runtime behavior inside a coroutine
 
  it('cancAwait.allSettled: never cancels a pending input, resolves full settled tuple', async () => {
  let canceled = false;
- const slow = new CancelablePromise<number>((resolve, _reject, handleCancel) => {
+ const slow = new CancelablePromise<number>((resolve, _reject, { handleCancel }) => {
  handleCancel(() => {
  canceled = true;
  });
@@ -235,7 +235,7 @@ describe('rfc §5 — nested cancAsync delegation', () => {
  let subCanceled = false;
 
  const reserveStock = cancAsync(function* () {
- yield new CancelablePromise<void>((_resolve, _reject, handleCancel) => {
+ yield new CancelablePromise<void>((_resolve, _reject, { handleCancel }) => {
  handleCancel(() => {
  subCanceled = true;
  });

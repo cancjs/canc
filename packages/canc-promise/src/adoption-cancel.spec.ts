@@ -28,7 +28,7 @@ function flush(): Promise<void> {
 
 function makeInner(): { promise: CancelablePromise<number>; canceled: () => boolean } {
 	let canceled = false;
-	const promise = new CancelablePromise<number>((_resolve, _reject, handleCancel) => {
+	const promise = new CancelablePromise<number>((_resolve, _reject, { handleCancel }) => {
 		handleCancel(() => {
 			canceled = true;
 		});
@@ -101,7 +101,7 @@ describe('adoption cancel propagation', () => {
 	it('shared inner: canceling one consumer does NOT cancel the shared inner; the other still settles', async () => {
 		let resolveShared: (v: number) => void = () => undefined;
 		let sharedCanceled = false;
-		const shared = new CancelablePromise<number>((resolve, _reject, handleCancel) => {
+		const shared = new CancelablePromise<number>((resolve, _reject, { handleCancel }) => {
 			resolveShared = resolve;
 			handleCancel(() => {
 				sharedCanceled = true;
@@ -130,7 +130,7 @@ describe('adoption cancel propagation', () => {
 
 	it('shared inner: canceling the last live consumer NOW cancels the shared inner', async () => {
 		let sharedCanceled = false;
-		const shared = new CancelablePromise<number>((_resolve, _reject, handleCancel) => {
+		const shared = new CancelablePromise<number>((_resolve, _reject, { handleCancel }) => {
 			handleCancel(() => {
 				sharedCanceled = true;
 			});
@@ -158,7 +158,7 @@ describe('adoption cancel propagation', () => {
 
 	it('bubble:false adopted inner: cancel does NOT reach it', async () => {
 		let innerCanceled = false;
-		const inner = new CancelablePromise<number>((_resolve, _reject, handleCancel) => {
+		const inner = new CancelablePromise<number>((_resolve, _reject, { handleCancel }) => {
 			handleCancel(() => {
 				innerCanceled = true;
 			});
@@ -179,7 +179,7 @@ describe('adoption cancel propagation', () => {
 
 	it('shield:true adopted inner: cancel does NOT reach it', async () => {
 		let innerCanceled = false;
-		const inner = new CancelablePromise<number>((_resolve, _reject, handleCancel) => {
+		const inner = new CancelablePromise<number>((_resolve, _reject, { handleCancel }) => {
 			handleCancel(() => {
 				innerCanceled = true;
 			});
@@ -234,7 +234,7 @@ describe('adoption cancel propagation', () => {
 
 	it('chained adoption: handler returns A which later resolves to cancelable B; canceling outer reaches B', async () => {
 		let bCanceled = false;
-		const b = new CancelablePromise<number>((_resolve, _reject, handleCancel) => {
+		const b = new CancelablePromise<number>((_resolve, _reject, { handleCancel }) => {
 			handleCancel(() => {
 				bCanceled = true;
 			});
@@ -329,7 +329,7 @@ describe('adoption cancel propagation', () => {
 
 	it('CancelablePromise.resolve(inner, optionsThatDiffer): wraps (not identity), cancel does not reach a shielded wrapper', async () => {
 		let innerCanceled = false;
-		const inner = new CancelablePromise<number>((_resolve, _reject, handleCancel) => {
+		const inner = new CancelablePromise<number>((_resolve, _reject, { handleCancel }) => {
 			handleCancel(() => {
 				innerCanceled = true;
 			});
@@ -356,7 +356,7 @@ describe('adoption cancel propagation', () => {
 
 	it('CancelablePromise.resolve(inner, optionsThatDiffer) without shield: wrapping still forwards cancel to the adopted inner', async () => {
 		let innerCanceled = false;
-		const inner = new CancelablePromise<number>((_resolve, _reject, handleCancel) => {
+		const inner = new CancelablePromise<number>((_resolve, _reject, { handleCancel }) => {
 			handleCancel(() => {
 				innerCanceled = true;
 			});
@@ -393,7 +393,7 @@ describe('adoption cancel propagation', () => {
 
 	it('allSettled: a still-pending cancelable item is NOT canceled by canceling the result (doctrine unchanged by adoption fix)', async () => {
 		let itemCanceled = false;
-		const item = new CancelablePromise<number>((_resolve, _reject, handleCancel) => {
+		const item = new CancelablePromise<number>((_resolve, _reject, { handleCancel }) => {
 			handleCancel(() => {
 				itemCanceled = true;
 			});

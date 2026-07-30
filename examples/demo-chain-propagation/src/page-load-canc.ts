@@ -45,7 +45,7 @@ export function loadProductProfile(
  { shield: options?.shield }
  );
 
- return new CancelablePromise(async (resolve, reject, handleCancel) => {
+ return new CancelablePromise(async (resolve, reject, { handleCancel }) => {
  try {
  report('fetching product');
  const productPromise = loadProduct(productId);

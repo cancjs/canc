@@ -27,7 +27,7 @@ describe('cancel() return contract', () => {
 	it('asyncCancel: awaiting cancel() resolves only after async handlers settle (ordering)', async () => {
 		const order: string[] = [];
 
-		const promise = new CancelablePromise((_resolve, _reject, handleCancel) => {
+		const promise = new CancelablePromise((_resolve, _reject, { handleCancel }) => {
 			handleCancel(() => new NativePromise<void>(resolve => setTimeout(() => {
 				order.push('handler');
 				resolve();
@@ -42,7 +42,7 @@ describe('cancel() return contract', () => {
 	});
 
 	it('asyncCancel: handler throw -> allSettled has a rejected entry, no unhandled rejection', async () => {
-		const promise = new CancelablePromise((_resolve, _reject, handleCancel) => {
+		const promise = new CancelablePromise((_resolve, _reject, { handleCancel }) => {
 			handleCancel(() => {
 				throw new Error('handler boom');
 			});

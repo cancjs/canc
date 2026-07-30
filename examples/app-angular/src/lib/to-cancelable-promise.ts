@@ -15,7 +15,7 @@ import type { Observable, Subscription } from 'rxjs';
  * emitting rejects with the given `emptyError` (default `EmptyError`-shaped).
  */
 export function toCancelablePromise<T>(source: Observable<T>, emptyError?: () => unknown): CancelablePromise<T> {
- return new CancelablePromise<T>((resolve, reject, handleCancel) => {
+ return new CancelablePromise<T>((resolve, reject, { handleCancel }) => {
  let settled = false;
 
  const subscription: Subscription = source.subscribe({

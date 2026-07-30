@@ -484,7 +484,7 @@ describe('cancAsync', () => {
  const makeTimerStep = (tag: string, ms: number, aborts: string[]) => {
  const controller = new AbortController();
  const signal = controller.signal;
- return new CancelablePromise<string>((resolve, reject, handleCancel) => {
+ return new CancelablePromise<string>((resolve, reject, { handleCancel }) => {
  const t = setTimeout(() => resolve(tag), ms);
  signal.addEventListener('abort', () => {
  aborts.push(tag);
@@ -946,7 +946,7 @@ describe('cancAwait sequential-step propagation (pre-existing, not the adoption 
  const co = cancAsync(function* () {
  yield* cancAwait(new CancelablePromise<void>(() => {})); // never settles: stands in for delay(ms)
  innerCreated = true;
- const inner = new CancelablePromise<number>((_resolve, _reject, handleCancel) => {
+ const inner = new CancelablePromise<number>((_resolve, _reject, { handleCancel }) => {
  handleCancel(() => {
  innerCanceled = true;
  });
@@ -970,7 +970,7 @@ describe('cancAwait sequential-step propagation (pre-existing, not the adoption 
  const delay = new CancelablePromise<void>((resolve) => {
  resolveDelay = resolve;
  });
- const inner = new CancelablePromise<number>((_resolve, _reject, handleCancel) => {
+ const inner = new CancelablePromise<number>((_resolve, _reject, { handleCancel }) => {
  handleCancel(() => {
  innerCanceled = true;
  });

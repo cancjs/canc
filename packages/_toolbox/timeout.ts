@@ -1,4 +1,4 @@
-import { construct, TPromiseCtor, THandleCancel } from './construct';
+import { construct, TPromiseCtor, TExecutorCtx } from './construct';
 
 function isObject(value: unknown): value is object {
 	return typeof value === 'object' && value !== null;
@@ -49,8 +49,8 @@ function isCancelable(value: unknown): value is ICancelableLike {
 export function timeout<T>(Impl: TPromiseCtor, promise: T | PromiseLike<T>, ms = Infinity, options?: object): PromiseLike<T> {
 	// The returned promise owns the timer so that canceling it (cancelable flavor) clears the
 	// pending timeout and stops the underlying operation, leaving no leaked work. Under a plain
-	// native Promise handleCancel is undefined and the timer simply runs to completion.
-	return construct<T>(Impl, (resolve, reject, handleCancel?: THandleCancel) => {
+	// native Promise the context is undefined and the timer simply runs to completion.
+	return construct<T>(Impl, (resolve, reject, ctx?: TExecutorCtx) => {
 		let settled = false;
 		const id = setTimeout(() => {
 			if (settled) return;
@@ -77,8 +77,8 @@ export function timeout<T>(Impl: TPromiseCtor, promise: T | PromiseLike<T>, ms =
 			},
 		);
 
-		if (typeof handleCancel === 'function') {
-			handleCancel(() => {
+		if (ctx) {
+			ctx.handleCancel(() => {
 				settled = true;
 				clearTimeout(id);
 				if (isCancelable(promise)) {

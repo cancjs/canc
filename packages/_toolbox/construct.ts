@@ -6,28 +6,37 @@
  * concrete promise package.
  */
 export type TPromiseCtor = (new (
-	executor: (resolve: (value: any) => void, reject: (reason?: any) => void, handleCancel?: THandleCancel) => void,
+	executor: (resolve: (value: any) => void, reject: (reason?: any) => void, ctx?: TExecutorCtx) => void,
 	options?: object,
 ) => PromiseLike<any> & { cancelable?: boolean }) & {
 	resolve<T>(value: T | PromiseLike<T>): PromiseLike<T>;
 };
 
 /**
- * A cancel registration callback, supplied to the executor as a third argument only by a
+ * A cancel registration callback, supplied inside the executor context object only by a
  * cancelable-shaped implementation. A plain native Promise calls the executor with two arguments,
- * so callers must feature-detect before use.
+ * so callers must feature-detect the context before use.
  */
 export type THandleCancel = (onCancel: () => void) => void;
 
 /**
+ * The executor context object shape. Cancelable implementations provide this as the executor's
+ * third argument; native Promise provides nothing (undefined).
+ */
+export interface TExecutorCtx {
+	handleCancel: THandleCancel;
+	getSignal?: () => any;
+}
+
+/**
  * The executor shape toolbox algorithms construct against. It widens the native
- * `(resolve, reject)` signature with the optional cancelable `handleCancel` argument so the same
+ * `(resolve, reject)` signature with the optional cancelable context object so the same
  * executor works with either kind of implementation.
  */
 export type TExecutor<T> = (
 	resolve: (value: T | PromiseLike<T>) => void,
 	reject: (reason?: any) => void,
-	handleCancel?: THandleCancel,
+	ctx?: TExecutorCtx,
 ) => void;
 
 /**

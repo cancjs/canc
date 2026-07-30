@@ -1,4 +1,4 @@
-export { TPromiseCtor, THandleCancel, TExecutor, construct } from './construct';
+export { TPromiseCtor, THandleCancel, TExecutorCtx, TExecutor, construct } from './construct';
 
 export { delay } from './delay';
 export { defer, IDeferred } from './defer';

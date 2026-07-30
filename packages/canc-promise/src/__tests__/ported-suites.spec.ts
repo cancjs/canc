@@ -48,7 +48,7 @@ describe('ported suites', () => {
 	describe('bluebird: handleCancel fundamentals', () => {
 		it('1. registers a single handler and fires on cancel', async () => {
 			let fired = false;
-			const p = new CancelablePromise<void>((resolve, reject, handleCancel) => {
+			const p = new CancelablePromise<void>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => {
 					fired = true;
 				});
@@ -63,7 +63,7 @@ describe('ported suites', () => {
 
 		it('2. registers multiple handlers on same promise', async () => {
 			let count = 0;
-			const p = new CancelablePromise<void>((resolve, reject, handleCancel) => {
+			const p = new CancelablePromise<void>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => { count++; });
 				handleCancel(() => { count++; });
 				handleCancel(() => { count++; });
@@ -78,7 +78,7 @@ describe('ported suites', () => {
 
 		it('3. handlers fire during cancel (sync in asyncCancel mode)', async () => {
 			let fired = false;
-			const p = new CancelablePromise<void>((resolve, reject, handleCancel) => {
+			const p = new CancelablePromise<void>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => {
 					fired = true;
 				});
@@ -95,7 +95,7 @@ describe('ported suites', () => {
 
 		it('4. handler receives original cancel reason (not wrapped)', async () => {
 			let capturedReason: any;
-			const p = new CancelablePromise<void>((resolve, reject, handleCancel) => {
+			const p = new CancelablePromise<void>((resolve, reject, { handleCancel }) => {
 				handleCancel((reason) => {
 					capturedReason = reason;
 				});
@@ -113,7 +113,7 @@ describe('ported suites', () => {
 
 		it('5. cancel after settlement is no-op', async () => {
 			let fired = false;
-			const p = new CancelablePromise<number>((resolve, reject, handleCancel) => {
+			const p = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => { fired = true; });
 				resolve(42);
 			});
@@ -128,7 +128,7 @@ describe('ported suites', () => {
 		});
 
 		it('6. isCanceled getter reflects state', async () => {
-			const p = new CancelablePromise<void>((resolve, reject, handleCancel) => {
+			const p = new CancelablePromise<void>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => {});
 			});
 			silence(p);
@@ -144,7 +144,7 @@ describe('ported suites', () => {
 
 		it('7. multiple cancel() calls only fire handlers once', async () => {
 			let count = 0;
-			const p = new CancelablePromise<void>((resolve, reject, handleCancel) => {
+			const p = new CancelablePromise<void>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => { count++; });
 			});
 			silence(p);
@@ -164,7 +164,7 @@ describe('ported suites', () => {
 	// ─────────────────────────────────────────────────────────────────────────────
 	describe('bluebird: chain cancellation semantics', () => {
 		it('8. cancel parent → child rejects with CancelError', async () => {
-			const parent = new CancelablePromise<number>((resolve, reject, handleCancel) => {
+			const parent = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => {});
 			});
 			const child = parent.then((v) => v);
@@ -180,7 +180,7 @@ describe('ported suites', () => {
 		});
 
 		it('9. cancel propagates through .then() chain', async () => {
-			const parent = new CancelablePromise<number>((resolve, reject, handleCancel) => {
+			const parent = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => {});
 			});
 			const child1 = parent.then((v) => v + 1);
@@ -202,7 +202,7 @@ describe('ported suites', () => {
 
 		it('10. cancel parent → callbacks in derived .then() not invoked', async () => {
 			let thenCalled = false;
-			const parent = new CancelablePromise<number>((resolve, reject, handleCancel) => {
+			const parent = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => {});
 			});
 			const child = parent.then(() => {
@@ -220,7 +220,7 @@ describe('ported suites', () => {
 
 		it('11. finally handlers still fire on cancel', async () => {
 			let finallyCalled = false;
-			const p = new CancelablePromise<void>((resolve, reject, handleCancel) => {
+			const p = new CancelablePromise<void>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => {});
 			});
 			const withFinally = p.finally(() => {
@@ -237,7 +237,7 @@ describe('ported suites', () => {
 
 		it('12. handlers fire in order across chain', async () => {
 			const order: string[] = [];
-			const parent = new CancelablePromise<void>((resolve, reject, handleCancel) => {
+			const parent = new CancelablePromise<void>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => order.push('parent-1'));
 				handleCancel(() => order.push('parent-2'));
 			});
@@ -269,7 +269,7 @@ describe('ported suites', () => {
 		});
 
 		it('14. isCanceled is false before cancel', async () => {
-			const p = new CancelablePromise<number>((resolve, reject, handleCancel) => {
+			const p = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => {});
 				setTimeout(() => resolve(42), 10);
 			});
@@ -281,7 +281,7 @@ describe('ported suites', () => {
 		});
 
 		it('15. isCanceled is true after cancel', async () => {
-			const p = new CancelablePromise<number>((resolve, reject, handleCancel) => {
+			const p = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => {});
 			});
 			silence(p);
@@ -295,7 +295,7 @@ describe('ported suites', () => {
 		});
 
 		it('16. cancel rejects with CancelError', async () => {
-			const p = new CancelablePromise<number>((resolve, reject, handleCancel) => {
+			const p = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => {});
 			});
 			silence(p);
@@ -311,7 +311,7 @@ describe('ported suites', () => {
 
 		it('17. cancel after settlement is silent no-op', async () => {
 			let fired = false;
-			const p = new CancelablePromise<number>((resolve, reject, handleCancel) => {
+			const p = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => { fired = true; });
 				resolve(42);
 			});
@@ -327,7 +327,7 @@ describe('ported suites', () => {
 
 		it('18. multiple cancel calls fire handlers only once', async () => {
 			let count = 0;
-			const p = new CancelablePromise<void>((resolve, reject, handleCancel) => {
+			const p = new CancelablePromise<void>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => { count++; });
 			});
 			silence(p);
@@ -357,7 +357,7 @@ describe('ported suites', () => {
 
 		it('20. multiple handleCancel handlers all fire', async () => {
 			let count = 0;
-			const p = new CancelablePromise<void>((resolve, reject, handleCancel) => {
+			const p = new CancelablePromise<void>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => { count++; });
 				handleCancel(() => { count++; });
 				handleCancel(() => { count++; });
@@ -376,7 +376,7 @@ describe('ported suites', () => {
 	// ─────────────────────────────────────────────────────────────────────────────
 	describe('alkemics: chain propagation patterns', () => {
 		it('21. cancel parent propagates rejection to .then() chain', async () => {
-			const parent = new CancelablePromise<number>((resolve, reject, handleCancel) => {
+			const parent = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => {});
 			});
 			const child = parent.then((v) => v + 1);
@@ -393,7 +393,7 @@ describe('ported suites', () => {
 		});
 
 		it('22. cancel parent propagates rejection through multiple .then()', async () => {
-			const root = new CancelablePromise<number>((resolve, reject, handleCancel) => {
+			const root = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => {});
 			});
 			const chain = root.then((v) => v + 1).then((v) => v * 2).then((v) => v - 5);
@@ -410,7 +410,7 @@ describe('ported suites', () => {
 		});
 
 		it('23. .catch() handler receives CancelError', async () => {
-			const p = new CancelablePromise<number>((resolve, reject, handleCancel) => {
+			const p = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => {});
 			});
 			const child = p.catch((err) => {
@@ -428,7 +428,7 @@ describe('ported suites', () => {
 
 		it('24. .finally() handler fires even on cancel', async () => {
 			let finallyCalled = false;
-			const p = new CancelablePromise<void>((resolve, reject, handleCancel) => {
+			const p = new CancelablePromise<void>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => {});
 			});
 			const withFinally = p.finally(() => {
@@ -445,7 +445,7 @@ describe('ported suites', () => {
 
 		it('25. handlers in .then(onFulfilled) not called after cancel', async () => {
 			let handlerCalled = false;
-			const p = new CancelablePromise<number>((resolve, reject, handleCancel) => {
+			const p = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => {});
 				resolve(42);
 			});
@@ -465,11 +465,11 @@ describe('ported suites', () => {
 		});
 
 		it('26. cancel before outer adopts inner promise', async () => {
-			const inner = new CancelablePromise<number>((resolve, reject, handleCancel) => {
+			const inner = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => {});
 				// Never settles
 			});
-			const outer = new CancelablePromise<number>((resolve, reject, handleCancel) => {
+			const outer = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => {});
 				resolve(inner);
 			});
@@ -493,7 +493,7 @@ describe('ported suites', () => {
 	describe('bluebird: two-way handler/follower semantics', () => {
 		it('27. child cancellation fires handlers on parent', async () => {
 			let parentFired = false;
-			const parent = new CancelablePromise<number>((resolve, reject, handleCancel) => {
+			const parent = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => { parentFired = true; });
 				// Never resolve — keep pending
 			});
@@ -511,7 +511,7 @@ describe('ported suites', () => {
 
 		it('28. cancel parent affects all children', async () => {
 			let fired1 = false, fired2 = false;
-			const parent = new CancelablePromise<number>((resolve, reject, handleCancel) => {
+			const parent = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => {});
 			});
 			const child1 = parent.then((v) => v);
@@ -535,7 +535,7 @@ describe('ported suites', () => {
 
 		it('29. finally handler fires then cancellation continues', async () => {
 			let finallyCalled = false;
-			const parent = new CancelablePromise<number>((resolve, reject, handleCancel) => {
+			const parent = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => {});
 			});
 			const withFinally = parent.finally(() => {
@@ -552,7 +552,7 @@ describe('ported suites', () => {
 		});
 
 		it('30. cancel propagates through chain both directions', async () => {
-			const root = new CancelablePromise<number>((resolve, reject, handleCancel) => {
+			const root = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => {});
 			});
 			const mid = root.then((v) => v + 1);
@@ -573,7 +573,7 @@ describe('ported suites', () => {
 
 		it('31. bubble:false isolates upward propagation', async () => {
 			let rootFired = false;
-			const root = new CancelablePromise<number>((resolve, reject, handleCancel) => {
+			const root = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => { rootFired = true; });
 			});
 			// Create child from root.then(), then wrap in CancelablePromise with bubble:false
@@ -598,7 +598,7 @@ describe('ported suites', () => {
 	// ─────────────────────────────────────────────────────────────────────────────
 	describe('advanced chain and handler patterns', () => {
 		it('32. catch() returning a value stops cancellation propagation', async () => {
-			const parent = new CancelablePromise<number>((resolve, reject, handleCancel) => {
+			const parent = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => {});
 			});
 			const caught = parent.catch(() => {
@@ -614,7 +614,7 @@ describe('ported suites', () => {
 		});
 
 		it('33. catch() re-throwing cancellation propagates down', async () => {
-			const parent = new CancelablePromise<number>((resolve, reject, handleCancel) => {
+			const parent = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => {});
 			});
 			const child = parent.catch((err) => {
@@ -635,7 +635,7 @@ describe('ported suites', () => {
 		});
 
 		it('34. synchronous error from handleCancel settles asyncCancel handler promise', async () => {
-			const p = new CancelablePromise<void>((resolve, reject, handleCancel) => {
+			const p = new CancelablePromise<void>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => {
 					throw new Error('handler error');
 				});
@@ -657,7 +657,7 @@ describe('ported suites', () => {
 		it('35. asyncCancel: cancel() returns settled promise', async () => {
 			let fired = false;
 			const p = new CancelablePromise<void>(
-				(resolve, reject, handleCancel) => {
+				(resolve, reject, { handleCancel }) => {
 					handleCancel(() => { fired = true; });
 				},
 				{ asyncCancel: true }
@@ -674,7 +674,7 @@ describe('ported suites', () => {
 		it('36. asyncCancel:false: cancel() returns undefined', async () => {
 			let fired = false;
 			const p = new CancelablePromise<void>(
-				(resolve, reject, handleCancel) => {
+				(resolve, reject, { handleCancel }) => {
 					handleCancel(() => { fired = true; });
 				},
 				{ asyncCancel: false }
@@ -689,7 +689,7 @@ describe('ported suites', () => {
 
 		it('37. handler receives original cancel reason (not normalized CancelError)', async () => {
 			let capturedReason: any;
-			const p = new CancelablePromise<void>((resolve, reject, handleCancel) => {
+			const p = new CancelablePromise<void>((resolve, reject, { handleCancel }) => {
 				handleCancel((reason) => {
 					capturedReason = reason;
 				});
@@ -709,7 +709,7 @@ describe('ported suites', () => {
 
 		it('38. immediate:true handleCancel fires even if already canceled', async () => {
 			let fired = false;
-			const p = new CancelablePromise<void>((resolve, reject, handleCancel) => {
+			const p = new CancelablePromise<void>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => {});
 			});
 			silence(p);
@@ -729,7 +729,7 @@ describe('ported suites', () => {
 
 		it('39. immediate:false handleCancel not fired if already canceled', async () => {
 			let fired = false;
-			const p = new CancelablePromise<void>((resolve, reject, handleCancel) => {
+			const p = new CancelablePromise<void>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => {});
 			});
 			silence(p);
@@ -745,7 +745,7 @@ describe('ported suites', () => {
 		});
 
 		it('40. deeply nested chain cancels all descendants', async () => {
-			const p0 = new CancelablePromise<number>((resolve, reject, handleCancel) => {
+			const p0 = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => {});
 			});
 			const p1 = p0.then((v) => v + 1);
@@ -773,7 +773,7 @@ describe('ported suites', () => {
 
 		it('41. handler attached via promise returned from handleCancel', async () => {
 			let count = 0;
-			const p = new CancelablePromise<void>((resolve, reject, handleCancel) => {
+			const p = new CancelablePromise<void>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => { count++; });
 			});
 			silence(p);
@@ -789,7 +789,7 @@ describe('ported suites', () => {
 
 		it('42. CancelError carries isBubbled flag for upward vs downward cancels', async () => {
 			let downErr: any, upErr: any;
-			const parent = new CancelablePromise<void>((resolve, reject, handleCancel) => {
+			const parent = new CancelablePromise<void>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => {});
 			});
 			const child = parent.then(() => {});
@@ -807,7 +807,7 @@ describe('ported suites', () => {
 
 		it('43. multiple handlers on same promise fire in registration order', async () => {
 			const order: number[] = [];
-			const p = new CancelablePromise<void>((resolve, reject, handleCancel) => {
+			const p = new CancelablePromise<void>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => order.push(1));
 				handleCancel(() => order.push(2));
 				handleCancel(() => order.push(3));
@@ -821,7 +821,7 @@ describe('ported suites', () => {
 		});
 
 		it('44. race() cancels losers on first settlement', async () => {
-			const slow = new CancelablePromise<string>((resolve, reject, handleCancel) => {
+			const slow = new CancelablePromise<string>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => {});
 			});
 			const fast = CancelablePromise.resolve('winner');
@@ -835,7 +835,7 @@ describe('ported suites', () => {
 
 		it('45. all() cancels losers on first rejection', async () => {
 			const willFail = CancelablePromise.reject(new Error('fail'));
-			const pending = new CancelablePromise<number>((resolve, reject, handleCancel) => {
+			const pending = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => {});
 				// Never settles
 			});
@@ -851,7 +851,7 @@ describe('ported suites', () => {
 
 		it('46. any() cancels losers on first fulfillment', async () => {
 			const fast = CancelablePromise.resolve('winner');
-			const slow = new CancelablePromise<string>((resolve, reject, handleCancel) => {
+			const slow = new CancelablePromise<string>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => {});
 			});
 
@@ -869,7 +869,7 @@ describe('ported suites', () => {
 	describe('edge cases and stress tests', () => {
 		it('47. large number of handlers all fire', async () => {
 			let count = 0;
-			const p = new CancelablePromise<void>((resolve, reject, handleCancel) => {
+			const p = new CancelablePromise<void>((resolve, reject, { handleCancel }) => {
 				for (let i = 0; i < 100; i++) {
 					handleCancel(() => { count++; });
 				}
@@ -884,7 +884,7 @@ describe('ported suites', () => {
 
 		it('48. cancel with string reason (handler receives original string)', async () => {
 			let reason: any;
-			const p = new CancelablePromise<void>((resolve, reject, handleCancel) => {
+			const p = new CancelablePromise<void>((resolve, reject, { handleCancel }) => {
 				handleCancel((r) => { reason = r; });
 			});
 			silence(p);
@@ -898,7 +898,7 @@ describe('ported suites', () => {
 
 		it('49. cancel with undefined reason', async () => {
 			let captured = false;
-			const p = new CancelablePromise<void>((resolve, reject, handleCancel) => {
+			const p = new CancelablePromise<void>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => { captured = true; });
 			});
 			silence(p);
@@ -911,11 +911,11 @@ describe('ported suites', () => {
 
 		it('50. mixed settlement and cancellation in separate branches', async () => {
 			let handler1Fired = false, handler2Fired = false;
-			const p1 = new CancelablePromise<number>((resolve, reject, handleCancel) => {
+			const p1 = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => { handler1Fired = true; });
 				resolve(42);
 			});
-			const p2 = new CancelablePromise<number>((resolve, reject, handleCancel) => {
+			const p2 = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => { handler2Fired = true; });
 			});
 			silence(p1);
@@ -930,11 +930,11 @@ describe('ported suites', () => {
 		});
 
 		it('51. promise resolves to another, both pending when cancel (cancel before adoption)', async () => {
-			const inner = new CancelablePromise<number>((resolve, reject, handleCancel) => {
+			const inner = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => {});
 				// Never resolve
 			});
-			const outer = new CancelablePromise<number>((resolve, reject, handleCancel) => {
+			const outer = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => {});
 				resolve(inner); // Outer resolves to inner promise
 			});
@@ -966,7 +966,7 @@ describe('ported suites', () => {
 
 		it('53. strict mode: cancel on canceled throws', async () => {
 			const p = new CancelablePromise<void>(
-				(resolve, reject, handleCancel) => {
+				(resolve, reject, { handleCancel }) => {
 					handleCancel(() => {});
 				},
 				{ strict: true }
@@ -982,7 +982,7 @@ describe('ported suites', () => {
 		});
 
 		it('54. isCancelable changes to false after settlement', async () => {
-			const p = new CancelablePromise<number>((resolve, reject, handleCancel) => {
+			const p = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => {});
 				// Sync resolve
 				resolve(42);
@@ -997,7 +997,7 @@ describe('ported suites', () => {
 		});
 
 		it('55. isCancelable changes to false after cancellation', async () => {
-			const p = new CancelablePromise<void>((resolve, reject, handleCancel) => {
+			const p = new CancelablePromise<void>((resolve, reject, { handleCancel }) => {
 				handleCancel(() => {});
 			});
 			silence(p);

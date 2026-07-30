@@ -197,7 +197,7 @@ describe('asyncCancel: sync vs async handler settle ordering', () => {
 	it('asyncCancel:true — cancel() returns a promise that settles only after an async handler resolves', async () => {
 		const order: string[] = [];
 
-		const promise = new CancelablePromise<number>((_resolve, _reject, handleCancel) => {
+		const promise = new CancelablePromise<number>((_resolve, _reject, { handleCancel }) => {
 			handleCancel(() => new NativePromise<void>(resolve => setTimeout(() => {
 				order.push('async-handler');
 				resolve();
@@ -217,7 +217,7 @@ describe('asyncCancel: sync vs async handler settle ordering', () => {
 	it('asyncCancel:true — multiple handlers (sync + async) all settle before the returned promise resolves', async () => {
 		const order: string[] = [];
 
-		const promise = new CancelablePromise<number>((_resolve, _reject, handleCancel) => {
+		const promise = new CancelablePromise<number>((_resolve, _reject, { handleCancel }) => {
 			handleCancel(() => { order.push('sync-handler'); });
 			handleCancel(() => new NativePromise<void>(resolve => setTimeout(() => {
 				order.push('async-handler');
@@ -237,7 +237,7 @@ describe('asyncCancel: sync vs async handler settle ordering', () => {
 	it('asyncCancel:false — handler runs synchronously, cancel() returns undefined immediately', () => {
 		const order: string[] = [];
 
-		const promise = new CancelablePromise<number>((_resolve, _reject, handleCancel) => {
+		const promise = new CancelablePromise<number>((_resolve, _reject, { handleCancel }) => {
 			handleCancel(() => { order.push('sync-handler'); });
 		}, { asyncCancel: false });
 
@@ -249,7 +249,7 @@ describe('asyncCancel: sync vs async handler settle ordering', () => {
 	});
 
 	it('asyncCancel:false — a throwing handler propagates synchronously from cancel()', () => {
-		const promise = new CancelablePromise<number>((_resolve, _reject, handleCancel) => {
+		const promise = new CancelablePromise<number>((_resolve, _reject, { handleCancel }) => {
 			handleCancel(() => { throw new Error('sync boom'); });
 		}, { asyncCancel: false });
 
@@ -259,7 +259,7 @@ describe('asyncCancel: sync vs async handler settle ordering', () => {
 	it('asyncCancel:false — multiple handlers all fire even if the cleanup finally-guard is hit', () => {
 		const seen: string[] = [];
 
-		const promise = new CancelablePromise<number>((_resolve, _reject, handleCancel) => {
+		const promise = new CancelablePromise<number>((_resolve, _reject, { handleCancel }) => {
 			handleCancel(() => { seen.push('a'); });
 			handleCancel(() => { seen.push('b'); });
 		}, { asyncCancel: false });
@@ -304,7 +304,7 @@ describe('signal: abort -> cancel with signal.reason as cause', () => {
 		const reason = { detail: 'abort-reason' };
 		let received: any;
 
-		const promise = new CancelablePromise<number>((_resolve, _reject, handleCancel) => {
+		const promise = new CancelablePromise<number>((_resolve, _reject, { handleCancel }) => {
 			handleCancel(r => { received = r; });
 		}, { signal: controller.signal });
 

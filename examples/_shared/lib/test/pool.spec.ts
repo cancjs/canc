@@ -5,7 +5,7 @@ import { createPool } from '../src/pool';
 /** A job that resolves after `ms`, tracking whether it ever started running. */
 function makeJob(ms: number, started: { count: number }) {
  return () =>
- new CancelablePromise<void>((resolve, reject, handleCancel) => {
+ new CancelablePromise<void>((resolve, reject, { handleCancel }) => {
  started.count++;
  const timer = setTimeout(resolve, ms);
  handleCancel((reason) => {
@@ -22,7 +22,7 @@ describe('createPool', () => {
  let maxConcurrent = 0;
 
  const job = () =>
- new CancelablePromise<void>((resolve, reject, handleCancel) => {
+ new CancelablePromise<void>((resolve, reject, { handleCancel }) => {
  concurrent++;
  maxConcurrent = Math.max(maxConcurrent, concurrent);
  const timer = setTimeout(() => {

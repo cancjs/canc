@@ -138,7 +138,7 @@ describe('throttle', () => {
 	it('cancel propagation: canceling returned promise cancels in-flight', async () => {
 		jest.useFakeTimers();
 		let innerCanceled = false;
-		const fn = () => new CancelablePromise<string>((_resolve, _reject, handleCancel) => {
+		const fn = () => new CancelablePromise<string>((_resolve, _reject, { handleCancel }) => {
 			if (handleCancel) handleCancel(() => { innerCanceled = true; });
 		});
 		const throttled = throttle(fn, 50);

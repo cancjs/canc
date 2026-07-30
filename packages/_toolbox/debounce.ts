@@ -1,4 +1,4 @@
-import { construct, TPromiseCtor, THandleCancel } from './construct';
+import { construct, TPromiseCtor, TExecutorCtx } from './construct';
 
 export interface IDebounceOptions {
 	leading?: boolean;
@@ -109,12 +109,12 @@ export function debounceFactory(deps: IDebounceDeps) {
 		}
 
 		function makePromise(): PromiseLike<R> {
-			var p = construct<R>(deps.Impl, function (resolve, reject, handleCancel?: THandleCancel) {
+			var p = construct<R>(deps.Impl, function (resolve, reject, ctx?: TExecutorCtx) {
 				pendingResolve = resolve;
 				pendingReject = reject;
 
-				if (typeof handleCancel === 'function') {
-					handleCancel(function () {
+				if (ctx) {
+					ctx.handleCancel(function () {
 						if (superseding) return;
 						clearTimers();
 						lastArgs = undefined;

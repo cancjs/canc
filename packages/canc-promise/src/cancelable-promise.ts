@@ -9,7 +9,16 @@ import { isCancelError, isCancPromise } from './helpers';
 export const CANCEL_PROMISE_BRAND = Symbol.for('@cancjs/promise:CancelablePromise');
 
 export type TPromiseExecutor<T> = (resolve: (value?: T | PromiseLike<T>) => void, reject: (reason?: any) => void) => void;
-export type TCancelablePromiseExecutor<T> = (resolve: (value?: T | PromiseLike<T>) => void, reject: (reason?: any) => void, handleCancel: (onCancel: TOnCancel) => void) => void;
+
+/** Context object passed as the executor's third argument. */
+export interface IExecutorContext<T = any> {
+	/** Register a cleanup handler that runs when the promise is canceled. */
+	handleCancel(onCancel: TOnCancel): CancelablePromise<T>;
+	/** Get an AbortSignal that aborts when the promise is canceled. Lazily creates an AbortController on first call. */
+	getSignal(): IAbortSignal;
+}
+
+export type TCancelablePromiseExecutor<T> = (resolve: (value?: T | PromiseLike<T>) => void, reject: (reason?: any) => void, ctx: IExecutorContext<T>) => void;
 export type TCancelReason = string | object | CancelError;
 export type TCancelFn = (reason?: TCancelReason) => void;
 export type TOnCancel = TCancelFn;
@@ -763,9 +772,25 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 						}
 					}
 
-					function handleCancel(onCancel: TOnCancel): CancelablePromise<T> {
-						// cancelHandlers are shared between `this` and NativePromise instance
-						return instance.handleCancel(onCancel);
+					let _ctx: IExecutorContext<T> | undefined;
+
+					function getCtx(): IExecutorContext<T> {
+						if (!_ctx) {
+							let _ac: { abort(): void; signal: IAbortSignal } | undefined;
+							_ctx = {
+								handleCancel(onCancel: TOnCancel): CancelablePromise<T> {
+									return instance.handleCancel(onCancel);
+								},
+								getSignal(): IAbortSignal {
+									if (!_ac) {
+										_ac = new AbortController() as any;
+										instance.handleCancel(() => _ac!.abort());
+									}
+									return _ac!.signal;
+								}
+							};
+						}
+						return _ctx;
 					}
 
 					this._resolve = resolve;
@@ -777,7 +802,7 @@ class CancelablePromise<T> implements ICancelable<T>, Promise<T> {
 					// settlement wrappers intact for withResolvers and lets settler-release happen
 					// naturally at that later settle.
 					if (!hasPendingPreAbort) {
-						executor(resolve, reject, handleCancel);
+						executor(resolve, reject, getCtx());
 					}
 				}) as TPromiseExecutor<T>
 			],

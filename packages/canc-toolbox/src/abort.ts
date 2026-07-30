@@ -1,5 +1,5 @@
 import { CancelablePromise, ICancelable, isCancelError } from '@cancjs/promise';
-import { IToolboxOptions, THandleCancel } from './options';
+import { IToolboxOptions, TExecutorCtx } from './options';
 
 // AbortSignal.any (ES2024 / Node 20.3+) exists at runtime in every supported target but is not
 // declared by the ambient AbortSignal typing this workspace resolves. Reference it through a narrow
@@ -66,7 +66,7 @@ function isSuppressed(reason: unknown, abort: boolean | undefined): boolean {
 export function suppress<T>(promise: T | PromiseLike<T>, options?: ISuppressOptions): Promise<T | void> {
 	const abort = options?.abort;
 
-	return new CancelablePromise<T | void>((resolve, reject, handleCancel?: THandleCancel) => {
+	return new CancelablePromise<T | void>((resolve, reject, ctx?: TExecutorCtx) => {
 		CancelablePromise.resolve(promise).then(
 			(value) => resolve(value),
 			(reason) => {
@@ -78,8 +78,8 @@ export function suppress<T>(promise: T | PromiseLike<T>, options?: ISuppressOpti
 			},
 		);
 
-		if (typeof handleCancel === 'function') {
-			handleCancel(() => {
+		if (ctx) {
+			ctx.handleCancel(() => {
 				if (isCancelable(promise)) {
 					(promise as ICancelable).cancel();
 				}
@@ -123,7 +123,7 @@ export function interopTimeout<T>(
 	signal?: AbortSignal,
 	options?: IToolboxOptions,
 ): Promise<T> {
-	return new CancelablePromise<T>((resolve, reject, handleCancel?: THandleCancel) => {
+	return new CancelablePromise<T>((resolve, reject, ctx?: TExecutorCtx) => {
 		const timeoutSignal = AbortSignal.timeout(ms);
 		// Compose the external signal (if any) with the timeout so one listener covers both. When
 		// no external signal is supplied, race against the timeout alone.
@@ -162,8 +162,8 @@ export function interopTimeout<T>(
 			},
 		);
 
-		if (typeof handleCancel === 'function') {
-			handleCancel(() => {
+		if (ctx) {
+			ctx.handleCancel(() => {
 				settled = true;
 				combined.removeEventListener('abort', onAbort);
 				if (isCancelable(promise)) {

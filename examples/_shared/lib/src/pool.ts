@@ -39,7 +39,7 @@ export function createPool(limit: number): Pool {
  };
 
  const run = <T>(job: () => CancelablePromise<T>): CancelablePromise<T> => {
- return new CancelablePromise<T>((resolve, reject, handleCancel) => {
+ return new CancelablePromise<T>((resolve, reject, { handleCancel }) => {
  const release = (): void => {
  active--;
  pump();

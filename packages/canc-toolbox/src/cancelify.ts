@@ -1,6 +1,6 @@
 import { CancelError, CancelablePromise, isCancelError } from '@cancjs/promise';
 import { makeCancelSignal, TGetSignal } from '../../_toolbox';
-import { IToolboxOptions, THandleCancel } from './options';
+import { IToolboxOptions, THandleCancel, TExecutorCtx } from './options';
 
 /** Structural AbortController, so no dependency on the ambient DOM/Node type in envs that polyfill it. */
 type AbortControllerCtor = new () => { abort(reason?: any): void; signal: any };
@@ -54,10 +54,9 @@ export function cancelify<A extends any[], R>(
 		const run = (
 			resolve: (value: R | PromiseLike<R>) => void,
 			reject: (reason?: any) => void,
-			handleCancel?: THandleCancel,
+			ctx?: TExecutorCtx,
 		) => {
-			// Both construction paths (CancelablePromise) always supply
-			// handleCancel to the executor, so it is guaranteed defined here.
+			const handleCancel = ctx?.handleCancel;
 			const holder = makeCancelSignal(handleCancel, Ctor, toCancelError);
 			CancelablePromise.resolve(fn({ getSignal: holder.getSignal, handleCancel: handleCancel! }, callArgs)).then(
 				resolve,

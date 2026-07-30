@@ -17,7 +17,7 @@ import type { CommentAck, Issue, IssuesApi } from '../issue-types.js';
 // Wrap a signal-aware mock-api call as a CancelablePromise so a coroutine cancel() aborts the
 // underlying request. Shared by all flavors via copy (kept inline to preserve twin alignment).
 function abortable<T>(run: (signal: AbortSignal) => Promise<T>): CancelablePromise<T> {
- return new CancelablePromise<T>((resolve, reject, handleCancel) => {
+ return new CancelablePromise<T>((resolve, reject, { handleCancel }) => {
  const controller = new AbortController();
  handleCancel(() => controller.abort());
  run(controller.signal).then(resolve, reject);

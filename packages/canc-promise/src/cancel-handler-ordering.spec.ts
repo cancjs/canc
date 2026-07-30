@@ -31,7 +31,7 @@ describe('cancel handler invocation ordering', () => {
 	it('explicit cancel(): handler starts synchronously, before the line after cancel()', () => {
 		const order: string[] = [];
 
-		const promise = new CancelablePromise((_resolve, _reject, handleCancel) => {
+		const promise = new CancelablePromise((_resolve, _reject, { handleCancel }) => {
 			handleCancel(() => { order.push('handler'); });
 		});
 		silence(promise);
@@ -46,7 +46,7 @@ describe('cancel handler invocation ordering', () => {
 	it('bubble-cancel: parent handler starts synchronously inside the child cancel() call', () => {
 		const order: string[] = [];
 
-		const parent = new CancelablePromise<number>((_resolve, _reject, handleCancel) => {
+		const parent = new CancelablePromise<number>((_resolve, _reject, { handleCancel }) => {
 			handleCancel(() => { order.push('parent-handler'); });
 		});
 		const child = parent.then(v => v);
@@ -66,7 +66,7 @@ describe('cancel handler invocation ordering', () => {
 	it('explicit-cancel and bubble-cancel agree: both start the handler synchronously (no path split)', () => {
 		// explicit path
 		const explicitOrder: string[] = [];
-		const target = new CancelablePromise((_r, _j, handleCancel) => {
+		const target = new CancelablePromise((_r, _j, { handleCancel }) => {
 			handleCancel(() => explicitOrder.push('handler'));
 		});
 		silence(target);
@@ -78,7 +78,7 @@ describe('cancel handler invocation ordering', () => {
 
 		// bubble path
 		const bubbleOrder: string[] = [];
-		const parent = new CancelablePromise<number>((_r, _j, handleCancel) => {
+		const parent = new CancelablePromise<number>((_r, _j, { handleCancel }) => {
 			handleCancel(() => bubbleOrder.push('handler'));
 		});
 		const child = parent.then(v => v);
@@ -92,7 +92,7 @@ describe('cancel handler invocation ordering', () => {
 	});
 
 	it('discard path swallows a throwing handler (no unhandled rejection) and does not throw out of cancel()', async () => {
-		const parent = new CancelablePromise<number>((_r, _j, handleCancel) => {
+		const parent = new CancelablePromise<number>((_r, _j, { handleCancel }) => {
 			handleCancel(() => { throw new Error('boom'); });
 		});
 		const child = parent.then(v => v);
@@ -154,7 +154,7 @@ describe('cancel handler invocation ordering', () => {
 
 	it('sync mode (asyncCancel:false) bubble-cancel still fires handler synchronously', () => {
 		const order: string[] = [];
-		const parent = new CancelablePromise<number>((_r, _j, handleCancel) => {
+		const parent = new CancelablePromise<number>((_r, _j, { handleCancel }) => {
 			handleCancel(() => order.push('handler'));
 		}, { asyncCancel: false });
 		const child = parent.then(v => v);
@@ -169,7 +169,7 @@ describe('cancel handler invocation ordering', () => {
 
 	it('bubbled reason reaches the parent cancel handler', () => {
 		let received: unknown;
-		const parent = new CancelablePromise<number>((_r, _j, handleCancel) => {
+		const parent = new CancelablePromise<number>((_r, _j, { handleCancel }) => {
 			handleCancel((reason) => { received = reason; });
 		});
 		const child = parent.then(v => v);

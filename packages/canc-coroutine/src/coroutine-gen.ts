@@ -190,7 +190,7 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
 
  for (const method of genMethods) {
  asyncGen[method] = (value?: any): CancelablePromise<any> => {
- return new CancelablePromise((resolve, reject, handleCancel) => {
+ return new CancelablePromise((resolve, reject, { handleCancel }) => {
  const step: TAsyncGeneratorStep = {
  method,
  value,

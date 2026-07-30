@@ -12,7 +12,7 @@ function searchRepos(query: string, fetch: any): CancelablePromise<Repo> {
  const cancelableFetch = createFetch(fetch);
 
  // Chain: search → detail fetch. Canceling the chain cancels both legs.
- return new CancelablePromise(async (resolve, reject, handleCancel) => {
+ return new CancelablePromise(async (resolve, reject, { handleCancel }) => {
  const searchPromise = cancelableFetch(`/products`);
  let detailPromise: CancelablePromise<any> | null = null;
 
@@ -50,7 +50,7 @@ function searchReposWithExternal(
 ): CancelablePromise<Repo> {
  const cancelableFetch = createFetch(fetch);
 
- return new CancelablePromise(async (resolve, reject, handleCancel) => {
+ return new CancelablePromise(async (resolve, reject, { handleCancel }) => {
  try {
  const searchRes = await cancelableFetch(`/products`, { signal });
  if (!searchRes.ok) throw new Error(`Search failed: ${searchRes.status}`);
@@ -79,7 +79,7 @@ function searchReposPreAborted(query: string, fetch: any): CancelablePromise<Rep
 
  const cancelableFetch = createFetch(fetch);
 
- return new CancelablePromise(async (resolve, reject, handleCancel) => {
+ return new CancelablePromise(async (resolve, reject, { handleCancel }) => {
  try {
  // When signal is pre-aborted, the fetch rejects before starting.
  await cancelableFetch(`/products/p1`, {
@@ -96,7 +96,7 @@ function searchReposPreAborted(query: string, fetch: any): CancelablePromise<Rep
 function searchReposWithTimeout(query: string, fetch: any, timeoutMs = 100): CancelablePromise<Repo> {
  const cancelableFetch = createFetch(fetch);
 
- const promise = new CancelablePromise<Repo>(async (resolve, reject, handleCancel) => {
+ const promise = new CancelablePromise<Repo>(async (resolve, reject, { handleCancel }) => {
  const searchPromise = cancelableFetch(`/products`);
  let detailPromise: CancelablePromise<any> | null = null;
 

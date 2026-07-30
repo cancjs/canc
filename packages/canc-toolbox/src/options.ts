@@ -7,17 +7,26 @@ import { ICancelablePromiseOptions } from '@cancjs/promise';
 export type IToolboxOptions = ICancelablePromiseOptions;
 
 /**
- * A cancel registration callback, supplied to the executor as a third argument by
+ * A cancel registration callback, supplied inside the executor context object by
  * CancelablePromise.
  */
 export type THandleCancel = (onCancel: () => void) => void;
 
 /**
+ * The executor context object shape. Cancelable implementations provide this as the executor's
+ * third argument; native Promise provides nothing (undefined).
+ */
+export interface TExecutorCtx {
+	handleCancel: THandleCancel;
+	getSignal?: () => any;
+}
+
+/**
  * The executor shape toolbox utilities construct against. It widens the native
- * `(resolve, reject)` signature with the CancelablePromise `handleCancel` argument.
+ * `(resolve, reject)` signature with the CancelablePromise context object.
  */
 export type TToolboxExecutor<T> = (
 	resolve: (value: T | PromiseLike<T>) => void,
 	reject: (reason?: any) => void,
-	handleCancel?: THandleCancel,
+	ctx?: TExecutorCtx,
 ) => void;

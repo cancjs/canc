@@ -14,7 +14,7 @@ describe('cancel-cleanup collector', () => {
 	it('tail cancel awaits the source teardown', async () => {
 		const order: string[] = [];
 
-		const src = new CancelablePromise<number>((_resolve, _reject, handleCancel) => {
+		const src = new CancelablePromise<number>((_resolve, _reject, { handleCancel }) => {
 			handleCancel(() => new Promise<void>(res => {
 				setTimeout(() => {
 					order.push('source-cleanup-done');
@@ -38,7 +38,7 @@ describe('cancel-cleanup collector', () => {
 	it('source cancel awaits its own teardown', async () => {
 		const order: string[] = [];
 
-		const src = new CancelablePromise<number>((_resolve, _reject, handleCancel) => {
+		const src = new CancelablePromise<number>((_resolve, _reject, { handleCancel }) => {
 			handleCancel(() => new Promise<void>(res => {
 				setTimeout(() => {
 					order.push('source-cleanup-done');
@@ -61,7 +61,7 @@ describe('cancel-cleanup collector', () => {
 		process.on('unhandledRejection', unhandledSpy);
 
 		try {
-			const src = new CancelablePromise<number>((_resolve, _reject, handleCancel) => {
+			const src = new CancelablePromise<number>((_resolve, _reject, { handleCancel }) => {
 				handleCancel(() => Promise.reject(new Error('teardown-boom')));
 			});
 			const tail = src.then(v => v).then(v => v);
@@ -88,11 +88,11 @@ describe('cancel-cleanup collector', () => {
 	it('multi-layer chain collects all ancestor teardowns', async () => {
 		const cleanups: string[] = [];
 
-		const root = new CancelablePromise<number>((_resolve, _reject, handleCancel) => {
+		const root = new CancelablePromise<number>((_resolve, _reject, { handleCancel }) => {
 			handleCancel(() => delay(40).then(() => { cleanups.push('root'); }));
 		});
 		const mid = root.then(v => {
-			return new CancelablePromise<number>((_resolve, _reject, handleCancel) => {
+			return new CancelablePromise<number>((_resolve, _reject, { handleCancel }) => {
 				handleCancel(() => delay(20).then(() => { cleanups.push('mid'); }));
 			});
 		});
@@ -109,7 +109,7 @@ describe('cancel-cleanup collector', () => {
 	it('diamond: source teardown collected when all children canceled', async () => {
 		let cleanupCount = 0;
 
-		const src = new CancelablePromise<number>((_resolve, _reject, handleCancel) => {
+		const src = new CancelablePromise<number>((_resolve, _reject, { handleCancel }) => {
 			handleCancel(() => delay(30).then(() => { cleanupCount++; }));
 		});
 
@@ -136,7 +136,7 @@ describe('cancel-cleanup collector', () => {
 			return;
 		}
 
-		const src = new CancelablePromise<number>((_resolve, _reject, handleCancel) => {
+		const src = new CancelablePromise<number>((_resolve, _reject, { handleCancel }) => {
 			handleCancel(() => delay(50).then(() => { order.push('source-cleanup-done'); }));
 		});
 		const tail = src.then(v => v).then(v => v);
@@ -189,7 +189,7 @@ describe('cancel-cleanup collector', () => {
 	it('coroutine mid-chain: drain is collected by tail cancel', async () => {
 		const order: string[] = [];
 
-		const src = new CancelablePromise<number>((_resolve, _reject, handleCancel) => {
+		const src = new CancelablePromise<number>((_resolve, _reject, { handleCancel }) => {
 			handleCancel(() => delay(30).then(() => { order.push('src-cleanup'); }));
 		});
 
@@ -220,7 +220,7 @@ describe('cancel-cleanup collector', () => {
 
 	// 9. sync mode: thenable handler throws under strict
 	it('sync mode strict: thenable-returning handler throws', () => {
-		const p = new CancelablePromise<number>((_resolve, _reject, handleCancel) => {
+		const p = new CancelablePromise<number>((_resolve, _reject, { handleCancel }) => {
 			handleCancel(() => Promise.resolve('async cleanup'));
 		}, { asyncCancel: false, strict: true });
 
@@ -233,7 +233,7 @@ describe('cancel-cleanup collector', () => {
 		process.on('unhandledRejection', unhandledSpy);
 
 		try {
-			const p = new CancelablePromise<number>((_resolve, _reject, handleCancel) => {
+			const p = new CancelablePromise<number>((_resolve, _reject, { handleCancel }) => {
 				handleCancel(() => Promise.reject(new Error('silent')));
 			}, { asyncCancel: false, strict: false });
 

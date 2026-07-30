@@ -151,7 +151,7 @@ describe('interopTimeout: AbortSignal.any composition of external signal + timeo
 	it('cancels a cancelable underlying operation when the external signal aborts', async () => {
 		const controller = new AbortController();
 		let canceled = false;
-		const underlying = new CancelablePromise<string>((_resolve, _reject, handleCancel) => {
+		const underlying = new CancelablePromise<string>((_resolve, _reject, { handleCancel }) => {
 			handleCancel(() => {
 				canceled = true;
 			});

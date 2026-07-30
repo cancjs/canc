@@ -1,4 +1,4 @@
-import { construct, TPromiseCtor, THandleCancel } from './construct';
+import { construct, TPromiseCtor, TExecutorCtx } from './construct';
 import { makeCancelSignal, TGetSignal } from './cancel-signal';
 
 /** The registered promisify.custom symbol, referenced via Symbol.for to avoid importing node:util. */
@@ -97,7 +97,7 @@ export function promisify(Impl: TPromiseCtor, fn: TCallbackFn, options?: IPromis
 		const run = (
 			resolve: (value: any) => void,
 			reject: (reason?: any) => void,
-			handleCancel?: THandleCancel,
+			ctx?: TExecutorCtx,
 		) => {
 			// Custom impl short-circuits the callback path entirely: call it and adopt its promise.
 			if (custom) {
@@ -105,6 +105,7 @@ export function promisify(Impl: TPromiseCtor, fn: TCallbackFn, options?: IPromis
 				return;
 			}
 
+			const handleCancel = ctx?.handleCancel;
 			const holder = makeCancelSignal(handleCancel, AbortControllerCtor);
 			const getSignal = holder.getSignal;
 
@@ -126,7 +127,7 @@ export function promisify(Impl: TPromiseCtor, fn: TCallbackFn, options?: IPromis
 
 			const handle = fn.apply(thisArg, args.concat([callback]));
 
-			if (typeof handleCancel === 'function') {
+			if (handleCancel) {
 				(handleCancel as unknown as (onCancel: (reason?: any) => void) => void)((reason?: any) => {
 					settled = true;
 					if (onCancelHook) {

@@ -339,7 +339,7 @@ describe('state machine matrix', () => {
 
 		it('executor throw of a non-Error value rejects with that value', async () => {
 			const promise = new CancelablePromise<number>(() => {
-				// eslint-disable-next-line @typescript-eslint/no-throw-literal
+				// eslint-disable-next-line @typescript-eslint/only-throw-error
 				throw 'string-throw';
 			});
 
@@ -417,7 +417,7 @@ describe('state machine matrix', () => {
 		// GAP, not fixed here: native `new Promise(nonFunction)` throws SYNCHRONOUSLY from the
 		// engine's own "resolver is not callable" check, which runs BEFORE the executor is ever
 		// invoked, confirmed below. CancelablePromise's constructor has no equivalent upfront check:
-		// it unconditionally calls `executor(resolve, reject, handleCancel)` inside the wrapper
+		// it unconditionally calls `executor(resolve, reject, { handleCancel })` inside the wrapper
 		// handed to `Reflect.construct(NativePromise, [wrapper], This)`. That call throws "executor
 		// is not a function", but because it happens INSIDE the wrapper that native Promise's own
 		// internals invoke (and native Promise's spec'd behavior is to catch an executor throw and
