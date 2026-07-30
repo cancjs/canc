@@ -168,6 +168,20 @@ export default defineConfig(
 		},
 	},
 
+	// Specs. Tests deliberately do things production code should not: create a promise purely to
+	// assert on it later, hold a reference that is never read again, reject with a non-Error to
+	// prove the library tolerates it. Scoping these here keeps them enforced everywhere else.
+	{
+		files: ['**/*.spec.{ts,tsx}', '**/__tests__/**/*.{ts,tsx}'],
+		rules: {
+			'no-useless-assignment': 'off',
+			'@typescript-eslint/no-floating-promises': 'off',
+			'@typescript-eslint/prefer-promise-reject-errors': 'off',
+			'@typescript-eslint/require-await': 'off',
+			'@typescript-eslint/unbound-method': 'off',
+		},
+	},
+
 	// JavaScript sources (jest, rollup and eslint configs, scripts). Not in any tsconfig project,
 	// so type-aware rules cannot run on them.
 	{
@@ -252,6 +266,16 @@ export default defineConfig(
 			'package-json/no-wildcard-dependencies': 'off',
 			// devDependencies are pinned with ~ by convention across this repo.
 			'package-json/dependency-version-range': 'off',
+
+			// Real gaps in the manifests, not disagreements with the rules. They need content
+			// decisions (what a package is called in one line, which keywords it claims), so they
+			// stay visible as warnings and get cleared per package rather than blocking a lint run.
+			'package-json/no-empty-fields': 'warn',
+			'package-json/require-engines': 'warn',
+			'package-json/require-bin-shebang': 'warn',
+			'package-json/prefer-shorthand': 'warn',
+			'package-json/no-dist-tag-dependencies': 'warn',
+			'package-json/peer-dependencies-as-dev-dependencies': 'warn',
 
 			'prettier/prettier': ['error', { ...prettierJsonOptions, parser: 'json' }],
 		},
