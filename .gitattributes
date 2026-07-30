@@ -1,0 +1,7 @@
+# Line endings are decided here, not by each machine's core.autocrlf. Git detects which files are
+# text and stores those with LF; eol=lf also checks them out with LF, so a fresh clone, this
+# working copy and CI all agree. Nothing tracked here needs CRLF (no .bat, .cmd or .ps1).
+#
+# Existing files keep whatever endings they already have on disk until they are next checked out;
+# git compares text files normalized, so the mismatch produces no diff in the meantime.
+* text=auto eol=lf
