@@ -1,0 +1,10 @@
+{
+  "targetDefaults": {
+    "lint": {
+      "dependsOn": []
+    },
+    "format": {
+      "dependsOn": []
+    }
+  }
+}

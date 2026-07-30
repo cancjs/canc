@@ -82,6 +82,24 @@ export default defineConfig(
 			eqeqeq: ['error', 'always', { null: 'ignore' }],
 			'max-depth': ['error', 8],
 			'prefer-const': 'warn',
+
+			// An empty function is a deliberate noop here (default callbacks, benchmark stand-ins).
+			'@typescript-eslint/no-empty-function': 'off',
+
+			// Applies to JS as well as TS: the tooling scripts are linted by the same presets, and a
+			// stricter default there was an accident of where this used to sit.
+			'@typescript-eslint/no-unused-vars': [
+				'warn',
+				{
+					vars: 'all',
+					varsIgnorePattern: '^_',
+					args: 'after-used',
+					argsIgnorePattern: '^_',
+					ignoreRestSiblings: true,
+					caughtErrors: 'all',
+					caughtErrorsIgnorePattern: '^_',
+				},
+			],
 		},
 	},
 
@@ -110,7 +128,6 @@ export default defineConfig(
 			],
 			'@typescript-eslint/explicit-function-return-type': 'off',
 			'@typescript-eslint/method-signature-style': 'off',
-			'@typescript-eslint/no-empty-function': 'off',
 			'@typescript-eslint/no-unnecessary-type-assertion': 'off',
 			'@typescript-eslint/only-throw-error': 'off',
 			'@typescript-eslint/prefer-nullish-coalescing': 'off',
@@ -149,19 +166,6 @@ export default defineConfig(
 			],
 
 			'@typescript-eslint/no-floating-promises': ['error', { ignoreVoid: true, ignoreIIFE: true }],
-
-			'@typescript-eslint/no-unused-vars': [
-				'warn',
-				{
-					vars: 'all',
-					varsIgnorePattern: '^_',
-					args: 'after-used',
-					argsIgnorePattern: '^_',
-					ignoreRestSiblings: true,
-					caughtErrors: 'all',
-					caughtErrorsIgnorePattern: '^_',
-				},
-			],
 
 			// Pre-existing type debt. These stay at warn so they are visible without blocking a
 			// build, and get cleared package by package.
