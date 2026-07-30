@@ -57,6 +57,9 @@ export default defineConfig(
 		'**/node_modules/**',
 		'**/package-lock.json',
 		'examples/**',
+		// Type-matrix fixtures, compiled by the matrix runner against a range of TypeScript
+		// versions. Linting them with this repo's single TS config would be meaningless.
+		'tests-types/fixtures/**',
 	]),
 
 	// Presets must stay scoped to JS/TS. Unscoped they also apply to the JSON and markdown blocks
@@ -228,6 +231,9 @@ export default defineConfig(
 	{
 		files: ['**/tsconfig*.json', '**/*.jsonc', '.vscode/*.json'],
 		language: 'json/jsonc',
+		// TypeScript accepts trailing commas in tsconfig, and some of these files use them, so the
+		// language has to parse them. Prettier then normalises them away.
+		languageOptions: { allowTrailingCommas: true },
 		extends: [json.configs.recommended],
 		plugins: { prettier },
 		rules: {

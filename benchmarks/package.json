@@ -7,24 +7,28 @@
  "license": "MIT",
  "main": "cli.js",
  "bin": {
- "canc-bench": "./cli.js"
+  "canc-bench": "./cli.js"
  },
  "scripts": {
- "bench": "node cli.js",
- "bench:report": "node generate-report.js",
- "bench:browser": "node browser-lane.js"
+  "bench": "node cli.js",
+  "bench:report": "node generate-report.js",
+  "bench:browser": "node browser-lane.js",
+  "lint": "eslint .",
+  "lint:all": "eslint .",
+  "format": "eslint --fix .",
+  "format:all": "eslint --fix ."
  },
  "dependencies": {
- "@types/node": "~20.12.12",
- "bluebird": "~3.7.2",
- "mitata": "~1.0.34",
- "tinybench": "~2.9.0"
+  "@types/node": "~20.12.12",
+  "bluebird": "~3.7.2",
+  "mitata": "~1.0.34",
+  "tinybench": "~2.9.0"
  },
  "devDependencies": {
- "@types/bluebird": "~3.5.42",
- "playwright": "~1.61.1"
+  "@types/bluebird": "~3.5.42",
+  "playwright": "~1.61.1"
  },
  "engines": {
- "npm": ">=9"
+  "npm": ">=9"
  }
 }
