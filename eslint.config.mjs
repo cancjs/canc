@@ -13,8 +13,8 @@ import js from '@eslint/js';
 import json from '@eslint/json';
 import markdown from '@eslint/markdown';
 import { defineConfig, globalIgnores } from 'eslint/config';
-import packageJson from 'eslint-package-json';
 import prettierConfig from 'eslint-config-prettier';
+import packageJson from 'eslint-package-json';
 import importX from 'eslint-plugin-import-x';
 import prettier from 'eslint-plugin-prettier';
 import simpleImportSort from 'eslint-plugin-simple-import-sort';
@@ -66,11 +66,7 @@ export default defineConfig(
 	// below, and core rules crash on those languages' ASTs.
 	{
 		files: ['**/*.{ts,tsx,js,jsx,cjs,mjs}'],
-		extends: [
-			js.configs.recommended,
-			tseslint.configs.recommendedTypeChecked,
-			tseslint.configs.stylisticTypeChecked,
-		],
+		extends: [js.configs.recommended, tseslint.configs.recommendedTypeChecked, tseslint.configs.stylisticTypeChecked],
 	},
 
 	// Shared language options + core rule overrides (every JS/TS file).
@@ -105,7 +101,13 @@ export default defineConfig(
 			'@typescript-eslint/array-type': 'off',
 			'@typescript-eslint/consistent-generic-constructors': 'warn',
 			'@typescript-eslint/consistent-type-assertions': 'off',
-			'@typescript-eslint/dot-notation': 'warn',
+			// Bracket-string access to a protected or private member is a deliberate idiom here: it
+			// is how one package reaches a TS-only-private internal hook on another without widening
+			// the published type surface. Autofixing it to dot access breaks compilation.
+			'@typescript-eslint/dot-notation': [
+				'warn',
+				{ allowProtectedClassPropertyAccess: true, allowPrivateClassPropertyAccess: true },
+			],
 			'@typescript-eslint/explicit-function-return-type': 'off',
 			'@typescript-eslint/method-signature-style': 'off',
 			'@typescript-eslint/no-empty-function': 'off',
