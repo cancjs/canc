@@ -29,7 +29,8 @@ const prettierCodeOptions = {
 	printWidth: 120,
 	singleAttributePerLine: true,
 	experimentalTernaries: true,
-	useTabs: true,
+	useTabs: false,
+	tabWidth: 2,
 };
 
 // JSON keeps spaces. npm rewrites package.json when it touches it and preserves whatever indent
