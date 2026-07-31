@@ -1,1 +1,1 @@
-export { LazyBase, TPromiseCtor, TLazyOnCancel, TLazyExecutor, TLazyState } from './lazy-base';
+export { LazyBase, TLazyExecutor, TLazyOnCancel, TLazyState, TPromiseCtor } from './lazy-base';

@@ -6,10 +6,10 @@
  * concrete promise package.
  */
 export type TPromiseCtor = (new (
-	executor: (resolve: (value: any) => void, reject: (reason?: any) => void, ctx?: TExecutorCtx) => void,
-	options?: object,
+  executor: (resolve: (value: any) => void, reject: (reason?: any) => void, ctx?: TExecutorCtx) => void,
+  options?: object,
 ) => PromiseLike<any> & { cancelable?: boolean }) & {
-	resolve<T>(value: T | PromiseLike<T>): PromiseLike<T>;
+  resolve<T>(value: T | PromiseLike<T>): PromiseLike<T>;
 };
 
 /**
@@ -24,8 +24,8 @@ export type THandleCancel = (onCancel: () => void) => void;
  * third argument; native Promise provides nothing (undefined).
  */
 export interface TExecutorCtx {
-	handleCancel: THandleCancel;
-	getSignal?: () => any;
+  handleCancel: THandleCancel;
+  getSignal?: () => any;
 }
 
 /**
@@ -34,9 +34,9 @@ export interface TExecutorCtx {
  * executor works with either kind of implementation.
  */
 export type TExecutor<T> = (
-	resolve: (value: T | PromiseLike<T>) => void,
-	reject: (reason?: any) => void,
-	ctx?: TExecutorCtx,
+  resolve: (value: T | PromiseLike<T>) => void,
+  reject: (reason?: any) => void,
+  ctx?: TExecutorCtx,
 ) => void;
 
 /**
@@ -47,7 +47,7 @@ export type TExecutor<T> = (
  * ignoring them, cancelable by honoring them).
  */
 export function construct<T>(Impl: TPromiseCtor, executor: TExecutor<T>, options?: object): PromiseLike<T> {
-	const Ctor = Impl as unknown as new (executor: TExecutor<T>, options?: object) => PromiseLike<T>;
+  const Ctor = Impl as unknown as new (executor: TExecutor<T>, options?: object) => PromiseLike<T>;
 
-	return new Ctor(executor, options);
+  return new Ctor(executor, options);
 }

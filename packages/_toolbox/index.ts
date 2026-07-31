@@ -1,21 +1,11 @@
-export { TPromiseCtor, THandleCancel, TExecutorCtx, TExecutor, construct } from './construct';
-
-export { delay } from './delay';
-export { defer, IDeferred } from './defer';
-export { timeout, TimeoutError, isTimeoutError } from './timeout';
-export { waitFor, IWaitForOptions } from './wait-for';
-export { minDelay } from './min-delay';
-export { retry, IRetryOptions } from './retry';
-
-export {
-	promisify,
-	promisifyAll,
-	IPromisifyOptions,
-	IPromisifyAllOptions,
-	TCallbackFn,
-} from './promisify';
-
 export { makeCancelSignal, TGetSignal } from './cancel-signal';
-
-export { debounceFactory, IDebounced, IDebounceOptions, IDebounceDeps } from './debounce';
-export { throttleFactory, IThrottled, IThrottleOptions } from './throttle';
+export { construct, TExecutor, TExecutorCtx, THandleCancel, TPromiseCtor } from './construct';
+export { debounceFactory, IDebounced, IDebounceDeps, IDebounceOptions } from './debounce';
+export { defer, IDeferred } from './defer';
+export { delay } from './delay';
+export { minDelay } from './min-delay';
+export { IPromisifyAllOptions, IPromisifyOptions, promisify, promisifyAll, TCallbackFn } from './promisify';
+export { IRetryOptions, retry } from './retry';
+export { IThrottled, IThrottleOptions, throttleFactory } from './throttle';
+export { isTimeoutError, timeout, TimeoutError } from './timeout';
+export { IWaitForOptions, waitFor } from './wait-for';

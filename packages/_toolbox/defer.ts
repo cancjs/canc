@@ -5,9 +5,9 @@ import { TPromiseCtor } from './construct';
  * ancestor of Promise.withResolvers.
  */
 export interface IDeferred<T> {
-	promise: PromiseLike<T>;
-	resolve: (value: T | PromiseLike<T>) => void;
-	reject: (reason?: any) => void;
+  promise: PromiseLike<T>;
+  resolve: (value: T | PromiseLike<T>) => void;
+  reject: (reason?: any) => void;
 }
 
 /**
@@ -16,23 +16,24 @@ export interface IDeferred<T> {
  * per-call options carry through; falls back to a constructor when the implementation lacks it.
  */
 export function defer<T = void>(Impl: TPromiseCtor, options?: object): IDeferred<T> {
-	let resolve!: (value: T | PromiseLike<T>) => void;
-	let reject!: (reason?: any) => void;
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: any) => void;
 
-	const withResolvers = (Impl as unknown as { withResolvers?: (this: TPromiseCtor, options?: object) => IDeferred<any> })
-		.withResolvers;
+  const withResolvers = (
+    Impl as unknown as { withResolvers?: (this: TPromiseCtor, options?: object) => IDeferred<any> }
+  ).withResolvers;
 
-	if (typeof withResolvers === 'function') {
-		return withResolvers.call(Impl, options) as IDeferred<T>;
-	}
+  if (typeof withResolvers === 'function') {
+    return withResolvers.call(Impl, options) as IDeferred<T>;
+  }
 
-	const Ctor = Impl as unknown as new (
-		executor: (res: (value: T | PromiseLike<T>) => void, rej: (reason?: any) => void) => void,
-	) => PromiseLike<T>;
-	const promise = new Ctor((res, rej) => {
-		resolve = res;
-		reject = rej;
-	});
+  const Ctor = Impl as unknown as new (
+    executor: (res: (value: T | PromiseLike<T>) => void, rej: (reason?: any) => void) => void,
+  ) => PromiseLike<T>;
+  const promise = new Ctor((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
 
-	return { promise, resolve, reject };
+  return { promise, resolve, reject };
 }

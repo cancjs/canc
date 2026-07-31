@@ -1,4 +1,4 @@
-import { construct, TPromiseCtor, TExecutorCtx } from './construct';
+import { construct, TExecutorCtx, TPromiseCtor } from './construct';
 
 /**
  * Resolve after `ms` milliseconds, optionally with a value. When `Impl` is a cancelable-shaped
@@ -6,11 +6,15 @@ import { construct, TPromiseCtor, TExecutorCtx } from './construct';
  * plain native Promise cannot be canceled and the timer runs to completion.
  */
 export function delay<T = void>(Impl: TPromiseCtor, ms: number, value?: T, options?: object): PromiseLike<T> {
-	return construct<T>(Impl, (resolve, _reject, ctx?: TExecutorCtx) => {
-		const id = setTimeout(() => resolve(value as T), ms);
+  return construct<T>(
+    Impl,
+    (resolve, _reject, ctx?: TExecutorCtx) => {
+      const id = setTimeout(() => resolve(value as T), ms);
 
-		if (ctx) {
-			ctx.handleCancel(() => clearTimeout(id));
-		}
-	}, options);
+      if (ctx) {
+        ctx.handleCancel(() => clearTimeout(id));
+      }
+    },
+    options,
+  );
 }
