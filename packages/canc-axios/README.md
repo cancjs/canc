@@ -1,5 +1,5 @@
 <div align="center">
-	<img src="https://raw.githubusercontent.com/cancjs/canc/master/assets/canc-logo.svg" style="width: 400px; max-width: 100%; height: auto;" title="canc &#x2BBF; A crafty foundation for cancelable promises" alt="canc &#x2BBF; A crafty foundation for cancelable promises">
+  <img src="https://raw.githubusercontent.com/cancjs/canc/master/assets/canc-logo.svg" style="width: 400px; max-width: 100%; height: auto;" title="canc &#x2BBF; A crafty foundation for cancelable promises" alt="canc &#x2BBF; A crafty foundation for cancelable promises">
   <div>&nbsp;</div>
 </div>
 
@@ -51,12 +51,12 @@ const promise = cancelableAxios.get('/issues', { params: { q: 'bug' } });
 promise.cancel('superseded');
 
 try {
-	const response = await promise;
-	console.log(response.data);
+  const response = await promise;
+  console.log(response.data);
 } catch (error) {
-	if (isCancelError(error)) {
-		// the request was aborted
-	}
+  if (isCancelError(error)) {
+    // the request was aborted
+  }
 }
 ```
 
@@ -74,7 +74,8 @@ An axios instance built elsewhere can be wrapped instead:
 import axios from 'axios';
 import { cancelableAxios } from '@cancjs/axios';
 
-const api = cancelableAxios.wrap(axios.create({ baseURL: 'https://api.example.com' }));
+const axiosInstance = axios.create({ baseURL: 'https://api.example.com' });
+const api = cancelableAxios.wrap(axiosInstance);
 ```
 
 In a coroutine the request joins the surrounding cancellation:
@@ -83,8 +84,10 @@ In a coroutine the request joins the surrounding cancellation:
 import * as canc from '@cancjs/coroutine';
 
 const loadIssues = canc.async(function* (query: string) {
-	const response = yield* canc.await(api.get('/issues', { params: { q: query } }));
-	return response.data;
+  const response = yield* canc.await(
+    api.get('/issues', { params: { q: query } })
+  );
+  return response.data;
 });
 
 const pending = loadIssues('bug');
@@ -121,14 +124,14 @@ for. The context exposes a signal and a check for whether the request has alread
 
 ```js
 api.interceptors.request.use((config, ctx) => {
-	if (ctx.isCanceled()) {
-		return config;
-	}
+  if (ctx.isCanceled()) {
+    return config;
+  }
 
-	return refreshToken({ signal: ctx.signal }).then((token) => {
-		config.headers.Authorization = `Bearer ${token}`;
-		return config;
-	});
+  return refreshToken({ signal: ctx.signal }).then((token) => {
+    config.headers.Authorization = `Bearer ${token}`;
+    return config;
+  });
 });
 ```
 

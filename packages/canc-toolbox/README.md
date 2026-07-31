@@ -1,5 +1,5 @@
 <div align="center">
-	<img src="https://raw.githubusercontent.com/cancjs/canc/master/assets/canc-logo.svg" style="width: 400px; max-width: 100%; height: auto;" title="canc &#x2BBF; A crafty foundation for cancelable promises" alt="canc &#x2BBF; A crafty foundation for cancelable promises">
+  <img src="https://raw.githubusercontent.com/cancjs/canc/master/assets/canc-logo.svg" style="width: 400px; max-width: 100%; height: auto;" title="canc &#x2BBF; A crafty foundation for cancelable promises" alt="canc &#x2BBF; A crafty foundation for cancelable promises">
   <div>&nbsp;</div>
 </div>
 
@@ -63,7 +63,7 @@ Wrapping an API that takes a signal is a one-liner, and callers never see the si
 import { cancelify } from '@cancjs/toolbox';
 
 const searchFlights = cancelify(({ getSignal }, [query]) =>
-	flightApi.search(query, getSignal()),
+  flightApi.search(query, getSignal()),
 );
 
 const search = searchFlights('LIS');
@@ -92,8 +92,12 @@ the application code free of the mechanism:
 
 ```js
 const orderApi = {
-	list: cancelify(({ getSignal }, [filter]) => rawOrderApi.list(filter, { signal: getSignal() })),
-	get: cancelify(({ getSignal }, [id]) => rawOrderApi.get(id, { signal: getSignal() })),
+  list: cancelify(({ getSignal }, [filter]) =>
+    rawOrderApi.list(filter, { signal: getSignal() })
+  ),
+  get: cancelify(({ getSignal }, [id]) =>
+    rawOrderApi.get(id, { signal: getSignal() })
+  ),
 };
 ```
 

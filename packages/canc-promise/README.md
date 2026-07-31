@@ -1,5 +1,5 @@
 <div align="center">
-	<img src="https://raw.githubusercontent.com/cancjs/canc/master/assets/canc-logo.svg" style="width: 400px; max-width: 100%; height: auto;" title="canc &#x2BBF; A crafty foundation for cancelable promises" alt="canc &#x2BBF; A crafty foundation for cancelable promises">
+  <img src="https://raw.githubusercontent.com/cancjs/canc/master/assets/canc-logo.svg" style="width: 400px; max-width: 100%; height: auto;" title="canc &#x2BBF; A crafty foundation for cancelable promises" alt="canc &#x2BBF; A crafty foundation for cancelable promises">
   <div>&nbsp;</div>
 </div>
 
@@ -61,20 +61,20 @@ runs when the promise is canceled:
 import { CancelablePromise, isCancelError } from '@cancjs/promise';
 
 const delayed = new CancelablePromise((resolve, reject, { handleCancel }) => {
-	const timerId = setTimeout(resolve, 1000, 'done');
-	handleCancel(() => clearTimeout(timerId));
+  const timerId = setTimeout(resolve, 1000, 'done');
+  handleCancel(() => clearTimeout(timerId));
 });
 
 delayed
-	.then((value) => console.log(value))
-	.catch((err) => {
-		if (isCancelError(err)) {
-			console.log('canceled');
-			return;
-		}
+  .then((value) => console.log(value))
+  .catch((err) => {
+    if (isCancelError(err)) {
+      console.log('canceled');
+      return;
+    }
 
-		throw err;
-	});
+    throw err;
+  });
 
 delayed.cancel();
 ```
@@ -83,8 +83,8 @@ Cancellation applies to the whole chain, not to a single promise:
 
 ```js
 const report = loadOrders()
-	.then((orders) => buildReport(orders))
-	.then((rendered) => render(rendered));
+  .then((orders) => buildReport(orders))
+  .then((rendered) => render(rendered));
 
 // Cancels the request, the report build, and the render step.
 report.cancel();
@@ -152,9 +152,9 @@ already settled promise, or a shielded one, is a no-op rather than an error.
 
 ```js
 async function loadReport(id) {
-	await using request = fetchReport(id);
-	return await request;
-	// Leaving the scope early, by return or by throw, cancels a request still in flight.
+  await using request = fetchReport(id);
+  return await request;
+  // Leaving the scope early, by return or by throw, cancels a request still in flight.
 }
 ```
 
@@ -214,8 +214,8 @@ an error. Two helpers say so explicitly:
 const outcome = await catchCancel(searchProducts(query));
 
 if (isCancelError(outcome)) {
-	showStatus('Search canceled');
-	return;
+  showStatus('Search canceled');
+  return;
 }
 
 render(outcome);
@@ -232,7 +232,7 @@ first abort winning:
 
 ```js
 const quotes = new CancelablePromise(executor, {
-	signal: [userSignal, AbortSignal.timeout(5000)],
+  signal: [userSignal, AbortSignal.timeout(5000)],
 });
 ```
 
@@ -241,7 +241,7 @@ canceled, so signal-aware APIs can be connected directly:
 
 ```js
 const data = new CancelablePromise((resolve, reject, { getSignal }) => {
-	fetch('/api/data', { signal: getSignal() }).then(resolve, reject);
+  fetch('/api/data', { signal: getSignal() }).then(resolve, reject);
 });
 ```
 

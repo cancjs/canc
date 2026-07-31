@@ -1,5 +1,5 @@
 <div align="center">
-	<img src="./assets/canc-logo.svg" style="width: 400px; max-width: 100%; height: auto;" title="canc &#x2BBF; A crafty foundation for cancelable promises" alt="canc &#x2BBF; A crafty foundation for cancelable promises">
+  <img src="./assets/canc-logo.svg" style="width: 400px; max-width: 100%; height: auto;" title="canc &#x2BBF; A crafty foundation for cancelable promises" alt="canc &#x2BBF; A crafty foundation for cancelable promises">
   <div>&nbsp;</div>
 </div>
 
@@ -22,9 +22,9 @@ Cancelable promise ecosystem based on native <code>Promise</code>: coroutines, a
 import * as canc from '@cancjs/coroutine';
 
 const loadTrip = canc.async(function* (tripId: string) {
-	const hotels = yield* canc.await(searchHotels(tripId));
-	const flights = yield* canc.await(searchFlights(tripId));
-	return { hotels, flights };
+  const hotels = yield* canc.await(searchHotels(tripId));
+  const flights = yield* canc.await(searchFlights(tripId));
+  return { hotels, flights };
 });
 
 const tripPromise = loadTrip('lis-42');
@@ -61,13 +61,13 @@ Plain `async`/`await` cannot be interrupted. The caller walks away, the work doe
 
 ```ts
 async function loadTrip(tripId: string) {
-	const trip = await fetchTrip(tripId);
-	// The user already left. Both searches still go out.
-	const [hotels, flights] = await Promise.all([
-		searchHotels(trip.city),
-		searchFlights(trip.city),
-	]);
-	return { trip, hotels, flights };
+  const trip = await fetchTrip(tripId);
+  // The user already left. Both searches still go out.
+  const [hotels, flights] = await Promise.all([
+    searchHotels(trip.city),
+    searchFlights(trip.city),
+  ]);
+  return { trip, hotels, flights };
 }
 ```
 
@@ -75,21 +75,21 @@ async function loadTrip(tripId: string) {
 
 ```ts
 async function loadTrip(tripId: string, signal: AbortSignal) {
-	const trip = await fetchTrip(tripId, signal);
-	// Not every API takes a signal, and every gap between steps needs a guard.
-	signal.throwIfAborted();
-	const [hotels, flights] = await Promise.all([
-		searchHotels(trip.city, signal),
-		searchFlights(trip.city, signal),
-	]);
-	return { trip, hotels, flights };
+  const trip = await fetchTrip(tripId, signal);
+  // Not every API takes a signal, and every gap between steps needs a guard.
+  signal.throwIfAborted();
+  const [hotels, flights] = await Promise.all([
+    searchHotels(trip.city, signal),
+    searchFlights(trip.city, signal),
+  ]);
+  return { trip, hotels, flights };
 }
 
 const controller = new AbortController();
 
 loadTrip('lis-42', controller.signal).catch((err) => {
-	if (err.name === 'AbortError') return; // expected, not a bug
-	throw err;
+  if (err.name === 'AbortError') return; // expected, not a bug
+  throw err;
 });
 
 controller.abort();
@@ -99,12 +99,12 @@ With `canc` the plumbing goes away. The signature stays clean, the steps stay re
 
 ```ts
 const loadTrip = canc.async(function* (tripId: string) {
-	const trip = yield* canc.await(fetchTrip(tripId));
-	const [hotels, flights] = yield* canc.await.all([
-		searchHotels(trip.city),
-		searchFlights(trip.city),
-	]);
-	return { trip, hotels, flights };
+  const trip = yield* canc.await(fetchTrip(tripId));
+  const [hotels, flights] = yield* canc.await.all([
+    searchHotels(trip.city),
+    searchFlights(trip.city),
+  ]);
+  return { trip, hotels, flights };
 });
 
 const tripPromise = loadTrip('lis-42');

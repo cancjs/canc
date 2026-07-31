@@ -1,5 +1,5 @@
 <div align="center">
-	<img src="https://raw.githubusercontent.com/cancjs/canc/master/assets/canc-logo.svg" style="width: 400px; max-width: 100%; height: auto;" title="canc &#x2BBF; A crafty foundation for cancelable promises" alt="canc &#x2BBF; A crafty foundation for cancelable promises">
+  <img src="https://raw.githubusercontent.com/cancjs/canc/master/assets/canc-logo.svg" style="width: 400px; max-width: 100%; height: auto;" title="canc &#x2BBF; A crafty foundation for cancelable promises" alt="canc &#x2BBF; A crafty foundation for cancelable promises">
   <div>&nbsp;</div>
 </div>
 
@@ -47,8 +47,8 @@ import { cancelableFetch } from '@cancjs/fetch';
 const request = cancelableFetch('/api/orders?status=open');
 
 request
-	.then((response) => response.json())
-	.then(render);
+  .then((response) => response.json())
+  .then(render);
 
 // Aborts the request. Nothing after it in the chain runs.
 request.cancel();
@@ -61,13 +61,13 @@ import * as canc from '@cancjs/coroutine';
 import { cancelableFetch } from '@cancjs/fetch';
 
 const loadOrder = canc.async(function* (orderId: string) {
-	const response = yield* canc.await(cancelableFetch(`/api/orders/${orderId}`));
+  const response = yield* canc.await(cancelableFetch(`/api/orders/${orderId}`));
 
-	if (!response.ok) {
-		throw new Error(`Order request failed with ${response.status}`);
-	}
+  if (!response.ok) {
+    throw new Error(`Order request failed with ${response.status}`);
+  }
 
-	return yield* canc.await(response.json());
+  return yield* canc.await(response.json());
 });
 ```
 
@@ -96,8 +96,8 @@ go through an instrumented `fetch`:
 import { cancelableFetchFactory } from '@cancjs/fetch';
 
 const fetchJson = cancelableFetchFactory({
-	fetch: instrumentedFetch,
-	AbortController: PolyfilledAbortController,
+  fetch: instrumentedFetch,
+  AbortController: PolyfilledAbortController,
 });
 ```
 
@@ -117,9 +117,9 @@ it hangs by design. Canceling deregisters the request.
 import { cancelableFetchLater } from '@cancjs/fetch';
 
 const beacon = cancelableFetchLater('/api/analytics', {
-	method: 'POST',
-	body: payload,
-	activateAfter: 60_000,
+  method: 'POST',
+  body: payload,
+  activateAfter: 60_000,
 });
 
 // The user opted out before it was sent.

@@ -1,5 +1,5 @@
 <div align="center">
-	<img src="https://raw.githubusercontent.com/cancjs/canc/master/assets/canc-logo.svg" style="width: 400px; max-width: 100%; height: auto;" title="canc &#x2BBF; A crafty foundation for cancelable promises" alt="canc &#x2BBF; A crafty foundation for cancelable promises">
+  <img src="https://raw.githubusercontent.com/cancjs/canc/master/assets/canc-logo.svg" style="width: 400px; max-width: 100%; height: auto;" title="canc &#x2BBF; A crafty foundation for cancelable promises" alt="canc &#x2BBF; A crafty foundation for cancelable promises">
   <div>&nbsp;</div>
 </div>
 
@@ -48,15 +48,15 @@ import { AsyncMethod } from '@cancjs/decorators';
 import { cancAsync, cancAwait } from '@cancjs/coroutine';
 
 class IssueClient {
-	@AsyncMethod()
-	get loadIssue() {
-		return cancAsync(function* (this: IssueClient, issueId: string) {
-			const issue = yield* cancAwait(this.api.issue(issueId));
-			const comments = yield* cancAwait(this.api.comments(issueId));
+  @AsyncMethod()
+  get loadIssue() {
+    return cancAsync(function* (this: IssueClient, issueId: string) {
+      const issue = yield* cancAwait(this.api.issue(issueId));
+      const comments = yield* cancAwait(this.api.comments(issueId));
 
-			return { issue, comments };
-		}, this);
-	}
+      return { issue, comments };
+    }, this);
+  }
 }
 
 const client = new IssueClient();
@@ -70,10 +70,10 @@ method style works too:
 
 ```js
 class IssueClient {
-	@AsyncMethod()
-	*loadIssue(issueId) {
-		return yield* cancAwait(this.api.issue(issueId));
-	}
+  @AsyncMethod()
+  *loadIssue(issueId) {
+    return yield* cancAwait(this.api.issue(issueId));
+  }
 }
 ```
 
@@ -197,18 +197,18 @@ type:
 ```ts
 // constructor field, built for every instance
 class IssueClient {
-	constructor() {
-		this.loadIssue = cancAsync(function* (this: IssueClient, issueId: string) {
-			return yield* cancAwait(this.api.issue(issueId));
-		}, this);
-	}
+  constructor() {
+    this.loadIssue = cancAsync(function* (this: IssueClient, issueId: string) {
+      return yield* cancAwait(this.api.issue(issueId));
+    }, this);
+  }
 }
 
 // class field, same thing without the constructor
 class IssueClient {
-	loadIssue = cancAsync(function* (this: IssueClient, issueId: string) {
-		return yield* cancAwait(this.api.issue(issueId));
-	}, this);
+  loadIssue = cancAsync(function* (this: IssueClient, issueId: string) {
+    return yield* cancAwait(this.api.issue(issueId));
+  }, this);
 }
 ```
 

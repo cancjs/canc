@@ -1,5 +1,5 @@
 <div align="center">
-	<img src="https://raw.githubusercontent.com/cancjs/canc/master/assets/canc-logo.svg" style="width: 400px; max-width: 100%; height: auto;" title="canc &#x2BBF; A crafty foundation for cancelable promises" alt="canc &#x2BBF; A crafty foundation for cancelable promises">
+  <img src="https://raw.githubusercontent.com/cancjs/canc/master/assets/canc-logo.svg" style="width: 400px; max-width: 100%; height: auto;" title="canc &#x2BBF; A crafty foundation for cancelable promises" alt="canc &#x2BBF; A crafty foundation for cancelable promises">
   <div>&nbsp;</div>
 </div>
 
@@ -53,10 +53,10 @@ npm install @cancjs/coroutine @cancjs/promise
 import * as canc from '@cancjs/coroutine';
 
 const loadInvoice = canc.async(function* (invoiceId: string) {
-	const invoice = yield* canc.await(fetchInvoice(invoiceId));
-	const customer = yield* canc.await(fetchCustomer(invoice.customerId));
+  const invoice = yield* canc.await(fetchInvoice(invoiceId));
+  const customer = yield* canc.await(fetchCustomer(invoice.customerId));
 
-	return { invoice, customer };
+  return { invoice, customer };
 });
 
 const pending = loadInvoice('inv-2041');
@@ -70,9 +70,12 @@ Independent steps run together and cancel together:
 
 ```ts
 const loadDashboard = canc.async(function* () {
-	const [invoices, payments] = yield* canc.await.all([fetchInvoices(), fetchPayments()]);
+  const [invoices, payments] = yield* canc.await.all([
+    fetchInvoices(),
+    fetchPayments()
+  ]);
 
-	return summarize(invoices, payments);
+  return summarize(invoices, payments);
 });
 ```
 
@@ -82,7 +85,7 @@ The flat names are exported next to the namespace aliases, so this is the same c
 import { cancAsync, cancAwait } from '@cancjs/coroutine';
 
 const loadInvoice = cancAsync(function* (invoiceId: string) {
-	return yield* cancAwait(fetchInvoice(invoiceId));
+  return yield* cancAwait(fetchInvoice(invoiceId));
 });
 ```
 
@@ -116,13 +119,13 @@ run shielded, so cleanup cannot be canceled halfway:
 
 ```ts
 const checkout = canc.async(function* (orderId: string) {
-	const reservation = yield* canc.await(reserveStock(orderId));
+  const reservation = yield* canc.await(reserveStock(orderId));
 
-	try {
-		return yield* canc.await(chargeCard(orderId));
-	} finally {
-		yield* canc.await(releaseReservation(reservation.id));
-	}
+  try {
+    return yield* canc.await(chargeCard(orderId));
+  } finally {
+    yield* canc.await(releaseReservation(reservation.id));
+  }
 });
 ```
 
@@ -150,7 +153,7 @@ Both namespaces are the same runtime machinery with different mental models, and
 entry point:
 
 ```ts
-import * as canc from '@cancjs/coroutine';       // async/await world
+import * as canc from '@cancjs/coroutine'; // async/await world
 import * as cancGen from '@cancjs/coroutine/gen'; // async function* world
 ```
 
@@ -167,7 +170,10 @@ Cancellation semantics come from
 `race` and `any` cancel the losers, `all` cancels the rest on the first rejection.
 
 ```ts
-const [profile, orders] = yield* canc.await.all([fetchProfile(id), fetchOrders(id)]);
+const [profile, orders] = yield * canc.await.all([
+  fetchProfile(id),
+  fetchOrders(id)
+]);
 ```
 
 ### Consuming an async iterable
@@ -177,17 +183,17 @@ and canceling the coroutine closes the source:
 
 ```ts
 const collectTokens = canc.async(function* (prompt: string) {
-	let answer = '';
+  let answer = '';
 
-	yield* canc.forAwait(streamCompletion(prompt), (token) => {
-		answer += token;
+  yield* canc.forAwait(streamCompletion(prompt), (token) => {
+    answer += token;
 
-		if (answer.length > 4000) {
-			return false; // stops the loop, the source is closed
-		}
-	});
+    if (answer.length > 4000) {
+      return false; // stops the loop, the source is closed
+    }
+  });
 
-	return answer;
+  return answer;
 });
 ```
 
@@ -196,7 +202,7 @@ function when the per-item work itself has to be cancelable:
 
 ```ts
 yield* canc.forAwait(chunkStream, function* (chunk) {
-	yield* canc.await(saveChunk(chunk));
+  yield* canc.await(saveChunk(chunk));
 });
 ```
 
@@ -211,14 +217,14 @@ emits and `yield* cancGen.await(...)` awaits:
 import * as cancGen from '@cancjs/coroutine/gen';
 
 const exportVideo = cancGen.async(function* (chunkIds: string[]) {
-	for (let index = 0; index < chunkIds.length; index++) {
-		yield* cancGen.await(transcodeChunk(chunkIds[index])); // internal step
-		yield Math.round(((index + 1) / chunkIds.length) * 100); // progress, emitted
-	}
+  for (let index = 0; index < chunkIds.length; index++) {
+    yield* cancGen.await(transcodeChunk(chunkIds[index])); // internal step
+    yield Math.round(((index + 1) / chunkIds.length) * 100); // progress, emitted
+  }
 });
 
 for await (const progress of exportVideo(chunkIds)) {
-	updateProgressBar(progress);
+  updateProgressBar(progress);
 }
 ```
 
@@ -237,15 +243,15 @@ declaratively:
 import { AsyncMethod } from '@cancjs/decorators';
 
 class InvoiceService {
-	@AsyncMethod() // wrapped once on the prototype, `this` flows from the call site
-	*load(invoiceId: string) {
-		return yield* canc.await(fetchInvoice(invoiceId));
-	}
+  @AsyncMethod() // wrapped once on the prototype, `this` flows from the call site
+  *load(invoiceId: string) {
+    return yield* canc.await(fetchInvoice(invoiceId));
+  }
 
-	@AsyncMethod({ bind: true }) // per instance, safe to detach as a callback
-	*loadBound(invoiceId: string) {
-		return yield* canc.await(fetchInvoice(invoiceId));
-	}
+  @AsyncMethod({ bind: true }) // per instance, safe to detach as a callback
+  *loadBound(invoiceId: string) {
+    return yield* canc.await(fetchInvoice(invoiceId));
+  }
 }
 ```
 
@@ -254,14 +260,14 @@ in the constructor:
 
 ```ts
 class InvoiceService {
-	constructor() {
-		// per instance, equivalent to @AsyncMethod({ bind: true })
-		this.load = canc.async(this.load, this);
-	}
+  constructor() {
+    // per instance, equivalent to @AsyncMethod({ bind: true })
+    this.load = canc.async(this.load, this);
+  }
 
-	*load(invoiceId) {
-		return yield* canc.await(fetchInvoice(invoiceId));
-	}
+  *load(invoiceId) {
+    return yield* canc.await(fetchInvoice(invoiceId));
+  }
 }
 
 // prototype level, no per-instance cost

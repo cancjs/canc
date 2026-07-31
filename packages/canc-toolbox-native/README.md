@@ -1,5 +1,5 @@
 <div align="center">
-	<img src="https://raw.githubusercontent.com/cancjs/canc/master/assets/canc-logo.svg" style="width: 400px; max-width: 100%; height: auto;" title="canc &#x2BBF; A crafty foundation for cancelable promises" alt="canc &#x2BBF; A crafty foundation for cancelable promises">
+  <img src="https://raw.githubusercontent.com/cancjs/canc/master/assets/canc-logo.svg" style="width: 400px; max-width: 100%; height: auto;" title="canc &#x2BBF; A crafty foundation for cancelable promises" alt="canc &#x2BBF; A crafty foundation for cancelable promises">
   <div>&nbsp;</div>
 </div>
 
@@ -42,8 +42,8 @@ import { delay, retry, timeout } from '@cancjs/toolbox-native';
 await delay(1000);
 
 const report = await retry((attempt) => buildReport({ attempt }), {
-	retries: 5,
-	minTimeout: 200,
+  retries: 5,
+  minTimeout: 200,
 });
 
 const quotes = await timeout(fetchQuotes(), 3000);
