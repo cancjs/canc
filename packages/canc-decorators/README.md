@@ -262,4 +262,4 @@ You are welcome to participate through issues and pull requests!
 
 ## License
 
-[MIT](../../LICENSE)
+[MIT](./LICENSE)
