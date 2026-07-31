@@ -702,3 +702,26 @@ cancForAwait.toArray = function* toArray(source: any): Generator<unknown, any[],
 
   return collected;
 } as ICancForAwait['toArray'];
+
+function installMethod(instance: any, key: string): void {
+  const raw = instance[key];
+
+  if (!isFunction(raw)) {
+    throw new TypeError(`'${key}' did not resolve to a function`);
+  }
+
+  Object.defineProperty(instance, key, {
+    value: raw.bind(instance),
+    writable: true,
+    configurable: true,
+    enumerable: true,
+  });
+}
+
+export function asyncMethod<T>(instance: T, key: keyof T & string): void {
+  installMethod(instance, key);
+}
+
+export function bindMethod<T>(instance: T, key: keyof T & string): void {
+  installMethod(instance, key);
+}
