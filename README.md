@@ -16,22 +16,10 @@ Cancelable promise ecosystem based on native <code>Promise</code>: coroutines, a
 
 ---
 
-<!-- TODO: animated comparison (plain async/await vs AbortSignal vs canc) -->
-
-```ts
-import * as canc from '@cancjs/coroutine';
-
-const loadTrip = canc.async(function* (tripId: string) {
-  const hotels = yield* canc.await(searchHotels(tripId));
-  const flights = yield* canc.await(searchFlights(tripId));
-  return { hotels, flights };
-});
-
-const tripPromise = loadTrip('lis-42');
-
-// The user navigated away. One call stops the whole tree.
-tripPromise.cancel();
-```
+<div align="center">
+  <img src="./assets/canc-snippet.gif" alt="canc comparison example" title="Vanilla promise 💤 ▶ AbortController 🔨 ▶ Cancelable promise 🚀" loading="lazy"
+       style="width:100%; max-width:625px; max-height:80vh; object-fit:contain; height:auto; display:block; margin:0 auto;" />
+</div>
 
 ## Features
 
