@@ -82,10 +82,10 @@ const loadDashboard = canc.async(function* () {
 The flat names are exported next to the namespace aliases, so this is the same code:
 
 ```ts
-import { cancAsync, cancAwait } from '@cancjs/coroutine';
+import * as canc from '@cancjs/coroutine';
 
-const loadInvoice = cancAsync(function* (invoiceId: string) {
-  return yield* cancAwait(fetchInvoice(invoiceId));
+const loadInvoice = canc.async(function* (invoiceId: string) {
+  return yield* canc.await(fetchInvoice(invoiceId));
 });
 ```
 
@@ -235,52 +235,112 @@ generator cannot `yield*` an async iterable.
 ### Class methods
 
 `canc.async` wraps a generator function into a plain function, so placing it on a class is the
-caller's decision. The
-[decorators](https://github.com/cancjs/canc/tree/master/packages/canc-decorators) package does it
-declaratively:
+caller's decision. There are several ways to do it, depending on whether you use decorators and
+whether you need TypeScript-correct types at the call site.
+
+#### With decorators
+
+The [decorators](https://github.com/cancjs/canc/tree/master/packages/canc-decorators) package
+does it declaratively. The getter style is the recommended form in TypeScript:
 
 ```ts
+import * as canc from '@cancjs/coroutine';
 import { AsyncMethod } from '@cancjs/decorators';
 
 class InvoiceService {
-  @AsyncMethod() // wrapped once on the prototype, `this` flows from the call site
-  *load(invoiceId: string) {
-    return yield* canc.await(fetchInvoice(invoiceId));
+  @AsyncMethod()
+  get load() {
+    return canc.async(function* (this: InvoiceService, invoiceId: string) {
+      return yield* canc.await(fetchInvoice(invoiceId));
+    }, this);
   }
 
   @AsyncMethod({ bind: true }) // per instance, safe to detach as a callback
-  *loadBound(invoiceId: string) {
-    return yield* canc.await(fetchInvoice(invoiceId));
+  get loadBound() {
+    return canc.async(function* (this: InvoiceService, invoiceId: string) {
+      return yield* canc.await(fetchInvoice(invoiceId));
+    }, this);
   }
 }
 ```
 
-The manual equivalent passes the context explicitly, either once on the prototype or per instance
-in the constructor:
+A getter's return type is inferred from its body, so `canc.async(...)` flows through correctly
+and the call site sees `CancelablePromise<T>`.
+
+In plain JavaScript the shorter method style works too, because there is no static type to be
+wrong:
+
+```js
+class IssueClient {
+  @AsyncMethod()
+  *loadIssue(issueId) {
+    return yield* canc.await(this.api.issue(issueId));
+  }
+}
+```
+
+In TypeScript, a method decorator cannot change the declared return type of the method it
+decorates, so a decorated `*load()` generator keeps its generator type at the call site and every
+caller needs a cast. Use the getter style instead.
+
+#### With `asyncMethod` / `bindMethod`
+
+Two helpers provide the same getter memoization without decorators. Call them in the constructor.
+Both read the getter once, bind the result to the instance, and install it as an own property so
+the getter is never called again. There is semantic difference: `asyncMethod` signals that the
+member is a cancelable coroutine, `bindMethod` signals general binding for detach safety.
+`asyncMethod` additionally guarantees that a method is wrapped with `canc.async`.
 
 ```ts
+import * as canc from '@cancjs/coroutine';
+
 class InvoiceService {
   constructor() {
-    // per instance, equivalent to @AsyncMethod({ bind: true })
-    this.load = canc.async(this.load, this);
+    // per instance, equivalent to @AsyncMethod
+    canc.asyncMethod(this, 'load');
   }
 
+  get load() {
+    return canc.async(function* (this: InvoiceService, invoiceId: string) {
+      return yield* canc.await(fetchInvoice(invoiceId));
+    }, this);
+  }
+}
+```
+
+#### Prototype assignment (JS only)
+
+In plain JavaScript, a generator method can be replaced on the prototype directly:
+
+```js
+class InvoiceService {
   *load(invoiceId) {
     return yield* canc.await(fetchInvoice(invoiceId));
   }
 }
 
-// prototype level, no per-instance cost
 InvoiceService.prototype.load = canc.async(InvoiceService.prototype.load);
 ```
 
-Prefer prototype placement. It costs one wrapped function per class instead of one per instance,
-keeps normal method semantics including `super.method()`, and works with mixins and subclassing.
-Reach for per-instance binding only when the method is detached and passed around as a bare
-reference. A per-instance wrapper also holds the coroutine's own state for as long as the bound
-function lives, so it must not be cached in anything that outlives the instance.
-[Decorators](https://github.com/cancjs/canc/tree/master/packages/canc-decorators) documents the
-placement mechanism per decorator dialect.
+This is the cheapest form: one wrapped function per class, shared by all instances. In
+TypeScript, the call site still sees the generator's return type, and there is no clean way to
+correct it. Interface merging to redeclare the method's type causes "overload signature not
+compatible with its implementation signature". Use a getter style instead.
+
+#### Class field
+
+A class field avoids the prototype entirely, at the cost of one wrapped function per instance:
+
+```ts
+class InvoiceService {
+  load = canc.async(function* (this: InvoiceService, invoiceId: string) {
+    return yield* canc.await(fetchInvoice(invoiceId));
+  }, this);
+}
+```
+
+This is the simplest form for one-off classes, but the method does not participate in `super`
+lookup and cannot be overridden from a subclass through the prototype chain.
 
 ### Things that do not work
 
@@ -306,6 +366,8 @@ placement mechanism per decorator dialect.
 | `cancAwait.all` / `.race` / `.any` / `.allSettled` / `.try` |                 | Combinators folded into a single step, tuple types preserved               |
 | `cancForAwait(source, callback)`                            | `canc.forAwait` | Consumes an async or sync iterable, one cancellation point per item        |
 | `cancForAwait.toArray(source)`                              |                 | Collects a source into an array                                            |
+| `asyncMethod(instance, key)`                                |                 | Binds and memoizes a getter's coroutine as an own property                 |
+| `bindMethod(instance, key)`                                 |                 | Binds and memoizes a getter's result as an own property                    |
 | `BreakError`, `isBreakError`                                |                 | Breaking out of a stream from deeper code                                  |
 | `AsyncResult<T>`                                            |                 | Return type for a generator body that has no enclosing wrapper             |
 

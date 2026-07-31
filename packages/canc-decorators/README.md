@@ -43,6 +43,9 @@ npm install @cancjs/decorators @cancjs/coroutine @cancjs/promise
 
 ### Usage
 
+The recommended form in TypeScript is a getter that returns `cancAsync(...)`. A getter's return
+type is inferred from its body, so the call site sees `CancelablePromise<T>` with no cast:
+
 ```ts
 import { AsyncMethod } from '@cancjs/decorators';
 import { cancAsync, cancAwait } from '@cancjs/coroutine';
@@ -65,8 +68,10 @@ const pending = client.loadIssue('bug-118');
 pending.cancel();
 ```
 
-That is the getter style, which is the one to use in TypeScript. In plain JavaScript the shorter
-method style works too:
+In plain JavaScript the shorter method style works too. It decorates a generator method directly,
+which is a more compact annotation. In TypeScript, however, a method decorator cannot change the
+declared return type of the method it decorates, so the call site sees a `Generator` instead of a
+`CancelablePromise` and every caller needs a cast. Use getter style in TypeScript.
 
 ```js
 class IssueClient {
@@ -190,33 +195,22 @@ annotation and is erased at runtime.
 
 ### Without decorators
 
-Getter-style decoration is sugar for building the coroutine once per instance and memoizing it.
-Both plain forms below are valid TypeScript with no decorator at all, and give the same inferred
-type:
+The [coroutine](https://github.com/cancjs/canc/tree/master/packages/canc-coroutine) package
+exports `asyncMethod` and `bindMethod`, which provide the same getter memoization without
+decorator syntax. Both read the getter, bind the result to the instance, and install it as an own
+property. `asyncMethod` is the semantic name for cancelable coroutine methods, `bindMethod` for
+general binding. See
+[class methods](https://github.com/cancjs/canc/tree/master/packages/canc-coroutine#class-methods)
+in the coroutine documentation.
+
+A class field is the simplest manual form, at the cost of one wrapped function per instance:
 
 ```ts
-// constructor field, built for every instance
-class IssueClient {
-  constructor() {
-    this.loadIssue = cancAsync(function* (this: IssueClient, issueId: string) {
-      return yield* cancAwait(this.api.issue(issueId));
-    }, this);
-  }
-}
-
-// class field, same thing without the constructor
 class IssueClient {
   loadIssue = cancAsync(function* (this: IssueClient, issueId: string) {
     return yield* cancAwait(this.api.issue(issueId));
   }, this);
 }
-```
-
-Choose a getter (built lazily on first access) or a field (built for every instance whether it is
-used or not) by that tradeoff. The prototype-level manual equivalent is a single assignment:
-
-```ts
-IssueClient.prototype.loadIssue = cancAsync(IssueClient.prototype.loadIssue);
 ```
 
 ### Inheritance
