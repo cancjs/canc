@@ -13,7 +13,7 @@
     "test": "cross-env NODE_OPTIONS=--no-deprecation lerna run test --stream",
     "lint": "run-p -c lint:workspaces lint:root",
     "lint:workspaces": "cross-env NODE_OPTIONS=--no-deprecation lerna run lint --stream --no-bail",
-    "lint:root": "eslint *.{js,mjs,json,md} scripts docs",
+    "lint:root": "eslint *.{js,mjs,json,md} scripts docs packages/_util packages/_lazy packages/_toolbox",
     "publish": "cross-env NODE_OPTIONS=--no-deprecation lerna publish from-git",
     "version": "cross-env NODE_OPTIONS=--no-deprecation lerna version --no-push",
     "bench": "npm run bench --workspace=@cancjs/benchmarks",
@@ -23,7 +23,7 @@
     "examples:typecheck": "npm --prefix examples run examples:typecheck",
     "format": "run-p -c format:workspaces format:root",
     "format:workspaces": "cross-env NODE_OPTIONS=--no-deprecation lerna run format --stream --no-bail",
-    "format:root": "eslint --fix *.{js,mjs,json,md} scripts docs"
+    "format:root": "eslint --fix *.{js,mjs,json,md} scripts docs packages/_util packages/_lazy packages/_toolbox"
   },
   "workspaces": ["packages/*", "benchmarks", "tests-types"],
   "devDependencies": {

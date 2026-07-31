@@ -168,10 +168,16 @@ export default defineConfig(
 
       '@typescript-eslint/no-floating-promises': ['error', { ignoreVoid: true, ignoreIIFE: true }],
 
+      // The published surface mirrors the Promise typings in lib.es5.d.ts, and the axios package
+      // mirrors axios' own typings. Both are built on `any`: `reject: (reason?: any) => void`,
+      // `T = any` parameter defaults, `TArgs extends any[]`. `unknown` is not a drop-in there. It
+      // changes variance and stops the types assigning to the natives they are meant to stand in
+      // for. New internal code should still type its values.
+      '@typescript-eslint/no-explicit-any': 'off',
+
       // Pre-existing type debt. These stay at warn so they are visible without blocking a
       // build, and get cleared package by package.
       '@typescript-eslint/no-duplicate-type-constituents': 'warn',
-      '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-misused-promises': 'warn',
       '@typescript-eslint/no-require-imports': 'warn',
       '@typescript-eslint/no-this-alias': 'warn',
@@ -190,14 +196,32 @@ export default defineConfig(
   // Specs. Tests deliberately do things production code should not: create a promise purely to
   // assert on it later, hold a reference that is never read again, reject with a non-Error to
   // prove the library tolerates it. Scoping these here keeps them enforced everywhere else.
+  //
+  // The same applies to the behaviour matrices, the type tests and the benchmarks, so they share
+  // the block.
   {
-    files: ['**/*.spec.{ts,tsx}', '**/__tests__/**/*.{ts,tsx}'],
+    files: [
+      '**/*.spec.{ts,tsx}',
+      '**/__tests__/**/*.{ts,tsx}',
+      '**/*.matrix.{ts,tsx}',
+      'benchmarks/**/*.{ts,tsx}',
+      'tests-types/**/*.{ts,tsx}',
+    ],
     rules: {
       'no-useless-assignment': 'off',
       '@typescript-eslint/no-floating-promises': 'off',
       '@typescript-eslint/prefer-promise-reject-errors': 'off',
       '@typescript-eslint/require-await': 'off',
       '@typescript-eslint/unbound-method': 'off',
+
+      // A test's whole job here is to reach past the typed surface: read a private field to check
+      // it was cleared, hand the library a value its types forbid, call a method that only exists
+      // on one branch of a union. Typing that away would test something other than what ships.
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
     },
   },
 
@@ -211,6 +235,15 @@ export default defineConfig(
     },
     rules: {
       '@typescript-eslint/no-require-imports': 'warn',
+    },
+  },
+
+  // .js and .cjs here are commonjs by definition: jest configs, rollup configs, benchmark
+  // harnesses. require() is the only thing that works in them.
+  {
+    files: ['**/*.{js,cjs}'],
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
     },
   },
 
