@@ -111,16 +111,18 @@ An existing `config.signal` from the caller is composed with the internal one. E
 abort the request, and in both cases the promise rejects with a `CancelError`, normalizing the
 error regardless of which signal aborted.
 
-The wrapper holds no state beyond what axios itself holds. `create()` returns another wrapped
-instance with its own defaults and interceptors, and `wrap()` wraps an existing axios instance
-without creating a new one.
+The wrapper holds no state beyond what axios itself holds. `defaults` on the wrapper is a live
+accessor onto the underlying instance's defaults, and `interceptors` is a facade over the real
+interceptor managers, so IDs stay valid and interceptors added directly on the underlying instance
+still run. `create()` returns another wrapped instance with its own defaults and interceptors, and
+`wrap()` wraps an existing axios instance without creating a new one.
 
 ## Description
 
 ### Interceptors
 
 Interceptors receive a second argument carrying the cancellation context of the request they run
-for. The context exposes a signal and a check for whether the request has already been canceled:
+for. The context exposes `signal`, `isCanceled()`, `cancel()` and `link(promise)`:
 
 ```js
 api.interceptors.request.use((config, ctx) => {
@@ -137,7 +139,8 @@ api.interceptors.request.use((config, ctx) => {
 
 A cancelable promise returned from an interceptor is canceled along with the request. In the
 example above, if the request is canceled while the token refresh is in flight, the refresh
-promise is canceled too.
+promise is canceled too. `ctx.link(promise)` explicitly ties any cancelable promise to the
+request's lifecycle, so work started outside the return path is still canceled with the request.
 
 ### Combinators
 
@@ -157,7 +160,8 @@ interface: `request`, `get`, `delete`, `head`, `options`, `post`, `put`, `patch`
 
 `cancelableAxios.create(config?)` returns a new wrapped instance.
 
-`cancelableAxios.wrap(axiosInstance)` wraps an existing axios instance.
+`cancelableAxios.wrap(axiosInstance)` wraps an existing axios instance. The argument is
+structurally typed, so it accepts instances from any axios version without type conflicts.
 
 `.axios` on any wrapped instance returns the underlying axios instance.
 
