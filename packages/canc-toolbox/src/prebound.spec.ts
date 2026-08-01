@@ -11,7 +11,7 @@ describe('prebound exports return CancelablePromise', () => {
   });
 
   it('delay result exposes cancel without a cast', () => {
-    const promise = delay(1000, 'x');
+    const promise = delay('x', 1000);
     expect(promise).toBeInstanceOf(CancelablePromise);
     promise.cancel();
   });
@@ -29,7 +29,7 @@ describe('prebound exports return CancelablePromise', () => {
   });
 
   it('minDelay result exposes cancel without a cast', () => {
-    const promise = minDelay(delay(10, 'v'), 1000);
+    const promise = minDelay(delay('v', 10), 1000);
     expect(promise).toBeInstanceOf(CancelablePromise);
     promise.cancel();
   });

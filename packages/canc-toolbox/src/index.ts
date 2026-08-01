@@ -5,6 +5,7 @@ export type {
   IRetryOptions,
   IWaitForOptions,
   TCallbackFn,
+  TDuration,
 } from '../../_toolbox';
 export { isTimeoutError, TimeoutError } from '../../_toolbox';
 export type { IDebounced, IDebounceOptions } from '../../_toolbox/debounce';

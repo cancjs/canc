@@ -1,6 +1,20 @@
-import { delay } from './index';
+import { CancelablePromise, isCancelError } from '@cancjs/promise';
 
-describe('delay', () => {
+import { TPromiseCtor } from './construct';
+import { delayFactory } from './delay';
+import { IToolboxDeps } from './deps';
+import { IPromiseKind } from './kind';
+import { MAX_TIMEOUT } from './timers';
+
+interface ITestKind extends IPromiseKind {
+  promise: CancelablePromise<this['value']>;
+  options: object;
+}
+
+const deps: IToolboxDeps<ITestKind> = { Impl: CancelablePromise as unknown as TPromiseCtor };
+const delay = delayFactory(deps);
+
+describe('delay (cancelable)', () => {
   afterEach(() => {
     jest.useRealTimers();
   });
@@ -13,35 +27,26 @@ describe('delay', () => {
   });
 
   it('resolves with the value after the given time (input, ms)', async () => {
-    const result = await delay('done', 10);
-    expect(result).toBe('done');
-  });
-
-  it('returns a plain native Promise, not a cancelable one', () => {
-    const promise = delay(1);
-    expect(promise).toBeInstanceOf(Promise);
-    expect('cancel' in promise).toBe(false);
-  });
-
-  it('no cancel: the timer runs to completion regardless', async () => {
     jest.useFakeTimers();
-    const promise = delay('x', 1000);
-    jest.advanceTimersByTime(1000);
+    const promise = delay('x', 50);
+    jest.advanceTimersByTime(50);
     await expect(promise).resolves.toBe('x');
   });
 
   it('the positional rule: two numeric args are (input, ms), not (ms, input)', async () => {
     jest.useFakeTimers();
     const promise = delay(42, 200);
+
     jest.advanceTimersByTime(199);
     await Promise.resolve();
+
     jest.advanceTimersByTime(1);
     await expect(promise).resolves.toBe(42);
   });
 
-  it('a trailing options object is not mistaken for an input', async () => {
+  it('a trailing options object is a 200ms timer, not an input', async () => {
     jest.useFakeTimers();
-    const promise = delay(200, {});
+    const promise = delay(200, { bubble: false });
     jest.advanceTimersByTime(200);
     await expect(promise).resolves.toBeUndefined();
   });
@@ -64,7 +69,7 @@ describe('delay', () => {
 
   it('a thunk that throws rejects instead of throwing synchronously', async () => {
     jest.useFakeTimers();
-    let promise: Promise<unknown> | undefined;
+    let promise: CancelablePromise<unknown> | undefined;
 
     expect(() => {
       promise = delay(() => {
@@ -78,8 +83,9 @@ describe('delay', () => {
 
   it('a promise input rejecting early is held until the timer completes (sequential)', async () => {
     jest.useFakeTimers();
-    const early = new Promise((_resolve, reject) => setTimeout(() => reject(new Error('early')), 10));
-    // Observe (and silence) the standalone rejection so it does not surface as unhandled.
+    const early = new CancelablePromise((_resolve, reject) => {
+      setTimeout(() => reject(new Error('early')), 10);
+    });
     early.catch(() => undefined);
 
     const promise = delay(early, 50);
@@ -88,12 +94,11 @@ describe('delay', () => {
     jest.advanceTimersByTime(10);
     await Promise.resolve();
 
-    jest.advanceTimersByTime(39);
-    // Not yet: the timer has not completed, so the rejection must not have surfaced.
     let settled = false;
     observed.then(() => {
       settled = true;
     });
+    jest.advanceTimersByTime(39);
     await Promise.resolve();
     expect(settled).toBe(false);
 
@@ -127,9 +132,33 @@ describe('delay', () => {
     expect(() => delay([1, Infinity])).toThrow(RangeError);
   });
 
+  it('canceling before the timer fires: the thunk never runs and the timer is cleared', async () => {
+    jest.useFakeTimers();
+    const job = jest.fn(() => 'result');
+    const promise = delay(job, 50);
+
+    promise.cancel();
+
+    jest.advanceTimersByTime(1000);
+    expect(job).not.toHaveBeenCalled();
+
+    const reason = await promise.catch((error: unknown) => error);
+    expect(isCancelError(reason)).toBe(true);
+  });
+
+  it('canceling cancels an eagerly-supplied cancelable input', async () => {
+    jest.useFakeTimers();
+    const input = new CancelablePromise(() => {});
+    const cancelSpy = jest.spyOn(input, 'cancel');
+
+    const promise = delay(input, 1000);
+    promise.cancel();
+
+    expect(cancelSpy).toHaveBeenCalledTimes(1);
+  });
+
   it('a long delay does not resolve early (P24-1 timer wired in)', async () => {
     jest.useFakeTimers();
-    const MAX_TIMEOUT = 2147483647;
     const promise = delay(MAX_TIMEOUT + 100);
 
     let settled = false;

@@ -26,6 +26,7 @@ export const promisify = tb.promisifyFactory(deps);
 
 export const promisifyAll = tb.promisifyAllFactory(deps);
 
+export type { TDuration } from '../../_toolbox';
 export { isTimeoutError, TimeoutError } from '../../_toolbox';
 export type { IDebounced, IDebounceOptions } from '../../_toolbox/debounce';
 export type { IThrottled, IThrottleOptions } from '../../_toolbox/throttle';
