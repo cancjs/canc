@@ -47,7 +47,7 @@
     "@cancjs/promise": "0.0.0"
   },
   "peerDependencies": {
-    "@cancjs/promise": "^0.0.0"
+    "@cancjs/promise": "*"
   },
   "unpkg": "dist/index.umd.min.js",
   "jsdelivr": "dist/index.umd.min.js",
