@@ -10,7 +10,8 @@
     "canc-bench": "./cli.js"
   },
   "engines": {
-    "npm": ">=9"
+    "npm": ">=9",
+    "node": ">=18"
   },
   "scripts": {
     "bench": "node cli.js",

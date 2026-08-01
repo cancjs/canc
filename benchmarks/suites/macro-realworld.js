@@ -71,11 +71,6 @@ function makeRng(seed) {
 // Every impl swallows its own cancellation so the harness loop never rejects.
 // ---------------------------------------------------------------------------
 
-// resolve on the macrotask queue, like a real async request completing.
-function laterNative(value) {
-  return new Promise((resolve) => setImmediate(() => resolve(value)));
-}
-
 const impls = {
   // Native Promise + hand-rolled AbortController. This is the honest baseline:
   // what you write today if you want cancellation without a library. Note the
@@ -512,7 +507,7 @@ function buildSummary(result) {
     return 'far ' + (delta <= 0 ? 'ahead of' : 'behind');
   };
 
-  let mem = '';
+  let mem;
   if (cMem.supported && nMem.supported) {
     const memDelta = cMem.kbPer1k - nMem.kbPer1k;
     const memWord = memDelta <= 0 ? 'no more heap' : `about ${(memDelta / 1024).toFixed(1)} MB more heap`;
