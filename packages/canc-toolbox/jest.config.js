@@ -16,6 +16,10 @@ function mergeTsJestConfig(options) {
 module.exports = {
   ...baseConfig,
   cacheDirectory: path.join(__dirname, 'node_modules', '.cache', 'jest'),
+  // The inlinable `_toolbox` directory has no package.json, so lerna never runs a suite for it and
+  // its specs need a host project. This package is that host: it consumes every `_toolbox` module
+  // and already compiles them from source.
+  roots: [...baseConfig.roots, '<rootDir>/../_toolbox'],
   transform: {
     ...mergeTsJestConfig({ tsconfig: '<rootDir>/../../tsconfig.json' }),
   },
