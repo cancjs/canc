@@ -60,11 +60,13 @@ Signal interop and `cancelify` have no meaning without cancellation and are twin
 
 ## API
 
-`delay(ms, value?)`, `timeout(promise, ms?)`, `minDelay(promise, ms)`, `waitFor(condition,
-options?)`, `retry(input, options?)`, `defer()`, `promisify(fn, options?)`,
-`promisifyAll(source, options?)`, `TimeoutError`, `isTimeoutError(error)`.
+`delay(ms, options?)`, `delay(input, ms, options?)`, `minDelay(input, ms, options?)`,
+`timeout(ms, options?)`, `timeout(input, ms?, options?)`, `waitFor(condition, options?)`,
+`retry(input, options?)`, `defer()`, `promisify(fn, options?)`, `promisifyAll(source, options?)`,
+`TimeoutError`, `isTimeoutError(error)`.
 
-Option shapes are identical to
+`ms` is a number of milliseconds or a `[min, max]` tuple, and is always the last positional
+argument before `options`. Option shapes are identical to
 [`@cancjs/toolbox`](https://github.com/cancjs/canc/tree/master/packages/canc-toolbox#api), minus
 the cancelable promise options.
 

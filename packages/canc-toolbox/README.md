@@ -166,12 +166,23 @@ as its last argument.
 
 ### Timing
 
-| Export                            | Description                                                    |
-| --------------------------------- | -------------------------------------------------------------- |
-| `delay(ms, value?, options?)`     | Resolves with `value` after `ms`, cancel clears the timer      |
-| `timeout(promise, ms?, options?)` | Rejects with `TimeoutError` after `ms` and cancels the promise |
-| `minDelay(promise, ms, options?)` | Settles no earlier than `ms`, for flicker-free loading states  |
-| `waitFor(condition, options?)`    | Resolves once `condition` is truthy, polling at `interval`     |
+| Export                            | Description                                                     |
+| ---------------------------------- | ---------------------------------------------------------------- |
+| `delay(ms, options?)`             | Resolves after `ms`, cancel clears the timer                    |
+| `delay(input, ms, options?)`      | Resolves with `input`'s value after `ms`                        |
+| `minDelay(input, ms, options?)`   | Settles no earlier than `ms`, for flicker-free loading states   |
+| `timeout(ms, options?)`           | Rejects with `TimeoutError` after `ms`                          |
+| `timeout(input, ms?, options?)`   | Settles with `input` and cancels it, unless `ms` passes first   |
+| `waitFor(condition, options?)`    | Resolves once `condition` is truthy, polling at `interval`      |
+
+`ms` is a number of milliseconds or a `[min, max]` tuple, rolled once per call for a jittered
+duration. It is always the last positional argument before `options`: one positional argument is
+the duration, two is `(input, duration)`. `input` is a value, a promise, or a function; `delay`
+calls a function input after the timer, `minDelay` and `timeout` call it immediately.
+
+`delay` and `minDelay` differ only on rejections. `delay` holds an early rejection until `ms`
+elapses, alongside everything else. `minDelay` reports it the moment it happens, because it is a
+floor on success, not a timer. Pick the one that matches what a failure should do.
 
 ### Control
 
