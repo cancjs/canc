@@ -1,4 +1,4 @@
-import { IPromiseKind, IToolboxDeps, TPromiseCtor } from '../../_toolbox';
+import { IPromiseKind, IToolboxDeps, TPromiseCtor, withAbortSignal } from '../../_toolbox';
 
 // Captured once at module load per the native-Promise capture invariant; never re-read the
 // global afterward.
@@ -17,7 +17,12 @@ export interface INativeKind extends IPromiseKind {
  *
  * The cast is the single place stating that the native Promise satisfies the minimal constructor
  * shape the factories need; TypeScript cannot see that across the package boundary on its own.
+ *
+ * `Impl` is wrapped through `withAbortSignal` so every helper honors an `options.signal`: the
+ * native `Promise` constructor otherwise ignores that option entirely, which would make
+ * `delay(1000, { signal })` type-check, do nothing, and give the caller no way to tell. With no
+ * signal passed, the wrapper is a pure passthrough to the native constructor.
  */
 export const deps: IToolboxDeps<INativeKind> = {
-  Impl: NativePromise as unknown as TPromiseCtor,
+  Impl: withAbortSignal(NativePromise as unknown as TPromiseCtor),
 };

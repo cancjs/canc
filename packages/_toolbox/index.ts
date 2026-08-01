@@ -1,3 +1,4 @@
+export { IAbortSignalLike, IAbortSignalOptions, withAbortSignal } from './abort-signal';
 export { makeCancelSignal, TGetSignal } from './cancel-signal';
 export { construct, TExecutor, TExecutorCtx, THandleCancel, TPromiseCtor } from './construct';
 export { debounceFactory, IDebounced, IDebounceDeps, IDebounceOptions } from './debounce';
