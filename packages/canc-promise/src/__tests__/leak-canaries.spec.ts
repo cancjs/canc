@@ -1,4 +1,3 @@
-import { CancelError } from '../cancel-error';
 import { CancelablePromise } from '../cancelable-promise';
 
 /**
@@ -168,8 +167,8 @@ describe('leak canaries (GC probe)', () => {
 
       // Create and release a few children to warm heap
       for (let i = 0; i < 10; i++) {
-        let child: CancelablePromise<number> | undefined = parent!.then((v) => v + 1);
-        child = undefined;
+        let _child: CancelablePromise<number> | undefined = parent!.then((v) => v + 1);
+        _child = undefined;
       }
       gc();
       await drain();
@@ -181,8 +180,8 @@ describe('leak canaries (GC probe)', () => {
       // Create 10k transient children
       const iterations = 10000;
       for (let i = 0; i < iterations; i++) {
-        let child: CancelablePromise<number> | undefined = parent!.then((v) => v + 1);
-        child = undefined;
+        let _child: CancelablePromise<number> | undefined = parent!.then((v) => v + 1);
+        _child = undefined;
 
         // Periodic GC to allow collection
         if (i % 1000 === 999) {
@@ -199,8 +198,8 @@ describe('leak canaries (GC probe)', () => {
 
       // Do it again to verify plateau (not linear growth)
       for (let i = 0; i < iterations; i++) {
-        let child: CancelablePromise<number> | undefined = parent!.then((v) => v + 1);
-        child = undefined;
+        let _child: CancelablePromise<number> | undefined = parent!.then((v) => v + 1);
+        _child = undefined;
 
         if (i % 1000 === 999) {
           gc();

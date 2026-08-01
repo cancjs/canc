@@ -1,6 +1,4 @@
-import { CancelError } from './cancel-error';
 import { CancelablePromise } from './cancelable-promise';
-import { isCancelError } from './helpers';
 
 /**
  * Cancel-losers doctrine.
@@ -230,7 +228,7 @@ describe('cancel-losers doctrine', () => {
       /**/
     });
 
-    const result = CancelablePromise.allSettled([p1, p2, p3]);
+    const _result = CancelablePromise.allSettled([p1, p2, p3]);
     await macrotask();
 
     // allSettled() wraps inputs in .then() that convert all results to {status, reason} objects,

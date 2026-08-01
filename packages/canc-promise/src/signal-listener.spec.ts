@@ -19,7 +19,7 @@ describe('signal listener cleanup + multi-signal', () => {
     const signal = controller.signal;
     const spy = jest.spyOn(signal, 'removeEventListener');
 
-    const promise = new CancelablePromise((resolve) => setTimeout(() => resolve('value'), 0), { signal });
+    const _promise = new CancelablePromise((resolve) => setTimeout(() => resolve('value'), 0), { signal });
 
     await flushPromises();
 
@@ -230,7 +230,7 @@ describe('signal listener cleanup + multi-signal', () => {
     await flushPromises();
 
     expect(promise.isCanceled).toBe(true);
-    const cancelCountAfterFirst = promise.isCanceled ? 1 : 0;
+    const _cancelCountAfterFirst = promise.isCanceled ? 1 : 0;
 
     ctrl2.abort(new Error('second'));
 

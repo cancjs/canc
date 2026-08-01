@@ -225,6 +225,11 @@ export default defineConfig(
       'require-yield': 'off',
       'no-unsafe-finally': 'off',
       '@typescript-eslint/class-literal-property-style': 'off',
+
+      // require() is load-bearing in a few suites: reloading the module after resetModules to
+      // prove the native Promise capture happens once, isolating a module registry, or building
+      // a child process fixture. A static import cannot express any of those.
+      '@typescript-eslint/no-require-imports': 'off',
     },
   },
 

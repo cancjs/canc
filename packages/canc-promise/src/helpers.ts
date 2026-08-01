@@ -76,15 +76,12 @@ function isCaught(error: any, options?: ICatchSuppressOptions): boolean {
   );
 }
 
-export function catchCancel<TResult extends any>(
+export function catchCancel<TResult>(
   promise: PromiseLike<TResult>,
   options?: ICatchSuppressOptions,
 ): CancelablePromise<TResult | CancelError>;
-export function catchCancel<TError extends any>(
-  error: TError,
-  options?: ICatchSuppressOptions,
-): CancelError | TError | never;
-export function catchCancel<TResult extends any, TError extends any>(
+export function catchCancel<TError>(error: TError, options?: ICatchSuppressOptions): CancelError | TError | never;
+export function catchCancel<TResult, TError>(
   errorOrPromise: PromiseLike<TResult> | TError,
   options?: ICatchSuppressOptions,
 ): CancelablePromise<TResult | CancelError> | CancelError | TError | never {
@@ -110,12 +107,12 @@ export function catchCancel<TResult extends any, TError extends any>(
   }
 }
 
-export function suppressCancel<TResult extends any>(
+export function suppressCancel<TResult>(
   promise: PromiseLike<TResult>,
   options?: ICatchSuppressOptions,
 ): CancelablePromise<TResult | void>;
-export function suppressCancel<TError extends any>(error: TError, options?: ICatchSuppressOptions): void | never;
-export function suppressCancel<TResult extends any, TError extends any>(
+export function suppressCancel<TError>(error: TError, options?: ICatchSuppressOptions): void | never;
+export function suppressCancel<TResult, TError>(
   errorOrPromise: PromiseLike<TResult> | TError,
   options?: ICatchSuppressOptions,
 ): CancelablePromise<TResult | void> | void | never {

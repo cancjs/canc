@@ -1,4 +1,3 @@
-import { CancelError } from './cancel-error';
 import { CancelablePromise } from './cancelable-promise';
 import { isCancelError } from './helpers';
 

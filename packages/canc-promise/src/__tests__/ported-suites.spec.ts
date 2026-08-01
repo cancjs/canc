@@ -1,4 +1,3 @@
-import { CancelError } from '../cancel-error';
 import { CancelablePromise } from '../cancelable-promise';
 import { isCancelError } from '../helpers';
 
@@ -255,11 +254,17 @@ describe('ported suites', () => {
     it('12. handlers fire in order across chain', async () => {
       const order: string[] = [];
       const parent = new CancelablePromise<void>((resolve, reject, { handleCancel }) => {
-        handleCancel(() => order.push('parent-1'));
-        handleCancel(() => order.push('parent-2'));
+        handleCancel(() => {
+          order.push('parent-1');
+        });
+        handleCancel(() => {
+          order.push('parent-2');
+        });
       });
       const child = parent.then(() => {});
-      child.handleCancel(() => order.push('child-1'));
+      child.handleCancel(() => {
+        order.push('child-1');
+      });
       silence(parent);
       silence(child);
 
@@ -532,10 +537,10 @@ describe('ported suites', () => {
   // ─────────────────────────────────────────────────────────────────────────────
   describe('bluebird: two-way handler/follower semantics', () => {
     it('27. child cancellation fires handlers on parent', async () => {
-      let parentFired = false;
+      let _parentFired = false;
       const parent = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
         handleCancel(() => {
-          parentFired = true;
+          _parentFired = true;
         });
         // Never resolve — keep pending
       });
@@ -851,7 +856,7 @@ describe('ported suites', () => {
     });
 
     it('42. CancelError carries isBubbled flag for upward vs downward cancels', async () => {
-      let downErr: any, upErr: any;
+      let downErr: any, _upErr: any;
       const parent = new CancelablePromise<void>((resolve, reject, { handleCancel }) => {
         handleCancel(() => {});
       });
@@ -873,9 +878,15 @@ describe('ported suites', () => {
     it('43. multiple handlers on same promise fire in registration order', async () => {
       const order: number[] = [];
       const p = new CancelablePromise<void>((resolve, reject, { handleCancel }) => {
-        handleCancel(() => order.push(1));
-        handleCancel(() => order.push(2));
-        handleCancel(() => order.push(3));
+        handleCancel(() => {
+          order.push(1);
+        });
+        handleCancel(() => {
+          order.push(2);
+        });
+        handleCancel(() => {
+          order.push(3);
+        });
       });
       silence(p);
 

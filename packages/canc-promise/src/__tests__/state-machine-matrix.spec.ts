@@ -83,7 +83,9 @@ describe('state machine matrix', () => {
 
       promise.then((v) => order.push(`then1:${v}`));
       promise.then((v) => order.push(`then2:${v}`));
-      promise.finally(() => order.push('finally'));
+      promise.finally(() => {
+        order.push('finally');
+      });
 
       await macrotask(20);
 
@@ -107,7 +109,9 @@ describe('state machine matrix', () => {
         /* noop for unhandled */
       });
       p2.catch((reason) => order.push(`catch:${reason}`));
-      p2.finally(() => order.push('finally')).catch(() => {
+      p2.finally(() => {
+        order.push('finally');
+      }).catch(() => {
         /* finally rethrows; swallow for unhandled */
       });
 
@@ -235,7 +239,9 @@ describe('state machine matrix', () => {
         });
       promise.catch((reason) => order.push(`catch:${isCancelError(reason)}`));
       promise
-        .finally(() => order.push('finally'))
+        .finally(() => {
+          order.push('finally');
+        })
         .catch(() => {
           /* finally rethrows; swallow for unhandled */
         });

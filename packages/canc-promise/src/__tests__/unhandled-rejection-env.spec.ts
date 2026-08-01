@@ -1,4 +1,4 @@
-import { execFileSync, spawnSync } from 'child_process';
+import { spawnSync } from 'child_process';
 import * as path from 'path';
 
 /**
@@ -13,7 +13,7 @@ import * as path from 'path';
  */
 
 const srcDir = path.dirname(__filename);
-const monorepoRoot = path.join(srcDir, '../../../../..');
+const _monorepoRoot = path.join(srcDir, '../../../../..');
 
 // Require-hook: transpile .ts on the fly with the TS compiler.
 const hook = `

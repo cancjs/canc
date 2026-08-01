@@ -1,5 +1,5 @@
 import { cancAsync } from '../../../canc-coroutine/src';
-import { CancelablePromise, CancelError, isCancelError } from '../';
+import { CancelablePromise } from '../';
 
 function drain() {
   return new Promise<void>((r) => setTimeout(r, 0));
@@ -107,7 +107,7 @@ describe('cancel-cleanup collector', () => {
         }),
       );
     });
-    const mid = root.then((v) => {
+    const mid = root.then((_v) => {
       return new CancelablePromise<number>((_resolve, _reject, { handleCancel }) => {
         handleCancel(() =>
           delay(20).then(() => {
@@ -147,7 +147,7 @@ describe('cancel-cleanup collector', () => {
     childA.catch(() => {
       /**/
     });
-    const settled = await childB.cancel();
+    const _settled = await childB.cancel();
     childB.catch(() => {
       /**/
     });

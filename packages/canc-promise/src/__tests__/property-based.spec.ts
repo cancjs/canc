@@ -66,16 +66,16 @@ const operationArbitrary = fc.letrec((tie: any) => ({
   operation: fc.oneof(
     fc
       .tuple(fc.constant('then'), fc.integer({ min: 0, max: 100 }))
-      .map(([op, tick]: [string, number]) => ({ type: 'then' as const, tick })),
+      .map(([_op, tick]: [string, number]) => ({ type: 'then' as const, tick })),
     fc
       .tuple(fc.constant('catch'), fc.integer({ min: 0, max: 100 }))
-      .map(([op, tick]: [string, number]) => ({ type: 'catch' as const, tick })),
+      .map(([_op, tick]: [string, number]) => ({ type: 'catch' as const, tick })),
     fc
       .tuple(fc.constant('finally'), fc.integer({ min: 0, max: 100 }))
-      .map(([op, tick]: [string, number]) => ({ type: 'finally' as const, tick })),
+      .map(([_op, tick]: [string, number]) => ({ type: 'finally' as const, tick })),
     fc
       .tuple(fc.constant('cancel'), fc.integer({ min: 0, max: 100 }))
-      .map(([op, tick]: [string, number]) => ({ type: 'cancel' as const, tick })),
+      .map(([_op, tick]: [string, number]) => ({ type: 'cancel' as const, tick })),
   ),
   operations: fc.array(tie('operation'), { minLength: 1, maxLength: 10 }),
 })).operations;
@@ -88,7 +88,7 @@ interface Operation {
 /**
  * Execute a sequence of operations on a promise and verify invariants.
  */
-async function executeOperationSequence(ops: Operation[], seed: number) {
+async function executeOperationSequence(ops: Operation[], _seed: number) {
   const promises: CancelablePromise<any>[] = [];
   const cancelErrors: CancelError[] = [];
   const rejectionReasons: any[] = [];
@@ -99,7 +99,7 @@ async function executeOperationSequence(ops: Operation[], seed: number) {
 
   for (const op of ops) {
     if (op.type === 'then') {
-      currentPromise = currentPromise.then((val) => {
+      currentPromise = currentPromise.then((_val) => {
         executedOps++;
         return `then-${executedOps}`;
       });

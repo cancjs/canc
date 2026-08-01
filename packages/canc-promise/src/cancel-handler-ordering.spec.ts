@@ -73,7 +73,9 @@ describe('cancel handler invocation ordering', () => {
     // explicit path
     const explicitOrder: string[] = [];
     const target = new CancelablePromise((_r, _j, { handleCancel }) => {
-      handleCancel(() => explicitOrder.push('handler'));
+      handleCancel(() => {
+        explicitOrder.push('handler');
+      });
     });
     silence(target);
     explicitOrder.push('trigger');
@@ -85,7 +87,9 @@ describe('cancel handler invocation ordering', () => {
     // bubble path
     const bubbleOrder: string[] = [];
     const parent = new CancelablePromise<number>((_r, _j, { handleCancel }) => {
-      handleCancel(() => bubbleOrder.push('handler'));
+      handleCancel(() => {
+        bubbleOrder.push('handler');
+      });
     });
     const child = parent.then((v) => v);
     silence(child);
@@ -147,7 +151,9 @@ describe('cancel handler invocation ordering', () => {
       /* pending */
     });
     const child = parent.then((v) => v);
-    child.handleCancel(() => order.push('child-handler'));
+    child.handleCancel(() => {
+      order.push('child-handler');
+    });
     child.catch(() => order.push('child-catch'));
     silence(parent);
 
@@ -175,7 +181,9 @@ describe('cancel handler invocation ordering', () => {
     const order: string[] = [];
     const parent = new CancelablePromise<number>(
       (_r, _j, { handleCancel }) => {
-        handleCancel(() => order.push('handler'));
+        handleCancel(() => {
+          order.push('handler');
+        });
       },
       { asyncCancel: false },
     );

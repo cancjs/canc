@@ -1,4 +1,3 @@
-import { CancelError } from '../cancel-error';
 import { CancelablePromise, ICancelablePromiseFlagOptions } from '../cancelable-promise';
 import { createCancelSignal, isCancelError } from '../helpers';
 

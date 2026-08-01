@@ -19,7 +19,7 @@ const NativePromise = Promise;
 const disposeSym = (Symbol as any).dispose as symbol | undefined;
 const asyncDisposeSym = (Symbol as any).asyncDispose as symbol | undefined;
 
-function macrotask(): Promise<void> {
+function _macrotask(): Promise<void> {
   return new NativePromise((resolve) => setTimeout(resolve, 10));
 }
 

@@ -141,9 +141,15 @@ describe('two-way propagation matrix', () => {
     it('6. cancel handlers fire in registration order (FIFO)', async () => {
       const order: number[] = [];
       const parent = new CancelablePromise<number>((_r, _j, { handleCancel }) => {
-        handleCancel(() => order.push(1));
-        handleCancel(() => order.push(2));
-        handleCancel(() => order.push(3));
+        handleCancel(() => {
+          order.push(1);
+        });
+        handleCancel(() => {
+          order.push(2);
+        });
+        handleCancel(() => {
+          order.push(3);
+        });
       });
       silence(parent);
 
@@ -157,8 +163,12 @@ describe('two-way propagation matrix', () => {
       const order: string[] = [];
       const parent = new CancelablePromise<number>(
         (_r, _j, { handleCancel }) => {
-          handleCancel(() => order.push('a'));
-          handleCancel(() => order.push('b'));
+          handleCancel(() => {
+            order.push('a');
+          });
+          handleCancel(() => {
+            order.push('b');
+          });
         },
         { asyncCancel: false },
       );

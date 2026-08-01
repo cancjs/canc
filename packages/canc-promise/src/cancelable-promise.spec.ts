@@ -11,7 +11,7 @@ describe.skip('', () => {
     // const nativePromise = new NativePromise<never>((_resolve) => {});
     const nativePromise = NativePromise.resolve();
 
-    const NativePromiseSpy = jest.spyOn(global, 'Promise').mockReturnValue(nativePromise);
+    const _NativePromiseSpy = jest.spyOn(global, 'Promise').mockReturnValue(nativePromise);
   });
 });
 
