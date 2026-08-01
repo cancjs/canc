@@ -2,6 +2,8 @@
 // so that the native toolbox, which must not depend on the cancelable promise package at all,
 // never reaches the cancelable flavor through here.
 export {
+  ILazyImplStatics,
+  ILazyWithResolvers,
   isLazyPromise,
   LAZY_PROMISE_BRAND,
   LazyBase,

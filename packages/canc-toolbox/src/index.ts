@@ -7,11 +7,11 @@ export type {
   TCallbackFn,
   TDuration,
 } from '../../_toolbox';
-export type { TLazyExecutor, TLazyOnCancel } from '../../_toolbox';
+export type { ILazyWithResolvers, TLazyExecutor, TLazyOnCancel } from '../../_toolbox';
 export { isLazyPromise, isTimeoutError, TimeoutError } from '../../_toolbox';
 export type { IDebounced, IDebounceOptions } from '../../_toolbox/debounce';
-export type { ILazyPromiseOptions } from '../../_toolbox/lazy/lazy-promise';
-export { lazy, LazyPromise } from '../../_toolbox/lazy/lazy-promise';
+export type { ICancelableLazyWithResolvers, ILazyPromiseOptions } from '../../_toolbox/lazy/lazy-promise';
+export { createLazyPromise, lazy, LazyPromise } from '../../_toolbox/lazy/lazy-promise';
 export type { IThrottled, IThrottleOptions } from '../../_toolbox/throttle';
 export type { ISuppressOptions } from './abort';
 export {

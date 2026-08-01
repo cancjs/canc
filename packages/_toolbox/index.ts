@@ -9,7 +9,7 @@ export { IToolboxDeps, TAbortControllerCtor } from './deps';
 export { TDuration } from './duration';
 export { IEagerSource, startInput, TTimedInput } from './input';
 export { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
-export { isLazyPromise, LAZY_PROMISE_BRAND, TLazyExecutor, TLazyOnCancel } from './lazy';
+export { ILazyWithResolvers, isLazyPromise, LAZY_PROMISE_BRAND, TLazyExecutor, TLazyOnCancel } from './lazy';
 export { minDelayFactory } from './min-delay';
 export {
   IPromisifyAllOptions,

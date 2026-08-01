@@ -1,7 +1,22 @@
 import { CancelablePromise, CancelError, setPromiseImpl } from '@cancjs/promise';
 
 import { isCancelable } from '../../_util';
-import { isLazyPromise, lazy, LazyPromise } from './index';
+import { createLazyPromise, isLazyPromise, lazy, LazyPromise } from './index';
+
+function noop() {
+  /**/
+}
+
+// A minimal thenable whose `then` is observable, so deferring the subscription to it is assertable.
+function spiedThenable(value: number) {
+  const then = jest.fn((onFulfilled?: ((value: number) => unknown) | null) => {
+    if (onFulfilled) {
+      onFulfilled(value);
+    }
+  });
+
+  return { then, thenable: { then } as unknown as PromiseLike<number> };
+}
 
 // A stand-in promise implementation that records every construction, so which implementation a lazy
 // picked is observable without reaching into its internals.
@@ -250,6 +265,380 @@ describe('LazyPromise', () => {
       const fromAnotherCopy = Object.create({ [LAZY_PROMISE_BRAND]: true }) as object;
 
       expect(isLazyPromise(fromAnotherCopy)).toBe(true);
+    });
+  });
+
+  describe('try', () => {
+    it('does not call the function until the first subscription', async () => {
+      const work = jest.fn(() => 42);
+      const p = LazyPromise.try(work);
+
+      expect(work).not.toHaveBeenCalled();
+      expect(p.started).toBe(false);
+
+      expect(await p).toBe(42);
+      expect(work).toHaveBeenCalledTimes(1);
+    });
+
+    it('passes the arguments through', async () => {
+      const work = jest.fn((first: string, second: number) => `${first}${second}`);
+
+      expect(await LazyPromise.try(work, 'a', 1)).toBe('a1');
+      expect(work).toHaveBeenCalledWith('a', 1);
+    });
+
+    it('calls the function once for two consumers, both receiving the same value', async () => {
+      const work = jest.fn(() => ({ shared: true }));
+      const p = LazyPromise.try(work);
+
+      const [first, second] = await Promise.all([Promise.resolve(p), Promise.resolve(p)]);
+
+      expect(work).toHaveBeenCalledTimes(1);
+      expect(first).toBe(second);
+    });
+
+    it('never calls the function when canceled before any subscription', async () => {
+      const work = jest.fn(() => 1);
+      const p = LazyPromise.try(work);
+
+      p.cancel('gone');
+
+      await expect(Promise.resolve(p)).rejects.toBeInstanceOf(CancelError);
+      expect(work).not.toHaveBeenCalled();
+    });
+
+    it('rejects on a synchronous throw instead of letting it escape the caller', async () => {
+      const failure = new Error('sync');
+
+      expect(() =>
+        LazyPromise.try(() => {
+          throw failure;
+        }),
+      ).not.toThrow();
+
+      await expect(
+        Promise.resolve(
+          LazyPromise.try(() => {
+            throw failure;
+          }),
+        ),
+      ).rejects.toBe(failure);
+    });
+  });
+
+  describe('resolve', () => {
+    it('returns a lazy of the same flavor unchanged', () => {
+      const original = lazy<number>((resolve) => resolve(1));
+
+      expect(LazyPromise.resolve(original)).toBe(original);
+    });
+
+    it('leaves the returned lazy cold, then starts it exactly once on subscription', async () => {
+      const work = jest.fn(() => 7);
+      const original = LazyPromise.try(work);
+      const same = LazyPromise.resolve(original);
+
+      expect(same).toBe(original);
+      expect(work).not.toHaveBeenCalled();
+
+      expect(await same).toBe(7);
+      expect(await same).toBe(7);
+      expect(work).toHaveBeenCalledTimes(1);
+    });
+
+    it('cancels the original when the returned lazy is canceled', async () => {
+      const teardown = jest.fn();
+      const original = lazy<number>((_resolve, _reject, handleCancel) => handleCancel(teardown));
+      const same = LazyPromise.resolve(original);
+
+      same.then(noop, noop);
+      await Promise.resolve();
+      same.cancel('stop');
+
+      expect(teardown).toHaveBeenCalledTimes(1);
+    });
+
+    it('builds a reconfigured copy when the options differ', () => {
+      const original = lazy<number>((resolve) => resolve(1));
+
+      expect(LazyPromise.resolve(original, { resettable: true })).not.toBe(original);
+    });
+
+    it('defers the subscription to a plain thenable', async () => {
+      const { then, thenable } = spiedThenable(3);
+      const p = LazyPromise.resolve<number>(thenable);
+
+      expect(then).not.toHaveBeenCalled();
+
+      expect(await p).toBe(3);
+      expect(then).toHaveBeenCalledTimes(1);
+    });
+
+    it('resolves a plain value lazily', async () => {
+      const p = LazyPromise.resolve(42);
+
+      expect(p.started).toBe(false);
+      expect(await p).toBe(42);
+    });
+  });
+
+  describe('reject', () => {
+    it('rejects with the given reason once subscribed', async () => {
+      const failure = new Error('nope');
+      const p = LazyPromise.reject(failure);
+
+      expect(p.started).toBe(false);
+      await expect(Promise.resolve(p)).rejects.toBe(failure);
+    });
+  });
+
+  describe('combinators', () => {
+    it('leaves every input cold until the aggregate is awaited', async () => {
+      const first = jest.fn(() => 1);
+      const second = jest.fn(() => 2);
+      const aggregate = LazyPromise.all([LazyPromise.try(first), LazyPromise.try(second)]);
+
+      expect(first).not.toHaveBeenCalled();
+      expect(second).not.toHaveBeenCalled();
+      expect(aggregate.started).toBe(false);
+
+      expect(await aggregate).toEqual([1, 2]);
+      expect(first).toHaveBeenCalledTimes(1);
+      expect(second).toHaveBeenCalledTimes(1);
+    });
+
+    it('never runs an input when the aggregate is canceled before it is subscribed', async () => {
+      const first = jest.fn(() => 1);
+      const second = jest.fn(() => 2);
+      const aggregate = LazyPromise.all([LazyPromise.try(first), LazyPromise.try(second)]);
+
+      aggregate.cancel('stop');
+
+      await expect(Promise.resolve(aggregate)).rejects.toBeInstanceOf(CancelError);
+      expect(first).not.toHaveBeenCalled();
+      expect(second).not.toHaveBeenCalled();
+    });
+
+    it('cancels the loser of a race, because the underlying implementation does', async () => {
+      const loserTeardown = jest.fn();
+      const winner = new CancelablePromise<string>((resolve) => setTimeout(() => resolve('winner'), 1));
+      const loser = new CancelablePromise<string>((_resolve, _reject, ctx) => {
+        ctx.handleCancel(loserTeardown);
+      });
+
+      expect(await LazyPromise.race([winner, loser])).toBe('winner');
+
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      expect(loserTeardown).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps race cold until subscribed', async () => {
+      const first = jest.fn(() => 'first');
+      const race = LazyPromise.race([LazyPromise.try(first)]);
+
+      expect(first).not.toHaveBeenCalled();
+      expect(await race).toBe('first');
+    });
+
+    it('keeps any cold until subscribed, then takes the first success', async () => {
+      const succeeding = jest.fn(() => 2);
+      const aggregate = LazyPromise.any<number>([LazyPromise.reject(new Error('x')), LazyPromise.try(succeeding)]);
+
+      expect(succeeding).not.toHaveBeenCalled();
+      expect(await aggregate).toBe(2);
+    });
+
+    it('keeps allSettled cold until subscribed, then reports every outcome', async () => {
+      const work = jest.fn(() => 1);
+      const aggregate = LazyPromise.allSettled<number>([LazyPromise.try(work), LazyPromise.reject(new Error('x'))]);
+
+      expect(work).not.toHaveBeenCalled();
+
+      expect((await aggregate).map((result) => result.status)).toEqual(['fulfilled', 'rejected']);
+    });
+  });
+
+  describe('createLazyPromise', () => {
+    it('defers a function to the first subscription', async () => {
+      const work = jest.fn(() => 5);
+      const p = createLazyPromise(work);
+
+      expect(work).not.toHaveBeenCalled();
+      expect(await p).toBe(5);
+      expect(work).toHaveBeenCalledTimes(1);
+    });
+
+    it('rejects on a synchronous throw', async () => {
+      const failure = new Error('sync');
+
+      await expect(
+        Promise.resolve(
+          createLazyPromise(() => {
+            throw failure;
+          }),
+        ),
+      ).rejects.toBe(failure);
+    });
+
+    it('resolves a plain value lazily', async () => {
+      const p = createLazyPromise(42);
+
+      expect(p.started).toBe(false);
+      expect(await p).toBe(42);
+    });
+
+    it('returns an existing lazy unchanged rather than wrapping it', async () => {
+      const work = jest.fn(() => 7);
+      const original = LazyPromise.try(work);
+      const same = createLazyPromise(original);
+
+      expect(same).toBe(original);
+      expect(work).not.toHaveBeenCalled();
+
+      expect(await same).toBe(7);
+      expect(work).toHaveBeenCalledTimes(1);
+    });
+
+    it('cancels the original when the value it returned is canceled', async () => {
+      const teardown = jest.fn();
+      const original = lazy<number>((_resolve, _reject, handleCancel) => handleCancel(teardown));
+      const same = createLazyPromise(original);
+
+      same.then(noop, noop);
+      await Promise.resolve();
+      same.cancel('stop');
+
+      expect(teardown).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not subscribe to a plain thenable until the result is subscribed', async () => {
+      const { then, thenable } = spiedThenable(3);
+      const p = createLazyPromise<number>(thenable);
+
+      expect(then).not.toHaveBeenCalled();
+
+      expect(await p).toBe(3);
+      expect(then).toHaveBeenCalledTimes(1);
+    });
+
+    it('applies the options it is given', async () => {
+      const log: string[] = [];
+      const p = createLazyPromise(1, { impl: trackingImpl(log, 'per-call') });
+
+      await p;
+      expect(log).toEqual(['per-call']);
+    });
+  });
+
+  describe('withResolvers', () => {
+    it('stays unstarted until someone subscribes, however early it is settled', async () => {
+      const { promise, resolve } = LazyPromise.withResolvers<number>();
+
+      expect(promise.started).toBe(false);
+
+      resolve(5);
+      await Promise.resolve();
+      expect(promise.started).toBe(false);
+
+      expect(await promise).toBe(5);
+      expect(promise.started).toBe(true);
+    });
+
+    it('does not start a lazy value handed to the settler until the outer is subscribed', async () => {
+      const work = jest.fn(() => 9);
+      const { promise, resolve } = LazyPromise.withResolvers<number>();
+
+      resolve(LazyPromise.try(work));
+      await Promise.resolve();
+
+      expect(work).not.toHaveBeenCalled();
+
+      expect(await promise).toBe(9);
+      expect(work).toHaveBeenCalledTimes(1);
+    });
+
+    it('never starts a settled lazy value when canceled before the first subscription', async () => {
+      const work = jest.fn(() => 9);
+      const { promise, resolve, cancel } = LazyPromise.withResolvers<number>();
+
+      resolve(LazyPromise.try(work));
+      cancel('stop');
+
+      await expect(Promise.resolve(promise)).rejects.toBeInstanceOf(CancelError);
+      expect(work).not.toHaveBeenCalled();
+    });
+
+    it('settles once across the start boundary', async () => {
+      const { promise, resolve, reject } = LazyPromise.withResolvers<number>();
+
+      resolve(1);
+      expect(await promise).toBe(1);
+
+      reject(new Error('late'));
+      expect(await promise).toBe(1);
+    });
+
+    it('forwards a settlement made after the work has started', async () => {
+      const { promise, resolve } = LazyPromise.withResolvers<number>();
+      const consumer = Promise.resolve(promise.then((value) => value));
+
+      await Promise.resolve();
+      expect(promise.started).toBe(true);
+
+      resolve(4);
+      expect(await consumer).toBe(4);
+    });
+
+    it('hands back a cancel alongside the settlers', async () => {
+      const { promise, cancel } = LazyPromise.withResolvers<number>();
+
+      cancel('stop');
+
+      await expect(Promise.resolve(promise)).rejects.toBeInstanceOf(CancelError);
+    });
+  });
+
+  describe('execute', () => {
+    it('starts the work so a later await gets the cached result', async () => {
+      const work = jest.fn(() => 11);
+      const p = LazyPromise.try(work);
+
+      p.execute();
+
+      expect(work).toHaveBeenCalledTimes(1);
+      expect(p.started).toBe(true);
+      expect(await p).toBe(11);
+      expect(work).toHaveBeenCalledTimes(1);
+    });
+
+    it('runs the work once however often it is called', async () => {
+      const work = jest.fn(() => 11);
+      const p = LazyPromise.try(work);
+
+      p.execute();
+      p.execute();
+      await p;
+      p.execute();
+
+      expect(work).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns undefined', () => {
+      expect(LazyPromise.try(() => 1).execute()).toBeUndefined();
+    });
+
+    it('is a no-op on a lazy canceled before it started', async () => {
+      const work = jest.fn(() => 1);
+      const p = LazyPromise.try(work);
+
+      p.cancel('stop');
+      p.execute();
+
+      expect(work).not.toHaveBeenCalled();
+      expect(p.started).toBe(false);
+
+      await expect(Promise.resolve(p)).rejects.toBeInstanceOf(CancelError);
+      expect(work).not.toHaveBeenCalled();
     });
   });
 });

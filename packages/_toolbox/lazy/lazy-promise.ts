@@ -1,9 +1,15 @@
 import { CancelError, ICancelablePromiseOptions, IPromiseImplOptions, resolvePromiseImpl } from '@cancjs/promise';
 
 import { TPromiseCtor } from '../construct';
-import { LazyBase, TLazyExecutor } from './lazy-base';
+import { isFunction } from '../guards';
+import { ILazyWithResolvers, LazyBase, TLazyExecutor, TLazyOnCancel } from './lazy-base';
 
 export type { TLazyExecutor, TLazyOnCancel } from './lazy-base';
+
+/** What the cancelable flavor's `withResolvers` hands back: the settlers plus a cancel. */
+export interface ICancelableLazyWithResolvers<T> extends ILazyWithResolvers<T, LazyPromise<T>> {
+  cancel: TLazyOnCancel;
+}
 
 export interface ILazyPromiseOptions extends ICancelablePromiseOptions, IPromiseImplOptions {
   /**
@@ -24,7 +30,24 @@ export interface ILazyPromiseOptions extends ICancelablePromiseOptions, IPromise
  * what every duck-typed cancelability check in this repo already accepts.
  */
 export class LazyPromise<T = any> extends LazyBase<T> {
-  protected _options?: ILazyPromiseOptions;
+  // Static surface mirrored from CancelablePromise. The implementations are inherited; these
+  // declarations only narrow the flavor and its options bag, and emit nothing.
+  declare static try: <V, TArgs extends any[]>(
+    fn: (...args: TArgs) => V | PromiseLike<V>,
+    ...args: TArgs
+  ) => LazyPromise<V>;
+  declare static resolve: <V>(value?: V | PromiseLike<V>, options?: ILazyPromiseOptions) => LazyPromise<V>;
+  declare static reject: <V = never>(reason?: any, options?: ILazyPromiseOptions) => LazyPromise<V>;
+  declare static withResolvers: <V>(options?: ILazyPromiseOptions) => ICancelableLazyWithResolvers<V>;
+  declare static all: <V>(values: Iterable<V | PromiseLike<V>>, options?: ILazyPromiseOptions) => LazyPromise<V[]>;
+  declare static allSettled: <V>(
+    values: Iterable<V | PromiseLike<V>>,
+    options?: ILazyPromiseOptions,
+  ) => LazyPromise<PromiseSettledResult<Awaited<V>>[]>;
+  declare static any: <V>(values: Iterable<V | PromiseLike<V>>, options?: ILazyPromiseOptions) => LazyPromise<V>;
+  declare static race: <V>(values: Iterable<V | PromiseLike<V>>, options?: ILazyPromiseOptions) => LazyPromise<V>;
+
+  declare protected _options?: ILazyPromiseOptions;
   protected _canceledBeforeStart = false;
   protected _cancelError?: CancelError;
   protected _resettable: boolean;
@@ -34,9 +57,8 @@ export class LazyPromise<T = any> extends LazyBase<T> {
   protected _consumers = 0;
 
   constructor(executor: TLazyExecutor<T>, options?: ILazyPromiseOptions) {
-    super(executor);
+    super(executor, options);
 
-    this._options = options;
     this._resettable = !!options?.resettable;
   }
 
@@ -55,11 +77,14 @@ export class LazyPromise<T = any> extends LazyBase<T> {
   // and `.catch` observe the CancelError without ever touching the executor.
   protected _beforeSubscribe(): PromiseLike<T> | undefined {
     if (this._canceledBeforeStart) {
-      const Impl = this._resolveImpl() as unknown as { reject(reason?: any): PromiseLike<T> };
-      return Impl.reject(this._cancelError);
+      return this._resolveImplStatics().reject(this._cancelError) as PromiseLike<T>;
     }
 
     return undefined;
+  }
+
+  protected _isStartable(): boolean {
+    return !this._canceledBeforeStart;
   }
 
   protected _afterSubscribe(): void {
@@ -125,4 +150,30 @@ export class LazyPromise<T = any> extends LazyBase<T> {
  */
 export function lazy<T = any>(executor: TLazyExecutor<T>, options?: ILazyPromiseOptions): LazyPromise<T> {
   return new LazyPromise<T>(executor, options);
+}
+
+/**
+ * Create a lazy promise from whatever you have. A function is called on the first subscription, a
+ * lazy promise of this flavor is handed back unchanged so its laziness survives, a plain promise
+ * keeps running but the subscription to it is deferred, and any other value is resolved lazily.
+ *
+ * Reach for `LazyPromise.try` when you know you have a function. Reach for this when the input's
+ * shape varies, which is the library and adapter case.
+ */
+export function createLazyPromise<T = any>(
+  value: T | PromiseLike<T> | (() => T | PromiseLike<T>),
+  options?: ILazyPromiseOptions,
+): LazyPromise<T> {
+  // Built directly rather than through `try`, which has no options slot by design.
+  if (isFunction(value)) {
+    return new LazyPromise<T>((resolve, reject) => {
+      try {
+        resolve(value() as T | PromiseLike<T>);
+      } catch (error) {
+        reject(error);
+      }
+    }, options);
+  }
+
+  return LazyPromise.resolve<T>(value, options);
 }

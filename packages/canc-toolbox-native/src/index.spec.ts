@@ -8,6 +8,7 @@ describe('index exports', () => {
       [
         'LazyPromise',
         'TimeoutError',
+        'createLazyPromise',
         'debounce',
         'defer',
         'delay',
