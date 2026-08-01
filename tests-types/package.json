@@ -4,7 +4,8 @@
   "private": true,
   "description": "TypeScript version matrix + type-level assertion harness ( P4-2/P4-3). Compiles fixture projects that import the BUILT packages against a matrix of pinned TS versions.",
   "engines": {
-    "npm": ">=9"
+    "npm": ">=9",
+    "node": ">=18"
   },
   "scripts": {
     "matrix": "node ./scripts/run-matrix.mjs",
