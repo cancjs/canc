@@ -1,16 +1,10 @@
 import { construct, TExecutorCtx } from './construct';
 import { IToolboxDeps } from './deps';
 import { parseTimedArgs, resolveDuration, TDuration } from './duration';
-import { isCancelableLike } from './guards';
+import { isCancelableLike, isThunk } from './guards';
+import { TTimedInput } from './input';
 import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
 import { startTimer, stopTimer } from './timers';
-
-/** What `delay` accepts as its input: a plain value, a promise, or a thunk producing either. */
-export type TDelayInput<T> = T | PromiseLike<T> | (() => T | PromiseLike<T>);
-
-function isThunk<T>(input: unknown): input is () => T | PromiseLike<T> {
-  return typeof input === 'function';
-}
 
 /** Bind `delay` to one promise implementation and set of timers. */
 export function delayFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IToolboxDeps<K>) {
@@ -25,9 +19,9 @@ export function delayFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
    * rather than reported early - the reason `minDelay` (fails fast) exists alongside this one.
    */
   function delay<T = void>(ms: TDuration, options?: K['options']): TPromiseOf<K, T>;
-  function delay<T>(input: TDelayInput<T>, ms: TDuration, options?: K['options']): TPromiseOf<K, T>;
+  function delay<T>(input: TTimedInput<T>, ms: TDuration, options?: K['options']): TPromiseOf<K, T>;
   function delay<T>(...rest: unknown[]): TPromiseOf<K, T> {
-    const parsed = parseTimedArgs<TDelayInput<T>>(rest);
+    const parsed = parseTimedArgs<TTimedInput<T>>(rest);
     // Resolved (and, for a `[min, max]` range, rolled) BEFORE construct() runs the executor, so a
     // malformed range throws synchronously out of this call instead of becoming a rejection.
     const ms = resolveDuration(parsed.duration);

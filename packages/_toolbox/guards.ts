@@ -21,3 +21,12 @@ export function isThenableLike<T>(value: unknown): value is PromiseLike<T> {
 export function isCancelableLike(value: unknown): value is ICancelableLike {
   return isObjectLike(value) && typeof value.cancel === 'function';
 }
+
+/**
+ * Whether a time helper's input is a thunk. Any function counts: the helpers treat a function as
+ * work that produces the value, never as the value itself, which is what makes `delay(() => job(),
+ * 50)` and `timeout(fetchAll, 50)` read the same way.
+ */
+export function isThunk<T>(value: unknown): value is () => T | PromiseLike<T> {
+  return typeof value === 'function';
+}

@@ -3,13 +3,13 @@ import { CancelablePromise, CancelError, isCancelError } from '@cancjs/promise';
 import {
   AbortError,
   createAbortSignal,
-  interopTimeout,
   isAbortError,
   suppress,
   suppressAbort,
   toAbortSignal,
   withSignal,
 } from './abort';
+import { timeout } from './prebound';
 
 function abortReason(controller = new AbortController()): Error {
   controller.abort();
@@ -143,22 +143,25 @@ describe('fetch-shaped integration: abort in -> CancelError out -> suppress filt
   });
 });
 
-describe('interopTimeout: AbortSignal.any composition of external signal + timeout', () => {
-  it('external signal aborting first wins the race', async () => {
+// An external signal and a deadline used to need a dedicated helper to compose. They no longer do:
+// the deadline is `timeout`'s own argument and the signal is an ordinary cancelable option, so one
+// call covers both races. These are the assertions that helper carried, kept against the pair.
+describe('timeout with an external signal: deadline and signal in one call', () => {
+  it('the external signal aborting first wins the race', async () => {
     const controller = new AbortController();
-    const promise = interopTimeout(new Promise(() => {}), 10_000, controller.signal);
+    const promise = timeout(new Promise(() => {}), 10_000, { signal: controller.signal });
     controller.abort();
     await expect(promise).rejects.toBeDefined();
   });
 
-  it('timeout wins when no external signal aborts', async () => {
-    const promise = interopTimeout(new Promise(() => {}), 5);
+  it('the deadline wins when no external signal aborts', async () => {
+    const promise = timeout(new Promise(() => {}), 5);
     await expect(promise).rejects.toBeDefined();
   });
 
-  it('adopts the underlying settlement when neither signal nor timeout fires', async () => {
+  it('adopts the underlying settlement when neither the signal nor the deadline fires', async () => {
     const controller = new AbortController();
-    await expect(interopTimeout(Promise.resolve('ok'), 10_000, controller.signal)).resolves.toBe('ok');
+    await expect(timeout(Promise.resolve('ok'), 10_000, { signal: controller.signal })).resolves.toBe('ok');
   });
 
   it('cancels a cancelable underlying operation when the external signal aborts', async () => {
@@ -169,7 +172,7 @@ describe('interopTimeout: AbortSignal.any composition of external signal + timeo
         canceled = true;
       });
     });
-    const promise = interopTimeout(underlying, 10_000, controller.signal).catch(() => undefined);
+    const promise = timeout(underlying, 10_000, { signal: controller.signal }).catch(() => undefined);
     controller.abort();
     await promise;
     expect(canceled).toBe(true);

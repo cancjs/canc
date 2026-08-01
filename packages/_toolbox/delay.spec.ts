@@ -4,6 +4,7 @@ import { TPromiseCtor } from './construct';
 import { delayFactory } from './delay';
 import { IToolboxDeps } from './deps';
 import { IPromiseKind } from './kind';
+import { minDelayFactory } from './min-delay';
 import { MAX_TIMEOUT } from './timers';
 
 interface ITestKind extends IPromiseKind {
@@ -13,6 +14,7 @@ interface ITestKind extends IPromiseKind {
 
 const deps: IToolboxDeps<ITestKind> = { Impl: CancelablePromise as unknown as TPromiseCtor };
 const delay = delayFactory(deps);
+const minDelay = minDelayFactory(deps);
 
 describe('delay (cancelable)', () => {
   afterEach(() => {
@@ -173,5 +175,59 @@ describe('delay (cancelable)', () => {
     jest.advanceTimersByTime(100);
     await promise;
     expect(settled).toBe(true);
+  });
+});
+
+// Kept in one file on purpose. The two helpers exist as a pair precisely because they answer a
+// rejection differently, so the assertions that pin that difference have to move together.
+describe('delay and minDelay: the rejection-timing contrast', () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  async function flushMicrotasks(): Promise<void> {
+    for (let i = 0; i < 12; i++) {
+      await Promise.resolve();
+    }
+  }
+
+  function rejectingAt(ms: number): CancelablePromise<never> {
+    const source = new CancelablePromise<never>((_resolve, reject) => {
+      setTimeout(() => reject(new Error('boom')), ms);
+    });
+    source.catch(() => undefined);
+
+    return source;
+  }
+
+  it('delay holds an early rejection until its timer completes, minDelay reports it at once', async () => {
+    jest.useFakeTimers();
+
+    const held = delay(rejectingAt(10), 50).catch((error: unknown) => error);
+    const fast = minDelay(rejectingAt(10), 50).catch((error: unknown) => error);
+
+    let heldSettled = false;
+    let fastSettled = false;
+    held.then(() => {
+      heldSettled = true;
+    });
+    fast.then(() => {
+      fastSettled = true;
+    });
+
+    jest.advanceTimersByTime(10);
+    await flushMicrotasks();
+
+    // minDelay is the parallel floor, so a rejection abandons the floor immediately.
+    expect(fastSettled).toBe(true);
+    // delay is sequential, so nothing about the input is observed before its own timer completes.
+    expect(heldSettled).toBe(false);
+
+    jest.advanceTimersByTime(40);
+    await flushMicrotasks();
+
+    expect(heldSettled).toBe(true);
+    expect(((await held) as Error).message).toBe('boom');
+    expect(((await fast) as Error).message).toBe('boom');
   });
 });

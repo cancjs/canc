@@ -1,6 +1,6 @@
 import { CancelablePromise } from '@cancjs/promise';
 
-import { interopTimeout, suppress, withSignal } from './abort';
+import { suppress, withSignal } from './abort';
 import { minDelay, retry, timeout, waitFor } from './index';
 
 // regression: internal subscriptions (`promise.then(...)`) used to be built off a bare
@@ -100,15 +100,6 @@ describe('toolbox never subscribes via the live global Promise', () => {
 
   it('suppress: source subscription does not construct through the patched global', () => {
     const done = suppress(RealPromise.resolve('ok'));
-
-    return done.then((value) => {
-      expect(value).toBe('ok');
-      expect(patchedConstructed.length).toBe(0);
-    });
-  });
-
-  it('interopTimeout: source subscription does not construct through the patched global', () => {
-    const done = interopTimeout(RealPromise.resolve('ok'), 1000);
 
     return done.then((value) => {
       expect(value).toBe('ok');

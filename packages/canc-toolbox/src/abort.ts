@@ -2,11 +2,6 @@ import { CancelablePromise, ICancelable, isCancelError } from '@cancjs/promise';
 
 import { IToolboxOptions, TExecutorCtx } from './options';
 
-// AbortSignal.any (ES2024 / Node 20.3+) exists at runtime in every supported target but is not
-// declared by the ambient AbortSignal typing this workspace resolves. Reference it through a narrow
-// typed view instead of augmenting the platform type.
-const abortSignalAny = (AbortSignal as unknown as { any(this: void, signals: AbortSignal[]): AbortSignal }).any;
-
 // withSignal has no toolbox options and always returns a plain native promise, so there is no
 // resolved Impl to route through; capture the native constructor once at module load instead of
 // reading the live global on every call.
@@ -109,70 +104,6 @@ function isCancelable(value: unknown): value is ICancelable {
 export function createAbortSignal(): { signal: AbortSignal; abort: (reason?: unknown) => void } {
   const controller = new AbortController();
   return { signal: controller.signal, abort: controller.abort.bind(controller) };
-}
-
-/**
- * Reject with the external signal's abort reason if it aborts first, otherwise reject with an
- * AbortError once `ms` elapses, otherwise adopt the underlying promise's settlement. Combines an
- * externally supplied `signal` (fetch-style cancellation) with a timeout in one race and composes
- * them via AbortSignal.any so a single abort listener drives cancellation. The underlying promise is
- * canceled (if cancelable) when either the signal or the timeout wins, leaving no detached work.
- */
-export function interopTimeout<T>(
-  promise: T | PromiseLike<T>,
-  ms: number,
-  signal?: AbortSignal,
-  options?: IToolboxOptions,
-): Promise<T> {
-  return new CancelablePromise<T>((resolve, reject, ctx?: TExecutorCtx) => {
-    const timeoutSignal = AbortSignal.timeout(ms);
-    // Compose the external signal (if any) with the timeout so one listener covers both. When
-    // no external signal is supplied, race against the timeout alone.
-    const combined = signal ? abortSignalAny([signal, timeoutSignal]) : timeoutSignal;
-
-    let settled = false;
-
-    const onAbort = () => {
-      if (settled) return;
-      settled = true;
-      if (isCancelable(promise)) {
-        (promise as ICancelable).cancel(combined.reason);
-      }
-      reject(combined.reason);
-    };
-
-    if (combined.aborted) {
-      onAbort();
-      return;
-    }
-
-    combined.addEventListener('abort', onAbort, { once: true });
-
-    CancelablePromise.resolve(promise).then(
-      (value) => {
-        if (settled) return;
-        settled = true;
-        combined.removeEventListener('abort', onAbort);
-        resolve(value);
-      },
-      (reason) => {
-        if (settled) return;
-        settled = true;
-        combined.removeEventListener('abort', onAbort);
-        reject(reason);
-      },
-    );
-
-    if (ctx) {
-      ctx.handleCancel(() => {
-        settled = true;
-        combined.removeEventListener('abort', onAbort);
-        if (isCancelable(promise)) {
-          (promise as ICancelable).cancel();
-        }
-      });
-    }
-  }, options);
 }
 
 /**

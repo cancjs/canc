@@ -121,8 +121,9 @@ rejects, for handing cancelable work to an API that only speaks `AbortSignal`.
 signal, and passes the value through unraced when the signal is `undefined`, so optional
 cancellation does not need a branch at every call site.
 
-`interopTimeout(promise, ms, signal?)` combines an external signal with a deadline in one race and
-cancels the underlying promise whichever wins.
+To combine an external signal with a deadline, pass both to `timeout`: `timeout(promise, 5000, {
+signal })` races the deadline and the signal together and cancels the underlying promise whichever
+wins.
 
 `createAbortSignal()` mints a plain controller and returns its signal with a bound `abort`. For a
 signal that aborts with a `CancelError` rather than a bare `DOMException`, use
@@ -189,14 +190,13 @@ as its last argument.
 
 ### Signal interop
 
-| Export                                           | Description                                                      |
-| ------------------------------------------------ | ---------------------------------------------------------------- |
-| `toAbortSignal(promise)`                         | Signal that aborts when the promise cancels or rejects           |
-| `withSignal(signal, promiseOrFn)`                | Races work against a signal, passes through when there is none   |
-| `interopTimeout(promise, ms, signal?, options?)` | External signal and deadline in one race                         |
-| `createAbortSignal()`                            | Plain `AbortController` convenience, returns `{ signal, abort }` |
-| `suppress(promise, options?)`                    | Swallows a cancellation, rethrows everything else                |
-| `suppressAbort(promise, options?)`               | Swallows a cancellation and a plain abort                        |
+| Export                             | Description                                                      |
+| ---------------------------------- | ---------------------------------------------------------------- |
+| `toAbortSignal(promise)`           | Signal that aborts when the promise cancels or rejects           |
+| `withSignal(signal, promiseOrFn)`  | Races work against a signal, passes through when there is none   |
+| `createAbortSignal()`              | Plain `AbortController` convenience, returns `{ signal, abort }` |
+| `suppress(promise, options?)`      | Swallows a cancellation, rethrows everything else                |
+| `suppressAbort(promise, options?)` | Swallows a cancellation and a plain abort                        |
 
 ### Errors
 
@@ -205,8 +205,7 @@ as its last argument.
 ## Compatibility
 
 Node.js 18 and later, current browsers, TypeScript 4.2 and later. `AbortController` and
-`AbortSignal` are required by the signal interop helpers, and `interopTimeout` uses
-`AbortSignal.any`. Everything else follows
+`AbortSignal` are required by the signal interop helpers. Everything else follows
 [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise#compatibility).
 
 For the same helpers on plain `Promise`, without cancellation, see

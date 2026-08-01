@@ -14,7 +14,6 @@ export type { ISuppressOptions } from './abort';
 export {
   AbortError,
   createAbortSignal,
-  interopTimeout,
   isAbortError,
   suppress,
   suppressAbort,
