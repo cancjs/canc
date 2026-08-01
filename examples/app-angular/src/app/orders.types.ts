@@ -2,14 +2,15 @@
 // the decorator vs manual wiring differs between them.
 
 import { InjectionToken } from '@angular/core';
-import type { OrderSummary, OrderDetail } from '../mock/api';
 
-export type { OrderSummary, OrderDetail };
+import type { OrderDetail, OrderSummary } from '../mock/api';
+
+export type { OrderDetail, OrderSummary };
 
 /** The service contract both flavors satisfy. Methods return promises the component can cancel. */
 export interface OrdersServiceShape {
- list(): Promise<OrderSummary[]>;
- detail(id: string): Promise<OrderDetail>;
+  list(): Promise<OrderSummary[]>;
+  detail(id: string): Promise<OrderDetail>;
 }
 
 /** DI token the dashboard depends on. Swapping its provider swaps the whole service flavor. */

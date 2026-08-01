@@ -7,9 +7,6 @@ type GatewayApi = MockApiBundle['gateway'];
  * creation, thread-down, error-name check). Cancellation coupling is loose; a caller must
  * manage the signal lifecycle.
  */
-export function callGatewayWithSignal(
- gatewayApi: GatewayApi,
- signal: AbortSignal
-): Promise<{ transactionId: string }> {
- return gatewayApi.call({ method: 'pay', amount: 100 }, signal);
+export function callGatewayWithSignal(gatewayApi: GatewayApi, signal: AbortSignal): Promise<{ transactionId: string }> {
+  return gatewayApi.call({ method: 'pay', amount: 100 }, signal);
 }

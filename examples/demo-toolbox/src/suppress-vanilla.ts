@@ -7,20 +7,17 @@ type InvoicesApi = MockApiBundle['invoices'];
  * laddering to swallow abort-type errors while preserving real errors. Tedious plus
  * error-prone.
  */
-export function cleanupPaymentRecord(
- invoicesApi: InvoicesApi,
- recordId: string
-): Promise<void> {
- return new Promise((resolve) => {
- invoicesApi.list().then(
- () => resolve(),
- (err: any) => {
- if (err.name === 'AbortError' || err.name === 'CanceledError') {
- resolve(); // swallow abort-like errors
- } else {
- throw err; // re-throw real errors
- }
- }
- );
- });
+export function cleanupPaymentRecord(invoicesApi: InvoicesApi, _recordId: string): Promise<void> {
+  return new Promise((resolve) => {
+    invoicesApi.list().then(
+      () => resolve(),
+      (err: any) => {
+        if (err.name === 'AbortError' || err.name === 'CanceledError') {
+          resolve(); // swallow abort-like errors
+        } else {
+          throw err; // re-throw real errors
+        }
+      },
+    );
+  });
 }

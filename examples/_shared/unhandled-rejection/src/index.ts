@@ -7,5 +7,5 @@ import { isCancelError } from '@cancjs/promise';
 // listener lets that rejection through when it is a real error and swallows it only when it is
 // a CancelError, so app code never needs a per-call `.catch(() => {})`.
 process.on('unhandledRejection', (reason) => {
- if (!isCancelError(reason)) throw reason;
+  if (!isCancelError(reason)) throw reason;
 });

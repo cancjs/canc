@@ -3,52 +3,53 @@
 // here keeps the twin services focused on the cancellation mechanics, not on SQL.
 
 import { sleep } from '@shared/util';
-import { CHUNK_ROWS, SEED_ORDER_COUNT, ReportDb, sql } from './mock/db';
+
+import { CHUNK_ROWS, ReportDb, SEED_ORDER_COUNT, sql } from './mock/db';
 
 export interface OrderRowView {
- id: number;
- customerId: number;
- quantity: number;
- unitPrice: number;
+  id: number;
+  customerId: number;
+  quantity: number;
+  unitPrice: number;
 }
 
 export interface CustomerTotal {
- customerId: number;
- total: number;
+  customerId: number;
+  total: number;
 }
 
 export interface ReportPayload {
- page: OrderRowView[];
- topCustomers: CustomerTotal[];
- grandTotal: number;
+  page: OrderRowView[];
+  topCustomers: CustomerTotal[];
+  grandTotal: number;
 }
 
 /** Step 1: a page of recent orders. Fast. */
 export function fetchOrdersPage(rdb: ReportDb, limit: number): Promise<OrderRowView[]> {
- return rdb.db
- .selectFrom('orders')
- .select(['id', 'customer_id as customerId', 'quantity', 'unit_price as unitPrice'])
- .orderBy('created_at', 'desc')
- .limit(limit)
- .execute();
+  return rdb.db
+    .selectFrom('orders')
+    .select(['id', 'customer_id as customerId', 'quantity', 'unit_price as unitPrice'])
+    .orderBy('created_at', 'desc')
+    .limit(limit)
+    .execute();
 }
 
 /** Step 2: per-customer revenue for the top spenders. Medium. */
 export function fetchTopCustomers(rdb: ReportDb, limit: number): Promise<CustomerTotal[]> {
- return rdb.db
- .selectFrom('orders')
- .select(['customer_id as customerId'])
- .select((eb) => eb.fn.sum(sql<number>`quantity * unit_price`).as('total'))
- .groupBy('customer_id')
- .orderBy('total', 'desc')
- .limit(limit)
- .execute()
- .then((rows) => rows.map((row) => ({ customerId: row.customerId, total: Number(row.total) })));
+  return rdb.db
+    .selectFrom('orders')
+    .select(['customer_id as customerId'])
+    .select((eb) => eb.fn.sum(sql<number>`quantity * unit_price`).as('total'))
+    .groupBy('customer_id')
+    .orderBy('total', 'desc')
+    .limit(limit)
+    .execute()
+    .then((rows) => rows.map((row) => ({ customerId: row.customerId, total: Number(row.total) })));
 }
 
 /** Number of slices the grand-total aggregate is split into (rounds up). */
 export function aggregateChunkCount(): number {
- return Math.ceil(SEED_ORDER_COUNT / CHUNK_ROWS);
+  return Math.ceil(SEED_ORDER_COUNT / CHUNK_ROWS);
 }
 
 /** Per-slice delay standing in for real query latency, so a client can disconnect mid-report. */
@@ -66,14 +67,14 @@ export const CHUNK_LATENCY_MS = 25;
  * in; the delay makes the report long enough to cancel, without pretending sqlite is abortable.
  */
 export function grandTotalChunk(rdb: ReportDb, chunkIndex: number): Promise<number> {
- const offset = chunkIndex * CHUNK_ROWS;
- return sleep(CHUNK_LATENCY_MS).then(() =>
- rdb.db
- .selectFrom('orders')
- .select((eb) => eb.fn.sum(sql<number>`quantity * unit_price`).as('subtotal'))
- .where('id', '>', offset)
- .where('id', '<=', offset + CHUNK_ROWS)
- .executeTakeFirst()
- .then((row) => Number(row?.subtotal ?? 0)),
- );
+  const offset = chunkIndex * CHUNK_ROWS;
+  return sleep(CHUNK_LATENCY_MS).then(() =>
+    rdb.db
+      .selectFrom('orders')
+      .select((eb) => eb.fn.sum(sql<number>`quantity * unit_price`).as('subtotal'))
+      .where('id', '>', offset)
+      .where('id', '<=', offset + CHUNK_ROWS)
+      .executeTakeFirst()
+      .then((row) => Number(row?.subtotal ?? 0)),
+  );
 }

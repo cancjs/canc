@@ -1,6 +1,6 @@
-import { createOrm } from '../server/orm';
 import { createApp as createCancApp } from '../server/app-canc';
 import { createApp as createVanillaApp } from '../server/app-vanilla';
+import { createOrm } from '../server/orm';
 
 // Test-only server entry. Runs the real app (canc or vanilla, chosen by CANC_FLAVOR) and counts the
 // SQL statements MikroORM sends to PGlite, so the e2e tests can prove a client cancel stops the rest.

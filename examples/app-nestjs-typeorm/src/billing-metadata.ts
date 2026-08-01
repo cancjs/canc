@@ -3,13 +3,8 @@
 // and the same service method also carries the canc @AsyncMethod wrapper. Our decorator copies the
 // marker onto its wrapper, so the guard still finds it on the wrapped method at request time.
 
-import {
- CanActivate,
- ExecutionContext,
- Inject,
- Injectable,
- SetMetadata,
-} from '@nestjs/common';
+import { CanActivate, ExecutionContext, Inject, Injectable, SetMetadata } from '@nestjs/common';
+
 import { INVOICE_SERVICE } from './invoice.tokens';
 
 export const BILLING_TIER_KEY = 'billingTier';
@@ -28,17 +23,16 @@ const HANDLER_TO_METHOD: Record<string, string> = { list: 'listInvoices', bulk: 
  */
 @Injectable()
 export class BillingTierGuard implements CanActivate {
- static lastSeenTier: string | undefined;
+  static lastSeenTier: string | undefined;
 
- constructor(@Inject(INVOICE_SERVICE) private readonly invoices: Record<string, unknown>) {}
+  constructor(@Inject(INVOICE_SERVICE) private readonly invoices: Record<string, unknown>) {}
 
- canActivate(context: ExecutionContext): boolean {
- const handlerName = context.getHandler().name;
- const methodName = HANDLER_TO_METHOD[handlerName];
- const method = methodName && (this.invoices as any)[methodName];
- BillingTierGuard.lastSeenTier = method
- ? (Reflect.getMetadata(BILLING_TIER_KEY, method) as string | undefined)
- : undefined;
- return true;
- }
+  canActivate(context: ExecutionContext): boolean {
+    const handlerName = context.getHandler().name;
+    const methodName = HANDLER_TO_METHOD[handlerName];
+    const method = methodName && (this.invoices as any)[methodName];
+    BillingTierGuard.lastSeenTier =
+      method ? (Reflect.getMetadata(BILLING_TIER_KEY, method) as string | undefined) : undefined;
+    return true;
+  }
 }

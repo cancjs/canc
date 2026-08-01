@@ -1,5 +1,6 @@
 import type { MikroORM } from '@mikro-orm/core';
-import { UserSchema, type User } from './entities/user';
+
+import { type User, UserSchema } from './entities/user';
 
 // MikroORM 7.1 accepts this on em.fork()/find()/count() etc. Declared locally so the module does
 // not depend on the type being re-exported by a given driver package.
@@ -29,7 +30,18 @@ export const RESULT_LIMIT = 15;
 export const SEED_USER_COUNT = 50_000;
 
 const FIRST = ['Ada', 'Alan', 'Grace', 'Linus', 'Dennis', 'Margaret', 'Ken', 'Barbara', 'Guido', 'Anita'];
-const LAST = ['Lovelace', 'Turing', 'Hopper', 'Torvalds', 'Ritchie', 'Hamilton', 'Thompson', 'Liskov', 'Rossum', 'Borg'];
+const LAST = [
+  'Lovelace',
+  'Turing',
+  'Hopper',
+  'Torvalds',
+  'Ritchie',
+  'Hamilton',
+  'Thompson',
+  'Liskov',
+  'Rossum',
+  'Borg',
+];
 const CITIES = ['London', 'Lisbon', 'Seattle', 'Tokyo', 'Berlin', 'Austin'];
 
 /** The search predicate the article uses: name or email contains the query. */
@@ -46,7 +58,7 @@ export function searchWhere(q: string) {
 export async function createOrm(options: CreateOrmOptions = {}): Promise<OrmConnectionData> {
   const url = process.env.PG_DB_URL;
   const pkg = url ? '@mikro-orm/postgresql' : '@mikro-orm/pglite';
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
+
   const { MikroORM, defineConfig } = require(pkg);
 
   const orm: MikroORM = await MikroORM.init(
@@ -54,8 +66,9 @@ export async function createOrm(options: CreateOrmOptions = {}): Promise<OrmConn
       entities: [UserSchema],
       ...(url ? { clientUrl: url } : {}),
       debug: options.onQuery ? ['query'] : false,
-      logger: options.onQuery
-        ? (message: string) => {
+      logger:
+        options.onQuery ?
+          (message: string) => {
             if (message.includes('select') || message.includes('SELECT')) options.onQuery!(message);
           }
         : undefined,

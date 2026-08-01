@@ -1,14 +1,14 @@
 // Shared types and the tiny embed step used by both flavors. The vanilla and canc pipelines differ
 // only in how they thread cancellation, so everything that is not cancellation lives here.
 
-import type { AbortSignalLike, DocChunk, RagApi } from '@shared/mock-api';
 import { AbortError, isAbortError } from '@cancjs/toolbox';
+import type { AbortSignalLike, DocChunk, RagApi } from '@shared/mock-api';
 import { attachAbort } from '@shared/util';
 
 export interface RagAnswer {
- query: string;
- text: string;
- sources: string[];
+  query: string;
+  text: string;
+  sources: string[];
 }
 
 // A deterministic query embedding. Same query text always yields the same vector, so cache lookups
@@ -16,36 +16,36 @@ export interface RagAnswer {
 const EMBED_LATENCY = 5;
 
 export function embed(query: string, signal?: AbortSignalLike): Promise<number[]> {
- return new Promise<number[]>((resolve, reject) => {
- if (signal?.aborted) {
- reject(new AbortError());
- return;
- }
- const timer = setTimeout(() => {
- signal?.removeEventListener?.('abort', onAbort);
- const dims = [0, 0, 0, 0];
- for (let i = 0; i < query.length; i++) dims[i % 4] += query.charCodeAt(i);
- const norm = Math.sqrt(dims.reduce((sum, d) => sum + d * d, 0)) || 1;
- resolve(dims.map((d) => Number((d / norm).toFixed(6))));
- }, EMBED_LATENCY);
+  return new Promise<number[]>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new AbortError());
+      return;
+    }
+    const timer = setTimeout(() => {
+      signal?.removeEventListener?.('abort', onAbort);
+      const dims = [0, 0, 0, 0];
+      for (let i = 0; i < query.length; i++) dims[i % 4] += query.charCodeAt(i);
+      const norm = Math.sqrt(dims.reduce((sum, d) => sum + d * d, 0)) || 1;
+      resolve(dims.map((d) => Number((d / norm).toFixed(6))));
+    }, EMBED_LATENCY);
 
- const onAbort = () => {
- clearTimeout(timer);
- reject(new AbortError());
- };
- signal?.addEventListener?.('abort', onAbort);
- });
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new AbortError());
+    };
+    signal?.addEventListener?.('abort', onAbort);
+  });
 }
 
 // Two retrieval legs: a vector search over embeddings and a plain keyword search. Both are needed,
 // so there is no loser to cancel here. They both hit the mock rag endpoint; in a real system one
 // would query a vector DB and the other a text index.
 export function vectorSearch(ragApi: RagApi, query: string, signal?: AbortSignalLike): Promise<DocChunk[]> {
- return ragApi.search(query, signal);
+  return ragApi.search(query, signal);
 }
 
 export function keywordSearch(ragApi: RagApi, query: string, signal?: AbortSignalLike): Promise<DocChunk[]> {
- return ragApi.search(query, signal);
+  return ragApi.search(query, signal);
 }
 
 // The retrieval legs as a bounded async source: both legs start at once, then the generator yields
@@ -59,38 +59,37 @@ export function keywordSearch(ragApi: RagApi, query: string, signal?: AbortSigna
 // the caller's own signal has already settled by then. The vanilla flavor never returns early, so this
 // finally is a harmless no-op there.
 export async function* retrieveLegs(
- ragApi: RagApi,
- query: string,
- signal?: AbortSignalLike,
+  ragApi: RagApi,
+  query: string,
+  signal?: AbortSignalLike,
 ): AsyncGenerator<DocChunk[], void, void> {
- const controller = new AbortController();
- const detach = attachAbort(signal, () => controller.abort());
- try {
- // A cancel abandons this generator between pulls, so a leg still in flight rejects with an
- // AbortError that nobody is awaiting. Absorb that abort here: the pipeline already accounts for
- // the cancel, so an unconsumed leg's abort is expected, not a failure to surface.
- const legs = [
- vectorSearch(ragApi, query, controller.signal),
- keywordSearch(ragApi, query, controller.signal),
- ].map((leg) => leg.catch(ignoreAbort));
- for (const leg of legs) {
- const hits = await leg;
- if (hits) yield hits;
- }
- } finally {
- detach?.();
- controller.abort();
- }
+  const controller = new AbortController();
+  const detach = attachAbort(signal, () => controller.abort());
+  try {
+    // A cancel abandons this generator between pulls, so a leg still in flight rejects with an
+    // AbortError that nobody is awaiting. Absorb that abort here: the pipeline already accounts for
+    // the cancel, so an unconsumed leg's abort is expected, not a failure to surface.
+    const legs = [vectorSearch(ragApi, query, controller.signal), keywordSearch(ragApi, query, controller.signal)].map(
+      (leg) => leg.catch(ignoreAbort),
+    );
+    for (const leg of legs) {
+      const hits = await leg;
+      if (hits) yield hits;
+    }
+  } finally {
+    detach?.();
+    controller.abort();
+  }
 }
 
 function ignoreAbort(error: unknown): DocChunk[] | undefined {
- if (isAbortError(error)) return undefined;
- throw error;
+  if (isAbortError(error)) return undefined;
+  throw error;
 }
 
 // Merge the retrieval legs, de-duplicating by chunk id.
 export function mergeHits(legs: DocChunk[][]): DocChunk[] {
- const byId = new Map<string, DocChunk>();
- for (const chunk of legs.flat()) byId.set(chunk.id, chunk);
- return [...byId.values()];
+  const byId = new Map<string, DocChunk>();
+  for (const chunk of legs.flat()) byId.set(chunk.id, chunk);
+  return [...byId.values()];
 }

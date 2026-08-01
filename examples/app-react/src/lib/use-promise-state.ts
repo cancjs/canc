@@ -1,12 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
 import { isCancelError } from '@cancjs/promise';
+import { useEffect, useRef, useState } from 'react';
 
 export type PromiseStatus = 'idle' | 'pending' | 'fulfilled' | 'rejected';
 
 export interface PromiseState<T> {
- status: PromiseStatus;
- value?: T;
- error?: unknown;
+  status: PromiseStatus;
+  value?: T;
+  error?: unknown;
 }
 
 /**
@@ -18,29 +18,29 @@ export interface PromiseState<T> {
  * Pass `undefined` for "nothing in flight" (state stays / returns to `idle`).
  */
 export function usePromiseState<T>(promise: PromiseLike<T> | undefined): PromiseState<T> {
- const [state, setState] = useState<PromiseState<T>>({ status: 'idle' });
- const latest = useRef<PromiseLike<T> | undefined>(undefined);
+  const [state, setState] = useState<PromiseState<T>>({ status: 'idle' });
+  const latest = useRef<PromiseLike<T> | undefined>(undefined);
 
- useEffect(() => {
- latest.current = promise;
+  useEffect(() => {
+    latest.current = promise;
 
- if (!promise) {
- setState({ status: 'idle' });
- return;
- }
+    if (!promise) {
+      setState({ status: 'idle' });
+      return;
+    }
 
- setState({ status: 'pending' });
- promise.then(
- (value) => {
- if (latest.current === promise) setState({ status: 'fulfilled', value });
- },
- (error) => {
- if (latest.current !== promise) return;
- if (isCancelError(error)) setState({ status: 'idle' });
- else setState({ status: 'rejected', error });
- }
- );
- }, [promise]);
+    setState({ status: 'pending' });
+    promise.then(
+      (value) => {
+        if (latest.current === promise) setState({ status: 'fulfilled', value });
+      },
+      (error) => {
+        if (latest.current !== promise) return;
+        if (isCancelError(error)) setState({ status: 'idle' });
+        else setState({ status: 'rejected', error });
+      },
+    );
+  }, [promise]);
 
- return state;
+  return state;
 }

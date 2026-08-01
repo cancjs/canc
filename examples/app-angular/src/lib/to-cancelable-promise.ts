@@ -15,33 +15,33 @@ import type { Observable, Subscription } from 'rxjs';
  * emitting rejects with the given `emptyError` (default `EmptyError`-shaped).
  */
 export function toCancelablePromise<T>(source: Observable<T>, emptyError?: () => unknown): CancelablePromise<T> {
- return new CancelablePromise<T>((resolve, reject, { handleCancel }) => {
- let settled = false;
+  return new CancelablePromise<T>((resolve, reject, { handleCancel }) => {
+    let settled = false;
 
- const subscription: Subscription = source.subscribe({
- next: (value) => {
- if (settled) return;
- settled = true;
- resolve(value);
- subscription.unsubscribe();
- },
- error: (err) => {
- if (settled) return;
- settled = true;
- reject(err);
- },
- complete: () => {
- if (settled) return;
- settled = true;
- reject(emptyError ? emptyError() : new Error('Observable completed without emitting a value'));
- },
- });
+    const subscription: Subscription = source.subscribe({
+      next: (value) => {
+        if (settled) return;
+        settled = true;
+        resolve(value);
+        subscription.unsubscribe();
+      },
+      error: (err) => {
+        if (settled) return;
+        settled = true;
+        reject(err);
+      },
+      complete: () => {
+        if (settled) return;
+        settled = true;
+        reject(emptyError ? emptyError() : new Error('Observable completed without emitting a value'));
+      },
+    });
 
- // Canceling the promise unsubscribes from the source. For an HttpClient request this aborts the
- // request, so Angular's cancellation and canc's cancellation cooperate instead of racing.
- handleCancel(() => {
- settled = true;
- subscription.unsubscribe();
- });
- });
+    // Canceling the promise unsubscribes from the source. For an HttpClient request this aborts the
+    // request, so Angular's cancellation and canc's cancellation cooperate instead of racing.
+    handleCancel(() => {
+      settled = true;
+      subscription.unsubscribe();
+    });
+  });
 }

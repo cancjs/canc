@@ -1,23 +1,24 @@
-import { MockApi, AbortSignalLike } from '../core';
 import { clone } from '@shared/util';
 
+import { AbortSignalLike, MockApi } from '../core';
+
 export interface Issue {
- id: number;
- title: string;
- state: 'open' | 'closed';
+  id: number;
+  title: string;
+  state: 'open' | 'closed';
 }
 
 const ISSUES: Issue[] = [
- { id: 1, title: 'Cancel does not propagate', state: 'open' },
- { id: 2, title: 'Types missing on any()', state: 'closed' },
+  { id: 1, title: 'Cancel does not propagate', state: 'open' },
+  { id: 2, title: 'Types missing on any()', state: 'closed' },
 ];
 
 export interface IssuesApi {
- list(signal?: AbortSignalLike): Promise<Issue[]>;
+  list(signal?: AbortSignalLike): Promise<Issue[]>;
 }
 
 export function createIssuesApi(api: MockApi): IssuesApi {
- return {
- list: (signal) => api.respond('issues.list', {}, () => clone(ISSUES), signal),
- };
+  return {
+    list: (signal) => api.respond('issues.list', {}, () => clone(ISSUES), signal),
+  };
 }

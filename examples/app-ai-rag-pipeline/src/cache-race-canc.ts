@@ -6,22 +6,20 @@
 // call is ever made. This is the loser-cancel doing real work on a live tree.
 
 import { CancelablePromise } from '@cancjs/promise';
-import { ragPipeline } from './pipeline-canc';
+import type { ChatApi, RagApi } from '@shared/mock-api';
+
 import { RagAnswer } from './pipeline';
-import type { RagApi, ChatApi } from '@shared/mock-api';
+import { ragPipeline } from './pipeline-canc';
 
 export function answerWithCache(ragApi: RagApi, chatApi: ChatApi, query: string): CancelablePromise<RagAnswer> {
- return CancelablePromise.race([
- lookupCache(query),
- ragPipeline(ragApi, chatApi, query),
- ]);
+  return CancelablePromise.race([lookupCache(query), ragPipeline(ragApi, chatApi, query)]);
 }
 
 // A fast semantic-cache lookup. Resolves quickly when there is a cached answer for the query.
 function lookupCache(query: string): CancelablePromise<RagAnswer> {
- return new CancelablePromise((resolve) => {
- setTimeout(() => {
- resolve({ query, text: `cached: ${query}`, sources: ['cache'] });
- }, 20);
- });
+  return new CancelablePromise((resolve) => {
+    setTimeout(() => {
+      resolve({ query, text: `cached: ${query}`, sources: ['cache'] });
+    }, 20);
+  });
 }

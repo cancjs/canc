@@ -9,14 +9,14 @@ type DeploymentsApi = MockApiBundle['deployments'];
  * CancelablePromise. cancel() stops polling immediately and clears the pending
  * timer. User navigates away; promise canceled; poll stops; no more API calls.
  */
-export function waitForDeployment(
- deploymentsApi: DeploymentsApi,
- deploymentId: string
-): CancelablePromise<string> {
- let lastStatus: string | null = null;
+export function waitForDeployment(deploymentsApi: DeploymentsApi, deploymentId: string): CancelablePromise<string> {
+  let lastStatus: string | null = null;
 
- return waitFor(async () => {
- lastStatus = await deploymentsApi.getStatus(deploymentId);
- return lastStatus === 'deployed' || lastStatus === 'failed';
- }, { interval: 100 }).then(() => lastStatus!);
+  return waitFor(
+    async () => {
+      lastStatus = await deploymentsApi.getStatus(deploymentId);
+      return lastStatus === 'deployed' || lastStatus === 'failed';
+    },
+    { interval: 100 },
+  ).then(() => lastStatus!);
 }

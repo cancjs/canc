@@ -1,5 +1,6 @@
-import { Profile } from './profile';
 import type { MockApiBundle } from '@shared/mock-api';
+
+import { Profile } from './profile';
 
 type ProductsApi = MockApiBundle['products'];
 
@@ -8,7 +9,7 @@ type ProductsApi = MockApiBundle['products'];
  * interest, but the mock API call completes anyway (wasted work).
  */
 export function loadProfile(productsApi: ProductsApi, userId: string): Promise<Profile> {
- return productsApi.get(userId);
+  return productsApi.get(userId);
 }
 
 /**
@@ -17,10 +18,6 @@ export function loadProfile(productsApi: ProductsApi, userId: string): Promise<P
  * why canc matters: every cleanup point needs manual wiring.
  * cancellation requires threading and name-checking; regular catch alone is not enough.
  */
-export function loadProfileAbortable(
- productsApi: ProductsApi,
- userId: string,
- signal: AbortSignal
-): Promise<Profile> {
- return productsApi.get(userId, signal);
+export function loadProfileAbortable(productsApi: ProductsApi, userId: string, signal: AbortSignal): Promise<Profile> {
+  return productsApi.get(userId, signal);
 }

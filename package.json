@@ -21,6 +21,8 @@
     "bench:browser": "npm run bench:browser --workspace=@cancjs/benchmarks",
     "examples:test": "npm --prefix examples run examples:test",
     "examples:typecheck": "npm --prefix examples run examples:typecheck",
+    "examples:lint": "npm --prefix examples run examples:lint",
+    "examples:format": "npm --prefix examples run examples:format",
     "format": "run-p -c format:workspaces format:root",
     "format:workspaces": "cross-env NODE_OPTIONS=--no-deprecation lerna run format --stream --no-bail",
     "format:root": "eslint --fix *.{js,mjs,json,md} scripts docs packages/_util packages/_lazy packages/_toolbox"

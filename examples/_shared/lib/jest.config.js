@@ -1,7 +1,7 @@
 const base = require('../../jest.config.base.js');
 
 module.exports = {
- ...base,
- displayName: 'lib',
- rootDir: '.',
+  ...base,
+  displayName: 'lib',
+  rootDir: '.',
 };

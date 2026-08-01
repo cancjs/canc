@@ -4,6 +4,6 @@ import type { CancelablePromise } from '@cancjs/promise';
 // interceptor can cancel it when the client disconnects. Both twins share this shape; the vanilla
 // request simply never gets `cancelable` set.
 export interface CancelableRequest {
- cancelable?: CancelablePromise<unknown>;
- on(event: 'close', listener: () => void): unknown;
+  cancelable?: CancelablePromise<unknown>;
+  on(event: 'close', listener: () => void): unknown;
 }

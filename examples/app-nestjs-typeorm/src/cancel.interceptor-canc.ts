@@ -1,11 +1,7 @@
-import {
- CallHandler,
- ExecutionContext,
- Injectable,
- NestInterceptor,
-} from '@nestjs/common';
-import { Observable, from, lastValueFrom } from 'rxjs';
 import { CancelablePromise, isCancelError } from '@cancjs/promise';
+import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
+import { from, lastValueFrom, Observable } from 'rxjs';
+
 import type { CancelableRequest } from './cancelable-request';
 
 /**
@@ -21,27 +17,25 @@ import type { CancelableRequest } from './cancelable-request';
  */
 @Injectable()
 export class CancelInterceptor implements NestInterceptor {
- intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
- const request = context.switchToHttp().getRequest<CancelableRequest>();
- const response = context.switchToHttp().getResponse();
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
+    const request = context.switchToHttp().getRequest<CancelableRequest>();
+    const response = context.switchToHttp().getResponse();
 
- // Express fires 'close' on the request when the socket goes away (on Fastify it is
- // request.raw.on('close')). response.writableEnded stays false only while the response is open.
- request.on('close', () => {
- if (!response.writableEnded) {
- void (request.cancelable as CancelablePromise<unknown> | undefined)?.cancel(
- 'client disconnected',
- );
- }
- });
+    // Express fires 'close' on the request when the socket goes away (on Fastify it is
+    // request.raw.on('close')). response.writableEnded stays false only while the response is open.
+    request.on('close', () => {
+      if (!response.writableEnded) {
+        void (request.cancelable as CancelablePromise<unknown> | undefined)?.cancel('client disconnected');
+      }
+    });
 
- // Bridge the handler Observable to a promise, then swallow a CancelError so a disconnect does
- // not surface as a 500; the socket is already gone.
- return from(
- lastValueFrom(next.handle()).catch((error: unknown) => {
- if (isCancelError(error)) return undefined;
- throw error;
- }),
- );
- }
+    // Bridge the handler Observable to a promise, then swallow a CancelError so a disconnect does
+    // not surface as a 500; the socket is already gone.
+    return from(
+      lastValueFrom(next.handle()).catch((error: unknown) => {
+        if (isCancelError(error)) return undefined;
+        throw error;
+      }),
+    );
+  }
 }

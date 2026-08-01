@@ -1,9 +1,4 @@
-import {
- CallHandler,
- ExecutionContext,
- Injectable,
- NestInterceptor,
-} from '@nestjs/common';
+import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
 import { Observable } from 'rxjs';
 
 /**
@@ -16,19 +11,19 @@ import { Observable } from 'rxjs';
  */
 @Injectable()
 export class CancelInterceptor implements NestInterceptor {
- intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
- const request = context.switchToHttp().getRequest();
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
+    const request = context.switchToHttp().getRequest();
 
- // (nothing cancelable on the request, see -canc; the handler runs to completion regardless)
+    // (nothing cancelable on the request, see -canc; the handler runs to completion regardless)
 
- // (no cancellation counterpart, see -canc; a disconnect cannot stop the handler chain)
- const response = context.switchToHttp().getResponse();
- request.on('close', () => {
- if (!response.writableEnded) {
- // client left, but nothing below can act on it, the handler already runs to the end
- }
- });
+    // (no cancellation counterpart, see -canc; a disconnect cannot stop the handler chain)
+    const response = context.switchToHttp().getResponse();
+    request.on('close', () => {
+      if (!response.writableEnded) {
+        // client left, but nothing below can act on it, the handler already runs to the end
+      }
+    });
 
- return next.handle();
- }
+    return next.handle();
+  }
 }

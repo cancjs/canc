@@ -9,17 +9,14 @@ type GatewayApi = MockApiBundle['gateway'];
  * abort both stop the call immediately. Cancellation is a rejection; no special error-name
  * handling needed.
  */
-export function callGatewayWithSignal(
- gatewayApi: GatewayApi,
- signal: AbortSignal
-): Promise<{ transactionId: string }> {
- const { signal: innerSignal, cancel } = createCancelSignal();
+export function callGatewayWithSignal(gatewayApi: GatewayApi, signal: AbortSignal): Promise<{ transactionId: string }> {
+  const { signal: innerSignal, cancel } = createCancelSignal();
 
- // Thread both signals together.
- const onAbort = () => cancel();
- signal.addEventListener('abort', onAbort);
+  // Thread both signals together.
+  const onAbort = () => cancel();
+  signal.addEventListener('abort', onAbort);
 
- return gatewayApi.call({ method: 'pay', amount: 100 }, innerSignal).finally(() => {
- signal.removeEventListener('abort', onAbort);
- });
+  return gatewayApi.call({ method: 'pay', amount: 100 }, innerSignal).finally(() => {
+    signal.removeEventListener('abort', onAbort);
+  });
 }

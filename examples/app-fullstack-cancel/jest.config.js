@@ -6,30 +6,36 @@ const base = require('../jest.config.base.js');
 // tests run the framework-free UI under jsdom with a faked axios adapter, no server at all.
 
 const cjsTransform = {
-  '^.+\\.[tj]sx?$': ['ts-jest', {
-    tsconfig: {
-      target: 'es2020',
-      module: 'commonjs',
-      moduleResolution: 'node',
-      lib: ['es2020', 'dom', 'dom.iterable'],
-      esModuleInterop: true,
-      strict: true,
+  '^.+\\.[tj]sx?$': [
+    'ts-jest',
+    {
+      tsconfig: {
+        target: 'es2020',
+        module: 'commonjs',
+        moduleResolution: 'node',
+        lib: ['es2020', 'dom', 'dom.iterable'],
+        esModuleInterop: true,
+        strict: true,
+      },
     },
-  }],
+  ],
 };
 
 const clientTransform = {
-  '^.+\\.[tj]sx?$': ['ts-jest', {
-    tsconfig: {
-      target: 'es2020',
-      module: 'commonjs',
-      moduleResolution: 'node',
-      jsx: 'react-jsx',
-      lib: ['es2020', 'dom', 'dom.iterable'],
-      esModuleInterop: true,
-      strict: true,
+  '^.+\\.[tj]sx?$': [
+    'ts-jest',
+    {
+      tsconfig: {
+        target: 'es2020',
+        module: 'commonjs',
+        moduleResolution: 'node',
+        jsx: 'react-jsx',
+        lib: ['es2020', 'dom', 'dom.iterable'],
+        esModuleInterop: true,
+        strict: true,
+      },
     },
-  }],
+  ],
 };
 
 const common = {

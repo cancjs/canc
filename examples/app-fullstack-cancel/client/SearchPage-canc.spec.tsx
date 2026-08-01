@@ -1,7 +1,8 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { CancelablePromise } from '@cancjs/promise';
-import { SearchPage } from './SearchPage-canc';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+
 import type { SearchApi } from './api-canc';
+import { SearchPage } from './SearchPage-canc';
 import type { UserHit } from './user-hit';
 
 // A fake API that records which queries it was asked to search and which were canceled. Canceling a
@@ -28,9 +29,7 @@ test('shows results for the settled search', async () => {
 
   fireEvent.change(screen.getByLabelText('Search users'), { target: { value: 'ada' } });
   await waitFor(() => expect(searched).toContain('ada'));
-  resolvers.get('ada')!([
-    { id: 1, name: 'Ada Lovelace', email: 'a@example.com', city: 'London', cityCount: 3 },
-  ]);
+  resolvers.get('ada')!([{ id: 1, name: 'Ada Lovelace', email: 'a@example.com', city: 'London', cityCount: 3 }]);
 
   await screen.findByText(/Ada Lovelace/);
 });

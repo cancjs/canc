@@ -6,22 +6,20 @@
 // answer, yet this work still runs and bills. The mirrored comment in cache-race-canc.ts shows the
 // pipeline being canceled at that same point.
 
-import { ragPipeline } from './pipeline-vanilla';
+import type { ChatApi, RagApi } from '@shared/mock-api';
+
 import { RagAnswer } from './pipeline';
-import type { RagApi, ChatApi } from '@shared/mock-api';
+import { ragPipeline } from './pipeline-vanilla';
 
 export function answerWithCache(ragApi: RagApi, chatApi: ChatApi, query: string): Promise<RagAnswer> {
- return Promise.race([
- lookupCache(query),
- ragPipeline(ragApi, chatApi, query),
- ]);
+  return Promise.race([lookupCache(query), ragPipeline(ragApi, chatApi, query)]);
 }
 
 // A fast semantic-cache lookup. Resolves quickly when there is a cached answer for the query.
 function lookupCache(query: string): Promise<RagAnswer> {
- return new Promise((resolve) => {
- setTimeout(() => {
- resolve({ query, text: `cached: ${query}`, sources: ['cache'] });
- }, 20);
- });
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve({ query, text: `cached: ${query}`, sources: ['cache'] });
+    }, 20);
+  });
 }

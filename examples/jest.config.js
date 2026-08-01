@@ -14,10 +14,10 @@ const base = require('./jest.config.base.js');
 // standalone there, so point each at its app dir explicitly here.
 const multiProjectConfigs = ['app-vue-pinia', 'app-vue-suspense'];
 const splicedProjects = multiProjectConfigs.flatMap((dir) =>
- require(`./${dir}/jest.config.js`).projects.map((project) => ({
- ...project,
- rootDir: path.join(__dirname, dir),
- }))
+  require(`./${dir}/jest.config.js`).projects.map((project) => ({
+    ...project,
+    rootDir: path.join(__dirname, dir),
+  })),
 );
 
 // Every other example with an own jest.config.js is a normal single-project config and can be
@@ -25,35 +25,35 @@ const splicedProjects = multiProjectConfigs.flatMap((dir) =>
 // they get an inline project each; the workspace-root specs under test/ get one too.
 const multiProjectPaths = multiProjectConfigs.map((dir) => `${dir}/jest.config.js`);
 const ownConfigs = glob
- .sync('*/jest.config.js', { cwd: __dirname })
- .filter((p) => !multiProjectPaths.includes(p.split(path.sep).join('/')))
- .map((p) => path.join('<rootDir>', p));
+  .sync('*/jest.config.js', { cwd: __dirname })
+  .filter((p) => !multiProjectPaths.includes(p.split(path.sep).join('/')))
+  .map((p) => path.join('<rootDir>', p));
 
 module.exports = {
- projects: [
- ...ownConfigs,
- ...splicedProjects,
- {
- ...base,
- displayName: 'demo-combinators',
- rootDir: 'demo-combinators',
- },
- {
- ...base,
- displayName: 'demo-signal-interop',
- rootDir: 'demo-signal-interop',
- },
- {
- ...base,
- displayName: 'examples-root',
- rootDir: '.',
- testMatch: ['<rootDir>/test/**/*.spec.ts'],
- // base's @shared mapper assumes rootDir is one level under examples/ (a per-app dir); this
- // project's rootDir IS examples/, so @shared resolves directly to ./_shared, not ../_shared.
- moduleNameMapper: {
- ...base.moduleNameMapper,
- '^@shared/(.+)$': '<rootDir>/_shared/$1',
- },
- },
- ],
+  projects: [
+    ...ownConfigs,
+    ...splicedProjects,
+    {
+      ...base,
+      displayName: 'demo-combinators',
+      rootDir: 'demo-combinators',
+    },
+    {
+      ...base,
+      displayName: 'demo-signal-interop',
+      rootDir: 'demo-signal-interop',
+    },
+    {
+      ...base,
+      displayName: 'examples-root',
+      rootDir: '.',
+      testMatch: ['<rootDir>/test/**/*.spec.ts'],
+      // base's @shared mapper assumes rootDir is one level under examples/ (a per-app dir); this
+      // project's rootDir IS examples/, so @shared resolves directly to ./_shared, not ../_shared.
+      moduleNameMapper: {
+        ...base.moduleNameMapper,
+        '^@shared/(.+)$': '<rootDir>/_shared/$1',
+      },
+    },
+  ],
 };

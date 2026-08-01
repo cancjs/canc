@@ -4,23 +4,23 @@
 //
 // Angular's own @Injectable decorator is untouched. There is no canc decorator counterpart here.
 
-import { Injectable, inject } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 
 import { ORDERS_API } from './orders.api';
-import type { OrderSummary, OrderDetail, OrdersServiceShape } from './orders.types';
+import type { OrderDetail, OrdersServiceShape, OrderSummary } from './orders.types';
 
 // (no cancelable wrapper counterpart — see orders.service-canc.ts)
 
 @Injectable()
 export class OrdersService implements OrdersServiceShape {
- private readonly api = inject(ORDERS_API);
+  private readonly api = inject(ORDERS_API);
 
- async list(): Promise<OrderSummary[]> {
- return this.api.listOrders();
- }
+  async list(): Promise<OrderSummary[]> {
+    return this.api.listOrders();
+  }
 
- async detail(id: string): Promise<OrderDetail> {
- // No signal is threaded, so this request runs to completion even if the caller moved on.
- return this.api.orderDetail(id);
- }
+  async detail(id: string): Promise<OrderDetail> {
+    // No signal is threaded, so this request runs to completion even if the caller moved on.
+    return this.api.orderDetail(id);
+  }
 }

@@ -7,13 +7,10 @@ type InventoryApi = MockApiBundle['inventory'];
  * immediately on timeout, but the underlying inventory call keeps running (wasted work,
  * eventual state update).
  */
-export function fetchInventoryWithTimeout(
- inventoryApi: InventoryApi,
- productId: string
-): Promise<number> {
- const timeoutPromise = new Promise<number>((_, reject) => {
- setTimeout(() => reject(new Error('timeout')), 500);
- });
+export function fetchInventoryWithTimeout(inventoryApi: InventoryApi, productId: string): Promise<number> {
+  const timeoutPromise = new Promise<number>((_, reject) => {
+    setTimeout(() => reject(new Error('timeout')), 500);
+  });
 
- return Promise.race([inventoryApi.check(productId), timeoutPromise]);
+  return Promise.race([inventoryApi.check(productId), timeoutPromise]);
 }

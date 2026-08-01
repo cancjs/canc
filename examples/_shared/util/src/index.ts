@@ -1,4 +1,4 @@
-export { sleep } from './sleep';
-export { mulberry32 } from './mulberry32';
+export { type AbortSignalLike, attachAbort } from './attachAbort';
 export { clone } from './clone';
-export { attachAbort, type AbortSignalLike } from './attachAbort';
+export { mulberry32 } from './mulberry32';
+export { sleep } from './sleep';

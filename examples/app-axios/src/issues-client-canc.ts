@@ -1,6 +1,7 @@
-import { CancelablePromise } from '@cancjs/promise';
 import cancelableAxios, { CancelableAxiosInstance } from '@cancjs/axios';
+import { CancelablePromise } from '@cancjs/promise';
 import { AxiosInstance } from 'axios';
+
 import { Issue, SearchResult } from './issues';
 
 /**
@@ -9,52 +10,52 @@ import { Issue, SearchResult } from './issues';
  * When a new search comes in before the old one completes, simply cancel the old promise.
  */
 export class CancIssuesClient {
- private api: CancelableAxiosInstance;
- private latestSearch: CancelablePromise<SearchResult> | null = null;
- private latestDetail: CancelablePromise<Issue> | null = null;
+  private api: CancelableAxiosInstance;
+  private latestSearch: CancelablePromise<SearchResult> | null = null;
+  private latestDetail: CancelablePromise<Issue> | null = null;
 
- constructor(instance: AxiosInstance) {
- this.api = cancelableAxios.wrap(instance);
- }
+  constructor(instance: AxiosInstance) {
+    this.api = cancelableAxios.wrap(instance);
+  }
 
- searchIssues(query: string): CancelablePromise<SearchResult> {
- // Cancel the previous search if it is still pending.
- if (this.latestSearch) {
- this.latestSearch.cancel('superseded by new search');
- }
+  searchIssues(query: string): CancelablePromise<SearchResult> {
+    // Cancel the previous search if it is still pending.
+    if (this.latestSearch) {
+      this.latestSearch.cancel('superseded by new search');
+    }
 
- // Create a new cancelable search request.
- // The wrapper keeps the axios signature, so the response is unwrapped here.
- this.latestSearch = this.api
- .get<SearchResult>('/issues/search', { params: { q: query } })
- .then((response) => response.data);
+    // Create a new cancelable search request.
+    // The wrapper keeps the axios signature, so the response is unwrapped here.
+    this.latestSearch = this.api
+      .get<SearchResult>('/issues/search', { params: { q: query } })
+      .then((response) => response.data);
 
- return this.latestSearch;
- }
+    return this.latestSearch;
+  }
 
- getIssueWithComments(issueId: number): CancelablePromise<Issue> {
- // Cancel the previous detail fetch if it is still pending.
- if (this.latestDetail) {
- this.latestDetail.cancel('new issue selected');
- }
+  getIssueWithComments(issueId: number): CancelablePromise<Issue> {
+    // Cancel the previous detail fetch if it is still pending.
+    if (this.latestDetail) {
+      this.latestDetail.cancel('new issue selected');
+    }
 
- // Create a new cancelable detail request.
- this.latestDetail = this.api.get<Issue>(`/issues/${issueId}`).then((response) => response.data);
+    // Create a new cancelable detail request.
+    this.latestDetail = this.api.get<Issue>(`/issues/${issueId}`).then((response) => response.data);
 
- return this.latestDetail;
- }
+    return this.latestDetail;
+  }
 
- cancelSearch(): void {
- // Direct cancellation: just call cancel() on the promise.
- if (this.latestSearch) {
- this.latestSearch.cancel('user canceled search');
- }
- }
+  cancelSearch(): void {
+    // Direct cancellation: just call cancel() on the promise.
+    if (this.latestSearch) {
+      this.latestSearch.cancel('user canceled search');
+    }
+  }
 
- cancelDetail(): void {
- // Direct cancellation: just call cancel() on the promise.
- if (this.latestDetail) {
- this.latestDetail.cancel('user canceled detail view');
- }
- }
+  cancelDetail(): void {
+    // Direct cancellation: just call cancel() on the promise.
+    if (this.latestDetail) {
+      this.latestDetail.cancel('user canceled detail view');
+    }
+  }
 }

@@ -1,5 +1,5 @@
-import type { Request, Response } from 'express';
 import { createCancelSignal } from '@cancjs/promise';
+import type { Request, Response } from 'express';
 
 // Express (and Node's IncomingMessage) does not give you a per-request AbortSignal. This helper
 // provides one, on demand. Lazy so a request that never asks for a signal never allocates one, and

@@ -7,5 +7,5 @@ import { createMarketplaceApi } from './mock/api';
 const api = createMarketplaceApi({ trace: (line) => console.log(line) });
 
 createApp({
- render: () => h(App, { title: 'Marketplace browser (canc)' }, () => h(CatalogPage, { api })),
+  render: () => h(App, { title: 'Marketplace browser (canc)' }, () => h(CatalogPage, { api })),
 }).mount('#app');

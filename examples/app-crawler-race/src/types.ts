@@ -2,6 +2,6 @@
 
 /** The outcome of one crawl: every page visited, and the broken (404) links found. */
 export interface CrawlReport {
- visited: string[];
- broken: string[];
+  visited: string[];
+  broken: string[];
 }

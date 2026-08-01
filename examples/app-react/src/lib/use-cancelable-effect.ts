@@ -1,5 +1,5 @@
-import { type DependencyList, useEffect } from 'react';
 import { type CancelablePromise, isCancPromise, suppressCancel } from '@cancjs/promise';
+import { type DependencyList, useEffect } from 'react';
 
 /**
  * Effect callback that may kick off async work. Return a `CancelablePromise` to have it canceled
@@ -21,18 +21,18 @@ export type CancelableEffectCallback = () => CancelablePromise<unknown> | void |
  * `isCancPromise` branch that returns `result.cancel` instead of dropping the promise on the floor.
  */
 export function useCancelableEffect(callback: CancelableEffectCallback, deps?: DependencyList): void {
- useEffect(() => {
- const result = callback();
+  useEffect(() => {
+    const result = callback();
 
- if (isCancPromise(result)) {
- suppressCancel(result);
- return () => {
- result.cancel();
- };
- }
+    if (isCancPromise(result)) {
+      suppressCancel(result);
+      return () => {
+        result.cancel();
+      };
+    }
 
- if (typeof result === 'function') {
- return result;
- }
- }, deps);
+    if (typeof result === 'function') {
+      return result;
+    }
+  }, deps);
 }

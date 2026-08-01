@@ -1,7 +1,8 @@
-import { sleep } from '@shared/util';
 import type { EntityManager } from '@mikro-orm/core';
+import { sleep } from '@shared/util';
+
 import { UserSchema } from './entities/user';
-import { searchWhere, RESULT_LIMIT } from './orm';
+import { RESULT_LIMIT, searchWhere } from './orm';
 
 export interface SearchHit {
   id: number;

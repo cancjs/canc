@@ -1,6 +1,6 @@
-import { spawn, type ChildProcess } from 'node:child_process';
-import path from 'node:path';
+import { type ChildProcess, spawn } from 'node:child_process';
 import http from 'node:http';
+import path from 'node:path';
 
 const APP_ROOT = path.resolve(__dirname, '..');
 
@@ -18,11 +18,11 @@ export type Flavor = 'canc' | 'vanilla';
 
 /** Boots e2e/test-server.ts as a real subprocess (native ESM) and waits until it is listening. */
 export async function startServer(flavor: Flavor = 'canc'): Promise<ServerHandle> {
-  const child: ChildProcess = spawn(
-    process.execPath,
-    ['--import', 'tsx', path.join('e2e', 'test-server.ts')],
-    { cwd: APP_ROOT, env: { ...process.env, PORT: '0', CANC_FLAVOR: flavor }, stdio: ['ignore', 'pipe', 'pipe'] },
-  );
+  const child: ChildProcess = spawn(process.execPath, ['--import', 'tsx', path.join('e2e', 'test-server.ts')], {
+    cwd: APP_ROOT,
+    env: { ...process.env, PORT: '0', CANC_FLAVOR: flavor },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
 
   const port = await new Promise<number>((resolve, reject) => {
     let buffer = '';

@@ -1,5 +1,6 @@
+import { type MikroORM, RequestContext } from '@mikro-orm/core';
 import type { RequestHandler } from 'express';
-import { RequestContext, type MikroORM } from '@mikro-orm/core';
+
 import type { InflightQueryAbortStrategy } from '../orm';
 
 /**

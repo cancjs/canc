@@ -1,8 +1,9 @@
 import * as canc from '@cancjs/coroutine';
 import { delay } from '@cancjs/toolbox';
 import type { EntityManager } from '@mikro-orm/core';
+
 import { UserSchema } from './entities/user';
-import { searchWhere, RESULT_LIMIT } from './orm';
+import { RESULT_LIMIT, searchWhere } from './orm';
 
 export interface SearchHit {
   id: number;

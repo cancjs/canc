@@ -10,129 +10,136 @@
 // fed a signal derived from the connection root via `toAbortSignal`. When the root cancels, that
 // signal aborts and the native iterator ends, so the read loop unwinds with the rest of the tree.
 
-import { createServer } from 'http';
-import { on } from 'events';
-import { join } from 'path';
-import express from 'express';
-import { WebSocketServer, WebSocket } from 'ws';
-import { CancelablePromise, CancelError, isCancelError } from '@cancjs/promise';
 import { cancAsync, cancForAwait } from '@cancjs/coroutine';
-import { toAbortSignal, suppress } from '@cancjs/toolbox';
+import { CancelablePromise, CancelError, isCancelError } from '@cancjs/promise';
+import { suppress, toAbortSignal } from '@cancjs/toolbox';
+import { on } from 'events';
+import express from 'express';
+import { createServer } from 'http';
+import { join } from 'path';
+import { WebSocket, WebSocketServer } from 'ws';
+
 import { exportJob } from './export-job-canc';
-import { createTranscoder, Transcoder, ExportBackend } from './mock/transcode';
-import { ClientMessage, ServerMessage, parseClientMessage } from './protocol';
+import { createTranscoder, ExportBackend, Transcoder } from './mock/transcode';
+import { ClientMessage, parseClientMessage, ServerMessage } from './protocol';
 
 export interface ServerHandle {
- port: number;
- close: () => Promise<void>;
+  port: number;
+  close: () => Promise<void>;
 }
 
 export function startServer(backend: ExportBackend, port = 0): Promise<ServerHandle> {
- const app = express();
- app.use(express.static(join(__dirname, '../public')));
- const http = createServer(app);
- const wss = new WebSocketServer({ server: http });
+  const app = express();
+  app.use(express.static(join(__dirname, '../public')));
+  const http = createServer(app);
+  const wss = new WebSocketServer({ server: http });
 
- // Build the canc-native transcoder once at the root, the only place the raw backend is touched.
- // Every handler below takes that transcoder, never the backend bundle.
- const transcode = createTranscoder(backend);
- wss.on('connection', (ws) => handleConnection(ws, transcode));
+  // Build the canc-native transcoder once at the root, the only place the raw backend is touched.
+  // Every handler below takes that transcoder, never the backend bundle.
+  const transcode = createTranscoder(backend);
+  wss.on('connection', (ws) => handleConnection(ws, transcode));
 
- return new Promise((resolve) => {
- http.listen(port, () => {
- const address = http.address();
- const actualPort = typeof address === 'object' && address ? address.port : port;
- resolve({
- port: actualPort,
- close: () => new Promise<void>((done) => {
- for (const client of wss.clients) client.terminate();
- wss.close();
- http.close(() => done());
- }),
- });
- });
- });
+  return new Promise((resolve) => {
+    http.listen(port, () => {
+      const address = http.address();
+      const actualPort = typeof address === 'object' && address ? address.port : port;
+      resolve({
+        port: actualPort,
+        close: () =>
+          new Promise<void>((done) => {
+            for (const client of wss.clients) client.terminate();
+            wss.close();
+            http.close(() => done());
+          }),
+      });
+    });
+  });
 }
 
 function handleConnection(ws: WebSocket, transcode: Transcoder): void {
- // The connection's cancel root: an intentional scope handle. A pending-forever CancelablePromise,
- // never resolved; canceling it cancels every job below. This is the only hand-built primitive.
- const connectionRoot = new CancelablePromise<void>(() => {});
- const jobs = new Map<string, CancelablePromise<void>>();
+  // The connection's cancel root: an intentional scope handle. A pending-forever CancelablePromise,
+  // never resolved; canceling it cancels every job below. This is the only hand-built primitive.
+  const connectionRoot = new CancelablePromise<void>(() => {});
+  const jobs = new Map<string, CancelablePromise<void>>();
 
- // Socket close = second cancel path. Cancel the root; its children (all jobs) go with it.
- ws.on('close', () => connectionRoot.cancel(new CancelError('Connection closed')));
- // When the root cancels, drop every remaining job (the tree cancel).
- connectionRoot.then(undefined, () => { for (const job of jobs.values()) job.cancel(); });
+  // Socket close = second cancel path. Cancel the root; its children (all jobs) go with it.
+  ws.on('close', () => connectionRoot.cancel(new CancelError('Connection closed')));
+  // When the root cancels, drop every remaining job (the tree cancel).
+  connectionRoot.then(undefined, () => {
+    for (const job of jobs.values()) job.cancel();
+  });
 
- void readMessages(ws, transcode, connectionRoot, jobs);
+  void readMessages(ws, transcode, connectionRoot, jobs);
 }
 
 async function readMessages(
- ws: WebSocket,
- transcode: Transcoder,
- connectionRoot: CancelablePromise<void>,
- jobs: Map<string, CancelablePromise<void>>,
+  ws: WebSocket,
+  transcode: Transcoder,
+  connectionRoot: CancelablePromise<void>,
+  jobs: Map<string, CancelablePromise<void>>,
 ): Promise<void> {
- // The signal dies with the connection root, ending this native iterator cleanly.
- const signal = toAbortSignal(connectionRoot);
- try {
- for await (const [raw] of on(ws, 'message', { signal })) {
- const message = parseClientMessage(String(raw));
- if (!message) continue;
- dispatch(message, ws, transcode, jobs);
- }
- } catch (error) {
- if ((error as { name?: string }).name !== 'AbortError') throw error;
- // AbortError = the connection root canceled. Expected; nothing more to read.
- }
+  // The signal dies with the connection root, ending this native iterator cleanly.
+  const signal = toAbortSignal(connectionRoot);
+  try {
+    for await (const [raw] of on(ws, 'message', { signal })) {
+      const message = parseClientMessage(String(raw));
+      if (!message) continue;
+      dispatch(message, ws, transcode, jobs);
+    }
+  } catch (error) {
+    if ((error as { name?: string }).name !== 'AbortError') throw error;
+    // AbortError = the connection root canceled. Expected; nothing more to read.
+  }
 }
 
 function dispatch(
- message: ClientMessage,
- ws: WebSocket,
- transcode: Transcoder,
- jobs: Map<string, CancelablePromise<void>>,
+  message: ClientMessage,
+  ws: WebSocket,
+  transcode: Transcoder,
+  jobs: Map<string, CancelablePromise<void>>,
 ): void {
- if (message.type === 'start') {
- if (jobs.has(message.jobId)) return;
- jobs.set(message.jobId, runJob(message.jobId, ws, transcode, jobs));
- } else {
- // First cancel path: explicit message. Cancel the one job; its ack is sent from runJob.
- jobs.get(message.jobId)?.cancel();
- }
+  if (message.type === 'start') {
+    if (jobs.has(message.jobId)) return;
+    jobs.set(message.jobId, runJob(message.jobId, ws, transcode, jobs));
+  } else {
+    // First cancel path: explicit message. Cancel the one job; its ack is sent from runJob.
+    jobs.get(message.jobId)?.cancel();
+  }
 }
 
 function runJob(
- jobId: string,
- ws: WebSocket,
- transcode: Transcoder,
- jobs: Map<string, CancelablePromise<void>>,
+  jobId: string,
+  ws: WebSocket,
+  transcode: Transcoder,
+  jobs: Map<string, CancelablePromise<void>>,
 ): CancelablePromise<void> {
- // The job is a coroutine that consumes the export stream. Its own cancel runs the iterator's
- // `return()` for us, which aborts the chunk in flight and stops every later chunk.
- const job = cancAsync(function* () {
- const progressStream = exportJob(transcode);
- yield* cancForAwait(progressStream, (percent) => {
- send(ws, { type: 'progress', jobId, percent: Number(percent) });
- });
- })();
+  // The job is a coroutine that consumes the export stream. Its own cancel runs the iterator's
+  // `return()` for us, which aborts the chunk in flight and stops every later chunk.
+  const job = cancAsync(function* () {
+    const progressStream = exportJob(transcode);
+    yield* cancForAwait(progressStream, (percent) => {
+      send(ws, { type: 'progress', jobId, percent: Number(percent) });
+    });
+  })();
 
- job.then(
- () => { jobs.delete(jobId); send(ws, { type: 'done', jobId }); },
- (error) => {
- jobs.delete(jobId);
- // Cancel = ack the client. Shielded so the ack still sends even though the job chain is
- // canceling. A real failure is left to surface, not acked as a cancel.
- if (isCancelError(error)) {
- void suppress((async () => send(ws, { type: 'canceled', jobId }))());
- }
- },
- );
+  job.then(
+    () => {
+      jobs.delete(jobId);
+      send(ws, { type: 'done', jobId });
+    },
+    (error) => {
+      jobs.delete(jobId);
+      // Cancel = ack the client. Shielded so the ack still sends even though the job chain is
+      // canceling. A real failure is left to surface, not acked as a cancel.
+      if (isCancelError(error)) {
+        void suppress((async () => send(ws, { type: 'canceled', jobId }))());
+      }
+    },
+  );
 
- return job;
+  return job;
 }
 
 function send(ws: WebSocket, message: ServerMessage): void {
- if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(message));
+  if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(message));
 }

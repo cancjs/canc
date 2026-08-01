@@ -1,6 +1,7 @@
 import cancelableAxios from '@cancjs/axios';
 import { isCancelError } from '@cancjs/promise';
-import { startServer, sleep, type ServerHandle, type Flavor } from './harness';
+
+import { type Flavor, type ServerHandle, sleep, startServer } from './harness';
 
 // The whole stack, both flavors: a cancelable-axios request is canceled, and the cancellation
 // reaches the database. This is the browser-to-DB path from the article, minus the browser.

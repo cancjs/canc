@@ -1,5 +1,5 @@
-import { createOrm } from './orm';
 import { createApp } from './app-vanilla';
+import { createOrm } from './orm';
 
 const PORT = Number(process.env.PORT ?? 3000);
 

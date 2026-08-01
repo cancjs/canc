@@ -10,47 +10,48 @@
 
 import { async as cancAsync, await as cancAwait } from '@cancjs/coroutine';
 import CancelablePromise from '@cancjs/promise';
+
 import type { CommentAck, Issue, IssueClientShape, IssuesApi } from '../issue-types.js';
 
 // Wrap a signal-aware mock-api call as a CancelablePromise so a coroutine cancel() aborts the
 // underlying request. Shared by all flavors via copy (kept inline to preserve twin alignment).
 function abortable<T>(run: (signal: AbortSignal) => Promise<T>): CancelablePromise<T> {
- return new CancelablePromise<T>((resolve, reject, { handleCancel }) => {
- const controller = new AbortController();
- handleCancel(() => controller.abort());
- run(controller.signal).then(resolve, reject);
- });
+  return new CancelablePromise<T>((resolve, reject, { handleCancel }) => {
+    const controller = new AbortController();
+    handleCancel(() => controller.abort());
+    run(controller.signal).then(resolve, reject);
+  });
 }
 
 export class IssueClient implements IssueClientShape {
- constructor(private readonly issuesApi: IssuesApi) {
- // Equivalent to @AsyncMethod() / @BindMethod({ bind: true }): assign each coroutine, bound to
- // this instance, once. loadIssue is bound (detachable handler). cancAsync's own return typing
- // does not narrow past the generator's yield type here, so the field types above are the
- // source of truth; the cast just restates them at the assignment.
- this.searchIssues = cancAsync(this.searchIssuesGen, this) as unknown as IssueClient['searchIssues'];
- this.loadIssue = cancAsync(this.loadIssueGen, this) as unknown as IssueClient['loadIssue'];
- this.saveComment = cancAsync(this.saveCommentGen, this) as unknown as IssueClient['saveComment'];
- }
+  constructor(private readonly issuesApi: IssuesApi) {
+    // Equivalent to @AsyncMethod() / @BindMethod({ bind: true }): assign each coroutine, bound to
+    // this instance, once. loadIssue is bound (detachable handler). cancAsync's own return typing
+    // does not narrow past the generator's yield type here, so the field types above are the
+    // source of truth; the cast just restates them at the assignment.
+    this.searchIssues = cancAsync(this.searchIssuesGen, this) as unknown as IssueClient['searchIssues'];
+    this.loadIssue = cancAsync(this.loadIssueGen, this) as unknown as IssueClient['loadIssue'];
+    this.saveComment = cancAsync(this.saveCommentGen, this) as unknown as IssueClient['saveComment'];
+  }
 
- searchIssues!: (query: string) => Promise<Issue[]>;
- loadIssue!: (id: number) => Promise<Issue>;
- saveComment!: (id: number, comment: string) => Promise<CommentAck>;
+  searchIssues!: (query: string) => Promise<Issue[]>;
+  loadIssue!: (id: number) => Promise<Issue>;
+  saveComment!: (id: number, comment: string) => Promise<CommentAck>;
 
- private *searchIssuesGen(query: string): Generator<unknown, Issue[]> {
- const issues = yield* cancAwait(abortable((signal) => this.issuesApi.list(signal)));
- return issues.filter((issue) => issue.title.toLowerCase().includes(query.toLowerCase()));
- }
+  private *searchIssuesGen(query: string): Generator<unknown, Issue[]> {
+    const issues = yield* cancAwait(abortable((signal) => this.issuesApi.list(signal)));
+    return issues.filter((issue) => issue.title.toLowerCase().includes(query.toLowerCase()));
+  }
 
- private *loadIssueGen(id: number): Generator<unknown, Issue> {
- const issues = yield* cancAwait(abortable((signal) => this.issuesApi.list(signal)));
- const found = issues.find((issue) => issue.id === id);
- if (!found) throw new Error(`no issue ${id}`);
- return found;
- }
+  private *loadIssueGen(id: number): Generator<unknown, Issue> {
+    const issues = yield* cancAwait(abortable((signal) => this.issuesApi.list(signal)));
+    const found = issues.find((issue) => issue.id === id);
+    if (!found) throw new Error(`no issue ${id}`);
+    return found;
+  }
 
- private *saveCommentGen(id: number, comment: string): Generator<unknown, CommentAck> {
- const issue = yield* cancAwait(this.loadIssue(id));
- return { issueId: id, comment, issueTitle: issue.title };
- }
+  private *saveCommentGen(id: number, comment: string): Generator<unknown, CommentAck> {
+    const issue = yield* cancAwait(this.loadIssue(id));
+    return { issueId: id, comment, issueTitle: issue.title };
+  }
 }

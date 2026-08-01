@@ -1,7 +1,7 @@
 const base = require('../jest.config.base.js');
 
 module.exports = {
- ...base,
- displayName: 'demo-coroutine',
- rootDir: '.',
+  ...base,
+  displayName: 'demo-coroutine',
+  rootDir: '.',
 };

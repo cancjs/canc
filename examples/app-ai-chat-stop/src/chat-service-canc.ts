@@ -4,13 +4,14 @@
 // dropping the local pull.
 
 import { cancAsync, cancAwait } from '@cancjs/coroutine';
-import { cancelify } from '@cancjs/toolbox';
 import { CancelablePromise } from '@cancjs/promise';
-import { createLlm } from './mock/llm';
+import { cancelify } from '@cancjs/toolbox';
+
 import { ChatRequest, UsageLog } from './chat';
+import { createLlm } from './mock/llm';
 
 export interface ChatSink {
- write(token: string): void;
+  write(token: string): void;
 }
 
 const llm = createLlm();
@@ -19,25 +20,25 @@ const llm = createLlm();
 // moderate-then-stream turn, since the wrapping promise only settles once streamTurn resolves.
 // That is what lets a Stop abort mid-stream, not just before the first token.
 const streamTurn = cancelify(async ({ getSignal }, [prompt, sink]: [string, ChatSink]) => {
- const signal = getSignal();
- await llm.moderate(prompt, signal);
- for await (const token of llm.stream(prompt, signal)) {
- sink.write(token);
- }
+  const signal = getSignal();
+  await llm.moderate(prompt, signal);
+  for await (const token of llm.stream(prompt, signal)) {
+    sink.write(token);
+  }
 });
 
 // Cancelable: canceling the returned promise cancels streamTurn, which aborts the signal the LLM
 // sees. Stop cancels the chain, and nothing below the cancel point runs (no wasted paid tokens).
 export function streamChat(req: ChatRequest, sink: ChatSink, log: UsageLog): CancelablePromise<void> {
- let completed = false;
+  let completed = false;
 
- return cancAsync(function* () {
- try {
- yield* cancAwait(streamTurn(req.prompt, sink));
- completed = true;
- } finally {
- // Real cleanup, not abort bookkeeping: records what was billed either way.
- log.record({ prompt: req.prompt, tokens: llm.usage().tokens, canceled: !completed });
- }
- })();
+  return cancAsync(function* () {
+    try {
+      yield* cancAwait(streamTurn(req.prompt, sink));
+      completed = true;
+    } finally {
+      // Real cleanup, not abort bookkeeping: records what was billed either way.
+      log.record({ prompt: req.prompt, tokens: llm.usage().tokens, canceled: !completed });
+    }
+  })();
 }

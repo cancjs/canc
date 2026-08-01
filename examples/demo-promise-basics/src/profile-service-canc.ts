@@ -1,6 +1,7 @@
 import { cancelify } from '@cancjs/toolbox';
-import type { Profile } from './profile';
 import type { MockApiBundle } from '@shared/mock-api';
+
+import type { Profile } from './profile';
 
 type ProductsApi = MockApiBundle['products'];
 
@@ -10,8 +11,8 @@ type ProductsApi = MockApiBundle['products'];
  * AbortController. cancellation is just a rejection, regular catch works.
  */
 export const loadProfileCancelable = cancelify(
- ({ getSignal }, [productsApi, userId]: [ProductsApi, string]): Promise<Profile> =>
- productsApi.get(userId, getSignal())
+  ({ getSignal }, [productsApi, userId]: [ProductsApi, string]): Promise<Profile> =>
+    productsApi.get(userId, getSignal()),
 );
 
 // (no second flavor needed, cancellation is built in)

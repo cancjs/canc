@@ -1,6 +1,6 @@
-import type { Request, Response, NextFunction } from 'express';
-import { isCancelError } from '@cancjs/promise';
 import * as canc from '@cancjs/coroutine';
+import { isCancelError } from '@cancjs/promise';
+import type { NextFunction, Request, Response } from 'express';
 
 /**
  * Wraps a generator route handler as a coroutine and cancels it when the client disconnects. The
@@ -8,9 +8,7 @@ import * as canc from '@cancjs/coroutine';
  * cancellation wiring around it. A canceled handler settles with a CancelError, which is swallowed
  * here rather than forwarded to the error middleware.
  */
-export function cancAsyncRoute(
-  handler: (req: Request, res: Response, next: NextFunction) => Generator,
-) {
+export function cancAsyncRoute(handler: (req: Request, res: Response, next: NextFunction) => Generator) {
   return (req: Request, res: Response, next: NextFunction): void => {
     const task = canc.async(handler)(req, res, next);
 

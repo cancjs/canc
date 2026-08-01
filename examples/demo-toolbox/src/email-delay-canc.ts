@@ -9,11 +9,8 @@ type MailApi = MockApiBundle['mail'];
  * bound to CancelablePromise. cancel() clears the timer immediately and prevents
  * the email send. jest.getTimerCount drops to 0 on cancel (see spec).
  */
-export function sendEmailWithDelay(
- mailApi: MailApi,
- email: string
-): CancelablePromise<void> {
- return delay(1000).then(() => {
- mailApi.send(email);
- });
+export function sendEmailWithDelay(mailApi: MailApi, email: string): CancelablePromise<void> {
+  return delay(1000).then(() => {
+    mailApi.send(email);
+  });
 }

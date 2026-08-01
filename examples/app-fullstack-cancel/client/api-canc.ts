@@ -1,5 +1,6 @@
 import cancelableAxios from '@cancjs/axios';
 import type { CancelablePromise } from '@cancjs/promise';
+
 import type { UserHit } from './user-hit';
 
 const http = cancelableAxios.create({ baseURL: '/api' });

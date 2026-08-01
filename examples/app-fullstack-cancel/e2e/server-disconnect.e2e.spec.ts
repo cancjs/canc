@@ -1,5 +1,6 @@
 import http from 'node:http';
-import { startServer, request, sleep, type ServerHandle, type Flavor } from './harness';
+
+import { type Flavor, request, type ServerHandle, sleep, startServer } from './harness';
 
 // The server layer, both flavors: when the client socket goes away, the search stops and the
 // database stops getting statements. Proven against the real MikroORM + PGlite stack in a subprocess.

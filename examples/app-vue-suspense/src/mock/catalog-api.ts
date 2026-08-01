@@ -3,20 +3,20 @@
 // and shows up in the call log with started/completed/aborted markers. Black box for the reader;
 // the teaching payload lives in src/ProductDetail-*.vue and src/lib/cancelable-setup.ts.
 
-import { createMockApi, type AbortSignalLike } from '@shared/mock-api';
+import { type AbortSignalLike, createMockApi } from '@shared/mock-api';
 
 export interface ProductDetail {
- id: string;
- name: string;
- price: number;
- description: string;
+  id: string;
+  name: string;
+  price: number;
+  description: string;
 }
 
 const CATALOG: Omit<ProductDetail, 'description'>[] = [
- { id: 'p1', name: 'Keyboard', price: 49 },
- { id: 'p2', name: 'Mouse', price: 25 },
- { id: 'p3', name: 'Monitor', price: 199 },
- { id: 'p4', name: 'Headphones', price: 79 },
+  { id: 'p1', name: 'Keyboard', price: 49 },
+  { id: 'p2', name: 'Mouse', price: 25 },
+  { id: 'p3', name: 'Monitor', price: 199 },
+  { id: 'p4', name: 'Headphones', price: 79 },
 ];
 
 // Latency is high enough that a user can open one product and switch to another before the first
@@ -28,14 +28,14 @@ export const mockCalls = mock.api.calls;
 export const PRODUCT_IDS = CATALOG.map((product) => product.id);
 
 export function loadProductDetail(id: string, signal?: AbortSignalLike): Promise<ProductDetail> {
- return mock.api.respond(
- 'catalog.loadProductDetail',
- { id },
- () => {
- const found = CATALOG.find((product) => product.id === id);
- if (!found) throw new Error(`no product ${id}`);
- return { ...found, description: `${found.name} — in stock, ships today.` };
- },
- signal
- );
+  return mock.api.respond(
+    'catalog.loadProductDetail',
+    { id },
+    () => {
+      const found = CATALOG.find((product) => product.id === id);
+      if (!found) throw new Error(`no product ${id}`);
+      return { ...found, description: `${found.name} — in stock, ships today.` };
+    },
+    signal,
+  );
 }

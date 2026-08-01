@@ -1,11 +1,12 @@
 import { DynamicModule, Module } from '@nestjs/common';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { DataSource } from 'typeorm';
+
+import { BillingTierGuard } from './billing-metadata';
 import { CancelInterceptor } from './cancel.interceptor-canc';
 import { InvoiceController } from './invoice.controller-canc';
 import { InvoiceService } from './invoice.service-canc';
 import { InvoiceServiceManual } from './invoice.service-manual-canc';
-import { BillingTierGuard } from './billing-metadata';
 import { INVOICE_SERVICE } from './invoice.tokens';
 
 /**
@@ -16,17 +17,17 @@ import { INVOICE_SERVICE } from './invoice.tokens';
  */
 @Module({})
 export class AppModule {
- static register(dataSource: DataSource): DynamicModule {
- const manual = process.env.CANC_MANUAL === '1';
- return {
- module: AppModule,
- controllers: [InvoiceController],
- providers: [
- { provide: DataSource, useValue: dataSource },
- { provide: APP_INTERCEPTOR, useClass: CancelInterceptor },
- BillingTierGuard,
- { provide: INVOICE_SERVICE, useClass: manual ? InvoiceServiceManual : InvoiceService },
- ],
- };
- }
+  static register(dataSource: DataSource): DynamicModule {
+    const manual = process.env.CANC_MANUAL === '1';
+    return {
+      module: AppModule,
+      controllers: [InvoiceController],
+      providers: [
+        { provide: DataSource, useValue: dataSource },
+        { provide: APP_INTERCEPTOR, useClass: CancelInterceptor },
+        BillingTierGuard,
+        { provide: INVOICE_SERVICE, useClass: manual ? InvoiceServiceManual : InvoiceService },
+      ],
+    };
+  }
 }

@@ -1,8 +1,9 @@
-import { Controller, Get, Inject, Post, Req, UseGuards } from '@nestjs/common';
 import type { CancelablePromise } from '@cancjs/promise';
+import { Controller, Get, Inject, Post, Req, UseGuards } from '@nestjs/common';
+
 import { BillingTierGuard } from './billing-metadata';
-import { CancInvoiceServiceLike, INVOICE_SERVICE } from './invoice.tokens';
 import type { CancelableRequest } from './cancelable-request';
+import { CancInvoiceServiceLike, INVOICE_SERVICE } from './invoice.tokens';
 import type { BulkResult } from './invoice-repo';
 
 /**
@@ -15,15 +16,15 @@ import type { BulkResult } from './invoice-repo';
 @Controller('invoices')
 @UseGuards(BillingTierGuard)
 export class InvoiceController {
- constructor(@Inject(INVOICE_SERVICE) private readonly invoices: CancInvoiceServiceLike) {}
+  constructor(@Inject(INVOICE_SERVICE) private readonly invoices: CancInvoiceServiceLike) {}
 
- @Get()
- list(@Req() request: CancelableRequest): CancelablePromise<number> {
- return (request.cancelable = this.invoices.listInvoices());
- }
+  @Get()
+  list(@Req() request: CancelableRequest): CancelablePromise<number> {
+    return (request.cancelable = this.invoices.listInvoices());
+  }
 
- @Post('bulk')
- bulk(@Req() request: CancelableRequest): CancelablePromise<BulkResult> {
- return (request.cancelable = this.invoices.generateAll());
- }
+  @Post('bulk')
+  bulk(@Req() request: CancelableRequest): CancelablePromise<BulkResult> {
+    return (request.cancelable = this.invoices.generateAll());
+  }
 }

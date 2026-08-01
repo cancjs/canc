@@ -1,5 +1,6 @@
-import type { Request, Response, NextFunction } from 'express';
 import './report-locals';
+
+import type { NextFunction, Request, Response } from 'express';
 
 /**
  * Installs the AbortController workaround. `res.locals.abortSignal` fires when the client
@@ -7,15 +8,15 @@ import './report-locals';
  * handler ignores it, which is the point: there is no built-in way to stop that one.
  */
 export function abortOnDisconnect(req: Request, res: Response, next: NextFunction): void {
- const controller = new AbortController();
+  const controller = new AbortController();
 
- req.on('close', () => {
- if (!res.writableEnded) {
- controller.abort(new DOMException('client disconnected', 'AbortError'));
- }
- });
+  req.on('close', () => {
+    if (!res.writableEnded) {
+      controller.abort(new DOMException('client disconnected', 'AbortError'));
+    }
+  });
 
- res.locals.abortSignal = controller.signal;
+  res.locals.abortSignal = controller.signal;
 
- next();
+  next();
 }

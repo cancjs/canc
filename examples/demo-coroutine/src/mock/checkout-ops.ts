@@ -1,4 +1,4 @@
-import type { MockApi, AbortSignalLike } from '@shared/mock-api';
+import type { AbortSignalLike, MockApi } from '@shared/mock-api';
 
 /**
  * Checkout-specific operations for the demo.
@@ -6,84 +6,71 @@ import type { MockApi, AbortSignalLike } from '@shared/mock-api';
  */
 
 export interface StockReservation {
- id: string;
- productId: string;
+  id: string;
+  productId: string;
 }
 
 export interface Charge {
- id: string;
- amount: number;
+  id: string;
+  amount: number;
 }
 
 export interface Confirmation {
- confirmationId: string;
- orderId: string;
+  confirmationId: string;
+  orderId: string;
 }
 
 export function addCheckoutOperations(api: MockApi) {
- return {
- reserveStock: (orderId: string, signal?: AbortSignalLike): Promise<StockReservation> =>
- api.respond(
- 'checkout.reserveStock',
- { orderId },
- () => ({
- id: `res-${orderId}-${Date.now()}`,
- productId: 'p1',
- }),
- signal,
- ),
+  return {
+    reserveStock: (orderId: string, signal?: AbortSignalLike): Promise<StockReservation> =>
+      api.respond(
+        'checkout.reserveStock',
+        { orderId },
+        () => ({
+          id: `res-${orderId}-${Date.now()}`,
+          productId: 'p1',
+        }),
+        signal,
+      ),
 
- charge: (orderId: string, signal?: AbortSignalLike): Promise<Charge> =>
- api.respond(
- 'checkout.charge',
- { orderId },
- () => ({
- id: `charge-${orderId}-${Date.now()}`,
- amount: 99.99,
- }),
- signal,
- ),
+    charge: (orderId: string, signal?: AbortSignalLike): Promise<Charge> =>
+      api.respond(
+        'checkout.charge',
+        { orderId },
+        () => ({
+          id: `charge-${orderId}-${Date.now()}`,
+          amount: 99.99,
+        }),
+        signal,
+      ),
 
- addPoints: (orderId: string, signal?: AbortSignalLike): Promise<{ points: number }> =>
- api.respond(
- 'checkout.addPoints',
- { orderId },
- () => ({
- points: 100,
- }),
- signal,
- ),
+    addPoints: (orderId: string, signal?: AbortSignalLike): Promise<{ points: number }> =>
+      api.respond(
+        'checkout.addPoints',
+        { orderId },
+        () => ({
+          points: 100,
+        }),
+        signal,
+      ),
 
- confirm: (
- orderId: string,
- chargeId: string,
- signal?: AbortSignalLike,
- ): Promise<Confirmation> =>
- api.respond(
- 'checkout.confirm',
- { orderId, chargeId },
- () => ({
- confirmationId: `conf-${orderId}-${Date.now()}`,
- orderId,
- }),
- signal,
- ),
+    confirm: (orderId: string, chargeId: string, signal?: AbortSignalLike): Promise<Confirmation> =>
+      api.respond(
+        'checkout.confirm',
+        { orderId, chargeId },
+        () => ({
+          confirmationId: `conf-${orderId}-${Date.now()}`,
+          orderId,
+        }),
+        signal,
+      ),
 
- releaseReservation: (reservationId: string, signal?: AbortSignalLike): Promise<void> =>
- api.respond(
- 'checkout.releaseReservation',
- { reservationId },
- () => undefined,
- signal,
- ),
+    releaseReservation: (reservationId: string, signal?: AbortSignalLike): Promise<void> =>
+      api.respond('checkout.releaseReservation', { reservationId }, () => undefined, signal),
 
- // Legacy notification vendor. No signal parameter: this call cannot be aborted once
- // started, no matter which flavor calls it.
- legacyConfirmEmail: (orderId: string): Promise<void> =>
- api.respond(
- 'checkout.legacyConfirmEmail',
- { orderId },
- () => undefined,
- ),
- };
+    // Legacy notification vendor. No signal parameter: this call cannot be aborted once
+    // started, no matter which flavor calls it.
+    legacyConfirmEmail: (orderId: string): Promise<void> =>
+      api.respond('checkout.legacyConfirmEmail', { orderId }, () => undefined),
+  };
 }

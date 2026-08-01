@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
 import { isCancelError } from '@cancjs/promise';
 import { debounce } from '@cancjs/toolbox';
+import { useEffect, useMemo, useState } from 'react';
+
 import type { SearchApi } from './api-canc';
 import type { UserHit } from './user-hit';
 
@@ -42,7 +43,10 @@ export function SearchPage({ api }: { api: SearchApi }) {
       />
       <ul style={{ listStyle: 'none', padding: 0 }}>
         {results.map((hit) => (
-          <li key={hit.id} style={{ padding: '0.4rem 0', borderBottom: '1px solid #eee' }}>
+          <li
+            key={hit.id}
+            style={{ padding: '0.4rem 0', borderBottom: '1px solid #eee' }}
+          >
             {hit.name} ({hit.email}), {hit.city} +{hit.cityCount}
           </li>
         ))}

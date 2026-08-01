@@ -12,18 +12,19 @@
 // `finally` and stops it. Because `transcode` is cancelable, canceling the job aborts the chunk in
 // flight and every later chunk simply never starts.
 
-import { cancGenAsync, cancGenAwait, AsyncGenResult } from '@cancjs/coroutine/gen';
-import { Transcoder, TOTAL_CHUNKS } from './mock/transcode';
+import { AsyncGenResult, cancGenAsync, cancGenAwait } from '@cancjs/coroutine/gen';
+
+import { TOTAL_CHUNKS, Transcoder } from './mock/transcode';
 
 export const exportJob = cancGenAsync(function* (transcode: Transcoder): AsyncGenResult<number, void> {
- try {
- for (let index = 1; index <= TOTAL_CHUNKS; index++) {
- // Internal await: transcode one chunk. Canceling the job aborts it the moment it fires.
- yield* cancGenAwait(transcode({ index, total: TOTAL_CHUNKS }));
- // Emit progress to the consumer. Canceled here -> nothing below runs, no further chunk starts.
- yield Math.round((index / TOTAL_CHUNKS) * 100);
- }
- } finally {
- // Runs on normal completion AND on cancel: the place to release a real encoder handle.
- }
+  try {
+    for (let index = 1; index <= TOTAL_CHUNKS; index++) {
+      // Internal await: transcode one chunk. Canceling the job aborts it the moment it fires.
+      yield* cancGenAwait(transcode({ index, total: TOTAL_CHUNKS }));
+      // Emit progress to the consumer. Canceled here -> nothing below runs, no further chunk starts.
+      yield Math.round((index / TOTAL_CHUNKS) * 100);
+    }
+  } finally {
+    // Runs on normal completion AND on cancel: the place to release a real encoder handle.
+  }
 });

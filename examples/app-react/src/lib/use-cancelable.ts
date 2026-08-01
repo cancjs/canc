@@ -1,5 +1,5 @@
-import { type DependencyList, useMemo } from 'react';
 import { cancelify } from '@cancjs/toolbox';
+import { type DependencyList, useMemo } from 'react';
 
 import { useCancelableEffect } from './use-cancelable-effect';
 import { type PromiseState, usePromiseState } from './use-promise-state';
@@ -25,11 +25,11 @@ export type CancelableFactory<T> = (getSignal: () => AbortSignal) => Promise<T>;
  * manual control over settlement tracking, `usePromiseState`.
  */
 export function useCancelable<T>(factory: CancelableFactory<T>, deps: DependencyList): PromiseState<T> {
- // A fresh cancelable run per deps change. cancelify supplies the abort signal to the factory.
- const run = useMemo(() => cancelify(({ getSignal }) => factory(getSignal))(), deps);
+  // A fresh cancelable run per deps change. cancelify supplies the abort signal to the factory.
+  const run = useMemo(() => cancelify(({ getSignal }) => factory(getSignal))(), deps);
 
- // Cancel the superseded (or unmounted) run; the hook suppresses its CancelError.
- useCancelableEffect(() => run, [run]);
+  // Cancel the superseded (or unmounted) run; the hook suppresses its CancelError.
+  useCancelableEffect(() => run, [run]);
 
- return usePromiseState(run);
+  return usePromiseState(run);
 }

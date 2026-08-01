@@ -1,15 +1,15 @@
-import { onScopeDispose, ref, shallowRef, type Ref } from 'vue';
 import { type CancelablePromise, isCancelError } from '@cancjs/promise';
+import { onScopeDispose, type Ref, ref, shallowRef } from 'vue';
 
 export interface UseCancelablePromise<T> {
- /** The resolved value, or `undefined` until the first run settles. */
- data: Ref<T | undefined>;
- /** The rejection reason, unless it was a `CancelError` (a cancel is not an error to show). */
- error: Ref<unknown>;
- /** True while a run is in flight. */
- pending: Ref<boolean>;
- /** Cancels the in-flight run. Called automatically when the owning scope is disposed. */
- cancel: () => void;
+  /** The resolved value, or `undefined` until the first run settles. */
+  data: Ref<T | undefined>;
+  /** The rejection reason, unless it was a `CancelError` (a cancel is not an error to show). */
+  error: Ref<unknown>;
+  /** True while a run is in flight. */
+  pending: Ref<boolean>;
+  /** Cancels the in-flight run. Called automatically when the owning scope is disposed. */
+  cancel: () => void;
 }
 
 /**
@@ -27,28 +27,28 @@ export interface UseCancelablePromise<T> {
  * should restart when reactive inputs change, drive the factory from `useCancelableWatch` instead.
  */
 export function useCancelablePromise<T>(
- source: CancelablePromise<T> | (() => CancelablePromise<T>)
+  source: CancelablePromise<T> | (() => CancelablePromise<T>),
 ): UseCancelablePromise<T> {
- const data = shallowRef<T>();
- const error = ref<unknown>();
- const pending = ref(false);
+  const data = shallowRef<T>();
+  const error = ref<unknown>();
+  const pending = ref(false);
 
- const promise = typeof source === 'function' ? source() : source;
- pending.value = true;
+  const promise = typeof source === 'function' ? source() : source;
+  pending.value = true;
 
- promise.then(
- (value) => {
- data.value = value;
- pending.value = false;
- },
- (reason) => {
- pending.value = false;
- if (!isCancelError(reason)) error.value = reason;
- }
- );
+  promise.then(
+    (value) => {
+      data.value = value;
+      pending.value = false;
+    },
+    (reason) => {
+      pending.value = false;
+      if (!isCancelError(reason)) error.value = reason;
+    },
+  );
 
- const cancel = () => promise.cancel();
- onScopeDispose(cancel);
+  const cancel = () => promise.cancel();
+  onScopeDispose(cancel);
 
- return { data, error, pending, cancel };
+  return { data, error, pending, cancel };
 }

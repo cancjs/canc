@@ -9,30 +9,30 @@
 //
 // Angular's own @Injectable decorator is untouched. Ours only wraps the data methods.
 
-import { Injectable, inject } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
+import { AsyncResult, await as cancAwait } from '@cancjs/coroutine';
 import { AsyncMethod } from '@cancjs/decorators/legacy';
-import { await as cancAwait, AsyncResult } from '@cancjs/coroutine';
 import { cancelify } from '@cancjs/toolbox';
 
 import { ORDERS_API } from './orders.api';
-import type { OrderSummary, OrderDetail } from './orders.types';
+import type { OrderDetail, OrderSummary } from './orders.types';
 
 @Injectable()
 export class OrdersService {
- private readonly api = inject(ORDERS_API);
+  private readonly api = inject(ORDERS_API);
 
- // Wrap each signal-aware API call as a CancelablePromise so a coroutine cancel() aborts the
- // request. getSignal() is only materialized if the underlying call reaches for it.
- private readonly listOrders = cancelify(({ getSignal }) => this.api.listOrders(getSignal()));
- private readonly orderDetail = cancelify(({ getSignal }, [id]: [string]) => this.api.orderDetail(id, getSignal()));
+  // Wrap each signal-aware API call as a CancelablePromise so a coroutine cancel() aborts the
+  // request. getSignal() is only materialized if the underlying call reaches for it.
+  private readonly listOrders = cancelify(({ getSignal }) => this.api.listOrders(getSignal()));
+  private readonly orderDetail = cancelify(({ getSignal }, [id]: [string]) => this.api.orderDetail(id, getSignal()));
 
- @AsyncMethod()
- *list(): AsyncResult<OrderSummary[]> {
- return yield* cancAwait(this.listOrders());
- }
+  @AsyncMethod()
+  *list(): AsyncResult<OrderSummary[]> {
+    return yield* cancAwait(this.listOrders());
+  }
 
- @AsyncMethod()
- *detail(id: string): AsyncResult<OrderDetail> {
- return yield* cancAwait(this.orderDetail(id));
- }
+  @AsyncMethod()
+  *detail(id: string): AsyncResult<OrderDetail> {
+    return yield* cancAwait(this.orderDetail(id));
+  }
 }

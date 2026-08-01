@@ -1,7 +1,8 @@
+import { type MikroORM, RequestContext } from '@mikro-orm/core';
 import type { RequestHandler } from 'express';
-import { RequestContext, type MikroORM } from '@mikro-orm/core';
-import { getReqSignal } from './get-req-signal-canc';
+
 import type { InflightQueryAbortStrategy } from '../orm';
+import { getReqSignal } from './get-req-signal-canc';
 
 /**
  * One middleware that gives every request its own EntityManager fork, bound to the request's abort

@@ -1,7 +1,8 @@
 import { Controller, Get, Inject, Post, Req, UseGuards } from '@nestjs/common';
+
 import { BillingTierGuard } from './billing-metadata';
-import { INVOICE_SERVICE, InvoiceServiceLike } from './invoice.tokens';
 import type { CancelableRequest } from './cancelable-request';
+import { INVOICE_SERVICE, InvoiceServiceLike } from './invoice.tokens';
 import type { BulkResult } from './invoice-repo';
 
 /**
@@ -13,15 +14,15 @@ import type { BulkResult } from './invoice-repo';
 @Controller('invoices')
 @UseGuards(BillingTierGuard)
 export class InvoiceController {
- constructor(@Inject(INVOICE_SERVICE) private readonly invoices: InvoiceServiceLike) {}
+  constructor(@Inject(INVOICE_SERVICE) private readonly invoices: InvoiceServiceLike) {}
 
- @Get()
- list(@Req() _request: CancelableRequest): Promise<number> {
- return this.invoices.listInvoices(); // (no cancelable left on the request, see -canc; nothing can cancel this)
- }
+  @Get()
+  list(@Req() _request: CancelableRequest): Promise<number> {
+    return this.invoices.listInvoices(); // (no cancelable left on the request, see -canc; nothing can cancel this)
+  }
 
- @Post('bulk')
- bulk(@Req() _request: CancelableRequest): Promise<BulkResult> {
- return this.invoices.generateAll(); // (no cancelable left on the request, see -canc; the bulk run cannot be stopped)
- }
+  @Post('bulk')
+  bulk(@Req() _request: CancelableRequest): Promise<BulkResult> {
+    return this.invoices.generateAll(); // (no cancelable left on the request, see -canc; the bulk run cannot be stopped)
+  }
 }

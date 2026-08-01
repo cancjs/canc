@@ -5,11 +5,11 @@
 
 import { CancelablePromise } from '@cancjs/promise';
 import { cancelify } from '@cancjs/toolbox';
-import { MockApi, AbortSignalLike } from '@shared/mock-api';
+import { AbortSignalLike, MockApi } from '@shared/mock-api';
 
 export interface TranscodeChunk {
- index: number;
- total: number;
+  index: number;
+  total: number;
 }
 
 /** The fake encoder backend a transcoder is built from. Named for its role so the server never
@@ -23,7 +23,7 @@ export type Transcoder = (chunk: TranscodeChunk) => CancelablePromise<TranscodeC
 // Cancelify the signal-aware backend at its boundary (recipe 4). `getSignal()` mints the abort
 // signal lazily and hands it to the raw call; the job that uses `transcode` never touches a signal.
 export function createTranscoder(backend: ExportBackend): Transcoder {
- return cancelify(({ getSignal }, [chunk]: [TranscodeChunk]) => transcodeChunk(backend, chunk, getSignal()));
+  return cancelify(({ getSignal }, [chunk]: [TranscodeChunk]) => transcodeChunk(backend, chunk, getSignal()));
 }
 
 /**
@@ -31,12 +31,8 @@ export function createTranscoder(backend: ExportBackend): Transcoder {
  * instant `signal` fires. The MockApi records started/completed/aborted for the chunk so a test
  * can count exactly how many chunks ran.
  */
-export function transcodeChunk(
- api: MockApi,
- chunk: TranscodeChunk,
- signal?: AbortSignalLike,
-): Promise<TranscodeChunk> {
- return api.respond('transcode.chunk', chunk, () => chunk, signal);
+export function transcodeChunk(api: MockApi, chunk: TranscodeChunk, signal?: AbortSignalLike): Promise<TranscodeChunk> {
+  return api.respond('transcode.chunk', chunk, () => chunk, signal);
 }
 
 export const TOTAL_CHUNKS = 100;

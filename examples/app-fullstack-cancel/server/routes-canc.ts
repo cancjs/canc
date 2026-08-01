@@ -1,5 +1,6 @@
-import { Router } from 'express';
 import * as canc from '@cancjs/coroutine';
+import { Router } from 'express';
+
 import { cancAsyncRoute } from './lib/cancelable-route';
 import { getReqEm } from './lib/get-req-em';
 import { searchUsers } from './search-service-canc';

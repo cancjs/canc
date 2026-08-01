@@ -7,5 +7,5 @@ import { isCancelError } from '@cancjs/promise';
 // listener suppresses that event only when the rejection is a CancelError, so app code never
 // needs a per-call `.catch(() => {})`.
 window.addEventListener('unhandledrejection', (event) => {
- if (isCancelError(event.reason)) event.preventDefault();
+  if (isCancelError(event.reason)) event.preventDefault();
 });

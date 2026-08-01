@@ -3,9 +3,10 @@
 // is your HTTP-backed data client.
 
 import { InjectionToken } from '@angular/core';
+
 import { createOrdersApi, type OrdersApi } from '../mock/api';
 
 export const ORDERS_API = new InjectionToken<OrdersApi>('ORDERS_API', {
- providedIn: 'root',
- factory: () => createOrdersApi(),
+  providedIn: 'root',
+  factory: () => createOrdersApi(),
 });

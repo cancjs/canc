@@ -1,4 +1,4 @@
-import { RequestContext, type EntityManager } from '@mikro-orm/core';
+import { type EntityManager, RequestContext } from '@mikro-orm/core';
 
 /**
  * The request-scoped EntityManager, from MikroORM's RequestContext. Call it at the top of a handler,

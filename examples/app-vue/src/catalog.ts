@@ -4,6 +4,7 @@
 
 import type { CancelablePromise } from '@cancjs/promise';
 import { cancelify } from '@cancjs/toolbox';
+
 import type { Category, MarketplaceApi, Product } from './mock/api';
 
 export type { Category, Product } from './mock/api';
@@ -14,7 +15,7 @@ export { CATEGORIES } from './mock/api';
  * a superseded listing shows up as an `aborted` marker in `api.calls`.
  */
 export function loadCatalog(api: MarketplaceApi, category: Category): CancelablePromise<Product[]> {
- return cancelify(({ getSignal }) => api.listProducts(category, getSignal()))();
+  return cancelify(({ getSignal }) => api.listProducts(category, getSignal()))();
 }
 
 /**
@@ -22,5 +23,5 @@ export function loadCatalog(api: MarketplaceApi, category: Category): Cancelable
  * prefetch (the card unmounted, or its category was filtered out) aborts at the network boundary.
  */
 export function prefetchImage(api: MarketplaceApi, id: string): CancelablePromise<string> {
- return cancelify(({ getSignal }) => api.productImage(id, getSignal()))();
+  return cancelify(({ getSignal }) => api.productImage(id, getSignal()))();
 }

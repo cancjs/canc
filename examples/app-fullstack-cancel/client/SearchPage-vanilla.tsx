@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+
 import type { SearchApi } from './api-vanilla';
 import type { UserHit } from './user-hit';
 
@@ -8,20 +9,21 @@ const DEBOUNCE_MS = 250;
 function wait(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(resolve, ms);
-    signal.addEventListener('abort', () => {
-      clearTimeout(timer);
-      reject(signal.reason);
-    }, { once: true });
+    signal.addEventListener(
+      'abort',
+      () => {
+        clearTimeout(timer);
+        reject(signal.reason);
+      },
+      { once: true },
+    );
   });
 }
 
 // A minimal debounce built on AbortSignal. Each call aborts the previous one, so only the latest runs
 // and a superseded wait or in-flight request is canceled. fn receives the signal to thread onward.
 // This is the hand-rolled counterpart to the toolbox debounce the canc side uses.
-function debounce<Args extends unknown[], R>(
-  fn: (signal: AbortSignal, ...args: Args) => Promise<R>,
-  ms: number,
-) {
+function debounce<Args extends unknown[], R>(fn: (signal: AbortSignal, ...args: Args) => Promise<R>, ms: number) {
   let controller: AbortController | undefined;
   const run = (...args: Args): Promise<R> => {
     controller?.abort();
@@ -75,7 +77,10 @@ export function SearchPage({ api }: { api: SearchApi }) {
       />
       <ul style={{ listStyle: 'none', padding: 0 }}>
         {results.map((hit) => (
-          <li key={hit.id} style={{ padding: '0.4rem 0', borderBottom: '1px solid #eee' }}>
+          <li
+            key={hit.id}
+            style={{ padding: '0.4rem 0', borderBottom: '1px solid #eee' }}
+          >
             {hit.name} ({hit.email}), {hit.city} +{hit.cityCount}
           </li>
         ))}

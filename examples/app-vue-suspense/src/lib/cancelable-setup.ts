@@ -1,6 +1,6 @@
-import { onScopeDispose } from 'vue';
-import { type CancelablePromise, suppressCancel } from '@cancjs/promise';
 import { cancAsync } from '@cancjs/coroutine';
+import { type CancelablePromise, suppressCancel } from '@cancjs/promise';
+import { onScopeDispose } from 'vue';
 
 /**
  * A generator setup function. Write it exactly like an async `setup()`, but `yield* cancAwait(...)`
@@ -27,19 +27,19 @@ export type SetupGenerator<Props, Result> = (props: Props) => Generator<unknown,
  * `await` has no scope hook to cancel, so this setup-option wrapper is the opt-in.
  */
 export function cancelableSetup<Props, Result>(
- setup: SetupGenerator<Props, Result>
+  setup: SetupGenerator<Props, Result>,
 ): (props: Props) => Promise<Result> {
- return (props: Props) => {
- const task: CancelablePromise<Result> = cancAsync(setup)(props);
+  return (props: Props) => {
+    const task: CancelablePromise<Result> = cancAsync(setup)(props);
 
- // Registered synchronously in the setup scope, before the first await suspends. Scope teardown
- // (route change, boundary drop) cancels the coroutine, so its in-flight request aborts too.
- onScopeDispose(() => {
- task.cancel('setup scope disposed');
- });
+    // Registered synchronously in the setup scope, before the first await suspends. Scope teardown
+    // (route change, boundary drop) cancels the coroutine, so its in-flight request aborts too.
+    onScopeDispose(() => {
+      task.cancel('setup scope disposed');
+    });
 
- // A superseded setup rejects with CancelError; that is expected, not an error to surface.
- suppressCancel(task);
- return task;
- };
+    // A superseded setup rejects with CancelError; that is expected, not an error to surface.
+    suppressCancel(task);
+    return task;
+  };
 }

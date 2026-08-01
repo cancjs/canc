@@ -2,62 +2,66 @@
 // chunks the server actually transcoded. The cancel only stops sending, so every chunk still
 // completes on the server: started climbs to 100, aborted stays 0. That gap is the lesson.
 
-import { WebSocket } from 'ws';
-import { sleep } from '@shared/util';
 import { MockApi } from '@shared/mock-api';
-import { startServer } from './server-vanilla';
+import { sleep } from '@shared/util';
+import { WebSocket } from 'ws';
+
 import { ServerMessage } from './protocol';
+import { startServer } from './server-vanilla';
 
 async function main() {
- const api = new MockApi({ latency: 5, jitter: 0 });
- const server = await startServer(api);
+  const api = new MockApi({ latency: 5, jitter: 0 });
+  const server = await startServer(api);
 
- await runScenario(api, server.port, 'cancel message at ~30%', (ws, jobId) => {
- ws.send(JSON.stringify({ type: 'cancel', jobId }));
- });
+  await runScenario(api, server.port, 'cancel message at ~30%', (ws, jobId) => {
+    ws.send(JSON.stringify({ type: 'cancel', jobId }));
+  });
 
- api.reset();
- await runScenario(api, server.port, 'hard socket close at ~30%', (ws) => {
- ws.close();
- });
+  api.reset();
+  await runScenario(api, server.port, 'hard socket close at ~30%', (ws) => {
+    ws.close();
+  });
 
- await server.close();
- console.log('\nDone.');
+  await server.close();
+  console.log('\nDone.');
 }
 
 function runScenario(
- api: MockApi,
- port: number,
- label: string,
- cancelAt30: (ws: WebSocket, jobId: string) => void,
+  api: MockApi,
+  port: number,
+  label: string,
+  cancelAt30: (ws: WebSocket, jobId: string) => void,
 ): Promise<void> {
- return new Promise((resolve) => {
- console.log(`\n=== ${label} ===`);
- const ws = new WebSocket(`ws://localhost:${port}`);
- const jobId = 'export-1';
- let canceled = false;
+  return new Promise((resolve) => {
+    console.log(`\n=== ${label} ===`);
+    const ws = new WebSocket(`ws://localhost:${port}`);
+    const jobId = 'export-1';
+    let canceled = false;
 
- const report = () => {
- const started = api.calls.length;
- const completed = api.calls.filter((c) => c.status === 'completed').length;
- const aborted = api.calls.filter((c) => c.status === 'aborted').length;
- console.log(`chunks -> started: ${started}, completed: ${completed}, aborted: ${aborted}`);
- resolve();
- };
+    const report = () => {
+      const started = api.calls.length;
+      const completed = api.calls.filter((c) => c.status === 'completed').length;
+      const aborted = api.calls.filter((c) => c.status === 'aborted').length;
+      console.log(`chunks -> started: ${started}, completed: ${completed}, aborted: ${aborted}`);
+      resolve();
+    };
 
- ws.on('open', () => ws.send(JSON.stringify({ type: 'start', jobId })));
- ws.on('message', (raw) => {
- const message = JSON.parse(String(raw)) as ServerMessage;
- if (message.type === 'progress' && message.percent >= 30 && !canceled) {
- canceled = true;
- console.log(`cancel at ${message.percent}%`);
- cancelAt30(ws, jobId);
- // Wait for the WHOLE export to finish anyway, then report: nothing was actually stopped.
- void sleep(700).then(report);
- }
- if (message.type === 'canceled') console.log('server ack: canceled (sending only)');
- });
- });
+    ws.on('open', () => ws.send(JSON.stringify({ type: 'start', jobId })));
+    ws.on('message', (raw) => {
+      const message = JSON.parse(String(raw)) as ServerMessage;
+      if (message.type === 'progress' && message.percent >= 30 && !canceled) {
+        canceled = true;
+        console.log(`cancel at ${message.percent}%`);
+        cancelAt30(ws, jobId);
+        // Wait for the WHOLE export to finish anyway, then report: nothing was actually stopped.
+        void sleep(700).then(report);
+      }
+      if (message.type === 'canceled') console.log('server ack: canceled (sending only)');
+    });
+  });
 }
 
-main().catch((error) => { console.error(error); process.exit(1); });
+main().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

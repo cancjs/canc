@@ -10,26 +10,26 @@
 // further and issue a wire-level cancel of an in-flight statement (see README, "Real databases").
 
 import SqliteDatabase from 'better-sqlite3';
-import { Kysely, SqliteDialect, sql } from 'kysely';
+import { Kysely, sql, SqliteDialect } from 'kysely';
 
 interface OrderRow {
- id: number;
- customer_id: number;
- product_id: number;
- quantity: number;
- unit_price: number;
- created_at: number;
+  id: number;
+  customer_id: number;
+  product_id: number;
+  quantity: number;
+  unit_price: number;
+  created_at: number;
 }
 
 interface ProductRow {
- id: number;
- name: string;
- category: string;
+  id: number;
+  name: string;
+  category: string;
 }
 
 export interface Schema {
- orders: OrderRow;
- products: ProductRow;
+  orders: OrderRow;
+  products: ProductRow;
 }
 
 /** Rows scanned per aggregate slice. Small enough that a slice is a natural cancellation point. */
@@ -41,19 +41,19 @@ const SEED_CUSTOMER_COUNT = 500;
 const SEED_PRODUCT_COUNT = 40;
 
 export interface ReportDb {
- db: Kysely<Schema>;
- /** Every executed query is logged here so a test can assert which queries ran (and which did not). */
- queryLog: string[];
- close(): void;
+  db: Kysely<Schema>;
+  /** Every executed query is logged here so a test can assert which queries ran (and which did not). */
+  queryLog: string[];
+  close(): void;
 }
 
 /** Builds and seeds the in-memory database. Deterministic: no randomness, so tests are stable. */
 export function createReportDb(): ReportDb {
- const sqlite = new SqliteDatabase(':memory:');
- sqlite.pragma('journal_mode = OFF');
- sqlite.pragma('synchronous = OFF');
+  const sqlite = new SqliteDatabase(':memory:');
+  sqlite.pragma('journal_mode = OFF');
+  sqlite.pragma('synchronous = OFF');
 
- sqlite.exec(`
+  sqlite.exec(`
  CREATE TABLE products (id INTEGER PRIMARY KEY, name TEXT NOT NULL, category TEXT NOT NULL);
  CREATE TABLE orders (
  id INTEGER PRIMARY KEY,
@@ -66,43 +66,41 @@ export function createReportDb(): ReportDb {
  CREATE INDEX idx_orders_customer ON orders (customer_id);
  `);
 
- const insertProduct = sqlite.prepare(
- 'INSERT INTO products (id, name, category) VALUES (?, ?, ?)',
- );
- const insertOrder = sqlite.prepare(
- 'INSERT INTO orders (id, customer_id, product_id, quantity, unit_price, created_at) VALUES (?, ?, ?, ?, ?, ?)',
- );
+  const insertProduct = sqlite.prepare('INSERT INTO products (id, name, category) VALUES (?, ?, ?)');
+  const insertOrder = sqlite.prepare(
+    'INSERT INTO orders (id, customer_id, product_id, quantity, unit_price, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+  );
 
- const seed = sqlite.transaction(() => {
- for (let id = 1; id <= SEED_PRODUCT_COUNT; id++) {
- insertProduct.run(id, `Product ${id}`, `cat-${id % 5}`);
- }
- for (let id = 1; id <= SEED_ORDER_COUNT; id++) {
- const customerId = (id % SEED_CUSTOMER_COUNT) + 1;
- const productId = (id % SEED_PRODUCT_COUNT) + 1;
- const quantity = (id % 5) + 1;
- const unitPrice = 100 + (id % 900);
- insertOrder.run(id, customerId, productId, quantity, unitPrice, id);
- }
- });
- seed();
+  const seed = sqlite.transaction(() => {
+    for (let id = 1; id <= SEED_PRODUCT_COUNT; id++) {
+      insertProduct.run(id, `Product ${id}`, `cat-${id % 5}`);
+    }
+    for (let id = 1; id <= SEED_ORDER_COUNT; id++) {
+      const customerId = (id % SEED_CUSTOMER_COUNT) + 1;
+      const productId = (id % SEED_PRODUCT_COUNT) + 1;
+      const quantity = (id % 5) + 1;
+      const unitPrice = 100 + (id % 900);
+      insertOrder.run(id, customerId, productId, quantity, unitPrice, id);
+    }
+  });
+  seed();
 
- const queryLog: string[] = [];
+  const queryLog: string[] = [];
 
- const db = new Kysely<Schema>({
- dialect: new SqliteDialect({ database: sqlite }),
- log: (event) => {
- if (event.level === 'query') {
- queryLog.push(event.query.sql);
- }
- },
- });
+  const db = new Kysely<Schema>({
+    dialect: new SqliteDialect({ database: sqlite }),
+    log: (event) => {
+      if (event.level === 'query') {
+        queryLog.push(event.query.sql);
+      }
+    },
+  });
 
- return {
- db,
- queryLog,
- close: () => void db.destroy(),
- };
+  return {
+    db,
+    queryLog,
+    close: () => void db.destroy(),
+  };
 }
 
 export { sql };

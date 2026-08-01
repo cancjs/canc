@@ -1,5 +1,5 @@
-import { onScopeDispose, watch, type WatchSource } from 'vue';
 import { type CancelablePromise, isCancelError } from '@cancjs/promise';
+import { onScopeDispose, watch, type WatchSource } from 'vue';
 
 /**
  * The watch callback. It receives the new source value and returns the `CancelablePromise` for the
@@ -9,8 +9,8 @@ import { type CancelablePromise, isCancelError } from '@cancjs/promise';
 export type CancelableWatchCallback<T> = (value: T) => CancelablePromise<unknown>;
 
 export interface CancelableWatchOptions {
- /** Run the callback immediately with the current source value, like Vue's `{ immediate: true }`. */
- immediate?: boolean;
+  /** Run the callback immediately with the current source value, like Vue's `{ immediate: true }`. */
+  immediate?: boolean;
 }
 
 /**
@@ -24,42 +24,42 @@ export interface CancelableWatchOptions {
  * microtask so it surfaces as an unhandled rejection rather than being silently dropped.
  */
 export function useCancelableWatch<T>(
- source: WatchSource<T>,
- callback: CancelableWatchCallback<T>,
- options: CancelableWatchOptions = {}
+  source: WatchSource<T>,
+  callback: CancelableWatchCallback<T>,
+  options: CancelableWatchOptions = {},
 ): () => void {
- let pending: CancelablePromise<unknown> | undefined;
+  let pending: CancelablePromise<unknown> | undefined;
 
- const cancelPending = () => {
- pending?.cancel();
- pending = undefined;
- };
+  const cancelPending = () => {
+    pending?.cancel();
+    pending = undefined;
+  };
 
- const stopWatch = watch(
- source,
- (value) => {
- // A new trigger supersedes the previous run: cancel it before starting the next one.
- cancelPending();
- const promise = callback(value);
- pending = promise;
- promise.then(
- () => {
- if (pending === promise) pending = undefined;
- },
- (reason) => {
- if (pending === promise) pending = undefined;
- if (!isCancelError(reason)) Promise.reject(reason);
- }
- );
- },
- { immediate: options.immediate }
- );
+  const stopWatch = watch(
+    source,
+    (value) => {
+      // A new trigger supersedes the previous run: cancel it before starting the next one.
+      cancelPending();
+      const promise = callback(value);
+      pending = promise;
+      promise.then(
+        () => {
+          if (pending === promise) pending = undefined;
+        },
+        (reason) => {
+          if (pending === promise) pending = undefined;
+          if (!isCancelError(reason)) Promise.reject(reason);
+        },
+      );
+    },
+    { immediate: options.immediate },
+  );
 
- const stop = () => {
- stopWatch();
- cancelPending();
- };
+  const stop = () => {
+    stopWatch();
+    cancelPending();
+  };
 
- onScopeDispose(stop);
- return stop;
+  onScopeDispose(stop);
+  return stop;
 }

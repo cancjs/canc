@@ -2,5 +2,5 @@
 // Example-specific util, not a copy target.
 
 export function report(step: string): void {
- console.log(`[scenario] ${step}`);
+  console.log(`[scenario] ${step}`);
 }

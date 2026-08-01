@@ -11,8 +11,8 @@
 // ending the loop (or canceling the consuming coroutine) unsubscribe the stream.
 
 import CancelablePromise from '@cancjs/promise';
-import { Observable, EmptyError, Subscription, Subscriber } from 'rxjs';
 import type { Subscribable, Unsubscribable } from 'rxjs';
+import { EmptyError, Observable, Subscriber, Subscription } from 'rxjs';
 
 /**
  * Adapt an Observable to a CancelablePromise that settles on the source's first value, mirroring
@@ -27,30 +27,30 @@ import type { Subscribable, Unsubscribable } from 'rxjs';
  * CancelError, so it is caught by an ordinary try/catch on the awaiting side.
  */
 export function toCancelablePromise<T>(observable: Subscribable<T>): CancelablePromise<T> {
- return new CancelablePromise<T>((resolve, reject, { handleCancel }) => {
- let settled = false;
- // Subscriber (rather than a plain observer) can tear itself down from inside next(), which is
- // needed for synchronous sources that emit during subscribe() before a Subscription is bound.
- const subscriber = new Subscriber<T>({
- next(value) {
- settled = true;
- resolve(value);
- subscriber.unsubscribe();
- },
- error(err: unknown) {
- settled = true;
- reject(err);
- },
- complete() {
- // Completed without ever emitting: same contract as firstValueFrom.
- if (!settled) reject(new EmptyError());
- },
- });
- observable.subscribe(subscriber);
+  return new CancelablePromise<T>((resolve, reject, { handleCancel }) => {
+    let settled = false;
+    // Subscriber (rather than a plain observer) can tear itself down from inside next(), which is
+    // needed for synchronous sources that emit during subscribe() before a Subscription is bound.
+    const subscriber = new Subscriber<T>({
+      next(value) {
+        settled = true;
+        resolve(value);
+        subscriber.unsubscribe();
+      },
+      error(err: unknown) {
+        settled = true;
+        reject(err);
+      },
+      complete() {
+        // Completed without ever emitting: same contract as firstValueFrom.
+        if (!settled) reject(new EmptyError());
+      },
+    });
+    observable.subscribe(subscriber);
 
- // cancel() tears down the live subscription instead of leaving it running in the background.
- handleCancel(() => subscriber.unsubscribe());
- });
+    // cancel() tears down the live subscription instead of leaving it running in the background.
+    handleCancel(() => subscriber.unsubscribe());
+  });
 }
 
 /**
@@ -66,34 +66,34 @@ export function toCancelablePromise<T>(observable: Subscribable<T>): CancelableP
  * A factory (not a live promise) is required so each subscription owns its own cancelable work.
  */
 export function fromCancelablePromise<T>(factory: () => CancelablePromise<T>): Observable<T> {
- return new Observable<T>((subscriber) => {
- const promise = factory();
- promise.then(
- (value) => {
- subscriber.next(value);
- subscriber.complete();
- },
- (reason) => {
- subscriber.error(reason);
- }
- );
+  return new Observable<T>((subscriber) => {
+    const promise = factory();
+    promise.then(
+      (value) => {
+        subscriber.next(value);
+        subscriber.complete();
+      },
+      (reason) => {
+        subscriber.error(reason);
+      },
+    );
 
- // Unsubscribe cancels the promise; the cancel rejection is swallowed here because the
- // subscriber is already torn down and no longer wants the result.
- return new Subscription(() => {
- promise.cancel();
- });
- });
+    // Unsubscribe cancels the promise; the cancel rejection is swallowed here because the
+    // subscriber is already torn down and no longer wants the result.
+    return new Subscription(() => {
+      promise.cancel();
+    });
+  });
 }
 
 // A cancelable async-iterable view of an Observable: every emission becomes an item in a
 // `for await` loop, and stopping the loop (break, throw, or a canceling coroutine calling the
 // iterator's return()) unsubscribes from the source.
 export interface CancelableAsyncIterable<T> extends AsyncIterable<T> {
- // The promise that drives the bridge. Canceling it unsubscribes and ends the iteration, so the
- // whole stream can be torn down without holding the iterator. Rejects with a CancelError on
- // cancel, resolves when the source completes, rejects with the source error otherwise.
- readonly done: CancelablePromise<void>;
+  // The promise that drives the bridge. Canceling it unsubscribes and ends the iteration, so the
+  // whole stream can be torn down without holding the iterator. Rejects with a CancelError on
+  // cancel, resolves when the source completes, rejects with the source error otherwise.
+  readonly done: CancelablePromise<void>;
 }
 
 /**
@@ -118,103 +118,104 @@ export interface CancelableAsyncIterable<T> extends AsyncIterable<T> {
  * cancels that promise. Canceling `.done` directly does the same from the other side.
  */
 export function from<T>(observable: Subscribable<T>): CancelableAsyncIterable<T> {
- // Queue of source emissions awaiting a consumer pull, and the reverse: consumer pulls parked
- // waiting for the next emission. At most one of the two is non-empty at any time.
- const values: T[] = [];
- const pulls: Array<{
- resolve: (result: IteratorResult<T>) => void;
- reject: (reason: unknown) => void;
- }> = [];
+  // Queue of source emissions awaiting a consumer pull, and the reverse: consumer pulls parked
+  // waiting for the next emission. At most one of the two is non-empty at any time.
+  const values: T[] = [];
+  const pulls: Array<{
+    resolve: (result: IteratorResult<T>) => void;
+    reject: (reason: unknown) => void;
+  }> = [];
 
- let subscription: Unsubscribable | undefined;
- let finished = false; // source completed or errored, or consumer stopped
- let failure: { error: unknown } | undefined; // set on source error, drained before "done"
+  // eslint-disable-next-line prefer-const -- assigned later, once the subscription exists
+  let subscription: Unsubscribable | undefined;
+  let finished = false; // source completed or errored, or consumer stopped
+  let failure: { error: unknown } | undefined; // set on source error, drained before "done"
 
- // The driver: its cancel handler tears the subscription down, so canceling it (or the consuming
- // coroutine) unsubscribes. It settles when the source completes/errors.
- let settleDone: () => void = () => {};
- let failDone: (reason: unknown) => void = () => {};
- const done = new CancelablePromise<void>((resolve, reject, { handleCancel }) => {
- settleDone = resolve;
- failDone = reject;
- handleCancel(() => stop());
- });
- // The bridge tears itself down on cancel; an unconsumed cancel rejection here is expected.
- done.catch(() => {});
+  // The driver: its cancel handler tears the subscription down, so canceling it (or the consuming
+  // coroutine) unsubscribes. It settles when the source completes/errors.
+  let settleDone: () => void = () => {};
+  let failDone: (reason: unknown) => void = () => {};
+  const done = new CancelablePromise<void>((resolve, reject, { handleCancel }) => {
+    settleDone = resolve;
+    failDone = reject;
+    handleCancel(() => stop());
+  });
+  // The bridge tears itself down on cancel; an unconsumed cancel rejection here is expected.
+  done.catch(() => {});
 
- function stop(): void {
- if (finished) return;
- finished = true;
- if (subscription) subscription.unsubscribe();
- // Flush any parked pulls as a clean end so a waiting `for await` terminates.
- while (pulls.length) pulls.shift()!.resolve({ value: undefined, done: true });
- }
+  function stop(): void {
+    if (finished) return;
+    finished = true;
+    if (subscription) subscription.unsubscribe();
+    // Flush any parked pulls as a clean end so a waiting `for await` terminates.
+    while (pulls.length) pulls.shift()!.resolve({ value: undefined, done: true });
+  }
 
- subscription = observable.subscribe({
- next(value: T) {
- if (finished) return;
- const pull = pulls.shift();
- if (pull) pull.resolve({ value, done: false });
- else values.push(value);
- },
- error(error: unknown) {
- if (finished) return;
- // Deliver the error to a parked pull now; otherwise stash it for the next pull that drains
- // the remaining buffered values first.
- const pull = pulls.shift();
- if (pull) {
- stop();
- pull.reject(error);
- } else {
- failure = { error };
- if (!values.length) stop();
- }
- failDone(error);
- },
- complete() {
- settleDone();
- stop();
- },
- });
+  subscription = observable.subscribe({
+    next(value: T) {
+      if (finished) return;
+      const pull = pulls.shift();
+      if (pull) pull.resolve({ value, done: false });
+      else values.push(value);
+    },
+    error(error: unknown) {
+      if (finished) return;
+      // Deliver the error to a parked pull now; otherwise stash it for the next pull that drains
+      // the remaining buffered values first.
+      const pull = pulls.shift();
+      if (pull) {
+        stop();
+        pull.reject(error);
+      } else {
+        failure = { error };
+        if (!values.length) stop();
+      }
+      failDone(error);
+    },
+    complete() {
+      settleDone();
+      stop();
+    },
+  });
 
- // A source that emitted synchronously during subscribe (or completed) may have run before the
- // subscription was assigned; if it already stopped, drop the now-stale handle's teardown.
- if (finished && subscription) subscription.unsubscribe();
+  // A source that emitted synchronously during subscribe (or completed) may have run before the
+  // subscription was assigned; if it already stopped, drop the now-stale handle's teardown.
+  if (finished && subscription) subscription.unsubscribe();
 
- const iterator: AsyncIterableIterator<T> = {
- next(): Promise<IteratorResult<T>> {
- // Drain buffered values first, in emission order.
- if (values.length) {
- return Promise.resolve({ value: values.shift()!, done: false });
- }
- if (failure) {
- const { error } = failure;
- failure = undefined;
- stop();
- return Promise.reject(error);
- }
- if (finished) {
- return Promise.resolve({ value: undefined, done: true });
- }
- return new Promise<IteratorResult<T>>((resolve, reject) => {
- pulls.push({ resolve, reject });
- });
- },
- return(value?: unknown): Promise<IteratorResult<T>> {
- // Consumer stopped (break/throw, or a canceling coroutine): unsubscribe and end.
- stop();
- done.cancel();
- return Promise.resolve({ value, done: true } as IteratorResult<T>);
- },
- [Symbol.asyncIterator]() {
- return this;
- },
- };
+  const iterator: AsyncIterableIterator<T> = {
+    next(): Promise<IteratorResult<T>> {
+      // Drain buffered values first, in emission order.
+      if (values.length) {
+        return Promise.resolve({ value: values.shift()!, done: false });
+      }
+      if (failure) {
+        const { error } = failure;
+        failure = undefined;
+        stop();
+        return Promise.reject(error);
+      }
+      if (finished) {
+        return Promise.resolve({ value: undefined, done: true });
+      }
+      return new Promise<IteratorResult<T>>((resolve, reject) => {
+        pulls.push({ resolve, reject });
+      });
+    },
+    return(value?: unknown): Promise<IteratorResult<T>> {
+      // Consumer stopped (break/throw, or a canceling coroutine): unsubscribe and end.
+      stop();
+      done.cancel();
+      return Promise.resolve({ value, done: true } as IteratorResult<T>);
+    },
+    [Symbol.asyncIterator]() {
+      return this;
+    },
+  };
 
- return {
- [Symbol.asyncIterator]() {
- return iterator;
- },
- done,
- };
+  return {
+    [Symbol.asyncIterator]() {
+      return iterator;
+    },
+    done,
+  };
 }

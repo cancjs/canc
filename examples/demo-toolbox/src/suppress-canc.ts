@@ -8,9 +8,6 @@ type InvoicesApi = MockApiBundle['invoices'];
  * real errors. Declarative, easier to reason about, and hard to get wrong. The suppress
  * call swallows both CancelError and AbortError.
  */
-export function cleanupPaymentRecord(
- invoicesApi: InvoicesApi,
- recordId: string
-): Promise<void> {
- return suppressCancel(invoicesApi.list().then(() => undefined));
+export function cleanupPaymentRecord(invoicesApi: InvoicesApi, _recordId: string): Promise<void> {
+  return suppressCancel(invoicesApi.list().then(() => undefined));
 }
