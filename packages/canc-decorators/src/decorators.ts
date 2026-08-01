@@ -1,7 +1,7 @@
 // cancAsync moved from @cancjs/promise to @cancjs/coroutine.
 import { async as cancAsync } from '@cancjs/coroutine';
 
-import { copyFunctionMetadata, isFunction, isLegacyShapedSecondArg } from '../../_util';
+import { copyFunctionMetadata, isFunction, isLegacyShapedSecondArg, TAnyFn } from '../../_util';
 
 /**
  * ES / TC39 stage-3 decorators (native TS 5+, `experimentalDecorators: false`).
@@ -74,7 +74,7 @@ function assertSupportedKind(propertyKey: string | symbol, context: TMethodDecor
  * Shared implementation. `wrap` decides whether the produced function is coroutine-wrapped
  * (`AsyncMethod`) or a plain pass-through (`BindMethod`).
  */
-function makeDecorator(isBind: boolean, wrap: (fn: Function, ctx: any) => Function) {
+function makeDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAnyFn) {
   return (value: any, context: TMethodDecoratorContext): any => {
     assertStage3CallShape(context);
     const propertyKey = context.name;
@@ -87,7 +87,7 @@ function makeDecorator(isBind: boolean, wrap: (fn: Function, ctx: any) => Functi
       // never wraps it. It evaluates the getter lazily on first access, optionally binds the
       // function to the instance (bind:true), then installs an own, immutable property so the
       // result is memoized per instance (never on the prototype). Self-replacing own-property.
-      const originalGetter = value as () => any;
+      const originalGetter = value as () => unknown;
 
       return function (this: any) {
         const raw = originalGetter.call(this);
@@ -124,7 +124,7 @@ function makeDecorator(isBind: boolean, wrap: (fn: Function, ctx: any) => Functi
 
       if (isBind) {
         // bind:true → per-instance own-bound property. Prototype method left intact.
-        const originalMethod = value as Function;
+        const originalMethod = value as TAnyFn;
 
         (context as ClassMethodDecoratorContext).addInitializer(function (this: any) {
           setProperty(this, propertyKey, copyFunctionMetadata(originalMethod, wrap(originalMethod, this)));
@@ -134,7 +134,8 @@ function makeDecorator(isBind: boolean, wrap: (fn: Function, ctx: any) => Functi
       }
 
       // bind:false → proto-level wrap: return the wrapped fn; `this` flows through at call time.
-      return copyFunctionMetadata(value as Function, wrap(value as Function, undefined));
+      const originalMethod = value as TAnyFn;
+      return copyFunctionMetadata(originalMethod, wrap(originalMethod, undefined));
     }
 
     // Unreachable: assertSupportedKind above throws for any kind outside SUPPORTED_KINDS.
@@ -172,6 +173,9 @@ export function AsyncMethod<This, Value>(
 export function AsyncMethod(options?: IMethodDecoratorOptions): IMemberDecorator;
 export function AsyncMethod(...args: any[]): any {
   if (!isOptions(args)) {
+    // Implementation signature must stay `(...args: any[]): any` to host every overload above;
+    // narrowing it would break the public call shapes. Safe: args is re-dispatched unchanged.
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument
     return (AsyncMethod() as (...a: any[]) => any)(...args);
   }
 
@@ -195,6 +199,9 @@ export function BindMethod<This, Value>(
 export function BindMethod(options?: IMethodDecoratorOptions): IMemberDecorator;
 export function BindMethod(...args: any[]): any {
   if (!isOptions(args)) {
+    // Implementation signature must stay `(...args: any[]): any` to host every overload above;
+    // narrowing it would break the public call shapes. Safe: args is re-dispatched unchanged.
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument
     return (BindMethod() as (...a: any[]) => any)(...args);
   }
 

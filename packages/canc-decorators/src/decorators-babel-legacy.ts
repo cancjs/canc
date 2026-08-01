@@ -1,7 +1,7 @@
 // cancAsync moved from @cancjs/promise to @cancjs/coroutine.
 import { async as cancAsync } from '@cancjs/coroutine';
 
-import { copyFunctionMetadata, isFunction, isStage3Context } from '../../_util';
+import { copyFunctionMetadata, isFunction, isStage3Context, TAnyFn } from '../../_util';
 
 /**
  * Babel legacy decorators (`@babel/plugin-proposal-decorators` with `legacy: true` +
@@ -48,7 +48,7 @@ function assertBabelLegacyCallShape(propertyKey: any): void {
   }
 }
 
-function makeBabelDecorator(isBind: boolean, wrap: (fn: Function, ctx: any) => Function) {
+function makeBabelDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAnyFn) {
   return (target: any, propertyKey: string | symbol, descriptor: IBabelPropertyDescriptor) => {
     assertBabelLegacyCallShape(propertyKey);
 
@@ -96,7 +96,7 @@ function makeBabelDecorator(isBind: boolean, wrap: (fn: Function, ctx: any) => F
     }
 
     // --- proto method ---
-    const originalMethod = descriptor.value as Function;
+    const originalMethod = descriptor.value as TAnyFn;
 
     if (!isFunction(originalMethod)) {
       throw new TypeError(`'${String(propertyKey)}' is not a method and cannot be decorated`);

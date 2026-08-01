@@ -1,7 +1,7 @@
 // cancAsync moved from @cancjs/promise to @cancjs/coroutine.
 import { async as cancAsync } from '@cancjs/coroutine';
 
-import { copyFunctionMetadata, isBabelLegacyDescriptor, isFunction, isStage3Context } from '../../_util';
+import { copyFunctionMetadata, isBabelLegacyDescriptor, isFunction, isStage3Context, TAnyFn } from '../../_util';
 
 /**
  * TS legacy decorators (`experimentalDecorators: true`). Runtime shape:
@@ -35,7 +35,7 @@ function setProperty(target: any, key: string | symbol, value: any) {
  * then shadows this prototype accessor for that instance only. No shared cross-instance state,
  * and once an instance is discarded nothing pins it (contrast: prototype Map).
  */
-function definePerInstanceAccessor(target: any, propertyKey: string | symbol, produce: (self: any) => Function) {
+function definePerInstanceAccessor(target: any, propertyKey: string | symbol, produce: (self: any) => TAnyFn) {
   Object.defineProperty(target, propertyKey, {
     configurable: true,
     enumerable: false,
@@ -79,7 +79,7 @@ function assertNotBabelLegacyDescriptor(descriptor: any): void {
   }
 }
 
-function makeLegacyDecorator(isBind: boolean, wrap: (fn: Function, ctx: any) => Function) {
+function makeLegacyDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAnyFn) {
   return (target: any, propertyKey: string | symbol, descriptor?: PropertyDescriptor) => {
     assertLegacyCallShape(propertyKey);
     assertNotBabelLegacyDescriptor(descriptor);
@@ -113,7 +113,7 @@ function makeLegacyDecorator(isBind: boolean, wrap: (fn: Function, ctx: any) => 
 
     // --- proto method ---
     if (isProtoMethod) {
-      const originalMethod = descriptor!.value as Function;
+      const originalMethod = descriptor!.value as TAnyFn;
 
       if (!isFunction(originalMethod)) {
         throw new TypeError(`'${String(propertyKey)}' is not a method and cannot be decorated`);
@@ -153,7 +153,7 @@ function definePerInstanceFieldAccessor(
   target: any,
   propertyKey: string | symbol,
   isBind: boolean,
-  wrap: (fn: Function, ctx: any) => Function,
+  wrap: (fn: TAnyFn, ctx: any) => TAnyFn,
 ) {
   Object.defineProperty(target, propertyKey, {
     configurable: true,
