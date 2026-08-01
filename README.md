@@ -17,8 +17,8 @@ Cancelable promise ecosystem based on native <code>Promise</code>: coroutines, a
 ---
 
 <div align="center">
-  <img src="./assets/canc-snippet.gif" alt="canc comparison example" title="Vanilla promise 💤 ▶ AbortController 🔨 ▶ Cancelable promise 🚀" loading="lazy"
-       style="width:100%; max-width:625px; max-height:80vh; object-fit:contain; height:auto; display:block; margin:0 auto;" />
+  <a href="#the-problem-in-code" title="Vanilla promise 💤 → AbortController 🔨 → Cancelable promise 🚀"><img src="./assets/canc-snippet.gif" alt="canc comparison example" loading="lazy"
+       style="width:100%; max-width:625px; max-height:80vh; object-fit:contain; height:auto; display:block; margin:0 auto;" /></a>
 </div>
 
 ## Features
