@@ -60,6 +60,7 @@ function makeBabelDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAn
       // The user returns a ready coroutine (a cancAsync result) from the getter, so the decorator
       // never wraps it. It optionally binds the function to the instance (bind:true), then memoizes
       // per instance.
+      // eslint-disable-next-line @typescript-eslint/unbound-method -- called with .call(this) below
       const originalGetter = descriptor.get!;
 
       descriptor.get = function (this: any) {

@@ -175,7 +175,7 @@ export function AsyncMethod(...args: any[]): any {
   if (!isOptions(args)) {
     // Implementation signature must stay `(...args: any[]): any` to host every overload above;
     // narrowing it would break the public call shapes. Safe: args is re-dispatched unchanged.
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument
+
     return (AsyncMethod() as (...a: any[]) => any)(...args);
   }
 
@@ -201,7 +201,7 @@ export function BindMethod(...args: any[]): any {
   if (!isOptions(args)) {
     // Implementation signature must stay `(...args: any[]): any` to host every overload above;
     // narrowing it would break the public call shapes. Safe: args is re-dispatched unchanged.
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument
+
     return (BindMethod() as (...a: any[]) => any)(...args);
   }
 

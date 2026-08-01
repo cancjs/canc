@@ -3,6 +3,7 @@ import 'reflect-metadata';
 import { async as cancAsync } from '@cancjs/coroutine';
 import { isCancelError } from '@cancjs/promise';
 
+import { TAnyFn } from '../../_util';
 import { AsyncMethod } from './decorators';
 import { BabelLegacyAsyncMethod, BabelLegacyBindMethod } from './decorators-babel-legacy';
 
@@ -625,7 +626,8 @@ describe('decorators (babel-legacy) — error handling', () => {
       BabelLegacyBindMethod(C.prototype, 'method', descriptor);
       Object.defineProperty(C.prototype, 'method', descriptor);
 
-      (new C() as any).method;
+      // Reading the accessor is the operation under test.
+      const _accessed = (new C() as any).method;
     }).toThrow(TypeError);
   });
 });
@@ -641,7 +643,7 @@ describe('decorators (babel-legacy) — error handling', () => {
 const FN_META = 'fn-meta-key';
 const KEY_META = 'key-meta-key';
 
-function methodDescriptor(fn: Function): any {
+function methodDescriptor(fn: TAnyFn): any {
   return { value: fn, writable: true, enumerable: false, configurable: true };
 }
 
@@ -904,7 +906,8 @@ describe('decorators (babel-legacy) — getter returns a coroutine', () => {
       BabelLegacyAsyncMethod(C.prototype, 'run', descriptor);
       Object.defineProperty(C.prototype, 'run', descriptor);
 
-      (new C() as any).run;
+      // Reading the accessor is the operation under test.
+      const _accessed = (new C() as any).run;
     }).toThrow(TypeError);
   });
 

@@ -3,6 +3,7 @@ import 'reflect-metadata';
 import { async as cancAsync } from '@cancjs/coroutine';
 import { isCancelError } from '@cancjs/promise';
 
+import { TAnyFn } from '../../_util';
 import { AsyncMethod } from './decorators';
 import { BabelLegacyAsyncMethod } from './decorators-babel-legacy';
 import { LegacyAsyncMethod, LegacyBindMethod } from './decorators-legacy';
@@ -526,7 +527,8 @@ describe('decorators (TS legacy) — error handling', () => {
           return 'not a function';
         }
       }
-      new C().method;
+      // Reading the accessor is the operation under test.
+      const _accessed = new C().method;
     }).toThrow(TypeError);
   });
 });
@@ -563,7 +565,7 @@ describe('decorators (TS legacy) — metadata preservation', () => {
       }
     }
 
-    const installed = C.prototype.method as Function;
+    const installed = C.prototype.method as TAnyFn;
     expect(Reflect.getOwnMetadata(FN_META, installed)).toBe('guards');
   });
 
@@ -576,7 +578,7 @@ describe('decorators (TS legacy) — metadata preservation', () => {
       }
     }
 
-    const installed = C.prototype.method as Function;
+    const installed = C.prototype.method as TAnyFn;
     expect(Reflect.getOwnMetadata(FN_META, installed)).toBe('interceptors');
   });
 
@@ -589,7 +591,7 @@ describe('decorators (TS legacy) — metadata preservation', () => {
       }
     }
 
-    const installed = C.prototype.method as Function;
+    const installed = C.prototype.method as TAnyFn;
     expect(Reflect.getOwnMetadata(FN_META, installed)).toBe('roles');
   });
 
@@ -616,7 +618,7 @@ describe('decorators (TS legacy) — metadata preservation', () => {
       };
     }
 
-    const installed = new C().method as Function;
+    const installed = new C().method as TAnyFn;
     expect(installed.name).toBe('original');
     expect(installed.length).toBe(2);
   });
@@ -785,7 +787,8 @@ describe('decorators (TS legacy) — getter returns a coroutine', () => {
         }
       }
 
-      new C().run;
+      // Reading the accessor is the operation under test.
+      const _accessed = new C().run;
     }).toThrow(TypeError);
   });
 

@@ -233,6 +233,18 @@ export default defineConfig(
     },
   },
 
+  // Legacy decorator suites. A legacy decorator (TS `experimentalDecorators` or babel's legacy
+  // transform) cannot retype the member it decorates: the declared type stays the generator the
+  // author wrote, while at runtime the decorator has replaced it with a coroutine returning a
+  // promise. Awaiting the call is correct and is the whole point of these tests; the rule only
+  // sees the declared type.
+  {
+    files: ['**/decorators-legacy.spec.{ts,tsx}', '**/decorators-babel-legacy.spec.{ts,tsx}', '**/decorators.matrix.ts'],
+    rules: {
+      '@typescript-eslint/await-thenable': 'off',
+    },
+  },
+
   // JavaScript sources (jest, rollup and eslint configs, scripts). Not in any tsconfig project,
   // so type-aware rules cannot run on them.
   {

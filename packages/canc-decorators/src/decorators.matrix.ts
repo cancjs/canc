@@ -3,6 +3,8 @@ import 'reflect-metadata';
 import { async as cancAsync } from '@cancjs/coroutine';
 import { isCancelError } from '@cancjs/promise';
 
+import { TAnyFn } from '../../_util';
+
 /**
  * ES / TC39 stage-3 decorators matrix, shared between the ts-jest lane (decorators.spec.ts,
  * native TS 5+ decorator emit) and the babel lane (babel-stage3/decorators.spec.ts,
@@ -560,7 +562,8 @@ export function runStage3Matrix({
             return 'not a function';
           }
         }
-        new C().method;
+        // Reading the accessor is the operation under test.
+        const _accessed = new C().method;
       }).toThrow(TypeError);
     });
   });
@@ -580,7 +583,7 @@ export function runStage3Matrix({
 
   // Stage-3 method decorator: writes metadata onto the method FUNCTION identity (SetMetadata style).
   function SetFnMeta(value: string) {
-    return function (target: Function, _context: ClassMethodDecoratorContext): void {
+    return function (target: TAnyFn, _context: ClassMethodDecoratorContext): void {
       Reflect.defineMetadata(FN_META, value, target);
     };
   }
@@ -595,7 +598,7 @@ export function runStage3Matrix({
         }
       }
 
-      const installed = C.prototype.method as Function;
+      const installed = C.prototype.method as TAnyFn;
       expect(Reflect.getOwnMetadata(FN_META, installed)).toBe('guards');
     });
 
@@ -608,7 +611,7 @@ export function runStage3Matrix({
         }
       }
 
-      const installed = C.prototype.method as Function;
+      const installed = C.prototype.method as TAnyFn;
       expect(Reflect.getOwnMetadata(FN_META, installed)).toBe('interceptors');
     });
 
@@ -621,7 +624,7 @@ export function runStage3Matrix({
         }
       }
 
-      const installed = C.prototype.method as Function;
+      const installed = C.prototype.method as TAnyFn;
       expect(Reflect.getOwnMetadata(FN_META, installed)).toBe('roles');
     });
 
@@ -649,7 +652,7 @@ export function runStage3Matrix({
         };
       }
 
-      const installed = new C().method as Function;
+      const installed = new C().method as TAnyFn;
       expect(installed.name).toBe('original');
       expect(installed.length).toBe(2);
     });
@@ -952,7 +955,8 @@ export function runStage3Matrix({
           }
         }
 
-        new C().run;
+        // Reading the accessor is the operation under test.
+        const _accessed = new C().run;
       }).toThrow(TypeError);
     });
 
