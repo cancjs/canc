@@ -166,14 +166,14 @@ as its last argument.
 
 ### Timing
 
-| Export                            | Description                                                     |
-| ---------------------------------- | ---------------------------------------------------------------- |
-| `delay(ms, options?)`             | Resolves after `ms`, cancel clears the timer                    |
-| `delay(input, ms, options?)`      | Resolves with `input`'s value after `ms`                        |
-| `minDelay(input, ms, options?)`   | Settles no earlier than `ms`, for flicker-free loading states   |
-| `timeout(ms, options?)`           | Rejects with `TimeoutError` after `ms`                          |
-| `timeout(input, ms?, options?)`   | Settles with `input` and cancels it, unless `ms` passes first   |
-| `waitFor(condition, options?)`    | Resolves once `condition` is truthy, polling at `interval`      |
+| Export                          | Description                                                   |
+| ------------------------------- | ------------------------------------------------------------- |
+| `delay(ms, options?)`           | Resolves after `ms`, cancel clears the timer                  |
+| `delay(input, ms, options?)`    | Resolves with `input`'s value after `ms`                      |
+| `minDelay(input, ms, options?)` | Settles no earlier than `ms`, for flicker-free loading states |
+| `timeout(ms, options?)`         | Rejects with `TimeoutError` after `ms`                        |
+| `timeout(input, ms?, options?)` | Settles with `input` and cancels it, unless `ms` passes first |
+| `waitFor(condition, options?)`  | Resolves once `condition` is truthy, polling at `interval`    |
 
 `ms` is a number of milliseconds or a `[min, max]` tuple, rolled once per call for a jittered
 duration. It is always the last positional argument before `options`: one positional argument is
