@@ -26,9 +26,11 @@ export const promisify = tb.promisifyFactory(deps);
 
 export const promisifyAll = tb.promisifyAllFactory(deps);
 
-export type { TDuration } from '../../_toolbox';
-export { isTimeoutError, TimeoutError } from '../../_toolbox';
+export type { TDuration, TLazyExecutor, TLazyOnCancel } from '../../_toolbox';
+export { isLazyPromise, isTimeoutError, TimeoutError } from '../../_toolbox';
 export type { IDebounced, IDebounceOptions } from '../../_toolbox/debounce';
+export type { ILazyPromiseOptions } from '../../_toolbox/lazy/lazy-promise-native';
+export { lazy, LazyPromise } from '../../_toolbox/lazy/lazy-promise-native';
 export type { IThrottled, IThrottleOptions } from '../../_toolbox/throttle';
 export { debounce } from './debounce';
 export { throttle } from './throttle';

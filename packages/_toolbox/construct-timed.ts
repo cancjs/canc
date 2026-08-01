@@ -15,12 +15,11 @@ type TLazyState = 'UNSTARTED' | 'RUNNING' | 'SETTLED';
  * `then`/`catch`/`finally`/`await`, and the result is cached so a second subscriber reuses that one
  * execution instead of starting a new one.
  *
- * This is a small, self-contained analog of `_lazy/LazyBase`, reimplemented locally rather than
- * imported: `_lazy` type-imports `_util`, which type-imports `@cancjs/promise`, and the native
- * toolbox twin has to stay a zero-`@cancjs/promise`-dependency package (the same reason
- * `_toolbox/guards.ts` carries its own duck-type checks instead of importing `_util`'s). A later
- * phase folds this together with `_lazy` for real; until then this module only needs the subset
- * `delay`, `timeout`, `retry`, `waitFor` and `promisify` actually use.
+ * This is a small, self-contained analog of `./lazy/LazyBase`, kept separate for now: this one is
+ * built per call from an already-resolved `Impl` handed to it by a factory's deps bag, while the
+ * lazy promise class resolves its own implementation and carries a public cancel surface. Folding
+ * the two together is a later concern; this module only needs the subset `delay`, `timeout`,
+ * `retry`, `waitFor` and `promisify` actually use.
  *
  * Laziness here is NOT contagious. `delay(1000, { lazy: true }).then(f)` starts the timer at the
  * `.then` call, it does not defer `f` past anything further. A cold, non-contagious CHAIN primitive

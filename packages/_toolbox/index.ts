@@ -1,6 +1,7 @@
 export { IAbortSignalLike, IAbortSignalOptions, withAbortSignal } from './abort-signal';
 export { makeCancelSignal, TGetSignal } from './cancel-signal';
 export { construct, TExecutor, TExecutorCtx, THandleCancel, TPromiseCtor } from './construct';
+export { constructTimed } from './construct-timed';
 export { debounceFactory, IDebounced, IDebounceDeps, IDebounceOptions } from './debounce';
 export { deferFactory, IDeferred } from './defer';
 export { delayFactory } from './delay';
@@ -8,7 +9,7 @@ export { IToolboxDeps, TAbortControllerCtor } from './deps';
 export { TDuration } from './duration';
 export { IEagerSource, startInput, TTimedInput } from './input';
 export { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
-export { constructTimed } from './lazy';
+export { isLazyPromise, LAZY_PROMISE_BRAND, TLazyExecutor, TLazyOnCancel } from './lazy';
 export { minDelayFactory } from './min-delay';
 export {
   IPromisifyAllOptions,

@@ -1,19 +1,5 @@
-import { isFunction } from '../_util';
-
-/**
- * Minimal constructor shape the lazy base builds against: a promise implementation constructible
- * with an executor and an optional options bag. Native Promise ignores the options argument and the
- * executor's third parameter; a cancelable-shaped implementation consumes both. This type is local
- * and erases fully, so this module carries no runtime dependency on any concrete promise package.
- */
-export type TPromiseCtor = new (
-  executor: (
-    resolve: (value?: any) => void,
-    reject: (reason?: any) => void,
-    ctx?: { handleCancel: (onCancel: (reason?: any) => void) => void; getSignal?: () => any },
-  ) => void,
-  options?: object,
-) => PromiseLike<any> & { cancel?: (reason?: any) => any };
+import { TPromiseCtor } from '../construct';
+import { isFunction } from '../guards';
 
 /**
  * A cleanup callback registered by the executor, run when the lazy is torn down. Supplied to the
@@ -35,16 +21,28 @@ export type TLazyExecutor<T> = (
 
 export type TLazyState = 'UNSTARTED' | 'RUNNING' | 'SETTLED';
 
+/** The product of a promise implementation, as much of it as a lazy needs to see. */
+export type TInnerPromise<T> = PromiseLike<T> & { cancel?: (reason?: any) => any };
+
+/**
+ * Brand every lazy promise carries on its prototype. A `Symbol.for` entry is the same symbol across
+ * realms and across inlined copies of this module, so detection by it survives both, which
+ * `instanceof` does not.
+ */
+export const LAZY_PROMISE_BRAND = Symbol.for('@cancjs/toolbox:LazyPromise');
+
 /**
  * Lazily-evaluated promise-like state machine, free of any cancellation semantics. The executor is
  * deferred until the first `then`/`catch`/`finally` (or `await`), and the result is cached so
  * multiple subscribers share a single execution. Subclasses provide the underlying promise
- * implementation via {@link _resolveImpl} and layer on cancellation (see the cancelable subclass).
+ * implementation via {@link _resolveImpl} and layer on cancellation (see the cancelable flavor).
  */
 export abstract class LazyBase<T = any> implements PromiseLike<T> {
+  declare readonly [LAZY_PROMISE_BRAND]: true;
+
   protected _executor: TLazyExecutor<T>;
   protected _state: TLazyState = 'UNSTARTED';
-  protected _inner?: PromiseLike<T> & { cancel?: (reason?: any) => any };
+  protected _inner?: TInnerPromise<T>;
   protected _teardowns: TLazyOnCancel[] = [];
 
   constructor(executor: TLazyExecutor<T>) {
@@ -88,7 +86,7 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
       if (isFunction(returned)) {
         this._teardowns.push(returned);
       }
-    }) as PromiseLike<T> & { cancel?: (reason?: any) => any };
+    }) as TInnerPromise<T>;
 
     this._inner = inner;
 
@@ -159,4 +157,26 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
   get started(): boolean {
     return this._state !== 'UNSTARTED';
   }
+}
+
+// Set on the prototype, so no instance carries it as an own property and every flavor built on this
+// base is recognized by the single guard below.
+Object.defineProperty(LazyBase.prototype, LAZY_PROMISE_BRAND, {
+  configurable: false,
+  enumerable: false,
+  writable: false,
+  value: true,
+});
+
+/**
+ * Whether a value is a lazy promise from either toolbox. Brand only, with no `name` fallback: this
+ * is our own type rather than a platform one, so nothing outside these packages can legitimately
+ * claim it.
+ */
+export function isLazyPromise<T = any>(value: unknown): value is LazyBase<T> {
+  return (
+    !!value &&
+    (typeof value === 'object' || typeof value === 'function') &&
+    (value as Record<PropertyKey, unknown>)[LAZY_PROMISE_BRAND] === true
+  );
 }

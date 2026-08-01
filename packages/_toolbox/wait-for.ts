@@ -1,7 +1,7 @@
 import { TExecutorCtx } from './construct';
+import { constructTimed } from './construct-timed';
 import { IToolboxDeps } from './deps';
 import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
-import { constructTimed } from './lazy';
 import { startTimer, stopTimer } from './timers';
 
 export interface IWaitForOptions {

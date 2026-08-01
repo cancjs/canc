@@ -1,9 +1,9 @@
 import { TExecutorCtx } from './construct';
+import { constructTimed } from './construct-timed';
 import { IToolboxDeps } from './deps';
 import { parseTimedArgs, resolveDuration, TDuration } from './duration';
 import { IEagerSource, startInput, TTimedInput } from './input';
 import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
-import { constructTimed } from './lazy';
 import { startTimer, stopTimer } from './timers';
 
 function isObject(value: unknown): value is object {

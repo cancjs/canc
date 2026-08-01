@@ -1,10 +1,10 @@
 import { TExecutorCtx } from './construct';
+import { constructTimed } from './construct-timed';
 import { IToolboxDeps } from './deps';
 import { parseTimedArgs, resolveDuration, TDuration } from './duration';
 import { isCancelableLike, isThunk } from './guards';
 import { TTimedInput } from './input';
 import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
-import { constructTimed } from './lazy';
 import { startTimer, stopTimer } from './timers';
 
 /** Bind `delay` to one promise implementation and set of timers. */

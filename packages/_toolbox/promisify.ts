@@ -1,8 +1,8 @@
 import { makeCancelSignal, TGetSignal } from './cancel-signal';
 import { TExecutorCtx } from './construct';
+import { constructTimed } from './construct-timed';
 import { IToolboxDeps, TAbortControllerCtor } from './deps';
 import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
-import { constructTimed } from './lazy';
 
 /** The registered promisify.custom symbol, referenced via Symbol.for to avoid importing node:util. */
 const kCustom = Symbol.for('nodejs.util.promisify.custom');

@@ -3,7 +3,7 @@ import { delay, promisify, retry, timeout, waitFor } from './index';
 // `{ lazy: true }` deferred-start behavior on plain native promises: a native Promise has no
 // cancel surface, so this only proves deferred start plus single-execution sharing across
 // subscribers, not the cancel-before-subscription cases the cancelable twin's
-// `_toolbox/lazy.spec.ts` covers.
+// `_toolbox/construct-timed.spec.ts` covers.
 describe('{ lazy: true } (native, deferred start only)', () => {
   afterEach(() => {
     jest.useRealTimers();

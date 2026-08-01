@@ -14,6 +14,10 @@ export function isObjectLike(value: unknown): value is Record<PropertyKey, unkno
   return typeof value === 'object' && value !== null;
 }
 
+export function isFunction(value: unknown): value is (...args: any[]) => any {
+  return typeof value === 'function';
+}
+
 export function isThenableLike<T>(value: unknown): value is PromiseLike<T> {
   return isObjectLike(value) && typeof value.then === 'function';
 }
@@ -28,5 +32,5 @@ export function isCancelableLike(value: unknown): value is ICancelableLike {
  * 50)` and `timeout(fetchAll, 50)` read the same way.
  */
 export function isThunk<T>(value: unknown): value is () => T | PromiseLike<T> {
-  return typeof value === 'function';
+  return isFunction(value);
 }

@@ -6,11 +6,14 @@ describe('index exports', () => {
     const keys = Object.keys(native).sort();
     expect(keys).toEqual(
       [
+        'LazyPromise',
         'TimeoutError',
         'debounce',
         'defer',
         'delay',
+        'isLazyPromise',
         'isTimeoutError',
+        'lazy',
         'minDelay',
         'promisify',
         'promisifyAll',

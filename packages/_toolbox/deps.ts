@@ -20,7 +20,7 @@ export interface IToolboxDeps<K extends IPromiseKind = IPromiseLikeKind> extends
   AbortController?: TAbortControllerCtor;
   /**
    * Whether `Impl` products are cancelable-shaped (expose `cancel` and pass a `handleCancel`-bearing
-   * ctx into the executor). Read only by the `{ lazy: true }` construction path (`./lazy`) to decide
+   * ctx into the executor). Read only by the `{ lazy: true }` construction path (`./construct-timed`) to decide
    * whether a deferred wrapper exposes a working `cancel`; every other factory already feature-detects
    * cancelability per call through the executor's own `ctx` argument and ignores this flag.
    */
