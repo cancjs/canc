@@ -239,7 +239,11 @@ export default defineConfig(
   // promise. Awaiting the call is correct and is the whole point of these tests; the rule only
   // sees the declared type.
   {
-    files: ['**/decorators-legacy.spec.{ts,tsx}', '**/decorators-babel-legacy.spec.{ts,tsx}', '**/decorators.matrix.ts'],
+    files: [
+      '**/decorators-legacy.spec.{ts,tsx}',
+      '**/decorators-babel-legacy.spec.{ts,tsx}',
+      '**/decorators.matrix.ts',
+    ],
     rules: {
       '@typescript-eslint/await-thenable': 'off',
     },
