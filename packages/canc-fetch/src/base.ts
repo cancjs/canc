@@ -1,4 +1,4 @@
-import { CancelablePromise, CancelError, createCancelSignal, isCancelSignal } from '@cancjs/promise';
+import { CancelablePromise, CancelError, createCancelSignal, IExecutorContext, isCancelSignal } from '@cancjs/promise';
 
 import { isFunction, isObject } from '../../_util';
 
@@ -28,8 +28,14 @@ interface PolyfilledAbortSignal {
   removeEventListener?: (type: string, listener: (event: any) => void) => void;
 }
 
-const isAbortError = (error: any): boolean =>
-  isObject(error) && typeof (error as any).message === 'string' && (error as any).name === 'AbortError';
+const isAbortError = (error: any): boolean => {
+  if (!isObject(error)) {
+    return false;
+  }
+
+  const candidate = error as { message?: unknown; name?: unknown };
+  return typeof candidate.message === 'string' && candidate.name === 'AbortError';
+};
 
 // A missing config key falls back to the ambient global, read at call time (not at factory
 // creation) so importing the default entry never touches `fetch`/`AbortController` in an
@@ -55,16 +61,18 @@ export const setupCancellation = (
   config: CancelableFetchConfig,
   input: any,
   init: any,
-  handleCancel: (onCancel: () => void) => void,
+  handleCancel: IExecutorContext<any>['handleCancel'],
 ): FetchCancellation => {
   const _AbortController = resolveDep<AbortControllerCtor>(
     config,
     'AbortController',
-    typeof AbortController !== 'undefined' ? AbortController : (undefined as any),
+    typeof AbortController !== 'undefined' ? AbortController : (undefined as unknown as AbortControllerCtor),
   );
 
   // A signal can come from init or from a Request-object input; either drives external abort.
-  const originalSignal = (init?.signal || (input as any)?.signal) as PolyfilledAbortSignal | null | undefined;
+  const initSignal = (init as { signal?: unknown } | undefined)?.signal;
+  const inputSignal = (input as { signal?: unknown } | undefined)?.signal;
+  const originalSignal = (initSignal || inputSignal) as PolyfilledAbortSignal | null | undefined;
 
   // When the caller injects a custom AbortController, honor it (that injection is the factory's
   // reason to exist). Otherwise reuse createCancelSignal, whose branded signal already aborts with
@@ -242,7 +250,7 @@ export const runFetchLater = (
   init: DeferredRequestInit | undefined,
   resolve: (value: FetchLaterResultLike) => void,
   reject: (reason: any) => void,
-  handleCancel: (onCancel: () => void) => void,
+  handleCancel: IExecutorContext<any>['handleCancel'],
   setResult: (result: FetchLaterResultLike) => void,
 ): void => {
   const _fetchLater = resolveDep<FetchLater>(

@@ -724,7 +724,6 @@ describe('import safety', () => {
     // AbortController: globals are captured lazily on first call, not at module load.
     expect(() => {
       jest.isolateModules(() => {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const mod = require('./index');
         expect(typeof mod.default).toBe('function');
         expect(typeof mod.cancelableFetch).toBe('function');

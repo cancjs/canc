@@ -8,7 +8,7 @@ function mergeTsJestConfig(options) {
     ...Object.fromEntries(
       Object.entries(baseConfig.transform)
         .filter(([, value]) => value?.[0] === 'ts-jest')
-        .map(([key, [name, baseOptions]]) => [key, ['ts-jest', { ...baseOptions, ...options }]]),
+        .map(([key, [_name, baseOptions]]) => [key, ['ts-jest', { ...baseOptions, ...options }]]),
     ),
   };
 }
