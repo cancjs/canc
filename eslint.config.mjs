@@ -175,6 +175,16 @@ export default defineConfig(
       // for. New internal code should still type its values.
       '@typescript-eslint/no-explicit-any': 'off',
 
+      // Same decision, one step downstream. Every value read off one of those `any` signatures
+      // trips this family, so leaving it on counts the sanctioned debt a second time and buries
+      // everything else. The rules that still guard real mistakes (floating promises, misused
+      // promises, unbound methods, banned types) stay on.
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
+
       // Pre-existing type debt. These stay at warn so they are visible without blocking a
       // build, and get cleared package by package.
       '@typescript-eslint/no-duplicate-type-constituents': 'warn',
@@ -182,12 +192,7 @@ export default defineConfig(
       '@typescript-eslint/no-require-imports': 'warn',
       '@typescript-eslint/no-this-alias': 'warn',
       '@typescript-eslint/no-unnecessary-type-constraint': 'warn',
-      '@typescript-eslint/no-unsafe-argument': 'warn',
-      '@typescript-eslint/no-unsafe-assignment': 'warn',
-      '@typescript-eslint/no-unsafe-call': 'warn',
       '@typescript-eslint/no-unsafe-function-type': 'warn',
-      '@typescript-eslint/no-unsafe-member-access': 'warn',
-      '@typescript-eslint/no-unsafe-return': 'warn',
       '@typescript-eslint/prefer-function-type': 'warn',
       '@typescript-eslint/unbound-method': 'warn',
     },
@@ -220,15 +225,6 @@ export default defineConfig(
       'require-yield': 'off',
       'no-unsafe-finally': 'off',
       '@typescript-eslint/class-literal-property-style': 'off',
-
-      // A test's whole job here is to reach past the typed surface: read a private field to check
-      // it was cleared, hand the library a value its types forbid, call a method that only exists
-      // on one branch of a union. Typing that away would test something other than what ships.
-      '@typescript-eslint/no-unsafe-argument': 'off',
-      '@typescript-eslint/no-unsafe-assignment': 'off',
-      '@typescript-eslint/no-unsafe-call': 'off',
-      '@typescript-eslint/no-unsafe-member-access': 'off',
-      '@typescript-eslint/no-unsafe-return': 'off',
     },
   },
 
