@@ -174,7 +174,7 @@ describe('delay (cancelable)', () => {
     expect((reason as { aborted?: boolean }).aborted).toBe(true);
   });
 
-  it('a long delay does not resolve early (P24-1 timer wired in)', async () => {
+  it('a long delay past the platform timer limit does not resolve early', async () => {
     jest.useFakeTimers();
     const promise = delay(MAX_TIMEOUT + 100);
 

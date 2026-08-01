@@ -127,7 +127,7 @@ describe('delay', () => {
     expect(() => delay([1, Infinity])).toThrow(RangeError);
   });
 
-  it('a long delay does not resolve early (P24-1 timer wired in)', async () => {
+  it('a long delay past the platform timer limit does not resolve early', async () => {
     jest.useFakeTimers();
     const MAX_TIMEOUT = 2147483647;
     const promise = delay(MAX_TIMEOUT + 100);
