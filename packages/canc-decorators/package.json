@@ -59,6 +59,8 @@
     "@babel/plugin-proposal-decorators": "7.29.7",
     "@babel/preset-env": "7.28.6",
     "@babel/preset-typescript": "7.29.7",
+    "@cancjs/coroutine": "*",
+    "@cancjs/promise": "*",
     "babel-jest": "30.4.1",
     "reflect-metadata": "~0.2.2"
   },
