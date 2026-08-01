@@ -629,7 +629,9 @@ describe('cancAsync', () => {
       );
 
       const p = co();
-      p.handleCancel((r) => cancelReasons.push(r));
+      p.handleCancel((r) => {
+        cancelReasons.push(r);
+      });
 
       controller.abort(new Error('aborted'));
       await flush();

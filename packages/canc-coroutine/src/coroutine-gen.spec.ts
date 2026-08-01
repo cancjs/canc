@@ -839,7 +839,9 @@ describe('cancGenAsync — cancel aborts in-flight source', () => {
 
     await flush();
     // Cancel while the producer is suspended on the await, then settle the source LATER.
-    setTimeout(() => p.cancel(), 0);
+    setTimeout(() => {
+      p.cancel();
+    }, 0);
     await new Promise((r) => setTimeout(r, 5));
 
     let threw: any;

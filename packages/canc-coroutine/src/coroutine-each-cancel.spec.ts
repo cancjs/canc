@@ -1,6 +1,6 @@
 import { CancelablePromise, CancelError, isCancelError, suppressCancel } from '@cancjs/promise';
 
-import { BreakError, cancAsync, cancForAwait } from './coroutine';
+import { cancAsync, cancForAwait } from './coroutine';
 
 // Deterministic microtask flush (mirrors coroutine-each.spec): drains the microtask queue N times
 // so chained then-callbacks all run, no arbitrary sleeps (testing doctrine).
@@ -198,6 +198,9 @@ describe('cancForAwait / cancForAwait.toArray — cancel semantics (bugs 1-4)', 
       }
     })();
 
+    // Declared ahead of the coroutine: the callback below cancels it re-entrantly while co() is
+    // still running, so const would hit the temporal dead zone.
+    // eslint-disable-next-line prefer-const -- see above
     let p: CancelablePromise<any>;
     const co = cancAsync(function* () {
       try {

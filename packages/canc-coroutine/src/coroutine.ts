@@ -561,17 +561,17 @@ interface ICancAwait {
 
 function makeCombinator(build: (...args: any[]) => CancelablePromise<any>) {
   return function* (...args: any[]): Generator<any, any, any> {
-    return yield build.apply(CancelablePromise, args);
+    return yield build(...args);
   };
 }
 
 export const cancAwait = createYielder(null as unknown as cancAwait) as ICancAwait;
 
-cancAwait.all = makeCombinator(CancelablePromise.all) as ICancAwait['all'];
-cancAwait.race = makeCombinator(CancelablePromise.race) as ICancAwait['race'];
-cancAwait.any = makeCombinator(CancelablePromise.any) as ICancAwait['any'];
-cancAwait.allSettled = makeCombinator(CancelablePromise.allSettled) as ICancAwait['allSettled'];
-cancAwait.try = makeCombinator(CancelablePromise.try) as ICancAwait['try'];
+cancAwait.all = makeCombinator(CancelablePromise.all.bind(CancelablePromise)) as ICancAwait['all'];
+cancAwait.race = makeCombinator(CancelablePromise.race.bind(CancelablePromise)) as ICancAwait['race'];
+cancAwait.any = makeCombinator(CancelablePromise.any.bind(CancelablePromise)) as ICancAwait['any'];
+cancAwait.allSettled = makeCombinator(CancelablePromise.allSettled.bind(CancelablePromise)) as ICancAwait['allSettled'];
+cancAwait.try = makeCombinator(CancelablePromise.try.bind(CancelablePromise)) as ICancAwait['try'];
 
 // Resolves a source to a step iterator plus a flag for how each yielded step should be awaited.
 // An async iterable's `.next()` returns a promise of `{ value, done }`, so the whole result is the

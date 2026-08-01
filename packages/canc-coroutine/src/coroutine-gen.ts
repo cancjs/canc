@@ -112,17 +112,19 @@ function cancGenAwaitImpl<T>(value: Promise<T> | T): Generator<TAwaited<Awaited<
 // `cancGenAwait` step.
 function makeGenCombinator(build: (...args: any[]) => CancelablePromise<any>) {
   return function* (...args: any[]): Generator<TAwaited<any>, any, any> {
-    return yield awaited(build.apply(CancelablePromise, args));
+    return yield awaited(build(...args));
   };
 }
 
 export const cancGenAwait = cancGenAwaitImpl as ICancGenAwait;
 
-cancGenAwait.all = makeGenCombinator(CancelablePromise.all) as ICancGenAwait['all'];
-cancGenAwait.race = makeGenCombinator(CancelablePromise.race) as ICancGenAwait['race'];
-cancGenAwait.any = makeGenCombinator(CancelablePromise.any) as ICancGenAwait['any'];
-cancGenAwait.allSettled = makeGenCombinator(CancelablePromise.allSettled) as ICancGenAwait['allSettled'];
-cancGenAwait.try = makeGenCombinator(CancelablePromise.try) as ICancGenAwait['try'];
+cancGenAwait.all = makeGenCombinator(CancelablePromise.all.bind(CancelablePromise)) as ICancGenAwait['all'];
+cancGenAwait.race = makeGenCombinator(CancelablePromise.race.bind(CancelablePromise)) as ICancGenAwait['race'];
+cancGenAwait.any = makeGenCombinator(CancelablePromise.any.bind(CancelablePromise)) as ICancGenAwait['any'];
+cancGenAwait.allSettled = makeGenCombinator(
+  CancelablePromise.allSettled.bind(CancelablePromise),
+) as ICancGenAwait['allSettled'];
+cancGenAwait.try = makeGenCombinator(CancelablePromise.try.bind(CancelablePromise)) as ICancGenAwait['try'];
 
 /**
  * Body annotation for a `cancGenAsync` generator. `E` = emit type (what the consumer's `for await`
