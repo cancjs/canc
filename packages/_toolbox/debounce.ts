@@ -1,4 +1,5 @@
 import { construct, TExecutorCtx, TPromiseCtor } from './construct';
+import { isCancelableLike, isThenableLike } from './guards';
 
 export interface IDebounceOptions {
   leading?: boolean;
@@ -18,34 +19,19 @@ export interface IDebounceDeps {
   Impl: TPromiseCtor;
 }
 
-interface ICancelableLike {
-  then: PromiseLike<any>['then'];
-  cancel: (reason?: any) => void;
-}
-
-function isObject(value: unknown): value is object {
-  return typeof value === 'object' && value !== null;
-}
-
-function isCancelableLike(value: unknown): value is ICancelableLike {
-  return isObject(value) && typeof (value as any).cancel === 'function';
-}
-
 export function debounceFactory(deps: IDebounceDeps) {
   return function debounce<Args extends unknown[], R>(
     fn: (...args: Args) => R | PromiseLike<R>,
     ms: number,
     options?: IDebounceOptions,
   ): IDebounced<Args, R> {
-    const leading = options != null && options.leading === true;
-    const trailing = options != null && options.trailing === false ? false : true;
+    const leading = options?.leading === true;
+    const trailing = options?.trailing === false ? false : true;
     const maxWait: number | undefined = options != null ? options.maxWait : undefined;
 
     let timerId: ReturnType<typeof setTimeout> | undefined;
     let maxTimerId: ReturnType<typeof setTimeout> | undefined;
     let lastArgs: Args | undefined;
-    let lastCallTime: number | undefined;
-    let lastInvokeTime = 0;
 
     let pendingResolve: ((value: R | PromiseLike<R>) => void) | undefined;
     let pendingReject: ((reason?: any) => void) | undefined;
@@ -54,12 +40,11 @@ export function debounceFactory(deps: IDebounceDeps) {
     let superseding = false;
 
     function invoke(args: Args): void {
-      lastInvokeTime = Date.now();
       lastArgs = undefined;
 
       let result: R | PromiseLike<R>;
       try {
-        result = fn.apply(undefined, args);
+        result = fn(...args);
       } catch (e) {
         if (pendingReject) {
           pendingReject(e);
@@ -69,8 +54,7 @@ export function debounceFactory(deps: IDebounceDeps) {
         return;
       }
 
-      inFlightResult =
-        isObject(result) && typeof (result as any).then === 'function' ? (result as PromiseLike<R>) : undefined;
+      inFlightResult = isThenableLike<R>(result) ? result : undefined;
 
       if (pendingResolve) {
         pendingResolve(result);
@@ -93,7 +77,7 @@ export function debounceFactory(deps: IDebounceDeps) {
     function cancelPending(): void {
       superseding = true;
       if (pendingPromise && isCancelableLike(pendingPromise)) {
-        (pendingPromise as ICancelableLike).cancel();
+        pendingPromise.cancel();
       }
       superseding = false;
       pendingResolve = undefined;
@@ -132,7 +116,7 @@ export function debounceFactory(deps: IDebounceDeps) {
               pendingReject = undefined;
               pendingPromise = undefined;
               if (isCancelableLike(inFlightResult)) {
-                (inFlightResult as ICancelableLike).cancel();
+                inFlightResult.cancel();
               }
               inFlightResult = undefined;
             });
@@ -145,14 +129,10 @@ export function debounceFactory(deps: IDebounceDeps) {
       return p;
     }
 
-    const wrapped = function () {
-      const args = arguments;
-      const argsArray: Args = Array.prototype.slice.call(args) as any;
-      const now = Date.now();
+    const wrapped = function (...argsArray: Args) {
       const isFirstCall = timerId === undefined && maxTimerId === undefined && !pendingPromise;
 
       lastArgs = argsArray;
-      lastCallTime = now;
 
       if (timerId !== undefined) {
         clearTimeout(timerId);
@@ -184,17 +164,17 @@ export function debounceFactory(deps: IDebounceDeps) {
       return promise;
     } as unknown as IDebounced<Args, R>;
 
-    (wrapped as any).cancel = function (): void {
+    wrapped.cancel = function (): void {
       clearTimers();
       lastArgs = undefined;
       if (isCancelableLike(inFlightResult)) {
-        (inFlightResult as ICancelableLike).cancel();
+        inFlightResult.cancel();
       }
       inFlightResult = undefined;
       cancelPending();
     };
 
-    (wrapped as any).flush = function (): PromiseLike<R> | undefined {
+    wrapped.flush = function (): PromiseLike<R> | undefined {
       if (timerId === undefined && maxTimerId === undefined) return undefined;
 
       const args = lastArgs;

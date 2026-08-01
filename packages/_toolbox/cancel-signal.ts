@@ -1,7 +1,7 @@
 import { THandleCancel } from './construct';
 
 /** Structural AbortController, so no dependency on the ambient DOM/Node type in envs that polyfill it. */
-type AbortControllerCtor = new () => { abort(reason?: any): void; signal: any };
+type AbortControllerCtor = new () => { abort(reason?: any): void; signal: unknown };
 
 /** Lazily materialized outbound cancel-signal. Calling `getSignal()` returns the AbortSignal (or
  * `undefined` when `Impl` is not cancelable-shaped). */
@@ -27,7 +27,7 @@ export function makeCancelSignal(
     return { getSignal: () => undefined };
   }
 
-  let signal: any;
+  let signal: unknown;
   let built = false;
 
   return {

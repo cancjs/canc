@@ -25,7 +25,7 @@ export class TimeoutError extends Error {
 }
 
 if (typeof Symbol !== 'undefined' && Symbol?.toStringTag) {
-  (TimeoutError.prototype as any)[Symbol.toStringTag] = 'TimeoutError';
+  (TimeoutError.prototype as unknown as Record<PropertyKey, unknown>)[Symbol.toStringTag] = 'TimeoutError';
 }
 
 export function isTimeoutError(error: unknown): error is TimeoutError {

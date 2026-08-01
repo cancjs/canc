@@ -1,17 +1,32 @@
 import type { ICancelable } from '@cancjs/promise';
 
+// Any callable shape, where the arguments and the return really are not knowable: a method being
+// wrapped by a decorator, a user callback being forwarded verbatim. Use this instead of the bare
+// `Function` type, and instead of redeclaring the same alias per package.
+export type TAnyFn = (...args: any[]) => any;
+
+// Shape of the subset of the reflect-metadata polyfill's API this module feature-detects and calls.
+interface IReflectMetadataApi {
+  getOwnMetadataKeys: (target: object) => PropertyKey[];
+  getOwnMetadata: (metadataKey: PropertyKey, target: object) => unknown;
+  defineMetadata: (metadataKey: PropertyKey, metadataValue: unknown, target: object) => void;
+}
+
 // Deliberately not a type predicate. Callers duck-type straight after the check: they read a
 // `then` method, a brand symbol, an iterator. Narrowing to `object` strips the index signature
 // those reads need, and narrowing to a record breaks the casts callers apply afterwards. Leaving
 // the argument as-is keeps every call site working on the value it actually has.
 export const isObject = (value: any): boolean => !!value && typeof value === 'object';
 
-export const isFunction = (value: any): value is Function => typeof value === 'function';
+export const isFunction = (value: any): value is TAnyFn => typeof value === 'function';
 
-export const isThenable = (obj: any): obj is PromiseLike<any> => isObject(obj) && isFunction(obj.then);
+export const isThenable = (obj: any): obj is PromiseLike<any> =>
+  isObject(obj) && isFunction((obj as Record<PropertyKey, unknown>).then);
 
-export const isGenerator = (value: any): value is Generator =>
-  isObject(value) && isFunction(value.next) && isFunction(value[Symbol.iterator]);
+export const isGenerator = (value: any): value is Generator => {
+  const candidate = value as Record<PropertyKey, unknown>;
+  return isObject(value) && isFunction(candidate.next) && isFunction(candidate[Symbol.iterator]);
+};
 
 export const isCancelable = (obj: any): obj is ICancelable =>
   isThenable(obj) && isFunction((obj as Partial<ICancelable>).cancel);
@@ -40,31 +55,31 @@ export function createAggregateError(errors: any[], message?: string): Error & {
 // so decorators applied earlier in the stack (e.g. reflect-metadata's own-function metadata set by
 // SetMetadata-style helpers) keep working. Metadata keyed on the class prototype + property key
 // is untouched by wrapping and needs no copying.
-export function copyFunctionMetadata(source: Function, target: Function): Function {
+export function copyFunctionMetadata(source: TAnyFn, target: TAnyFn): TAnyFn {
   if (source === target) {
     return target;
   }
 
   // reflect-metadata own-function metadata (feature-detected; absent without reflect-metadata).
-  const reflect = (typeof Reflect !== 'undefined' ? Reflect : undefined) as any;
+  const reflect = (typeof Reflect !== 'undefined' ? Reflect : undefined) as IReflectMetadataApi | undefined;
   if (
     reflect &&
     isFunction(reflect.getOwnMetadataKeys) &&
     isFunction(reflect.getOwnMetadata) &&
     isFunction(reflect.defineMetadata)
   ) {
-    const keys = reflect.getOwnMetadataKeys(source) as any[];
-    for (let i = 0; i < keys.length; i++) {
-      reflect.defineMetadata(keys[i], reflect.getOwnMetadata(keys[i], source), target);
+    const keys = reflect.getOwnMetadataKeys(source);
+    for (const key of keys) {
+      reflect.defineMetadata(key, reflect.getOwnMetadata(key, source), target);
     }
   }
 
   // Own enumerable properties another decorator may have tacked onto the function.
   const propNames = Object.keys(source);
-  for (let i = 0; i < propNames.length; i++) {
-    const descriptor = Object.getOwnPropertyDescriptor(source, propNames[i]);
+  for (const propName of propNames) {
+    const descriptor = Object.getOwnPropertyDescriptor(source, propName);
     if (descriptor) {
-      Object.defineProperty(target, propNames[i], descriptor);
+      Object.defineProperty(target, propName, descriptor);
     }
   }
 
@@ -75,7 +90,7 @@ export function copyFunctionMetadata(source: Function, target: Function): Functi
   return target;
 }
 
-function copyOwnProperty(source: Function, target: Function, key: 'name' | 'length'): void {
+function copyOwnProperty(source: TAnyFn, target: TAnyFn, key: 'name' | 'length'): void {
   const descriptor = Object.getOwnPropertyDescriptor(source, key);
   if (descriptor) {
     try {
@@ -96,7 +111,7 @@ export const isLegacyShapedSecondArg = (value: any): value is string | symbol =>
   typeof value === 'string' || typeof value === 'symbol';
 
 export const isStage3Context = (value: any): value is { kind: string } =>
-  isObject(value) && typeof (value as any).kind === 'string';
+  isObject(value) && typeof (value as Record<PropertyKey, unknown>).kind === 'string';
 
 // Babel-legacy descriptors always carry an `initializer` key for fields (a function, or explicitly
 // null when uninitialized) and a real descriptor object for methods/getters/setters. TS-legacy never

@@ -1,3 +1,5 @@
+import { isFunction } from '../_util';
+
 /**
  * Minimal constructor shape the lazy base builds against: a promise implementation constructible
  * with an executor and an optional options bag. Native Promise ignores the options argument and the
@@ -30,8 +32,6 @@ export type TLazyExecutor<T> = (
   reject: (reason?: any) => void,
   handleCancel: (onCancel: TLazyOnCancel) => void,
 ) => void | TLazyOnCancel;
-
-const isFunction = (value: any): value is Function => typeof value === 'function';
 
 export type TLazyState = 'UNSTARTED' | 'RUNNING' | 'SETTLED';
 

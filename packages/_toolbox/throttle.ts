@@ -17,8 +17,8 @@ export function throttleFactory(deps: IDebounceDeps) {
     options?: IThrottleOptions,
   ): IThrottled<Args, R> {
     return debounce(fn, ms, {
-      leading: options != null && options.leading === false ? false : true,
-      trailing: options != null && options.trailing === false ? false : true,
+      leading: options?.leading === false ? false : true,
+      trailing: options?.trailing === false ? false : true,
       maxWait: ms,
     });
   };

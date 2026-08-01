@@ -46,7 +46,7 @@ function settleFromCallback(
   reject: (reason?: any) => void,
 ): void {
   if (errorFirst) {
-    const err = cbArgs[0];
+    const err: unknown = cbArgs[0];
     if (err) {
       reject(err);
       return;
@@ -63,9 +63,9 @@ function settleFromCallback(
 /** Collapse the post-error callback values per the multiArgs option. */
 function mapValues(values: any[], multiArgs: boolean | string[] | undefined): any {
   if (Array.isArray(multiArgs)) {
-    const out: Record<string, any> = {};
+    const out: Record<string, unknown> = {};
     for (let i = 0; i < multiArgs.length; i++) {
-      out[multiArgs[i]] = values[i];
+      out[multiArgs[i]] = values[i] as unknown;
     }
     return out;
   }
@@ -93,16 +93,15 @@ export function promisify(
   const onCancelHook = options?.handleCancel;
   const AbortControllerCtor = options?.AbortController;
 
-  const custom: TCallbackFn | undefined =
-    useCustom && typeof (fn as any)[kCustom] === 'function' ? (fn as any)[kCustom] : undefined;
+  const customImpl = useCustom ? (fn as unknown as Record<PropertyKey, unknown>)[kCustom] : undefined;
+  const custom: TCallbackFn | undefined = typeof customImpl === 'function' ? (customImpl as TCallbackFn) : undefined;
 
-  return function (this: any, ...callArgs: any[]): PromiseLike<any> {
-    const thisArg = this;
-
+  return function (this: unknown, ...callArgs: any[]): PromiseLike<any> {
+    // `run` is an arrow, so it keeps this function's receiver without aliasing it.
     const run = (resolve: (value: any) => void, reject: (reason?: any) => void, ctx?: TExecutorCtx) => {
       // Custom impl short-circuits the callback path entirely: call it and adopt its promise.
       if (custom) {
-        Impl.resolve(custom.apply(thisArg, callArgs)).then(resolve, reject);
+        Impl.resolve(custom.apply(this, callArgs)).then(resolve, reject);
         return;
       }
 
@@ -126,7 +125,7 @@ export function promisify(
         settleFromCallback(cbArgs, errorFirst, multiArgs, resolve, reject);
       };
 
-      const handle = fn.apply(thisArg, args.concat([callback]));
+      const handle: unknown = fn.apply(this, args.concat([callback]));
 
       if (handleCancel) {
         (handleCancel as unknown as (onCancel: (reason?: any) => void) => void)((reason?: any) => {
@@ -189,26 +188,28 @@ export function promisifyAll<T extends object>(Impl: TPromiseCtor, source: T, op
     );
   }
 
-  const target: any = mode === 'clone' ? {} : source;
+  const target = (mode === 'clone' ? {} : source) as Record<string, TCallbackFn>;
 
   for (const key of Object.keys(source)) {
     if (options?.excludeMain && key === 'main') {
       continue;
     }
 
-    const value = (source as any)[key];
+    const value = (source as Record<string, unknown>)[key];
     if (typeof value !== 'function') {
       continue;
     }
+
+    const method = value as TCallbackFn;
 
     if (include ? !nameMatches(key, include) : nameMatches(key, exclude)) {
       continue;
     }
 
-    let wrapped = wrappedCache.get(value);
+    let wrapped = wrappedCache.get(method);
     if (!wrapped) {
-      wrapped = promisify(Impl, value, options);
-      wrappedCache.set(value, wrapped);
+      wrapped = promisify(Impl, method, options);
+      wrappedCache.set(method, wrapped);
     }
 
     const outName = transformName ? transformName(key) : key;
