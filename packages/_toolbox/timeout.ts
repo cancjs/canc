@@ -1,8 +1,9 @@
-import { construct, TExecutorCtx } from './construct';
+import { TExecutorCtx } from './construct';
 import { IToolboxDeps } from './deps';
 import { parseTimedArgs, resolveDuration, TDuration } from './duration';
 import { IEagerSource, startInput, TTimedInput } from './input';
 import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
+import { constructTimed } from './lazy';
 import { startTimer, stopTimer } from './timers';
 
 function isObject(value: unknown): value is object {
@@ -62,8 +63,8 @@ export function timeoutFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: 
     // The returned promise owns the timer so that canceling it (cancelable flavor) clears the
     // pending timeout and stops the underlying operation, leaving no leaked work. Under a plain
     // native Promise the context is undefined and the timer simply runs to completion.
-    return construct<T, K>(
-      deps.Impl,
+    return constructTimed<T, K>(
+      deps,
       (resolve, reject, ctx?: TExecutorCtx) => {
         let settled = false;
         let started: IEagerSource<T> | undefined;

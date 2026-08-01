@@ -1,9 +1,10 @@
-import { construct, TExecutorCtx } from './construct';
+import { TExecutorCtx } from './construct';
 import { IToolboxDeps } from './deps';
 import { parseTimedArgs, resolveDuration, TDuration } from './duration';
 import { isCancelableLike, isThunk } from './guards';
 import { TTimedInput } from './input';
 import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
+import { constructTimed } from './lazy';
 import { startTimer, stopTimer } from './timers';
 
 /** Bind `delay` to one promise implementation and set of timers. */
@@ -30,8 +31,8 @@ export function delayFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
     // thunk until it runs) is canceled if the returned promise is canceled first.
     const eagerCancelable = hasInput && !isThunk(input) && isCancelableLike(input) ? input : undefined;
 
-    return construct<T, K>(
-      deps.Impl,
+    return constructTimed<T, K>(
+      deps,
       (resolve, reject, ctx?: TExecutorCtx) => {
         const fire = (): void => {
           if (!hasInput) {

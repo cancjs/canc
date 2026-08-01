@@ -1,6 +1,7 @@
-import { construct, TExecutorCtx } from './construct';
+import { TExecutorCtx } from './construct';
 import { IToolboxDeps } from './deps';
 import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
+import { constructTimed } from './lazy';
 import { startTimer, stopTimer } from './timers';
 
 export interface IWaitForOptions {
@@ -8,6 +9,8 @@ export interface IWaitForOptions {
   interval?: number;
   /** Reject with a plain Error after this many ms. Default: Infinity (no cap). */
   timeout?: number;
+  /** Defer the first poll until the first subscription. Not contagious past a chained `.then`. */
+  lazy?: boolean;
   [key: string]: unknown;
 }
 
@@ -23,8 +26,8 @@ export function waitForFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: 
     const interval = options?.interval ?? 20;
     const limit = options?.timeout ?? Infinity;
 
-    return construct<void, K>(
-      deps.Impl,
+    return constructTimed<void, K>(
+      deps,
       (resolve, reject, ctx?: TExecutorCtx) => {
         let timerId: unknown;
         let deadlineId: unknown;

@@ -8,6 +8,7 @@ export { IToolboxDeps, TAbortControllerCtor } from './deps';
 export { TDuration } from './duration';
 export { IEagerSource, startInput, TTimedInput } from './input';
 export { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
+export { constructTimed } from './lazy';
 export { minDelayFactory } from './min-delay';
 export {
   IPromisifyAllOptions,

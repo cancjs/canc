@@ -4,7 +4,17 @@ import { ICancelablePromiseOptions } from '@cancjs/promise';
  * Options accepted by every toolbox utility. These canc options (bubble, shield, signal, ...) are
  * forwarded to CancelablePromise construction.
  */
-export type IToolboxOptions = ICancelablePromiseOptions;
+export interface IToolboxOptions extends ICancelablePromiseOptions {
+  /**
+   * Defer starting the work (the timer, the retry attempt, the poll, the callback invocation...)
+   * until the first `then`/`catch`/`finally`/`await`. Supported by `delay`, `timeout`, `retry`,
+   * `waitFor` and `promisify`; `minDelay`, `defer`, `debounce` and `throttle` do not read it.
+   *
+   * Laziness is NOT contagious: `delay(1000, { lazy: true }).then(f)` starts the timer at the
+   * `.then` call, it does not defer `f` past anything further.
+   */
+  lazy?: boolean;
+}
 
 /**
  * A cancel registration callback, supplied inside the executor context object by

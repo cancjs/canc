@@ -22,4 +22,8 @@ export interface ICancelableKind extends IPromiseKind {
  */
 export const deps: IToolboxDeps<ICancelableKind> = {
   Impl: CancelablePromise as unknown as TPromiseCtor,
+  // CancelablePromise products expose `cancel` and pass a `handleCancel`-bearing ctx into every
+  // executor, which is what lets a `{ lazy: true }` deferred wrapper built from this deps object
+  // cancel before its first subscription and not just after.
+  cancelable: true,
 };

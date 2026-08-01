@@ -1,7 +1,8 @@
 import { makeCancelSignal, TGetSignal } from './cancel-signal';
-import { construct, TExecutorCtx } from './construct';
+import { TExecutorCtx } from './construct';
 import { IToolboxDeps, TAbortControllerCtor } from './deps';
 import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
+import { constructTimed } from './lazy';
 
 /** The registered promisify.custom symbol, referenced via Symbol.for to avoid importing node:util. */
 const kCustom = Symbol.for('nodejs.util.promisify.custom');
@@ -33,6 +34,8 @@ export interface IPromisifyOptions {
   handleCancel?: (handle: any, args: any[], getSignal: TGetSignal, reason?: any) => void;
   /** AbortController implementation used to mint the outbound signal. Defaults to the ambient global. */
   AbortController?: TAbortControllerCtor;
+  /** Defer calling the underlying callback function until the first subscription. Not contagious past a chained `.then`. */
+  lazy?: boolean;
   [key: string]: unknown;
 }
 
@@ -134,7 +137,7 @@ export function promisifyFactory<K extends IPromiseKind = IPromiseLikeKind>(deps
         }
       };
 
-      return construct<any, K>(deps.Impl, run, options);
+      return constructTimed<any, K>(deps, run, options);
     };
   };
 }

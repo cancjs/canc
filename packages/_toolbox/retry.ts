@@ -1,6 +1,7 @@
-import { construct, TExecutorCtx } from './construct';
+import { TExecutorCtx } from './construct';
 import { IToolboxDeps } from './deps';
 import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
+import { constructTimed } from './lazy';
 import { startTimer, stopTimer } from './timers';
 
 export interface IRetryOptions {
@@ -14,6 +15,8 @@ export interface IRetryOptions {
   maxTimeout?: number;
   /** Called before each retry with the failing reason and the 1-based attempt number that failed. */
   onRetry?: (reason: any, attempt: number) => void;
+  /** Defer the first attempt until the first subscription. Not contagious past a chained `.then`. */
+  lazy?: boolean;
   [key: string]: unknown;
 }
 
@@ -33,8 +36,8 @@ export function retryFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
     const factor = options?.factor ?? 2;
     const maxTimeout = options?.maxTimeout ?? Infinity;
 
-    return construct<T, K>(
-      deps.Impl,
+    return constructTimed<T, K>(
+      deps,
       (resolve, reject, ctx?: TExecutorCtx) => {
         let canceled = false;
         let backoffId: unknown;
