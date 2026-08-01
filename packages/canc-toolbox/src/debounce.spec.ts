@@ -133,7 +133,7 @@ describe('debounce', () => {
     };
     const debounced = debounce(fn, 100);
 
-    const p = debounced();
+    const _p = debounced();
     debounced.cancel();
 
     jest.advanceTimersByTime(200);

@@ -5,7 +5,7 @@ import { IToolboxOptions, TExecutorCtx } from './options';
 // AbortSignal.any (ES2024 / Node 20.3+) exists at runtime in every supported target but is not
 // declared by the ambient AbortSignal typing this workspace resolves. Reference it through a narrow
 // typed view instead of augmenting the platform type.
-const abortSignalAny = (AbortSignal as unknown as { any(signals: AbortSignal[]): AbortSignal }).any;
+const abortSignalAny = (AbortSignal as unknown as { any(this: void, signals: AbortSignal[]): AbortSignal }).any;
 
 // withSignal has no toolbox options and always returns a plain native promise, so there is no
 // resolved Impl to route through; capture the native constructor once at module load instead of

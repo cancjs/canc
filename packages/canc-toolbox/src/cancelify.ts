@@ -13,7 +13,7 @@ type AbortControllerCtor = new () => { abort(reason?: any): void; signal: any };
  * cancellation end-to-end (spec consumers reject with signal.reason, which is our CancelError).
  * Passed to makeCancelSignal as the reason normalizer so an aborted outbound signal reads branded.
  */
-export function toCancelError(reason?: any): CancelError {
+export function toCancelError(reason?: unknown): CancelError {
   if (isCancelError(reason)) {
     return reason;
   }
@@ -22,7 +22,7 @@ export function toCancelError(reason?: any): CancelError {
     return new CancelError(undefined, { cause: reason });
   }
 
-  return new CancelError(reason);
+  return new CancelError(reason as string | undefined);
 }
 
 export interface ICancelifyContext {

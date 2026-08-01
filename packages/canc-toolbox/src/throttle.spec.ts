@@ -1,4 +1,4 @@
-import { CancelablePromise, isCancelError } from '@cancjs/promise';
+import { CancelablePromise } from '@cancjs/promise';
 
 import { throttle } from './throttle';
 

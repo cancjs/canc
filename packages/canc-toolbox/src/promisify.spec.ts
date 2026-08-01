@@ -44,7 +44,7 @@ describe('promisify', () => {
   describe('handleCancel teardown hook', () => {
     it('fires once with (handle, args, getSignal, reason) on cancel; promise rejects a CancelError', async () => {
       const handle = { stop: jest.fn() };
-      const fn = (a: number, cb: (err: any, value: number) => void) => {
+      const fn = (_a: number, _cb: (err: any, value: number) => void) => {
         // A synchronous imperative handle, like a ClientRequest or ChildProcess would return —
         // the callback never fires, so only the cancel path can settle the promise.
         return handle;
@@ -80,7 +80,7 @@ describe('promisify', () => {
     it('injects a signal that aborts on cancel (signal.reason is raw, not branded)', async () => {
       let injectedSignal: any;
 
-      const fn = (a: number, opts: { signal?: any }, cb: (err: any, value: number) => void) => {
+      const fn = (_a: number, opts: { signal?: any }, _cb: (err: any, value: number) => void) => {
         injectedSignal = opts.signal;
         // Never calls back: only cancel settles the promise.
       };

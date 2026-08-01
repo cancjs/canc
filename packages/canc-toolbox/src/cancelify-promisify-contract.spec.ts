@@ -32,7 +32,7 @@ describe('cancelify + promisify cross-module contract', () => {
 
   it('promisify: options.handleCancel fires with exactly (handle, args, getSignal, reason) when a pending call is canceled', async () => {
     const handle = { stop: jest.fn() };
-    const fn = (a: number, cb: (err: any, value: number) => void) => {
+    const fn = (_a: number, _cb: (err: any, value: number) => void) => {
       // A synchronous imperative handle (e.g. ClientRequest); the callback never fires on its own.
       return handle;
     };
