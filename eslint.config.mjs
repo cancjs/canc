@@ -214,6 +214,13 @@ export default defineConfig(
       '@typescript-eslint/require-await': 'off',
       '@typescript-eslint/unbound-method': 'off',
 
+      // Each of these is a shape under test rather than a mistake: a coroutine body that returns
+      // without ever yielding, a throw inside finally that must surface as the rejection, a getter
+      // that exists precisely because the decorator has to handle the getter path.
+      'require-yield': 'off',
+      'no-unsafe-finally': 'off',
+      '@typescript-eslint/class-literal-property-style': 'off',
+
       // A test's whole job here is to reach past the typed surface: read a private field to check
       // it was cleared, hand the library a value its types forbid, call a method that only exists
       // on one branch of a union. Typing that away would test something other than what ships.
