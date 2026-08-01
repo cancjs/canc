@@ -1,6 +1,4 @@
-import { CancelablePromise } from '@cancjs/promise';
-
-import { TPromiseCtor } from '../../_toolbox/construct';
 import { throttleFactory } from '../../_toolbox/throttle';
+import { deps } from './deps';
 
-export const throttle = throttleFactory({ Impl: CancelablePromise as unknown as TPromiseCtor });
+export const throttle = throttleFactory(deps);

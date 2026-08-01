@@ -1,6 +1,4 @@
-import { CancelablePromise } from '@cancjs/promise';
-
-import { TPromiseCtor } from '../../_toolbox/construct';
 import { debounceFactory } from '../../_toolbox/debounce';
+import { deps } from './deps';
 
-export const debounce = debounceFactory({ Impl: CancelablePromise as unknown as TPromiseCtor });
+export const debounce = debounceFactory(deps);

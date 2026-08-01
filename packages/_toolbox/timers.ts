@@ -53,11 +53,11 @@ const readClock: () => number =
 // afterwards. A suite that wants the real clock passes `timers` instead. Do not turn these into
 // module-level constants. They are also read as bare identifiers rather than off a global object,
 // so the module works in a browser, in node and in a worker alike.
-function schedule(handler: () => void, ms: number, timers?: ITimers): any {
+function schedule(handler: () => void, ms: number, timers?: Partial<ITimers>): any {
   return timers?.setTimeout ? timers.setTimeout(handler, ms) : setTimeout(handler, ms);
 }
 
-function unschedule(handle: any, timers?: ITimers): void {
+function unschedule(handle: any, timers?: Partial<ITimers>): void {
   if (timers?.clearTimeout) {
     timers.clearTimeout(handle);
   } else {
@@ -80,7 +80,7 @@ function normalizeDelay(ms: number): number {
  * Pass the result to `stopTimer`, never to `clearTimeout`: a long timer's handle is not a platform
  * handle.
  */
-export function startTimer(handler: () => void, ms: number, timers?: ITimers): any {
+export function startTimer(handler: () => void, ms: number, timers?: Partial<ITimers>): any {
   const total = normalizeDelay(ms);
 
   // The overwhelming majority of calls land here, so they get the platform handle untouched and
@@ -122,7 +122,7 @@ export function startTimer(handler: () => void, ms: number, timers?: ITimers): a
 /**
  * Cancel a timer started by `startTimer`. A missing handle is a no-op.
  */
-export function stopTimer(handle: any, timers?: ITimers): void {
+export function stopTimer(handle: any, timers?: Partial<ITimers>): void {
   if (handle == null) return;
 
   // Brand check first: node's own timer handle is an object too, so "is it an object" tells the

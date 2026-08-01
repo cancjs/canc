@@ -1,3 +1,5 @@
+import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
+
 /**
  * Minimal constructor shape every toolbox algorithm depends on: a promise implementation
  * constructible with an executor and an optional options bag. Native Promise ignores the options
@@ -45,9 +47,16 @@ export type TExecutor<T> = (
  * consumes it. Centralizes the one unavoidable cast: `PromiseLike` does not model a third executor
  * argument or an options argument, but every concrete implementation accepts both (native by
  * ignoring them, cancelable by honoring them).
+ *
+ * The flavor `K` is what the result is typed as. It cannot be inferred from the arguments, so
+ * callers pass it explicitly, which keeps the cast here instead of one per algorithm.
  */
-export function construct<T>(Impl: TPromiseCtor, executor: TExecutor<T>, options?: object): PromiseLike<T> {
-  const Ctor = Impl as unknown as new (executor: TExecutor<T>, options?: object) => PromiseLike<T>;
+export function construct<T, K extends IPromiseKind = IPromiseLikeKind>(
+  Impl: TPromiseCtor,
+  executor: TExecutor<T>,
+  options?: object,
+): TPromiseOf<K, T> {
+  const Ctor = Impl as unknown as new (executor: TExecutor<T>, options?: object) => TPromiseOf<K, T>;
 
   return new Ctor(executor, options);
 }

@@ -1,14 +1,13 @@
 import { makeCancelSignal, TGetSignal } from './cancel-signal';
-import { construct, TExecutorCtx, TPromiseCtor } from './construct';
+import { construct, TExecutorCtx } from './construct';
+import { IToolboxDeps, TAbortControllerCtor } from './deps';
+import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
 
 /** The registered promisify.custom symbol, referenced via Symbol.for to avoid importing node:util. */
 const kCustom = Symbol.for('nodejs.util.promisify.custom');
 
 /** A callback-style function whose last argument is a node-style callback. */
 export type TCallbackFn = (...args: any[]) => any;
-
-/** Structural AbortController, so no dependency on the ambient DOM/Node type in envs that polyfill it. */
-type AbortControllerCtor = new () => { abort(reason?: any): void; signal: any };
 
 export interface IPromisifyOptions {
   /** Node errfirst callback (default true) vs a value-first callback. */
@@ -33,7 +32,7 @@ export interface IPromisifyOptions {
    */
   handleCancel?: (handle: any, args: any[], getSignal: TGetSignal, reason?: any) => void;
   /** AbortController implementation used to mint the outbound signal. Defaults to the ambient global. */
-  AbortController?: AbortControllerCtor;
+  AbortController?: TAbortControllerCtor;
   [key: string]: unknown;
 }
 
@@ -77,67 +76,66 @@ function mapValues(values: any[], multiArgs: boolean | string[] | undefined): an
   return values[0];
 }
 
-/**
- * Turn an errfirst (or value-first) callback function into one returning a promise built against
- * `Impl`.
- */
-export function promisify(
-  Impl: TPromiseCtor,
-  fn: TCallbackFn,
-  options?: IPromisifyOptions,
-): (...args: any[]) => PromiseLike<any> {
-  const errorFirst = options?.errorFirst !== false;
-  const multiArgs = options?.multiArgs;
-  const useCustom = options?.custom !== false;
-  const transformArgs = options?.transformArgs;
-  const onCancelHook = options?.handleCancel;
-  const AbortControllerCtor = options?.AbortController;
+/** Bind `promisify` to one promise implementation. */
+export function promisifyFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IToolboxDeps<K>) {
+  /**
+   * Turn an errfirst (or value-first) callback function into one returning a promise built against
+   * the bound implementation.
+   */
+  return function promisify(fn: TCallbackFn, options?: IPromisifyOptions): (...args: any[]) => TPromiseOf<K, any> {
+    const errorFirst = options?.errorFirst !== false;
+    const multiArgs = options?.multiArgs;
+    const useCustom = options?.custom !== false;
+    const transformArgs = options?.transformArgs;
+    const onCancelHook = options?.handleCancel;
+    const AbortControllerCtor = options?.AbortController ?? deps.AbortController;
 
-  const customImpl = useCustom ? (fn as unknown as Record<PropertyKey, unknown>)[kCustom] : undefined;
-  const custom: TCallbackFn | undefined = typeof customImpl === 'function' ? (customImpl as TCallbackFn) : undefined;
+    const customImpl = useCustom ? (fn as unknown as Record<PropertyKey, unknown>)[kCustom] : undefined;
+    const custom: TCallbackFn | undefined = typeof customImpl === 'function' ? (customImpl as TCallbackFn) : undefined;
 
-  return function (this: unknown, ...callArgs: any[]): PromiseLike<any> {
-    // `run` is an arrow, so it keeps this function's receiver without aliasing it.
-    const run = (resolve: (value: any) => void, reject: (reason?: any) => void, ctx?: TExecutorCtx) => {
-      // Custom impl short-circuits the callback path entirely: call it and adopt its promise.
-      if (custom) {
-        Impl.resolve(custom.apply(this, callArgs)).then(resolve, reject);
-        return;
-      }
-
-      const handleCancel = ctx?.handleCancel;
-      const holder = makeCancelSignal(handleCancel, AbortControllerCtor);
-      const getSignal = holder.getSignal;
-
-      let args = callArgs;
-      if (transformArgs) {
-        args = transformArgs(callArgs.slice(), getSignal);
-      }
-
-      // Short-circuit guard: once cancel settles the promise, a late callback is a no-op.
-      let settled = false;
-
-      const callback = (...cbArgs: any[]) => {
-        if (settled) {
+    return function (this: unknown, ...callArgs: any[]): TPromiseOf<K, any> {
+      // `run` is an arrow, so it keeps this function's receiver without aliasing it.
+      const run = (resolve: (value: any) => void, reject: (reason?: any) => void, ctx?: TExecutorCtx) => {
+        // Custom impl short-circuits the callback path entirely: call it and adopt its promise.
+        if (custom) {
+          deps.Impl.resolve(custom.apply(this, callArgs)).then(resolve, reject);
           return;
         }
-        settled = true;
-        settleFromCallback(cbArgs, errorFirst, multiArgs, resolve, reject);
+
+        const handleCancel = ctx?.handleCancel;
+        const holder = makeCancelSignal(handleCancel, AbortControllerCtor);
+        const getSignal = holder.getSignal;
+
+        let args = callArgs;
+        if (transformArgs) {
+          args = transformArgs(callArgs.slice(), getSignal);
+        }
+
+        // Short-circuit guard: once cancel settles the promise, a late callback is a no-op.
+        let settled = false;
+
+        const callback = (...cbArgs: any[]) => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          settleFromCallback(cbArgs, errorFirst, multiArgs, resolve, reject);
+        };
+
+        const handle: unknown = fn.apply(this, args.concat([callback]));
+
+        if (handleCancel) {
+          (handleCancel as unknown as (onCancel: (reason?: any) => void) => void)((reason?: any) => {
+            settled = true;
+            if (onCancelHook) {
+              onCancelHook(handle, args, getSignal, reason);
+            }
+          });
+        }
       };
 
-      const handle: unknown = fn.apply(this, args.concat([callback]));
-
-      if (handleCancel) {
-        (handleCancel as unknown as (onCancel: (reason?: any) => void) => void)((reason?: any) => {
-          settled = true;
-          if (onCancelHook) {
-            onCancelHook(handle, args, getSignal, reason);
-          }
-        });
-      }
+      return construct<any, K>(deps.Impl, run, options);
     };
-
-    return construct<any>(Impl, run, options);
   };
 }
 
@@ -167,54 +165,62 @@ function nameMatches(name: string, patterns: (string | RegExp)[]): boolean {
   return false;
 }
 
-// Per-source-fn cache of the wrapped promisified fn, so shared method refs are wrapped once.
-const wrappedCache = new WeakMap<TCallbackFn, (...args: any[]) => PromiseLike<any>>();
+/** Bind `promisifyAll` to one promise implementation. */
+export function promisifyAllFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IToolboxDeps<K>) {
+  const promisify = promisifyFactory(deps);
 
-/**
- * Batch-promisify the methods of an object. See IPromisifyAllOptions for selection, naming, and
- * the clone/merge/overwrite modes.
- */
-export function promisifyAll<T extends object>(Impl: TPromiseCtor, source: T, options?: IPromisifyAllOptions): any {
-  const mode = options?.mode || 'clone';
-  const include = options?.include;
-  const exclude = options?.exclude || DEFAULT_EXCLUDE;
+  // Per-source-fn cache of the wrapped promisified fn, so shared method refs are wrapped once.
+  // It lives in the factory closure rather than at module scope: the inlinable shared directory is
+  // bundled into every consuming package, so a module-level cache would be a different object per
+  // copy while claiming to be one.
+  const wrappedCache = new WeakMap<TCallbackFn, (...args: any[]) => TPromiseOf<K, any>>();
 
-  const transformName = options?.transformName || (options?.suffix ? (n: string) => n + options.suffix : undefined);
+  /**
+   * Batch-promisify the methods of an object. See IPromisifyAllOptions for selection, naming, and
+   * the clone/merge/overwrite modes.
+   */
+  return function promisifyAll<T extends object>(source: T, options?: IPromisifyAllOptions): any {
+    const mode = options?.mode || 'clone';
+    const include = options?.include;
+    const exclude = options?.exclude || DEFAULT_EXCLUDE;
 
-  // merge/overwrite without a name change would clobber the original method.
-  if ((mode === 'merge' || mode === 'overwrite') && !transformName) {
-    throw new Error(
-      'promisifyAll merge/overwrite requires transformName or suffix to avoid clobbering the original methods',
-    );
-  }
+    const transformName = options?.transformName || (options?.suffix ? (n: string) => n + options.suffix : undefined);
 
-  const target = (mode === 'clone' ? {} : source) as Record<string, TCallbackFn>;
-
-  for (const key of Object.keys(source)) {
-    if (options?.excludeMain && key === 'main') {
-      continue;
+    // merge/overwrite without a name change would clobber the original method.
+    if ((mode === 'merge' || mode === 'overwrite') && !transformName) {
+      throw new Error(
+        'promisifyAll merge/overwrite requires transformName or suffix to avoid clobbering the original methods',
+      );
     }
 
-    const value = (source as Record<string, unknown>)[key];
-    if (typeof value !== 'function') {
-      continue;
+    const target = (mode === 'clone' ? {} : source) as Record<string, TCallbackFn>;
+
+    for (const key of Object.keys(source)) {
+      if (options?.excludeMain && key === 'main') {
+        continue;
+      }
+
+      const value = (source as Record<string, unknown>)[key];
+      if (typeof value !== 'function') {
+        continue;
+      }
+
+      const method = value as TCallbackFn;
+
+      if (include ? !nameMatches(key, include) : nameMatches(key, exclude)) {
+        continue;
+      }
+
+      let wrapped = wrappedCache.get(method);
+      if (!wrapped) {
+        wrapped = promisify(method, options);
+        wrappedCache.set(method, wrapped);
+      }
+
+      const outName = transformName ? transformName(key) : key;
+      target[outName] = wrapped;
     }
 
-    const method = value as TCallbackFn;
-
-    if (include ? !nameMatches(key, include) : nameMatches(key, exclude)) {
-      continue;
-    }
-
-    let wrapped = wrappedCache.get(method);
-    if (!wrapped) {
-      wrapped = promisify(Impl, method, options);
-      wrappedCache.set(method, wrapped);
-    }
-
-    const outName = transformName ? transformName(key) : key;
-    target[outName] = wrapped;
-  }
-
-  return target;
+    return target;
+  };
 }

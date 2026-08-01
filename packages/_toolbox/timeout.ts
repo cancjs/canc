@@ -1,4 +1,7 @@
-import { construct, TExecutorCtx, TPromiseCtor } from './construct';
+import { construct, TExecutorCtx } from './construct';
+import { IToolboxDeps } from './deps';
+import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
+import { startTimer, stopTimer } from './timers';
 
 function isObject(value: unknown): value is object {
   return typeof value === 'object' && value !== null;
@@ -40,60 +43,62 @@ function isCancelable(value: unknown): value is ICancelableLike {
   return isObject(candidate) && typeof candidate?.cancel === 'function';
 }
 
-/**
- * Reject with a TimeoutError if `promise` has not settled within `ms` milliseconds. When the
- * timeout wins the race, the underlying promise is canceled (if it exposes a `cancel` method) so
- * it stops its own work instead of running detached. The timer is always cleared once the race
- * settles.
- */
-export function timeout<T>(
-  Impl: TPromiseCtor,
-  promise: T | PromiseLike<T>,
-  ms = Infinity,
-  options?: object,
-): PromiseLike<T> {
-  // The returned promise owns the timer so that canceling it (cancelable flavor) clears the
-  // pending timeout and stops the underlying operation, leaving no leaked work. Under a plain
-  // native Promise the context is undefined and the timer simply runs to completion.
-  return construct<T>(
-    Impl,
-    (resolve, reject, ctx?: TExecutorCtx) => {
-      let settled = false;
-      const id = setTimeout(() => {
-        if (settled) return;
-        settled = true;
-        // Timeout won: stop the underlying operation so it does not run detached.
-        if (isCancelable(promise)) {
-          promise.cancel(new TimeoutError());
+/** Bind `timeout` to one promise implementation and set of timers. */
+export function timeoutFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IToolboxDeps<K>) {
+  /**
+   * Reject with a TimeoutError if `promise` has not settled within `ms` milliseconds. When the
+   * timeout wins the race, the underlying promise is canceled (if it exposes a `cancel` method) so
+   * it stops its own work instead of running detached. The timer is always cleared once the race
+   * settles.
+   */
+  return function timeout<T>(promise: T | PromiseLike<T>, ms = Infinity, options?: K['options']): TPromiseOf<K, T> {
+    // The returned promise owns the timer so that canceling it (cancelable flavor) clears the
+    // pending timeout and stops the underlying operation, leaving no leaked work. Under a plain
+    // native Promise the context is undefined and the timer simply runs to completion.
+    return construct<T, K>(
+      deps.Impl,
+      (resolve, reject, ctx?: TExecutorCtx) => {
+        let settled = false;
+        const id = startTimer(
+          () => {
+            if (settled) return;
+            settled = true;
+            // Timeout won: stop the underlying operation so it does not run detached.
+            if (isCancelable(promise)) {
+              promise.cancel(new TimeoutError());
+            }
+            reject(new TimeoutError());
+          },
+          ms,
+          deps,
+        );
+
+        deps.Impl.resolve(promise).then(
+          (value: T) => {
+            if (settled) return;
+            settled = true;
+            stopTimer(id, deps);
+            resolve(value);
+          },
+          (reason: any) => {
+            if (settled) return;
+            settled = true;
+            stopTimer(id, deps);
+            reject(reason);
+          },
+        );
+
+        if (ctx) {
+          ctx.handleCancel(() => {
+            settled = true;
+            stopTimer(id, deps);
+            if (isCancelable(promise)) {
+              promise.cancel();
+            }
+          });
         }
-        reject(new TimeoutError());
-      }, ms);
-
-      Impl.resolve(promise).then(
-        (value: T) => {
-          if (settled) return;
-          settled = true;
-          clearTimeout(id);
-          resolve(value);
-        },
-        (reason: any) => {
-          if (settled) return;
-          settled = true;
-          clearTimeout(id);
-          reject(reason);
-        },
-      );
-
-      if (ctx) {
-        ctx.handleCancel(() => {
-          settled = true;
-          clearTimeout(id);
-          if (isCancelable(promise)) {
-            promise.cancel();
-          }
-        });
-      }
-    },
-    options,
-  );
+      },
+      options,
+    );
+  };
 }

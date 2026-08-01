@@ -1,6 +1,4 @@
-import { TPromiseCtor } from '../../_toolbox/construct';
 import { debounceFactory } from '../../_toolbox/debounce';
+import { deps } from './deps';
 
-const NativePromise = Promise;
-
-export const debounce = debounceFactory({ Impl: NativePromise as unknown as TPromiseCtor });
+export const debounce = debounceFactory(deps);

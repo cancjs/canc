@@ -1,41 +1,30 @@
 // Native-Promise entry: every utility is prebound to the platform's Promise, so nothing here is
 // cancelable. This is the reduced export set for consumers who only want timing, retry, and
 // promisify helpers on plain promises. Use `@cancjs/toolbox` for cancellation support.
+//
+// Each export is a shared toolbox factory bound to the captured native Promise, so the signatures
+// below are the factories' own: there is no wrapper layer to keep in sync with the cancelable twin.
 import * as tb from '../../_toolbox';
-import { IPromisifyAllOptions, IPromisifyOptions, IRetryOptions, IWaitForOptions, TCallbackFn } from '../../_toolbox';
+import { deps } from './deps';
 
-// Captured once at module load per the native-Promise capture invariant; never re-read the
-// global afterward.
-const NativePromise = Promise;
+export const delay = tb.delayFactory(deps);
 
-// Cast through TPromiseCtor (not any): native Promise satisfies the toolbox's minimal
-// constructor shape, but TS can't see that across the package boundary without a hint.
-const NativePromiseCtor = NativePromise as unknown as tb.TPromiseCtor;
-
-export const delay = <T = void>(ms: number, value?: T, options?: object): Promise<T> =>
-  tb.delay(NativePromiseCtor, ms, value, options) as Promise<T>;
-
-export const defer = <T = void>(options?: object) => tb.defer<T>(NativePromiseCtor, options);
+export const defer = tb.deferFactory(deps);
 
 // The wrapped promise keeps running after the timeout rejects; a native Promise cannot be
 // aborted.
-export const timeout = <T>(promise: T | PromiseLike<T>, ms?: number, options?: object): Promise<T> =>
-  tb.timeout(NativePromiseCtor, promise, ms, options) as Promise<T>;
+export const timeout = tb.timeoutFactory(deps);
 
-export const waitFor = (condition: () => unknown, options?: IWaitForOptions): Promise<void> =>
-  tb.waitFor(NativePromiseCtor, condition, options) as Promise<void>;
+export const waitFor = tb.waitForFactory(deps);
 
-export const minDelay = <T>(promise: T | PromiseLike<T>, ms: number, options?: object): Promise<T> =>
-  tb.minDelay(NativePromiseCtor, promise, ms, options) as Promise<T>;
+export const minDelay = tb.minDelayFactory(deps);
 
 // No cancel: the retry loop and any pending backoff timer run to completion.
-export const retry = <T>(input: (attempt: number) => T | PromiseLike<T>, options?: IRetryOptions): Promise<T> =>
-  tb.retry(NativePromiseCtor, input, options) as Promise<T>;
+export const retry = tb.retryFactory(deps);
 
-export const promisify = (fn: TCallbackFn, options?: IPromisifyOptions) => tb.promisify(NativePromiseCtor, fn, options);
+export const promisify = tb.promisifyFactory(deps);
 
-export const promisifyAll = <T extends object>(source: T, options?: IPromisifyAllOptions): any =>
-  tb.promisifyAll(NativePromiseCtor, source, options);
+export const promisifyAll = tb.promisifyAllFactory(deps);
 
 export { isTimeoutError, TimeoutError } from '../../_toolbox';
 export type { IDebounced, IDebounceOptions } from '../../_toolbox/debounce';
