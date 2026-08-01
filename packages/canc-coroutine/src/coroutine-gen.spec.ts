@@ -170,7 +170,7 @@ describe('cancGenAsync — native async-generator parity', () => {
       try {
         yield 1 as any;
       } catch (e) {
-        yield `caught:${e}`;
+        yield `caught:${String(e)}`;
       }
     }
     function makeCanc() {
@@ -178,7 +178,7 @@ describe('cancGenAsync — native async-generator parity', () => {
         try {
           yield 1 as any;
         } catch (e) {
-          yield `caught:${e}`;
+          yield `caught:${String(e)}`;
         }
       })();
     }
@@ -237,7 +237,7 @@ describe('cancGenAsync — native async-generator parity', () => {
         await Promise.reject('nope');
         yield 'unreached';
       } catch (e) {
-        yield `err:${e}`;
+        yield `err:${String(e)}`;
       }
     }
     const cancGen = cancGenAsync(function* (): AsyncGenResult<string> {
@@ -245,7 +245,7 @@ describe('cancGenAsync — native async-generator parity', () => {
         yield* cancGenAwait<string>(CancelablePromise.reject('nope'));
         yield 'unreached';
       } catch (e) {
-        yield `err:${e}`;
+        yield `err:${String(e)}`;
       }
     });
 

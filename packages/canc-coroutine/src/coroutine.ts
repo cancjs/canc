@@ -28,7 +28,7 @@ export class BreakError extends Error {
 }
 
 export function isBreakError(value: unknown): value is BreakError {
-  return isObject(value) && (value as any)[BREAK_ERROR_BRAND] === true;
+  return isObject(value) && (value as Record<symbol, unknown>)[BREAK_ERROR_BRAND] === true;
 }
 
 // Sentinel yielded by `each`/`iter` as the very last statement of their `finally`, after source
@@ -49,11 +49,11 @@ function isReturnUnwind(value: unknown): boolean {
 // `yield*` (typed send value from `cancAwait`), so no single `PNext` fits every yield in the body.
 export type AsyncResult<T = void> = Generator<unknown, T, any>;
 
-interface IFn extends Function {
+interface IFn {
   displayName?: string;
 }
 
-export interface IGeneratorLikeFn<TThis extends any = any> extends IFn {
+export interface IGeneratorLikeFn<TThis = any> extends IFn {
   (this: TThis, ...args: any[]): TGeneratorLike;
 }
 
@@ -93,8 +93,8 @@ function isEmptyFlags(flags: TFlagOptions): boolean {
 export function cancAsync<
   TFn extends IGeneratorLikeFn<TThis>,
   TArgs extends any[] = Parameters<TFn>,
-  TReturn extends any = TCoroutineReturn<TFn>,
-  TThis extends any = any,
+  TReturn = TCoroutineReturn<TFn>,
+  TThis = any,
 >(genFn: TFn, ctx?: TThis, options?: ICancelablePromiseOptions) {
   if (!isFunction(genFn)) {
     throw new TypeError('Argument is not a function');
@@ -130,7 +130,7 @@ export function cancAsync<
     try {
       // `this` threading: an explicitly supplied `ctx` wins; otherwise the call-site `this` of the
       // returned coroutine function is forwarded to the generator function.
-      const gen: Generator = genFn.apply(isCtx ? ctx : this, args);
+      const gen: TGeneratorLike<unknown, TReturn> = genFn.apply(isCtx ? ctx : this, args);
 
       // Tracks whether the generator has reported `done`, guards against re-entering a finished
       // generator via gen.next()/gen.throw().

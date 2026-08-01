@@ -80,7 +80,7 @@ describe('asyncMethod', () => {
     asyncMethod(inst, 'load');
     expect(getterCalls).toBe(1);
 
-    expect(inst.hasOwnProperty('load')).toBe(true);
+    expect(Object.prototype.hasOwnProperty.call(inst, 'load')).toBe(true);
 
     void inst.load;
     void inst.load;
@@ -111,7 +111,7 @@ describe('asyncMethod', () => {
 
     const inst = new C();
     asyncMethod(inst, 'load');
-    expect(inst.hasOwnProperty('load')).toBe(true);
+    expect(Object.prototype.hasOwnProperty.call(inst, 'load')).toBe(true);
     expect(typeof inst.load).toBe('function');
 
     const gen = inst.load();
@@ -252,7 +252,7 @@ describe('bindMethod', () => {
     const inst = new C();
     bindMethod(inst, 'run');
     expect(getterCalls).toBe(1);
-    expect(inst.hasOwnProperty('run')).toBe(true);
+    expect(Object.prototype.hasOwnProperty.call(inst, 'run')).toBe(true);
 
     void inst.run;
     void inst.run;
