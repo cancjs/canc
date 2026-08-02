@@ -1,7 +1,7 @@
 import { CancelError, ICancelablePromiseOptions, IPromiseImplOptions, resolvePromiseImpl } from '@cancjs/promise';
 
 import { TPromiseCtor } from '../construct';
-import { isFunction } from '../guards';
+import { isCancelErrorLike, isFunction } from '../guards';
 import { ILazyWithResolvers, LazyBase, TLazyExecutor, TLazyOnCancel } from './lazy-base';
 
 export type { TLazyExecutor, TLazyOnCancel } from './lazy-base';
@@ -106,7 +106,7 @@ export class LazyPromise<T = any> extends LazyBase<T> {
 
     if (this._state === 'UNSTARTED') {
       this._canceledBeforeStart = true;
-      this._cancelError = reason instanceof CancelError ? reason : new CancelError(reason);
+      this._cancelError = isCancelErrorLike(reason) ? reason : new CancelError(reason);
       this._runTeardowns(reason);
       return;
     }
