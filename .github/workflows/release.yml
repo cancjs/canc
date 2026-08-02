@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+  workflow_dispatch:
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
@@ -22,9 +23,15 @@ jobs:
         with:
           node-version: '22.x'
           cache: 'npm'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Upgrade npm
+        run: |
+          npm install -g npm@latest
+          npm --version
       - run: npm ci
       - run: npm run build
       - name: Create Release Pull Request or Publish
+        if: vars.CANC_PUBLISH_ENABLED == 'true'
         uses: changesets/action@v1
         with:
           publish: npx changeset publish
