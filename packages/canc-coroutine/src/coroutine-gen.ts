@@ -1,4 +1,4 @@
-import { CancelablePromise, CancelError, ICancelablePromiseOptions } from '@cancjs/promise';
+import { CancelablePromise, CancelError, ICancelablePromiseOptions, isCancelError } from '@cancjs/promise';
 
 import { isFunction, isGenerator, isObject, isThenable, setFnName } from '../../_util';
 import {
@@ -323,7 +323,7 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
       }
 
       const cancelError =
-        reason instanceof CancelError ? reason : new CancelError(typeof reason === 'string' ? reason : 'Canceled');
+        isCancelError(reason) ? reason : new CancelError(typeof reason === 'string' ? reason : 'Canceled');
 
       // Drain the queue: the canceled step resolves as done (its own promise is already being
       // canceled, so a rejection here would be redundant/unhandled), every OTHER pending step is
