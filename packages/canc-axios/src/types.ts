@@ -8,7 +8,7 @@ import type { AbortControllerCtor } from './scope';
  * axios 0.22 up, and a consumer's axios types will not match the ones this package was built
  * against. Everything beyond these three members is feature-detected at runtime.
  */
-export interface AxiosInstanceLike {
+export interface IAxiosInstanceLike {
   request(config: any): Promise<any>;
   defaults: any;
   interceptors: {
@@ -28,7 +28,7 @@ export interface ICancelableAxiosOptions {
  * The cancellation handle an interceptor receives as its second argument. Axios calls interceptors
  * with a single argument, so the extra one is inert for axios itself.
  */
-export interface ICancelContext {
+export interface ICancelableAxiosContext {
   /** The signal the underlying request is listening on. */
   signal: any;
   isCanceled(): boolean;
@@ -46,8 +46,8 @@ export interface IInterceptorOptions {
 
 export interface ICancelableInterceptorManager<V> {
   use(
-    onFulfilled?: ((value: V, ctx: ICancelContext) => V | Promise<V>) | null,
-    onRejected?: ((error: any, ctx: ICancelContext) => any) | null,
+    onFulfilled?: ((value: V, ctx: ICancelableAxiosContext) => V | Promise<V>) | null,
+    onRejected?: ((error: any, ctx: ICancelableAxiosContext) => any) | null,
     options?: IInterceptorOptions,
   ): number;
   eject(id: number): void;
@@ -67,7 +67,7 @@ export interface ICancelableAxiosInterceptors {
  * existing call sites keep their types, and CancelablePromise extends Promise, so the instance stays
  * assignable wherever an AxiosInstance is expected.
  */
-export interface CancelableAxiosInstance {
+export interface ICancelableAxiosInstance {
   <T = any, R = AxiosResponse<T>, D = any>(config: AxiosRequestConfig<D>): CancelablePromise<R>;
   <T = any, R = AxiosResponse<T>, D = any>(url: string, config?: AxiosRequestConfig<D>): CancelablePromise<R>;
 
@@ -114,14 +114,14 @@ export interface CancelableAxiosInstance {
     config?: AxiosRequestConfig<D>,
   ): CancelablePromise<R>;
 
-  create(config?: AxiosRequestConfig): CancelableAxiosInstance;
+  create(config?: AxiosRequestConfig): ICancelableAxiosInstance;
   getUri(config?: AxiosRequestConfig): string;
 
   defaults: AxiosInstance['defaults'];
   interceptors: ICancelableAxiosInterceptors;
 
   /** The wrapped axios instance. Reach for it when a raw native promise is wanted. */
-  readonly axios: AxiosInstanceLike;
+  readonly axios: IAxiosInstanceLike;
 }
 
 /**
@@ -129,9 +129,9 @@ export interface CancelableAxiosInstance {
  * Members added to axios after 0.22 are mirrored when the installed version has them, which is why
  * they are optional here.
  */
-export interface CancelableAxiosStatic extends CancelableAxiosInstance {
+export interface ICancelableAxiosStatic extends ICancelableAxiosInstance {
   /** Wraps an existing axios instance, for code that builds its own. */
-  wrap(instance: AxiosInstanceLike, options?: ICancelableAxiosOptions): CancelableAxiosInstance;
+  wrap(instance: IAxiosInstanceLike, options?: ICancelableAxiosOptions): ICancelableAxiosInstance;
 
   Axios: AxiosStatic['Axios'];
   CancelToken: AxiosStatic['CancelToken'];

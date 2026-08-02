@@ -1,20 +1,5 @@
 import * as canc_promise from './index';
 
-describe.skip('', () => {
-  beforeEach(() => {
-    jest.resetModules();
-  });
-
-  it('extends global Promise', () => {
-    const NativePromise = Promise;
-    // const NativePromiseProxy = new Proxy(NativePromise, {});
-    // const nativePromise = new NativePromise<never>((_resolve) => {});
-    const nativePromise = NativePromise.resolve();
-
-    const _NativePromiseSpy = jest.spyOn(global, 'Promise').mockReturnValue(nativePromise);
-  });
-});
-
 describe('Native Promise capture', () => {
   let NativePromise: PromiseConstructor;
   let originalPromiseDescriptor: PropertyDescriptor;

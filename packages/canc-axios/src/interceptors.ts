@@ -1,11 +1,11 @@
 import { isFunction } from '../../_util';
 import { getScope } from './scope';
-import type { ICancelableInterceptorManager, ICancelContext, IInterceptorOptions } from './types';
+import type { ICancelableAxiosContext, ICancelableInterceptorManager, IInterceptorOptions } from './types';
 
 /** Used when the scope cannot be found, which happens when an interceptor earlier in the chain
  * replaced the config with a fresh object. Cancellation still reaches the request itself through
  * the signal; only the in-interceptor linking is lost. */
-const detachedContext: ICancelContext = {
+const detachedContext: ICancelableAxiosContext = {
   signal: undefined,
   isCanceled: function () {
     return false;

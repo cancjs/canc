@@ -3,7 +3,7 @@ import type { AxiosInstance, AxiosResponse } from 'axios';
 import axios from 'axios';
 
 import { wrapAxios } from './base';
-import type { CancelableAxiosInstance } from './types';
+import type { ICancelableAxiosInstance } from './types';
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 type Expect<T extends true> = T;
@@ -13,7 +13,7 @@ interface Issue {
   title: string;
 }
 
-declare const api: CancelableAxiosInstance;
+declare const api: ICancelableAxiosInstance;
 
 // A wrapped instance goes anywhere an axios instance goes: CancelablePromise extends Promise, and
 // everything else mirrors the axios shape.
@@ -33,7 +33,7 @@ export type Assertions = [
   Expect<Equal<GetResult, CancelablePromise<AxiosResponse<Issue>>>>,
   Expect<Equal<PostResult, CancelablePromise<AxiosResponse<Issue>>>>,
   Expect<Equal<RequestResult, CancelablePromise<AxiosResponse<Issue>>>>,
-  Expect<Equal<CreateResult, CancelableAxiosInstance>>,
+  Expect<Equal<CreateResult, ICancelableAxiosInstance>>,
 ];
 
 it('wraps an axios instance into the cancelable shape', () => {
