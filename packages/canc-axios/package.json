@@ -48,8 +48,8 @@
     "axios-legacy": "npm:axios@0.22.0"
   },
   "peerDependencies": {
-    "@cancjs/promise": "*",
-    "@cancjs/toolbox": "*",
+    "@cancjs/promise": ">=1.0.0",
+    "@cancjs/toolbox": ">=1.0.0",
     "axios": ">=0.22"
   },
   "unpkg": "dist/index.umd.min.js",

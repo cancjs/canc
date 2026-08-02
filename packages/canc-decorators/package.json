@@ -65,8 +65,8 @@
     "reflect-metadata": "~0.2.2"
   },
   "peerDependencies": {
-    "@cancjs/coroutine": "*",
-    "@cancjs/promise": "*"
+    "@cancjs/coroutine": ">=1.0.0",
+    "@cancjs/promise": ">=1.0.0"
   },
   "unpkg": "dist/index.umd.min.js",
   "jsdelivr": "dist/index.umd.min.js"
