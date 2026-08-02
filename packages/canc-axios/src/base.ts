@@ -56,7 +56,10 @@ const define = (target: any, name: string, get: () => any, set?: (value: any) =>
  * The wrapper holds no axios state of its own: defaults, interceptors and create() all forward to
  * the instance, so config merging, header deep-merge and instance seeding stay axios's own code.
  */
-export function wrapAxios(instance: IAxiosInstanceLike, options?: ICancelableAxiosWrapOptions): ICancelableAxiosInstance {
+export function wrapAxios(
+  instance: IAxiosInstanceLike,
+  options?: ICancelableAxiosWrapOptions,
+): ICancelableAxiosInstance {
   if ((isObject(instance) || isFunction(instance)) && (instance as any)[BRAND]) {
     return instance as unknown as ICancelableAxiosInstance;
   }

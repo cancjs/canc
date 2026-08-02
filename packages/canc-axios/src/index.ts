@@ -5,10 +5,10 @@ import type {
   IAxiosInstanceLike,
   ICancelableAxiosContext,
   ICancelableAxiosInstance,
+  ICancelableAxiosInterceptors,
   ICancelableAxiosOptions,
   ICancelableAxiosStatic,
   ICancelableInterceptorManager,
-  ICancelableAxiosInterceptors,
   IInterceptorOptions,
 } from './types';
 
@@ -25,10 +25,10 @@ export type {
   IAxiosInstanceLike,
   ICancelableAxiosContext,
   ICancelableAxiosInstance,
+  ICancelableAxiosInterceptors,
   ICancelableAxiosOptions,
   ICancelableAxiosStatic,
   ICancelableAxiosWrapOptions,
   ICancelableInterceptorManager,
-  ICancelableAxiosInterceptors,
   IInterceptorOptions,
 };
