@@ -1,6 +1,6 @@
 import { CancelError, isCancelError } from '@cancjs/promise';
 
-import { isCancelable, isFunction, isObject } from '../../_util';
+import { isAbortError, isCancelable, isFunction, isObject } from '../../_util';
 
 // Structural stand-in so the source builds in environments without DOM/Node lib types.
 export type AbortControllerCtor = new () => { abort: (reason?: any) => void; signal: any };
@@ -22,8 +22,6 @@ interface PolyfilledAbortSignal {
 export const SCOPE_KEY = 'cancelScope';
 
 const ABORT_ERROR_NAME = 'AbortError';
-
-const isAbortError = (error: any): boolean => isObject(error) && (error as any).name === ABORT_ERROR_NAME;
 
 /** Recognizes an axios cancellation across versions and adapters: the `__CANCEL__` brand
  * (CanceledError, and Cancel on 0.x), the error code, the class name, and a bare AbortError thrown

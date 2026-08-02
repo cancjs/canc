@@ -1,4 +1,14 @@
-import { isCancelable, isObject, isThenable } from '../../_util';
+import {
+  AbortError,
+  AggregateError,
+  isAbortError,
+  isAggregateError,
+  isCancelable,
+  isObject,
+  isThenable,
+  isTimeoutError,
+  TimeoutError,
+} from '../../_util';
 import { CANCEL_ERROR_BRAND, CancelError } from './cancel-error';
 import { CANCEL_PROMISE_BRAND, CancelablePromise, ICancelableHelperOptions } from './cancelable-promise';
 
@@ -15,14 +25,7 @@ export const isCancelError = (error: any): error is CancelError =>
 export const isCancPromise = (value: any): value is CancelablePromise<any> =>
   isObject(value) && value[CANCEL_PROMISE_BRAND] === true;
 
-// AbortController/AbortSignal reject with a DOMException whose name is 'AbortError'. There is no
-// brand to key on (it is a platform error, not ours), so detection matches the name, the same
-// convention every AbortSignal consumer uses. Works for a real DOMException and for a plain Error
-// stand-in in runtimes without DOMException.
-// Duplicated (not imported) from canc-toolbox's abort.ts: toolbox depends on this package, so a
-// reverse import here would be a cycle. Keep both in sync if the name-check logic ever changes.
-export const isAbortError = (error: any): boolean =>
-  isObject(error) && (error as { name?: unknown }).name === 'AbortError';
+export { AbortError, AggregateError, isAbortError, isAggregateError, isTimeoutError, TimeoutError };
 
 // Agent-wide brand marking a "cancel signal": an AbortSignal that aborts with a CancelError.
 // Same Symbol.for-registry rationale as CANCEL_ERROR_BRAND, cross-realm/cross-copy safe.

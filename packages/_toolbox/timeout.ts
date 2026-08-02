@@ -1,3 +1,4 @@
+import { isTimeoutError, TimeoutError } from '../_util';
 import { TExecutorCtx } from './construct';
 import { constructTimed } from './construct-timed';
 import { IToolboxDeps } from './deps';
@@ -6,33 +7,7 @@ import { IEagerSource, startInput, TTimedInput } from './input';
 import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
 import { startTimer, stopTimer } from './timers';
 
-function isObject(value: unknown): value is object {
-  return typeof value === 'object' && value !== null;
-}
-
-/**
- * Rejection reason produced when a timeout elapses before the wrapped promise settles.
- */
-export class TimeoutError extends Error {
-  name: string;
-
-  constructor(message?: string) {
-    super(message);
-
-    Object.setPrototypeOf(this, new.target.prototype);
-    this.name = 'TimeoutError';
-  }
-}
-
-if (typeof Symbol !== 'undefined' && Symbol?.toStringTag) {
-  (TimeoutError.prototype as unknown as Record<PropertyKey, unknown>)[Symbol.toStringTag] = 'TimeoutError';
-}
-
-export function isTimeoutError(error: unknown): error is TimeoutError {
-  const candidate = error as TimeoutError | null | undefined;
-
-  return isObject(candidate) && typeof candidate.message === 'string' && candidate.name === 'TimeoutError';
-}
+export { isTimeoutError, TimeoutError };
 
 /** Bind `timeout` to one promise implementation and set of timers. */
 export function timeoutFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IToolboxDeps<K>) {

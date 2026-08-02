@@ -1,5 +1,6 @@
 import { CancelablePromise, ICancelable, isCancelError } from '@cancjs/promise';
 
+import { AbortError, isAbortError } from '../../_util';
 import { IToolboxOptions, TExecutorCtx } from './options';
 
 // withSignal has no toolbox options and always returns a plain native promise, so there is no
@@ -11,24 +12,7 @@ function isObject(value: unknown): value is object {
   return typeof value === 'object' && value !== null;
 }
 
-/**
- * An error shaped like a DOM AbortError. Rejected/thrown when an operation is aborted. Matches the
- * `name` of the DOMException a real AbortSignal produces so the same code path handles both.
- */
-export class AbortError extends Error {
-  override readonly name = 'AbortError';
-  constructor(message = 'The operation was aborted') {
-    super(message);
-  }
-}
-
-/**
- * Whether `error` is an AbortError (a bare DOMException AbortError or the AbortError class above),
- * detected by `name`. A CancelError is not an AbortError even when it carries an abort as its cause.
- */
-export function isAbortError(error: unknown): error is { name: 'AbortError' } {
-  return isObject(error) && (error as { name?: unknown }).name === 'AbortError';
-}
+export { AbortError, isAbortError };
 
 /**
  * Options recognized by {@link suppress}.

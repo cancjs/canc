@@ -1,6 +1,6 @@
 import { CancelablePromise, CancelError, createCancelSignal, IExecutorContext, isCancelSignal } from '@cancjs/promise';
 
-import { isFunction, isObject } from '../../_util';
+import { isAbortError, isFunction } from '../../_util';
 
 // Minimal structural stand-ins so the source stays buildable in environments without DOM/Node fetch
 // lib types. The real shapes come from whatever globals or config the caller supplies at runtime.
@@ -27,15 +27,6 @@ interface PolyfilledAbortSignal {
   addEventListener?: (type: string, listener: (event: any) => void) => void;
   removeEventListener?: (type: string, listener: (event: any) => void) => void;
 }
-
-const isAbortError = (error: any): boolean => {
-  if (!isObject(error)) {
-    return false;
-  }
-
-  const candidate = error as { message?: unknown; name?: unknown };
-  return typeof candidate.message === 'string' && candidate.name === 'AbortError';
-};
 
 // A missing config key falls back to the ambient global, read at call time (not at factory
 // creation) so importing the default entry never touches `fetch`/`AbortController` in an

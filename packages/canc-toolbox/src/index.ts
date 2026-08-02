@@ -13,6 +13,7 @@ export type { IDebounced, IDebounceOptions } from '../../_toolbox/debounce';
 export type { ICancelableLazyWithResolvers, ILazyPromiseOptions } from '../../_toolbox/lazy/lazy-promise';
 export { createLazyPromise, lazy, LazyPromise } from '../../_toolbox/lazy/lazy-promise';
 export type { IThrottled, IThrottleOptions } from '../../_toolbox/throttle';
+export { AggregateError, isAggregateError } from '../../_util';
 export type { ISuppressOptions } from './abort';
 export {
   AbortError,

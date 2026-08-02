@@ -16,12 +16,16 @@ function abortReason(controller = new AbortController()): Error {
   return controller.signal.reason as Error;
 }
 
+const platformDomException = (globalThis as unknown as { DOMException?: new (...args: any[]) => object }).DOMException;
+
 describe('AbortError / isAbortError', () => {
   it('AbortError is named AbortError and carries a default message', () => {
     const error = new AbortError();
     expect(error.name).toBe('AbortError');
     expect(error.message).toBe('The operation was aborted');
-    expect(error).toBeInstanceOf(Error);
+    // Backed by the platform DOMException where one exists (shared with the platform's own
+    // AbortError), which is not an instance of Error there; falls back to Error otherwise.
+    expect(error).toBeInstanceOf(platformDomException ?? Error);
   });
 
   it('detects a bare DOMException AbortError', () => {
