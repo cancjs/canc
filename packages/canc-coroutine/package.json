@@ -14,16 +14,28 @@
   "type": "commonjs",
   "exports": {
     ".": {
-      "types@<4.7": "./dist/types-ts4.2/index.d.ts",
-      "types": "./dist/types/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.cjs"
+      "import": {
+        "types@<4.7": "./dist/types-ts4.2/index.d.mts",
+        "types": "./dist/types/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types@<4.7": "./dist/types-ts4.2/index.d.ts",
+        "types": "./dist/types/index.d.ts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./gen": {
-      "types@<4.7": "./dist/types-ts4.2/gen.d.ts",
-      "types": "./dist/types/gen.d.ts",
-      "import": "./dist/gen.mjs",
-      "require": "./dist/gen.cjs"
+      "import": {
+        "types@<4.7": "./dist/types-ts4.2/gen.d.mts",
+        "types": "./dist/types/gen.d.mts",
+        "default": "./dist/gen.mjs"
+      },
+      "require": {
+        "types@<4.7": "./dist/types-ts4.2/gen.d.ts",
+        "types": "./dist/types/gen.d.ts",
+        "default": "./dist/gen.cjs"
+      }
     }
   },
   "main": "dist/index.cjs",
@@ -60,6 +72,9 @@
   "typesVersions": {
     "<4.7": {
       "dist/types/*": ["dist/types-ts4.2/*"]
+    },
+    "*": {
+      "gen": ["dist/types/gen.d.ts"]
     }
   }
 }

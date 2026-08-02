@@ -20,17 +20,51 @@ const trace = () => ({
   },
 });
 
-// rootDir has to cover packages/_util (relative-imported shared internal code,
-// invariant 8 — inlined per package, not a real dependency) or TS throws TS6059.
-// That widens declarationDir's mirrored output to dist/types/packages/<pkg>/src/*
-// plus a stray packages/_util/*.d.ts. Flatten to dist/types/*.d.ts after emit and
-// drop the _util declarations — they're implementation detail, never re-exported
-// from a package's public entry (verified: index.d.ts has no _util references).
+// rootDir has to cover packages/_util and packages/_toolbox (relative-imported shared internal
+// code, invariant 8 — inlined per package, not a real dependency) or TS throws TS6059. That
+// widens declarationDir's mirrored output to dist/types/packages/<pkg>/src/* plus sibling
+// dist/types/packages/_util(/_toolbox)/*.d.ts. Some src files (e.g. canc-promise's helpers.ts,
+// canc-toolbox's index.ts) re-export shared-dir types, so those relative specifiers are load-
+// bearing, not implementation detail — dropping the shared dirs here used to leave a dangling
+// `../../_util` import in the published .d.ts (confirmed via attw: InternalResolutionError).
+// Move the shared dirs to dist/types/<name> as siblings of the flattened src output instead of
+// deleting them, then rewrite the surviving relative specifiers to match the new flat depth.
+const sharedDirNames = ['_util', '_toolbox'];
+
+const rewriteSharedDirImports = (typesDir) => {
+  const specifierPattern = new RegExp(`(['"])((?:\\.\\./)+)(${sharedDirNames.join('|')})((?:/[^'"]*)?)\\1`, 'g');
+
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const entryPath = path.join(dir, entry.name);
+
+      if (entry.isDirectory()) {
+        walk(entryPath);
+      } else if (entry.isFile() && entry.name.endsWith('.d.ts')) {
+        const original = fs.readFileSync(entryPath, 'utf8');
+        const rewritten = original.replace(specifierPattern, (_match, quote, _dots, dirName, subpath) => {
+          const target = path.join(typesDir, dirName);
+          const relative = path.relative(path.dirname(entryPath), target).split(path.sep).join('/');
+
+          return `${quote}${relative.startsWith('.') ? relative : `./${relative}`}${subpath}${quote}`;
+        });
+
+        if (rewritten !== original) {
+          fs.writeFileSync(entryPath, rewritten);
+        }
+      }
+    }
+  };
+
+  walk(typesDir);
+};
+
 const flattenDeclarations = () => ({
   name: 'flatten-declarations',
   writeBundle() {
     const pkgName = path.basename(process.cwd());
-    const nestedSrcDir = path.join('dist/types/packages', pkgName, 'src');
+    const packagesDir = 'dist/types/packages';
+    const nestedSrcDir = path.join(packagesDir, pkgName, 'src');
 
     if (!fs.existsSync(nestedSrcDir)) {
       return;
@@ -39,7 +73,24 @@ const flattenDeclarations = () => ({
     for (const entry of fs.readdirSync(nestedSrcDir)) {
       fs.renameSync(path.join(nestedSrcDir, entry), path.join('dist/types', entry));
     }
-    fs.rmSync('dist/types/packages', { recursive: true, force: true });
+    fs.rmSync(path.join(packagesDir, pkgName), { recursive: true, force: true });
+
+    if (fs.existsSync(packagesDir)) {
+      // Only move the two shared dirs by name. Other siblings here are orphan mirrors of a
+      // dependency package's own src (tsconfig `include` needs them in scope so `paths` aliases
+      // type-check during declaration emit, e.g. canc-toolbox including "../canc-promise/src"),
+      // never referenced by the emitted .d.ts (those import the real `@cancjs/*` package by bare
+      // specifier) — drop them same as before, don't ship them in the tarball.
+      for (const dirName of sharedDirNames) {
+        const sharedDir = path.join(packagesDir, dirName);
+
+        if (fs.existsSync(sharedDir)) {
+          fs.renameSync(sharedDir, path.join('dist/types', dirName));
+        }
+      }
+      fs.rmSync(packagesDir, { recursive: true, force: true });
+      rewriteSharedDirImports('dist/types');
+    }
   },
 });
 
@@ -75,6 +126,65 @@ const downlevelTypes = () => ({
     execFileSync(process.execPath, [path.join(repoRoot, 'scripts/patch-awaited.js'), variantDir], {
       stdio: isVerbose ? 'inherit' : 'ignore',
     });
+  },
+});
+
+// Every package's runtime is dual CJS/ESM (dist/*.cjs + dist/*.mjs) but declaration emit only
+// ever wrote plain .d.ts, one file serving both module systems via the same `exports["."].types`
+// condition. TypeScript treats a .d.ts file's module kind as CJS unless the nearest package.json
+// says "type": "module" — so the same file resolved from an ESM import site is misclassified
+// (confirmed via attw: FalseCJS). Duplicate every emitted .d.ts to a sibling .d.mts (content is
+// already plain `import`/`export` syntax, valid unchanged as ESM declarations) so the "import"
+// exports condition can point at an unambiguous file while "require" keeps the original .d.ts.
+// Under --moduleResolution node16/nodenext, ESM relative specifiers must carry an explicit
+// extension (Node itself never guesses one for `import`, and never does directory/index
+// fallback either). Our .d.ts source has neither (plain `from './cancel-error'` or `from
+// './_util'` for a directory, emitted by tsc same as the .ts source wrote it) — fine for the
+// CJS-resolved .d.ts twin, but breaks the ESM-resolved .d.mts twin (confirmed via attw: node16
+// from-ESM InternalResolutionError). Rewrite bare relative specifiers in the .d.mts copy only:
+// a specifier resolving to a file gets `.mjs` appended (TS's declaration extension substitution
+// maps that back to the sibling `.d.mts`); a specifier resolving to a directory gets
+// `/index.mjs` appended instead, since ESM has no directory-index shorthand at all.
+const RELATIVE_SPECIFIER_PATTERN = /(\bfrom\s+|\bimport\()(['"])(\.\.?\/[^'"]+)\2/g;
+const HAS_EXTENSION_PATTERN = /\.(m?[jt]sx?|cjs|json)$/;
+
+const resolveMjsSpecifier = (specifier, fromDir) => {
+  if (HAS_EXTENSION_PATTERN.test(specifier)) {
+    return specifier;
+  }
+
+  const target = path.resolve(fromDir, specifier);
+
+  return fs.existsSync(`${target}.d.ts`) ? `${specifier}.mjs` : `${specifier}/index.mjs`;
+};
+
+const duplicateAsMts = (dir) => ({
+  name: 'duplicate-as-mts',
+  writeBundle() {
+    if (!fs.existsSync(dir)) {
+      return;
+    }
+
+    const walk = (current) => {
+      for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+        const entryPath = path.join(current, entry.name);
+
+        if (entry.isDirectory()) {
+          walk(entryPath);
+        } else if (entry.isFile() && entry.name.endsWith('.d.ts')) {
+          const content = fs.readFileSync(entryPath, 'utf8');
+          const fromDir = path.dirname(entryPath);
+          const rewritten = content.replace(
+            RELATIVE_SPECIFIER_PATTERN,
+            (_match, prefix, quote, specifier) => `${prefix}${quote}${resolveMjsSpecifier(specifier, fromDir)}${quote}`,
+          );
+
+          fs.writeFileSync(entryPath.replace(/\.d\.ts$/, '.d.mts'), rewritten);
+        }
+      }
+    };
+
+    walk(dir);
   },
 });
 
@@ -119,7 +229,12 @@ const createCjsConfig = (entry, emitDeclaration) => {
   // Declaration flatten/downlevel run once, on the declaration-emitting entry, to avoid two
   // tsc passes racing to write the same dist/types files.
   if (emitDeclaration) {
-    config.plugins.push(flattenDeclarations(), downlevelTypes());
+    config.plugins.push(
+      flattenDeclarations(),
+      downlevelTypes(),
+      duplicateAsMts('dist/types'),
+      duplicateAsMts(`dist/types-ts${TS_FLOOR}`),
+    );
   }
   config.plugins.push(isVerbose && rollupFilesize({ showMinifiedSize: false }));
 

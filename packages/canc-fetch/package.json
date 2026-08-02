@@ -5,7 +5,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/cancjs/canc.git",
+    "url": "git+https://github.com/cancjs/canc.git",
     "directory": "packages/canc-fetch"
   },
   "homepage": "https://github.com/cancjs/canc/packages/canc-fetch#readme",
@@ -13,9 +13,14 @@
   "author": "bisubus",
   "exports": {
     ".": {
-      "types": "./dist/types/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.cjs"
+      "import": {
+        "types": "./dist/types/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/types/index.d.ts",
+        "default": "./dist/index.cjs"
+      }
     }
   },
   "main": "dist/index.cjs",

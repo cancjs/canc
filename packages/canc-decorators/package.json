@@ -5,7 +5,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/cancjs/canc.git",
+    "url": "git+https://github.com/cancjs/canc.git",
     "directory": "packages/canc-decorators"
   },
   "homepage": "https://github.com/cancjs/canc/packages/canc-decorators#readme",
@@ -13,19 +13,34 @@
   "author": "bisubus",
   "exports": {
     ".": {
-      "types": "./dist/types/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.cjs"
+      "import": {
+        "types": "./dist/types/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/types/index.d.ts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./legacy": {
-      "types": "./dist/types/legacy.d.ts",
-      "import": "./dist/legacy.mjs",
-      "require": "./dist/legacy.cjs"
+      "import": {
+        "types": "./dist/types/legacy.d.mts",
+        "default": "./dist/legacy.mjs"
+      },
+      "require": {
+        "types": "./dist/types/legacy.d.ts",
+        "default": "./dist/legacy.cjs"
+      }
     },
     "./babel-legacy": {
-      "types": "./dist/types/babel-legacy.d.ts",
-      "import": "./dist/babel-legacy.mjs",
-      "require": "./dist/babel-legacy.cjs"
+      "import": {
+        "types": "./dist/types/babel-legacy.d.mts",
+        "default": "./dist/babel-legacy.mjs"
+      },
+      "require": {
+        "types": "./dist/types/babel-legacy.d.ts",
+        "default": "./dist/babel-legacy.cjs"
+      }
     }
   },
   "main": "dist/index.cjs",
@@ -69,5 +84,11 @@
     "@cancjs/promise": ">=1.0.0"
   },
   "unpkg": "dist/index.umd.min.js",
-  "jsdelivr": "dist/index.umd.min.js"
+  "jsdelivr": "dist/index.umd.min.js",
+  "typesVersions": {
+    "*": {
+      "legacy": ["dist/types/legacy.d.ts"],
+      "babel-legacy": ["dist/types/babel-legacy.d.ts"]
+    }
+  }
 }
