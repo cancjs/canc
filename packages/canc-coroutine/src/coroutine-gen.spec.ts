@@ -1,6 +1,6 @@
 import { CancelablePromise, CancelError, isCancelError, suppressCancel } from '@cancjs/promise';
 
-import { AsyncGenResult, awaited, cancGenAsync, cancGenAwait, cancGenDelegate, cancGenForAwait } from './coroutine-gen';
+import { AsyncGenResult, cancGenAsync, cancGenAwait, cancGenDelegate, cancGenForAwait } from './coroutine-gen';
 
 // Helpers
 async function drain<T>(iter: AsyncIterator<T> | AsyncIterable<T>): Promise<{ values: T[]; ret: any }> {
@@ -622,7 +622,7 @@ describe('cancGenAsync — transformYield', () => {
         yield 5 as any;
         yield 'done';
       },
-      { transformYield: (v: any) => (typeof v === 'number' ? awaited(v) : v) },
+      { transformYield: (v: any, awaitedMarker: any) => (typeof v === 'number' ? awaitedMarker(v) : v) },
     )();
 
     const { values } = await drain(it);

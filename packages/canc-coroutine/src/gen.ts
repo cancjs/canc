@@ -6,4 +6,4 @@ export {
   cancGenDelegate as delegate,
   cancGenForAwait as forAwait,
 } from './coroutine-gen';
-export { awaited, cancGenAsync, cancGenAwait, cancGenDelegate, cancGenForAwait } from './coroutine-gen';
+export { cancGenAsync, cancGenAwait, cancGenDelegate, cancGenForAwait } from './coroutine-gen';

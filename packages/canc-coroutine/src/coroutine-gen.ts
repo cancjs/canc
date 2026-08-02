@@ -10,7 +10,7 @@ import {
   TGeneratorLike,
 } from './coroutine';
 
-export type TYieldTransformFn<T = any> = (value: any) => T;
+export type TYieldTransformFn<T = any> = (value: any, awaited: <U>(v: U) => TAwaited<U>) => T;
 
 export type TCancelableCoroutineGenOptions = ICancelablePromiseOptions & {
   transformYield?: TYieldTransformFn;
@@ -44,11 +44,10 @@ interface TAwaited<T = any> {
 
 const isAwaited = (value: any): value is TAwaited => isObject(value) && awaitedSymbol in value;
 
-// Low-level: builds the internal-await marker directly. Kept public only for the `transformYield`
-// option, which promotes a plain yielded value to an internal await. Inside a `cancGenAsync` body,
+// Low-level: builds the internal-await marker directly. Inside a `cancGenAsync` body,
 // prefer `yield* cancGenAwait(value)` — it is typed (the resume value flows through `yield*`), while
 // a bare `yield awaited(value)` is not.
-export const awaited = <T = any>(value: T | TAwaited<T>): TAwaited<T> => ({
+const awaited = <T = any>(value: T | TAwaited<T>): TAwaited<T> => ({
   [awaitedSymbol]: isAwaited(value) ? value[awaitedSymbol] : value,
 });
 
@@ -232,7 +231,7 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
         done = true;
       }
 
-      const rawValue = transformYield ? transformYield(result.value) : result.value;
+      const rawValue = transformYield ? transformYield(result.value, awaited) : result.value;
       const isAwaitedValue = isAwaited(rawValue);
       const settledValue = isAwaitedValue ? rawValue[awaitedSymbol] : rawValue;
 
