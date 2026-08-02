@@ -1,7 +1,6 @@
-import { CancelablePromise } from '@cancjs/promise';
+import { AbortError, CancelablePromise, isAbortError } from '@cancjs/promise';
 
 import { ISuppressOptions, suppressFactory } from '../../_toolbox';
-import { AbortError, isAbortError } from '../../_util';
 import { deps } from './deps';
 
 // withSignal has no toolbox options and always returns a plain native promise, so there is no

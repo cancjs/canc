@@ -8,12 +8,11 @@ export type {
   TDuration,
 } from '../../_toolbox';
 export type { ILazyWithResolvers, TLazyExecutor, TLazyOnCancel } from '../../_toolbox';
-export { isLazyPromise, isTimeoutError, TimeoutError } from '../../_toolbox';
+export { isLazyPromise } from '../../_toolbox';
 export type { IDebounced, IDebounceOptions } from '../../_toolbox/debounce';
 export type { ICancelableLazyWithResolvers, ILazyPromiseOptions } from '../../_toolbox/lazy/lazy-promise';
 export { createLazyPromise, lazy, LazyPromise } from '../../_toolbox/lazy/lazy-promise';
 export type { IThrottled, IThrottleOptions } from '../../_toolbox/throttle';
-export { AggregateError, isAggregateError } from '../../_util';
 export type { ISuppressOptions } from './abort';
 export {
   AbortError,
@@ -40,4 +39,11 @@ export {
 } from './prebound';
 export { throttle } from './throttle';
 export type { TErrorConstructor, TErrorMatcher, TErrorPredicate } from '@cancjs/promise';
-export { createCatchError, createSuppressError } from '@cancjs/promise';
+export {
+  AggregateError,
+  createCatchError,
+  createSuppressError,
+  isAggregateError,
+  isTimeoutError,
+  TimeoutError,
+} from '@cancjs/promise';
