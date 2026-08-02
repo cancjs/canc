@@ -151,6 +151,34 @@ Canceling stops both the wait and the attempt in flight.
 `waitFor` polls a condition (`interval`, `timeout`). An async condition is awaited before the next
 poll is scheduled, so slow checks never overlap.
 
+### Lazy promises
+
+`LazyPromise` defers its executor until the first subscription, caches the result so every later
+consumer shares one execution, and can be canceled before it ever runs:
+
+```js
+import { LazyPromise } from '@cancjs/toolbox';
+
+const session = LazyPromise.try(connect);
+
+session.cancel(); // before the first subscription, connect() never runs
+await session;     // starts here; a second await gets the same session, not a second connect
+```
+
+It mirrors the full `CancelablePromise` static surface (`try`, `resolve`, `reject`,
+`withResolvers`, `all`, `race`, `any`, `allSettled`), and combinators stay cold: an aggregate does
+not subscribe to its inputs until the aggregate itself is subscribed. `createLazyPromise(x,
+options?)` is the front door for input whose shape varies, function, lazy promise, plain promise
+or value, and passes a lazy input through unchanged so its laziness survives.
+
+`lazy.execute()` starts the work without subscribing to it, which matters for prefetch-then-await:
+`void lazy.then()` builds a derived promise with no handlers, so a later rejection on it is
+reported unhandled even when the lazy itself is awaited elsewhere. `execute()` has no such node.
+
+Laziness stops at the first subscription and does not carry through a chain: `delay(1000, { lazy:
+true }).then(f)` starts at the `.then`, because `then` is what a subscription is. A cold multi-step
+chain is a `cancAsync` body that has not been called yet, not a chain of lazy promises.
+
 ### Lazy async iterator helpers
 
 Pipeable operators for cancelable async iterables are planned as the `@cancjs/toolbox/async-iter`
@@ -208,6 +236,19 @@ floor on success, not a timer. Pick the one that matches what a failure should d
 | `createAbortSignal()`              | Plain `AbortController` convenience, returns `{ signal, abort }` |
 | `suppress(promise, options?)`      | Swallows a cancellation, rethrows everything else                |
 | `suppressAbort(promise, options?)` | Swallows a cancellation and a plain abort                        |
+
+### Lazy promises
+
+| Export                                    | Description                                                          |
+| ------------------------------------------ | --------------------------------------------------------------------- |
+| `new LazyPromise(executor, options?)`      | Executor form, deferred to the first subscription                     |
+| `LazyPromise.try(fn, ...args)`             | Deferred call of `fn`, `CancelablePromise.try` semantics               |
+| `createLazyPromise(x, options?)`           | Front door: function, lazy promise, plain promise or value             |
+| `LazyPromise.all/race/any/allSettled(...)` | Cold combinators, semantics from `CancelablePromise`                   |
+| `LazyPromise.withResolvers(options?)`      | `{ promise, resolve, reject, cancel }`, adoption deferred to subscription |
+| `lazy.execute()`                           | Starts the work now, without subscribing to it                        |
+| `lazy.started`                             | Whether the executor has been triggered                                |
+| `isLazyPromise(value)`                     | Brand check                                                            |
 
 ### Errors
 

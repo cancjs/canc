@@ -58,12 +58,29 @@ nobody waits for still fires.
 
 Signal interop and `cancelify` have no meaning without cancellation and are twin-only.
 
+### Lazy promises
+
+`LazyPromise` here has no `cancel()`. Deferred start, caching and the `try`/`resolve`/`reject`/
+`withResolvers`/`all`/`race`/`any`/`allSettled` statics work the same as the cancelable twin; the
+only way to stop waiting on one is an `AbortSignal`:
+
+```js
+import { createLazyPromise } from '@cancjs/toolbox-native';
+
+const profile = createLazyPromise(loadProfile, { signal });
+```
+
+An already-aborted signal means the executor never runs at all; aborting while it is running
+rejects with the signal's `reason`. The underlying work itself keeps going. Only the waiting
+stops, because a native promise cannot be canceled.
+
 ## API
 
 `delay(ms, options?)`, `delay(input, ms, options?)`, `minDelay(input, ms, options?)`,
 `timeout(ms, options?)`, `timeout(input, ms?, options?)`, `waitFor(condition, options?)`,
 `retry(input, options?)`, `defer()`, `promisify(fn, options?)`, `promisifyAll(source, options?)`,
-`TimeoutError`, `isTimeoutError(error)`.
+`TimeoutError`, `isTimeoutError(error)`, `LazyPromise`, `LazyPromise.try(fn, ...args)`,
+`createLazyPromise(x, options?)`, `isLazyPromise(value)`.
 
 `ms` is a number of milliseconds or a `[min, max]` tuple, and is always the last positional
 argument before `options`. Option shapes are identical to
