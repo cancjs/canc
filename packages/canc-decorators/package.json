@@ -1,7 +1,7 @@
 {
   "name": "@cancjs/decorators",
   "version": "0.0.0",
-  "description": "",
+  "description": "Class method decorators for cancelable coroutines.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -33,7 +33,7 @@
   "types": "dist/types/index.d.ts",
   "sideEffects": false,
   "engines": {
-    "node": ">=18",
+    "node": ">=22",
     "npm": ">=9"
   },
   "publishConfig": {
@@ -53,7 +53,7 @@
     "test:watch": "jest --colors --watch"
   },
   "files": ["dist"],
-  "keywords": [],
+  "keywords": ["decorators", "async", "cancelable", "class"],
   "devDependencies": {
     "@babel/core": "7.29.7",
     "@babel/plugin-proposal-decorators": "7.29.7",

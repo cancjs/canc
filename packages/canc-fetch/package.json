@@ -1,7 +1,7 @@
 {
   "name": "@cancjs/fetch",
   "version": "0.0.0",
-  "description": "",
+  "description": "Cross-platform Fetch API that uses cancelable promises.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -23,7 +23,7 @@
   "types": "dist/types/index.d.ts",
   "sideEffects": false,
   "engines": {
-    "node": ">=18",
+    "node": ">=22",
     "npm": ">=9"
   },
   "publishConfig": {
@@ -40,7 +40,7 @@
     "test:watch": "jest --colors --watch"
   },
   "files": ["dist"],
-  "keywords": [],
+  "keywords": ["fetch", "http", "cancel", "cancelable"],
   "devDependencies": {
     "@cancjs/promise": "*"
   },

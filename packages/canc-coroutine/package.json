@@ -1,7 +1,7 @@
 {
   "name": "@cancjs/coroutine",
   "version": "0.0.0",
-  "description": "",
+  "description": "Cancelable generator-based drop-in replacements for async/await and async iterators.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -31,7 +31,7 @@
   "types": "dist/types/index.d.ts",
   "sideEffects": false,
   "engines": {
-    "node": ">=18",
+    "node": ">=22",
     "npm": ">=9"
   },
   "publishConfig": {
@@ -48,7 +48,7 @@
     "test:watch": "jest --colors --watch"
   },
   "files": ["dist"],
-  "keywords": [],
+  "keywords": ["async", "await", "generator", "cancelable"],
   "devDependencies": {
     "@cancjs/promise": "0.0.0"
   },

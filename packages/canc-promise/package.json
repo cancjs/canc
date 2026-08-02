@@ -1,7 +1,7 @@
 {
   "name": "@cancjs/promise",
   "version": "0.0.0",
-  "description": "<p align=\"center\">\r <img src=\"../../assets/canc-logo.png\" width=\"483\" title=\"canc &#x2BBF; A crafty foundation for cancelable promises\" alt=\"canc &#x2BBF; a crafty foundation for cancelable promises\">\r </p>",
+  "description": "Cancelable promise implementation based on native Promise.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -25,7 +25,7 @@
   "types": "dist/types/index.d.ts",
   "sideEffects": false,
   "engines": {
-    "node": ">=18",
+    "node": ">=22",
     "npm": ">=9"
   },
   "publishConfig": {
@@ -42,7 +42,7 @@
     "test:watch": "jest --colors --watch"
   },
   "files": ["dist"],
-  "keywords": [],
+  "keywords": ["promise", "cancel", "cancelable", "async"],
   "unpkg": "dist/index.umd.min.js",
   "jsdelivr": "dist/index.umd.min.js",
   "typesVersions": {
