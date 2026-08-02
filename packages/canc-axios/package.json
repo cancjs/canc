@@ -23,7 +23,7 @@
   "types": "dist/types/index.d.ts",
   "sideEffects": false,
   "engines": {
-    "node": ">=18",
+    "node": ">=22",
     "npm": ">=9"
   },
   "publishConfig": {
