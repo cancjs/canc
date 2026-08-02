@@ -18,7 +18,6 @@ export class CancelError extends Error {
   // ordinary cancel().
   disposed: boolean;
   cause?: any;
-  readonly [CANCEL_ERROR_BRAND]!: true;
 
   /** @deprecated use `bubbled` */
   get isBubbled(): boolean {
@@ -38,8 +37,6 @@ export class CancelError extends Error {
     this.name = 'CancelError';
     this.bubbled = false;
     this.disposed = false;
-    // Brand: identifies genuine canc CancelError instances regardless of realm/copy.
-    this[CANCEL_ERROR_BRAND] = true;
     if (options?.cause !== undefined) {
       this.cause = options.cause;
     }
@@ -56,3 +53,8 @@ export class CancelError extends Error {
     return typeof cause === 'object' && cause !== null && cause.name === 'AbortError';
   }
 }
+
+// Brand on the prototype rather than per instance: every instance still answers the lookup through
+// the prototype chain, and no error carries an own symbol property that enumeration, cloning or
+// serialization could trip over. Non-enumerable and non-writable by defineProperty default.
+Object.defineProperty(CancelError.prototype, CANCEL_ERROR_BRAND, { value: true });

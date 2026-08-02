@@ -76,4 +76,45 @@ describe('CancelError brand', () => {
   it('isCancelError rejects a plain branded-name lookalike without the brand', () => {
     expect(isCancelError({ name: 'CancelError', message: '' })).toBe(false);
   });
+
+  // The brand lives on the prototype: an instance carries no own brand property, so it survives
+  // property enumeration, cloning and serialization without leaking an internal symbol.
+  it('carries the brand on the prototype, not on the instance', () => {
+    const error = new CancelError();
+
+    expect(Object.getOwnPropertyNames(error)).not.toContain('Symbol(@cancjs/promise:CancelError)');
+    expect(Object.getOwnPropertySymbols(error)).not.toContain(BRAND);
+    expect(Object.getOwnPropertySymbols(CancelError.prototype)).toContain(BRAND);
+    expect((CancelError.prototype as any)[BRAND]).toBe(true);
+  });
+
+  it('keeps the prototype brand non-enumerable', () => {
+    const descriptor = Object.getOwnPropertyDescriptor(CancelError.prototype, BRAND);
+
+    expect(descriptor).toBeDefined();
+    expect(descriptor!.enumerable).toBe(false);
+    expect(descriptor!.value).toBe(true);
+  });
+
+  // Dual-package hazard: an error minted by a second copy of the package is matched through the
+  // registry symbol alone, without sharing a prototype or a constructor.
+  it('matches a hand-built error carrying only the registry brand', () => {
+    const other = Object.create(null) as Record<symbol, unknown>;
+    other[BRAND] = true;
+
+    expect(isCancelError(other)).toBe(true);
+    expect(other instanceof CancelError).toBe(false);
+  });
+
+  // A subclass that rewrites `name` is still ours, which is why detection cannot key on the name.
+  it('matches a subclass that rewrites the name', () => {
+    class Weird extends CancelError {
+      constructor() {
+        super();
+        this.name = 'Nope';
+      }
+    }
+
+    expect(isCancelError(new Weird())).toBe(true);
+  });
 });

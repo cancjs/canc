@@ -26,7 +26,7 @@ export const isAbortError = (error: any): boolean =>
 
 // Agent-wide brand marking a "cancel signal": an AbortSignal that aborts with a CancelError.
 // Same Symbol.for-registry rationale as CANCEL_ERROR_BRAND, cross-realm/cross-copy safe.
-export const CANCEL_SIGNAL_BRAND = Symbol.for('@cancjs/promise:cancel signal');
+export const CANCEL_SIGNAL_BRAND = Symbol.for('@cancjs/promise:CancelSignal');
 
 // A cancel signal is a native AbortSignal branded to mark that it aborts with a CancelError. The
 // brand is an own, non-enumerable property carrying the registry symbol.

@@ -1,6 +1,7 @@
 import { CancelError } from './cancel-error';
 import { CancelablePromise, ICancelable } from './cancelable-promise';
 import {
+  CANCEL_SIGNAL_BRAND,
   catchCancel,
   createCancelSignal,
   isCancelError,
@@ -66,11 +67,18 @@ describe('createCancelSignal', () => {
   });
 
   it('brand property is own and non-enumerable', () => {
-    const descriptor = Object.getOwnPropertyDescriptor(result.signal, Symbol.for('@cancjs/promise:cancel signal'));
+    const descriptor = Object.getOwnPropertyDescriptor(result.signal, Symbol.for('@cancjs/promise:CancelSignal'));
 
     expect(descriptor).toBeDefined();
     expect(descriptor!.enumerable).toBe(false);
     expect(descriptor!.value).toBe(true);
+  });
+
+  // Registry keys are namespace plus identifier, with no space: the key is part of the public
+  // cross-copy contract, so a rename has to break a test.
+  it('uses a registry key without a space', () => {
+    expect(Symbol.keyFor(CANCEL_SIGNAL_BRAND)).toBe('@cancjs/promise:CancelSignal');
+    expect(Symbol.keyFor(CANCEL_SIGNAL_BRAND)).toMatch(/^@cancjs\/[a-z-]+:[A-Za-z]+$/);
   });
 
   it('brands the reason: cancel(string) sets signal.reason to a CancelError with that message', () => {

@@ -15,17 +15,18 @@ const BREAK_ERROR_BRAND = Symbol.for('@cancjs/coroutine:BreakError');
 // returning `false`. A break is normal loop termination, not an error: the coroutine resolves past
 // the loop rather than rejecting.
 export class BreakError extends Error {
-  readonly [BREAK_ERROR_BRAND]!: true;
-
   constructor(message = '') {
     super(message);
 
     Object.setPrototypeOf(this, new.target.prototype);
 
     this.name = 'BreakError';
-    this[BREAK_ERROR_BRAND] = true;
   }
 }
+
+// Brand on the prototype rather than per instance, same rationale as CancelError: the lookup still
+// resolves through the prototype chain and no instance carries an own symbol property.
+Object.defineProperty(BreakError.prototype, BREAK_ERROR_BRAND, { value: true });
 
 export function isBreakError(value: unknown): value is BreakError {
   return isObject(value) && (value as Record<symbol, unknown>)[BREAK_ERROR_BRAND] === true;

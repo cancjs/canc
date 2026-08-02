@@ -362,6 +362,24 @@ describe('BreakError', () => {
     expect((new BreakError() as any)[BRAND]).toBe(true);
   });
 
+  // The brand lives on the prototype, so an instance carries no own brand property.
+  it('carries the brand on the prototype, not on the instance', () => {
+    const BRAND = Symbol.for('@cancjs/coroutine:BreakError');
+    const descriptor = Object.getOwnPropertyDescriptor(BreakError.prototype, BRAND);
+
+    expect(Object.getOwnPropertySymbols(new BreakError())).not.toContain(BRAND);
+    expect(Object.getOwnPropertySymbols(BreakError.prototype)).toContain(BRAND);
+    expect(descriptor).toBeDefined();
+    expect(descriptor!.enumerable).toBe(false);
+  });
+
+  it('matches a hand-built error carrying only the registry brand', () => {
+    const other = Object.create(null) as Record<symbol, unknown>;
+    other[Symbol.for('@cancjs/coroutine:BreakError')] = true;
+
+    expect(isBreakError(other)).toBe(true);
+  });
+
   it('is an Error subclass', () => {
     expect(new BreakError()).toBeInstanceOf(Error);
   });
