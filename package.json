@@ -9,6 +9,7 @@
     "npm": ">=9"
   },
   "scripts": {
+    "prepare": "lefthook install",
     "build": "cross-env NODE_OPTIONS=--no-deprecation lerna run build --stream",
     "test": "cross-env NODE_OPTIONS=--no-deprecation lerna run test --stream",
     "lint": "run-p -c lint:workspaces lint:root",
@@ -50,6 +51,7 @@
     "globals": "~17.7.0",
     "jest": "~30.4.2",
     "jest-environment-jsdom": "~30.4.1",
+    "lefthook": "~2.1.10",
     "lerna": "~9.0.7",
     "npm-run-all2": "~8.0.4",
     "prettier": "~3.9.6",

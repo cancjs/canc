@@ -108,3 +108,6 @@ dist
 
 # Nx task cache (lerna run is powered by Nx)
 .nx/
+
+# lefthook local overrides (per-machine, merged over lefthook.yml automatically)
+lefthook-local.yml

@@ -1,0 +1,10 @@
+pre-commit:
+  commands:
+    lint-staged:
+      glob: '*.{js,jsx,ts,tsx,mjs,cjs,json,md}'
+      run: npx eslint --fix {staged_files} && git add {staged_files}
+
+commit-msg:
+  commands:
+    subject-format:
+      run: node scripts/check-commit-msg.js {1}
