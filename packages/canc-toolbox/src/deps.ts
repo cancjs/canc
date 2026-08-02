@@ -1,4 +1,4 @@
-import { CancelablePromise } from '@cancjs/promise';
+import { CancelablePromise, TimeoutError } from '@cancjs/promise';
 
 import { IPromiseKind, IToolboxDeps, TPromiseCtor } from '../../_toolbox';
 import { IToolboxOptions } from './options';
@@ -26,4 +26,5 @@ export const deps: IToolboxDeps<ICancelableKind> = {
   // executor, which is what lets a `{ lazy: true }` deferred wrapper built from this deps object
   // cancel before its first subscription and not just after.
   cancelable: true,
+  TimeoutError,
 };

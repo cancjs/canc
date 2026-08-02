@@ -59,7 +59,8 @@ export function timeoutFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: 
             if (settled) return;
             settled = true;
 
-            const error = new TimeoutError();
+            const Ctor = deps.TimeoutError || TimeoutError;
+            const error = new Ctor();
 
             // Deadline won: stop the underlying operation so it does not run detached, and report
             // the same error the caller sees as the reason it was stopped.

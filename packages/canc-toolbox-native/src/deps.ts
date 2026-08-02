@@ -1,4 +1,5 @@
 import { IPromiseKind, IToolboxDeps, TPromiseCtor, withAbortSignal } from '../../_toolbox';
+import { TimeoutError } from '../../_util';
 
 // Captured once at module load per the native-Promise capture invariant; never re-read the
 // global afterward.
@@ -25,4 +26,5 @@ export interface INativeKind extends IPromiseKind {
  */
 export const deps: IToolboxDeps<INativeKind> = {
   Impl: withAbortSignal(NativePromise as unknown as TPromiseCtor),
+  TimeoutError,
 };

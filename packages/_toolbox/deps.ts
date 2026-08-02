@@ -1,3 +1,4 @@
+import { TimeoutError } from '../_util';
 import { TPromiseCtor } from './construct';
 import { IPromiseKind, IPromiseLikeKind } from './kind';
 import { ITimers } from './timers';
@@ -18,6 +19,12 @@ export interface IToolboxDeps<K extends IPromiseKind = IPromiseLikeKind> extends
   Impl: TPromiseCtor;
   /** AbortController implementation used where an outbound signal is minted. */
   AbortController?: TAbortControllerCtor;
+  /**
+   * The TimeoutError constructor products of this factory reject with. Supplied by the package so
+   * the class a consumer imports and the class a helper throws are the same object, which is what
+   * keeps `instanceof` usable for callers. Defaults to the inlined shared class when omitted.
+   */
+  TimeoutError?: typeof TimeoutError;
   /**
    * Whether `Impl` products are cancelable-shaped (expose `cancel` and pass a `handleCancel`-bearing
    * ctx into the executor). Read only by the `{ lazy: true }` construction path (`./construct-timed`) to decide
