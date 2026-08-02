@@ -3,7 +3,7 @@ import { CancelablePromise, CancelError, catchCancel, isCancelError, suppressCan
 import { cancAsync, cancAwait, cancForAwait } from './coroutine';
 import { AsyncGenResult, cancGenAsync, cancGenAwait, cancGenDelegate } from './coroutine-gen';
 
-// Fills the GAP rows in ../../.claude/rfc-coroutine-coverage.md against rfc-coroutine.md. Every
+// Covers the behavioral gaps not already exercised elsewhere against rfc-coroutine.md. Every
 // test here asserts real runtime behavior (would fail on a no-op / stub), not just typechecking —
 // the combinator + type-level surface is already covered by tests-types/fixtures/common/coroutine-types.ts.
 

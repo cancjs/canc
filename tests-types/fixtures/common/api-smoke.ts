@@ -1,5 +1,5 @@
 /**
- * P4-2 API-smoke fixture. Imports the ENTIRE public surface of the BUILT
+ * API-smoke fixture. Imports the ENTIRE public surface of the BUILT
  * `@cancjs/promise` package (resolved from the installed tarball, never from
  * src) and uses each exported value/type in a way that forces the compiler to
  * actually resolve and check the shipped `.d.ts`. Compiled once per TS version

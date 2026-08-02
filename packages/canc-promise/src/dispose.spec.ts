@@ -26,7 +26,7 @@ function _macrotask(): Promise<void> {
 const describeSync = disposeSym ? describe : describe.skip;
 const describeAsync = asyncDisposeSym ? describe : describe.skip;
 
-describeSync('P1-11 Symbol.dispose (sync)', () => {
+describeSync('Symbol.dispose (sync)', () => {
   it('is wired on the prototype when Symbol.dispose exists', () => {
     const promise = new CancelablePromise<number>(() => {
       /**/
@@ -110,7 +110,7 @@ describeSync('P1-11 Symbol.dispose (sync)', () => {
   });
 });
 
-describeAsync('P1-11 Symbol.asyncDispose (async)', () => {
+describeAsync('Symbol.asyncDispose (async)', () => {
   it('is wired on the prototype when Symbol.asyncDispose exists', () => {
     const promise = new CancelablePromise<number>(() => {
       /**/

@@ -55,7 +55,7 @@ module.exports = {
       // via the __extends() helper's `_super.call(this, reason) || this` fallback — the `|| this`
       // side is dead by spec (Error's [[Call]] always returns an object, so _super.call(...) is
       // always truthy; the fallback only matters for non-spec-compliant engines). Same class of
-      // structural artifact as the Q1-Q4 quirks in .claude/code-review.md. Verified both logical
+      // structural artifact as other known transpilation quirks. Verified both logical
       // sides of every other branch in this file ARE exercised (see cancel-error.spec.ts).
       branches: 90,
       lines: 95,

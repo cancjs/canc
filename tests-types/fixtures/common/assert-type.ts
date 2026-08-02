@@ -1,8 +1,8 @@
 /**
- * Minimal, dependency-free type-assertion kit for P4-3.
+ * Minimal, dependency-free type-assertion kit for the type-level assertion suite.
  *
  * We intentionally do NOT pull in `expect-type` or `tsd` as a runtime dep: the
- * P4-3 suite runs only in the matrix's `latest` TS lane, and "latest" is now the
+ * suite runs only in the matrix's `latest` TS lane, and "latest" is now the
  * native TS 7 port whose type-checker those tools have not certified against.
  * These four helpers ARE the exact mechanism `expect-type`/`tsd` use internally
  * (an invariant `Equal<A, B>` conditional plus an `Expect<true>` gate), so the

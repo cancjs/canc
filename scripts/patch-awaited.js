@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// downlevel-dts@0.11.0 gap (verified: no Awaited handling in its transform list —
-// see .claude/tasks/-packaging-types.md P4-1): it does not rewrite the
+// downlevel-dts@0.11.0 gap (verified: no Awaited handling in its transform list):
+// it does not rewrite the
 // built-in `Awaited<T>` utility type, which is lib-defined starting TS 4.5.
 // On the TS 4.2 floor `Awaited` doesn't exist in scope, so any .d.ts still
 // referencing it fails to resolve for a TS-4.2 consumer ("Cannot find name

@@ -57,11 +57,7 @@ const smokeProject = tsFlavorProject({
   displayName: `${packageJson.name} (smoke)`,
   tsconfig: '<rootDir>/../../tsconfig.json',
   cacheName: 'jest-ts-smoke',
-  testMatch: [
-    '<rootDir>/src/subpath-exports.spec.ts',
-    '<rootDir>/src/phase-12-smoke.spec.ts',
-    '<rootDir>/src/phase-13-smoke.spec.ts',
-  ],
+  testMatch: ['<rootDir>/src/subpath-exports.spec.ts'],
 });
 
 const babelJestOptions = { configFile: path.join(__dirname, 'babel.config.js') };

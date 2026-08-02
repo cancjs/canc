@@ -104,7 +104,7 @@ module.exports = {
   // ],
 
   // A map from regular expressions to module names or to arrays of module names that allow to stub out resources with a single module
-  // P5-1 fix: `<rootDir>` here is per-package (see rootDir note above, same hazard as
+  // `<rootDir>` here is per-package (see rootDir note above, same hazard as
   // collectCoverageFrom) — a package that imports a SIBLING @cancjs/* package by name (e.g.
   // canc-coroutine importing @cancjs/promise) resolved to `<own-pkg>/packages/canc-promise/src`,
   // which doesn't exist. Anchor to the monorepo root (this file's own directory, always the repo

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * P4-2 TS-version matrix runner.
+ * TS-version matrix runner.
  *
  * For every version in matrix.config.json this:
  * 1. packs each target package (`npm pack`) into tests-types/.tarballs/ so the

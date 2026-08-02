@@ -294,8 +294,8 @@ describe('suppressCancel', () => {
     await expect(result).rejects.toBeInstanceOf(AbortError);
   });
 
-  // Anti-stub: this must FAIL on current (pre-P19-4) code, since a bare AbortError is not a
-  // CancelError and would rethrow without the {abort} option honored.
+  // Anti-stub: this must FAIL on code that has not yet special-cased {abort}, since a bare
+  // AbortError is not a CancelError and would rethrow without the {abort} option honored.
   it('with {abort:true} swallows a plain AbortError (resolves)', async () => {
     const nativePromise = Promise.reject(new AbortError());
 

@@ -1,6 +1,6 @@
 /**
- * Typed-yield DX assertion suite for @cancjs/coroutine (P5-4). Compiled only in
- * the `latest` TS lane of the P4-2 matrix (matrix.config.json → version with
+ * Typed-yield DX assertion suite for @cancjs/coroutine. Compiled only in
+ * the `latest` TS lane of the TS-version matrix (matrix.config.json → version with
  * `typeAssertions:true`), alongside ./type-assertions.ts.
  *
  * Two consumption paths are asserted here:

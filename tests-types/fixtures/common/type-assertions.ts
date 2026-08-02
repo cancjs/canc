@@ -1,6 +1,6 @@
 /**
- * P4-3 type-level assertion suite. Compiled only in the `latest` TS lane of the
- * P4-2 matrix (matrix.config.json → version with `typeAssertions:true`).
+ * Type-level assertion suite. Compiled only in the `latest` TS lane of the
+ * TS-version matrix (matrix.config.json → version with `typeAssertions:true`).
  *
  * Each `type _NN = Expect<Equal<Actual, Expected>>` line is a real assertion:
  * if the shipped `.d.ts` ever changes the inferred type, `Equal` becomes `false`

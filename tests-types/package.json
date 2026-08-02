@@ -2,7 +2,7 @@
   "name": "@cancjs/tests-types",
   "version": "0.0.0",
   "private": true,
-  "description": "TypeScript version matrix + type-level assertion harness ( P4-2/P4-3). Compiles fixture projects that import the BUILT packages against a matrix of pinned TS versions.",
+  "description": "TypeScript version matrix + type-level assertion harness. Compiles fixture projects that import the BUILT packages against a matrix of pinned TS versions.",
   "engines": {
     "npm": ">=9",
     "node": ">=18"
