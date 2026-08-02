@@ -1,8 +1,8 @@
 // Duck-type checks shared by the toolbox algorithms.
 //
-// These deliberately do not come from the _util module: _util type-imports the cancelable promise
-// package, and the native toolbox twin is built to have no dependency on it at all. The shapes
-// below are structural, so nothing here needs to know which promise implementation is in play.
+// These structural guards are kept local to _toolbox so that neither shared module carries a
+// package reference, protecting the zero-dependency toolbox-native twin from dragging in any
+// external package dependency.
 
 /** A thenable exposing a `cancel` method, the minimal shape needed to stop it. */
 export interface ICancelableLike {
