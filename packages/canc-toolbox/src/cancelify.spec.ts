@@ -190,4 +190,42 @@ describe('cancelify', () => {
       expect(isCancelError(capturedInit?.signal?.reason)).toBe(true);
     });
   });
+
+  describe('displayName', () => {
+    it('names the wrapper bare `cancelify` when the source callback is anonymous (the common case: an inline arrow)', () => {
+      const wrapped = cancelify((_ctx, args: [number]) => Promise.resolve(args[0]));
+
+      expect((wrapped as any).displayName).toBe('cancelify');
+    });
+
+    it('names the wrapper `cancelify: <name>` from a named source callback', () => {
+      function loadUser(_ctx: any, args: [number]) {
+        return Promise.resolve(args[0]);
+      }
+
+      const wrapped = cancelify(loadUser);
+
+      expect((wrapped as any).displayName).toBe('cancelify: loadUser');
+    });
+
+    it('an explicit displayName option wins verbatim, no prefix', () => {
+      function loadEverything(_ctx: any, args: [number]) {
+        return Promise.resolve(args[0]);
+      }
+
+      const wrapped = cancelify(loadEverything, { displayName: 'loadUser' });
+
+      expect((wrapped as any).displayName).toBe('loadUser');
+    });
+
+    it('also sets the wrapper name where the name slot is configurable', () => {
+      function loadUser(_ctx: any, args: [number]) {
+        return Promise.resolve(args[0]);
+      }
+
+      const wrapped = cancelify(loadUser);
+
+      expect((wrapped as any).name).toBe((wrapped as any).displayName);
+    });
+  });
 });

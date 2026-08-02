@@ -1,6 +1,6 @@
 import { CancelablePromise, CancelError, ICancelablePromiseOptions, isCancelError } from '@cancjs/promise';
 
-import { isFunction, isGenerator, isObject, isThenable } from '../../_util';
+import { IFn, isFunction, isGenerator, isObject, isThenable, setFnName } from '../../_util';
 
 export type TGeneratorLike<PYield = unknown, PReturn = any, PNext = unknown> = Omit<
   Generator<PYield, PReturn, PNext>,
@@ -50,10 +50,6 @@ function isReturnUnwind(value: unknown): boolean {
 // `yield*` (typed send value from `cancAwait`), so no single `PNext` fits every yield in the body.
 export type AsyncResult<T = void> = Generator<unknown, T, any>;
 
-interface IFn {
-  displayName?: string;
-}
-
 export interface IGeneratorLikeFn<TThis = any> extends IFn {
   (this: TThis, ...args: any[]): TGeneratorLike;
 }
@@ -91,18 +87,32 @@ function isEmptyFlags(flags: TFlagOptions): boolean {
   return true;
 }
 
+// `displayName` is a naming-only concern, not a promise option: it must never reach
+// `CancelablePromise.withResolvers` (a core type and must not gain it either).
+export type TCoroutineOptions = ICancelablePromiseOptions & { displayName?: string };
+
+function toPromiseOptions(options?: TCoroutineOptions): ICancelablePromiseOptions | undefined {
+  if (!options) {
+    return options;
+  }
+
+  const { displayName: _displayName, ...promiseOptions } = options;
+
+  return promiseOptions;
+}
+
 export function cancAsync<
   TFn extends IGeneratorLikeFn<TThis>,
   TArgs extends any[] = Parameters<TFn>,
   TReturn = TCoroutineReturn<TFn>,
   TThis = any,
->(genFn: TFn, ctx?: TThis, options?: ICancelablePromiseOptions) {
+>(genFn: TFn, ctx?: TThis, options?: TCoroutineOptions) {
   if (!isFunction(genFn)) {
     throw new TypeError('Argument is not a function');
   }
 
   const isCtx = ctx !== undefined;
-  const genFnName = genFn.displayName || genFn.name;
+  const promiseOptions = toPromiseOptions(options);
 
   // Per-step wrappers carry only flag options; the signal lives on `coroutinePromise`.
   // Computed once here, not per yielded step (options never change across a coroutine's life).
@@ -119,14 +129,10 @@ export function cancAsync<
   // promise. Everything else inherits the coroutine's flag options.
   const shieldOptions: TFlagOptions = { ...stepOptions, shield: true };
 
-  coroutine.displayName = 'coroutine';
-
-  if (genFnName) {
-    coroutine.displayName += ` ${genFnName}`;
-  }
+  setFnName(coroutine, 'coroutine', genFn, options?.displayName);
 
   function coroutine(this: any, ...args: TArgs): CancelablePromise<TReturn> {
-    const { promise: coroutinePromise, resolve, reject } = CancelablePromise.withResolvers<TReturn>(options);
+    const { promise: coroutinePromise, resolve, reject } = CancelablePromise.withResolvers<TReturn>(promiseOptions);
 
     try {
       // `this` threading: an explicitly supplied `ctx` wins; otherwise the call-site `this` of the

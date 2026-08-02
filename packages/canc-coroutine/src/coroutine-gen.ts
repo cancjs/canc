@@ -1,6 +1,6 @@
 import { CancelablePromise, CancelError, ICancelablePromiseOptions } from '@cancjs/promise';
 
-import { isFunction, isGenerator, isObject, isThenable } from '../../_util';
+import { isFunction, isGenerator, isObject, isThenable, setFnName } from '../../_util';
 import {
   getStepIterator,
   IGeneratorLikeFn,
@@ -14,6 +14,7 @@ export type TYieldTransformFn<T = any> = (value: any) => T;
 
 export type TCancelableCoroutineGenOptions = ICancelablePromiseOptions & {
   transformYield?: TYieldTransformFn;
+  displayName?: string;
 };
 
 const genMethods = ['next', 'throw', 'return'] as const;
@@ -152,13 +153,9 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
     throw new TypeError('Argument is not a function');
   }
 
-  const genFnName = genFn.displayName || genFn.name;
+  setFnName(coroutineGenWrapper, 'coroutineGen', genFn, options?.displayName);
 
-  if (genFnName) {
-    coroutineGenWrapper.displayName = `coroutineGen ${genFnName}`;
-  }
-
-  const { transformYield, ...promiseOptions } = options;
+  const { transformYield, displayName: _displayName, ...promiseOptions } = options;
 
   function coroutineGenWrapper(this: any, ...args: any[]) {
     const gen: TGeneratorLike = genFn.apply(this, args);

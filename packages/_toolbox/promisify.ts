@@ -1,3 +1,4 @@
+import { setFnName } from '../_util';
 import { makeCancelSignal, TGetSignal } from './cancel-signal';
 import { TExecutorCtx } from './construct';
 import { constructTimed } from './construct-timed';
@@ -36,6 +37,8 @@ export interface IPromisifyOptions {
   AbortController?: TAbortControllerCtor;
   /** Defer calling the underlying callback function until the first subscription. Not contagious past a chained `.then`. */
   lazy?: boolean;
+  /** Overrides the generated `promisify: <name>` displayName verbatim. */
+  displayName?: string;
   [key: string]: unknown;
 }
 
@@ -96,7 +99,7 @@ export function promisifyFactory<K extends IPromiseKind = IPromiseLikeKind>(deps
     const customImpl = useCustom ? (fn as unknown as Record<PropertyKey, unknown>)[kCustom] : undefined;
     const custom: TCallbackFn | undefined = typeof customImpl === 'function' ? (customImpl as TCallbackFn) : undefined;
 
-    return function (this: unknown, ...callArgs: any[]): TPromiseOf<K, any> {
+    const wrapped = function (this: unknown, ...callArgs: any[]): TPromiseOf<K, any> {
       // `run` is an arrow, so it keeps this function's receiver without aliasing it.
       const run = (resolve: (value: any) => void, reject: (reason?: any) => void, ctx?: TExecutorCtx) => {
         // Custom impl short-circuits the callback path entirely: call it and adopt its promise.
@@ -139,6 +142,8 @@ export function promisifyFactory<K extends IPromiseKind = IPromiseLikeKind>(deps
 
       return constructTimed<any, K>(deps, run, options);
     };
+
+    return setFnName(wrapped, 'promisify', fn, options?.displayName);
   };
 }
 

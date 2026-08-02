@@ -107,4 +107,53 @@ describe('promisifyAll', () => {
     expect(typeof out.readFile).toBe('function');
     expect((out as any).openStream).toBeUndefined();
   });
+
+  it('names each produced method `promisify: <method name>`', () => {
+    const source = makeSource();
+    const out = promisifyAll(source, { include: ['readFile'] });
+
+    expect((out.readFile as any).displayName).toBe('promisify: readFile');
+  });
+});
+
+describe('promisify displayName', () => {
+  it('names the wrapper `promisify: <name>` from a named source function', () => {
+    function readFile(cb: (err: any, value: string) => void) {
+      cb(null, 'ok');
+    }
+
+    const wrapped = promisify(readFile);
+
+    expect((wrapped as any).displayName).toBe('promisify: readFile');
+  });
+
+  it('also sets the wrapper name where the name slot is configurable', () => {
+    function readFile(cb: (err: any, value: string) => void) {
+      cb(null, 'ok');
+    }
+
+    const wrapped = promisify(readFile);
+
+    expect((wrapped as any).name).toBe((wrapped as any).displayName);
+  });
+
+  it('prefers a source whose displayName is set over its name', () => {
+    const fn: any = (cb: (err: any, value: string) => void) => cb(null, 'ok');
+    Object.defineProperty(fn, 'name', { value: 'rawFnName', configurable: true });
+    fn.displayName = 'friendlyName';
+
+    const wrapped = promisify(fn);
+
+    expect((wrapped as any).displayName).toBe('promisify: friendlyName');
+  });
+
+  it('an explicit displayName option wins verbatim, no prefix', () => {
+    function readFile(cb: (err: any, value: string) => void) {
+      cb(null, 'ok');
+    }
+
+    const wrapped = promisify(readFile, { displayName: 'loadFile' });
+
+    expect((wrapped as any).displayName).toBe('loadFile');
+  });
 });

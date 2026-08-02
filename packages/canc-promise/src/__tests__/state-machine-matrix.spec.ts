@@ -542,6 +542,7 @@ describe('state machine matrix', () => {
       compile(path.join(srcRoot, 'src', 'cancelable-promise.ts'), 'cancelable-promise.js');
       compile(path.join(utilRoot, 'index.ts'), '_util.js');
       compile(path.join(utilRoot, 'errors.ts'), 'errors.js');
+      compile(path.join(utilRoot, 'fn-meta.ts'), 'fn-meta.js');
       // The flattening above keys every module on its basename, so the shared util lands as
       // `_util.js` while its own siblings still require it as `./index`. One re-export file keeps
       // that a single module instance instead of a second copy.

@@ -1,6 +1,7 @@
 import { CancelablePromise, CancelError, isCancelError } from '@cancjs/promise';
 
 import { makeCancelSignal, TGetSignal } from '../../_toolbox';
+import { setFnName } from '../../_util';
 import { IToolboxOptions, TExecutorCtx, THandleCancel } from './options';
 
 /** Structural AbortController, so no dependency on the ambient DOM/Node type in envs that polyfill it. */
@@ -33,6 +34,8 @@ export interface ICancelifyContext {
 export interface ICancelifyOptions extends IToolboxOptions {
   /** AbortController implementation used to mint the outbound signal. Defaults to the ambient global. */
   AbortController?: AbortControllerCtor;
+  /** Overrides the generated `cancelify: <name>` displayName verbatim. */
+  displayName?: string;
 }
 
 /** A promise-returning fn that receives the outbound cancel-signal thunk and the call-args array.
@@ -51,7 +54,7 @@ export function cancelify<A extends any[], R>(
 ): (...callArgs: A) => CancelablePromise<R> {
   const Ctor = options?.AbortController;
 
-  return function (...callArgs: A): CancelablePromise<R> {
+  const wrapper = function (...callArgs: A): CancelablePromise<R> {
     const run = (resolve: (value: R | PromiseLike<R>) => void, reject: (reason?: any) => void, ctx?: TExecutorCtx) => {
       const handleCancel = ctx?.handleCancel;
       const holder = makeCancelSignal(handleCancel, Ctor, toCancelError);
@@ -63,4 +66,6 @@ export function cancelify<A extends any[], R>(
 
     return new CancelablePromise<R>(run, options);
   };
+
+  return setFnName(wrapper, 'cancelify', fn, options?.displayName);
 }

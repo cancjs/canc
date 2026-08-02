@@ -1030,4 +1030,56 @@ describe('cancAwait sequential-step propagation (pre-existing, not the adoption 
     expect(inner.isCanceled).toBe(true);
     await expect(p.catch((e: any) => e)).resolves.toBeInstanceOf(CancelError);
   });
+
+  describe('displayName', () => {
+    it('names a wrapper `coroutine: <name>` from a named generator function', () => {
+      const co = cancAsync(function* load() {
+        return 1;
+      });
+
+      expect((co as any).displayName).toBe('coroutine: load');
+    });
+
+    it('names a wrapper bare `coroutine` from an anonymous generator function', () => {
+      const co = cancAsync(function* () {
+        return 1;
+      });
+
+      expect((co as any).displayName).toBe('coroutine');
+    });
+
+    it('an explicit displayName option wins verbatim, no prefix', () => {
+      const co = cancAsync(
+        function* load() {
+          return 1;
+        },
+        undefined,
+        { displayName: 'loadEverything' },
+      );
+
+      expect((co as any).displayName).toBe('loadEverything');
+    });
+
+    it('also sets the wrapper name where the name slot is configurable', () => {
+      const co = cancAsync(function* load() {
+        return 1;
+      });
+
+      expect((co as any).name).toBe((co as any).displayName);
+    });
+
+    it('does not leak displayName into the options CancelablePromise.withResolvers sees', async () => {
+      const co = cancAsync(
+        function* () {
+          return 1;
+        },
+        undefined,
+        { displayName: 'named' } as any,
+      );
+
+      // A stray `displayName` key reaching the promise options must not change resolution
+      // behavior: the coroutine still resolves normally.
+      await expect(co()).resolves.toBe(1);
+    });
+  });
 });

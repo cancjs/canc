@@ -1001,3 +1001,40 @@ describe('cancGenAsync — native-parity table', () => {
     expect(parityRows.every((r) => r.match)).toBe(true);
   });
 });
+
+describe('cancGenAsync displayName', () => {
+  it('names a wrapper `coroutineGen: <name>` from a named generator function', () => {
+    const gen = cancGenAsync(function* feed() {
+      yield 1;
+    });
+
+    expect((gen as any).displayName).toBe('coroutineGen: feed');
+  });
+
+  it('names a wrapper bare `coroutineGen` from an anonymous generator function (always set, not just when named)', () => {
+    const gen = cancGenAsync(function* () {
+      yield 1;
+    });
+
+    expect((gen as any).displayName).toBe('coroutineGen');
+  });
+
+  it('an explicit displayName option wins verbatim, no prefix', () => {
+    const gen = cancGenAsync(
+      function* feed() {
+        yield 1;
+      },
+      { displayName: 'feedEverything' },
+    );
+
+    expect((gen as any).displayName).toBe('feedEverything');
+  });
+
+  it('also sets the wrapper name where the name slot is configurable', () => {
+    const gen = cancGenAsync(function* feed() {
+      yield 1;
+    });
+
+    expect((gen as any).name).toBe((gen as any).displayName);
+  });
+});
