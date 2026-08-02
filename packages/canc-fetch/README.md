@@ -37,7 +37,9 @@ plumbing working while it is being phased out.
 npm install @cancjs/fetch @cancjs/promise
 ```
 
-`@cancjs/promise` is a peer dependency.
+`@cancjs/promise` is a peer dependency. This package is ecosystem tier: a minor release can carry
+a breaking change, so pin it with a tilde, `~1.x`, rather than the default caret. See
+[Versioning](https://github.com/cancjs/canc/blob/master/docs/versioning.md) for the full policy.
 
 ### Usage
 

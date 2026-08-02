@@ -38,7 +38,9 @@ signals around, because canceling a promise reaches the underlying request on it
 npm install @cancjs/toolbox @cancjs/promise
 ```
 
-`@cancjs/promise` is a peer dependency.
+`@cancjs/promise` is a peer dependency. This package is ecosystem tier: a minor release can carry
+a breaking change, so pin it with a tilde, `~1.x`, rather than the default caret. See
+[Versioning](https://github.com/cancjs/canc/blob/master/docs/versioning.md) for the full policy.
 
 ### Usage
 
@@ -245,16 +247,16 @@ floor on success, not a timer. Pick the one that matches what a failure should d
 
 ### Lazy promises
 
-| Export                                    | Description                                                          |
-| ------------------------------------------ | --------------------------------------------------------------------- |
-| `new LazyPromise(executor, options?)`      | Executor form, deferred to the first subscription                     |
-| `LazyPromise.try(fn, ...args)`             | Deferred call of `fn`, `CancelablePromise.try` semantics               |
-| `createLazyPromise(x, options?)`           | Front door: function, lazy promise, plain promise or value             |
-| `LazyPromise.all/race/any/allSettled(...)` | Cold combinators, semantics from `CancelablePromise`                   |
+| Export                                     | Description                                                               |
+| ------------------------------------------ | ------------------------------------------------------------------------- |
+| `new LazyPromise(executor, options?)`      | Executor form, deferred to the first subscription                         |
+| `LazyPromise.try(fn, ...args)`             | Deferred call of `fn`, `CancelablePromise.try` semantics                  |
+| `createLazyPromise(x, options?)`           | Front door: function, lazy promise, plain promise or value                |
+| `LazyPromise.all/race/any/allSettled(...)` | Cold combinators, semantics from `CancelablePromise`                      |
 | `LazyPromise.withResolvers(options?)`      | `{ promise, resolve, reject, cancel }`, adoption deferred to subscription |
-| `lazy.execute()`                           | Starts the work now, without subscribing to it                        |
-| `lazy.started`                             | Whether the executor has been triggered                                |
-| `isLazyPromise(value)`                     | Brand check                                                            |
+| `lazy.execute()`                           | Starts the work now, without subscribing to it                            |
+| `lazy.started`                             | Whether the executor has been triggered                                   |
+| `isLazyPromise(value)`                     | Brand check                                                               |
 
 ### Errors
 

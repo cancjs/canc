@@ -45,7 +45,9 @@ to class methods. See the [repository](https://github.com/cancjs/canc) for the f
 npm install @cancjs/coroutine @cancjs/promise
 ```
 
-`@cancjs/promise` is a peer dependency.
+`@cancjs/promise` is a peer dependency. This package is core tier: it follows strict semver, so
+the default caret pin, `^1`, is safe. See
+[Versioning](https://github.com/cancjs/canc/blob/master/docs/versioning.md) for the full policy.
 
 ### Usage
 

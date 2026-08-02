@@ -34,6 +34,10 @@ library that should not force a promise implementation on its consumers.
 npm install @cancjs/toolbox-native
 ```
 
+This package is ecosystem tier: a minor release can carry a breaking change, so pin it with a
+tilde, `~1.x`, rather than the default caret. See
+[Versioning](https://github.com/cancjs/canc/blob/master/docs/versioning.md) for the full policy.
+
 ### Usage
 
 ```js

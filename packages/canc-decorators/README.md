@@ -39,7 +39,10 @@ identical, only the wiring underneath differs.
 npm install @cancjs/decorators @cancjs/coroutine @cancjs/promise
 ```
 
-`@cancjs/coroutine` and `@cancjs/promise` are peer dependencies.
+`@cancjs/coroutine` and `@cancjs/promise` are peer dependencies. This package is ecosystem tier: a
+minor release can carry a breaking change, so pin it with a tilde, `~1.x`, rather than the default
+caret. See [Versioning](https://github.com/cancjs/canc/blob/master/docs/versioning.md) for the
+full policy.
 
 ### Usage
 

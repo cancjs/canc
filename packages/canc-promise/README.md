@@ -52,6 +52,9 @@ coroutines to class methods. See the
 npm install @cancjs/promise
 ```
 
+This package is core tier: it follows strict semver, so the default caret pin, `^1`, is safe. See
+[Versioning](https://github.com/cancjs/canc/blob/master/docs/versioning.md) for the full policy.
+
 ### Usage
 
 The executor receives a context object for registering cleanup and obtaining a signal. Cleanup

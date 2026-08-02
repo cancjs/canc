@@ -168,7 +168,11 @@ Every example is written twice: a plain version and a `canc` version of the same
 
 ## Compatibility
 
-Node.js 18 and later, Deno, Bun and current browsers. TypeScript 4.2 and later. Per-package details are in each package README, starting with [`@cancjs/promise`](packages/canc-promise#compatibility).
+Node.js 18 and later, Deno, Bun and current browsers. TypeScript 4.2 and later, tested through 5.9. Per-package details are in each package README, starting with [`@cancjs/promise`](packages/canc-promise#compatibility).
+
+## Versions
+
+Core packages, `@cancjs/promise` and `@cancjs/coroutine`, follow strict semver and are safe on a caret pin, `^1`. Everything else, the toolbox, `fetch`, decorators, axios and the adapters that follow, releases on a shared minor line that can carry a breaking change inside a minor, so pin those with a tilde, `~1.x`. Full policy, including the deprecation and compatibility-floor rules: [Versioning](docs/versioning.md).
 
 ## Contributing
 
