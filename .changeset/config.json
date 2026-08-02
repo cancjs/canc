@@ -1,0 +1,22 @@
+{
+  "$schema": "https://unpkg.com/@changesets/config@3.1.4/schema.json",
+  "changelog": ["@changesets/changelog-github", { "repo": "cancjs/canc" }],
+  "commit": false,
+  "access": "public",
+  "baseBranch": "master",
+  "updateInternalDependencies": "minor",
+  "fixed": [["@cancjs/promise"]],
+  "linked": [
+    [
+      "@cancjs/toolbox",
+      "@cancjs/toolbox-native",
+      "@cancjs/decorators",
+      "@cancjs/fetch",
+      "@cancjs/axios"
+    ]
+  ],
+  "ignore": ["@cancjs/benchmarks", "@cancjs/tests-types"],
+  "___experimentalUnsafeOptions_WILL_CHANGE_IN_PATCH": {
+    "onlyUpdatePeerDependentsWhenOutOfRange": true
+  }
+}
