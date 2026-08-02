@@ -78,6 +78,10 @@ function checkPackage(pkgName) {
   const declaresLegacyTypesCondition = /types@</.test(exportsText);
   const hasDownlevelDts = [...packedFiles].some((f) => f.startsWith('dist/types-ts'));
 
+  const hasAnyCancDep =
+    Object.keys(manifest.dependencies || {}).some((k) => k.startsWith('@cancjs/')) ||
+    Object.keys(manifest.peerDependencies || {}).some((k) => k.startsWith('@cancjs/'));
+
   const problems = [];
   if (missing.length > 0) {
     problems.push(`manifest references paths not present in the tarball: ${missing.join(', ')}`);
@@ -90,6 +94,16 @@ function checkPackage(pkgName) {
   }
   if (declaresLegacyTypesCondition && !hasDownlevelDts) {
     problems.push('exports declares a "types@<range>" condition but no dist/types-ts* output is packed');
+  }
+  if (!hasAnyCancDep) {
+    for (const f of packedFiles) {
+      if (/\.d\.(m|c)?ts$/.test(f)) {
+        const content = fs.readFileSync(path.join(pkgDir, f), 'utf8');
+        if (content.includes("'@cancjs/") || content.includes('"@cancjs/')) {
+          problems.push(`dependency-free package ships types containing a bare @cancjs/ import specifier in ${f}`);
+        }
+      }
+    }
   }
 
   try {
