@@ -39,3 +39,5 @@ export {
   waitFor,
 } from './prebound';
 export { throttle } from './throttle';
+export type { TErrorConstructor, TErrorMatcher, TErrorPredicate } from '@cancjs/promise';
+export { createCatchError, createSuppressError } from '@cancjs/promise';

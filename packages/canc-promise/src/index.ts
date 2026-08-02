@@ -1,6 +1,7 @@
 export * from './cancel-error';
 export * from './cancelable-promise';
 export { CancelablePromise as default } from './cancelable-promise';
+export * from './error-matchers';
 // coroutine.ts (cancAsync/cancAwait) extracted to @cancjs/coroutine. NOT re-exported here at
 // runtime, canc-coroutine depends on @cancjs/promise (peer dep, dedup singleton, CancelablePromise
 // identity/registry must not be duplicated), so the reverse edge (core importing canc-coroutine's
