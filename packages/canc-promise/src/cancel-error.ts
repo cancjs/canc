@@ -52,6 +52,16 @@ export class CancelError extends Error {
 
     return typeof cause === 'object' && cause !== null && cause.name === 'AbortError';
   }
+
+  // True when this cancellation originated from a timeout. Mirrors `aborted` above: the raw
+  // TimeoutError is threaded through as the `cause` of the CancelError rather than used as the
+  // rejection reason directly, so a timeout-driven cancel is one whose cause is a TimeoutError.
+  // Inlined for the same module-cycle reason as `aborted`.
+  get timedOut(): boolean {
+    const cause = this.cause as { name?: unknown } | null | undefined;
+
+    return typeof cause === 'object' && cause !== null && cause.name === 'TimeoutError';
+  }
 }
 
 // Brand on the prototype rather than per instance: every instance still answers the lookup through

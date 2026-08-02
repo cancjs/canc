@@ -71,11 +71,19 @@ export interface ICatchSuppressOptions {
    * CancelError is matched.
    */
   abort?: boolean;
+  /**
+   * Also match a plain timeout: a raw TimeoutError, or a CancelError whose `timedOut` getter is
+   * true (its cause is a TimeoutError). Default false: only a genuine CancelError is matched.
+   * Independent of `abort` - each option widens the match for its own kind only.
+   */
+  timeout?: boolean;
 }
 
 function isCaught(error: any, options?: ICatchSuppressOptions): boolean {
   return (
-    isCancelError(error) || Boolean(options?.abort && (isAbortError(error) || (isCancelError(error) && error.aborted)))
+    isCancelError(error) ||
+    Boolean(options?.abort && (isAbortError(error) || (isCancelError(error) && error.aborted))) ||
+    Boolean(options?.timeout && (isTimeoutError(error) || (isCancelError(error) && error.timedOut)))
   );
 }
 

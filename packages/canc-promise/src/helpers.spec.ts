@@ -8,6 +8,7 @@ import {
   isCancelSignal,
   makeCancelable,
   suppressCancel,
+  TimeoutError,
 } from './helpers';
 
 function flushPromises(): Promise<void> {
@@ -234,6 +235,13 @@ describe('catchCancel', () => {
 
     expect(catchCancel(error, { abort: true })).toBe(error);
   });
+
+  // {timeout} mirrors {abort} for TimeoutError, and the two options are independent.
+  it('bare-error form: with {timeout:true} returns the error instead of throwing', () => {
+    const error = new TimeoutError();
+
+    expect(catchCancel(error, { timeout: true })).toBe(error);
+  });
 });
 
 describe('suppressCancel', () => {
@@ -307,6 +315,62 @@ describe('suppressCancel', () => {
     const error = new AbortError();
 
     expect(suppressCancel(error, { abort: true })).toBe(undefined);
+  });
+
+  // default behavior (no options / timeout:false) must RE-THROW a bare TimeoutError, proving
+  // the {timeout} option is opt-in, not always-on.
+  it('rethrows a plain TimeoutError by default (no timeout option)', async () => {
+    const nativePromise = Promise.reject(new TimeoutError());
+
+    const result = suppressCancel(nativePromise as any);
+
+    await expect(result).rejects.toBeInstanceOf(TimeoutError);
+  });
+
+  // Anti-stub: this must FAIL before the {timeout} option is honored.
+  it('with {timeout:true} swallows a plain TimeoutError (resolves)', async () => {
+    const nativePromise = Promise.reject(new TimeoutError());
+
+    const result = suppressCancel(nativePromise as any, { timeout: true });
+
+    await expect(result).resolves.toBe(undefined);
+  });
+
+  // A CancelError produced by a timeout-driven cancellation: cause is a TimeoutError, so
+  // `timedOut` is true and `aborted` is false. Proves the getters are independent.
+  it('a CancelError caused by a timeout has timedOut true and aborted false', () => {
+    const cancelError = new CancelError(undefined, { cause: new TimeoutError() });
+
+    expect(cancelError.timedOut).toBe(true);
+    expect(cancelError.aborted).toBe(false);
+    expect(suppressCancel(cancelError, { timeout: true })).toBe(undefined);
+  });
+
+  // The two options are independent: {abort} must not widen to TimeoutError, and {timeout}
+  // must not widen to AbortError.
+  it('{abort:true} does not swallow a TimeoutError', () => {
+    const error = new TimeoutError();
+
+    expect(() => suppressCancel(error, { abort: true })).toThrow(error);
+  });
+
+  it('{timeout:true} does not swallow an AbortError', () => {
+    const error = new AbortError();
+
+    expect(() => suppressCancel(error, { timeout: true })).toThrow(error);
+  });
+
+  // Bare-error overload equivalent of the {timeout} pair above.
+  it('bare-error form: throws a plain TimeoutError without the timeout option', () => {
+    const error = new TimeoutError();
+
+    expect(() => suppressCancel(error)).toThrow(error);
+  });
+
+  it('bare-error form: with {timeout:true} returns void instead of throwing', () => {
+    const error = new TimeoutError();
+
+    expect(suppressCancel(error, { timeout: true })).toBe(undefined);
   });
 });
 
