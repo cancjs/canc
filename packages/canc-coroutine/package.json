@@ -50,7 +50,7 @@
   "files": ["dist"],
   "keywords": ["async", "await", "generator", "cancelable"],
   "devDependencies": {
-    "@cancjs/promise": "0.0.0"
+    "@cancjs/promise": "*"
   },
   "peerDependencies": {
     "@cancjs/promise": ">=1.0.0"
