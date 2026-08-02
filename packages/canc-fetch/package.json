@@ -11,13 +11,16 @@
   "homepage": "https://github.com/cancjs/canc/tree/master/packages/canc-fetch#readme",
   "bugs": "https://github.com/cancjs/canc/issues",
   "author": "bisubus",
+  "type": "commonjs",
   "exports": {
     ".": {
       "import": {
+        "types@<4.7": "./dist/types-ts4.2/index.d.mts",
         "types": "./dist/types/index.d.mts",
         "default": "./dist/index.mjs"
       },
       "require": {
+        "types@<4.7": "./dist/types-ts4.2/index.d.ts",
         "types": "./dist/types/index.d.ts",
         "default": "./dist/index.cjs"
       }
@@ -35,7 +38,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "rimraf dist && rollup --config ./rollup.config.js",
+    "build": "rimraf dist && rollup --config ./rollup.config.mjs",
     "check": "tsc --noEmit --project ./tsconfig.prod.json",
     "format:src": "eslint --fix ./src",
     "format": "eslint --fix .",
@@ -53,5 +56,10 @@
     "@cancjs/promise": ">=1.0.0"
   },
   "unpkg": "dist/index.umd.min.js",
-  "jsdelivr": "dist/index.umd.min.js"
+  "jsdelivr": "dist/index.umd.min.js",
+  "typesVersions": {
+    "<4.7": {
+      "dist/types/*": ["dist/types-ts4.2/*"]
+    }
+  }
 }

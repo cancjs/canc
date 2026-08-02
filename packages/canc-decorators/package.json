@@ -11,33 +11,40 @@
   "homepage": "https://github.com/cancjs/canc/tree/master/packages/canc-decorators#readme",
   "bugs": "https://github.com/cancjs/canc/issues",
   "author": "bisubus",
+  "type": "commonjs",
   "exports": {
     ".": {
       "import": {
+        "types@<4.7": "./dist/types-ts4.2/index.d.mts",
         "types": "./dist/types/index.d.mts",
         "default": "./dist/index.mjs"
       },
       "require": {
+        "types@<4.7": "./dist/types-ts4.2/index.d.ts",
         "types": "./dist/types/index.d.ts",
         "default": "./dist/index.cjs"
       }
     },
     "./legacy": {
       "import": {
+        "types@<4.7": "./dist/types-ts4.2/legacy.d.mts",
         "types": "./dist/types/legacy.d.mts",
         "default": "./dist/legacy.mjs"
       },
       "require": {
+        "types@<4.7": "./dist/types-ts4.2/legacy.d.ts",
         "types": "./dist/types/legacy.d.ts",
         "default": "./dist/legacy.cjs"
       }
     },
     "./babel-legacy": {
       "import": {
+        "types@<4.7": "./dist/types-ts4.2/babel-legacy.d.mts",
         "types": "./dist/types/babel-legacy.d.mts",
         "default": "./dist/babel-legacy.mjs"
       },
       "require": {
+        "types@<4.7": "./dist/types-ts4.2/babel-legacy.d.ts",
         "types": "./dist/types/babel-legacy.d.ts",
         "default": "./dist/babel-legacy.cjs"
       }
@@ -55,7 +62,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "rimraf dist && rollup --config ./rollup.config.js",
+    "build": "rimraf dist && rollup --config ./rollup.config.mjs",
     "check": "tsc --noEmit --project ./tsconfig.prod.json",
     "check:stage3": "tsc --noEmit --project ./tsconfig.stage3.json",
     "check:legacy": "tsc --noEmit --project ./tsconfig.legacy.json",
@@ -86,6 +93,9 @@
   "unpkg": "dist/index.umd.min.js",
   "jsdelivr": "dist/index.umd.min.js",
   "typesVersions": {
+    "<4.7": {
+      "dist/types/*": ["dist/types-ts4.2/*"]
+    },
     "*": {
       "legacy": ["dist/types/legacy.d.ts"],
       "babel-legacy": ["dist/types/babel-legacy.d.ts"]
