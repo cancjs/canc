@@ -31,24 +31,6 @@ export const isGenerator = (value: any): value is Generator => {
 export const isCancelable = (obj: any): obj is ICancelable =>
   isThenable(obj) && isFunction((obj as Partial<ICancelable>).cancel);
 
-// Feature-detect native AggregateError (missing in older engines, e.g. pre-2021 QuickJS/Hermes);
-// fall back to a plain Error shaped the same way (name + errors property) so callers can rely on
-// a consistent shape regardless of global availability.
-declare const AggregateError: (new (errors: Iterable<any>, message?: string) => Error & { errors: any[] }) | undefined;
-
-export function createAggregateError(errors: any[], message?: string): Error & { errors: any[] } {
-  if (typeof AggregateError === 'function') {
-    return new AggregateError(errors, message);
-  }
-
-  const error = new Error(message) as Error & { errors: any[] };
-
-  error.name = 'AggregateError';
-  error.errors = errors;
-
-  return error;
-}
-
 // A method decorator that replaces the method with a wrapper (coroutine or bound fn) hands back a
 // brand-new function object. Metadata and properties another decorator attached to the ORIGINAL
 // function are keyed on that function's identity and would be lost on the wrapper. Copy them over
@@ -120,3 +102,7 @@ export const isStage3Context = (value: any): value is { kind: string } =>
 // tell that a babel-legacy-shaped descriptor was handed to a TS-legacy decorator.
 export const isBabelLegacyDescriptor = (descriptor: any): boolean =>
   isObject(descriptor) && 'initializer' in descriptor;
+
+// Last: the error module reads `isObject` back from here, and re-exporting it only once the
+// declarations above are in place keeps that load order safe.
+export * from './errors';

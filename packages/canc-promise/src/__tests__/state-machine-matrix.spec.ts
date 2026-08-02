@@ -541,6 +541,11 @@ describe('state machine matrix', () => {
       compile(path.join(srcRoot, 'src', 'helpers.ts'), 'helpers.js');
       compile(path.join(srcRoot, 'src', 'cancelable-promise.ts'), 'cancelable-promise.js');
       compile(path.join(utilRoot, 'index.ts'), '_util.js');
+      compile(path.join(utilRoot, 'errors.ts'), 'errors.js');
+      // The flattening above keys every module on its basename, so the shared util lands as
+      // `_util.js` while its own siblings still require it as `./index`. One re-export file keeps
+      // that a single module instance instead of a second copy.
+      fs.writeFileSync(path.join(tmpDir, 'index.js'), "module.exports = require('./_util');\n");
 
       const probe = `
 				const { CancelablePromise } = require(${JSON.stringify(path.join(tmpDir, 'cancelable-promise.js'))});
