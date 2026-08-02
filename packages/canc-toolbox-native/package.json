@@ -1,6 +1,6 @@
 {
   "name": "@cancjs/toolbox-native",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Promise timing/retry on native Promise (no cancellation).",
   "license": "MIT",
   "repository": {

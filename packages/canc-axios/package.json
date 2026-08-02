@@ -1,6 +1,6 @@
 {
   "name": "@cancjs/axios",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Cancelable promise adapter for axios.",
   "license": "MIT",
   "repository": {

@@ -1,6 +1,6 @@
 {
   "name": "@cancjs/coroutine",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Cancelable generator-based drop-in replacements for async/await and async iterators.",
   "license": "MIT",
   "repository": {

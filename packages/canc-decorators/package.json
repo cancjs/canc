@@ -1,6 +1,6 @@
 {
   "name": "@cancjs/decorators",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Class method decorators for cancelable coroutines.",
   "license": "MIT",
   "repository": {

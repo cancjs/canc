@@ -1,6 +1,6 @@
 {
   "name": "@cancjs/toolbox",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Cancelable promise utilities: delay, timeout, defer, waitFor, retry, minDelay.",
   "license": "MIT",
   "repository": {
