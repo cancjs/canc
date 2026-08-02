@@ -142,6 +142,12 @@ plain `AbortError`, and `suppress(promise, { abort: true })` is the same thing s
 }
 ```
 
+`createSuppressError` and `createCatchError`, re-exported from
+[`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise#ending-a-cancelable-flow),
+compile a fixed set of expected errors once:
+`createSuppressError(CancelError, isAbortError, isTimeoutError, 'RetryError')` swallows all four
+kinds and rethrows anything else.
+
 ### Retry and polling
 
 `retry` takes a function of the attempt number, so the attempt itself can vary, and backs off
@@ -252,7 +258,8 @@ floor on success, not a timer. Pick the one that matches what a failure should d
 
 ### Errors
 
-`AbortError`, `isAbortError(error)`, `TimeoutError`, `isTimeoutError(error)`.
+`AbortError`, `isAbortError(error)`, `TimeoutError`, `isTimeoutError(error)`, `AggregateError`,
+`isAggregateError(error)`, `createSuppressError(...matchers)`, `createCatchError(...matchers)`.
 
 ## Compatibility
 
