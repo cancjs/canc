@@ -15,6 +15,17 @@ function spiedThenable(value: number) {
 // an implementation detail of detection, and the key itself is what has to stay stable.
 const LAZY_PROMISE_BRAND = Symbol.for('@cancjs/toolbox:LazyPromise');
 
+// Zero-dependency twin: no import from `@cancjs/promise`, so the name checks are inlined rather
+// than reusing `isAbortError`/`isCancelError` from that package. Same convention already
+// duplicated in `abort-signal.spec.ts` and `canc-toolbox/src/abort.ts`.
+function isAbortErrorLike(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && (error as { name?: unknown }).name === 'AbortError';
+}
+
+function isCancelErrorLike(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && (error as { name?: unknown }).name === 'CancelError';
+}
+
 describe('LazyPromise', () => {
   describe('laziness', () => {
     it('does not run the executor until first subscription', async () => {
@@ -398,6 +409,127 @@ describe('LazyPromise', () => {
 
     it('returns undefined', () => {
       expect(LazyPromise.try(() => 1).execute()).toBeUndefined();
+    });
+  });
+
+  describe('options.signal', () => {
+    it('a pre-aborted signal means the executor never runs and a later subscription rejects with the reason', async () => {
+      const controller = new AbortController();
+      controller.abort();
+      const work = jest.fn(() => 42);
+
+      const p = lazy<number>((resolve) => resolve(work()), { signal: controller.signal });
+
+      expect(work).not.toHaveBeenCalled();
+
+      const error = await p.catch((e: unknown) => e);
+
+      expect(error).toBe(controller.signal.reason);
+      expect(isAbortErrorLike(error)).toBe(true);
+      expect(isCancelErrorLike(error)).toBe(false);
+      expect(work).not.toHaveBeenCalled();
+    });
+
+    it('aborting while running rejects with the reason and runs a teardown registered via handleCancel', async () => {
+      const controller = new AbortController();
+      const teardown = jest.fn();
+
+      const p = lazy<number>(
+        (_resolve, _reject, handleCancel) => {
+          handleCancel(teardown);
+        },
+        { signal: controller.signal },
+      );
+
+      const pending = p.catch((e: unknown) => e);
+      expect(p.started).toBe(true);
+
+      controller.abort();
+
+      const error = await pending;
+
+      expect(error).toBe(controller.signal.reason);
+      expect(isAbortErrorLike(error)).toBe(true);
+      expect(isCancelErrorLike(error)).toBe(false);
+      expect(teardown).toHaveBeenCalledTimes(1);
+      expect(teardown).toHaveBeenCalledWith(controller.signal.reason);
+    });
+
+    it('aborting while running rejects with the reason and runs a teardown returned by the executor', async () => {
+      const controller = new AbortController();
+      const teardown = jest.fn();
+
+      const p = lazy<number>(() => teardown, { signal: controller.signal });
+
+      const pending = p.catch((e: unknown) => e);
+      expect(p.started).toBe(true);
+
+      controller.abort();
+
+      const error = await pending;
+
+      expect(error).toBe(controller.signal.reason);
+      expect(teardown).toHaveBeenCalledTimes(1);
+      expect(teardown).toHaveBeenCalledWith(controller.signal.reason);
+    });
+
+    it('does not stop underlying work already in flight, only the waiting for it', async () => {
+      const controller = new AbortController();
+      let workRan = false;
+
+      const p = lazy<number>(
+        (resolve) => {
+          setTimeout(() => {
+            workRan = true;
+            resolve(1);
+          }, 0);
+        },
+        { signal: controller.signal },
+      );
+
+      const pending = p.catch((e: unknown) => e);
+      expect(p.started).toBe(true);
+
+      controller.abort();
+
+      const error = await pending;
+      expect(error).toBe(controller.signal.reason);
+      expect(workRan).toBe(false);
+
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(workRan).toBe(true);
+    });
+
+    it('removes the abort listener once the lazy settles normally', async () => {
+      const controller = new AbortController();
+      const removeSpy = jest.spyOn(controller.signal, 'removeEventListener');
+
+      const p = lazy<number>((resolve) => resolve(1), { signal: controller.signal });
+
+      expect(await p).toBe(1);
+      expect(removeSpy).toHaveBeenCalledWith('abort', expect.any(Function));
+    });
+
+    it('removes the abort listener once the lazy settles via abort, so a reused signal does not accumulate listeners', async () => {
+      const controller = new AbortController();
+      const removeSpy = jest.spyOn(controller.signal, 'removeEventListener');
+
+      const p = lazy<number>(() => undefined, { signal: controller.signal });
+      const pending = p.catch(() => undefined);
+
+      controller.abort();
+      await pending;
+
+      expect(removeSpy).toHaveBeenCalledWith('abort', expect.any(Function));
+    });
+
+    it('with no signal, behavior is unchanged: resolves like a plain lazy', async () => {
+      const work = jest.fn(() => 42);
+      const p = lazy<number>((resolve) => resolve(work()), {});
+
+      expect(work).not.toHaveBeenCalled();
+      expect(await p).toBe(42);
+      expect(work).toHaveBeenCalledTimes(1);
     });
   });
 });

@@ -1,14 +1,18 @@
-import { TPromiseCtor } from '../construct';
+import { IAbortSignalOptions, withAbortSignal } from '../abort-signal';
+import { TExecutorCtx, TPromiseCtor } from '../construct';
 import { isFunction } from '../guards';
 import { ILazyWithResolvers, LazyBase, TLazyExecutor } from './lazy-base';
 
 export type { TLazyExecutor, TLazyOnCancel } from './lazy-base';
 
 /**
- * Reserved for parity with the cancelable flavor's options bag. The native lazy promise takes no
- * options today; this type exists so call sites can be written generically across both toolboxes.
+ * The native lazy promise has no `cancel()`, so an `AbortSignal` is its only cancellation surface.
+ * Abort before the first subscription means the executor never runs; abort while running rejects
+ * with the signal's own `reason` (never a `CancelError` - this flavor has no cancellation
+ * semantics of its own to fake) and runs any registered teardown. The underlying work itself is
+ * never stopped, only the waiting for it.
  */
-export type ILazyPromiseOptions = Record<string, never>;
+export type ILazyPromiseOptions = IAbortSignalOptions;
 
 // Captured once at module load per the native-Promise capture invariant; never re-read the
 // global afterward.
@@ -39,8 +43,49 @@ export class LazyPromise<T = any> extends LazyBase<T> {
   declare static any: <V>(values: Iterable<V | PromiseLike<V>>, options?: ILazyPromiseOptions) => LazyPromise<V>;
   declare static race: <V>(values: Iterable<V | PromiseLike<V>>, options?: ILazyPromiseOptions) => LazyPromise<V>;
 
+  declare protected _options?: ILazyPromiseOptions;
+
+  /**
+   * With no signal, this is a pure passthrough to the native `Promise`, byte-identical to before
+   * this option existed. With a signal, `_start()` calls `new Impl(executor)` with no second
+   * argument (unlike every other toolbox helper, which forwards options through `construct()`), so
+   * the signal has to be bound here via closure instead of relying on it being forwarded.
+   *
+   * `ctx.handleCancel` from the shared wrapper is threaded to a callback of our own, ahead of the
+   * lazy's own executor, so `this._teardowns` (populated by `_start()` from the executor's RETURN
+   * value regardless of a signal being present) also runs on abort - the same two-teardown-forms
+   * coverage the cancelable flavor's `cancel()` gives, just triggered by the signal instead.
+   */
   protected _resolveImpl(): TPromiseCtor {
-    return NativePromise as unknown as TPromiseCtor;
+    const options = this._options;
+
+    if (!options?.signal) {
+      return NativePromise as unknown as TPromiseCtor;
+    }
+
+    const AbortAwareCtor = withAbortSignal(NativePromise as unknown as TPromiseCtor);
+    const runTeardowns = this._runTeardowns.bind(this);
+
+    type TInnerExecutor = (resolve: (value: any) => void, reject: (reason?: any) => void, ctx?: TExecutorCtx) => void;
+
+    function AbortAwareLazyCtor(executor: TInnerExecutor): PromiseLike<any> {
+      return new (AbortAwareCtor as unknown as new (executor: TInnerExecutor, options?: object) => PromiseLike<any>)(
+        (resolve, reject, ctx) => {
+          if (ctx) {
+            ctx.handleCancel((reason?: unknown) => runTeardowns(reason));
+          }
+
+          executor(resolve, reject, ctx);
+        },
+        options,
+      );
+    }
+
+    (AbortAwareLazyCtor as unknown as { resolve: TPromiseCtor['resolve'] }).resolve = (
+      AbortAwareCtor as unknown as { resolve: TPromiseCtor['resolve'] }
+    ).resolve;
+
+    return AbortAwareLazyCtor as unknown as TPromiseCtor;
   }
 }
 
