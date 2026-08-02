@@ -72,36 +72,7 @@ function wireCancelInput(ctx: TExecutorCtx | undefined, promise: unknown): void 
   });
 }
 
-/**
- * Bind catch-shaped matching to one promise implementation: a matched rejection (see
- * `isCaught`) resolves WITH the error instead of rejecting; a fulfilled input passes through
- * unchanged; anything unmatched keeps rejecting. No toolbox package binds this to a public name
- * today (only `suppressFactory`'s product is, as `suppress`/`suppressAbort`); it exists as the
- * shared algorithm `suppressFactory` is built from, mirroring the split between core's
- * `catchCancel` and `suppressCancel`.
- */
-export function catchFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IToolboxDeps<K>) {
-  return function catchMatched<T>(promise: T | PromiseLike<T>, options?: ISuppressOptions): TPromiseOf<K, T> {
-    return construct<T, K>(
-      deps.Impl,
-      (resolve, reject, ctx?: TExecutorCtx) => {
-        deps.Impl.resolve(promise).then(
-          (value: T) => resolve(value),
-          (reason: any) => {
-            if (isCaught(reason, options)) {
-              resolve(reason);
-            } else {
-              reject(reason);
-            }
-          },
-        );
 
-        wireCancelInput(ctx, promise);
-      },
-      options,
-    );
-  };
-}
 
 /**
  * Bind `suppress` to one promise implementation. A matched rejection (see `isCaught`) resolves to

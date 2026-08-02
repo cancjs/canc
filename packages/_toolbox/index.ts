@@ -19,7 +19,7 @@ export {
   TCallbackFn,
 } from './promisify';
 export { IRetryOptions, retryFactory } from './retry';
-export { catchFactory, ISuppressOptions, suppressFactory } from './suppress';
+export { ISuppressOptions, suppressFactory } from './suppress';
 export { IThrottled, IThrottleOptions, throttleFactory } from './throttle';
 export { isTimeoutError, TimeoutError, timeoutFactory } from './timeout';
 export { ITimers, MAX_TIMEOUT, startTimer, stopTimer } from './timers';
