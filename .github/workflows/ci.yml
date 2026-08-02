@@ -62,6 +62,26 @@ jobs:
       - run: npm ci
       - run: npm run test --workspace=@cancjs/decorators
 
+  shared-dir-changesets:
+    # packages/_util, _toolbox (and any future packages/_* dir with no package.json) have no
+    # manifest, so changesets cannot see them, yet their bytes are bundled into every importing
+    # package's published output. Requires a changeset covering every importer whenever a PR
+    # touches one of those dirs.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+      - run: npm ci
+      - run: node scripts/check-shared-dir-changesets.js
+        env:
+          GITHUB_BASE_REF: ${{ github.event.pull_request.base.ref }}
+
   ts-version-matrix:
     # Type-checks fixture projects that import the BUILT @cancjs/*
     # packages against a matrix of pinned TypeScript versions (floor 4.2 .. latest).
