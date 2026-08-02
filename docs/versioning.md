@@ -45,7 +45,7 @@ minor.
 
 ## Compatibility floors
 
-The Node.js and TypeScript requirements are stated as floors, not ranges: `node >=22`, TypeScript
+The Node.js and TypeScript requirements are stated as floors, not ranges: `node >=18`, TypeScript
 4.2 and later. Neither has an upper bound. A floor moves only when a package genuinely starts
 depending on something newer, and raising a floor in a published package is itself a major
 release, since it can break an install that worked the day before.
