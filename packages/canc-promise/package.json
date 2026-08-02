@@ -31,7 +31,7 @@
   "types": "dist/types/index.d.ts",
   "sideEffects": false,
   "engines": {
-    "node": ">=22",
+    "node": ">=18",
     "npm": ">=9"
   },
   "publishConfig": {
