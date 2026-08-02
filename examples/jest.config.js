@@ -26,7 +26,7 @@ const splicedProjects = multiProjectConfigs.flatMap((dir) =>
 const multiProjectPaths = multiProjectConfigs.map((dir) => `${dir}/jest.config.js`);
 const ownConfigs = glob
   .sync('*/jest.config.js', { cwd: __dirname })
-  .filter((p) => !multiProjectPaths.includes(p.split(path.sep).join('/')))
+  .filter((p) => !p.includes('~~') && !multiProjectPaths.includes(p.split(path.sep).join('/')))
   .map((p) => path.join('<rootDir>', p));
 
 module.exports = {

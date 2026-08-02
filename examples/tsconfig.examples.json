@@ -24,7 +24,7 @@
  "~~legacy examples/**",
  "app-vue-pinia/**",
  "app-vue-suspense/**",
- "app-react-mobx/**",
+ "~~app-react-mobx/**",
  "app-react/**",
  "app-react-suspense/**",
  "app-express-kysely/**",
