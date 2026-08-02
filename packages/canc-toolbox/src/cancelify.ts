@@ -1,8 +1,8 @@
-import { CancelablePromise, CancelError, isCancelError } from '@cancjs/promise';
+import { CancelablePromise, CancelError, ICancelablePromiseOptions, isCancelError } from '@cancjs/promise';
 
 import { makeCancelSignal, TGetSignal } from '../../_toolbox';
 import { setFnName } from '../../_util';
-import { IExecutorCtx, IToolboxOptions, THandleCancel } from './options';
+import { IExecutorCtx, THandleCancel } from './options';
 
 /** Structural AbortController, so no dependency on the ambient DOM/Node type in envs that polyfill it. */
 type AbortControllerCtor = new () => { abort(reason?: any): void; signal: any };
@@ -31,7 +31,7 @@ export interface ICancelifyContext {
   handleCancel: THandleCancel;
 }
 
-export interface ICancelifyOptions extends IToolboxOptions {
+export interface ICancelifyOptions extends ICancelablePromiseOptions {
   /** AbortController implementation used to mint the outbound signal. Defaults to the ambient global. */
   AbortController?: AbortControllerCtor;
   /** Overrides the generated `cancelify: <name>` displayName verbatim. */

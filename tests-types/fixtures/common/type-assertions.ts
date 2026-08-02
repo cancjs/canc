@@ -132,4 +132,10 @@ void opts;
 // @ts-expect-error unknown option key is rejected by excess-property checking
 const _badOpts: ICancelablePromiseFlagOptions = { notAnOption: true };
 
+// cancelify does not accept lazy option
+import { cancelify } from '@cancjs/toolbox';
+// @ts-expect-error cancelify omits the lazy option
+const _cancelifyProbe = cancelify(() => 1, { lazy: true });
+void _cancelifyProbe;
+
 export {};

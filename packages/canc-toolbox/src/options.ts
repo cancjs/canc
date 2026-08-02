@@ -12,7 +12,8 @@ export interface IToolboxOptions extends ICancelablePromiseOptions {
   /**
    * Defer starting the work (the timer, the retry attempt, the poll, the callback invocation...)
    * until the first `then`/`catch`/`finally`/`await`. Supported by `delay`, `timeout`, `retry`,
-   * `waitFor` and `promisify`; `minDelay`, `defer`, `debounce` and `throttle` do not read it.
+   * `waitFor` and `promisify`; `minDelay`, `defer`, `debounce` and `throttle` do not read it,
+   * while `cancelify` omits it from its options type.
    *
    * Laziness is NOT contagious: `delay(1000, { lazy: true }).then(f)` starts the timer at the
    * `.then` call, it does not defer `f` past anything further.
