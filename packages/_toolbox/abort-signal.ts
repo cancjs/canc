@@ -1,4 +1,4 @@
-import { TExecutor, TExecutorCtx, TPromiseCtor } from './construct';
+import { IExecutorCtx, TExecutor, TPromiseCtor } from './construct';
 import { isObjectLike } from './guards';
 
 /**
@@ -91,7 +91,7 @@ export function withAbortSignal(Ctor: TPromiseCtor): TPromiseCtor {
       // Threaded through to the executor as its third argument, so any per-helper
       // `ctx.handleCancel(...)` cleanup written for the cancelable case (stop a pending timer,
       // cancel an eager cancelable input) also fires here on abort.
-      const ctx: TExecutorCtx = {
+      const ctx: IExecutorCtx = {
         handleCancel: (onCancel: (reason?: unknown) => void) => {
           cancelHandlers.push(onCancel);
         },

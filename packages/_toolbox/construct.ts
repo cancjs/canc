@@ -8,7 +8,7 @@ import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
  * concrete promise package.
  */
 export type TPromiseCtor = (new (
-  executor: (resolve: (value: any) => void, reject: (reason?: any) => void, ctx?: TExecutorCtx) => void,
+  executor: (resolve: (value: any) => void, reject: (reason?: any) => void, ctx?: IExecutorCtx) => void,
   options?: object,
 ) => PromiseLike<any> & { cancelable?: boolean }) & {
   resolve<T>(value: T | PromiseLike<T>): PromiseLike<T>;
@@ -24,8 +24,11 @@ export type THandleCancel = (onCancel: () => void) => void;
 /**
  * The executor context object shape. Cancelable implementations provide this as the executor's
  * third argument; native Promise provides nothing (undefined).
+ *
+ * Note: `@cancjs/promise` provides the fuller `IExecutorContext<T>` type with concrete return
+ * types, while this `IExecutorCtx` is a minimal structural interface suitable for toolbox algorithms.
  */
-export interface TExecutorCtx {
+export interface IExecutorCtx {
   handleCancel: THandleCancel;
   getSignal?: () => any;
 }
@@ -38,7 +41,7 @@ export interface TExecutorCtx {
 export type TExecutor<T> = (
   resolve: (value: T | PromiseLike<T>) => void,
   reject: (reason?: any) => void,
-  ctx?: TExecutorCtx,
+  ctx?: IExecutorCtx,
 ) => void;
 
 /**

@@ -1,4 +1,4 @@
-import { TExecutorCtx } from './construct';
+import { IExecutorCtx } from './construct';
 import { constructTimed } from './construct-timed';
 import { IToolboxDeps } from './deps';
 import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
@@ -38,7 +38,7 @@ export function retryFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
 
     return constructTimed<T, K>(
       deps,
-      (resolve, reject, ctx?: TExecutorCtx) => {
+      (resolve, reject, ctx?: IExecutorCtx) => {
         let canceled = false;
         let backoffId: unknown;
 

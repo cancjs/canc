@@ -1,5 +1,5 @@
 import { isAbortError, isTimeoutError } from '../_util';
-import { construct, TExecutorCtx } from './construct';
+import { construct, IExecutorCtx } from './construct';
 import { IToolboxDeps } from './deps';
 import { isCancelableLike, isCancelErrorLike, isObjectLike } from './guards';
 import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
@@ -58,7 +58,7 @@ function isCaught(reason: unknown, options: ISuppressOptions | undefined): boole
   return false;
 }
 
-function wireCancelInput(ctx: TExecutorCtx | undefined, promise: unknown): void {
+function wireCancelInput(ctx: IExecutorCtx | undefined, promise: unknown): void {
   // Inert on the native flavor: a native Promise executor is invoked with no third argument, so
   // ctx is undefined there and this never registers anything - the same degradation every other
   // native-twin toolbox helper already documents. The cancelable flavor propagates an outer
@@ -71,8 +71,6 @@ function wireCancelInput(ctx: TExecutorCtx | undefined, promise: unknown): void 
     }
   });
 }
-
-
 
 /**
  * Bind `suppress` to one promise implementation. A matched rejection (see `isCaught`) resolves to
@@ -87,7 +85,7 @@ export function suppressFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
   return function suppress<T>(promise: T | PromiseLike<T>, options?: ISuppressOptions): TPromiseOf<K, T | void> {
     return construct<T | void, K>(
       deps.Impl,
-      (resolve, reject, ctx?: TExecutorCtx) => {
+      (resolve, reject, ctx?: IExecutorCtx) => {
         deps.Impl.resolve(promise).then(
           (value: T) => resolve(value),
           (reason: any) => {

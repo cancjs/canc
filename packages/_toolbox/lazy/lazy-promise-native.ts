@@ -1,5 +1,5 @@
 import { IAbortSignalOptions, withAbortSignal } from '../abort-signal';
-import { TExecutorCtx, TPromiseCtor } from '../construct';
+import { IExecutorCtx, TPromiseCtor } from '../construct';
 import { isFunction } from '../guards';
 import { ILazyWithResolvers, LazyBase, TLazyExecutor } from './lazy-base';
 
@@ -66,7 +66,7 @@ export class LazyPromise<T = any> extends LazyBase<T> {
     const AbortAwareCtor = withAbortSignal(NativePromise as unknown as TPromiseCtor);
     const runTeardowns = this._runTeardowns.bind(this);
 
-    type TInnerExecutor = (resolve: (value: any) => void, reject: (reason?: any) => void, ctx?: TExecutorCtx) => void;
+    type TInnerExecutor = (resolve: (value: any) => void, reject: (reason?: any) => void, ctx?: IExecutorCtx) => void;
 
     function AbortAwareLazyCtor(executor: TInnerExecutor): PromiseLike<any> {
       return new (AbortAwareCtor as unknown as new (executor: TInnerExecutor, options?: object) => PromiseLike<any>)(

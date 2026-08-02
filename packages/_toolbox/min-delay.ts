@@ -1,4 +1,4 @@
-import { construct, TExecutorCtx } from './construct';
+import { construct, IExecutorCtx } from './construct';
 import { IToolboxDeps } from './deps';
 import { isDurationShaped, resolveDuration, TDuration } from './duration';
 import { IEagerSource, startInput, TTimedInput } from './input';
@@ -34,7 +34,7 @@ export function minDelayFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
 
     return construct<T, K>(
       deps.Impl,
-      (resolve, reject, ctx?: TExecutorCtx) => {
+      (resolve, reject, ctx?: IExecutorCtx) => {
         let started: IEagerSource<T>;
 
         try {

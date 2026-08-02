@@ -1,5 +1,5 @@
 import { isTimeoutError, TimeoutError } from '../_util';
-import { TExecutorCtx } from './construct';
+import { IExecutorCtx } from './construct';
 import { constructTimed } from './construct-timed';
 import { IToolboxDeps } from './deps';
 import { parseTimedArgs, resolveDuration, TDuration } from './duration';
@@ -40,7 +40,7 @@ export function timeoutFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: 
     // native Promise the context is undefined and the timer simply runs to completion.
     return constructTimed<T, K>(
       deps,
-      (resolve, reject, ctx?: TExecutorCtx) => {
+      (resolve, reject, ctx?: IExecutorCtx) => {
         let settled = false;
         let started: IEagerSource<T> | undefined;
 

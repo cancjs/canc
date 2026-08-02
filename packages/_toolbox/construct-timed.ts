@@ -1,4 +1,4 @@
-import { construct, TExecutor, TExecutorCtx } from './construct';
+import { construct, IExecutorCtx, TExecutor } from './construct';
 import { IToolboxDeps } from './deps';
 import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
 
@@ -71,7 +71,7 @@ class ToolboxLazy<T> implements PromiseLike<T> {
     if (!this._canceledResult) {
       const inert = construct<T>(
         this._Impl,
-        (_resolve, _reject, ctx?: TExecutorCtx) => {
+        (_resolve, _reject, ctx?: IExecutorCtx) => {
           ctx?.handleCancel(() => {});
         },
         this._options,

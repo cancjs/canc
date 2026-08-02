@@ -1,4 +1,4 @@
-import { TExecutorCtx } from './construct';
+import { IExecutorCtx } from './construct';
 import { constructTimed } from './construct-timed';
 import { IToolboxDeps } from './deps';
 import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
@@ -28,7 +28,7 @@ export function waitForFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: 
 
     return constructTimed<void, K>(
       deps,
-      (resolve, reject, ctx?: TExecutorCtx) => {
+      (resolve, reject, ctx?: IExecutorCtx) => {
         let timerId: unknown;
         let deadlineId: unknown;
         let settled = false;

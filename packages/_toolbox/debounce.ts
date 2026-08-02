@@ -1,4 +1,4 @@
-import { construct, TExecutorCtx, TPromiseCtor } from './construct';
+import { construct, IExecutorCtx, TPromiseCtor } from './construct';
 import { isCancelableLike, isThenableLike } from './guards';
 
 export interface IDebounceOptions {
@@ -103,7 +103,7 @@ export function debounceFactory(deps: IDebounceDeps) {
     function makePromise(): PromiseLike<R> {
       const p = construct<R>(
         deps.Impl,
-        function (resolve, reject, ctx?: TExecutorCtx) {
+        function (resolve, reject, ctx?: IExecutorCtx) {
           pendingResolve = resolve;
           pendingReject = reject;
 

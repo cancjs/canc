@@ -1,6 +1,6 @@
 import { setFnName } from '../_util';
 import { makeCancelSignal, TGetSignal } from './cancel-signal';
-import { TExecutorCtx } from './construct';
+import { IExecutorCtx } from './construct';
 import { constructTimed } from './construct-timed';
 import { IToolboxDeps, TAbortControllerCtor } from './deps';
 import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
@@ -101,7 +101,7 @@ export function promisifyFactory<K extends IPromiseKind = IPromiseLikeKind>(deps
 
     const wrapped = function (this: unknown, ...callArgs: any[]): TPromiseOf<K, any> {
       // `run` is an arrow, so it keeps this function's receiver without aliasing it.
-      const run = (resolve: (value: any) => void, reject: (reason?: any) => void, ctx?: TExecutorCtx) => {
+      const run = (resolve: (value: any) => void, reject: (reason?: any) => void, ctx?: IExecutorCtx) => {
         // Custom impl short-circuits the callback path entirely: call it and adopt its promise.
         if (custom) {
           deps.Impl.resolve(custom.apply(this, callArgs)).then(resolve, reject);
