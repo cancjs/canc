@@ -8,7 +8,7 @@
     "url": "git+https://github.com/cancjs/canc.git",
     "directory": "packages/canc-axios"
   },
-  "homepage": "https://github.com/cancjs/canc/packages/canc-axios#readme",
+  "homepage": "https://github.com/cancjs/canc/tree/master/packages/canc-axios#readme",
   "bugs": "https://github.com/cancjs/canc/issues",
   "author": "bisubus",
   "exports": {

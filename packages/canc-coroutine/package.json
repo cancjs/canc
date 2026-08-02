@@ -8,7 +8,7 @@
     "url": "git+https://github.com/cancjs/canc.git",
     "directory": "packages/canc-coroutine"
   },
-  "homepage": "https://github.com/cancjs/canc/packages/canc-coroutine#readme",
+  "homepage": "https://github.com/cancjs/canc/tree/master/packages/canc-coroutine#readme",
   "bugs": "https://github.com/cancjs/canc/issues",
   "author": "bisubus",
   "type": "commonjs",

@@ -8,7 +8,7 @@
     "url": "git+https://github.com/cancjs/canc.git",
     "directory": "packages/canc-toolbox-native"
   },
-  "homepage": "https://github.com/cancjs/canc/packages/canc-toolbox-native#readme",
+  "homepage": "https://github.com/cancjs/canc/tree/master/packages/canc-toolbox-native#readme",
   "bugs": "https://github.com/cancjs/canc/issues",
   "author": "bisubus",
   "type": "commonjs",

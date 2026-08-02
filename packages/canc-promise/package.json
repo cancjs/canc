@@ -8,7 +8,7 @@
     "url": "git+https://github.com/cancjs/canc.git",
     "directory": "packages/canc-promise"
   },
-  "homepage": "https://github.com/cancjs/canc/packages/canc-promise#readme",
+  "homepage": "https://github.com/cancjs/canc/tree/master/packages/canc-promise#readme",
   "bugs": "https://github.com/cancjs/canc/issues",
   "author": "bisubus",
   "type": "commonjs",

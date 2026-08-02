@@ -8,7 +8,7 @@
     "url": "git+https://github.com/cancjs/canc.git",
     "directory": "packages/canc-decorators"
   },
-  "homepage": "https://github.com/cancjs/canc/packages/canc-decorators#readme",
+  "homepage": "https://github.com/cancjs/canc/tree/master/packages/canc-decorators#readme",
   "bugs": "https://github.com/cancjs/canc/issues",
   "author": "bisubus",
   "exports": {
