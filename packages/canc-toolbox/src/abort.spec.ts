@@ -1,4 +1,4 @@
-import { CancelablePromise, CancelError, isCancelError } from '@cancjs/promise';
+import { CancelablePromise, CancelError, isCancelError, TimeoutError } from '@cancjs/promise';
 
 import {
   AbortError,
@@ -88,6 +88,28 @@ describe('suppress', () => {
     const boom = new Error('boom');
     await expect(suppress(Promise.reject(boom))).rejects.toBe(boom);
     await expect(suppress(Promise.reject(boom), { abort: true })).rejects.toBe(boom);
+  });
+
+  it('does NOT swallow a bare TimeoutError by default', async () => {
+    const reason = new TimeoutError();
+    await expect(suppress(Promise.reject(reason))).rejects.toBe(reason);
+  });
+
+  it('swallows a bare TimeoutError under { timeout: true }', async () => {
+    await expect(suppress(Promise.reject(new TimeoutError()), { timeout: true })).resolves.toBeUndefined();
+  });
+
+  it('swallows a CancelError whose cause is a timeout under { timeout: true }', async () => {
+    const cancel = new CancelError(undefined, { cause: new TimeoutError() });
+    expect(cancel.timedOut).toBe(true);
+    await expect(suppress(Promise.reject(cancel), { timeout: true })).resolves.toBeUndefined();
+  });
+
+  it('{ abort: true } does not swallow a TimeoutError, and { timeout: true } does not swallow an AbortError', async () => {
+    const timeoutErr = new TimeoutError();
+    const abortErr = abortReason();
+    await expect(suppress(Promise.reject(timeoutErr), { abort: true })).rejects.toBe(timeoutErr);
+    await expect(suppress(Promise.reject(abortErr), { timeout: true })).rejects.toBe(abortErr);
   });
 
   it('passes a fulfilled value through', async () => {

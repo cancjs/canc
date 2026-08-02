@@ -27,6 +27,20 @@ export function isCancelableLike(value: unknown): value is ICancelableLike {
 }
 
 /**
+ * Well-known registry brand for `@cancjs/promise`'s CancelError (`cancel-error.ts`). Checked here
+ * by the raw `Symbol.for` key rather than imported, so this module (and the native toolbox twin
+ * built from it) carries no runtime dependency on `@cancjs/promise`. The same rationale as every
+ * other guard in this file: cross-realm/cross-copy safe by construction, since the symbol resolves
+ * to the same value from any package copy.
+ */
+export const CANCEL_ERROR_BRAND = Symbol.for('@cancjs/promise:CancelError');
+
+/** Structural match for a CancelError-shaped rejection: carries the CancelError registry brand. */
+export function isCancelErrorLike(value: unknown): boolean {
+  return isObjectLike(value) && value[CANCEL_ERROR_BRAND] === true;
+}
+
+/**
  * Whether a time helper's input is a thunk. Any function counts: the helpers treat a function as
  * work that produces the value, never as the value itself, which is what makes `delay(() => job(),
  * 50)` and `timeout(fetchAll, 50)` read the same way.

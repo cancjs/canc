@@ -1,83 +1,36 @@
-import { CancelablePromise, ICancelable, isCancelError } from '@cancjs/promise';
+import { CancelablePromise } from '@cancjs/promise';
 
+import { ISuppressOptions, suppressFactory } from '../../_toolbox';
 import { AbortError, isAbortError } from '../../_util';
-import { IToolboxOptions, TExecutorCtx } from './options';
+import { deps } from './deps';
 
 // withSignal has no toolbox options and always returns a plain native promise, so there is no
 // resolved Impl to route through; capture the native constructor once at module load instead of
 // reading the live global on every call.
 const NativePromise = Promise;
 
-function isObject(value: unknown): value is object {
-  return typeof value === 'object' && value !== null;
-}
-
 export { AbortError, isAbortError };
+export type { ISuppressOptions };
 
 /**
- * Options recognized by {@link suppress}.
+ * Swallow a cancellation of `promise` and resolve to `undefined` instead, rethrowing anything
+ * else. By default only a CancelError-shaped rejection is swallowed; pass `{ abort: true }` to
+ * also swallow an AbortError, or `{ timeout: true }` to also swallow a TimeoutError. Resolves to
+ * the fulfilled value when the promise settles normally. Built through `suppressFactory`
+ * (`_toolbox/suppress.ts`) bound to `CancelablePromise`, so the returned promise is cancelable by
+ * default and canceling it propagates to a cancelable `promise`. `@cancjs/toolbox-native` binds
+ * the same factory to a plain native Promise, so the two flavors share one algorithm.
+ * `@cancjs/promise` ships an unrelated `suppressCancel` with the same matching logic (cancelable
+ * only, zero extra dependency); the overlap is deliberate, not a duplicate left behind by mistake.
  */
-export interface ISuppressOptions extends IToolboxOptions {
-  /**
-   * Also swallow an AbortError, whether it surfaced as a bare DOMException AbortError or as a
-   * CancelError whose abort drove the cancellation. Off by default: only a CancelError is swallowed.
-   */
-  abort?: boolean;
-}
+export const suppress = suppressFactory(deps);
 
 /**
- * Whether `reason` should be swallowed. A CancelError is always caught; an AbortError (bare, or a
- * CancelError whose `aborted` getter is true) is caught only when `abort` is set.
+ * Swallow both AbortError and CancelError-shaped rejections and rethrow everything else.
+ * Shorthand for `suppress(promise, { abort: true })`.
  */
-function isSuppressed(reason: unknown, abort: boolean | undefined): boolean {
-  if (isCancelError(reason)) {
-    return true;
-  }
-
-  return Boolean(abort && isAbortError(reason));
-}
-
-/**
- * Swallow a cancellation of `promise` and resolve to `undefined` instead, rethrowing anything else.
- * By default only a CancelError is swallowed; pass `{ abort: true }` to also swallow an AbortError.
- * Resolves to the fulfilled value when the promise settles normally. The returned promise is built
- * through the resolved implementation, so it is cancelable by default.
- */
-export function suppress<T>(promise: T | PromiseLike<T>, options?: ISuppressOptions): Promise<T | void> {
-  const abort = options?.abort;
-
-  return new CancelablePromise<T | void>((resolve, reject, ctx?: TExecutorCtx) => {
-    CancelablePromise.resolve(promise).then(
-      (value) => resolve(value),
-      (reason) => {
-        if (isSuppressed(reason, abort)) {
-          resolve(undefined);
-        } else {
-          reject(reason);
-        }
-      },
-    );
-
-    if (ctx) {
-      ctx.handleCancel(() => {
-        if (isCancelable(promise)) {
-          (promise as ICancelable).cancel();
-        }
-      });
-    }
-  }, options);
-}
-
-/**
- * Swallow both AbortError and CancelError rejections and rethrow everything else. Shorthand for
- * `suppress(promise, { abort: true })`.
- */
-export function suppressAbort<T>(promise: T | PromiseLike<T>, options?: IToolboxOptions): Promise<T | void> {
+export function suppressAbort<T>(promise: T | PromiseLike<T>, options?: ISuppressOptions): CancelablePromise<T | void> {
   return suppress(promise, { ...options, abort: true });
-}
-
-function isCancelable(value: unknown): value is ICancelable {
-  return isObject(value) && typeof (value as { cancel?: unknown }).cancel === 'function';
 }
 
 /**

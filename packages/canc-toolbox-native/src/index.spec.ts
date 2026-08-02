@@ -19,6 +19,8 @@ describe('index exports', () => {
         'promisify',
         'promisifyAll',
         'retry',
+        'suppress',
+        'suppressAbort',
         'throttle',
         'timeout',
         'waitFor',
