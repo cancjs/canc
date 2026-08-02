@@ -80,16 +80,36 @@ interface IPrototypeBrandEntry {
 }
 
 const PROTOTYPE_BRAND_ENTRIES: IPrototypeBrandEntry[] = [
-  { name: 'CancelError', brand: CANCEL_ERROR_BRAND, prototype: CancelError.prototype, makeInstance: () => new CancelError() },
+  {
+    name: 'CancelError',
+    brand: CANCEL_ERROR_BRAND,
+    prototype: CancelError.prototype,
+    makeInstance: () => new CancelError(),
+  },
   {
     name: 'CancelablePromise',
     brand: CANCEL_PROMISE_BRAND,
     prototype: CancelablePromise.prototype,
     makeInstance: () => CancelablePromise.resolve(1),
   },
-  { name: 'AbortError', brand: ABORT_ERROR_BRAND, prototype: AbortError.prototype, makeInstance: () => new AbortError() },
-  { name: 'TimeoutError', brand: TIMEOUT_ERROR_BRAND, prototype: TimeoutError.prototype, makeInstance: () => new TimeoutError() },
-  { name: 'BreakError', brand: Symbol.for('@cancjs/coroutine:BreakError'), prototype: BreakError.prototype, makeInstance: () => new BreakError() },
+  {
+    name: 'AbortError',
+    brand: ABORT_ERROR_BRAND,
+    prototype: AbortError.prototype,
+    makeInstance: () => new AbortError(),
+  },
+  {
+    name: 'TimeoutError',
+    brand: TIMEOUT_ERROR_BRAND,
+    prototype: TimeoutError.prototype,
+    makeInstance: () => new TimeoutError(),
+  },
+  {
+    name: 'BreakError',
+    brand: Symbol.for('@cancjs/coroutine:BreakError'),
+    prototype: BreakError.prototype,
+    makeInstance: () => new BreakError(),
+  },
 ];
 
 describe('brand scheme: brands live on the prototype, not the instance', () => {
