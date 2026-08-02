@@ -1,4 +1,9 @@
-import type { ICancelable } from '@cancjs/promise';
+// Structural only: the guard duck-types, it never compares constructors. Declaring the shape here
+// instead of importing it keeps this module free of any package reference, which is what lets the
+// zero-dependency toolbox twin ship its inlined copy without a dangling import.
+export interface ICancelable<T = any> extends PromiseLike<T> {
+  cancel: (reason?: any) => void;
+}
 
 // Any callable shape, where the arguments and the return really are not knowable: a method being
 // wrapped by a decorator, a user callback being forwarded verbatim. Use this instead of the bare

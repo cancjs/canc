@@ -4,5 +4,6 @@
     "outDir": "build",
     "rootDir": "../.."
   },
-  "include": ["src", "../_toolbox"]
+  "include": ["src", "../_toolbox"],
+  "exclude": ["../_toolbox/lazy/lazy-promise.ts"]
 }
