@@ -104,7 +104,7 @@ tripPromise.cancel();
 
 - **No all-round official solution**. [Native cancelable promises](https://github.com/tc39/proposal-cancelable-promises) were incompatible with ES6 promise semantics and have been abandoned. `AbortController` is the platform primitive for aborting operations, but it is a low-level signaling mechanism, not a cancellation model for promise chains. Propagation through layers, cleanup coordination and consumer tracking stay manual. `canc` can interoperate with `AbortSignal` but doesn't require it.
 
-- **Bluebird is no longer an option**. Bluebird has bulky stable API and has been largely superseded by ES promises, particularly due to `async`/`await`. Its [two-way cancellation](https://github.com/petkaantonov/bluebird/blob/master/docs/docs/api/cancellation.md) is disabled by default, leaves canceled promises unsettled instead of rejecting them, and the library is unmaintained.
+- **Bluebird is no longer an option**. Bluebird has bulky stable API and has been largely superseded by ES promises. Its [two-way cancellation](https://github.com/petkaantonov/bluebird/blob/master/docs/docs/api/cancellation.md) is disabled by default, leaves canceled promises unsettled instead of rejecting them, and the library is unmaintained.
 
 - **Observables aren't a magic bullet**. Observables can provide a superset of promise features, including cancellation. [RxJS](https://github.com/ReactiveX/rxjs) is the established implementation, with a notoriously complex API surface. There is no `async`/`await` equivalent for observable code, and cancellation is easy to lose in promise interop. Observables are push-based and don't displace pull-based async iterators. No [native observable](https://github.com/tc39/proposal-observable) implementation exists yet.
 
@@ -172,7 +172,7 @@ Node.js 18 and later, Deno, Bun and current browsers. TypeScript 4.2 and later, 
 
 ## Versions
 
-Core packages, `@cancjs/promise` and `@cancjs/coroutine`, follow strict semver and are safe on a caret pin, `^1`. Everything else, the toolbox, `fetch`, decorators, axios and the adapters that follow, releases on a shared minor line that can carry a breaking change inside a minor, so pin those with a tilde, `~1.x`. Full policy, including the deprecation and compatibility-floor rules: [Versioning](docs/versioning.md).
+Core packages, `@cancjs/promise` and `@cancjs/coroutine`, follow strict semver and are safe on a caret pin, `^1`. Everything else, the toolbox, `fetch`, decorators, axios and the adapters that follow, releases on a shared minor release that can carry a breaking change, so pin it with a tilde, `~1.4`. Full policy, including the deprecation and compatibility-floor rules: [Versioning](docs/versioning.md).
 
 ## Contributing
 
