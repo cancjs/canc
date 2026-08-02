@@ -1,84 +1,83 @@
 name: CI
 
 on:
- push:
- branches:
- - main
- - develop
- pull_request:
+  push:
+    branches:
+      - master
+  pull_request:
 
 jobs:
- lint:
- runs-on: ubuntu-latest
- steps:
- - uses: actions/checkout@v4
- - uses: actions/setup-node@v4
- with:
- node-version: '20.x'
- cache: 'npm'
- - run: npm ci
- - run: npm run lint
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run lint
 
- test:
- runs-on: ${{ matrix.os }}
- strategy:
- matrix:
- os: [ubuntu-latest, windows-latest]
- node-version: ['20.x', '18.x']
- steps:
- - uses: actions/checkout@v4
- - uses: actions/setup-node@v4
- with:
- node-version: ${{ matrix.node-version }}
- cache: 'npm'
- - run: npm ci
- - run: npm test
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node-version: ['22.x', '24.x']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+      - run: npm ci
+      - run: npm test
 
- build:
- runs-on: ${{ matrix.os }}
- strategy:
- matrix:
- os: [ubuntu-latest, windows-latest]
- node-version: ['20.x', '18.x']
- steps:
- - uses: actions/checkout@v4
- - uses: actions/setup-node@v4
- with:
- node-version: ${{ matrix.node-version }}
- cache: 'npm'
- - run: npm ci
- - run: npm run build
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node-version: ['22.x', '24.x']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run build
 
- decorators-babel-stage3:
- # Proves the stage-3 decorator flavor (@cancjs/decorators default export) compiles and runs
- # correctly under babel's decorator transform, not just native TS 5+ emit. Runs standalone
- # (not folded into the root `test` job) so a babel-lane regression is unambiguous in CI output.
- runs-on: ubuntu-latest
- steps:
- - uses: actions/checkout@v4
- - uses: actions/setup-node@v4
- with:
- node-version: '20.x'
- cache: 'npm'
- - run: npm ci
- - run: npm run test --workspace=@cancjs/decorators
+  decorators-babel-stage3:
+    # Proves the stage-3 decorator flavor (@cancjs/decorators default export) compiles and runs
+    # correctly under babel's decorator transform, not just native TS 5+ emit. Runs standalone
+    # (not folded into the root `test` job) so a babel-lane regression is unambiguous in CI output.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run test --workspace=@cancjs/decorators
 
- ts-version-matrix:
- # P4-2/P4-3: type-check fixture projects that import the BUILT @cancjs/*
- # packages against a matrix of pinned TypeScript versions (floor 4.2 .. latest).
- # The runner packs each package, installs the tarball + a pinned tsc into each
- # isolated fixture, then runs `tsc --noEmit`. The `latest` lane also compiles
- # the P4-3 type-level assertion suite. See tests-types/matrix.config.json.
- needs: build
- runs-on: ubuntu-latest
- steps:
- - uses: actions/checkout@v4
- - uses: actions/setup-node@v4
- with:
- node-version: '20.x'
- cache: 'npm'
- - run: npm ci
- # Build the packages so the matrix type-checks against real dist, not src.
- - run: npm run build
- - name: TS version matrix (+ type assertions)
- run: npm run matrix --workspace=@cancjs/tests-types
+  ts-version-matrix:
+    # Type-checks fixture projects that import the BUILT @cancjs/*
+    # packages against a matrix of pinned TypeScript versions (floor 4.2 .. latest).
+    # The runner packs each package, installs the tarball + a pinned tsc into each
+    # isolated fixture, then runs `tsc --noEmit`. The `latest` lane also compiles
+    # the type-level assertion suite. See tests-types/matrix.config.json.
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+      - run: npm ci
+      # Build the packages so the matrix type-checks against real dist, not src.
+      - run: npm run build
+      - name: TS version matrix (+ type assertions)
+        run: npm run matrix --workspace=@cancjs/tests-types
