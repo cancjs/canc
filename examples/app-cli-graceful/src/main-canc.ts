@@ -1,5 +1,3 @@
-import '@cancjs/unhandled-rejection/register';
-
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 

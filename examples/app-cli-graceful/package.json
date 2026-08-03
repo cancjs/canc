@@ -13,8 +13,7 @@
     "@cancjs/promise": "file:../../packages/canc-promise",
     "@cancjs/coroutine": "file:../../packages/canc-coroutine",
     "@shared/lib": "*",
-    "@shared/util": "*",
-    "@cancjs/unhandled-rejection": "file:../../packages/canc-unhandled-rejection"
+    "@shared/util": "*"
   },
   "devDependencies": {
     "@types/jest": "30.0.0",

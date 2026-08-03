@@ -1,5 +1,3 @@
-import '@cancjs/unhandled-rejection/register';
-
 import { isCancelError } from '@cancjs/promise';
 import { createMockApi } from '@shared/mock-api';
 import { sleep } from '@shared/util';
