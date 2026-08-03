@@ -12,7 +12,8 @@
       "@cancjs/toolbox-native",
       "@cancjs/decorators",
       "@cancjs/fetch",
-      "@cancjs/axios"
+      "@cancjs/axios",
+      "@cancjs/unhandled-rejection"
     ]
   ],
   "ignore": ["@cancjs/benchmarks", "@cancjs/tests-types"],

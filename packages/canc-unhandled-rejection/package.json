@@ -1,0 +1,77 @@
+{
+  "name": "@cancjs/unhandled-rejection",
+  "version": "1.0.0",
+  "description": "Global handler that silences CancelError rejections from @cancjs/promise.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cancjs/canc.git",
+    "directory": "packages/canc-unhandled-rejection"
+  },
+  "homepage": "https://github.com/cancjs/canc/tree/master/packages/canc-unhandled-rejection#readme",
+  "bugs": "https://github.com/cancjs/canc/issues",
+  "author": "bisubus",
+  "type": "commonjs",
+  "exports": {
+    ".": {
+      "import": {
+        "types@<4.7": "./dist/types-ts4.2/index.d.mts",
+        "types": "./dist/types/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types@<4.7": "./dist/types-ts4.2/index.d.ts",
+        "types": "./dist/types/index.d.ts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./register": {
+      "import": {
+        "types@<4.7": "./dist/types-ts4.2/register.d.mts",
+        "types": "./dist/types/register.d.mts",
+        "default": "./dist/register.mjs"
+      },
+      "require": {
+        "types@<4.7": "./dist/types-ts4.2/register.d.ts",
+        "types": "./dist/types/register.d.ts",
+        "default": "./dist/register.cjs"
+      }
+    }
+  },
+  "main": "dist/index.cjs",
+  "module": "dist/index.mjs",
+  "types": "dist/types/index.d.ts",
+  "sideEffects": ["./dist/register.mjs", "./dist/register.cjs"],
+  "engines": {
+    "node": ">=18",
+    "npm": ">=9"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "rimraf dist && rollup --config ./rollup.config.mjs",
+    "check": "tsc --noEmit --project ./tsconfig.prod.json",
+    "format:src": "eslint --fix ./src",
+    "format": "eslint --fix .",
+    "lint:src": "eslint ./src",
+    "lint": "eslint .",
+    "test": "jest --colors",
+    "test:watch": "jest --colors --watch"
+  },
+  "files": ["dist"],
+  "keywords": [],
+  "devDependencies": {
+    "@cancjs/promise": "*"
+  },
+  "peerDependencies": {
+    "@cancjs/promise": ">=1.0.0"
+  },
+  "unpkg": "dist/index.umd.min.js",
+  "jsdelivr": "dist/index.umd.min.js",
+  "typesVersions": {
+    "<4.7": {
+      "dist/types/*": ["dist/types-ts4.2/*"]
+    }
+  }
+}
