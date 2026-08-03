@@ -5,11 +5,18 @@
 // Each export is a shared toolbox factory bound to the captured native Promise, so the signatures
 // below are the factories' own: there is no wrapper layer to keep in sync with the cancelable twin.
 import * as tb from '../../_toolbox';
-import { deps } from './deps';
+import { deps, INativeKind } from './deps';
 
 export const delay = tb.delayFactory(deps);
 
-export const defer = tb.deferFactory(deps);
+// `defer` and `minDelay` start their work on the call, so `lazy` has nothing to defer. The casts
+// are type-only: they mark that option as unusable so passing it fails to compile.
+interface INoLazy {
+  lazy?: never;
+  [key: string]: unknown;
+}
+
+export const defer = tb.deferFactory(deps) as <T = void>(options?: INoLazy) => tb.IDeferred<T, INativeKind>;
 
 // The wrapped promise keeps running after the timeout rejects; a native Promise cannot be
 // aborted.
@@ -17,7 +24,11 @@ export const timeout = tb.timeoutFactory(deps);
 
 export const waitFor = tb.waitForFactory(deps);
 
-export const minDelay = tb.minDelayFactory(deps);
+export const minDelay = tb.minDelayFactory(deps) as <T>(
+  input: tb.TTimedInput<T>,
+  ms: tb.TDuration,
+  options?: INoLazy,
+) => Promise<T>;
 
 // No cancel: the retry loop and any pending backoff timer run to completion.
 export const retry = tb.retryFactory(deps);

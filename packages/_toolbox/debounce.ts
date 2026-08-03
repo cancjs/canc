@@ -5,6 +5,8 @@ export interface IDebounceOptions {
   leading?: boolean;
   trailing?: boolean;
   maxWait?: number;
+  /** The debounce timer always runs immediately, so a `lazy` flag would be accepted and ignored. */
+  lazy?: never;
   [key: string]: unknown;
 }
 

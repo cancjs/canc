@@ -2,7 +2,7 @@ import { CancelablePromise } from '@cancjs/promise';
 
 import * as tb from '../../_toolbox';
 import { deps, ICancelableKind } from './deps';
-import { IToolboxOptions } from './options';
+import { TEagerToolboxOptions } from './options';
 
 // Prebound canc utilities. Each binds a shared toolbox factory to CancelablePromise, so a bare
 // `delay(100)` is cancelable by default and surfaces a CancelablePromise<T> return type callers can
@@ -11,7 +11,15 @@ import { IToolboxOptions } from './options';
 export const delay = tb.delayFactory(deps);
 export const timeout = tb.timeoutFactory(deps);
 export const waitFor = tb.waitForFactory(deps);
-export const minDelay = tb.minDelayFactory(deps);
+/**
+ * The floor timer and the input both start on the call, so `lazy` has nothing to defer. The cast is
+ * type-only: it drops that option from the signature so passing it fails to compile.
+ */
+export const minDelay = tb.minDelayFactory(deps) as <T>(
+  input: tb.TTimedInput<T>,
+  ms: tb.TDuration,
+  options?: TEagerToolboxOptions,
+) => CancelablePromise<T>;
 export const retry = tb.retryFactory(deps);
 export const promisify = tb.promisifyFactory(deps);
 export const promisifyAll = tb.promisifyAllFactory(deps);
@@ -30,4 +38,4 @@ export interface ICancelableDeferred<T> extends tb.IDeferred<T, ICancelableKind>
  * The narrowing is type-only, with no runtime layer: CancelablePromise.withResolvers hands back a
  * `cancel` alongside the promise, which the shared deferred shape has no way to describe.
  */
-export const defer = tb.deferFactory(deps) as <T = void>(options?: IToolboxOptions) => ICancelableDeferred<T>;
+export const defer = tb.deferFactory(deps) as <T = void>(options?: TEagerToolboxOptions) => ICancelableDeferred<T>;

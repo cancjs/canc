@@ -138,6 +138,21 @@ import { cancelify } from '@cancjs/toolbox';
 const _cancelifyProbe = cancelify(() => 1, { lazy: true });
 void _cancelifyProbe;
 
+// the eagerly starting helpers omit the lazy option the same way
+import { debounce, defer, minDelay, throttle } from '@cancjs/toolbox';
+// @ts-expect-error minDelay omits the lazy option
+const _minDelayProbe = minDelay(Promise.resolve(1), 10, { lazy: true });
+void _minDelayProbe;
+// @ts-expect-error defer omits the lazy option
+const _deferProbe = defer<number>({ lazy: true });
+void _deferProbe;
+// @ts-expect-error debounce omits the lazy option
+const _debounceProbe = debounce(() => 1, 10, { lazy: true });
+void _debounceProbe;
+// @ts-expect-error throttle omits the lazy option
+const _throttleProbe = throttle(() => 1, 10, { lazy: true });
+void _throttleProbe;
+
 // ============================================================ cancelify call args
 // The callback takes the call arguments as rest parameters, so the wrapper carries their types
 // with no annotation ceremony at the call site. A tuple parameter had no inference site and

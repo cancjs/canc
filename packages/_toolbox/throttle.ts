@@ -3,6 +3,8 @@ import { debounceFactory, IDebounced, IDebounceDeps } from './debounce';
 export interface IThrottleOptions {
   leading?: boolean;
   trailing?: boolean;
+  /** The throttle window always starts immediately, so a `lazy` flag would be accepted and ignored. */
+  lazy?: never;
   [key: string]: unknown;
 }
 
