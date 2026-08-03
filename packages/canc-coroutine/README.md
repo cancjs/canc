@@ -287,18 +287,20 @@ caller needs a cast. Use the getter style instead.
 
 #### With `asyncMethod` / `bindMethod`
 
-Two helpers provide the same getter memoization without decorators. Call them in the constructor.
-Both read the getter once, bind the result to the instance, and install it as an own property so
-the getter is never called again. There is semantic difference: `asyncMethod` signals that the
-member is a cancelable coroutine, `bindMethod` signals general binding for detach safety.
-`asyncMethod` additionally guarantees that a method is wrapped with `canc.async`.
+Two helpers do the same work without decorators. Call them in the constructor. `asyncMethod` is the
+runtime counterpart of `@AsyncMethod({ bind: true })` and `bindMethod` of `@BindMethod()`, so the
+member's kind decides what happens to it, exactly as it does under the decorators.
+
+On a getter, both read it once, bind the result to the instance, and install it as an own property,
+so the getter is never called again. Neither wraps here: the getter already returned the finished
+function.
 
 ```ts
 import * as canc from '@cancjs/coroutine';
 
 class InvoiceService {
   constructor() {
-    // per instance, equivalent to @AsyncMethod
+    // per instance, equivalent to @AsyncMethod({ bind: true })
     canc.asyncMethod(this, 'load');
   }
 
@@ -309,6 +311,26 @@ class InvoiceService {
   }
 }
 ```
+
+On a generator method, or a class field holding a generator function, the member is still raw, so
+`asyncMethod` wraps it with `canc.async` bound to the instance while `bindMethod` only binds it.
+This is the shorter form, and it has the same TypeScript problem as the decorated method style
+above, so keep it for JavaScript:
+
+```js
+class InvoiceService {
+  constructor() {
+    canc.asyncMethod(this, 'load');
+  }
+
+  *load(invoiceId) {
+    return yield* canc.await(fetchInvoice(invoiceId));
+  }
+}
+```
+
+`asyncMethod` takes coroutine options as a third argument, which the decorators do not:
+`canc.asyncMethod(this, 'load', { shield: true })`.
 
 #### Prototype assignment (JS only)
 
@@ -346,8 +368,12 @@ lookup and cannot be overridden from a subclass through the prototype chain.
 
 ### Things that do not work
 
-- passing an `async function` or an `async function*` to `canc.async`. There is nothing to drive,
-  and the call hangs or throws. Pass a plain generator function.
+- passing an `async function` or an `async function*` to `canc.async`. There is nothing to drive.
+  The returned promise rejects with a `TypeError` saying so. Pass a plain generator function, and
+  turn each `await` into `yield* canc.await(...)`, which is the point: an `await` inside an async
+  body escapes the cancel chain.
+- wrapping a coroutine again. `canc.async` throws a `TypeError` on the spot rather than trying to
+  drive the `CancelablePromise` it would get back as if it were a generator.
 - `yield canc.await(x)` without the star. The step resumes with a generator object instead of the
   value, and cancellation is never wired.
 - annotating a body as `Generator<unknown, T, any>`, or as `any`. Both collapse step types. Let
@@ -361,17 +387,17 @@ lookup and cannot be overridden from a subclass through the prototype chain.
 
 ### `@cancjs/coroutine`
 
-| Export                                                      | Alias           | Description                                                                |
-| ----------------------------------------------------------- | --------------- | -------------------------------------------------------------------------- |
-| `cancAsync(genFn, ctx?, options?)`                          | `canc.async`    | Wraps a generator function into a function returning a `CancelablePromise` |
-| `cancAwait(value)`                                          | `canc.await`    | One step, used as `yield* cancAwait(value)`                                |
-| `cancAwait.all` / `.race` / `.any` / `.allSettled` / `.try` |                 | Combinators folded into a single step, tuple types preserved               |
-| `cancForAwait(source, callback)`                            | `canc.forAwait` | Consumes an async or sync iterable, one cancellation point per item        |
-| `cancForAwait.toArray(source)`                              |                 | Collects a source into an array                                            |
-| `asyncMethod(instance, key)`                                |                 | Binds and memoizes a getter's coroutine as an own property                 |
-| `bindMethod(instance, key)`                                 |                 | Binds and memoizes a getter's result as an own property                    |
-| `BreakError`, `isBreakError`                                |                 | Breaking out of a stream from deeper code                                  |
-| `AsyncResult<T>`                                            |                 | Return type for a generator body that has no enclosing wrapper             |
+| Export                                                      | Alias           | Description                                                                         |
+| ----------------------------------------------------------- | --------------- | ----------------------------------------------------------------------------------- |
+| `cancAsync(genFn, ctx?, options?)`                          | `canc.async`    | Wraps a generator function into a function returning a `CancelablePromise`          |
+| `cancAwait(value)`                                          | `canc.await`    | One step, used as `yield* cancAwait(value)`                                         |
+| `cancAwait.all` / `.race` / `.any` / `.allSettled` / `.try` |                 | Combinators folded into a single step, tuple types preserved                        |
+| `cancForAwait(source, callback)`                            | `canc.forAwait` | Consumes an async or sync iterable, one cancellation point per item                 |
+| `cancForAwait.toArray(source)`                              |                 | Collects a source into an array                                                     |
+| `asyncMethod(instance, key, options?)`                      |                 | Installs the member as an own property, wrapping a method or field with `cancAsync` |
+| `bindMethod(instance, key)`                                 |                 | Installs the member as an own property, bound to the instance, never wrapped        |
+| `BreakError`, `isBreakError`                                |                 | Breaking out of a stream from deeper code                                           |
+| `AsyncResult<T>`                                            |                 | Return type for a generator body that has no enclosing wrapper                      |
 
 `options` are
 [`CancelablePromise` options](https://github.com/cancjs/canc/tree/master/packages/canc-promise#options)
