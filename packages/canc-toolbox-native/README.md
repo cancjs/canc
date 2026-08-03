@@ -58,7 +58,7 @@ can be stopped: `timeout` rejects but the underlying promise runs to completion,
 attempt finishes even after the returned promise has been abandoned, and a `delay` timer that
 nobody waits for still fires.
 
-Signal interop and `cancelify` have no meaning without cancellation and are twin-only.
+`cancelify` and signal generation (`toAbortSignal`, `withSignal`, `createAbortSignal`) have no meaning without cancellation and are twin-only; `suppress` and `suppressAbort` are provided to swallow abort errors on native promises.
 
 ### Lazy promises
 
@@ -74,15 +74,17 @@ const profile = createLazyPromise(loadProfile, { signal });
 
 An already-aborted signal means the executor never runs at all; aborting while it is running
 rejects with the signal's `reason`. The underlying work itself keeps going. Only the waiting
-stops, because a native promise cannot be canceled.
+stops, because a native promise cannot be canceled. `lazy` and `createLazyPromise` wrap functions or promises.
 
 ## API
 
 `delay(ms, options?)`, `delay(input, ms, options?)`, `minDelay(input, ms, options?)`,
 `timeout(ms, options?)`, `timeout(input, ms?, options?)`, `waitFor(condition, options?)`,
-`retry(input, options?)`, `defer()`, `promisify(fn, options?)`, `promisifyAll(source, options?)`,
+`retry(input, options?)`, `debounce(fn, ms, options?)`, `throttle(fn, ms, options?)`, `defer(options?)`,
+`promisify(fn, options?)`, `promisifyAll(source, options?)`,
+`suppress(promise, options?)`, `suppressAbort(promise, options?)`,
 `TimeoutError`, `isTimeoutError(error)`, `LazyPromise`, `LazyPromise.try(fn, ...args)`,
-`createLazyPromise(x, options?)`, `isLazyPromise(value)`.
+`createLazyPromise(x, options?)`, `lazy(run)`, `isLazyPromise(value)`.
 
 `ms` is a number of milliseconds or a `[min, max]` tuple, and is always the last positional
 argument before `options`. Option shapes are identical to

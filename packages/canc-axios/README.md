@@ -157,19 +157,20 @@ when handing a request to code that does not understand cancellation.
 
 ## API
 
-`cancelableAxios` is both the default export and a named export. It mirrors the full axios
+`cancelableAxios` is both the default export and a named export (both references point to the same instance). It mirrors the full axios
 interface: `request`, `get`, `delete`, `head`, `options`, `post`, `put`, `patch`, `getUri`,
 `create`, `defaults`, `interceptors`, `all`, `spread`.
 
 `cancelableAxios.create(config?)` returns a new wrapped instance.
 
-`cancelableAxios.wrap(axiosInstance)` wraps an existing axios instance. The argument is
+`cancelableAxios.wrap(axiosInstance)` and `wrapAxios(axiosInstance)` wrap an existing axios instance. The argument is
 structurally typed, so it accepts instances from any axios version without type conflicts.
+
+`CancelScope` is the per-request cancellation scope class managing request lifecycle and interceptor promises.
 
 `.axios` on any wrapped instance returns the underlying axios instance.
 
-Members axios added after 0.22 (`postForm`, `AxiosHeaders`, `HttpStatusCode` and the rest) are
-mirrored only when the installed axios has them.
+Members axios added after 0.22 (`postForm`, `putForm`, `patchForm`, `AxiosHeaders`, `HttpStatusCode` and the rest) plus standard axios exports (`AxiosError`, `CancelToken`, `CanceledError`, `isAxiosError`, `VERSION`, `formToJSON`, `getAdapter`, `mergeConfig`, `toFormData`) are re-exported.
 
 ## Compatibility
 

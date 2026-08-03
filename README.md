@@ -86,6 +86,8 @@ controller.abort();
 With `canc` the plumbing goes away. The signature stays clean, the steps stay readable, and canceling the returned promise stops everything below the current step:
 
 ```ts
+import * as canc from '@cancjs/coroutine';
+
 const loadTrip = canc.async(function* (tripId: string) {
   const trip = yield* canc.await(fetchTrip(tripId));
   const [hotels, flights] = yield* canc.await.all([

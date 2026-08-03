@@ -214,6 +214,8 @@ and `isTimeoutError` are for raw signal-driven code with no canc promise in betw
 `CancelError` also carries `bubbled` (the cancellation came from the consumer side) and `disposed`
 (it came from leaving a `using` scope).
 
+The underlying `Symbol.for` brand symbols are exported as `CANCEL_ERROR_BRAND` (`Symbol.for('@cancjs/promise:CancelError')`), `CANCEL_PROMISE_BRAND` (`Symbol.for('@cancjs/promise:CancelablePromise')`), and `CANCEL_SIGNAL_BRAND` (`Symbol.for('@cancjs/promise:CancelSignal')`).
+
 ### Ending a cancelable flow
 
 At the boundary where a flow is consumed, cancellation is usually an expected outcome rather than

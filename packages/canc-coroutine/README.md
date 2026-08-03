@@ -84,10 +84,10 @@ const loadDashboard = canc.async(function* () {
 The flat names are exported next to the namespace aliases, so this is the same code:
 
 ```ts
-import * as canc from '@cancjs/coroutine';
+import { cancAsync, cancAwait } from '@cancjs/coroutine';
 
-const loadInvoice = canc.async(function* (invoiceId: string) {
-  return yield* canc.await(fetchInvoice(invoiceId));
+const loadInvoice = cancAsync(function* (invoiceId: string) {
+  return yield* cancAwait(fetchInvoice(invoiceId));
 });
 ```
 
