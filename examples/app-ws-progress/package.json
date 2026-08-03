@@ -1,34 +1,34 @@
 {
- "name": "app-ws-progress",
- "version": "0.0.0",
- "private": true,
- "description": "Live export-job progress over WebSocket: connection-scoped job tree, two cancel paths, events.on + async-iterator interop.",
- "scripts": {
- "start:vanilla": "tsx src/main-vanilla.ts",
- "start:canc": "tsx src/main-canc.ts",
- "test": "jest --colors",
- "typecheck": "tsc --noEmit --project tsconfig.json"
- },
- "dependencies": {
- "@shared/mock-api": "*",
- "@shared/util": "*",
- "@cancjs/promise": "file:../../packages/canc-promise",
- "@cancjs/coroutine": "file:../../packages/canc-coroutine",
- "@cancjs/toolbox": "file:../../packages/canc-toolbox",
- "express": "5.2.1",
- "ws": "8.21.0"
- },
- "devDependencies": {
- "@types/express": "5.0.6",
- "@types/jest": "30.0.0",
- "@types/node": "20.12.12",
- "@types/ws": "8.18.1",
- "jest": "30.4.2",
- "ts-jest": "29.4.11",
- "tsx": "4.23.0",
- "typescript": "5.9.3"
- },
- "engines": {
- "npm": ">=9"
- }
+  "name": "app-ws-progress",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Live export-job progress over WebSocket: connection-scoped job tree, two cancel paths, events.on + async-iterator interop.",
+  "scripts": {
+    "start:vanilla": "tsx src/main-vanilla.ts",
+    "start:canc": "tsx src/main-canc.ts",
+    "test": "jest --colors",
+    "typecheck": "tsc --noEmit --project tsconfig.json"
+  },
+  "dependencies": {
+    "@shared/mock-api": "*",
+    "@shared/util": "*",
+    "@cancjs/promise": "file:../../packages/canc-promise",
+    "@cancjs/coroutine": "file:../../packages/canc-coroutine",
+    "@cancjs/toolbox": "file:../../packages/canc-toolbox",
+    "express": "5.2.1",
+    "ws": "8.21.0"
+  },
+  "devDependencies": {
+    "@types/express": "5.0.6",
+    "@types/jest": "30.0.0",
+    "@types/node": "20.12.12",
+    "@types/ws": "8.18.1",
+    "jest": "30.4.2",
+    "ts-jest": "29.4.11",
+    "tsx": "4.23.0",
+    "typescript": "5.9.3"
+  },
+  "engines": {
+    "npm": ">=9"
+  }
 }

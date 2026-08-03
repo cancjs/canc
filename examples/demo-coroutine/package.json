@@ -1,28 +1,28 @@
 {
- "name": "demo-coroutine",
- "version": "0.0.0",
- "private": true,
- "description": "Coroutine basics: cancAsync, typed yield* cancAwait, parallel steps, try/finally cleanup on cancel.",
- "scripts": {
- "start:vanilla": "tsx src/main-vanilla.ts",
- "start:canc": "tsx src/main-canc.ts",
- "test": "tsx src/smoke.ts",
- "typecheck": "tsc --noEmit --project tsconfig.json"
- },
- "dependencies": {
- "@shared/mock-api": "*",
- "@cancjs/promise": "file:../../packages/canc-promise",
- "@cancjs/coroutine": "file:../../packages/canc-coroutine"
- },
- "devDependencies": {
- "@types/jest": "30.0.0",
- "@types/node": "20.12.12",
- "jest": "30.4.2",
- "ts-jest": "29.4.11",
- "tsx": "4.23.0",
- "typescript": "5.9.3"
- },
- "engines": {
- "npm": ">=9"
- }
+  "name": "demo-coroutine",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Coroutine basics: cancAsync, typed yield* cancAwait, parallel steps, try/finally cleanup on cancel.",
+  "scripts": {
+    "start:vanilla": "tsx src/main-vanilla.ts",
+    "start:canc": "tsx src/main-canc.ts",
+    "test": "tsx src/smoke.ts",
+    "typecheck": "tsc --noEmit --project tsconfig.json"
+  },
+  "dependencies": {
+    "@shared/mock-api": "*",
+    "@cancjs/promise": "file:../../packages/canc-promise",
+    "@cancjs/coroutine": "file:../../packages/canc-coroutine"
+  },
+  "devDependencies": {
+    "@types/jest": "30.0.0",
+    "@types/node": "20.12.12",
+    "jest": "30.4.2",
+    "ts-jest": "29.4.11",
+    "tsx": "4.23.0",
+    "typescript": "5.9.3"
+  },
+  "engines": {
+    "npm": ">=9"
+  }
 }

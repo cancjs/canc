@@ -1,28 +1,28 @@
 {
- "name": "app-rxjs",
- "version": "0.0.0",
- "private": true,
- "description": "RxJS interop: bridge Observables and CancelablePromises in a live log viewer without losing cancellation at the promise boundary.",
- "scripts": {
- "start:vanilla": "tsx src/main-vanilla.ts",
- "start:canc": "tsx src/main-canc.ts",
- "test": "jest --colors",
- "typecheck": "tsc --noEmit --project tsconfig.json"
- },
- "dependencies": {
- "@cancjs/promise": "file:../../packages/canc-promise",
- "@cancjs/toolbox": "file:../../packages/canc-toolbox",
- "rxjs": "7.8.2"
- },
- "devDependencies": {
- "@types/jest": "30.0.0",
- "@types/node": "20.12.12",
- "jest": "30.4.2",
- "ts-jest": "29.4.11",
- "tsx": "4.23.0",
- "typescript": "5.9.3"
- },
- "engines": {
- "npm": ">=9"
- }
+  "name": "app-rxjs",
+  "version": "0.0.0",
+  "private": true,
+  "description": "RxJS interop: bridge Observables and CancelablePromises in a live log viewer without losing cancellation at the promise boundary.",
+  "scripts": {
+    "start:vanilla": "tsx src/main-vanilla.ts",
+    "start:canc": "tsx src/main-canc.ts",
+    "test": "jest --colors",
+    "typecheck": "tsc --noEmit --project tsconfig.json"
+  },
+  "dependencies": {
+    "@cancjs/promise": "file:../../packages/canc-promise",
+    "@cancjs/toolbox": "file:../../packages/canc-toolbox",
+    "rxjs": "7.8.2"
+  },
+  "devDependencies": {
+    "@types/jest": "30.0.0",
+    "@types/node": "20.12.12",
+    "jest": "30.4.2",
+    "ts-jest": "29.4.11",
+    "tsx": "4.23.0",
+    "typescript": "5.9.3"
+  },
+  "engines": {
+    "npm": ">=9"
+  }
 }

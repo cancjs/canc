@@ -1,27 +1,27 @@
 {
- "name": "demo-combinators",
- "private": true,
- "version": "0.0.0",
- "type": "module",
- "scripts": {
- "start:vanilla": "tsx src/main-vanilla.ts",
- "start:canc": "tsx src/main-canc.ts",
- "test": "jest",
- "typecheck": "tsc --noEmit"
- },
- "dependencies": {
- "@cancjs/promise": "file:../../packages/canc-promise",
- "@shared/util": "file:../_shared/util"
- },
- "devDependencies": {
- "@types/jest": "30.0.0",
- "@types/node": "20.12.5",
- "jest": "30.4.2",
- "ts-jest": "29.4.11",
- "typescript": "5.4.2",
- "tsx": "4.7.0"
- },
- "engines": {
- "npm": ">=9"
- }
+  "name": "demo-combinators",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "start:vanilla": "tsx src/main-vanilla.ts",
+    "start:canc": "tsx src/main-canc.ts",
+    "test": "jest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@cancjs/promise": "file:../../packages/canc-promise",
+    "@shared/util": "file:../_shared/util"
+  },
+  "devDependencies": {
+    "@types/jest": "30.0.0",
+    "@types/node": "20.12.5",
+    "jest": "30.4.2",
+    "ts-jest": "29.4.11",
+    "typescript": "5.4.2",
+    "tsx": "4.7.0"
+  },
+  "engines": {
+    "npm": ">=9"
+  }
 }

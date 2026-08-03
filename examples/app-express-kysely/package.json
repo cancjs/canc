@@ -1,35 +1,35 @@
 {
- "name": "app-express-kysely",
- "version": "0.0.0",
- "private": true,
- "description": "Orders report endpoint: client disconnect cancels the server-side query chain.",
- "scripts": {
- "start:vanilla": "tsx src/main-vanilla.ts",
- "start:canc": "tsx src/main-canc.ts",
- "test": "jest --colors",
- "typecheck": "tsc --noEmit --project tsconfig.json"
- },
- "dependencies": {
- "@cancjs/promise": "file:../../packages/canc-promise",
- "@cancjs/coroutine": "file:../../packages/canc-coroutine",
- "@cancjs/toolbox": "file:../../packages/canc-toolbox",
- "better-sqlite3": "12.11.1",
- "express": "5.2.1",
- "kysely": "0.29.3"
- },
- "devDependencies": {
- "@types/better-sqlite3": "7.6.13",
- "@types/express": "5.0.6",
- "@types/jest": "30.0.0",
- "@types/node": "20.12.12",
- "@types/supertest": "7.2.0",
- "jest": "30.4.2",
- "supertest": "7.2.2",
- "ts-jest": "29.4.11",
- "tsx": "4.23.0",
- "typescript": "5.9.3"
- },
- "engines": {
- "npm": ">=9"
- }
+  "name": "app-express-kysely",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Orders report endpoint: client disconnect cancels the server-side query chain.",
+  "scripts": {
+    "start:vanilla": "tsx src/main-vanilla.ts",
+    "start:canc": "tsx src/main-canc.ts",
+    "test": "jest --colors",
+    "typecheck": "tsc --noEmit --project tsconfig.json"
+  },
+  "dependencies": {
+    "@cancjs/promise": "file:../../packages/canc-promise",
+    "@cancjs/coroutine": "file:../../packages/canc-coroutine",
+    "@cancjs/toolbox": "file:../../packages/canc-toolbox",
+    "better-sqlite3": "12.11.1",
+    "express": "5.2.1",
+    "kysely": "0.29.3"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "7.6.13",
+    "@types/express": "5.0.6",
+    "@types/jest": "30.0.0",
+    "@types/node": "20.12.12",
+    "@types/supertest": "7.2.0",
+    "jest": "30.4.2",
+    "supertest": "7.2.2",
+    "ts-jest": "29.4.11",
+    "tsx": "4.23.0",
+    "typescript": "5.9.3"
+  },
+  "engines": {
+    "npm": ">=9"
+  }
 }

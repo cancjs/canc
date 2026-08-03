@@ -1,36 +1,36 @@
 {
- "name": "demo-decorators",
- "version": "0.0.0",
- "private": true,
- "description": "Decorator flavors: stage-3, TS-legacy, babel-legacy, and manual wiring of one IssueClient.",
- "scripts": {
- "start:vanilla": "tsx src/main.ts manual",
- "start:canc": "tsx src/main.ts stage3",
- "start:legacy": "tsx --tsconfig src/ts-legacy/tsconfig.json src/main.ts ts-legacy",
- "start:all": "tsx src/run-all.ts",
- "test": "jest --colors",
- "typecheck": "tsc --noEmit --project tsconfig.json && tsc --noEmit --project src/ts-legacy/tsconfig.json && tsc --noEmit --project src/stage3/tsconfig.json"
- },
- "dependencies": {
- "@shared/mock-api": "*",
- "@cancjs/promise": "file:../../packages/canc-promise",
- "@cancjs/coroutine": "file:../../packages/canc-coroutine",
- "@cancjs/decorators": "file:../../packages/canc-decorators"
- },
- "devDependencies": {
- "@babel/core": "7.29.7",
- "@babel/preset-env": "7.28.6",
- "@babel/preset-typescript": "7.29.7",
- "@babel/plugin-proposal-decorators": "7.29.7",
- "babel-jest": "30.4.1",
- "@types/jest": "30.0.0",
- "@types/node": "20.12.12",
- "jest": "30.4.2",
- "ts-jest": "29.4.11",
- "tsx": "4.23.0",
- "typescript": "5.9.3"
- },
- "engines": {
- "npm": ">=9"
- }
+  "name": "demo-decorators",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Decorator flavors: stage-3, TS-legacy, babel-legacy, and manual wiring of one IssueClient.",
+  "scripts": {
+    "start:vanilla": "tsx src/main.ts manual",
+    "start:canc": "tsx src/main.ts stage3",
+    "start:legacy": "tsx --tsconfig src/ts-legacy/tsconfig.json src/main.ts ts-legacy",
+    "start:all": "tsx src/run-all.ts",
+    "test": "jest --colors",
+    "typecheck": "tsc --noEmit --project tsconfig.json && tsc --noEmit --project src/ts-legacy/tsconfig.json && tsc --noEmit --project src/stage3/tsconfig.json"
+  },
+  "dependencies": {
+    "@shared/mock-api": "*",
+    "@cancjs/promise": "file:../../packages/canc-promise",
+    "@cancjs/coroutine": "file:../../packages/canc-coroutine",
+    "@cancjs/decorators": "file:../../packages/canc-decorators"
+  },
+  "devDependencies": {
+    "@babel/core": "7.29.7",
+    "@babel/preset-env": "7.28.6",
+    "@babel/preset-typescript": "7.29.7",
+    "@babel/plugin-proposal-decorators": "7.29.7",
+    "babel-jest": "30.4.1",
+    "@types/jest": "30.0.0",
+    "@types/node": "20.12.12",
+    "jest": "30.4.2",
+    "ts-jest": "29.4.11",
+    "tsx": "4.23.0",
+    "typescript": "5.9.3"
+  },
+  "engines": {
+    "npm": ">=9"
+  }
 }

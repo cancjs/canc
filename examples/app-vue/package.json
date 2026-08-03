@@ -1,39 +1,39 @@
 {
- "name": "app-vue",
- "version": "0.0.0",
- "private": true,
- "description": "Marketplace product browser: a filter change cancels the previous catalog load and its per-product image prefetch fanout; leaving the page cancels everything still in flight.",
- "scripts": {
- "dev:vanilla": "vite --config vite.vanilla.config.ts",
- "dev:canc": "vite --config vite.canc.config.ts",
- "start:vanilla": "vite --config vite.vanilla.config.ts",
- "start:canc": "vite --config vite.canc.config.ts",
- "build:vanilla": "vite build --config vite.vanilla.config.ts",
- "build:canc": "vite build --config vite.canc.config.ts",
- "test": "jest --colors",
- "typecheck": "vue-tsc --noEmit --project tsconfig.json"
- },
- "dependencies": {
- "@cancjs/promise": "file:../../packages/canc-promise",
- "@cancjs/toolbox": "file:../../packages/canc-toolbox",
- "@shared/mock-api": "*",
- "vue": "3.5.40"
- },
- "devDependencies": {
- "@types/jest": "30.0.0",
- "@types/node": "20.12.12",
- "@vitejs/plugin-vue": "5.2.4",
- "@vue/test-utils": "2.4.11",
- "@vue/vue3-jest": "29.2.6",
- "jest": "30.4.2",
- "jest-environment-jsdom": "30.4.1",
- "ts-jest": "29.4.11",
- "tsx": "4.23.0",
- "typescript": "5.9.3",
- "vite": "6.4.3",
- "vue-tsc": "3.3.7"
- },
- "engines": {
- "npm": ">=9"
- }
+  "name": "app-vue",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Marketplace product browser: a filter change cancels the previous catalog load and its per-product image prefetch fanout; leaving the page cancels everything still in flight.",
+  "scripts": {
+    "dev:vanilla": "vite --config vite.vanilla.config.ts",
+    "dev:canc": "vite --config vite.canc.config.ts",
+    "start:vanilla": "vite --config vite.vanilla.config.ts",
+    "start:canc": "vite --config vite.canc.config.ts",
+    "build:vanilla": "vite build --config vite.vanilla.config.ts",
+    "build:canc": "vite build --config vite.canc.config.ts",
+    "test": "jest --colors",
+    "typecheck": "vue-tsc --noEmit --project tsconfig.json"
+  },
+  "dependencies": {
+    "@cancjs/promise": "file:../../packages/canc-promise",
+    "@cancjs/toolbox": "file:../../packages/canc-toolbox",
+    "@shared/mock-api": "*",
+    "vue": "3.5.40"
+  },
+  "devDependencies": {
+    "@types/jest": "30.0.0",
+    "@types/node": "20.12.12",
+    "@vitejs/plugin-vue": "5.2.4",
+    "@vue/test-utils": "2.4.11",
+    "@vue/vue3-jest": "29.2.6",
+    "jest": "30.4.2",
+    "jest-environment-jsdom": "30.4.1",
+    "ts-jest": "29.4.11",
+    "tsx": "4.23.0",
+    "typescript": "5.9.3",
+    "vite": "6.4.3",
+    "vue-tsc": "3.3.7"
+  },
+  "engines": {
+    "npm": ">=9"
+  }
 }

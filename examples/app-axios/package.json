@@ -1,29 +1,29 @@
 {
- "name": "app-axios",
- "version": "0.0.1",
- "private": true,
- "type": "module",
- "scripts": {
- "start:vanilla": "tsx src/main-vanilla.ts",
- "start:canc": "tsx src/main-canc.ts",
- "test": "jest",
- "typecheck": "tsc --noEmit"
- },
- "dependencies": {
- "@cancjs/axios": "file:../../packages/canc-axios",
- "@cancjs/promise": "file:../../packages/canc-promise",
- "@cancjs/toolbox": "file:../../packages/canc-toolbox",
- "@shared/mock-api": "file:../_shared/mock-api",
- "axios": "1.7.9"
- },
- "devDependencies": {
- "@types/jest": "30.0.0",
- "@types/node": "20.14.14",
- "jest": "30.4.2",
- "ts-jest": "29.4.11",
- "typescript": "5.6.3"
- },
- "engines": {
- "npm": ">=9"
- }
+  "name": "app-axios",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start:vanilla": "tsx src/main-vanilla.ts",
+    "start:canc": "tsx src/main-canc.ts",
+    "test": "jest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@cancjs/axios": "file:../../packages/canc-axios",
+    "@cancjs/promise": "file:../../packages/canc-promise",
+    "@cancjs/toolbox": "file:../../packages/canc-toolbox",
+    "@shared/mock-api": "file:../_shared/mock-api",
+    "axios": "1.7.9"
+  },
+  "devDependencies": {
+    "@types/jest": "30.0.0",
+    "@types/node": "20.14.14",
+    "jest": "30.4.2",
+    "ts-jest": "29.4.11",
+    "typescript": "5.6.3"
+  },
+  "engines": {
+    "npm": ">=9"
+  }
 }

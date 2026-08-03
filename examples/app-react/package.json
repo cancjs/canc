@@ -1,42 +1,42 @@
 {
- "name": "app-react",
- "version": "0.0.0",
- "private": true,
- "description": "Flight search typeahead: each keystroke cancels the previous search chain, hover prefetch cancels on unhover, unmount cancels everything.",
- "scripts": {
- "dev:vanilla": "vite --config vite.vanilla.config.ts",
- "dev:canc": "vite --config vite.canc.config.ts",
- "start:vanilla": "vite --config vite.vanilla.config.ts",
- "start:canc": "vite --config vite.canc.config.ts",
- "build:vanilla": "vite build --config vite.vanilla.config.ts",
- "build:canc": "vite build --config vite.canc.config.ts",
- "test": "jest --colors",
- "typecheck": "tsc --noEmit --project tsconfig.json"
- },
- "dependencies": {
- "@cancjs/promise": "file:../../packages/canc-promise",
- "@cancjs/toolbox": "file:../../packages/canc-toolbox",
- "@shared/mock-api": "*",
- "react": "19.2.7",
- "react-dom": "19.2.7"
- },
- "devDependencies": {
- "@testing-library/dom": "10.4.1",
- "@testing-library/jest-dom": "6.9.1",
- "@testing-library/react": "16.3.2",
- "@types/jest": "30.0.0",
- "@types/node": "20.12.12",
- "@types/react": "19.2.17",
- "@types/react-dom": "19.2.3",
- "@vitejs/plugin-react": "4.3.4",
- "jest": "30.4.2",
- "jest-environment-jsdom": "30.4.1",
- "ts-jest": "29.4.11",
- "tsx": "4.23.0",
- "typescript": "5.9.3",
- "vite": "6.4.3"
- },
- "engines": {
- "npm": ">=9"
- }
+  "name": "app-react",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Flight search typeahead: each keystroke cancels the previous search chain, hover prefetch cancels on unhover, unmount cancels everything.",
+  "scripts": {
+    "dev:vanilla": "vite --config vite.vanilla.config.ts",
+    "dev:canc": "vite --config vite.canc.config.ts",
+    "start:vanilla": "vite --config vite.vanilla.config.ts",
+    "start:canc": "vite --config vite.canc.config.ts",
+    "build:vanilla": "vite build --config vite.vanilla.config.ts",
+    "build:canc": "vite build --config vite.canc.config.ts",
+    "test": "jest --colors",
+    "typecheck": "tsc --noEmit --project tsconfig.json"
+  },
+  "dependencies": {
+    "@cancjs/promise": "file:../../packages/canc-promise",
+    "@cancjs/toolbox": "file:../../packages/canc-toolbox",
+    "@shared/mock-api": "*",
+    "react": "19.2.7",
+    "react-dom": "19.2.7"
+  },
+  "devDependencies": {
+    "@testing-library/dom": "10.4.1",
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "16.3.2",
+    "@types/jest": "30.0.0",
+    "@types/node": "20.12.12",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "4.3.4",
+    "jest": "30.4.2",
+    "jest-environment-jsdom": "30.4.1",
+    "ts-jest": "29.4.11",
+    "tsx": "4.23.0",
+    "typescript": "5.9.3",
+    "vite": "6.4.3"
+  },
+  "engines": {
+    "npm": ">=9"
+  }
 }

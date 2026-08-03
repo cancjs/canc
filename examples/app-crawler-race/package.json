@@ -1,30 +1,30 @@
 {
- "name": "app-crawler-race",
- "version": "0.0.0",
- "private": true,
- "description": "Site-health crawl: one cancel() on the crawl root prunes the whole in-flight depth-2 fetch subtree.",
- "scripts": {
- "start:vanilla": "tsx src/main-vanilla.ts",
- "start:canc": "tsx src/main-canc.ts",
- "test": "jest --colors",
- "typecheck": "tsc --noEmit --project tsconfig.json"
- },
- "dependencies": {
- "@shared/lib": "*",
- "@shared/mock-api": "*",
- "@shared/util": "*",
- "@cancjs/promise": "file:../../packages/canc-promise",
- "@cancjs/toolbox": "file:../../packages/canc-toolbox"
- },
- "devDependencies": {
- "@types/jest": "30.0.0",
- "@types/node": "20.12.12",
- "jest": "30.4.2",
- "ts-jest": "29.4.11",
- "tsx": "4.23.0",
- "typescript": "5.9.3"
- },
- "engines": {
- "npm": ">=9"
- }
+  "name": "app-crawler-race",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Site-health crawl: one cancel() on the crawl root prunes the whole in-flight depth-2 fetch subtree.",
+  "scripts": {
+    "start:vanilla": "tsx src/main-vanilla.ts",
+    "start:canc": "tsx src/main-canc.ts",
+    "test": "jest --colors",
+    "typecheck": "tsc --noEmit --project tsconfig.json"
+  },
+  "dependencies": {
+    "@shared/lib": "*",
+    "@shared/mock-api": "*",
+    "@shared/util": "*",
+    "@cancjs/promise": "file:../../packages/canc-promise",
+    "@cancjs/toolbox": "file:../../packages/canc-toolbox"
+  },
+  "devDependencies": {
+    "@types/jest": "30.0.0",
+    "@types/node": "20.12.12",
+    "jest": "30.4.2",
+    "ts-jest": "29.4.11",
+    "tsx": "4.23.0",
+    "typescript": "5.9.3"
+  },
+  "engines": {
+    "npm": ">=9"
+  }
 }
