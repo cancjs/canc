@@ -16,10 +16,10 @@
   "dependencies": {
     "@cancjs/promise": "file:../../packages/canc-promise",
     "@cancjs/toolbox": "file:../../packages/canc-toolbox",
+    "@cancjs/unhandled-rejection": "file:../../packages/canc-unhandled-rejection",
     "@shared/mock-api": "*",
     "react": "19.2.7",
-    "react-dom": "19.2.7",
-    "@cancjs/unhandled-rejection": "file:../../packages/canc-unhandled-rejection"
+    "react-dom": "19.2.7"
   },
   "devDependencies": {
     "@testing-library/dom": "10.4.1",

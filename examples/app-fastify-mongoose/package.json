@@ -13,10 +13,10 @@
     "@cancjs/promise": "file:../../packages/canc-promise",
     "@cancjs/coroutine": "file:../../packages/canc-coroutine",
     "@cancjs/toolbox": "file:../../packages/canc-toolbox",
+    "@cancjs/unhandled-rejection": "file:../../packages/canc-unhandled-rejection",
     "fastify": "5.10.0",
     "fastify-plugin": "6.0.0",
-    "mongoose": "9.7.4",
-    "@cancjs/unhandled-rejection": "file:../../packages/canc-unhandled-rejection"
+    "mongoose": "9.7.4"
   },
   "devDependencies": {
     "@types/jest": "30.0.0",

@@ -12,8 +12,8 @@
   "dependencies": {
     "@cancjs/promise": "file:../../packages/canc-promise",
     "@cancjs/toolbox": "file:../../packages/canc-toolbox",
-    "rxjs": "7.8.2",
-    "@cancjs/unhandled-rejection": "file:../../packages/canc-unhandled-rejection"
+    "@cancjs/unhandled-rejection": "file:../../packages/canc-unhandled-rejection",
+    "rxjs": "7.8.2"
   },
   "devDependencies": {
     "@types/jest": "30.0.0",

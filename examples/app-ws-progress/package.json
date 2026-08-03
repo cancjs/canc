@@ -15,9 +15,9 @@
     "@cancjs/promise": "file:../../packages/canc-promise",
     "@cancjs/coroutine": "file:../../packages/canc-coroutine",
     "@cancjs/toolbox": "file:../../packages/canc-toolbox",
+    "@cancjs/unhandled-rejection": "file:../../packages/canc-unhandled-rejection",
     "express": "5.2.1",
-    "ws": "8.21.0",
-    "@cancjs/unhandled-rejection": "file:../../packages/canc-unhandled-rejection"
+    "ws": "8.21.0"
   },
   "devDependencies": {
     "@types/express": "5.0.6",

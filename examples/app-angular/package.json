@@ -26,11 +26,11 @@
     "@cancjs/decorators": "file:../../packages/canc-decorators",
     "@cancjs/promise": "file:../../packages/canc-promise",
     "@cancjs/toolbox": "file:../../packages/canc-toolbox",
+    "@cancjs/unhandled-rejection": "file:../../packages/canc-unhandled-rejection",
     "@shared/mock-api": "*",
     "rxjs": "7.8.2",
     "tslib": "2.8.1",
-    "zone.js": "0.14.10",
-    "@cancjs/unhandled-rejection": "file:../../packages/canc-unhandled-rejection"
+    "zone.js": "0.14.10"
   },
   "devDependencies": {
     "@angular-devkit/build-angular": "18.2.21",

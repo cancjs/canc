@@ -15,10 +15,10 @@
     "@shared/mock-api": "*",
     "@cancjs/promise": "file:../../packages/canc-promise",
     "@cancjs/toolbox": "file:../../packages/canc-toolbox",
+    "@cancjs/unhandled-rejection": "file:../../packages/canc-unhandled-rejection",
     "react": "19.2.7",
     "react-dom": "19.2.7",
-    "zustand": "5.0.14",
-    "@cancjs/unhandled-rejection": "file:../../packages/canc-unhandled-rejection"
+    "zustand": "5.0.14"
   },
   "devDependencies": {
     "@testing-library/dom": "10.4.1",

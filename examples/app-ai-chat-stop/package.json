@@ -14,8 +14,8 @@
     "@cancjs/promise": "file:../../packages/canc-promise",
     "@cancjs/coroutine": "file:../../packages/canc-coroutine",
     "@cancjs/toolbox": "file:../../packages/canc-toolbox",
-    "express": "5.2.1",
-    "@cancjs/unhandled-rejection": "file:../../packages/canc-unhandled-rejection"
+    "@cancjs/unhandled-rejection": "file:../../packages/canc-unhandled-rejection",
+    "express": "5.2.1"
   },
   "optionalDependencies": {
     "openai": "6.46.0"

@@ -16,9 +16,9 @@
   "dependencies": {
     "@cancjs/promise": "file:../../packages/canc-promise",
     "@cancjs/toolbox": "file:../../packages/canc-toolbox",
+    "@cancjs/unhandled-rejection": "file:../../packages/canc-unhandled-rejection",
     "@shared/mock-api": "*",
-    "vue": "3.5.40",
-    "@cancjs/unhandled-rejection": "file:../../packages/canc-unhandled-rejection"
+    "vue": "3.5.40"
   },
   "devDependencies": {
     "@types/jest": "30.0.0",

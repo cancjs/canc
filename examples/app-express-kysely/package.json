@@ -13,10 +13,10 @@
     "@cancjs/promise": "file:../../packages/canc-promise",
     "@cancjs/coroutine": "file:../../packages/canc-coroutine",
     "@cancjs/toolbox": "file:../../packages/canc-toolbox",
+    "@cancjs/unhandled-rejection": "file:../../packages/canc-unhandled-rejection",
     "better-sqlite3": "12.11.1",
     "express": "5.2.1",
-    "kysely": "0.29.3",
-    "@cancjs/unhandled-rejection": "file:../../packages/canc-unhandled-rejection"
+    "kysely": "0.29.3"
   },
   "devDependencies": {
     "@types/better-sqlite3": "7.6.13",

@@ -16,10 +16,10 @@
     "@cancjs/promise": "file:../../packages/canc-promise",
     "@cancjs/coroutine": "file:../../packages/canc-coroutine",
     "@cancjs/toolbox": "file:../../packages/canc-toolbox",
+    "@cancjs/unhandled-rejection": "file:../../packages/canc-unhandled-rejection",
     "pinia": "4.0.2",
     "vue": "3.5.40",
-    "vue-router": "5.2.0",
-    "@cancjs/unhandled-rejection": "file:../../packages/canc-unhandled-rejection"
+    "vue-router": "5.2.0"
   },
   "devDependencies": {
     "@testing-library/dom": "10.4.1",

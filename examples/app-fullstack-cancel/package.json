@@ -20,6 +20,7 @@
     "@cancjs/coroutine": "file:../../packages/canc-coroutine",
     "@cancjs/toolbox": "file:../../packages/canc-toolbox",
     "@cancjs/axios": "file:../../packages/canc-axios",
+    "@cancjs/unhandled-rejection": "file:../../packages/canc-unhandled-rejection",
     "@electric-sql/pglite": "0.2.17",
     "@mikro-orm/core": "7.1.7",
     "@mikro-orm/pglite": "7.1.7",
@@ -29,8 +30,7 @@
     "express": "5.2.1",
     "pg": "8.22.0",
     "react": "19.2.7",
-    "react-dom": "19.2.7",
-    "@cancjs/unhandled-rejection": "file:../../packages/canc-unhandled-rejection"
+    "react-dom": "19.2.7"
   },
   "devDependencies": {
     "@testing-library/dom": "10.4.1",
