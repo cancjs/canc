@@ -81,7 +81,6 @@ export async function loadRates(roomIds: string[], date: string): Promise<Rate[]
 }
 
 export interface ScanBookingsOptions {
-  onDocument?: (booking: Booking) => void;
   signal?: AbortSignal;
 }
 
@@ -108,7 +107,6 @@ export async function scanBookings(
   for (const booking of bookings) {
     if (options.signal?.aborted) break;
     await sleep(SCAN_STEP_MS);
-    options.onDocument?.(booking);
     scanned += 1;
     if (booking.date === date) booked += 1;
     entry.documentsScanned = scanned;
