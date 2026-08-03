@@ -81,6 +81,9 @@
   "typesVersions": {
     "<4.7": {
       "dist/types/*": ["dist/types-ts4.2/*"]
+    },
+    "*": {
+      "register": ["dist/types/register.d.ts"]
     }
   }
 }
