@@ -20,6 +20,5 @@ module.exports = {
     ...mergeTsJestConfig({ tsconfig: '<rootDir>/../../tsconfig.json' }),
   },
   testMatch: ['<rootDir>/src/**/*.spec.ts'],
-  coveragePathIgnorePatterns: ['-smoke\\.ts$'],
   displayName: packageJson.name,
 };

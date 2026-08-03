@@ -1,6 +1,7 @@
+// Manual runtime check, run by bun directly: `bun smoke/bun-smoke.ts`.
 import { CancelablePromise } from '@cancjs/promise';
 
-import { register } from './index';
+import { register } from '../src/index';
 
 register();
 

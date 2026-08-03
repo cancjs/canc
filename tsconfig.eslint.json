@@ -6,21 +6,16 @@
 // type information for them. This config covers everything the linter should see.
 {
   "extends": "./tsconfig.test",
-  "include": [
-    "packages",
-    "tests-types/scripts",
-    "benchmarks",
-    "packages/canc-unhandled-rejection/src/**/*.ts"
-  ],
+  "include": ["packages", "tests-types/scripts", "benchmarks"],
   "exclude": [
     "node_modules",
     "**/node_modules/**",
     "**/~~**/*",
     "**/**~~/*",
     "**/build/**/*",
+    // Manual runtime checks, run by their own runtime (bun, deno) with that runtime's resolver.
+    "**/smoke/**",
     "**/dist/**/*",
-    "tests-types/fixtures/**",
-    "packages/canc-unhandled-rejection/src/**/*.spec.ts",
-    "packages/canc-unhandled-rejection/src/*-smoke.ts"
+    "tests-types/fixtures/**"
   ]
 }

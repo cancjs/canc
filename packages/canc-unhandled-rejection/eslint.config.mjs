@@ -11,6 +11,12 @@ const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 export default tseslint.config(
   ...rootConfig,
 
+  // Manual runtime checks, run by bun and deno with their own resolvers and globals. They belong
+  // to no TypeScript project here, so typed linting cannot parse them.
+  {
+    ignores: ['smoke/**'],
+  },
+
   // Typed linting: point at this package's tsconfig (the universal one used by
   // IDE TS & ESLint, covering src + specs). tsconfigRootDir must be set per
   // package as it is not merged from the root config.
