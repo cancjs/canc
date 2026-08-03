@@ -1,11 +1,11 @@
 import {
-  CancelableFetchConfig,
   cancelableFetchFactory,
-  CancelableFetchLaterConfig,
   cancelableFetchLaterFactory,
-  CancelableFetchLaterPromise,
-  DeferredRequestInit,
-  FetchLaterResultLike,
+  ICancelableFetchConfig,
+  ICancelableFetchLaterConfig,
+  IFetchLaterResultLike,
+  TCancelableFetchLaterPromise,
+  TDeferredRequestInit,
 } from './base';
 
 // Default entries: globals (`fetch`, `AbortController`, `fetchLater`) are captured lazily on first
@@ -17,9 +17,9 @@ export default cancelableFetch;
 
 export { cancelableFetch, cancelableFetchFactory, cancelableFetchLater, cancelableFetchLaterFactory };
 export type {
-  CancelableFetchConfig,
-  CancelableFetchLaterConfig,
-  CancelableFetchLaterPromise,
-  DeferredRequestInit,
-  FetchLaterResultLike,
+  ICancelableFetchConfig,
+  ICancelableFetchLaterConfig,
+  IFetchLaterResultLike,
+  TCancelableFetchLaterPromise,
+  TDeferredRequestInit,
 };
