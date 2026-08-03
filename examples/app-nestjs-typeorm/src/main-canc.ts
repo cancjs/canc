@@ -1,5 +1,5 @@
-import '@cancjs/unhandled-rejection/register';
 import 'reflect-metadata';
+import '@cancjs/unhandled-rejection/register';
 
 import { NestFactory } from '@nestjs/core';
 
