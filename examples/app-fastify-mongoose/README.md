@@ -6,16 +6,21 @@ is listening to.
 
 ## What it shows
 
-- A route handler written as a `cancAsync` generator, wrapped with `cancAsyncRoute`
- (`src/lib/cancelable-route.ts`). The `close` event on the raw request cancels the handler's
- coroutine; the handler still owns `reply.send` and full control of the response.
-- A cancelable repository boundary (`src/mock/db.ts`): the three queries (find rooms, load their
- nightly rates, aggregate occupancy) are wrapped with `cancelify` into canc-native fns, so the
- service awaits them with no signal threading.
-- A three-step query chain built with `cancAsync` / `cancAwait` over that boundary. Cancellation is
- ambient, so no step needs a manual disconnect check.
+- A route handler written as a canc generator, wrapped with `cancAsyncRoute`
+  (`src/lib/cancelable-route.ts`). The `close` event on the raw request cancels the handler's
+  coroutine; the handler still owns `reply.send` and full control of the response.
+- The cancelable boundary living in the service (`src/availability-service-canc.ts`), not in the
+  data layer. `cancelify` turns the plain repository fns of `src/mock/db.ts` into canc-native ones,
+  so the repository stays an ordinary Mongoose module that knows nothing about canc.
+- A three-step chain built with `canc.async` / `canc.await` over that boundary: find the rooms,
+  load their nightly rates, then scan the bookings for occupancy. Cancellation is ambient, so no
+  step needs a manual disconnect check.
+- Two disconnect scenarios. An early disconnect stops the chain between queries, so the later ones
+  are never issued. A late one lands inside the booking scan, which then stops at the document it
+  is on instead of walking the rest.
 - The vanilla twin runs the identical chain with plain promises. A disconnect cannot stop it, so
- every query still runs and the result is built for a client that already left.
+  every query still runs, the scan walks every booking, and the result is built for a client that
+  already left.
 
 ## Domain
 
@@ -29,7 +34,7 @@ full they already are.
 Build the monorepo first so `packages/*/dist` exists:
 
 ```bash
-cd ../.. # monorepo root
+cd ../..  # monorepo root
 npm run build
 ```
 
@@ -42,14 +47,14 @@ npm install
 
 ### Both flavors
 
-Each entry boots a Fastify server, fires one request, and destroys the socket mid-search:
+Each entry boots a Fastify server and plays both disconnect scenarios against it:
 
 ```bash
-npm run start:vanilla # every query runs for the dead socket
-npm run start:canc # the chain stops, later queries are skipped
+npm run start:vanilla  # every query runs, the scan walks all 40 bookings
+npm run start:canc     # the chain stops, and the scan stops where it stands
 ```
 
-The canc run reports the skipped queries; the vanilla run reports the queries it still ran.
+Each run prints the queries it issued and how many booking documents the scan got through.
 
 ### Typecheck and tests
 
@@ -67,23 +72,42 @@ diff src/availability-service-vanilla.ts src/availability-service-canc.ts
 diff src/main-vanilla.ts src/main-canc.ts
 ```
 
-The service twins align step for step. The only differences are `await` becoming
-`yield* cancAwait` inside a `cancAsync` generator, and the comment at each step changing from
-"this always runs" to "canceled here, this is skipped". The route handlers differ by the
-`cancAsyncRoute` wrapper, which exists only on the canc side.
+The service twins align step for step. The canc side opens with the `cancelify` boundary the
+vanilla side has no use for, then every `await` becomes `yield* canc.await` inside a `canc.async`
+generator, and the comment at each step changes from "this always runs" to "canceled here, this is
+skipped". The route handlers differ by the `cancAsyncRoute` wrapper, which exists only on the canc
+side. The repository (`src/mock/db.ts`) is shared by both flavors and is identical for each.
 
 ## Honesty notes
 
-Cancellation here works at the chain level. It stops the handler between queries: once a query has
-been sent to MongoDB, Mongoose cannot recall it, so canc does not kill a running statement. What it
-does is skip every query that has not started yet and discard the partial result, which is what
-frees the server from finishing work for a client that has gone. This is the same story as the
-express-kysely example on a different stack.
+Cancellation here works at two layers, and they are not the same thing.
 
-Mongoose does not expose an AbortSignal on a query, so the cancelified repository wrappers in
-`src/mock/db.ts` do not forward a signal to the driver. They add chain-level cancellation only. If
-you need the database itself to stop mid-statement, that is a driver-level concern outside this
-example.
+The chain level is the default and the one this example leans on. A canceled coroutine stops
+between steps, so a query that has not started yet is never issued and the partial result is
+discarded instead of being assembled for a dead socket. Nothing is killed on the database server.
+
+The document scan is the second layer. Mongoose's `cursor.eachAsync` takes a `signal` option, and
+that signal is a client-side loop stop. It stops pulling further batches and resolves. It does not
+close the cursor, does not abort the operation already in flight, and does not reject. No
+connection is dropped, which makes it the cheap and safe cancellation point, and it is the only
+place this example spends a signal. `scanBookings` in `src/mock/db.ts` implements those same stop
+semantics by hand, because mockingoose replaces the cursor with a stand-in that drops the options
+argument. Every signal is inert through mockingoose, so the mock has to carry the behavior itself.
+
+True statement-level cancellation does exist. Mongoose forwards an `AbortSignal` from the query
+options straight to the driver, and the driver's cursor closes when that signal aborts, so the
+operation really does stop on the server. That is the
+[`Abortable`](https://mongodb.github.io/node-mongodb-native/7.0/types/Abortable.html) interface of
+the MongoDB Node driver, version 7.2 here. The cost is
+[NODE-6062](https://jira.mongodb.org/browse/NODE-6062): aborting this way makes the driver drop the
+connection and open a new one. Under load, canceling every disconnected request that way turns
+into connection churn, which is why it fits an explicit user cancel (someone clicking "stop" on a
+slow report) better than ambient request cancellation.
+
+So `ABORT_QUERIES` in `src/mock/db.ts` is off by default. Turning it on passes the signal the typed
+way, `Model.find(filter, null, { signal })`, never through `setOptions`, which only carries a signal
+through an index signature and is not typed for it. Through mockingoose the flag changes nothing
+here, so treat it as a documented escape hatch rather than a feature of this example.
 
 ## Why plain vanilla, not a workaround
 
@@ -101,6 +125,6 @@ in `src/mock/db.ts` and `src/mock/models.ts`; treat them as a black box.
 
 ## Helper code
 
-`src/lib/cancelable-route.ts` wraps a generator route handler as a `cancAsync` coroutine and
-cancels it on client disconnect. It has no example-specific dependencies; copy it into an app that
-needs the same wiring.
+`src/lib/cancelable-route.ts` wraps a generator route handler as a coroutine and cancels it on
+client disconnect. It has no example-specific dependencies; copy it into an app that needs the same
+wiring.
