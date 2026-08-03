@@ -68,9 +68,8 @@ export function wrapAxios(
 
   // One cancelable wrap for every call shape. The caller supplies how to reach axios, so the
   // aliases go through axios's own methods and keep its config merging and form-header handling.
-  const run = cancelify<[(config: any) => Promise<any>, any], any>(function (ctx, args) {
-    const call = args[0];
-    const config = args[1] || {};
+  const run = cancelify(function (ctx, call: (config: any) => Promise<any>, configInput: any) {
+    const config = configInput || {};
     const scope = new CancelScope(ControllerCtor);
 
     // A caller-supplied signal aborts the request the same way .cancel() does.

@@ -65,7 +65,7 @@ Wrapping an API that takes a signal is a one-liner, and callers never see the si
 ```js
 import { cancelify } from '@cancjs/toolbox';
 
-const searchFlights = cancelify(({ getSignal }, [query]) =>
+const searchFlights = cancelify(({ getSignal }, query) =>
   flightApi.search(query, getSignal()),
 );
 
@@ -95,10 +95,10 @@ the application code free of the mechanism:
 
 ```js
 const orderApi = {
-  list: cancelify(({ getSignal }, [filter]) =>
+  list: cancelify(({ getSignal }, filter) =>
     rawOrderApi.list(filter, { signal: getSignal() })
   ),
-  get: cancelify(({ getSignal }, [id]) =>
+  get: cancelify(({ getSignal }, id) =>
     rawOrderApi.get(id, { signal: getSignal() })
   ),
 };

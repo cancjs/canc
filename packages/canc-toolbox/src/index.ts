@@ -23,20 +23,12 @@ export {
   toAbortSignal,
   withSignal,
 } from './abort';
-export { cancelify, ICancelifyContext, ICancelifyOptions, TCancelifyFn } from './cancelify';
+export type { ICancelifyContext, ICancelifyOptions, TCancelifyFn } from './cancelify';
+export { cancelify } from './cancelify';
 export { debounce } from './debounce';
-export { IToolboxOptions, THandleCancel, TToolboxExecutor } from './options';
-export {
-  defer,
-  delay,
-  ICancelableDeferred,
-  minDelay,
-  promisify,
-  promisifyAll,
-  retry,
-  timeout,
-  waitFor,
-} from './prebound';
+export type { IToolboxOptions, THandleCancel, TToolboxExecutor } from './options';
+export type { ICancelableDeferred } from './prebound';
+export { defer, delay, minDelay, promisify, promisifyAll, retry, timeout, waitFor } from './prebound';
 export { throttle } from './throttle';
 export type { TErrorConstructor, TErrorMatcher, TErrorPredicate } from '@cancjs/promise';
 export {

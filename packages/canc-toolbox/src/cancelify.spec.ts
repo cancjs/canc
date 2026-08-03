@@ -60,9 +60,9 @@ describe('cancelify', () => {
     expect(isCancelError(reason)).toBe(true);
   });
 
-  it('passes the getSignal thunk and the call-args array to fn', async () => {
+  it('passes the getSignal thunk and the call args to fn', async () => {
     let received: { signal: any; args: any[] } | undefined;
-    const wrapped = cancelify(({ getSignal }, args: any[]) => {
+    const wrapped = cancelify(({ getSignal }, ...args: any[]) => {
       received = { signal: getSignal(), args };
       return 'ok';
     });
@@ -172,9 +172,9 @@ describe('cancelify', () => {
         });
       };
 
-      const cancelableFetch = cancelify(({ getSignal }, args: [string]) => {
+      const cancelableFetch = cancelify(({ getSignal }, url: string, init?: { signal?: AbortSignal }) => {
         const signal = getSignal();
-        return fetchLike(signal, [args[0], { signal }]);
+        return fetchLike(signal, [url, { signal: init?.signal ?? signal }]);
       });
 
       const promise = cancelableFetch('https://example.test/resource');
@@ -193,14 +193,14 @@ describe('cancelify', () => {
 
   describe('displayName', () => {
     it('names the wrapper bare `cancelify` when the source callback is anonymous (the common case: an inline arrow)', () => {
-      const wrapped = cancelify((_ctx, args: [number]) => Promise.resolve(args[0]));
+      const wrapped = cancelify((_ctx, arg: number) => Promise.resolve(arg));
 
       expect((wrapped as any).displayName).toBe('cancelify');
     });
 
     it('names the wrapper `cancelify: <name>` from a named source callback', () => {
-      function loadUser(_ctx: any, args: [number]) {
-        return Promise.resolve(args[0]);
+      function loadUser(_ctx: any, arg: number) {
+        return Promise.resolve(arg);
       }
 
       const wrapped = cancelify(loadUser);
@@ -209,8 +209,8 @@ describe('cancelify', () => {
     });
 
     it('an explicit displayName option wins verbatim, no prefix', () => {
-      function loadEverything(_ctx: any, args: [number]) {
-        return Promise.resolve(args[0]);
+      function loadEverything(_ctx: any, arg: number) {
+        return Promise.resolve(arg);
       }
 
       const wrapped = cancelify(loadEverything, { displayName: 'loadUser' });
@@ -219,8 +219,8 @@ describe('cancelify', () => {
     });
 
     it('also sets the wrapper name where the name slot is configurable', () => {
-      function loadUser(_ctx: any, args: [number]) {
-        return Promise.resolve(args[0]);
+      function loadUser(_ctx: any, arg: number) {
+        return Promise.resolve(arg);
       }
 
       const wrapped = cancelify(loadUser);

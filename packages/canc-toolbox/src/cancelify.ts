@@ -38,9 +38,9 @@ export interface ICancelifyOptions extends ICancelablePromiseOptions {
   displayName?: string;
 }
 
-/** A promise-returning fn that receives the outbound cancel-signal thunk and the call-args array.
+/** A promise-returning fn that receives the outbound cancel-signal thunk and the call arguments.
  * Call `getSignal()` only when the underlying API needs a signal; ignoring it allocates nothing. */
-export type TCancelifyFn<A extends any[], R> = (ctx: ICancelifyContext, args: A) => R | PromiseLike<R>;
+export type TCancelifyFn<A extends any[], R> = (ctx: ICancelifyContext, ...args: A) => R | PromiseLike<R>;
 
 /**
  * Add cancellation to an already-promise-returning fn by handing it an outbound signal that aborts
@@ -58,7 +58,7 @@ export function cancelify<A extends any[], R>(
     const run = (resolve: (value: R | PromiseLike<R>) => void, reject: (reason?: any) => void, ctx?: IExecutorCtx) => {
       const handleCancel = ctx?.handleCancel;
       const holder = makeCancelSignal(handleCancel, Ctor, toCancelError);
-      CancelablePromise.resolve(fn({ getSignal: holder.getSignal, handleCancel: handleCancel! }, callArgs)).then(
+      CancelablePromise.resolve(fn({ getSignal: holder.getSignal, handleCancel: handleCancel! }, ...callArgs)).then(
         resolve,
         reject,
       );

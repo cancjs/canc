@@ -138,4 +138,29 @@ import { cancelify } from '@cancjs/toolbox';
 const _cancelifyProbe = cancelify(() => 1, { lazy: true });
 void _cancelifyProbe;
 
+// ============================================================ cancelify call args
+// The callback takes the call arguments as rest parameters, so the wrapper carries their types
+// with no annotation ceremony at the call site. A tuple parameter had no inference site and
+// collapsed to `any[]`, which silently dropped arity and argument checking on every wrapper.
+const cancelifyOne = cancelify((_ctx, id: string) => Promise.resolve(id.length));
+type _cancelifyOne = Expect<Equal<typeof cancelifyOne, (id: string) => CancelablePromise<number>>>;
+
+// The destructured-context form infers the same way.
+const cancelifyTwo = cancelify(({ getSignal }, id: string, limit: number) =>
+ Promise.resolve(`${id}:${limit}:${typeof getSignal}`),
+);
+type _cancelifyTwo = Expect<
+ Equal<typeof cancelifyTwo, (id: string, limit: number) => CancelablePromise<string>>
+>;
+
+const cancelifyNone = cancelify((_ctx) => 1);
+type _cancelifyNone = Expect<Equal<typeof cancelifyNone, () => CancelablePromise<number>>>;
+
+// @ts-expect-error the wrapper rejects an argument of the wrong type
+cancelifyOne(42);
+// @ts-expect-error the wrapper rejects a missing argument
+cancelifyOne();
+// @ts-expect-error the wrapper rejects an extra argument
+cancelifyNone('nope');
+
 export {};
