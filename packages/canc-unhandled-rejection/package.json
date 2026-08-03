@@ -60,7 +60,16 @@
     "test:watch": "jest --colors --watch"
   },
   "files": ["dist"],
-  "keywords": [],
+  "keywords": [
+    "unhandledrejection",
+    "unhandled",
+    "rejection",
+    "promise",
+    "cancelable",
+    "cancellation",
+    "cancel",
+    "canc"
+  ],
   "devDependencies": {
     "@cancjs/promise": "*"
   },
