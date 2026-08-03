@@ -46,11 +46,13 @@ Angular 19 ships a `resource()` primitive with the same vocabulary (`value`, `er
 
 ## What each flavor does
 
-- **canc**: `orders.service-canc.ts` puts `@AsyncMethod` (the TS-legacy decorator entry from `@cancjs/decorators/legacy`) on generator methods, so each returns a `CancelablePromise`. `orders.service-manual-canc.ts` shows the same coroutines wired by hand, without a canc decorator. Each mock API call is wrapped with toolbox `cancelify`, which turns a signal-aware function into a cancelable one with no hand-built promise machinery.
+- **canc**: `orders.service-canc.ts` puts `@AsyncMethod` (the TS-legacy decorator entry from `@cancjs/decorators/legacy`) on getters that return a coroutine, which is the form TypeScript reads correctly: the call site sees the `CancelablePromise` the member really hands back, with no cast. `orders.service-manual-canc.ts` shows the same coroutines wired by hand, without a canc decorator. Each mock API call is wrapped with toolbox `cancelify`, which turns a signal-aware function into a cancelable one with no hand-built promise machinery.
 - **vanilla**: `orders.service-vanilla.ts` is plain async methods with nothing to cancel. The components carry the staleness workaround through `promiseResource`.
 - **obs**: `orders.service-obs.ts` starts the request inside the `Observable` and aborts it in the teardown, which is how Angular's own `HttpClient` behaves. The `-obs` components subscribe to it directly.
 
-The Observable service also feeds the canc components. `app.config-canc.ts` carries a three-way flavor switch, and its `observable` setting provides `ORDERS_SERVICE` from `OrdersServiceObservable` wrapped with `toCancelablePromise`. Cancel becomes unsubscribe becomes abort, and not one component changes.
+The Observable service also feeds the canc components. `app.config-canc.ts` carries a three-way flavor switch, and its `observable` setting provides `CANCELABLE_ORDERS_SERVICE` from `OrdersServiceObservable` wrapped with `toCancelablePromise`. Cancel becomes unsubscribe becomes abort, and not one component changes.
+
+Each DI token is typed with the promise its flavor really returns: `ORDERS_SERVICE` with a plain `Promise` for vanilla, `CANCELABLE_ORDERS_SERVICE` with a `CancelablePromise` for the three canc flavors. A single token typed with a plain promise would erase the one property the canc components need, and every call site would pay for it with a cast.
 
 ## canc against RxJS, honestly
 
