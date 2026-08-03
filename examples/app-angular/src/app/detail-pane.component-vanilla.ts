@@ -1,11 +1,13 @@
 import { CommonModule } from '@angular/common';
-import { Component, DestroyRef, inject, Input, OnChanges } from '@angular/core';
+import { Component, inject, Input, OnChanges } from '@angular/core';
 
+// (no cancelable promise counterpart, see -canc)
+import { promiseResource } from '../lib/promise-resource';
 import { type OrderDetail, ORDERS_SERVICE } from './orders.types';
 
-// Detail pane. Selecting a different row cannot cancel the previous detail load: the plain promise
-// keeps running to completion. A request-id compare and a destroyed flag are threaded by hand so a
-// stale response cannot overwrite the current row or touch a destroyed component.
+// Detail pane. Picking another row supersedes the detail load in flight and the resource drops its
+// response, which is all a plain promise allows. The request runs to completion, and so does the one
+// left over on destroy. The component keeps the staleness guard out of sight, not the wasted work.
 @Component({
   selector: 'app-detail-pane',
   standalone: true,
@@ -16,12 +18,12 @@ import { type OrderDetail, ORDERS_SERVICE } from './orders.types';
       data-testid="detail-pane"
     >
       <p
-        *ngIf="loading"
+        *ngIf="orderDetail.status === 'pending'"
         data-testid="detail-loading"
       >
         Loading order {{ orderId }}…
       </p>
-      <ng-container *ngIf="detail as d">
+      <ng-container *ngIf="orderDetail.value as d">
         <h3 data-testid="detail-id">{{ d.id }}</h3>
         <p>{{ d.customer }} — {{ d.status }} — {{ d.total | number }}</p>
         <ul>
@@ -34,36 +36,20 @@ import { type OrderDetail, ORDERS_SERVICE } from './orders.types';
 export class DetailPaneComponent implements OnChanges {
   @Input() orderId: string | null = null;
 
-  detail: OrderDetail | null = null;
-  loading = false;
+  orderDetail = promiseResource<OrderDetail>();
 
   private readonly orders = inject(ORDERS_SERVICE);
-  private requestId = 0;
-  private destroyed = false;
-
-  constructor() {
-    // Destroyed component still applies this patch: the request keeps running, so a flag guards it.
-    inject(DestroyRef).onDestroy(() => (this.destroyed = true));
-  }
 
   ngOnChanges(): void {
-    // A new selection cannot cancel the previous load; a request-id compare drops the stale one.
-    const id = ++this.requestId;
-    this.detail = null;
-
+    // Clearing the selection invalidates the load in flight. It keeps running, and only its result
+    // is thrown away, so an empty pane still costs a full request.
     if (!this.orderId) {
-      this.loading = false;
+      this.orderDetail.reset();
       return;
     }
 
-    this.loading = true;
-    // The previous request keeps running even though its result will be discarded (wasted work).
-    this.orders.detail(this.orderId).then((result) => {
-      // request-id compare + destroyed guard: drop a response the user has already navigated past.
-      if (id === this.requestId && !this.destroyed) {
-        this.detail = result;
-        this.loading = false;
-      }
-    });
+    // (no cancelable promise counterpart, see -canc) A plain promise is all the service can hand
+    // back, and the resource takes it as is.
+    this.orderDetail.run(this.orders.detail(this.orderId));
   }
 }

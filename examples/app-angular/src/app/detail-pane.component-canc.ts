@@ -1,12 +1,13 @@
 import { CommonModule } from '@angular/common';
-import { Component, DestroyRef, inject, Input, OnChanges } from '@angular/core';
-import { type CancelablePromise, isCancelError, suppressCancel } from '@cancjs/promise';
+import { Component, inject, Input, OnChanges } from '@angular/core';
+import type { CancelablePromise } from '@cancjs/promise';
 
+import { cancelableResource } from '../lib/cancelable-resource';
 import { type OrderDetail, ORDERS_SERVICE } from './orders.types';
 
-// Detail pane. Selecting a different row cancels the previous detail load: the in-flight
-// CancelablePromise is held on the component and canceled before the next one starts, and again when
-// the component is destroyed. A canceled load aborts its request at the fake network boundary.
+// Detail pane. Picking another row supersedes the detail load in flight and the resource cancels it,
+// which aborts the request at the fake network boundary. Destroy cancels it too. The component keeps
+// none of that wiring: it starts a load and reads three fields.
 @Component({
   selector: 'app-detail-pane',
   standalone: true,
@@ -17,12 +18,12 @@ import { type OrderDetail, ORDERS_SERVICE } from './orders.types';
       data-testid="detail-pane"
     >
       <p
-        *ngIf="loading"
+        *ngIf="orderDetail.status === 'pending'"
         data-testid="detail-loading"
       >
         Loading order {{ orderId }}…
       </p>
-      <ng-container *ngIf="detail as d">
+      <ng-container *ngIf="orderDetail.value as d">
         <h3 data-testid="detail-id">{{ d.id }}</h3>
         <p>{{ d.customer }} — {{ d.status }} — {{ d.total | number }}</p>
         <ul>
@@ -35,37 +36,20 @@ import { type OrderDetail, ORDERS_SERVICE } from './orders.types';
 export class DetailPaneComponent implements OnChanges {
   @Input() orderId: string | null = null;
 
-  detail: OrderDetail | null = null;
-  loading = false;
+  orderDetail = cancelableResource<OrderDetail>();
 
   private readonly orders = inject(ORDERS_SERVICE);
-  private pending: CancelablePromise<OrderDetail> | null = null;
-
-  constructor() {
-    // Destroy cancels whatever is still pending, aborting the request.
-    inject(DestroyRef).onDestroy(() => this.pending?.cancel());
-  }
 
   ngOnChanges(): void {
-    // A new selection supersedes the previous load: cancel it before starting the next.
-    this.pending?.cancel();
-    this.detail = null;
-
+    // Clearing the selection cancels the load in flight, so an empty pane costs nothing and no late
+    // response can land on it.
     if (!this.orderId) {
-      this.loading = false;
+      this.orderDetail.reset();
       return;
     }
 
-    this.loading = true;
-    const load = this.orders.detail(this.orderId) as CancelablePromise<OrderDetail>;
-    this.pending = load;
-
-    // A superseded (or destroyed) load is canceled on purpose — swallow the CancelError.
-    suppressCancel(load).then((result) => {
-      if (result && !isCancelError(result)) {
-        this.detail = result;
-        this.loading = false;
-      }
-    });
+    // The token is typed with plain promises so every flavor fits it. All canc flavors hand back a
+    // cancelable one, so it is narrowed here once rather than at each use.
+    this.orderDetail.run(this.orders.detail(this.orderId) as CancelablePromise<OrderDetail>);
   }
 }

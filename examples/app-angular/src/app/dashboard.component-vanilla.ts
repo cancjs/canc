@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 
 import { DetailPaneComponent } from './detail-pane.component-vanilla';
-import { OrdersTableComponent } from './orders-table.component';
+import { OrdersTableComponent } from './orders-table.component-vanilla';
 
 // Admin dashboard: an orders table beside a detail pane. Clicking a row loads its detail; clicking
 // another row cannot cancel the previous load, which runs to completion (see
