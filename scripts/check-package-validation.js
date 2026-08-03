@@ -15,6 +15,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
+const { pathToFileURL } = require('url');
 
 const ROOT = path.resolve(__dirname, '..');
 const PACKAGES_DIR = path.join(ROOT, 'packages');
@@ -54,7 +55,38 @@ function normalize(p) {
   return p.startsWith('./') ? p.slice(2) : p;
 }
 
-function checkPackage(pkgName) {
+// The CJS interop shim copies every barrel export onto the default export object, so in a package
+// that has a default export, a barrel name matching one of that object's own properties overwrites
+// the property in the CJS build only. ESM and UMD keep both. Nothing collides today, so this is a
+// guard against a future export silently deleting a static from one build.
+async function collectDefaultExportShadowing(pkgDir, manifest) {
+  const entry = typeof manifest.module === 'string' ? manifest.module : null;
+  if (!entry) return [];
+
+  const entryFile = path.join(pkgDir, normalize(entry));
+  if (!fs.existsSync(entryFile)) return [];
+
+  let namespace;
+  try {
+    namespace = await import(pathToFileURL(entryFile).href);
+  } catch (err) {
+    return [`ESM entry ${entry} failed to import: ${err.message}`];
+  }
+
+  const defaultExport = namespace.default;
+  const isNamespaceObject =
+    defaultExport !== null && (typeof defaultExport === 'object' || typeof defaultExport === 'function');
+  if (!isNamespaceObject) return [];
+
+  const defaultMembers = new Set(Object.getOwnPropertyNames(defaultExport));
+  const shadowed = Object.keys(namespace).filter((name) => defaultMembers.has(name));
+
+  if (shadowed.length === 0) return [];
+
+  return [`barrel exports shadow members of the default export in the CJS build: ${shadowed.sort().join(', ')}`];
+}
+
+async function checkPackage(pkgName) {
   const pkgDir = path.join(PACKAGES_DIR, pkgName);
   const manifest = JSON.parse(fs.readFileSync(path.join(pkgDir, 'package.json'), 'utf8'));
   const packedFiles = packFileList(pkgDir);
@@ -106,6 +138,8 @@ function checkPackage(pkgName) {
     }
   }
 
+  problems.push(...(await collectDefaultExportShadowing(pkgDir, manifest)));
+
   try {
     const publintOutput = execSync(`npx publint "${pkgDir}"`, { encoding: 'utf8' });
     if (publintOutput.includes('Error')) {
@@ -127,12 +161,12 @@ function checkPackage(pkgName) {
   return { pkgName: manifest.name, problems, fileCount: packedFiles.size };
 }
 
-function main() {
+async function main() {
   const packages = listPackages();
   let failed = false;
 
   for (const pkgName of packages) {
-    const { pkgName: name, problems, fileCount } = checkPackage(pkgName);
+    const { pkgName: name, problems, fileCount } = await checkPackage(pkgName);
     if (problems.length === 0) {
       console.log(`PASS ${name} (${fileCount} files packed)`);
     } else {
