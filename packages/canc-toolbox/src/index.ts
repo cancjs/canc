@@ -6,6 +6,7 @@ export type {
   IWaitForOptions,
   TCallbackFn,
   TDuration,
+  TTimedInput,
 } from '../../_toolbox';
 export type { ILazyWithResolvers, TLazyExecutor, TLazyOnCancel } from '../../_toolbox';
 export { isLazyPromise } from '../../_toolbox';

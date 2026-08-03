@@ -38,7 +38,14 @@ export function suppressAbort<T>(promise: T | PromiseLike<T>, options?: tb.ISupp
   return suppress(promise, { ...options, abort: true });
 }
 
-export type { ILazyWithResolvers, ISuppressOptions, TDuration, TLazyExecutor, TLazyOnCancel } from '../../_toolbox';
+export type {
+  ILazyWithResolvers,
+  ISuppressOptions,
+  TDuration,
+  TLazyExecutor,
+  TLazyOnCancel,
+  TTimedInput,
+} from '../../_toolbox';
 export { isLazyPromise, isTimeoutError, TimeoutError } from '../../_toolbox';
 export type { IDebounced, IDebounceOptions } from '../../_toolbox/debounce';
 export type { ILazyPromiseOptions } from '../../_toolbox/lazy/lazy-promise-native';
