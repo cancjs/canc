@@ -1,9 +1,9 @@
-// Canc server: the same /chat route, but the handler is a cancAsync coroutine wrapped by
+// Canc server: the same /chat route, but the handler is a canc.async coroutine wrapped by
 // cancAsyncRoute, so a socket close cancels the whole chain. Cancellation flows down to the LLM's
 // AbortSignal on its own, and the wrapper handles the disconnect wiring (including a request that is
 // already gone before dispatch).
 
-import { cancAwait } from '@cancjs/coroutine';
+import * as canc from '@cancjs/coroutine';
 import express, { Express } from 'express';
 
 import { UsageLog } from './chat';
@@ -24,7 +24,7 @@ export function createServer(): { app: Express; log: UsageLog } {
     '/chat',
     cancAsyncRoute(function* (req, res) {
       const sink = { write: (token: string) => res.write(token) };
-      yield* cancAwait(streamChat({ prompt: req.body.prompt }, sink, log));
+      yield* canc.await(streamChat({ prompt: req.body.prompt }, sink, log));
       res.end();
     }),
   );

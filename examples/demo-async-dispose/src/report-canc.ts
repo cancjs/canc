@@ -1,4 +1,4 @@
-import { cancAsync, cancAwait } from '@cancjs/coroutine';
+import * as canc from '@cancjs/coroutine';
 import { CancelablePromise } from '@cancjs/promise';
 import { cancelify } from '@cancjs/toolbox';
 import type { RagApi } from '@shared/mock-api';
@@ -6,7 +6,7 @@ import type { RagApi } from '@shared/mock-api';
 import { Report } from './report-shared';
 
 /**
- * Report generation with async disposal. Built from cancelify wrappers and a cancAsync coroutine,
+ * Report generation with async disposal. Built from cancelify wrappers and a canc.async coroutine,
  * so the returned CancelablePromise gets Symbol.asyncDispose for free: await using cancels an
  * unfinished report on scope exit, no manual dispose wiring anywhere in this file.
  */
@@ -14,9 +14,9 @@ export function generateReport(ragApi: RagApi, reportId: string): CancelableProm
   const fetchChunks = cancelify(({ getSignal }, [id]: [string]) => ragApi.search(id, getSignal()));
   const renderAndUpload = cancelify(({ getSignal }, [id]: [string]) => ragApi.search(id, getSignal()));
 
-  const coroutine = cancAsync(function* () {
+  const coroutine = canc.async(function* () {
     // Fetch data chunks. Canceled here, nothing below runs.
-    const chunks = yield* cancAwait(fetchChunks(reportId));
+    const chunks = yield* canc.await(fetchChunks(reportId));
     const report: Report = {
       id: reportId,
       title: 'Report',
@@ -24,7 +24,7 @@ export function generateReport(ragApi: RagApi, reportId: string): CancelableProm
     };
 
     // Render and upload (simulated). Still canceled here, nothing below runs.
-    yield* cancAwait(renderAndUpload(reportId));
+    yield* canc.await(renderAndUpload(reportId));
 
     return report;
   })();

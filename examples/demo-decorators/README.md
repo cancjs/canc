@@ -19,7 +19,7 @@ need different emit settings and cannot share one compilation:
 - `src/babel-legacy/` — Babel legacy decorators (`@babel/plugin-proposal-decorators`, `legacy: true`).
  Written as `.js` because it needs Babel's transform. Uses `BabelLegacyAsyncMethod` /
  `BabelLegacyBindMethod`.
-- `src/manual/` — no decorators at all: the constructor does `this.method = cancAsync(this.method, this)`,
+- `src/manual/` — no decorators at all: the constructor does `this.method = canc.async(this.method, this)`,
  which is exactly what the decorators desugar to. Works under any toolchain.
 
 Every flavor imports from `@cancjs/decorators`; pick the decorator matching your build. Applying a

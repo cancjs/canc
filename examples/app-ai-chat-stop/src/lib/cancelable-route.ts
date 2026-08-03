@@ -1,9 +1,9 @@
-import { cancAsync } from '@cancjs/coroutine';
+import * as canc from '@cancjs/coroutine';
 import { isCancelError } from '@cancjs/promise';
 import { NextFunction, Request, Response } from 'express';
 
 /**
- * Wraps a generator route handler as a `cancAsync` coroutine and cancels it when the client
+ * Wraps a generator route handler as a `canc.async` coroutine and cancels it when the client
  * disconnects before the response is finished. The handler keeps full control over `req`/`res`,
  * including writing the response itself; this only adds the cancellation wiring around it.
  *
@@ -14,7 +14,7 @@ import { NextFunction, Request, Response } from 'express';
  */
 export function cancAsyncRoute(handler: (req: Request, res: Response) => Generator) {
   return (req: Request, res: Response, next: NextFunction) => {
-    const task = cancAsync(handler)(req, res);
+    const task = canc.async(handler)(req, res);
 
     // Disconnect is the response socket closing, not the request stream ending. `req`'s close fires
     // as soon as the posted body is consumed, which on a streaming response is mid-reply, so listen

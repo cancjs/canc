@@ -23,7 +23,7 @@ to cancel mid-run.
  `@AsyncMethod` wraps. A guard reads the marker at request time, which proves canc's wrapper
  preserves the metadata Nest attached to the method.
 - **Two service flavors, same behavior.** The decorated service and a no-decorator twin
- (`InvoiceServiceManual`, explicit `cancAsync` wiring) both satisfy the same contract. The canc
+ (`InvoiceServiceManual`, explicit `canc.async` wiring) both satisfy the same contract. The canc
  module switches between them with `CANC_MANUAL=1`, so you can read the decorated and the explicit
  wiring side by side.
 - **Transaction plus shield.** Bulk generation runs the chunks inside one TypeORM transaction.

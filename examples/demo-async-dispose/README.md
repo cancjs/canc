@@ -47,7 +47,7 @@ lose during a refactor.
 
 - `src/report-vanilla.ts` vs `src/report-canc.ts`: vanilla threads an `AbortController` by hand
  and hand-attaches `[Symbol.asyncDispose]`, including the manual catch that keeps it from
- crashing on an unawaited rejection. canc builds two `cancelify` wrappers and a `cancAsync`
+ crashing on an unawaited rejection. canc builds two `cancelify` wrappers and a `canc.async`
  coroutine; disposal comes from the returned `CancelablePromise` for free.
 - `src/main-vanilla.ts` vs `src/main-canc.ts`: both use `await using`, but vanilla's version only
  works because of the wiring in `report-vanilla.ts`; canc's works because every

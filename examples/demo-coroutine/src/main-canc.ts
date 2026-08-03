@@ -16,7 +16,7 @@ async function runCanc() {
     (orderId) => ops.legacyConfirmEmail(orderId),
   );
 
-  console.log('=== Cancelable Checkout (cancAsync) ===\n');
+  console.log('=== Cancelable Checkout (canc.async) ===\n');
 
   // Happy path
   console.log('Scenario: happy path');

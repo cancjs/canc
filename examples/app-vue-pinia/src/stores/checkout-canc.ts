@@ -2,7 +2,7 @@
 // goToStep cancels whatever step the user is abandoning before moving on, so a slow validate
 // call can never land after the wizard has already moved past it.
 
-import { cancAsync, cancAwait } from '@cancjs/coroutine';
+import * as canc from '@cancjs/coroutine';
 import { CancelablePromise, isCancelError } from '@cancjs/promise';
 import { cancelify } from '@cancjs/toolbox';
 import { defineStore } from 'pinia';
@@ -72,9 +72,9 @@ export const useCheckoutStore = defineStore('checkout-canc', {
       const shippingId = this.shipping.shippingId;
       const store = this;
 
-      const load = cancAsync(function* () {
-        const recap = yield* cancAwait(fetchShippingRecap(shippingId));
-        const review = yield* cancAwait(confirmReview(addressId, shippingId, recap.amount));
+      const load = canc.async(function* () {
+        const recap = yield* canc.await(fetchShippingRecap(shippingId));
+        const review = yield* canc.await(confirmReview(addressId, shippingId, recap.amount));
         store.review = review;
         store.reviewStatus = 'done';
       })();

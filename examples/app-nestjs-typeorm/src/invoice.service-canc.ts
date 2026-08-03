@@ -1,4 +1,5 @@
-import { AsyncResult, await as cancAwait } from '@cancjs/coroutine';
+import type { AsyncResult } from '@cancjs/coroutine';
+import * as canc from '@cancjs/coroutine';
 import { AsyncMethod } from '@cancjs/decorators/legacy';
 import { Inject, Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
@@ -17,7 +18,7 @@ const LIST_LIMIT = 200;
  *
  * Cancellation is ambient. There are no aborted flags and no signal parameter threaded through the
  * steps. When the request-scoped root is canceled (the interceptor does this on disconnect), the
- * coroutine stops at its current cancAwait and the remaining chunks never run.
+ * coroutine stops at its current canc.await and the remaining chunks never run.
  */
 @Injectable()
 export class InvoiceService {
@@ -31,7 +32,7 @@ export class InvoiceService {
   @AsyncMethod()
   @BillingTier('standard')
   *listInvoices(): AsyncResult<number> {
-    return yield* cancAwait(countInvoices(this.dataSource.manager));
+    return yield* canc.await(countInvoices(this.dataSource.manager));
   }
 
   /**
@@ -43,35 +44,35 @@ export class InvoiceService {
   @AsyncMethod()
   @BillingTier('bulk')
   *generateAll(): AsyncResult<BulkResult> {
-    const before = yield* cancAwait(countInvoices(this.dataSource.manager));
-    const customers = yield* cancAwait(fetchCustomers(this.dataSource.manager, LIST_LIMIT));
+    const before = yield* canc.await(countInvoices(this.dataSource.manager));
+    const customers = yield* canc.await(fetchCustomers(this.dataSource.manager, LIST_LIMIT));
     const groups = chunk(customers, CHUNK_CUSTOMERS);
     const issuedAt = 1;
 
     let generated = 0;
     let rolledBack = false;
     const queryRunner = this.dataSource.createQueryRunner();
-    yield* cancAwait(queryRunner.connect());
-    yield* cancAwait(queryRunner.startTransaction());
+    yield* canc.await(queryRunner.connect());
+    yield* canc.await(queryRunner.startTransaction());
     try {
       for (let i = 0; i < groups.length; i++) {
-        // Each cancAwait is a cancellation point: if the client left, the coroutine is canceled
+        // Each canc.await is a cancellation point: if the client left, the coroutine is canceled
         // here and the chunks below never run.
-        generated += yield* cancAwait(
+        generated += yield* canc.await(
           generateInvoiceChunk(queryRunner.manager, groups[i], before + generated + 1, issuedAt),
         );
       }
-      yield* cancAwait(queryRunner.commitTransaction());
+      yield* canc.await(queryRunner.commitTransaction());
     } finally {
       // shielded: canceled here, this cleanup is driven to completion regardless. A partial run
       // rolls back so the invoice count is left exactly as it was before the request started.
       if (!queryRunner.isTransactionActive) {
         // committed already; nothing to undo
       } else {
-        yield* cancAwait(queryRunner.rollbackTransaction());
+        yield* canc.await(queryRunner.rollbackTransaction());
         rolledBack = true;
       }
-      yield* cancAwait(queryRunner.release());
+      yield* canc.await(queryRunner.release());
       if (rolledBack) console.log(`[canc] bulk canceled: rolled back, ${generated} invoices discarded`);
     }
 

@@ -11,7 +11,7 @@ import { INVOICE_SERVICE } from './invoice.tokens';
 
 /**
  * The canc module. It installs the request-scoped cancel interceptor app-wide and picks the invoice
- * service flavor from an env flag: CANC_MANUAL=1 uses the explicit cancAsync wiring
+ * service flavor from an env flag: CANC_MANUAL=1 uses the explicit canc.async wiring
  * (InvoiceServiceManual), otherwise the decorated InvoiceService. Both flavors register under the
  * same token, so the controller never changes.
  */

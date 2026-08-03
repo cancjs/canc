@@ -10,7 +10,7 @@
 // fed a signal derived from the connection root via `toAbortSignal`. When the root cancels, that
 // signal aborts and the native iterator ends, so the read loop unwinds with the rest of the tree.
 
-import { cancAsync, cancForAwait } from '@cancjs/coroutine';
+import * as canc from '@cancjs/coroutine';
 import { CancelablePromise, CancelError, isCancelError } from '@cancjs/promise';
 import { suppress, toAbortSignal } from '@cancjs/toolbox';
 import { on } from 'events';
@@ -115,9 +115,9 @@ function runJob(
 ): CancelablePromise<void> {
   // The job is a coroutine that consumes the export stream. Its own cancel runs the iterator's
   // `return()` for us, which aborts the chunk in flight and stops every later chunk.
-  const job = cancAsync(function* () {
+  const job = canc.async(function* () {
     const progressStream = exportJob(transcode);
-    yield* cancForAwait(progressStream, (percent) => {
+    yield* canc.forAwait(progressStream, (percent) => {
       send(ws, { type: 'progress', jobId, percent: Number(percent) });
     });
   })();

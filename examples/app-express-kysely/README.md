@@ -34,10 +34,10 @@ disconnect point; the vanilla run finishes every slice.
 ## What it shows
 
 - `cancAsyncRoute` (`src/lib/cancelable-route.ts`, canc) wraps a generator route handler as a
- `cancAsync` coroutine and cancels it on `req.on('close')`. The handler keeps the normal
+ `canc.async` coroutine and cancels it on `req.on('close')`. The handler keeps the normal
  `(req, res, next)` shape and owns the response; the wrapper only adds the cancellation wiring.
-- `buildReport` (canc) is a `cancAsync` coroutine: a page query, a per-customer totals query, then
- a slow grand-total aggregate split into slices. Each step is a `cancAwait`, so cancellation is
+- `buildReport` (canc) is a `canc.async` coroutine: a page query, a per-customer totals query, then
+ a slow grand-total aggregate split into slices. Each step is a `canc.await`, so cancellation is
  ambient. No signal is threaded through the handler.
 - The vanilla twin carries both shapes: `buildReport` cannot be stopped at all, and
  `buildReportAbortable` is the hand-rolled AbortController version that re-checks `signal.aborted`

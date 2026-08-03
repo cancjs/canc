@@ -24,7 +24,7 @@ force-exit immediately.
 - `@shared/lib`'s `createPool`: a small cancel-aware concurrency pool. Canceling a job's promise
  while queued removes it from the queue so it never starts; `cancelAll()` cancels every in-flight
  job and drains the rest.
-- `src/backup-canc.ts`: the pool driven from a `cancAsync` coroutine (the task tree root). One
+- `src/backup-canc.ts`: the pool driven from a `canc.async` coroutine (the task tree root). One
  `backupTask.cancel()` call in `main-canc.ts` cancels every in-flight download; the coroutine's
  `finally` still runs (shielded from cancellation) so the partial manifest is always buildable
  from up-to-date data.

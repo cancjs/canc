@@ -20,34 +20,36 @@ The cancelable pipeline reads like pseudocode. Each mock call is cancelified onc
 top, so the coroutine body itself carries no signal at all:
 
 ```ts
+import * as canc from '@cancjs/coroutine';
+
 const embedQuery = cancelify(({ getSignal }, [query]) => embed(query, getSignal()));
 // ...rerank, retrieveLegsSource, generateAnswer wrapped the same way
 
-cancAsync(function* () {
+canc.async(function* () {
  // embed the query — canceled here, nothing below runs
- yield* cancAwait(embedQuery(query));
+ yield* canc.await(embedQuery(query));
 
- // parallel retrieve, collected as a finite set with cancForAwait.toArray
- const legsSource = yield* cancAwait(retrieveLegsSource(ragApi, query));
- const legResultsArr = yield* cancForAwait.toArray(legsSource);
+ // parallel retrieve, collected as a finite set with canc.forAwait.toArray
+ const legsSource = yield* canc.await(retrieveLegsSource(ragApi, query));
+ const legResultsArr = yield* canc.forAwait.toArray(legsSource);
  const hits = mergeHits(legResultsArr);
 
  // rerank the merged hits — canceled here, generate never starts
- const ranked = yield* cancAwait(rerankHits(query, hits));
+ const ranked = yield* canc.await(rerankHits(query, hits));
 
- // generate the answer, consuming the token stream with cancForAwait
+ // generate the answer, consuming the token stream with canc.forAwait
  const context = ranked.slice(0, 3).map((c) => c.text).join(' ');
  let text = '';
- const tokenStream = yield* cancAwait(generateAnswer(chatApi, context));
- yield* cancForAwait(tokenStream, (token) => {
+ const tokenStream = yield* canc.await(generateAnswer(chatApi, context));
+ yield* canc.forAwait(tokenStream, (token) => {
  text += token;
  });
  return { query, text, sources: ranked.slice(0, 3).map((c) => c.id) };
 });
 ```
 
-The two iterator combinators show side by side: `cancForAwait.toArray` buffers a bounded source
-(the retrieval legs) into an array, and `cancForAwait` consumes an open stream (the answer tokens)
+The two iterator combinators show side by side: `canc.forAwait.toArray` buffers a bounded source
+(the retrieval legs) into an array, and `canc.forAwait` consumes an open stream (the answer tokens)
 one at a time. Both cancel their source when the pipeline is canceled.
 
 ## Two ways to wire cancelify

@@ -65,7 +65,7 @@ layer cancellation actually reaches.
 ## Angular
 
 * [app-angular](app-angular) orders admin with a detail pane. The same service is built twice, one
-	with the coroutine decorator and one wiring `cancAsync` by hand.
+	with the coroutine decorator and one wiring `canc.async` by hand.
 
 ## Servers and databases
 
@@ -106,7 +106,7 @@ layer cancellation actually reaches.
 * [demo-chain-propagation](demo-chain-propagation) propagation down and bubbling up, with
 	`bubble: false` and `shield: true` in context.
 * [demo-combinators](demo-combinators) what `all`, `any`, `race` and `allSettled` do to the losers.
-* [demo-coroutine](demo-coroutine) `cancAsync` and `cancAwait` through a checkout flow, including
+* [demo-coroutine](demo-coroutine) `canc.async` and `canc.await` through a checkout flow, including
 	an acknowledged cancellation gap.
 * [demo-fetch](demo-fetch) cancelable requests, external signals, pre-aborted signals, timeout
 	composition.

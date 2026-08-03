@@ -1,4 +1,4 @@
-import { cancAwait } from '@cancjs/coroutine';
+import * as canc from '@cancjs/coroutine';
 import { Router } from 'express';
 
 import { cancAsyncRoute } from './lib/cancelable-route';
@@ -15,7 +15,7 @@ export function createReportRouter(rdb: ReportDb): Router {
   router.get(
     '/orders/report',
     cancAsyncRoute(function* (req, res) {
-      const report = yield* cancAwait(buildReport(rdb));
+      const report = yield* canc.await(buildReport(rdb));
       res.json(report); // handler owns the response, full control
     }),
   );

@@ -1,4 +1,4 @@
-import { cancAsync, cancAwait } from '@cancjs/coroutine';
+import * as canc from '@cancjs/coroutine';
 import { CancelablePromise } from '@cancjs/promise';
 import { cancelify } from '@cancjs/toolbox';
 import { createPool } from '@shared/lib';
@@ -16,7 +16,7 @@ const CONCURRENCY = 3;
  * that point is never observable) -- the caller reads `manifest` once `backupTask.cancel()` settles.
  */
 export function runBackup(api: SiteApi, manifest: Manifest): CancelablePromise<void> {
-  return cancAsync(function* () {
+  return canc.async(function* () {
     const pages = api.crawl();
     const urls = [...pages.map((p) => p.url), ...pages.flatMap((p) => p.assets)];
     const downloadPool = createPool(CONCURRENCY);
@@ -29,7 +29,7 @@ export function runBackup(api: SiteApi, manifest: Manifest): CancelablePromise<v
       ) as (url: string) => CancelablePromise<void>;
 
       const jobs = urls.map((url) => downloadPool.run(() => downloadOne(url)));
-      yield* cancAwait(Promise.all(jobs));
+      yield* canc.await(Promise.all(jobs));
     } finally {
       // shielded: canceled here -- drain the pool so every in-flight download stops and no queued
       // one starts, driven to completion regardless, so remaining urls are always marked queued in

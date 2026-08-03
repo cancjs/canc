@@ -3,7 +3,7 @@
 // the underlying signal, so a Stop stops the in-flight request and token billing rather than only
 // dropping the local pull.
 
-import { cancAsync, cancAwait } from '@cancjs/coroutine';
+import * as canc from '@cancjs/coroutine';
 import { CancelablePromise } from '@cancjs/promise';
 import { cancelify } from '@cancjs/toolbox';
 
@@ -32,9 +32,9 @@ const streamTurn = cancelify(async ({ getSignal }, [prompt, sink]: [string, Chat
 export function streamChat(req: ChatRequest, sink: ChatSink, log: UsageLog): CancelablePromise<void> {
   let completed = false;
 
-  return cancAsync(function* () {
+  return canc.async(function* () {
     try {
-      yield* cancAwait(streamTurn(req.prompt, sink));
+      yield* canc.await(streamTurn(req.prompt, sink));
       completed = true;
     } finally {
       // Real cleanup, not abort bookkeeping: records what was billed either way.
