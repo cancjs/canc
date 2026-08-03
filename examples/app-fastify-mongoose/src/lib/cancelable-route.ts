@@ -1,9 +1,9 @@
-import { cancAsync } from '@cancjs/coroutine';
+import * as canc from '@cancjs/coroutine';
 import { isCancelError } from '@cancjs/promise';
 import { FastifyReply, FastifyRequest } from 'fastify';
 
 /**
- * Wraps a generator route handler as a `cancAsync` coroutine and cancels it when the client
+ * Wraps a generator route handler as a canc coroutine and cancels it when the client
  * disconnects before the reply is sent. The handler keeps full control over `request`/`reply`,
  * including sending the response itself; this only adds the cancellation wiring around it.
  *
@@ -11,7 +11,7 @@ import { FastifyReply, FastifyRequest } from 'fastify';
  */
 export function cancAsyncRoute(handler: (request: FastifyRequest, reply: FastifyReply) => Generator) {
   return (request: FastifyRequest, reply: FastifyReply) => {
-    const task = cancAsync(handler)(request, reply);
+    const task = canc.async(handler)(request, reply);
 
     request.raw.on('close', () => {
       if (!reply.sent) task.cancel('client disconnected');
