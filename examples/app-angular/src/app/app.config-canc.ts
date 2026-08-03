@@ -1,4 +1,3 @@
-import { provideHttpClient } from '@angular/common/http';
 import { type ApplicationConfig, type Provider, provideZoneChangeDetection } from '@angular/core';
 
 import { toCancelablePromise } from '../lib/to-cancelable-promise';
@@ -39,7 +38,6 @@ const ORDERS_SERVICE_PROVIDERS: Record<OrdersFlavor, Provider> = {
 export const appConfig: ApplicationConfig = {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }),
-    provideHttpClient(),
     OrdersServiceObservable,
     ORDERS_SERVICE_PROVIDERS[FLAVOR],
   ],

@@ -1,4 +1,3 @@
-import { provideHttpClient } from '@angular/common/http';
 import { type ApplicationConfig, provideZoneChangeDetection } from '@angular/core';
 
 import { OrdersService } from './orders.service-vanilla';
@@ -9,7 +8,6 @@ import { ORDERS_SERVICE } from './orders.types';
 export const appConfig: ApplicationConfig = {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }),
-    provideHttpClient(),
     { provide: ORDERS_SERVICE, useClass: OrdersService },
   ],
 };
