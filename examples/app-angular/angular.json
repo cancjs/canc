@@ -22,6 +22,9 @@
  },
  "vanilla": {
  "browser": "src/main-vanilla.ts"
+ },
+ "obs": {
+ "browser": "src/main-obs.ts"
  }
  },
  "defaultConfiguration": "canc"
@@ -37,6 +40,9 @@
  },
  "vanilla": {
  "buildTarget": "app-angular:build:vanilla"
+ },
+ "obs": {
+ "buildTarget": "app-angular:build:obs"
  }
  },
  "defaultConfiguration": "canc"

@@ -6,10 +6,13 @@
  "scripts": {
  "start:canc": "ng serve -c canc",
  "start:vanilla": "ng serve -c vanilla",
+ "start:obs": "ng serve -c obs",
  "dev:canc": "ng serve -c canc",
  "dev:vanilla": "ng serve -c vanilla",
+ "dev:obs": "ng serve -c obs",
  "build:canc": "ng build -c canc",
  "build:vanilla": "ng build -c vanilla",
+ "build:obs": "ng build -c obs",
  "test": "jest --colors",
  "typecheck": "tsc --noEmit --project tsconfig.json"
  },

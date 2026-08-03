@@ -4,7 +4,7 @@
  "outDir": "./dist/out-tsc",
  "types": []
  },
- "files": ["src/main-canc.ts", "src/main-vanilla.ts"],
+ "files": ["src/main-canc.ts", "src/main-vanilla.ts", "src/main-obs.ts"],
  "include": ["src/**/*.ts"],
  "exclude": ["src/**/*.spec.ts"]
 }

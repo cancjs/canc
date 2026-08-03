@@ -4,7 +4,7 @@ import { type ApplicationConfig, provideZoneChangeDetection } from '@angular/cor
 import { OrdersService } from './orders.service-vanilla';
 import { ORDERS_SERVICE } from './orders.types';
 
-// (no decorator/manual flavor switch — the vanilla service has no cancelable counterpart)
+// (no flavor switch, see -canc: the vanilla service has no cancelable counterpart to swap in)
 
 export const appConfig: ApplicationConfig = {
   providers: [
