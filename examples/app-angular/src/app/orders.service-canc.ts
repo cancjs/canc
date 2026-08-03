@@ -16,10 +16,10 @@ import type { CancelablePromise } from '@cancjs/promise';
 import { cancelify } from '@cancjs/toolbox';
 
 import { ORDERS_API } from './orders.api';
-import type { OrderDetail, OrdersServiceShape, OrderSummary } from './orders.types';
+import type { CancelableOrdersService, OrderDetail, OrderSummary } from './orders.types';
 
 @Injectable()
-export class OrdersService implements OrdersServiceShape {
+export class OrdersService implements CancelableOrdersService {
   private readonly api = inject(ORDERS_API);
 
   // Wrap each signal-aware API call as a CancelablePromise so a coroutine cancel() aborts the

@@ -5,10 +5,11 @@ import { toCancelablePromise } from '../lib/to-cancelable-promise';
 import { OrdersService } from './orders.service-canc';
 import { OrdersServiceManual } from './orders.service-manual-canc';
 import { OrdersServiceObservable } from './orders.service-obs';
-import { ORDERS_SERVICE, type OrdersServiceShape } from './orders.types';
+import { CANCELABLE_ORDERS_SERVICE, type CancelableOrdersService } from './orders.types';
 
-// Which service the dashboard runs against. All three satisfy ORDERS_SERVICE, so the components
-// never change: coroutines behind a decorator, the same coroutines wired by hand, or RxJS adapted.
+// Which service the dashboard runs against. All three satisfy CANCELABLE_ORDERS_SERVICE, so the
+// components never change: coroutines behind a decorator, the same coroutines wired by hand, or
+// RxJS adapted.
 type OrdersFlavor = 'decorator' | 'manual' | 'observable';
 
 const FLAVOR: OrdersFlavor = 'decorator';
@@ -18,7 +19,7 @@ const FLAVOR: OrdersFlavor = 'decorator';
  * canceling one of these promises unsubscribes from the request observable, and that teardown aborts
  * the request. The canc components stay exactly as they are, with RxJS underneath.
  */
-export function toCancelableOrdersService(source: OrdersServiceObservable): OrdersServiceShape {
+export function toCancelableOrdersService(source: OrdersServiceObservable): CancelableOrdersService {
   return {
     list: () => toCancelablePromise(source.list()),
     detail: (id) => toCancelablePromise(source.detail(id)),
@@ -26,9 +27,13 @@ export function toCancelableOrdersService(source: OrdersServiceObservable): Orde
 }
 
 const ORDERS_SERVICE_PROVIDERS: Record<OrdersFlavor, Provider> = {
-  decorator: { provide: ORDERS_SERVICE, useClass: OrdersService },
-  manual: { provide: ORDERS_SERVICE, useClass: OrdersServiceManual },
-  observable: { provide: ORDERS_SERVICE, useFactory: toCancelableOrdersService, deps: [OrdersServiceObservable] },
+  decorator: { provide: CANCELABLE_ORDERS_SERVICE, useClass: OrdersService },
+  manual: { provide: CANCELABLE_ORDERS_SERVICE, useClass: OrdersServiceManual },
+  observable: {
+    provide: CANCELABLE_ORDERS_SERVICE,
+    useFactory: toCancelableOrdersService,
+    deps: [OrdersServiceObservable],
+  },
 };
 
 export const appConfig: ApplicationConfig = {

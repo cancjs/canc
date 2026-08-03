@@ -1,9 +1,8 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, inject, OnInit, Output } from '@angular/core';
-import type { CancelablePromise } from '@cancjs/promise';
 
 import { cancelableResource } from '../lib/cancelable-resource';
-import { ORDERS_SERVICE, type OrderSummary } from './orders.types';
+import { CANCELABLE_ORDERS_SERVICE, type OrderSummary } from './orders.types';
 
 // Orders table. It lists the orders and emits the selected id; the supersede lesson lives in the
 // detail pane beside it. What it adds here is the other half: a user who leaves before the list
@@ -36,12 +35,10 @@ export class OrdersTableComponent implements OnInit {
   orders = cancelableResource<OrderSummary[]>();
   selectedId: string | null = null;
 
-  private readonly ordersService = inject(ORDERS_SERVICE);
+  private readonly ordersService = inject(CANCELABLE_ORDERS_SERVICE);
 
   ngOnInit(): void {
-    // The token is typed with plain promises so every flavor fits it. All canc flavors hand back a
-    // cancelable one, so it is narrowed here once rather than at each use.
-    this.orders.run(this.ordersService.list() as CancelablePromise<OrderSummary[]>);
+    this.orders.run(this.ordersService.list());
   }
 
   select(id: string): void {

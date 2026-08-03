@@ -1,9 +1,8 @@
 import { CommonModule } from '@angular/common';
 import { Component, inject, Input, OnChanges } from '@angular/core';
-import type { CancelablePromise } from '@cancjs/promise';
 
 import { cancelableResource } from '../lib/cancelable-resource';
-import { type OrderDetail, ORDERS_SERVICE } from './orders.types';
+import { CANCELABLE_ORDERS_SERVICE, type OrderDetail } from './orders.types';
 
 // Detail pane. Picking another row supersedes the detail load in flight and the resource cancels it,
 // which aborts the request at the fake network boundary. Destroy cancels it too. The component keeps
@@ -38,7 +37,7 @@ export class DetailPaneComponent implements OnChanges {
 
   orderDetail = cancelableResource<OrderDetail>();
 
-  private readonly orders = inject(ORDERS_SERVICE);
+  private readonly orders = inject(CANCELABLE_ORDERS_SERVICE);
 
   ngOnChanges(): void {
     // Clearing the selection cancels the load in flight, so an empty pane costs nothing and no late
@@ -48,8 +47,6 @@ export class DetailPaneComponent implements OnChanges {
       return;
     }
 
-    // The token is typed with plain promises so every flavor fits it. All canc flavors hand back a
-    // cancelable one, so it is narrowed here once rather than at each use.
-    this.orderDetail.run(this.orders.detail(this.orderId) as CancelablePromise<OrderDetail>);
+    this.orderDetail.run(this.orders.detail(this.orderId));
   }
 }

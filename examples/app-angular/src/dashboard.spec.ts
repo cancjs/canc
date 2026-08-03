@@ -9,7 +9,7 @@ import { OrdersService as OrdersServiceCanc } from './app/orders.service-canc';
 import { OrdersServiceManual } from './app/orders.service-manual-canc';
 import { OrdersServiceObservable } from './app/orders.service-obs';
 import { OrdersService as OrdersServiceVanilla } from './app/orders.service-vanilla';
-import { ORDERS_SERVICE } from './app/orders.types';
+import { CANCELABLE_ORDERS_SERVICE, ORDERS_SERVICE } from './app/orders.types';
 import { OrdersTableComponent as CancOrdersTable } from './app/orders-table.component-canc';
 import { OrdersTableComponent as VanillaOrdersTable } from './app/orders-table.component-vanilla';
 import { createOrdersApi, type OrdersApi } from './mock/api';
@@ -36,7 +36,7 @@ describe('canc detail pane (decorator service)', () => {
     TestBed.configureTestingModule({
       providers: [
         { provide: ORDERS_API, useValue: api },
-        { provide: ORDERS_SERVICE, useClass: OrdersServiceCanc },
+        { provide: CANCELABLE_ORDERS_SERVICE, useClass: OrdersServiceCanc },
         CancDetailPane,
       ],
     });
@@ -64,7 +64,7 @@ describe('canc detail pane (decorator service)', () => {
     TestBed.configureTestingModule({
       providers: [
         { provide: ORDERS_API, useValue: api },
-        { provide: ORDERS_SERVICE, useClass: OrdersServiceCanc },
+        { provide: CANCELABLE_ORDERS_SERVICE, useClass: OrdersServiceCanc },
         CancDetailPane,
       ],
     });
@@ -91,7 +91,7 @@ describe('canc detail pane (decorator service)', () => {
     TestBed.configureTestingModule({
       providers: [
         { provide: ORDERS_API, useValue: api },
-        { provide: ORDERS_SERVICE, useClass: OrdersServiceCanc },
+        { provide: CANCELABLE_ORDERS_SERVICE, useClass: OrdersServiceCanc },
         CancDetailPane,
       ],
     });
@@ -122,7 +122,7 @@ describe('canc detail pane (manual service)', () => {
     TestBed.configureTestingModule({
       providers: [
         { provide: ORDERS_API, useValue: api },
-        { provide: ORDERS_SERVICE, useClass: OrdersServiceManual },
+        { provide: CANCELABLE_ORDERS_SERVICE, useClass: OrdersServiceManual },
         CancDetailPane,
       ],
     });
@@ -159,7 +159,7 @@ describe('canc detail pane (Observable service adapted to promises)', () => {
       providers: [
         { provide: ORDERS_API, useValue: api },
         OrdersServiceObservable,
-        { provide: ORDERS_SERVICE, useFactory: toCancelableOrdersService, deps: [OrdersServiceObservable] },
+        { provide: CANCELABLE_ORDERS_SERVICE, useFactory: toCancelableOrdersService, deps: [OrdersServiceObservable] },
         CancDetailPane,
       ],
     });
@@ -314,7 +314,7 @@ describe('orders table', () => {
     TestBed.configureTestingModule({
       providers: [
         { provide: ORDERS_API, useValue: api },
-        { provide: ORDERS_SERVICE, useClass: OrdersServiceCanc },
+        { provide: CANCELABLE_ORDERS_SERVICE, useClass: OrdersServiceCanc },
         CancOrdersTable,
       ],
     });
