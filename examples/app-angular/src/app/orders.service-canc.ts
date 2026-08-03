@@ -29,7 +29,7 @@ export class OrdersService implements CancelableOrdersService {
     this.api.listOrders(getSignal()),
   );
   private readonly orderDetail: (id: string) => CancelablePromise<OrderDetail> = cancelify(
-    ({ getSignal }, [id]: [string]) => this.api.orderDetail(id, getSignal()),
+    ({ getSignal }, id: string) => this.api.orderDetail(id, getSignal()),
   );
 
   // A getter returning a coroutine, which is the form TypeScript reads correctly: the call site

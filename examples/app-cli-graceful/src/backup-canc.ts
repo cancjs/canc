@@ -22,7 +22,7 @@ export function runBackup(api: SiteApi, manifest: Manifest): CancelablePromise<v
     const downloadPool = createPool(CONCURRENCY);
 
     try {
-      const downloadOne = cancelify(({ getSignal }, [url]: [string]) =>
+      const downloadOne = cancelify(({ getSignal }, url: string) =>
         api.download(url, getSignal()).then(() => {
           manifest.entries.push({ url, status: 'saved' });
         }),

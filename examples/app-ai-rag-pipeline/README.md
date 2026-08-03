@@ -22,7 +22,7 @@ top, so the coroutine body itself carries no signal at all:
 ```ts
 import * as canc from '@cancjs/coroutine';
 
-const embedQuery = cancelify(({ getSignal }, [query]) => embed(query, getSignal()));
+const embedQuery = cancelify(({ getSignal }, query: string) => embed(query, getSignal()));
 // ...rerank, retrieveLegsSource, generateAnswer wrapped the same way
 
 canc.async(function* () {
@@ -65,7 +65,7 @@ calls that `cancel` instead of aborting a signal:
 import { cancelify } from '@cancjs/toolbox';
 
 // fn returns { promise, cancel } instead of taking a signal
-const run = cancelify(({ handleCancel }, [id]: [string]) => {
+const run = cancelify(({ handleCancel }, id: string) => {
   const { promise, cancel } = startJob(id);
   handleCancel(cancel); // canceling the returned promise runs cancel()
   return promise;

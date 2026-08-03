@@ -14,7 +14,7 @@ interface CancLibraryState extends LibraryState {
 
 // getSignal() is called only when a load is actually started, so an uncanceled load wires no
 // AbortController at all.
-const loadTracks = cancelify(({ getSignal }, [albumId]: [string]) => mediaApi.tracks(albumId, getSignal()));
+const loadTracks = cancelify(({ getSignal }, albumId: string) => mediaApi.tracks(albumId, getSignal()));
 const loadAlbumsList = cancelify(({ getSignal }) => mediaApi.albums(getSignal()));
 
 export const useLibraryStore = create<CancLibraryState>((set, get) => ({

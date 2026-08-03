@@ -11,8 +11,7 @@ type ProductsApi = MockApiBundle['products'];
  * AbortController. cancellation is just a rejection, regular catch works.
  */
 export const loadProfileCancelable = cancelify(
-  ({ getSignal }, [productsApi, userId]: [ProductsApi, string]): Promise<Profile> =>
-    productsApi.get(userId, getSignal()),
+  ({ getSignal }, productsApi: ProductsApi, userId: string): Promise<Profile> => productsApi.get(userId, getSignal()),
 );
 
 // (no second flavor needed, cancellation is built in)

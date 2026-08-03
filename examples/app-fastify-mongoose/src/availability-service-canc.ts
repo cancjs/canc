@@ -8,11 +8,11 @@ import { findRooms, loadRates, scanBookings } from './mock/db';
 // canc-native once, here, so the search below reads like plain async/await with no signal in it.
 // These two carry no signal. A canceled chain skips a query that has not started yet, which is the
 // whole win for a short lookup. A query-level signal is the connection-churn path, see the README.
-const findHotelRooms = cancelify((_ctx, [hotelId]: [string]) => findRooms(hotelId));
-const loadRoomRates = cancelify((_ctx, [roomIds, date]: [string[], string]) => loadRates(roomIds, date));
+const findHotelRooms = cancelify((_ctx, hotelId: string) => findRooms(hotelId));
+const loadRoomRates = cancelify((_ctx, roomIds: string[], date: string) => loadRates(roomIds, date));
 // The scan is the long step, so this one does take the signal. A cancel stops the document loop
 // where it stands instead of walking the rest of the bookings.
-const scanRoomBookings = cancelify(({ getSignal }, [roomIds, date]: [string[], string]) =>
+const scanRoomBookings = cancelify(({ getSignal }, roomIds: string[], date: string) =>
   scanBookings(roomIds, date, { signal: getSignal() }),
 );
 

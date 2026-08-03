@@ -12,10 +12,10 @@ import { type CheckoutState, STEP_ORDER, type StepName } from '../types';
 
 // getSignal() is called only when a step's action actually starts, so an uncanceled call wires no
 // AbortController at all.
-const validateAddressCall = cancelify(({ getSignal }, [line1, city]: [string, string]) =>
+const validateAddressCall = cancelify(({ getSignal }, line1: string, city: string) =>
   validateAddress(line1, city, getSignal()),
 );
-const quoteShippingCall = cancelify(({ getSignal }, [addressId]: [string]) => quoteShipping(addressId, getSignal()));
+const quoteShippingCall = cancelify(({ getSignal }, addressId: string) => quoteShipping(addressId, getSignal()));
 
 interface CancCheckoutState extends CheckoutState {
   addressLoad: CancelablePromise<void> | null;

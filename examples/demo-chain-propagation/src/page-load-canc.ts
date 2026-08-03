@@ -28,7 +28,7 @@ export function loadProductProfile(
   image: string;
   reviews: string[];
 }> {
-  const loadProduct = cancelify(({ getSignal }, [id]: [string]) => productsApi.get(id, getSignal()));
+  const loadProduct = cancelify(({ getSignal }, id: string) => productsApi.get(id, getSignal()));
 
   // Image leg: can be isolated with bubble:false. Omit the key entirely when unset so the
   // CancelablePromise default (bubble:true) applies; passing bubble:undefined would force false.

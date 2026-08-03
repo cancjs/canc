@@ -18,7 +18,7 @@ export function crawlSite(api: MockApi, concurrency: number): CancelablePromise<
   const pool = createPool(concurrency);
 
   // One cancelable fetch node per page. Canceling it aborts the underlying request via the signal.
-  const fetchPage = cancelify(({ getSignal }, [url]: [string]) => site.fetchPage(url, getSignal()));
+  const fetchPage = cancelify(({ getSignal }, url: string) => site.fetchPage(url, getSignal()));
 
   const crawl = new CancelablePromise<CrawlReport>((resolve, reject, { handleCancel }) => {
     // One cancel() drains the pool: queued pages never start, in-flight pages are aborted. This is

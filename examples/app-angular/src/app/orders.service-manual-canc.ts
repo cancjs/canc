@@ -24,7 +24,7 @@ export class OrdersServiceManual implements CancelableOrdersService {
     this.api.listOrders(getSignal()),
   );
   private readonly orderDetail: (id: string) => CancelablePromise<OrderDetail> = cancelify(
-    ({ getSignal }, [id]: [string]) => this.api.orderDetail(id, getSignal()),
+    ({ getSignal }, id: string) => this.api.orderDetail(id, getSignal()),
   );
 
   constructor() {
