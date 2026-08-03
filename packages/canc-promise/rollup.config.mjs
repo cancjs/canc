@@ -1,3 +1,3 @@
 import { createConfigs } from '../../rollup.config.base.js';
 
-export default createConfigs({ name: 'canc_promise' });
+export default createConfigs({ name: 'canc_promise', exportDefault: true });

@@ -217,7 +217,67 @@ const createCommonConfig = (emitDeclaration, entry) => ({
   ],
 });
 
-const createCjsConfig = (entry, emitDeclaration) => {
+const defaultExportInterop = (globalName) => ({
+  name: 'default-export-interop',
+  renderChunk(code, _chunk, outputOptions) {
+    if (!code.includes('exports.default') && !code.includes('exports["default"]')) {
+      return null;
+    }
+
+    const format = outputOptions.format;
+    if (format === 'cjs') {
+      const snippet = `
+if (typeof exports !== 'undefined' && exports.default) {
+  var _def = exports.default;
+  if (typeof _def === 'function' || (typeof _def === 'object' && _def !== null)) {
+    for (var key in exports) {
+      if (Object.prototype.hasOwnProperty.call(exports, key)) {
+        _def[key] = exports[key];
+      }
+    }
+    _def.default = _def;
+    _def.__esModule = true;
+    module.exports = _def;
+  }
+}
+`;
+      return { code: code + snippet, map: null };
+    }
+
+    if (format === 'umd') {
+      const gName = JSON.stringify(globalName);
+      const snippet = `
+if (typeof exports !== 'undefined' && exports.default) {
+  var _def = exports.default;
+  if (typeof _def === 'function' || (typeof _def === 'object' && _def !== null)) {
+    for (var key in exports) {
+      if (Object.prototype.hasOwnProperty.call(exports, key)) {
+        _def[key] = exports[key];
+      }
+    }
+    _def.default = _def;
+    _def.__esModule = true;
+    if (typeof module !== 'undefined' && module.exports) {
+      module.exports = _def;
+    }
+    if (typeof globalThis !== 'undefined' && globalThis[${gName}]) {
+      globalThis[${gName}] = _def;
+    } else if (typeof window !== 'undefined' && window[${gName}]) {
+      window[${gName}] = _def;
+    } else if (typeof self !== 'undefined' && self[${gName}]) {
+      self[${gName}] = _def;
+    }
+  }
+}
+`;
+      return { code: code + snippet, map: null };
+    }
+
+    return null;
+  },
+});
+
+const createCjsConfig = (entry, emitDeclaration, options = {}) => {
   const config = createCommonConfig(emitDeclaration, entry);
 
   config.output = {
@@ -235,6 +295,9 @@ const createCjsConfig = (entry, emitDeclaration) => {
       duplicateAsMts('dist/types'),
       duplicateAsMts(`dist/types-ts${TS_FLOOR}`),
     );
+  }
+  if (options.exportDefault || entry.exportDefault) {
+    config.plugins.push(defaultExportInterop(options.name || entry.name));
   }
   config.plugins.push(isVerbose && rollupFilesize({ showMinifiedSize: false }));
 
@@ -254,7 +317,7 @@ const createEsmConfig = (entry) => {
   return config;
 };
 
-const createUmdConfig = (entry, options) => {
+const createUmdConfig = (entry, options = {}) => {
   const config = createCommonConfig(false, entry);
 
   config.output = {
@@ -264,12 +327,15 @@ const createUmdConfig = (entry, options) => {
     exports: 'named',
     sourcemap: true,
   };
+  if (options.exportDefault || entry.exportDefault) {
+    config.plugins.push(defaultExportInterop(options.name || entry.name));
+  }
   config.plugins.push(isVerbose && rollupFilesize({ showMinifiedSize: false }));
 
   return config;
 };
 
-const createUmdMinConfig = (entry, options) => {
+const createUmdMinConfig = (entry, options = {}) => {
   const config = createCommonConfig(false, entry);
 
   config.output = {
@@ -279,6 +345,9 @@ const createUmdMinConfig = (entry, options) => {
     exports: 'named',
     sourcemap: true,
   };
+  if (options.exportDefault || entry.exportDefault) {
+    config.plugins.push(defaultExportInterop(options.name || entry.name));
+  }
   config.plugins.push(
     rollupTerser({
       output: {
@@ -298,12 +367,15 @@ const createUmdMinConfig = (entry, options) => {
 
 // Build all four output formats for one entry. The primary entry (declaration emit on) drives the
 // .d.ts pass; additional twin entries reuse the same tsconfig with declaration emit disabled.
-const createEntryConfigs = (entry, options, emitDeclaration) => [
-  createCjsConfig(entry, emitDeclaration),
-  createEsmConfig(entry),
-  createUmdConfig(entry, options),
-  createUmdMinConfig(entry, options),
-];
+const createEntryConfigs = (entry, options, emitDeclaration) => {
+  const mergedOptions = { ...options, ...entry, name: entry.name || (options && options.name) };
+  return [
+    createCjsConfig(entry, emitDeclaration, mergedOptions),
+    createEsmConfig(entry),
+    createUmdConfig(entry, mergedOptions),
+    createUmdMinConfig(entry, mergedOptions),
+  ];
+};
 
 export const createConfigs = (options = { name: 'LibraryName' }) => createEntryConfigs(defaultEntry, options, true);
 
@@ -311,6 +383,8 @@ export const createConfigs = (options = { name: 'LibraryName' }) => createEntryC
 // first entry emits declarations; the rest reuse the same type output. Each entry needs a distinct
 // `base` and may set its own UMD global `name`.
 export const createMultiConfigs = (entries, options = { name: 'LibraryName' }) =>
-  entries.flatMap((entry, index) => createEntryConfigs(entry, { name: entry.name || options.name }, index === 0));
+  entries.flatMap((entry, index) =>
+    createEntryConfigs(entry, { ...options, ...entry, name: entry.name || options.name }, index === 0),
+  );
 
 export default null;
