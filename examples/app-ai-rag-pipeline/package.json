@@ -13,7 +13,8 @@
     "@shared/mock-api": "*",
     "@cancjs/promise": "file:../../packages/canc-promise",
     "@cancjs/coroutine": "file:../../packages/canc-coroutine",
-    "@cancjs/toolbox": "file:../../packages/canc-toolbox"
+    "@cancjs/toolbox": "file:../../packages/canc-toolbox",
+    "@cancjs/unhandled-rejection": "file:../../packages/canc-unhandled-rejection"
   },
   "devDependencies": {
     "@types/jest": "30.0.0",

@@ -15,7 +15,8 @@
     "@cancjs/toolbox": "file:../../packages/canc-toolbox",
     "fastify": "5.10.0",
     "fastify-plugin": "6.0.0",
-    "mongoose": "9.7.4"
+    "mongoose": "9.7.4",
+    "@cancjs/unhandled-rejection": "file:../../packages/canc-unhandled-rejection"
   },
   "devDependencies": {
     "@types/jest": "30.0.0",

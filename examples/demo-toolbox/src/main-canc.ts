@@ -1,3 +1,5 @@
+import '@cancjs/unhandled-rejection/register';
+
 import { createMockApi } from '@shared/mock-api';
 
 import { sendEmailWithDelay } from './email-delay-canc';

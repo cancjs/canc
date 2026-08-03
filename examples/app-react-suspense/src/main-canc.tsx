@@ -1,3 +1,5 @@
+import '@cancjs/unhandled-rejection/register';
+
 import { type ReactNode, StrictMode, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 

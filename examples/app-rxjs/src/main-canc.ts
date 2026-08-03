@@ -1,3 +1,5 @@
+import '@cancjs/unhandled-rejection/register';
+
 import { sleep } from '@shared/util';
 import { Subject } from 'rxjs';
 

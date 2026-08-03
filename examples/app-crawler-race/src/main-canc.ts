@@ -1,3 +1,5 @@
+import '@cancjs/unhandled-rejection/register';
+
 import { MockApi } from '@shared/mock-api';
 
 import { crawlCanc } from './crawl-canc';

@@ -1,3 +1,5 @@
+import '@cancjs/unhandled-rejection/register';
+
 // Runs the shared scenario against one flavor and prints an identical output block regardless of
 // which wiring produced the IssueClient. Flavor comes from argv so each npm script can target one
 // (the stage-3 and TS-legacy flavors need different compiler flags, so they cannot share a single
@@ -5,7 +7,6 @@
 //
 // Usage: tsx src/main.ts <stage3 | ts-legacy | manual>
 // The babel-legacy flavor needs babel's transform and is exercised by the smoke test, not here.
-
 import { createMockApi } from '@shared/mock-api';
 
 import type { IssueClientShape, IssuesApi } from './issue-types.js';

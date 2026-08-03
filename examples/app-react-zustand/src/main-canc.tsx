@@ -1,4 +1,4 @@
-import '@shared/unhandled-rejection-browser';
+import '@cancjs/unhandled-rejection/register';
 
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';

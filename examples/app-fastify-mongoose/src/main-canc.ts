@@ -1,3 +1,5 @@
+import '@cancjs/unhandled-rejection/register';
+
 import http from 'node:http';
 
 import * as canc from '@cancjs/coroutine';

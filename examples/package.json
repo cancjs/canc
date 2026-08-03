@@ -7,8 +7,6 @@
     "_shared/mock-api",
     "_shared/util",
     "_shared/lib",
-    "_shared/unhandled-rejection",
-    "_shared/unhandled-rejection-browser",
     "app-ai-chat-stop",
     "app-ai-rag-pipeline",
     "app-angular",

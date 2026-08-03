@@ -1,4 +1,4 @@
-import '@shared/unhandled-rejection-browser';
+import '@cancjs/unhandled-rejection/register';
 
 import { createApp, h } from 'vue';
 

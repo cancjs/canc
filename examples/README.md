@@ -126,9 +126,7 @@ scope reads like a path alias and resolves through the normal workspace symlink.
 * `@shared/mock-api` fake domain APIs that log their calls, including an `aborted` marker so an
 	example can prove a request was really stopped
 * `@shared/util` small cross-example helpers such as `sleep`
-* `@shared/unhandled-rejection` and its browser twin, an app-wide guard that ignores `CancelError`
-	and lets real rejections surface
-
+* `
 Code under an example's `src/lib/` is written to be copied. It is general-purpose enough to be
 extracted into a package later, so treat it as a starting point for your own hooks, composables
 and adapters.

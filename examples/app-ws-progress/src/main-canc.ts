@@ -1,7 +1,8 @@
+import '@cancjs/unhandled-rejection/register';
+
 // Scripted run of the canc server: start a job, cancel it at ~30%, then report how many chunks
 // the server actually transcoded. Cancel reaches the encoder, so the started count freezes near
 // the cancel point and the chunk in flight is marked aborted.
-
 import { MockApi } from '@shared/mock-api';
 import { sleep } from '@shared/util';
 import { WebSocket } from 'ws';

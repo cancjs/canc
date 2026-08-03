@@ -1,3 +1,5 @@
+import '@cancjs/unhandled-rejection/register';
+
 import { createMockFetch, MockApi } from '../../_shared/mock-api/src/index';
 import { sleep } from '../../_shared/util/src/index';
 import {

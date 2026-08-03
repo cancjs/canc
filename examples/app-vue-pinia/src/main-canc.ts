@@ -1,4 +1,4 @@
-import '@shared/unhandled-rejection-browser';
+import '@cancjs/unhandled-rejection/register';
 
 import { createPinia } from 'pinia';
 import { createApp } from 'vue';

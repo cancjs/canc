@@ -1,8 +1,9 @@
+import '@cancjs/unhandled-rejection/register';
+
 /**
  * demo-signal-interop canc entry
  * Teaching: signal ↔ promise interop WITH canc
  */
-
 import {
   classifyAbortErrorCanc,
   isAbortErrorCheckCanc,

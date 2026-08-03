@@ -13,13 +13,13 @@
   },
   "dependencies": {
     "@shared/mock-api": "*",
-    "@shared/unhandled-rejection-browser": "*",
     "@cancjs/promise": "file:../../packages/canc-promise",
     "@cancjs/coroutine": "file:../../packages/canc-coroutine",
     "@cancjs/toolbox": "file:../../packages/canc-toolbox",
     "pinia": "4.0.2",
     "vue": "3.5.40",
-    "vue-router": "5.2.0"
+    "vue-router": "5.2.0",
+    "@cancjs/unhandled-rejection": "file:../../packages/canc-unhandled-rejection"
   },
   "devDependencies": {
     "@testing-library/dom": "10.4.1",

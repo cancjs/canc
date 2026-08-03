@@ -1,3 +1,5 @@
+import '@cancjs/unhandled-rejection/register';
+
 import { createApp } from './app-canc';
 import { createOrm } from './orm';
 

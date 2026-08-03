@@ -18,7 +18,8 @@
     "@cancjs/toolbox": "file:../../packages/canc-toolbox",
     "@shared/mock-api": "*",
     "react": "19.2.7",
-    "react-dom": "19.2.7"
+    "react-dom": "19.2.7",
+    "@cancjs/unhandled-rejection": "file:../../packages/canc-unhandled-rejection"
   },
   "devDependencies": {
     "@testing-library/dom": "10.4.1",

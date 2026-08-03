@@ -15,7 +15,8 @@
     "@cancjs/toolbox": "file:../../packages/canc-toolbox",
     "better-sqlite3": "12.11.1",
     "express": "5.2.1",
-    "kysely": "0.29.3"
+    "kysely": "0.29.3",
+    "@cancjs/unhandled-rejection": "file:../../packages/canc-unhandled-rejection"
   },
   "devDependencies": {
     "@types/better-sqlite3": "7.6.13",

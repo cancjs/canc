@@ -1,3 +1,5 @@
+import '@cancjs/unhandled-rejection/register';
+
 import express from 'express';
 
 import { createReportDb } from './mock/db';

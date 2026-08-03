@@ -1,3 +1,5 @@
+import '@cancjs/unhandled-rejection/register';
+
 import { runAllCanc } from './all-canc.js';
 import { runAllSettledCanc } from './all-settled-canc.js';
 import { runAnyCanc } from './any-canc.js';

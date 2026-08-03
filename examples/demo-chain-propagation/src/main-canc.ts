@@ -1,3 +1,5 @@
+import '@cancjs/unhandled-rejection/register';
+
 import { createMockApi, type MockApiBundle } from '@shared/mock-api';
 
 import { loadProductProfile } from './page-load-canc';

@@ -1,7 +1,8 @@
+import '@cancjs/unhandled-rejection/register';
+
 // Canc entry: boots the express server, then drives the same scripted Stop. The canc route cancels
 // the whole chain on disconnect, so the usage log shows the stream stopped early. Open
 // http://localhost:PORT to try the browser client by hand.
-
 import { runScenario } from './scenario';
 import { createServer } from './server-canc';
 

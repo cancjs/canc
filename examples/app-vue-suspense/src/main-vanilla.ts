@@ -1,5 +1,3 @@
-import '@shared/unhandled-rejection-browser';
-
 import { createApp, h } from 'vue';
 
 import App from './App.vue';

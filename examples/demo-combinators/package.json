@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "@cancjs/promise": "file:../../packages/canc-promise",
-    "@shared/util": "file:../_shared/util"
+    "@shared/util": "file:../_shared/util",
+    "@cancjs/unhandled-rejection": "file:../../packages/canc-unhandled-rejection"
   },
   "devDependencies": {
     "@types/jest": "30.0.0",
