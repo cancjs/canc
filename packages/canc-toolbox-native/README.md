@@ -22,7 +22,7 @@ library that should not force a promise implementation on its consumers.
 
 ## Features
 
-- timing and control helpers on plain `Promise`
+- timing, control and rate limiting helpers on plain `Promise`
 - callback adapters (`promisify`, `promisifyAll`) with the same options as the cancelable twin
 - no dependencies
 

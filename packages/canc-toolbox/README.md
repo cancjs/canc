@@ -23,7 +23,7 @@ signals around, because canceling a promise reaches the underlying request on it
 
 ## Features
 
-- timing and control helpers that clean up after themselves on cancellation
+- timing, control and rate limiting helpers that clean up after themselves on cancellation
 - adapters that make signal-aware and callback-style APIs return cancelable promises
 - `AbortSignal` interop in both directions, including timeout composition
 - deliberate ways to end a cancelable flow instead of blanket error swallowing
@@ -227,6 +227,13 @@ floor on success, not a timer. Pick the one that matches what a failure should d
 | ------------------------ | --------------------------------------------------------------------- |
 | `retry(input, options?)` | Retries with exponential backoff, `input` receives the attempt number |
 | `defer(options?)`        | `{ promise, resolve, reject, cancel }` where `promise` is cancelable  |
+
+### Rate limiting
+
+| Export                       | Description                                                                           |
+| ---------------------------- | ------------------------------------------------------------------------------------- |
+| `debounce(fn, ms, options?)` | Debounces function calls, returning a wrapper with `cancel()`, `flush()`, `isPending` |
+| `throttle(fn, ms, options?)` | Throttles function calls, returning a wrapper with `cancel()`, `flush()`, `isPending` |
 
 ### Adapters
 
