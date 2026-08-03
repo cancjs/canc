@@ -115,6 +115,10 @@ Canceling the returned promise stops the coroutine at its current step. The step
 canceled, the `CancelError` is thrown back into the generator at the point where it is suspended,
 and the code after that point does not run.
 
+A canceled coroutine rejects with `CancelError`. Without a handler, this triggers
+`unhandledRejection`. Use `@cancjs/unhandled-rejection` at app entry or handle cancellation
+explicitly with `catchCancel`/`suppressCancel`.
+
 Because the error is thrown into the generator, `try`/`catch` and `try`/`finally` behave the way
 they do in an `async` function. A `finally` block still runs on cancellation, and its own steps
 run shielded, so cleanup cannot be canceled halfway:

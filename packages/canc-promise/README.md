@@ -114,8 +114,9 @@ plain cancellation without managing signals or constructors.
 message. Handlers registered through `handleCancel` still receive the original reason.
 
 Because it is an ordinary rejection, a canceled promise that nobody handles triggers
-`unhandledRejection` like any other. That is intentional. Suppress it deliberately with
-`suppressCancel` or a global handler, not with a blanket `.catch(() => {})`.
+`unhandledRejection` like any other. Import `@cancjs/unhandled-rejection/register` as the first
+line of your application entry point, or handle cancellation explicitly with `catchCancel`/`suppressCancel`
+at each call site. Library code should use `catchCancel`/`suppressCancel` instead of a global handler.
 
 ### Down the chain
 
