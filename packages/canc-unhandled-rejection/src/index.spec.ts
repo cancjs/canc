@@ -1,71 +1,6 @@
-import { execFileSync } from 'child_process';
-import * as path from 'path';
+import { promiseSrc, registerSrc, runChild, unhandledSrc } from '../test/child-process.helper';
 
 jest.setTimeout(30000);
-
-const unhandledSrc = path.resolve(__dirname, 'index.ts');
-const promiseSrc = path.resolve(__dirname, '../../canc-promise/src/index.ts');
-
-const hook = `
-const ts = require(${JSON.stringify(require.resolve('typescript'))});
-const Module = require('module');
-const fs = require('fs');
-
-Module._extensions['.ts'] = function (module, filename) {
-  const source = fs.readFileSync(filename, 'utf8');
-  const out = ts.transpileModule(source, {
-    compilerOptions: {
-      module: ts.ModuleKind.CommonJS,
-      target: ts.ScriptTarget.ES2019,
-      esModuleInterop: true,
-      downlevelIteration: true,
-      useDefineForClassFields: false
-    },
-    fileName: filename
-  });
-  module._compile(out.outputText, filename);
-};
-
-const _origRequire = Module.prototype.require;
-Module.prototype.require = function(request) {
-  if (request === '@cancjs/promise') {
-    return _origRequire.call(this, ${JSON.stringify(promiseSrc)});
-  }
-  if (request === '@cancjs/unhandled-rejection') {
-    return _origRequire.call(this, ${JSON.stringify(unhandledSrc)});
-  }
-  return _origRequire.call(this, request);
-};
-`;
-
-function runChild(
-  code: string,
-  envOverrides: Record<string, string> = {},
-): { status: number; stdout: string; stderr: string } {
-  const fullCode = `
-    ${hook}
-    ${code}
-  `;
-
-  try {
-    const stdout = execFileSync(process.execPath, ['--unhandled-rejections=throw', '-e', fullCode], {
-      cwd: __dirname,
-      env: {
-        ...process.env,
-        ...envOverrides,
-      },
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-    return { status: 0, stdout: stdout || '', stderr: '' };
-  } catch (err: any) {
-    return {
-      status: err.status ?? 1,
-      stdout: err.stdout ? err.stdout.toString() : '',
-      stderr: err.stderr ? err.stderr.toString() : '',
-    };
-  }
-}
 
 describe('@cancjs/unhandled-rejection', () => {
   it('register() filters CancelError in node child process', () => {
@@ -157,16 +92,22 @@ describe('@cancjs/unhandled-rejection', () => {
     }
   });
 
-  it('CANC_UNHANDLED_WARN=0 suppresses warnings', () => {
+  it.each([
+    ['0', false],
+    ['false', false],
+    ['  ', false],
+    ['1', true],
+    ['true', true],
+  ])('CANC_UNHANDLED_WARN=%s warns: %s', (value, expected) => {
     const res = runChild(
       `
       const { registerNode } = require(${JSON.stringify(unhandledSrc)});
       registerNode();
       registerNode();
     `,
-      { CANC_UNHANDLED_WARN: '0' },
+      { CANC_UNHANDLED_WARN: value },
     );
-    expect(res.stderr).not.toContain('[@cancjs/unhandled-rejection]');
+    expect(res.stderr.includes('[@cancjs/unhandled-rejection]')).toBe(expected);
   });
 
   it('registerNode in browser-like env warns', () => {
@@ -186,7 +127,6 @@ describe('@cancjs/unhandled-rejection', () => {
   });
 
   it('register side-effect entry', () => {
-    const registerSrc = path.resolve(__dirname, 'register.ts');
     const res = runChild(`
       require(${JSON.stringify(registerSrc)});
       const { CancelablePromise } = require(${JSON.stringify(promiseSrc)});
