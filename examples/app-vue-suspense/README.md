@@ -40,7 +40,7 @@ before setup settles (opening another product remounts the detail component unde
 
 - **`ProductDetail-canc.vue` (correct).** The `setup` option is a generator wrapped by
  `cancelableSetup`, which runs the awaited load as one cancelable coroutine and registers an
- `onScopeDispose` cancel. The setup body reads `yield* cancAwait(loadDetail(props.id))`, no signal
+ `onScopeDispose` cancel. The setup body reads `yield* canc.await(loadDetail(props.id))`, no signal
  in sight, because the API boundary is cancelified once at module scope. Tearing down the scope
  cancels the coroutine and aborts the request.
 - **`ProductDetail-vanilla.vue`.** A plain `async setup()` with a bare `await`. There is no scope
@@ -57,7 +57,9 @@ before setup settles (opening another product remounts the detail component unde
 
 - `cancelableSetup(function* setup(props) { ... })`: wraps a generator setup function so its awaited
  work runs as one cancelable coroutine tied to the component's effect scope, canceled on scope
- teardown. Use it as the `setup` option.
+ teardown. Use it as the `setup` option. It also takes a setup already wrapped with `canc.async`,
+ for a coroutine defined elsewhere and reused, and a plain sync setup passes through untouched with
+ no scope hook registered.
 
 ## Honesty note
 
