@@ -1,1 +1,3 @@
-export {};
+import { register } from './index';
+
+register();
