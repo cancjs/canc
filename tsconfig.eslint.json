@@ -20,6 +20,7 @@
     "**/build/**/*",
     "**/dist/**/*",
     "tests-types/fixtures/**",
-    "packages/canc-unhandled-rejection/src/**/*.spec.ts"
+    "packages/canc-unhandled-rejection/src/**/*.spec.ts",
+    "packages/canc-unhandled-rejection/src/*-smoke.ts"
   ]
 }

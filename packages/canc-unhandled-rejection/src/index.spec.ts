@@ -3,7 +3,6 @@ import * as path from 'path';
 
 jest.setTimeout(30000);
 
-const tsConfigPath = path.resolve(__dirname, '../../../tsconfig.json');
 const unhandledSrc = path.resolve(__dirname, 'index.ts');
 const promiseSrc = path.resolve(__dirname, '../../canc-promise/src/index.ts');
 

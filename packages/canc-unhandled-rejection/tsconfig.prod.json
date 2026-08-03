@@ -5,5 +5,6 @@
     "outDir": "build",
     "rootDir": "../.."
   },
-  "include": ["src", "../_util", "../canc-promise/src"]
+  "include": ["src", "../_util", "../canc-promise/src"],
+  "exclude": ["src/*.spec.ts", "src/*-smoke.ts"]
 }
