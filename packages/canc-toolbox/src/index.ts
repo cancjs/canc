@@ -27,7 +27,7 @@ export {
 export type { ICancelifyContext, ICancelifyOptions, TCancelifyFn } from './cancelify';
 export { cancelify } from './cancelify';
 export { debounce } from './debounce';
-export type { IToolboxOptions, TEagerToolboxOptions, THandleCancel, TToolboxExecutor } from './options';
+export type { IExecutorCtx, IToolboxOptions, TEagerToolboxOptions, THandleCancel, TToolboxExecutor } from './options';
 export type { ICancelableDeferred } from './prebound';
 export { defer, delay, minDelay, promisify, promisifyAll, retry, timeout, waitFor } from './prebound';
 export { throttle } from './throttle';
