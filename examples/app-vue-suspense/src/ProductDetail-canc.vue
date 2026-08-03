@@ -1,6 +1,6 @@
 <script lang="ts">
 import { defineComponent } from 'vue';
-import { cancAwait } from '@cancjs/coroutine';
+import * as canc from '@cancjs/coroutine';
 import { cancelify } from '@cancjs/toolbox';
 
 import { cancelableSetup } from './lib/cancelable-setup';
@@ -16,7 +16,7 @@ const loadDetail = cancelify(({ getSignal }, [id]: [string]) => loadProductDetai
 export default defineComponent({
  props: { id: { type: String, required: true } },
  setup: cancelableSetup(function* setup(props: { id: string }) {
- const detail: ProductDetail = yield* cancAwait(loadDetail(props.id));
+ const detail: ProductDetail = yield* canc.await(loadDetail(props.id));
  return { detail };
  }),
 });
