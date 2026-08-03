@@ -201,6 +201,26 @@ Every helper takes
 [`CancelablePromise` options](https://github.com/cancjs/canc/tree/master/packages/canc-promise#options)
 as its last argument.
 
+### Options
+
+| Option   | Description                                                                                   |
+| -------- | --------------------------------------------------------------------------------------------- |
+| `bubble` | Cancel travels back up to the parent once every child is canceled and the value is unconsumed |
+| `shield` | Stops cancel from propagating down into this promise                                          |
+| `signal` | An `AbortSignal` that cancels the promise when it aborts                                      |
+| `lazy`   | Defers the work until the first subscription. Not accepted everywhere, see below              |
+
+`bubble`, `shield` and `signal` come from `CancelablePromise` and behave identically here.
+
+`lazy` is a toolbox addition. It defers starting the work (the timer, the retry attempt, the poll,
+the callback invocation) until the first `then`, `catch`, `finally` or `await`. Accepted by `delay`,
+`timeout`, `retry`, `waitFor` and `promisify`. The helpers that must start immediately, `minDelay`,
+`defer`, `debounce`, `throttle` and `cancelify`, reject it at compile time rather than accepting it
+and ignoring it.
+
+Laziness is not contagious. `delay(1000, { lazy: true }).then(f)` starts the timer at the `.then`
+call, because a subscription is what wakes it. It does not defer anything further down the chain.
+
 ### Timing
 
 | Export                          | Description                                                   |

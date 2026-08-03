@@ -71,6 +71,10 @@ const api = cancelableAxios.create({ baseURL: 'https://api.example.com' });
 api.defaults.headers.common['Authorization'] = 'Bearer token';
 ```
 
+The default export and the named `cancelableAxios` export are the same binding, so
+`import cancelableAxios from '@cancjs/axios'` and `import { cancelableAxios } from '@cancjs/axios'`
+give you the identical object. Pick whichever reads better next to your existing axios import.
+
 An axios instance built elsewhere can be wrapped instead:
 
 ```js
