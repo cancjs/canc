@@ -11,7 +11,8 @@ ships). These packages change rarely and follow strict semver: nothing breaks ou
 release. Pin them with a caret, `^1`, the same default `npm install` already writes.
 
 **Ecosystem** is everything else: `@cancjs/toolbox`, `@cancjs/toolbox-native`,
-`@cancjs/decorators`, `@cancjs/fetch`, `@cancjs/axios`, and the server adapters as they ship.
+`@cancjs/decorators`, `@cancjs/fetch`, `@cancjs/axios`, `@cancjs/unhandled-rejection`, and the
+server adapters as they ship.
 These packages release on a shared minor line. When one of them needs a breaking change, every
 package in that release moves to the same new minor together, so a change that would otherwise
 strand a consumer between two incompatible versions ships as one coordinated step instead.
