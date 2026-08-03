@@ -1,12 +1,13 @@
-// Manual (non-decorator) flavor of the orders service. Constructor wiring with cancAsync(gen, this)
-// is the exact desugaring the @AsyncMethod decorator applies, so the same components get the same
-// cancelable behavior with no decorator transform involved. Swapping the ORDERS_SERVICE provider
-// between this and the decorator flavor shows both against the identical dashboard.
+// Manual (non-decorator) flavor of the orders service. The getters below are identical to the
+// decorator flavor; the only difference is that the constructor does by hand what @AsyncMethod
+// does for free. Swapping the ORDERS_SERVICE provider between this and the decorator flavor shows
+// both against the identical dashboard.
 //
 // Angular's own @Injectable decorator is untouched; there is no canc decorator here at all.
 
 import { inject, Injectable } from '@angular/core';
-import { async as cancAsync, await as cancAwait } from '@cancjs/coroutine';
+import * as canc from '@cancjs/coroutine';
+import type { CancelablePromise } from '@cancjs/promise';
 import { cancelify } from '@cancjs/toolbox';
 
 import { ORDERS_API } from './orders.api';
@@ -17,24 +18,31 @@ export class OrdersServiceManual implements OrdersServiceShape {
   private readonly api = inject(ORDERS_API);
 
   // Wrap each signal-aware API call as a CancelablePromise so a coroutine cancel() aborts the
-  // request. getSignal() is only materialized if the underlying call reaches for it.
-  private readonly listOrders = cancelify(({ getSignal }) => this.api.listOrders(getSignal()));
-  private readonly orderDetail = cancelify(({ getSignal }, [id]: [string]) => this.api.orderDetail(id, getSignal()));
+  // request. getSignal() is only materialized if the underlying call reaches for it. The field
+  // types are written out because an initializer that reads `this` cannot be inferred from itself.
+  private readonly listOrders: () => CancelablePromise<OrderSummary[]> = cancelify(({ getSignal }) =>
+    this.api.listOrders(getSignal()),
+  );
+  private readonly orderDetail: (id: string) => CancelablePromise<OrderDetail> = cancelify(
+    ({ getSignal }, [id]: [string]) => this.api.orderDetail(id, getSignal()),
+  );
 
   constructor() {
-    // Equivalent to @AsyncMethod(): wrap each generator method as a coroutine bound to this instance.
-    this.list = cancAsync(this.listGen, this) as unknown as OrdersServiceManual['list'];
-    this.detail = cancAsync(this.detailGen, this) as unknown as OrdersServiceManual['detail'];
+    // What the decorator does on first access: read the getter once, bind it, and keep the result
+    // as an own property. Without it a bare getter would build a fresh coroutine on every access.
+    canc.asyncMethod(this, 'list');
+    canc.asyncMethod(this, 'detail');
   }
 
-  list!: () => Promise<OrderSummary[]>;
-  detail!: (id: string) => Promise<OrderDetail>;
-
-  private *listGen() {
-    return yield* cancAwait(this.listOrders());
+  get list() {
+    return canc.async(function* (this: OrdersServiceManual) {
+      return yield* canc.await(this.listOrders());
+    }, this);
   }
 
-  private *detailGen(id: string) {
-    return yield* cancAwait(this.orderDetail(id));
+  get detail() {
+    return canc.async(function* (this: OrdersServiceManual, id: string) {
+      return yield* canc.await(this.orderDetail(id));
+    }, this);
   }
 }

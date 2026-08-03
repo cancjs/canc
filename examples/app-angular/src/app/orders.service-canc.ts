@@ -10,29 +10,42 @@
 // Angular's own @Injectable decorator is untouched. Ours only wraps the data methods.
 
 import { inject, Injectable } from '@angular/core';
-import { AsyncResult, await as cancAwait } from '@cancjs/coroutine';
+import * as canc from '@cancjs/coroutine';
 import { AsyncMethod } from '@cancjs/decorators/legacy';
+import type { CancelablePromise } from '@cancjs/promise';
 import { cancelify } from '@cancjs/toolbox';
 
 import { ORDERS_API } from './orders.api';
-import type { OrderDetail, OrderSummary } from './orders.types';
+import type { OrderDetail, OrdersServiceShape, OrderSummary } from './orders.types';
 
 @Injectable()
-export class OrdersService {
+export class OrdersService implements OrdersServiceShape {
   private readonly api = inject(ORDERS_API);
 
   // Wrap each signal-aware API call as a CancelablePromise so a coroutine cancel() aborts the
-  // request. getSignal() is only materialized if the underlying call reaches for it.
-  private readonly listOrders = cancelify(({ getSignal }) => this.api.listOrders(getSignal()));
-  private readonly orderDetail = cancelify(({ getSignal }, [id]: [string]) => this.api.orderDetail(id, getSignal()));
+  // request. getSignal() is only materialized if the underlying call reaches for it. The field
+  // types are written out because an initializer that reads `this` cannot be inferred from itself.
+  private readonly listOrders: () => CancelablePromise<OrderSummary[]> = cancelify(({ getSignal }) =>
+    this.api.listOrders(getSignal()),
+  );
+  private readonly orderDetail: (id: string) => CancelablePromise<OrderDetail> = cancelify(
+    ({ getSignal }, [id]: [string]) => this.api.orderDetail(id, getSignal()),
+  );
 
+  // A getter returning a coroutine, which is the form TypeScript reads correctly: the call site
+  // sees the CancelablePromise the method really returns. The decorator memoizes it on first
+  // access, so the identity is stable.
   @AsyncMethod()
-  *list(): AsyncResult<OrderSummary[]> {
-    return yield* cancAwait(this.listOrders());
+  get list() {
+    return canc.async(function* (this: OrdersService) {
+      return yield* canc.await(this.listOrders());
+    }, this);
   }
 
   @AsyncMethod()
-  *detail(id: string): AsyncResult<OrderDetail> {
-    return yield* cancAwait(this.orderDetail(id));
+  get detail() {
+    return canc.async(function* (this: OrdersService, id: string) {
+      return yield* canc.await(this.orderDetail(id));
+    }, this);
   }
 }
