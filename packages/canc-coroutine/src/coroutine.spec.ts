@@ -16,6 +16,41 @@ describe('cancAsync', () => {
       expect(() => cancAsync(123 as any)).toThrow(TypeError);
     });
 
+    it('throws at the wrap when handed a coroutine, rather than driving its promise as a generator', () => {
+      const co = cancAsync(function* () {
+        return 1;
+      });
+
+      expect(() => cancAsync(co as any)).toThrow(TypeError);
+      expect(() => cancAsync(co as any)).toThrow(/already a coroutine/);
+    });
+
+    it('brands the coroutine so a second copy of this package recognizes it too', () => {
+      const co = cancAsync(function* () {
+        return 1;
+      });
+
+      expect((co as any)[Symbol.for('@cancjs/coroutine:coroutine')]).toBe(true);
+    });
+
+    it('rejects when the body returns a promise, naming the async-function mistake', async () => {
+      const co = cancAsync((async () => 1) as any);
+
+      const reason = await co().catch((err: unknown) => err);
+
+      expect(reason).toBeInstanceOf(TypeError);
+      expect((reason as Error).message).toMatch(/returned a promise/);
+    });
+
+    it('rejects when the body returns anything else that cannot be driven', async () => {
+      const co = cancAsync((() => ({})) as any);
+
+      const reason = await co().catch((err: unknown) => err);
+
+      expect(reason).toBeInstanceOf(TypeError);
+      expect((reason as Error).message).toMatch(/must be a generator function/);
+    });
+
     it('threads explicit ctx into the generator function', async () => {
       const co = cancAsync(
         function* (this: { v: number }) {

@@ -136,6 +136,105 @@ describe('asyncMethod', () => {
     expect(detached()).toBe('raw');
   });
 
+  it('wraps a prototype generator method, so calling it returns a promise', async () => {
+    class C {
+      id = 7;
+
+      constructor() {
+        asyncMethod(this, 'load' as any);
+      }
+
+      *load(): any {
+        return yield* cancAwait(Promise.resolve(this.id));
+      }
+    }
+
+    const inst = new C();
+    const result = (inst.load as any)();
+
+    expect(Object.prototype.hasOwnProperty.call(inst, 'load')).toBe(true);
+    expect(result).toBeInstanceOf(CancelablePromise);
+    await expect(result).resolves.toBe(7);
+  });
+
+  it('wraps a generator function held in a class field', async () => {
+    class C {
+      id = 8;
+
+      // Field initializers all run before the constructor body, so the field is there to wrap.
+      constructor() {
+        asyncMethod(this, 'load');
+      }
+
+      load: any = function* (this: C) {
+        return yield* cancAwait(Promise.resolve(this.id));
+      };
+    }
+
+    const inst = new C();
+    const result = inst.load();
+
+    expect(result).toBeInstanceOf(CancelablePromise);
+    await expect(result).resolves.toBe(8);
+  });
+
+  it('keeps this on a wrapped method when it is detached', async () => {
+    class C {
+      value: string;
+
+      constructor(value: string) {
+        this.value = value;
+        asyncMethod(this, 'read' as any);
+      }
+
+      *read(): any {
+        return yield* cancAwait(Promise.resolve(this.value));
+      }
+    }
+
+    const detached = (new C('bound') as any).read;
+
+    await expect(detached()).resolves.toBe('bound');
+  });
+
+  it('does not wrap a getter result twice: the coroutine it returns is installed as is', async () => {
+    let bodyRuns = 0;
+
+    class C {
+      get load(): any {
+        return cancAsync(function* () {
+          bodyRuns++;
+          return yield* cancAwait(Promise.resolve('once'));
+        });
+      }
+    }
+
+    const inst = new C();
+    asyncMethod(inst, 'load');
+
+    await expect(inst.load()).resolves.toBe('once');
+    expect(bodyRuns).toBe(1);
+  });
+
+  it('forwards coroutine options to the wrapped method', async () => {
+    class C {
+      constructor() {
+        asyncMethod(this, 'load' as any, { shield: true });
+      }
+
+      *load(): any {
+        return yield* cancAwait(new Promise((r) => setTimeout(r, 1, 'kept')));
+      }
+    }
+
+    const inst = new C();
+    const result = (inst.load as any)();
+    result.cancel('ignored');
+
+    // shield makes cancel() a no-op, so the coroutine still settles with its value.
+    await expect(result).resolves.toBe('kept');
+  });
+
   it('cancel surfaces CancelError', async () => {
     class C {
       get load(): any {
@@ -257,5 +356,41 @@ describe('bindMethod', () => {
     void inst.run;
     void inst.run;
     expect(getterCalls).toBe(1);
+  });
+
+  it('binds a prototype method without wrapping it', () => {
+    class C {
+      value = 'plain';
+
+      constructor() {
+        bindMethod(this, 'read' as any);
+      }
+
+      read(): string {
+        return this.value;
+      }
+    }
+
+    const detached = (new C() as any).read;
+
+    expect(detached()).toBe('plain');
+  });
+
+  it('leaves a generator method a generator: binding is all it does', () => {
+    class C {
+      constructor() {
+        bindMethod(this, 'walk' as any);
+      }
+
+      *walk(): any {
+        yield 1;
+      }
+    }
+
+    const inst = new C();
+    const result = (inst.walk as any)();
+
+    expect(result).not.toBeInstanceOf(CancelablePromise);
+    expect(typeof result.next).toBe('function');
   });
 });

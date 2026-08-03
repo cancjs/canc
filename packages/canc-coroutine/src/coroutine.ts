@@ -1,6 +1,6 @@
 import { CancelablePromise, CancelError, ICancelablePromiseOptions, isCancelError } from '@cancjs/promise';
 
-import { IFn, isFunction, isGenerator, isObject, isThenable, setFnName } from '../../_util';
+import { copyFunctionMetadata, IFn, isFunction, isGenerator, isObject, isThenable, setFnName } from '../../_util';
 
 export type TGeneratorLike<PYield = unknown, PReturn = any, PNext = unknown> = Omit<
   Generator<PYield, PReturn, PNext>,
@@ -52,6 +52,17 @@ export type AsyncResult<T = void> = Generator<unknown, T, any>;
 
 export interface IGeneratorLikeFn<TThis = any> extends IFn {
   (this: TThis, ...args: any[]): TGeneratorLike;
+}
+
+// Brand on the function `cancAsync` hands back, same Symbol.for rationale as BreakError above: it
+// survives realm boundaries and duplicated package copies, so wrapping a coroutine a second time is
+// caught even when the two wraps come from different copies of this package.
+const COROUTINE_BRAND = Symbol.for('@cancjs/coroutine:coroutine');
+
+// The driver only ever calls next/throw/return, and TGeneratorLike deliberately omits
+// Symbol.iterator, so isGenerator() would reject generator-likes that drive perfectly well here.
+function isGeneratorLike(value: any): boolean {
+  return isObject(value) && isFunction(value.next) && isFunction(value.throw);
 }
 
 type TCoroutineReturn<TFn extends IGeneratorLikeFn, TReturn = ReturnType<TFn>> = Awaited<
@@ -111,6 +122,13 @@ export function cancAsync<
     throw new TypeError('Argument is not a function');
   }
 
+  // Wrapping a coroutine again would drive its CancelablePromise as if it were a generator, which
+  // fails on the first step with an unhelpful error. TypeScript already rejects this call; the
+  // brand catches it in plain JavaScript, at the wrap rather than at the first call.
+  if ((genFn as Record<symbol, unknown>)[COROUTINE_BRAND]) {
+    throw new TypeError('Argument is already a coroutine');
+  }
+
   const isCtx = ctx !== undefined;
   const promiseOptions = toPromiseOptions(options);
 
@@ -138,6 +156,19 @@ export function cancAsync<
       // `this` threading: an explicitly supplied `ctx` wins; otherwise the call-site `this` of the
       // returned coroutine function is forwarded to the generator function.
       const gen: TGeneratorLike<unknown, TReturn> = genFn.apply(isCtx ? ctx : this, args);
+
+      if (!isGeneratorLike(gen)) {
+        // Rejects rather than throwing, matching how a generator that throws synchronously is
+        // reported. The promise branch is the common mistake: an async function looks close enough
+        // to a coroutine body to try, and every await inside it would escape the cancel chain.
+        throw new TypeError(
+          isThenable(gen) ?
+            'A coroutine body must be a generator function, but this one returned a promise. ' +
+              'An async function cannot be a coroutine body: write a generator and yield* each ' +
+              'awaited step.'
+          : 'A coroutine body must be a generator function',
+        );
+      }
 
       // Tracks whether the generator has reported `done`, guards against re-entering a finished
       // generator via gen.next()/gen.throw().
@@ -470,6 +501,8 @@ export function cancAsync<
     return coroutinePromise;
   }
 
+  Object.defineProperty(coroutine, COROUTINE_BRAND, { value: true });
+
   return coroutine;
 }
 
@@ -710,25 +743,50 @@ cancForAwait.toArray = function* toArray(source: any): Generator<unknown, any[],
   return collected;
 } as ICancForAwait['toArray'];
 
-function installMethod(instance: any, key: string): void {
+function findDescriptor(instance: any, key: string): PropertyDescriptor | undefined {
+  let target: any = instance;
+
+  while (target) {
+    const descriptor = Object.getOwnPropertyDescriptor(target, key);
+    if (descriptor) {
+      return descriptor;
+    }
+    target = Object.getPrototypeOf(target);
+  }
+
+  return undefined;
+}
+
+/**
+ * Runtime half of the member decorators, so `wrap` decides which one this is. The member's kind
+ * decides what happens to it, exactly as in the decorators: a getter has already produced the
+ * finished function (a coroutine, in the AsyncMethod case), so it is only read once, bound, and
+ * memoized; a method or a function-valued field is raw and goes through `wrap`.
+ */
+function installMethod(instance: any, key: string, wrap: (fn: IFn, ctx: any) => IFn): void {
+  const descriptor = findDescriptor(instance, key);
   const raw = instance[key];
 
   if (!isFunction(raw)) {
     throw new TypeError(`'${key}' did not resolve to a function`);
   }
 
+  const value = descriptor?.get ? raw.bind(instance) : wrap(raw, instance);
+
   Object.defineProperty(instance, key, {
-    value: raw.bind(instance),
+    value: copyFunctionMetadata(raw, value),
     writable: true,
     configurable: true,
     enumerable: true,
   });
 }
 
-export function asyncMethod<T>(instance: T, key: keyof T & string): void {
-  installMethod(instance, key);
+/** Per-instance equivalent of `@AsyncMethod({ bind: true })`, for code that avoids decorators. */
+export function asyncMethod<T>(instance: T, key: keyof T & string, options?: TCoroutineOptions): void {
+  installMethod(instance, key, (fn, ctx) => cancAsync(fn as IGeneratorLikeFn, ctx, options));
 }
 
+/** Per-instance equivalent of `@BindMethod()`, for code that avoids decorators. */
 export function bindMethod<T>(instance: T, key: keyof T & string): void {
-  installMethod(instance, key);
+  installMethod(instance, key, (fn, ctx) => fn.bind(ctx) as IFn);
 }
