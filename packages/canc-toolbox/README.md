@@ -135,21 +135,26 @@ signal that aborts with a `CancelError` rather than a bare `DOMException`, use
 
 ### Ending a flow
 
-`suppress(promise)` resolves to `undefined` when the promise is canceled and rethrows everything
-else, which is the honest version of a blanket catch. `suppressAbort(promise)` also swallows a
-plain `AbortError`, and `suppress(promise, { abort: true })` is the same thing spelled out.
+Filtering error helpers swallow specific expected errors when a flow ends:
 
 ```js
-} finally {
-	await suppress(uploadInProgress);
-}
+await suppressAbort(uploadInProgress);
 ```
 
-`createSuppressError` and `createCatchError`, re-exported from
-[`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise#ending-a-cancelable-flow),
-compile a fixed set of expected errors once:
-`createSuppressError(CancelError, isAbortError, isTimeoutError, 'RetryError')` swallows all four
-kinds and rethrows anything else.
+Four pair helpers are exported:
+
+- `catchAbort(promiseOrError)` / `suppressAbort(promiseOrError)`: matches an abort (`AbortError` or a `CancelError` caused by an abort). An ordinary cancellation is rethrown.
+- `catchTimeout(promiseOrError)` / `suppressTimeout(promiseOrError)`: matches a timeout (`TimeoutError` or a `CancelError` caused by a timeout). An ordinary cancellation is rethrown.
+
+`suppressAbort` does not swallow an ordinary cancellation. To swallow an ordinary cancellation as well as an abort, use `suppressCancel(promise, { abort: true })` from `@cancjs/promise`.
+
+`createCatchError(...matchers)` and `createSuppressError(...matchers)` compile a matcher function for a custom set of expected errors:
+
+```js
+const suppressExpected = createSuppressError(AbortError, TimeoutError, 'RetryError');
+
+await suppressExpected(searchProducts(query));
+```
 
 ### Retry and polling
 
@@ -265,13 +270,22 @@ floor on success, not a timer. Pick the one that matches what a failure should d
 
 ### Signal interop
 
-| Export                             | Description                                                      |
-| ---------------------------------- | ---------------------------------------------------------------- |
-| `toAbortSignal(promise)`           | Signal that aborts when the promise cancels or rejects           |
-| `withSignal(signal, promiseOrFn)`  | Races work against a signal, passes through when there is none   |
-| `createAbortSignal()`              | Plain `AbortController` convenience, returns `{ signal, abort }` |
-| `suppress(promise, options?)`      | Swallows a cancellation, rethrows everything else                |
-| `suppressAbort(promise, options?)` | Swallows a cancellation and a plain abort                        |
+| Export                            | Description                                                      |
+| --------------------------------- | ---------------------------------------------------------------- |
+| `toAbortSignal(promise)`          | Signal that aborts when the promise cancels or rejects           |
+| `withSignal(signal, promiseOrFn)` | Races work against a signal, passes through when there is none   |
+| `createAbortSignal()`             | Plain `AbortController` convenience, returns `{ signal, abort }` |
+
+### Filtering errors
+
+| Export                             | Description                                                                         |
+| ---------------------------------- | ----------------------------------------------------------------------------------- |
+| `catchAbort(promiseOrError)`       | Returns an `AbortError` or abort-caused `CancelError`, rethrows everything else     |
+| `suppressAbort(promiseOrError)`    | Swallows an `AbortError` or abort-caused `CancelError`, rethrows everything else    |
+| `catchTimeout(promiseOrError)`     | Returns a `TimeoutError` or timeout-caused `CancelError`, rethrows everything else  |
+| `suppressTimeout(promiseOrError)`  | Swallows a `TimeoutError` or timeout-caused `CancelError`, rethrows everything else |
+| `createCatchError(...matchers)`    | Compiles a matcher returning specified expected errors                              |
+| `createSuppressError(...matchers)` | Compiles a matcher swallowing specified expected errors                             |
 
 ### Lazy promises
 
@@ -288,8 +302,7 @@ floor on success, not a timer. Pick the one that matches what a failure should d
 
 ### Errors
 
-`AbortError`, `isAbortError(error)`, `TimeoutError`, `isTimeoutError(error)`, `AggregateError`,
-`isAggregateError(error)`, `createSuppressError(...matchers)`, `createCatchError(...matchers)`.
+`AbortError`, `isAbortError(error)`, `TimeoutError`, `isTimeoutError(error)`.
 
 ## Compatibility
 

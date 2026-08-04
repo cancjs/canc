@@ -3,14 +3,20 @@
   "projectTitle": "canc",
   "description": "Cancelable promise ecosystem based on native Promise: coroutines, async iterators, decorators, utilities, third-party library helpers.",
   "folders": ["docs", "packages"],
-  "excludeFolders": [".github", ".changeset", "benchmarks", "examples", "scripts"],
+  "excludeFolders": [
+    ".github",
+    ".changeset",
+    "benchmarks",
+    "examples",
+    "scripts"
+  ],
   "excludeFiles": ["package-lock.json", "CHANGELOG.md"],
   "rules": [
     "CancelablePromise extends native Promise. Cancellation is represented as a rejection with a CancelError.",
     "Cancellation propagates DOWN promise chains (rejection) and bubbles UP when all child promises are canceled and the value is unconsumed.",
     "CancelablePromise.race and .any cancel losing promises; CancelablePromise.all cancels remaining promises on first rejection or when all itself is canceled.",
-    "Never check error identity with instanceof across package boundaries; use isCancelError() guards or catchCancel/suppressCancel helpers.",
-    "No cancel errors should remain unhandled; use isCancelError, catchCancel() or suppressCancel() to handle them locally; use @cancjs/unhandled-rejection to handle them globally.",
+    "Never check error identity with instanceof across package boundaries; use isCancelError() guards or catchCancel/suppressCancel/catchAbort/suppressAbort/catchTimeout/suppressTimeout helpers.",
+    "No cancel errors should remain unhandled; use isCancelError, catchCancel(), suppressCancel(), catchAbort(), or suppressAbort() to handle them locally; use @cancjs/unhandled-rejection to handle them globally.",
     "Prefer CancelablePromise chains and canc-coroutine over manually threading AbortController signals through function boundaries.",
     "Avoid using CancelablePromise and AbortController constructors directly; prefer higher-level promisify() and cancelify() helpers to create cancelable promises from external APIs."
   ]

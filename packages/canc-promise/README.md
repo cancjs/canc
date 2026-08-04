@@ -199,18 +199,17 @@ Use the exported guards. They are brand-based, so they keep working across realm
 copies of the package in one dependency tree, which `instanceof` does not:
 
 ```js
-import { isCancelError, isCancPromise, isAbortError, isTimeoutError, isAggregateError } from '@cancjs/promise';
+import { isCancelError, isCancPromise, isAggregateError } from '@cancjs/promise';
 ```
 
 `isCancelError` matches the brand only: a foreign error merely named `CancelError` is never
-treated as one. `isAbortError`, `isTimeoutError` and `isAggregateError` also fall back to
-`error.name`, because the platform produces those errors (`fetch`, `AbortSignal.timeout()`, the
-builtin `AggregateError`) and there is no canc-owned producer of them to brand.
+treated as one. `isAggregateError` also falls back to `error.name`.
 
 A promise canceled through an `AbortSignal` rejects with a `CancelError` whose `cause` is the
 abort reason, not with a `DOMException`. Check `err.aborted`, or `err.timedOut` when the signal
-came from `AbortSignal.timeout()`, on the `CancelError` when the difference matters. `isAbortError`
-and `isTimeoutError` are for raw signal-driven code with no canc promise in between.
+came from `AbortSignal.timeout()`, on the `CancelError` when the difference matters. For standalone
+error classes and guards (`AbortError`, `isAbortError`, `TimeoutError`, `isTimeoutError`), see
+`@cancjs/toolbox`.
 
 `CancelError` also carries `bubbled` (the cancellation came from the consumer side) and `disposed`
 (it came from leaving a `using` scope).
@@ -234,20 +233,15 @@ render(outcome);
 ```
 
 `suppressCancel(promise)` is the shorter form when the reason does not matter: it resolves to
-`undefined` on cancellation and rethrows everything else. Both take `{ abort: true }` to also
-treat a bare `AbortError` as an expected stop, and `{ timeout: true }` to do the same for a bare
-`TimeoutError`.
+`undefined` on cancellation and rethrows everything else. Both accept options (like `{ bubble: false }`)
+passed through to the underlying promise, wire cancellation (canceling the result cancels the input promise),
+and accept either a promise or a raw caught error. Both also take `{ abort: true }` to treat an
+`AbortError` (or a `CancelError` caused by an abort) as an expected stop, and `{ timeout: true }` for
+a `TimeoutError`.
 
-For a fixed set of expected errors, compile the check once:
-
-```js
-const suppressExpected = createSuppressError(CancelError, isAbortError, isTimeoutError, 'RetryError');
-
-await suppressExpected(searchProducts(query));
-```
-
-A matcher is a class (matched by instance, brand, or name), a predicate, or an error name string.
-`createCatchError` is the counterpart that hands the matched error back instead of dropping it.
+For custom error matcher factories (`createSuppressError`, `createCatchError`) or standalone error filtering
+helpers (`catchAbort`, `suppressAbort`, `catchTimeout`, `suppressTimeout`), see
+[`@cancjs/toolbox`](https://github.com/cancjs/canc/tree/master/packages/canc-toolbox).
 
 ### AbortSignal interop
 
@@ -366,18 +360,17 @@ timeout respectively.
 
 ### Helpers
 
-`isCancelError(error)`, `isCancPromise(value)`, `isAbortError(error)`, `isTimeoutError(error)`,
-`isAggregateError(error)`, `isCancelSignal(value)`, `catchCancel(promiseOrError, options?)`,
-`suppressCancel(promiseOrError, options?)`, `createSuppressError(...matchers)`,
-`createCatchError(...matchers)`, `makeCancelable(promise, options?)`, `createCancelSignal(reason?)`.
+`isCancelError(error)`, `isCancPromise(value)`, `isAggregateError(error)`, `isCancelSignal(value)`,
+`catchCancel(promiseOrError, options?)`, `suppressCancel(promiseOrError, options?)`,
+`makeCancelable(promise, options?)`, `createCancelSignal(reason?)`.
 
-`catchCancel` and `suppressCancel` take `{ abort: true }` to also match a plain abort and
-`{ timeout: true }` to also match a plain timeout; both accept either a promise or a caught error.
+`catchCancel` and `suppressCancel` take promise options (e.g. `{ bubble: false }`), pass cancellation
+down to the input promise, and accept either a promise or a caught error. They also accept `{ abort: true }`
+to match an abort and `{ timeout: true }` to match a timeout.
 
-`AbortError`, `TimeoutError` and `AggregateError` are the error classes behind those cases (the
-platform's own DOMException-based versions where the platform produces one, a matching class
-otherwise). Pass them to `createSuppressError` / `createCatchError`, or check `error.name`
-directly.
+`AggregateError` is exported for use with `CancelablePromise.any`. Other error classes, guards, and matcher
+factories (`AbortError`, `isAbortError`, `TimeoutError`, `isTimeoutError`, `createCatchError`,
+`createSuppressError`) are published by `@cancjs/toolbox`.
 
 ### Implementation registry
 

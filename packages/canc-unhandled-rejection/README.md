@@ -181,7 +181,8 @@ process.on('unhandledRejection', (reason) => {
 Node.js and Bun with abort and timeout widening:
 
 ```js
-import { isCancelError, isAbortError, isTimeoutError } from '@cancjs/promise';
+import { isCancelError } from '@cancjs/promise';
+import { isAbortError, isTimeoutError } from '@cancjs/toolbox';
 
 process.on('unhandledRejection', (reason) => {
   const isSuppressed =
@@ -211,7 +212,8 @@ globalThis.addEventListener('unhandledrejection', (event) => {
 Browsers, Deno, and Web Workers with abort and timeout widening:
 
 ```js
-import { isCancelError, isAbortError, isTimeoutError } from '@cancjs/promise';
+import { isCancelError } from '@cancjs/promise';
+import { isAbortError, isTimeoutError } from '@cancjs/toolbox';
 
 globalThis.addEventListener('unhandledrejection', (event) => {
   const reason = event.reason;

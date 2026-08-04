@@ -58,7 +58,7 @@ can be stopped: `timeout` rejects but the underlying promise runs to completion,
 attempt finishes even after the returned promise has been abandoned, and a `delay` timer that
 nobody waits for still fires.
 
-`cancelify` and signal generation (`toAbortSignal`, `withSignal`, `createAbortSignal`) have no meaning without cancellation and are twin-only; `suppress` and `suppressAbort` are provided to swallow abort errors on native promises.
+`cancelify` and signal generation (`toAbortSignal`, `withSignal`, `createAbortSignal`) have no meaning without cancellation and are twin-only; `catchAbort`, `suppressAbort`, `catchTimeout`, `suppressTimeout`, `createCatchError`, and `createSuppressError` are provided to filter errors on native promises (no cancellation handling).
 
 ### Lazy promises
 
@@ -82,8 +82,8 @@ stops, because a native promise cannot be canceled. `lazy` and `createLazyPromis
 `timeout(ms, options?)`, `timeout(input, ms?, options?)`, `waitFor(condition, options?)`,
 `retry(input, options?)`, `debounce(fn, ms, options?)`, `throttle(fn, ms, options?)`, `defer(options?)`,
 `promisify(fn, options?)`, `promisifyAll(source, options?)`,
-`suppress(promise, options?)`, `suppressAbort(promise, options?)`,
-`TimeoutError`, `isTimeoutError(error)`, `LazyPromise`, `LazyPromise.try(fn, ...args)`,
+`catchAbort(promiseOrError)`, `suppressAbort(promiseOrError)`, `catchTimeout(promiseOrError)`, `suppressTimeout(promiseOrError)`, `createCatchError(...matchers)`, `createSuppressError(...matchers)`,
+`AbortError`, `isAbortError(error)`, `TimeoutError`, `isTimeoutError(error)`, `LazyPromise`, `LazyPromise.try(fn, ...args)`,
 `createLazyPromise(x, options?)`, `lazy(run)`, `isLazyPromise(value)`.
 
 `ms` is a number of milliseconds or a `[min, max]` tuple, and is always the last positional
