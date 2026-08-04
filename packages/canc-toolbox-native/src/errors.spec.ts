@@ -28,6 +28,14 @@ function abortReason(): Error {
   return controller.signal.reason as Error;
 }
 
+type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
+type Expect<T extends true> = T;
+
+const p7 = Promise.resolve(7);
+const res7 = suppressAbort(p7);
+type _typeCheckSuppressAbort = Expect<Equal<typeof res7, Promise<number | void>>>;
+void res7;
+
 describe('errors & catch/suppress pairs (native)', () => {
   describe('suppressAbort', () => {
     it('rethrows an ordinary CancelError-shaped rejection', async () => {

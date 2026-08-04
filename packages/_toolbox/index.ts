@@ -1,6 +1,13 @@
 export { IAbortSignalLike, IAbortSignalOptions, withAbortSignal } from './abort-signal';
 export { makeCancelSignal, TGetSignal } from './cancel-signal';
-export { createCatchErrorFactory, createSuppressErrorFactory, isAbortLike, isTimeoutLike } from './catch-suppress';
+export {
+  createCatchErrorFactory,
+  createSuppressErrorFactory,
+  ICatchErrorFnOf,
+  isAbortLike,
+  isTimeoutLike,
+  ISuppressErrorFnOf,
+} from './catch-suppress';
 export { construct, IExecutorCtx, TExecutor, THandleCancel, TPromiseCtor } from './construct';
 export { constructTimed } from './construct-timed';
 export { debounceFactory, IDebounced, IDebounceDeps, IDebounceOptions } from './debounce';
