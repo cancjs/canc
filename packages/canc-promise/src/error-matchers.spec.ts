@@ -85,13 +85,13 @@ describe('createSuppressError', () => {
     });
   });
 
-  it('still honors the abort and timeout options on top of the matchers', () => {
+  it('ignores abort and timeout options when flagsEnabled is false', () => {
     const suppress = createSuppressError('RetryError');
 
     expect(() => suppress(new AbortError())).toThrow();
-    expect(suppress(new AbortError(), { abort: true })).toBeUndefined();
+    expect(() => suppress(new AbortError(), { abort: true })).toThrow(AbortError);
     expect(() => suppress(new TimeoutError())).toThrow();
-    expect(suppress(new TimeoutError(), { timeout: true })).toBeUndefined();
+    expect(() => suppress(new TimeoutError(), { timeout: true })).toThrow(TimeoutError);
   });
 
   it('compiles the matchers once, not on every call', () => {

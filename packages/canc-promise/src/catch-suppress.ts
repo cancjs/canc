@@ -11,13 +11,28 @@ export interface IErrorMatchDeps {
    * helpers.ts beside the brand it reads, and importing it here would close a module cycle.
    */
   isCancelError: TErrorPredicate;
+  /** When false, option flags (abort/timeout) are ignored entirely. */
+  flagsEnabled: boolean;
 }
 
-function makeIsCaught({ matches, isCancelError }: IErrorMatchDeps) {
+export const isAbortLike =
+  (isCancelError: TErrorPredicate) =>
+  (error: any): boolean =>
+    isAbortError(error) || (isCancelError(error) && error.aborted === true);
+
+export const isTimeoutLike =
+  (isCancelError: TErrorPredicate) =>
+  (error: any): boolean =>
+    isTimeoutError(error) || (isCancelError(error) && error.timedOut === true);
+
+function makeIsCaught({ matches, isCancelError, flagsEnabled }: IErrorMatchDeps) {
+  const abortLike = isAbortLike(isCancelError);
+  const timeoutLike = isTimeoutLike(isCancelError);
+
   return (error: any, options?: ICatchSuppressOptions): boolean =>
     matches(error) ||
-    Boolean(options?.abort && (isAbortError(error) || (isCancelError(error) && error.aborted))) ||
-    Boolean(options?.timeout && (isTimeoutError(error) || (isCancelError(error) && error.timedOut)));
+    Boolean(flagsEnabled && options?.abort && abortLike(error)) ||
+    Boolean(flagsEnabled && options?.timeout && timeoutLike(error));
 }
 
 /**

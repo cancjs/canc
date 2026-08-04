@@ -41,6 +41,7 @@ export function createSuppressError(...matchers: TErrorMatcher[]): ISuppressErro
   return makeSuppress({
     matches: compileErrorMatchers(matchers, 'createSuppressError'),
     isCancelError,
+    flagsEnabled: false,
   }) as ISuppressErrorFn;
 }
 
@@ -56,5 +57,6 @@ export function createCatchError(...matchers: TErrorMatcher[]): ICatchErrorFn {
   return makeCatch({
     matches: compileErrorMatchers(matchers, 'createCatchError'),
     isCancelError,
+    flagsEnabled: false,
   }) as ICatchErrorFn;
 }

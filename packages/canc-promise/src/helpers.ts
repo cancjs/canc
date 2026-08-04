@@ -10,13 +10,18 @@ import {
 } from '../../_util';
 import { CANCEL_ERROR_BRAND, CancelError } from './cancel-error';
 import { CANCEL_PROMISE_BRAND, CancelablePromise, ICancelableHelperOptions } from './cancelable-promise';
-import { makeCatch, makeSuppress } from './catch-suppress';
+import { isAbortLike, isTimeoutLike, makeCatch, makeSuppress } from './catch-suppress';
 
 // Brand check: a foreign error merely named 'CancelError' is NOT matched, only objects carrying
 // the shared Symbol.for brand set by the CancelError constructor. Cross-realm/cross-copy safe
 // because the brand comes from the global symbol registry.
 export const isCancelError = (error: any): error is CancelError =>
   isObject(error) && error[CANCEL_ERROR_BRAND] === true;
+
+/** @internal */
+export const _isAbortLike = isAbortLike(isCancelError);
+/** @internal */
+export const _isTimeoutLike = isTimeoutLike(isCancelError);
 
 // Brand check: same rationale as isCancelError, but for CancelablePromise instances. Duck-types
 // via CANCEL_PROMISE_BRAND (set on the prototype at module load) instead of `instanceof
@@ -81,8 +86,8 @@ export interface ICatchSuppressOptions {
 
 // One code path for both the built-in pair below and the matcher factories in error-matchers.ts:
 // only the base predicate differs. Here it is the CancelError brand check.
-const catchCancelImpl = makeCatch({ matches: isCancelError, isCancelError });
-const suppressCancelImpl = makeSuppress({ matches: isCancelError, isCancelError });
+const catchCancelImpl = makeCatch({ matches: isCancelError, isCancelError, flagsEnabled: true });
+const suppressCancelImpl = makeSuppress({ matches: isCancelError, isCancelError, flagsEnabled: true });
 
 export function catchCancel<TResult>(
   promise: PromiseLike<TResult>,
