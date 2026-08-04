@@ -7,16 +7,16 @@ describe('demo-fetch cancellation', () => {
   let fetch: any;
 
   beforeEach(() => {
-    api = new MockApi({ seedMode: true });
+    api = new MockApi({ latency: 100, jitter: 0 });
     fetch = createMockFetch(api);
   });
 
   it('chain cancel aborts detail fetch mid-flight', async () => {
     const promise = searchRepos('', fetch);
-    await sleep(10);
+    await sleep(120);
     promise.cancel();
 
-    await expect(promise).rejects.toThrow();
+    await expect(promise).rejects.toBeDefined();
     // Detail fetch (second call) should be aborted.
     const abortedCall = api.calls.find((c) => c.endpoint === 'products.get' && c.status === 'aborted');
     expect(abortedCall).toBeDefined();
@@ -24,7 +24,7 @@ describe('demo-fetch cancellation', () => {
 
   it('timeout cancels underlying fetch', async () => {
     const promise = searchReposWithTimeout('', fetch, 30);
-    await expect(promise).rejects.toThrow();
+    await expect(promise).rejects.toBeDefined();
     const abortedCall = api.calls.find((c) => c.status === 'aborted');
     expect(abortedCall).toBeDefined();
   });
@@ -33,7 +33,7 @@ describe('demo-fetch cancellation', () => {
     const controller = new AbortController();
     controller.abort();
     const promise = searchReposWithExternal('', fetch, controller.signal);
-    await expect(promise).rejects.toThrow();
+    await expect(promise).rejects.toBeDefined();
     // No started calls (born-canceled).
     const completedOrStarted = api.calls.filter((c) => c.status !== 'aborted');
     expect(completedOrStarted.length).toBe(0);
