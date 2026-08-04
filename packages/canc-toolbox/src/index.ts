@@ -15,28 +15,24 @@ export type { ICancelableLazyWithResolvers, ILazyPromiseOptions } from '../../_t
 export { createLazyPromise, lazy, LazyPromise } from '../../_toolbox/lazy/lazy-promise';
 export type { IThrottled, IThrottleOptions } from '../../_toolbox/throttle';
 export type { ISuppressOptions } from './abort';
-export {
-  AbortError,
-  createAbortSignal,
-  isAbortError,
-  suppress,
-  suppressAbort,
-  toAbortSignal,
-  withSignal,
-} from './abort';
+export { createAbortSignal, suppress, toAbortSignal, withSignal } from './abort';
 export type { ICancelifyContext, ICancelifyOptions, TCancelifyFn } from './cancelify';
 export { cancelify } from './cancelify';
 export { debounce } from './debounce';
+export {
+  AbortError,
+  catchAbort,
+  catchTimeout,
+  createCatchError,
+  createSuppressError,
+  isAbortError,
+  isTimeoutError,
+  suppressAbort,
+  suppressTimeout,
+  TimeoutError,
+} from './errors';
 export type { IExecutorCtx, IToolboxOptions, TEagerToolboxOptions, THandleCancel, TToolboxExecutor } from './options';
 export type { ICancelableDeferred } from './prebound';
 export { defer, delay, minDelay, promisify, promisifyAll, retry, timeout, waitFor } from './prebound';
 export { throttle } from './throttle';
 export type { TErrorConstructor, TErrorMatcher, TErrorPredicate } from '@cancjs/promise';
-export {
-  AggregateError,
-  _createCatchError as createCatchError,
-  _createSuppressError as createSuppressError,
-  isAggregateError,
-  _isTimeoutError as isTimeoutError,
-  _TimeoutError as TimeoutError,
-} from '@cancjs/promise';
