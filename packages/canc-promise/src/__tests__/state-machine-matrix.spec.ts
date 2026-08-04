@@ -542,6 +542,7 @@ describe('state machine matrix', () => {
       compile(path.join(srcRoot, 'src', 'catch-suppress.ts'), 'catch-suppress.js');
       compile(path.join(srcRoot, 'src', 'cancelable-promise.ts'), 'cancelable-promise.js');
       compile(path.join(utilRoot, 'index.ts'), '_util.js');
+      compile(path.join(utilRoot, 'guards.ts'), 'guards.js');
       compile(path.join(utilRoot, 'errors.ts'), 'errors.js');
       compile(path.join(utilRoot, 'error-matchers.ts'), 'error-matchers.js');
       compile(path.join(utilRoot, 'fn-meta.ts'), 'fn-meta.js');
