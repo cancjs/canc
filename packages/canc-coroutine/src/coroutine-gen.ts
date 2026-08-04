@@ -36,7 +36,7 @@ interface TAsyncGeneratorStep {
 // does NOT emit it to the async-iterator consumer). A plain `yield value` is an *emitted* value —
 // it surfaces as the `{ value }` of the consumer's `.next()` / `for await` loop, mirroring native
 // async-generator semantics where every `yield x` yields to the consumer and `await x` does not.
-const awaitedSymbol = Symbol.for('@cancjs/coroutine:awaited value');
+const awaitedSymbol = Symbol.for('@cancjs/coroutine:awaited');
 
 interface TAwaited<T = any> {
   [awaitedSymbol]: T;
