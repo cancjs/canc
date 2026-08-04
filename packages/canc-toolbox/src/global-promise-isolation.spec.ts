@@ -1,6 +1,6 @@
 import { CancelablePromise } from '@cancjs/promise';
 
-import { suppress, withSignal } from './abort';
+import { withSignal } from './abort';
 import { minDelay, retry, timeout, waitFor } from './index';
 
 // regression: internal subscriptions (`promise.then(...)`) used to be built off a bare
@@ -93,15 +93,6 @@ describe('toolbox never subscribes via the live global Promise', () => {
     jest.runAllTimers();
 
     return done.then((value) => {
-      expect(value).toBe('ok');
-      expect(patchedConstructed.length).toBe(0);
-    });
-  });
-
-  it('suppress: source subscription does not construct through the patched global', () => {
-    const done = suppress(RealPromise.resolve('ok'));
-
-    return done.then((value: any) => {
       expect(value).toBe('ok');
       expect(patchedConstructed.length).toBe(0);
     });

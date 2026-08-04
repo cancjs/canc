@@ -1,37 +1,7 @@
-import { _AbortError as AbortError, _isAbortError as isAbortError, CancelablePromise } from '@cancjs/promise';
-
 // withSignal has no toolbox options and always returns a plain native promise, so there is no
 // resolved Impl to route through; capture the native constructor once at module load instead of
 // reading the live global on every call.
 const NativePromise = Promise;
-
-export { AbortError, isAbortError };
-export type ISuppressOptions = Record<string, unknown>;
-
-/**
- * Swallow a cancellation of `promise` and resolve to `undefined` instead, rethrowing anything
- * else. By default only a CancelError-shaped rejection is swallowed; pass `{ abort: true }` to
- * also swallow an AbortError, or `{ timeout: true }` to also swallow a TimeoutError. Resolves to
- * the fulfilled value when the promise settles normally. Built through `suppressFactory`
- * (`_toolbox/suppress.ts`) bound to `CancelablePromise`, so the returned promise is cancelable by
- * default and canceling it propagates to a cancelable `promise`. `@cancjs/toolbox-native` binds
- * the same factory to a plain native Promise, so the two flavors share one algorithm.
- * `@cancjs/promise` ships an unrelated `suppressCancel` with the same matching logic (cancelable
- * only, zero extra dependency); the overlap is deliberate, not a duplicate left behind by mistake.
- */
-export const suppress: any = (promise: any) =>
-  Promise.resolve(promise).then(
-    (v: any) => v,
-    () => {},
-  );
-
-/**
- * Swallow both AbortError and CancelError-shaped rejections and rethrow everything else.
- * Shorthand for `suppress(promise, { abort: true })`.
- */
-export function suppressAbort<T>(promise: T | PromiseLike<T>, options?: ISuppressOptions): CancelablePromise<T | void> {
-  return suppress(promise, { ...options, abort: true });
-}
 
 /**
  * A plain AbortController convenience: mints a raw controller and returns its signal plus a bound

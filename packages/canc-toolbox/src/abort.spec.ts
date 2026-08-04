@@ -1,14 +1,7 @@
-import { _TimeoutError as TimeoutError, CancelablePromise, CancelError, isCancelError } from '@cancjs/promise';
+import { CancelablePromise, CancelError, isCancelError } from '@cancjs/promise';
 
-import {
-  AbortError,
-  createAbortSignal,
-  isAbortError,
-  suppress,
-  suppressAbort,
-  toAbortSignal,
-  withSignal,
-} from './abort';
+import { createAbortSignal, toAbortSignal, withSignal } from './abort';
+import { AbortError, isAbortError } from './errors';
 import { timeout } from './prebound';
 
 function abortReason(controller = new AbortController()): Error {
@@ -61,111 +54,6 @@ describe('createAbortSignal (plain convenience)', () => {
     const reason = new Error('stop');
     abort(reason);
     expect(signal.reason).toBe(reason);
-  });
-});
-
-describe('suppress', () => {
-  it('swallows a CancelError by default', async () => {
-    await expect(suppress(Promise.reject(new CancelError('user canceled')))).resolves.toBeUndefined();
-  });
-
-  it('does NOT swallow a bare AbortError by default', async () => {
-    const reason = abortReason();
-    await expect(suppress(Promise.reject(reason))).rejects.toBe(reason);
-  });
-
-  it('swallows a bare AbortError under { abort: true }', async () => {
-    await expect(suppress(Promise.reject(abortReason()), { abort: true })).resolves.toBeUndefined();
-  });
-
-  it('swallows a CancelError whose cause is an abort under { abort: true }', async () => {
-    const cancel = new CancelError(undefined, { cause: abortReason() });
-    expect(cancel.aborted).toBe(true);
-    await expect(suppress(Promise.reject(cancel), { abort: true })).resolves.toBeUndefined();
-  });
-
-  it('rethrows an unrelated error, with or without the abort flag', async () => {
-    const boom = new Error('boom');
-    await expect(suppress(Promise.reject(boom))).rejects.toBe(boom);
-    await expect(suppress(Promise.reject(boom), { abort: true })).rejects.toBe(boom);
-  });
-
-  it('does NOT swallow a bare TimeoutError by default', async () => {
-    const reason = new TimeoutError();
-    await expect(suppress(Promise.reject(reason))).rejects.toBe(reason);
-  });
-
-  it('swallows a bare TimeoutError under { timeout: true }', async () => {
-    await expect(suppress(Promise.reject(new TimeoutError()), { timeout: true })).resolves.toBeUndefined();
-  });
-
-  it('swallows a CancelError whose cause is a timeout under { timeout: true }', async () => {
-    const cancel = new CancelError(undefined, { cause: new TimeoutError() });
-    expect(cancel.timedOut).toBe(true);
-    await expect(suppress(Promise.reject(cancel), { timeout: true })).resolves.toBeUndefined();
-  });
-
-  it('{ abort: true } does not swallow a TimeoutError, and { timeout: true } does not swallow an AbortError', async () => {
-    const timeoutErr = new TimeoutError();
-    const abortErr = abortReason();
-    await expect(suppress(Promise.reject(timeoutErr), { abort: true })).rejects.toBe(timeoutErr);
-    await expect(suppress(Promise.reject(abortErr), { timeout: true })).rejects.toBe(abortErr);
-  });
-
-  it('passes a fulfilled value through', async () => {
-    await expect(suppress(Promise.resolve(42))).resolves.toBe(42);
-  });
-
-  it('returns a cancelable promise by default', () => {
-    const promise = suppress(new Promise(() => {}));
-    expect(promise).toBeInstanceOf(CancelablePromise);
-    (promise as CancelablePromise<unknown>).cancel();
-  });
-});
-
-describe('suppressAbort', () => {
-  it('swallows a bare AbortError', async () => {
-    await expect(suppressAbort(Promise.reject(abortReason()))).resolves.toBeUndefined();
-  });
-
-  it('swallows an ordinary CancelError too', async () => {
-    await expect(suppressAbort(Promise.reject(new CancelError('user canceled')))).resolves.toBeUndefined();
-  });
-
-  it('rethrows an unrelated error', async () => {
-    const boom = new Error('boom');
-    await expect(suppressAbort(Promise.reject(boom))).rejects.toBe(boom);
-  });
-});
-
-describe('fetch-shaped integration: abort in -> CancelError out -> suppress filters', () => {
-  it('external abort cancels a CancelablePromise into an abort-caused CancelError, then suppress swallows it', async () => {
-    const controller = new AbortController();
-
-    // A fetch-shaped operation: a CancelablePromise wired to an external AbortSignal (as canc-fetch
-    // would produce). Aborting the controller cancels the promise; canc threads the abort as the
-    // CancelError cause, so the rejection is an abort-caused CancelError.
-    const operation = new CancelablePromise<string>(
-      (_resolve) => {
-        // never settles on its own
-      },
-      { signal: controller.signal },
-    );
-
-    controller.abort();
-
-    let caught: unknown;
-    await operation.catch((error) => {
-      caught = error;
-    });
-    expect(isCancelError(caught)).toBe(true);
-    expect((caught as CancelError).aborted).toBe(true);
-
-    // Downstream, suppress({ abort: true }) filters exactly this class of rejection.
-    const controller2 = new AbortController();
-    const operation2 = new CancelablePromise<string>(() => {}, { signal: controller2.signal });
-    controller2.abort();
-    await expect(suppress(operation2, { abort: true })).resolves.toBeUndefined();
   });
 });
 
