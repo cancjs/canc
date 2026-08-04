@@ -12,7 +12,7 @@ const base = require('./jest.config.base.js');
 // below like every other example config; require each directly and splice its projects into this
 // root array instead. Their `rootDir: '.'` resolves relative to the app dir when jest runs
 // standalone there, so point each at its app dir explicitly here.
-const multiProjectConfigs = ['app-vue-pinia', 'app-vue-suspense'];
+const multiProjectConfigs = ['app-fullstack-cancel', 'app-vue-pinia', 'app-vue-suspense'];
 const splicedProjects = multiProjectConfigs.flatMap((dir) =>
   require(`./${dir}/jest.config.js`).projects.map((project) => ({
     ...project,
