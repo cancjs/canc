@@ -1,4 +1,4 @@
-import { isFunction, isObject } from './index';
+import { isFunction, isObject } from './guards';
 
 /**
  * Predicate form of an error matcher: given a thrown value, decide whether it is the kind being

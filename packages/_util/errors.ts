@@ -1,4 +1,4 @@
-import { isObject } from './index';
+import { isObject } from './guards';
 
 /**
  * Instance shape shared by every error class built here.

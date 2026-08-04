@@ -4,7 +4,7 @@
 // bundled per consuming package, so any module-level state here would be a different copy per
 // package while claiming to be one).
 
-import type { TAnyFn } from './index';
+import type { TAnyFn } from './guards';
 
 // `extends TAnyFn`, not the bare `Function` type the repo bans elsewhere: a purely optional-property
 // interface is a TS "weak type", and passing a plain function value against a generic parameter

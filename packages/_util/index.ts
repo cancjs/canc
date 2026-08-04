@@ -1,3 +1,5 @@
+import { isFunction, isObject, TAnyFn } from './guards';
+
 // Structural only: the guard duck-types, it never compares constructors. Declaring the shape here
 // instead of importing it keeps this module free of any package reference, which is what lets the
 // zero-dependency toolbox twin ship its inlined copy without a dangling import.
@@ -5,10 +7,7 @@ export interface ICancelable<T = any> extends PromiseLike<T> {
   cancel: (reason?: any) => void;
 }
 
-// Any callable shape, where the arguments and the return really are not knowable: a method being
-// wrapped by a decorator, a user callback being forwarded verbatim. Use this instead of the bare
-// `Function` type, and instead of redeclaring the same alias per package.
-export type TAnyFn = (...args: any[]) => any;
+export * from './guards';
 
 // Shape of the subset of the reflect-metadata polyfill's API this module feature-detects and calls.
 interface IReflectMetadataApi {
@@ -16,14 +15,6 @@ interface IReflectMetadataApi {
   getOwnMetadata: (metadataKey: PropertyKey, target: object) => unknown;
   defineMetadata: (metadataKey: PropertyKey, metadataValue: unknown, target: object) => void;
 }
-
-// Deliberately not a type predicate. Callers duck-type straight after the check: they read a
-// `then` method, a brand symbol, an iterator. Narrowing to `object` strips the index signature
-// those reads need, and narrowing to a record breaks the casts callers apply afterwards. Leaving
-// the argument as-is keeps every call site working on the value it actually has.
-export const isObject = (value: any): boolean => !!value && typeof value === 'object';
-
-export const isFunction = (value: any): value is TAnyFn => typeof value === 'function';
 
 export const isThenable = (obj: any): obj is PromiseLike<any> =>
   isObject(obj) && isFunction((obj as Record<PropertyKey, unknown>).then);
@@ -108,8 +99,6 @@ export const isStage3Context = (value: any): value is { kind: string } =>
 export const isBabelLegacyDescriptor = (descriptor: any): boolean =>
   isObject(descriptor) && 'initializer' in descriptor;
 
-// Last: the error module reads `isObject` back from here, and re-exporting it only once the
-// declarations above are in place keeps that load order safe.
 export * from './error-matchers';
 export * from './errors';
 export * from './fn-meta';
