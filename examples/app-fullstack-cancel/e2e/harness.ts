@@ -2,6 +2,8 @@ import { type ChildProcess, spawn } from 'node:child_process';
 import http from 'node:http';
 import path from 'node:path';
 
+export { sleep } from '@shared/util';
+
 const APP_ROOT = path.resolve(__dirname, '..');
 
 export interface ServerHandle {
@@ -65,5 +67,3 @@ export function request(url: string, method = 'GET'): Promise<string> {
     req.end();
   });
 }
-
-export const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
