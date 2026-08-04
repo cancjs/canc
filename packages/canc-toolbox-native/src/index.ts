@@ -37,27 +37,24 @@ export const promisify = tb.promisifyFactory(deps);
 
 export const promisifyAll = tb.promisifyAllFactory(deps);
 
-export const suppress: any = (promise: any) =>
-  Promise.resolve(promise).then(
-    (v: any) => v,
-    () => {},
-  );
-
-/**
- * Swallow both AbortError and CancelError-shaped rejections and rethrow everything else.
- * Shorthand for `suppress(promise, { abort: true })`. No cancel-input wiring on this flavor: a
- * native Promise has no `cancel` to propagate to, the same degradation every other native-twin
- * helper in this package already documents.
- */
-export function suppressAbort<T>(promise: T | PromiseLike<T>, options?: Record<string, unknown>): Promise<T | void> {
-  return suppress(promise, { ...options, abort: true });
-}
-
 export type { ILazyWithResolvers, TDuration, TLazyExecutor, TLazyOnCancel, TTimedInput } from '../../_toolbox';
-export { isLazyPromise, isTimeoutError, TimeoutError } from '../../_toolbox';
+export { isLazyPromise } from '../../_toolbox';
 export type { IDebounced, IDebounceOptions } from '../../_toolbox/debounce';
 export type { ILazyPromiseOptions } from '../../_toolbox/lazy/lazy-promise-native';
 export { createLazyPromise, lazy, LazyPromise } from '../../_toolbox/lazy/lazy-promise-native';
 export type { IThrottled, IThrottleOptions } from '../../_toolbox/throttle';
 export { debounce } from './debounce';
+export type { TErrorConstructor, TErrorMatcher, TErrorPredicate } from './errors';
+export {
+  AbortError,
+  catchAbort,
+  catchTimeout,
+  createCatchError,
+  createSuppressError,
+  isAbortError,
+  isTimeoutError,
+  suppressAbort,
+  suppressTimeout,
+  TimeoutError,
+} from './errors';
 export { throttle } from './throttle';

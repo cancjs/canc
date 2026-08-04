@@ -110,5 +110,6 @@ export const isBabelLegacyDescriptor = (descriptor: any): boolean =>
 
 // Last: the error module reads `isObject` back from here, and re-exporting it only once the
 // declarations above are in place keeps that load order safe.
+export * from './error-matchers';
 export * from './errors';
 export * from './fn-meta';
