@@ -20,6 +20,15 @@ import CancelablePromise, {
  makeCancelable,
 } from '@cancjs/promise';
 
+import {
+  catchAbort,
+  suppressAbort,
+  catchTimeout,
+  suppressTimeout,
+  createCatchError,
+  createSuppressError,
+} from '@cancjs/toolbox';
+
 // coroutine (cancAsync/cancAwait) lives in its own package now; core no longer re-exports it.
 import { async as cancAsync, await as cancAwait } from '@cancjs/coroutine';
 
@@ -39,8 +48,8 @@ const _sameClass: typeof NamedCP = CancelablePromise;
 void _sameClass;
 
 // --- constructor + executor + options generics ---------------------------
-const p = new CancelablePromise<number>((resolve, reject, handleCancel) => {
- handleCancel((reason?: TCancelReason) => void reason);
+const p = new CancelablePromise<number>((resolve, reject, ctx) => {
+  ctx.handleCancel((reason?: TCancelReason) => void reason);
  reject(new Error('x'));
  resolve(1);
 }, { bubble: true, strict: false, shield: true, asyncCancel: true, forceCancelable: false });
@@ -107,10 +116,16 @@ void _coroResult;
 
 // --- helpers -------------------------------------------------------------
 const _isErr: boolean = isCancelError(new CancelError());
-const _cc = catchCancel(Promise.resolve(5)); // CancelablePromise<number | CancelError>
+const _cc = catchCancel(Promise.resolve(5), { bubble: false, abort: true }); // CancelablePromise<number | CancelError>
 const _sc = suppressCancel(Promise.resolve(5)); // CancelablePromise<number | void>
 const _mc = makeCancelable(Promise.resolve(5)); // CancelablePromise<number>
-void _isErr; void _cc; void _sc; void _mc;
+const _ca = catchAbort(Promise.resolve(5));
+const _sa = suppressAbort(Promise.resolve(5));
+const _ct = catchTimeout(Promise.resolve(5));
+const _st = suppressTimeout(Promise.resolve(5));
+const _cce = createCatchError('AbortError');
+const _cse = createSuppressError('TimeoutError');
+void _isErr; void _cc; void _sc; void _mc; void _ca; void _sa; void _ct; void _st; void _cce; void _cse;
 
 // --- interface/type-only surface -----------------------------------------
 const _state: TCancelablePromiseStates = 'PENDING';

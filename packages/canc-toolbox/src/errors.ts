@@ -12,7 +12,7 @@ import {
 /**
  * AbortError class re-exported from `@cancjs/promise`.
  */
-export const AbortError = _AbortError;
+export const AbortError: typeof _AbortError = _AbortError;
 
 /**
  * Type guard for AbortError.
@@ -22,7 +22,7 @@ export const isAbortError = _isAbortError;
 /**
  * TimeoutError class re-exported from `@cancjs/promise`.
  */
-export const TimeoutError = _TimeoutError;
+export const TimeoutError: typeof _TimeoutError = _TimeoutError;
 
 /**
  * Type guard for TimeoutError.

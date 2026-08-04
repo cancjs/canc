@@ -24,8 +24,29 @@ import type {
  ICancelablePromiseWithResolvers,
  ICancelablePromiseFlagOptions,
  ICancelablePromiseOptions,
+ ICatchErrorFn,
+ ISuppressErrorFn,
 } from '@cancjs/promise';
 import type { Equal, Expect } from './assert-type';
+
+// @ts-expect-error AbortError is no longer a public export of @cancjs/promise
+import { AbortError } from '@cancjs/promise';
+void AbortError;
+
+// @ts-expect-error suppress is no longer exported by @cancjs/toolbox
+import { suppress } from '@cancjs/toolbox';
+void suppress;
+
+import {
+  catchAbort,
+  suppressAbort,
+  catchTimeout,
+  suppressTimeout,
+  createCatchError,
+  createSuppressError,
+  AbortError as ToolboxAbortError,
+  TimeoutError as ToolboxTimeoutError,
+} from '@cancjs/toolbox';
 
 declare const p: CancelablePromise<number>;
 
@@ -108,6 +129,9 @@ wr.resolve(123);
 const cc = catchCancel(Promise.resolve(7));
 type _catchCancel = Expect<Equal<typeof cc, CancelablePromise<number | CancelError>>>;
 
+const ccOpt = catchCancel(Promise.resolve(7), { bubble: false, abort: true });
+type _catchCancelOpt = Expect<Equal<typeof ccOpt, CancelablePromise<number | CancelError>>>;
+
 const sc = suppressCancel(Promise.resolve(7));
 type _suppressCancel = Expect<Equal<typeof sc, CancelablePromise<number | void>>>;
 
@@ -116,6 +140,24 @@ type _makeCancelable = Expect<Equal<typeof mc, CancelablePromise<number>>>;
 
 // @ts-expect-error catchCancel over a value narrows to CancelError | never, not a promise-of-value
 const _bad: CancelablePromise<number> = catchCancel(new CancelError());
+
+const ca = catchAbort(Promise.resolve(7));
+type _catchAbort = Expect<Equal<typeof ca, CancelablePromise<number | Error>>>;
+
+const sa = suppressAbort(Promise.resolve(7));
+type _suppressAbort = Expect<Equal<typeof sa, CancelablePromise<number | void>>>;
+
+const ct = catchTimeout(Promise.resolve(7));
+type _catchTimeout = Expect<Equal<typeof ct, CancelablePromise<number | Error>>>;
+
+const st = suppressTimeout(Promise.resolve(7));
+type _suppressTimeout = Expect<Equal<typeof st, CancelablePromise<number | void>>>;
+
+const cce = createCatchError(ToolboxAbortError);
+type _createCatchError = Expect<Equal<typeof cce, ICatchErrorFn>>;
+
+const cse = createSuppressError(ToolboxTimeoutError);
+type _createSuppressError = Expect<Equal<typeof cse, ISuppressErrorFn>>;
 
 // ============================================================ option interfaces
 // flag options are all optional booleans; adding an unknown key is rejected.
