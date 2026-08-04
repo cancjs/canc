@@ -126,4 +126,43 @@ describe('errors & catch/suppress pairs (native)', () => {
       expect(isTimeoutError(timeoutErr)).toBe(true);
     });
   });
+
+  describe('global Promise isolation', () => {
+    let RealPromise: typeof Promise;
+    let patchedConstructed: unknown[];
+
+    beforeEach(() => {
+      RealPromise = global.Promise;
+      patchedConstructed = [];
+
+      function PatchedPromise(
+        this: unknown,
+        executor: (resolve: (value: unknown) => void, reject: (reason?: any) => void) => void,
+      ) {
+        const instance = Reflect.construct(RealPromise, [executor], PatchedPromise as any);
+        patchedConstructed.push(instance);
+        return instance;
+      }
+      PatchedPromise.prototype = Object.create(RealPromise.prototype);
+      (PatchedPromise as any).resolve = RealPromise.resolve.bind(RealPromise);
+      (PatchedPromise as any).reject = RealPromise.reject.bind(RealPromise);
+      (PatchedPromise as any).race = RealPromise.race.bind(RealPromise);
+      (PatchedPromise as any).all = RealPromise.all.bind(RealPromise);
+
+      (global as any).Promise = PatchedPromise;
+    });
+
+    afterEach(() => {
+      (global as any).Promise = RealPromise;
+    });
+
+    it('suppressAbort does not construct through the patched global Promise', () => {
+      const abortErr = new AbortError('aborted');
+      const result = suppressAbort(RealPromise.reject(abortErr));
+      return result.then((val) => {
+        expect(val).toBeUndefined();
+        expect(patchedConstructed.length).toBe(0);
+      });
+    });
+  });
 });
