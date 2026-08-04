@@ -33,7 +33,7 @@ export function loadProductProfile(
   // Image leg: can be isolated with bubble:false. Omit the key entirely when unset so the
   // CancelablePromise default (bubble:true) applies; passing bubble:undefined would force false.
   const loadImage = cancelify(
-    (getSignal) => musicApi.albums(getSignal()).then(() => 'image-url'),
+    ({ getSignal }) => musicApi.albums(getSignal()).then(() => 'image-url'),
     options?.bubble === false ? { bubble: false } : undefined,
   );
 
@@ -43,7 +43,7 @@ export function loadProductProfile(
   );
 
   // Audit log: shielded from cancellation but still sees upstream rejection.
-  const loadAuditLog = cancelify((getSignal) => invoicesApi.get('audit-1', getSignal()), { shield: options?.shield });
+  const loadAuditLog = cancelify(({ getSignal }) => invoicesApi.get('audit-1', getSignal()), { shield: options?.shield });
 
   return new CancelablePromise(async (resolve, reject, { handleCancel }) => {
     try {
