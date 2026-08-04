@@ -1,4 +1,11 @@
-import { createCatchErrorFactory, createSuppressErrorFactory, isAbortLike, isTimeoutLike } from '../../_toolbox';
+import {
+  createCatchErrorFactory,
+  createSuppressErrorFactory,
+  ICatchErrorFnOf,
+  isAbortLike,
+  isTimeoutLike,
+  ISuppressErrorFnOf,
+} from '../../_toolbox';
 import {
   AbortError,
   isAbortError,
@@ -8,13 +15,16 @@ import {
   TErrorPredicate,
   TimeoutError,
 } from '../../_util';
-import { deps } from './deps';
+import { deps, INativeKind } from './deps';
 
 export type { TErrorConstructor, TErrorMatcher, TErrorPredicate };
+export type ICatchErrorFn = ICatchErrorFnOf<INativeKind>;
+export type ISuppressErrorFn = ISuppressErrorFnOf<INativeKind>;
+
 export { AbortError, isAbortError, isTimeoutError, TimeoutError };
-export const createCatchError = createCatchErrorFactory(deps);
-export const createSuppressError = createSuppressErrorFactory(deps);
-export const catchAbort = createCatchError(isAbortLike);
-export const suppressAbort = createSuppressError(isAbortLike);
-export const catchTimeout = createCatchError(isTimeoutLike);
-export const suppressTimeout = createSuppressError(isTimeoutLike);
+export const createCatchError: (...matchers: TErrorMatcher[]) => ICatchErrorFn = createCatchErrorFactory(deps);
+export const createSuppressError: (...matchers: TErrorMatcher[]) => ISuppressErrorFn = createSuppressErrorFactory(deps);
+export const catchAbort: ICatchErrorFn = createCatchError(isAbortLike);
+export const suppressAbort: ISuppressErrorFn = createSuppressError(isAbortLike);
+export const catchTimeout: ICatchErrorFn = createCatchError(isTimeoutLike);
+export const suppressTimeout: ISuppressErrorFn = createSuppressError(isTimeoutLike);

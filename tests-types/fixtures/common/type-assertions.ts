@@ -48,6 +48,26 @@ import {
   TimeoutError as ToolboxTimeoutError,
 } from '@cancjs/toolbox';
 
+import {
+  catchAbort as nativeCatchAbort,
+  suppressAbort as nativeSuppressAbort,
+  catchTimeout as nativeCatchTimeout,
+  suppressTimeout as nativeSuppressTimeout,
+  createCatchError as nativeCreateCatchError,
+  createSuppressError as nativeCreateSuppressError,
+  AbortError as NativeAbortError,
+  TimeoutError as NativeTimeoutError,
+} from '@cancjs/toolbox-native';
+
+declare const _a: ToolboxAbortError;
+void _a;
+declare const _t: ToolboxTimeoutError;
+void _t;
+declare const _n: NativeAbortError;
+void _n;
+declare const _nt: NativeTimeoutError;
+void _nt;
+
 declare const p: CancelablePromise<number>;
 
 // ============================================================ then/catch/finally
@@ -158,6 +178,18 @@ type _createCatchError = Expect<Equal<typeof cce, ICatchErrorFn>>;
 
 const cse = createSuppressError(ToolboxTimeoutError);
 type _createSuppressError = Expect<Equal<typeof cse, ISuppressErrorFn>>;
+
+const nsa = nativeSuppressAbort(Promise.resolve(7));
+type _nativeSuppressAbort = Expect<Equal<typeof nsa, Promise<number | void>>>;
+
+const nca = nativeCatchAbort(Promise.resolve(7));
+type _nativeCatchAbort = Expect<Equal<typeof nca, Promise<number | Error>>>;
+
+const nst = nativeSuppressTimeout(Promise.resolve(7));
+type _nativeSuppressTimeout = Expect<Equal<typeof nst, Promise<number | void>>>;
+
+const nct = nativeCatchTimeout(Promise.resolve(7));
+type _nativeCatchTimeout = Expect<Equal<typeof nct, Promise<number | Error>>>;
 
 // ============================================================ option interfaces
 // flag options are all optional booleans; adding an unknown key is rejected.

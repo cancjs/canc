@@ -29,6 +29,17 @@ import {
   createSuppressError,
 } from '@cancjs/toolbox';
 
+import {
+  catchAbort as nativeCatchAbort,
+  suppressAbort as nativeSuppressAbort,
+  catchTimeout as nativeCatchTimeout,
+  suppressTimeout as nativeSuppressTimeout,
+  createCatchError as nativeCreateCatchError,
+  createSuppressError as nativeCreateSuppressError,
+  AbortError as NativeAbortError,
+  TimeoutError as NativeTimeoutError,
+} from '@cancjs/toolbox-native';
+
 // coroutine (cancAsync/cancAwait) lives in its own package now; core no longer re-exports it.
 import { async as cancAsync, await as cancAwait } from '@cancjs/coroutine';
 
@@ -125,7 +136,16 @@ const _ct = catchTimeout(Promise.resolve(5));
 const _st = suppressTimeout(Promise.resolve(5));
 const _cce = createCatchError('AbortError');
 const _cse = createSuppressError('TimeoutError');
+const _nca = nativeCatchAbort(Promise.resolve(5));
+const _nsa = nativeSuppressAbort(Promise.resolve(5));
+const _nct = nativeCatchTimeout(Promise.resolve(5));
+const _nst = nativeSuppressTimeout(Promise.resolve(5));
+const _ncce = nativeCreateCatchError('AbortError');
+const _ncse = nativeCreateSuppressError('TimeoutError');
+declare const _n: NativeAbortError;
+declare const _nt: NativeTimeoutError;
 void _isErr; void _cc; void _sc; void _mc; void _ca; void _sa; void _ct; void _st; void _cce; void _cse;
+void _nca; void _nsa; void _nct; void _nst; void _ncce; void _ncse; void _n; void _nt;
 
 // --- interface/type-only surface -----------------------------------------
 const _state: TCancelablePromiseStates = 'PENDING';

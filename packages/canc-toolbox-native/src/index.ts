@@ -44,7 +44,7 @@ export type { ILazyPromiseOptions } from '../../_toolbox/lazy/lazy-promise-nativ
 export { createLazyPromise, lazy, LazyPromise } from '../../_toolbox/lazy/lazy-promise-native';
 export type { IThrottled, IThrottleOptions } from '../../_toolbox/throttle';
 export { debounce } from './debounce';
-export type { TErrorConstructor, TErrorMatcher, TErrorPredicate } from './errors';
+export type { ICatchErrorFn, ISuppressErrorFn, TErrorConstructor, TErrorMatcher, TErrorPredicate } from './errors';
 export {
   AbortError,
   catchAbort,
