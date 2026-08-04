@@ -1,6 +1,6 @@
 import { async as cancAsync } from '@cancjs/coroutine';
 import { cancelify, createSuppressError as toolboxCreateSuppressError, promisify } from '@cancjs/toolbox';
-import { suppress as nativeSuppress } from '@cancjs/toolbox-native';
+import { createSuppressError as nativeCreateSuppressError } from '@cancjs/toolbox-native';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -191,11 +191,11 @@ describe('smoke 5: suppress/catch on the native toolbox twin', () => {
   }
 
   it('swallows a CancelError-shaped rejection and resolves undefined', async () => {
-    await expect(nativeSuppress(Promise.reject(cancelErrorLike()))).resolves.toBeUndefined();
+    await expect(nativeCreateSuppressError(CancelError)(Promise.reject(cancelErrorLike()))).resolves.toBeUndefined();
   });
 
   it('the returned promise carries no `cancel` (a native promise has nothing to propagate to)', async () => {
-    const result = nativeSuppress(Promise.reject(cancelErrorLike()));
+    const result = nativeCreateSuppressError(CancelError)(Promise.reject(cancelErrorLike()));
 
     expect((result as unknown as { cancel?: unknown }).cancel).toBeUndefined();
     await result;
