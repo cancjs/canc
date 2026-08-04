@@ -16,7 +16,9 @@ function makeApi() {
       searched.push(query);
       return new CancelablePromise<UserHit[]>((resolve, _reject, { handleCancel }) => {
         resolvers.set(query, resolve);
-        handleCancel?.(() => canceled.push(query));
+        handleCancel?.(() => {
+          canceled.push(query);
+        });
       });
     },
   };
