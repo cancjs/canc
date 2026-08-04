@@ -101,7 +101,7 @@ describe('toolbox never subscribes via the live global Promise', () => {
   it('suppress: source subscription does not construct through the patched global', () => {
     const done = suppress(RealPromise.resolve('ok'));
 
-    return done.then((value) => {
+    return done.then((value: any) => {
       expect(value).toBe('ok');
       expect(patchedConstructed.length).toBe(0);
     });

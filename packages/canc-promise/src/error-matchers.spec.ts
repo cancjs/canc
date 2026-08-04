@@ -1,7 +1,12 @@
 import { CancelError } from './cancel-error';
 import { CancelablePromise } from './cancelable-promise';
 import { createCatchError, createSuppressError } from './error-matchers';
-import { AbortError, isAbortError, isTimeoutError, TimeoutError } from './helpers';
+import {
+  _AbortError as AbortError,
+  _isAbortError as isAbortError,
+  _isTimeoutError as isTimeoutError,
+  _TimeoutError as TimeoutError,
+} from './helpers';
 
 function named(name: string): Error {
   return Object.assign(new Error('x'), { name });

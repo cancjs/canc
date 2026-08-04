@@ -1,4 +1,4 @@
-import { isAbortError, isCancelError, isTimeoutError } from '@cancjs/promise';
+import { _isAbortError, _isTimeoutError, isCancelError } from '@cancjs/promise';
 
 export interface RegisterOptions {
   warn?: boolean;
@@ -40,8 +40,8 @@ const registrations: Registration[] = [];
 function buildIsSuppressed(options?: RegisterOptions): (error: unknown) => boolean {
   return (error: unknown): boolean =>
     isCancelError(error) ||
-    Boolean(options?.abort && isAbortError(error)) ||
-    Boolean(options?.timeout && isTimeoutError(error));
+    Boolean(options?.abort && _isAbortError(error)) ||
+    Boolean(options?.timeout && _isTimeoutError(error));
 }
 
 function tryRegister(

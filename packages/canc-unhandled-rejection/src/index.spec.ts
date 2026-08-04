@@ -150,7 +150,7 @@ describe('@cancjs/unhandled-rejection', () => {
   it('register({ timeout: true }) also suppresses TimeoutError', () => {
     const res = runChild(`
       const { register } = require(${JSON.stringify(unhandledSrc)});
-      const { TimeoutError } = require(${JSON.stringify(promiseSrc)});
+      const { _TimeoutError: TimeoutError } = require(${JSON.stringify(promiseSrc)});
       register({ timeout: true });
       Promise.reject(new TimeoutError());
     `);
@@ -171,7 +171,7 @@ describe('@cancjs/unhandled-rejection', () => {
   it('register({ abort: true, timeout: true }) suppresses both', () => {
     const res = runChild(`
       const { register } = require(${JSON.stringify(unhandledSrc)});
-      const { TimeoutError } = require(${JSON.stringify(promiseSrc)});
+      const { _TimeoutError: TimeoutError } = require(${JSON.stringify(promiseSrc)});
       register({ abort: true, timeout: true });
       const err = new Error('aborted');
       err.name = 'AbortError';

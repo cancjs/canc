@@ -1,4 +1,4 @@
-import { CancelablePromise, TimeoutError as CoreTimeoutError } from '@cancjs/promise';
+import { _TimeoutError as CoreTimeoutError, CancelablePromise } from '@cancjs/promise';
 
 import { timeout, TimeoutError } from './index';
 

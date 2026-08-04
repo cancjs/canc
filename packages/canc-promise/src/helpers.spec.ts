@@ -1,6 +1,7 @@
 import { CancelError } from './cancel-error';
 import { CancelablePromise, ICancelable } from './cancelable-promise';
 import {
+  _TimeoutError as TimeoutError,
   CANCEL_SIGNAL_BRAND,
   catchCancel,
   createCancelSignal,
@@ -8,7 +9,6 @@ import {
   isCancelSignal,
   makeCancelable,
   suppressCancel,
-  TimeoutError,
 } from './helpers';
 
 function flushPromises(): Promise<void> {
@@ -500,5 +500,22 @@ describe('makeCancelable', () => {
 
     expect(promise.cancel).toHaveBeenCalled();
     await expect(wrappedPromise).rejects.toThrow();
+  });
+});
+
+describe('demoted error exports', () => {
+  it('demotes shared error classes to internal exports', () => {
+    // @ts-expect-error AbortError is demoted to _AbortError
+    type _TestAbortError = import('@cancjs/promise').AbortError;
+    // @ts-expect-error TimeoutError is demoted to _TimeoutError
+    type _TestTimeoutError = import('@cancjs/promise').TimeoutError;
+    // @ts-expect-error isAbortError is demoted to _isAbortError
+    type _TestIsAbortError = typeof import('@cancjs/promise').isAbortError;
+    // @ts-expect-error isTimeoutError is demoted to _isTimeoutError
+    type _TestIsTimeoutError = typeof import('@cancjs/promise').isTimeoutError;
+
+    // AggregateError and isAggregateError remain public exports
+    type _TestAggregateError = import('@cancjs/promise').AggregateError;
+    type _TestIsAggregateError = typeof import('@cancjs/promise').isAggregateError;
   });
 });

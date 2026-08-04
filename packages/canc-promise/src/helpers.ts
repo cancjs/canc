@@ -35,7 +35,13 @@ export const _isTimeoutLike = isTimeoutLike(isCancelError);
 export const isCancPromise = (value: any): value is CancelablePromise<any> =>
   isObject(value) && value[CANCEL_PROMISE_BRAND] === true;
 
-export { AbortError, AggregateError, isAbortError, isAggregateError, isTimeoutError, TimeoutError };
+export { AggregateError, isAggregateError };
+/** @internal */ export {
+  AbortError as _AbortError,
+  isAbortError as _isAbortError,
+  isTimeoutError as _isTimeoutError,
+  TimeoutError as _TimeoutError,
+};
 
 // Agent-wide brand marking a "cancel signal": an AbortSignal that aborts with a CancelError.
 // Same Symbol.for-registry rationale as CANCEL_ERROR_BRAND, cross-realm/cross-copy safe.

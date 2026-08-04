@@ -37,6 +37,6 @@ export {
   createCatchError,
   createSuppressError,
   isAggregateError,
-  isTimeoutError,
-  TimeoutError,
+  _isTimeoutError as isTimeoutError,
+  _TimeoutError as TimeoutError,
 } from '@cancjs/promise';

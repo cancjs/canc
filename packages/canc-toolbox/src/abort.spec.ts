@@ -1,4 +1,4 @@
-import { CancelablePromise, CancelError, isCancelError, TimeoutError } from '@cancjs/promise';
+import { _TimeoutError as TimeoutError, CancelablePromise, CancelError, isCancelError } from '@cancjs/promise';
 
 import {
   AbortError,

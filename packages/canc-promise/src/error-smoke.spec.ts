@@ -5,19 +5,19 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import {
-  AbortError,
+  _AbortError as AbortError,
+  _isAbortError as isAbortError,
+  _isTimeoutError as isTimeoutError,
+  _TimeoutError as TimeoutError,
   AggregateError,
   CANCEL_SIGNAL_BRAND,
   CancelablePromise,
   CancelError,
   createCancelSignal,
   createSuppressError,
-  isAbortError,
   isAggregateError,
   isCancelError,
-  isTimeoutError,
   suppressCancel,
-  TimeoutError,
 } from './index';
 
 // Cross-package smoke for the phase that unified error classes/brands, added the matcher
