@@ -34,8 +34,8 @@ export { throttle } from './throttle';
 export type { TErrorConstructor, TErrorMatcher, TErrorPredicate } from '@cancjs/promise';
 export {
   AggregateError,
-  createCatchError,
-  createSuppressError,
+  _createCatchError as createCatchError,
+  _createSuppressError as createSuppressError,
   isAggregateError,
   _isTimeoutError as isTimeoutError,
   _TimeoutError as TimeoutError,

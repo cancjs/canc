@@ -1,6 +1,6 @@
 import { CancelError } from './cancel-error';
 import { CancelablePromise } from './cancelable-promise';
-import { createCatchError, createSuppressError } from './error-matchers';
+import { _createCatchError as createCatchError, _createSuppressError as createSuppressError } from './error-matchers';
 import {
   _AbortError as AbortError,
   _isAbortError as isAbortError,
@@ -23,7 +23,7 @@ function foreignCopyCancelError(): object {
 describe('createSuppressError', () => {
   it('rejects an empty matcher list', () => {
     expect(() => createSuppressError()).toThrow(TypeError);
-    expect(() => createSuppressError()).toThrow(/createSuppressError/);
+    expect(() => createSuppressError()).toThrow('createSuppressError requires at least one error matcher');
   });
 
   describe('constructor matcher', () => {
@@ -90,13 +90,21 @@ describe('createSuppressError', () => {
     });
   });
 
-  it('ignores abort and timeout options when flagsEnabled is false', () => {
-    const suppress = createSuppressError('RetryError');
+  it('ignores abort and timeout options when flagsEnabled is false', async () => {
+    const suppress = createSuppressError(CancelError);
 
     expect(() => suppress(new AbortError())).toThrow();
-    expect(() => suppress(new AbortError(), { abort: true })).toThrow(AbortError);
+    expect(() => suppress(new AbortError(), { abort: true } as any)).toThrow(AbortError);
     expect(() => suppress(new TimeoutError())).toThrow();
-    expect(() => suppress(new TimeoutError(), { timeout: true })).toThrow(TimeoutError);
+    expect(() => suppress(new TimeoutError(), { timeout: true } as any)).toThrow(TimeoutError);
+
+    let rejectedError: unknown;
+    try {
+      await suppress(CancelablePromise.reject(new AbortError()), { abort: true } as any);
+    } catch (e) {
+      rejectedError = e;
+    }
+    expect(isAbortError(rejectedError)).toBe(true);
   });
 
   it('compiles the matchers once, not on every call', () => {
@@ -122,7 +130,7 @@ describe('createSuppressError', () => {
 describe('createCatchError', () => {
   it('rejects an empty matcher list', () => {
     expect(() => createCatchError()).toThrow(TypeError);
-    expect(() => createCatchError()).toThrow(/createCatchError/);
+    expect(() => createCatchError()).toThrow('createCatchError requires at least one error matcher');
   });
 
   it('returns the matched error instead of undefined', () => {

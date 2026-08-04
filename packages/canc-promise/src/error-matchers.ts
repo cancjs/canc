@@ -1,8 +1,8 @@
 import type { TErrorConstructor, TErrorMatcher, TErrorPredicate } from '../../_util/error-matchers';
 import { compileErrorMatchers } from '../../_util/error-matchers';
-import type { CancelablePromise } from './cancelable-promise';
+import type { CancelablePromise, ICancelablePromiseOptions } from './cancelable-promise';
 import { makeCatch, makeSuppress } from './catch-suppress';
-import { ICatchSuppressOptions, isCancelError } from './helpers';
+import { isCancelError } from './helpers';
 
 export type { TErrorConstructor, TErrorMatcher, TErrorPredicate };
 
@@ -11,8 +11,8 @@ export type { TErrorConstructor, TErrorMatcher, TErrorPredicate };
  * deciding what counts as caught.
  */
 export interface ISuppressErrorFn {
-  <TResult>(promise: PromiseLike<TResult>, options?: ICatchSuppressOptions): CancelablePromise<TResult | void>;
-  <TError>(error: TError, options?: ICatchSuppressOptions): void | never;
+  <TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions): CancelablePromise<TResult | void>;
+  <TError>(error: TError, options?: ICancelablePromiseOptions): void | never;
 }
 
 /**
@@ -20,8 +20,8 @@ export interface ISuppressErrorFn {
  * what counts as caught.
  */
 export interface ICatchErrorFn {
-  <TResult>(promise: PromiseLike<TResult>, options?: ICatchSuppressOptions): CancelablePromise<TResult | Error>;
-  <TError>(error: TError, options?: ICatchSuppressOptions): TError | never;
+  <TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions): CancelablePromise<TResult | Error>;
+  <TError>(error: TError, options?: ICancelablePromiseOptions): TError | never;
 }
 
 /**
@@ -37,7 +37,7 @@ export interface ICatchErrorFn {
  * const suppressExpected = createSuppressError(CancelError, isAbortError, 'RetryError');
  * await suppressExpected(loadUser());
  */
-export function createSuppressError(...matchers: TErrorMatcher[]): ISuppressErrorFn {
+function createSuppressError(...matchers: TErrorMatcher[]): ISuppressErrorFn {
   return makeSuppress({
     matches: compileErrorMatchers(matchers, 'createSuppressError'),
     isCancelError,
@@ -53,10 +53,13 @@ export function createSuppressError(...matchers: TErrorMatcher[]): ISuppressErro
  * const catchExpected = createCatchError(CancelError, 'RetryError');
  * const result = await catchExpected(loadUser());
  */
-export function createCatchError(...matchers: TErrorMatcher[]): ICatchErrorFn {
+function createCatchError(...matchers: TErrorMatcher[]): ICatchErrorFn {
   return makeCatch({
     matches: compileErrorMatchers(matchers, 'createCatchError'),
     isCancelError,
     flagsEnabled: false,
   }) as ICatchErrorFn;
 }
+
+/** @internal */
+export { createCatchError as _createCatchError, createSuppressError as _createSuppressError };

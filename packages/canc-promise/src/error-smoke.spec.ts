@@ -6,6 +6,7 @@ import * as path from 'path';
 
 import {
   _AbortError as AbortError,
+  _createSuppressError as createSuppressError,
   _isAbortError as isAbortError,
   _isTimeoutError as isTimeoutError,
   _TimeoutError as TimeoutError,
@@ -14,7 +15,6 @@ import {
   CancelablePromise,
   CancelError,
   createCancelSignal,
-  createSuppressError,
   isAggregateError,
   isCancelError,
   suppressCancel,
