@@ -1,6 +1,6 @@
 /**
  * Scenario 4: Classification — error handling
- * Canc: CancelError inspection + suppress/suppressAbort helpers
+ * Canc: CancelError inspection + suppressCancel/suppressAbort helpers
  */
 
 import { CancelablePromise, CancelError, isCancelError, suppressCancel } from '@cancjs/promise';
