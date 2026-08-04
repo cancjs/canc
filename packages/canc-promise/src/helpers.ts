@@ -9,7 +9,12 @@ import {
   TimeoutError,
 } from '../../_util';
 import { CANCEL_ERROR_BRAND, CancelError } from './cancel-error';
-import { CANCEL_PROMISE_BRAND, CancelablePromise, ICancelableHelperOptions } from './cancelable-promise';
+import {
+  CANCEL_PROMISE_BRAND,
+  CancelablePromise,
+  ICancelableHelperOptions,
+  ICancelablePromiseOptions,
+} from './cancelable-promise';
 import { isAbortLike, isTimeoutLike, makeCatch, makeSuppress } from './catch-suppress';
 
 // Brand check: a foreign error merely named 'CancelError' is NOT matched, only objects carrying
@@ -69,7 +74,7 @@ export function createCancelSignal(reason?: any) {
   };
 }
 
-export interface ICatchSuppressOptions {
+export interface ICatchSuppressOptions extends ICancelablePromiseOptions {
   /**
    * Also match a plain AbortSignal-driven abort: a raw AbortError, or a CancelError whose
    * `aborted` getter is true (its cause is an AbortError). Default false: only a genuine
