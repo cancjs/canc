@@ -43,7 +43,9 @@ export function loadProductProfile(
   );
 
   // Audit log: shielded from cancellation but still sees upstream rejection.
-  const loadAuditLog = cancelify(({ getSignal }) => invoicesApi.get('audit-1', getSignal()), { shield: options?.shield });
+  const loadAuditLog = cancelify(({ getSignal }) => invoicesApi.get('audit-1', getSignal()), {
+    shield: options?.shield,
+  });
 
   return new CancelablePromise(async (resolve, reject, { handleCancel }) => {
     try {

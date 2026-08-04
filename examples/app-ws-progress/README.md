@@ -65,8 +65,8 @@ a close can only set a flag that stops SENDING frames. Every chunk still transco
  percentage to the sender's `for await`. The transcoder is cancelified once at its boundary
  (`createTranscoder`), so the job calls `transcode(chunk)` with no signal of its own. Canceling the
  iterator runs its `finally` and aborts the chunk in flight through that cancelified boundary.
-- **`suppress` for the ack (canc).** The `canceled` ack is sent inside `suppress(['cancel'], ...)`
- so it still goes out even though the job chain is in the middle of canceling.
+- **`suppressCancel` for the ack (canc).** The `canceled` ack is sent inside `suppressCancel(...)`
+  so it still goes out even though the job chain is in the middle of canceling.
 
 ## Files to diff
 

@@ -11,8 +11,8 @@
 // signal aborts and the native iterator ends, so the read loop unwinds with the rest of the tree.
 
 import * as canc from '@cancjs/coroutine';
-import { CancelablePromise, CancelError, isCancelError } from '@cancjs/promise';
-import { suppress, toAbortSignal } from '@cancjs/toolbox';
+import { CancelablePromise, CancelError, isCancelError, suppressCancel } from '@cancjs/promise';
+import { toAbortSignal } from '@cancjs/toolbox';
 import { on } from 'events';
 import express from 'express';
 import { createServer } from 'http';
@@ -132,7 +132,7 @@ function runJob(
       // Cancel = ack the client. Shielded so the ack still sends even though the job chain is
       // canceling. A real failure is left to surface, not acked as a cancel.
       if (isCancelError(error)) {
-        void suppress((async () => send(ws, { type: 'canceled', jobId }))());
+        void suppressCancel((async () => send(ws, { type: 'canceled', jobId }))());
       }
     },
   );

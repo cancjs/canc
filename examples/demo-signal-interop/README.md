@@ -101,14 +101,14 @@ if (err instanceof DOMException && err.name === 'AbortError') {
 }
 
 // Canc: CancelError + helpers
-if (err instanceof CancelError) {
- if (err.aborted) console.log('abort, cause:', err.cause);
+if (isCancelError(err)) {
+  if (err.aborted) console.log('abort, cause:', err.cause);
 }
 
-// Or: quick checks
-if (isAbortError(err)) { /* … */ }
-if (suppressAbort(err)) throw err; // rethrow if NOT abort
-if (suppress(['abort', 'cancel'])(err)) throw err; // suppress either
+// Or: quick helper functions
+if (isAbortError(err)) { /* ... */ }
+const result = await suppressAbort(promise); // swallows abort, rethrows ordinary cancel
+const resultWithBoth = await suppressCancel(promise, { abort: true }); // swallows cancel and abort
 ```
 
 ## Honesty notes

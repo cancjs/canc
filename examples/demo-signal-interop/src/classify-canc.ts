@@ -3,8 +3,8 @@
  * Canc: CancelError inspection + suppress/suppressAbort helpers
  */
 
-import { CancelablePromise, CancelError, isAbortError, isCancelError } from '@cancjs/promise';
-import { suppress, suppressAbort } from '@cancjs/toolbox';
+import { CancelablePromise, CancelError, isCancelError, suppressCancel } from '@cancjs/promise';
+import { isAbortError, suppressAbort } from '@cancjs/toolbox';
 import { setTimeout } from 'timers/promises';
 
 async function mayFailTask(): Promise<string> {
@@ -53,6 +53,17 @@ export async function suppressAbortCanc() {
   } else {
     console.log('[canc] result:', result);
   }
+
+  // Ordinary CancelError is rethrown (not swallowed by suppressAbort)
+  const canceledPromise = new CancelablePromise<string>(() => {});
+  canceledPromise.cancel('user cancel');
+  try {
+    await suppressAbort(canceledPromise);
+  } catch (err: unknown) {
+    if (isCancelError(err)) {
+      console.log('[canc] ordinary CancelError rethrown by suppressAbort');
+    }
+  }
 }
 
 export async function suppressMultipleErrorsCanc() {
@@ -63,8 +74,8 @@ export async function suppressMultipleErrorsCanc() {
     { signal: AbortSignal.timeout(30) },
   );
 
-  // suppress with { abort: true }: swallows both CancelError and AbortError
-  const result = await suppress(promise, { abort: true });
+  // suppressCancel with { abort: true }: swallows both CancelError and AbortError
+  const result = await suppressCancel(promise, { abort: true });
   if (result === undefined) {
     console.log('[canc] abort/cancel suppressed');
   } else {
