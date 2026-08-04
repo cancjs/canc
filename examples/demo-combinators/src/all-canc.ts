@@ -8,7 +8,7 @@ const completed: string[] = [];
 const canceled: string[] = [];
 
 function loadWidget(name: string, delay: number): CancelablePromise<string> {
-  return new CancelablePromise((resolve, reject, onCancel) => {
+  return new CancelablePromise((resolve, reject, { handleCancel }) => {
     const timeout = setTimeout(() => {
       if (name === 'alerts') {
         reject(new Error('alerts failed'));
@@ -18,7 +18,7 @@ function loadWidget(name: string, delay: number): CancelablePromise<string> {
       }
     }, delay);
 
-    onCancel(() => {
+    handleCancel(() => {
       clearTimeout(timeout);
       canceled.push(name);
       reject(new Error(`${name} canceled`));
