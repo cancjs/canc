@@ -6,8 +6,10 @@ import {
   catchTimeout,
   createCatchError,
   createSuppressError,
+  ICatchErrorFn,
   isAbortError,
   isTimeoutError,
+  ISuppressErrorFn,
   suppressAbort,
   suppressTimeout,
   TimeoutError,
@@ -20,20 +22,29 @@ describe('errors module exports and behaviors', () => {
     expect(isAbortError).toBe(core._isAbortError);
     expect(TimeoutError).toBe(core._TimeoutError);
     expect(isTimeoutError).toBe(core._isTimeoutError);
+
+    const _testAbort: AbortError | null = null;
+    const _testTimeout: TimeoutError | null = null;
+    const _testCatchFn: ICatchErrorFn | null = null;
+    const _testSuppressFn: ISuppressErrorFn | null = null;
+    expect(_testAbort).toBeNull();
+    expect(_testTimeout).toBeNull();
+    expect(_testCatchFn).toBeNull();
+    expect(_testSuppressFn).toBeNull();
   });
 
   describe('suppressAbort', () => {
-    it('1. suppressAbort(Promise.reject(new CancelError())) REJECTS', async () => {
+    it('rethrows an ordinary CancelError', async () => {
       const cancelErr = new CancelError('ordinary cancel');
       await expect(suppressAbort(Promise.reject(cancelErr))).rejects.toBe(cancelErr);
     });
 
-    it('2. suppressAbort(Promise.reject(new AbortError())) resolves undefined', async () => {
+    it('swallows a bare AbortError', async () => {
       const abortErr = new AbortError();
       await expect(suppressAbort(Promise.reject(abortErr))).resolves.toBeUndefined();
     });
 
-    it('3. suppressAbort(Promise.reject(new CancelError(undefined, { cause: new AbortError() }))) resolves undefined', async () => {
+    it('swallows a CancelError with AbortError cause', async () => {
       const abortCause = new AbortError();
       const cancelErr = new CancelError(undefined, { cause: abortCause });
       expect(cancelErr.aborted).toBe(true);
@@ -95,7 +106,7 @@ describe('errors module exports and behaviors', () => {
   });
 
   describe('raw error branch and matcher factories', () => {
-    it('5. catchAbort(rawAbortError) RETURNS it; catchAbort(new TypeError()) THROWS it', () => {
+    it('catchAbort(rawAbortError) RETURNS it; catchAbort(new TypeError()) THROWS it', () => {
       const rawAbort = new AbortError();
       const rawTypeErr = new TypeError('boom');
 
@@ -103,7 +114,7 @@ describe('errors module exports and behaviors', () => {
       expect(() => catchAbort(rawTypeErr)).toThrow(rawTypeErr);
     });
 
-    it('6. Promise.reject(new AbortError()).catch(suppressAbort) resolves (raw-error branch)', async () => {
+    it('Promise.reject(new AbortError()).catch(suppressAbort) resolves (raw-error branch)', async () => {
       const p = Promise.reject(new AbortError()).catch(suppressAbort);
       await expect(p).resolves.toBeUndefined();
     });

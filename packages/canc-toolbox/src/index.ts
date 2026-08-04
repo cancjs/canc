@@ -34,4 +34,10 @@ export type { IExecutorCtx, IToolboxOptions, TEagerToolboxOptions, THandleCancel
 export type { ICancelableDeferred } from './prebound';
 export { defer, delay, minDelay, promisify, promisifyAll, retry, timeout, waitFor } from './prebound';
 export { throttle } from './throttle';
-export type { TErrorConstructor, TErrorMatcher, TErrorPredicate } from '@cancjs/promise';
+export type {
+  ICatchErrorFn,
+  ISuppressErrorFn,
+  TErrorConstructor,
+  TErrorMatcher,
+  TErrorPredicate,
+} from '@cancjs/promise';

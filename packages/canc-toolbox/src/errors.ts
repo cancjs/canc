@@ -1,43 +1,14 @@
-import {
-  _AbortError,
-  _createCatchError,
-  _createSuppressError,
-  _isAbortError,
-  _isAbortLike,
-  _isTimeoutError,
-  _isTimeoutLike,
-  _TimeoutError,
+import { _createCatchError, _createSuppressError, _isAbortLike, _isTimeoutLike } from '@cancjs/promise';
+
+export type { ICatchErrorFn, ISuppressErrorFn } from '@cancjs/promise';
+export {
+  _AbortError as AbortError,
+  _createCatchError as createCatchError,
+  _createSuppressError as createSuppressError,
+  _isAbortError as isAbortError,
+  _isTimeoutError as isTimeoutError,
+  _TimeoutError as TimeoutError,
 } from '@cancjs/promise';
-
-/**
- * AbortError class re-exported from `@cancjs/promise`.
- */
-export const AbortError: typeof _AbortError = _AbortError;
-
-/**
- * Type guard for AbortError.
- */
-export const isAbortError = _isAbortError;
-
-/**
- * TimeoutError class re-exported from `@cancjs/promise`.
- */
-export const TimeoutError: typeof _TimeoutError = _TimeoutError;
-
-/**
- * Type guard for TimeoutError.
- */
-export const isTimeoutError = _isTimeoutError;
-
-/**
- * Mints an error-catching helper function given error matchers.
- */
-export const createCatchError = _createCatchError;
-
-/**
- * Mints an error-suppressing helper function given error matchers.
- */
-export const createSuppressError = _createSuppressError;
 
 /**
  * Catch abort errors only. Matches an abort only, and an ordinary cancellation is rethrown.
