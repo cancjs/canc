@@ -1,4 +1,4 @@
-import { isAbortError, isThenable, isTimeoutError } from '../../_util';
+import { isAbortError, isCancelable, isThenable, isTimeoutError } from '../../_util';
 import type { TErrorPredicate } from '../../_util/error-matchers';
 import { CancelablePromise } from './cancelable-promise';
 import type { ICatchSuppressOptions } from './helpers';
@@ -51,13 +51,21 @@ export function makeCatch(deps: IErrorMatchDeps) {
     // works uniformly regardless of what actually produced it. Any promise can reject with a
     // CancelError (not just ones created via cancel()), so this must be recognized here too.
     if (isThenable(errorOrPromise)) {
-      return CancelablePromise.resolve(errorOrPromise).catch((error: any) => {
-        if (isCaught(error, options)) {
-          return error;
-        } else {
-          throw error;
+      return new CancelablePromise((resolve, reject, ctx) => {
+        CancelablePromise.resolve(errorOrPromise).then(resolve, (error: any) => {
+          if (isCaught(error, options)) {
+            resolve(error);
+          } else {
+            reject(error);
+          }
+        });
+
+        if (ctx && isCancelable(errorOrPromise)) {
+          ctx.handleCancel((reason?: any) => {
+            errorOrPromise.cancel(reason);
+          });
         }
-      });
+      }, options);
     } else if (isCaught(errorOrPromise, options)) {
       return errorOrPromise;
     } else {
@@ -78,11 +86,21 @@ export function makeSuppress(deps: IErrorMatchDeps) {
     // (native Promise, foreign cancelable, other @cancjs/promise copy) rejecting with a
     // CancelError gets suppressed, not just CancelablePromise instances.
     if (isThenable(errorOrPromise)) {
-      return CancelablePromise.resolve(errorOrPromise).catch((error: any) => {
-        if (!isCaught(error, options)) {
-          throw error;
+      return new CancelablePromise((resolve, reject, ctx) => {
+        CancelablePromise.resolve(errorOrPromise).then(resolve, (error: any) => {
+          if (!isCaught(error, options)) {
+            reject(error);
+          } else {
+            resolve(undefined);
+          }
+        });
+
+        if (ctx && isCancelable(errorOrPromise)) {
+          ctx.handleCancel((reason?: any) => {
+            errorOrPromise.cancel(reason);
+          });
         }
-      });
+      }, options);
     } else if (!isCaught(errorOrPromise, options)) {
       throw errorOrPromise;
     }

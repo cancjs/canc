@@ -242,6 +242,38 @@ describe('catchCancel', () => {
 
     expect(catchCancel(error, { timeout: true })).toBe(error);
   });
+
+  it('obeys promise options such as { bubble: false }', () => {
+    let canceledInner = false;
+    const inner = new CancelablePromise((resolve, reject, { handleCancel }) => {
+      handleCancel(() => {
+        canceledInner = true;
+      });
+    });
+    const outer = catchCancel(inner, { bubble: false });
+    const child = outer.then(() => {});
+    child.cancel();
+    expect(child.isCanceled).toBe(true);
+    expect(outer.isCanceled).toBe(false);
+    expect(canceledInner).toBe(false);
+  });
+
+  it('cancels the input when canceled and settles canceled (not resolved)', async () => {
+    const inner = new CancelablePromise(() => {});
+    const outer = catchCancel(inner);
+    outer.cancel();
+    expect(inner.isCanceled).toBe(true);
+    expect(outer.isCanceled).toBe(true);
+    await expect(outer).rejects.toBeInstanceOf(CancelError);
+  });
+
+  it('works on a non-cancelable plain Promise and registers no handler', async () => {
+    const p = new Promise<void>(() => {});
+    const outer = catchCancel(p);
+    outer.cancel();
+    expect(outer.isCanceled).toBe(true);
+    await expect(outer).rejects.toBeInstanceOf(CancelError);
+  });
 });
 
 describe('suppressCancel', () => {
@@ -371,6 +403,38 @@ describe('suppressCancel', () => {
     const error = new TimeoutError();
 
     expect(suppressCancel(error, { timeout: true })).toBe(undefined);
+  });
+
+  it('obeys promise options such as { bubble: false }', () => {
+    let canceledInner = false;
+    const inner = new CancelablePromise((resolve, reject, { handleCancel }) => {
+      handleCancel(() => {
+        canceledInner = true;
+      });
+    });
+    const outer = suppressCancel(inner, { bubble: false });
+    const child = outer.then(() => {});
+    child.cancel();
+    expect(child.isCanceled).toBe(true);
+    expect(outer.isCanceled).toBe(false);
+    expect(canceledInner).toBe(false);
+  });
+
+  it('cancels the input when canceled and settles canceled (not resolved-undefined)', async () => {
+    const inner = new CancelablePromise(() => {});
+    const outer = suppressCancel(inner);
+    outer.cancel();
+    expect(inner.isCanceled).toBe(true);
+    expect(outer.isCanceled).toBe(true);
+    await expect(outer).rejects.toBeInstanceOf(CancelError);
+  });
+
+  it('works on a non-cancelable plain Promise and registers no handler', async () => {
+    const p = new Promise<void>(() => {});
+    const outer = suppressCancel(p);
+    outer.cancel();
+    expect(outer.isCanceled).toBe(true);
+    await expect(outer).rejects.toBeInstanceOf(CancelError);
   });
 });
 
