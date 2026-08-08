@@ -9,13 +9,16 @@ import {
   suppressErrors,
 } from './error-matchers';
 
-const FooError = createErrorClass('FooError');
+const FOO_BRAND = Symbol.for('@cancjs/promise:FooError');
+const FooError = createErrorClass('FooError', FOO_BRAND);
 type FooError = InstanceType<typeof FooError>;
 
-const BarError = createErrorClass('BarError');
+const BAR_BRAND = Symbol.for('@cancjs/promise:BarError');
+const BarError = createErrorClass('BarError', BAR_BRAND);
 type BarError = InstanceType<typeof BarError>;
 
-const RetryError = createErrorClass('RetryError');
+const RETRY_BRAND = Symbol.for('@cancjs/promise:RetryError');
+const RetryError = createErrorClass('RetryError', RETRY_BRAND);
 type RetryError = InstanceType<typeof RetryError>;
 
 const pBoth: CancelablePromise<number, FooError | BarError> = CancelablePromise.resolve(1) as any;
