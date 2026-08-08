@@ -18,8 +18,8 @@ const BarError = createErrorClass('BarError', BAR_BRAND);
 type BarError = InstanceType<typeof BarError>;
 
 const RETRY_BRAND = Symbol.for('@cancjs/promise:RetryError');
-const RetryError = createErrorClass('RetryError', RETRY_BRAND);
-type RetryError = InstanceType<typeof RetryError>;
+const _RetryError = createErrorClass('RetryError', RETRY_BRAND);
+type RetryError = InstanceType<typeof _RetryError>;
 
 const pBoth: CancelablePromise<number, FooError | BarError> = CancelablePromise.resolve(1) as any;
 
@@ -48,13 +48,13 @@ describe('inline matchers', () => {
 
   it('catchErrors type spec', () => {
     // catchErrors(pBoth, FooError) is CancelablePromise<T | FooError, BarError>
-    const r1 = catchErrors(pBoth, FooError);
-    const c1: Eq<typeof r1, CancelablePromise<number | FooError, BarError>> = true;
+    const _r1 = catchErrors(pBoth, FooError);
+    const c1: Eq<typeof _r1, CancelablePromise<number | FooError, BarError>> = true;
 
     // a plain-predicate matcher subtracts nothing
-    const looksBad = (e: any): boolean => true;
-    const r2 = catchErrors(pBoth, looksBad);
-    const c2: Eq<typeof r2, CancelablePromise<number | Error, FooError | BarError>> = true;
+    const looksBad = (_e: any): boolean => true;
+    const _r2 = catchErrors(pBoth, looksBad);
+    const c2: Eq<typeof _r2, CancelablePromise<number | Error, FooError | BarError>> = true;
 
     try {
       throw new FooError();
@@ -69,18 +69,18 @@ describe('inline matchers', () => {
   });
 
   it('factories type spec', () => {
-    const r1 = createCatchError(FooError)(pBoth);
-    const c1: Eq<typeof r1, CancelablePromise<number | FooError, BarError>> = true;
+    const _r1 = createCatchError(FooError)(pBoth);
+    const c1: Eq<typeof _r1, CancelablePromise<number | FooError, BarError>> = true;
 
     // three chained products narrow TFailure to never
     const chain1 = createCatchError(FooError);
     const chain2 = createCatchError(BarError);
-    const pNext = chain2(chain1(pBoth));
-    const c2: Eq<typeof pNext, CancelablePromise<number | FooError | BarError, never>> = true;
+    const _pNext = chain2(chain1(pBoth));
+    const c2: Eq<typeof _pNext, CancelablePromise<number | FooError | BarError, never>> = true;
 
     // createSuppressError('RetryError')(pBoth) leaves TFailure unchanged when no declared class has a literal name
-    const r3 = createSuppressError('RetryError')(pBoth);
-    const c3: Eq<typeof r3, CancelablePromise<number | void, FooError | BarError>> = true;
+    const _r3 = createSuppressError('RetryError')(pBoth);
+    const c3: Eq<typeof _r3, CancelablePromise<number | void, FooError | BarError>> = true;
 
     const err: unknown = new FooError();
     if (isErrorOf(err, FooError, BarError)) {
