@@ -19,7 +19,7 @@ type BarError = InstanceType<typeof BarError>;
 
 const RETRY_BRAND = Symbol.for('@cancjs/promise:RetryError');
 const _RetryError = createErrorClass('RetryError', RETRY_BRAND);
-type RetryError = InstanceType<typeof _RetryError>;
+type _RetryError = InstanceType<typeof _RetryError>;
 
 const pBoth: CancelablePromise<number, FooError | BarError> = CancelablePromise.resolve(1) as any;
 
