@@ -16,6 +16,7 @@ const BREAK_ERROR_BRAND = Symbol.for('@cancjs/coroutine:BreakError');
 // the loop rather than rejecting.
 export class BreakError extends Error {
   declare readonly [BREAK_ERROR_BRAND]: true;
+  declare name: 'BreakError';
 
   constructor(message = '') {
     super(message);

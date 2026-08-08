@@ -10,6 +10,7 @@ export const CANCEL_ERROR_BRAND = Symbol.for('@cancjs/promise:CancelError');
 
 export class CancelError extends Error {
   readonly [Symbol.toStringTag]!: string;
+  declare readonly [CANCEL_ERROR_BRAND]: true;
 
   name: string;
   bubbled: boolean;

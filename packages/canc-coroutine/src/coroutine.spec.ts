@@ -1,6 +1,6 @@
 import { CancelablePromise, CancelError, isCancelError, suppressCancel } from '@cancjs/promise';
 
-import { cancAsync, cancAwait } from './coroutine';
+import { BreakError, cancAsync, cancAwait } from './coroutine';
 
 // Deterministic microtask flush: drains the microtask queue N times so chained
 // then-callbacks (each a fresh microtask hop) all run. No arbitrary sleeps (testing doctrine).
@@ -31,6 +31,12 @@ describe('cancAsync', () => {
       });
 
       expect((co as any)[Symbol.for('@cancjs/coroutine:coroutine')]).toBe(true);
+    });
+
+    it('BreakError is branded and named', () => {
+      const e: Error = new BreakError();
+      expect(e.name).toBe('BreakError');
+      expect((e as any)[Symbol.for('@cancjs/coroutine:BreakError')]).toBe(true);
     });
 
     it('rejects when the body returns a promise, naming the async-function mistake', async () => {
