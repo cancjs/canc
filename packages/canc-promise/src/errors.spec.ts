@@ -1,3 +1,4 @@
+import { Assert, Eq } from '../../../tests-types/fixtures/common/assert-type';
 import {
   ABORT_ERROR_BRAND,
   AbortError,
@@ -5,6 +6,7 @@ import {
   AggregateError,
   createAggregateError,
   createErrorClass,
+  ICancErrorConstructor,
   isAbortError,
   isAggregateError,
   isTimeoutError,
@@ -179,3 +181,9 @@ describe('AggregateError', () => {
     expect(isAggregateError(new Error('boom'))).toBe(false);
   });
 });
+
+// Type assertions for createErrorClass brand integration
+type _checkAbortExclude = Assert<Eq<Exclude<AbortError | TimeoutError | Error, AbortError>, TimeoutError | Error>>;
+const _checkWidenedConstructor: ICancErrorConstructor = AbortError;
+const _checkAbortBrandProperty: true = new AbortError()[ABORT_ERROR_BRAND];
+const _checkTimeoutBrandProperty: true = new TimeoutError()[TIMEOUT_ERROR_BRAND];
