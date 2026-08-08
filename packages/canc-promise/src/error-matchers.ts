@@ -1,10 +1,26 @@
-import type { TErrorConstructor, TErrorMatcher, TErrorPredicate } from '../../_util/error-matchers';
+import type {
+  MatchedError,
+  MatchedOf,
+  SubtractedError,
+  SubtractedOf,
+  TErrorConstructor,
+  TErrorMatcher,
+  TErrorPredicate,
+} from '../../_util/error-matchers';
 import { compileErrorMatchers } from '../../_util/error-matchers';
 import type { CancelablePromise, ICancelablePromiseOptions } from './cancelable-promise';
 import { makeCatch, makeSuppress } from './catch-suppress';
 import { isCancelError } from './helpers';
 
-export type { TErrorConstructor, TErrorMatcher, TErrorPredicate };
+export type {
+  MatchedError,
+  MatchedOf,
+  SubtractedError,
+  SubtractedOf,
+  TErrorConstructor,
+  TErrorMatcher,
+  TErrorPredicate,
+};
 
 /**
  * What `createSuppressError` produces: the call shape of `suppressCancel`, with the matcher list

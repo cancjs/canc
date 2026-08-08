@@ -17,6 +17,21 @@ export type TErrorConstructor = new (...args: any[]) => any;
  */
 export type TErrorMatcher = string | TErrorPredicate | TErrorConstructor;
 
+export type MatchedError<M> =
+  M extends TErrorConstructor ? InstanceType<M>
+  : M extends (error: any) => error is infer G ? G
+  : M extends string ? Error & { name: M }
+  : Error;
+
+export type SubtractedError<M> =
+  M extends TErrorConstructor ? InstanceType<M>
+  : M extends (error: any) => error is infer G ? G
+  : M extends string ? Error & { name: M }
+  : never;
+
+export type MatchedOf<M extends readonly TErrorMatcher[]> = MatchedError<M[number]>;
+export type SubtractedOf<M extends readonly TErrorMatcher[]> = SubtractedError<M[number]>;
+
 // Our error classes carry their identity as a Symbol.for entry on the prototype, and Symbol.keyFor
 // answers with a string only for registry symbols. Scanning for one is how a constructor is mapped
 // to the brand its instances answer to, without the class having to declare anything.
