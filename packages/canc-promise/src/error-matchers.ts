@@ -87,7 +87,7 @@ function createIsError<M extends readonly TErrorMatcher[]>(
   if (matchers.length === 0) {
     throw new TypeError('createIsError requires at least one error matcher');
   }
-  return compileErrorMatchers(matchers as TErrorMatcher[], 'createIsError') as (
+  return compileErrorMatchers(matchers as unknown as TErrorMatcher[], 'createIsError') as (
     error: unknown,
   ) => error is MatchedOf<M>;
 }
