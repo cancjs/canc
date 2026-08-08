@@ -43,9 +43,9 @@ export interface IExecutorContext<TResult = any> {
   getSignal(this: void): IAbortSignal;
 }
 
-export type TCancelablePromiseExecutor<TResult> = (
+export type TCancelablePromiseExecutor<TResult, TFailure = never> = (
   resolve: (value?: TResult | PromiseLike<TResult>) => void,
-  reject: (reason?: any) => void,
+  reject: (reason?: TReason<TFailure> | CancelError) => void,
   ctx: IExecutorContext<TResult>,
 ) => void;
 export type TCancelReason = string | object | CancelError;
@@ -111,10 +111,10 @@ export interface ICancelable<TResult = any> extends PromiseLike<TResult> {
   cancel(reason?: any): any;
 }
 
-export interface ICancelablePromiseWithResolvers<TResult> {
-  promise: CancelablePromise<TResult>;
+export interface ICancelablePromiseWithResolvers<TResult, TFailure = never> {
+  promise: CancelablePromise<TResult, TFailure>;
   resolve: (value: TResult | PromiseLike<TResult>) => void;
-  reject: (reason?: any) => void;
+  reject: (reason?: TReason<TFailure> | CancelError) => void;
   cancel: (reason?: any) => void | CancelablePromise<PromiseSettledResult<unknown>[]>;
 }
 
@@ -203,7 +203,19 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
       T10 | PromiseLike<T10>,
     ],
     options?: ICancelablePromiseOptions,
-  ): CancelablePromise<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]>;
+  ): CancelablePromise<
+    [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10],
+    | FailureOf<T1>
+    | FailureOf<T2>
+    | FailureOf<T3>
+    | FailureOf<T4>
+    | FailureOf<T5>
+    | FailureOf<T6>
+    | FailureOf<T7>
+    | FailureOf<T8>
+    | FailureOf<T9>
+    | FailureOf<T10>
+  >;
   static all<T1, T2, T3, T4, T5, T6, T7, T8, T9>(
     values: readonly [
       T1 | PromiseLike<T1>,
@@ -217,7 +229,18 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
       T9 | PromiseLike<T9>,
     ],
     options?: ICancelablePromiseOptions,
-  ): CancelablePromise<[T1, T2, T3, T4, T5, T6, T7, T8, T9]>;
+  ): CancelablePromise<
+    [T1, T2, T3, T4, T5, T6, T7, T8, T9],
+    | FailureOf<T1>
+    | FailureOf<T2>
+    | FailureOf<T3>
+    | FailureOf<T4>
+    | FailureOf<T5>
+    | FailureOf<T6>
+    | FailureOf<T7>
+    | FailureOf<T8>
+    | FailureOf<T9>
+  >;
   static all<T1, T2, T3, T4, T5, T6, T7, T8>(
     values: readonly [
       T1 | PromiseLike<T1>,
@@ -230,7 +253,17 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
       T8 | PromiseLike<T8>,
     ],
     options?: ICancelablePromiseOptions,
-  ): CancelablePromise<[T1, T2, T3, T4, T5, T6, T7, T8]>;
+  ): CancelablePromise<
+    [T1, T2, T3, T4, T5, T6, T7, T8],
+    | FailureOf<T1>
+    | FailureOf<T2>
+    | FailureOf<T3>
+    | FailureOf<T4>
+    | FailureOf<T5>
+    | FailureOf<T6>
+    | FailureOf<T7>
+    | FailureOf<T8>
+  >;
   static all<T1, T2, T3, T4, T5, T6, T7>(
     values: readonly [
       T1 | PromiseLike<T1>,
@@ -242,7 +275,10 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
       T7 | PromiseLike<T7>,
     ],
     options?: ICancelablePromiseOptions,
-  ): CancelablePromise<[T1, T2, T3, T4, T5, T6, T7]>;
+  ): CancelablePromise<
+    [T1, T2, T3, T4, T5, T6, T7],
+    FailureOf<T1> | FailureOf<T2> | FailureOf<T3> | FailureOf<T4> | FailureOf<T5> | FailureOf<T6> | FailureOf<T7>
+  >;
   static all<T1, T2, T3, T4, T5, T6>(
     values: readonly [
       T1 | PromiseLike<T1>,
@@ -253,7 +289,10 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
       T6 | PromiseLike<T6>,
     ],
     options?: ICancelablePromiseOptions,
-  ): CancelablePromise<[T1, T2, T3, T4, T5, T6]>;
+  ): CancelablePromise<
+    [T1, T2, T3, T4, T5, T6],
+    FailureOf<T1> | FailureOf<T2> | FailureOf<T3> | FailureOf<T4> | FailureOf<T5> | FailureOf<T6>
+  >;
   static all<T1, T2, T3, T4, T5>(
     values: readonly [
       T1 | PromiseLike<T1>,
@@ -263,32 +302,35 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
       T5 | PromiseLike<T5>,
     ],
     options?: ICancelablePromiseOptions,
-  ): CancelablePromise<[T1, T2, T3, T4, T5]>;
+  ): CancelablePromise<
+    [T1, T2, T3, T4, T5],
+    FailureOf<T1> | FailureOf<T2> | FailureOf<T3> | FailureOf<T4> | FailureOf<T5>
+  >;
   static all<T1, T2, T3, T4>(
     values: readonly [T1 | PromiseLike<T1>, T2 | PromiseLike<T2>, T3 | PromiseLike<T3>, T4 | PromiseLike<T4>],
     options?: ICancelablePromiseOptions,
-  ): CancelablePromise<[T1, T2, T3, T4]>;
+  ): CancelablePromise<[T1, T2, T3, T4], FailureOf<T1> | FailureOf<T2> | FailureOf<T3> | FailureOf<T4>>;
   static all<T1, T2, T3>(
     values: readonly [T1 | PromiseLike<T1>, T2 | PromiseLike<T2>, T3 | PromiseLike<T3>],
     options?: ICancelablePromiseOptions,
-  ): CancelablePromise<[T1, T2, T3]>;
+  ): CancelablePromise<[T1, T2, T3], FailureOf<T1> | FailureOf<T2> | FailureOf<T3>>;
   static all<T1, T2>(
     values: readonly [T1 | PromiseLike<T1>, T2 | PromiseLike<T2>],
     options?: ICancelablePromiseOptions,
-  ): CancelablePromise<[T1, T2]>;
+  ): CancelablePromise<[T1, T2], FailureOf<T1> | FailureOf<T2>>;
   static all<TResult>(
     values: readonly (TResult | PromiseLike<TResult>)[],
     options?: ICancelablePromiseOptions,
-  ): CancelablePromise<TResult[]>;
+  ): CancelablePromise<TResult[], FailureOf<TResult>>;
   static all<TAll>(
     values: Iterable<TAll | PromiseLike<TAll>>,
     options?: ICancelablePromiseOptions,
-  ): CancelablePromise<TAll[]>;
+  ): CancelablePromise<TAll[], FailureOf<TAll>>;
 
   static all<TAll>(
     values: Iterable<TAll | PromiseLike<TAll>>,
     options?: ICancelablePromiseOptions,
-  ): CancelablePromise<TAll[]> {
+  ): CancelablePromise<TAll[], FailureOf<TAll>> {
     // Deferred-construction pattern to work around referring to the promise from inside its own
     // executor (todo: "new (noop) -> withResolvers") — withResolvers() is the same
     // `new this(noop, options)` internally, just named/shaped for this exact use.
@@ -358,18 +400,21 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
   static allSettled<T extends readonly unknown[] | readonly [unknown]>(
     values: T,
     options?: ICancelablePromiseOptions,
-  ): CancelablePromise<{
-    -readonly [P in keyof T]: PromiseSettledResult<T[P] extends PromiseLike<infer U> ? U : T[P]>;
-  }>;
+  ): CancelablePromise<
+    {
+      -readonly [P in keyof T]: PromiseSettledResult<Awaited<T[P]>>;
+    },
+    never
+  >;
   static allSettled<T>(
     values: Iterable<T>,
     options?: ICancelablePromiseOptions,
-  ): CancelablePromise<PromiseSettledResult<T extends PromiseLike<infer U> ? U : T>[]>;
+  ): CancelablePromise<PromiseSettledResult<Awaited<T>>[], never>;
 
   static allSettled<T>(
     values: Iterable<T>,
     options?: ICancelablePromiseOptions,
-  ): CancelablePromise<PromiseSettledResult<any>[] | { [P in keyof any]: PromiseSettledResult<any> }> {
+  ): CancelablePromise<PromiseSettledResult<any>[] | { [P in keyof any]: PromiseSettledResult<any> }, never> {
     // Options are identical for every item, so normalize once instead of per iteration.
     // The spread stays outside any try so an iterable that throws while iterating surfaces
     // synchronously (documented behavior), not as a rejected aggregate.
@@ -396,19 +441,20 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
    * @param [options]
    * @returns A new Promise.
    */
+
   static any<T extends readonly unknown[] | []>(
     values: T,
     options?: ICancelablePromiseOptions,
-  ): CancelablePromise<Awaited<T[number]>>;
+  ): CancelablePromise<Awaited<T[number]>, AggregateError>;
   static any<T>(
     values: Iterable<T | PromiseLike<T>>,
     options?: ICancelablePromiseOptions,
-  ): CancelablePromise<Awaited<T>>;
+  ): CancelablePromise<Awaited<T>, AggregateError>;
 
   static any<T>(
     values: Iterable<T | PromiseLike<T>>,
     options?: ICancelablePromiseOptions,
-  ): CancelablePromise<Awaited<T>> {
+  ): CancelablePromise<Awaited<T>, AggregateError> {
     // Deferred-construction pattern (todo: "new (noop) -> withResolvers") — see all() above.
     const {
       promise: resultPromise,
@@ -481,14 +527,17 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
   static race<T>(
     values: readonly T[],
     options?: ICancelablePromiseOptions,
-  ): CancelablePromise<T extends PromiseLike<infer U> ? U : T>;
+  ): CancelablePromise<Awaited<T>, FailureOf<T>>;
+  static race<T>(values: Iterable<T>, options?: ICancelablePromiseOptions): CancelablePromise<Awaited<T>, FailureOf<T>>;
   static race<T>(
-    values: Iterable<T>,
+    values: Iterable<T | PromiseLike<T>>,
     options?: ICancelablePromiseOptions,
-  ): CancelablePromise<T extends PromiseLike<infer U> ? U : T>;
-  static race<T>(values: Iterable<T | PromiseLike<T>>, options?: ICancelablePromiseOptions): CancelablePromise<T>;
+  ): CancelablePromise<T, FailureOf<T>>;
 
-  static race<T>(values: Iterable<T | PromiseLike<T>>, options?: ICancelablePromiseOptions): CancelablePromise<T> {
+  static race<T>(
+    values: Iterable<T | PromiseLike<T>>,
+    options?: ICancelablePromiseOptions,
+  ): CancelablePromise<T, FailureOf<T>> {
     // Deferred-construction pattern (todo: "new (noop) -> withResolvers") — see all() above.
     const { promise: resultPromise, resolve: resolveResult, reject: rejectResult } = this.withResolvers<T>(options);
 
@@ -519,10 +568,13 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
    * @param [options]
    * @returns A new rejected Promise.
    */
-  static reject<T = never>(reason?: any, options?: ICancelablePromiseOptions): CancelablePromise<T> {
+  static reject<TResult = never, TFailure = never>(
+    reason?: TFailure,
+    options?: ICancelablePromiseOptions,
+  ): CancelablePromise<TResult, TFailure> {
     return new this((_resolve, reject) => {
       reject(reason);
-    }, options);
+    }, options) as any;
   }
 
   /**
@@ -531,18 +583,18 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
    * @param [options]
    * @returns A promise whose internal state matches the provided promise.
    */
-  static resolve<T>(value: T | PromiseLike<T>, options?: ICancelablePromiseOptions): CancelablePromise<T>;
-  static resolve(): CancelablePromise<void>;
+  static resolve<V>(value: V, options?: ICancelablePromiseOptions): CancelablePromise<Awaited<V>, FailureOf<V>>;
+  static resolve(): CancelablePromise<void, never>;
 
-  static resolve<T>(value?: T | PromiseLike<T>, options?: ICancelablePromiseOptions): CancelablePromise<T> {
-    if (value instanceof this && value.constructor === this && !this._checkOptionsChanged(value, options)) {
+  static resolve<V>(value?: V, options?: ICancelablePromiseOptions): CancelablePromise<Awaited<V>, FailureOf<V>> {
+    if (value instanceof this && value.constructor === this && !this._checkOptionsChanged(value as any, options)) {
       // Return unmodified promise similarly to Promise.resolve
-      return value as unknown as CancelablePromise<T>;
+      return value as any;
     } else {
       // Wrap other promise instances or reconfigure same instances
       return new this((resolve) => {
-        resolve(value);
-      }, options);
+        resolve(value as any);
+      }, options) as any;
     }
   }
 
@@ -551,8 +603,10 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
    * @param [options]
    * @returns An object with the properties `promise`, `resolve`, and `reject`.
    */
-  static withResolvers<T>(options?: ICancelablePromiseOptions): ICancelablePromiseWithResolvers<T> {
-    const promise = new this<T>(noop, options);
+  static withResolvers<TResult, TFailure = never>(
+    options?: ICancelablePromiseOptions,
+  ): ICancelablePromiseWithResolvers<TResult, TFailure> {
+    const promise = new this<TResult, TFailure>(noop, options);
 
     return {
       promise,
@@ -569,10 +623,13 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
    * @param fn Function to invoke, may throw synchronously or return a value/thenable.
    * @param args Arguments passed through to `fn`.
    */
-  static try<T, TArgs extends any[]>(fn: (...args: TArgs) => T | PromiseLike<T>, ...args: TArgs): CancelablePromise<T> {
-    return new this<T>((resolve, reject) => {
+  static try<T, TArgs extends any[]>(
+    fn: (...args: TArgs) => T,
+    ...args: TArgs
+  ): CancelablePromise<Awaited<T>, FailureOf<T>> {
+    return new this<Awaited<T>, FailureOf<T>>((resolve, reject) => {
       try {
-        resolve(fn(...args));
+        resolve(fn(...args) as any);
       } catch (error) {
         reject(error);
       }
@@ -1175,9 +1232,12 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
    * @returns A Promise for the completion of which ever callback is executed.
    */
   then<TResult1 = TResult, TResult2 = never>(
-    onFulfilled?: ((value: TResult) => TResult1 | PromiseLike<TResult1>) | null,
-    onRejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null,
-  ): CancelablePromise<TResult1 | TResult2> {
+    onFulfilled?: ((value: TResult) => TResult1) | null,
+    onRejected?: ((reason: TReason<TFailure>) => TResult2) | null,
+  ): CancelablePromise<
+    Awaited<TResult1 | TResult2>,
+    FailureOf<TResult1> | FailureOf<TResult2> | ([TResult2] extends [never] ? TFailure : never)
+  > {
     // `_then` runs native then() through the species machinery, so its result is already a
     // CancelablePromise of the right (possibly subclass) constructor. The derived child inherits
     // this promise's flags except `shield` (per-node, never inherited). Rather than round-trip
@@ -1198,10 +1258,10 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
    * @param onRejected The callback to execute when the Promise is rejected.
    * @returns A Promise for the completion of the callback.
    */
-  catch<TResult2 = never>(
-    onRejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null,
-  ): CancelablePromise<TResult | TResult2> {
-    return this.then(null, onRejected);
+  catch<R = never>(
+    onRejected?: ((reason: TReason<TFailure>) => R) | null,
+  ): CancelablePromise<Awaited<TResult | R>, FailureOf<R>> {
+    return this.then(null, onRejected as any) as any;
   }
 
   /**
@@ -1225,9 +1285,9 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
           This.resolve(onFinally()).then(() => {
             throw reason;
           }),
-      );
+      ) as any;
     } else {
-      return this.then(null, null);
+      return this.then(null, null) as any;
     }
   }
 
@@ -1470,14 +1530,17 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
   }
 
   protected _then<TResult1 = TResult, TResult2 = never>(
-    onFulfilled?: ((value: TResult) => TResult1 | PromiseLike<TResult1>) | null,
-    onRejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null,
-  ): CancelablePromise<TResult1 | TResult2> {
+    onFulfilled?: ((value: TResult) => TResult1) | null,
+    onRejected?: ((reason: TReason<TFailure>) => TResult2) | null,
+  ): CancelablePromise<
+    Awaited<TResult1 | TResult2>,
+    FailureOf<TResult1> | FailureOf<TResult2> | ([TResult2] extends [never] ? TFailure : never)
+  > {
     const This = this.constructor as typeof CancelablePromise;
     // Calls CancelablePromise constructor internally
     try {
       This._pendingInternalCall = true;
-      return NativePromise.prototype.then.call(this, onFulfilled, onRejected) as CancelablePromise<TResult1>;
+      return NativePromise.prototype.then.call(this, onFulfilled as any, onRejected as any) as any;
     } finally {
       This._pendingInternalCall = false;
     }

@@ -602,7 +602,7 @@ interface ICancAwait {
   try: ICancAwaitTry;
 }
 
-function makeCombinator(build: (...args: any[]) => CancelablePromise<any>) {
+function makeCombinator(build: (...args: any[]) => CancelablePromise<any, any>) {
   return function* (...args: any[]): Generator<any, any, any> {
     return yield build(...args);
   };
