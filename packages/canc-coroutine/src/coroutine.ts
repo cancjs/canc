@@ -15,6 +15,9 @@ const BREAK_ERROR_BRAND = Symbol.for('@cancjs/coroutine:BreakError');
 // returning `false`. A break is normal loop termination, not an error: the coroutine resolves past
 // the loop rather than rejecting.
 export class BreakError extends Error {
+  declare readonly [BREAK_ERROR_BRAND]: true;
+  declare name: 'BreakError';
+
   constructor(message = '') {
     super(message);
 
