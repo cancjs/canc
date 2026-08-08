@@ -1,5 +1,6 @@
 import { BreakError, isBreakError } from '@cancjs/coroutine';
 
+import { Assert, Eq } from '../../../tests-types/fixtures/common/assert-type';
 import {
   ABORT_ERROR_BRAND,
   AbortError,
@@ -312,10 +313,25 @@ describe('brand scheme: a subclass with a rewritten name still matches by brand'
     class Weird extends BreakError {
       constructor() {
         super();
-        this.name = 'Nope';
+        (this as any).name = 'Nope';
       }
     }
 
     expect(isBreakError(new Weird())).toBe(true);
   });
 });
+
+// Type assertions for Eq helper verification
+const _checkEqOk: Eq<number, number> = true;
+// @ts-expect-error -- Eq rejects differing types
+const _checkEqFail: Eq<number, string> = true;
+type _checkAssertOk = Assert<Eq<number, number>>;
+// @ts-expect-error -- Assert rejects false
+type _checkAssertFail = Assert<Eq<number, string>>;
+
+// Type assertions for CancelError
+type _checkCancelExclude = Assert<Eq<Exclude<CancelError | Error, CancelError>, Error>>;
+// @ts-expect-error -- literal object lacks brand
+const _checkCancelLiteral: CancelError = { name: 'CancelError', bubbled: false, disposed: false, message: '' };
+const _checkCancelErrorBase: Error = new CancelError();
+const _checkCancelErrorName: string = new CancelError().name;

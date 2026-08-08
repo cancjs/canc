@@ -1,5 +1,6 @@
 import { CancelablePromise, CancelError, isCancelError, suppressCancel } from '@cancjs/promise';
 
+import { Assert, Eq } from '../../../tests-types/fixtures/common/assert-type';
 import { BreakError, cancAsync, cancAwait } from './coroutine';
 
 // Deterministic microtask flush: drains the microtask queue N times so chained
@@ -1124,3 +1125,8 @@ describe('cancAwait sequential-step propagation (pre-existing, not the adoption 
     });
   });
 });
+
+// Type assertions for BreakError
+type _checkBreakBrand = Assert<Eq<Exclude<CancelError | BreakError, BreakError>, CancelError>>;
+const _checkBreakNameType: Eq<BreakError['name'], 'BreakError'> = true;
+const _checkBreakAssignableToError: Error = new BreakError();
