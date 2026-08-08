@@ -25,8 +25,8 @@ describe('errors module exports and behaviors', () => {
 
     const _testAbort: AbortError | null = null;
     const _testTimeout: TimeoutError | null = null;
-    const _testCatchFn: ICatchErrorFn | null = null;
-    const _testSuppressFn: ISuppressErrorFn | null = null;
+    const _testCatchFn: ICatchErrorFn<any> | null = null;
+    const _testSuppressFn: ISuppressErrorFn<any> | null = null;
     expect(_testAbort).toBeNull();
     expect(_testTimeout).toBeNull();
     expect(_testCatchFn).toBeNull();

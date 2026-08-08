@@ -26,8 +26,15 @@ export type {
  * What `createSuppressError` produces: the call shape of `suppressCancel`, with the matcher list
  * deciding what counts as caught.
  */
-export interface ISuppressErrorFn {
-  <TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions): CancelablePromise<TResult | void>;
+export interface ISuppressErrorFn<M extends readonly TErrorMatcher[]> {
+  <TResult, TFailure>(
+    promise: CancelablePromise<TResult, TFailure>,
+    options?: ICancelablePromiseOptions,
+  ): CancelablePromise<TResult | void, Exclude<TFailure, SubtractedOf<M>>>;
+  <TResult>(
+    promise: PromiseLike<TResult>,
+    options?: ICancelablePromiseOptions,
+  ): CancelablePromise<TResult | void, never>;
   <TError>(error: TError, options?: ICancelablePromiseOptions): void | never;
 }
 
@@ -35,9 +42,16 @@ export interface ISuppressErrorFn {
  * What `createCatchError` produces: the call shape of `catchCancel`, with the matcher list deciding
  * what counts as caught.
  */
-export interface ICatchErrorFn {
-  <TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions): CancelablePromise<TResult | Error>;
-  <TError>(error: TError, options?: ICancelablePromiseOptions): TError | never;
+export interface ICatchErrorFn<M extends readonly TErrorMatcher[]> {
+  <TResult, TFailure>(
+    promise: CancelablePromise<TResult, TFailure>,
+    options?: ICancelablePromiseOptions,
+  ): CancelablePromise<TResult | MatchedOf<M>, Exclude<TFailure, SubtractedOf<M>>>;
+  <TResult>(
+    promise: PromiseLike<TResult>,
+    options?: ICancelablePromiseOptions,
+  ): CancelablePromise<TResult | MatchedOf<M>, never>;
+  <TError>(error: TError, options?: ICancelablePromiseOptions): Extract<TError, MatchedOf<M>> | never;
 }
 
 /**
@@ -53,12 +67,12 @@ export interface ICatchErrorFn {
  * const suppressExpected = createSuppressError(CancelError, isAbortError, 'RetryError');
  * await suppressExpected(loadUser());
  */
-function createSuppressError(...matchers: TErrorMatcher[]): ISuppressErrorFn {
+function createSuppressError<M extends readonly TErrorMatcher[]>(...matchers: M): ISuppressErrorFn<M> {
   return makeSuppress({
-    matches: compileErrorMatchers(matchers, 'createSuppressError'),
+    matches: compileErrorMatchers(matchers as unknown as TErrorMatcher[], 'createSuppressError'),
     isCancelError,
     flagsEnabled: false,
-  }) as ISuppressErrorFn;
+  }) as unknown as ISuppressErrorFn<M>;
 }
 
 /**
@@ -69,21 +83,19 @@ function createSuppressError(...matchers: TErrorMatcher[]): ISuppressErrorFn {
  * const catchExpected = createCatchError(CancelError, 'RetryError');
  * const result = await catchExpected(loadUser());
  */
-function createCatchError(...matchers: TErrorMatcher[]): ICatchErrorFn {
+function createCatchError<M extends readonly TErrorMatcher[]>(...matchers: M): ICatchErrorFn<M> {
   return makeCatch({
-    matches: compileErrorMatchers(matchers, 'createCatchError'),
+    matches: compileErrorMatchers(matchers as unknown as TErrorMatcher[], 'createCatchError'),
     isCancelError,
     flagsEnabled: false,
-  }) as ICatchErrorFn;
+  }) as unknown as ICatchErrorFn<M>;
 }
 
 /**
  * A type guard for error objects, given a list of matchers (error names, constructors, or
  * predicates). Narrows an unknown error to the union of types matched by the list.
  */
-function createIsError<M extends readonly TErrorMatcher[]>(
-  ...matchers: M
-): (error: unknown) => error is MatchedOf<M> {
+function createIsError<M extends readonly TErrorMatcher[]>(...matchers: M): (error: unknown) => error is MatchedOf<M> {
   if (matchers.length === 0) {
     throw new TypeError('createIsError requires at least one error matcher');
   }
@@ -92,5 +104,53 @@ function createIsError<M extends readonly TErrorMatcher[]>(
   ) => error is MatchedOf<M>;
 }
 
+export function catchErrors<TResult, TFailure, M extends readonly TErrorMatcher[]>(
+  promise: CancelablePromise<TResult, TFailure>,
+  ...matchers: M
+): CancelablePromise<TResult | MatchedOf<M>, Exclude<TFailure, SubtractedOf<M>>>;
+export function catchErrors<TResult, M extends readonly TErrorMatcher[]>(
+  promise: PromiseLike<TResult>,
+  ...matchers: M
+): CancelablePromise<TResult | MatchedOf<M>, never>;
+export function catchErrors<M extends readonly TErrorMatcher[]>(
+  error: unknown,
+  ...matchers: M
+): asserts error is MatchedOf<M>;
+export function catchErrors(errorOrPromise: any, ...matchers: TErrorMatcher[]): any {
+  return makeCatch({
+    matches: compileErrorMatchers(matchers, 'catchErrors'),
+    isCancelError,
+    flagsEnabled: false,
+  })(errorOrPromise);
+}
+
+export function suppressErrors<TResult, TFailure, M extends readonly TErrorMatcher[]>(
+  promise: CancelablePromise<TResult, TFailure>,
+  ...matchers: M
+): CancelablePromise<TResult | void, Exclude<TFailure, SubtractedOf<M>>>;
+export function suppressErrors<TResult, M extends readonly TErrorMatcher[]>(
+  promise: PromiseLike<TResult>,
+  ...matchers: M
+): CancelablePromise<TResult | void, never>;
+export function suppressErrors<M extends readonly TErrorMatcher[]>(
+  error: unknown,
+  ...matchers: M
+): asserts error is MatchedOf<M>;
+export function suppressErrors(errorOrPromise: any, ...matchers: TErrorMatcher[]): any {
+  return makeSuppress({
+    matches: compileErrorMatchers(matchers, 'suppressErrors'),
+    isCancelError,
+    flagsEnabled: false,
+  })(errorOrPromise);
+}
+
+export function isErrorOf<M extends readonly TErrorMatcher[]>(error: unknown, ...matchers: M): error is MatchedOf<M> {
+  return compileErrorMatchers(matchers as unknown as TErrorMatcher[], 'isErrorOf')(error);
+}
+
 /** @internal */
-export { createCatchError as _createCatchError, createSuppressError as _createSuppressError, createIsError as _createIsError };
+export {
+  createCatchError as _createCatchError,
+  createIsError as _createIsError,
+  createSuppressError as _createSuppressError,
+};
