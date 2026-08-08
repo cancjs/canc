@@ -200,7 +200,7 @@ export function cancAsync<
       // is deferred behind the finally settling (and can be lost in a race). Canceling it here at
       // drain start makes scope-exit abort the in-flight work immediately, regardless of the
       // finally's duration. Cleared once the step settles.
-      let pendingSource: CancelablePromise<any> | undefined;
+      let pendingSource: CancelablePromise<any, any> | undefined;
 
       // Deferred that settles when the finally drain completes. Deposited on the first cancel that
       // starts a drain; the drain's terminal branches (pumpFinally done / any sync-or-async throw)
