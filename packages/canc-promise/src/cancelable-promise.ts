@@ -8,6 +8,24 @@ import { isCancelError, isCancPromise } from './helpers';
 // unlike `instanceof CancelablePromise`.
 export const CANCEL_PROMISE_BRAND = Symbol.for('@cancjs/promise:CancelablePromise');
 
+// Phantom key. Never assigned at runtime; it exists so the declared failure set is part of the
+// type. A second declaration of this symbol anywhere would be a different type even though the
+// runtime symbol is the same, so this is the only one.
+export const FAILURE: unique symbol = Symbol.for('@cancjs/promise:failure') as symbol as typeof FAILURE;
+
+export interface Failing<TFailure> {
+  readonly [FAILURE]?: TFailure;
+}
+
+export type FailureOf<T> =
+  T extends { readonly [FAILURE]?: infer F } ?
+    [F] extends [undefined] ?
+      never
+    : F
+  : never;
+
+export type TReason<TFailure> = [TFailure] extends [never] ? unknown : TFailure;
+
 export type TPromiseExecutor<T> = (
   resolve: (value?: T | PromiseLike<T>) => void,
   reject: (reason?: any) => void,
