@@ -77,5 +77,20 @@ function createCatchError(...matchers: TErrorMatcher[]): ICatchErrorFn {
   }) as ICatchErrorFn;
 }
 
+/**
+ * A type guard for error objects, given a list of matchers (error names, constructors, or
+ * predicates). Narrows an unknown error to the union of types matched by the list.
+ */
+function createIsError<M extends readonly TErrorMatcher[]>(
+  ...matchers: M
+): (error: unknown) => error is MatchedOf<M> {
+  if (matchers.length === 0) {
+    throw new TypeError('createIsError requires at least one error matcher');
+  }
+  return compileErrorMatchers(matchers as TErrorMatcher[], 'createIsError') as (
+    error: unknown,
+  ) => error is MatchedOf<M>;
+}
+
 /** @internal */
-export { createCatchError as _createCatchError, createSuppressError as _createSuppressError };
+export { createCatchError as _createCatchError, createSuppressError as _createSuppressError, createIsError as _createIsError };
