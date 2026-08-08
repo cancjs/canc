@@ -9,27 +9,43 @@ describe('failure variance', () => {
       readonly tagBar = 'bar';
     }
 
-    const b1 = null as any as CancelablePromise<number, FooError>;
-    const b2 = null as any as CancelablePromise<number, FooError | BarError>;
-    const b3 = null as any as CancelablePromise<number, never>;
+    const b1 = null as unknown as CancelablePromise<number, FooError>;
+    const b2 = null as unknown as CancelablePromise<number, FooError | BarError>;
+    const b3 = null as unknown as CancelablePromise<number, never>;
+    const bDefault = null as unknown as CancelablePromise<number>;
 
+    // 1. Covariant widening (subset -> superset)
     const bWiden: CancelablePromise<number, FooError | BarError> = b1;
-    // @ts-expect-error Narrowing
+
+    // 2. Covariant narrowing (superset -> subset)
+    // @ts-expect-error Narrowing rejected
     const bNarrow: CancelablePromise<number, FooError> = b2;
+
+    // 3. Assigning from never / default
     const bFromNever: CancelablePromise<number, FooError> = b3;
-    // @ts-expect-error Narrowing
+    const bFromDefault: CancelablePromise<number, FooError> = bDefault;
+
+    // 4. Assigning to never / default
+    // @ts-expect-error Assigning FooError to never rejected
     const bToNever: CancelablePromise<number, never> = b1;
+    // @ts-expect-error Assigning FooError to default (never) rejected
+    const bToDefault: CancelablePromise<number> = b1;
+
+    // Contravariance counter-example:
+    // If the failure property were a function type `(e: E) => void`, function parameter
+    // subtyping would flip the variance to contravariant, allowing narrowing and rejecting widening.
+    // Because [FAILURE]?: E is a plain optional property slot, it is covariant.
 
     // Vanilla interop
-    const pFoo = null as any as CancelablePromise<number, FooError>;
-    const pBar = null as any as CancelablePromise<string, BarError>;
-    const plain = null as any as Promise<number>;
-    const plainBool = null as any as Promise<boolean>;
+    const pFoo = null as unknown as CancelablePromise<number, FooError>;
+    const pBar = null as unknown as CancelablePromise<string, BarError>;
+    const plain = null as unknown as Promise<number>;
+    const plainBool = null as unknown as Promise<boolean>;
 
-    // @ts-expect-error Missing phantom
-    const toAny: CancelablePromise<number, any> = plain; // Assign native Promise to CP<..., any>
-    const fromNever: Promise<number> = b3; // Assign CP<..., never> to native Promise
-    const fromFoo: Promise<number> = b1; // Assign CP<..., FooError> to native Promise
+    // @ts-expect-error Plain Promise lacks phantom property
+    const toAny: CancelablePromise<number, unknown> = plain;
+    const fromNever: Promise<number> = b3;
+    const fromFoo: Promise<number> = b1;
 
     type Eq<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 
@@ -38,10 +54,15 @@ describe('failure variance', () => {
     const nativeAllCheck: Eq<typeof nativeAll, Promise<[number, string]>> = true;
     const nativeRace = Promise.race([pFoo, plainBool]);
     const nativeRaceCheck: Eq<typeof nativeRace, Promise<number | boolean>> = true;
+
     async function useAwait() {
-      const c: Eq<Awaited<typeof pFoo>, number> = true;
+      const _v = await pFoo;
+      const c: Eq<typeof _v, number> = true;
       return c;
     }
+
+    const awaitedCheck: Eq<Awaited<CancelablePromise<number, FooError>>, number> = true;
+
     function takesPromise(_p: Promise<number>): void {}
     takesPromise(pFoo);
     const settled = Promise.allSettled([pFoo, pBar]);
@@ -50,7 +71,9 @@ describe('failure variance', () => {
       bWiden,
       bNarrow,
       bFromNever,
+      bFromDefault,
       bToNever,
+      bToDefault,
       toAny,
       fromNever,
       fromFoo,
@@ -60,6 +83,7 @@ describe('failure variance', () => {
       nativeRace,
       nativeRaceCheck,
       useAwait,
+      awaitedCheck,
       settled,
     ];
   });
