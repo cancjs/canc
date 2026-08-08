@@ -110,7 +110,7 @@ function cancGenAwaitImpl<T>(value: Promise<T> | T): Generator<TAwaited<Awaited<
 // wrapped in the `awaited(...)` marker instead of a bare `yield`, so the `cancGenAsync` driver treats
 // it as an INTERNAL await (never emitted to the consumer's `for await`), matching every other
 // `cancGenAwait` step.
-function makeGenCombinator(build: (...args: any[]) => CancelablePromise<any>) {
+function makeGenCombinator(build: (...args: any[]) => CancelablePromise<any, any>) {
   return function* (...args: any[]): Generator<TAwaited<any>, any, any> {
     return yield awaited(build(...args));
   };
@@ -171,7 +171,7 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
     let canceled = false;
     // The in-flight awaited source (internal await or the completed-return awaitable). Tracked so a
     // cancel arriving mid-await can abort the underlying op by canceling this source directly.
-    let pendingSource: CancelablePromise<any> | undefined;
+    let pendingSource: CancelablePromise<any, any> | undefined;
 
     const asyncGen = {
       [Symbol.asyncIterator]() {
@@ -180,7 +180,7 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
     } as AsyncGenerator;
 
     for (const method of genMethods) {
-      asyncGen[method] = (value?: any): CancelablePromise<any> => {
+      asyncGen[method] = (value?: any): CancelablePromise<any, any> => {
         return new CancelablePromise((resolve, reject, { handleCancel }) => {
           const step: TAsyncGeneratorStep = {
             method,

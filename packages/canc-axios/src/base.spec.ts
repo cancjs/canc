@@ -130,7 +130,7 @@ describe('wrapAxios', () => {
     await nextTick();
     stub.fail(500);
 
-    const error = await promise.catch((reason) => reason);
+    const error = await promise.catch((reason: any) => reason);
 
     expect(isCancelError(error)).toBe(false);
     expect(error.response.status).toBe(500);
