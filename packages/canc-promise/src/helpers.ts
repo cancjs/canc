@@ -95,32 +95,49 @@ export interface ICatchSuppressOptions extends ICancelablePromiseOptions {
   timeout?: boolean;
 }
 
+type TSubtractFlags<O> =
+  (O extends { abort: true } ? AbortError : never) | (O extends { timeout: true } ? TimeoutError : never);
+
 // One code path for both the built-in pair below and the matcher factories in error-matchers.ts:
 // only the base predicate differs. Here it is the CancelError brand check.
 const catchCancelImpl = makeCatch({ matches: isCancelError, isCancelError, flagsEnabled: true });
 const suppressCancelImpl = makeSuppress({ matches: isCancelError, isCancelError, flagsEnabled: true });
 
-export function catchCancel<TResult>(
+export function catchCancel<TResult, TFailure, O extends ICatchSuppressOptions = ICatchSuppressOptions>(
+  promise: CancelablePromise<TResult, TFailure>,
+  options?: O,
+): CancelablePromise<TResult | CancelError, Exclude<TFailure, TSubtractFlags<O>>>;
+export function catchCancel<TResult, O extends ICatchSuppressOptions = ICatchSuppressOptions>(
   promise: PromiseLike<TResult>,
-  options?: ICatchSuppressOptions,
-): CancelablePromise<TResult | CancelError>;
-export function catchCancel<TError>(error: TError, options?: ICatchSuppressOptions): CancelError | TError | never;
-export function catchCancel<TResult, TError>(
+  options?: O,
+): CancelablePromise<TResult | CancelError, never>;
+export function catchCancel<TError, O extends ICatchSuppressOptions = ICatchSuppressOptions>(
+  error: TError,
+  options?: O,
+): CancelError | TError | never;
+export function catchCancel<TResult, TError, O extends ICatchSuppressOptions = ICatchSuppressOptions>(
   errorOrPromise: PromiseLike<TResult> | TError,
-  options?: ICatchSuppressOptions,
-): CancelablePromise<TResult | CancelError> | CancelError | TError | never {
+  options?: O,
+): CancelablePromise<TResult | CancelError, any> | CancelError | TError | never {
   return catchCancelImpl(errorOrPromise, options);
 }
 
-export function suppressCancel<TResult>(
+export function suppressCancel<TResult, TFailure, O extends ICatchSuppressOptions = ICatchSuppressOptions>(
+  promise: CancelablePromise<TResult, TFailure>,
+  options?: O,
+): CancelablePromise<TResult | void, Exclude<TFailure, TSubtractFlags<O>>>;
+export function suppressCancel<TResult, O extends ICatchSuppressOptions = ICatchSuppressOptions>(
   promise: PromiseLike<TResult>,
-  options?: ICatchSuppressOptions,
-): CancelablePromise<TResult | void>;
-export function suppressCancel<TError>(error: TError, options?: ICatchSuppressOptions): void | never;
-export function suppressCancel<TResult, TError>(
+  options?: O,
+): CancelablePromise<TResult | void, never>;
+export function suppressCancel<TError, O extends ICatchSuppressOptions = ICatchSuppressOptions>(
+  error: TError,
+  options?: O,
+): void | never;
+export function suppressCancel<TResult, TError, O extends ICatchSuppressOptions = ICatchSuppressOptions>(
   errorOrPromise: PromiseLike<TResult> | TError,
-  options?: ICatchSuppressOptions,
-): CancelablePromise<TResult | void> | void | never {
+  options?: O,
+): CancelablePromise<TResult | void, any> | void | never {
   return suppressCancelImpl(errorOrPromise, options);
 }
 
