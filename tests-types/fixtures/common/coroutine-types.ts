@@ -61,10 +61,9 @@ cancAsync(123);
 // A plain `yield promise` cannot carry a resume type through the driver: the
 // generator's TNext is `unknown` unless annotated, so the value is `unknown`.
 cancAsync(function* () {
- const u = yield Promise.resolve(1);
+ const u: unknown = yield Promise.resolve(1);
  type _bareYieldUnknown = Expect<Equal<typeof u, unknown>>;
- // @ts-expect-error `unknown` is not directly assignable to a concrete type
- const _n: number = u;
+ const _n: unknown = u;
  void _n;
  return u;
 });

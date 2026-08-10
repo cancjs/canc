@@ -33,15 +33,60 @@ function collectDtsFiles(dir) {
 function patchFile(file) {
   const content = fs.readFileSync(file, 'utf8');
 
-  const usesAwaited = /\bAwaited\s*</.test(content);
-  const declaresAwaited = /\btype\s+Awaited\b/.test(content);
+  // In TS 4.2 downlevel .d.ts files, downlevel-dts expands Awaited<T1 | T2> into
+  // T1 | PromiseLike<T1> | T2 | PromiseLike<T2> or Awaited<T1> | Awaited<T2>.
+  // Strip the PromiseLike/Awaited wrappers in CancelablePromise method return types
+  // and match PromiseLike in callbacks so TS 4.2 can verify assignability to Promise<TResult>.
+  let cleanedContent = content
+    .replace(
+      /onFulfilled\?: \(\(value: TResult\) => TResult1\)/g,
+      'onFulfilled?: ((value: TResult) => TResult1 | PromiseLike<TResult1>)',
+    )
+    .replace(
+      /onRejected\?: \(\(reason: TReason<TFailure>\) => TResult2\)/g,
+      'onRejected?: ((reason: TReason<TFailure>) => TResult2 | PromiseLike<TResult2>)',
+    )
+    .replace(
+      /onRejected\?: \(\(reason: TReason<TFailure>\) => R\)/g,
+      'onRejected?: ((reason: TReason<TFailure>) => R | PromiseLike<R>)',
+    )
+    .replace(
+      /CancelablePromise<TResult1 \| PromiseLike<TResult1> \| TResult2 \| PromiseLike<TResult2>/g,
+      'CancelablePromise<TResult1 | TResult2>',
+    )
+    .replace(
+      /CancelablePromise<TResult \| PromiseLike<TResult> \| R \| PromiseLike<R>/g,
+      'CancelablePromise<TResult | R>',
+    )
+    .replace(/CancelablePromise<TResult \| PromiseLike<TResult> \| TResult/g, 'CancelablePromise<TResult')
+    .replace(/CancelablePromise<Awaited<TResult1> \| Awaited<TResult2>>/g, 'CancelablePromise<TResult1 | TResult2>')
+    .replace(/CancelablePromise<Awaited<TResult> \| Awaited<R>>/g, 'CancelablePromise<TResult | R>')
+    .replace(/CancelablePromise<Awaited<([^>]+)>/g, 'CancelablePromise<$1');
 
-  if (!usesAwaited || declaresAwaited) {
-    return false;
+  if (
+    /\bAggregateError\b/.test(cleanedContent) &&
+    !/import.*AggregateError/.test(cleanedContent) &&
+    !/\btype\s+AggregateError\b/.test(cleanedContent) &&
+    !/\binterface\s+AggregateError\b/.test(cleanedContent) &&
+    !/\bclass\s+AggregateError\b/.test(cleanedContent) &&
+    !/\bdeclare\s+class\s+AggregateError\b/.test(cleanedContent)
+  ) {
+    cleanedContent = 'type AggregateError = any;\n' + cleanedContent;
   }
 
-  fs.writeFileSync(file, AWAITED_POLYFILL + content);
-  return true;
+  const usesAwaited = /\bAwaited\s*</.test(cleanedContent);
+  const declaresAwaited = /\btype\s+Awaited\b/.test(cleanedContent);
+
+  let finalContent = cleanedContent;
+  if (usesAwaited && !declaresAwaited) {
+    finalContent = AWAITED_POLYFILL + cleanedContent;
+  }
+
+  if (finalContent !== content) {
+    fs.writeFileSync(file, finalContent);
+    return true;
+  }
+  return false;
 }
 
 function main() {
