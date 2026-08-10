@@ -135,6 +135,8 @@ signal that aborts with a `CancelError` rather than a bare `DOMException`, use
 
 ### Ending a flow
 
+> Note: Error classes and filtering helpers (`AbortError`, `isAbortError`, `TimeoutError`, `isTimeoutError`, `createCatchError`, `createSuppressError`, `catchAbort`, `suppressAbort`, `catchTimeout`, `suppressTimeout`) have moved to `@cancjs/promise`. Re-exports in `@cancjs/toolbox` are deprecated and maintained for backward compatibility.
+
 Filtering error helpers swallow specific expected errors when a flow ends:
 
 ```js
@@ -276,7 +278,7 @@ floor on success, not a timer. Pick the one that matches what a failure should d
 | `withSignal(signal, promiseOrFn)` | Races work against a signal, passes through when there is none   |
 | `createAbortSignal()`             | Plain `AbortController` convenience, returns `{ signal, abort }` |
 
-### Filtering errors
+### Filtering errors (deprecated, import from @cancjs/promise)
 
 | Export                             | Description                                                                         |
 | ---------------------------------- | ----------------------------------------------------------------------------------- |
@@ -302,7 +304,7 @@ floor on success, not a timer. Pick the one that matches what a failure should d
 
 ### Errors
 
-`AbortError`, `isAbortError(error)`, `TimeoutError`, `isTimeoutError(error)`.
+`AbortError`, `isAbortError(error)`, `TimeoutError`, `isTimeoutError(error)` (deprecated; import from `@cancjs/promise`).
 
 ## Compatibility
 

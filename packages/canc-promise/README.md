@@ -35,6 +35,7 @@ coroutines to class methods. See the
 ## Features
 
 - cancelable promise built on top of native ES `Promise`
+- optional declared failure type parameter (`CancelablePromise<TResult, TFailure>`) for typing expected rejection sets
 - cancellation is a special rejection (`CancelError`), normal `try`/`catch`/`.then`/`.catch`
   semantics preserved
 - two-way cancellation: propagates down the chain, bubbles back up when every consumer has
@@ -170,6 +171,14 @@ does not pass control back in a way that can be interrupted.
 generator functions that cancel at every `yield*` point, making deep cancelable flows practical
 without manual chaining.
 
+### Declared failures
+
+`CancelablePromise` accepts an optional second type parameter naming the errors a promise is expected to reject with: `CancelablePromise<TResult, TFailure>`.
+
+A declared failure represents an expected business or operational rejection (such as an `HttpError` or `ValidationError`). It is not cancellation. Cancellation operates on its own channel via `CancelError` and is not part of `TFailure`. Undeclared runtime exceptions (like a `TypeError` from buggy code) and programmer argument errors are also outside `TFailure`.
+
+Because TypeScript error handling is structural and `try`/`catch` clauses always yield `unknown`, declared failures are a type-level contract rather than runtime checked exceptions.
+
 ## Description
 
 ### Options
@@ -207,9 +216,9 @@ treated as one. `isAggregateError` also falls back to `error.name`.
 
 A promise canceled through an `AbortSignal` rejects with a `CancelError` whose `cause` is the
 abort reason, not with a `DOMException`. Check `err.aborted`, or `err.timedOut` when the signal
-came from `AbortSignal.timeout()`, on the `CancelError` when the difference matters. For standalone
-error classes and guards (`AbortError`, `isAbortError`, `TimeoutError`, `isTimeoutError`), see
-`@cancjs/toolbox`.
+came from `AbortSignal.timeout()`, on the `CancelError` when the difference matters. Standalone
+error classes and guards (`AbortError`, `isAbortError`, `TimeoutError`, `isTimeoutError`) are also
+exported directly from `@cancjs/promise`.
 
 `CancelError` also carries `bubbled` (the cancellation came from the consumer side) and `disposed`
 (it came from leaving a `using` scope).
@@ -239,9 +248,78 @@ and accept either a promise or a raw caught error. Both also take `{ abort: true
 `AbortError` (or a `CancelError` caused by an abort) as an expected stop, and `{ timeout: true }` for
 a `TimeoutError`.
 
-For custom error matcher factories (`createSuppressError`, `createCatchError`) or standalone error filtering
-helpers (`catchAbort`, `suppressAbort`, `catchTimeout`, `suppressTimeout`), see
-[`@cancjs/toolbox`](https://github.com/cancjs/canc/tree/master/packages/canc-toolbox).
+Error matcher factories (`createSuppressError`, `createCatchError`, `createIsError`), inline matchers
+(`catchErrors`, `suppressErrors`, `isErrorOf`), and standalone error filtering helpers (`catchAbort`,
+`suppressAbort`, `catchTimeout`, `suppressTimeout`) are exported directly from `@cancjs/promise`.
+
+### Declared failures
+
+#### Type annotations
+
+Declared failures can be specified or extracted using three type forms:
+
+- `CancelablePromise<TResult, TFailure>`: main class signature. `TFailure` defaults to `never`.
+- `FailureOf<T>`: extracts the declared failure set from a promise type. For example, `FailureOf<CancelablePromise<string, HttpError>>` evaluates to `HttpError`.
+- `Failing<TFailure>`: structural interface carrying the phantom symbol key (`FAILURE`) for types that declare failures.
+
+#### Error helper families
+
+Error matching and suppression helpers are available in three families:
+
+| Family | Helpers | Usage |
+| Inline | `catchErrors`, `suppressErrors`, `isErrorOf` | Takes matcher arguments directly at call sites. `catchErrors` and `suppressErrors` narrow `TFailure` on promises or assert raw caught errors. |
+| Factory | `createCatchError`, `createSuppressError`, `createIsError` | Compiles matcher arguments into reusable functions. `createIsError` produces a type guard. |
+| Fixed-kind | `catchCancel`, `suppressCancel`, `catchAbort`, `suppressAbort`, `catchTimeout`, `suppressTimeout` | Pre-configured helpers targeting specific built-in error types (`CancelError`, `AbortError`, `TimeoutError`). |
+
+#### Error callback parameter typing
+
+The `onRejected` callback parameter in `.then(onFulfilled, onRejected)` and `.catch(onRejected)` receives `TReason<TFailure>`. When no failure type is declared (`TFailure` is `never`), the parameter is typed as `unknown` instead of `any`. When a failure type is declared, the parameter is typed as `TFailure`.
+
+#### Handling caught errors in try/catch
+
+In TypeScript, `catch (err)` bindings are always `unknown`. To narrow a caught error to a declared failure type, use a guard or inline assertion helper:
+
+```js
+try {
+  await fetchUser();
+} catch (err) {
+  if (isErrorOf(err, HttpError)) {
+    // err is narrowed to HttpError
+    console.log(err.status);
+    return;
+  }
+  throw err;
+}
+```
+
+Or use `catchErrors` / `suppressErrors` directly on the promise chain:
+
+```js
+const result = await catchErrors(fetchUser(), HttpError);
+// result is User | HttpError
+```
+
+#### Structural typing and custom error classes
+
+TypeScript compares types structurally. If two custom error classes extend `Error` without declaring unique properties, TypeScript considers them identical types. In that case, `Exclude<CustomA | CustomB, CustomA>` evaluates to `never` because `CustomA` matches `CustomB`.
+
+To allow error matchers and `Exclude` to subtract specific failure classes, give custom error classes a distinguishing property or brand:
+
+```ts
+class CustomA extends Error {
+  declare readonly brand: unique symbol;
+  constructor(message?: string) {
+    super(message);
+    this.name = 'CustomA';
+  }
+}
+```
+
+#### Plain limits
+
+- `await` unwraps the fulfillment value and drops the declared failure type parameter.
+- `catch` clauses in `try`/`catch` blocks always receive `unknown`.
+- Declared failure types are a compile-time tracking aid and do not alter runtime promise execution or enforce checked exceptions.
 
 ### AbortSignal interop
 
@@ -364,13 +442,18 @@ timeout respectively.
 `catchCancel(promiseOrError, options?)`, `suppressCancel(promiseOrError, options?)`,
 `makeCancelable(promise, options?)`, `createCancelSignal(reason?)`.
 
+`catchErrors(promiseOrError, ...matchers)`, `suppressErrors(promiseOrError, ...matchers)`, `isErrorOf(error, ...matchers)`,
+`createCatchError(...matchers)`, `createSuppressError(...matchers)`, `createIsError(...matchers)`,
+`catchAbort(promiseOrError, options?)`, `suppressAbort(promiseOrError, options?)`,
+`catchTimeout(promiseOrError, options?)`, `suppressTimeout(promiseOrError, options?)`.
+
 `catchCancel` and `suppressCancel` take promise options (e.g. `{ bubble: false }`), pass cancellation
 down to the input promise, and accept either a promise or a caught error. They also accept `{ abort: true }`
 to match an abort and `{ timeout: true }` to match a timeout.
 
-`AggregateError` is exported for use with `CancelablePromise.any`. Other error classes, guards, and matcher
-factories (`AbortError`, `isAbortError`, `TimeoutError`, `isTimeoutError`, `createCatchError`,
-`createSuppressError`) are published by `@cancjs/toolbox`.
+`AggregateError`, `AbortError`, `isAbortError(error)`, `TimeoutError`, `isTimeoutError(error)` are exported for use with matchers and combinators.
+
+`FAILURE`, `FailureOf<T>`, and `Failing<TFailure>` provide declared failure typing.
 
 ### Implementation registry
 
