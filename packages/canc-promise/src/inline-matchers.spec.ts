@@ -1,13 +1,7 @@
 import { createErrorClass } from '../../../packages/_util/errors';
 import { Eq } from '../../../tests-types/fixtures/common/assert-type';
 import { CancelablePromise } from './cancelable-promise';
-import {
-  _createCatchError as createCatchError,
-  _createSuppressError as createSuppressError,
-  catchErrors,
-  isErrorOf,
-  suppressErrors,
-} from './error-matchers';
+import { catchErrors, createCatchError, createSuppressError, isErrorOf, suppressErrors } from './error-matchers';
 
 const FOO_BRAND = Symbol.for('@cancjs/promise:FooError');
 const FooError = createErrorClass('FooError', FOO_BRAND);

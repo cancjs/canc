@@ -2,9 +2,7 @@ import { Eq } from '../../../tests-types/fixtures/common/assert-type';
 import { CancelError } from './cancel-error';
 import { CancelablePromise, ICancelable } from './cancelable-promise';
 import {
-  _AbortError as RealAbortError,
-  _TimeoutError as RealTimeoutError,
-  _TimeoutError as TimeoutError,
+  AbortError as RealAbortError,
   CANCEL_SIGNAL_BRAND,
   catchCancel,
   createCancelSignal,
@@ -13,6 +11,8 @@ import {
   isCancelSignal,
   makeCancelable,
   suppressCancel,
+  TimeoutError as RealTimeoutError,
+  TimeoutError,
 } from './helpers';
 
 function flushPromises(): Promise<void> {
@@ -507,15 +507,11 @@ describe('makeCancelable', () => {
   });
 });
 
-describe('demoted error exports', () => {
-  it('demotes shared error classes to internal exports', () => {
-    // @ts-expect-error AbortError is demoted to _AbortError
+describe('promoted error exports', () => {
+  it('promotes shared error classes to public exports', () => {
     type _TestAbortError = import('@cancjs/promise').AbortError;
-    // @ts-expect-error TimeoutError is demoted to _TimeoutError
     type _TestTimeoutError = import('@cancjs/promise').TimeoutError;
-    // @ts-expect-error isAbortError is demoted to _isAbortError
     type _TestIsAbortError = typeof import('@cancjs/promise').isAbortError;
-    // @ts-expect-error isTimeoutError is demoted to _isTimeoutError
     type _TestIsTimeoutError = typeof import('@cancjs/promise').isTimeoutError;
 
     // AggregateError and isAggregateError remain public exports
