@@ -1,4 +1,4 @@
-import { _AbortError, _isAbortError, _isTimeoutError, _TimeoutError, CancelError } from '@cancjs/promise';
+import { AbortError as CoreAbortError, CancelError, TimeoutError as CoreTimeoutError } from '@cancjs/promise';
 
 import {
   AbortError,
@@ -16,12 +16,22 @@ import {
 } from './errors';
 
 describe('errors module exports and behaviors', () => {
-  it('identity: AbortError and TimeoutError equal core internal exports', async () => {
+  it('identity: every relocated name imports from BOTH packages and resolves to the SAME object', async () => {
     const core = await import('@cancjs/promise');
-    expect(AbortError).toBe(core._AbortError);
-    expect(isAbortError).toBe(core._isAbortError);
-    expect(TimeoutError).toBe(core._TimeoutError);
-    expect(isTimeoutError).toBe(core._isTimeoutError);
+    const toolbox = await import('./index');
+
+    expect(toolbox.AbortError).toBe(core.AbortError);
+    expect(toolbox.isAbortError).toBe(core.isAbortError);
+    expect(toolbox.TimeoutError).toBe(core.TimeoutError);
+    expect(toolbox.isTimeoutError).toBe(core.isTimeoutError);
+    expect(toolbox.createCatchError).toBe(core.createCatchError);
+    expect(toolbox.createSuppressError).toBe(core.createSuppressError);
+    expect(toolbox.catchAbort).toBe(core.catchAbort);
+    expect(toolbox.suppressAbort).toBe(core.suppressAbort);
+    expect(toolbox.catchTimeout).toBe(core.catchTimeout);
+    expect(toolbox.suppressTimeout).toBe(core.suppressTimeout);
+
+    expect(require('@cancjs/promise').AbortError).toBe(require('./index').AbortError);
 
     const _testAbort: AbortError | null = null;
     const _testTimeout: TimeoutError | null = null;

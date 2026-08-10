@@ -10,7 +10,7 @@ import type {
 import { compileErrorMatchers } from '../../_util/error-matchers';
 import type { CancelablePromise, ICancelablePromiseOptions } from './cancelable-promise';
 import { makeCatch, makeSuppress } from './catch-suppress';
-import { isCancelError } from './helpers';
+import { _isAbortLike, _isTimeoutLike, isCancelError } from './helpers';
 
 export type {
   MatchedError,
@@ -67,7 +67,7 @@ export interface ICatchErrorFn<M extends readonly TErrorMatcher[]> {
  * const suppressExpected = createSuppressError(CancelError, isAbortError, 'RetryError');
  * await suppressExpected(loadUser());
  */
-function createSuppressError<M extends readonly TErrorMatcher[]>(...matchers: M): ISuppressErrorFn<M> {
+export function createSuppressError<M extends readonly TErrorMatcher[]>(...matchers: M): ISuppressErrorFn<M> {
   return makeSuppress({
     matches: compileErrorMatchers(matchers as unknown as TErrorMatcher[], 'createSuppressError'),
     isCancelError,
@@ -83,7 +83,7 @@ function createSuppressError<M extends readonly TErrorMatcher[]>(...matchers: M)
  * const catchExpected = createCatchError(CancelError, 'RetryError');
  * const result = await catchExpected(loadUser());
  */
-function createCatchError<M extends readonly TErrorMatcher[]>(...matchers: M): ICatchErrorFn<M> {
+export function createCatchError<M extends readonly TErrorMatcher[]>(...matchers: M): ICatchErrorFn<M> {
   return makeCatch({
     matches: compileErrorMatchers(matchers as unknown as TErrorMatcher[], 'createCatchError'),
     isCancelError,
@@ -95,7 +95,9 @@ function createCatchError<M extends readonly TErrorMatcher[]>(...matchers: M): I
  * A type guard for error objects, given a list of matchers (error names, constructors, or
  * predicates). Narrows an unknown error to the union of types matched by the list.
  */
-function createIsError<M extends readonly TErrorMatcher[]>(...matchers: M): (error: unknown) => error is MatchedOf<M> {
+export function createIsError<M extends readonly TErrorMatcher[]>(
+  ...matchers: M
+): (error: unknown) => error is MatchedOf<M> {
   if (matchers.length === 0) {
     throw new TypeError('createIsError requires at least one error matcher');
   }
@@ -148,9 +150,26 @@ export function isErrorOf<M extends readonly TErrorMatcher[]>(error: unknown, ..
   return compileErrorMatchers(matchers as unknown as TErrorMatcher[], 'isErrorOf')(error);
 }
 
-/** @internal */
-export {
-  createCatchError as _createCatchError,
-  createIsError as _createIsError,
-  createSuppressError as _createSuppressError,
-};
+/**
+ * Catch abort errors only. Matches an abort only, and an ordinary cancellation is rethrown.
+ * To swallow a cancellation as well, use `catchCancel(promise, { abort: true })` from `@cancjs/promise`.
+ */
+export const catchAbort = createCatchError(_isAbortLike);
+
+/**
+ * Suppress abort errors only. Matches an abort only, and an ordinary cancellation is rethrown.
+ * To swallow a cancellation as well, use `suppressCancel(promise, { abort: true })` from `@cancjs/promise`.
+ */
+export const suppressAbort = createSuppressError(_isAbortLike);
+
+/**
+ * Catch timeout errors only. Matches a timeout only, and an ordinary cancellation is rethrown.
+ * To swallow a cancellation as well, use `catchCancel(promise, { timeout: true })` from `@cancjs/promise`.
+ */
+export const catchTimeout = createCatchError(_isTimeoutLike);
+
+/**
+ * Suppress timeout errors only. Matches a timeout only, and an ordinary cancellation is rethrown.
+ * To swallow a cancellation as well, use `suppressCancel(promise, { timeout: true })` from `@cancjs/promise`.
+ */
+export const suppressTimeout = createSuppressError(_isTimeoutLike);
