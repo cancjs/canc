@@ -1,4 +1,4 @@
-import { AbortError as CoreAbortError, CancelError, TimeoutError as CoreTimeoutError } from '@cancjs/promise';
+import { CancelError } from '@cancjs/promise';
 
 import {
   AbortError,
@@ -7,8 +7,6 @@ import {
   createCatchError,
   createSuppressError,
   ICatchErrorFn,
-  isAbortError,
-  isTimeoutError,
   ISuppressErrorFn,
   suppressAbort,
   suppressTimeout,
