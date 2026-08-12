@@ -23,7 +23,7 @@ export function waitForFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: 
    * timer. The condition may be sync or async; an async condition is awaited before the next poll is
    * scheduled, so slow conditions never overlap.
    */
-  return function waitFor(condition: () => unknown, options?: IWaitForOptions): TPromiseOf<K, void> {
+  return function waitFor(condition: () => unknown, options?: IWaitForOptions): TPromiseOf<K, void, TimeoutError> {
     const interval = options?.interval ?? 20;
     const limit = options?.timeout ?? Infinity;
 

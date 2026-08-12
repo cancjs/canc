@@ -19,9 +19,9 @@ export function delayFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
    * before the timer completes: a rejection at 10ms surfaces only once `ms` has elapsed, held back
    * rather than reported early - the reason `minDelay` (fails fast) exists alongside this one.
    */
-  function delay<T = void>(ms: TDuration, options?: K['options']): TPromiseOf<K, T>;
-  function delay<T>(input: TTimedInput<T>, ms: TDuration, options?: K['options']): TPromiseOf<K, T>;
-  function delay<T>(...rest: unknown[]): TPromiseOf<K, T> {
+  function delay<T = void, F = never>(ms: TDuration, options?: K['options']): TPromiseOf<K, T, F>;
+  function delay<T, F = never>(input: TTimedInput<T>, ms: TDuration, options?: K['options']): TPromiseOf<K, T, F>;
+  function delay<T, F = never>(...rest: unknown[]): TPromiseOf<K, T, F> {
     const parsed = parseTimedArgs<TTimedInput<T>>(rest);
     // Resolved (and, for a `[min, max]` range, rolled) BEFORE construct() runs the executor, so a
     // malformed range throws synchronously out of this call instead of becoming a rejection.

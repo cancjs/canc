@@ -1,5 +1,6 @@
 import { construct, IExecutorCtx, TPromiseCtor } from './construct';
 import { isCancelableLike, isThenableLike } from './guards';
+import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
 
 export interface IDebounceOptions {
   leading?: boolean;
@@ -10,10 +11,10 @@ export interface IDebounceOptions {
   [key: string]: unknown;
 }
 
-export interface IDebounced<Args extends unknown[], R> {
-  (...args: Args): PromiseLike<R>;
+export interface IDebounced<Args extends unknown[], R, K extends IPromiseKind = IPromiseLikeKind, F = never> {
+  (...args: Args): TPromiseOf<K, R, F>;
   cancel(): void;
-  flush(): PromiseLike<R> | undefined;
+  flush(): TPromiseOf<K, R, F> | undefined;
   readonly isPending: boolean;
 }
 
@@ -21,12 +22,12 @@ export interface IDebounceDeps {
   Impl: TPromiseCtor;
 }
 
-export function debounceFactory(deps: IDebounceDeps) {
-  return function debounce<Args extends unknown[], R>(
+export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IDebounceDeps) {
+  return function debounce<Args extends unknown[], R, F = never>(
     fn: (...args: Args) => R | PromiseLike<R>,
     ms: number,
     options?: IDebounceOptions,
-  ): IDebounced<Args, R> {
+  ): IDebounced<Args, R, K, F> {
     const leading = options?.leading === true;
     const trailing = options?.trailing === false ? false : true;
     const maxWait: number | undefined = options != null ? options.maxWait : undefined;
@@ -37,7 +38,7 @@ export function debounceFactory(deps: IDebounceDeps) {
 
     let pendingResolve: ((value: R | PromiseLike<R>) => void) | undefined;
     let pendingReject: ((reason?: any) => void) | undefined;
-    let pendingPromise: PromiseLike<R> | undefined;
+    let pendingPromise: TPromiseOf<K, R, F> | undefined;
     let inFlightResult: PromiseLike<R> | undefined;
     let superseding = false;
 
@@ -102,7 +103,7 @@ export function debounceFactory(deps: IDebounceDeps) {
       }
     }
 
-    function makePromise(): PromiseLike<R> {
+    function makePromise(): TPromiseOf<K, R, F> {
       const p = construct<R>(
         deps.Impl,
         function (resolve, reject, ctx?: IExecutorCtx) {
@@ -164,7 +165,7 @@ export function debounceFactory(deps: IDebounceDeps) {
       }
 
       return promise;
-    } as unknown as IDebounced<Args, R>;
+    } as unknown as IDebounced<Args, R, K, F>;
 
     wrapped.cancel = function (): void {
       clearTimers();
@@ -176,7 +177,7 @@ export function debounceFactory(deps: IDebounceDeps) {
       cancelPending();
     };
 
-    wrapped.flush = function (): PromiseLike<R> | undefined {
+    wrapped.flush = function (): TPromiseOf<K, R, F> | undefined {
       if (timerId === undefined && maxTimerId === undefined) return undefined;
 
       const args = lastArgs;

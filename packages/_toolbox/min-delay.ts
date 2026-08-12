@@ -23,7 +23,11 @@ export function minDelayFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
    * The input is required. Canceling the returned promise clears the floor timer and cancels the
    * input when it is cancelable.
    */
-  return function minDelay<T>(input: TTimedInput<T>, ms: TDuration, options?: K['options']): TPromiseOf<K, T> {
+  return function minDelay<T, F = never>(
+    input: TTimedInput<T>,
+    ms: TDuration,
+    options?: K['options'],
+  ): TPromiseOf<K, T, F> {
     if (!isDurationShaped(ms)) {
       throw new TypeError('minDelay requires an input and a duration; a bare timer is delay(ms)');
     }

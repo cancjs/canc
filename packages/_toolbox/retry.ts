@@ -30,7 +30,10 @@ export function retryFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
    * further attempts immediately; a plain native Promise has no cancellation and simply runs to its
    * retry budget.
    */
-  return function retry<T>(input: (attempt: number) => T | PromiseLike<T>, options?: IRetryOptions): TPromiseOf<K, T> {
+  return function retry<T, F = never>(
+    input: (attempt: number) => T | PromiseLike<T>,
+    options?: IRetryOptions,
+  ): TPromiseOf<K, T, F> {
     const retries = options?.retries ?? 3;
     const minTimeout = options?.minTimeout ?? 0;
     const factor = options?.factor ?? 2;

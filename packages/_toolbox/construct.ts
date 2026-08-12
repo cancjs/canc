@@ -54,12 +54,12 @@ export type TExecutor<T> = (
  * The flavor `K` is what the result is typed as. It cannot be inferred from the arguments, so
  * callers pass it explicitly, which keeps the cast here instead of one per algorithm.
  */
-export function construct<T, K extends IPromiseKind = IPromiseLikeKind>(
+export function construct<T, K extends IPromiseKind = IPromiseLikeKind, F = never>(
   Impl: TPromiseCtor,
   executor: TExecutor<T>,
   options?: object,
 ): TPromiseOf<K, T> {
-  const Ctor = Impl as unknown as new (executor: TExecutor<T>, options?: object) => TPromiseOf<K, T>;
+  const Ctor = Impl as unknown as new (executor: TExecutor<T>, options?: object) => TPromiseOf<K, T, F>;
 
   return new Ctor(executor, options);
 }

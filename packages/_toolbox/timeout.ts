@@ -26,9 +26,13 @@ export function timeoutFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: 
    * cancelable, the input is canceled with that same TimeoutError so it stops instead of running
    * detached. The timer is always cleared once the race settles.
    */
-  function timeout(ms: TDuration, options?: K['options']): TPromiseOf<K, never>;
-  function timeout<T>(input: TTimedInput<T>, ms?: TDuration, options?: K['options']): TPromiseOf<K, T>;
-  function timeout<T>(...rest: unknown[]): TPromiseOf<K, T> {
+  function timeout(ms: TDuration, options?: K['options']): TPromiseOf<K, never, TimeoutError>;
+  function timeout<T, F = never>(
+    input: TTimedInput<T>,
+    ms?: TDuration,
+    options?: K['options'],
+  ): TPromiseOf<K, T, F | TimeoutError>;
+  function timeout<T, F = never>(...rest: unknown[]): TPromiseOf<K, T, F | TimeoutError> {
     const parsed = parseTimedArgs<TTimedInput<T>>(rest, Infinity);
     // Resolved (and, for a `[min, max]` range, rolled) BEFORE construct() runs the executor, so a
     // malformed range throws synchronously out of this call instead of becoming a rejection.

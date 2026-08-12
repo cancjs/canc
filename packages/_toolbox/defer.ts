@@ -6,8 +6,8 @@ import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
  * A settleable promise plus its resolve/reject functions, the classic deferred shape and the
  * ancestor of Promise.withResolvers.
  */
-export interface IDeferred<T, K extends IPromiseKind = IPromiseLikeKind> {
-  promise: TPromiseOf<K, T>;
+export interface IDeferred<T, K extends IPromiseKind = IPromiseLikeKind, F = never> {
+  promise: TPromiseOf<K, T, F>;
   resolve: (value: T | PromiseLike<T>) => void;
   reject: (reason?: any) => void;
 }
@@ -20,7 +20,7 @@ export function deferFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
    * `new this(...)`), so per-call options carry through; falls back to a constructor when the
    * implementation lacks it.
    */
-  return function defer<T = void>(options?: K['options']): IDeferred<T, K> {
+  return function defer<T = void, F = never>(options?: K['options']): IDeferred<T, K, F> {
     let resolve!: (value: T | PromiseLike<T>) => void;
     let reject!: (reason?: any) => void;
 
