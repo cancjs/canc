@@ -11,6 +11,7 @@
  */
 export interface IPromiseKind {
   value: unknown;
+  failure: unknown;
   promise: unknown;
   options: object;
 }
@@ -20,5 +21,5 @@ export interface IPromiseLikeKind extends IPromiseKind {
   promise: PromiseLike<this['value']>;
 }
 
-/** Apply a flavor to a value type, so `TPromiseOf<IPromiseLikeKind, string>` is `PromiseLike<string>`. */
-export type TPromiseOf<K extends IPromiseKind, T> = (K & { value: T })['promise'];
+/** Apply a flavor to a value type and a failure set. */
+export type TPromiseOf<K extends IPromiseKind, T, F = never> = (K & { value: T; failure: F })['promise'];
