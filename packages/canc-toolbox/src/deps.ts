@@ -9,7 +9,7 @@ import { IToolboxOptions } from './options';
  * accept the canc options, without a wrapper or a cast per helper.
  */
 export interface ICancelableKind extends IPromiseKind {
-  promise: CancelablePromise<this['value']>;
+  promise: CancelablePromise<this['value'], this['failure']>;
   options: IToolboxOptions;
 }
 
