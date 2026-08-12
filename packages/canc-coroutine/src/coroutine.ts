@@ -58,7 +58,15 @@ function isReturnUnwind(value: unknown): boolean {
 
 // `PNext` is `any`: a coroutine body mixes bare `yield` (raw value in, no send type) with
 // `yield*` (typed send value from `cancAwait`), so no single `PNext` fits every yield in the body.
-export type AsyncResult<T = void> = Generator<unknown, T, any>;
+/** Anything that is not an object can never carry a failure phantom, so admitting the primitive
+ * types costs no checking power and keeps a bare `yield` of an ordinary value working. */
+type TPrimitiveYield = string | number | boolean | bigint | symbol | null | undefined | void;
+
+export type AsyncResult<TResult = void, TFailure = unknown> = Generator<
+  unknown extends TFailure ? unknown : Failing<TFailure> | TPrimitiveYield,
+  TResult,
+  any
+>;
 
 export interface IGeneratorLikeFn<TThis = any> extends IFn {
   (this: TThis, ...args: any[]): TGeneratorLike;
