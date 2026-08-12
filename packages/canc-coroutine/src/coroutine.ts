@@ -621,8 +621,8 @@ export type TForAwaitCallback<T> =
   | ((value: T, index: number) => CancelablePromise<void | false>);
 
 interface ICancForAwait {
-  <T>(source: TEachSource<T>, cb: TForAwaitCallback<T>): Generator<unknown, void, any>;
-  toArray<T>(source: TEachSource<T>): Generator<unknown, T[], any>;
+  <T>(source: TEachSource<T>, cb: TForAwaitCallback<T>): Generator<Failing<BreakError>, void, any>;
+  toArray<T>(source: TEachSource<T>): Generator<Failing<BreakError>, T[], any>;
 }
 
 interface ICancAwait {

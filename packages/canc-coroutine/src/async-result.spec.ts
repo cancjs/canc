@@ -1,6 +1,6 @@
-import { CancelablePromise } from '@cancjs/promise';
+import { CancelablePromise, Failing, FailureOf } from '@cancjs/promise';
 
-import { AsyncResult, cancAsync, cancAwait } from './coroutine';
+import { AsyncResult, BreakError, cancAsync, cancAwait, cancForAwait } from './coroutine';
 
 // Type-level only: no runtime assertions needed, ts-jest typechecks this file on every run,
 // so a signature regression fails the test the same way a broken assertion would.
@@ -70,3 +70,36 @@ const yieldCheck: Eq<
   Extract<TYieldCheck, CancelablePromise<number, FooError>>,
   CancelablePromise<number, FooError>
 > = true;
+
+const forAwaitInferFn = cancAsync(function* () {
+  yield* cancForAwait([1, 2], () => {});
+  return 42;
+});
+type TForAwaitFailure = FailureOf<ReturnType<typeof forAwaitInferFn>>;
+const checkForAwaitInfer: Eq<TForAwaitFailure, BreakError> = true;
+
+const forAwaitToArrayInferFn = cancAsync(function* () {
+  const arr = yield* cancForAwait.toArray([1, 2]);
+  return arr;
+});
+type TForAwaitToArrayFailure = FailureOf<ReturnType<typeof forAwaitToArrayInferFn>>;
+const checkForAwaitToArrayInfer: Eq<TForAwaitToArrayFailure, BreakError> = true;
+
+function* forAwaitMismatchedAnnotation(): Generator<Failing<FooError>, number, any> {
+  // @ts-expect-error TS2322 -- yield* cancForAwait yields Failing<BreakError> which is not assignable to Failing<FooError>
+  yield* cancForAwait([1, 2], () => {});
+  return 42;
+}
+
+function* forAwaitMatchedAnnotation(): Generator<Failing<FooError | BreakError>, number, any> {
+  yield* cancForAwait([1, 2], () => {});
+  return 42;
+}
+
+// Keep functions referenced so eslint does not flag unused functions
+void forAwaitInferFn;
+void forAwaitToArrayInferFn;
+void forAwaitMismatchedAnnotation;
+void forAwaitMatchedAnnotation;
+void checkForAwaitInfer;
+void checkForAwaitToArrayInfer;
