@@ -159,6 +159,12 @@ request rejects the aggregate and cancels the rest. `spread` is unchanged.
 The wrapped instance is reachable as `.axios` when a plain native promise is needed, for example
 when handing a request to code that does not understand cancellation.
 
+### Declared failures
+
+Request methods on wrapped axios instances declare `AxiosError` in their return type's failure set (`CancelablePromise<AxiosResponse<T>, AxiosError<T>>`).
+
+When a request is canceled by the caller, the returned promise rejects with a `CancelError`. Cancellation is handled separately from the application failure set. See [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) for declared failure matching and filtering.
+
 ## API
 
 `cancelableAxios` is both the default export and a named export (both references point to the same instance). It mirrors the full axios

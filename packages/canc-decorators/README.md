@@ -225,6 +225,10 @@ class IssueClient {
 | Subclass overrides with its own decorator              | An independent wrap, see the `super` notes above                                                                                                   |
 | Same member decorated at several levels through mixins | Last applied wins, standard prototype semantics                                                                                                    |
 
+### Declared failures
+
+Decorated coroutine methods preserve the declared failure types of the underlying generator function. Using getter style with `cancAsync` exposes the exact `CancelablePromise<T, F>` return type to callers, preserving type safety for failure handling across decorated class members. See [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) for details on declared failures.
+
 ## API
 
 `AsyncMethod` and `BindMethod`, applicable to a method, an arrow-function field or a getter.

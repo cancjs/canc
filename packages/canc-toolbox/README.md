@@ -202,6 +202,16 @@ entry point 🚧. Until it lands, consume and produce async iterables with `canc
 `cancGen.async` from
 [`@cancjs/coroutine`](https://github.com/cancjs/canc/tree/master/packages/canc-coroutine).
 
+### Declared failures
+
+Helpers in `@cancjs/toolbox` preserve and propagate the declared failure types of the promises they wrap. In addition:
+
+- `timeout` and `waitFor` declare `TimeoutError` in their return type's failure set.
+- `retry`, `minDelay`, `debounce`, `throttle`, and the `LazyPromise` family propagate the failure set of their underlying work or promise.
+- `delay`, `promisify`, `cancelify`, and deferred constructors return promises with a `never` failure set by default unless an underlying input specifies otherwise.
+
+Cancellation (rejection with a `CancelError`) is part of the cancellation control flow rather than an application failure set. See [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) for details on declared failures and error matching.
+
 ## API
 
 Every helper takes
