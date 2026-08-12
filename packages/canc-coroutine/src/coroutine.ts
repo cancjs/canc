@@ -84,7 +84,7 @@ function isGeneratorLike(value: any): boolean {
 }
 
 type TCoroutineReturn<TFn extends IGeneratorLikeFn, TReturn = ReturnType<TFn>> = Awaited<
-  TReturn extends Generator<unknown, infer R, unknown> ? R : never
+  TReturn extends Generator<infer _Y, infer R, infer _N> ? R : never
 >;
 
 // Flag-only options passed to per-step yielded-value wrappers: the coroutine-level `signal`
@@ -131,7 +131,7 @@ function toPromiseOptions(options?: TCoroutineOptions): ICancelablePromiseOption
 }
 
 type TCoroutineYield<TFn extends IGeneratorLikeFn, TReturn = ReturnType<TFn>> =
-  TReturn extends Generator<infer Y, unknown, unknown> ? Y : never;
+  TReturn extends Generator<infer Y, infer _R, infer _N> ? Y : never;
 
 export function cancAsync<
   TFn extends IGeneratorLikeFn<TThis>,

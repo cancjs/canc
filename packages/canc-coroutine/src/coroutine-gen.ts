@@ -157,7 +157,7 @@ export function cancGenThrow<TFailure>(error: TFailure): Generator<TAwaited<neve
  * `R` infer from the body. Annotate for explicitness or to pin a bare `yield`'s type.
  */
 export type AsyncGenResult<TEmit, TReturn = void, TFailure = unknown> = Generator<
-  TEmit | (unknown extends TFailure ? TAwaited<any> : (TAwaited<any> & Failing<TFailure>) | Failing<TFailure>),
+  TEmit | (unknown extends TFailure ? TAwaited<any> : TAwaited<any> & Failing<TFailure>),
   TReturn,
   any
 >;
