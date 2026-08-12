@@ -1,6 +1,6 @@
 import cancelableAxios, { ICancelableAxiosInstance } from '@cancjs/axios';
 import { CancelablePromise } from '@cancjs/promise';
-import { AxiosInstance } from 'axios';
+import { AxiosError, AxiosInstance } from 'axios';
 
 import { Issue, SearchResult } from './issues';
 
@@ -11,14 +11,14 @@ import { Issue, SearchResult } from './issues';
  */
 export class CancIssuesClient {
   private api: ICancelableAxiosInstance;
-  private latestSearch: CancelablePromise<SearchResult> | null = null;
-  private latestDetail: CancelablePromise<Issue> | null = null;
+  private latestSearch: CancelablePromise<SearchResult, AxiosError<SearchResult, any>> | null = null;
+  private latestDetail: CancelablePromise<Issue, AxiosError<Issue, any>> | null = null;
 
   constructor(instance: AxiosInstance) {
     this.api = cancelableAxios.wrap(instance);
   }
 
-  searchIssues(query: string): CancelablePromise<SearchResult> {
+  searchIssues(query: string): CancelablePromise<SearchResult, AxiosError<SearchResult, any>> {
     // Cancel the previous search if it is still pending.
     if (this.latestSearch) {
       this.latestSearch.cancel('superseded by new search');
@@ -28,20 +28,20 @@ export class CancIssuesClient {
     // The wrapper keeps the axios signature, so the response is unwrapped here.
     const searchPromise = this.api
       .get<SearchResult>('/issues/search', { params: { q: query } })
-      .then((response) => response.data);
+      .then((response) => response.data) as any;
 
     this.latestSearch = searchPromise;
     return searchPromise;
   }
 
-  getIssueWithComments(issueId: number): CancelablePromise<Issue> {
+  getIssueWithComments(issueId: number): CancelablePromise<Issue, AxiosError<Issue, any>> {
     // Cancel the previous detail fetch if it is still pending.
     if (this.latestDetail) {
       this.latestDetail.cancel('new issue selected');
     }
 
     // Create a new cancelable detail request.
-    const detailPromise = this.api.get<Issue>(`/issues/${issueId}`).then((response) => response.data);
+    const detailPromise = this.api.get<Issue>(`/issues/${issueId}`).then((response) => response.data) as any;
 
     this.latestDetail = detailPromise;
     return detailPromise;

@@ -26,6 +26,14 @@ export function createCheckoutVanilla(
       signal.throwIfAborted();
       const [chargeResult] = await Promise.all([charge(orderId, signal), addPoints(orderId, signal)]);
 
+      // If the app determines it must cancel itself from within, rather than waiting for an
+      // external signal, it can explicitly reject with an AbortError.
+      if (chargeResult.amount < 0) {
+        const err = new Error('Negative charge amount');
+        err.name = 'AbortError';
+        throw err;
+      }
+
       // Must remember to check the signal after every await
       signal.throwIfAborted();
       const confirmation = await confirm(orderId, chargeResult.id, signal);

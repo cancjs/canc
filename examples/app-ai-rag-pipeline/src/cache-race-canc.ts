@@ -11,12 +11,12 @@ import type { ChatApi, RagApi } from '@shared/mock-api';
 import { RagAnswer } from './pipeline';
 import { ragPipeline } from './pipeline-canc';
 
-export function answerWithCache(ragApi: RagApi, chatApi: ChatApi, query: string): CancelablePromise<RagAnswer> {
+export function answerWithCache(ragApi: RagApi, chatApi: ChatApi, query: string): CancelablePromise<RagAnswer, any> {
   return CancelablePromise.race([lookupCache(query), ragPipeline(ragApi, chatApi, query)]);
 }
 
 // A fast semantic-cache lookup. Resolves quickly when there is a cached answer for the query.
-function lookupCache(query: string): CancelablePromise<RagAnswer> {
+function lookupCache(query: string): CancelablePromise<RagAnswer, any> {
   return new CancelablePromise((resolve) => {
     setTimeout(() => {
       resolve({ query, text: `cached: ${query}`, sources: ['cache'] });
