@@ -2,6 +2,7 @@ import {
   CancelablePromise,
   CancelError,
   Failing,
+  FAILURE,
   FailureOf,
   ICancelablePromiseOptions,
   isCancelError,
@@ -9,6 +10,7 @@ import {
 
 import { isFunction, isGenerator, isObject, isThenable, setFnName } from '../../_util';
 import {
+  BreakError,
   getStepIterator,
   IGeneratorLikeFn,
   returnStepIterator,
@@ -154,7 +156,19 @@ export function cancGenThrow<TFailure>(error: TFailure): Generator<TAwaited<neve
  * `AsyncResult`. Optional: for a body that only `yield`s emits and `yield*`s `cancGenAwait`, `E` and
  * `R` infer from the body. Annotate for explicitness or to pin a bare `yield`'s type.
  */
-export type AsyncGenResult<E, R = void> = Generator<E | TAwaited<any>, R, any>;
+export type AsyncGenResult<TEmit, TReturn = void, TFailure = unknown> = Generator<
+  TEmit | (unknown extends TFailure ? TAwaited<any> : (TAwaited<any> & Failing<TFailure>) | Failing<TFailure>),
+  TReturn,
+  any
+>;
+
+export interface ICancAsyncGenerator<T, TReturn = any, TNext = any, TFailure = never> extends AsyncGenerator<
+  T,
+  TReturn,
+  TNext
+> {
+  readonly [FAILURE]?: TFailure;
+}
 
 // Public typed signature: the emit type flows to the consumer and the internal-await marker is
 // stripped. `Exclude<TYield, TAwaited<any>>` drops the marker (its unique `Symbol.for` key means real
@@ -163,11 +177,14 @@ export type AsyncGenResult<E, R = void> = Generator<E | TAwaited<any>, R, any>;
 export function cancGenAsync<TYield, TReturn, TArgs extends any[], TThis = any>(
   genFn: (this: TThis, ...args: TArgs) => Generator<TYield, TReturn, any>,
   options?: TCancelableCoroutineGenOptions,
-): (this: TThis, ...args: TArgs) => AsyncGenerator<Exclude<TYield, TAwaited<any>>, TReturn>;
+): (
+  this: TThis,
+  ...args: TArgs
+) => ICancAsyncGenerator<Exclude<TYield, TAwaited<any>>, TReturn, any, FailureOf<TYield>>;
 export function cancGenAsync(
   genFn: IGeneratorLikeFn,
   options?: TCancelableCoroutineGenOptions,
-): (...args: any[]) => AsyncGenerator<any, any>;
+): (...args: any[]) => ICancAsyncGenerator<any, any>;
 export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCoroutineGenOptions = {}) {
   if (!isFunction(genFn)) {
     throw new TypeError('Argument is not a function');
@@ -198,7 +215,7 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
       [Symbol.asyncIterator]() {
         return this;
       },
-    } as AsyncGenerator;
+    } as ICancAsyncGenerator<any, any>;
 
     for (const method of genMethods) {
       asyncGen[method] = (value?: any): CancelablePromise<any, any> => {
