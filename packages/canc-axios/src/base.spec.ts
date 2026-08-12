@@ -94,7 +94,7 @@ describe('wrapAxios', () => {
     const error = await promise.catch((reason) => reason);
 
     expect(isCancelError(error)).toBe(true);
-    expect((error as CancelError).aborted).toBe(true);
+    expect((error as unknown as CancelError).aborted).toBe(true);
   });
 
   it('rejects a pre-aborted request before it reaches the adapter', async () => {

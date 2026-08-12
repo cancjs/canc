@@ -1,5 +1,5 @@
-import type { CancelablePromise } from '@cancjs/promise';
-import type { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosStatic } from 'axios';
+import type { CancelablePromise, FailureOf } from '@cancjs/promise';
+import type { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosStatic } from 'axios';
 
 import type { AbortControllerCtor } from './scope';
 
@@ -68,51 +68,68 @@ export interface ICancelableAxiosInterceptors {
  * assignable wherever an AxiosInstance is expected.
  */
 export interface ICancelableAxiosInstance {
-  <T = any, R = AxiosResponse<T>, D = any>(config: AxiosRequestConfig<D>): CancelablePromise<R>;
-  <T = any, R = AxiosResponse<T>, D = any>(url: string, config?: AxiosRequestConfig<D>): CancelablePromise<R>;
+  <T = any, R = AxiosResponse<T>, D = any>(config: AxiosRequestConfig<D>): CancelablePromise<R, AxiosError<T, D>>;
+  <T = any, R = AxiosResponse<T>, D = any>(
+    url: string,
+    config?: AxiosRequestConfig<D>,
+  ): CancelablePromise<R, AxiosError<T, D>>;
 
-  request<T = any, R = AxiosResponse<T>, D = any>(config: AxiosRequestConfig<D>): CancelablePromise<R>;
-  get<T = any, R = AxiosResponse<T>, D = any>(url: string, config?: AxiosRequestConfig<D>): CancelablePromise<R>;
-  delete<T = any, R = AxiosResponse<T>, D = any>(url: string, config?: AxiosRequestConfig<D>): CancelablePromise<R>;
-  head<T = any, R = AxiosResponse<T>, D = any>(url: string, config?: AxiosRequestConfig<D>): CancelablePromise<R>;
-  options<T = any, R = AxiosResponse<T>, D = any>(url: string, config?: AxiosRequestConfig<D>): CancelablePromise<R>;
+  request<T = any, R = AxiosResponse<T>, D = any>(
+    config: AxiosRequestConfig<D>,
+  ): CancelablePromise<R, AxiosError<T, D>>;
+  get<T = any, R = AxiosResponse<T>, D = any>(
+    url: string,
+    config?: AxiosRequestConfig<D>,
+  ): CancelablePromise<R, AxiosError<T, D>>;
+  delete<T = any, R = AxiosResponse<T>, D = any>(
+    url: string,
+    config?: AxiosRequestConfig<D>,
+  ): CancelablePromise<R, AxiosError<T, D>>;
+  head<T = any, R = AxiosResponse<T>, D = any>(
+    url: string,
+    config?: AxiosRequestConfig<D>,
+  ): CancelablePromise<R, AxiosError<T, D>>;
+  options<T = any, R = AxiosResponse<T>, D = any>(
+    url: string,
+    config?: AxiosRequestConfig<D>,
+  ): CancelablePromise<R, AxiosError<T, D>>;
   post<T = any, R = AxiosResponse<T>, D = any>(
     url: string,
     data?: D,
     config?: AxiosRequestConfig<D>,
-  ): CancelablePromise<R>;
+  ): CancelablePromise<R, AxiosError<T, D>>;
   put<T = any, R = AxiosResponse<T>, D = any>(
     url: string,
     data?: D,
     config?: AxiosRequestConfig<D>,
-  ): CancelablePromise<R>;
+  ): CancelablePromise<R, AxiosError<T, D>>;
   patch<T = any, R = AxiosResponse<T>, D = any>(
     url: string,
     data?: D,
     config?: AxiosRequestConfig<D>,
-  ): CancelablePromise<R>;
+  ): CancelablePromise<R, AxiosError<T, D>>;
 
   /** Mirrored only when the underlying axios exposes them. */
   postForm<T = any, R = AxiosResponse<T>, D = any>(
     url: string,
     data?: D,
     config?: AxiosRequestConfig<D>,
-  ): CancelablePromise<R>;
+  ): CancelablePromise<R, AxiosError<T, D>>;
   putForm<T = any, R = AxiosResponse<T>, D = any>(
     url: string,
     data?: D,
     config?: AxiosRequestConfig<D>,
-  ): CancelablePromise<R>;
+  ): CancelablePromise<R, AxiosError<T, D>>;
   patchForm<T = any, R = AxiosResponse<T>, D = any>(
     url: string,
     data?: D,
     config?: AxiosRequestConfig<D>,
-  ): CancelablePromise<R>;
+  ): CancelablePromise<R, AxiosError<T, D>>;
   query<T = any, R = AxiosResponse<T>, D = any>(
     url: string,
     data?: D,
     config?: AxiosRequestConfig<D>,
-  ): CancelablePromise<R>;
+  ): CancelablePromise<R, AxiosError<T, D>>;
 
   create(config?: AxiosRequestConfig): ICancelableAxiosInstance;
   getUri(config?: AxiosRequestConfig): string;
@@ -143,7 +160,7 @@ export interface ICancelableAxiosStatic extends ICancelableAxiosInstance {
 
   /** Unlike axios.all this composes with CancelablePromise.all, so canceling the aggregate cancels
    * every request in it. */
-  all<T>(values: (T | PromiseLike<T>)[]): CancelablePromise<T[]>;
+  all<T>(values: (T | PromiseLike<T>)[]): CancelablePromise<T[], FailureOf<T>>;
 
   AxiosError?: any;
   CanceledError?: any;

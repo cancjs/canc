@@ -202,7 +202,10 @@ export class CancelScope {
   }
 
   /** Normalizes an axios rejection. A cancellation always surfaces as the recorded CancelError,
-   * never as whatever axios happened to throw; anything else passes through untouched. */
+   * never as whatever axios happened to throw; anything else passes through untouched.
+   *
+   * Cancellation is a stop signal on its own channel and rejects with a CancelError, so it does not
+   * contribute to the declared failure set (AxiosError). */
   toRejection(reason: any): any {
     if (this.aborted) {
       return this.reason;

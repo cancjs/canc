@@ -39,7 +39,7 @@ describe('real adapters', () => {
       const error = await promise.catch((reason) => reason);
 
       expect(isCancelError(error)).toBe(true);
-      expect((error as CancelError).message).toBe('stop');
+      expect((error as unknown as CancelError).message).toBe('stop');
       expect(sawAbort).toBe(true);
     } finally {
       (globalThis as any).fetch = original;

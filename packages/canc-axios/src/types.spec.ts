@@ -1,5 +1,5 @@
-import type { CancelablePromise } from '@cancjs/promise';
-import type { AxiosInstance, AxiosResponse } from 'axios';
+import type { CancelablePromise, FailureOf } from '@cancjs/promise';
+import type { AxiosError, AxiosInstance, AxiosResponse } from 'axios';
 import axios from 'axios';
 
 import { wrapAxios } from './base';
@@ -28,12 +28,14 @@ type GetResult = ReturnType<typeof api.get<Issue>>;
 type PostResult = ReturnType<typeof api.post<Issue>>;
 type RequestResult = ReturnType<typeof api.request<Issue>>;
 type CreateResult = ReturnType<typeof api.create>;
+type GetFailure = FailureOf<GetResult>;
 
 export type Assertions = [
-  Expect<Equal<GetResult, CancelablePromise<AxiosResponse<Issue>>>>,
-  Expect<Equal<PostResult, CancelablePromise<AxiosResponse<Issue>>>>,
-  Expect<Equal<RequestResult, CancelablePromise<AxiosResponse<Issue>>>>,
+  Expect<Equal<GetResult, CancelablePromise<AxiosResponse<Issue>, AxiosError<Issue, any>>>>,
+  Expect<Equal<PostResult, CancelablePromise<AxiosResponse<Issue>, AxiosError<Issue, any>>>>,
+  Expect<Equal<RequestResult, CancelablePromise<AxiosResponse<Issue>, AxiosError<Issue, any>>>>,
   Expect<Equal<CreateResult, ICancelableAxiosInstance>>,
+  Expect<Equal<GetFailure, AxiosError<Issue, any>>>,
 ];
 
 it('wraps an axios instance into the cancelable shape', () => {
