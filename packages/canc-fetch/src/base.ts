@@ -1,4 +1,12 @@
-import { CancelablePromise, CancelError, createCancelSignal, IExecutorContext, isCancelSignal } from '@cancjs/promise';
+import {
+  AbortError,
+  CancelablePromise,
+  CancelError,
+  createCancelSignal,
+  IExecutorContext,
+  isCancelSignal,
+  TimeoutError,
+} from '@cancjs/promise';
 
 import { isAbortError, isFunction } from '../../_util';
 
@@ -141,6 +149,9 @@ export const setupCancellation = (
     }
 
     if (isAbortError(reason)) {
+      // A fetch aborted through canc cancellation rejects with a CancelError whose cause is an
+      // AbortError, NOT with a bare AbortError. Cancellation is not a failure, so that path
+      // contributes nothing to the declared failure set.
       return new CancelError(reason.message, { cause: reason });
     }
 
@@ -154,9 +165,17 @@ export const setupCancellation = (
   };
 };
 
+/**
+ * Failures that a cancelable fetch or fetchLater request can reject with.
+ * Note: a request canceled via canc .cancel() rejects with a CancelError whose cause is an
+ * AbortError, NOT a bare AbortError. Cancellation is not a failure, so that path does not
+ * contribute to the declared failure set.
+ */
+export type TCancelableFetchFailure = AbortError | TimeoutError;
+
 export const cancelableFetchFactory = (config: ICancelableFetchConfig = {}) => {
-  return function cancelableFetch(input: any, init?: any): CancelablePromise<any> {
-    return new CancelablePromise<any>((resolve, reject, { handleCancel }) => {
+  return function cancelableFetch(input: any, init?: any): CancelablePromise<any, TCancelableFetchFailure> {
+    return new CancelablePromise<any, TCancelableFetchFailure>((resolve, reject, { handleCancel }) => {
       const _fetch = resolveDep<Fetch>(config, 'fetch', typeof fetch !== 'undefined' ? fetch : (undefined as any));
       const { signal, finalize, toRejection } = setupCancellation(config, input, init, handleCancel);
 
@@ -206,7 +225,7 @@ export interface ICancelableFetchLaterConfig extends ICancelableFetchConfig {
 // A CancelablePromise merged with the live FetchLaterResult. Resolves to the IFetchLaterResultLike
 // (never a Response, none is exposed). `.activated` reads the live result, or null before the
 // underlying fetchLater() has been called (only possible for the lazy variant before it starts).
-export type TCancelableFetchLaterPromise = CancelablePromise<IFetchLaterResultLike> & {
+export type TCancelableFetchLaterPromise = CancelablePromise<IFetchLaterResultLike, TCancelableFetchFailure> & {
   readonly activated: boolean | null;
 };
 
@@ -216,7 +235,7 @@ const DEFAULT_POLL_INTERVAL = 500;
 // returning null before the result exists. Defined non-enumerable so it does not interfere with
 // promise internals.
 export const attachActivated = (
-  promise: CancelablePromise<IFetchLaterResultLike>,
+  promise: CancelablePromise<IFetchLaterResultLike, TCancelableFetchFailure>,
   getResult: () => IFetchLaterResultLike | null,
 ): TCancelableFetchLaterPromise => {
   Object.defineProperty(promise, 'activated', {
@@ -298,11 +317,13 @@ export const cancelableFetchLaterFactory = (config: ICancelableFetchLaterConfig 
   return function cancelableFetchLater(input: any, init?: TDeferredRequestInit): TCancelableFetchLaterPromise {
     let result: IFetchLaterResultLike | null = null;
 
-    const promise = new CancelablePromise<IFetchLaterResultLike>((resolve, reject, { handleCancel }) => {
-      runFetchLater(config, input, init, resolve, reject, handleCancel, (r) => {
-        result = r;
-      });
-    });
+    const promise = new CancelablePromise<IFetchLaterResultLike, TCancelableFetchFailure>(
+      (resolve, reject, { handleCancel }) => {
+        runFetchLater(config, input, init, resolve, reject, handleCancel, (r) => {
+          result = r;
+        });
+      },
+    );
 
     return attachActivated(promise, () => result);
   };

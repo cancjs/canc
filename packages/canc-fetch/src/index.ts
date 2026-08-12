@@ -4,6 +4,7 @@ import {
   ICancelableFetchConfig,
   ICancelableFetchLaterConfig,
   IFetchLaterResultLike,
+  TCancelableFetchFailure,
   TCancelableFetchLaterPromise,
   TDeferredRequestInit,
 } from './base';
@@ -20,6 +21,7 @@ export type {
   ICancelableFetchConfig,
   ICancelableFetchLaterConfig,
   IFetchLaterResultLike,
+  TCancelableFetchFailure,
   TCancelableFetchLaterPromise,
   TDeferredRequestInit,
 };
