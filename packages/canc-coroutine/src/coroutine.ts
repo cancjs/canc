@@ -518,7 +518,7 @@ function createYielder<TProduce, TSend>(
   };
 }
 
-type cancAwait = <T>(value: Promise<T> | T) => T;
+type cancAwait = <T>(value: T) => T;
 
 /**
  * One-shot combinator helpers for the typed `yield*` path.
@@ -594,7 +594,7 @@ interface ICancForAwait {
 }
 
 interface ICancAwait {
-  <T>(value: Promise<T> | T): Generator<Promise<T> | T, T, T>;
+  <T>(value: T): Generator<T, Awaited<T>, any>;
   all: ICancAwaitAll;
   race: ICancAwaitRace;
   any: ICancAwaitAny;

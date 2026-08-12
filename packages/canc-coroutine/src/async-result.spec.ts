@@ -36,3 +36,37 @@ describe('AsyncResult type', () => {
     expect(typeof coroutine).toBe('function');
   });
 });
+
+type Eq<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
+
+class FooError extends Error {
+  readonly tagFoo = 'foo';
+}
+class BarError extends Error {
+  readonly tagBar = 'bar';
+}
+
+function* cancAwaitCheck() {
+  const cpFoo = null as unknown as CancelablePromise<number, FooError>;
+  const plainPromise = null as unknown as Promise<string>;
+
+  const n = yield* cancAwait(cpFoo);
+  const checkN: Eq<typeof n, number> = true;
+
+  const s = yield* cancAwait(plainPromise);
+  const checkS: Eq<typeof s, string> = true;
+
+  const seven = yield* cancAwait(7);
+  const checkSeven: Eq<typeof seven, number> = true;
+
+  const union = yield* cancAwait(cpFoo as CancelablePromise<number, FooError> | CancelablePromise<number, BarError>);
+  const checkUnion: Eq<typeof union, number> = true;
+
+  return [checkN, checkS, checkSeven, checkUnion];
+}
+
+type TYieldCheck = ReturnType<typeof cancAwaitCheck> extends Generator<infer Y, any, any> ? Y : never;
+const yieldCheck: Eq<
+  Extract<TYieldCheck, CancelablePromise<number, FooError>>,
+  CancelablePromise<number, FooError>
+> = true;
