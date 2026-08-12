@@ -168,6 +168,110 @@ a value to the consumer, and awaiting is always written `yield* cancGen.await(..
 helpers from one namespace into a body of the other produces wrong values silently, so keep a body
 in one dialect.
 
+Both namespaces mirror native JavaScript syntax:
+
+| Native Syntax    | `@cancjs/coroutine` (`canc.*`) | `@cancjs/coroutine/gen` (`cancGen.*`) |
+| ---------------- | ------------------------------ | ------------------------------------- |
+| `async function` | `canc.async`                   | `cancGen.async`                       |
+| `await`          | `canc.await`                   | `cancGen.await`                       |
+| `throw`          | `canc.throw`                   | `cancGen.throw`                       |
+| `for await`      | `canc.forAwait`                | `cancGen.forAwait`                    |
+
+### Declared failures
+
+Coroutines track typed failures from awaited promises and explicit error steps. The failure set is carried on the returned `CancelablePromise<TReturn, TFailure>` or `ICancAsyncGenerator<TEmit, TReturn, TNext, TFailure>`.
+
+#### Three annotation forms
+
+1. **Inferred from body**: `canc.async` automatically infers the union of all awaited promise failures and explicit `canc.throw` steps:
+
+```ts
+const loadUser = canc.async(function* (id: string) {
+  const user = yield* canc.await(fetchUser(id)); // CancelablePromise<User, UserNotFoundError>
+  if (!user.active) {
+    return yield* canc.throw(new InactiveUserError(id));
+  }
+  return user;
+}); // Returns CancelablePromise<User, UserNotFoundError | InactiveUserError>
+```
+
+2. **Generator body annotation with `AsyncResult`**: When declaring a generator function separately from `canc.async`, annotate its return type as `AsyncResult<TResult, TFailure>`:
+
+```ts
+function* userCoroutine(id: string): AsyncResult<User, UserNotFoundError | InactiveUserError> {
+  const user = yield* canc.await(fetchUser(id));
+  if (!user.active) {
+    return yield* canc.throw(new InactiveUserError(id));
+  }
+  return user;
+}
+
+const loadUser = canc.async(userCoroutine);
+```
+
+3. **Producer body annotation with `AsyncGenResult`**: For async generators wrapped with `cancGen.async`, use `AsyncGenResult<TEmit, TReturn, TFailure>`:
+
+```ts
+function* streamEvents(): AsyncGenResult<EventItem, void, NetworkError> {
+  const event = yield* cancGen.await(fetchNextEvent());
+  yield event;
+}
+
+const events = cancGen.async(streamEvents);
+```
+
+#### Parameter order in `AsyncGenResult`
+
+`AsyncGenResult<TEmit, TReturn = void, TFailure = unknown>` takes three parameters in order of relevance to async generators:
+
+- `TEmit`: the type of items yielded to consumers (emitted stream items).
+- `TReturn`: the return type when the generator completes.
+- `TFailure`: the declared failure type union.
+
+This ordering allows specifying a return type without requiring a failure type. It differs from `AsyncResult<TResult, TFailure = unknown>`, where `TResult` comes first because standard coroutines return a single result.
+
+#### Strict `AsyncResult` type matrix and bare `yield`
+
+When a generator is annotated with a specific failure set like `AsyncResult<number, FooError>`, TypeScript enforces that all yielded steps match the declared failures:
+
+- **Primitives**: Bare `yield 42` or `yield 'hello'` is permitted because primitives cannot carry failure phantoms.
+- **Awaited steps**: `yield* canc.await(promise)` verifies that any failure declared on `promise` is assignable to the declared `TFailure`.
+- **Explicit error steps**: `yield* canc.throw(err)` verifies that `err` is assignable to `TFailure`.
+- **Plain objects**: Yielding a plain object directly (without `canc.await` or `canc.throw`) causes a TypeScript compilation error (`TS2353` for object literals or `TS2559` for object variables) because plain objects do not carry failure brand phantoms.
+
+#### Non-tail `yield* canc.throw(...)` and TS2355
+
+`yield*` is a language expression rather than a function call. TypeScript does not automatically recognize that code following `yield* canc.throw(...)` is unreachable.
+
+Writing a bare `yield* canc.throw(err)` in a non-tail position inside a function with a declared non-void return type results in compiler error `TS2355: A function whose declared type is neither 'undefined', 'void', nor 'any' must return a value`.
+
+To resolve this, prefix the statement with `return`:
+
+```ts
+return yield* canc.throw(new FooError());
+```
+
+Because `canc.throw` returns `Generator<..., never, ...>`, its `never` return type widens to any return type required by the function.
+
+#### Error handling inside coroutines
+
+Errors raised by `canc.throw` or rejected promises can be caught inside the generator using standard `try`/`catch` blocks:
+
+```ts
+const safeLoad = canc.async(function* (id: string) {
+  try {
+    return yield* canc.await(fetchUser(id));
+  } catch (err) {
+    if (err instanceof UserNotFoundError) {
+      return null;
+    }
+    throw err;
+  }
+});
+```
+
+If an error is uncaught inside the coroutine, the returned promise rejects with that error. Callers can handle rejections using `@cancjs/promise` error utilities or global rejection handlers.
+
 ### Awaiting several things at once
 
 `canc.await.all`, `.race`, `.any`, `.allSettled` and `.try` fold a combinator into a single step.
@@ -396,12 +500,13 @@ lookup and cannot be overridden from a subclass through the prototype chain.
 | `cancAsync(genFn, ctx?, options?)`                          | `canc.async`    | Wraps a generator function into a function returning a `CancelablePromise`          |
 | `cancAwait(value)`                                          | `canc.await`    | One step, used as `yield* cancAwait(value)`                                         |
 | `cancAwait.all` / `.race` / `.any` / `.allSettled` / `.try` |                 | Combinators folded into a single step, tuple types preserved                        |
+| `cancThrow(error)`                                          | `canc.throw`    | Yieldable `throw` step for declaring and raising errors inside coroutines           |
 | `cancForAwait(source, callback)`                            | `canc.forAwait` | Consumes an async or sync iterable, one cancellation point per item                 |
 | `cancForAwait.toArray(source)`                              |                 | Collects a source into an array                                                     |
 | `asyncMethod(instance, key, options?)`                      |                 | Installs the member as an own property, wrapping a method or field with `cancAsync` |
 | `bindMethod(instance, key)`                                 |                 | Installs the member as an own property, bound to the instance, never wrapped        |
 | `BreakError`, `isBreakError`                                |                 | Breaking out of a stream from deeper code                                           |
-| `AsyncResult<T>`                                            |                 | Return type for a generator body that has no enclosing wrapper                      |
+| `AsyncResult<TResult, TFailure>`                            |                 | Return type for a generator body with optional failure set                          |
 
 `options` are
 [`CancelablePromise` options](https://github.com/cancjs/canc/tree/master/packages/canc-promise#options)
@@ -414,10 +519,11 @@ and configure the promise the coroutine returns. `ctx` sets `this` for the gener
 | `cancGenAsync(genFn, options?)`                                | `cancGen.async`    | Wraps a generator function into a function returning a cancelable async generator |
 | `cancGenAwait(value)`                                          | `cancGen.await`    | Internal step inside a producer, not emitted                                      |
 | `cancGenAwait.all` / `.race` / `.any` / `.allSettled` / `.try` |                    | Same combinators for producer bodies                                              |
+| `cancGenThrow(error)`                                          | `cancGen.throw`    | Yieldable `throw` step inside a producer body                                     |
 | `cancGenForAwait(source, callback)`                            | `cancGen.forAwait` | Consumes a source inside a producer without emitting its items                    |
 | `cancGenForAwait.toArray(source)`                              |                    | Collects a source into an array                                                   |
 | `cancGenDelegate(source)`                                      | `cancGen.delegate` | Re-emits another async iterable to the consumer                                   |
-| `AsyncGenResult<E, R>`                                         |                    | Return type for a producer body, emit type and return type                        |
+| `AsyncGenResult<TEmit, TReturn, TFailure>`                     |                    | Return type for a producer body (emit type, return type, failure set)             |
 
 ## Compatibility
 
