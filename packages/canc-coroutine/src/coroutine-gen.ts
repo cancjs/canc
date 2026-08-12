@@ -394,8 +394,8 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
  * `return false` from any form breaks the loop. `.toArray` collects into an array instead.
  */
 interface ICancGenForAwait {
-  <T>(source: TEachSource<T>, cb: TForAwaitCallback<T>): Generator<TAwaited<any>, void, any>;
-  toArray<T>(source: TEachSource<T>): Generator<TAwaited<any>, T[], any>;
+  <T>(source: TEachSource<T>, cb: TForAwaitCallback<T>): Generator<TAwaited<any> & Failing<BreakError>, void, any>;
+  toArray<T>(source: TEachSource<T>): Generator<TAwaited<any> & Failing<BreakError>, T[], any>;
 }
 
 export const cancGenForAwait = function* cancGenForAwait(
@@ -469,6 +469,9 @@ cancGenForAwait.toArray = function* toArray(source: any): Generator<TAwaited<any
  * per-item body). Direct `yield* source` cannot work: a sync producer generator cannot `yield*` an
  * async iterable.
  */
+export function cancGenDelegate<T>(
+  source: TEachSource<T>,
+): Generator<T | (TAwaited<any> & Failing<BreakError>), void, any>;
 export function cancGenDelegate<T>(source: TEachSource<T>): Generator<T | TAwaited<any>, void, any> {
   return (function* (): Generator<T | TAwaited<any>, void, any> {
     const { it, async: isAsync } = getStepIterator(source);
