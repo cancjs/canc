@@ -1,4 +1,11 @@
-import { CancelablePromise, CancelError, Failing, ICancelablePromiseOptions, isCancelError } from '@cancjs/promise';
+import {
+  CancelablePromise,
+  CancelError,
+  Failing,
+  FailureOf,
+  ICancelablePromiseOptions,
+  isCancelError,
+} from '@cancjs/promise';
 
 import { copyFunctionMetadata, IFn, isFunction, isGenerator, isObject, isThenable, setFnName } from '../../_util';
 
@@ -115,11 +122,15 @@ function toPromiseOptions(options?: TCoroutineOptions): ICancelablePromiseOption
   return promiseOptions;
 }
 
+type TCoroutineYield<TFn extends IGeneratorLikeFn, TReturn = ReturnType<TFn>> =
+  TReturn extends Generator<infer Y, unknown, unknown> ? Y : never;
+
 export function cancAsync<
   TFn extends IGeneratorLikeFn<TThis>,
   TArgs extends any[] = Parameters<TFn>,
   TReturn = TCoroutineReturn<TFn>,
   TThis = any,
+  TFailure = FailureOf<TCoroutineYield<TFn>>,
 >(genFn: TFn, ctx?: TThis, options?: TCoroutineOptions) {
   if (!isFunction(genFn)) {
     throw new TypeError('Argument is not a function');
@@ -152,8 +163,12 @@ export function cancAsync<
 
   setFnName(coroutine, 'coroutine', genFn, options?.displayName);
 
-  function coroutine(this: any, ...args: TArgs): CancelablePromise<TReturn> {
-    const { promise: coroutinePromise, resolve, reject } = CancelablePromise.withResolvers<TReturn>(promiseOptions);
+  function coroutine(this: any, ...args: TArgs): CancelablePromise<TReturn, TFailure> {
+    const {
+      promise: coroutinePromise,
+      resolve,
+      reject,
+    } = CancelablePromise.withResolvers<TReturn, TFailure>(promiseOptions);
 
     try {
       // `this` threading: an explicitly supplied `ctx` wins; otherwise the call-site `this` of the
@@ -326,7 +341,7 @@ export function cancAsync<
           result = gen.next(value);
         } catch (err) {
           genDone = true;
-          reject(err);
+          reject(err as any);
           return;
         } finally {
           executing = false;
@@ -353,7 +368,7 @@ export function cancAsync<
           result = gen.throw(value);
         } catch (err) {
           genDone = true;
-          reject(err);
+          reject(err as any);
           return;
         } finally {
           executing = false;
@@ -401,7 +416,7 @@ export function cancAsync<
         } catch (err) {
           // A finally block threw synchronously: surface it as the coroutine rejection.
           genDone = true;
-          reject(err);
+          reject(err as any);
           settleDrain();
           return;
         } finally {
@@ -427,7 +442,7 @@ export function cancAsync<
           if (disposing) {
             error.disposed = true;
           }
-          reject(error);
+          reject(error as any);
           settleDrain();
           return;
         }
@@ -443,7 +458,7 @@ export function cancAsync<
             next = gen.return(canceledReason);
           } catch (err) {
             genDone = true;
-            reject(err);
+            reject(err as any);
             settleDrain();
             return;
           }
@@ -461,7 +476,7 @@ export function cancAsync<
             } catch (err) {
               // Finally block threw after a yield: surface it as the rejection.
               genDone = true;
-              reject(err);
+              reject(err as any);
               settleDrain();
               return;
             }
@@ -474,7 +489,7 @@ export function cancAsync<
             } catch (err) {
               // Finally block threw after a yield in the error handler: surface it.
               genDone = true;
-              reject(err);
+              reject(err as any);
               settleDrain();
               return;
             }
@@ -498,7 +513,7 @@ export function cancAsync<
     } catch (err) {
       // Sync-throw generators: genFn.apply(...) or the first gen.next() throwing synchronously
       // rejects the coroutine.
-      reject(err);
+      reject(err as any);
     }
 
     return coroutinePromise;
