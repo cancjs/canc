@@ -46,27 +46,27 @@ class BarError extends Error {
   readonly tagBar = 'bar';
 }
 
-function* cancAwaitCheck() {
+function* _cancAwaitCheck() {
   const cpFoo = null as unknown as CancelablePromise<number, FooError>;
   const plainPromise = null as unknown as Promise<string>;
 
-  const n = yield* cancAwait(cpFoo);
-  const checkN: Eq<typeof n, number> = true;
+  const _n = yield* cancAwait(cpFoo);
+  const checkN: Eq<typeof _n, number> = true;
 
-  const s = yield* cancAwait(plainPromise);
-  const checkS: Eq<typeof s, string> = true;
+  const _s = yield* cancAwait(plainPromise);
+  const checkS: Eq<typeof _s, string> = true;
 
-  const seven = yield* cancAwait(7);
-  const checkSeven: Eq<typeof seven, number> = true;
+  const _seven = yield* cancAwait(7);
+  const checkSeven: Eq<typeof _seven, number> = true;
 
-  const union = yield* cancAwait(cpFoo as CancelablePromise<number, FooError> | CancelablePromise<number, BarError>);
-  const checkUnion: Eq<typeof union, number> = true;
+  const _union = yield* cancAwait(cpFoo as CancelablePromise<number, FooError> | CancelablePromise<number, BarError>);
+  const checkUnion: Eq<typeof _union, number> = true;
 
   return [checkN, checkS, checkSeven, checkUnion];
 }
 
-type TYieldCheck = ReturnType<typeof cancAwaitCheck> extends Generator<infer Y, any, any> ? Y : never;
-const yieldCheck: Eq<
+type TYieldCheck = ReturnType<typeof _cancAwaitCheck> extends Generator<infer Y, any, any> ? Y : never;
+const _yieldCheck: Eq<
   Extract<TYieldCheck, CancelablePromise<number, FooError>>,
   CancelablePromise<number, FooError>
 > = true;
@@ -97,6 +97,8 @@ function* forAwaitMatchedAnnotation(): Generator<Failing<FooError | BreakError>,
 }
 
 // Keep functions referenced so eslint does not flag unused functions
+void _cancAwaitCheck;
+void _yieldCheck;
 void forAwaitInferFn;
 void forAwaitToArrayInferFn;
 void forAwaitMismatchedAnnotation;
