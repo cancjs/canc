@@ -6,9 +6,17 @@
 // unrelated to this package and is proven separately via a plain `require()` smoke against the
 // built dist/gen.cjs from outside jest.
 import * as canc from '@cancjs/coroutine';
+import { throw as cancThrowAlias } from '@cancjs/coroutine';
 import { isCancelError, suppressCancel } from '@cancjs/promise';
 
 import * as cancGen from './gen';
+
+class FooError extends Error {
+  constructor(message?: string) {
+    super(message);
+    Object.setPrototypeOf(this, FooError.prototype);
+  }
+}
 
 // Deterministic microtask flush (mirrors coroutine-each.spec): drains the microtask queue N
 // times so chained then-callbacks all run, no arbitrary sleeps.
@@ -74,7 +82,9 @@ describe('canc / cancGen mirror namespaces resolve from built entry points', () 
     });
 
     const promise = co();
-    promise.catch(suppressCancel);
+    promise.catch((err) => {
+      suppressCancel(err);
+    });
 
     await flush();
 
@@ -89,5 +99,89 @@ describe('canc / cancGen mirror namespaces resolve from built entry points', () 
   it('cancGen.throw is a function and cancGenThrow alias is exported from gen barrel', () => {
     expect(typeof cancGen.throw).toBe('function');
     expect(typeof cancGen.cancGenThrow).toBe('function');
+  });
+
+  describe('canc.throw / cancThrow', () => {
+    it('canc.throw and imported alias are functions matching cancThrow', () => {
+      expect(typeof canc.throw).toBe('function');
+      expect(typeof cancThrowAlias).toBe('function');
+      expect(canc.throw).toBe(cancThrowAlias);
+      expect(canc.throw).toBe(canc.cancThrow);
+    });
+
+    it('cancThrow inside coroutine try is caught by catch and enclosing finally runs', async () => {
+      let caught: Error | undefined;
+      let finallyRan = false;
+
+      const co = canc.async(function* () {
+        try {
+          yield* canc.cancThrow(new FooError('test-fail'));
+        } catch (err: any) {
+          caught = err;
+        } finally {
+          finallyRan = true;
+        }
+      });
+
+      await co();
+
+      expect(caught).toBeInstanceOf(FooError);
+      expect(caught?.message).toBe('test-fail');
+      expect(finallyRan).toBe(true);
+    });
+
+    it('uncaught cancThrow rejects coroutine promise with exact error instance', async () => {
+      const errInstance = new FooError('uncaught');
+      const co = canc.async(function* () {
+        yield* canc.cancThrow(errInstance);
+      });
+
+      const promise = co();
+      let rejectedErr: any;
+      try {
+        await promise;
+      } catch (err) {
+        rejectedErr = err;
+      }
+
+      expect(rejectedErr).toBe(errInstance);
+    });
+
+    it('throws on the first next() when driving raw generator manually', () => {
+      const errInstance = new FooError('sync-first-next');
+      const gen = canc.cancThrow(errInstance);
+
+      expect(() => gen.next()).toThrow(errInstance);
+    });
+
+    it('driver sees no extra yielded value from cancThrow', async () => {
+      const errInstance = new FooError('no-yield');
+      const genFn = function* () {
+        yield 1;
+        yield* canc.cancThrow(errInstance);
+        yield 2;
+      };
+
+      const gen = genFn();
+      const step1 = gen.next();
+      expect(step1.value).toBe(1);
+      expect(step1.done).toBe(false);
+
+      expect(() => gen.next()).toThrow(errInstance);
+    });
+
+    it('type specs for cancThrow', () => {
+      const _validRet = canc.async(function* (): canc.AsyncResult<number> {
+        return yield* canc.cancThrow(new FooError());
+      });
+
+      // @ts-expect-error TS2355: A function whose declared type is neither 'undefined', 'void', nor 'any' must return a value.
+      const _invalidBare = canc.async(function* (): canc.AsyncResult<number> {
+        yield* canc.cancThrow(new FooError());
+      });
+
+      expect(typeof _validRet).toBe('function');
+      expect(typeof _invalidBare).toBe('function');
+    });
   });
 });

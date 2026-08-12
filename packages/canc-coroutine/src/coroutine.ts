@@ -1,4 +1,4 @@
-import { CancelablePromise, CancelError, ICancelablePromiseOptions, isCancelError } from '@cancjs/promise';
+import { CancelablePromise, CancelError, Failing, ICancelablePromiseOptions, isCancelError } from '@cancjs/promise';
 
 import { copyFunctionMetadata, IFn, isFunction, isGenerator, isObject, isThenable, setFnName } from '../../_util';
 
@@ -516,6 +516,23 @@ function createYielder<TProduce, TSend>(
   return function* (arg: TProduce): Generator<TProduce, TSend, TSend> {
     return yield arg;
   };
+}
+
+/**
+ * `throw`, as a yieldable step. Runtime: a generator that throws on its first `next()`, so `yield*`
+ * propagates it at the call site and ordinary try/catch/finally behaves exactly as with a bare
+ * `throw`. The yield type is a type-level carrier only; nothing is ever yielded.
+ *
+ * Note: `yield*` is not a call expression, so TypeScript does not treat what follows as unreachable.
+ * A bare `yield* canc.throw(e)` as the last statement of a body with a declared non-void return type
+ * gives TS2355 ("A function whose declared type is neither 'undefined', 'void', nor 'any' must return
+ * a value"). Use `return yield* canc.throw(e)` instead, as `never` widens to any return type.
+ */
+export function cancThrow<TFailure>(error: TFailure): Generator<Failing<TFailure>, never, any> {
+  // eslint-disable-next-line require-yield -- generator throws on first next() without yielding
+  return (function* (): Generator<Failing<TFailure>, never, any> {
+    throw error;
+  })();
 }
 
 type cancAwait = <T>(value: T) => T;
