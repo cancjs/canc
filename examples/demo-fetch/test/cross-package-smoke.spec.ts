@@ -1,6 +1,6 @@
 import * as canc from '@cancjs/coroutine';
 import { cancelableFetchFactory } from '@cancjs/fetch';
-import { catchTimeout, isTimeoutError, TimeoutError } from '@cancjs/promise';
+import { catchTimeout, TimeoutError } from '@cancjs/promise';
 import { retry, timeout } from '@cancjs/toolbox';
 
 describe('Cross-package declared failure flow', () => {
