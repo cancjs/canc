@@ -1,4 +1,4 @@
-import { CancelablePromise, CancelError, ICancelablePromiseOptions, isCancelError } from '@cancjs/promise';
+import { CancelablePromise, CancelError, Failing, ICancelablePromiseOptions, isCancelError } from '@cancjs/promise';
 
 import { isFunction, isGenerator, isObject, isThenable, setFnName } from '../../_util';
 import {
@@ -125,6 +125,20 @@ cancGenAwait.allSettled = makeGenCombinator(
   CancelablePromise.allSettled.bind(CancelablePromise),
 ) as ICancGenAwait['allSettled'];
 cancGenAwait.try = makeGenCombinator(CancelablePromise.try.bind(CancelablePromise)) as ICancGenAwait['try'];
+
+/**
+ * `throw`, as a yieldable step in the async-generator dialect (`cancGen.throw`). Runtime: a generator
+ * that throws on its first `next()`, so `yield*` propagates it at the call site and ordinary
+ * try/catch/finally behaves exactly as with a bare `throw`. The yield type carries `Failing<TFailure>`
+ * intersected with `TAwaited<never>` so the `cancGenAsync` emit filter `Exclude<TYield, TAwaited<any>>`
+ * strips it from the consumer-facing emit type.
+ */
+export function cancGenThrow<TFailure>(error: TFailure): Generator<TAwaited<never> & Failing<TFailure>, never, any> {
+  // eslint-disable-next-line require-yield -- generator throws on first next() and never yields
+  return (function* (): Generator<TAwaited<never> & Failing<TFailure>, never, any> {
+    throw error;
+  })();
+}
 
 /**
  * Body annotation for a `cancGenAsync` generator. `E` = emit type (what the consumer's `for await`

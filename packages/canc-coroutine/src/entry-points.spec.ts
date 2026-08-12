@@ -85,4 +85,9 @@ describe('canc / cancGen mirror namespaces resolve from built entry points', () 
     expect(isCancelError(reason)).toBe(true);
     expect(sourceReturned).toBe(true);
   });
+
+  it('cancGen.throw is a function and cancGenThrow alias is exported from gen barrel', () => {
+    expect(typeof cancGen.throw).toBe('function');
+    expect(typeof cancGen.cancGenThrow).toBe('function');
+  });
 });
