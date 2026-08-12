@@ -249,7 +249,7 @@ describe('cancGenAsync — native async-generator parity', () => {
     }
     const cancGen = cancGenAsync(function* (): AsyncGenResult<string> {
       try {
-        yield* cancGenAwait<string>(CancelablePromise.reject('nope'));
+        yield* cancGenAwait(CancelablePromise.reject('nope'));
         yield 'unreached';
       } catch (e) {
         yield `err:${String(e)}`;
@@ -1141,5 +1141,28 @@ describe('cancGenThrow', () => {
     type TEmit = typeof gen extends (...args: any[]) => AsyncGenerator<infer E, any> ? E : never;
     const testEmitType: TEmit = 42;
     expect(typeof testEmitType).toBe('number');
+  });
+
+  it('type spec: cancGenAwait carries failure on marker while yield* resumes with unwrapped type', () => {
+    class FooError extends Error {}
+    class BarError extends Error {}
+
+    const pFoo = CancelablePromise.resolve(42) as CancelablePromise<number, FooError>;
+    const pBar = CancelablePromise.resolve('hello') as CancelablePromise<string, BarError>;
+
+    const gen = cancGenAsync(function* () {
+      const n = yield* cancGenAwait(pFoo);
+      const s = yield* cancGenAwait(pBar);
+      yield n;
+      if (n > 50) yield* cancGenThrow(new FooError());
+      return s;
+    });
+
+    const producer: AsyncGenerator<number, string> = gen();
+    expect(producer).toBeDefined();
+
+    type TEmit = typeof gen extends (...args: any[]) => AsyncGenerator<infer E, any> ? E : never;
+    const testEmit: TEmit = 100;
+    expect(typeof testEmit).toBe('number');
   });
 });

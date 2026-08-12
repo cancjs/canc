@@ -1,4 +1,11 @@
-import { CancelablePromise, CancelError, Failing, ICancelablePromiseOptions, isCancelError } from '@cancjs/promise';
+import {
+  CancelablePromise,
+  CancelError,
+  Failing,
+  FailureOf,
+  ICancelablePromiseOptions,
+  isCancelError,
+} from '@cancjs/promise';
 
 import { isFunction, isGenerator, isObject, isThenable, setFnName } from '../../_util';
 import {
@@ -60,27 +67,27 @@ type TGenSettledTuple<T extends readonly unknown[]> = { -readonly [K in keyof T]
 type ICancGenAwaitAll = <T extends readonly unknown[] | []>(
   values: readonly [...T],
   options?: ICancelablePromiseOptions,
-) => Generator<TAwaited<TGenAwaitedTuple<T>>, TGenAwaitedTuple<T>, TGenAwaitedTuple<T>>;
+) => Generator<TAwaited<TGenAwaitedTuple<T>> & Failing<FailureOf<T[number]>>, TGenAwaitedTuple<T>, TGenAwaitedTuple<T>>;
 
 type ICancGenAwaitRace = <T extends readonly unknown[] | []>(
   values: readonly [...T],
   options?: ICancelablePromiseOptions,
-) => Generator<TAwaited<Awaited<T[number]>>, Awaited<T[number]>, Awaited<T[number]>>;
+) => Generator<TAwaited<Awaited<T[number]>> & Failing<FailureOf<T[number]>>, Awaited<T[number]>, Awaited<T[number]>>;
 
 type ICancGenAwaitAny = <T extends readonly unknown[] | []>(
   values: readonly [...T],
   options?: ICancelablePromiseOptions,
-) => Generator<TAwaited<Awaited<T[number]>>, Awaited<T[number]>, Awaited<T[number]>>;
+) => Generator<TAwaited<Awaited<T[number]>> & Failing<AggregateError>, Awaited<T[number]>, Awaited<T[number]>>;
 
 type ICancGenAwaitAllSettled = <T extends readonly unknown[] | []>(
   values: readonly [...T],
   options?: ICancelablePromiseOptions,
-) => Generator<TAwaited<TGenSettledTuple<T>>, TGenSettledTuple<T>, TGenSettledTuple<T>>;
+) => Generator<TAwaited<TGenSettledTuple<T>> & Failing<never>, TGenSettledTuple<T>, TGenSettledTuple<T>>;
 
 type ICancGenAwaitTry = <T, TArgs extends any[]>(
   fn: (...args: TArgs) => T | PromiseLike<T>,
   ...args: TArgs
-) => Generator<TAwaited<Awaited<T>>, Awaited<T>, Awaited<T>>;
+) => Generator<TAwaited<Awaited<T>> & Failing<FailureOf<T>>, Awaited<T>, Awaited<T>>;
 
 /**
  * Internal await inside a `cancGenAsync` body: suspend on `value`, resume with its resolution, typed
@@ -92,7 +99,7 @@ type ICancGenAwaitTry = <T, TArgs extends any[]>(
  * const n = yield* cancGenAwait(Promise.resolve(1)); // n: number, no cast
  */
 export interface ICancGenAwait {
-  <T>(value: Promise<T> | T): Generator<TAwaited<Awaited<T>>, Awaited<T>, Awaited<T>>;
+  <T>(value: T): Generator<TAwaited<Awaited<T>> & Failing<FailureOf<T>>, Awaited<T>, any>;
   all: ICancGenAwaitAll;
   race: ICancGenAwaitRace;
   any: ICancGenAwaitAny;
