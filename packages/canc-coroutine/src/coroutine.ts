@@ -581,22 +581,22 @@ type TSettledTuple<T extends readonly unknown[]> = { -readonly [K in keyof T]: P
 type ICancAwaitAll = <T extends readonly unknown[] | []>(
   values: readonly [...T],
   options?: ICancelablePromiseOptions,
-) => Generator<CancelablePromise<TAwaitedTuple<T>>, TAwaitedTuple<T>, TAwaitedTuple<T>>;
+) => Generator<CancelablePromise<TAwaitedTuple<T>, FailureOf<T[number]>>, TAwaitedTuple<T>, TAwaitedTuple<T>>;
 
 type ICancAwaitRace = <T extends readonly unknown[] | []>(
   values: readonly [...T],
   options?: ICancelablePromiseOptions,
-) => Generator<CancelablePromise<Awaited<T[number]>>, Awaited<T[number]>, Awaited<T[number]>>;
+) => Generator<CancelablePromise<Awaited<T[number]>, FailureOf<T[number]>>, Awaited<T[number]>, Awaited<T[number]>>;
 
 type ICancAwaitAny = <T extends readonly unknown[] | []>(
   values: readonly [...T],
   options?: ICancelablePromiseOptions,
-) => Generator<CancelablePromise<Awaited<T[number]>>, Awaited<T[number]>, Awaited<T[number]>>;
+) => Generator<CancelablePromise<Awaited<T[number]>, AggregateError>, Awaited<T[number]>, Awaited<T[number]>>;
 
 type ICancAwaitAllSettled = <T extends readonly unknown[] | []>(
   values: readonly [...T],
   options?: ICancelablePromiseOptions,
-) => Generator<CancelablePromise<TSettledTuple<T>>, TSettledTuple<T>, TSettledTuple<T>>;
+) => Generator<CancelablePromise<TSettledTuple<T>, never>, TSettledTuple<T>, TSettledTuple<T>>;
 
 // Mirrors `CancelablePromise.try`: folds a possibly-sync-throwing call into a single yielded step.
 // The `yield*` value is the call's own (awaited) result, same tuple/union-free shape as a plain
@@ -604,7 +604,7 @@ type ICancAwaitAllSettled = <T extends readonly unknown[] | []>(
 type ICancAwaitTry = <T, TArgs extends any[]>(
   fn: (...args: TArgs) => T | PromiseLike<T>,
   ...args: TArgs
-) => Generator<CancelablePromise<Awaited<T>>, Awaited<T>, Awaited<T>>;
+) => Generator<CancelablePromise<Awaited<T>, FailureOf<T>>, Awaited<T>, Awaited<T>>;
 
 // `each` accepts an async iterable or a sync iterable whose members may be promises: both are
 // driven one pull at a time, awaiting each value at a coroutine cancellation point. The callback
