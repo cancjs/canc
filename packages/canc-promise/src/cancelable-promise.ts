@@ -547,9 +547,9 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
     reason?: TFailure,
     options?: ICancelablePromiseOptions,
   ): CancelablePromise<TResult, TFailure> {
-    return new this((_resolve, reject) => {
+    return new this<TResult, TFailure>((_resolve, reject) => {
       reject(reason);
-    }, options) as any;
+    }, options);
   }
 
   /**
@@ -562,14 +562,25 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
   static resolve(): CancelablePromise<void, never>;
 
   static resolve<V>(value?: V, options?: ICancelablePromiseOptions): CancelablePromise<Awaited<V>, FailureOf<V>> {
-    if (value instanceof this && value.constructor === this && !this._checkOptionsChanged(value as any, options)) {
-      // Return unmodified promise similarly to Promise.resolve
-      return value as any;
+    if (
+      value instanceof this &&
+      value.constructor === this &&
+      // Same shape as `_adopt`'s check below: narrowing `value` to the class's own options
+      // shape, not to `any`, mirrors the established pattern for this instanceof-narrowed cast.
+      !this._checkOptionsChanged(value as unknown as ICancelablePromiseOptions, options)
+    ) {
+      // Return unmodified promise similarly to Promise.resolve. `value instanceof this` proves
+      // the runtime shape but not the generic identity (V's own TResult/TFailure vs Awaited<V>/
+      // FailureOf<V>) that the compiler cannot correlate through a polymorphic `this` check.
+      return value as unknown as CancelablePromise<Awaited<V>, FailureOf<V>>;
     } else {
       // Wrap other promise instances or reconfigure same instances
-      return new this((resolve) => {
-        resolve(value as any);
-      }, options) as any;
+      return new this<Awaited<V>, FailureOf<V>>((resolve) => {
+        // Native Promise.resolve() semantics: coercing V to Awaited<V> here is the same
+        // unification lib.es5's own overloaded Promise.resolve signatures encode by hand;
+        // there is no single-signature way to prove it generically.
+        resolve(value as unknown as Awaited<V> | PromiseLike<Awaited<V>>);
+      }, options);
     }
   }
 
@@ -604,7 +615,9 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
   ): CancelablePromise<Awaited<T>, FailureOf<T>> {
     return new this<Awaited<T>, FailureOf<T>>((resolve, reject) => {
       try {
-        resolve(fn(...args) as any);
+        // Same coercion as resolve()'s executor: fn's return type T unifies to Awaited<T> the
+        // way native Promise.resolve()'s hand-written overloads do, not provable generically.
+        resolve(fn(...args) as unknown as Awaited<T> | PromiseLike<Awaited<T>>);
       } catch (error) {
         // A synchronous throw from `fn` is undeclared, so it cannot narrow to the inferred set.
         reject(error as TReason<FailureOf<T>>);
@@ -1265,7 +1278,12 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
   catch<R = never>(
     onRejected?: ((reason: TReason<TFailure>) => R) | null,
   ): CancelablePromise<Awaited<TResult | R>, FailureOf<R>> {
-    return this.then(null, onRejected as any) as any;
+    // `then`'s general overload widens the failure union with FailureOf<TResult> and the
+    // TResult2-extends-never fallback branch; both are provably empty here (onRejected fully
+    // replaces the rejection channel), but the compiler cannot collapse a conditional type over
+    // still-generic R/TResult to prove it. Narrowing to catch's own declared signature is a
+    // genuine boundary cast, not an unthreaded one.
+    return this.then(null, onRejected) as unknown as CancelablePromise<Awaited<TResult | R>, FailureOf<R>>;
   }
 
   /**
@@ -1283,15 +1301,20 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
     if (typeof onFinally === 'function') {
       const This = this.constructor as typeof CancelablePromise;
 
+      // Same generic-collapse gap as catch(): `This` is the generic-erased `typeof
+      // CancelablePromise`, so the chained `.then()`s can't correlate back to this promise's own
+      // TResult/TFailure, and the general `then` overload's FailureOf<TResult1>/TResult2-fallback
+      // terms don't provably vanish even though onFinally never changes the settlement value or
+      // reason. Narrowing to finally()'s own declared signature is a boundary cast.
       return this.then(
-        (value: any) => This.resolve(onFinally()).then(() => value),
-        (reason: any) =>
+        (value: TResult) => This.resolve(onFinally()).then(() => value),
+        (reason: TReason<TFailure>) =>
           This.resolve(onFinally()).then(() => {
             throw reason;
           }),
-      ) as any;
+      ) as unknown as CancelablePromise<TResult, TFailure>;
     } else {
-      return this.then(null, null) as any;
+      return this.then(null, null) as unknown as CancelablePromise<TResult, TFailure>;
     }
   }
 
@@ -1544,7 +1567,15 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
     // Calls CancelablePromise constructor internally
     try {
       This._pendingInternalCall = true;
-      return NativePromise.prototype.then.call(this, onFulfilled as any, onRejected as any) as any;
+      // `NativePromise.prototype.then` is declared to return a plain `Promise<TResult1 |
+      // TResult2>`: its type has no way to know that species construction (the constructor's
+      // `isInternalCall` fast path above) hands back a real CancelablePromise of this exact
+      // subclass at runtime. Boundary cast, verified by the constructor/species machinery, not
+      // by the type checker.
+      return NativePromise.prototype.then.call(this, onFulfilled, onRejected) as unknown as CancelablePromise<
+        Awaited<TResult1 | TResult2>,
+        FailureOf<TResult1> | FailureOf<TResult2> | ([TResult2] extends [never] ? TFailure : never)
+      >;
     } finally {
       This._pendingInternalCall = false;
     }
