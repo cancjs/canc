@@ -185,5 +185,8 @@ describe('AggregateError', () => {
 // Type assertions for createErrorClass brand integration
 type _checkAbortExclude = Assert<Eq<Exclude<AbortError | TimeoutError | Error, AbortError>, TimeoutError | Error>>;
 const _checkWidenedConstructor: ICancErrorConstructor = AbortError;
-const _checkAbortBrandProperty: true = new AbortError()[ABORT_ERROR_BRAND];
-const _checkTimeoutBrandProperty: true = new TimeoutError()[TIMEOUT_ERROR_BRAND];
+const _checkAbortBrandProperty: true = (new AbortError() as any)[ABORT_ERROR_BRAND];
+const _checkTimeoutBrandProperty: true = (new TimeoutError() as any)[TIMEOUT_ERROR_BRAND];
+// @ts-expect-error - bare ICancErrorConstructor should not have index signature allowing arbitrary properties
+// eslint-disable-next-line @typescript-eslint/no-unused-expressions
+new (AbortError as ICancErrorConstructor)().anythingAtAll;

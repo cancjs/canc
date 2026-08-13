@@ -3,7 +3,7 @@ import { isObject } from './guards';
 /**
  * Instance shape shared by every error class built here.
  */
-export interface ICancError<TName extends string = string, _TBrand extends symbol = symbol> extends Error {
+export interface ICancError<TName extends string = string> extends Error {
   name: TName;
   message: string;
 }
@@ -11,10 +11,13 @@ export interface ICancError<TName extends string = string, _TBrand extends symbo
 /**
  * Constructor shape {@link createErrorClass} produces. Each class below also declares a type alias
  * of the same name, so the exported name works in value and in type position.
+ *
+ * The return type omits brand properties to prevent index signature widening on bare `ICancErrorConstructor`.
+ * Specific error classes (AbortError, TimeoutError) provide more precise types through their type aliases.
  */
-export interface ICancErrorConstructor<TName extends string = string, TBrand extends symbol = any> {
-  readonly prototype: ICancError<TName, TBrand>;
-  new (message?: string): ICancError<TName, TBrand> & Readonly<Record<TBrand, true>>;
+export interface ICancErrorConstructor<TName extends string = string, _TBrand extends symbol = symbol> {
+  readonly prototype: ICancError<TName>;
+  new (message?: string): ICancError<TName>;
 }
 
 interface IDomExceptionConstructor {
@@ -58,7 +61,7 @@ function createDomExceptionClass<TName extends string, TBrand extends symbol>(
         domException,
         [resolveMessage(message, defaultMessage), name],
         target,
-      ) as ICancError<TName, TBrand>;
+      ) as ICancError<TName>;
 
       if (Object.getPrototypeOf(instance) !== target.prototype) {
         Object.setPrototypeOf(instance, target.prototype);
