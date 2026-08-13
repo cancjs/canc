@@ -1,4 +1,4 @@
-import { createAggregateError, isFunction, isObject, isThenable } from '../../_util';
+import { AggregateError, createAggregateError, isFunction, isObject, isThenable } from '../../_util';
 import { CancelError } from './cancel-error';
 import { isCancelError, isCancPromise } from './helpers';
 
