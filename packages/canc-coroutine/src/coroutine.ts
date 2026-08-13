@@ -1,4 +1,5 @@
 import {
+  AggregateError,
   CancelablePromise,
   CancelError,
   Failing,
