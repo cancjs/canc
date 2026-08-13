@@ -1207,6 +1207,28 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
    * @param onRejected The callback to execute when the Promise is rejected.
    * @returns A Promise for the completion of which ever callback is executed.
    */
+  then<TResult1 extends PromiseLike<unknown>, TResult2 extends PromiseLike<unknown>>(
+    onFulfilled: (value: TResult) => TResult1,
+    onRejected: (reason: TReason<TFailure>) => TResult2,
+  ): CancelablePromise<Awaited<TResult1 | TResult2>, FailureOf<TResult1> | FailureOf<TResult2>>;
+  then<TResult1 extends PromiseLike<unknown>, TResult2 = never>(
+    onFulfilled: (value: TResult) => TResult1,
+    onRejected?: ((reason: TReason<TFailure>) => TResult2) | null,
+  ): CancelablePromise<
+    Awaited<TResult1 | TResult2>,
+    FailureOf<TResult1> | FailureOf<TResult2> | ([TResult2] extends [never] ? TFailure : never)
+  >;
+  then<TResult1 = TResult, TResult2 extends PromiseLike<unknown> = never>(
+    onFulfilled: ((value: TResult) => TResult1) | null | undefined,
+    onRejected: (reason: TReason<TFailure>) => TResult2,
+  ): CancelablePromise<Awaited<TResult1 | TResult2>, FailureOf<TResult1> | FailureOf<TResult2>>;
+  then<TResult1 = TResult, TResult2 = never>(
+    onFulfilled?: ((value: TResult) => TResult1) | null,
+    onRejected?: ((reason: TReason<TFailure>) => TResult2) | null,
+  ): CancelablePromise<
+    Awaited<TResult1 | TResult2>,
+    FailureOf<TResult1> | FailureOf<TResult2> | ([TResult2] extends [never] ? TFailure : never)
+  >;
   then<TResult1 = TResult, TResult2 = never>(
     onFulfilled?: ((value: TResult) => TResult1) | null,
     onRejected?: ((reason: TReason<TFailure>) => TResult2) | null,
@@ -1234,6 +1256,12 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
    * @param onRejected The callback to execute when the Promise is rejected.
    * @returns A Promise for the completion of the callback.
    */
+  catch<R extends PromiseLike<unknown>>(
+    onRejected: (reason: TReason<TFailure>) => R,
+  ): CancelablePromise<Awaited<TResult | R>, FailureOf<R>>;
+  catch<R = never>(
+    onRejected?: ((reason: TReason<TFailure>) => R) | null,
+  ): CancelablePromise<Awaited<TResult | R>, FailureOf<R>>;
   catch<R = never>(
     onRejected?: ((reason: TReason<TFailure>) => R) | null,
   ): CancelablePromise<Awaited<TResult | R>, FailureOf<R>> {
