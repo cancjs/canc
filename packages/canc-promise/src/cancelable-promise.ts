@@ -114,7 +114,9 @@ export interface ICancelable<TResult = any> extends PromiseLike<TResult> {
 export interface ICancelablePromiseWithResolvers<TResult, TFailure = never> {
   promise: CancelablePromise<TResult, TFailure>;
   resolve: (value: TResult | PromiseLike<TResult>) => void;
-  reject: (reason?: TReason<TFailure> | CancelError) => void;
+  // Deliberately wide, unlike the executor's reject. This one is the producer handle handed to
+  // library code (coroutine drivers, adapters), which forwards whatever a foreign body threw.
+  reject: (reason?: any) => void;
   cancel: (reason?: any) => void | CancelablePromise<PromiseSettledResult<unknown>[]>;
 }
 
@@ -604,7 +606,8 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
       try {
         resolve(fn(...args) as any);
       } catch (error) {
-        reject(error);
+        // A synchronous throw from `fn` is undeclared, so it cannot narrow to the inferred set.
+        reject(error as TReason<FailureOf<T>>);
       }
     });
   }
@@ -782,7 +785,7 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
    * @param executor A callback used to initialize the promise.
    * @param [options]
    */
-  constructor(executor: TCancelablePromiseExecutor<TResult>, options?: ICancelablePromiseOptions) {
+  constructor(executor: TCancelablePromiseExecutor<TResult, TFailure>, options?: ICancelablePromiseOptions) {
     if (!(this instanceof CancelablePromise)) {
       throw new TypeError(`CancelablePromise constructor cannot be invoked without 'new'`);
     }

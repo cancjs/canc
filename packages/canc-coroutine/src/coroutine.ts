@@ -349,7 +349,7 @@ export function cancAsync<
           result = gen.next(value);
         } catch (err) {
           genDone = true;
-          reject(err as any);
+          reject(err);
           return;
         } finally {
           executing = false;
@@ -376,7 +376,7 @@ export function cancAsync<
           result = gen.throw(value);
         } catch (err) {
           genDone = true;
-          reject(err as any);
+          reject(err);
           return;
         } finally {
           executing = false;
@@ -424,7 +424,7 @@ export function cancAsync<
         } catch (err) {
           // A finally block threw synchronously: surface it as the coroutine rejection.
           genDone = true;
-          reject(err as any);
+          reject(err);
           settleDrain();
           return;
         } finally {
@@ -450,7 +450,7 @@ export function cancAsync<
           if (disposing) {
             error.disposed = true;
           }
-          reject(error as any);
+          reject(error);
           settleDrain();
           return;
         }
@@ -466,7 +466,7 @@ export function cancAsync<
             next = gen.return(canceledReason);
           } catch (err) {
             genDone = true;
-            reject(err as any);
+            reject(err);
             settleDrain();
             return;
           }
@@ -484,7 +484,7 @@ export function cancAsync<
             } catch (err) {
               // Finally block threw after a yield: surface it as the rejection.
               genDone = true;
-              reject(err as any);
+              reject(err);
               settleDrain();
               return;
             }
@@ -497,7 +497,7 @@ export function cancAsync<
             } catch (err) {
               // Finally block threw after a yield in the error handler: surface it.
               genDone = true;
-              reject(err as any);
+              reject(err);
               settleDrain();
               return;
             }
@@ -521,7 +521,7 @@ export function cancAsync<
     } catch (err) {
       // Sync-throw generators: genFn.apply(...) or the first gen.next() throwing synchronously
       // rejects the coroutine.
-      reject(err as any);
+      reject(err);
     }
 
     return coroutinePromise;

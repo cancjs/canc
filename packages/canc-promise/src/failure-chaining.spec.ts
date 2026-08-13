@@ -166,6 +166,24 @@ describe('failure chaining and statics', () => {
     });
     _p3.catch(() => {});
 
-    void [_p1, _p2, _p3];
+    const _p4 = new CancelablePromise<number, FooError>((_res, rej) => {
+      // @ts-expect-error An undeclared reason is rejected in a user written executor
+      rej(new BarError());
+    });
+    _p4.catch(() => {});
+
+    void [_p1, _p2, _p3, _p4];
+  });
+
+  it('leaves the resolvers reject open for internal producers', () => {
+    const { promise, reject } = CancelablePromise.withResolvers<number, FooError>();
+
+    // The producer handle forwards whatever a foreign body threw, so it takes any reason.
+    reject(new BarError());
+    reject('a string');
+    promise.catch(() => {});
+
+    const check: Eq<Parameters<typeof reject>, [reason?: any]> = true;
+    void check;
   });
 });
