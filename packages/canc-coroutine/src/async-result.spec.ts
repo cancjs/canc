@@ -1,5 +1,6 @@
 import { CancelablePromise, Failing, FailureOf } from '@cancjs/promise';
 
+import { Eq } from '../../../tests-types/fixtures/common/assert-type';
 import { AsyncResult, BreakError, cancAsync, cancAwait, cancForAwait } from './coroutine';
 
 // Type-level only: no runtime assertions needed, ts-jest typechecks this file on every run,
@@ -36,8 +37,6 @@ describe('AsyncResult type', () => {
     expect(typeof coroutine).toBe('function');
   });
 });
-
-type Eq<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 
 class FooError extends Error {
   readonly tagFoo = 'foo';

@@ -2,6 +2,7 @@ import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 
+import { Eq } from '../../../tests-types/fixtures/common/assert-type';
 import {
   AbortError,
   CancelablePromise,
@@ -11,8 +12,6 @@ import {
   createCatchError,
   isAbortError,
 } from './index';
-
-type Eq<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 
 class SmokeError extends Error {
   name = 'SmokeError';

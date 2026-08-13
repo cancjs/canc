@@ -1,5 +1,6 @@
 import { CancelablePromise, FailureOf } from '@cancjs/promise';
 
+import { Eq } from '../../../tests-types/fixtures/common/assert-type';
 import { AsyncResult, BreakError, cancAsync, cancAwait, cancForAwait, cancThrow } from './coroutine';
 import { AsyncGenResult, cancGenAsync, cancGenAwait, cancGenThrow } from './coroutine-gen';
 
@@ -12,8 +13,6 @@ class BarError extends Error {
 class BazError extends Error {
   readonly __baz = true;
 }
-
-type Eq<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 
 declare const pFoo: CancelablePromise<number, FooError>;
 declare const pBar: CancelablePromise<string, BarError>;

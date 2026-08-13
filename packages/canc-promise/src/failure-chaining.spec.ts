@@ -1,9 +1,8 @@
+import { Eq } from '../../../tests-types/fixtures/common/assert-type';
 import { CancelError } from './cancel-error';
 import { CancelablePromise } from './cancelable-promise';
 
 describe('failure chaining and statics', () => {
-  type Eq<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
-
   class FooError extends Error {
     readonly tagFoo = 'foo';
   }

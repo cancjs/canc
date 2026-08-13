@@ -1,3 +1,4 @@
+import { Eq } from '../../../tests-types/fixtures/common/assert-type';
 import { CancelablePromise } from './cancelable-promise';
 
 describe('failure variance', () => {
@@ -46,8 +47,6 @@ describe('failure variance', () => {
     const toAny: CancelablePromise<number, unknown> = plain;
     const fromNever: Promise<number> = b3;
     const fromFoo: Promise<number> = b1;
-
-    type Eq<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 
     const arr: Promise<unknown>[] = [pFoo, pBar, plainBool];
     const nativeAll = Promise.all([pFoo, pBar]);
