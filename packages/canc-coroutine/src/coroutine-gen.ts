@@ -143,7 +143,6 @@ cancGenAwait.try = makeGenCombinator(CancelablePromise.try.bind(CancelablePromis
  * strips it from the consumer-facing emit type.
  */
 export function cancGenThrow<TFailure>(error: TFailure): Generator<TAwaited<never> & Failing<TFailure>, never, any> {
-  // eslint-disable-next-line require-yield -- generator throws on first next() and never yields
   return (function* (): Generator<TAwaited<never> & Failing<TFailure>, never, any> {
     throw error;
   })();

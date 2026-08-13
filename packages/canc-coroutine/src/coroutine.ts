@@ -552,7 +552,6 @@ function createYielder<TProduce, TSend>(
  * a value"). Use `return yield* canc.throw(e)` instead, as `never` widens to any return type.
  */
 export function cancThrow<TFailure>(error: TFailure): Generator<Failing<TFailure>, never, any> {
-  // eslint-disable-next-line require-yield -- generator throws on first next() without yielding
   return (function* (): Generator<Failing<TFailure>, never, any> {
     throw error;
   })();
