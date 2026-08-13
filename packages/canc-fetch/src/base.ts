@@ -60,7 +60,7 @@ export const setupCancellation = (
   config: ICancelableFetchConfig,
   input: any,
   init: any,
-  handleCancel: IExecutorContext<any>['handleCancel'],
+  handleCancel: IExecutorContext<any, any>['handleCancel'],
 ): IFetchCancellation => {
   const _AbortController = resolveDep<AbortControllerCtor>(
     config,
@@ -260,7 +260,7 @@ export const runFetchLater = (
   init: TDeferredRequestInit | undefined,
   resolve: (value: IFetchLaterResultLike) => void,
   reject: (reason: any) => void,
-  handleCancel: IExecutorContext<any>['handleCancel'],
+  handleCancel: IExecutorContext<any, any>['handleCancel'],
   setResult: (result: IFetchLaterResultLike) => void,
 ): void => {
   const _fetchLater = resolveDep<FetchLater>(

@@ -36,9 +36,9 @@ export type TPromiseExecutor<TResult> = (
  * promise when the context is built, so `this: void` is accurate and destructuring them off the
  * context (the documented idiom) stays safe.
  */
-export interface IExecutorContext<TResult = any> {
+export interface IExecutorContext<TResult = any, TFailure = never> {
   /** Register a cleanup handler that runs when the promise is canceled. */
-  handleCancel(this: void, onCancel: TOnCancel): CancelablePromise<TResult, any>;
+  handleCancel(this: void, onCancel: TOnCancel): CancelablePromise<TResult, TFailure>;
   /** Get an AbortSignal that aborts when the promise is canceled. Lazily creates an AbortController on first call. */
   getSignal(this: void): IAbortSignal;
 }
@@ -46,7 +46,7 @@ export interface IExecutorContext<TResult = any> {
 export type TCancelablePromiseExecutor<TResult, TFailure = never> = (
   resolve: (value?: TResult | PromiseLike<TResult>) => void,
   reject: (reason?: TReason<TFailure> | CancelError) => void,
-  ctx: IExecutorContext<TResult>,
+  ctx: IExecutorContext<TResult, TFailure>,
 ) => void;
 export type TCancelReason = string | object | CancelError;
 export type TCancelFn = (reason?: TCancelReason) => void;
@@ -974,9 +974,9 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
             }
           }
 
-          let _ctx: IExecutorContext<TResult> | undefined;
+          let _ctx: IExecutorContext<TResult, TFailure> | undefined;
 
-          function getCtx(): IExecutorContext<TResult> {
+          function getCtx(): IExecutorContext<TResult, TFailure> {
             if (!_ctx) {
               let _ac: { abort(): void; signal: IAbortSignal } | undefined;
               _ctx = {
