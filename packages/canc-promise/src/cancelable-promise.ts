@@ -36,6 +36,22 @@ export type FailureOf<T> =
  * two utilities fall back differently on a non-promise input. */
 export type ResultOf<T> = Awaited<T>;
 
+/**
+ * The same promise, declaring `TFailure` in addition to whatever it already declares. Used as an
+ * annotation this is a checked widening, not a cast: TypeScript verifies the source's declared set
+ * is a subset of the result's.
+ *
+ * To REPLACE rather than add, compose the extractors directly:
+ * `CancelablePromise<ResultOf<P>, TFailure>`.
+ *
+ * Applied to a subclass of CancelablePromise this yields CancelablePromise, because a conditional
+ * type cannot reconstruct an arbitrary subclass with different type arguments.
+ */
+export type WithFailure<TPromise extends CancelablePromise<any, any>, TFailure> = CancelablePromise<
+  ResultOf<TPromise>,
+  FailureOf<TPromise> | TFailure
+>;
+
 export type TReason<TFailure> = [TFailure] extends [never] ? unknown : TFailure;
 
 export type TPromiseExecutor<TResult> = (
