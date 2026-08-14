@@ -45,6 +45,7 @@ import {
   createSuppressError,
   AbortError as ToolboxAbortError,
   TimeoutError as ToolboxTimeoutError,
+  toAbortSignal,
 } from '@cancjs/toolbox';
 
 import {
@@ -165,6 +166,9 @@ type _catchAbort = Expect<Equal<typeof ca, CancelablePromise<number | Error>>>;
 
 const sa = suppressAbort(Promise.resolve(7));
 type _suppressAbort = Expect<Equal<typeof sa, CancelablePromise<number | void>>>;
+
+const tas = toAbortSignal(Promise.resolve(7));
+type _toAbortSignal = Expect<Equal<typeof tas, AbortSignal>>;
 
 const ct = catchTimeout(Promise.resolve(7));
 type _catchTimeout = Expect<Equal<typeof ct, CancelablePromise<number | Error>>>;
