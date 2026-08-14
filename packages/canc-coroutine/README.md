@@ -455,9 +455,34 @@ InvoiceService.prototype.load = canc.async(InvoiceService.prototype.load);
 ```
 
 This is the cheapest form: one wrapped function per class, shared by all instances. In
-TypeScript, the call site still sees the generator's return type, and there is no clean way to
-correct it. Interface merging to redeclare the method's type causes "overload signature not
-compatible with its implementation signature". Use a getter style instead.
+TypeScript, the call site still sees the generator's return type. Interface merging works when the
+class does not declare the member itself, but the type must be hand-written rather than inferred.
+Use a getter style instead.
+
+#### Prototype assignment with declaration merging
+
+TypeScript users can correct the type by declaring an interface with the same name as the class,
+then assigning to the prototype:
+
+```ts
+interface InvoiceService {
+  load(invoiceId: string): CancelablePromise<Invoice>;
+}
+
+class InvoiceService {}
+
+InvoiceService.prototype.load = canc.async(function* load(this: InvoiceService, invoiceId: string) {
+  return yield* canc.await(fetchInvoice(invoiceId));
+});
+```
+
+The call site now sees `CancelablePromise<T>`, and the wrapped function is shared by all instances,
+the same as the plain JavaScript form. The type is hand-written rather than inferred, so it can
+drift from the implementation without the compiler noticing. The `this` annotation must be added
+by hand. The member appears uninitialized in the class body, which can be confusing to readers.
+
+The getter style remains the recommendation, as it infers the return type and keeps the
+initialization visible inside the class.
 
 #### Class field
 
