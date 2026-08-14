@@ -1,6 +1,6 @@
 import { Eq } from '../../../tests-types/fixtures/common/assert-type';
 import { CancelError } from './cancel-error';
-import { CancelablePromise } from './cancelable-promise';
+import { CancelablePromise, FailureOf } from './cancelable-promise';
 
 describe('failure chaining and statics', () => {
   class FooError extends Error {
@@ -172,6 +172,32 @@ describe('failure chaining and statics', () => {
     _p4.catch(() => {});
 
     void [_p1, _p2, _p3, _p4];
+  });
+
+  it('pins the throw hole and the reject idiom (chain-side twin of canc.throw)', () => {
+    const bad = false;
+    const p = CancelablePromise.resolve(1);
+
+    // KNOWN LIMITATION, pinned on purpose: the failure computation reads a callback's RETURN
+    // type, and a throw has no return type. `never` is correct here for a callback whose return
+    // type is `number` — do not "fix" this to FooError, that would be wrong for every callback
+    // that legitimately never fails. The defect this test exists to prevent is someone silently
+    // "fixing" the never below.
+    const thrown = p.then((v) => {
+      if (bad) throw new FooError();
+      return v;
+    });
+    const cThrown: Eq<FailureOf<typeof thrown>, never> = true;
+
+    // The idiom: return a rejected promise instead of throwing. This is the chain-side twin of
+    // canc.throw inside a coroutine body, and it threads through ordinary then propagation.
+    const rejected = p.then((v) => (bad ? CancelablePromise.reject(new FooError()) : v));
+    const cRejected: Eq<FailureOf<typeof rejected>, FooError> = true;
+
+    thrown.catch(() => {});
+    rejected.catch(() => {});
+
+    void [cThrown, cRejected];
   });
 
   it('leaves the resolvers reject open for internal producers', () => {

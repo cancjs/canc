@@ -315,11 +315,29 @@ class CustomA extends Error {
 }
 ```
 
+#### Failing from inside a chain callback
+
+A `then` / `catch` / `finally` callback declares a failure through its RETURN type. Throwing does not:
+
+```ts
+p.then((v) => (bad ? CancelablePromise.reject(new FooError()) : v));
+// declares FooError
+
+p.then((v) => {
+  if (bad) throw new FooError();
+  return v;
+});
+// declares nothing — the callback's return type is number, and a throw is not a return
+```
+
+Return `CancelablePromise.reject(reason)` instead of throwing whenever a callback should declare a failure. It threads through ordinary `then` propagation the same way a callback returning any other `CancelablePromise` does.
+
 #### Plain limits
 
 - `await` unwraps the fulfillment value and drops the declared failure type parameter.
 - `catch` clauses in `try`/`catch` blocks always receive `unknown`.
 - Declared failure types are a compile-time tracking aid and do not alter runtime promise execution or enforce checked exceptions.
+- A `throw` inside a `then`/`catch`/`finally` callback does not declare a failure (see "Failing from inside a chain callback" above).
 
 ### AbortSignal interop
 
