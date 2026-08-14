@@ -6,16 +6,15 @@
  * 1. packs each target package (`npm pack`) into tests-types/.tarballs/ so the
  * fixture type-checks against the BUILT, publishable dist — never src.
  * 2. materialises an isolated fixture project under tests-types/fixtures/ts-<id>/
- * (its own package.json + tsconfig + entry importing the shared common/*.ts),
+ * (its own package.json + tsconfig + its own copy of the shared common/*.ts),
  * clearing the previous generated files first so no stale config survives,
  * 3. installs that fixture's pinned `typescript` alias + the package tarballs
  * into the fixture's OWN node_modules (no workspace hoisting → versions can
  * diverge freely),
  * 4. runs the fixture-local `tsc --noEmit` and records pass/fail.
  *
- * The `latest` lane additionally compiles the type-assertion suites
- * (common/type-assertions.ts + common/coroutine-types.ts) via its
- * `typeAssertions` flag.
+ * Lanes with `typeAssertions` additionally compile the type-assertion suites
+ * (common/type-assertions.ts + common/coroutine-types.ts).
  *
  * Flags:
  * --setup-only pack + install fixtures, don't run tsc
@@ -33,6 +32,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const testsTypesDir = path.resolve(__dirname, '..');
 const repoRoot = path.resolve(testsTypesDir, '..');
 const fixturesDir = path.join(testsTypesDir, 'fixtures');
+const commonDir = path.join(fixturesDir, 'common');
 const tarballsDir = path.join(testsTypesDir, '.tarballs');
 const config = JSON.parse(fs.readFileSync(path.join(testsTypesDir, 'matrix.config.json'), 'utf8'));
 
@@ -125,6 +125,26 @@ function pruneStaleFixtures() {
   }
 }
 
+// ---- 1c. give each fixture its own copy of the shared sources -------------
+// TypeScript resolves a bare specifier starting from the directory of the file that contains it.
+// Compiling fixtures/common/api-smoke.ts in place therefore searches fixtures/common/node_modules,
+// then fixtures/, then tests-types/, then the repo root, where the workspace symlinks answer with
+// the working tree. The fixture's own node_modules is never on that path, so the pinned tarball was
+// installed and then ignored: every lane silently type-checked the working tree instead of the
+// publishable artifact. Copying the sources into the fixture puts the lookup inside the fixture,
+// which is the only way the packed tarball is what gets checked.
+function copyCommonSources(dir) {
+  const target = path.join(dir, 'common');
+  fs.mkdirSync(target, { recursive: true });
+  for (const entry of fs.readdirSync(commonDir)) {
+    if (entry.endsWith('.ts')) fs.copyFileSync(path.join(commonDir, entry), path.join(target, entry));
+  }
+}
+
+// matrix.config.json still spells the shared sources the way they sit in the tree
+// (`../common/x.ts`); they compile from the fixture's own copy.
+const localSource = (p) => `./common/${path.basename(p)}`;
+
 // ---- 2. materialise a fixture project -------------------------------------
 function writeFixture(version, tarballs) {
   const dir = path.join(fixturesDir, `ts-${version.id}`);
@@ -153,10 +173,12 @@ function writeFixture(version, tarballs) {
     ) + '\n',
   );
 
-  const files = config.commonFixtures ? [...config.commonFixtures] : ['../common/api-smoke.ts'];
+  copyCommonSources(dir);
+
+  const files = (config.commonFixtures || ['../common/api-smoke.ts']).map(localSource);
   if (version.typeAssertions) {
-    files.push('../common/type-assertions.ts');
-    files.push('../common/coroutine-types.ts');
+    files.push(localSource('type-assertions.ts'));
+    files.push(localSource('coroutine-types.ts'));
   }
 
   // Downlevel-friendly tsconfig. moduleResolution per version drives which
@@ -204,6 +226,7 @@ function writeDecoratorFixture(version, tarballs, flavor) {
   const dir = path.join(fixturesDir, `ts-${version.id}${flavor.suffix}`);
   resetFixtureDir(dir);
   fs.mkdirSync(dir, { recursive: true });
+  copyCommonSources(dir);
 
   const deps = { typescript: version.typescript };
   for (const [name, tarball] of Object.entries(tarballs)) {
@@ -241,7 +264,7 @@ function writeDecoratorFixture(version, tarballs, flavor) {
       useDefineForClassFields: false,
       types: [],
     },
-    files: [flavor.file],
+    files: [localSource(flavor.file)],
   };
   fs.writeFileSync(path.join(dir, 'tsconfig.json'), JSON.stringify(tsconfig, null, 2) + '\n');
   return dir;
