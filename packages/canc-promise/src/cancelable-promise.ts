@@ -17,12 +17,24 @@ export interface Failing<TFailure> {
   readonly [FAILURE]?: TFailure;
 }
 
+// ResultOf and FailureOf fall back differently on purpose. ResultOf<T> is a bare `Awaited<T>`, so a
+// non-promise or a plain-value yield in a coroutine body still reports its own type (never
+// `unknown`) — there is nothing to widen away from. FailureOf<T> must instead collapse to `never`
+// for the same inputs: cancAsync maps FailureOf over the coroutine's ENTIRE yield union, so a bare
+// `yield 42` or a native `await somePromise` (neither carries the phantom [FAILURE] property) would
+// poison the whole declared-failure set if it produced anything but `never`. Do not "fix" this
+// asymmetry to match; both directions are pinned by regression assertions.
 export type FailureOf<T> =
   T extends { readonly [FAILURE]?: infer F } ?
     [F] extends [undefined] ?
       never
     : F
   : never;
+
+/** The value a canc promise resolves to. Pairs with {@link FailureOf}; the two mirror the
+ * `CancelablePromise<TResult, TFailure>` parameters. See the comment above FailureOf for why the
+ * two utilities fall back differently on a non-promise input. */
+export type ResultOf<T> = Awaited<T>;
 
 export type TReason<TFailure> = [TFailure] extends [never] ? unknown : TFailure;
 
