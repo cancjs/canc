@@ -117,8 +117,8 @@ That is the promise constructor antipattern in cancelable clothing. Wrap once, c
 
 ### Signal interop
 
-`toAbortSignal(promise)` derives a signal that aborts when the promise is canceled or otherwise
-rejects, for handing cancelable work to an API that only speaks `AbortSignal`.
+`toAbortSignal(promise)` derives a signal that aborts when the promise is canceled or rejects.
+Use it when passing cancelable work to an API that only speaks `AbortSignal`.
 
 `withSignal(signal, promiseOrFn)` is the inverse convenience: it races work against an incoming
 signal, and passes the value through unraced when the signal is `undefined`, so optional
