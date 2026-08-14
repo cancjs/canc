@@ -7,6 +7,7 @@
  * fixture type-checks against the BUILT, publishable dist — never src.
  * 2. materialises an isolated fixture project under tests-types/fixtures/ts-<id>/
  * (its own package.json + tsconfig + entry importing the shared common/*.ts),
+ * clearing the previous generated files first so no stale config survives,
  * 3. installs that fixture's pinned `typescript` alias + the package tarballs
  * into the fixture's OWN node_modules (no workspace hoisting → versions can
  * diverge freely),
@@ -90,9 +91,44 @@ function packPackages() {
   return tarballs;
 }
 
+// ---- 1b. discard anything left over from a previous shape -----------------
+// Every file in a fixture dir except node_modules is generated, so a fixture is rebuilt from
+// scratch rather than written over. Writing over leaves whatever the previous config produced:
+// a `files` entry pointing at a source that no longer exists fails the lane with TS6053, and a
+// tsconfig option that was dropped from the generator keeps applying forever. node_modules is
+// preserved so `--no-install` stays useful.
+function resetFixtureDir(dir) {
+  if (!fs.existsSync(dir)) return;
+  for (const entry of fs.readdirSync(dir)) {
+    if (entry === 'node_modules') continue;
+    fs.rmSync(path.join(dir, entry), { recursive: true, force: true });
+  }
+}
+
+// Fixture dirs for lanes that are no longer in the config are dead: nothing regenerates them and
+// nothing type-checks them, but they sit in the tree looking like current state. The expected set
+// comes from the whole config, never from the --only filter, so a filtered run cannot delete the
+// lanes it was told to skip.
+function pruneStaleFixtures() {
+  if (!fs.existsSync(fixturesDir)) return;
+  const expected = new Set();
+  for (const version of config.versions) {
+    expected.add(`ts-${version.id}`);
+    if (version.decoratorTypes) {
+      for (const flavor of DECORATOR_FLAVORS) expected.add(`ts-${version.id}${flavor.suffix}`);
+    }
+  }
+  for (const entry of fs.readdirSync(fixturesDir)) {
+    if (!entry.startsWith('ts-') || expected.has(entry)) continue;
+    fs.rmSync(path.join(fixturesDir, entry), { recursive: true, force: true });
+    console.log(dim(` removed stale fixture ${entry}`));
+  }
+}
+
 // ---- 2. materialise a fixture project -------------------------------------
 function writeFixture(version, tarballs) {
   const dir = path.join(fixturesDir, `ts-${version.id}`);
+  resetFixtureDir(dir);
   fs.mkdirSync(dir, { recursive: true });
 
   const deps = { typescript: version.typescript };
@@ -166,6 +202,7 @@ const DECORATOR_FLAVORS = [
 
 function writeDecoratorFixture(version, tarballs, flavor) {
   const dir = path.join(fixturesDir, `ts-${version.id}${flavor.suffix}`);
+  resetFixtureDir(dir);
   fs.mkdirSync(dir, { recursive: true });
 
   const deps = { typescript: version.typescript };
@@ -243,6 +280,8 @@ function main() {
     console.error(red(`No versions matched --only "${onlyList.join(',')}"`));
     process.exit(2);
   }
+
+  pruneStaleFixtures();
 
   console.log(bold(`TS matrix: packing ${config.packages.length} package(s)...`));
   const tarballs = packPackages();
