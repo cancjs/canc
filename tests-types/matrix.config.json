@@ -1,5 +1,5 @@
 {
-  "comment": "TS version matrix for the fixture matrix runner. Each entry becomes an isolated fixture project with its own pinned TypeScript and its own installed tarball of the built packages. moduleResolution is chosen per version so the intended d.ts resolution path is exercised: TS<4.7 has no `exports`/`node16` support so it falls through package.json `typesVersions` to dist/types-ts4.2; TS>=4.7 reads the `exports.types@<4.7` / `types` conditions. `decoratorTypes:true` additionally materialises three extra fixture projects per version (stage-3, ts-legacy, babel-legacy audit) compiling the decorator member-type-preservation assertions against `@cancjs/decorators`; stage-3 (TC39) decorator syntax needs TS 5.0+, so only the 5.0/5.4/latest lanes set it (4.2/4.7 reject the syntax).",
+  "comment": "TS version matrix for the fixture harness. Each entry becomes an isolated fixture project with its own pinned TypeScript and its own installed tarball of the built packages. Every `typescript` value is an exact pin, never a dist-tag: a floating tag silently redefines what a lane measures, which is how the top lane started type-checking against the 7.x compiler without anyone choosing that. New compiler generations get their own lane instead. moduleResolution is chosen per version so the intended d.ts resolution path is exercised: TS<4.7 has no `exports`/`node16` support so it falls through package.json `typesVersions` to dist/types-ts4.2; TS>=4.7 reads the `exports.types@<4.7` / `types` conditions. `decoratorTypes:true` additionally materialises three extra fixture projects per version (stage-3, ts-legacy, babel-legacy audit) compiling the decorator member-type-preservation assertions against `@cancjs/decorators`; stage-3 (TC39) decorator syntax needs TS 5.0+, so only the 5.0 and newer lanes set it (4.2/4.7 reject the syntax).",
   "packages": ["canc-promise", "canc-coroutine", "canc-decorators"],
   "commonFixtures": ["../common/api-smoke.ts", "../common/failure-types.ts"],
   "versions": [
@@ -30,8 +30,16 @@
       "decoratorTypes": true
     },
     {
-      "id": "latest",
-      "typescript": "latest",
+      "id": "5.9",
+      "typescript": "5.9.3",
+      "moduleResolution": "bundler",
+      "lib": ["es2022", "dom"],
+      "typeAssertions": true,
+      "decoratorTypes": true
+    },
+    {
+      "id": "7",
+      "typescript": "7.0.2",
       "moduleResolution": "bundler",
       "lib": ["es2022", "dom"],
       "typeAssertions": true,

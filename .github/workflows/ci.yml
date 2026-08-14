@@ -84,9 +84,9 @@ jobs:
 
   ts-version-matrix:
     # Type-checks fixture projects that import the BUILT @cancjs/*
-    # packages against a matrix of pinned TypeScript versions (floor 4.2 .. latest).
+    # packages against a matrix of exactly pinned TypeScript versions (floor 4.2 up).
     # The runner packs each package, installs the tarball + a pinned tsc into each
-    # isolated fixture, then runs `tsc --noEmit`. The `latest` lane also compiles
+    # isolated fixture, then runs `tsc --noEmit`. The two newest lanes also compile
     # the type-level assertion suite. See tests-types/matrix.config.json.
     needs: build
     runs-on: ubuntu-latest
@@ -101,6 +101,21 @@ jobs:
       - run: npm run build
       - name: TS version matrix (+ type assertions)
         run: npm run matrix --workspace=@cancjs/tests-types
+
+  dist-tests:
+    # Interop checks that require() the built dist/index.cjs of several packages, so they need a
+    # build first. Kept out of the default `test` job so that lane stays source-only.
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run build
+      - run: npm run test:dist
 
   package-validation:
     # Asserts packed tarball files, publint, and attw (arethetypeswrong) per package
