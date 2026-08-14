@@ -1,10 +1,16 @@
+import fs from 'fs';
 import path from 'path';
+
+const promisePath = path.resolve(__dirname, '../../packages/canc-promise/dist/index.cjs');
+
+if (!fs.existsSync(promisePath)) {
+  throw new Error('Run "npm run build" before "npm run test:dist"');
+}
 
 describe('CommonJS default export interop', () => {
   it('exports default as module.exports for default-export packages', () => {
-    const promisePath = path.resolve(__dirname, '../dist/index.cjs');
-    const fetchPath = path.resolve(__dirname, '../../canc-fetch/dist/index.cjs');
-    const axiosPath = path.resolve(__dirname, '../../canc-axios/dist/index.cjs');
+    const fetchPath = path.resolve(__dirname, '../../packages/canc-fetch/dist/index.cjs');
+    const axiosPath = path.resolve(__dirname, '../../packages/canc-axios/dist/index.cjs');
 
     const CP = require(promisePath);
     const ft = require(fetchPath);
@@ -30,10 +36,10 @@ describe('CommonJS default export interop', () => {
   });
 
   it('keeps named-only packages as plain objects', () => {
-    const tbPath = path.resolve(__dirname, '../../canc-toolbox/dist/index.cjs');
-    const tbnPath = path.resolve(__dirname, '../../canc-toolbox-native/dist/index.cjs');
-    const coPath = path.resolve(__dirname, '../../canc-coroutine/dist/index.cjs');
-    const decPath = path.resolve(__dirname, '../../canc-decorators/dist/index.cjs');
+    const tbPath = path.resolve(__dirname, '../../packages/canc-toolbox/dist/index.cjs');
+    const tbnPath = path.resolve(__dirname, '../../packages/canc-toolbox-native/dist/index.cjs');
+    const coPath = path.resolve(__dirname, '../../packages/canc-coroutine/dist/index.cjs');
+    const decPath = path.resolve(__dirname, '../../packages/canc-decorators/dist/index.cjs');
 
     const tb = require(tbPath);
     const tbn = require(tbnPath);

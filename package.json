@@ -25,11 +25,12 @@
     "examples:typecheck": "npm --prefix examples run examples:typecheck",
     "examples:lint": "npm --prefix examples run examples:lint",
     "examples:format": "npm --prefix examples run examples:format",
+    "test:dist": "npm run test -w @cancjs/tests-dist",
     "format": "run-p -c format:workspaces format:root",
     "format:workspaces": "cross-env NODE_OPTIONS=--no-deprecation lerna run format --stream --no-bail",
     "format:root": "eslint --fix *.{js,mjs,json,md} scripts docs packages/_util packages/_toolbox"
   },
-  "workspaces": ["packages/*", "benchmarks", "tests-types"],
+  "workspaces": ["packages/*", "benchmarks", "tests-types", "tests-dist"],
   "devDependencies": {
     "@arethetypeswrong/cli": "~0.18.5",
     "@changesets/changelog-github": "~0.7.0",
