@@ -271,6 +271,13 @@ function writeDecoratorFixture(version, tarballs, flavor) {
 }
 
 function installFixture(dir) {
+  // Every build packs to the same cancjs-<pkg>-1.0.0.tgz, and npm treats a name@version already
+  // present in node_modules as satisfied, so a fixture keeps its first extraction forever: the lane
+  // then type-checks an artifact from some earlier build while looking perfectly current. Drop the
+  // packed scope and the hidden lockfile that records it so the tarballs just packed are the ones
+  // installed. `typescript` is pinned per lane and expensive to fetch, so it stays.
+  fs.rmSync(path.join(dir, 'node_modules', '@cancjs'), { recursive: true, force: true });
+  fs.rmSync(path.join(dir, 'node_modules', '.package-lock.json'), { force: true });
   // Isolated install: --no-package-lock keeps the dir clean; --no-audit/--no-fund quiet.
   run(npmCmd, ['install', '--no-package-lock', '--no-audit', '--no-fund', '--silent'], { cwd: dir });
 }
