@@ -89,6 +89,31 @@ function hasEventTarget(): boolean {
   return typeof globalThis !== 'undefined' && typeof (globalThis as any).addEventListener === 'function';
 }
 
+interface NavigatorLike {
+  userAgent?: unknown;
+}
+
+const RUNTIME_TOKENS = new Set(['node.js', 'bun', 'deno', 'cloudflare-workers']);
+
+// WinterCG runtime identification: "Node.js/22", "Bun/1.0.28", "Deno/1.40.0", "Cloudflare-Workers".
+// Absent on Node < 21 and in plenty of embedders, so this narrows when it can and says nothing
+// when it cannot. A Mozilla/... (browser or jsdom) userAgent is treated as no signal, not as
+// "browser", so a jsdom test host never outranks a real node process.
+function readRuntimeToken(): string | undefined {
+  try {
+    const nav = (globalThis as { navigator?: NavigatorLike }).navigator;
+    const userAgent = nav?.userAgent;
+    if (typeof userAgent !== 'string') {
+      return undefined;
+    }
+    const leading = userAgent.split('/', 1)[0].trim().toLowerCase();
+    return RUNTIME_TOKENS.has(leading) ? leading : undefined;
+  } catch {
+    // A hostile host can make `navigator` (or `.userAgent`) a throwing getter.
+    return undefined;
+  }
+}
+
 function makeNodeSetup(options?: RegisterOptions): () => (() => void) | null {
   return () => {
     if (!hasNodeProcess()) {
@@ -177,12 +202,35 @@ export function registerWorker(options?: RegisterOptions): void {
 }
 
 export function register(options?: RegisterOptions): void {
+  if (isElectronRuntime()) {
+    registerElectron(options);
+    return;
+  }
+
+  const token = readRuntimeToken();
+  switch (token) {
+    case 'bun':
+      registerBun(options);
+      return;
+    case 'deno':
+      registerDeno(options);
+      return;
+    case 'node.js':
+      registerNode(options);
+      return;
+    case 'cloudflare-workers':
+      registerWorker(options);
+      return;
+    default:
+      break;
+  }
+
+  // No (or unrecognized) userAgent token: fall back to the original global/process.versions
+  // sniffing, kept literally intact.
   if (isBunRuntime()) {
     registerBun(options);
   } else if (isDenoRuntime()) {
     registerDeno(options);
-  } else if (isElectronRuntime()) {
-    registerElectron(options);
   } else if (typeof process !== 'undefined' && (process as any).versions?.node) {
     registerNode(options);
   } else if (hasEventTarget()) {
