@@ -52,6 +52,31 @@ export type WithFailure<TPromise extends CancelablePromise<any, any>, TFailure> 
   FailureOf<TPromise> | TFailure
 >;
 
+/**
+ * Declares what a promise rejects with, replacing whatever it declared before.
+ *
+ * This ASSERTS and verifies nothing at runtime; it exists for the direction {@link WithFailure}
+ * refuses: narrowing or replacing an already-declared set. Where the change is only ADDING a
+ * failure, prefer the checked annotation, which needs no call at all:
+ *
+ * ```ts
+ * const declared: WithFailure<typeof promise, HttpError> = promise;
+ * ```
+ *
+ * Called as `withFailure<HttpError>()(promise)`. The two calls are not currying for its own sake:
+ * `TFailure` is the only type parameter a caller ever names, and TypeScript has no syntax for
+ * "supply this type argument explicitly, infer the rest from the value argument" in a single
+ * call — an explicit type-argument list is all-or-nothing past any parameter without a default,
+ * and a defaulted trailing parameter takes the default verbatim rather than being retried against
+ * the argument. Splitting the value type into its own call keeps the value type intact through
+ * ordinary inference instead of collapsing it to `any` or `unknown`.
+ */
+export function withFailure<TFailure>() {
+  return function <TResult>(promise: CancelablePromise<TResult, any>): CancelablePromise<TResult, TFailure> {
+    return promise as unknown as CancelablePromise<TResult, TFailure>;
+  };
+}
+
 export type TReason<TFailure> = [TFailure] extends [never] ? unknown : TFailure;
 
 export type TPromiseExecutor<TResult> = (

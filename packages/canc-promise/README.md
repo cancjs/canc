@@ -262,6 +262,8 @@ Declared failures can be specified or extracted using three type forms:
 - `FailureOf<T>`: extracts the declared failure set from a promise type. For example, `FailureOf<CancelablePromise<string, HttpError>>` evaluates to `HttpError`.
 - `Failing<TFailure>`: structural interface carrying the phantom symbol key (`FAILURE`) for types that declare failures.
 
+`WithFailure<TPromise, TFailure>` declares an additional failure on a promise type as a checked annotation (`const declared: WithFailure<typeof promise, HttpError> = promise` only compiles when the addition is a real widening). `withFailure<TFailure>()(promise)` is the unchecked counterpart for the direction the annotation refuses: narrowing or replacing an already-declared set. It asserts and verifies nothing, is a no-op at runtime, and exists so that direction stays a visible, greppable call instead of a cast. Prefer the annotation whenever the change is only adding a failure.
+
 #### Error helper families
 
 Error matching and suppression helpers are available in three families:

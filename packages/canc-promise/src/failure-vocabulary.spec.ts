@@ -1,5 +1,14 @@
 import { Assert, Eq } from '../../../tests-types/fixtures/common/assert-type';
-import { CancelablePromise, Failing, FAILURE, FailureOf, ResultOf, TReason, WithFailure } from './cancelable-promise';
+import {
+  CancelablePromise,
+  Failing,
+  FAILURE,
+  FailureOf,
+  ResultOf,
+  TReason,
+  WithFailure,
+  withFailure,
+} from './cancelable-promise';
 
 class FooError extends Error {
   name = 'FooError';
@@ -67,5 +76,30 @@ describe('Failure vocabulary', () => {
     const _subCheck: Assert<Eq<typeof subWidened, CancelablePromise<number, FooError | BarError>>> = true;
 
     void [a, b, c, subWidened];
+  });
+
+  it('withFailure narrows/replaces an already-declared set, value type intact, no-op at runtime', () => {
+    const pBoth = null as unknown as CancelablePromise<number, FooError | BarError>;
+    const pFoo = null as unknown as CancelablePromise<number, FooError>;
+
+    // 1. narrows where WithFailure (the annotation) refuses: FooError | BarError -> FooError alone
+    const narrowed = withFailure<FooError>()(pBoth);
+    const _narrowedCheck: Assert<Eq<typeof narrowed, CancelablePromise<number, FooError>>> = true;
+
+    // 2. replaces rather than adds: FooError -> BarError, not FooError | BarError
+    const replaced = withFailure<BarError>()(pFoo);
+    const _replacedCheck: Assert<Eq<typeof replaced, CancelablePromise<number, BarError>>> = true;
+
+    // 3. the value type survives -- it is inferred in the second call, never widened to `any`
+    const stringSource = null as unknown as CancelablePromise<string, FooError>;
+    const stillString = withFailure<BarError>()(stringSource);
+    const _valueCheck: Assert<Eq<typeof stillString, CancelablePromise<string, BarError>>> = true;
+
+    // 4. runtime no-op: the returned reference is the SAME object, nothing rewrapped or checked
+    const real = CancelablePromise.resolve(1) as unknown as CancelablePromise<number, FooError>;
+    const relabeled = withFailure<BarError>()(real);
+    expect(relabeled).toBe(real);
+
+    void [narrowed, replaced, stillString];
   });
 });
