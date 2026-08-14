@@ -1,4 +1,4 @@
-import { CancelablePromise, CancelError, isCancelError } from '@cancjs/promise';
+import { CancelablePromise, CancelError, isCancelError, isCancelSignal } from '@cancjs/promise';
 
 import { createAbortSignal, toAbortSignal, withSignal } from './abort';
 import { AbortError, isAbortError } from './errors';
@@ -7,6 +7,13 @@ import { timeout } from './prebound';
 function abortReason(controller = new AbortController()): Error {
   controller.abort();
   return controller.signal.reason as Error;
+}
+
+/** Deterministic microtask flush for cancel-cascade settlement (mirrors the core promise suite). */
+async function drain(turns = 6): Promise<void> {
+  for (let i = 0; i < turns; i++) {
+    await Promise.resolve();
+  }
 }
 
 const platformDomException = (globalThis as unknown as { DOMException?: new (...args: any[]) => object }).DOMException;
@@ -121,6 +128,99 @@ describe('toAbortSignal: inverse interop (promise cancels -> signal fires)', () 
     await Promise.resolve();
     await Promise.resolve();
     expect(signal.aborted).toBe(false);
+  });
+});
+
+// A canc input is wired through handleCancel, not .then, so it no longer registers as a chain
+// consumer: taking a signal off a bubble-capable promise must not change that promise's own
+// cancellation semantics. The plain-thenable branch above is untouched (any rejection aborts).
+describe('toAbortSignal: canc promises take the cancel path, not the rejection path', () => {
+  it('does not suppress bubble-cancel (fails on the old .then-based wiring)', async () => {
+    const parent = new CancelablePromise<number>(() => {
+      /**/
+    });
+    const child = parent.then((v) => v);
+    // Silence the child's own rejection; it is the node being canceled directly, not the one
+    // expected to bubble-cancel from below.
+    child.then(undefined, () => {
+      /**/
+    });
+
+    toAbortSignal(parent);
+
+    expect((parent as any)._chainsCount).toBe(1);
+
+    child.cancel();
+    await drain();
+
+    expect(parent.isCanceled).toBe(true);
+  });
+
+  it('returns a branded cancel signal', () => {
+    const p = new CancelablePromise<void>(() => {
+      /**/
+    });
+    expect(isCancelSignal(toAbortSignal(p))).toBe(true);
+  });
+
+  it('aborts with a CancelError carrying the cancel message', async () => {
+    const p = new CancelablePromise<void>(() => {
+      /**/
+    });
+    const signal = toAbortSignal(p);
+    p.cancel('stop');
+    await drain();
+    expect(isCancelError(signal.reason)).toBe(true);
+    expect((signal.reason as CancelError).message).toBe('stop');
+  });
+
+  it('a plain-Error rejection (not a cancel) leaves the signal unaborted', async () => {
+    const p = new CancelablePromise<void>((_resolve, reject) => reject(new Error('boom')));
+    const signal = toAbortSignal(p);
+    await p.catch(() => undefined);
+    await drain();
+    expect(signal.aborted).toBe(false);
+  });
+
+  it('a fulfilled canc promise never aborts the signal', async () => {
+    const p = new CancelablePromise<string>((resolve) => resolve('done'));
+    const signal = toAbortSignal(p);
+    await p;
+    await drain();
+    expect(signal.aborted).toBe(false);
+  });
+
+  it('an already-canceled canc input aborts after one microtask, strict does not throw', async () => {
+    const p = new CancelablePromise<void>(
+      () => {
+        /**/
+      },
+      { strict: true },
+    );
+    p.cancel('already gone');
+    await drain();
+
+    let signal: AbortSignal | undefined;
+    expect(() => {
+      signal = toAbortSignal(p);
+    }).not.toThrow();
+
+    await Promise.resolve();
+
+    expect(signal!.aborted).toBe(true);
+    expect(isCancelError(signal!.reason)).toBe(true);
+    expect((signal!.reason as CancelError).message).toBe('already gone');
+  });
+});
+
+describe('toAbortSignal: plain thenable regression (untouched branch)', () => {
+  it('still aborts with the exact rejection reason', async () => {
+    const reason = new Error('x');
+    const signal = toAbortSignal(Promise.reject(reason));
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(signal.aborted).toBe(true);
+    expect(signal.reason).toBe(reason);
   });
 });
 

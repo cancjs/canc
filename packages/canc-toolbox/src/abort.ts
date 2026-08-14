@@ -1,3 +1,5 @@
+import { createCancelSignal, isCancPromise } from '@cancjs/promise';
+
 // withSignal has no toolbox options and always returns a plain native promise, so there is no
 // resolved Impl to route through; capture the native constructor once at module load instead of
 // reading the live global on every call.
@@ -14,12 +16,28 @@ export function createAbortSignal(): { signal: AbortSignal; abort: (reason?: unk
 }
 
 /**
- * Inverse interop: derive an AbortSignal that fires when `promise` cancels (or otherwise rejects).
- * Lets a cancelable operation drive a downstream API that only speaks AbortSignal (fetch, an
- * AbortSignal.any composition, etc). A fulfilled promise never aborts the signal. The returned
- * controller's own `abort()` is also honored, so callers may compose or force-abort it.
+ * Inverse interop: derive an AbortSignal that fires when `promise` cancels. Lets a cancelable
+ * operation drive a downstream API that only speaks AbortSignal (fetch, an AbortSignal.any
+ * composition, etc). A fulfilled promise never aborts the signal. The returned controller's own
+ * `abort()` is also honored, so callers may compose or force-abort it.
+ *
+ * For a canc promise this fires on cancelation only, not on an ordinary rejection: the signal is
+ * wired through `handleCancel`, not `.then`, so taking a signal off a promise never registers as
+ * a consumer and never suppresses that promise's own bubble-cancel propagation. A plain thenable
+ * has no cancelation to distinguish from a rejection, so it keeps the old any-rejection behavior.
  */
 export function toAbortSignal(promise: PromiseLike<unknown>): AbortSignal {
+  if (isCancPromise(promise)) {
+    const { signal, cancel } = createCancelSignal();
+
+    // handleCancel does not touch _chainsCount, so taking a signal off a promise no longer counts
+    // as consuming it and bubble propagation still fires. `immediate` covers an input that is
+    // already canceled and suppresses the strict-mode throw on a settled promise.
+    promise.handleCancel(cancel, { immediate: true });
+
+    return signal;
+  }
+
   const controller = new AbortController();
 
   promise.then(
