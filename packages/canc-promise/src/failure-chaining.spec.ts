@@ -200,6 +200,32 @@ describe('failure chaining and statics', () => {
     void [cThrown, cRejected];
   });
 
+  it('treats an unknown rejection reason as no declared failure', () => {
+    // An undeclared reason contributes nothing to the declared set: reject(new FooError()) is
+    // unaffected, reject(unknown) collapses to never, and a selective-rethrow on an undeclared
+    // promise no longer poisons the union with unknown.
+    const rFoo = CancelablePromise.reject(new FooError());
+    const cFoo: Eq<FailureOf<typeof rFoo>, FooError> = true;
+    rFoo.catch(() => {});
+
+    const unknownBinding = 1 as unknown;
+    const rUnknown = CancelablePromise.reject(unknownBinding);
+    const cUnknown: Eq<FailureOf<typeof rUnknown>, never> = true;
+    rUnknown.catch(() => {});
+
+    function isErrorOf<E extends new (...a: never[]) => Error>(e: unknown, ctor: E): e is InstanceType<E> {
+      return e instanceof ctor;
+    }
+    const pUndeclared = CancelablePromise.resolve(1) as any as CancelablePromise<number>;
+    const rRethrow = pUndeclared.catch((f) =>
+      isErrorOf(f, FooError) ? CancelablePromise.reject(new BarError()) : CancelablePromise.reject(f),
+    );
+    const cRethrow: Eq<FailureOf<typeof rRethrow>, BarError> = true;
+    rRethrow.catch(() => {});
+
+    void [cFoo, cUnknown, cRethrow];
+  });
+
   it('leaves the resolvers reject open for internal producers', () => {
     const { promise, reject } = CancelablePromise.withResolvers<number, FooError>();
 
