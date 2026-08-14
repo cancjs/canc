@@ -10,15 +10,17 @@ In modern runtimes such as Node.js 15+, unhandled rejections cause the process t
 
 ## Runtime Edge Cases
 
-### Environment Detection and JSDOM
+### Detection Order
 
-The automatic `register()` function checks for Node.js environment signatures before inspecting browser globals:
+The `register()` function determines the runtime environment by checking signals in order: electron detection (orthogonal check), then the `navigator.userAgent` string (the WinterCG convention), then the fallback chain using `globalThis` properties and `process.versions`. This layered approach avoids false positives and ensures correct detection across diverse JavaScript environments.
 
-```ts
-typeof process !== 'undefined' && process.versions?.node
-```
+**First signal: Electron.** Checked via `process.versions.electron`. Electron is orthogonal—a renderer process has both a Node.js process and a DOM, so both rejection mechanisms are hooked there. Main process gets only the process hook.
 
-This sequence prevents false-positive browser detection in headless test environments like `jsdom`, where `window.addEventListener` exists alongside Node.js process APIs.
+**Primary signal: Runtime token from navigator.userAgent.** On Node.js 21+, Deno 2+, Bun, and Cloudflare Workers, `navigator.userAgent` contains a runtime-identifying string: `Node.js/22`, `Deno/1.40.0`, `Bun/1.0.28`, or `Cloudflare-Workers`. When a recognized token is present, it routes directly to the corresponding handler. Unrecognized or browser-shaped strings (like `Mozilla/5.0 (...) jsdom/20.0.0`) return no signal and fall through to the fallback chain.
+
+**Fallback chain: Globals and process.versions.** For Node.js 18 and 20 (which have no `navigator`), or when `navigator.userAgent` provides no signal, the package checks `globalThis.Bun`, `globalThis.Deno`, `process.versions.node`, and other global properties to pick the handler. This chain preserves behavior for legacy environments and acts as a safety net when the navigator is absent or unreadable.
+
+**Residual case.** A runtime with no navigator and no distinguishing global still falls through to a warn-path fallback handler. This is intentional, not a guess. It ensures the package does not crash in unknown JavaScript environments while remaining honest about the limitations.
 
 ### Electron Dual-Context Architecture
 
@@ -29,9 +31,21 @@ Electron apps run in two distinct execution environments:
 
 Calling `register()` inside both main and renderer entry points automatically selects the correct target handler for each context.
 
+### Environment Detection and JSDOM
+
+In headless test environments like `jsdom`, the runtime populates `navigator.userAgent` with a browser-shaped string (`Mozilla/5.0 (...) jsdom/20.0.0`), while `process.versions.node` is also populated. The detection logic treats a browser-shaped string as "no signal" and falls through to the process.versions check, correctly routing to the Node.js handler instead of the browser handler.
+
+This prevents false-positive browser detection in test suites and ensures cancellation rejections are suppressed through the same mechanism as in production Node.js.
+
 ### Bundler Polyfills
 
 Bundlers such as Webpack, Vite, or Rollup may define a stubbed `process` object in browser builds. The package verifies `process.versions.node` to ensure dummy `process` objects are not mistaken for a native Node.js environment.
+
+### Edge and Worker Runtimes
+
+Cloudflare Workers, Netlify Edge, Vercel Edge, and similar runtimes populate `navigator.userAgent` with a platform-specific string such as `Cloudflare-Workers`. The detection logic reads this string and routes to the event-listener handler, correctly registering as `worker` in diagnostic output rather than misidentifying as browser or falling back to a generic mechanism.
+
+Web Workers and Service Workers lack a distinguishing navigator string and are identified through the fallback check for `globalThis.addEventListener`.
 
 ### Bun Test Strict Rejections
 

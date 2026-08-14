@@ -83,17 +83,23 @@ Treating cancellation as rejection preserves standard `try`/`catch` control flow
 
 ### Environment detection
 
-The `register()` function automatically detects your runtime environment in the following order:
+The `register()` function detects your runtime environment by checking signals in order: electron (orthogonal check), then the `navigator.userAgent` string (primary), then global properties and `process.versions` (fallback). The detection logic is layered to avoid false positives and ensure accuracy across diverse JavaScript environments.
 
-| Environment        | Detection Rule                | Registration Strategy                                 |
-| ------------------ | ----------------------------- | ----------------------------------------------------- |
-| Bun                | `globalThis.Bun`              | `process.on('unhandledRejection')`                    |
-| Deno               | `globalThis.Deno`             | `globalThis.addEventListener('unhandledrejection')`   |
-| Electron           | `process.versions.electron`   | `process.on()` plus the event listener when it exists |
-| Node.js            | `process.versions.node`       | `process.on('unhandledRejection')`                    |
-| Browsers / Workers | `globalThis.addEventListener` | `globalThis.addEventListener('unhandledrejection')`   |
+**First check: Electron.** `process.versions.electron` is an orthogonal detection. Electron renderers have both a Node.js process and a DOM, so both rejection mechanisms are hooked there. Main processes get only the process hook.
 
-Bun, Deno, and Electron are all checked before `process.versions.node`, because all three define it. Deno 2 runs Node.js compatibility by default, so a `process.versions.node` check alone would take Deno down the Node.js path, and which path it took would depend on the Deno version. Bun uses the Node.js process hook, and the registration is labeled bun so duplicate registration warnings name the real environment. Deno uses the event listener, which it supports in both 1.x and 2.x. An Electron renderer has a Node.js process and a DOM, and renderer rejections land on the DOM event, so both targets are hooked there. An Electron main process has no `addEventListener` and gets the process hook only. Specific registration functions (`registerNode()`, `registerBrowser()`, `registerDeno()`, `registerBun()`, `registerWorker()`, `registerElectron()`) are also exported for explicit control.
+**Primary signal: Runtime token from navigator.userAgent.** On Node.js 21+, Deno 2+, Bun, and edge runtimes like Cloudflare Workers, `navigator.userAgent` contains a runtime identifier. Recognized strings like `Node.js/22`, `Deno/1.40.0`, `Bun/1.0.28`, and `Cloudflare-Workers` route directly to the correct handler. Browser-shaped strings return no signal and fall through to the fallback chain.
+
+**Fallback chain: Globals and process.versions.** For Node.js 18 and 20 (which have no `navigator`), or when `navigator.userAgent` provides no signal, the package checks `globalThis.Bun`, `globalThis.Deno`, `process.versions.node`, and `globalThis.addEventListener` to select the handler.
+
+| Environment                 | Handler                                                    |
+| --------------------------- | ---------------------------------------------------------- |
+| Electron (renderer)         | `process.on()` plus event listener                         |
+| Electron (main process)     | `process.on('unhandledRejection')`                         |
+| Node.js 21+ / Bun / Deno 2+ | `process.on('unhandledRejection')` via navigator.userAgent |
+| Cloudflare Workers / Edge   | `addEventListener('unhandledrejection')`                   |
+| Browsers / Web Workers      | `addEventListener('unhandledrejection')`                   |
+
+Specific registration functions (`registerNode()`, `registerBrowser()`, `registerDeno()`, `registerBun()`, `registerWorker()`, `registerElectron()`) are also exported for explicit control.
 
 ### Widening the suppression scope
 
