@@ -24,6 +24,18 @@
         "types": "./dist/types/index.d.ts",
         "default": "./dist/index.cjs"
       }
+    },
+    "./async-iter": {
+      "import": {
+        "types@<4.7": "./dist/types-ts4.2/async-iter.d.mts",
+        "types": "./dist/types/async-iter.d.mts",
+        "default": "./dist/async-iter.mjs"
+      },
+      "require": {
+        "types@<4.7": "./dist/types-ts4.2/async-iter.d.ts",
+        "types": "./dist/types/async-iter.d.ts",
+        "default": "./dist/async-iter.cjs"
+      }
     }
   },
   "main": "dist/index.cjs",
