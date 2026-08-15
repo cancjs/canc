@@ -117,7 +117,9 @@ That is the promise constructor antipattern in cancelable clothing. Wrap once, c
 
 ### Signal interop
 
-`toAbortSignal(promise)` derives a signal that aborts when the promise is canceled or rejects.
+`toAbortSignal(promise)` derives a signal from a promise. For a cancelable promise, the signal
+aborts when the promise is canceled, not on rejection. For a plain promise or thenable, the signal
+aborts on any rejection, because a plain promise has no cancelation to distinguish from a rejection.
 Use it when passing cancelable work to an API that only speaks `AbortSignal`.
 
 `withSignal(signal, promiseOrFn)` is the inverse convenience: it races work against an incoming
@@ -284,7 +286,7 @@ floor on success, not a timer. Pick the one that matches what a failure should d
 
 | Export                            | Description                                                      |
 | --------------------------------- | ---------------------------------------------------------------- |
-| `toAbortSignal(promise)`          | Signal that aborts when the promise cancels or rejects           |
+| `toAbortSignal(promise)`          | Signal that aborts when a cancelable promise is canceled         |
 | `withSignal(signal, promiseOrFn)` | Races work against a signal, passes through when there is none   |
 | `createAbortSignal()`             | Plain `AbortController` convenience, returns `{ signal, abort }` |
 

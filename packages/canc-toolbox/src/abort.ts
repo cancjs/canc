@@ -18,8 +18,7 @@ export function createAbortSignal(): { signal: AbortSignal; abort: (reason?: unk
 /**
  * Inverse interop: derive an AbortSignal that fires when `promise` cancels. Lets a cancelable
  * operation drive a downstream API that only speaks AbortSignal (fetch, an AbortSignal.any
- * composition, etc). A fulfilled promise never aborts the signal. The returned controller's own
- * `abort()` is also honored, so callers may compose or force-abort it.
+ * composition, etc). A fulfilled promise never aborts the signal.
  *
  * For a canc promise this fires on cancelation only, not on an ordinary rejection: the signal is
  * wired through `handleCancel`, not `.then`, so taking a signal off a promise never registers as
