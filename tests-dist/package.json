@@ -8,6 +8,8 @@
     "node": ">=18"
   },
   "scripts": {
-    "test": "jest --colors"
+    "test": "jest --colors",
+    "lint": "eslint .",
+    "format": "eslint --fix ."
   }
 }
