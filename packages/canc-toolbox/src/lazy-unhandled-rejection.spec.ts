@@ -18,12 +18,15 @@ import * as path from 'path';
  */
 
 const lazySource = path.join(__dirname, '..', '..', '_toolbox', 'lazy', 'lazy-promise.ts');
+const baseDir = path.join(__dirname, '..', '..');
 
 // Require-hook: transpile .ts on the fly with the TS compiler so the child runs current source.
 const hook = `
 const ts = require(${JSON.stringify(require.resolve('typescript'))});
 const Module = require('module');
 const fs = require('fs');
+const path = require('path');
+const baseDir = ${JSON.stringify(baseDir)};
 Module._extensions['.ts'] = function (module, filename) {
  const source = fs.readFileSync(filename, 'utf8');
  const out = ts.transpileModule(source, {
@@ -37,6 +40,16 @@ Module._extensions['.ts'] = function (module, filename) {
  fileName: filename
  });
  module._compile(out.outputText, filename);
+};
+const origResolveFilename = Module._resolveFilename;
+Module._resolveFilename = function (request, parent, isMain) {
+ const match = request.match(new RegExp('^@cancjs/(.+)$'));
+ if (match) {
+  const pkgName = match[1];
+  const srcPath = path.join(baseDir, 'canc-' + pkgName, 'src', 'index.ts');
+  return origResolveFilename(srcPath, parent, isMain);
+ }
+ return origResolveFilename(request, parent, isMain);
 };
 `;
 
