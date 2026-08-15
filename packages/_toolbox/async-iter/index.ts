@@ -4,6 +4,7 @@ export { drop, filter, flatMap, map, take } from './operators';
 export type { IAsyncIterOptions } from './options';
 export type { ISplitConfigResult } from './options';
 export { splitConfig } from './options';
+export { makePipeable, pipe } from './pipe';
 export type { ISourceNormalized } from './pull';
 export { callReturn, getSource } from './pull';
 export { concat, from, zip, zipKeyed } from './sources';

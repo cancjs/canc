@@ -1,19 +1,13 @@
 import type { AnyIterable, IAsyncIterOptions } from '.';
 import { splitConfig } from './options';
 import { callReturn, getSource } from './pull';
-import { isPipeable } from './types';
 
 /**
  * Normalize a source into an async iterable.
  * Accepts: async iterable, sync iterable, single promise, or single value.
- * Returns an async iterable (or a wrapper if it's already pipeable).
+ * Note: The canc entry point wraps this result with makePipeable to add the pipe method.
  */
 export function from<T>(source: AnyIterable<T> | PromiseLike<T> | T, _opts?: IAsyncIterOptions): AsyncIterable<T> {
-  // If already pipeable, return as-is (avoids double-wrap)
-  if (isPipeable(source)) {
-    return source as AsyncIterable<T>;
-  }
-
   // If it's a thenable (promise), yield its value
   if (source != null && typeof (source as any).then === 'function') {
     return createAsyncIterable<T>(async function* () {
