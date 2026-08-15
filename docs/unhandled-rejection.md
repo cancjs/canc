@@ -45,9 +45,13 @@ Bundlers such as Webpack, Vite, or Rollup may define a stubbed `process` object 
 
 ### Edge and Worker Runtimes
 
-Cloudflare Workers is recognized by the `Cloudflare-Workers` navigator token and registers as `worker`. Netlify Edge Functions run on Deno and arrive with a `Deno/x.y.z` userAgent, routing correctly to the event listener through the `deno` branch. Vercel Edge Runtime implements no `navigator` and falls through to the global chain, registering as `browser` if an event target is available.
+Cloudflare Workers is recognized by the `Cloudflare-Workers` navigator token and registers as `worker`. Netlify Edge Functions run on Deno Deploy and arrive with a `Deno/x.y.z` userAgent, routing to the event listener. Vercel Edge Runtime and other runtimes without a `navigator` fall through to the global chain, registering via the available mechanism.
 
-Web Workers and Service Workers lack a recognized navigator token and are identified through the fallback check for `globalThis.addEventListener`.
+**Vercel Edge.** Vercel's Edge Runtime exposes a documented `EdgeRuntime` global with the value `'edge-runtime'`. This package detects the global and registers via `registerEdgeRuntime()`, labeled `edge-runtime`. The detection branch sits between the standardized userAgent signals and the legacy fallback chain. Explicit registration is available for runtimes where autodetection is not desired.
+
+**Worker label ambiguity.** The label `worker` names both the autodetected Cloudflare Workers registration (via the `Cloudflare-Workers` userAgent token) and the explicit `registerWorker()` export for Web Workers and Service Workers. Web and Service Workers lack a recognized userAgent token and are identified through fallback global checks. Cloudflare also gets the same label through autodetection. The single label is accepted as-is.
+
+**Other edge runtimes.** Runtimes without a recognized userAgent token and no explicitly exported registrar fall through to the global/`process.versions` chain. If they have a global `addEventListener`, they register as `browser`. This preserves behavior for unknown JavaScript environments while remaining honest about the limitations.
 
 ### Bun Test Strict Rejections
 
