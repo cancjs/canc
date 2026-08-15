@@ -2,6 +2,7 @@ import {
   register,
   registerBun,
   registerDeno,
+  registerEdgeRuntime,
   registerElectron,
   registerNode,
   registerWorker,
@@ -319,6 +320,118 @@ describe('environment detection', () => {
       register();
 
       expect(process.listenerCount('unhandledRejection')).toBe(before + 1);
+    });
+  });
+
+  describe('EdgeRuntime global', () => {
+    let addSpy: jest.Mock;
+    let removeSpy: jest.Mock;
+    let originalAdd: unknown;
+    let originalRemove: unknown;
+    let originalEdgeRuntimeDescriptor: PropertyDescriptor | undefined;
+
+    beforeEach(() => {
+      addSpy = jest.fn();
+      removeSpy = jest.fn();
+      originalAdd = (globalThis as any).addEventListener;
+      originalRemove = (globalThis as any).removeEventListener;
+      (globalThis as any).addEventListener = addSpy;
+      (globalThis as any).removeEventListener = removeSpy;
+      originalEdgeRuntimeDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'EdgeRuntime');
+      Object.defineProperty(globalThis, 'EdgeRuntime', { configurable: true, value: 'edge-runtime' });
+    });
+
+    afterEach(() => {
+      (globalThis as any).addEventListener = originalAdd;
+      (globalThis as any).removeEventListener = originalRemove;
+      if (originalEdgeRuntimeDescriptor) {
+        Object.defineProperty(globalThis, 'EdgeRuntime', originalEdgeRuntimeDescriptor);
+      } else {
+        delete (globalThis as any).EdgeRuntime;
+      }
+    });
+
+    it('register() hooks the event target and labels the registration edge-runtime', () => {
+      const before = process.listenerCount('unhandledRejection');
+
+      register();
+
+      expect(addSpy).toHaveBeenCalledWith('unhandledrejection', expect.any(Function));
+      expect(process.listenerCount('unhandledRejection')).toBe(before);
+
+      registerEdgeRuntime();
+
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('already registered for type "edge-runtime"'));
+    });
+
+    it('registerEdgeRuntime() attaches and detaches the global listener', () => {
+      registerEdgeRuntime();
+
+      expect(addSpy).toHaveBeenCalledWith('unhandledrejection', expect.any(Function));
+
+      registerEdgeRuntime();
+
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('already registered for type "edge-runtime"'));
+
+      unregister();
+
+      expect(removeSpy).toHaveBeenCalledWith('unhandledrejection', expect.any(Function));
+    });
+
+    it('a Node.js userAgent wins over the EdgeRuntime global', () => {
+      stubNavigator('Node.js/22');
+      const before = process.listenerCount('unhandledRejection');
+
+      register();
+
+      expect(process.listenerCount('unhandledRejection')).toBe(before + 1);
+      expect(addSpy).not.toHaveBeenCalled();
+    });
+
+    it('the EdgeRuntime global wins over a bare globalThis.Deno', () => {
+      (globalThis as any).Deno = {};
+      const before = process.listenerCount('unhandledRejection');
+
+      try {
+        register();
+
+        expect(addSpy).toHaveBeenCalledWith('unhandledrejection', expect.any(Function));
+        expect(process.listenerCount('unhandledRejection')).toBe(before);
+
+        registerEdgeRuntime();
+
+        expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('already registered for type "edge-runtime"'));
+      } finally {
+        delete (globalThis as any).Deno;
+      }
+    });
+
+    it('without the EdgeRuntime global the fallback chain is unchanged', () => {
+      delete (globalThis as any).EdgeRuntime;
+      const before = process.listenerCount('unhandledRejection');
+
+      register();
+
+      expect(process.listenerCount('unhandledRejection')).toBe(before + 1);
+      expect(addSpy).not.toHaveBeenCalled();
+
+      registerEdgeRuntime();
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('already registered (node), registering edge-runtime'),
+      );
+    });
+
+    it('an unrecognized userAgent token with no EdgeRuntime falls through to the global chain', () => {
+      delete (globalThis as any).EdgeRuntime;
+      // AWS LLRT reports "llrt 1.2.3", space separated, so the whole string is the leading token.
+      stubNavigator('llrt 1.2.3');
+      const before = process.listenerCount('unhandledRejection');
+
+      register();
+
+      expect(process.listenerCount('unhandledRejection')).toBe(before + 1);
+      expect(addSpy).not.toHaveBeenCalled();
     });
   });
 });
