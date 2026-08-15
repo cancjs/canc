@@ -1,5 +1,3 @@
-import type { IPromiseKind } from '../kind';
-
 export const PIPE_OP_BRAND = Symbol.for('@cancjs/toolbox:PipeOp');
 export const TERM_OP_BRAND = Symbol.for('@cancjs/toolbox:TermOp');
 export const PIPEABLE_BRAND = Symbol.for('@cancjs/toolbox:Pipeable');
@@ -45,9 +43,12 @@ export function isPipeable(value: unknown): value is IPipeableAsyncIterable<any>
 
 export type AnyIterable<T> = AsyncIterable<T> | Iterable<T>;
 
-export type TPromiseCtor = {
-  new <T>(executor: (resolve: (value: T | PromiseLike<T>) => void, reject: (reason?: any) => void, ctx?: any) => void, options?: any): PromiseLike<T>;
+export interface TPromiseCtor {
+  new <T>(
+    executor: (resolve: (value: T | PromiseLike<T>) => void, reject: (reason?: any) => void, ctx?: any) => void,
+    options?: any,
+  ): PromiseLike<T>;
   resolve<T>(value: T | PromiseLike<T>): PromiseLike<T>;
-};
+}
 
 export type TMakePipeableFactory = <T>(asyncIterable: AsyncIterable<T>) => IPipeableAsyncIterable<T>;

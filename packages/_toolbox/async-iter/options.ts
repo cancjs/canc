@@ -1,9 +1,7 @@
 import { isFunction, isObjectLike } from '../guards';
 import { isPipeOp, isTermOp } from './types';
 
-export interface IAsyncIterOptions {
-  //
-}
+export type IAsyncIterOptions = object;
 
 export interface ISplitConfigResult<T> {
   config: IAsyncIterOptions;
@@ -44,7 +42,6 @@ function isIterable(value: unknown): boolean {
     return false;
   }
   return (
-    typeof (value as any)[Symbol.iterator] === 'function' ||
-    typeof (value as any)[Symbol.asyncIterator] === 'function'
+    typeof (value as any)[Symbol.iterator] === 'function' || typeof (value as any)[Symbol.asyncIterator] === 'function'
   );
 }
