@@ -12,17 +12,19 @@ In modern runtimes such as Node.js 15+, unhandled rejections cause the process t
 
 ### Detection Order
 
-The `register()` function determines the runtime environment by checking signals in order: electron detection (orthogonal check), then the `navigator.userAgent` string (the WinterCG convention), then the fallback chain using `globalThis` properties and `process.versions`. This layered approach avoids false positives and ensures correct detection across diverse JavaScript environments.
+The `register()` function determines the runtime environment by checking signals in order: electron detection (orthogonal check), then the `navigator.userAgent` string (the WinterCG convention), then the fallback chain using `globalThis` properties and `process.versions`.
 
 **First signal: Electron.** Checked via `process.versions.electron`. Electron is orthogonal: a renderer process has both a Node.js process and a DOM, so both rejection mechanisms are hooked there. Main process gets only the process hook.
 
-**Primary signal: Runtime token from navigator.userAgent.** On Node.js 21+, Deno 2+, Bun, and Cloudflare Workers, `navigator.userAgent` contains a runtime-identifying string: `Node.js/22`, `Deno/1.40.0`, `Bun/1.0.28`, or `Cloudflare-Workers`. When a recognized token is present, it routes directly to the corresponding handler. Unrecognized or browser-shaped strings (like `Mozilla/5.0 (...) jsdom/20.0.0`) return no signal and fall through to the fallback chain.
+**Primary signal: Runtime token from navigator.userAgent.** On Node.js 21+, Deno 2+, Bun, and Cloudflare Workers, `navigator.userAgent` contains a runtime-identifying string: `Node.js/22`, `Deno/1.40.0`, `Bun/1.0.28`, or `Cloudflare-Workers`. When a recognized token is present, it routes directly to the corresponding handler. Unrecognized or browser-shaped strings (like `Mozilla/5.0 (...) jsdom/20.0.0`) return no signal and fall through to the next check.
 
-**Fallback chain: Globals and process.versions.** For Node.js 18 and 20 (which have no `navigator`), or when `navigator.userAgent` provides no signal, the package checks `globalThis.Bun`, `globalThis.Deno`, `process.versions.node`, and other global properties to pick the handler. This chain preserves behavior for legacy environments and acts as a safety net when the navigator is absent or unreadable.
+**Edge Runtime global.** Vercel Edge Runtime and other runtimes exposing the `EdgeRuntime` global are detected here. This check sits between standardized signals (userAgent tokens) and the legacy fallback chain.
+
+**Fallback chain: Globals and process.versions.** For Node.js 18 and 20 (which have no `navigator`), or when earlier checks provide no signal, the package checks `globalThis.Bun`, `globalThis.Deno`, `process.versions.node`, and other global properties to pick the handler. This chain preserves behavior for legacy environments and acts as a safety net when the navigator is absent or unreadable.
 
 **Why the fallback order matters.** Bun, Deno, and Electron all define `process.versions.node`, so checking for them explicitly before a bare `process.versions.node` check is necessary to avoid misrouting. In Deno 2, Node.js compatibility is enabled by default, so a `process.versions.node` check alone would send Deno down the Node.js path. Bun uses the Node.js process hook for unhandled rejections, and the registration is labeled `bun` so duplicate-registration warnings name the real environment. Deno uses the event listener instead, which it supports in both 1.x and 2.x. An Electron renderer has both a Node.js process and a DOM, so both handlers are attached. A main process has no DOM listener API and gets only the process hook. Explicit registration functions are also exported, so users can pick the exact handler they need if autodetection is not desired.
 
-**Residual case.** A runtime with no navigator and no distinguishing global still falls through to a warn-path fallback handler. This is intentional, not a guess. It ensures the package does not crash in unknown JavaScript environments while remaining honest about the limitations.
+**Residual case.** A runtime with no navigator and no distinguishing global still falls through to a warn-path fallback handler. This is intentional, not a guess. It ensures the package does not crash in unknown JavaScript environments.
 
 ### Electron Dual-Context Architecture
 
@@ -45,13 +47,13 @@ Bundlers such as Webpack, Vite, or Rollup may define a stubbed `process` object 
 
 ### Edge and Worker Runtimes
 
-Cloudflare Workers is recognized by the `Cloudflare-Workers` navigator token and registers as `worker`. Netlify Edge Functions run on Deno Deploy and arrive with a `Deno/x.y.z` userAgent, routing to the event listener. Vercel Edge Runtime and other runtimes without a `navigator` fall through to the global chain, registering via the available mechanism.
+Cloudflare Workers is recognized by the `Cloudflare-Workers` navigator token and registers as `worker`. Netlify Edge Functions run on Deno Deploy infrastructure and arrive with a `Deno/x.y.z` userAgent, so they are routed through the deno branch with the correct mechanism. Every other edge runtime without a recognized userAgent token falls through to the global/`process.versions` chain.
 
-**Vercel Edge.** Vercel's Edge Runtime exposes a documented `EdgeRuntime` global with the value `'edge-runtime'`. This package detects the global and registers via `registerEdgeRuntime()`, labeled `edge-runtime`. The detection branch sits between the standardized userAgent signals and the legacy fallback chain. Explicit registration is available for runtimes where autodetection is not desired.
+**Vercel Edge.** Vercel's Edge Runtime exposes the `EdgeRuntime` global. This package detects the presence of this global and registers via `registerEdgeRuntime()`, labeled `edge-runtime`. The detection branch sits between the standardized userAgent signals and the legacy fallback chain. Explicit registration is available for runtimes where autodetection is not desired.
 
 **Worker label ambiguity.** The label `worker` names both the autodetected Cloudflare Workers registration (via the `Cloudflare-Workers` userAgent token) and the explicit `registerWorker()` export for Web Workers and Service Workers. Web and Service Workers lack a recognized userAgent token and are identified through fallback global checks. Cloudflare also gets the same label through autodetection. The single label is accepted as-is.
 
-**Other edge runtimes.** Runtimes without a recognized userAgent token and no explicitly exported registrar fall through to the global/`process.versions` chain. If they have a global `addEventListener`, they register as `browser`. This preserves behavior for unknown JavaScript environments while remaining honest about the limitations.
+**Other edge runtimes.** Runtimes without a recognized userAgent token and no explicitly exported registrar fall through to the global/`process.versions` chain. If they have a global `addEventListener`, they register as `browser`. This preserves behavior for unknown JavaScript environments.
 
 ### Bun Test Strict Rejections
 

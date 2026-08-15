@@ -83,13 +83,13 @@ Treating cancellation as rejection preserves standard `try`/`catch` control flow
 
 ### Environment detection
 
-The `register()` function detects your runtime environment by checking signals in order: electron (orthogonal check), then the `navigator.userAgent` string (primary), then duck-typed globals (standardized), then global properties and `process.versions` (legacy fallback).
+The `register()` function detects your runtime environment by checking signals in order: electron (orthogonal check), then the `navigator.userAgent` string (primary), then the `EdgeRuntime` global (no standardized signal exists), then global properties and `process.versions` (legacy fallback).
 
 **Electron.** Detected first via `process.versions.electron`. Electron renderers have both a Node.js process and a DOM, so both rejection mechanisms are hooked there. Main processes get only the process hook.
 
 **Primary signal: Runtime token from navigator.userAgent.** On Node.js 21+, Deno 2+, Bun, and Cloudflare Workers, `navigator.userAgent` contains a runtime identifier. Recognized strings like `Node.js/22`, `Deno/1.40.0`, `Bun/1.0.28`, and `Cloudflare-Workers` route directly to the correct handler. Browser-shaped strings return no signal and fall through to the next check.
 
-**Standardized duck-typing: The EdgeRuntime global.** Vercel Edge Runtime exposes a global named `EdgeRuntime`, the check Vercel documents. The package detects this global and registers via `registerEdgeRuntime()`, labeled `edge-runtime`.
+**Documented vendor global: The EdgeRuntime global.** Vercel Edge Runtime exposes a global named `EdgeRuntime`, which Vercel documents as the official check. No standardized signal exists for this runtime, so the package uses this documented global and registers via `registerEdgeRuntime()`, labeled `edge-runtime`. This check sits after the standardized userAgent path because a standardized signal would rank higher if one existed.
 
 **Fallback chain: Globals and process.versions.** For Node.js 18 and 20 (which have no `navigator`), or when earlier checks provide no signal, the package checks `globalThis.Bun`, `globalThis.Deno`, `process.versions.node`, and `globalThis.addEventListener` to select the handler.
 
@@ -98,7 +98,7 @@ Bun, Deno, and Electron all define `process.versions.node`, so they must be dete
 **Handler summary:**
 
 - **Node.js 21+ / Bun**: `process.on('unhandledRejection')`
-- **Deno 2+**: `addEventListener('unhandledrejection')`
+- **Deno 2+ / Netlify Edge**: `addEventListener('unhandledrejection')` (Netlify Edge Functions run on Deno Deploy and route through the deno token, though the label is `deno` rather than `netlify`)
 - **Vercel Edge Runtime**: `addEventListener('unhandledrejection')`
 - **Cloudflare Workers**: `addEventListener('unhandledrejection')`
 - **Electron (renderer)**: Both process hook and event listener
@@ -330,9 +330,9 @@ interface RegisterOptions {
 | Node.js 18+        | Terminates process   | Yes              | `process.on('unhandledRejection')`       |
 | Bun                | Terminates process   | Yes              | `process.on('unhandledRejection')`       |
 | Deno               | Terminates process   | Yes              | `addEventListener('unhandledrejection')` |
-| Vercel Edge        | Terminates request   | Yes              | `addEventListener('unhandledrejection')` |
+| Vercel Edge        |                      |                  | `addEventListener('unhandledrejection')` |
 | Cloudflare Workers | Request fail         | Yes              | `addEventListener('unhandledrejection')` |
-| Netlify Edge       | Terminates request   | Yes              | `addEventListener('unhandledrejection')` |
+| Netlify Edge       |                      |                  | `addEventListener('unhandledrejection')` |
 | Web Browsers       | Console error output | No               | `addEventListener('unhandledrejection')` |
 | Web Workers        | Worker error event   | No               | `addEventListener('unhandledrejection')` |
 | Service Workers    | Worker error event   | No               | `addEventListener('unhandledrejection')` |
