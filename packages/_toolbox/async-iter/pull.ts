@@ -25,20 +25,21 @@ export function getSource<T>(source: AsyncIterable<T> | Iterable<T>): ISourceNor
 
 function wrapSyncIterator<T>(syncIt: Iterator<T>): AsyncIterator<T> {
   return {
-    async next(value?: any): Promise<IteratorResult<T>> {
-      return syncIt.next(value);
+    next(value?: any): Promise<IteratorResult<T>> {
+      return Promise.resolve(syncIt.next(value));
     },
-    async return(value?: any): Promise<IteratorResult<T, any>> {
+    return(value?: any): Promise<IteratorResult<T, any>> {
       if (syncIt.return) {
-        return syncIt.return(value);
+        return Promise.resolve(syncIt.return(value));
       }
-      return { done: true, value };
+      return Promise.resolve({ done: true, value });
     },
-    async throw(error?: any): Promise<IteratorResult<T>> {
+    throw(error?: any): Promise<IteratorResult<T>> {
       if (syncIt.throw) {
-        return syncIt.throw(error);
+        return Promise.resolve(syncIt.throw(error));
       }
-      throw error;
+      const err = error instanceof Error ? error : new Error(String(error));
+      return Promise.reject(err);
     },
   };
 }
@@ -50,7 +51,7 @@ export function callReturn(it: AsyncIterator<any>): Promise<void> {
 
   try {
     const result = it.return();
-    if (result && typeof result.then === 'function') {
+    if (typeof result?.then === 'function') {
       return Promise.resolve(result).then(
         () => {
           /**/

@@ -2,7 +2,7 @@ import type { TAnyFn } from '../../_util/guards';
 import { isFunction } from '../guards';
 import type { TPromiseCtor } from './types';
 
-function isGeneratorFn(value: unknown): boolean {
+function _isGeneratorFn(value: unknown): boolean {
   if (!isFunction(value)) {
     return false;
   }
@@ -14,16 +14,13 @@ function isThenable<T = any>(value: unknown): value is PromiseLike<T> {
   return typeof value === 'object' && value !== null && typeof (value as any).then === 'function';
 }
 
-export function runCallback(
-  Impl: TPromiseCtor,
-  cb: TAnyFn,
-  args: any[],
-): any {
+export function runCallback(Impl: TPromiseCtor, cb: TAnyFn, args: any[]): any {
   let result;
   try {
     result = cb(...args);
   } catch (err) {
-    return Impl.resolve(Promise.reject(err));
+    const error = err instanceof Error ? err : new Error(String(err));
+    return Impl.resolve(Promise.reject(error));
   }
 
   if (isThenable(result)) {
@@ -39,10 +36,10 @@ export function runCallback(
 
 export function driveGenerator<T>(
   Impl: TPromiseCtor,
-  gen: Generator<PromiseLike<any> | any, T, any>,
+  gen: Generator<any, T, any>,
   onStop?: () => void,
 ): PromiseLike<T> {
-  let stopped = false;
+  const stopped = false;
 
   const resume = (value: any): PromiseLike<any> => {
     if (stopped) {
@@ -63,11 +60,13 @@ export function driveGenerator<T>(
         try {
           return driveUnwind(gen, err);
         } catch (throwErr) {
-          return Impl.resolve(Promise.reject(throwErr));
+          const error = throwErr instanceof Error ? throwErr : new Error(String(throwErr));
+          return Impl.resolve(Promise.reject(error));
         }
       });
     } catch (err) {
-      return Impl.resolve(Promise.reject(err));
+      const error = err instanceof Error ? err : new Error(String(err));
+      return Impl.resolve(Promise.reject(error));
     }
   };
 
