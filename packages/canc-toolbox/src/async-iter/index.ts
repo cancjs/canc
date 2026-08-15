@@ -22,6 +22,8 @@ export {
 export { callReturn, getSource } from '../../../_toolbox/async-iter';
 export { splitConfig } from '../../../_toolbox/async-iter';
 export { driveGenerator, runCallback } from '../../../_toolbox/async-iter';
+export type { TCallbackValue, TFlatMapped } from '../../../_toolbox/async-iter/operators';
+export { drop, filter, flatMap, map, take } from '../../../_toolbox/async-iter/operators';
 export { concat, from, zip, zipKeyed } from '../../../_toolbox/async-iter/sources';
 export type {
   TCallbackResult,
