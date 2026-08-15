@@ -1,18 +1,25 @@
+export { driveGenerator, runCallback } from './callback';
+export type { IAsyncIterOptions } from './options';
+export type { ISplitConfigResult } from './options';
+export { splitConfig } from './options';
+export type { ISourceNormalized } from './pull';
+export { callReturn, getSource } from './pull';
+export { concat, from, zip, zipKeyed } from './sources';
 export type {
+  AnyIterable,
+  IPipeableAsyncIterable,
   IPipeOp,
   ITermOp,
-  IPipeableAsyncIterable,
-  AnyIterable,
-  TPromiseCtor,
   TMakePipeableFactory,
+  TPromiseCtor,
 } from './types';
-export { PIPE_OP_BRAND, TERM_OP_BRAND, PIPEABLE_BRAND, markPipeOp, markTermOp, isPipeOp, isTermOp, isPipeable } from './types';
-
-export type { ISourceNormalized } from './pull';
-export { getSource, callReturn } from './pull';
-
-export type { IAsyncIterOptions } from './options';
-export { splitConfig } from './options';
-export type { ISplitConfigResult } from './options';
-
-export { runCallback, driveGenerator } from './callback';
+export {
+  isPipeable,
+  isPipeOp,
+  isTermOp,
+  markPipeOp,
+  markTermOp,
+  PIPE_OP_BRAND,
+  PIPEABLE_BRAND,
+  TERM_OP_BRAND,
+} from './types';
