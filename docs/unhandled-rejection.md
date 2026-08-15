@@ -14,11 +14,13 @@ In modern runtimes such as Node.js 15+, unhandled rejections cause the process t
 
 The `register()` function determines the runtime environment by checking signals in order: electron detection (orthogonal check), then the `navigator.userAgent` string (the WinterCG convention), then the fallback chain using `globalThis` properties and `process.versions`. This layered approach avoids false positives and ensures correct detection across diverse JavaScript environments.
 
-**First signal: Electron.** Checked via `process.versions.electron`. Electron is orthogonal—a renderer process has both a Node.js process and a DOM, so both rejection mechanisms are hooked there. Main process gets only the process hook.
+**First signal: Electron.** Checked via `process.versions.electron`. Electron is orthogonal: a renderer process has both a Node.js process and a DOM, so both rejection mechanisms are hooked there. Main process gets only the process hook.
 
 **Primary signal: Runtime token from navigator.userAgent.** On Node.js 21+, Deno 2+, Bun, and Cloudflare Workers, `navigator.userAgent` contains a runtime-identifying string: `Node.js/22`, `Deno/1.40.0`, `Bun/1.0.28`, or `Cloudflare-Workers`. When a recognized token is present, it routes directly to the corresponding handler. Unrecognized or browser-shaped strings (like `Mozilla/5.0 (...) jsdom/20.0.0`) return no signal and fall through to the fallback chain.
 
 **Fallback chain: Globals and process.versions.** For Node.js 18 and 20 (which have no `navigator`), or when `navigator.userAgent` provides no signal, the package checks `globalThis.Bun`, `globalThis.Deno`, `process.versions.node`, and other global properties to pick the handler. This chain preserves behavior for legacy environments and acts as a safety net when the navigator is absent or unreadable.
+
+**Why the fallback order matters.** Bun, Deno, and Electron all define `process.versions.node`, so checking for them explicitly before a bare `process.versions.node` check is necessary to avoid misrouting. In Deno 2, Node.js compatibility is enabled by default, so a `process.versions.node` check alone would send Deno down the Node.js path. Bun uses the Node.js process hook for unhandled rejections, and the registration is labeled `bun` so duplicate-registration warnings name the real environment. Deno uses the event listener instead, which it supports in both 1.x and 2.x. An Electron renderer has both a Node.js process and a DOM, so both handlers are attached. A main process has no DOM listener API and gets only the process hook. Explicit registration functions are also exported, so users can pick the exact handler they need if autodetection is not desired.
 
 **Residual case.** A runtime with no navigator and no distinguishing global still falls through to a warn-path fallback handler. This is intentional, not a guess. It ensures the package does not crash in unknown JavaScript environments while remaining honest about the limitations.
 
@@ -43,9 +45,9 @@ Bundlers such as Webpack, Vite, or Rollup may define a stubbed `process` object 
 
 ### Edge and Worker Runtimes
 
-Cloudflare Workers, Netlify Edge, Vercel Edge, and similar runtimes populate `navigator.userAgent` with a platform-specific string such as `Cloudflare-Workers`. The detection logic reads this string and routes to the event-listener handler, correctly registering as `worker` in diagnostic output rather than misidentifying as browser or falling back to a generic mechanism.
+Cloudflare Workers is recognized by the `Cloudflare-Workers` navigator token and registers as `worker`. Netlify Edge Functions run on Deno and arrive with a `Deno/x.y.z` userAgent, routing correctly to the event listener through the `deno` branch. Vercel Edge Runtime implements no `navigator` and falls through to the global chain, registering as `browser` if an event target is available.
 
-Web Workers and Service Workers lack a distinguishing navigator string and are identified through the fallback check for `globalThis.addEventListener`.
+Web Workers and Service Workers lack a recognized navigator token and are identified through the fallback check for `globalThis.addEventListener`.
 
 ### Bun Test Strict Rejections
 
