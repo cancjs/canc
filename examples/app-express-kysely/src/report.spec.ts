@@ -48,6 +48,40 @@ async function withServer<T>(app: Express, fn: (port: number) => Promise<T>): Pr
   }
 }
 
+const SETTLE_CEILING_MS = 3000;
+const QUIET_WINDOW_MS = 150;
+
+async function waitFor(predicate: () => boolean, timeoutMs = SETTLE_CEILING_MS): Promise<boolean> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (predicate()) return true;
+    await sleep(5);
+  }
+  return predicate();
+}
+
+async function waitForQueryLogToSettle(rdb: ReportDb): Promise<number> {
+  const total = aggregateChunkCount();
+  const start = Date.now();
+  let lastCount = countAggregateQueries(rdb);
+  let lastChange = Date.now();
+
+  while (Date.now() - start < SETTLE_CEILING_MS) {
+    await sleep(10);
+    const current = countAggregateQueries(rdb);
+    if (current >= total) {
+      return current;
+    }
+    if (current !== lastCount) {
+      lastCount = current;
+      lastChange = Date.now();
+    } else if (Date.now() - lastChange >= QUIET_WINDOW_MS) {
+      return current;
+    }
+  }
+  return countAggregateQueries(rdb);
+}
+
 /**
  * Fires the report request, lets a slice or two run, then destroys the client socket. Returns the
  * aggregate-slice count captured right after the disconnect settles.
@@ -56,10 +90,9 @@ async function slicesAfterDisconnect(app: Express, rdb: ReportDb, path: string):
   return withServer(app, async (port) => {
     const req = http.get(`http://127.0.0.1:${port}${path}`);
     req.on('error', () => {});
-    await sleep(150);
+    await waitFor(() => countAggregateQueries(rdb) >= 1);
     req.destroy();
-    await sleep(400);
-    return countAggregateQueries(rdb);
+    return await waitForQueryLogToSettle(rdb);
   });
 }
 

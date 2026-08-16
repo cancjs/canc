@@ -8,6 +8,17 @@ import { ragPipeline } from './pipeline-canc';
 
 const QUERY = 'how does cancel propagate';
 
+const SETTLE_CEILING_MS = 3000;
+
+async function waitFor(predicate: () => boolean, timeoutMs = SETTLE_CEILING_MS): Promise<boolean> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (predicate()) return true;
+    await sleep(5);
+  }
+  return predicate();
+}
+
 function chatCalls(calls: CallRecord[]): number {
   return calls.filter((c) => c.endpoint.startsWith('chat.token')).length;
 }
@@ -29,8 +40,11 @@ describe('rag pipeline (canc)', () => {
   it('cancel during rerank aborts the in-flight step and generate never runs', async () => {
     const mockApi = createMockApi({ latency: 20, jitter: 0 });
     const pending = ragPipeline(mockApi.rag, mockApi.chat, QUERY);
-    // embed (20) + parallel retrieve (20) settle by ~40ms; rerank (40) is in flight after that.
-    setTimeout(() => pending.cancel(), 55);
+    // Wait until retrieval calls have completed so rerank is in flight.
+    await waitFor(
+      () => mockApi.api.calls.filter((c) => c.endpoint === 'rag.search' && c.status === 'completed').length === 2,
+    );
+    pending.cancel();
 
     let caught: unknown;
     try {
@@ -53,8 +67,8 @@ describe('rag pipeline (canc)', () => {
     // when the race is lost, and those calls abort.
     const winner = await answerWithCache(mockApi.rag, mockApi.chat, QUERY);
     expect(winner.text).toContain('cached');
-    // let any un-canceled work settle before asserting nothing further ran.
-    await sleep(120);
+    // wait for any un-canceled work or in-flight abort to settle before asserting.
+    await waitFor(() => abortedCalls(mockApi.api.calls) > 0);
     expect(chatCalls(mockApi.api.calls)).toBe(0);
     expect(abortedCalls(mockApi.api.calls)).toBeGreaterThan(0);
   });
