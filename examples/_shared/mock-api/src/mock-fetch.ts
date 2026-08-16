@@ -27,7 +27,7 @@ export type MockFetch = (
 
 /**
  * Builds a fetch-shaped function bound to a MockApi. Supported routes (GET):
- * /products, /products/:id, /orders, /flights?from=&to=, /invoices, /invoices/:id, /hotels?city=
+ * /products, /products/:id, /orders, /flights?from=&to=, /invoices, /invoices/:id, /hotels?city=, /issues/search?q=, /issues/:id
  * Unknown routes resolve to a 404 MockResponse; aborts reject with an AbortError.
  */
 export function createMockFetch(api: MockApi): MockFetch {
@@ -68,6 +68,9 @@ function route(
       return id ? domains.invoices.get(id, signal) : domains.invoices.list(signal);
     case 'hotels':
       return domains.hotels.search(url.searchParams.get('city') ?? '', signal);
+    case 'issues':
+      if (id === 'search') return domains.issues.search(url.searchParams.get('q') ?? '', signal);
+      return id ? domains.issues.get(Number(id), signal) : domains.issues.list(signal);
     default:
       return NOT_FOUND;
   }
