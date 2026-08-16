@@ -12,7 +12,7 @@ In modern runtimes such as Node.js 15+, unhandled rejections cause the process t
 
 ### Detection Order
 
-The `register()` function determines the runtime environment by checking signals in order: electron detection (orthogonal check), then the `navigator.userAgent` string (the WinterCG convention), then the fallback chain using `globalThis` properties and `process.versions`.
+The `register()` function determines the runtime environment by checking signals in order: electron detection (orthogonal check), then the `navigator.userAgent` string (the WinterCG convention), then the `EdgeRuntime` global (when present), then the fallback chain using `globalThis` properties and `process.versions`.
 
 **First signal: Electron.** Checked via `process.versions.electron`. Electron is orthogonal: a renderer process has both a Node.js process and a DOM, so both rejection mechanisms are hooked there. Main process gets only the process hook.
 
