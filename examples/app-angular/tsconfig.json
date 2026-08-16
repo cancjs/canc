@@ -8,6 +8,7 @@
  "emitDecoratorMetadata": true,
  "lib": ["es2022", "dom", "dom.iterable"],
  "types": ["node", "jest"],
+ "isolatedModules": true,
  "skipLibCheck": true
  },
  "include": ["src/**/*.ts"]

@@ -28,7 +28,6 @@ function project(flavor) {
             esModuleInterop: true,
             strict: true,
           },
-          isolatedModules: true,
         },
       ],
     },

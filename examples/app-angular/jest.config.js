@@ -17,7 +17,6 @@ module.exports = {
     '^.+\\.(ts|mjs|js)$': [
       'ts-jest',
       {
-        isolatedModules: true,
         tsconfig: {
           target: 'es2022',
           module: 'commonjs',
