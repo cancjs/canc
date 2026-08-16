@@ -18,8 +18,8 @@ describe('demo-chain-propagation scenarios', () => {
       expect(isCancelError(err)).toBe(true);
     }
 
-    const callStatuses = mockApi.api.calls.map((c) => c.status);
-    expect(callStatuses.every((s) => s === 'aborted')).toBe(true);
+    const callStatuses = mockApi.api.calls.map((c: any) => c.status);
+    expect(callStatuses.every((s: any) => s === 'aborted')).toBe(true);
   });
 
   it('bubble up scenario: canceling both consumers aborts the source', async () => {
@@ -40,8 +40,8 @@ describe('demo-chain-propagation scenarios', () => {
       expect(isCancelError(err)).toBe(true);
     }
 
-    const callStatuses = mockApi.api.calls.map((c) => c.status);
-    expect(callStatuses.some((s) => s === 'aborted')).toBe(true);
+    const callStatuses = mockApi.api.calls.map((c: any) => c.status);
+    expect(callStatuses.some((s: any) => s === 'aborted')).toBe(true);
   });
 
   it('partial scenario: canceling one consumer keeps the source and surviving consumer completing', async () => {
@@ -56,8 +56,8 @@ describe('demo-chain-propagation scenarios', () => {
 
     await ordersConsumer;
 
-    const callStatuses = mockApi.api.calls.map((c) => c.status);
-    expect(callStatuses.every((s) => s === 'completed')).toBe(true);
+    const callStatuses = mockApi.api.calls.map((c: any) => c.status);
+    expect(callStatuses.every((s: any) => s === 'completed')).toBe(true);
   });
 
   it('shield scenario: shielded audit survives cancellation', async () => {
@@ -76,10 +76,10 @@ describe('demo-chain-propagation scenarios', () => {
       expect(isCancelError(err)).toBe(true);
     }
 
-    const auditCall = mockApi.api.calls.find((c) => c.endpoint === 'invoices.get');
+    const auditCall = mockApi.api.calls.find((c: any) => c.endpoint === 'invoices.get');
     expect(auditCall?.status).toBe('completed');
 
-    const otherCalls = mockApi.api.calls.filter((c) => c.endpoint !== 'invoices.get');
-    expect(otherCalls.every((c) => c.status === 'aborted')).toBe(true);
+    const otherCalls = mockApi.api.calls.filter((c: any) => c.endpoint !== 'invoices.get');
+    expect(otherCalls.every((c: any) => c.status === 'aborted')).toBe(true);
   });
 });

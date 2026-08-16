@@ -52,7 +52,7 @@ async function runDownScenario(
   }
 
   report('log: remaining calls completed anyway');
-  console.log('Mock API calls:', api.calls.map((c) => `${c.endpoint}(${c.status})`).join(', '));
+  console.log('Mock API calls:', api.calls.map((c: any) => `${c.endpoint}(${c.status})`).join(', '));
 }
 
 async function runBubbleScenario(
@@ -80,7 +80,7 @@ async function runBubbleScenario(
   }
 
   report('completed');
-  console.log('Mock API calls:', api.calls.map((c) => `${c.endpoint}(${c.status})`).join(', '));
+  console.log('Mock API calls:', api.calls.map((c: any) => `${c.endpoint}(${c.status})`).join(', '));
 }
 
 async function runPartialScenario(
@@ -107,7 +107,7 @@ async function runPartialScenario(
   }
 
   report('completed');
-  console.log('Mock API calls:', api.calls.map((c) => `${c.endpoint}(${c.status})`).join(', '));
+  console.log('Mock API calls:', api.calls.map((c: any) => `${c.endpoint}(${c.status})`).join(', '));
 }
 
 async function runShieldScenario(
@@ -130,7 +130,7 @@ async function runShieldScenario(
   }
 
   report('completed');
-  console.log('Mock API calls:', api.calls.map((c) => `${c.endpoint}(${c.status})`).join(', '));
+  console.log('Mock API calls:', api.calls.map((c: any) => `${c.endpoint}(${c.status})`).join(', '));
 }
 
 runScenarios().catch(console.error);

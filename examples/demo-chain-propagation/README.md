@@ -2,7 +2,7 @@
 
 **Teach:** Two-way propagation on a promise chain. Cancellation flows down (source to consumers) and bubbles up (all consumers canceled means source auto-cancels). Isolation via `bubble:false`. Protection via `shield:true`.
 
-**Domain:** Product details page load. A source promise (`loadProduct`) fans out to two consumers (`image` and `reviews`), with an audit-log write hanging off reviews. Console tracing shows when each request starts, completes, or is canceled.
+**Domain:** Product details page load. A source promise (`loadProduct`) fans out to two consumers (`stock` and `orders`), with an audit-log write running alongside. Console tracing shows when each request starts, completes, or is canceled.
 
 ## What's the difference?
 
@@ -17,7 +17,7 @@ Same scenarios, but now `cancel()` stops the source and all its consumers. Each 
 
 Special options:
 
-- `{ bubble: false }` on a consumer: its cancellation does NOT bubble up. Useful for non-critical branches (image load is optional, so if the user leaves, canceling the image leg alone should not stop the reviews consumer).
+- `{ bubble: false }` on a consumer: its cancellation does NOT bubble up. Useful for non-critical branches (stock fetch is optional, so if the user leaves, canceling the stock leg alone should not stop the orders consumer).
 - `{ shield: true }` on a node: protects its own cancellation from propagating down. Upstream rejection from the canceled source is still adopted (a shielded node still sees the parent's `CancelError`). This differs from `asyncio.shield()` in Python, which stops rejection entirely. Honesty note: canc's shield stops cancellation, not rejection, so a critical failure still propagates.
 
 ## Run both flavors
