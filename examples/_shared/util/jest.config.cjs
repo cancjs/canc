@@ -5,6 +5,6 @@ module.exports = {
   displayName: 'shared-util',
   rootDir: '.',
   moduleNameMapper: {
-    '^@shared/(.+)$': '<rootDir>/../',
+    '^@shared/(.+)$': '<rootDir>/../$1',
   },
 };
