@@ -33,7 +33,13 @@ export function createMockAxiosAdapter(api: MockApi): MockAxiosAdapter {
   const mockFetch = createMockFetch(api);
 
   return async function mockAxiosAdapter(config) {
-    const url = `${config.baseURL ?? ''}${config.url ?? ''}`;
+    let url = `${config.baseURL ?? ''}${config.url ?? ''}`;
+    if (config.params) {
+      const searchParams = new URLSearchParams(config.params).toString();
+      if (searchParams) {
+        url += (url.includes('?') ? '&' : '?') + searchParams;
+      }
+    }
     // On abort, mockFetch rejects with an AbortError that propagates straight to the caller.
     const response = await mockFetch(url, { method: config.method, signal: config.signal });
 
