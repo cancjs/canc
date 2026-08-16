@@ -71,7 +71,9 @@
   "jsdelivr": "dist/index.umd.min.js",
   "typesVersions": {
     "<4.7": {
-      "dist/types/*": ["dist/types-ts4.2/*"]
-    }
+      "dist/types/*": ["dist/types-ts4.2/*"],
+      "async-iter": ["dist/types-ts4.2/async-iter.d.ts"]
+    },
+    "async-iter": ["dist/types/async-iter.d.ts"]
   }
 }
