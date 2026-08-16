@@ -2,7 +2,7 @@ import * as canc from '@cancjs/coroutine';
 import { cancelify } from '@cancjs/toolbox';
 
 import { AvailabilityResult } from './availability';
-import { findRooms, loadRates, scanBookings } from './mock/db';
+import { findRooms, loadRates, scanBookings } from './bookings-repository';
 
 // Cancelable repository boundary. The repository fns are plain promises; cancelify makes them
 // canc-native once, here, so the search below reads like plain async/await with no signal in it.

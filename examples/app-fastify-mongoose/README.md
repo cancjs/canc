@@ -10,7 +10,7 @@ is listening to.
   (`src/lib/cancelable-route.ts`). The `close` event on the raw request cancels the handler's
   coroutine; the handler still owns `reply.send` and full control of the response.
 - The cancelable boundary living in the service (`src/availability-service-canc.ts`), not in the
-  data layer. `cancelify` turns the plain repository fns of `src/mock/db.ts` into canc-native ones,
+  data layer. `cancelify` turns the plain repository fns of `src/bookings-repository.ts` into canc-native ones,
   so the repository stays an ordinary Mongoose module that knows nothing about canc.
 - A three-step chain built with `canc.async` / `canc.await` over that boundary: find the rooms,
   load their nightly rates, then scan the bookings for occupancy. Cancellation is ambient, so no
@@ -76,7 +76,8 @@ The service twins align step for step. The canc side opens with the `cancelify` 
 vanilla side has no use for, then every `await` becomes `yield* canc.await` inside a `canc.async`
 generator, and the comment at each step changes from "this always runs" to "canceled here, this is
 skipped". The route handlers differ by the `cancAsyncRoute` wrapper, which exists only on the canc
-side. The repository (`src/mock/db.ts`) is shared by both flavors and is identical for each.
+side. The repository (`src/bookings-repository.ts`) is shared by both flavors and is identical for each.
+It holds the plain Mongoose query functions and contains no canc imports.
 
 ## Honesty notes
 
@@ -90,7 +91,7 @@ The document scan is the second layer. Mongoose's `cursor.eachAsync` takes a `si
 that signal is a client-side loop stop. It stops pulling further batches and resolves. It does not
 close the cursor, does not abort the operation already in flight, and does not reject. No
 connection is dropped, which makes it the cheap and safe cancellation point, and it is the only
-place this example spends a signal. `scanBookings` in `src/mock/db.ts` implements those same stop
+place this example spends a signal. `scanBookings` in `src/bookings-repository.ts` implements those same stop
 semantics by hand, because mockingoose replaces the cursor with a stand-in that drops the options
 argument. Every signal is inert through mockingoose, so the mock has to carry the behavior itself.
 
@@ -104,7 +105,7 @@ connection and open a new one. Under load, canceling every disconnected request 
 into connection churn, which is why it fits an explicit user cancel (someone clicking "stop" on a
 slow report) better than ambient request cancellation.
 
-So `ABORT_QUERIES` in `src/mock/db.ts` is off by default. Turning it on passes the signal the typed
+So `ABORT_QUERIES` in `src/bookings-repository.ts` is off by default. Turning it on passes the signal the typed
 way, `Model.find(filter, null, { signal })`, never through `setOptions`, which only carries a signal
 through an index signature and is not typed for it. Through mockingoose the flag changes nothing
 here, so treat it as a documented escape hatch rather than a feature of this example.
@@ -121,7 +122,8 @@ The data layer runs against [mockingoose](https://www.npmjs.com/package/mockingo
 intercepts Mongoose model methods and returns canned documents, so no MongoDB server is needed.
 mockingoose 3.0.0 declares Mongoose 9 as a peer dependency and worked against the pinned Mongoose
 9.7.4 here, so the mongodb-memory-server fallback was not needed. The mock setup and seed data live
-in `src/mock/db.ts` and `src/mock/models.ts`; treat them as a black box.
+in `src/mock/db.ts` and `src/mock/models.ts`; treat them as a black box. The query functions
+themselves live in `src/bookings-repository.ts` and are part of the example code.
 
 ## Helper code
 
