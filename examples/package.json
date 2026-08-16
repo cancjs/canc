@@ -38,7 +38,7 @@
   ],
   "scripts": {
     "examples:typecheck": "tsc --noEmit --project tsconfig.examples.json",
-    "examples:test": "jest --colors",
+    "examples:test": "jest --colors && npm run test --prefix app-express-kysely",
     "examples:lint": "eslint .",
     "examples:format": "eslint --fix ."
   },

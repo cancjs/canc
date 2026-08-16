@@ -1,3 +1,9 @@
+import { TextDecoder, TextEncoder } from 'node:util';
+Object.defineProperties(globalThis, {
+  TextEncoder: { value: TextEncoder },
+  TextDecoder: { value: TextDecoder },
+});
+
 import http from 'node:http';
 
 import { sleep } from '@shared/util';
