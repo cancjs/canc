@@ -10,6 +10,23 @@ import { sleep } from '@shared/util';
 import type { Express } from 'express';
 import request from 'supertest';
 
+jest.mock('@electric-sql/pglite', () => {
+  return {
+    PGlite: jest.fn().mockImplementation(() => {
+      return {
+        waitReady: Promise.resolve(),
+        query: jest.fn().mockImplementation((sql: string) => {
+          if (sql.includes('products') && sql.toLowerCase().includes('select')) {
+            return Promise.resolve({ rows: [{ id: 1, name: 'Keyboard', category: 'Accessories' }] });
+          }
+          return Promise.resolve({ rows: [] });
+        }),
+        close: jest.fn().mockResolvedValue(undefined),
+      };
+    }),
+  };
+});
+
 import { createApp as createCancApp } from './main-canc';
 import { createApp as createVanillaApp } from './main-vanilla';
 import type { ReportDb } from './mock/db';

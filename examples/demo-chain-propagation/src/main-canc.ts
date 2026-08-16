@@ -2,6 +2,7 @@ import '@cancjs/unhandled-rejection/register';
 
 import { isCancelError } from '@cancjs/promise';
 import { createMockApi, type MockApiBundle } from '@shared/mock-api';
+import { sleep } from '@shared/util';
 
 import { loadProductProfile } from './page-load-canc';
 import { report } from './report';
@@ -126,7 +127,7 @@ async function runShieldScenario(
   }
 
   // Wait for the shielded audit request to settle
-  await new Promise((resolve) => setTimeout(resolve, 80));
+  await sleep(80);
 
   report('audit completed despite source cancellation (shield:true)');
   console.log('Mock API calls:', api.calls.map((c: any) => `${c.endpoint}(${c.status})`).join(', '));
