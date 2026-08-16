@@ -74,6 +74,8 @@
       "dist/types/*": ["dist/types-ts4.2/*"],
       "async-iter": ["dist/types-ts4.2/async-iter.d.ts"]
     },
-    "async-iter": ["dist/types/async-iter.d.ts"]
+    "*": {
+      "async-iter": ["dist/types/async-iter.d.ts"]
+    }
   }
 }
