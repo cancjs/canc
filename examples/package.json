@@ -27,6 +27,7 @@
     "app-vue-suspense",
     "app-ws-progress",
     "demo-async-dispose",
+    "demo-async-iter",
     "demo-chain-propagation",
     "demo-combinators",
     "demo-coroutine",
