@@ -7,7 +7,7 @@ describe('demo-chain-propagation scenarios', () => {
   it('down scenario: canceling the source aborts all three downstream calls', async () => {
     const mockApi = createMockApi();
     const { products: productsApi, inventory: inventoryApi, orders: ordersApi, invoices: invoicesApi } = mockApi;
-    const profilePromise = loadProductProfile(productsApi, inventoryApi, ordersApi, invoicesApi, 'prod-1');
+    const profilePromise = loadProductProfile(productsApi, inventoryApi, ordersApi, invoicesApi, 'p1');
 
     profilePromise.cancel();
 
@@ -25,7 +25,7 @@ describe('demo-chain-propagation scenarios', () => {
   it('bubble up scenario: canceling both consumers aborts the source', async () => {
     const mockApi = createMockApi();
     const { products: productsApi, inventory: inventoryApi, orders: ordersApi, invoices: invoicesApi } = mockApi;
-    const profilePromise = loadProductProfile(productsApi, inventoryApi, ordersApi, invoicesApi, 'prod-2');
+    const profilePromise = loadProductProfile(productsApi, inventoryApi, ordersApi, invoicesApi, 'p2');
 
     const stockConsumer = profilePromise.then((x) => x.stock);
     const ordersConsumer = profilePromise.then((x) => x.orders);
@@ -41,13 +41,13 @@ describe('demo-chain-propagation scenarios', () => {
     }
 
     const callStatuses = mockApi.api.calls.map((c: any) => c.status);
-    expect(callStatuses.some((s: any) => s === 'aborted')).toBe(true);
+    expect(callStatuses.every((s: any) => s === 'aborted')).toBe(true);
   });
 
   it('partial scenario: canceling one consumer keeps the source and surviving consumer completing', async () => {
     const mockApi = createMockApi();
     const { products: productsApi, inventory: inventoryApi, orders: ordersApi, invoices: invoicesApi } = mockApi;
-    const profilePromise = loadProductProfile(productsApi, inventoryApi, ordersApi, invoicesApi, 'prod-3');
+    const profilePromise = loadProductProfile(productsApi, inventoryApi, ordersApi, invoicesApi, 'p3');
 
     const stockConsumer = profilePromise.then((x) => x.stock);
     const ordersConsumer = profilePromise.then((x) => x.orders);
@@ -63,7 +63,7 @@ describe('demo-chain-propagation scenarios', () => {
   it('shield scenario: shielded audit survives cancellation', async () => {
     const mockApi = createMockApi();
     const { products: productsApi, inventory: inventoryApi, orders: ordersApi, invoices: invoicesApi } = mockApi;
-    const profilePromise = loadProductProfile(productsApi, inventoryApi, ordersApi, invoicesApi, 'prod-4', {
+    const profilePromise = loadProductProfile(productsApi, inventoryApi, ordersApi, invoicesApi, 'p4', {
       shield: true,
     });
 
@@ -75,6 +75,8 @@ describe('demo-chain-propagation scenarios', () => {
     } catch (err) {
       expect(isCancelError(err)).toBe(true);
     }
+
+    await new Promise((resolve) => setTimeout(resolve, 80));
 
     const auditCall = mockApi.api.calls.find((c: any) => c.endpoint === 'invoices.get');
     expect(auditCall?.status).toBe('completed');

@@ -97,7 +97,7 @@ async function runPartialScenario(
   stockConsumer.cancel();
 
   try {
-    await profilePromise;
+    await ordersConsumer;
   } catch (err) {
     report(`load canceled: ${isCancelError(err) ? 'CancelError' : String(err)}`);
   }
@@ -124,6 +124,9 @@ async function runShieldScenario(
   } catch (err) {
     report(`load canceled: ${isCancelError(err) ? 'CancelError' : String(err)}`);
   }
+
+  // Wait for the shielded audit request to settle
+  await new Promise((resolve) => setTimeout(resolve, 80));
 
   report('audit completed despite source cancellation (shield:true)');
   console.log('Mock API calls:', api.calls.map((c: any) => `${c.endpoint}(${c.status})`).join(', '));

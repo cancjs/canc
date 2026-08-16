@@ -1,8 +1,7 @@
 import * as canc from '@cancjs/coroutine';
 import { CancelablePromise } from '@cancjs/promise';
 import { cancelify } from '@cancjs/toolbox';
-import type { MockApiBundle, Product } from '@shared/mock-api';
-import type { Order } from '@shared/mock-api/src/domains/orders';
+import type { MockApiBundle } from '@shared/mock-api';
 
 import { report } from './report';
 
@@ -43,19 +42,25 @@ export const loadProductProfile = canc.async(function* (
     shield: options?.shield,
   });
 
-  report('fetching product');
-  const product = yield* canc.await(loadProduct(productId));
+  let auditPromise: CancelablePromise<any> | undefined;
+  try {
+    report('fetching product');
+    auditPromise = loadAuditLog('audit-1');
+    const product = yield* canc.await(loadProduct(productId));
 
-  report('starting inventory + orders fetch');
-  const auditPromise = loadAuditLog('audit-1');
+    report('starting inventory + orders fetch');
+    const legsPromise = CancelablePromise.all([checkInventory(productId), loadOrders(productId)]);
 
-  const legsPromise = CancelablePromise.all([checkInventory(productId), loadOrders(productId)]);
+    report('awaiting all');
+    const [stock, orders] = yield* canc.await(legsPromise);
 
-  report('awaiting all');
-  const [stock, orders] = yield* canc.await(legsPromise);
+    yield* canc.await(auditPromise);
 
-  yield* canc.await(auditPromise);
-
-  report('returning results');
-  return { product, stock, orders };
+    report('returning results');
+    return { product, stock, orders };
+  } finally {
+    if (!options?.shield && auditPromise?.cancelable) {
+      auditPromise.cancel();
+    }
+  }
 });
