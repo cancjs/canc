@@ -1,42 +1,25 @@
 // Promise.any: first to fulfill wins. Remaining losers keep running (native behavior).
 
-import { sleep } from '@shared/util';
-
-const completed: string[] = [];
-
-function loadWidget(name: string, delay: number): Promise<string> {
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      if (name === 'news') {
-        // First to finish: winner
-        resolve(name);
-      } else {
-        // Losers stay running (wasted work)
-        completed.push(name);
-        reject(new Error(`${name} rejected`));
-      }
-    }, delay);
-  });
-}
+import { mockApi, vanillaWidgets } from './widgets-shared.js';
 
 async function runAnyVanilla(): Promise<void> {
-  const result = Promise.any([
-    loadWidget('sales', 100),
-    loadWidget('traffic', 100),
-    loadWidget('alerts', 100),
-    loadWidget('news', 10), // winner
-  ]);
+  mockApi.reset();
 
   try {
-    const winner = await result;
-    console.log(`Vanilla any - winner: ${winner}`);
+    const winner = await Promise.any([
+      vanillaWidgets.checkInventory('non-existent'), // fails
+      vanillaWidgets.loadOrders('user-1'), // winner
+      vanillaWidgets.quotePrice('AAPL'),
+      vanillaWidgets.getDeployStatus('deploy-1'),
+    ]);
+    console.log(`Vanilla any - winner: ${JSON.stringify(winner)}`);
   } catch {
     // AggregateError if all reject
   }
 
-  // Wait to see how many losers still complete
-  await sleep(150);
-  console.log(`Vanilla any - losers completed: ${completed.length}`);
+  const reportCompleted = mockApi.calls.filter((c) => c.status === 'completed').length;
+  // (no canceled in vanilla, remaining losers stay in 'started' state)
+  console.log(`Vanilla any - losers completed: ${reportCompleted}`);
 }
 
 export { runAnyVanilla };

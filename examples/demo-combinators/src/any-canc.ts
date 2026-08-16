@@ -1,49 +1,29 @@
 // CancelablePromise.any: first to fulfill wins, loser inputs canceled.
 // Demonstrates cancel propagation (down to losers on first win).
 
-import { CancelablePromise } from '@cancjs/promise';
-import { sleep } from '@shared/util';
+import * as canc from '@cancjs/coroutine';
 
-const completed: string[] = [];
-const canceled: string[] = [];
-
-function loadWidget(name: string, delay: number): CancelablePromise<string> {
-  return new CancelablePromise((resolve, reject, { handleCancel }) => {
-    const timeout = setTimeout(() => {
-      if (name === 'news') {
-        resolve(name);
-      } else {
-        completed.push(name);
-        reject(new Error(`${name} rejected`));
-      }
-    }, delay);
-
-    handleCancel(() => {
-      clearTimeout(timeout);
-      canceled.push(name);
-      reject(new Error(`${name} canceled`));
-    });
-  });
-}
+import { cancWidgets, mockApi } from './widgets-shared.js';
 
 async function runAnyCanc(): Promise<void> {
-  const result = CancelablePromise.any([
-    loadWidget('sales', 100),
-    loadWidget('traffic', 100),
-    loadWidget('alerts', 100),
-    loadWidget('news', 10), // winner
-  ]);
+  mockApi.reset();
 
   try {
-    const winner = await result;
-    console.log(`Canc any - winner: ${winner}`);
+    const winner = await canc.async(function* () {
+      return yield* canc.await.any([
+        cancWidgets.checkInventory('non-existent'), // fails
+        cancWidgets.loadOrders('user-1'), // winner
+        cancWidgets.quotePrice('AAPL'),
+        cancWidgets.getDeployStatus('deploy-1'),
+      ]);
+    })();
+    console.log(`Canc any - winner: ${JSON.stringify(winner)}`);
   } catch {
     // canceled here: loser inputs canceled
   }
 
-  // Wait for cancellations
-  await sleep(150);
-  console.log(`Canc any - canceled: ${canceled.length}`);
+  const reportCanceled = mockApi.calls.filter((c) => c.status === 'aborted').length;
+  console.log(`Canc any - canceled: ${reportCanceled}`);
 }
 
 export { runAnyCanc };

@@ -1,50 +1,32 @@
 // CancelablePromise with bubble:false isolates input from siblings' fate.
 // When all siblings cancel, the isolated input survives (remains pending).
 
-import { CancelablePromise } from '@cancjs/promise';
-import { sleep } from '@shared/util';
+import * as canc from '@cancjs/coroutine';
 
-const completed: string[] = [];
-const canceled: string[] = [];
-
-function loadWidget(name: string, delay: number, isolated: boolean = false): CancelablePromise<string> {
-  return new CancelablePromise(
-    (resolve, reject, { handleCancel }) => {
-      const timeout = setTimeout(() => {
-        if (name === 'alerts') {
-          reject(new Error('alerts failed'));
-        } else {
-          completed.push(name);
-          resolve(name);
-        }
-      }, delay);
-
-      handleCancel(() => {
-        clearTimeout(timeout);
-        canceled.push(name);
-        reject(new Error(`${name} canceled`));
-      });
-    },
-    { bubble: isolated ? false : true },
-  );
-}
+import { cancWidgets, mockApi } from './widgets-shared.js';
 
 async function runIsolationCanc(): Promise<void> {
-  const results = CancelablePromise.all([
-    loadWidget('sales', 50),
-    loadWidget('traffic', 50),
-    loadWidget('alerts', 10),
-    loadWidget('news', 50, true), // bubble:false (isolated)
-  ]);
+  mockApi.reset();
+
+  const isolatedNews = cancWidgets.quotePrice('AAPL');
+  isolatedNews.bubble = false;
 
   try {
-    await results;
+    await canc.async(function* () {
+      yield* canc.await.all([
+        cancWidgets.loadOrders('user-1'),
+        cancWidgets.checkInventory('product-1'),
+        cancWidgets.checkInventory('non-existent'), // fails
+        isolatedNews, // bubble:false (isolated)
+      ]);
+    })();
   } catch {
-    // canceled here, but "news" survives due to bubble:false
+    // canceled here, but isolated widget survives due to bubble:false
   }
 
-  await sleep(100);
-  console.log(`Canc isolation - completed: ${completed.length}, canceled: ${canceled.length}`);
+  const reportCompleted = mockApi.calls.filter((c) => c.status === 'completed').length;
+  const reportCanceled = mockApi.calls.filter((c) => c.status === 'aborted').length;
+  console.log(`Canc isolation - completed: ${reportCompleted}, canceled: ${reportCanceled}`);
 }
 
 export { runIsolationCanc };
