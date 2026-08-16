@@ -4,7 +4,12 @@ import {
   searchReposWithExternal,
   searchReposWithTimeout,
 } from '../src/repo-search-canc';
-import { searchRepos as searchReposVanilla, searchReposAbortable } from '../src/repo-search-vanilla';
+import {
+  searchRepos as searchReposVanilla,
+  searchReposPreAborted as searchReposPreAbortedVanilla,
+  searchReposWithExternal as searchReposWithExternalVanilla,
+  searchReposWithTimeout as searchReposWithTimeoutVanilla,
+} from '../src/repo-search-vanilla';
 
 describe('types', () => {
   it('canc flavors return Promises', async () => {
@@ -15,7 +20,9 @@ describe('types', () => {
       const _canc4: Promise<any> = searchReposWithTimeout('q', null);
 
       const _vanilla1: Promise<any> = searchReposVanilla('q', null);
-      const _vanilla2: Promise<any> = searchReposAbortable('q', null);
+      const _vanilla2: Promise<any> = searchReposWithExternalVanilla('q', null);
+      const _vanilla3: Promise<any> = searchReposPreAbortedVanilla('q', null);
+      const _vanilla4: Promise<any> = searchReposWithTimeoutVanilla('q', null);
     }
 
     expect(true).toBe(true);
