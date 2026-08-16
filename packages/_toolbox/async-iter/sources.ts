@@ -1,4 +1,4 @@
-import type { AnyIterable, IAsyncIterOptions } from '.';
+import type { AnyIterable, IAsyncIterOptions } from './index';
 import { splitConfig } from './options';
 import { callReturn, getSource } from './pull';
 
