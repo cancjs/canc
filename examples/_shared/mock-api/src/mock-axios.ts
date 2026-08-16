@@ -10,17 +10,19 @@ export interface MockAxiosConfig {
   method?: string;
   baseURL?: string;
   signal?: AbortSignalLike;
+  [key: string]: any;
 }
 
 export interface MockAxiosResponse<T = unknown> {
   data: T;
   status: number;
   statusText: string;
-  config: MockAxiosConfig;
-  headers: Record<string, string>;
+  config: any;
+  headers: any;
+  request?: any;
 }
 
-export type MockAxiosAdapter = (config: MockAxiosConfig) => Promise<MockAxiosResponse>;
+export type MockAxiosAdapter = (config: any) => Promise<MockAxiosResponse>;
 
 /**
  * Builds an axios adapter bound to a MockApi. Reuses the mockFetch router for path handling. On

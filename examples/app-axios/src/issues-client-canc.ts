@@ -28,7 +28,7 @@ export class CancIssuesClient {
     // The wrapper keeps the axios signature, so the response is unwrapped here.
     const searchPromise = this.api
       .get<SearchResult>('/issues/search', { params: { q: query } })
-      .then((response) => response.data) as any;
+      .then((response) => response.data);
 
     this.latestSearch = searchPromise;
     return searchPromise;
@@ -41,7 +41,7 @@ export class CancIssuesClient {
     }
 
     // Create a new cancelable detail request.
-    const detailPromise = this.api.get<Issue>(`/issues/${issueId}`).then((response) => response.data) as any;
+    const detailPromise = this.api.get<Issue>(`/issues/${issueId}`).then((response) => response.data);
 
     this.latestDetail = detailPromise;
     return detailPromise;
