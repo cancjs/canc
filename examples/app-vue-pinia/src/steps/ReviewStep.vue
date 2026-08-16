@@ -2,20 +2,27 @@
  ever reads state and dispatches actions. -->
 <script setup lang="ts">
 import { inject } from 'vue';
+
 import { CHECKOUT_STORE_KEY } from '../store-key';
 
 const store = inject(CHECKOUT_STORE_KEY)!();
 
 function prepare() {
- store.prepareReview();
+  store.prepareReview();
 }
 </script>
 
 <template>
- <section>
- <h2>Review</h2>
- <button type="button" data-testid="prepare-review" @click="prepare">Prepare review</button>
- <div data-testid="review-status">{{ store.reviewStatus }}</div>
- <div data-testid="review-total">{{ store.review?.total ?? '' }}</div>
- </section>
+  <section>
+    <h2>Review</h2>
+    <button
+      type="button"
+      data-testid="prepare-review"
+      @click="prepare"
+    >
+      Prepare review
+    </button>
+    <div data-testid="review-status">{{ store.reviewStatus }}</div>
+    <div data-testid="review-total">{{ store.review?.total ?? '' }}</div>
+  </section>
 </template>

@@ -1,7 +1,7 @@
 <script lang="ts">
-import { defineComponent } from 'vue';
 import * as canc from '@cancjs/coroutine';
 import { cancelify } from '@cancjs/toolbox';
+import { defineComponent } from 'vue';
 
 import { cancelableSetup } from './lib/cancelable-setup';
 import { loadProductDetail, type ProductDetail } from './mock/catalog-api';
@@ -14,19 +14,20 @@ const loadDetail = cancelify(({ getSignal }, id: string) => loadProductDetail(id
 // cancelable coroutine tied to this component's scope. Switching products under <Suspense> tears
 // down this scope before the load settles, which cancels the coroutine and aborts the request.
 export default defineComponent({
- props: { id: { type: String, required: true } },
- setup: cancelableSetup(function* setup(props: { id: string }) {
- const detail: ProductDetail = yield* canc.await(loadDetail(props.id));
- return { detail };
- }),
+  props: { id: { type: String, required: true } },
+  setup: cancelableSetup(function* setup(props: { id: string }) {
+    const detail: ProductDetail = yield* canc.await(loadDetail(props.id));
+    return { detail };
+  }),
 });
 </script>
 
 <template>
- <div :data-testid="`detail-${detail.id}`" style="padding: 0.75rem; border: 1px solid #eee; border-radius: 4px">
- <strong>{{ detail.name }}</strong>
- <div style="color: #555; font-size: 0.9rem; margin-top: 0.4rem">
- {{ detail.description }} — ${{ detail.price }}
- </div>
- </div>
+  <div
+    :data-testid="`detail-${detail.id}`"
+    style="padding: 0.75rem; border: 1px solid #eee; border-radius: 4px"
+  >
+    <strong>{{ detail.name }}</strong>
+    <div style="color: #555; font-size: 0.9rem; margin-top: 0.4rem">{{ detail.description }} — ${{ detail.price }}</div>
+  </div>
 </template>
