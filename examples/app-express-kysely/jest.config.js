@@ -22,5 +22,5 @@ module.exports = {
       },
     ],
   },
-  transformIgnorePatterns: ['/node_modules/(?!kysely/)'],
+  transformIgnorePatterns: ['/node_modules/(?!kysely/|@electric-sql/pglite/)'],
 };

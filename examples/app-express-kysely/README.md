@@ -1,7 +1,7 @@
 # app-express-kysely
 
 E-commerce back office. A slow orders report endpoint runs a chain of kysely queries over a
-seeded in-memory SQLite database. When the client disconnects, the canc version cancels the
+seeded in-memory Postgres-compatible database (pglite). When the client disconnects, the canc version cancels the
 handler chain so the remaining work never runs. The vanilla version keeps computing for a socket
 nobody is reading.
 
@@ -30,44 +30,42 @@ npm run test --workspace=app-express-kysely
 Each entry boots the server, starts an orders report, destroys the client socket partway through,
 and prints how many aggregate slices ran afterwards. The canc run freezes the query log at the
 disconnect point; the vanilla run finishes every slice.
+To run the opt-in wire-cancel path, run `DATABASE_URL=... npm run start:canc` connecting to a real Postgres database.
 
 ## What it shows
 
 - `cancAsyncRoute` (`src/lib/cancelable-route.ts`, canc) wraps a generator route handler as a
- `canc.async` coroutine and cancels it on `req.on('close')`. The handler keeps the normal
- `(req, res, next)` shape and owns the response; the wrapper only adds the cancellation wiring.
+  `canc.async` coroutine and cancels it on `req.on('close')`. The handler keeps the normal
+  `(req, res, next)` shape and owns the response; the wrapper only adds the cancellation wiring.
+- `executeCancelable` (`src/lib/cancelable-kysely.ts`, canc) integrates cancellation INTO kysely via one reusable helper. The app code stays signal-free.
 - `buildReport` (canc) is a `canc.async` coroutine: a page query, a per-customer totals query, then
- a slow grand-total aggregate split into slices. Each step is a `canc.await`, so cancellation is
- ambient. No signal is threaded through the handler.
+  a slow grand-total aggregate split into slices. Each step is a `canc.await`, so cancellation is
+  ambient. No signal is threaded through the handler.
 - The vanilla twin carries both shapes: `buildReport` cannot be stopped at all, and
- `buildReportAbortable` is the hand-rolled AbortController version that re-checks `signal.aborted`
- at every boundary. Compare the single canc coroutine against both.
+  `buildReportAbortable` is the hand-rolled AbortController version that threads `{ signal }` into every call and re-checks `signal.aborted`
+  at every boundary. Compare the single canc coroutine against both.
 
 ## Files to diff
 
 - `src/report-service-vanilla.ts` vs `src/report-service-canc.ts`: the report chain, with and
- without cancellation. The vanilla file adds a second `buildReportAbortable` function showing the
- manual-signal cost; the canc file needs no such second flavor.
+  without cancellation. The vanilla file adds a second `buildReportAbortable` function showing the
+  manual-signal cost; the canc file needs no such second flavor.
 - `src/middleware-vanilla.ts`: disconnect wiring for the abortable workaround, exposing an
- AbortSignal the handler threads by hand. The canc flavor needs no such middleware: cancellation
- is wired per-route by `cancAsyncRoute`.
+  AbortSignal the handler threads by hand. The canc flavor needs no such middleware: cancellation
+  is wired per-route by `cancAsyncRoute`.
 - `src/routes-vanilla.ts` vs `src/routes-canc.ts`: route handlers. Vanilla needs a second
- `/orders/report-abortable` route for the workaround; canc has one report route, written as a
- generator passed to `cancAsyncRoute`.
+  `/orders/report-abortable` route for the workaround; canc has one report route, written as a
+  generator passed to `cancAsyncRoute`.
 
-## Honesty notes
+## Honesty matrix
 
-- **Cancellation stops the chain, not a running statement.** better-sqlite3 executes every query
- synchronously on the calling thread. Nothing here can abort a query that is already running.
- What cancellation does is stop BETWEEN queries: the grand-total aggregate is split into slices,
- and cancelling means the remaining slices never start and the response is released. That is the
- honest, meaningful unit of cancellation for a synchronous database.
-- **Real databases can go further.** A Postgres driver can issue a wire-level cancel of an
- in-flight statement, killing work already running on the server. That is out of scope here (no
- external database to run), but the same middleware and coroutine structure applies: you would
- drive the driver's cancel from the same `req.on('close')`.
+| what stops | pglite (default, in-process WASM) | node-postgres `pg` (opt-in server) |
+|---|---|---|
+| remaining slices skipped, socket released | yes | yes |
+| in-flight await rejects at a statement boundary | yes (async driver) | yes |
+| a running statement killed server-side | **no** (thread blocked; no `cancelQuery`) | **yes** via `'cancel query'` → `pg_cancel_backend` |
+| session/backend killed | no | yes via `'kill session'` → `pg_terminate_backend` |
 
 ## Copying
 
-`src/lib/cancelable-route.ts` and the coroutine shape in `src/report-service-canc.ts` are the
-reusable pieces. The `src/mock/` database is scaffolding for this demo, not something to copy.
+`src/lib/cancelable-kysely.ts` and `src/lib/cancelable-route.ts` are the reusable pieces. `src/mock/` is scaffolding.

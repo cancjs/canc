@@ -6,8 +6,8 @@ import { createReportRouter } from './routes-vanilla';
 import { runDisconnectScenario } from './scenario';
 
 /** Builds the vanilla server: abort middleware installed before the report routes. */
-export function createApp() {
-  const rdb = createReportDb();
+export async function createApp() {
+  const rdb = await createReportDb();
   const app = express();
   app.use(abortOnDisconnect);
   app.use(createReportRouter(rdb));

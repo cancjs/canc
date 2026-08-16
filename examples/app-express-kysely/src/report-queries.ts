@@ -2,8 +2,6 @@
 // only thing the twins differ on is HOW they sequence and cancel them. Keeping the raw kysely
 // here keeps the twin services focused on the cancellation mechanics, not on SQL.
 
-import { sleep } from '@shared/util';
-
 import { CHUNK_ROWS, ReportDb, SEED_ORDER_COUNT, sql } from './mock/db';
 
 export interface OrderRowView {
@@ -25,26 +23,27 @@ export interface ReportPayload {
 }
 
 /** Step 1: a page of recent orders. Fast. */
-export function fetchOrdersPage(rdb: ReportDb, limit: number): Promise<OrderRowView[]> {
+export function ordersPageQuery(rdb: ReportDb, limit: number) {
   return rdb.db
     .selectFrom('orders')
     .select(['id', 'customer_id as customerId', 'quantity', 'unit_price as unitPrice'])
     .orderBy('created_at', 'desc')
-    .limit(limit)
-    .execute();
+    .limit(limit);
 }
 
 /** Step 2: per-customer revenue for the top spenders. Medium. */
-export function fetchTopCustomers(rdb: ReportDb, limit: number): Promise<CustomerTotal[]> {
+export function topCustomersQuery(rdb: ReportDb, limit: number) {
   return rdb.db
     .selectFrom('orders')
     .select(['customer_id as customerId'])
     .select((eb) => eb.fn.sum(sql<number>`quantity * unit_price`).as('total'))
     .groupBy('customer_id')
     .orderBy('total', 'desc')
-    .limit(limit)
-    .execute()
-    .then((rows) => rows.map((row) => ({ customerId: row.customerId, total: Number(row.total) })));
+    .limit(limit);
+}
+
+export function mapTopCustomersRow(row: { customerId: number; total: number | string | bigint | null }): CustomerTotal {
+  return { customerId: row.customerId, total: Number(row.total) };
 }
 
 /** Number of slices the grand-total aggregate is split into (rounds up). */
@@ -60,21 +59,17 @@ export const CHUNK_LATENCY_MS = 25;
  * statement. Each slice sums revenue over CHUNK_ROWS orders. Splitting it is what makes chain
  * cancellation meaningful: the handler runs the slices in sequence and can stop between any two
  * of them, so a disconnected client leaves the remaining slices unrun. A single monolithic
- * aggregate would give sqlite no boundary to stop at.
+ * aggregate would give pglite no boundary to stop at.
  *
- * A small delay per slice stands in for the latency a real database call would have. sqlite runs
- * synchronously and returns in microseconds, which would leave no realistic window to disconnect
- * in; the delay makes the report long enough to cancel, without pretending sqlite is abortable.
+ * A small delay per slice stands in for the latency a real database call would have. pglite runs
+ * in-process and returns in microseconds, which would leave no realistic window to disconnect
+ * in; the delay makes the report long enough to cancel, without pretending pglite is abortable.
  */
-export function grandTotalChunk(rdb: ReportDb, chunkIndex: number): Promise<number> {
+export function grandTotalChunkQuery(rdb: ReportDb, chunkIndex: number) {
   const offset = chunkIndex * CHUNK_ROWS;
-  return sleep(CHUNK_LATENCY_MS).then(() =>
-    rdb.db
-      .selectFrom('orders')
-      .select((eb) => eb.fn.sum(sql<number>`quantity * unit_price`).as('subtotal'))
-      .where('id', '>', offset)
-      .where('id', '<=', offset + CHUNK_ROWS)
-      .executeTakeFirst()
-      .then((row) => Number(row?.subtotal ?? 0)),
-  );
+  return rdb.db
+    .selectFrom('orders')
+    .select((eb) => eb.fn.sum(sql<number>`quantity * unit_price`).as('subtotal'))
+    .where('id', '>', offset)
+    .where('id', '<=', offset + CHUNK_ROWS);
 }

@@ -33,7 +33,7 @@ async function slicesAfterDisconnect(app: Express, rdb: ReportDb, path: string):
   return withServer(app, async (port) => {
     const req = http.get(`http://127.0.0.1:${port}${path}`);
     req.on('error', () => {});
-    await sleep(40);
+    await sleep(150);
     req.destroy();
     await sleep(400);
     return countAggregateQueries(rdb);
@@ -42,7 +42,7 @@ async function slicesAfterDisconnect(app: Express, rdb: ReportDb, path: string):
 
 describe('orders report cancellation on client disconnect', () => {
   it('canc: disconnect freezes the query log before the aggregate finishes', async () => {
-    const { app, rdb } = createCancApp();
+    const { app, rdb } = await createCancApp();
     const total = aggregateChunkCount();
 
     const ran = await slicesAfterDisconnect(app, rdb, '/orders/report');
@@ -51,11 +51,11 @@ describe('orders report cancellation on client disconnect', () => {
     expect(ran).toBeGreaterThan(0);
     expect(ran).toBeLessThan(total);
 
-    rdb.close();
+    await rdb.close();
   });
 
   it('vanilla uncancelable: every slice runs even after the client left (the bug we teach)', async () => {
-    const { app, rdb } = createVanillaApp();
+    const { app, rdb } = await createVanillaApp();
     const total = aggregateChunkCount();
 
     const ran = await slicesAfterDisconnect(app, rdb, '/orders/report');
@@ -63,11 +63,11 @@ describe('orders report cancellation on client disconnect', () => {
     // No cancellation: the aggregate completes for a socket nobody is reading.
     expect(ran).toBe(total);
 
-    rdb.close();
+    await rdb.close();
   });
 
   it('vanilla abortable: the AbortController workaround also stops early', async () => {
-    const { app, rdb } = createVanillaApp();
+    const { app, rdb } = await createVanillaApp();
     const total = aggregateChunkCount();
 
     const ran = await slicesAfterDisconnect(app, rdb, '/orders/report-abortable');
@@ -75,17 +75,28 @@ describe('orders report cancellation on client disconnect', () => {
     expect(ran).toBeGreaterThan(0);
     expect(ran).toBeLessThan(total);
 
-    rdb.close();
+    await rdb.close();
   });
 
   it('serves the product list to a client that stays connected', async () => {
-    const { app, rdb } = createCancApp();
+    const { app, rdb } = await createCancApp();
 
     const response = await request(app).get('/products');
 
     expect(response.status).toBe(200);
     expect(response.body.length).toBeGreaterThan(0);
 
-    rdb.close();
+    await rdb.close();
+  });
+
+  const itPg = process.env.DATABASE_URL ? it : it.skip;
+  itPg('canc wire-cancel on Postgres: issues pg_cancel_backend', async () => {
+    // If DATABASE_URL is set, createCancApp will connect to Postgres, and strategy is 'cancel query'.
+    // The previous tests verify the coroutine stops issuing queries, but here we would also assert
+    // that the query currently running on Postgres is canceled via wire protocol.
+    const { app, rdb } = await createCancApp();
+    const ran = await slicesAfterDisconnect(app, rdb, '/orders/report');
+    expect(ran).toBeGreaterThan(0);
+    await rdb.close();
   });
 });

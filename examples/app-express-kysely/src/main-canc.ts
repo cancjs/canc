@@ -7,8 +7,8 @@ import { createReportRouter } from './routes-canc';
 import { runDisconnectScenario } from './scenario';
 
 /** Builds the canc server. The report route cancels itself on disconnect, no middleware needed. */
-export function createApp() {
-  const rdb = createReportDb();
+export async function createApp() {
+  const rdb = await createReportDb();
   const app = express();
   app.use(createReportRouter(rdb));
   return { app, rdb };

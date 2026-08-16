@@ -2,15 +2,17 @@
 // real Postgres. It is here only so the report endpoint has something slow and real to compute
 // while a client is (or is not) still connected.
 //
-// Honesty note: better-sqlite3 runs every statement synchronously on the calling thread. Nothing
-// here can abort a statement that is already executing. What cancellation buys us is stopping
+// Honesty note: pglite runs in-process WASM on a single thread. It cannot wire-cancel a running
+// statement because there is no separate server backend. What cancellation buys us here is stopping
 // BETWEEN queries: the aggregate below is deliberately split into slices (`chunkedQuery`) so the
 // handler can decide, at each slice boundary, whether the client is still there. If not, the
-// remaining slices never run and the response is released. A production Postgres driver could go
-// further and issue a wire-level cancel of an in-flight statement (see README, "Real databases").
+// remaining slices never run and the response is released. A production Postgres driver (node-postgres)
+// goes further and issues a wire-level cancel of an in-flight statement via pg_cancel_backend.
+// Set DATABASE_URL to a local Postgres to run the opt-in wire-cancel path.
 
-import SqliteDatabase from 'better-sqlite3';
-import { Kysely, sql, SqliteDialect } from 'kysely';
+import { PGlite } from '@electric-sql/pglite';
+import { InflightQueryAbortStrategy, Kysely, PGliteDialect, PostgresDialect, sql } from 'kysely';
+import pg from 'pg';
 
 interface OrderRow {
   id: number;
@@ -44,63 +46,107 @@ export interface ReportDb {
   db: Kysely<Schema>;
   /** Every executed query is logged here so a test can assert which queries ran (and which did not). */
   queryLog: string[];
-  close(): void;
+  strategy: InflightQueryAbortStrategy;
+  close(): Promise<void>;
 }
 
-/** Builds and seeds the in-memory database. Deterministic: no randomness, so tests are stable. */
-export function createReportDb(): ReportDb {
-  const sqlite = new SqliteDatabase(':memory:');
-  sqlite.pragma('journal_mode = OFF');
-  sqlite.pragma('synchronous = OFF');
-
-  sqlite.exec(`
- CREATE TABLE products (id INTEGER PRIMARY KEY, name TEXT NOT NULL, category TEXT NOT NULL);
- CREATE TABLE orders (
- id INTEGER PRIMARY KEY,
- customer_id INTEGER NOT NULL,
- product_id INTEGER NOT NULL,
- quantity INTEGER NOT NULL,
- unit_price INTEGER NOT NULL,
- created_at INTEGER NOT NULL
- );
- CREATE INDEX idx_orders_customer ON orders (customer_id);
- `);
-
-  const insertProduct = sqlite.prepare('INSERT INTO products (id, name, category) VALUES (?, ?, ?)');
-  const insertOrder = sqlite.prepare(
-    'INSERT INTO orders (id, customer_id, product_id, quantity, unit_price, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-  );
-
-  const seed = sqlite.transaction(() => {
-    for (let id = 1; id <= SEED_PRODUCT_COUNT; id++) {
-      insertProduct.run(id, `Product ${id}`, `cat-${id % 5}`);
-    }
-    for (let id = 1; id <= SEED_ORDER_COUNT; id++) {
-      const customerId = (id % SEED_CUSTOMER_COUNT) + 1;
-      const productId = (id % SEED_PRODUCT_COUNT) + 1;
-      const quantity = (id % 5) + 1;
-      const unitPrice = 100 + (id % 900);
-      insertOrder.run(id, customerId, productId, quantity, unitPrice, id);
-    }
-  });
-  seed();
-
+/** Builds and seeds the database. Deterministic: no randomness, so tests are stable. */
+export async function createReportDb(): Promise<ReportDb> {
   const queryLog: string[] = [];
 
-  const db = new Kysely<Schema>({
-    dialect: new SqliteDialect({ database: sqlite }),
-    log: (event) => {
-      if (event.level === 'query') {
-        queryLog.push(event.query.sql);
-      }
-    },
-  });
+  let db: Kysely<Schema>;
+  let strategy: InflightQueryAbortStrategy;
+  let close: () => Promise<void>;
 
-  return {
-    db,
-    queryLog,
-    close: () => void db.destroy(),
-  };
+  if (process.env.DATABASE_URL) {
+    const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+    db = new Kysely<Schema>({
+      dialect: new PostgresDialect({ pool }),
+      log: (event) => {
+        if (event.level === 'query') {
+          queryLog.push(event.query.sql);
+        }
+      },
+    });
+    strategy = 'cancel query';
+    close = async () => {
+      await db.destroy();
+    };
+
+    await sql`DROP TABLE IF EXISTS orders`.execute(db);
+    await sql`DROP TABLE IF EXISTS products`.execute(db);
+  } else {
+    const pglite = new PGlite();
+    await pglite.waitReady;
+    db = new Kysely<Schema>({
+      dialect: new PGliteDialect({ pglite }),
+      log: (event) => {
+        if (event.level === 'query') {
+          queryLog.push(event.query.sql);
+        }
+      },
+    });
+    strategy = 'ignore query';
+    close = async () => {
+      await db.destroy();
+    };
+  }
+
+  await sql`
+    CREATE TABLE products (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      category TEXT NOT NULL
+    )
+  `.execute(db);
+
+  await sql`
+    CREATE TABLE orders (
+      id SERIAL PRIMARY KEY,
+      customer_id INTEGER NOT NULL,
+      product_id INTEGER NOT NULL,
+      quantity INTEGER NOT NULL,
+      unit_price INTEGER NOT NULL,
+      created_at BIGINT NOT NULL
+    )
+  `.execute(db);
+
+  await sql`CREATE INDEX idx_orders_customer ON orders (customer_id)`.execute(db);
+
+  // Seed products
+  const productValues = [];
+  for (let id = 1; id <= SEED_PRODUCT_COUNT; id++) {
+    productValues.push({
+      id,
+      name: `Product ${id}`,
+      category: `cat-${id % 5}`,
+    });
+  }
+  await db.insertInto('products').values(productValues).execute();
+
+  // Seed orders
+  const orderValues = [];
+  for (let id = 1; id <= SEED_ORDER_COUNT; id++) {
+    orderValues.push({
+      id,
+      customer_id: (id % SEED_CUSTOMER_COUNT) + 1,
+      product_id: (id % SEED_PRODUCT_COUNT) + 1,
+      quantity: (id % 5) + 1,
+      unit_price: 100 + (id % 900),
+      created_at: id,
+    });
+  }
+
+  // Chunk the inserts so we don't blow up parameter limits
+  const CHUNK_SIZE = 5000;
+  for (let i = 0; i < orderValues.length; i += CHUNK_SIZE) {
+    await db
+      .insertInto('orders')
+      .values(orderValues.slice(i, i + CHUNK_SIZE))
+      .execute();
+  }
+
+  return { db, queryLog, strategy, close };
 }
 
 export { sql };
