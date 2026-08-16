@@ -6,10 +6,11 @@ import { findRooms, loadRates, scanBookings } from './bookings-repository';
 
 // Cancelable repository boundary. The repository fns are plain promises; cancelify makes them
 // canc-native once, here, so the search below reads like plain async/await with no signal in it.
-// These two carry no signal. A canceled chain skips a query that has not started yet, which is the
-// whole win for a short lookup. A query-level signal is the connection-churn path, see the README.
-const findHotelRooms = cancelify((_ctx, hotelId: string) => findRooms(hotelId));
-const loadRoomRates = cancelify((_ctx, roomIds: string[], date: string) => loadRates(roomIds, date));
+// Chain-level skip is what saves the work for a short lookup. The query signal is the flagged extra.
+const findHotelRooms = cancelify(({ getSignal }, hotelId: string) => findRooms(hotelId, { signal: getSignal() }));
+const loadRoomRates = cancelify(({ getSignal }, roomIds: string[], date: string) =>
+  loadRates(roomIds, date, { signal: getSignal() }),
+);
 // The scan is the long step, so this one does take the signal. A cancel stops the document loop
 // where it stands instead of walking the rest of the bookings.
 const scanRoomBookings = cancelify(({ getSignal }, roomIds: string[], date: string) =>
