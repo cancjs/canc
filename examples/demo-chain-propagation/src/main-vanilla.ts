@@ -4,38 +4,39 @@ import { loadProductProfile } from './page-load-vanilla';
 import { report } from './report';
 
 type ProductsApi = MockApiBundle['products'];
-type MusicApi = MockApiBundle['music'];
+type InventoryApi = MockApiBundle['inventory'];
+type OrdersApi = MockApiBundle['orders'];
 type InvoicesApi = MockApiBundle['invoices'];
 type MockApi = MockApiBundle['api'];
 
 async function runScenarios(): Promise<void> {
-  const { api, products: productsApi, music: musicApi, invoices: invoicesApi } = createMockApi();
+  const mockBundle = createMockApi();
+  const { products: productsApi, inventory: inventoryApi, orders: ordersApi, invoices: invoicesApi } = mockBundle;
+  const api = mockBundle.api;
 
-  // Scenario 1: Down (source canceled mid-chain)
   console.log('\n=== Scenario 1: Down (source canceled) ===');
-  await runDownScenario(api, productsApi, musicApi, invoicesApi);
+  await runDownScenario(api, productsApi, inventoryApi, ordersApi, invoicesApi);
 
-  // Scenario 2: Up/bubble (both consumers canceled)
   console.log('\n=== Scenario 2: Up/bubble (consumers canceled) ===');
-  await runBubbleScenario(api, productsApi, musicApi, invoicesApi);
+  await runBubbleScenario(api, productsApi, inventoryApi, ordersApi, invoicesApi);
 
-  // Scenario 3: Partial (one consumer canceled)
   console.log('\n=== Scenario 3: Partial (one consumer canceled) ===');
-  await runPartialScenario(api, productsApi, musicApi, invoicesApi);
+  await runPartialScenario(api, productsApi, inventoryApi, ordersApi, invoicesApi);
 
-  // Scenario 4: Shield (audit survives)
   console.log('\n=== Scenario 4: Shield (audit isolated) ===');
-  await runShieldScenario(api, productsApi, musicApi, invoicesApi);
+  await runShieldScenario(api, productsApi, inventoryApi, ordersApi, invoicesApi);
 }
 
 async function runDownScenario(
   api: MockApi,
   productsApi: ProductsApi,
-  musicApi: MusicApi,
+  inventoryApi: InventoryApi,
+  ordersApi: OrdersApi,
   invoicesApi: InvoicesApi,
 ): Promise<void> {
-  report('starting product load');
-  const profilePromise = loadProductProfile(productsApi, musicApi, invoicesApi, 'p1');
+  api.reset();
+  report('canceling source');
+  const profilePromise = loadProductProfile(productsApi, inventoryApi, ordersApi, invoicesApi, 'p1');
 
   // Simulate: user leaves before completion.
   // In vanilla, there is no way to cancel from here.
@@ -57,17 +58,23 @@ async function runDownScenario(
 async function runBubbleScenario(
   api: MockApi,
   productsApi: ProductsApi,
-  musicApi: MusicApi,
+  inventoryApi: InventoryApi,
+  ordersApi: OrdersApi,
   invoicesApi: InvoicesApi,
 ): Promise<void> {
-  report('starting product load');
-  const profilePromise = loadProductProfile(productsApi, musicApi, invoicesApi, 'p2');
+  api.reset();
+  report('canceling both consumers');
+  const profilePromise = loadProductProfile(productsApi, inventoryApi, ordersApi, invoicesApi, 'p2');
+
+  const stockConsumer = profilePromise.then((x) => x.stock);
+  const ordersConsumer = profilePromise.then((x) => x.orders);
 
   // In vanilla, you might keep the promise around and hope nothing else happens.
   report('user abandoned page (no cancellation possible)');
 
   try {
-    await profilePromise;
+    await stockConsumer;
+    await ordersConsumer;
   } catch (_err) {
     report('load failed');
   }
@@ -79,16 +86,22 @@ async function runBubbleScenario(
 async function runPartialScenario(
   api: MockApi,
   productsApi: ProductsApi,
-  musicApi: MusicApi,
+  inventoryApi: InventoryApi,
+  ordersApi: OrdersApi,
   invoicesApi: InvoicesApi,
 ): Promise<void> {
-  report('starting product load');
-  const profilePromise = loadProductProfile(productsApi, musicApi, invoicesApi, 'p3');
+  api.reset();
+  report('canceling one consumer');
+  const profilePromise = loadProductProfile(productsApi, inventoryApi, ordersApi, invoicesApi, 'p3');
+
+  const stockConsumer = profilePromise.then((x) => x.stock);
+  const ordersConsumer = profilePromise.then((x) => x.orders);
 
   report('user abandoned page (no selective cancellation)');
 
   try {
-    await profilePromise;
+    await stockConsumer;
+    await ordersConsumer;
   } catch (_err) {
     report('load failed');
   }
@@ -100,11 +113,13 @@ async function runPartialScenario(
 async function runShieldScenario(
   api: MockApi,
   productsApi: ProductsApi,
-  musicApi: MusicApi,
+  inventoryApi: InventoryApi,
+  ordersApi: OrdersApi,
   invoicesApi: InvoicesApi,
 ): Promise<void> {
-  report('starting product load');
-  const profilePromise = loadProductProfile(productsApi, musicApi, invoicesApi, 'p4');
+  api.reset();
+  report('canceling source with shielded audit leg');
+  const profilePromise = loadProductProfile(productsApi, inventoryApi, ordersApi, invoicesApi, 'p4');
 
   report('user abandoned page');
 
