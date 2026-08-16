@@ -46,21 +46,22 @@ export async function scanBookings(
   if (currentLatency) await sleep(currentLatency);
 
   const abortSignal = ABORT_QUERIES ? options.signal : undefined;
-  const bookings = (await BookingModel.find({ roomId: { $in: roomIds } }, null, { signal: abortSignal })
+  const bookingCursor = BookingModel.find({ roomId: { $in: roomIds } }, null, { signal: abortSignal })
     .lean()
-    .exec()) as Booking[];
+    .cursor();
 
-  // The loop implements the stop semantics of the driver's own cursor scan, because mockingoose
-  // replaces the cursor with a stand-in that drops the options argument, signal included.
   let scanned = 0;
   let booked = 0;
-  for (const booking of bookings) {
-    if (options.signal?.aborted) break;
-    await sleep(SCAN_STEP_MS);
-    scanned += 1;
-    if (booking.date === date) booked += 1;
-    entry.documentsScanned = scanned;
-  }
+
+  await bookingCursor.eachAsync(
+    async (booking: Booking) => {
+      await sleep(SCAN_STEP_MS);
+      scanned += 1;
+      if (booking.date === date) booked += 1;
+      entry.documentsScanned = scanned;
+    },
+    { signal: options.signal },
+  );
 
   return roomIds.length ? booked / roomIds.length : 0;
 }

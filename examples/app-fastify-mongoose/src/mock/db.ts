@@ -50,4 +50,43 @@ export function installMocks(latencyMs = 0): void {
   mockingoose(RateModel).toReturn(RATES, 'find');
   mockingoose(BookingModel).toReturn(BOOKINGS, 'find');
   currentLatency = latencyMs;
+
+  // mockingoose's stand-in drops the options argument, so this one has to carry the behavior.
+  const mongoose = require('mongoose');
+  const originalCursor = mongoose.Query.prototype.cursor;
+  mongoose.Query.prototype.cursor = function (...args: any[]) {
+    const cursor = originalCursor.apply(this, args);
+    cursor.eachAsync = function (handler: (doc: any) => Promise<void>, options?: { signal?: AbortSignal }) {
+      if (options?.signal?.aborted) return Promise.resolve(null);
+      return new Promise((resolve, reject) => {
+        let stopped = false;
+        const onAbort = () => {
+          stopped = true;
+          resolve(null);
+        };
+        if (options?.signal) {
+          options.signal.addEventListener('abort', onAbort, { once: true });
+        }
+
+        const loop = async () => {
+          try {
+            let doc = await cursor.next();
+            while (doc !== null) {
+              if (stopped) break;
+              // The handler already in flight when the abort lands runs to completion.
+              await handler(doc);
+              if (stopped) break;
+              doc = await cursor.next();
+            }
+            options?.signal?.removeEventListener('abort', onAbort);
+            if (!stopped) resolve(null);
+          } catch (err) {
+            reject(err);
+          }
+        };
+        loop();
+      });
+    };
+    return cursor;
+  };
 }
