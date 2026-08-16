@@ -14,6 +14,7 @@
     "app-cli-graceful",
     "app-crawler-race",
     "app-express-kysely",
+    "app-fetch-streaming",
     "app-fastify-mongoose",
     "app-fullstack-cancel",
     "app-nestjs-typeorm",
