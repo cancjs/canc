@@ -14,9 +14,11 @@ export class VanillaIssuesClient {
 
   constructor(private instance: AxiosInstance) {}
 
-  // (Native Promise cannot declare failures — see -canc twin)
+  // (Native Promise cannot declare failures, see -canc twin)
   async searchIssues(query: string): Promise<SearchResult> {
+    // (no cancellation counterpart, see -canc)
     const searchId = `search_${Date.now()}_${Math.random()}`;
+    this.latestSearchId = searchId;
     const ac = new AbortController();
     this.requestRegistry.set(searchId, ac);
 
@@ -45,6 +47,7 @@ export class VanillaIssuesClient {
   }
 
   async getIssueWithComments(issueId: number): Promise<Issue> {
+    // (no cancellation counterpart, see -canc)
     const ac = new AbortController();
     const detailId = `detail_${issueId}`;
     this.requestRegistry.set(detailId, ac);
@@ -61,7 +64,7 @@ export class VanillaIssuesClient {
 
   cancelSearch(): void {
     // To cancel the current search, we must track which ID was the latest and abort it.
-    // This is manual bookkeeping — registry contains ALL in-flight requests; we abort only the latest.
+    // This is manual bookkeeping (registry contains ALL in-flight requests; we abort only the latest).
     if (this.latestSearchId && this.requestRegistry.has(this.latestSearchId)) {
       const ac = this.requestRegistry.get(this.latestSearchId);
       ac?.abort();
