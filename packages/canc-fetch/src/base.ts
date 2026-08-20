@@ -8,6 +8,7 @@ import {
   TimeoutError,
 } from '@cancjs/promise';
 
+import { resolveTimers, startTimer, stopTimer, TTimersOverride } from '../../_toolbox/timers';
 import { isAbortError, isFunction } from '../../_util';
 
 // Minimal structural stand-ins so the source stays buildable in environments without DOM/Node fetch
@@ -207,20 +208,17 @@ export type TDeferredRequestInit = Record<string, any> & { activateAfter?: numbe
 
 type FetchLater = (input: any, init?: TDeferredRequestInit) => IFetchLaterResultLike;
 
-// Structural timer stand-ins so the source builds without DOM/Node lib types. The handle is opaque;
-// only round-tripping it back into clearInterval matters.
-type TimerHandle = any;
-declare const setInterval: (handler: () => void, timeout?: number) => TimerHandle;
-declare const clearInterval: (handle: TimerHandle) => void;
-
 declare const fetchLater: FetchLater;
 
-export interface ICancelableFetchLaterConfig extends ICancelableFetchConfig {
-  fetchLater?: FetchLater;
-  // Interval, in milliseconds, at which the FetchLaterResult `activated` flag is polled when
-  // `activateAfter` is set. Defaults to 500.
-  pollInterval?: number;
-}
+// A plain interface cannot extend TTimersOverride (it is a union, half a pair or none), so this
+// stays a type alias.
+export type ICancelableFetchLaterConfig = ICancelableFetchConfig &
+  TTimersOverride & {
+    fetchLater?: FetchLater;
+    // Interval, in milliseconds, at which the FetchLaterResult `activated` flag is polled when
+    // `activateAfter` is set. Defaults to 500.
+    pollInterval?: number;
+  };
 
 // A CancelablePromise merged with the live FetchLaterResult. Resolves to the IFetchLaterResultLike
 // (never a Response, none is exposed). `.activated` reads the live result, or null before the
@@ -299,17 +297,32 @@ export const runFetchLater = (
   }
 
   const pollInterval = typeof config.pollInterval === 'number' ? config.pollInterval : DEFAULT_POLL_INTERVAL;
+  const timers = resolveTimers(undefined, config);
 
-  const intervalHandle = setInterval(() => {
-    if (result.activated) {
-      clearInterval(intervalHandle);
-      finalize();
-      resolve(result);
-    }
-  }, pollInterval);
+  let timerHandle: any;
+
+  // Recursive setTimeout, not setInterval: a tick that runs long never overlaps the next one, and
+  // the handle rebinds every tick so cancel always clears whichever wait is currently pending.
+  const poll = (): void => {
+    timerHandle = startTimer(
+      () => {
+        if (result.activated) {
+          finalize();
+          resolve(result);
+          return;
+        }
+
+        poll();
+      },
+      pollInterval,
+      timers,
+    );
+  };
+
+  poll();
 
   handleCancel(() => {
-    clearInterval(intervalHandle);
+    stopTimer(timerHandle, timers);
   });
 };
 

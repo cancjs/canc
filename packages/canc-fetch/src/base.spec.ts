@@ -576,6 +576,41 @@ function flushTimers(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
+// A timers pair on a virtual clock, so "the injected pair drove the poll" is an assertion on call
+// counts and clock ticks rather than a guess about real elapsed time.
+function createFakeTimers() {
+  const scheduled: Array<{ id: number; due: number; handler: () => void }> = [];
+  let now = 0;
+  let nextId = 1;
+
+  const setTimeoutMock = jest.fn((handler: () => void, ms?: number) => {
+    const id = nextId++;
+    scheduled.push({ id, due: now + (ms ?? 0), handler });
+    return id;
+  });
+
+  const clearTimeoutMock = jest.fn((handle: unknown) => {
+    const index = scheduled.findIndex((entry) => entry.id === handle);
+    if (index >= 0) scheduled.splice(index, 1);
+  });
+
+  return {
+    timers: { setTimeout: setTimeoutMock, clearTimeout: clearTimeoutMock },
+    setTimeout: setTimeoutMock,
+    clearTimeout: clearTimeoutMock,
+    advance: (ms: number) => {
+      now += ms;
+
+      for (;;) {
+        const due = scheduled.filter((entry) => entry.due <= now).sort((a, b) => a.due - b.due)[0];
+        if (!due) return;
+        scheduled.splice(scheduled.indexOf(due), 1);
+        due.handler();
+      }
+    },
+  };
+}
+
 describe('cancelableFetchLaterFactory', () => {
   it('polls the FetchLaterResult activated flag and resolves once it flips true', async () => {
     const result = makeFetchLaterResult(1);
@@ -654,8 +689,8 @@ describe('cancelableFetchLaterFactory', () => {
     expect(isCancelError(error)).toBe(true);
   });
 
-  it('clears the poll interval on cancel (no resolve after cancel)', async () => {
-    const clearSpy = jest.spyOn(global, 'clearInterval');
+  it('clears the poll timer on cancel (no resolve after cancel)', async () => {
+    const clearSpy = jest.spyOn(global, 'clearTimeout');
     // activated never flips within the test window.
     const result = makeFetchLaterResult(1000);
     const fetchLater = jest.fn(() => result);
@@ -686,6 +721,73 @@ describe('cancelableFetchLaterFactory', () => {
     expect(resolved).toBe(false);
 
     clearSpy.mockRestore();
+  });
+
+  it('drives the activation poll through an injected timers pair, not the ambient one', async () => {
+    const fake = createFakeTimers();
+    const ambientSpy = jest.spyOn(global, 'setTimeout');
+    const result = makeFetchLaterResult(2);
+    const fetchLater = jest.fn(() => result);
+
+    const cancelableFetchLater = cancelableFetchLaterFactory({
+      fetchLater: fetchLater as any,
+      AbortController: MockAbortController as any,
+      pollInterval: 5,
+      ...fake.timers,
+    });
+
+    const promise = cancelableFetchLater('/api', { activateAfter: 1000 });
+
+    // Three ticks needed before `activated` flips (makeFetchLaterResult(2) counts reads); each
+    // tick reschedules through the injected setTimeout, never the ambient global.
+    fake.advance(5);
+    fake.advance(5);
+    fake.advance(5);
+
+    const resolved = await promise;
+
+    expect(resolved).toBe(result);
+    expect(fake.setTimeout).toHaveBeenCalledTimes(3);
+    expect(fake.setTimeout.mock.calls.every(([, ms]) => ms === 5)).toBe(true);
+    expect(ambientSpy).not.toHaveBeenCalled();
+
+    ambientSpy.mockRestore();
+  });
+
+  it('cancelling a pending fetchLater clears through the injected clearTimeout and stops polling', async () => {
+    const fake = createFakeTimers();
+    // activated never flips within the test window.
+    const result = makeFetchLaterResult(1000);
+    const fetchLater = jest.fn(() => result);
+
+    const cancelableFetchLater = cancelableFetchLaterFactory({
+      fetchLater: fetchLater as any,
+      AbortController: MockAbortController as any,
+      pollInterval: 5,
+      ...fake.timers,
+    });
+
+    const promise = cancelableFetchLater('/api', { activateAfter: 1000 });
+
+    // One tick from the initial poll() call, one from the reschedule it triggers.
+    fake.advance(5);
+    expect(fake.setTimeout).toHaveBeenCalledTimes(2);
+
+    promise.cancel();
+
+    let error: any;
+    try {
+      await promise;
+    } catch (e) {
+      error = e;
+    }
+
+    expect(isCancelError(error)).toBe(true);
+    expect(fake.clearTimeout).toHaveBeenCalledTimes(1);
+
+    // Cancel dequeued the pending wait, so advancing the clock further schedules nothing new.
+    fake.advance(50);
+    expect(fake.setTimeout).toHaveBeenCalledTimes(2);
   });
 
   it('rejects with the raw error when fetchLater throws synchronously', async () => {
