@@ -1,15 +1,17 @@
 import { construct, IExecutorCtx, TPromiseCtor } from './construct';
+import { TCallDeps } from './deps';
 import { isCancelableLike, isThenableLike } from './guards';
 import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
+import { resolveTimers, startTimer, stopTimer, TTimersOverride } from './timers';
 
-export interface IDebounceOptions {
+export type IDebounceOptions = TCallDeps & {
   leading?: boolean;
   trailing?: boolean;
   maxWait?: number;
   /** The debounce timer always runs immediately, so a `lazy` flag would be accepted and ignored. */
   lazy?: never;
   [key: string]: unknown;
-}
+};
 
 export interface IDebounced<Args extends unknown[], R, K extends IPromiseKind = IPromiseLikeKind, F = never> {
   (...args: Args): TPromiseOf<K, R, F>;
@@ -18,9 +20,9 @@ export interface IDebounced<Args extends unknown[], R, K extends IPromiseKind = 
   readonly isPending: boolean;
 }
 
-export interface IDebounceDeps {
+export type IDebounceDeps = TTimersOverride & {
   Impl: TPromiseCtor;
-}
+};
 
 export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IDebounceDeps) {
   return function debounce<Args extends unknown[], R, F = never>(
@@ -31,9 +33,10 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
     const leading = options?.leading === true;
     const trailing = options?.trailing === false ? false : true;
     const maxWait: number | undefined = options != null ? options.maxWait : undefined;
+    const timers = resolveTimers(options, deps);
 
-    let timerId: ReturnType<typeof setTimeout> | undefined;
-    let maxTimerId: ReturnType<typeof setTimeout> | undefined;
+    let timerId: unknown;
+    let maxTimerId: unknown;
     let lastArgs: Args | undefined;
 
     let pendingResolve: ((value: R | PromiseLike<R>) => void) | undefined;
@@ -68,11 +71,11 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
 
     function clearTimers(): void {
       if (timerId !== undefined) {
-        clearTimeout(timerId);
+        stopTimer(timerId, timers);
         timerId = undefined;
       }
       if (maxTimerId !== undefined) {
-        clearTimeout(maxTimerId);
+        stopTimer(maxTimerId, timers);
         maxTimerId = undefined;
       }
     }
@@ -91,7 +94,7 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
     function timerExpired(): void {
       timerId = undefined;
       if (maxTimerId !== undefined) {
-        clearTimeout(maxTimerId);
+        stopTimer(maxTimerId, timers);
         maxTimerId = undefined;
       }
 
@@ -138,7 +141,7 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
       lastArgs = argsArray;
 
       if (timerId !== undefined) {
-        clearTimeout(timerId);
+        stopTimer(timerId, timers);
         timerId = undefined;
       }
 
@@ -151,17 +154,17 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
       if (leading && isFirstCall) {
         invoke(argsArray);
         if (trailing) {
-          timerId = setTimeout(timerExpired, ms);
+          timerId = startTimer(timerExpired, ms, timers);
         }
         if (maxWait !== undefined && maxTimerId === undefined) {
-          maxTimerId = setTimeout(timerExpired, maxWait);
+          maxTimerId = startTimer(timerExpired, maxWait, timers);
         }
         return promise;
       }
 
-      timerId = setTimeout(timerExpired, ms);
+      timerId = startTimer(timerExpired, ms, timers);
       if (maxWait !== undefined && maxTimerId === undefined) {
-        maxTimerId = setTimeout(timerExpired, maxWait);
+        maxTimerId = startTimer(timerExpired, maxWait, timers);
       }
 
       return promise;
