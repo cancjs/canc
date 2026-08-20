@@ -4,7 +4,7 @@ import { Assert, Eq } from '../../../tests-types/fixtures/common/assert-type';
 import { BreakError, cancAsync, cancAwait } from './coroutine';
 
 // Deterministic microtask flush: drains the microtask queue N times so chained
-// then-callbacks (each a fresh microtask hop) all run. No arbitrary sleeps (testing doctrine).
+// then-callbacks (each a fresh microtask hop) all run. No arbitrary sleeps.
 const flush = async (times = 12) => {
   for (let i = 0; i < times; i++) {
     await Promise.resolve();

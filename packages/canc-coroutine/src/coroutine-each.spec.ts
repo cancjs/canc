@@ -3,7 +3,7 @@ import { CancelablePromise, CancelError, isCancelError, suppressCancel } from '@
 import { BreakError, cancAsync, cancAwait, cancForAwait, isBreakError } from './coroutine';
 
 // Deterministic microtask flush (mirrors coroutine.spec): drains the microtask queue N times so
-// chained then-callbacks all run, no arbitrary sleeps (testing doctrine).
+// chained then-callbacks all run, no arbitrary sleeps.
 const flush = async (times = 12) => {
   for (let i = 0; i < times; i++) {
     await Promise.resolve();
