@@ -3,9 +3,8 @@ import { CancelablePromise, CancelError, catchCancel, isCancelError, suppressCan
 import { cancAsync, cancAwait, cancForAwait } from './coroutine';
 import { AsyncGenResult, cancGenAsync, cancGenAwait, cancGenDelegate } from './coroutine-gen';
 
-// Covers the behavioral gaps not already exercised elsewhere against rfc-coroutine.md. Every
-// test here asserts real runtime behavior (would fail on a no-op / stub), not just typechecking —
-// the combinator + type-level surface is already covered by tests-types/fixtures/common/coroutine-types.ts.
+// Behavioral gaps not covered elsewhere. Type-level surface lives in
+// tests-types/fixtures/common/coroutine-types.ts
 
 const flush = async (times = 12) => {
   for (let i = 0; i < times; i++) {
@@ -13,7 +12,7 @@ const flush = async (times = 12) => {
   }
 };
 
-describe('rfc §2 — cancAwait combinators, runtime behavior inside a coroutine', () => {
+describe('cancAwait combinators inside a coroutine', () => {
   it('cancAwait.all resolves the tuple and threads it through yield*', async () => {
     const co = cancAsync(function* () {
       const tuple = yield* cancAwait.all([Promise.resolve(1), Promise.resolve('a'), Promise.resolve(true)]);
@@ -24,7 +23,7 @@ describe('rfc §2 — cancAwait combinators, runtime behavior inside a coroutine
   });
 
   it('cancAwait.all: coroutine cancel stops at that yield*, coroutine rejects CancelError', async () => {
-    // Cancel-losers doctrine (rfc §2) only cancels remaining inputs when one input REJECTS —
+    // Cancel-losers doctrine only cancels remaining inputs when one input REJECTS —
     // canceling the combined result promise itself does not bubble down into still-pending inputs
     // (canc-promise/cancelable-promise.ts static all(), see its _chainInput comment). What the
     // coroutine layer owns is: canceling the coroutine at a `yield* cancAwait.all(...)` step stops
@@ -166,7 +165,7 @@ describe('rfc §2 — cancAwait combinators, runtime behavior inside a coroutine
   });
 });
 
-describe('rfc §3 — catchCancel and in-body catch vs coroutine cancel', () => {
+describe('catchCancel and in-body catch vs coroutine cancel', () => {
   it("in-body catch does not see the coroutine's own cancel (unwinds via finally, not catch)", async () => {
     let caughtInBody = false;
     let finallyRan = false;
@@ -233,7 +232,7 @@ describe('rfc §3 — catchCancel and in-body catch vs coroutine cancel', () => 
   });
 });
 
-describe('rfc §5 — nested cancAsync delegation', () => {
+describe('nested cancAsync delegation', () => {
   it('canceling the outer coroutine cancels the in-flight sub-call', async () => {
     let subCanceled = false;
 
@@ -263,7 +262,7 @@ describe('rfc §5 — nested cancAsync delegation', () => {
   });
 });
 
-describe('rfc §6 — per-item callback form 3 (explicit cancAsync) parity with form 2 (bare generator fn)', () => {
+describe('per-item callback: explicit cancAsync matches a bare generator fn', () => {
   const work = (v: number) =>
     new CancelablePromise<number>((resolve) => {
       Promise.resolve().then(() => resolve(v * 10));
@@ -305,7 +304,7 @@ describe('rfc §6 — per-item callback form 3 (explicit cancAsync) parity with 
   });
 });
 
-describe('rfc §6 — sync iterable of promises, sequential (not parallel) cancel points', () => {
+describe('sync iterable of promises yields sequential cancel points', () => {
   it('members are awaited one at a time, in order, not started in parallel', async () => {
     const started: number[] = [];
     const finished: number[] = [];
@@ -367,7 +366,7 @@ describe('rfc §6 — sync iterable of promises, sequential (not parallel) cance
   });
 });
 
-describe("rfc §6 DON'T — non-cancelable async callback escapes the cancel chain", () => {
+describe('non-cancelable async callback escapes the cancel chain', () => {
   it('a native async callback keeps running to completion after the coroutine is canceled', async () => {
     let callbackCompleted = false;
 
@@ -376,7 +375,7 @@ describe("rfc §6 DON'T — non-cancelable async callback escapes the cancel cha
     }
 
     const co = cancAsync(function* () {
-      // Documented anti-pattern (rfc §6 DON'T): native async arrow, not a generator fn — its
+      // Documented anti-pattern: native async arrow, not a generator fn — its
       // internal await is NOT a coroutine cancel point.
       yield* cancForAwait(source2(), (async (_value: number) => {
         await new Promise<void>((resolve) => {
@@ -409,7 +408,7 @@ describe("rfc §6 DON'T — non-cancelable async callback escapes the cancel cha
   });
 });
 
-describe('rfc §8 — cancForAwait.toArray consuming a cancGenAsync producer end-to-end', () => {
+describe('cancForAwait.toArray consumes a cancGenAsync producer', () => {
   it("collects a real producer's emitted values via consumer-side toArray", async () => {
     const producer = cancGenAsync(function* (): Generator<number, void> {
       yield 1;
@@ -458,7 +457,7 @@ describe('rfc §8 — cancForAwait.toArray consuming a cancGenAsync producer end
   });
 });
 
-describe('rfc §10 — helpers only inside their driving coroutine', () => {
+describe('helpers only work inside their driving coroutine', () => {
   it('cancForAwait called outside a coroutine is an undriven generator: callback never runs', async () => {
     let called = false;
 
