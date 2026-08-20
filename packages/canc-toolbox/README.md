@@ -169,6 +169,32 @@ Canceling stops both the wait and the attempt in flight.
 `waitFor` polls a condition (`interval`, `timeout`). An async condition is awaited before the next
 poll is scheduled, so slow checks never overlap.
 
+### Custom timers per call
+
+Every timing helper (`delay`, `minDelay`, `timeout`, `retry`, `waitFor`, `debounce`, `throttle`)
+accepts a `setTimeout`/`clearTimeout` pair in its options, resolved ahead of the package's own
+default timers, which stay the last resort:
+
+```js
+await retry(loadInvoice, { retries: 3, setTimeout: myTimers.setTimeout, clearTimeout: myTimers.clearTimeout });
+```
+
+The pair is accepted whole or not at all, since a `setTimeout` from one source paired with a
+`clearTimeout` from another leaks the timer it thinks it cleared.
+
+The case this exists for is a timers pair backed by the platform's prioritized task scheduler
+rather than the ordinary timer queue. A wait resumes at a priority the caller chose, instead of
+joining one undifferentiated queue where a background retry competes with work the user is looking
+at; a resume that has not fired yet can still be re-prioritized, which a queued `setTimeout`
+callback cannot; the underlying delay is not capped at 2^31-1ms, so a long wait needs no chunking;
+canceling dequeues the pending resume with the real cancel reason instead of an opaque
+`clearTimeout`; and deeply nested `setTimeout` calls get clamped to a few milliseconds by browsers,
+a penalty a poll or backoff loop hits and a scheduled task does not accumulate.
+
+The honest limits carry over too: a hidden tab throttles a scheduled task the same as it throttles
+a timer, and where no such scheduler exists, the pair is simply the platform timers again and
+priority means nothing.
+
 ### Lazy promises
 
 `LazyPromise` defers its executor until the first subscription, caches the result so every later

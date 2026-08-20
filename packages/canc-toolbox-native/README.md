@@ -60,6 +60,33 @@ nobody waits for still fires.
 
 `cancelify` and signal generation (`toAbortSignal`, `withSignal`, `createAbortSignal`) have no meaning without cancellation and are twin-only; `catchAbort`, `suppressAbort`, `catchTimeout`, `suppressTimeout`, `createCatchError`, and `createSuppressError` are provided to filter errors on native promises (no cancellation handling).
 
+### Custom timers per call
+
+Every timing helper (`delay`, `minDelay`, `timeout`, `retry`, `waitFor`, `debounce`, `throttle`)
+accepts a `setTimeout`/`clearTimeout` pair in its options, resolved ahead of the package's own
+default timers, which stay the last resort:
+
+```js
+await retry(loadInvoice, { retries: 3, setTimeout: myTimers.setTimeout, clearTimeout: myTimers.clearTimeout });
+```
+
+The pair is accepted whole or not at all, since a `setTimeout` from one source paired with a
+`clearTimeout` from another leaks the timer it thinks it cleared.
+
+The case this exists for is a timers pair backed by the platform's prioritized task scheduler
+rather than the ordinary timer queue. A wait resumes at a priority the caller chose, instead of
+joining one undifferentiated queue where background work competes with work the user is looking
+at; a resume that has not fired yet can still be re-prioritized, which a queued `setTimeout`
+callback cannot; the underlying delay is not capped at 2^31-1ms, so a long wait needs no chunking;
+and deeply nested `setTimeout` calls get clamped to a few milliseconds by browsers, a penalty a
+poll or backoff loop hits and a scheduled task does not accumulate. Canceling a wait here still
+only stops the waiting, the same limit as everywhere else in this package: the underlying attempt
+runs to completion.
+
+The honest limits carry over too: a hidden tab throttles a scheduled task the same as it throttles
+a timer, and where no such scheduler exists, the pair is simply the platform timers again and
+priority means nothing.
+
 ### Lazy promises
 
 `LazyPromise` here has no `cancel()`. Deferred start, caching and the `try`/`resolve`/`reject`/
