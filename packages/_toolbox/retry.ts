@@ -1,10 +1,10 @@
 import { IExecutorCtx } from './construct';
 import { constructTimed } from './construct-timed';
-import { IToolboxDeps } from './deps';
+import { IToolboxDeps, TCallDeps } from './deps';
 import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
-import { startTimer, stopTimer } from './timers';
+import { resolveTimers, startTimer, stopTimer } from './timers';
 
-export interface IRetryOptions {
+export type IRetryOptions = TCallDeps & {
   /** Maximum number of attempts (including the first). Default: 3. */
   retries?: number;
   /** Base backoff in milliseconds between attempts. Default: 0 (retry immediately). */
@@ -18,7 +18,7 @@ export interface IRetryOptions {
   /** Defer the first attempt until the first subscription. Not contagious past a chained `.then`. */
   lazy?: boolean;
   [key: string]: unknown;
-}
+};
 
 /** Bind `retry` to one promise implementation and set of timers. */
 export function retryFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IToolboxDeps<K>) {
@@ -38,6 +38,7 @@ export function retryFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
     const minTimeout = options?.minTimeout ?? 0;
     const factor = options?.factor ?? 2;
     const maxTimeout = options?.maxTimeout ?? Infinity;
+    const timers = resolveTimers(options, deps);
 
     return constructTimed<T, K>(
       deps,
@@ -48,7 +49,7 @@ export function retryFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
         if (ctx) {
           ctx.handleCancel(() => {
             canceled = true;
-            if (backoffId !== undefined) stopTimer(backoffId, deps);
+            if (backoffId !== undefined) stopTimer(backoffId, timers);
           });
         }
 
@@ -78,7 +79,7 @@ export function retryFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
                     attempt(n + 1);
                   },
                   wait,
-                  deps,
+                  timers,
                 );
               },
             );

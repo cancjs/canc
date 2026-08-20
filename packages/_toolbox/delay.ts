@@ -1,11 +1,11 @@
 import { IExecutorCtx } from './construct';
 import { constructTimed } from './construct-timed';
-import { IToolboxDeps } from './deps';
+import { IToolboxDeps, TCallDeps } from './deps';
 import { parseTimedArgs, resolveDuration, TDuration } from './duration';
 import { isCancelableLike, isThunk } from './guards';
 import { TTimedInput } from './input';
 import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
-import { startTimer, stopTimer } from './timers';
+import { resolveTimers, startTimer, stopTimer } from './timers';
 
 /** Bind `delay` to one promise implementation and set of timers. */
 export function delayFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IToolboxDeps<K>) {
@@ -19,14 +19,19 @@ export function delayFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
    * before the timer completes: a rejection at 10ms surfaces only once `ms` has elapsed, held back
    * rather than reported early - the reason `minDelay` (fails fast) exists alongside this one.
    */
-  function delay<T = void, F = never>(ms: TDuration, options?: K['options']): TPromiseOf<K, T, F>;
-  function delay<T, F = never>(input: TTimedInput<T>, ms: TDuration, options?: K['options']): TPromiseOf<K, T, F>;
+  function delay<T = void, F = never>(ms: TDuration, options?: K['options'] & TCallDeps): TPromiseOf<K, T, F>;
+  function delay<T, F = never>(
+    input: TTimedInput<T>,
+    ms: TDuration,
+    options?: K['options'] & TCallDeps,
+  ): TPromiseOf<K, T, F>;
   function delay<T, F = never>(...rest: unknown[]): TPromiseOf<K, T, F> {
     const parsed = parseTimedArgs<TTimedInput<T>>(rest);
     // Resolved (and, for a `[min, max]` range, rolled) BEFORE construct() runs the executor, so a
     // malformed range throws synchronously out of this call instead of becoming a rejection.
     const ms = resolveDuration(parsed.duration);
     const { hasInput, input, options } = parsed;
+    const timers = resolveTimers(options, deps);
     // A cancelable value/promise supplied eagerly (not via a thunk - nothing is in flight for a
     // thunk until it runs) is canceled if the returned promise is canceled first.
     const eagerCancelable = hasInput && !isThunk(input) && isCancelableLike(input) ? input : undefined;
@@ -54,11 +59,11 @@ export function delayFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
           resolve(input as T | PromiseLike<T>);
         };
 
-        const handle = startTimer(fire, ms, deps);
+        const handle = startTimer(fire, ms, timers);
 
         if (ctx) {
           ctx.handleCancel(() => {
-            stopTimer(handle, deps);
+            stopTimer(handle, timers);
             eagerCancelable?.cancel();
           });
         }

@@ -11,7 +11,7 @@ import { waitForFactory } from './wait-for';
 
 interface ITestKind extends IPromiseKind {
   promise: CancelablePromise<this['value']>;
-  options: object;
+  options: Record<string, unknown>;
 }
 
 function spyDeps(): { deps: IToolboxDeps<ITestKind>; setTimeout: jest.Mock; clearTimeout: jest.Mock } {

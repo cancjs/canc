@@ -1,3 +1,5 @@
+import { TCallDeps } from './deps';
+
 /**
  * A wait duration accepted by the time helpers (`delay`, `minDelay`, `timeout`): either a fixed
  * millisecond count, or a `[min, max]` tuple resolved once, at call time, to a value uniform in
@@ -49,7 +51,9 @@ export interface ITimedArgs<TInput> {
   hasInput: boolean;
   input?: TInput;
   duration: TDuration;
-  options?: object;
+  // Typed as the call-level dependency bag rather than a bare object so the helpers can read an
+  // override off it without a cast; every other key stays opaque to this module.
+  options?: TCallDeps;
 }
 
 /**
@@ -86,13 +90,13 @@ export function parseTimedArgs<TInput>(rest: readonly unknown[], defaultDuration
         hasInput: true,
         input: rest[0] as TInput,
         duration: defaultDuration as TDuration,
-        options: rest[1] as object,
+        options: rest[1] as TCallDeps,
       };
     }
 
-    return { hasInput: false, duration: rest[0] as TDuration, options: rest[1] as object };
+    return { hasInput: false, duration: rest[0] as TDuration, options: rest[1] as TCallDeps };
   }
 
   // (input, duration) or (input, duration, options)
-  return { hasInput: true, input: rest[0] as TInput, duration: rest[1] as TDuration, options: rest[2] as object };
+  return { hasInput: true, input: rest[0] as TInput, duration: rest[1] as TDuration, options: rest[2] as TCallDeps };
 }

@@ -1,9 +1,9 @@
 import { construct, IExecutorCtx } from './construct';
-import { IToolboxDeps } from './deps';
+import { IToolboxDeps, TCallDeps } from './deps';
 import { isDurationShaped, resolveDuration, TDuration } from './duration';
 import { IEagerSource, startInput, TTimedInput } from './input';
 import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
-import { startTimer, stopTimer } from './timers';
+import { resolveTimers, startTimer, stopTimer } from './timers';
 
 /** Bind `minDelay` to one promise implementation and set of timers. */
 export function minDelayFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IToolboxDeps<K>) {
@@ -26,7 +26,7 @@ export function minDelayFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
   return function minDelay<T, F = never>(
     input: TTimedInput<T>,
     ms: TDuration,
-    options?: K['options'],
+    options?: K['options'] & TCallDeps,
   ): TPromiseOf<K, T, F> {
     if (!isDurationShaped(ms)) {
       throw new TypeError('minDelay requires an input and a duration; a bare timer is delay(ms)');
@@ -35,6 +35,7 @@ export function minDelayFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
     // Rolled (and validated) before construct() runs the executor so a malformed range throws out
     // of this call instead of being swallowed into a rejection.
     const floor = resolveDuration(ms);
+    const timers = resolveTimers(options, deps);
 
     return construct<T, K>(
       deps.Impl,
@@ -59,12 +60,12 @@ export function minDelayFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
             if (settled) resolve(value);
           },
           floor,
-          deps,
+          timers,
         );
 
         if (ctx) {
           ctx.handleCancel(() => {
-            stopTimer(handle, deps);
+            stopTimer(handle, timers);
             started.cancelable?.cancel();
           });
         }
@@ -77,7 +78,7 @@ export function minDelayFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
           },
           (reason: any) => {
             // Rejections short-circuit the floor: no reason to hold an error back.
-            stopTimer(handle, deps);
+            stopTimer(handle, timers);
             reject(reason);
           },
         );

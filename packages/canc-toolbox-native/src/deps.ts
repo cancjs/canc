@@ -1,4 +1,4 @@
-import { IPromiseKind, IToolboxDeps, TPromiseCtor, withAbortSignal } from '../../_toolbox';
+import { IAbortSignalOptions, IPromiseKind, IToolboxDeps, TPromiseCtor, withAbortSignal } from '../../_toolbox';
 import { TimeoutError } from '../../_util';
 
 // Captured once at module load per the native-Promise capture invariant; never re-read the
@@ -6,11 +6,25 @@ import { TimeoutError } from '../../_util';
 const NativePromise = Promise;
 
 /**
+ * Options every helper in this package accepts. The native Promise constructor ignores its second
+ * argument, so `signal` (honored by the `withAbortSignal` wrapper) and `lazy` are the only two that
+ * do anything, and naming them is what turns a misspelled option into a compile error.
+ */
+export interface INativeOptions extends IAbortSignalOptions {
+  /**
+   * Defer starting the work (the timer, the retry attempt, the poll, the callback invocation...)
+   * until the first `then`/`catch`/`finally`/`await`. Not contagious past a chained `.then`.
+   */
+  lazy?: boolean;
+}
+
+/**
  * The promise flavor every helper in this package is bound to. Naming it once here is what gives
  * each helper a plain `Promise<T>` return type without a cast per helper.
  */
 export interface INativeKind extends IPromiseKind {
   promise: Promise<this['value']>;
+  options: INativeOptions;
 }
 
 /**

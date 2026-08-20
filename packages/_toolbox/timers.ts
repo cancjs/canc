@@ -27,6 +27,34 @@ export interface ITimers {
   clearTimeout: (handle: any) => void;
 }
 
+/**
+ * A timers override: the whole pair, or neither function. The two are co-dependent, so half a pair
+ * is rejected at compile time rather than silently completed from another source.
+ */
+export type TTimersOverride = ITimers | { setTimeout?: undefined; clearTimeout?: undefined };
+
+/**
+ * Resolve one whole pair, the call's before the factory's. Never mixes a caller's `setTimeout` with
+ * a factory's `clearTimeout`: that combination leaks the timer it thinks it cleared, because the
+ * handle one function produced means nothing to the other. Returning `undefined` says neither
+ * source supplied a pair, which leaves the ambient timers to be read at call time.
+ */
+export function resolveTimers(call?: TTimersOverride, factory?: TTimersOverride): ITimers | undefined {
+  if (isTimersPair(call)) {
+    return call;
+  }
+
+  if (isTimersPair(factory)) {
+    return factory;
+  }
+
+  return undefined;
+}
+
+function isTimersPair(timers: TTimersOverride | undefined): timers is ITimers {
+  return timers != null && typeof timers.setTimeout === 'function' && typeof timers.clearTimeout === 'function';
+}
+
 const TIMER_BRAND = Symbol.for('@cancjs/toolbox:Timer');
 
 /** The handle returned for a chunked timer. Short timers hand back the platform handle instead. */

@@ -13,7 +13,7 @@ export { constructTimed } from './construct-timed';
 export { debounceFactory, IDebounced, IDebounceDeps, IDebounceOptions } from './debounce';
 export { deferFactory, IDeferred } from './defer';
 export { delayFactory } from './delay';
-export { IToolboxDeps, TAbortControllerCtor } from './deps';
+export { IToolboxDeps, TAbortControllerCtor, TCallDeps } from './deps';
 export { TDuration } from './duration';
 export { IEagerSource, startInput, TTimedInput } from './input';
 export { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
@@ -29,5 +29,5 @@ export {
 export { IRetryOptions, retryFactory } from './retry';
 export { IThrottled, IThrottleOptions, throttleFactory } from './throttle';
 export { isTimeoutError, TimeoutError, timeoutFactory } from './timeout';
-export { ITimers, MAX_TIMEOUT, startTimer, stopTimer } from './timers';
+export { ITimers, MAX_TIMEOUT, resolveTimers, startTimer, stopTimer, TTimersOverride } from './timers';
 export { IWaitForOptions, waitForFactory } from './wait-for';
