@@ -1,5 +1,24 @@
-// Shell only for now: filtering, rendering, and prefetching land with the entries wiring.
+// Wires the shell to search, chunked render, and background prefetch. One query session is live
+// at a time: a filter or chunk-size change cancels the render in flight and drops the prefetches
+// that belonged to it, through a lifetime signal rather than any bookkeeping written by hand.
+
+import * as canc from '@cancjs/coroutine';
+import { CancelablePromise, suppressCancel } from '@cancjs/promise';
+import { cancelify, debounce } from '@cancjs/toolbox';
+import { register } from '@cancjs/unhandled-rejection';
+import { createMockApi, Invoice } from '@shared/mock-api';
+
+import { createSchedulerTimers, toTaskSignal } from './lib/web-scheduler';
 import { getPlatformScheduler } from './platform-scheduler';
+import { prefetchDetails, promote, trackedPrefetches } from './prefetch-details-canc';
+import { DEFAULT_CHUNK_SIZE, renderInvoices } from './render-table-canc';
+import { IInvoiceRow } from './table-shared';
+import { createReportCounters, renderReportCounters } from './util/report';
+import { createResponsivenessReport } from './util/responsiveness';
+
+// installed once, so a run that gets superseded before anything reads its rejection never
+// surfaces as an unhandled rejection by itself
+register();
 
 const root = document.getElementById('app');
 if (!root) {
@@ -30,9 +49,157 @@ statusLine.textContent = getPlatformScheduler() ? 'scheduler: available' : 'sche
 const reportPanel = document.createElement('div');
 reportPanel.id = 'report';
 
+const responsivenessPanel = document.createElement('div');
+responsivenessPanel.id = 'responsiveness';
+createResponsivenessReport(responsivenessPanel);
+
 const table = document.createElement('table');
 table.id = 'invoices-table';
 const tbody = document.createElement('tbody');
 table.append(tbody);
 
-root.append(heading, filterInput, chunkSizeSelect, statusLine, reportPanel, table);
+root.append(heading, filterInput, chunkSizeSelect, statusLine, reportPanel, responsivenessPanel, table);
+
+// --- wiring
+
+const api = createMockApi();
+const counters = createReportCounters();
+renderReportCounters(reportPanel, counters);
+
+// jsdom has no IntersectionObserver, and a browser without one just never prefetches or
+// promotes: the page still works, it only loses the two-band demonstration
+const hasIntersectionObserver = typeof IntersectionObserver !== 'undefined';
+
+// far margin starts a background prefetch well before a row is actually on screen
+const farObserver =
+  hasIntersectionObserver ?
+    new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          farObserver?.unobserve(entry.target);
+          const id = invoiceIdOf(entry.target);
+          if (!id || !currentLifetime) continue;
+
+          const task = prefetchDetails(api.invoices, id, currentLifetime, {
+            onRetry: () => {
+              counters.reportRetries += 1;
+              renderReportCounters(reportPanel, counters);
+            },
+          });
+          counters.reportPrefetchesStarted += 1;
+          renderReportCounters(reportPanel, counters);
+          void task.then(
+            () => renderReportCounters(reportPanel, counters),
+            () => renderReportCounters(reportPanel, counters),
+          );
+
+          nearObserver?.observe(entry.target);
+        }
+      },
+      { rootMargin: '600px' },
+    )
+  : undefined;
+
+// zero margin is the row the user is actually waiting on, so its prefetch moves to the front
+const nearObserver =
+  hasIntersectionObserver ?
+    new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        nearObserver?.unobserve(entry.target);
+        const id = invoiceIdOf(entry.target);
+        const task = id ? trackedPrefetches.get(id) : undefined;
+        if (task) {
+          promote(task);
+        }
+      }
+    })
+  : undefined;
+
+const tbodyObserver = new MutationObserver((mutations) => {
+  for (const mutation of mutations) {
+    for (const node of mutation.addedNodes) {
+      if ((node as HTMLElement).tagName === 'TR') {
+        farObserver?.observe(node as Element);
+      }
+    }
+  }
+
+  counters.reportRowsRendered = tbody.rows.length;
+  statusLine.textContent = `rendered ${tbody.rows.length} of ${totalForRun}`;
+  renderReportCounters(reportPanel, counters);
+});
+tbodyObserver.observe(tbody, { childList: true });
+
+function invoiceIdOf(target: Element): string | undefined {
+  return (target as HTMLTableRowElement).cells?.[0]?.textContent ?? undefined;
+}
+
+function toInvoiceRows(invoices: readonly Invoice[]): IInvoiceRow[] {
+  return invoices.map((invoice) => ({
+    id: invoice.id,
+    customer: invoice.customer,
+    total: invoice.total,
+    paid: invoice.paid,
+    issuedAt: new Date(invoice.issuedAt).toISOString(),
+  }));
+}
+
+let currentRun: CancelablePromise<void> | undefined;
+let session: CancelablePromise<void> | undefined;
+let currentLifetime: ReturnType<typeof toTaskSignal> | undefined;
+let totalForRun = 0;
+
+const runQuery = canc.async(function* (filterText: string, chunkSize: number) {
+  const loadInvoices = cancelify(({ getSignal }) => api.invoices.search(filterText, getSignal()));
+  const invoices = yield* canc.await(loadInvoices());
+  const rows = toInvoiceRows(invoices);
+  totalForRun = rows.length;
+
+  yield* canc.await(renderInvoices(tbody, rows, { chunkSize }));
+});
+
+function startQuery(filterText: string, chunkSize: number): void {
+  // superseding the previous session's lifetime drops every prefetch it started: queued ones are
+  // dequeued, and one already running has its request aborted
+  currentRun?.cancel('the filter changed');
+  session?.cancel('the filter changed');
+  // the registry empties itself as each dropped prefetch settles; this only counts how many were
+  // still open at the moment of supersede
+  counters.reportPrefetchesCanceled += trackedPrefetches.size;
+  renderReportCounters(reportPanel, counters);
+
+  const nextSession = new CancelablePromise<void>(() => undefined);
+  suppressCancel(nextSession);
+  session = nextSession;
+  currentLifetime = toTaskSignal(nextSession);
+
+  tbody.replaceChildren();
+  totalForRun = 0;
+  statusLine.textContent = 'loading...';
+
+  const run = runQuery(filterText, chunkSize);
+  currentRun = run;
+  void suppressCancel(run);
+}
+
+function currentChunkSize(): number {
+  return Number(chunkSizeSelect.value) || DEFAULT_CHUNK_SIZE;
+}
+
+// the resume happens at the priority the interaction deserves instead of joining one
+// undifferentiated timer queue where a background retry could compete with it
+const applyFilter = debounce((value: string) => startQuery(value, currentChunkSize()), 150, {
+  ...createSchedulerTimers({ priority: 'user-blocking' }),
+});
+
+filterInput.addEventListener('input', () => {
+  void applyFilter(filterInput.value);
+});
+
+chunkSizeSelect.addEventListener('change', () => {
+  startQuery(filterInput.value, currentChunkSize());
+});
+
+startQuery('', currentChunkSize());
