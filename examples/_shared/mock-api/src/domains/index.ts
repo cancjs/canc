@@ -24,7 +24,7 @@ export type { Deployment } from './deployments';
 export type { Flight } from './flights';
 export type { Hotel } from './hotels';
 export type { Inventory } from './inventory';
-export type { Invoice } from './invoices';
+export type { Invoice, InvoiceDetail, InvoiceLine } from './invoices';
 export type { Comment, Issue, SearchResult } from './issues';
 export type { Mail } from './mail';
 export type { Album, Track } from './music';

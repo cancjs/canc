@@ -13,6 +13,8 @@ export type {
   Flight,
   Hotel,
   Invoice,
+  InvoiceDetail,
+  InvoiceLine,
   Issue,
   Order,
   PricePoint,
