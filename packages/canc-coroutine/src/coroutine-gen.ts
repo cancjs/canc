@@ -42,10 +42,9 @@ interface TAsyncGeneratorStep {
   next: TAsyncGeneratorStep | null;
 }
 
-// `awaited(value)` marks a yielded value as an *internal await* (the coroutine suspends on it but
-// does NOT emit it to the async-iterator consumer). A plain `yield value` is an *emitted* value —
-// it surfaces as the `{ value }` of the consumer's `.next()` / `for await` loop, mirroring native
-// async-generator semantics where every `yield x` yields to the consumer and `await x` does not.
+// `awaited(value)` marks a yielded value as an internal await without emitting it.
+// A plain `yield value` is an emitted value surfacing as `{ value }` to the consumer,
+// mirroring native async generators where `yield x` emits and `await x` does not.
 const awaitedSymbol = Symbol.for('@cancjs/coroutine:awaited');
 
 interface TAwaited<T = any> {
@@ -54,9 +53,8 @@ interface TAwaited<T = any> {
 
 const isAwaited = (value: any): value is TAwaited => isObject(value) && awaitedSymbol in value;
 
-// Low-level: builds the internal-await marker directly. Inside a `cancGenAsync` body,
-// prefer `yield* cancGenAwait(value)` — it is typed (the resume value flows through `yield*`), while
-// a bare `yield awaited(value)` is not.
+// Low-level: builds internal-await marker directly. In `cancGenAsync` body,
+// prefer typed `yield* cancGenAwait(value)` over bare `yield awaited(value)`.
 const awaited = <T = any>(value: T | TAwaited<T>): TAwaited<T> => ({
   [awaitedSymbol]: isAwaited(value) ? value[awaitedSymbol] : value,
 });
@@ -199,8 +197,8 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
 
     // Linked-list queue of pending step requests. `currentStep` = the step being resolved right
     // now; `queuedStep` = the tail. A new `.next()/.throw()/.return()` call while a step is in
-    // flight is appended and served in FIFO order once the current one settles — same ordering
-    // guarantee a native async generator gives.
+    // flight is appended and served in FIFO order once the current one settles, matching native
+    // async generator ordering.
     let currentStep: TAsyncGeneratorStep | null = null;
     let queuedStep: TAsyncGeneratorStep | null = null;
     let done = false;
@@ -274,7 +272,7 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
       const settledValue = isAwaitedValue ? rawValue[awaitedSymbol] : rawValue;
 
       if (result.done) {
-        // A completed generator's return value is never awaited-as-internal — it is the final
+        // A completed generator return value is never awaited as internal; it is the final
         // `{ value, done: true }` result. Resolve the awaitable then settle. Track it as the
         // outstanding source so a cancel mid-await aborts it.
         pendingSource = CancelablePromise.resolve(settledValue);
@@ -356,7 +354,7 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
       try {
         gen.return(undefined);
       } catch {
-        // Swallow cleanup errors — cancellation still proceeds.
+        // swallow cleanup errors so cancellation still proceeds
       }
 
       const cancelError =

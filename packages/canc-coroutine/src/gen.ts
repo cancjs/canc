@@ -1,4 +1,4 @@
-// Subpath `@cancjs/coroutine/gen`: `import * as cancGen` → cancGen.async / .await / .forAwait / .delegate / .throw.
+// Subpath `@cancjs/coroutine/gen`: exports async, await, forAwait, delegate, throw
 export type { AsyncGenResult, ICancAsyncGenerator } from './coroutine-gen';
 export {
   cancGenAsync as async,

@@ -256,7 +256,7 @@ export function cancAsync<
           return self.asyncCancel ? drainDeferred!.promise : undefined;
         }
 
-        // Shield: never drain — a shielded promise's cancel is a no-op (strict → throw unless
+        // Shield: never drain. A shielded promise cancel is a no-op (strict throws unless
         // disposing), matching core cancel(). Returns undefined like core's shielded no-op.
         if (self.shield && self.cancelable) {
           if (self.strict && !_disposing) {
@@ -301,7 +301,7 @@ export function cancAsync<
           genDone = true;
 
           // Post-cancel ordinary completion is inert: the finally drain owns settlement; do not
-          // resolve (and do not settle as canceled — the drain will).
+          // resolve (and do not settle as canceled, as the drain will).
           if (!canceled) {
             resolve(result.value);
           }
@@ -313,7 +313,7 @@ export function cancAsync<
           }
 
           // Fast path: a yielded value that is already a same-constructor CancelablePromise, with no
-          // per-step flag options to apply, needs no resolve() wrap — subscribe with `.then()`
+          // per-step flag options to apply, needs no resolve() wrap: subscribe with `.then()`
           // directly. Otherwise fall back to resolve() to wrap raw values / foreign thenables and to
           // reconfigure flags when the coroutine carries them.
           const value = result.value;
@@ -440,9 +440,9 @@ export function cancAsync<
       // When the generator reports done, settles the coroutine promise as canceled.
       const pumpFinally = (result: IteratorResult<any>) => {
         if (result.done) {
-          // Finally drain complete: settle the coroutine as canceled, preserving the ORIGINAL
-          // cancel reason normalized exactly like core cancel() (CancelError passthrough /
-          // object → cause / string|undefined → message).
+          // Finally drain complete: settle the coroutine as canceled, preserving the original
+          // cancel reason normalized like core cancel() (CancelError passthrough,
+          // object as cause, string or undefined as message).
           genDone = true;
           const error =
             isCancelError(canceledReason) ? canceledReason
@@ -571,7 +571,7 @@ type cancAwait = <T>(value: T) => T;
  * inference is preserved:
  *
  * const [n, s] = yield* cancAwait.all([Promise.resolve(1), Promise.resolve('a')]);
- * // ^ number ^ string — tuple, not `unknown[]`
+ * // ^ number ^ string: tuple, not `unknown[]`
  *
  * Tuple inference has to be reconstructed here rather than projected off the
  * static. `Parameters`/`ReturnType` only see the LAST overload of an overloaded
@@ -607,8 +607,8 @@ type ICancAwaitAllSettled = <T extends readonly unknown[] | []>(
 ) => Generator<CancelablePromise<TSettledTuple<T>, never>, TSettledTuple<T>, TSettledTuple<T>>;
 
 // Mirrors `CancelablePromise.try`: folds a possibly-sync-throwing call into a single yielded step.
-// The `yield*` value is the call's own (awaited) result, same tuple/union-free shape as a plain
-// `cancAwait(value)` — there is only one return type here, no tuple to reconstruct.
+// The `yield*` value is the call's own (awaited) result, same tuple-free shape as a plain
+// `cancAwait(value)`; there is only one return type here, no tuple to reconstruct.
 type ICancAwaitTry = <T, TArgs extends any[]>(
   fn: (...args: TArgs) => T | PromiseLike<T>,
   ...args: TArgs

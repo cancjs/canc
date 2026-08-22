@@ -264,7 +264,7 @@ describe('cancAsync', () => {
     });
   });
 
-  describe('cancel between steps — every gap (fake timers)', () => {
+  describe('cancel between steps: every gap (fake timers)', () => {
     // Build a coroutine with N sequential timer-backed yields. Cancel at each gap g (0..N) and
     // assert: only steps < g ran, coroutine settles canceled, no step >= g runs afterward.
     const STEPS = 4;
@@ -641,7 +641,7 @@ describe('cancAsync', () => {
         try {
           yield new CancelablePromise<void>(() => {});
         } finally {
-          // finally completes synchronously (no yield) → gen.return reports done immediately
+          // finally completes synchronously (no yield) so gen.return reports done immediately
         }
       });
 
@@ -679,8 +679,8 @@ describe('cancAsync', () => {
       await flush();
 
       expect(p.isCanceled).toBe(true);
-      // Exactly one cancellation of the coroutine promise (signal subscribed once, on the outer
-      // promise — not re-subscribed per step).
+      // Exactly one cancellation of the coroutine promise (signal subscribed once on the outer
+      // promise, not re-subscribed per step).
       expect(cancelReasons.length).toBe(1);
     });
 

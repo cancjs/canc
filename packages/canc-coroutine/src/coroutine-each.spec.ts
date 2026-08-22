@@ -248,7 +248,7 @@ describe('cancForAwait', () => {
   });
 });
 
-describe('cancForAwait — generator-fn callback', () => {
+describe('cancForAwait: generator-fn callback', () => {
   it('runs a cancelable per-item body via yield* delegate (bare generator fn)', async () => {
     const order: string[] = [];
     const work = (v: number) =>
