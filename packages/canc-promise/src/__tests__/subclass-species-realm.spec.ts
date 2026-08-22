@@ -30,8 +30,7 @@ class Sub<T> extends CancelablePromise<T> {}
 
 describe('species identity', () => {
   it('CancelablePromise[Symbol.species] === CancelablePromise', () => {
-    // No own species getter — resolves via inherited native Promise[Symbol.species] (returns
-    // `this`) reached through Object.setPrototypeOf(CancelablePromise, NativePromise).
+    // resolves via inherited native Promise[Symbol.species] returning this
     expect((CancelablePromise as any)[Symbol.species]).toBe(CancelablePromise);
   });
 

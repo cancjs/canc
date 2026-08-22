@@ -5,9 +5,9 @@ import { isCancelError } from './helpers';
  * shield option.
  *
  * A shielded promise protects ITS OWN pending work from cancellation initiated from below/outside:
- * 1. direct cancel() while pending = silent no-op (strict → throw)
+ * 1. direct cancel() while pending = silent no-op (strict throws)
  * 2. bubble-cancel reaching it from children is stopped (does not self-cancel)
- * 3. it STILL rejects/cancels when its own upstream parent is canceled/rejected — down-propagation
+ * 3. it STILL rejects/cancels when its own upstream parent is canceled/rejected: down-propagation
  * via native rejection adoption is unstoppable (shield != downward protection; cf. Kotlin
  * NonCancellable / asyncio.shield which protect running work, not settled-value adoption)
  * 4. handleCancel is registerable but never fires (since the shielded node never self-cancels)
@@ -94,7 +94,7 @@ describe('shield option', () => {
     const childA = parent.then((v) => v);
     const childB = parent.then((v) => v * 2);
 
-    // Cancel every child → normally bubbles up and cancels the parent. Shield stops it.
+    // canceling every child stops at shielded parent rather than bubbling up
     childA.cancel();
     childB.cancel();
 

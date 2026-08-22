@@ -19,7 +19,7 @@ export interface Failing<TFailure> {
 
 // ResultOf and FailureOf fall back differently on purpose. ResultOf<T> is a bare `Awaited<T>`, so a
 // non-promise or a plain-value yield in a coroutine body still reports its own type (never
-// `unknown`) — there is nothing to widen away from. FailureOf<T> must instead collapse to `never`
+// `unknown`), as there is nothing to widen away from. FailureOf<T> must instead collapse to `never`
 // for the same inputs: cancAsync maps FailureOf over the coroutine's ENTIRE yield union, so a bare
 // `yield 42` or a native `await somePromise` (neither carries the phantom [FAILURE] property) would
 // poison the whole declared-failure set if it produced anything but `never`. Do not "fix" this
@@ -66,7 +66,7 @@ export type WithFailure<TPromise extends CancelablePromise<any, any>, TFailure> 
  * Called as `withFailure<HttpError>()(promise)`. The two calls are not currying for its own sake:
  * `TFailure` is the only type parameter a caller ever names, and TypeScript has no syntax for
  * "supply this type argument explicitly, infer the rest from the value argument" in a single
- * call — an explicit type-argument list is all-or-nothing past any parameter without a default,
+ * call: an explicit type-argument list is all-or-nothing past any parameter without a default,
  * and a defaulted trailing parameter takes the default verbatim rather than being retried against
  * the argument. Splitting the value type into its own call keeps the value type intact through
  * ordinary inference instead of collapsing it to `any` or `unknown`.
@@ -134,7 +134,7 @@ export interface ICancelablePromiseFlagOptions {
    * This is an UPWARD/self shield only. Unlike Kotlin's `NonCancellable` or `asyncio.shield`,
    * which protect a running job from cancellation of the whole scope, `shield` does NOT stop
    * downward propagation: if this promise's own upstream is canceled or rejected, this promise
-   * still adopts that rejection (native Promise semantics — down-propagation cannot be intercepted
+   * still adopts that rejection (native Promise semantics: down-propagation cannot be intercepted
    * without breaking try/catch). It is per-node and is not inherited by `then`-derived children.
    */
   shield?: boolean;
@@ -360,7 +360,7 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
     options?: ICancelablePromiseOptions,
   ): CancelablePromise<TAll[], FailureOf<TAll>> {
     // Deferred-construction pattern to work around referring to the promise from inside its own
-    // executor (todo: "new (noop) -> withResolvers") — withResolvers() is the same
+    // executor (todo: "new (noop) to withResolvers"): withResolvers() is the same
     // `new this(noop, options)` internally, just named/shaped for this exact use.
     const {
       promise: resultsPromise,
@@ -483,7 +483,7 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
     values: Iterable<T | PromiseLike<T>>,
     options?: ICancelablePromiseOptions,
   ): CancelablePromise<Awaited<T>, AggregateError> {
-    // Deferred-construction pattern (todo: "new (noop) -> withResolvers") — see all() above.
+    // Deferred-construction pattern (todo: "new (noop) to withResolvers"): see all() above.
     const {
       promise: resultPromise,
       resolve: resolveResult,
@@ -518,7 +518,7 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
               // that have bubble:true (doc: losers are canceled).
               this._cancelLosers(inputs, promise);
             }
-            // value is T (unresolved-thenable element type), not yet Awaited<T> — same
+            // value is T (unresolved-thenable element type), not yet Awaited<T>: same
             // looseness the previous `resultPromise._resolve(value)` (typed `any`) had.
             resolveResult(value as Awaited<T>);
           },
@@ -566,7 +566,7 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
     values: Iterable<T | PromiseLike<T>>,
     options?: ICancelablePromiseOptions,
   ): CancelablePromise<T, FailureOf<T>> {
-    // Deferred-construction pattern (todo: "new (noop) -> withResolvers") — see all() above.
+    // Deferred-construction pattern (todo: "new (noop) to withResolvers"): see all() above.
     const { promise: resultPromise, resolve: resolveResult, reject: rejectResult } = this.withResolvers<T>(options);
 
     // Options are identical for every item, so normalize once instead of per iteration.
@@ -798,12 +798,11 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
   // that inherited getter.
   declare readonly [Symbol.toStringTag]: string;
 
-  // `declare`: assigned once on the prototype at module load (below, alongside the
-  // setPrototypeOf wiring), not per-instance — every instance inherits the same brand value.
+  // `declare`: assigned once on prototype at module load so all instances inherit same brand
   declare readonly [CANCEL_PROMISE_BRAND]: true;
   declare readonly [FAILURE]?: TFailure;
 
-  // Per-instance own-property layout (kept deliberately small — see the memory notes below):
+  // per-instance own-property layout (kept small; see memory notes below):
   // _flags packed booleans (asyncCancel/forceCancelable/bubble/strict/shield),
   // read/written through the prototype getters/setters below
   // _internalState state-machine string
@@ -840,8 +839,7 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
   protected _internalState: TCancelablePromiseStates = 'PENDING';
   protected _flags!: number;
 
-  // Lazily allocated on first handleCancel() registration — most promises never register a
-  // cancel handler, so the array is not created up front.
+  // lazily allocated on first handleCancel() registration to keep common case lean
   protected _cancelHandlers?: TOnCancel[];
   // Listener management for abort signals: maps each signal to its registered listener
   // function so we can remove it on settle. Lazily allocated only when a signal is wired
@@ -867,11 +865,11 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
 
     const This = new.target;
     // `this` when executor calls are synchronous, otherwise NativePromise instance
-    // eslint-disable-next-line @typescript-eslint/no-this-alias -- the construction handoff below rebinds this to the Reflect.construct result
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
     let instance: CancelablePromise<TResult, TFailure> = this;
     // Stable reference to the temporary constructor `this` used to detect synchronous
     // executor settlement (before Reflect.construct returns the real promise instance).
-    // eslint-disable-next-line @typescript-eslint/no-this-alias -- both objects must stay reachable to migrate state off the temporary this
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
     const tempThis = this;
     // Set when a non-strict pre-aborted signal is detected. The executor is NOT run in that
     // case (the promise is born canceled); the rejection is deferred to the real instance after
@@ -893,7 +891,7 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
 
     // Only normalize options on the public path. On the internal path `normalizedOptions` is a
     // tiny stand-in read by the resolve/reject wrappers (they only consult `forceCancelable`,
-    // which defaults to true) — no allocation of the full merged-options object.
+    // which defaults to true) without allocating the full merged-options object.
     const normalizedOptions = isInternalCall ? INTERNAL_CALL_OPTIONS : This._getOptions(options);
 
     // Pre-check for aborted signals BEFORE construction. `strict` throws here (executor must
@@ -915,7 +913,7 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
     // Compatible with ES5 transpilation target: we deliberately do NOT write
     // `class CancelablePromise extends Promise` + `super(executor)`. An ES5-target
     // transpile of `class X extends Y` calls Y as a plain function via `Y.call(this, ...)`
-    // (or a `_super.apply` helper) — but native Promise's internal slots can only be initialized
+    // (or a `_super.apply` helper), but native Promise's internal slots can only be initialized
     // by `new Promise(...)`/`Reflect.construct`, so a transpiled `super()` into a native Promise
     // throws ("Failed to construct 'Promise': Please use the 'new' operator") on ES5-targeting
     // engines/transpilers (this is the same reason every other "extend a native built-in"
@@ -929,7 +927,7 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
     // The returned native instance becomes the REAL `instance` we hand back from the
     // constructor; the original `this` (`tempThis`) is only used transiently while the executor
     // runs synchronously (see reject()'s `instance === tempThis` branch above/below) and is then
-    // discarded — `Object.assign(instance, this)` below copies over anything the synchronous
+    // discarded. `Object.assign(instance, this)` below copies over anything the synchronous
     // executor stashed on `this` (e.g. `_resolve`/`_reject`) onto the real instance.
 
     instance = Reflect.construct(
@@ -1031,16 +1029,14 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
             reject_(reason);
 
             // Run settlement effects (e.g., abort listener cleanup) only once on
-            // PENDING→settled transition.
+            // PENDING to settled transition.
             if (wasSettled) {
               instance._runSettlementEffects();
             }
 
             if (externalCancel) {
               if (instance === tempThis) {
-                // Synchronous executor: `instance` is still the temporary `this`
-                // (not yet a real promise) — .catch() would throw. Defer the
-                // cancellation side effects to the post-construct step.
+                // synchronous executor: instance is temp this so defer cancellation side effects
                 instance._pendingSyncCancel = true;
                 instance._pendingSyncCancelReason = reason as unknown;
               } else {
@@ -1089,11 +1085,11 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
     // Initialize the real instance's own-property layout explicitly. The field initializers at
     // the top of the class run against `tempThis` inside the constructor body, but the object
     // returned by `Reflect.construct` (running native Promise's constructor) is a DIFFERENT
-    // object that never ran them — the previous `Object.assign(instance, this)` migrated the
+    // object that never ran them. The previous `Object.assign(instance, this)` migrated the
     // whole eager field set over. Enumerating the exact layout here (instead of a blanket
     // Object.assign of every field plus leftovers) keeps the instance lean: the lazily-allocated
     // `_cancelHandlers`/`_abortSignals`/`_abortListeners`/`_boundCancel` are intentionally NOT
-    // created here — they stay absent until first use. Only the settlement wrappers, the state
+    // created here; they stay absent until first use. Only the settlement wrappers, the state
     // the synchronous executor may have advanced, a synchronously-registered cancel handler, and
     // the deferred sync-cancel handoff are carried over from `tempThis`. The executor never
     // settles synchronously on the pre-abort path (it does not run), so the wrappers migrated
@@ -1102,7 +1098,7 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
     instance._reject = tempThis._reject;
     instance._internalState = tempThis._internalState;
     // The cold fields (`_chainsCount`, cancel-reason retention, etc.) intentionally stay on the
-    // prototype default here — only a synchronously-registered cancel handler and the deferred
+    // prototype default here: only a synchronously-registered cancel handler and the deferred
     // sync-cancel handoff can have diverged on `tempThis` during the executor, so carry just
     // those, and only when actually present, to avoid materializing own properties needlessly.
     if (tempThis._cancelHandlers) {
@@ -1133,15 +1129,12 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
 
     const { signal } = normalizedOptions;
 
-    // Pre-aborted signals are already handled by the deferred handoff below (strict threw
-    // before construction), so no listeners are wired for them — the promise is born canceled.
+    // pre-aborted signals are handled by deferred handoff so no listeners are wired
     if (signal && !hasPendingPreAbort) {
       // Support both single signal and array of signals.
       const signals = Array.isArray(signal) ? signal : [signal];
 
-      // Non-aborted: register abort listeners for all signals (first-abort-wins).
-      // Listener cleanup happens via _runSettlementEffects on settle. The tracking
-      // array/map are allocated here (lazily) — only signal-wired promises pay for them.
+      // register abort listeners for signals; tracking structures allocated lazily
       const abortSignals: IAbortSignal[] = (instance._abortSignals = []);
       const abortListeners = (instance._abortListeners = new Map<IAbortSignal, any>());
       for (const sig of signals) {
@@ -1182,7 +1175,7 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
     // Run cancellation side effects deferred from a synchronous external CancelError
     // rejection (temp-`this` gotcha): now that `instance` is the real promise, suppress the
     // rejection and fire cancel handlers. Skipped for internal derived-promise construction
-    // (species via then) — those never carry a deferred external cancel.
+    // (species via then), which never carry a deferred external cancel.
     if (instance._pendingSyncCancel && !This._pendingInternalCall) {
       instance._pendingSyncCancel = false;
       const reason = instance._pendingSyncCancelReason as unknown;
@@ -1383,8 +1376,7 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
   handleCancel(onCancel: TOnCancel, options?: IHandleCancelOptions): CancelablePromise<TResult, TFailure> {
     if (this.cancelable) {
       if (isFunction(onCancel)) {
-        // Allocate the handlers array on first registration — most promises never register
-        // a cancel handler, so the array stays absent for the common case.
+        // allocate handlers array lazily on first registration to save memory
         const handlers = this._cancelHandlers || (this._cancelHandlers = []);
         if (!handlers.includes(onCancel)) {
           handlers.push(onCancel);
@@ -1593,9 +1585,7 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
    * Currently: clean up abort-signal listeners to prevent unbounded listener accumulation.
    */
   protected _runSettlementEffects(): void {
-    // Release the settlement wrappers once the promise has settled — they close over the whole
-    // executor scope (by far the largest per-instance retained cost) and can never be invoked
-    // again after settlement (cancel()/resolve()/reject() are all no-ops on a settled promise).
+    // release settlement wrappers once settled to free closed-over executor scope
     // `withResolvers` already captured its own references at construction time, so nulling
     // the fields here does not affect callers still holding the functions.
     this._resolve = undefined as any;
@@ -1723,18 +1713,21 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
    * effect the per-item `.then()`/`.then().catch()` plus `input._chain(resultPromise)` pair produces
    * today, but with no derived canc promise: the input's count is raised once for the internal
    * consumer (completed on the input's own cancel, matching a `handleCancel`-registered onComplete)
-   * and once for the result-as-child via the real `_chain(resultPromise)`. Keeping the input at the
-   * same total count preserves the "canceling the result does NOT cascade to inputs" oracle: a
-   * single completed ref never satisfies the count, so the input stays pending.
+   * Internal-only combiner helper: attaches a combiner's `resultPromise` to this input using
+   * explicit chain accounting instead of the species `.then().catch()` reaction.
    *
-   * @param resultPromise The combinator result promise (chained as this input's downstream child).
-   * @param bubbleOnComplete Race-style completion timing for the result chain (settle vs cancel).
+   * Replaces the former `_mirrorDerivedChild` pattern with two separate linkages:
+   * 1. an internal-consumer reference (keeps `this` alive while the combinator is pending)
+   * 2. a real `_chain(resultPromise)` linkage (runs `resultPromise._onParentCanceled` if `this` cancels)
+   *
+   * This gives combinators the exact same cancellation semantics as the old `.then().catch()`
+   * derived child, while avoiding creating and wiring throwaway intermediate promises.
    */
   protected _chainInput(resultPromise: CancelablePromise<any, any>, bubbleOnComplete?: boolean): void {
     // Internal-consumer ref: same increment the per-item derived child raised via its own `_chain`.
     // Its completion is wired to THIS input's cancel (handleCancel), mirroring the old derived
     // child whose `onComplete` fired on that child's cancel, so it does not complete when the
-    // result is canceled — the count-padding that keeps the input alive.
+    // result is canceled, acting as count-padding that keeps the input alive.
     const onComplete = this._addChainRef();
     if (onComplete) {
       this.handleCancel(onComplete);
@@ -1764,7 +1757,7 @@ const NativePromise = Promise;
 // ES5-target transpile. `Object.setPrototypeOf` reproduces the two links `extends` would have
 // wired for us:
 // - constructor chain: CancelablePromise inherits Promise's OWN static members (resolve/reject/
-// all/race/etc. as fallbacks, and — key for species — the default `[Symbol.species]` getter
+// all/race/etc. as fallbacks, and (key for species) the default `[Symbol.species]` getter
 // that returns `this`, which is what makes the `declare`d species field above resolve
 // correctly without any explicit getter of our own).
 // - prototype chain: CancelablePromise.prototype inherits Promise.prototype (toString,
@@ -1809,7 +1802,7 @@ const SymbolDispose: symbol | undefined = (Symbol as any).dispose;
 const SymbolAsyncDispose: symbol | undefined = (Symbol as any).asyncDispose;
 
 if (typeof SymbolDispose === 'symbol') {
-  // Sync disposal: fire-and-forget cancel — returns undefined.
+  // synchronous disposal: fire-and-forget cancel returning undefined
   Object.defineProperty(CancelablePromise.prototype, SymbolDispose, {
     configurable: true,
     writable: true,
@@ -1826,8 +1819,7 @@ if (typeof SymbolAsyncDispose === 'symbol') {
     writable: true,
     value: function (this: CancelablePromise<any, any>): PromiseLike<unknown> {
       const result = (this as any)._dispose();
-      // Always await-able: a no-op disposal (settled/shielded) returns undefined → normalize to
-      // a resolved promise so `await using` never throws on scope exit.
+      // normalize undefined return to resolved promise so await using never throws
       return result || NativePromise.resolve([]);
     },
   });

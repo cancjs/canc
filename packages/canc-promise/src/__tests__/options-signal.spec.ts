@@ -75,7 +75,7 @@ describe('defaultOptions override + restore', () => {
   });
 });
 
-describe('per-option inheritance through then() — flags inherit', () => {
+describe('per-option inheritance through then(): flags inherit', () => {
   it('bubble inherits to then()-derived child', () => {
     const parent = new CancelablePromise<number>((resolve) => resolve(1), { bubble: false });
     const child = parent.then((v) => v);
@@ -108,7 +108,7 @@ describe('per-option inheritance through then() — flags inherit', () => {
   });
 });
 
-describe('per-option inheritance through then() — signal does NOT inherit', () => {
+describe('per-option inheritance through then(): signal does NOT inherit', () => {
   it('signal is NOT propagated to a then()-derived child: aborting it does not cancel the child', async () => {
     const controller = new AbortController();
     const parent = new CancelablePromise<number>((resolve) => resolve(1), { signal: controller.signal });
@@ -241,7 +241,7 @@ describe('strict throws matrix: cancel()/handleCancel() on settled/canceled', ()
 });
 
 describe('asyncCancel: sync vs async handler settle ordering', () => {
-  it('asyncCancel:true — cancel() returns a promise that settles only after an async handler resolves', async () => {
+  it('asyncCancel:true: cancel() returns a promise that settles only after an async handler resolves', async () => {
     const order: string[] = [];
 
     const promise = new CancelablePromise<number>(
@@ -269,7 +269,7 @@ describe('asyncCancel: sync vs async handler settle ordering', () => {
     expect(order).toEqual(['before-cancel', 'after-cancel-call', 'async-handler', 'after-settlement']);
   });
 
-  it('asyncCancel:true — multiple handlers (sync + async) all settle before the returned promise resolves', async () => {
+  it('asyncCancel:true: multiple handlers (sync + async) all settle before the returned promise resolves', async () => {
     const order: string[] = [];
 
     const promise = new CancelablePromise<number>(
@@ -299,7 +299,7 @@ describe('asyncCancel: sync vs async handler settle ordering', () => {
     expect(results.every((r) => r.status === 'fulfilled')).toBe(true);
   });
 
-  it('asyncCancel:false — handler runs synchronously, cancel() returns undefined immediately', () => {
+  it('asyncCancel:false: handler runs synchronously, cancel() returns undefined immediately', () => {
     const order: string[] = [];
 
     const promise = new CancelablePromise<number>(
@@ -318,7 +318,7 @@ describe('asyncCancel: sync vs async handler settle ordering', () => {
     expect(order).toEqual(['sync-handler', 'after-cancel-call']);
   });
 
-  it('asyncCancel:false — a throwing handler propagates synchronously from cancel()', () => {
+  it('asyncCancel:false: a throwing handler propagates synchronously from cancel()', () => {
     const promise = new CancelablePromise<number>(
       (_resolve, _reject, { handleCancel }) => {
         handleCancel(() => {
@@ -331,7 +331,7 @@ describe('asyncCancel: sync vs async handler settle ordering', () => {
     expect(() => promise.cancel()).toThrow('sync boom');
   });
 
-  it('asyncCancel:false — multiple handlers all fire even if the cleanup finally-guard is hit', () => {
+  it('asyncCancel:false: multiple handlers all fire even if the cleanup finally-guard is hit', () => {
     const seen: string[] = [];
 
     const promise = new CancelablePromise<number>(
@@ -526,7 +526,7 @@ describe('multiple promises, one signal', () => {
     await macrotask();
 
     expect(late.isCanceled).toBe(true);
-    // early already settled fulfilled — unaffected by the later abort.
+    // early settled fulfilled and stays unaffected by the later abort
     await expect(early).resolves.toBe(1);
   });
 

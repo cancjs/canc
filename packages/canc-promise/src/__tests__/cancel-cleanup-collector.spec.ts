@@ -142,7 +142,7 @@ describe('cancel-cleanup collector', () => {
     const childA = src.then((v) => v);
     const childB = src.then((v) => v);
 
-    // Cancel both children — src bubble fires when all refs complete
+    // canceling both children bubbles to source once all refs complete
     childA.cancel();
     childA.catch(() => {
       /**/

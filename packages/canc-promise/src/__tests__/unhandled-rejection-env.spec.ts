@@ -74,7 +74,7 @@ function log(msg) {
 }
 
 if (mode === 'plain-no-handler') {
- // Plain rejection, no handler → fires unhandledRejection
+ // plain rejection without handler fires unhandledRejection
  new CancelablePromise(function (_resolve, reject) {
  reject(new Error('plain rejection'));
  });
@@ -83,7 +83,7 @@ if (mode === 'plain-no-handler') {
  }, 200);
 
 } else if (mode === 'cancelerror-no-handler') {
- // CancelError rejection, no handler → suppressed
+ // CancelError rejection without handler is suppressed
  new CancelablePromise(function (_resolve, reject) {
  reject(new CancelError('cancel error'));
  });
@@ -92,7 +92,7 @@ if (mode === 'plain-no-handler') {
  }, 200);
 
 } else if (mode === 'cancel-call') {
- // cancel() call → suppressed
+ // cancel() call is suppressed
  var p = new CancelablePromise(function () {});
  p.cancel('explicit cancel');
  setTimeout(() => {
@@ -100,7 +100,7 @@ if (mode === 'plain-no-handler') {
  }, 200);
 
 } else if (mode === 'plain-handle-later') {
- // Reject plain error, then add handler after microtask (late catch) → no unhandledRejection
+ // reject plain error then add handler after microtask (late catch): no unhandledRejection
  var p = new CancelablePromise(function (_resolve, reject) {
  reject(new Error('late-handled'));
  });
@@ -153,7 +153,7 @@ if (mode === 'plain-no-handler') {
  }, 200);
 
 } else if (mode === 'chain-cancelerror') {
- // Chain: reject CancelError on parent → child inherits suppression
+ // reject CancelError on parent causes child to inherit suppression
  var parent = new CancelablePromise(function (_resolve, reject) {
  reject(new CancelError('parent-cancel'));
  });
@@ -166,7 +166,7 @@ if (mode === 'plain-no-handler') {
  }, 200);
 
 } else if (mode === 'async-plain-reject') {
- // Async rejection (setTimeout) of plain error → unhandledRejection fires
+ // async rejection of plain error fires unhandledRejection
  new CancelablePromise(function (_resolve, reject) {
  setTimeout(function () {
  reject(new Error('async-plain'));
@@ -177,7 +177,7 @@ if (mode === 'plain-no-handler') {
  }, 200);
 
 } else if (mode === 'async-cancelerror-reject') {
- // Async rejection of CancelError → suppressed
+ // async rejection of CancelError is suppressed
  new CancelablePromise(function (_resolve, reject) {
  setTimeout(function () {
  reject(new CancelError('async-cancel'));
@@ -218,7 +218,7 @@ if (mode === 'plain-no-handler') {
  }, 200);
 
 } else if (mode === 'sync-handler-cancelerror') {
- // CancelError + sync catch → no event
+ // CancelError with sync catch emits no event
  var p = new CancelablePromise(function (_resolve, reject) {
  reject(new CancelError('sync-catch-cancel'));
  });
@@ -230,7 +230,7 @@ if (mode === 'plain-no-handler') {
  }, 200);
 
 } else if (mode === 'chain-plain-rejection') {
- // Resolve with value, then chain rejects plain → fires
+ // resolve with value then chain rejects plain: fires unhandledRejection
  var p = new CancelablePromise(function (resolve) {
  resolve('ok');
  });
@@ -242,7 +242,7 @@ if (mode === 'plain-no-handler') {
  }, 200);
 
 } else if (mode === 'chain-cancelerror-rejection') {
- // Chain rejection of CancelError → suppressed
+ // chain rejection of CancelError is suppressed
  var p = new CancelablePromise(function (resolve) {
  resolve('ok');
  });

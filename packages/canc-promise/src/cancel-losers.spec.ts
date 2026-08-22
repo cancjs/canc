@@ -7,7 +7,7 @@ import { CancelablePromise } from './cancelable-promise';
  * first reject; allSettled no-op (waits all). bubble:false inputs respected (not canceled).
  * Already-settled inputs no-op. Loser rejections suppressed (no unhandled events).
  *
- * Matrix covers 12+ cases: winner/rejector settles → losers canceled per doctrine; bubble:false
+ * Matrix covers 12+ cases: winner/rejector settles to cancel losers per doctrine; bubble:false
  * input NOT canceled; already-settled inputs no-op; canceled-loser rejections suppressed.
  */
 
@@ -225,9 +225,7 @@ describe('cancel-losers doctrine', () => {
     const _result = CancelablePromise.allSettled([p1, p2, p3]);
     await macrotask();
 
-    // allSettled() wraps inputs in .then() that convert all results to {status, reason} objects,
-    // so the underlying all() never sees a rejection from p1/p2/p3 themselves —
-    // thus no loser-cancellation doctrine triggers. p2, p3 remain pending (not canceled).
+    // allSettled wraps inputs to keep all() from seeing rejections directly, leaving losers uncanceled
     expect(p2.isCanceled).toBe(false);
     expect(p3.isCanceled).toBe(false); // allSettled waits, no-op per doctrine
   });
@@ -314,7 +312,7 @@ describe('cancel-losers doctrine', () => {
     await expect(result).rejects.toBeInstanceOf(Error);
   });
 
-  // Case 13: race() mirror behavior (bubbleOnComplete) — loser canceled on any settle
+  // Case 13: race() mirror behavior (bubbleOnComplete): loser canceled on any settle
   it('race() cancels losers when any input settles (bubbleOnComplete mirror)', async () => {
     const p1 = new CancelablePromise((resolve) => resolve('racer1'));
     const p2 = new CancelablePromise(() => {

@@ -65,8 +65,7 @@ describe('createCancelSignal', () => {
     expect(isCancelSignal(result.signal)).toBe(true);
   });
 
-  // Anti-stub: a raw AbortSignal carries no brand, so the check must be false — proves the brand
-  // is a real own-prop, not a no-op that returns true for any signal.
+  // raw AbortSignal carries no brand so check must be false
   it('does not brand a plain AbortSignal', () => {
     expect(isCancelSignal(new AbortController().signal)).toBe(false);
   });

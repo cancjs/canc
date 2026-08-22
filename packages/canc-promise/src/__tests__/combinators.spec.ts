@@ -165,7 +165,7 @@ describe('combinators', () => {
       expect(pending.isCanceled).toBe(true);
     });
 
-    it('respects bubble:false input — NOT canceled as a remaining loser', async () => {
+    it('respects bubble:false input without canceling as a remaining loser', async () => {
       const shielded = new CancelablePromise<any>(
         () => {
           /**/
@@ -190,7 +190,7 @@ describe('combinators', () => {
     });
 
     // The result promise is the DOWNSTREAM child of the inputs (input._chain(result)).
-    // Cancellation propagates UP (all children canceled → parent bubbles), never DOWN from a
+    // Cancellation propagates UP when all children cancel, never DOWN from a
     // child to its parents. So canceling the result cancels the result only; inputs stay pending
     // because each input also has the internal .then() consumer keeping it alive. Black-box
     // documentation of actual behavior (see Gap note in tracker re: task wording).
@@ -259,7 +259,7 @@ describe('combinators', () => {
       expect(settled[1].status).toBe('rejected');
     });
 
-    it('NEVER cancels inputs — waits for all (loser doctrine no-op)', async () => {
+    it('never cancels inputs and waits for all (loser doctrine no-op)', async () => {
       const winner = new CancelablePromise((resolve) => resolve('v'));
       const p2 = new CancelablePromise(() => {
         /**/

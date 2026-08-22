@@ -6,9 +6,9 @@ import { isCancelError } from './helpers';
  * Symbol.dispose / Symbol.asyncDispose.
  *
  * Guarded proto wiring (feature-detected; zero footprint when the symbols are absent):
- * - [Symbol.asyncDispose]() → internal no-throw cancel (bypasses strict), returns the
+ * - [Symbol.asyncDispose](): internal no-throw cancel (bypasses strict), returns the
  * handler-settlement promise;
- * - [Symbol.dispose]() → fire-and-forget cancel;
+ * - [Symbol.dispose](): fire-and-forget cancel;
  * - dispose after settle = silent no-op;
  * - shielded = no-op;
  * - disposing a strict promise does NOT throw;
@@ -262,7 +262,7 @@ describe('await using integration (manual protocol fallback)', () => {
 
     let canceledAtExit = false;
 
-    // Simulate: `{ await using op = task(); ... }` — dispose runs on block exit.
+    // simulate { await using op = task() } where dispose runs on block exit
     const runScope = async () => {
       const op = new CancelablePromise<number>(() => {
         /**/

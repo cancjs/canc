@@ -41,7 +41,7 @@ describe('Failure vocabulary', () => {
   it('ResultOf extracts the resolved value', () => {
     const _check1: Assert<Eq<ResultOf<CancelablePromise<number, FooError>>, number>> = true;
     // ResultOf falls back to reporting the type itself (never unknown) on non-promise input,
-    // unlike FailureOf's never fallback -- see the asymmetry comment beside both definitions.
+    // unlike FailureOf's never fallback (see asymmetry comment beside definitions)
     const _check2: Assert<Eq<ResultOf<number>, number>> = true;
     const _check3: Assert<Eq<ResultOf<Promise<string>>, string>> = true;
   });
@@ -50,7 +50,7 @@ describe('Failure vocabulary', () => {
     const plainCancPromise = null as unknown as CancelablePromise<number>;
     const pFoo = null as unknown as CancelablePromise<number, FooError>;
 
-    // 1. widening from `never` -- the realistic makeCancelable(p) starting point, no cast
+    // 1. widening from `never`: realistic makeCancelable(p) starting point, no cast
     const a: WithFailure<CancelablePromise<number>, FooError> = plainCancPromise;
 
     // 2. widening an already-declared set, no cast
@@ -90,7 +90,7 @@ describe('Failure vocabulary', () => {
     const replaced = withFailure<BarError>()(pFoo);
     const _replacedCheck: Assert<Eq<typeof replaced, CancelablePromise<number, BarError>>> = true;
 
-    // 3. the value type survives -- it is inferred in the second call, never widened to `any`
+    // 3. value type survives: inferred in second call, never widened to any
     const stringSource = null as unknown as CancelablePromise<string, FooError>;
     const stillString = withFailure<BarError>()(stringSource);
     const _valueCheck: Assert<Eq<typeof stillString, CancelablePromise<string, BarError>>> = true;

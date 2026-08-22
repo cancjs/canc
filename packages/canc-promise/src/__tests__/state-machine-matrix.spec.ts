@@ -11,7 +11,7 @@ import { isCancelError } from '../helpers';
  * thenable resolution. Executor throw -> rejection. Double-settle no-ops. `new` w/o
  * executor-fn -> TypeError (match native).
  *
- * No src edits — regressions found here are reported via tracker Gap, not fixed inline.
+ * No src edits: regressions found here are reported via tracker Gap, not fixed inline.
  */
 
 const NativePromise = Promise;
@@ -191,8 +191,8 @@ describe('state machine matrix', () => {
   describe('construct: resolve(self-ish)', () => {
     // Resolving with a thenable whose `then` calls back into resolving itself indefinitely would
     // be a genuine self-resolution cycle (native Promise TypeErrors on true self-resolution via
-    // `resolve(promise)` where promise === itself only when done through the *same* resolve call
-    // synchronously — here we approximate "self-ish" with a thenable that resolves to itself,
+    // `resolve(promise)` where promise === itself only when done through the same resolve call
+    // synchronously; here we approximate "self-ish" with a thenable that resolves to itself,
     // exercising the adoption chain without hanging the test).
     it('resolving with a thenable that resolves to a fixed value terminates (no infinite adoption)', async () => {
       let calls = 0;
@@ -481,7 +481,7 @@ describe('state machine matrix', () => {
     });
   });
 
-  describe('new without executor function (GAP vs native — see note)', () => {
+  describe('new without executor function (GAP vs native: see note)', () => {
     // GAP, not fixed here: native `new Promise(nonFunction)` throws SYNCHRONOUSLY from the
     // engine's own "resolver is not callable" check, which runs BEFORE the executor is ever
     // invoked, confirmed below. CancelablePromise's constructor has no equivalent upfront check:
@@ -500,9 +500,9 @@ describe('state machine matrix', () => {
     //
     // Run out-of-process (spawnSync) since the crash is fatal to the whole worker if triggered
     // in-process, this keeps the assertion deterministic without taking down the test runner.
-    it('GAP: does NOT synchronously TypeError like native — crashes as an orphaned unhandled rejection instead', () => {
+    it('GAP: does NOT synchronously TypeError like native and crashes as an orphaned unhandled rejection instead', () => {
       // Precompile the (small) dependency set to plain CJS with the TS compiler API, write to a
-      // scratch temp dir, then run in a REAL child process — the crash under test is fatal to
+      // scratch temp dir, then run in a REAL child process because the crash under test is fatal to
       // whatever process it happens in, so it must not run in this jest worker.
       const ts = require('typescript');
       const fs = require('fs');

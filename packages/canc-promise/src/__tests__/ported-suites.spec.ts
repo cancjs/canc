@@ -6,15 +6,15 @@ import { isCancelError } from '../helpers';
  *
  * This spec consolidates cancelable-promise test patterns from reference libraries, ported to canc semantics.
  * Translations:
- * - **Bluebird**: `onCancel()` handlers → `handleCancel()` (semantics identical, registered callbacks fire on cancel).
- * Bluebird's "never settles on cancel" model → canc rejection with CancelError (native Promise compatible).
+ * - **Bluebird**: `onCancel()` handlers map to `handleCancel()` (semantics identical, registered callbacks fire on cancel).
+ * Bluebird's "never settles on cancel" model maps to canc rejection with CancelError (native Promise compatible).
  * `isCanceled` property, handler execution order, multiple handlers per promise all map directly.
- * - **p-cancelable**: Simple one-way shallow cancellation → exercised as canc promises with bubble:false.
- * `onCancel` → `handleCancel`. Tests for cancel-after-settle no-op, isCanceled getter, multiple handler calls.
- * - **Alkemics**: Downward-only chain cancellation → canc with bubble:false on children to isolate up-bubble.
+ * - **p-cancelable**: Simple one-way shallow cancellation is exercised as canc promises with bubble:false.
+ * `onCancel` maps to `handleCancel`. Tests for cancel-after-settle no-op, isCanceled getter, multiple handler calls.
+ * - **Alkemics**: Downward-only chain cancellation is ported to canc with bubble:false on children to isolate up-bubble.
  * Silent-skip model not directly translatable (canc rejects), but cancellation propagation down chains tested.
  *
- * **Skip list:** None — all patterns are compatible with canc's rejection-based CancelError model.
+ * **Skip list:** None. All patterns are compatible with canc's rejection-based CancelError model.
  *
  * Determinism: microtask draining via `drain()` (no arbitrary sleeps); handler assertion via internal
  * `_cancelHandlers` length / fire counts.
@@ -167,7 +167,7 @@ describe('ported suites', () => {
   });
 
   describe('bluebird: chain cancellation semantics', () => {
-    it('8. cancel parent → child rejects with CancelError', async () => {
+    it('8. cancel parent causes child to reject with CancelError', async () => {
       const parent = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
         handleCancel(() => {});
       });
@@ -210,7 +210,7 @@ describe('ported suites', () => {
       expect(isCancelError(caught2)).toBe(true);
     });
 
-    it('10. cancel parent → callbacks in derived .then() not invoked', async () => {
+    it('10. cancel parent ensures callbacks in derived .then() not invoked', async () => {
       let thenCalled = false;
       const parent = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
         handleCancel(() => {});
@@ -527,7 +527,7 @@ describe('ported suites', () => {
         handleCancel(() => {
           _parentFired = true;
         });
-        // Never resolve — keep pending
+        // never resolve to keep pending
       });
       const child = parent.then((v) => v); // Derived child
       silence(parent);

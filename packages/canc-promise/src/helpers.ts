@@ -97,7 +97,7 @@ type TSubtractFlags<O> =
 const catchCancelImpl = makeCatch({ matches: isCancelError, isCancelError, flagsEnabled: true });
 const suppressCancelImpl = makeSuppress({ matches: isCancelError, isCancelError, flagsEnabled: true });
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- default type parameter constrains extension to ICatchSuppressOptions but defaults to empty object to avoid silent behavior changes if required members are added later
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export function catchCancel<TResult, TFailure, O extends ICatchSuppressOptions = {}>(
   promise: CancelablePromise<TResult, TFailure>,
   options?: O,
@@ -120,7 +120,7 @@ export function catchCancel<TResult, TError, O extends ICatchSuppressOptions = {
   return catchCancelImpl(errorOrPromise, options);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- default type parameter constrains extension to ICatchSuppressOptions but defaults to empty object to avoid silent behavior changes if required members are added later
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export function suppressCancel<TResult, TFailure, O extends ICatchSuppressOptions = {}>(
   promise: CancelablePromise<TResult, TFailure>,
   options?: O,
