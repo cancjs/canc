@@ -55,7 +55,6 @@ function makeBabelDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAn
     const isField = isFunction(descriptor?.initializer) || descriptor?.initializer === null;
     const isGetter = !!descriptor?.get;
 
-    // --- getter ---
     if (isGetter) {
       // The user returns a ready coroutine (a cancAsync result) from the getter, so the decorator
       // never wraps it. It optionally binds the function to the instance (bind:true), then memoizes
@@ -79,7 +78,6 @@ function makeBabelDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAn
       return descriptor;
     }
 
-    // --- field (arrow-fn class property) ---
     if (isField) {
       const originalInitializer = descriptor.initializer;
 
@@ -96,7 +94,6 @@ function makeBabelDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAn
       return descriptor;
     }
 
-    // --- proto method ---
     const originalMethod = descriptor.value as TAnyFn;
 
     if (!isFunction(originalMethod)) {

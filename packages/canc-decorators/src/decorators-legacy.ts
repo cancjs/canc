@@ -87,7 +87,6 @@ function makeLegacyDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TA
     const isProtoMethod = !!descriptor && !descriptor.get;
     const isGetter = !!descriptor && !!descriptor.get;
 
-    // --- getter ---
     if (isGetter) {
       // The user returns a ready coroutine (a cancAsync result) from the getter, so the decorator
       // never wraps it. It optionally binds the function to the instance (bind:true), then memoizes
@@ -112,7 +111,6 @@ function makeLegacyDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TA
       return;
     }
 
-    // --- proto method ---
     if (isProtoMethod) {
       const originalMethod = descriptor!.value as TAnyFn;
 
@@ -136,7 +134,6 @@ function makeLegacyDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TA
       return;
     }
 
-    // --- field / property (no descriptor) ---
     // The initial value is not observable here in the TS-legacy runtime; install a lazy accessor
     // that wraps the field's initial value on first read. Because class-field initializers run in
     // the constructor and assign via [[Set]], our accessor's setter captures that initial value

@@ -632,10 +632,6 @@ describe('decorators (babel-legacy) — error handling', () => {
   });
 });
 
-// ============================================================================
-// Metadata preservation (SetMetadata-style fn-level + key-level metadata)
-// ============================================================================
-//
 // Babel-legacy SetMetadata style: metadata attached to the method function (descriptor.value)
 // before our decorator rewrites descriptor.value with the coroutine/bound wrapper. The metadata
 // must be copied onto the wrapper. Key-level metadata (prototype + property key) is untouched.
@@ -707,14 +703,6 @@ describe('decorators (babel legacy) — metadata preservation', () => {
   });
 });
 
-// ============================================================================
-// Flavor mismatch guard (wrong-shaped invocation)
-// ============================================================================
-
-// ============================================================================
-// Getter returns a coroutine (new semantics) — full this-matrix
-// ============================================================================
-//
 // The user builds the coroutine themselves with cancAsync inside the getter and returns it. The
 // decorator no longer wraps a bare generator function; it only memoizes the returned coroutine
 // per instance, and for bind:true binds it to the instance so a detached call keeps `this`.

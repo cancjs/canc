@@ -70,9 +70,6 @@ export function runStage3Matrix({
   skipBabelFieldOrderingCases,
 }: IStage3MatrixDecorators): void {
   const itUnlessBabelFieldOrdering = skipBabelFieldOrderingCases ? it.skip : it;
-  // ============================================================================
-  // AsyncMethod tests
-  // ============================================================================
 
   describe('decorators (ES stage-3) — AsyncMethod', () => {
     describe('bind:false (default)', () => {
@@ -338,10 +335,6 @@ export function runStage3Matrix({
     });
   });
 
-  // ============================================================================
-  // BindMethod tests
-  // ============================================================================
-
   describe('decorators (ES stage-3) — BindMethod', () => {
     describe('bind:true (default)', () => {
       it('proto method is bound per instance at construction', async () => {
@@ -529,10 +522,6 @@ export function runStage3Matrix({
     });
   });
 
-  // ============================================================================
-  // Error cases
-  // ============================================================================
-
   describe('decorators (ES stage-3) — error handling', () => {
     it('AsyncMethod rejects non-method field', () => {
       expect(() => {
@@ -568,10 +557,6 @@ export function runStage3Matrix({
     });
   });
 
-  // ============================================================================
-  // Metadata preservation (SetMetadata-style fn-level + key-level metadata)
-  // ============================================================================
-  //
   // A SetMetadata-style helper (nest's @SetMetadata et al) attaches metadata to the METHOD FUNCTION
   // itself via reflect-metadata, keyed on that function's identity. Our decorator replaces the method
   // with a coroutine/bound wrapper, so unless we copy the metadata across it is silently lost.
@@ -658,10 +643,6 @@ export function runStage3Matrix({
     });
   });
 
-  // ============================================================================
-  // Flavor mismatch guard (wrong-shaped invocation)
-  // ============================================================================
-  //
   // Each decorator flavor is invoked directly (bypassing decorator syntax) with the runtime call
   // shape another flavor's compiler output would produce. AsyncMethod/BindMethod share the guard
   // (makeDecorator), so one representative per shape is enough to cover both.
@@ -722,10 +703,6 @@ export function runStage3Matrix({
       }).toThrow(/@cancjs\/decorators/);
     });
   });
-
-  // ============================================================================
-  // Accessor / unsupported-kind handling
-  // ============================================================================
 
   describe('decorators (ES stage-3) — unsupported kind handling', () => {
     // Real `accessor` class-field decorator syntax expects a (target: {get,set}, context) shape
@@ -796,10 +773,6 @@ export function runStage3Matrix({
     });
   });
 
-  // ============================================================================
-  // Getter returns a coroutine (new semantics)
-  // ============================================================================
-  //
   // The user builds the coroutine themselves with cancAsync inside the getter and returns it. The
   // decorator no longer wraps a bare generator function; it only memoizes the returned coroutine
   // per instance, and for bind:true binds it to the instance so a detached call keeps `this`.

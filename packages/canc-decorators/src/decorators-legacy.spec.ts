@@ -533,10 +533,6 @@ describe('decorators (TS legacy) — error handling', () => {
   });
 });
 
-// ============================================================================
-// Metadata preservation (SetMetadata-style fn-level + key-level metadata)
-// ============================================================================
-//
 // TS-legacy SetMetadata style: attach metadata to the method function (descriptor.value) identity.
 // Our decorator rewrites descriptor.value with the coroutine/bound wrapper; the metadata must be
 // copied across. Key-level metadata (prototype + property key) is never touched by wrapping.
@@ -624,14 +620,6 @@ describe('decorators (TS legacy) — metadata preservation', () => {
   });
 });
 
-// ============================================================================
-// Flavor mismatch guard (wrong-shaped invocation)
-// ============================================================================
-
-// ============================================================================
-// Getter returns a coroutine (new semantics) — full this-matrix
-// ============================================================================
-//
 // The user builds the coroutine themselves with cancAsync inside the getter and returns it. The
 // decorator no longer wraps a bare generator function; it only memoizes the returned coroutine
 // per instance, and for bind:true binds it to the instance so a detached call keeps `this`.

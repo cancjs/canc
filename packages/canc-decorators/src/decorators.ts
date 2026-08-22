@@ -81,7 +81,6 @@ function makeDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAnyFn) 
     assertDecoratable(propertyKey, context);
     assertSupportedKind(propertyKey, context);
 
-    // --- getter ---
     if (context.kind === 'getter') {
       // The user returns a ready coroutine (a cancAsync result) from the getter, so the decorator
       // never wraps it. It evaluates the getter lazily on first access, optionally binds the
@@ -103,7 +102,6 @@ function makeDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAnyFn) 
       };
     }
 
-    // --- field (arrow-fn class field) ---
     if (context.kind === 'field') {
       // value is undefined here; return an initializer-transformer that receives the field's
       // initial value (the arrow fn) at construction time, per instance → isolation for free.
@@ -116,7 +114,6 @@ function makeDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAnyFn) 
       };
     }
 
-    // --- method ---
     if (context.kind === 'method') {
       if (!isFunction(value)) {
         throw new TypeError(`'${String(propertyKey)}' is not a method and cannot be decorated`);
