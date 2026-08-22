@@ -39,7 +39,7 @@ function num(n, digits) {
   return n == null ? 'n/a' : n.toFixed(digits);
 }
 
-// --- per-shape renderers ---
+// per-shape renderers
 
 function renderTinybenchSuite(result) {
   const { suite, env, tasks } = result;
@@ -189,7 +189,7 @@ function renderSuiteFile(fileName, result) {
   return `### ${result.suite || fileName}\n\n(unrecognized result shape — see raw JSON in benchmarks/results/${fileName})\n`;
 }
 
-// --- summary table for README embed -------------------------------------
+// summary table for README embed
 
 function buildSummaryTable(resultsByFile) {
   const lines = [];
@@ -239,7 +239,7 @@ function buildSummaryTable(resultsByFile) {
   return lines.join('\n');
 }
 
-// --- main ----------------------------------------------------------------
+// main
 
 function main() {
   if (!fs.existsSync(RESULTS_DIR)) {
