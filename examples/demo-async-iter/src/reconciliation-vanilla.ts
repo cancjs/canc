@@ -4,7 +4,7 @@
 import { archivedStream, Transaction, transactionStream } from './mock/transactions';
 import { formatTx, getAmount, isPositive, sumAmounts } from './reconciliation-shared';
 
-// ── Scenario 1: Filter and Map ──────────────────────────────────────────────
+// scenario 1: filter and map
 
 /**
  * Filters positive transactions and formats them. Runs to completion: once started, every
@@ -21,7 +21,7 @@ export async function filterAndFormat(log?: (msg: string) => void): Promise<stri
   return result;
 }
 
-// ── Scenario 2: Three ways to consume ───────────────────────────────────────
+// scenario 2: three ways to consume
 
 /**
  * Demonstrates find, reduce, some as manual for-await loops.
@@ -55,7 +55,7 @@ export async function threeConsumers(log?: (msg: string) => void): Promise<void>
   log?.(`some pending: ${hasPending}`);
 }
 
-// ── Scenario 3: Static source composition ───────────────────────────────────
+// scenario 3: static source composition
 
 /**
  * Concatenates two streams by consuming them sequentially.
@@ -71,7 +71,7 @@ export async function concatStreams(log?: (msg: string) => void): Promise<string
   return ids;
 }
 
-// ── Scenario 4: Stream with break ───────────────────────────────────────────
+// scenario 4: stream with break
 
 /**
  * Processes items one at a time, stopping when the callback returns false.

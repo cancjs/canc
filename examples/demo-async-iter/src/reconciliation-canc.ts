@@ -8,7 +8,7 @@ import { sleep } from '@shared/util';
 import { archivedStream, Transaction, transactionStream } from './mock/transactions';
 import { formatTx, getAmount, isPositive, sumAmounts } from './reconciliation-shared';
 
-// ── Scenario 1: Filter and Map ──────────────────────────────────────────────
+// scenario 1: filter and map
 
 /**
  * Filters positive transactions and formats them. Cancelable: canceling the returned promise
@@ -34,7 +34,7 @@ export const filterAndFormat = canc.async(function* (log?: (msg: string) => void
   return result;
 });
 
-// ── Scenario 2: Three ways to consume ───────────────────────────────────────
+// scenario 2: three ways to consume
 
 /**
  * The same find/reduce/some logic as vanilla, but each is a single pipe expression.
@@ -60,7 +60,7 @@ export const threeConsumers = canc.async(function* (log?: (msg: string) => void)
   log?.(`some pending: ${hasPending}`);
 });
 
-// ── Scenario 3: Static source composition ───────────────────────────────────
+// scenario 3: static source composition
 
 /**
  * Concat two streams and collect ids. Cancel stops pulling from whichever source is active.
@@ -76,7 +76,7 @@ export const concatStreams = canc.async(function* (log?: (msg: string) => void) 
   return allIds;
 });
 
-// ── Scenario 4: Stream with break ───────────────────────────────────────────
+// scenario 4: stream with break
 
 /**
  * Processes items one at a time via cancForAwait. A generator callback makes each step
@@ -98,7 +98,7 @@ export const streamWithBreak = canc.async(function* (
   });
 });
 
-// ── Scenario 5 (BONUS): Helper pipeline with take ───────────────────────────
+// scenario 5 (bonus): helper pipeline with take
 
 /**
  * Shows the operator pipeline composing filter + map + take in one expression,
