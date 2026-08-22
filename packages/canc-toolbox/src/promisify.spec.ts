@@ -45,7 +45,7 @@ describe('promisify', () => {
     it('fires once with (handle, args, getSignal, reason) on cancel; promise rejects a CancelError', async () => {
       const handle = { stop: jest.fn() };
       const fn = (_a: number, _cb: (err: any, value: number) => void) => {
-        // A synchronous imperative handle, like a ClientRequest or ChildProcess would return —
+        // A synchronous imperative handle, like a ClientRequest or ChildProcess.
         // the callback never fires, so only the cancel path can settle the promise.
         return handle;
       };
