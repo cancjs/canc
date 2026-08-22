@@ -5,14 +5,14 @@ import { copyFunctionMetadata, isBabelLegacyDescriptor, isFunction, isStage3Cont
 
 /**
  * TS legacy decorators (`experimentalDecorators: true`). Runtime shape:
- * method/getter → (target=prototype, propertyKey, descriptor)
- * field/prop → (target=prototype, propertyKey) [no descriptor]
+ * method/getter: (target=prototype, propertyKey, descriptor)
+ * field/prop: (target=prototype, propertyKey) [no descriptor]
  *
- * bind:false → proto-level wrap (rewrite descriptor.value once on the prototype).
- * bind:true → per-instance: a lazy accessor that, on first read, installs an own, ctx-bound
- * immutable property on the INSTANCE (self-replacing own-property). The previous
+ * bind:false: proto-level wrap (rewrite descriptor.value once on the prototype).
+ * bind:true: per-instance: a lazy accessor that, on first read, installs an own, ctx-bound
+ * immutable property on the instance (self-replacing own-property). The previous
  * implementation cached bound methods in a Map stored on the prototype keyed by
- * property name — the first instance's bound method leaked to every other instance
+ * property name: the first instance's bound method leaked to every other instance
  * and pinned the first instance forever. Per-instance own-property fixes both.
  */
 
@@ -51,10 +51,8 @@ function definePerInstanceAccessor(target: any, propertyKey: string | symbol, pr
   });
 }
 
-// Stage-3 decorators invoke as (value, context) — the second argument is always a context
-// object carrying `kind`. A TS-legacy decorator receiving that shape means it was applied under
-// `experimentalDecorators: false` (stage-3 compiler output); fail with a message pointing at the
-// stage-3 entry point instead of crashing on `propertyKey` being an object.
+// Stage-3 decorators invoke as (value, context) where second argument is always a context object
+// A TS-legacy decorator receiving that shape was applied under experimentalDecorators: false
 function assertLegacyCallShape(propertyKey: any): void {
   if (isStage3Context(propertyKey)) {
     throw new Error(
@@ -65,10 +63,8 @@ function assertLegacyCallShape(propertyKey: any): void {
   }
 }
 
-// Babel-legacy descriptors always carry an `initializer` key (methods/getters get a real
-// descriptor without it; fields get one set to a function or explicit null). TS-legacy never
-// produces that shape — its field calls omit the descriptor entirely. Seeing it here means this
-// decorator was applied under babel's legacy decorator transform instead of TS's.
+// Babel-legacy descriptors carry an initializer key; TS-legacy field calls omit descriptor entirely
+// Seeing an initializer key here means decorator was applied under babel legacy transform
 function assertNotBabelLegacyDescriptor(descriptor: any): void {
   if (isBabelLegacyDescriptor(descriptor)) {
     throw new Error(
@@ -88,10 +84,9 @@ function makeLegacyDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TA
     const isGetter = !!descriptor && !!descriptor.get;
 
     if (isGetter) {
-      // The user returns a ready coroutine (a cancAsync result) from the getter, so the decorator
-      // never wraps it. It optionally binds the function to the instance (bind:true), then memoizes
-      // per instance.
-      // eslint-disable-next-line @typescript-eslint/unbound-method -- called with .call(this) below
+      // User returns ready coroutine from getter, so decorator only memoizes per instance
+      // Descriptor getter is invoked via .call(this) below
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       const originalGetter = descriptor!.get!;
 
       descriptor!.get = function (this: any) {
@@ -119,15 +114,14 @@ function makeLegacyDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TA
       }
 
       if (isBind) {
-        // bind:true → lazy per-instance own-bound property.
+        // bind:true: lazy per-instance own-bound property
         delete descriptor!.value;
         delete (descriptor as any).writable;
         definePerInstanceAccessor(target, propertyKey, (self) =>
           copyFunctionMetadata(originalMethod, wrap(originalMethod, self)),
         );
       } else {
-        // bind:false → proto wrap once. Preserve metadata another decorator attached to the
-        // original method function (SetMetadata-style), otherwise it is lost on the wrapper.
+        // bind:false: proto wrap once, preserving metadata attached to original method
         descriptor!.value = copyFunctionMetadata(originalMethod, wrap(originalMethod, undefined));
       }
 

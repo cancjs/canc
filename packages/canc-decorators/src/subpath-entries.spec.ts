@@ -3,13 +3,11 @@ import { isCancelError } from '@cancjs/promise';
 import { AsyncMethod as BabelLegacyAsyncMethod, BindMethod as BabelLegacyBindMethod } from './babel-legacy';
 import { AsyncMethod as LegacyAsyncMethod, BindMethod as LegacyBindMethod } from './legacy';
 
-// Proves the `/legacy` and `/babel-legacy` subpath entries are the REAL per-toolchain decorator
-// implementation, not stand-ins. Decorates a class method through each subpath's own runtime call
-// shape and asserts the result is a cancelable CancelablePromise. Not a substitute for the
-// per-flavor matrices; this is the subpath-entry integration check.
+// Subpath-entry integration check verifying real per-toolchain decorator implementations
+// Decorates a method through each subpath runtime shape and asserts CancelablePromise output
 
 describe('/legacy and /babel-legacy subpath entries decorate a real method', () => {
-  it('/legacy — AsyncMethod produces a cancelable CancelablePromise', async () => {
+  it('/legacy: AsyncMethod produces a cancelable CancelablePromise', async () => {
     class C {
       value: number;
       constructor(value: number) {
@@ -35,7 +33,7 @@ describe('/legacy and /babel-legacy subpath entries decorate a real method', () 
     expect(isCancelError(reason)).toBe(true);
   });
 
-  it('/babel-legacy — AsyncMethod produces a cancelable CancelablePromise', async () => {
+  it('/babel-legacy: AsyncMethod produces a cancelable CancelablePromise', async () => {
     class C {
       value: number;
       constructor(value: number) {
@@ -61,7 +59,7 @@ describe('/legacy and /babel-legacy subpath entries decorate a real method', () 
     expect(isCancelError(reason)).toBe(true);
   });
 
-  it('/legacy — BindMethod binds instance context through the subpath entry', () => {
+  it('/legacy: BindMethod binds instance context through the subpath entry', () => {
     class C {
       value: number;
       constructor(value: number) {
@@ -83,7 +81,7 @@ describe('/legacy and /babel-legacy subpath entries decorate a real method', () 
     expect(getValue()).toBe(3);
   });
 
-  it('/babel-legacy — BindMethod binds instance context through the subpath entry', () => {
+  it('/babel-legacy: BindMethod binds instance context through the subpath entry', () => {
     class C {
       value: number;
       constructor(value: number) {

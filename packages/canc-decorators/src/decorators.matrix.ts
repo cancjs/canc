@@ -13,8 +13,8 @@ import { TAnyFn } from '../../_util';
  * runtime AsyncMethod/BindMethod can consume correctly. Each lane's own thin spec file imports its
  * own compiled `AsyncMethod`/`BindMethod`/etc and calls `runStage3Matrix` with them.
  *
- * Matrix: 3 decorator types (AsyncMethod/BindMethod, no param vs bind:true/false) ×
- * 3 member types (method, field, getter) × 2 instance isolation matrix (2+ instances,
+ * Matrix: 3 decorator types (AsyncMethod/BindMethod, no param vs bind:true/false) x
+ * 3 member types (method, field, getter) x 2 instance isolation matrix (2+ instances,
  * each gets own-bound fn, no cross-instance state corruption).
  *
  * GC assertion: instance1 discarded while instance2 active; instance1 must be collectable
@@ -53,7 +53,7 @@ export interface IStage3MatrixDecorators {
   // Set by the babel lane only. @babel/plugin-proposal-decorators (7.29.7, version "2023-05")
   // throws "Cannot read properties of undefined (reading 'call')" at class-definition time for a
   // decorated class FIELD when a plain, non-decorated field is declared earlier in the same class
-  // body (order: plain field, then decorated field) — confirmed by isolated reproduction outside
+  // body (order: plain field, then decorated field), confirmed by isolated reproduction outside
   // AsyncMethod/BindMethod entirely (a bare identity decorator hits the same crash under the same
   // field ordering). Native TS 5+ emit and TS/babel legacy decorators are unaffected. The two
   // matrix cases below use exactly that ordering to also exercise `this` access inside the field
@@ -71,7 +71,7 @@ export function runStage3Matrix({
 }: IStage3MatrixDecorators): void {
   const itUnlessBabelFieldOrdering = skipBabelFieldOrderingCases ? it.skip : it;
 
-  describe('decorators (ES stage-3) — AsyncMethod', () => {
+  describe('decorators (ES stage-3): AsyncMethod', () => {
     describe('bind:false (default)', () => {
       it('proto method wraps at decoration time', async () => {
         class C {
@@ -233,7 +233,7 @@ export function runStage3Matrix({
     });
 
     describe('2-instance isolation', () => {
-      it('bind:false — each instance calls its own method', async () => {
+      it('bind:false: each instance calls its own method', async () => {
         const log: number[] = [];
 
         class C {
@@ -259,7 +259,7 @@ export function runStage3Matrix({
         expect(log).toEqual([1, 2]);
       });
 
-      it('bind:true — each instance has own bound method', async () => {
+      it('bind:true: each instance has own bound method', async () => {
         const log: number[] = [];
 
         class C {
@@ -290,7 +290,7 @@ export function runStage3Matrix({
     });
 
     describe('GC assertion', () => {
-      it('instance1 released while instance2 active — instance1 collects', async () => {
+      it('instance1 released while instance2 active, instance1 collects', async () => {
         if (!global.gc) {
           expect(global.gc).toBeUndefined();
           return;
@@ -335,7 +335,7 @@ export function runStage3Matrix({
     });
   });
 
-  describe('decorators (ES stage-3) — BindMethod', () => {
+  describe('decorators (ES stage-3): BindMethod', () => {
     describe('bind:true (default)', () => {
       it('proto method is bound per instance at construction', async () => {
         class C {
@@ -449,7 +449,7 @@ export function runStage3Matrix({
     });
 
     describe('2-instance isolation', () => {
-      it('default bind:true — each instance has own bound method', () => {
+      it('default bind:true: each instance has own bound method', () => {
         const log: number[] = [];
 
         class C {
@@ -477,7 +477,7 @@ export function runStage3Matrix({
     });
 
     describe('GC assertion', () => {
-      it('instance1 released while instance2 active — instance1 collects', async () => {
+      it('instance1 released while instance2 active, instance1 collects', async () => {
         if (!global.gc) {
           expect(global.gc).toBeUndefined();
           return;
@@ -522,7 +522,7 @@ export function runStage3Matrix({
     });
   });
 
-  describe('decorators (ES stage-3) — error handling', () => {
+  describe('decorators (ES stage-3): error handling', () => {
     it('AsyncMethod rejects non-method field', () => {
       expect(() => {
         class C {
@@ -557,23 +557,20 @@ export function runStage3Matrix({
     });
   });
 
-  // A SetMetadata-style helper (nest's @SetMetadata et al) attaches metadata to the METHOD FUNCTION
-  // itself via reflect-metadata, keyed on that function's identity. Our decorator replaces the method
-  // with a coroutine/bound wrapper, so unless we copy the metadata across it is silently lost.
-  // Key-level metadata (keyed on prototype + property key) is never touched by wrapping and must also
-  // survive. Both decorator orders are exercised.
+  // SetMetadata attaches metadata to method function identity via reflect-metadata
+  // Decorator wrapper must copy metadata across; key-level metadata is untouched
 
   const FN_META = 'fn-meta-key';
   const KEY_META = 'key-meta-key';
 
-  // Stage-3 method decorator: writes metadata onto the method FUNCTION identity (SetMetadata style).
+  // Stage-3 method decorator writing metadata onto method function identity (SetMetadata style)
   function SetFnMeta(value: string) {
     return function (target: TAnyFn, _context: ClassMethodDecoratorContext): void {
       Reflect.defineMetadata(FN_META, value, target);
     };
   }
 
-  describe('decorators (stage-3) — metadata preservation', () => {
+  describe('decorators (stage-3): metadata preservation', () => {
     it('fn-level metadata survives AsyncMethod (meta below canc)', () => {
       class C {
         @AsyncMethod()
@@ -647,7 +644,7 @@ export function runStage3Matrix({
   // shape another flavor's compiler output would produce. AsyncMethod/BindMethod share the guard
   // (makeDecorator), so one representative per shape is enough to cover both.
 
-  describe('decorators (ES stage-3) — flavor mismatch guard', () => {
+  describe('decorators (ES stage-3): flavor mismatch guard', () => {
     it('AsyncMethod rejects TS-legacy call shape (target, propertyKey, descriptor)', () => {
       class C {
         method() {}
@@ -672,7 +669,7 @@ export function runStage3Matrix({
       }).toThrow(/@cancjs\/decorators\/legacy/);
     });
 
-    it('AsyncMethod rejects TS-legacy field call shape (target, propertyKey) — no descriptor', () => {
+    it('AsyncMethod rejects TS-legacy field call shape (target, propertyKey), no descriptor', () => {
       class C {}
 
       expect(() => {
@@ -704,7 +701,7 @@ export function runStage3Matrix({
     });
   });
 
-  describe('decorators (ES stage-3) — unsupported kind handling', () => {
+  describe('decorators (ES stage-3): unsupported kind handling', () => {
     // Real `accessor` class-field decorator syntax expects a (target: {get,set}, context) shape
     // distinct from method/field/getter decorators (TS types it as a separate overload family), so
     // exercising the runtime guard through actual decorator syntax fights the type checker for no
@@ -777,9 +774,9 @@ export function runStage3Matrix({
   // decorator no longer wraps a bare generator function; it only memoizes the returned coroutine
   // per instance, and for bind:true binds it to the instance so a detached call keeps `this`.
 
-  describe('decorators (ES stage-3) — getter returns a coroutine', () => {
+  describe('decorators (ES stage-3): getter returns a coroutine', () => {
     // Sentinel returned when the coroutine runs with no bound/call-site `this` (an unbound detached
-    // call under bind:false — the documented unsafe edge).
+    // call under bind:false (the documented unsafe edge)).
     const SENTINEL = -1;
 
     // Shared coroutine body: reports the instance id, or the sentinel when `this` is missing.
@@ -789,7 +786,7 @@ export function runStage3Matrix({
 
     // Case 1: @AsyncMethod() get m() { return cancAsync(fn, this) }
     // inst.m() resolves; a detached call still resolves because `, this` bound the coroutine.
-    it('AsyncMethod with `, this` — call and detached call both resolve the instance id', async () => {
+    it('AsyncMethod with `, this`: call and detached call both resolve the instance id', async () => {
       class C {
         id: number;
 
@@ -851,7 +848,7 @@ export function runStage3Matrix({
 
     // Case 3: @AsyncMethod() get m() { return cancAsync(fn) } (omit `, this`).
     // A normal call carries call-site `this`; a detached call loses it (documented unsafe edge).
-    it('AsyncMethod without `, this` — call-site this works, detached call loses this', async () => {
+    it('AsyncMethod without `, this`: call-site this works, detached call loses this', async () => {
       class C {
         id: number;
 
@@ -876,7 +873,7 @@ export function runStage3Matrix({
 
     // Case 4: @BindMethod() get m() { return cancAsync(fn) } (omit `, this`).
     // The decorator binds the coroutine to the instance, so a detached call keeps this.
-    it('BindMethod without `, this` — decorator binds, detached call resolves the instance id', async () => {
+    it('BindMethod without `, this`: decorator binds, detached call resolves the instance id', async () => {
       class C {
         id: number;
 
@@ -898,7 +895,7 @@ export function runStage3Matrix({
 
     // Case 5: @BindMethod() get m() { return cancAsync(fn, this) }.
     // The `.bind` is a no-op over an already-bound coroutine; detached call still resolves.
-    it('BindMethod with `, this` — bind is a no-op, detached call still resolves the instance id', async () => {
+    it('BindMethod with `, this`: bind is a no-op, detached call still resolves the instance id', async () => {
       class C {
         id: number;
 

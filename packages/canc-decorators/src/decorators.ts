@@ -6,12 +6,12 @@ import { copyFunctionMetadata, isFunction, isLegacyShapedSecondArg, TAnyFn } fro
 /**
  * ES / TC39 stage-3 decorators (native TS 5+, `experimentalDecorators: false`).
  *
- * bind:false → proto-level wrap: the decorator RETURNS the wrapped function so it replaces the
+ * bind:false: proto-level wrap: the decorator returns the wrapped function so it replaces the
  * method on the prototype once; `this` flows through the coroutine at call time.
- * bind:true → per-instance initializer: `addInitializer` installs an own, ctx-bound property on
- * each instance (isolation guaranteed — no shared state across instances).
+ * bind:true: per-instance initializer: `addInitializer` installs an own, ctx-bound property on
+ * each instance (isolation guaranteed, no shared state across instances).
  *
- * Field decorators (arrow-fn class fields) receive `value === undefined` and must RETURN an
+ * Field decorators (arrow-fn class fields) receive `value === undefined` and must return an
  * initializer-transformer `(initialValue) => wrapped`; they never see the fn as first arg.
  */
 
@@ -44,12 +44,9 @@ function assertDecoratable(propertyKey: string | symbol, context: TMethodDecorat
 
 const SUPPORTED_KINDS = ['method', 'field', 'getter'];
 
-// Legacy (TS experimentalDecorators / babel legacy) decorators invoke as
-// (target, propertyKey, descriptor?) — the second argument is the property key, a string or
-// symbol. Stage-3 decorators invoke as (value, context) — the second argument is always a
-// context object. A string/symbol second argument here means this decorator was applied under
-// the wrong compiler flavor; fail with a message pointing at the matching entry point instead of
-// crashing later on a missing `context.kind`.
+// Legacy decorators invoke as (target, propertyKey, descriptor?) with key as second arg
+// Stage-3 decorators invoke as (value, context) with context object as second arg
+// Non-context second arg means decorator was applied under the wrong compiler flavor
 function assertStage3CallShape(secondArg: any): void {
   if (isLegacyShapedSecondArg(secondArg)) {
     throw new Error(
@@ -82,10 +79,7 @@ function makeDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAnyFn) 
     assertSupportedKind(propertyKey, context);
 
     if (context.kind === 'getter') {
-      // The user returns a ready coroutine (a cancAsync result) from the getter, so the decorator
-      // never wraps it. It evaluates the getter lazily on first access, optionally binds the
-      // function to the instance (bind:true), then installs an own, immutable property so the
-      // result is memoized per instance (never on the prototype). Self-replacing own-property.
+      // User returns ready coroutine from getter, so decorator only memoizes per instance
       const originalGetter = value as () => unknown;
 
       return function (this: any) {
@@ -103,8 +97,7 @@ function makeDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAnyFn) 
     }
 
     if (context.kind === 'field') {
-      // value is undefined here; return an initializer-transformer that receives the field's
-      // initial value (the arrow fn) at construction time, per instance → isolation for free.
+      // Initial value received at construction time per instance gives isolation for free
       return function (this: any, initialValue: any) {
         if (!isFunction(initialValue)) {
           throw new TypeError(`'${String(propertyKey)}' is not a method and cannot be decorated`);
@@ -120,7 +113,7 @@ function makeDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAnyFn) 
       }
 
       if (isBind) {
-        // bind:true → per-instance own-bound property. Prototype method left intact.
+        // bind:true: per-instance own-bound property, prototype method left intact
         const originalMethod = value as TAnyFn;
 
         (context as ClassMethodDecoratorContext).addInitializer(function (this: any) {
@@ -130,7 +123,7 @@ function makeDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAnyFn) 
         return value;
       }
 
-      // bind:false → proto-level wrap: return the wrapped fn; `this` flows through at call time.
+      // bind:false: proto-level wrap returning wrapped fn; this flows through at call time
       const originalMethod = value as TAnyFn;
       return copyFunctionMetadata(originalMethod, wrap(originalMethod, undefined));
     }
@@ -141,8 +134,7 @@ function makeDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAnyFn) 
 }
 
 function isOptions(args: any[]): args is [IMethodDecoratorOptions?] {
-  // Called as `@AsyncMethod` / `@AsyncMethod()` / `@AsyncMethod({ ... })` → single (or zero) arg;
-  // called as raw decorator `@AsyncMethod` the runtime passes (value, context) → 2 args.
+  // Single or zero args when called as decorator factory; two args when called raw at runtime
   return args.length < 2;
 }
 

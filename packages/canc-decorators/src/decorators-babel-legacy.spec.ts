@@ -15,7 +15,7 @@ import { BabelLegacyAsyncMethod, BabelLegacyBindMethod } from './decorators-babe
  * emits: `{ initializer, configurable, enumerable, writable }` for fields, and full descriptor
  * for methods/getters). No babel toolchain needed; tests the runtime shape directly.
  *
- * Same matrix: 3 decorator types × 3 member types × 2 instance isolation + GC assertion.
+ * Same matrix: 3 decorator types x 3 member types x 2 instance isolation + GC assertion.
  */
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -68,7 +68,7 @@ function applyBabelField(instance: any, key: string | symbol, descriptor: any) {
   return instance;
 }
 
-describe('decorators (babel-legacy) — BabelLegacyAsyncMethod', () => {
+describe('decorators (babel-legacy): BabelLegacyAsyncMethod', () => {
   describe('bind:false (default)', () => {
     it('proto method wraps at decoration time', async () => {
       class C {
@@ -233,7 +233,7 @@ describe('decorators (babel-legacy) — BabelLegacyAsyncMethod', () => {
   });
 
   describe('2-instance isolation', () => {
-    it('bind:false — each instance calls its own method', async () => {
+    it('bind:false: each instance calls its own method', async () => {
       const log: number[] = [];
 
       class C {
@@ -266,7 +266,7 @@ describe('decorators (babel-legacy) — BabelLegacyAsyncMethod', () => {
       expect(log).toEqual([1, 2]);
     });
 
-    it('bind:true — each instance has own bound method', async () => {
+    it('bind:true: each instance has own bound method', async () => {
       const log: number[] = [];
 
       class C {
@@ -304,7 +304,7 @@ describe('decorators (babel-legacy) — BabelLegacyAsyncMethod', () => {
   });
 
   describe('GC assertion', () => {
-    it('instance1 released while instance2 active — instance1 collects', async () => {
+    it('instance1 released while instance2 active, instance1 collects', async () => {
       if (!global.gc) {
         expect(global.gc).toBeUndefined();
         return;
@@ -368,7 +368,7 @@ describe('decorators (babel-legacy) — BabelLegacyAsyncMethod', () => {
   });
 });
 
-describe('decorators (babel-legacy) — BabelLegacyBindMethod', () => {
+describe('decorators (babel-legacy): BabelLegacyBindMethod', () => {
   describe('bind:true (default)', () => {
     it('proto method is bound per instance', () => {
       class C {
@@ -491,7 +491,7 @@ describe('decorators (babel-legacy) — BabelLegacyBindMethod', () => {
   });
 
   describe('2-instance isolation', () => {
-    it('default bind:true — each instance has own bound method', () => {
+    it('default bind:true: each instance has own bound method', () => {
       const log: number[] = [];
 
       class C {
@@ -526,7 +526,7 @@ describe('decorators (babel-legacy) — BabelLegacyBindMethod', () => {
   });
 
   describe('GC assertion', () => {
-    it('instance1 released while instance2 active — instance1 collects', async () => {
+    it('instance1 released while instance2 active, instance1 collects', async () => {
       if (!global.gc) {
         expect(global.gc).toBeUndefined();
         return;
@@ -590,7 +590,7 @@ describe('decorators (babel-legacy) — BabelLegacyBindMethod', () => {
   });
 });
 
-describe('decorators (babel-legacy) — error handling', () => {
+describe('decorators (babel-legacy): error handling', () => {
   it('BabelLegacyAsyncMethod rejects non-function field initializer', () => {
     expect(() => {
       class C {}
@@ -632,9 +632,8 @@ describe('decorators (babel-legacy) — error handling', () => {
   });
 });
 
-// Babel-legacy SetMetadata style: metadata attached to the method function (descriptor.value)
-// before our decorator rewrites descriptor.value with the coroutine/bound wrapper. The metadata
-// must be copied onto the wrapper. Key-level metadata (prototype + property key) is untouched.
+// SetMetadata attaches metadata to method function identity via reflect-metadata
+// Decorator wrapper must copy metadata across; key-level metadata is untouched
 
 const FN_META = 'fn-meta-key';
 const KEY_META = 'key-meta-key';
@@ -643,14 +642,14 @@ function methodDescriptor(fn: TAnyFn): any {
   return { value: fn, writable: true, enumerable: false, configurable: true };
 }
 
-describe('decorators (babel legacy) — metadata preservation', () => {
+describe('decorators (babel legacy): metadata preservation', () => {
   it('fn-level metadata survives BabelLegacyAsyncMethod bind:false', () => {
     function original(): Generator<any, any, any> {
       return (function* () {
         return yield Promise.resolve(1);
       })();
     }
-    // SetMetadata style: metadata sits on the original method fn before our decorator wraps it.
+    // SetMetadata style: metadata sits on the original method fn before decorator wraps it
     Reflect.defineMetadata(FN_META, 'guards', original);
 
     const descriptor = methodDescriptor(original);
@@ -707,9 +706,9 @@ describe('decorators (babel legacy) — metadata preservation', () => {
 // decorator no longer wraps a bare generator function; it only memoizes the returned coroutine
 // per instance, and for bind:true binds it to the instance so a detached call keeps `this`.
 
-describe('decorators (babel-legacy) — getter returns a coroutine', () => {
+describe('decorators (babel-legacy): getter returns a coroutine', () => {
   // Sentinel returned when the coroutine runs with no bound/call-site `this` (an unbound detached
-  // call under bind:false — the documented unsafe edge).
+  // call under bind:false (the documented unsafe edge)).
   const SENTINEL = -1;
 
   // Shared coroutine body: reports the instance id, or the sentinel when `this` is missing.
@@ -719,7 +718,7 @@ describe('decorators (babel-legacy) — getter returns a coroutine', () => {
 
   // Case 1: BabelLegacyAsyncMethod on a getter returning cancAsync(fn, this).
   // inst.m() resolves; a detached call still resolves because `, this` bound the coroutine.
-  it('BabelLegacyAsyncMethod with `, this` — call and detached call both resolve the instance id', async () => {
+  it('BabelLegacyAsyncMethod with `, this`: call and detached call both resolve the instance id', async () => {
     class C {
       id: number;
 
@@ -793,7 +792,7 @@ describe('decorators (babel-legacy) — getter returns a coroutine', () => {
 
   // Case 3: BabelLegacyAsyncMethod on a getter returning cancAsync(fn) (omit `, this`).
   // A normal call carries call-site `this`; a detached call loses it (documented unsafe edge).
-  it('BabelLegacyAsyncMethod without `, this` — call-site this works, detached call loses this', async () => {
+  it('BabelLegacyAsyncMethod without `, this`: call-site this works, detached call loses this', async () => {
     class C {
       id: number;
 
@@ -824,7 +823,7 @@ describe('decorators (babel-legacy) — getter returns a coroutine', () => {
 
   // Case 4: BabelLegacyBindMethod on a getter returning cancAsync(fn) (omit `, this`).
   // The decorator binds the coroutine to the instance, so a detached call keeps this.
-  it('BabelLegacyBindMethod without `, this` — decorator binds, detached call resolves the instance id', async () => {
+  it('BabelLegacyBindMethod without `, this`: decorator binds, detached call resolves the instance id', async () => {
     class C {
       id: number;
 
@@ -852,7 +851,7 @@ describe('decorators (babel-legacy) — getter returns a coroutine', () => {
 
   // Case 5: BabelLegacyBindMethod on a getter returning cancAsync(fn, this).
   // The `.bind` is a no-op over an already-bound coroutine; detached call still resolves.
-  it('BabelLegacyBindMethod with `, this` — bind is a no-op, detached call still resolves the instance id', async () => {
+  it('BabelLegacyBindMethod with `, this`: bind is a no-op, detached call still resolves the instance id', async () => {
     class C {
       id: number;
 
@@ -961,7 +960,7 @@ describe('decorators (babel-legacy) — getter returns a coroutine', () => {
   });
 });
 
-describe('decorators (babel legacy) — flavor mismatch guard', () => {
+describe('decorators (babel legacy): flavor mismatch guard', () => {
   it('BabelLegacyAsyncMethod rejects stage-3 call shape (value, context)', () => {
     function* method(): Generator<any, any, any> {
       return yield Promise.resolve(1);
