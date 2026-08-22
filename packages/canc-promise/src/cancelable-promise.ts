@@ -212,14 +212,10 @@ const INTERNAL_CALL_OPTIONS = Object.freeze({ forceCancelable: true }) as Return
 // Extends PromiseConstructor, as defined in
 // lib.es2015.promise, lib.es2015.iterable, lib.es2015.symbol.wellknown, lib.es2018.promise, lib.es2020.promise, lib.es2021.promise.d.ts, lib.esnext.promise.d.ts
 class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResult>, Promise<TResult> {
-  // `declare`d on purpose: under the current es5 target + useDefineForClassFields:false this
-  // field already emits nothing, so species resolves via the inherited native Promise getter
-  // (returns `this`, i.e. CancelablePromise, satisfying SpeciesConstructor). `declare` makes
-  // that "no emit" EXPLICIT rather than incidental. If the TS target is ever bumped to es2022+
-  // (defineForClassFields:true by default there), a bare (non-declare) static field would emit
-  // an own `undefined` property that shadows the inherited getter, breaking SpeciesConstructor
-  // resolution (it would fall back to native %Promise%, silently downgrading every
-  // then()-derived promise to a plain native Promise, see species-regression.spec.ts).
+  // declare prevents emitting an own property that would shadow inherited getter
+  // useDefineForClassFields:false locked to preserve species resolution
+  // If target bumps to es2022 a bare field emits undefined and breaks species
+  // Broken species downgrades then-derived promises to plain native Promises
   declare static readonly [Symbol.species]: PromiseConstructor;
 
   protected static _pendingInternalCall = false;
@@ -910,25 +906,13 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
       }
     }
 
-    // Compatible with ES5 transpilation target: we deliberately do NOT write
-    // `class CancelablePromise extends Promise` + `super(executor)`. An ES5-target
-    // transpile of `class X extends Y` calls Y as a plain function via `Y.call(this, ...)`
-    // (or a `_super.apply` helper), but native Promise's internal slots can only be initialized
-    // by `new Promise(...)`/`Reflect.construct`, so a transpiled `super()` into a native Promise
-    // throws ("Failed to construct 'Promise': Please use the 'new' operator") on ES5-targeting
-    // engines/transpilers (this is the same reason every other "extend a native built-in"
-    // ES5-transpile guide reaches for Reflect.construct). `Reflect.construct(NativePromise, args,
-    // new.target)` builds a genuine native Promise instance whose prototype is `new.target.prototype`
-    // (so `instanceof CancelablePromise` / subclasses still hold, and Promise's species/then
-    // machinery treats it as a first-class Promise) while surviving ES5 downleveling, because
-    // `Reflect.construct` is a plain runtime call, not `class`/`super` syntax that needs special
-    // transpiler support.
-    //
-    // The returned native instance becomes the REAL `instance`; the original `this` (`tempThis`)
-    // is only used transiently while the executor runs synchronously (see reject()'s `instance
-    // === tempThis` branch above/below) and is then discarded. An explicit per-field copy below
-    // (see the own-property layout note further down) carries over anything the synchronous
-    // executor stashed on `this` (e.g. `_resolve`/`_reject`) onto the real instance.
+    // No class extends Promise and no super to survive ES5 transpilation
+    // ES5 transpiles super to Y.call(this) which throws on native Promise
+    // Reflect.construct builds genuine native Promise with new.target.prototype
+    // Survives downleveling because it is a runtime call not class syntax
+    // The returned native instance becomes the real instance
+    // The original tempThis is used only while the executor runs synchronously
+    // Changing this breaks ES5-targeting engines and transpilers
 
     instance = Reflect.construct(
       NativePromise,
@@ -1082,25 +1066,19 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
       This,
     ) as CancelablePromise<TResult, TFailure>;
 
-    // Initialize the real instance's own-property layout explicitly. The field initializers at
-    // the top of the class run against `tempThis` inside the constructor body, but the object
-    // returned by `Reflect.construct` (running native Promise's constructor) is a DIFFERENT
-    // object that never ran them. The previous `Object.assign(instance, this)` migrated the
-    // whole eager field set over. Enumerating the exact layout here (instead of a blanket
-    // Object.assign of every field plus leftovers) keeps the instance lean: the lazily-allocated
-    // `_cancelHandlers`/`_abortSignals`/`_abortListeners`/`_boundCancel` are intentionally NOT
-    // created here; they stay absent until first use. Only the settlement wrappers, the state
-    // the synchronous executor may have advanced, a synchronously-registered cancel handler, and
-    // the deferred sync-cancel handoff are carried over from `tempThis`. The executor never
-    // settles synchronously on the pre-abort path (it does not run), so the wrappers migrated
-    // here are always live and settler-release stays intact.
+    // Initialize real instance layout explicitly to keep the object lean
+    // Reflect.construct returns a different object that never ran initializers
+    // Lazily-allocated collections stay absent until first use
+    // Only state advanced by synchronous executor is carried over from tempThis
+    // Executor never settles synchronously on pre-abort path
+    // Wrappers migrated here stay live to preserve settler-release
     instance._resolve = tempThis._resolve;
     instance._reject = tempThis._reject;
     instance._internalState = tempThis._internalState;
-    // The cold fields (`_chainsCount`, cancel-reason retention, etc.) intentionally stay on the
-    // prototype default here: only a synchronously-registered cancel handler and the deferred
-    // sync-cancel handoff can have diverged on `tempThis` during the executor, so carry just
-    // those, and only when actually present, to avoid materializing own properties needlessly.
+    // Cold fields stay on prototype default to avoid useless own properties
+    // _cancelHandlers shared by reference between tempThis and instance
+    // Retains any handlers registered synchronously during executor run
+    // Changing to blanket Object.assign wastes memory on every promise
     if (tempThis._cancelHandlers) {
       instance._cancelHandlers = tempThis._cancelHandlers;
     }
@@ -1738,33 +1716,18 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
   }
 }
 
-// Capture global Promise. Read ONCE here, at module load, into a module-scope `const`, never
-// replaced with a live `global.Promise`/`Promise` lookup anywhere else in this file. Rationale:
-// some environments swap or wrap the global Promise AFTER this module has loaded (zone.js patches
-// it for change detection, polyfill loaders may install a different implementation later, tests
-// may stub it), if internal code re-read the live global on every use, CancelablePromise's
-// behavior would silently depend on load-order / later patching instead of the Promise
-// implementation that was actually present when this class was defined. Capturing once makes the
-// dependency deterministic and testable (see "Native Promise capture" suite in
-// cancelable-promise.spec.ts, which spies on the global getter and asserts it is never touched
-// again after this line runs). Every native-Promise use below (Reflect.construct target,
-// NativePromise.resolve/prototype.then.call, etc.) goes through this captured binding.
+// Capture Promise at module load to survive late environment patches
+// Live global lookups would make behavior depend on unpredictable load order
+// Tests enforce zero global Promise access after this capture
+// Changing this breaks deterministic execution when zone.js patches globals
 const NativePromise = Promise;
 
-// Wires CancelablePromise into the Promise prototype/static chain WITHOUT
-// `class CancelablePromise extends Promise` + `super()`, see the long comment on
-// the Reflect.construct block above for why `super()` into native Promise cannot survive an
-// ES5-target transpile. `Object.setPrototypeOf` reproduces the two links `extends` would have
-// wired for us:
-// - constructor chain: CancelablePromise inherits Promise's OWN static members (resolve/reject/
-// all/race/etc. as fallbacks, and (key for species) the default `[Symbol.species]` getter
-// that returns `this`, which is what makes the `declare`d species field above resolve
-// correctly without any explicit getter of our own).
-// - prototype chain: CancelablePromise.prototype inherits Promise.prototype (toString,
-// Symbol.toStringTag getter, etc.) so instances still duck/brand-check as real Promises.
-// Both links point at the CAPTURED `NativePromise`, not whatever `Promise` may be at this point in
-// module evaluation, keeping this consistent with the capture above (a stray `Promise` here
-// instead of `NativePromise` would silently reintroduce a live-global dependency).
+// Wire into Promise prototype chain without class extends or super
+// Object.setPrototypeOf reproduces the two links extends would have wired
+// Constructor chain inherits native static fallbacks and Symbol.species getter
+// Prototype chain inherits toString and ensures instances duck-check as Promises
+// Links point to captured NativePromise to avoid live global dependency
+// Changing this breaks Reflect.construct compatibility with ES5 targets
 Object.setPrototypeOf(CancelablePromise, NativePromise);
 
 Object.setPrototypeOf(CancelablePromise.prototype, NativePromise.prototype);
