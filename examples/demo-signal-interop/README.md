@@ -29,11 +29,11 @@ Diff vanilla and canc twins to see the delta:
 
 ```
 src/
- in-{vanilla,canc}.ts — Signal to CancelablePromise
- out-{vanilla,canc}.ts — CancelablePromise to signal (toAbortSignal)
- compose-{vanilla,canc}.ts — AbortSignal.timeout + array composition
- classify-{vanilla,canc}.ts — Error type inspection + suppress helpers
- with-signal-{vanilla,canc} — Reusable withSignal wrapper
+ in-{vanilla,canc}.ts: Signal to CancelablePromise
+ out-{vanilla,canc}.ts: CancelablePromise to signal (toAbortSignal)
+ compose-{vanilla,canc}.ts: AbortSignal.timeout + array composition
+ classify-{vanilla,canc}.ts: Error type inspection + suppress helpers
+ with-signal-{vanilla,canc}: Reusable withSignal wrapper
 ```
 
 ## Key points
@@ -130,5 +130,5 @@ npm run typecheck # both flavors type-check
 
 ## Packages used
 
-- `@cancjs/promise` — core CancelablePromise, toAbortSignal, CancelError, helpers
-- `@cancjs/toolbox` — (future: timeout/retry helpers)
+- `@cancjs/promise`: core CancelablePromise, toAbortSignal, CancelError, helpers
+- `@cancjs/toolbox`: timeout/retry helpers (future)

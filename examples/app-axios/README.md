@@ -1,4 +1,4 @@
-# app-axios — Axios Adapter with Cancelable Requests
+# app-axios: Axios Adapter with Cancelable Requests
 
 An issue tracker API client using axios, demonstrating how to make axios request methods return `CancelablePromise` via the `cancAxios` adapter wrapper.
 
@@ -12,9 +12,9 @@ The canc twin simply calls `.cancel()` on the previous promise before starting a
 
 ## Files to review
 
-- `src/lib/canc-axios.ts` — the adapter (use `cancelify` to wrap signal-aware axios calls)
-- `src/issues-client-vanilla.ts` / `src/issues-client-canc.ts` — issue client twins
-- `src/main-vanilla.ts` / `src/main-canc.ts` — scenario: search supersedes previous search
+- `src/lib/canc-axios.ts`: the adapter (use `cancelify` to wrap signal-aware axios calls)
+- `src/issues-client-vanilla.ts` / `src/issues-client-canc.ts`: issue client twins
+- `src/main-vanilla.ts` / `src/main-canc.ts`: scenario (search supersedes previous search)
 
 ## Cancellation depth
 

@@ -23,8 +23,8 @@ npm run start:canc
 
 ## File map (what to read side-by-side)
 
-- `src/feed-streaming-canc.ts` vs `src/feed-streaming-vanilla.ts` — The streaming producer and consumer. Notice how canc allows signal-free consumption while vanilla requires threading the signal.
-- `src/main-canc.ts` vs `src/main-vanilla.ts` — Entry points that trigger cancellation.
-- `src/mock/` — Scaffolding for a mock latency-controlled API (ignore).
+- `src/feed-streaming-canc.ts` vs `src/feed-streaming-vanilla.ts`: streaming producer and consumer. Notice how canc allows signal-free consumption while vanilla requires threading the signal.
+- `src/main-canc.ts` vs `src/main-vanilla.ts`: entry points that trigger cancellation.
+- `src/mock/`: scaffolding for a mock latency-controlled API (ignore).
 
 *Note: A future follow-up will demonstrate composing the stream through the `@cancjs/toolbox/async-iter` helpers once they are available.*
