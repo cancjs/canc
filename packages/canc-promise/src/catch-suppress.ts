@@ -76,7 +76,7 @@ export function makeSuppress(deps: IErrorMatchDeps) {
   const isCaught = makeIsCaught(deps);
 
   return function suppressError(errorOrPromise: any, options?: ICatchSuppressOptions): any {
-    // todo: same isThenable widening as makeCatch above, see that comment. Any thenable
+    // Same isThenable widening as makeCatch above, see that comment. Any thenable
     // (native Promise, foreign cancelable, other @cancjs/promise copy) rejecting with a
     // CancelError gets suppressed, not just CancelablePromise instances.
     if (isThenable(errorOrPromise)) {

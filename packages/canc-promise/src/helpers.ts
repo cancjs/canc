@@ -37,7 +37,7 @@ export const isCancPromise = (value: any): value is CancelablePromise<any> =>
 
 export { AbortError, AggregateError, isAbortError, isAggregateError, isTimeoutError, TimeoutError };
 
-// Agent-wide brand marking a "cancel signal": an AbortSignal that aborts with a CancelError.
+// App-wide brand marking a "cancel signal": an AbortSignal that aborts with a CancelError.
 // Same Symbol.for-registry rationale as CANCEL_ERROR_BRAND, cross-realm/cross-copy safe.
 export const CANCEL_SIGNAL_BRAND = Symbol.for('@cancjs/promise:CancelSignal');
 

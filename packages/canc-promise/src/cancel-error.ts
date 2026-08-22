@@ -2,7 +2,7 @@ export interface ICancelErrorOptions {
   cause?: any;
 }
 
-// Agent-wide brand: a Symbol.for registry entry is the SAME symbol across realms and across
+// App-wide brand: a Symbol.for registry entry is the SAME symbol across realms and across
 // duplicated package copies, so branding by it is collision-proof by construction. Detection keys
 // on this brand, not on `name` (which any third-party error can spoof), see isCancelError in
 // helpers.
