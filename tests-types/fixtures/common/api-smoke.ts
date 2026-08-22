@@ -5,7 +5,7 @@
  * actually resolve and check the shipped `.d.ts`. Compiled once per TS version
  * in the matrix. Must stay compatible down to the TS 4.2 floor: no top-level
  * `satisfies`, no `const` type params, no `using`, no template-literal-type
- * gymnastics here — keep it to what a real 4.2 consumer could write.
+ * gymnastics here, keep it to what a real 4.2 consumer could write.
  *
  * This file is deliberately runtime-dead (nothing executes); it exists purely
  * to make `tsc --noEmit` chew through the types.

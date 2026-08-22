@@ -1,14 +1,14 @@
 /**
  * Typed-yield DX assertion suite for @cancjs/coroutine. Compiled only in
- * the `latest` TS lane of the TS-version matrix (matrix.config.json → version with
+ * the `latest` TS lane of the TS-version matrix (matrix.config.json to version with
  * `typeAssertions:true`), alongside ./type-assertions.ts.
  *
  * Two consumption paths are asserted here:
  *
- * 1. `const x = yield* cancAwait(promise)` — the TYPED path. `cancAwait`
+ * 1. `const x = yield* cancAwait(promise)`. The TYPED path. `cancAwait`
  * returns a `Generator<..., T, T>`, so delegating with `yield*` gives the
  * generator body a value typed as the awaited `T`.
- * 2. bare `yield promise` — the UNTYPED fallback. TypeScript cannot infer the
+ * 2. bare `yield promise`: the UNTYPED fallback. TypeScript cannot infer the
  * resume type of a plain `yield` expression from the coroutine driver, so
  * the value comes back `unknown` (this is the permanent limitation the
  * docs/yield-vs-yield-star.md page explains). Runtime handling is identical.
@@ -88,26 +88,26 @@ cancAsync(function* () {
 
 // ============================================================ combinator helpers (tuple inference)
 cancAsync(function* () {
-  // all() — heterogeneous tuple preserved across the one-shot yield* step.
+  // all(): heterogeneous tuple preserved across the one-shot yield* step.
   const tuple = yield* cancAwait.all([Promise.resolve(1), Promise.resolve('a'), Promise.resolve(true)]);
   type _allTuple = Expect<Equal<typeof tuple, [number, string, boolean]>>;
 
-  // race() — union of the racers' resolved values.
+  // race(): union of the racers' resolved values.
   const raced = yield* cancAwait.race([Promise.resolve(1), Promise.resolve('a')]);
   type _raceUnion = Expect<Equal<typeof raced, number | string>>;
 
-  // any() — union too (first fulfilled).
+  // any(): union too (first fulfilled).
   const anied = yield* cancAwait.any([Promise.resolve(1), Promise.resolve('a')] as const);
   type _anyUnion = Expect<Equal<typeof anied, number | string>>;
 
-  // allSettled() — tuple of settled results.
+  // allSettled(): tuple of settled results.
   const settled = yield* cancAwait.allSettled([Promise.resolve(1), Promise.resolve('a')] as const);
   type _allSettledTuple = Expect<Equal<
     typeof settled,
     [PromiseSettledResult<number>, PromiseSettledResult<string>]
   >>;
 
-  // try() — the fn's own (awaited) return type, no tuple to reconstruct.
+  // try(): the fn's own (awaited) return type, no tuple to reconstruct.
   const tried = yield* cancAwait.try(() => 1);
   type _tryNumber = Expect<Equal<typeof tried, number>>;
 
@@ -250,7 +250,7 @@ const producerWithCombinators = cancGenAsync(function* () {
   const tried = yield* cancGenAwait.try(() => 2);
   type _genTryNumber = Expect<Equal<typeof tried, number>>;
 
-  // Only bare `yield`s are emitted to the consumer — every combinator step above is an internal
+  // Only bare `yield`s are emitted to the consumer, every combinator step above is an internal
   // await (wrapped in the `awaited(...)` marker), never part of the emit type.
   yield `n=${n} s=${s} raced=${raced} anied=${anied} tried=${tried}`;
 

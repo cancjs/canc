@@ -1,6 +1,6 @@
 /**
  * Decorator member-type-preservation assertions. Compiled only in the matrix's stage-3 decorator
- * lanes (matrix.config.json → version with `decoratorTypes:true`, materialised with
+ * lanes (matrix.config.json to version with `decoratorTypes:true`, materialised with
  * `experimentalDecorators:false`): TC39 stage-3 decorator syntax needs TS 5.0+, so this file is
  * excluded from the 4.2/4.7 lanes (see run-matrix.mjs `writeDecoratorFixture`).
  *
@@ -73,7 +73,7 @@ interface IShape {
 const c: IShape = new C();
 void c;
 
-// ============================================================ 3. @BindMethod() getter — same shape
+// ============================================================ 3. @BindMethod() getter: same shape
 class CBind {
  @BindMethod() get m() {
  return cancAsync(body, this);
@@ -87,7 +87,7 @@ void cBind;
 
 // ============================================================ 4. method identity (Style A limit)
 // A method decorator's return must be assignable to the ORIGINAL method type (TS1270), so a
-// generator method stays generator-typed after decoration — it is NOT retyped to a
+// generator method stays generator-typed after decoration: it is NOT retyped to a
 // CancelablePromise-returning method, and it is NOT erased to `any` either. This documents Style
 // A's cast tax: callers still need a manual cast to consume it as a promise-returning method.
 class CMethod {

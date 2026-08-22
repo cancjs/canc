@@ -202,7 +202,7 @@ const _test_concat_type = () => {
 const _test_toArray_signature = () => {
   const term = asyncIter.toArray<number>();
 
-  // term is a terminal op — a unary function
+  // term is a terminal op: a unary function
   type T1 = Expect<Equal<typeof term, ITermOp<number, number[]>>>;
 
   // Applying it to a source gives a CancelablePromise
