@@ -35,8 +35,6 @@ describe('cancel-losers doctrine', () => {
     return { promise, resolve, reject };
   }
 
-  // === any() cases: fulfill cancels losers ===
-
   // Case 1: any() first fulfill -> other pending inputs canceled
   it('any() first fulfill cancels other pending inputs (loser doctrine)', async () => {
     const p1 = createDeferred();
@@ -114,8 +112,6 @@ describe('cancel-losers doctrine', () => {
     expect(p1).toEqual(expect.objectContaining({ isCanceled: false })); // winner, settled
     expect(p2.isCanceled).toBe(true); // loser, canceled
   });
-
-  // === all() cases: reject cancels remaining ===
 
   // Case 5: all() first reject -> other pending inputs canceled
   it('all() first reject cancels other pending inputs', async () => {
@@ -216,8 +212,6 @@ describe('cancel-losers doctrine', () => {
     await expect(result).rejects.toBeInstanceOf(Error);
   });
 
-  // === allSettled() cases: no-op (waits all) ===
-
   // Case 9: allSettled() does NOT cancel losers on fulfill (waits for all)
   it('allSettled() does NOT cancel inputs (waits all)', async () => {
     const p1 = new CancelablePromise((resolve) => resolve('value'));
@@ -258,8 +252,6 @@ describe('cancel-losers doctrine', () => {
     expect((settled[1] as PromiseRejectedResult).status).toBe('rejected');
     expect((settled[1] as PromiseRejectedResult).reason).toBe(err2);
   });
-
-  // === Cross-doctrine edge cases ===
 
   // Case 11: any() with mixed resolved/pending/bubble:false
   it('any() complex matrix: mix of resolved, pending, bubble:false losers', async () => {

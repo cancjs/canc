@@ -51,9 +51,6 @@ function silence(p: PromiseLike<any>): void {
 }
 
 describe('two-way propagation matrix', () => {
-  // ─────────────────────────────────────────────────────────────────────────────
-  // DOWN propagation: cancel parent → children reject
-  // ─────────────────────────────────────────────────────────────────────────────
   describe('down: cancel parent → descendants reject', () => {
     it('1. cancel parent → direct child rejects with CancelError', async () => {
       const parent = new CancelablePromise<number>(() => {
@@ -229,9 +226,6 @@ describe('two-way propagation matrix', () => {
     });
   });
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // UP propagation (bubble): cancel all children → parent auto-cancels
-  // ─────────────────────────────────────────────────────────────────────────────
   describe('up: bubble cancel from children to parent', () => {
     it('11. cancel the sole child → parent auto-cancels (bubbled)', async () => {
       const parent = new CancelablePromise<number>(() => {
@@ -412,9 +406,6 @@ describe('two-way propagation matrix', () => {
     });
   });
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // bubble:false — upward isolation
-  // ─────────────────────────────────────────────────────────────────────────────
   describe('bubble:false isolation', () => {
     it('21. bubble:false parent → canceling its sole child does NOT cancel parent', async () => {
       const parent = new CancelablePromise<number>(
@@ -514,9 +505,6 @@ describe('two-way propagation matrix', () => {
     });
   });
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // chains through catch / finally
-  // ─────────────────────────────────────────────────────────────────────────────
   describe('chains through catch / finally', () => {
     it('26. cancel propagates through a .catch() node in the chain', async () => {
       const parent = new CancelablePromise<number>(() => {
@@ -588,9 +576,6 @@ describe('two-way propagation matrix', () => {
     });
   });
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // cancel a mid-chain node
-  // ─────────────────────────────────────────────────────────────────────────────
   describe('cancel mid-chain node', () => {
     it('30. cancel mid node → downstream rejects, upstream bubbles (mid is sole consumer)', async () => {
       const root = new CancelablePromise<number>(() => {
@@ -641,9 +626,6 @@ describe('two-way propagation matrix', () => {
     });
   });
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // diamond shapes
-  // ─────────────────────────────────────────────────────────────────────────────
   describe('diamond shapes', () => {
     it('32. diamond: cancel ONE branch → root stays pending (other branch consumes)', async () => {
       const root = new CancelablePromise<number>((resolve) => {
@@ -728,9 +710,6 @@ describe('two-way propagation matrix', () => {
     });
   });
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // deep chain — no stack overflow
-  // ─────────────────────────────────────────────────────────────────────────────
   describe('deep chains', () => {
     it('35. depth-100 chain: cancel head → tail rejects, no stack overflow', async () => {
       let node = new CancelablePromise<number>(() => {

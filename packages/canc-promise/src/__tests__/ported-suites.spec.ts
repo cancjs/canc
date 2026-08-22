@@ -42,9 +42,6 @@ function silence(p: PromiseLike<any>): void {
 }
 
 describe('ported suites', () => {
-  // ─────────────────────────────────────────────────────────────────────────────
-  // BLUEBIRD PORT: handleCancel registration and handler semantics
-  // ─────────────────────────────────────────────────────────────────────────────
   describe('bluebird: handleCancel fundamentals', () => {
     it('1. registers a single handler and fires on cancel', async () => {
       let fired = false;
@@ -169,9 +166,6 @@ describe('ported suites', () => {
     });
   });
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // BLUEBIRD PORT: Chain cancellation and handler execution order
-  // ─────────────────────────────────────────────────────────────────────────────
   describe('bluebird: chain cancellation semantics', () => {
     it('8. cancel parent → child rejects with CancelError', async () => {
       const parent = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
@@ -278,9 +272,6 @@ describe('ported suites', () => {
     });
   });
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // P-CANCELABLE PORT: Simple shallow cancel semantics
-  // ─────────────────────────────────────────────────────────────────────────────
   describe('p-cancelable: single-promise cancel', () => {
     it('13. promise is instanceof Promise', () => {
       const p = new CancelablePromise<number>((resolve) => {
@@ -407,9 +398,6 @@ describe('ported suites', () => {
     });
   });
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // ALKEMICS PORT: Downward chain propagation
-  // ─────────────────────────────────────────────────────────────────────────────
   describe('alkemics: chain propagation patterns', () => {
     it('21. cancel parent propagates rejection to .then() chain', async () => {
       const parent = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
@@ -532,9 +520,6 @@ describe('ported suites', () => {
     });
   });
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // BLUEBIRD PORT: Two-way propagation (parent-child relationships)
-  // ─────────────────────────────────────────────────────────────────────────────
   describe('bluebird: two-way handler/follower semantics', () => {
     it('27. child cancellation fires handlers on parent', async () => {
       let _parentFired = false;
@@ -647,9 +632,6 @@ describe('ported suites', () => {
     });
   });
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // ADVANCED: Nested chains, error handling, and handler order
-  // ─────────────────────────────────────────────────────────────────────────────
   describe('advanced chain and handler patterns', () => {
     it('32. catch() returning a value stops cancellation propagation', async () => {
       const parent = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
@@ -939,9 +921,6 @@ describe('ported suites', () => {
     });
   });
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // EDGE CASES & STRESS
-  // ─────────────────────────────────────────────────────────────────────────────
   describe('edge cases and stress tests', () => {
     it('47. large number of handlers all fire', async () => {
       let count = 0;

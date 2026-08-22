@@ -39,9 +39,6 @@ function createDeferred<T>(options?: any): Deferred<T> {
 }
 
 describe('combinators', () => {
-  // ============================================================================
-  // all()
-  // ============================================================================
   describe('all()', () => {
     it('resolves with values in INPUT order regardless of settle order', async () => {
       const fast = createDeferred<string>();
@@ -128,7 +125,6 @@ describe('combinators', () => {
       await expect(result).resolves.toEqual(['sync-adopted', 'plain']);
     });
 
-    // ---- loser cancellation (black-box) ----
     it('cancels remaining pending inputs on first rejection', async () => {
       const p1 = new CancelablePromise<number>(() => {
         /**/
@@ -193,7 +189,6 @@ describe('combinators', () => {
       expect(shielded.isCanceled).toBe(false);
     });
 
-    // ---- cancel result: bubble is UPWARD-only, no downward cascade ----
     // The result promise is the DOWNSTREAM child of the inputs (input._chain(result)).
     // Cancellation propagates UP (all children canceled → parent bubbles), never DOWN from a
     // child to its parents. So canceling the result cancels the result only; inputs stay pending
@@ -221,9 +216,6 @@ describe('combinators', () => {
     });
   });
 
-  // ============================================================================
-  // allSettled()
-  // ============================================================================
   describe('allSettled()', () => {
     it('resolves with per-input settled results in INPUT order', async () => {
       const err = new Error('nope');
@@ -295,9 +287,6 @@ describe('combinators', () => {
     });
   });
 
-  // ============================================================================
-  // any()
-  // ============================================================================
   describe('any()', () => {
     it('fulfills with the first fulfilled value (settle order, not input order)', async () => {
       const slow = createDeferred<string>();
@@ -392,7 +381,6 @@ describe('combinators', () => {
       await expect(CancelablePromise.any([syncThenable])).resolves.toBe('sync-win');
     });
 
-    // ---- loser cancellation ----
     it('cancels remaining pending inputs on first fulfill', async () => {
       const winner = createDeferred<string>();
       const l1 = new CancelablePromise<string>(() => {
@@ -449,9 +437,6 @@ describe('combinators', () => {
     });
   });
 
-  // ============================================================================
-  // race()
-  // ============================================================================
   describe('race()', () => {
     it('settles with the first input to settle (fulfill)', async () => {
       const fast = createDeferred<string>();
@@ -600,9 +585,6 @@ describe('combinators', () => {
     });
   });
 
-  // ============================================================================
-  // Cross-combinator: loser cancel reasons + bubble error shape
-  // ============================================================================
   describe('cross-combinator invariants', () => {
     it('loser CancelError is suppressed (no unhandled rejection surfaces)', async () => {
       const winner = new CancelablePromise((resolve) => resolve('w'));
