@@ -168,10 +168,16 @@ export interface ICancAsyncGenerator<T, TReturn = any, TNext = any, TFailure = n
   readonly [FAILURE]?: TFailure;
 }
 
-// Public typed signature: the emit type flows to the consumer and the internal-await marker is
-// stripped. `Exclude<TYield, TAwaited<any>>` drops the marker (its unique `Symbol.for` key means real
-// emit types never structurally match it), so the consumer's `for await` value is exactly the emit
-// type. Mirror of `cancAsync` for the `async *` world (`cancGen.async`).
+/**
+ * Wraps a generator function into an async generator whose yielded values are emitted and internal awaits are consumed.
+ *
+ * Emits values yielded directly, while values yielded via `cancGenAwait` or internal helpers are
+ * awaited within the generator and not emitted to consumers. Canceling an in-flight iteration step
+ * cancels the generator and executes enclosing `finally` blocks.
+ *
+ * @param genFn Generator function defining the async generator body.
+ * @param options Async generator and promise execution options.
+ */
 export function cancGenAsync<TYield, TReturn, TArgs extends any[], TThis = any>(
   genFn: (this: TThis, ...args: TArgs) => Generator<TYield, TReturn, any>,
   options?: TCancelableCoroutineGenOptions,
@@ -384,18 +390,23 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
 }
 
 /**
- * `for await` CONSUME inside a `cancGenAsync` producer body (`cancGen.forAwait`): pull each item of
- * `source` at an internal cancellation point (the pulls are marker-wrapped, so they stay internal and
- * are NEVER emitted to our consumer), running `cb` per item. `cb` has three forms (mirror of
- * `cancForAwait`): a sync fn, a bare generator fn (its `cancGenAwait` steps run inline on this
- * driver), or a `cancAsync` coroutine fn (returns a `CancelablePromise`, awaited via marker `yield`).
- * `return false` from any form breaks the loop. `.toArray` collects into an array instead.
+ * Consumes an iterable inside a `cancGenAsync` producer body without emitting pulls to the outer consumer.
+ *
+ * Each item of `source` is pulled at an internal cancellation point and passed to `cb`. The callback
+ * supports three forms: a sync return, a generator (delegated with `yield*`), or a `cancAsync`
+ * coroutine returning a `CancelablePromise`. Returning `false` or throwing `BreakError` stops the
+ * loop cleanly. Plain `async` callbacks returning native promises are intentionally not
+ * type-supported to steer callers toward cancelable operations, though the runtime dispatches any
+ * thenable. Use `cancGenForAwait.toArray` to collect elements into an array instead.
  */
 interface ICancGenForAwait {
   <T>(source: TEachSource<T>, cb: TForAwaitCallback<T>): Generator<TAwaited<any> & Failing<BreakError>, void, any>;
   toArray<T>(source: TEachSource<T>): Generator<TAwaited<any> & Failing<BreakError>, T[], any>;
 }
 
+/**
+ * Consumes an iterable inside a `cancGenAsync` producer body without emitting pulls to the outer consumer.
+ */
 export const cancGenForAwait = function* cancGenForAwait(
   source: any,
   cb: (value: any, index: number) => any,

@@ -19,9 +19,12 @@ export type TGeneratorLike<PYield = unknown, PReturn = any, PNext = unknown> = O
 // not on `name`, so it survives realm boundaries and duplicated package copies.
 const BREAK_ERROR_BRAND = Symbol.for('@cancjs/coroutine:BreakError');
 
-// Thrown from an `each` callback (or by user code) to stop the loop cleanly, as an alternative to
-// returning `false`. A break is normal loop termination, not an error: the coroutine resolves past
-// the loop rather than rejecting.
+/**
+ * Error signaling clean early termination of a `cancForAwait` loop.
+ *
+ * Throwing `BreakError` stops iteration immediately and runs source cleanup without rejecting the
+ * outer coroutine.
+ */
 export class BreakError extends Error {
   declare readonly [BREAK_ERROR_BRAND]: true;
   declare name: 'BreakError';
@@ -39,11 +42,14 @@ export class BreakError extends Error {
 // resolves through the prototype chain and no instance carries an own symbol property.
 Object.defineProperty(BreakError.prototype, BREAK_ERROR_BRAND, { value: true });
 
+/**
+ * Returns true if the given value is a `BreakError`.
+ */
 export function isBreakError(value: unknown): value is BreakError {
   return isObject(value) && (value as Record<symbol, unknown>)[BREAK_ERROR_BRAND] === true;
 }
 
-// Sentinel yielded by `each`/`iter` as the very last statement of their `finally`, after source
+// Sentinel yielded by `cancForAwait` as the very last statement of its `finally`, after source
 // cleanup. When the coroutine is canceled mid-`yield*`, the cancel-drain unwinds via gen.return();
 // resuming the delegate's finally-yield with gen.next() would let JS forget the return-completion
 // and run the parent's post-`yield*` code (a `yield*` completing normally does not re-throw the
@@ -63,6 +69,9 @@ function isReturnUnwind(value: unknown): boolean {
  * types costs no checking power and keeps a bare `yield` of an ordinary value working. */
 type TPrimitiveYield = string | number | boolean | bigint | symbol | null | undefined | void;
 
+/**
+ * Return type annotation for a `cancAsync` generator body.
+ */
 export type AsyncResult<TResult = void, TFailure = unknown> = Generator<
   unknown extends TFailure ? unknown : Failing<TFailure> | TPrimitiveYield,
   TResult,
@@ -134,6 +143,17 @@ function toPromiseOptions(options?: TCoroutineOptions): ICancelablePromiseOption
 type TCoroutineYield<TFn extends IGeneratorLikeFn, TReturn = ReturnType<TFn>> =
   TReturn extends Generator<infer Y, infer _R, infer _N> ? Y : never;
 
+/**
+ * Wraps a generator function into a coroutine that returns a `CancelablePromise`.
+ *
+ * Each `yield` or `yield*` inside the generator represents a cancellation point. Canceling the
+ * returned promise triggers generator cleanup by running enclosing `finally` blocks before
+ * settling.
+ *
+ * @param genFn Generator function defining the coroutine body.
+ * @param ctx Optional `this` context bound to the generator function.
+ * @param options Coroutine and promise execution options.
+ */
 export function cancAsync<
   TFn extends IGeneratorLikeFn<TThis>,
   TArgs extends any[] = Parameters<TFn>,
@@ -161,7 +181,7 @@ export function cancAsync<
   // When no flag options are set, a yielded value that is already a same-constructor
   // CancelablePromise needs no wrapping: `CancelablePromise.resolve(value, {})` returns it
   // unchanged, so the step can subscribe with `.then()` directly and skip the resolve() round-trip
-  // (its instanceof/constructor check plus the seven-key option comparison) on every step. With
+  // (its instanceof/constructor check plus the six-key option comparison) on every step. With
   // flags present the wrapper still reconfigures the value, so the fast path is gated on this being
   // empty.
   const stepOptionsEmpty = isEmptyFlags(stepOptions);
@@ -204,10 +224,10 @@ export function cancAsync<
       // overlapping drains, and post-cancel ordinary steps must go inert.
       let draining = false;
       // Set while a gen.next()/throw()/return() call is on the stack. A cancel() triggered
-      // synchronously from inside a running step (e.g. calling promise.cancel() from within an `each`
+      // synchronously from inside a running step (e.g. calling promise.cancel() from within a `cancForAwait`
       // callback) must not call gen.return() re-entrantly: the generator is still executing and
-      // gen.return() would throw "Generator is already executing". When set, drainFinally defers the
-      // drain to a microtask so it runs after the current step unwinds.
+      // gen.return() would throw "Generator is already executing". When set, drainFinally bails and
+      // the step's post-run check runs the drain once the generator unwinds.
       let executing = false;
       let canceledReason: any = undefined;
       // Track when cancel() was called so ordinary steps can check. The handleCancel hook runs
@@ -456,7 +476,7 @@ export function cancAsync<
           return;
         }
 
-        // A `each`/`iter` delegate ends its finally with the RETURN_UNWIND sentinel. Resuming it with
+        // A `cancForAwait` delegate ends its finally with the RETURN_UNWIND sentinel. Resuming it with
         // gen.next() would let the parent run its post-`yield*` code (JS drops the return-completion
         // once a `yield*` finishes normally). Resume with gen.return() to re-assert the unwind so the
         // parent stays dormant; the sentinel is the delegate's LAST finally statement, so nothing in
@@ -547,7 +567,7 @@ function createYielder<TProduce, TSend>(
  * propagates it at the call site and ordinary try/catch/finally behaves exactly as with a bare
  * `throw`. The yield type is a type-level carrier only; nothing is ever yielded.
  *
- * Note: `yield*` is not a call expression, so TypeScript does not treat what follows as unreachable.
+ * `yield*` is not a call expression, so TypeScript does not treat what follows as unreachable.
  * A bare `yield* canc.throw(e)` as the last statement of a body with a declared non-void return type
  * gives TS2355 ("A function whose declared type is neither 'undefined', 'void', nor 'any' must return
  * a value"). Use `return yield* canc.throw(e)` instead, as `never` widens to any return type.
@@ -614,20 +634,28 @@ type ICancAwaitTry = <T, TArgs extends any[]>(
   ...args: TArgs
 ) => Generator<CancelablePromise<Awaited<T>, FailureOf<T>>, Awaited<T>, Awaited<T>>;
 
-// `each` accepts an async iterable or a sync iterable whose members may be promises: both are
+// `cancForAwait` accepts an async iterable or a sync iterable whose members may be promises: both are
 // driven one pull at a time, awaiting each value at a coroutine cancellation point. The callback
 // runs per item; returning `false` (or throwing `BreakError`) stops the loop cleanly.
 export type TEachSource<T> = AsyncIterable<T> | Iterable<T | Promise<T>>;
 
 // The `cancForAwait` callback runs per item; returning `false` (or throwing `BreakError`) stops the
-// loop cleanly. Three forms are dispatched at runtime: a plain function (sync outcome), a generator
-// function (so `yield`/`yield*` inside the body can await, driven with `yield*`), or one returning a
-// CancelablePromise (awaited with a bare `yield`).
+// loop cleanly. Dispatches on the returned outcome at runtime: a generator (driven with `yield*`),
+// a thenable (awaited with a bare `yield`), or a plain value
 export type TForAwaitCallback<T> =
   | ((value: T, index: number) => void | false)
   | ((value: T, index: number) => Generator<unknown, void | false, any>)
   | ((value: T, index: number) => CancelablePromise<void | false>);
 
+/**
+ * Iterates over an async or sync iterable, running a callback per item at coroutine cancellation points.
+ *
+ * The callback supports three forms: a sync return, a generator (driven with `yield*`), or a
+ * `CancelablePromise` (awaited with `yield`). Returning `false` or throwing `BreakError` stops the
+ * loop cleanly. Plain `async` callbacks returning native promises are intentionally not
+ * type-supported to steer callers toward cancelable operations, though the runtime dispatches any
+ * thenable. Use `cancForAwait.toArray` to collect elements into an array.
+ */
 interface ICancForAwait {
   <T>(source: TEachSource<T>, cb: TForAwaitCallback<T>): Generator<Failing<BreakError>, void, any>;
   toArray<T>(source: TEachSource<T>): Generator<Failing<BreakError>, T[], any>;
@@ -707,11 +735,9 @@ export function returnStepIterator(it: any): any {
   return result;
 }
 
-// Streaming for-await over a source: pull one item per step, run the callback, await its outcome,
-// repeat. The callback outcome is dispatched three ways so an `await` inside the body works: a bare
-// generator (from a generator-fn callback) is driven with `yield*`; a thenable/CancelablePromise is
-// awaited with a bare `yield`; a plain value is used as-is. Returning `false` (or throwing
-// `BreakError`) stops the loop cleanly. `cancForAwait.toArray` collects instead of running a callback.
+/**
+ * Iterates over an async or sync iterable, running a callback per item at coroutine cancellation points.
+ */
 export const cancForAwait = function* cancForAwait(
   source: any,
   cb: (value: any, index: number) => any,
@@ -733,8 +759,7 @@ export const cancForAwait = function* cancForAwait(
       const value = async ? result.value : yield result.value;
 
       // Three callback forms: a generator (drive it with `yield*` so `await`s in the body run at
-      // coroutine cancellation points), a thenable (await with a bare `yield`), or a plain value. A
-      // `false` result stops the loop cleanly, like a native `break`.
+      // coroutine cancellation points), a thenable (await with a bare `yield`), or a plain value
       const outcome = cb(value, index++);
       const settled =
         isGenerator(outcome) ? yield* outcome
