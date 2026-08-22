@@ -54,11 +54,9 @@ import type {
  TOnCancel,
 } from '@cancjs/promise';
 
-// --- default export identity ---------------------------------------------
 const _sameClass: typeof NamedCP = CancelablePromise;
 void _sameClass;
 
-// --- constructor + executor + options generics ---------------------------
 const p = new CancelablePromise<number>((resolve, reject, ctx) => {
   ctx.handleCancel((reason?: TCancelReason) => void reason);
  reject(new Error('x'));
@@ -70,7 +68,6 @@ const _flags: ICancelablePromiseFlagOptions = { bubble: false };
 const _opts: ICancelablePromiseOptions = { ..._flags, signal: createCancelSignal().signal };
 void _opts;
 
-// --- then / catch / finally result types ---------------------------------
 const pThen = p.then((n) => `${n}`); // CancelablePromise<string>
 const pCatch = pThen.catch(() => 42); // CancelablePromise<string | number>
 const pFinally = pCatch.finally(() => {}); // CancelablePromise<string | number>
@@ -80,13 +77,11 @@ void pFinally;
 const _hc: CancelablePromise<number> = p.handleCancel(() => {}, { immediate: true } as IHandleCancelOptions);
 void _hc;
 
-// --- instance getters / cancel -------------------------------------------
 const _canceled: boolean = p.isCanceled;
 const _cancelable: boolean = p.isCancelable;
 const _cancelRet: void | CancelablePromise<PromiseSettledResult<unknown>[]> = p.cancel('done');
 void _canceled; void _cancelable; void _cancelRet;
 
-// --- static combinators: tuple inference ---------------------------------
 const pAll = CancelablePromise.all([
  Promise.resolve(1),
  Promise.resolve('a'),
@@ -103,7 +98,6 @@ void pRace;
 const pAny = CancelablePromise.any([Promise.resolve(1), Promise.resolve('a')] as const);
 void pAny;
 
-// --- resolve / reject / withResolvers ------------------------------------
 const pResolve = CancelablePromise.resolve(123);
 const pResolveVoid = CancelablePromise.resolve();
 const pReject = CancelablePromise.reject<number, string>('nope');
@@ -116,7 +110,6 @@ wr.cancel('stop');
 const _wrPromise: CancelablePromise<string> = wr.promise;
 void _wrPromise;
 
-// --- coroutine: cancAwait yield* inference + cancAsync --------------------
 const coro = cancAsync(function* () {
  const n: number = yield* cancAwait(Promise.resolve(1)); // yield* typed as awaited value
  const s: string = yield* cancAwait('literal'); // sync value passthrough
@@ -125,7 +118,6 @@ const coro = cancAsync(function* () {
 const _coroResult = coro(); // CancelablePromise<unknown>
 void _coroResult;
 
-// --- helpers -------------------------------------------------------------
 const _isErr: boolean = isCancelError(new CancelError());
 const _cc = catchCancel(Promise.resolve(5), { bubble: false, abort: true }); // CancelablePromise<number | CancelError>
 const _sc = suppressCancel(Promise.resolve(5)); // CancelablePromise<number | void>
@@ -147,13 +139,11 @@ declare const _nt: NativeTimeoutError;
 void _isErr; void _cc; void _sc; void _mc; void _ca; void _sa; void _ct; void _st; void _cce; void _cse;
 void _nca; void _nsa; void _nct; void _nst; void _ncce; void _ncse; void _n; void _nt;
 
-// --- interface/type-only surface -----------------------------------------
 const _state: TCancelablePromiseStates = 'PENDING';
 const _onCancel: TOnCancel = () => {};
 const _cancelable2: ICancelable<number> = p;
 void _state; void _onCancel; void _cancelable2;
 
-// --- CancelError shape ---------------------------------------------------
 const err = new CancelError('reason', { cause: new Error('c') });
 const _bubbled: boolean = err.bubbled;
 const _disposed: boolean = err.disposed;

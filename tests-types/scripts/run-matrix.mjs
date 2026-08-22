@@ -49,7 +49,6 @@ const onlyList = (valOf('--only') || '')
   .map((s) => s.trim())
   .filter(Boolean);
 
-// ---- ANSI (skip when not a TTY / NO_COLOR) --------------------------------
 const useColor = process.stdout.isTTY && !process.env.NO_COLOR;
 const c = (code, s) => (useColor ? `\x1b[${code}m${s}\x1b[0m` : s);
 const green = (s) => c('32', s);
@@ -61,14 +60,11 @@ const isWin = process.platform === 'win32';
 const npmCmd = isWin ? 'npm.cmd' : 'npm';
 
 function run(cmd, args, opts = {}) {
-  // On Windows, npm/tsc are `.cmd` shims that Node >=18 refuses to spawn without
-  // a shell (EINVAL). `shell:true` routes through cmd.exe; quote args to survive it.
   const shell = isWin && /\.cmd$/i.test(cmd);
   const finalArgs = shell ? args.map((a) => (/[\s"]/.test(a) ? `"${a.replace(/"/g, '\\"')}"` : a)) : args;
   return execFileSync(cmd, finalArgs, { encoding: 'utf8', stdio: 'pipe', shell, ...opts });
 }
 
-// ---- 1. pack packages -----------------------------------------------------
 function packPackages() {
   fs.rmSync(tarballsDir, { recursive: true, force: true });
   fs.mkdirSync(tarballsDir, { recursive: true });
@@ -81,7 +77,6 @@ function packPackages() {
         `Package "${pkg}" is not built (${distTypes} missing). Run \`npm run build --workspace=@cancjs/${pkg.replace('canc-', '')}\` first.`,
       );
     }
-    // `npm pack --pack-destination` writes the tarball and prints its filename.
     const out = run(npmCmd, ['pack', '--pack-destination', tarballsDir], { cwd: pkgDir }).trim();
     const file = out.split(/\r?\n/).pop().trim();
     const pkgJson = JSON.parse(fs.readFileSync(path.join(pkgDir, 'package.json'), 'utf8'));
@@ -91,12 +86,6 @@ function packPackages() {
   return tarballs;
 }
 
-// ---- 1b. discard anything left over from a previous shape -----------------
-// Every file in a fixture dir except node_modules is generated, so a fixture is rebuilt from
-// scratch rather than written over. Writing over leaves whatever the previous config produced:
-// a `files` entry pointing at a source that no longer exists fails the lane with TS6053, and a
-// tsconfig option that was dropped from the generator keeps applying forever. node_modules is
-// preserved so `--no-install` stays useful.
 function resetFixtureDir(dir) {
   if (!fs.existsSync(dir)) return;
   for (const entry of fs.readdirSync(dir)) {
@@ -105,10 +94,6 @@ function resetFixtureDir(dir) {
   }
 }
 
-// Fixture dirs for lanes that are no longer in the config are dead: nothing regenerates them and
-// nothing type-checks them, but they sit in the tree looking like current state. The expected set
-// comes from the whole config, never from the --only filter, so a filtered run cannot delete the
-// lanes it was told to skip.
 function pruneStaleFixtures() {
   if (!fs.existsSync(fixturesDir)) return;
   const expected = new Set();
@@ -125,14 +110,6 @@ function pruneStaleFixtures() {
   }
 }
 
-// ---- 1c. give each fixture its own copy of the shared sources -------------
-// TypeScript resolves a bare specifier starting from the directory of the file that contains it.
-// Compiling fixtures/common/api-smoke.ts in place therefore searches fixtures/common/node_modules,
-// then fixtures/, then tests-types/, then the repo root, where the workspace symlinks answer with
-// the working tree. The fixture's own node_modules is never on that path, so the pinned tarball was
-// installed and then ignored: every lane silently type-checked the working tree instead of the
-// publishable artifact. Copying the sources into the fixture puts the lookup inside the fixture,
-// which is the only way the packed tarball is what gets checked.
 function copyCommonSources(dir) {
   const target = path.join(dir, 'common');
   fs.mkdirSync(target, { recursive: true });
@@ -141,11 +118,8 @@ function copyCommonSources(dir) {
   }
 }
 
-// matrix.config.json still spells the shared sources the way they sit in the tree
-// (`../common/x.ts`); they compile from the fixture's own copy.
 const localSource = (p) => `./common/${path.basename(p)}`;
 
-// ---- 2. materialise a fixture project -------------------------------------
 function writeFixture(version, tarballs) {
   const dir = path.join(fixturesDir, `ts-${version.id}`);
   resetFixtureDir(dir);
@@ -153,7 +127,6 @@ function writeFixture(version, tarballs) {
 
   const deps = { typescript: version.typescript };
   for (const [name, tarball] of Object.entries(tarballs)) {
-    // file: URI to the packed tarball — installs the real publishable artifact.
     deps[name] = `file:${path.relative(dir, tarball).split(path.sep).join('/')}`;
   }
 
@@ -181,8 +154,6 @@ function writeFixture(version, tarballs) {
     files.push(localSource('coroutine-types.ts'));
   }
 
-  // Downlevel-friendly tsconfig. moduleResolution per version drives which
-  // d.ts resolution path (typesVersions vs exports.types) is exercised.
   const tsconfig = {
     compilerOptions: {
       strict: true,
@@ -202,11 +173,6 @@ function writeFixture(version, tarballs) {
   return dir;
 }
 
-// ---- 2b. materialise the decorator-type-preservation fixtures ----
-// Stage-3 (TC39) decorator syntax needs TS 5.0+, so this is only called for versions with
-// `decoratorTypes:true` in matrix.config.json. Three sibling projects per version, one per
-// decorator flavor, because each flavor needs its OWN `experimentalDecorators` compiler mode
-// (stage-3 requires it off; ts-legacy requires it on) — a single tsconfig cannot exercise both.
 const DECORATOR_FLAVORS = [
   {
     suffix: '-decorators',
@@ -271,14 +237,8 @@ function writeDecoratorFixture(version, tarballs, flavor) {
 }
 
 function installFixture(dir) {
-  // Every build packs to the same cancjs-<pkg>-1.0.0.tgz, and npm treats a name@version already
-  // present in node_modules as satisfied, so a fixture keeps its first extraction forever: the lane
-  // then type-checks an artifact from some earlier build while looking perfectly current. Drop the
-  // packed scope and the hidden lockfile that records it so the tarballs just packed are the ones
-  // installed. `typescript` is pinned per lane and expensive to fetch, so it stays.
   fs.rmSync(path.join(dir, 'node_modules', '@cancjs'), { recursive: true, force: true });
   fs.rmSync(path.join(dir, 'node_modules', '.package-lock.json'), { force: true });
-  // Isolated install: --no-package-lock keeps the dir clean; --no-audit/--no-fund quiet.
   run(npmCmd, ['install', '--no-package-lock', '--no-audit', '--no-fund', '--silent'], { cwd: dir });
 }
 
@@ -303,7 +263,6 @@ function versionOfTsc(dir) {
   }
 }
 
-// ---- main -----------------------------------------------------------------
 function main() {
   const versions = config.versions.filter((v) => onlyList.length === 0 || onlyList.includes(v.id));
   if (versions.length === 0) {
