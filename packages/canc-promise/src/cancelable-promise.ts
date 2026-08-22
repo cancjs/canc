@@ -2,7 +2,7 @@ import { AggregateError, createAggregateError, isFunction, isObject, isThenable 
 import { CancelError } from './cancel-error';
 import { isCancelError, isCancPromise } from './helpers';
 
-// Agent-wide brand: same rationale as CANCEL_ERROR_BRAND in cancel-error.ts. A Symbol.for
+// App-wide brand: same rationale as CANCEL_ERROR_BRAND in cancel-error.ts. A Symbol.for
 // registry entry is identical across realms and across duplicated package copies, so duck-typing
 // via this brand (isCancPromise) is collision-proof and works across dual-package-hazard copies,
 // unlike `instanceof CancelablePromise`.
@@ -122,12 +122,12 @@ export interface ICancelablePromiseFlagOptions {
   asyncCancel?: boolean;
   /** Keeps the current promise cancelable when native promise is provided through resolve() */
   forceCancelable?: boolean;
-  /** Cancelation propagates to parent promise */
+  /** Cancellation propagates to parent promise */
   bubble?: boolean;
-  /** Throw on cancelation problems */
+  /** Throw on cancellation problems */
   strict?: boolean;
   /**
-   * Protects this promise's own pending work from cancelation initiated from below or outside:
+   * Protects this promise's own pending work from cancellation initiated from below or outside:
    * a direct `cancel()` is a silent no-op (or throws under `strict`), and a bubble-cancel arriving
    * from canceled children is stopped here.
    *
@@ -145,7 +145,7 @@ export interface ICancelablePromiseOptions extends ICancelablePromiseFlagOptions
 }
 
 /**
- * Common shape for options accepted by standalone cancelation helpers (forceCancelable/
+ * Common shape for options accepted by standalone cancellation helpers (forceCancelable/
  * makeCancelable and friends): lets a caller swap in a different CancelablePromise-compatible
  * constructor instead of always using the built-in class.
  */
@@ -666,7 +666,7 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
 
   /**
    * Invokes `fn` with `args`, wrapping both a synchronous throw and the returned value/promise
-   * into a single settled CancelablePromise. Lets callers use `.catch`/cancelation uniformly
+   * into a single settled CancelablePromise. Lets callers use `.catch`/cancellation uniformly
    * around code that may throw synchronously instead of always rejecting asynchronously.
    * @param fn Function to invoke, may throw synchronously or return a value/thenable.
    * @param args Arguments passed through to `fn`.
@@ -924,10 +924,10 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
     // `Reflect.construct` is a plain runtime call, not `class`/`super` syntax that needs special
     // transpiler support.
     //
-    // The returned native instance becomes the REAL `instance` we hand back from the
-    // constructor; the original `this` (`tempThis`) is only used transiently while the executor
-    // runs synchronously (see reject()'s `instance === tempThis` branch above/below) and is then
-    // discarded. `Object.assign(instance, this)` below copies over anything the synchronous
+    // The returned native instance becomes the REAL `instance`; the original `this` (`tempThis`)
+    // is only used transiently while the executor runs synchronously (see reject()'s `instance
+    // === tempThis` branch above/below) and is then discarded. An explicit per-field copy below
+    // (see the own-property layout note further down) carries over anything the synchronous
     // executor stashed on `this` (e.g. `_resolve`/`_reject`) onto the real instance.
 
     instance = Reflect.construct(
@@ -935,7 +935,7 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
       [
         ((resolve_, reject_) => {
           function resolve(value?: TResult | PromiseLike<TResult>): void {
-            // Prevent cancelation in case of early state changes
+            // Prevent cancellation in case of early state changes
             if (instance._internalState === states.PENDING) {
               if (isThenable(value)) {
                 if (value === (instance as unknown)) {
@@ -1250,7 +1250,7 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
   }
 
   /**
-   * Snapshot of this promise's active cancelation options (flags + signal not included,
+   * Snapshot of this promise's active cancellation options (flags + signal not included,
    * those are one-shot constructor inputs, not ongoing state).
    */
   get options(): Required<ICancelablePromiseFlagOptions> {
@@ -1681,9 +1681,9 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
   }
 
   /**
-   * Connects the current and the next promise in the chain and propagates the cancelation to the parent promises
+   * Connects the current and the next promise in the chain and propagates the cancellation to the parent promises
    * @param childPromise The next promise in the chain
-   * @param bubbleOnComplete Makes the cancelation bubble on completion of the child promise, e.g. race()
+   * @param bubbleOnComplete Makes the cancellation bubble on completion of the child promise, e.g. race()
    */
   protected _chain(childPromise: CancelablePromise<any, any>, bubbleOnComplete?: boolean): void {
     const onComplete = this._addChainRef(bubbleOnComplete);

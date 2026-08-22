@@ -1,7 +1,7 @@
 import { CancelablePromise } from './cancelable-promise';
 
 /**
- * The five cancelation flags (asyncCancel/forceCancelable/bubble/strict/shield) are stored in a
+ * The five cancellation flags (asyncCancel/forceCancelable/bubble/strict/shield) are stored in a
  * packed integer, exposed through prototype getter/setters. These assert the public read/write API
  * is preserved: constructor options land on the getters, and post-construction writes flip a single
  * bit without disturbing the others.
