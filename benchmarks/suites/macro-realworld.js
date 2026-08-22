@@ -38,10 +38,6 @@ const { captureEnv } = require('../lib/env');
 
 Bluebird.config({ cancellation: true });
 
-// ---------------------------------------------------------------------------
-// Tunables
-// ---------------------------------------------------------------------------
-
 const WATERFALL_RUNS = 20000; // waterfall flow iterations per impl
 const WATERFALL_CANCEL_RATE = 0.3; // 30% canceled mid-flight
 const LIFECYCLE_RUNS = 10000; // component-lifecycle iterations per impl
@@ -62,14 +58,6 @@ function makeRng(seed) {
     return s / 0xffffffff;
   };
 }
-
-// ---------------------------------------------------------------------------
-// Flow factories — one object per implementation. Each exposes:
-// waterfall(cancelMidFlight) -> Promise settling when the flow is done/aborted
-// lifecycle() -> Promise settling after mount+requests+unmount
-// inflight() -> { promises: [...], cancelAll() } for memory
-// Every impl swallows its own cancellation so the harness loop never rejects.
-// ---------------------------------------------------------------------------
 
 const impls = {
   // Native Promise + hand-rolled AbortController. This is the honest baseline:
@@ -276,10 +264,6 @@ function swallowAll() {
   /* macro flow, any settle is fine */
 }
 
-// ---------------------------------------------------------------------------
-// Timing + memory
-// ---------------------------------------------------------------------------
-
 async function timeFlow(runOne, total, opsPerRun, seed) {
   const rng = makeRng(seed);
   const warmup = Math.floor(total * WARMUP_FRACTION);
@@ -329,10 +313,6 @@ async function measureMemoryPer1k(impl) {
 }
 
 function noop() {}
-
-// ---------------------------------------------------------------------------
-// Runner
-// ---------------------------------------------------------------------------
 
 async function run() {
   const env = captureEnv();
@@ -384,10 +364,6 @@ async function run() {
   const md = toMarkdown(result);
   return { result, md };
 }
-
-// ---------------------------------------------------------------------------
-// Markdown + plain-English summary
-// ---------------------------------------------------------------------------
 
 function pct(value, base) {
   if (base === 0) return 'n/a';

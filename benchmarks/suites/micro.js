@@ -37,10 +37,6 @@ const Bluebird = require('bluebird');
 // bluebird cancellation is opt-in and global; enable once so case (e) works.
 Bluebird.config({ cancellation: true });
 
-// ---------------------------------------------------------------------------
-// helpers (kept monomorphic per impl — no shared polymorphic call sites)
-// ---------------------------------------------------------------------------
-
 // b) then-chain of a given depth, returns the tail promise (settled).
 function nativeChain(depth) {
   let p = Promise.resolve(0);
@@ -169,10 +165,6 @@ async function nativeLoop() {
   }
   return acc;
 }
-
-// ---------------------------------------------------------------------------
-// tinybench cases (a–f). Each fn returns a promise; tinybench awaits it.
-// ---------------------------------------------------------------------------
 
 const cases = [
   // a) construct + resolve throughput
@@ -470,11 +462,9 @@ const cases = [
 
 module.exports = { name: 'micro', cases };
 
-// ---------------------------------------------------------------------------
 // g) allocation pressure lane. Not a tinybench ops/s case — it measures heapUsed
 // delta + GC count for 10k allocated promises. Requires --expose-gc. Run
 // directly: `node --expose-gc suites/micro.js`. Writes micro-alloc.{json,md}.
-// ---------------------------------------------------------------------------
 
 const ALLOC_COUNT = 10000;
 

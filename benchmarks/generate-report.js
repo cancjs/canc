@@ -39,7 +39,7 @@ function num(n, digits) {
   return n == null ? 'n/a' : n.toFixed(digits);
 }
 
-// --- per-shape renderers -----------------------------------------------
+// --- per-shape renderers ---
 
 function renderTinybenchSuite(result) {
   const { suite, env, tasks } = result;
