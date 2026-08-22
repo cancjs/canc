@@ -6,7 +6,7 @@
  *
  * Idempotency requirement: running this twice with the same
  * results/ contents must produce byte-identical output. That means NO
- * "generated at <now>" timestamps in the doc body — provenance comes from
+ * "generated at <now>" timestamps in the doc body; provenance comes from
  * each suite's own `env.timestamp` (captured once, at bench-run time, and
  * frozen into the result JSON). This script only ever READS results/, never
  * re-runs benches, so re-running it changes nothing.
@@ -32,7 +32,7 @@ function readJson(file) {
 
 function fmtEnvLine(env) {
   if (!env) return '(no env captured)';
-  return `Node ${env.node} · ${env.platform}/${env.arch} · ${env.cpuModel} (${env.cpuCount} cores) · captured ${env.timestamp}`;
+  return `Node ${env.node} / ${env.platform}/${env.arch} / ${env.cpuModel} (${env.cpuCount} cores) / captured ${env.timestamp}`;
 }
 
 function num(n, digits) {
@@ -52,7 +52,7 @@ function renderTinybenchSuite(result) {
   lines.push('|------|--------:|-------:|----------:|--------:|');
   for (const task of tasks) {
     const ops = task.opsPerSec != null ? Math.round(task.opsPerSec) : 'n/a';
-    const margin = task.marginPct != null ? `±${num(task.marginPct, 2)}%` : 'n/a';
+    const margin = task.marginPct != null ? `+/-${num(task.marginPct, 2)}%` : 'n/a';
     const mean = num(task.meanMs, 4);
     lines.push(`| ${task.name} | ${ops} | ${margin} | ${mean} | ${task.samples} |`);
   }
@@ -89,12 +89,12 @@ function renderMacroSuite(result) {
   lines.push('');
   lines.push(
     `Flows: waterfall (5 sequential + 3 parallel requests, ${Math.round(params.waterfallCancelRate * 100)}% ` +
-      `canceled mid-flight) × ${params.waterfallRuns.toLocaleString('en-US')} · component-lifecycle (mount → ` +
-      `${params.lifecycleRequests} requests → unmount-cancel) × ${params.lifecycleRuns.toLocaleString('en-US')}.`,
+      `canceled mid-flight) x ${params.waterfallRuns.toLocaleString('en-US')} / component-lifecycle (mount to ` +
+      `${params.lifecycleRequests} requests to unmount-cancel) x ${params.lifecycleRuns.toLocaleString('en-US')}.`,
   );
   lines.push('');
 
-  lines.push('#### Waterfall — overhead per request operation');
+  lines.push('#### Waterfall: overhead per request operation');
   lines.push('');
   lines.push('| Impl | µs/op | vs native | µs/run | total ms |');
   lines.push('|------|------:|----------:|-------:|---------:|');
@@ -102,7 +102,7 @@ function renderMacroSuite(result) {
     const r = results[key].waterfall;
     const vsNative =
       key === 'native' || nativeUs == null ?
-        '—'
+        '-'
       : `${r.usPerOp >= nativeUs ? '+' : ''}${(((r.usPerOp - nativeUs) / nativeUs) * 100).toFixed(1)}%`;
     lines.push(
       `| ${results[key].name} | ${num(r.usPerOp, 3)} | ${vsNative} | ${num(r.usPerRun, 3)} | ${Math.round(r.totalMs)} |`,
@@ -110,7 +110,7 @@ function renderMacroSuite(result) {
   }
   lines.push('');
 
-  lines.push('#### Component-lifecycle — overhead per request operation');
+  lines.push('#### Component-lifecycle: overhead per request operation');
   lines.push('');
   lines.push('| Impl | µs/op | vs native | µs/run | total ms |');
   lines.push('|------|------:|----------:|-------:|---------:|');
@@ -122,7 +122,7 @@ function renderMacroSuite(result) {
     let vsNative;
     let nameSuffix = '';
     if (key === 'native' || nativeLifecycleUs == null) {
-      vsNative = '—';
+      vsNative = '-';
     } else if (!comparable) {
       vsNative = 'n/c*';
       nameSuffix = '*';
@@ -138,12 +138,12 @@ function renderMacroSuite(result) {
   if (hasIncomparable) {
     lines.push(
       '\\* Not comparable: a canceled bluebird promise never settles by design, so its lifecycle ' +
-        'flow cannot be awaited to completion like native/canc — only the synchronous cancel work is timed.',
+        'flow cannot be awaited to completion like native/canc; only the synchronous cancel work is timed.',
     );
     lines.push('');
   }
 
-  lines.push('#### Memory — retained heap per 1000 in-flight requests');
+  lines.push('#### Memory: retained heap per 1000 in-flight requests');
   lines.push('');
   lines.push('| Impl | MB / 1k in-flight |');
   lines.push('|------|------------------:|');
@@ -162,7 +162,7 @@ function renderBrowserLane(result) {
   lines.push('');
   lines.push(
     'Playwright, UMD dist bundles loaded in-page . Node-lane numbers above are NOT ' +
-      'directly comparable to these (different engines, different harness overhead) — browser lane ' +
+      'directly comparable to these (different engines, different harness overhead); browser lane ' +
       'exists to catch cross-engine regressions, not to be read against Node numbers.',
   );
   lines.push('');
@@ -171,7 +171,7 @@ function renderBrowserLane(result) {
   for (const b of result.browsers) {
     for (const task of b.tasks) {
       const ops = task.opsPerSec != null ? Math.round(task.opsPerSec) : 'n/a';
-      const margin = task.marginPct != null ? `±${num(task.marginPct, 2)}%` : 'n/a';
+      const margin = task.marginPct != null ? `+/-${num(task.marginPct, 2)}%` : 'n/a';
       lines.push(
         `| ${b.browser} ${b.version} | ${task.suite} | ${task.name} | ${ops} | ${margin} | ${num(task.meanMs, 4)} | ${task.samples} |`,
       );
@@ -186,7 +186,7 @@ function renderSuiteFile(fileName, result) {
   if (Array.isArray(result.allocation)) return renderAllocSuite(result);
   if (result.results && result.params) return renderMacroSuite(result);
   if (Array.isArray(result.tasks)) return renderTinybenchSuite(result);
-  return `### ${result.suite || fileName}\n\n(unrecognized result shape — see raw JSON in benchmarks/results/${fileName})\n`;
+  return `### ${result.suite || fileName}\n\n(unrecognized result shape, see raw JSON in benchmarks/results/${fileName})\n`;
 }
 
 // summary table for README embed
@@ -205,15 +205,15 @@ function buildSummaryTable(resultsByFile) {
     if (native && canc && bb) {
       lines.push(
         `| micro: then-chain depth 10 | native ${Math.round(native.opsPerSec).toLocaleString('en-US')} ops/s ` +
-          `· canc ${Math.round(canc.opsPerSec).toLocaleString('en-US')} ops/s ` +
-          `· bluebird ${Math.round(bb.opsPerSec).toLocaleString('en-US')} ops/s |`,
+          `/ canc ${Math.round(canc.opsPerSec).toLocaleString('en-US')} ops/s ` +
+          `/ bluebird ${Math.round(bb.opsPerSec).toLocaleString('en-US')} ops/s |`,
       );
     }
   }
 
   const alloc = resultsByFile['micro-alloc.json'];
   if (alloc) {
-    const rows = alloc.allocation.map((r) => `${r.name} ${r.heapDeltaPerPromise}B/promise`).join(' · ');
+    const rows = alloc.allocation.map((r) => `${r.name} ${r.heapDeltaPerPromise}B/promise`).join(' / ');
     lines.push(`| micro-alloc: 10k promises | ${rows} |`);
   }
 
@@ -225,7 +225,7 @@ function buildSummaryTable(resultsByFile) {
     const cancPct = (((canc - native) / native) * 100).toFixed(0);
     const bbPct = (((bb - native) / native) * 100).toFixed(0);
     lines.push(
-      `| macro: waterfall (5+3 requests, 30% canceled) | canc +${cancPct}% vs native · ` +
+      `| macro: waterfall (5+3 requests, 30% canceled) | canc +${cancPct}% vs native / ` +
         `bluebird +${bbPct}% vs native |`,
     );
   }
@@ -243,7 +243,7 @@ function buildSummaryTable(resultsByFile) {
 
 function main() {
   if (!fs.existsSync(RESULTS_DIR)) {
-    console.error('No results/ dir yet — run `npm run bench <suite>` first.');
+    console.error('No results/ dir yet: run `npm run bench <suite>` first.');
     process.exitCode = 1;
     return;
   }
@@ -254,7 +254,7 @@ function main() {
     .sort();
 
   if (files.length === 0) {
-    console.error('No result JSON files yet — run `npm run bench <suite>` first.');
+    console.error('No result JSON files yet: run `npm run bench <suite>` first.');
     process.exitCode = 1;
     return;
   }
@@ -272,7 +272,7 @@ function main() {
   const doc = [
     '# canc benchmarks',
     '',
-    '**Generated doc — do not hand-edit.** Regenerate with `npm run bench:report` after ' +
+    '**Generated doc: do not hand-edit.** Regenerate with `npm run bench:report` after ' +
       '(re)running suites; source data lives in `benchmarks/results/*.json`, generator is ' +
       '`benchmarks/generate-report.js`.',
     '',
@@ -280,7 +280,7 @@ function main() {
     '',
     '**Hardware / environment.** Each suite captures its own `env` block at run time: Node ' +
       'version, OS platform/arch, CPU model + logical core count, ISO timestamp. See the per-suite ' +
-      'headers below for the exact machine each number came from — numbers are NOT normalized ' +
+      'headers below for the exact machine each number came from. Numbers are NOT normalized ' +
       "across machines, so don't diff two results/*.json captured on different hardware and read " +
       'the delta as signal.',
     '',
@@ -291,28 +291,28 @@ function main() {
       'measures whole simulated flows (waterfalls, component lifecycles) rather than isolated ' +
       'hot-loop cases; it also samples `process.memoryUsage().heapUsed` with `--expose-gc` for ' +
       'per-1k-in-flight memory figures. The browser lane runs the same tinybench cases ' +
-      'inside real chromium/firefox/webkit pages via Playwright, loading the built UMD bundles — ' +
-      'not the Node-lane source — so it also catches build/bundling regressions.',
+      'inside real chromium/firefox/webkit pages via Playwright, loading the built UMD bundles ' +
+      '(not the Node-lane source) so it also catches build/bundling regressions.',
     '',
     '**Baselines.** Only **native `Promise`** and **bluebird** (`cancellation: true`) are ' +
-      'benchmarked as baselines — c-promise2/p-cancelable/alkemics were dropped from bench deps per ' +
-      'decision bluebird is not always a like-for-like comparison: a ' +
+      'benchmarked as baselines: c-promise2/p-cancelable/alkemics were dropped from bench deps per ' +
+      'decision. bluebird is not always a like-for-like comparison: a ' +
       'canceled bluebird promise never settles by design, so any flow that awaits a canceled chain ' +
       'to completion (e.g. the lifecycle macro) marks bluebird `lifecycleComparable: false` and its ' +
-      'number reflects only the synchronous cancel call, not equivalent work — see the footnote on ' +
+      'number reflects only the synchronous cancel call, not equivalent work; see the footnote on ' +
       'that table.',
     '',
     '**"Microbenchmarks lie" disclaimer.** Numbers here measure isolated hot loops (construct, ' +
-      'chain, fanout, all/race, cancel storm) run thousands to millions of times back-to-back — a ' +
+      'chain, fanout, all/race, cancel storm) run thousands to millions of times back-to-back, a ' +
       'regime real applications rarely hit. JIT warmup, inlining, and deopt behavior in a tight ' +
       'microbenchmark loop can differ substantially from a promise chain that runs once per user ' +
       'action alongside real I/O. Treat ops/sec columns as **relative** signal ("canc chain-10 is ' +
       'roughly Nx slower than native chain-10 on this machine, this Node version"), not as an ' +
       'absolute cost you can multiply into a production budget. The macro-realworld suite exists ' +
-      'specifically to counter this — it simulates whole request flows instead of isolated ops — but ' +
+      'specifically to counter this (it simulates whole request flows instead of isolated ops) but ' +
       'even that is a simulation (setImmediate-based mock fetch, no real network/timer jitter), not ' +
       'a real app. Margin-of-error columns matter: wide margins (commonly seen in the browser lane, ' +
-      'especially firefox/webkit under Playwright) mean the number is noisy, not necessarily wrong — ' +
+      'especially firefox/webkit under Playwright) mean the number is noisy, not necessarily wrong; ' +
       "don't over-read small deltas inside the margin.",
     '',
     '**Optimization pass.** Numbers below are post-optimization: per-instance memory layout, ' +
@@ -320,7 +320,7 @@ function main() {
       'tuned since the original baseline. Construction and memory footprint improved substantially; ' +
       'chain/combinator throughput improved but remains behind bluebird on some cases because closing ' +
       'the gap further would mean bypassing the native species-constructor machinery this library is ' +
-      'built on — a tradeoff not taken here. This doc reports numbers as measured, not as targets.',
+      'built on, a tradeoff not taken here. This doc reports numbers as measured, not as targets.',
     '',
     '## Summary (README embed)',
     '',
