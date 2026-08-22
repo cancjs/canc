@@ -25,7 +25,7 @@ export async function ragPipeline(ragApi: RagApi, chatApi: ChatApi, query: strin
   // rerank the merged hits
   const ranked = await rerank(query, hits);
 
-  // generate the answer from the top chunks — runs to the end even if nobody is listening anymore
+  // generate the answer from the top chunks: runs to the end even if nobody is listening anymore
   const context = ranked
     .slice(0, 3)
     .map((chunk) => chunk.text)

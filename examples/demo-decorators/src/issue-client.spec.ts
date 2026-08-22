@@ -37,7 +37,7 @@ describe('demo-decorators: every flavor runs the same scenario', () => {
 
     // Canceling clientA surfaced as a CancelError through ordinary try/catch.
     expect(result.clientACanceled).toBe(true);
-    // clientB's independent call resolved — the historical lateBindMethod cross-instance bug
+    // clientB's independent call resolved: the historical lateBindMethod cross-instance bug
     // would have canceled B's in-flight call too. This one assert guards that isolation.
     expect(result.clientBResolved).toBe(true);
 

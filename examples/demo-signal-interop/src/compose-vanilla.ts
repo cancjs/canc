@@ -37,7 +37,7 @@ export async function composeTimeoutAndSignalVanilla() {
   } catch (err: unknown) {
     if (err instanceof DOMException && err.name === 'AbortError') {
       console.log('[vanilla] timeout or user abort');
-      // keeps running after rejection — wasted work
+      // keeps running after rejection: wasted work
     } else {
       throw err;
     }

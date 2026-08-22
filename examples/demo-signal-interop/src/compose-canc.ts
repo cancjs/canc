@@ -27,12 +27,12 @@ export async function composeTimeoutAndSignalCanc() {
   );
 
   try {
-    // Timeout fires first — promise rejects
+    // Timeout fires first: promise rejects
     const result = await promise;
     console.log('[canc] result:', result);
   } catch (err: unknown) {
     if (err instanceof DOMException && err.name === 'AbortError') {
-      // Canceled here — nothing below runs
+      // Canceled here: nothing below runs
       console.log('[canc] timeout or user abort');
     } else {
       throw err;
@@ -61,7 +61,7 @@ export async function composeMultipleSignalsCanc() {
     console.log('[canc] result:', result);
   } catch (err: unknown) {
     if (err instanceof DOMException && err.name === 'AbortError') {
-      // Canceled here — nothing below runs
+      // Canceled here: nothing below runs
       console.log('[canc] one of the signals aborted');
     } else {
       throw err;

@@ -1,5 +1,5 @@
 // Pinia checkout store, plain promises. A step's call cannot be interrupted, so every action
-// stamps a request-id and every .then checks it is still current before writing state -- the
+// stamps a request-id and every .then checks it is still current before writing state, the
 // standard workaround for a wizard where the user can navigate away mid-request.
 
 import { defineStore } from 'pinia';
@@ -29,7 +29,7 @@ export const useCheckoutStore = defineStore('checkout-vanilla', {
 
   actions: {
     validateAddress(line1: string, city: string) {
-      // stale guard #1 -- a second validate call (or leaving the step) just bumps the id; the
+      // stale guard #1: a second validate call (or leaving the step) just bumps the id; the
       // first request still completes on the wire, only its state write is skipped
       const id = ++this.addressReqId;
       this.addressStatus = 'loading';
@@ -43,7 +43,7 @@ export const useCheckoutStore = defineStore('checkout-vanilla', {
 
     quoteShipping() {
       if (!this.address) return;
-      // stale guard #2 -- re-quoting (or navigating away) just bumps the id
+      // stale guard #2: re-quoting (or navigating away) just bumps the id
       const id = ++this.shippingReqId;
       this.shippingStatus = 'loading';
 
@@ -56,7 +56,7 @@ export const useCheckoutStore = defineStore('checkout-vanilla', {
 
     async prepareReview() {
       if (!this.address || !this.shipping) return;
-      // stale guard #3 -- the recap+confirm sequence below cannot be interrupted partway
+      // stale guard #3: the recap+confirm sequence below cannot be interrupted partway
       const id = ++this.reviewReqId;
       this.reviewStatus = 'loading';
       const addressId = this.address.addressId;
@@ -70,7 +70,7 @@ export const useCheckoutStore = defineStore('checkout-vanilla', {
       this.reviewStatus = 'done';
     },
 
-    // stale guard #4 -- goToStep cannot stop whatever the abandoned step still had in flight; it
+    // stale guard #4: goToStep cannot stop whatever the abandoned step still had in flight; it
     // just bumps the relevant request id so the eventual response is silently discarded
     goToStep(next: StepName) {
       const current = this.step;
@@ -80,7 +80,7 @@ export const useCheckoutStore = defineStore('checkout-vanilla', {
       this.step = next;
     },
 
-    // no rollback-in-cancel-handler counterpart -- plain promises have no cancel hook to rollback
+    // no rollback-in-cancel-handler counterpart: plain promises have no cancel hook to rollback
     // from, so an optimistic placeholder can only be corrected after the real response lands
     quoteShippingOptimistic() {
       if (!this.address) return;
@@ -96,7 +96,7 @@ export const useCheckoutStore = defineStore('checkout-vanilla', {
     },
 
     dispose() {
-      // no $onAction cleanup counterpart -- bumping the ids only silences future writes, it does
+      // no $onAction cleanup counterpart: bumping the ids only silences future writes, it does
       // not stop anything already in flight
       this.addressReqId++;
       this.shippingReqId++;

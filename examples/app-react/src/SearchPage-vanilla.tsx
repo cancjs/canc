@@ -4,7 +4,7 @@ import { FlightRow } from './FlightRow-vanilla';
 import type { FlightApi, FlightDestination } from './mock/api';
 
 // A plain search. There is no cancelable chain to hand back; the caller threads an AbortController
-// and a request id by hand instead (see the effect below) — the bloat this example is about.
+// and a request id by hand instead (see the effect below), the bloat this example is about.
 function searchDestinations(api: FlightApi, query: string, signal: AbortSignal): Promise<FlightDestination[]> {
   return api.searchDestinations(query, signal);
 }

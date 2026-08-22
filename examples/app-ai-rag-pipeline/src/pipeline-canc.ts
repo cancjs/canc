@@ -30,7 +30,7 @@ export function ragPipeline(ragApi: RagApi, chatApi: ChatApi, query: string) {
     let cost = 0;
     let done = false;
     try {
-      // embed the query — canceled here, nothing below runs
+      // embed the query: if canceled here, nothing below runs
       const embedding = embedQuery(query);
       yield* canc.await(embedding);
       cost += 1;
@@ -43,7 +43,7 @@ export function ragPipeline(ragApi: RagApi, chatApi: ChatApi, query: string) {
       const hits = mergeHits(legResultsArr);
       cost += 2;
 
-      // rerank the merged hits — canceled here, generate never starts
+      // rerank the merged hits: if canceled here, generate never starts
       const ranked: RankedChunk[] = yield* canc.await(rerankHits(query, hits));
       cost += 1;
 

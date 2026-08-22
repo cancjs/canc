@@ -39,7 +39,7 @@ export async function promiseToSignalVanilla() {
       return result;
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
-        // SDK aborted — listener never fires
+        // SDK aborted: listener never fires
         throw err;
       }
       throw err;

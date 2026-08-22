@@ -41,19 +41,19 @@ export const filterAndFormat = canc.async(function* (log?: (msg: string) => void
  * Three terminate forms: wrapper (from().pipe()), free (pipe()), standalone (op()(pipe())).
  */
 export const threeConsumers = canc.async(function* (log?: (msg: string) => void) {
-  // Form 1 — wrapper: from(source).pipe(terminal)
+  // Form 1 (wrapper): from(source).pipe(terminal)
   const found = yield* canc.await(
     asyncIter.from(transactionStream(log)).pipe(asyncIter.find((tx: Transaction) => tx.amount > 150)),
   );
   log?.(`find result: ${found?.id}`);
 
-  // Form 2 — free: pipe(source, operators..., terminal)
+  // Form 2 (free): pipe(source, operators..., terminal)
   const total = yield* canc.await(
     asyncIter.pipe(transactionStream(log), asyncIter.map(getAmount), asyncIter.reduce(sumAmounts, 0)),
   );
   log?.(`reduce total: ${total}`);
 
-  // Form 3 — standalone: terminal(pred)(pipe(source))
+  // Form 3 (standalone): terminal(pred)(pipe(source))
   const hasPending = yield* canc.await(
     asyncIter.some((tx: Transaction) => tx.status === 'pending')(asyncIter.pipe(transactionStream(log))),
   );

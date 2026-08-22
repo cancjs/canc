@@ -1,7 +1,7 @@
 // Per-example scaffolding: a checkout backend on top of the shared MockApi. Pretend this is your
 // real address-validation, shipping-rate, and payment-review services. Every call runs through
 // MockApi.respond, so it honors an AbortSignal and shows up in mockApi.api.calls with
-// started/completed/aborted markers. Black box for the reader -- the teaching payload lives in
+// started/completed/aborted markers. Black box for the reader: the teaching payload lives in
 // src/stores/checkout-*.ts.
 
 import { type AbortSignalLike, createMockApi } from '@shared/mock-api';

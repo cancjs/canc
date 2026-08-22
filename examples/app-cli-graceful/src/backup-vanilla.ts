@@ -18,7 +18,7 @@ export async function runBackup(api: SiteApi, manifest: Manifest, isAborted: () 
     while (nextIndex < urls.length) {
       // checked before starting the next url, but a url already in flight below is not stoppable
       if (isAborted()) {
-        // remaining urls never started -- marked queued in the partial manifest
+        // remaining urls never started, marked queued in the partial manifest
         while (nextIndex < urls.length) {
           manifest.entries.push({ url: urls[nextIndex++], status: 'queued' });
         }
@@ -27,7 +27,7 @@ export async function runBackup(api: SiteApi, manifest: Manifest, isAborted: () 
       const url = urls[nextIndex++];
       try {
         await api.download(url);
-        // keeps running after the user asked to stop -- wasted work if isAborted flipped mid-await
+        // keeps running after the user asked to stop, wasted work if isAborted flipped mid-await
         manifest.entries.push({ url, status: isAborted() ? 'aborted' : 'saved' });
       } catch {
         manifest.entries.push({ url, status: 'aborted' });

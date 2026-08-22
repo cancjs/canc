@@ -45,7 +45,7 @@ async function main(): Promise<void> {
   console.log('canc: backup starting');
   const backupTask = runBackup(api, manifest);
   try {
-    // canceled here -- the SIGINT handler above owns the write and exit once its own await of
+    // canceled here: the SIGINT handler above owns the write and exit once its own await of
     // backupTask.cancel() settles, so this rejection needs no handling beyond letting it fall through
     await backupTask;
   } catch (error) {

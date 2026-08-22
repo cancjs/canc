@@ -18,7 +18,7 @@ export const fetchFeedCanc = cancGen.async(function* () {
       yield item;
     }
 
-    // canceled here — the remaining pages are never fetched.
+    // when canceled here, the remaining pages are never fetched
     cursor = page.nextCursor;
   } while (cursor !== null);
 });

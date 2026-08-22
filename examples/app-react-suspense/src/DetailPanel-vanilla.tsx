@@ -2,7 +2,7 @@ import { type ReactNode, Suspense, use, useMemo } from 'react';
 
 import type { TravelApi } from './mock/api';
 
-// (no cancellation counterpart — see -canc) The request is a plain Promise. React.use suspends on
+// (no cancellation counterpart, see -canc) The request is a plain Promise. React.use suspends on
 // it, but a plain Promise has no cancel, so nothing here can stop it.
 function DetailReader({ api, id }: { api: TravelApi; id: string }): ReactNode {
   const detailsPromise = useMemo(() => api.destinationDetails(id), [api, id]);

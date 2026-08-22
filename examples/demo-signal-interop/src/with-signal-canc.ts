@@ -30,7 +30,7 @@ export async function withSignalWrapperCanc() {
     console.log('[canc] result:', result);
   } catch (err: unknown) {
     if (err instanceof DOMException && err.name === 'AbortError') {
-      // Canceled here — nothing below runs
+      // Canceled here: nothing below runs
       console.log('[canc] work aborted');
     } else {
       throw err;

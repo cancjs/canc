@@ -25,7 +25,7 @@ export const useLibraryStore = create<CancLibraryState>((set, get) => ({
   currentLoad: null,
 
   loadAlbum(albumId) {
-    // canceled here — switching albums cancels whatever load was still in flight, one line
+    // canceled here: switching albums cancels whatever load was still in flight, one line
     get().currentLoad?.cancel();
 
     set({ currentAlbumId: albumId, tracks: [], status: 'loading' });
@@ -38,7 +38,7 @@ export const useLibraryStore = create<CancLibraryState>((set, get) => ({
   },
 
   reset() {
-    // canceled here — unmount/reset cancels whatever load was still outstanding
+    // canceled here: unmount/reset cancels whatever load was still outstanding
     get().currentLoad?.cancel();
     set({ albums: [], currentAlbumId: null, tracks: [], status: 'idle', currentLoad: null });
   },

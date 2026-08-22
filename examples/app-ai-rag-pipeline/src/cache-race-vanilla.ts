@@ -2,7 +2,7 @@
 // pipeline. Whichever settles first is the answer.
 //
 // Promise.race resolves with the winner, but the loser keeps running. When the cache wins, the whole
-// pipeline below it still embeds, retrieves, reranks, and generates — the user already got the cached
+// pipeline below it still embeds, retrieves, reranks, and generates: the user already got the cached
 // answer, yet this work still runs and bills. The mirrored comment in cache-race-canc.ts shows the
 // pipeline being canceled at that same point.
 

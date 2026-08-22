@@ -22,7 +22,7 @@ export async function signalToPromiseCanc() {
   const controller = new AbortController();
   const signal = controller.signal;
 
-  // Signal fed as { signal } option — cancellation flows down
+  // Signal fed as { signal } option: cancellation flows down
   const promise = new CancelablePromise(
     (resolve, reject) => {
       mockFetch('https://api.example.com/data', signal).then(resolve, reject);
@@ -51,7 +51,7 @@ export async function signalArrayCanc() {
   const controller2 = new AbortController();
   const signals = [controller1.signal, controller2.signal];
 
-  // Array → first-wins, cleaner than manual race
+  // Array is first-wins, cleaner than manual race
   const promise = new CancelablePromise(
     (resolve, reject) => {
       mockFetch('https://api.example.com/data').then(resolve, reject);

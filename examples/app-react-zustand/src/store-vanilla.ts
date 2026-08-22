@@ -20,7 +20,7 @@ export const useLibraryStore = create<LibraryState>((set, _get) => {
       const id = ++latestId;
       set({ currentAlbumId: albumId, tracks: [], status: 'loading' });
 
-      // stale guard #1 — the request still completed on the wire, only the state write is skipped
+      // stale guard #1: the request still completed on the wire, only the state write is skipped
       mediaApi.tracks(albumId).then((tracks) => {
         if (id !== latestId) return;
         set({ tracks, status: 'loaded' });
@@ -28,7 +28,7 @@ export const useLibraryStore = create<LibraryState>((set, _get) => {
     },
 
     reset() {
-      // stale guard #2 — bumping latestId with nothing pending is a no-op; any load already in
+      // stale guard #2: bumping latestId with nothing pending is a no-op; any load already in
       // flight keeps running and its result is discarded when it lands (see guard #1 above)
       latestId++;
       set({ albums: [], currentAlbumId: null, tracks: [], status: 'idle' });

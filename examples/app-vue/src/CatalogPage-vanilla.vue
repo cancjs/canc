@@ -29,7 +29,7 @@ watch(
         loading.value = false;
       })
       .catch((error) => {
-        // the aborted request rejects here — swallow it by hand, or it is an unhandled rejection.
+        // the aborted request rejects here: swallow it by hand, or it is an unhandled rejection.
         if (error?.name !== 'AbortError') throw error;
       });
     // The cleanup runs before the next callback (and on unmount): abort the request and mark it stale.

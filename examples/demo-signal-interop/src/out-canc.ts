@@ -34,7 +34,7 @@ export async function promiseToSignalCanc() {
     mockSDK.start(toAbortSignal(promise)).then(resolve, reject);
   });
 
-  // Canceled here — nothing below runs
+  // Canceled here: nothing below runs
   try {
     await setTimeout(50);
     promise.cancel();

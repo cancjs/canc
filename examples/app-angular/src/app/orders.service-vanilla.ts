@@ -9,7 +9,7 @@ import { inject, Injectable } from '@angular/core';
 import { ORDERS_API } from './orders.api';
 import type { OrderDetail, OrdersServiceShape, OrderSummary } from './orders.types';
 
-// (no cancelable wrapper counterpart — see orders.service-canc.ts)
+// (no cancelable wrapper counterpart, see orders.service-canc.ts)
 
 @Injectable()
 export class OrdersService implements OrdersServiceShape {

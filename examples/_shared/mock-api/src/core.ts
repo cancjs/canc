@@ -105,7 +105,7 @@ export class MockApi {
     this.options.trace(`[mock-api] #${id} ${endpoint} started`);
 
     return new Promise<T>((resolve, reject) => {
-      // eslint-disable-next-line prefer-const -- assigned once the abort listener is attached
+      // eslint-disable-next-line prefer-const
       let detach: (() => void) | undefined;
 
       const settleAborted = () => {

@@ -17,7 +17,7 @@ async function main(): Promise<void> {
   console.log('canc: clicking #3, then #5 before the first search finishes');
   await clickTwoLines(clicks);
 
-  // Nothing left running in the background — the abandoned first search was canceled.
+  // Nothing left running in the background: the abandoned first search was canceled.
   await sleep(80);
 
   const completed = searchLog.filter((r) => r.status === 'completed');

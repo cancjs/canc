@@ -17,10 +17,10 @@ export function FlightRow({ api, destination }: { api: FlightApi; destination: F
   useEffect(() => {
     if (!hovering) return;
     prefetchDetails(api, destination.id).then((value) => {
-      // state update for a hover the user already left — the request completed anyway.
+      // state update for a hover the user already left: the request completed anyway.
       setDetails(value);
     });
-    // (no cancellation counterpart — the fetch keeps running after unhover/unmount)
+    // (no cancellation counterpart: the fetch keeps running after unhover/unmount)
   }, [hovering, api, destination.id]);
 
   return (

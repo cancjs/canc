@@ -19,7 +19,7 @@ export function createServer(): { app: Express; log: UsageLog } {
   // service keeps pulling paid tokens until the model finishes.
   app.post('/chat/leaky', async (req, res) => {
     const sink = { write: (token: string) => res.write(token) };
-    // nothing to abort — the request runs to completion no matter what the client does
+    // nothing to abort: the request runs to completion no matter what the client does
     await streamChat({ prompt: req.body.prompt }, sink, log);
     res.end();
   });

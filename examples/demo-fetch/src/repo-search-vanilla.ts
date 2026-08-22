@@ -18,7 +18,7 @@ async function searchRepos(query: string, fetch: any): Promise<Repo> {
 }
 
 // Workaround: manual AbortController signal plumbing. External signal combined
-// with local timeout — count the boilerplate.
+// with local timeout: count the boilerplate.
 async function searchReposWithExternal(query: string, fetch: any, signal?: AbortSignal): Promise<Repo> {
   const controller = new AbortController();
   let localAborted = false;

@@ -17,7 +17,7 @@ export function contextSearches(clicks: Subject<number>, log: SearchRecord[]): O
   return clicks.pipe(
     switchMap((lineSeq) => {
       // from(promise): switching away unsubscribes this Observable, but the promise it wraps keeps
-      // running — the previous search completes anyway (wasted work, stale result discarded).
+      // running: the previous search completes anyway (wasted work, stale result discarded).
       const search = searchContext(lineSeq, log);
       return from(search).pipe(mapWithSeq(lineSeq));
     }),

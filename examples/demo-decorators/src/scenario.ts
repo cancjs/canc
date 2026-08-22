@@ -44,7 +44,7 @@ export async function runScenario(clientA: IssueClientShape, clientB: IssueClien
     }
   }
 
-  // Client B's independent call still resolves — isolation holds.
+  // Client B's independent call still resolves: isolation holds.
   const issuesB = await searchB;
   const clientBResolved = issuesB.length > 0;
   log(`clientB: search resolved with ${issuesB.length} issue(s) — unaffected by A's cancel`);

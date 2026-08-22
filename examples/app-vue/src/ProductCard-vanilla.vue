@@ -15,14 +15,14 @@ onMounted(() => {
   props.api
     .productImage(props.product.id)
     .then((url) => {
-      // state update for a card that may already be unmounted — the request completed anyway.
+      // state update for a card that may already be unmounted: the request completed anyway.
       image.value = url;
       pending.value = false;
     })
     .catch(() => {
       pending.value = false;
     });
-  // (no cancellation counterpart — the prefetch keeps running after the card unmounts)
+  // (no cancellation counterpart: the prefetch keeps running after the card unmounts)
 });
 </script>
 

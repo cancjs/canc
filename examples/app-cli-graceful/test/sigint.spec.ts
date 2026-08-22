@@ -43,7 +43,7 @@ describe('app-cli-graceful SIGINT', () => {
 
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
     expect(manifest.partial).toBe(true);
-    // some urls never started -- queued markers prove the pool did not spin up new downloads
+    // some urls never started, and queued markers prove the pool did not spin up new downloads
     // after cancel
     expect(manifest.entries.some((e: { status: string }) => e.status === 'queued')).toBe(true);
   }, 10000);
