@@ -161,7 +161,7 @@ function renderBrowserLane(result) {
   lines.push('### browser-lane');
   lines.push('');
   lines.push(
-    'Playwright, UMD dist bundles loaded in-page . Node-lane numbers above are NOT ' +
+    'Playwright, UMD dist bundles loaded in-page. Node-lane numbers above are NOT ' +
       'directly comparable to these (different engines, different harness overhead); browser lane ' +
       'exists to catch cross-engine regressions, not to be read against Node numbers.',
   );
