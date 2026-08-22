@@ -21,11 +21,11 @@ const trace = () => ({
 });
 
 // rootDir has to cover packages/_util and packages/_toolbox (relative-imported shared internal
-// code, invariant 8 — inlined per package, not a real dependency) or TS throws TS6059. That
+// code, invariant 8: inlined per package, not a real dependency) or TS throws TS6059. That
 // widens declarationDir's mirrored output to dist/types/packages/<pkg>/src/* plus sibling
 // dist/types/packages/_util(/_toolbox)/*.d.ts. Some src files (e.g. canc-promise's helpers.ts,
 // canc-toolbox's index.ts) re-export shared-dir types, so those relative specifiers are load-
-// bearing, not implementation detail — dropping the shared dirs here used to leave a dangling
+// bearing, not implementation detail. Dropping the shared dirs here used to leave a dangling
 // `../../_util` import in the published .d.ts (confirmed via attw: InternalResolutionError).
 // Move the shared dirs to dist/types/<name> as siblings of the flattened src output instead of
 // deleting them, then rewrite the surviving relative specifiers to match the new flat depth.
@@ -80,7 +80,7 @@ const flattenDeclarations = () => ({
       // dependency package's own src (tsconfig `include` needs them in scope so `paths` aliases
       // type-check during declaration emit, e.g. canc-toolbox including "../canc-promise/src"),
       // never referenced by the emitted .d.ts (those import the real `@cancjs/*` package by bare
-      // specifier) — drop them same as before, don't ship them in the tarball.
+      // specifier). Drop them same as before, don't ship them in the tarball.
       for (const dirName of sharedDirNames) {
         const sharedDir = path.join(packagesDir, dirName);
 
@@ -97,11 +97,11 @@ const flattenDeclarations = () => ({
 // TS floor = 4.2. downlevel-dts rewrites the handful of newer d.ts syntax
 // forms it knows about (asserts predicates <3.7, template literal types <4.1,
 // paired get/set <3.6...) into a dist/types-ts4.2/ variant. It does NOT know
-// about `Awaited<T>` (lib-defined starting TS 4.5, per its own transform list —
+// about `Awaited<T>` (lib-defined starting TS 4.5, per its own transform list,
 // verified empty in node_modules/downlevel-dts/index.js) so a follow-up patch
 // script injects a local shadow type alias into any file still referencing the
-// bare name post-downlevel (scripts/patch-awaited.js — see comment there).
-// CLI (not the internal `main` export) — that's undocumented API, stick to the
+// bare name post-downlevel (scripts/patch-awaited.js; see comment there).
+// CLI (not the internal `main` export): that's undocumented API, stick to the
 // public contract.
 const TS_FLOOR = '4.2';
 const repoRoot = path.dirname(fileURLToPath(import.meta.url));
@@ -132,14 +132,14 @@ const downlevelTypes = () => ({
 // Every package's runtime is dual CJS/ESM (dist/*.cjs + dist/*.mjs) but declaration emit only
 // ever wrote plain .d.ts, one file serving both module systems via the same `exports["."].types`
 // condition. TypeScript treats a .d.ts file's module kind as CJS unless the nearest package.json
-// says "type": "module" — so the same file resolved from an ESM import site is misclassified
+// says "type": "module", so the same file resolved from an ESM import site is misclassified
 // (confirmed via attw: FalseCJS). Duplicate every emitted .d.ts to a sibling .d.mts (content is
 // already plain `import`/`export` syntax, valid unchanged as ESM declarations) so the "import"
 // exports condition can point at an unambiguous file while "require" keeps the original .d.ts.
 // Under --moduleResolution node16/nodenext, ESM relative specifiers must carry an explicit
 // extension (Node itself never guesses one for `import`, and never does directory/index
 // fallback either). Our .d.ts source has neither (plain `from './cancel-error'` or `from
-// './_util'` for a directory, emitted by tsc same as the .ts source wrote it) — fine for the
+// './_util'` for a directory, emitted by tsc same as the .ts source wrote it). Fine for the
 // CJS-resolved .d.ts twin, but breaks the ESM-resolved .d.mts twin (confirmed via attw: node16
 // from-ESM InternalResolutionError). Rewrite bare relative specifiers in the .d.mts copy only:
 // a specifier resolving to a file gets `.mjs` appended (TS's declaration extension substitution

@@ -9,7 +9,7 @@
 // `Awaited<...>` but doesn't declare it itself. A local declaration in a module
 // shadows the ambient/global lib one, so this is safe to also run against
 // variants targeting TS >=4.5 (harmless no-op there since Awaited already
-// resolves — script still adds a shadow, functionally identical to the lib type).
+// resolves; script still adds a shadow, functionally identical to the lib type).
 //
 // Usage: node scripts/patch-awaited.js <dir-of-d.ts-files>
 const fs = require('fs');

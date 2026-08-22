@@ -26,9 +26,9 @@ module.exports = {
 
   // An array of glob patterns indicating a set of files for which coverage information should be collected
   // NOTE: rootDir is per-package (packages/canc-*) both for standalone `jest` runs (npm test via
-  // lerna) and for root multi-project runs (each project's rootDir = its package dir) — glob must
+  // lerna) and for root multi-project runs (each project's rootDir = its package dir). Glob must
   // be relative to package rootDir, NOT prefixed with 'packages/*' (that never matches, coverage
-  // silently collected 0 files, threshold never enforced — fixed).
+  // silently collected 0 files, threshold never enforced; fixed).
   collectCoverageFrom: [
     'src/**/*.js',
     'src/**/*.jsx',
@@ -105,7 +105,7 @@ module.exports = {
 
   // A map from regular expressions to module names or to arrays of module names that allow to stub out resources with a single module
   // `<rootDir>` here is per-package (see rootDir note above, same hazard as
-  // collectCoverageFrom) — a package that imports a SIBLING @cancjs/* package by name (e.g.
+  // collectCoverageFrom). A package that imports a SIBLING @cancjs/* package by name (e.g.
   // canc-coroutine importing @cancjs/promise) resolved to `<own-pkg>/packages/canc-promise/src`,
   // which doesn't exist. Anchor to the monorepo root (this file's own directory, always the repo
   // root regardless of which package's rootDir jest is invoked with) instead of the `<rootDir>`
