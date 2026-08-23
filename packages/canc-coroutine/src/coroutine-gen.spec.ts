@@ -549,7 +549,7 @@ describe('cancGenAsync: cancellation', () => {
   });
 });
 
-// for-await + break (iterator.return path)
+// Loop break and iterator return path
 describe('cancGenAsync: for-await break', () => {
   it('break in for-await calls return() and runs finally', async () => {
     const log: string[] = [];
