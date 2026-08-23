@@ -355,6 +355,7 @@ describe('signal interop', () => {
 
     for (let i = 0; i < 20; i++) {
       const promise = cancelableFetch('/api', { signal: external });
+      // Settles without flushing because signal listener attaches synchronously.
       backing.resolveWith('ok');
       await promise;
     }
@@ -371,7 +372,7 @@ describe('signal interop', () => {
     });
 
     const promise = cancelableFetch('/api', { signal: external });
-    await flush();
+    // Settles without flushing because signal listener attaches synchronously.
     backing.rejectWith(new Error('network down'));
 
     try {
