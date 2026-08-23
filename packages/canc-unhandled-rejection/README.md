@@ -141,6 +141,7 @@ register({
 When using error tracking SDKs like Sentry, Datadog, or Bugsnag, register `@cancjs/unhandled-rejection` before initializing your SDK. For example, with Sentry:
 
 ```js
+import { isCancelError } from '@cancjs/promise';
 import { register } from '@cancjs/unhandled-rejection';
 import * as Sentry from '@sentry/node';
 
@@ -149,7 +150,7 @@ register();
 Sentry.init({
   dsn: 'https://example@sentry.io/123',
   beforeSend(event, hint) {
-    if (hint && hint.originalException && hint.originalException.name === 'CancelError') {
+    if (hint && isCancelError(hint.originalException)) {
       return null;
     }
     return event;
