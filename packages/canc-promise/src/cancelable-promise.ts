@@ -356,8 +356,8 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
     options?: ICancelablePromiseOptions,
   ): CancelablePromise<TAll[], FailureOf<TAll>> {
     // Deferred-construction pattern to work around referring to the promise from inside its own
-    // executor (todo: "new (noop) to withResolvers"): withResolvers() is the same
-    // `new this(noop, options)` internally, just named/shaped for this exact use.
+    // executor: withResolvers() is the same `new this(noop, options)` internally, just named/shaped
+    // for this exact use.
     const {
       promise: resultsPromise,
       resolve: resolveResults,
@@ -479,7 +479,7 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
     values: Iterable<T | PromiseLike<T>>,
     options?: ICancelablePromiseOptions,
   ): CancelablePromise<Awaited<T>, AggregateError> {
-    // Deferred-construction pattern (todo: "new (noop) to withResolvers"): see all() above.
+    // Deferred-construction pattern: see all() above.
     const {
       promise: resultPromise,
       resolve: resolveResult,
@@ -562,7 +562,7 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
     values: Iterable<T | PromiseLike<T>>,
     options?: ICancelablePromiseOptions,
   ): CancelablePromise<T, FailureOf<T>> {
-    // Deferred-construction pattern (todo: "new (noop) to withResolvers"): see all() above.
+    // Deferred-construction pattern: see all() above.
     const { promise: resultPromise, resolve: resolveResult, reject: rejectResult } = this.withResolvers<T>(options);
 
     // Options are identical for every item, so normalize once instead of per iteration.
