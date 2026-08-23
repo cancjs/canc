@@ -9,19 +9,9 @@
 // demo skips the -vanilla suffix pair and uses this manual flavor as the baseline instead.
 
 import * as canc from '@cancjs/coroutine';
-import CancelablePromise from '@cancjs/promise';
 
 import type { CommentAck, Issue, IssueClientShape, IssuesApi } from '../issue-types.js';
-
-// Wrap a signal-aware mock-api call as a CancelablePromise so a coroutine cancel() aborts the
-// underlying request. Shared by all flavors via copy (kept inline to preserve twin alignment).
-function abortable<T>(run: (signal: AbortSignal) => Promise<T>): CancelablePromise<T> {
-  return new CancelablePromise<T>((resolve, reject, { handleCancel }) => {
-    const controller = new AbortController();
-    handleCancel(() => controller.abort());
-    run(controller.signal).then(resolve, reject);
-  });
-}
+import { listIssues } from '../util/api-wrapper.js';
 
 export class IssueClient implements IssueClientShape {
   constructor(private readonly issuesApi: IssuesApi) {
@@ -39,12 +29,12 @@ export class IssueClient implements IssueClientShape {
   saveComment!: (id: number, comment: string) => Promise<CommentAck>;
 
   private *searchIssuesGen(query: string): Generator<unknown, Issue[]> {
-    const issues = yield* canc.await(abortable((signal) => this.issuesApi.list(signal)));
+    const issues = yield* canc.await(listIssues(this.issuesApi));
     return issues.filter((issue) => issue.title.toLowerCase().includes(query.toLowerCase()));
   }
 
   private *loadIssueGen(id: number): Generator<unknown, Issue> {
-    const issues = yield* canc.await(abortable((signal) => this.issuesApi.list(signal)));
+    const issues = yield* canc.await(listIssues(this.issuesApi));
     const found = issues.find((issue) => issue.id === id);
     if (!found) throw new Error(`no issue ${id}`);
     return found;
