@@ -11,8 +11,8 @@ import {
 import { resolveTimers, startTimer, stopTimer, TTimersOverride } from '../../_toolbox/timers';
 import { isAbortError, isFunction } from '../../_util';
 
-// Minimal structural stand-ins so the source stays buildable in environments without DOM/Node fetch
-// lib types. The real shapes come from whatever globals or config the caller supplies at runtime.
+// Minimal structural stand-ins so the source stays buildable in environments without
+// DOM/Node fetch lib types
 type AbortControllerCtor = new () => { abort: (reason?: any) => void; signal: any };
 type Fetch = (input: any, init?: any) => Promise<any>;
 
@@ -21,8 +21,8 @@ declare const AbortController: AbortControllerCtor;
 
 export interface ICancelableFetchConfig {
   fetch?: Fetch;
-  // A caller can inject an AbortController implementation. Environments with a faulty or missing
-  // AbortController polyfill (some SSR/legacy runtimes) let the caller supply a working one here,
+  // Callers in environments with faulty or missing polyfills can supply a working
+  // AbortController here
   // which is the whole reason this stays a factory rather than a plain function.
   AbortController?: AbortControllerCtor;
 }
@@ -37,9 +37,8 @@ interface PolyfilledAbortSignal {
   removeEventListener?: (type: string, listener: (event: any) => void) => void;
 }
 
-// A missing config key falls back to the ambient global, read at call time (not at factory
-// creation) so importing the default entry never touches `fetch`/`AbortController` in an
-// environment that lacks them. Callers wanting eager binding pass the globals in explicitly.
+// Missing config keys fall back to ambient globals read at call time to avoid touching them
+// in environments lacking them
 const resolveDep = <T>(config: Record<string, any>, key: string, global: T): T =>
   key in config ? (config[key] as unknown as T) : global;
 
@@ -80,10 +79,8 @@ export const setupCancellation = (
   const inputSignal = (input as { signal?: unknown } | undefined)?.signal;
   const originalSignal = (initSignal || inputSignal) as PolyfilledAbortSignal | null | undefined;
 
-  // When the caller injects a custom AbortController, honor it (that injection is the factory's
-  // reason to exist). Otherwise reuse createCancelSignal, whose branded signal already aborts with
-  // a CancelError, so a spec-compliant fetch rejects with that error verbatim and no mapping is
-  // needed.
+  // Honor injected custom AbortController otherwise reuse createCancelSignal whose branded
+  // signal already aborts with CancelError
   const injected = 'AbortController' in config;
   let signal: any;
   let cancel: (reason?: any) => void;
@@ -107,18 +104,18 @@ export const setupCancellation = (
     }
   };
 
-  // Detaches whatever was wired onto the caller's long-lived signal, so a signal reused across
-  // many fetches does not accumulate listeners. Reassigned when a signal is present.
+  // Detaches from caller's long-lived signal so a signal reused across fetches does not
+  // accumulate listeners
   let detachSignal = () => {};
 
   if (originalSignal) {
     if (originalSignal.aborted) {
-      // Pre-aborted input: abort the signal immediately, before fetch runs. Forward the reason so
-      // a caller cancel signal cancels with its own CancelError verbatim.
+      // Forward pre-aborted input reason immediately so a caller cancel signal cancels with
+      // its own CancelError verbatim
       abort(originalSignal.reason);
     } else if (isFunction(originalSignal.addEventListener)) {
-      // Native signals (and modern polyfills) expose addEventListener; prefer it. It does not
-      // mutate the caller's object, and survives the caller reassigning onabort later.
+      // Prefer addEventListener on native signals as it does not mutate the caller's object
+      // and survives onabort reassignment
       const externalAbortListener = () => {
         abort(originalSignal.reason);
       };
@@ -128,8 +125,8 @@ export const setupCancellation = (
         detachSignal = () => originalSignal.removeEventListener!('abort', externalAbortListener);
       }
     } else if ('onabort' in originalSignal) {
-      // Legacy-polyfill fallback: no addEventListener, so chain onabort. Restore the original
-      // handler on settle so the signal is left in its original state.
+      // Legacy fallback chains onabort and restores the original handler on settle to
+      // leave signal in its original state
       const originalOnAbort = originalSignal.onabort;
 
       originalSignal.onabort = function (this: any, event: any) {
@@ -156,9 +153,8 @@ export const setupCancellation = (
     }
 
     if (isAbortError(reason)) {
-      // A fetch aborted through canc cancellation rejects with a CancelError whose cause is an
-      // AbortError, NOT with a bare AbortError. Cancellation is not a failure, so that path
-      // contributes nothing to the declared failure set.
+      // Cancellation rejects with a CancelError caused by AbortError rather than bare
+      // AbortError since cancellation is not a failure
       return new CancelError(reason.message, { cause: reason });
     }
 
@@ -202,14 +198,14 @@ export const cancelableFetchFactory = (config: ICancelableFetchConfig = {}) => {
 };
 
 // The fetchLater() API returns a FetchLaterResult synchronously (not a promise, no response body).
-// Its `activated` flag flips to true once the deferred request is actually sent. Local structural
-// stand-in so a future built-in FetchLaterResult stays assignable with no name clash.
+// Local structural stand-in so a future built-in FetchLaterResult stays assignable with
+// no name clash
 export interface IFetchLaterResultLike {
   readonly activated: boolean;
 }
 
-// Structural stand-in for the deferred-request init. `activateAfter` (ms) sets a send timeout;
-// absent means the browser sends at page-visit end. Everything else mirrors a normal fetch init.
+// Structural stand-in for deferred-request init mirroring a normal fetch init with an
+// added activateAfter timeout
 export type TDeferredRequestInit = Record<string, any> & { activateAfter?: number };
 
 type FetchLater = (input: any, init?: TDeferredRequestInit) => IFetchLaterResultLike;
@@ -221,23 +217,20 @@ declare const fetchLater: FetchLater;
 export type ICancelableFetchLaterConfig = ICancelableFetchConfig &
   TTimersOverride & {
     fetchLater?: FetchLater;
-    // Interval, in milliseconds, at which the FetchLaterResult `activated` flag is polled when
-    // `activateAfter` is set. Defaults to 500.
+    // Poll interval in milliseconds for the FetchLaterResult activated flag when
+    // activateAfter is set
     pollInterval?: number;
   };
 
-// A CancelablePromise merged with the live FetchLaterResult. Resolves to the IFetchLaterResultLike
-// (never a Response, none is exposed). `.activated` reads the live result, or null before the
-// underlying fetchLater() has been called (only possible for the lazy variant before it starts).
+// CancelablePromise merged with live FetchLaterResult resolving to IFetchLaterResultLike
 export type TCancelableFetchLaterPromise = CancelablePromise<IFetchLaterResultLike, TCancelableFetchFailure> & {
   readonly activated: boolean | null;
 };
 
 const DEFAULT_POLL_INTERVAL = 500;
 
-// Attach a live `.activated` getter that reads the current FetchLaterResult through `getResult`,
-// returning null before the result exists. Defined non-enumerable so it does not interfere with
-// promise internals.
+// Attach a live `.activated` getter defined non-enumerable so it does not interfere with
+// promise internals
 export const attachActivated = (
   promise: CancelablePromise<IFetchLaterResultLike, TCancelableFetchFailure>,
   getResult: () => IFetchLaterResultLike | null,
@@ -254,10 +247,8 @@ export const attachActivated = (
   return promise as TCancelableFetchLaterPromise;
 };
 
-// The shared fetchLater run: call the underlying fetchLater() (mapping a sync throw to a reject),
-// then either poll `activated` (when activateAfter is set) or stay pending until cancel. `setResult`
-// stores the live FetchLaterResult so `.activated` can read it. Returns nothing; drives the promise
-// through the passed resolve/reject.
+// The shared fetchLater run sets the live FetchLaterResult so `.activated` can read it
+// and drives the promise
 export const runFetchLater = (
   config: ICancelableFetchLaterConfig,
   input: any,
@@ -296,9 +287,8 @@ export const runFetchLater = (
   const activateAfter = init?.activateAfter;
 
   if (typeof activateAfter !== 'number') {
-    // No activateAfter: the real send happens at page-end and is unobservable, so the promise
-    // stays pending until cancel. Cancel aborts the deferred send through the shared cancellation
-    // wiring (setupCancellation already registered the abort on cancel).
+    // Without activateAfter the real send happens at page-end so the promise stays pending
+    // until cancel
     return;
   }
 

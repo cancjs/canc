@@ -54,9 +54,8 @@ class MockAbortSignal {
   }
 }
 
-// Native-like signal: `onabort` is a prototype accessor (so `'onabort' in signal` is always true,
-// as on a real AbortSignal) backed by a private field, plus real add/removeEventListener. Lets the
-// tests assert the factory takes the addEventListener path and never overwrites onabort.
+// Native-like signal backed by private field with real add/removeEventListener so tests can
+// assert the factory takes the addEventListener path
 class NativeLikeAbortSignal {
   aborted = false;
   reason: any = undefined;
@@ -427,9 +426,8 @@ describe('signal interop', () => {
   });
 });
 
-// Deferred fetch honoring a REAL (native) AbortSignal: rejects with the signal's `reason` on abort,
-// exactly as a spec-compliant fetch does. Used to exercise the createCancelSignal reuse path (no
-// injected AbortController), where the signal already aborts with a CancelError.
+// Deferred fetch honoring a REAL AbortSignal to exercise the createCancelSignal reuse path
+// where the signal already aborts with a CancelError
 function nativeSignalFetch() {
   const calls: Array<{ input: any; init: any; signal: any }> = [];
   let settle: { resolve: (v: any) => void; reject: (e: any) => void } | null = null;
