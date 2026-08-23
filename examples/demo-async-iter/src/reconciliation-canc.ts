@@ -1,12 +1,16 @@
 // Cancelable async iteration: pipe operators, cancel forwards return() to the source.
 // Compare side-by-side with reconciliation-vanilla.ts to see the difference.
 
+// --- setup
+
 import * as canc from '@cancjs/coroutine';
 import * as asyncIter from '@cancjs/toolbox/async-iter';
 import { sleep } from '@shared/util';
 
 import { archivedStream, Transaction, transactionStream } from './mock/transactions';
 import { formatTx, getAmount, isPositive, sumAmounts } from './reconciliation-shared';
+
+// --- compose
 
 // scenario 1: filter and map
 
@@ -33,6 +37,8 @@ export const filterAndFormat = canc.async(function* (log?: (msg: string) => void
   );
   return result;
 });
+
+// --- consume
 
 // scenario 2: three ways to consume
 

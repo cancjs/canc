@@ -1,8 +1,12 @@
 // Vanilla async iteration: plain for-await loops, no cancellation support.
 // Compare side-by-side with reconciliation-canc.ts to see the difference.
 
+// --- setup
+
 import { archivedStream, Transaction, transactionStream } from './mock/transactions';
 import { formatTx, getAmount, isPositive, sumAmounts } from './reconciliation-shared';
+
+// --- compose
 
 // scenario 1: filter and map
 
@@ -20,6 +24,8 @@ export async function filterAndFormat(log?: (msg: string) => void): Promise<stri
   }
   return result;
 }
+
+// --- consume
 
 // scenario 2: three ways to consume
 
@@ -88,5 +94,7 @@ export async function streamWithBreak(
   }
 }
 
-// (no cancellation counterpart: once a for-await loop is running, there is no way for an
-// external caller to stop the in-flight await or abort the source from outside the loop)
+// scenario 5 (bonus): helper pipeline with take
+// (no vanilla counterpart: take(n) operator requires stream composition and automatic
+// source closing, which cannot be modeled side-by-side with vanilla loops without
+// extensive boilerplate)
