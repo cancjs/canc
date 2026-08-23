@@ -1,4 +1,4 @@
-// Aux scaffolding: an in-memory invoicing database on TypeORM over better-sqlite3. Pretend this is
+// In-memory invoicing database on TypeORM over better-sqlite3: pretend this is
 // your real Postgres. It is here only so the API has customers to bill and a bulk-generation
 // endpoint slow enough that a client can disconnect partway through.
 //

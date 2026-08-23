@@ -1,5 +1,4 @@
-// Aux: mockingoose install and query log. Seed data and test instrumentation. Pretend this
-// is your database setup. Reader can treat this file as a black box.
+// Seed data and test instrumentation: pretend this is your database setup
 
 import mockingoose from 'mockingoose';
 

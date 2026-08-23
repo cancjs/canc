@@ -1,4 +1,4 @@
-// Aux code: a fake marketplace API for the example, built on the shared MockApi engine so a cancel
+// Fake marketplace API built on the shared MockApi engine so a cancel
 // really reaches a simulated network boundary (see the started/aborted markers in `api.calls`).
 // Pretend this is your backend. This is scaffolding, not a copy target.
 //

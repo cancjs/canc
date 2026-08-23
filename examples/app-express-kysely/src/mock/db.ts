@@ -1,4 +1,4 @@
-// Aux scaffolding: an in-memory e-commerce database, seeded once at boot. Pretend this is your
+// In-memory e-commerce database seeded once at boot. Pretend this is your
 // real Postgres. It is here only so the report endpoint has something slow and real to compute
 // while a client is (or is not) still connected.
 //

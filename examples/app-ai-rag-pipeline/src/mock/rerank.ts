@@ -1,4 +1,4 @@
-// Aux: pretend this is a cross-encoder rerank service. It scores each hit against the query and
+// Pretend this is a cross-encoder rerank service that scores each hit against the query
 // returns them best-first. The scoring is a trivial term-overlap count, but the point is only that
 // it is one more signal-aware network step in the pipeline, abortable like the rest.
 

@@ -1,4 +1,4 @@
-// Fake site to back up. Aux scaffolding only (not for copying). Pretend this is a real site
+// Fake site to back up (scaffolding only). Pretend this is a real site
 // crawl + asset fetch. Every call honors an AbortSignal and logs started/aborted markers so the
 // SIGINT spec can prove in-flight downloads were really aborted and queued ones never started.
 

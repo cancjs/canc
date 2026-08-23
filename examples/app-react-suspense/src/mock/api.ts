@@ -1,4 +1,4 @@
-// Aux code: a fake travel API for the example, built on the shared MockApi engine so cancellation
+// Fake travel API built on the shared MockApi engine so cancellation
 // reaches a simulated network boundary (started/aborted markers land in `api.calls`). Pretend this
 // is your backend. This is scaffolding, not a copy target.
 

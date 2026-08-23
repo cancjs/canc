@@ -1,4 +1,4 @@
-// Aux: the answer generator. Pretend this is your LLM. The default here is a keyless mock stream
+// Pretend this is the answer generator: the default here is a keyless mock stream
 // (mockApi.chat.stream) so the example runs with no API key and no network. It is signal-aware: an
 // abort mid-stream stops emitting tokens, and the mock records the aborted token as a call marker.
 //
