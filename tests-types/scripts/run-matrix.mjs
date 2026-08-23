@@ -344,7 +344,7 @@ function main() {
   }
 
   const failed = results.filter((r) => r.ok === false);
-  console.log(bold('\n──── matrix summary ────'));
+  console.log(bold('\n---- matrix summary ----'));
   for (const r of results) {
     const tag = r.ok ? green('PASS') : red('FAIL');
     console.log(` ${tag} ts-${r.id} (tsc ${r.tsc})`);
