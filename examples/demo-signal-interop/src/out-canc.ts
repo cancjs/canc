@@ -30,11 +30,9 @@ const mockSDK: MockSDKCall = {
 };
 
 export async function promiseToSignalCanc() {
-  const promise = new CancelablePromise<string>((resolve, reject) => {
-    queueMicrotask(() => {
-      mockSDK.start(toAbortSignal(promise)).then(resolve, reject);
-    });
-  });
+  const { promise, resolve, reject } = CancelablePromise.withResolvers<string>();
+  const signal = toAbortSignal(promise);
+  mockSDK.start(signal).then(resolve, reject);
 
   // Canceled here: nothing below runs
   try {
@@ -52,13 +50,10 @@ export async function promiseToSignalCanc() {
 }
 
 export async function signalFeedingMultipleAPIsCanc() {
-  const promise = new CancelablePromise<string[]>((resolve, reject) => {
-    queueMicrotask(() => {
-      const signal = toAbortSignal(promise);
-      // All APIs abort together when promise is canceled
-      Promise.all([mockSDK.start(signal), mockSDK.start(signal), mockSDK.start(signal)]).then(resolve, reject);
-    });
-  });
+  const { promise, resolve, reject } = CancelablePromise.withResolvers<string[]>();
+  const signal = toAbortSignal(promise);
+  // All APIs abort together when promise is canceled
+  Promise.all([mockSDK.start(signal), mockSDK.start(signal), mockSDK.start(signal)]).then(resolve, reject);
 
   try {
     await setTimeout(50);

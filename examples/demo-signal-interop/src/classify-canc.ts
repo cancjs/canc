@@ -29,8 +29,8 @@ export async function classifyAbortErrorCanc() {
   } catch (err: unknown) {
     // Inspect CancelError: .aborted + .cause
     if (isCancelError(err)) {
-      if ((err as any as CancelError).aborted) {
-        console.log('[canc] aborted — cause:', (err as any as CancelError).cause?.name);
+      if (err.aborted) {
+        console.log('[canc] aborted — cause:', (err.cause as Error | undefined)?.name);
       } else {
         console.log('[canc] canceled');
       }
