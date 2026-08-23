@@ -75,12 +75,7 @@ const readClock: () => number =
     () => performance.now()
   : () => Date.now();
 
-// The ambient timers are read at CALL time, not captured at module load. This is the opposite of
-// the native Promise capture in the core package, and it is deliberate: capturing here would pin
-// whatever `setTimeout` existed at import time, which breaks a consumer that installs fake timers
-// afterwards. A suite that wants the real clock passes `timers` instead. Do not turn these into
-// module-level constants. They are also read as bare identifiers rather than off a global object,
-// so the module works in a browser, in node and in a worker alike.
+// read ambient timers at call time so installed fake timers are respected
 function schedule(handler: () => void, ms: number, timers?: Partial<ITimers>): any {
   return timers?.setTimeout ? timers.setTimeout(handler, ms) : setTimeout(handler, ms);
 }

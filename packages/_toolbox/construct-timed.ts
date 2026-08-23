@@ -61,12 +61,7 @@ class ToolboxLazy<T> implements PromiseLike<T> {
     return inner;
   }
 
-  // No-op executor: the real work never runs, so whatever it would have scheduled (a timer, a
-  // retry attempt, a poll) never gets scheduled either. A cancelable `Impl` turns `.cancel()` on
-  // this inert instance into its OWN genuine cancel rejection (a branded CancelError for
-  // CancelablePromise) through its own machinery, so this module never has to know what that error
-  // type looks like. A non-cancelable `Impl` has no `cancel` to call, which is fine: `cancel()` on
-  // this class is already a no-op in that case (see below), so this path is never reached for one.
+  // inert executor lets cancelable Impl produce its own CancelError rejection
   private _canceledInert(): PromiseLike<T> {
     if (!this._canceledResult) {
       const inert = construct<T>(

@@ -180,10 +180,7 @@ function nameMatches(name: string, patterns: (string | RegExp)[]): boolean {
 export function promisifyAllFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IToolboxDeps<K>) {
   const promisify = promisifyFactory(deps);
 
-  // Per-source-fn cache of the wrapped promisified fn, so shared method refs are wrapped once.
-  // It lives in the factory closure rather than at module scope: the inlinable shared directory is
-  // bundled into every consuming package, so a module-level cache would be a different object per
-  // copy while claiming to be one.
+  // cache in factory closure avoids shared-dir split-brain across copies
   const wrappedCache = new WeakMap<TCallbackFn, (...args: any[]) => TPromiseOf<K, any, never>>();
 
   /**

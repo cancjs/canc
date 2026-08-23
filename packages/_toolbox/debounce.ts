@@ -4,6 +4,9 @@ import { isCancelableLike, isThenableLike } from './guards';
 import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
 import { resolveTimers, startTimer, stopTimer, TTimersOverride } from './timers';
 
+/**
+ * Options for `debounce`. The timer always runs immediately, so `lazy` is rejected at compile time.
+ */
 export type IDebounceOptions = TCallDeps & {
   leading?: boolean;
   trailing?: boolean;
@@ -13,6 +16,9 @@ export type IDebounceOptions = TCallDeps & {
   [key: string]: unknown;
 };
 
+/**
+ * Debounced wrapper function: callable like the original, plus `cancel`, `flush`, and `isPending`.
+ */
 export interface IDebounced<Args extends unknown[], R, K extends IPromiseKind = IPromiseLikeKind, F = never> {
   (...args: Args): TPromiseOf<K, R, F>;
   cancel(): void;
@@ -20,11 +26,20 @@ export interface IDebounced<Args extends unknown[], R, K extends IPromiseKind = 
   readonly isPending: boolean;
 }
 
+/**
+ * Dependency bag for `debounceFactory`, accepting the promise implementation and optional timer overrides.
+ */
 export type IDebounceDeps = TTimersOverride & {
   Impl: TPromiseCtor;
 };
 
+/**
+ * Bind `debounce` to one promise implementation following the dependency-injection recipe.
+ */
 export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IDebounceDeps) {
+  /**
+   * Debounce a function call by waiting for `ms` milliseconds of silence before invoking `fn`.
+   */
   return function debounce<Args extends unknown[], R, F = never>(
     fn: (...args: Args) => R | PromiseLike<R>,
     ms: number,
