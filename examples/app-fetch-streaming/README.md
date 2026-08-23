@@ -11,6 +11,18 @@ Demonstrates consuming a cursor-paginated activity feed using an async iterable 
 
 Cancellation stops the NEXT page fetch and aborts the currently in-flight one. Any items already received and yielded before the cancellation are kept and processed by the current consumer iteration, up to the point where the stream breaks.
 
+## Prerequisites
+
+The examples consume the built `dist` of each `@cancjs/*` package through a npm `file:`.
+Build the monorepo first, then install this workspace:
+
+```
+cd ../../ # monorepo root (canc)
+npm run build
+cd examples
+npm install
+```
+
 ## How to run
 
 ```bash

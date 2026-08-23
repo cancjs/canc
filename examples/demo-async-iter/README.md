@@ -31,6 +31,18 @@ Note: the `canc` files showcase a cancel-mid-pipeline scenario and a take-operat
 
 Shared helpers live in `reconciliation-shared.ts`. The mock data source is in `mock/transactions.ts`.
 
+## Prerequisites
+
+The examples consume the built `dist` of each `@cancjs/*` package through a npm `file:`.
+Build the monorepo first, then install this workspace:
+
+```
+cd ../../ # monorepo root (canc)
+npm run build
+cd examples
+npm install
+```
+
 ## Running
 
 ```bash

@@ -13,6 +13,18 @@ signal-based APIs and vice versa.
 | **Classification** (`CancelError`, `.aborted`, `.cause`) | Distinguish abort errors from normal failures |
 | **withSignal wrapper** | Reusable cancellation wrapper for any async work |
 
+## Prerequisites
+
+The examples consume the built `dist` of each `@cancjs/*` package through a npm `file:`.
+Build the monorepo first, then install this workspace:
+
+```
+cd ../../ # monorepo root (canc)
+npm run build
+cd examples
+npm install
+```
+
 ## Running both flavors
 
 ```bash
