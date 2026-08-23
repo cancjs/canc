@@ -100,10 +100,8 @@ export interface ICatchSuppressOptions extends ICancelablePromiseOptions {
 type TSubtractFlags<O> =
   (O extends { abort: true } ? AbortError : never) | (O extends { timeout: true } ? TimeoutError : never);
 
-/**
- * One code path for both the built-in pair below and the matcher factories in error-matchers.ts:
- * only the base predicate differs. Here it is the CancelError brand check.
- */
+// Shared logic implementation used by both catchCancel and suppressCancel
+// Uses matches: isCancelError brand check for the base filter
 const catchCancelImpl = makeCatch({ matches: isCancelError, isCancelError, flagsEnabled: true });
 const suppressCancelImpl = makeSuppress({ matches: isCancelError, isCancelError, flagsEnabled: true });
 

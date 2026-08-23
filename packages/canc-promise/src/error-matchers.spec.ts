@@ -7,10 +7,7 @@ function named(name: string): Error {
   return Object.assign(new Error('x'), { name });
 }
 
-/**
- * A second copy of @cancjs/promise produces CancelErrors that fail `instanceof` here but carry the
- * same registry brand. Built by hand on purpose: using the real class would not prove anything.
- */
+// Mocks a CancelError from another package copy that fails instanceof but carries same brand
 function foreignCopyCancelError(): object {
   const error = Object.create(null) as Record<PropertyKey, unknown>;
   error[Symbol.for('@cancjs/promise:CancelError')] = true;
@@ -58,10 +55,7 @@ describe('createSuppressError', () => {
     expect(() => suppress(named('OtherError'))).toThrow(Error);
   });
 
-  /**
-   * A function declaration has a `prototype`, unlike an arrow, so it is the case that could be
-   * mistaken for an error constructor. It is neither Error-ish nor branded, so it must not be.
-   */
+  // A function declaration has a prototype but is not branded so must not be treated as constructor
   it('treats a function-declaration predicate as a predicate, not a constructor', () => {
     function isRetryError(error: any): boolean {
       return !!error && error.name === 'RetryError';

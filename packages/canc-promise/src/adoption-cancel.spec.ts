@@ -297,11 +297,7 @@ describe('adoption cancel propagation', () => {
   });
 
   it('foreign thenable with a duck-typed cancel: adoption does not invoke it (brand-only gate)', async () => {
-    /**
-     * Not a CancelablePromise (no CANCEL_PROMISE_BRAND), so it must take the unchanged-behavior
-     * path even though it happens to expose a `.cancel` method (e.g. a LAZY promise or any other
-     * thenable-with-cancel). The adoption branch keys strictly on the brand, never duck-typing.
-     */
+    // Brand check gate: foreign thenable with cancel is ignored (adoption requires brand)
     let cancelCalled = false;
     const foreign: PromiseLike<number> & { cancel: () => void } = {
       then(onFulfilled) {

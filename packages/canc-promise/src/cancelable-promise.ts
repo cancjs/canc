@@ -211,15 +211,8 @@ const FLAG_BUBBLE = 4;
 const FLAG_STRICT = 8;
 const FLAG_SHIELD = 16;
 
-/**
- * Shared stand-in options for internal/species construction (`_then` -> native then -> ctor). The
- * resolve/reject wrappers only read `forceCancelable`; the derived promise's real flags are set by
- * the calling `then()` immediately after construction, so nothing else here
- * is observed. Reused (not
- * reallocated) on every derived-promise construction on the hot chain path.
- * Frozen so an accidental future mutation (e.g. assigning a signal on it) cannot poison every
- * derived promise that shares this single stand-in object.
- */
+// Shared options for internal species construction to avoid allocation
+// Only resolves forceCancelable before the caller sets the real flags
 const INTERNAL_CALL_OPTIONS = Object.freeze({ forceCancelable: true }) as ReturnType<
   (typeof CancelablePromise)['_getOptions']
 >;
@@ -1642,13 +1635,8 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
     // Calls CancelablePromise constructor internally
     try {
       This._pendingInternalCall = true;
-      /**
-       * `NativePromise.prototype.then` is declared to return a plain `Promise<TResult1 |
-       * TResult2>`: its type has no way to know that species construction (the constructor's
-       * `isInternalSpeciesConstructionWithoutOptions` fast path above) hands back a real CancelablePromise of this exact
-       * subclass at runtime. Boundary cast, verified by the constructor/species machinery, not
-       * by the type checker.
-       */
+      // Cast return from native prototype.then which returns a CancelablePromise at runtime
+      // via species construction but is typed as plain Promise by standard lib
       return NativePromise.prototype.then.call(this, onFulfilled, onRejected) as unknown as CancelablePromise<
         Awaited<TResult1 | TResult2>,
         FailureOf<TResult1> | FailureOf<TResult2> | ([TResult2] extends [never] ? TFailure : never)

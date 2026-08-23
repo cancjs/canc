@@ -17,17 +17,9 @@ import { CANCEL_ERROR_BRAND, CancelError } from './cancel-error';
 import { CANCEL_PROMISE_BRAND, CancelablePromise } from './cancelable-promise';
 import { CANCEL_SIGNAL_BRAND, createCancelSignal, isCancelError, isCancelSignal, isCancPromise } from './helpers';
 
-/**
- * This suite tests the BRAND SCHEME as a whole, not any one class's behavior (each class already
- * has its own unit tests). Every property here holds across all seven brands the scheme currently
- * carries: CancelError and CancelablePromise (canc-promise), CancelSignal (canc-promise, an
- * exception described below), AbortError/TimeoutError/AggregateError (shared, described in
- * _util/errors.ts), and BreakError (canc-coroutine).
- * BreakError is imported directly rather than
- * mirrored: canc-coroutine only appears in this package's devDependencies through the workspace,
- * never in canc-promise's own package.json, and jest resolves it straight to source via the
- * monorepo's module mapping, so no build-order edge is created.
- */
+// Tests the brand scheme as a whole across all seven brands: CancelError, CancelablePromise,
+// CancelSignal, AbortError, TimeoutError, AggregateError, and BreakError.
+// BreakError is imported directly since it only appears in devDependencies via monorepo mapping.
 
 interface IBrandKeyEntry {
   name: string;
@@ -235,10 +227,7 @@ describe('brand scheme: name fallback exists only where the platform produces th
     expect(isTimeoutError(signal.reason)).toBe(true);
   });
 
-  /**
-   * The negative half pins the rule: CancelError and BreakError have no platform-produced
-   * equivalent, so their guards stay brand-only. A name match alone must not pass.
-   */
+  // CancelError and BreakError have no native platform equivalent so guards stay brand-only
   it('isCancelError does not match a plain object named CancelError', () => {
     expect(isCancelError({ name: 'CancelError' })).toBe(false);
   });
