@@ -5,6 +5,8 @@ import { useCancelable } from './lib/use-cancelable';
 import { useCancelableEffect } from './lib/use-cancelable-effect';
 import type { FlightApi, FlightDestination } from './mock/api';
 
+const warmDetails = cancelify(({ getSignal }, api: FlightApi, id: string) => api.warmDetails(id, getSignal()));
+
 // One destination row. Hovering prefetches its details; unhovering (or unmounting) cancels that
 // prefetch so an abandoned hover never finishes its request.
 export function FlightRow({ api, destination }: { api: FlightApi; destination: FlightDestination }): ReactNode {
@@ -19,10 +21,7 @@ export function FlightRow({ api, destination }: { api: FlightApi; destination: F
   // Warm the cache as a side effect: fire-and-forget, nothing rendered from it. useCancelableEffect
   // earns its place here, where there is no settlement state to track, only a run to cancel on
   // unhover/unmount. Returning undefined for the not-hovering case is a no-op cleanup.
-  useCancelableEffect(
-    () => (hovering ? cancelify(({ getSignal }) => api.warmDetails(destination.id, getSignal()))() : undefined),
-    [hovering, api, destination.id],
-  );
+  useCancelableEffect(() => (hovering ? warmDetails(api, destination.id) : undefined), [hovering, api, destination.id]);
 
   return (
     <li

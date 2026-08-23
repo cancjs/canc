@@ -23,6 +23,8 @@ export function FlightRow({ api, destination }: { api: FlightApi; destination: F
     // (no cancellation counterpart: the fetch keeps running after unhover/unmount)
   }, [hovering, api, destination.id]);
 
+  // (no cache-warm counterpart: a plain fire-and-forget call has nothing worth guarding, see -canc)
+
   return (
     <li
       data-testid={`row-${destination.id}`}
