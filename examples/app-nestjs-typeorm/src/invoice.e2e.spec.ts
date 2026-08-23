@@ -33,16 +33,15 @@ async function countAfterDisconnect(dataSource: DataSource, port: number, target
   req.destroy();
 
   if (targetCount > 0) {
-    const start = Date.now();
-    while (Date.now() - start < 5000) {
+    while (true) {
       const count = await countInvoices(dataSource.manager);
       if (count === targetCount) {
         return count;
       }
-      await sleep(50);
+      await sleep(20);
     }
   } else {
-    await sleep(600);
+    await sleep(200);
   }
   return countInvoices(dataSource.manager);
 }
