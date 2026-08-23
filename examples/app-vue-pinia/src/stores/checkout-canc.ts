@@ -105,7 +105,7 @@ export const useCheckoutStore = defineStore('checkout-canc', {
         this.shippingStatus = 'done';
       });
       load.catch((err) => {
-        if (!isCancelError(err)) return;
+        if (!isCancelError(err)) throw err;
         // rollback: drop the optimistic placeholder so the UI does not show a fake quote
         this.shipping = null;
         this.shippingStatus = 'idle';
