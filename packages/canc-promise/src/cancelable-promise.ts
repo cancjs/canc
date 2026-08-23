@@ -213,8 +213,8 @@ const FLAG_SHIELD = 16;
 
 // Shared options for internal species construction to avoid allocation
 // Frozen to prevent future mutation from poisoning every derived promise
-const INTERNAL_CALL_OPTIONS = Object.freeze({ forceCancelable: true }) as ReturnType<
-  (typeof CancelablePromise)['_getOptions']
+const INTERNAL_CALL_OPTIONS = Object.freeze({ forceCancelable: true }) as Readonly<
+  ReturnType<(typeof CancelablePromise)['_getOptions']>
 >;
 
 // Extends PromiseConstructor, as defined in
