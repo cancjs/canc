@@ -838,7 +838,7 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
   // lazily allocated on first handleCancel() registration to keep common case lean
   protected _cancelHandlers?: TOnCancel[];
   // Listener management for abort signals: maps each signal to its registered listener
-  // function so we can remove it on settle. Lazily allocated only when a signal is wired
+  // function to allow removal on settle. Lazily allocated only when a signal is wired
   // (the common case has no signal, so both stay undefined).
   protected _abortSignals?: IAbortSignal[];
   protected _abortListeners?: Map<IAbortSignal, any>;

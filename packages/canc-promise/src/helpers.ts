@@ -61,7 +61,7 @@ export function createCancelSignal(reason?: any) {
     // The bound cancel mints a branded CancelError as the signal reason (unless it is already a
     // CancelError, which passes through). Aborting this signal therefore reads as a genuine
     // cancellation: spec-compliant consumers (e.g. fetch, which rejects with signal.reason)
-    // reject with our CancelError directly, and a {signal}-option promise cancels with that exact
+    // reject with the CancelError directly, and a {signal}-option promise cancels with that exact
     // error. Normalization mirrors cancel(): a string/undefined becomes the message, any other
     // object becomes the cause.
     cancel: (r: any = reason) =>

@@ -45,7 +45,7 @@ export type MatchedOf<M extends readonly TErrorMatcher[]> = MatchedError<M[numbe
  */
 export type SubtractedOf<M extends readonly TErrorMatcher[]> = SubtractedError<M[number]>;
 
-// Our error classes carry their identity as a Symbol.for entry on the prototype, and Symbol.keyFor
+// Error classes carry their identity as a Symbol.for entry on the prototype, and Symbol.keyFor
 // answers with a string only for registry symbols. Scanning for one is how a constructor is mapped
 // to the brand its instances answer to, without the class having to declare anything.
 function findRegistryBrand(prototype: object): symbol | undefined {

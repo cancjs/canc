@@ -107,13 +107,13 @@ export const setupCancellation = (
     }
   };
 
-  // Detaches whatever we wired onto the caller's long-lived signal, so a signal reused across
+  // Detaches whatever was wired onto the caller's long-lived signal, so a signal reused across
   // many fetches does not accumulate listeners. Reassigned when a signal is present.
   let detachSignal = () => {};
 
   if (originalSignal) {
     if (originalSignal.aborted) {
-      // Pre-aborted input: abort our signal immediately, before fetch runs. Forward the reason so
+      // Pre-aborted input: abort the signal immediately, before fetch runs. Forward the reason so
       // a caller cancel signal cancels with its own CancelError verbatim.
       abort(originalSignal.reason);
     } else if (isFunction(originalSignal.addEventListener)) {
@@ -129,7 +129,7 @@ export const setupCancellation = (
       }
     } else if ('onabort' in originalSignal) {
       // Legacy-polyfill fallback: no addEventListener, so chain onabort. Restore the original
-      // handler on settle so the signal is left as we found it.
+      // handler on settle so the signal is left in its original state.
       const originalOnAbort = originalSignal.onabort;
 
       originalSignal.onabort = function (this: any, event: any) {
@@ -150,7 +150,7 @@ export const setupCancellation = (
 
   const toRejection = (reason: any) => {
     if (isCancelSignal(signal) && signal.aborted) {
-      // Our own cancel signal already aborts with a CancelError; a spec-compliant fetch rejects
+      // The cancel signal already aborts with a CancelError; a spec-compliant fetch rejects
       // with that exact error, so pass it through verbatim.
       return reason;
     }

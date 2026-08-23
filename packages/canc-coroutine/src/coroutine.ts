@@ -231,7 +231,7 @@ export function cancAsync<
       let executing = false;
       let canceledReason: any = undefined;
       // Track when cancel() was called so ordinary steps can check. The handleCancel hook runs
-      // post-settlement, so we track it independently to mark the generator as canceled early.
+      // post-settlement, tracked independently to mark the generator as canceled early.
       let canceled = false;
       // Set when the cancel came through the disposal path (Symbol.dispose / Symbol.asyncDispose):
       // the drain's terminal CancelError is marked `disposed` for parity with core _dispose.
@@ -410,9 +410,9 @@ export function cancAsync<
       };
 
       // Cancel-triggered finally drain. Calls gen.return(reason) to run the generator's finally
-      // blocks. If a finally block itself yields, gen.return()/gen.next() report {done:false} and we
-      // await the yielded value as a SHIELDED step (uncancelable cleanup), feeding the result back in
-      // until the generator reports done. When the finally finishes, we settle the coroutine promise
+      // blocks. If a finally block itself yields, gen.return()/gen.next() report {done:false} and
+      // the yielded value is awaited as a SHIELDED step (uncancelable cleanup), feeding the result back in
+      // until the generator reports done. When the finally finishes, the coroutine promise settles
       // as canceled (or with the finally's thrown error if cleanup fails). Re-entrancy-guarded.
       const drainFinally = () => {
         if (draining || genDone) {
