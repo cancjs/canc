@@ -101,7 +101,7 @@ type TSubtractFlags<O> =
   (O extends { abort: true } ? AbortError : never) | (O extends { timeout: true } ? TimeoutError : never);
 
 // Shared logic implementation used by both catchCancel and suppressCancel
-// Uses matches: isCancelError brand check for the base filter
+// Shared with matcher factories in error-matchers.ts (only predicate differs)
 const catchCancelImpl = makeCatch({ matches: isCancelError, isCancelError, flagsEnabled: true });
 const suppressCancelImpl = makeSuppress({ matches: isCancelError, isCancelError, flagsEnabled: true });
 

@@ -212,7 +212,7 @@ const FLAG_STRICT = 8;
 const FLAG_SHIELD = 16;
 
 // Shared options for internal species construction to avoid allocation
-// Only resolves forceCancelable before the caller sets the real flags
+// Frozen to prevent future mutation from poisoning every derived promise
 const INTERNAL_CALL_OPTIONS = Object.freeze({ forceCancelable: true }) as ReturnType<
   (typeof CancelablePromise)['_getOptions']
 >;
