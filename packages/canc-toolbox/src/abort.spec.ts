@@ -76,7 +76,9 @@ describe('timeout with an external signal: deadline and signal in one call', () 
   });
 
   it('the deadline wins when no external signal aborts', async () => {
+    jest.useFakeTimers();
     const promise = timeout(new Promise(() => {}), 5);
+    jest.advanceTimersByTime(5);
     await expect(promise).rejects.toBeDefined();
   });
 

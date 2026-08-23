@@ -355,7 +355,6 @@ describe('signal interop', () => {
 
     for (let i = 0; i < 20; i++) {
       const promise = cancelableFetch('/api', { signal: external });
-      await flush();
       backing.resolveWith('ok');
       await promise;
     }
