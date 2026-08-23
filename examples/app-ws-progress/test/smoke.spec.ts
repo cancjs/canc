@@ -19,10 +19,11 @@ function driveOne(port: number, cancelAt30: CancelAt30, settleMs: number, api: M
 
     const report = async () => {
       if (settleMs >= 1000) {
-        const start = Date.now();
-        while (api.calls.length < 100 && Date.now() - start < 5000) {
-          await sleep(50);
+        while (api.calls.filter((c) => c.status === 'completed').length < 100) {
+          await sleep(10);
         }
+      } else {
+        await sleep(settleMs);
       }
       resolve({
         started: api.calls.length,
@@ -39,7 +40,7 @@ function driveOne(port: number, cancelAt30: CancelAt30, settleMs: number, api: M
       if (message.type === 'progress' && message.percent >= 30 && !canceled) {
         canceled = true;
         cancelAt30(ws, jobId);
-        void sleep(settleMs).then(report);
+        void report();
       }
     });
   });
