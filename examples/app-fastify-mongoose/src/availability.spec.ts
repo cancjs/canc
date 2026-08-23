@@ -119,9 +119,34 @@ describe('app-fastify-mongoose availability search', () => {
     const port = await portOf(app);
 
     await requestThenDisconnect(port, () => scannedBookings() >= SCAN_PROGRESS_BEFORE_DISCONNECT);
-    await sleep(SETTLE_MS);
+    const start = Date.now();
+    while (scannedBookings() < BOOKING_COUNT && Date.now() - start < 3000) {
+      await sleep(10);
+    }
 
     expect(issuedQueries()).toContain('scanBookings');
     expect(scannedBookings()).toBe(BOOKING_COUNT);
+  });
+
+  it('completes the full POST request with body parser when client stays connected', async () => {
+    app = Fastify();
+    app.post(
+      '/test-post',
+      cancAsyncRoute(function* (request, reply) {
+        const result = yield* canc.await(Promise.resolve({ received: request.body }));
+        reply.send(result);
+      }),
+    );
+
+    const port = await portOf(app);
+    const response = await fetch(`http://127.0.0.1:${port}/test-post`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ foo: 'bar' }),
+    });
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body).toEqual({ received: { foo: 'bar' } });
   });
 });

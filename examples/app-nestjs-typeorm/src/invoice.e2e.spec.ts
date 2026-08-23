@@ -92,4 +92,17 @@ describe('bulk invoice generation cancellation on client disconnect', () => {
     await app.close();
     await dataSource.destroy();
   });
+
+  it('completes the full POST bulk transaction when client stays connected with a body', async () => {
+    const { app, dataSource } = await boot(CancModule);
+
+    const response = await request(app.getHttpServer()).post('/invoices/bulk').send({ dummy: 'payload' }).expect(201);
+
+    expect(response.body.generated).toBe(SEED_CUSTOMER_COUNT);
+    const after = await countInvoices(dataSource.manager);
+    expect(after).toBe(SEED_CUSTOMER_COUNT);
+
+    await app.close();
+    await dataSource.destroy();
+  });
 });

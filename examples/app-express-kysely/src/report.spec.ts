@@ -7,7 +7,7 @@ Object.defineProperties(globalThis, {
 import http from 'node:http';
 
 import { sleep } from '@shared/util';
-import type { Express } from 'express';
+import express, { type Express } from 'express';
 import request from 'supertest';
 
 jest.mock('@electric-sql/pglite', () => {
@@ -142,6 +142,40 @@ describe('orders report cancellation on client disconnect', () => {
     expect(response.status).toBe(200);
     expect(response.body.length).toBeGreaterThan(0);
 
+    await rdb.close();
+  });
+
+  it('completes the full POST request with body parser when client stays connected', async () => {
+    const { app, rdb } = await createCancApp();
+    const { cancAsyncRoute } = require('./lib/cancelable-route');
+    const canc = require('@cancjs/coroutine');
+
+    app.post(
+      '/test-post',
+      express.json(),
+      cancAsyncRoute(function* (req: any, res: any) {
+        const result = yield* canc.await(Promise.resolve({ received: req.body }));
+        res.json(result);
+      }),
+    );
+
+    const response = await request(app).post('/test-post').send({ foo: 'bar' }).expect(200);
+
+    expect(response.body).toEqual({ received: { foo: 'bar' } });
+    await rdb.close();
+  });
+
+  it('completes the full POST request with body parser on vanilla abortable when client stays connected', async () => {
+    const { app, rdb } = await createVanillaApp();
+    const { abortOnDisconnect } = require('./middleware-vanilla');
+
+    app.post('/test-post', express.json(), abortOnDisconnect, (req, res) => {
+      res.json({ received: req.body });
+    });
+
+    const response = await request(app).post('/test-post').send({ foo: 'bar' }).expect(200);
+
+    expect(response.body).toEqual({ received: { foo: 'bar' } });
     await rdb.close();
   });
 
