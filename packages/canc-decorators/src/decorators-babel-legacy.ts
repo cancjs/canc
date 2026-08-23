@@ -3,20 +3,6 @@ import { async as cancAsync } from '@cancjs/coroutine';
 
 import { copyFunctionMetadata, isFunction, isStage3Context, TAnyFn } from '../../_util';
 
-/**
- * Babel legacy decorators (`@babel/plugin-proposal-decorators` with `legacy: true` +
- * `@babel/plugin-proposal-class-properties` / `loose`). Runtime shape mirrors TS-legacy for
- * methods and getters, `(target=prototype, propertyKey, descriptor)`, but class FIELDS are
- * always given a descriptor carrying `initializer` (a function producing the field's initial
- * value) instead of `value`. That `initializer` is the hook TS-legacy lacks; we rewrite it so
- * the wrapped/bound function is produced per instance at construction.
- *
- * Policy identical to the other flavors:
- * bind:false: proto-level wrap (methods) / initializer wraps value with no ctx (fields).
- * bind:true: per-instance own-bound property (lazy accessor for methods; initializer for
- * fields, both run per instance, no shared cross-instance state).
- */
-
 interface IBabelPropertyDescriptor extends PropertyDescriptor {
   initializer?: (() => any) | null;
 }
@@ -119,9 +105,12 @@ function makeBabelDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAn
   };
 }
 
-// Babel legacy decorator return value never redefines the decorated member's own type (same as TS
-// legacy), so the `any` positions below do not erase anything at the call site; no
-// identity-preserving overloads needed here.
+/**
+ * Wraps a class method, field, or getter with a cancelable coroutine under Babel legacy decorators.
+ *
+ * By default (`bind: false`), wraps the method at prototype level. With `bind: true`,
+ * installs a per-instance own-bound property.
+ */
 export function BabelLegacyAsyncMethod(target: any, propertyKey: string | symbol, descriptor: PropertyDescriptor): any;
 export function BabelLegacyAsyncMethod(options?: IMethodDecoratorOptions): MethodDecorator | PropertyDecorator;
 export function BabelLegacyAsyncMethod(
@@ -138,6 +127,7 @@ export function BabelLegacyAsyncMethod(
   return makeBabelDecorator(isBind, (fn, ctx) => cancAsync(fn as any, ctx)) as any;
 }
 
+/** Same call shapes as {@link BabelLegacyAsyncMethod}; `bind:true` is the default here instead of `bind:false`. */
 export function BabelLegacyBindMethod(target: any, propertyKey: string | symbol, descriptor: PropertyDescriptor): any;
 export function BabelLegacyBindMethod(options?: IMethodDecoratorOptions): MethodDecorator | PropertyDecorator;
 export function BabelLegacyBindMethod(

@@ -3,18 +3,6 @@ import { async as cancAsync } from '@cancjs/coroutine';
 
 import { copyFunctionMetadata, isFunction, isLegacyShapedSecondArg, TAnyFn } from '../../_util';
 
-/**
- * ES / TC39 stage-3 decorators (native TS 5+, `experimentalDecorators: false`).
- *
- * bind:false: proto-level wrap: the decorator returns the wrapped function so it replaces the
- * method on the prototype once; `this` flows through the coroutine at call time.
- * bind:true: per-instance initializer: `addInitializer` installs an own, ctx-bound property on
- * each instance (isolation guaranteed, no shared state across instances).
- *
- * Field decorators (arrow-fn class fields) receive `value === undefined` and must return an
- * initializer-transformer `(initialValue) => wrapped`; they never see the fn as first arg.
- */
-
 type TMethodDecoratorContext = ClassMethodDecoratorContext | ClassGetterDecoratorContext | ClassFieldDecoratorContext;
 
 interface IMethodDecoratorOptions {
@@ -138,15 +126,12 @@ function isOptions(args: any[]): args is [IMethodDecoratorOptions?] {
   return args.length < 2;
 }
 
-// Stage-3 decorator return types redefine the decorated member's type. Returning `any` here would
-// erase every decorated getter/method to `any`/`unknown` at the call site, so these overloads stay
-// generic and identity-preserving: the member's own declared type survives decoration.
-//
-// A getter's inferred return type is kept, so a getter that returns `cancAsync(...)` needs no cast.
-// A method decorator's return must be assignable to the original method type, so a generator method
-// cannot be retyped to a promise-returning one (TypeScript error TS1270). Method style therefore
-// stays type-wrong in TypeScript (use it only in plain JavaScript); getter and field styles are
-// exact. Background: https://github.com/microsoft/TypeScript/issues/4881
+/**
+ * Wraps a class method, field, or getter with a cancelable coroutine.
+ *
+ * By default (`bind: false`), wraps the method at prototype level. With `bind: true`,
+ * installs an own-bound property on each instance.
+ */
 export function AsyncMethod<This, Value>(
   value: (this: This) => Value,
   context: ClassGetterDecoratorContext<This, Value>,
@@ -173,6 +158,7 @@ export function AsyncMethod(...args: any[]): any {
   return makeDecorator(isBind, (fn, ctx) => cancAsync(fn as any, ctx));
 }
 
+/** Same call shapes as {@link AsyncMethod}; `bind:true` is the default here instead of `bind:false`. */
 export function BindMethod<This, Value>(
   value: (this: This) => Value,
   context: ClassGetterDecoratorContext<This, Value>,

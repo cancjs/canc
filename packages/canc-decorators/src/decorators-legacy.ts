@@ -3,19 +3,6 @@ import { async as cancAsync } from '@cancjs/coroutine';
 
 import { copyFunctionMetadata, isBabelLegacyDescriptor, isFunction, isStage3Context, TAnyFn } from '../../_util';
 
-/**
- * TS legacy decorators (`experimentalDecorators: true`). Runtime shape:
- * method/getter: (target=prototype, propertyKey, descriptor)
- * field/prop: (target=prototype, propertyKey) [no descriptor]
- *
- * bind:false: proto-level wrap (rewrite descriptor.value once on the prototype).
- * bind:true: per-instance: a lazy accessor that, on first read, installs an own, ctx-bound
- * immutable property on the instance (self-replacing own-property). The previous
- * implementation cached bound methods in a Map stored on the prototype keyed by
- * property name: the first instance's bound method leaked to every other instance
- * and pinned the first instance forever. Per-instance own-property fixes both.
- */
-
 interface IMethodDecoratorOptions {
   bind?: boolean;
 }
@@ -163,12 +150,12 @@ function definePerInstanceFieldAccessor(
   });
 }
 
-// Return type `any` on the factory overload is deliberate: a `MethodDecorator | PropertyDecorator`
-// union is not resolvable in a legacy decorator position (TS rejects it with "unable to resolve
-// signature"), and the same decorator must be usable on methods, getters and fields alike. `any`
-// lets the single runtime decorator apply in every member position. Unlike stage-3, a TS legacy
-// decorator return value never redefines the decorated member's own type, so this `any` does not
-// erase anything at the call site; no identity-preserving overloads needed here.
+/**
+ * Wraps a class method, field, or getter with a cancelable coroutine under TypeScript legacy decorators.
+ *
+ * By default (`bind: false`), wraps the method at prototype level. With `bind: true`,
+ * installs a lazy per-instance own-bound property on first access.
+ */
 export function LegacyAsyncMethod(target: any, propertyKey: string | symbol): void;
 export function LegacyAsyncMethod(target: any, propertyKey: string | symbol, descriptor: PropertyDescriptor): void;
 export function LegacyAsyncMethod(options?: IMethodDecoratorOptions): any;
@@ -184,6 +171,7 @@ export function LegacyAsyncMethod(
   return makeLegacyDecorator(isBind, (fn, ctx) => cancAsync(fn as any, ctx));
 }
 
+/** Same call shapes as {@link LegacyAsyncMethod}; `bind:true` is the default here instead of `bind:false`. */
 export function LegacyBindMethod(target: any, propertyKey: string | symbol): void;
 export function LegacyBindMethod(target: any, propertyKey: string | symbol, descriptor: PropertyDescriptor): void;
 export function LegacyBindMethod(options?: IMethodDecoratorOptions): any;
