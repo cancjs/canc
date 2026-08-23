@@ -6,19 +6,7 @@ import { isCancelError } from '@cancjs/promise';
 import { TAnyFn } from '../../_util';
 
 /**
- * ES / TC39 stage-3 decorators matrix, shared between the ts-jest lane (decorators.spec.ts,
- * native TS 5+ decorator emit) and the babel lane (babel-stage3/decorators.spec.ts,
- * `@babel/plugin-proposal-decorators` "2023-05" emit). Both compilers target the same stage-3
- * proposal shape, so one source of decorator-syntax assertions proves both toolchains produce a
- * runtime AsyncMethod/BindMethod can consume correctly. Each lane's own thin spec file imports its
- * own compiled `AsyncMethod`/`BindMethod`/etc and calls `runStage3Matrix` with them.
- *
- * Matrix: 3 decorator types (AsyncMethod/BindMethod, no param vs bind:true/false) x
- * 3 member types (method, field, getter) x 2 instance isolation matrix (2+ instances,
- * each gets own-bound fn, no cross-instance state corruption).
- *
- * GC assertion: instance1 discarded while instance2 active; instance1 must be collectable
- * (verifies fix for prototype-based Map caching that pinned instances forever).
+ * ES / TC39 stage-3 decorators matrix shared across TS and Babel test lanes.
  */
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -45,20 +33,15 @@ function touch(_value: unknown): void {
   // intentionally empty
 }
 
+// AsyncMethod/BindMethod are stage-3 (value, context); LegacyAsyncMethod/BabelLegacyAsyncMethod are
+// invoked here only with manufactured wrong-shaped args (flavor mismatch guard tests), so all four
+// hold decorators with incompatible call shapes and cannot share one narrower function type.
 export interface IStage3MatrixDecorators {
   AsyncMethod: any;
   BindMethod: any;
   LegacyAsyncMethod: any;
   BabelLegacyAsyncMethod: any;
-  // Set by the babel lane only. @babel/plugin-proposal-decorators (7.29.7, version "2023-05")
-  // throws "Cannot read properties of undefined (reading 'call')" at class-definition time for a
-  // decorated class FIELD when a plain, non-decorated field is declared earlier in the same class
-  // body (order: plain field, then decorated field), confirmed by isolated reproduction outside
-  // AsyncMethod/BindMethod entirely (a bare identity decorator hits the same crash under the same
-  // field ordering). Native TS 5+ emit and TS/babel legacy decorators are unaffected. The two
-  // matrix cases below use exactly that ordering to also exercise `this` access inside the field
-  // initializer; skipped only on the babel lane rather than reordering the shared assertions
-  // (reordering would silently hide a real babel-toolchain field-ordering constraint).
+  // Babel 7 stage-3 plugin crashes when an undecorated field precedes a decorated field
   skipBabelFieldOrderingCases?: boolean;
 }
 
@@ -702,13 +685,7 @@ export function runStage3Matrix({
   });
 
   describe('decorators (ES stage-3): unsupported kind handling', () => {
-    // Real `accessor` class-field decorator syntax expects a (target: {get,set}, context) shape
-    // distinct from method/field/getter decorators (TS types it as a separate overload family), so
-    // exercising the runtime guard through actual decorator syntax fights the type checker for no
-    // behavioral benefit. Invoking the returned decorator directly with a manufactured
-    // ClassAccessorDecoratorContext-shaped object (kind: 'accessor') proves the same runtime path:
-    // makeDecorator's assertSupportedKind sees the same `context.kind` a TS 5 `accessor` field
-    // transform would actually pass.
+    // Manufactured context object avoids fighting TS types for accessor keyword syntax
     function accessorContext(name: string): any {
       return { kind: 'accessor', name, private: false, static: false, addInitializer: () => {} };
     }
@@ -769,10 +746,6 @@ export function runStage3Matrix({
       expect(message).toMatch(/method, field, getter/);
     });
   });
-
-  // The user builds the coroutine themselves with cancAsync inside the getter and returns it. The
-  // decorator no longer wraps a bare generator function; it only memoizes the returned coroutine
-  // per instance, and for bind:true binds it to the instance so a detached call keeps `this`.
 
   describe('decorators (ES stage-3): getter returns a coroutine', () => {
     // Sentinel returned when the coroutine runs with no bound/call-site `this` (an unbound detached

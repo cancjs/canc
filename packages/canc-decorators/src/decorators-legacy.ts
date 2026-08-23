@@ -115,10 +115,7 @@ function makeLegacyDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TA
       return;
     }
 
-    // The initial value is not observable here in the TS-legacy runtime; install a lazy accessor
-    // that wraps the field's initial value on first read. Because class-field initializers run in
-    // the constructor and assign via [[Set]], our accessor's setter captures that initial value
-    // and re-installs the wrapped own-property per instance.
+    // Field initial value is assigned via [[Set]] in constructor and captured by setter
     definePerInstanceFieldAccessor(target, propertyKey, isBind, wrap);
   };
 }
