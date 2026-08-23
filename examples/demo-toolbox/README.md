@@ -1,4 +1,4 @@
-# Toolbox Utilities Example
+# demo-toolbox
 
 Learn how cancellation transforms common async patterns: pollers stop polling, retries stop backoffing and in-flight attempts, delays clear timers, signals propagate.
 
@@ -47,7 +47,7 @@ npm run typecheck # Both flavors must type-check
 ### Helper code (publishable-tidy, may copy)
 None in this example; helpers are simple enough to inline.
 
-### Aux code (scaffolding, don't copy)
+### Mock code (scaffolding, don't copy)
 - `@shared/mock-api`: fake network layer with abort tracking
 
 ## Diff workflow

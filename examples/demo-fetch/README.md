@@ -1,4 +1,4 @@
-# demo-fetch: GitHub Repo Search
+# demo-fetch
 
 Demonstrates cancelable fetch in a realistic chain: search repositories, fetch the readme of the top hit. Teaches chain cancellation, external abort signals, pre-aborted signals, and timeout composition.
 
@@ -70,4 +70,4 @@ return timeout(searchRepos(query, fetch), ms);
 
 ## Copy
 
-Helper code in `src/lib/` (future extraction targets) is publishable-tidy. Aux code and mock-api are scaffolding; copy `src/repo-search-canc.ts` for your use case, not the aux.
+Helper code in `src/lib/` (future extraction targets) is publishable-tidy. Mock code and mock-api are scaffolding; copy `src/repo-search-canc.ts` for your use case, not the mock.

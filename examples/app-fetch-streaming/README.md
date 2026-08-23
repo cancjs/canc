@@ -1,4 +1,4 @@
-# Paginated Feed Streaming Example
+# app-fetch-streaming
 
 Demonstrates consuming a cursor-paginated activity feed using an async iterable stream and canceling it.
 

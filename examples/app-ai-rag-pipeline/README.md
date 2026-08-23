@@ -129,6 +129,6 @@ diff src/main-vanilla.ts src/main-canc.ts
  canceling the coroutine aborts whichever step is in flight and shows up as an aborted marker in
  `mockApi.calls`. Steps that already completed are not undone; steps below the cancel point never
  start.
-- **Rerank is aux, not a network call**, so a cancel during rerank rejects the rerank promise rather
+- **Rerank is mock, not a network call**, so a cancel during rerank rejects the rerank promise rather
  than leaving a mock marker. The proof it worked is that the generate step (the `chat.token` calls)
  never runs.
