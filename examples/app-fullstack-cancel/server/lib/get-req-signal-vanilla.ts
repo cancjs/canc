@@ -15,9 +15,14 @@ export function getReqSignal(req: Request, res: Response): AbortSignal {
   if (!signalHandle) {
     signalHandle = new AbortController();
     holder[SIGNAL_HANDLE] = signalHandle;
-    req.on('close', () => {
+    // Disconnect is the response socket closing, not the request stream ending. `req`'s close fires
+    // as soon as the posted body is consumed, which on a streaming response is mid-reply, so listen
+    // on `res` and cancel only when the socket closed before the reply finished.
+    res.on('close', () => {
       if (!res.writableEnded) signalHandle!.abort();
     });
+    // The socket may already be gone before this handler ran; abort now rather than start work.
+    if (req.destroyed) signalHandle.abort();
   }
   return signalHandle.signal;
 }
