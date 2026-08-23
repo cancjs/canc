@@ -21,9 +21,13 @@ export class CancelInterceptor implements NestInterceptor {
     const request = context.switchToHttp().getRequest<CancelableRequest>();
     const response = context.switchToHttp().getResponse();
 
-    // Express fires 'close' on the request when the socket goes away (on Fastify it is
-    // request.raw.on('close')). response.writableEnded stays false only while the response is open.
-    request.on('close', () => {
+    // Disconnect is the response socket closing, not the request stream ending. `request`'s close
+    // fires as soon as the posted body is consumed, which on a streaming response is mid-reply, so
+    // listen on `response` and cancel only when the socket closed before the reply finished. This
+    // example runs the Express adapter only (see platform-express in package.json); response is the
+    // real ServerResponse here. A Fastify adapter would need response.raw instead.
+    // The req.destroyed pre-check cannot apply here because request.cancelable does not exist yet.
+    response.on('close', () => {
       if (!response.writableEnded) {
         void (request.cancelable as CancelablePromise<unknown> | undefined)?.cancel('client disconnected');
       }
