@@ -67,7 +67,7 @@ if (mode === 'plain') {
  p.cancel('canceled');
 }
 
-setTimeout(function () { process.stdout.write('EVENTS:' + JSON.stringify(events)); }, 150);
+process.on('beforeExit', function () { process.stdout.write('EVENTS:' + JSON.stringify(events)); });
 `;
 
   const out = execFileSync(process.execPath, ['-e', program], {
