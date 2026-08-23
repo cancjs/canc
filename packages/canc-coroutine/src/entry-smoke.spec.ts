@@ -18,12 +18,6 @@ const flush = async (times = 12) => {
   }
 };
 
-// the mirror namespaces resolve from their built entry points and behave
-// end-to-end. Not a substitute for coroutine.spec.ts / coroutine-gen.spec.ts (those cover the
-// full semantics matrix against relative imports); this is the public-surface integration check
-// that only a package-name/subpath import can catch (missing exports map entry, stale dist, wrong
-// rollup input).
-
 describe('canc / cancGen mirror namespaces resolve from built entry points', () => {
   it('canc.async + canc.forAwait consume a source end-to-end', async () => {
     const seen: number[] = [];

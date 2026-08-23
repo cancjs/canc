@@ -974,11 +974,6 @@ describe('cancGenAwait: combinator parity (all/race/any/allSettled/try)', () => 
   });
 
   it('emit-vs-await contract: a bare `yield` from a combinator WOULD leak into the consumer (anti-stub guard)', async () => {
-    // Sanity check on the test itself: prove drain() actually surfaces whatever a combinator yields
-    // bare, unresolved, so the "not emitted" assertions above are meaningful (they would fail if a
-    // real combinator did a bare `yield build(...)` instead of `yield awaited(build(...))`. The
-    // driver only resolves+hides `awaited(...)` values; anything else, including a raw combined
-    // CancelablePromise, is emitted to the consumer as-is).
     const leaky = cancGenAsync(function* (): AsyncGenResult<any, void> {
       // Simulates what a combinator would produce if it forgot to wrap in `awaited(...)`.
       yield CancelablePromise.all([Promise.resolve(1), Promise.resolve('a')]);

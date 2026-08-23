@@ -85,7 +85,7 @@ type TForAwaitToArrayFailure = FailureOf<ReturnType<typeof forAwaitToArrayInferF
 const checkForAwaitToArrayInfer: Eq<TForAwaitToArrayFailure, BreakError> = true;
 
 function* forAwaitMismatchedAnnotation(): Generator<Failing<FooError>, number, any> {
-  // @ts-expect-error TS2322: yield* cancForAwait yields Failing<BreakError> which is not assignable to Failing<FooError>
+  // @ts-expect-error TS2322
   yield* cancForAwait([1, 2], () => {});
   return 42;
 }

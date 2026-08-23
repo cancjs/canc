@@ -10,11 +10,6 @@ const flush = async (times = 12) => {
   }
 };
 
-// A cancAsync coroutine consuming a mock async iterable via cancForAwait cancels the SOURCE
-// (calls its `.return()`, running its `finally`) when the coroutine itself is canceled. Not a
-// substitute for the per-file matrix in coroutine-each.spec.ts; this is the integration check
-// that mirrors the raw stream.next()/.done/.value pattern the examples otherwise hand-roll.
-
 describe('cancAsync + cancForAwait cancels a mock async iterable source', () => {
   it('canceling the coroutine mid-stream runs the source finally and rejects CancelError', async () => {
     let sourceReturned = false;

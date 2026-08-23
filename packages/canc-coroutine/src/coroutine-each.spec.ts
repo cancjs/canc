@@ -181,9 +181,6 @@ describe('cancForAwait', () => {
     const order: string[] = [];
 
     const co = cancAsync(function* () {
-      // Discouraged path (docs): a callback returning a bare native promise, not a CancelablePromise,
-      // still works at runtime but breaks the per-item cancel chain. Cast needed only because the
-      // type intentionally steers callers toward a CancelablePromise return.
       yield* cancForAwait(makeAsyncSource([1, 2]), ((value: number) => {
         order.push(`start:${value}`);
 

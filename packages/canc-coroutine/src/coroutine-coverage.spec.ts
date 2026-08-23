@@ -3,9 +3,6 @@ import { CancelablePromise, CancelError, catchCancel, isCancelError, suppressCan
 import { cancAsync, cancAwait, cancForAwait } from './coroutine';
 import { AsyncGenResult, cancGenAsync, cancGenAwait, cancGenDelegate } from './coroutine-gen';
 
-// Behavioral gaps not covered elsewhere. Type-level surface lives in
-// tests-types/fixtures/common/coroutine-types.ts
-
 const flush = async (times = 12) => {
   for (let i = 0; i < times; i++) {
     await Promise.resolve();
@@ -23,11 +20,6 @@ describe('cancAwait combinators inside a coroutine', () => {
   });
 
   it('cancAwait.all: coroutine cancel stops at that yield*, coroutine rejects CancelError', async () => {
-    // Cancel-losers doctrine cancels remaining inputs only when one input rejects.
-    // Canceling the combined result promise does not bubble down into still-pending inputs
-    // (canc-promise/cancelable-promise.ts static all(), see its _chainInput comment). What the
-    // coroutine layer owns is: canceling the coroutine at a `yield* cancAwait.all(...)` step stops
-    // the coroutine there and rejects it with CancelError, same as any other yield* cancel point.
     const pending = new CancelablePromise<number>(() => {
       /* never settles */
     });
@@ -329,10 +321,6 @@ describe('sync iterable of promises yields sequential cancel points', () => {
     });
 
     await expect(co()).resolves.toEqual([1, 2, 3]);
-    // Each finished strictly before the next one started its "then" chain resolution. Since all
-    // three underlying promises were already in flight (constructed eagerly), the real sequential
-    // guarantee is in cancForAwait's pull-then-await-then-pull loop: assert finish order matches
-    // construction order (no reordering or partial interleave surfacing out of order).
     expect(finished).toEqual([1, 2, 3]);
     expect(started).toEqual([1, 2, 3]);
   });

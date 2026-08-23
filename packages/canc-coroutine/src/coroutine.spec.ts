@@ -3,8 +3,6 @@ import { CancelablePromise, CancelError, isCancelError, suppressCancel } from '@
 import { Assert, Eq } from '../../../tests-types/fixtures/common/assert-type';
 import { BreakError, cancAsync, cancAwait } from './coroutine';
 
-// Deterministic microtask flush: drains the microtask queue N times so chained
-// then-callbacks (each a fresh microtask hop) all run. No arbitrary sleeps.
 const flush = async (times = 12) => {
   for (let i = 0; i < times; i++) {
     await Promise.resolve();
@@ -265,8 +263,6 @@ describe('cancAsync', () => {
   });
 
   describe('cancel between steps: every gap (fake timers)', () => {
-    // Build a coroutine with N sequential timer-backed yields. Cancel at each gap g (0..N) and
-    // assert: only steps < g ran, coroutine settles canceled, no step >= g runs afterward.
     const STEPS = 4;
 
     const makeCoroutine = (log: number[]) =>
@@ -528,10 +524,6 @@ describe('cancAsync', () => {
   });
 
   describe('try-step cancel when the finally also yields', () => {
-    // Self-contained cancelify-equivalent: a CancelablePromise backed by a real timer whose
-    // handleCancel aborts an AbortController. The executor wires the signal's abort to
-    // clearTimeout + reject and records the abort, so a test can assert the underlying op was
-    // aborted (not just that the coroutine settled). No mock-api, no toolbox dependency.
     const makeTimerStep = (tag: string, ms: number, aborts: string[]) => {
       const controller = new AbortController();
       const signal = controller.signal;
@@ -559,8 +551,6 @@ describe('cancAsync', () => {
 
       await flush(3);
       p.cancel('scope exit');
-      // The try step's abort fires in the drain triggered synchronously by cancel(), not deferred
-      // behind the finally step settling. One microtask flush is enough; the 50ms timers never run.
       await flush(3);
 
       expect(aborts).toContain('try');
@@ -1009,14 +999,6 @@ describe('cancel/dispose contract', () => {
   });
 });
 
-// Characterization test, not a fix: the coroutine already gets cancel propagation to a
-// sequentially-awaited inner promise through its own step-drive mechanism (cancAwait holds a
-// direct reference to the currently-awaited value and wires its cancel at the step boundary),
-// independent of canc-promise's `.then()`-return adoption fix. This is why the two-step
-// `cancAsync(function* () { yield* cancAwait(delay(ms)); return yield* cancAwait(work()); })`
-// pattern already canceled `work()` before that fix landed, and it must keep doing so afterward
-// so a future refactor of either mechanism cannot silently break the path people were told to
-// use as the workaround.
 describe('cancAwait sequential-step propagation (pre-existing, not the adoption fix)', () => {
   it('cancel during the first cancAwait step short-circuits: the second step never constructs its inner', async () => {
     let innerCreated = false;
