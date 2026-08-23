@@ -98,9 +98,6 @@ export async function streamWithBreak(
 }
 
 // scenario 5 (bonus): helper pipeline with take
-export async function topPositiveIds(_log?: (msg: string) => void): Promise<string[]> {
-  // (no vanilla counterpart: take(n) operator requires stream composition and automatic
-  // source closing, which cannot be modeled side-by-side with vanilla loops without
-  // extensive boilerplate)
-  return [];
-}
+// (no vanilla counterpart: take(n) operator requires stream composition and automatic
+// source closing, which cannot be modeled side-by-side with vanilla loops without
+// extensive boilerplate)
