@@ -36,9 +36,6 @@ describe('Native Promise capture', () => {
   });
 
   it('constructs fulfilled promise', (): any => {
-    // expect(true).toBe(true);
-    //
-    // return;
     const cancelablePromise = new CancelablePromise((resolve) => resolve('resolved'));
 
     return NativePromise.resolve(cancelablePromise).then((value) => {
