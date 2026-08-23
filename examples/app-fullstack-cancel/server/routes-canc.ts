@@ -5,8 +5,7 @@ import { cancAsyncRoute } from './lib/cancelable-route';
 import { getReqEm } from './lib/get-req-em';
 import { searchUsers } from './search-service-canc';
 
-// canc search route. The handler is a generator wrapped by cancAsyncRoute, so it cancels when the
-// client disconnects. It reads the request fork and passes it down: no fork call, no signal.
+// search route that cancels when client disconnects
 export const searchRouter = Router();
 
 searchRouter.get(

@@ -1,13 +1,13 @@
 import { createCancelSignal } from '@cancjs/promise';
 import type { Request, Response } from 'express';
 
-// Express (and Node's IncomingMessage) does not give you a per-request AbortSignal. This helper
-// provides one, on demand. Lazy so a request that never asks for a signal never allocates one, and
-// namespaced so it never collides with another library's request property.
-//
-// The canc handle is a { signal, cancel } pair from createCancelSignal: it aborts with a CancelError
-// reason (not a bare DOMException), so a downstream rejection reads as a cancellation through
-// isCancelError. Compare get-req-signal-vanilla.ts, which uses a plain AbortController.
+/**
+ * Express does not give you a per-request AbortSignal. This helper provides one on demand.
+ * Lazy and cached per request.
+ *
+ * The canc handle is a { signal, cancel } pair from createCancelSignal: it aborts with a CancelError
+ * so downstream can distinguish client disconnects via isCancelError.
+ */
 const SIGNAL_HANDLE = Symbol.for('canc.request.signalHandle');
 
 interface SignalHandle {
@@ -21,13 +21,11 @@ export function getReqSignal(req: Request, res: Response): AbortSignal {
   if (!signalHandle) {
     signalHandle = createCancelSignal();
     holder[SIGNAL_HANDLE] = signalHandle;
-    // Disconnect is the response socket closing, not the request stream ending. `req`'s close fires
-    // as soon as the posted body is consumed, which on a streaming response is mid-reply, so listen
-    // on `res` and cancel only when the socket closed before the reply finished.
+    // listen on res because req close fires as soon as request body is consumed
     res.on('close', () => {
       if (!res.writableEnded) signalHandle!.cancel('client disconnected');
     });
-    // The socket may already be gone before this handler ran; cancel now rather than start work.
+    // cancel early if socket is already destroyed
     if (req.destroyed) signalHandle.cancel('client disconnected');
   }
   return signalHandle.signal;

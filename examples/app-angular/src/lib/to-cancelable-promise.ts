@@ -37,8 +37,7 @@ export function toCancelablePromise<T>(source: Observable<T>, emptyError?: () =>
       },
     });
 
-    // Canceling the promise unsubscribes from the source. For an HttpClient request this aborts the
-    // request, so Angular's cancellation and canc's cancellation cooperate instead of racing.
+    // canceling promise unsubscribes from source, aborting underlying request
     handleCancel(() => {
       settled = true;
       subscription.unsubscribe();

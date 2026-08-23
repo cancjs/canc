@@ -15,11 +15,7 @@ interface DetailView {
 const IDLE_VIEW: DetailView = { status: 'idle', value: undefined };
 const PENDING_VIEW: DetailView = { status: 'pending', value: undefined };
 
-// Detail pane written the RxJS way. The selected id becomes a stream, switchMap drops the request in
-// flight when a new id arrives, and takeUntilDestroyed does the same on destroy. Both are real
-// cancellations: each unsubscribe runs the service teardown, which aborts. The price is the shape.
-// The load is no longer a statement inside a lifecycle hook, it is a pipeline the component is
-// built around, and every piece of view state has to live in it.
+// switchMap and takeUntilDestroyed abort in-flight requests on new id or destroy
 @Component({
   selector: 'app-detail-pane',
   standalone: true,
@@ -53,8 +49,7 @@ export class DetailPaneComponent implements OnChanges {
   private readonly orders = inject(OrdersServiceObservable);
   private readonly orderId$ = new Subject<string | null>();
 
-  // An error would end this stream for good, so a pane that must survive one needs catchError here.
-  // State held in a pipe has to handle everything the pipe can do.
+  // stream error would terminate pipe without catchError
   readonly orderDetail$: Observable<DetailView> = this.orderId$.pipe(
     switchMap((orderId) =>
       orderId ?

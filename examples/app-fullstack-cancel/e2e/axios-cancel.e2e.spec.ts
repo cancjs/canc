@@ -3,8 +3,7 @@ import { isCancelError } from '@cancjs/promise';
 
 import { type Flavor, type ServerHandle, sleep, startServer } from './harness';
 
-// The whole stack, both flavors: a cancelable-axios request is canceled, and the cancellation
-// reaches the database. This is the browser-to-DB path from the article, minus the browser.
+// full-stack test verifying canceled axios request stops database work
 describe.each<Flavor>(['canc', 'vanilla'])('%s: canceling the request stops DB work', (flavor) => {
   let server: ServerHandle;
   let fullCount = 0;

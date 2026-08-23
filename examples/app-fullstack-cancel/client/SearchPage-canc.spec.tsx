@@ -5,8 +5,7 @@ import type { SearchApi } from './api-canc';
 import { SearchPage } from './SearchPage-canc';
 import type { UserHit } from './user-hit';
 
-// A fake API that records which queries it was asked to search and which were canceled. Canceling a
-// search is what proves a superseded request was really stopped, not ignored.
+// fake API recording queried and canceled searches
 function makeApi() {
   const searched: string[] = [];
   const canceled: string[] = [];

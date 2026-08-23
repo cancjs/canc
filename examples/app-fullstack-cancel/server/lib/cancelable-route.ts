@@ -12,15 +12,13 @@ export function cancAsyncRoute(handler: (req: Request, res: Response, next: Next
   return (req: Request, res: Response, next: NextFunction): void => {
     const task = canc.async(handler)(req, res, next);
 
-    // Disconnect is the response socket closing, not the request stream ending. `req`'s close fires
-    // as soon as the posted body is consumed, which on a streaming response is mid-reply, so listen
-    // on `res` and cancel only when the socket closed before the reply finished.
+    // listen on res because req close fires as soon as request body is consumed
     res.on('close', () => {
       if (!res.writableEnded) {
         task.cancel('client disconnected');
       }
     });
-    // The socket may already be gone before this handler ran; cancel now rather than start work.
+    // cancel early if socket is already destroyed
     if (req.destroyed) task.cancel('client disconnected');
 
     task.catch((err: unknown) => {

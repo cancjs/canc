@@ -1,5 +1,4 @@
-// One search hit as the client sees it. Mirrors the server's SearchHit, kept independent so the
-// client does not import server code.
+// search hit shape mirroring server SearchHit without importing server code
 export interface UserHit {
   id: number;
   name: string;

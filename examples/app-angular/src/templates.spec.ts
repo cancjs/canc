@@ -13,10 +13,7 @@ import { OrdersService as OrdersServiceVanilla } from './app/orders.service-vani
 import { CANCELABLE_ORDERS_SERVICE, ORDERS_SERVICE } from './app/orders.types';
 import { createOrdersApi } from './mock/api';
 
-// The rest of the suite drives the components directly and never compiles a template. This one
-// renders each dashboard instead, so a template that references a field the component no longer has
-// fails here. Angular's own template checker does not run in this example (the CLI build needs a
-// TypeScript version older than the one hoisted at the examples root).
+// renders each dashboard to verify template binding against component fields
 
 async function renderDashboard(component: Type<unknown>, providers: Provider[]): Promise<string> {
   const api = createOrdersApi({ latency: 0 });
@@ -26,7 +23,7 @@ async function renderDashboard(component: Type<unknown>, providers: Provider[]):
 
   const fixture = TestBed.createComponent(component);
   fixture.detectChanges();
-  // Let the list request settle, then render the rows it produced.
+  // let list request settle then render rows
   await sleep(20);
   fixture.detectChanges();
 

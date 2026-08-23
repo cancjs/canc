@@ -13,17 +13,13 @@ export interface SearchHit {
   cityCount: number;
 }
 
-// The search as a cancelable coroutine. Cancellation is ambient: no signal is threaded through the
-// steps. When the request coroutine is canceled (client disconnect) it stops at the current yield*
-// and the remaining rows are never queried.
+// cancelable search coroutine stopping at current yield* on client disconnect
 export const searchUsers = canc.async(function* (em: EntityManager, q: string) {
   const users = yield* canc.await(em.find(UserSchema, searchWhere(q), { limit: RESULT_LIMIT }));
 
   const hits: SearchHit[] = [];
   for (const user of users) {
-    // Only PGlite needs this yield; real Postgres does not. PGlite runs Postgres in one WASM
-    // thread, so a cancel is only seen at a boundary between statements. The yield is that boundary
-    // and the coroutine's cancel point.
+    // statement boundary yield needed by single-threaded WASM PGlite to observe cancel
     yield* canc.await(delay(0));
     const cityCount = yield* canc.await(em.count(UserSchema, { city: user.city }));
     hits.push({ id: user.id, name: user.name, email: user.email, city: user.city, cityCount });

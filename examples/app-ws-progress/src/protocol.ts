@@ -1,5 +1,4 @@
-// Wire protocol shared by both server flavors and the browser client. Non-sensitive glue: no
-// cancellation concepts live here, so there is no vanilla/canc twin of this file.
+// wire protocol shared by both server flavors and browser client
 
 /** Client -> server. */
 export type ClientMessage = { type: 'start'; jobId: string } | { type: 'cancel'; jobId: string };
@@ -17,7 +16,7 @@ export function parseClientMessage(raw: string): ClientMessage | undefined {
       return value;
     }
   } catch {
-    // Ignore malformed frames.
+    // ignore malformed frames
   }
   return undefined;
 }

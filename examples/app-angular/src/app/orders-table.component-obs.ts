@@ -6,9 +6,7 @@ import type { Observable } from 'rxjs';
 import { OrdersServiceObservable } from './orders.service-obs';
 import type { OrderSummary } from './orders.types';
 
-// Orders table written the RxJS way. The observable is cold, so the async pipe starts the request
-// when it subscribes and tears it down when the component goes away. There is no lifecycle hook at
-// all here, which is RxJS at its best: this is the case where the stream shape costs nothing.
+// orders table where async pipe and takeUntilDestroyed cancel on unmount
 @Component({
   selector: 'app-orders-table',
   standalone: true,
@@ -38,8 +36,7 @@ export class OrdersTableComponent {
 
   private readonly ordersService = inject(OrdersServiceObservable);
 
-  // The async pipe already unsubscribes on destroy. takeUntilDestroyed covers any other subscriber
-  // the component picks up later, so the teardown is not tied to one template.
+  // takeUntilDestroyed covers subscribers beyond the async pipe
   readonly orders$: Observable<OrderSummary[]> = this.ordersService.list().pipe(takeUntilDestroyed());
 
   select(id: string): void {

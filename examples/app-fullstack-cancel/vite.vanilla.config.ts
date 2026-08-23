@@ -1,8 +1,7 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
-// vanilla client: serves vanilla.html, which loads client/main-vanilla.tsx. Proxies /api to the
-// express server (npm run start:vanilla).
+// vanilla client: proxies /api to the express server
 export default defineConfig({
   plugins: [react()],
   server: {

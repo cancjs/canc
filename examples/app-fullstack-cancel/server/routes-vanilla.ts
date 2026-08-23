@@ -4,8 +4,7 @@ import { getReqEm } from './lib/get-req-em';
 import { getReqSignal } from './lib/get-req-signal-vanilla';
 import { searchUsers } from './search-service-vanilla';
 
-// vanilla search route. Same request fork as the canc route, but the signal is read separately and
-// threaded into the service by hand. An aborted request is swallowed, not sent.
+// search route threading signal into service by hand
 export const searchRouter = Router();
 
 searchRouter.get('/api/search', (req, res, next) => {

@@ -1,13 +1,4 @@
-// Decorator flavor of the orders service. Generator methods wrapped with @AsyncMethod become
-// coroutines that return a CancelablePromise, so a component can cancel an in-flight load and the
-// abort reaches the fake network.
-//
-// Angular's CLI still generates `experimentalDecorators: true` (verified in this example's
-// tsconfig.json), so this uses the TS-legacy decorator entry `@cancjs/decorators/legacy`. If a
-// future CLI drops experimentalDecorators, switch the import to the default `@cancjs/decorators`
-// (stage-3) entry; nothing else changes.
-//
-// Angular's own @Injectable decorator is untouched. Ours only wraps the data methods.
+// decorator flavor of orders service wrapping methods with @AsyncMethod
 
 import { inject, Injectable } from '@angular/core';
 import * as canc from '@cancjs/coroutine';
@@ -22,9 +13,7 @@ import type { CancelableOrdersService, OrderDetail, OrderSummary } from './order
 export class OrdersService implements CancelableOrdersService {
   private readonly api = inject(ORDERS_API);
 
-  // Wrap each signal-aware API call as a CancelablePromise so a coroutine cancel() aborts the
-  // request. getSignal() is only materialized if the underlying call reaches for it. The field
-  // types are written out because an initializer that reads `this` cannot be inferred from itself.
+  // cancelified API calls where cancel() aborts underlying request
   private readonly listOrders: () => CancelablePromise<OrderSummary[]> = cancelify(({ getSignal }) =>
     this.api.listOrders(getSignal()),
   );
@@ -32,9 +21,7 @@ export class OrdersService implements CancelableOrdersService {
     ({ getSignal }, id: string) => this.api.orderDetail(id, getSignal()),
   );
 
-  // A getter returning a coroutine, which is the form TypeScript reads correctly: the call site
-  // sees the CancelablePromise the method really returns. The decorator memoizes it on first
-  // access, so the identity is stable.
+  // memoized coroutine getter returning CancelablePromise
   @AsyncMethod()
   get list() {
     return canc.async(function* (this: OrdersService) {

@@ -12,8 +12,7 @@ export class PromiseResource<T> {
   value: T | undefined;
   error: unknown;
 
-  // (no cancel counterpart, see cancelable-resource.ts) A destroyed component leaves its last
-  // request running; nothing reads the fields afterwards, so the result is simply wasted work.
+  // (no cancellation counterpart, see -canc)
   private requestId = 0;
 
   /** Starts tracking a load. The one it supersedes keeps running, its result is discarded. */
@@ -46,7 +45,7 @@ export class PromiseResource<T> {
   }
 
   private invalidate(): number {
-    // Only the response is dropped here; the request behind it cannot be stopped.
+    // drops response while underlying request continues
     return ++this.requestId;
   }
 }

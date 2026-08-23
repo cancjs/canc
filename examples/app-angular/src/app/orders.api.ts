@@ -1,6 +1,4 @@
-// DI wiring for the fake orders API. The service flavors depend on this token, not on the mock
-// module directly, so a test can inject an API with controlled latency. Pretend the provided value
-// is your HTTP-backed data client.
+// DI token allowing tests to inject mock orders API with controlled latency
 
 import { InjectionToken } from '@angular/core';
 

@@ -1,9 +1,4 @@
-// The "ask the manual" pipeline, cancelable version. Same shape as pipeline-vanilla.ts, but built
-// with canc.async so one cancel() aborts the in-flight step and skips everything below it.
-//
-// Cancellation is ambient inside the coroutine: no per-step checks, no signal in sight. Each mock
-// call is cancelified once at the boundary below, so the coroutine body reads like plain
-// async/await and a cancel reaches the simulated network as an aborted marker in the call log.
+// cancelable rag pipeline built with canc.async so cancel aborts active step
 
 import * as canc from '@cancjs/coroutine';
 import { cancelify } from '@cancjs/toolbox';
@@ -14,8 +9,7 @@ import type { RankedChunk } from './mock/rerank';
 import { rerank } from './mock/rerank';
 import { embed, mergeHits, retrieveLegs } from './pipeline';
 
-// Cancelified once: the coroutine calls these with no signal argument, and canceling the returned
-// promise aborts the signal the mock API sees.
+// cancelified boundary: canceling returned promise aborts signal in mock API
 const embedQuery = cancelify(({ getSignal }, query: string) => embed(query, getSignal()));
 const retrieveLegsSource = cancelify(({ getSignal }, ragApi: RagApi, query: string) =>
   Promise.resolve(retrieveLegs(ragApi, query, getSignal())),
@@ -35,20 +29,17 @@ export function ragPipeline(ragApi: RagApi, chatApi: ChatApi, query: string) {
       yield* canc.await(embedding);
       cost += 1;
 
-      // parallel retrieve, collected as a finite set. The two legs are a bounded source, so
-      // canc.forAwait.toArray buffers them into an array for a clean merge, the finite-collect
-      // counterpart of the token stream's canc.forAwait below.
+      // parallel retrieve buffered into array for merge
       const legsSource = yield* canc.await(retrieveLegsSource(ragApi, query));
       const legResultsArr = yield* canc.forAwait.toArray(legsSource);
       const hits = mergeHits(legResultsArr);
       cost += 2;
 
-      // rerank the merged hits: if canceled here, generate never starts
+      // rerank merged hits: if canceled here, generate never starts
       const ranked: RankedChunk[] = yield* canc.await(rerankHits(query, hits));
       cost += 1;
 
-      // generate the answer from the top chunks. canc.forAwait consumes the token stream as it
-      // arrives; a cancel stops the pull between tokens and cancels the stream at its source.
+      // generate answer from top chunks: cancel stops stream pull at source
       const context = ranked
         .slice(0, 3)
         .map((chunk) => chunk.text)
@@ -62,8 +53,7 @@ export function ragPipeline(ragApi: RagApi, chatApi: ChatApi, query: string) {
       done = true;
       return { query, text, sources: ranked.slice(0, 3).map((chunk) => chunk.id) };
     } finally {
-      // Real cleanup, not abort bookkeeping: reports the partial cost either way. reportCost is
-      // demo instrumentation, kept separate from the business logic above.
+      // reporting partial cost on settle (demo instrumentation)
       const reportCost = cost;
       console.log(`[pipeline] settled after ${reportCost} paid step(s), canceled=${!done}`);
     }

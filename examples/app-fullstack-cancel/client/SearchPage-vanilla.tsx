@@ -5,7 +5,7 @@ import type { UserHit } from './user-hit';
 
 const DEBOUNCE_MS = 250;
 
-// Wait `ms`, or reject early if the signal aborts. A timer plus an abort listener, nothing more.
+// wait specified ms or reject early on signal abort
 function wait(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(resolve, ms);
@@ -20,9 +20,7 @@ function wait(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
-// A minimal debounce built on AbortSignal. Each call aborts the previous one, so only the latest runs
-// and a superseded wait or in-flight request is canceled. fn receives the signal to thread onward.
-// This is the hand-rolled counterpart to the toolbox debounce the canc side uses.
+// debounce built on AbortSignal where each call aborts previous wait or in-flight request
 function debounce<Args extends unknown[], R>(fn: (signal: AbortSignal, ...args: Args) => Promise<R>, ms: number) {
   let controller: AbortController | undefined;
   const run = (...args: Args): Promise<R> => {
@@ -38,9 +36,7 @@ function debounce<Args extends unknown[], R>(fn: (signal: AbortSignal, ...args: 
   return run;
 }
 
-// Typeahead user search, hand-rolled. Typing runs a debounced search built on a single AbortController
-// that cancels both the pending wait and the in-flight request. Aborting a superseded request is also
-// what stops a stale response from overwriting a newer one. The pending search is canceled on unmount.
+// typeahead search where new runs or unmount abort pending request
 export function SearchPage({ api }: { api: SearchApi }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<UserHit[]>([]);

@@ -9,7 +9,7 @@ export interface SearchApi {
   search(query: string): CancelablePromise<UserHit[]>;
 }
 
-// search() returns a CancelablePromise: call .cancel() to abort the request. No signal in sight.
+// returns CancelablePromise without threading signals
 export const searchApi: SearchApi = {
   search: (query) => http.get<UserHit[]>('/search', { params: { q: query } }).then((res) => res.data),
 };

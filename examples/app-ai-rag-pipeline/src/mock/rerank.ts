@@ -1,6 +1,4 @@
-// Pretend this is a cross-encoder rerank service that scores each hit against the query
-// returns them best-first. The scoring is a trivial term-overlap count, but the point is only that
-// it is one more signal-aware network step in the pipeline, abortable like the rest.
+// mock cross-encoder rerank service scoring hits against query
 
 import { AbortError } from '@cancjs/toolbox';
 import type { AbortSignalLike, DocChunk } from '@shared/mock-api';
@@ -9,8 +7,7 @@ export interface RankedChunk extends DocChunk {
   score: number;
 }
 
-// Simulated latency for the rerank leg, kept separate from the mock-api latency so the pipeline has
-// a distinct, independently abortable step here.
+// simulated latency for independently abortable rerank leg
 const RERANK_LATENCY = 40;
 
 function overlap(query: string, text: string): number {

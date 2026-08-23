@@ -1,14 +1,4 @@
-// WebSocket export server, canc flavor. Teaching payload.
-//
-// Each connection owns a cancel root (a pending CancelablePromise used as a scope handle). Every
-// export job started on that connection is a child of the root: canceling the root cancels all of
-// its jobs at once. Two things cancel a job here, and both land in the same chain cancel:
-// 1. an explicit { type: 'cancel', jobId } message from the client,
-// 2. the socket closing (tab closed, network drop) -> the whole connection root cancels.
-//
-// The inbound message stream is consumed with the platform's own `events.on(...)` async iterator,
-// fed a signal derived from the connection root via `toAbortSignal`. When the root cancels, that
-// signal aborts and the native iterator ends, so the read loop unwinds with the rest of the tree.
+// WebSocket export server where connection root cancels jobs on close or cancel message
 
 import * as canc from '@cancjs/coroutine';
 import { CancelablePromise, CancelError, isCancelError, suppressCancel } from '@cancjs/promise';
@@ -34,8 +24,7 @@ export function startServer(backend: ExportBackend, port = 0): Promise<ServerHan
   const http = createServer(app);
   const wss = new WebSocketServer({ server: http });
 
-  // Build the canc-native transcoder once at the root, the only place the raw backend is touched.
-  // Every handler below takes that transcoder, never the backend bundle.
+  // canc-native transcoder built once at root
   const transcode = createTranscoder(backend);
   wss.on('connection', (ws) => handleConnection(ws, transcode));
 
@@ -57,14 +46,13 @@ export function startServer(backend: ExportBackend, port = 0): Promise<ServerHan
 }
 
 function handleConnection(ws: WebSocket, transcode: Transcoder): void {
-  // The connection's cancel root: an intentional scope handle. A pending-forever CancelablePromise,
-  // never resolved; canceling it cancels every job below. This is the only hand-built primitive.
+  // connection cancel root acting as scope handle for child jobs
   const connectionRoot = new CancelablePromise<void, any>(() => {});
   const jobs = new Map<string, CancelablePromise<void, any>>();
 
-  // Socket close = second cancel path. Cancel the root; its children (all jobs) go with it.
+  // socket close cancels root and all child jobs
   ws.on('close', () => connectionRoot.cancel(new CancelError('Connection closed')));
-  // When the root cancels, drop every remaining job (the tree cancel).
+  // cancel remaining child jobs on root cancel
   connectionRoot.then(undefined, () => {
     for (const job of jobs.values()) job.cancel();
   });
@@ -78,7 +66,7 @@ async function readMessages(
   connectionRoot: CancelablePromise<void, any>,
   jobs: Map<string, CancelablePromise<void, any>>,
 ): Promise<void> {
-  // The signal dies with the connection root, ending this native iterator cleanly.
+  // signal aborts with connection root to end native iterator
   const signal = toAbortSignal(connectionRoot);
   try {
     for await (const [raw] of on(ws, 'message', { signal })) {
@@ -88,7 +76,7 @@ async function readMessages(
     }
   } catch (error) {
     if ((error as { name?: string }).name !== 'AbortError') throw error;
-    // AbortError = the connection root canceled. Expected; nothing more to read.
+    // abort error on root cancel is expected
   }
 }
 
@@ -102,7 +90,7 @@ function dispatch(
     if (jobs.has(message.jobId)) return;
     jobs.set(message.jobId, runJob(message.jobId, ws, transcode, jobs));
   } else {
-    // First cancel path: explicit message. Cancel the one job; its ack is sent from runJob.
+    // cancel single job on explicit cancel message
     jobs.get(message.jobId)?.cancel();
   }
 }
@@ -113,8 +101,7 @@ function runJob(
   transcode: Transcoder,
   jobs: Map<string, CancelablePromise<void, any>>,
 ): CancelablePromise<void, any> {
-  // The job is a coroutine that consumes the export stream. Its own cancel runs the iterator's
-  // `return()` for us, which aborts the chunk in flight and stops every later chunk.
+  // coroutine job where cancel aborts in-flight chunk and stops stream
   const job = canc.async(function* () {
     const progressStream = exportJob(transcode);
     yield* canc.forAwait(progressStream, (percent) => {
@@ -129,8 +116,7 @@ function runJob(
     },
     (error) => {
       jobs.delete(jobId);
-      // Cancel = ack the client. Shielded so the ack still sends even though the job chain is
-      // canceling. A real failure is left to surface, not acked as a cancel.
+      // shielded ack sent to client on cancel
       if (isCancelError(error)) {
         void suppressCancel((async () => send(ws, { type: 'canceled', jobId }))());
       }

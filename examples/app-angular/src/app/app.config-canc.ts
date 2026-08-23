@@ -6,9 +6,11 @@ import { OrdersServiceManual } from './orders.service-manual-canc';
 import { OrdersServiceObservable } from './orders.service-obs';
 import { CANCELABLE_ORDERS_SERVICE, type CancelableOrdersService } from './orders.types';
 
-// Which service the dashboard runs against. All three satisfy CANCELABLE_ORDERS_SERVICE, so the
-// components never change: coroutines behind a decorator, the same coroutines wired by hand, or
-// RxJS adapted.
+/**
+ * Which service the dashboard runs against. All three satisfy CANCELABLE_ORDERS_SERVICE, so the
+ * components never change: coroutines behind a decorator, the same coroutines wired by hand, or
+ * RxJS adapted.
+ */
 type OrdersFlavor = 'decorator' | 'manual' | 'observable';
 
 const FLAVOR: OrdersFlavor = 'decorator';
