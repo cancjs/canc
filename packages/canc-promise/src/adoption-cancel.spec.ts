@@ -273,7 +273,7 @@ describe('adoption cancel propagation', () => {
   it('p.then(() => p): native TypeError, no cycle, no hang', async () => {
     const p: CancelablePromise<any> = CancelablePromise.resolve();
     // Self-adoption: the handler returns the very promise `then` produced. Native resolution
-    // rejects with a TypeError; our new branch must not run before that and must not deadlock.
+    // rejects with a TypeError; cancellation must not run before that and must not deadlock.
     const chained: CancelablePromise<any, any> = p.then(() => chained as any);
 
     await expect(chained).rejects.toBeInstanceOf(TypeError);

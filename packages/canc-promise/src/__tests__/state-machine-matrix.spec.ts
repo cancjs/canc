@@ -192,7 +192,7 @@ describe('state machine matrix', () => {
     // Resolving with a thenable whose `then` calls back into resolving itself indefinitely would
     // be a genuine self-resolution cycle (native Promise TypeErrors on true self-resolution via
     // `resolve(promise)` where promise === itself only when done through the same resolve call
-    // synchronously; here we approximate "self-ish" with a thenable that resolves to itself,
+    // synchronously; approximates "self-ish" with a thenable that resolves to a fixed value,
     // exercising the adoption chain without hanging the test).
     it('resolving with a thenable that resolves to a fixed value terminates (no infinite adoption)', async () => {
       let calls = 0;

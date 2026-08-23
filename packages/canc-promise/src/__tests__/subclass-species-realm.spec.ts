@@ -275,7 +275,7 @@ describe('cross-realm CancelError recognition (duck-typing)', () => {
 			err;
 		`);
 
-    // Genuinely foreign: not our CancelError instance (different realm's Error), yet branded.
+    // Genuinely foreign: not a local CancelError instance (different realm Error), yet branded
     expect(foreignBranded instanceof CancelError).toBe(false);
     expect(foreignBranded instanceof Error).toBe(false); // cross-realm Error identity differs
     expect(isCancelError(foreignBranded)).toBe(true);

@@ -156,7 +156,7 @@ describe('CancelError brand cross-realm', () => {
 			err;
 		`);
 
-    // Sanity: it is genuinely a foreign object (not our CancelError instance).
+    // Sanity: foreign object from another realm, not a local CancelError instance
     expect(foreignBranded instanceof CancelError).toBe(false);
     expect(isCancelError(foreignBranded)).toBe(true);
   });

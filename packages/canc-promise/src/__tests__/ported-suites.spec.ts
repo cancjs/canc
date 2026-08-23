@@ -1019,7 +1019,7 @@ describe('ported suites', () => {
       silence(outer);
       silence(inner);
 
-      // Both are pending when we cancel outer
+      // Cancel while both promises remain pending
       outer.cancel();
       await drain();
 

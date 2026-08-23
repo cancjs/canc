@@ -552,7 +552,7 @@ describe('cancel-signal reuse (no injected AbortController)', () => {
     const promise = cancelableFetch('/api', { signal: external.signal, method: 'POST' });
     await flush();
 
-    // The underlying fetch gets our minted signal, not the caller's, and the init is preserved.
+    // Underlying fetch gets factory-minted signal while preserving init options
     expect(backing.calls[0].init.method).toBe('POST');
     expect(backing.calls[0].signal).toBeInstanceOf(AbortSignal);
 

@@ -252,9 +252,8 @@ describe('_dispose routes through an overridden cancel', () => {
 });
 
 describe('await using integration (manual protocol fallback)', () => {
-  // The tsconfig lib (es2022) does not include esnext.disposable, so `await using` syntax cannot
-  // be type-checked here without changing the global lib floor (invariant). We exercise the exact
-  // protocol `await using` would invoke: Symbol.asyncDispose on scope exit.
+  // tsconfig lib (es2022) lacks esnext.disposable, keeping the global lib floor locked;
+  // exercises the exact protocol await using invokes: Symbol.asyncDispose on scope exit
   it('protocol call mirrors await using scope-exit disposal', async () => {
     if (!asyncDisposeSym) {
       return;

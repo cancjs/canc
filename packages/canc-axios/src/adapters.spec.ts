@@ -8,9 +8,9 @@ import { wrapAxios } from './base';
 
 const nextTick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-// Axios pipes our signal through its own signal composition before handing it to fetch, and the
-// composed signal carries a freshly minted axios error rather than ours. These cover that the
-// rejection still comes back as a CancelError on every real adapter.
+// Axios pipes the wrapper's signal through its own signal composition before handing it to fetch,
+// and the composed signal carries a freshly minted axios error rather than the wrapper's own.
+// Rejection still comes back as a CancelError across real adapters.
 describe('real adapters', () => {
   it('cancels through the fetch adapter', async () => {
     const original = (globalThis as any).fetch;

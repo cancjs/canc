@@ -114,7 +114,7 @@ describe('promisify', () => {
 
       const errfirstFn = (cb: (err: any, value?: number) => void) => {
         firedCallback = cb;
-        // Simulate a slow async op: the real callback fires only after we've already canceled.
+        // Simulates a slow async op where callback fires after cancel()
         setTimeout(() => cb(null, 42), 50);
       };
 

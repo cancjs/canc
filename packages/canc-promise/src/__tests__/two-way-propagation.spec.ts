@@ -499,7 +499,7 @@ describe('two-way propagation matrix', () => {
 
       // child had bubble:false when grandchild linked? Linkage happened at then() time with
       // inherited bubble:true, so grandchild->child bubble may still occur; assert the isolation
-      // boundary we control: parent remains resolved.
+      // boundary: parent remains resolved.
       await expect(parent).resolves.toBe(3);
       expect(parent.isCanceled).toBe(false);
     });
