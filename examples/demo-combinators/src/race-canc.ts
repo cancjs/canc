@@ -5,18 +5,16 @@ import * as canc from '@cancjs/coroutine';
 
 import { cancWidgets, mockApi } from './widgets-shared.js';
 
-async function runRaceCanc(): Promise<void> {
+const runRaceCanc = canc.async(function* () {
   mockApi.reset();
 
   try {
-    const winner = await canc.async(function* () {
-      return yield* canc.await.race([
-        cancWidgets.getDeployStatus('deploy-1'), // winner
-        cancWidgets.loadOrders('user-1'),
-        cancWidgets.checkInventory('product-1'),
-        cancWidgets.quotePrice('AAPL'),
-      ]);
-    })();
+    const winner = yield* canc.await.race([
+      cancWidgets.getDeployStatus('deploy-1'), // winner
+      cancWidgets.loadOrders('user-1'),
+      cancWidgets.checkInventory('product-1'),
+      cancWidgets.quotePrice('AAPL'),
+    ]);
     console.log(`Canc race - winner: ${JSON.stringify(winner)}`);
   } catch {
     // Race completed (by rejection)
@@ -24,6 +22,6 @@ async function runRaceCanc(): Promise<void> {
 
   const reportCanceled = mockApi.calls.filter((c) => c.status === 'aborted').length;
   console.log(`Canc race - canceled: ${reportCanceled}`);
-}
+});
 
 export { runRaceCanc };

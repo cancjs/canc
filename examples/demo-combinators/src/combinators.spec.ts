@@ -224,4 +224,18 @@ describe('combinators', () => {
       expect(completedCount).toBe(4);
     });
   });
+
+  describe('exported combinator cancelability', () => {
+    it('canceling runAllCanc cancels the underlying operations', async () => {
+      const { runAllCanc } = require('./all-canc');
+      const p = runAllCanc();
+      expect(typeof p.cancel).toBe('function');
+      p.cancel();
+      try {
+        await p;
+      } catch (err) {
+        expect(isCancelError(err)).toBe(true);
+      }
+    });
+  });
 });
