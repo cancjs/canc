@@ -92,9 +92,9 @@ added in [Mongoose PR 12323](https://github.com/Automattic/mongoose/pull/12323).
 client-side loop stop. It stops pulling further batches and resolves immediately. It does not
 close the cursor, does not abort the operation already in flight, and does not reject. No
 connection is dropped, which makes it the cheap and safe cancellation point. In this example,
-`scanBookings` passes `options.signal` directly to `eachAsync`. Because mockingoose replaces
-the cursor with a stand-in that drops the options argument, the mock setup in `src/mock/db.ts`
-supplies a cursor stand-in that reproduces these exact stop semantics.
+`scanBookings` passes `options.signal` directly to `eachAsync`. Because the mock environment
+intercepts Mongoose's Query prototype cursor method, the mock setup in `src/mock/db.ts`
+supplies a cursor wrapper that reproduces these exact stop semantics.
 
 True statement-level cancellation also exists. Mongoose forwards an `AbortSignal` from the query
 options straight to the driver, and the driver's cursor closes when that signal aborts, so the
@@ -112,7 +112,7 @@ driver's connection pool.
 
 `ABORT_QUERIES` in `src/bookings-repository.ts` is enabled by default so the demo shows the
 mechanism out of the box. It must not be enabled for frequently-running queries until the
-referenced driver issues are resolved. Passing the signal the typed way uses
+referenced driver issues (such as [NODE-6062](https://jira.mongodb.org/browse/NODE-6062)) are resolved. Passing the signal the typed way uses
 `Model.find(filter, null, { signal })`, never `Query#setOptions({ signal })` (which only carries a
 signal through an unchecked index signature). Through mockingoose the flag changes nothing
 observable here, so it is a documented switch rather than a feature of this example's output.
