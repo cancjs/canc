@@ -5,17 +5,15 @@ import { callReturn, getSource } from './pull';
 /**
  * Normalize a source into an async iterable.
  * Accepts: async iterable, sync iterable, single promise, or single value.
- * Note: The canc entry point wraps this result with makePipeable to add the pipe method.
+ * The canc entry point wraps this result with `makePipeable` to add the `.pipe` method.
  */
 export function from<T>(source: AnyIterable<T> | PromiseLike<T> | T, _opts?: IAsyncIterOptions): AsyncIterable<T> {
-  // If it's a thenable (promise), yield its value
   if (source != null && typeof (source as any).then === 'function') {
     return createAsyncIterable<T>(async function* () {
       yield await (source as PromiseLike<T>);
     });
   }
 
-  // Try to get an iterator from the source
   try {
     const { it } = getSource<T>(source as any);
     return {
@@ -66,17 +64,14 @@ export function zip<T extends readonly any[]>(...args: any[]): AsyncIterable<T> 
       while (true) {
         const results = await Promise.all(iterators.map((it) => it.next()));
 
-        // Check if any iterator is done
         if (results.some((r) => r.done)) {
           break;
         }
 
-        // Yield the tuple of values
         const tuple = results.map((r) => r.value);
         yield tuple as any as T;
       }
     } finally {
-      // On exit, call return() on all iterators
       await Promise.all(iterators.map((it) => callReturn(it)));
     }
   });
@@ -99,12 +94,10 @@ export function zipKeyed<T extends Record<string, AnyIterable<any>>>(
       while (true) {
         const results = await Promise.all(iterators.map((it) => it.next()));
 
-        // Check if any iterator is done
         if (results.some((r) => r.done)) {
           break;
         }
 
-        // Build the object
         const obj: any = {};
         keys.forEach((key, i) => {
           obj[key] = results[i].value;
@@ -113,15 +106,11 @@ export function zipKeyed<T extends Record<string, AnyIterable<any>>>(
         yield obj;
       }
     } finally {
-      // On exit, call return() on all iterators
       await Promise.all(iterators.map((it) => callReturn(it)));
     }
   });
 }
 
-/**
- * Helper to create an async iterable from a generator function.
- */
 function createAsyncIterable<T>(gen: () => AsyncGenerator<T>): AsyncIterable<T> {
   return {
     [Symbol.asyncIterator]: gen,
