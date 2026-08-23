@@ -1,10 +1,5 @@
-// Background prefetch of invoice details for the rows around the viewport, plain version. Same
-// shape as prefetch-details-canc.ts: one task per row in the lowest band, promoted the moment the
-// row becomes visible, dropped as soon as the render run it belongs to is superseded.
-//
-// This is the third place an abort lands. The body of this task is asynchronous, so the abort can
-// reach the request rather than just abandoning it. Getting there takes a controller per prefetch,
-// a registry of them, a forwarding listener per lifetime, and a backoff loop written out by hand.
+// background prefetch of invoice details for rows around viewport (vanilla)
+// abort during asynchronous task aborts suspended network request
 
 import { InvoiceDetail } from '@shared/mock-api';
 
@@ -12,9 +7,9 @@ import { getPlatformScheduler, IPlatformScheduler, TTaskPriority } from './platf
 
 // --- setup
 
-// long enough that a row flicked past on the way somewhere else never reaches the network
+// delay threshold before fetching offscreen rows
 export const PREFETCH_DELAY_MS = 100;
-// attempts in total, the first one included
+// total retry attempts
 export const PREFETCH_ATTEMPTS = 3;
 export const PREFETCH_BACKOFF_MS = 200;
 
@@ -60,13 +55,12 @@ export function prefetchDetails(
 
   const platform = getPlatformScheduler();
   const control = createPrefetchControl(platform);
-  // the lifetime cannot govern this task on its own, because the priority lives on a controller of
-  // our own, so its abort is forwarded by hand and unwired again when the prefetch settles
+  // forward lifetime abort to task controller by hand
   const onLifetimeAbort = (): void => control.abort(lifetime?.reason);
   lifetime?.addEventListener('abort', onLifetimeAbort);
 
   const promise = postPrefetchTask(
-    // aborted while queued: the entry is dropped and the request is never made
+    // aborted while queued: entry dropped and request never made
     () => loadWithBackoff(invoicesApi, id, control.signal, platform, options),
     PREFETCH_DELAY_MS,
     control.signal,
@@ -77,8 +71,7 @@ export function prefetchDetails(
 
   inFlight.set(id, prefetch);
 
-  // bookkeeping, not error handling. whoever holds the prefetch reads its result, and a prefetch
-  // that is gone leaves nothing behind for a row that has to load its detail on demand
+  // unregister completed prefetch and remove lifetime abort listener
   const forget = (): void => {
     lifetime?.removeEventListener('abort', onLifetimeAbort);
 
@@ -94,8 +87,7 @@ export function prefetchDetails(
 
 /** Move a prefetch into the band the user is waiting on, once its row is actually visible. */
 export function promote(prefetch: IPrefetch): void {
-  // the controller the task was posted under is the only thing that can still move it, which is
-  // why it had to be carried around next to the promise
+  // reprioritize task controller to user-blocking band
   prefetch.setPriority('user-blocking');
 }
 
@@ -119,7 +111,7 @@ interface IPrefetchControl {
 
 function createPrefetchControl(platform: IPlatformScheduler | undefined): IPrefetchControl {
   if (!platform) {
-    // no scheduler here (Safari, node), so the lifetime still works and the band is gone
+    // fallback without scheduler preserves lifetime signal
     const controller = new AbortController();
 
     return {
@@ -154,8 +146,7 @@ async function loadWithBackoff(
       }
 
       options?.onRetry?.(attempt);
-      // the wait between attempts is a background task of its own, and it needs the whole abort
-      // plumbing written out a second time
+      // backoff wait in background priority with manual abort forwarding
       await postPrefetchTask(() => undefined, PREFETCH_BACKOFF_MS * Math.pow(2, attempt - 1), signal, platform);
     }
   }

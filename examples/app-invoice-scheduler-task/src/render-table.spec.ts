@@ -178,8 +178,7 @@ describe('renderInvoices, vanilla flavor', () => {
 
     renderInvoicesVanilla(tbody, createInvoices(TOTAL_INVOICES));
 
-    // the bug this example teaches: the loop owns the thread, so the rows land no matter what else
-    // was ready to run
+    // synchronous loop blocks thread so all rows land regardless of queued priority work
     expect(tbody.rows.length).toBe(TOTAL_INVOICES);
     expect(order).toEqual([]);
 

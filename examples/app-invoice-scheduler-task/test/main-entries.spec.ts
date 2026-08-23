@@ -1,7 +1,4 @@
-// The wiring in main-canc.ts is otherwise exercised end to end by the smoke specs; this file
-// covers the one behavior that lives only in the entry itself: the filter is debounced through
-// the scheduler-backed timers pair, not the ambient one, and two quick changes leave exactly one
-// live query.
+// unit spec verifying filter debounce is scheduled via TaskController instead of setTimeout
 
 import { IPostTaskOptions, ITaskSignal } from '../src/lib/web-scheduler';
 import { createFakeScheduler, flushMicrotasks, IFakeScheduler } from './fake-scheduler';

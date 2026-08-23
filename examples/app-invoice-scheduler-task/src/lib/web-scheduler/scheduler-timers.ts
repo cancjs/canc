@@ -33,9 +33,7 @@ export function createSchedulerTimers(options?: ICreateSchedulerTimersOptions): 
 
       const controller = new pair.TaskController({ priority: options?.priority ?? DEFAULT_PRIORITY });
 
-      // Clearing a timer aborts the task, and the scheduler reports that by rejecting. Nobody is
-      // waiting on this promise, so the rejection is absorbed here instead of surfacing as an
-      // unhandled rejection in a consumer that only ever called clearTimeout.
+      // absorb rejection so clearTimeout does not surface unhandled rejection
       pair.scheduler.postTask(handler, { delay: ms, signal: controller.signal }).catch(absorbAbort);
 
       return controller;
@@ -57,8 +55,7 @@ function absorbAbort(): void {
   /* the only way this rejects is the clearTimeout above */
 }
 
-// A platform timer handle is a number in a browser and an object without `abort` in node, so the
-// presence of `abort` tells a scheduler-backed handle from a timer one.
+// presence of abort distinguishes TaskController from platform timer handle
 function isTaskController(handle: unknown): handle is ITaskController {
   return typeof (handle as ITaskController | undefined)?.abort === 'function';
 }

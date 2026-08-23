@@ -1,7 +1,4 @@
-// Wires the shell to search, chunked render, and background prefetch, plain version. Same shape
-// as main-canc.ts: one query session live at a time, a filter or chunk-size change stops it and
-// starts the next. Getting there takes a controller per session, a debounce timer written by
-// hand, and an explicit sweep of the prefetch registry instead of one lifetime signal.
+// shell wiring for search, chunked render, and background prefetch (vanilla)
 
 import { createMockApi, Invoice } from '@shared/mock-api';
 
@@ -58,11 +55,10 @@ const api = createMockApi();
 const counters = createReportCounters();
 renderReportCounters(reportPanel, counters);
 
-// jsdom has no IntersectionObserver, and a browser without one just never prefetches or
-// promotes: the page still works, it only loses the two-band demonstration
+// fallback when IntersectionObserver is unsupported
 const hasIntersectionObserver = typeof IntersectionObserver !== 'undefined';
 
-// far margin starts a background prefetch well before a row is actually on screen
+// far margin starts background prefetch ahead of viewport
 const farObserver =
   hasIntersectionObserver ?
     new IntersectionObserver(
@@ -93,7 +89,7 @@ const farObserver =
     )
   : undefined;
 
-// zero margin is the row the user is actually waiting on, so its prefetch moves to the front
+// near margin promotes visible row prefetch to user-blocking
 const nearObserver =
   hasIntersectionObserver ?
     new IntersectionObserver((entries) => {
@@ -142,8 +138,7 @@ let currentController: AbortController | undefined;
 let totalForRun = 0;
 
 async function startQuery(filterText: string, chunkSize: number): Promise<void> {
-  // no lifetime signal to derive: every prefetch this session started is dropped by walking the
-  // registry, one entry at a time, instead of one signal doing it for free
+  // abort in-flight query and cancel open prefetches in registry
   currentController?.abort('the filter changed');
   counters.reportPrefetchesCanceled += trackedPrefetches.size;
   supersedePrefetches('the filter changed');
@@ -160,8 +155,7 @@ async function startQuery(filterText: string, chunkSize: number): Promise<void> 
     const invoices = await api.invoices.search(filterText, controller.signal);
 
     if (controller.signal.aborted) {
-      // a newer filter superseded this search while it was in flight: rendering this result now
-      // would flash rows for a query the caller already moved past
+      // ignore completed query if superseded while in flight
       return;
     }
 
@@ -180,9 +174,7 @@ function currentChunkSize(): number {
   return Number(chunkSizeSelect.value) || DEFAULT_CHUNK_SIZE;
 }
 
-// written by hand: this timer always resumes on the browser's one undifferentiated timer queue,
-// with no way to ask for the priority the interaction deserves, which is the contrast with the
-// scheduler-backed debounce in main-canc.ts
+// ambient timer debounce with unprioritized callback
 let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 
 function debouncedFilter(value: string): void {

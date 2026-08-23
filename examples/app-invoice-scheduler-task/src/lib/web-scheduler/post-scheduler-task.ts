@@ -43,9 +43,9 @@ export function postSchedulerTask<T>(
 ): ISchedulerTaskPromise<T> {
   const requested = options?.priority ?? DEFAULT_PRIORITY;
   const pair = resolveScheduler(options);
-  // A task always gets a controller of its own, and a caller's signals are forwarded onto it. That
-  // is what keeps `priority` writable even when the caller brought a lifetime of their own, and it
-  // needs no signal composition, which the community polyfill does not implement.
+  // A task always gets a controller of its own.
+  // Caller signals are forwarded onto it.
+  // This keeps `priority` writable and needs no signal composition.
   const controller = pair ? new pair.TaskController({ priority: requested }) : undefined;
   const port: AbortController = controller ?? new AbortController();
   let ownPriority = requested;
@@ -57,8 +57,9 @@ export function postSchedulerTask<T>(
       settlement();
     };
 
-    // The handler receives the raw reason a caller passed to cancel(), so it is normalized back
-    // into the error the promise itself rejects with. What reaches the scheduler is a CancelError.
+    // The handler receives the raw reason a caller passed to cancel().
+    // It is normalized back into the error the promise itself rejects with.
+    // What reaches the scheduler is a CancelError.
     ctx.handleCancel((reason) => port.abort(toCancelError(reason)));
 
     if (pair && controller) {

@@ -1,6 +1,4 @@
-// Shared (suffix-free) query layer. Both the vanilla and canc report services call these; the
-// only thing the twins differ on is HOW they sequence and cancel them. Keeping the raw kysely
-// here keeps the twin services focused on the cancellation mechanics, not on SQL.
+// shared query layer called by vanilla and canc report services
 
 import { CHUNK_ROWS, ReportDb, SEED_ORDER_COUNT, sql } from './mock/db';
 

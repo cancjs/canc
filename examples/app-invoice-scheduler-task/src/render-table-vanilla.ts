@@ -1,10 +1,4 @@
-// Chunked render of the invoice table, plain version. Two flavors live here: the naive loop that
-// owns the thread until the last row, and the scheduled loop that hands the thread back between
-// chunks and rechecks its abort signal every time it comes back.
-//
-// The scheduled flavor is the fair comparison for render-table-canc.ts. It works. What the diff
-// shows is the controller, the forwarding listener and the aborted checks that the coroutine twin
-// never has to write.
+// chunked render of invoice table (naive sync loop vs scheduled loop)
 
 import { sleep } from '@shared/util';
 
@@ -13,11 +7,11 @@ import { appendChunk, createRow, IInvoiceRow } from './table-shared';
 
 // --- setup
 
-// rows painted before anything else, so the page shows a table instead of a blank area
+// rows painted before anything else to display table immediately
 export const FIRST_SCREENFUL = 25;
 export const DEFAULT_CHUNK_SIZE = 100;
 
-// a yield costs a task hop, so chunks are timed rather than counted
+// frame budget threshold for yielding to scheduler
 const FRAME_BUDGET_MS = 50;
 
 export interface IRenderOptions {
@@ -26,7 +20,7 @@ export interface IRenderOptions {
 
 // --- consume
 
-// signal is here only to show what it cannot do, see the check inside the loop
+// signal parameter cannot abort synchronous loop while holding thread
 export function renderInvoices(
   tbody: HTMLTableSectionElement,
   invoices: readonly IInvoiceRow[],
@@ -36,8 +30,7 @@ export function renderInvoices(
   tbody.dataset.rendering = 'true';
 
   for (const invoice of invoices) {
-    // dead code: nothing can flip signal.aborted while this loop holds the thread, so the handler
-    // that would abort it only gets to run once the last row has landed
+    // dead code: signal.aborted cannot flip while synchronous loop holds thread
     if (signal?.aborted) {
       break;
     }
@@ -45,7 +38,7 @@ export function renderInvoices(
     tbody.appendChild(createRow(invoice));
   }
 
-  // no cleanup path to speak of: the caller cannot get out of here early
+  // no cleanup path: synchronous loop cannot exit early
   delete tbody.dataset.rendering;
 }
 
@@ -59,7 +52,7 @@ export async function renderInvoicesScheduled(
   const platform = getPlatformScheduler();
 
   if (!platform) {
-    // no scheduler here (Safari, node), so this degrades to the frozen render above
+    // fallback to synchronous render when scheduler is unavailable
     renderInvoices(tbody, invoices, signal);
 
     return;
@@ -69,8 +62,7 @@ export async function renderInvoicesScheduled(
   tbody.dataset.rendering = 'true';
   let lastYield = performance.now();
 
-  // the task needs a controller of its own to stay reprioritizable later, so the caller's signal is
-  // forwarded onto it by hand
+  // manual TaskController needed so caller signal can be forwarded
   const controller = new platform.TaskController({ priority: 'user-blocking' });
   const onAbort = (): void => controller.abort(signal?.reason);
   signal?.addEventListener('abort', onAbort);
@@ -79,16 +71,15 @@ export async function renderInvoicesScheduled(
     const firstScreenful = platform.scheduler.postTask(() => appendChunk(tbody, invoices.slice(0, FIRST_SCREENFUL)), {
       signal: controller.signal,
     });
-    // aborted while this task is queued: it is dequeued and the callback never runs
+    // aborted while queued: task is dequeued and callback never runs
     await firstScreenful;
 
     for (let index = FIRST_SCREENFUL; index < invoices.length; index += chunkSize) {
-      // aborted while this append runs: the chunk still lands in full, because a running task
-      // cannot be interrupted. chunk size IS the abort latency
+      // aborted while appending: running task finishes, chunk size is abort latency
       appendChunk(tbody, invoices.slice(index, index + chunkSize));
 
       if (performance.now() - lastYield > FRAME_BUDGET_MS) {
-        // aborted while suspended here: the check below is the only thing that stops the loop
+        // aborted while suspended: explicit check stops loop
         const yieldToScheduler = platform.scheduler.yield;
         await (yieldToScheduler ? yieldToScheduler.call(platform.scheduler) : sleep(0));
 
@@ -102,7 +93,7 @@ export async function renderInvoicesScheduled(
   } finally {
     // --- cleanup
 
-    // runs on abort too. rows that already landed stay until the next render replaces them
+    // runs on abort too: already appended rows stay until next render
     signal?.removeEventListener('abort', onAbort);
     delete tbody.dataset.rendering;
   }

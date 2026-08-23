@@ -19,8 +19,7 @@ const LIST_LIMIT = 200;
  */
 @Injectable()
 export class InvoiceServiceManual implements InvoiceServiceLike {
-  // The @Inject(DataSource) is explicit rather than inferred: the tsx runner (esbuild) does not
-  // emit constructor param metadata, so Nest cannot infer the token from the type alone.
+  // explicit inject needed because esbuild does not emit param metadata
   constructor(@Inject(DataSource) private readonly dataSource: DataSource) {}
 
   @BillingTier('standard')
@@ -54,8 +53,7 @@ export class InvoiceServiceManual implements InvoiceServiceLike {
           }
           yield* canc.await(queryRunner.commitTransaction());
         } finally {
-          // shielded finally, same as the decorated twin: a canceled bulk rolls back to the count it
-          // started at, and the cleanup is always driven to completion.
+          // shielded finally rolls partial transaction back to starting count
           if (queryRunner.isTransactionActive) {
             yield* canc.await(queryRunner.rollbackTransaction());
             rolledBack = true;

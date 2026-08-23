@@ -1,6 +1,4 @@
-// Wires the shell to search, chunked render, and background prefetch. One query session is live
-// at a time: a filter or chunk-size change cancels the render in flight and drops the prefetches
-// that belonged to it, through a lifetime signal rather than any bookkeeping written by hand.
+// shell wiring for search, chunked render, and background prefetch
 
 import * as canc from '@cancjs/coroutine';
 import { CancelablePromise, suppressCancel } from '@cancjs/promise';
@@ -16,8 +14,7 @@ import { IInvoiceRow } from './table-shared';
 import { createReportCounters, renderReportCounters } from './util/report';
 import { createResponsivenessReport } from './util/responsiveness';
 
-// installed once, so a run that gets superseded before anything reads its rejection never
-// surfaces as an unhandled rejection by itself
+// global unhandled rejection handler ignores CancelError
 register();
 
 const root = document.getElementById('app');
@@ -66,11 +63,10 @@ const api = createMockApi();
 const counters = createReportCounters();
 renderReportCounters(reportPanel, counters);
 
-// jsdom has no IntersectionObserver, and a browser without one just never prefetches or
-// promotes: the page still works, it only loses the two-band demonstration
+// fallback when IntersectionObserver is unsupported
 const hasIntersectionObserver = typeof IntersectionObserver !== 'undefined';
 
-// far margin starts a background prefetch well before a row is actually on screen
+// far margin starts background prefetch ahead of viewport
 const farObserver =
   hasIntersectionObserver ?
     new IntersectionObserver(
@@ -101,7 +97,7 @@ const farObserver =
     )
   : undefined;
 
-// zero margin is the row the user is actually waiting on, so its prefetch moves to the front
+// near margin promotes visible row prefetch to user-blocking
 const nearObserver =
   hasIntersectionObserver ?
     new IntersectionObserver((entries) => {
@@ -161,12 +157,10 @@ const runQuery = canc.async(function* (filterText: string, chunkSize: number) {
 });
 
 function startQuery(filterText: string, chunkSize: number): void {
-  // superseding the previous session's lifetime drops every prefetch it started: queued ones are
-  // dequeued, and one already running has its request aborted
+  // superseding previous session cancels render and drops associated prefetches
   currentRun?.cancel('the filter changed');
   session?.cancel('the filter changed');
-  // the registry empties itself as each dropped prefetch settles; this only counts how many were
-  // still open at the moment of supersede
+  // record count of prefetches still open at supersede time
   counters.reportPrefetchesCanceled += trackedPrefetches.size;
   renderReportCounters(reportPanel, counters);
 
@@ -188,8 +182,7 @@ function currentChunkSize(): number {
   return Number(chunkSizeSelect.value) || DEFAULT_CHUNK_SIZE;
 }
 
-// the resume happens at the priority the interaction deserves instead of joining one
-// undifferentiated timer queue where a background retry could compete with it
+// debounce on scheduler timers in user-blocking priority band
 const applyFilter = debounce((value: string) => startQuery(value, currentChunkSize()), 150, {
   ...createSchedulerTimers({ priority: 'user-blocking' }),
 });

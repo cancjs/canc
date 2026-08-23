@@ -1,7 +1,4 @@
-// A custom method-level metadata marker plus a guard that reads it. This is the coexistence proof:
-// the marker is attached with Nest's SetMetadata (which stores metadata on the method function),
-// and the same service method also carries the canc @AsyncMethod wrapper. Our decorator copies the
-// marker onto its wrapper, so the guard still finds it on the wrapped method at request time.
+// custom method metadata and guard verifying metadata survives @AsyncMethod
 
 import { CanActivate, ExecutionContext, Inject, Injectable, SetMetadata } from '@nestjs/common';
 

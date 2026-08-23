@@ -1,6 +1,4 @@
-// End to end through the canc entry, with the fake scheduler standing in for the platform and a
-// seeded mock api for a deterministic dataset. This is the smoke test for the pitch the whole
-// example makes, not a replacement for the unit-level specs beside each twin.
+// end-to-end smoke test through canc entry with fake scheduler
 
 import { createFakeScheduler, flushMicrotasks, IFakeScheduler } from './fake-scheduler';
 

@@ -1,4 +1,4 @@
-// Shared types for the availability search result. Suffix-free: identical for both flavors.
+// shared types for availability search result
 
 export interface AvailabilityResult {
   hotelId: string;

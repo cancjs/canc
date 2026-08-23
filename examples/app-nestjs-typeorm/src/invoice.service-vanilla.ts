@@ -18,8 +18,7 @@ const LIST_LIMIT = 200;
  */
 @Injectable()
 export class InvoiceService {
-  // The @Inject(DataSource) is explicit rather than inferred: the tsx runner (esbuild) does not
-  // emit constructor param metadata, so Nest cannot infer the token from the type alone.
+  // explicit inject needed because esbuild does not emit param metadata
   constructor(@Inject(DataSource) private readonly dataSource: DataSource) {}
 
   @BillingTier('standard')
@@ -47,14 +46,12 @@ export class InvoiceService {
     await queryRunner.startTransaction();
     try {
       for (let i = 0; i < groups.length; i++) {
-        // No cancellation point: nothing checks whether the client left, so every chunk below runs
-        // to the end even after the socket is dead.
+        // no cancellation: every remaining chunk runs even for disconnected client
         generated += await generateInvoiceChunk(queryRunner.manager, groups[i], before + generated + 1, issuedAt);
       }
       await queryRunner.commitTransaction();
     } finally {
-      // Only reached with an active transaction on a thrown error; a disconnect never lands here,
-      // so a bulk run always commits in full for a client that may already be gone.
+      // only rolls back on thrown error, disconnect commits full run regardless
       if (!queryRunner.isTransactionActive) {
         // committed already; nothing to undo
       } else {

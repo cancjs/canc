@@ -1,6 +1,4 @@
-// End to end through the vanilla entry, mirroring smoke-canc.spec.ts. Two contrasts: the naive
-// renderer keeps painting a stale filter's rows no matter what fires mid-loop (the bug this whole
-// example exists to teach), and the scheduled renderer main-vanilla.ts actually wires up stops.
+// end-to-end smoke test through vanilla entry with fake scheduler
 
 import { renderInvoices as renderInvoicesNaive } from '../src/render-table-vanilla';
 import { IInvoiceRow } from '../src/table-shared';
@@ -112,7 +110,7 @@ describe('app-invoice-scheduler-task smoke, vanilla flavor', () => {
     filterInput.value = 'zzzznomatch';
     filterInput.dispatchEvent(new Event('input'));
 
-    // the hand-rolled debounce is a real ambient timer, unlike the scheduler-backed one in main-canc.ts
+    // the hand-rolled debounce is an ambient timer, unlike the scheduler-backed one
     await jest.advanceTimersByTimeAsync(150);
     await flushMicrotasks();
     await settle(fake);

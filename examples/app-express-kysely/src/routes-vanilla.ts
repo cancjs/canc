@@ -12,7 +12,7 @@ export function createReportRouter(rdb: ReportDb): Router {
   const router = Router();
 
   router.get('/orders/report', (_req, res, next) => {
-    // No cancellation: this runs to completion even if the client already disconnected.
+    // uncancelable: runs to completion even if client already disconnected
     buildReport(rdb).then(
       (report) => res.json(report), // res.json writes to nobody when the socket is dead
       (error) => next(error),
@@ -26,7 +26,7 @@ export function createReportRouter(rdb: ReportDb): Router {
     buildReportAbortable(rdb, signal).then(
       (report) => res.json(report),
       (error) => {
-        if (error?.name === 'AbortError') return; // aborted by hand — the workaround's cost
+        if (error?.name === 'AbortError') return; // aborted by hand - the workaround's cost
         next(error);
       },
     );

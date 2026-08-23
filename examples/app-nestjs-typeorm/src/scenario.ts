@@ -1,8 +1,4 @@
-// Shared narrative for both entries. Boots the Nest app, starts a bulk invoice generation, then
-// destroys the client socket partway through, and reports the invoice count afterwards. The two
-// flavors diverge in that count: canc rolls the transaction back so the count is unchanged; vanilla
-// runs every chunk and commits, so the count jumps by the full customer total.
-
+// scenario comparing rollback on disconnect vs uncancelable commit
 import http from 'node:http';
 
 import type { INestApplication } from '@nestjs/common';
@@ -35,15 +31,14 @@ export async function runDisconnectScenario(
   const request = http.request({ host: '127.0.0.1', port, path: '/invoices/bulk', method: 'POST' }, (res) =>
     res.resume(),
   );
-  request.on('error', () => {}); // destroying the socket surfaces here; expected
+  request.on('error', () => {}); // socket destroy surfaces here
   request.end();
 
-  // Let the first couple of chunks run, then hang up.
+  // let first couple chunks run, then disconnect
   await sleep(60);
   request.destroy();
 
-  // Wait past the point where an uncancelled bulk run would have committed every chunk, so the two
-  // flavors are compared at the same late moment: canc rolled back, vanilla committed.
+  // wait for potential uncancelled run to complete before comparing counts
   await sleep(600);
   const after = await countInvoices(dataSource.manager);
 

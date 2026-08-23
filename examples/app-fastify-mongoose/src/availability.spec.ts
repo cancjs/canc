@@ -40,8 +40,7 @@ function scannedBookings(): number {
   return queryLog.find((entry) => entry.op === 'scanBookings')?.documentsScanned ?? 0;
 }
 
-// Destroys the socket once the scenario's moment arrives. Polling the query log instead of waiting
-// a fixed time keeps both scenarios landing where they are meant to on a slow machine.
+// polls query log to trigger disconnect at exact scenario step
 function requestThenDisconnect(port: number, hasReachedMoment: () => boolean): Promise<void> {
   return new Promise((resolve) => {
     const req = http.get({ port, path: '/availability' }, () => {});
@@ -81,9 +80,9 @@ describe('app-fastify-mongoose availability search', () => {
     await requestThenDisconnect(port, () => issuedQueries().includes('findRooms'));
     await sleep(SETTLE_MS);
 
-    // First query started before the disconnect landed.
+    // first query started before disconnect landed
     expect(issuedQueries()).toContain('findRooms');
-    // Chain-cancel froze the log here: the later queries were never issued.
+    // chain cancel prevented subsequent queries from issuing
     expect(issuedQueries()).not.toContain('loadRates');
     expect(issuedQueries()).not.toContain('scanBookings');
   });
@@ -95,7 +94,7 @@ describe('app-fastify-mongoose availability search', () => {
     await requestThenDisconnect(port, () => issuedQueries().includes('findRooms'));
     await sleep(SETTLE_MS);
 
-    // Uncancelable: every query runs for the dead socket.
+    // uncancelable: all queries run for disconnected socket
     expect(issuedQueries()).toContain('findRooms');
     expect(issuedQueries()).toContain('loadRates');
     expect(issuedQueries()).toContain('scanBookings');
@@ -109,7 +108,7 @@ describe('app-fastify-mongoose availability search', () => {
     await sleep(SETTLE_MS);
 
     expect(issuedQueries()).toContain('scanBookings');
-    // Partial scan: some documents were walked, the rest never were.
+    // partial scan: stopped mid-way through bookings
     expect(scannedBookings()).toBeGreaterThan(0);
     expect(scannedBookings()).toBeLessThan(BOOKING_COUNT);
   });

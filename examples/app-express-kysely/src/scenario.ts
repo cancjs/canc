@@ -1,8 +1,4 @@
-// Shared narrative for both entries. Boots the server, starts an orders report, then destroys the
-// client socket partway through, and reports how many aggregate slices actually ran afterwards.
-// The two flavors diverge in the number: canc freezes the query log at the disconnect point;
-// vanilla runs every slice to the end.
-
+// scenario comparing query freeze on disconnect vs uncancelable run
 import http from 'node:http';
 
 import { sleep } from '@shared/util';
@@ -33,15 +29,14 @@ export async function runDisconnectScenario(
 
   console.log(`[${flavor}] GET /orders/report, then disconnecting mid-report`);
   const request = http.get(`http://127.0.0.1:${port}/orders/report`);
-  request.on('error', () => {}); // destroying the socket surfaces here; expected
+  request.on('error', () => {}); // socket destroy surfaces here
 
-  // Let the first couple of slices run, then hang up.
+  // let first couple slices run, then disconnect
   await sleep(150);
   const runBeforeDisconnect = countAggregateQueries(rdb);
   request.destroy();
 
-  // Wait past the point where an uncancelled report would have finished every slice, so the two
-  // flavors are compared at the same late moment: canc frozen, vanilla complete.
+  // wait for potential uncancelled report to finish before comparing slice counts
   await sleep(400);
   const runAfterDisconnect = countAggregateQueries(rdb);
 

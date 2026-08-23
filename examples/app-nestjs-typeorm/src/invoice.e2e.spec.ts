@@ -58,7 +58,7 @@ describe('bulk invoice generation cancellation on client disconnect', () => {
     const before = await countInvoices(dataSource.manager);
     const after = await countAfterDisconnect(dataSource, port);
 
-    // Rollback proof: the partial transaction was undone, so the count is exactly what it was.
+    // rollback proof: count unchanged after partial transaction undone
     expect(before).toBe(0);
     expect(after).toBe(0);
 
@@ -83,7 +83,7 @@ describe('bulk invoice generation cancellation on client disconnect', () => {
 
     await request(app.getHttpServer()).get('/invoices').expect(200);
 
-    // The guard read the @BillingTier('standard') marker off the wrapped listInvoices method.
+    // guard read marker off wrapped method
     expect(BillingTierGuard.lastSeenTier).toBe('standard');
 
     await app.close();
@@ -96,7 +96,7 @@ describe('bulk invoice generation cancellation on client disconnect', () => {
     const before = await countInvoices(dataSource.manager);
     const after = await countAfterDisconnect(dataSource, port, SEED_CUSTOMER_COUNT);
 
-    // No cancellation: the transaction committed the full run for a socket nobody is reading.
+    // uncancelable: full transaction committed for disconnected socket
     expect(before).toBe(0);
     expect(after).toBe(SEED_CUSTOMER_COUNT);
 

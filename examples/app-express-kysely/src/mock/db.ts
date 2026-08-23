@@ -1,14 +1,7 @@
-// In-memory e-commerce database seeded once at boot. Pretend this is your
-// real Postgres. It is here only so the report endpoint has something slow and real to compute
-// while a client is (or is not) still connected.
+// In-memory e-commerce database seeded at boot (mock data layer)
 //
-// Honesty note: pglite runs in-process WASM on a single thread. It cannot wire-cancel a running
-// statement because there is no separate server backend. What cancellation buys us here is stopping
-// BETWEEN queries: the aggregate below is deliberately split into slices (`chunkedQuery`) so the
-// handler can decide, at each slice boundary, whether the client is still there. If not, the
-// remaining slices never run and the response is released. A production Postgres driver (node-postgres)
-// goes further and issues a wire-level cancel of an in-flight statement via pg_cancel_backend.
-// Set DATABASE_URL to a local Postgres to run the opt-in wire-cancel path.
+// Honesty note: pglite runs in-process WASM and cannot wire-cancel running statements
+// Cancellation stops between chunked queries; wire-cancel requires a real Postgres instance
 
 import { PGlite } from '@electric-sql/pglite';
 import { InflightQueryAbortStrategy, Kysely, PGliteDialect, PostgresDialect, sql } from 'kysely';
@@ -113,7 +106,7 @@ export async function createReportDb(): Promise<ReportDb> {
 
   await sql`CREATE INDEX idx_orders_customer ON orders (customer_id)`.execute(db);
 
-  // Seed products
+  // seed products
   const productValues = [];
   for (let id = 1; id <= SEED_PRODUCT_COUNT; id++) {
     productValues.push({
@@ -124,7 +117,7 @@ export async function createReportDb(): Promise<ReportDb> {
   }
   await db.insertInto('products').values(productValues).execute();
 
-  // Seed orders
+  // seed orders
   const orderValues = [];
   for (let id = 1; id <= SEED_ORDER_COUNT; id++) {
     orderValues.push({
@@ -137,7 +130,7 @@ export async function createReportDb(): Promise<ReportDb> {
     });
   }
 
-  // Chunk the inserts so we don't blow up parameter limits
+  // chunk inserts to stay within SQL parameter limits
   const CHUNK_SIZE = 5000;
   for (let i = 0; i < orderValues.length; i += CHUNK_SIZE) {
     await db
