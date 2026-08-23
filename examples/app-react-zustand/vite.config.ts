@@ -1,9 +1,7 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
-// Two standalone HTML entries, vanilla.html and canc.html, each loading its own main-*.tsx. No
-// build-time flavor switch: `dev:vanilla`/`dev:canc` just open the matching URL on the same dev
-// server, and the production build emits both pages.
+// standalone HTML entries for vanilla and canc variants
 export default defineConfig({
   plugins: [react()],
   build: {

@@ -1,6 +1,5 @@
-// Pinia checkout store, canc. Each step action tracks its own in-flight CancelablePromise;
-// goToStep cancels whatever step the user is abandoning before moving on, so a slow validate
-// call can never land after the wizard has already moved past it.
+// Pinia checkout store, canc.
+// goToStep cancels whatever step the user is abandoning before moving on.
 
 import * as canc from '@cancjs/coroutine';
 import { CancelablePromise, isCancelError } from '@cancjs/promise';
@@ -91,9 +90,7 @@ export const useCheckoutStore = defineStore('checkout-canc', {
       this.step = next;
     },
 
-    // rollback-in-cancel-handler: showing the pattern once. If a shipping quote is canceled after
-    // an optimistic UI already showed a carrier, handleCancel undoes it: rollback lives at the
-    // cancellation site, not scattered through .then chains.
+    // rollback-in-cancel-handler: showing the pattern once.
     quoteShippingOptimistic() {
       if (!this.address) return;
       this.shippingLoad?.cancel();

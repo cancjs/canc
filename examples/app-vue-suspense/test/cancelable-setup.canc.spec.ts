@@ -43,7 +43,7 @@ describe('cancelableSetup', () => {
     load.resolve('chair');
     await expect(result).resolves.toEqual({ label: 'p1:chair' });
 
-    // Type-level assertion: declared failures propagate through CancelableSetup rather than degrading to unknown.
+    // type assertion: declared failures propagate through CancelableSetup
     const failingPromise = null as unknown as CancelablePromise<string, FetchError>;
     const setupWithFailure = function* (_props: { id: string }): canc.AsyncResult<{ label: string }, FetchError> {
       const name = yield* canc.await(failingPromise);

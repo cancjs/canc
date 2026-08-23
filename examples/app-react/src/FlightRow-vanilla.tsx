@@ -2,15 +2,14 @@ import { type ReactNode, useEffect, useState } from 'react';
 
 import type { FlightApi, FlightDestination, FlightDetails } from './mock/api';
 
-// A plain details fetch. No cancelation: once hover starts it, nothing can stop it (see the effect).
+// plain details fetch without cancellation
 function prefetchDetails(api: FlightApi, id: string): Promise<FlightDetails> {
   return api.flightDetails(id);
 }
 
 // (no cache-warm counterpart: a plain fire-and-forget call has nothing worth guarding, see -canc)
 
-// One destination row. Hovering prefetches its details, but there is nothing to cancel: unhovering
-// or unmounting cannot stop the request, so it completes and tries to set state anyway.
+// hovering prefetches details without cancellation; unhovering leaves fetch running
 export function FlightRow({ api, destination }: { api: FlightApi; destination: FlightDestination }): ReactNode {
   const [hovering, setHovering] = useState(false);
 

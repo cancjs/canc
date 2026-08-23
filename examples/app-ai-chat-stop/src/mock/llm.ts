@@ -1,10 +1,6 @@
-// Mock code: the LLM boundary. Pretend this is your OpenAI client. Both flavors of the chat
-// service call THIS module, never the SDK directly, so the vanilla/canc twins stay identical in
-// shape and only differ in how they wire cancellation.
+// mock streaming chat model
 //
-// Keyless by default: a mock token streamer from @shared/mock-api. Set OPENAI_API_KEY to route
-// the same calls through the real OpenAI SDK (an optional dependency). The call shape is
-// identical either way: a moderation check, then a token stream, both accepting an AbortSignal.
+// Keyless by default: a mock token streamer from @shared/mock-api.
 
 import { isAbortError as isMockAbortError } from '@cancjs/toolbox';
 import { createMockApi } from '@shared/mock-api';
@@ -52,8 +48,7 @@ function createMockLlm(): Llm {
   };
 }
 
-// Real OpenAI SDK path. Same call shape: the SDK takes { signal } on each request, so aborting the
-// signal aborts the in-flight HTTP request and stops token billing at the provider.
+// Real OpenAI SDK path.
 function createRealLlm(): Llm {
   // Imported lazily so the mock path never needs the optional dependency installed.
   const OpenAI = require('openai').default as typeof import('openai').default;

@@ -1,8 +1,6 @@
 // Vanilla chat service: an AbortController threaded through every layer by hand.
 //
-// Two flavors live here (the plain uncancelable one and the abortable workaround) so the twin
-// file mapping stays one-to-one. The uncancelable flavor is the money shot: after the user hits
-// Stop the socket is gone, but the loop keeps pulling tokens we are billed for.
+// Two flavors live here (uncancelable and abortable workaround) so the twin mapping stays 1:1.
 
 import { ChatRequest, UsageLog } from './chat';
 import { createLlm, isAbortError } from './mock/llm';
@@ -11,8 +9,7 @@ export interface ChatSink {
   write(token: string): void;
 }
 
-// Uncancelable: no signal reaches the LLM. Stop closes the browser socket, but this loop keeps
-// consuming (and paying for) tokens until the model finishes on its own.
+// uncancelable: no signal reaches model stream; loop keeps running
 export async function streamChat(req: ChatRequest, sink: ChatSink, log: UsageLog): Promise<void> {
   const llm = createLlm();
   const canceled = false;
@@ -28,8 +25,7 @@ export async function streamChat(req: ChatRequest, sink: ChatSink, log: UsageLog
   }
 }
 
-// Abortable workaround: an AbortController is threaded into moderate and the stream. The caller
-// must remember to abort it on disconnect, and every layer re-checks error.name === 'AbortError'.
+// Abortable workaround: an AbortController is threaded into moderate and the stream.
 export async function streamChatAbortable(
   req: ChatRequest,
   sink: ChatSink,
@@ -56,7 +52,7 @@ export async function streamChatAbortable(
   }
 }
 
-// A signal that never fires, so the uncancelable flavor type-checks against the same LLM shape.
+// non-firing signal for uncancelable flavor compatibility
 function neverAborts(): AbortSignal {
   return new AbortController().signal;
 }

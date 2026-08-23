@@ -3,9 +3,7 @@ import { type ReactNode } from 'react';
 import { CancelableSuspense, useCancelableResource } from './lib/cancelable-suspense';
 import type { TravelApi } from './mock/api';
 
-// Correct pattern: the resource is created above the boundary (render-as-you-fetch) and the
-// CancelableSuspense boundary owns its lifetime. The boundary commits and stays mounted while the
-// reader inside it suspends, so its cleanup runs when `id` changes and cancels the abandoned load.
+// Correct pattern creating the resource above the boundary so CancelableSuspense owns its cleanup.
 export function DetailPanel({ api, id }: { api: TravelApi; id: string }): ReactNode {
   const resource = useCancelableResource((getSignal) => api.destinationDetails(id, getSignal()), [api, id]);
 

@@ -1,5 +1,4 @@
-// Shared shapes for every flavor of IssueClient. Suffix-free: identical across all four wirings,
-// so only the decorator/wiring mechanics differ between the twin files.
+// Shared suffix-free shapes highlight how only decorator wiring differs between twin files.
 
 import type { Issue, MockApiBundle } from '@shared/mock-api';
 

@@ -1,11 +1,4 @@
-// Fake flight API built on the shared MockApi engine so cancellation
-// really reaches a simulated network boundary (see the started/aborted markers in `api.calls`).
-// Pretend this is your backend. This is scaffolding, not a copy target.
-//
-// The shared domains ship a `flights.search(from, to)` endpoint, but a destination typeahead needs
-// query-by-text plus a per-flight details lookup, so those two endpoints are defined here on top of
-// the same signal-aware `respond`. Latency is high enough that a burst of keystrokes overlaps in
-// flight (the race the example is about).
+// mock flight API over shared MockApi for typeahead search examples
 
 import { type AbortSignalLike, MockApi } from '@shared/mock-api';
 

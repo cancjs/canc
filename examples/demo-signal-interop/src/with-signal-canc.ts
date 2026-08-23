@@ -20,8 +20,7 @@ export function withSignalCanc<T>(signal: AbortSignal, work: () => Promise<T>): 
 }
 
 export async function withSignalWrapperCanc() {
-  // Demonstrates AbortSignal interop: withSignal wrapper pattern (p-signal style).
-  // We use new AbortController here to simulate the incoming abort trigger.
+  // withSignal wrapper adopting incoming AbortSignal
   const controller = new AbortController();
 
   try {

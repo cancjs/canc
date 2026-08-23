@@ -1,6 +1,4 @@
-// Suffix-free shared module: the cancelable chain factories both SFC flavors' canc side builds on,
-// plus the re-exported catalog types. Kept out of the SFCs so the templates stay about the UI and
-// the twin diff stays about the watch/effect mechanics, not about how a request is wrapped.
+// shared cancelable chain factories and catalog types for SFC flavors
 
 import { cancelify } from '@cancjs/toolbox';
 

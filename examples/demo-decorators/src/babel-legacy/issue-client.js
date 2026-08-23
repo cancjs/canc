@@ -5,9 +5,7 @@
 // // importing the wrong flavor throws: "This decorator is for babel legacy decorators only...
 // // Import from '@cancjs/decorators' for stage-3 decorators."
 //
-// This file is plain JS, so a method decorator returning a coroutine directly is fine here: there
-// is no static type to preserve or lose. The other flavors are TypeScript, where a method decorator
-// cannot retype the declared method, so they use the getter style instead (see stage3/ts-legacy).
+// Plain JS permits decorators to return coroutines directly without static types to preserve.
 
 import * as canc from '@cancjs/coroutine';
 import { AsyncMethod, BindMethod } from '@cancjs/decorators/babel-legacy';

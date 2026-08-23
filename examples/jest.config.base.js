@@ -1,6 +1,4 @@
-// Shared jest base for examples. Unlike the monorepo jest base, examples do NOT remap
-// @cancjs/* to package src. They resolve through the npm file: link into each package's built
-// dist, so the smoke tests exercise the real published module shape.
+// Shared jest base for examples; resolves @cancjs/* via npm file: link into dist
 
 module.exports = {
   clearMocks: true,
@@ -10,9 +8,7 @@ module.exports = {
   modulePathIgnorePatterns: ['/~~', '~~/'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   moduleNameMapper: {
-    // Shared packages are written nodenext-style (explicit .js on relative imports, resolved
-    // against their .ts source by TS consumers). Jest's CJS transform needs the extension
-    // stripped so its own resolver still finds the .ts file.
+    // strip .js from relative imports for Jest CJS resolver
     '^(\\.{1,2}/.*)\\.js$': '$1',
     '^@shared/(.+)$': '<rootDir>/../_shared/$1',
   },

@@ -4,10 +4,7 @@
 // // importing the wrong flavor throws: "...Import from '@cancjs/decorators/legacy' for TS
 // // experimentalDecorators, or '@cancjs/decorators/babel-legacy' for babel legacy decorators."
 //
-// Getter style: the getter returns a ready coroutine (`canc.async(fn, this)`); the decorator only
-// memoizes it (and binds, for BindMethod). Each coroutine body is a named function with an explicit
-// AsyncResult<T> return type, so TypeScript infers the getter's return type without a class-internal
-// circular lookup; the class then satisfies IssueClientShape structurally, no cast anywhere.
+// Getter style returns a ready coroutine while the decorator handles memoization and bindings.
 
 import type { AsyncResult } from '@cancjs/coroutine';
 import * as canc from '@cancjs/coroutine';

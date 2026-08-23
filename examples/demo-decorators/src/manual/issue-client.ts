@@ -1,8 +1,4 @@
-// Manual flavor: no decorators at all. Constructor wiring with canc.async(this.method, this) is the
-// exact desugaring the getter-style decorators apply (@AsyncMethod/@BindMethod on a getter memoize
-// a coroutine you hand it yourself; this does the same assignment by hand, once, in the constructor).
-// Works under any toolchain (no transform required), so it doubles as the no-decorator baseline twin
-// for this demo.
+// Constructor wiring manually desugars getter-style decorators without toolchain transforms.
 //
 // This is the -vanilla counterpart in spirit, but a plain-promise vanilla twin teaches nothing new
 // here (the lesson is decorator wiring vs manual wiring, not cancelable vs uncancelable), so the

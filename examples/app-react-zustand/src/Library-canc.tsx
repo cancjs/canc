@@ -1,5 +1,4 @@
-// Dumb, selector-driven component. All cancellation policy lives in the store; this file only
-// ever reads state and dispatches actions.
+// selector-driven component; cancellation policy lives in store
 
 import { useEffect } from 'react';
 

@@ -5,8 +5,7 @@ import type { MarketplaceApi, Product } from './mock/api';
 
 const props = defineProps<{ api: MarketplaceApi; product: Product }>();
 
-// Prefetch this card's image as a cancelable chain. onScopeDispose inside the composable cancels it
-// when the card unmounts, so filtering this product out aborts its image request at the network.
+// cancelable image prefetch; onScopeDispose cancels on unmount
 const { data: image, pending } = useCancelablePromise(() => prefetchImage(props.api, props.product.id));
 </script>
 

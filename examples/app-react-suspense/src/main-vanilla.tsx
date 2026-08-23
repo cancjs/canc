@@ -7,9 +7,7 @@ import { createTravelApi, type Destination } from './mock/api';
 
 const api = createTravelApi({ trace: (line) => console.log(line) });
 
-// A short static list stands in for the picker source, so the story stays on the details load that
-// suspends. Selecting another destination unmounts the reader mid-load, but the plain Promise it
-// suspended on keeps running to completion (no way to cancel it).
+// static destinations; selecting a new one unmounts while promise keeps running
 const DESTINATIONS: Destination[] = [
   { id: 'jfk', city: 'New York', code: 'JFK' },
   { id: 'lax', city: 'Los Angeles', code: 'LAX' },

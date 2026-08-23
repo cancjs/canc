@@ -12,7 +12,7 @@ const DOCS: Array<{ id: string; text: string }> = [
   { id: 'd3', text: 'Shield protects cleanup from cancel.' },
 ];
 
-// Deterministic fake embedding: 4 dims derived from character codes. Same text -> same vector.
+// Deterministic fake embedding: 4 dims derived from character codes.
 function fakeEmbedding(text: string): number[] {
   const dims = [0, 0, 0, 0];
   for (let i = 0; i < text.length; i++) {

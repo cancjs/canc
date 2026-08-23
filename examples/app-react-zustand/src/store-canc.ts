@@ -1,5 +1,4 @@
-// Zustand store, canc. currentLoad holds the in-flight CancelablePromise; loadAlbum cancels it
-// first so switching albums is one line, and state is only ever written from the run that survived.
+// Zustand store with canc; currentLoad cancels previous in-flight requests
 
 import type { CancelablePromise } from '@cancjs/promise';
 import { cancelify } from '@cancjs/toolbox';
@@ -12,8 +11,7 @@ interface CancLibraryState extends LibraryState {
   currentLoad: CancelablePromise<void> | null;
 }
 
-// getSignal() is called only when a load is actually started, so an uncanceled load wires no
-// AbortController at all.
+// getSignal() called on start; uncanceled load wires no AbortController
 const loadTracks = cancelify(({ getSignal }, albumId: string) => mediaApi.tracks(albumId, getSignal()));
 const loadAlbumsList = cancelify(({ getSignal }) => mediaApi.albums(getSignal()));
 

@@ -1,6 +1,4 @@
-// Shared router: three step routes, one beforeEach that maps the URL to the store's step. The
-// flavored store is passed in by the caller (see main-vanilla.ts / main-canc.ts), so this file
-// needs no flavor split.
+// Shared router where flavored store is passed in by the caller.
 
 import { createMemoryHistory, createRouter, createWebHistory, type Router } from 'vue-router';
 

@@ -4,9 +4,7 @@ import { FlightRow } from './FlightRow-canc';
 import { useCancelable } from './lib/use-cancelable';
 import type { FlightApi } from './mock/api';
 
-// Typeahead destination search. Every keystroke re-runs the search under a fresh cancelable chain;
-// useCancelable cancels the previous run, so only the search for the current text ever completes
-// (an aborted search shows up as an `aborted` marker in api.calls).
+// typeahead search where useCancelable cancels previous in-flight search
 export function SearchPage({ api }: { api: FlightApi }): ReactNode {
   const [query, setQuery] = useState('');
 

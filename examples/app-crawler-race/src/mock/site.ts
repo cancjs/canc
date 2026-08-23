@@ -1,8 +1,4 @@
-// Per-example scaffolding: a small website served over the shared MockApi. Pretend this is a real
-// site you are running a health check against. Every fetch runs through MockApi.respond, so it
-// honors an AbortSignal and shows up in the call log with started/completed/aborted markers.
-//
-// The reader treats this as a black box. The teaching payload lives in src/crawl-*.ts.
+// mock depth-2 website on shared MockApi for crawl examples
 
 import { type AbortSignalLike, MockApi } from '@shared/mock-api';
 
@@ -15,8 +11,7 @@ export interface Page {
   links: string[];
 }
 
-// A depth-2 site: the home page links three sections, each section links a few leaf pages. Two leaf
-// pages are broken (404). "about/team" is a slow page used to prove an in-flight fetch gets aborted.
+// depth-2 site graph with broken links and a slow team page
 const PAGES: Record<string, Omit<Page, 'url'>> = {
   '/': { status: 200, links: ['/products', '/about', '/blog'] },
   '/products': { status: 200, links: ['/products/widgets', '/products/gadgets', '/products/legacy'] },

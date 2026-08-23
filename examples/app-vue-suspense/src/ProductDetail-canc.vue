@@ -10,9 +10,8 @@ import { loadProductDetail, type ProductDetail } from './mock/catalog-api';
 // sight. getSignal() is called only when the load actually starts; canceling the run aborts it.
 const loadDetail = cancelify(({ getSignal }, id: string) => loadProductDetail(id, getSignal()));
 
-// The setup option is a generator wrapped by cancelableSetup, so the awaited load runs as one
-// cancelable coroutine tied to this component's scope. Switching products under <Suspense> tears
-// down this scope before the load settles, which cancels the coroutine and aborts the request.
+// The setup option is a generator wrapped by cancelableSetup.
+// The awaited load runs as one cancelable coroutine tied to this component's scope.
 export default defineComponent({
   props: { id: { type: String, required: true } },
   setup: cancelableSetup(function* setup(props: { id: string }) {

@@ -1,7 +1,6 @@
 import { Repo } from './repo';
 
-// Uncancelable: plain fetch, no workaround. Results are fetched but discarded
-// when the chain is abandoned externally (the bug we teach).
+// Plain fetch chain continues executing even if abandoned.
 async function searchRepos(query: string, fetch: any): Promise<Repo> {
   // Mock endpoint: /products (list endpoint) returns items.
   const res = await fetch(`/products`);
@@ -17,8 +16,7 @@ async function searchRepos(query: string, fetch: any): Promise<Repo> {
   return { ...top, url: '', readme: JSON.stringify(detail) } as Repo;
 }
 
-// Workaround: manual AbortController signal plumbing. External signal combined
-// with local timeout: count the boilerplate.
+// Manual AbortController signal plumbing combined with local timeout.
 async function searchReposWithExternal(query: string, fetch: any, signal?: AbortSignal): Promise<Repo> {
   const controller = new AbortController();
   let localAborted = false;

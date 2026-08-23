@@ -12,7 +12,7 @@ async function main(): Promise<void> {
     await using report = generateReport(ragApi, 'r1');
     const generated = await report;
     console.log('vanilla: report generated:', generated);
-    // Symbol.asyncDispose called here. Hand-attached, aborting after settle is harmless.
+    // Symbol.asyncDispose called here; abort after settle is a no-op
     console.log('vanilla: scope exited, cleanup settled');
   }
 
@@ -26,8 +26,7 @@ async function main(): Promise<void> {
       await report;
       throw new Error('Simulate user error');
     } catch (error) {
-      // aborted here: scope exit called our hand-attached dispose, which aborted the controller.
-      // the fetch/render steps had already resolved though: abort after completion changes nothing.
+      // aborted here: scope exit called dispose, aborting the controller
       if (error instanceof Error && error.message === 'Simulate user error') {
         console.log('vanilla: caught error, dispose ran (cleanup automatic, but hand-wired)');
       } else {
@@ -49,9 +48,7 @@ async function main(): Promise<void> {
 
   console.log('');
 
-  // Scenario 4: scope-exit abort still lets the audit write finish, because it was never wired to
-  // the controller. The same result as the shielded step in main-canc.ts, but it depends on
-  // remembering to leave that one call unwired rather than an explicit option.
+  // Scenario 4: audit write finishes because it was never wired to controller
   {
     console.log('vanilla: start report (unwired audit write)');
     await using _report = generateReport(ragApi, 'r4');

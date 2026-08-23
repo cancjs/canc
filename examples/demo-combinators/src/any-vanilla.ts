@@ -1,4 +1,4 @@
-// Promise.any: first to fulfill wins. Remaining losers keep running (native behavior).
+// Promise.any: first to fulfill wins; remaining losers keep running (native behavior).
 
 import { mockApi, vanillaWidgets } from './widgets-shared.js';
 

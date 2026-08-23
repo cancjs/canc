@@ -1,10 +1,4 @@
-// Mock scaffolding for the log-viewer example. Pretend this is your real logging backend: a stream
-// of tail lines, plus an on-demand "search the surrounding context of one line" call. Not a copy
-// target; it only exists so the demo can prove that a canceled search actually stops.
-//
-// The important part for the lesson is `searchContext`: it records started/completed/aborted
-// markers on a shared log so both flavors can show, deterministically, whether an in-flight search
-// kept running after the user moved on.
+// mock log source with latency-bearing searchContext for RxJS switchMap examples
 
 export interface LogLine {
   seq: number;

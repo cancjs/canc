@@ -1,6 +1,5 @@
-// Pinia checkout store, plain promises. A step's call cannot be interrupted, so every action
-// stamps a request-id and every .then checks it is still current before writing state, the
-// standard workaround for a wizard where the user can navigate away mid-request.
+// Pinia checkout store, plain promises.
+// Every .then checks request-id is still current before writing state.
 
 import { defineStore } from 'pinia';
 

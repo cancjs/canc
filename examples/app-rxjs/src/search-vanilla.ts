@@ -1,8 +1,4 @@
-// Vanilla flavor: a line click triggers a context search, and a new click should replace the old
-// one. switchMap unsubscribes the previous inner Observable, but here the inner Observable is
-// `from(promise)` wrapping a plain promise. Unsubscribing from(promise) stops the emission but
-// CANNOT stop the promise: the search keeps running to completion in the background. This is the
-// classic RxJS + async boundary leak. The search records prove it (two `completed` markers).
+// vanilla flavor: switchMap with from(promise) leaves in-flight search running on new click
 
 import { from, Observable, Subject, switchMap } from 'rxjs';
 
@@ -16,8 +12,7 @@ import { renderContext } from './viewer';
 export function contextSearches(clicks: Subject<number>, log: SearchRecord[]): Observable<[number, LogLine[]]> {
   return clicks.pipe(
     switchMap((lineSeq) => {
-      // from(promise): switching away unsubscribes this Observable, but the promise it wraps keeps
-      // running: the previous search completes anyway (wasted work, stale result discarded).
+      // switching away unsubscribes Observable, but wrapped promise keeps running
       const search = searchContext(lineSeq, log);
       return from(search).pipe(mapWithSeq(lineSeq));
     }),

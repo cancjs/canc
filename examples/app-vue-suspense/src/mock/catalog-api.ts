@@ -1,7 +1,4 @@
-// Per-example scaffolding: a product catalog backend on top of the shared MockApi. Pretend this is
-// your real product service. Every call runs through MockApi.respond, so it honors an AbortSignal
-// and shows up in the call log with started/completed/aborted markers. Black box for the reader;
-// the teaching payload lives in src/ProductDetail-*.vue and src/lib/cancelable-setup.ts.
+// mock catalog backend over shared MockApi for Vue Suspense examples
 
 import { type AbortSignalLike, createMockApi } from '@shared/mock-api';
 

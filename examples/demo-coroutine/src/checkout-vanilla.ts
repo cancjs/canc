@@ -39,9 +39,7 @@ export function createCheckoutVanilla(
       const confirmation = await confirm(orderId, chargeResult.id, signal);
       checkoutDone = true;
 
-      // Cancellation gap: the notification vendor takes no signal, so once this step
-      // starts it runs to completion even if the caller aborted right after. Same gap
-      // as the canc flavor, since no amount of signal-threading closes it here.
+      // Cancellation gap: notification vendor takes no signal and runs to completion if aborted.
       await legacyConfirmEmail(orderId);
 
       return confirmation;

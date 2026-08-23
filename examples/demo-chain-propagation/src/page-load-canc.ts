@@ -27,8 +27,7 @@ export const loadProductProfile = canc.async(function* (
 ) {
   const loadProduct = cancelify(({ getSignal }, id: string) => productsApi.get(id, getSignal()));
 
-  // Stock leg: can be isolated with bubble:false. Omit the key entirely when unset so the
-  // CancelablePromise default (bubble:true) applies; passing bubble:undefined would force false.
+  // Stock leg: isolate with bubble:false (omit when unset to retain the bubble:true default).
   const checkInventory = cancelify(
     ({ getSignal }, id: string) => inventoryApi.check(id, getSignal()),
     options?.bubble === false ? { bubble: false } : undefined,

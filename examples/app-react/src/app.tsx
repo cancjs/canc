@@ -1,7 +1,6 @@
 import { type ReactNode } from 'react';
 
-// Shared chrome around whichever SearchPage flavor is mounted. Suffix-free: identical for both
-// entries, so it carries no cancellation logic of its own.
+// shared chrome around mounted SearchPage; identical for both entries
 export function App({ title, children }: { title: string; children: ReactNode }): ReactNode {
   return (
     <main style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 560, margin: '2rem auto', padding: '0 1rem' }}>

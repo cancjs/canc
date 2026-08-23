@@ -80,8 +80,7 @@ const DETAIL_LINE_MAX = 4;
 const PDF_BYTE_LENGTH = 64;
 const DETAIL_FAIL_RATE = 0.1;
 
-// A fixed, non-generated row several examples depend on by exact id (see
-// demo-chain-propagation). Kept out of the generated 5,000 and out of search's pool.
+// A fixed row several examples depend on by exact id.
 const AUDIT_INVOICE: Invoice = {
   id: 'audit-1',
   customer: 'System Audit',

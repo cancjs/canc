@@ -1,8 +1,4 @@
-// Crawl a site depth-2, reporting broken (404) links, and stop the whole crawl with one cancel().
-//
-// Every page fetch runs through a cancel-aware pool. The crawl root is a CancelablePromise: one
-// cancel() on it drains the pool, so in-flight fetches are aborted and queued fetches never start.
-// One call at the top prunes the entire in-flight subtree, at every depth, with no per-level wiring.
+// Crawl a site depth-2, reporting broken (404) links, and stop the crawl with cancel().
 
 import { CancelablePromise } from '@cancjs/promise';
 import { cancelify } from '@cancjs/toolbox';
@@ -17,12 +13,11 @@ export function crawlSite(api: MockApi, concurrency: number): CancelablePromise<
   const site = createSiteApi(api);
   const pool = createPool(concurrency);
 
-  // One cancelable fetch node per page. Canceling it aborts the underlying request via the signal.
+  // canceling fetchPage aborts the underlying request via signal
   const fetchPage = cancelify(({ getSignal }, url: string) => site.fetchPage(url, getSignal()));
 
   const crawl = new CancelablePromise<CrawlReport>((resolve, reject, { handleCancel }) => {
-    // One cancel() drains the pool: queued pages never start, in-flight pages are aborted. This is
-    // the whole subtree pruned in a single call, no AbortController threaded through each level.
+    // cancel drains pool, aborting in-flight fetches and dropping queued ones
     handleCancel((reason) => pool.cancelAll(reason));
 
     const visited: string[] = [];

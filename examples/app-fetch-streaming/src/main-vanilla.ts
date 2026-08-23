@@ -8,7 +8,7 @@ async function main() {
   const controller = new AbortController();
   const consumerPromise = consumeFeedVanilla(controller.signal);
 
-  // Wait enough time to fetch the first page and start the second page fetch (which has 50ms latency).
+  // Wait long enough to fetch the first page and start the second page fetch.
   await sleep(65);
 
   console.log('--- User navigated away, aborting ---');

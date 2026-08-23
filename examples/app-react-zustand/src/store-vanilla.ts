@@ -1,6 +1,4 @@
-// Zustand store, plain promises. Switching albums fast has no way to drop the loser: every
-// loadAlbum call keeps running to completion, so the store guards itself with a request-id
-// staleness check instead (the standard zustand-folk workaround for this problem).
+// Zustand store with plain promises; uses request-id staleness guard
 
 import { create } from 'zustand';
 

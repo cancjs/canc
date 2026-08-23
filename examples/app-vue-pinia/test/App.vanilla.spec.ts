@@ -33,8 +33,7 @@ describe('app-vue-pinia vanilla', () => {
     await fireEvent.click(screen.getByTestId('validate-address'));
     await router.push('/shipping');
 
-    // vanilla inverted: the request the user already abandoned still completes, the bug we
-    // teach, not something to assert away
+    // vanilla inverted: the request the user already abandoned still completes.
     await waitFor(() => {
       const calls = mockCalls.filter((call) => call.endpoint === 'checkout.validateAddress');
       expect(calls.some((call) => call.status === 'completed')).toBe(true);

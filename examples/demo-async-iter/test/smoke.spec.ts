@@ -36,8 +36,7 @@ describe('demo-async-iter', () => {
     const pulled = logs.filter((l) => l.startsWith('pulling'));
     expect(pulled.length).toBeLessThan(6);
 
-    // The source generator's finally block fires after return() propagates through the
-    // operator chain. Allow enough time for the async cleanup chain to settle.
+    // source finally block fires once return() propagates through operator chain
     await new Promise((r) => setTimeout(r, 100));
     expect(logs).toContain('stream closed');
   });

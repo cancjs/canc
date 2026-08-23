@@ -28,7 +28,7 @@ async function main() {
   const search2Promise = client.searchIssues('feature');
   console.log(' Search 2 started for query "feature" (search 1 canceled internally)');
 
-  // Await both. Search 1 will settle as canceled; search 2 completes.
+  // Await both (Search 1 settles as canceled, search 2 completes).
   const result2 = await search2Promise.catch((err) => {
     // The failure set is declared, so err is narrowed to AxiosError | CancelError.
     if (isCancelError(err)) {

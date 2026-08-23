@@ -14,7 +14,6 @@ async function slowerFetch(): Promise<string> {
 
 export async function composeTimeoutAndSignalCanc() {
   // Demonstrates AbortSignal interop: user-controlled abort signal composed with timeout.
-  // We use new AbortController here to simulate external client-side cancellation.
   const userController = new AbortController();
   const userSignal = userController.signal;
 
@@ -44,7 +43,6 @@ export async function composeTimeoutAndSignalCanc() {
 
 export async function composeMultipleSignalsCanc() {
   // Demonstrates AbortSignal interop: composing multiple independent controllers.
-  // We use new AbortController here to demonstrate signal composition.
   const userController = new AbortController();
   const timeoutController = new AbortController();
 

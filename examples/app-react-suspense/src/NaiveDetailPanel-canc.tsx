@@ -3,10 +3,7 @@ import { type ReactNode, Suspense } from 'react';
 import { useCancelableSuspense } from './lib/use-cancelable-suspense';
 import type { TravelApi } from './mock/api';
 
-// The tempting shape that still leaks: the reader creates a CancelablePromise and tries to cancel
-// it in its own cleanup effect. Because it suspends on first render it never commits, so that
-// effect never runs. Abandoning it during the fallback leaves the request running (a completed
-// marker, no aborted marker), exactly like the plain vanilla panel.
+// A leaking anti-pattern creating a CancelablePromise whose cleanup effect never runs.
 function NaiveReader({ api, id }: { api: TravelApi; id: string }): ReactNode {
   const details = useCancelableSuspense((getSignal) => api.destinationDetails(id, getSignal()), [api, id]);
   return (

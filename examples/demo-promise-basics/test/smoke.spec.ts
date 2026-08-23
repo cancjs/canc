@@ -42,7 +42,7 @@ describe('demo-promise-basics smoke', () => {
       /* asserted below */
     });
 
-    // Neither consumer touches `pending` directly. Both canceling is what bubbles.
+    // Canceling both consumers bubbles up to cancel the source.
     forDisplay.cancel();
     forPrefetch.cancel();
 

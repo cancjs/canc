@@ -18,8 +18,7 @@ function countByStatus(calls: { endpoint: string; status: string }[], endpoint: 
   return calls.filter((c) => c.endpoint === endpoint && c.status === status).length;
 }
 
-// A page whose selected destination drives the flavored detail panel. Shared across the three
-// flavors so each spec only swaps the Panel component.
+// A page whose selected destination drives the flavored detail panel.
 function makePage(Panel: (props: { api: ReturnType<typeof createTravelApi>; id: string }) => ReactNode) {
   return function Page({ api }: { api: ReturnType<typeof createTravelApi> }): ReactNode {
     const [selected, setSelected] = useState<string | null>(null);
@@ -69,8 +68,7 @@ describe('canc CancelableSuspense', () => {
       await Promise.resolve();
     });
 
-    // The boundary that owns the first resource committed while its child suspended, so its cleanup
-    // ran on switch and aborted the load. Only the surviving pick completes.
+    // The boundary cleanup ran on switch and aborted the load so only the surviving pick completes.
     expect(countByStatus(api.calls, 'travel.destinationDetails', 'aborted')).toBe(1);
     expect(countByStatus(api.calls, 'travel.destinationDetails', 'completed')).toBe(1);
   });

@@ -12,14 +12,12 @@ const category = ref<Category>('all');
 const products = ref<Product[]>([]);
 const loading = ref(false);
 
-// Each filter change reloads the catalog. useCancelableWatch cancels the previous load if it is
-// still in flight, so a slow earlier response can never overwrite the list for the current filter.
+// filter change reloads catalog; useCancelableWatch cancels previous in-flight load
 useCancelableWatch(
   category,
   (filterCategory) => {
     loading.value = true;
-    // Return the chained promise so the watch owns it: a superseded run is canceled, and its
-    // CancelError is swallowed by the composable instead of surfacing as an unhandled rejection.
+    // returned chained promise is owned by watch; superseded run is canceled
     return loadCatalog(props.api, filterCategory).then((list) => {
       products.value = list;
       loading.value = false;

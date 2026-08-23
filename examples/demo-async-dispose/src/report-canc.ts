@@ -15,7 +15,7 @@ export function generateReport(ragApi: RagApi, reportId: string): CancelableProm
   const renderAndUpload = cancelify(({ getSignal }, id: string) => ragApi.search(id, getSignal()));
 
   const coroutine = canc.async(function* () {
-    // Fetch data chunks. Canceled here, nothing below runs.
+    // fetch data chunks; canceled here, nothing below runs
     const chunks = yield* canc.await(fetchChunks(reportId));
     const report: Report = {
       id: reportId,
@@ -23,19 +23,13 @@ export function generateReport(ragApi: RagApi, reportId: string): CancelableProm
       chunkCount: chunks.length,
     };
 
-    // Render and upload (simulated). Still canceled here, nothing below runs.
+    // render and upload; canceled here, nothing below runs
     yield* canc.await(renderAndUpload(reportId));
 
     return report;
   })();
 
-  // Audit write is shielded: it always runs to completion, even when the steps above were
-  // canceled mid-flight. Built as its own shielded node, constructed only when cleanup actually
-  // starts (not eagerly), and attached with .finally() rather than yielded inside the coroutine's
-  // own try/finally, so the shield does not depend on the coroutine's cancel reaching an
-  // in-flight step at the same moment its own cleanup step settles. A hand-rolled AbortController
-  // equivalent needs a second, deliberately unwired controller to get the same guarantee (see
-  // report-vanilla.ts).
+  // shielded audit write always runs to completion even if canceled mid-flight
   const writeAuditLog = () =>
     new CancelablePromise<void>(
       (resolve, reject) => {

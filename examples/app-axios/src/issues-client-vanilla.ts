@@ -63,8 +63,8 @@ export class VanillaIssuesClient {
   }
 
   cancelSearch(): void {
-    // To cancel the current search, we must track which ID was the latest and abort it.
-    // This is manual bookkeeping (registry contains ALL in-flight requests; we abort only the latest).
+    // To cancel the current search, track which ID was the latest and abort it.
+    // This is manual bookkeeping.
     if (this.latestSearchId && this.requestRegistry.has(this.latestSearchId)) {
       const ac = this.requestRegistry.get(this.latestSearchId);
       ac?.abort();
