@@ -13,12 +13,15 @@ async function mayFailTask(): Promise<string> {
 }
 
 export async function classifyAbortErrorCanc() {
+  const controller = new AbortController();
+  setTimeout(30).then(() => controller.abort());
+
   try {
     const promise = new CancelablePromise<string>(
       (resolve, reject) => {
         mayFailTask().then(resolve, reject);
       },
-      { signal: AbortSignal.timeout(30) },
+      { signal: controller.signal },
     );
 
     const result = await promise;
@@ -38,11 +41,14 @@ export async function classifyAbortErrorCanc() {
 }
 
 export async function suppressAbortCanc() {
+  const controller = new AbortController();
+  setTimeout(30).then(() => controller.abort());
+
   const promise = new CancelablePromise<string>(
     (resolve, reject) => {
       mayFailTask().then(resolve, reject);
     },
-    { signal: AbortSignal.timeout(30) },
+    { signal: controller.signal },
   );
 
   // suppressAbort: takes promise, returns promise with abort swallowed
@@ -67,11 +73,14 @@ export async function suppressAbortCanc() {
 }
 
 export async function suppressMultipleErrorsCanc() {
+  const controller = new AbortController();
+  setTimeout(30).then(() => controller.abort());
+
   const promise = new CancelablePromise<string>(
     (resolve, reject) => {
       mayFailTask().then(resolve, reject);
     },
-    { signal: AbortSignal.timeout(30) },
+    { signal: controller.signal },
   );
 
   // suppressCancel with { abort: true }: swallows both CancelError and AbortError
@@ -84,19 +93,22 @@ export async function suppressMultipleErrorsCanc() {
 }
 
 export async function isAbortErrorCheckCanc() {
+  const controller = new AbortController();
+  setTimeout(30).then(() => controller.abort());
+
   try {
     const promise = new CancelablePromise<string>(
       (resolve, reject) => {
         mayFailTask().then(resolve, reject);
       },
-      { signal: AbortSignal.timeout(30) },
+      { signal: controller.signal },
     );
 
     const result = await promise;
     console.log('[canc] result:', result);
   } catch (err: unknown) {
     // isAbortError: helper for quick classification
-    if (isAbortError(err)) {
+    if (isAbortError(err) || (isCancelError(err) && err.aborted)) {
       console.log('[canc] abort error — cause:', (err as any as CancelError).cause?.name);
     } else if (err instanceof Error) {
       console.log('[canc] other error:', err.message);

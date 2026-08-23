@@ -3,7 +3,8 @@
  * Canc: { signal: [timeout, userSignal] } → first-wins, auto cleanup
  */
 
-import { CancelablePromise } from '@cancjs/promise';
+import { CancelablePromise, isCancelError } from '@cancjs/promise';
+import { isAbortError } from '@cancjs/toolbox';
 import { setTimeout } from 'timers/promises';
 
 async function slowerFetch(): Promise<string> {
@@ -13,6 +14,7 @@ async function slowerFetch(): Promise<string> {
 
 export async function composeTimeoutAndSignalCanc() {
   // Demonstrates AbortSignal interop: user-controlled abort signal composed with timeout.
+  // We use new AbortController here to simulate external client-side cancellation.
   const userController = new AbortController();
   const userSignal = userController.signal;
 
@@ -31,7 +33,7 @@ export async function composeTimeoutAndSignalCanc() {
     const result = await promise;
     console.log('[canc] result:', result);
   } catch (err: unknown) {
-    if (err instanceof DOMException && err.name === 'AbortError') {
+    if (isAbortError(err) || isCancelError(err)) {
       // Canceled here: nothing below runs
       console.log('[canc] timeout or user abort');
     } else {
@@ -42,6 +44,7 @@ export async function composeTimeoutAndSignalCanc() {
 
 export async function composeMultipleSignalsCanc() {
   // Demonstrates AbortSignal interop: composing multiple independent controllers.
+  // We use new AbortController here to demonstrate signal composition.
   const userController = new AbortController();
   const timeoutController = new AbortController();
 
@@ -60,7 +63,7 @@ export async function composeMultipleSignalsCanc() {
     const result = await promise;
     console.log('[canc] result:', result);
   } catch (err: unknown) {
-    if (err instanceof DOMException && err.name === 'AbortError') {
+    if (isAbortError(err) || isCancelError(err)) {
       // Canceled here: nothing below runs
       console.log('[canc] one of the signals aborted');
     } else {

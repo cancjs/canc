@@ -3,7 +3,8 @@
  * Canc: { signal } option + array first-wins + pre-aborted → born-canceled
  */
 
-import { CancelablePromise } from '@cancjs/promise';
+import { CancelablePromise, isCancelError } from '@cancjs/promise';
+import { isAbortError } from '@cancjs/toolbox';
 import { setTimeout } from 'timers/promises';
 
 function mockFetch(url: string, signal?: AbortSignal): Promise<string> {
@@ -19,6 +20,7 @@ function mockFetch(url: string, signal?: AbortSignal): Promise<string> {
 
 export async function signalToPromiseCanc() {
   // Demonstrates AbortSignal interop: feeding external signal into CancelablePromise.
+  // We use new AbortController here to simulate an external signal source.
   const controller = new AbortController();
   const signal = controller.signal;
 
@@ -37,7 +39,7 @@ export async function signalToPromiseCanc() {
     const result = await promise;
     console.log('[canc] result:', result);
   } catch (err: unknown) {
-    if (err instanceof DOMException && err.name === 'AbortError') {
+    if (isAbortError(err) || (isCancelError(err) && err.aborted)) {
       console.log('[canc] aborted');
     } else {
       throw err;
@@ -47,6 +49,7 @@ export async function signalToPromiseCanc() {
 
 export async function signalArrayCanc() {
   // Demonstrates AbortSignal interop: composing multiple signals as an array (first-wins).
+  // We use new AbortController here to demonstrate signal array composition.
   const controller1 = new AbortController();
   const controller2 = new AbortController();
   const signals = [controller1.signal, controller2.signal];
@@ -65,7 +68,7 @@ export async function signalArrayCanc() {
     const result = await promise;
     console.log('[canc] result:', result);
   } catch (err: unknown) {
-    if (err instanceof DOMException && err.name === 'AbortError') {
+    if (isAbortError(err) || (isCancelError(err) && err.aborted)) {
       console.log('[canc] array signal aborted');
     } else {
       throw err;
@@ -75,6 +78,7 @@ export async function signalArrayCanc() {
 
 export async function preAbortedSignalCanc() {
   // Demonstrates AbortSignal interop: pre-aborted signal making the promise born-canceled.
+  // We use new AbortController here to simulate a pre-aborted signal source.
   const controller = new AbortController();
   controller.abort(); // Pre-abort
 
@@ -90,7 +94,7 @@ export async function preAbortedSignalCanc() {
     const result = await promise;
     console.log('[canc] result:', result);
   } catch (err: unknown) {
-    if (err instanceof DOMException && err.name === 'AbortError') {
+    if (isAbortError(err) || (isCancelError(err) && err.aborted)) {
       console.log('[canc] pre-aborted signal born-canceled');
     } else {
       throw err;
