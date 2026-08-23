@@ -87,7 +87,7 @@ The `register()` function detects your runtime environment by checking signals i
 
 **Electron.** Detected first via `process.versions.electron`. Electron renderers have both a Node.js process and a DOM, so both rejection mechanisms are hooked there. Main processes get only the process hook.
 
-**Primary signal: Runtime token from navigator.userAgent.** On Node.js 21+, Deno 2+, Bun, and Cloudflare Workers, `navigator.userAgent` contains a runtime identifier. Recognized strings like `Node.js/22`, `Deno/1.40.0`, `Bun/1.0.28`, and `Cloudflare-Workers` route directly to the correct handler. Browser-shaped strings return no signal and fall through to the next check.
+**Primary signal: Runtime token from navigator.userAgent.** On Node.js 21+, Deno 2+, Bun, and Cloudflare Workers (when opted into the `global_navigator` compatibility flag), `navigator.userAgent` contains a runtime identifier. Recognized strings like `Node.js/22`, `Deno/1.40.0`, `Bun/1.0.28`, and `Cloudflare-Workers` route directly to the correct handler. Without that compatibility flag, Cloudflare Workers lack `navigator` and detection falls back to `addEventListener` (labeled `browser`). Browser-shaped strings return no signal and fall through to the next check.
 
 **Documented vendor global: The EdgeRuntime global.** Vercel Edge Runtime exposes a global named `EdgeRuntime`, which Vercel documents as the official check. No standardized signal exists for this runtime, so the package uses this documented global and registers via `registerEdgeRuntime()`, labeled `edge-runtime`. This check sits after the standardized userAgent path because a standardized signal would rank higher if one existed.
 
@@ -98,7 +98,7 @@ Bun, Deno, and Electron all define `process.versions.node`, so they must be dete
 **Handler summary:**
 
 - **Node.js 21+ / Bun**: `process.on('unhandledRejection')`
-- **Deno 2+ / Netlify Edge**: `addEventListener('unhandledrejection')` (Netlify Edge Functions run on Deno Deploy and route through the deno token, though the label is `deno` rather than `netlify`)
+- **Deno 2+ / Netlify Edge**: `addEventListener('unhandledrejection')` (Netlify Edge Functions are based on Deno and present a Deno-shaped userAgent, routing through the deno branch, though labeled `deno` rather than `netlify`)
 - **Vercel Edge Runtime**: `addEventListener('unhandledrejection')`
 - **Cloudflare Workers**: `addEventListener('unhandledrejection')`
 - **Electron (renderer)**: Both process hook and event listener
@@ -157,7 +157,7 @@ Sentry.init({
 });
 ```
 
-Registering `@cancjs/unhandled-rejection` first prevents Node.js process termination, while adding a `beforeSend` filter prevents `CancelError` events from generating unnecessary telemetry alerts.
+Registering `@cancjs/unhandled-rejection` first prevents Node.js process termination, while adding a `beforeSend` filter prevents `CancelError` events from generating unnecessary telemetry alerts. Identity is a brand on the prototype, so the guard tests brand or name; hand-rolled checks fail on realm crossings or duplicated packages.
 
 ### Integration with existing handlers
 
@@ -330,14 +330,16 @@ interface RegisterOptions {
 | Node.js 18+        | Terminates process   | Yes              | `process.on('unhandledRejection')`       |
 | Bun                | Terminates process   | Yes              | `process.on('unhandledRejection')`       |
 | Deno               | Terminates process   | Yes              | `addEventListener('unhandledrejection')` |
-| Vercel Edge        |                      |                  | `addEventListener('unhandledrejection')` |
+| Vercel Edge        | -                    | -                | `addEventListener('unhandledrejection')` |
 | Cloudflare Workers | Request fail         | Yes              | `addEventListener('unhandledrejection')` |
-| Netlify Edge       |                      |                  | `addEventListener('unhandledrejection')` |
+| Netlify Edge       | -                    | -                | `addEventListener('unhandledrejection')` |
 | Web Browsers       | Console error output | No               | `addEventListener('unhandledrejection')` |
 | Web Workers        | Worker error event   | No               | `addEventListener('unhandledrejection')` |
 | Service Workers    | Worker error event   | No               | `addEventListener('unhandledrejection')` |
 | Electron Main      | Terminates process   | Yes              | `process.on('unhandledRejection')`       |
 | Electron Renderer  | Console error output | No               | `addEventListener('unhandledrejection')` |
+
+Vercel Edge and Netlify Edge crash/failure semantics on an unhandled rejection are not independently documented by either vendor; both platforms are Node- and browser-adjacent enough that `addEventListener` registration is correct regardless of the answer.
 
 All listed environments are supported. Standard runtimes are autodetected automatically when calling `register()`.
 
