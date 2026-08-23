@@ -522,15 +522,14 @@ describe('ported suites', () => {
 
   describe('bluebird: two-way handler/follower semantics', () => {
     it('27. child cancellation fires handlers on parent', async () => {
-      let _parentFired = false;
+      let parentFired = false;
       const parent = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
         handleCancel(() => {
-          _parentFired = true;
+          parentFired = true;
         });
         // never resolve to keep pending
       });
       const child = parent.then((v) => v); // Derived child
-      silence(parent);
       silence(child);
 
       // Cancel child rejects it with CancelError
@@ -539,6 +538,8 @@ describe('ported suites', () => {
 
       // Child is canceled
       expect(child.isCanceled).toBe(true);
+      expect(parent.isCanceled).toBe(true);
+      expect(parentFired).toBe(true);
     });
 
     it('28. cancel parent affects all children', async () => {
@@ -838,12 +839,11 @@ describe('ported suites', () => {
     });
 
     it('42. CancelError carries isBubbled flag for upward vs downward cancels', async () => {
-      let downErr: any, _upErr: any;
+      let downErr: any, upErr: any;
       const parent = new CancelablePromise<void>((resolve, reject, { handleCancel }) => {
         handleCancel(() => {});
       });
       const child = parent.then(() => {});
-      silence(parent);
       silence(child);
 
       // Down cancel (parent.cancel)
@@ -851,10 +851,22 @@ describe('ported suites', () => {
       await parent.catch((e) => {
         downErr = e;
       });
+
+      const parentUp = new CancelablePromise<void>((resolve, reject, { handleCancel }) => {
+        handleCancel(() => {});
+      });
+      const childUp = parentUp.then(() => {});
+      silence(childUp);
+
+      childUp.cancel();
+      await parentUp.catch((e) => {
+        upErr = e;
+      });
       await drain();
 
       // Down cancels are not marked as bubbled
       expect(downErr.isBubbled).toBe(false);
+      expect(upErr.isBubbled).toBe(true);
     });
 
     it('43. multiple handlers on same promise fire in registration order', async () => {
