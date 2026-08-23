@@ -3,17 +3,11 @@ import { CancelablePromise } from '@cancjs/promise';
 import { withSignal } from './abort';
 import { minDelay, retry, timeout, waitFor } from './index';
 
-// regression: internal subscriptions (`promise.then(...)`) used to be built off a bare
-// `Promise.resolve(...)` call, a live global lookup. Under a zone.js-style monkeypatch that
-// replaces the global Promise constructor, that lookup silently starts constructing through the
-// patched global instead of the resolved implementation. These probes patch `global.Promise` with
-// a marker constructor and assert none of the affected utilities ever construct through it.
+// Regression test ensures internal subscriptions never construct through a live global lookup
+// of Promise.resolve under a monkeypatch by asserting utilities do not use the patched global
 //
-// Test bodies deliberately avoid `async`/`await`: this workspace targets es5 (invariant 3), so an
-// `async` function here would itself compile through TypeScript's `__awaiter` helper, which reads
-// the *live* global `Promise` (`new (P || (P = Promise))(...)`) to drive its own state machine.
-// That is a harness artifact, not a product bug, but it would pollute the construction count with
-// promises the test itself created. Returning a plain `.then()` chain sidesteps the helper.
+// Test bodies avoid async await because es5 emit uses a live global Promise in the awaiter helper
+// which would pollute the construction count with promises the test itself created
 describe('toolbox never subscribes via the live global Promise', () => {
   let RealPromise: typeof Promise;
   let patchedConstructed: unknown[];
@@ -23,10 +17,8 @@ describe('toolbox never subscribes via the live global Promise', () => {
     RealPromise = global.Promise;
     patchedConstructed = [];
 
-    // A plain function constructor (not `class extends Promise`) that builds a real native
-    // promise via Reflect.construct and records every instance it produced, mirroring the
-    // marker-impl approach used by precedence.spec.ts. Avoids native engine internal-slot
-    // pitfalls that a subclassed Promise triggers on its own static resolve/then machinery.
+    // A plain function constructor builds a real native promise via Reflect.construct to record
+    // instances produced avoiding native internal slot pitfalls of a subclassed Promise
     function PatchedPromise(
       this: unknown,
       executor: (resolve: (value: unknown) => void, reject: (reason?: any) => void) => void,

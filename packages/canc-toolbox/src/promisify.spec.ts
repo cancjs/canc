@@ -98,9 +98,8 @@ describe('promisify', () => {
       promise.cancel('bye');
 
       expect(injectedSignal.aborted).toBe(true);
-      // Current code: the injected signal's reason is RAW (promisify's makeCancelSignal call
-      // passes no normalizeReason), unlike cancelify which brands via toCancelError. Asserting
-      // the actual behavior here, not changing it (see phase follow-up on promisify parity).
+      // Asserting actual behavior where injected signal reason is raw unlike cancelify which
+      // brands via toCancelError pending a phase followup on promisify parity
       expect(isCancelError(injectedSignal.reason)).toBe(false);
 
       const reason = await promise.catch((e) => e);
