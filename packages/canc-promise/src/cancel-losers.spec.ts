@@ -35,7 +35,6 @@ describe('cancel-losers doctrine', () => {
     return { promise, resolve, reject };
   }
 
-  // Case 1: any() first fulfill -> other pending inputs canceled
   it('any() first fulfill cancels other pending inputs (loser doctrine)', async () => {
     const p1 = createDeferred();
     const p2 = createDeferred();
@@ -55,7 +54,6 @@ describe('cancel-losers doctrine', () => {
     expect(p3.promise.isCanceled).toBe(true);
   });
 
-  // Case 2: any() loser-rejection suppressed (no unhandled)
   it('any() loser-rejection suppressed (loser canceled)', async () => {
     const p1 = new CancelablePromise((resolve) => resolve('winner'));
     const p2 = new CancelablePromise((_resolve, reject) => {
@@ -76,7 +74,6 @@ describe('cancel-losers doctrine', () => {
     // No unhandled rejection from p2; reaching here proves suppression works
   });
 
-  // Case 3: any() with bubble:false loser NOT canceled
   it('any() respects bubble:false on loser (NOT canceled)', async () => {
     const shielded = new CancelablePromise(
       () => {
@@ -99,7 +96,6 @@ describe('cancel-losers doctrine', () => {
     expect(shielded.isCanceled).toBe(false); // bubble:false protects from loser-cancel
   });
 
-  // Case 4: any() all-reject -> aggregate error, losers already-canceled
   it('any() all-reject (all canceled) -> AggregateError (edge case)', async () => {
     const p1 = new CancelablePromise((resolve) => resolve('winner'));
     const p2 = new CancelablePromise(() => {
@@ -113,7 +109,6 @@ describe('cancel-losers doctrine', () => {
     expect(p2.isCanceled).toBe(true); // loser, canceled
   });
 
-  // Case 5: all() first reject -> other pending inputs canceled
   it('all() first reject cancels other pending inputs', async () => {
     const p1 = new CancelablePromise((_resolve) => {
       /**/
@@ -141,7 +136,6 @@ describe('cancel-losers doctrine', () => {
     await expect(result).rejects.toBeInstanceOf(Error);
   });
 
-  // Case 6: all() rejector-child rejection suppressed
   it('all() rejector rejection is not suppressed (normal rejection)', async () => {
     const p1 = new CancelablePromise(() => {
       /**/
@@ -158,7 +152,6 @@ describe('cancel-losers doctrine', () => {
     expect(p1.isCanceled).toBe(true); // p1 canceled as remaining
   });
 
-  // Case 7: all() with bubble:false rejector NOT canceled (bubble semantics)
   it('all() respects bubble:false on a remaining input (NOT canceled on reject)', async () => {
     const shielded = new CancelablePromise(
       () => {
@@ -188,7 +181,6 @@ describe('cancel-losers doctrine', () => {
     await expect(result).rejects.toBeInstanceOf(Error);
   });
 
-  // Case 8: all() already-fulfilled input no-op (not canceled)
   it('all() already-fulfilled input is not canceled on rejection', async () => {
     const fulfilled = CancelablePromise.resolve('done');
     const pending = new CancelablePromise(() => {
@@ -212,7 +204,6 @@ describe('cancel-losers doctrine', () => {
     await expect(result).rejects.toBeInstanceOf(Error);
   });
 
-  // Case 9: allSettled() does NOT cancel losers on fulfill (waits for all)
   it('allSettled() does NOT cancel inputs (waits all)', async () => {
     const p1 = new CancelablePromise((resolve) => resolve('value'));
     const p2 = new CancelablePromise(() => {
@@ -230,7 +221,6 @@ describe('cancel-losers doctrine', () => {
     expect(p3.isCanceled).toBe(false); // allSettled waits, no-op per doctrine
   });
 
-  // Case 10: allSettled() result includes rejected losers (not suppressed by doctrine)
   it('allSettled() settles with loser rejections included (no suppression by allSettled)', async () => {
     const err1 = new Error('fail-1');
     const err2 = new Error('fail-2');
@@ -251,7 +241,6 @@ describe('cancel-losers doctrine', () => {
     expect((settled[1] as PromiseRejectedResult).reason).toBe(err2);
   });
 
-  // Case 11: any() with mixed resolved/pending/bubble:false
   it('any() complex matrix: mix of resolved, pending, bubble:false losers', async () => {
     const resolved = CancelablePromise.resolve('already-there');
     const pending = new CancelablePromise(() => {
@@ -277,7 +266,6 @@ describe('cancel-losers doctrine', () => {
     expect(shielded.isCanceled).toBe(false);
   });
 
-  // Case 12: all() with mix of fulfilled, pending, rejector, bubble:false
   it('all() complex matrix: mix of fulfilled, pending, rejector, bubble:false', async () => {
     const fulfilled = CancelablePromise.resolve('done');
     const pending1 = new CancelablePromise(() => {
@@ -312,7 +300,6 @@ describe('cancel-losers doctrine', () => {
     await expect(result).rejects.toBeInstanceOf(Error);
   });
 
-  // Case 13: race() mirror behavior (bubbleOnComplete): loser canceled on any settle
   it('race() cancels losers when any input settles (bubbleOnComplete mirror)', async () => {
     const p1 = new CancelablePromise((resolve) => resolve('racer1'));
     const p2 = new CancelablePromise(() => {
@@ -331,7 +318,6 @@ describe('cancel-losers doctrine', () => {
     expect(p3.isCanceled).toBe(true);
   });
 
-  // Case 14: any() loser CancelError rejection from cancel() is suppressed
   it('any() loser CancelError from cancel() is suppressed (no unhandled)', async () => {
     const p1 = new CancelablePromise((resolve) => resolve('winner'));
     const loser = new CancelablePromise(() => {
