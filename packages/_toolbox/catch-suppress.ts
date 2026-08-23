@@ -30,10 +30,8 @@ export const isTimeoutLike = (reason: unknown): boolean =>
   isTimeoutError(reason) || (isCancelErrorLike(reason) && causeNameIs(reason, 'TimeoutError'));
 
 function wireCancelInput(ctx: IExecutorCtx | undefined, promise: unknown): void {
-  // Inert on the native flavor: a native Promise executor is invoked with no third argument, so
-  // ctx is undefined there and this never registers anything - the same degradation every other
-  // native-twin toolbox helper already documents. The cancelable flavor propagates an outer
-  // cancel down to a cancelable input, same as every other toolbox helper that adopts one.
+  // Inert on the native flavor since a native Promise executor has no third argument but the
+  // cancelable flavor propagates an outer cancel down to a cancelable input like other helpers
   if (!ctx) return;
 
   ctx.handleCancel(() => {

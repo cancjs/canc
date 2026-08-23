@@ -40,9 +40,8 @@ export function timeoutFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: 
     const { hasInput, input, options } = parsed;
     const timers = resolveTimers(options, deps);
 
-    // The returned promise owns the timer so that canceling it (cancelable flavor) clears the
-    // pending timeout and stops the underlying operation, leaving no leaked work. Under a plain
-    // native Promise the context is undefined and the timer simply runs to completion.
+    // Returned promise owns the timer so canceling the cancelable flavor clears pending timeout
+    // stopping underlying operation while plain native Promise lets timer run to completion
     return constructTimed<T, K>(
       deps,
       (resolve, reject, ctx?: IExecutorCtx) => {

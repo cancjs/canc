@@ -25,9 +25,8 @@ const NativePromise = Promise;
  * the cancelable toolbox.
  */
 export class LazyPromise<T = any> extends LazyBase<T> {
-  // Static surface mirrored from the cancelable twin, so the same code reads the same in both
-  // toolboxes. The implementations are inherited; these declarations only narrow the flavor and
-  // its options bag, and emit nothing.
+  // Static surface mirrored from cancelable twin so the same code reads identically where these
+  // declarations narrow the flavor and its options bag without emitting anything
   declare static try: <V, TArgs extends any[]>(
     fn: (...args: TArgs) => V | PromiseLike<V>,
     ...args: TArgs

@@ -30,10 +30,8 @@ function spyDeps(): { deps: IToolboxDeps<ITestKind>; setTimeout: jest.Mock; clea
   };
 }
 
-// { lazy: true } deferred-start behavior, cancelable flavor. Per helper: no work at construction,
-// exactly one execution shared by every subscriber, and canceling before the first subscription
-// means the real work never runs at all (proven by a timer/attempt/condition/callback spy, not
-// just by the settled value).
+// Lazy deferred-start behavior cancelable flavor asserts no work at construction with exactly
+// one shared execution where canceling before first subscription means real work never runs
 describe('{ lazy: true } (cancelable)', () => {
   afterEach(() => {
     jest.useRealTimers();

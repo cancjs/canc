@@ -15,8 +15,8 @@ import { runCallback } from './callback';
 import { callReturn, getSource } from './pull';
 import { AnyIterable, IPipeOp, markPipeOp, TPromiseCtor } from './types';
 
-// Operators only ever adopt a callback's outcome, so the platform promise is all they need. Captured
-// once here rather than read per call, the same way the rest of the toolbox treats it.
+// Operators adopt callback outcomes so they only need the platform promise captured once here
+// to avoid a global lookup on every iteration like the rest of the toolbox
 const PlainPromise = Promise as unknown as TPromiseCtor;
 
 /** What a callback produces once its form is resolved: awaited, or driven to the generator's return. */
