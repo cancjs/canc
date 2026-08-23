@@ -217,6 +217,10 @@ const createCommonConfig = (emitDeclaration, entry) => ({
   ],
 });
 
+// Every barrel export is copied onto the default export object, so a barrel
+// export whose name matches an own property of the default export silently
+// overwrites it in CJS and UMD targets
+// Enforced by collectDefaultExportShadowing() in scripts/check-package-validation.js
 const defaultExportInterop = (globalName) => ({
   name: 'default-export-interop',
   renderChunk(code, _chunk, outputOptions) {
