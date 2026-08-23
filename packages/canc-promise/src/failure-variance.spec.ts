@@ -34,7 +34,8 @@ describe('failure variance', () => {
 
     // Contravariance counter-example:
     // If the failure property were a function type `(e: E) => void`, function parameter
-    // subtyping would flip the variance to contravariant, allowing narrowing and rejecting widening.
+    // subtyping would flip the variance to contravariant, allowing narrowing
+    // and rejecting widening.
     // Because [FAILURE]?: E is a plain optional property slot, it is covariant.
 
     // Vanilla interop

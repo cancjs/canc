@@ -265,10 +265,6 @@ describeIfGC('leak canaries (GC probe)', () => {
       console.log(`Heap peak (run 2): ${secondRun} bytes (Delta ${growth} bytes)`);
       console.log(`Growth ratio: ${ratio.toFixed(2)}x`);
 
-      // A leak looks like ~2.0: the second burst allocates as much again on top of a heap that
-      // never shrank from the first. A plateau looks like ~1.0: the second burst's garbage gets
-      // collected same as the first, so growth-over-baseline stays flat. Measured 1.000-1.001 on
-      // this implementation with a real collector; 1.2 leaves headroom without being close to 2.0.
       expect(ratio).toBeLessThan(1.2);
     });
   });

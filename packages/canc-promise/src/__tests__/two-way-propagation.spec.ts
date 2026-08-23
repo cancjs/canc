@@ -131,7 +131,8 @@ describe('two-way propagation matrix', () => {
         caught = err;
       });
       expect(isCancelError(caught)).toBe(true);
-      // The child adopts the parent's rejection (down). It is a plain cancel, not a bubble.
+      // The child adopts the parent's rejection (down).
+      // It is a plain cancel, not a bubble.
       expect((caught as CancelError).isBubbled).toBe(false);
     });
 

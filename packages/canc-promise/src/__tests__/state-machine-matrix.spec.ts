@@ -484,18 +484,22 @@ describe('state machine matrix', () => {
   describe('new without executor function (GAP vs native: see note)', () => {
     // GAP, not fixed here: native `new Promise(nonFunction)` throws SYNCHRONOUSLY from the
     // engine's own "resolver is not callable" check, which runs BEFORE the executor is ever
-    // invoked, confirmed below. CancelablePromise's constructor has no equivalent upfront check:
+    // invoked, confirmed below.
+    // CancelablePromise's constructor has no equivalent upfront check:
     // it unconditionally calls `executor(resolve, reject, { handleCancel })` inside the wrapper
-    // handed to `Reflect.construct(NativePromise, [wrapper], This)`. That call throws "executor
+    // handed to `Reflect.construct(NativePromise, [wrapper], This)`.
+    // That call throws "executor
     // is not a function", but because it happens INSIDE the wrapper that native Promise's own
     // internals invoke (and native Promise's spec'd behavior is to catch an executor throw and
     // turn it into a REJECTION of the promise under construction, not a rethrow), the TypeError
-    // never surfaces as a synchronous throw from `new CancelablePromise(...)`. Verified directly:
+    // never surfaces as a synchronous throw from `new CancelablePromise(...)`.
+    // Verified directly:
     // a try/catch wrapped tightly around the `new` call does NOT catch anything (see
     // child-process probe below), the rejection settles asynchronously on a promise that was
     // never returned to any caller (construction blew up before `Reflect.construct` could hand
     // back `instance`), so it is an ORPHANED, permanently unhandled rejection that crashes the
-    // process under Node's default `--unhandled-rejections=throw`. This does not match native
+    // process under Node's default `--unhandled-rejections=throw`.
+    // This does not match native
     // `new Promise(nonFunction)` behavior (synchronous TypeError).
     //
     // Run out-of-process (spawnSync) since the crash is fatal to the whole worker if triggered
@@ -547,7 +551,8 @@ describe('state machine matrix', () => {
       compile(path.join(utilRoot, 'error-matchers.ts'), 'error-matchers.js');
       compile(path.join(utilRoot, 'fn-meta.ts'), 'fn-meta.js');
       // The flattening above keys every module on its basename, so the shared util lands as
-      // `_util.js` while its own siblings still require it as `./index`. One re-export file keeps
+      // `_util.js` while its own siblings still require it as `./index`.
+      // One re-export file keeps
       // that a single module instance instead of a second copy.
       fs.writeFileSync(path.join(tmpDir, 'index.js'), "module.exports = require('./_util');\n");
 
@@ -628,12 +633,6 @@ describe('state machine matrix', () => {
   });
 
   describe('derived-child inherits forceCancelable through thenable adoption', () => {
-    // A then-derived child copies the parent's flags. When the parent is forceCancelable:false,
-    // the child must go FORCE_PENDING (non-cancelable) while adopting a thenable returned by the
-    // handler, and cancel() on it must be a no-op. Previously the internal-construction resolve
-    // wrapper consulted a shared stand-in that always said forceCancelable:true, so the inherited
-    // false was ignored: getter and behavior contradicted each other.
-
     it('parent {forceCancelable:false} -> handler returns thenable: child stays non-cancelable', async () => {
       let releaseInner: (v: string) => void = () => {};
       const inner = new NativePromise<string>((res) => {
@@ -676,8 +675,6 @@ describe('state machine matrix', () => {
     });
 
     it('flags are assigned before the adoption reaction fires (microtask ordering)', async () => {
-      // then() copies flags synchronously right after construction; the resolve wrapper runs on
-      // a later microtask. So at adoption time the inherited bit is already present.
       let releaseInner: (v: string) => void = () => {};
       const inner = new NativePromise<string>((res) => {
         releaseInner = res;

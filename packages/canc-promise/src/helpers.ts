@@ -17,9 +17,11 @@ import {
 } from './cancelable-promise';
 import { isAbortLike, isTimeoutLike, makeCatch, makeSuppress } from './catch-suppress';
 
-// Brand check: a foreign error merely named 'CancelError' is NOT matched, only objects carrying
-// the shared Symbol.for brand set by the CancelError constructor. Cross-realm/cross-copy safe
-// because the brand comes from the global symbol registry.
+/**
+ * Brand check: a foreign error merely named 'CancelError' is NOT matched, only objects carrying
+ * the shared Symbol.for brand set by the CancelError constructor. Cross-realm/cross-copy safe
+ * because the brand comes from the global symbol registry.
+ */
 export const isCancelError = (error: any): error is CancelError =>
   isObject(error) && error[CANCEL_ERROR_BRAND] === true;
 
@@ -28,10 +30,12 @@ export const _isAbortLike = isAbortLike(isCancelError);
 /** @internal */
 export const _isTimeoutLike = isTimeoutLike(isCancelError);
 
-// Brand check: same rationale as isCancelError, but for CancelablePromise instances. Duck-types
-// via CANCEL_PROMISE_BRAND (set on the prototype at module load) instead of `instanceof
-// CancelablePromise`, so a different @cancjs/promise copy (dual-package hazard) is still
-// recognized.
+/**
+ * Brand check: same rationale as isCancelError, but for CancelablePromise instances. Duck-types
+ * via CANCEL_PROMISE_BRAND (set on the prototype at module load) instead of `instanceof
+ * CancelablePromise`, so a different @cancjs/promise copy (dual-package hazard) is still
+ * recognized.
+ */
 export const isCancPromise = (value: any): value is CancelablePromise<any> =>
   isObject(value) && value[CANCEL_PROMISE_BRAND] === true;
 
@@ -41,8 +45,10 @@ export { AbortError, AggregateError, isAbortError, isAggregateError, isTimeoutEr
 // Same Symbol.for-registry rationale as CANCEL_ERROR_BRAND, cross-realm/cross-copy safe.
 export const CANCEL_SIGNAL_BRAND = Symbol.for('@cancjs/promise:CancelSignal');
 
-// A cancel signal is a native AbortSignal branded to mark that it aborts with a CancelError. The
-// brand is an own, non-enumerable property carrying the registry symbol.
+/**
+ * A cancel signal is a native AbortSignal branded to mark that it aborts with a CancelError. The
+ * brand is an own, non-enumerable property carrying the registry symbol.
+ */
 export type CancelSignal = AbortSignal & { readonly [CANCEL_SIGNAL_BRAND]: true };
 
 // Brand check: a plain AbortSignal (raw AbortController) is NOT a cancel signal, only a signal
@@ -59,10 +65,12 @@ export function createCancelSignal(reason?: any) {
 
   return {
     // The bound cancel mints a branded CancelError as the signal reason (unless it is already a
-    // CancelError, which passes through). Aborting this signal therefore reads as a genuine
+    // CancelError, which passes through).
+    // Aborting this signal therefore reads as a genuine
     // cancellation: spec-compliant consumers (e.g. fetch, which rejects with signal.reason)
     // reject with the CancelError directly, and a {signal}-option promise cancels with that exact
-    // error. Normalization mirrors cancel(): a string/undefined becomes the message, any other
+    // error.
+    // Normalization mirrors cancel(): a string/undefined becomes the message, any other
     // object becomes the cause.
     cancel: (r: any = reason) =>
       controller.abort(
@@ -92,8 +100,10 @@ export interface ICatchSuppressOptions extends ICancelablePromiseOptions {
 type TSubtractFlags<O> =
   (O extends { abort: true } ? AbortError : never) | (O extends { timeout: true } ? TimeoutError : never);
 
-// One code path for both the built-in pair below and the matcher factories in error-matchers.ts:
-// only the base predicate differs. Here it is the CancelError brand check.
+/**
+ * One code path for both the built-in pair below and the matcher factories in error-matchers.ts:
+ * only the base predicate differs. Here it is the CancelError brand check.
+ */
 const catchCancelImpl = makeCatch({ matches: isCancelError, isCancelError, flagsEnabled: true });
 const suppressCancelImpl = makeSuppress({ matches: isCancelError, isCancelError, flagsEnabled: true });
 

@@ -185,7 +185,8 @@ describe('failure chaining and statics', () => {
     });
     const cThrown: Eq<FailureOf<typeof thrown>, never> = true;
 
-    // The idiom: return a rejected promise instead of throwing. This is the chain-side twin of
+    // The idiom: return a rejected promise instead of throwing.
+    // This is the chain-side twin of
     // canc.throw inside a coroutine body, and it threads through ordinary then propagation.
     const rejected = p.then((v) => (bad ? CancelablePromise.reject(new FooError()) : v));
     const cRejected: Eq<FailureOf<typeof rejected>, FooError> = true;

@@ -1,9 +1,11 @@
 import { CancelablePromise } from './cancelable-promise';
 
-// Guards against a future TS target bump (es2022+ defaults useDefineForClassFields:true)
-// silently breaking species resolution. Under the CURRENT es5 target these fields already emit
-// nothing, but the `declare` modifier makes that explicit, see comments at the static species
-// field / [Symbol.toStringTag] field in cancelable-promise.ts.
+/**
+ * Guards against a future TS target bump (es2022+ defaults useDefineForClassFields:true)
+ * silently breaking species resolution. Under the CURRENT es5 target these fields already emit
+ * nothing, but the `declare` modifier makes that explicit, see comments at the static species
+ * field / [Symbol.toStringTag] field in cancelable-promise.ts.
+ */
 describe('species regression', () => {
   it('p.then(...) returns an instance that IS instanceof CancelablePromise', () => {
     const p = new CancelablePromise<number>((resolve) => resolve(1));

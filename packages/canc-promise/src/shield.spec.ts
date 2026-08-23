@@ -126,7 +126,8 @@ describe('shield option', () => {
     const parent = new CancelablePromise<number>(() => {
       /**/
     });
-    // A shielded promise that adopts `parent` (upstream). Adoption = native rejection propagation.
+    // A shielded promise that adopts `parent` (upstream).
+    // Adoption = native rejection propagation.
     const shielded = new CancelablePromise<number>(
       (resolve) => {
         resolve(parent);
@@ -134,7 +135,8 @@ describe('shield option', () => {
       { shield: true },
     );
 
-    // Cancel the PARENT (upstream). The shielded node must adopt the rejection (native semantics).
+    // Cancel the PARENT (upstream).
+    // The shielded node must adopt the rejection (native semantics).
     parent.cancel('upstream stop');
 
     await macrotask();
@@ -291,7 +293,8 @@ describe('shield option', () => {
       { shield: true },
     );
 
-    // Guard on the wiring being present. Absent either the symbol or the wired method, nothing
+    // Guard on the wiring being present.
+    // Absent either the symbol or the wired method, nothing
     // to exercise, but the shield invariant still holds.
     if (disposeSym && typeof (promise as any)[disposeSym] === 'function') {
       (promise as any)[disposeSym]();

@@ -35,7 +35,8 @@ describe('inline matchers', () => {
 
     await expect(suppressErrors(CancelablePromise.reject(fooErr), FooError)).resolves.toBeUndefined();
 
-    // raw form: suppressErrors(new BarError(), FooError) THROWS the BarError; suppressErrors(new FooError(), FooError) returns
+    // raw form: suppressErrors(new BarError(), FooError) THROWS the BarError;
+    // suppressErrors(new FooError(), FooError) returns
     expect(() => suppressErrors(barErr, FooError)).toThrow(barErr);
     expect(suppressErrors(fooErr, FooError)).toBeUndefined();
   });
@@ -54,7 +55,8 @@ describe('inline matchers', () => {
       throw new FooError();
     } catch (err) {
       suppressErrors(err, FooError, BarError);
-      // inside catch (err) { suppressErrors(err, FooError, BarError); ... } the binding narrows to FooError | BarError with NO TS2775
+      // inside catch (err) { suppressErrors(err, FooError, BarError); ... } the
+      // binding narrows to FooError | BarError with NO TS2775
       const c3: Eq<typeof err, FooError | BarError> = true;
       void c3;
     }
@@ -72,7 +74,8 @@ describe('inline matchers', () => {
     const _pNext = chain2(chain1(pBoth));
     const c2: Eq<typeof _pNext, CancelablePromise<number | FooError | BarError, never>> = true;
 
-    // createSuppressError('RetryError')(pBoth) leaves TFailure unchanged when no declared class has a literal name
+    // createSuppressError('RetryError')(pBoth) leaves TFailure unchanged when
+    // no declared class has a literal name
     const _r3 = createSuppressError('RetryError')(pBoth);
     const c3: Eq<typeof _r3, CancelablePromise<number | void, FooError | BarError>> = true;
 

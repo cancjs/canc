@@ -7,8 +7,10 @@ function named(name: string): Error {
   return Object.assign(new Error('x'), { name });
 }
 
-// A second copy of @cancjs/promise produces CancelErrors that fail `instanceof` here but carry the
-// same registry brand. Built by hand on purpose: using the real class would not prove anything.
+/**
+ * A second copy of @cancjs/promise produces CancelErrors that fail `instanceof` here but carry the
+ * same registry brand. Built by hand on purpose: using the real class would not prove anything.
+ */
 function foreignCopyCancelError(): object {
   const error = Object.create(null) as Record<PropertyKey, unknown>;
   error[Symbol.for('@cancjs/promise:CancelError')] = true;
@@ -56,8 +58,10 @@ describe('createSuppressError', () => {
     expect(() => suppress(named('OtherError'))).toThrow(Error);
   });
 
-  // A function declaration has a `prototype`, unlike an arrow, so it is the case that could be
-  // mistaken for an error constructor. It is neither Error-ish nor branded, so it must not be.
+  /**
+   * A function declaration has a `prototype`, unlike an arrow, so it is the case that could be
+   * mistaken for an error constructor. It is neither Error-ish nor branded, so it must not be.
+   */
   it('treats a function-declaration predicate as a predicate, not a constructor', () => {
     function isRetryError(error: any): boolean {
       return !!error && error.name === 'RetryError';
@@ -66,7 +70,8 @@ describe('createSuppressError', () => {
     const suppress = createSuppressError(isRetryError);
 
     expect(suppress(named('RetryError'))).toBeUndefined();
-    // Would be swallowed if the matcher had been compiled as a constructor matching on its own name.
+    // Would be swallowed if the matcher had been compiled as a constructor matching
+    // on its own name.
     expect(() => suppress(named('isRetryError'))).toThrow(Error);
   });
 

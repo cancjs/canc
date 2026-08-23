@@ -16,9 +16,11 @@ export interface IPromiseImplOptions {
   impl?: PromiseImpl;
 }
 
-// Module-scoped mutable registry. This state MUST live in the published @cancjs/promise package
+// Module-scoped mutable registry.
+// This state MUST live in the published @cancjs/promise package
 // only: eco packages declare @cancjs/promise as a peerDependency so the package manager dedupes it
-// to a single installed copy, which keeps this variable a single app-wide slot. Placing it in an
+// to a single installed copy, which keeps this variable a single app-wide slot.
+// Placing it in an
 // inlined/relatively-imported shared module would bundle a separate copy into every dependent
 // package, splitting the registry across packages.
 let registeredImpl: PromiseImpl | undefined;

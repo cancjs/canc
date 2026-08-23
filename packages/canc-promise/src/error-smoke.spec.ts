@@ -21,7 +21,8 @@ import {
 } from './index';
 
 // Cross-package smoke for the phase that unified error classes/brands, added the matcher
-// factories, and gave every wrapper a displayName. Each unit is already covered in its own
+// factories, and gave every wrapper a displayName.
+// Each unit is already covered in its own
 // package's suite (see cancel-error.spec.ts, error-brands.spec.ts, error-matchers.spec.ts,
 // coroutine.spec.ts, cancelify.spec.ts, promisify.spec.ts, suppress.spec.ts); this file's job is
 // to prove those pieces still cohere when consumed the way a real dependent package would: through
@@ -83,7 +84,8 @@ describe('smoke 1: brand-scheme invariants, consumed via the package name', () =
   });
 
   // Documented exception, not a bug: CancelSignal brands the AbortSignal instance directly, since
-  // there is no subclassable AbortSignal prototype to mutate. Included so this smoke's "five
+  // there is no subclassable AbortSignal prototype to mutate.
+  // Included so this smoke's "five
   // brands" line does not silently drop the one shaped differently from the rest.
   it('CancelSignal is the documented exception: instance-branded, registry key still correct', () => {
     const { signal } = createCancelSignal();

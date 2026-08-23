@@ -64,7 +64,8 @@ describe('cancel handler invocation ordering', () => {
     silence(parent); // silence the now-bubbled parent, after the bubble fired
 
     // The bubble drives parent.cancel() synchronously inside child.cancel(), so the
-    // parent cancel handler fires between the two markers (option (a)). Pre-fix it
+    // parent cancel handler fires between the two markers (option (a)).
+    // Pre-fix it
     // was deferred to a microtask and landed after 'after-child-cancel'.
     expect(order).toEqual(['before-child-cancel', 'parent-handler', 'after-child-cancel']);
   });
@@ -162,9 +163,12 @@ describe('cancel handler invocation ordering', () => {
     order.push('after-parent-cancel');
 
     // Parent's own cancel is synchronous; the child's cancel arrives on a microtask
-    // via the native reject reaction. Under option (a) the child's cancel HANDLER runs
-    // synchronously inside that reject reaction, i.e. BEFORE the child's own `.catch`
-    // observes the rejection and before the next microtask tick. Under the deferred
+    // via the native reject reaction.
+    // Under option (a) the child's cancel HANDLER runs
+    // synchronously inside that reject reaction, i.e.
+    // BEFORE the child's own `.catch`
+    // observes the rejection and before the next microtask tick.
+    // Under the deferred
     // (microtask) semantics the handler landed one microtask later, after the catch.
     expect(order).toEqual(['before', 'after-parent-cancel']);
 

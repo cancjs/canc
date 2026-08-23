@@ -272,7 +272,8 @@ describe('adoption cancel propagation', () => {
 
   it('p.then(() => p): native TypeError, no cycle, no hang', async () => {
     const p: CancelablePromise<any> = CancelablePromise.resolve();
-    // Self-adoption: the handler returns the very promise `then` produced. Native resolution
+    // Self-adoption: the handler returns the very promise `then` produced.
+    // Native resolution
     // rejects with a TypeError; cancellation must not run before that and must not deadlock.
     const chained: CancelablePromise<any, any> = p.then(() => chained as any);
 
@@ -296,9 +297,11 @@ describe('adoption cancel propagation', () => {
   });
 
   it('foreign thenable with a duck-typed cancel: adoption does not invoke it (brand-only gate)', async () => {
-    // Not a CancelablePromise (no CANCEL_PROMISE_BRAND), so it must take the unchanged-behavior
-    // path even though it happens to expose a `.cancel` method (e.g. a LAZY promise or any other
-    // thenable-with-cancel). The adoption branch keys strictly on the brand, never duck-typing.
+    /**
+     * Not a CancelablePromise (no CANCEL_PROMISE_BRAND), so it must take the unchanged-behavior
+     * path even though it happens to expose a `.cancel` method (e.g. a LAZY promise or any other
+     * thenable-with-cancel). The adoption branch keys strictly on the brand, never duck-typing.
+     */
     let cancelCalled = false;
     const foreign: PromiseLike<number> & { cancel: () => void } = {
       then(onFulfilled) {
@@ -386,7 +389,8 @@ describe('adoption cancel propagation', () => {
   });
 
   it('allSettled: a cancelable item keeps its declared-parent link through the internal .then wrap (control, not a new adoption path)', async () => {
-    // allSettled wraps every input in `_adopt(item).then(toSettledResult)` internally. This is not
+    // allSettled wraps every input in `_adopt(item).then(toSettledResult)` internally.
+    // This is not
     // a new handler-return adoption path (the item is a declared ancestor of allSettled's
     // per-item derived child, same as any `.then()` source), but it must keep working post-fix:
     // canceling the allSettled RESULT does not reach a still-pending item (existing loser
