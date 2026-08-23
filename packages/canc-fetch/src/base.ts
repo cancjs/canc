@@ -43,12 +43,11 @@ interface PolyfilledAbortSignal {
 const resolveDep = <T>(config: Record<string, any>, key: string, global: T): T =>
   key in config ? (config[key] as unknown as T) : global;
 
-// Wiring shared by every product this factory can build (immediate fetch, and the lazy/later
-// variants). It owns the whole cancel-signal lifecycle: mint a signal to hand the underlying
-// fetch, forward an external caller signal onto it, turn `.cancel()` into a clean CancelError, and
-// map an abort rejection back to that CancelError. The caller supplies `handleCancel` (from the
-// CancelablePromise executor) and gets back the `signal` to pass into fetch plus a `finalize` to
-// call once the request settles.
+/**
+ * Shared cancel-signal wiring returned by {@link setupCancellation}. `signal` is what to pass into
+ * `fetch`, `finalize` detaches whatever the caller's original signal was wired to, and
+ * `toRejection` normalizes a fetch rejection into a CancelError when appropriate.
+ */
 export interface IFetchCancellation {
   signal: any;
   finalize: () => void;
@@ -57,6 +56,13 @@ export interface IFetchCancellation {
   toRejection: (reason: any) => any;
 }
 
+/**
+ * Builds the cancel-signal wiring shared by every product this factory can build (immediate fetch
+ * and the lazy/later variants): mints a signal (or adopts an injected `AbortController`), forwards
+ * an external caller signal onto it, turns `.cancel()` into a clean CancelError, and maps an abort
+ * rejection back to that CancelError. Takes `handleCancel` from the CancelablePromise executor and
+ * returns the `signal` to pass into fetch plus a `finalize` to call once the request settles.
+ */
 export const setupCancellation = (
   config: ICancelableFetchConfig,
   input: any,
