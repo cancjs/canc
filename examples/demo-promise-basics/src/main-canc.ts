@@ -34,7 +34,7 @@ async function main(): Promise<void> {
   console.log('');
 
   // Awaiting cancel() waits for all handlers to settle, proving cancellation is synchronous
-  // under the hood but its effects (cleanup) are observable.
+  // internally but its effects (cleanup) are observable.
   {
     console.log('canc: await cancel() ordering');
     const pending = loadProfileCancelable(mockApi.products, 'p2');
