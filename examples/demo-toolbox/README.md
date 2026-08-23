@@ -47,7 +47,7 @@ npm run typecheck # Both flavors must type-check
 ### Helper code (publishable-tidy, may copy)
 None in this example; helpers are simple enough to inline.
 
-### Mock code (scaffolding, don't copy)
+### Scaffolding (don't copy)
 - `@shared/mock-api`: fake network layer with abort tracking
 
 ## Diff workflow

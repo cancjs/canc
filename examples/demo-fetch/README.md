@@ -70,4 +70,4 @@ return timeout(searchRepos(query, fetch), ms);
 
 ## Copy
 
-Helper code in `src/lib/` (future extraction targets) is publishable-tidy. Mock code and mock-api are scaffolding; copy `src/repo-search-canc.ts` for your use case, not the mock.
+Helper code in `src/lib/` (future extraction targets) is publishable-tidy. Mock-api and other support code are scaffolding; copy `src/repo-search-canc.ts` for your use case, not the scaffolding.
