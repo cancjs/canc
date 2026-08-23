@@ -34,7 +34,7 @@ library that should not force a promise implementation on its consumers.
 npm install @cancjs/toolbox-native
 ```
 
-Core packages, `@cancjs/promise` and `@cancjs/coroutine`, follow strict semver and are safe on a caret pin, `^1`. Everything else, the toolbox, `fetch`, decorators, axios and the adapters that follow, releases on a shared minor line that can carry a breaking change inside a minor, so pin those with a tilde, `~1.4` (pin the minor, not `~1.x`, which npm expands to the same range as `^1`). Full policy, including the deprecation and compatibility-floor rules: [Versioning](docs/versioning.md).
+Core packages, `@cancjs/promise` and `@cancjs/coroutine`, follow strict semver and are safe on a caret pin, `^1`. Everything else, the toolbox, `fetch`, decorators, axios and the adapters that follow, releases on a shared minor line that can carry a breaking change inside a minor, so pin those with a tilde, `~1.4` (pin the minor, not `~1.x`, which npm expands to the same range as `^1`). Full policy, including the deprecation and compatibility-floor rules: [Versioning](https://github.com/cancjs/canc/blob/master/docs/versioning.md).
 
 ### Usage
 
