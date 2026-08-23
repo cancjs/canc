@@ -32,9 +32,7 @@ async function forceCollect(done: () => boolean, cycles = 25, gap = 20): Promise
   }
 }
 
-// Access a property for its side effect (materializing a per-instance own-bound method) without
-// retaining the result. A plain `const x = inst.method` is downleveled to a function-scoped `var`
-// under the es5 target and would pin the instance for the whole test, defeating the GC assertion.
+// Access a property for side effect without retaining result since es5 var assignment defeats GC
 function touch(_value: unknown): void {
   // intentionally empty
 }
@@ -286,8 +284,7 @@ describe('decorators (TS legacy): LegacyAsyncMethod', () => {
         finalized.push(true);
       });
 
-      // inst1 lives ONLY in this nested sync function. If it were a local of the async test body
-      // it would be captured by the es5 generator state machine and pinned across the awaits below.
+      // Nested so inst1 is not captured by the es5 async generator and pinned across awaits.
       const registerInstance1 = () => {
         const inst1 = new GcA();
         touch(inst1.method);
@@ -477,8 +474,7 @@ describe('decorators (TS legacy): LegacyBindMethod', () => {
         finalized.push(true);
       });
 
-      // inst1 lives ONLY in this nested sync function. If it were a local of the async test body
-      // it would be captured by the es5 generator state machine and pinned across the awaits below.
+      // Nested so inst1 is not captured by the es5 async generator and pinned across awaits.
       const registerInstance1 = () => {
         const inst1 = new GcA();
         touch(inst1.method);
@@ -616,9 +612,7 @@ describe('decorators (TS legacy): metadata preservation', () => {
   });
 });
 
-// The user builds the coroutine themselves with cancAsync inside the getter and returns it. The
-// decorator no longer wraps a bare generator function; it only memoizes the returned coroutine
-// per instance, and for bind:true binds it to the instance so a detached call keeps `this`.
+// The decorator memoizes the user-built coroutine per instance and optionally binds it
 
 describe('decorators (TS legacy): getter returns a coroutine', () => {
   // Sentinel returned when the coroutine runs with no bound/call-site `this` (an unbound detached
@@ -807,7 +801,7 @@ describe('decorators (TS legacy): getter returns a coroutine', () => {
 
     expect(isCancelError(caught)).toBe(true);
 
-    // inst2's call is still pending (not disturbed by inst1's cancel); resolve it deterministically.
+    // inst2 is undisturbed by inst1's cancel so resolve deterministically
     let disturbed: unknown;
     const race = Promise.race([
       pending2.then(
@@ -872,14 +866,14 @@ describe('decorators (TS legacy): flavor mismatch guard', () => {
     }
 
     expect(() => {
-      // AsyncMethod applied with legacy args (target, propertyKey, descriptor) instead of (value, context).
+      // AsyncMethod applied with legacy args
       (AsyncMethod as any)({}, 'method', { value: method, configurable: true, writable: true });
     }).toThrow(/@cancjs\/decorators\/legacy/);
   });
 
   it('LegacyAsyncMethod accepts a babel-legacy import used correctly elsewhere without cross-contamination', () => {
     // Sanity: babel-legacy entry point itself still works when called with its own shape, proving
-    // the guard above is about shape detection, not blanket rejection of `initializer`-bearing objects.
+    // the guard is for shape detection rather than blanket rejection of initializers
     const descriptor = {
       initializer: function (this: any) {
         return function* (this: any): Generator<any, any, any> {

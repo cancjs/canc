@@ -147,8 +147,7 @@ export function AsyncMethod<This, Value>(
 export function AsyncMethod(options?: IMethodDecoratorOptions): IMemberDecorator;
 export function AsyncMethod(...args: any[]): any {
   if (!isOptions(args)) {
-    // Implementation signature must stay `(...args: any[]): any` to host every overload above;
-    // narrowing it would break the public call shapes. Safe: args is re-dispatched unchanged.
+    // narrowing it would break the public call shapes so args are re-dispatched unchanged
 
     return (AsyncMethod() as (...a: any[]) => any)(...args);
   }
@@ -174,8 +173,7 @@ export function BindMethod<This, Value>(
 export function BindMethod(options?: IMethodDecoratorOptions): IMemberDecorator;
 export function BindMethod(...args: any[]): any {
   if (!isOptions(args)) {
-    // Implementation signature must stay `(...args: any[]): any` to host every overload above;
-    // narrowing it would break the public call shapes. Safe: args is re-dispatched unchanged.
+    // narrowing it would break the public call shapes so args are re-dispatched unchanged
 
     return (BindMethod() as (...a: any[]) => any)(...args);
   }

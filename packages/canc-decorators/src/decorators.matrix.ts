@@ -26,9 +26,7 @@ async function forceCollect(done: () => boolean, cycles = 25, gap = 20): Promise
   }
 }
 
-// Access a property for its side effect (materializing a per-instance own-bound method) without
-// retaining the result. A plain `const x = inst.method` is downleveled to a function-scoped `var`
-// under the es5 target and would pin the instance for the whole test, defeating the GC assertion.
+// Access a property for side effect without retaining result since es5 var assignment defeats GC
 function touch(_value: unknown): void {
   // intentionally empty
 }
@@ -286,8 +284,7 @@ export function runStage3Matrix({
           finalized.push(true);
         });
 
-        // inst1 lives ONLY in this nested sync function. If it were a local of the async test body
-        // it would be captured by the es5 generator state machine and pinned across the awaits below.
+        // Nested so inst1 is not captured by the es5 async generator and pinned across awaits.
         const registerInstance1 = () => {
           const inst1 = new (class {
             @AsyncMethod({ bind: true })
@@ -473,8 +470,7 @@ export function runStage3Matrix({
           finalized.push(true);
         });
 
-        // inst1 lives ONLY in this nested sync function. If it were a local of the async test body
-        // it would be captured by the es5 generator state machine and pinned across the awaits below.
+        // Nested so inst1 is not captured by the es5 async generator and pinned across awaits.
         const registerInstance1 = () => {
           const inst1 = new (class {
             @BindMethod()
@@ -607,9 +603,8 @@ export function runStage3Matrix({
     });
 
     it('own name and arity are copied from the original onto the wrapper', () => {
-      // A named function expression carries a stable name/length through es5 emit (unlike class
-      // methods, whose names are erased under the decorator transform). AsyncMethod produces a fresh
-      // coroutine wrapper, so name/length must be copied across.
+      // Named function expressions keep name/length through es5 emit (unlike class methods).
+      // AsyncMethod produces a fresh coroutine wrapper, so these must be copied across.
       class C {
         @AsyncMethod({ bind: false })
         method = function* original(this: any, _a: unknown, _b: unknown): Generator<any, any, any> {
@@ -623,9 +618,8 @@ export function runStage3Matrix({
     });
   });
 
-  // Each decorator flavor is invoked directly (bypassing decorator syntax) with the runtime call
-  // shape another flavor's compiler output would produce. AsyncMethod/BindMethod share the guard
-  // (makeDecorator), so one representative per shape is enough to cover both.
+  // Decorators are invoked with runtime shapes produced by other flavors to test guards.
+  // AsyncMethod and BindMethod share makeDecorator, so one representative covers both.
 
   describe('decorators (ES stage-3): flavor mismatch guard', () => {
     it('AsyncMethod rejects TS-legacy call shape (target, propertyKey, descriptor)', () => {
@@ -673,7 +667,7 @@ export function runStage3Matrix({
         method() {}
       }
 
-      // LegacyAsyncMethod applied with stage-3 args (value, context) instead of (target, key, descriptor).
+      // LegacyAsyncMethod applied with stage-3 args.
       expect(() => {
         (LegacyAsyncMethod as any)(C.prototype.method, { kind: 'method', name: 'method' });
       }).toThrow(/@cancjs\/decorators/);
@@ -839,7 +833,7 @@ export function runStage3Matrix({
 
       expect(await inst.run()).toBe(9);
 
-      // Detached: no bound this, so the coroutine sees `this === undefined` and returns the sentinel.
+      // Detached call without bind:true leaves this undefined and returns SENTINEL
       const detached = inst.run;
       expect(await detached()).toBe(SENTINEL);
     });
@@ -934,7 +928,7 @@ export function runStage3Matrix({
 
       expect(isCancelError(caught)).toBe(true);
 
-      // inst2's call is still pending (not disturbed by inst1's cancel); resolve it deterministically.
+      // inst2 is undisturbed by inst1's cancel so resolve deterministically
       let disturbed: unknown;
       const race = Promise.race([
         pending2.then(
