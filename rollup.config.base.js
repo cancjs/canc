@@ -1,5 +1,4 @@
 import rollupCommonjs from '@rollup/plugin-commonjs';
-// import rollupProgress from 'rollup-plugin-progress';
 import rollupResolve from '@rollup/plugin-node-resolve';
 import rollupTerser from '@rollup/plugin-terser';
 import rollupTypescript from '@rollup/plugin-typescript';
