@@ -93,9 +93,11 @@ export function promote(prefetch: ISchedulerTaskPromise<InvoiceDetail>): void {
   prefetch.priority = 'user-blocking';
 }
 
-// no counterpart to the vanilla registry sweep: every prefetch is posted under the render run's
-// lifetime, so canceling that run drops the queued ones and aborts the running one, with nothing
-// here to walk and nothing to keep in step
+// aligned placeholder to match vanilla export signature
+export function supersedePrefetches(_reason?: unknown): void {
+  // no-op: every prefetch is posted under the render run's lifetime, so canceling
+  // that run drops the queued ones and aborts the running one automatically
+}
 
 // --- plumbing
 

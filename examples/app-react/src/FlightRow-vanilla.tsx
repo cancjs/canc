@@ -7,6 +7,8 @@ function prefetchDetails(api: FlightApi, id: string): Promise<FlightDetails> {
   return api.flightDetails(id);
 }
 
+// (no cache-warm counterpart: a plain fire-and-forget call has nothing worth guarding, see -canc)
+
 // One destination row. Hovering prefetches its details, but there is nothing to cancel: unhovering
 // or unmounting cannot stop the request, so it completes and tries to set state anyway.
 export function FlightRow({ api, destination }: { api: FlightApi; destination: FlightDestination }): ReactNode {
@@ -22,8 +24,6 @@ export function FlightRow({ api, destination }: { api: FlightApi; destination: F
     });
     // (no cancellation counterpart: the fetch keeps running after unhover/unmount)
   }, [hovering, api, destination.id]);
-
-  // (no cache-warm counterpart: a plain fire-and-forget call has nothing worth guarding, see -canc)
 
   return (
     <li

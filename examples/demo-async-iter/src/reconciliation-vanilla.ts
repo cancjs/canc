@@ -3,6 +3,8 @@
 
 // --- setup
 
+import { sleep } from '@shared/util';
+
 import { archivedStream, Transaction, transactionStream } from './mock/transactions';
 import { formatTx, getAmount, isPositive, sumAmounts } from './reconciliation-shared';
 
@@ -19,6 +21,7 @@ export async function filterAndFormat(log?: (msg: string) => void): Promise<stri
   // Pulls every item even if nobody is waiting for the result (wasted work).
   for await (const tx of transactionStream(log)) {
     if (isPositive(tx)) {
+      await sleep(5);
       result.push(formatTx(tx));
     }
   }
@@ -95,6 +98,9 @@ export async function streamWithBreak(
 }
 
 // scenario 5 (bonus): helper pipeline with take
-// (no vanilla counterpart: take(n) operator requires stream composition and automatic
-// source closing, which cannot be modeled side-by-side with vanilla loops without
-// extensive boilerplate)
+export async function topPositiveIds(_log?: (msg: string) => void): Promise<string[]> {
+  // (no vanilla counterpart: take(n) operator requires stream composition and automatic
+  // source closing, which cannot be modeled side-by-side with vanilla loops without
+  // extensive boilerplate)
+  return [];
+}

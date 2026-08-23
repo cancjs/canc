@@ -25,13 +25,25 @@ async function boot(module: any): Promise<{ app: INestApplication; dataSource: D
 }
 
 /** Fires POST /invoices/bulk, lets a chunk or two run, destroys the socket, returns the count after. */
-async function countAfterDisconnect(dataSource: DataSource, port: number): Promise<number> {
+async function countAfterDisconnect(dataSource: DataSource, port: number, targetCount = 0): Promise<number> {
   const req = http.request({ host: '127.0.0.1', port, path: '/invoices/bulk', method: 'POST' }, (res) => res.resume());
   req.on('error', () => {});
   req.end();
   await sleep(60);
   req.destroy();
-  await sleep(600);
+
+  if (targetCount > 0) {
+    const start = Date.now();
+    while (Date.now() - start < 5000) {
+      const count = await countInvoices(dataSource.manager);
+      if (count === targetCount) {
+        return count;
+      }
+      await sleep(50);
+    }
+  } else {
+    await sleep(600);
+  }
   return countInvoices(dataSource.manager);
 }
 
@@ -83,7 +95,7 @@ describe('bulk invoice generation cancellation on client disconnect', () => {
     const { app, dataSource, port } = await boot(VanillaModule);
 
     const before = await countInvoices(dataSource.manager);
-    const after = await countAfterDisconnect(dataSource, port);
+    const after = await countAfterDisconnect(dataSource, port, SEED_CUSTOMER_COUNT);
 
     // No cancellation: the transaction committed the full run for a socket nobody is reading.
     expect(before).toBe(0);

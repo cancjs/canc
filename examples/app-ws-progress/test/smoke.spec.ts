@@ -17,13 +17,20 @@ function driveOne(port: number, cancelAt30: CancelAt30, settleMs: number, api: M
     let canceled = false;
     let ack = false;
 
-    const report = () =>
+    const report = async () => {
+      if (settleMs >= 1000) {
+        const start = Date.now();
+        while (api.calls.length < 100 && Date.now() - start < 5000) {
+          await sleep(50);
+        }
+      }
       resolve({
         started: api.calls.length,
         completed: api.calls.filter((c) => c.status === 'completed').length,
         aborted: api.calls.filter((c) => c.status === 'aborted').length,
         ack,
       });
+    };
 
     ws.on('open', () => ws.send(JSON.stringify({ type: 'start', jobId })));
     ws.on('message', (raw) => {
