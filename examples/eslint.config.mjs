@@ -151,6 +151,24 @@ export default defineConfig(
     },
   },
 
+  // Express res.locals type augmentation requires a namespace block.
+  {
+    files: ['**/app-express-kysely/src/report-locals.ts'],
+    rules: {
+      '@typescript-eslint/no-namespace': 'off',
+    },
+  },
+
+  // Circular TDZ avoidance: an Observable may complete or error synchronously inside subscribe(),
+  // before the subscription handle is returned. The handle must be declared with let so the
+  // synchronous teardown callback can read undefined safely instead of throwing a ReferenceError.
+  {
+    files: ['**/app-rxjs/src/lib/canc-rxjs.ts'],
+    rules: {
+      'prefer-const': 'off',
+    },
+  },
+
   {
     files: ['**/*.{ts,tsx,js,jsx,cjs,mjs,vue}'],
     plugins: { 'simple-import-sort': simpleImportSort },

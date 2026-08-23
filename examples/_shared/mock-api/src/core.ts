@@ -105,11 +105,7 @@ export class MockApi {
     this.options.trace(`[mock-api] #${id} ${endpoint} started`);
 
     return new Promise<T>((resolve, reject) => {
-      // eslint-disable-next-line prefer-const
-      let detach: (() => void) | undefined;
-
       const settleAborted = () => {
-        detach?.();
         record.status = 'aborted';
         record.settledAt = this.now();
         this.options.trace(`[mock-api] #${id} ${endpoint} aborted`);
@@ -135,7 +131,7 @@ export class MockApi {
         }
       }, this.nextLatency());
 
-      detach = attachAbort(signal, () => {
+      const detach = attachAbort(signal, () => {
         clearTimeout(timer);
         settleAborted();
       });

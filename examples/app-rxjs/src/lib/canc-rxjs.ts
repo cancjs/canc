@@ -126,7 +126,6 @@ export function from<T>(observable: Subscribable<T>): CancelableAsyncIterable<T>
     reject: (reason: unknown) => void;
   }> = [];
 
-  // eslint-disable-next-line prefer-const
   let subscription: Unsubscribable | undefined;
   let finished = false; // source completed or errored, or consumer stopped
   let failure: { error: unknown } | undefined; // set on source error, drained before "done"
