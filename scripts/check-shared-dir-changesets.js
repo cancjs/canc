@@ -1,9 +1,9 @@
 // Guards the inlinable shared dirs under packages/ (currently packages/_util, packages/_toolbox;
-// any future packages/_* dir with no package.json is picked up automatically). Those dirs have no
-// package.json, so changesets cannot see them, yet their bytes are bundled per-package into every
-// importer's published output. A change there must ship a changeset for every package whose
-// published bundle inlines the changed bytes, including transitively (package -> shared dir ->
-// another shared dir).
+// any future packages/_* dir with no package.json is picked up automatically).
+// Those dirs have no package.json, so changesets cannot see them, yet their bytes are bundled
+// per-package into every importer's published output.
+// A change there must ship a changeset for every package whose published bundle inlines the
+// changed bytes, including transitively (package -> shared dir -> another shared dir).
 //
 // Importers are derived from the source (relative import/require/export-from graph), never from a
 // hardcoded list, so a new consumer is covered automatically.
@@ -36,18 +36,36 @@ function listPackageDirs() {
   return fs.readdirSync(PACKAGES_DIR).filter((name) => fs.statSync(path.join(PACKAGES_DIR, name)).isDirectory());
 }
 
-// Splits packages/* into "shared" (no package.json -> invisible to changesets, bytes get inlined)
-// and "real" (has package.json -> a published, changeset-visible package).
+// Splits packages/* into "shared" (no package.json anywhere under it -> invisible to
+// changesets, bytes get inlined) and "real" (has its own package.json, or is a family
+// container whose children each have one -> published, changeset-visible packages).
 function discoverDirs() {
   const shared = [];
-  const real = new Map(); // dir name -> published package name
+  const real = new Map(); // dir name (possibly nested) -> published package name
   for (const name of listPackageDirs()) {
-    const manifestPath = path.join(PACKAGES_DIR, name, 'package.json');
+    const dir = path.join(PACKAGES_DIR, name);
+    const manifestPath = path.join(dir, 'package.json');
     if (fs.existsSync(manifestPath)) {
       const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
       real.set(name, manifest.name);
-    } else {
+      continue;
+    }
+
+    const childNames = fs
+      .readdirSync(dir)
+      .filter((childName) => fs.existsSync(path.join(dir, childName, 'package.json')));
+    if (childNames.length === 0) {
+      // No manifest here and no child has one either: a real inlinable shared dir.
       shared.push(name);
+      continue;
+    }
+    // A child has a manifest: this is a family container, not a shared dir.
+    // Its children are real packages, registered under their nested path so downstream file
+    // walks still work.
+    for (const childName of childNames) {
+      const childManifestPath = path.join(dir, childName, 'package.json');
+      const manifest = JSON.parse(fs.readFileSync(childManifestPath, 'utf8'));
+      real.set(path.join(name, childName), manifest.name);
     }
   }
   return { shared, real };

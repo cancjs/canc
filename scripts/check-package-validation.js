@@ -21,10 +21,23 @@ const ROOT = path.resolve(__dirname, '..');
 const PACKAGES_DIR = path.join(ROOT, 'packages');
 
 function listPackages() {
-  return fs
-    .readdirSync(PACKAGES_DIR)
-    .filter((name) => fs.existsSync(path.join(PACKAGES_DIR, name, 'package.json')))
-    .sort();
+  const names = [];
+  for (const name of fs.readdirSync(PACKAGES_DIR)) {
+    const dir = path.join(PACKAGES_DIR, name);
+    if (fs.existsSync(path.join(dir, 'package.json'))) {
+      names.push(name);
+      continue;
+    }
+    // Family container with no manifest of its own (e.g. packages/canc-server): descend one
+    // level and take children that have a manifest.
+    // No further descent, matches repo layout.
+    for (const childName of fs.readdirSync(dir)) {
+      if (fs.existsSync(path.join(dir, childName, 'package.json'))) {
+        names.push(path.join(name, childName));
+      }
+    }
+  }
+  return names.sort();
 }
 
 function packFileList(pkgDir) {
@@ -122,7 +135,11 @@ async function checkPackage(pkgName) {
   if (!hasCjs || !hasMjs) {
     problems.push(`missing dual CJS/ESM output (cjs present: ${hasCjs}, mjs present: ${hasMjs})`);
   }
-  if (!hasUmd || !hasUmdMin) {
+  // UMD is a browser-consumer concern (unpkg/jsdelivr CDN keys are the manifest signal for it).
+  // Node-only families (e.g. the server-* packages) never declare those keys and ship cjs+esm
+  // only, so the check is conditional rather than a blanket requirement.
+  const expectsUmd = typeof manifest.unpkg === 'string' || typeof manifest.jsdelivr === 'string';
+  if (expectsUmd && (!hasUmd || !hasUmdMin)) {
     problems.push(`missing UMD output (umd present: ${hasUmd}, umd.min present: ${hasUmdMin})`);
   }
   if (declaresLegacyTypesCondition && !hasDownlevelDts) {
