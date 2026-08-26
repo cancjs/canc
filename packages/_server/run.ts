@@ -1,5 +1,11 @@
 import { cancAsync } from '@cancjs/coroutine';
-import { CancelablePromise, ICancelablePromiseFlagOptions, isCancelError, makeCancelable } from '@cancjs/promise';
+import {
+  CancelablePromise,
+  CancelError,
+  ICancelablePromiseFlagOptions,
+  isCancelError,
+  makeCancelable,
+} from '@cancjs/promise';
 
 import { isGenerator, isThenable, TAnyFn } from '../_util';
 import { IRequestCancelState } from './holder';
@@ -126,16 +132,15 @@ function watchCancelReason(state: IRequestCancelState, options: ICancelableHandl
   }
 
   const notify = () => {
+    // the documented discriminator, never a message check: the request signal always aborts with a
+    // CancelError, so anything else reaching here came from a foreign signal and reads as a
+    // disconnect
     const reason = state.signal.reason;
 
-    if (!isCancelError(reason)) {
-      return;
-    }
-
-    if (reason.timedOut) {
+    if (isCancelError(reason) && reason.timedOut) {
       onTimeout?.(reason);
     } else {
-      onDisconnect?.(reason);
+      onDisconnect?.(reason as CancelError);
     }
   };
 

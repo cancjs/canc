@@ -1,0 +1,94 @@
+import { CancelablePromise, isCancelError } from '@cancjs/promise';
+
+import { isFunction } from '../_util';
+import { getDrainState, getLiveRequests, setDrainState } from './holder';
+import { SERVER_SHUTDOWN } from './reasons';
+import { IDrainOptions, IDrainResult, IServerLike } from './types';
+
+/** Grace window a drain waits for in-flight requests before it gives up. */
+export const DEFAULT_DRAIN_TIMEOUT = 10_000;
+
+/**
+ * Stops a server gracefully: no new connections, every in-flight request canceled, and a bounded
+ * wait for them to unwind.
+ *
+ * Resolves with what happened rather than throwing, so a shutdown path has one thing to log. A
+ * second call while the first is still running returns that same promise, which makes the usual
+ * pair of signal handlers safe to wire without a guard of their own.
+ */
+export function drainServer(server: IServerLike, options: IDrainOptions = {}): CancelablePromise<IDrainResult> {
+  const running = getDrainState(server);
+  if (running) {
+    return running;
+  }
+
+  const grace = options.timeout ?? DEFAULT_DRAIN_TIMEOUT;
+  const reason = options.reason ?? SERVER_SHUTDOWN;
+
+  if (options.closeServer !== false && isFunction(server.close)) {
+    server.close();
+  }
+
+  // node 18.2 and up; the declared floor is 18.0, so both of these are feature detected rather
+  // than assumed
+  if (isFunction(server.closeIdleConnections)) {
+    server.closeIdleConnections();
+  }
+
+  // the live registry hangs off this server instance, never off a module-level variable: this
+  // directory is inlined into every server package, so a module-scope set would exist once per copy
+  // and a drain would only ever see the requests its own copy recorded
+  const tasks: CancelablePromise<unknown>[] = [];
+  for (const state of getLiveRequests(server) ?? []) {
+    for (const task of state.live) {
+      tasks.push(task);
+    }
+  }
+
+  let canceled = 0;
+  let completed = 0;
+  let timedOut = false;
+
+  // outcomes are subscribed BEFORE anything is canceled, so a task that settles during the cancel
+  // cascade is still counted
+  const outcomes = tasks.map((task) =>
+    task.then(
+      () => {
+        completed += 1;
+      },
+      (error) => {
+        if (isCancelError(error)) {
+          canceled += 1;
+        } else {
+          completed += 1;
+        }
+      },
+    ),
+  );
+
+  for (const task of tasks) {
+    task.cancel(reason);
+  }
+
+  const window = new CancelablePromise<void>((resolve, _reject, { handleCancel }) => {
+    const timer = setTimeout(() => {
+      timedOut = true;
+      resolve();
+    }, grace);
+
+    // race cancels the loser, so a drain that finishes early clears this timer through here
+    handleCancel(() => clearTimeout(timer));
+  });
+
+  const drain = CancelablePromise.race([CancelablePromise.allSettled(outcomes), window]).then(() => {
+    if (isFunction(server.closeAllConnections)) {
+      server.closeAllConnections();
+    }
+
+    return { canceled, completed, timedOut };
+  });
+
+  setDrainState(server, drain);
+
+  return drain;
+}

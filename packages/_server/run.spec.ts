@@ -1,24 +1,11 @@
 import { CancelablePromise, CancelError, isCancelError } from '@cancjs/promise';
 
-import { createExchange, flush } from './__tests__/fakes';
+import { createExchange, flush, outcomeOf, pending } from './__tests__/fakes';
 import { getRequestState } from './holder';
 import { ensureRequestCancelState } from './node-signal';
 import { CLIENT_DISCONNECTED, HANDLER_TIMEOUT } from './reasons';
 import { mergeHandlerOptions, runCancelableHandler } from './run';
 import { IStatusCancelError } from './timeout';
-
-function pending<T = never>(): CancelablePromise<T> {
-  return new CancelablePromise<T>(() => {
-    /**/
-  });
-}
-
-function outcomeOf(task: CancelablePromise<unknown>): Promise<unknown> {
-  return task.then(
-    (value) => value,
-    (error) => error,
-  );
-}
 
 describe('option merge', () => {
   it('is the base when there is nothing to override with', () => {

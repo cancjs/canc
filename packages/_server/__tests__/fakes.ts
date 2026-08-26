@@ -1,3 +1,4 @@
+import { CancelablePromise } from '@cancjs/promise';
 import { EventEmitter } from 'events';
 
 /** Stand-in for ServerResponse, carrying the two things the disconnect guard reads. */
@@ -49,6 +50,21 @@ export function createExchange(server?: object) {
   req.socket = { server };
 
   return { req, res };
+}
+
+/** A promise that never settles on its own, standing in for work still in flight. */
+export function pending<T = never>(options?: { shield?: boolean }): CancelablePromise<T> {
+  return new CancelablePromise<T>(() => {
+    /**/
+  }, options);
+}
+
+/** Settles with whatever a task produced, value or error, so an assertion can read either. */
+export function outcomeOf(task: CancelablePromise<unknown>): Promise<unknown> {
+  return task.then(
+    (value) => value,
+    (error) => error,
+  );
 }
 
 /** Settles after the microtask queue drains, without leaning on a timer. */

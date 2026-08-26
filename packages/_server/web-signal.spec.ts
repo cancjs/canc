@@ -54,4 +54,37 @@ describe('web request signal', () => {
   it('has nothing to fold without signals', () => {
     expect(anySignal([undefined, null])).toBeUndefined();
   });
+
+  describe('on a runtime without AbortSignal.any', () => {
+    const platformAny = AbortSignal.any;
+
+    beforeEach(() => {
+      delete (AbortSignal as Partial<typeof AbortSignal>).any;
+    });
+
+    afterEach(() => {
+      AbortSignal.any = platformAny;
+    });
+
+    it('folds through a controller instead', () => {
+      const first = new AbortController();
+      const second = new AbortController();
+      const composed = anySignal([first.signal, second.signal]);
+
+      second.abort(new Error('second went first'));
+
+      expect(composed?.aborted).toBe(true);
+      expect((composed?.reason as Error).message).toBe('second went first');
+    });
+
+    it('starts aborted when a source already was', () => {
+      const first = new AbortController();
+      first.abort(new Error('gone before we looked'));
+
+      const composed = anySignal([first.signal, new AbortController().signal]);
+
+      expect(composed?.aborted).toBe(true);
+      expect((composed?.reason as Error).message).toBe('gone before we looked');
+    });
+  });
 });
