@@ -1,31 +1,9 @@
 import { isCancelError, isCancelSignal } from '@cancjs/promise';
-import { EventEmitter } from 'events';
 
+import { createExchange, FakeRequest, FakeResponse } from './__tests__/fakes';
 import { getLiveRequests, getRequestState, LIVE_REQUESTS, REQUEST_CANCEL_STATE } from './holder';
 import { ensureRequestCancelState, getNodeRequestSignal } from './node-signal';
 import { CLIENT_DISCONNECTED } from './reasons';
-
-class FakeResponse extends EventEmitter {
-  writableEnded = false;
-
-  end(): void {
-    this.writableEnded = true;
-    this.emit('close');
-  }
-}
-
-class FakeRequest extends EventEmitter {
-  destroyed = false;
-  socket: { server?: unknown } | null = null;
-}
-
-function createExchange(server?: object) {
-  const req = new FakeRequest();
-  const res = new FakeResponse();
-  req.socket = { server };
-
-  return { req, res };
-}
 
 describe('node request signal', () => {
   it('is a branded cancel signal', () => {
@@ -68,7 +46,7 @@ describe('node request signal', () => {
     const { req, res } = createExchange();
     const signal = getNodeRequestSignal(req, res);
 
-    res.emit('close');
+    res.disconnect();
 
     expect(signal.aborted).toBe(true);
     expect(isCancelError(signal.reason)).toBe(true);
