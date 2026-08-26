@@ -54,7 +54,8 @@ export function setRequestState(req: IRequestLike, state: IRequestCancelState): 
  * this is how a handler reaches the object a drain is called with without the caller threading it.
  */
 export function getRequestServer(req: IRequestLike): IServerLike | undefined {
-  const server = req.socket?.server;
+  const socket = req.socket as { server?: unknown } | null | undefined;
+  const server = socket?.server;
 
   return server && typeof server === 'object' ? (server as IServerLike) : undefined;
 }

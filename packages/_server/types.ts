@@ -58,7 +58,10 @@ export interface IDrainResult {
 /** The part of an incoming request this layer reads. */
 export interface IRequestLike {
   destroyed?: boolean;
-  socket?: { server?: unknown } | null;
+  // left unknown and narrowed once in the holder: an object type here would be a weak type, and
+  // node's own Socket declares none of its properties, so every adapter would need a cast to pass
+  // a plain IncomingMessage in
+  socket?: unknown;
 }
 
 /** The part of a server response this layer listens to. */
