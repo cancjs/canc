@@ -1,0 +1,38 @@
+const path = require('path');
+const baseConfig = require('../../jest.config.base');
+
+// Copy of the per-package mergeTsJestConfig helper (today duplicated verbatim into every flat
+// package's jest.config.js).
+// Centralized here so the family shares one copy instead of five.
+function mergeTsJestConfig(options) {
+  return {
+    ...baseConfig.transform,
+    ...Object.fromEntries(
+      Object.entries(baseConfig.transform)
+        .filter(([, value]) => value?.[0] === 'ts-jest')
+        .map(([key, [_name, baseOptions]]) => [key, ['ts-jest', { ...baseOptions, ...options }]]),
+    ),
+  };
+}
+
+// Factory, not a static config: each member calls this with its own package.json so
+// displayName/caching stay per-package while the socket-test settings stay uniform.
+module.exports = (packageJson) => ({
+  ...baseConfig,
+  // process.cwd() is the member's own dir (jest always runs with cwd = the package being
+  // tested); __dirname here would be this factory file's dir (packages/canc-server), shared by
+  // every member and racy under parallel lerna runs, same hazard jest.config.base.js documents.
+  cacheDirectory: path.join(process.cwd(), 'node_modules', '.cache', 'jest'),
+  transform: {
+    ...mergeTsJestConfig({ tsconfig: '<rootDir>/../../../tsconfig.json' }),
+  },
+  testMatch: ['<rootDir>/src/**/*.spec.ts'],
+  displayName: packageJson.name,
+  testEnvironment: 'node',
+  // Socket tests bind real ports and wait on real 'close'/'end' events; the 5s jest default is
+  // tight next to unit specs elsewhere in the monorepo.
+  testTimeout: 15000,
+  // Real sockets on ephemeral ports contend across workers under lerna's parallel run; capped so
+  // suites don't flake the way the promise GC leak canary already does.
+  maxWorkers: 2,
+});
