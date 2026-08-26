@@ -6,14 +6,16 @@
     "declaration": true,
     "sourceMap": true,
     "downlevelIteration": true,
-    // Required because class species features break if class fields are defined on the instance instead of the prototype
+    // Required because class species features break if class fields are defined on the
+    // instance instead of the prototype
     "useDefineForClassFields": false,
 
     "strict": true,
     "noFallthroughCasesInSwitch": true,
 
     "moduleResolution": "node",
-    // needed so prod builds (tsconfig.prod.json) resolve @cancjs/* aliases same as dev tsconfig.json
+    // needed so prod builds (tsconfig.prod.json) resolve @cancjs/* aliases same as dev
+    // tsconfig.json
     "baseUrl": ".",
     "paths": {
       "@cancjs/promise": ["./packages/canc-promise/src/index"],
@@ -25,7 +27,8 @@
       "@cancjs/decorators": ["./packages/canc-decorators/src/index"],
       "@cancjs/unhandled-rejection": [
         "./packages/canc-unhandled-rejection/src/index"
-      ]
+      ],
+      "@cancjs/server-*": ["./packages/canc-server/*/src/index"]
     },
     "typeRoots": ["node_modules/@types"],
     "esModuleInterop": true,

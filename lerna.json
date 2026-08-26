@@ -1,5 +1,10 @@
 {
-  "packages": ["packages/*", "benchmarks", "tests-types"],
+  "packages": [
+    "packages/*",
+    "packages/canc-server/*",
+    "benchmarks",
+    "tests-types"
+  ],
   "comment": "tests-dist is deliberately omitted: it requires a prior `npm run build`, so adding it would make `lerna run test` (i.e. `npm test`) depend on the build. Root workspaces includes it; lerna packages does not.",
   "version": "independent",
   "npmClient": "npm"
