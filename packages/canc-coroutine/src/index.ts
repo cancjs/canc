@@ -1,3 +1,4 @@
+export { IterationError } from '../../_util/errors';
 export type {
   AsyncResult,
   IGeneratorLikeFn,

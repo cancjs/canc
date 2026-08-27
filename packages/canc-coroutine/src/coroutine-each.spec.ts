@@ -1,5 +1,6 @@
 import { CancelablePromise, CancelError, isCancelError, suppressCancel } from '@cancjs/promise';
 
+import { IterationError } from '../../_util/errors';
 import { BreakError, cancAsync, cancAwait, cancForAwait, isBreakError } from './coroutine';
 
 // Deterministic microtask flush (mirrors coroutine.spec): drains the microtask queue N times so
@@ -379,5 +380,34 @@ describe('BreakError', () => {
 
   it('is an Error subclass', () => {
     expect(new BreakError()).toBeInstanceOf(Error);
+  });
+});
+
+describe('IterationError', () => {
+  // The brand lives on the prototype, so an instance carries no own brand property.
+  it('carries the brand on the prototype, not on the instance', () => {
+    const BRAND = Symbol.for('@cancjs/coroutine:IterationError');
+    const descriptor = Object.getOwnPropertyDescriptor(IterationError.prototype, BRAND);
+
+    expect(Object.getOwnPropertySymbols(new IterationError())).not.toContain(BRAND);
+    expect(Object.getOwnPropertySymbols(IterationError.prototype)).toContain(BRAND);
+    expect(descriptor).toBeDefined();
+    expect(descriptor!.enumerable).toBe(false);
+  });
+
+  it('is an instance of its own class', () => {
+    expect(new IterationError()).toBeInstanceOf(IterationError);
+  });
+
+  it('is an instance of the class it is built on', () => {
+    const platformDomException = (globalThis as unknown as { DOMException?: new (...args: any[]) => object })
+      .DOMException;
+
+    if (!platformDomException) {
+      expect(new IterationError()).toBeInstanceOf(Error);
+      return;
+    }
+
+    expect(new IterationError()).toBeInstanceOf(platformDomException);
   });
 });
