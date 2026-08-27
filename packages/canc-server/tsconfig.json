@@ -1,0 +1,14 @@
+// Dummy tsconfig used by IDE TS & ESLint, same role the one in each member below plays.
+//
+// Only the files directly in this directory, which today is the end-to-end suite for the family.
+// Every member has its own config and is not covered from here.
+//
+// dom is in lib for the same reason the hono member carries it: that framework's types name the
+// Web Request and Response, and the suite mounts a hono app.
+{
+  "extends": "../../tsconfig",
+  "compilerOptions": {
+    "lib": ["es2022", "dom"]
+  },
+  "include": ["*.ts"]
+}
