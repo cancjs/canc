@@ -1,0 +1,211 @@
+import { AbortError } from '../_util';
+import { construct, IExecutorCtx } from './construct';
+import { IToolboxDeps } from './deps';
+import { isCancelableLike, isThenableLike } from './guards';
+import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
+
+/**
+ * A concurrency limiter: callable like the function it guards, plus counters, a settable
+ * `concurrency`, and a `cancel`.
+ */
+export interface ILimited<K extends IPromiseKind = IPromiseLikeKind> {
+  /**
+   * Schedules `fn`, calling it with `args` once a slot is free. The returned promise settles with
+   * whatever `fn` produced.
+   */
+  <T, Args extends unknown[]>(fn: (...args: Args) => T | PromiseLike<T>, ...args: Args): TPromiseOf<K, T>;
+  /** Jobs that have started and not yet settled. */
+  readonly active: number;
+  /** Jobs waiting for a slot. None of them has been called. */
+  readonly pending: number;
+  /** Slots available to run jobs at once. Raising it starts queued jobs at once, before returning. */
+  concurrency: number;
+  /**
+   * Drops every queued job so nothing further starts, then stops what is already running. The
+   * limiter stays usable afterward: a later call queues and runs as before.
+   */
+  cancel(reason?: any): void;
+}
+
+/** A scheduled job, queued or running. */
+interface IEntry {
+  /** Whether `start` has been called, which is also what tells a queued job from a running one. */
+  started: boolean;
+  /** The promise handed to the caller, once the constructor has returned it. */
+  handle: unknown;
+  /** Whatever `fn` returned, kept raw so canceling reaches the job itself and not a wrapper. */
+  job: unknown;
+  start(): void;
+  abandon(reason?: any): void;
+}
+
+function checkConcurrency(value: number): number {
+  if (!(value >= 1)) {
+    throw new RangeError('limit: concurrency must be at least 1');
+  }
+
+  return value;
+}
+
+/** Bind `limit` to one promise implementation following the dependency-injection recipe. */
+export function limitFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IToolboxDeps<K>) {
+  /**
+   * Create a limiter that runs at most `concurrency` jobs at once and queues the rest.
+   *
+   * Against a cancelable implementation, canceling a returned promise while its job is still queued
+   * removes it from the queue, so the job never runs at all and the promise rejects with a
+   * CancelError. Canceling it after the job started cancels the job itself, provided the job is
+   * cancelable. A plain Promise implementation has neither: a returned promise cannot be canceled
+   * on its own, and `cancel` on the limiter rejects the queued jobs (with an AbortError) while
+   * whatever is already running is left to finish.
+   *
+   * Every promise this hands out settles. Jobs dropped from the queue reject rather than staying
+   * pending forever.
+   */
+  return function limit(concurrency: number): ILimited<K> {
+    let max = checkConcurrency(concurrency);
+    let active = 0;
+    const queue: IEntry[] = [];
+    const running: IEntry[] = [];
+
+    const pump = (): void => {
+      while (active < max && queue.length > 0) {
+        const entry = queue.shift();
+
+        if (entry) entry.start();
+      }
+    };
+
+    const release = (entry: IEntry): void => {
+      const index = running.indexOf(entry);
+
+      if (index !== -1) running.splice(index, 1);
+
+      active--;
+      pump();
+    };
+
+    const run = <T, Args extends unknown[]>(
+      fn: (...args: Args) => T | PromiseLike<T>,
+      args: Args,
+    ): TPromiseOf<K, T> => {
+      let created: IEntry | undefined;
+
+      const handle = construct<T, K>(deps.Impl, function (resolve, reject, ctx?: IExecutorCtx) {
+        const entry: IEntry = {
+          started: false,
+          handle: undefined,
+          job: undefined,
+
+          start() {
+            entry.started = true;
+            active++;
+            running.push(entry);
+
+            let raw: T | PromiseLike<T>;
+
+            try {
+              raw = fn(...args);
+            } catch (err) {
+              release(entry);
+              reject(err);
+              return;
+            }
+
+            if (!isThenableLike<T>(raw)) {
+              release(entry);
+              resolve(raw);
+              return;
+            }
+
+            entry.job = raw;
+
+            raw.then(
+              (value: T) => {
+                release(entry);
+                resolve(value);
+              },
+              (reason: any) => {
+                release(entry);
+                reject(reason);
+              },
+            );
+          },
+
+          abandon(reason?: any) {
+            // Route through the handle where there is one: its own cancel handler stops the job,
+            // and the implementation is what mints the CancelError the caller sees.
+            if (isCancelableLike(entry.handle)) {
+              entry.handle.cancel(reason);
+              return;
+            }
+
+            // Non-cancelable implementation: a queued job can still be dropped by rejecting its
+            // promise, but a running one has no cancel surface to reach.
+            if (!entry.started) reject(new AbortError('limit: canceled while queued'));
+          },
+        };
+
+        if (ctx) {
+          ctx.handleCancel(function () {
+            if (!entry.started) {
+              const index = queue.indexOf(entry);
+
+              if (index !== -1) queue.splice(index, 1);
+
+              return;
+            }
+
+            if (isCancelableLike(entry.job)) entry.job.cancel();
+          });
+        }
+
+        created = entry;
+        queue.push(entry);
+        pump();
+      });
+
+      // Only reachable from here: the executor, and any job it pumped, ran during construction
+      if (created) created.handle = handle;
+
+      return handle;
+    };
+
+    const limited = function (fn: (...args: unknown[]) => unknown, ...args: unknown[]) {
+      return run(fn, args);
+    } as unknown as ILimited<K>;
+
+    Object.defineProperty(limited, 'active', {
+      get: function () {
+        return active;
+      },
+    });
+
+    Object.defineProperty(limited, 'pending', {
+      get: function () {
+        return queue.length;
+      },
+    });
+
+    Object.defineProperty(limited, 'concurrency', {
+      get: function () {
+        return max;
+      },
+      set: function (value: number) {
+        max = checkConcurrency(value);
+        pump();
+      },
+    });
+
+    limited.cancel = function (reason?: any): void {
+      // Queue first, so a slot freed by canceling a running job finds nothing left to start.
+      const dropped = queue.splice(0, queue.length);
+      const inFlight = running.slice();
+
+      for (const entry of dropped) entry.abandon(reason);
+      for (const entry of inFlight) entry.abandon(reason);
+    };
+
+    return limited;
+  };
+}
