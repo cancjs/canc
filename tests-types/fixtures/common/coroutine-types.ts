@@ -201,6 +201,46 @@ cancAsync(function* (): AsyncResult<number, MatrixFooError> {
   return 1;
 });
 
+// ============================================================ forAwait handle form: element inference, no BreakError
+// Called with no callback, cancForAwait returns a loop handle instead of running a callback per
+// item. `break`/`continue` are native there, so (unlike the callback form just above) BreakError
+// never enters the declared failure set. Covers all three TEachSource shapes: async iterable, sync
+// iterable of values, sync iterable of promises.
+async function* asyncNumberSource(): AsyncGenerator<number> {
+  yield 1;
+  yield 2;
+}
+
+const forAwaitHandleCo = cancAsync(function* () {
+  const asyncLoop = yield* cancForAwait(asyncNumberSource());
+  for (const item of asyncLoop) {
+    type _asyncItemNumber = Expect<Equal<typeof item, number>>;
+    void item;
+    yield* asyncLoop.next();
+  }
+
+  const valuesLoop = yield* cancForAwait(['a', 'b']);
+  for (const item of valuesLoop) {
+    type _valuesItemString = Expect<Equal<typeof item, string>>;
+    void item;
+    yield* valuesLoop.next();
+  }
+
+  const promisesLoop = yield* cancForAwait([Promise.resolve(true), Promise.resolve(false)]);
+  for (const item of promisesLoop) {
+    type _promisesItemBoolean = Expect<Equal<typeof item, boolean>>;
+    void item;
+    // `yield* loop.next()` is void-returning.
+    const nextResult = yield* promisesLoop.next();
+    type _nextResultVoid = Expect<Equal<typeof nextResult, void>>;
+  }
+
+  return 'done';
+});
+type _forAwaitHandleResult = Expect<
+  Equal<ReturnType<typeof forAwaitHandleCo>, CancelablePromise<string, never>>
+>;
+
 // ============================================================ cancGenAsync: typed internal await (no cast tax)
 // Annotated: AsyncGenResult pins the emit (E) and return (R) types explicitly.
 const producerAnnotated = cancGenAsync(function* (): AsyncGenResult<number, void> {

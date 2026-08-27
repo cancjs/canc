@@ -1,6 +1,7 @@
 export { IterationError } from '../../_util/errors';
 export type {
   AsyncResult,
+  ICancForAwaitLoop,
   IGeneratorLikeFn,
   TCoroutineOptions,
   TEachSource,
