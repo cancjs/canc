@@ -150,7 +150,7 @@ describe('native helpers honor options.signal', () => {
       const controller = new AbortController();
       const fn = jest.fn().mockRejectedValue(new Error('fail'));
 
-      const promise = retry(fn, { retries: 5, minTimeout: 100, signal: controller.signal });
+      const promise = retry(fn, { retries: 5, initialDelay: 100, signal: controller.signal });
       promise.catch(() => undefined);
 
       await flushMicrotasks();
