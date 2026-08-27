@@ -8,13 +8,17 @@
  * 2. materialises an isolated fixture project under tests-types/fixtures/ts-<id>/
  * (its own package.json + tsconfig + its own copy of the shared common/*.ts),
  * clearing the previous generated files first so no stale config survives,
- * 3. installs that fixture's pinned `typescript` alias + the package tarballs
- * into the fixture's OWN node_modules (no workspace hoisting, allowing versions to
- * diverge freely),
+ * 3. installs that fixture's pinned `typescript` alias + the package tarballs, plus
+ * `matrix.config.json`'s `peerDependencies` (framework peers a common fixture imports
+ * directly, e.g. express/fastify for common/server-types.ts), into the fixture's OWN
+ * node_modules (no workspace hoisting, allowing versions to diverge freely),
  * 4. runs the fixture-local `tsc --noEmit` and records pass/fail.
  *
  * Lanes with `typeAssertions` additionally compile the type-assertion suites
- * (common/type-assertions.ts + common/coroutine-types.ts).
+ * (common/type-assertions.ts + common/coroutine-types.ts). Lanes with `serverExpressTypes` /
+ * `serverFastifyTypes` additionally compile common/server-express-types.ts /
+ * common/server-fastify-types.ts (gated because the frameworks' own shipped types hit real
+ * TypeScript version floors below 5.0 / 5.4, see each file's header).
  *
  * Flags:
  * --setup-only pack + install fixtures, don't run tsc
@@ -125,7 +129,7 @@ function writeFixture(version, tarballs) {
   resetFixtureDir(dir);
   fs.mkdirSync(dir, { recursive: true });
 
-  const deps = { typescript: version.typescript };
+  const deps = { typescript: version.typescript, ...(config.peerDependencies || {}) };
   for (const [name, tarball] of Object.entries(tarballs)) {
     deps[name] = `file:${path.relative(dir, tarball).split(path.sep).join('/')}`;
   }
@@ -152,6 +156,12 @@ function writeFixture(version, tarballs) {
   if (version.typeAssertions) {
     files.push(localSource('type-assertions.ts'));
     files.push(localSource('coroutine-types.ts'));
+  }
+  if (version.serverExpressTypes) {
+    files.push(localSource('server-express-types.ts'));
+  }
+  if (version.serverFastifyTypes) {
+    files.push(localSource('server-fastify-types.ts'));
   }
 
   const tsconfig = {
