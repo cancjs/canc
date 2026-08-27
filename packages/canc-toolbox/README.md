@@ -163,8 +163,8 @@ await suppressExpected(searchProducts(query));
 ### Retry and polling
 
 `retry` takes a function of the attempt number, so the attempt itself can vary, and backs off
-exponentially between attempts (`retries`, `minTimeout`, `factor`, `maxTimeout`, `onRetry`).
-Canceling stops both the wait and the attempt in flight.
+exponentially between attempts (`retries`, `initialDelay`, `factor`, `maxDelay`, `jitter`,
+`shouldRetry`, `delay`, `onRetry`). Canceling stops both the wait and the attempt in flight.
 
 `waitFor` polls a condition (`interval`, `timeout`). An async condition is awaited before the next
 poll is scheduled, so slow checks never overlap.

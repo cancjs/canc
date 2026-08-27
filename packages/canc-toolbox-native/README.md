@@ -45,7 +45,7 @@ await delay(1000);
 
 const report = await retry((attempt) => buildReport({ attempt }), {
   retries: 5,
-  minTimeout: 200,
+  initialDelay: 200,
 });
 
 const quotes = await timeout(fetchQuotes(), 3000);
