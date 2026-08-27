@@ -56,7 +56,7 @@ export function prefetchDetails(
     () =>
       retry(loadDetail, {
         retries: PREFETCH_ATTEMPTS,
-        minTimeout: PREFETCH_BACKOFF_MS,
+        initialDelay: PREFETCH_BACKOFF_MS,
         onRetry: (_reason, attempt: number) => options?.onRetry?.(attempt),
         signal: lifetime,
         // backoff wait is a background task so retries do not block visible work

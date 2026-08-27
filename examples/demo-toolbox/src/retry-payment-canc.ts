@@ -10,5 +10,5 @@ type PaymentsApi = MockApiBundle['payments'];
  * immediately and clears all pending timers. No state update on unmounted component.
  */
 export function chargeWithRetry(paymentsApi: PaymentsApi, paymentId: string): CancelablePromise<string> {
-  return retry(() => paymentsApi.charge(paymentId), { retries: 3, minTimeout: 100, factor: 2 });
+  return retry(() => paymentsApi.charge(paymentId), { retries: 3, initialDelay: 100, factor: 2 });
 }
