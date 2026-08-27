@@ -57,7 +57,7 @@ describe('debounce (native): per-call timers', () => {
     const fn = (x: number) => Promise.resolve(x);
     const debounced = debounce(fn, 100, { ...pair.timers });
 
-    debounced(1);
+    debounced(1).then(undefined, () => undefined);
     const firstHandle = pair.setTimeout.mock.results[0].value;
 
     debounced(2);
@@ -102,7 +102,7 @@ describe('debounce (native): per-call timers', () => {
     };
 
     const cancelDebounced = debounce(fn, 100, { ...pair.timers });
-    cancelDebounced(1);
+    cancelDebounced(1).then(undefined, () => undefined);
     cancelDebounced.cancel();
     expect(pair.clearTimeout).toHaveBeenCalledTimes(1);
     expect(callCount).toBe(0);
@@ -132,8 +132,8 @@ describe('debounce (native)', () => {
     };
     const debounced = debounce(fn, 100);
 
-    debounced(1);
-    debounced(2);
+    debounced(1).then(undefined, () => undefined);
+    debounced(2).then(undefined, () => undefined);
     debounced(3);
 
     expect(callCount).toBe(0);
@@ -148,8 +148,8 @@ describe('debounce (native)', () => {
     const fn = (x: number) => Promise.resolve(x * 10);
     const debounced = debounce(fn, 50);
 
-    debounced(1);
-    debounced(2);
+    debounced(1).then(undefined, () => undefined);
+    debounced(2).then(undefined, () => undefined);
     const p = debounced(3);
 
     jest.advanceTimersByTime(50);
@@ -181,7 +181,7 @@ describe('debounce (native)', () => {
     };
     const debounced = debounce(fn, 100, { maxWait: 150 });
 
-    debounced();
+    debounced().then(undefined, () => undefined);
     jest.advanceTimersByTime(80);
     debounced();
     jest.advanceTimersByTime(70);
@@ -200,7 +200,7 @@ describe('debounce (native)', () => {
     };
     const debounced = debounce(fn, 100);
 
-    debounced();
+    debounced().then(undefined, () => undefined);
     debounced.cancel();
     jest.advanceTimersByTime(200);
     await Promise.resolve();
@@ -238,5 +238,35 @@ describe('debounce (native)', () => {
     const p = debounced();
     expect(p).toBeInstanceOf(Promise);
     expect('cancel' in p).toBe(false);
+  });
+
+  // The native twin's in-flight result has no `cancel`.
+  // Once a call is invoked its wrapper promise has already adopted that result.
+  // So the regression reduces to: a pending supersede still rejects.
+  // And a supersede after invoke causes no second invoke.
+  it('regression: a pending call rejects on supersede, an in-flight one is not re-invoked', async () => {
+    jest.useFakeTimers();
+    const calls: string[] = [];
+    const fn = (x: string) => {
+      calls.push(x);
+
+      return new Promise<string>(() => undefined); // never settles on its own
+    };
+    const debounced = debounce(fn, 50);
+
+    const pa = debounced('a');
+
+    debounced('b'); // supersede while 'a' is still pending (pre-invoke)
+
+    const reasonA = await pa.then(undefined, (e: unknown) => e);
+    expect(reasonA).toBeInstanceOf(Error);
+
+    jest.advanceTimersByTime(50);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(calls).toEqual(['b']); // 'b' invoked once, not re-invoked by a later supersede
+
+    debounced('c'); // supersede while 'b' is in flight: no throw, no second invoke of 'b'
+    expect(calls).toEqual(['b']);
   });
 });

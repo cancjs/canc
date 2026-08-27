@@ -379,4 +379,79 @@ describe('debounce', () => {
     expect(p).toBeInstanceOf(CancelablePromise);
     (p as CancelablePromise<number>).cancel();
   });
+
+  it('regression: a superseding call cancels an in-flight call, not only a pending one', async () => {
+    jest.useFakeTimers();
+    let bCanceled = false;
+    const fn = (x: string) =>
+      new CancelablePromise<string>((resolve, _reject, { handleCancel }) => {
+        if (x === 'b') {
+          if (handleCancel) {
+            handleCancel(() => {
+              bCanceled = true;
+            });
+          }
+          return; // 'b' never settles on its own, only via cancel
+        }
+        resolve(x);
+      });
+    const debounced = debounce(fn, 50);
+
+    const pa = debounced('a');
+    const pb = debounced('b'); // supersede while 'a' is still pending (pre-invoke)
+
+    const reasonA = await (pa as CancelablePromise<string>).catch((e: any) => e);
+    expect(isCancelError(reasonA)).toBe(true);
+
+    jest.advanceTimersByTime(50);
+    await Promise.resolve();
+    await Promise.resolve();
+    // 'b' has now been invoked and is in flight, never settling by itself
+
+    const pc = debounced('c'); // supersede while 'b' is in flight
+
+    const reasonB = await (pb as CancelablePromise<string>).catch((e: any) => e);
+    expect(isCancelError(reasonB)).toBe(true);
+    expect(bCanceled).toBe(true);
+
+    jest.advanceTimersByTime(50);
+    const resultC = await pc;
+    expect(resultC).toBe('c');
+  });
+
+  it('regression: a non-cancelable in-flight result is superseded without an unhandled rejection', async () => {
+    jest.useFakeTimers();
+    const rejections: unknown[] = [];
+    const onUnhandled = (reason: unknown) => rejections.push(reason);
+    process.on('unhandledRejection', onUnhandled);
+
+    try {
+      // 'a' resolves through a plain promise with no cancel surface, and never settles on its
+      // own, so it stays genuinely in flight (not already-adopted) once 'b' supersedes it.
+      const fn = (x: string) => (x === 'a' ? new Promise<string>(() => undefined) : Promise.resolve(x));
+      const debounced = debounce(fn, 50);
+
+      const pa = debounced('a');
+      jest.advanceTimersByTime(50);
+      await Promise.resolve();
+      await Promise.resolve();
+      // 'a' now in flight through a plain, non-cancelable promise
+
+      const pb = debounced('b');
+
+      const reasonA = await (pa as CancelablePromise<string>).catch((e: any) => e);
+      expect(isCancelError(reasonA)).toBe(true);
+
+      jest.advanceTimersByTime(50);
+      const resultB = await pb;
+      expect(resultB).toBe('b');
+
+      await Promise.resolve();
+      await Promise.resolve();
+    } finally {
+      process.off('unhandledRejection', onUnhandled);
+    }
+
+    expect(rejections).toEqual([]);
+  });
 });

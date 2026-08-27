@@ -58,7 +58,7 @@ describe('throttle (native): per-call timers', () => {
     };
     const throttled = throttle(fn, 100, { ...pair.timers });
 
-    throttled(1);
+    throttled(1).then(undefined, () => undefined);
     const trailingHandle = pair.setTimeout.mock.results[0].value;
 
     throttled(2);
@@ -84,8 +84,8 @@ describe('throttle (native): per-call timers', () => {
     };
     const throttled = throttle(fn, 100, { ...pair.timers });
 
-    throttled(1);
-    throttled(2);
+    throttled(1).then(undefined, () => undefined);
+    throttled(2).then(undefined, () => undefined);
     throttled(3);
 
     expect(pair.setTimeout).toHaveBeenCalled();
@@ -111,7 +111,7 @@ describe('throttle (native): per-call timers', () => {
     };
 
     const cancelThrottled = throttle(fn, 100, { ...pair.timers });
-    cancelThrottled(1);
+    cancelThrottled(1).then(undefined, () => undefined);
     cancelThrottled.cancel();
     expect(pair.clearTimeout).toHaveBeenCalled();
 
@@ -154,8 +154,8 @@ describe('throttle (native)', () => {
     };
     const throttled = throttle(fn, 100);
 
-    throttled(1);
-    throttled(2);
+    throttled(1).then(undefined, () => undefined);
+    throttled(2).then(undefined, () => undefined);
     throttled(3);
 
     await Promise.resolve();
@@ -196,8 +196,8 @@ describe('throttle (native)', () => {
     };
     const throttled = throttle(fn, 100, { trailing: false });
 
-    throttled(1);
-    throttled(2);
+    throttled(1).then(undefined, () => undefined);
+    throttled(2).then(undefined, () => undefined);
     throttled(3);
 
     await Promise.resolve();
@@ -222,7 +222,7 @@ describe('throttle (native)', () => {
     await Promise.resolve();
     expect(callCount).toBe(1);
 
-    throttled();
+    throttled().then(undefined, () => undefined);
     throttled.cancel();
     jest.advanceTimersByTime(200);
     await Promise.resolve();
@@ -260,5 +260,35 @@ describe('throttle (native)', () => {
     const p = throttled();
     expect(p).toBeInstanceOf(Promise);
     expect('cancel' in p).toBe(false);
+  });
+
+  // The native twin's in-flight result has no `cancel`.
+  // Once a call is invoked its wrapper promise has already adopted that result.
+  // So this inherits a reduced regression: a pending supersede still rejects.
+  // And a supersede after invoke causes no second invoke.
+  it('regression (inherited from debounce): a pending call rejects on supersede, an in-flight one is not re-invoked', async () => {
+    jest.useFakeTimers();
+    const calls: string[] = [];
+    const fn = (x: string) => {
+      calls.push(x);
+
+      return new Promise<string>(() => undefined); // never settles on its own
+    };
+    const throttled = throttle(fn, 50, { leading: false });
+
+    const pa = throttled('a');
+
+    throttled('b'); // supersede while 'a' is still pending (pre-invoke)
+
+    const reasonA = await pa.then(undefined, (e: unknown) => e);
+    expect(reasonA).toBeInstanceOf(Error);
+
+    jest.advanceTimersByTime(50);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(calls).toEqual(['b']); // 'b' invoked once, not re-invoked by a later supersede
+
+    throttled('c'); // supersede while 'b' is in flight: no throw, no second invoke of 'b'
+    expect(calls).toEqual(['b']);
   });
 });

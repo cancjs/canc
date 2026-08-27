@@ -1,4 +1,4 @@
-import { CancelablePromise } from '@cancjs/promise';
+import { CancelablePromise, isCancelError } from '@cancjs/promise';
 
 import { ITimers } from '../../_toolbox';
 import { throttle } from './throttle';
@@ -307,5 +307,44 @@ describe('throttle', () => {
     const p = throttled();
     expect(p).toBeInstanceOf(CancelablePromise);
     (p as CancelablePromise<number>).cancel();
+  });
+
+  it('regression: a superseding call cancels an in-flight call (inherited from debounce)', async () => {
+    jest.useFakeTimers();
+    let bCanceled = false;
+    const fn = (x: string) =>
+      new CancelablePromise<string>((resolve, _reject, { handleCancel }) => {
+        if (x === 'b') {
+          if (handleCancel) {
+            handleCancel(() => {
+              bCanceled = true;
+            });
+          }
+          return; // 'b' never settles on its own, only via cancel
+        }
+        resolve(x);
+      });
+    const throttled = throttle(fn, 50, { leading: false });
+
+    const pa = throttled('a');
+    const pb = throttled('b'); // supersede while 'a' is still pending (pre-invoke)
+
+    const reasonA = await (pa as CancelablePromise<string>).catch((e: any) => e);
+    expect(isCancelError(reasonA)).toBe(true);
+
+    jest.advanceTimersByTime(50);
+    await Promise.resolve();
+    await Promise.resolve();
+    // 'b' has now been invoked and is in flight, never settling by itself
+
+    const pc = throttled('c'); // supersede while 'b' is in flight
+
+    const reasonB = await (pb as CancelablePromise<string>).catch((e: any) => e);
+    expect(isCancelError(reasonB)).toBe(true);
+    expect(bCanceled).toBe(true);
+
+    jest.advanceTimersByTime(50);
+    const resultC = await pc;
+    expect(resultC).toBe('c');
   });
 });

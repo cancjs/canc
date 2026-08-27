@@ -99,11 +99,31 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
       superseding = true;
       if (pendingPromise && isCancelableLike(pendingPromise)) {
         pendingPromise.cancel();
+      } else if (pendingReject) {
+        // Not-yet-invoked call on a non-cancelable Impl (native twin): the wrapper promise has no
+        // cancel surface of its own, but reject is still live pre-invoke, so settle it directly.
+        // Once invoke() has adopted a thenable this is already undefined and nothing can redirect
+        // the promise, matching the native `withAbortSignal` stance of never faking a CancelError.
+        pendingReject(new Error('debounce: call superseded'));
       }
       superseding = false;
       pendingResolve = undefined;
       pendingReject = undefined;
       pendingPromise = undefined;
+    }
+
+    /**
+     * Cancel whatever the current cycle is: an in-flight call's cancelable result, plus the
+     * wrapper promise handed to that call's caller. Shared by an explicit `.cancel()` and a
+     * superseding call so both stop the same in-flight work the same way, whether the prior call
+     * already invoked `fn` or is still waiting out the timer.
+     */
+    function cancelCurrent(): void {
+      if (isCancelableLike(inFlightResult)) {
+        inFlightResult.cancel();
+      }
+      inFlightResult = undefined;
+      cancelPending();
     }
 
     function timerExpired(): void {
@@ -160,8 +180,11 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
         timerId = undefined;
       }
 
-      if (!isFirstCall && pendingPromise && pendingResolve) {
-        cancelPending();
+      if (!isFirstCall && pendingPromise) {
+        // Cancels a pre-invoke pending call AND a post-invoke in-flight one.
+        // Not `wrapped.cancel()` itself: that also clears `maxTimerId`.
+        // Clearing it here would restart the maxWait window on every supersede.
+        cancelCurrent();
       }
 
       const promise = makePromise();
@@ -188,11 +211,7 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
     wrapped.cancel = function (): void {
       clearTimers();
       lastArgs = undefined;
-      if (isCancelableLike(inFlightResult)) {
-        inFlightResult.cancel();
-      }
-      inFlightResult = undefined;
-      cancelPending();
+      cancelCurrent();
     };
 
     wrapped.flush = function (): TPromiseOf<K, R, F> | undefined {
