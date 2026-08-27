@@ -26,6 +26,7 @@ export { IEagerSource, startInput, TTimedInput } from './input';
 export { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
 export { ILazyWithResolvers, isLazyPromise, LAZY_PROMISE_BRAND, TLazyExecutor, TLazyOnCancel } from './lazy';
 export { ILimited, limitFactory } from './limit';
+export { IMapOptions, mapFactory, TMapper } from './map';
 export { minDelayFactory } from './min-delay';
 export {
   IPromisifyAllOptions,

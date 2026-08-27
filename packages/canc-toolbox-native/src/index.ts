@@ -38,6 +38,10 @@ export const retry = tb.retryFactory(deps);
 // No cancel: `limited.cancel()` rejects the queued jobs and the running ones run to completion.
 export const limit = tb.limitFactory(deps);
 
+// No cancel: the returned promise cannot be canceled, and an early rejection drops the queued
+// mappers while the running ones run to completion.
+export const map = tb.mapFactory(deps);
+
 export const promisify = tb.promisifyFactory(deps);
 
 export const promisifyAll = tb.promisifyAllFactory(deps);
@@ -48,6 +52,7 @@ export type { IDebounced, IDebounceOptions } from '../../_toolbox/debounce';
 export type { ILazyPromiseOptions } from '../../_toolbox/lazy/lazy-promise-native';
 export { createLazyPromise, lazy, LazyPromise } from '../../_toolbox/lazy/lazy-promise-native';
 export type { ILimited } from '../../_toolbox/limit';
+export type { IMapOptions, TMapper } from '../../_toolbox/map';
 export type { IThrottled, IThrottleOptions } from '../../_toolbox/throttle';
 export { debounce } from './debounce';
 export type { ICatchErrorFn, ISuppressErrorFn, TErrorConstructor, TErrorMatcher, TErrorPredicate } from './errors';

@@ -22,6 +22,7 @@ describe('index exports', () => {
         'LazyPromise',
         'lazy',
         'limit',
+        'map',
         'minDelay',
         'promisify',
         'promisifyAll',

@@ -14,6 +14,7 @@ export type { IDebounced, IDebounceOptions } from '../../_toolbox/debounce';
 export type { ICancelableLazyWithResolvers, ILazyPromiseOptions } from '../../_toolbox/lazy/lazy-promise';
 export { createLazyPromise, lazy, LazyPromise } from '../../_toolbox/lazy/lazy-promise';
 export type { ILimited } from '../../_toolbox/limit';
+export type { IMapOptions, TMapper } from '../../_toolbox/map';
 export type { IThrottled, IThrottleOptions } from '../../_toolbox/throttle';
 export { createAbortSignal, toAbortSignal, withSignal } from './abort';
 export type { ICancelifyContext, ICancelifyOptions, TCancelifyFn } from './cancelify';
@@ -41,7 +42,7 @@ export { suppressTimeout } from '@cancjs/promise';
 /** @deprecated Import from @cancjs/promise instead. */
 export type { IExecutorCtx, IToolboxOptions, TEagerToolboxOptions, THandleCancel, TToolboxExecutor } from './options';
 export type { ICancelableDeferred } from './prebound';
-export { defer, delay, limit, minDelay, promisify, promisifyAll, retry, timeout, waitFor } from './prebound';
+export { defer, delay, limit, map, minDelay, promisify, promisifyAll, retry, timeout, waitFor } from './prebound';
 export { throttle } from './throttle';
 /** @deprecated Import from @cancjs/promise instead. */
 export type {
