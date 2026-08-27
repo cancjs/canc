@@ -8,7 +8,16 @@ import {
   isCancelError,
 } from '@cancjs/promise';
 
-import { copyFunctionMetadata, IFn, isFunction, isGenerator, isObject, isThenable, setFnName } from '../../_util';
+import {
+  copyFunctionMetadata,
+  IFn,
+  isFunction,
+  isGenerator,
+  isObject,
+  isThenable,
+  IterationError,
+  setFnName,
+} from '../../_util';
 
 export type TGeneratorLike<PYield = unknown, PReturn = any, PNext = unknown> = Omit<
   Generator<PYield, PReturn, PNext>,
@@ -54,6 +63,10 @@ const RETURN_UNWIND = Symbol.for('@cancjs/coroutine:returnUnwind');
 function isReturnUnwind(value: unknown): boolean {
   return value === RETURN_UNWIND;
 }
+
+// Driver-understood marker, same trick as RETURN_UNWIND: a loop handle hands its cleanup to the
+// driver because the `for...of` return hook that a `break` fires cannot await
+const REGISTER_CLEANUP = Symbol.for('@cancjs/coroutine:registerCleanup');
 
 // `PNext` is `any`: a coroutine body mixes bare `yield` (raw value in, no send type) with
 // `yield*` (typed send value from `cancAwait`), so no single `PNext` fits every yield in the body.
@@ -206,11 +219,23 @@ export function cancAsync<
 
       let abortableTryBodySource: CancelablePromise<any, any> | undefined;
 
+      // Loop handles opened by this invocation, so two calls of one coroutine never share sources
+      const pendingCleanups: ILoopHandle[] = [];
+
       let drainDeferred: { promise: CancelablePromise<any>; resolve: (v?: any) => void } | undefined;
       const settleDrain = () => {
         if (drainDeferred) {
           drainDeferred.resolve();
         }
+      };
+
+      // Every drain outcome lands here, so an open loop closes its source before the coroutine
+      // settles as canceled
+      const rejectDrained = (error: any) => {
+        finishCleanups(pendingCleanups, shieldOptions, () => {
+          reject(error);
+          settleDrain();
+        });
       };
 
       // Delegates guards to prototype semantics before draining.
@@ -267,7 +292,7 @@ export function cancAsync<
           // Post-cancel ordinary completion is inert: the finally drain owns settlement; do not
           // resolve (and do not settle as canceled, as the drain will).
           if (!canceled) {
-            resolve(result.value);
+            finishCleanups(pendingCleanups, shieldOptions, resolve, result.value);
           }
         } else {
           if (canceled) {
@@ -275,10 +300,26 @@ export function cancAsync<
           }
 
           const value = result.value;
-          const source =
-            stepOptionsEmpty && value instanceof CancelablePromise && value.constructor === CancelablePromise ?
-              value
-            : CancelablePromise.resolve(value, stepOptions);
+          let source: CancelablePromise<any, any>;
+
+          if (stepOptionsEmpty && value instanceof CancelablePromise && value.constructor === CancelablePromise) {
+            source = value;
+          } else {
+            // Only reached off the yielded-CancelablePromise fast path, so an ordinary step never
+            // pays for the marker lookup
+            const loop: ILoopHandle | undefined = isObject(value) ? (value as any)[REGISTER_CLEANUP] : undefined;
+
+            if (loop !== undefined) {
+              loop._registry = pendingCleanups;
+              pendingCleanups.push(loop);
+              onFulfilled(undefined);
+
+              return;
+            }
+
+            source = CancelablePromise.resolve(value, stepOptions);
+          }
+
           abortableTryBodySource = source;
           const promise = source.then(onFulfilled, onRejected);
           promise['_chain'](coroutinePromise);
@@ -299,7 +340,7 @@ export function cancAsync<
           result = gen.next(value);
         } catch (err) {
           genDone = true;
-          reject(err);
+          finishCleanups(pendingCleanups, shieldOptions, reject, err);
           return;
         } finally {
           executing = false;
@@ -323,7 +364,7 @@ export function cancAsync<
           result = gen.throw(value);
         } catch (err) {
           genDone = true;
-          reject(err);
+          finishCleanups(pendingCleanups, shieldOptions, reject, err);
           return;
         } finally {
           executing = false;
@@ -364,8 +405,7 @@ export function cancAsync<
         } catch (err) {
           // A finally block threw synchronously: surface it as the coroutine rejection.
           genDone = true;
-          reject(err);
-          settleDrain();
+          rejectDrained(err);
           return;
         } finally {
           executing = false;
@@ -390,8 +430,7 @@ export function cancAsync<
           if (disposing) {
             error.disposed = true;
           }
-          reject(error);
-          settleDrain();
+          rejectDrained(error);
           return;
         }
 
@@ -401,8 +440,7 @@ export function cancAsync<
             next = gen.return(canceledReason);
           } catch (err) {
             genDone = true;
-            reject(err);
-            settleDrain();
+            rejectDrained(err);
             return;
           }
           pumpFinally(next);
@@ -419,8 +457,7 @@ export function cancAsync<
             } catch (err) {
               // Finally block threw after a yield: surface it as the rejection.
               genDone = true;
-              reject(err);
-              settleDrain();
+              rejectDrained(err);
               return;
             }
             pumpFinally(next);
@@ -432,8 +469,7 @@ export function cancAsync<
             } catch (err) {
               // Finally block threw after a yield in the error handler: surface it.
               genDone = true;
-              reject(err);
-              settleDrain();
+              rejectDrained(err);
               return;
             }
             pumpFinally(next);
@@ -555,7 +591,39 @@ export type TForAwaitCallback<T> =
   | ((value: T, index: number) => Generator<unknown, void | false, any>)
   | ((value: T, index: number) => CancelablePromise<void | false>);
 
+/**
+ * Handle over an iteration source, returned by the single-argument form of `cancForAwait`.
+ *
+ * The handle is consumed with an ordinary `for...of`, which keeps the loop body in the caller's own
+ * frame: `break`, `continue` and `return` are the native keywords, and the body closes over the
+ * enclosing bindings directly. Each turn of the body must advance the handle with
+ * `yield* loop.next()` before the loop repeats. A handle iterates once.
+ */
+export interface ICancForAwaitLoop<T> {
+  /** Iterator over the already-fetched item. Never suspends, so the loop body runs in one frame. */
+  [Symbol.iterator](): Iterator<T>;
+  /** Pulls the next item at a coroutine cancellation point. Delegate it with `yield*`. */
+  next(): Generator<unknown, void, any>;
+  /** Ends the iteration and finishes source cleanup at this point. Delegate it with `yield*`. */
+  return(): Generator<unknown, void, any>;
+  /** Cleanup promise once the source has been closed, `undefined` before that. */
+  readonly disposed: PromiseLike<void> | undefined;
+}
+
+/**
+ * Iterates over an async or sync iterable, running a callback per item at coroutine cancellation points.
+ *
+ * The callback supports three forms: a sync return, a generator (driven with `yield*`), or a
+ * `CancelablePromise` (awaited with `yield`). Returning `false` or throwing `BreakError` stops the
+ * loop cleanly. Plain `async` callbacks returning native promises are intentionally not
+ * type-supported to steer callers toward cancelable operations, though the runtime dispatches any
+ * thenable. Use `cancForAwait.toArray` to collect elements into an array.
+ *
+ * Called without a callback it returns a loop handle instead, for a `for...of` body with native
+ * `break` and `continue`. See `ICancForAwaitLoop`.
+ */
 interface ICancForAwait {
+  <T>(source: TEachSource<T>): Generator<unknown, ICancForAwaitLoop<T>, any>;
   <T>(source: TEachSource<T>, cb: TForAwaitCallback<T>): Generator<Failing<BreakError>, void, any>;
   /** Collects elements into an array. */
   toArray<T>(source: TEachSource<T>): Generator<Failing<BreakError>, T[], any>;
@@ -618,6 +686,192 @@ export function returnStepIterator(it: any): any {
   return result;
 }
 
+// Shared by every exhausted handle, so a done turn allocates nothing
+const DONE_RESULT: IteratorResult<any> = { value: undefined, done: true };
+
+interface ILoopHandle extends ICancForAwaitLoop<any> {
+  _it: any;
+  _async: boolean;
+  _current: IteratorResult<any>;
+  _stale: boolean;
+  _used: boolean;
+  _finished: boolean;
+  _disposing: boolean;
+  _registry: ILoopHandle[] | undefined;
+  disposed: PromiseLike<void> | undefined;
+}
+
+// Closes the source once, and what lands on `disposed` is safe to await bare because
+// `returnStepIterator` has already neutralized a rejecting `return()`
+function disposeLoop(loop: ILoopHandle): PromiseLike<void> | undefined {
+  if (!loop._disposing) {
+    loop._disposing = true;
+    loop._finished = true;
+    loop._stale = false;
+
+    const cleanup = returnStepIterator(loop._it);
+    loop.disposed = isThenable(cleanup) ? (cleanup as PromiseLike<void>) : undefined;
+  }
+
+  return loop.disposed;
+}
+
+// A handle that closed itself drops out, so the settle path has nothing to wait on in the
+// common case
+function unregisterLoop(loop: ILoopHandle): void {
+  const registry = loop._registry;
+
+  if (!registry) {
+    return;
+  }
+
+  const index = registry.indexOf(loop);
+  if (index >= 0) {
+    registry.splice(index, 1);
+  }
+
+  loop._registry = undefined;
+}
+
+// Settles only after every loop handle the coroutine still holds has closed its source, and stays
+// on the old synchronous path when nothing registered
+function finishCleanups(
+  pending: ILoopHandle[],
+  options: TFlagOptions,
+  settle: (value?: any) => void,
+  value?: any,
+): void {
+  if (pending.length === 0) {
+    settle(value);
+
+    return;
+  }
+
+  const loops = pending.splice(0, pending.length);
+  const cleanups: Array<PromiseLike<void>> = [];
+
+  for (const loop of loops) {
+    const cleanup = disposeLoop(loop);
+
+    if (cleanup) {
+      cleanups.push(cleanup);
+    }
+  }
+
+  if (cleanups.length === 0) {
+    settle(value);
+
+    return;
+  }
+
+  // Safe as a plain `all`: every cleanup came back from returnStepIterator already neutralized.
+  const done = () => settle(value);
+  CancelablePromise.all(cleanups, options).then(done, done);
+}
+
+function* pullNextItem(loop: ILoopHandle): Generator<unknown, void, any> {
+  if (loop._finished) {
+    return;
+  }
+
+  const result: IteratorResult<any> = loop._async ? yield loop._it.next() : loop._it.next();
+
+  if (result.done) {
+    loop._current = DONE_RESULT;
+    const cleanup = disposeLoop(loop);
+
+    if (cleanup) {
+      yield cleanup;
+    }
+
+    unregisterLoop(loop);
+
+    return;
+  }
+
+  // A sync source may hold promises, same as in the callback form: awaiting here keeps the item a
+  // cancellation point rather than handing the body a promise.
+  loop._current = { value: loop._async ? result.value : yield result.value, done: false };
+  loop._stale = false;
+}
+
+function* returnLoop(loop: ILoopHandle): Generator<unknown, void, any> {
+  const cleanup = disposeLoop(loop);
+
+  if (cleanup) {
+    yield cleanup;
+  }
+
+  unregisterLoop(loop);
+}
+
+function createLoopHandle(it: any, async: boolean): ILoopHandle {
+  const loop = {
+    _it: it,
+    _async: async,
+    _current: DONE_RESULT,
+    _stale: false,
+    _used: false,
+    _finished: false,
+    _disposing: false,
+    _registry: undefined,
+    disposed: undefined,
+
+    [Symbol.iterator](): Iterator<any> {
+      if (loop._used) {
+        throw new IterationError('A forAwait loop handle iterates once, call forAwait again for another pass');
+      }
+      loop._used = true;
+
+      return {
+        next(): IteratorResult<any> {
+          // Without this the body that forgets to advance would spin forever on one item, since the
+          // sync iterator has nothing else to hand back.
+          if (loop._stale) {
+            throw new IterationError('A forAwait loop body must advance the handle with yield* loop.next() every turn');
+          }
+
+          if (loop._current.done) {
+            return DONE_RESULT;
+          }
+
+          loop._stale = true;
+
+          return loop._current;
+        },
+
+        return(value?: any): IteratorResult<any> {
+          disposeLoop(loop);
+
+          return { value, done: true };
+        },
+      };
+    },
+
+    next(): Generator<unknown, void, any> {
+      return pullNextItem(loop);
+    },
+
+    return(): Generator<unknown, void, any> {
+      return returnLoop(loop);
+    },
+  } as ILoopHandle;
+
+  return loop;
+}
+
+function* loopHandleForm(source: any): Generator<unknown, ILoopHandle, any> {
+  const { it, async } = getStepIterator(source);
+  const loop = createLoopHandle(it, async);
+
+  // Registration precedes the first pull on purpose: a cancel landing during that pull must still
+  // close the source.
+  yield { [REGISTER_CLEANUP]: loop };
+  yield* pullNextItem(loop);
+
+  return loop;
+}
+
 /**
  * Iterates over an async or sync iterable, running a callback per item at coroutine cancellation points.
  *
@@ -629,8 +883,12 @@ export function returnStepIterator(it: any): any {
  */
 export const cancForAwait = function* cancForAwait(
   source: any,
-  cb: (value: any, index: number) => any,
-): Generator<unknown, void, any> {
+  cb?: (value: any, index: number) => any,
+): Generator<unknown, any, any> {
+  if (cb === undefined) {
+    return yield* loopHandleForm(source);
+  }
+
   const { it, async } = getStepIterator(source);
   let index = 0;
 
