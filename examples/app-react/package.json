@@ -19,6 +19,7 @@
     "@cancjs/toolbox": "file:../../packages/canc-toolbox",
     "@cancjs/unhandled-rejection": "file:../../packages/canc-unhandled-rejection",
     "@shared/mock-api": "*",
+    "@shared/util": "*",
     "react": "19.2.7",
     "react-dom": "19.2.7"
   },

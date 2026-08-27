@@ -1,34 +1,78 @@
-import type { CancelablePromise } from '@cancjs/promise';
-import { useCallback, useRef } from 'react';
+import { CancelablePromise, type TCancelReason } from '@cancjs/promise';
+import { CANCEL_REASON_SUPERSEDED, CANCEL_REASON_UNMOUNTED } from '@shared/util';
+import { useCallback, useRef, useState } from 'react';
 
 /**
- * Wraps a factory that starts a cancelable chain so that each new invocation cancels the previous
- * one that is still pending (latest wins). The returned function has the same arguments as the
- * factory and hands back the fresh `CancelablePromise`. The last pending chain is also canceled on
- * unmount via the cleanup returned from an effect, if the caller wires `cancelPending` there.
+ * `cancelPrevious: false` behavior: a call made while one is already pending is REJECTED
+ * immediately, leaving the in-flight run untouched (queuing was the other option considered;
+ * rejection was chosen so a caller sees the conflict at the call site instead of a silent
+ * backlog building up behind an event handler).
+ */
+export interface UseCancelableCallbackOptions {
+  /**
+   * `true` (default) cancels a previous still-pending run and starts the new one, latest wins.
+   * `false` rejects the new call instead of touching the pending one, see file header.
+   */
+  cancelPrevious?: boolean;
+}
+
+/**
+ * Wraps a factory that starts a cancelable chain into an imperative call for event handlers
+ * (a click, a keystroke), rather than a dependency array. `pending` reflects whether a call is
+ * currently in flight, derived from its own settlement, never a timer. `cancelPending` cancels
+ * the in-flight call; its default reason is "unmounted" (the common wiring is an unmount
+ * cleanup) and accepts an override for other call sites.
  */
 export function useCancelableCallback<TArgs extends unknown[], TResult>(
   factory: (...args: TArgs) => CancelablePromise<TResult>,
+  options: UseCancelableCallbackOptions = {},
 ): {
   run: (...args: TArgs) => CancelablePromise<TResult>;
-  cancelPending: () => void;
+  cancelPending: (reason?: TCancelReason) => void;
+  pending: boolean;
 } {
-  const pending = useRef<CancelablePromise<TResult> | undefined>(undefined);
+  const { cancelPrevious = true } = options;
+  const pendingRun = useRef<CancelablePromise<TResult> | undefined>(undefined);
+  const [pending, setPending] = useState(false);
 
-  const cancelPending = useCallback(() => {
-    pending.current?.cancel();
-    pending.current = undefined;
+  const cancelPending = useCallback((reason: TCancelReason = CANCEL_REASON_UNMOUNTED) => {
+    pendingRun.current?.cancel(reason);
+    pendingRun.current = undefined;
+    setPending(false);
   }, []);
 
   const run = useCallback(
     (...args: TArgs) => {
-      pending.current?.cancel();
+      if (pendingRun.current) {
+        if (!cancelPrevious) {
+          // Explicit TFailure=unknown collapses the reject overload back to the same undeclared
+          // (never) failure type factory() itself carries, so this branch and the happy path
+          // below return the same CancelablePromise<TResult> shape.
+          return CancelablePromise.reject<TResult, unknown>(
+            new Error('useCancelableCallback: a call is already pending (cancelPrevious is false)'),
+          );
+        }
+        pendingRun.current.cancel(CANCEL_REASON_SUPERSEDED);
+      }
+
       const promise = factory(...args);
-      pending.current = promise;
+      pendingRun.current = promise;
+      setPending(true);
+
+      // Settlement is the only source of truth for "pending"; a superseding run reassigns
+      // pendingRun.current first, so this no-ops for the run it replaced.
+      const clearIfCurrent = (): void => {
+        if (pendingRun.current === promise) {
+          pendingRun.current = undefined;
+          setPending(false);
+        }
+      };
+      promise.then(clearIfCurrent, clearIfCurrent);
+
       return promise;
     },
-    [factory],
+    [factory, cancelPrevious],
   );
 
-  return { run, cancelPending };
+  return { run, cancelPending, pending };
 }

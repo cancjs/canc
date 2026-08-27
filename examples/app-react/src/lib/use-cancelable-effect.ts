@@ -1,6 +1,7 @@
 import * as canc from '@cancjs/coroutine';
-import { type CancelablePromise, isCancPromise, suppressCancel } from '@cancjs/promise';
-import { type DependencyList, useEffect } from 'react';
+import { type CancelablePromise, isCancPromise, suppressCancel, type TCancelReason } from '@cancjs/promise';
+import { CANCEL_REASON_DEPS_CHANGED, CANCEL_REASON_UNMOUNTED } from '@shared/util';
+import { type DependencyList, useEffect, useRef } from 'react';
 
 /**
  * Effect callback returning a promise, cleanup function, or nothing. Return a `CancelablePromise`
@@ -33,7 +34,9 @@ export function useCancelableEffect(generator: CancelableGeneratorEffectCallback
  * used as cleanup unchanged; anything else is ignored.
  *
  * A superseded or unmount-time cancel is expected, not an error, so the hook suppresses the
- * resulting `CancelError` itself. Callers never need their own `suppressCancel` call.
+ * resulting `CancelError` itself. Callers never need their own `suppressCancel` call. The cancel
+ * carries "unmounted" or "deps-changed" (the exported reason constants) so a consumer catching
+ * the `CancelError` can branch on `error.reason`.
  *
  * This mirrors the plain `useAsyncEffect` shape one keystroke at a time: the only change is the
  * `isCancPromise` branch that returns `result.cancel` instead of dropping the promise on the floor.
@@ -44,12 +47,26 @@ export function useCancelableEffect(
   callbackOrGenerator: CancelableEffectCallback | CancelableGeneratorEffectCallback,
   deps?: DependencyList,
 ): void {
+  // cleanup here fires only at true unmount, empty deps never re-run it
+  // React tears effects down in registration order, so this flips before the effect below's own
+  // cleanup runs at unmount, letting that cleanup tell "unmounting" apart from "deps changed"
+  const unmounting = useRef(false);
+  useEffect(
+    () => () => {
+      unmounting.current = true;
+    },
+    [],
+  );
+
   useEffect(() => {
+    const cleanupReason = (): TCancelReason =>
+      unmounting.current ? CANCEL_REASON_UNMOUNTED : CANCEL_REASON_DEPS_CHANGED;
+
     if (isGeneratorFunction(callbackOrGenerator)) {
       const promise = canc.async(callbackOrGenerator as any)();
       suppressCancel(promise);
       return () => {
-        promise.cancel();
+        promise.cancel(cleanupReason());
       };
     }
 
@@ -58,7 +75,7 @@ export function useCancelableEffect(
     if (isCancPromise(result)) {
       suppressCancel(result);
       return () => {
-        result.cancel();
+        result.cancel(cleanupReason());
       };
     }
 

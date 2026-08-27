@@ -1,5 +1,6 @@
 import * as canc from '@cancjs/coroutine';
 import { CancelablePromise } from '@cancjs/promise';
+import { CANCEL_REASON_DEPS_CHANGED, CANCEL_REASON_UNMOUNTED } from '@shared/util';
 import { act, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 
@@ -10,15 +11,18 @@ function createDeferred<T = string>(): {
   resolve: (value: T) => void;
   reject: (err: unknown) => void;
   isCanceled: () => boolean;
+  cancelReason: () => unknown;
 } {
   let resolve!: (value: T) => void;
   let reject!: (err: unknown) => void;
   let canceled = false;
+  let reason: unknown;
   const promise = new CancelablePromise<T>((res, rej, { handleCancel }) => {
     resolve = res;
     reject = rej;
-    handleCancel(() => {
+    handleCancel((r) => {
       canceled = true;
+      reason = r;
     });
   });
   return {
@@ -26,6 +30,7 @@ function createDeferred<T = string>(): {
     resolve,
     reject,
     isCanceled: () => canceled,
+    cancelReason: () => reason,
   };
 }
 
@@ -118,7 +123,7 @@ describe('useCancelableEffect with generator', () => {
 });
 
 describe('useCancelableEffect with thunk callback', () => {
-  it('cancels returned CancelablePromise on unmount', () => {
+  it('cancels returned CancelablePromise on unmount with the unmounted reason', () => {
     const deferred = createDeferred<string>();
 
     function TestComponent(): React.JSX.Element {
@@ -131,6 +136,27 @@ describe('useCancelableEffect with thunk callback', () => {
 
     unmount();
     expect(deferred.isCanceled()).toBe(true);
+    expect(deferred.cancelReason()).toBe(CANCEL_REASON_UNMOUNTED);
+  });
+
+  it('cancels the previous CancelablePromise with the deps-changed reason on a dependency change', () => {
+    const firstDeferred = createDeferred<string>();
+    const secondDeferred = createDeferred<string>();
+
+    function TestComponent({ step }: { step: number }): React.JSX.Element {
+      useCancelableEffect(() => (step === 1 ? firstDeferred.promise : secondDeferred.promise), [step]);
+      return <div>thunk</div>;
+    }
+
+    const { rerender, unmount } = render(<TestComponent step={1} />);
+    expect(firstDeferred.isCanceled()).toBe(false);
+
+    rerender(<TestComponent step={2} />);
+    expect(firstDeferred.isCanceled()).toBe(true);
+    expect(firstDeferred.cancelReason()).toBe(CANCEL_REASON_DEPS_CHANGED);
+
+    unmount();
+    expect(secondDeferred.cancelReason()).toBe(CANCEL_REASON_UNMOUNTED);
   });
 
   it('runs returned cleanup function on unmount', () => {
