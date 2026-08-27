@@ -152,13 +152,13 @@ describe('orders report cancellation on client disconnect', () => {
 
   it('completes the full POST request with body parser when client stays connected', async () => {
     const { app, rdb } = await createCancApp();
-    const { cancAsyncRoute } = require('./lib/cancelable-route');
+    const { cancelableHandler } = require('@cancjs/server-express');
     const canc = require('@cancjs/coroutine');
 
     app.post(
       '/test-post',
       express.json(),
-      cancAsyncRoute(function* (req: any, res: any) {
+      cancelableHandler(function* (req: any, res: any) {
         const result = yield* canc.await(Promise.resolve({ received: req.body }));
         res.json(result);
       }),
