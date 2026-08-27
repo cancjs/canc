@@ -6,9 +6,10 @@ is listening to.
 
 ## What it shows
 
-- A route handler written as a canc generator, wrapped with `cancAsyncRoute`
-  (`src/lib/cancelable-route.ts`). The `close` event on the raw request cancels the handler's
-  coroutine; the handler still owns `reply.send` and full control of the response.
+- A route handler written as a canc generator, wrapped with `cancelableHandler`
+  (`@cancjs/server-fastify`). A client that goes away before the reply is finished cancels the
+  handler's coroutine; the handler still owns `reply.send` and full control of the response. The
+  route generic survives the wrapper, so `request.query` keeps its declared type with no cast.
 - The cancelable boundary living in the service (`src/availability-service-canc.ts`), not in the
   data layer. `cancelify` turns the plain repository fns of `src/bookings-repository.ts` into canc-native ones,
   so the repository stays an ordinary Mongoose module that knows nothing about canc.
@@ -75,8 +76,8 @@ diff src/main-vanilla.ts src/main-canc.ts
 The service twins align step for step. The canc side opens with the `cancelify` boundary the
 vanilla side has no use for, then every `await` becomes `yield* canc.await` inside a `canc.async`
 generator, and the comment at each step changes from "this always runs" to "canceled here, this is
-skipped". The route handlers differ by the `cancAsyncRoute` wrapper, which exists only on the canc
-side. The repository (`src/bookings-repository.ts`) is shared by both flavors and is identical for each.
+skipped". The route handlers differ by the `cancelableHandler` wrapper, which exists only on the
+canc side. The repository (`src/bookings-repository.ts`) is shared by both flavors and is identical for each.
 It holds the plain Mongoose query functions and contains no canc imports.
 
 ## Honesty notes
@@ -134,6 +135,6 @@ themselves live in `src/bookings-repository.ts` and are part of the example code
 
 ## Helper code
 
-`src/lib/cancelable-route.ts` wraps a generator route handler as a coroutine and cancels it on
-client disconnect. It has no example-specific dependencies; copy it into an app that needs the same
-wiring.
+The route wrapper is not example code any more. `cancelableHandler` ships as
+`@cancjs/server-fastify`, so an app that needs the same wiring installs the package instead of
+copying a file.

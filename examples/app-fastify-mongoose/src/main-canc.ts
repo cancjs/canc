@@ -3,11 +3,11 @@ import '@cancjs/unhandled-rejection/register';
 import http from 'node:http';
 
 import * as canc from '@cancjs/coroutine';
+import { cancelableHandler } from '@cancjs/server-fastify';
 import { sleep } from '@shared/util';
 import Fastify from 'fastify';
 
 import { searchAvailability } from './availability-service-canc';
-import { cancAsyncRoute } from './lib/cancelable-route';
 import { BOOKING_COUNT, installMocks, queryLog, resetQueryLog } from './mock/db';
 
 // query latency window allowing mid-flight disconnect
@@ -22,9 +22,9 @@ async function buildServer() {
 
   app.get<{ Querystring: { hotelId?: string; date?: string } }>(
     '/availability',
-    cancAsyncRoute(function* (request, reply) {
-      const hotelId = (request.query as { hotelId?: string }).hotelId ?? 'grand-plaza';
-      const date = (request.query as { date?: string }).date ?? '2026-08-01';
+    cancelableHandler(function* (request, reply) {
+      const hotelId = request.query.hotelId ?? 'grand-plaza';
+      const date = request.query.date ?? '2026-08-01';
 
       const result = yield* canc.await(searchAvailability(hotelId, date));
       reply.send(result); // handler owns response, full control
