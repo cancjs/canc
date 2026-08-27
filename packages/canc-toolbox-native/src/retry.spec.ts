@@ -317,4 +317,66 @@ describe('retry', () => {
     await flushMicrotasks();
     expect(onRetry).toHaveBeenCalledWith(expect.any(Error), 1, 65);
   });
+
+  // Must FAIL on pre-alias code: minTimeout was an unknown key, wait was 300.
+  it('minTimeout is honored as a fallback for initialDelay', async () => {
+    const pair = createFakeTimers();
+    const fn = jest.fn().mockRejectedValue(new Error('fail'));
+    const promise = retry(fn, { retries: 1, minTimeout: 1000, ...pair.timers });
+    promise.catch(() => {
+      /* swallow */
+    });
+
+    await flushMicrotasks();
+    expect(pair.delays).toEqual([1000]);
+  });
+
+  it('maxTimeout is honored as a fallback for maxDelay', async () => {
+    const pair = createFakeTimers();
+    const fn = jest.fn().mockRejectedValue(new Error('fail'));
+    const promise = retry(fn, {
+      retries: 3,
+      initialDelay: 100,
+      factor: 10,
+      maxTimeout: 500,
+      ...pair.timers,
+    });
+    promise.catch(() => {
+      /* swallow */
+    });
+
+    await flushMicrotasks();
+    for (let i = 0; i < 3; i++) {
+      pair.advance(500);
+      await flushMicrotasks();
+    }
+
+    expect(pair.delays).toEqual([100, 500, 500]);
+  });
+
+  // The new key wins when both are supplied.
+  it('initialDelay wins over minTimeout when both are supplied', async () => {
+    const pair = createFakeTimers();
+    const fn = jest.fn().mockRejectedValue(new Error('fail'));
+    const promise = retry(fn, { retries: 1, initialDelay: 50, minTimeout: 9000, ...pair.timers });
+    promise.catch(() => {
+      /* swallow */
+    });
+
+    await flushMicrotasks();
+    expect(pair.delays).toEqual([50]);
+  });
+
+  // Neither supplied still means the documented defaults, not the old zero-backoff default.
+  it('with neither new nor deprecated key, the documented defaults apply', async () => {
+    const pair = createFakeTimers();
+    const fn = jest.fn().mockRejectedValue(new Error('fail'));
+    const promise = retry(fn, { retries: 1, ...pair.timers });
+    promise.catch(() => {
+      /* swallow */
+    });
+
+    await flushMicrotasks();
+    expect(pair.delays).toEqual([300]);
+  });
 });

@@ -40,6 +40,10 @@ export type IRetryOptions = TCallDeps & {
   onRetry?: (reason: any, attempt: number, delay: number) => void;
   /** Defer the first attempt until the first subscription. Not contagious past a chained `.then`. */
   lazy?: boolean;
+  /** @deprecated Use `initialDelay`. Removed in the next major. */
+  minTimeout?: number;
+  /** @deprecated Use `maxDelay`. Removed in the next major. */
+  maxTimeout?: number;
   [key: string]: unknown;
 };
 
@@ -73,8 +77,8 @@ export function retryFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
     options?: IRetryOptions,
   ): TPromiseOf<K, T, F> {
     const retries = options?.retries ?? 3;
-    const initialDelay = options?.initialDelay ?? 300;
-    const maxDelay = options?.maxDelay ?? 30000;
+    const initialDelay = options?.initialDelay ?? options?.minTimeout ?? 300;
+    const maxDelay = options?.maxDelay ?? options?.maxTimeout ?? 30000;
     const factor = options?.factor ?? 2;
     const jitter = options?.jitter ?? false;
     const shouldRetry = options?.shouldRetry;
