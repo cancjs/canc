@@ -156,7 +156,7 @@ Cancellation only reaches as far as the chain does, so libraries that own the wo
 | [`@cancjs/server-node`](packages/canc-server/node)       | Wrapper for raw `node:http` handlers that cancels on client disconnect or a deadline, shared as the base recipe for restify, AdonisJS and Nest-on-Express |
 | [`@cancjs/server-express`](packages/canc-server/express) | Middleware and handler wrapper that cancels a route on client disconnect or a deadline                                                                    |
 | [`@cancjs/server-fastify`](packages/canc-server/fastify) | Plugin that cancels a route handler on client disconnect or a deadline                                                                                    |
-| `@cancjs/server-koa` 🚧                                  | Middleware that cancels a route handler on client disconnect or a deadline                                                                                |
+| [`@cancjs/server-koa`](packages/canc-server/koa)         | Middleware that cancels a route handler on client disconnect or a deadline                                                                                |
 | [`@cancjs/server-hono`](packages/canc-server/hono)       | Handler wrapper that cancels on client disconnect or a deadline, on node and Web standard runtimes                                                        |
 | `@cancjs/rxjs` 🚧                                        | Conversion between cancelable promises and observables. See [example](examples/app-rxjs)                                                                  |
 
