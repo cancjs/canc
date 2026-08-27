@@ -18,7 +18,8 @@
  * @types/node version is installed.
  *
  * `@cancjs/server-fastify` has the same shape of coverage in ./server-fastify-types.ts, gated one
- * lane later (5.4+, fastify's own extra floor). `@cancjs/server-node`, `@cancjs/server-koa` and
+ * lane later (5.4+, fastify's own extra floor). `@cancjs/server-node` has its own file,
+ * ./server-node-types.ts, on the same gate as this one. `@cancjs/server-koa` and
  * `@cancjs/server-hono` are not shipped yet; they join here once their packages exist.
  */
 import { cancelableHandler, drain, getRequestSignal } from '@cancjs/server-express';
