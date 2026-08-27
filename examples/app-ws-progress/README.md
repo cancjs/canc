@@ -102,6 +102,44 @@ identical.
 - **A closed socket cannot receive the ack.** On the socket-close path the `canceled` frame has
  nowhere to go; the point of that path is stopping server work, not notifying a client that already
  left.
+- **canc has no progress primitive.** There is no `.progress()` channel on a `CancelablePromise`, no
+ listener list, no weighting or aggregation across steps. What this example does is the entire
+ mechanism: a generator computes a `percent` after each chunk and `yield`s it, and the caller turns
+ each yielded value into whatever it wants (here, a websocket frame). That is plain `cancGenAsync`,
+ not a progress feature.
+
+## Progress: is a helper warranted?
+
+Both twins show the whole progress story in three lines apiece: compute `percent`, `yield` it,
+forward it. `export-job-canc.ts` and `export-job-vanilla.ts` are the files to read; `server-canc.ts`
+turns the yielded values into frames with one `canc.forAwait` callback.
+
+With a helper, the job would look roughly like:
+
+```ts
+const job = withProgress(exportChunks(transcode), (percent) => send(ws, { type: 'progress', jobId, percent }));
+```
+
+That trades one `yield*`/callback pair readers already know (`cancGenAsync` plus a plain generator
+loop) for a new concept, `withProgress`, that they would have to learn, plus whatever subscribe and
+lifecycle rules it carries. It does not remove any line of domain logic, because the domain logic,
+computing `percent` and deciding what to do with it, is exactly what a generic helper cannot know.
+
+**Verdict: not warranted for this shape.** A helper earns its place when it removes REPEATED
+non-trivial logic, not when it wraps a single yield. The case where that repetition shows up is
+axios: one request can carry both an upload and a download phase, and something has to turn those
+two numbers into whatever `onProgress` value app code expects, at every call site that uses it.
+cp-axios's answer is to fold both into one 0..1 range, upload getting 0..0.5 and download 0.5..1.
+That makes the number mean "how much of an invented whole is done" instead of "how much of THIS
+phase is done," regardless of how large the upload or download actually is. For canc, two honest
+separate channels, an upload percent and a download percent, each 0..1 for its own phase, are the
+truthful shape. If `/axios` ever grows an `onProgress` passthrough, it should pass through axios's
+own two channels unmodified rather than pre-merging them into one number.
+
+No second progress shape (an HTTP download byte counter) was added to this or another example: the
+mechanism it would exercise, a generator yielding a periodically-updated number, is the same
+mechanism already shown here. `app-ws-progress` is the reference this evaluation is measured
+against; nothing about a byte counter changes the verdict above.
 
 ## Copying
 

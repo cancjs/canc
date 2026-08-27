@@ -15,7 +15,8 @@ export async function* exportJob(deps: ExportJobDeps): AsyncGenerator<number, vo
       // internal await: transcode one chunk
       await transcodeChunk(api, { index, total: TOTAL_CHUNKS });
       // emit progress to consumer
-      yield Math.round((index / TOTAL_CHUNKS) * 100);
+      const percent = Math.round((index / TOTAL_CHUNKS) * 100);
+      yield percent;
     }
   } finally {
     // runs on completion or when client abandons (wasted work continues)

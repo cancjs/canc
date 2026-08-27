@@ -10,7 +10,8 @@ export const exportJob = cancGenAsync(function* (transcode: Transcoder): AsyncGe
       // internal await: transcode one chunk
       yield* cancGenAwait(transcode({ index, total: TOTAL_CHUNKS }));
       // emit progress to consumer
-      yield Math.round((index / TOTAL_CHUNKS) * 100);
+      const percent = Math.round((index / TOTAL_CHUNKS) * 100);
+      yield percent;
     }
   } finally {
     // runs on completion and cancel to release encoder resources
