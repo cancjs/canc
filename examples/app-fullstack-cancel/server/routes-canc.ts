@@ -1,7 +1,7 @@
 import * as canc from '@cancjs/coroutine';
+import { cancelableHandler } from '@cancjs/server-express';
 import { Router } from 'express';
 
-import { cancAsyncRoute } from './lib/cancelable-route';
 import { getReqEm } from './lib/get-req-em';
 import { searchUsers } from './search-service-canc';
 
@@ -10,7 +10,7 @@ export const searchRouter = Router();
 
 searchRouter.get(
   '/api/search',
-  cancAsyncRoute(function* (req, res) {
+  cancelableHandler(function* (req, res) {
     const em = getReqEm();
     const q = typeof req.query.q === 'string' ? req.query.q : '';
     if (!q.trim()) {
