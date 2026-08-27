@@ -33,7 +33,7 @@ fetches were started, aborted, or completed.
 ## What it shows
 
 - **One cancel() prunes the whole subtree.** The crawl root is a `CancelablePromise`. Its cancel
- handler calls `pool.cancelAll()` once. That drains the pool in a single call: pages still queued
+ handler calls `pool.cancel()` once. That drains the pool in a single call: pages still queued
  never start (born-canceled) and pages in flight are aborted at the request boundary. There is no
  per-level plumbing. The same cancel reaches a fetch at depth 0 and a fetch at depth 2 alike,
  because cancellation propagates down the tree of cancelable nodes on its own.
@@ -43,21 +43,16 @@ fetches were started, aborted, or completed.
  tick before Stop already left with their own signal. The result: aborting the running fetches
  makes the crawl reject, yet the queued and in-flight pages run to completion anyway. The
  `completed` count keeps climbing after Stop. That is the grandchild leak the pool avoids.
-- **Cancel-aware concurrency pool.** The pool comes from `@shared/lib` (`createPool`). It runs at
- most four fetches at once and exposes `cancelAll(reason)`, which drops the queue and cancels every
- in-flight job. It is a seed for a future published p-limit-style package.
+- **Cancel-aware concurrency limiter.** The limiter is `@cancjs/toolbox`'s `limit`. It runs at
+ most four fetches at once and exposes `cancel(reason)`, which drops the queue and cancels every
+ in-flight job.
 
 ## File map (what to diff)
 
 - `src/crawl-vanilla.ts` vs `src/crawl-canc.ts`: the crawl. Same `visit` recursion and function
  order. Vanilla threads a per-fetch `AbortController` through a plain queue with a best-effort
- abort; canc runs each fetch as a `cancelify` node through the shared pool and cancels the root.
-- `src/main-vanilla.ts` vs `src/main-canc.ts`: the scenario, same narrative.
-
-## Copy freely
-
-The pool lives in `@shared/lib` and depends only on `@cancjs/promise`. Copy it into your own
-project as-is; it is a seed for a future published package.
+ abort; canc runs each fetch as a `cancelify` node through `@cancjs/toolbox`'s `limit` and cancels
+ the root.
 
 ## Honesty notes
 

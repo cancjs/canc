@@ -1,8 +1,7 @@
 // Crawl a site depth-2, reporting broken (404) links, and stop the crawl with cancel().
 
 import { CancelablePromise } from '@cancjs/promise';
-import { cancelify } from '@cancjs/toolbox';
-import { createPool } from '@shared/lib';
+import { cancelify, limit } from '@cancjs/toolbox';
 import { MockApi } from '@shared/mock-api';
 
 import { createSiteApi, HOME_URL, type Page, TOTAL_PAGES } from './mock/site';
@@ -11,20 +10,20 @@ import type { CrawlReport } from './types';
 /** Runs a depth-2 site-health crawl. Cancel the returned promise to abort every pending fetch. */
 export function crawlSite(api: MockApi, concurrency: number): CancelablePromise<CrawlReport> {
   const site = createSiteApi(api);
-  const pool = createPool(concurrency);
+  const pool = limit(concurrency);
 
   // canceling fetchPage aborts the underlying request via signal
   const fetchPage = cancelify(({ getSignal }, url: string) => site.fetchPage(url, getSignal()));
 
   const crawl = new CancelablePromise<CrawlReport>((resolve, reject, { handleCancel }) => {
     // cancel drains pool, aborting in-flight fetches and dropping queued ones
-    handleCancel((reason) => pool.cancelAll(reason));
+    handleCancel((reason) => pool.cancel(reason));
 
     const visited: string[] = [];
     const broken: string[] = [];
 
     const visit = async (url: string, depth: number): Promise<void> => {
-      const page: Page = await pool.run(() => fetchPage(url));
+      const page: Page = await pool(fetchPage, url);
       visited.push(url);
       if (page.status === 404) broken.push(url);
       if (depth > 0) await Promise.all(page.links.map((link) => visit(link, depth - 1)));

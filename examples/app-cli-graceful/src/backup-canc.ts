@@ -1,7 +1,6 @@
 import * as canc from '@cancjs/coroutine';
 import { CancelablePromise } from '@cancjs/promise';
-import { cancelify } from '@cancjs/toolbox';
-import { createPool } from '@shared/lib';
+import { cancelify, limit } from '@cancjs/toolbox';
 
 import { Manifest, ManifestEntry } from './manifest';
 import { SiteApi } from './mock/site-api';
@@ -19,7 +18,7 @@ export function runBackup(api: SiteApi, manifest: Manifest): CancelablePromise<v
   return canc.async(function* () {
     const pages = api.crawl();
     const urls = [...pages.map((p) => p.url), ...pages.flatMap((p) => p.assets)];
-    const downloadPool = createPool(CONCURRENCY);
+    const downloadPool = limit(CONCURRENCY);
 
     try {
       const downloadOne = cancelify(({ getSignal }, url: string) =>
@@ -28,13 +27,13 @@ export function runBackup(api: SiteApi, manifest: Manifest): CancelablePromise<v
         }),
       ) as (url: string) => CancelablePromise<void>;
 
-      const jobs = urls.map((url) => downloadPool.run(() => downloadOne(url)));
+      const jobs = urls.map((url) => downloadPool(downloadOne, url));
       yield* canc.await(Promise.all(jobs));
     } finally {
       // shielded: if canceled here, drain the pool so every in-flight download stops and no queued
       // one starts, driven to completion regardless, so remaining urls are always marked queued in
       // the manifest before backupTask.cancel() settles in main-canc.ts
-      downloadPool.cancelAll();
+      downloadPool.cancel();
       const started = new Set(manifest.entries.map((e: ManifestEntry) => e.url));
       for (const url of urls) {
         if (!started.has(url)) manifest.entries.push({ url, status: 'queued' });
