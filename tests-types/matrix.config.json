@@ -8,18 +8,21 @@
     "canc-toolbox-native",
     "canc-server/express",
     "canc-server/fastify",
-    "canc-server/node"
+    "canc-server/node",
+    "canc-server/hono"
   ],
-  "peerDependenciesComment": "Framework peers referenced by common/server-express-types.ts, common/server-fastify-types.ts and common/server-node-types.ts. Not @cancjs packages, so packPackages() never touches them; merged straight into every non-decorator fixture's package.json so `import ... from 'express'` / 'fastify' resolve inside the isolated node_modules, even in a lane that does not compile the fastify file (an uninstalled-but-unimported package costs nothing). Pinned to the exact versions the server packages themselves devDependency-pin, so the fixture never drifts from what the shipped .d.ts were checked against.",
+  "peerDependenciesComment": "Framework peers referenced by common/server-express-types.ts, common/server-fastify-types.ts, common/server-node-types.ts and common/server-hono-types.ts. Not @cancjs packages, so packPackages() never touches them; merged straight into every non-decorator fixture's package.json so `import ... from 'express'` / 'fastify' / 'hono' resolve inside the isolated node_modules, even in a lane that does not compile that file (an uninstalled-but-unimported package costs nothing). Pinned to the exact versions the server packages themselves devDependency-pin, so the fixture never drifts from what the shipped .d.ts were checked against.",
   "peerDependencies": {
     "express": "5.2.1",
     "@types/express": "5.0.6",
     "fastify": "5.10.0",
     "fastify-plugin": "6.0.0",
+    "hono": "4.11.2",
+    "@hono/node-server": "1.19.7",
     "@types/node": "~20.19.43"
   },
   "commonFixtures": ["../common/api-smoke.ts", "../common/failure-types.ts"],
-  "serverTypesComment": "common/server-express-types.ts, common/server-node-types.ts and common/server-fastify-types.ts compile only in versions marked serverExpressTypes / serverFastifyTypes (server-node rides the express gate, see its file header). Neither gate is a defect in what this repo ships: express pulls in @types/node's stream/web.d.ts through @types/express-serve-static-core, which hits a real TypeScript recursive-type limitation (`ReadableByteStreamController` etc. 'referenced directly or indirectly in its own type annotation') fixed only at 5.0+, so 4.2/4.7 cannot parse it regardless of which @types/node version is installed. Fastify's own shipped .d.ts additionally needs the NoInfer utility type (TypeScript 5.4+), so it starts one lane later. See each fixture file's own header for the measured errors.",
+  "serverTypesComment": "common/server-express-types.ts, common/server-node-types.ts, common/server-fastify-types.ts and common/server-hono-types.ts compile only in versions marked serverExpressTypes / serverFastifyTypes / serverHonoTypes (server-node rides the express gate, server-hono rides the fastify gate; see each file header). None of these gates are a defect in what this repo ships: express pulls in @types/node's stream/web.d.ts through @types/express-serve-static-core, which hits a real TypeScript recursive-type limitation (`ReadableByteStreamController` etc. 'referenced directly or indirectly in its own type annotation') fixed only at 5.0+, so 4.2/4.7 cannot parse it regardless of which @types/node version is installed. Fastify's own shipped .d.ts additionally needs the NoInfer utility type (TypeScript 5.4+), so it and hono start one lane later. See each fixture file's own header for the measured errors.",
   "versions": [
     {
       "id": "4.2",
@@ -48,7 +51,8 @@
       "lib": ["es2022", "dom"],
       "decoratorTypes": true,
       "serverExpressTypes": true,
-      "serverFastifyTypes": true
+      "serverFastifyTypes": true,
+      "serverHonoTypes": true
     },
     {
       "id": "5.9",
@@ -58,7 +62,8 @@
       "typeAssertions": true,
       "decoratorTypes": true,
       "serverExpressTypes": true,
-      "serverFastifyTypes": true
+      "serverFastifyTypes": true,
+      "serverHonoTypes": true
     },
     {
       "id": "7",
@@ -68,7 +73,8 @@
       "typeAssertions": true,
       "decoratorTypes": true,
       "serverExpressTypes": true,
-      "serverFastifyTypes": true
+      "serverFastifyTypes": true,
+      "serverHonoTypes": true
     }
   ]
 }

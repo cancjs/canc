@@ -17,10 +17,10 @@
  * directly or indirectly in its own type annotation`), fixed only at 5.0+, independent of which
  * @types/node version is installed.
  *
- * `@cancjs/server-fastify` has the same shape of coverage in ./server-fastify-types.ts, gated one
- * lane later (5.4+, fastify's own extra floor). `@cancjs/server-node` has its own file,
- * ./server-node-types.ts, on the same gate as this one. `@cancjs/server-koa` and
- * `@cancjs/server-hono` are not shipped yet; they join here once their packages exist.
+ * `@cancjs/server-fastify` and `@cancjs/server-hono` have the same shape of coverage in
+ * ./server-fastify-types.ts and ./server-hono-types.ts, gated one lane later (5.4+, fastify's own
+ * extra floor). `@cancjs/server-node` has its own file, ./server-node-types.ts, on the same gate
+ * as this one. `@cancjs/server-koa` is not shipped yet; it joins here once that package exists.
  */
 import { cancelableHandler, drain, getRequestSignal } from '@cancjs/server-express';
 import type { Express, Request, Response } from 'express';

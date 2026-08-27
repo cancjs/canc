@@ -16,9 +16,10 @@
  *
  * Lanes with `typeAssertions` additionally compile the type-assertion suites
  * (common/type-assertions.ts + common/coroutine-types.ts). Lanes with `serverExpressTypes` /
- * `serverFastifyTypes` additionally compile common/server-express-types.ts +
- * common/server-node-types.ts / common/server-fastify-types.ts (gated because the frameworks'
- * own shipped types hit real TypeScript version floors below 5.0 / 5.4, see each file's header).
+ * `serverFastifyTypes` / `serverHonoTypes` additionally compile common/server-express-types.ts +
+ * common/server-node-types.ts / common/server-fastify-types.ts / common/server-hono-types.ts
+ * (gated because the frameworks' own shipped types hit real TypeScript version floors below
+ * 5.0 / 5.4, see each file's header).
  *
  * Flags:
  * --setup-only pack + install fixtures, don't run tsc
@@ -163,6 +164,9 @@ function writeFixture(version, tarballs) {
   }
   if (version.serverFastifyTypes) {
     files.push(localSource('server-fastify-types.ts'));
+  }
+  if (version.serverHonoTypes) {
+    files.push(localSource('server-hono-types.ts'));
   }
 
   const tsconfig = {
