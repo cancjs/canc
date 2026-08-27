@@ -25,6 +25,11 @@ export interface UseCancelablePromise<T> {
  *
  * The single concern here is "own one cancelable chain and stop it on scope exit". For a chain that
  * should restart when reactive inputs change, drive the factory from `useCancelableWatch` instead.
+ *
+ * A non-cancel rejection stays local to `error` here rather than reaching `onErrorCaptured` /
+ * `app.config.errorHandler` the way `useCancelableWatch` does: this composable's `.then()` is
+ * attached at setup time but settles later, detached from any watcher or `setup()` Vue itself is
+ * awaiting, so there is no call left to return a rejecting promise through.
  */
 export function useCancelablePromise<T>(
   source: CancelablePromise<T> | (() => CancelablePromise<T>),

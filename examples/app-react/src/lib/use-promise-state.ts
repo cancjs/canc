@@ -18,6 +18,11 @@ export interface PromiseState<T> {
  * resetting to `idle`, since something WAS started and idle would misreport that it was not.
  *
  * Pass `undefined` for "nothing in flight" (state stays / returns to `idle`).
+ *
+ * A non-cancel rejection stays local to `error` here rather than escalating to the nearest error
+ * boundary the way `useCancelableEffect` does: this hook already hands the caller a channel to
+ * render the failure inline, and a boundary throw would unmount the very state it just set, in the
+ * same render, discarding it before anything could read it.
  */
 export function usePromiseState<T>(promise: PromiseLike<T> | undefined): PromiseState<T> {
   const [state, setState] = useState<PromiseState<T>>({ status: 'idle' });

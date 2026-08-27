@@ -2,9 +2,30 @@ import * as canc from '@cancjs/coroutine';
 import { CancelablePromise } from '@cancjs/promise';
 import { CANCEL_REASON_DEPS_CHANGED, CANCEL_REASON_UNMOUNTED } from '@shared/util';
 import { act, render, screen } from '@testing-library/react';
-import { useState } from 'react';
+import { Component, type ReactNode, useState } from 'react';
 
 import { useCancelableEffect } from './lib/use-cancelable-effect';
+
+// class-only boundary for the spec, real boundaries have no hook form
+// records what it caught instead of rendering a fallback
+class RecordingErrorBoundary extends Component<
+  { onCatch: (error: unknown) => void; children: ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError(): { hasError: boolean } {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: unknown): void {
+    this.props.onCatch(error);
+  }
+
+  render(): ReactNode {
+    return this.state.hasError ? <div data-testid="boundary-caught" /> : this.props.children;
+  }
+}
 
 function createDeferred<T = string>(): {
   promise: CancelablePromise<T>;
@@ -172,5 +193,58 @@ describe('useCancelableEffect with thunk callback', () => {
 
     unmount();
     expect(cleanupSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('useCancelableEffect error routing', () => {
+  it('escalates a non-cancel rejection to the nearest error boundary', async () => {
+    const deferred = createDeferred<string>();
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const onCatch = jest.fn();
+
+    function TestComponent(): React.JSX.Element {
+      useCancelableEffect(() => deferred.promise, []);
+      return <div data-testid="content">content</div>;
+    }
+
+    render(
+      <RecordingErrorBoundary onCatch={onCatch}>
+        <TestComponent />
+      </RecordingErrorBoundary>,
+    );
+    expect(screen.getByTestId('content')).toBeInTheDocument();
+
+    const failure = new Error('flight search backend is down');
+    await act(async () => {
+      deferred.reject(failure);
+      await Promise.resolve();
+    });
+
+    expect(onCatch).toHaveBeenCalledWith(failure);
+    expect(screen.getByTestId('boundary-caught')).toBeInTheDocument();
+    errorSpy.mockRestore();
+  });
+
+  it('does not escalate a CancelError from an unmount-time cancel', async () => {
+    const deferred = createDeferred<string>();
+    const onCatch = jest.fn();
+
+    function TestComponent(): React.JSX.Element {
+      useCancelableEffect(() => deferred.promise, []);
+      return <div data-testid="content">content</div>;
+    }
+
+    const { unmount } = render(
+      <RecordingErrorBoundary onCatch={onCatch}>
+        <TestComponent />
+      </RecordingErrorBoundary>,
+    );
+
+    unmount();
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(onCatch).not.toHaveBeenCalled();
   });
 });

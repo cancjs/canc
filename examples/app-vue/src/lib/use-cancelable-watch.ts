@@ -20,8 +20,12 @@ export interface CancelableWatchOptions {
  * stop the async work. Here the callback returns its `CancelablePromise`, and the next trigger (or
  * scope disposal) calls `cancel()` on the previous one, so only the latest run reaches its effects.
  *
- * A `CancelError` from a superseded run is swallowed. Any other rejection is re-thrown on a
- * microtask so it surfaces as an unhandled rejection rather than being silently dropped.
+ * A `CancelError` from a superseded run is swallowed, expected: the run it belonged to was
+ * deliberately abandoned. Any other rejection is left to propagate on the promise this composable
+ * hands back to `watch` itself, so Vue's own watcher error handling sees it and routes it to
+ * `onErrorCaptured` / `app.config.errorHandler` (both documented sources for "watchers"), instead
+ * of the previous approach of re-throwing on a bare microtask, which only ever reached the
+ * console, never Vue's error system.
  */
 export function useCancelableWatch<T>(
   source: WatchSource<T>,
@@ -42,13 +46,17 @@ export function useCancelableWatch<T>(
       cancelPending();
       const promise = callback(value);
       pending = promise;
-      promise.then(
+
+      // returned to watch, so Vue routes a real rejection to its own error handling
+      // a CancelError never gets here, it is caught and swallowed above
+      return promise.then(
         () => {
           if (pending === promise) pending = undefined;
         },
         (reason) => {
           if (pending === promise) pending = undefined;
-          if (!isCancelError(reason)) Promise.reject(reason);
+          if (isCancelError(reason)) return;
+          throw reason;
         },
       );
     },

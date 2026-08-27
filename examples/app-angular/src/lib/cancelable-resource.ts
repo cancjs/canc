@@ -1,4 +1,4 @@
-import { DestroyRef, inject } from '@angular/core';
+import { DestroyRef, ErrorHandler, inject } from '@angular/core';
 import { type CancelablePromise, isCancelError } from '@cancjs/promise';
 
 /** Settlement state of the latest run. `idle` also covers a run that was canceled. */
@@ -11,6 +11,12 @@ export type ResourceStatus = 'idle' | 'pending' | 'fulfilled' | 'rejected';
  *
  * Angular 19 ships a `resource()` primitive with the same vocabulary (`value`, `error`, `status`).
  * This is the same idea for an app on an earlier version, backed by a cancelable promise.
+ *
+ * A `CancelError` on the pending load is expected (a supersede or a destroy) and only resets
+ * `status`/`value`/`error`. Any other rejection also reaches Angular's own `ErrorHandler`, on top
+ * of being stored on `error` for the template: the local field is opt-in (a component only reads
+ * it if it renders an inline error branch), so without the `ErrorHandler` call a real failure a
+ * component does not render for would otherwise be invisible everywhere.
  */
 export class CancelableResource<T> {
   status: ResourceStatus = 'idle';
@@ -19,7 +25,10 @@ export class CancelableResource<T> {
 
   private pending: CancelablePromise<T> | undefined;
 
-  constructor(destroyRef: DestroyRef) {
+  constructor(
+    destroyRef: DestroyRef,
+    private readonly errorHandler: ErrorHandler,
+  ) {
     // destroy cancels in-flight load and aborts request
     destroyRef.onDestroy(() => this.reset());
   }
@@ -42,9 +51,15 @@ export class CancelableResource<T> {
       (reason: unknown) => {
         if (this.pending !== promise) return;
         this.pending = undefined;
-        // canceled run resets to idle instead of surfacing
-        this.status = isCancelError(reason) ? 'idle' : 'rejected';
-        this.error = isCancelError(reason) ? undefined : reason;
+        if (isCancelError(reason)) {
+          // canceled run resets to idle instead of surfacing
+          this.status = 'idle';
+          this.error = undefined;
+          return;
+        }
+        this.status = 'rejected';
+        this.error = reason;
+        this.errorHandler.handleError(reason);
       },
     );
   }
@@ -67,5 +82,5 @@ export class CancelableResource<T> {
 
 /** Creates a resource bound to the current component's lifetime. Call it in an injection context. */
 export function cancelableResource<T>(): CancelableResource<T> {
-  return new CancelableResource<T>(inject(DestroyRef));
+  return new CancelableResource<T>(inject(DestroyRef), inject(ErrorHandler));
 }
