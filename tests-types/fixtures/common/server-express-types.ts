@@ -20,7 +20,8 @@
  * `@cancjs/server-fastify` and `@cancjs/server-hono` have the same shape of coverage in
  * ./server-fastify-types.ts and ./server-hono-types.ts, gated one lane later (5.4+, fastify's own
  * extra floor). `@cancjs/server-node` has its own file, ./server-node-types.ts, on the same gate
- * as this one. `@cancjs/server-koa` is not shipped yet; it joins here once that package exists.
+ * as this one. `@cancjs/server-koa` has its own file too, ./server-koa-types.ts, ungated (koa hits
+ * no equivalent TypeScript version floor).
  */
 import { cancelableHandler, drain, getRequestSignal } from '@cancjs/server-express';
 import type { Express, Request, Response } from 'express';
