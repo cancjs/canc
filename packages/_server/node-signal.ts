@@ -67,7 +67,16 @@ function wireDisconnect(req: IRequestLike, res: IResponseLike, state: IRequestCa
   // socket still alive
   //
   // an external signal is adopted only through the explicit signal option
-  if (req.destroyed) {
+  // the pre-flight reads the response too, never req.destroyed, for the same reason the listener
+  // does: a fully consumed request stream auto-destroys itself, so on a body-carrying POST
+  // req.destroyed flips true one microtask after the body parser finishes, with the socket still
+  // open (measured on node 24.18.1 with express 5.2.1: req.destroyed=true, socket.destroyed=false,
+  // res.destroyed=false). anything installing the signal later than the same tick as the route,
+  // a nest interceptor for one, would cancel every such request on arrival
+  //
+  // res.destroyed with !writableEnded is the pair that separates the two: a client that really
+  // left reports both destroyed, a healthy request reports neither
+  if (isAlreadyGone(res)) {
     untrackRequest(req, state);
     state.cancel(CLIENT_DISCONNECTED);
 
@@ -82,4 +91,8 @@ function wireDisconnect(req: IRequestLike, res: IResponseLike, state: IRequestCa
       state.cancel(CLIENT_DISCONNECTED);
     }
   });
+}
+
+function isAlreadyGone(res: IResponseLike): boolean {
+  return res.destroyed === true && res.writableEnded !== true;
 }

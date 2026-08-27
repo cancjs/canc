@@ -67,9 +67,9 @@ describe('generator handler', () => {
     expect(await task).toBe(42);
   });
 
-  it('never steps for an already destroyed request', async () => {
+  it('never steps for a client that already went away', async () => {
     const { req, res } = createExchange();
-    req.destroyed = true;
+    res.destroyed = true;
     let stepped = false;
 
     const task = runCancelableHandler(
@@ -301,9 +301,9 @@ describe('lifecycle callbacks', () => {
     }
   });
 
-  it('reports a request that was already gone', async () => {
+  it('reports a client that was already gone', async () => {
     const { req, res } = createExchange();
-    req.destroyed = true;
+    res.destroyed = true;
     const onDisconnect = jest.fn();
 
     await outcomeOf(runCancelableHandler(() => pending(), req, res, { onDisconnect }));

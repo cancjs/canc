@@ -63,15 +63,27 @@ describe('node request signal', () => {
     expect(signal.aborted).toBe(false);
   });
 
-  it('cancels at wrap time for an already destroyed request', () => {
+  it('cancels at wrap time for a client that already went away', () => {
     const { req, res } = createExchange();
-    req.destroyed = true;
+    res.destroyed = true;
 
     const signal = getNodeRequestSignal(req, res);
 
     expect(signal.aborted).toBe(true);
     expect(isCancelError(signal.reason)).toBe(true);
     expect(res.listenerCount('close')).toBe(0);
+  });
+
+  it('does not cancel when only the request stream was destroyed', () => {
+    // a consumed body auto-destroys the request stream, so a POST wrapped a tick after the body
+    // parser arrives here with req.destroyed already true and the client still connected
+    const { req, res } = createExchange();
+    req.destroyed = true;
+
+    const signal = getNodeRequestSignal(req, res);
+
+    expect(signal.aborted).toBe(false);
+    expect(res.listenerCount('close')).toBe(1);
   });
 
   it('removes the close listener once the response is over', () => {
