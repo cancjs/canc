@@ -12,6 +12,7 @@
   "dependencies": {
     "@cancjs/coroutine": "file:../../packages/canc-coroutine",
     "@cancjs/promise": "file:../../packages/canc-promise",
+    "@cancjs/server-express": "file:../../packages/canc-server/express",
     "@cancjs/toolbox": "file:../../packages/canc-toolbox",
     "@cancjs/unhandled-rejection": "file:../../packages/canc-unhandled-rejection",
     "@electric-sql/pglite": "0.2.17",

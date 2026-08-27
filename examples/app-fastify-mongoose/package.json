@@ -12,6 +12,7 @@
   "dependencies": {
     "@cancjs/promise": "file:../../packages/canc-promise",
     "@cancjs/coroutine": "file:../../packages/canc-coroutine",
+    "@cancjs/server-fastify": "file:../../packages/canc-server/fastify",
     "@cancjs/toolbox": "file:../../packages/canc-toolbox",
     "@cancjs/unhandled-rejection": "file:../../packages/canc-unhandled-rejection",
     "fastify": "5.10.0",
