@@ -55,6 +55,25 @@ function createFakeTimers(): IFakeTimers {
   };
 }
 
+// asserts on the process hook rather than on console noise
+function trackUnhandledRejections() {
+  const seen: unknown[] = [];
+  const record = (reason: unknown) => {
+    seen.push(reason);
+  };
+
+  process.on('unhandledRejection', record);
+
+  return async function collect() {
+    // node reports a rejection once the microtask queue drains, so cross two turn boundaries first
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    process.off('unhandledRejection', record);
+
+    return seen;
+  };
+}
+
 describe('retry', () => {
   afterEach(() => {
     jest.useRealTimers();
@@ -378,5 +397,66 @@ describe('retry', () => {
 
     await flushMicrotasks();
     expect(pair.delays).toEqual([300]);
+  });
+
+  it('a throw from onRetry rejects the retry with that error and schedules no attempt', async () => {
+    const pair = createFakeTimers();
+    const boom = new Error('onRetry threw');
+    const fn = jest.fn().mockRejectedValue(new Error('fail'));
+    const onRetry = jest.fn(() => {
+      throw boom;
+    });
+
+    await expect(retry(fn, { retries: 3, initialDelay: 10, onRetry, ...pair.timers })).rejects.toBe(boom);
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(pair.delays).toEqual([]);
+  });
+
+  // The async branch resumes outside the guard the synchronous one runs under.
+  it('a throw from onRetry after an async shouldRetry rejects the retry too', async () => {
+    const pair = createFakeTimers();
+    const boom = new Error('onRetry threw');
+    const fn = jest.fn().mockRejectedValue(new Error('fail'));
+    const onRetry = jest.fn(() => {
+      throw boom;
+    });
+    const shouldRetry = jest.fn(() => Promise.resolve(true));
+
+    await expect(retry(fn, { retries: 3, initialDelay: 10, shouldRetry, onRetry, ...pair.timers })).rejects.toBe(boom);
+    expect(pair.delays).toEqual([]);
+  });
+
+  it('a throw from onRetry produces no unhandled rejection', async () => {
+    const collect = trackUnhandledRejections();
+    const pair = createFakeTimers();
+    const boom = new Error('onRetry threw');
+    const fn = jest.fn().mockRejectedValue(new Error('fail'));
+
+    await expect(
+      retry(fn, {
+        retries: 3,
+        initialDelay: 10,
+        onRetry: () => {
+          throw boom;
+        },
+        ...pair.timers,
+      }),
+    ).rejects.toBe(boom);
+
+    await expect(collect()).resolves.toEqual([]);
+  });
+
+  // jitter: -1 inverts the range, so resolveDuration throws where the wait is computed.
+  it('a jitter fraction that inverts the range rejects with the RangeError, with none unhandled', async () => {
+    const collect = trackUnhandledRejections();
+    const pair = createFakeTimers();
+    const fn = jest.fn().mockRejectedValue(new Error('fail'));
+
+    await expect(retry(fn, { retries: 3, initialDelay: 10, jitter: -1, ...pair.timers })).rejects.toBeInstanceOf(
+      RangeError,
+    );
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(pair.delays).toEqual([]);
+    await expect(collect()).resolves.toEqual([]);
   });
 });

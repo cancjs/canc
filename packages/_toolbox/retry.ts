@@ -29,7 +29,8 @@ export type IRetryOptions = TCallDeps & {
    * `false` (default) waits exactly the computed delay. `true` picks uniformly in `[0, computed]`
    * (full jitter). A number `f` picks uniformly in `[computed*(1-f), computed*(1+f)]`, clamped at
    * 0. `maxDelay` is applied to the base delay BEFORE jitter, so a jittered wait can exceed
-   * `maxDelay` by up to a factor of `(1 + f)`.
+   * `maxDelay` by up to a factor of `(1 + f)`. A negative `f` inverts the range and rejects the
+   * retry with a `RangeError`.
    */
   jitter?: boolean | number;
   /** Decide per failure. May be async. Returning false rejects with that reason immediately. */
@@ -71,6 +72,9 @@ export function retryFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
    * implementation is cancelable-shaped, canceling the returned promise stops a pending backoff
    * wait, cancels an in-flight attempt, and aborts a pending async `shouldRetry` without scheduling
    * another attempt; a plain native Promise has no cancellation and simply runs to its retry budget.
+   *
+   * A throw from `shouldRetry`, `delay` or `onRetry` rejects the returned promise with that error
+   * and starts no further attempt.
    */
   return function retry<T, F = never>(
     input: (attempt: number) => T | PromiseLike<T>,
@@ -127,62 +131,59 @@ export function retryFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
             elapsed: Date.now() - startedAt,
           };
 
-          const base = initialDelay * Math.pow(factor, n - 1);
-          const capped = Math.min(maxDelay, base);
-          const computedDelay = applyJitter(capped, jitter);
+          // nothing reads the chain this runs in, so an escaping throw would strand the retry
+          // pending and surface as an unhandled rejection instead of a result
+          try {
+            const base = initialDelay * Math.pow(factor, n - 1);
+            const capped = Math.min(maxDelay, base);
+            const computedDelay = applyJitter(capped, jitter);
 
-          let wait = computedDelay;
+            let wait = computedDelay;
 
-          if (delayOverride) {
-            let overridden: number | undefined;
+            if (delayOverride) {
+              const overridden = delayOverride({ ...ctxBase, computedDelay });
 
-            try {
-              overridden = delayOverride({ ...ctxBase, computedDelay });
-            } catch (err) {
-              reject(err);
+              if (overridden !== undefined) wait = overridden;
+            }
+
+            const afterShouldRetry = (allow: boolean) => {
+              if (canceled) return;
+
+              if (!allow) {
+                reject(reason);
+                return;
+              }
+
+              // guarded again because an async shouldRetry resumes here after the outer try exited
+              try {
+                onRetry?.(reason, n, wait);
+                scheduleNext(n, wait);
+              } catch (err) {
+                reject(err);
+              }
+            };
+
+            if (shouldRetry) {
+              const result = shouldRetry(reason, ctxBase);
+
+              if (isThenableLike(result)) {
+                deps.Impl.resolve(result).then(
+                  (allow: boolean) => afterShouldRetry(allow),
+                  (err: any) => {
+                    if (!canceled) reject(err);
+                  },
+                );
+                return;
+              }
+
+              afterShouldRetry(result);
               return;
             }
 
-            if (overridden !== undefined) wait = overridden;
+            afterShouldRetry(true);
+          } catch (err) {
+            reject(err);
           }
-
-          const afterShouldRetry = (allow: boolean) => {
-            if (canceled) return;
-
-            if (!allow) {
-              reject(reason);
-              return;
-            }
-
-            onRetry?.(reason, n, wait);
-            scheduleNext(n, wait);
-          };
-
-          if (shouldRetry) {
-            let result: boolean | PromiseLike<boolean>;
-
-            try {
-              result = shouldRetry(reason, ctxBase);
-            } catch (err) {
-              reject(err);
-              return;
-            }
-
-            if (isThenableLike(result)) {
-              deps.Impl.resolve(result).then(
-                (allow: boolean) => afterShouldRetry(allow),
-                (err: any) => {
-                  if (!canceled) reject(err);
-                },
-              );
-              return;
-            }
-
-            afterShouldRetry(result);
-            return;
-          }
-
-          afterShouldRetry(true);
         };
 
         const attempt = (n: number) => {
