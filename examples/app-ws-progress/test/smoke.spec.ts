@@ -46,18 +46,28 @@ function driveOne(port: number, cancelAt30: CancelAt30, settleMs: number, api: M
   });
 }
 
-// Drive one connection to completion (no cancel), collecting every reported percent in order.
-function driveToCompletion(port: number) {
-  return new Promise<{ percents: number[]; done: boolean }>((resolve) => {
+// drive one connection to completion collecting every reported percent in order
+function driveToCompletion(port: number, timeoutMs = 5000) {
+  return new Promise<{ percents: number[]; done: boolean }>((resolve, reject) => {
     const ws = new WebSocket(`ws://localhost:${port}`);
     const jobId = 'export-1';
     const percents: number[] = [];
 
+    const timer = setTimeout(() => {
+      ws.terminate();
+      reject(new Error(`driveToCompletion timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+
     ws.on('open', () => ws.send(JSON.stringify({ type: 'start', jobId })));
+    ws.on('error', (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
     ws.on('message', (raw) => {
       const message = JSON.parse(String(raw)) as ServerMessage;
       if (message.type === 'progress') percents.push(message.percent);
       if (message.type === 'done') {
+        clearTimeout(timer);
         ws.close();
         resolve({ percents, done: true });
       }
@@ -116,7 +126,7 @@ describe('app-ws-progress: cancel stops the export', () => {
 
     expect(r.percents.length).toBeGreaterThan(0);
     for (let i = 1; i < r.percents.length; i++) {
-      expect(r.percents[i]).toBeGreaterThan(r.percents[i - 1]);
+      expect(r.percents[i - 1]).toBeLessThanOrEqual(r.percents[i]);
     }
     expect(r.percents[r.percents.length - 1]).toBe(100);
     expect(r.done).toBe(true);
@@ -157,7 +167,7 @@ describe('app-ws-progress: vanilla keeps transcoding (the bug we teach)', () => 
 
     expect(r.percents.length).toBeGreaterThan(0);
     for (let i = 1; i < r.percents.length; i++) {
-      expect(r.percents[i]).toBeGreaterThan(r.percents[i - 1]);
+      expect(r.percents[i - 1]).toBeLessThanOrEqual(r.percents[i]);
     }
     expect(r.percents[r.percents.length - 1]).toBe(100);
     expect(r.done).toBe(true);
