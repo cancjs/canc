@@ -43,7 +43,7 @@ const plugin: FastifyPluginAsync<ICancelableHandlerOptions> = function cancelPlu
  * needed to use this.
  */
 export const cancelPlugin = fastifyPlugin(plugin, {
-  fastify: '5.x',
+  fastify: '>=5.0.0',
   name: '@cancjs/server-fastify',
 });
 
