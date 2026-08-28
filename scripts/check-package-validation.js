@@ -192,6 +192,15 @@ async function checkPackage(pkgName) {
     }
   }
 
+  for (const f of packedFiles) {
+    if (/\.d\.(m|c)?ts$/.test(f)) {
+      const content = fs.readFileSync(path.join(pkgDir, f), 'utf8');
+      if (/(?:from\s+|import\s*|import\s*\(\s*)(['"])packages\//.test(content)) {
+        problems.push(`packed types contain a bare packages/ import specifier in ${f}`);
+      }
+    }
+  }
+
   problems.push(...(await collectDefaultExportShadowing(pkgDir, manifest)));
 
   try {
