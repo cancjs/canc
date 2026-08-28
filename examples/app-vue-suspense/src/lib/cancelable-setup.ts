@@ -60,7 +60,7 @@ function isGenerator(value: unknown): value is canc.TGeneratorLike<unknown, unkn
  */
 export function cancelableSetup<Props, Result>(
   setup: CancelableSetup<Props, Result, any>,
-): (props: Props, ctx: SetupContext) => Result | Promise<Result> {
+): (props: Props, ctx: SetupContext) => Result | Promise<Result | undefined> {
   return (props: Props, ctx: SetupContext) => {
     const started = setup(props, ctx);
 
@@ -83,6 +83,6 @@ export function cancelableSetup<Props, Result>(
 
     // suppressed promise keeps a superseded run's CancelError from reaching Vue's own await
     // a real error on task still rejects this one, unchanged
-    return suppressCancel(task) as unknown as Promise<Result>;
+    return suppressCancel(task);
   };
 }
