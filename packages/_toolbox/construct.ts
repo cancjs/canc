@@ -19,7 +19,7 @@ export type TPromiseCtor = (new (
  * cancelable-shaped implementation. A plain native Promise calls the executor with two arguments,
  * so callers must feature-detect the context before use.
  */
-export type THandleCancel = (onCancel: () => void) => void;
+export type THandleCancel = (onCancel: (reason?: any) => void) => void;
 
 /**
  * The executor context object shape. Cancelable implementations provide this as the executor's

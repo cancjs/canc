@@ -147,7 +147,7 @@ export function limitFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
         };
 
         if (ctx) {
-          ctx.handleCancel(function () {
+          ctx.handleCancel(function (reason?: any) {
             if (!entry.started) {
               const index = queue.indexOf(entry);
 
@@ -156,7 +156,7 @@ export function limitFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
               return;
             }
 
-            if (isCancelableLike(entry.job)) entry.job.cancel();
+            if (isCancelableLike(entry.job)) entry.job.cancel(reason);
           });
         }
 

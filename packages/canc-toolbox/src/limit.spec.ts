@@ -117,6 +117,44 @@ describe('limit', () => {
     expect(limited.active).toBe(0);
   });
 
+  it('forwards the cancel reason to the running job when the handle is canceled', async () => {
+    const limited = limit(1);
+    let observedReason: unknown;
+
+    const task = () =>
+      new CancelablePromise<string>((_resolve, _reject, { handleCancel }) => {
+        handleCancel((reason) => {
+          observedReason = reason;
+        });
+      });
+
+    const handle = limited(task);
+    const customReason = { code: 'CUSTOM_CANCEL', message: 'stop now' };
+
+    handle.cancel(customReason);
+
+    expect(observedReason).toBe(customReason);
+  });
+
+  it('forwards the cancel reason to the running job when the limiter is canceled', async () => {
+    const limited = limit(1);
+    let observedReason: unknown;
+
+    const task = () =>
+      new CancelablePromise<string>((_resolve, _reject, { handleCancel }) => {
+        handleCancel((reason) => {
+          observedReason = reason;
+        });
+      });
+
+    limited(task);
+    const customReason = { code: 'LIMITER_CANCEL', message: 'stop pool' };
+
+    limited.cancel(customReason);
+
+    expect(observedReason).toBe(customReason);
+  });
+
   it('drops the queue and cancels running jobs on cancel', async () => {
     const limited = limit(1);
     const running = createJob('running');
