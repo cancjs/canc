@@ -7,8 +7,9 @@ import { type EntityManager, RequestContext } from '@mikro-orm/core';
  * means the request-context middleware was not installed ahead of the route (a wiring bug worth
  * failing loudly on, rather than silently querying an unscoped global manager).
  *
- * RequestContext is a MikroORM feature, not a canc one, so both flavors use it. The difference is
- * only whether the fork carries an abort signal (canc) or the handler threads one by hand (vanilla).
+ * RequestContext is a MikroORM feature, not a canc one, so both flavors use it, and both bind the
+ * request's signal to the fork. The difference is what happens between two queries: the canc handler
+ * is a coroutine and stops on its own, the vanilla one reads the signal back and checks it.
  */
 export function getReqEm(): EntityManager {
   const em = RequestContext.getEntityManager();

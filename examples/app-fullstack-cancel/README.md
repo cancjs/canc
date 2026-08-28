@@ -102,11 +102,13 @@ The `-vanilla` twin does exactly the same job with a hand-threaded AbortControll
 what canc removes.
 
 - `server/search-service-vanilla.ts` vs `server/search-service-canc.ts`: the search, with a drilled
-  signal and manual `throwIfAborted` versus an ambient coroutine.
-- `server/routes-vanilla.ts` vs `server/routes-canc.ts`: reading the signal and threading it by hand
-  versus a signal-free generator route.
+  signal and manual `throwIfAborted` between statements versus an ambient coroutine.
+- `server/routes-vanilla.ts` vs `server/routes-canc.ts`: reading the signal back, threading it into
+  the service and checking it before responding, versus a signal-free generator route.
 - `server/lib/orm-req-context-vanilla.ts` vs `server/lib/orm-req-context-canc.ts`: the same
-  RequestContext middleware, with the fork bound to the abort signal only on the canc side.
+  RequestContext middleware, binding the same request signal to the fork. Only the source of the
+  signal differs, so this pair is nearly identical on purpose: binding a signal to the fork is a
+  MikroORM feature and the vanilla side gets it too. The cost shows up one layer down.
 - `server/lib/get-req-signal-vanilla.ts` has no `-canc` twin left to diff against. It stays
   hand-rolled on purpose, because that is what writing this yourself costs; the canc side is now
   `getRequestSignal` from `@cancjs/server-express`, which is the same idea with the disconnect guard
