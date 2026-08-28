@@ -2,7 +2,7 @@ import * as canc from '@cancjs/coroutine';
 import { CancelablePromise } from '@cancjs/promise';
 import { CANCEL_REASON_DEPS_CHANGED, CANCEL_REASON_UNMOUNTED } from '@shared/util';
 import { act, render, screen } from '@testing-library/react';
-import { Component, type ReactNode, useState } from 'react';
+import { Component, type ReactNode, StrictMode, useState } from 'react';
 
 import { useCancelableEffect } from './lib/use-cancelable-effect';
 
@@ -178,6 +178,44 @@ describe('useCancelableEffect with thunk callback', () => {
 
     unmount();
     expect(secondDeferred.cancelReason()).toBe(CANCEL_REASON_UNMOUNTED);
+  });
+
+  it('reports deps-changed reason when dependencies change after StrictMode remount', () => {
+    const runs: ReturnType<typeof createDeferred<string>>[] = [];
+
+    function TestComponent({ step }: { step: number }): React.JSX.Element {
+      useCancelableEffect(() => {
+        const deferred = createDeferred<string>();
+        runs.push(deferred);
+        return deferred.promise;
+      }, [step]);
+      return <div>strict</div>;
+    }
+
+    const { rerender, unmount } = render(
+      <StrictMode>
+        <TestComponent step={1} />
+      </StrictMode>,
+    );
+
+    expect(runs).toHaveLength(2);
+    expect(runs[0].isCanceled()).toBe(true);
+    expect(runs[0].cancelReason()).toBe(CANCEL_REASON_UNMOUNTED);
+    expect(runs[1].isCanceled()).toBe(false);
+
+    rerender(
+      <StrictMode>
+        <TestComponent step={2} />
+      </StrictMode>,
+    );
+
+    expect(runs[1].isCanceled()).toBe(true);
+    expect(runs[1].cancelReason()).toBe(CANCEL_REASON_DEPS_CHANGED);
+
+    unmount();
+    const lastRun = runs[runs.length - 1];
+    expect(lastRun.isCanceled()).toBe(true);
+    expect(lastRun.cancelReason()).toBe(CANCEL_REASON_UNMOUNTED);
   });
 
   it('runs returned cleanup function on unmount', () => {

@@ -54,16 +54,15 @@ export function useCancelableEffect(
   callbackOrGenerator: CancelableEffectCallback | CancelableGeneratorEffectCallback,
   deps?: DependencyList,
 ): void {
-  // cleanup here fires only at true unmount, empty deps never re-run it
-  // React tears effects down in registration order, so this flips before the effect below's own
-  // cleanup runs at unmount, letting that cleanup tell "unmounting" apart from "deps changed"
+  // reset on mount/remount so StrictMode simulation leaves flag clear
+  // flips before main cleanup to distinguish unmount from deps change
   const unmounting = useRef(false);
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    unmounting.current = false;
+    return () => {
       unmounting.current = true;
-    },
-    [],
-  );
+    };
+  }, []);
 
   // Unused slot: calling this setter with an updater that throws makes the next render throw,
   // which is what lets a rejection from outside React's call stack reach a boundary at all.
