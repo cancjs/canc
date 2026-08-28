@@ -16,8 +16,10 @@ const PACKAGE_TO_SCOPE = {
   'canc-axios': 'axios',
   'canc-toolbox': 'toolbox',
   'canc-toolbox-native': 'toolbox',
+  'canc-server': 'server',
   _toolbox: 'toolbox',
   _util: 'util',
+  _server: 'server',
 };
 
 const PACKAGE_SCOPES = new Set(Object.values(PACKAGE_TO_SCOPE));
