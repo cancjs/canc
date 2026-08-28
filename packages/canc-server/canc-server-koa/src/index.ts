@@ -46,8 +46,8 @@ export function cancelableHandler<StateT = DefaultState, ContextT = DefaultConte
       await task;
     } catch (error) {
       if (isUnanswerable(error, ctx.res)) {
-        // bypass koa's own respond(): ctx.writable reads the raw socket rather than res.destroyed,
-        // so this layer trusts only the guard the rest of the family measures against (F-S1)
+        // unlike koa's ctx.writable (raw socket), this layer checks res.destroyed
+        // && !res.writableEnded to decide if response is dead, so bypass respond()
         ctx.respond = false;
 
         return;
