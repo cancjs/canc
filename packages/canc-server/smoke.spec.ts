@@ -9,11 +9,11 @@ import Fastify, { FastifyInstance } from 'fastify';
 import { Hono } from 'hono';
 import Koa from 'koa';
 
-import * as expressServer from './express/src';
-import * as fastifyServer from './fastify/src';
-import * as honoServer from './hono/src';
-import * as koaServer from './koa/src';
-import * as nodeServer from './node/src';
+import * as expressServer from './canc-server-express/src';
+import * as fastifyServer from './canc-server-fastify/src';
+import * as honoServer from './canc-server-hono/src';
+import * as koaServer from './canc-server-koa/src';
+import * as nodeServer from './canc-server-node/src';
 
 /**
  * End-to-end checks for the whole server family against real sockets.
