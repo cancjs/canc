@@ -45,6 +45,7 @@ module.exports = {
 
   modulePathIgnorePatterns: ['/~~', '~~/'],
   roots: ['<rootDir>/src'],
+  setupFilesAfterEnv: [path.join(__dirname, 'jest.setup.js')],
   testEnvironment: 'node',
   testPathIgnorePatterns: ['/node_modules/', '/~~', '~~/'],
   transform: {

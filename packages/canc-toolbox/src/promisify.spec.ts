@@ -109,12 +109,13 @@ describe('promisify', () => {
 
   describe('short-circuit on cancel', () => {
     it('a late-firing callback after cancel is a no-op: no throw, no double-settle', async () => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
       let firedCallback: ((err: any, value?: number) => void) | undefined;
 
       const errfirstFn = (cb: (err: any, value?: number) => void) => {
         firedCallback = cb;
         // Simulates a slow async op where callback fires after cancel()
-        setTimeout(() => cb(null, 42), 50);
+        timer = setTimeout(() => cb(null, 42), 50);
       };
 
       const wrapped = promisify(errfirstFn);
@@ -128,6 +129,7 @@ describe('promisify', () => {
 
       // The late callback firing after cancel must not throw and must not flip the settlement.
       expect(() => firedCallback?.(null, 42)).not.toThrow();
+      clearTimeout(timer);
     });
   });
 });

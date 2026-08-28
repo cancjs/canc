@@ -148,12 +148,13 @@ describe('LazyPromise', () => {
 
   describe('resettable', () => {
     it('re-runs the executor after all consumers cancel before settle', async () => {
+      const timers: ReturnType<typeof setTimeout>[] = [];
       let runs = 0;
       const p = lazy<number>(
         (resolve) => {
           runs++;
           // Never settle synchronously so the pre-settle cancel window stays open.
-          setTimeout(() => resolve(runs), 1000);
+          timers.push(setTimeout(() => resolve(runs), 1000));
         },
         { resettable: true },
       );
@@ -177,14 +178,16 @@ describe('LazyPromise', () => {
       );
       await Promise.resolve();
       expect(runs).toBe(2);
+      timers.forEach((t) => clearTimeout(t));
     });
 
     it('keeps running while other consumers remain', () => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
       let runs = 0;
       const p = lazy<number>(
         (resolve) => {
           runs++;
-          setTimeout(() => resolve(1), 1000);
+          timer = setTimeout(() => resolve(1), 1000);
         },
         { resettable: true },
       );
@@ -203,6 +206,7 @@ describe('LazyPromise', () => {
       p.cancel();
       expect(p.started).toBe(true);
       expect(runs).toBe(1);
+      clearTimeout(timer);
     });
   });
 

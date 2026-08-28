@@ -268,8 +268,9 @@ describe('{ lazy: true } (cancelable)', () => {
       const minDelay = minDelayFactory(spies.deps);
       const job = jest.fn(() => 'result');
 
-      minDelay(job, 10, { lazy: true } as any);
+      const p = minDelay(job, 10, { lazy: true } as any);
       expect(job).toHaveBeenCalledTimes(1);
+      p.cancel();
     });
   });
 });
