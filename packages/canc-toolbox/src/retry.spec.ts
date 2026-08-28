@@ -356,4 +356,41 @@ describe('retry (cancelable)', () => {
     expect(fn).toHaveBeenCalledTimes(1);
     expect(seenElapsed).toBeGreaterThanOrEqual(0);
   });
+
+  it('a synchronous throw from shouldRetry rejects the retry with that error and schedules no attempt', async () => {
+    const pair = createFakeTimers();
+    const boom = new Error('shouldRetry threw');
+    const fn = jest.fn().mockRejectedValue(new Error('fail'));
+    const shouldRetry = jest.fn(() => {
+      throw boom;
+    });
+
+    await expect(retry(fn, { retries: 3, initialDelay: 10, shouldRetry, ...pair.timers })).rejects.toBe(boom);
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(pair.delays).toEqual([]);
+  });
+
+  it('an asynchronous rejection from shouldRetry rejects the retry with that error and schedules no attempt', async () => {
+    const pair = createFakeTimers();
+    const boom = new Error('async shouldRetry rejected');
+    const fn = jest.fn().mockRejectedValue(new Error('fail'));
+    const shouldRetry = jest.fn(() => Promise.reject(boom));
+
+    await expect(retry(fn, { retries: 3, initialDelay: 10, shouldRetry, ...pair.timers })).rejects.toBe(boom);
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(pair.delays).toEqual([]);
+  });
+
+  it('a throw from delay rejects the retry with that error and schedules no attempt', async () => {
+    const pair = createFakeTimers();
+    const boom = new Error('delay threw');
+    const fn = jest.fn().mockRejectedValue(new Error('fail'));
+    const delay = jest.fn(() => {
+      throw boom;
+    });
+
+    await expect(retry(fn, { retries: 3, initialDelay: 10, delay, ...pair.timers })).rejects.toBe(boom);
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(pair.delays).toEqual([]);
+  });
 });
