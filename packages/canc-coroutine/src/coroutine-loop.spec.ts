@@ -520,3 +520,211 @@ describe('cancForAwait handle form', () => {
     expect(await co()).toBeInstanceOf(IterationError);
   });
 });
+
+describe('cancForAwait.next() sugar form', () => {
+  it('sugar only: single loop visits every item', async () => {
+    const log: any[] = [];
+    const co = cancAsync(function* () {
+      const source = makeLoggedSource([10, 20, 30], log);
+
+      for (const item of yield* cancForAwait(source)) {
+        yield* cancForAwait.next();
+        log.push(item);
+      }
+
+      return log;
+    });
+
+    const result = await co();
+    expect(result).toEqual([10, 20, 'cleanup', 30]);
+  });
+
+  it('handle form: regression behavior unchanged', async () => {
+    const log: any[] = [];
+    const co = cancAsync(function* () {
+      const loop = yield* cancForAwait(makeLoggedSource([10, 20, 30], log));
+
+      for (const item of loop) {
+        yield* loop.next();
+        log.push(item);
+      }
+
+      return log;
+    });
+
+    const result = await co();
+    expect(result).toEqual([10, 20, 'cleanup', 30]);
+  });
+
+  it('both spellings alternating in one body target the same handle', async () => {
+    const log: any[] = [];
+    const co = cancAsync(function* () {
+      const loop = yield* cancForAwait(makeLoggedSource([1, 2, 3], log));
+
+      for (const item of loop) {
+        if (item === 2) {
+          yield* cancForAwait.next();
+        } else {
+          yield* loop.next();
+        }
+        log.push(item);
+      }
+
+      return log;
+    });
+
+    const result = await co();
+    expect(result).toEqual([1, 2, 'cleanup', 3]);
+  });
+
+  it('nested: outer handle, inner sugar', async () => {
+    const log: any[] = [];
+    const co = cancAsync(function* () {
+      const outer = yield* cancForAwait(makeLoggedSource([1, 2], log, 'outer'));
+
+      for (const outerItem of outer) {
+        for (const innerItem of yield* cancForAwait(makeLoggedSource(['a', 'b'], log, 'inner'))) {
+          yield* cancForAwait.next();
+          log.push(`${outerItem}${innerItem}`);
+        }
+
+        yield* outer.next();
+      }
+
+      return log;
+    });
+
+    const result = await co();
+    expect(result).toEqual(['1a', 'inner', '1b', '2a', 'inner', '2b', 'outer']);
+  });
+
+  it('nested: both sugar, outer advance after inner exhausts targets outer', async () => {
+    const log: any[] = [];
+    const co = cancAsync(function* () {
+      const outer = yield* cancForAwait(makeLoggedSource([1, 2], log, 'outer'));
+
+      for (const outerItem of outer) {
+        const inner = yield* cancForAwait(makeLoggedSource(['a', 'b'], log, 'inner'));
+
+        for (const innerItem of inner) {
+          yield* cancForAwait.next();
+          log.push(`${outerItem}${innerItem}`);
+        }
+
+        yield* cancForAwait.next();
+      }
+
+      return log;
+    });
+
+    const result = await co();
+    expect(result).toEqual(['1a', 'inner', '1b', '2a', 'inner', '2b', 'outer']);
+  });
+
+  it('nested: inner break, then outer sugar targets outer', async () => {
+    const log: any[] = [];
+    const co = cancAsync(function* () {
+      const outer = yield* cancForAwait(makeLoggedSource([1, 2, 3], log, 'outer'));
+
+      for (const outerItem of outer) {
+        const inner = yield* cancForAwait(makeLoggedSource(['a', 'b', 'c'], log, 'inner'));
+
+        for (const innerItem of inner) {
+          log.push(`${outerItem}${innerItem}`);
+          if (innerItem === 'b') {
+            break;
+          }
+          yield* cancForAwait.next();
+        }
+
+        log.push(`step-${outerItem}`);
+        yield* cancForAwait.next();
+      }
+
+      return log;
+    });
+
+    const result = await co();
+    expect(result).toEqual([
+      '1a',
+      '1b',
+      'step-1',
+      'inner',
+      '2a',
+      '2b',
+      'step-2',
+      'inner',
+      '3a',
+      '3b',
+      'step-3',
+      'outer',
+      'inner',
+    ]);
+  });
+
+  it('sugar with no loop open throws IterationError', async () => {
+    const co = cancAsync(function* () {
+      try {
+        yield* cancForAwait.next();
+      } catch (err) {
+        return err;
+      }
+    });
+
+    const error = await co();
+    expect(error).toBeInstanceOf(IterationError);
+    expect((error as Error).message).toContain('No active forAwait loop');
+  });
+
+  it('adversarial: inner next targets inner, then outer next targets outer', async () => {
+    const log: any[] = [];
+    const co = cancAsync(function* () {
+      const outer = yield* cancForAwait(makeLoggedSource([1, 2], log, 'outer'));
+
+      for (const o of outer) {
+        const inner = yield* cancForAwait(makeLoggedSource(['a', 'b'], log, 'inner'));
+
+        for (const i of inner) {
+          log.push(`${o}${i}`);
+          yield* cancForAwait.next();
+        }
+
+        yield* cancForAwait.next();
+      }
+
+      return log;
+    });
+
+    const result = await co();
+    expect(result).toEqual(['1a', '1b', 'inner', '2a', '2b', 'inner', 'outer']);
+  });
+
+  it('nested coroutine has its own registry: sugar stays local', async () => {
+    const log: any[] = [];
+    const innerCo = cancAsync(function* () {
+      const inner = yield* cancForAwait(makeLoggedSource(['x', 'y'], log, 'inner'));
+
+      for (const item of inner) {
+        yield* cancForAwait.next();
+        log.push(item);
+      }
+
+      return log;
+    });
+
+    const outerCo = cancAsync(function* () {
+      const outer = yield* cancForAwait(makeLoggedSource([1, 2], log, 'outer'));
+
+      for (const item of outer) {
+        log.push(item);
+        yield* cancAwait(innerCo());
+        yield* outer.next();
+      }
+
+      return log;
+    });
+
+    const result = await outerCo();
+    expect(result).toEqual([1, 'x', 'inner', 'y', 2, 'x', 'inner', 'y', 'outer']);
+  });
+});

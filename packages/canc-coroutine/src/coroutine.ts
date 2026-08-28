@@ -68,6 +68,10 @@ function isReturnUnwind(value: unknown): boolean {
 // driver because the `for...of` return hook that a `break` fires cannot await
 const REGISTER_CLEANUP = Symbol.for('@cancjs/coroutine:registerCleanup');
 
+// Driver-understood marker for deriving the current loop target: the sugar `canc.forAwait.next()`
+// yields this to ask the driver to resolve and resume with the innermost-entered open loop
+const CURRENT_LOOP = Symbol.for('@cancjs/coroutine:currentLoop');
+
 // `PNext` is `any`: a coroutine body mixes bare `yield` (raw value in, no send type) with
 // `yield*` (typed send value from `cancAwait`), so no single `PNext` fits every yield in the body.
 /** Anything that is not an object can never carry a failure phantom, so admitting the primitive
@@ -312,6 +316,31 @@ export function cancAsync<
             if (loop !== undefined) {
               registerLoopHandle(loop, pendingCleanups);
               onFulfilled(undefined);
+
+              return;
+            }
+
+            const currentLoopMarked: boolean = isObject(value) ? (value as any)[CURRENT_LOOP] : false;
+
+            if (currentLoopMarked) {
+              let target: ILoopHandle | undefined;
+              let maxEnteredAt = 0;
+
+              for (const candidate of pendingCleanups) {
+                if (candidate._used && !candidate._finished && candidate._enteredAt > maxEnteredAt) {
+                  target = candidate;
+                  maxEnteredAt = candidate._enteredAt;
+                }
+              }
+
+              if (!target) {
+                onRejected(
+                  new IterationError('No active forAwait loop; canc.forAwait.next() requires a loop in the body'),
+                );
+                return;
+              }
+
+              onFulfilled(target);
 
               return;
             }
@@ -644,6 +673,7 @@ interface ICancForAwait {
   <T>(source: TEachSource<T>, cb: TForAwaitCallback<T>): Generator<Failing<BreakError>, void, any>;
   /** Collects elements into an array. */
   toArray<T>(source: TEachSource<T>): Generator<Failing<BreakError>, T[], any>;
+  next(): Generator<unknown, void, any>;
 }
 
 interface ICancAwait {
@@ -714,6 +744,7 @@ interface ILoopHandle extends ICancForAwaitLoop<any> {
   _used: boolean;
   _finished: boolean;
   _disposing: boolean;
+  _enteredAt: number;
   _registry: ILoopHandle[] | undefined;
   _disposed: PromiseLike<void> | undefined;
 }
@@ -827,6 +858,8 @@ function* returnLoop(loop: ILoopHandle): Generator<unknown, void, any> {
   unregisterLoop(loop);
 }
 
+let loopEntrySeq = 0;
+
 function createLoopHandle(it: any, async: boolean): ILoopHandle {
   const loop = {
     _it: it,
@@ -836,6 +869,7 @@ function createLoopHandle(it: any, async: boolean): ILoopHandle {
     _used: false,
     _finished: false,
     _disposing: false,
+    _enteredAt: 0,
     _registry: undefined,
     _disposed: undefined,
 
@@ -844,6 +878,7 @@ function createLoopHandle(it: any, async: boolean): ILoopHandle {
         throw new IterationError('A forAwait loop handle iterates once, call forAwait again for another pass');
       }
       loop._used = true;
+      loop._enteredAt = ++loopEntrySeq;
 
       return {
         next(): IteratorResult<any> {
@@ -967,6 +1002,11 @@ cancForAwait.toArray = function* toArray(source: any): Generator<unknown, any[],
 
   return collected;
 } as ICancForAwait['toArray'];
+
+cancForAwait.next = function* next(): Generator<unknown, void, any> {
+  const loop = yield { [CURRENT_LOOP]: true };
+  yield* pullNextItem(loop);
+} as ICancForAwait['next'];
 
 function findDescriptor(instance: any, key: string): PropertyDescriptor | undefined {
   let target: any = instance;
