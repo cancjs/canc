@@ -7,9 +7,9 @@ const { mergeTsJestConfig } = require('../../jest.transform');
 // project here, the way the shared core does. Members keep their own configs, built from
 // jest.config.server.js; this file is not that factory.
 //
-// Root `jest` picks this up through the packages/* projects glob. `lerna run test` does not, since
-// this directory carries no package.json, which is deliberate: the suite binds real ports and
-// destroys real connections, and it is a gate rather than part of the per-package lane.
+// Root `jest` picks this up through the packages/* projects glob. `lerna run test` cannot, since
+// this directory carries no package.json and so is no workspace; the node adapter's config lists it
+// as one of its projects instead, which is what keeps the suite in the root `npm test` lane.
 module.exports = {
   ...baseConfig,
   cacheDirectory: path.join(__dirname, 'node_modules', '.cache', 'jest'),
