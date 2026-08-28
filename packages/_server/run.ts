@@ -5,6 +5,7 @@ import {
   ICancelablePromiseFlagOptions,
   isCancelError,
   makeCancelable,
+  resolvePromiseImpl,
 } from '@cancjs/promise';
 
 import { isGenerator, isThenable, TAnyFn } from '../_util';
@@ -54,13 +55,16 @@ export function runCancelableHandler<TReturn = unknown>(
   armDeadline(state, options);
   const stopWatching = watchCancelReason(state, options);
   const flags = pickFlags(options);
+  // resolved once per call, registry precedence only, so a setPromiseImpl consumer gets its own
+  // class back from this layer instead of the built-in one
+  const Impl = resolvePromiseImpl() as unknown as typeof CancelablePromise;
 
   // client already gone at wrap time, so the handler is never invoked: there is nobody to answer,
   // and starting a query for a dead socket is the cost this whole layer exists to avoid
   const task =
     state.signal.aborted ?
-      canceledTask<TReturn>(state, flags)
-    : startHandler<TReturn>(handler, call, { ...flags, signal: collectSignals(state, options) });
+      canceledTask<TReturn>(Impl, state, flags)
+    : startHandler<TReturn>(Impl, handler, call, { ...flags, signal: collectSignals(state, options) });
 
   state.live.add(task);
 
@@ -77,6 +81,7 @@ export function runCancelableHandler<TReturn = unknown>(
 }
 
 function startHandler<TReturn>(
+  Impl: typeof CancelablePromise,
   handler: TAnyFn,
   call: IHandlerCall | undefined,
   promiseOptions: ICancelablePromiseFlagOptions & { signal: AbortSignal | AbortSignal[] },
@@ -91,16 +96,17 @@ function startHandler<TReturn>(
     return cancAsync(() => result, undefined, promiseOptions)() as CancelablePromise<TReturn>;
   }
 
-  const thenable = isThenable(result) ? result : CancelablePromise.resolve(result);
+  const thenable = isThenable(result) ? result : Impl.resolve(result);
 
   return makeCancelable(thenable, promiseOptions) as CancelablePromise<TReturn>;
 }
 
 function canceledTask<TReturn>(
+  Impl: typeof CancelablePromise,
   state: IRequestCancelState,
   flags: ICancelablePromiseFlagOptions,
 ): CancelablePromise<TReturn> {
-  const { cancel, promise } = CancelablePromise.withResolvers<TReturn>(flags);
+  const { cancel, promise } = Impl.withResolvers<TReturn>(flags);
 
   // the signal reason is already a CancelError, so it travels through cancel() untouched and the
   // adapter sees the same error a mid-flight cancellation would have produced

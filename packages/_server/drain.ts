@@ -1,4 +1,4 @@
-import { CancelablePromise, isCancelError } from '@cancjs/promise';
+import { CancelablePromise, isCancelError, resolvePromiseImpl } from '@cancjs/promise';
 
 import { isFunction } from '../_util';
 import { getDrainState, getLiveRequests, IRequestCancelState, setDrainState } from './holder';
@@ -29,6 +29,9 @@ export function drainServer(server: IServerLike, options: IDrainOptions = {}): C
 
   const grace = options.timeout ?? DEFAULT_DRAIN_TIMEOUT;
   const reason = options.reason ?? SERVER_SHUTDOWN;
+  // registry precedence only, so a setPromiseImpl consumer gets its own class back from the
+  // settled outcome this resolves to, same as the rest of the request-cancellation core
+  const Impl = resolvePromiseImpl() as unknown as typeof CancelablePromise;
 
   // closeServer gates every connection-closing call, not only the listener itself: a caller
   // passing false owns the server's connection lifecycle, so this layer touches none of it and
@@ -99,7 +102,7 @@ export function drainServer(server: IServerLike, options: IDrainOptions = {}): C
     handleCancel(() => clearTimeout(timer));
   });
 
-  const drain = CancelablePromise.race([CancelablePromise.allSettled(outcomes), window]).then(() => {
+  const drain = Impl.race([Impl.allSettled(outcomes), window]).then(() => {
     if (options.closeServer !== false && isFunction(server.closeAllConnections)) {
       server.closeAllConnections();
     }
