@@ -70,7 +70,7 @@ interface ILongTimer {
  * a running timer. `Date.now()` follows the wall clock, so a system time adjustment (an NTP
  * correction, a manual change) shifts the remaining time of a multi-day timer.
  */
-const readClock: () => number =
+export const readClock: () => number =
   typeof performance !== 'undefined' && performance && typeof performance.now === 'function' ?
     () => performance.now()
   : () => Date.now();

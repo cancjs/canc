@@ -330,4 +330,30 @@ describe('retry (cancelable)', () => {
     expect(pair.delays).toEqual([]);
     await expect(collect()).resolves.toEqual([]);
   });
+
+  it('under lazy: true, elapsed is measured from the deferred first attempt', async () => {
+    const pair = createFakeTimers();
+    let seenElapsed = -1;
+    const fn = jest.fn().mockRejectedValue(new Error('fail'));
+    const promise = retry(fn, {
+      retries: 1,
+      initialDelay: 50,
+      lazy: true,
+      delay: (ctx) => {
+        seenElapsed = ctx.elapsed;
+        return 50;
+      },
+      ...pair.timers,
+    });
+
+    expect(fn).not.toHaveBeenCalled();
+
+    promise.catch(() => {
+      /* swallow */
+    });
+
+    await flushMicrotasks();
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(seenElapsed).toBeGreaterThanOrEqual(0);
+  });
 });

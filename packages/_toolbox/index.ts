@@ -36,5 +36,5 @@ export {
 export { IRetryOptions, retryFactory } from './retry';
 export { IThrottled, IThrottleOptions, throttleFactory } from './throttle';
 export { isTimeoutError, TimeoutError, timeoutFactory } from './timeout';
-export { ITimers, MAX_TIMEOUT, resolveTimers, startTimer, stopTimer, TTimersOverride } from './timers';
+export { ITimers, MAX_TIMEOUT, readClock, resolveTimers, startTimer, stopTimer, TTimersOverride } from './timers';
 export { IWaitForOptions, waitForFactory } from './wait-for';

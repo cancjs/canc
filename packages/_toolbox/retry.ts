@@ -4,7 +4,7 @@ import { IToolboxDeps, TCallDeps } from './deps';
 import { resolveDuration } from './duration';
 import { isCancelableLike, isThenableLike } from './guards';
 import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
-import { resolveTimers, startTimer, stopTimer } from './timers';
+import { readClock, resolveTimers, startTimer, stopTimer } from './timers';
 
 /** Per-failure context handed to `shouldRetry`, `delay` and available for `onRetry` to derive from. */
 export interface IRetryContext {
@@ -12,40 +12,41 @@ export interface IRetryContext {
   attempt: number;
   /** Attempts still allowed after this one. */
   retriesLeft: number;
-  /** Milliseconds since the first attempt started. */
+  /** Milliseconds since the first attempt started (monotonic where available). */
   elapsed: number;
 }
 
-export type IRetryOptions = TCallDeps & {
-  /** Attempts AFTER the first call. Default: 3 (so up to 4 calls total). */
-  retries?: number;
-  /** Wait before the first retry, in ms. Default: 300. */
-  initialDelay?: number;
-  /** Upper bound on any SINGLE wait, in ms. Default: 30000. */
-  maxDelay?: number;
-  /** Multiplier applied per attempt. `1` means a constant wait. Default: 2. */
-  factor?: number;
-  /**
-   * `false` (default) waits exactly the computed delay. `true` picks uniformly in `[0, computed]`
-   * (full jitter). A number `f` picks uniformly in `[computed*(1-f), computed*(1+f)]`, clamped at
-   * 0. `maxDelay` is applied to the base delay BEFORE jitter, so a jittered wait can exceed
-   * `maxDelay` by up to a factor of `(1 + f)`. A negative `f` inverts the range and rejects the
-   * retry with a `RangeError`.
-   */
-  jitter?: boolean | number;
-  /** Decide per failure. May be async. Returning false rejects with that reason immediately. */
-  shouldRetry?: (reason: any, ctx: IRetryContext) => boolean | PromiseLike<boolean>;
-  /** Override the computed wait. Returning undefined accepts `computedDelay` verbatim, unclamped. */
-  delay?: (ctx: IRetryContext & { computedDelay: number }) => number | undefined;
-  /** Called before each wait, with the delay actually about to be waited. */
-  onRetry?: (reason: any, attempt: number, delay: number) => void;
-  /** Defer the first attempt until the first subscription. Not contagious past a chained `.then`. */
-  lazy?: boolean;
-  /** @deprecated Use `initialDelay`. Removed in the next major. */
-  minTimeout?: number;
-  /** @deprecated Use `maxDelay`. Removed in the next major. */
-  maxTimeout?: number;
-};
+export type IRetryOptions<K extends IPromiseKind = IPromiseLikeKind> = K['options'] &
+  TCallDeps & {
+    /** Attempts AFTER the first call. Default: 3 (so up to 4 calls total). */
+    retries?: number;
+    /** Wait before the first retry, in ms. Default: 300. */
+    initialDelay?: number;
+    /** Upper bound on any SINGLE wait, in ms. Default: 30000. */
+    maxDelay?: number;
+    /** Multiplier applied per attempt. `1` means a constant wait. Default: 2. */
+    factor?: number;
+    /**
+     * `false` (default) waits exactly the computed delay. `true` picks uniformly in `[0, computed]`
+     * (full jitter). A number `f` picks uniformly in `[computed*(1-f), computed*(1+f)]`, clamped at
+     * 0. `maxDelay` is applied to the base delay BEFORE jitter, so a jittered wait can exceed
+     * `maxDelay` by up to a factor of `(1 + f)`. A negative `f` inverts the range and rejects the
+     * retry with a `RangeError`.
+     */
+    jitter?: boolean | number;
+    /** Decide per failure. May be async. Returning false rejects with that reason immediately. */
+    shouldRetry?: (reason: any, ctx: IRetryContext) => boolean | PromiseLike<boolean>;
+    /** Override the computed wait. Returning undefined accepts `computedDelay` verbatim, unclamped. */
+    delay?: (ctx: IRetryContext & { computedDelay: number }) => number | undefined;
+    /** Called before each wait, with the delay actually about to be waited. */
+    onRetry?: (reason: any, attempt: number, delay: number) => void;
+    /** Defer the first attempt until the first subscription. Not contagious past a chained `.then`. */
+    lazy?: boolean;
+    /** @deprecated Use `initialDelay`. Removed in the next major. */
+    minTimeout?: number;
+    /** @deprecated Use `maxDelay`. Removed in the next major. */
+    maxTimeout?: number;
+  };
 
 function applyJitter(base: number, jitter: boolean | number): number {
   if (jitter === false) {
@@ -77,7 +78,7 @@ export function retryFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
    */
   return function retry<T, F = never>(
     input: (attempt: number) => T | PromiseLike<T>,
-    options?: IRetryOptions,
+    options?: IRetryOptions<K>,
   ): TPromiseOf<K, T, F> {
     const retries = options?.retries ?? 3;
     const initialDelay = options?.initialDelay ?? options?.minTimeout ?? 300;
@@ -88,11 +89,11 @@ export function retryFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
     const delayOverride = options?.delay;
     const onRetry = options?.onRetry;
     const timers = resolveTimers(options, deps);
-    const startedAt = Date.now();
 
     return constructTimed<T, K>(
       deps,
       (resolve, reject, ctx?: IExecutorCtx) => {
+        const startedAt = readClock();
         let canceled = false;
         let backoffId: unknown;
         let currentAttempt: (PromiseLike<T> & { cancel?: (reason?: any) => void }) | undefined;
@@ -127,7 +128,7 @@ export function retryFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
           const ctxBase: IRetryContext = {
             attempt: n,
             retriesLeft,
-            elapsed: Date.now() - startedAt,
+            elapsed: readClock() - startedAt,
           };
 
           // nothing reads the chain this runs in, so an escaping throw would strand the retry
