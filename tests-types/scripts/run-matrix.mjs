@@ -77,15 +77,15 @@ function packPackages() {
   const tarballs = {};
   for (const pkg of config.packages) {
     const pkgDir = path.join(repoRoot, 'packages', pkg);
+    const pkgJson = JSON.parse(fs.readFileSync(path.join(pkgDir, 'package.json'), 'utf8'));
     const distTypes = path.join(pkgDir, 'dist', 'types', 'index.d.ts');
     if (!fs.existsSync(distTypes)) {
       throw new Error(
-        `Package "${pkg}" is not built (${distTypes} missing). Run \`npm run build --workspace=@cancjs/${pkg.replace('canc-', '')}\` first.`,
+        `Package "${pkg}" is not built (${distTypes} missing). Run \`npm run build --workspace=${pkgJson.name}\` first.`,
       );
     }
     const out = run(npmCmd, ['pack', '--pack-destination', tarballsDir], { cwd: pkgDir }).trim();
     const file = out.split(/\r?\n/).pop().trim();
-    const pkgJson = JSON.parse(fs.readFileSync(path.join(pkgDir, 'package.json'), 'utf8'));
     tarballs[pkgJson.name] = path.join(tarballsDir, file);
     console.log(dim(` packed ${pkgJson.name} -> ${file}`));
   }

@@ -149,16 +149,16 @@ A chain is cancelable only if it consists of `canc` promises. This requires canc
 
 Cancellation only reaches as far as the chain does, so libraries that own the work need an adapter. Working integrations for commonly used libraries are available in [examples](examples).
 
-| Package                                                  | Description                                                                                                                                               |
-| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`@cancjs/axios`](packages/canc-axios)                   | Axios instances whose request methods return cancelable promises                                                                                          |
-| `@cancjs/react` 🚧                                       | Hooks that tie a cancelable task to a component lifecycle. See [example](examples/app-react)                                                              |
-| [`@cancjs/server-node`](packages/canc-server/node)       | Wrapper for raw `node:http` handlers that cancels on client disconnect or a deadline, shared as the base recipe for restify, AdonisJS and Nest-on-Express |
-| [`@cancjs/server-express`](packages/canc-server/express) | Middleware and handler wrapper that cancels a route on client disconnect or a deadline                                                                    |
-| [`@cancjs/server-fastify`](packages/canc-server/fastify) | Plugin that cancels a route handler on client disconnect or a deadline                                                                                    |
-| [`@cancjs/server-koa`](packages/canc-server/koa)         | Middleware that cancels a route handler on client disconnect or a deadline                                                                                |
-| [`@cancjs/server-hono`](packages/canc-server/hono)       | Handler wrapper that cancels on client disconnect or a deadline, on node and Web standard runtimes                                                        |
-| `@cancjs/rxjs` 🚧                                        | Conversion between cancelable promises and observables. See [example](examples/app-rxjs)                                                                  |
+| Package                                                              | Description                                                                                                                                               |
+| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`@cancjs/axios`](packages/canc-axios)                               | Axios instances whose request methods return cancelable promises                                                                                          |
+| `@cancjs/react` 🚧                                                   | Hooks that tie a cancelable task to a component lifecycle. See [example](examples/app-react)                                                              |
+| [`@cancjs/server-node`](packages/canc-server/canc-server-node)       | Wrapper for raw `node:http` handlers that cancels on client disconnect or a deadline, shared as the base recipe for restify, AdonisJS and Nest-on-Express |
+| [`@cancjs/server-express`](packages/canc-server/canc-server-express) | Middleware and handler wrapper that cancels a route on client disconnect or a deadline                                                                    |
+| [`@cancjs/server-fastify`](packages/canc-server/canc-server-fastify) | Plugin that cancels a route handler on client disconnect or a deadline                                                                                    |
+| [`@cancjs/server-koa`](packages/canc-server/canc-server-koa)         | Middleware that cancels a route handler on client disconnect or a deadline                                                                                |
+| [`@cancjs/server-hono`](packages/canc-server/canc-server-hono)       | Handler wrapper that cancels on client disconnect or a deadline, on node and Web standard runtimes                                                        |
+| `@cancjs/rxjs` 🚧                                                    | Conversion between cancelable promises and observables. See [example](examples/app-rxjs)                                                                  |
 
 ## Performance
 

@@ -6,9 +6,9 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/cancjs/canc.git",
-    "directory": "packages/canc-server/koa"
+    "directory": "packages/canc-server/canc-server-koa"
   },
-  "homepage": "https://github.com/cancjs/canc/tree/master/packages/canc-server/koa#readme",
+  "homepage": "https://github.com/cancjs/canc/tree/master/packages/canc-server/canc-server-koa#readme",
   "bugs": "https://github.com/cancjs/canc/issues",
   "author": "bisubus",
   "type": "commonjs",

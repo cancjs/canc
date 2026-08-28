@@ -8,7 +8,7 @@ Nothing here is a published package. Each recipe is code you paste into your own
 
 Almost every recipe below reduces to one of two cases.
 
-**Node shape.** The framework hands you, somewhere, the raw `IncomingMessage` and `ServerResponse`. If you can reach those two objects, use [`@cancjs/server-node`](https://github.com/cancjs/canc/tree/master/packages/canc-server/node) directly. Its `getRequestSignal(req, res)` installs one close listener per request, guarded by `writableEnded`, and caches the signal so every later caller shares it. You do not need to reimplement any of that.
+**Node shape.** The framework hands you, somewhere, the raw `IncomingMessage` and `ServerResponse`. If you can reach those two objects, use [`@cancjs/server-node`](https://github.com/cancjs/canc/tree/master/packages/canc-server/canc-server-node) directly. Its `getRequestSignal(req, res)` installs one close listener per request, guarded by `writableEnded`, and caches the signal so every later caller shares it. You do not need to reimplement any of that.
 
 ```js
 import * as cancServer from '@cancjs/server-node';
@@ -285,6 +285,6 @@ If you get one of these working on a framework not listed, or find that a recipe
 
 - [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) for core cancellation semantics and `CancelError`
 - [`@cancjs/coroutine`](https://github.com/cancjs/canc/tree/master/packages/canc-coroutine) for the generator flavor used in every sample here
-- [`@cancjs/server-node`](https://github.com/cancjs/canc/tree/master/packages/canc-server/node) for the package every node-shape recipe builds on
+- [`@cancjs/server-node`](https://github.com/cancjs/canc/tree/master/packages/canc-server/canc-server-node) for the package every node-shape recipe builds on
 - [Root README](https://github.com/cancjs/canc/blob/master/README.md) for monorepo overview
 - [Examples](https://github.com/cancjs/canc/tree/master/examples) for application integration samples

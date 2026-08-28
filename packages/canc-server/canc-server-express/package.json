@@ -1,14 +1,14 @@
 {
-  "name": "@cancjs/server-node",
+  "name": "@cancjs/server-express",
   "version": "1.0.0",
-  "description": "Raw node:http handler wrapper that cancels in-flight work when the client disconnects or a deadline passes.",
+  "description": "Express handler wrapper that cancels in-flight work when the client disconnects or a deadline passes.",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/cancjs/canc.git",
-    "directory": "packages/canc-server/node"
+    "directory": "packages/canc-server/canc-server-express"
   },
-  "homepage": "https://github.com/cancjs/canc/tree/master/packages/canc-server/node#readme",
+  "homepage": "https://github.com/cancjs/canc/tree/master/packages/canc-server/canc-server-express#readme",
   "bugs": "https://github.com/cancjs/canc/issues",
   "author": "bisubus",
   "type": "commonjs",
@@ -49,8 +49,8 @@
   },
   "files": ["dist"],
   "keywords": [
-    "http",
-    "node",
+    "express",
+    "middleware",
     "cancelable",
     "cancellation",
     "cancel",
@@ -62,11 +62,14 @@
   ],
   "devDependencies": {
     "@cancjs/coroutine": "*",
-    "@cancjs/promise": "*"
+    "@cancjs/promise": "*",
+    "@types/express": "5.0.6",
+    "express": "5.2.1"
   },
   "peerDependencies": {
     "@cancjs/coroutine": ">=1.0.0",
-    "@cancjs/promise": ">=1.0.0"
+    "@cancjs/promise": ">=1.0.0",
+    "express": ">=4.18.0"
   },
   "typesVersions": {
     "<4.7": {

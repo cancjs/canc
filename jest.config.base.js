@@ -38,9 +38,9 @@ module.exports = {
   // which package's rootDir jest is invoked with) instead of the `<rootDir>` token.
   // server-* rule must precede the general rule below: jest tries mappers in order, and the
   // general rule would resolve @cancjs/server-probe to packages/canc-server-probe/src, which
-  // doesn't exist (server packages nest under canc-server/<name>, not canc-<name>).
+  // doesn't exist (server packages nest under canc-server/canc-server-<name>, not canc-<name>).
   moduleNameMapper: {
-    '^@cancjs/server-(.*)$': path.join(__dirname, 'packages/canc-server/$1/src'),
+    '^@cancjs/server-(.*)$': path.join(__dirname, 'packages/canc-server/canc-server-$1/src'),
     '^@cancjs/(.*)$': path.join(__dirname, 'packages/canc-$1/src'),
   },
 

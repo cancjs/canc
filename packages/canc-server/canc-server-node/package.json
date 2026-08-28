@@ -1,14 +1,14 @@
 {
-  "name": "@cancjs/server-hono",
+  "name": "@cancjs/server-node",
   "version": "1.0.0",
-  "description": "Cancel Hono handlers when the client disconnects or a deadline passes.",
+  "description": "Raw node:http handler wrapper that cancels in-flight work when the client disconnects or a deadline passes.",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/cancjs/canc.git",
-    "directory": "packages/canc-server/hono"
+    "directory": "packages/canc-server/canc-server-node"
   },
-  "homepage": "https://github.com/cancjs/canc/tree/master/packages/canc-server/hono#readme",
+  "homepage": "https://github.com/cancjs/canc/tree/master/packages/canc-server/canc-server-node#readme",
   "bugs": "https://github.com/cancjs/canc/issues",
   "author": "bisubus",
   "type": "commonjs",
@@ -49,28 +49,24 @@
   },
   "files": ["dist"],
   "keywords": [
-    "hono",
-    "server",
-    "cancel",
-    "cancellation",
+    "http",
+    "node",
     "cancelable",
+    "cancellation",
+    "cancel",
+    "abort",
     "disconnect",
     "timeout",
-    "graceful-shutdown",
-    "node-server",
+    "graceful",
     "canc"
   ],
   "devDependencies": {
     "@cancjs/coroutine": "*",
-    "@cancjs/promise": "*",
-    "@hono/node-server": "1.19.7",
-    "hono": "4.11.2"
+    "@cancjs/promise": "*"
   },
   "peerDependencies": {
     "@cancjs/coroutine": ">=1.0.0",
-    "@cancjs/promise": ">=1.0.0",
-    "@hono/node-server": ">=1",
-    "hono": ">=4"
+    "@cancjs/promise": ">=1.0.0"
   },
   "typesVersions": {
     "<4.7": {

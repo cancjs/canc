@@ -1,14 +1,14 @@
 {
-  "name": "@cancjs/server-express",
+  "name": "@cancjs/server-fastify",
   "version": "1.0.0",
-  "description": "Express handler wrapper that cancels in-flight work when the client disconnects or a deadline passes.",
+  "description": "Cancel Fastify route handlers when the client disconnects or a deadline passes.",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/cancjs/canc.git",
-    "directory": "packages/canc-server/express"
+    "directory": "packages/canc-server/canc-server-fastify"
   },
-  "homepage": "https://github.com/cancjs/canc/tree/master/packages/canc-server/express#readme",
+  "homepage": "https://github.com/cancjs/canc/tree/master/packages/canc-server/canc-server-fastify#readme",
   "bugs": "https://github.com/cancjs/canc/issues",
   "author": "bisubus",
   "type": "commonjs",
@@ -49,27 +49,28 @@
   },
   "files": ["dist"],
   "keywords": [
-    "express",
-    "middleware",
-    "cancelable",
-    "cancellation",
+    "fastify",
+    "server",
     "cancel",
-    "abort",
+    "cancellation",
+    "cancelable",
     "disconnect",
     "timeout",
-    "graceful",
+    "graceful-shutdown",
+    "promise",
     "canc"
   ],
   "devDependencies": {
     "@cancjs/coroutine": "*",
     "@cancjs/promise": "*",
-    "@types/express": "5.0.6",
-    "express": "5.2.1"
+    "fastify": "5.10.0",
+    "fastify-plugin": "6.0.0"
   },
   "peerDependencies": {
     "@cancjs/coroutine": ">=1.0.0",
     "@cancjs/promise": ">=1.0.0",
-    "express": ">=4.18.0"
+    "fastify": ">=5",
+    "fastify-plugin": ">=5"
   },
   "typesVersions": {
     "<4.7": {

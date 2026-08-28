@@ -1,14 +1,14 @@
 {
-  "name": "@cancjs/server-fastify",
+  "name": "@cancjs/server-hono",
   "version": "1.0.0",
-  "description": "Cancel Fastify route handlers when the client disconnects or a deadline passes.",
+  "description": "Cancel Hono handlers when the client disconnects or a deadline passes.",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/cancjs/canc.git",
-    "directory": "packages/canc-server/fastify"
+    "directory": "packages/canc-server/canc-server-hono"
   },
-  "homepage": "https://github.com/cancjs/canc/tree/master/packages/canc-server/fastify#readme",
+  "homepage": "https://github.com/cancjs/canc/tree/master/packages/canc-server/canc-server-hono#readme",
   "bugs": "https://github.com/cancjs/canc/issues",
   "author": "bisubus",
   "type": "commonjs",
@@ -49,7 +49,7 @@
   },
   "files": ["dist"],
   "keywords": [
-    "fastify",
+    "hono",
     "server",
     "cancel",
     "cancellation",
@@ -57,20 +57,20 @@
     "disconnect",
     "timeout",
     "graceful-shutdown",
-    "promise",
+    "node-server",
     "canc"
   ],
   "devDependencies": {
     "@cancjs/coroutine": "*",
     "@cancjs/promise": "*",
-    "fastify": "5.10.0",
-    "fastify-plugin": "6.0.0"
+    "@hono/node-server": "1.19.7",
+    "hono": "4.11.2"
   },
   "peerDependencies": {
     "@cancjs/coroutine": ">=1.0.0",
     "@cancjs/promise": ">=1.0.0",
-    "fastify": ">=5",
-    "fastify-plugin": ">=5"
+    "@hono/node-server": ">=1",
+    "hono": ">=4"
   },
   "typesVersions": {
     "<4.7": {

@@ -6,11 +6,11 @@
     "canc-decorators",
     "canc-toolbox",
     "canc-toolbox-native",
-    "canc-server/express",
-    "canc-server/fastify",
-    "canc-server/node",
-    "canc-server/hono",
-    "canc-server/koa"
+    "canc-server/canc-server-express",
+    "canc-server/canc-server-fastify",
+    "canc-server/canc-server-node",
+    "canc-server/canc-server-hono",
+    "canc-server/canc-server-koa"
   ],
   "peerDependenciesComment": "Framework peers referenced by common/server-express-types.ts, common/server-fastify-types.ts, common/server-node-types.ts, common/server-hono-types.ts and common/server-koa-types.ts. Not @cancjs packages, so packPackages() never touches them; merged straight into every non-decorator fixture's package.json so `import ... from 'express'` / 'fastify' / 'hono' / 'koa' resolve inside the isolated node_modules, even in a lane that does not compile that file (an uninstalled-but-unimported package costs nothing). Pinned to the exact versions the server packages themselves devDependency-pin, so the fixture never drifts from what the shipped .d.ts were checked against.",
   "peerDependencies": {
