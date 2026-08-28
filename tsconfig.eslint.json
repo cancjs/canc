@@ -6,12 +6,15 @@
 // type information for them. This config covers everything the linter should see.
 {
   "extends": "./tsconfig.test",
+  "compilerOptions": {
+    "lib": ["es2022", "dom"]
+  },
   "include": [
     "packages/canc-*",
     "packages/_util",
     "packages/_toolbox",
     "packages/_server",
-    "tests-types/scripts",
+    "tests-types",
     "benchmarks",
     "tests-dist"
   ],
@@ -24,6 +27,7 @@
     // Manual runtime checks, run by their own runtime (bun, deno) with that runtime's resolver.
     "**/smoke/**",
     "**/dist/**/*",
-    "tests-types/fixtures/**"
+    "tests-types/fixtures/ts-*/**",
+    "tests-types/fixtures/common/async-iter-types.ts"
   ]
 }

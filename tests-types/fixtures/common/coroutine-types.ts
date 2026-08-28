@@ -215,24 +215,28 @@ const forAwaitHandleCo = cancAsync(function* () {
   const asyncLoop = yield* cancForAwait(asyncNumberSource());
   for (const item of asyncLoop) {
     type _asyncItemNumber = Expect<Equal<typeof item, number>>;
+    type _asyncItemNotAny = Expect<Not<IsAny<typeof item>>>;
     void item;
-    yield* asyncLoop.next();
+    const nextAsyncResult = yield* asyncLoop.next();
+    type _nextAsyncResultVoid = Expect<Equal<typeof nextAsyncResult, void>>;
   }
 
   const valuesLoop = yield* cancForAwait(['a', 'b']);
   for (const item of valuesLoop) {
     type _valuesItemString = Expect<Equal<typeof item, string>>;
+    type _valuesItemNotAny = Expect<Not<IsAny<typeof item>>>;
     void item;
-    yield* valuesLoop.next();
+    const nextValuesResult = yield* valuesLoop.next();
+    type _nextValuesResultVoid = Expect<Equal<typeof nextValuesResult, void>>;
   }
 
   const promisesLoop = yield* cancForAwait([Promise.resolve(true), Promise.resolve(false)]);
   for (const item of promisesLoop) {
     type _promisesItemBoolean = Expect<Equal<typeof item, boolean>>;
+    type _promisesItemNotAny = Expect<Not<IsAny<typeof item>>>;
     void item;
-    // `yield* loop.next()` is void-returning.
-    const nextResult = yield* promisesLoop.next();
-    type _nextResultVoid = Expect<Equal<typeof nextResult, void>>;
+    const nextPromisesResult = yield* promisesLoop.next();
+    type _nextPromisesResultVoid = Expect<Equal<typeof nextPromisesResult, void>>;
   }
 
   return 'done';

@@ -1,0 +1,17 @@
+// Project for @cancjs/tests-types workspace.
+//
+// Typechecks the test scripts and the common type fixture assertions against
+// the workspace source packages.
+{
+  "extends": "../tsconfig.test",
+  "compilerOptions": {
+    "lib": ["es2022", "dom"],
+    "baseUrl": ".",
+    "paths": {
+      "@cancjs/server-*": ["../packages/canc-server/canc-server-*/src"],
+      "@cancjs/*": ["../packages/canc-*/src"]
+    }
+  },
+  "include": ["scripts", "fixtures/common"],
+  "exclude": ["fixtures/ts-*", "fixtures/common/async-iter-types.ts"]
+}
