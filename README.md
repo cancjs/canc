@@ -190,6 +190,14 @@ Export names across `@cancjs/*` packages follow consistent naming conventions (e
 
 You are welcome to participate through issues and pull requests!
 
+### Development setup
+
+Working on the monorepo requires npm >= 11.19.1. After running `npm install`, approve the build tool postinstall scripts:
+
+```bash
+npm install-scripts approve lefthook nx unrs-resolver
+```
+
 ## License
 
 [MIT](LICENSE)
