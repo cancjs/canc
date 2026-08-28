@@ -119,6 +119,24 @@ describe('map', () => {
     expect(s.canceled[2]).toBe(true);
   });
 
+  it('stops the queue on the first rejection and does not start any more mappers', async () => {
+    const s = script(6);
+    const boom = new Error('boom');
+    const promise = map(['a', 'b', 'c', 'd', 'e', 'f'], s.mapper, { concurrency: 2 });
+    const caught = promise.catch((reason: unknown) => reason);
+
+    expect(s.started).toEqual([true, true, false, false, false, false]);
+
+    s.fail(0, boom);
+
+    expect(await caught).toBe(boom);
+
+    await flushMicrotasks();
+
+    expect(s.started).toEqual([true, true, false, false, false, false]);
+    expect(s.canceled[1]).toBe(true);
+  });
+
   it('runs every item under stopOnError false and rejects with an AggregateError in input order', async () => {
     const s = script(4);
     const first = new Error('one');

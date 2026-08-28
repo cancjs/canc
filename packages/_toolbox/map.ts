@@ -1,6 +1,7 @@
 import { createAggregateError } from '../_util';
 import { construct, IExecutorCtx } from './construct';
 import { IToolboxDeps } from './deps';
+import { isThenableLike } from './guards';
 import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
 import { limitFactory } from './limit';
 
@@ -112,9 +113,36 @@ export function mapFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IToo
       };
 
       items.forEach(function (item, index) {
+        const wrappedMapper = function (it: T, idx: number) {
+          let raw: R | PromiseLike<R>;
+          try {
+            raw = mapper(it, idx);
+          } catch (reason) {
+            if (stopOnError && !settled) {
+              settled = true;
+              reject(reason);
+              limited.cancel();
+            }
+            throw reason;
+          }
+
+          if (isThenableLike<R>(raw)) {
+            return raw.then(undefined, function (reason: any) {
+              if (stopOnError && !settled) {
+                settled = true;
+                reject(reason);
+                limited.cancel();
+              }
+              throw reason;
+            });
+          }
+
+          return raw;
+        };
+
         // The limiter's handle is what carries cancellation down to the mapper's own promise, so
         // the raw handle is what gets canceled; this only reads its settlement.
-        const handle = limited(mapper, item, index) as unknown as PromiseLike<R>;
+        const handle = limited(wrappedMapper, item, index) as unknown as PromiseLike<R>;
 
         handle.then(
           function (value) {

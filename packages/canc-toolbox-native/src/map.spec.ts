@@ -83,12 +83,12 @@ describe('map', () => {
   });
 
   it('drops the mappers still queued on a rejection and leaves a started one to finish', async () => {
-    const s = script(4);
+    const s = script(6);
     const boom = new Error('boom');
-    const promise = map(['a', 'b', 'c', 'd'], s.mapper, { concurrency: 1 });
+    const promise = map(['a', 'b', 'c', 'd', 'e', 'f'], s.mapper, { concurrency: 2 });
     const caught = promise.catch((reason: unknown) => reason);
 
-    expect(s.started).toEqual([true, false, false, false]);
+    expect(s.started).toEqual([true, true, false, false, false, false]);
 
     s.fail(0, boom);
 
@@ -96,12 +96,9 @@ describe('map', () => {
 
     await flushMicrotasks();
 
-    // the freed slot pumps the next mapper a microtask before the failure lands, so it still starts
-    expect(s.started[1]).toBe(true);
-    expect(s.started[2]).toBe(false);
-    expect(s.started[3]).toBe(false);
+    // the queue is stopped immediately on the first rejection
+    expect(s.started).toEqual([true, true, false, false, false, false]);
 
-    s.settle(1, 'b!');
     await flushMicrotasks();
   });
 
