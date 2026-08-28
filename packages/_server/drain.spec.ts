@@ -25,7 +25,8 @@ describe('graceful drain', () => {
     await drainServer(server, { closeServer: false });
 
     expect(server.closed).toBe(0);
-    expect(server.allClosed).toBe(1);
+    expect(server.idleClosed).toBe(0);
+    expect(server.allClosed).toBe(0);
   });
 
   it('works against a server with none of the newer teardown methods', async () => {

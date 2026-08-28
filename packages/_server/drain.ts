@@ -30,14 +30,19 @@ export function drainServer(server: IServerLike, options: IDrainOptions = {}): C
   const grace = options.timeout ?? DEFAULT_DRAIN_TIMEOUT;
   const reason = options.reason ?? SERVER_SHUTDOWN;
 
-  if (options.closeServer !== false && isFunction(server.close)) {
-    server.close();
-  }
+  // closeServer gates every connection-closing call, not only the listener itself: a caller
+  // passing false owns the server's connection lifecycle, so this layer touches none of it and
+  // only cancels the tasks and signals it tracks
+  if (options.closeServer !== false) {
+    if (isFunction(server.close)) {
+      server.close();
+    }
 
-  // node 18.2 and up; the declared floor is 18.0, so both of these are feature detected rather
-  // than assumed
-  if (isFunction(server.closeIdleConnections)) {
-    server.closeIdleConnections();
+    // node 18.2 and up; the declared floor is 18.0, so both of these are feature detected rather
+    // than assumed
+    if (isFunction(server.closeIdleConnections)) {
+      server.closeIdleConnections();
+    }
   }
 
   // the live registry hangs off this server instance, never off a module-level variable: this
@@ -95,7 +100,7 @@ export function drainServer(server: IServerLike, options: IDrainOptions = {}): C
   });
 
   const drain = CancelablePromise.race([CancelablePromise.allSettled(outcomes), window]).then(() => {
-    if (isFunction(server.closeAllConnections)) {
+    if (options.closeServer !== false && isFunction(server.closeAllConnections)) {
       server.closeAllConnections();
     }
 
