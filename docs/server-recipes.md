@@ -23,6 +23,20 @@ const task = canc.async(function* () {
 }, undefined, { signal });
 ```
 
+`@cancjs/server-node` also exports `cancelableHandler`, which wraps a whole handler at once instead of composing the signal by hand. Reach for it when you own the handler outright; reach for `getRequestSignal` alone when a framework already owns request dispatch and only needs the signal threaded through, which is the situation most of the recipes below are in.
+
+```js
+import { cancelableHandler } from '@cancjs/server-node';
+import * as canc from '@cancjs/coroutine';
+
+const handler = cancelableHandler(function* (req, res) {
+  const invoice = yield* canc.await(invoices.findById(idFromUrl(req.url)));
+
+  res.setHeader('content-type', 'application/json');
+  res.end(JSON.stringify(invoice));
+});
+```
+
 **Web shape.** The framework hands you a Web `Request`. Unlike its Node namesake, `Request.signal` genuinely means the client went away, so it can be adopted as-is. Pass it straight to the coroutine.
 
 ```js
@@ -56,7 +70,7 @@ export class CancelInterceptor implements NestInterceptor {
     const http = context.switchToHttp();
     const signal = cancServer.getRequestSignal(http.getRequest().raw ?? http.getRequest(), http.getResponse().raw ?? http.getResponse());
 
-    context.switchToHttp().getRequest().cancelSignal = signal;
+    http.getRequest().cancelSignal = signal;
 
     return next.handle();
   }

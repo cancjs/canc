@@ -160,6 +160,8 @@ Cancellation only reaches as far as the chain does, so libraries that own the wo
 | [`@cancjs/server-hono`](packages/canc-server/canc-server-hono)       | Handler wrapper that cancels on client disconnect or a deadline, on node and Web standard runtimes                                                        |
 | `@cancjs/rxjs` 🚧                                                    | Conversion between cancelable promises and observables. See [example](examples/app-rxjs)                                                                  |
 
+For a framework with no package of its own, see the [server integration recipes](docs/server-recipes.md).
+
 ## Performance
 
 Any library built on native `Promise` is inevitably slower than native `Promise` in microbenchmarks. In a realistic request waterfall, `canc` adds about 45% overhead versus hand-wired `Promise` plus `AbortController`. Bluebird adds about 20% in the same scenario and successfully carried that cost in production for years. In absolute terms both are well under a microsecond per operation, against network I/O measured in milliseconds. Applications don't bottleneck on promise machinery. Canceling a request chain early saves more time and memory than the bookkeeping costs.
