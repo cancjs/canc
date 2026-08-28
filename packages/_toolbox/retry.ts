@@ -45,7 +45,6 @@ export type IRetryOptions = TCallDeps & {
   minTimeout?: number;
   /** @deprecated Use `maxDelay`. Removed in the next major. */
   maxTimeout?: number;
-  [key: string]: unknown;
 };
 
 function applyJitter(base: number, jitter: boolean | number): number {
