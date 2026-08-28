@@ -10,7 +10,7 @@ import { createSchedulerTimers, ISchedulerTaskPromise, postSchedulerTask } from 
 
 // delay threshold before fetching offscreen rows
 export const PREFETCH_DELAY_MS = 100;
-// total retry attempts
+// total attempts including initial fetch
 export const PREFETCH_ATTEMPTS = 3;
 export const PREFETCH_BACKOFF_MS = 200;
 
@@ -55,7 +55,7 @@ export function prefetchDetails(
   const task = postSchedulerTask(
     () =>
       retry(loadDetail, {
-        retries: PREFETCH_ATTEMPTS,
+        retries: PREFETCH_ATTEMPTS - 1,
         initialDelay: PREFETCH_BACKOFF_MS,
         onRetry: (_reason, attempt: number) => options?.onRetry?.(attempt),
         signal: lifetime,
