@@ -347,4 +347,23 @@ describe('drain', () => {
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
     expect(instance.server.listening).toBe(false);
   });
+
+  it('returns the same result to a second call', async () => {
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.get(
+      '/quick',
+      cancelableHandler(function* () {
+        return { ok: true };
+      }),
+    );
+
+    await listen(instance);
+    const first = drain(instance, { timeout: 100 });
+
+    app = undefined;
+
+    expect(drain(instance)).toBe(first);
+    expect(await first).toEqual({ canceled: 0, completed: 0, timedOut: false });
+  });
 });
