@@ -187,6 +187,7 @@ Tested against `@hono/node-server`. Other Web standard runtimes (Cloudflare Work
 
 - [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) for core cancellation semantics and `CancelError`
 - [`@cancjs/coroutine`](https://github.com/cancjs/canc/tree/master/packages/canc-coroutine) for the generator flavor used in every sample here
+- [Server integration recipes](https://github.com/cancjs/canc/blob/master/docs/server-recipes.md) for frameworks with no package of their own
 - [Root README](https://github.com/cancjs/canc/blob/master/README.md) for monorepo overview
 - [Examples](https://github.com/cancjs/canc/tree/master/examples) for application integration samples
 
