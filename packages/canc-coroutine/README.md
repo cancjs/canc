@@ -340,10 +340,9 @@ const saveUntilFull = canc.async(function* (chunkStream: AsyncIterable<Chunk>, i
 ```
 
 `yield* loop.next()` is the cancellation point. Put it first in the loop body, before `continue`,
-`break` or `return`: skipping it reprocesses the same item and throws `IterationError` on the next
-turn instead of looping forever. A handle iterates once; call `canc.forAwait` again for another
-pass, and calling `[Symbol.iterator]()` a second time on the same handle throws `IterationError`
-too.
+`break` or `return`: skipping it throws `IterationError` on the next turn instead of looping
+forever. A handle iterates once; call `canc.forAwait` again for another pass, and calling
+`[Symbol.iterator]()` a second time on the same handle throws `IterationError` too.
 
 Creating the handle already pulls the first item, one suspension, before the loop body runs. That
 pull happens even if the loop never executes, which matters for a source that is expensive or has
@@ -559,21 +558,21 @@ lookup and cannot be overridden from a subclass through the prototype chain.
 
 ### `@cancjs/coroutine`
 
-| Export                                                      | Alias           | Description                                                                            |
-| ----------------------------------------------------------- | --------------- | -------------------------------------------------------------------------------------- |
-| `cancAsync(genFn, ctx?, options?)`                          | `canc.async`    | Wraps a generator function into a function returning a `CancelablePromise`             |
-| `cancAwait(value)`                                          | `canc.await`    | One step, used as `yield* cancAwait(value)`                                            |
-| `cancAwait.all` / `.race` / `.any` / `.allSettled` / `.try` |                 | Combinators folded into a single step, tuple types preserved                           |
-| `cancThrow(error)`                                          | `canc.throw`    | Yieldable `throw` step for declaring and raising errors inside coroutines              |
-| `cancForAwait(source, callback)`                            | `canc.forAwait` | Consumes an async or sync iterable, one cancellation point per item                    |
-| `cancForAwait(source)`                                      | `canc.forAwait` | Called without a callback, returns a loop handle for a native `for...of` body          |
-| `cancForAwait.toArray(source)`                              |                 | Collects a source into an array                                                        |
-| `asyncMethod(instance, key, options?)`                      |                 | Installs the member as an own property, wrapping a method or field with `cancAsync`    |
-| `bindMethod(instance, key)`                                 |                 | Installs the member as an own property, bound to the instance, never wrapped           |
-| `BreakError`, `isBreakError`                                |                 | Breaking out of a stream from deeper code                                              |
-| `IterationError`                                            |                 | Thrown by a loop handle used out of turn: skipped `next()`, or reused after exhaustion |
-| `AsyncResult<TResult, TFailure>`                            |                 | Return type for a generator body with optional failure set                             |
-| `ICancForAwaitLoop<T>`                                      |                 | Type of the handle returned by the callback-less form of `cancForAwait`                |
+| Export                                                      | Alias           | Description                                                                           |
+| ----------------------------------------------------------- | --------------- | ------------------------------------------------------------------------------------- |
+| `cancAsync(genFn, ctx?, options?)`                          | `canc.async`    | Wraps a generator function into a function returning a `CancelablePromise`            |
+| `cancAwait(value)`                                          | `canc.await`    | One step, used as `yield* cancAwait(value)`                                           |
+| `cancAwait.all` / `.race` / `.any` / `.allSettled` / `.try` |                 | Combinators folded into a single step, tuple types preserved                          |
+| `cancThrow(error)`                                          | `canc.throw`    | Yieldable `throw` step for declaring and raising errors inside coroutines             |
+| `cancForAwait(source, callback)`                            | `canc.forAwait` | Consumes an async or sync iterable, one cancellation point per item                   |
+| `cancForAwait(source)`                                      | `canc.forAwait` | Called without a callback, returns a loop handle for a native `for...of` body         |
+| `cancForAwait.toArray(source)`                              |                 | Collects a source into an array                                                       |
+| `asyncMethod(instance, key, options?)`                      |                 | Installs the member as an own property, wrapping a method or field with `cancAsync`   |
+| `bindMethod(instance, key)`                                 |                 | Installs the member as an own property, bound to the instance, never wrapped          |
+| `BreakError`, `isBreakError`                                |                 | Breaking out of a stream from deeper code                                             |
+| `IterationError`                                            |                 | Thrown by a loop handle used out of turn: skipped `next()`, or iterated a second time |
+| `AsyncResult<TResult, TFailure>`                            |                 | Return type for a generator body with optional failure set                            |
+| `ICancForAwaitLoop<T>`                                      |                 | Type of the handle returned by the callback-less form of `cancForAwait`               |
 
 `options` are
 [`CancelablePromise` options](https://github.com/cancjs/canc/tree/master/packages/canc-promise#options)
