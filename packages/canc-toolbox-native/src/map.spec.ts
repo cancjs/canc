@@ -135,4 +135,17 @@ describe('map', () => {
     await expect(map([] as string[], mapper)).resolves.toEqual([]);
     expect(calls).toBe(0);
   });
+
+  it('settles with sparse input arrays, treating holes as undefined', async () => {
+    let calls = 0;
+    const mapper = (item: number | undefined) => {
+      calls++;
+      return item;
+    };
+
+    // eslint-disable-next-line no-sparse-arrays
+    const input = [1, , 3];
+    await expect(map(input, mapper)).resolves.toEqual([1, undefined, 3]);
+    expect(calls).toBe(3);
+  });
 });
