@@ -1,17 +1,6 @@
 const path = require('path');
 const baseConfig = require('../../jest.config.base');
-
-// Copy of the per-package mergeTsJestConfig helper, same shape every member carries.
-function mergeTsJestConfig(options) {
-  return {
-    ...baseConfig.transform,
-    ...Object.fromEntries(
-      Object.entries(baseConfig.transform)
-        .filter(([, value]) => value?.[0] === 'ts-jest')
-        .map(([key, [_name, baseOptions]]) => [key, ['ts-jest', { ...baseOptions, ...options }]]),
-    ),
-  };
-}
+const { mergeTsJestConfig } = require('../../jest.transform');
 
 // The end-to-end suite for the whole family, one level above its members. It exercises all five
 // packages against real sockets in one file, so it belongs to none of them and rides in its own

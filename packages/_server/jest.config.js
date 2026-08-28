@@ -1,17 +1,6 @@
 const path = require('path');
 const baseConfig = require('../../jest.config.base');
-
-// Copy of the per-package mergeTsJestConfig helper, same shape the flat packages carry.
-function mergeTsJestConfig(options) {
-  return {
-    ...baseConfig.transform,
-    ...Object.fromEntries(
-      Object.entries(baseConfig.transform)
-        .filter(([, value]) => value?.[0] === 'ts-jest')
-        .map(([key, [_name, baseOptions]]) => [key, ['ts-jest', { ...baseOptions, ...options }]]),
-    ),
-  };
-}
+const { mergeTsJestConfig } = require('../../jest.transform');
 
 module.exports = {
   ...baseConfig,
