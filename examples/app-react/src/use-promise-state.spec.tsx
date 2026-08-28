@@ -4,7 +4,7 @@ import { act, render, screen } from '@testing-library/react';
 import { usePromiseState } from './lib/use-promise-state';
 
 describe('usePromiseState cancellation', () => {
-  it('stays pending when the still-tracked promise is canceled directly, no replacement supersedes it', async () => {
+  it('resets to idle when the still-tracked promise is canceled directly', async () => {
     const promise = new CancelablePromise<string>((_res, _rej, { handleCancel }) => {
       handleCancel(() => {});
     });
@@ -25,9 +25,7 @@ describe('usePromiseState cancellation', () => {
       await Promise.resolve();
     });
 
-    // canceled while still latest, no replacement queued (real case: unmount, no render matters)
-    // resetting to idle would misreport "nothing was ever started", pending is the honest read
-    expect(screen.getByTestId('status').textContent).toBe('pending');
+    expect(screen.getByTestId('status').textContent).toBe('idle');
   });
 
   it('resets to idle when passed undefined (nothing started)', () => {

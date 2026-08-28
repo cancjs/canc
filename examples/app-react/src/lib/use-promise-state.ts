@@ -12,12 +12,8 @@ export interface PromiseState<T> {
 /**
  * Tracks the settlement of the latest promise passed in and exposes it as render state. Latest
  * wins: when the input promise changes, an older one's resolution is ignored, so a stale response
- * can never overwrite fresher data. `idle` means "nothing started" only, it is not reused for
- * cancellation: a superseded promise's rejection is silently dropped (a fresher one already took
- * over), and a `CancelError` on the still-tracked promise leaves state as `pending` rather than
- * resetting to `idle`, since something WAS started and idle would misreport that it was not.
- *
- * Pass `undefined` for "nothing in flight" (state stays / returns to `idle`).
+ * can never overwrite fresher data. `idle` covers both "nothing started" (pass `undefined`) and
+ * a run that was canceled: a canceled run has no result to show and resets to `idle`.
  *
  * A non-cancel rejection stays local to `error` here rather than escalating to the nearest error
  * boundary the way `useCancelableEffect` does: this hook already hands the caller a channel to
@@ -43,9 +39,10 @@ export function usePromiseState<T>(promise: PromiseLike<T> | undefined): Promise
       },
       (error) => {
         if (latest.current !== promise) return;
-        // Canceled while still the tracked promise (no replacement queued, typically unmount):
-        // stay pending, see the header note above.
-        if (isCancelError(error)) return;
+        if (isCancelError(error)) {
+          setState({ status: 'idle' });
+          return;
+        }
         setState({ status: 'rejected', error });
       },
     );

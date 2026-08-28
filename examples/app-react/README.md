@@ -70,14 +70,16 @@ future `@cancjs/react` package.
  a cancelable run but render nothing from it (fire-and-forget analytics or a warm-cache prefetch).
  Returning a `CancelablePromise` makes its `cancel()` the effect cleanup.
 - `usePromiseState(promise)`: tracks one promise's settlement as render state, for manual control
- when you build the chain yourself. `useCancelable` composes it internally. `idle` means nothing
- started; a promise canceled while still the tracked one (no replacement queued) stays `pending`
- rather than resetting to `idle`.
+  when you build the chain yourself. `useCancelable` composes it internally. `idle` covers both
+  "nothing started" and a run that was canceled.
 - `useCancelableCallback(factory, options?)`: imperative call for event handlers. Returns
- `{ run, cancelPending, pending }`. `pending` reflects whether a run is in flight, derived from
- the run's own settlement. `options.cancelPrevious` (default `true`) cancels a still-pending run
- when a new one starts; `false` rejects the new call instead of touching the pending one.
- `cancelPending(reason?)` cancels the in-flight run, defaulting to the "unmounted" reason.
+  `{ run, cancelPending, pending }`. `pending` reflects whether a run is in flight, derived from
+  the run's own settlement. `options.cancelPrevious` (default `true`) cancels a still-pending run
+  when a new one starts; `false` rejects the new call instead of touching the pending one.
+  `cancelPending(reason?)` cancels the in-flight run, defaulting to the "unmounted" reason.
+  The example components are effect-driven (typeahead search and hover state), so
+  `useCancelableCallback` is verified in its own spec (`src/use-cancelable-callback.spec.tsx`)
+  covering imperative event handlers and pending spinner state.
 
 ## Cancel reasons
 
