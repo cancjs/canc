@@ -40,12 +40,19 @@ function listPackages() {
   return names.sort();
 }
 
+// npm 11 prints a top-level array; npm 12 keys the same payload by package name instead,
+// breaking the old array destructure; a single-package dry-run has one entry either way
+function firstPackResult(rawJson) {
+  const parsed = JSON.parse(rawJson);
+  return Array.isArray(parsed) ? parsed[0] : Object.values(parsed)[0];
+}
+
 function packFileList(pkgDir) {
   const out = execSync('npm pack --json --dry-run', {
     cwd: pkgDir,
     encoding: 'utf8',
   });
-  const [result] = JSON.parse(out);
+  const result = firstPackResult(out);
   return new Set(result.files.map((f) => f.path.split(path.sep).join('/')));
 }
 
@@ -197,4 +204,8 @@ async function main() {
   process.exit(failed ? 1 : 0);
 }
 
-main();
+if (require.main === module) {
+  main();
+}
+
+module.exports = { firstPackResult };
