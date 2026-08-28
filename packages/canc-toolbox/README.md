@@ -164,7 +164,9 @@ await suppressExpected(searchProducts(query));
 
 `retry` takes a function of the attempt number, so the attempt itself can vary, and backs off
 exponentially between attempts (`retries`, `initialDelay`, `factor`, `maxDelay`, `jitter`,
-`shouldRetry`, `delay`, `onRetry`). Canceling stops both the wait and the attempt in flight.
+`shouldRetry`, `delay`, `onRetry`). `retries` counts attempts after the first (default: 3, for up to
+4 attempts total). `initialDelay` and `maxDelay` replace the deprecated `minTimeout` and
+`maxTimeout` aliases. Canceling stops both the wait and the attempt in flight.
 
 `waitFor` polls a condition (`interval`, `timeout`). An async condition is awaited before the next
 poll is scheduled, so slow checks never overlap.
