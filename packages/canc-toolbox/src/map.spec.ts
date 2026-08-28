@@ -186,4 +186,11 @@ describe('map', () => {
     await expect(map(input, mapper)).resolves.toEqual([1, undefined, 3]);
     expect(calls).toBe(3);
   });
+
+  it('rejects with a RangeError for invalid concurrency', async () => {
+    await expect(map([1, 2], (x) => x, { concurrency: 0 })).rejects.toThrow(RangeError);
+    await expect(map([1, 2], (x) => x, { concurrency: -1 })).rejects.toThrow(RangeError);
+    await expect(map([1, 2], (x) => x, { concurrency: 2.5 })).rejects.toThrow(RangeError);
+    await expect(map([1, 2], (x) => x, { concurrency: NaN })).rejects.toThrow(RangeError);
+  });
 });

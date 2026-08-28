@@ -18,7 +18,11 @@ export interface ILimited<K extends IPromiseKind = IPromiseLikeKind> {
   readonly active: number;
   /** Jobs waiting for a slot. None of them has been called. */
   readonly pending: number;
-  /** Slots available to run jobs at once. Raising it starts queued jobs at once, before returning. */
+  /**
+   * Slots available to run jobs at once. Raising it starts queued jobs at once, before returning.
+   * Lowering it does not stop in-flight jobs, so `active` may temporarily exceed `concurrency`
+   * until running jobs finish and free their slots.
+   */
   concurrency: number;
   /**
    * Drops every queued job so nothing further starts, then stops what is already running. The
@@ -35,13 +39,17 @@ interface IEntry {
   handle: unknown;
   /** Whatever `fn` returned, kept raw so canceling reaches the job itself and not a wrapper. */
   job: unknown;
+  /** Whether abandon was called before handle was assigned. */
+  abandoned?: boolean;
+  /** Cancel reason passed to abandon before handle was assigned. */
+  abandonReason?: any;
   start(): void;
   abandon(reason?: any): void;
 }
 
 function checkConcurrency(value: number): number {
-  if (!(value >= 1)) {
-    throw new RangeError('limit: concurrency must be at least 1');
+  if (!(value >= 1) || (value !== Infinity && Math.floor(value) !== value)) {
+    throw new RangeError('limit: concurrency must be an integer of at least 1');
   }
 
   return value;
@@ -52,6 +60,9 @@ export function limitFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
   /**
    * Create a limiter that runs at most `concurrency` jobs at once and queues the rest.
    *
+   * Throws a RangeError synchronously if `concurrency` is not an integer of at least 1 (or
+   * Infinity).
+   *
    * Against a cancelable implementation, canceling a returned promise while its job is still queued
    * removes it from the queue, so the job never runs at all and the promise rejects with a
    * CancelError. Canceling it after the job started cancels the job itself, provided the job is
@@ -59,20 +70,35 @@ export function limitFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
    * on its own, and `cancel` on the limiter rejects the queued jobs (with an AbortError) while
    * whatever is already running is left to finish.
    *
+   * When a running job is non-cancelable (such as a plain Promise), canceling its handle or the
+   * limiter rejects the handle but cannot stop the underlying work. The limiter slot remains held
+   * until that job settles, preventing active concurrency from exceeding the cap.
+   *
+   * Lowering `concurrency` while jobs are in flight does not abort running jobs; `active` may
+   * temporarily exceed `concurrency` until running jobs settle.
+   *
    * Every promise this hands out settles. Jobs dropped from the queue reject rather than staying
    * pending forever.
    */
   return function limit(concurrency: number): ILimited<K> {
     let max = checkConcurrency(concurrency);
     let active = 0;
+    let pumping = false;
     const queue: IEntry[] = [];
     const running: IEntry[] = [];
 
     const pump = (): void => {
-      while (active < max && queue.length > 0) {
-        const entry = queue.shift();
+      if (pumping) return;
+      pumping = true;
 
-        if (entry) entry.start();
+      try {
+        while (active < max && queue.length > 0) {
+          const entry = queue.shift();
+
+          if (entry) entry.start();
+        }
+      } finally {
+        pumping = false;
       }
     };
 
@@ -133,6 +159,9 @@ export function limitFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
           },
 
           abandon(reason?: any) {
+            entry.abandoned = true;
+            entry.abandonReason = reason;
+
             // Route through the handle where there is one: its own cancel handler stops the job,
             // and the implementation is what mints the CancelError the caller sees.
             if (isCancelableLike(entry.handle)) {
@@ -166,7 +195,12 @@ export function limitFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
       });
 
       // Only reachable from here: the executor, and any job it pumped, ran during construction
-      if (created) created.handle = handle;
+      if (created) {
+        created.handle = handle;
+        if (created.abandoned && isCancelableLike(handle)) {
+          handle.cancel(created.abandonReason);
+        }
+      }
 
       return handle;
     };

@@ -200,4 +200,89 @@ describe('limit', () => {
 
     expect(settled).toBe(4);
   });
+
+  it('throws RangeError synchronously for non-integer or invalid concurrency', () => {
+    expect(() => limit(0)).toThrow(RangeError);
+    expect(() => limit(-1)).toThrow(RangeError);
+    expect(() => limit(2.5)).toThrow(RangeError);
+    expect(() => limit(NaN)).toThrow(RangeError);
+
+    const limited = limit(2);
+    expect(() => {
+      limited.concurrency = 0;
+    }).toThrow(RangeError);
+    expect(() => {
+      limited.concurrency = 2.5;
+    }).toThrow(RangeError);
+    expect(() => {
+      limited.concurrency = -1;
+    }).toThrow(RangeError);
+
+    expect(() => limit(Infinity)).not.toThrow();
+  });
+
+  it('keeps running jobs above the new cap when concurrency is lowered mid-flight', async () => {
+    const limited = limit(3);
+    const jobs = [createJob('a'), createJob('b'), createJob('c'), createJob('d')];
+
+    const handles = jobs.map((job) => limited(job.run));
+
+    expect(limited.active).toBe(3);
+    expect(limited.pending).toBe(1);
+    expect(jobs[3].started).toBe(false);
+
+    limited.concurrency = 1;
+
+    expect(limited.concurrency).toBe(1);
+    expect(limited.active).toBe(3);
+    expect(limited.pending).toBe(1);
+    expect(jobs[3].started).toBe(false);
+
+    jobs[0].finish();
+    await handles[0];
+    await flushMicrotasks();
+
+    expect(limited.active).toBe(2);
+    expect(limited.pending).toBe(1);
+    expect(jobs[3].started).toBe(false);
+
+    jobs[1].finish();
+    await handles[1];
+    await flushMicrotasks();
+
+    expect(limited.active).toBe(1);
+    expect(limited.pending).toBe(1);
+    expect(jobs[3].started).toBe(false);
+
+    jobs[2].finish();
+    await handles[2];
+    await flushMicrotasks();
+
+    expect(limited.active).toBe(1);
+    expect(limited.pending).toBe(0);
+    expect(jobs[3].started).toBe(true);
+
+    jobs[3].finish();
+    await handles[3];
+    await flushMicrotasks();
+
+    expect(limited.active).toBe(0);
+  });
+
+  it('pumps a long queue of synchronously settling jobs without overflowing stack depth', async () => {
+    const limited = limit(1);
+    const total = 10000;
+    const handles: Promise<number>[] = [];
+
+    for (let i = 0; i < total; i++) {
+      handles.push(limited(() => i));
+    }
+
+    const results = await Promise.all(handles);
+
+    expect(results.length).toBe(total);
+    expect(results[total - 1]).toBe(total - 1);
+    expect(limited.active).toBe(0);
+    expect(limited.pending).toBe(0);
+  });
 });

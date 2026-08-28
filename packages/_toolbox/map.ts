@@ -56,10 +56,11 @@ export function mapFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IToo
    * Map every item through `mapper`, running at most `concurrency` of them at once.
    *
    * The result array is always in input order, whatever order the mappers settle in. A hole in a
-   * sparse input array is treated as `undefined` and visited. By default the first rejection cancels
-   * the siblings and the returned promise rejects with that reason, the way `all` behaves; under
-   * `stopOnError: false` every item runs to a settlement and the returned promise rejects with an
-   * AggregateError carrying the failures in input order.
+   * sparse input array is treated as `undefined` and visited. Rejects with a RangeError if
+   * `concurrency` is not an integer of at least 1 (or Infinity). By default the first rejection
+   * cancels the siblings and the returned promise rejects with that reason, the way `all` behaves;
+   * under `stopOnError: false` every item runs to a settlement and the returned promise rejects
+   * with an AggregateError carrying the failures in input order.
    *
    * Against a cancelable implementation, canceling the returned promise cancels whatever is in
    * flight and drops what is still queued, so a queued mapper is never called at all. A plain
