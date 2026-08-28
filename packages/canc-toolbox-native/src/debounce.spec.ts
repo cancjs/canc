@@ -1,5 +1,6 @@
 import { ITimers } from '../../_toolbox';
 import { debounce } from './debounce';
+import { isSupersededError, SupersededError } from './errors';
 
 interface IFakeTimers {
   timers: ITimers;
@@ -310,7 +311,7 @@ describe('debounce (native)', () => {
     debounced('b'); // supersede while 'a' is still pending (pre-invoke)
 
     const reasonA = await pa.then(undefined, (e: unknown) => e);
-    expect(reasonA).toBeInstanceOf(Error);
+    expect(isSupersededError(reasonA)).toBe(true);
 
     jest.advanceTimersByTime(50);
     await Promise.resolve();
@@ -319,5 +320,15 @@ describe('debounce (native)', () => {
 
     debounced('c'); // supersede while 'b' is in flight: no throw, no second invoke of 'b'
     expect(calls).toEqual(['b']);
+  });
+
+  // simulates a second package copy: no shared prototype, only the registry symbol
+  it('isSupersededError matches a hand-built cross-copy object by brand alone', () => {
+    const SUPERSEDED_ERROR_BRAND = Symbol.for('@cancjs/toolbox:SupersededError');
+    const other = Object.create(null) as Record<symbol, unknown>;
+    other[SUPERSEDED_ERROR_BRAND] = true;
+
+    expect(isSupersededError(other)).toBe(true);
+    expect(other instanceof SupersededError).toBe(false);
   });
 });

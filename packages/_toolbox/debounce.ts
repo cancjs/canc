@@ -1,8 +1,11 @@
+import { isSupersededError, SupersededError } from '../_util';
 import { construct, IExecutorCtx, TPromiseCtor } from './construct';
 import { TCallDeps } from './deps';
 import { isCancelableLike, isThenableLike } from './guards';
 import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
 import { resolveTimers, startTimer, stopTimer, TTimersOverride } from './timers';
+
+export { isSupersededError, SupersededError };
 
 /**
  * Options for `debounce`. The timer always runs immediately, so `lazy` is rejected at compile time.
@@ -110,7 +113,9 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
         // cancel surface of its own, but reject is still live pre-invoke, so settle it directly.
         // Once invoke() has adopted a thenable this is already undefined and nothing can redirect
         // the promise, matching the native `withAbortSignal` stance of never faking a CancelError.
-        pendingReject(new Error('debounce: call superseded'));
+        // Branded, not a bare Error, so a caller can tell supersede from a real failure
+        // a fire-and-forget debounced(x) needs its own handler now, or it goes unhandled
+        pendingReject(new SupersededError());
       }
       superseding = false;
       pendingResolve = undefined;

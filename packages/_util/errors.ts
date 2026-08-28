@@ -25,8 +25,8 @@ interface IDomExceptionConstructor {
   new (message?: string, name?: string): ICancError;
 }
 
-// The lib set here is es2022 plus the node types, and neither declares DOMException. A local
-// ambient declaration types the feature detect without pulling in the whole DOM library.
+// The lib set here is es2022 plus the node types, and neither declares DOMException.
+// A local ambient declaration types the feature detect without pulling in the whole DOM library.
 declare const DOMException: IDomExceptionConstructor | undefined;
 
 const resolveMessage = (message: string | undefined, defaultMessage: string | undefined): string | undefined =>
@@ -42,7 +42,8 @@ function defineQuietly(target: object, key: PropertyKey, value: unknown): void {
   try {
     Object.defineProperty(target, key, { value, configurable: true });
   } catch {
-    // A non-configurable slot on an older engine. Cosmetic metadata is not worth a throw.
+    // A non-configurable slot on an older engine.
+    // Cosmetic metadata is not worth a throw.
   }
 }
 
@@ -117,8 +118,9 @@ export function createErrorClass<TName extends string, TBrand extends symbol = s
       createDomExceptionClass<TName, TBrand>(domException, name, defaultMessage)
     : createNativeErrorClass<TName, TBrand>(name, defaultMessage);
 
-  // The classes are built inside a factory, so their intrinsic name would otherwise be the local
-  // one used above. Callers that match an error by constructor read this.
+  // The classes are built inside a factory, so their intrinsic name would otherwise be the
+  // local one used above.
+  // Callers that match an error by constructor read this.
   defineQuietly(ErrorClass, 'name', name);
 
   if (brand !== undefined) {
@@ -150,6 +152,11 @@ export const TIMEOUT_ERROR_BRAND = Symbol.for('@cancjs/promise:TimeoutError');
 export const AGGREGATE_ERROR_BRAND = Symbol.for('@cancjs/promise:AggregateError');
 
 /**
+ * Prototype brand for SupersededError instances, registered under `Symbol.for('@cancjs/toolbox:SupersededError')`.
+ */
+export const SUPERSEDED_ERROR_BRAND = Symbol.for('@cancjs/toolbox:SupersededError');
+
+/**
  * Rejected or thrown when an operation is aborted. Carries the same `name` as the DOMException a
  * real AbortSignal produces, so one code path handles both. Identified across realms by its
  * `Symbol.for('@cancjs/promise:AbortError')` prototype brand.
@@ -169,6 +176,17 @@ export const TimeoutError = createErrorClass(
 );
 /** Instance type of {@link TimeoutError}. */
 export type TimeoutError = InstanceType<typeof TimeoutError>;
+
+/**
+ * Rejected when a debounced or throttled call is superseded by a later call before it settles.
+ * On a cancelable promise implementation the wrapper promise is canceled instead, so this class
+ * only ever surfaces from a non-cancelable (native-twin) implementation, where rejecting is the
+ * only way to settle a call that will never run. Identified across realms by its
+ * `Symbol.for('@cancjs/toolbox:SupersededError')` prototype brand.
+ */
+export const SupersededError = createErrorClass('SupersededError', SUPERSEDED_ERROR_BRAND, 'call superseded');
+/** Instance type of {@link SupersededError}. */
+export type SupersededError = InstanceType<typeof SupersededError>;
 
 /**
  * Instance shape of {@link AggregateError}, platform class or shim alike.
@@ -229,9 +247,10 @@ export function createAggregateError(errors: any[], message?: string): IAggregat
   return new AggregateError(errors, message);
 }
 
-// Brand first, name second. The name fallback exists because the platform produces these three
-// kinds itself (fetch, AbortSignal.timeout(), the builtin AggregateError) and an external producer
-// cannot be branded. Errors that only canc produces are matched by brand alone.
+// Brand first, name second.
+// The name fallback exists because the platform produces these three kinds itself (fetch,
+// AbortSignal.timeout(), the builtin AggregateError) and an external producer cannot be branded.
+// Errors that only canc produces are matched by brand alone.
 
 /**
  * Whether value is an AbortError. Matches the `Symbol.for('@cancjs/promise:AbortError')` prototype brand or the `name` property, never `instanceof`.
@@ -244,6 +263,14 @@ export const isAbortError = (error: any): error is AbortError =>
  */
 export const isTimeoutError = (error: any): error is TimeoutError =>
   isObject(error) && (error[TIMEOUT_ERROR_BRAND] === true || error.name === 'TimeoutError');
+
+/**
+ * Whether value is a SupersededError. No platform ever produces this kind, so unlike the guards
+ * above there is no `name` to fall back on: matches the
+ * `Symbol.for('@cancjs/toolbox:SupersededError')` prototype brand alone, never `instanceof`.
+ */
+export const isSupersededError = (error: any): error is SupersededError =>
+  isObject(error) && error[SUPERSEDED_ERROR_BRAND] === true;
 
 /**
  * Whether value is an AggregateError. Matches the `Symbol.for('@cancjs/promise:AggregateError')` prototype brand or the `name` property, never `instanceof`.

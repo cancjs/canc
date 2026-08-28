@@ -1,4 +1,5 @@
 import { ITimers } from '../../_toolbox';
+import { isSupersededError } from './errors';
 import { throttle } from './throttle';
 
 interface IFakeTimers {
@@ -332,7 +333,7 @@ describe('throttle (native)', () => {
     throttled('b'); // supersede while 'a' is still pending (pre-invoke)
 
     const reasonA = await pa.then(undefined, (e: unknown) => e);
-    expect(reasonA).toBeInstanceOf(Error);
+    expect(isSupersededError(reasonA)).toBe(true);
 
     jest.advanceTimersByTime(50);
     await Promise.resolve();

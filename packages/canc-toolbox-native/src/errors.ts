@@ -9,7 +9,9 @@ import {
 import {
   AbortError,
   isAbortError,
+  isSupersededError,
   isTimeoutError,
+  SupersededError,
   TErrorConstructor,
   TErrorMatcher,
   TErrorPredicate,
@@ -21,7 +23,7 @@ export type { TErrorConstructor, TErrorMatcher, TErrorPredicate };
 export type ICatchErrorFn = ICatchErrorFnOf<INativeKind>;
 export type ISuppressErrorFn = ISuppressErrorFnOf<INativeKind>;
 
-export { AbortError, isAbortError, isTimeoutError, TimeoutError };
+export { AbortError, isAbortError, isSupersededError, isTimeoutError, SupersededError, TimeoutError };
 export const createCatchError: (...matchers: TErrorMatcher[]) => ICatchErrorFn = createCatchErrorFactory(deps);
 export const createSuppressError: (...matchers: TErrorMatcher[]) => ISuppressErrorFn = createSuppressErrorFactory(deps);
 export const catchAbort: ICatchErrorFn = createCatchError(isAbortLike);
