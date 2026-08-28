@@ -14,7 +14,7 @@
     "test": "cross-env NODE_OPTIONS=--no-deprecation lerna run test --stream",
     "lint": "run-p -c lint:workspaces lint:root",
     "lint:workspaces": "cross-env NODE_OPTIONS=--no-deprecation lerna run lint --stream --no-bail",
-    "lint:root": "eslint *.{js,mjs,json,md} scripts docs packages/_util packages/_toolbox packages/_server packages/canc-server tests-dist",
+    "lint:root": "eslint *.{js,mjs,json,md} scripts docs packages/_util packages/_toolbox packages/_server packages/canc-server/*.{ts,js,mjs,json} tests-dist",
     "changeset": "changeset",
     "release:version": "changeset version",
     "release:publish": "changeset publish",
@@ -28,7 +28,7 @@
     "test:dist": "npm run test -w @cancjs/tests-dist",
     "format": "run-p -c format:workspaces format:root",
     "format:workspaces": "cross-env NODE_OPTIONS=--no-deprecation lerna run format --stream --no-bail",
-    "format:root": "eslint --fix *.{js,mjs,json,md} scripts docs packages/_util packages/_toolbox packages/_server packages/canc-server tests-dist"
+    "format:root": "eslint --fix *.{js,mjs,json,md} scripts docs packages/_util packages/_toolbox packages/_server packages/canc-server/*.{ts,js,mjs,json} tests-dist"
   },
   "workspaces": [
     "packages/*",
