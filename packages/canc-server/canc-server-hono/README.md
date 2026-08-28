@@ -155,7 +155,7 @@ Both raise a `CancelError`. The discriminator is `isCancelError(error) && !error
 
 ### Draining
 
-`drain` takes what `serve()` returned, not the Hono app. On node it stops the server accepting connections, closes idle keep-alive sockets, cancels every in-flight handler, then waits for them within a grace window before closing what is left. It resolves with counts rather than throwing, and a second call while the first is running returns the same result. There is no drain path for a Web standard runtime without a node server object; that deployment shape has no server to stop accepting connections on in the first place.
+`drain` takes what `serve()` returned, not the Hono app. On node it stops the server accepting connections, closes idle keep-alive sockets, cancels every in-flight handler, then waits for them within a grace window before closing what is left. It cancels the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it. It resolves with counts rather than throwing, and a second call while the first is running returns the same result. There is no drain path for a Web standard runtime without a node server object; that deployment shape has no server to stop accepting connections on in the first place.
 
 ## API
 

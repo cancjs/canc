@@ -132,6 +132,12 @@ function watchCancelReason(state: IRequestCancelState, options: ICancelableHandl
   }
 
   const notify = () => {
+    // a drain cancels the signal to reach the consumers a handler never awaited, and neither
+    // callback reports that: the client has not left and no deadline was missed
+    if (state.draining) {
+      return;
+    }
+
     // the documented discriminator, never a message check: the request signal always aborts with a
     // CancelError, so anything else reaching here came from a foreign signal and reads as a
     // disconnect

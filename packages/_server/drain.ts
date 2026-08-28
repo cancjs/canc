@@ -1,7 +1,7 @@
 import { CancelablePromise, isCancelError } from '@cancjs/promise';
 
 import { isFunction } from '../_util';
-import { getDrainState, getLiveRequests, setDrainState } from './holder';
+import { getDrainState, getLiveRequests, IRequestCancelState, setDrainState } from './holder';
 import { SERVER_SHUTDOWN } from './reasons';
 import { IDrainOptions, IDrainResult, IServerLike } from './types';
 
@@ -11,6 +11,11 @@ export const DEFAULT_DRAIN_TIMEOUT = 10_000;
 /**
  * Stops a server gracefully: no new connections, every in-flight request canceled, and a bounded
  * wait for them to unwind.
+ *
+ * Each request's own cancel signal is canceled as well, once its tasks have been. That stops the
+ * consumers a handler never awaited, such as a detached query or a request-scoped database
+ * context, which would otherwise run on through shutdown. Those consumers are not part of the
+ * reported counts, which cover the handler tasks this layer holds.
  *
  * Resolves with what happened rather than throwing, so a shutdown path has one thing to log. A
  * second call while the first is still running returns that same promise, which makes the usual
@@ -38,8 +43,10 @@ export function drainServer(server: IServerLike, options: IDrainOptions = {}): C
   // the live registry hangs off this server instance, never off a module-level variable: this
   // directory is inlined into every server package, so a module-scope set would exist once per copy
   // and a drain would only ever see the requests its own copy recorded
+  const states: IRequestCancelState[] = [];
   const tasks: CancelablePromise<unknown>[] = [];
   for (const state of getLiveRequests(server) ?? []) {
+    states.push(state);
     for (const task of state.live) {
       tasks.push(task);
     }
@@ -68,6 +75,13 @@ export function drainServer(server: IServerLike, options: IDrainOptions = {}): C
 
   for (const task of tasks) {
     task.cancel(reason);
+  }
+
+  // the signal goes after the tasks it drives, so anything watching it sees a request whose own
+  // work has already unwound rather than one mid-teardown
+  for (const state of states) {
+    state.draining = true;
+    state.cancel(reason);
   }
 
   const window = new CancelablePromise<void>((resolve, _reject, { handleCancel }) => {

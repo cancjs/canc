@@ -1,4 +1,4 @@
-import { CancelablePromise } from '@cancjs/promise';
+import { CancelablePromise, ICancelablePromiseOptions } from '@cancjs/promise';
 import { EventEmitter } from 'events';
 
 /** Stand-in for ServerResponse, carrying the two things the disconnect guard reads. */
@@ -55,7 +55,7 @@ export function createExchange(server?: object) {
 }
 
 /** A promise that never settles on its own, standing in for work still in flight. */
-export function pending<T = never>(options?: { shield?: boolean }): CancelablePromise<T> {
+export function pending<T = never>(options?: ICancelablePromiseOptions): CancelablePromise<T> {
   return new CancelablePromise<T>(() => {
     /**/
   }, options);

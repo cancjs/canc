@@ -118,7 +118,7 @@ Both raise a `CancelError`. The discriminator is `isCancelError(error) && !error
 
 ### Draining
 
-`drain` takes the Fastify instance, not `app.server`. It closes the server to new connections, closes idle ones, cancels every in-flight handler with the shutdown reason, waits for them within the grace window, and only then awaits `app.close()`, so `onClose` hooks and plugin teardown run against a drained server. A second call while the first is still running joins it rather than starting over.
+`drain` takes the Fastify instance, not `app.server`. It closes the server to new connections, closes idle ones, cancels every in-flight handler with the shutdown reason, waits for them within the grace window, and only then awaits `app.close()`, so `onClose` hooks and plugin teardown run against a drained server. It cancels the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it. A second call while the first is still running joins it rather than starting over.
 
 ## API
 

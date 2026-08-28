@@ -3,7 +3,7 @@ import { CancelablePromise, CancelError, isCancelError } from '@cancjs/promise';
 import { createExchange, FakeServer, outcomeOf, pending } from './__tests__/fakes';
 import { drainServer } from './drain';
 import { getLiveRequests } from './holder';
-import { ensureRequestCancelState } from './node-signal';
+import { ensureRequestCancelState, getNodeRequestSignal } from './node-signal';
 import { SERVER_SHUTDOWN } from './reasons';
 import { runCancelableHandler } from './run';
 
@@ -141,6 +141,66 @@ describe('graceful drain', () => {
 
     expect(drainServer(server)).toBe(first);
     expect(server.closed).toBe(1);
+  });
+
+  it('cancels background work the handler never awaited', async () => {
+    const server = new FakeServer();
+    const { req, res } = createExchange(server);
+
+    // a request-scoped consumer of the signal: never handed to the handler, so it is not in
+    // state.live and only the signal itself can reach it
+    const detached = outcomeOf(pending({ signal: getNodeRequestSignal(req, res) }));
+
+    const handled = outcomeOf(
+      runCancelableHandler(
+        function* () {
+          yield pending();
+        },
+        req,
+        res,
+      ),
+    );
+
+    const result = await drainServer(server);
+    const error = (await detached) as CancelError;
+
+    expect(isCancelError(error)).toBe(true);
+    expect(error.message).toBe(SERVER_SHUTDOWN);
+    expect(isCancelError(await handled)).toBe(true);
+    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
+  });
+
+  it('does not report a shutdown as a disconnect or a deadline', async () => {
+    const server = new FakeServer();
+    const { req, res } = createExchange(server);
+    const onDisconnect = jest.fn();
+    const onTimeout = jest.fn();
+
+    void outcomeOf(
+      runCancelableHandler(
+        function* () {
+          yield pending();
+        },
+        req,
+        res,
+        { onDisconnect, onTimeout },
+      ),
+    );
+
+    await drainServer(server);
+
+    expect(onDisconnect).not.toHaveBeenCalled();
+    expect(onTimeout).not.toHaveBeenCalled();
+  });
+
+  it('cancels the signal of a request that has no task in flight yet', async () => {
+    const server = new FakeServer();
+    const { req, res } = createExchange(server);
+    const signal = getNodeRequestSignal(req, res);
+
+    expect(await drainServer(server)).toEqual({ canceled: 0, completed: 0, timedOut: false });
+    expect(signal.aborted).toBe(true);
+    expect((signal.reason as CancelError).message).toBe(SERVER_SHUTDOWN);
   });
 
   it('ignores a request whose response is already over', async () => {

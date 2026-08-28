@@ -30,6 +30,8 @@ export interface IRequestCancelState {
   options: ICancelableHandlerOptions;
   live: Set<CancelablePromise<unknown>>;
   timer?: unknown;
+  /** Set by a drain before it cancels the signal, so a shutdown is not reported as a disconnect. */
+  draining?: boolean;
 }
 
 type TKeyed = Record<symbol, unknown>;
