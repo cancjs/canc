@@ -192,10 +192,9 @@ export const SupersededError = createErrorClass('SupersededError', SUPERSEDED_ER
 export type SupersededError = InstanceType<typeof SupersededError>;
 
 /**
- * Thrown when a generator-based loop attempts to iterate after being canceled or when the
- * iteration source is in an invalid state. This is a programmer error; catching and retrying
- * is not the intended use case. Identified across realms by its
- * `Symbol.for('@cancjs/coroutine:IterationError')` prototype brand.
+ * Thrown when a loop handle is used incorrectly: when a loop body skips `loop.next()` before the
+ * next turn, or when `[Symbol.iterator]()` is called a second time on the same handle. Identified
+ * across realms by its `Symbol.for('@cancjs/coroutine:IterationError')` prototype brand.
  */
 export const IterationError = createErrorClass('IterationError', ITERATION_ERROR_BRAND);
 /** Instance type of {@link IterationError}. */
