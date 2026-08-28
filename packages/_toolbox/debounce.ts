@@ -33,6 +33,12 @@ export type IDebounceDeps = TTimersOverride & {
   Impl: TPromiseCtor;
 };
 
+// per-call state, so a superseded cycle keeps owning the call it started and nothing else
+interface ICycle<R> {
+  result?: PromiseLike<R>;
+  leadingInvoked: boolean;
+}
+
 /**
  * Bind `debounce` to one promise implementation following the dependency-injection recipe.
  */
@@ -57,7 +63,7 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
     let pendingResolve: ((value: R | PromiseLike<R>) => void) | undefined;
     let pendingReject: ((reason?: any) => void) | undefined;
     let pendingPromise: TPromiseOf<K, R, F> | undefined;
-    let inFlightResult: PromiseLike<R> | undefined;
+    let cycle: ICycle<R> = { leadingInvoked: false };
     let superseding = false;
 
     function invoke(args: Args): void {
@@ -75,7 +81,7 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
         return;
       }
 
-      inFlightResult = isThenableLike<R>(result) ? result : undefined;
+      cycle.result = isThenableLike<R>(result) ? result : undefined;
 
       if (pendingResolve) {
         pendingResolve(result);
@@ -119,10 +125,10 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
      * already invoked `fn` or is still waiting out the timer.
      */
     function cancelCurrent(): void {
-      if (isCancelableLike(inFlightResult)) {
-        inFlightResult.cancel();
+      if (isCancelableLike(cycle.result)) {
+        cycle.result.cancel();
       }
-      inFlightResult = undefined;
+      cycle.result = undefined;
       cancelPending();
     }
 
@@ -142,6 +148,9 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
     }
 
     function makePromise(): TPromiseOf<K, R, F> {
+      const own: ICycle<R> = { leadingInvoked: false };
+      cycle = own;
+
       const p = construct<R>(
         deps.Impl,
         function (resolve, reject, ctx?: IExecutorCtx) {
@@ -151,15 +160,17 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
           if (ctx) {
             ctx.handleCancel(function () {
               if (superseding) return;
+              if (isCancelableLike(own.result)) {
+                own.result.cancel();
+              }
+              own.result = undefined;
+              // a superseded cycle owns the call it started, never the wrapper's current state
+              if (own !== cycle) return;
               clearTimers();
               lastArgs = undefined;
               pendingResolve = undefined;
               pendingReject = undefined;
               pendingPromise = undefined;
-              if (isCancelableLike(inFlightResult)) {
-                inFlightResult.cancel();
-              }
-              inFlightResult = undefined;
             });
           }
         },
@@ -171,7 +182,9 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
     }
 
     const wrapped = function (...argsArray: Args) {
-      const isFirstCall = timerId === undefined && maxTimerId === undefined && !pendingPromise;
+      // a closed window decides the leading edge, not `!pendingPromise`
+      // `pendingPromise` outlives its cycle, so it allowed one leading call per wrapper lifetime
+      const startsWindow = timerId === undefined && maxTimerId === undefined;
 
       lastArgs = argsArray;
 
@@ -180,20 +193,20 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
         timerId = undefined;
       }
 
-      if (!isFirstCall && pendingPromise) {
-        // Cancels a pre-invoke pending call AND a post-invoke in-flight one.
-        // Not `wrapped.cancel()` itself: that also clears `maxTimerId`.
-        // Clearing it here would restart the maxWait window on every supersede.
+      if (pendingPromise && !cycle.leadingInvoked) {
+        // cancels a pre-invoke pending call and a post-invoke in-flight one alike
+        // skipped after a leading-edge invoke: that call ran, its caller is owed the result
+        // not `wrapped.cancel()`, which also clears `maxTimerId` and restarts the maxWait window
         cancelCurrent();
       }
 
       const promise = makePromise();
 
-      if (leading && isFirstCall) {
+      if (leading && startsWindow) {
         invoke(argsArray);
-        if (trailing) {
-          timerId = startTimer(timerExpired, ms, timers);
-        }
+        cycle.leadingInvoked = true;
+        // armed even with `trailing: false`, because only its expiry closes the window
+        timerId = startTimer(timerExpired, ms, timers);
         if (maxWait !== undefined && maxTimerId === undefined) {
           maxTimerId = startTimer(timerExpired, maxWait, timers);
         }

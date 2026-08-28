@@ -309,6 +309,93 @@ describe('throttle', () => {
     (p as CancelablePromise<number>).cancel();
   });
 
+  it('leading (default): a superseding call leaves the leading call that already ran alone', async () => {
+    jest.useFakeTimers();
+    const calls: string[] = [];
+    const fn = (x: string) => {
+      calls.push(x);
+
+      return new CancelablePromise<string>((resolve) => {
+        // still in flight when the next call arrives, so canceling it would be observable
+        setTimeout(() => resolve(x.toUpperCase()), 200);
+      });
+    };
+    const throttled = throttle(fn, 50);
+
+    const pa = throttled('a');
+    jest.advanceTimersByTime(5);
+    const pb = throttled('b');
+
+    jest.advanceTimersByTime(300);
+    const outcomeA = await (pa as CancelablePromise<string>).then(
+      (v) => v,
+      (e: any) => e,
+    );
+    expect(isCancelError(outcomeA)).toBe(false);
+    expect(outcomeA).toBe('A');
+
+    jest.advanceTimersByTime(300);
+    expect(await pb).toBe('B');
+    expect(calls).toEqual(['a', 'b']);
+  });
+
+  it('leading (default): the leading edge fires again after a quiet period', async () => {
+    jest.useFakeTimers();
+    const calls: string[] = [];
+    const fn = (x: string) => {
+      calls.push(x);
+      return CancelablePromise.resolve(x);
+    };
+    const throttled = throttle(fn, 50);
+
+    throttled('a');
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(calls).toEqual(['a']);
+
+    jest.advanceTimersByTime(200);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(calls).toEqual(['a']);
+
+    const pb = throttled('b');
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(calls).toEqual(['a', 'b']);
+    expect(await pb).toBe('b');
+  });
+
+  it('leading (default): canceling a superseded leading call stops only its own work', async () => {
+    jest.useFakeTimers();
+    let aCanceled = false;
+    const fn = (x: string) =>
+      new CancelablePromise<string>((resolve, _reject, { handleCancel }) => {
+        if (x === 'a') {
+          if (handleCancel) {
+            handleCancel(() => {
+              aCanceled = true;
+            });
+          }
+          return; // 'a' never settles on its own, only via cancel
+        }
+        resolve(x);
+      });
+    const throttled = throttle(fn, 50);
+
+    const pa = throttled('a') as CancelablePromise<string>;
+    jest.advanceTimersByTime(5);
+    const pb = throttled('b');
+
+    pa.cancel();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(aCanceled).toBe(true);
+    expect(throttled.isPending).toBe(true);
+
+    jest.advanceTimersByTime(50);
+    expect(await pb).toBe('b');
+  });
+
   it('regression: a superseding call cancels an in-flight call (inherited from debounce)', async () => {
     jest.useFakeTimers();
     let bCanceled = false;

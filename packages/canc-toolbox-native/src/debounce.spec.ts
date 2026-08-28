@@ -240,6 +240,57 @@ describe('debounce (native)', () => {
     expect('cancel' in p).toBe(false);
   });
 
+  // the native twin has no cancel surface, so the value arriving is the whole assertion here
+  it('leading: a superseding call leaves the leading call that already ran alone', async () => {
+    jest.useFakeTimers();
+    const calls: string[] = [];
+    const fn = (x: string) => {
+      calls.push(x);
+
+      return new Promise<string>((resolve) => {
+        setTimeout(() => resolve(x.toUpperCase()), 200);
+      });
+    };
+    const debounced = debounce(fn, 50, { leading: true });
+
+    const pa = debounced('a');
+    jest.advanceTimersByTime(5);
+    const pb = debounced('b');
+
+    jest.advanceTimersByTime(300);
+    expect(await pa).toBe('A');
+
+    jest.advanceTimersByTime(300);
+    expect(await pb).toBe('B');
+    expect(calls).toEqual(['a', 'b']);
+  });
+
+  it('leading: the leading edge fires again after a quiet period', async () => {
+    jest.useFakeTimers();
+    const calls: string[] = [];
+    const fn = (x: string) => {
+      calls.push(x);
+      return Promise.resolve(x);
+    };
+    const debounced = debounce(fn, 50, { leading: true });
+
+    debounced('a');
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(calls).toEqual(['a']);
+
+    jest.advanceTimersByTime(200);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(calls).toEqual(['a']);
+
+    const pb = debounced('b');
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(calls).toEqual(['a', 'b']);
+    expect(await pb).toBe('b');
+  });
+
   // The native twin's in-flight result has no `cancel`.
   // Once a call is invoked its wrapper promise has already adopted that result.
   // So the regression reduces to: a pending supersede still rejects.
