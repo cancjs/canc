@@ -20,13 +20,12 @@ const trace = () => ({
 });
 
 // rootDir has to cover packages/_util and packages/_toolbox (relative-imported shared internal
-// code, invariant 8: inlined per package, not a real dependency) or TS throws TS6059.
-// That widens declarationDir's mirrored output to dist/types/packages/<pkg>/src/* plus sibling
-// dist/types/packages/_util(/_toolbox)/*.d.ts.
-// Some src files (e.g. canc-promise's helpers.ts, canc-toolbox's index.ts) re-export shared-dir
-// types, so those relative specifiers are load-bearing, not implementation detail.
-// Dropping the shared dirs here used to leave a dangling `../../_util` import in the published
-// .d.ts (confirmed via attw: InternalResolutionError).
+// code, invariant 8: inlined per package, not a real dependency) or TS throws TS6059. That
+// widens declarationDir's mirrored output to dist/types/packages/<pkg>/src/* plus sibling
+// dist/types/packages/_util(/_toolbox)/*.d.ts. Some src files (e.g. canc-promise's helpers.ts,
+// canc-toolbox's index.ts) re-export shared-dir types, so those relative specifiers are load-
+// bearing, not implementation detail. Dropping the shared dirs here used to leave a dangling
+// `../../_util` import in the published .d.ts (confirmed via attw: InternalResolutionError).
 // Move the shared dirs to dist/types/<name> as siblings of the flattened src output instead of
 // deleting them, then rewrite the surviving relative specifiers to match the new flat depth.
 const sharedDirNames = ['_util', '_toolbox', '_server'];
@@ -79,12 +78,11 @@ const flattenDeclarations = () => ({
     fs.rmSync(path.join(packagesDir, pkgRelPath), { recursive: true, force: true });
 
     if (fs.existsSync(packagesDir)) {
-      // Only move the shared dirs by name.
-      // Other siblings here are orphan mirrors of a dependency package's own src (tsconfig
-      // `include` needs them in scope so `paths` aliases type-check during declaration emit,
-      // e.g. canc-toolbox including "../canc-promise/src"), never referenced by the emitted
-      // .d.ts (those import the real `@cancjs/*` package by bare specifier).
-      // Drop them same as before, don't ship them in the tarball.
+      // Only move the shared dirs by name. Other siblings here are orphan mirrors of a
+      // dependency package's own src (tsconfig `include` needs them in scope so `paths` aliases
+      // type-check during declaration emit, e.g. canc-toolbox including "../canc-promise/src"),
+      // never referenced by the emitted .d.ts (those import the real `@cancjs/*` package by bare
+      // specifier). Drop them same as before, don't ship them in the tarball.
       for (const dirName of sharedDirNames) {
         const sharedDir = path.join(packagesDir, dirName);
 
@@ -98,15 +96,15 @@ const flattenDeclarations = () => ({
   },
 });
 
-// TS floor = 4.2.
-// downlevel-dts rewrites the handful of newer d.ts syntax forms it knows about (asserts
-// predicates <3.7, template literal types <4.1, paired get/set <3.6...) into a
-// dist/types-ts4.2/ variant.
-// It does NOT know about `Awaited<T>` (lib-defined starting TS 4.5, per its own transform list,
-// verified empty in node_modules/downlevel-dts/index.js) so a follow-up patch script injects a
-// local shadow type alias into any file still referencing the bare name post-downlevel
-// (scripts/patch-awaited.js; see comment there).
-// CLI (not the internal `main` export): that's undocumented API, stick to the public contract.
+// TS floor = 4.2. downlevel-dts rewrites the handful of newer d.ts syntax
+// forms it knows about (asserts predicates <3.7, template literal types <4.1,
+// paired get/set <3.6...) into a dist/types-ts4.2/ variant. It does NOT know
+// about `Awaited<T>` (lib-defined starting TS 4.5, per its own transform list,
+// verified empty in node_modules/downlevel-dts/index.js) so a follow-up patch
+// script injects a local shadow type alias into any file still referencing the
+// bare name post-downlevel (scripts/patch-awaited.js; see comment there).
+// CLI (not the internal `main` export): that's undocumented API, stick to the
+// public contract.
 const TS_FLOOR = '4.2';
 const repoRoot = path.dirname(fileURLToPath(import.meta.url));
 
@@ -135,24 +133,20 @@ const downlevelTypes = () => ({
 
 // Every package's runtime is dual CJS/ESM (dist/*.cjs + dist/*.mjs) but declaration emit only
 // ever wrote plain .d.ts, one file serving both module systems via the same `exports["."].types`
-// condition.
-// TypeScript treats a .d.ts file's module kind as CJS unless the nearest package.json says
-// "type": "module", so the same file resolved from an ESM import site is misclassified
-// (confirmed via attw: FalseCJS).
-// Duplicate every emitted .d.ts to a sibling .d.mts (content is already plain `import`/`export`
-// syntax, valid unchanged as ESM declarations) so the "import" exports condition can point at an
-// unambiguous file while "require" keeps the original .d.ts.
+// condition. TypeScript treats a .d.ts file's module kind as CJS unless the nearest package.json
+// says "type": "module", so the same file resolved from an ESM import site is misclassified
+// (confirmed via attw: FalseCJS). Duplicate every emitted .d.ts to a sibling .d.mts (content is
+// already plain `import`/`export` syntax, valid unchanged as ESM declarations) so the "import"
+// exports condition can point at an unambiguous file while "require" keeps the original .d.ts.
 // Under --moduleResolution node16/nodenext, ESM relative specifiers must carry an explicit
 // extension (Node itself never guesses one for `import`, and never does directory/index
-// fallback either).
-// The .d.ts source has neither (plain `from './cancel-error'` or `from './_util'` for a
-// directory, emitted by tsc same as the .ts source wrote it).
-// Fine for the CJS-resolved .d.ts twin, but breaks the ESM-resolved .d.mts twin (confirmed via
-// attw: node16 from-ESM InternalResolutionError).
-// Rewrite bare relative specifiers in the .d.mts copy only: a specifier resolving to a file gets
-// `.mjs` appended (TS's declaration extension substitution maps that back to the sibling
-// `.d.mts`); a specifier resolving to a directory gets `/index.mjs` appended instead, since ESM
-// has no directory-index shorthand at all.
+// fallback either). The .d.ts source has neither (plain `from './cancel-error'` or `from
+// './_util'` for a directory, emitted by tsc same as the .ts source wrote it). Fine for the
+// CJS-resolved .d.ts twin, but breaks the ESM-resolved .d.mts twin (confirmed via attw: node16
+// from-ESM InternalResolutionError). Rewrite bare relative specifiers in the .d.mts copy only:
+// a specifier resolving to a file gets `.mjs` appended (TS's declaration extension substitution
+// maps that back to the sibling `.d.mts`); a specifier resolving to a directory gets
+// `/index.mjs` appended instead, since ESM has no directory-index shorthand at all.
 const RELATIVE_SPECIFIER_PATTERN = /(\bfrom\s+|\bimport\()(['"])(\.\.?\/[^'"]+)\2/g;
 const HAS_EXTENSION_PATTERN = /\.(m?[jt]sx?|cjs|json)$/;
 
@@ -210,8 +204,7 @@ const createTypescriptPlugin = (emitDeclaration) =>
   });
 
 // An entry descriptor. `input` is the source module; `base` is the output basename under dist/
-// (dist/<base>.cjs etc).
-// Declaration emit runs only for the entry that requests it.
+// (dist/<base>.cjs etc). Declaration emit runs only for the entry that requests it.
 const defaultEntry = { input: 'src/index.ts', base: 'index' };
 
 const createCommonConfig = (emitDeclaration, entry) => ({
@@ -402,9 +395,9 @@ const createEntryConfigs = (entry, options, emitDeclaration, formats = ALL_FORMA
 export const createConfigs = (options = { name: 'LibraryName' }) =>
   createEntryConfigs(defaultEntry, options, true, options.formats);
 
-// Multi-entry variant for packages that ship twin entry points (e.g. a `-native` flavor).
-// The first entry emits declarations; the rest reuse the same type output.
-// Each entry needs a distinct `base` and may set its own UMD global `name`.
+// Multi-entry variant for packages that ship twin entry points (e.g. a `-native` flavor). The
+// first entry emits declarations; the rest reuse the same type output. Each entry needs a distinct
+// `base` and may set its own UMD global `name`.
 export const createMultiConfigs = (entries, options = { name: 'LibraryName' }) =>
   entries.flatMap((entry, index) =>
     createEntryConfigs(entry, { ...options, ...entry, name: entry.name || options.name }, index === 0, options.formats),
