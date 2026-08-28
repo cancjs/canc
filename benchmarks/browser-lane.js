@@ -322,12 +322,12 @@ const SUITES = [
       {
         name: 'canc-handleCancel-register',
         body: `
- var CP = window.canc_promise.CancelablePromise;
- return new CP(function (resolve, reject, handleCancel) {
- handleCancel(function () {});
- resolve(1);
- });
- `,
+  var CP = window.canc_promise.CancelablePromise;
+  return new CP(function (resolve, reject, ctx) {
+    ctx.handleCancel(function () {});
+    resolve(1);
+  });
+  `,
       },
     ],
   },

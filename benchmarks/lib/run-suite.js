@@ -28,13 +28,20 @@ async function runSuite(suiteModule) {
   await bench.warmup();
   await bench.run();
 
-  const tasks = bench.tasks.map((task) => ({
-    name: task.name,
-    opsPerSec: task.result ? task.result.hz : null,
-    marginPct: task.result ? task.result.rme : null,
-    samples: task.result ? task.result.samples.length : 0,
-    meanMs: task.result ? task.result.mean : null,
-  }));
+  const tasks = bench.tasks.map((task) => {
+    const error = (task.result && task.result.error) || task.error || null;
+    if (error) {
+      console.error(`Case "${task.name}" failed: ${error.stack || error.message || error}`);
+    }
+    return {
+      name: task.name,
+      opsPerSec: task.result && task.result.hz != null ? task.result.hz : null,
+      marginPct: task.result && task.result.rme != null ? task.result.rme : null,
+      samples: task.result && task.result.samples ? task.result.samples.length : 0,
+      meanMs: task.result && task.result.mean != null ? task.result.mean : null,
+      error: error ? error.message || String(error) : null,
+    };
+  });
 
   const result = {
     suite: suiteModule.name,

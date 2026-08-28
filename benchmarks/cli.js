@@ -59,6 +59,10 @@ async function main() {
   console.log(md);
   console.log(`\nJSON: ${outFile}`);
   console.log(`MD: ${mdFile}`);
+
+  if (result && Array.isArray(result.tasks) && result.tasks.some((t) => t.error != null)) {
+    process.exitCode = 1;
+  }
 }
 
 main().catch((err) => {
