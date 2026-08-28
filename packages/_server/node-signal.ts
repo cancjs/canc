@@ -1,5 +1,6 @@
 import { CancelSignal, createCancelSignal } from '@cancjs/promise';
 
+import { hasClientLeft } from './exchange';
 import { getRequestState, IRequestCancelState, setRequestState, trackRequest, untrackRequest } from './holder';
 import { CLIENT_DISCONNECTED } from './reasons';
 import { ICancelableHandlerOptions, IRequestLike, IResponseLike } from './types';
@@ -73,10 +74,7 @@ function wireDisconnect(req: IRequestLike, res: IResponseLike, state: IRequestCa
   // open (measured on node 24.18.1 with express 5.2.1: req.destroyed=true, socket.destroyed=false,
   // res.destroyed=false). anything installing the signal later than the same tick as the route,
   // a nest interceptor for one, would cancel every such request on arrival
-  //
-  // res.destroyed with !writableEnded is the pair that separates the two: a client that really
-  // left reports both destroyed, a healthy request reports neither
-  if (isAlreadyGone(res)) {
+  if (hasClientLeft(res)) {
     untrackRequest(req, state);
     state.cancel(CLIENT_DISCONNECTED);
 
@@ -91,8 +89,4 @@ function wireDisconnect(req: IRequestLike, res: IResponseLike, state: IRequestCa
       state.cancel(CLIENT_DISCONNECTED);
     }
   });
-}
-
-function isAlreadyGone(res: IResponseLike): boolean {
-  return res.destroyed === true && res.writableEnded !== true;
 }

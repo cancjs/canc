@@ -4,7 +4,7 @@ import type { Env, Handler, Input, MiddlewareHandler, TypedResponse } from 'hono
 import { IHandlerCall, runCancelableHandler } from '../../../_server/run';
 import { ICancelableHandlerOptions, IRequestLike, IResponseLike, THandlerFn } from '../../../_server/types';
 import { TAnyFn } from '../../../_util';
-import { ensureCancelState, getNodeBindings, ICancelContext, isClientGone } from './bindings';
+import { ensureCancelState, getNodeBindings, ICancelContext, isResponseUnreachable } from './bindings';
 
 /**
  * Status answered with when a cancellation surfaces on a request whose client has already gone.
@@ -53,9 +53,9 @@ interface ISettleShim extends IResponseLike {
  * On `@hono/node-server` the cancellation is wired from the node response. On a Web standard
  * runtime it comes from `Request.signal`, which on that side does mean the client went away.
  *
- * The wrapper never writes the response. A cancellation whose client is already gone answers with
- * `499`, because hono has to be handed something; everything else, deadlines included, is thrown
- * on to whatever `app.onError` is mounted.
+ * The wrapper never writes the response. A cancellation on a response that can no longer be
+ * answered gets `499`, because hono has to be handed something; everything else, deadlines
+ * included, is thrown on to whatever `app.onError` is mounted.
  */
 export function cancelableHandler<E extends Env = any, P extends string = any, I extends Input = TBlankInput>(
   handler: THandlerFn<THonoHandler<E, P, I>, Response>,
@@ -75,8 +75,8 @@ export function cancelableHandler<E extends Env = any, P extends string = any, I
         finish();
 
         // the documented discriminator, never a message check and never instanceof: a deadline
-        // still has a client to answer, a disconnect that outlived its socket has no addressee
-        if (isCancelError(error) && !error.timedOut && isClientGone(context)) {
+        // still has a client to answer, a cancellation behind an unreachable response has none
+        if (isCancelError(error) && !error.timedOut && isResponseUnreachable(context)) {
           return new Response(null, { status: CLIENT_CLOSED_STATUS });
         }
 

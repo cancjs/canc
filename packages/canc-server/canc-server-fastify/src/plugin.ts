@@ -2,9 +2,9 @@ import { isCancelError } from '@cancjs/promise';
 import { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import fastifyPlugin from 'fastify-plugin';
 
+import { isUnanswerable } from '../../../_server/exchange';
 import { ensureRequestCancelState } from '../../../_server/node-signal';
 import { ICancelableHandlerOptions } from '../../../_server/types';
-import { isUnanswerable } from './handler';
 
 /** Status reported when a cancellation reaches the error handler with the client still connected. */
 const CANCELED_STATUS = 503;
@@ -50,9 +50,9 @@ export const cancelPlugin = fastifyPlugin(plugin, {
 /**
  * An error handler that finishes what the wrapper deliberately left alone.
  *
- * A cancellation that arrives with the client already gone is dropped, because the response is
- * unreachable. A cancellation on a live connection answers with a status. Everything else, a
- * missed deadline included, goes to fastify's own handling, which reads the status off the error.
+ * A cancellation that arrives on a response which can no longer be answered is dropped. A
+ * cancellation on a live connection answers with a status. Everything else, a missed deadline
+ * included, goes to fastify's own handling, which reads the status off the error.
  */
 export function cancelErrorHandler(options?: ICancelErrorHandlerOptions): TCancelErrorHandler {
   const canceledStatus = options?.canceledStatus ?? CANCELED_STATUS;

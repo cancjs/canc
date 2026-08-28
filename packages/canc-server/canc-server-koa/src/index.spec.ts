@@ -11,6 +11,7 @@ import {
   drain,
   getRequestSignal,
   HANDLER_TIMEOUT,
+  SERVER_SHUTDOWN,
 } from './index';
 
 const servers: Server[] = [];
@@ -398,6 +399,37 @@ describe('request signal', () => {
     await aborted.promise;
 
     expect(sameSignal).toBe(true);
+  });
+});
+
+describe('cancellation after the response ended', () => {
+  it('is dropped instead of forwarded', async () => {
+    const app = new Koa();
+    const emitted: unknown[] = [];
+
+    app.silent = true;
+    app.on('error', (error: unknown) => emitted.push(error));
+    app.use(
+      route(
+        '/late',
+        cancelableHandler(function* (ctx) {
+          // koa holds ctx.body until the whole chain returns, so the raw response is the only way
+          // to finish answering before the cancellation lands
+          ctx.respond = false;
+          ctx.res.writeHead(200, { 'content-type': 'text/plain' });
+          ctx.res.end('answered');
+          yield CancelablePromise.resolve();
+
+          throw new CancelError(SERVER_SHUTDOWN);
+        }),
+      ),
+    );
+
+    const port = await listen(app);
+    const response = await httpRequest(port, { path: '/late' });
+
+    expect(response).toEqual({ body: 'answered', status: 200 });
+    expect(emitted).toEqual([]);
   });
 });
 

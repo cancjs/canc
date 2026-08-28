@@ -4,7 +4,7 @@ import { AddressInfo } from 'node:net';
 import { CancelError, isCancelError } from '@cancjs/promise';
 import Fastify, { FastifyInstance } from 'fastify';
 
-import { cancelableHandler, cancelErrorHandler, cancelPlugin, drain, getRequestSignal } from './index';
+import { cancelableHandler, cancelErrorHandler, cancelPlugin, drain, getRequestSignal, SERVER_SHUTDOWN } from './index';
 
 interface IDeferred<T> {
   promise: Promise<T>;
@@ -277,6 +277,44 @@ describe('error handler', () => {
     const response = await send(port, '/boom');
 
     expect(response.statusCode).toBe(500);
+  });
+});
+
+describe('cancellation after the response ended', () => {
+  it('is dropped instead of forwarded', async () => {
+    const logged: string[] = [];
+
+    const instance = Fastify({
+      logger: {
+        level: 'error',
+        stream: {
+          write(line: string): void {
+            logged.push(line);
+          },
+        },
+      },
+    });
+    await instance.register(cancelPlugin);
+    instance.setErrorHandler(cancelErrorHandler());
+    // writing the raw response is what a route streaming its own answer does, and it is what puts
+    // the finished response behind the cancellation
+    instance.get(
+      '/late',
+      cancelableHandler(function* (_request, reply) {
+        reply.raw.writeHead(200, { 'content-type': 'text/plain' });
+        reply.raw.end('answered');
+        yield Promise.resolve();
+
+        throw new CancelError(SERVER_SHUTDOWN);
+      }),
+    );
+
+    const port = await listen(instance);
+    const response = await send(port, '/late');
+    await tick();
+
+    expect(response).toEqual({ body: 'answered', statusCode: 200 });
+    expect(logged).toEqual([]);
   });
 });
 

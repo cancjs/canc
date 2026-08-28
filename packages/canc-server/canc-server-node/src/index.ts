@@ -1,12 +1,14 @@
-import { CancelError, CancelSignal, isCancelError } from '@cancjs/promise';
+import { CancelSignal, isCancelError } from '@cancjs/promise';
 import type { IncomingMessage, Server, ServerResponse } from 'http';
 
 import { drainServer } from '../../../_server/drain';
+import { isResponseLive, isUnanswerable, statusOf, toRequestLike, toResponseLike } from '../../../_server/exchange';
 import { getNodeRequestSignal } from '../../../_server/node-signal';
 import { runCancelableHandler } from '../../../_server/run';
 import { DEFAULT_TIMEOUT_STATUS } from '../../../_server/timeout';
 import {
   ICancelableHandlerOptions,
+  ICancelErrorHandlerOptions,
   IDrainOptions,
   IDrainResult,
   IRequestLike,
@@ -16,7 +18,12 @@ import {
 import { TAnyFn } from '../../../_util';
 
 export { CLIENT_DISCONNECTED, HANDLER_TIMEOUT, SERVER_SHUTDOWN } from '../../../_server/reasons';
-export type { ICancelableHandlerOptions, IDrainOptions, IDrainResult } from '../../../_server/types';
+export type {
+  ICancelableHandlerOptions,
+  ICancelErrorHandlerOptions,
+  IDrainOptions,
+  IDrainResult,
+} from '../../../_server/types';
 
 /** A plain node handler: the shape `cancelableHandler` accepts alongside the generator form. */
 export type TNodeHandler<
@@ -29,15 +36,6 @@ export type TNodeErrorHandler<
   TReq extends IncomingMessage = IncomingMessage,
   TRes extends ServerResponse = ServerResponse,
 > = (error: unknown, req: TReq, res: TRes) => void;
-
-/** Options for the opt-in error handler. */
-export interface ICancelErrorHandlerOptions {
-  /**
-   * Status sent for a cancellation that carries none of its own.
-   * Defaults to `503`.
-   */
-  status?: number;
-}
 
 /** Options `cancelableHandler` accepts, adding the answer for errors raw node has no middleware to forward to. */
 export interface INodeCancelableHandlerOptions<
@@ -68,8 +66,8 @@ export interface INodeCancelableHandlerOptions<
  * `options` given to `cancelableHandler` are the only place to configure a route.
  *
  * Errors reach `options.onError` (default `cancelErrorHandler()`), with one exception: a cancellation
- * that is not a deadline and whose socket is already gone is dropped, because there is nobody left to
- * answer.
+ * that is not a deadline and whose response can no longer be answered is dropped, because there is
+ * nobody left to answer.
  */
 export function cancelableHandler<
   TReq extends IncomingMessage = IncomingMessage,
@@ -109,8 +107,8 @@ export function getRequestSignal(req: IncomingMessage, res: ServerResponse): Can
  * `onError`; pass it (or a wrapper around it) explicitly when a route needs its own status mapping.
  *
  * A deadline answers with the status stamped on it (`503` unless the timeout option names another
- * one), a shutdown cancellation with the fallback status, and a client that has already gone away
- * gets nothing. Anything that is not a cancellation is rethrown: raw node has nowhere further to
+ * one), a shutdown cancellation with the fallback status, and a response that can no longer be
+ * answered gets nothing. Anything that is not a cancellation is rethrown: raw node has nowhere further to
  * forward it to, and nothing here awaits the throw, so it surfaces as an unhandled rejection instead
  * of being silently dropped.
  */
@@ -150,45 +148,4 @@ export function cancelErrorHandler<
  */
 export function drain(server: Server, options?: IDrainOptions): Promise<IDrainResult> {
   return drainServer(server, options);
-}
-
-// the shared core takes structural stand-ins rather than the ambient node types, so one cast per
-// direction here is the whole boundary
-function toRequestLike(req: unknown): IRequestLike {
-  return req as IRequestLike;
-}
-
-function toResponseLike(res: unknown): IResponseLike {
-  return res as IResponseLike;
-}
-
-interface IResponseState {
-  writableEnded?: boolean;
-  destroyed?: boolean;
-}
-
-// `destroyed`, never `writable`: measured on node 24.18.1, a response whose client left mid-handler
-// reports destroyed=true, writableEnded=false and writable=true
-function isResponseLive(res: IResponseState): boolean {
-  return res.writableEnded !== true && res.destroyed !== true;
-}
-
-// discriminator is `isCancelError(err) && !err.timedOut`, never a message check, never instanceof
-// a deadline still has a client to answer; a disconnect that outlived its socket has no addressee
-function isUnanswerable(error: unknown, res: IResponseState): boolean {
-  return isCancelError(error) && !error.timedOut && !isResponseLive(res);
-}
-
-function statusOf(error: CancelError, fallback: number): number {
-  const carried = error as CancelError & { status?: unknown; statusCode?: unknown };
-
-  if (typeof carried.status === 'number') {
-    return carried.status;
-  }
-
-  if (typeof carried.statusCode === 'number') {
-    return carried.statusCode;
-  }
-
-  return fallback;
 }

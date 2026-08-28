@@ -1,3 +1,4 @@
+import { isResponseLive } from '../../../_server/exchange';
 import { getRequestState, IRequestCancelState, setRequestState } from '../../../_server/holder';
 import { ensureRequestCancelState } from '../../../_server/node-signal';
 import { ICancelableHandlerOptions, IRequestLike, IResponseLike } from '../../../_server/types';
@@ -23,12 +24,6 @@ export interface INodeBindings {
 interface INodeBindingsLike {
   incoming?: unknown;
   outgoing?: { on?: unknown } | null;
-}
-
-interface IResponseState {
-  destroyed?: boolean;
-  writable?: boolean;
-  writableEnded?: boolean;
 }
 
 /**
@@ -68,24 +63,21 @@ export function ensureCancelState(c: ICancelContext, options?: ICancelableHandle
 }
 
 /**
- * Whether the client behind this request is already gone.
+ * Whether this request can still be answered.
  *
- * The node branch reads the raw response rather than the request: a premature close leaves
- * `writableEnded` false, because nothing was ever sent, while the socket is already destroyed, and
- * that pair is what separates a dead client from a completed response.
+ * The node branch reads the raw response rather than the request, on the same predicate the rest
+ * of the family uses. A Web runtime has no response object to read, so the request signal is the
+ * only evidence there, and it reports the client leaving rather than the response finishing.
  */
-export function isClientGone(c: ICancelContext): boolean {
+export function isResponseUnreachable(c: ICancelContext): boolean {
   const bindings = getNodeBindings(c.env);
 
   if (!bindings) {
-    // on a Web runtime the request signal is the only evidence there is, and unlike its node
-    // namesakes it does mean the client went away
+    // unlike its node namesakes this signal does mean the client went away
     return c.req.raw.signal?.aborted === true;
   }
 
-  const outgoing = bindings.outgoing as IResponseState;
-
-  return outgoing.writableEnded !== true && (outgoing.destroyed === true || outgoing.writable === false);
+  return !isResponseLive(bindings.outgoing);
 }
 
 function ensureWebRequestState(request: Request, options?: ICancelableHandlerOptions): IRequestCancelState {

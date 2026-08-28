@@ -1,4 +1,4 @@
-import { CancelSignal, isCancelError } from '@cancjs/promise';
+import { CancelSignal } from '@cancjs/promise';
 import {
   FastifyInstance,
   FastifyReply,
@@ -10,6 +10,7 @@ import {
   RouteHandlerMethod,
 } from 'fastify';
 
+import { isUnanswerable } from '../../../_server/exchange';
 import { getNodeRequestSignal } from '../../../_server/node-signal';
 import { runCancelableHandler } from '../../../_server/run';
 import { ICancelableHandlerOptions, THandlerFn } from '../../../_server/types';
@@ -46,8 +47,9 @@ export function getRequestSignal(request: Pick<FastifyRequest, 'raw'>, reply: Pi
  * signal still fires and a cancelable promise it returns is canceled, but a plain `async` body has
  * no suspension point to unwind and runs to completion.
  *
- * The wrapper never writes the response. A disconnect is swallowed because there is nobody left to
- * answer; everything else, deadlines included, reaches the fastify error handler.
+ * The wrapper never writes the response. A cancellation on a response that can no longer be
+ * answered is swallowed, because there is nobody left to answer; everything else, deadlines
+ * included, reaches the fastify error handler.
  */
 export function cancelableHandler<RouteGeneric extends RouteGenericInterface = RouteGenericInterface>(
   handler: THandlerFn<TFastifyRouteHandler<RouteGeneric>, RouteGeneric['Reply']>,
@@ -79,16 +81,4 @@ export function cancelableHandler<RouteGeneric extends RouteGenericInterface = R
   // fastify resolves a route's return type through a conditional over the route generic, which
   // cannot be evaluated while that generic is still a type parameter here
   return wrapped as TFastifyRouteHandler<RouteGeneric>;
-}
-
-/** Whether the response this error surfaced on is already unreachable. */
-export function isUnanswerable(error: unknown, raw: RawReplyDefaultExpression): boolean {
-  return isCancelError(error) && !error.timedOut && isResponseGone(raw);
-}
-
-function isResponseGone(raw: RawReplyDefaultExpression): boolean {
-  // read off the raw response rather than reply.sent: a premature close leaves writableEnded
-  // false, because nothing was ever sent, while the socket is already destroyed, and that pair is
-  // what separates a dead client from a completed response
-  return raw.writableEnded !== true && (raw.destroyed === true || raw.writable === false);
 }

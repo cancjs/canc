@@ -254,6 +254,30 @@ describe('request signal', () => {
   });
 });
 
+describe('cancellation after the response ended', () => {
+  it('is dropped instead of forwarded', async () => {
+    const app = express();
+    const forwarded: unknown[] = [];
+
+    app.get(
+      '/late',
+      cancelableHandler(function* (_req, res) {
+        res.send('answered');
+        yield CancelablePromise.resolve();
+
+        throw new CancelError(SERVER_SHUTDOWN);
+      }),
+    );
+    app.use(recordErrors(forwarded));
+
+    const port = await listen(app);
+    const response = await httpRequest(port, { path: '/late' });
+
+    expect(response).toEqual({ body: 'answered', status: 200 });
+    expect(forwarded).toEqual([]);
+  });
+});
+
 describe('cancel error handler', () => {
   it('passes anything that is not a cancellation through untouched', () => {
     const failure = new Error('boom');

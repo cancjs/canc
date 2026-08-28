@@ -1,14 +1,16 @@
-import { CancelError, CancelSignal, isCancelError } from '@cancjs/promise';
+import { CancelSignal, isCancelError } from '@cancjs/promise';
 import type { ErrorRequestHandler, RequestHandler } from 'express';
 import type { ParamsDictionary, Query } from 'express-serve-static-core';
 import type { IncomingMessage, Server, ServerResponse } from 'http';
 
 import { drainServer } from '../../../_server/drain';
+import { isResponseLive, isUnanswerable, statusOf, toRequestLike, toResponseLike } from '../../../_server/exchange';
 import { getNodeRequestSignal } from '../../../_server/node-signal';
 import { runCancelableHandler } from '../../../_server/run';
 import { DEFAULT_TIMEOUT_STATUS } from '../../../_server/timeout';
 import {
   ICancelableHandlerOptions,
+  ICancelErrorHandlerOptions,
   IDrainOptions,
   IDrainResult,
   IRequestLike,
@@ -18,16 +20,12 @@ import {
 import { TAnyFn } from '../../../_util';
 
 export { CLIENT_DISCONNECTED, HANDLER_TIMEOUT, SERVER_SHUTDOWN } from '../../../_server/reasons';
-export type { ICancelableHandlerOptions, IDrainOptions, IDrainResult } from '../../../_server/types';
-
-/** Options for the opt-in error handler. */
-export interface ICancelErrorHandlerOptions {
-  /**
-   * Status sent for a cancellation that carries none of its own.
-   * Defaults to `503`.
-   */
-  status?: number;
-}
+export type {
+  ICancelableHandlerOptions,
+  ICancelErrorHandlerOptions,
+  IDrainOptions,
+  IDrainResult,
+} from '../../../_server/types';
 
 /**
  * Wraps a route handler so its work stops when the request does.
@@ -39,7 +37,8 @@ export interface ICancelErrorHandlerOptions {
  * including a bare `function* (req, res)` with no annotations.
  *
  * Errors reach express through `next(err)`, with one exception: a cancellation that is not a
- * deadline and whose socket is already gone is dropped, because there is nobody left to answer.
+ * deadline and whose response can no longer be answered is dropped, because there is nobody left
+ * to answer.
  */
 export function cancelableHandler<
   P = ParamsDictionary,
@@ -96,8 +95,8 @@ export function cancelMiddleware(options?: ICancelableHandlerOptions): RequestHa
  * Opt-in error handler mapping a cancellation to a response. Mount it last, after the routes.
  *
  * A deadline answers with the status stamped on it (`503` unless the timeout option names another
- * one), a shutdown cancellation with the fallback status, and a client that has already gone away
- * gets nothing. Anything that is not a cancellation passes through untouched.
+ * one), a shutdown cancellation with the fallback status, and a response that can no longer be
+ * answered gets nothing. Anything that is not a cancellation passes through untouched.
  */
 export function cancelErrorHandler(options: ICancelErrorHandlerOptions = {}): ErrorRequestHandler {
   const fallback = options.status ?? DEFAULT_TIMEOUT_STATUS;
@@ -133,45 +132,4 @@ export function cancelErrorHandler(options: ICancelErrorHandlerOptions = {}): Er
  */
 export function drain(server: Server, options?: IDrainOptions): Promise<IDrainResult> {
   return drainServer(server, options);
-}
-
-// the shared core takes structural stand-ins rather than the ambient node types, so one cast per
-// direction here is the whole boundary
-function toRequestLike(req: unknown): IRequestLike {
-  return req as IRequestLike;
-}
-
-function toResponseLike(res: unknown): IResponseLike {
-  return res as IResponseLike;
-}
-
-interface IResponseState {
-  writableEnded?: boolean;
-  destroyed?: boolean;
-}
-
-// `destroyed`, never `writable`: measured on node 24.18.1 with express 5.2.1, a response whose
-// client left mid-handler reports destroyed=true, writableEnded=false and writable=true
-function isResponseLive(res: IResponseState): boolean {
-  return res.writableEnded !== true && res.destroyed !== true;
-}
-
-// discriminator is `isCancelError(err) && !err.timedOut`, never a message check, never instanceof
-// a deadline still has a client to answer; a disconnect that outlived its socket has no addressee
-function isUnanswerable(error: unknown, res: IResponseState): boolean {
-  return isCancelError(error) && !error.timedOut && !isResponseLive(res);
-}
-
-function statusOf(error: CancelError, fallback: number): number {
-  const carried = error as CancelError & { status?: unknown; statusCode?: unknown };
-
-  if (typeof carried.status === 'number') {
-    return carried.status;
-  }
-
-  if (typeof carried.statusCode === 'number') {
-    return carried.statusCode;
-  }
-
-  return fallback;
 }

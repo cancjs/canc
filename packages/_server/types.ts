@@ -35,6 +35,15 @@ export interface ICancelableHandlerOptions extends ICancelablePromiseFlagOptions
   onTimeout?: (reason: CancelError) => void;
 }
 
+/** Options for the opt-in error handler. */
+export interface ICancelErrorHandlerOptions {
+  /**
+   * Status sent for a cancellation that carries none of its own.
+   * Defaults to `503`.
+   */
+  status?: number;
+}
+
 /** Options for a graceful drain. */
 export interface IDrainOptions {
   /** Grace window in milliseconds before the drain gives up waiting. Defaults to 10000. */

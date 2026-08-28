@@ -170,6 +170,29 @@ describe('onError', () => {
   });
 });
 
+describe('cancellation after the response ended', () => {
+  it('is dropped instead of forwarded', async () => {
+    const forwarded: unknown[] = [];
+
+    const port = await listen(
+      cancelableHandler(
+        function* (_req: IncomingMessage, res: ServerResponse) {
+          res.end('answered');
+          yield CancelablePromise.resolve();
+
+          throw new CancelError(SERVER_SHUTDOWN);
+        },
+        { onError: (error) => forwarded.push(error) },
+      ),
+    );
+
+    const response = await httpRequest(port, { path: '/late' });
+
+    expect(response).toEqual({ body: 'answered', status: 200 });
+    expect(forwarded).toEqual([]);
+  });
+});
+
 describe('request signal', () => {
   it('is one signal per request, shared with work started outside the handler', async () => {
     const started = deferred();

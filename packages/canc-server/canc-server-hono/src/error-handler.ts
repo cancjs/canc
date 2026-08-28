@@ -1,8 +1,9 @@
-import { CancelError, isCancelError } from '@cancjs/promise';
+import { isCancelError } from '@cancjs/promise';
 import type { Env, ErrorHandler } from 'hono';
 
+import { statusOf } from '../../../_server/exchange';
 import { DEFAULT_TIMEOUT_STATUS } from '../../../_server/timeout';
-import { isClientGone } from './bindings';
+import { isResponseUnreachable } from './bindings';
 import { CLIENT_CLOSED_STATUS } from './handler';
 
 /** Options for the opt-in error handler. */
@@ -30,7 +31,7 @@ interface IResponseCarrier {
  * Hono is the one framework in this family that does not read a status off the error, so a deadline
  * would otherwise answer `500` no matter what the timeout option said. This reads it instead: a
  * deadline answers with the status stamped on it, a shutdown cancellation with the fallback status,
- * and a client that has already gone away gets `499` that nobody reads.
+ * and a cancellation behind a response nobody can read gets `499`.
  */
 export function cancelErrorHandler<E extends Env = any>(options: ICancelErrorHandlerOptions<E> = {}): ErrorHandler<E> {
   const fallback = options.status ?? DEFAULT_TIMEOUT_STATUS;
@@ -53,24 +54,10 @@ export function cancelErrorHandler<E extends Env = any>(options: ICancelErrorHan
       throw error;
     }
 
-    if (isClientGone(c)) {
+    if (isResponseUnreachable(c)) {
       return new Response(null, { status: CLIENT_CLOSED_STATUS });
     }
 
     return new Response(null, { status: statusOf(error, fallback) });
   };
-}
-
-function statusOf(error: CancelError, fallback: number): number {
-  const carried = error as CancelError & { status?: unknown; statusCode?: unknown };
-
-  if (typeof carried.status === 'number') {
-    return carried.status;
-  }
-
-  if (typeof carried.statusCode === 'number') {
-    return carried.statusCode;
-  }
-
-  return fallback;
 }

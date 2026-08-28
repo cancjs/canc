@@ -1,8 +1,9 @@
-import { CancelError, CancelSignal, isCancelError } from '@cancjs/promise';
+import { CancelSignal, isCancelError } from '@cancjs/promise';
 import type { Server } from 'http';
 import type { Context, DefaultContext, DefaultState, Middleware, ParameterizedContext } from 'koa';
 
 import { drainServer } from '../../../_server/drain';
+import { isUnanswerable, statusOf, toRequestLike, toResponseLike } from '../../../_server/exchange';
 import { ensureRequestCancelState, getNodeRequestSignal } from '../../../_server/node-signal';
 import { runCancelableHandler } from '../../../_server/run';
 import { DEFAULT_TIMEOUT_STATUS } from '../../../_server/timeout';
@@ -46,8 +47,7 @@ export function cancelableHandler<StateT = DefaultState, ContextT = DefaultConte
       await task;
     } catch (error) {
       if (isUnanswerable(error, ctx.res)) {
-        // unlike koa's ctx.writable (raw socket), this layer checks res.destroyed
-        // && !res.writableEnded to decide if response is dead, so bypass respond()
+        // koa would otherwise write its own default body to a response nobody can read
         ctx.respond = false;
 
         return;
@@ -74,8 +74,8 @@ export function getRequestSignal(ctx: Context): CancelSignal {
  * and the family exposes no separate `cancelErrorHandler` for koa the way it does for the others.
  *
  * A deadline answers with the status stamped on it (`503` unless the timeout option names another
- * one), a shutdown cancellation with the fallback status, and a client that has already gone away
- * gets nothing: `ctx.respond` is set to `false` instead of writing to a dead socket.
+ * one), a shutdown cancellation with the fallback status, and a response that can no longer be
+ * answered gets nothing: `ctx.respond` is set to `false` instead of writing to it.
  *
  * Optional: a route wrapped with `cancelableHandler` installs the signal on its own. Mounting this is
  * how one deadline or one `onDisconnect` hook covers a whole router, and how a cancellation raised by
@@ -116,45 +116,4 @@ export function cancelMiddleware<StateT = DefaultState, ContextT = DefaultContex
  */
 export function drain(server: Server, options?: IDrainOptions): Promise<IDrainResult> {
   return drainServer(server, options);
-}
-
-// the shared core takes structural stand-ins rather than the ambient node types, so one cast per
-// direction here is the whole boundary
-function toRequestLike(req: unknown): IRequestLike {
-  return req as IRequestLike;
-}
-
-function toResponseLike(res: unknown): IResponseLike {
-  return res as IResponseLike;
-}
-
-interface IResponseState {
-  writableEnded?: boolean;
-  destroyed?: boolean;
-}
-
-// `destroyed`, never `writable`: measured on node 24.18.1 with koa 3.2.1, a response whose client
-// left mid-handler reports destroyed=true, writableEnded=false and writable=true
-function isResponseLive(res: IResponseState): boolean {
-  return res.writableEnded !== true && res.destroyed !== true;
-}
-
-// discriminator is `isCancelError(err) && !err.timedOut`, never a message check, never instanceof
-// a deadline still has a client to answer; a disconnect that outlived its socket has no addressee
-function isUnanswerable(error: unknown, res: IResponseState): boolean {
-  return isCancelError(error) && !error.timedOut && !isResponseLive(res);
-}
-
-function statusOf(error: CancelError, fallback: number): number {
-  const carried = error as CancelError & { status?: unknown; statusCode?: unknown };
-
-  if (typeof carried.status === 'number') {
-    return carried.status;
-  }
-
-  if (typeof carried.statusCode === 'number') {
-    return carried.statusCode;
-  }
-
-  return fallback;
 }

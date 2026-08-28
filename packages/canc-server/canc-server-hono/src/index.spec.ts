@@ -5,7 +5,14 @@ import { serve, ServerType } from '@hono/node-server';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 
-import { cancelableHandler, cancelErrorHandler, cancelMiddleware, drain, getRequestSignal } from './index';
+import {
+  cancelableHandler,
+  cancelErrorHandler,
+  cancelMiddleware,
+  drain,
+  getRequestSignal,
+  SERVER_SHUTDOWN,
+} from './index';
 
 interface IDeferred<T> {
   promise: Promise<T>;
@@ -460,6 +467,40 @@ describe('error handler', () => {
 
     expect(response.statusCode).toBe(418);
     expect(response.body).toBe('boom');
+  });
+});
+
+describe('cancellation after the response ended', () => {
+  it('is dropped instead of forwarded', async () => {
+    const forwarded: unknown[] = [];
+    const app = new Hono();
+
+    app.onError((error, c) => {
+      forwarded.push(error);
+
+      return cancelErrorHandler()(error, c);
+    });
+    // writing the adapter's own response is what a route streaming its answer does, and it is what
+    // puts the finished response behind the cancellation
+    app.get(
+      '/late',
+      cancelableHandler(function* (c) {
+        const { outgoing } = c.env as { outgoing: http.ServerResponse };
+
+        outgoing.writeHead(200, { 'content-type': 'text/plain' });
+        outgoing.end('answered');
+        yield Promise.resolve();
+
+        throw new CancelError(SERVER_SHUTDOWN);
+      }),
+    );
+
+    const port = await listen(app);
+    const response = await send(port, '/late');
+    await tick();
+
+    expect(response).toEqual({ body: 'answered', statusCode: 200 });
+    expect(forwarded).toEqual([]);
   });
 });
 
