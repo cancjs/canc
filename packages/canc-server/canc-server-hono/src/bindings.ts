@@ -94,9 +94,10 @@ function ensureWebRequestState(request: Request, options?: ICancelableHandlerOpt
     return existing;
   }
 
-  // signals from the options are deliberately left out here: the shared server core composes them
-  // into the handler's own promise on both runtimes, and folding them in twice would let an external
-  // signal cancel the whole request state on the Web path while canceling only the task on node
+  // signals from the options are deliberately left out here: the shared server core composes
+  // them into the handler's own promise on both runtimes, and folding them in twice would let an
+  // external signal cancel the whole request state on the Web path while canceling only the task
+  // on node
   const { cancel, signal } = createWebRequestSignal(request);
   const state: IRequestCancelState = { cancel, live: new Set(), options: options ? { ...options } : {}, signal };
 

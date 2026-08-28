@@ -138,9 +138,9 @@ function startTask(
   };
 }
 
-// the shared server core hangs its teardown, the deadline timer and the abort listener and the live
-// set, off the response close event, which only exists on node. A handler settling is that same
-// moment on a Web runtime, so the listeners are collected here and called once when it does.
+// the shared server core hangs its teardown, the deadline timer, the abort listener and the live
+// set off the response close event, which only node has; here that same moment is a handler
+// settling, so the listeners are collected below and fired once through finish()
 function createSettleShim(): ISettleShim {
   const listeners: (() => void)[] = [];
   let closed = false;
