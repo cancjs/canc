@@ -1,7 +1,8 @@
+import { once } from 'node:events';
 import http from 'node:http';
-import { AddressInfo } from 'node:net';
+import { AddressInfo, connect, Socket } from 'node:net';
 
-import { CancelError, isCancelError } from '@cancjs/promise';
+import { CancelError, isCancelError, isCancelSignal } from '@cancjs/promise';
 import Fastify, { FastifyInstance } from 'fastify';
 
 import { cancelableHandler, cancelErrorHandler, cancelPlugin, drain, getRequestSignal, SERVER_SHUTDOWN } from './index';
@@ -84,10 +85,28 @@ function open(port: number, path: string): http.ClientRequest {
   return request;
 }
 
+const sockets: Socket[] = [];
+
+// a raw connection the test can destroy right after the connect handshake, before fastify has a
+// chance to route it, which a pooled http.request cannot guarantee
+async function rawRequest(port: number, payload: string): Promise<Socket> {
+  const client = connect(port, '127.0.0.1');
+  sockets.push(client);
+  client.on('error', () => undefined);
+  await once(client, 'connect');
+  client.write(payload);
+
+  return client;
+}
+
 afterEach(async () => {
   const instance = app;
 
   app = undefined;
+
+  for (const socket of sockets.splice(0)) {
+    socket.destroy();
+  }
 
   if (instance) {
     await instance.close();
@@ -148,6 +167,35 @@ describe('client disconnect', () => {
     expect(instance.server.listening).toBe(true);
   });
 
+  it('never starts a handler whose client left before it was reached', async () => {
+    const reported = deferred();
+    let invoked = 0;
+
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    // held until the connection is provably gone, so the pre-flight guard is what the assertion
+    // measures rather than a destroy racing the next server tick
+    instance.addHook('onRequest', (_request, reply, done) => {
+      reply.raw.once('close', () => done());
+    });
+    instance.get(
+      '/late',
+      cancelableHandler(
+        function* () {
+          invoked += 1;
+        },
+        { onDisconnect: () => reported.resolve() },
+      ),
+    );
+
+    const port = await listen(instance);
+    const client = await rawRequest(port, 'GET /late HTTP/1.1\r\nHost: localhost\r\n\r\n');
+    client.destroy();
+    await reported.promise;
+
+    expect(invoked).toBe(0);
+  });
+
   it('leaves a body carrying post alone', async () => {
     let abortedInHandler: boolean | undefined;
 
@@ -201,6 +249,69 @@ describe('deadline', () => {
     expect(response.statusCode).toBe(504);
     expect(JSON.parse(response.body)).toMatchObject({ message: 'route took too long' });
     expect(reported?.timedOut).toBe(true);
+  });
+});
+
+describe('plugin options', () => {
+  it('are inherited by every route and overridden per route', async () => {
+    const instance = Fastify();
+    await instance.register(cancelPlugin, { timeout: { ms: 25, status: 504 } });
+    instance.get(
+      '/inherited',
+      cancelableHandler(function* () {
+        yield new Promise(() => undefined);
+
+        return { ok: true };
+      }),
+    );
+    instance.get(
+      '/overridden',
+      cancelableHandler(
+        function* () {
+          yield new Promise(() => undefined);
+
+          return { ok: true };
+        },
+        { timeout: { ms: 25, status: 507 } },
+      ),
+    );
+
+    const port = await listen(instance);
+
+    expect((await send(port, '/inherited')).statusCode).toBe(504);
+    expect((await send(port, '/overridden')).statusCode).toBe(507);
+  });
+});
+
+describe('request signal', () => {
+  it('is one signal per request, shared with work started outside the route', async () => {
+    const started = deferred();
+    const aborted = deferred();
+    let sameSignal = false;
+
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.addHook('preHandler', async (request, reply) => {
+      const signal = getRequestSignal(request, reply);
+      sameSignal = getRequestSignal(request, reply) === signal && isCancelSignal(signal);
+      signal.addEventListener('abort', () => aborted.resolve(), { once: true });
+    });
+    instance.get(
+      '/hang',
+      cancelableHandler(function* () {
+        started.resolve();
+        yield new Promise(() => undefined);
+      }),
+    );
+
+    const port = await listen(instance);
+    const request = open(port, '/hang');
+
+    await started.promise;
+    request.destroy();
+    await aborted.promise;
+
+    expect(sameSignal).toBe(true);
   });
 });
 
@@ -346,6 +457,36 @@ describe('drain', () => {
 
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
     expect(instance.server.listening).toBe(false);
+  });
+
+  it('gives up on a handler that ignores its cancellation', async () => {
+    const started = deferred();
+
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.get(
+      '/shielded',
+      cancelableHandler(
+        function* () {
+          started.resolve();
+          yield new Promise(() => undefined);
+        },
+        // a shielded handler ignores the cancellation a drain sends it, which is the case the
+        // grace window exists for
+        { shield: true },
+      ),
+    );
+
+    const port = await listen(instance);
+    const request = open(port, '/shielded');
+
+    await started.promise;
+    const result = await drain(instance, { timeout: 100 });
+
+    app = undefined;
+    request.destroy();
+
+    expect(result).toEqual({ canceled: 0, completed: 0, timedOut: true });
   });
 
   it('returns the same result to a second call', async () => {
