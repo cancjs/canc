@@ -1,23 +1,53 @@
 import { CancelablePromise } from '@cancjs/promise';
 import { CANCEL_REASON_SUPERSEDED, CANCEL_REASON_UNMOUNTED } from '@shared/util';
 import { act, fireEvent, render, screen } from '@testing-library/react';
+import { Component, type ReactNode } from 'react';
 
 import { useCancelableCallback } from './lib/use-cancelable-callback';
+
+// class-only boundary for the spec, real boundaries have no hook form
+// records what it caught instead of rendering a fallback
+class RecordingErrorBoundary extends Component<
+  { onCatch: (error: unknown) => void; children: ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError(): { hasError: boolean } {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: unknown): void {
+    this.props.onCatch(error);
+  }
+
+  render(): ReactNode {
+    return this.state.hasError ? <div data-testid="boundary-caught" /> : this.props.children;
+  }
+}
 
 function createDeferred<T = string>(): {
   promise: CancelablePromise<T>;
   resolve: (value: T) => void;
+  reject: (err: unknown) => void;
   cancelReason: () => unknown;
 } {
   let resolve!: (value: T) => void;
+  let reject!: (err: unknown) => void;
   let reason: unknown;
-  const promise = new CancelablePromise<T>((res, _rej, { handleCancel }) => {
+  const promise = new CancelablePromise<T>((res, rej, { handleCancel }) => {
     resolve = res;
+    reject = rej;
     handleCancel((r) => {
       reason = r;
     });
   });
-  return { promise, resolve, cancelReason: () => reason };
+  return {
+    promise,
+    resolve,
+    reject,
+    cancelReason: () => reason,
+  };
 }
 
 describe('useCancelableCallback pending', () => {
@@ -137,5 +167,67 @@ describe('useCancelableCallback cancelPending', () => {
 
     expect(deferred.cancelReason()).toBe(CANCEL_REASON_UNMOUNTED);
     expect(screen.queryByTestId('spinner')).toBeNull();
+  });
+});
+
+describe('useCancelableCallback error routing', () => {
+  it('escalates a non-cancel rejection from void run() to the nearest error boundary', async () => {
+    const deferred = createDeferred<string>();
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const onCatch = jest.fn();
+
+    function TestComponent(): React.JSX.Element {
+      const { run } = useCancelableCallback(() => deferred.promise);
+      return <button onClick={() => void run()}>go</button>;
+    }
+
+    render(
+      <RecordingErrorBoundary onCatch={onCatch}>
+        <TestComponent />
+      </RecordingErrorBoundary>,
+    );
+
+    fireEvent.click(screen.getByText('go'));
+
+    const failure = new Error('booking submission failed');
+    await act(async () => {
+      deferred.reject(failure);
+      await Promise.resolve();
+    });
+
+    expect(onCatch).toHaveBeenCalledWith(failure);
+    expect(screen.getByTestId('boundary-caught')).toBeInTheDocument();
+    errorSpy.mockRestore();
+  });
+
+  it('does not escalate a CancelError to the error boundary', async () => {
+    const deferred = createDeferred<string>();
+    const onCatch = jest.fn();
+
+    function TestComponent(): React.JSX.Element {
+      const { run, cancelPending } = useCancelableCallback(() => deferred.promise);
+      return (
+        <div>
+          <button onClick={() => void run()}>go</button>
+          <button onClick={() => cancelPending()}>cancel</button>
+        </div>
+      );
+    }
+
+    render(
+      <RecordingErrorBoundary onCatch={onCatch}>
+        <TestComponent />
+      </RecordingErrorBoundary>,
+    );
+
+    fireEvent.click(screen.getByText('go'));
+    fireEvent.click(screen.getByText('cancel'));
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(onCatch).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('boundary-caught')).toBeNull();
   });
 });

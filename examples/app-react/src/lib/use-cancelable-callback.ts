@@ -1,4 +1,4 @@
-import { CancelablePromise, type TCancelReason } from '@cancjs/promise';
+import { CancelablePromise, isCancelError, type TCancelReason } from '@cancjs/promise';
 import { CANCEL_REASON_SUPERSEDED, CANCEL_REASON_UNMOUNTED } from '@shared/util';
 import { useCallback, useRef, useState } from 'react';
 
@@ -22,6 +22,11 @@ export interface UseCancelableCallbackOptions {
  * currently in flight, derived from its own settlement, never a timer. `cancelPending` cancels
  * the in-flight call; its default reason is "unmounted" (the common wiring is an unmount
  * cleanup) and accepts an override for other call sites.
+ *
+ * A superseded or unmount-time cancel is expected, not an error, so the hook swallows the
+ * resulting `CancelError` itself. Any other rejection is escalated to the nearest React error
+ * boundary by throwing from a state update, matching `useCancelableEffect`. This prevents
+ * fire-and-forget `void run()` calls from silently dropping unexpected failures.
  */
 export function useCancelableCallback<TArgs extends unknown[], TResult>(
   factory: (...args: TArgs) => CancelablePromise<TResult>,
@@ -34,6 +39,7 @@ export function useCancelableCallback<TArgs extends unknown[], TResult>(
   const { cancelPrevious = true } = options;
   const pendingRun = useRef<CancelablePromise<TResult> | undefined>(undefined);
   const [pending, setPending] = useState(false);
+  const [, escalateToErrorBoundary] = useState<undefined>();
 
   const cancelPending = useCallback((reason: TCancelReason = CANCEL_REASON_UNMOUNTED) => {
     pendingRun.current?.cancel(reason);
@@ -67,7 +73,13 @@ export function useCancelableCallback<TArgs extends unknown[], TResult>(
           setPending(false);
         }
       };
-      promise.then(clearIfCurrent, clearIfCurrent);
+      promise.then(clearIfCurrent, (error: unknown) => {
+        clearIfCurrent();
+        if (isCancelError(error)) return;
+        escalateToErrorBoundary(() => {
+          throw error;
+        });
+      });
 
       return promise;
     },
