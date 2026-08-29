@@ -192,8 +192,10 @@ async function checkPackage(pkgName) {
     }
   }
 
+  let inspectedDtsCount = 0;
   for (const f of packedFiles) {
     if (/\.d\.(m|c)?ts$/.test(f)) {
+      inspectedDtsCount++;
       const content = fs.readFileSync(path.join(pkgDir, f), 'utf8');
 
       // Check 1: unconditional /['"]packages\// regex test
@@ -203,8 +205,9 @@ async function checkPackage(pkgName) {
 
       // Check 2: resolve relative specifiers to assert target exists in tarball
       const matches = [
-        ...content.matchAll(/(?:import|export)(?:.+?from)?\s*['"](\.\.?[^'"]+)['"]/g),
-        ...content.matchAll(/import\(['"](\.\.?[^'"]+)['"]\)/g),
+        ...content.matchAll(/(?:import|export)(?:[\s\S]+?from)?\s*['"](\.\.?[^'"]+)['"]/g),
+        ...content.matchAll(/import\(\s*['"](\.\.?[^'"]+)['"]\s*\)/g),
+        ...content.matchAll(/require\(\s*['"](\.\.?[^'"]+)['"]\s*\)/g),
       ];
 
       for (const match of matches) {
@@ -239,6 +242,10 @@ async function checkPackage(pkgName) {
         }
       }
     }
+  }
+
+  if (inspectedDtsCount === 0) {
+    problems.push('package packed zero type declaration (.d.ts) files');
   }
 
   problems.push(...(await collectDefaultExportShadowing(pkgDir, manifest)));
