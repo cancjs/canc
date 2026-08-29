@@ -59,8 +59,32 @@ if (!SUBJECT_RE.test(subject)) {
   process.exit(1);
 }
 
+const ALLOWED_SCOPES = new Set([
+  'promise',
+  'coroutine',
+  'fetch',
+  'decorators',
+  'toolbox',
+  'lazy',
+  'util',
+  'server',
+  'node',
+  'build',
+  'repo',
+  'test',
+  'bench',
+  'types',
+  'docs',
+  'examples',
+]);
+
 const scopeMatch = subject.match(/^\(([a-z]+)\)/);
 const scope = scopeMatch ? scopeMatch[1] : '';
+
+if (!ALLOWED_SCOPES.has(scope)) {
+  console.error(`unknown commit scope "(${scope})". Allowed scopes: ${[...ALLOWED_SCOPES].join(', ')}`);
+  process.exit(1);
+}
 
 function getStagedFiles() {
   try {
