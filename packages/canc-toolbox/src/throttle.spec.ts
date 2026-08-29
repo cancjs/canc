@@ -381,7 +381,7 @@ describe('throttle', () => {
 
     const pa = throttled('a');
     jest.advanceTimersByTime(5);
-    const pb = throttled('b');
+    const _pb = throttled('b');
 
     jest.advanceTimersByTime(300);
     const outcomeA = await (pa as CancelablePromise<string>).then(
