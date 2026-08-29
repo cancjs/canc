@@ -522,4 +522,24 @@ describe('throttle', () => {
     // @ts-expect-error maxWait is a debounce option not on throttle
     throttle(fn, 50, { maxWait: 999 });
   });
+
+  it('rate contract: does not invoke closer than ms across a window boundary', () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(0);
+    const timestamps: number[] = [];
+    const fn = () => {
+      timestamps.push(Date.now());
+      return 1;
+    };
+    const throttled = throttle(fn, 100);
+
+    throttled();
+    jest.advanceTimersByTime(50);
+    throttled();
+    jest.advanceTimersByTime(52);
+    throttled();
+    jest.advanceTimersByTime(298);
+
+    expect(timestamps).toEqual([0, 100, 202]);
+  });
 });
