@@ -1,7 +1,7 @@
 import { CancelablePromise, isCancelError, resolvePromiseImpl } from '@cancjs/promise';
 
 import { isFunction } from '../_util';
-import { getDrainState, getLiveRequests, IRequestCancelState, setDrainState } from './holder';
+import { clearDrainState, getDrainState, getLiveRequests, IRequestCancelState, setDrainState } from './holder';
 import { SERVER_SHUTDOWN } from './reasons';
 import { IDrainOptions, IDrainResult, IServerLike } from './types';
 
@@ -102,13 +102,20 @@ export function drainServer(server: IServerLike, options: IDrainOptions = {}): C
     handleCancel(() => clearTimeout(timer));
   });
 
-  const drain = Impl.race([Impl.allSettled(outcomes), window]).then(() => {
-    if (options.closeServer !== false && isFunction(server.closeAllConnections)) {
-      server.closeAllConnections();
-    }
+  const drain = Impl.race([Impl.allSettled(outcomes), window]).then(
+    () => {
+      clearDrainState(server);
+      if (options.closeServer !== false && isFunction(server.closeAllConnections)) {
+        server.closeAllConnections();
+      }
 
-    return { canceled, completed, timedOut };
-  });
+      return { canceled, completed, timedOut };
+    },
+    (error) => {
+      clearDrainState(server);
+      throw error;
+    },
+  );
 
   setDrainState(server, drain);
 

@@ -214,4 +214,16 @@ describe('graceful drain', () => {
     expect(getLiveRequests(server)?.size).toBe(0);
     expect(await drainServer(server)).toEqual({ canceled: 0, completed: 0, timedOut: false });
   });
+
+  it('allows a real drain after a soft drain completes', async () => {
+    const server = new FakeServer();
+
+    const first = drainServer(server, { closeServer: false });
+    await first;
+
+    const second = drainServer(server);
+    expect(second).not.toBe(first);
+    expect(server.closed).toBe(1);
+    await second;
+  });
 });
