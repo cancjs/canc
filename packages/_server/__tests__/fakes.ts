@@ -1,7 +1,7 @@
 import { CancelablePromise, ICancelablePromiseOptions } from '@cancjs/promise';
 import { EventEmitter } from 'events';
 
-/** Stand-in for ServerResponse, carrying the two things the disconnect guard reads. */
+/** Stand-in for ServerResponse, carrying the three things the disconnect guard reads. */
 export class FakeResponse extends EventEmitter {
   destroyed = false;
   writableEnded = false;

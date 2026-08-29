@@ -240,4 +240,15 @@ describe('graceful drain', () => {
       setPromiseImpl(CancelablePromise as any);
     }
   });
+
+  it('clears the drain state when the drain promise is canceled', async () => {
+    const server = new FakeServer();
+    const first = drainServer(server);
+    first.cancel();
+
+    const second = drainServer(server);
+    expect(second).not.toBe(first);
+    expect(server.closed).toBe(2);
+    await second;
+  });
 });

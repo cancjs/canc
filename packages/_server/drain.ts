@@ -102,20 +102,26 @@ export function drainServer(server: IServerLike, options: IDrainOptions = {}): C
     handleCancel(() => clearTimeout(timer));
   });
 
-  const drain = Impl.race([Impl.allSettled(outcomes), window]).then(
-    () => {
+  const drain = new Impl<IDrainResult>((resolve, reject, { handleCancel }) => {
+    handleCancel(() => {
       clearDrainState(server);
-      if (options.closeServer !== false && isFunction(server.closeAllConnections)) {
-        server.closeAllConnections();
-      }
+    });
 
-      return { canceled, completed, timedOut };
-    },
-    (error) => {
-      clearDrainState(server);
-      throw error;
-    },
-  );
+    Impl.race([Impl.allSettled(outcomes), window]).then(
+      () => {
+        clearDrainState(server);
+        if (options.closeServer !== false && isFunction(server.closeAllConnections)) {
+          server.closeAllConnections();
+        }
+
+        resolve({ canceled, completed, timedOut });
+      },
+      (error) => {
+        clearDrainState(server);
+        reject(error);
+      },
+    );
+  });
 
   setDrainState(server, drain);
 
