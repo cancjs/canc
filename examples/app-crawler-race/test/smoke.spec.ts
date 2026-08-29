@@ -63,7 +63,7 @@ describe('app-crawler-race smoke', () => {
     await sleep(150);
 
     // The leak: the vanilla queue keeps pumping past Stop, so it completes strictly more pages than
-    // the canc crawl, whose one cancel() drained the pool.
+    // the canc crawl, whose one cancel() drained the limiter.
     expect(pageCalls(vanillaApi, 'completed')).toBeGreaterThan(pageCalls(cancApi, 'completed'));
   });
 });
