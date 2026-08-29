@@ -195,8 +195,41 @@ async function checkPackage(pkgName) {
   for (const f of packedFiles) {
     if (/\.d\.(m|c)?ts$/.test(f)) {
       const content = fs.readFileSync(path.join(pkgDir, f), 'utf8');
-      if (/(?:from\s+|import\s*|import\s*\(\s*)(['"])packages\//.test(content)) {
+
+      // Check 1: unconditional /['"]packages\// regex test
+      if (/['"]packages\//.test(content)) {
         problems.push(`packed types contain a bare packages/ import specifier in ${f}`);
+      }
+
+      // Check 2: resolve relative specifiers to assert target exists in tarball
+      const matches = [
+        ...content.matchAll(/(?:import|export)(?:.+?from)?\s*['"](\.\.?[^'"]+)['"]/g),
+        ...content.matchAll(/import\(['"](\.\.?[^'"]+)['"]\)/g),
+      ];
+
+      for (const match of matches) {
+        const specifier = match[1];
+        const target = path.join(path.dirname(f), specifier).replace(/\\/g, '/');
+
+        let found = false;
+        const exts = ['', '.d.ts', '.d.mts', '.d.cts', '/index.d.ts', '/index.d.mts', '/index.d.cts'];
+        for (const ext of exts) {
+          const testTarget = target + ext;
+          if (ext === '' && testTarget.match(/\.[mc]?js$/)) {
+            const dtsTarget = testTarget.replace(/\.([mc]?)js$/, '.d.$1ts');
+            if (packedFiles.has(dtsTarget)) {
+              found = true;
+              break;
+            }
+          }
+          if (packedFiles.has(testTarget)) {
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          problems.push(`packed types contain an unresolvable relative import ${specifier} in ${f}`);
+        }
       }
     }
   }
