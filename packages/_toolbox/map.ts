@@ -1,4 +1,4 @@
-import { createAggregateError } from '../_util';
+import { AbortError, createAggregateError } from '../_util';
 import { construct, IExecutorCtx } from './construct';
 import { IToolboxDeps } from './deps';
 import { isThenableLike } from './guards';
@@ -115,6 +115,8 @@ export function mapFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IToo
 
       items.forEach(function (item, index) {
         const wrappedMapper = function (it: T, idx: number) {
+          if (settled) throw new AbortError('map: stopped');
+
           let raw: R | PromiseLike<R>;
           try {
             raw = mapper(it, idx);

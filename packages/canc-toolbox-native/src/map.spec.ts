@@ -152,4 +152,40 @@ describe('map', () => {
     await expect(map([1, 2], (x) => x, { concurrency: 2.5 })).rejects.toThrow(RangeError);
     await expect(map([1, 2], (x) => x, { concurrency: NaN })).rejects.toThrow(RangeError);
   });
+
+  it('stops the queue immediately if a mapper throws synchronously', async () => {
+    const called: number[] = [];
+    const boom = new Error('boom');
+    const promise = map(
+      [0, 1, 2, 3, 4, 5],
+      (item, index) => {
+        called.push(index);
+        if (index === 0) throw boom;
+        return item;
+      },
+      { concurrency: 2 },
+    );
+
+    await expect(promise).rejects.toBe(boom);
+    expect(called).toEqual([0]);
+  });
+
+  it('does not stop the queue on a synchronous throw if stopOnError is false', async () => {
+    const called: number[] = [];
+    const boom = new Error('boom');
+    const promise = map(
+      [0, 1, 2, 3, 4, 5],
+      (item, index) => {
+        called.push(index);
+        if (index === 0) throw boom;
+        return item;
+      },
+      { concurrency: 2, stopOnError: false },
+    );
+
+    const error = await promise.catch((e: any) => e);
+    expect(error.name).toBe('AggregateError');
+    expect(error.errors).toEqual([boom]);
+    expect(called).toEqual([0, 1, 2, 3, 4, 5]);
+  });
 });
