@@ -67,6 +67,32 @@ function makeControllableSource<T>() {
   return { source, deliver: (index: number, value: T) => gate[index](value), state };
 }
 
+// Tracks source next() invocations to verify prefetch and lookahead bounds
+function makeCountingSource<T>(values: T[]) {
+  const state = { pulls: 0 };
+  let index = 0;
+
+  const source = {
+    [Symbol.asyncIterator]() {
+      return this;
+    },
+    next(): Promise<IteratorResult<T>> {
+      state.pulls++;
+
+      if (index < values.length) {
+        return Promise.resolve({ value: values[index++], done: false });
+      }
+
+      return Promise.resolve({ value: undefined as any, done: true });
+    },
+    return(): Promise<IteratorResult<T>> {
+      return Promise.resolve({ value: undefined as any, done: true });
+    },
+  };
+
+  return { source, state };
+}
+
 describe('cancForAwait handle form', () => {
   it('visits every item of a finite async source in order', async () => {
     const seen: number[] = [];
@@ -726,5 +752,115 @@ describe('cancForAwait.next() sugar form', () => {
 
     const result = await outerCo();
     expect(result).toEqual([1, 'x', 'inner', 'y', 2, 'x', 'inner', 'y', 'outer']);
+  });
+
+  it('adversarial: enter loops out of registration order', async () => {
+    const log: any[] = [];
+    const co = cancAsync(function* () {
+      const handleA = yield* cancForAwait(makeLoggedSource([1, 2], log, 'A'));
+      const handleB = yield* cancForAwait(makeLoggedSource(['x', 'y'], log, 'B'));
+
+      let first = true;
+      for (const b of handleB) {
+        if (first) {
+          first = false;
+          for (const a of handleA) {
+            log.push(`${b}${a}`);
+            yield* cancForAwait.next();
+          }
+        }
+        log.push(`step-${b}`);
+        yield* cancForAwait.next();
+      }
+
+      return log;
+    });
+
+    const result = await co();
+    expect(result).toEqual(['x1', 'x2', 'A', 'step-x', 'step-y', 'B']);
+  });
+});
+
+describe('loop lookahead and completion', () => {
+  it('exhausts without error on the final turn when source completes', async () => {
+    const seen: number[] = [];
+
+    const co = cancAsync(function* () {
+      const loop = yield* cancForAwait(makeLoggedSource([1, 2, 3]));
+
+      for (const value of loop) {
+        seen.push(value);
+        yield* loop.next();
+      }
+
+      return 'finished';
+    });
+
+    await expect(co()).resolves.toBe('finished');
+    expect(seen).toEqual([1, 2, 3]);
+  });
+
+  it('lookahead: advance-first + break pulls 2 items for 1 processed item', async () => {
+    const { source, state } = makeCountingSource([10, 20, 30]);
+    const seen: number[] = [];
+
+    const co = cancAsync(function* () {
+      const loop = yield* cancForAwait(source);
+
+      for (const item of loop) {
+        yield* loop.next();
+        seen.push(item);
+        break;
+      }
+
+      return 'done';
+    });
+
+    await expect(co()).resolves.toBe('done');
+    expect(seen).toEqual([10]);
+    expect(state.pulls).toBe(2);
+  });
+
+  it('lookahead: advance-last + break pulls 1 item for 1 processed item', async () => {
+    const { source, state } = makeCountingSource([10, 20, 30]);
+    const seen: number[] = [];
+
+    const co = cancAsync(function* () {
+      const loop = yield* cancForAwait(source);
+
+      for (const item of loop) {
+        seen.push(item);
+        if (item === 10) {
+          break;
+        }
+        yield* loop.next();
+      }
+
+      return 'done';
+    });
+
+    await expect(co()).resolves.toBe('done');
+    expect(seen).toEqual([10]);
+    expect(state.pulls).toBe(1);
+  });
+
+  it('lookahead: full drain pulls 4 items for 3 items (3 items + 1 done signal)', async () => {
+    const { source, state } = makeCountingSource([10, 20, 30]);
+    const seen: number[] = [];
+
+    const co = cancAsync(function* () {
+      const loop = yield* cancForAwait(source);
+
+      for (const item of loop) {
+        yield* loop.next();
+        seen.push(item);
+      }
+
+      return 'done';
+    });
+
+    await expect(co()).resolves.toBe('done');
+    expect(seen).toEqual([10, 20, 30]);
+    expect(state.pulls).toBe(4);
   });
 });
