@@ -203,8 +203,8 @@ export function limitFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
               return;
             }
 
-            // A running non-cancelable job cannot be aborted; its slot remains held in `running`
-            // until settlement (a job that never settles loses its slot forever).
+            // A running non-cancelable job cannot be aborted; its slot remains held in running
+            // until settlement (a job that never settles holds its slot forever, leaking capacity).
             if (isCancelableLike(entry.job)) entry.job.cancel(reason);
           });
         }

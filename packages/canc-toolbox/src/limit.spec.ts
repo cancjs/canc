@@ -1,5 +1,6 @@
-import { CancelablePromise, isCancelError } from '@cancjs/promise';
+import { CancelablePromise, isAbortError, isCancelError } from '@cancjs/promise';
 
+import { limitFactory } from '../../_toolbox/limit';
 import { limit } from './index';
 
 // Drain the microtask queue enough times to let a canceled job's chain settle and the freed slot be
@@ -499,5 +500,25 @@ describe('limit', () => {
     expect(results[total - 1]).toBe(total - 1);
     expect(limited.active).toBe(0);
     expect(limited.pending).toBe(0);
+  });
+
+  it('settles queued entries when abandoned under cancelable deps with non-cancelable handle', async () => {
+    const customLimit = limitFactory({
+      Impl: Promise as unknown as any,
+    })(1);
+
+    const blocker = new Promise(() => {});
+    const queuedJob = jest.fn(() => Promise.resolve('ok'));
+
+    customLimit(() => blocker);
+    const pQueued = customLimit(queuedJob);
+
+    expect(customLimit.pending).toBe(1);
+
+    customLimit.cancel('abandoned-queue');
+
+    const err = await pQueued.then(undefined, (e: unknown) => e);
+    expect(isAbortError(err)).toBe(true);
+    expect((err as Error).message).toBe('abandoned-queue');
   });
 });
