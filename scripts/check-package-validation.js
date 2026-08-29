@@ -209,24 +209,31 @@ async function checkPackage(pkgName) {
 
       for (const match of matches) {
         const specifier = match[1];
-        const target = path.join(path.dirname(f), specifier).replace(/\\/g, '/');
+        const rawTarget = path.join(path.dirname(f), specifier).replace(/\\/g, '/');
+        const normalizedTarget = rawTarget.endsWith('/') ? rawTarget.slice(0, -1) : rawTarget;
 
         let found = false;
-        const exts = ['', '.d.ts', '.d.mts', '.d.cts', '/index.d.ts', '/index.d.mts', '/index.d.cts'];
-        for (const ext of exts) {
-          const testTarget = target + ext;
-          if (ext === '' && testTarget.match(/\.[mc]?js$/)) {
-            const dtsTarget = testTarget.replace(/\.([mc]?)js$/, '.d.$1ts');
-            if (packedFiles.has(dtsTarget)) {
-              found = true;
-              break;
-            }
-          }
-          if (packedFiles.has(testTarget)) {
+        const candidates = [
+          normalizedTarget,
+          normalizedTarget + '.d.ts',
+          normalizedTarget + '.d.mts',
+          normalizedTarget + '.d.cts',
+          normalizedTarget + '/index.d.ts',
+          normalizedTarget + '/index.d.mts',
+          normalizedTarget + '/index.d.cts',
+        ];
+
+        if (normalizedTarget.match(/\.[mc]?js$/)) {
+          candidates.push(normalizedTarget.replace(/\.([mc]?)js$/, '.d.$1ts'));
+        }
+
+        for (const candidate of candidates) {
+          if (packedFiles.has(candidate)) {
             found = true;
             break;
           }
         }
+
         if (!found) {
           problems.push(`packed types contain an unresolvable relative import ${specifier} in ${f}`);
         }
