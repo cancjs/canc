@@ -101,7 +101,7 @@ const Module = require('module');
 const fs = require('fs');
 const path = require('path');
 
-// Map @cancjs specifiers to source so bare imports resolve to source
+// Map @cancjs specifiers to source so lazy-promise bare imports resolve to source
 const originalResolveFilename = Module._resolveFilename;
 Module._resolveFilename = function (request, parent, isMain) {
  const match = request.match(/^@cancjs\\/([^\\/]+)(?:\\/(.*))?$/);
