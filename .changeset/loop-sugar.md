@@ -2,4 +2,4 @@
 "@cancjs/coroutine": minor
 ---
 
-(coroutine) Add an argument-free advance for the loop handle. `cancForAwait.next()` yields with `[Symbol.for('@cancjs/coroutine:currentLoop')]` to target the innermost-entered open loop in the registry, avoiding the need to store a handle reference for simple single-loop cases.
+Add an argument-free `cancForAwait.next()` loop advance. This targets the innermost open loop in the coroutine, avoiding the need to manually store and advance a handle reference for common loop cases.
