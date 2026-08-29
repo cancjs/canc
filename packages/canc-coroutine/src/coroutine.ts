@@ -224,7 +224,7 @@ export function cancAsync<
       let abortableTryBodySource: CancelablePromise<any, any> | undefined;
 
       // Loop handles opened by this invocation, so two calls of one coroutine never share sources
-      const pendingCleanups: ILoopHandle[] = [];
+      const pendingCleanups: ILoopRegistry = Object.assign([], { _entries: 0 });
 
       let drainDeferred: { promise: CancelablePromise<any>; resolve: (v?: any) => void } | undefined;
       const settleDrain = () => {
@@ -334,9 +334,7 @@ export function cancAsync<
               }
 
               if (!target) {
-                onRejected(
-                  new IterationError('No active forAwait loop; canc.forAwait.next() requires a loop in the body'),
-                );
+                onFulfilled(undefined);
                 return;
               }
 
@@ -737,6 +735,10 @@ export function returnStepIterator(it: any): any {
 // Shared by every exhausted handle, so a done turn allocates nothing
 const DONE_RESULT: IteratorResult<any> = { value: undefined, done: true };
 
+interface ILoopRegistry extends Array<ILoopHandle> {
+  _entries: number;
+}
+
 interface ILoopHandle extends ICancForAwaitLoop<any> {
   _it: any;
   _async: boolean;
@@ -746,7 +748,7 @@ interface ILoopHandle extends ICancForAwaitLoop<any> {
   _finished: boolean;
   _disposing: boolean;
   _enteredAt: number;
-  _registry: ILoopHandle[] | undefined;
+  _registry: ILoopRegistry | undefined;
   _disposed: PromiseLike<void> | undefined;
 }
 
@@ -756,6 +758,7 @@ function disposeLoop(loop: ILoopHandle): PromiseLike<void> | undefined {
   if (!loop._disposing) {
     loop._disposing = true;
     loop._finished = true;
+    // final turn relies on this to avoid throwing IterationError on exhaustion
     loop._stale = false;
 
     const cleanup = returnStepIterator(loop._it);
@@ -859,8 +862,6 @@ function* returnLoop(loop: ILoopHandle): Generator<unknown, void, any> {
   unregisterLoop(loop);
 }
 
-let loopEntrySeq = 0;
-
 function createLoopHandle(it: any, async: boolean): ILoopHandle {
   const loop = {
     _it: it,
@@ -879,7 +880,7 @@ function createLoopHandle(it: any, async: boolean): ILoopHandle {
         throw new IterationError('A forAwait loop handle iterates once, call forAwait again for another pass');
       }
       loop._used = true;
-      loop._enteredAt = ++loopEntrySeq;
+      loop._enteredAt = loop._registry ? ++loop._registry._entries : 0;
 
       return {
         next(): IteratorResult<any> {
@@ -1006,6 +1007,9 @@ cancForAwait.toArray = function* toArray(source: any): Generator<unknown, any[],
 
 cancForAwait.next = function* next(): Generator<unknown, void, any> {
   const loop = yield { [CURRENT_LOOP]: true };
+  if (!loop) {
+    throw new IterationError('No active forAwait loop; canc.forAwait.next() requires a loop in the body');
+  }
   yield* pullNextItem(loop);
 } as ICancForAwait['next'];
 
