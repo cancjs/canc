@@ -490,6 +490,9 @@ describe('retry', () => {
 
     expect(fn).not.toHaveBeenCalled();
 
+    // Wait before subscribing so call-time clock would record > 80ms
+    await new Promise((r) => setTimeout(r, 80));
+
     promise.catch(() => {
       /* swallow */
     });
@@ -497,6 +500,7 @@ describe('retry', () => {
     await flushMicrotasks();
     expect(fn).toHaveBeenCalledTimes(1);
     expect(seenElapsed).toBeGreaterThanOrEqual(0);
+    expect(seenElapsed).toBeLessThan(60);
   });
 
   it('a synchronous throw from shouldRetry rejects the retry with that error and schedules no attempt', async () => {
