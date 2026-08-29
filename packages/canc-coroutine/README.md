@@ -352,10 +352,10 @@ const outerLoop = yield* canc.forAwait(streamA);
 for (const a of outerLoop) {
   yield* outerLoop.next();
 
-  const innerLoop = yield* canc.forAwait(streamB);
+  const innerLoop = yield* canc.forAwait(makeStreamB());
   for (const b of innerLoop) {
     yield* canc.forAwait.next();
-    process(a, b);
+    handlePair(a, b);
   }
 }
 ```
