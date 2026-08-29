@@ -259,9 +259,7 @@ export function createAggregateError(errors: any[], message?: string): IAggregat
   return new AggregateError(errors, message);
 }
 
-// Brand first, name second. The name fallback exists because the platform produces these three
-// kinds itself (fetch, AbortSignal.timeout(), the builtin AggregateError) and an external producer
-// cannot be branded. Errors that only canc produces are matched by brand alone.
+// Brand first, name second, matching platform and cross-realm producers
 
 /**
  * Whether value is an AbortError. Matches the `Symbol.for('@cancjs/promise:AbortError')` prototype brand or the `name` property, never `instanceof`.
