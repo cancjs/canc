@@ -1,51 +1,47 @@
-/* global jest, afterEach, afterAll */
+/* global afterEach, afterAll, expect */
 
 const unhandledErrors = [];
 
 function onUnhandledRejection(reason) {
-  unhandledErrors.push(reason);
-  process.exitCode = 1;
+  const testName = (typeof expect !== 'undefined' && expect.getState().currentTestName) || 'unknown test';
+  unhandledErrors.push({ error: reason, testName });
 }
 
 function onUncaughtException(error) {
-  unhandledErrors.push(error);
-  process.exitCode = 1;
+  const testName = (typeof expect !== 'undefined' && expect.getState().currentTestName) || 'unknown test';
+  unhandledErrors.push({ error, testName });
 }
 
-if (typeof process !== 'undefined' && process.on) {
+if (typeof process !== 'undefined' && process.on && !globalThis.__CANC_JEST_LISTENERS_SET) {
   process.on('unhandledRejection', onUnhandledRejection);
   process.on('uncaughtException', onUncaughtException);
+  globalThis.__CANC_JEST_LISTENERS_SET = true;
+}
+
+function reportUnhandledErrors() {
+  if (unhandledErrors.length > 0) {
+    const errors = unhandledErrors.splice(0, unhandledErrors.length);
+    const msgs = errors.map((e) => `[${e.testName}] ${e.error && e.error.stack ? e.error.stack : String(e.error)}`);
+    throw new Error(`Unhandled errors:\n${msgs.join('\n\n')}`);
+  }
 }
 
 afterEach(() => {
-  try {
-    jest.useRealTimers();
-  } catch {
-    // Environment may not have jest timer methods
-  }
-  if (unhandledErrors.length > 0) {
-    const error = unhandledErrors.shift();
-    unhandledErrors.length = 0;
-    throw error instanceof Error ? error : new Error(String(error));
-  }
+  reportUnhandledErrors();
 });
 
+const realSetImmediate = typeof setImmediate !== 'undefined' ? setImmediate : null;
+const realSetTimeout = typeof setTimeout !== 'undefined' ? setTimeout : null;
+
 afterAll(async () => {
-  try {
-    jest.useRealTimers();
-  } catch {
-    // Environment may not have jest timer methods
-  }
   await new Promise((resolve) => {
-    if (typeof setImmediate === 'function') {
-      setImmediate(resolve);
+    if (realSetImmediate) {
+      realSetImmediate(resolve);
+    } else if (realSetTimeout) {
+      realSetTimeout(resolve, 0);
     } else {
-      setTimeout(resolve, 0);
+      resolve();
     }
   });
-  if (unhandledErrors.length > 0) {
-    const error = unhandledErrors.shift();
-    unhandledErrors.length = 0;
-    throw error instanceof Error ? error : new Error(String(error));
-  }
+  reportUnhandledErrors();
 });
