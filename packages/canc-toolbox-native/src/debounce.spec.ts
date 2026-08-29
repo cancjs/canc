@@ -353,4 +353,24 @@ describe('debounce (native)', () => {
     expect(isSupersededError(other)).toBe(true);
     expect(other instanceof SupersededError).toBe(false);
   });
+
+  it('synchronous throw on trailing edge sets invoked and leaves error intact on later call', async () => {
+    jest.useFakeTimers();
+    const fn = (x: string) => {
+      if (x === 'boom') throw new Error('sync boom');
+      return x;
+    };
+    const debounced = debounce(fn, 50, { leading: false });
+
+    const pBoom = debounced('boom');
+    jest.advanceTimersByTime(50);
+
+    const err = await pBoom.then(undefined, (e: unknown) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect((err as Error).message).toBe('sync boom');
+
+    const pNext = debounced('next');
+    jest.advanceTimersByTime(50);
+    expect(await pNext).toBe('next');
+  });
 });
