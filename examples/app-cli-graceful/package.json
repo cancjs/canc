@@ -12,7 +12,6 @@
   "dependencies": {
     "@cancjs/promise": "file:../../packages/canc-promise",
     "@cancjs/coroutine": "file:../../packages/canc-coroutine",
-    "@shared/lib": "*",
     "@shared/util": "*"
   },
   "devDependencies": {

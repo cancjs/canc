@@ -10,7 +10,6 @@
     "typecheck": "tsc --noEmit --project tsconfig.json"
   },
   "dependencies": {
-    "@shared/lib": "*",
     "@shared/mock-api": "*",
     "@shared/util": "*",
     "@cancjs/promise": "file:../../packages/canc-promise",

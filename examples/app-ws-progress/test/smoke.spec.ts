@@ -10,21 +10,33 @@ type CancelAt30 = (ws: WebSocket, jobId: string) => void;
 
 // Drive one connection: start a job, run `cancelAt30` at the first frame >= 30%, then wait
 // `settleMs` and resolve with the chunk-status counts the server recorded.
-function driveOne(port: number, cancelAt30: CancelAt30, settleMs: number, api: MockApi) {
-  return new Promise<{ started: number; completed: number; aborted: number; ack: boolean }>((resolve) => {
+function driveOne(port: number, cancelAt30: CancelAt30, settleMs: number, api: MockApi, timeoutMs = 5000) {
+  return new Promise<{ started: number; completed: number; aborted: number; ack: boolean }>((resolve, reject) => {
     const ws = new WebSocket(`ws://localhost:${port}`);
     const jobId = 'export-1';
     let canceled = false;
     let ack = false;
 
+    const timer = setTimeout(() => {
+      ws.terminate();
+      reject(new Error(`driveOne timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+
     const report = async () => {
       if (settleMs >= 1000) {
+        const start = Date.now();
         while (api.calls.filter((c) => c.status === 'completed').length < 100) {
+          if (Date.now() - start > timeoutMs) {
+            clearTimeout(timer);
+            reject(new Error(`driveOne settle timed out after ${timeoutMs}ms`));
+            return;
+          }
           await sleep(10);
         }
       } else {
         await sleep(settleMs);
       }
+      clearTimeout(timer);
       resolve({
         started: api.calls.length,
         completed: api.calls.filter((c) => c.status === 'completed').length,
@@ -34,6 +46,10 @@ function driveOne(port: number, cancelAt30: CancelAt30, settleMs: number, api: M
     };
 
     ws.on('open', () => ws.send(JSON.stringify({ type: 'start', jobId })));
+    ws.on('error', (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
     ws.on('message', (raw) => {
       const message = JSON.parse(String(raw)) as ServerMessage;
       if (message.type === 'canceled') ack = true;
