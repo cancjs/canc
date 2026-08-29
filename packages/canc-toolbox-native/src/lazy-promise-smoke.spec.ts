@@ -101,7 +101,8 @@ const Module = require('module');
 const fs = require('fs');
 const path = require('path');
 
-// Map @cancjs specifiers to source so lazy-promise bare imports resolve to source
+// Map @cancjs specifiers to source so lazy-promise bare imports transpile to a require that
+// resolves properly while subpath specifiers fall through to original resolver with its error
 const originalResolveFilename = Module._resolveFilename;
 Module._resolveFilename = function (request, parent, isMain) {
  const match = request.match(/^@cancjs\\/([^\\/]+)(?:\\/(.*))?$/);
