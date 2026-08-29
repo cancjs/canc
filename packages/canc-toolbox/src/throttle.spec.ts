@@ -339,10 +339,32 @@ describe('throttle', () => {
     );
     expect(isCancelError(outcomeA)).toBe(false);
     expect(outcomeA).toBe('A');
+    expect(calls).toEqual(['a', 'b']);
+  });
+
+  it('leading: a superseding call leaves the trailing call that already ran alone', async () => {
+    jest.useFakeTimers();
+    const calls: string[] = [];
+    const fn = (x: string) => {
+      calls.push(x);
+      return new CancelablePromise<string>((resolve) => {
+        setTimeout(() => resolve(x.toUpperCase()), 200);
+      });
+    };
+    const throttled = throttle(fn, 50, { leading: true });
+
+    const pa = throttled('a');
+    jest.advanceTimersByTime(5);
+    const pb = throttled('b');
 
     jest.advanceTimersByTime(300);
+    expect(await pa).toBe('A');
     expect(await pb).toBe('B');
-    expect(calls).toEqual(['a', 'b']);
+
+    const pc = throttled('c');
+    jest.advanceTimersByTime(300);
+    expect(await pc).toBe('C');
+    expect(calls).toEqual(['a', 'b', 'c']);
   });
 
   it('leading (default): the leading edge fires again after a quiet period', async () => {
@@ -402,7 +424,7 @@ describe('throttle', () => {
     expect(await pb).toBe('b');
   });
 
-  it('regression: a superseding call cancels an in-flight call (inherited from debounce)', async () => {
+  it('regression: a superseding call leaves an in-flight call alone (inherited from debounce)', async () => {
     jest.useFakeTimers();
     let bCanceled = false;
     const fn = (x: string) =>
@@ -413,7 +435,8 @@ describe('throttle', () => {
               bCanceled = true;
             });
           }
-          return; // 'b' never settles on its own, only via cancel
+          setTimeout(() => resolve(x.toUpperCase()), 200);
+          return;
         }
         resolve(x);
       });
@@ -428,13 +451,13 @@ describe('throttle', () => {
     jest.advanceTimersByTime(50);
     await Promise.resolve();
     await Promise.resolve();
-    // 'b' has now been invoked and is in flight, never settling by itself
+    // 'b' has now been invoked and is in flight
 
     const pc = throttled('c'); // supersede while 'b' is in flight
 
-    const reasonB = await (pb as CancelablePromise<string>).catch((e: any) => e);
-    expect(isCancelError(reasonB)).toBe(true);
-    expect(bCanceled).toBe(true);
+    jest.advanceTimersByTime(200);
+    expect(await pb).toBe('B');
+    expect(bCanceled).toBe(false);
 
     jest.advanceTimersByTime(50);
     const resultC = await pc;

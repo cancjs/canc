@@ -140,7 +140,10 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
     }
 
     function timerExpired(): void {
-      timerId = undefined;
+      if (timerId !== undefined) {
+        stopTimer(timerId, timers);
+        timerId = undefined;
+      }
       if (maxTimerId !== undefined) {
         stopTimer(maxTimerId, timers);
         maxTimerId = undefined;
@@ -148,13 +151,13 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
 
       if (trailing && lastArgs) {
         invoke(lastArgs);
-      } else {
+      } else if (lastArgs) {
         cancelPending();
       }
     }
 
     function makePromise(): TPromiseOf<K, R, F> {
-      const own: ICycle<R> = { leadingInvoked: false };
+      const own: ICycle<R> = { invoked: false };
       cycle = own;
 
       const p = construct<R>(
@@ -199,9 +202,9 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
         timerId = undefined;
       }
 
-      if (pendingPromise && !cycle.leadingInvoked) {
+      if (pendingPromise && !cycle.invoked) {
         // cancels a pre-invoke pending call and a post-invoke in-flight one alike
-        // skipped after a leading-edge invoke: that call ran, its caller is owed the result
+        // skipped after any invoke: that call ran, its caller is owed the result
         // not `wrapped.cancel()`, which also clears `maxTimerId` and restarts the maxWait window
         cancelCurrent();
       }
@@ -210,7 +213,7 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
 
       if (leading && startsWindow) {
         invoke(argsArray);
-        cycle.leadingInvoked = true;
+        cycle.invoked = true;
         // armed even with `trailing: false`, because only its expiry closes the window
         timerId = startTimer(timerExpired, ms, timers);
         if (maxWait !== undefined && maxTimerId === undefined) {
