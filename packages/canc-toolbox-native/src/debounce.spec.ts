@@ -192,6 +192,23 @@ describe('debounce (native)', () => {
     expect(callCount).toBe(1);
   });
 
+  it('leading:false + trailing:false: fn never called', async () => {
+    jest.useFakeTimers();
+    let callCount = 0;
+    const fn = () => {
+      callCount++;
+      return Promise.resolve(1);
+    };
+    const debounced = debounce(fn, 100, { leading: false, trailing: false });
+
+    const p = debounced();
+    jest.advanceTimersByTime(200);
+
+    const reason = await p.then(undefined, (e) => e);
+    expect(isSupersededError(reason)).toBe(true);
+    expect(callCount).toBe(0);
+  });
+
   it('.cancel() clears timer', async () => {
     jest.useFakeTimers();
     let callCount = 0;

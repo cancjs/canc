@@ -197,15 +197,20 @@ describe('throttle (native)', () => {
     };
     const throttled = throttle(fn, 100, { trailing: false });
 
-    throttled(1).then(undefined, () => undefined);
-    throttled(2).then(undefined, () => undefined);
-    throttled(3);
+    const p1 = throttled(1);
+    const p2 = throttled(2);
+    const p3 = throttled(3);
 
     await Promise.resolve();
     await Promise.resolve();
 
     jest.advanceTimersByTime(200);
-    await Promise.resolve();
+    expect(await p1).toBe(1);
+    const reason2 = await p2.then(undefined, (e) => e);
+    const reason3 = await p3.then(undefined, (e) => e);
+    expect(isSupersededError(reason2)).toBe(true);
+    expect(isSupersededError(reason3)).toBe(true);
+
     expect(calls).toEqual([1]);
   });
 

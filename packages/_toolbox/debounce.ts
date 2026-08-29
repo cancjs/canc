@@ -39,7 +39,7 @@ export type IDebounceDeps = TTimersOverride & {
 // per-call state, so a superseded cycle keeps owning the call it started and nothing else
 interface ICycle<R> {
   result?: PromiseLike<R>;
-  leadingInvoked: boolean;
+  invoked: boolean;
 }
 
 /**
@@ -66,7 +66,7 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
     let pendingResolve: ((value: R | PromiseLike<R>) => void) | undefined;
     let pendingReject: ((reason?: any) => void) | undefined;
     let pendingPromise: TPromiseOf<K, R, F> | undefined;
-    let cycle: ICycle<R> = { leadingInvoked: false };
+    let cycle: ICycle<R> = { invoked: false };
     let superseding = false;
 
     function invoke(args: Args): void {
@@ -91,6 +91,8 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
         pendingResolve = undefined;
         pendingReject = undefined;
       }
+
+      cycle.invoked = true;
     }
 
     function clearTimers(): void {
@@ -147,8 +149,7 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
       if (trailing && lastArgs) {
         invoke(lastArgs);
       } else {
-        pendingResolve = undefined;
-        pendingReject = undefined;
+        cancelPending();
       }
     }
 

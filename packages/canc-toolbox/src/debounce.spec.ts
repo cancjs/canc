@@ -348,9 +348,11 @@ describe('debounce', () => {
     };
     const debounced = debounce(fn, 100, { leading: false, trailing: false });
 
-    debounced();
+    const p = debounced();
     jest.advanceTimersByTime(200);
-    await Promise.resolve();
+
+    const reason = await (p as unknown as CancelablePromise<number>).catch((e: any) => e);
+    expect(isCancelError(reason)).toBe(true);
     expect(callCount).toBe(0);
   });
 

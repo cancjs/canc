@@ -192,16 +192,16 @@ describe('throttle', () => {
     expect(calls).toContain(5);
   });
 
-  it('leading:false: no immediate call, only trailing', async () => {
+  it('leading:false: only trailing', async () => {
     jest.useFakeTimers();
     let callCount = 0;
     const fn = () => {
       callCount++;
-      return CancelablePromise.resolve(1);
+      return Promise.resolve(1);
     };
     const throttled = throttle(fn, 100, { leading: false });
 
-    throttled();
+    const p = throttled();
     await Promise.resolve();
     expect(callCount).toBe(0);
 
@@ -209,6 +209,7 @@ describe('throttle', () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(callCount).toBe(1);
+    expect(await p).toBe(1);
   });
 
   it('trailing:false: only leading, no trailing', async () => {
@@ -220,15 +221,20 @@ describe('throttle', () => {
     };
     const throttled = throttle(fn, 100, { trailing: false });
 
-    throttled(1);
-    throttled(2);
-    throttled(3);
+    const p1 = throttled(1);
+    const p2 = throttled(2);
+    const p3 = throttled(3);
 
     await Promise.resolve();
     await Promise.resolve();
 
     jest.advanceTimersByTime(200);
-    await Promise.resolve();
+    expect(await p1).toBe(1);
+    const reason2 = await (p2 as unknown as CancelablePromise<number>).catch((e: any) => e);
+    const reason3 = await (p3 as unknown as CancelablePromise<number>).catch((e: any) => e);
+    expect(isCancelError(reason2)).toBe(true);
+    expect(isCancelError(reason3)).toBe(true);
+
     expect(calls).toEqual([1]);
   });
 
