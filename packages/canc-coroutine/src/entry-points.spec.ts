@@ -1,10 +1,4 @@
-// `canc` resolves through the package name (workspace symlink + exports map), exercising the main
-// entry built by rollup. `cancGen` imports the `gen.ts` barrel itself (its only job is
-// re-exporting from coroutine-gen.ts under the cancGen.* names) rather than the
-// `@cancjs/coroutine/gen` subpath, because the shared jest moduleNameMapper's `@cancjs/*` regex
-// only substitutes one path segment and cannot express a nested subpath; that mapping gap is
-// unrelated to this package and is proven separately via a plain `require()` smoke against the
-// built dist/gen.cjs from outside jest.
+// exercises canc and cancGen namespaces through jest source mappings
 import * as canc from '@cancjs/coroutine';
 import { throw as cancThrowAlias } from '@cancjs/coroutine';
 import { isCancelError, suppressCancel } from '@cancjs/promise';
@@ -18,15 +12,14 @@ class FooError extends Error {
   }
 }
 
-// Deterministic microtask flush (mirrors coroutine-each.spec): drains the microtask queue N
-// times so chained then-callbacks all run, no arbitrary sleeps.
+// deterministic microtask flush: drains microtask queue
 const flush = async (times = 12) => {
   for (let i = 0; i < times; i++) {
     await Promise.resolve();
   }
 };
 
-describe('canc / cancGen mirror namespaces resolve from built entry points', () => {
+describe('canc / cancGen mirror namespaces resolve from source mapping', () => {
   it('canc.async + canc.forAwait consume a source end-to-end', async () => {
     const seen: number[] = [];
 
