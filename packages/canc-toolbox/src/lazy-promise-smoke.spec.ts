@@ -108,11 +108,6 @@ const path = require('path');
 // Map @cancjs specifiers to source so lazy-promise bare imports resolve to source
 const originalResolveFilename = Module._resolveFilename;
 Module._resolveFilename = function (request, parent, isMain) {
- const serverMatch = request.match(/^@cancjs\\/server-([^\\/]+)(?:\\/(.*))?$/);
- if (serverMatch && !serverMatch[2]) {
-  const srcPath = path.resolve(${JSON.stringify(repoRoot)}, 'packages', 'canc-server', 'canc-server-' + serverMatch[1], 'src', 'index.ts');
-  return originalResolveFilename.call(this, srcPath, parent, isMain);
- }
  const match = request.match(/^@cancjs\\/([^\\/]+)(?:\\/(.*))?$/);
  if (match && !match[2]) {
   const packageName = match[1];
