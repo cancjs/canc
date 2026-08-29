@@ -25,8 +25,8 @@ interface IDomExceptionConstructor {
   new (message?: string, name?: string): ICancError;
 }
 
-// The lib set here is es2022 plus the node types, and neither declares DOMException.
-// A local ambient declaration types the feature detect without pulling in the whole DOM library.
+// The lib set here is es2022 plus the node types, and neither declares DOMException. A local
+// ambient declaration types the feature detect without pulling in the whole DOM library.
 declare const DOMException: IDomExceptionConstructor | undefined;
 
 const resolveMessage = (message: string | undefined, defaultMessage: string | undefined): string | undefined =>
@@ -42,8 +42,7 @@ function defineQuietly(target: object, key: PropertyKey, value: unknown): void {
   try {
     Object.defineProperty(target, key, { value, configurable: true });
   } catch {
-    // A non-configurable slot on an older engine.
-    // Cosmetic metadata is not worth a throw.
+    // A non-configurable slot on an older engine. Cosmetic metadata is not worth a throw.
   }
 }
 
@@ -118,9 +117,8 @@ export function createErrorClass<TName extends string, TBrand extends symbol = s
       createDomExceptionClass<TName, TBrand>(domException, name, defaultMessage)
     : createNativeErrorClass<TName, TBrand>(name, defaultMessage);
 
-  // The classes are built inside a factory, so their intrinsic name would otherwise be the
-  // local one used above.
-  // Callers that match an error by constructor read this.
+  // The classes are built inside a factory, so their intrinsic name would otherwise be the local
+  // one used above. Callers that match an error by constructor read this.
   defineQuietly(ErrorClass, 'name', name);
 
   if (brand !== undefined) {
@@ -247,10 +245,9 @@ export function createAggregateError(errors: any[], message?: string): IAggregat
   return new AggregateError(errors, message);
 }
 
-// Brand first, name second.
-// The name fallback exists because the platform produces these three kinds itself (fetch,
-// AbortSignal.timeout(), the builtin AggregateError) and an external producer cannot be branded.
-// Errors that only canc produces are matched by brand alone.
+// Brand first, name second. The name fallback exists because the platform produces these three
+// kinds itself (fetch, AbortSignal.timeout(), the builtin AggregateError) and an external producer
+// cannot be branded. Errors that only canc produces are matched by brand alone.
 
 /**
  * Whether value is an AbortError. Matches the `Symbol.for('@cancjs/promise:AbortError')` prototype brand or the `name` property, never `instanceof`.
