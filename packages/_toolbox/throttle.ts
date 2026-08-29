@@ -7,7 +7,6 @@ export type IThrottleOptions = TCallDeps & {
   trailing?: boolean;
   /** The throttle window always starts immediately, so a `lazy` flag would be accepted and ignored. */
   lazy?: never;
-  [key: string]: unknown;
 };
 
 export type IThrottled<Args extends unknown[], R, K extends IPromiseKind = IPromiseLikeKind, F = never> = IDebounced<

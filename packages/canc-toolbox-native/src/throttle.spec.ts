@@ -378,4 +378,12 @@ describe('throttle (native)', () => {
     expect(await pc).toBe('C');
     expect(calls).toEqual(['b', 'c']);
   });
+
+  it('rejects unknown option keys at compile time', () => {
+    const fn = () => Promise.resolve(1);
+    // @ts-expect-error trailng typo is rejected
+    throttle(fn, 50, { trailng: false });
+    // @ts-expect-error maxWait is a debounce option not on throttle
+    throttle(fn, 50, { maxWait: 999 });
+  });
 });

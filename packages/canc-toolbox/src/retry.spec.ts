@@ -317,18 +317,30 @@ describe('retry (cancelable)', () => {
     await expect(collect()).resolves.toEqual([]);
   });
 
-  // jitter: -1 inverts the range, so resolveDuration throws where the wait is computed.
-  it('a jitter fraction that inverts the range rejects with the RangeError, with none unhandled', async () => {
-    const collect = trackUnhandledRejections();
+  it('a jitter fraction that inverts the range throws a RangeError at call time', () => {
     const pair = createFakeTimers();
     const fn = jest.fn().mockRejectedValue(new Error('fail'));
 
-    await expect(retry(fn, { retries: 3, initialDelay: 10, jitter: -1, ...pair.timers })).rejects.toBeInstanceOf(
-      RangeError,
-    );
-    expect(fn).toHaveBeenCalledTimes(1);
+    expect(() => retry(fn, { retries: 3, initialDelay: 10, jitter: -1, ...pair.timers })).toThrow(RangeError);
+    expect(fn).not.toHaveBeenCalled();
     expect(pair.delays).toEqual([]);
-    await expect(collect()).resolves.toEqual([]);
+  });
+
+  it('attaches original failure reason as cause when onRetry callback throws', async () => {
+    const original = new Error('original network error');
+    const onRetryError = new Error('onRetry callback crashed');
+    const fn = jest.fn().mockRejectedValue(original);
+
+    const caught = await retry(fn, {
+      retries: 2,
+      initialDelay: 10,
+      onRetry: () => {
+        throw onRetryError;
+      },
+    }).catch((e: unknown) => e);
+
+    expect(caught).toBe(onRetryError);
+    expect((caught as Error).cause).toBe(original);
   });
 
   it('under lazy: true, elapsed is measured from the deferred first attempt', async () => {
