@@ -5,16 +5,19 @@ import { EventEmitter } from 'events';
 export class FakeResponse extends EventEmitter {
   destroyed = false;
   writableEnded = false;
+  writable = true;
 
   /** Normal completion: the response ends, then closes with nothing left to cancel. */
   end(): void {
     this.writableEnded = true;
+    this.writable = false;
     this.emit('close');
   }
 
   /** Client went away mid-response, which tears the response down as well as the socket. */
   disconnect(): void {
     this.destroyed = true;
+    this.writable = false;
     this.emit('close');
   }
 }
