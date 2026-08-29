@@ -113,6 +113,7 @@ describe('useCancelableCallback cancelPrevious', () => {
 
   it('cancelPrevious: false rejects a call made while one is already pending, leaving it untouched', async () => {
     const first = createDeferred<string>();
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
     function TestComponent(props: { onSecondReject: (err: unknown) => void }): React.JSX.Element {
       const { run } = useCancelableCallback(() => first.promise, { cancelPrevious: false });
@@ -129,7 +130,11 @@ describe('useCancelableCallback cancelPrevious', () => {
     }
 
     const onSecondReject = jest.fn();
-    render(<TestComponent onSecondReject={onSecondReject} />);
+    render(
+      <RecordingErrorBoundary onCatch={() => {}}>
+        <TestComponent onSecondReject={onSecondReject} />
+      </RecordingErrorBoundary>,
+    );
     fireEvent.click(screen.getByText('go'));
 
     await act(async () => {
@@ -138,6 +143,43 @@ describe('useCancelableCallback cancelPrevious', () => {
 
     expect(onSecondReject).toHaveBeenCalledTimes(1);
     expect(first.cancelReason()).toBeUndefined();
+    errorSpy.mockRestore();
+  });
+
+  it('routes rejection from a conflict call through the error boundary when cancelPrevious is false', async () => {
+    const first = createDeferred<string>();
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const onCatch = jest.fn();
+
+    function TestComponent(): React.JSX.Element {
+      const { run } = useCancelableCallback(() => first.promise, { cancelPrevious: false });
+      return (
+        <button
+          onClick={() => {
+            void run();
+            void run();
+          }}
+        >
+          go
+        </button>
+      );
+    }
+
+    render(
+      <RecordingErrorBoundary onCatch={onCatch}>
+        <TestComponent />
+      </RecordingErrorBoundary>,
+    );
+
+    fireEvent.click(screen.getByText('go'));
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(onCatch).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('boundary-caught')).toBeInTheDocument();
+    errorSpy.mockRestore();
   });
 });
 

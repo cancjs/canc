@@ -54,9 +54,16 @@ export function useCancelableCallback<TArgs extends unknown[], TResult>(
           // Explicit TFailure=unknown collapses the reject overload back to the same undeclared
           // (never) failure type factory() itself carries, so this branch and the happy path
           // below return the same CancelablePromise<TResult> shape.
-          return CancelablePromise.reject<TResult, unknown>(
+          const rejected = CancelablePromise.reject<TResult, unknown>(
             new Error('useCancelableCallback: a call is already pending (cancelPrevious is false)'),
           );
+          rejected.then(undefined, (error: unknown) => {
+            if (isCancelError(error)) return;
+            escalateToErrorBoundary(() => {
+              throw error;
+            });
+          });
+          return rejected;
         }
         pendingRun.current.cancel(CANCEL_REASON_SUPERSEDED);
       }
