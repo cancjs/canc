@@ -177,6 +177,30 @@ describe('limit', () => {
     expect(limited.active).toBe(0);
   });
 
+  it('a running job that never settles leaves the handle pending and active held after limiter cancel', async () => {
+    const limited = limit(1);
+    let settled = false;
+    const neverJob = () => new Promise<never>(() => {});
+
+    const handle = limited(neverJob);
+    handle.then(
+      () => {
+        settled = true;
+      },
+      () => {
+        settled = true;
+      },
+    );
+
+    expect(limited.active).toBe(1);
+
+    limited.cancel('abandon');
+    await flushMicrotasks();
+
+    expect(settled).toBe(false);
+    expect(limited.active).toBe(1);
+  });
+
   it('tracks active and pending across a scripted sequence', async () => {
     const limited = limit(2);
     const jobs = [createJob('a'), createJob('b'), createJob('c'), createJob('d')];
