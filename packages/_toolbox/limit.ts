@@ -67,7 +67,7 @@ export function limitFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
    * removes it from the queue, so the job never runs at all and the promise rejects with a
    * CancelError. Canceling it after the job started cancels the job itself, provided the job is
    * cancelable. A plain Promise implementation has neither: a returned promise cannot be canceled
-   * on its own, and `cancel` on the limiter rejects the queued jobs (with an AbortError) while
+   * on its own, and `cancel` on the limiter rejects the queued jobs (with an AbortError carrying the reason) while
    * whatever is already running is left to finish.
    *
    * When a running job is non-cancelable (such as a plain Promise), canceling its handle or the
@@ -171,7 +171,12 @@ export function limitFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
 
             // Non-cancelable implementation: a queued job can still be dropped by rejecting its
             // promise, but a running one has no cancel surface to reach.
-            if (!entry.started) reject(new AbortError('limit: canceled while queued'));
+            if (!entry.started) {
+              const message = typeof reason === 'string' ? reason : 'limit: canceled while queued';
+              const err = new AbortError(message);
+              (err as any).cause = reason;
+              reject(err);
+            }
           },
         };
 

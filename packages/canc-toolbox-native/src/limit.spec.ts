@@ -88,6 +88,26 @@ describe('limit', () => {
     expect(queued.started).toBe(false);
   });
 
+  it('carries the reason on a queued rejection when abandoned', async () => {
+    const limited = limit(1);
+    const running = createJob('running');
+    const queued = createJob('queued');
+
+    const first = limited(running.run);
+    const second = limited(queued.run);
+    const caught = second.catch((reason: any) => reason);
+
+    limited.cancel('QUEUED-REASON');
+
+    const error = await caught;
+    expect(isAbortError(error)).toBe(true);
+    expect(error.message).toBe('QUEUED-REASON');
+    expect(error.cause).toBe('QUEUED-REASON');
+
+    running.finish();
+    await first;
+  });
+
   it('leaves a running job alone on cancel, which a native Promise cannot stop', async () => {
     const limited = limit(1);
     const running = createJob('running');
