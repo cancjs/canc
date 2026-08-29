@@ -8,8 +8,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "check": "tsc --noEmit",
-    "test": "node ./scripts/run-matrix.mjs",
+    "test": "tsc --noEmit -p tsconfig.json",
     "matrix": "node ./scripts/run-matrix.mjs",
     "matrix:setup": "node ./scripts/run-matrix.mjs --setup-only",
     "matrix:5.9": "node ./scripts/run-matrix.mjs --only 5.9",
