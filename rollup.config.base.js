@@ -42,7 +42,8 @@ const rewriteSharedDirImports = (typesDir) => {
 
       if (entry.isDirectory()) {
         walk(entryPath);
-      } else if (entry.isFile() && (entry.name.endsWith('.d.ts') || entry.name.endsWith('.d.mts'))) {
+      } else if (entry.isFile() && entry.name.endsWith('.d.ts')) {
+        // Rollup emits .d.ts only; duplicateAsMts and downlevelTypes create variant copies afterward
         const original = fs.readFileSync(entryPath, 'utf8');
         const rewritten = original.replace(specifierPattern, (_match, prefix, quote, _prefixPath, dirName, subpath) => {
           const target = path.join(typesDir, dirName);
