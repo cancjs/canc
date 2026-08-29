@@ -97,6 +97,28 @@ const forAwaitHandleInferFn = cancAsync(function* () {
 type TForAwaitHandleFailure = FailureOf<ReturnType<typeof forAwaitHandleInferFn>>;
 const checkForAwaitHandleInfer: Eq<TForAwaitHandleFailure, never> = true;
 
+// Sugar form: argument-free advance, `break` is native, so no BreakError enters the set
+const forAwaitSugarInferFn = cancAsync(function* () {
+  const loop = yield* cancForAwait([1, 2]);
+  for (const item of loop) {
+    void item;
+    yield* cancForAwait.next();
+    break;
+  }
+  return 42;
+});
+type TForAwaitSugarFailure = FailureOf<ReturnType<typeof forAwaitSugarInferFn>>;
+const checkForAwaitSugarInfer: Eq<TForAwaitSugarFailure, never> = true;
+
+function* forAwaitSugarAnnotated(): AsyncResult<number> {
+  const loop = yield* cancForAwait([1, 2]);
+  for (const item of loop) {
+    void item;
+    yield* cancForAwait.next();
+  }
+  return 42;
+}
+
 function* forAwaitMismatchedAnnotation(): Generator<Failing<FooError>, number, any> {
   // @ts-expect-error TS2322
   yield* cancForAwait([1, 2], () => {});
@@ -114,8 +136,11 @@ void _yieldCheck;
 void forAwaitInferFn;
 void forAwaitToArrayInferFn;
 void forAwaitHandleInferFn;
+void forAwaitSugarInferFn;
+void forAwaitSugarAnnotated;
 void forAwaitMismatchedAnnotation;
 void forAwaitMatchedAnnotation;
 void checkForAwaitInfer;
 void checkForAwaitToArrayInfer;
 void checkForAwaitHandleInfer;
+void checkForAwaitSugarInfer;

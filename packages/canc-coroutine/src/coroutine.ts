@@ -673,6 +673,7 @@ interface ICancForAwait {
   <T>(source: TEachSource<T>, cb: TForAwaitCallback<T>): Generator<Failing<BreakError>, void, any>;
   /** Collects elements into an array. */
   toArray<T>(source: TEachSource<T>): Generator<Failing<BreakError>, T[], any>;
+  /** Advances the innermost open forAwait loop. Delegate it with `yield*`. */
   next(): Generator<unknown, void, any>;
 }
 
