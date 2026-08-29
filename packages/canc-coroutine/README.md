@@ -348,9 +348,9 @@ const saveUntilFull = canc.async(function* (chunkStream: AsyncIterable<Chunk>, i
 
 ```ts
 const outerLoop = yield* canc.forAwait(streamA);
-const innerLoop = yield* canc.forAwait(streamB);
 
 for (const a of outerLoop) {
+  const innerLoop = yield* canc.forAwait(streamB);
   for (const b of innerLoop) {
     yield* outerLoop.next(); // advances outer from inner
     yield* innerLoop.next();
@@ -361,7 +361,7 @@ for (const a of outerLoop) {
 #### The advance rule and lookahead
 
 Creating the handle with `yield* canc.forAwait(source)` prefetches the first item before the loop
-body runs. Each advance (`yield* canc.forAwait.next()` or `yield* loop.next()`) pulls the next item.
+body runs, even if the body never executes. Each advance (`yield* canc.forAwait.next()` or `yield* loop.next()`) pulls the next item.
 At any moment, the source is at most one item ahead of the body.
 
 Follow these rules for advancing the loop:
@@ -377,9 +377,8 @@ Follow these rules for advancing the loop:
    last and do not use `continue`, or use the callback form of `canc.forAwait`.
 
 The advance-first default avoids hidden runtime bugs. An advance-last loop that contains a
-`continue` branch without advancing will re-evaluate the same cached item and throw
-`IterationError` on the following turn. Because error and skip branches are often rarely exercised
-in tests, advance-first is the safer default.
+`continue` branch without advancing will throw `IterationError` on the following turn. Because error
+and skip branches are often rarely exercised in tests, advance-first is the safer default.
 
 A handle iterates once; calling `[Symbol.iterator]()` a second time on the same handle throws
 `IterationError`.
