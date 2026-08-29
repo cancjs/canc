@@ -10,15 +10,16 @@
  * PropertyDecorator`, a union that does not retype a getter either way, never erased, matching
  * the ts-legacy audit result.
  */
-import { AsyncMethod } from '@cancjs/decorators/babel-legacy';
 import { async as cancAsync, AsyncResult } from '@cancjs/coroutine';
+import { AsyncMethod } from '@cancjs/decorators/babel-legacy';
 import CancelablePromise from '@cancjs/promise';
-import type { Expect, ExpectExtends, Not, IsAny } from './assert-type';
+
+import type { Expect, ExpectExtends, IsAny, Not } from './assert-type';
 
 type R = string;
 
 function* body(this: unknown, id: number): AsyncResult<R> {
- return String(id);
+  return String(id);
 }
 
 // The babel-legacy decorator factory's declared type (`MethodDecorator | PropertyDecorator`) is
@@ -26,9 +27,9 @@ function* body(this: unknown, id: number): AsyncResult<R> {
 // tsc), so the getter itself is declared with its own inferred type here, matching what a real
 // babel-legacy consumer's static type looks like: the getter's return type, never erased.
 class C {
- get m() {
- return cancAsync(body, this);
- }
+  get m() {
+    return cancAsync(body, this);
+  }
 }
 
 // AsyncMethod is still invocable as the options factory (`AsyncMethod()`), returning a decorator

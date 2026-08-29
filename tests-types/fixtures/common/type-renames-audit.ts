@@ -1,29 +1,25 @@
 import type {
-  ICancelableFetchConfig,
-  ICancelableFetchLaterConfig,
-  TCancelableFetchLaterPromise,
-  TDeferredRequestInit,
-  IFetchLaterResultLike,
-} from '@cancjs/fetch';
-
-import type {
   IAxiosInstanceLike,
+  ICancelableAxiosContext,
   ICancelableAxiosInstance,
   ICancelableAxiosStatic,
-  ICancelableAxiosContext,
 } from '@cancjs/axios';
-
 import type {
-  IExecutorCtx,
-  THandleCancel,
-  TTimedInput,
-} from '@cancjs/toolbox';
+  ICancelableFetchConfig,
+  ICancelableFetchLaterConfig,
+  IFetchLaterResultLike,
+  TCancelableFetchLaterPromise,
+  TDeferredRequestInit,
+} from '@cancjs/fetch';
+import type { IExecutorCtx, THandleCancel, TTimedInput } from '@cancjs/toolbox';
+import type { TTimedInput as NativeTTimedInput } from '@cancjs/toolbox-native';
 
-import type {
-  TTimedInput as NativeTTimedInput,
-} from '@cancjs/toolbox-native';
-
-type AssertEqual<T, Expected> = [T] extends [Expected] ? ([Expected] extends [T] ? true : false) : false;
+type AssertEqual<T, Expected> =
+  [T] extends [Expected] ?
+    [Expected] extends [T] ?
+      true
+    : false
+  : false;
 
 type Check1 = AssertEqual<keyof ICancelableFetchConfig, 'config' | 'fetch' | 'AbortController'>;
 type Check2 = AssertEqual<keyof ICancelableFetchLaterConfig, 'config' | 'fetch' | 'AbortController' | 'activateAfter'>;

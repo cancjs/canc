@@ -12,16 +12,17 @@
  * classes are the same type, which makes every subtraction and every narrowing check pass for
  * the wrong reason.
  */
+import type { Failing, FailureOf, TReason } from '@cancjs/promise';
 import CancelablePromise, {
-  FAILURE,
   CancelError,
-  catchErrors,
-  suppressErrors,
-  isErrorOf,
-  createIsError,
   catchCancel,
+  catchErrors,
+  createIsError,
+  FAILURE,
+  isErrorOf,
+  suppressErrors,
 } from '@cancjs/promise';
-import type { FailureOf, Failing, TReason } from '@cancjs/promise';
+
 import type { Assert, Eq } from './assert-type';
 
 class MatrixError extends Error {

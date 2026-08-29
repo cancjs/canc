@@ -14,50 +14,52 @@
  * declared to return `CancelablePromise<unknown>` today, asserted as such;
  * tighten here in lockstep if P?-? ever narrows that return).
  */
-import CancelablePromise, {
- CancelError,
- catchCancel,
- suppressCancel,
- makeCancelable,
-} from '@cancjs/promise';
 import type {
- ICancelablePromiseWithResolvers,
- ICancelablePromiseFlagOptions,
- ICancelablePromiseOptions,
- ICatchErrorFn,
- ISuppressErrorFn,
+  ICancelablePromiseFlagOptions,
+  ICancelablePromiseOptions,
+  ICancelablePromiseWithResolvers,
+  ICatchErrorFn,
+  ISuppressErrorFn,
 } from '@cancjs/promise';
-import type { Equal, Expect } from './assert-type';
-
-import { AbortError } from '@cancjs/promise';
-void AbortError;
-
+import CancelablePromise, {
+  AbortError,
+  CancelError,
+  catchCancel,
+  makeCancelable,
+  suppressCancel,
+} from '@cancjs/promise';
 // @ts-expect-error suppress is no longer exported by @cancjs/toolbox
 import { suppress } from '@cancjs/toolbox';
-void suppress;
-
 import {
+  AbortError as ToolboxAbortError,
   catchAbort,
-  suppressAbort,
   catchTimeout,
-  suppressTimeout,
   createCatchError,
   createSuppressError,
-  AbortError as ToolboxAbortError,
+  suppressAbort,
+  suppressTimeout,
   TimeoutError as ToolboxTimeoutError,
   toAbortSignal,
 } from '@cancjs/toolbox';
-
+// cancelify does not accept lazy option
+import { cancelify } from '@cancjs/toolbox';
+// the eagerly starting helpers omit the lazy option the same way
+import { debounce, defer, minDelay, throttle } from '@cancjs/toolbox';
 import {
+  AbortError as NativeAbortError,
   catchAbort as nativeCatchAbort,
-  suppressAbort as nativeSuppressAbort,
   catchTimeout as nativeCatchTimeout,
-  suppressTimeout as nativeSuppressTimeout,
   createCatchError as nativeCreateCatchError,
   createSuppressError as nativeCreateSuppressError,
-  AbortError as NativeAbortError,
+  suppressAbort as nativeSuppressAbort,
+  suppressTimeout as nativeSuppressTimeout,
   TimeoutError as NativeTimeoutError,
 } from '@cancjs/toolbox-native';
+
+import type { Equal, Expect } from './assert-type';
+
+void AbortError;
+void suppress;
 
 declare const _a: ToolboxAbortError;
 void _a;
@@ -79,7 +81,10 @@ const then2 = p.then((n) => n * 2);
 type _then2 = Expect<Equal<typeof then2, CancelablePromise<number>>>;
 
 // onFulfilled + onRejected: union of both branches
-const then3 = p.then((n) => `${n}`, () => 0);
+const then3 = p.then(
+  (n) => `${n}`,
+  () => 0,
+);
 type _then3 = Expect<Equal<typeof then3, CancelablePromise<string | number>>>;
 
 const caught = p.catch(() => 'fallback');
@@ -101,14 +106,23 @@ type _all3 = Expect<Equal<typeof all3, CancelablePromise<[number, string, boolea
 
 // 10-arity is the last fixed overload before the variadic fallback, spot-check it.
 const all10 = CancelablePromise.all([
- Promise.resolve(1), Promise.resolve('a'), Promise.resolve(true),
- Promise.resolve(4), Promise.resolve('e'), Promise.resolve(6),
- Promise.resolve('g'), Promise.resolve(8), Promise.resolve('i'), Promise.resolve(10),
+  Promise.resolve(1),
+  Promise.resolve('a'),
+  Promise.resolve(true),
+  Promise.resolve(4),
+  Promise.resolve('e'),
+  Promise.resolve(6),
+  Promise.resolve('g'),
+  Promise.resolve(8),
+  Promise.resolve('i'),
+  Promise.resolve(10),
 ]);
-type _all10 = Expect<Equal<
- typeof all10,
- CancelablePromise<[number, string, boolean, number, string, number, string, number, string, number]>
->>;
+type _all10 = Expect<
+  Equal<
+    typeof all10,
+    CancelablePromise<[number, string, boolean, number, string, number, string, number, string, number]>
+  >
+>;
 
 // homogeneous array (not a tuple literal): element array, not a tuple
 const allArr = CancelablePromise.all([Promise.resolve(1), Promise.resolve(2)] as Promise<number>[]);
@@ -128,10 +142,9 @@ const resNested = CancelablePromise.resolve(Promise.resolve(5));
 type _resAwait = Expect<Equal<typeof resNested, CancelablePromise<number>>>;
 
 const allSettled = CancelablePromise.allSettled([Promise.resolve(1), Promise.resolve('a')] as const);
-type _allSettled = Expect<Equal<
-  typeof allSettled,
-  CancelablePromise<[PromiseSettledResult<number>, PromiseSettledResult<string>]>
->>;
+type _allSettled = Expect<
+  Equal<typeof allSettled, CancelablePromise<[PromiseSettledResult<number>, PromiseSettledResult<string>]>>
+>;
 
 // ============================================================ withResolvers
 const wr = CancelablePromise.withResolvers<string>();
@@ -196,27 +209,26 @@ type _nativeCatchTimeout = Expect<Equal<typeof nct, Promise<number | Error>>>;
 
 // ============================================================ option interfaces
 // flag options are all optional booleans; adding an unknown key is rejected.
-const flags: ICancelablePromiseFlagOptions = { asyncCancel: true, bubble: false, shield: true, strict: false, forceCancelable: true };
+const flags: ICancelablePromiseFlagOptions = {
+  asyncCancel: true,
+  bubble: false,
+  shield: true,
+  strict: false,
+  forceCancelable: true,
+};
 void flags;
-type _flagKeys = Expect<Equal<
- keyof ICancelablePromiseFlagOptions,
- 'asyncCancel' | 'forceCancelable' | 'bubble' | 'strict' | 'shield'
->>;
+type _flagKeys = Expect<
+  Equal<keyof ICancelablePromiseFlagOptions, 'asyncCancel' | 'forceCancelable' | 'bubble' | 'strict' | 'shield'>
+>;
 
 const opts: ICancelablePromiseOptions = { bubble: true };
 void opts;
 
 // @ts-expect-error unknown option key is rejected by excess-property checking
 const _badOpts: ICancelablePromiseFlagOptions = { notAnOption: true };
-
-// cancelify does not accept lazy option
-import { cancelify } from '@cancjs/toolbox';
 // @ts-expect-error cancelify omits the lazy option
 const _cancelifyProbe = cancelify(() => 1, { lazy: true });
 void _cancelifyProbe;
-
-// the eagerly starting helpers omit the lazy option the same way
-import { debounce, defer, minDelay, throttle } from '@cancjs/toolbox';
 // @ts-expect-error minDelay omits the lazy option
 const _minDelayProbe = minDelay(Promise.resolve(1), 10, { lazy: true });
 void _minDelayProbe;
@@ -239,11 +251,9 @@ type _cancelifyOne = Expect<Equal<typeof cancelifyOne, (id: string) => Cancelabl
 
 // The destructured-context form infers the same way.
 const cancelifyTwo = cancelify(({ getSignal }, id: string, limit: number) =>
- Promise.resolve(`${id}:${limit}:${typeof getSignal}`),
+  Promise.resolve(`${id}:${limit}:${typeof getSignal}`),
 );
-type _cancelifyTwo = Expect<
- Equal<typeof cancelifyTwo, (id: string, limit: number) => CancelablePromise<string>>
->;
+type _cancelifyTwo = Expect<Equal<typeof cancelifyTwo, (id: string, limit: number) => CancelablePromise<string>>>;
 
 const cancelifyNone = cancelify((_ctx) => 1);
 type _cancelifyNone = Expect<Equal<typeof cancelifyNone, () => CancelablePromise<number>>>;

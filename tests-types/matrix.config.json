@@ -31,15 +31,13 @@
       "id": "4.2",
       "typescript": "4.2.4",
       "moduleResolution": "node",
-      "lib": ["es2020", "dom"],
-      "serverKoaTypes": true
+      "lib": ["es2020", "dom"]
     },
     {
       "id": "4.7",
       "typescript": "4.7.4",
       "moduleResolution": "node16",
-      "lib": ["es2022", "dom"],
-      "serverKoaTypes": true
+      "lib": ["es2022", "dom"]
     },
     {
       "id": "5.0",
@@ -58,7 +56,6 @@
       "decoratorTypes": true,
       "serverExpressTypes": true,
       "serverFastifyTypes": true,
-      "serverHonoTypes": true,
       "serverKoaTypes": true
     },
     {

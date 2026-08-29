@@ -23,25 +23,37 @@
  * Same mechanism as ./type-assertions.ts: each `Expect<Equal<...>>` is a hard
  * compile gate, and every area has at least one `@ts-expect-error` negative.
  */
-import CancelablePromise from '@cancjs/promise';
-import type { FailureOf } from '@cancjs/promise';
-import { async as cancAsync, await as cancAwait, throw as cancThrow, forAwait as cancForAwait, BreakError } from '@cancjs/coroutine';
 import type { AsyncResult } from '@cancjs/coroutine';
-import { async as cancGenAsync, await as cancGenAwait, throw as cancGenThrow, forAwait as cancGenForAwait } from '@cancjs/coroutine/gen';
+import {
+  async as cancAsync,
+  await as cancAwait,
+  BreakError,
+  forAwait as cancForAwait,
+  throw as cancThrow,
+} from '@cancjs/coroutine';
 import type { AsyncGenResult, ICancAsyncGenerator } from '@cancjs/coroutine/gen';
+import {
+  async as cancGenAsync,
+  await as cancGenAwait,
+  forAwait as cancGenForAwait,
+  throw as cancGenThrow,
+} from '@cancjs/coroutine/gen';
+import type { FailureOf } from '@cancjs/promise';
+import CancelablePromise from '@cancjs/promise';
+
 import type { Equal, Expect, IsAny, Not } from './assert-type';
 
 class MatrixFooError extends Error {
   declare readonly _tag: 'MatrixFooError';
-  name: string = 'MatrixFooError';
+  name = 'MatrixFooError';
 }
 class MatrixBarError extends Error {
   declare readonly _tag: 'MatrixBarError';
-  name: string = 'MatrixBarError';
+  name = 'MatrixBarError';
 }
 class MatrixBazError extends Error {
   declare readonly _tag: 'MatrixBazError';
-  name: string = 'MatrixBazError';
+  name = 'MatrixBazError';
 }
 
 // ============================================================ typed path: yield*
@@ -67,10 +79,7 @@ type _coNotAny = Expect<Not<IsAny<typeof coResult>>>;
 
 // cancAwait itself is a generator delegate: Generator<T, Awaited<T>, any>.
 const gen = cancAwait(Promise.resolve(42));
-type _cancAwaitYield = Expect<Equal<
-  ReturnType<(typeof gen)['next']>,
-  IteratorResult<Promise<number>, number>
->>;
+type _cancAwaitYield = Expect<Equal<ReturnType<(typeof gen)['next']>, IteratorResult<Promise<number>, number>>>;
 
 // @ts-expect-error cancAsync's first arg must be a generator function, not a plain value
 cancAsync(123);
@@ -102,10 +111,7 @@ cancAsync(function* () {
 
   // allSettled(): tuple of settled results.
   const settled = yield* cancAwait.allSettled([Promise.resolve(1), Promise.resolve('a')] as const);
-  type _allSettledTuple = Expect<Equal<
-    typeof settled,
-    [PromiseSettledResult<number>, PromiseSettledResult<string>]
-  >>;
+  type _allSettledTuple = Expect<Equal<typeof settled, [PromiseSettledResult<number>, PromiseSettledResult<string>]>>;
 
   // try(): the fn's own (awaited) return type, no tuple to reconstruct.
   const tried = yield* cancAwait.try(() => 1);
@@ -169,9 +175,7 @@ cancAsync(function* () {
 const coLoop = cancAsync(function* () {
   yield* cancForAwait([1, 2], function* (_item) {});
 });
-type _coLoopResult = Expect<
-  Equal<ReturnType<typeof coLoop>, CancelablePromise<void, BreakError>>
->;
+type _coLoopResult = Expect<Equal<ReturnType<typeof coLoop>, CancelablePromise<void, BreakError>>>;
 
 // ============================================================ AsyncResult 2-arg annotation & strict failure checking
 const annotatedCo = cancAsync(function* (): AsyncResult<number, MatrixFooError> {
@@ -179,9 +183,7 @@ const annotatedCo = cancAsync(function* (): AsyncResult<number, MatrixFooError> 
   yield 42;
   return n;
 });
-type _annotatedCoResult = Expect<
-  Equal<ReturnType<typeof annotatedCo>, CancelablePromise<number, MatrixFooError>>
->;
+type _annotatedCoResult = Expect<Equal<ReturnType<typeof annotatedCo>, CancelablePromise<number, MatrixFooError>>>;
 
 cancAsync(function* (): AsyncResult<number, MatrixFooError> {
   // @ts-expect-error BarError is not in declared failure set MatrixFooError
@@ -241,9 +243,7 @@ const forAwaitHandleCo = cancAsync(function* () {
 
   return 'done';
 });
-type _forAwaitHandleResult = Expect<
-  Equal<ReturnType<typeof forAwaitHandleCo>, CancelablePromise<string, never>>
->;
+type _forAwaitHandleResult = Expect<Equal<ReturnType<typeof forAwaitHandleCo>, CancelablePromise<string, never>>>;
 
 // ============================================================ forAwait sugar form: cancForAwait.next(), no BreakError
 const forAwaitSugarCo = cancAsync(function* () {
@@ -276,9 +276,7 @@ const forAwaitSugarCo = cancAsync(function* () {
 
   return 'done';
 });
-type _forAwaitSugarResult = Expect<
-  Equal<ReturnType<typeof forAwaitSugarCo>, CancelablePromise<string, never>>
->;
+type _forAwaitSugarResult = Expect<Equal<ReturnType<typeof forAwaitSugarCo>, CancelablePromise<string, never>>>;
 
 // cancForAwait.next() returns Generator<unknown, void, any>
 const sugarNextGen = cancForAwait.next();
@@ -292,10 +290,9 @@ const producerAnnotated = cancGenAsync(function* (): AsyncGenResult<number, void
   type _decodedNumber = Expect<Equal<typeof decoded, number>>;
   yield 42;
 });
-type _producerAnnotatedEmit = Expect<Equal<
-  ReturnType<typeof producerAnnotated> extends AsyncGenerator<infer E, any> ? E : never,
-  number
->>;
+type _producerAnnotatedEmit = Expect<
+  Equal<ReturnType<typeof producerAnnotated> extends AsyncGenerator<infer E, any> ? E : never, number>
+>;
 
 // Inferred: no AsyncGenResult annotation, emit + return still resolve without a cast.
 const producerInferred = cancGenAsync(function* () {
@@ -326,10 +323,9 @@ const producerWithCombinators = cancGenAsync(function* () {
   type _genAnyUnion = Expect<Equal<typeof anied, number | string>>;
 
   const settled = yield* cancGenAwait.allSettled([Promise.resolve(1), Promise.resolve('a')] as const);
-  type _genAllSettledTuple = Expect<Equal<
-    typeof settled,
-    [PromiseSettledResult<number>, PromiseSettledResult<string>]
-  >>;
+  type _genAllSettledTuple = Expect<
+    Equal<typeof settled, [PromiseSettledResult<number>, PromiseSettledResult<string>]>
+  >;
 
   const tried = yield* cancGenAwait.try(() => 2);
   type _genTryNumber = Expect<Equal<typeof tried, number>>;
@@ -340,10 +336,9 @@ const producerWithCombinators = cancGenAsync(function* () {
 
   return settled;
 });
-type _producerWithCombinatorsEmit = Expect<Equal<
-  ReturnType<typeof producerWithCombinators> extends AsyncGenerator<infer E, any> ? E : never,
-  string
->>;
+type _producerWithCombinatorsEmit = Expect<
+  Equal<ReturnType<typeof producerWithCombinators> extends AsyncGenerator<infer E, any> ? E : never, string>
+>;
 
 async function consumeCombinators() {
   for await (const line of producerWithCombinators()) {
@@ -368,9 +363,7 @@ const genFailures = cancGenAsync(function* () {
 });
 
 type _genFailuresReturn = ReturnType<typeof genFailures>;
-type _genFailuresFail = Expect<
-  Equal<FailureOf<_genFailuresReturn>, MatrixFooError | MatrixBazError>
->;
+type _genFailuresFail = Expect<Equal<FailureOf<_genFailuresReturn>, MatrixFooError | MatrixBazError>>;
 
 const annotatedGen = cancGenAsync(function* (): AsyncGenResult<number, string, MatrixFooError> {
   const n = yield* cancGenAwait(cpFoo);
