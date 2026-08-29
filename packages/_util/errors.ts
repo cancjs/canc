@@ -262,12 +262,10 @@ export const isTimeoutError = (error: any): error is TimeoutError =>
   isObject(error) && (error[TIMEOUT_ERROR_BRAND] === true || error.name === 'TimeoutError');
 
 /**
- * Whether value is a SupersededError. No platform ever produces this kind, so unlike the guards
- * above there is no `name` to fall back on: matches the
- * `Symbol.for('@cancjs/toolbox:SupersededError')` prototype brand alone, never `instanceof`.
+ * Whether value is a SupersededError. Matches the `Symbol.for('@cancjs/toolbox:SupersededError')` prototype brand or the `name` property, never `instanceof`.
  */
 export const isSupersededError = (error: any): error is SupersededError =>
-  isObject(error) && error[SUPERSEDED_ERROR_BRAND] === true;
+  isObject(error) && (error[SUPERSEDED_ERROR_BRAND] === true || error.name === 'SupersededError');
 
 /**
  * Whether value is an AggregateError. Matches the `Symbol.for('@cancjs/promise:AggregateError')` prototype brand or the `name` property, never `instanceof`.
