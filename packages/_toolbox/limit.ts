@@ -78,8 +78,8 @@ export function limitFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
    *
    * When a running job is non-cancelable (such as a plain Promise), canceling the limiter cannot
    * stop the underlying work and leaves the running handle pending until the job finishes. The
-   * limiter slot remains held until that job settles, preventing active concurrency from exceeding
-   * the cap.
+   * limiter slot remains held until that job settles; a job that never settles holds its slot
+   * forever, preventing active concurrency from exceeding the cap.
    *
    * Lowering `concurrency` while jobs are in flight does not abort running jobs; `active` may
    * temporarily exceed `concurrency` until running jobs settle.
@@ -204,7 +204,7 @@ export function limitFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
             }
 
             // A running non-cancelable job cannot be aborted; its slot remains held in `running`
-            // until settlement so active concurrency cannot exceed the cap.
+            // until settlement (a job that never settles loses its slot forever).
             if (isCancelableLike(entry.job)) entry.job.cancel(reason);
           });
         }
