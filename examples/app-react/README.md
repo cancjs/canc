@@ -64,11 +64,13 @@ are written to be lifted straight into your own project. Copy them freely. They 
 future `@cancjs/react` package.
 
 - `useCancelable(factory, deps)`: fetch-on-dependency-change in one call. Runs the factory as a
- `CancelablePromise`, re-runs and cancels the previous run when `deps` change, cancels the last run
- on unmount, and returns `{ status, value, error }`. Reach for this first.
+  `CancelablePromise`, re-runs and cancels the previous run when `deps` change, cancels the last run
+  on unmount, and returns `{ status, value, error }`. Because `useCancelableEffect` throws to the error
+  boundary on failure, `status: 'rejected'` cannot render as composed; use `usePromiseState` directly
+  if you want to render an error inline
 - `useCancelableEffect(callback, deps)`: the low-level effect-only primitive. Use it when you start
- a cancelable run but render nothing from it (fire-and-forget analytics or a warm-cache prefetch).
- Returning a `CancelablePromise` makes its `cancel()` the effect cleanup.
+  a cancelable run but render nothing from it (fire-and-forget analytics or a warm-cache prefetch).
+  Returning a `CancelablePromise` makes its `cancel()` the effect cleanup.
 - `usePromiseState(promise)`: tracks one promise's settlement as render state, for manual control
   when you build the chain yourself. `useCancelable` composes it internally. `idle` covers both
   "nothing started" and a run that was canceled.
@@ -80,6 +82,9 @@ future `@cancjs/react` package.
   The example components are effect-driven (typeahead search and hover state), so
   `useCancelableCallback` is verified in its own spec (`src/use-cancelable-callback.spec.tsx`)
   covering imperative event handlers and pending spinner state.
+- Error boundaries required: `useCancelable`, `useCancelableEffect`, and `useCancelableCallback` escalate
+  non-cancel failures to the nearest error boundary by throwing from a state updater, which unmounts
+  the subtree
 
 ## Cancel reasons
 
