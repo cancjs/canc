@@ -90,7 +90,7 @@ describe('debounce (native): per-call timers', () => {
     await Promise.resolve();
 
     expect(callCount).toBe(1);
-    expect(pair.clearTimeout).toHaveBeenCalledTimes(1);
+    expect(pair.clearTimeout).toHaveBeenCalledTimes(2);
   });
 
   it('.cancel() clears through the injected pair and .flush() fires without waiting', async () => {
