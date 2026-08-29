@@ -74,9 +74,8 @@ export class CancelableResource<T> {
 
   private cancelPending(): void {
     const pending = this.pending;
-    // clear pending reference before triggering cancel rejection
-    this.pending = undefined;
     pending?.cancel();
+    this.pending = undefined;
   }
 }
 

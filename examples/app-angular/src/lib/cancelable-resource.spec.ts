@@ -44,6 +44,24 @@ describe('CancelableResource error routing', () => {
     expect(resource.error).toBe(failure);
   });
 
+  it('resets status to idle via the isCancelError branch when caller cancels directly', async () => {
+    const handleError = jest.fn();
+    const errorHandler = { handleError } as unknown as ErrorHandler;
+    const resource = new CancelableResource<string>(fakeDestroyRef() as unknown as DestroyRef, errorHandler);
+    const deferred = createDeferred<string>();
+
+    resource.run(deferred.promise);
+    expect(resource.status).toBe('pending');
+
+    deferred.promise.cancel();
+    await Promise.resolve();
+
+    expect(handleError).not.toHaveBeenCalled();
+    expect(resource.status).toBe('idle');
+    expect(resource.error).toBeUndefined();
+    expect(resource.value).toBeUndefined();
+  });
+
   it('does not report a CancelError from a superseded load', async () => {
     const handleError = jest.fn();
     const errorHandler = { handleError } as unknown as ErrorHandler;
