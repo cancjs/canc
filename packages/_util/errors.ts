@@ -25,8 +25,7 @@ interface IDomExceptionConstructor {
   new (message?: string, name?: string): ICancError;
 }
 
-// The lib set here is es2022 plus the node types, and neither declares DOMException. A local
-// ambient declaration types the feature detect without pulling in the whole DOM library.
+// es2022 and node types do not declare DOMException, so a local ambient declaration types it
 declare const DOMException: IDomExceptionConstructor | undefined;
 
 const resolveMessage = (message: string | undefined, defaultMessage: string | undefined): string | undefined =>
@@ -42,13 +41,11 @@ function defineQuietly(target: object, key: PropertyKey, value: unknown): void {
   try {
     Object.defineProperty(target, key, { value, configurable: true });
   } catch {
-    // A non-configurable slot on an older engine. Cosmetic metadata is not worth a throw.
+    // Non-configurable slot on an older engine where cosmetic metadata is not worth throwing
   }
 }
 
-// `class X extends DOMException` compiles down to `DOMException.call(this, ...)` under the es5
-// target, and that throws "Illegal constructor". Reflect.construct is the portable way to get a
-// DOMException-backed instance whose prototype chain still points at the subclass.
+// Reflect.construct avoids "Illegal constructor" error when extending DOMException under es5
 function createDomExceptionClass<TName extends string, TBrand extends symbol>(
   domException: IDomExceptionConstructor,
   name: TName,
@@ -97,10 +94,7 @@ function createNativeErrorClass<TName extends string, TBrand extends symbol>(
 }
 
 /**
- * Build an error class named `name`. It is backed by DOMException where the platform has one (so a
- * canc error and the DOMException the platform throws for the same condition are the same kind of
- * value), and by Error everywhere else. The two bases take different constructor arguments,
- * `(message, name)` against `(message)`, so the branches cannot share a constructor body.
+ * Build an error class named `name`.
  */
 export function createErrorClass<TName extends string, TBrand extends symbol = symbol>(
   name: TName,
@@ -117,8 +111,7 @@ export function createErrorClass<TName extends string, TBrand extends symbol = s
       createDomExceptionClass<TName, TBrand>(domException, name, defaultMessage)
     : createNativeErrorClass<TName, TBrand>(name, defaultMessage);
 
-  // The classes are built inside a factory, so their intrinsic name would otherwise be the local
-  // one used above. Callers that match an error by constructor read this.
+  // Intrinsic name set explicitly so callers matching an error by constructor read its name
   defineQuietly(ErrorClass, 'name', name);
 
   if (brand !== undefined) {
@@ -126,8 +119,7 @@ export function createErrorClass<TName extends string, TBrand extends symbol = s
   }
 
   if (typeof Symbol !== 'undefined' && Symbol.toStringTag) {
-    // defineProperty rather than assignment: DOMException.prototype exposes Symbol.toStringTag as
-    // a getter with no setter, and assigning through it throws in strict mode.
+    // defineProperty avoids throwing when DOMException exposes Symbol.toStringTag as getter-only
     defineQuietly(ErrorClass.prototype, Symbol.toStringTag, name);
   }
 
@@ -259,7 +251,7 @@ export function createAggregateError(errors: any[], message?: string): IAggregat
   return new AggregateError(errors, message);
 }
 
-// Brand first, name second, matching platform and cross-realm producers
+// Brand first, name second, because platform errors and external producers cannot be branded
 
 /**
  * Whether value is an AbortError. Matches the `Symbol.for('@cancjs/promise:AbortError')` prototype brand or the `name` property, never `instanceof`.
