@@ -507,4 +507,37 @@ describe('drain', () => {
     expect(drain(instance)).toBe(first);
     expect(await first).toEqual({ canceled: 0, completed: 0, timedOut: false });
   });
+
+  it('allows a real drain after a soft drain completes', async () => {
+    const instance = Fastify();
+    await listen(instance);
+
+    const first = drain(instance, { closeServer: false });
+    await first;
+
+    const second = drain(instance);
+    expect(second).not.toBe(first);
+    await second;
+    app = undefined;
+    expect(instance.server.listening).toBe(false);
+  });
+
+  it('attempts close again if the first attempt rejected', async () => {
+    const instance = Fastify();
+    await listen(instance);
+
+    const originalClose = instance.close.bind(instance);
+    instance.close = jest.fn().mockRejectedValueOnce(new Error('close failed')).mockImplementation(originalClose);
+
+    const first = drain(instance);
+    await expect(first).rejects.toThrow('close failed');
+
+    const second = drain(instance);
+    expect(second).not.toBe(first);
+    await second;
+
+    app = undefined;
+    expect(instance.close).toHaveBeenCalledTimes(2);
+    expect(instance.server.listening).toBe(false);
+  });
 });

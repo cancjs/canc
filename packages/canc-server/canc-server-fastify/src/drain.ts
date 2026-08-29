@@ -22,11 +22,20 @@ export function drain(app: FastifyInstance, options?: IDrainOptions): Promise<ID
     return existing;
   }
 
-  const result = drainServer(app.server, options).then(async (outcome) => {
-    await app.close();
-
-    return outcome;
-  });
+  const result = drainServer(app.server, options).then(
+    async (outcome) => {
+      try {
+        await app.close();
+        return outcome;
+      } finally {
+        running.delete(app);
+      }
+    },
+    (error) => {
+      running.delete(app);
+      throw error;
+    },
+  );
 
   running.set(app, result);
 
