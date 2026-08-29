@@ -61,6 +61,8 @@ function checkConcurrency(value: number): number {
 
 /** Bind `limit` to one promise implementation following the dependency-injection recipe. */
 export function limitFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IToolboxDeps<K>) {
+  const isCancelable = Boolean(deps.cancelable);
+
   /**
    * Create a limiter that runs at most `concurrency` jobs at once and queues the rest.
    *
@@ -110,10 +112,11 @@ export function limitFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
     const release = (entry: IEntry): void => {
       const index = running.indexOf(entry);
 
-      if (index !== -1) running.splice(index, 1);
-
-      active--;
-      pump();
+      if (index !== -1) {
+        running.splice(index, 1);
+        active--;
+        pump();
+      }
     };
 
     const run = <T, Args extends unknown[]>(
@@ -171,7 +174,7 @@ export function limitFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
 
             // Route through the handle where there is one: its own cancel handler stops the job,
             // and the implementation is what mints the CancelError the caller sees.
-            if (isCancelableLike(entry.handle)) {
+            if (isCancelable && isCancelableLike(entry.handle)) {
               entry.handle.cancel(reason);
               return;
             }
@@ -200,6 +203,8 @@ export function limitFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
               return;
             }
 
+            // A running non-cancelable job cannot be aborted; its slot remains held in `running`
+            // until settlement so active concurrency cannot exceed the cap.
             if (isCancelableLike(entry.job)) entry.job.cancel(reason);
           });
         }

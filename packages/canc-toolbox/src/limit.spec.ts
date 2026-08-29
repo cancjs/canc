@@ -136,6 +136,39 @@ describe('limit', () => {
     expect(limited.active).toBe(0);
   });
 
+  it('keeps slot occupied when a non-cancelable running job is canceled until it settles', async () => {
+    const limited = limit(1);
+    let finishJob: () => void = () => {};
+    const nonCancelableJob = () =>
+      new Promise<string>((resolve) => {
+        finishJob = () => resolve('done');
+      });
+
+    const handle = limited(nonCancelableJob);
+    const queuedJob = createJob('queued');
+    const queuedHandle = limited(queuedJob.run);
+
+    expect(limited.active).toBe(1);
+    expect(limited.pending).toBe(1);
+
+    handle.cancel();
+    await flushMicrotasks();
+
+    // Handle canceled, but non-cancelable job is still executing;
+    // slot remains held so queued job does not start
+    expect(limited.active).toBe(1);
+    expect(queuedJob.started).toBe(false);
+
+    finishJob();
+    await flushMicrotasks();
+
+    // Now slot is freed and queued job starts
+    expect(queuedJob.started).toBe(true);
+    queuedJob.finish();
+    await queuedHandle;
+    expect(limited.active).toBe(0);
+  });
+
   it('forwards the cancel reason to the running job when the handle is canceled', async () => {
     const limited = limit(1);
     let observedReason: unknown;
