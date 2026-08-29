@@ -72,6 +72,11 @@
     "@hono/node-server": ">=1",
     "hono": ">=4"
   },
+  "peerDependenciesMeta": {
+    "@hono/node-server": {
+      "optional": true
+    }
+  },
   "typesVersions": {
     "<4.7": {
       "dist/types/*": ["dist/types-ts4.2/*"]

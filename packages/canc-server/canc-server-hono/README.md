@@ -39,7 +39,7 @@ On `@hono/node-server` the signal is wired from the node response, the same reci
 npm install @cancjs/server-hono @cancjs/promise @cancjs/coroutine hono @hono/node-server
 ```
 
-`@cancjs/promise`, `@cancjs/coroutine`, `hono` and `@hono/node-server` are peer dependencies. `@hono/node-server` is only exercised on the node runtime, but the wrapper detects it at request time rather than at import time, so it stays a required peer like the rest of the family. This package is ecosystem tier: a minor release can carry a breaking change, so pin it with a tilde, `~1.4` (pin the minor, not `~1.x`, which npm expands to the same range as `^1`), rather than the default caret. See [Versioning](https://github.com/cancjs/canc/blob/master/docs/versioning.md) for the full policy.
+`@cancjs/promise`, `@cancjs/coroutine`, `hono` and `@hono/node-server` are peer dependencies. `@hono/node-server` is only exercised on the node runtime, but the wrapper detects it at request time rather than at import time, so it is marked as an optional peer. This package is ecosystem tier: a minor release can carry a breaking change, so pin it with a tilde, `~1.4` (pin the minor, not `~1.x`, which npm expands to the same range as `^1`), rather than the default caret. See [Versioning](https://github.com/cancjs/canc/blob/master/docs/versioning.md) for the full policy.
 
 ### Usage
 

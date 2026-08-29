@@ -1,4 +1,4 @@
-import { CancelablePromise, CancelError, isCancelError } from '@cancjs/promise';
+import { CancelablePromise, CancelError, isCancelError, setPromiseImpl } from '@cancjs/promise';
 
 import { createExchange, FakeServer, outcomeOf, pending } from './__tests__/fakes';
 import { drainServer } from './drain';
@@ -225,5 +225,19 @@ describe('graceful drain', () => {
     expect(second).not.toBe(first);
     expect(server.closed).toBe(1);
     await second;
+  });
+
+  it('returns an instance of the registered promise class', () => {
+    class CustomPromise<T> extends CancelablePromise<T> {}
+    setPromiseImpl(CustomPromise as any);
+
+    try {
+      const server = new FakeServer();
+      const drain = drainServer(server);
+
+      expect(drain instanceof CustomPromise).toBe(true);
+    } finally {
+      setPromiseImpl(CancelablePromise as any);
+    }
   });
 });

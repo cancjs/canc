@@ -92,7 +92,7 @@ export function drainServer(server: IServerLike, options: IDrainOptions = {}): C
     state.cancel(reason);
   }
 
-  const window = new CancelablePromise<void>((resolve, _reject, { handleCancel }) => {
+  const window = new Impl<void>((resolve, _reject, { handleCancel }) => {
     const timer = setTimeout(() => {
       timedOut = true;
       resolve();
