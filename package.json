@@ -35,7 +35,8 @@
     "packages/canc-server/*",
     "benchmarks",
     "tests-types",
-    "tests-dist"
+    "tests-dist",
+    "scripts"
   ],
   "devDependencies": {
     "@arethetypeswrong/cli": "~0.18.5",

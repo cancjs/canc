@@ -1,0 +1,8 @@
+{
+  "name": "@cancjs/scripts",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "test": "jest -c jest.config.js --colors"
+  }
+}
