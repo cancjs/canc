@@ -2,7 +2,9 @@ import nodeFs from 'node:fs';
 import nodeFsPromises from 'node:fs/promises';
 
 import fsJson from '../../surface/fs.json';
+import { decorate } from './file-handle';
 import { getFs } from './registry';
+import { retryOpen } from './retry-open';
 import { cancelify, gatedWrapped, promisifyWrapped, signalWrapped, teardownWrapped } from './wrap';
 
 const entryMap = new Map(fsJson.exports.map((e: any) => [e.name, e]));
@@ -49,13 +51,24 @@ export const mkdtempDisposable = gatedWrapped(
   cancelify((ctx, ...args: any[]) => (nodeFsPromises as any).mkdtempDisposable(...args)),
 );
 export const open = teardownWrapped(
-  promisifyWrapped((...args: any[]) => getFs().open(...args)),
+  cancelify((_ctx, ...args: any[]) => {
+    return retryOpen(async () => {
+      const openFn = (getFs() as any).promises?.open ?? nodeFsPromises.open;
+      const fh = await openFn(...args);
+      return decorate(fh);
+    });
+  }),
   (fh) => {
     fh?.close?.();
   },
 );
 export const opendir = teardownWrapped(
-  cancelify((ctx, ...args: any[]) => (nodeFsPromises as any).opendir(...args)),
+  cancelify((_ctx, ...args: any[]) => {
+    return retryOpen(() => {
+      const opendirFn = (getFs() as any).promises?.opendir ?? (nodeFsPromises as any).opendir;
+      return opendirFn(...args);
+    });
+  }),
   (dir) => {
     dir?.close?.();
   },
