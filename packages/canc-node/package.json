@@ -24,6 +24,42 @@
         "types": "./dist/types/index.d.ts",
         "default": "./dist/index.cjs"
       }
+    },
+    "./fs": {
+      "import": {
+        "types@<4.7": "./dist/types-ts4.2/fs/index.d.mts",
+        "types": "./dist/types/fs/index.d.mts",
+        "default": "./dist/fs/index.mjs"
+      },
+      "require": {
+        "types@<4.7": "./dist/types-ts4.2/fs/index.d.ts",
+        "types": "./dist/types/fs/index.d.ts",
+        "default": "./dist/fs/index.cjs"
+      }
+    },
+    "./fs/sync": {
+      "import": {
+        "types@<4.7": "./dist/types-ts4.2/fs/sync.d.mts",
+        "types": "./dist/types/fs/sync.d.mts",
+        "default": "./dist/fs/sync.mjs"
+      },
+      "require": {
+        "types@<4.7": "./dist/types-ts4.2/fs/sync.d.ts",
+        "types": "./dist/types/fs/sync.d.ts",
+        "default": "./dist/fs/sync.cjs"
+      }
+    },
+    "./fs/register-graceful": {
+      "import": {
+        "types@<4.7": "./dist/types-ts4.2/fs/register-graceful.d.mts",
+        "types": "./dist/types/fs/register-graceful.d.mts",
+        "default": "./dist/fs/register-graceful.mjs"
+      },
+      "require": {
+        "types@<4.7": "./dist/types-ts4.2/fs/register-graceful.d.ts",
+        "types": "./dist/types/fs/register-graceful.d.ts",
+        "default": "./dist/fs/register-graceful.cjs"
+      }
     }
   },
   "main": "dist/index.cjs",
@@ -68,6 +104,11 @@
   "typesVersions": {
     "<4.7": {
       "dist/types/*": ["dist/types-ts4.2/*"]
+    },
+    "*": {
+      "fs": ["dist/types/fs/index.d.ts"],
+      "fs/sync": ["dist/types/fs/sync.d.ts"],
+      "fs/register-graceful": ["dist/types/fs/register-graceful.d.ts"]
     }
   }
 }

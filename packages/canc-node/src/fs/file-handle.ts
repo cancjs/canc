@@ -1,9 +1,7 @@
 import { CancelablePromise } from '@cancjs/promise';
 
+import manifest from '../../surface/fs.FileHandle.json';
 import { cancelify, gatedWrapped, signalWrapped, teardownWrapped } from './wrap';
-
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const manifest = require('../../surface/fs.FileHandle.json');
 
 let CancProto: object | undefined;
 
