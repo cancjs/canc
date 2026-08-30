@@ -87,13 +87,23 @@ for (const [mod, lockExports] of Object.entries(nodeLock.modules)) {
     }
 
     if (mentry.nodeSignal && mentry.nodeSignal.since) {
-      const firstMajor = signalMajors.length ? Math.min(...signalMajors) : null;
-      if (firstMajor) {
-        const sinceMajor = parseInt(mentry.nodeSignal.since.slice(1).split('.')[0], 10);
-        if (sinceMajor < firstMajor && [18, 20, 22, 24, 26].includes(sinceMajor)) {
-          fail(
-            `Check C failed: ${mod} ${lockKey} nodeSignal.since=${mentry.nodeSignal.since} disagrees with first signalIn major ${firstMajor}`,
-          );
+      const sinceMajor = parseInt(mentry.nodeSignal.since.slice(1).split('.')[0], 10);
+      const isPreFloor = sinceMajor < 18;
+      if (!isPreFloor && mentry.nodeSignal.sinceByMajor) {
+        const byMajorKeys = Object.keys(mentry.nodeSignal.sinceByMajor).map(Number);
+        for (const major of signalMajors) {
+          if (!byMajorKeys.includes(major)) {
+            fail(
+              `Check C failed: ${mod} ${lockKey} manifest is missing major ${major} (consequence: gate is too narrow / drops cancellation)`,
+            );
+          }
+        }
+        for (const major of byMajorKeys) {
+          if (!signalMajors.includes(major)) {
+            fail(
+              `Check C failed: ${mod} ${lockKey} major ${major} is not in signalIn (consequence: unknown option key / Deno ERR_INVALID_ARG_TYPE)`,
+            );
+          }
         }
       }
     }
