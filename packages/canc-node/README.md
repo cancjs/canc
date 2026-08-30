@@ -61,6 +61,80 @@ Feature detection probes capability support at module load time without sniffing
 
 ## Description
 
+### Subpath support
+
+<!-- generated:start -->
+
+#### fs
+
+| Export              | Category | Node | Signal              | Deno | Bun |
+| ------------------- | -------- | ---- | ------------------- | ---- | --- |
+| `access`            | D        | 18+  | -                   | ✅   | ✅  |
+| `appendFile`        | A        | 18+  | works, undocumented | ✅   | ✅  |
+| `chmod`             | D        | 18+  | -                   | ✅   | ✅  |
+| `chown`             | D        | 18+  | -                   | ✅   | ✅  |
+| `constants`         | -        | 18+  | -                   | ✅   | ✅  |
+| `copyFile`          | A        | 18+  | -                   | ✅   | ✅  |
+| `cp`                | A        | 18+  | -                   | ✅   | ✅  |
+| `glob`              | A        | 22+  | -                   | ✅   | ✅  |
+| `lchmod`            | D        | 18+  | -                   | ✅   | ✅  |
+| `lchown`            | D        | 18+  | -                   | ✅   | ✅  |
+| `link`              | D        | 18+  | -                   | ✅   | ✅  |
+| `lstat`             | D        | 18+  | v26.8.0             | ✅   | ✅  |
+| `lutimes`           | D        | 18+  | -                   | ✅   | ✅  |
+| `mkdir`             | D        | 18+  | -                   | ✅   | ✅  |
+| `mkdtemp`           | D        | 18+  | -                   | ✅   | ✅  |
+| `mkdtempDisposable` | D        | 24+  | -                   | ✅   | ✖   |
+| `open`              | A        | 18+  | -                   | ✅   | ✅  |
+| `opendir`           | A        | 18+  | -                   | 🚧   | ✅  |
+| `readFile`          | A        | 18+  | v15.2.0             | ✅   | ✅  |
+| `readdir`           | D        | 18+  | -                   | ✅   | ✅  |
+| `readlink`          | D        | 18+  | -                   | ✅   | ✅  |
+| `realpath`          | D        | 18+  | -                   | ✅   | ✅  |
+| `rename`            | D        | 18+  | -                   | ✅   | ✅  |
+| `rm`                | A        | 18+  | -                   | ✅   | ✅  |
+| `rmdir`             | D        | 18+  | -                   | ✅   | ✅  |
+| `stat`              | D        | 18+  | v26.8.0             | ✅   | ✅  |
+| `statfs`            | D        | 18+  | -                   | ✅   | ✅  |
+| `symlink`           | D        | 18+  | -                   | ✅   | ✅  |
+| `truncate`          | D        | 18+  | -                   | ✅   | ✅  |
+| `unlink`            | D        | 18+  | -                   | ✅   | ✅  |
+| `utimes`            | D        | 18+  | -                   | ✅   | ✅  |
+| `watch`             | A        | 18+  | v15.9.0             | ✅   | ✅  |
+| `writeFile`         | A        | 18+  | v15.2.0             | ✅   | ✅  |
+
+#### FileHandle (fs)
+
+| Export                  | Category | Node | Signal  | Deno | Bun |
+| ----------------------- | -------- | ---- | ------- | ---- | --- |
+| `[Symbol.asyncDispose]` | -        | 18+  | -       | ✅   | ✅  |
+| `appendFile`            | A        | 18+  | v22.0.0 | ✅   | ✅  |
+| `chmod`                 | D        | 18+  | -       | ✅   | ✅  |
+| `chown`                 | D        | 18+  | -       | ✅   | ✅  |
+| `close`                 | D        | 18+  | -       | ✅   | ✅  |
+| `createReadStream`      | A        | 18+  | v20.0.0 | ✅   | ✅  |
+| `createWriteStream`     | A        | 18+  | -       | ✅   | ✅  |
+| `datasync`              | D        | 18+  | -       | ✅   | ✅  |
+| `fd`                    | -        | 18+  | -       | ✅   | ✅  |
+| `pull`                  | A        | 26+  | v25.9.0 | ✖    | ✖   |
+| `pullSync`              | -        | 26+  | -       | ✖    | ✖   |
+| `read`                  | B        | 18+  | -       | ✅   | ✅  |
+| `readableWebStream`     | A        | 18+  | -       | ✅   | ✅  |
+| `readFile`              | A        | 18+  | v15.2.0 | ✅   | ✅  |
+| `readLines`             | A        | 18+  | -       | ✅   | ✅  |
+| `readv`                 | B        | 18+  | -       | ✅   | ✅  |
+| `stat`                  | D        | 18+  | v26.1.0 | ✅   | ✅  |
+| `sync`                  | D        | 18+  | -       | ✅   | ✅  |
+| `truncate`              | D        | 18+  | -       | ✅   | ✅  |
+| `Type`                  | -        | 22+  | -       | ✅   | ✅  |
+| `utimes`                | D        | 18+  | -       | ✅   | ✅  |
+| `write`                 | B        | 18+  | -       | ✅   | ✅  |
+| `writeFile`             | A        | 18+  | v22.0.0 | ✅   | ✅  |
+| `writer`                | A        | 26+  | -       | ✖    | ✖   |
+| `writev`                | B        | 18+  | -       | ✅   | ✅  |
+
+<!-- generated:end -->
+
 ### Planned subpaths
 
 Wrapped built-in modules are arriving in upcoming releases. Planned subpaths include:
