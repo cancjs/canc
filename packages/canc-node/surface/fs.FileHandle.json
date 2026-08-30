@@ -10,7 +10,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": null
+        "probed": null,
+        "sinceByMajor": null
       },
       "wrapper": "passthrough",
       "failures": [],
@@ -29,7 +30,12 @@
       "nodeSignal": {
         "documented": true,
         "since": "v22.0.0",
-        "probed": "reject:AbortError"
+        "probed": "reject:AbortError",
+        "sinceByMajor": {
+          "22": "v22.0.0",
+          "24": "v22.0.0",
+          "26": "v22.0.0"
+        }
       },
       "wrapper": "cancelify-signal",
       "failures": ["EBADF"],
@@ -48,7 +54,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": null
+        "probed": null,
+        "sinceByMajor": null
       },
       "wrapper": "passthrough",
       "failures": ["EBADF", "EPERM"],
@@ -67,7 +74,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": null
+        "probed": null,
+        "sinceByMajor": null
       },
       "wrapper": "passthrough",
       "failures": ["EBADF", "EPERM"],
@@ -86,7 +94,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": null
+        "probed": null,
+        "sinceByMajor": null
       },
       "wrapper": "passthrough",
       "failures": [],
@@ -105,7 +114,13 @@
       "nodeSignal": {
         "documented": true,
         "since": "v20.0.0",
-        "probed": "reject:AbortError"
+        "probed": "reject:AbortError",
+        "sinceByMajor": {
+          "20": "v20.0.0",
+          "22": "v20.0.0",
+          "24": "v20.0.0",
+          "26": "v20.0.0"
+        }
       },
       "wrapper": "cancelify-signal",
       "failures": ["EBADF", "EISDIR"],
@@ -124,7 +139,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": null
+        "probed": null,
+        "sinceByMajor": null
       },
       "wrapper": "cancelify-teardown",
       "failures": ["EBADF"],
@@ -143,7 +159,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": null
+        "probed": null,
+        "sinceByMajor": null
       },
       "wrapper": "passthrough",
       "failures": ["EBADF", "EPERM"],
@@ -162,7 +179,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": null
+        "probed": null,
+        "sinceByMajor": null
       },
       "wrapper": "passthrough",
       "failures": [],
@@ -180,18 +198,22 @@
       "cancelCategory": "A",
       "nodeSignal": {
         "documented": true,
-        "since": "v25.9.0",
-        "probed": null
+        "since": "v24.20.0",
+        "probed": null,
+        "sinceByMajor": {
+          "24": "v24.20.0",
+          "26": "v25.9.0"
+        }
       },
       "wrapper": "gated",
       "failures": ["EBADF", "EISDIR"],
-      "minMajor": 26,
+      "minMajor": 24,
       "gate": "feature-detect",
       "runtime": {
         "deno": "unsupported",
         "bun": "unsupported"
       },
-      "notes": "Node 25.9.0+ streaming pull API"
+      "notes": "Streaming pull API, Node 24.20.0+ / 25.9.0+"
     },
     {
       "name": "pullSync",
@@ -200,11 +222,12 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": null
+        "probed": null,
+        "sinceByMajor": null
       },
       "wrapper": "passthrough",
       "failures": ["EBADF", "EISDIR"],
-      "minMajor": 26,
+      "minMajor": 24,
       "gate": "feature-detect",
       "runtime": {
         "deno": "unsupported",
@@ -219,7 +242,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": null
+        "probed": null,
+        "sinceByMajor": null
       },
       "wrapper": "promisify-custom",
       "failures": ["EBADF", "EISDIR"],
@@ -238,7 +262,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": null
+        "probed": null,
+        "sinceByMajor": null
       },
       "wrapper": "passthrough",
       "failures": ["EBADF", "EISDIR"],
@@ -257,7 +282,8 @@
       "nodeSignal": {
         "documented": true,
         "since": "v15.2.0",
-        "probed": "reject:AbortError"
+        "probed": "reject:AbortError",
+        "sinceByMajor": null
       },
       "wrapper": "cancelify-signal",
       "failures": ["EBADF", "EISDIR"],
@@ -276,7 +302,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": null
+        "probed": null,
+        "sinceByMajor": null
       },
       "wrapper": "passthrough",
       "failures": ["EBADF", "EISDIR"],
@@ -295,7 +322,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": null
+        "probed": null,
+        "sinceByMajor": null
       },
       "wrapper": "promisify-custom",
       "failures": ["EBADF", "EISDIR"],
@@ -313,8 +341,12 @@
       "cancelCategory": "D",
       "nodeSignal": {
         "documented": true,
-        "since": "v26.1.0",
-        "probed": "reject:AbortError"
+        "since": "v24.16.0",
+        "probed": "reject:AbortError",
+        "sinceByMajor": {
+          "24": "v24.16.0",
+          "26": "v26.1.0"
+        }
       },
       "wrapper": "gated",
       "failures": ["EBADF"],
@@ -324,7 +356,7 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": "Accepts signal since v26.1.0"
+      "notes": "Accepts signal since v24.16.0 / v26.1.0"
     },
     {
       "name": "sync",
@@ -333,7 +365,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": null
+        "probed": null,
+        "sinceByMajor": null
       },
       "wrapper": "passthrough",
       "failures": ["EBADF", "EPERM"],
@@ -352,7 +385,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": null
+        "probed": null,
+        "sinceByMajor": null
       },
       "wrapper": "passthrough",
       "failures": ["EBADF", "EPERM"],
@@ -371,7 +405,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": null
+        "probed": null,
+        "sinceByMajor": null
       },
       "wrapper": "passthrough",
       "failures": [],
@@ -390,7 +425,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": null
+        "probed": null,
+        "sinceByMajor": null
       },
       "wrapper": "passthrough",
       "failures": ["EBADF", "EPERM"],
@@ -409,7 +445,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": null
+        "probed": null,
+        "sinceByMajor": null
       },
       "wrapper": "promisify-custom",
       "failures": ["EBADF"],
@@ -428,7 +465,12 @@
       "nodeSignal": {
         "documented": true,
         "since": "v22.0.0",
-        "probed": "reject:AbortError"
+        "probed": "reject:AbortError",
+        "sinceByMajor": {
+          "22": "v22.0.0",
+          "24": "v22.0.0",
+          "26": "v22.0.0"
+        }
       },
       "wrapper": "cancelify-signal",
       "failures": ["EBADF"],
@@ -447,7 +489,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": null
+        "probed": null,
+        "sinceByMajor": null
       },
       "wrapper": "gated",
       "failures": ["EBADF"],
@@ -466,7 +509,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": null
+        "probed": null,
+        "sinceByMajor": null
       },
       "wrapper": "promisify-custom",
       "failures": ["EBADF"],

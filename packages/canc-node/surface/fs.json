@@ -10,7 +10,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": "resolve"
+        "probed": "resolve",
+        "sinceByMajor": null
       },
       "wrapper": "passthrough",
       "failures": ["ENOENT", "EACCES"],
@@ -29,7 +30,8 @@
       "nodeSignal": {
         "documented": false,
         "since": "v15.2.0",
-        "probed": "reject:AbortError"
+        "probed": "reject:AbortError",
+        "sinceByMajor": null
       },
       "wrapper": "cancelify-signal",
       "teardown": "same as writeFile",
@@ -49,7 +51,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": "resolve"
+        "probed": "resolve",
+        "sinceByMajor": null
       },
       "wrapper": "passthrough",
       "failures": ["ENOENT", "EACCES", "EPERM", "EROFS"],
@@ -68,7 +71,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": "resolve"
+        "probed": "resolve",
+        "sinceByMajor": null
       },
       "wrapper": "passthrough",
       "failures": ["ENOENT", "EACCES", "EPERM", "EROFS"],
@@ -87,7 +91,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": null
+        "probed": null,
+        "sinceByMajor": null
       },
       "wrapper": "passthrough",
       "failures": [],
@@ -106,7 +111,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": "n/a:no-options-arg"
+        "probed": "n/a:no-options-arg",
+        "sinceByMajor": null
       },
       "wrapper": "cancelify-teardown",
       "teardown": "unlink partial dest on cancel",
@@ -126,7 +132,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": "resolve"
+        "probed": "resolve",
+        "sinceByMajor": null
       },
       "wrapper": "reimplemented",
       "teardown": "stop at next entry; partial tree remains",
@@ -154,7 +161,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": "resolve"
+        "probed": "resolve",
+        "sinceByMajor": null
       },
       "wrapper": "gated",
       "failures": ["ENOENT", "EACCES"],
@@ -173,7 +181,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": "resolve"
+        "probed": "resolve",
+        "sinceByMajor": null
       },
       "wrapper": "passthrough",
       "failures": ["ENOENT", "EACCES", "EPERM", "ENOSYS", "EROFS"],
@@ -192,7 +201,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": "resolve"
+        "probed": "resolve",
+        "sinceByMajor": null
       },
       "wrapper": "passthrough",
       "failures": ["ENOENT", "EACCES", "EPERM", "ENOSYS", "EROFS"],
@@ -211,7 +221,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": "resolve"
+        "probed": "resolve",
+        "sinceByMajor": null
       },
       "wrapper": "passthrough",
       "failures": ["ENOENT", "EACCES", "EEXIST", "EXDEV", "EPERM", "EROFS"],
@@ -230,7 +241,10 @@
       "nodeSignal": {
         "documented": true,
         "since": "v26.8.0",
-        "probed": "resolve"
+        "probed": "resolve",
+        "sinceByMajor": {
+          "26": "v26.8.0"
+        }
       },
       "wrapper": "gated",
       "failures": ["ENOENT", "EACCES", "ENOTDIR", "ENAMETOOLONG"],
@@ -249,7 +263,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": "resolve"
+        "probed": "resolve",
+        "sinceByMajor": null
       },
       "wrapper": "passthrough",
       "failures": ["ENOENT", "EACCES", "EPERM", "ENOSYS", "EROFS"],
@@ -268,7 +283,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": "resolve"
+        "probed": "resolve",
+        "sinceByMajor": null
       },
       "wrapper": "passthrough",
       "failures": ["ENOENT", "EACCES", "EEXIST", "ENOSPC", "EROFS"],
@@ -287,7 +303,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": "resolve"
+        "probed": "resolve",
+        "sinceByMajor": null
       },
       "wrapper": "passthrough",
       "failures": ["ENOENT", "EACCES", "EEXIST", "ENOSPC", "EROFS"],
@@ -306,7 +323,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": null
+        "probed": null,
+        "sinceByMajor": null
       },
       "wrapper": "gated",
       "failures": ["EACCES", "ENOSPC"],
@@ -325,7 +343,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": "n/a:no-options-arg"
+        "probed": "n/a:no-options-arg",
+        "sinceByMajor": null
       },
       "wrapper": "cancelify-teardown",
       "teardown": "close the FileHandle the promise resolves with",
@@ -353,7 +372,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": "resolve"
+        "probed": "resolve",
+        "sinceByMajor": null
       },
       "wrapper": "cancelify-teardown",
       "teardown": "dir.close()",
@@ -373,7 +393,8 @@
       "nodeSignal": {
         "documented": true,
         "since": "v15.2.0",
-        "probed": "reject:AbortError"
+        "probed": "reject:AbortError",
+        "sinceByMajor": null
       },
       "wrapper": "cancelify-signal",
       "teardown": "node closes fd",
@@ -400,7 +421,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": "resolve"
+        "probed": "resolve",
+        "sinceByMajor": null
       },
       "wrapper": "passthrough",
       "failures": ["ENOENT", "EACCES", "ENOTDIR"],
@@ -419,7 +441,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": "resolve"
+        "probed": "resolve",
+        "sinceByMajor": null
       },
       "wrapper": "passthrough",
       "failures": ["ENOENT", "EACCES", "EINVAL"],
@@ -438,7 +461,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": "resolve"
+        "probed": "resolve",
+        "sinceByMajor": null
       },
       "wrapper": "passthrough",
       "failures": ["ENOENT", "EACCES", "ELOOP", "ENAMETOOLONG"],
@@ -457,7 +481,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": "resolve"
+        "probed": "resolve",
+        "sinceByMajor": null
       },
       "wrapper": "passthrough",
       "failures": [
@@ -484,7 +509,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": "resolve"
+        "probed": "resolve",
+        "sinceByMajor": null
       },
       "wrapper": "reimplemented",
       "teardown": "stop at next entry; partial deletion remains",
@@ -504,7 +530,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": "resolve"
+        "probed": "resolve",
+        "sinceByMajor": null
       },
       "wrapper": "passthrough",
       "failures": ["ENOENT", "EACCES", "ENOTEMPTY", "EBUSY", "EPERM", "EROFS"],
@@ -523,7 +550,10 @@
       "nodeSignal": {
         "documented": true,
         "since": "v26.8.0",
-        "probed": "resolve"
+        "probed": "resolve",
+        "sinceByMajor": {
+          "26": "v26.8.0"
+        }
       },
       "wrapper": "gated",
       "teardown": null,
@@ -543,7 +573,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": "resolve"
+        "probed": "resolve",
+        "sinceByMajor": null
       },
       "wrapper": "passthrough",
       "failures": ["ENOENT", "EACCES"],
@@ -562,7 +593,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": "resolve"
+        "probed": "resolve",
+        "sinceByMajor": null
       },
       "wrapper": "passthrough",
       "failures": ["ENOENT", "EACCES", "EEXIST", "EPERM", "EROFS"],
@@ -581,7 +613,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": "resolve"
+        "probed": "resolve",
+        "sinceByMajor": null
       },
       "wrapper": "passthrough",
       "failures": ["ENOENT", "EACCES", "EISDIR", "EROFS", "EPERM"],
@@ -600,7 +633,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": "resolve"
+        "probed": "resolve",
+        "sinceByMajor": null
       },
       "wrapper": "passthrough",
       "failures": ["ENOENT", "EACCES", "EPERM", "EBUSY", "EROFS"],
@@ -619,7 +653,8 @@
       "nodeSignal": {
         "documented": false,
         "since": null,
-        "probed": "resolve"
+        "probed": "resolve",
+        "sinceByMajor": null
       },
       "wrapper": "passthrough",
       "failures": ["ENOENT", "EACCES", "EPERM", "EROFS"],
@@ -638,7 +673,8 @@
       "nodeSignal": {
         "documented": true,
         "since": "v15.9.0",
-        "probed": "reject:AbortError"
+        "probed": "reject:AbortError",
+        "sinceByMajor": null
       },
       "wrapper": "cancelify-signal",
       "teardown": "iterator ends, watcher closed",
@@ -658,7 +694,8 @@
       "nodeSignal": {
         "documented": true,
         "since": "v15.2.0",
-        "probed": "reject:AbortError"
+        "probed": "reject:AbortError",
+        "sinceByMajor": null
       },
       "wrapper": "cancelify-signal",
       "teardown": "node stops writing; partial file remains",

@@ -67,6 +67,15 @@
             "since": {
               "type": ["string", "null"]
             },
+            "sinceByMajor": {
+              "type": ["object", "null"],
+              "additionalProperties": {
+                "type": "string"
+              },
+              "propertyNames": {
+                "pattern": "^[0-9]+$"
+              }
+            },
             "probed": {
               "type": ["string", "null"]
             }

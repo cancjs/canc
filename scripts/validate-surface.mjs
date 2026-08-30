@@ -36,12 +36,12 @@ const REQUIRED_EXPORT_FIELDS = [
 const ALLOWED_EXPORT_FIELDS = new Set([...REQUIRED_EXPORT_FIELDS, 'callPath', 'teardown', 'notes']);
 
 const REQUIRED_SIGNAL_FIELDS = ['documented', 'since', 'probed'];
-const ALLOWED_SIGNAL_FIELDS = new Set(REQUIRED_SIGNAL_FIELDS);
+const ALLOWED_SIGNAL_FIELDS = new Set([...REQUIRED_SIGNAL_FIELDS, 'sinceByMajor']);
 
 const REQUIRED_ROOT_FIELDS = ['subpath', 'nodeSpecifier', 'status', 'exports'];
 const ALLOWED_ROOT_FIELDS = new Set([...REQUIRED_ROOT_FIELDS, '$schema']);
 
-export async function validateManifest(manifest, filename) {
+export async function validateManifest(manifest, filename, nodeLock = null) {
   const errors = [];
   const addErr = (expName, field, msg) => {
     const loc = expName ? `export "${expName}" field "${field}"` : `field "${field}"`;
@@ -141,6 +141,51 @@ export async function validateManifest(manifest, filename) {
       if (exp.nodeSignal.probed !== null && typeof exp.nodeSignal.probed !== 'string') {
         addErr(expName, 'nodeSignal.probed', 'must be a string or null');
       }
+      if (exp.nodeSignal.sinceByMajor !== undefined && exp.nodeSignal.sinceByMajor !== null) {
+        if (typeof exp.nodeSignal.sinceByMajor !== 'object' || Array.isArray(exp.nodeSignal.sinceByMajor)) {
+          addErr(expName, 'nodeSignal.sinceByMajor', 'must be an object or null');
+        } else {
+          for (const [maj, ver] of Object.entries(exp.nodeSignal.sinceByMajor)) {
+            if (!/^[0-9]+$/.test(maj)) {
+              addErr(expName, 'nodeSignal.sinceByMajor', `invalid major key "${maj}", must be numeric`);
+            }
+            if (typeof ver !== 'string' || ver.length === 0) {
+              addErr(expName, 'nodeSignal.sinceByMajor', `value for major "${maj}" must be a non-empty string`);
+            }
+          }
+        }
+      }
+
+      if (nodeLock && exp.nodeSignal.documented) {
+        const mod = manifest.subpath.split('#')[0];
+        const isHandle = manifest.subpath.includes('#FileHandle');
+        const lockKey = isHandle ? `promises_api.FileHandle.${exp.name}` : `promises_api.${exp.name}`;
+        const lockEntry = nodeLock.modules?.[mod]?.[lockKey];
+        const signalMajors = lockEntry?.signalIn || [];
+
+        const sinceVer = exp.nodeSignal.since;
+        const isPreFloor = typeof sinceVer === 'string' && /^[vV]?(\d+)/.test(sinceVer) && parseInt(RegExp.$1, 10) < 18;
+
+        if (!isPreFloor && signalMajors.length > 0) {
+          if (!exp.nodeSignal.sinceByMajor || typeof exp.nodeSignal.sinceByMajor !== 'object') {
+            addErr(
+              expName,
+              'nodeSignal.sinceByMajor',
+              `missing sinceByMajor object for signalIn [${signalMajors.join(', ')}]`,
+            );
+          } else {
+            for (const maj of signalMajors) {
+              if (exp.nodeSignal.sinceByMajor[String(maj)] === undefined) {
+                addErr(
+                  expName,
+                  'nodeSignal.sinceByMajor',
+                  `major "${maj}" from lock signalIn [${signalMajors.join(', ')}] is absent in sinceByMajor`,
+                );
+              }
+            }
+          }
+        }
+      }
     }
 
     if (!Array.isArray(exp.failures)) {
@@ -194,6 +239,14 @@ export async function validateAll() {
     .map((e) => e.name)
     .filter((name) => name !== 'schema.json' && !name.endsWith('.lock.json') && name !== 'exclusions.json');
 
+  let nodeLock = null;
+  try {
+    const lockRaw = await readFile(join(SURFACE_DIR, 'node-api.lock.json'), 'utf8');
+    nodeLock = JSON.parse(lockRaw);
+  } catch (_err) {
+    // node-api.lock.json may be absent in partial runs
+  }
+
   const allErrors = [];
   let totalExports = 0;
 
@@ -202,7 +255,7 @@ export async function validateAll() {
     try {
       const content = await readFile(filePath, 'utf8');
       const json = JSON.parse(content);
-      const errors = await validateManifest(json, file);
+      const errors = await validateManifest(json, file, nodeLock);
       if (errors.length > 0) {
         allErrors.push(...errors);
       } else {
