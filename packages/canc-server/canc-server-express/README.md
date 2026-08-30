@@ -130,6 +130,10 @@ This matters more than it looks. `IncomingMessage` `'close'` means the request s
 
 The same reason applies to the request signals the platform offers. Node's `IncomingMessage.prototype.signal` and fastify's `request.signal` are both an unguarded `'close'` listener, so neither is adopted here. An external signal is composed in only when you pass one through the `signal` option.
 
+### Not the platform request signal
+
+Node's `request.signal` aborts when the request stream ends, not when the client disconnects. With a body parser on a POST that happens before the handler runs, so work started from that signal is canceled immediately. This package listens on the response instead, and only treats a close as a disconnect while the response has not finished writing.
+
 ### Handler kinds
 
 The handler kind is read from what it returns, not from how it was declared.

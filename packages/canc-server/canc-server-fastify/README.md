@@ -83,6 +83,10 @@ The listener is `reply.raw.on('close')` guarded by `!reply.raw.writableEnded`, n
 
 Platform request signals have the same defect and are not adopted. Node's own `IncomingMessage.prototype.signal` is a `'close'` listener with no guard, and Fastify's `request.signal` is `raw.on('close', onAbort)`, which aborts at handler start on any request carrying a body. Fastify's `onRequestAbort` hook does guard, so the framework disagrees with itself here. An external signal is used only when you pass one through the `signal` option.
 
+### Not the platform request signal
+
+Fastify's `request.signal` aborts when the request stream ends, not when the client disconnects. With a body parser on a POST that happens before the handler runs, so work started from that signal is canceled immediately. This package listens on the response instead, and only treats a close as a disconnect while the response has not finished writing.
+
 ### One listener, one cancellation
 
 The cancel state is cached on the raw request under a registered symbol, so the plugin, the route wrapper, and anything else asking for `getRequestSignal` all reach the same object. A request has exactly one close listener no matter how many consumers want the signal, and one disconnect produces one cancellation.

@@ -85,6 +85,10 @@ The listener is `ctx.res.on('close')` guarded by `!writableEnded`, never `ctx.re
 
 `IncomingMessage` emits `'close'` when the request stream has been read, which for a POST behind a body parser is the first millisecond of the handler, with the client still connected. `ServerResponse` emits `'close'` either when the response completed or when the connection died early, and `writableEnded` is what separates those two. An external signal is used only when you pass one through the `signal` option.
 
+### Not the platform request signal
+
+Koa does not expose a `request.signal` under that name either, so this package listens on `ctx.res`'s close event instead, for the same reason the node and fastify integrations avoid the request-side signal they do have.
+
 ### One listener, one cancellation
 
 The cancel state is cached on the raw request under a registered symbol, so the middleware, the route wrapper, and anything else asking for `getRequestSignal` all reach the same object. A request has exactly one close listener no matter how many consumers want the signal, and one disconnect produces one cancellation.
