@@ -213,6 +213,7 @@ export function generateRuntimeCompatDoc(manifests, nodeLock, runtimeLock) {
   const docDerivedSubsections = [docDerivedIntro];
 
   for (const manifest of manifests) {
+    if (manifest.nodeSpecifier === null) continue;
     let subpathHeader;
     let lockPrefix;
     if (manifest.subpath.includes('#')) {

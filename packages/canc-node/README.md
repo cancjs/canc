@@ -106,6 +106,31 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 | `watch`             | -                  | 18+  | ✅   | ✅  |
 | `writeFile`         | stops the work     | 18+  | ✅   | ✅  |
 
+#### fs/extra
+
+| Export           | Cancellation     | Node | Deno | Bun |
+| ---------------- | ---------------- | ---- | ---- | --- |
+| `copy`           | stops the work   | 18+  | ✅   | ✅  |
+| `emptyDir`       | stops the work   | 18+  | ✅   | ✅  |
+| `ensureDir`      | before it starts | 18+  | ✅   | ✅  |
+| `ensureFile`     | before it starts | 18+  | ✅   | ✅  |
+| `ensureLink`     | before it starts | 18+  | ✅   | ✅  |
+| `ensureSymlink`  | before it starts | 18+  | ✅   | ✅  |
+| `mkdirp`         | before it starts | 18+  | ✅   | ✅  |
+| `mkdirs`         | before it starts | 18+  | ✅   | ✅  |
+| `move`           | stops the work   | 18+  | ✅   | ✅  |
+| `outputFile`     | stops the work   | 18+  | ✅   | ✅  |
+| `outputJson`     | stops the work   | 18+  | ✅   | ✅  |
+| `outputJsonSync` | -                | 18+  | ✅   | ✅  |
+| `pathExists`     | before it starts | 18+  | ✅   | ✅  |
+| `readJson`       | stops the work   | 18+  | ✅   | ✅  |
+| `readJsonSync`   | -                | 18+  | ✅   | ✅  |
+| `replaceFile`    | stops the work   | 18+  | ✅   | ✅  |
+| `walk`           | stops the work   | 18+  | ✅   | ✅  |
+| `walkSync`       | -                | 18+  | ✅   | ✅  |
+| `writeJson`      | stops the work   | 18+  | ✅   | ✅  |
+| `writeJsonSync`  | -                | 18+  | ✅   | ✅  |
+
 #### FileHandle (fs)
 
 | Export                  | Cancellation       | Node | Deno | Bun |
@@ -229,6 +254,14 @@ Node.js 18 and later, TypeScript 4.2 and later. Requires `@cancjs/promise >=1.0.
 - [`@cancjs/coroutine`](https://github.com/cancjs/canc/tree/master/packages/canc-coroutine) for structured generator-based flows
 - [`@cancjs/toolbox`](https://github.com/cancjs/canc/tree/master/packages/canc-toolbox) for async utilities and timeouts
 - [Examples](https://github.com/cancjs/canc/tree/master/examples) for application integration examples
+
+## Credits
+
+This package references and adapts patterns from several open source projects:
+
+- [fs-extra](https://github.com/jprichardson/node-fs-extra) ([MIT](./LICENSES/fs-extra-MIT.txt)) for extended filesystem helper API conventions
+- [klaw](https://github.com/jprichardson/node-klaw) ([MIT](./LICENSES/klaw-MIT.txt)) for recursive directory walk semantics
+- [graceful-fs](https://github.com/isaacs/node-graceful-fs) ([ISC](./LICENSES/graceful-fs-ISC.txt)) for filesystem normalization and retry patterns
 
 ## Contributing
 

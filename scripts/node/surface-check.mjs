@@ -19,7 +19,7 @@ for (const file of readdirSync(surfaceDir)) {
   }
 }
 
-const coveredModules = new Set(manifests.map((m) => m.subpath.split('#')[0]));
+const coveredModules = new Set(manifests.filter((m) => m.nodeSpecifier !== null).map((m) => m.subpath.split('#')[0]));
 const exModules = new Set(exclusions.map((e) => e.module));
 
 let failed = false;
@@ -152,7 +152,9 @@ for (const [mod, lockExports] of Object.entries(nodeLock.modules)) {
           let specifier = null;
           for (const m of manifests) {
             if (m.subpath === subpath) {
-              specifier = m.nodeSpecifier.replace(/^node:/, '');
+              if (m.nodeSpecifier) {
+                specifier = m.nodeSpecifier.replace(/^node:/, '');
+              }
               break;
             }
           }
@@ -169,6 +171,8 @@ for (const [mod, lockExports] of Object.entries(nodeLock.modules)) {
 }
 
 for (const [subpath, mmap] of manifestMap.entries()) {
+  const manifest = manifests.find((m) => m.subpath === subpath);
+  if (!manifest || manifest.nodeSpecifier === null) continue;
   const mod = subpath.split('#')[0];
   for (const [name, _mentry] of mmap.entries()) {
     if (name === 'Type' || name === 'FileHandle' || name.startsWith('[Symbol')) continue;
