@@ -1,0 +1,68 @@
+import nodeFs from 'node:fs';
+
+import { getFs, getFsOptions, IFsLike, resetFs, setFs } from './registry';
+
+describe('fs registry', () => {
+  afterEach(() => {
+    resetFs();
+  });
+
+  it('returns node:fs identity by default before any setFs call', () => {
+    expect(getFs()).toBe(nodeFs);
+  });
+
+  it('defaults retryOpen option to false', () => {
+    expect(getFsOptions().retryOpen).toBe(false);
+  });
+
+  it('registers a custom fs implementation', () => {
+    const fakeFs: IFsLike = {
+      readFile: jest.fn(),
+      readFileSync: jest.fn(),
+    };
+
+    setFs(fakeFs);
+    expect(getFs()).toBe(fakeFs);
+  });
+
+  it('leaves retryOpen as false when setFs is called without options', () => {
+    const fakeFs: IFsLike = {
+      readFile: jest.fn(),
+    };
+
+    setFs(fakeFs);
+    expect(getFsOptions().retryOpen).toBe(false);
+  });
+
+  it('leaves retryOpen as false when setFs is called with empty options', () => {
+    const fakeFs: IFsLike = {
+      readFile: jest.fn(),
+    };
+
+    setFs(fakeFs, {});
+    expect(getFsOptions().retryOpen).toBe(false);
+  });
+
+  it('enables retryOpen when setFs is called with retryOpen: true', () => {
+    const fakeFs: IFsLike = {
+      open: jest.fn(),
+    };
+
+    setFs(fakeFs, { retryOpen: true });
+    expect(getFsOptions().retryOpen).toBe(true);
+  });
+
+  it('restores default fs implementation and options on resetFs', () => {
+    const fakeFs: IFsLike = {
+      stat: jest.fn(),
+    };
+
+    setFs(fakeFs, { retryOpen: true });
+    expect(getFs()).toBe(fakeFs);
+    expect(getFsOptions().retryOpen).toBe(true);
+
+    resetFs();
+    expect(getFs()).toBe(nodeFs);
+    expect(getFsOptions().retryOpen).toBe(false);
+  });
+});
