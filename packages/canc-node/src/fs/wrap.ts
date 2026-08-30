@@ -22,7 +22,7 @@ export function cancelify<A extends any[], R>(
         ctx.handleCancel ?
           (handler) => {
             ctx.handleCancel!((reason) => {
-              void handler(reason);
+              void (handler as (r?: any) => void)(reason);
             });
           }
         : undefined,
