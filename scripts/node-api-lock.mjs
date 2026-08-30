@@ -2,6 +2,8 @@ import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import prettier from 'prettier';
+
 const TRACKED_MAJORS = [18, 20, 22, 24, 26];
 
 const COVERED_MODULES = [
@@ -334,7 +336,9 @@ async function main() {
   }
 
   const projection = buildLock(versions, docsByMajor);
-  const formatted = JSON.stringify(projection, null, 2) + '\n';
+  const formatted = await prettier.format(JSON.stringify(projection, null, 2) + '\n', {
+    filepath: LOCK_FILE,
+  });
 
   if (isCheckMode) {
     if (!(await pathExists(LOCK_FILE))) {
