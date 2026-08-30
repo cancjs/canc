@@ -50,8 +50,8 @@ describe('killTree', () => {
     await expect(killTree(child)).resolves.toBeUndefined();
   });
 
-  const winSkip = isWindows ? it.skip : it;
-  winSkip(
+  const posixIt = isWindows ? it.skip : it;
+  posixIt(
     'kills a grandchild on POSIX with detached group (skipped on Windows because process group signals are POSIX-only)',
     async () => {
       const child = spawnChild(

@@ -83,8 +83,7 @@ describe('killLadder', () => {
     await expect(killLadder(child)).resolves.toBeUndefined();
   });
 
-  const winSkip = isWindows ? it.skip : it;
-  winSkip(
+  posixIt(
     'killTree: true with detached: true kills a grandchild (skipped on Windows because group kills are POSIX-only)',
     async () => {
       const child = spawnChild(
