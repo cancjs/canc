@@ -1,3 +1,4 @@
+// Runs by CI, cron, or hand.
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { platform, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -308,7 +309,7 @@ async function runProbe() {
 
 async function main() {
   const isCheck = process.argv.includes('--check');
-  const lockPath = fileURLToPath(new URL('../packages/canc-node/surface/runtime.lock.json', import.meta.url));
+  const lockPath = fileURLToPath(new URL('../../packages/canc-node/surface/runtime.lock.json', import.meta.url));
   const lockDir = dirname(lockPath);
 
   try {

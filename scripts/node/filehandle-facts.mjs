@@ -1,3 +1,4 @@
+// Runs by CI, cron, or hand.
 import { mkdir, open, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

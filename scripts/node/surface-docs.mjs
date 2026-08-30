@@ -1,3 +1,4 @@
+// Runs by CI, cron, or hand.
 import { existsSync, mkdirSync } from 'node:fs';
 import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
@@ -6,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import prettier from 'prettier';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const ROOT = join(HERE, '..');
+const ROOT = join(HERE, '..', '..');
 const NODE_PKG_DIR = join(ROOT, 'packages', 'canc-node');
 const SURFACE_DIR = join(NODE_PKG_DIR, 'surface');
 const README_PATH = join(NODE_PKG_DIR, 'README.md');

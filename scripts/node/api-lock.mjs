@@ -1,3 +1,4 @@
+// Runs by CI, cron, or hand.
 import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -34,7 +35,7 @@ const ROOT_SECTION_ALIASES = {
 };
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const ROOT = join(HERE, '..');
+const ROOT = join(HERE, '..', '..');
 const CACHE_DIR = join(ROOT, '.cache', 'node-api');
 const LOCK_FILE = join(ROOT, 'packages', 'canc-node', 'surface', 'node-api.lock.json');
 

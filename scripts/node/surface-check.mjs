@@ -1,3 +1,4 @@
+// Runs by CI, cron, or hand.
 import { execSync } from 'child_process';
 import { existsSync, readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
@@ -177,9 +178,9 @@ for (const [subpath, mmap] of manifestMap.entries()) {
   }
 }
 
-if (existsSync('scripts/gen-surface-docs.mjs')) {
+if (existsSync('scripts/node/surface-docs.mjs')) {
   try {
-    execSync('node scripts/gen-surface-docs.mjs --check', { stdio: 'inherit' });
+    execSync('node scripts/node/surface-docs.mjs --check', { stdio: 'inherit' });
   } catch (_err) {
     fail(`Check G failed: generated docs stale`);
   }

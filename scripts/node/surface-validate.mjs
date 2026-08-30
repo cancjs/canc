@@ -1,9 +1,10 @@
+// Runs by CI, cron, or hand.
 import { readdir, readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const ROOT = join(HERE, '..');
+const ROOT = join(HERE, '..', '..');
 const SURFACE_DIR = join(ROOT, 'packages', 'canc-node', 'surface');
 
 const ALLOWED_STATUSES = new Set(['supported', 'planned', 'deferred', 'excluded']);
