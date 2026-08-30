@@ -183,11 +183,12 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 
 ### Shipped subpaths
 
-The package currently ships three subpaths:
+The package currently ships four subpaths:
 
 - `fs`: file system operations with cancelable promises
 - `fs/sync`: synchronous file system utilities
 - `fs/register-graceful`: automatic graceful-fs integration hook
+- `child-process`: external commands and spawned processes with cancellation support
 
 The `/fs/sync` subpath drops `realpathSync.native`, which is the only departure from Node's own synchronous file system signatures.
 
@@ -214,6 +215,46 @@ To configure `graceful-fs` with descriptor retry automatically, import the side-
 
 ```ts
 import "@cancjs/node/fs/register-graceful";
+
+### child-process
+
+Import from `@cancjs/node/child-process` to run external commands and spawn child processes with cancellation support:
+
+```ts
+import { exec, fork, killTree, spawn } from "@cancjs/node/child-process";
+import { timeout } from "@cancjs/toolbox";
+
+const run = exec("npm test");
+
+// Access the underlying ChildProcess instance directly
+console.log("Process PID:", run.child.pid);
+
+// Canceling terminates the process and rejects with CancelError
+run.cancel();
+```
+
+#### Process lifecycle and cancellation
+
+When a promise returned by `exec`, `execFile`, `spawn`, or `fork` is canceled, the module initiates a termination ladder:
+
+1. Sends `killSignal` (defaults to `SIGTERM`) to the child process.
+2. Waits for the configured `gracePeriod` (defaults to 5000 ms).
+3. Escalates termination with `SIGKILL` on POSIX or `taskkill /pid <pid> /t /f` on Windows if the process has not exited.
+
+Setting `killTree: true` extends termination signals to all child descendants (requiring `detached: true` on POSIX systems). Standalone tree termination is also available via `killTree(child, options)`.
+
+#### Timeout option divergence
+
+The standard Node.js `timeout` option is deliberately not supported and throws a `TypeError` if passed. In Node.js, `timeout` sends a termination signal indistinguishable from an intentional cancellation.
+
+To enforce execution deadlines, compose the call with `timeout()` from `@cancjs/toolbox`:
+
+```ts
+import { exec } from "@cancjs/node/child-process";
+import { timeout } from "@cancjs/toolbox";
+
+// Deadlines produce a CancelError marked as timed out
+const result = await timeout(exec("long-running-command"), 10000);
 ```
 
 ### Planned subpaths
@@ -221,7 +262,6 @@ import "@cancjs/node/fs/register-graceful";
 Wrapped built-in modules are arriving in upcoming releases. Planned subpaths include:
 
 - `fs/extra`: extended file system helper routines
-- `child-process`: process execution and spawning with cancellation
 - `timers`: cancelable timer promises
 - `stream`: stream consumers and pipeline helpers
 - `events`: event listener helpers and cancelable event promises

@@ -72,6 +72,18 @@
         "types": "./dist/types/fs-extra/index.d.ts",
         "default": "./dist/fs/extra.cjs"
       }
+    },
+    "./child-process": {
+      "import": {
+        "types@<4.7": "./dist/types-ts4.2/child-process/index.d.mts",
+        "types": "./dist/types/child-process/index.d.mts",
+        "default": "./dist/child-process.mjs"
+      },
+      "require": {
+        "types@<4.7": "./dist/types-ts4.2/child-process/index.d.ts",
+        "types": "./dist/types/child-process/index.d.ts",
+        "default": "./dist/child-process.cjs"
+      }
     }
   },
   "main": "dist/index.cjs",
@@ -115,13 +127,15 @@
   },
   "typesVersions": {
     "<4.7": {
-      "dist/types/*": ["dist/types-ts4.2/*"]
+      "dist/types/*": ["dist/types-ts4.2/*"],
+      "child-process": ["dist/types-ts4.2/child-process/index.d.ts"]
     },
     "*": {
       "fs": ["dist/types/fs/index.d.ts"],
       "fs/sync": ["dist/types/fs/sync.d.ts"],
       "fs/register-graceful": ["dist/types/fs/register-graceful.d.ts"],
-      "fs/extra": ["dist/types/fs-extra/index.d.ts"]
+      "fs/extra": ["dist/types/fs-extra/index.d.ts"],
+      "child-process": ["dist/types/child-process/index.d.ts"]
     }
   }
 }
