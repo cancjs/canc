@@ -21,7 +21,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": ""
+      "notes": "",
+      "callPath": "promises"
     },
     {
       "name": "appendFile",
@@ -42,7 +43,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": "signal works but is undocumented at module level"
+      "notes": "signal works but is undocumented at module level",
+      "callPath": "callback"
     },
     {
       "name": "chmod",
@@ -62,7 +64,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": ""
+      "notes": "",
+      "callPath": "callback"
     },
     {
       "name": "chown",
@@ -82,7 +85,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": ""
+      "notes": "",
+      "callPath": "callback"
     },
     {
       "name": "constants",
@@ -102,7 +106,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": "Exported object containing file system constants"
+      "notes": "Exported object containing file system constants",
+      "callPath": "promises"
     },
     {
       "name": "copyFile",
@@ -123,7 +128,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": "copyFile(src, dest, mode) takes no options argument; unlink partial dest on cancel"
+      "notes": "copyFile(src, dest, mode) takes no options argument; unlink partial dest on cancel",
+      "callPath": "callback"
     },
     {
       "name": "cp",
@@ -152,7 +158,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": ""
+      "notes": "",
+      "callPath": "promises"
     },
     {
       "name": "glob",
@@ -172,7 +179,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": "Async generator, cancel ends iteration; Node 22+"
+      "notes": "Async generator, cancel ends iteration; Node 22+",
+      "callPath": "promises"
     },
     {
       "name": "lchmod",
@@ -192,7 +200,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": ""
+      "notes": "",
+      "callPath": "callback"
     },
     {
       "name": "lchown",
@@ -212,7 +221,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": ""
+      "notes": "",
+      "callPath": "callback"
     },
     {
       "name": "link",
@@ -232,7 +242,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": ""
+      "notes": "",
+      "callPath": "promises"
     },
     {
       "name": "lstat",
@@ -254,7 +265,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": "forward signal only on 26.8+; deno rejects unknown option keys"
+      "notes": "forward signal only on 26.8+; deno rejects unknown option keys",
+      "callPath": "callback"
     },
     {
       "name": "lutimes",
@@ -274,7 +286,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": ""
+      "notes": "",
+      "callPath": "promises"
     },
     {
       "name": "mkdir",
@@ -294,7 +307,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": ""
+      "notes": "",
+      "callPath": "promises"
     },
     {
       "name": "mkdtemp",
@@ -314,7 +328,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": ""
+      "notes": "",
+      "callPath": "promises"
     },
     {
       "name": "mkdtempDisposable",
@@ -334,7 +349,8 @@
         "deno": "ok",
         "bun": "MISSING"
       },
-      "notes": "Returns disposable that rm -rf on dispose; v24.4.0+"
+      "notes": "Returns disposable that rm -rf on dispose; v24.4.0+",
+      "callPath": "promises"
     },
     {
       "name": "open",
@@ -363,7 +379,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": ""
+      "notes": "callback for EMFILE retry; result still comes from fs.promises.open yielding FileHandle",
+      "callPath": "callback"
     },
     {
       "name": "opendir",
@@ -384,7 +401,8 @@
         "deno": "strict-options",
         "bun": "ok"
       },
-      "notes": "deno throws ERR_INVALID_ARG_TYPE on unknown option keys; never forward signal here"
+      "notes": "deno throws ERR_INVALID_ARG_TYPE on unknown option keys; never forward signal here",
+      "callPath": "promises"
     },
     {
       "name": "readFile",
@@ -412,7 +430,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": ""
+      "notes": "",
+      "callPath": "callback"
     },
     {
       "name": "readdir",
@@ -432,7 +451,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": ""
+      "notes": "",
+      "callPath": "callback"
     },
     {
       "name": "readlink",
@@ -452,7 +472,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": ""
+      "notes": "",
+      "callPath": "promises"
     },
     {
       "name": "realpath",
@@ -472,7 +493,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": ""
+      "notes": "",
+      "callPath": "promises"
     },
     {
       "name": "rename",
@@ -500,7 +522,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": ""
+      "notes": "",
+      "callPath": "callback"
     },
     {
       "name": "rm",
@@ -521,7 +544,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": ""
+      "notes": "",
+      "callPath": "promises"
     },
     {
       "name": "rmdir",
@@ -541,7 +565,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": ""
+      "notes": "",
+      "callPath": "promises"
     },
     {
       "name": "stat",
@@ -564,7 +589,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": "forward signal only on 26.8+; deno rejects unknown option keys"
+      "notes": "forward signal only on 26.8+; deno rejects unknown option keys",
+      "callPath": "callback"
     },
     {
       "name": "statfs",
@@ -584,7 +610,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": "v19.6.0 / v18.15.0, so gate within the 18 line too"
+      "notes": "v19.6.0 / v18.15.0, so gate within the 18 line too",
+      "callPath": "promises"
     },
     {
       "name": "symlink",
@@ -604,7 +631,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": ""
+      "notes": "",
+      "callPath": "promises"
     },
     {
       "name": "truncate",
@@ -624,7 +652,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": ""
+      "notes": "",
+      "callPath": "promises"
     },
     {
       "name": "unlink",
@@ -644,7 +673,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": ""
+      "notes": "",
+      "callPath": "promises"
     },
     {
       "name": "utimes",
@@ -664,7 +694,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": ""
+      "notes": "",
+      "callPath": "promises"
     },
     {
       "name": "watch",
@@ -685,7 +716,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": ""
+      "notes": "",
+      "callPath": "promises"
     },
     {
       "name": "writeFile",
@@ -714,7 +746,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": "partial-write hazard, see fs.md section 4"
+      "notes": "partial-write hazard, see fs.md section 4",
+      "callPath": "callback"
     }
   ]
 }

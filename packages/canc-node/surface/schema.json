@@ -32,6 +32,7 @@
         "name",
         "kind",
         "cancelCategory",
+        "callPath",
         "nodeSignal",
         "wrapper",
         "failures",
@@ -54,7 +55,7 @@
         },
         "callPath": {
           "type": ["string", "null"],
-          "enum": ["callback", "promises", null]
+          "enum": ["callback", "promises", "sync", null]
         },
         "nodeSignal": {
           "type": "object",
