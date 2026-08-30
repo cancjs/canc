@@ -12,13 +12,23 @@ function toCancelError(reason?: unknown): CancelError {
 
 export function cancelify<A extends any[], R>(
   fn: (
-    ctx: { getSignal: TGetSignal; handleCancel: (cb: (reason?: any) => void) => void },
+    ctx: { getSignal: TGetSignal; handleCancel: (cb: (reason?: any) => void | PromiseLike<void>) => void },
     ...args: A
   ) => R | PromiseLike<R>,
 ): (...callArgs: A) => CancelablePromise<R> {
   return function (...callArgs: A): CancelablePromise<R> {
     return new CancelablePromise<R>((resolve, reject, ctx) => {
-      const holder = makeCancelSignal(ctx.handleCancel, undefined, toCancelError);
+      const holder = makeCancelSignal(
+        ctx.handleCancel ?
+          (handler) => {
+            ctx.handleCancel!((reason) => {
+              void handler(reason);
+            });
+          }
+        : undefined,
+        undefined,
+        toCancelError,
+      );
       const innerCtx = { getSignal: holder.getSignal, handleCancel: ctx.handleCancel! };
 
       void CancelablePromise.resolve(fn(innerCtx, ...callArgs)).then(resolve, reject);

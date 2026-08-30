@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 
-import { getFs, resetFs, setFs } from './registry';
+import { resetFs, setFs } from './registry';
 import * as sync from './sync';
 
 describe('sync', () => {
