@@ -28,6 +28,15 @@ The matrix below shows availability and documented abort signal support across t
 
 Legend: `S` = Documented signal option, `y` = Present without signal, `-` = Absent in major.
 
+### child-process (node:child_process)
+
+| Export     | 18  | 20  | 22  | 24  | 26  | Signal since | Added   |
+| ---------- | --- | --- | --- | --- | --- | ------------ | ------- |
+| `exec`     | S   | S   | S   | S   | S   | v15.4.0      | v0.1.90 |
+| `execFile` | S   | S   | S   | S   | S   | v15.4.0      | v0.1.91 |
+| `spawn`    | S   | S   | S   | S   | S   | v15.4.0      | v0.1.90 |
+| `fork`     | S   | S   | S   | S   | S   | v15.4.0      | v0.5.0  |
+
 ### fs (node:fs/promises)
 
 | Export              | 18  | 20  | 22  | 24  | 26  | Signal since        | Added    |

@@ -19,8 +19,27 @@ for (const file of readdirSync(surfaceDir)) {
   }
 }
 
-const coveredModules = new Set(manifests.filter((m) => m.nodeSpecifier !== null).map((m) => m.subpath.split('#')[0]));
-const exModules = new Set(exclusions.map((e) => e.module));
+// a subpath name is not always the node lock's module key: `child-process` is `child_process`
+// there, and a synthetic `fs#FileHandle` key carries its own suffix
+function toModKey(subpath, nodeSpecifier) {
+  const base = subpath.split('#')[0];
+  if (nodeLock.modules[base]) return base;
+  if (nodeSpecifier) {
+    const specMod = nodeSpecifier.replace(/^node:/, '').split('/')[0];
+    if (nodeLock.modules[specMod]) return specMod;
+  }
+  const unhyphenated = base.replace(/-/g, '_');
+  if (nodeLock.modules[unhyphenated]) return unhyphenated;
+  return base;
+}
+
+// a manifest with no nodeSpecifier describes exports that are ours, not node's, so it covers no
+// node module and must not be read as removing every export from one
+const coveredModules = new Set(
+  manifests.filter((m) => m.nodeSpecifier !== null).map((m) => toModKey(m.subpath, m.nodeSpecifier)),
+);
+const exModules = new Set(exclusions.filter((e) => e.module).map((e) => e.module));
+const exNames = new Set(exclusions.filter((e) => e.name).map((e) => e.name));
 
 let failed = false;
 let _warnings = false;
@@ -53,18 +72,35 @@ for (const [mod, lockExports] of Object.entries(nodeLock.modules)) {
     const prefix = lockKey.split('.')[0];
     if (
       prefix.includes('callback') ||
-      prefix.includes('synchronous') ||
+      (prefix.includes('synchronous') && !prefix.includes('asynchronous')) ||
       prefix === 'common_objects' ||
-      prefix === 'classes'
+      prefix === 'classes' ||
+      prefix === 'child_process'
     ) {
       continue;
     }
 
     const parts = lockKey.includes('[') ? lockKey.replace(/\[.*?\]/, 'SYMBOL').split('.') : lockKey.split('.');
     const name = lockKey.includes('[') ? lockKey.slice(lockKey.indexOf('[')) : parts.pop();
-    const subpath = parts.length > 1 ? `${mod}#${parts.slice(1).join('.')}` : mod;
+    if (
+      name === 'Type' ||
+      name === 'FileHandle' ||
+      name.startsWith('[Symbol') ||
+      name === 'detached' ||
+      name === 'stdio'
+    )
+      continue;
+    if (exNames.has(name)) continue;
 
-    if (name === 'Type' || name === 'FileHandle' || name.startsWith('[Symbol')) continue;
+    const targetManifest = manifests.find(
+      (m) =>
+        toModKey(m.subpath, m.nodeSpecifier) === mod &&
+        (parts.length > 1 ? m.subpath.includes('#' + parts.slice(1).join('.')) : !m.subpath.includes('#')),
+    );
+    const subpath =
+      targetManifest ? targetManifest.subpath
+      : parts.length > 1 ? `${mod}#${parts.slice(1).join('.')}`
+      : mod;
 
     const mmap = manifestMap.get(subpath);
     const mentry = mmap ? mmap.get(name) : null;
@@ -84,8 +120,8 @@ for (const [mod, lockExports] of Object.entries(nodeLock.modules)) {
         mentry.wrapper === 'cancelify-signal' ||
         mentry.wrapper === 'cancelify-teardown' ||
         mentry.wrapper === 'gated' ||
-        (mentry.wrapper === 'passthrough' &&
-          (name === 'watch' || name === 'glob' || name === 'createReadStream' || name === 'pull'));
+        mentry.wrapper === 'passthrough' ||
+        mentry.wrapper === 'promisify-custom';
       if (!hasSignal || !isSignalWrapper) {
         const firstMajor = Math.min(...signalMajors);
         const sinceVer = nodeLock.generatedFrom[firstMajor] || `v${firstMajor}`;
@@ -173,7 +209,7 @@ for (const [mod, lockExports] of Object.entries(nodeLock.modules)) {
 for (const [subpath, mmap] of manifestMap.entries()) {
   const manifest = manifests.find((m) => m.subpath === subpath);
   if (!manifest || manifest.nodeSpecifier === null) continue;
-  const mod = subpath.split('#')[0];
+  const mod = toModKey(manifest.subpath, manifest.nodeSpecifier);
   for (const [name, _mentry] of mmap.entries()) {
     if (name === 'Type' || name === 'FileHandle' || name.startsWith('[Symbol')) continue;
     const lockExports = nodeLock.modules[mod] || {};

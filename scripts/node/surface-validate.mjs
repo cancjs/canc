@@ -159,10 +159,24 @@ export async function validateManifest(manifest, filename, nodeLock = null) {
       }
 
       if (nodeLock && exp.nodeSignal.documented) {
-        const mod = manifest.subpath.split('#')[0];
+        const base = manifest.subpath.split('#')[0];
+        const specMod = manifest.nodeSpecifier ? manifest.nodeSpecifier.replace(/^node:/, '').split('/')[0] : null;
+        const unhyphenated = base.replace(/-/g, '_');
+        const mod =
+          nodeLock.modules[base] ? base
+          : specMod && nodeLock.modules[specMod] ? specMod
+          : nodeLock.modules[unhyphenated] ? unhyphenated
+          : base;
         const isHandle = manifest.subpath.includes('#FileHandle');
         const lockKey = isHandle ? `promises_api.FileHandle.${exp.name}` : `promises_api.${exp.name}`;
-        const lockEntry = nodeLock.modules?.[mod]?.[lockKey];
+        let lockEntry = nodeLock.modules?.[mod]?.[lockKey];
+        if (!lockEntry && nodeLock.modules?.[mod]) {
+          const found = Object.entries(nodeLock.modules[mod]).find(([k]) => {
+            const p = k.split('.');
+            return p[p.length - 1] === exp.name;
+          });
+          if (found) lockEntry = found[1];
+        }
         const signalMajors = lockEntry?.signalIn || [];
 
         const sinceVer = exp.nodeSignal.since;

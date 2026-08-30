@@ -1,0 +1,138 @@
+{
+  "subpath": "child-process",
+  "nodeSpecifier": "node:child_process",
+  "status": "supported",
+  "exports": [
+    {
+      "name": "exec",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "callPath": "callback",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v15.4.0",
+        "probed": "reject:AbortError",
+        "sinceByMajor": {
+          "18": "v15.4.0",
+          "20": "v15.4.0",
+          "22": "v15.4.0",
+          "24": "v15.4.0",
+          "26": "v15.4.0"
+        }
+      },
+      "wrapper": "promisify-custom",
+      "teardown": "SIGTERM then grace then SIGKILL, optional group kill",
+      "failures": [
+        "ProcessExitError",
+        "ProcessSignalError",
+        "ProcessMaxBufferError",
+        "ProcessSpawnError"
+      ],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "exec carries [util.promisify.custom]"
+    },
+    {
+      "name": "execFile",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "callPath": "callback",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v15.4.0",
+        "probed": "reject:AbortError",
+        "sinceByMajor": {
+          "18": "v15.4.0",
+          "20": "v15.4.0",
+          "22": "v15.4.0",
+          "24": "v15.4.0",
+          "26": "v15.4.0"
+        }
+      },
+      "wrapper": "promisify-custom",
+      "teardown": "SIGTERM then grace then SIGKILL, optional group kill",
+      "failures": [
+        "ProcessExitError",
+        "ProcessSignalError",
+        "ProcessMaxBufferError",
+        "ProcessSpawnError"
+      ],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "execFile carries [util.promisify.custom]"
+    },
+    {
+      "name": "spawn",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "callPath": "callback",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v15.4.0",
+        "probed": null,
+        "sinceByMajor": {
+          "18": "v15.4.0",
+          "20": "v15.4.0",
+          "22": "v15.4.0",
+          "24": "v15.4.0",
+          "26": "v15.4.0"
+        }
+      },
+      "wrapper": "cancelify-teardown",
+      "teardown": "kill ladder; settle on close",
+      "failures": [
+        "ProcessExitError",
+        "ProcessSignalError",
+        "ProcessSpawnError"
+      ],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "partial"
+      },
+      "notes": "adapted from events; no promise form in node; returns CancelablePromise & { child }"
+    },
+    {
+      "name": "fork",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "callPath": "callback",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v15.4.0",
+        "probed": null,
+        "sinceByMajor": {
+          "18": "v15.4.0",
+          "20": "v15.4.0",
+          "22": "v15.4.0",
+          "24": "v15.4.0",
+          "26": "v15.4.0"
+        }
+      },
+      "wrapper": "cancelify-teardown",
+      "teardown": "disconnect IPC, then kill ladder",
+      "failures": [
+        "ProcessExitError",
+        "ProcessSignalError",
+        "ProcessSpawnError",
+        "ProcessIpcError"
+      ],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "partial"
+      },
+      "notes": "adapted from events; no promise form in node"
+    }
+  ]
+}

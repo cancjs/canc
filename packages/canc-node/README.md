@@ -69,6 +69,15 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 
 <!-- generated:start -->
 
+#### child-process
+
+| Export     | Cancellation   | Node | Deno | Bun     |
+| ---------- | -------------- | ---- | ---- | ------- |
+| `exec`     | stops the work | 18+  | ✅   | ✅      |
+| `execFile` | stops the work | 18+  | ✅   | ✅      |
+| `spawn`    | stops the work | 18+  | ✅   | partial |
+| `fork`     | stops the work | 18+  | ✅   | partial |
+
 #### fs
 
 | Export              | Cancellation       | Node | Deno | Bun |

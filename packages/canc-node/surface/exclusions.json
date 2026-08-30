@@ -1,5 +1,30 @@
 [
   {
+    "name": "execSync",
+    "status": "excluded",
+    "reason": "execSync, execFileSync, spawnSync stay in node:child_process; no /child-process/sync needed. See QN69"
+  },
+  {
+    "name": "execFileSync",
+    "status": "excluded",
+    "reason": "execSync, execFileSync, spawnSync stay in node:child_process; no /child-process/sync needed. See QN69"
+  },
+  {
+    "name": "spawnSync",
+    "status": "excluded",
+    "reason": "execSync, execFileSync, spawnSync stay in node:child_process; no /child-process/sync needed. See QN69"
+  },
+  {
+    "module": "child-process/sync",
+    "status": "excluded",
+    "reason": "execSync, execFileSync, spawnSync stay in node:child_process; no /child-process/sync needed. See QN69"
+  },
+  {
+    "module": "child_process/sync",
+    "status": "excluded",
+    "reason": "execSync, execFileSync, spawnSync stay in node:child_process; no /child-process/sync needed. See QN69"
+  },
+  {
     "module": "util",
     "status": "deferred",
     "reason": "util.aborted adopted internally; no subpath"
