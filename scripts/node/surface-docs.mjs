@@ -114,6 +114,20 @@ function renderSignalField(nodeSignal) {
   return '-';
 }
 
+// Manifest is internal vocabulary; generator translates it to public wording
+function renderCancellationBehavior(cancelCategory) {
+  if (cancelCategory === 'A' || cancelCategory === 'C') {
+    return 'stops the work';
+  }
+  if (cancelCategory === 'B') {
+    return 'stops waiting only';
+  }
+  if (cancelCategory === 'D') {
+    return 'before it starts';
+  }
+  return '-';
+}
+
 function renderNodeVersion(exp) {
   if (exp.minMajor) {
     return `${exp.minMajor}+`;
@@ -152,18 +166,17 @@ export function generateReadmeSupportTables(manifests) {
       subpathHeader = `#### ${manifest.subpath}`;
     }
 
-    const headers = ['Export', 'Category', 'Node', 'Signal', 'Deno', 'Bun'];
+    const headers = ['Export', 'Cancellation', 'Node', 'Deno', 'Bun'];
     const rows = [];
 
     for (const exp of manifest.exports) {
       const exportName = `\`${exp.name}\``;
-      const category = exp.cancelCategory || '-';
+      const cancellation = renderCancellationBehavior(exp.cancelCategory);
       const nodeVersion = renderNodeVersion(exp);
-      const signal = renderSignalField(exp.nodeSignal);
       const deno = renderStatusGlyph(exp.runtime?.deno);
       const bun = renderStatusGlyph(exp.runtime?.bun);
 
-      rows.push([exportName, category, nodeVersion, signal, deno, bun]);
+      rows.push([exportName, cancellation, nodeVersion, deno, bun]);
     }
 
     sections.push(`${subpathHeader}\n\n${formatMarkdownTable(headers, rows)}`);
