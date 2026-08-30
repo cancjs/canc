@@ -45,7 +45,10 @@
     "lint:src": "eslint ./src",
     "lint": "eslint .",
     "test": "jest --colors",
-    "test:watch": "jest --colors --watch"
+    "test:watch": "jest --colors --watch",
+    "surface:check": "node ../../scripts/check-surface.mjs",
+    "surface:docs": "node ../../scripts/gen-surface-docs.mjs",
+    "surface:lock": "node ../../scripts/node-api-lock.mjs"
   },
   "files": ["dist"],
   "keywords": ["node", "fs", "cancel", "cancelable", "cancellation", "canc"],
