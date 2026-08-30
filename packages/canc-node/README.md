@@ -38,7 +38,7 @@ npm install @cancjs/node @cancjs/promise
 ### Usage
 
 ```ts
-import { features, isNotFoundError } from '@cancjs/node';
+import { features, isNotFoundError } from "@cancjs/node";
 
 if (features.hasGlob) {
   // Glob feature is available in the current runtime environment
@@ -105,33 +105,33 @@ Feature detection probes capability support at module load time without sniffing
 
 #### FileHandle (fs)
 
-| Export                  | Category | Node | Signal  | Deno | Bun |
-| ----------------------- | -------- | ---- | ------- | ---- | --- |
-| `[Symbol.asyncDispose]` | -        | 18+  | -       | ✅   | ✅  |
-| `appendFile`            | A        | 18+  | v22.0.0 | ✅   | ✅  |
-| `chmod`                 | D        | 18+  | -       | ✅   | ✅  |
-| `chown`                 | D        | 18+  | -       | ✅   | ✅  |
-| `close`                 | D        | 18+  | -       | ✅   | ✅  |
-| `createReadStream`      | A        | 18+  | v20.0.0 | ✅   | ✅  |
-| `createWriteStream`     | A        | 18+  | -       | ✅   | ✅  |
-| `datasync`              | D        | 18+  | -       | ✅   | ✅  |
-| `fd`                    | -        | 18+  | -       | ✅   | ✅  |
-| `pull`                  | A        | 26+  | v25.9.0 | ✖    | ✖   |
-| `pullSync`              | -        | 26+  | -       | ✖    | ✖   |
-| `read`                  | B        | 18+  | -       | ✅   | ✅  |
-| `readableWebStream`     | A        | 18+  | -       | ✅   | ✅  |
-| `readFile`              | A        | 18+  | v15.2.0 | ✅   | ✅  |
-| `readLines`             | A        | 18+  | -       | ✅   | ✅  |
-| `readv`                 | B        | 18+  | -       | ✅   | ✅  |
-| `stat`                  | D        | 18+  | v26.1.0 | ✅   | ✅  |
-| `sync`                  | D        | 18+  | -       | ✅   | ✅  |
-| `truncate`              | D        | 18+  | -       | ✅   | ✅  |
-| `Type`                  | -        | 22+  | -       | ✅   | ✅  |
-| `utimes`                | D        | 18+  | -       | ✅   | ✅  |
-| `write`                 | B        | 18+  | -       | ✅   | ✅  |
-| `writeFile`             | A        | 18+  | v22.0.0 | ✅   | ✅  |
-| `writer`                | A        | 26+  | -       | ✖    | ✖   |
-| `writev`                | B        | 18+  | -       | ✅   | ✅  |
+| Export                  | Category | Node | Signal   | Deno | Bun |
+| ----------------------- | -------- | ---- | -------- | ---- | --- |
+| `[Symbol.asyncDispose]` | -        | 18+  | -        | ✅   | ✅  |
+| `appendFile`            | A        | 18+  | v22.0.0  | ✅   | ✅  |
+| `chmod`                 | D        | 18+  | -        | ✅   | ✅  |
+| `chown`                 | D        | 18+  | -        | ✅   | ✅  |
+| `close`                 | D        | 18+  | -        | ✅   | ✅  |
+| `createReadStream`      | A        | 18+  | v20.0.0  | ✅   | ✅  |
+| `createWriteStream`     | A        | 18+  | -        | ✅   | ✅  |
+| `datasync`              | D        | 18+  | -        | ✅   | ✅  |
+| `fd`                    | -        | 18+  | -        | ✅   | ✅  |
+| `pull`                  | A        | 24+  | v24.20.0 | ✖    | ✖   |
+| `pullSync`              | -        | 24+  | -        | ✖    | ✖   |
+| `read`                  | B        | 18+  | -        | ✅   | ✅  |
+| `readableWebStream`     | A        | 18+  | -        | ✅   | ✅  |
+| `readFile`              | A        | 18+  | v15.2.0  | ✅   | ✅  |
+| `readLines`             | A        | 18+  | -        | ✅   | ✅  |
+| `readv`                 | B        | 18+  | -        | ✅   | ✅  |
+| `stat`                  | D        | 18+  | v24.16.0 | ✅   | ✅  |
+| `sync`                  | D        | 18+  | -        | ✅   | ✅  |
+| `truncate`              | D        | 18+  | -        | ✅   | ✅  |
+| `Type`                  | -        | 22+  | -        | ✅   | ✅  |
+| `utimes`                | D        | 18+  | -        | ✅   | ✅  |
+| `write`                 | B        | 18+  | -        | ✅   | ✅  |
+| `writeFile`             | A        | 18+  | v22.0.0  | ✅   | ✅  |
+| `writer`                | A        | 26+  | -        | ✖    | ✖   |
+| `writev`                | B        | 18+  | -        | ✅   | ✅  |
 
 <!-- generated:end -->
 

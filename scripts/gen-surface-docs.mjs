@@ -3,6 +3,8 @@ import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import prettier from 'prettier';
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
 const NODE_PKG_DIR = join(ROOT, 'packages', 'canc-node');
@@ -381,8 +383,6 @@ export async function generateAll(options = {}) {
     }
   }
 
-  const updatedReadme = updateGeneratedBlock(readmeContent, readmeGenerated);
-
   // 2. Generate runtime-compat.md
   const runtimeCompatGenerated = generateRuntimeCompatDoc(manifests, nodeLock, runtimeLock);
 
@@ -409,7 +409,11 @@ export async function generateAll(options = {}) {
       '- Deno permission error inspection: permission denials on Deno are matched through dedicated name guards.\n';
   }
 
-  const updatedRuntimeCompat = updateGeneratedBlock(runtimeCompatContent, runtimeCompatGenerated);
+  let updatedReadme = updateGeneratedBlock(readmeContent, readmeGenerated);
+  let updatedRuntimeCompat = updateGeneratedBlock(runtimeCompatContent, runtimeCompatGenerated);
+
+  updatedReadme = await prettier.format(updatedReadme, { filepath: README_PATH });
+  updatedRuntimeCompat = await prettier.format(updatedRuntimeCompat, { filepath: RUNTIME_COMPAT_PATH });
 
   let hasDiff = false;
 

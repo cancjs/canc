@@ -1,0 +1,89 @@
+[
+  {
+    "module": "util",
+    "status": "deferred",
+    "reason": "util.aborted adopted internally; no subpath. See QN44"
+  },
+  {
+    "module": "stream/web",
+    "status": "excluded",
+    "reason": "WHATWG cancel has different semantics; bridge belongs with fetch. See QN45"
+  },
+  {
+    "module": "test",
+    "status": "excluded",
+    "reason": "test framework; interop recipe only, not a wrapper"
+  },
+  {
+    "module": "inspector",
+    "status": "excluded",
+    "reason": "debugger protocol; no composable async"
+  },
+  {
+    "module": "inspector/promises",
+    "status": "excluded",
+    "reason": "promise subpath but same reason as inspector"
+  },
+  {
+    "module": "diagnostics_channel",
+    "status": "deferred",
+    "reason": "tracingChannel publishing is a canc-core feature, not a node mirror. See QN46"
+  },
+  {
+    "module": "process",
+    "status": "excluded",
+    "reason": "signal-to-cancel is a four-line recipe, already in examples"
+  },
+  {
+    "module": "perf_hooks",
+    "status": "excluded",
+    "reason": "measurement only"
+  },
+  {
+    "module": "module",
+    "status": "excluded",
+    "reason": "loader hooks run at startup, outside any chain"
+  },
+  {
+    "module": "cluster",
+    "status": "excluded",
+    "reason": "process management; worker_threads covers the cancelable case"
+  },
+  {
+    "module": "async_hooks",
+    "status": "excluded",
+    "reason": "context propagation, not a cancelable operation"
+  },
+  { "module": "v8", "status": "excluded", "reason": "diagnostics" },
+  {
+    "module": "vm",
+    "status": "excluded",
+    "reason": "sandboxing; no cancelable async"
+  },
+  { "module": "wasi", "status": "excluded", "reason": "no cancelable async" },
+  { "module": "assert", "status": "excluded", "reason": "sync" },
+  { "module": "buffer", "status": "excluded", "reason": "sync" },
+  { "module": "console", "status": "excluded", "reason": "sync" },
+  { "module": "constants", "status": "excluded", "reason": "sync, deprecated" },
+  { "module": "domain", "status": "excluded", "reason": "deprecated" },
+  { "module": "os", "status": "excluded", "reason": "sync" },
+  { "module": "path", "status": "excluded", "reason": "sync" },
+  { "module": "punycode", "status": "excluded", "reason": "deprecated" },
+  { "module": "querystring", "status": "excluded", "reason": "sync" },
+  { "module": "repl", "status": "excluded", "reason": "interactive shell" },
+  { "module": "sea", "status": "excluded", "reason": "build-time packaging" },
+  { "module": "string_decoder", "status": "excluded", "reason": "sync" },
+  {
+    "module": "sys",
+    "status": "excluded",
+    "reason": "deprecated alias of util"
+  },
+  { "module": "trace_events", "status": "excluded", "reason": "diagnostics" },
+  { "module": "tty", "status": "excluded", "reason": "sync" },
+  { "module": "url", "status": "excluded", "reason": "sync" },
+  {
+    "module": "sqlite",
+    "status": "deferred",
+    "reason": "sync query API blocking. async backup uncancelable"
+  }
+]
