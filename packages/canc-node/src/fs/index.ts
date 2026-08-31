@@ -13,6 +13,8 @@ import {
   promisifySignalWrapped,
   promisifyWrapped,
   signalWrapped,
+  TCancelable,
+  TCancelableValue,
   teardownWrapped,
   TNodeFn,
 } from './wrap';
@@ -50,58 +52,111 @@ function closeQuietly(value: unknown): void {
   void Promise.resolve(closable.close()).then(undefined, () => {});
 }
 
-export const access = adopted(fsp.access);
-export const appendFile = promisifySignalWrapped(viaFs('appendFile'), entries.get('appendFile'), 2);
-export const chmod = promisifyWrapped(viaFs('chmod'));
-export const chown = promisifyWrapped(viaFs('chown'));
+/**
+ * A temporary directory handle, for a runtime newer than the installed node typings describe.
+ *
+ * The member arrived in node 24.4. Typings older than that carry no declaration to derive from, so
+ * this stands in until the consumer installs typings that do.
+ */
+interface IDisposableTempDir {
+  readonly path: string;
+  remove(): Promise<void>;
+}
+
+type TFsPromises = typeof nodeFsPromises;
+
+/**
+ * The declaration for a member the installed node typings may predate, or a stand-in.
+ *
+ * The condition is left unresolved in the emitted declarations, so it answers against the typings
+ * the consumer installed rather than the ones this package was built with. A consumer on node 22
+ * typings gets node's own `glob` signature; one on node 20 gets the stand-in.
+ */
+type TWhenTyped<TName extends string, TFallback> = TFsPromises extends Record<TName, infer TFn> ? TFn : TFallback;
+
+type TGlobFn = TWhenTyped<
+  'glob',
+  (
+    pattern: string | readonly string[],
+    options?: { cwd?: string; exclude?: (path: string) => boolean; withFileTypes?: boolean },
+  ) => AsyncIterable<string>
+>;
+
+type TMkdtempDisposableFn = TWhenTyped<
+  'mkdtempDisposable',
+  (
+    prefix: string,
+    options?: { encoding?: BufferEncoding | null } | BufferEncoding | null,
+  ) => Promise<IDisposableTempDir>
+>;
+
+export const access = adopted(fsp.access) as TCancelable<TFsPromises['access']>;
+export const appendFile = promisifySignalWrapped(viaFs('appendFile'), entries.get('appendFile'), 2) as TCancelable<
+  TFsPromises['appendFile']
+>;
+export const chmod = promisifyWrapped(viaFs('chmod')) as TCancelable<TFsPromises['chmod']>;
+export const chown = promisifyWrapped(viaFs('chown')) as TCancelable<TFsPromises['chown']>;
 export const constants = nodeFsPromises.constants;
 export const copyFile = teardownWrapped(promisifyWrapped(viaFs('copyFile')), (_value, args) => {
   const dest = args[1];
   if (typeof dest === 'string' || Buffer.isBuffer(dest) || dest instanceof URL) {
     getFs().unlink(dest, () => {});
   }
-});
-export const cp = adopted(fsp.cp);
-export const glob = gatedWrapped(features.hasGlob, 'glob', '22', adopted(fsp.glob));
-export const lchmod = promisifyWrapped(viaFs('lchmod'));
-export const lchown = promisifyWrapped(viaFs('lchown'));
-export const link = adopted(fsp.link);
-export const lstat = promisifySignalWrapped(viaFs('lstat'), entries.get('lstat'), 1);
-export const lutimes = adopted(fsp.lutimes);
-export const mkdir = adopted(fsp.mkdir);
-export const mkdtemp = adopted(fsp.mkdtemp);
+}) as TCancelable<TFsPromises['copyFile']>;
+export const cp = adopted(fsp.cp) as TCancelable<TFsPromises['cp']>;
+export const glob = gatedWrapped(
+  features.hasGlob,
+  'glob',
+  '22',
+  adopted(fsp.glob),
+) as unknown as TCancelableValue<TGlobFn>;
+export const lchmod = promisifyWrapped(viaFs('lchmod')) as TCancelable<TFsPromises['lchmod']>;
+export const lchown = promisifyWrapped(viaFs('lchown')) as TCancelable<TFsPromises['lchown']>;
+export const link = adopted(fsp.link) as TCancelable<TFsPromises['link']>;
+export const lstat = promisifySignalWrapped(viaFs('lstat'), entries.get('lstat'), 1) as TCancelable<
+  TFsPromises['lstat']
+>;
+export const lutimes = adopted(fsp.lutimes) as TCancelable<TFsPromises['lutimes']>;
+export const mkdir = adopted(fsp.mkdir) as TCancelable<TFsPromises['mkdir']>;
+export const mkdtemp = adopted(fsp.mkdtemp) as TCancelable<TFsPromises['mkdtemp']>;
 export const mkdtempDisposable = gatedWrapped(
   features.hasMkdtempDisposable,
   'mkdtempDisposable',
   '24.4.0',
   adopted(fsp.mkdtempDisposable),
-);
+) as unknown as TCancelable<TMkdtempDisposableFn>;
 export const open = teardownWrapped(
   (...args: unknown[]) => retryOpen(() => viaFsPromises('open')(...args)).then(decorate),
   closeQuietly,
-);
+) as TCancelable<TFsPromises['open']>;
 export const opendir = teardownWrapped(
   (...args: unknown[]) => retryOpen(() => viaFsPromises('opendir')(...args)),
   closeQuietly,
-);
-export const readFile = promisifySignalWrapped(viaFs('readFile'), entries.get('readFile'), 1);
-export const readdir = promisifyWrapped(viaFs('readdir'));
-export const readlink = adopted(fsp.readlink);
-export const realpath = adopted(fsp.realpath);
-export const rename = promisifyWrapped(viaFs('rename'));
-export const rm = adopted(fsp.rm);
-export const rmdir = adopted(fsp.rmdir);
-export const stat = promisifySignalWrapped(viaFs('stat'), entries.get('stat'), 1);
-export const statfs = adopted(fsp.statfs);
-export const symlink = adopted(fsp.symlink);
-export const truncate = adopted(fsp.truncate);
-export const unlink = adopted(fsp.unlink);
-export const utimes = adopted(fsp.utimes);
-export const watch = signalWrapped(fsp.watch, entries.get('watch'), 1);
-export const writeFile = promisifySignalWrapped(viaFs('writeFile'), entries.get('writeFile'), 2);
+) as TCancelable<TFsPromises['opendir']>;
+export const readFile = promisifySignalWrapped(viaFs('readFile'), entries.get('readFile'), 1) as TCancelable<
+  TFsPromises['readFile']
+>;
+export const readdir = promisifyWrapped(viaFs('readdir')) as TCancelable<TFsPromises['readdir']>;
+export const readlink = adopted(fsp.readlink) as TCancelable<TFsPromises['readlink']>;
+export const realpath = adopted(fsp.realpath) as TCancelable<TFsPromises['realpath']>;
+export const rename = promisifyWrapped(viaFs('rename')) as TCancelable<TFsPromises['rename']>;
+export const rm = adopted(fsp.rm) as TCancelable<TFsPromises['rm']>;
+export const rmdir = adopted(fsp.rmdir) as TCancelable<TFsPromises['rmdir']>;
+export const stat = promisifySignalWrapped(viaFs('stat'), entries.get('stat'), 1) as TCancelable<TFsPromises['stat']>;
+export const statfs = adopted(fsp.statfs) as TCancelable<TFsPromises['statfs']>;
+export const symlink = adopted(fsp.symlink) as TCancelable<TFsPromises['symlink']>;
+export const truncate = adopted(fsp.truncate) as TCancelable<TFsPromises['truncate']>;
+export const unlink = adopted(fsp.unlink) as TCancelable<TFsPromises['unlink']>;
+export const utimes = adopted(fsp.utimes) as TCancelable<TFsPromises['utimes']>;
+export const watch = signalWrapped(fsp.watch, entries.get('watch'), 1) as unknown as TCancelableValue<
+  TFsPromises['watch']
+>;
+export const writeFile = promisifySignalWrapped(viaFs('writeFile'), entries.get('writeFile'), 2) as TCancelable<
+  TFsPromises['writeFile']
+>;
 
 export const Dir = nodeFs.Dir;
 export const Dirent = nodeFs.Dirent;
 export const Stats = nodeFs.Stats;
 export type { BigIntStats, StatsFs as StatFs } from 'node:fs';
-export const exists = promisifyWrapped(fsCallbacks.exists);
+export const exists = promisifyWrapped(fsCallbacks.exists) as TCancelable<typeof nodeFs.exists.__promisify__>;

@@ -29,6 +29,116 @@ export type TNodeFn = (...args: unknown[]) => unknown;
 /** A node options bag, or the encoding shorthand node accepts in its place. */
 export type TNodeOptions = string | Readonly<Record<string, unknown>> | null | undefined;
 
+/** One node call signature, with a cancelable promise in place of the plain one it returned. */
+type TCancelableReturn<R> = [R] extends [Promise<infer TValue>] ? CancelablePromise<TValue> : R;
+
+/**
+ * Return rewrites the signature ladder below can apply, selected by name because a type alias
+ * cannot be passed as an argument.
+ */
+interface IReturnRewrite<R> {
+  cancelable: TCancelableReturn<R>;
+  cancelableValue: CancelablePromise<Awaited<R>>;
+  same: R;
+}
+
+/** Name of a rewrite in {@link IReturnRewrite}. */
+export type TReturnRewrite = keyof IReturnRewrite<unknown>;
+
+/**
+ * Node's signatures for `TFn`, each return rewritten by `TRewrite`, with the overloads kept.
+ *
+ * A single `(...args: Parameters<TFn>) => ...` would collapse an overloaded function to its last
+ * signature, which is how `readFile(path, 'utf8')` loses `string` and resolves node's widest
+ * `string | Buffer` instead. Inferring a fixed number of call signatures and rebuilding them one for
+ * one keeps each overload separate. The ladder tries the widest arity first so a function is matched
+ * by the branch with its own overload count; the widest fs member publishes five. Merged properties,
+ * such as the `native` on `realpathSync`, are dropped, which is why the ladder also serves the
+ * synchronous surface where no return changes at all.
+ */
+export type TNodeSignatures<TFn, TRewrite extends TReturnRewrite> =
+  TFn extends (
+    {
+      (...args: infer A1): infer R1;
+      (...args: infer A2): infer R2;
+      (...args: infer A3): infer R3;
+      (...args: infer A4): infer R4;
+      (...args: infer A5): infer R5;
+      (...args: infer A6): infer R6;
+    }
+  ) ?
+    {
+      (...args: A1): IReturnRewrite<R1>[TRewrite];
+      (...args: A2): IReturnRewrite<R2>[TRewrite];
+      (...args: A3): IReturnRewrite<R3>[TRewrite];
+      (...args: A4): IReturnRewrite<R4>[TRewrite];
+      (...args: A5): IReturnRewrite<R5>[TRewrite];
+      (...args: A6): IReturnRewrite<R6>[TRewrite];
+    }
+  : TFn extends (
+    {
+      (...args: infer A1): infer R1;
+      (...args: infer A2): infer R2;
+      (...args: infer A3): infer R3;
+      (...args: infer A4): infer R4;
+      (...args: infer A5): infer R5;
+    }
+  ) ?
+    {
+      (...args: A1): IReturnRewrite<R1>[TRewrite];
+      (...args: A2): IReturnRewrite<R2>[TRewrite];
+      (...args: A3): IReturnRewrite<R3>[TRewrite];
+      (...args: A4): IReturnRewrite<R4>[TRewrite];
+      (...args: A5): IReturnRewrite<R5>[TRewrite];
+    }
+  : TFn extends (
+    {
+      (...args: infer A1): infer R1;
+      (...args: infer A2): infer R2;
+      (...args: infer A3): infer R3;
+      (...args: infer A4): infer R4;
+    }
+  ) ?
+    {
+      (...args: A1): IReturnRewrite<R1>[TRewrite];
+      (...args: A2): IReturnRewrite<R2>[TRewrite];
+      (...args: A3): IReturnRewrite<R3>[TRewrite];
+      (...args: A4): IReturnRewrite<R4>[TRewrite];
+    }
+  : TFn extends (
+    {
+      (...args: infer A1): infer R1;
+      (...args: infer A2): infer R2;
+      (...args: infer A3): infer R3;
+    }
+  ) ?
+    {
+      (...args: A1): IReturnRewrite<R1>[TRewrite];
+      (...args: A2): IReturnRewrite<R2>[TRewrite];
+      (...args: A3): IReturnRewrite<R3>[TRewrite];
+    }
+  : TFn extends { (...args: infer A1): infer R1; (...args: infer A2): infer R2 } ?
+    {
+      (...args: A1): IReturnRewrite<R1>[TRewrite];
+      (...args: A2): IReturnRewrite<R2>[TRewrite];
+    }
+  : TFn extends (...args: infer A) => infer R ? (...args: A) => IReturnRewrite<R>[TRewrite]
+  : never;
+
+/** Node's signature for `TFn`, returning a cancelable promise, overloads kept. */
+export type TCancelable<TFn> = TNodeSignatures<TFn, 'cancelable'>;
+
+/**
+ * Node's signature for `TFn` with its result carried by a cancelable promise.
+ *
+ * For the members node settles synchronously into something other than a promise, an async iterable
+ * from `watch` or `glob`, where the wrapper resolves with that object rather than adopting it.
+ */
+export type TCancelableValue<TFn> = TNodeSignatures<TFn, 'cancelableValue'>;
+
+/** Node's signature for `TFn` unchanged, minus anything merged onto the function object. */
+export type TSignatures<TFn> = TNodeSignatures<TFn, 'same'>;
+
 /** Promise flavor bound into the inlined toolbox algorithms, so every product is cancelable. */
 interface ICancelableKind extends IPromiseKind {
   promise: CancelablePromise<this['value']>;

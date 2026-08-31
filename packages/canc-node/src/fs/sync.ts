@@ -1,49 +1,60 @@
 import * as fs from 'node:fs';
 
 import { getFs } from './registry';
+import { TNodeFn, TSignatures } from './wrap';
 
-export const accessSync = (...args: any[]) => getFs().accessSync(...args);
-export const appendFileSync = (...args: any[]) => getFs().appendFileSync(...args);
-export const chmodSync = (...args: any[]) => getFs().chmodSync(...args);
-export const chownSync = (...args: any[]) => getFs().chownSync(...args);
-export const closeSync = (...args: any[]) => getFs().closeSync(...args);
-export const copyFileSync = (...args: any[]) => getFs().copyFileSync(...args);
-export const cpSync = (...args: any[]) => getFs().cpSync(...args);
-export const existsSync = (...args: any[]) => getFs().existsSync(...args);
-export const fchmodSync = (...args: any[]) => getFs().fchmodSync(...args);
-export const fchownSync = (...args: any[]) => getFs().fchownSync(...args);
-export const fdatasyncSync = (...args: any[]) => getFs().fdatasyncSync(...args);
-export const fstatSync = (...args: any[]) => getFs().fstatSync(...args);
-export const fsyncSync = (...args: any[]) => getFs().fsyncSync(...args);
-export const ftruncateSync = (...args: any[]) => getFs().ftruncateSync(...args);
-export const futimesSync = (...args: any[]) => getFs().futimesSync(...args);
-export const lchmodSync = (...args: any[]) => getFs().lchmodSync(...args);
-export const lchownSync = (...args: any[]) => getFs().lchownSync(...args);
-export const linkSync = (...args: any[]) => getFs().linkSync(...args);
-export const lstatSync = (...args: any[]) => getFs().lstatSync(...args);
-export const lutimesSync = (...args: any[]) => getFs().lutimesSync(...args);
-export const mkdirSync = (...args: any[]) => getFs().mkdirSync(...args);
-export const mkdtempSync = (...args: any[]) => getFs().mkdtempSync(...args);
-export const openSync = (...args: any[]) => getFs().openSync(...args);
-export const opendirSync = (...args: any[]) => getFs().opendirSync(...args);
-export const readFileSync = (...args: any[]) => getFs().readFileSync(...args);
-export const readdirSync = (...args: any[]) => getFs().readdirSync(...args);
-export const readlinkSync = (...args: any[]) => getFs().readlinkSync(...args);
-export const readSync = (...args: any[]) => getFs().readSync(...args);
-export const readvSync = (...args: any[]) => getFs().readvSync(...args);
-export const realpathSync = (...args: any[]) => getFs().realpathSync(...args);
-export const renameSync = (...args: any[]) => getFs().renameSync(...args);
-export const rmSync = (...args: any[]) => getFs().rmSync(...args);
-export const rmdirSync = (...args: any[]) => getFs().rmdirSync(...args);
-export const statSync = (...args: any[]) => getFs().statSync(...args);
-export const statfsSync = (...args: any[]) => getFs().statfsSync(...args);
-export const symlinkSync = (...args: any[]) => getFs().symlinkSync(...args);
-export const truncateSync = (...args: any[]) => getFs().truncateSync(...args);
-export const unlinkSync = (...args: any[]) => getFs().unlinkSync(...args);
-export const utimesSync = (...args: any[]) => getFs().utimesSync(...args);
-export const writeFileSync = (...args: any[]) => getFs().writeFileSync(...args);
-export const writeSync = (...args: any[]) => getFs().writeSync(...args);
-export const writevSync = (...args: any[]) => getFs().writevSync(...args);
+/**
+ * Route one call through the registered implementation, resolved per call so a later `setFs` still
+ * takes effect. Nothing here is cancelable, so the published type is node's own.
+ */
+function route<TName extends keyof typeof fs>(name: TName): (typeof fs)[TName] {
+  return ((...args: unknown[]) => (getFs()[name] as TNodeFn)(...args)) as (typeof fs)[TName];
+}
+
+export const accessSync = route('accessSync');
+export const appendFileSync = route('appendFileSync');
+export const chmodSync = route('chmodSync');
+export const chownSync = route('chownSync');
+export const closeSync = route('closeSync');
+export const copyFileSync = route('copyFileSync');
+export const cpSync = route('cpSync');
+export const existsSync = route('existsSync');
+export const fchmodSync = route('fchmodSync');
+export const fchownSync = route('fchownSync');
+export const fdatasyncSync = route('fdatasyncSync');
+export const fstatSync = route('fstatSync');
+export const fsyncSync = route('fsyncSync');
+export const ftruncateSync = route('ftruncateSync');
+export const futimesSync = route('futimesSync');
+export const lchmodSync = route('lchmodSync');
+export const lchownSync = route('lchownSync');
+export const linkSync = route('linkSync');
+export const lstatSync = route('lstatSync');
+export const lutimesSync = route('lutimesSync');
+export const mkdirSync = route('mkdirSync');
+export const mkdtempSync = route('mkdtempSync');
+export const openSync = route('openSync');
+export const opendirSync = route('opendirSync');
+export const readFileSync = route('readFileSync');
+export const readdirSync = route('readdirSync');
+export const readlinkSync = route('readlinkSync');
+export const readSync = route('readSync');
+export const readvSync = route('readvSync');
+// node merges a `native` member onto realpathSync that this surface does not carry, so the binding
+// takes the call signatures alone
+export const realpathSync: TSignatures<typeof fs.realpathSync> = route('realpathSync');
+export const renameSync = route('renameSync');
+export const rmSync = route('rmSync');
+export const rmdirSync = route('rmdirSync');
+export const statSync = route('statSync');
+export const statfsSync = route('statfsSync');
+export const symlinkSync = route('symlinkSync');
+export const truncateSync = route('truncateSync');
+export const unlinkSync = route('unlinkSync');
+export const utimesSync = route('utimesSync');
+export const writeFileSync = route('writeFileSync');
+export const writeSync = route('writeSync');
+export const writevSync = route('writevSync');
 
 export const Dirent = fs.Dirent;
 export const Dir = fs.Dir;
