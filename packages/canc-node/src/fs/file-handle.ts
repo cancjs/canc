@@ -1,7 +1,22 @@
 import { CancelablePromise } from '@cancjs/promise';
 
 import manifest from '../../surface/fs.FileHandle.json';
-import { cancelify, gatedWrapped, signalWrapped, teardownWrapped } from './wrap';
+import { adopted, IManifestEntry, signalWrapped, teardownWrapped, TNodeFn } from './wrap';
+
+/** A FileHandle member record, with the routing fields the decoration reads. */
+interface IMemberEntry extends IManifestEntry {
+  readonly kind: string;
+  readonly wrapper: string;
+  readonly cancelCategory: string | null;
+}
+
+/** Argument position node reads options from, for the members that do not take them first. */
+const OPTIONS_INDEX: Record<string, number> = {
+  appendFile: 1,
+  writeFile: 1,
+};
+
+const members = manifest.exports as readonly IMemberEntry[];
 
 let CancProto: object | undefined;
 
@@ -9,30 +24,31 @@ export function __resetCancProtoForTest() {
   CancProto = undefined;
 }
 
-export function decorate(fh: any) {
-  CancProto ??= buildProto(Object.getPrototypeOf(fh));
-  Object.setPrototypeOf(fh, CancProto!);
+export function decorate<T>(fh: T): T {
+  const handle = fh as unknown as Record<string, unknown>;
+  CancProto ??= buildProto(Object.getPrototypeOf(handle) as Record<string, unknown>);
+  Object.setPrototypeOf(handle, CancProto);
 
-  const ourMembers = new Set(manifest.exports.map((e: any) => e.name));
-  for (const name of Object.getOwnPropertyNames(fh)) {
+  const ourMembers = new Set(members.map((entry) => entry.name));
+  for (const name of Object.getOwnPropertyNames(handle)) {
     if (!ourMembers.has(name)) continue;
-    const own = Object.getOwnPropertyDescriptor(fh, name);
+    const own = Object.getOwnPropertyDescriptor(handle, name);
     if (!own || typeof own.value !== 'function') continue;
 
-    Object.defineProperty(fh, name, {
+    Object.defineProperty(handle, name, {
       ...own,
-      value: wrap(name, own.value),
+      value: wrap(name, own.value as TNodeFn),
       configurable: true,
     });
   }
   return fh;
 }
 
-function buildProto(nativeProto: any) {
-  const overrides: any = {};
+function buildProto(nativeProto: Record<string, unknown>) {
+  const overrides: Record<string, TNodeFn> = {};
   const skipped: string[] = [];
 
-  for (const entry of manifest.exports) {
+  for (const entry of members) {
     if (entry.kind !== 'fn') continue;
     const name = entry.name;
     const nativeFn = nativeProto[name];
@@ -42,14 +58,14 @@ function buildProto(nativeProto: any) {
       continue;
     }
 
-    overrides[name] = wrap(name, nativeFn, entry);
+    overrides[name] = wrap(name, nativeFn as TNodeFn, entry);
   }
 
   if (skipped.length > 0) {
     console.warn(`[canc] fs.FileHandle missing members: ${skipped.join(', ')}`);
   }
 
-  const newProto = Object.create(nativeProto);
+  const newProto = Object.create(nativeProto) as Record<string, unknown>;
   for (const [name, fn] of Object.entries(overrides)) {
     Object.defineProperty(newProto, name, {
       value: fn,
@@ -62,58 +78,43 @@ function buildProto(nativeProto: any) {
   return newProto;
 }
 
-function wrap(name: string, nativeFn: (...args: any[]) => any, entry?: any) {
-  entry ??= manifest.exports.find((e: any) => e.name === name);
+function wrap(name: string, nativeFn: TNodeFn, known?: IMemberEntry): TNodeFn {
+  const entry = known ?? members.find((member) => member.name === name);
 
   if (name === 'close') {
-    return function (this: any, ...args: any[]) {
-      const p = nativeFn.apply(this, args);
+    // close IS the teardown, so it is shielded: a canceled close would leave the descriptor open
+    return function closeShielded(this: unknown, ...args: unknown[]) {
       return new CancelablePromise(
-        (resolve, reject) => {
-          Promise.resolve(p).then(resolve, reject);
+        (resolve) => {
+          resolve(nativeFn.apply(this, args) as PromiseLike<unknown>);
         },
         { shield: true },
       );
     };
   }
 
-  const bound = function (this: any, ...args: any[]) {
-    return nativeFn.apply(this, args);
-  };
+  const optionsIndex = OPTIONS_INDEX[name] ?? 0;
 
-  switch (entry.wrapper) {
+  // a gated member only gets here when the capture scan found it, so the runtime has the member and
+  // only its signal support varies by release line
+  switch (entry?.wrapper) {
     case 'cancelify-signal':
-      return function (this: any, ...args: any[]) {
-        return signalWrapped(bound.bind(this), entry)(...args);
-      };
-    case 'cancelify-teardown':
-      return function (this: any, ...args: any[]) {
-        return teardownWrapped(bound.bind(this), (val) => {
-          if (val && typeof val.close === 'function') val.close();
-          else if (val && typeof val.destroy === 'function') val.destroy();
-        })(...args);
-      };
     case 'gated':
-      return function (this: any, ...args: any[]) {
-        const isAvail = !!entry.nodeSignal?.sinceByMajor?.[parseInt(process.versions.node.split('.')[0], 10)];
-        return gatedWrapped(
-          isAvail,
-          name,
-          entry.nodeSignal?.since || 'unknown',
-          signalWrapped(bound.bind(this), entry),
-        )(...args);
-      };
+      return signalWrapped(nativeFn, entry, optionsIndex);
+    case 'cancelify-teardown':
+      return teardownWrapped(nativeFn, stopStream);
     case 'promisify-custom':
-      return function (this: any, ...args: any[]) {
-        return cancelify((_ctx, ...a) => bound.apply(this, a))(...args);
-      };
-    case 'passthrough':
+      return adopted(nativeFn);
     default:
-      if (entry.cancelCategory === 'D' && name !== 'close') {
-        return function (this: any, ...args: any[]) {
-          return cancelify((_ctx, ...a) => bound.apply(this, a))(...args);
-        };
-      }
-      return bound;
+      return entry?.cancelCategory === 'D' ? adopted(nativeFn) : nativeFn;
   }
+}
+
+/** Cancel teardown for the members handing back a stream or a handle of their own. */
+function stopStream(value: unknown): void {
+  const target = value as { close?: () => void; destroy?: () => void } | null | undefined;
+  if (!target) return;
+
+  if (typeof target.close === 'function') target.close();
+  else if (typeof target.destroy === 'function') target.destroy();
 }

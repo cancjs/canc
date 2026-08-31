@@ -1,9 +1,22 @@
 import { CancelError, isCancelError } from '@cancjs/promise';
 
 import { NotImplementedError } from '../errors/classes';
-import { gatedWrapped, signalWrapped, teardownWrapped } from './wrap';
+import { gatedWrapped, IManifestEntry, promisifySignalWrapped, signalWrapped, teardownWrapped } from './wrap';
 
 const isAbortError = (err: any) => err?.name === 'AbortError';
+
+// Signal availability is read off the manifest, never off a version string, so these fixtures state
+// the two cases that matter: support older than every supported release line, and support confined
+// to release lines this runtime is not on.
+const alwaysSignal: IManifestEntry = {
+  name: 'fake',
+  nodeSignal: { documented: true, since: 'v15.2.0', sinceByMajor: null, probed: 'reject:AbortError' },
+};
+
+const neverSignal: IManifestEntry = {
+  name: 'fake',
+  nodeSignal: { documented: true, since: 'v999.0.0', sinceByMajor: { '999': 'v999.0.0' }, probed: null },
+};
 
 describe('wrap', () => {
   describe('signalWrapped', () => {
@@ -13,11 +26,7 @@ describe('wrap', () => {
         receivedSignal = options.signal;
         return new Promise(() => {}); // hang
       });
-      const entry = {
-        nodeSignal: { sinceByMajor: { '24': 'v24', '20': 'v20', '22': 'v22', '18': 'v18', '26': 'v26' } },
-      };
-      // Force it to match any major
-      const wrapped = signalWrapped(fake, entry, parseInt(process.versions.node.split('.')[0], 10));
+      const wrapped = signalWrapped(fake as any, alwaysSignal);
 
       const p = wrapped({ someOpt: true });
       p.cancel('reason');
@@ -36,14 +45,13 @@ describe('wrap', () => {
       expect(receivedSignal?.aborted).toBe(true);
     });
 
-    it('calls the underlying fn with no signal key at all when sinceByMajor omits the running major', async () => {
+    it('calls the underlying fn with no signal key at all when the running release line has none', async () => {
       let receivedOptions: any;
       const fake = jest.fn((options: any) => {
         receivedOptions = options;
         return Promise.resolve();
       });
-      const entry = { nodeSignal: { sinceByMajor: { '999': 'v999' } } }; // missing current major
-      const wrapped = signalWrapped(fake, entry);
+      const wrapped = signalWrapped(fake as any, neverSignal);
 
       const p = wrapped({ someOpt: true });
       await p;
@@ -51,6 +59,63 @@ describe('wrap', () => {
       expect(receivedOptions).toBeDefined();
       expect('signal' in receivedOptions).toBe(false);
       expect(receivedOptions.someOpt).toBe(true);
+    });
+
+    it('places the signal at the options position instead of merging into whatever came last', async () => {
+      let received: any[] = [];
+      const fake = jest.fn((...args: any[]) => {
+        received = args;
+        return Promise.resolve();
+      });
+      // writeFile shape: the trailing string is data, not an encoding
+      const wrapped = signalWrapped(fake as any, alwaysSignal, 2);
+
+      await wrapped('file.txt', 'contents');
+
+      expect(received[0]).toBe('file.txt');
+      expect(received[1]).toBe('contents');
+      expect(received[2].signal).toBeDefined();
+      expect(received[2].encoding).toBeUndefined();
+    });
+
+    it('merges the signal into the encoding shorthand node accepts in place of options', async () => {
+      let received: any[] = [];
+      const fake = jest.fn((...args: any[]) => {
+        received = args;
+        return Promise.resolve();
+      });
+      const wrapped = signalWrapped(fake as any, alwaysSignal, 1);
+
+      await wrapped('file.txt', 'utf8');
+
+      expect(received[1].encoding).toBe('utf8');
+      expect(received[1].signal).toBeDefined();
+    });
+  });
+
+  describe('promisifySignalWrapped', () => {
+    it('passes the signal to a callback api in one promise, and aborts it on cancel', async () => {
+      let receivedSignal: AbortSignal | undefined;
+      const fake = jest.fn((_path: string, options: any, _cb: (err: unknown) => void) => {
+        receivedSignal = options.signal;
+      });
+      const wrapped = promisifySignalWrapped(fake as any, alwaysSignal, 1);
+
+      const p = wrapped('file.txt');
+      p.cancel();
+
+      await expect(p).rejects.toThrow(CancelError);
+      expect(receivedSignal?.aborted).toBe(true);
+    });
+
+    it('leaves the arguments alone when the running release line takes no signal', async () => {
+      const fake = jest.fn((_path: string, cb: (err: unknown, value: string) => void) => {
+        cb(null, 'done');
+      });
+      const wrapped = promisifySignalWrapped(fake as any, neverSignal, 1);
+
+      await expect(wrapped('file.txt')).resolves.toBe('done');
+      expect(fake.mock.calls[0].length).toBe(2);
     });
   });
 

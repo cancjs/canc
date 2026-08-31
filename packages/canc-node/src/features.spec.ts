@@ -11,6 +11,22 @@ describe('features', () => {
     expect(Object.isFrozen(features)).toBe(true);
   });
 
+  it('reports a release line no older than the supported floor', () => {
+    expect(features.nodeMajor).toBeGreaterThanOrEqual(18);
+  });
+
+  it('agrees with the capabilities that mark each release line', () => {
+    if (features.hasMkdtempDisposable) {
+      expect(features.nodeMajor).toBeGreaterThanOrEqual(24);
+    }
+    if (features.hasGlob) {
+      expect(features.nodeMajor).toBeGreaterThanOrEqual(22);
+    }
+    if (!features.hasGlob) {
+      expect(features.nodeMajor).toBeLessThan(22);
+    }
+  });
+
   it('detects hasGlob dynamically matching host runtime', () => {
     expect(features.hasGlob).toBe(typeof (fsp as { glob?: unknown }).glob === 'function');
   });

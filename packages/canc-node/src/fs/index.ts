@@ -2,107 +2,106 @@ import nodeFs from 'node:fs';
 import nodeFsPromises from 'node:fs/promises';
 
 import fsJson from '../../surface/fs.json';
+import { features } from '../features';
 import { decorate } from './file-handle';
 import { getFs } from './registry';
 import { retryOpen } from './retry-open';
-import { cancelify, gatedWrapped, promisifyWrapped, signalWrapped, teardownWrapped } from './wrap';
+import {
+  adopted,
+  gatedWrapped,
+  IManifestEntry,
+  promisifySignalWrapped,
+  promisifyWrapped,
+  signalWrapped,
+  teardownWrapped,
+  TNodeFn,
+} from './wrap';
 
-const entryMap = new Map(fsJson.exports.map((e: any) => [e.name, e]));
-const nodeMajor = parseInt(process.versions.node.split('.')[0], 10);
+// node's own signatures are overloaded per call, so the bindings reach both APIs through one view
+const fsp = nodeFsPromises as unknown as Record<string, TNodeFn>;
+const fsCallbacks = nodeFs as unknown as Record<string, TNodeFn>;
 
-export const access = cancelify((ctx, ...args: any[]) => (nodeFsPromises as any).access(...args));
-export const appendFile = signalWrapped(
-  promisifyWrapped((...args: any[]) => getFs().appendFile(...args)),
-  entryMap.get('appendFile'),
-);
-export const chmod = promisifyWrapped((...args: any[]) => getFs().chmod(...args));
-export const chown = promisifyWrapped((...args: any[]) => getFs().chown(...args));
+const entries = new Map<string, IManifestEntry>(fsJson.exports.map((entry) => [entry.name, entry as IManifestEntry]));
+
+/** Resolve the callback function on every call, so a setFs after module load still takes effect. */
+function viaFs(name: string): TNodeFn {
+  return (...args: unknown[]) => (getFs()[name] as TNodeFn)(...args);
+}
+
+/**
+ * Resolve the promise-API function on every call. A patched implementation passes `fs.promises`
+ * through untouched, so node's own is the fallback and usually the answer.
+ */
+function viaFsPromises(name: string): TNodeFn {
+  return (...args: unknown[]) => {
+    const promises = getFs().promises as Record<string, TNodeFn> | undefined;
+    const fn = promises?.[name];
+    return typeof fn === 'function' ? fn.apply(promises, args) : fsp[name](...args);
+  };
+}
+
+/** Cancel teardown for the calls that hand back something holding a descriptor. */
+function closeQuietly(value: unknown): void {
+  const closable = value as { close?: () => unknown } | null | undefined;
+  if (!closable || typeof closable.close !== 'function') {
+    return;
+  }
+
+  void Promise.resolve(closable.close()).then(undefined, () => {});
+}
+
+export const access = adopted(fsp.access);
+export const appendFile = promisifySignalWrapped(viaFs('appendFile'), entries.get('appendFile'), 2);
+export const chmod = promisifyWrapped(viaFs('chmod'));
+export const chown = promisifyWrapped(viaFs('chown'));
 export const constants = nodeFsPromises.constants;
-export const copyFile = teardownWrapped(
-  promisifyWrapped((...args: any[]) => getFs().copyFile(...args)),
-  (_val, args) => {
-    const dest = args[1];
-    if (typeof dest === 'string' || Buffer.isBuffer(dest) || dest instanceof URL) {
-      getFs().unlink(dest, () => {});
-    }
-  },
-);
-export const cp = cancelify((ctx, ...args: any[]) => (nodeFsPromises as any).cp(...args));
-export const glob = gatedWrapped(
-  nodeMajor >= 22,
-  'glob',
-  '22',
-  cancelify((ctx, ...args: any[]) => (nodeFsPromises as any).glob(...args)),
-);
-export const lchmod = promisifyWrapped((...args: any[]) => getFs().lchmod(...args));
-export const lchown = promisifyWrapped((...args: any[]) => getFs().lchown(...args));
-export const link = cancelify((ctx, ...args: any[]) => (nodeFsPromises as any).link(...args));
-export const lstat = signalWrapped(
-  promisifyWrapped((...args: any[]) => getFs().lstat(...args)),
-  entryMap.get('lstat'),
-);
-export const lutimes = cancelify((ctx, ...args: any[]) => (nodeFsPromises as any).lutimes(...args));
-export const mkdir = cancelify((ctx, ...args: any[]) => (nodeFsPromises as any).mkdir(...args));
-export const mkdtemp = cancelify((ctx, ...args: any[]) => (nodeFsPromises as any).mkdtemp(...args));
+export const copyFile = teardownWrapped(promisifyWrapped(viaFs('copyFile')), (_value, args) => {
+  const dest = args[1];
+  if (typeof dest === 'string' || Buffer.isBuffer(dest) || dest instanceof URL) {
+    getFs().unlink(dest, () => {});
+  }
+});
+export const cp = adopted(fsp.cp);
+export const glob = gatedWrapped(features.hasGlob, 'glob', '22', adopted(fsp.glob));
+export const lchmod = promisifyWrapped(viaFs('lchmod'));
+export const lchown = promisifyWrapped(viaFs('lchown'));
+export const link = adopted(fsp.link);
+export const lstat = promisifySignalWrapped(viaFs('lstat'), entries.get('lstat'), 1);
+export const lutimes = adopted(fsp.lutimes);
+export const mkdir = adopted(fsp.mkdir);
+export const mkdtemp = adopted(fsp.mkdtemp);
 export const mkdtempDisposable = gatedWrapped(
-  nodeMajor >= 24,
+  features.hasMkdtempDisposable,
   'mkdtempDisposable',
   '24.4.0',
-  cancelify((ctx, ...args: any[]) => (nodeFsPromises as any).mkdtempDisposable(...args)),
+  adopted(fsp.mkdtempDisposable),
 );
 export const open = teardownWrapped(
-  cancelify((_ctx, ...args: any[]) => {
-    return retryOpen(async () => {
-      const openFn = (getFs() as any).promises?.open ?? nodeFsPromises.open;
-      const fh = await openFn(...args);
-      return decorate(fh);
-    });
-  }),
-  (fh) => {
-    fh?.close?.();
-  },
+  (...args: unknown[]) => retryOpen(() => viaFsPromises('open')(...args)).then(decorate),
+  closeQuietly,
 );
 export const opendir = teardownWrapped(
-  cancelify((_ctx, ...args: any[]) => {
-    return retryOpen(() => {
-      const opendirFn = (getFs() as any).promises?.opendir ?? (nodeFsPromises as any).opendir;
-      return opendirFn(...args);
-    });
-  }),
-  (dir) => {
-    dir?.close?.();
-  },
+  (...args: unknown[]) => retryOpen(() => viaFsPromises('opendir')(...args)),
+  closeQuietly,
 );
-export const readFile = signalWrapped(
-  promisifyWrapped((...args: any[]) => getFs().readFile(...args)),
-  entryMap.get('readFile'),
-);
-export const readdir = promisifyWrapped((...args: any[]) => getFs().readdir(...args));
-export const readlink = cancelify((ctx, ...args: any[]) => (nodeFsPromises as any).readlink(...args));
-export const realpath = cancelify((ctx, ...args: any[]) => (nodeFsPromises as any).realpath(...args));
-export const rename = promisifyWrapped((...args: any[]) => getFs().rename(...args));
-export const rm = cancelify((ctx, ...args: any[]) => (nodeFsPromises as any).rm(...args));
-export const rmdir = cancelify((ctx, ...args: any[]) => (nodeFsPromises as any).rmdir(...args));
-export const stat = signalWrapped(
-  promisifyWrapped((...args: any[]) => getFs().stat(...args)),
-  entryMap.get('stat'),
-);
-export const statfs = cancelify((ctx, ...args: any[]) => (nodeFsPromises as any).statfs(...args));
-export const symlink = cancelify((ctx, ...args: any[]) => (nodeFsPromises as any).symlink(...args));
-export const truncate = cancelify((ctx, ...args: any[]) => (nodeFsPromises as any).truncate(...args));
-export const unlink = cancelify((ctx, ...args: any[]) => (nodeFsPromises as any).unlink(...args));
-export const utimes = cancelify((ctx, ...args: any[]) => (nodeFsPromises as any).utimes(...args));
-export const watch = signalWrapped(
-  cancelify((ctx, ...args: any[]) => (nodeFsPromises as any).watch(...args)),
-  entryMap.get('watch'),
-);
-export const writeFile = signalWrapped(
-  promisifyWrapped((...args: any[]) => getFs().writeFile(...args)),
-  entryMap.get('writeFile'),
-);
+export const readFile = promisifySignalWrapped(viaFs('readFile'), entries.get('readFile'), 1);
+export const readdir = promisifyWrapped(viaFs('readdir'));
+export const readlink = adopted(fsp.readlink);
+export const realpath = adopted(fsp.realpath);
+export const rename = promisifyWrapped(viaFs('rename'));
+export const rm = adopted(fsp.rm);
+export const rmdir = adopted(fsp.rmdir);
+export const stat = promisifySignalWrapped(viaFs('stat'), entries.get('stat'), 1);
+export const statfs = adopted(fsp.statfs);
+export const symlink = adopted(fsp.symlink);
+export const truncate = adopted(fsp.truncate);
+export const unlink = adopted(fsp.unlink);
+export const utimes = adopted(fsp.utimes);
+export const watch = signalWrapped(fsp.watch, entries.get('watch'), 1);
+export const writeFile = promisifySignalWrapped(viaFs('writeFile'), entries.get('writeFile'), 2);
 
 export const Dir = nodeFs.Dir;
 export const Dirent = nodeFs.Dirent;
 export const Stats = nodeFs.Stats;
 export type { BigIntStats, StatsFs as StatFs } from 'node:fs';
-export const exists = promisifyWrapped((nodeFs as any).exists);
+export const exists = promisifyWrapped(fsCallbacks.exists);

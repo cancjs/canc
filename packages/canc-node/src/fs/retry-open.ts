@@ -1,19 +1,11 @@
 import { CancelablePromise } from '@cancjs/promise';
 
-import { IPromiseKind, IRetryOptions, IToolboxDeps, retryFactory, TPromiseCtor } from '../../../_toolbox';
+import { IRetryOptions, retryFactory } from '../../../_toolbox';
+import { isCancelable, isThenable } from '../../../_util';
 import { getFsOptions } from './registry';
+import { toolboxDeps } from './wrap';
 
-interface ICancelableKind extends IPromiseKind {
-  promise: CancelablePromise<this['value']>;
-  options: object;
-}
-
-const deps: IToolboxDeps<ICancelableKind> = {
-  Impl: CancelablePromise as unknown as TPromiseCtor,
-  cancelable: true,
-};
-
-const retry = retryFactory(deps);
+const retry = retryFactory(toolboxDeps);
 
 /**
  * Default retry options for open and opendir operations when retryOpen is enabled.
@@ -25,16 +17,37 @@ export const DEFAULT_OPEN_RETRY_OPTIONS: IRetryOptions = {
   maxTimeout: 1000,
 };
 
-function isRetriableFsError(err: any): boolean {
-  return !!(err && (err.code === 'EMFILE' || err.code === 'ENFILE'));
+// retry stops early only by resolving, so a non-retriable failure travels as a tagged value
+const kFatal = Symbol('canc.fs.fatal');
+
+interface IFatal {
+  [kFatal]: unknown;
+}
+
+function isFatal(value: unknown): value is IFatal {
+  return typeof value === 'object' && value !== null && kFatal in value;
+}
+
+function isRetriableFsError(err: unknown): boolean {
+  const code = (err as { code?: unknown } | null | undefined)?.code;
+  return code === 'EMFILE' || code === 'ENFILE';
+}
+
+/** Rethrow what is worth another attempt, and tag everything else so the loop stops at once. */
+function classify(err: unknown): IFatal {
+  if (isRetriableFsError(err)) {
+    throw err;
+  }
+
+  return { [kFatal]: err };
 }
 
 /**
  * Retry an open or opendir operation on EMFILE and ENFILE errors when retryOpen is enabled.
  *
  * Provides a bounded retry loop with exponential backoff for promise-based handle creation.
- * Unlike graceful-fs callback queuing, this does not patch process-wide file closure hooks
- * or maintain an unbounded queue, but allows cancellation between retry attempts.
+ * Unlike callback queuing, this does not patch process-wide file closure hooks or maintain an
+ * unbounded queue, but it does allow cancellation between retry attempts.
  *
  * @param operation - Factory function performing the underlying open or opendir operation.
  * @param options - Custom retry configuration options.
@@ -44,14 +57,12 @@ export function retryOpen<T>(
   options?: IRetryOptions,
 ): CancelablePromise<T> {
   if (!getFsOptions().retryOpen) {
-    return new CancelablePromise<T>((resolve, reject, ctx) => {
-      const result = operation(1);
-      if (ctx && typeof (result as any)?.cancel === 'function') {
-        ctx.handleCancel((reason) => {
-          (result as any).cancel(reason);
-        });
+    return new CancelablePromise<T>((resolve, _reject, { handleCancel }) => {
+      const started = operation(1);
+      if (isCancelable(started)) {
+        handleCancel((reason) => started.cancel(reason));
       }
-      CancelablePromise.resolve(result).then(resolve, reject);
+      resolve(started);
     });
   }
 
@@ -60,22 +71,24 @@ export function retryOpen<T>(
     ...options,
   };
 
-  const p = retry((attempt: number) => {
-    return Promise.resolve()
-      .then(() => operation(attempt))
-      .catch((err) => {
-        if (isRetriableFsError(err)) {
-          throw err;
-        }
-        return { __cancNonRetriable: err } as any;
-      });
+  const attempted = retry<T | IFatal>((attempt: number) => {
+    let started: PromiseLike<T> | T;
+    try {
+      started = operation(attempt);
+    } catch (err) {
+      return classify(err);
+    }
+
+    // the underlying call already has a promise, so the classification rides that one
+    return isThenable(started) ? (started as PromiseLike<T>).then(undefined, classify) : started;
   }, opts);
 
-  return p.then((res: any) => {
-    if (res && typeof res === 'object' && '__cancNonRetriable' in res) {
-      return CancelablePromise.reject(res.__cancNonRetriable);
+  return attempted.then((result) => {
+    if (isFatal(result)) {
+      throw result[kFatal];
     }
-    return res;
+
+    return result;
   });
 }
 
@@ -85,7 +98,7 @@ export function retryOpen<T>(
  * @param fn - The function to wrap.
  * @param options - Custom retry configuration options.
  */
-export function withRetryOpen<T, A extends any[]>(
+export function withRetryOpen<T, A extends unknown[]>(
   fn: (...args: A) => PromiseLike<T> | T,
   options?: IRetryOptions,
 ): (...args: A) => CancelablePromise<T> {
