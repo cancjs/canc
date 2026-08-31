@@ -7,4 +7,5 @@ export * from './json';
 export * from './move';
 export * from './output';
 export * from './replace-file';
+export * from './walk';
 export const pathExists = exists;
