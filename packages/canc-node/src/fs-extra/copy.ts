@@ -30,7 +30,7 @@ export interface ICopyOptions {
 /**
  * Internal recursive helper taking an explicit AbortSignal.
  */
-async function copyTree(
+export async function copyTree(
   src: string,
   dest: string,
   options: ICopyOptions | undefined,
