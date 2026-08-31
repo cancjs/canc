@@ -7,6 +7,8 @@ import { CancelError } from '@cancjs/promise';
 import { isJsonParseError, JsonParseError } from '../errors/classes';
 import { exists, mkdir, writeFile } from '../fs';
 import {
+  copy,
+  emptyDir,
   ensureDir,
   ensureFile,
   ensureLink,
@@ -17,6 +19,7 @@ import {
   pathExists,
   readJson,
   readJsonSync,
+  replaceFile,
   writeJson,
   writeJsonSync,
 } from './index';
@@ -229,6 +232,133 @@ describe('fs-extra', () => {
       const pWrite = writeJson(cancelFile, { data: 'test2' });
       pWrite.cancel();
       await expect(pWrite).rejects.toThrow(CancelError);
+    });
+  });
+
+  describe('copy and emptyDir', () => {
+    it('copies a nested tree, contents byte-identical', async () => {
+      const src = join(root, 'copy-src');
+      const dest = join(root, 'copy-dest');
+      await fs.mkdir(join(src, 'sub'), { recursive: true });
+      await fs.writeFile(join(src, 'file1.txt'), 'hello file 1');
+      await fs.writeFile(join(src, 'sub', 'file2.txt'), 'hello file 2');
+
+      await copy(src, dest);
+
+      await expect(fs.readFile(join(dest, 'file1.txt'), 'utf8')).resolves.toBe('hello file 1');
+      await expect(fs.readFile(join(dest, 'sub', 'file2.txt'), 'utf8')).resolves.toBe('hello file 2');
+    });
+
+    it('cancel mid-copy leaves a partial tree and rejects CancelError', async () => {
+      const src = join(root, 'copy-cancel-src');
+      const dest = join(root, 'copy-cancel-dest');
+      await fs.mkdir(join(src, 'a'), { recursive: true });
+      await fs.mkdir(join(src, 'b'), { recursive: true });
+      await fs.writeFile(join(src, 'a', '1.txt'), 'content 1');
+      await fs.writeFile(join(src, 'b', '2.txt'), 'content 2');
+
+      const progressEntries: Array<{ src: string; dest: string }> = [];
+      let copyP: any = null;
+
+      copyP = copy(src, dest, {
+        onProgress: (p) => {
+          progressEntries.push(p);
+          if (progressEntries.length === 1) {
+            copyP.cancel();
+          }
+        },
+      });
+
+      await expect(copyP).rejects.toThrow(CancelError);
+      expect(progressEntries.length).toBeGreaterThanOrEqual(1);
+
+      const lastProgress = progressEntries[progressEntries.length - 1];
+      const existsOnDisk = await fs
+        .stat(lastProgress.dest)
+        .then(() => true)
+        .catch(() => false);
+      expect(existsOnDisk).toBe(true);
+    });
+
+    it('filter returning false prunes a subtree without descending into it', async () => {
+      const src = join(root, 'copy-filter-src');
+      const dest = join(root, 'copy-filter-dest');
+      await fs.mkdir(join(src, 'skip-dir'), { recursive: true });
+      await fs.writeFile(join(src, 'skip-dir', 'hidden.txt'), 'hidden');
+      await fs.writeFile(join(src, 'keep.txt'), 'keep');
+
+      await copy(src, dest, {
+        filter: (s) => !s.includes('skip-dir'),
+      });
+
+      await expect(fs.readFile(join(dest, 'keep.txt'), 'utf8')).resolves.toBe('keep');
+      const skippedExists = await fs
+        .stat(join(dest, 'skip-dir'))
+        .then(() => true)
+        .catch(() => false);
+      expect(skippedExists).toBe(false);
+    });
+
+    it('emptyDir removes children and keeps the root', async () => {
+      const emptyTarget = join(root, 'empty-target');
+      await fs.mkdir(join(emptyTarget, 'child-dir'), { recursive: true });
+      await fs.writeFile(join(emptyTarget, 'child.txt'), 'child file');
+      await fs.writeFile(join(emptyTarget, 'child-dir', 'nested.txt'), 'nested');
+
+      await emptyDir(emptyTarget);
+
+      const rootStat = await fs.stat(emptyTarget);
+      expect(rootStat.isDirectory()).toBe(true);
+
+      const remainingEntries = await fs.readdir(emptyTarget);
+      expect(remainingEntries).toEqual([]);
+    });
+  });
+
+  describe('smoke test', () => {
+    it('copy nested tree cancel leaves partial tree matching progress and replaceFile cleanup verified', async () => {
+      const smokeSrc = join(root, 'smoke-tree-src');
+      const smokeDest = join(root, 'smoke-tree-dest');
+
+      await fs.mkdir(join(smokeSrc, 'd1'), { recursive: true });
+      await fs.mkdir(join(smokeSrc, 'd2', 'nested'), { recursive: true });
+      await fs.writeFile(join(smokeSrc, 'f1.txt'), 'file 1');
+      await fs.writeFile(join(smokeSrc, 'd1', 'fa.txt'), 'file A');
+      await fs.writeFile(join(smokeSrc, 'd2', 'nested', 'fb.txt'), 'file B');
+      await fs.writeFile(join(smokeSrc, 'f2.txt'), 'file 2');
+
+      const progressRecords: Array<{ src: string; dest: string }> = [];
+      let activeCopy: any = null;
+
+      activeCopy = copy(smokeSrc, smokeDest, {
+        onProgress: (p) => {
+          progressRecords.push(p);
+          if (progressRecords.length === 2) {
+            activeCopy.cancel();
+          }
+        },
+      });
+
+      await expect(activeCopy).rejects.toThrow(CancelError);
+      expect(progressRecords.length).toBeGreaterThanOrEqual(2);
+
+      const lastRecorded = progressRecords[progressRecords.length - 1];
+      const recordedExists = await fs
+        .stat(lastRecorded.dest)
+        .then(() => true)
+        .catch(() => false);
+      expect(recordedExists).toBe(true);
+
+      const replaceFileTarget = join(smokeDest, 'replace-smoke.txt');
+      await fs.writeFile(replaceFileTarget, 'initial smoke data');
+
+      const pReplace = replaceFile(replaceFileTarget, 'new smoke data');
+      pReplace.cancel();
+      await expect(pReplace).rejects.toThrow(CancelError);
+
+      const entries = await fs.readdir(smokeDest, { recursive: true });
+      const leftoverTemp = entries.filter((name) => name.includes('.tmp-') || name.startsWith('.'));
+      expect(leftoverTemp).toEqual([]);
     });
   });
 });
