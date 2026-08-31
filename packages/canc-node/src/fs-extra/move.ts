@@ -1,12 +1,12 @@
-import { rm } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
 import { CancelablePromise } from '@cancjs/promise';
 
 import { IPromiseKind, IToolboxDeps, retryFactory, TPromiseCtor } from '../../../_toolbox';
-import { lstat, rename } from '../fs';
+import { EEXIST, isCrossDeviceError, isErrno, isNotFoundError, isTooManyFilesError } from '../errors/errno';
 import { copyTree } from './copy';
 import { ensureDir } from './ensure';
+import { cancelScope, ICancelScope, lstat, rename, rm } from './fs-calls';
 
 interface ICancelableKind extends IPromiseKind {
   promise: CancelablePromise<this['value']>;
@@ -20,6 +20,9 @@ const deps: IToolboxDeps<ICancelableKind> = {
 
 const retry = retryFactory(deps);
 
+const isNotPermitted = isErrno('EPERM');
+const isBusy = isErrno('EBUSY');
+
 export interface IMoveOptions {
   /**
    * Overwrite existing destination file or directory.
@@ -29,26 +32,40 @@ export interface IMoveOptions {
   overwrite?: boolean;
 }
 
+/** Carries a permanent failure out of the retry loop, which retries anything that rejects. */
+interface IPermanentFailure {
+  readonly permanent: unknown;
+}
+
+function isPermanentFailure(value: unknown): value is IPermanentFailure {
+  return typeof value === 'object' && value !== null && 'permanent' in value;
+}
+
+/** Windows reports these while another handle still holds the file, and they clear on their own. */
+function isTransient(err: unknown): boolean {
+  return isNotPermitted(err) || isBusy(err) || isTooManyFilesError(err);
+}
+
 function renameWithRetry(src: string, dest: string): CancelablePromise<void> {
-  const p = retry(
-    (_attempt: number) => {
-      return Promise.resolve()
-        .then(() => rename(src, dest))
-        .catch((err: any) => {
-          if (err?.code === 'EPERM' || err?.code === 'EBUSY' || err?.code === 'EMFILE' || err?.code === 'ENFILE') {
+  const attempts = retry(
+    () =>
+      rename(src, dest).then(
+        () => undefined,
+        (err: unknown) => {
+          if (isTransient(err)) {
             throw err;
           }
-          return { __cancNonRetriable: err } as any;
-        });
-    },
+          return { permanent: err };
+        },
+      ),
     { retries: 5, minTimeout: 10, factor: 1.5, maxTimeout: 500 },
   );
 
-  return p.then((res: any) => {
-    if (res && typeof res === 'object' && '__cancNonRetriable' in res) {
-      return CancelablePromise.reject(res.__cancNonRetriable);
+  return attempts.then((result) => {
+    if (isPermanentFailure(result)) {
+      return CancelablePromise.reject(result.permanent);
     }
-    return res;
+    return undefined;
   });
 }
 
@@ -56,12 +73,12 @@ async function moveAcrossDevice(
   src: string,
   dest: string,
   options: IMoveOptions | undefined,
-  signal: AbortSignal,
+  scope: ICancelScope,
 ): Promise<void> {
-  signal.throwIfAborted();
-  await copyTree(src, dest, { overwrite: options?.overwrite ?? true }, signal);
-  signal.throwIfAborted();
-  await rm(src, { recursive: true, force: true });
+  scope.signal.throwIfAborted();
+  await copyTree(src, dest, { overwrite: options?.overwrite ?? true }, scope);
+  scope.signal.throwIfAborted();
+  await scope.run(rm(src, { recursive: true, force: true }));
 }
 
 /**
@@ -72,47 +89,41 @@ async function moveAcrossDevice(
  * @param options - Options for the move operation.
  */
 export function move(src: string, dest: string, options?: IMoveOptions): CancelablePromise<void> {
-  return new CancelablePromise((resolve, reject, { handleCancel }) => {
-    const controller = new AbortController();
-    let activePromise: CancelablePromise<any> | null = null;
-
+  return new CancelablePromise((resolve, reject, { getSignal, handleCancel }) => {
+    const scope = cancelScope(getSignal);
     handleCancel((reason) => {
-      controller.abort(reason);
-      activePromise?.cancel(reason);
+      scope.cancel(reason);
     });
 
     const checkDest =
       options?.overwrite === false ?
-        (activePromise = lstat(dest)).then(
+        scope.run(lstat(dest)).then(
           () => {
-            const err: any = new Error(`dest already exists: ${dest}`);
-            err.code = 'EEXIST';
+            const err: EEXIST = Object.assign(new Error(`dest already exists: ${dest}`), { code: 'EEXIST' as const });
             throw err;
           },
-          (err: any) => {
-            if (err?.code === 'ENOENT') {
+          (err: unknown) => {
+            if (isNotFoundError(err)) {
               return undefined;
             }
             throw err;
           },
         )
-      : Promise.resolve();
+      : CancelablePromise.resolve();
 
     const p = checkDest
       .then(() => {
-        controller.signal.throwIfAborted();
-        const ensurePromise = (activePromise = ensureDir(dirname(dest)));
-        return ensurePromise;
+        scope.signal.throwIfAborted();
+        return scope.run(ensureDir(dirname(dest)));
       })
       .then(() => {
-        controller.signal.throwIfAborted();
-        const renamePromise = (activePromise = renameWithRetry(src, dest));
-        return renamePromise;
+        scope.signal.throwIfAborted();
+        return scope.run(renameWithRetry(src, dest));
       })
-      .catch((err: any) => {
-        controller.signal.throwIfAborted();
-        if (err?.code === 'EXDEV') {
-          return moveAcrossDevice(src, dest, options, controller.signal);
+      .catch((err: unknown) => {
+        scope.signal.throwIfAborted();
+        if (isCrossDeviceError(err)) {
+          return moveAcrossDevice(src, dest, options, scope);
         }
         throw err;
       });

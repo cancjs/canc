@@ -3,9 +3,8 @@ import { dirname } from 'node:path';
 import { CancelablePromise } from '@cancjs/promise';
 
 import { JsonParseError } from '../errors/classes';
-import { readFile, writeFile } from '../fs';
-import { mkdirSync, readFileSync, writeFileSync } from '../fs/sync';
 import { ensureDir } from './ensure';
+import { mkdirSync, readFile, readFileSync, writeFile, writeFileSync } from './fs-calls';
 
 export interface IReadJsonOptions {
   encoding?: BufferEncoding | null;

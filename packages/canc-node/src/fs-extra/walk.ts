@@ -1,8 +1,7 @@
-﻿import type { Dirent, Stats } from 'node:fs';
-import { lstat as fsLstat, opendir as fsOpendir, stat as fsStat } from 'node:fs/promises';
+import type { Dir, Dirent, Stats } from 'node:fs';
 import { join } from 'node:path';
 
-import { lstatSync as fsLstatSync, opendirSync as fsOpendirSync, statSync as fsStatSync } from '../fs/sync';
+import { lstat, lstatSync, opendir, opendirSync, stat, statSync } from './fs-calls';
 
 /**
  * Traversal order for walk operations.
@@ -19,6 +18,11 @@ export type TWalkOrder = 'breadth-first' | 'depth-first' | 'children-first';
  * - 'yield': emit the error as a walk entry with path and error properties.
  */
 export type TWalkOnError = 'throw' | 'skip' | 'yield';
+
+type TOpendir = (path: string) => PromiseLike<Dir>;
+type TOpendirSync = (path: string) => Dir;
+type TStat = (path: string) => PromiseLike<Stats>;
+type TStatSync = (path: string) => Stats;
 
 /**
  * Walk entry yielded during directory traversal.
@@ -87,12 +91,12 @@ export interface IWalkOptions {
    * Optional custom filesystem methods (used for dependency injection and tests).
    */
   fs?: {
-    opendir?: typeof fsOpendir;
-    opendirSync?: typeof fsOpendirSync;
-    stat?: typeof fsStat;
-    statSync?: typeof fsStatSync;
-    lstat?: typeof fsLstat;
-    lstatSync?: typeof fsLstatSync;
+    opendir?: TOpendir;
+    opendirSync?: TOpendirSync;
+    stat?: TStat;
+    statSync?: TStatSync;
+    lstat?: TStat;
+    lstatSync?: TStatSync;
   };
 }
 
@@ -115,11 +119,11 @@ async function* walkChildrenFirst(
   needStats: boolean,
   filter: IWalkOptions['filter'],
   visitedDevIno: Set<string>,
-  opendirFn: typeof fsOpendir,
-  statFn: typeof fsStat,
-  lstatFn: typeof fsLstat,
+  opendirFn: TOpendir,
+  statFn: TStat,
+  lstatFn: TStat,
 ): AsyncGenerator<IWalkEntry, void, unknown> {
-  let dirStream;
+  let dirStream: Dir;
   try {
     dirStream = await opendirFn(dirPath);
   } catch (err) {
@@ -175,11 +179,11 @@ async function* walkChildrenFirst(
     if (followSymlinks && d.isSymbolicLink()) {
       try {
         targetStat = await statFn(entryPath);
-        if (targetStat?.isDirectory()) {
+        if (targetStat.isDirectory()) {
           isDirectory = true;
         }
       } catch (_err) {
-        // Dead symlink or unreadable target
+        // dead symlink or unreadable target
       }
     }
 
@@ -197,7 +201,7 @@ async function* walkChildrenFirst(
             nextVisited.add(key);
           }
         } catch (_err) {
-          // Cannot stat directory
+          // unreadable directory cannot be checked for a cycle, so it is descended into
         }
       }
 
@@ -250,11 +254,11 @@ function* walkSyncChildrenFirst(
   needStats: boolean,
   filter: IWalkOptions['filter'],
   visitedDevIno: Set<string>,
-  opendirSyncFn: typeof fsOpendirSync,
-  statSyncFn: typeof fsStatSync,
-  lstatSyncFn: typeof fsLstatSync,
+  opendirSyncFn: TOpendirSync,
+  statSyncFn: TStatSync,
+  lstatSyncFn: TStatSync,
 ): Generator<IWalkEntry, void, unknown> {
-  let dirHandle;
+  let dirHandle: Dir;
   try {
     dirHandle = opendirSyncFn(dirPath);
   } catch (err) {
@@ -285,7 +289,7 @@ function* walkSyncChildrenFirst(
     try {
       dirHandle.closeSync();
     } catch {
-      // ignore
+      // the entries are already read, so a failing close has nothing left to affect
     }
   }
 
@@ -317,11 +321,11 @@ function* walkSyncChildrenFirst(
     if (followSymlinks && d.isSymbolicLink()) {
       try {
         targetStat = statSyncFn(entryPath);
-        if (targetStat?.isDirectory()) {
+        if (targetStat.isDirectory()) {
           isDirectory = true;
         }
       } catch (_err) {
-        // Dead symlink or unreadable target
+        // dead symlink or unreadable target
       }
     }
 
@@ -339,7 +343,7 @@ function* walkSyncChildrenFirst(
             nextVisited.add(key);
           }
         } catch (_err) {
-          // Cannot stat directory
+          // unreadable directory cannot be checked for a cycle, so it is descended into
         }
       }
 
@@ -397,9 +401,9 @@ export async function* walk(dir: string, options?: IWalkOptions): AsyncGenerator
   const needStats = options?.stats ?? false;
   const filter = options?.filter;
 
-  const opendirFn = options?.fs?.opendir ?? fsOpendir;
-  const statFn = options?.fs?.stat ?? fsStat;
-  const lstatFn = options?.fs?.lstat ?? fsLstat;
+  const opendirFn = options?.fs?.opendir ?? opendir;
+  const statFn = options?.fs?.stat ?? stat;
+  const lstatFn = options?.fs?.lstat ?? lstat;
 
   const initialVisited = new Set<string>();
 
@@ -441,7 +445,7 @@ export async function* walk(dir: string, options?: IWalkOptions): AsyncGenerator
     const item = order === 'breadth-first' ? queue.shift()! : queue.pop()!;
     const { dirPath, currentDepth, visitedDevIno } = item;
 
-    let dirStream;
+    let dirStream: Dir;
     try {
       dirStream = await opendirFn(dirPath);
     } catch (err) {
@@ -515,21 +519,19 @@ export async function* walk(dir: string, options?: IWalkOptions): AsyncGenerator
       if (followSymlinks && d.isSymbolicLink()) {
         try {
           targetStat = entryStats ?? (await statFn(entryPath));
-          if (targetStat?.isDirectory()) {
+          if (targetStat.isDirectory()) {
             isDirectory = true;
           }
         } catch (_err) {
-          // Dead symlink or unreadable link target
+          // dead symlink or unreadable target
         }
       }
 
-      const walkEntry: IWalkEntry = {
+      entriesToYield.push({
         path: entryPath,
         dirent: d,
         stats: entryStats,
-      };
-
-      entriesToYield.push(walkEntry);
+      });
 
       if (isDirectory && currentDepth < depthLimit) {
         let isCycle = false;
@@ -545,7 +547,7 @@ export async function* walk(dir: string, options?: IWalkOptions): AsyncGenerator
               nextVisited.add(key);
             }
           } catch (_err) {
-            // Cannot stat directory
+            // unreadable directory cannot be checked for a cycle, so it is descended into
           }
         }
 
@@ -559,17 +561,16 @@ export async function* walk(dir: string, options?: IWalkOptions): AsyncGenerator
       }
     }
 
+    for (const entry of entriesToYield) {
+      yield entry;
+    }
+
     if (order === 'breadth-first') {
-      for (const entry of entriesToYield) {
-        yield entry;
-      }
       for (const nextItem of nextQueueItems) {
         queue.push(nextItem);
       }
-    } else if (order === 'depth-first') {
-      for (const entry of entriesToYield) {
-        yield entry;
-      }
+    } else {
+      // a stack pops in reverse, so the children go on back to front to keep the on-disk order
       for (let i = nextQueueItems.length - 1; i >= 0; i--) {
         queue.push(nextQueueItems[i]);
       }
@@ -591,9 +592,9 @@ export function* walkSync(dir: string, options?: IWalkOptions): Generator<IWalkE
   const needStats = options?.stats ?? false;
   const filter = options?.filter;
 
-  const opendirSyncFn = options?.fs?.opendirSync ?? fsOpendirSync;
-  const statSyncFn = options?.fs?.statSync ?? fsStatSync;
-  const lstatSyncFn = options?.fs?.lstatSync ?? fsLstatSync;
+  const opendirSyncFn = options?.fs?.opendirSync ?? opendirSync;
+  const statSyncFn = options?.fs?.statSync ?? statSync;
+  const lstatSyncFn = options?.fs?.lstatSync ?? lstatSync;
 
   const initialVisited = new Set<string>();
 
@@ -635,7 +636,7 @@ export function* walkSync(dir: string, options?: IWalkOptions): Generator<IWalkE
     const item = order === 'breadth-first' ? queue.shift()! : queue.pop()!;
     const { dirPath, currentDepth, visitedDevIno } = item;
 
-    let dirHandle;
+    let dirHandle: Dir;
     try {
       dirHandle = opendirSyncFn(dirPath);
     } catch (err) {
@@ -666,7 +667,7 @@ export function* walkSync(dir: string, options?: IWalkOptions): Generator<IWalkE
       try {
         dirHandle.closeSync();
       } catch {
-        // ignore close error
+        // the entries are already read, so a failing close has nothing left to affect
       }
     }
 
@@ -716,21 +717,19 @@ export function* walkSync(dir: string, options?: IWalkOptions): Generator<IWalkE
       if (followSymlinks && d.isSymbolicLink()) {
         try {
           targetStat = entryStats ?? statSyncFn(entryPath);
-          if (targetStat?.isDirectory()) {
+          if (targetStat.isDirectory()) {
             isDirectory = true;
           }
         } catch (_err) {
-          // Dead symlink or unreadable target
+          // dead symlink or unreadable target
         }
       }
 
-      const walkEntry: IWalkEntry = {
+      entriesToYield.push({
         path: entryPath,
         dirent: d,
         stats: entryStats,
-      };
-
-      entriesToYield.push(walkEntry);
+      });
 
       if (isDirectory && currentDepth < depthLimit) {
         let isCycle = false;
@@ -746,7 +745,7 @@ export function* walkSync(dir: string, options?: IWalkOptions): Generator<IWalkE
               nextVisited.add(key);
             }
           } catch (_err) {
-            // Cannot stat directory
+            // unreadable directory cannot be checked for a cycle, so it is descended into
           }
         }
 
@@ -760,17 +759,16 @@ export function* walkSync(dir: string, options?: IWalkOptions): Generator<IWalkE
       }
     }
 
+    for (const entry of entriesToYield) {
+      yield entry;
+    }
+
     if (order === 'breadth-first') {
-      for (const entry of entriesToYield) {
-        yield entry;
-      }
       for (const nextItem of nextQueueItems) {
         queue.push(nextItem);
       }
-    } else if (order === 'depth-first') {
-      for (const entry of entriesToYield) {
-        yield entry;
-      }
+    } else {
+      // a stack pops in reverse, so the children go on back to front to keep the on-disk order
       for (let i = nextQueueItems.length - 1; i >= 0; i--) {
         queue.push(nextQueueItems[i]);
       }

@@ -1,26 +1,25 @@
-import { readdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { CancelablePromise } from '@cancjs/promise';
 
 import { ensureDir } from './ensure';
+import { cancelScope, ICancelScope, readdir, rm } from './fs-calls';
 
 /**
- * Internal helper to empty a directory taking an explicit AbortSignal.
+ * Internal helper to empty a directory taking an explicit cancel scope.
  */
-async function emptyDirHelper(dir: string, signal: AbortSignal): Promise<void> {
-  signal.throwIfAborted();
+async function emptyDirTree(dir: string, scope: ICancelScope): Promise<void> {
+  scope.signal.throwIfAborted();
 
-  await ensureDir(dir);
-  signal.throwIfAborted();
+  await scope.run(ensureDir(dir));
+  scope.signal.throwIfAborted();
 
-  const entries = await readdir(dir);
-  signal.throwIfAborted();
+  const entries = await scope.run(readdir(dir));
+  scope.signal.throwIfAborted();
 
   for (const entry of entries) {
-    signal.throwIfAborted();
-    const fullPath = join(dir, entry);
-    await rm(fullPath, { recursive: true, force: true });
+    scope.signal.throwIfAborted();
+    await scope.run(rm(join(dir, entry), { recursive: true, force: true }));
   }
 }
 
@@ -31,11 +30,11 @@ async function emptyDirHelper(dir: string, signal: AbortSignal): Promise<void> {
  * @param dir - Directory path to empty
  */
 export function emptyDir(dir: string): CancelablePromise<void> {
-  return new CancelablePromise((resolve, reject, { handleCancel }) => {
-    const controller = new AbortController();
-    handleCancel(() => {
-      controller.abort();
+  return new CancelablePromise((resolve, _reject, { getSignal, handleCancel }) => {
+    const scope = cancelScope(getSignal);
+    handleCancel((reason) => {
+      scope.cancel(reason);
     });
-    resolve(emptyDirHelper(dir, controller.signal));
+    resolve(emptyDirTree(dir, scope));
   });
 }

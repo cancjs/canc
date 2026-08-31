@@ -1,7 +1,8 @@
-﻿import * as fs from 'node:fs/promises';
+import * as fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { getFs, resetFs, setFs } from '../fs/registry';
 import { walk, walkSync } from './walk';
 
 async function cleanDir(dirPath: string) {
@@ -260,5 +261,40 @@ describe('walk and walkSync', () => {
     const cfIdxFileSubA = syncEntriesCf.indexOf(join(root, 'a', 'subA', 'fileSubA.txt'));
     expect(cfIdxFileSubA).toBeLessThan(cfIdxSubA);
     expect(cfIdxSubA).toBeLessThan(cfIdxA);
+  });
+
+  it('10. walk and walkSync call the registered file system', async () => {
+    const base = getFs();
+    let asyncOpens = 0;
+    let syncOpens = 0;
+
+    setFs({
+      ...base,
+      opendirSync: (...args: any[]) => {
+        syncOpens++;
+        return base.opendirSync(...args);
+      },
+      promises: {
+        ...base.promises,
+        opendir: (...args: any[]) => {
+          asyncOpens++;
+          return base.promises.opendir(...args);
+        },
+      },
+    });
+
+    try {
+      for await (const _entry of walk(root)) {
+        // draining is the point; the counter is the assertion
+      }
+      for (const _entry of walkSync(root)) {
+        // same, for the synchronous path
+      }
+    } finally {
+      resetFs();
+    }
+
+    expect(asyncOpens).toBeGreaterThan(0);
+    expect(syncOpens).toBeGreaterThan(0);
   });
 });

@@ -2,8 +2,8 @@ import { dirname } from 'node:path';
 
 import { CancelablePromise } from '@cancjs/promise';
 
-import { writeFile } from '../fs';
 import { ensureDir } from './ensure';
+import { writeFile } from './fs-calls';
 
 export function outputFile(path: string, data: any, options?: any): CancelablePromise<void> {
   return new CancelablePromise((resolve, reject, { handleCancel }) => {

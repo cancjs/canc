@@ -6,6 +6,7 @@ import { CancelError } from '@cancjs/promise';
 
 import { isJsonParseError, JsonParseError } from '../errors/classes';
 import { exists, mkdir, writeFile } from '../fs';
+import { getFs, resetFs, setFs } from '../fs/registry';
 import {
   copy,
   emptyDir,
@@ -312,6 +313,45 @@ describe('fs-extra', () => {
 
       const remainingEntries = await fs.readdir(emptyTarget);
       expect(remainingEntries).toEqual([]);
+    });
+
+    it('copy and emptyDir call the registered file system', async () => {
+      const src = join(root, 'routed-src');
+      const dest = join(root, 'routed-dest');
+      await fs.mkdir(join(src, 'nested'), { recursive: true });
+      await fs.writeFile(join(src, 'nested', 'routed.txt'), 'routed');
+
+      const counts = { lstat: 0, readdir: 0, copyFile: 0 };
+      const base = getFs();
+      setFs({
+        ...base,
+        lstat: (...args: any[]) => {
+          counts.lstat++;
+          return base.lstat(...args);
+        },
+        readdir: (...args: any[]) => {
+          counts.readdir++;
+          return base.readdir(...args);
+        },
+        copyFile: (...args: any[]) => {
+          counts.copyFile++;
+          return base.copyFile(...args);
+        },
+      });
+
+      let readdirAfterCopy = 0;
+      try {
+        await copy(src, dest);
+        readdirAfterCopy = counts.readdir;
+        await emptyDir(join(root, 'routed-empty'));
+      } finally {
+        resetFs();
+      }
+
+      expect(counts.lstat).toBeGreaterThan(0);
+      expect(readdirAfterCopy).toBeGreaterThan(0);
+      expect(counts.copyFile).toBeGreaterThan(0);
+      expect(counts.readdir).toBeGreaterThan(readdirAfterCopy);
     });
   });
 

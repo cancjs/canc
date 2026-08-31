@@ -2,7 +2,7 @@ import { basename, dirname, join } from 'node:path';
 
 import { CancelablePromise } from '@cancjs/promise';
 
-import { chmod, chown, rename, stat, unlink, writeFile } from '../fs';
+import { chmod, chown, rename, stat, unlink, writeFile } from './fs-calls';
 
 export interface IReplaceFileOptions {
   encoding?: BufferEncoding | null;
