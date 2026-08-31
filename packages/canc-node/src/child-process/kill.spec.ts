@@ -32,6 +32,7 @@ describe('killLadder', () => {
   }
 
   const posixIt = isWindows ? it.skip : it;
+  const windowsIt = isWindows ? it : it.skip;
 
   posixIt(
     'SIGTERM first: a child that traps SIGTERM and exits cleanly is never sent SIGKILL (skipped on Windows because POSIX signals are simulated as hard kills)',
@@ -110,6 +111,40 @@ describe('killLadder', () => {
       // Verify grandchild is dead
       expect(() => process.kill(grandchildPid, 0)).toThrow();
     },
+  );
+
+  windowsIt(
+    'killTree: true on Windows invokes taskkill /pid <pid> /t /f and kills a grandchild (Windows only, POSIX group kill covered separately)',
+    async () => {
+      const child = spawnChild(`
+      const { spawn } = require('child_process');
+      const g = spawn(process.execPath, ['-e', 'setTimeout(()=>{}, 10000)']);
+      console.log(g.pid);
+      setTimeout(()=>{}, 10000);
+    `);
+
+      let grandchildPid = 0;
+      child.stdout?.on('data', (d) => {
+        // strip a forced-color TERM's escape codes around the printed pid before parsing
+        const match = /\d+/.exec(d.toString());
+        if (match) grandchildPid = parseInt(match[0], 10);
+      });
+
+      // Poll instead of a fixed sleep: startup time is unpredictable under parallel CI load
+      const deadline = Date.now() + 15000;
+      while (grandchildPid <= 0 && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 100));
+      }
+
+      expect(grandchildPid).toBeGreaterThan(0);
+
+      // killTree: true on Windows takes the immediate taskkill /t /f branch, not escalation
+      await killLadder(child, { killTree: true, gracePeriod: 500 });
+
+      // Verify the whole tree, not just the direct child, is gone
+      expect(() => process.kill(grandchildPid, 0)).toThrow();
+    },
+    20000,
   );
 
   it('await cancel() resolves within a bounded time even when the child never exits', async () => {

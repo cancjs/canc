@@ -51,6 +51,8 @@ describe('killTree', () => {
   });
 
   const posixIt = isWindows ? it.skip : it;
+  const windowsIt = isWindows ? it : it.skip;
+
   posixIt(
     'kills a grandchild on POSIX with detached group (skipped on Windows because process group signals are POSIX-only)',
     async () => {
@@ -76,6 +78,20 @@ describe('killTree', () => {
       await killTree(child, { gracePeriod: 500 });
 
       expect(() => process.kill(grandchildPid, 0)).toThrow();
+    },
+  );
+
+  windowsIt(
+    'calling killTree again on an already-exited process is a no-op success on Windows, the observable side of the taskkill ERROR_NOT_FOUND swallow',
+    async () => {
+      const child = spawnChild('setTimeout(() => {}, 10000)');
+
+      // First call does the real taskkill /t /f and waits for actual exit
+      await killTree(child, { gracePeriod: 500 });
+      expect(child.exitCode).not.toBeNull();
+
+      // Second call targets an already-exited pid; must not reject
+      await expect(killTree(child, { gracePeriod: 500 })).resolves.toBeUndefined();
     },
   );
 
