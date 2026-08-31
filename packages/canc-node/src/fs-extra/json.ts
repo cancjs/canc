@@ -3,6 +3,7 @@ import { dirname } from 'node:path';
 import { CancelablePromise } from '@cancjs/promise';
 
 import { JsonParseError } from '../errors/classes';
+import { isNotFoundError } from '../errors/errno';
 import { ensureDir } from './ensure';
 import { mkdirSync, readFile, readFileSync, writeFile, writeFileSync } from './fs-calls';
 
@@ -10,7 +11,7 @@ export interface IReadJsonOptions {
   encoding?: BufferEncoding | null;
   flag?: string;
   throws?: boolean;
-  reviver?: (this: any, key: string, value: any) => any;
+  reviver?: (this: unknown, key: string, value: unknown) => unknown;
 }
 
 export interface IWriteJsonOptions {
@@ -19,7 +20,7 @@ export interface IWriteJsonOptions {
   mode?: number | string;
   spaces?: number | string | null;
   EOL?: string;
-  replacer?: ((this: any, key: string, value: any) => any) | (number | string)[] | null;
+  replacer?: ((this: unknown, key: string, value: unknown) => unknown) | (number | string)[] | null;
 }
 
 export type IOutputJsonOptions = IWriteJsonOptions;
@@ -44,13 +45,16 @@ function toUtf8String(content: string | Buffer, encoding?: BufferEncoding | null
   return stripBom(String(content));
 }
 
-function formatJson(object: any, options?: IWriteJsonOptions | BufferEncoding | null): string {
+function formatJson(object: unknown, options?: IWriteJsonOptions | BufferEncoding | null): string {
   const opts = typeof options === 'string' ? { encoding: options } : (options ?? {});
-  const replacer = opts.replacer ?? null;
-  const spaces = opts.spaces ?? null;
+  const replacer = opts.replacer ?? undefined;
+  const spaces = opts.spaces ?? undefined;
   const EOL = opts.EOL ?? '\n';
 
-  const str = JSON.stringify(object, replacer as any, spaces as any);
+  // the array replacer and the function replacer are separate JSON.stringify overloads, so a union
+  // argument matches neither and the call has to be split
+  const str =
+    Array.isArray(replacer) ? JSON.stringify(object, replacer, spaces) : JSON.stringify(object, replacer, spaces);
   const body = str === undefined ? '' : str;
   if (EOL === '\n') {
     return body + '\n';
@@ -94,8 +98,8 @@ export function readJson<T = any>(
             throw new JsonParseError(String(file) + ': ' + (err as Error).message, { path: file, cause: err });
           }
         })
-        .catch((err) => {
-          if (!shouldThrow && err?.code === 'ENOENT') {
+        .catch((err: unknown) => {
+          if (!shouldThrow && isNotFoundError(err)) {
             return null;
           }
           throw err;
@@ -115,8 +119,8 @@ export function readJsonSync<T = any>(file: string, options?: IReadJsonOptions |
   let content: string | Buffer;
   try {
     content = readFileSync(file, { encoding, flag: opts.flag });
-  } catch (err: any) {
-    if (!shouldThrow && err?.code === 'ENOENT') {
+  } catch (err) {
+    if (!shouldThrow && isNotFoundError(err)) {
       return null;
     }
     throw err;
@@ -135,7 +139,7 @@ export function readJsonSync<T = any>(file: string, options?: IReadJsonOptions |
 
 export function writeJson(
   file: string,
-  object: any,
+  object: unknown,
   options?: IWriteJsonOptions | BufferEncoding | null,
 ): CancelablePromise<void> {
   return new CancelablePromise((resolve, reject, { handleCancel }) => {
@@ -163,7 +167,11 @@ export function writeJson(
   });
 }
 
-export function writeJsonSync(file: string, object: any, options?: IWriteJsonOptions | BufferEncoding | null): void {
+export function writeJsonSync(
+  file: string,
+  object: unknown,
+  options?: IWriteJsonOptions | BufferEncoding | null,
+): void {
   const str = formatJson(object, options);
   const opts = typeof options === 'string' ? { encoding: options } : (options ?? {});
   const writeOpts = {
@@ -176,7 +184,7 @@ export function writeJsonSync(file: string, object: any, options?: IWriteJsonOpt
 
 export function outputJson(
   file: string,
-  data: any,
+  data: unknown,
   options?: IOutputJsonOptions | BufferEncoding | null,
 ): CancelablePromise<void> {
   return new CancelablePromise((resolve, reject, { handleCancel }) => {
@@ -195,7 +203,7 @@ export function outputJson(
       mode: opts.mode,
     };
 
-    let activePromise: CancelablePromise<any> | null = null;
+    let activePromise: CancelablePromise<unknown> | null = null;
     handleCancel((reason) => {
       activePromise?.cancel(reason);
     });
@@ -210,7 +218,11 @@ export function outputJson(
   });
 }
 
-export function outputJsonSync(file: string, data: any, options?: IOutputJsonOptions | BufferEncoding | null): void {
+export function outputJsonSync(
+  file: string,
+  data: unknown,
+  options?: IOutputJsonOptions | BufferEncoding | null,
+): void {
   const dir = dirname(file);
   mkdirSync(dir, { recursive: true });
   writeJsonSync(file, data, options);

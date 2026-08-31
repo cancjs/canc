@@ -2,13 +2,17 @@ import { basename, dirname, join } from 'node:path';
 
 import { CancelablePromise } from '@cancjs/promise';
 
-import { chmod, chown, rename, stat, unlink, writeFile } from './fs-calls';
+import { isErrno, isNotFoundError } from '../errors/errno';
+import { chmod, chown, IWriteFileOptions, rename, stat, TWriteData, unlink, writeFile } from './fs-calls';
 
-export interface IReplaceFileOptions {
-  encoding?: BufferEncoding | null;
-  mode?: number | string;
-  flag?: string;
-  flush?: boolean;
+export type IReplaceFileOptions = IWriteFileOptions;
+
+const isNotPermitted = isErrno('EPERM');
+const isNotSupported = isErrno('ENOSYS');
+
+/** How chmod and chown fail where the file system does not carry the metadata. Not fatal. */
+function isMetadataUnsupported(err: unknown): boolean {
+  return isNotPermitted(err) || isNotSupported(err);
 }
 
 /**
@@ -24,14 +28,9 @@ export interface IReplaceFileOptions {
  */
 export function replaceFile(
   path: string,
-  data:
-    | string
-    | NodeJS.ArrayBufferView
-    | Iterable<string | NodeJS.ArrayBufferView>
-    | AsyncIterable<string | NodeJS.ArrayBufferView>,
+  data: TWriteData,
   options?: IReplaceFileOptions | BufferEncoding | null,
-): CancelablePromise<void>;
-export function replaceFile(path: string, data: any, options?: any): CancelablePromise<void> {
+): CancelablePromise<void> {
   return new CancelablePromise((resolve, reject, { handleCancel }) => {
     const dir = dirname(path);
     const base = basename(path);
@@ -40,13 +39,11 @@ export function replaceFile(path: string, data: any, options?: any): CancelableP
       `.${base}.tmp-${process.pid}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`,
     );
 
-    let activePromise: any = null;
+    let activePromise: CancelablePromise<unknown> | null = null;
     let isRenamed = false;
 
     handleCancel((reason) => {
-      if (typeof activePromise?.cancel === 'function') {
-        activePromise.cancel(reason);
-      }
+      activePromise?.cancel(reason);
       if (!isRenamed) {
         unlink(tempPath).catch(() => {});
       }
@@ -58,28 +55,28 @@ export function replaceFile(path: string, data: any, options?: any): CancelableP
         .then(() => {
           const statPromise = (activePromise = stat(path));
           return statPromise.then(
-            (st: any) => {
+            (st) => {
               const chmodPromise = (activePromise = chmod(tempPath, st.mode));
               return chmodPromise
                 .then(() => {
                   if (typeof st.uid === 'number' && typeof st.gid === 'number') {
                     const chownPromise = (activePromise = chown(tempPath, st.uid, st.gid));
-                    return chownPromise.then(undefined, (err: any) => {
-                      if (err?.code !== 'EPERM' && err?.code !== 'ENOSYS') {
+                    return chownPromise.then(undefined, (err: unknown) => {
+                      if (!isMetadataUnsupported(err)) {
                         throw err;
                       }
                     });
                   }
                   return undefined;
                 })
-                .then(undefined, (err: any) => {
-                  if (err?.code !== 'EPERM' && err?.code !== 'ENOSYS') {
+                .then(undefined, (err: unknown) => {
+                  if (!isMetadataUnsupported(err)) {
                     throw err;
                   }
                 });
             },
-            (err: any) => {
-              if (err?.code === 'ENOENT') {
+            (err: unknown) => {
+              if (isNotFoundError(err)) {
                 return undefined;
               }
               throw err;
@@ -92,7 +89,7 @@ export function replaceFile(path: string, data: any, options?: any): CancelableP
             isRenamed = true;
           });
         })
-        .then(undefined, (err: any) => {
+        .then(undefined, (err: unknown) => {
           if (!isRenamed) {
             unlink(tempPath).catch(() => {});
           }
