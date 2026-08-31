@@ -1,4 +1,5 @@
 import { ChildProcess, spawn } from 'node:child_process';
+import { EventEmitter, once } from 'node:events';
 import { platform } from 'node:os';
 
 import { killLadder } from './kill';
@@ -148,19 +149,29 @@ describe('killLadder', () => {
   );
 
   it('await cancel() resolves within a bounded time even when the child never exits', async () => {
-    const child = spawnChild(`
-      process.on('SIGTERM', () => {});
-      process.on('SIGKILL', () => {}); // Can't ignore SIGKILL, but we'll mock child.kill below
-      setTimeout(() => {}, 10000);
-    `);
+    // A live child cannot stand in for one that never exits. Stubbing its kill() only defeats
+    // the POSIX branch; on Windows the escalation shells out to taskkill and the process really
+    // dies, so the ladder would settle on exit and the hard timeout would go unexercised.
+    const reaped = spawnChild('');
+    await once(reaped, 'exit');
 
-    // Mock kill to do nothing so it never exits
-    child.kill = () => false;
+    // A live child's shape without the exit event. The pid is the one just reaped, so the
+    // escalation addresses a process that is already gone on either platform.
+    const stuck = Object.assign(new EventEmitter(), {
+      pid: reaped.pid,
+      killed: false,
+      exitCode: null,
+      signalCode: null,
+      kill: () => false,
+    }) as unknown as ChildProcess;
 
     const start = Date.now();
-    await killLadder(child, { gracePeriod: 100 });
+    await killLadder(stuck, { gracePeriod: 100 });
     const elapsed = Date.now() - start;
 
-    expect(elapsed).toBeLessThan(6000); // 100 + 5000 hard timeout
-  });
+    // The lower bound is what fails when the hard timeout is removed: without it nothing settles
+    // this promise at all. The upper bound is the anti-hang guarantee itself.
+    expect(elapsed).toBeGreaterThanOrEqual(5000);
+    expect(elapsed).toBeLessThan(10000);
+  }, 20000);
 });

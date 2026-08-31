@@ -91,7 +91,9 @@ function processSpawnOrFork(
     child.on('error', (err: Error) => {
       if (isSettled) return;
 
-      if ((err as any).code === 'ERR_IPC_CHANNEL_CLOSED' || (err as any).code === 'ERR_IPC_DISCONNECTED') {
+      const code = (err as NodeJS.ErrnoException).code;
+
+      if (code === 'ERR_IPC_CHANNEL_CLOSED' || code === 'ERR_IPC_DISCONNECTED') {
         ipcError = err;
         return;
       }
@@ -102,7 +104,7 @@ function processSpawnOrFork(
 
       reject(
         new ProcessSpawnError(`Process could not be spawned: ${err.message}`, {
-          code: (err as any).code,
+          code,
           command: commandOrModule,
           cause: err,
         }),
@@ -151,7 +153,7 @@ function processSpawnOrFork(
       resolve({ stdout, stderr, exitCode: code, signal: sig });
     });
 
-    onCancel.handleCancel(async () => {
+    onCancel.handleCancel(() => {
       if (isSettled) return;
       isCanceled = true;
       isSettled = true;
@@ -161,17 +163,20 @@ function processSpawnOrFork(
         try {
           child.disconnect();
         } catch {
-          // ignore
+          // A channel torn down by the exiting child is already in the state we want
         }
       }
 
-      try {
-        await killLadder(child, { killSignal, gracePeriod, killTree });
-      } catch {
-        // ignore
-      }
-
-      throw new CancelError('Process canceled');
+      // The returned promise is what makes await cancel() mean "the child is gone". The ladder
+      // carries its own hard timeout, so this cannot outlive the grace period by more than it
+      return killLadder(child, { killSignal, gracePeriod, killTree }).then(
+        () => {
+          throw new CancelError('Process canceled');
+        },
+        () => {
+          throw new CancelError('Process canceled');
+        },
+      );
     });
   });
 

@@ -2,11 +2,22 @@ import { ChildProcess, exec } from 'node:child_process';
 import { platform } from 'node:os';
 
 export interface IKillLadderOptions {
-  killSignal?: string | number;
+  killSignal?: NodeJS.Signals | number;
   gracePeriod?: number;
   killTree?: boolean;
 }
 
+/**
+ * Terminate a child process, escalating if it does not exit within the grace period.
+ *
+ * Resolves when the child is gone or when the hard timeout expires, and never rejects, so a
+ * cancellation that waits on it cannot hang. The result is a plain promise on purpose: this is a
+ * teardown primitive, and a kill that could itself be canceled would leave the child alive.
+ *
+ * @param child The child process to terminate.
+ * @param opts Termination signal, escalation grace period, and whether to kill the whole tree.
+ * @returns A promise that resolves once termination has been observed or the hard timeout expires.
+ */
 export function killLadder(child: ChildProcess, opts?: IKillLadderOptions): Promise<void> {
   const killSignal = opts?.killSignal ?? 'SIGTERM';
   const gracePeriod = opts?.gracePeriod ?? 5000;
@@ -22,7 +33,6 @@ export function killLadder(child: ChildProcess, opts?: IKillLadderOptions): Prom
 
     let resolved = false;
 
-    // Use a reference object to hold the timers so we can use const
     const timers: { fallback?: NodeJS.Timeout; escalate?: NodeJS.Timeout } = {};
 
     function done() {
@@ -52,10 +62,11 @@ export function killLadder(child: ChildProcess, opts?: IKillLadderOptions): Prom
       } else {
         // POSIX child.kill() signals the direct child only. exec always runs through a shell,
         // so the shell dies and the real workload survives as an orphan.
-        child.kill(killSignal as NodeJS.Signals);
+        child.kill(killSignal);
       }
     } catch {
-      // Ignore if already dead
+      // The child can exit between the liveness check above and the signal, and a kill that lost
+      // that race has already achieved what it was asked to do
     }
 
     timers.escalate = setTimeout(() => {
@@ -71,7 +82,7 @@ export function killLadder(child: ChildProcess, opts?: IKillLadderOptions): Prom
           }
         }
       } catch {
-        // Ignore
+        // Same race as the first signal: an exit during the grace period is the desired outcome
       }
     }, gracePeriod);
     if (timers.escalate.unref) timers.escalate.unref();

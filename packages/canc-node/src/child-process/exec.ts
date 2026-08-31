@@ -7,22 +7,11 @@ import {
 } from 'node:child_process';
 import { promisify } from 'node:util';
 
-import { CancelablePromise, CancelError, ICancelablePromiseOptions, isCancelError } from '@cancjs/promise';
+import { CancelablePromise, ICancelablePromiseOptions } from '@cancjs/promise';
 
-import { makeCancelSignal } from '../../../_toolbox/cancel-signal';
 import { isObject } from '../../../_util/guards';
 import { ProcessExitError, ProcessMaxBufferError, ProcessSignalError, ProcessSpawnError } from '../errors/classes';
 import { killLadder } from './kill';
-
-function toCancelError(reason?: unknown): CancelError {
-  if (isCancelError(reason)) {
-    return reason;
-  }
-  if (reason !== null && typeof reason === 'object') {
-    return new CancelError(undefined, { cause: reason });
-  }
-  return new CancelError(reason as string | undefined);
-}
 
 const promisifiedExec = promisify(nodeExec);
 const promisifiedExecFile = promisify(nodeExecFile);
@@ -220,15 +209,7 @@ export function exec(
   let childProcess: ChildProcess | undefined;
 
   const promise = new CancelablePromise<IExecResult<string | Buffer>>((resolve, reject, ctx) => {
-    const handleCancel =
-      ctx?.handleCancel ?
-        (cb: () => void) => {
-          ctx.handleCancel(cb);
-        }
-      : undefined;
-    const signalHolder = makeCancelSignal(handleCancel, undefined, toCancelError);
-    const cancelSignal = signalHolder.getSignal();
-    const effectiveSignal = combineSignals(options?.signal, cancelSignal) as AbortSignal | undefined;
+    const effectiveSignal = combineSignals(options?.signal, ctx.getSignal()) as AbortSignal | undefined;
 
     const optsWithSignal = {
       ...options,
@@ -238,7 +219,9 @@ export function exec(
     const nativePromise = promisifiedExec(command, optsWithSignal);
     childProcess = nativePromise.child;
 
-    ctx?.handleCancel(() => {
+    // Registered after the spawn because the child does not exist until node returns it, which is
+    // safe only because the executor body is synchronous and no cancel can land in between
+    ctx.handleCancel(() => {
       if (childProcess) {
         void killLadder(childProcess, {
           killSignal: options?.killSignal,
@@ -256,8 +239,9 @@ export function exec(
     );
   }, options);
 
-  (promise as any).child = childProcess;
-  return promise as CancelablePromise<IExecResult<string | Buffer>> & { child: ChildProcess };
+  const result = promise as CancelablePromise<IExecResult<string | Buffer>> & { child: ChildProcess };
+  result.child = childProcess!;
+  return result;
 }
 
 /**
@@ -316,26 +300,21 @@ export function execFile(
   const commandStr = args && args.length > 0 ? `${file} ${args.join(' ')}` : file;
 
   const promise = new CancelablePromise<IExecResult<string | Buffer>>((resolve, reject, ctx) => {
-    const handleCancel =
-      ctx?.handleCancel ?
-        (cb: () => void) => {
-          ctx.handleCancel(cb);
-        }
-      : undefined;
-    const signalHolder = makeCancelSignal(handleCancel, undefined, toCancelError);
-    const cancelSignal = signalHolder.getSignal();
-    const effectiveSignal = combineSignals(options?.signal, cancelSignal) as AbortSignal | undefined;
+    const effectiveSignal = combineSignals(options?.signal, ctx.getSignal()) as AbortSignal | undefined;
 
     const optsWithSignal = {
       ...options,
       signal: effectiveSignal,
     };
 
+    // Mirrors node's own overloads: the promisified execFile has no args-less call signature
     const nativePromise =
       args ? promisifiedExecFile(file, args, optsWithSignal) : (promisifiedExecFile as any)(file, optsWithSignal);
     childProcess = nativePromise.child;
 
-    ctx?.handleCancel(() => {
+    // Registered after the spawn because the child does not exist until node returns it, which is
+    // safe only because the executor body is synchronous and no cancel can land in between
+    ctx.handleCancel(() => {
       if (childProcess) {
         void killLadder(childProcess, {
           killSignal: options?.killSignal,
@@ -353,6 +332,7 @@ export function execFile(
     );
   }, options);
 
-  (promise as any).child = childProcess;
-  return promise as CancelablePromise<IExecResult<string | Buffer>> & { child: ChildProcess };
+  const result = promise as CancelablePromise<IExecResult<string | Buffer>> & { child: ChildProcess };
+  result.child = childProcess!;
+  return result;
 }

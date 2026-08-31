@@ -6,7 +6,7 @@ import { killLadder } from './kill';
 
 export interface IKillTreeOptions extends ICancelablePromiseOptions {
   /** Signal sent to initiate termination on POSIX. Defaults to 'SIGTERM'. */
-  killSignal?: string | number;
+  killSignal?: NodeJS.Signals | number;
   /** Milliseconds to wait before escalating to SIGKILL. Defaults to 5000 ms. */
   gracePeriod?: number;
 }
@@ -25,7 +25,7 @@ export interface IKillTreeOptions extends ICancelablePromiseOptions {
  * @returns A cancelable promise that resolves when the process tree has terminated.
  */
 export function killTree(child: ChildProcess, options?: IKillTreeOptions): CancelablePromise<void> {
-  return new CancelablePromise<void>((resolve, reject) => {
-    killLadder(child, { ...options, killTree: true }).then(resolve, reject);
+  return new CancelablePromise<void>((resolve) => {
+    resolve(killLadder(child, { ...options, killTree: true }));
   }, options);
 }
