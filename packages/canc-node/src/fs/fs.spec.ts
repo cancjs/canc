@@ -160,4 +160,38 @@ describe('@cancjs/node/fs module exports', () => {
 
     expect(seen.length).toBeGreaterThanOrEqual(1);
   });
+
+  it('copyFile cancellation leaves the destination where it is', async () => {
+    const dir = nodeFs.mkdtempSync(path.join(os.tmpdir(), 'canc-copy-'));
+    const src = path.join(dir, 'src.txt');
+    const dest = path.join(dir, 'dest.txt');
+    nodeFs.writeFileSync(src, 'from the source');
+    nodeFs.writeFileSync(dest, 'the file that was already there');
+
+    // a real copy that reports back in the same tick, which puts the cancel in the window where the
+    // copy is done and the promise has not adopted it yet. Nothing here waits on a clock
+    const fakeFs = {
+      ...nodeFs,
+      copyFile: (...args: any[]) => {
+        const cb = args[args.length - 1];
+        nodeFs.copyFileSync(args[0], args[1]);
+        cb(null);
+      },
+    };
+
+    setFs(fakeFs);
+
+    const p = fsExports.copyFile(src, dest);
+    p.cancel('stop');
+
+    // cancel may or may not beat a copy this quick, and either way it must not delete the target
+    await p.catch(() => undefined);
+    for (let i = 0; i < 5; i++) {
+      await new Promise((resolve) => setImmediate(resolve));
+    }
+
+    expect(nodeFs.existsSync(dest)).toBe(true);
+
+    nodeFs.rmSync(dir, { recursive: true, force: true });
+  });
 });

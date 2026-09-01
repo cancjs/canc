@@ -97,12 +97,10 @@ export const appendFile = promisifySignalWrapped(viaFs('appendFile'), entries.ge
 export const chmod = promisifyWrapped(viaFs('chmod')) as TCancelable<TFsPromises['chmod']>;
 export const chown = promisifyWrapped(viaFs('chown')) as TCancelable<TFsPromises['chown']>;
 export const constants = nodeFsPromises.constants;
-export const copyFile = teardownWrapped(promisifyWrapped(viaFs('copyFile')), (_value, args) => {
-  const dest = args[1];
-  if (typeof dest === 'string' || Buffer.isBuffer(dest) || dest instanceof URL) {
-    getFs().unlink(dest, () => {});
-  }
-}) as TCancelable<TFsPromises['copyFile']>;
+// node takes no signal here and cancel does not undo: a canceled copy leaves what node had written,
+// exactly as an interrupted node copy does. Unlinking dest would delete a file the caller named as a
+// target, not as something to remove, and it was theirs before the copy started
+export const copyFile = promisifyWrapped(viaFs('copyFile')) as TCancelable<TFsPromises['copyFile']>;
 export const cp = adopted(fsp.cp) as TCancelable<TFsPromises['cp']>;
 export const glob = gatedWrapped(
   features.hasGlob,

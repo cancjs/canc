@@ -112,15 +112,14 @@
     {
       "name": "copyFile",
       "kind": "fn",
-      "cancelCategory": "A",
+      "cancelCategory": "B",
       "nodeSignal": {
         "documented": false,
         "since": null,
         "probed": "n/a:no-options-arg",
         "sinceByMajor": null
       },
-      "wrapper": "cancelify-teardown",
-      "teardown": "unlink partial dest on cancel",
+      "wrapper": "promisify-callback",
       "failures": ["ENOENT", "EACCES", "EISDIR", "ENOSPC", "EXDEV"],
       "minMajor": null,
       "gate": null,
@@ -128,7 +127,7 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": "copyFile(src, dest, mode) takes no options argument; unlink partial dest on cancel",
+      "notes": "copyFile(src, dest, mode) takes no options argument; a canceled copy leaves whatever node had already written to dest, which is what an interrupted node copy leaves too",
       "callPath": "callback"
     },
     {

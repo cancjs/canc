@@ -65,45 +65,47 @@ Feature detection probes capability support at module load time without sniffing
 
 For operations marked "stops waiting only", cancellation stops waiting for completion while the underlying runtime operation continues in the background.
 
+Cancellation never undoes work that already happened. A canceled `copyFile` leaves whatever was already written to the destination, the same as an interrupted copy does, and it never deletes a path you did not ask to delete.
+
 <!-- generated:start -->
 
 #### fs
 
-| Export              | Cancellation     | Node | Deno | Bun |
-| ------------------- | ---------------- | ---- | ---- | --- |
-| `access`            | before it starts | 18+  | ✅   | ✅  |
-| `appendFile`        | stops the work   | 18+  | ✅   | ✅  |
-| `chmod`             | before it starts | 18+  | ✅   | ✅  |
-| `chown`             | before it starts | 18+  | ✅   | ✅  |
-| `constants`         | -                | 18+  | ✅   | ✅  |
-| `copyFile`          | stops the work   | 18+  | ✅   | ✅  |
-| `cp`                | stops the work   | 18+  | ✅   | ✅  |
-| `glob`              | stops the work   | 22+  | ✅   | ✅  |
-| `lchmod`            | before it starts | 18+  | ✅   | ✅  |
-| `lchown`            | before it starts | 18+  | ✅   | ✅  |
-| `link`              | before it starts | 18+  | ✅   | ✅  |
-| `lstat`             | before it starts | 18+  | ✅   | ✅  |
-| `lutimes`           | before it starts | 18+  | ✅   | ✅  |
-| `mkdir`             | before it starts | 18+  | ✅   | ✅  |
-| `mkdtemp`           | before it starts | 18+  | ✅   | ✅  |
-| `mkdtempDisposable` | before it starts | 24+  | ✅   | ✖   |
-| `open`              | stops the work   | 18+  | ✅   | ✅  |
-| `opendir`           | stops the work   | 18+  | 🚧   | ✅  |
-| `readFile`          | stops the work   | 18+  | ✅   | ✅  |
-| `readdir`           | before it starts | 18+  | ✅   | ✅  |
-| `readlink`          | before it starts | 18+  | ✅   | ✅  |
-| `realpath`          | before it starts | 18+  | ✅   | ✅  |
-| `rename`            | before it starts | 18+  | ✅   | ✅  |
-| `rm`                | stops the work   | 18+  | ✅   | ✅  |
-| `rmdir`             | before it starts | 18+  | ✅   | ✅  |
-| `stat`              | before it starts | 18+  | ✅   | ✅  |
-| `statfs`            | before it starts | 18+  | ✅   | ✅  |
-| `symlink`           | before it starts | 18+  | ✅   | ✅  |
-| `truncate`          | before it starts | 18+  | ✅   | ✅  |
-| `unlink`            | before it starts | 18+  | ✅   | ✅  |
-| `utimes`            | before it starts | 18+  | ✅   | ✅  |
-| `watch`             | stops the work   | 18+  | ✅   | ✅  |
-| `writeFile`         | stops the work   | 18+  | ✅   | ✅  |
+| Export              | Cancellation       | Node | Deno | Bun |
+| ------------------- | ------------------ | ---- | ---- | --- |
+| `access`            | before it starts   | 18+  | ✅   | ✅  |
+| `appendFile`        | stops the work     | 18+  | ✅   | ✅  |
+| `chmod`             | before it starts   | 18+  | ✅   | ✅  |
+| `chown`             | before it starts   | 18+  | ✅   | ✅  |
+| `constants`         | -                  | 18+  | ✅   | ✅  |
+| `copyFile`          | stops waiting only | 18+  | ✅   | ✅  |
+| `cp`                | stops the work     | 18+  | ✅   | ✅  |
+| `glob`              | stops the work     | 22+  | ✅   | ✅  |
+| `lchmod`            | before it starts   | 18+  | ✅   | ✅  |
+| `lchown`            | before it starts   | 18+  | ✅   | ✅  |
+| `link`              | before it starts   | 18+  | ✅   | ✅  |
+| `lstat`             | before it starts   | 18+  | ✅   | ✅  |
+| `lutimes`           | before it starts   | 18+  | ✅   | ✅  |
+| `mkdir`             | before it starts   | 18+  | ✅   | ✅  |
+| `mkdtemp`           | before it starts   | 18+  | ✅   | ✅  |
+| `mkdtempDisposable` | before it starts   | 24+  | ✅   | ✖   |
+| `open`              | stops the work     | 18+  | ✅   | ✅  |
+| `opendir`           | stops the work     | 18+  | 🚧   | ✅  |
+| `readFile`          | stops the work     | 18+  | ✅   | ✅  |
+| `readdir`           | before it starts   | 18+  | ✅   | ✅  |
+| `readlink`          | before it starts   | 18+  | ✅   | ✅  |
+| `realpath`          | before it starts   | 18+  | ✅   | ✅  |
+| `rename`            | before it starts   | 18+  | ✅   | ✅  |
+| `rm`                | stops the work     | 18+  | ✅   | ✅  |
+| `rmdir`             | before it starts   | 18+  | ✅   | ✅  |
+| `stat`              | before it starts   | 18+  | ✅   | ✅  |
+| `statfs`            | before it starts   | 18+  | ✅   | ✅  |
+| `symlink`           | before it starts   | 18+  | ✅   | ✅  |
+| `truncate`          | before it starts   | 18+  | ✅   | ✅  |
+| `unlink`            | before it starts   | 18+  | ✅   | ✅  |
+| `utimes`            | before it starts   | 18+  | ✅   | ✅  |
+| `watch`             | stops the work     | 18+  | ✅   | ✅  |
+| `writeFile`         | stops the work     | 18+  | ✅   | ✅  |
 
 #### FileHandle (fs)
 
