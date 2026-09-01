@@ -218,43 +218,48 @@ import "@cancjs/node/fs/register-graceful";
 
 ### child-process
 
-Import from `@cancjs/node/child-process` to run external commands and spawn child processes with cancellation support:
+Import from `@cancjs/node/child-process` to run external commands with cancellation support. Every function returns the same `ChildProcess` node returns, with one property added:
 
 ```ts
-import { exec, fork, killTree, spawn } from "@cancjs/node/child-process";
-import { timeout } from "@cancjs/toolbox";
+import { spawn } from "@cancjs/node/child-process";
 
-const run = exec("npm test");
+const child = spawn("npm", ["test"]);
 
-// Access the underlying ChildProcess instance directly
-console.log("Process PID:", run.child.pid);
+// node's own API, unchanged
+child.stdout.pipe(process.stdout);
+console.log("Process PID:", child.pid);
 
-// Canceling terminates the process and rejects with CancelError
-run.cancel();
+// the promise is ours
+const result = await child.promise;
 ```
 
-#### Process lifecycle and cancellation
+The `promise` property is built on first access and reused after that. Take it in the same tick as the call. A promise taken after the process already reported a spawn failure never settles, because node keeps no record of that failure once it has emitted it. Nothing else about the child is wrapped, so the callback form, the streams, async iteration over `child.stdout` and the option bag all keep node's behavior.
 
-When a promise returned by `exec`, `execFile`, `spawn`, or `fork` is canceled, the module initiates a termination ladder:
+#### What the promise settles with
 
-1. Sends `killSignal` (defaults to `SIGTERM`) to the child process.
-2. Waits for the configured `gracePeriod` (defaults to 5000 ms).
-3. Escalates termination with `SIGKILL` on POSIX or `taskkill /pid <pid> /t /f` on Windows if the process has not exited.
+`exec` and `execFile` mirror node's own promisified form. The promise resolves with `stdout` and `stderr`, and rejects on a non-zero exit with the error node decorates.
 
-Setting `killTree: true` extends termination signals to all child descendants (requiring `detached: true` on POSIX systems). Standalone tree termination is also available via `killTree(child, options)`.
+`spawn` and `fork` have no promise form in node to mirror. The nearest reference is `spawnSync`, which reports a status instead of throwing, so their promise resolves with `exitCode` and `signal` even when the exit code is not zero. Test the exit code, or use `child.on("close")` as before.
 
-#### Timeout option divergence
+Two failures that node reports ambiguously get a typed error in both cases: `ProcessSpawnError` when the process could not start, and `ProcessSignalError` when it was killed by a signal.
 
-The standard Node.js `timeout` option is deliberately not supported and throws a `TypeError` if passed. In Node.js, `timeout` sends a termination signal indistinguishable from an intentional cancellation.
+#### Cancellation
 
-To enforce execution deadlines, compose the call with `timeout()` from `@cancjs/toolbox`:
+Canceling sends `killSignal`, defaulting to `SIGTERM`, which is what node's own `signal` option sends on abort. Awaiting `cancel()` waits for the child to exit, under an upper bound so that a cancel cannot hang. There is no escalation and no process tree handling. A child that ignores `SIGTERM` keeps running, and the caller decides what to do about it.
+
+```ts
+const child = spawn("npm", ["test"]);
+await child.promise.cancel();
+```
+
+Node options are forwarded untouched, `timeout` and `killSignal` included, so `exec(command, { timeout: 10000 })` terminates through node exactly as it does without this package. An `AbortSignal` passed as `signal` also reaches node untouched, which means an abort produces node's `AbortError` rather than a `CancelError`. To get canc semantics on a deadline, compose instead:
 
 ```ts
 import { exec } from "@cancjs/node/child-process";
 import { timeout } from "@cancjs/toolbox";
 
-// Deadlines produce a CancelError marked as timed out
-const result = await timeout(exec("long-running-command"), 10000);
+// deadlines produce a CancelError marked as timed out
+const result = await timeout(exec("long-running-command").promise, 10000);
 ```
 
 ### Planned subpaths

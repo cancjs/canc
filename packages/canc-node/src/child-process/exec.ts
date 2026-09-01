@@ -1,338 +1,259 @@
 import {
   ChildProcess,
   exec as nodeExec,
+  ExecException,
   execFile as nodeExecFile,
+  ExecFileException,
   ExecFileOptions,
+  ExecFileOptionsWithBufferEncoding,
+  ExecFileOptionsWithStringEncoding,
   ExecOptions,
+  ExecOptionsWithBufferEncoding,
+  ExecOptionsWithStringEncoding,
 } from 'node:child_process';
-import { promisify } from 'node:util';
 
-import { CancelablePromise, ICancelablePromiseOptions } from '@cancjs/promise';
+import { CancelablePromise } from '@cancjs/promise';
 
-import { isObject } from '../../../_util/guards';
-import { ProcessExitError, ProcessMaxBufferError, ProcessSignalError, ProcessSpawnError } from '../errors/classes';
-import { killLadder } from './kill';
+import { mapChildProcessError } from './map-error';
+import { defineProcessPromise, killAndWaitForExit } from './promise';
 
-const promisifiedExec = promisify(nodeExec);
-const promisifiedExecFile = promisify(nodeExecFile);
+const PROMISIFY_CUSTOM = Symbol.for('nodejs.util.promisify.custom');
 
-export interface IExecResult<T = string | Buffer> {
+export interface IExecResult<T extends string | Buffer = string> {
   stdout: T;
   stderr: T;
 }
 
-export interface IProcessResult<T = string | Buffer> {
-  stdout: T;
-  stderr: T;
-  exitCode?: number | null;
-  signal?: NodeJS.Signals | null;
+export interface IExecChildProcess<T extends string | Buffer = string> extends ChildProcess {
+  /**
+   * A cancelable promise of the buffered result, created on first access and reused after that.
+   * Canceling it sends `killSignal` and waits for the child to exit.
+   */
+  readonly promise: CancelablePromise<IExecResult<T>>;
 }
 
-export interface IExecOptions extends Omit<ExecOptions, 'signal'>, ICancelablePromiseOptions {
-  /** Signal sent to initiate termination. Defaults to 'SIGTERM'. */
-  killSignal?: NodeJS.Signals | number;
-  /** Milliseconds to wait before escalating termination. Defaults to 5000 ms. */
-  gracePeriod?: number;
-  /** Whether to terminate the entire process tree. Defaults to false. */
-  killTree?: boolean;
+export type TExecPromise<T extends string | Buffer = string> = CancelablePromise<IExecResult<T>> & {
+  child: IExecChildProcess<T>;
+};
+
+type TExecOptions = ExecOptions | ExecOptionsWithStringEncoding | ExecOptionsWithBufferEncoding;
+type TExecFileOptions = ExecFileOptions | ExecFileOptionsWithStringEncoding | ExecFileOptionsWithBufferEncoding;
+type TExecCallback<T extends string | Buffer> = (error: ExecException | null, stdout: T, stderr: T) => void;
+type TExecFileCallback<T extends string | Buffer> = (error: ExecFileException | null, stdout: T, stderr: T) => void;
+
+// mirrors node's own callback overloads, which disagree on both the error type and the output type
+type TAnyCallback = (error: any, stdout: any, stderr: any) => void;
+
+interface ISettlement {
+  error: ExecException | ExecFileException | null;
+  stdout: string | Buffer;
+  stderr: string | Buffer;
 }
 
-export interface IExecBufferOptions extends IExecOptions {
-  encoding: 'buffer' | null;
+interface ISettlementSink {
+  settle(settlement: ISettlement): void;
+  subscribe(listener: (settlement: ISettlement) => void): void;
 }
 
-export interface IExecStringOptions extends IExecOptions {
-  encoding?: BufferEncoding;
-}
+// node buffers the output into its own callback, so the result is held here until someone asks for
+// the promise; a call that already finished still has a result to hand over
+function createSink(): ISettlementSink {
+  let settled: ISettlement | undefined;
+  let listener: ((settlement: ISettlement) => void) | undefined;
 
-export interface IExecFileOptions extends Omit<ExecFileOptions, 'signal'>, ICancelablePromiseOptions {
-  /** Signal sent to initiate termination. Defaults to 'SIGTERM'. */
-  killSignal?: NodeJS.Signals | number;
-  /** Milliseconds to wait before escalating termination. Defaults to 5000 ms. */
-  gracePeriod?: number;
-  /** Whether to terminate the entire process tree. Defaults to false. */
-  killTree?: boolean;
-}
-
-export interface IExecFileBufferOptions extends IExecFileOptions {
-  encoding: 'buffer' | null;
-}
-
-export interface IExecFileStringOptions extends IExecFileOptions {
-  encoding?: BufferEncoding;
-}
-
-function checkTimeoutOption(options?: { timeout?: number }): void {
-  if (options && 'timeout' in options && options.timeout !== undefined) {
-    throw new TypeError('The "timeout" option is not supported. Use timeout() from @cancjs/toolbox instead.');
-  }
-}
-
-function combineSignals(userSignal: unknown, cancelSignal: unknown): unknown {
-  if (!userSignal) {
-    return cancelSignal;
-  }
-  if (!cancelSignal) {
-    return userSignal;
-  }
-
-  const signals = (Array.isArray(userSignal) ? userSignal : [userSignal]) as Array<{
-    aborted?: boolean;
-    reason?: unknown;
-    addEventListener?: (type: string, listener: () => void, opts?: { once?: boolean }) => void;
-  }>;
-  signals.push(
-    cancelSignal as {
-      aborted?: boolean;
-      reason?: unknown;
-      addEventListener?: (type: string, listener: () => void, opts?: { once?: boolean }) => void;
+  return {
+    settle(settlement: ISettlement): void {
+      settled = settlement;
+      if (listener) {
+        listener(settlement);
+      }
     },
-  );
-
-  if (
-    typeof AbortSignal !== 'undefined' &&
-    'any' in AbortSignal &&
-    typeof (AbortSignal as { any?: unknown }).any === 'function'
-  ) {
-    return (AbortSignal as { any: (sigs: unknown[]) => unknown }).any(signals);
-  }
-
-  const combinedController = new AbortController();
-  for (const s of signals) {
-    if (s?.aborted) {
-      combinedController.abort(s.reason);
-      return combinedController.signal;
-    }
-  }
-
-  const onAbort = (s: { reason?: unknown }) => combinedController.abort(s.reason);
-  for (const s of signals) {
-    if (s && typeof s.addEventListener === 'function') {
-      s.addEventListener('abort', () => onAbort(s), { once: true });
-    }
-  }
-
-  return combinedController.signal;
-}
-
-export function mapChildProcessError(err: unknown, command?: string): unknown {
-  if (!isObject(err)) {
-    return err;
-  }
-
-  const error = err as {
-    name?: string;
-    code?: string | number;
-    exitCode?: number;
-    signal?: string | null;
-    killed?: boolean;
-    cmd?: string;
-    stdout?: string | Buffer;
-    stderr?: string | Buffer;
-    syscall?: string;
-    message?: string;
+    subscribe(fn: (settlement: ISettlement) => void): void {
+      if (settled) {
+        fn(settled);
+      } else {
+        listener = fn;
+      }
+    },
   };
-
-  const cmd = error.cmd ?? command;
-
-  if (error.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER' || error.name === 'ProcessMaxBufferError') {
-    return new ProcessMaxBufferError(error.message, { command: cmd, cause: err });
-  }
-
-  if (
-    typeof error.code === 'string' &&
-    (error.syscall?.startsWith('spawn') ||
-      error.code === 'ENOENT' ||
-      error.code === 'EACCES' ||
-      error.code === 'EMFILE' ||
-      error.code === 'ENOTDIR' ||
-      error.code === 'E2BIG')
-  ) {
-    return new ProcessSpawnError(error.message, {
-      code: error.code,
-      command: cmd,
-      cause: err,
-    });
-  }
-
-  if (error.signal && !error.code) {
-    return new ProcessSignalError(error.message, {
-      signal: error.signal,
-      command: cmd,
-      cause: err,
-    });
-  }
-
-  if (
-    typeof error.code === 'number' ||
-    (error.code !== undefined && error.code !== null && error.code !== 'ABORT_ERR')
-  ) {
-    const exitCode = typeof error.code === 'number' ? error.code : (error.exitCode ?? null);
-    return new ProcessExitError(error.message, {
-      exitCode,
-      signal: error.signal ?? null,
-      stdout: error.stdout,
-      stderr: error.stderr,
-      command: cmd,
-      cause: err,
-    });
-  }
-
-  return err;
 }
 
-/**
- * Spawns a shell then executes the command within that shell, returning a cancelable promise.
- *
- * @param command The command string to run.
- * @param options Configuration options for process execution and cancellation.
- * @returns A cancelable promise resolving with stdout and stderr, exposing the ChildProcess as `.child`.
- */
-export function exec(
+function createExecPromise(
+  child: ChildProcess,
+  sink: ISettlementSink,
   command: string,
-  options: IExecBufferOptions,
-): CancelablePromise<IExecResult<Buffer>> & { child: ChildProcess };
-export function exec(
-  command: string,
-  options?: IExecStringOptions,
-): CancelablePromise<IExecResult<string>> & { child: ChildProcess };
-export function exec(
-  command: string,
-  options?: IExecOptions,
-): CancelablePromise<IExecResult<string | Buffer>> & { child: ChildProcess };
-export function exec(
-  command: string,
-  options?: IExecOptions,
-): CancelablePromise<IExecResult<string | Buffer>> & { child: ChildProcess } {
-  checkTimeoutOption(options);
+  killSignal?: NodeJS.Signals | number,
+): CancelablePromise<IExecResult<string | Buffer>> {
+  return new CancelablePromise<IExecResult<string | Buffer>>((resolve, reject, ctx) => {
+    ctx.handleCancel(() => killAndWaitForExit(child, killSignal));
 
-  let childProcess: ChildProcess | undefined;
-
-  const promise = new CancelablePromise<IExecResult<string | Buffer>>((resolve, reject, ctx) => {
-    const effectiveSignal = combineSignals(options?.signal, ctx.getSignal()) as AbortSignal | undefined;
-
-    const optsWithSignal = {
-      ...options,
-      signal: effectiveSignal,
-    };
-
-    const nativePromise = promisifiedExec(command, optsWithSignal);
-    childProcess = nativePromise.child;
-
-    // Registered after the spawn because the child does not exist until node returns it, which is
-    // safe only because the executor body is synchronous and no cancel can land in between
-    ctx.handleCancel(() => {
-      if (childProcess) {
-        void killLadder(childProcess, {
-          killSignal: options?.killSignal,
-          gracePeriod: options?.gracePeriod,
-          killTree: options?.killTree,
-        });
+    sink.subscribe((settlement) => {
+      if (settlement.error) {
+        reject(mapChildProcessError(settlement.error, command));
+        return;
       }
+      resolve({ stdout: settlement.stdout, stderr: settlement.stderr });
     });
-
-    nativePromise.then(
-      (res: unknown) => resolve(res as IExecResult<string | Buffer>),
-      (err: unknown) => {
-        reject(mapChildProcessError(err, command));
-      },
-    );
-  }, options);
-
-  const result = promise as CancelablePromise<IExecResult<string | Buffer>> & { child: ChildProcess };
-  result.child = childProcess!;
-  return result;
+  });
 }
 
 /**
- * Spawns an executable directly without a shell, returning a cancelable promise.
+ * Spawns a shell then runs the command within that shell, exactly as `child_process.exec` does.
  *
- * @param file The path or name of the executable file.
- * @param args Arguments to pass to the executable.
- * @param options Configuration options for process execution and cancellation.
- * @returns A cancelable promise resolving with stdout and stderr, exposing the ChildProcess as `.child`.
+ * The return value is node's own `ChildProcess` with a `promise` property added, so the callback
+ * form, the streams and every option keep working unchanged.
+ *
+ * @param command The command to run.
+ * @param options Node's options for `exec`, forwarded untouched.
+ * @param callback Node's callback, called with the buffered output.
+ * @returns The child process, carrying a lazily created cancelable promise.
  */
+export function exec(command: string, callback?: TExecCallback<string>): IExecChildProcess<string>;
+export function exec(
+  command: string,
+  options: ExecOptionsWithBufferEncoding,
+  callback?: TExecCallback<Buffer>,
+): IExecChildProcess<Buffer>;
+export function exec(
+  command: string,
+  options: ExecOptionsWithStringEncoding | ExecOptions,
+  callback?: TExecCallback<string>,
+): IExecChildProcess<string>;
+export function exec(
+  command: string,
+  optionsOrCallback?: TExecOptions | TAnyCallback,
+  maybeCallback?: TAnyCallback,
+): IExecChildProcess<string | Buffer> {
+  const options = typeof optionsOrCallback === 'function' ? undefined : optionsOrCallback;
+  const callback = typeof optionsOrCallback === 'function' ? optionsOrCallback : maybeCallback;
+  const sink = createSink();
+
+  const child = nodeExec(command, options!, (error, stdout, stderr) => {
+    sink.settle({ error, stdout, stderr });
+    if (callback) {
+      callback(error, stdout, stderr);
+    }
+  });
+
+  defineProcessPromise(child, () => createExecPromise(child, sink, command, options?.killSignal));
+
+  return child as IExecChildProcess<string | Buffer>;
+}
+
+/**
+ * Runs an executable directly without a shell, exactly as `child_process.execFile` does.
+ *
+ * @param file The executable to run.
+ * @param args Arguments passed to the executable.
+ * @param options Node's options for `execFile`, forwarded untouched.
+ * @param callback Node's callback, called with the buffered output.
+ * @returns The child process, carrying a lazily created cancelable promise.
+ */
+export function execFile(file: string, callback?: TExecFileCallback<string>): IExecChildProcess<string>;
 export function execFile(
   file: string,
-  options: IExecFileBufferOptions,
-): CancelablePromise<IExecResult<Buffer>> & { child: ChildProcess };
+  args: readonly string[] | undefined | null,
+  callback?: TExecFileCallback<string>,
+): IExecChildProcess<string>;
 export function execFile(
   file: string,
-  args: readonly string[],
-  options: IExecFileBufferOptions,
-): CancelablePromise<IExecResult<Buffer>> & { child: ChildProcess };
+  options: ExecFileOptionsWithBufferEncoding,
+  callback?: TExecFileCallback<Buffer>,
+): IExecChildProcess<Buffer>;
 export function execFile(
   file: string,
-  options?: IExecFileStringOptions,
-): CancelablePromise<IExecResult<string>> & { child: ChildProcess };
+  options: ExecFileOptionsWithStringEncoding | ExecFileOptions,
+  callback?: TExecFileCallback<string>,
+): IExecChildProcess<string>;
 export function execFile(
   file: string,
-  args: readonly string[],
-  options?: IExecFileStringOptions,
-): CancelablePromise<IExecResult<string>> & { child: ChildProcess };
+  args: readonly string[] | undefined | null,
+  options: ExecFileOptionsWithBufferEncoding,
+  callback?: TExecFileCallback<Buffer>,
+): IExecChildProcess<Buffer>;
 export function execFile(
   file: string,
-  args?: readonly string[] | IExecFileOptions,
-  options?: IExecFileOptions,
-): CancelablePromise<IExecResult<string | Buffer>> & { child: ChildProcess };
+  args: readonly string[] | undefined | null,
+  options: ExecFileOptionsWithStringEncoding | ExecFileOptions,
+  callback?: TExecFileCallback<string>,
+): IExecChildProcess<string>;
 export function execFile(
-  file: string,
-  argsOrOptions?: readonly string[] | IExecFileOptions,
-  optionsOrUndefined?: IExecFileOptions,
-): CancelablePromise<IExecResult<string | Buffer>> & { child: ChildProcess } {
+  fileOrCommand: string,
+  argsOrOptionsOrCallback?: readonly string[] | null | TExecFileOptions | TAnyCallback,
+  optionsOrCallback?: TExecFileOptions | TAnyCallback,
+  maybeCallback?: TAnyCallback,
+): IExecChildProcess<string | Buffer> {
   let args: readonly string[] | undefined;
-  let options: IExecFileOptions | undefined;
+  let options: TExecFileOptions | undefined;
+  let callback: TAnyCallback | undefined;
 
-  if (Array.isArray(argsOrOptions)) {
-    args = argsOrOptions;
-    options = optionsOrUndefined;
-  } else if (argsOrOptions && typeof argsOrOptions === 'object') {
-    args = undefined;
-    options = argsOrOptions as IExecFileOptions;
-  } else {
-    args = undefined;
-    options = optionsOrUndefined;
+  if (Array.isArray(argsOrOptionsOrCallback)) {
+    args = argsOrOptionsOrCallback;
+  } else if (typeof argsOrOptionsOrCallback === 'function') {
+    callback = argsOrOptionsOrCallback;
+  } else if (argsOrOptionsOrCallback) {
+    options = argsOrOptionsOrCallback as TExecFileOptions;
   }
 
-  checkTimeoutOption(options);
+  if (typeof optionsOrCallback === 'function') {
+    callback = optionsOrCallback;
+  } else if (optionsOrCallback) {
+    options = optionsOrCallback;
+  }
 
-  let childProcess: ChildProcess | undefined;
-  const commandStr = args && args.length > 0 ? `${file} ${args.join(' ')}` : file;
+  if (maybeCallback) {
+    callback = maybeCallback;
+  }
 
-  const promise = new CancelablePromise<IExecResult<string | Buffer>>((resolve, reject, ctx) => {
-    const effectiveSignal = combineSignals(options?.signal, ctx.getSignal()) as AbortSignal | undefined;
+  const sink = createSink();
+  const command = args && args.length > 0 ? `${fileOrCommand} ${args.join(' ')}` : fileOrCommand;
 
-    const optsWithSignal = {
-      ...options,
-      signal: effectiveSignal,
-    };
+  const child = nodeExecFile(fileOrCommand, args ?? [], options as ExecFileOptions, (error, stdout, stderr) => {
+    sink.settle({ error, stdout, stderr });
+    if (callback) {
+      callback(error, stdout, stderr);
+    }
+  });
 
-    // Mirrors node's own overloads: the promisified execFile has no args-less call signature
-    const nativePromise =
-      args ? promisifiedExecFile(file, args, optsWithSignal) : (promisifiedExecFile as any)(file, optsWithSignal);
-    childProcess = nativePromise.child;
+  defineProcessPromise(child, () => createExecPromise(child, sink, command, options?.killSignal));
 
-    // Registered after the spawn because the child does not exist until node returns it, which is
-    // safe only because the executor body is synchronous and no cancel can land in between
-    ctx.handleCancel(() => {
-      if (childProcess) {
-        void killLadder(childProcess, {
-          killSignal: options?.killSignal,
-          gracePeriod: options?.gracePeriod,
-          killTree: options?.killTree,
-        });
-      }
-    });
-
-    nativePromise.then(
-      (res: unknown) => resolve(res as IExecResult<string | Buffer>),
-      (err: unknown) => {
-        reject(mapChildProcessError(err, commandStr));
-      },
-    );
-  }, options);
-
-  const result = promise as CancelablePromise<IExecResult<string | Buffer>> & { child: ChildProcess };
-  result.child = childProcess!;
-  return result;
+  return child as IExecChildProcess<string | Buffer>;
 }
+
+// node's typings read the promisified form off this member, so promisify(exec) keeps its types
+// eslint-disable-next-line @typescript-eslint/no-namespace -- declaration merging is the only way to attach it
+export declare namespace exec {
+  function __promisify__(command: string, options?: TExecOptions): TExecPromise<string | Buffer>;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-namespace -- declaration merging is the only way to attach it
+export declare namespace execFile {
+  function __promisify__(
+    file: string,
+    args?: readonly string[] | null,
+    options?: TExecFileOptions,
+  ): TExecPromise<string | Buffer>;
+}
+
+function execPromisified(command: string, options?: TExecOptions): TExecPromise<string | Buffer> {
+  const child = exec(command, options as ExecOptions);
+  const promise = child.promise as TExecPromise<string | Buffer>;
+  promise.child = child;
+  return promise;
+}
+
+function execFilePromisified(
+  file: string,
+  args?: readonly string[] | null,
+  options?: TExecFileOptions,
+): TExecPromise<string | Buffer> {
+  const child = execFile(file, args, options as ExecFileOptions);
+  const promise = child.promise as TExecPromise<string | Buffer>;
+  promise.child = child;
+  return promise;
+}
+
+// promisify(exec) then produces our cancelable promise instead of node's, matching the shape node's
+// own promisified exec returns
+Object.defineProperty(exec, PROMISIFY_CUSTOM, { configurable: true, value: execPromisified });
+Object.defineProperty(execFile, PROMISIFY_CUSTOM, { configurable: true, value: execFilePromisified });

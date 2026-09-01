@@ -1,218 +1,229 @@
 import { ChildProcess } from 'node:child_process';
-import { platform } from 'node:os';
+import { Readable } from 'node:stream';
+import { promisify } from 'node:util';
 
 import { CancelError, isCancelError } from '@cancjs/promise';
 
-import {
-  isProcessExitError,
-  isProcessMaxBufferError,
-  isProcessSpawnError,
-  ProcessExitError,
-  ProcessMaxBufferError,
-  ProcessSpawnError,
-} from '../errors/classes';
+import { isProcessExitError, isProcessSignalError, isProcessSpawnError } from '../errors/classes';
 import { exec, execFile } from './exec';
 
+const nodeBin = `"${process.execPath}"`;
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+type TTrackedChild = ChildProcess & { promise: Promise<unknown> };
+
 describe('exec and execFile', () => {
-  const isWindows = platform() === 'win32';
-  const trackedChildren = new Set<ChildProcess>();
-  const nodeBin = `"${process.execPath}"`;
+  const children = new Set<TTrackedChild>();
+
+  function track<T extends TTrackedChild>(child: T): T {
+    children.add(child);
+    return child;
+  }
 
   afterEach(() => {
-    for (const child of trackedChildren) {
-      try {
-        if (child.pid && child.exitCode === null && child.signalCode === null) {
-          if (isWindows) {
-            import('node:child_process').then((cp) => cp.exec(`taskkill /pid ${child.pid} /t /f`));
-          } else {
-            child.kill('SIGKILL');
-          }
-        }
-      } catch {
-        // ignore
+    for (const child of children) {
+      if (child.pid && child.exitCode === null && child.signalCode === null) {
+        // reaping a child rejects a promise the test may have taken but not awaited
+        child.promise.catch(() => undefined);
+        child.kill('SIGKILL');
       }
     }
-    trackedChildren.clear();
+    children.clear();
   });
 
   describe('exec', () => {
-    it('resolves with stdout on clean success', async () => {
-      const p = exec(`${nodeBin} -e "process.stdout.write('hi')"`);
-      if (p.child) trackedChildren.add(p.child);
+    it('returns the child process node returns', () => {
+      const child = track(exec(`${nodeBin} -e "process.stdout.write('hi')"`));
 
-      const res = await p;
-      expect(res.stdout).toBe('hi');
-      expect(res.stderr).toBe('');
+      expect(child).toBeInstanceOf(ChildProcess);
+      expect(child.stdout).toBeInstanceOf(Readable);
+      expect(typeof child.kill).toBe('function');
     });
 
-    it('.child is present on the returned promise and is a ChildProcess', () => {
-      const p = exec(`${nodeBin} -e "process.stdout.write('hi')"`);
-      if (p.child) trackedChildren.add(p.child);
+    it('calls the callback as node does, and creates no promise on that path', async () => {
+      const rejections: unknown[] = [];
+      const onRejection = (reason: unknown) => rejections.push(reason);
+      process.on('unhandledRejection', onRejection);
 
-      expect(p.child).toBeDefined();
-      expect(p.child).toBeInstanceOf(ChildProcess);
+      try {
+        const callbackArgs = await new Promise<[unknown, string, string]>((resolve) => {
+          track(
+            exec(
+              `${nodeBin} -e "process.stdout.write('out'); process.stderr.write('err'); process.exit(2)"`,
+              (error, stdout, stderr) => {
+                resolve([error, stdout, stderr]);
+              },
+            ),
+          );
+        });
+
+        const [error, stdout, stderr] = callbackArgs;
+        expect((error as { code?: number }).code).toBe(2);
+        expect(stdout).toBe('out');
+        expect(stderr).toBe('err');
+
+        await delay(100);
+        expect(rejections).toEqual([]);
+      } finally {
+        process.off('unhandledRejection', onRejection);
+      }
     });
 
-    it('rejects ProcessExitError carrying exitCode, stdout and stderr on non-zero exit', async () => {
-      const p = exec(`${nodeBin} -e "process.stdout.write('out'); process.stderr.write('err'); process.exit(42);"`);
-      if (p.child) trackedChildren.add(p.child);
+    it('keeps the promise property off enumeration', () => {
+      const child = track(exec(`${nodeBin} -e "process.stdout.write('hi')"`));
+
+      expect(Object.keys(child)).not.toContain('promise');
+      expect(Object.prototype.propertyIsEnumerable.call(child, 'promise')).toBe(false);
+    });
+
+    it('returns the same promise on every access', () => {
+      const child = track(exec(`${nodeBin} -e "process.stdout.write('hi')"`));
+
+      expect(child.promise).toBe(child.promise);
+    });
+
+    it('resolves with stdout and stderr', async () => {
+      const child = track(exec(`${nodeBin} -e "process.stdout.write('out'); process.stderr.write('err')"`));
+
+      await expect(child.promise).resolves.toEqual({ stdout: 'out', stderr: 'err' });
+    });
+
+    it("rejects with node's own decorated error on a non-zero exit", async () => {
+      const child = track(exec(`${nodeBin} -e "process.exit(42)"`));
 
       let caught: unknown;
       try {
-        await p;
+        await child.promise;
       } catch (err) {
         caught = err;
       }
 
-      expect(caught).toBeInstanceOf(ProcessExitError);
-      expect(isProcessExitError(caught)).toBe(true);
-      expect(isProcessSpawnError(caught)).toBe(false);
-
-      const exitErr = caught as ProcessExitError;
-      expect(exitErr.exitCode).toBe(42);
-      expect(exitErr.stdout).toBe('out');
-      expect(exitErr.stderr).toBe('err');
-    });
-
-    it('rejects ProcessMaxBufferError on maxBuffer overflow', async () => {
-      const p = exec(`${nodeBin} -e "process.stdout.write('1234567890')"`, {
-        maxBuffer: 5,
-      });
-      if (p.child) trackedChildren.add(p.child);
-
-      let caught: unknown;
-      try {
-        await p;
-      } catch (err) {
-        caught = err;
-      }
-
-      expect(caught).toBeInstanceOf(ProcessMaxBufferError);
-      expect(isProcessMaxBufferError(caught)).toBe(true);
+      expect((caught as { code?: number }).code).toBe(42);
       expect(isProcessExitError(caught)).toBe(false);
     });
 
-    it('cancel kills the process, rejects CancelError, and child.killed is true', async () => {
-      const p = exec(`${nodeBin} -e "setTimeout(()=>{}, 60000)"`);
-      if (p.child) trackedChildren.add(p.child);
-
-      await new Promise((r) => setTimeout(r, 100));
-
-      const cancelPromise = p.cancel();
-      await cancelPromise;
+    it('forwards the timeout option to node', async () => {
+      const child = track(exec(`${nodeBin} -e "setTimeout(() => {}, 60000)"`, { timeout: 100 }));
 
       let caught: unknown;
       try {
-        await p;
+        await child.promise;
       } catch (err) {
         caught = err;
       }
 
-      expect(caught).toBeInstanceOf(CancelError);
-      expect(isCancelError(caught)).toBe(true);
-      expect(p.child.killed).toBe(true);
+      expect(isProcessSignalError(caught)).toBe(true);
+      expect((caught as { signal?: string }).signal).toBe('SIGTERM');
     });
 
-    it('throws a TypeError naming the toolbox helper when timeout is passed', () => {
-      expect(() => exec(`${nodeBin} -v`, { timeout: 1000 } as any)).toThrow(TypeError);
-      expect(() => exec(`${nodeBin} -v`, { timeout: 1000 } as any)).toThrow(
-        /The "timeout" option is not supported\. Use timeout\(\) from @cancjs\/toolbox instead\./,
-      );
+    it('cancels by killing the child, and resolves the cancel only after it exited', async () => {
+      const child = track(exec(`${nodeBin} -e "setTimeout(() => {}, 60000)"`));
+      const promise = child.promise;
+
+      let exited = false;
+      child.on('exit', () => {
+        exited = true;
+      });
+
+      await delay(100);
+      await promise.cancel();
+
+      expect(exited).toBe(true);
+      expect(child.killed).toBe(true);
+      await expect(promise).rejects.toThrow(CancelError);
+    });
+
+    it("lets an aborted caller signal reach the caller as node's AbortError", async () => {
+      const controller = new AbortController();
+      const child = track(exec(`${nodeBin} -e "setTimeout(() => {}, 60000)"`, { signal: controller.signal }));
+      const promise = child.promise;
+
+      await delay(100);
+      controller.abort();
+
+      let caught: unknown;
+      try {
+        await promise;
+      } catch (err) {
+        caught = err;
+      }
+
+      expect((caught as Error).name).toBe('AbortError');
+      expect(isCancelError(caught)).toBe(false);
+    });
+
+    it('settles a promise taken after the process already ended', async () => {
+      const child = track(exec(`${nodeBin} -e "process.stdout.write('late')"`));
+
+      await new Promise((resolve) => child.on('close', resolve));
+
+      await expect(child.promise).resolves.toEqual({ stdout: 'late', stderr: '' });
+    });
+
+    it('is promisifiable into a cancelable promise carrying the child', async () => {
+      const execAsync = promisify(exec);
+
+      const promise = execAsync(`${nodeBin} -e "process.stdout.write('promisified')"`);
+      track(promise.child);
+
+      expect(typeof promise.cancel).toBe('function');
+      expect(promise.child).toBeInstanceOf(ChildProcess);
+      await expect(promise).resolves.toEqual({ stdout: 'promisified', stderr: '' });
+
+      const slow = execAsync(`${nodeBin} -e "setTimeout(() => {}, 60000)"`);
+      track(slow.child);
+      await delay(100);
+      await slow.cancel();
+      await expect(slow).rejects.toThrow(CancelError);
     });
   });
 
   describe('execFile', () => {
-    it('resolves with stdout and exposes .child on success', async () => {
-      const p = execFile(process.execPath, ['-e', "process.stdout.write('file-hi')"]);
-      if (p.child) trackedChildren.add(p.child);
+    it('resolves with stdout and exposes the child process', async () => {
+      const child = track(execFile(process.execPath, ['-e', "process.stdout.write('file-hi')"]));
 
-      expect(p.child).toBeInstanceOf(ChildProcess);
-      const res = await p;
-      expect(res.stdout).toBe('file-hi');
+      expect(child).toBeInstanceOf(ChildProcess);
+      await expect(child.promise).resolves.toEqual({ stdout: 'file-hi', stderr: '' });
     });
 
-    it('rejects ProcessSpawnError on missing binary and is distinguished from ProcessExitError', async () => {
-      const p = execFile('non_existent_binary_xyz_12345');
-      if (p.child) trackedChildren.add(p.child);
+    it('rejects a missing binary with a spawn error', async () => {
+      const child = track(execFile('non_existent_binary_xyz_12345'));
 
       let caught: unknown;
       try {
-        await p;
+        await child.promise;
       } catch (err) {
         caught = err;
       }
 
-      expect(caught).toBeInstanceOf(ProcessSpawnError);
       expect(isProcessSpawnError(caught)).toBe(true);
-      expect(isProcessExitError(caught)).toBe(false);
-
-      const spawnErr = caught as ProcessSpawnError;
-      expect(spawnErr.code).toBe('ENOENT');
+      expect((caught as { code?: string }).code).toBe('ENOENT');
     });
 
-    it('rejects ProcessExitError on non-zero exit', async () => {
-      const p = execFile(process.execPath, [
-        '-e',
-        "process.stdout.write('out'); process.stderr.write('err'); process.exit(7);",
-      ]);
-      if (p.child) trackedChildren.add(p.child);
+    it('calls the callback with the arguments node passes', async () => {
+      const stdout = await new Promise<string>((resolve, reject) => {
+        track(
+          execFile(process.execPath, ['-e', "process.stdout.write('cb')"], (error, out) => {
+            if (error) {
+              reject(error);
+              return;
+            }
+            resolve(out);
+          }),
+        );
+      });
 
-      let caught: unknown;
-      try {
-        await p;
-      } catch (err) {
-        caught = err;
-      }
-
-      expect(caught).toBeInstanceOf(ProcessExitError);
-      expect(isProcessExitError(caught)).toBe(true);
-      expect(isProcessSpawnError(caught)).toBe(false);
-
-      const exitErr = caught as ProcessExitError;
-      expect(exitErr.exitCode).toBe(7);
-      expect(exitErr.stdout).toBe('out');
-      expect(exitErr.stderr).toBe('err');
+      expect(stdout).toBe('cb');
     });
 
-    it('rejects ProcessMaxBufferError on maxBuffer overflow', async () => {
-      const p = execFile(process.execPath, ['-e', "process.stdout.write('1234567890')"], { maxBuffer: 5 });
-      if (p.child) trackedChildren.add(p.child);
+    it('is promisifiable into a cancelable promise carrying the child', async () => {
+      const execFileAsync = promisify(execFile);
 
-      let caught: unknown;
-      try {
-        await p;
-      } catch (err) {
-        caught = err;
-      }
+      const promise = execFileAsync(process.execPath, ['-e', "process.stdout.write('pf')"]);
+      track(promise.child);
 
-      expect(caught).toBeInstanceOf(ProcessMaxBufferError);
-      expect(isProcessMaxBufferError(caught)).toBe(true);
-    });
-
-    it('cancel kills the process and rejects CancelError', async () => {
-      const p = execFile(process.execPath, ['-e', 'setTimeout(()=>{}, 60000)']);
-      if (p.child) trackedChildren.add(p.child);
-
-      await new Promise((r) => setTimeout(r, 100));
-
-      await p.cancel();
-
-      let caught: unknown;
-      try {
-        await p;
-      } catch (err) {
-        caught = err;
-      }
-
-      expect(isCancelError(caught)).toBe(true);
-      expect(p.child.killed).toBe(true);
-    });
-
-    it('throws a TypeError naming the toolbox helper when timeout is passed', () => {
-      expect(() => execFile(process.execPath, ['-v'], { timeout: 1000 } as any)).toThrow(TypeError);
-      expect(() => execFile(process.execPath, ['-v'], { timeout: 1000 } as any)).toThrow(
-        /The "timeout" option is not supported\. Use timeout\(\) from @cancjs\/toolbox instead\./,
-      );
+      expect(typeof promise.cancel).toBe('function');
+      await expect(promise).resolves.toEqual({ stdout: 'pf', stderr: '' });
     });
   });
 });

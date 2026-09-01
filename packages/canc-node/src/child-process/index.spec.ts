@@ -4,17 +4,16 @@ import { resolve } from 'node:path';
 import * as cp from './index';
 
 describe('child-process exports', () => {
-  it('exports functions matching the surface manifest and helpers', () => {
+  it('exports exactly the functions named in the surface manifest', () => {
     const manifestPath = resolve(__dirname, '../../surface/child-process.json');
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
-    const manifestExports: string[] = manifest.exports.map((e: { name: string }) => e.name);
+    const manifestExports: string[] = manifest.exports.map((entry: { name: string }) => entry.name);
 
-    for (const name of manifestExports) {
-      expect(typeof (cp as Record<string, unknown>)[name]).toBe('function');
-    }
+    const runtimeExports = Object.keys(cp).filter(
+      (name) => typeof (cp as Record<string, unknown>)[name] === 'function',
+    );
 
-    expect(typeof cp.killTree).toBe('function');
-    expect((cp as Record<string, unknown>).default).toBeUndefined();
+    expect(runtimeExports.sort()).toEqual([...manifestExports].sort());
   });
 
   it('has no default export', () => {

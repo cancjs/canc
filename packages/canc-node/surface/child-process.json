@@ -21,20 +21,15 @@
         }
       },
       "wrapper": "promisify-custom",
-      "teardown": "SIGTERM then grace then SIGKILL, optional group kill",
-      "failures": [
-        "ProcessExitError",
-        "ProcessSignalError",
-        "ProcessMaxBufferError",
-        "ProcessSpawnError"
-      ],
+      "teardown": "kill with killSignal on cancel, then wait for exit",
+      "failures": ["ProcessSpawnError", "ProcessSignalError"],
       "minMajor": null,
       "gate": null,
       "runtime": {
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": "exec carries [util.promisify.custom]"
+      "notes": "exec carries [util.promisify.custom]; returns node's ChildProcess with a lazy promise property; a non-zero exit rejects with node's own error"
     },
     {
       "name": "execFile",
@@ -54,20 +49,15 @@
         }
       },
       "wrapper": "promisify-custom",
-      "teardown": "SIGTERM then grace then SIGKILL, optional group kill",
-      "failures": [
-        "ProcessExitError",
-        "ProcessSignalError",
-        "ProcessMaxBufferError",
-        "ProcessSpawnError"
-      ],
+      "teardown": "kill with killSignal on cancel, then wait for exit",
+      "failures": ["ProcessSpawnError", "ProcessSignalError"],
       "minMajor": null,
       "gate": null,
       "runtime": {
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": "execFile carries [util.promisify.custom]"
+      "notes": "execFile carries [util.promisify.custom]; returns node's ChildProcess with a lazy promise property; a non-zero exit rejects with node's own error"
     },
     {
       "name": "spawn",
@@ -87,19 +77,15 @@
         }
       },
       "wrapper": "cancelify-teardown",
-      "teardown": "kill ladder; settle on close",
-      "failures": [
-        "ProcessExitError",
-        "ProcessSignalError",
-        "ProcessSpawnError"
-      ],
+      "teardown": "kill with killSignal on cancel, then wait for exit",
+      "failures": ["ProcessSpawnError"],
       "minMajor": null,
       "gate": null,
       "runtime": {
         "deno": "ok",
         "bun": "partial"
       },
-      "notes": "adapted from events; no promise form in node; returns CancelablePromise & { child }"
+      "notes": "no promise form in node; returns node's ChildProcess with a lazy promise property; a non-zero exit resolves with the exit code"
     },
     {
       "name": "fork",
@@ -119,20 +105,15 @@
         }
       },
       "wrapper": "cancelify-teardown",
-      "teardown": "disconnect IPC, then kill ladder",
-      "failures": [
-        "ProcessExitError",
-        "ProcessSignalError",
-        "ProcessSpawnError",
-        "ProcessIpcError"
-      ],
+      "teardown": "kill with killSignal on cancel, then wait for exit",
+      "failures": ["ProcessSpawnError"],
       "minMajor": null,
       "gate": null,
       "runtime": {
         "deno": "ok",
         "bun": "partial"
       },
-      "notes": "adapted from events; no promise form in node"
+      "notes": "no promise form in node; returns node's ChildProcess with a lazy promise property; a non-zero exit resolves with the exit code"
     }
   ]
 }

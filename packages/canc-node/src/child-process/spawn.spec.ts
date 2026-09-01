@@ -1,157 +1,188 @@
-import * as fs from 'node:fs';
-import * as path from 'node:path';
+import { ChildProcess } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { PassThrough, Readable } from 'node:stream';
 
-import { CancelablePromise, CancelError } from '@cancjs/promise';
+import { CancelError, isCancelError } from '@cancjs/promise';
 
-import { ProcessSignalError, ProcessSpawnError } from '../errors/classes';
+import { isProcessSpawnError } from '../errors/classes';
 import { fork, spawn } from './spawn';
 
+const forever = 'setTimeout(() => {}, 60000)';
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+type TTrackedChild = ChildProcess & { promise: Promise<unknown> };
+
 describe('spawn and fork', () => {
-  const children = new Set<any>();
+  const children = new Set<TTrackedChild>();
+
+  function track<T extends TTrackedChild>(child: T): T {
+    children.add(child);
+    return child;
+  }
 
   afterEach(() => {
     for (const child of children) {
-      try {
-        if (child.pid && child.exitCode === null && child.signalCode === null) {
-          child.kill('SIGKILL');
-        }
-      } catch {
-        // ignore
+      if (child.pid && child.exitCode === null && child.signalCode === null) {
+        // reaping a child rejects a promise the test may have taken but not awaited
+        child.promise.catch(() => undefined);
+        child.kill('SIGKILL');
       }
     }
     children.clear();
   });
 
-  function track(p: CancelablePromise<any> & { child: any }) {
-    children.add(p.child);
-    return p;
-  }
+  describe('spawn', () => {
+    it('returns the child process node returns', () => {
+      const child = track(spawn(process.execPath, ['-e', 'process.exit(0)']));
 
-  it('1. Resolves with stdout, stderr, exitCode and signal on a clean exit', async () => {
-    const p = track(spawn(process.execPath, ['-e', 'console.log("out"); console.error("err")']));
-    const res = await p;
-    expect(res.exitCode).toBe(0);
-    expect(res.signal).toBe(null);
-    expect(res.stdout.toString().trim()).toBe('out');
-    expect(res.stderr.toString().trim()).toBe('err');
-  });
-
-  it('2. Settles on close, not exit (yields complete output from slow stdio drain)', async () => {
-    // Child exits immediately, but grandchild keeps stdout open for 50ms and writes to it
-    const code = `
-      const cp = require("child_process");
-      cp.spawn(process.execPath, ["-e", "setTimeout(() => { console.log('delayed'); }, 50);"], {
-        detached: true,
-        stdio: ['ignore', 1, 2],
-        windowsHide: true
-      });
-      process.exit(0);
-    `;
-    const p = track(spawn(process.execPath, ['-e', code]));
-
-    let exited = false;
-    p.child.on('exit', () => {
-      exited = true;
+      expect(child).toBeInstanceOf(ChildProcess);
+      expect(child.stdout).toBeInstanceOf(Readable);
+      expect(typeof child.kill).toBe('function');
+      expect(typeof child.pid).toBe('number');
     });
 
-    const res = await p;
-    expect(exited).toBe(true);
-    expect(res.stdout.toString().trim()).toBe('delayed');
-  });
+    it('creates the promise only when it is asked for, and only once', () => {
+      const child = track(spawn(process.execPath, ['-e', 'process.exit(0)']));
 
-  it('3. Cancel rejects CancelError, not ProcessSignalError (internal flag)', async () => {
-    const p = track(spawn(process.execPath, ['-e', 'setTimeout(()=>{}, 60000)']));
+      expect(Object.keys(child)).not.toContain('promise');
+      expect(Object.prototype.propertyIsEnumerable.call(child, 'promise')).toBe(false);
+      expect(child.promise).toBe(child.promise);
+    });
 
-    // Wait for it to actually start
-    await new Promise((r) => setTimeout(r, 50));
+    it('resolves with the exit code and signal, including a non-zero exit', async () => {
+      const clean = track(spawn(process.execPath, ['-e', 'process.exit(0)']));
+      const failed = track(spawn(process.execPath, ['-e', 'process.exit(3)']));
 
-    const pCancel = p.cancel();
+      await expect(clean.promise).resolves.toEqual({ exitCode: 0, signal: null });
+      await expect(failed.promise).resolves.toEqual({ exitCode: 3, signal: null });
+    });
 
-    await expect(p).rejects.toThrow(CancelError);
-    await pCancel;
-  });
+    it('rejects a missing binary with a spawn error', async () => {
+      const child = track(spawn('does_not_exist_binary_xyz_12345'));
+      const promise = child.promise;
 
-  it('4. An external SIGTERM rejects ProcessSignalError, not CancelError', async () => {
-    const p = track(spawn(process.execPath, ['-e', 'setTimeout(()=>{}, 60000)']));
-
-    await new Promise((r) => setTimeout(r, 50));
-
-    // Send external signal
-    p.child.kill('SIGTERM');
-
-    await expect(p).rejects.toThrow(ProcessSignalError);
-  });
-
-  it('5. Spawn failure rejects ProcessSpawnError exactly once', async () => {
-    let settles = 0;
-    const p = track(spawn('does-not-exist-binary-xyz'));
-
-    try {
-      await p;
-    } catch (e) {
-      settles++;
-      expect(e).toBeInstanceOf(ProcessSpawnError);
-    }
-
-    // Wait a bit to ensure it does not settle twice (e.g. from close event)
-    await new Promise((r) => setTimeout(r, 20));
-    expect(settles).toBe(1);
-  });
-
-  it('6. Writing to a killed child stdin does not produce an unhandled rejection', async () => {
-    const p = track(
-      spawn(process.execPath, ['-e', 'setTimeout(()=>{}, 60000)'], {
-        stdio: ['pipe', 'pipe', 'pipe'],
-      }),
-    );
-
-    await new Promise((r) => setTimeout(r, 50));
-    await p.cancel();
-
-    // writing to stdin after kill
-    expect(() => {
-      p.child.stdin?.write('test\n');
-    }).not.toThrow();
-
-    // Give it a moment to ensure no unhandled promise rejection in the background
-    await new Promise((r) => setTimeout(r, 50));
-  });
-
-  it('7. fork: IPC round trip works, and cancel disconnects the channel before killing', async () => {
-    const scriptPath = path.join(__dirname, 'temp-fork-script.js');
-    fs.writeFileSync(
-      scriptPath,
-      `
-      process.on('message', (m) => {
-        if (m === 'ping') process.send('pong');
-      });
-      setTimeout(() => {}, 60000);
-    `,
-    );
-
-    try {
-      const p = track(fork(scriptPath));
-
-      await new Promise((r) => setTimeout(r, 50));
-
-      const pongPromise = new Promise((resolve) => {
-        p.child.on('message', resolve);
-      });
-
-      p.child.send('ping');
-      const msg = await pongPromise;
-      expect(msg).toBe('pong');
-
-      await p.cancel();
-      expect(p.child.connected).toBe(false);
-
-      await expect(p).rejects.toThrow(CancelError);
-    } finally {
+      let caught: unknown;
       try {
-        fs.unlinkSync(scriptPath);
-      } catch {
-        /* ignore */
+        await promise;
+      } catch (err) {
+        caught = err;
       }
-    }
+
+      expect(isProcessSpawnError(caught)).toBe(true);
+      expect((caught as { code?: string }).code).toBe('ENOENT');
+    });
+
+    it('leaves stdout pipeable', async () => {
+      const child = track(spawn(process.execPath, ['-e', "process.stdout.write('piped')"]));
+      const sink = new PassThrough();
+      const chunks: Buffer[] = [];
+      sink.on('data', (chunk: Buffer) => chunks.push(chunk));
+
+      child.stdout?.pipe(sink);
+      await child.promise;
+
+      expect(Buffer.concat(chunks).toString()).toBe('piped');
+    });
+
+    it('leaves stdout iterable, and leaves the child running when the loop breaks', async () => {
+      const child = track(
+        spawn(process.execPath, ['-e', `setInterval(() => process.stdout.write('tick\\n'), 10); ${forever}`]),
+      );
+
+      const chunks: string[] = [];
+      for await (const chunk of child.stdout!) {
+        chunks.push(String(chunk));
+        break;
+      }
+
+      expect(chunks.length).toBe(1);
+      expect(child.stdout?.destroyed).toBe(true);
+      expect(child.exitCode).toBe(null);
+    });
+
+    it('forwards the timeout option to node', async () => {
+      const child = track(spawn(process.execPath, ['-e', forever], { timeout: 100 }));
+
+      await expect(child.promise).resolves.toEqual({ exitCode: null, signal: 'SIGTERM' });
+    });
+
+    it('resolves the cancel only after the child exited', async () => {
+      const child = track(spawn(process.execPath, ['-e', forever]));
+      const promise = child.promise;
+      const order: string[] = [];
+
+      child.on('exit', () => order.push('exit'));
+      await delay(100);
+
+      await promise.cancel();
+      order.push('cancel');
+
+      expect(order).toEqual(['exit', 'cancel']);
+      expect(child.killed).toBe(true);
+      await expect(promise).rejects.toThrow(CancelError);
+    });
+
+    it("lets an aborted caller signal reach the caller as node's AbortError", async () => {
+      const controller = new AbortController();
+      const child = track(spawn(process.execPath, ['-e', forever], { signal: controller.signal }));
+      const promise = child.promise;
+
+      await delay(100);
+      controller.abort();
+
+      let caught: unknown;
+      try {
+        await promise;
+      } catch (err) {
+        caught = err;
+      }
+
+      expect((caught as Error).name).toBe('AbortError');
+      expect(isCancelError(caught)).toBe(false);
+    });
+
+    it('settles a promise taken after the process already ended', async () => {
+      const child = track(spawn(process.execPath, ['-e', 'process.exit(5)']));
+
+      await new Promise((resolve) => child.on('close', resolve));
+
+      await expect(child.promise).resolves.toEqual({ exitCode: 5, signal: null });
+    });
+  });
+
+  describe('fork', () => {
+    let dir: string;
+    let script: string;
+
+    beforeEach(() => {
+      dir = mkdtempSync(join(tmpdir(), 'canc-fork-'));
+      script = join(dir, 'child.js');
+    });
+
+    afterEach(() => {
+      rmSync(dir, { force: true, recursive: true });
+    });
+
+    it('resolves with the exit code of the forked module', async () => {
+      writeFileSync(script, 'process.exit(0);');
+      const child = track(fork(script, { stdio: 'ignore' }));
+
+      await expect(child.promise).resolves.toEqual({ exitCode: 0, signal: null });
+    });
+
+    it('keeps the IPC channel node sets up', async () => {
+      writeFileSync(script, "process.on('message', (m) => { if (m === 'ping') process.send('pong'); });");
+      const child = track(fork(script, { stdio: 'ignore' }));
+
+      const reply = new Promise((resolve) => child.on('message', resolve));
+      child.send('ping');
+
+      await expect(reply).resolves.toBe('pong');
+      expect(child.connected).toBe(true);
+
+      await child.promise.cancel();
+    });
   });
 });
