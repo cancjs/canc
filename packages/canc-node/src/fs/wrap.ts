@@ -38,7 +38,6 @@ type TCancelableReturn<R> = [R] extends [Promise<infer TValue>] ? CancelableProm
  */
 interface IReturnRewrite<R> {
   cancelable: TCancelableReturn<R>;
-  cancelableValue: CancelablePromise<Awaited<R>>;
   same: R;
 }
 
@@ -127,14 +126,6 @@ export type TNodeSignatures<TFn, TRewrite extends TReturnRewrite> =
 
 /** Node's signature for `TFn`, returning a cancelable promise, overloads kept. */
 export type TCancelable<TFn> = TNodeSignatures<TFn, 'cancelable'>;
-
-/**
- * Node's signature for `TFn` with its result carried by a cancelable promise.
- *
- * For the members node settles synchronously into something other than a promise, an async iterable
- * from `watch` or `glob`, where the wrapper resolves with that object rather than adopting it.
- */
-export type TCancelableValue<TFn> = TNodeSignatures<TFn, 'cancelableValue'>;
 
 /** Node's signature for `TFn` unchanged, minus anything merged onto the function object. */
 export type TSignatures<TFn> = TNodeSignatures<TFn, 'same'>;
@@ -361,5 +352,22 @@ export function adopted<R = unknown>(nodeFn: TNodeFn): (...args: unknown[]) => C
     return new CancelablePromise<R>((resolve) => {
       resolve(nodeFn.apply(this, args) as R | PromiseLike<R>);
     });
+  };
+}
+
+/**
+ * Forward a node call that returns something other than a promise, such as the async iterable
+ * `watch` and `glob` hand back.
+ *
+ * There is nothing to adopt: resolving a promise with an async iterable fulfills WITH the iterable,
+ * so `for await` over the result stops working. There is nothing to cancel either, because the
+ * caller holds the iterator and node already stops one from a `signal` in the options bag. Leaving
+ * the arguments alone is what lets that signal through.
+ *
+ * @param nodeFn - Underlying node function, called with the receiver of the returned wrapper.
+ */
+export function passthrough(nodeFn: TNodeFn): TNodeFn {
+  return function passthroughCall(this: unknown, ...args: unknown[]): unknown {
+    return nodeFn.apply(this, args);
   };
 }

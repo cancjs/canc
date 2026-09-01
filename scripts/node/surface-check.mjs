@@ -77,8 +77,14 @@ for (const [mod, lockExports] of Object.entries(nodeLock.modules)) {
     const signalMajors = lockVal.signalIn || [];
     if (signalMajors.length > 0) {
       const hasSignal = mentry.nodeSignal && mentry.nodeSignal.since !== null;
+      // passthrough counts: it hands node the caller's arguments untouched, so a signal in the
+      // options bag reaches node the way node documents. That is the case for the members returning
+      // an async iterable, where there is no promise to carry a cancel in the first place
       const isSignalWrapper =
-        mentry.wrapper === 'cancelify-signal' || mentry.wrapper === 'cancelify-teardown' || mentry.wrapper === 'gated';
+        mentry.wrapper === 'cancelify-signal' ||
+        mentry.wrapper === 'cancelify-teardown' ||
+        mentry.wrapper === 'gated' ||
+        mentry.wrapper === 'passthrough';
       if (!hasSignal || !isSignalWrapper) {
         const firstMajor = Math.min(...signalMajors);
         const sinceVer = nodeLock.generatedFrom[firstMajor] || `v${firstMajor}`;

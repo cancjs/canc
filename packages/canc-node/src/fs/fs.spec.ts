@@ -1,4 +1,5 @@
 import nodeFs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 import { CancelablePromise, isCancelError } from '@cancjs/promise';
@@ -128,5 +129,35 @@ describe('@cancjs/node/fs module exports', () => {
 
     expect(isCancelError(caught)).toBe(true);
     expect(nodeSignal?.aborted).toBe(true);
+  });
+
+  it('watch returns the async iterable node returns, and a signal ends the loop', async () => {
+    const dir = nodeFs.mkdtempSync(path.join(os.tmpdir(), 'canc-watch-'));
+    const target = path.join(dir, 'touched.txt');
+    const controller = new AbortController();
+
+    const events = fsExports.watch(dir, { signal: controller.signal });
+    expect(typeof (events as any)[Symbol.asyncIterator]).toBe('function');
+
+    // the watcher starts listening asynchronously, so keep touching until it reports something
+    const touch = setInterval(() => nodeFs.writeFileSync(target, String(Date.now())), 20);
+    const seen: unknown[] = [];
+
+    try {
+      for await (const event of events) {
+        seen.push(event);
+        controller.abort();
+      }
+    } catch (err: any) {
+      // node ends an aborted watch by throwing, which is node's own behavior and not ours
+      if (err?.name !== 'AbortError') {
+        throw err;
+      }
+    } finally {
+      clearInterval(touch);
+      nodeFs.rmSync(dir, { recursive: true, force: true });
+    }
+
+    expect(seen.length).toBeGreaterThanOrEqual(1);
   });
 });

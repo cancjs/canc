@@ -1,7 +1,14 @@
 import { CancelError, isCancelError } from '@cancjs/promise';
 
 import { NotImplementedError } from '../errors/classes';
-import { gatedWrapped, IManifestEntry, promisifySignalWrapped, signalWrapped, teardownWrapped } from './wrap';
+import {
+  gatedWrapped,
+  IManifestEntry,
+  passthrough,
+  promisifySignalWrapped,
+  signalWrapped,
+  teardownWrapped,
+} from './wrap';
 
 const isAbortError = (err: any) => err?.name === 'AbortError';
 
@@ -164,6 +171,23 @@ describe('wrap', () => {
 
       await expect(p).rejects.toThrow(CancelError);
       expect(receivedOptions.signal.aborted).toBe(true);
+    });
+  });
+
+  describe('passthrough', () => {
+    it('hands back what node returned, so an async iterable is still iterable', async () => {
+      async function* fake(): AsyncGenerator<string> {
+        yield 'one';
+        yield 'two';
+      }
+      const wrapped = passthrough(fake as any);
+
+      const seen: string[] = [];
+      for await (const value of wrapped() as AsyncIterable<string>) {
+        seen.push(value);
+      }
+
+      expect(seen).toEqual(['one', 'two']);
     });
   });
 

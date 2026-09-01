@@ -10,13 +10,13 @@ import {
   adopted,
   gatedWrapped,
   IManifestEntry,
+  passthrough,
   promisifySignalWrapped,
   promisifyWrapped,
-  signalWrapped,
   TCancelable,
-  TCancelableValue,
   teardownWrapped,
   TNodeFn,
+  TSignatures,
 } from './wrap';
 
 // node's own signatures are overloaded per call, so the bindings reach both APIs through one view
@@ -108,8 +108,8 @@ export const glob = gatedWrapped(
   features.hasGlob,
   'glob',
   '22',
-  adopted(fsp.glob),
-) as unknown as TCancelableValue<TGlobFn>;
+  passthrough(fsp.glob),
+) as unknown as TSignatures<TGlobFn>;
 export const lchmod = promisifyWrapped(viaFs('lchmod')) as TCancelable<TFsPromises['lchmod']>;
 export const lchown = promisifyWrapped(viaFs('lchown')) as TCancelable<TFsPromises['lchown']>;
 export const link = adopted(fsp.link) as TCancelable<TFsPromises['link']>;
@@ -148,9 +148,7 @@ export const symlink = adopted(fsp.symlink) as TCancelable<TFsPromises['symlink'
 export const truncate = adopted(fsp.truncate) as TCancelable<TFsPromises['truncate']>;
 export const unlink = adopted(fsp.unlink) as TCancelable<TFsPromises['unlink']>;
 export const utimes = adopted(fsp.utimes) as TCancelable<TFsPromises['utimes']>;
-export const watch = signalWrapped(fsp.watch, entries.get('watch'), 1) as unknown as TCancelableValue<
-  TFsPromises['watch']
->;
+export const watch = passthrough(fsp.watch) as unknown as TSignatures<TFsPromises['watch']>;
 export const writeFile = promisifySignalWrapped(viaFs('writeFile'), entries.get('writeFile'), 2) as TCancelable<
   TFsPromises['writeFile']
 >;

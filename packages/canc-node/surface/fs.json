@@ -707,7 +707,7 @@
         "probed": "reject:AbortError",
         "sinceByMajor": null
       },
-      "wrapper": "cancelify-signal",
+      "wrapper": "passthrough",
       "teardown": "iterator ends, watcher closed",
       "failures": ["ENOENT", "EACCES", "ENOSPC"],
       "minMajor": null,
@@ -716,7 +716,7 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": "",
+      "notes": "Returns node's async iterable unchanged; a signal in the options bag ends the iteration",
       "callPath": "promises"
     },
     {
