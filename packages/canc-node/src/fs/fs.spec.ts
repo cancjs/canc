@@ -98,4 +98,35 @@ describe('@cancjs/node/fs module exports', () => {
     expect(p).toBeInstanceOf(CancelablePromise);
     (p as CancelablePromise<any>).cancel();
   });
+
+  it('readFile honors a caller signal instead of dropping it', async () => {
+    let nodeSignal: AbortSignal | undefined;
+    const fakeFs = {
+      ...nodeFs,
+      // never calls back, so only the caller's abort can settle this
+      readFile: (...args: any[]) => {
+        nodeSignal = args[1]?.signal;
+      },
+    };
+
+    setFs(fakeFs);
+
+    const controller = new AbortController();
+    const p = fsExports.readFile(__filename, { signal: controller.signal });
+
+    expect(nodeSignal).toBeDefined();
+    expect(nodeSignal).not.toBe(controller.signal);
+
+    controller.abort();
+
+    let caught: any;
+    try {
+      await p;
+    } catch (err) {
+      caught = err;
+    }
+
+    expect(isCancelError(caught)).toBe(true);
+    expect(nodeSignal?.aborted).toBe(true);
+  });
 });

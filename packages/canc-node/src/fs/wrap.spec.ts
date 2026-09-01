@@ -20,6 +20,34 @@ const neverSignal: IManifestEntry = {
 
 describe('wrap', () => {
   describe('signalWrapped', () => {
+    it('gives node a signal that aborts when the caller aborts theirs, and cancels with CancelError', async () => {
+      let receivedSignal: AbortSignal | undefined;
+      const fake = jest.fn((options: any) => {
+        receivedSignal = options.signal;
+        return new Promise(() => {}); // hang
+      });
+      const wrapped = signalWrapped(fake as any, alwaysSignal);
+
+      const controller = new AbortController();
+      const p = wrapped({ signal: controller.signal, someOpt: true });
+
+      // the caller's signal is theirs to abort, ours is the one node is watching
+      expect(receivedSignal).toBeDefined();
+      expect(receivedSignal).not.toBe(controller.signal);
+      expect(fake.mock.calls[0][0].someOpt).toBe(true);
+
+      controller.abort();
+
+      let error: any;
+      try {
+        await p;
+      } catch (err) {
+        error = err;
+      }
+      expect(isCancelError(error)).toBe(true);
+      expect(receivedSignal?.aborted).toBe(true);
+    });
+
     it('aborts the signal the fake received when returned promise is canceled, and promise rejects CancelError, not AbortError', async () => {
       let receivedSignal: AbortSignal | undefined;
       const fake = jest.fn((options: any) => {
@@ -116,6 +144,26 @@ describe('wrap', () => {
 
       await expect(wrapped('file.txt')).resolves.toBe('done');
       expect(fake.mock.calls[0].length).toBe(2);
+    });
+
+    it('gives node a signal that aborts when the caller aborts theirs', async () => {
+      let receivedOptions: any;
+      const fake = jest.fn((_path: string, options: any, _cb: (err: unknown) => void) => {
+        receivedOptions = options;
+      });
+      const wrapped = promisifySignalWrapped(fake as any, alwaysSignal, 1);
+
+      const controller = new AbortController();
+      const p = wrapped('file.txt', { signal: controller.signal, encoding: 'utf8' });
+
+      expect(receivedOptions.signal).toBeDefined();
+      expect(receivedOptions.signal).not.toBe(controller.signal);
+      expect(receivedOptions.encoding).toBe('utf8');
+
+      controller.abort();
+
+      await expect(p).rejects.toThrow(CancelError);
+      expect(receivedOptions.signal.aborted).toBe(true);
     });
   });
 

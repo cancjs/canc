@@ -181,6 +181,23 @@ function acceptsSignal(entry: IManifestEntry | undefined): boolean {
   return facts.since !== null;
 }
 
+/** A call with the caller's own signal lifted out of the node options bag. */
+interface ICallerSignalCall {
+  /** The arguments with that `signal` key removed, so nothing later overwrites it. */
+  readonly args: unknown[];
+  /** What the caller put there, or undefined when there was nothing. */
+  readonly callerSignal: AbortSignal | undefined;
+}
+
+/** Whether a value is an abort signal, so anything else stays in the options bag untouched. */
+function isAbortSignalLike(value: unknown): value is AbortSignal {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { addEventListener?: unknown }).addEventListener === 'function'
+  );
+}
+
 /** Merge the signal into a node options argument, honoring the encoding-string shorthand. */
 export function withSignal(options: TNodeOptions, signal: unknown): Record<string, unknown> {
   if (typeof options === 'string') {
@@ -208,6 +225,34 @@ function withSignalAt(args: unknown[], optionsIndex: number, signal: unknown): u
 }
 
 /**
+ * Take the caller's own signal out of the node options bag, so it can be given to the promise
+ * instead.
+ *
+ * The signal this package sends node is the one cancellation drives, and there is room for exactly
+ * one. A caller's signal handed to the promise reaches node all the same, one step further back:
+ * their abort cancels the promise, cancelling aborts our signal, and node stops. That is one
+ * settlement path and one error, where combining the two signals would give the caller node's
+ * AbortError or our CancelError depending on timing.
+ */
+function takeCallerSignal(args: unknown[], optionsIndex: number): ICallerSignalCall {
+  const options = args[optionsIndex] as TNodeOptions;
+  if (!options || typeof options === 'string') {
+    return { args, callerSignal: undefined };
+  }
+
+  const callerSignal = options.signal;
+  if (!isAbortSignalLike(callerSignal)) {
+    return { args, callerSignal: undefined };
+  }
+
+  const { signal: _signal, ...rest } = options;
+  const callArgs = args.slice();
+  callArgs[optionsIndex] = rest;
+
+  return { args: callArgs, callerSignal };
+}
+
+/**
  * Wrap a promise-returning node call, forwarding the cancel signal when node accepts one.
  *
  * @param nodeFn - Underlying node function, called with the receiver of the returned wrapper.
@@ -222,11 +267,21 @@ export function signalWrapped<R = unknown>(
   const forwards = acceptsSignal(entry);
 
   return function signalWrappedCall(this: unknown, ...args: unknown[]): CancelablePromise<R> {
-    return new CancelablePromise<R>((resolve, _reject, { getSignal }) => {
-      // the signal is minted before the call, so a cancel racing the call still aborts it
-      const callArgs = forwards ? withSignalAt(args, optionsIndex, getSignal()) : args;
-      resolve(nodeFn.apply(this, callArgs) as R | PromiseLike<R>);
-    });
+    if (!forwards) {
+      return new CancelablePromise<R>((resolve) => {
+        resolve(nodeFn.apply(this, args) as R | PromiseLike<R>);
+      });
+    }
+
+    const call = takeCallerSignal(args, optionsIndex);
+
+    return new CancelablePromise<R>(
+      (resolve, _reject, { getSignal }) => {
+        // the signal is minted before the call, so a cancel racing the call still aborts it
+        resolve(nodeFn.apply(this, withSignalAt(call.args, optionsIndex, getSignal())) as R | PromiseLike<R>);
+      },
+      { signal: call.callerSignal },
+    );
   };
 }
 
@@ -247,9 +302,19 @@ export function promisifySignalWrapped<R = unknown>(
     return promisifyWrapped(nodeFn);
   }
 
-  return promisifyWrapped(nodeFn, {
-    transformArgs: (args, getSignal) => withSignalAt(args, optionsIndex, getSignal()),
-  });
+  const transformArgs = (args: unknown[], getSignal: () => unknown): unknown[] =>
+    withSignalAt(args, optionsIndex, getSignal());
+
+  const plain = promisifyWrapped(nodeFn, { transformArgs });
+
+  return function promisifySignalWrappedCall(this: unknown, ...args: unknown[]): CancelablePromise<R> {
+    const call = takeCallerSignal(args, optionsIndex);
+
+    // promisify reads its options once, at wrap time, so a per-call signal needs its own binding
+    const bound = call.callerSignal ? promisifyWrapped(nodeFn, { transformArgs, signal: call.callerSignal }) : plain;
+
+    return bound.apply(this, call.args) as CancelablePromise<R>;
+  };
 }
 
 /**
