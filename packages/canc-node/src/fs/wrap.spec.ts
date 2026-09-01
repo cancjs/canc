@@ -2,6 +2,7 @@ import { CancelError, isCancelError } from '@cancjs/promise';
 
 import { NotImplementedError } from '../errors/classes';
 import {
+  acceptsSignal,
   gatedWrapped,
   IManifestEntry,
   passthrough,
@@ -25,7 +26,32 @@ const neverSignal: IManifestEntry = {
   nodeSignal: { documented: true, since: 'v999.0.0', sinceByMajor: { '999': 'v999.0.0' }, probed: null },
 };
 
+// stat and lstat gained the option partway through release line 26, which is the case a comparison
+// of majors alone gets wrong
+const backportedSignal: IManifestEntry = {
+  name: 'stat',
+  nodeSignal: { documented: true, since: 'v26.8.0', sinceByMajor: { '26': 'v26.8.0' }, probed: 'resolve' },
+};
+
 describe('wrap', () => {
+  describe('acceptsSignal', () => {
+    it('compares the whole version against the release this line gained the option in', () => {
+      expect(acceptsSignal(backportedSignal, '26.7.9')).toBe(false);
+      expect(acceptsSignal(backportedSignal, '26.8.0')).toBe(true);
+      expect(acceptsSignal(backportedSignal, '26.9.1')).toBe(true);
+    });
+
+    it('answers for a line the map does not name from the newest line below it', () => {
+      expect(acceptsSignal(backportedSignal, '24.20.0')).toBe(false);
+      expect(acceptsSignal(backportedSignal, '27.0.0')).toBe(true);
+    });
+
+    it('takes a missing map to mean support older than every line this package runs on', () => {
+      expect(acceptsSignal(alwaysSignal, '18.20.8')).toBe(true);
+      expect(acceptsSignal(undefined, '26.8.0')).toBe(false);
+    });
+  });
+
   describe('signalWrapped', () => {
     it('gives node a signal that aborts when the caller aborts theirs, and cancels with CancelError', async () => {
       let receivedSignal: AbortSignal | undefined;

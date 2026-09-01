@@ -15,6 +15,12 @@ describe('features', () => {
     expect(features.nodeMajor).toBeGreaterThanOrEqual(18);
   });
 
+  it('reports a whole version, not just the line it is on', () => {
+    expect(features.nodeVersion).toMatch(/^\d+\.\d+\.\d+/);
+    expect(features.nodeMajor).toBe(parseInt(features.nodeVersion, 10));
+    expect(features.nodeMajor).toBeGreaterThanOrEqual(18);
+  });
+
   it('agrees with the capabilities that mark each release line', () => {
     if (features.hasMkdtempDisposable) {
       expect(features.nodeMajor).toBeGreaterThanOrEqual(24);

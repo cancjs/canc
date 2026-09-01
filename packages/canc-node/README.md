@@ -57,7 +57,7 @@ try {
 
 The root entry point exposes portable error code guards and custom error classes used across all `@cancjs/node` subpaths. Syscall error guards verify standard error codes without relying on non-portable numeric errno values or fragile instanceof checks.
 
-Feature detection probes capability support at module load time without sniffing versions or inspecting vendor-specific globals.
+Feature detection probes capability support at module load time, without inspecting vendor-specific globals. Some Node facts are finer than a release line, so the version the runtime reports settles those, and the capability probes are the fallback for a runtime that reports no version.
 
 ## Description
 

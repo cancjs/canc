@@ -145,31 +145,64 @@ export const toolboxDeps: IToolboxDeps<ICancelableKind> = {
 /** Promisify bound to CancelablePromise, for the callback API a custom implementation can patch. */
 export const promisifyWrapped = promisifyFactory(toolboxDeps);
 
+/** Major, minor and patch of a node version, `v` prefix optional, missing or unparsable parts zero. */
+function versionParts(version: string): [number, number, number] {
+  const digits = version.replace(/^v/, '').split('.');
+  return [Number(digits[0]) || 0, Number(digits[1]) || 0, Number(digits[2]) || 0];
+}
+
+/** Whether `version` is `since` or later. */
+function atLeast(version: string, since: string): boolean {
+  const running = versionParts(version);
+  const wanted = versionParts(since);
+
+  for (let i = 0; i < 3; i++) {
+    if (running[i] !== wanted[i]) {
+      return running[i] > wanted[i];
+    }
+  }
+
+  return true;
+}
+
 /**
- * Whether node accepts an AbortSignal for this export on the running release line.
+ * Whether node accepts an AbortSignal for this export on the running version.
  *
- * The answer is per release line rather than per function, because signal support is backported:
- * a member can accept one on 24 and 26 and reject it on 22. Forwarding stays conditional because a
- * runtime that validates option keys throws on an unknown `signal`, so an unconditional spread is
- * a hard failure there rather than a no-op.
+ * The answer is per release line rather than per function, because signal support is backported: a
+ * member can accept one on 24 and 26 and reject it on 22. It is also per minor, because a backport
+ * lands partway through a line: `stat` accepts a signal from 26.8.0 and not from 26.0.0, so
+ * comparing majors alone forwards an option that does not exist yet on 26.0 through 26.7. Forwarding
+ * stays conditional because a runtime that validates option keys throws on an unknown `signal`, so
+ * an unconditional spread is a hard failure there rather than a no-op.
  */
-function acceptsSignal(entry: IManifestEntry | undefined): boolean {
+export function acceptsSignal(entry: IManifestEntry | undefined, version: string = features.nodeVersion): boolean {
   const facts = entry?.nodeSignal;
   if (!facts) {
     return false;
   }
 
   const byMajor = facts.sinceByMajor;
-  if (byMajor) {
-    let oldestLine = Infinity;
-    for (const major of Object.keys(byMajor)) {
-      oldestLine = Math.min(oldestLine, Number(major));
-    }
-    return features.nodeMajor >= oldestLine;
+  if (!byMajor) {
+    // no per-line map means support predates the oldest line this package runs on
+    return facts.since !== null;
   }
 
-  // no per-line map means support predates the oldest line this package runs on
-  return facts.since !== null;
+  const running = versionParts(version)[0];
+
+  // the newest line the map names that is not newer than this one; a later line inherits its answer
+  let inherited = -Infinity;
+  for (const major of Object.keys(byMajor)) {
+    const listed = Number(major);
+    if (listed <= running && listed > inherited) {
+      inherited = listed;
+    }
+  }
+
+  if (inherited === -Infinity) {
+    return false;
+  }
+
+  return inherited < running || atLeast(version, byMajor[String(inherited)]);
 }
 
 /** A call with the caller's own signal lifted out of the node options bag. */
