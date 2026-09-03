@@ -116,5 +116,70 @@
     "module": "sqlite",
     "status": "deferred",
     "reason": "sync query API blocking. async backup uncancelable"
+  },
+  {
+    "module": "dgram",
+    "status": "deferred",
+    "reason": "planned subpath, not implemented yet"
+  },
+  {
+    "module": "dns",
+    "status": "deferred",
+    "reason": "planned subpath, not implemented yet"
+  },
+  {
+    "module": "events",
+    "status": "deferred",
+    "reason": "planned subpath, not implemented yet"
+  },
+  {
+    "module": "http",
+    "status": "deferred",
+    "reason": "planned subpath, not implemented yet"
+  },
+  {
+    "module": "http2",
+    "status": "deferred",
+    "reason": "planned subpath, not implemented yet"
+  },
+  {
+    "module": "https",
+    "status": "deferred",
+    "reason": "planned subpath, not implemented yet"
+  },
+  {
+    "module": "net",
+    "status": "deferred",
+    "reason": "planned subpath, not implemented yet"
+  },
+  {
+    "module": "readline",
+    "status": "deferred",
+    "reason": "planned subpath, not implemented yet"
+  },
+  {
+    "module": "stream",
+    "status": "deferred",
+    "reason": "planned subpath, not implemented yet"
+  },
+  {
+    "module": "timers",
+    "status": "deferred",
+    "reason": "planned subpath, not implemented yet"
+  },
+  {
+    "module": "tls",
+    "status": "deferred",
+    "reason": "planned subpath, not implemented yet"
+  },
+  {
+    "module": "worker_threads",
+    "status": "deferred",
+    "reason": "planned subpath, not implemented yet"
+  },
+  {
+    "module": "zlib",
+    "status": "deferred",
+    "reason": "planned subpath, not implemented yet"
   }
 ]

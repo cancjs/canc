@@ -59,6 +59,15 @@ function warn(msg) {
   _warnings = true;
 }
 
+// every exclusion entry exists so a reviewer can tell "not shipped" from "forgotten" -- an empty
+// reason defeats that, so it is a fail, not a lint nit
+for (const entry of exclusions) {
+  const label = entry.module ? `module ${entry.module}` : `name ${entry.name}`;
+  if (typeof entry.reason !== 'string' || entry.reason.trim().length === 0) {
+    fail(`Check A failed: exclusion entry for ${label} has no reason`);
+  }
+}
+
 const manifestMap = new Map();
 for (const m of manifests) {
   if (!manifestMap.has(m.subpath)) manifestMap.set(m.subpath, new Map());
@@ -81,7 +90,12 @@ const OUT_OF_SCOPE_CLASSES = {
 
 for (const [mod, lockExports] of Object.entries(nodeLock.modules)) {
   if (exModules.has(mod)) continue;
-  if (!coveredModules.has(mod)) continue;
+  if (!coveredModules.has(mod)) {
+    // a lock module that is neither manifested nor in the exclusion register is a silent gap:
+    // nobody decided "not shipped" or "forgotten" for it
+    fail(`Check A failed: uncovered module ${mod} (no manifest, no exclusion entry)`);
+    continue;
+  }
 
   const fencedClasses = OUT_OF_SCOPE_CLASSES[mod];
 
