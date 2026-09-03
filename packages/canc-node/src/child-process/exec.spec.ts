@@ -1,4 +1,5 @@
 import { ChildProcess } from 'node:child_process';
+import { once } from 'node:events';
 import { Readable } from 'node:stream';
 import { promisify } from 'node:util';
 
@@ -8,7 +9,6 @@ import { isProcessExitError, isProcessSpawnError } from '../errors/classes';
 import { exec, execFile } from './exec';
 
 const nodeBin = `"${process.execPath}"`;
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 type TTrackedChild = ChildProcess & { promise: Promise<unknown> };
 
@@ -62,7 +62,7 @@ describe('exec and execFile', () => {
         expect(stdout).toBe('out');
         expect(stderr).toBe('err');
 
-        await delay(100);
+        await new Promise((resolve) => setImmediate(resolve));
         expect(rejections).toEqual([]);
       } finally {
         process.off('unhandledRejection', onRejection);
@@ -125,7 +125,7 @@ describe('exec and execFile', () => {
         exited = true;
       });
 
-      await delay(100);
+      await once(child, 'spawn');
       await promise.cancel();
 
       expect(exited).toBe(true);
@@ -138,7 +138,7 @@ describe('exec and execFile', () => {
       const child = track(exec(`${nodeBin} -e "setTimeout(() => {}, 60000)"`, { signal: controller.signal }));
       const promise = child.promise;
 
-      await delay(100);
+      await once(child, 'spawn');
       controller.abort();
 
       let caught: unknown;
@@ -172,7 +172,7 @@ describe('exec and execFile', () => {
 
       const slow = execAsync(`${nodeBin} -e "setTimeout(() => {}, 60000)"`);
       track(slow.child);
-      await delay(100);
+      await once(slow.child, 'spawn');
       await slow.cancel();
       await expect(slow).rejects.toThrow(CancelError);
     });

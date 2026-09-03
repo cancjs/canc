@@ -1,4 +1,5 @@
 import { ChildProcess } from 'node:child_process';
+import { once } from 'node:events';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -10,7 +11,6 @@ import { isProcessExitError, isProcessSpawnError } from '../errors/classes';
 import { fork, spawn } from './spawn';
 
 const forever = 'setTimeout(() => {}, 60000)';
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 type TTrackedChild = ChildProcess & { promise: Promise<unknown> };
 
@@ -136,7 +136,7 @@ describe('spawn and fork', () => {
       const order: string[] = [];
 
       child.on('exit', () => order.push('exit'));
-      await delay(100);
+      await once(child, 'spawn');
 
       await promise.cancel();
       order.push('cancel');
@@ -151,7 +151,7 @@ describe('spawn and fork', () => {
       const child = track(spawn(process.execPath, ['-e', forever], { signal: controller.signal }));
       const promise = child.promise;
 
-      await delay(100);
+      await once(child, 'spawn');
       controller.abort();
 
       let caught: unknown;
