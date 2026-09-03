@@ -3,7 +3,7 @@
 Generated. Do not edit by hand.
 
 - Declarations: `packages/canc-node/dist/types/index.d.ts`
-- Exports: 76
+- Exports: 64
 
 ## `EACCES` (type)
 
@@ -346,27 +346,6 @@ stderr?: string | Buffer<ArrayBufferLike> | undefined
 stdout?: string | Buffer<ArrayBufferLike> | undefined
 ```
 
-## `IProcessIpcErrorOptions` (interface)
-
-```text
-cause?: unknown
-```
-
-## `IProcessMaxBufferErrorOptions` (interface)
-
-```text
-cause?: unknown
-command?: string | undefined
-```
-
-## `IProcessSignalErrorOptions` (interface)
-
-```text
-cause?: unknown
-command?: string | undefined
-signal?: string | null | undefined
-```
-
 ## `IProcessSpawnErrorOptions` (interface)
 
 ```text
@@ -438,36 +417,6 @@ toString: () => string
 valueOf: () => symbol
 ```
 
-## `PROCESS_IPC_ERROR_BRAND` (const)
-
-```text
-[toPrimitive]: (hint: string) => symbol
-readonly [toStringTag]: string
-readonly description: string | undefined
-toString: () => string
-valueOf: () => symbol
-```
-
-## `PROCESS_MAX_BUFFER_ERROR_BRAND` (const)
-
-```text
-[toPrimitive]: (hint: string) => symbol
-readonly [toStringTag]: string
-readonly description: string | undefined
-toString: () => string
-valueOf: () => symbol
-```
-
-## `PROCESS_SIGNAL_ERROR_BRAND` (const)
-
-```text
-[toPrimitive]: (hint: string) => symbol
-readonly [toStringTag]: string
-readonly description: string | undefined
-toString: () => string
-valueOf: () => symbol
-```
-
 ## `PROCESS_SPAWN_ERROR_BRAND` (const)
 
 ```text
@@ -491,39 +440,6 @@ name: string
 readonly signal?: string | null | undefined
 readonly stderr?: string | Buffer<ArrayBufferLike> | undefined
 readonly stdout?: string | Buffer<ArrayBufferLike> | undefined
-```
-
-## `ProcessIpcError` (class)
-
-```text
-extends BaseProcessIpcError
-new (message?: string | undefined, options?: IProcessIpcErrorOptions | undefined): ProcessIpcError
-readonly cause?: unknown
-message: string
-name: string
-```
-
-## `ProcessMaxBufferError` (class)
-
-```text
-extends BaseProcessMaxBufferError
-new (message?: string | undefined, options?: IProcessMaxBufferErrorOptions | undefined): ProcessMaxBufferError
-readonly cause?: unknown
-readonly command?: string | undefined
-message: string
-name: string
-```
-
-## `ProcessSignalError` (class)
-
-```text
-extends BaseProcessSignalError
-new (message?: string | undefined, options?: IProcessSignalErrorOptions | undefined): ProcessSignalError
-readonly cause?: unknown
-readonly command?: string | undefined
-message: string
-name: string
-readonly signal?: string | null | undefined
 ```
 
 ## `ProcessSpawnError` (class)
@@ -629,24 +545,6 @@ nodeVersion: string
 
 ```text
 (error: unknown): error is ProcessExitError
-```
-
-## `isProcessIpcError` (const)
-
-```text
-(error: unknown): error is ProcessIpcError
-```
-
-## `isProcessMaxBufferError` (const)
-
-```text
-(error: unknown): error is ProcessMaxBufferError
-```
-
-## `isProcessSignalError` (const)
-
-```text
-(error: unknown): error is ProcessSignalError
 ```
 
 ## `isProcessSpawnError` (const)

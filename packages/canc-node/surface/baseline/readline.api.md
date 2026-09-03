@@ -15,7 +15,7 @@ Generated. Do not edit by hand.
 
 ```text
 extends Omit<NodeInterface, 'question'>
-question: { (query: string): CancelablePromise<string>; (query: string): CancelablePromise<string>; (query: string): CancelablePromise<string>; (query: string): CancelablePromise<string>; (query: string): CancelablePromise<string>; (query: string, options: EventEmitter.Abortable): CancelablePromise<string>; }
+question: { (query: string): CancelablePromise<TValue extends FileHandle ? TCancelableFileHandle<TValue> : TValue>; (query: string): CancelablePromise<TValue extends FileHandle ? TCancelableFileHandle<TValue> : TValue>; (query: string): CancelablePromise<TValue extends FileHandle ? TCancelableFileHandle<TValue> : TValue>; (query: string): CancelablePromise<TValue extends FileHandle ? TCancelableFileHandle<TValue> : TValue>; (query: string): CancelablePromise<TValue extends FileHandle ? TCancelableFileHandle<TValue> : TValue>; (query: string, options: EventEmitter.Abortable): CancelablePromise<TValue extends FileHandle ? TCancelableFileHandle<TValue> : TValue>; }
 ```
 
 ## `ReadLineOptions` (interface)
