@@ -28,12 +28,24 @@ export interface ICopyOptions {
   onProgress?: (progress: { src: string; dest: string }) => void;
 }
 
-/** The call presently in flight, so a cancel reaches it directly instead of waiting for the next checkpoint. Single-slot register only safe because copyTree is strictly sequential. Needed because node accepts signal for lstat/stat only; readdir, readlink, symlink, unlink, copyFile, ensureDir have no signal, so canceling our inner promise is the only way to interrupt them. */
+/**
+ * The call presently in flight, so a cancel reaches it directly instead of waiting for
+ * the next checkpoint.
+ * Single-slot register only safe because copyTree is strictly sequential.
+ * Needed because node accepts signal for lstat/stat only; readdir, readlink, symlink,
+ * unlink, copyFile, ensureDir have no signal, so canceling our inner promise is the only
+ * way to interrupt them.
+ */
 interface IActiveCall {
   current: CancelablePromise<unknown> | null;
 }
 
-/** `lstat` takes a signal from node 26.8; passing one is safe everywhere because takeCallerSignal strips it from node's options bag before the call, so node never sees an unknown key. Without stripping, Deno would throw ERR_INVALID_ARG_TYPE. */
+/**
+ * `lstat` takes a signal from node 26.8; passing one is safe everywhere because
+ * takeCallerSignal strips it from node's options bag before the call, so node never sees
+ * an unknown key.
+ * Without stripping, Deno would throw ERR_INVALID_ARG_TYPE.
+ */
 function statOptionsWithSignal(signal: AbortSignal) {
   return { bigint: false as const, signal };
 }
