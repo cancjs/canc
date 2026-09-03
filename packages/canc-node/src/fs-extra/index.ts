@@ -1,6 +1,6 @@
 import { exists } from '../fs';
 
-export * from './copy';
+export { copy } from './copy';
 export * from './empty-dir';
 export * from './ensure';
 export * from './json';
