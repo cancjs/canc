@@ -15,7 +15,7 @@ import {
 import { CancelablePromise } from '@cancjs/promise';
 
 import { mapChildProcessError } from './map-error';
-import { defineProcessPromise, killAndWaitForExit } from './promise';
+import { createSink, defineProcessPromise, ISettlementSink, killAndWaitForExit } from './promise';
 
 const PROMISIFY_CUSTOM = Symbol.for('nodejs.util.promisify.custom');
 
@@ -50,37 +50,9 @@ interface ISettlement {
   stderr: string | Buffer;
 }
 
-interface ISettlementSink {
-  settle(settlement: ISettlement): void;
-  subscribe(listener: (settlement: ISettlement) => void): void;
-}
-
-// node buffers the output into its own callback, so the result is held here until someone asks for
-// the promise; a call that already finished still has a result to hand over
-function createSink(): ISettlementSink {
-  let settled: ISettlement | undefined;
-  let listener: ((settlement: ISettlement) => void) | undefined;
-
-  return {
-    settle(settlement: ISettlement): void {
-      settled = settlement;
-      if (listener) {
-        listener(settlement);
-      }
-    },
-    subscribe(fn: (settlement: ISettlement) => void): void {
-      if (settled) {
-        fn(settled);
-      } else {
-        listener = fn;
-      }
-    },
-  };
-}
-
 function createExecPromise(
   child: ChildProcess,
-  sink: ISettlementSink,
+  sink: ISettlementSink<ISettlement>,
   command: string,
   killSignal?: NodeJS.Signals | number,
 ): CancelablePromise<IExecResult<string | Buffer>> {
@@ -126,7 +98,7 @@ export function exec(
 ): IExecChildProcess<string | Buffer> {
   const options = typeof optionsOrCallback === 'function' ? undefined : optionsOrCallback;
   const callback = typeof optionsOrCallback === 'function' ? optionsOrCallback : maybeCallback;
-  const sink = createSink();
+  const sink = createSink<ISettlement>();
 
   const child = nodeExec(command, options!, (error, stdout, stderr) => {
     sink.settle({ error, stdout, stderr });
@@ -205,7 +177,7 @@ export function execFile(
     callback = maybeCallback;
   }
 
-  const sink = createSink();
+  const sink = createSink<ISettlement>();
   const command = args && args.length > 0 ? `${fileOrCommand} ${args.join(' ')}` : fileOrCommand;
 
   const child = nodeExecFile(fileOrCommand, args ?? [], options as ExecFileOptions, (error, stdout, stderr) => {

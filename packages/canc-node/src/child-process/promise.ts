@@ -46,6 +46,44 @@ export function killAndWaitForExit(child: ChildProcess, killSignal?: NodeJS.Sign
   });
 }
 
+export interface ISettlementSink<T> {
+  settle(value: T): void;
+  subscribe(listener: (value: T) => void): void;
+}
+
+/**
+ * Records a value the first time it settles and replays it to any later subscriber.
+ *
+ * Node's own terminal events (a callback, `close`, `error`) fire once, whether or not anything is
+ * listening yet. The sink is what lets a `promise` accessed after the fact still have an answer,
+ * instead of attaching a listener to an event that already happened.
+ */
+export function createSink<T>(): ISettlementSink<T> {
+  let settled: T | undefined;
+  let hasSettled = false;
+  let listener: ((value: T) => void) | undefined;
+
+  return {
+    settle(value: T): void {
+      if (hasSettled) {
+        return;
+      }
+      hasSettled = true;
+      settled = value;
+      if (listener) {
+        listener(value);
+      }
+    },
+    subscribe(fn: (value: T) => void): void {
+      if (hasSettled) {
+        fn(settled as T);
+      } else {
+        listener = fn;
+      }
+    },
+  };
+}
+
 /**
  * Adds a lazy, memoized `promise` accessor to a child process.
  *

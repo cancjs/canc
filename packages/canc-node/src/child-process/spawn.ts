@@ -4,11 +4,49 @@ import { CancelablePromise } from '@cancjs/promise';
 
 import { ProcessExitError } from '../errors/classes';
 import { mapChildProcessError } from './map-error';
-import { defineProcessPromise, killAndWaitForExit } from './promise';
+import { createSink, defineProcessPromise, ISettlementSink, killAndWaitForExit } from './promise';
 
 export interface IProcessResult {
   exitCode: number | null;
   signal: NodeJS.Signals | null;
+}
+
+type TProcessSettlement =
+  { kind: 'close'; code: number | null; signal: NodeJS.Signals | null } | { kind: 'error'; error: Error };
+
+/**
+ * Records the process's terminal event (`close` or `error`) as soon as it happens, so a `promise`
+ * accessed later still has an answer instead of attaching a listener to an event that already fired.
+ *
+ * The `error` case needs care node's `close` case does not: node throws an uncaught exception on an
+ * `error` with no listener. This recorder is itself a listener, so it would silently swallow that
+ * crash for every callback-only caller unless it checks whether it was the only one and, if so,
+ * re-raises asynchronously to reproduce node's own behavior.
+ */
+function attachProcessRecorder(child: ChildProcess): ISettlementSink<TProcessSettlement> {
+  const sink = createSink<TProcessSettlement>();
+
+  child.once('close', (code: number | null, signal: NodeJS.Signals | null) => {
+    sink.settle({ kind: 'close', code, signal });
+  });
+
+  const onError = (error: Error): void => {
+    // remove self FIRST: node's `once()` wrapper does the same before invoking its callback, and
+    // skipping that step here would make listenerCount below count this handler itself, turning
+    // "is anyone else watching" into "did anyone register after me"
+    child.removeListener('error', onError);
+    sink.settle({ kind: 'error', error });
+
+    if (child.listenerCount('error') === 0) {
+      setImmediate(() => {
+        throw error;
+      });
+    }
+  };
+
+  child.on('error', onError);
+
+  return sink;
 }
 
 export interface IProcessChildProcess extends ChildProcess {
@@ -41,24 +79,30 @@ function settleProcessResult(
 
 function createProcessPromise(
   child: ChildProcess,
+  sink: ISettlementSink<TProcessSettlement>,
   command: string,
   killSignal?: NodeJS.Signals | number,
 ): CancelablePromise<IProcessResult> {
   return new CancelablePromise<IProcessResult>((resolve, reject, ctx) => {
     ctx.handleCancel(() => killAndWaitForExit(child, killSignal));
 
-    // node tracks how the process ended, so a promise taken after the fact still has an answer
-    if (child.exitCode !== null || child.signalCode !== null) {
-      settleProcessResult(child.exitCode, child.signalCode, command, resolve, reject);
-      return;
-    }
+    // presence marker, not a handler: the recorder's crash-on-unhandled check only sees real
+    // listeners, so a caller who reached for the promise needs one on record even though the
+    // actual settlement travels through the sink below. Harmless once the process has already
+    // settled, since `error` cannot fire a second time.
+    child.once('error', () => undefined);
 
-    child.once('error', (err: Error) => {
-      reject(mapChildProcessError(err, command));
-    });
-
-    child.once('close', (code: number | null, signal: NodeJS.Signals | null) => {
-      settleProcessResult(code, signal, command, resolve, reject);
+    // the sink, not a raw read of `child.exitCode`/`signalCode`, is what answers a promise taken
+    // late: on this platform a failed spawn sets `exitCode` to a negative errno before `close`
+    // even runs, so reading those fields directly would misreport a spawn failure as a closed
+    // process. The recorder is attached synchronously right after the process is created, before
+    // node can emit either event, so the sink already has (or will have) the right answer either way.
+    sink.subscribe((settlement) => {
+      if (settlement.kind === 'error') {
+        reject(mapChildProcessError(settlement.error, command));
+        return;
+      }
+      settleProcessResult(settlement.code, settlement.signal, command, resolve, reject);
     });
   });
 }
@@ -86,7 +130,8 @@ export function spawn(
   const options = (args ? maybeOptions : (argsOrOptions as SpawnOptions | undefined)) ?? {};
 
   const child = nodeSpawn(command, args ?? [], options);
-  defineProcessPromise(child, () => createProcessPromise(child, command, options.killSignal));
+  const sink = attachProcessRecorder(child);
+  defineProcessPromise(child, () => createProcessPromise(child, sink, command, options.killSignal));
 
   return child as IProcessChildProcess;
 }
@@ -110,7 +155,8 @@ export function fork(
   const options = (args ? maybeOptions : (argsOrOptions as ForkOptions | undefined)) ?? {};
 
   const child = nodeFork(modulePath, args ?? [], options);
-  defineProcessPromise(child, () => createProcessPromise(child, modulePath, options.killSignal));
+  const sink = attachProcessRecorder(child);
+  defineProcessPromise(child, () => createProcessPromise(child, sink, modulePath, options.killSignal));
 
   return child as IProcessChildProcess;
 }

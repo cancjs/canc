@@ -1,8 +1,8 @@
-import { ChildProcess } from 'node:child_process';
+import { ChildProcess, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { PassThrough, Readable } from 'node:stream';
 
 import { CancelError, isCancelError } from '@cancjs/promise';
@@ -11,6 +11,51 @@ import { isProcessExitError, isProcessSpawnError } from '../errors/classes';
 import { fork, spawn } from './spawn';
 
 const forever = 'setTimeout(() => {}, 60000)';
+
+// a real process crash cannot be observed from inside the runner (it intercepts uncaught
+// exceptions for its own reporting), so this runs a fresh, unrelated node process instead, the same
+// technique `canc-unhandled-rejection`'s spec support uses: a require hook transpiles `.ts` on the
+// fly and resolves `@cancjs/promise` to its source, then the snippet runs with `-e`.
+const promiseSrc = resolve(__dirname, '../../../canc-promise/src/index.ts');
+const spawnSrc = resolve(__dirname, './spawn.ts');
+
+const childHook = `
+  const ts = require(${JSON.stringify(require.resolve('typescript'))});
+  const Module = require('module');
+  const fs = require('fs');
+
+  Module._extensions['.ts'] = function (mod, filename) {
+    const source = fs.readFileSync(filename, 'utf8');
+    const out = ts.transpileModule(source, {
+      compilerOptions: {
+        module: ts.ModuleKind.CommonJS,
+        target: ts.ScriptTarget.ES2019,
+        esModuleInterop: true,
+        downlevelIteration: true,
+        useDefineForClassFields: false,
+      },
+      fileName: filename,
+    });
+    mod._compile(out.outputText, filename);
+  };
+
+  const origRequire = Module.prototype.require;
+  Module.prototype.require = function (request) {
+    if (request === '@cancjs/promise') {
+      return origRequire.call(this, ${JSON.stringify(promiseSrc)});
+    }
+    return origRequire.call(this, request);
+  };
+`;
+
+function runChildScript(code: string): { status: number; stdout: string; stderr: string } {
+  const res = spawnSync(process.execPath, ['-e', `${childHook}\n${code}`], {
+    encoding: 'utf8',
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+
+  return { status: res.status ?? 1, stdout: res.stdout || '', stderr: res.stderr || '' };
+}
 
 type TTrackedChild = ChildProcess & { promise: Promise<unknown> };
 
@@ -85,6 +130,62 @@ describe('spawn and fork', () => {
 
       expect(isProcessSpawnError(caught)).toBe(true);
       expect((caught as { code?: string }).code).toBe('ENOENT');
+    });
+
+    it('rejects from a promise taken after the spawn error already fired', async () => {
+      const child = track(spawn('does_not_exist_binary_xyz_67890'));
+      await once(child, 'error');
+
+      let caught: unknown;
+      try {
+        await child.promise;
+      } catch (err) {
+        caught = err;
+      }
+
+      expect(isProcessSpawnError(caught)).toBe(true);
+      expect((caught as { code?: string }).code).toBe('ENOENT');
+    });
+
+    it('crashes a callback-only caller on a missing binary exactly as plain spawn does', () => {
+      // real crash comparison, each in its own fresh process: plain node spawn against ours, same
+      // binary, same absence of any listener or `.promise` access
+      const plain = runChildScript(`
+        require('child_process').spawn('does_not_exist_binary_xyz_11111');
+      `);
+
+      const ours = runChildScript(`
+        const { spawn } = require(${JSON.stringify(spawnSrc)});
+        spawn('does_not_exist_binary_xyz_11111');
+      `);
+
+      expect(plain.status).not.toBe(0);
+      expect(ours.status).not.toBe(0);
+      expect(ours.stderr).toContain('ENOENT');
+      expect(ours.stderr).toContain('Error');
+    }, 20000);
+
+    it('lets a caller who listens for error see it once, with nothing re-raised', async () => {
+      const child = track(spawn('does_not_exist_binary_xyz_33333'));
+      let calls = 0;
+      child.on('error', () => {
+        calls++;
+      });
+
+      const rethrown: unknown[] = [];
+      const onUncaught = (err: unknown) => rethrown.push(err);
+      process.on('uncaughtException', onUncaught);
+
+      try {
+        await once(child, 'error');
+        // give the recorder's would-be re-raise a turn of the event loop to happen, if it were going to
+        await new Promise((resolve) => setImmediate(resolve));
+
+        expect(calls).toBe(1);
+        expect(rethrown).toEqual([]);
+      } finally {
+        process.off('uncaughtException', onUncaught);
+      }
     });
 
     it('leaves stdout pipeable', async () => {
