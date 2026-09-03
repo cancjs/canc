@@ -1,7 +1,8 @@
 import type { Dir, Dirent, Stats } from 'node:fs';
 import { join } from 'node:path';
 
-import { lstat, lstatSync, opendir, opendirSync, stat, statSync } from './fs-calls';
+import { lstat, opendir, stat } from '../fs';
+import { lstatSync, opendirSync, statSync } from '../fs/sync';
 
 /**
  * Traversal order for walk operations.

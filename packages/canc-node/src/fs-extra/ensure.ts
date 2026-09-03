@@ -3,7 +3,7 @@ import { dirname } from 'node:path';
 import { CancelablePromise } from '@cancjs/promise';
 
 import { isExistsError, isNotFoundError } from '../errors/errno';
-import { link, lstat, mkdir, stat, symlink, writeFile } from './fs-calls';
+import { link, lstat, mkdir, stat, symlink, writeFile } from '../fs';
 
 export function ensureDir(path: string): CancelablePromise<void> {
   return new CancelablePromise((resolve, reject, { handleCancel }) => {

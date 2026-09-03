@@ -2,10 +2,13 @@ import { dirname } from 'node:path';
 
 import { CancelablePromise } from '@cancjs/promise';
 
+import { writeFile } from '../fs';
 import { ensureDir } from './ensure';
-import { IWriteFileOptions, TWriteData, writeFile } from './fs-calls';
 
-export type IOutputFileOptions = IWriteFileOptions;
+type TWriteFileParams = Parameters<typeof writeFile>;
+type TWriteData = TWriteFileParams[1];
+
+export type IOutputFileOptions = TWriteFileParams[2];
 
 /**
  * Writes a file, creating any missing parent directories first.
@@ -14,11 +17,7 @@ export type IOutputFileOptions = IWriteFileOptions;
  * @param data - File contents.
  * @param options - Encoding, mode and flag, or the encoding shorthand.
  */
-export function outputFile(
-  path: string,
-  data: TWriteData,
-  options?: IOutputFileOptions | BufferEncoding | null,
-): CancelablePromise<void> {
+export function outputFile(path: string, data: TWriteData, options?: IOutputFileOptions): CancelablePromise<void> {
   return new CancelablePromise((resolve, reject, { handleCancel }) => {
     let activePromise: CancelablePromise<unknown> | null = null;
     handleCancel((reason) => {

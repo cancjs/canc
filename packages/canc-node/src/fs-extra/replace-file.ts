@@ -3,9 +3,12 @@ import { basename, dirname, join } from 'node:path';
 import { CancelablePromise } from '@cancjs/promise';
 
 import { isErrno, isNotFoundError } from '../errors/errno';
-import { chmod, chown, IWriteFileOptions, rename, stat, TWriteData, unlink, writeFile } from './fs-calls';
+import { chmod, chown, rename, stat, unlink, writeFile } from '../fs';
 
-export type IReplaceFileOptions = IWriteFileOptions;
+type TWriteFileParams = Parameters<typeof writeFile>;
+type TWriteData = TWriteFileParams[1];
+
+export type IReplaceFileOptions = TWriteFileParams[2];
 
 const isNotPermitted = isErrno('EPERM');
 const isNotSupported = isErrno('ENOSYS');
@@ -26,11 +29,7 @@ function isMetadataUnsupported(err: unknown): boolean {
  * - Does not support special files (FIFOs, device nodes).
  * - Does not support append mode.
  */
-export function replaceFile(
-  path: string,
-  data: TWriteData,
-  options?: IReplaceFileOptions | BufferEncoding | null,
-): CancelablePromise<void> {
+export function replaceFile(path: string, data: TWriteData, options?: IReplaceFileOptions): CancelablePromise<void> {
   return new CancelablePromise((resolve, reject, { handleCancel }) => {
     const dir = dirname(path);
     const base = basename(path);
