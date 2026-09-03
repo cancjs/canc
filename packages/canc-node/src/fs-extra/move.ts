@@ -4,9 +4,19 @@ import { CancelablePromise } from '@cancjs/promise';
 
 import { IPromiseKind, IToolboxDeps, retryFactory, TPromiseCtor } from '../../../_toolbox';
 import { EEXIST, isCrossDeviceError, isErrno, isNotFoundError, isTooManyFilesError } from '../errors/errno';
+import { lstat, rename, rm } from '../fs';
 import { copyTree } from './copy';
 import { ensureDir } from './ensure';
-import { cancelScope, ICancelScope, lstat, rename, rm } from './fs-calls';
+
+/** The call presently in flight, so a cancel reaches it directly instead of waiting for the next checkpoint. */
+interface IActiveCall {
+  current: CancelablePromise<unknown> | null;
+}
+
+/** `lstat` takes a signal from node 26.8; passing one is a no-op below that and correct above it. */
+function statOptionsWithSignal(signal: AbortSignal) {
+  return { bigint: false as const, signal };
+}
 
 interface ICancelableKind extends IPromiseKind {
   promise: CancelablePromise<this['value']>;
@@ -73,12 +83,13 @@ async function moveAcrossDevice(
   src: string,
   dest: string,
   options: IMoveOptions | undefined,
-  scope: ICancelScope,
+  signal: AbortSignal,
+  active: IActiveCall,
 ): Promise<void> {
-  scope.signal.throwIfAborted();
-  await copyTree(src, dest, { overwrite: options?.overwrite ?? true }, scope);
-  scope.signal.throwIfAborted();
-  await scope.run(rm(src, { recursive: true, force: true }));
+  signal.throwIfAborted();
+  await copyTree(src, dest, { overwrite: options?.overwrite ?? true }, signal, active);
+  signal.throwIfAborted();
+  await (active.current = rm(src, { recursive: true, force: true }));
 }
 
 /**
@@ -90,14 +101,15 @@ async function moveAcrossDevice(
  */
 export function move(src: string, dest: string, options?: IMoveOptions): CancelablePromise<void> {
   return new CancelablePromise((resolve, reject, { getSignal, handleCancel }) => {
-    const scope = cancelScope(getSignal);
+    const signal = getSignal() as AbortSignal;
+    const active: IActiveCall = { current: null };
     handleCancel((reason) => {
-      scope.cancel(reason);
+      active.current?.cancel(reason);
     });
 
     const checkDest =
       options?.overwrite === false ?
-        scope.run(lstat(dest)).then(
+        (active.current = lstat(dest, statOptionsWithSignal(signal))).then(
           () => {
             const err: EEXIST = Object.assign(new Error(`dest already exists: ${dest}`), { code: 'EEXIST' as const });
             throw err;
@@ -113,17 +125,17 @@ export function move(src: string, dest: string, options?: IMoveOptions): Cancela
 
     const p = checkDest
       .then(() => {
-        scope.signal.throwIfAborted();
-        return scope.run(ensureDir(dirname(dest)));
+        signal.throwIfAborted();
+        return (active.current = ensureDir(dirname(dest)));
       })
       .then(() => {
-        scope.signal.throwIfAborted();
-        return scope.run(renameWithRetry(src, dest));
+        signal.throwIfAborted();
+        return (active.current = renameWithRetry(src, dest));
       })
       .catch((err: unknown) => {
-        scope.signal.throwIfAborted();
+        signal.throwIfAborted();
         if (isCrossDeviceError(err)) {
-          return moveAcrossDevice(src, dest, options, scope);
+          return moveAcrossDevice(src, dest, options, signal, active);
         }
         throw err;
       });

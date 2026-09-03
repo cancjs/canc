@@ -3,8 +3,8 @@ import { dirname, join } from 'node:path';
 import { CancelablePromise } from '@cancjs/promise';
 
 import { isExistsError } from '../errors/errno';
+import { copyFile, lstat, readdir, readlink, symlink, unlink } from '../fs';
 import { ensureDir } from './ensure';
-import { cancelScope, copyFile, ICancelScope, lstat, readdir, readlink, symlink, unlink } from './fs-calls';
 
 /**
  * Options for copy operation.
@@ -28,77 +28,88 @@ export interface ICopyOptions {
   onProgress?: (progress: { src: string; dest: string }) => void;
 }
 
+/** The call presently in flight, so a cancel reaches it directly instead of waiting for the next checkpoint. */
+interface IActiveCall {
+  current: CancelablePromise<unknown> | null;
+}
+
+/** `lstat` takes a signal from node 26.8; passing one is a no-op below that and correct above it. */
+function statOptionsWithSignal(signal: AbortSignal) {
+  return { bigint: false as const, signal };
+}
+
 /**
- * Internal recursive helper taking an explicit cancel scope.
+ * Internal recursive helper taking an explicit signal.
  */
 export async function copyTree(
   src: string,
   dest: string,
   options: ICopyOptions | undefined,
-  scope: ICancelScope,
+  signal: AbortSignal,
+  active: IActiveCall,
 ): Promise<void> {
-  scope.signal.throwIfAborted();
+  signal.throwIfAborted();
 
   if (options?.filter) {
     const shouldCopy = await options.filter(src, dest);
-    scope.signal.throwIfAborted();
+    signal.throwIfAborted();
     if (!shouldCopy) {
       return;
     }
   }
 
-  const stats = await scope.run(lstat(src));
-  scope.signal.throwIfAborted();
+  const stats = await (active.current = lstat(src, statOptionsWithSignal(signal)));
+  signal.throwIfAborted();
 
   if (stats.isDirectory()) {
-    await scope.run(ensureDir(dest));
-    scope.signal.throwIfAborted();
+    await (active.current = ensureDir(dest));
+    signal.throwIfAborted();
 
     if (options?.onProgress) {
       options.onProgress({ src, dest });
     }
 
-    const entries = await scope.run(readdir(src, { withFileTypes: true }));
-    scope.signal.throwIfAborted();
+    const entries = await (active.current = readdir(src, { withFileTypes: true }));
+    signal.throwIfAborted();
 
     for (const entry of entries) {
-      scope.signal.throwIfAborted();
-      await copyTree(join(src, entry.name), join(dest, entry.name), options, scope);
+      signal.throwIfAborted();
+      await copyTree(join(src, entry.name), join(dest, entry.name), options, signal, active);
     }
   } else if (stats.isSymbolicLink()) {
-    await scope.run(ensureDir(dirname(dest)));
-    scope.signal.throwIfAborted();
+    await (active.current = ensureDir(dirname(dest)));
+    signal.throwIfAborted();
 
-    const linkTarget = await scope.run(readlink(src));
-    scope.signal.throwIfAborted();
+    const linkTarget = await (active.current = readlink(src));
+    signal.throwIfAborted();
 
     if (options?.overwrite ?? true) {
       try {
-        await scope.run(symlink(linkTarget, dest));
+        await (active.current = symlink(linkTarget, dest));
       } catch (err) {
-        scope.signal.throwIfAborted();
+        signal.throwIfAborted();
         if (!isExistsError(err)) {
           throw err;
         }
-        await scope.run(unlink(dest));
-        scope.signal.throwIfAborted();
-        await scope.run(symlink(linkTarget, dest));
+        await (active.current = unlink(dest));
+        signal.throwIfAborted();
+        await (active.current = symlink(linkTarget, dest));
       }
     } else {
-      await scope.run(symlink(linkTarget, dest));
+      await (active.current = symlink(linkTarget, dest));
     }
-    scope.signal.throwIfAborted();
+    signal.throwIfAborted();
 
     if (options?.onProgress) {
       options.onProgress({ src, dest });
     }
   } else {
-    await scope.run(ensureDir(dirname(dest)));
-    scope.signal.throwIfAborted();
+    await (active.current = ensureDir(dirname(dest)));
+    signal.throwIfAborted();
 
     const flags = (options?.overwrite ?? true) ? 0 : 1;
-    await scope.run(copyFile(src, dest, flags));
-    scope.signal.throwIfAborted();
+    await (active.current = copyFile(src, dest, flags));
+    signal.throwIfAborted();
 
     if (options?.onProgress) {
       options.onProgress({ src, dest });
@@ -115,10 +126,11 @@ export async function copyTree(
  */
 export function copy(src: string, dest: string, options?: ICopyOptions): CancelablePromise<void> {
   return new CancelablePromise((resolve, _reject, { getSignal, handleCancel }) => {
-    const scope = cancelScope(getSignal);
+    const signal = getSignal() as AbortSignal;
+    const active: IActiveCall = { current: null };
     handleCancel((reason) => {
-      scope.cancel(reason);
+      active.current?.cancel(reason);
     });
-    resolve(copyTree(src, dest, options, scope));
+    resolve(copyTree(src, dest, options, signal, active));
   });
 }

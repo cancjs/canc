@@ -14,6 +14,7 @@ import {
   ensureFile,
   ensureLink,
   ensureSymlink,
+  move,
   outputFile,
   outputJson,
   outputJsonSync,
@@ -352,6 +353,88 @@ describe('fs-extra', () => {
       expect(readdirAfterCopy).toBeGreaterThan(0);
       expect(counts.copyFile).toBeGreaterThan(0);
       expect(counts.readdir).toBeGreaterThan(readdirAfterCopy);
+    });
+
+    it('cancel abandons an in-flight lstat instead of letting its late callback drive the tree forward', async () => {
+      const src = join(root, 'copy-abandon-src');
+      const dest = join(root, 'copy-abandon-dest');
+      await fs.mkdir(src, { recursive: true });
+      await fs.writeFile(join(src, 'file.txt'), 'content');
+      const srcStats = await fs.lstat(src);
+
+      const base = getFs();
+      let pendingArgs: any[] | null = null;
+      const readdirCalls: any[] = [];
+      setFs({
+        ...base,
+        // holds the callback instead of invoking it: stands in for a syscall still in flight
+        lstat: (...args: any[]) => {
+          pendingArgs = args;
+        },
+        readdir: (...args: any[]) => {
+          readdirCalls.push(args);
+          return base.readdir(...args);
+        },
+      });
+
+      try {
+        const p = copy(src, dest);
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        expect(pendingArgs).not.toBeNull();
+
+        p.cancel();
+        await expect(p).rejects.toThrow(CancelError);
+
+        // release the held callback well after cancellation, as a real syscall would eventually do
+        const callback = pendingArgs![pendingArgs!.length - 1];
+        callback(null, srcStats);
+        await new Promise((resolve) => setTimeout(resolve, 10));
+
+        // a properly abandoned call never lets copyTree reach the next step
+        expect(readdirCalls.length).toBe(0);
+      } finally {
+        resetFs();
+      }
+    });
+
+    it('cancel abandons an in-flight move lstat instead of letting its late callback drive the fallback forward', async () => {
+      const src = join(root, 'move-abandon-src');
+      const dest = join(root, 'move-abandon-dest');
+      await fs.writeFile(src, 'content');
+      await fs.writeFile(dest, 'existing');
+      const destStats = await fs.lstat(dest);
+
+      const base = getFs();
+      let pendingArgs: any[] | null = null;
+      const renameCalls: any[] = [];
+      setFs({
+        ...base,
+        lstat: (...args: any[]) => {
+          pendingArgs = args;
+        },
+        rename: (...args: any[]) => {
+          renameCalls.push(args);
+          return base.rename(...args);
+        },
+      });
+
+      try {
+        const p = move(src, dest, { overwrite: false });
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        expect(pendingArgs).not.toBeNull();
+
+        p.cancel();
+        await expect(p).rejects.toThrow(CancelError);
+
+        const callback = pendingArgs![pendingArgs!.length - 1];
+        callback(null, destStats);
+        await new Promise((resolve) => setTimeout(resolve, 10));
+
+        // a properly abandoned call never lets move proceed past the existence check
+        expect(renameCalls.length).toBe(0);
+      } finally {
+        resetFs();
+      }
     });
   });
 

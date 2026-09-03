@@ -2,24 +2,29 @@ import { join } from 'node:path';
 
 import { CancelablePromise } from '@cancjs/promise';
 
+import { readdir, rm } from '../fs';
 import { ensureDir } from './ensure';
-import { cancelScope, ICancelScope, readdir, rm } from './fs-calls';
+
+/** The call presently in flight, so a cancel reaches it directly instead of waiting for the next checkpoint. */
+interface IActiveCall {
+  current: CancelablePromise<unknown> | null;
+}
 
 /**
- * Internal helper to empty a directory taking an explicit cancel scope.
+ * Internal helper to empty a directory taking an explicit signal.
  */
-async function emptyDirTree(dir: string, scope: ICancelScope): Promise<void> {
-  scope.signal.throwIfAborted();
+async function emptyDirTree(dir: string, signal: AbortSignal, active: IActiveCall): Promise<void> {
+  signal.throwIfAborted();
 
-  await scope.run(ensureDir(dir));
-  scope.signal.throwIfAborted();
+  await (active.current = ensureDir(dir));
+  signal.throwIfAborted();
 
-  const entries = await scope.run(readdir(dir));
-  scope.signal.throwIfAborted();
+  const entries = await (active.current = readdir(dir));
+  signal.throwIfAborted();
 
   for (const entry of entries) {
-    scope.signal.throwIfAborted();
-    await scope.run(rm(join(dir, entry), { recursive: true, force: true }));
+    signal.throwIfAborted();
+    await (active.current = rm(join(dir, entry), { recursive: true, force: true }));
   }
 }
 
@@ -31,10 +36,11 @@ async function emptyDirTree(dir: string, scope: ICancelScope): Promise<void> {
  */
 export function emptyDir(dir: string): CancelablePromise<void> {
   return new CancelablePromise((resolve, _reject, { getSignal, handleCancel }) => {
-    const scope = cancelScope(getSignal);
+    const signal = getSignal() as AbortSignal;
+    const active: IActiveCall = { current: null };
     handleCancel((reason) => {
-      scope.cancel(reason);
+      active.current?.cancel(reason);
     });
-    resolve(emptyDirTree(dir, scope));
+    resolve(emptyDirTree(dir, signal, active));
   });
 }
