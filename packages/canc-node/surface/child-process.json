@@ -22,7 +22,7 @@
       },
       "wrapper": "promisify-custom",
       "teardown": "kill with killSignal on cancel, then wait for exit",
-      "failures": ["ProcessSpawnError", "ProcessSignalError"],
+      "failures": ["ProcessSpawnError", "ProcessExitError"],
       "minMajor": null,
       "gate": null,
       "runtime": {
@@ -50,7 +50,7 @@
       },
       "wrapper": "promisify-custom",
       "teardown": "kill with killSignal on cancel, then wait for exit",
-      "failures": ["ProcessSpawnError", "ProcessSignalError"],
+      "failures": ["ProcessSpawnError", "ProcessExitError"],
       "minMajor": null,
       "gate": null,
       "runtime": {
@@ -78,14 +78,14 @@
       },
       "wrapper": "cancelify-teardown",
       "teardown": "kill with killSignal on cancel, then wait for exit",
-      "failures": ["ProcessSpawnError"],
+      "failures": ["ProcessSpawnError", "ProcessExitError"],
       "minMajor": null,
       "gate": null,
       "runtime": {
         "deno": "ok",
         "bun": "partial"
       },
-      "notes": "no promise form in node; returns node's ChildProcess with a lazy promise property; a non-zero exit resolves with the exit code"
+      "notes": "no promise form in node; returns node's ChildProcess with a lazy promise property; a non-zero exit rejects with ProcessExitError"
     },
     {
       "name": "fork",
@@ -106,14 +106,14 @@
       },
       "wrapper": "cancelify-teardown",
       "teardown": "kill with killSignal on cancel, then wait for exit",
-      "failures": ["ProcessSpawnError"],
+      "failures": ["ProcessSpawnError", "ProcessExitError"],
       "minMajor": null,
       "gate": null,
       "runtime": {
         "deno": "ok",
         "bun": "partial"
       },
-      "notes": "no promise form in node; returns node's ChildProcess with a lazy promise property; a non-zero exit resolves with the exit code"
+      "notes": "no promise form in node; returns node's ChildProcess with a lazy promise property; a non-zero exit rejects with ProcessExitError"
     }
   ]
 }

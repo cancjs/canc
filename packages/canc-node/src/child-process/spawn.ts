@@ -2,6 +2,7 @@ import { ChildProcess, fork as nodeFork, ForkOptions, spawn as nodeSpawn, SpawnO
 
 import { CancelablePromise } from '@cancjs/promise';
 
+import { ProcessExitError } from '../errors/classes';
 import { mapChildProcessError } from './map-error';
 import { defineProcessPromise, killAndWaitForExit } from './promise';
 
@@ -13,9 +14,29 @@ export interface IProcessResult {
 export interface IProcessChildProcess extends ChildProcess {
   /**
    * A cancelable promise of how the process ended, created on first access and reused after that.
-   * Canceling it sends `killSignal` and waits for the child to exit.
+   * Canceling it sends `killSignal` and waits for the child to exit, and rejects with
+   * `CancelError` rather than `ProcessExitError` for a kill this call initiated.
    */
   readonly promise: CancelablePromise<IProcessResult>;
+}
+
+// node's close event sets exactly one of code and signal; a clean exit is the only case that resolves
+function settleProcessResult(
+  exitCode: number | null,
+  signal: NodeJS.Signals | null,
+  command: string,
+  resolve: (value: IProcessResult) => void,
+  reject: (reason: unknown) => void,
+): void {
+  if (exitCode === 0 && signal === null) {
+    resolve({ exitCode, signal });
+    return;
+  }
+
+  const message =
+    signal !== null ? `Process was terminated by signal ${signal}` : `Process exited with code ${exitCode}`;
+
+  reject(new ProcessExitError(message, { command, exitCode, signal }));
 }
 
 function createProcessPromise(
@@ -28,7 +49,7 @@ function createProcessPromise(
 
     // node tracks how the process ended, so a promise taken after the fact still has an answer
     if (child.exitCode !== null || child.signalCode !== null) {
-      resolve({ exitCode: child.exitCode, signal: child.signalCode });
+      settleProcessResult(child.exitCode, child.signalCode, command, resolve, reject);
       return;
     }
 
@@ -37,7 +58,7 @@ function createProcessPromise(
     });
 
     child.once('close', (code: number | null, signal: NodeJS.Signals | null) => {
-      resolve({ exitCode: code, signal });
+      settleProcessResult(code, signal, command, resolve, reject);
     });
   });
 }
@@ -45,9 +66,9 @@ function createProcessPromise(
 /**
  * Spawns a new process, exactly as `child_process.spawn` does.
  *
- * The return value is node's own `ChildProcess` with a `promise` property added. A non-zero exit is
- * not a rejection: the promise resolves with the exit code and the signal, the same pair
- * `spawnSync` reports.
+ * The return value is node's own `ChildProcess` with a `promise` property added. The promise
+ * resolves `{ exitCode: 0, signal: null }` on a clean exit and rejects `ProcessExitError`
+ * otherwise, carrying whichever of `exitCode` and `signal` node reported.
  *
  * @param command The command to run.
  * @param args Arguments passed to the command.

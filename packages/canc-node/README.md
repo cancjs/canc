@@ -239,9 +239,9 @@ The `promise` property is built on first access and reused after that. Take it i
 
 `exec` and `execFile` mirror node's own promisified form. The promise resolves with `stdout` and `stderr`, and rejects on a non-zero exit with the error node decorates.
 
-`spawn` and `fork` have no promise form in node to mirror. The nearest reference is `spawnSync`, which reports a status instead of throwing, so their promise resolves with `exitCode` and `signal` even when the exit code is not zero. Test the exit code, or use `child.on("close")` as before.
+`spawn` and `fork` have no promise form in node to mirror. Their promise resolves `{ exitCode: 0, signal: null }` on a clean exit and rejects `ProcessExitError` otherwise, carrying whichever of `exitCode` and `signal` node reported. `child.on("close")` still reports the same outcome without throwing.
 
-Two failures that node reports ambiguously get a typed error in both cases: `ProcessSpawnError` when the process could not start, and `ProcessSignalError` when it was killed by a signal.
+Two failures that node reports ambiguously get a typed error: `ProcessSpawnError` when the process could not start, and `ProcessExitError` when it exited non-zero or was killed by a signal.
 
 #### Cancellation
 
@@ -367,11 +367,8 @@ For multi-step operations (`copy`, `move` across devices, `emptyDir`, `walk`), c
 ### Error classes
 
 - `NotImplementedError`: thrown when a version-gated export is invoked on an older runtime
-- `ProcessExitError`: thrown when a child process exits with a non-zero exit code
-- `ProcessSignalError`: thrown when a child process is terminated by a signal
+- `ProcessExitError`: thrown when a child process exits with a non-zero exit code or is terminated by a signal
 - `ProcessSpawnError`: thrown when a child process fails to spawn
-- `ProcessMaxBufferError`: thrown when child process output exceeds the configured buffer limit
-- `ProcessIpcError`: thrown when an IPC channel disconnects unexpectedly
 - `JsonParseError`: thrown when parsing JSON input fails
 
 ### Feature detection

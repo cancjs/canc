@@ -4,7 +4,7 @@ import { promisify } from 'node:util';
 
 import { CancelError, isCancelError } from '@cancjs/promise';
 
-import { isProcessExitError, isProcessSignalError, isProcessSpawnError } from '../errors/classes';
+import { isProcessExitError, isProcessSpawnError } from '../errors/classes';
 import { exec, execFile } from './exec';
 
 const nodeBin = `"${process.execPath}"`;
@@ -112,7 +112,7 @@ describe('exec and execFile', () => {
         caught = err;
       }
 
-      expect(isProcessSignalError(caught)).toBe(true);
+      expect(isProcessExitError(caught)).toBe(true);
       expect((caught as { signal?: string }).signal).toBe('SIGTERM');
     });
 

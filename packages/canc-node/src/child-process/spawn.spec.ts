@@ -6,7 +6,7 @@ import { PassThrough, Readable } from 'node:stream';
 
 import { CancelError, isCancelError } from '@cancjs/promise';
 
-import { isProcessSpawnError } from '../errors/classes';
+import { isProcessExitError, isProcessSpawnError } from '../errors/classes';
 import { fork, spawn } from './spawn';
 
 const forever = 'setTimeout(() => {}, 60000)';
@@ -51,12 +51,25 @@ describe('spawn and fork', () => {
       expect(child.promise).toBe(child.promise);
     });
 
-    it('resolves with the exit code and signal, including a non-zero exit', async () => {
+    it('resolves with the exit code and signal on a clean exit', async () => {
       const clean = track(spawn(process.execPath, ['-e', 'process.exit(0)']));
-      const failed = track(spawn(process.execPath, ['-e', 'process.exit(3)']));
 
       await expect(clean.promise).resolves.toEqual({ exitCode: 0, signal: null });
-      await expect(failed.promise).resolves.toEqual({ exitCode: 3, signal: null });
+    });
+
+    it('rejects a non-zero exit with a ProcessExitError carrying the exit code', async () => {
+      const failed = track(spawn(process.execPath, ['-e', 'process.exit(3)']));
+
+      let caught: unknown;
+      try {
+        await failed.promise;
+      } catch (err) {
+        caught = err;
+      }
+
+      expect(isProcessExitError(caught)).toBe(true);
+      expect((caught as { exitCode?: number | null }).exitCode).toBe(3);
+      expect((caught as { signal?: string | null }).signal).toBeNull();
     });
 
     it('rejects a missing binary with a spawn error', async () => {
@@ -102,10 +115,19 @@ describe('spawn and fork', () => {
       expect(child.exitCode).toBe(null);
     });
 
-    it('forwards the timeout option to node', async () => {
+    it('forwards the timeout option to node, and rejects the signal kill it causes', async () => {
       const child = track(spawn(process.execPath, ['-e', forever], { timeout: 100 }));
 
-      await expect(child.promise).resolves.toEqual({ exitCode: null, signal: 'SIGTERM' });
+      let caught: unknown;
+      try {
+        await child.promise;
+      } catch (err) {
+        caught = err;
+      }
+
+      expect(isProcessExitError(caught)).toBe(true);
+      expect((caught as { exitCode?: number | null }).exitCode).toBeNull();
+      expect((caught as { signal?: string | null }).signal).toBe('SIGTERM');
     });
 
     it('resolves the cancel only after the child exited', async () => {
@@ -148,7 +170,15 @@ describe('spawn and fork', () => {
 
       await new Promise((resolve) => child.on('close', resolve));
 
-      await expect(child.promise).resolves.toEqual({ exitCode: 5, signal: null });
+      let caught: unknown;
+      try {
+        await child.promise;
+      } catch (err) {
+        caught = err;
+      }
+
+      expect(isProcessExitError(caught)).toBe(true);
+      expect((caught as { exitCode?: number | null }).exitCode).toBe(5);
     });
   });
 

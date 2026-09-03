@@ -2,23 +2,14 @@ import {
   isJsonParseError,
   isNotImplementedError,
   isProcessExitError,
-  isProcessIpcError,
-  isProcessMaxBufferError,
-  isProcessSignalError,
   isProcessSpawnError,
   JSON_PARSE_ERROR_BRAND,
   JsonParseError,
   NOT_IMPLEMENTED_ERROR_BRAND,
   NotImplementedError,
   PROCESS_EXIT_ERROR_BRAND,
-  PROCESS_IPC_ERROR_BRAND,
-  PROCESS_MAX_BUFFER_ERROR_BRAND,
-  PROCESS_SIGNAL_ERROR_BRAND,
   PROCESS_SPAWN_ERROR_BRAND,
   ProcessExitError,
-  ProcessIpcError,
-  ProcessMaxBufferError,
-  ProcessSignalError,
   ProcessSpawnError,
 } from './classes';
 
@@ -112,6 +103,17 @@ describe('package error classes and guards', () => {
       expect(error.cause).toBe(cause);
     });
 
+    it('carries the signal shape, with a null exit code, for a process killed by a signal', () => {
+      const error = new ProcessExitError('Process was terminated by signal SIGTERM', {
+        command: 'node script.js',
+        exitCode: null,
+        signal: 'SIGTERM',
+      });
+
+      expect(error.exitCode).toBeNull();
+      expect(error.signal).toBe('SIGTERM');
+    });
+
     it('matches an object with the brand symbol across realms', () => {
       const fakeProto = { [PROCESS_EXIT_ERROR_BRAND]: true };
       const crossRealmObject = Object.create(fakeProto);
@@ -123,53 +125,6 @@ describe('package error classes and guards', () => {
     it('matches by name fallback', () => {
       expect(isProcessExitError({ name: 'ProcessExitError' })).toBe(true);
       expect(isProcessExitError({ name: 'OtherError' })).toBe(false);
-    });
-  });
-
-  describe('ProcessSignalError', () => {
-    it('creates an instance with default message', () => {
-      const error = new ProcessSignalError();
-      expect(error.message).toBe('Process was terminated by a signal');
-      expect(error.signal).toBeUndefined();
-      expect(error.command).toBeUndefined();
-      expect(error.cause).toBeUndefined();
-    });
-
-    it('creates an instance of Error and matches guard', () => {
-      const error = new ProcessSignalError('Killed by signal');
-
-      expect(error instanceof Error).toBe(true);
-      expect(error).toBeInstanceOf(ProcessSignalError);
-      expect(error.name).toBe('ProcessSignalError');
-      expect(error.message).toBe('Killed by signal');
-      expect(isProcessSignalError(error)).toBe(true);
-      expect(isProcessSignalError(new Error('Killed by signal'))).toBe(false);
-    });
-
-    it('attaches signal, command, and cause metadata', () => {
-      const cause = new Error('signal-cause');
-      const error = new ProcessSignalError('Terminated with SIGKILL', {
-        cause,
-        command: 'worker',
-        signal: 'SIGKILL',
-      });
-
-      expect(error.command).toBe('worker');
-      expect(error.signal).toBe('SIGKILL');
-      expect(error.cause).toBe(cause);
-    });
-
-    it('matches an object with the brand symbol across realms', () => {
-      const fakeProto = { [PROCESS_SIGNAL_ERROR_BRAND]: true };
-      const crossRealmObject = Object.create(fakeProto);
-
-      expect(crossRealmObject instanceof Error).toBe(false);
-      expect(isProcessSignalError(crossRealmObject)).toBe(true);
-    });
-
-    it('matches by name fallback', () => {
-      expect(isProcessSignalError({ name: 'ProcessSignalError' })).toBe(true);
-      expect(isProcessSignalError({ name: 'OtherError' })).toBe(false);
     });
   });
 
@@ -217,89 +172,6 @@ describe('package error classes and guards', () => {
     it('matches by name fallback', () => {
       expect(isProcessSpawnError({ name: 'ProcessSpawnError' })).toBe(true);
       expect(isProcessSpawnError({ name: 'OtherError' })).toBe(false);
-    });
-  });
-
-  describe('ProcessMaxBufferError', () => {
-    it('creates an instance with default message', () => {
-      const error = new ProcessMaxBufferError();
-      expect(error.message).toBe('Process stdio exceeded maxBuffer');
-      expect(error.command).toBeUndefined();
-      expect(error.cause).toBeUndefined();
-    });
-
-    it('creates an instance of Error and matches guard', () => {
-      const error = new ProcessMaxBufferError('Buffer exceeded');
-
-      expect(error instanceof Error).toBe(true);
-      expect(error).toBeInstanceOf(ProcessMaxBufferError);
-      expect(error.name).toBe('ProcessMaxBufferError');
-      expect(error.message).toBe('Buffer exceeded');
-      expect(isProcessMaxBufferError(error)).toBe(true);
-      expect(isProcessMaxBufferError(new Error('Buffer exceeded'))).toBe(false);
-    });
-
-    it('attaches command and cause metadata', () => {
-      const cause = new Error('buffer-cause');
-      const error = new ProcessMaxBufferError('Buffer overflow', {
-        cause,
-        command: 'cat large-file',
-      });
-
-      expect(error.command).toBe('cat large-file');
-      expect(error.cause).toBe(cause);
-    });
-
-    it('matches an object with the brand symbol across realms', () => {
-      const fakeProto = { [PROCESS_MAX_BUFFER_ERROR_BRAND]: true };
-      const crossRealmObject = Object.create(fakeProto);
-
-      expect(crossRealmObject instanceof Error).toBe(false);
-      expect(isProcessMaxBufferError(crossRealmObject)).toBe(true);
-    });
-
-    it('matches by name fallback', () => {
-      expect(isProcessMaxBufferError({ name: 'ProcessMaxBufferError' })).toBe(true);
-      expect(isProcessMaxBufferError({ name: 'OtherError' })).toBe(false);
-    });
-  });
-
-  describe('ProcessIpcError', () => {
-    it('creates an instance with default message', () => {
-      const error = new ProcessIpcError();
-      expect(error.message).toBe('Process IPC channel disconnected');
-      expect(error.cause).toBeUndefined();
-    });
-
-    it('creates an instance of Error and matches guard', () => {
-      const error = new ProcessIpcError('Channel closed');
-
-      expect(error instanceof Error).toBe(true);
-      expect(error).toBeInstanceOf(ProcessIpcError);
-      expect(error.name).toBe('ProcessIpcError');
-      expect(error.message).toBe('Channel closed');
-      expect(isProcessIpcError(error)).toBe(true);
-      expect(isProcessIpcError(new Error('Channel closed'))).toBe(false);
-    });
-
-    it('attaches cause when provided', () => {
-      const cause = new Error('Socket disconnected');
-      const error = new ProcessIpcError('IPC connection lost', { cause });
-
-      expect(error.cause).toBe(cause);
-    });
-
-    it('matches an object with the brand symbol across realms', () => {
-      const fakeProto = { [PROCESS_IPC_ERROR_BRAND]: true };
-      const crossRealmObject = Object.create(fakeProto);
-
-      expect(crossRealmObject instanceof Error).toBe(false);
-      expect(isProcessIpcError(crossRealmObject)).toBe(true);
-    });
-
-    it('matches by name fallback', () => {
-      expect(isProcessIpcError({ name: 'ProcessIpcError' })).toBe(true);
-      expect(isProcessIpcError({ name: 'OtherError' })).toBe(false);
     });
   });
 
@@ -369,15 +241,7 @@ describe('package error classes and guards', () => {
 
   describe('guards reject invalid input types', () => {
     it('rejects null, undefined, primitives, and plain objects', () => {
-      const guards = [
-        isNotImplementedError,
-        isProcessExitError,
-        isProcessSignalError,
-        isProcessSpawnError,
-        isProcessMaxBufferError,
-        isProcessIpcError,
-        isJsonParseError,
-      ];
+      const guards = [isNotImplementedError, isProcessExitError, isProcessSpawnError, isJsonParseError];
 
       for (const guard of guards) {
         expect(guard(null)).toBe(false);

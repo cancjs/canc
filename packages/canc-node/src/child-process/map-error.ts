@@ -1,5 +1,5 @@
 import { isObject } from '../../../_util/guards';
-import { ProcessSignalError, ProcessSpawnError } from '../errors/classes';
+import { ProcessExitError, ProcessSpawnError } from '../errors/classes';
 
 interface IChildProcessError {
   code?: string | number | null;
@@ -42,7 +42,7 @@ export function mapChildProcessError(err: unknown, command?: string): unknown {
   }
 
   if (error.signal && !error.code) {
-    return new ProcessSignalError(error.message, { signal: error.signal, command: cmd, cause: err });
+    return new ProcessExitError(error.message, { exitCode: null, signal: error.signal, command: cmd, cause: err });
   }
 
   return err;
