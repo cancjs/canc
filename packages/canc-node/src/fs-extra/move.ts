@@ -8,12 +8,12 @@ import { lstat, rename, rm } from '../fs';
 import { copyTree } from './copy';
 import { ensureDir } from './ensure';
 
-/** The call presently in flight, so a cancel reaches it directly instead of waiting for the next checkpoint. */
+/** The call presently in flight, so a cancel reaches it directly instead of waiting for the next checkpoint. Single-slot register only safe because moveAcrossDevice is strictly sequential. Needed because node accepts signal for lstat/stat only; rename, rm, ensureDir and other calls have no signal, so canceling our inner promise is the only way to interrupt them. */
 interface IActiveCall {
   current: CancelablePromise<unknown> | null;
 }
 
-/** `lstat` takes a signal from node 26.8; passing one is a no-op below that and correct above it. */
+/** `lstat` takes a signal from node 26.8; passing one is safe everywhere because takeCallerSignal strips it from node's options bag before the call, so node never sees an unknown key. Without stripping, Deno would throw ERR_INVALID_ARG_TYPE. */
 function statOptionsWithSignal(signal: AbortSignal) {
   return { bigint: false as const, signal };
 }
