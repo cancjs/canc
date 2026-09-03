@@ -55,6 +55,9 @@ export type TReturnRewrite = keyof IReturnRewrite<unknown>;
  * such as the `native` on `realpathSync`, are dropped, which is why the ladder also serves the
  * synchronous surface where no return changes at all.
  */
+// six rungs is a cap, not a fact about node: past it, TS keeps the newest six signatures and
+// silently drops the oldest one instead of erroring, so a function's original call shape is the
+// one that quietly stops type-checking once a function it wraps grows a seventh overload
 export type TNodeSignatures<TFn, TRewrite extends TReturnRewrite> =
   TFn extends (
     {

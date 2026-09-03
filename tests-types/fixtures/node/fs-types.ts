@@ -18,6 +18,7 @@ import * as nodeFsp from 'node:fs/promises';
 
 import * as fs from '../../../packages/canc-node/src/fs';
 import * as sync from '../../../packages/canc-node/src/fs/sync';
+import { TNodeSignatures } from '../../../packages/canc-node/src/fs/wrap';
 import { Equal, Expect, IsAny, IsUnknown, Not } from '../common/assert-type';
 
 // Our answer for a call, against node's answer for the same call, with cancelability added.
@@ -149,4 +150,119 @@ export function stillDropsIn(path: string) {
   cancelable.cancel();
 
   return [asNode, cancelable] as const;
+}
+
+/**
+ * A synthetic function type with exactly six overloads, one for every rung `TNodeSignatures`
+ * (`fs/wrap.ts`) offers today. Each rung takes a distinct literal argument and returns a distinct
+ * literal type, so a collapse is visible immediately: a merged rung makes one of the six calls
+ * below type-check against the wrong return, or stop type-checking at all.
+ *
+ * This interface is also the rehearsal fixture for the arity cap: temporarily adding a seventh
+ * signature here reproduces, on a controlled type, exactly what happens when a real node export
+ * grows past the cap (see `ladderDropsTheOldestOverloadPastItsCap` below for that failure pinned
+ * on purpose). Restore it to six afterward; the six-overload shape is the committed, passing state.
+ */
+interface ISixOverloads {
+  (tag: 1): 'one';
+  (tag: 2): 'two';
+  (tag: 3): 'three';
+  (tag: 4): 'four';
+  (tag: 5): 'five';
+  (tag: 6): 'six';
+}
+
+declare const sixWrapped: TNodeSignatures<ISixOverloads, 'same'>;
+
+/**
+ * The ladder still covers a function sitting exactly at its own cap: all six rungs of the
+ * synthetic six-overload type above stay distinct through `TNodeSignatures`, matching node's own
+ * `readdir` (`overloadsSurvive` above), the widest real member this package wraps at five
+ * overloads. Growing `ISixOverloads` to seven makes `v1` (rung one) fail to type-check, because a
+ * seventh signature pushes the oldest rung out of the reconstructed type; that is the arity cap
+ * firing on a controlled type instead of on `readdir` after node ships a change.
+ */
+export function ladderCoversItsOwnCap() {
+  const v1 = sixWrapped(1);
+  const v2 = sixWrapped(2);
+  const v3 = sixWrapped(3);
+  const v4 = sixWrapped(4);
+  const v5 = sixWrapped(5);
+  const v6 = sixWrapped(6);
+
+  type C1 = Expect<Equal<typeof v1, 'one'>>;
+  type C2 = Expect<Equal<typeof v2, 'two'>>;
+  type C3 = Expect<Equal<typeof v3, 'three'>>;
+  type C4 = Expect<Equal<typeof v4, 'four'>>;
+  type C5 = Expect<Equal<typeof v5, 'five'>>;
+  type C6 = Expect<Equal<typeof v6, 'six'>>;
+
+  return [v1, v2, v3, v4, v5, v6] as const;
+}
+
+/** A seven-overload counterpart to {@link ISixOverloads}, one rung past the ladder's cap. */
+interface ISevenOverloads {
+  (tag: 1): 'one';
+  (tag: 2): 'two';
+  (tag: 3): 'three';
+  (tag: 4): 'four';
+  (tag: 5): 'five';
+  (tag: 6): 'six';
+  (tag: 7): 'seven';
+}
+
+declare const sevenWrapped: TNodeSignatures<ISevenOverloads, 'same'>;
+
+/**
+ * Pins today's actual overflow behavior on a synthetic type, so it is proven rather than assumed.
+ * A seventh overload does not collapse the whole signature to one rung: TS keeps the newest six
+ * and silently drops the OLDEST, so rung one (`tag: 1`, declared first) is the one that stops
+ * type-checking, while rungs two through seven all still resolve their own distinct return types.
+ * That is the concrete shape of the bug this task guards: a function's original, presumably most
+ * common, call form is the one that breaks once a later overload pushes it past the cap.
+ *
+ * The `@ts-expect-error` on rung one is load-bearing. If the ladder ever stops dropping it, the
+ * directive goes unused and `tsc` reports that as an error, the same signal this task wants
+ * produced for a real node export instead of a silent behavior change.
+ */
+export function ladderDropsTheOldestOverloadPastItsCap() {
+  // @ts-expect-error rung one, declared first, is the one the cap drops once a seventh exists
+  const droppedRung = sevenWrapped(1);
+
+  const rung2 = sevenWrapped(2);
+  const rung3 = sevenWrapped(3);
+  const rung4 = sevenWrapped(4);
+  const rung5 = sevenWrapped(5);
+  const rung6 = sevenWrapped(6);
+  const rung7 = sevenWrapped(7);
+
+  type C1 = Expect<Equal<typeof rung2, 'two'>>;
+  type C2 = Expect<Equal<typeof rung3, 'three'>>;
+  type C3 = Expect<Equal<typeof rung4, 'four'>>;
+  type C4 = Expect<Equal<typeof rung5, 'five'>>;
+  type C5 = Expect<Equal<typeof rung6, 'six'>>;
+  type C6 = Expect<Equal<typeof rung7, 'seven'>>;
+
+  return [droppedRung, rung2, rung3, rung4, rung5, rung6, rung7] as const;
+}
+
+/**
+ * Ties the cap to the widest real export this package wraps, not only to a synthetic type.
+ * `readdir` carries five overloads today (`overloadsSurvive` above exercises all three of its
+ * return-type buckets); the moment `@types/node` gives it a sixth or seventh, one of those three
+ * calls stops resolving `readdir`'s own answer and this file fails to compile, before anyone finds
+ * out at runtime that `fs.readdir` quietly started returning the wrong shape.
+ */
+export function ladderStillCoversTheWidestRealMember(path: string) {
+  const names = fs.readdir(path);
+  const buffers = fs.readdir(path, 'buffer');
+  const dirents = fs.readdir(path, { withFileTypes: true });
+
+  const nodeBuffers = nodeFsp.readdir(path, 'buffer');
+
+  type R1 = Expect<Equal<typeof names, CancelablePromise<string[]>>>;
+  type R2 = Expect<SameAsNode<typeof buffers, typeof nodeBuffers>>;
+  type R3 = Expect<Equal<ResolvedBy<typeof dirents>, nodeFs.Dirent[]>>;
+
+  return [names, buffers, dirents] as const;
 }
