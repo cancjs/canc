@@ -232,7 +232,7 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 
 ### Shipped subpaths
 
-The package currently ships eleven subpaths:
+The package currently ships thirteen subpaths:
 
 - `fs`: file system operations with cancelable promises
 - `fs/sync`: synchronous file system utilities
@@ -245,6 +245,8 @@ The package currently ships eleven subpaths:
 - `readline`: cancelable line-by-line reading
 - `crypto`: cancelable cryptographic operations
 - `zlib`: cancelable compression utilities
+- `worker-threads`: worker thread coordination
+- `dgram`: UDP socket helpers
 
 The `/fs/sync` subpath drops `realpathSync.native`, which is the only departure from Node's own synchronous file system signatures.
 
@@ -405,6 +407,18 @@ This subpath ships three different cancellation shapes, and they are not interch
 
 The zstd family, the iterable codec family, and the zip archive family are all version-gated and throw `NotImplementedError` on a runtime that does not ship them.
 
+### worker-threads
+
+A `Worker` has exactly one terminal event, `exit`, so it carries a lazy `promise` property that settles when the thread stops: `await worker.promise` resolves to the exit code. The property is built on first access and never shows up in `Object.keys`, a spread, or `JSON.stringify`.
+
+`terminate()` stops a thread at whatever point it happens to be at. There is no `finally`, no flush, no unload hook: a thread mid-write when terminated leaves that write unfinished. `runTask` therefore posts a stop message and gives the worker `gracePeriod` (5000ms by default) to exit on its own before falling back to `terminate()`, so a cooperating worker gets to clean up first. Pass `{ terminate: 'immediate' }` for a worker that does not cooperate, which skips the grace period and terminates right away.
+
+`requestLock` wraps `worker_threads.locks.request` (Node 24.5.0+). Canceling while waiting for the lock aborts the acquisition; canceling while holding it cancels the running body and then releases the lock, and the release itself cannot be interrupted by the same cancel.
+
+### dgram
+
+`send` resolves once the datagram is handed to the kernel. **A sent datagram cannot be recalled**, so canceling after that point is a no-op; canceling before the underlying `socket.send` call runs prevents it from being sent at all. `bind` and `connect` are cancelable up to the point they complete: canceling either closes the socket, which frees the port. `dgram.Socket` has no `promise` property, because it has two terminal events (`listening` and `close`) rather than one.
+
 ### Planned subpaths
 
 Wrapped built-in modules are arriving in upcoming releases. Planned subpaths include:
@@ -413,8 +427,6 @@ Wrapped built-in modules are arriving in upcoming releases. Planned subpaths inc
 - `net`: networking helpers
 - `tls`: TLS socket utilities
 - `http`: HTTP, HTTPS, and HTTP/2 clients and servers
-- `worker-threads`: worker thread coordination
-- `dgram`: UDP socket helpers
 
 ## File system
 

@@ -168,6 +168,30 @@
         "types": "./dist/types/zlib/index.d.ts",
         "default": "./dist/zlib.cjs"
       }
+    },
+    "./worker-threads": {
+      "import": {
+        "types@<4.7": "./dist/types-ts4.2/worker-threads/index.d.mts",
+        "types": "./dist/types/worker-threads/index.d.mts",
+        "default": "./dist/worker-threads.mjs"
+      },
+      "require": {
+        "types@<4.7": "./dist/types-ts4.2/worker-threads/index.d.ts",
+        "types": "./dist/types/worker-threads/index.d.ts",
+        "default": "./dist/worker-threads.cjs"
+      }
+    },
+    "./dgram": {
+      "import": {
+        "types@<4.7": "./dist/types-ts4.2/dgram/index.d.mts",
+        "types": "./dist/types/dgram/index.d.mts",
+        "default": "./dist/dgram.mjs"
+      },
+      "require": {
+        "types@<4.7": "./dist/types-ts4.2/dgram/index.d.ts",
+        "types": "./dist/types/dgram/index.d.ts",
+        "default": "./dist/dgram.cjs"
+      }
     }
   },
   "main": "dist/index.cjs",
@@ -226,7 +250,9 @@
       "dns": ["dist/types/dns/index.d.ts"],
       "readline": ["dist/types/readline/index.d.ts"],
       "crypto": ["dist/types/crypto/index.d.ts"],
-      "zlib": ["dist/types/zlib/index.d.ts"]
+      "zlib": ["dist/types/zlib/index.d.ts"],
+      "worker-threads": ["dist/types/worker-threads/index.d.ts"],
+      "dgram": ["dist/types/dgram/index.d.ts"]
     }
   }
 }
