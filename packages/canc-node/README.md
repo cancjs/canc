@@ -183,12 +183,15 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 
 ### Shipped subpaths
 
-The package currently ships four subpaths:
+The package currently ships seven subpaths:
 
 - `fs`: file system operations with cancelable promises
 - `fs/sync`: synchronous file system utilities
 - `fs/register-graceful`: automatic graceful-fs integration hook
 - `child-process`: external commands and spawned processes with cancellation support
+- `timers`: cancelable timer promises
+- `stream`: stream consumers, pipeline helpers and readable terminals
+- `events`: event listener helpers and cancelable event promises
 
 The `/fs/sync` subpath drops `realpathSync.native`, which is the only departure from Node's own synchronous file system signatures.
 
@@ -277,14 +280,52 @@ already calls `node:timers/promises` directly, or when `ref: false` is needed.
 the returned iterator, or by breaking a `for await` loop over it; both end iteration and clear the
 underlying timer. `scheduler.yield` takes no options and is node's own function, unwrapped.
 
+### stream
+
+`pipeline` and `finished` wrap `node:stream/promises`, alongside the stream classes,
+`addAbortSignal`, `Readable.from`, `Duplex.from` and `duplexPair`, re-exported structurally so a
+caller does not need a second import to use the wrappers. Canceling `pipeline` destroys every
+stream in the chain, the same teardown node runs for its own aborted pipeline. Canceling `finished`
+removes the listeners it attached.
+
+`text`, `json`, `buffer`, `arrayBuffer`, `blob` and `bytes` wrap `node:stream/consumers`. None of
+these take a signal from node, so canceling destroys the source stream directly; pass
+`{ destroyOnCancel: false }` when the stream is shared with another reader. `bytes` is
+feature-gated and throws `NotImplementedError` on a runtime that lacks it.
+
+`toArray`, `reduce`, `some`, `every`, `find` and `forEach` wrap the promise-returning `Readable`
+terminals. They are free functions taking the stream as their first argument, `toArray(stream)`,
+not a `Readable.prototype` patch, so `stream.toArray()` is not this package's API. The lazy
+helpers `map`, `filter`, `take`, `drop` and `flatMap` return a stream rather than a promise and are
+not wrapped here; `@cancjs/toolbox/async-iter` owns that shape.
+
+### events
+
+`once` and `on` wrap `node:events`, alongside `addAbortListener` (polyfilled below Node 18.18) and
+`EventEmitter`, re-exported structurally. Both already accept an `AbortSignal`; what this subpath
+adds on top is consumer counting, which no controller gives you on its own. Canceling one consumer
+of a shared `once` call leaves the listener in place for whoever else is still waiting, and only
+removes it once every consumer has given up:
+
+```ts
+import { once } from "@cancjs/node/events";
+
+const ready = once(emitter, "ready");
+const a = ready.then(([value]) => value);
+const b = ready.then(([value]) => value + 1);
+
+a.cancel();
+// emitter.listenerCount("ready") is still 1: b is still waiting.
+
+emitter.emit("ready", 41);
+// a rejects CancelError, b resolves 42.
+```
+
 ### Planned subpaths
 
 Wrapped built-in modules are arriving in upcoming releases. Planned subpaths include:
 
 - `fs/extra`: extended file system helper routines
-- `timers`: cancelable timer promises
-- `stream`: stream consumers and pipeline helpers
-- `events`: event listener helpers and cancelable event promises
 - `dns`: cancelable DNS resolution
 - `net`: networking helpers
 - `tls`: TLS socket utilities

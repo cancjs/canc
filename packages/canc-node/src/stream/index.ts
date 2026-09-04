@@ -359,3 +359,9 @@ export const pipeline = pipelineSignalWrapped(rawPipeline, entries.get('pipeline
 export const finished = signalWrapped(rawFinished, entries.get('finished'), 1) as TCancelable<
   typeof nodeStreamPromises.finished
 >;
+
+// the /stream subpath's public surface also carries the consumers and the Readable promise
+// terminals; each lives in its own file so a reader following just pipeline and finished does not
+// scroll past the rest
+export * from './consumers';
+export * from './terminals';

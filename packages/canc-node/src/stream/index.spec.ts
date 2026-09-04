@@ -31,6 +31,18 @@ describe('@cancjs/node/stream module exports', () => {
       'PassThrough',
       'addAbortSignal',
       'duplexPair',
+      'text',
+      'json',
+      'buffer',
+      'arrayBuffer',
+      'blob',
+      'bytes',
+      'toArray',
+      'some',
+      'every',
+      'find',
+      'forEach',
+      'reduce',
     ]);
 
     expect(new Set(Object.keys(streamExports))).toEqual(expected);

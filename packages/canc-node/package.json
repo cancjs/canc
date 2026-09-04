@@ -84,6 +84,42 @@
         "types": "./dist/types/child-process/index.d.ts",
         "default": "./dist/child-process.cjs"
       }
+    },
+    "./timers": {
+      "import": {
+        "types@<4.7": "./dist/types-ts4.2/timers/index.d.mts",
+        "types": "./dist/types/timers/index.d.mts",
+        "default": "./dist/timers.mjs"
+      },
+      "require": {
+        "types@<4.7": "./dist/types-ts4.2/timers/index.d.ts",
+        "types": "./dist/types/timers/index.d.ts",
+        "default": "./dist/timers.cjs"
+      }
+    },
+    "./stream": {
+      "import": {
+        "types@<4.7": "./dist/types-ts4.2/stream/index.d.mts",
+        "types": "./dist/types/stream/index.d.mts",
+        "default": "./dist/stream.mjs"
+      },
+      "require": {
+        "types@<4.7": "./dist/types-ts4.2/stream/index.d.ts",
+        "types": "./dist/types/stream/index.d.ts",
+        "default": "./dist/stream.cjs"
+      }
+    },
+    "./events": {
+      "import": {
+        "types@<4.7": "./dist/types-ts4.2/events/index.d.mts",
+        "types": "./dist/types/events/index.d.mts",
+        "default": "./dist/events.mjs"
+      },
+      "require": {
+        "types@<4.7": "./dist/types-ts4.2/events/index.d.ts",
+        "types": "./dist/types/events/index.d.ts",
+        "default": "./dist/events.cjs"
+      }
     }
   },
   "main": "dist/index.cjs",
@@ -135,7 +171,10 @@
       "fs/sync": ["dist/types/fs/sync.d.ts"],
       "fs/register-graceful": ["dist/types/fs/register-graceful.d.ts"],
       "fs/extra": ["dist/types/fs-extra/index.d.ts"],
-      "child-process": ["dist/types/child-process/index.d.ts"]
+      "child-process": ["dist/types/child-process/index.d.ts"],
+      "timers": ["dist/types/timers/index.d.ts"],
+      "stream": ["dist/types/stream/index.d.ts"],
+      "events": ["dist/types/events/index.d.ts"]
     }
   }
 }
