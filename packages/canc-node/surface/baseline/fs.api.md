@@ -39,25 +39,25 @@ new (): Stats
 ## `access` (const)
 
 ```text
-(path: PathLike, mode?: number | undefined): CancelablePromise<TValue>
+(path: PathLike, mode?: number | undefined): CancelablePromise<void>
 ```
 
 ## `appendFile` (const)
 
 ```text
-(path: PathLike | FileHandle, data: string | Uint8Array<ArrayBufferLike>, options?: (ObjectEncodingOptions & FlagAndOpenMode & { flush?: boolean | undefined; }) | BufferEncoding | null | undefined): CancelablePromise<TValue>
+(path: PathLike | FileHandle, data: string | Uint8Array<ArrayBufferLike>, options?: (ObjectEncodingOptions & FlagAndOpenMode & { flush?: boolean | undefined; }) | BufferEncoding | null | undefined): CancelablePromise<void>
 ```
 
 ## `chmod` (const)
 
 ```text
-(path: PathLike, mode: Mode): CancelablePromise<TValue>
+(path: PathLike, mode: Mode): CancelablePromise<void>
 ```
 
 ## `chown` (const)
 
 ```text
-(path: PathLike, uid: number, gid: number): CancelablePromise<TValue>
+(path: PathLike, uid: number, gid: number): CancelablePromise<void>
 ```
 
 ## `constants` (const)
@@ -112,19 +112,19 @@ X_OK: number
 ## `copyFile` (const)
 
 ```text
-(src: PathLike, dest: PathLike, mode?: number | undefined): CancelablePromise<TValue>
+(src: PathLike, dest: PathLike, mode?: number | undefined): CancelablePromise<void>
 ```
 
 ## `cp` (const)
 
 ```text
-(source: string | URL, destination: string | URL, opts?: CopyOptions | undefined): CancelablePromise<TValue>
+(source: string | URL, destination: string | URL, opts?: CopyOptions | undefined): CancelablePromise<void>
 ```
 
 ## `exists` (const)
 
 ```text
-(path: PathLike): CancelablePromise<TValue>
+(path: PathLike): CancelablePromise<boolean>
 ```
 
 ## `glob` (const)
@@ -136,156 +136,159 @@ X_OK: number
 ## `lchmod` (const)
 
 ```text
-(path: PathLike, mode: Mode): CancelablePromise<TValue>
+(path: PathLike, mode: Mode): CancelablePromise<void>
 ```
 
 ## `lchown` (const)
 
 ```text
-(path: PathLike, uid: number, gid: number): CancelablePromise<TValue>
+(path: PathLike, uid: number, gid: number): CancelablePromise<void>
 ```
 
 ## `link` (const)
 
 ```text
-(existingPath: PathLike, newPath: PathLike): CancelablePromise<TValue>
+(existingPath: PathLike, newPath: PathLike): CancelablePromise<void>
 ```
 
 ## `lstat` (const)
 
 ```text
-(path: PathLike, opts?: (StatOptions & { bigint?: false | undefined; }) | undefined): CancelablePromise<TValue>
-(path: PathLike, opts: StatOptions & { bigint: true; }): CancelablePromise<TValue>
-(path: PathLike, opts?: StatOptions | undefined): CancelablePromise<TValue>
+(path: PathLike, opts?: (StatOptions & { bigint?: false | undefined; }) | undefined): CancelablePromise<Stats>
+(path: PathLike, opts: StatOptions & { bigint: true; }): CancelablePromise<BigIntStats>
+(path: PathLike, opts?: StatOptions | undefined): CancelablePromise<Stats | BigIntStats>
 ```
 
 ## `lutimes` (const)
 
 ```text
-(path: PathLike, atime: TimeLike, mtime: TimeLike): CancelablePromise<TValue>
+(path: PathLike, atime: TimeLike, mtime: TimeLike): CancelablePromise<void>
 ```
 
 ## `mkdir` (const)
 
 ```text
-(path: PathLike, options: MakeDirectoryOptions & { recursive: true; }): CancelablePromise<TValue>
-(path: PathLike, options?: Mode | (MakeDirectoryOptions & { recursive?: false | undefined; }) | null | undefined): CancelablePromise<TValue>
-(path: PathLike, options?: Mode | MakeDirectoryOptions | null | undefined): CancelablePromise<TValue>
+(path: PathLike, options: MakeDirectoryOptions & { recursive: true; }): CancelablePromise<string | undefined>
+(path: PathLike, options?: Mode | (MakeDirectoryOptions & { recursive?: false | undefined; }) | null | undefined): CancelablePromise<void>
+(path: PathLike, options?: Mode | MakeDirectoryOptions | null | undefined): CancelablePromise<string | undefined>
 ```
 
 ## `mkdtemp` (const)
 
 ```text
-(prefix: string, options?: ObjectEncodingOptions | BufferEncoding | null | undefined): CancelablePromise<TValue>
-(prefix: string, options: BufferEncodingOption): CancelablePromise<TValue>
+(prefix: string, options?: ObjectEncodingOptions | BufferEncoding | null | undefined): CancelablePromise<string>
+(prefix: string, options: BufferEncodingOption): CancelablePromise<NonSharedBuffer>
+(prefix: string, options?: ObjectEncodingOptions | BufferEncoding | null | undefined): CancelablePromise<string | NonSharedBuffer>
 ```
 
 ## `mkdtempDisposable` (const)
 
 ```text
-(prefix: string, options?: BufferEncoding | { encoding?: BufferEncoding | null | undefined; } | null | undefined): CancelablePromise<TValue>
+(prefix: string, options?: BufferEncoding | { encoding?: BufferEncoding | null | undefined; } | null | undefined): CancelablePromise<IDisposableTempDir>
 ```
 
 ## `open` (const)
 
 ```text
-(path: PathLike, flags?: string | number | undefined, mode?: Mode | undefined): CancelablePromise<TValue>
+(path: PathLike, flags?: string | number | undefined, mode?: Mode | undefined): CancelablePromise<FileHandle>
 ```
 
 ## `opendir` (const)
 
 ```text
-(path: PathLike, options?: OpenDirOptions | undefined): CancelablePromise<TValue>
+(path: PathLike, options?: OpenDirOptions | undefined): CancelablePromise<Dir>
 ```
 
 ## `readFile` (const)
 
 ```text
-(path: PathLike | FileHandle, options?: ({ encoding?: null | undefined; flag?: OpenMode | undefined; } & Abortable) | null | undefined): CancelablePromise<TValue>
-(path: PathLike | FileHandle, options: BufferEncoding | ({ encoding: BufferEncoding; flag?: OpenMode | undefined; } & Abortable)): CancelablePromise<TValue>
-(path: PathLike | FileHandle, options?: BufferEncoding | (ObjectEncodingOptions & Abortable & { flag?: OpenMode | undefined; }) | null | undefined): CancelablePromise<TValue>
+(path: PathLike | FileHandle, options?: ({ encoding?: null | undefined; flag?: OpenMode | undefined; } & Abortable) | null | undefined): CancelablePromise<NonSharedBuffer>
+(path: PathLike | FileHandle, options: BufferEncoding | ({ encoding: BufferEncoding; flag?: OpenMode | undefined; } & Abortable)): CancelablePromise<string>
+(path: PathLike | FileHandle, options?: BufferEncoding | (ObjectEncodingOptions & Abortable & { flag?: OpenMode | undefined; }) | null | undefined): CancelablePromise<string | NonSharedBuffer>
 ```
 
 ## `readdir` (const)
 
 ```text
-(path: PathLike, options?: BufferEncoding | (ObjectEncodingOptions & { withFileTypes?: false | undefined; recursive?: boolean | undefined; }) | null | undefined): CancelablePromise<TValue>
-(path: PathLike, options: "buffer" | { encoding: "buffer"; withFileTypes?: false | undefined; recursive?: boolean | undefined; }): CancelablePromise<TValue>
-(path: PathLike, options: ObjectEncodingOptions & { withFileTypes: true; recursive?: boolean | undefined; }): CancelablePromise<TValue>
-(path: PathLike, options: { encoding: "buffer"; withFileTypes: true; recursive?: boolean | undefined; }): CancelablePromise<TValue>
+(path: PathLike, options?: BufferEncoding | (ObjectEncodingOptions & { withFileTypes?: false | undefined; recursive?: boolean | undefined; }) | null | undefined): CancelablePromise<Array<string>>
+(path: PathLike, options: "buffer" | { encoding: "buffer"; withFileTypes?: false | undefined; recursive?: boolean | undefined; }): CancelablePromise<Array<NonSharedBuffer>>
+(path: PathLike, options?: BufferEncoding | (ObjectEncodingOptions & { withFileTypes?: false | undefined; recursive?: boolean | undefined; }) | null | undefined): CancelablePromise<Array<string> | Array<NonSharedBuffer>>
+(path: PathLike, options: ObjectEncodingOptions & { withFileTypes: true; recursive?: boolean | undefined; }): CancelablePromise<Array<Dirent<string>>>
+(path: PathLike, options: { encoding: "buffer"; withFileTypes: true; recursive?: boolean | undefined; }): CancelablePromise<Array<Dirent<NonSharedBuffer>>>
 ```
 
 ## `readlink` (const)
 
 ```text
-(path: PathLike, options?: ObjectEncodingOptions | BufferEncoding | null | undefined): CancelablePromise<TValue>
-(path: PathLike, options: BufferEncodingOption): CancelablePromise<TValue>
-(path: PathLike, options?: string | ObjectEncodingOptions | null | undefined): CancelablePromise<TValue>
+(path: PathLike, options?: ObjectEncodingOptions | BufferEncoding | null | undefined): CancelablePromise<string>
+(path: PathLike, options: BufferEncodingOption): CancelablePromise<NonSharedBuffer>
+(path: PathLike, options?: string | ObjectEncodingOptions | null | undefined): CancelablePromise<string | NonSharedBuffer>
 ```
 
 ## `realpath` (const)
 
 ```text
-(path: PathLike, options?: ObjectEncodingOptions | BufferEncoding | null | undefined): CancelablePromise<TValue>
-(path: PathLike, options: BufferEncodingOption): CancelablePromise<TValue>
+(path: PathLike, options?: ObjectEncodingOptions | BufferEncoding | null | undefined): CancelablePromise<string>
+(path: PathLike, options: BufferEncodingOption): CancelablePromise<NonSharedBuffer>
+(path: PathLike, options?: ObjectEncodingOptions | BufferEncoding | null | undefined): CancelablePromise<string | NonSharedBuffer>
 ```
 
 ## `rename` (const)
 
 ```text
-(oldPath: PathLike, newPath: PathLike): CancelablePromise<TValue>
+(oldPath: PathLike, newPath: PathLike): CancelablePromise<void>
 ```
 
 ## `rm` (const)
 
 ```text
-(path: PathLike, options?: RmOptions | undefined): CancelablePromise<TValue>
+(path: PathLike, options?: RmOptions | undefined): CancelablePromise<void>
 ```
 
 ## `rmdir` (const)
 
 ```text
-(path: PathLike, options?: RmDirOptions | undefined): CancelablePromise<TValue>
+(path: PathLike, options?: RmDirOptions | undefined): CancelablePromise<void>
 ```
 
 ## `stat` (const)
 
 ```text
-(path: PathLike, opts?: (StatOptions & { bigint?: false | undefined; }) | undefined): CancelablePromise<TValue>
-(path: PathLike, opts: StatOptions & { bigint: true; }): CancelablePromise<TValue>
-(path: PathLike, opts?: StatOptions | undefined): CancelablePromise<TValue>
+(path: PathLike, opts?: (StatOptions & { bigint?: false | undefined; }) | undefined): CancelablePromise<Stats>
+(path: PathLike, opts: StatOptions & { bigint: true; }): CancelablePromise<BigIntStats>
+(path: PathLike, opts?: StatOptions | undefined): CancelablePromise<Stats | BigIntStats>
 ```
 
 ## `statfs` (const)
 
 ```text
-(path: PathLike, opts?: (StatFsOptions & { bigint?: false | undefined; }) | undefined): CancelablePromise<TValue>
-(path: PathLike, opts: StatFsOptions & { bigint: true; }): CancelablePromise<TValue>
-(path: PathLike, opts?: StatFsOptions | undefined): CancelablePromise<TValue>
+(path: PathLike, opts?: (StatFsOptions & { bigint?: false | undefined; }) | undefined): CancelablePromise<StatsFs>
+(path: PathLike, opts: StatFsOptions & { bigint: true; }): CancelablePromise<BigIntStatsFs>
+(path: PathLike, opts?: StatFsOptions | undefined): CancelablePromise<StatsFs | BigIntStatsFs>
 ```
 
 ## `symlink` (const)
 
 ```text
-(target: PathLike, path: PathLike, type?: string | null | undefined): CancelablePromise<TValue>
+(target: PathLike, path: PathLike, type?: string | null | undefined): CancelablePromise<void>
 ```
 
 ## `truncate` (const)
 
 ```text
-(path: PathLike, len?: number | undefined): CancelablePromise<TValue>
+(path: PathLike, len?: number | undefined): CancelablePromise<void>
 ```
 
 ## `unlink` (const)
 
 ```text
-(path: PathLike): CancelablePromise<TValue>
+(path: PathLike): CancelablePromise<void>
 ```
 
 ## `utimes` (const)
 
 ```text
-(path: PathLike, atime: TimeLike, mtime: TimeLike): CancelablePromise<TValue>
+(path: PathLike, atime: TimeLike, mtime: TimeLike): CancelablePromise<void>
 ```
 
 ## `watch` (const)
@@ -299,5 +302,5 @@ X_OK: number
 ## `writeFile` (const)
 
 ```text
-(file: PathLike | FileHandle, data: string | ArrayBufferView<ArrayBufferLike> | Iterable<string | ArrayBufferView<ArrayBufferLike>> | AsyncIterable<string | ArrayBufferView<ArrayBufferLike>> | Stream, options?: BufferEncoding | (ObjectEncodingOptions & { mode?: Mode | undefined; flag?: OpenMode | undefined; flush?: boolean | undefined; } & Abortable) | null | undefined): CancelablePromise<TValue>
+(file: PathLike | FileHandle, data: string | ArrayBufferView<ArrayBufferLike> | Iterable<string | ArrayBufferView<ArrayBufferLike>> | AsyncIterable<string | ArrayBufferView<ArrayBufferLike>> | Stream, options?: BufferEncoding | (ObjectEncodingOptions & { mode?: Mode | undefined; flag?: OpenMode | undefined; flush?: boolean | undefined; } & Abortable) | null | undefined): CancelablePromise<void>
 ```
