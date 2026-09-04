@@ -5,7 +5,7 @@
 /** Reason carried by the cancellation raised when the client goes away before the response ends. */
 export const CLIENT_DISCONNECTED = 'client disconnected';
 
-/** Reason carried by the cancellation a graceful drain raises on every in-flight request. */
+/** Reason carried by the cancellation a graceful shutdown raises on every in-flight request. */
 export const SERVER_SHUTDOWN = 'server shutdown';
 
 /** Reason carried by the cancellation a handler deadline raises while the client is still there. */

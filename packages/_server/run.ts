@@ -138,9 +138,9 @@ function watchCancelReason(state: IRequestCancelState, options: ICancelableHandl
   }
 
   const notify = () => {
-    // a drain cancels the signal to reach the consumers a handler never awaited, and neither
+    // a shutdown cancels the signal to reach the consumers a handler never awaited, and neither
     // callback reports that: the client has not left and no deadline was missed
-    if (state.draining) {
+    if (state.shuttingDown) {
       return;
     }
 

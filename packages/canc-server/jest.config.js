@@ -24,7 +24,7 @@ module.exports = {
   testEnvironment: 'node',
   testMatch: ['<rootDir>/*.spec.ts'],
   testPathIgnorePatterns: [...baseConfig.testPathIgnorePatterns, '/dist/', '/coverage/'],
-  // real listeners, real disconnects and a drain grace window each cost wall time
+  // real listeners, real disconnects and a shutdown grace window each cost wall time
   testTimeout: 20000,
   transform: {
     ...mergeTsJestConfig({ tsconfig: '<rootDir>/../../tsconfig.json' }),

@@ -20,7 +20,7 @@ import * as nodeServer from './canc-server-node/src';
  *
  * The per-package suites cover semantics; this one covers the three things only a live connection
  * can show, once per package: a client that leaves mid-handler is noticed, a handler wrapped long
- * after its body was read is not mistaken for one, and a drain cancels what is still in flight.
+ * after its body was read is not mistaken for one, and a shutdown cancels what is still in flight.
  */
 
 const servers: Server[] = [];
@@ -109,7 +109,7 @@ describe('raw node', () => {
     expect(disconnects).toEqual([]);
   });
 
-  it('drains a live request', async () => {
+  it('shuts down a live request', async () => {
     const started = deferred();
 
     const port = await listen(
@@ -124,7 +124,7 @@ describe('raw node', () => {
 
     const pending = httpRequest(port, { path: '/hang' });
     await started.promise;
-    const result = await nodeServer.drain(lastServer(), { timeout: 5000 });
+    const result = await nodeServer.shutdown(lastServer(), { timeout: 5000 });
 
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
     expect((await pending).status).toBe(503);
@@ -204,7 +204,7 @@ describe('express', () => {
     expect(disconnects).toEqual([]);
   });
 
-  it('drains a live request', async () => {
+  it('shuts down a live request', async () => {
     const started = deferred();
 
     const app = express();
@@ -221,7 +221,7 @@ describe('express', () => {
     const port = await listen(createServer(app));
     const pending = httpRequest(port, { path: '/hang' });
     await started.promise;
-    const result = await expressServer.drain(lastServer(), { timeout: 5000 });
+    const result = await expressServer.shutdown(lastServer(), { timeout: 5000 });
 
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
     expect((await pending).status).toBe(503);
@@ -297,7 +297,7 @@ describe('koa', () => {
     expect(disconnects).toEqual([]);
   });
 
-  it('drains a live request', async () => {
+  it('shuts down a live request', async () => {
     const started = deferred();
 
     const app = new Koa();
@@ -314,7 +314,7 @@ describe('koa', () => {
     const port = await listenKoa(app);
     const pending = httpRequest(port, { path: '/hang' });
     await started.promise;
-    const result = await koaServer.drain(lastServer(), { timeout: 5000 });
+    const result = await koaServer.shutdown(lastServer(), { timeout: 5000 });
 
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
     expect((await pending).status).toBe(503);
@@ -403,7 +403,7 @@ describe('fastify', () => {
     expect(disconnects).toEqual([]);
   });
 
-  it('drains a live request', async () => {
+  it('shuts down a live request', async () => {
     const started = deferred();
 
     const app = Fastify();
@@ -420,10 +420,10 @@ describe('fastify', () => {
     );
 
     const port = await listenFastify(app);
-    // the drain closes the connection on its way out, so this one is never read back
+    // the shutdown closes the connection on its way out, so this one is never read back
     httpRequest(port, { path: '/hang' }).catch(() => undefined);
     await started.promise;
-    const result = await fastifyServer.drain(app, { timeout: 5000 });
+    const result = await fastifyServer.shutdown(app, { timeout: 5000 });
 
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
     expect(app.server.listening).toBe(false);
@@ -507,7 +507,7 @@ describe('hono on node', () => {
     expect(disconnects).toEqual([]);
   });
 
-  it('drains a live request', async () => {
+  it('shuts down a live request', async () => {
     const started = deferred();
 
     const app = new Hono();
@@ -526,7 +526,7 @@ describe('hono on node', () => {
     const port = await listenHono(app);
     httpRequest(port, { path: '/hang' }).catch(() => undefined);
     await started.promise;
-    const result = await honoServer.drain(lastServer(), { timeout: 5000 });
+    const result = await honoServer.shutdown(lastServer(), { timeout: 5000 });
 
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
     expect(lastServer().listening).toBe(false);

@@ -28,7 +28,7 @@ export class FakeRequest extends EventEmitter {
   socket: { server?: unknown } | null = null;
 }
 
-/** Stand-in for http.Server, recording which teardown calls a drain made. */
+/** Stand-in for http.Server, recording which teardown calls a shutdown made. */
 export class FakeServer {
   closed = 0;
   idleClosed = 0;

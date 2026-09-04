@@ -44,9 +44,9 @@ export interface ICancelErrorHandlerOptions {
   status?: number;
 }
 
-/** Options for a graceful drain. */
-export interface IDrainOptions {
-  /** Grace window in milliseconds before the drain gives up waiting. Defaults to 10000. */
+/** Options for a graceful shutdown. */
+export interface IShutdownOptions {
+  /** Grace window in milliseconds before the shutdown gives up waiting. Defaults to 10000. */
   timeout?: number;
   /** Reason the in-flight requests are canceled with. Defaults to the shutdown reason. */
   reason?: string;
@@ -54,8 +54,8 @@ export interface IDrainOptions {
   closeServer?: boolean;
 }
 
-/** What a graceful drain reports once the grace window closes or every request has settled. */
-export interface IDrainResult {
+/** What a graceful shutdown reports once the grace window closes or every request has settled. */
+export interface IShutdownResult {
   canceled: number;
   completed: number;
   timedOut: boolean;
@@ -79,7 +79,7 @@ export interface IResponseLike {
   once(event: string, listener: () => void): unknown;
 }
 
-/** The part of an http.Server a drain drives. */
+/** The part of an http.Server a shutdown drives. */
 export interface IServerLike {
   close?: (callback?: (error?: Error) => void) => unknown;
   closeIdleConnections?: () => void;

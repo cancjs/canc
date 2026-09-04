@@ -103,7 +103,7 @@ function ensureWebRequestState(request: Request, options?: ICancelableHandlerOpt
 
   setRequestState(keyed, state);
 
-  // nothing is tracked for a drain here: the live registry hangs off the node server a request
+  // nothing is tracked for a shutdown here: the live registry hangs off the node server a request
   // arrived on, and a Web runtime has no such object
   return state;
 }

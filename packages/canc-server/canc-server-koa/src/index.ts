@@ -2,23 +2,23 @@ import { CancelSignal, isCancelError } from '@cancjs/promise';
 import type { Server } from 'http';
 import type { Context, DefaultContext, DefaultState, Middleware, ParameterizedContext } from 'koa';
 
-import { drainServer } from '../../../_server/drain';
 import { isUnanswerable, statusOf, toRequestLike, toResponseLike } from '../../../_server/exchange';
 import { ensureRequestCancelState, getNodeRequestSignal } from '../../../_server/node-signal';
 import { runCancelableHandler } from '../../../_server/run';
+import { shutdownServer } from '../../../_server/shutdown';
 import { DEFAULT_TIMEOUT_STATUS } from '../../../_server/timeout';
 import {
   ICancelableHandlerOptions,
-  IDrainOptions,
-  IDrainResult,
   IRequestLike,
   IResponseLike,
+  IShutdownOptions,
+  IShutdownResult,
   THandlerFn,
 } from '../../../_server/types';
 import { TAnyFn } from '../../../_util';
 
 export { CLIENT_DISCONNECTED, HANDLER_TIMEOUT, SERVER_SHUTDOWN } from '../../../_server/reasons';
-export type { ICancelableHandlerOptions, IDrainOptions, IDrainResult } from '../../../_server/types';
+export type { ICancelableHandlerOptions, IShutdownOptions, IShutdownResult } from '../../../_server/types';
 
 /**
  * Wraps a route handler so its work stops when the request does.
@@ -114,6 +114,6 @@ export function cancelMiddleware<StateT = DefaultState, ContextT = DefaultContex
  * Takes the raw `http.Server` `app.listen()` hands back, not the koa application: koa has no `close`
  * of its own to sequence this against.
  */
-export function drain(server: Server, options?: IDrainOptions): Promise<IDrainResult> {
-  return drainServer(server, options);
+export function shutdown(server: Server, options?: IShutdownOptions): Promise<IShutdownResult> {
+  return shutdownServer(server, options);
 }

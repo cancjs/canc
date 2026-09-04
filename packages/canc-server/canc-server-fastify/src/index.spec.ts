@@ -5,7 +5,14 @@ import { AddressInfo, connect, Socket } from 'node:net';
 import { CancelError, isCancelError, isCancelSignal } from '@cancjs/promise';
 import Fastify, { FastifyInstance } from 'fastify';
 
-import { cancelableHandler, cancelErrorHandler, cancelPlugin, drain, getRequestSignal, SERVER_SHUTDOWN } from './index';
+import {
+  cancelableHandler,
+  cancelErrorHandler,
+  cancelPlugin,
+  getRequestSignal,
+  SERVER_SHUTDOWN,
+  shutdown,
+} from './index';
 
 interface IDeferred<T> {
   promise: Promise<T>;
@@ -429,7 +436,7 @@ describe('cancellation after the response ended', () => {
   });
 });
 
-describe('drain', () => {
+describe('shutdown', () => {
   it('cancels a hung handler instead of waiting for it', async () => {
     const started = deferred();
 
@@ -447,11 +454,11 @@ describe('drain', () => {
     );
 
     const port = await listen(instance);
-    // the drain kills the connection on its way out, so this one is never read back
+    // the shutdown kills the connection on its way out, so this one is never read back
     send(port, '/hang').catch(() => undefined);
     await started.promise;
 
-    const result = await drain(instance, { timeout: 5000 });
+    const result = await shutdown(instance, { timeout: 5000 });
 
     app = undefined;
 
@@ -471,7 +478,7 @@ describe('drain', () => {
           started.resolve();
           yield new Promise(() => undefined);
         },
-        // a shielded handler ignores the cancellation a drain sends it, which is the case the
+        // a shielded handler ignores the cancellation a shutdown sends it, which is the case the
         // grace window exists for
         { shield: true },
       ),
@@ -481,7 +488,7 @@ describe('drain', () => {
     const request = open(port, '/shielded');
 
     await started.promise;
-    const result = await drain(instance, { timeout: 100 });
+    const result = await shutdown(instance, { timeout: 100 });
 
     app = undefined;
     request.destroy();
@@ -500,22 +507,22 @@ describe('drain', () => {
     );
 
     await listen(instance);
-    const first = drain(instance, { timeout: 100 });
+    const first = shutdown(instance, { timeout: 100 });
 
     app = undefined;
 
-    expect(drain(instance)).toBe(first);
+    expect(shutdown(instance)).toBe(first);
     expect(await first).toEqual({ canceled: 0, completed: 0, timedOut: false });
   });
 
-  it('allows a real drain after a soft drain completes', async () => {
+  it('allows a real shutdown after a soft shutdown completes', async () => {
     const instance = Fastify();
     await listen(instance);
 
-    const first = drain(instance, { closeServer: false });
+    const first = shutdown(instance, { closeServer: false });
     await first;
 
-    const second = drain(instance);
+    const second = shutdown(instance);
     expect(second).not.toBe(first);
     await second;
     app = undefined;
@@ -529,10 +536,10 @@ describe('drain', () => {
     const originalClose = instance.close.bind(instance);
     instance.close = jest.fn().mockRejectedValueOnce(new Error('close failed')).mockImplementation(originalClose);
 
-    const first = drain(instance);
+    const first = shutdown(instance);
     await expect(first).rejects.toThrow('close failed');
 
-    const second = drain(instance);
+    const second = shutdown(instance);
     expect(second).not.toBe(first);
     await second;
 

@@ -1,5 +1,5 @@
-import { drainServer } from '../../../_server/drain';
-import { IDrainOptions, IDrainResult, IServerLike } from '../../../_server/types';
+import { shutdownServer } from '../../../_server/shutdown';
+import { IServerLike, IShutdownOptions, IShutdownResult } from '../../../_server/types';
 
 /**
  * Stops a server gracefully: no new connections, every in-flight handler canceled, and a bounded
@@ -12,8 +12,8 @@ import { IDrainOptions, IDrainResult, IServerLike } from '../../../_server/types
  * a type import would still pull it into every consumer's typecheck regardless of runtime, which
  * defeats the point on Cloudflare, Deno and Bun. This is a node affordance either way, since the
  * registry of live requests hangs off the server object and a Web standard runtime hands the
- * application no such object to drain.
+ * application no such object to shut down.
  */
-export function drain(server: IServerLike, options?: IDrainOptions): Promise<IDrainResult> {
-  return drainServer(server, options);
+export function shutdown(server: IServerLike, options?: IShutdownOptions): Promise<IShutdownResult> {
+  return shutdownServer(server, options);
 }

@@ -1,12 +1,12 @@
 import { CancelablePromise, isCancelError, resolvePromiseImpl } from '@cancjs/promise';
 
 import { isFunction } from '../_util';
-import { clearDrainState, getDrainState, getLiveRequests, IRequestCancelState, setDrainState } from './holder';
+import { clearShutdownState, getLiveRequests, getShutdownState, IRequestCancelState, setShutdownState } from './holder';
 import { SERVER_SHUTDOWN } from './reasons';
-import { IDrainOptions, IDrainResult, IServerLike } from './types';
+import { IServerLike, IShutdownOptions, IShutdownResult } from './types';
 
-/** Grace window a drain waits for in-flight requests before it gives up. */
-export const DEFAULT_DRAIN_TIMEOUT = 10_000;
+/** Grace window a shutdown waits for in-flight requests before it gives up. */
+export const DEFAULT_SHUTDOWN_TIMEOUT = 10_000;
 
 /**
  * Stops a server gracefully: no new connections, every in-flight request canceled, and a bounded
@@ -21,13 +21,16 @@ export const DEFAULT_DRAIN_TIMEOUT = 10_000;
  * second call while the first is still running returns that same promise, which makes the usual
  * pair of signal handlers safe to wire without a guard of their own.
  */
-export function drainServer(server: IServerLike, options: IDrainOptions = {}): CancelablePromise<IDrainResult> {
-  const running = getDrainState(server);
+export function shutdownServer(
+  server: IServerLike,
+  options: IShutdownOptions = {},
+): CancelablePromise<IShutdownResult> {
+  const running = getShutdownState(server);
   if (running) {
     return running;
   }
 
-  const grace = options.timeout ?? DEFAULT_DRAIN_TIMEOUT;
+  const grace = options.timeout ?? DEFAULT_SHUTDOWN_TIMEOUT;
   const reason = options.reason ?? SERVER_SHUTDOWN;
   // registry precedence only, so a setPromiseImpl consumer gets its own class back from the
   // settled outcome this resolves to, same as the rest of the request-cancellation core
@@ -50,7 +53,7 @@ export function drainServer(server: IServerLike, options: IDrainOptions = {}): C
 
   // the live registry hangs off this server instance, never off a module-level variable: this
   // directory is inlined into every server package, so a module-scope set would exist once per copy
-  // and a drain would only ever see the requests its own copy recorded
+  // and a shutdown would only ever see the requests its own copy recorded
   const states: IRequestCancelState[] = [];
   const tasks: CancelablePromise<unknown>[] = [];
   for (const state of getLiveRequests(server) ?? []) {
@@ -88,7 +91,7 @@ export function drainServer(server: IServerLike, options: IDrainOptions = {}): C
   // the signal goes after the tasks it drives, so anything watching it sees a request whose own
   // work has already unwound rather than one mid-teardown
   for (const state of states) {
-    state.draining = true;
+    state.shuttingDown = true;
     state.cancel(reason);
   }
 
@@ -102,19 +105,19 @@ export function drainServer(server: IServerLike, options: IDrainOptions = {}): C
     handleCancel(() => clearTimeout(timer));
   });
 
-  let drain: CancelablePromise<IDrainResult>;
+  let shutdown: CancelablePromise<IShutdownResult>;
   const settle = Impl.race([Impl.allSettled(outcomes), window]);
 
   // eslint-disable-next-line prefer-const -- assigned after construction to avoid TDZ in executor closure
-  drain = new Impl<IDrainResult>((resolve, reject, { handleCancel }) => {
+  shutdown = new Impl<IShutdownResult>((resolve, reject, { handleCancel }) => {
     handleCancel(() => {
       settle.cancel(reason);
-      clearDrainState(server, drain);
+      clearShutdownState(server, shutdown);
     });
 
     settle.then(
       () => {
-        clearDrainState(server, drain);
+        clearShutdownState(server, shutdown);
         if (options.closeServer !== false && isFunction(server.closeAllConnections)) {
           server.closeAllConnections();
         }
@@ -122,13 +125,13 @@ export function drainServer(server: IServerLike, options: IDrainOptions = {}): C
         resolve({ canceled, completed, timedOut });
       },
       (error) => {
-        clearDrainState(server, drain);
+        clearShutdownState(server, shutdown);
         reject(error);
       },
     );
   });
 
-  setDrainState(server, drain);
+  setShutdownState(server, shutdown);
 
-  return drain;
+  return shutdown;
 }

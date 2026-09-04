@@ -1,17 +1,17 @@
 import { CancelablePromise, CancelError, isCancelError, setPromiseImpl } from '@cancjs/promise';
 
 import { createExchange, FakeServer, outcomeOf, pending } from './__tests__/fakes';
-import { drainServer } from './drain';
 import { getLiveRequests } from './holder';
 import { ensureRequestCancelState, getNodeRequestSignal } from './node-signal';
 import { SERVER_SHUTDOWN } from './reasons';
 import { runCancelableHandler } from './run';
+import { shutdownServer } from './shutdown';
 
-describe('graceful drain', () => {
+describe('graceful shutdown', () => {
   it('closes the server and kills the stragglers', async () => {
     const server = new FakeServer();
 
-    const result = await drainServer(server);
+    const result = await shutdownServer(server);
 
     expect(server.closed).toBe(1);
     expect(server.idleClosed).toBe(1);
@@ -22,7 +22,7 @@ describe('graceful drain', () => {
   it('leaves the server listening when asked to', async () => {
     const server = new FakeServer();
 
-    await drainServer(server, { closeServer: false });
+    await shutdownServer(server, { closeServer: false });
 
     expect(server.closed).toBe(0);
     expect(server.idleClosed).toBe(0);
@@ -32,7 +32,7 @@ describe('graceful drain', () => {
   it('works against a server with none of the newer teardown methods', async () => {
     const server = { close: jest.fn() };
 
-    expect(await drainServer(server)).toEqual({ canceled: 0, completed: 0, timedOut: false });
+    expect(await shutdownServer(server)).toEqual({ canceled: 0, completed: 0, timedOut: false });
     expect(server.close).toHaveBeenCalledTimes(1);
   });
 
@@ -50,7 +50,7 @@ describe('graceful drain', () => {
       ),
     );
 
-    const result = await drainServer(server);
+    const result = await shutdownServer(server);
     const error = (await outcome) as CancelError;
 
     expect(result.canceled).toBe(1);
@@ -76,7 +76,7 @@ describe('graceful drain', () => {
       ),
     );
 
-    expect((await drainServer(server)).canceled).toBe(2);
+    expect((await shutdownServer(server)).canceled).toBe(2);
     expect((await Promise.all(outcomes)).every(isCancelError)).toBe(true);
   });
 
@@ -94,7 +94,7 @@ describe('graceful drain', () => {
       ),
     );
 
-    expect(await drainServer(server, { timeout: 2000 })).toEqual({
+    expect(await shutdownServer(server, { timeout: 2000 })).toEqual({
       canceled: 0,
       completed: 1,
       timedOut: false,
@@ -106,7 +106,7 @@ describe('graceful drain', () => {
     const { req, res } = createExchange(server);
 
     expect(await runCancelableHandler(() => 'done', req, res)).toBe('done');
-    expect((await drainServer(server)).completed).toBe(1);
+    expect((await shutdownServer(server)).completed).toBe(1);
   });
 
   it('counts a handler that failed on its own as completed', async () => {
@@ -116,7 +116,7 @@ describe('graceful drain', () => {
     const outcome = outcomeOf(runCancelableHandler(() => CancelablePromise.reject(new Error('boom')), req, res));
 
     expect(await outcome).toEqual(new Error('boom'));
-    expect((await drainServer(server)).completed).toBe(1);
+    expect((await shutdownServer(server)).completed).toBe(1);
   });
 
   it('gives up on a handler that ignores the cancel', async () => {
@@ -127,20 +127,20 @@ describe('graceful drain', () => {
       const { req, res } = createExchange(server);
       ensureRequestCancelState(req, res).live.add(pending({ shield: true }));
 
-      const drain = drainServer(server, { timeout: 100 });
+      const shutdown = shutdownServer(server, { timeout: 100 });
       jest.advanceTimersByTime(100);
 
-      expect(await drain).toEqual({ canceled: 0, completed: 0, timedOut: true });
+      expect(await shutdown).toEqual({ canceled: 0, completed: 0, timedOut: true });
     } finally {
       jest.useRealTimers();
     }
   });
 
-  it('returns the running drain to a second caller', () => {
+  it('returns the running shutdown to a second caller', () => {
     const server = new FakeServer();
-    const first = drainServer(server);
+    const first = shutdownServer(server);
 
-    expect(drainServer(server)).toBe(first);
+    expect(shutdownServer(server)).toBe(first);
     expect(server.closed).toBe(1);
   });
 
@@ -162,7 +162,7 @@ describe('graceful drain', () => {
       ),
     );
 
-    const result = await drainServer(server);
+    const result = await shutdownServer(server);
     const error = (await detached) as CancelError;
 
     expect(isCancelError(error)).toBe(true);
@@ -188,7 +188,7 @@ describe('graceful drain', () => {
       ),
     );
 
-    await drainServer(server);
+    await shutdownServer(server);
 
     expect(onDisconnect).not.toHaveBeenCalled();
     expect(onTimeout).not.toHaveBeenCalled();
@@ -199,7 +199,7 @@ describe('graceful drain', () => {
     const { req, res } = createExchange(server);
     const signal = getNodeRequestSignal(req, res);
 
-    expect(await drainServer(server)).toEqual({ canceled: 0, completed: 0, timedOut: false });
+    expect(await shutdownServer(server)).toEqual({ canceled: 0, completed: 0, timedOut: false });
     expect(signal.aborted).toBe(true);
     expect((signal.reason as CancelError).message).toBe(SERVER_SHUTDOWN);
   });
@@ -212,16 +212,16 @@ describe('graceful drain', () => {
     res.end();
 
     expect(getLiveRequests(server)?.size).toBe(0);
-    expect(await drainServer(server)).toEqual({ canceled: 0, completed: 0, timedOut: false });
+    expect(await shutdownServer(server)).toEqual({ canceled: 0, completed: 0, timedOut: false });
   });
 
-  it('allows a real drain after a soft drain completes', async () => {
+  it('allows a real shutdown after a soft shutdown completes', async () => {
     const server = new FakeServer();
 
-    const first = drainServer(server, { closeServer: false });
+    const first = shutdownServer(server, { closeServer: false });
     await first;
 
-    const second = drainServer(server);
+    const second = shutdownServer(server);
     expect(second).not.toBe(first);
     expect(server.closed).toBe(1);
     await second;
