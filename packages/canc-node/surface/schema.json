@@ -127,6 +127,10 @@
         },
         "notes": {
           "type": "string"
+        },
+        "probed": {
+          "type": ["string", "null"],
+          "description": "Error code observed from a live cancel() probe. Distinct from nodeSignal.probed, which records signal behavior."
         }
       }
     }

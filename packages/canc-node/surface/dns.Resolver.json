@@ -1,0 +1,68 @@
+{
+  "subpath": "dns#Resolver",
+  "nodeSpecifier": "node:dns/promises",
+  "status": "planned",
+  "exports": [
+    {
+      "name": "Resolver",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "reimplemented",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "the constructor, captured via Reflect.construct so it survives es5 downlevel emit; dnsPromises.Resolver is a distinct class from dns.Resolver",
+      "callPath": "promises"
+    },
+    {
+      "name": "cancel",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "probed": "ECANCELLED",
+      "notes": "inherited from ResolverBase unchanged, cancels every outstanding query on the resolver, observed code ECANCELLED; the 15 overridden async methods call this on their cancel path, so canceling one query rejects every sibling query on the same resolver too",
+      "callPath": "promises"
+    },
+    {
+      "name": "setLocalAddress",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "inherited from ResolverBase unchanged",
+      "callPath": "promises"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "subpath": "dns#dnsPromises",
+  "nodeSpecifier": "node:dns/promises",
+  "status": "planned",
+  "exports": [
+    {
+      "name": "Resolver",
+      "kind": "class",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "reimplemented",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "same class as the Resolver entry in dns.json; see that entry and dns.Resolver.json for detail",
+      "callPath": "promises"
+    }
+  ]
+}

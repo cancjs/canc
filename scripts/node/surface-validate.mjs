@@ -36,7 +36,7 @@ const REQUIRED_EXPORT_FIELDS = [
   'runtime',
 ];
 
-const ALLOWED_EXPORT_FIELDS = new Set([...REQUIRED_EXPORT_FIELDS, 'teardown', 'notes']);
+const ALLOWED_EXPORT_FIELDS = new Set([...REQUIRED_EXPORT_FIELDS, 'teardown', 'notes', 'probed']);
 
 const REQUIRED_SIGNAL_FIELDS = ['documented', 'since', 'probed'];
 const ALLOWED_SIGNAL_FIELDS = new Set([...REQUIRED_SIGNAL_FIELDS, 'sinceByMajor']);
@@ -243,6 +243,10 @@ export async function validateManifest(manifest, filename, nodeLock = null) {
     }
     if (exp.notes !== undefined && typeof exp.notes !== 'string') {
       addErr(expName, 'notes', 'must be a string');
+    }
+    // error code from a live cancel() probe, distinct from nodeSignal.probed (signal behavior)
+    if (exp.probed !== undefined && exp.probed !== null && typeof exp.probed !== 'string') {
+      addErr(expName, 'probed', 'must be a string or null');
     }
   }
 
