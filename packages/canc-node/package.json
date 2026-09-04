@@ -132,6 +132,18 @@
         "types": "./dist/types/dns/index.d.ts",
         "default": "./dist/dns.cjs"
       }
+    },
+    "./readline": {
+      "import": {
+        "types@<4.7": "./dist/types-ts4.2/readline/index.d.mts",
+        "types": "./dist/types/readline/index.d.mts",
+        "default": "./dist/readline.mjs"
+      },
+      "require": {
+        "types@<4.7": "./dist/types-ts4.2/readline/index.d.ts",
+        "types": "./dist/types/readline/index.d.ts",
+        "default": "./dist/readline.cjs"
+      }
     }
   },
   "main": "dist/index.cjs",
@@ -187,7 +199,8 @@
       "timers": ["dist/types/timers/index.d.ts"],
       "stream": ["dist/types/stream/index.d.ts"],
       "events": ["dist/types/events/index.d.ts"],
-      "dns": ["dist/types/dns/index.d.ts"]
+      "dns": ["dist/types/dns/index.d.ts"],
+      "readline": ["dist/types/readline/index.d.ts"]
     }
   }
 }

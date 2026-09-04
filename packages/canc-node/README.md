@@ -232,7 +232,7 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 
 ### Shipped subpaths
 
-The package currently ships eight subpaths:
+The package currently ships nine subpaths:
 
 - `fs`: file system operations with cancelable promises
 - `fs/sync`: synchronous file system utilities
@@ -242,6 +242,7 @@ The package currently ships eight subpaths:
 - `stream`: stream consumers, pipeline helpers and readable terminals
 - `events`: event listener helpers and cancelable event promises
 - `dns`: cancelable DNS resolution
+- `readline`: cancelable line-by-line reading
 
 The `/fs/sync` subpath drops `realpathSync.native`, which is the only departure from Node's own synchronous file system signatures.
 
@@ -379,6 +380,10 @@ A `Resolver` instance is different: canceling one of its queries is real, but th
 
 `resolveTlsa` needs Node 22 or later and is not available on Deno or Bun.
 
+### readline
+
+`question` answers a cancelable promise. Canceling it aborts the pending prompt through node's own `signal` handling and restores the interface to the state it was in before the call, including stdin's raw mode. A canceled question never consumes the next line typed at the prompt.
+
 ### Planned subpaths
 
 Wrapped built-in modules are arriving in upcoming releases. Planned subpaths include:
@@ -390,7 +395,6 @@ Wrapped built-in modules are arriving in upcoming releases. Planned subpaths inc
 - `crypto`: cancelable cryptographic operations
 - `zlib`: cancelable compression utilities
 - `worker-threads`: worker thread coordination
-- `readline`: cancelable line-by-line reading
 - `dgram`: UDP socket helpers
 
 ## File system

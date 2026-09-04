@@ -27,6 +27,7 @@ const configs = createMultiConfigs(
     { input: 'src/stream/index.ts', base: 'stream', name: 'canc_node_stream' },
     { input: 'src/events/index.ts', base: 'events', name: 'canc_node_events' },
     { input: 'src/dns/index.ts', base: 'dns', name: 'canc_node_dns' },
+    { input: 'src/readline/index.ts', base: 'readline', name: 'canc_node_readline' },
   ],
   { noUmd: true },
 );
