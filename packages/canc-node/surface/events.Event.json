@@ -1,0 +1,367 @@
+{
+  "subpath": "events#Event",
+  "nodeSpecifier": "node:events",
+  "status": "supported",
+  "exports": [
+    {
+      "name": "bubbles",
+      "kind": "const",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited WHATWG Event member, structural re-export only"
+    },
+    {
+      "name": "cancelBubble",
+      "kind": "const",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited WHATWG Event member, structural re-export only"
+    },
+    {
+      "name": "cancelable",
+      "kind": "const",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited WHATWG Event member, structural re-export only"
+    },
+    {
+      "name": "composed",
+      "kind": "const",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited WHATWG Event member, structural re-export only"
+    },
+    {
+      "name": "composedPath",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited WHATWG Event member, structural re-export only"
+    },
+    {
+      "name": "currentTarget",
+      "kind": "const",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited WHATWG Event member, structural re-export only"
+    },
+    {
+      "name": "defaultPrevented",
+      "kind": "const",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited WHATWG Event member, structural re-export only"
+    },
+    {
+      "name": "eventPhase",
+      "kind": "const",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited WHATWG Event member, structural re-export only"
+    },
+    {
+      "name": "initEvent",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited WHATWG Event member, structural re-export only"
+    },
+    {
+      "name": "isTrusted",
+      "kind": "const",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited WHATWG Event member, structural re-export only"
+    },
+    {
+      "name": "preventDefault",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited WHATWG Event member, structural re-export only"
+    },
+    {
+      "name": "returnValue",
+      "kind": "const",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited WHATWG Event member, structural re-export only"
+    },
+    {
+      "name": "srcElement",
+      "kind": "const",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited WHATWG Event member, structural re-export only"
+    },
+    {
+      "name": "stopImmediatePropagation",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited WHATWG Event member, structural re-export only"
+    },
+    {
+      "name": "stopPropagation",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited WHATWG Event member, structural re-export only"
+    },
+    {
+      "name": "target",
+      "kind": "const",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited WHATWG Event member, structural re-export only"
+    },
+    {
+      "name": "timeStamp",
+      "kind": "const",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited WHATWG Event member, structural re-export only"
+    },
+    {
+      "name": "type",
+      "kind": "const",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited WHATWG Event member, structural re-export only"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "subpath": "events#CustomEvent",
+  "nodeSpecifier": "node:events",
+  "status": "supported",
+  "exports": [
+    {
+      "name": "detail",
+      "kind": "const",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited CustomEvent member, structural re-export only"
+    }
+  ]
+}

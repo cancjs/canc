@@ -1,0 +1,211 @@
+{
+  "subpath": "timers",
+  "nodeSpecifier": "node:timers/promises",
+  "status": "supported",
+  "exports": [
+    {
+      "name": "setTimeout",
+      "kind": "fn",
+      "cancelCategory": "C",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v15.0.0",
+        "probed": "reject:AbortError",
+        "sinceByMajor": null
+      },
+      "wrapper": "cancelify-signal",
+      "teardown": "node clears the timer",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "overlaps toolbox delay; see toolbox docs for the idiomatic choice"
+    },
+    {
+      "name": "setImmediate",
+      "kind": "fn",
+      "cancelCategory": "C",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v15.0.0",
+        "probed": "reject:AbortError",
+        "sinceByMajor": null
+      },
+      "wrapper": "cancelify-signal",
+      "teardown": "node clears the immediate",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "node clears the immediate on cancel, matches setTimeout"
+    },
+    {
+      "name": "setInterval",
+      "kind": "fn",
+      "cancelCategory": "C",
+      "nodeSignal": {
+        "documented": false,
+        "since": "v15.9.0",
+        "probed": "reject:AbortError",
+        "sinceByMajor": null
+      },
+      "wrapper": "cancelify-signal",
+      "teardown": "async iterable; cancel ends iteration and clears the timer",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "docs list signal option from v26 only; probe confirms it has worked since v15.9.0"
+    },
+    {
+      "name": "wait",
+      "kind": "fn",
+      "cancelCategory": "C",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v17.3.0",
+        "probed": "reject:AbortError",
+        "sinceByMajor": null
+      },
+      "wrapper": "cancelify-signal",
+      "teardown": "node clears the timer",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "exported as scheduler.wait (nested under scheduler, not a bare top-level key; unverified against module-level export list)"
+    },
+    {
+      "name": "yield",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "takes no options at all; plain re-export as scheduler.yield (nested under scheduler, not a bare top-level key; unverified against module-level export list)"
+    },
+    {
+      "name": "clearImmediate",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "sync global cancellation primitive; not part of the promise surface (not part of node:timers/promises; unverified against that specifier)"
+    },
+    {
+      "name": "clearInterval",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "sync global cancellation primitive; not part of the promise surface (not part of node:timers/promises; unverified against that specifier)"
+    },
+    {
+      "name": "clearTimeout",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "sync global cancellation primitive; not part of the promise surface (not part of node:timers/promises; unverified against that specifier)"
+    },
+    {
+      "name": "Immediate",
+      "kind": "class",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "handle class returned by the sync global timer functions; not independently exported by node:timers"
+    },
+    {
+      "name": "Timeout",
+      "kind": "class",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "handle class returned by the sync global timer functions; not independently exported by node:timers"
+    }
+  ]
+}

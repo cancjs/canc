@@ -1,0 +1,67 @@
+{
+  "subpath": "events#EventTarget",
+  "nodeSpecifier": "node:events",
+  "status": "supported",
+  "exports": [
+    {
+      "name": "addEventListener",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": true,
+        "since": "v14.5.0",
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "cancelify-signal",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "accepts a native signal option already; not wrapped by canc, structural re-export"
+    },
+    {
+      "name": "dispatchEvent",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited EventTarget member, structural re-export only"
+    },
+    {
+      "name": "removeEventListener",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited EventTarget member, structural re-export only"
+    }
+  ]
+}

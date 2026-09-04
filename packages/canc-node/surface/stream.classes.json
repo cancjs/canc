@@ -1,0 +1,107 @@
+{
+  "subpath": "stream#stream",
+  "nodeSpecifier": "node:stream",
+  "status": "supported",
+  "exports": [
+    {
+      "name": "Readable",
+      "kind": "class",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "structural re-export, unmodified node class"
+    },
+    {
+      "name": "Writable",
+      "kind": "class",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "structural re-export, unmodified node class"
+    },
+    {
+      "name": "Duplex",
+      "kind": "class",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "structural re-export, unmodified node class"
+    },
+    {
+      "name": "Transform",
+      "kind": "class",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "structural re-export, unmodified node class"
+    },
+    {
+      "name": "PassThrough",
+      "kind": "class",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "structural re-export, unmodified node class"
+    }
+  ]
+}

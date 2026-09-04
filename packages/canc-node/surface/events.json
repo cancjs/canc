@@ -1,0 +1,369 @@
+{
+  "subpath": "events",
+  "nodeSpecifier": "node:events",
+  "status": "supported",
+  "exports": [
+    {
+      "name": "once",
+      "kind": "fn",
+      "cancelCategory": "B",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v11.13.0",
+        "probed": "reject:AbortError",
+        "sinceByMajor": null
+      },
+      "wrapper": "cancelify-signal",
+      "teardown": "node removes the listener",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "consumer counting keeps the listener while any consumer of the returned promise remains"
+    },
+    {
+      "name": "on",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v13.6.0",
+        "probed": "reject:AbortError",
+        "sinceByMajor": null
+      },
+      "wrapper": "cancelify-signal",
+      "teardown": "iterator ends, listeners removed",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "iterator ends and every listener is removed on cancel"
+    },
+    {
+      "name": "addAbortListener",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": true,
+        "since": "v20.5.0",
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "gated",
+      "failures": [],
+      "minMajor": 18,
+      "gate": "polyfill",
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "v20.5.0 / v18.18.0; sub-20-line polyfill below the floor"
+    },
+    {
+      "name": "EventEmitter",
+      "kind": "class",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "structural re-export, unmodified node class"
+    },
+    {
+      "name": "EventTarget",
+      "kind": "class",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "structural re-export, unmodified node class (not a top-level node:events export key; unverified against module-level export list)"
+    },
+    {
+      "name": "NodeEventTarget",
+      "kind": "class",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "structural re-export, unmodified node class (not a top-level node:events export key; unverified against module-level export list)"
+    },
+    {
+      "name": "CustomEvent",
+      "kind": "class",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "structural re-export, unmodified node class (not a top-level node:events export key; unverified against module-level export list)"
+    },
+    {
+      "name": "Event",
+      "kind": "class",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "structural re-export, unmodified node class (not a top-level node:events export key; unverified against module-level export list)"
+    },
+    {
+      "name": "EventEmitterAsyncResource",
+      "kind": "class",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "structural re-export, unmodified node class"
+    },
+    {
+      "name": "EventEmitterAsyncResource extends EventEmitter",
+      "kind": "class",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "lock artifact: the 26-line docs render the class heading as EventEmitterAsyncResource extends EventEmitter; same class as EventEmitterAsyncResource (not a top-level node:events export key; unverified against module-level export list)"
+    },
+    {
+      "name": "captureRejectionSymbol",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "structural re-export, sync helper or inspection value"
+    },
+    {
+      "name": "captureRejections",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "MISSING",
+        "bun": "ok"
+      },
+      "notes": "structural re-export, sync helper or inspection value; absent from the deno events export list"
+    },
+    {
+      "name": "defaultMaxListeners",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "structural re-export, sync helper or inspection value"
+    },
+    {
+      "name": "errorMonitor",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "structural re-export, sync helper or inspection value"
+    },
+    {
+      "name": "getEventListeners",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "structural re-export, sync helper or inspection value"
+    },
+    {
+      "name": "getMaxListeners",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "structural re-export, sync helper or inspection value"
+    },
+    {
+      "name": "listenerCount",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "structural re-export, sync helper or inspection value"
+    },
+    {
+      "name": "setMaxListeners",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "structural re-export, sync helper or inspection value"
+    }
+  ]
+}
