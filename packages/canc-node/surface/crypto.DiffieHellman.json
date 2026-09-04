@@ -1,0 +1,187 @@
+{
+  "subpath": "crypto#DiffieHellman",
+  "nodeSpecifier": "node:crypto",
+  "status": "planned",
+  "exports": [
+    {
+      "name": "computeSecret",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance method, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "generateKeys",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance method, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "getGenerator",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance method, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "getPrime",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance method, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "getPrivateKey",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance method, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "getPublicKey",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance method, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "setPrivateKey",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance method, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "setPublicKey",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance method, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "verifyError",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance method, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    }
+  ]
+}

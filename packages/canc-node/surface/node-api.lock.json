@@ -771,6 +771,1519 @@
         }
       }
     },
+    "crypto": {
+      "`node:crypto`_module_methods_and_properties.DEFAULT_ENCODING": {
+        "presentIn": [18],
+        "added": "v0.9.3",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "`node:crypto`_module_methods_and_properties.Type": {
+        "presentIn": [18, 20, 22, 24],
+        "added": "v6.3.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "`node:crypto`_module_methods_and_properties.argon2": {
+        "presentIn": [24, 26],
+        "added": "v24.7.0",
+        "signalIn": [],
+        "optionKeys": {
+          "24": [
+            "associatedData",
+            "derivedKey",
+            "err",
+            "memory",
+            "message",
+            "nonce",
+            "parallelism",
+            "passes",
+            "secret",
+            "tagLength"
+          ],
+          "26": [
+            "associatedData",
+            "derivedKey",
+            "err",
+            "memory",
+            "message",
+            "nonce",
+            "parallelism",
+            "passes",
+            "secret",
+            "tagLength"
+          ]
+        }
+      },
+      "`node:crypto`_module_methods_and_properties.argon2Sync": {
+        "presentIn": [24, 26],
+        "added": "v24.7.0",
+        "signalIn": [],
+        "optionKeys": {
+          "24": [
+            "associatedData",
+            "memory",
+            "message",
+            "nonce",
+            "parallelism",
+            "passes",
+            "secret",
+            "tagLength"
+          ],
+          "26": [
+            "associatedData",
+            "memory",
+            "message",
+            "nonce",
+            "parallelism",
+            "passes",
+            "secret",
+            "tagLength"
+          ]
+        }
+      },
+      "`node:crypto`_module_methods_and_properties.checkPrime": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v15.8.0",
+        "signalIn": [],
+        "optionKeys": {
+          "18": ["checks", "err", "result"],
+          "20": ["checks", "err", "result"],
+          "22": ["checks", "err", "result"],
+          "24": ["checks", "err", "result"],
+          "26": ["checks", "err", "result"]
+        }
+      },
+      "`node:crypto`_module_methods_and_properties.checkPrimeSync": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v15.8.0",
+        "signalIn": [],
+        "optionKeys": {
+          "18": ["checks"],
+          "20": ["checks"],
+          "22": ["checks"],
+          "24": ["checks"],
+          "26": ["checks"]
+        }
+      },
+      "`node:crypto`_module_methods_and_properties.constants": {
+        "presentIn": [18, 20, 26],
+        "added": "v6.3.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "`node:crypto`_module_methods_and_properties.createCipher": {
+        "presentIn": [18, 20],
+        "added": "v0.1.94",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "`node:crypto`_module_methods_and_properties.createCipheriv": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.1.94",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "`node:crypto`_module_methods_and_properties.createDecipher": {
+        "presentIn": [18, 20],
+        "added": "v0.1.94",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "`node:crypto`_module_methods_and_properties.createDecipheriv": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.1.94",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "`node:crypto`_module_methods_and_properties.createDiffieHellman": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.11.12",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "`node:crypto`_module_methods_and_properties.createDiffieHellmanGroup": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.9.3",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "`node:crypto`_module_methods_and_properties.createECDH": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.11.14",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "`node:crypto`_module_methods_and_properties.createHash": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.1.92",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "`node:crypto`_module_methods_and_properties.createHmac": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.1.94",
+        "signalIn": [],
+        "optionKeys": {
+          "18": ["encoding"],
+          "20": ["encoding"],
+          "22": ["encoding"],
+          "24": ["encoding"],
+          "26": ["encoding"]
+        }
+      },
+      "`node:crypto`_module_methods_and_properties.createPrivateKey": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v11.6.0",
+        "signalIn": [],
+        "optionKeys": {
+          "26": [
+            "asymmetricKeyType",
+            "encoding",
+            "format",
+            "key",
+            "namedCurve",
+            "passphrase",
+            "properties",
+            "type"
+          ]
+        }
+      },
+      "`node:crypto`_module_methods_and_properties.createPublicKey": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v11.6.0",
+        "signalIn": [],
+        "optionKeys": {
+          "26": [
+            "asymmetricKeyType",
+            "encoding",
+            "format",
+            "key",
+            "namedCurve",
+            "type"
+          ]
+        }
+      },
+      "`node:crypto`_module_methods_and_properties.createSecretKey": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v11.6.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "`node:crypto`_module_methods_and_properties.createSign": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.1.92",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "`node:crypto`_module_methods_and_properties.createVerify": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.1.92",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "`node:crypto`_module_methods_and_properties.decapsulate": {
+        "presentIn": [24, 26],
+        "added": "v24.7.0",
+        "signalIn": [],
+        "optionKeys": {
+          "24": ["err", "sharedKey"],
+          "26": ["err", "sharedKey"]
+        }
+      },
+      "`node:crypto`_module_methods_and_properties.diffieHellman": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v13.9.0",
+        "signalIn": [],
+        "optionKeys": {
+          "18": ["privateKey", "publicKey"],
+          "20": ["privateKey", "publicKey"],
+          "22": ["privateKey", "publicKey"],
+          "24": ["err", "privateKey", "publicKey", "secret"],
+          "26": ["err", "privateKey", "publicKey", "secret"]
+        }
+      },
+      "`node:crypto`_module_methods_and_properties.encapsulate": {
+        "presentIn": [24, 26],
+        "added": "v24.7.0",
+        "signalIn": [],
+        "optionKeys": {
+          "24": ["err", "result"],
+          "26": ["err", "result"]
+        }
+      },
+      "`node:crypto`_module_methods_and_properties.fips": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v6.0.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "`node:crypto`_module_methods_and_properties.generateKey": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v15.0.0",
+        "signalIn": [],
+        "optionKeys": {
+          "18": ["err", "key", "length"],
+          "20": ["err", "key", "length"],
+          "22": ["err", "key", "length"],
+          "24": ["err", "key", "length"],
+          "26": ["err", "key", "length"]
+        }
+      },
+      "`node:crypto`_module_methods_and_properties.generateKeyPair": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v10.12.0",
+        "signalIn": [],
+        "optionKeys": {
+          "18": [
+            "divisorLength",
+            "err",
+            "generator",
+            "groupName",
+            "hashAlgorithm",
+            "mgf1HashAlgorithm",
+            "modulusLength",
+            "namedCurve",
+            "paramEncoding",
+            "prime",
+            "primeLength",
+            "privateKey",
+            "privateKeyEncoding",
+            "publicExponent",
+            "publicKey",
+            "publicKeyEncoding",
+            "saltLength"
+          ],
+          "20": [
+            "divisorLength",
+            "err",
+            "generator",
+            "groupName",
+            "hashAlgorithm",
+            "mgf1HashAlgorithm",
+            "modulusLength",
+            "namedCurve",
+            "paramEncoding",
+            "prime",
+            "primeLength",
+            "privateKey",
+            "privateKeyEncoding",
+            "publicExponent",
+            "publicKey",
+            "publicKeyEncoding",
+            "saltLength"
+          ],
+          "22": [
+            "divisorLength",
+            "err",
+            "generator",
+            "groupName",
+            "hashAlgorithm",
+            "mgf1HashAlgorithm",
+            "modulusLength",
+            "namedCurve",
+            "paramEncoding",
+            "prime",
+            "primeLength",
+            "privateKey",
+            "privateKeyEncoding",
+            "publicExponent",
+            "publicKey",
+            "publicKeyEncoding",
+            "saltLength"
+          ],
+          "24": [
+            "divisorLength",
+            "err",
+            "generator",
+            "groupName",
+            "hashAlgorithm",
+            "mgf1HashAlgorithm",
+            "modulusLength",
+            "namedCurve",
+            "paramEncoding",
+            "prime",
+            "primeLength",
+            "privateKey",
+            "privateKeyEncoding",
+            "publicExponent",
+            "publicKey",
+            "publicKeyEncoding",
+            "saltLength"
+          ],
+          "26": [
+            "divisorLength",
+            "err",
+            "generator",
+            "groupName",
+            "hashAlgorithm",
+            "mgf1HashAlgorithm",
+            "modulusLength",
+            "namedCurve",
+            "paramEncoding",
+            "prime",
+            "primeLength",
+            "privateKey",
+            "privateKeyEncoding",
+            "publicExponent",
+            "publicKey",
+            "publicKeyEncoding",
+            "saltLength"
+          ]
+        }
+      },
+      "`node:crypto`_module_methods_and_properties.generateKeyPairSync": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v10.12.0",
+        "signalIn": [],
+        "optionKeys": {
+          "18": [
+            "divisorLength",
+            "generator",
+            "groupName",
+            "hashAlgorithm",
+            "mgf1HashAlgorithm",
+            "modulusLength",
+            "namedCurve",
+            "paramEncoding",
+            "prime",
+            "primeLength",
+            "privateKeyEncoding",
+            "publicExponent",
+            "publicKeyEncoding",
+            "saltLength"
+          ],
+          "20": [
+            "divisorLength",
+            "generator",
+            "groupName",
+            "hashAlgorithm",
+            "mgf1HashAlgorithm",
+            "modulusLength",
+            "namedCurve",
+            "paramEncoding",
+            "prime",
+            "primeLength",
+            "privateKeyEncoding",
+            "publicExponent",
+            "publicKeyEncoding",
+            "saltLength"
+          ],
+          "22": [
+            "divisorLength",
+            "generator",
+            "groupName",
+            "hashAlgorithm",
+            "mgf1HashAlgorithm",
+            "modulusLength",
+            "namedCurve",
+            "paramEncoding",
+            "prime",
+            "primeLength",
+            "privateKeyEncoding",
+            "publicExponent",
+            "publicKeyEncoding",
+            "saltLength"
+          ],
+          "24": [
+            "divisorLength",
+            "generator",
+            "groupName",
+            "hashAlgorithm",
+            "mgf1HashAlgorithm",
+            "modulusLength",
+            "namedCurve",
+            "paramEncoding",
+            "prime",
+            "primeLength",
+            "privateKeyEncoding",
+            "publicExponent",
+            "publicKeyEncoding",
+            "saltLength"
+          ],
+          "26": [
+            "divisorLength",
+            "generator",
+            "groupName",
+            "hashAlgorithm",
+            "mgf1HashAlgorithm",
+            "modulusLength",
+            "namedCurve",
+            "paramEncoding",
+            "prime",
+            "primeLength",
+            "privateKeyEncoding",
+            "publicExponent",
+            "publicKeyEncoding",
+            "saltLength"
+          ]
+        }
+      },
+      "`node:crypto`_module_methods_and_properties.generateKeySync": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v15.0.0",
+        "signalIn": [],
+        "optionKeys": {
+          "18": ["length"],
+          "20": ["length"],
+          "22": ["length"],
+          "24": ["length"],
+          "26": ["length"]
+        }
+      },
+      "`node:crypto`_module_methods_and_properties.generatePrime": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v15.8.0",
+        "signalIn": [],
+        "optionKeys": {
+          "18": ["add", "bigint", "err", "prime", "rem", "safe"],
+          "20": ["add", "bigint", "err", "prime", "rem", "safe"],
+          "22": ["add", "bigint", "err", "prime", "rem", "safe"],
+          "24": ["add", "bigint", "err", "prime", "rem", "safe"],
+          "26": ["add", "bigint", "err", "prime", "rem", "safe"]
+        }
+      },
+      "`node:crypto`_module_methods_and_properties.generatePrimeSync": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v15.8.0",
+        "signalIn": [],
+        "optionKeys": {
+          "18": ["add", "bigint", "rem", "safe"],
+          "20": ["add", "bigint", "rem", "safe"],
+          "22": ["add", "bigint", "rem", "safe"],
+          "24": ["add", "bigint", "rem", "safe"],
+          "26": ["add", "bigint", "rem", "safe"]
+        }
+      },
+      "`node:crypto`_module_methods_and_properties.getCipherInfo": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v15.0.0",
+        "signalIn": [],
+        "optionKeys": {
+          "18": ["ivLength", "keyLength"],
+          "20": ["ivLength", "keyLength"],
+          "22": ["ivLength", "keyLength"],
+          "24": ["ivLength", "keyLength"],
+          "26": ["ivLength", "keyLength"]
+        }
+      },
+      "`node:crypto`_module_methods_and_properties.getCiphers": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.9.3",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "`node:crypto`_module_methods_and_properties.getCurves": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v2.3.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "`node:crypto`_module_methods_and_properties.getDiffieHellman": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.7.5",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "`node:crypto`_module_methods_and_properties.getFips": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v10.0.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "`node:crypto`_module_methods_and_properties.getHashes": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.9.3",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "`node:crypto`_module_methods_and_properties.getRandomValues": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v17.4.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "`node:crypto`_module_methods_and_properties.hash": {
+        "presentIn": [20, 22, 24, 26],
+        "added": "v21.7.0",
+        "signalIn": [],
+        "optionKeys": {
+          "24": ["outputEncoding", "outputLength"],
+          "26": ["outputEncoding", "outputLength"]
+        }
+      },
+      "`node:crypto`_module_methods_and_properties.hkdf": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v15.0.0",
+        "signalIn": [],
+        "optionKeys": {
+          "18": ["derivedKey", "err"],
+          "20": ["derivedKey", "err"],
+          "22": ["derivedKey", "err"],
+          "24": ["derivedKey", "err"],
+          "26": ["derivedKey", "err"]
+        }
+      },
+      "`node:crypto`_module_methods_and_properties.hkdfSync": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v15.0.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "`node:crypto`_module_methods_and_properties.pbkdf2": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.5.5",
+        "signalIn": [],
+        "optionKeys": {
+          "18": ["derivedKey", "err"],
+          "20": ["derivedKey", "err"],
+          "22": ["derivedKey", "err"],
+          "24": ["derivedKey", "err"],
+          "26": ["derivedKey", "err"]
+        }
+      },
+      "`node:crypto`_module_methods_and_properties.pbkdf2Sync": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.9.3",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "`node:crypto`_module_methods_and_properties.privateDecrypt": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.11.14",
+        "signalIn": [],
+        "optionKeys": {
+          "26": ["mgf1Hash", "oaepHash", "oaepLabel", "padding"]
+        }
+      },
+      "`node:crypto`_module_methods_and_properties.privateEncrypt": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v1.1.0",
+        "signalIn": [],
+        "optionKeys": {
+          "26": ["encoding", "key", "padding", "passphrase"]
+        }
+      },
+      "`node:crypto`_module_methods_and_properties.publicDecrypt": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v1.1.0",
+        "signalIn": [],
+        "optionKeys": {
+          "26": ["encoding", "padding", "passphrase"]
+        }
+      },
+      "`node:crypto`_module_methods_and_properties.publicEncrypt": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.11.14",
+        "signalIn": [],
+        "optionKeys": {
+          "26": [
+            "encoding",
+            "key",
+            "mgf1Hash",
+            "oaepHash",
+            "oaepLabel",
+            "padding",
+            "passphrase"
+          ]
+        }
+      },
+      "`node:crypto`_module_methods_and_properties.randomBytes": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.5.8",
+        "signalIn": [],
+        "optionKeys": {
+          "18": ["buf", "err"],
+          "20": ["buf", "err"],
+          "22": ["buf", "err"],
+          "24": ["buf", "err"],
+          "26": ["buf", "err"]
+        }
+      },
+      "`node:crypto`_module_methods_and_properties.randomFill": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v7.10.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "`node:crypto`_module_methods_and_properties.randomFillSync": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v7.10.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "`node:crypto`_module_methods_and_properties.randomInt": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v14.10.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "`node:crypto`_module_methods_and_properties.randomUUID": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v15.6.0",
+        "signalIn": [],
+        "optionKeys": {
+          "18": ["disableEntropyCache"],
+          "20": ["disableEntropyCache"],
+          "22": ["disableEntropyCache"],
+          "24": ["disableEntropyCache"],
+          "26": ["disableEntropyCache"]
+        }
+      },
+      "`node:crypto`_module_methods_and_properties.randomUUIDv7": {
+        "presentIn": [24, 26],
+        "added": "v26.1.0",
+        "signalIn": [],
+        "optionKeys": {
+          "24": ["disableEntropyCache"],
+          "26": ["disableEntropyCache"]
+        }
+      },
+      "`node:crypto`_module_methods_and_properties.scrypt": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v10.5.0",
+        "signalIn": [],
+        "optionKeys": {
+          "18": [
+            "N",
+            "blockSize",
+            "cost",
+            "derivedKey",
+            "err",
+            "maxmem",
+            "p",
+            "parallelization",
+            "r"
+          ],
+          "20": [
+            "N",
+            "blockSize",
+            "cost",
+            "derivedKey",
+            "err",
+            "maxmem",
+            "p",
+            "parallelization",
+            "r"
+          ],
+          "22": [
+            "N",
+            "blockSize",
+            "cost",
+            "derivedKey",
+            "err",
+            "maxmem",
+            "p",
+            "parallelization",
+            "r"
+          ],
+          "24": [
+            "N",
+            "blockSize",
+            "cost",
+            "derivedKey",
+            "err",
+            "maxmem",
+            "p",
+            "parallelization",
+            "r"
+          ],
+          "26": [
+            "N",
+            "blockSize",
+            "cost",
+            "derivedKey",
+            "err",
+            "maxmem",
+            "p",
+            "parallelization",
+            "r"
+          ]
+        }
+      },
+      "`node:crypto`_module_methods_and_properties.scryptSync": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v10.5.0",
+        "signalIn": [],
+        "optionKeys": {
+          "18": [
+            "N",
+            "blockSize",
+            "cost",
+            "maxmem",
+            "p",
+            "parallelization",
+            "r"
+          ],
+          "20": [
+            "N",
+            "blockSize",
+            "cost",
+            "maxmem",
+            "p",
+            "parallelization",
+            "r"
+          ],
+          "22": [
+            "N",
+            "blockSize",
+            "cost",
+            "maxmem",
+            "p",
+            "parallelization",
+            "r"
+          ],
+          "24": [
+            "N",
+            "blockSize",
+            "cost",
+            "maxmem",
+            "p",
+            "parallelization",
+            "r"
+          ],
+          "26": [
+            "N",
+            "blockSize",
+            "cost",
+            "maxmem",
+            "p",
+            "parallelization",
+            "r"
+          ]
+        }
+      },
+      "`node:crypto`_module_methods_and_properties.secureHeapUsed": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v15.6.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "`node:crypto`_module_methods_and_properties.setEngine": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.11.11",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "`node:crypto`_module_methods_and_properties.setFips": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v10.0.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "`node:crypto`_module_methods_and_properties.sign": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v12.0.0",
+        "signalIn": [],
+        "optionKeys": {
+          "26": ["err", "signature"]
+        }
+      },
+      "`node:crypto`_module_methods_and_properties.subtle": {
+        "presentIn": [26],
+        "added": "v17.4.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "`node:crypto`_module_methods_and_properties.timingSafeEqual": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v6.6.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "`node:crypto`_module_methods_and_properties.verify": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v12.0.0",
+        "signalIn": [],
+        "optionKeys": {
+          "26": ["err", "result"]
+        }
+      },
+      "`node:crypto`_module_methods_and_properties.webcrypto": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v15.0.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.Certificate": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.11.8",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.Certificate.exportChallenge": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v9.0.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.Certificate.exportPublicKey": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v9.0.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.Certificate.verifySpkac": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v9.0.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.Cipher": {
+        "presentIn": [18, 20, 22],
+        "added": "v0.1.94",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.Cipher.final": {
+        "presentIn": [18, 20, 22],
+        "added": "v0.1.94",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.Cipher.getAuthTag": {
+        "presentIn": [18, 20, 22],
+        "added": "v1.0.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.Cipher.setAAD": {
+        "presentIn": [18, 20, 22],
+        "added": "v1.0.0",
+        "signalIn": [],
+        "optionKeys": {
+          "18": ["encoding", "plaintextLength"],
+          "20": ["encoding", "plaintextLength"],
+          "22": ["encoding", "plaintextLength"]
+        }
+      },
+      "crypto.Cipher.setAutoPadding": {
+        "presentIn": [18, 20, 22],
+        "added": "v0.7.1",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.Cipher.update": {
+        "presentIn": [18, 20, 22],
+        "added": "v0.1.94",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.Cipheriv": {
+        "presentIn": [24, 26],
+        "added": "v0.1.94",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.Cipheriv.final": {
+        "presentIn": [24, 26],
+        "added": "v0.1.94",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.Cipheriv.getAuthTag": {
+        "presentIn": [24, 26],
+        "added": "v1.0.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.Cipheriv.setAAD": {
+        "presentIn": [24, 26],
+        "added": "v1.0.0",
+        "signalIn": [],
+        "optionKeys": {
+          "24": ["encoding", "plaintextLength"],
+          "26": ["encoding", "plaintextLength"]
+        }
+      },
+      "crypto.Cipheriv.setAutoPadding": {
+        "presentIn": [24, 26],
+        "added": "v0.7.1",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.Cipheriv.update": {
+        "presentIn": [24, 26],
+        "added": "v0.1.94",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.Decipher": {
+        "presentIn": [18, 20, 22],
+        "added": "v0.1.94",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.Decipher.final": {
+        "presentIn": [18, 20, 22],
+        "added": "v0.1.94",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.Decipher.setAAD": {
+        "presentIn": [18, 20, 22],
+        "added": "v1.0.0",
+        "signalIn": [],
+        "optionKeys": {
+          "18": ["encoding", "plaintextLength"],
+          "20": ["encoding", "plaintextLength"],
+          "22": ["encoding", "plaintextLength"]
+        }
+      },
+      "crypto.Decipher.setAuthTag": {
+        "presentIn": [18, 20, 22],
+        "added": "v1.0.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.Decipher.setAutoPadding": {
+        "presentIn": [18, 20, 22],
+        "added": "v0.7.1",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.Decipher.update": {
+        "presentIn": [18, 20, 22],
+        "added": "v0.1.94",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.Decipheriv": {
+        "presentIn": [24, 26],
+        "added": "v0.1.94",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.Decipheriv.final": {
+        "presentIn": [24, 26],
+        "added": "v0.1.94",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.Decipheriv.setAAD": {
+        "presentIn": [24, 26],
+        "added": "v1.0.0",
+        "signalIn": [],
+        "optionKeys": {
+          "24": ["encoding", "plaintextLength"],
+          "26": ["encoding", "plaintextLength"]
+        }
+      },
+      "crypto.Decipheriv.setAuthTag": {
+        "presentIn": [24, 26],
+        "added": "v1.0.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.Decipheriv.setAutoPadding": {
+        "presentIn": [24, 26],
+        "added": "v0.7.1",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.Decipheriv.update": {
+        "presentIn": [24, 26],
+        "added": "v0.1.94",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.DiffieHellman": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.5.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.DiffieHellman.computeSecret": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.5.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.DiffieHellman.generateKeys": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.5.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.DiffieHellman.getGenerator": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.5.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.DiffieHellman.getPrime": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.5.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.DiffieHellman.getPrivateKey": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.5.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.DiffieHellman.getPublicKey": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.5.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.DiffieHellman.setPrivateKey": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.5.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.DiffieHellman.setPublicKey": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.5.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.DiffieHellman.verifyError": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.11.12",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.DiffieHellmanGroup": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.7.5",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.ECDH": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.11.14",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.ECDH.computeSecret": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.11.14",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.ECDH.convertKey": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v10.0.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.ECDH.generateKeys": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.11.14",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.ECDH.getPrivateKey": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.11.14",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.ECDH.getPublicKey": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.11.14",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.ECDH.setPrivateKey": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.11.14",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.ECDH.setPublicKey": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.11.14",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.Hash": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.1.92",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.Hash.copy": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v13.1.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.Hash.digest": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.1.92",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.Hash.update": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.1.92",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.Hmac": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.1.94",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.Hmac.digest": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.1.94",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.Hmac.update": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.1.94",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.KeyObject": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v11.6.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.KeyObject.Type": {
+        "presentIn": [22, 24],
+        "added": "v15.7.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.KeyObject.asymmetricKeyDetails": {
+        "presentIn": [18, 20, 26],
+        "added": "v15.7.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.KeyObject.asymmetricKeyType": {
+        "presentIn": [18, 20, 26],
+        "added": "v11.6.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.KeyObject.equals": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v17.7.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.KeyObject.export": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v11.6.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.KeyObject.from": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v15.0.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.KeyObject.symmetricKeySize": {
+        "presentIn": [18, 20, 26],
+        "added": "v11.6.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.KeyObject.toCryptoKey": {
+        "presentIn": [22, 24, 26],
+        "added": "v23.0.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.KeyObject.type": {
+        "presentIn": [18, 20, 26],
+        "added": "v11.6.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.Sign": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.1.92",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.Sign.sign": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.1.92",
+        "signalIn": [],
+        "optionKeys": {
+          "26": ["dsaEncoding", "padding", "saltLength"]
+        }
+      },
+      "crypto.Sign.update": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.1.92",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.Verify": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.1.92",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.Verify.update": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.1.92",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.Verify.verify": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.1.92",
+        "signalIn": [],
+        "optionKeys": {
+          "26": ["dsaEncoding", "padding", "saltLength"]
+        }
+      },
+      "crypto.X509Certificate": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v15.6.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.X509Certificate.Type": {
+        "presentIn": [18, 20, 22, 24],
+        "added": "v15.6.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.X509Certificate.ca": {
+        "presentIn": [26],
+        "added": "v15.6.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.X509Certificate.checkEmail": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v15.6.0",
+        "signalIn": [],
+        "optionKeys": {
+          "18": ["subject"],
+          "20": ["subject"],
+          "22": ["subject"],
+          "24": ["subject"],
+          "26": ["subject"]
+        }
+      },
+      "crypto.X509Certificate.checkHost": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v15.6.0",
+        "signalIn": [],
+        "optionKeys": {
+          "18": [
+            "multiLabelWildcards",
+            "partialWildcards",
+            "singleLabelSubdomains",
+            "subject",
+            "wildcards"
+          ],
+          "20": [
+            "multiLabelWildcards",
+            "partialWildcards",
+            "singleLabelSubdomains",
+            "subject",
+            "wildcards"
+          ],
+          "22": [
+            "multiLabelWildcards",
+            "partialWildcards",
+            "singleLabelSubdomains",
+            "subject",
+            "wildcards"
+          ],
+          "24": [
+            "multiLabelWildcards",
+            "partialWildcards",
+            "singleLabelSubdomains",
+            "subject",
+            "wildcards"
+          ],
+          "26": [
+            "multiLabelWildcards",
+            "partialWildcards",
+            "singleLabelSubdomains",
+            "subject",
+            "wildcards"
+          ]
+        }
+      },
+      "crypto.X509Certificate.checkIP": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v15.6.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.X509Certificate.checkIssued": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v15.6.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.X509Certificate.checkPrivateKey": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v15.6.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.X509Certificate.fingerprint": {
+        "presentIn": [26],
+        "added": "v15.6.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.X509Certificate.fingerprint256": {
+        "presentIn": [26],
+        "added": "v15.6.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.X509Certificate.fingerprint512": {
+        "presentIn": [26],
+        "added": "v17.2.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.X509Certificate.infoAccess": {
+        "presentIn": [26],
+        "added": "v15.6.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.X509Certificate.issuer": {
+        "presentIn": [26],
+        "added": "v15.6.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.X509Certificate.issuerCertificate": {
+        "presentIn": [26],
+        "added": "v15.9.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.X509Certificate.keyUsage": {
+        "presentIn": [26],
+        "added": "v15.6.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.X509Certificate.publicKey": {
+        "presentIn": [26],
+        "added": "v15.6.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.X509Certificate.raw": {
+        "presentIn": [26],
+        "added": "v15.6.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.X509Certificate.serialNumber": {
+        "presentIn": [26],
+        "added": "v15.6.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.X509Certificate.signatureAlgorithm": {
+        "presentIn": [26],
+        "added": "v24.9.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.X509Certificate.signatureAlgorithmOid": {
+        "presentIn": [26],
+        "added": "v24.9.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.X509Certificate.subject": {
+        "presentIn": [26],
+        "added": "v15.6.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.X509Certificate.subjectAltName": {
+        "presentIn": [26],
+        "added": "v15.6.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.X509Certificate.toJSON": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v15.6.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.X509Certificate.toLegacyObject": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v15.6.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.X509Certificate.toString": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v15.6.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.X509Certificate.validFrom": {
+        "presentIn": [26],
+        "added": "v15.6.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.X509Certificate.validFromDate": {
+        "presentIn": [26],
+        "added": "v23.0.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.X509Certificate.validTo": {
+        "presentIn": [26],
+        "added": "v15.6.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.X509Certificate.validToDate": {
+        "presentIn": [26],
+        "added": "v23.0.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.X509Certificate.verify": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v15.6.0",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.legacy_api.exportChallenge": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.11.8",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.legacy_api.exportPublicKey": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.11.8",
+        "signalIn": [],
+        "optionKeys": {}
+      },
+      "crypto.legacy_api.verifySpkac": {
+        "presentIn": [18, 20, 22, 24, 26],
+        "added": "v0.11.8",
+        "signalIn": [],
+        "optionKeys": {}
+      }
+    },
     "dgram": {
       "`node:dgram`_module_functions.createSocket": {
         "presentIn": [18, 20, 22, 24, 26],

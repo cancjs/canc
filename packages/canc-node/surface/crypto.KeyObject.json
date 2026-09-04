@@ -1,0 +1,167 @@
+{
+  "subpath": "crypto#KeyObject",
+  "nodeSpecifier": "node:crypto",
+  "status": "planned",
+  "exports": [
+    {
+      "name": "asymmetricKeyDetails",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance member, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "asymmetricKeyType",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance member, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "equals",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance member, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "export",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance member, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "symmetricKeySize",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance member, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "type",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance member, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "from",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "static factory, synchronous; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "toCryptoKey",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "gated",
+      "failures": [],
+      "minMajor": 22,
+      "gate": "feature-detect",
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "bridges to a WebCrypto CryptoKey, synchronous; Node 22+",
+      "callPath": "sync"
+    }
+  ]
+}

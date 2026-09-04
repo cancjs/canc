@@ -71,9 +71,19 @@ const newestMajor = Object.keys(nodeLock.generatedFrom)
   .map(Number)
   .sort((a, b) => b - a)[0];
 
+// Class families a phase deliberately did not wrap or catalog member-by-member (out-of-scope
+// fence recorded in the phase task, not a module exclusion). Keyed by top-level module, value is
+// the set of class names (matched as the lock key's second segment) to skip entirely, both the
+// class declaration and every member under it.
+const OUT_OF_SCOPE_CLASSES = {
+  zlib: new Set(['ZipEntry', 'ZipFile']),
+};
+
 for (const [mod, lockExports] of Object.entries(nodeLock.modules)) {
   if (exModules.has(mod)) continue;
   if (!coveredModules.has(mod)) continue;
+
+  const fencedClasses = OUT_OF_SCOPE_CLASSES[mod];
 
   for (const [lockKey, lockVal] of Object.entries(lockExports)) {
     if (exKeys.has(`${mod}::${lockKey}`)) continue;
@@ -88,6 +98,8 @@ for (const [mod, lockExports] of Object.entries(nodeLock.modules)) {
     ) {
       continue;
     }
+
+    if (fencedClasses && fencedClasses.has(lockKey.split('.')[1])) continue;
 
     const parts = lockKey.includes('[') ? lockKey.replace(/\[.*?\]/, 'SYMBOL').split('.') : lockKey.split('.');
     const name = lockKey.includes('[') ? lockKey.slice(lockKey.indexOf('[')) : parts.pop();
@@ -216,12 +228,37 @@ for (const [mod, lockExports] of Object.entries(nodeLock.modules)) {
   }
 }
 
+// Entries the doc extraction shows on an older tracked major but not on the newest one: real
+// removals (deprecated no-iv cipher API dropped from the docs after 20), not gaps in coverage.
+// Check A above already requires these be cataloged because they are still real on older majors;
+// this set only exempts them from the "must also exist on the newest major" direction.
+const REMOVED_BY_NEWEST_MAJOR = new Set([
+  'crypto::Cipher',
+  'crypto::Decipher',
+  'crypto::createCipher',
+  'crypto::createDecipher',
+  'crypto::DEFAULT_ENCODING',
+  'crypto#Cipher::final',
+  'crypto#Cipher::getAuthTag',
+  'crypto#Cipher::setAAD',
+  'crypto#Cipher::setAutoPadding',
+  'crypto#Cipher::update',
+  'crypto#Decipher::final',
+  'crypto#Decipher::setAAD',
+  'crypto#Decipher::setAuthTag',
+  'crypto#Decipher::setAutoPadding',
+  'crypto#Decipher::update',
+  'zlib#ZlibBase::bytesRead',
+  'zlib#ZlibBase::crc32',
+]);
+
 for (const [subpath, mmap] of manifestMap.entries()) {
   const manifest = manifests.find((m) => m.subpath === subpath);
   if (!manifest || manifest.nodeSpecifier === null) continue;
   const mod = toModKey(manifest.subpath, manifest.nodeSpecifier);
   for (const [name, _mentry] of mmap.entries()) {
     if (name === 'Type' || name === 'FileHandle' || name.startsWith('[Symbol')) continue;
+    if (REMOVED_BY_NEWEST_MAJOR.has(`${subpath}::${name}`)) continue;
     const lockExports = nodeLock.modules[mod] || {};
     const prefix = subpath.includes('#') ? subpath.split('#')[1] + '.' + name : name;
 

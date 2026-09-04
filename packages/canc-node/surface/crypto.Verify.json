@@ -1,0 +1,47 @@
+{
+  "subpath": "crypto#Verify",
+  "nodeSpecifier": "node:crypto",
+  "status": "planned",
+  "exports": [
+    {
+      "name": "update",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance method, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "verify",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance method, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    }
+  ]
+}

@@ -1,0 +1,147 @@
+{
+  "subpath": "zlib#ZlibBase",
+  "nodeSpecifier": "node:zlib",
+  "status": "planned",
+  "exports": [
+    {
+      "name": "bytesRead",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "instance member of the archive container class, re-exported unchanged; deferred beyond this phase, not wrapped",
+      "callPath": "sync"
+    },
+    {
+      "name": "bytesWritten",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "instance member of the archive container class, re-exported unchanged; deferred beyond this phase, not wrapped",
+      "callPath": "sync"
+    },
+    {
+      "name": "close",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "instance member of the archive container class, re-exported unchanged; deferred beyond this phase, not wrapped",
+      "callPath": "sync"
+    },
+    {
+      "name": "crc32",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "instance member of the archive container class, re-exported unchanged; deferred beyond this phase, not wrapped",
+      "callPath": "sync"
+    },
+    {
+      "name": "flush",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "instance member of the archive container class, re-exported unchanged; deferred beyond this phase, not wrapped",
+      "callPath": "sync"
+    },
+    {
+      "name": "params",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "instance member of the archive container class, re-exported unchanged; deferred beyond this phase, not wrapped",
+      "callPath": "sync"
+    },
+    {
+      "name": "reset",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "instance member of the archive container class, re-exported unchanged; deferred beyond this phase, not wrapped",
+      "callPath": "sync"
+    }
+  ]
+}
