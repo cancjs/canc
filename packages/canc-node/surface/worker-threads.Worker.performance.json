@@ -1,0 +1,27 @@
+{
+  "subpath": "worker_threads#Worker.performance",
+  "nodeSpecifier": "node:worker_threads",
+  "status": "planned",
+  "exports": [
+    {
+      "name": "eventLoopUtilization",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance method, re-exported unchanged"
+    }
+  ]
+}

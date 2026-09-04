@@ -1,0 +1,51 @@
+{
+  "subpath": "worker_threads#locks.LockManager",
+  "nodeSpecifier": "node:worker_threads",
+  "status": "planned",
+  "exports": [
+    {
+      "name": "query",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "promises",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": 24,
+      "gate": "throw",
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "resolves a real node Promise with a snapshot of held and pending locks; no signal option of its own; node 24+ per the lock"
+    },
+    {
+      "name": "request",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "callPath": "promises",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v24.5.0",
+        "probed": null,
+        "sinceByMajor": {
+          "24": "v24.5.0",
+          "26": "v24.5.0"
+        }
+      },
+      "wrapper": "gated",
+      "failures": [],
+      "minMajor": 24,
+      "gate": "throw",
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "the only signal-bearing API in worker_threads; requestLock wraps this with a cancelify-signal shape; cancel while waiting aborts the acquisition, cancel while holding cancels the body then releases under shield so the triggering cancel cannot interrupt the release"
+    }
+  ]
+}

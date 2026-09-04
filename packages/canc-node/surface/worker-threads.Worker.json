@@ -1,0 +1,327 @@
+{
+  "subpath": "worker_threads#Worker",
+  "nodeSpecifier": "node:worker_threads",
+  "status": "planned",
+  "exports": [
+    {
+      "name": "cpuUsage",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "promises",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": 22,
+      "gate": "throw",
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "cross-thread introspection, resolves a real node Promise; node 22+ per the lock, throws NotImplementedError below 22; unmodified, no cancel of our own"
+    },
+    {
+      "name": "getHeapSnapshot",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "promises",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "resolves a real node Promise for a Readable snapshot stream; unmodified, no cancel of our own"
+    },
+    {
+      "name": "getHeapStatistics",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "promises",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": 22,
+      "gate": "throw",
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "cross-thread introspection, resolves a real node Promise; node 22+ per the lock, throws NotImplementedError below 22"
+    },
+    {
+      "name": "performance",
+      "kind": "const",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "getter, re-exported unchanged; member detail in worker-threads#Worker.performance"
+    },
+    {
+      "name": "postMessage",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance method, re-exported unchanged"
+    },
+    {
+      "name": "ref",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance method, re-exported unchanged"
+    },
+    {
+      "name": "resourceLimits",
+      "kind": "const",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "getter, re-exported unchanged"
+    },
+    {
+      "name": "startCpuProfile",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "promises",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": 22,
+      "gate": "throw",
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "resolves a real node Promise once profiling starts; node 22+ per the lock, throws NotImplementedError below 22"
+    },
+    {
+      "name": "startHeapProfile",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "promises",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": 24,
+      "gate": "throw",
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "resolves a real node Promise once profiling starts; node 24+ per the lock, throws NotImplementedError below 24"
+    },
+    {
+      "name": "stderr",
+      "kind": "const",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "stream getter, re-exported unchanged; presentIn gap at majors 22/24 in the lock reads as a docs-extraction artifact"
+    },
+    {
+      "name": "stdin",
+      "kind": "const",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "stream getter, re-exported unchanged; presentIn gap at majors 22/24 in the lock reads as a docs-extraction artifact"
+    },
+    {
+      "name": "stdout",
+      "kind": "const",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "stream getter, re-exported unchanged; presentIn gap at majors 22/24 in the lock reads as a docs-extraction artifact"
+    },
+    {
+      "name": "terminate",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "promises",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "node already returns a real Promise<exitCode>, unmodified; distinct from our own exit-settled promise property, which the terminate ladder in runTask calls this to drive"
+    },
+    {
+      "name": "threadId",
+      "kind": "const",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "getter, re-exported unchanged; presentIn gap at majors 22/24 in the lock reads as a docs-extraction artifact"
+    },
+    {
+      "name": "threadName",
+      "kind": "const",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": 22,
+      "gate": "throw",
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "getter, node 22+ per the lock; throws NotImplementedError below 22"
+    },
+    {
+      "name": "unref",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance method, re-exported unchanged"
+    }
+  ]
+}

@@ -1,0 +1,530 @@
+{
+  "subpath": "dgram#Socket",
+  "nodeSpecifier": "node:dgram",
+  "status": "planned",
+  "exports": [
+    {
+      "name": "addMembership",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance method, re-exported unchanged; no promise to cancel"
+    },
+    {
+      "name": "addSourceSpecificMembership",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance method, re-exported unchanged; no promise to cancel"
+    },
+    {
+      "name": "address",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance method, re-exported unchanged; no promise to cancel"
+    },
+    {
+      "name": "close",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance method, re-exported unchanged; no promise to cancel"
+    },
+    {
+      "name": "disconnect",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance method, re-exported unchanged; no promise to cancel"
+    },
+    {
+      "name": "dropMembership",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance method, re-exported unchanged; no promise to cancel"
+    },
+    {
+      "name": "dropSourceSpecificMembership",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance method, re-exported unchanged; no promise to cancel"
+    },
+    {
+      "name": "getRecvBufferSize",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance method, re-exported unchanged; no promise to cancel"
+    },
+    {
+      "name": "getSendBufferSize",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance method, re-exported unchanged; no promise to cancel"
+    },
+    {
+      "name": "getSendQueueCount",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance method, re-exported unchanged; no promise to cancel"
+    },
+    {
+      "name": "getSendQueueSize",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance method, re-exported unchanged; no promise to cancel"
+    },
+    {
+      "name": "ref",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance method, re-exported unchanged; no promise to cancel"
+    },
+    {
+      "name": "remoteAddress",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance method, re-exported unchanged; no promise to cancel"
+    },
+    {
+      "name": "setBroadcast",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance method, re-exported unchanged; no promise to cancel"
+    },
+    {
+      "name": "setMulticastInterface",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance method, re-exported unchanged; no promise to cancel"
+    },
+    {
+      "name": "setMulticastLoopback",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance method, re-exported unchanged; no promise to cancel"
+    },
+    {
+      "name": "setMulticastTTL",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance method, re-exported unchanged; no promise to cancel"
+    },
+    {
+      "name": "setRecvBufferSize",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance method, re-exported unchanged; no promise to cancel"
+    },
+    {
+      "name": "setSendBufferSize",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance method, re-exported unchanged; no promise to cancel"
+    },
+    {
+      "name": "setTTL",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance method, re-exported unchanged; no promise to cancel"
+    },
+    {
+      "name": "unref",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "synchronous instance method, re-exported unchanged; no promise to cancel"
+    },
+    {
+      "name": "bind",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "cancelify-teardown",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "teardown": "close the socket on cancel",
+      "notes": "no node promise form; our factory wraps waiting for listening/error, cancel closes the socket and the port is free afterwards"
+    },
+    {
+      "name": "bindSync",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "gated",
+      "failures": [],
+      "minMajor": 24,
+      "gate": "throw",
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "new synchronous bind, no promise involved; node 24+ per the lock, throws NotImplementedError below 24"
+    },
+    {
+      "name": "connect",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "cancelify-teardown",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "teardown": "close the socket on cancel",
+      "notes": "no node promise form; our factory wraps waiting for connect/error, cancel closes the socket"
+    },
+    {
+      "name": "connectSync",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "gated",
+      "failures": [],
+      "minMajor": 24,
+      "gate": "throw",
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "new synchronous connect, no promise involved; node 24+ per the lock, throws NotImplementedError below 24"
+    },
+    {
+      "name": "send",
+      "kind": "fn",
+      "cancelCategory": "D",
+      "callPath": "callback",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "promisify-callback",
+      "failures": ["EMSGSIZE", "ENETUNREACH"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "teardown": "none; once the datagram reaches the kernel there is nothing to cancel, cancel before the callback fires only prevents the promise from settling",
+      "notes": "a sent datagram cannot be recalled; cancel before the syscall prevents the send, cancel after it resolves is a no-op"
+    }
+  ]
+}
