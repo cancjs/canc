@@ -7,9 +7,6 @@ import type {
   LookupOptions,
   MxRecord,
   NaptrRecord,
-  RecordWithTtl,
-  ResolveOptions,
-  ResolveWithTtlOptions,
   SoaRecord,
   SrvRecord,
 } from 'node:dns';
@@ -19,53 +16,10 @@ import { CancelablePromise } from '@cancjs/promise';
 
 import { gated } from '../gate';
 import { adopted, TNodeFn } from '../wrap';
+import type { IResolve4Fn, IResolve6Fn, IResolveFn, TResolveTlsaFn } from './records';
 
-/**
- * One certificate association record from a TLSA query.
- *
- * Node ships `resolveTlsa` at runtime from release line 22 on, but the installed `@types/node`
- * predates the member, so the shape is declared here from the documented wire fields rather than
- * imported.
- */
-export interface ITlsaRecord {
-  readonly certUsage: number;
-  readonly selector: number;
-  readonly match: number;
-  readonly data: Buffer;
-}
-
-// node's own overloads narrow the return by the rrtype literal; the interfaces below rebuild that
-// per function, since the wrapper only changes Promise to CancelablePromise and node's shape is the
-// specification
-interface IResolveFn {
-  (hostname: string): CancelablePromise<string[]>;
-  (hostname: string, rrtype: 'A' | 'AAAA' | 'CNAME' | 'NS' | 'PTR'): CancelablePromise<string[]>;
-  (hostname: string, rrtype: 'ANY'): CancelablePromise<AnyRecord[]>;
-  (hostname: string, rrtype: 'CAA'): CancelablePromise<CaaRecord[]>;
-  (hostname: string, rrtype: 'MX'): CancelablePromise<MxRecord[]>;
-  (hostname: string, rrtype: 'NAPTR'): CancelablePromise<NaptrRecord[]>;
-  (hostname: string, rrtype: 'SOA'): CancelablePromise<SoaRecord>;
-  (hostname: string, rrtype: 'SRV'): CancelablePromise<SrvRecord[]>;
-  (hostname: string, rrtype: 'TXT'): CancelablePromise<string[][]>;
-  (
-    hostname: string,
-    rrtype: string,
-  ): CancelablePromise<
-    string[] | CaaRecord[] | MxRecord[] | NaptrRecord[] | SoaRecord | SrvRecord[] | string[][] | AnyRecord[]
-  >;
-}
-
-interface IResolve4Fn {
-  (hostname: string): CancelablePromise<string[]>;
-  (hostname: string, options: ResolveWithTtlOptions): CancelablePromise<RecordWithTtl[]>;
-  (hostname: string, options: ResolveOptions): CancelablePromise<string[] | RecordWithTtl[]>;
-}
-
-interface IResolve6Fn {
-  (hostname: string): CancelablePromise<string[]>;
-  (hostname: string, options: ResolveWithTtlOptions): CancelablePromise<RecordWithTtl[]>;
-  (hostname: string, options: ResolveOptions): CancelablePromise<string[] | RecordWithTtl[]>;
-}
+export type { ITlsaRecord } from './records';
+export { Resolver } from './resolver';
 
 interface ILookupFn {
   (hostname: string, family: number): CancelablePromise<LookupAddress>;
@@ -76,7 +30,6 @@ interface ILookupFn {
 }
 
 type TLookupServiceFn = (address: string, port: number) => CancelablePromise<{ hostname: string; service: string }>;
-type TResolveTlsaFn = (hostname: string) => CancelablePromise<ITlsaRecord[]>;
 
 // there is no signal anywhere in node:dns; `adopted` stops the waiting on cancel, and the query
 // itself runs to completion against node's own internal resolver, same guarantee node gives a call
