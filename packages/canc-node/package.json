@@ -144,6 +144,30 @@
         "types": "./dist/types/readline/index.d.ts",
         "default": "./dist/readline.cjs"
       }
+    },
+    "./crypto": {
+      "import": {
+        "types@<4.7": "./dist/types-ts4.2/crypto/index.d.mts",
+        "types": "./dist/types/crypto/index.d.mts",
+        "default": "./dist/crypto.mjs"
+      },
+      "require": {
+        "types@<4.7": "./dist/types-ts4.2/crypto/index.d.ts",
+        "types": "./dist/types/crypto/index.d.ts",
+        "default": "./dist/crypto.cjs"
+      }
+    },
+    "./zlib": {
+      "import": {
+        "types@<4.7": "./dist/types-ts4.2/zlib/index.d.mts",
+        "types": "./dist/types/zlib/index.d.mts",
+        "default": "./dist/zlib.mjs"
+      },
+      "require": {
+        "types@<4.7": "./dist/types-ts4.2/zlib/index.d.ts",
+        "types": "./dist/types/zlib/index.d.ts",
+        "default": "./dist/zlib.cjs"
+      }
     }
   },
   "main": "dist/index.cjs",
@@ -200,7 +224,9 @@
       "stream": ["dist/types/stream/index.d.ts"],
       "events": ["dist/types/events/index.d.ts"],
       "dns": ["dist/types/dns/index.d.ts"],
-      "readline": ["dist/types/readline/index.d.ts"]
+      "readline": ["dist/types/readline/index.d.ts"],
+      "crypto": ["dist/types/crypto/index.d.ts"],
+      "zlib": ["dist/types/zlib/index.d.ts"]
     }
   }
 }

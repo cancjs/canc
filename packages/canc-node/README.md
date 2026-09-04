@@ -232,7 +232,7 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 
 ### Shipped subpaths
 
-The package currently ships nine subpaths:
+The package currently ships eleven subpaths:
 
 - `fs`: file system operations with cancelable promises
 - `fs/sync`: synchronous file system utilities
@@ -243,6 +243,8 @@ The package currently ships nine subpaths:
 - `events`: event listener helpers and cancelable event promises
 - `dns`: cancelable DNS resolution
 - `readline`: cancelable line-by-line reading
+- `crypto`: cancelable cryptographic operations
+- `zlib`: cancelable compression utilities
 
 The `/fs/sync` subpath drops `realpathSync.native`, which is the only departure from Node's own synchronous file system signatures.
 
@@ -392,8 +394,6 @@ Wrapped built-in modules are arriving in upcoming releases. Planned subpaths inc
 - `net`: networking helpers
 - `tls`: TLS socket utilities
 - `http`: HTTP, HTTPS, and HTTP/2 clients and servers
-- `crypto`: cancelable cryptographic operations
-- `zlib`: cancelable compression utilities
 - `worker-threads`: worker thread coordination
 - `dgram`: UDP socket helpers
 

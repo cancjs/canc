@@ -28,6 +28,8 @@ const configs = createMultiConfigs(
     { input: 'src/events/index.ts', base: 'events', name: 'canc_node_events' },
     { input: 'src/dns/index.ts', base: 'dns', name: 'canc_node_dns' },
     { input: 'src/readline/index.ts', base: 'readline', name: 'canc_node_readline' },
+    { input: 'src/crypto/index.ts', base: 'crypto', name: 'canc_node_crypto' },
+    { input: 'src/zlib/index.ts', base: 'zlib', name: 'canc_node_zlib' },
   ],
   { noUmd: true },
 );
