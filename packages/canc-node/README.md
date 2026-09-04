@@ -213,7 +213,7 @@ When `retryOpen: true` is configured in `ISetFsOptions`, calls to `open` and `op
 
 To configure `graceful-fs` with descriptor retry automatically, import the side-effect subpath:
 
-```ts
+````ts
 import "@cancjs/node/fs/register-graceful";
 
 ### child-process
@@ -231,7 +231,7 @@ console.log("Process PID:", child.pid);
 
 // the promise is ours
 const result = await child.promise;
-```
+````
 
 The `promise` property is built on first access and reused after that. The promise can be taken at any time; the terminal outcome is recorded when it happens and replayed to a late reader (`exec` and `execFile` have always behaved this way through node's callback). Nothing else about the child is wrapped, so the callback form, the streams, async iteration over `child.stdout` and the option bag all keep node's behavior. Because listeners are attached eagerly to record terminal events, `child.listenerCount` differs from plain node.
 
@@ -263,6 +263,19 @@ import { timeout } from "@cancjs/toolbox";
 // deadlines produce a CancelError marked as timed out
 const result = await timeout(exec("long-running-command").promise, 10000);
 ```
+
+### timers
+
+`setTimeout`, `setImmediate`, `setInterval`, `scheduler.wait` and `scheduler.yield` are exported
+for drop-in symmetry with `node:timers/promises`, plus a `ref` option that lets a pending timer
+skip holding the event loop open. For most call sites, `delay` and `timeout` from
+`@cancjs/toolbox` are the idiomatic choice: they already return cancelable promises and compose
+with the rest of canc without an extra import. Reach for this subpath when porting code that
+already calls `node:timers/promises` directly, or when `ref: false` is needed.
+
+`setInterval` returns an async iterable rather than a promise. Cancel it by calling `cancel()` on
+the returned iterator, or by breaking a `for await` loop over it; both end iteration and clear the
+underlying timer. `scheduler.yield` takes no options and is node's own function, unwrapped.
 
 ### Planned subpaths
 
