@@ -1,0 +1,49 @@
+{
+  "subpath": "readline#readlinePromises",
+  "nodeSpecifier": "node:readline/promises",
+  "status": "planned",
+  "exports": [
+    {
+      "name": "Interface",
+      "kind": "class",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "createInterface() return type; structural re-export",
+      "callPath": "promises"
+    },
+    {
+      "name": "Readline",
+      "kind": "class",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "VT escape sequence writer, no signal support anywhere in its API; structural re-export",
+      "callPath": "promises"
+    }
+  ]
+}

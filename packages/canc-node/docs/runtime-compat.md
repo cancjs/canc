@@ -101,6 +101,55 @@ Legend: `S` = Documented signal option, `y` = Present without signal, `-` = Abse
 | `writer`                | -   | -   | -   | y   | y   | -            | v25.9.0  |
 | `writev`                | y   | y   | y   | y   | y   | -            | v12.9.0  |
 
+### readline (node:readline/promises)
+
+| Export                 | 18  | 20  | 22  | 24  | 26  | Signal since | Added   |
+| ---------------------- | --- | --- | --- | --- | --- | ------------ | ------- |
+| `InterfaceConstructor` | -   | -   | -   | -   | -   | -            | -       |
+| `createInterface`      | y   | S   | S   | S   | S   | v20.0.0      | v17.0.0 |
+| `emitKeypressEvents`   | -   | -   | -   | -   | -   | -            | -       |
+
+### InterfaceConstructor (readline)
+
+| Export                   | 18  | 20  | 22  | 24  | 26  | Signal since | Added   |
+| ------------------------ | --- | --- | --- | --- | --- | ------------ | ------- |
+| `[Symbol.asyncIterator]` | -   | -   | -   | -   | -   | -            | -       |
+| `[Symbol.dispose]`       | -   | -   | -   | -   | -   | v23.10.0     | v22.0.0 |
+| `close`                  | -   | -   | -   | -   | -   | -            | -       |
+| `cursor`                 | -   | -   | -   | -   | -   | -            | -       |
+| `getCursorPos`           | -   | -   | -   | -   | -   | -            | -       |
+| `getPrompt`              | -   | -   | -   | -   | -   | -            | -       |
+| `line`                   | -   | -   | -   | -   | -   | -            | -       |
+| `pause`                  | -   | -   | -   | -   | -   | -            | -       |
+| `prompt`                 | -   | -   | -   | -   | -   | -            | -       |
+| `resume`                 | -   | -   | -   | -   | -   | -            | -       |
+| `setPrompt`              | -   | -   | -   | -   | -   | -            | -       |
+| `write`                  | -   | -   | -   | -   | -   | -            | -       |
+
+### readlinePromises (readline)
+
+| Export      | 18  | 20  | 22  | 24  | 26  | Signal since | Added   |
+| ----------- | --- | --- | --- | --- | --- | ------------ | ------- |
+| `Interface` | y   | y   | y   | y   | y   | -            | v17.0.0 |
+| `Readline`  | y   | y   | y   | y   | y   | -            | v17.0.0 |
+
+### readlinePromises.Interface (readline)
+
+| Export     | 18  | 20  | 22  | 24  | 26  | Signal since | Added   |
+| ---------- | --- | --- | --- | --- | --- | ------------ | ------- |
+| `question` | S   | S   | S   | S   | S   | v17.0.0      | v17.0.0 |
+
+### readlinePromises.Readline (readline)
+
+| Export            | 18  | 20  | 22  | 24  | 26  | Signal since | Added   |
+| ----------------- | --- | --- | --- | --- | --- | ------------ | ------- |
+| `clearLine`       | y   | y   | y   | y   | y   | -            | v17.0.0 |
+| `clearScreenDown` | y   | y   | y   | y   | y   | -            | v17.0.0 |
+| `commit`          | y   | y   | y   | y   | y   | -            | v17.0.0 |
+| `cursorTo`        | y   | y   | y   | y   | y   | -            | v17.0.0 |
+| `moveCursor`      | y   | y   | y   | y   | y   | -            | v17.0.0 |
+| `rollback`        | y   | y   | y   | y   | y   | -            | v17.0.0 |
+
 ## Execution-derived: alternative runtimes
 
 ### Module availability

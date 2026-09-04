@@ -25,6 +25,12 @@
     "reason": "execSync, execFileSync and spawnSync stay in node:child_process; a sync subpath would gain nothing"
   },
   {
+    "module": "readline",
+    "key": "readline.InterfaceConstructor.question",
+    "status": "excluded",
+    "reason": "doc-only artifact of the pre-20 combined Interface declaration; the v18 doc snapshot listed question directly on the shared base class, later docs split it onto readline.Interface.question (callback) and readlinePromises.Interface.question (promise), both already covered under their own subpaths"
+  },
+  {
     "module": "util",
     "status": "deferred",
     "reason": "util.aborted adopted internally; no subpath"

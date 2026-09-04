@@ -177,6 +177,55 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 | `writer`                | -                  | 26+  | ✖    | ✖   |
 | `writev`                | stops waiting only | 18+  | ✅   | ✅  |
 
+#### readline
+
+| Export                 | Cancellation | Node | Deno | Bun |
+| ---------------------- | ------------ | ---- | ---- | --- |
+| `InterfaceConstructor` | -            | 18+  | n/a  | n/a |
+| `createInterface`      | -            | 18+  | ✅   | ✅  |
+| `emitKeypressEvents`   | -            | 18+  | n/a  | n/a |
+
+#### InterfaceConstructor (readline)
+
+| Export                   | Cancellation | Node | Deno       | Bun        |
+| ------------------------ | ------------ | ---- | ---------- | ---------- |
+| `[Symbol.asyncIterator]` | -            | 18+  | unverified | unverified |
+| `[Symbol.dispose]`       | -            | 22+  | unverified | unverified |
+| `close`                  | -            | 18+  | unverified | unverified |
+| `cursor`                 | -            | 18+  | unverified | unverified |
+| `getCursorPos`           | -            | 18+  | unverified | unverified |
+| `getPrompt`              | -            | 18+  | unverified | unverified |
+| `line`                   | -            | 18+  | unverified | unverified |
+| `pause`                  | -            | 18+  | unverified | unverified |
+| `prompt`                 | -            | 18+  | unverified | unverified |
+| `resume`                 | -            | 18+  | unverified | unverified |
+| `setPrompt`              | -            | 18+  | unverified | unverified |
+| `write`                  | -            | 18+  | unverified | unverified |
+
+#### readlinePromises (readline)
+
+| Export      | Cancellation | Node | Deno | Bun |
+| ----------- | ------------ | ---- | ---- | --- |
+| `Interface` | -            | 18+  | ✅   | ✅  |
+| `Readline`  | -            | 18+  | ✅   | ✅  |
+
+#### readlinePromises.Interface (readline)
+
+| Export     | Cancellation   | Node | Deno       | Bun        |
+| ---------- | -------------- | ---- | ---------- | ---------- |
+| `question` | stops the work | 18+  | unverified | unverified |
+
+#### readlinePromises.Readline (readline)
+
+| Export            | Cancellation | Node | Deno       | Bun        |
+| ----------------- | ------------ | ---- | ---------- | ---------- |
+| `clearLine`       | -            | 18+  | unverified | unverified |
+| `clearScreenDown` | -            | 18+  | unverified | unverified |
+| `commit`          | -            | 18+  | unverified | unverified |
+| `cursorTo`        | -            | 18+  | unverified | unverified |
+| `moveCursor`      | -            | 18+  | unverified | unverified |
+| `rollback`        | -            | 18+  | unverified | unverified |
+
 <!-- generated:end -->
 
 `walk` and `walkSync` are iterables stopped with `break` or `return()` rather than `.cancel()`, so their cancellation cell reads `-`.

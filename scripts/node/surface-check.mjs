@@ -38,8 +38,12 @@ function toModKey(subpath, nodeSpecifier) {
 const coveredModules = new Set(
   manifests.filter((m) => m.nodeSpecifier !== null).map((m) => toModKey(m.subpath, m.nodeSpecifier)),
 );
-const exModules = new Set(exclusions.filter((e) => e.module).map((e) => e.module));
+// a module-level entry (no "key") drops every lock fact for that module; a keyed entry drops
+// exactly one lock fact, for a name that is real but does not survive to the newest major
+// (a doc-structure artifact rather than a removal worth failing the build over)
+const exModules = new Set(exclusions.filter((e) => e.module && !e.key).map((e) => e.module));
 const exNames = new Set(exclusions.filter((e) => e.name).map((e) => e.name));
+const exKeys = new Set(exclusions.filter((e) => e.key).map((e) => `${e.module}::${e.key}`));
 
 let failed = false;
 let _warnings = false;
@@ -69,6 +73,8 @@ for (const [mod, lockExports] of Object.entries(nodeLock.modules)) {
   if (!coveredModules.has(mod)) continue;
 
   for (const [lockKey, lockVal] of Object.entries(lockExports)) {
+    if (exKeys.has(`${mod}::${lockKey}`)) continue;
+
     const prefix = lockKey.split('.')[0];
     if (
       prefix.includes('callback') ||
