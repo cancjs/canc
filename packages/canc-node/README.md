@@ -183,7 +183,7 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 
 ### Shipped subpaths
 
-The package currently ships seven subpaths:
+The package currently ships eight subpaths:
 
 - `fs`: file system operations with cancelable promises
 - `fs/sync`: synchronous file system utilities
@@ -192,6 +192,7 @@ The package currently ships seven subpaths:
 - `timers`: cancelable timer promises
 - `stream`: stream consumers, pipeline helpers and readable terminals
 - `events`: event listener helpers and cancelable event promises
+- `dns`: cancelable DNS resolution
 
 The `/fs/sync` subpath drops `realpathSync.native`, which is the only departure from Node's own synchronous file system signatures.
 
@@ -321,12 +322,19 @@ emitter.emit("ready", 41);
 // a rejects CancelError, b resolves 42.
 ```
 
+### dns
+
+Canceling a module-level lookup such as `resolve4` only stops waiting for the result. Node gives no way to interrupt the query itself, so it keeps running in the background and the answer is discarded when it arrives.
+
+A `Resolver` instance is different: canceling one of its queries is real, but the underlying cancel is scoped to the whole resolver, not the single query. It stops every query currently in flight on that resolver, not just the one that was canceled.
+
+`resolveTlsa` needs Node 22 or later and is not available on Deno or Bun.
+
 ### Planned subpaths
 
 Wrapped built-in modules are arriving in upcoming releases. Planned subpaths include:
 
 - `fs/extra`: extended file system helper routines
-- `dns`: cancelable DNS resolution
 - `net`: networking helpers
 - `tls`: TLS socket utilities
 - `http`: HTTP, HTTPS, and HTTP/2 clients and servers

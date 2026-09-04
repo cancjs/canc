@@ -26,6 +26,7 @@ const configs = createMultiConfigs(
     { input: 'src/timers/index.ts', base: 'timers', name: 'canc_node_timers' },
     { input: 'src/stream/index.ts', base: 'stream', name: 'canc_node_stream' },
     { input: 'src/events/index.ts', base: 'events', name: 'canc_node_events' },
+    { input: 'src/dns/index.ts', base: 'dns', name: 'canc_node_dns' },
   ],
   { noUmd: true },
 );
