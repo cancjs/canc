@@ -233,15 +233,15 @@ describe('graceful shutdown', () => {
 
     try {
       const server = new FakeServer();
-      const drain = drainServer(server);
+      const shutdown = shutdownServer(server);
 
-      expect(drain instanceof CustomPromise).toBe(true);
+      expect(shutdown instanceof CustomPromise).toBe(true);
     } finally {
       setPromiseImpl(CancelablePromise as any);
     }
   });
 
-  it('clears the drain state when the drain promise is canceled', async () => {
+  it('clears the shutdown state when the shutdown promise is canceled', async () => {
     jest.useFakeTimers();
 
     try {
@@ -249,10 +249,10 @@ describe('graceful shutdown', () => {
       const { req, res } = createExchange(server);
       ensureRequestCancelState(req, res).live.add(pending({ shield: true }));
 
-      const first = drainServer(server, { timeout: 50 });
+      const first = shutdownServer(server, { timeout: 50 });
       first.cancel();
 
-      const second = drainServer(server, { timeout: 100 });
+      const second = shutdownServer(server, { timeout: 100 });
       expect(second).not.toBe(first);
       await Promise.resolve();
       expect(jest.getTimerCount()).toBe(1);
@@ -261,7 +261,7 @@ describe('graceful shutdown', () => {
       for (let i = 0; i < 20; i++) {
         await Promise.resolve();
       }
-      expect(drainServer(server)).toBe(second);
+      expect(shutdownServer(server)).toBe(second);
 
       jest.advanceTimersByTime(50);
       await second;
