@@ -28,7 +28,7 @@ On `@hono/node-server` the signal is wired from the node response, the same reci
 - One cancel signal per request, shared with request-scoped work started outside the route
 - Deadlines as an option rather than a second wrapper, with the response status carried on the error
 - Full inference for a bare `function* (c, next)` with no annotations
-- Graceful drain that cancels in-flight handlers and reports what happened
+- Graceful shutdown that cancels in-flight handlers and reports what happened
 - No runtime dependencies beyond hono itself
 
 ## Getting Started
@@ -86,7 +86,7 @@ app.get(
 );
 ```
 
-Share the request signal with anything else the request owns:
+Share the request signal with anything else the request owns. On `@hono/node-server` this is the guarded stand-in for node's own `IncomingMessage.prototype.signal`, which aborts once the request stream finishes reading rather than when the client actually disconnects:
 
 ```js
 import { getRequestSignal } from '@cancjs/server-hono';
@@ -97,17 +97,17 @@ app.get('/exports/ledger', (c) => {
 });
 ```
 
-Drain in-flight requests on shutdown, passing what `serve()` returned:
+Shut down gracefully, canceling in-flight requests, passing what `serve()` returned:
 
 ```js
-import { drain } from '@cancjs/server-hono';
+import { shutdown } from '@cancjs/server-hono';
 
 const server = serve({ fetch: app.fetch, port: 3000 });
 
 process.on('SIGTERM', async () => {
-  const { canceled, completed, timedOut } = await drain(server, { timeout: 10_000 });
+  const { canceled, completed, timedOut } = await shutdown(server, { timeout: 10_000 });
 
-  logger.info({ canceled, completed, timedOut }, 'server drained');
+  logger.info({ canceled, completed, timedOut }, 'server shut down');
   process.exit(0);
 });
 ```
@@ -116,7 +116,7 @@ process.on('SIGTERM', async () => {
 
 ### Two runtimes, one handler
 
-Every call checks whether `@hono/node-server` published its node request and response on the context. When it did, the wrapper wires cancellation from the response, the same `'close'` plus `!writableEnded` recipe as the rest of the family. When it did not, the request is running on a Web standard runtime, and the wrapper reads `Request.signal` instead, which does mean disconnect there. Presence of the node pair is the whole check; nothing is compared against a runtime name.
+Every call checks whether `@hono/node-server` published its node request and response on the context. When it did, the wrapper wires cancellation from the response, the same `'close'` plus `!writableEnded` recipe as the rest of the family, rather than adopting node's own `IncomingMessage.prototype.signal`: that signal aborts once the request stream finishes reading rather than when the client disconnects, so a body-carrying request would abort on arrival if the wrapper read it directly. When the node pair is absent, the request is running on a Web standard runtime, and the wrapper reads `Request.signal` instead, which does mean disconnect there and needs no guard. Presence of the node pair is the whole check; nothing is compared against a runtime name.
 
 A Web runtime has no response object to hang a settle event off, so the wrapper collects its own teardown callbacks and fires them once when the handler's task settles, in place of the response close event the node path uses.
 
@@ -153,9 +153,9 @@ Options given to `cancelMiddleware` are inherited by every handler on the reques
 
 Both raise a `CancelError`. The discriminator is `isCancelError(error) && !error.timedOut`; a deadline sets `timedOut` through its `TimeoutError` cause. The exported reason strings, `CLIENT_DISCONNECTED`, `SERVER_SHUTDOWN` and `HANDLER_TIMEOUT`, are for logs and for humans reading them, never for branching.
 
-### Draining
+### Shutting down
 
-`drain` takes what `serve()` returned, not the Hono app. On node it stops the server accepting connections, closes idle keep-alive sockets, cancels every in-flight handler, then waits for them within a grace window before closing what is left. It cancels the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it. It resolves with counts rather than throwing, and a second call while the first is running returns the same result. There is no drain path for a Web standard runtime without a node server object; that deployment shape has no server to stop accepting connections on in the first place.
+`shutdown` takes what `serve()` returned, not the Hono app. On node it stops the server accepting connections, closes idle keep-alive sockets, cancels every in-flight handler, then waits for them within a grace window before closing what is left. It cancels the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it. It resolves with counts rather than throwing, and a second call while the first is running returns the same result. There is no shutdown path for a Web standard runtime without a node server object; that deployment shape has no server to stop accepting connections on in the first place.
 
 ## API
 
@@ -167,15 +167,19 @@ Both raise a `CancelError`. The discriminator is `isCancelError(error) && !error
 
 ### Request signal
 
-- `getRequestSignal(c)` returns the request's `CancelSignal`, installing it on first use
+- `getRequestSignal(c)` returns the request's `CancelSignal`, installing it on first use. On `@hono/node-server` it is the guarded replacement for node's own `IncomingMessage.prototype.signal`, which aborts once the request stream finishes reading rather than when the client disconnects, so it fires on a healthy in-flight request the moment its body has been consumed.
 
 ### Shutdown
 
-- `drain(server, options?)` cancels in-flight handlers and resolves with `{ canceled, completed, timedOut }`
+- `shutdown(server, options?)` cancels in-flight handlers and resolves with `{ canceled, completed, timedOut }`
 
 ### Reasons
 
 - `CLIENT_DISCONNECTED`, `SERVER_SHUTDOWN`, `HANDLER_TIMEOUT`
+
+### Types
+
+- `ICancelableHandlerOptions`, `ICancelContext`, `ICancelErrorHandlerOptions`, `IShutdownOptions`, `IShutdownResult`, `THonoHandler`, `TTimeoutOption`
 
 ## Compatibility
 

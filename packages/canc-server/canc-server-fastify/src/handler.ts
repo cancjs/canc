@@ -26,6 +26,12 @@ export type TFastifyRouteHandler<RouteGeneric extends RouteGenericInterface = Ro
   RouteHandlerMethod<RawServerDefault, RawRequestDefaultExpression, RawReplyDefaultExpression, RouteGeneric>;
 
 /**
+ * The guarded replacement for Fastify's own `request.signal`. Fastify 5 wires that one as
+ * `raw.on('close', onAbort)` with no guard, so on a POST with a body it aborts a millisecond into the
+ * handler while the client is still connected; node's own `IncomingMessage.prototype.signal` carries
+ * the same defect for the same reason. This signal is wired from the response instead, in the shared
+ * server core, and cached so every later caller shares it.
+ *
  * The cancel signal for a request, installed and wired on first use and shared with every other
  * consumer that asks for it.
  *

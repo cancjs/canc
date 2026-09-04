@@ -66,6 +66,12 @@ export function cancelableHandler<
 }
 
 /**
+ * The guarded replacement for node's own `IncomingMessage.prototype.signal`. That signal aborts once
+ * the request stream finishes being read, not when the client disconnects, so a body-carrying POST
+ * behind `express.json()` would abort at the start of the handler with the client still connected if
+ * a handler read it directly. This one is wired from the response's close event instead, guarded so
+ * it fires only when the response has not finished.
+ *
  * The cancel signal for a request, installed and wired on first use and cached for every later
  * caller. Request-scoped work started outside a route, a database context or a job handle, takes
  * the same signal and stops with the same cancellation instead of wiring a second listener.

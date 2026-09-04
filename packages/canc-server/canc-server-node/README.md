@@ -27,7 +27,7 @@ This package targets `http.createServer` directly, with no framework in between.
 - One cancel signal per request, shared with request-scoped work started outside the handler
 - Deadlines as an option rather than a second wrapper, with the HTTP status carried on the error
 - Full inference for a bare `function* (req, res)` with no annotations
-- Graceful drain that cancels in-flight handlers and reports what happened
+- Graceful shutdown that cancels in-flight handlers and reports what happened
 - An `onError` option, so a canceled request answers correctly with no extra wiring
 - No runtime dependencies
 
@@ -89,7 +89,7 @@ const handler = cancelableHandler(routeHandler, {
 });
 ```
 
-Share the request signal with anything else the request owns:
+Share the request signal with anything else the request owns. This is the guarded stand-in for node's own `IncomingMessage.prototype.signal`, which aborts once the request stream finishes reading rather than when the client actually disconnects:
 
 ```js
 import { getRequestSignal } from '@cancjs/server-node';
@@ -100,17 +100,17 @@ const handler = cancelableHandler(function* (req, res) {
 });
 ```
 
-Drain in-flight requests on shutdown:
+Shut the server down, canceling in-flight requests:
 
 ```js
-import { drain } from '@cancjs/server-node';
+import { shutdown } from '@cancjs/server-node';
 
 const server = createServer(handler).listen(3000);
 
 process.on('SIGTERM', async () => {
-  const { canceled, completed, timedOut } = await drain(server, { timeout: 10_000 });
+  const { canceled, completed, timedOut } = await shutdown(server, { timeout: 10_000 });
 
-  logger.info({ canceled, completed, timedOut }, 'server drained');
+  logger.info({ canceled, completed, timedOut }, 'server shut down');
   process.exit(0);
 });
 ```
@@ -143,9 +143,9 @@ Any **other** handler runs signal-only. The request signal still fires, `onDisco
 
 A deadline aborts the request signal itself rather than the handler's promise, so request-scoped work other consumers started stops with the handler instead of outliving it. The resulting `CancelError` reports `timedOut === true` and carries `status` and `statusCode`, which is what the default `onError` reads when it picks a response code.
 
-### Draining
+### Shutting down
 
-`drain` stops the server accepting connections, closes idle keep-alive sockets, cancels every in-flight handler, then waits for them within a grace window before closing what is left. It cancels the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it. It resolves with counts rather than throwing, and a second call while the first is running returns the same result, so wiring it to both `SIGTERM` and `SIGINT` needs no guard.
+`shutdown` stops the server accepting connections, closes idle keep-alive sockets, cancels every in-flight handler, then waits for them within a grace window before closing what is left. It cancels the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it. It resolves with counts rather than throwing, and a second call while the first is running returns the same result, so wiring it to both `SIGTERM` and `SIGINT` needs no guard.
 
 ## Description
 
@@ -182,15 +182,19 @@ Cancelable promise flags (`bubble`, `shield`, `strict`, `asyncCancel`, `forceCan
 
 ### Request signal
 
-- `getRequestSignal(req, res)` returns the request's `CancelSignal`, installing it on first use
+- `getRequestSignal(req, res)` returns the request's `CancelSignal`, installing it on first use. It is the guarded replacement for node's own `IncomingMessage.prototype.signal`, which aborts once the request stream finishes reading rather than when the client disconnects, so it fires on a healthy in-flight request the moment its body has been consumed.
 
 ### Shutdown
 
-- `drain(server, options?)` cancels in-flight handlers and resolves with `{ canceled, completed, timedOut }`
+- `shutdown(server, options?)` cancels in-flight handlers and resolves with `{ canceled, completed, timedOut }`
 
 ### Reasons
 
 - `CLIENT_DISCONNECTED`, `SERVER_SHUTDOWN`, `HANDLER_TIMEOUT`
+
+### Types
+
+- `ICancelableHandlerOptions`, `ICancelErrorHandlerOptions`, `INodeCancelableHandlerOptions`, `IShutdownOptions`, `IShutdownResult`, `TNodeErrorHandler`, `TNodeHandler`
 
 ## Compatibility
 
