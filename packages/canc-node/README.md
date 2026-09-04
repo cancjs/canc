@@ -386,6 +386,25 @@ A `Resolver` instance is different: canceling one of its queries is real, but th
 
 `question` answers a cancelable promise. Canceling it aborts the pending prompt through node's own `signal` handling and restores the interface to the state it was in before the call, including stdin's raw mode. A canceled question never consumes the next line typed at the prompt.
 
+### crypto
+
+Every promisified function in this subpath runs on Node's libuv threadpool, and node gives no way to preempt that work once it has started. Canceling stops waiting: the returned promise rejects with `CancelError`, but the call keeps running to completion in the background, and the threadpool slot it holds stays occupied until it finishes. With the default pool of four slots, a canceled `scrypt` or `argon2` call can delay unrelated `fs` and `dns` operations that are queued behind it. Bound the cost up front (smaller iteration counts, smaller inputs) rather than relying on cancellation to free resources.
+
+The synchronous factory surface (`createHash`, `createCipheriv`, `randomUUID`, `webcrypto`, `constants`, and everything else that never had a callback form) passes through unchanged, so building a cipher or a hash does not need a second import.
+
+`argon2`, `encapsulate`, and `decapsulate` need Node 24 or later and throw `NotImplementedError` on older runtimes.
+
+### zlib
+
+This subpath ships three different cancellation shapes, and they are not interchangeable:
+
+- One-shot buffer functions (`gzip`, `deflate`, `brotliCompress`, the zstd family, and their decompressing counterparts) run on the threadpool exactly like the crypto functions above. Canceling only stops waiting; the compression or decompression keeps running, and the threadpool slot stays occupied until it finishes, which can delay unrelated `fs` and `dns` work the same way.
+- Stream factories (`createGzip`, `createBrotliCompress`, the zstd stream classes, and the rest of the re-exported factory surface) are genuinely stoppable: calling `destroy()` on the returned stream stops the underlying codec.
+- The iterable codec family (`compressGzip`, `decompressBrotli`, and their six siblings, Node 24+) cancels between chunks: it stops pulling from the source iterable and calls the source iterator's own `return()`, so nothing further reaches the codec after that point.
+- `zipFiles` (Node 26+) checkpoints per file: canceling mid-list stops opening any further entry at the next file boundary, keeps every entry already written, and never rolls an entry back.
+
+The zstd family, the iterable codec family, and the zip archive family are all version-gated and throw `NotImplementedError` on a runtime that does not ship them.
+
 ### Planned subpaths
 
 Wrapped built-in modules are arriving in upcoming releases. Planned subpaths include:
