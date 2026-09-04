@@ -2,9 +2,12 @@
 // Authoritative sequence: check:node-surface (surface:validate -> surface:check)
 import { execSync } from 'child_process';
 import { existsSync, readdirSync, readFileSync } from 'fs';
-import { join } from 'path';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 
-const surfaceDir = 'packages/canc-node/surface';
+const HERE = dirname(fileURLToPath(import.meta.url));
+const ROOT = join(HERE, '..', '..');
+const surfaceDir = join(ROOT, 'packages', 'canc-node', 'surface');
 const nodeLock = JSON.parse(readFileSync(join(surfaceDir, 'node-api.lock.json'), 'utf8'));
 const rtLock = JSON.parse(readFileSync(join(surfaceDir, 'runtime.lock.json'), 'utf8'));
 const exclusions = JSON.parse(readFileSync(join(surfaceDir, 'exclusions.json'), 'utf8'));
@@ -315,9 +318,12 @@ if (existsSync(fileHandlePath)) {
   }
 }
 
-if (existsSync('scripts/node/surface-docs.mjs')) {
+const surfaceDocsPath = join(HERE, 'surface-docs.mjs');
+if (existsSync(surfaceDocsPath)) {
   try {
-    execSync('node scripts/node/surface-docs.mjs --check', { stdio: 'inherit' });
+    // cwd: ROOT, not inherited from the caller -- surface-docs.mjs's own module resolution
+    // (and, transitively, TypeScript's) is anchored to the process cwd, not to argv[1]
+    execSync(`node "${surfaceDocsPath}" --check`, { stdio: 'inherit', cwd: ROOT });
   } catch (_err) {
     fail(`Check G failed: generated docs stale`);
   }
@@ -373,6 +379,17 @@ if (existsSync(readmePath)) {
         `Check H failed: README references \`${name}\` (\`@cancjs/node/fs/extra\`) but name is not in fs/extra manifest`,
       );
     }
+  }
+}
+
+// Checks A through G compare the manifest to node's API. Check I is the other direction: what the
+// package actually publishes, read off the built declarations, against the committed record of it.
+const surfaceBaselinePath = join(HERE, 'surface-baseline.mjs');
+if (existsSync(surfaceBaselinePath)) {
+  try {
+    execSync(`node "${surfaceBaselinePath}" --check`, { stdio: 'inherit', cwd: ROOT });
+  } catch (_err) {
+    fail(`Check I failed: the published surface does not match its baseline`);
   }
 }
 
