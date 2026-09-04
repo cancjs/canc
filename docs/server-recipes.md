@@ -8,7 +8,7 @@ Nothing here is a published package. Each recipe is code you paste into your own
 
 Almost every recipe below reduces to one of two cases.
 
-**Node shape.** The framework hands you, somewhere, the raw `IncomingMessage` and `ServerResponse`. If you can reach those two objects, use [`@cancjs/server-node`](https://github.com/cancjs/canc/tree/master/packages/canc-server/canc-server-node) directly. Its `getRequestSignal(req, res)` installs one close listener per request, guarded by `writableEnded`, and caches the signal so every later caller shares it. You do not need to reimplement any of that. Its `drain` cancels the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it.
+**Node shape.** The framework hands you, somewhere, the raw `IncomingMessage` and `ServerResponse`. If you can reach those two objects, use [`@cancjs/server-node`](https://github.com/cancjs/canc/tree/master/packages/canc-server/canc-server-node) directly. Its `getRequestSignal(req, res)` installs one close listener per request, guarded by `writableEnded`, and caches the signal so every later caller shares it. You do not need to reimplement any of that. Calling `shutdown(server, options)` cancels every in-flight handler, and it tears down each request's signal in the same step, because that signal is exactly what request-scoped work outside the handler, a database context or a job handle, was told to watch: leaving it alone would let that work keep running past the point where anything could still answer it. Work built from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it.
 
 ```js
 import * as cancServer from '@cancjs/server-node';
