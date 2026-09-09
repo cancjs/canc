@@ -15,36 +15,54 @@ describe('app-fetch-streaming smoke', () => {
     logSpy.mockRestore();
   });
 
-  it('canc - cancel mid-feed → no further page fetches logged + in-flight abort logged', async () => {
-    const p = consumeFeedCanc();
-    suppressCancel(p);
+  it('canc - cancel mid-feed -> no further page fetches logged + in-flight abort logged', async () => {
+    const logs: string[] = [];
+    const cancelRef = { cancel: () => {} };
 
-    // Wait enough time to fetch first page (50ms) and start second page
-    await sleep(65);
-
-    p.cancel();
-    await p.catch((e: any) => {
-      if (e.name !== 'CancelError') throw e;
+    logSpy.mockImplementation((...args: unknown[]) => {
+      const line = args.join(' ');
+      logs.push(line);
+      const pageFetches = logs.filter((l) => l.includes('Fetching feed page starting at offset'));
+      if (pageFetches.length === 2) {
+        setImmediate(() => cancelRef.cancel());
+      }
     });
 
-    const logs = logSpy.mock.calls.map((c) => c.join(' '));
+    const p = consumeFeedCanc();
+    cancelRef.cancel = () => p.cancel();
+    suppressCancel(p);
+
+    await expect(p).rejects.toMatchObject({ name: 'CancelError' });
+
     expect(logs.some((l) => l.includes('Aborted fetch for offset'))).toBe(true);
 
-    // Ensure it didn't keep fetching pages after cancel
-    const pageFetches = logs.filter((l) => l.includes('Fetching feed page starting at offset'));
-    expect(pageFetches.length).toBeLessThan(4);
+    const countBefore = logs.filter((l) => l.includes('Fetching feed page starting at offset')).length;
+    await sleep(100);
+    const countAfter = logs.filter((l) => l.includes('Fetching feed page starting at offset')).length;
+    expect(countAfter).toBe(countBefore);
   });
 
-  it('vanilla - abort mid-feed → no further page fetches logged + in-flight abort logged', async () => {
+  it('vanilla - abort mid-feed -> no further page fetches logged + in-flight abort logged', async () => {
+    const logs: string[] = [];
     const controller = new AbortController();
+
+    logSpy.mockImplementation((...args: unknown[]) => {
+      const line = args.join(' ');
+      logs.push(line);
+      const pageFetches = logs.filter((l) => l.includes('Fetching feed page starting at offset'));
+      if (pageFetches.length === 2) {
+        setImmediate(() => controller.abort());
+      }
+    });
+
     const p = consumeFeedVanilla(controller.signal);
-
-    await sleep(65);
-
-    controller.abort();
     await p;
 
-    const logs = logSpy.mock.calls.map((c) => c.join(' '));
     expect(logs.some((l) => l.includes('Aborted fetch for offset'))).toBe(true);
+
+    const countBefore = logs.filter((l) => l.includes('Fetching feed page starting at offset')).length;
+    await sleep(100);
+    const countAfter = logs.filter((l) => l.includes('Fetching feed page starting at offset')).length;
+    expect(countAfter).toBe(countBefore);
   });
 });
