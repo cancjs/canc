@@ -53,19 +53,21 @@ export function pipe<T>(source: AnyIterable<T>, ...parts: any[]): any {
 
   const flatOps = flattenOps(allParts);
 
-  // terminal must be the last non-config op; once one appears, everything after must also be a
-  // terminal (only the last is kept)
+  // First terminal wins; non-terminal after it is an error
   let terminalIndex = -1;
-  let foundTerminal = false;
 
   for (let i = 0; i < flatOps.length; i++) {
-    const isTerminal = isTermOp(flatOps[i]);
-
-    if (isTerminal) {
-      foundTerminal = true;
+    if (isTermOp(flatOps[i])) {
       terminalIndex = i;
-    } else if (foundTerminal) {
-      throw new TypeError('A terminal operator must be the last operator');
+      break;
+    }
+  }
+
+  if (terminalIndex !== -1) {
+    for (let i = terminalIndex + 1; i < flatOps.length; i++) {
+      if (!isTermOp(flatOps[i])) {
+        throw new TypeError('A terminal operator must be the last operator');
+      }
     }
   }
 
