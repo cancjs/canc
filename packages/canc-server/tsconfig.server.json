@@ -2,6 +2,7 @@
   "extends": "../../tsconfig.base",
   "compilerOptions": {
     "lib": ["es2022"],
+    // shared outDir inert since rollup targets dist and check is noEmit
     "outDir": "build",
     "rootDir": "../.."
   }

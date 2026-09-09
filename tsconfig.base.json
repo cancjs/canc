@@ -26,7 +26,7 @@
       "@cancjs/unhandled-rejection": [
         "./packages/canc-unhandled-rejection/src/index"
       ],
-      "@cancjs/server-*": ["./packages/canc-server/*/src/index"]
+      "@cancjs/server-*": ["./packages/canc-server/canc-server-*/src/index"]
     },
     "typeRoots": ["node_modules/@types"],
     "esModuleInterop": true,
