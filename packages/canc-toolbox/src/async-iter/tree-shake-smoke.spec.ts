@@ -1,16 +1,56 @@
-/**
- * Tree-shake smoke test: verifies that async-iter operators are properly branded and
- * that the package has sideEffects:false to enable tree-shaking.
- *
- * Tests that individual operators can be imported and used independently, and that
- * the module structure supports dropping unused operators during bundling.
- */
-
+import nodeResolve from '@rollup/plugin-node-resolve';
 import * as fs from 'fs';
 import * as path from 'path';
+import { rollup } from 'rollup';
+import * as ts from 'typescript';
 
 import { PIPE_OP_BRAND, TERM_OP_BRAND } from '../../../_toolbox/async-iter';
 import * as asyncIter from './index';
+
+async function bundleAsyncIter(entrySource: string): Promise<string> {
+  const entryPath = path.resolve(__dirname, 'virtual-tree-shake-entry.ts');
+  const bundle = await rollup({
+    input: entryPath,
+    external: ['@cancjs/promise'],
+    plugins: [
+      {
+        name: 'virtual-tree-shake-entry',
+        resolveId(id) {
+          if (id === entryPath) {
+            return id;
+          }
+          return null;
+        },
+        load(id) {
+          if (id === entryPath) {
+            return entrySource;
+          }
+          return null;
+        },
+      },
+      nodeResolve({ extensions: ['.ts', '.js'] }),
+      {
+        name: 'transpile-ts',
+        transform(code, id) {
+          if (id.endsWith('.ts')) {
+            const res = ts.transpileModule(code, {
+              compilerOptions: {
+                module: ts.ModuleKind.ESNext,
+                target: ts.ScriptTarget.ES2020,
+                removeComments: true,
+              },
+            });
+            return { code: res.outputText, map: null };
+          }
+          return null;
+        },
+      },
+    ],
+  });
+
+  const { output } = await bundle.generate({ format: 'esm' });
+  return output[0].code;
+}
 
 describe('async-iter tree-shaking', () => {
   it('all pipeable operators are branded with PIPE_OP_BRAND', () => {
@@ -32,7 +72,6 @@ describe('async-iter tree-shaking', () => {
   });
 
   it('async-iter declares sideEffects:false in package.json', () => {
-    // Check that canc-toolbox has sideEffects: false
     const packageJsonPath = path.resolve(__dirname, '../..', 'package.json');
     const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
 
@@ -46,7 +85,6 @@ describe('async-iter tree-shaking', () => {
     expect(typeof mapOp).toBe('function');
     expect(typeof toArrayOp).toBe('function');
 
-    // They should work together in a pipe
     const result = asyncIter.pipe(asyncIter.from([1, 2, 3]), [mapOp]);
     expect(asyncIter.isPipeable(result)).toBe(true);
   });
@@ -54,13 +92,24 @@ describe('async-iter tree-shaking', () => {
   it('pipeable result from operators can be identified and further piped', async () => {
     const piped = asyncIter.pipe([1, 2, 3], [asyncIter.map((x: number) => x * 2)]);
 
-    // Should be pipeable, allowing further chaining
     expect(asyncIter.isPipeable(piped)).toBe(true);
 
-    // Should be able to pipe again
     const rechained = piped.pipe([asyncIter.filter((x: number) => x > 2)], asyncIter.toArray());
     expect(rechained).toBeDefined();
     const result = await rechained;
     expect(result).toEqual([4, 6]);
+  });
+
+  it('bundles only imported operators and leaves unused flatMap out of the bundle', async () => {
+    const output = await bundleAsyncIter(`
+      import { filter, map, take } from './index';
+      export const used = [map, filter, take];
+    `);
+
+    expect(/\bflatMap\b/.test(output)).toBe(false);
+    expect(/\bdrop\b/.test(output)).toBe(false);
+    expect(/\bmap\b/.test(output)).toBe(true);
+    expect(/\bfilter\b/.test(output)).toBe(true);
+    expect(/\btake\b/.test(output)).toBe(true);
   });
 });
