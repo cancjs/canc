@@ -20,7 +20,7 @@ const task = canc.async(function* () {
   const invoice = yield* canc.await(invoices.findById(id));
 
   return invoice;
-}, undefined, { signal });
+}, undefined, { signal })();
 ```
 
 `@cancjs/server-node` also exports `cancelableHandler`, which wraps a whole handler at once instead of composing the signal by hand. Reach for it when you own the handler outright; reach for `getRequestSignal` alone when a framework already owns request dispatch and only needs the signal threaded through, which is the situation most of the recipes below are in.
@@ -46,7 +46,7 @@ const task = canc.async(function* () {
   const invoice = yield* canc.await(invoices.findById(id));
 
   return invoice;
-}, undefined, { signal: request.signal });
+}, undefined, { signal: request.signal })();
 ```
 
 Whether that signal actually fires on disconnect is a property of the runtime, not of canc. Verify it in yours before relying on it; the section on unachievable cases lists the runtimes where it is known not to.
@@ -111,7 +111,7 @@ server.get('/invoices/:id', async (req, res, next) => {
   try {
     res.send(await canc.async(function* () {
       return yield* canc.await(invoices.findById(req.params.id));
-    }, undefined, { signal }));
+    }, undefined, { signal })());
     next();
   } catch (error) {
     next(error);
@@ -132,7 +132,7 @@ export default async function handler(req, res) {
 
   res.json(await canc.async(function* () {
     return yield* canc.await(invoices.findById(req.query.id));
-  }, undefined, { signal }));
+  }, undefined, { signal })());
 }
 ```
 
@@ -185,7 +185,7 @@ import * as canc from '@cancjs/coroutine';
 export async function GET(request, { params }) {
   const invoice = await canc.async(function* () {
     return yield* canc.await(invoices.findById(params.id));
-  }, undefined, { signal: request.signal });
+  }, undefined, { signal: request.signal })();
 
   return Response.json(invoice);
 }
@@ -203,7 +203,7 @@ import * as canc from '@cancjs/coroutine';
 app.get('/invoices/:id', ({ params, request }) =>
   canc.async(function* () {
     return yield* canc.await(invoices.findById(params.id));
-  }, undefined, { signal: request.signal }),
+  }, undefined, { signal: request.signal })(),
 );
 ```
 
@@ -220,7 +220,7 @@ Bun.serve({
       const invoice = yield* canc.await(invoices.findById(idFrom(request)));
 
       return Response.json(invoice);
-    }, undefined, { signal: request.signal });
+    }, undefined, { signal: request.signal })();
   },
 });
 ```
@@ -237,7 +237,7 @@ router.get('/invoices/:id', async (ctx) => {
 
   ctx.response.body = await canc.async(function* () {
     return yield* canc.await(invoices.findById(ctx.params.id));
-  }, undefined, { signal });
+  }, undefined, { signal })();
 });
 ```
 
@@ -252,7 +252,7 @@ export const handler = {
   async GET(req, ctx) {
     const invoice = await canc.async(function* () {
       return yield* canc.await(invoices.findById(ctx.params.id));
-    }, undefined, { signal: req.signal });
+    }, undefined, { signal: req.signal })();
 
     return Response.json(invoice);
   },
@@ -269,7 +269,7 @@ router.get('/invoices/:id', (request) =>
     const invoice = yield* canc.await(invoices.findById(request.params.id));
 
     return Response.json(invoice);
-  }, undefined, { signal: request.signal }),
+  }, undefined, { signal: request.signal })(),
 );
 ```
 
