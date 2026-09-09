@@ -69,13 +69,16 @@ To run the opt-in wire-cancel path, run `DATABASE_URL=... npm run start:canc` co
 | a running statement killed server-side | **no** (thread blocked; no `cancelQuery`) | **yes** via `'cancel query'` -> `pg_cancel_backend` |
 | session/backend killed | no | yes via `'kill session'` -> `pg_terminate_backend` |
 
-Express exposes a `request.signal` on the incoming message, and it looks like the obvious hook for
-disconnect detection. It is not: that signal aborts when the request stream ends, not when the
-client disconnects, so on a route with a body parser it would fire before the handler even runs.
-`cancelableHandler` avoids it and listens on the response instead, only treating a close event as a
-disconnect while the response has not finished writing. `middleware-vanilla.ts`'s
-`abortOnDisconnect` reaches for the identical `res.on('close')` plus `!res.writableEnded` guard, for
-the same reason: the hand-rolled version already gets this right, it is not the naive side of this
+Node core exposes a `request.signal` on the incoming message
+(`IncomingMessage.prototype.signal`, added in Node 24.16.0 / 26.1.0), and it
+looks like the obvious hook for disconnect detection. It is not: that signal
+aborts when the request stream ends, not when the client disconnects, so on a
+route with a body parser it would fire before the handler even runs.
+`cancelableHandler` avoids it and listens on the response instead, only treating
+a close event as a disconnect while the response has not finished writing.
+`middleware-vanilla.ts`'s `abortOnDisconnect` reaches for the identical
+`res.on('close')` plus `!res.writableEnded` guard, for the same reason: the
+hand-rolled version already gets this right, it is not the naive side of this
 comparison.
 
 ## Copying

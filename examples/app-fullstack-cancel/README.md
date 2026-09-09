@@ -148,13 +148,16 @@ What each backend stops when the client cancels:
 Never read this example as PGlite killing a running query. The wire-level cancel is the payoff of the
 Postgres swap.
 
-Express also exposes a `request.signal` on the incoming message, and it looks like the natural hook
-for this. It is not: that signal aborts when the request stream ends, not when the client
-disconnects, so a route reading a body would see it fire before the handler even runs. `getRequestSignal`
-avoids it and listens on the response instead, only treating a close event as a disconnect while the
-response has not finished writing. `server/lib/get-req-signal-vanilla.ts` reaches for the identical
-`res.on('close')` plus `!res.writableEnded` guard, for the same reason: it is the correct hand-rolled
-version of that check, not the naive side of this comparison.
+Node core exposes a `request.signal` on the incoming message
+(`IncomingMessage.prototype.signal`, added in Node 24.16.0 / 26.1.0), and it
+looks like the natural hook for this. It is not: that signal aborts when the
+request stream ends, not when the client disconnects, so a route reading a body
+would see it fire before the handler even runs. `getRequestSignal` avoids it and
+listens on the response instead, only treating a close event as a disconnect
+while the response has not finished writing. `server/lib/get-req-signal-vanilla.ts`
+reaches for the identical `res.on('close')` plus `!res.writableEnded` guard, for
+the same reason: it is the correct hand-rolled version of that check, not the
+naive side of this comparison.
 
 ## The client is one skin
 

@@ -87,10 +87,13 @@ generator between tokens (the mock records an `aborted` marker). On the real pat
 path can un-bill tokens already streamed before Stop, cancellation stops future spend, not past
 spend. The usage log records `canceled: true` and the token count seen up to the cancel point.
 
-Node also exposes a `request.signal` on the incoming message, and it looks like the natural hook
-for a Stop button. It is not: that signal aborts when the request stream ends, not when the client
-disconnects, and with this route's JSON body already read off the socket, the stream ends before the
-handler even starts, so work driven by that signal would be canceled at the start of every request,
-not when the user presses Stop. The disconnect wiring `cancelableHandler` installs here listens on
-the response instead, and only treats a close event as a real disconnect while the response has not
-finished writing.
+Node core exposes a `request.signal` on the incoming message
+(`IncomingMessage.prototype.signal`, added in Node 24.16.0 / 26.1.0), and it
+looks like the natural hook for a Stop button. It is not: that signal aborts
+when the request stream ends, not when the client disconnects, and with this
+route's JSON body already read off the socket, the stream ends before the
+handler even starts, so work driven by that signal would be canceled at the
+start of every request, not when the user presses Stop. The disconnect wiring
+`cancelableHandler` installs here listens on the response instead, and only
+treats a close event as a real disconnect while the response has not finished
+writing.
