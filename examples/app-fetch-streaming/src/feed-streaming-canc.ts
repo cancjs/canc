@@ -7,8 +7,6 @@ import { FeedPage, fetchFeedPage } from './mock/feed-api';
 // Cancelify the API boundary ONCE.
 const cancelableFetchPage = cancelify(({ getSignal }, cursor?: number) => fetchFeedPage(cursor, getSignal()));
 
-// 1. A coroutine generator producer.
-// Uses cancGen.async and yields items from pages without raw AbortController.
 export const fetchFeedCanc = cancGen.async(function* () {
   let cursor: number | null = 0;
   do {
@@ -23,7 +21,6 @@ export const fetchFeedCanc = cancGen.async(function* () {
   } while (cursor !== null);
 });
 
-// 2. A coroutine consumer that processes the stream and stops early.
 export const consumeFeedCanc = canc.async(function* () {
   let count = 0;
 

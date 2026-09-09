@@ -1,10 +1,8 @@
 import { fetchFeedPage } from './mock/feed-api';
 
-// 1. A plain generator that produces items, hand-wiring cancellation.
 export async function* fetchFeedVanilla(signal?: AbortSignal) {
   let cursor: number | null = 0;
   do {
-    // keeps running after the user left (wasted work)
     if (signal?.aborted) throw signal.reason;
     const page = await fetchFeedPage(cursor, signal);
 
@@ -18,7 +16,6 @@ export async function* fetchFeedVanilla(signal?: AbortSignal) {
   } while (cursor !== null);
 }
 
-// 2. A consumer that processes the stream until it finds what it needs.
 export async function consumeFeedVanilla(signal: AbortSignal) {
   let count = 0;
 
