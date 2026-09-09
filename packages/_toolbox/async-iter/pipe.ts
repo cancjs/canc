@@ -44,6 +44,9 @@ export function makePipeable<T>(asyncIterable: AsyncIterable<T>): IPipeableAsync
  * `pipe(source, [ops...], config)` or `pipe(source, [ops...], term, config)` (config is ignored in the latter).
  *
  * Terminal must be the last operator; throws TypeError otherwise.
+ *
+ * Variadic pipeline typing and operator inference are deferred. The signature
+ * uses any at the boundary until typed overload ladders land.
  */
 export function pipe<T>(source: AnyIterable<T>, ...parts: any[]): any {
   const { config: _config, rest: allParts } = splitConfig(parts);
