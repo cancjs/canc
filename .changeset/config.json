@@ -13,12 +13,7 @@
       "@cancjs/decorators",
       "@cancjs/fetch",
       "@cancjs/axios",
-      "@cancjs/unhandled-rejection",
-      "@cancjs/server-node",
-      "@cancjs/server-express",
-      "@cancjs/server-fastify",
-      "@cancjs/server-koa",
-      "@cancjs/server-hono"
+      "@cancjs/unhandled-rejection"
     ]
   ],
   "ignore": ["@cancjs/benchmarks", "@cancjs/tests-types"],
