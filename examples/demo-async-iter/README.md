@@ -1,4 +1,4 @@
-# demo-async-iter — Async Iterator Operators and Cancellation
+# demo-async-iter: Async Iterator Operators and Cancellation
 
 Reconciliation of transactions over an async stream, comparing vanilla `for await` loops with
 `@cancjs/toolbox/async-iter` pipe operators. The canc twin shows how canceling a pipeline
