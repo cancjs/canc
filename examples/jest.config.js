@@ -37,7 +37,6 @@ const ownConfigs = glob
   .map((p) => path.join('<rootDir>', p));
 
 module.exports = {
-  passWithNoTests: true,
   projects: [
     ...ownConfigs,
     ...splicedProjects,
