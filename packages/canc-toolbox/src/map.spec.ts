@@ -229,4 +229,66 @@ describe('map', () => {
     expect(error.errors).toEqual([boom]);
     expect(called).toEqual([0, 1, 2, 3, 4, 5]);
   });
+
+  it('forwards the cancel reason by identity to the in-flight mapper when canceled', async () => {
+    let observedReason: unknown;
+    const customReason = { code: 'MAP_CANCEL' };
+
+    const promise = map(
+      ['a'],
+      () =>
+        new CancelablePromise<string>((_resolve, _reject, { handleCancel }) => {
+          handleCancel((reason) => {
+            observedReason = reason;
+          });
+        }),
+    );
+
+    promise.catch(() => {});
+    promise.cancel(customReason);
+
+    expect(observedReason).toBe(customReason);
+  });
+
+  it('forwards the same cancel reason object to all in-flight mappers at concurrency: 2', async () => {
+    const observed: unknown[] = [];
+    const customReason = { code: 'MAP_CANCEL' };
+
+    const promise = map(
+      ['a', 'b', 'c'],
+      () =>
+        new CancelablePromise<string>((_resolve, _reject, { handleCancel }) => {
+          handleCancel((reason) => {
+            observed.push(reason);
+          });
+        }),
+      { concurrency: 2 },
+    );
+
+    promise.catch(() => {});
+    promise.cancel(customReason);
+
+    expect(observed).toHaveLength(2);
+    expect(observed[0]).toBe(customReason);
+    expect(observed[1]).toBe(customReason);
+  });
+
+  it('forwards a string cancel reason as that string', async () => {
+    let observedReason: unknown;
+
+    const promise = map(
+      ['a'],
+      () =>
+        new CancelablePromise<string>((_resolve, _reject, { handleCancel }) => {
+          handleCancel((reason) => {
+            observedReason = reason;
+          });
+        }),
+    );
+
+    promise.catch(() => {});
+    promise.cancel('MAP_STRING_CANCEL');
+
+    expect(observedReason).toBe('MAP_STRING_CANCEL');
+  });
 });

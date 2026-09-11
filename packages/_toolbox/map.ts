@@ -14,8 +14,9 @@ export interface IMapOptions {
   concurrency?: number;
   /**
    * Whether the first rejection ends the run. True by default, matching `all`: the siblings are
-   * canceled and the returned promise rejects with that reason. Set it to false to run every item
-   * to a settlement and reject with an AggregateError of the failures instead.
+   * canceled (on the native twin, queued mappers are dropped while running ones run to completion)
+   * and the returned promise rejects with that reason. Set it to false to run every item to a
+   * settlement and reject with an AggregateError of the failures instead.
    */
   stopOnError?: boolean;
 }
@@ -87,10 +88,10 @@ export function mapFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IToo
       let settled = false;
 
       if (ctx) {
-        ctx.handleCancel(function () {
+        ctx.handleCancel(function (reason?: any) {
           // settled first, so the sibling cancellations below do not re-enter the item handlers
           settled = true;
-          limited.cancel();
+          limited.cancel(reason);
         });
       }
 
@@ -114,7 +115,10 @@ export function mapFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IToo
       };
 
       items.forEach(function (item, index) {
+        if (settled) return;
+
         const wrappedMapper = function (it: T, idx: number) {
+          // stopOnError fast-path: a sibling already threw
           if (settled) throw new AbortError('map: stopped');
 
           let raw: R | PromiseLike<R>;
@@ -130,14 +134,14 @@ export function mapFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IToo
           }
 
           if (isThenableLike<R>(raw)) {
-            return raw.then(undefined, function (reason: any) {
+            raw.then(undefined, function (reason: any) {
               if (stopOnError && !settled) {
                 settled = true;
                 reject(reason);
                 limited.cancel();
               }
-              throw reason;
             });
+            return raw;
           }
 
           return raw;
@@ -160,8 +164,8 @@ export function mapFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IToo
 
             if (stopOnError) {
               settled = true;
-              limited.cancel();
               reject(reason);
+              limited.cancel();
               return;
             }
 
