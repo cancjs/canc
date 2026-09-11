@@ -203,16 +203,8 @@ describe('pipe', () => {
     expect(value).toEqual([84]);
   });
 
-  it('pipe works with single value', async () => {
-    const val = 42;
-    const result = anyPipe(
-      val,
-      anyMap((x: number) => x * 2),
-      toArray(),
-    );
-
-    const resolved = await result;
-    expect(resolved).toEqual([84]);
+  it('pipe rejects a non-iterable source with TypeError', async () => {
+    await expect(anyPipe(42, toArray())).rejects.toThrow(TypeError);
   });
 
   it('applies the first terminal when several are present', async () => {

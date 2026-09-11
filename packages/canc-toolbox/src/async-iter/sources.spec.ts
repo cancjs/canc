@@ -1,3 +1,4 @@
+import { map } from '../../../_toolbox/async-iter/operators';
 import * as asyncIter from './index';
 
 describe('async-iter sources', () => {
@@ -32,8 +33,7 @@ describe('async-iter sources', () => {
       const source = asyncIter.from([Promise.resolve(1), Promise.resolve(2), Promise.resolve(3)]);
       const values: unknown[] = [];
       for await (const value of source) {
-        // Note: from() yields the promises as-is; awaiting is the consumer's responsibility
-        values.push(await (value as unknown as PromiseLike<number>));
+        values.push(value);
       }
 
       expect(values).toEqual([1, 2, 3]);
@@ -49,14 +49,52 @@ describe('async-iter sources', () => {
       expect(values).toEqual([42]);
     });
 
-    it('wraps a single value', async () => {
-      const source = asyncIter.from(42);
-      const values: unknown[] = [];
-      for await (const value of source) {
-        values.push(value);
-      }
+    it('rejects a non-iterable value with a TypeError', async () => {
+      expect(() => {
+        const source = asyncIter.from(42 as any);
 
-      expect(values).toEqual([42]);
+        for (const _x of [] as any[]) {
+          /* trigger */
+        }
+        void source[Symbol.asyncIterator]();
+      }).toThrow(TypeError);
+    });
+
+    it('yields the same values when drained twice', async () => {
+      const source = asyncIter.from([1, 2, 3]);
+
+      const first: unknown[] = [];
+      for await (const v of source) first.push(v);
+
+      const second: unknown[] = [];
+      for await (const v of source) second.push(v);
+
+      expect(first).toEqual([1, 2, 3]);
+      expect(second).toEqual([1, 2, 3]);
+    });
+
+    it('does not open the source at pipe construction time', async () => {
+      const spy = jest.fn(function* () {
+        yield 1;
+        yield 2;
+      });
+      const iterable = { [Symbol.asyncIterator]: spy } as any;
+
+      asyncIter.pipe(
+        iterable,
+        map((x: number) => x * 2),
+      );
+      expect(spy).not.toHaveBeenCalled();
+
+      const items: number[] = [];
+      const piped = asyncIter.pipe(
+        iterable,
+        map((x: number) => x * 2),
+      );
+      for await (const item of piped as AsyncIterable<number>) {
+        items.push(item);
+      }
+      expect(spy).toHaveBeenCalledTimes(1);
     });
   });
 

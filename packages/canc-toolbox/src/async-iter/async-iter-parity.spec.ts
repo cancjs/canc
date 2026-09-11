@@ -283,9 +283,11 @@ describe('async iterator parity (TC39 spec behavior)', () => {
       expect(result).toEqual([42]);
     });
 
-    it('wraps a single value', async () => {
-      const result = await asyncIter.toArray<number>()(asyncIter.from(42));
-      expect(result).toEqual([42]);
+    it('rejects a non-iterable value with TypeError', () => {
+      expect(() => {
+        const source = asyncIter.from(42 as any);
+        source[Symbol.asyncIterator]();
+      }).toThrow(TypeError);
     });
 
     it('has .pipe method', async () => {

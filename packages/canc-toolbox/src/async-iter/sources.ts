@@ -10,7 +10,7 @@ import {
 /**
  * Wrap the toolbox from() with makePipeable to add the pipe method.
  */
-export function from<T>(source: AnyIterable<T> | PromiseLike<T> | T, opts?: any) {
+export function from<T>(source: AnyIterable<T> | PromiseLike<T>, opts?: any) {
   return makePipeable(toolboxFrom(source, opts));
 }
 
