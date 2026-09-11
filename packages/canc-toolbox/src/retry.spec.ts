@@ -513,4 +513,37 @@ describe('retry (cancelable)', () => {
 
     expect(fn).toHaveBeenCalledTimes(4);
   });
+
+  it('canceling before the first attempt never calls the input', async () => {
+    const fn = jest.fn().mockResolvedValue('ok');
+    const promise = retry(fn);
+    promise.cancel();
+
+    const reason = await promise.catch((e) => e);
+    expect(isCancelError(reason)).toBe(true);
+    expect(fn).not.toHaveBeenCalled();
+  });
+
+  it('cancel racing the assignment cancels the returned cancelable', async () => {
+    const cancelSpy = jest.fn();
+
+    const fn = jest.fn(() => {
+      const inner = new CancelablePromise<string>((_res) => {});
+      inner.cancel = cancelSpy;
+
+      // The race: cancel the outer promise while input() is running!
+      // handleCancel will fire synchronously, see currentAttempt as undefined, and miss it.
+      promise.cancel();
+
+      return inner;
+    });
+
+    const promise = retry(fn);
+    await flushMicrotasks();
+
+    expect(cancelSpy).toHaveBeenCalledTimes(1);
+
+    const reason = await promise.catch((e) => e);
+    expect(isCancelError(reason)).toBe(true);
+  });
 });

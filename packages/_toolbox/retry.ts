@@ -191,12 +191,19 @@ export function retryFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
 
           deps.Impl.resolve(undefined)
             .then(() => {
+              if (canceled) return undefined as any;
+
               // Captured off the raw return of `input(n)`, not the wrapper chain, so canceling it
               // reaches the actual work directly rather than depending on adoption cascading a
               // cancel signal down through an intermediate link.
               const raw = input(n);
 
-              if (isThenableLike<T>(raw)) currentAttempt = raw as PromiseLike<T> & { cancel?: (reason?: any) => void };
+              if (isThenableLike<T>(raw)) {
+                currentAttempt = raw as PromiseLike<T> & { cancel?: (reason?: any) => void };
+                if (canceled && isCancelableLike(currentAttempt)) {
+                  currentAttempt.cancel();
+                }
+              }
 
               return raw;
             })
