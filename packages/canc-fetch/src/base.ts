@@ -1,5 +1,4 @@
 import {
-  AbortError,
   CancelablePromise,
   CancelError,
   createCancelSignal,
@@ -174,7 +173,7 @@ export const setupCancellation = (
  * AbortError, NOT a bare AbortError. Cancellation is not a failure, so that path does not
  * contribute to the declared failure set.
  */
-export type TCancelableFetchFailure = AbortError | TimeoutError;
+export type TCancelableFetchFailure = TimeoutError;
 
 export const cancelableFetchFactory = (config: ICancelableFetchConfig = {}) => {
   return function cancelableFetch(input: any, init?: any): CancelablePromise<any, TCancelableFetchFailure> {

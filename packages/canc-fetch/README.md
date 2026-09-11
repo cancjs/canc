@@ -134,9 +134,9 @@ beacon.cancel();
 
 ### Declared failures
 
-`cancelableFetch` returns a `CancelablePromise<Response, AbortError | TimeoutError>`. Request failures produce either a platform `AbortError` or a `TimeoutError`.
+`cancelableFetch` returns a `CancelablePromise<Response, TimeoutError>`. Request failures produce a `TimeoutError`.
 
-Canceling a request in flight rejects the promise with a `CancelError` whose `cause` is an `AbortError`. Cancellation itself is part of the control flow mechanism and does not alter the declared application failure set. See [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) for details on declared failure handling.
+An abort arrives as a `CancelError` carrying an `AbortError` on its `cause`. Cancellation itself is part of the control flow mechanism and does not alter the declared application failure set. See [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) for details on declared failure handling.
 
 ## API
 
