@@ -1,5 +1,5 @@
-import { isCancelableLike, isFunction, isThenableLike } from '../guards';
-import { runCallback } from './callback';
+import { isFunction, isThenableLike } from '../guards';
+import { IItemRun, runItem } from './callback';
 import { callReturn, getSource } from './pull';
 import type { AnyIterable, TPromiseCtor } from './types';
 
@@ -61,7 +61,7 @@ function drive<T, R>(
 ): PromiseLike<R> {
   return new Impl<R>((resolve, reject, ctx) => {
     let iterator: AsyncIterator<T> | undefined;
-    let inFlight: unknown;
+    let item: IItemRun | undefined;
     let stopped = false;
     let index = 0;
 
@@ -70,13 +70,13 @@ function drive<T, R>(
     const abandon = (): unknown => {
       stopped = true;
 
-      const pending = inFlight;
-      inFlight = undefined;
+      const current = item;
+      item = undefined;
 
-      // Reaches an in-flight generator callback, whose own cleanup then runs before the source is
-      // closed.
-      if (isCancelableLike(pending)) {
-        pending.cancel();
+      // Aborts what an in-flight callback waits on and resumes a generator body so its own cleanup
+      // runs, the same way a stopped operator abandons an item.
+      if (current) {
+        current.stop();
       }
 
       return iterator ? callReturn(iterator) : undefined;
@@ -110,8 +110,6 @@ function drive<T, R>(
     };
 
     const onStep = (outcome: TStep<R>): void => {
-      inFlight = undefined;
-
       if (stopped) {
         return;
       }
@@ -127,10 +125,21 @@ function drive<T, R>(
     };
 
     const run: TRunStep = (callback, args) => {
-      const result = runCallback(Impl, callback, args);
-      inFlight = result;
+      const current = runItem(Impl, callback, args);
+      item = current;
 
-      return Impl.resolve(result);
+      return current.result.then(
+        (value: unknown) => {
+          item = undefined;
+
+          return value;
+        },
+        (error: unknown) => {
+          item = undefined;
+
+          throw error;
+        },
+      );
     };
 
     const onValue = (value: T): void => {

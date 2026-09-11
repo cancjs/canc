@@ -1,51 +1,90 @@
+// Callback plumbing shared by both lanes: the operators pull items lazily, the terminals pull them
+// in a loop, and both have to run a callback written in any of the four supported forms and be able
+// to abandon one that is still in flight.
+
+import { isGenerator } from '../../_util';
 import type { TAnyFn } from '../../_util/guards';
-import { isFunction } from '../guards';
+import { isCancelableLike, isFunction, isThenableLike } from '../guards';
 import type { TPromiseCtor } from './types';
 
-function _isGeneratorFn(value: unknown): boolean {
-  if (!isFunction(value)) {
-    return false;
-  }
-  const fnStr = Function.prototype.toString.call(value);
-  return /\bfunction\s*\*/.test(fnStr) || /\basync\s+function\s*\*/.test(fnStr);
+export interface IItemRun {
+  /** The callback's outcome, whichever form it took. */
+  result: PromiseLike<any>;
+  /** Abandon the run: cancel what the body waits on, then let the body clean up after itself. */
+  stop: () => void;
 }
 
-function isThenable<T = any>(value: unknown): value is PromiseLike<T> {
-  return typeof value === 'object' && value !== null && typeof (value as any).then === 'function';
+/**
+ * Run one item's callback and keep a handle on the work it has in flight. The generator form is
+ * driven by the shared driver through a wrapper that reports the value the body is suspended on,
+ * which is the only handle there is on a per-item await: canceling that value aborts the real work,
+ * and resuming the body with a return completion runs its own cleanup.
+ */
+export function runItem(Impl: TPromiseCtor, callback: TAnyFn, args: any[]): IItemRun {
+  let body: Generator<any, any, any> | undefined;
+  let awaited: unknown;
+  let stopped = false;
+
+  const watch = (...values: any[]): unknown => {
+    const outcome: unknown = callback(...values);
+
+    if (isGenerator(outcome)) {
+      body = outcome;
+
+      return watchGenerator(outcome, (suspendedOn) => {
+        awaited = suspendedOn;
+      });
+    }
+
+    awaited = outcome;
+
+    return outcome;
+  };
+
+  return {
+    result: Impl.resolve(runCallback(Impl, watch, args)),
+
+    stop() {
+      if (stopped) {
+        return;
+      }
+      stopped = true;
+
+      const inFlight = awaited;
+      awaited = undefined;
+      if (isCancelableLike(inFlight)) {
+        inFlight.cancel();
+      }
+
+      if (body) {
+        unwind(body);
+      }
+    },
+  };
 }
 
+/** Run a callback in whichever of the four forms it was written in, and adopt its outcome. */
 export function runCallback(Impl: TPromiseCtor, cb: TAnyFn, args: any[]): any {
   let result;
   try {
     result = cb(...args);
   } catch (err) {
-    const error = err instanceof Error ? err : new Error(String(err));
-    return Impl.resolve(Promise.reject(error));
+    return rejected(Impl, err);
   }
 
-  if (isThenable(result)) {
+  if (isThenableLike(result)) {
     return result;
   }
 
-  if (result && typeof result.next === 'function') {
+  if (result && isFunction(result.next)) {
     return driveGenerator(Impl, result);
   }
 
   return Impl.resolve(result);
 }
 
-export function driveGenerator<T>(
-  Impl: TPromiseCtor,
-  gen: Generator<any, T, any>,
-  onStop?: () => void,
-): PromiseLike<T> {
-  const stopped = false;
-
+export function driveGenerator<T>(Impl: TPromiseCtor, gen: Generator<any, T, any>): PromiseLike<T> {
   const resume = (value: any): PromiseLike<any> => {
-    if (stopped) {
-      return Impl.resolve(undefined);
-    }
-
     try {
       const { value: yielded, done } = gen.next(value);
 
@@ -54,19 +93,14 @@ export function driveGenerator<T>(
       }
 
       return Impl.resolve(yielded).then(resume, (err) => {
-        if (stopped) {
-          return undefined;
-        }
         try {
           return driveUnwind(gen, err);
         } catch (throwErr) {
-          const error = throwErr instanceof Error ? throwErr : new Error(String(throwErr));
-          return Impl.resolve(Promise.reject(error));
+          return rejected(Impl, throwErr);
         }
       });
     } catch (err) {
-      const error = err instanceof Error ? err : new Error(String(err));
-      return Impl.resolve(Promise.reject(error));
+      return rejected(Impl, err);
     }
   };
 
@@ -80,11 +114,58 @@ export function driveGenerator<T>(
     return Impl.resolve(yielded).then(resume, (nextErr) => driveUnwind(g, nextErr));
   };
 
-  const prom = Impl.resolve(undefined).then(() => resume(undefined));
+  return Impl.resolve(undefined).then(() => resume(undefined));
+}
 
-  if (onStop) {
-    /**/
-  }
+// Built through the executor rather than a rejected native promise, so the reason reaches the
+// consumer untouched and no transient promise of the wrong implementation is created on the way.
+function rejected(Impl: TPromiseCtor, reason: unknown): PromiseLike<never> {
+  return new Impl<never>((_resolve, reject) => {
+    reject(reason);
+  });
+}
 
-  return prom;
+function watchGenerator(body: Generator<any, any, any>, onSuspend: (value: unknown) => void): Generator<any, any, any> {
+  const report = (step: IteratorResult<any>): IteratorResult<any> => {
+    onSuspend(step.done ? undefined : step.value);
+
+    return step;
+  };
+
+  const watched = {
+    next: (value?: any) => report(body.next(value)),
+    throw: (error?: any) => report(body.throw(error)),
+    return: (value?: any) => report(body.return(value)),
+    [Symbol.iterator]: () => watched,
+  };
+
+  return watched as unknown as Generator<any, any, any>;
+}
+
+/**
+ * Resume a stopped body with a return completion so its own `finally` blocks run, then keep feeding
+ * it whatever those blocks yield until it is finished. Failures during that cleanup are swallowed:
+ * the consumer has already walked away from this item and has nowhere to report them.
+ */
+function unwind(body: Generator<any, any, any>): void {
+  const step = (resume: () => IteratorResult<any>): IteratorResult<any> => {
+    try {
+      return resume();
+    } catch {
+      return { done: true, value: undefined };
+    }
+  };
+
+  const pump = (result: IteratorResult<any>): void => {
+    if (result.done) {
+      return;
+    }
+
+    void Promise.resolve(result.value).then(
+      (value) => pump(step(() => body.next(value))),
+      (error) => pump(step(() => body.throw(error))),
+    );
+  };
+
+  pump(step(() => body.return(undefined)));
 }
