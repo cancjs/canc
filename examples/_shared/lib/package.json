@@ -9,9 +9,6 @@
  "test": "jest --colors --passWithNoTests",
  "typecheck": "tsc --noEmit --project tsconfig.json"
  },
- "dependencies": {
- "@cancjs/promise": "file:../../../packages/canc-promise"
- },
  "devDependencies": {
  "@types/jest": "30.0.0",
  "jest": "30.4.2",
