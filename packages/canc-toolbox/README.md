@@ -171,6 +171,22 @@ exponentially between attempts (`retries`, `initialDelay`, `factor`, `maxDelay`,
 `waitFor` polls a condition (`interval`, `timeout`). An async condition is awaited before the next
 poll is scheduled, so slow checks never overlap.
 
+#### Differences from p-retry
+
+`retry` serves as a drop-in alternative to `p-retry` in common retry loops, with a few deliberate
+revisions to option naming and signatures:
+
+| Option / feature        | p-retry                                  | retry                                                                     |
+| ----------------------- | ---------------------------------------- | ------------------------------------------------------------------------- |
+| Initial delay           | `minTimeout`                             | `initialDelay` (`minTimeout` kept as deprecated alias)                    |
+| Maximum delay           | `maxTimeout`                             | `maxDelay` (`maxTimeout` kept as deprecated alias)                        |
+| Jitter / randomization  | `randomize: boolean`                     | `jitter: boolean \| number` (`true` for full jitter, number for fraction) |
+| Failed-attempt callback | `onFailedAttempt(error)` (single object) | `onRetry(reason, attempt, delay)` (positional arguments)                  |
+| Total time budget       | `maxRetryTime`                           | Absent; wrap with `timeout(retry(fn), ms)` to cancel the running attempt  |
+| Retry consumption check | `shouldConsumeRetry`                     | Absent; use `shouldRetry(reason, ctx)`                                    |
+| Event loop unref        | `unref`                                  | Absent; pass custom timers via `{ setTimeout, clearTimeout }` if needed   |
+| Abort signal            | `signal`                                 | Absent; cancel the returned promise directly                              |
+
 ### Custom timers per call
 
 Every timing helper (`delay`, `minDelay`, `timeout`, `retry`, `waitFor`, `debounce`, `throttle`)
