@@ -130,6 +130,10 @@ describe('limit', () => {
 
     expect(limited.active).toBe(0);
     expect(queued.started).toBe(false);
+
+    const next = limited(() => 'after-cancel');
+    await expect(next).resolves.toBe('after-cancel');
+    expect(limited.active).toBe(0);
   });
 
   it('tracks active and pending across a scripted sequence', async () => {
@@ -292,14 +296,22 @@ describe('limit', () => {
   it('pumps a long queue of synchronously settling jobs without overflowing stack depth', async () => {
     const limited = limit(1);
     const total = 10000;
-    const handles: Promise<number>[] = [];
+    let releaseFirst: () => void = () => {};
+    const first = limited(
+      () =>
+        new Promise<void>((r) => {
+          releaseFirst = r;
+        }),
+    );
+    const rest = Array.from({ length: 10000 }, (_, i) => limited(() => i));
 
-    for (let i = 0; i < total; i++) {
-      handles.push(limited(() => i));
-    }
+    expect(limited.pending).toBe(10000);
+    releaseFirst();
+    await first;
 
-    const results = await Promise.all(handles);
+    const results = await Promise.all(rest);
 
+    expect(results).toHaveLength(10000);
     expect(results.length).toBe(total);
     expect(results[total - 1]).toBe(total - 1);
     expect(limited.active).toBe(0);

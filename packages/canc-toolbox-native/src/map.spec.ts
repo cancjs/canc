@@ -11,6 +11,7 @@ async function flushMicrotasks(): Promise<void> {
 /** A set of mappers whose start and settlement are each driven by the test. */
 interface IScript {
   readonly started: boolean[];
+  readonly handles: Promise<string>[];
   mapper(item: string, index: number): Promise<string>;
   settle(index: number, value: string): void;
   fail(index: number, reason: any): void;
@@ -18,18 +19,22 @@ interface IScript {
 
 function script(count: number): IScript {
   const started: boolean[] = new Array(count).fill(false);
+  const handles: Promise<string>[] = [];
   const resolvers: ((value: string) => void)[] = [];
   const rejecters: ((reason: any) => void)[] = [];
 
   return {
     started,
+    handles,
     mapper(item: string, index: number) {
       started[index] = true;
 
-      return new Promise<string>((resolve, reject) => {
+      const handle = new Promise<string>((resolve, reject) => {
         resolvers[index] = resolve;
         rejecters[index] = reject;
       });
+      handles[index] = handle;
+      return handle;
     },
     settle(index: number, value: string) {
       resolvers[index](value);
@@ -99,7 +104,8 @@ describe('map', () => {
     // the queue is stopped immediately on the first rejection
     expect(s.started).toEqual([true, true, false, false, false, false]);
 
-    await flushMicrotasks();
+    s.settle(1, 'b!');
+    await expect(s.handles[1]).resolves.toBe('b!');
   });
 
   it('runs every item under stopOnError false and rejects with an AggregateError in input order', async () => {
