@@ -4,28 +4,21 @@ import { callReturn, getSource } from './pull';
 
 /**
  * Normalize a source into an async iterable.
- * Accepts: async iterable, sync iterable, single promise, or single value.
- * The canc entry point wraps this result with `makePipeable` to add the `.pipe` method.
+ * Accepts: async iterable, sync iterable, or a single promise.
+ * Non-iterable values throw TypeError.
  */
-export function from<T>(source: AnyIterable<T> | PromiseLike<T> | T, _opts?: IAsyncIterOptions): AsyncIterable<T> {
+export function from<T>(source: AnyIterable<T> | PromiseLike<T>, _opts?: IAsyncIterOptions): AsyncIterable<T> {
+  // Thenable sources yield their resolved value
   if (source != null && typeof (source as any).then === 'function') {
     return createAsyncIterable<T>(async function* () {
       yield await (source as PromiseLike<T>);
     });
   }
 
-  try {
-    const { it } = getSource<T>(source as any);
-    return {
-      [Symbol.asyncIterator]: () => it,
-    };
-  } catch {
-    // Not iterable: treat as a single value
-    // eslint-disable-next-line @typescript-eslint/require-await
-    return createAsyncIterable<T>(async function* () {
-      yield source as T;
-    });
-  }
+  // Lazy: getSource is called per iteration, not at call time
+  return {
+    [Symbol.asyncIterator]: () => getSource<T>(source as any).it,
+  };
 }
 
 /**
