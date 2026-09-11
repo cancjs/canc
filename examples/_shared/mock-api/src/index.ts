@@ -31,14 +31,14 @@ export { createMockFetch } from './mock-fetch';
 
 import { MockApi, MockApiOptions } from './core';
 import { createDomains, Domains } from './domains';
-import { createMockAxiosAdapter, MockAxiosAdapter } from './mock-axios';
+import { createMockAxiosAdapter } from './mock-axios';
 import { createMockFetch, MockFetch } from './mock-fetch';
 
 /** A MockApi plus every domain endpoint and the fetch/axios facades, wired to one call log. */
 export interface MockApiBundle extends Domains {
   api: MockApi;
   fetch: MockFetch;
-  axiosAdapter: MockAxiosAdapter;
+  axiosAdapter: any;
 }
 
 /** One-call setup: returns a MockApi with all domains and the fetch/axios facades attached. */

@@ -114,3 +114,7 @@ describe('app-axios smoke', () => {
     }
   });
 });
+import type { MockAxiosAdapter, MockAxiosConfig } from '@shared/mock-api';
+const _malformedCheck: MockAxiosAdapter = (_config: MockAxiosConfig) => null as any;
+// @ts-expect-error - Prove-red: malformed config should be a compile error
+_malformedCheck({ url: '/test', signal: 123, badKey: true });
