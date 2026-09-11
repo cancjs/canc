@@ -31,12 +31,23 @@ export function concat<T>(...args: any[]): AsyncIterable<T> {
   return createAsyncIterable<T>(async function* () {
     for (const source of sources) {
       const { it } = getSource<T>(from<T>(source));
+      // hand-driven: a for-await closes on abrupt completion and the finally would close again
+      let exhausted = false;
+
       try {
-        for await (const value of { [Symbol.asyncIterator]: () => it }) {
-          yield value;
+        while (!exhausted) {
+          const step = await it.next();
+
+          if (step.done) {
+            exhausted = true;
+          } else {
+            yield step.value;
+          }
         }
       } finally {
-        await callReturn(it);
+        if (!exhausted) {
+          await callReturn(it);
+        }
       }
     }
   });
@@ -53,16 +64,19 @@ export function zip<T extends readonly any[]>(...args: any[]): AsyncIterable<T> 
   return createAsyncIterable<T>(async function* () {
     const iterators = sources.map((src) => getSource<any>(from(src)).it);
 
+    if (iterators.length === 0) {
+      return;
+    }
+
     try {
       while (true) {
-        const results = await Promise.all(iterators.map((it) => it.next()));
+        const values = await pullRound(iterators);
 
-        if (results.some((r) => r.done)) {
+        if (!values) {
           break;
         }
 
-        const tuple = results.map((r) => r.value);
-        yield tuple as any as T;
+        yield values as any as T;
       }
     } finally {
       await Promise.all(iterators.map((it) => callReturn(it)));
@@ -83,17 +97,21 @@ export function zipKeyed<T extends Record<string, AnyIterable<any>>>(
     const keys = Object.keys(shape);
     const iterators = keys.map((key) => getSource<any>(from(shape[key])).it);
 
+    if (iterators.length === 0) {
+      return;
+    }
+
     try {
       while (true) {
-        const results = await Promise.all(iterators.map((it) => it.next()));
+        const values = await pullRound(iterators);
 
-        if (results.some((r) => r.done)) {
+        if (!values) {
           break;
         }
 
         const obj: any = {};
         keys.forEach((key, i) => {
-          obj[key] = results[i].value;
+          obj[key] = values[i];
         });
 
         yield obj;
@@ -104,6 +122,53 @@ export function zipKeyed<T extends Record<string, AnyIterable<any>>>(
   });
 }
 
+type TSettledPull = { ok: true; result: IteratorResult<any> } | { ok: false; reason: unknown };
+
+// every pull carries its own handler before Promise.all sees it, so a member rejecting while
+// another is still in flight never becomes an unhandled rejection
+function settlePull(it: AsyncIterator<any>): Promise<TSettledPull> {
+  try {
+    return Promise.resolve(it.next()).then<TSettledPull, TSettledPull>(
+      (result) => ({ ok: true, result }),
+      (reason) => ({ ok: false, reason }),
+    );
+  } catch (reason) {
+    return Promise.resolve<TSettledPull>({ ok: false, reason });
+  }
+}
+
+// null once any member is done; rejects with the first failure, and only once all have settled
+async function pullRound(iterators: AsyncIterator<any>[]): Promise<any[] | null> {
+  const settled = await Promise.all(iterators.map((it) => settlePull(it)));
+  const values: any[] = [];
+  let failure: { reason: unknown } | undefined;
+  let done = false;
+
+  for (const step of settled) {
+    if (!step.ok) {
+      if (!failure) {
+        failure = step;
+      }
+      continue;
+    }
+
+    if (step.result.done) {
+      done = true;
+    } else {
+      values.push(step.result.value);
+    }
+  }
+
+  if (failure) {
+    throw failure.reason;
+  }
+
+  return done ? null : values;
+}
+
+/**
+ * Helper to create an async iterable from a generator function.
+ */
 function createAsyncIterable<T>(gen: () => AsyncGenerator<T>): AsyncIterable<T> {
   return {
     [Symbol.asyncIterator]: gen,
