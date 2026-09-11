@@ -1,4 +1,7 @@
 ---
+"@cancjs/axios": patch
+"@cancjs/coroutine": patch
+"@cancjs/decorators": patch
 "@cancjs/toolbox": minor
 "@cancjs/toolbox-native": minor
 ---
