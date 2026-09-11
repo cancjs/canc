@@ -1,7 +1,6 @@
 import * as canc from '@cancjs/coroutine';
-import { CancelError } from '@cancjs/promise';
 
-import type { Charge, Confirmation, StockReservation } from './mock/checkout-ops';
+import { type Charge, type Confirmation, NegativeChargeError, type StockReservation } from './mock/checkout-ops';
 
 /**
  * Cancelable checkout using canc.async + canc.await.
@@ -28,10 +27,9 @@ export function createCheckoutCancelable(
       // Parallel charge + loyalty points; cancellation cancels both
       const [chargeResult] = yield* canc.await.all([charge(orderId), addPoints(orderId)]);
 
-      // If the app determines it must cancel itself from within, rather than waiting for an
-      // external signal, it can explicitly reject the coroutine with a CancelError.
+      // routes domain failure into the coroutine typed failure set
       if (chargeResult.amount < 0) {
-        return yield* canc.throw(new CancelError('Negative charge amount'));
+        return yield* canc.throw(new NegativeChargeError('Negative charge amount'));
       }
 
       // Cancellation is ambient, no per-step checks

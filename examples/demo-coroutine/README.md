@@ -6,7 +6,7 @@ Learn `canc.async` and `canc.await` through a realistic checkout flow.
 
 - **Typed `yield* canc.await()`**: Each awaited step is visibly typed (TypeScript `satisfies` shows result types inline).
 - **Parallel steps with `canc.await.all`**: Charge and loyalty-points calls run concurrently; cancelling one cancels both.
-- **Explicit cancellation with `canc.throw`**: The coroutine explicitly rejects with a CancelError if a condition is not met, mimicking a manual abort.
+- **Declared domain failure with `canc.throw`**: `canc.throw` yields a domain failure into the coroutine's typed failure set (such as a `NegativeChargeError` validation failure), keeping domain failures distinct from cancellation.
 - **Cancel between steps**: If the client cancels while payment is processing, the reservation is automatically released via a shielded `finally` block.
 - **Awaitable cancel**: `await checkout.cancel()` waits for cleanup to finish before returning.
 - **Cancellation gap**: the order confirmation email uses a legacy vendor call with no signal parameter. Once it starts it always finishes, in both flavors. The example marks the gap instead of hiding it.
