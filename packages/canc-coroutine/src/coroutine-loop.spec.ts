@@ -71,6 +71,74 @@ describe('cancForAwait handle form', () => {
     expect(seen).toEqual([10, 20, 30]);
   });
 
+  it('drives a plain array source to exhaustion in the handle form', async () => {
+    const seen: number[] = [];
+
+    const co = cancAsync(function* () {
+      const loop = yield* cancForAwait([1, 2, 3]);
+
+      for (const value of loop) {
+        seen.push(value);
+        yield* loop.next();
+      }
+
+      return (loop as any)._disposed;
+    });
+
+    await expect(co()).resolves.toBeUndefined();
+    expect(seen).toEqual([1, 2, 3]);
+  });
+
+  it('cancels a coroutine over an array of promises between two advances', async () => {
+    let constructed = 0;
+    const gate = CancelablePromise.withResolvers<void>();
+    const source: Iterable<Promise<number>> = {
+      [Symbol.iterator]() {
+        let i = 0;
+        return {
+          next(): IteratorResult<Promise<number>> {
+            if (i === 0) {
+              i++;
+              constructed++;
+              return { value: gate.promise.then(() => 1), done: false };
+            }
+            if (i === 1) {
+              i++;
+              constructed++;
+              return { value: Promise.resolve(2), done: false };
+            }
+            return { value: undefined as any, done: true };
+          },
+        };
+      },
+    };
+    const seen: number[] = [];
+
+    const co = cancAsync(function* () {
+      const loop = yield* cancForAwait(source);
+
+      for (const value of loop) {
+        seen.push(value);
+        yield* loop.next();
+      }
+
+      return 'done';
+    });
+
+    const promise = co();
+    promise.catch(suppressCancel);
+
+    await flush();
+
+    promise.cancel();
+    gate.resolve();
+    await flush();
+
+    const error = await promise.catch((reason: any) => reason);
+    expect(isCancelError(error)).toBe(true);
+    expect(constructed).toBe(1);
+  });
+
   it('native break stops the loop and still runs the source cleanup', async () => {
     const log: string[] = [];
     const seen: number[] = [];
