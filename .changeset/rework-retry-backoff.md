@@ -7,3 +7,4 @@
 (toolbox) Change `retries` to count attempts after the first call instead of total attempts.
 (toolbox) Add `factor`, `jitter`, `shouldRetry` and a `delay` override to retry, and pass the actual wait to `onRetry`.
 (toolbox) Reject the retry with the thrown error when `shouldRetry`, `delay` or `onRetry` throws, and when a negative `jitter` fraction inverts the delay range, instead of leaving the retry pending.
+(toolbox) Report the retries still allowed after the current attempt in `retriesLeft` on the per-failure context, one more than before.

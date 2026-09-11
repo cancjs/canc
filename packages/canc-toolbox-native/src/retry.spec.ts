@@ -96,10 +96,11 @@ describe('retry', () => {
   });
 
   it('rejects with the last error after exhausting retries', async () => {
-    const error = new Error('always');
-    const fn = jest.fn().mockRejectedValue(error);
-    // retries: 1 means one retry after the first call, so 2 calls total.
-    await expect(retry(fn, { retries: 1, initialDelay: 0 })).rejects.toBe(error);
+    const firstError = new Error('first');
+    const lastError = new Error('last');
+    const fn = jest.fn().mockRejectedValueOnce(firstError).mockRejectedValueOnce(lastError);
+    // retries: 1 means one retry after the first call, so 2 calls total
+    await expect(retry(fn, { retries: 1, initialDelay: 0 })).rejects.toBe(lastError);
     expect(fn).toHaveBeenCalledTimes(2);
   });
 
@@ -304,7 +305,7 @@ describe('retry', () => {
 
     await flushMicrotasks();
     expect(pair.delays).toEqual([42]);
-    expect(seenCtx[0]).toMatchObject({ attempt: 1, retriesLeft: 0, computedDelay: 300 });
+    expect(seenCtx[0]).toMatchObject({ attempt: 1, retriesLeft: 1, computedDelay: 300 });
     expect(typeof (seenCtx[0] as { elapsed: number }).elapsed).toBe('number');
   });
 
@@ -521,5 +522,96 @@ describe('retry', () => {
     await expect(retry(fn, { retries: 3, initialDelay: 10, delay, ...pair.timers })).rejects.toBe(boom);
     expect(fn).toHaveBeenCalledTimes(1);
     expect(pair.delays).toEqual([]);
+  });
+
+  it('retriesLeft counts the attempts still allowed after the current one', async () => {
+    const pair = createFakeTimers();
+    const seenRetriesLeft: number[] = [];
+    const fn = jest.fn().mockRejectedValue(new Error('fail'));
+
+    const promise = retry(fn, {
+      retries: 3,
+      initialDelay: 100,
+      factor: 1,
+      shouldRetry: (_reason, ctx) => {
+        seenRetriesLeft.push(ctx.retriesLeft);
+        return true;
+      },
+      ...pair.timers,
+    });
+    promise.catch(() => {
+      /* swallow */
+    });
+
+    await flushMicrotasks();
+    for (let i = 0; i < 3; i++) {
+      pair.advance(100);
+      await flushMicrotasks();
+    }
+
+    expect(seenRetriesLeft).toEqual([3, 2, 1]);
+    expect(fn).toHaveBeenCalledTimes(4);
+  });
+
+  it('retries: 1 reports retriesLeft: 1 on first failure, 2 calls total', async () => {
+    const pair = createFakeTimers();
+    const seenRetriesLeft: number[] = [];
+    const fn = jest.fn().mockRejectedValue(new Error('fail'));
+
+    const promise = retry(fn, {
+      retries: 1,
+      initialDelay: 100,
+      shouldRetry: (_reason, ctx) => {
+        seenRetriesLeft.push(ctx.retriesLeft);
+        return true;
+      },
+      ...pair.timers,
+    });
+    promise.catch(() => {
+      /* swallow */
+    });
+
+    await flushMicrotasks();
+    pair.advance(100);
+    await flushMicrotasks();
+
+    expect(seenRetriesLeft).toEqual([1]);
+    expect(fn).toHaveBeenCalledTimes(2);
+  });
+
+  it('retries: 0 makes exactly one call and rejects without consulting shouldRetry', async () => {
+    const pair = createFakeTimers();
+    const error = new Error('fail');
+    const fn = jest.fn().mockRejectedValue(error);
+    const shouldRetry = jest.fn(() => true);
+
+    await expect(retry(fn, { retries: 0, shouldRetry, ...pair.timers })).rejects.toBe(error);
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(shouldRetry).not.toHaveBeenCalled();
+    expect(pair.delays).toEqual([]);
+  });
+
+  it('shouldRetry checking ctx.retriesLeft > 0 with retries: 3 runs the full four calls', async () => {
+    const pair = createFakeTimers();
+    const fn = jest.fn().mockRejectedValue(new Error('fail'));
+
+    const promise = retry(fn, {
+      retries: 3,
+      initialDelay: 100,
+      factor: 1,
+      shouldRetry: (_reason, ctx) => ctx.retriesLeft > 0,
+      ...pair.timers,
+    });
+    promise.catch(() => {
+      /* swallow */
+    });
+
+    await flushMicrotasks();
+    for (let i = 0; i < 3; i++) {
+      pair.advance(100);
+      await flushMicrotasks();
+    }
+
+    expect(fn).toHaveBeenCalledTimes(4);
   });
 });

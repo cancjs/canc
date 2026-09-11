@@ -27,8 +27,8 @@ export type IRetryOptions<K extends IPromiseKind = IPromiseLikeKind> = K['option
     /** Multiplier applied per attempt. `1` means a constant wait. Default: 2. */
     factor?: number;
     /**
-     * `false` (default) waits exactly the computed delay. `true` picks uniformly in `[0, computed]`
-     * (full jitter). A number `f` picks uniformly in `[computed*(1-f), computed*(1+f)]`, clamped at
+     * `false` (default) waits exactly the computed delay. `true` picks uniformly in `[0, computed)`
+     * (full jitter). A number `f` picks uniformly in `[computed*(1-f), computed*(1+f))`, clamped at
      * 0. `maxDelay` is applied to the base delay BEFORE jitter, so a jittered wait can exceed
      * `maxDelay` by up to a factor of `(1 + f)`. A negative `f` inverts the range and rejects the
      * retry with a `RangeError`.
@@ -118,9 +118,9 @@ export function retryFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
         };
 
         const handleFailure = (n: number, reason: any) => {
-          const retriesLeft = retries - n;
+          const retriesLeft = retries - n + 1;
 
-          if (retriesLeft < 0) {
+          if (retriesLeft < 1) {
             reject(reason);
             return;
           }
