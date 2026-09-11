@@ -1,40 +1,28 @@
-// Without cancellation support, isolation requires manual flag tracking.
-// When one widget fails, dependent widgets must manually check _isCanceled.
+// Promise.all: vanilla has no bubble:false counterpart.
+// All promises settle independently (wasted work on canceled request).
 
-import { mockApi, vanillaWidgets } from './widgets-shared.js';
-
-let isCanceled = false;
-
-// manual isolation wrap
-const manualIsolatedNews = async (symbol: string) => {
-  const result = await vanillaWidgets.quotePrice(symbol);
-  if (isCanceled) throw new Error(`isolated quotePrice canceled`);
-  return result;
-};
+import { mockApi, vanillaWidgets } from './widgets-shared';
 
 async function runIsolationVanilla(): Promise<void> {
   mockApi.reset();
-  isCanceled = false;
+
+  // (no cancellation counterpart for bubble:false, see -canc)
+  const isolatedNews = vanillaWidgets.quotePrice('AAPL');
+
+  const widgets = [
+    vanillaWidgets.loadOrders('user-1'),
+    vanillaWidgets.checkInventory('product-1'),
+    vanillaWidgets.checkInventory('non-existent'), // fails
+    isolatedNews,
+  ];
 
   try {
-    await Promise.all([
-      vanillaWidgets.loadOrders('user-1').catch((e) => {
-        isCanceled = true;
-        throw e;
-      }),
-      vanillaWidgets.checkInventory('product-1').catch((e) => {
-        isCanceled = true;
-        throw e;
-      }),
-      vanillaWidgets.checkInventory('non-existent').catch((e) => {
-        isCanceled = true;
-        throw e;
-      }), // fails
-      manualIsolatedNews('AAPL'),
-    ]);
+    await Promise.all(widgets);
   } catch {
-    // keeps running (isolation not automatic)
+    // One rejected, but native Promise.all does not cancel remaining
   }
+
+  await Promise.allSettled(widgets);
 
   const reportCompleted = mockApi.calls.filter((c) => c.status === 'completed').length;
   console.log(`Vanilla isolation - completed: ${reportCompleted}`);

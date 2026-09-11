@@ -23,7 +23,7 @@ With `CancelablePromise` and `@cancjs/coroutine`:
 - `src/any-vanilla.ts` vs `src/any-canc.ts`: `Promise.any` leaves losers running; `CancelablePromise.any` cancels them.
 - `src/race-vanilla.ts` vs `src/race-canc.ts`: `Promise.race` leaves losers running; `CancelablePromise.race` cancels them.
 - `src/all-settled-vanilla.ts` vs `src/all-settled-canc.ts`: `allSettled` waits for all inputs; no cancellation in either flavor.
-- `src/isolation-vanilla.ts` vs `src/isolation-canc.ts`: manual flag checks in vanilla vs `bubble: false` option in canc.
+- `src/isolation-vanilla.ts` vs `src/isolation-canc.ts`: uncancelable `Promise.all` in vanilla vs `bubble: false` option in canc.
 
 ## Running
 

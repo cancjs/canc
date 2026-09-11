@@ -3,6 +3,10 @@ import { isCancelError } from '@cancjs/promise';
 import { cancelify } from '@cancjs/toolbox';
 import { createMockApi, type MockApiBundle } from '@shared/mock-api';
 
+import { runAllVanilla } from './all-vanilla';
+import { runIsolationVanilla } from './isolation-vanilla';
+import { runRaceVanilla } from './race-vanilla';
+
 declare global {
   interface PromiseConstructor {
     any(values: Iterable<any>): Promise<any>;
@@ -222,6 +226,78 @@ describe('combinators', () => {
 
       expect(abortedCount).toBe(0);
       expect(completedCount).toBe(4);
+    });
+
+    it('allSettled: waits for all widgets to settle independently', async () => {
+      const mockBundle = createMockApi({ latency: 40, jitter: 0 });
+      const { vanilla: widgets } = createWidgets(mockBundle);
+
+      const p1 = widgets.loadOrders('user-1');
+      const p2 = widgets.checkInventory('product-1');
+      const p3 = widgets.checkInventory('non-existent'); // rejects
+      const p4 = widgets.quotePrice('AAPL');
+
+      const settled = await Promise.allSettled([p1, p2, p3, p4]);
+      expect(settled).toHaveLength(4);
+
+      const abortedCount = mockBundle.api.calls.filter((c) => c.status === 'aborted').length;
+      const completedCount = mockBundle.api.calls.filter((c) => c.status === 'completed').length;
+      const failedCount = mockBundle.api.calls.filter((c) => c.status === 'failed').length;
+
+      expect(abortedCount).toBe(0);
+      expect(completedCount).toBe(3);
+      expect(failedCount).toBe(1);
+    });
+
+    it('isolation: without bubble:false, sibling failure leaves remaining widgets running', async () => {
+      const mockBundle = createMockApi({ latency: 40, jitter: 0 });
+      const { vanilla: widgets } = createWidgets(mockBundle);
+
+      const p1 = widgets.loadOrders('user-1');
+      const p2 = widgets.checkInventory('product-1');
+      const p3 = widgets.checkInventory('non-existent'); // fails first
+      const p4 = widgets.quotePrice('AAPL'); // no bubble:false counterpart in vanilla
+
+      try {
+        await Promise.all([p1, p2, p3, p4]);
+      } catch {
+        // One rejected, but remaining continue running
+      }
+
+      await Promise.allSettled([p1, p2, p3, p4]);
+
+      const abortedCount = mockBundle.api.calls.filter((c) => c.status === 'aborted').length;
+      const completedCount = mockBundle.api.calls.filter((c) => c.status === 'completed').length;
+      const failedCount = mockBundle.api.calls.filter((c) => c.status === 'failed').length;
+
+      expect(abortedCount).toBe(0);
+      expect(completedCount).toBe(3);
+      expect(failedCount).toBe(1);
+    });
+  });
+
+  describe('live vanilla scripts count after settlement', () => {
+    it('runAllVanilla, runRaceVanilla, and runIsolationVanilla print counts matching settled calls', async () => {
+      const logs: string[] = [];
+      const originalLog = console.log;
+      console.log = (...args: unknown[]) => {
+        logs.push(args.map(String).join(' '));
+      };
+      try {
+        await runAllVanilla();
+        await runRaceVanilla();
+        await runIsolationVanilla();
+      } finally {
+        console.log = originalLog;
+      }
+
+      const allLine = logs.find((l) => l.startsWith('Vanilla all - completed:'));
+      const raceLine = logs.find((l) => l.startsWith('Vanilla race - settled:'));
+      const isolationLine = logs.find((l) => l.startsWith('Vanilla isolation - completed:'));
+
+      expect(allLine).toBe('Vanilla all - completed: 3');
+      expect(raceLine).toBe('Vanilla race - settled: 4');
+      expect(isolationLine).toBe('Vanilla isolation - completed: 3');
     });
   });
 
