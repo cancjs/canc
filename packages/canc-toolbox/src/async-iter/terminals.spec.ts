@@ -1,4 +1,6 @@
-import { isCancelError, suppressCancel } from '@cancjs/promise';
+import { cancAwait } from '@cancjs/coroutine';
+import type { CancelablePromise } from '@cancjs/promise';
+import { CancelablePromise as Cancelable, isCancelError, suppressCancel } from '@cancjs/promise';
 
 import type { TPromiseCtor } from '../../../_toolbox/async-iter';
 import * as tb from '../../../_toolbox/async-iter/terminals';
@@ -38,6 +40,32 @@ function makeSource(limit = Infinity): { probe: ISourceProbe; iterable: AsyncIte
   })();
 
   return { probe, iterable };
+}
+
+interface IWork {
+  /** Stays pending until it is canceled, standing in for real work an item waits on. */
+  promise: CancelablePromise<number>;
+  state: { aborted: number };
+}
+
+/** Work that reports being aborted, which is how an item's cancel is observed from the outside. */
+function pendingWork(): IWork {
+  const state = { aborted: 0 };
+
+  const promise = new Cancelable<number>((_resolve, _reject, ctx) => {
+    ctx.handleCancel(() => {
+      state.aborted++;
+    });
+  });
+
+  promise.catch(suppressCancel);
+
+  return { promise, state };
+}
+
+/** The reason a canceled terminal settled with, without letting the rejection go unhandled. */
+async function reasonOf(promise: CancelablePromise<unknown>): Promise<unknown> {
+  return promise.catch((error: unknown) => error);
 }
 
 function* sumBody(accumulator: number, value: number): Generator<PromiseLike<number>, number, number> {
@@ -282,6 +310,106 @@ describe('async iterator terminal operators', () => {
       ).rejects.toBe(failure);
 
       expect(probe.closed).toBe(1);
+    });
+
+    it('cancels an in-flight generator callback and runs its finally once', async () => {
+      const { probe, iterable } = makeSource();
+      const work = pendingWork();
+      const cleanup = { ran: 0 };
+
+      const promise = asyncIter.find<number>(function* accept(value: number) {
+        try {
+          const resolved: number = yield* cancAwait(work.promise);
+
+          return resolved === value;
+        } finally {
+          cleanup.ran++;
+        }
+      })(iterable);
+
+      promise.catch(suppressCancel);
+
+      await flush();
+
+      expect(work.state.aborted).toBe(0);
+      expect(cleanup.ran).toBe(0);
+
+      promise.cancel();
+
+      expect(isCancelError(await reasonOf(promise))).toBe(true);
+
+      await flush();
+
+      expect(work.state.aborted).toBe(1);
+      expect(cleanup.ran).toBe(1);
+      expect(probe.closed).toBe(1);
+    });
+
+    it('cancels an in-flight generator visitor and runs its finally once', async () => {
+      const { probe, iterable } = makeSource();
+      const work = pendingWork();
+      const cleanup = { ran: 0 };
+
+      const promise = asyncIter.forEach<number>(function* visit() {
+        try {
+          yield* cancAwait(work.promise);
+        } finally {
+          cleanup.ran++;
+        }
+      })(iterable);
+
+      promise.catch(suppressCancel);
+
+      await flush();
+
+      expect(cleanup.ran).toBe(0);
+
+      promise.cancel();
+
+      expect(isCancelError(await reasonOf(promise))).toBe(true);
+
+      await flush();
+
+      expect(work.state.aborted).toBe(1);
+      expect(cleanup.ran).toBe(1);
+      expect(probe.closed).toBe(1);
+    });
+  });
+
+  describe('callback failures', () => {
+    it('rejects with the value a callback threw', async () => {
+      const failure = { code: 404, retryable: true };
+      const { probe, iterable } = makeSource();
+
+      await expect(
+        asyncIter.forEach<number>(() => {
+          throw failure;
+        })(iterable),
+      ).rejects.toBe(failure);
+
+      expect(probe.closed).toBe(1);
+    });
+
+    it('rejects with the value a generator callback threw', async () => {
+      const failure = { code: 500, retryable: false };
+
+      await expect(
+        asyncIter.forEach<number>(function* boom() {
+          yield Promise.resolve(1);
+
+          throw failure;
+        })([1, 2, 3]),
+      ).rejects.toBe(failure);
+    });
+
+    it('rejects with the value a generator callback failed to catch', async () => {
+      const failure = { code: 503, retryable: true };
+
+      await expect(
+        asyncIter.forEach<number>(function* boom() {
+          yield Promise.reject(failure);
+        })([1, 2, 3]),
+      ).rejects.toBe(failure);
     });
   });
 
