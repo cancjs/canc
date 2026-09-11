@@ -34,9 +34,15 @@ const fn1 = cancAsync(function* () {
 });
 const c1: Eq<ReturnType<typeof fn1>, CancelablePromise<number, FooError | BarError | BazError>> = true;
 
-// 2. bare yield of a raw value still allowed, adds nothing
-const fn2 = cancAsync(function* () {
+// 2. bare yield requires return-type annotation under strict mode
+const fn2Negative = cancAsync(function* () {
   // @ts-expect-error TS7057
+  const raw = yield 42;
+  const n = yield* cancAwait(pFoo);
+  return n + (raw as number);
+});
+
+const fn2 = cancAsync(function* (): AsyncResult<number, FooError> {
   const raw = yield 42;
   const n = yield* cancAwait(pFoo);
   return n + (raw as number);

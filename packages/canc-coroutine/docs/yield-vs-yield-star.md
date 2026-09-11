@@ -13,10 +13,13 @@ Typed form, use this:
 const data = yield* cancAwait(fetch(url)); // data: Response
 ```
 
-Bare form, the untyped fallback:
+Bare form, the untyped fallback (requires return-type annotation):
 
 ```ts
-const data = yield fetch(url); // data: unknown
+const loadData = cancAsync(function* (): AsyncResult<Response> {
+  const data = yield fetch(url); // data: unknown
+  return data as Response;
+});
 ```
 
 Both suspend the coroutine on the same promise and resume with the same value. The difference is
@@ -33,14 +36,26 @@ first yield and the hundredth. A coroutine yields many different promises (`Prom
 every plain `yield` in the body comes back as that one type. This is a language limitation, not a
 gap in this library: the type of a `yield` expression cannot depend on the operand.
 
+Under TypeScript strict mode (`strict: true` or `noImplicitAny: true`), an unannotated generator
+cannot use bare `yield`. TypeScript rejects unannotated bare `yield` with error `TS7057: 'yield'
+expression implicitly results in an 'any' type because its containing generator lacks a return-type
+annotation`. Annotating the generator return type as `AsyncResult<TResult>` allows bare `yield`,
+resuming with `unknown`.
+
+If the generator is annotated with a concrete failure set such as `AsyncResult<Response, NetworkError>`,
+bare-yielding a promise is rejected by TypeScript (`TS2322: Type 'Promise<...>' is not assignable to
+type 'TPrimitiveYield | Failing<NetworkError>'`). A native promise carries no failure marker, so
+TypeScript's weak-type check prevents it from being yielded bare. Awaiting a promise in a failure-annotated
+coroutine requires `yield* cancAwait(...)`.
+
 The relevant TypeScript issues:
 
-- [microsoft/TypeScript#32523](https://github.com/microsoft/TypeScript/issues/32523): request for
+- [microsoft/TypeScript#32523](https://github.com/microsoft/TypeScript/issues/32523) — request for
   per-yield contextual typing, closed as a design limitation. This is the canonical "why generators
   can't type their resumed values" thread.
-- [microsoft/TypeScript#36967](https://github.com/microsoft/TypeScript/issues/36967): open,
+- [microsoft/TypeScript#36967](https://github.com/microsoft/TypeScript/issues/36967) — open,
   tracking stronger inference for generator `next` values.
-- [microsoft/TypeScript#43632](https://github.com/microsoft/TypeScript/issues/43632): open,
+- [microsoft/TypeScript#43632](https://github.com/microsoft/TypeScript/issues/43632) — open,
   related proposal for typing the resumed value from the yielded operand.
 
 Until one of those lands, `yield*` delegation is the only way to get a typed resumed value, and it
@@ -94,4 +109,4 @@ limitation and adopts a similar convention.
   documents this as an inherent generator constraint.
 
 The takeaway is the same everywhere: prefer the `yield*` delegated form for typed values, and reach
-for a bare `yield` (with an explicit annotation or cast) only when delegation is inconvenient.
+for a bare `yield` (with an explicit `AsyncResult` annotation and cast) only when delegation is inconvenient.
