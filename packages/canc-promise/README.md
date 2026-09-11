@@ -262,7 +262,7 @@ Declared failures can be specified or extracted using three type forms:
 - `FailureOf<T>`: extracts the declared failure set from a promise type. For example, `FailureOf<CancelablePromise<string, HttpError>>` evaluates to `HttpError`.
 - `Failing<TFailure>`: structural interface carrying the phantom symbol key (`FAILURE`) for types that declare failures.
 
-`WithFailure<TPromise, TFailure>` declares an additional failure on a promise type as a checked annotation (`const declared: WithFailure<typeof promise, HttpError> = promise` only compiles when the addition is a real widening). `withFailure<TFailure>()(promise)` is the unchecked counterpart for the direction the annotation refuses: narrowing or replacing an already-declared set. It asserts and verifies nothing, is a no-op at runtime, and exists so that direction stays a visible, greppable call instead of a cast. Prefer the annotation whenever the change is only adding a failure.
+`WithFailure<TPromise, TFailure>` declares an additional failure on a promise type without restating the existing promise type (`const declared: WithFailure<typeof promise, HttpError> = promise`). Because `WithFailure` only adds, an annotation that narrows an already-declared failure set does not compile. `withFailure<TFailure>()(promise)` is the unchecked counterpart for the direction the annotation refuses: narrowing or replacing an already-declared set. It asserts and verifies nothing, is a no-op at runtime, and exists so that direction stays a visible, greppable call instead of a cast. Do not reach for `withFailure` when only adding a failure; use the `WithFailure` annotation instead.
 
 #### Error helper families
 
@@ -309,13 +309,17 @@ TypeScript compares types structurally. If two custom error classes extend `Erro
 To allow error matchers and `Exclude` to subtract specific failure classes, give custom error classes a distinguishing property or brand:
 
 ```ts
+const CUSTOM_A_BRAND = Symbol.for('my-app:CustomA');
+
 class CustomA extends Error {
-  declare readonly brand: unique symbol;
+  declare readonly [CUSTOM_A_BRAND]: true;
   constructor(message?: string) {
     super(message);
     this.name = 'CustomA';
   }
 }
+
+Object.defineProperty(CustomA.prototype, CUSTOM_A_BRAND, { value: true });
 ```
 
 #### Failing from inside a chain callback
@@ -330,7 +334,7 @@ p.then((v) => {
   if (bad) throw new FooError();
   return v;
 });
-// declares nothing — the callback's return type is number, and a throw is not a return
+// declares nothing (the callback's return type is number, and a throw is not a return)
 ```
 
 Return `CancelablePromise.reject(reason)` instead of throwing whenever a callback should declare a failure. It threads through ordinary `then` propagation the same way a callback returning any other `CancelablePromise` does.
