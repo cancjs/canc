@@ -606,8 +606,6 @@ export interface ICancForAwaitLoop<T> {
   next(): Generator<unknown, void, any>;
   /** Ends the iteration and finishes source cleanup at this point. Delegate it with `yield*`. */
   return(): Generator<unknown, void, any>;
-  /** Cleanup promise once the source has been closed, `undefined` before that. */
-  readonly disposed: PromiseLike<void> | undefined;
 }
 
 /**
@@ -698,10 +696,10 @@ interface ILoopHandle extends ICancForAwaitLoop<any> {
   _finished: boolean;
   _disposing: boolean;
   _registry: ILoopHandle[] | undefined;
-  disposed: PromiseLike<void> | undefined;
+  _disposed: PromiseLike<void> | undefined;
 }
 
-// Closes the source once, and what lands on `disposed` is safe to await bare because
+// Closes the source once, and what lands on `_disposed` is safe to await bare because
 // `returnStepIterator` has already neutralized a rejecting `return()`
 function disposeLoop(loop: ILoopHandle): PromiseLike<void> | undefined {
   if (!loop._disposing) {
@@ -710,10 +708,10 @@ function disposeLoop(loop: ILoopHandle): PromiseLike<void> | undefined {
     loop._stale = false;
 
     const cleanup = returnStepIterator(loop._it);
-    loop.disposed = isThenable(cleanup) ? (cleanup as PromiseLike<void>) : undefined;
+    loop._disposed = isThenable(cleanup) ? (cleanup as PromiseLike<void>) : undefined;
   }
 
-  return loop.disposed;
+  return loop._disposed;
 }
 
 // A handle that closed itself drops out, so the settle path has nothing to wait on in the
@@ -815,7 +813,7 @@ function createLoopHandle(it: any, async: boolean): ILoopHandle {
     _finished: false,
     _disposing: false,
     _registry: undefined,
-    disposed: undefined,
+    _disposed: undefined,
 
     [Symbol.iterator](): Iterator<any> {
       if (loop._used) {
