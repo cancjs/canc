@@ -41,26 +41,28 @@ export function map<I, R>(callback: (value: I, index: number) => R): IPipeOp<I, 
       let index = 0;
 
       return {
-        async next(): Promise<IteratorResult<O>> {
-          if (upstream.finished) {
-            return finished<O>();
-          }
+        next(): Promise<IteratorResult<O>> {
+          return upstream.pull(async () => {
+            if (upstream.finished) {
+              return finished<O>();
+            }
 
-          const step = await upstream.it.next();
-          if (step.done) {
-            upstream.finished = true;
-            return finished<O>();
-          }
+            const step = await upstream.it.next();
+            if (step.done) {
+              upstream.finished = true;
+              return finished<O>();
+            }
 
-          const item = upstream.run(callback, [step.value, index++]);
-          let value: O;
-          try {
-            value = await item;
-          } catch (error) {
-            return upstream.fail<O>(error);
-          }
+            const item = upstream.run(callback, [step.value, index++]);
+            let value: O;
+            try {
+              value = await item;
+            } catch (error) {
+              return upstream.fail<O>(error);
+            }
 
-          return upstream.finished ? finished<O>() : { done: false, value };
+            return upstream.finished ? finished<O>() : { done: false, value };
+          });
         },
 
         async return(value?: any): Promise<IteratorResult<O>> {
@@ -85,34 +87,36 @@ export function filter<I>(predicate: (value: I, index: number) => unknown): IPip
       let index = 0;
 
       return {
-        async next(): Promise<IteratorResult<I>> {
-          for (;;) {
-            if (upstream.finished) {
-              return finished<I>();
-            }
+        next(): Promise<IteratorResult<I>> {
+          return upstream.pull(async () => {
+            for (;;) {
+              if (upstream.finished) {
+                return finished<I>();
+              }
 
-            const step = await upstream.it.next();
-            if (step.done) {
-              upstream.finished = true;
-              return finished<I>();
-            }
+              const step = await upstream.it.next();
+              if (step.done) {
+                upstream.finished = true;
+                return finished<I>();
+              }
 
-            const item = upstream.run(predicate, [step.value, index++]);
-            let keep: unknown;
-            try {
-              keep = await item;
-            } catch (error) {
-              return upstream.fail<I>(error);
-            }
+              const item = upstream.run(predicate, [step.value, index++]);
+              let keep: unknown;
+              try {
+                keep = await item;
+              } catch (error) {
+                return upstream.fail<I>(error);
+              }
 
-            if (upstream.finished) {
-              return finished<I>();
-            }
+              if (upstream.finished) {
+                return finished<I>();
+              }
 
-            if (keep) {
-              return { done: false, value: step.value };
+              if (keep) {
+                return { done: false, value: step.value };
+              }
             }
-          }
+          });
         },
 
         async return(value?: any): Promise<IteratorResult<I>> {
@@ -136,25 +140,27 @@ export function take<I>(limit: number): IPipeOp<I, I> {
       let remaining = limit > 0 ? Math.floor(limit) : 0;
 
       return {
-        async next(): Promise<IteratorResult<I>> {
-          if (upstream.finished) {
-            return finished<I>();
-          }
+        next(): Promise<IteratorResult<I>> {
+          return upstream.pull(async () => {
+            if (upstream.finished) {
+              return finished<I>();
+            }
 
-          if (remaining <= 0) {
-            await upstream.close();
-            return finished<I>();
-          }
+            if (remaining <= 0) {
+              await upstream.close();
+              return finished<I>();
+            }
 
-          remaining--;
+            remaining--;
 
-          const step = await upstream.it.next();
-          if (step.done) {
-            upstream.finished = true;
-            return finished<I>();
-          }
+            const step = await upstream.it.next();
+            if (step.done) {
+              upstream.finished = true;
+              return finished<I>();
+            }
 
-          return { done: false, value: step.value };
+            return { done: false, value: step.value };
+          });
         },
 
         async return(value?: any): Promise<IteratorResult<I>> {
@@ -174,32 +180,34 @@ export function drop<I>(count: number): IPipeOp<I, I> {
       let remaining = count > 0 ? Math.floor(count) : 0;
 
       return {
-        async next(): Promise<IteratorResult<I>> {
-          while (remaining > 0) {
+        next(): Promise<IteratorResult<I>> {
+          return upstream.pull(async () => {
+            while (remaining > 0) {
+              if (upstream.finished) {
+                return finished<I>();
+              }
+
+              remaining--;
+
+              const dropped = await upstream.it.next();
+              if (dropped.done) {
+                upstream.finished = true;
+                return finished<I>();
+              }
+            }
+
             if (upstream.finished) {
               return finished<I>();
             }
 
-            remaining--;
-
-            const dropped = await upstream.it.next();
-            if (dropped.done) {
+            const step = await upstream.it.next();
+            if (step.done) {
               upstream.finished = true;
               return finished<I>();
             }
-          }
 
-          if (upstream.finished) {
-            return finished<I>();
-          }
-
-          const step = await upstream.it.next();
-          if (step.done) {
-            upstream.finished = true;
-            return finished<I>();
-          }
-
-          return { done: false, value: step.value };
+            return { done: false, value: step.value };
+          });
         },
 
         async return(value?: any): Promise<IteratorResult<I>> {
@@ -224,19 +232,46 @@ export function flatMap<I, R>(callback: (value: I, index: number) => R): IPipeOp
       let index = 0;
 
       return {
-        async next(): Promise<IteratorResult<O>> {
-          for (;;) {
-            if (upstream.finished) {
-              return finished<O>();
-            }
+        next(): Promise<IteratorResult<O>> {
+          return upstream.pull(async () => {
+            for (;;) {
+              if (upstream.finished) {
+                return finished<O>();
+              }
 
-            const inner = upstream.inner;
-            if (inner) {
-              let innerStep: IteratorResult<O>;
-              try {
-                innerStep = await inner.next();
-              } catch (error) {
+              const inner = upstream.inner;
+              if (inner) {
+                let innerStep: IteratorResult<O>;
+                try {
+                  innerStep = await inner.next();
+                } catch (error) {
+                  upstream.inner = undefined;
+                  return upstream.fail<O>(error);
+                }
+
+                if (upstream.finished) {
+                  return finished<O>();
+                }
+
+                if (!innerStep.done) {
+                  return { done: false, value: innerStep.value };
+                }
+
                 upstream.inner = undefined;
+                continue;
+              }
+
+              const step = await upstream.it.next();
+              if (step.done) {
+                upstream.finished = true;
+                return finished<O>();
+              }
+
+              const item = upstream.run(callback, [step.value, index++]);
+              let mapped: unknown;
+              try {
+                mapped = await item;
+              } catch (error) {
                 return upstream.fail<O>(error);
               }
 
@@ -244,38 +279,13 @@ export function flatMap<I, R>(callback: (value: I, index: number) => R): IPipeOp
                 return finished<O>();
               }
 
-              if (!innerStep.done) {
-                return { done: false, value: innerStep.value };
+              try {
+                upstream.inner = getSource<O>(mapped as AnyIterable<O>).it;
+              } catch (error) {
+                return upstream.fail<O>(error);
               }
-
-              upstream.inner = undefined;
-              continue;
             }
-
-            const step = await upstream.it.next();
-            if (step.done) {
-              upstream.finished = true;
-              return finished<O>();
-            }
-
-            const item = upstream.run(callback, [step.value, index++]);
-            let mapped: unknown;
-            try {
-              mapped = await item;
-            } catch (error) {
-              return upstream.fail<O>(error);
-            }
-
-            if (upstream.finished) {
-              return finished<O>();
-            }
-
-            try {
-              upstream.inner = getSource<O>(mapped as AnyIterable<O>).it;
-            } catch (error) {
-              return upstream.fail<O>(error);
-            }
-          }
+          });
         },
 
         async return(value?: any): Promise<IteratorResult<O>> {
@@ -300,16 +310,31 @@ interface IUpstream<I> {
   close: () => Promise<void>;
   /** Close on a failed pull and rethrow, unless the consumer already walked away. */
   fail: <T>(error: unknown) => Promise<IteratorResult<T>>;
+  /**
+   * Chain work onto the pull queue so concurrent consumers (e.g. zip) run one at a time. The queued
+   * function receives the upstream and must return its own result.
+   */
+  pull: <R>(work: () => Promise<R>) => Promise<R>;
 }
 
 function openUpstream<I>(source: AsyncIterable<I>): IUpstream<I> {
-  const { it } = getSource<I>(source);
+  const it = getSource<I>(source).it;
   let item: IItemRun | undefined;
   let closed = false;
+  let pending: Promise<unknown> = Promise.resolve();
 
   const upstream: IUpstream<I> = {
     it,
     finished: false,
+
+    pull<R>(work: () => Promise<R>): Promise<R> {
+      const next = pending.then(work, work);
+      pending = next.then(
+        () => undefined,
+        () => undefined,
+      );
+      return next;
+    },
 
     run(callback, args) {
       const current = runItem(callback, args);
@@ -332,7 +357,7 @@ function openUpstream<I>(source: AsyncIterable<I>): IUpstream<I> {
       const current = item;
       item = undefined;
       if (current) {
-        current.stop();
+        await current.stop();
       }
 
       const inner = upstream.inner;
@@ -364,7 +389,7 @@ interface IItemRun {
   /** The callback's outcome, whichever form it took. */
   result: Promise<any>;
   /** Abandon the run: cancel what the body waits on, then let the body clean up after itself. */
-  stop: () => void;
+  stop: () => Promise<void> | void;
 }
 
 /**
@@ -383,9 +408,13 @@ function runItem(callback: TAnyFn, args: any[]): IItemRun {
 
     if (isGenerator(outcome)) {
       body = outcome;
-      return watchGenerator(outcome, (suspendedOn) => {
-        awaited = suspendedOn;
-      });
+      return watchGenerator(
+        outcome,
+        (suspendedOn) => {
+          awaited = suspendedOn;
+        },
+        () => stopped,
+      );
     }
 
     awaited = outcome;
@@ -408,22 +437,28 @@ function runItem(callback: TAnyFn, args: any[]): IItemRun {
       }
 
       if (body) {
-        unwind(body);
+        return unwind(body);
       }
     },
   };
 }
 
-function watchGenerator(body: Generator<any, any, any>, onSuspend: (value: unknown) => void): Generator<any, any, any> {
+function watchGenerator(
+  body: Generator<any, any, any>,
+  onSuspend: (value: unknown) => void,
+  isStopped: () => boolean,
+): Generator<any, any, any> {
   const report = (step: IteratorResult<any>): IteratorResult<any> => {
     onSuspend(step.done ? undefined : step.value);
     return step;
   };
 
+  const done: IteratorResult<any> = { done: true, value: undefined };
+
   const watched = {
-    next: (value?: any) => report(body.next(value)),
-    throw: (error?: any) => report(body.throw(error)),
-    return: (value?: any) => report(body.return(value)),
+    next: (value?: any) => (isStopped() ? done : report(body.next(value))),
+    throw: (error?: any) => (isStopped() ? done : report(body.throw(error))),
+    return: (value?: any) => (isStopped() ? done : report(body.return(value))),
     [Symbol.iterator]: () => watched,
   };
 
@@ -435,7 +470,7 @@ function watchGenerator(body: Generator<any, any, any>, onSuspend: (value: unkno
  * it whatever those blocks yield until it is finished. Failures during that cleanup are swallowed:
  * the consumer has already walked away from this item and has nowhere to report them.
  */
-function unwind(body: Generator<any, any, any>): void {
+function unwind(body: Generator<any, any, any>): Promise<void> {
   const step = (resume: () => IteratorResult<any>): IteratorResult<any> => {
     try {
       return resume();
@@ -444,18 +479,18 @@ function unwind(body: Generator<any, any, any>): void {
     }
   };
 
-  const pump = (result: IteratorResult<any>): void => {
+  const pump = (result: IteratorResult<any>): Promise<void> => {
     if (result.done) {
-      return;
+      return Promise.resolve();
     }
 
-    void Promise.resolve(result.value).then(
+    return Promise.resolve(result.value).then(
       (value) => pump(step(() => body.next(value))),
       (error) => pump(step(() => body.throw(error))),
     );
   };
 
-  pump(step(() => body.return(undefined)));
+  return pump(step(() => body.return(undefined)));
 }
 
 function iterableOf<T>(createIterator: () => AsyncIterator<T>): AsyncIterable<T> {
