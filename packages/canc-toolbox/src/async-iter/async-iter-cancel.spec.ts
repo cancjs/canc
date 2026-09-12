@@ -1,6 +1,7 @@
 import { cancAsync, cancAwait } from '@cancjs/coroutine';
 import type { CancelablePromise } from '@cancjs/promise';
 import { CancelablePromise as Cancelable, isCancelError, suppressCancel } from '@cancjs/promise';
+import fc from 'fast-check';
 
 import * as asyncIter from './index';
 
@@ -429,6 +430,101 @@ describe('async iterator cancellation', () => {
 
       await expect(run()).resolves.toEqual([0, 1, 2]);
       expect(trace.closes).toBe(1);
+    });
+  });
+
+  describe('cancel-point sweep', () => {
+    interface ISweepTrace {
+      /** Values the source handed out. */
+      pulls: number;
+      /** Times return() was invoked directly on the source iterator. */
+      returns: number;
+    }
+
+    /**
+     * A source of exactly `n` items with a hand-rolled iterator, so `returns` counts actual calls to
+     * `return()` rather than a generator's `finally`, which runs on both natural exhaustion and an
+     * explicit `return()` and would hide a source closed more than once.
+     */
+    function boundedSource(n: number): { source: AsyncIterable<number>; trace: ISweepTrace } {
+      const trace: ISweepTrace = { pulls: 0, returns: 0 };
+      let index = 0;
+      let closed = false;
+
+      const it: AsyncIterator<number> = {
+        async next(): Promise<IteratorResult<number>> {
+          if (closed || index >= n) {
+            return { done: true, value: undefined };
+          }
+          trace.pulls++;
+          return { done: false, value: index++ };
+        },
+        async return(value?: unknown): Promise<IteratorResult<number>> {
+          trace.returns++;
+          closed = true;
+          return { done: true, value: value as number };
+        },
+      };
+
+      return { source: { [Symbol.asyncIterator]: () => it }, trace };
+    }
+
+    it('closes the source exactly once and never pulls past the cancel point, for every k in 0..n', async () => {
+      await fc.assert(
+        fc.asyncProperty(fc.integer({ min: 1, max: 12 }), async (n) => {
+          for (let k = 0; k <= n; k++) {
+            const { source, trace } = boundedSource(n);
+            let pulled = 0;
+            let cancelNow = (): void => undefined;
+
+            const promise: CancelablePromise<number[]> = asyncIter.pipe(
+              source,
+              [
+                asyncIter.map((value: number) => {
+                  pulled++;
+                  if (pulled === k) {
+                    cancelNow();
+                  }
+                  return value;
+                }),
+                asyncIter.filter(() => true),
+                asyncIter.take<number>(n),
+              ],
+              asyncIter.toArray<number>(),
+            );
+
+            cancelNow = () => {
+              promise.cancel();
+            };
+            promise.catch(suppressCancel);
+
+            // Pull k = 0 has no callback invocation to hook, so the cancel is issued as soon as the
+            // pipeline exists. The first pull is already synchronously in flight by then, same as the
+            // hand-written "lands on the very first pull" case above.
+            if (k === 0) {
+              promise.cancel();
+            }
+
+            const reason = await reasonOf(promise);
+            await flush();
+
+            const expectedPulls = Math.max(k, 1);
+
+            if (!isCancelError(reason)) {
+              throw new Error(`k=${k} n=${n}: expected a cancel, settled with ${String(reason)}`);
+            }
+            if (trace.returns !== 1) {
+              throw new Error(`k=${k} n=${n}: source return() ran ${trace.returns} times, expected 1`);
+            }
+            if (trace.pulls !== expectedPulls) {
+              throw new Error(`k=${k} n=${n}: source pulled ${trace.pulls} times, expected ${expectedPulls}`);
+            }
+          }
+
+          return true;
+        }),
+        { numRuns: 100 },
+      );
     });
   });
 });
