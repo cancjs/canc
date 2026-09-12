@@ -15,8 +15,13 @@ import {
 
 const servers: Server[] = [];
 const sockets: Socket[] = [];
+const restores: (() => void)[] = [];
 
 afterEach(async () => {
+  for (const restore of restores.splice(0)) {
+    restore();
+  }
+
   for (const socket of sockets.splice(0)) {
     socket.destroy();
   }
@@ -168,6 +173,57 @@ describe('onError', () => {
     expect(forwarded).toHaveLength(1);
     expect(isCancelError(forwarded[0])).toBe(true);
   });
+
+  it('answers 500 when a handler throws and nothing else is configured', async () => {
+    const logged = captureErrorLog();
+
+    const port = await listen(
+      cancelableHandler(function* (_req: IncomingMessage, _res: ServerResponse) {
+        throw new Error('boom');
+      }),
+    );
+
+    expect((await httpRequest(port, { path: '/throws' })).status).toBe(500);
+    expect(logged).toHaveLength(1);
+  });
+
+  it('answers 500 when a handler rejects and nothing else is configured', async () => {
+    const logged = captureErrorLog();
+
+    const port = await listen(
+      cancelableHandler(async (_req: IncomingMessage, _res: ServerResponse) => {
+        await Promise.resolve();
+
+        throw new Error('boom');
+      }),
+    );
+
+    expect((await httpRequest(port, { path: '/rejects' })).status).toBe(500);
+    expect(logged).toHaveLength(1);
+  });
+
+  it('hands a plain failure to the given handler instead of answering 500', async () => {
+    const failure = new Error('boom');
+    const forwarded: unknown[] = [];
+
+    const port = await listen(
+      cancelableHandler(
+        function* (_req: IncomingMessage, _res: ServerResponse) {
+          throw failure;
+        },
+        {
+          onError: (error, _req, res) => {
+            forwarded.push(error);
+            res.statusCode = 418;
+            res.end();
+          },
+        },
+      ),
+    );
+
+    expect((await httpRequest(port, { path: '/throws' })).status).toBe(418);
+    expect(forwarded).toEqual([failure]);
+  });
 });
 
 describe('cancellation after the response ended', () => {
@@ -220,11 +276,34 @@ describe('request signal', () => {
 });
 
 describe('cancel error handler', () => {
-  it('rethrows anything that is not a cancellation', () => {
+  it('answers 500 and logs anything that is not a cancellation', () => {
+    const logged = captureErrorLog();
     const failure = new Error('boom');
-    const { res } = fakeResponse();
+    const { calls, res } = fakeResponse();
 
-    expect(() => cancelErrorHandler()(failure, fakeRequest(), res)).toThrow(failure);
+    cancelErrorHandler()(failure, fakeRequest(), res);
+
+    expect(calls.ended).toBe(1);
+    expect(res.statusCode).toBe(500);
+    expect(logged).toEqual([[expect.any(String), failure]]);
+  });
+
+  it('rethrows anything that is not a cancellation once asked to', () => {
+    const failure = new Error('boom');
+    const { calls, res } = fakeResponse();
+
+    expect(() => cancelErrorHandler({ rethrow: true })(failure, fakeRequest(), res)).toThrow(failure);
+    expect(calls.ended).toBe(0);
+  });
+
+  it('logs a failure it can no longer answer', () => {
+    const logged = captureErrorLog();
+    const { calls, res } = fakeResponse({ destroyed: true });
+
+    cancelErrorHandler()(new Error('boom'), fakeRequest(), res);
+
+    expect(calls.ended).toBe(0);
+    expect(logged).toHaveLength(1);
   });
 
   it('drops a cancellation whose client is already gone', () => {
@@ -362,6 +441,18 @@ function fakeResponse(state: { destroyed?: boolean; headersSent?: boolean; writa
 
 function fakeRequest(): IncomingMessage {
   return {} as IncomingMessage;
+}
+
+/** Collects what the default error path logs, and keeps a failing handler from printing mid-run. */
+function captureErrorLog(): unknown[][] {
+  const entries: unknown[][] = [];
+  const spy = jest.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+    entries.push(args);
+  });
+
+  restores.push(() => spy.mockRestore());
+
+  return entries;
 }
 
 /** Reads a request body to completion, standing in for a body parser. */
