@@ -75,12 +75,20 @@ export function makeKyselyRunner(defaults: KyselyCancelOptions = {}) {
 }
 
 /**
- * Cancel a whole transaction. Wrapper threads the tx-level signal.
+ * Runs a transaction, and rejects the caller when canceled.
+ *
+ * `transaction().execute()` takes no options, so there is no transaction-level signal to thread.
+ * Cancel settles the returned promise and nothing more: the body keeps running and the transaction
+ * commits. To stop the statements themselves, cancel the queries inside the body. Their rejection
+ * reaches kysely, which rolls the transaction back.
+ *
+ * `_options` is unused for that reason. It stays so the three per-query helpers and this one take
+ * the same arguments.
  */
 export function transactionCancelable<DB, T>(
   db: Kysely<DB>,
   body: (trx: Transaction<DB>) => Promise<T>,
   _options?: KyselyCancelOptions,
 ): CancelablePromise<T> {
-  return cancelify(({ getSignal }) => (db.transaction() as any).execute(body, { signal: getSignal() }))();
+  return cancelify(() => db.transaction().execute(body))();
 }
