@@ -144,6 +144,65 @@ describe('plain handler', () => {
   });
 });
 
+describe('synchronous handler throw', () => {
+  it('rejects the task when the handler throws before it suspends', async () => {
+    jest.useFakeTimers();
+
+    try {
+      const { req, res } = createExchange();
+      const state = ensureRequestCancelState(req, res);
+      const failure = new Error('boom');
+      const onTimeout = jest.fn();
+      let task: CancelablePromise<unknown> | undefined;
+
+      expect(() => {
+        task = runCancelableHandler(
+          () => {
+            throw failure;
+          },
+          req,
+          res,
+          { onTimeout, timeout: 30 },
+        );
+      }).not.toThrow();
+
+      expect(await outcomeOf(task!)).toBe(failure);
+
+      // the error handler answers and closes the response, which takes the deadline down through
+      // the same teardown every other settled handler goes through
+      res.end();
+      jest.advanceTimersByTime(30);
+
+      expect(state.timer).toBeUndefined();
+      expect(onTimeout).not.toHaveBeenCalled();
+      expect(state.signal.aborted).toBe(false);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('stops tracking a task whose handler threw once the response closes', async () => {
+    const { req, res } = createExchange();
+    const failure = new Error('boom');
+
+    const task = runCancelableHandler(
+      () => {
+        throw failure;
+      },
+      req,
+      res,
+    );
+    const outcome = outcomeOf(task);
+
+    expect(getRequestState(req)?.live).toEqual(new Set([task]));
+
+    res.end();
+
+    expect(await outcome).toBe(failure);
+    expect(getRequestState(req)?.live.size).toBe(0);
+  });
+});
+
 describe('handler deadline', () => {
   beforeEach(() => {
     jest.useFakeTimers();

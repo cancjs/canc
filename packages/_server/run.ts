@@ -86,7 +86,16 @@ function startHandler<TReturn>(
   call: IHandlerCall | undefined,
   promiseOptions: ICancelablePromiseFlagOptions & { signal: AbortSignal | AbortSignal[] },
 ): CancelablePromise<TReturn> {
-  const result = handler.apply(call?.thisArg, call?.args ?? []);
+  let result: unknown;
+
+  try {
+    result = handler.apply(call?.thisArg, call?.args ?? []);
+  } catch (error) {
+    // a plain handler throws before it has a promise to reject, and letting that escape would skip
+    // the teardown the caller registers next, stranding an armed deadline on a dead request
+    // the thrown value travels as-is: an error handler downstream discriminates on identity
+    return makeCancelable(Impl.reject(error), promiseOptions) as CancelablePromise<TReturn>;
+  }
 
   // handler kind is read off the RESULT, not off the function: at the es5 target a generator
   // function transpiles into a plain function returning a generator-like object, so

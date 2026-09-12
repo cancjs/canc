@@ -226,6 +226,41 @@ describe('onError', () => {
   });
 });
 
+describe('handler that throws synchronously', () => {
+  it('reaches the error handler instead of escaping the request listener', async () => {
+    const failure = new Error('boom');
+    const forwarded: unknown[] = [];
+    const uncaught: unknown[] = [];
+    const probe = (error: unknown) => uncaught.push(error);
+    process.on('uncaughtException', probe);
+
+    try {
+      const port = await listen(
+        cancelableHandler(
+          () => {
+            throw failure;
+          },
+          {
+            onError: (error, _req, res) => {
+              forwarded.push(error);
+              res.statusCode = 599;
+              res.end();
+            },
+          },
+        ),
+      );
+
+      const response = await answerWithin(httpRequest(port, { path: '/throws' }), 1000);
+
+      expect(response.status).toBe(599);
+      expect(forwarded).toEqual([failure]);
+      expect(uncaught).toEqual([]);
+    } finally {
+      process.off('uncaughtException', probe);
+    }
+  });
+});
+
 describe('cancellation after the response ended', () => {
   it('is dropped instead of forwarded', async () => {
     const forwarded: unknown[] = [];
@@ -510,6 +545,18 @@ async function rawRequest(port: number, payload: string): Promise<Socket> {
   client.write(payload);
 
   return client;
+}
+
+/** Bounds a wait for an answer, so a request nothing ever replies to fails as an assertion rather than a suite timeout. */
+function answerWithin(
+  response: Promise<{ status: number; body: string }>,
+  ms: number,
+): Promise<{ status: number; body: string }> {
+  const unanswered = new Promise<{ status: number; body: string }>((resolve) => {
+    setTimeout(() => resolve({ body: '', status: 0 }), ms).unref();
+  });
+
+  return Promise.race([response, unanswered]);
 }
 
 interface IHttpOptions {
