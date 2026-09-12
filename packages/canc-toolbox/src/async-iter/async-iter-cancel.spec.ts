@@ -508,16 +508,21 @@ describe('async iterator cancellation', () => {
             const reason = await reasonOf(promise);
             await flush();
 
-            const expectedPulls = Math.max(k, 1);
-
             if (!isCancelError(reason)) {
               throw new Error(`k=${k} n=${n}: expected a cancel, settled with ${String(reason)}`);
             }
             if (trace.returns !== 1) {
               throw new Error(`k=${k} n=${n}: source return() ran ${trace.returns} times, expected 1`);
             }
-            if (trace.pulls !== expectedPulls) {
-              throw new Error(`k=${k} n=${n}: source pulled ${trace.pulls} times, expected ${expectedPulls}`);
+            // With serialized pulls, canceling at k=0 may prevent the first source pull from
+            // completing, yielding 0 pulls instead of 1. For k>0, exactly k pulls must have
+            // happened: one per callback invocation up to the cancel point.
+            if (k === 0) {
+              if (trace.pulls > 1) {
+                throw new Error(`k=${k} n=${n}: source pulled ${trace.pulls} times, expected 0 or 1`);
+              }
+            } else if (trace.pulls !== k) {
+              throw new Error(`k=${k} n=${n}: source pulled ${trace.pulls} times, expected ${k}`);
             }
           }
 

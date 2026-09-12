@@ -394,4 +394,117 @@ describe('stopping a chain', () => {
     work.promise.cancel();
     await expect(pull).resolves.toEqual({ done: true, value: undefined });
   });
+
+  it('serializes concurrent next() calls so both items are cancelable', async () => {
+    // A source whose next() takes a microtask to resolve, so two concurrent pulls would both
+    // advance the index without serialization.
+    let index = 0;
+    const src: AsyncIterable<number> = {
+      [Symbol.asyncIterator]: () => ({
+        async next(): Promise<IteratorResult<number>> {
+          await Promise.resolve();
+          return { done: false, value: index++ };
+        },
+        async return(value?: any): Promise<IteratorResult<number>> {
+          return { done: true, value };
+        },
+      }),
+    };
+
+    let resolve1: (v: number) => void = () => undefined;
+    const work2 = cancelableWork();
+    let callCount = 0;
+
+    const mapped = map((_value: number) => {
+      callCount++;
+      if (callCount === 1) {
+        return new Promise<number>((r) => {
+          resolve1 = r;
+        });
+      }
+      return work2.promise;
+    })(src);
+
+    const iterator = mapped[Symbol.asyncIterator]();
+
+    // Issue two pulls; serialization queues the second behind the first
+    const pull1 = iterator.next();
+    const pull2 = iterator.next();
+    await flush();
+
+    // Only the first callback has been entered because next() is serialized
+    expect(callCount).toBe(1);
+
+    // Complete the first work normally to let the second pull proceed
+    resolve1(42);
+    await flush();
+    expect(callCount).toBe(2);
+
+    // Close: the second in-flight item must be canceled
+    await iterator.return?.(undefined);
+    expect(work2.state.canceled).toBe(1);
+
+    await expect(pull1).resolves.toEqual({ done: false, value: 42 });
+    await expect(pull2).resolves.toEqual({ done: true, value: undefined });
+  });
+
+  it('awaits callback cleanup before closing the source', async () => {
+    const { source, trace } = closableSource();
+    const order: string[] = [];
+
+    const mapped = map(function* slowCleanup(value: number) {
+      try {
+        yield cancelableWork().promise;
+        return value;
+      } finally {
+        // Yield a promise during cleanup, proving the pump is awaited
+        yield Promise.resolve();
+        order.push('cleanup');
+      }
+    })(source);
+
+    const iterator = mapped[Symbol.asyncIterator]();
+    iterator.next();
+    await flush();
+
+    await iterator.return?.(undefined);
+
+    // Cleanup must finish before source closes
+    expect(order).toEqual(['cleanup']);
+    expect(trace.closes).toBe(1);
+  });
+
+  it('closes the source after callback cleanup, not before', async () => {
+    const order: string[] = [];
+
+    const src: AsyncIterable<number> = {
+      [Symbol.asyncIterator]: () => ({
+        async next() {
+          return { done: false, value: 1 };
+        },
+        async return(value?: any) {
+          order.push('source-close');
+          return { done: true, value };
+        },
+      }),
+    };
+
+    const mapped = map(function* ordered() {
+      try {
+        yield cancelableWork().promise;
+        return 1;
+      } finally {
+        yield Promise.resolve();
+        order.push('callback-cleanup');
+      }
+    })(src);
+
+    const iterator = mapped[Symbol.asyncIterator]();
+    iterator.next();
+    await flush();
+
+    await iterator.return?.(undefined);
+
+    expect(order).toEqual(['callback-cleanup', 'source-close']);
+  });
 });
