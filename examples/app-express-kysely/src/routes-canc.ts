@@ -7,7 +7,7 @@ import type { ReportDb } from './mock/db';
 import { buildReport } from './report-service-canc';
 
 /**
- * canc routes. The report handler is a generator wrapped by `cancAsyncRoute`, which cancels the
+ * canc routes. Both handlers are generators wrapped by `cancAsyncRoute`, which cancels the
  * coroutine if the client disconnects. Cancellation is handled by the wrapper, not the handler.
  */
 export function createReportRouter(rdb: ReportDb): Router {
@@ -21,12 +21,17 @@ export function createReportRouter(rdb: ReportDb): Router {
     }),
   );
 
-  router.get('/products', (req, res, next) => {
-    executeCancelable(rdb.db.selectFrom('products').selectAll(), { inflightQueryAbortStrategy: rdb.strategy }).then(
-      (products) => res.json(products),
-      next,
-    );
-  });
+  router.get(
+    '/products',
+    cancAsyncRoute(function* (_req, res) {
+      // canceled on disconnect like the report, though one short query leaves little to stop
+      const productsQuery = rdb.db.selectFrom('products').selectAll();
+      const products = yield* canc.await(
+        executeCancelable(productsQuery, { inflightQueryAbortStrategy: rdb.strategy }),
+      );
+      res.json(products);
+    }),
+  );
 
   return router;
 }

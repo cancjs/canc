@@ -26,13 +26,14 @@ export function createReportRouter(rdb: ReportDb): Router {
     buildReportAbortable(rdb, signal).then(
       (report) => res.json(report),
       (error) => {
-        if (error?.name === 'AbortError') return; // aborted by hand - the workaround's cost
+        if (error?.name === 'AbortError') return; // aborted by hand, the workaround's cost
         next(error);
       },
     );
   });
 
   router.get('/products', (_req, res, next) => {
+    // no cancellation counterpart, see -canc: this query finishes whether the client waits or not
     rdb.db
       .selectFrom('products')
       .selectAll()

@@ -16,8 +16,11 @@ type Executable<R> = { execute(options?: AbortableQueryOptions): Promise<R> };
 type TakeFirstExecutable<R> = { executeTakeFirst(options?: AbortableQueryOptions): Promise<R | undefined> };
 
 /**
- * Generic per-query wrapper. Row type inferred from the builder.
- * Note: the inplace cancelify(...)() is required to preserve the R generic.
+ * Generic per-query wrapper. The row type is inferred from the builder.
+ *
+ * The `cancelify(...)()` call is inline on purpose. Hoisting it into one shared wrapper would fix
+ * `R` at the first call site and erase the row type everywhere else. The two helpers below do the
+ * same for the same reason.
  */
 export function executeCancelable<R>(query: Executable<R>, options?: KyselyCancelOptions): CancelablePromise<R> {
   return cancelify(({ getSignal }) =>
@@ -28,10 +31,7 @@ export function executeCancelable<R>(query: Executable<R>, options?: KyselyCance
   )();
 }
 
-/**
- * Take-first variant.
- * Note: the inplace cancelify(...)() is required to preserve the R generic.
- */
+/** Take-first variant. */
 export function executeTakeFirstCancelable<R>(
   query: TakeFirstExecutable<R>,
   options?: KyselyCancelOptions,
@@ -44,10 +44,7 @@ export function executeTakeFirstCancelable<R>(
   )();
 }
 
-/**
- * Raw sql fragment variant.
- * Note: the inplace cancelify(...)() is required to preserve the R generic.
- */
+/** Raw sql fragment variant. */
 export function executeRawCancelable<R>(
   fragment: { execute(db: Kysely<any>, options?: AbortableQueryOptions): Promise<{ rows: R[] }> },
   db: Kysely<any>,
