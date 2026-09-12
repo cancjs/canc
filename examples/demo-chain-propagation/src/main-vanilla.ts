@@ -35,14 +35,10 @@ async function runDownScenario(
   invoicesApi: InvoicesApi,
 ): Promise<void> {
   api.reset();
-  report('canceling source');
   const profilePromise = loadProductProfile(productsApi, inventoryApi, ordersApi, invoicesApi, 'p1');
 
-  // Simulate: user leaves before completion.
-  // In vanilla, there is no way to cancel from here.
-  // Result: keeps running, nobody can stop this from the consumer side.
-  report('(cannot cancel from here in vanilla)');
   report('user abandoned page');
+  // a plain promise exposes nothing to call here, so all four requests stay in flight
 
   try {
     // orphaned result: computed, delivered to no one
@@ -51,8 +47,8 @@ async function runDownScenario(
     report('load failed');
   }
 
-  report('log: remaining calls completed anyway');
-  console.log('Mock API calls:', api.calls.map((c: any) => `${c.endpoint}(${c.status})`).join(', '));
+  report('all four requests completed anyway');
+  console.log('Mock API calls:', api.calls.map((c) => `${c.endpoint}(${c.status})`).join(', '));
 }
 
 async function runBubbleScenario(
@@ -63,14 +59,13 @@ async function runBubbleScenario(
   invoicesApi: InvoicesApi,
 ): Promise<void> {
   api.reset();
-  report('canceling both consumers');
   const profilePromise = loadProductProfile(productsApi, inventoryApi, ordersApi, invoicesApi, 'p2');
 
   const stockConsumer = profilePromise.then((x) => x.stock);
   const ordersConsumer = profilePromise.then((x) => x.orders);
 
-  // In vanilla, you might keep the promise around and hope nothing else happens.
-  report('user abandoned page (no cancellation possible)');
+  report('both consumers abandoned');
+  // dropping both references changes nothing upstream, there is no consumer counting here
 
   try {
     await stockConsumer;
@@ -79,8 +74,8 @@ async function runBubbleScenario(
     report('load failed');
   }
 
-  report('completed');
-  console.log('Mock API calls:', api.calls.map((c: any) => `${c.endpoint}(${c.status})`).join(', '));
+  report('source completed anyway, nothing bubbled up');
+  console.log('Mock API calls:', api.calls.map((c) => `${c.endpoint}(${c.status})`).join(', '));
 }
 
 async function runPartialScenario(
@@ -91,13 +86,13 @@ async function runPartialScenario(
   invoicesApi: InvoicesApi,
 ): Promise<void> {
   api.reset();
-  report('canceling one consumer');
   const profilePromise = loadProductProfile(productsApi, inventoryApi, ordersApi, invoicesApi, 'p3');
 
   const stockConsumer = profilePromise.then((x) => x.stock);
   const ordersConsumer = profilePromise.then((x) => x.orders);
 
-  report('user abandoned page (no selective cancellation)');
+  report('stock consumer abandoned');
+  // no selective cancellation either, the stock request runs for a reader who left
 
   try {
     await stockConsumer;
@@ -106,8 +101,8 @@ async function runPartialScenario(
     report('load failed');
   }
 
-  report('completed');
-  console.log('Mock API calls:', api.calls.map((c: any) => `${c.endpoint}(${c.status})`).join(', '));
+  report('source completed, the abandoned leg still cost a request');
+  console.log('Mock API calls:', api.calls.map((c) => `${c.endpoint}(${c.status})`).join(', '));
 }
 
 async function runShieldScenario(
@@ -118,7 +113,6 @@ async function runShieldScenario(
   invoicesApi: InvoicesApi,
 ): Promise<void> {
   api.reset();
-  report('canceling source with shielded audit leg');
   const profilePromise = loadProductProfile(productsApi, inventoryApi, ordersApi, invoicesApi, 'p4');
 
   report('user abandoned page');
@@ -129,8 +123,9 @@ async function runShieldScenario(
     report('load failed');
   }
 
-  report('completed');
-  console.log('Mock API calls:', api.calls.map((c: any) => `${c.endpoint}(${c.status})`).join(', '));
+  // (no cancellation counterpart, see -canc) nothing was canceled, so there is nothing to shield
+  report('audit completed, like every other leg');
+  console.log('Mock API calls:', api.calls.map((c) => `${c.endpoint}(${c.status})`).join(', '));
 }
 
 runScenarios().catch(console.error);

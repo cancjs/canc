@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@shared/mock-api": "*",
+    "@shared/util": "*",
     "@cancjs/coroutine": "file:../../packages/canc-coroutine",
     "@cancjs/promise": "file:../../packages/canc-promise",
     "@cancjs/toolbox": "file:../../packages/canc-toolbox",

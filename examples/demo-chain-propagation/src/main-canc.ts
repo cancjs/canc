@@ -50,8 +50,8 @@ async function runDownScenario(
     report(`load canceled: ${isCancelError(err) ? 'CancelError' : String(err)}`);
   }
 
-  report('source aborted successfully');
-  console.log('Mock API calls:', api.calls.map((c: any) => `${c.endpoint}(${c.status})`).join(', '));
+  report('all four requests aborted');
+  console.log('Mock API calls:', api.calls.map((c) => `${c.endpoint}(${c.status})`).join(', '));
 }
 
 async function runBubbleScenario(
@@ -67,7 +67,7 @@ async function runBubbleScenario(
   const stockConsumer = profilePromise.then((x) => x.stock);
   const ordersConsumer = profilePromise.then((x) => x.orders);
 
-  report('simulating: both consumers canceled');
+  report('canceling both consumers');
   stockConsumer.cancel();
   ordersConsumer.cancel();
 
@@ -78,7 +78,7 @@ async function runBubbleScenario(
   }
 
   report('source aborted (bubble-up from both consumers)');
-  console.log('Mock API calls:', api.calls.map((c: any) => `${c.endpoint}(${c.status})`).join(', '));
+  console.log('Mock API calls:', api.calls.map((c) => `${c.endpoint}(${c.status})`).join(', '));
 }
 
 async function runPartialScenario(
@@ -94,7 +94,7 @@ async function runPartialScenario(
   const stockConsumer = profilePromise.then((x) => x.stock);
   const ordersConsumer = profilePromise.then((x) => x.orders);
 
-  report('simulating: stock consumer canceled');
+  report('canceling stock consumer');
   stockConsumer.cancel();
 
   try {
@@ -104,7 +104,7 @@ async function runPartialScenario(
   }
 
   report('source completed (orders consumer kept running)');
-  console.log('Mock API calls:', api.calls.map((c: any) => `${c.endpoint}(${c.status})`).join(', '));
+  console.log('Mock API calls:', api.calls.map((c) => `${c.endpoint}(${c.status})`).join(', '));
 }
 
 async function runShieldScenario(
@@ -129,8 +129,8 @@ async function runShieldScenario(
   // Wait for the shielded audit request to settle
   await sleep(80);
 
-  report('audit completed despite source cancellation (shield:true)');
-  console.log('Mock API calls:', api.calls.map((c: any) => `${c.endpoint}(${c.status})`).join(', '));
+  report('audit completed despite source cancellation (shield:true), other three aborted');
+  console.log('Mock API calls:', api.calls.map((c) => `${c.endpoint}(${c.status})`).join(', '));
 }
 
 runScenarios().catch(console.error);
