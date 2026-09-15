@@ -1,4 +1,4 @@
-export { driveGenerator, runCallback } from './callback';
+export { callbackFactory } from './callback';
 export type { TCallbackValue, TFlatMapped } from './operators';
 export { drop, filter, flatMap, map, take } from './operators';
 export type { IAsyncIterOptions } from './options';

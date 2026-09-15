@@ -1,7 +1,7 @@
 import { isFunction, isThenableLike } from '../guards';
-import { IItemRun, runItem } from './callback';
+import { callbackFactory, type ICallbackDeps, type IItemRun } from './callback';
 import { callReturn, getSource } from './pull';
-import type { AnyIterable, TPromiseCtor } from './types';
+import type { AnyIterable } from './types';
 
 /**
  * What a callback may return in any of the four supported forms: a plain value, a thenable (an
@@ -54,11 +54,14 @@ function sameValueZero(a: unknown, b: unknown): boolean {
  * already finished, so calling `return()` on it would be a second completion.
  */
 function drive<T, R>(
-  Impl: TPromiseCtor,
+  deps: ICallbackDeps,
+  runItem: (callback: (...args: any[]) => any, args: any[]) => IItemRun,
   source: AnyIterable<T>,
   step: (value: T, index: number, run: TRunStep) => TStep<R> | PromiseLike<TStep<R>>,
   complete: () => R,
 ): PromiseLike<R> {
+  const { Impl } = deps;
+
   return new Impl<R>((resolve, reject, ctx) => {
     let iterator: AsyncIterator<T> | undefined;
     let item: IItemRun | undefined;
@@ -125,7 +128,7 @@ function drive<T, R>(
     };
 
     const run: TRunStep = (callback, args) => {
-      const current = runItem(Impl, callback, args);
+      const current = runItem(callback, args);
       item = current;
 
       return current.result.then(
@@ -216,124 +219,149 @@ function drive<T, R>(
   });
 }
 
-/** Collect every value the source produces. */
-export function toArray<T>(Impl: TPromiseCtor, source: AnyIterable<T>): PromiseLike<T[]> {
-  const values: T[] = [];
+/** Bind `toArray` to one promise implementation. */
+export function toArrayFactory(deps: ICallbackDeps) {
+  const { runItem } = callbackFactory(deps);
 
-  return drive<T, T[]>(
-    Impl,
-    source,
-    (value) => {
-      values.push(value);
+  /** Collect every value the source produces. */
+  return function toArray<T>(source: AnyIterable<T>): PromiseLike<T[]> {
+    const values: T[] = [];
 
-      return CONTINUE;
-    },
-    () => values,
-  );
-}
-
-/**
- * Fold the source into a single value. Called without an initial value, the first item seeds the
- * accumulator and the reducer first runs for the second item, which is also why an empty source
- * with no initial value has no answer to give and rejects.
- */
-export function reduce<T, A>(
-  Impl: TPromiseCtor,
-  source: AnyIterable<T>,
-  reducer: TIterReducer<T, A>,
-  ...initial: [A?]
-): PromiseLike<A> {
-  let seeded = initial.length > 0;
-  let accumulator = initial[0] as A;
-
-  return drive<T, A>(
-    Impl,
-    source,
-    (value, index, run) => {
-      if (!seeded) {
-        seeded = true;
-        accumulator = value as unknown as A;
+    return drive<T, T[]>(
+      deps,
+      runItem,
+      source,
+      (value) => {
+        values.push(value);
 
         return CONTINUE;
-      }
-
-      return run(reducer, [accumulator, value, index]).then((next: A) => {
-        accumulator = next;
-
-        return CONTINUE;
-      });
-    },
-    () => {
-      if (!seeded) {
-        throw new TypeError('Reduce of empty async iterator with no initial value');
-      }
-
-      return accumulator;
-    },
-  );
+      },
+      () => values,
+    );
+  };
 }
 
-/** The first value the predicate accepts, or `undefined` when the source runs out. */
-export function find<T>(
-  Impl: TPromiseCtor,
-  source: AnyIterable<T>,
-  predicate: TIterPredicate<T>,
-): PromiseLike<T | undefined> {
-  return drive<T, T | undefined>(
-    Impl,
-    source,
-    (value, index, run) =>
-      run(predicate, [value, index]).then((matched: unknown) => (matched ? stopWith(value) : CONTINUE)),
-    () => undefined,
-  );
+/** Bind `reduce` to one promise implementation. */
+export function reduceFactory(deps: ICallbackDeps) {
+  const { runItem } = callbackFactory(deps);
+
+  /**
+   * Fold the source into a single value. Called without an initial value, the first item seeds the
+   * accumulator and the reducer first runs for the second item, which is also why an empty source
+   * with no initial value has no answer to give and rejects.
+   */
+  return function reduce<T, A>(source: AnyIterable<T>, reducer: TIterReducer<T, A>, ...initial: [A?]): PromiseLike<A> {
+    let seeded = initial.length > 0;
+    let accumulator = initial[0] as A;
+
+    return drive<T, A>(
+      deps,
+      runItem,
+      source,
+      (value, index, run) => {
+        if (!seeded) {
+          seeded = true;
+          accumulator = value as unknown as A;
+
+          return CONTINUE;
+        }
+
+        return run(reducer, [accumulator, value, index]).then((next: A) => {
+          accumulator = next;
+
+          return CONTINUE;
+        });
+      },
+      () => {
+        if (!seeded) {
+          throw new TypeError('Reduce of empty async iterator with no initial value');
+        }
+
+        return accumulator;
+      },
+    );
+  };
 }
 
-/** Whether the predicate accepts any value. An empty source is `false`. */
-export function some<T>(
-  Impl: TPromiseCtor,
-  source: AnyIterable<T>,
-  predicate: TIterPredicate<T>,
-): PromiseLike<boolean> {
-  return drive<T, boolean>(
-    Impl,
-    source,
-    (value, index, run) =>
-      run(predicate, [value, index]).then((matched: unknown) => (matched ? stopWith(true) : CONTINUE)),
-    () => false,
-  );
+/** Bind `find` to one promise implementation. */
+export function findFactory(deps: ICallbackDeps) {
+  const { runItem } = callbackFactory(deps);
+
+  /** The first value the predicate accepts, or `undefined` when the source runs out. */
+  return function find<T>(source: AnyIterable<T>, predicate: TIterPredicate<T>): PromiseLike<T | undefined> {
+    return drive<T, T | undefined>(
+      deps,
+      runItem,
+      source,
+      (value, index, run) =>
+        run(predicate, [value, index]).then((matched: unknown) => (matched ? stopWith(value) : CONTINUE)),
+      () => undefined,
+    );
+  };
 }
 
-/** Whether the predicate accepts every value. An empty source is `true`. */
-export function every<T>(
-  Impl: TPromiseCtor,
-  source: AnyIterable<T>,
-  predicate: TIterPredicate<T>,
-): PromiseLike<boolean> {
-  return drive<T, boolean>(
-    Impl,
-    source,
-    (value, index, run) =>
-      run(predicate, [value, index]).then((matched: unknown) => (matched ? CONTINUE : stopWith(false))),
-    () => true,
-  );
+/** Bind `some` to one promise implementation. */
+export function someFactory(deps: ICallbackDeps) {
+  const { runItem } = callbackFactory(deps);
+
+  /** Whether the predicate accepts any value. An empty source is `false`. */
+  return function some<T>(source: AnyIterable<T>, predicate: TIterPredicate<T>): PromiseLike<boolean> {
+    return drive<T, boolean>(
+      deps,
+      runItem,
+      source,
+      (value, index, run) =>
+        run(predicate, [value, index]).then((matched: unknown) => (matched ? stopWith(true) : CONTINUE)),
+      () => false,
+    );
+  };
 }
 
-/** Run the callback for every value, in order, waiting for each before pulling the next. */
-export function forEach<T>(Impl: TPromiseCtor, source: AnyIterable<T>, visitor: TIterVisitor<T>): PromiseLike<void> {
-  return drive<T, void>(
-    Impl,
-    source,
-    (value, index, run) => run(visitor, [value, index]).then(() => CONTINUE),
-    () => undefined,
-  );
+/** Bind `every` to one promise implementation. */
+export function everyFactory(deps: ICallbackDeps) {
+  const { runItem } = callbackFactory(deps);
+
+  /** Whether the predicate accepts every value. An empty source is `true`. */
+  return function every<T>(source: AnyIterable<T>, predicate: TIterPredicate<T>): PromiseLike<boolean> {
+    return drive<T, boolean>(
+      deps,
+      runItem,
+      source,
+      (value, index, run) =>
+        run(predicate, [value, index]).then((matched: unknown) => (matched ? CONTINUE : stopWith(false))),
+      () => true,
+    );
+  };
 }
 
-/** Whether the source produces the searched value, compared the way `Array.prototype.includes` does. */
-export function includes<T>(Impl: TPromiseCtor, source: AnyIterable<T>, searchValue: T): PromiseLike<boolean> {
-  return drive<T, boolean>(
-    Impl,
-    source,
-    (value) => (sameValueZero(value, searchValue) ? stopWith(true) : CONTINUE),
-    () => false,
-  );
+/** Bind `forEach` to one promise implementation. */
+export function forEachFactory(deps: ICallbackDeps) {
+  const { runItem } = callbackFactory(deps);
+
+  /** Run the callback for every value, in order, waiting for each before pulling the next. */
+  return function forEach<T>(source: AnyIterable<T>, visitor: TIterVisitor<T>): PromiseLike<void> {
+    return drive<T, void>(
+      deps,
+      runItem,
+      source,
+      (value, index, run) => run(visitor, [value, index]).then(() => CONTINUE),
+      () => undefined,
+    );
+  };
+}
+
+/** Bind `includes` to one promise implementation. */
+export function includesFactory(deps: ICallbackDeps) {
+  const { runItem } = callbackFactory(deps);
+
+  /** Whether the source produces the searched value, compared the way `Array.prototype.includes` does. */
+  return function includes<T>(source: AnyIterable<T>, searchValue: T): PromiseLike<boolean> {
+    return drive<T, boolean>(
+      deps,
+      runItem,
+      source,
+      (value) => (sameValueZero(value, searchValue) ? stopWith(true) : CONTINUE),
+      () => false,
+    );
+  };
 }

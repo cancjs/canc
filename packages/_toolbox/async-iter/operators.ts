@@ -11,13 +11,15 @@
 import { isGenerator } from '../../_util';
 import type { TAnyFn } from '../../_util/guards';
 import { isCancelableLike } from '../guards';
-import { runCallback } from './callback';
+import { callbackFactory } from './callback';
 import { callReturn, getSource } from './pull';
 import { AnyIterable, IPipeOp, markPipeOp, TPromiseCtor } from './types';
 
 // Operators adopt callback outcomes so they only need the platform promise captured once here
 // to avoid a global lookup on every iteration like the rest of the toolbox
 const PlainPromise = Promise as unknown as TPromiseCtor;
+
+const { runCallback } = callbackFactory({ Impl: PlainPromise });
 
 /** What a callback produces once its form is resolved: awaited, or driven to the generator's return. */
 export type TCallbackValue<R> = R extends Generator<any, infer TReturn, any> ? Awaited<TReturn> : Awaited<R>;
@@ -422,7 +424,7 @@ function runItem(callback: TAnyFn, args: any[]): IItemRun {
   };
 
   return {
-    result: Promise.resolve(runCallback(PlainPromise, watch, args)),
+    result: Promise.resolve(runCallback(watch, args)),
 
     stop() {
       if (stopped) {
