@@ -421,7 +421,8 @@ describe('async iterator terminal operators', () => {
 
   describe('shared algorithm', () => {
     it('drives against a plain promise implementation, which carries no cancel', async () => {
-      const promise = tb.toArray<number>(Promise as unknown as TPromiseCtor, [1, 2, 3]);
+      const plainToArray = tb.toArrayFactory({ Impl: Promise as unknown as TPromiseCtor });
+      const promise = plainToArray<number>([1, 2, 3]);
 
       expect('cancel' in promise).toBe(false);
       await expect(promise).resolves.toEqual([1, 2, 3]);
