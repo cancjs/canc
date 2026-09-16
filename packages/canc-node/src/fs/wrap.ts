@@ -1,3 +1,5 @@
+import type * as nodeFsPromises from 'node:fs/promises';
+
 import { CancelablePromise } from '@cancjs/promise';
 
 import { IPromiseKind, IToolboxDeps, TPromiseCtor } from '../../../_toolbox';
@@ -30,8 +32,26 @@ export type TNodeFn = (...args: unknown[]) => unknown;
 /** A node options bag, or the encoding shorthand node accepts in its place. */
 export type TNodeOptions = string | Readonly<Record<string, unknown>> | null | undefined;
 
+/** Handle method names overridden by this package to return cancelable promises. */
+export type TOverriddenHandleKeys =
+  'appendFile' | 'close' | 'read' | 'readFile' | 'readv' | 'stat' | 'write' | 'writeFile' | 'writev';
+
+/**
+ * A node FileHandle decorated by this package.
+ *
+ * Wrapped members return cancelable promises with their overloads kept.
+ * Passthrough members keep node's exact type.
+ */
+export type TCancelableFileHandle<THandle = nodeFsPromises.FileHandle> = {
+  [K in keyof THandle]: K extends keyof THandle & TOverriddenHandleKeys ? TNodeSignatures<THandle[K], 'cancelable'>
+  : THandle[K];
+};
+
 /** One node call signature, with a cancelable promise in place of the plain one it returned. */
-type TCancelableReturn<R> = [R] extends [Promise<infer TValue>] ? CancelablePromise<TValue> : R;
+type TCancelableReturn<R> =
+  [R] extends [Promise<infer TValue>] ?
+    CancelablePromise<TValue extends nodeFsPromises.FileHandle ? TCancelableFileHandle<TValue> : TValue>
+  : R;
 
 /**
  * Return rewrites the signature ladder below can apply, selected by name because a type alias

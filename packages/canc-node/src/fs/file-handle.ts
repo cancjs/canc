@@ -1,8 +1,12 @@
+import type * as nodeFsPromises from 'node:fs/promises';
+
 import { CancelablePromise } from '@cancjs/promise';
 
 import manifest from '../../surface/fs.FileHandle.json';
 import { features } from '../features';
-import { adopted, IManifestEntry, passthrough, signalWrapped, TNodeFn } from './wrap';
+import { adopted, IManifestEntry, passthrough, signalWrapped, TCancelableFileHandle, TNodeFn } from './wrap';
+
+export type { TCancelableFileHandle };
 
 /** A FileHandle member record, with the routing fields the decoration reads. */
 interface IMemberEntry extends IManifestEntry {
@@ -30,8 +34,12 @@ export function __resetCancProtoForTest() {
   cancProtos = new WeakSet();
 }
 
-export function decorate<T>(fh: T): T {
-  const handle = fh as unknown as Record<string, unknown>;
+export function decorate<T extends nodeFsPromises.FileHandle = nodeFsPromises.FileHandle>(
+  fh: T,
+): TCancelableFileHandle<T>;
+export function decorate<T>(fh: T): TCancelableFileHandle;
+export function decorate(fh: unknown): unknown {
+  const handle = fh as Record<string, unknown>;
   const nativeProto = Object.getPrototypeOf(handle) as Record<string, unknown> | null;
 
   if (nativeProto && typeof nativeProto === 'object' && !cancProtos.has(nativeProto)) {

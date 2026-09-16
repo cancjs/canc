@@ -37,7 +37,7 @@ describe('FileHandle', () => {
       const stat = await fh.stat();
       expect(stat.size).toBeGreaterThan(0);
       const buf = Buffer.alloc(10);
-      const readResult = await (fh as any).read(buf, 0, 10, 0);
+      const readResult = await fh.read(buf, 0, 10, 0);
       expect(readResult.bytesRead).toBe(10);
     } finally {
       await fh.close();
@@ -85,11 +85,10 @@ describe('FileHandle', () => {
 
   test('await using routes through our close override', async () => {
     let overrideRan = false;
-    const fh = await fs.open('package.json', 'r');
-    decorate(fh);
+    const fh = decorate(await fs.open('package.json', 'r'));
 
     if (typeof Symbol.asyncDispose === 'symbol') {
-      expect(typeof (fh as any)[Symbol.asyncDispose]).toBe('function');
+      expect(typeof fh[Symbol.asyncDispose]).toBe('function');
     }
 
     const origClose = fh.close;
@@ -140,8 +139,7 @@ describe('FileHandle', () => {
   });
 
   test('fh.writeFile(asyncIterable) canceled mid-stream calls return()', async () => {
-    const fh = await fs.open('test-async-iter.tmp', 'w');
-    decorate(fh);
+    const fh = decorate(await fs.open('test-async-iter.tmp', 'w'));
 
     let started = false;
     let returned = false;
@@ -158,7 +156,7 @@ describe('FileHandle', () => {
       },
     };
 
-    const p = fh.writeFile(asyncIterable as any, {}) as any;
+    const p = fh.writeFile(asyncIterable as any, {});
 
     // wait until the iterator starts before canceling
     await new Promise((r) => {
@@ -179,10 +177,9 @@ describe('FileHandle', () => {
   });
 
   test('close cannot be canceled, fd is still closed', async () => {
-    const fh = await fs.open('package.json', 'r');
-    decorate(fh);
+    const fh = decorate(await fs.open('package.json', 'r'));
 
-    const p = fh.close() as any;
+    const p = fh.close();
     p.cancel();
 
     await p;
@@ -201,16 +198,14 @@ describe('FileHandle', () => {
     const dstFile = path.join(dir, 'dst.txt');
     nodeFs.writeFileSync(srcFile, 'hello streams');
 
-    const srcFh = await fs.open(srcFile, 'r');
-    const dstFh = await fs.open(dstFile, 'w');
-    decorate(srcFh);
-    decorate(dstFh);
+    const srcFh = decorate(await fs.open(srcFile, 'r'));
+    const dstFh = decorate(await fs.open(dstFile, 'w'));
 
-    const rs = (srcFh as any).createReadStream();
+    const rs = srcFh.createReadStream();
     expect(rs instanceof Promise).toBe(false);
     expect(typeof rs.pipe).toBe('function');
 
-    const ws = (dstFh as any).createWriteStream();
+    const ws = dstFh.createWriteStream();
     expect(ws instanceof Promise).toBe(false);
     expect(typeof ws.write).toBe('function');
 
@@ -225,13 +220,11 @@ describe('FileHandle', () => {
     const dstFile = path.join(dir, 'dst.txt');
     nodeFs.writeFileSync(srcFile, 'pipe payload data');
 
-    const srcFh = await fs.open(srcFile, 'r');
-    const dstFh = await fs.open(dstFile, 'w');
-    decorate(srcFh);
-    decorate(dstFh);
+    const srcFh = decorate(await fs.open(srcFile, 'r'));
+    const dstFh = decorate(await fs.open(dstFile, 'w'));
 
-    const rs = (srcFh as any).createReadStream();
-    const ws = (dstFh as any).createWriteStream();
+    const rs = srcFh.createReadStream();
+    const ws = dstFh.createWriteStream();
 
     try {
       rs.pipe(ws);
@@ -261,14 +254,13 @@ describe('FileHandle', () => {
     const testFile = path.join(dir, 'lines.txt');
     nodeFs.writeFileSync(testFile, 'line1\nline2\n');
 
-    const fh = await fs.open(testFile, 'r');
-    decorate(fh);
+    const fh = decorate(await fs.open(testFile, 'r'));
 
-    const lines = (fh as any).readLines();
+    const lines = fh.readLines();
     expect(lines instanceof Promise).toBe(false);
     expect(typeof lines[Symbol.asyncIterator]).toBe('function');
 
-    const webStream = (fh as any).readableWebStream();
+    const webStream = fh.readableWebStream();
     expect(webStream instanceof Promise).toBe(false);
     expect(typeof webStream.getReader).toBe('function');
 

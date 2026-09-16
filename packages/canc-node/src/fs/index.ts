@@ -6,7 +6,7 @@ import { CancelablePromise } from '@cancjs/promise';
 import { isThenable } from '../../../_util';
 import fsJson from '../../surface/fs.json';
 import { features } from '../features';
-import { decorate } from './file-handle';
+import { decorate, TCancelableFileHandle } from './file-handle';
 import { getFs } from './registry';
 import { retryOpen } from './retry-open';
 import {
@@ -217,4 +217,5 @@ export const Dir = nodeFs.Dir;
 export const Dirent = nodeFs.Dirent;
 export const Stats = nodeFs.Stats;
 export type { BigIntStats, StatsFs as StatFs } from 'node:fs';
+export type { TCancelableFileHandle };
 export const exists = promisifyWrapped(viaFs('exists'), 1) as TCancelable<typeof nodeFs.exists.__promisify__>;
