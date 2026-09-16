@@ -14,13 +14,16 @@
  */
 import type { Failing, FailureOf, TReason } from '@cancjs/promise';
 import CancelablePromise, {
+  AbortError,
   CancelError,
   catchCancel,
   catchErrors,
   createIsError,
   FAILURE,
+  isAbortError,
   isErrorOf,
   suppressErrors,
+  TimeoutError,
 } from '@cancjs/promise';
 
 import type { Assert, Eq } from './assert-type';
@@ -118,6 +121,39 @@ if (isMatrixError(rawTwo)) {
   const narrowedUnion = rawTwo;
   const narrowedUnionCheck: Eq<typeof narrowedUnion, MatrixError | MatrixErrorTwo> = true;
   void narrowedUnionCheck;
+}
+
+// ============================================================ error identity
+// The shared error classes tell themselves apart by their brand, not by a literal `name`. This
+// fixture compiles in every lane, so it is also where the brand is checked against the downlevel
+// bundle rather than only against the current-TypeScript types.
+type _abortIsNotTimeout = Assert<Eq<Eq<AbortError, TimeoutError>, false>>;
+
+// A bare Error is not one of them: the brand is a required member of the instance type.
+// @ts-expect-error - a bare Error carries no brand
+const _bareErrorIsNotAbort: AbortError = new Error('nope');
+void _bareErrorIsNotAbort;
+
+// `name` is plain `string`, so a subclass is free to rename itself. A literal would reject both of
+// these, which is the reason the brand carries identity instead.
+class RenamedAbort extends AbortError {
+  constructor() {
+    super();
+    this.name = 'RenamedAbort';
+  }
+}
+class RedeclaredAbort extends AbortError {
+  declare name: string;
+}
+void RenamedAbort;
+void RedeclaredAbort;
+
+// The guard narrows to the branded instance type, not to a bare Error.
+declare const rawAbort: unknown;
+if (isAbortError(rawAbort)) {
+  const narrowedAbort = rawAbort;
+  const narrowedAbortCheck: Eq<typeof narrowedAbort, AbortError> = true;
+  void narrowedAbortCheck;
 }
 
 export {};

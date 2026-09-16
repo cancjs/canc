@@ -3,8 +3,8 @@ import { isObject } from './guards';
 /**
  * Instance shape shared by every error class built here.
  */
-export interface ICancError<TName extends string = string> extends Error {
-  name: TName;
+export interface ICancError extends Error {
+  name: string;
   message: string;
 }
 
@@ -12,12 +12,15 @@ export interface ICancError<TName extends string = string> extends Error {
  * Constructor shape {@link createErrorClass} produces. Each class below also declares a type alias
  * of the same name, so the exported name works in value and in type position.
  *
- * The return type omits brand properties to prevent index signature widening on bare `ICancErrorConstructor`.
- * Specific error classes (AbortError, TimeoutError) provide more precise types through their type aliases.
+ * Type-level identity rests on the brand, the same registry symbol the factory installs on the
+ * prototype, not on `name`. Two classes sharing a name are still distinct types, and a subclass
+ * stays free to rename itself, which a literal `name` would forbid. `TBrand` defaults to `never`,
+ * so the bare form drops the brand member instead of widening it into a symbol index signature.
  */
-export interface ICancErrorConstructor<TName extends string = string, _TBrand extends symbol = symbol> {
-  readonly prototype: ICancError<TName>;
-  new (message?: string): ICancError<TName>;
+export interface ICancErrorConstructor<TName extends string = string, TBrand extends symbol = never> {
+  readonly name: TName;
+  readonly prototype: ICancError;
+  new (message?: string): ICancError & Readonly<Record<TBrand, true>>;
 }
 
 interface IDomExceptionConstructor {
@@ -61,7 +64,7 @@ function createDomExceptionClass<TName extends string, TBrand extends symbol>(
         domException,
         [resolveMessage(message, defaultMessage), name],
         target,
-      ) as ICancError<TName>;
+      ) as ICancError;
 
       if (Object.getPrototypeOf(instance) !== target.prototype) {
         Object.setPrototypeOf(instance, target.prototype);
@@ -81,7 +84,7 @@ function createNativeErrorClass<TName extends string, TBrand extends symbol>(
   defaultMessage?: string,
 ): ICancErrorConstructor<TName, TBrand> {
   class NativeErrorBackedError extends Error {
-    name: TName;
+    name: string;
 
     constructor(message?: string) {
       super(resolveMessage(message, defaultMessage));
@@ -102,7 +105,7 @@ function createNativeErrorClass<TName extends string, TBrand extends symbol>(
  * value), and by Error everywhere else. The two bases take different constructor arguments,
  * `(message, name)` against `(message)`, so the branches cannot share a constructor body.
  */
-export function createErrorClass<TName extends string, TBrand extends symbol = symbol>(
+export function createErrorClass<TName extends string, TBrand extends symbol = never>(
   name: TName,
   brand?: TBrand,
   defaultMessage?: string,

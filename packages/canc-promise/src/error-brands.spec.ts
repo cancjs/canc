@@ -7,6 +7,7 @@ import {
   AGGREGATE_ERROR_BRAND,
   AggregateError,
   createAggregateError,
+  ICancErrorConstructor,
   isAbortError,
   isAggregateError,
   isTimeoutError,
@@ -308,11 +309,25 @@ describe('brand scheme: a subclass with a rewritten name still matches by brand'
     class Weird extends BreakError {
       constructor() {
         super();
-        (this as any).name = 'Nope';
+        Object.defineProperty(this, 'name', { value: 'Nope', configurable: true, writable: true });
       }
     }
 
     expect(isBreakError(new Weird())).toBe(true);
+  });
+});
+
+describe('brand scheme: a subclass that adds nothing still matches by brand', () => {
+  it('AbortError', () => {
+    class MyAbort extends AbortError {}
+
+    expect(isAbortError(new MyAbort())).toBe(true);
+  });
+
+  it('TimeoutError', () => {
+    class MyTimeout extends TimeoutError {}
+
+    expect(isTimeoutError(new MyTimeout())).toBe(true);
   });
 });
 
@@ -330,3 +345,18 @@ type _checkCancelExclude = Assert<Eq<Exclude<CancelError | Error, CancelError>, 
 const _checkCancelLiteral: CancelError = { name: 'CancelError', bubbled: false, disposed: false, message: '' };
 const _checkCancelErrorBase: Error = new CancelError();
 const _checkCancelErrorName: string = new CancelError().name;
+
+// Type assertions for the factory-built classes
+// Names are plain strings, so a shape that stopped carrying the brand would collapse them into one
+declare const _BRAND_ONE: unique symbol;
+declare const _BRAND_TWO: unique symbol;
+
+// @ts-expect-error - a different brand is a different constructor type
+const _checkBrandAssignable: ICancErrorConstructor<'Same', typeof _BRAND_ONE> =
+  null as unknown as ICancErrorConstructor<'Same', typeof _BRAND_TWO>;
+type _checkBrandIdentity = Assert<
+  Eq<Eq<ICancErrorConstructor<'Same', typeof _BRAND_ONE>, ICancErrorConstructor<'Same', typeof _BRAND_TWO>>, false>
+>;
+type _checkBuiltClassesDiffer = Assert<Eq<Eq<AbortError, TimeoutError>, false>>;
+// @ts-expect-error - a bare Error carries no brand
+const _checkAbortLiteral: AbortError = new Error('nope');
