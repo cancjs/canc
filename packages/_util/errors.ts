@@ -146,6 +146,18 @@ export function createErrorClass<TName extends string, TBrand extends string = n
   return ErrorClass;
 }
 
+// Subclassing to add own data properties requires re-parenting off DOMException.prototype
+export function wirePrototype<TBase extends Error, TSub extends new (...args: any[]) => TBase>(
+  subClass: TSub,
+  baseClass: abstract new (...args: any[]) => TBase,
+): TSub {
+  if (typeof Object.setPrototypeOf === 'function') {
+    Object.setPrototypeOf(subClass.prototype, baseClass.prototype);
+  }
+
+  return subClass;
+}
+
 /**
  * Prototype brand for AbortError instances, registered under `Symbol.for('@cancjs/promise:AbortError')`.
  */
