@@ -1,5 +1,6 @@
 // WebSocket export server where connection root cancels jobs on close or cancel message
 
+import type { BreakError } from '@cancjs/coroutine';
 import * as canc from '@cancjs/coroutine';
 import { CancelablePromise, CancelError, isCancelError, suppressCancel } from '@cancjs/promise';
 import { toAbortSignal } from '@cancjs/toolbox';
@@ -47,8 +48,8 @@ export function startServer(backend: ExportBackend, port = 0): Promise<ServerHan
 
 function handleConnection(ws: WebSocket, transcode: Transcoder): void {
   // connection cancel root acting as scope handle for child jobs
-  const connectionRoot = new CancelablePromise<void, any>(() => {});
-  const jobs = new Map<string, CancelablePromise<void, any>>();
+  const connectionRoot = new CancelablePromise<void, never>(() => {});
+  const jobs = new Map<string, CancelablePromise<void, BreakError>>();
 
   // socket close cancels root and all child jobs
   ws.on('close', () => connectionRoot.cancel(new CancelError('Connection closed')));
@@ -63,8 +64,8 @@ function handleConnection(ws: WebSocket, transcode: Transcoder): void {
 async function readMessages(
   ws: WebSocket,
   transcode: Transcoder,
-  connectionRoot: CancelablePromise<void, any>,
-  jobs: Map<string, CancelablePromise<void, any>>,
+  connectionRoot: CancelablePromise<void, never>,
+  jobs: Map<string, CancelablePromise<void, BreakError>>,
 ): Promise<void> {
   // signal aborts with connection root to end native iterator
   const signal = toAbortSignal(connectionRoot);
@@ -84,7 +85,7 @@ function dispatch(
   message: ClientMessage,
   ws: WebSocket,
   transcode: Transcoder,
-  jobs: Map<string, CancelablePromise<void, any>>,
+  jobs: Map<string, CancelablePromise<void, BreakError>>,
 ): void {
   if (message.type === 'start') {
     if (jobs.has(message.jobId)) return;
@@ -99,8 +100,8 @@ function runJob(
   jobId: string,
   ws: WebSocket,
   transcode: Transcoder,
-  jobs: Map<string, CancelablePromise<void, any>>,
-): CancelablePromise<void, any> {
+  jobs: Map<string, CancelablePromise<void, BreakError>>,
+): CancelablePromise<void, BreakError> {
   // coroutine job where cancel aborts in-flight chunk and stops stream
   const job = canc.async(function* () {
     const progressStream = exportJob(transcode);

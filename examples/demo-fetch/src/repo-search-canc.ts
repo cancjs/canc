@@ -10,7 +10,7 @@ function createFetch(fetch: any) {
   return cancelableFetchFactory({ fetch });
 }
 
-function searchRepos(query: string, fetch: any): CancelablePromise<Repo, any> {
+function searchRepos(query: string, fetch: any): CancelablePromise<Repo, unknown> {
   const cancelableFetch = createFetch(fetch);
 
   // Coroutine cancellation stops both legs.
@@ -32,7 +32,7 @@ function searchRepos(query: string, fetch: any): CancelablePromise<Repo, any> {
 }
 
 // Passes external signal to return a cancelable fetch chain.
-function searchReposWithExternal(query: string, fetch: any, signal?: AbortSignal): CancelablePromise<Repo, any> {
+function searchReposWithExternal(query: string, fetch: any, signal?: AbortSignal): CancelablePromise<Repo, unknown> {
   const cancelableFetch = createFetch(fetch);
 
   return canc.async(function* () {
@@ -53,7 +53,7 @@ function searchReposWithExternal(query: string, fetch: any, signal?: AbortSignal
 }
 
 // Pre-aborted signal: promise born-canceled (no fetch starts).
-function searchReposPreAborted(query: string, fetch: any): CancelablePromise<Repo, any> {
+function searchReposPreAborted(query: string, fetch: any): CancelablePromise<Repo, unknown> {
   // Demonstrates pre-aborted signal making fetch reject immediately on construction.
   const cancelSignal = createCancelSignal('pre-aborted');
   cancelSignal.cancel();
@@ -71,8 +71,8 @@ function searchReposPreAborted(query: string, fetch: any): CancelablePromise<Rep
 }
 
 // Timeout composition: race with timeout (stops underlying fetch if timeout wins).
-function searchReposWithTimeout(query: string, fetch: any, timeoutMs = 100): CancelablePromise<Repo, any> {
-  return timeout(searchRepos(query, fetch), timeoutMs) as CancelablePromise<Repo, any>;
+function searchReposWithTimeout(query: string, fetch: any, timeoutMs = 100): CancelablePromise<Repo, unknown> {
+  return timeout(searchRepos(query, fetch), timeoutMs);
 }
 
 export { searchRepos, searchReposPreAborted, searchReposWithExternal, searchReposWithTimeout };
