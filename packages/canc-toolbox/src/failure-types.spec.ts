@@ -1,6 +1,7 @@
 import { CancelablePromise, FailureOf, TimeoutError } from '@cancjs/promise';
 
 import { Eq } from '../../../tests-types/fixtures/common/assert-type';
+import { isTimeoutError } from '../../_util';
 import {
   cancelify,
   debounce,
@@ -108,35 +109,62 @@ describe('declared failure propagation', () => {
 });
 
 describe('failure type specs', () => {
-  it('types failures correctly', () => {
-    const p1: CancelablePromise<void, never> = delay(100);
-    const p2: CancelablePromise<never, TimeoutError> = timeout(100);
-    const p3: CancelablePromise<void, TimeoutError> = waitFor(() => true);
-    const p4: CancelablePromise<number, Error> = retry<number, Error>(() => 1);
-    const p5: CancelablePromise<number, TypeError> = minDelay<number, TypeError>(1, 100);
+  // The mirror of the block above: work that declares no failures must leave the channel empty
+  // rather than inheriting a set from the helper, and the two timers must still declare their own.
+  // No call passes an explicit type argument, so every answer below is inferred.
+  it('declares only the failures the call itself can produce', async () => {
+    const delayed = delay(0);
+    const _delayOfNothingDeclaresNothing: Eq<typeof delayed, CancelablePromise<void, never>> = true;
 
-    const d = debounce<[string], void, Error>(() => {}, 100);
-    const p6: CancelablePromise<void, Error> = d('x');
+    const retried = retry(() => 1);
+    const _retryOfPlainWorkDeclaresNothing: Eq<typeof retried, CancelablePromise<number, never>> = true;
 
-    const t = throttle<[string], void, Error>(() => {}, 100);
-    const p7: CancelablePromise<void, Error> = t('x');
+    const floored = minDelay(1, 0);
+    const _minDelayOfPlainInputDeclaresNothing: Eq<typeof floored, CancelablePromise<number, never>> = true;
 
-    const pr = promisify(() => {});
-    const p8: CancelablePromise<any, never> = pr();
+    const _debounced = debounce((_id: string) => {}, 0);
+    const _debounceOfPlainWorkDeclaresNothing: Eq<ReturnType<typeof _debounced>, CancelablePromise<void, never>> = true;
 
-    const df = defer();
-    const p9: CancelablePromise<void, never> = df.promise;
+    const _throttled = throttle((_id: string) => {}, 0);
+    const _throttleOfPlainWorkDeclaresNothing: Eq<ReturnType<typeof _throttled>, CancelablePromise<void, never>> = true;
 
-    p1.cancel();
-    p2.cancel();
-    p3.cancel();
-    p4.cancel();
-    p5.cancel();
-    p6.cancel();
-    p7.cancel();
-    p8.cancel();
-    p9.cancel();
-    d.cancel();
-    t.cancel();
+    const promisified = promisify((cb: (err: unknown, value: number) => void) => cb(null, 1));
+    const _promisifyDeclaresNothing: Eq<ReturnType<typeof promisified>, CancelablePromise<any, never>> = true;
+
+    const deferred = defer();
+    const _deferDeclaresNothing: Eq<typeof deferred.promise, CancelablePromise<void, never>> = true;
+
+    const timedOut = timeout(0);
+    const _timeoutDeclaresTimeout: Eq<typeof timedOut, CancelablePromise<never, TimeoutError>> = true;
+
+    const waited = waitFor(() => true);
+    const _waitForDeclaresTimeout: Eq<typeof waited, CancelablePromise<void, TimeoutError>> = true;
+
+    deferred.resolve();
+
+    await expect(delayed).resolves.toBeUndefined();
+    await expect(retried).resolves.toBe(1);
+    await expect(floored).resolves.toBe(1);
+    await expect(promisified()).resolves.toBe(1);
+    await expect(deferred.promise).resolves.toBeUndefined();
+    await expect(waited).resolves.toBeUndefined();
+
+    // The declared TimeoutError is the one the call really rejects with.
+    const timedOutReason: unknown = await timedOut.catch((reason: unknown) => reason);
+    expect(isTimeoutError(timedOutReason)).toBe(true);
+
+    for (const declared of [
+      _delayOfNothingDeclaresNothing,
+      _retryOfPlainWorkDeclaresNothing,
+      _minDelayOfPlainInputDeclaresNothing,
+      _debounceOfPlainWorkDeclaresNothing,
+      _throttleOfPlainWorkDeclaresNothing,
+      _promisifyDeclaresNothing,
+      _deferDeclaresNothing,
+      _timeoutDeclaresTimeout,
+      _waitForDeclaresTimeout,
+    ]) {
+      expect(declared).toBe(true);
+    }
   });
 });
