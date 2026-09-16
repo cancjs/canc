@@ -25,6 +25,21 @@ function makeLoggedSource<T>(values: T[], log: string[] = [], label = 'cleanup')
   })();
 }
 
+// Same as above, except its cleanup needs a microtask before it records, so an ordering assertion
+// over `log` can tell an awaited disposal apart from one that merely wins a race
+function makeSlowCleanupSource<T>(values: T[], log: string[], label = 'cleanup') {
+  return (async function* () {
+    try {
+      for (const value of values) {
+        yield value;
+      }
+    } finally {
+      await Promise.resolve();
+      log.push(label);
+    }
+  })();
+}
+
 // A source whose pulls never settle on their own, so a test can park the coroutine inside
 // `loop.next()` and cancel it there, while `return()` settles at once as a real cursor would
 function makeControllableSource<T>() {
@@ -395,6 +410,93 @@ describe('cancForAwait handle form', () => {
     expect(log).toEqual(['item-1', 'cleanup']);
 
     const error = await promise.catch((reason: any) => reason);
+    expect(isCancelError(error)).toBe(true);
+  });
+
+  it('closes a source opened by a handle inside a finally during cancellation', async () => {
+    const log: string[] = [];
+    const gate = new Promise<void>(() => undefined);
+
+    const co = cancAsync(function* () {
+      try {
+        yield* cancAwait(gate);
+      } finally {
+        yield* cancForAwait(makeLoggedSource([1, 2], log));
+        log.push('finally-done');
+      }
+    });
+
+    const promise = co();
+    promise.catch(suppressCancel);
+
+    await flush();
+    promise.cancel();
+
+    const error = await promise.catch((reason: any) => reason);
+
+    expect(log).toEqual(['finally-done', 'cleanup']);
+    expect(isCancelError(error)).toBe(true);
+  });
+
+  it('finishes a cleanup opened during cancellation before the coroutine settles', async () => {
+    const log: string[] = [];
+    const gate = new Promise<void>(() => undefined);
+
+    const co = cancAsync(function* () {
+      try {
+        yield* cancAwait(gate);
+      } finally {
+        const loop = yield* cancForAwait(makeSlowCleanupSource([1, 2, 3], log));
+
+        for (const value of loop) {
+          log.push(`item-${value}`);
+          break;
+        }
+      }
+    });
+
+    const promise = co();
+    let error: any;
+    const settled = promise.catch((reason: any) => {
+      error = reason;
+      log.push('settled');
+    });
+
+    await flush();
+    promise.cancel();
+    await settled;
+
+    expect(log).toEqual(['item-1', 'cleanup', 'settled']);
+    expect(isCancelError(error)).toBe(true);
+  });
+
+  it('runs one cleanup when a handle opened in a finally reaches exhaustion', async () => {
+    const log: string[] = [];
+    const gate = new Promise<void>(() => undefined);
+
+    const co = cancAsync(function* () {
+      try {
+        yield* cancAwait(gate);
+      } finally {
+        const loop = yield* cancForAwait(makeLoggedSource([1, 2], log));
+
+        for (const value of loop) {
+          log.push(`item-${value}`);
+          yield* loop.next();
+        }
+      }
+    });
+
+    const promise = co();
+    promise.catch(suppressCancel);
+
+    await flush();
+    promise.cancel();
+
+    const error = await promise.catch((reason: any) => reason);
+    await flush();
+
+    expect(log).toEqual(['item-1', 'item-2', 'cleanup']);
     expect(isCancelError(error)).toBe(true);
   });
 

@@ -305,13 +305,12 @@ export function cancAsync<
           if (stepOptionsEmpty && value instanceof CancelablePromise && value.constructor === CancelablePromise) {
             source = value;
           } else {
-            // Only reached off the yielded-CancelablePromise fast path, so an ordinary step never
-            // pays for the marker lookup
+            // Only reached off the yielded-CancelablePromise fast path, so a step yielding a plain
+            // CancelablePromise never pays for the marker lookup
             const loop: ILoopHandle | undefined = isObject(value) ? (value as any)[REGISTER_CLEANUP] : undefined;
 
             if (loop !== undefined) {
-              loop._registry = pendingCleanups;
-              pendingCleanups.push(loop);
+              registerLoopHandle(loop, pendingCleanups);
               onFulfilled(undefined);
 
               return;
@@ -438,6 +437,26 @@ export function cancAsync<
           let next: IteratorResult<any>;
           try {
             next = gen.return(canceledReason);
+          } catch (err) {
+            genDone = true;
+            rejectDrained(err);
+            return;
+          }
+          pumpFinally(next);
+          return;
+        }
+
+        // A handle opened inside a finally must reach the registry the ordinary step path uses, or
+        // nothing closes its source
+        const drainLoop: ILoopHandle | undefined =
+          isObject(result.value) ? (result.value as any)[REGISTER_CLEANUP] : undefined;
+
+        if (drainLoop !== undefined) {
+          registerLoopHandle(drainLoop, pendingCleanups);
+
+          let next: IteratorResult<any>;
+          try {
+            next = gen.next(undefined);
           } catch (err) {
             genDone = true;
             rejectDrained(err);
@@ -712,6 +731,11 @@ function disposeLoop(loop: ILoopHandle): PromiseLike<void> | undefined {
   }
 
   return loop._disposed;
+}
+
+function registerLoopHandle(loop: ILoopHandle, registry: ILoopHandle[]): void {
+  loop._registry = registry;
+  registry.push(loop);
 }
 
 // A handle that closed itself drops out, so the settle path has nothing to wait on in the
