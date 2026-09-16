@@ -25,8 +25,10 @@ export interface ILimited<K extends IPromiseKind = IPromiseLikeKind> {
    */
   concurrency: number;
   /**
-   * Drops every queued job so nothing further starts, then stops what is already running. The
-   * limiter stays usable afterward: a later call queues and runs as before.
+   * Drops every queued job so nothing further starts, then stops what is already running. Stopping
+   * a running job needs a cancelable implementation: against a plain Promise the queued jobs are
+   * rejected and whatever is already running is left to finish. The limiter stays usable
+   * afterward, so a later call queues and runs as before.
    */
   cancel(reason?: any): void;
 }
@@ -41,6 +43,8 @@ interface IEntry {
   job: unknown;
   /** Whether abandon was called before handle was assigned. */
   abandoned?: boolean;
+  /** Whether this entry already settled its own promise, tracked locally rather than probed. */
+  settled?: boolean;
   /** Cancel reason passed to abandon before handle was assigned. */
   abandonReason?: any;
   start(): void;
@@ -133,12 +137,14 @@ export function limitFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
             try {
               raw = fn(...args);
             } catch (err) {
+              entry.settled = true;
               release(entry);
               reject(err);
               return;
             }
 
             if (!isThenableLike<T>(raw)) {
+              entry.settled = true;
               release(entry);
               resolve(raw);
               return;
@@ -177,6 +183,7 @@ export function limitFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
 
               if (reason !== undefined) (err as any).cause = reason;
 
+              entry.settled = true;
               reject(err);
             }
           },
@@ -204,7 +211,9 @@ export function limitFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
       // Only reachable from here: the executor, and any job it pumped, ran during construction
       if (created) {
         created.handle = handle;
-        if (created.abandoned && isCancelableLike(handle)) {
+
+        // Nothing to cancel once it settled during construction, and strict would throw
+        if (created.abandoned && !created.settled && isCancelableLike(handle)) {
           handle.cancel(created.abandonReason);
         }
       }

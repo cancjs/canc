@@ -377,6 +377,47 @@ describe('limit', () => {
     expect(limited.active).toBe(0);
   });
 
+  it('resolves normally when a job cancels the limiter and then returns a plain value', async () => {
+    const previous = CancelablePromise.defaultOptions.strict;
+
+    CancelablePromise.defaultOptions.strict = true;
+
+    try {
+      const limited = limit(1);
+      const handle = limited(() => {
+        limited.cancel();
+
+        return 42;
+      });
+
+      expect(await handle).toBe(42);
+      expect(limited.active).toBe(0);
+    } finally {
+      CancelablePromise.defaultOptions.strict = previous;
+    }
+  });
+
+  it('rejects the handle, and not the call site, when a job cancels the limiter and then throws', async () => {
+    const previous = CancelablePromise.defaultOptions.strict;
+
+    CancelablePromise.defaultOptions.strict = true;
+
+    try {
+      const limited = limit(1);
+      const failure = new Error('BOOM');
+      const handle = limited(() => {
+        limited.cancel();
+
+        throw failure;
+      });
+
+      await expect(handle).rejects.toBe(failure);
+      expect(limited.active).toBe(0);
+    } finally {
+      CancelablePromise.defaultOptions.strict = previous;
+    }
+  });
+
   it('keeps the slot held for a non-cancelable running job until that job settles', async () => {
     const limited = limit(1);
     let resolveNativeJob: (() => void) | undefined;
