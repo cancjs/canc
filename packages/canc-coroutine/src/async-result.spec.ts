@@ -1,7 +1,7 @@
 import { CancelablePromise, Failing, FailureOf } from '@cancjs/promise';
 
 import { Eq } from '../../../tests-types/fixtures/common/assert-type';
-import { AsyncResult, BreakError, cancAsync, cancAwait, cancForAwait } from './coroutine';
+import { AsyncResult, BreakError, cancAsync, cancAwait, cancForAwait, ICancForAwaitLoop } from './coroutine';
 
 // Type-level only: no runtime assertions needed, ts-jest typechecks this file on every run,
 // so a signature regression fails the test the same way a broken assertion would.
@@ -119,6 +119,16 @@ function* forAwaitSugarAnnotated(): AsyncResult<number> {
   return 42;
 }
 
+function* forAwaitSugarAnnotatedFailureSet(loop: ICancForAwaitLoop<number>): AsyncResult<number, FooError> {
+  for (const item of loop) {
+    void item;
+    // Advance yields unknown, which narrowed failure set rejects, so body uses stored handle
+    // @ts-expect-error TS2322
+    yield* cancForAwait.next();
+  }
+  return 42;
+}
+
 function* forAwaitMismatchedAnnotation(): Generator<Failing<FooError>, number, any> {
   // @ts-expect-error TS2322
   yield* cancForAwait([1, 2], () => {});
@@ -138,6 +148,7 @@ void forAwaitToArrayInferFn;
 void forAwaitHandleInferFn;
 void forAwaitSugarInferFn;
 void forAwaitSugarAnnotated;
+void forAwaitSugarAnnotatedFailureSet;
 void forAwaitMismatchedAnnotation;
 void forAwaitMatchedAnnotation;
 void checkForAwaitInfer;
