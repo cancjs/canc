@@ -16,6 +16,12 @@ actually helps is being able to say which of several pending DOM tasks matters m
 to change that answer as the user scrolls, which is exactly what a prioritized task scheduler is
 for.
 
+## Error handling
+
+Cancellations flow through promise rejections. The app-level `register()` guard installed at the
+entry point intercepts unhandled rejections, so neither placeholder promises nor manual suppression
+are necessary here.
+
 ## Prerequisites
 
 The examples consume the built `dist` of each `@cancjs/*` package through a npm `file:`.

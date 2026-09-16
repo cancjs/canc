@@ -1,7 +1,7 @@
 // shell wiring for search, chunked render, and background prefetch
 
 import * as canc from '@cancjs/coroutine';
-import { CancelablePromise, suppressCancel } from '@cancjs/promise';
+import { CancelablePromise, createCancelSignal } from '@cancjs/promise';
 import { cancelify, debounce } from '@cancjs/toolbox';
 import { register } from '@cancjs/unhandled-rejection';
 import { createMockApi, Invoice } from '@shared/mock-api';
@@ -143,7 +143,7 @@ function toInvoiceRows(invoices: readonly Invoice[]): IInvoiceRow[] {
 }
 
 let currentRun: CancelablePromise<void> | undefined;
-let session: CancelablePromise<void> | undefined;
+let session: ReturnType<typeof createCancelSignal> | undefined;
 let currentLifetime: ReturnType<typeof toTaskSignal> | undefined;
 let totalForRun = 0;
 
@@ -164,10 +164,9 @@ function startQuery(filterText: string, chunkSize: number): void {
   counters.reportPrefetchesCanceled += trackedPrefetches.size;
   renderReportCounters(reportPanel, counters);
 
-  const nextSession = new CancelablePromise<void>(() => undefined);
-  suppressCancel(nextSession);
-  session = nextSession;
-  currentLifetime = toTaskSignal(nextSession);
+  const lifetime = createCancelSignal();
+  session = lifetime;
+  currentLifetime = toTaskSignal(lifetime.signal);
 
   tbody.replaceChildren();
   totalForRun = 0;
@@ -175,7 +174,6 @@ function startQuery(filterText: string, chunkSize: number): void {
 
   const run = runQuery(filterText, chunkSize);
   currentRun = run;
-  void suppressCancel(run);
 }
 
 function currentChunkSize(): number {
