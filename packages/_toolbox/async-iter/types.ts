@@ -99,22 +99,4 @@ export function isPipeable(value: unknown): value is IPipeableAsyncIterable<any>
  */
 export type AnyIterable<T> = AsyncIterable<T> | Iterable<T>;
 
-/**
- * Minimal promise constructor contract required by async iterable execution algorithms.
- *
- * Abstracts promise creation and resolution across native `Promise` and `CancelablePromise` implementations.
- */
-export interface TPromiseCtor {
-  new <T>(
-    executor: (resolve: (value: T | PromiseLike<T>) => void, reject: (reason?: any) => void, ctx?: any) => void,
-    options?: any,
-  ): PromiseLike<T>;
-  resolve<T>(value: T | PromiseLike<T>): PromiseLike<T>;
-}
-
-/**
- * Factory contract for wrapping an async iterable with `.pipe()` composition support.
- *
- * Matches the signature of `makePipeable` used when constructing pipeable iterable pipelines.
- */
-export type TMakePipeableFactory = <T>(asyncIterable: AsyncIterable<T>) => IPipeableAsyncIterable<T>;
+export type { TPromiseCtor } from '../construct';
