@@ -152,7 +152,7 @@ export class CancelScope {
 
     // The onabort hook below is a `function` because it must forward the event target's own
     // receiver to any previously installed handler, so this scope cannot become an arrow.
-    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    // eslint-disable-next-line @typescript-eslint/no-this-alias -- hook must stay a function to forward its own receiver
     const self = this;
 
     if (original.aborted) {
