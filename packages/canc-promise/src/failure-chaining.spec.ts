@@ -178,7 +178,9 @@ describe('failure chaining and statics', () => {
     const bad = false;
     const p = CancelablePromise.resolve(1);
 
-    // callback throw has no return type so FailureOf stays never
+    // KNOWN LIMITATION, pinned on purpose: failure computation reads callback RETURN type
+    // and a throw has no return type. `never` is correct here for callback returning `number`,
+    // do not "fix" this to FooError; test exists to prevent silently "fixing" the never below
     const thrown = p.then((v) => {
       if (bad) throw new FooError();
       return v;

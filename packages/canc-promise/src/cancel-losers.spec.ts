@@ -216,8 +216,9 @@ describe('cancel-losers doctrine', () => {
     const _result = CancelablePromise.allSettled([p1, p2, p3]);
     await macrotask();
 
-    // allSettled wraps inputs to keep all() from seeing rejections directly,
-    // leaving losers uncanceled
+    // allSettled() wraps inputs in .then() that convert results to {status, reason} objects,
+    // so the underlying all() never sees a rejection from p1/p2/p3 themselves,
+    // thus no loser-cancellation doctrine triggers; p2, p3 remain pending (not canceled)
     expect(p2.isCanceled).toBe(false);
     expect(p3.isCanceled).toBe(false); // allSettled waits, no-op per doctrine
   });

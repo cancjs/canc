@@ -50,7 +50,10 @@ module.exports = {
     },
     './src/cancel-error.ts': {
       statements: 95,
-      // branches capped at 90 because TS es5 __extends() fallback '|| this' is unreachable on spec Error
+      // branches capped at 90 (not 95): TS es5 target compiles `class CancelError extends Error`
+      // via the __extends() helper's `_super.call(this, reason) || this` fallback; the `|| this`
+      // side is dead by spec because Error [[Call]] returns an object. Verified both logical
+      // sides of every other branch in this file are exercised (see cancel-error.spec.ts)
       branches: 90,
       lines: 95,
     },

@@ -43,7 +43,9 @@ export function makeCatch(deps: IErrorMatchDeps) {
   const isCaught = makeIsCaught(deps);
 
   return function catchError(errorOrPromise: any, options?: ICatchSuppressOptions): any {
-    // duck-check via isThenable to handle foreign thenables and dual-copy instances
+    // todo: duck-check via isThenable (not `instanceof CancelablePromise`) so foreign thenables,
+    // native Promise, dual-package copies, and other cancelables avoid falling through to error
+    // branch where they throw; CancelablePromise.resolve wraps to unify .catch() handling
     if (isThenable(errorOrPromise)) {
       return new CancelablePromise((resolve, reject, ctx) => {
         CancelablePromise.resolve(errorOrPromise).then(resolve, (error: any) => {
