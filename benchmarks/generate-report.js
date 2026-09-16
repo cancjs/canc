@@ -32,7 +32,7 @@ function readJson(file) {
 
 function fmtEnvLine(env) {
   if (!env) return '(no env captured)';
-  return `Node ${env.node} / ${env.platform}/${env.arch} / ${env.cpuModel} (${env.cpuCount} cores) / captured ${env.timestamp}`;
+  return `Node ${env.node} · ${env.platform}/${env.arch} · ${env.cpuModel} (${env.cpuCount} cores) · captured ${env.timestamp}`;
 }
 
 function num(n, digits) {
@@ -52,7 +52,7 @@ function renderTinybenchSuite(result) {
   lines.push('|------|--------:|-------:|----------:|--------:|');
   for (const task of tasks) {
     const ops = task.opsPerSec != null ? Math.round(task.opsPerSec) : 'n/a';
-    const margin = task.marginPct != null ? `+/-${num(task.marginPct, 2)}%` : 'n/a';
+    const margin = task.marginPct != null ? `±${num(task.marginPct, 2)}%` : 'n/a';
     const mean = num(task.meanMs, 4);
     lines.push(`| ${task.name} | ${ops} | ${margin} | ${mean} | ${task.samples} |`);
   }
@@ -89,12 +89,12 @@ function renderMacroSuite(result) {
   lines.push('');
   lines.push(
     `Flows: waterfall (5 sequential + 3 parallel requests, ${Math.round(params.waterfallCancelRate * 100)}% ` +
-      `canceled mid-flight) x ${params.waterfallRuns.toLocaleString('en-US')} / component-lifecycle (mount to ` +
-      `${params.lifecycleRequests} requests to unmount-cancel) x ${params.lifecycleRuns.toLocaleString('en-US')}.`,
+      `canceled mid-flight) × ${params.waterfallRuns.toLocaleString('en-US')} · component-lifecycle (mount → ` +
+      `${params.lifecycleRequests} requests → unmount-cancel) × ${params.lifecycleRuns.toLocaleString('en-US')}.`,
   );
   lines.push('');
 
-  lines.push('#### Waterfall: overhead per request operation');
+  lines.push('#### Waterfall — overhead per request operation');
   lines.push('');
   lines.push('| Impl | µs/op | vs native | µs/run | total ms |');
   lines.push('|------|------:|----------:|-------:|---------:|');
@@ -102,7 +102,7 @@ function renderMacroSuite(result) {
     const r = results[key].waterfall;
     const vsNative =
       key === 'native' || nativeUs == null ?
-        '-'
+        '—'
       : `${r.usPerOp >= nativeUs ? '+' : ''}${(((r.usPerOp - nativeUs) / nativeUs) * 100).toFixed(1)}%`;
     lines.push(
       `| ${results[key].name} | ${num(r.usPerOp, 3)} | ${vsNative} | ${num(r.usPerRun, 3)} | ${Math.round(r.totalMs)} |`,
@@ -110,7 +110,7 @@ function renderMacroSuite(result) {
   }
   lines.push('');
 
-  lines.push('#### Component-lifecycle: overhead per request operation');
+  lines.push('#### Component-lifecycle — overhead per request operation');
   lines.push('');
   lines.push('| Impl | µs/op | vs native | µs/run | total ms |');
   lines.push('|------|------:|----------:|-------:|---------:|');
@@ -122,7 +122,7 @@ function renderMacroSuite(result) {
     let vsNative;
     let nameSuffix = '';
     if (key === 'native' || nativeLifecycleUs == null) {
-      vsNative = '-';
+      vsNative = '—';
     } else if (!comparable) {
       vsNative = 'n/c*';
       nameSuffix = '*';
@@ -143,7 +143,7 @@ function renderMacroSuite(result) {
     lines.push('');
   }
 
-  lines.push('#### Memory: retained heap per 1000 in-flight requests');
+  lines.push('#### Memory — retained heap per 1000 in-flight requests');
   lines.push('');
   lines.push('| Impl | MB / 1k in-flight |');
   lines.push('|------|------------------:|');
@@ -171,7 +171,7 @@ function renderBrowserLane(result) {
   for (const b of result.browsers) {
     for (const task of b.tasks) {
       const ops = task.opsPerSec != null ? Math.round(task.opsPerSec) : 'n/a';
-      const margin = task.marginPct != null ? `+/-${num(task.marginPct, 2)}%` : 'n/a';
+      const margin = task.marginPct != null ? `±${num(task.marginPct, 2)}%` : 'n/a';
       lines.push(
         `| ${b.browser} ${b.version} | ${task.suite} | ${task.name} | ${ops} | ${margin} | ${num(task.meanMs, 4)} | ${task.samples} |`,
       );
@@ -205,15 +205,15 @@ function buildSummaryTable(resultsByFile) {
     if (native && canc && bb) {
       lines.push(
         `| micro: then-chain depth 10 | native ${Math.round(native.opsPerSec).toLocaleString('en-US')} ops/s ` +
-          `/ canc ${Math.round(canc.opsPerSec).toLocaleString('en-US')} ops/s ` +
-          `/ bluebird ${Math.round(bb.opsPerSec).toLocaleString('en-US')} ops/s |`,
+          `· canc ${Math.round(canc.opsPerSec).toLocaleString('en-US')} ops/s ` +
+          `· bluebird ${Math.round(bb.opsPerSec).toLocaleString('en-US')} ops/s |`,
       );
     }
   }
 
   const alloc = resultsByFile['micro-alloc.json'];
   if (alloc) {
-    const rows = alloc.allocation.map((r) => `${r.name} ${r.heapDeltaPerPromise}B/promise`).join(' / ');
+    const rows = alloc.allocation.map((r) => `${r.name} ${r.heapDeltaPerPromise}B/promise`).join(' · ');
     lines.push(`| micro-alloc: 10k promises | ${rows} |`);
   }
 
@@ -225,7 +225,7 @@ function buildSummaryTable(resultsByFile) {
     const cancPct = (((canc - native) / native) * 100).toFixed(0);
     const bbPct = (((bb - native) / native) * 100).toFixed(0);
     lines.push(
-      `| macro: waterfall (5+3 requests, 30% canceled) | canc +${cancPct}% vs native / ` +
+      `| macro: waterfall (5+3 requests, 30% canceled) | canc +${cancPct}% vs native · ` +
         `bluebird +${bbPct}% vs native |`,
     );
   }
