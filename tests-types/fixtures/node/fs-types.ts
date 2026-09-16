@@ -17,6 +17,7 @@ import * as nodeFs from 'node:fs';
 import * as nodeFsp from 'node:fs/promises';
 
 import * as fs from '../../../packages/canc-node/src/fs';
+import { decorate } from '../../../packages/canc-node/src/fs/file-handle';
 import * as sync from '../../../packages/canc-node/src/fs/sync';
 import { TNodeSignatures } from '../../../packages/canc-node/src/fs/wrap';
 import { Equal, Expect, IsAny, IsUnknown, Not } from '../common/assert-type';
@@ -70,7 +71,7 @@ export function overloadsSurvive(path: string, handle: nodeFsp.FileHandle) {
   const found = fs.exists(path);
   const reachable = fs.access(path);
 
-  type A12 = Expect<SameAsNode<typeof opened, ReturnType<typeof nodeFsp.open>>>;
+  type A12 = Expect<Equal<typeof opened, CancelablePromise<fs.TCancelableFileHandle>>>;
   type A13 = Expect<Equal<typeof found, CancelablePromise<boolean>>>;
   type A14 = Expect<Equal<typeof reachable, CancelablePromise<void>>>;
 
@@ -91,6 +92,24 @@ export function overloadsSurvive(path: string, handle: nodeFsp.FileHandle) {
     reachable,
     handle,
   ] as const;
+}
+
+export async function fileHandleAssertions(path: string, nativeHandle: nodeFsp.FileHandle) {
+  const fh = await fs.open(path);
+  fh.readFile().cancel();
+
+  const decorated = decorate(nativeHandle);
+  decorated.readFile().cancel();
+
+  const rs = fh.createReadStream();
+  rs.pipe;
+
+  type H1 = Expect<Equal<ReturnType<fs.TCancelableFileHandle['readableWebStream']>, ReturnType<nodeFsp.FileHandle['readableWebStream']>>>;
+  type H2 = Expect<Equal<ReturnType<fs.TCancelableFileHandle['createReadStream']>, ReturnType<nodeFsp.FileHandle['createReadStream']>>>;
+  type H3 = Expect<Equal<typeof fh, fs.TCancelableFileHandle>>;
+  type H4 = Expect<Equal<typeof decorated, fs.TCancelableFileHandle>>;
+
+  return [fh, rs, decorated] as const;
 }
 
 export function wrongArgumentsAreRejected(path: string) {
