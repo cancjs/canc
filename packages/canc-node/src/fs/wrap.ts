@@ -147,7 +147,7 @@ export const toolboxDeps: IToolboxDeps<ICancelableKind> = {
 };
 
 /** Promisify bound to CancelablePromise, for the callback API a custom implementation can patch. */
-export const promisifyWrapped = promisifyFactory(toolboxDeps);
+const promisify = promisifyFactory(toolboxDeps);
 
 /** Major, minor and patch of a node version, `v` prefix optional, missing or unparsable parts zero. */
 function versionParts(version: string): [number, number, number] {
@@ -263,17 +263,17 @@ function withSignalAt(args: unknown[], optionsIndex: number, signal: unknown): u
  * AbortError or our CancelError depending on timing.
  */
 function takeCallerSignal(args: unknown[], optionsIndex: number): ICallerSignalCall {
-  const options = args[optionsIndex] as TNodeOptions;
-  if (!options || typeof options === 'string') {
+  const options = args[optionsIndex];
+  if (typeof options !== 'object' || options === null) {
     return { args, callerSignal: undefined };
   }
 
-  const callerSignal = options.signal;
+  const callerSignal = (options as Record<string, unknown>).signal;
   if (!isAbortSignalLike(callerSignal)) {
     return { args, callerSignal: undefined };
   }
 
-  const { signal: _signal, ...rest } = options;
+  const { signal: _signal, ...rest } = options as Record<string, unknown>;
   const callArgs = args.slice();
   callArgs[optionsIndex] = rest;
 
@@ -295,13 +295,16 @@ export function signalWrapped<R = unknown>(
   const forwards = acceptsSignal(entry);
 
   return function signalWrappedCall(this: unknown, ...args: unknown[]): CancelablePromise<R> {
-    if (!forwards) {
-      return new CancelablePromise<R>((resolve) => {
-        resolve(nodeFn.apply(this, args) as R | PromiseLike<R>);
-      });
-    }
-
     const call = takeCallerSignal(args, optionsIndex);
+
+    if (!forwards) {
+      return new CancelablePromise<R>(
+        (resolve) => {
+          resolve(nodeFn.apply(this, call.args) as R | PromiseLike<R>);
+        },
+        { signal: call.callerSignal },
+      );
+    }
 
     return new CancelablePromise<R>(
       (resolve, _reject, { getSignal }) => {
@@ -310,6 +313,28 @@ export function signalWrapped<R = unknown>(
       },
       { signal: call.callerSignal },
     );
+  };
+}
+
+/**
+ * Promisify a callback-style node call, lifting any caller signal to the promise and leaving
+ * the options bag without a signal key for node.
+ *
+ * @param nodeFn - Callback-style node function taking an errfirst callback last.
+ * @param optionsIndex - Argument position node reads options from.
+ */
+export function promisifyWrapped<R = unknown>(
+  nodeFn: TNodeFn,
+  optionsIndex = 0,
+): (...args: unknown[]) => CancelablePromise<R> {
+  const plain = promisify(nodeFn);
+
+  return function promisifyWrappedCall(this: unknown, ...args: unknown[]): CancelablePromise<R> {
+    const call = takeCallerSignal(args, optionsIndex);
+
+    const bound = call.callerSignal ? promisify(nodeFn, { signal: call.callerSignal }) : plain;
+
+    return bound.apply(this, call.args) as CancelablePromise<R>;
   };
 }
 
@@ -326,20 +351,22 @@ export function promisifySignalWrapped<R = unknown>(
   entry: IManifestEntry | undefined,
   optionsIndex = 0,
 ): (...args: unknown[]) => CancelablePromise<R> {
-  if (!acceptsSignal(entry)) {
-    return promisifyWrapped(nodeFn);
-  }
+  const forwards = acceptsSignal(entry);
+  const transformArgs =
+    forwards ?
+      (args: unknown[], getSignal: () => unknown): unknown[] => withSignalAt(args, optionsIndex, getSignal())
+    : undefined;
 
-  const transformArgs = (args: unknown[], getSignal: () => unknown): unknown[] =>
-    withSignalAt(args, optionsIndex, getSignal());
-
-  const plain = promisifyWrapped(nodeFn, { transformArgs });
+  const plain = promisify(nodeFn, transformArgs ? { transformArgs } : undefined);
 
   return function promisifySignalWrappedCall(this: unknown, ...args: unknown[]): CancelablePromise<R> {
     const call = takeCallerSignal(args, optionsIndex);
 
     // promisify reads its options once, at wrap time, so a per-call signal needs its own binding
-    const bound = call.callerSignal ? promisifyWrapped(nodeFn, { transformArgs, signal: call.callerSignal }) : plain;
+    const bound =
+      call.callerSignal ?
+        promisify(nodeFn, transformArgs ? { transformArgs, signal: call.callerSignal } : { signal: call.callerSignal })
+      : plain;
 
     return bound.apply(this, call.args) as CancelablePromise<R>;
   };
@@ -387,12 +414,17 @@ export function teardownWrapped<R = unknown>(
  * completion, which is the same guarantee node itself gives for these.
  *
  * @param nodeFn - Underlying node function, called with the receiver of the returned wrapper.
+ * @param optionsIndex - Argument position node reads options from.
  */
-export function adopted<R = unknown>(nodeFn: TNodeFn): (...args: unknown[]) => CancelablePromise<R> {
+export function adopted<R = unknown>(nodeFn: TNodeFn, optionsIndex = 0): (...args: unknown[]) => CancelablePromise<R> {
   return function adoptedCall(this: unknown, ...args: unknown[]): CancelablePromise<R> {
-    return new CancelablePromise<R>((resolve) => {
-      resolve(nodeFn.apply(this, args) as R | PromiseLike<R>);
-    });
+    const call = takeCallerSignal(args, optionsIndex);
+    return new CancelablePromise<R>(
+      (resolve) => {
+        resolve(nodeFn.apply(this, call.args) as R | PromiseLike<R>);
+      },
+      { signal: call.callerSignal },
+    );
   };
 }
 
@@ -403,7 +435,8 @@ export function adopted<R = unknown>(nodeFn: TNodeFn): (...args: unknown[]) => C
  * There is nothing to adopt: resolving a promise with an async iterable fulfills WITH the iterable,
  * so `for await` over the result stops working. There is nothing to cancel either, because the
  * caller holds the iterator and node already stops one from a `signal` in the options bag. Leaving
- * the arguments alone is what lets that signal through.
+ * the arguments alone is what lets that signal through. This is the one deliberate exception to
+ * lifting the caller signal to the promise.
  *
  * @param nodeFn - Underlying node function, called with the receiver of the returned wrapper.
  */

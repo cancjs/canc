@@ -286,4 +286,86 @@ describe('@cancjs/node/fs module exports', () => {
       nodeFs.rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it('rejects when the caller aborts a signal node does not accept', async () => {
+    const fakeFs = {
+      ...nodeFs,
+      stat: () => {
+        // never calls back so only caller abort can settle it
+      },
+    };
+    setFs(fakeFs);
+
+    const controller = new AbortController();
+    const p = fsExports.stat(__filename, { signal: controller.signal } as any);
+    controller.abort();
+
+    await expect(
+      Promise.race([
+        p,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout: stat ignored caller signal')), 100)),
+      ]),
+    ).rejects.toThrow(CancelError);
+  });
+
+  it('rejects when the caller aborts an adopted export (mkdir) or promisifyWrapped export (rename)', async () => {
+    const fakeFs = {
+      ...nodeFs,
+      rename: () => {
+        // never calls back so only caller abort can settle it
+      },
+    };
+    setFs(fakeFs);
+
+    const controllerRename = new AbortController();
+    const pRename = (fsExports.rename as any)('old.txt', 'new.txt', { signal: controllerRename.signal });
+    controllerRename.abort();
+
+    await expect(
+      Promise.race([
+        pRename,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout: rename ignored caller signal')), 100)),
+      ]),
+    ).rejects.toThrow(CancelError);
+
+    // mkdir (adopted export)
+    const controllerMkdir = new AbortController();
+    controllerMkdir.abort();
+    const pMkdir = fsExports.mkdir(path.join(os.tmpdir(), 'canc-mkdir-never'), {
+      signal: controllerMkdir.signal,
+    } as any);
+
+    await expect(pMkdir).rejects.toThrow(CancelError);
+  });
+
+  it('works through viaFs when setFs uses a class instance with this', async () => {
+    class ClassFs {
+      readonly greeting = 'hello';
+      stat(_path: string, _options: any, cb: any) {
+        const callback = typeof _options === 'function' ? _options : cb;
+        if (this.greeting !== 'hello') {
+          throw new Error('lost this');
+        }
+        callback(null, { isFile: () => true });
+      }
+    }
+
+    setFs(new ClassFs() as any);
+    await expect(fsExports.stat('some-file')).resolves.toBeDefined();
+  });
+
+  it('routes exists through setFs', async () => {
+    const realExists = await fsExports.exists(__filename);
+    expect(realExists).toBe(true);
+
+    setFs({
+      ...nodeFs,
+      exists: (_p: string, cb: (exists: boolean) => void) => {
+        cb(false);
+      },
+    });
+
+    const fakeExists = await fsExports.exists(__filename);
+    expect(fakeExists).toBe(false);
+  });
 });

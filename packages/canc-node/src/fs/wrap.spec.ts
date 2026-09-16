@@ -3,10 +3,12 @@ import { CancelablePromise, CancelError, isCancelError } from '@cancjs/promise';
 import { NotImplementedError } from '../errors/classes';
 import {
   acceptsSignal,
+  adopted,
   gatedWrapped,
   IManifestEntry,
   passthrough,
   promisifySignalWrapped,
+  promisifyWrapped,
   signalWrapped,
   teardownWrapped,
 } from './wrap';
@@ -114,7 +116,8 @@ describe('wrap', () => {
       });
       const wrapped = signalWrapped(fake as any, neverSignal);
 
-      const p = wrapped({ someOpt: true });
+      const controller = new AbortController();
+      const p = wrapped({ signal: controller.signal, someOpt: true });
       await p;
 
       expect(receivedOptions).toBeDefined();
@@ -197,6 +200,49 @@ describe('wrap', () => {
 
       await expect(p).rejects.toThrow(CancelError);
       expect(receivedOptions.signal.aborted).toBe(true);
+    });
+  });
+
+  describe('promisifyWrapped', () => {
+    it('gives the promise a signal that aborts when caller aborts theirs, and strips signal from options', async () => {
+      let receivedOptions: any;
+      const fake = jest.fn((_path: string, options: any, _cb: (err: unknown) => void) => {
+        receivedOptions = options;
+      });
+      const wrapped = promisifyWrapped(fake as any, 1);
+
+      const controller = new AbortController();
+      const p = wrapped('file.txt', { signal: controller.signal, encoding: 'utf8' });
+
+      expect(receivedOptions).toBeDefined();
+      expect('signal' in receivedOptions).toBe(false);
+      expect(receivedOptions.encoding).toBe('utf8');
+
+      controller.abort();
+
+      await expect(p).rejects.toThrow(CancelError);
+    });
+  });
+
+  describe('adopted', () => {
+    it('gives the promise a signal that aborts when caller aborts theirs, and strips signal from options', async () => {
+      let receivedOptions: any;
+      const fake = jest.fn((_path: string, options: any) => {
+        receivedOptions = options;
+        return new Promise(() => {}); // hang
+      });
+      const wrapped = adopted(fake as any, 1);
+
+      const controller = new AbortController();
+      const p = wrapped('file.txt', { signal: controller.signal, recursive: true });
+
+      expect(receivedOptions).toBeDefined();
+      expect('signal' in receivedOptions).toBe(false);
+      expect(receivedOptions.recursive).toBe(true);
+
+      controller.abort();
+
+      await expect(p).rejects.toThrow(CancelError);
     });
   });
 
