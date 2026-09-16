@@ -1102,6 +1102,7 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
     instance._internalState = tempThis._internalState;
     // Cold fields stay on prototype default to avoid useless own properties
     // _cancelHandlers shared by reference between tempThis and instance
+    // _pendingSyncCancel(+Reason) carried the same way, transient tempThis-only state
     // Retains any handlers registered synchronously during executor run
     // Changing to blanket Object.assign wastes memory on every promise
     if (tempThis._cancelHandlers) {
@@ -1760,7 +1761,7 @@ const NativePromise = Promise;
 // Constructor chain inherits native static fallbacks and Symbol.species getter
 // Prototype chain inherits toString and ensures instances duck-check as Promises
 // Links point to captured NativePromise to avoid live global dependency
-// Changing this breaks Reflect.construct compatibility with ES5 targets
+// Changing this breaks species resolution and the Promise duck-check on instances
 Object.setPrototypeOf(CancelablePromise, NativePromise);
 
 Object.setPrototypeOf(CancelablePromise.prototype, NativePromise.prototype);
