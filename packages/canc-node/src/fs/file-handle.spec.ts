@@ -1,4 +1,7 @@
+import * as nodeFs from 'node:fs';
 import * as fs from 'node:fs/promises';
+import * as os from 'node:os';
+import * as path from 'node:path';
 
 import { CancelError } from '@cancjs/promise';
 import { describe, expect, jest, test } from '@jest/globals';
@@ -134,5 +137,86 @@ describe('FileHandle', () => {
     } catch (e: any) {
       expect(e.code === 'EBADF' || e.message.includes('closed')).toBe(true);
     }
+  });
+
+  test('createReadStream and createWriteStream return streams, not promises', async () => {
+    const dir = nodeFs.mkdtempSync(path.join(os.tmpdir(), 'canc-fh-streams-'));
+    const srcFile = path.join(dir, 'src.txt');
+    const dstFile = path.join(dir, 'dst.txt');
+    nodeFs.writeFileSync(srcFile, 'hello streams');
+
+    const srcFh = await fs.open(srcFile, 'r');
+    const dstFh = await fs.open(dstFile, 'w');
+    decorate(srcFh);
+    decorate(dstFh);
+
+    const rs = (srcFh as any).createReadStream();
+    expect(rs instanceof Promise).toBe(false);
+    expect(typeof rs.pipe).toBe('function');
+
+    const ws = (dstFh as any).createWriteStream();
+    expect(ws instanceof Promise).toBe(false);
+    expect(typeof ws.write).toBe('function');
+
+    await srcFh.close();
+    await dstFh.close();
+    nodeFs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('createReadStream pipes to createWriteStream end to end', async () => {
+    const dir = nodeFs.mkdtempSync(path.join(os.tmpdir(), 'canc-fh-pipe-'));
+    const srcFile = path.join(dir, 'src.txt');
+    const dstFile = path.join(dir, 'dst.txt');
+    nodeFs.writeFileSync(srcFile, 'pipe payload data');
+
+    const srcFh = await fs.open(srcFile, 'r');
+    const dstFh = await fs.open(dstFile, 'w');
+    decorate(srcFh);
+    decorate(dstFh);
+
+    const rs = (srcFh as any).createReadStream();
+    const ws = (dstFh as any).createWriteStream();
+
+    try {
+      rs.pipe(ws);
+    } catch (err) {
+      await srcFh.close();
+      await dstFh.close();
+      nodeFs.rmSync(dir, { recursive: true, force: true });
+      throw err;
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      ws.on('finish', () => resolve());
+      ws.on('error', reject);
+      rs.on('error', reject);
+    });
+
+    const copied = nodeFs.readFileSync(dstFile, 'utf8');
+    expect(copied).toBe('pipe payload data');
+
+    await srcFh.close();
+    await dstFh.close();
+    nodeFs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('readableWebStream and readLines still return node values', async () => {
+    const dir = nodeFs.mkdtempSync(path.join(os.tmpdir(), 'canc-fh-guards-'));
+    const testFile = path.join(dir, 'lines.txt');
+    nodeFs.writeFileSync(testFile, 'line1\nline2\n');
+
+    const fh = await fs.open(testFile, 'r');
+    decorate(fh);
+
+    const lines = (fh as any).readLines();
+    expect(lines instanceof Promise).toBe(false);
+    expect(typeof lines[Symbol.asyncIterator]).toBe('function');
+
+    const webStream = (fh as any).readableWebStream();
+    expect(webStream instanceof Promise).toBe(false);
+    expect(typeof webStream.getReader).toBe('function');
+
+    await fh.close();
+    nodeFs.rmSync(dir, { recursive: true, force: true });
   });
 });

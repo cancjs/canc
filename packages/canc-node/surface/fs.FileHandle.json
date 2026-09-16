@@ -127,7 +127,7 @@
           "26": "v20.0.0"
         }
       },
-      "wrapper": "cancelify-signal",
+      "wrapper": "passthrough",
       "failures": ["EBADF", "EISDIR"],
       "minMajor": 18,
       "gate": null,
@@ -148,7 +148,7 @@
         "probed": null,
         "sinceByMajor": null
       },
-      "wrapper": "cancelify-teardown",
+      "wrapper": "passthrough",
       "failures": ["EBADF"],
       "minMajor": 18,
       "gate": null,
@@ -214,7 +214,7 @@
           "26": "v25.9.0"
         }
       },
-      "wrapper": "gated",
+      "wrapper": "passthrough",
       "failures": ["EBADF", "EISDIR"],
       "minMajor": 24,
       "gate": "feature-detect",
@@ -222,7 +222,7 @@
         "deno": "unsupported",
         "bun": "unsupported"
       },
-      "notes": "Streaming pull API, Node 24.20.0+ / 25.9.0+",
+      "notes": "Returns stream.ByteReadableStream (async iterable and readable stream), not a promise; Node 24.20.0+ / 25.9.0+",
       "callPath": "promises"
     },
     {
@@ -515,7 +515,7 @@
         "probed": null,
         "sinceByMajor": null
       },
-      "wrapper": "gated",
+      "wrapper": "passthrough",
       "failures": ["EBADF"],
       "minMajor": 26,
       "gate": "feature-detect",
@@ -523,7 +523,7 @@
         "deno": "unsupported",
         "bun": "unsupported"
       },
-      "notes": "Node 25.9.0+ streaming writer API",
+      "notes": "Returns stream.Writer (stream writer object), not a promise; Node 25.9.0+",
       "callPath": "promises"
     },
     {

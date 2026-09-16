@@ -1,7 +1,7 @@
 import { CancelablePromise } from '@cancjs/promise';
 
 import manifest from '../../surface/fs.FileHandle.json';
-import { adopted, IManifestEntry, signalWrapped, teardownWrapped, TNodeFn } from './wrap';
+import { adopted, IManifestEntry, passthrough, signalWrapped, TNodeFn } from './wrap';
 
 /** A FileHandle member record, with the routing fields the decoration reads. */
 interface IMemberEntry extends IManifestEntry {
@@ -101,20 +101,11 @@ function wrap(name: string, nativeFn: TNodeFn, known?: IMemberEntry): TNodeFn {
     case 'cancelify-signal':
     case 'gated':
       return signalWrapped(nativeFn, entry, optionsIndex);
-    case 'cancelify-teardown':
-      return teardownWrapped(nativeFn, stopStream);
+    case 'passthrough':
+      return passthrough(nativeFn);
     case 'promisify-custom':
       return adopted(nativeFn);
     default:
       return entry?.cancelCategory === 'D' ? adopted(nativeFn) : nativeFn;
   }
-}
-
-/** Cancel teardown for the members handing back a stream or a handle of their own. */
-function stopStream(value: unknown): void {
-  const target = value as { close?: () => void; destroy?: () => void } | null | undefined;
-  if (!target) return;
-
-  if (typeof target.close === 'function') target.close();
-  else if (typeof target.destroy === 'function') target.destroy();
 }
