@@ -1,7 +1,7 @@
 import { type CancelablePromise, isCancelError } from '@cancjs/promise';
 import { onScopeDispose, type Ref, ref, shallowRef } from 'vue';
 
-export type PromiseStatus = 'idle' | 'pending' | 'resolved' | 'rejected';
+export type PromiseStatus = 'idle' | 'pending' | 'fulfilled' | 'rejected';
 
 export interface UseCancelablePromise<T> {
   /** The resolved value, or `undefined` until the first run settles. */
@@ -52,7 +52,7 @@ export function useCancelablePromise<T>(
       data.value = value;
       error.value = undefined;
       pending.value = false;
-      status.value = 'resolved';
+      status.value = 'fulfilled';
     },
     (reason) => {
       pending.value = false;

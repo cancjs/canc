@@ -60,7 +60,7 @@ describe('useCancelablePromise', () => {
     expect(state.data.value).toBeUndefined();
   });
 
-  it('sets status to resolved and populates data on success', async () => {
+  it('sets status to fulfilled and populates data on success', async () => {
     const deferred = createDeferred<string>();
     let state!: ReturnType<typeof useCancelablePromise<string>>;
 
@@ -73,7 +73,7 @@ describe('useCancelablePromise', () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(state.status.value).toBe('resolved');
+    expect(state.status.value).toBe('fulfilled');
     expect(state.pending.value).toBe(false);
     expect(state.data.value).toBe('ok');
     expect(state.error.value).toBeUndefined();
