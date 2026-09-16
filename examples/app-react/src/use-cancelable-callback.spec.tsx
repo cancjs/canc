@@ -113,7 +113,6 @@ describe('useCancelableCallback cancelPrevious', () => {
 
   it('cancelPrevious: false rejects a call made while one is already pending, leaving it untouched', async () => {
     const first = createDeferred<string>();
-    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
     function TestComponent(props: { onSecondReject: (err: unknown) => void }): React.JSX.Element {
       const { run } = useCancelableCallback(() => first.promise, { cancelPrevious: false });
@@ -143,25 +142,26 @@ describe('useCancelableCallback cancelPrevious', () => {
 
     expect(onSecondReject).toHaveBeenCalledTimes(1);
     expect(first.cancelReason()).toBeUndefined();
-    errorSpy.mockRestore();
   });
 
-  it('routes rejection from a conflict call through the error boundary when cancelPrevious is false', async () => {
+  it('does not reach the error boundary on a busy conflict', async () => {
     const first = createDeferred<string>();
-    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     const onCatch = jest.fn();
 
     function TestComponent(): React.JSX.Element {
       const { run } = useCancelableCallback(() => first.promise, { cancelPrevious: false });
       return (
-        <button
-          onClick={() => {
-            void run();
-            void run();
-          }}
-        >
-          go
-        </button>
+        <div>
+          <span data-testid="search-form" />
+          <button
+            onClick={() => {
+              void run();
+              void run();
+            }}
+          >
+            go
+          </button>
+        </div>
       );
     }
 
@@ -177,9 +177,49 @@ describe('useCancelableCallback cancelPrevious', () => {
       await Promise.resolve();
     });
 
-    expect(onCatch).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId('boundary-caught')).toBeInTheDocument();
-    errorSpy.mockRestore();
+    expect(onCatch).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('boundary-caught')).toBeNull();
+    expect(screen.getByTestId('search-form')).toBeInTheDocument();
+  });
+
+  it('rejects an awaited conflict call and leaves the tree mounted', async () => {
+    const first = createDeferred<string>();
+    const onCatch = jest.fn();
+    let conflict: CancelablePromise<string> | undefined;
+
+    function TestComponent(): React.JSX.Element {
+      const { run } = useCancelableCallback(() => first.promise, { cancelPrevious: false });
+      return (
+        <div>
+          <span data-testid="search-form" />
+          <button
+            onClick={() => {
+              void run();
+              conflict = run();
+            }}
+          >
+            go
+          </button>
+        </div>
+      );
+    }
+
+    render(
+      <RecordingErrorBoundary onCatch={onCatch}>
+        <TestComponent />
+      </RecordingErrorBoundary>,
+    );
+
+    fireEvent.click(screen.getByText('go'));
+
+    // inside act so any render React schedules from the rejection is flushed before the asserts
+    await act(async () => {
+      await expect(conflict).rejects.toThrow(/already pending/);
+    });
+
+    expect(onCatch).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('boundary-caught')).toBeNull();
+    expect(screen.getByTestId('search-form')).toBeInTheDocument();
   });
 });
 

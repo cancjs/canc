@@ -7,6 +7,11 @@ import { useCallback, useRef, useState } from 'react';
  * immediately, leaving the in-flight run untouched (queuing was the other option considered;
  * rejection was chosen so a caller sees the conflict at the call site instead of a silent
  * backlog building up behind an event handler).
+ *
+ * That conflict rejection stays at the call site. It reports a call that never started, not a
+ * failure of the work, so it is not escalated to an error boundary. The hook marks it handled,
+ * which keeps a fire-and-forget `void run()` from turning a double click into an unhandled
+ * rejection; a handler the caller attaches still runs.
  */
 export interface UseCancelableCallbackOptions {
   /**
@@ -24,9 +29,10 @@ export interface UseCancelableCallbackOptions {
  * cleanup) and accepts an override for other call sites.
  *
  * A superseded or unmount-time cancel is expected, not an error, so the hook swallows the
- * resulting `CancelError` itself. Any other rejection is escalated to the nearest React error
- * boundary by throwing from a state update, matching `useCancelableEffect`. This prevents
- * fire-and-forget `void run()` calls from silently dropping unexpected failures.
+ * resulting `CancelError` itself. Any other rejection of a run it started is escalated to the
+ * nearest React error boundary by throwing from a state update, matching `useCancelableEffect`.
+ * This prevents fire-and-forget `void run()` calls from silently dropping unexpected failures.
+ * A `cancelPrevious: false` conflict is not such a rejection, see the file header.
  */
 export function useCancelableCallback<TArgs extends unknown[], TResult>(
   factory: (...args: TArgs) => CancelablePromise<TResult>,
@@ -57,12 +63,10 @@ export function useCancelableCallback<TArgs extends unknown[], TResult>(
           const rejected = CancelablePromise.reject<TResult, unknown>(
             new Error('useCancelableCallback: a call is already pending (cancelPrevious is false)'),
           );
-          rejected.then(undefined, (error: unknown) => {
-            if (isCancelError(error)) return;
-            escalateToErrorBoundary(() => {
-              throw error;
-            });
-          });
+          // no escalation here: the conflict is a signal this hook mints about a call that never
+          // started, not a failure of the wrapped work the boundary exists for
+          // attaching a handler only marks it handled, so a fire-and-forget call stays quiet
+          rejected.then(undefined, () => undefined);
           return rejected;
         }
         pendingRun.current.cancel(CANCEL_REASON_SUPERSEDED);

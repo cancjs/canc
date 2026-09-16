@@ -77,14 +77,17 @@ future `@cancjs/react` package.
 - `useCancelableCallback(factory, options?)`: imperative call for event handlers. Returns
   `{ run, cancelPending, pending }`. `pending` reflects whether a run is in flight, derived from
   the run's own settlement. `options.cancelPrevious` (default `true`) cancels a still-pending run
-  when a new one starts; `false` rejects the new call instead of touching the pending one.
+  when a new one starts; `false` rejects the new call instead of touching the pending one. That
+  conflict rejection is yours to catch on the promise `run()` returns. It does not reach the error
+  boundary, and the hook marks it handled, so a bare `void run()` on a double click is dropped on
+  purpose rather than surfacing as an unhandled rejection.
   `cancelPending(reason?)` cancels the in-flight run, defaulting to the "unmounted" reason.
   The example components are effect-driven (typeahead search and hover state), so
   `useCancelableCallback` is verified in its own spec (`src/use-cancelable-callback.spec.tsx`)
   covering imperative event handlers and pending spinner state.
 - Error boundaries required: `useCancelable`, `useCancelableEffect`, and `useCancelableCallback` escalate
-  non-cancel failures to the nearest error boundary by throwing from a state updater, which unmounts
-  the subtree
+  a non-cancel failure of a run they started to the nearest error boundary by throwing from a state
+  updater, which unmounts the subtree. A `cancelPrevious: false` conflict is not one of those failures
 
 ## Cancel reasons
 
