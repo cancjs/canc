@@ -1,4 +1,5 @@
 // Runs by CI, cron, or hand.
+// Authoritative sequence: check:node-surface (surface:validate -> surface:check)
 import { execSync } from 'child_process';
 import { existsSync, readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
@@ -90,8 +91,9 @@ for (const [mod, lockExports] of Object.entries(nodeLock.modules)) {
     if (mentry.nodeSignal && mentry.nodeSignal.since) {
       const sinceMajor = parseInt(mentry.nodeSignal.since.slice(1).split('.')[0], 10);
       const isPreFloor = sinceMajor < 18;
-      if (!isPreFloor && mentry.nodeSignal.sinceByMajor) {
-        const byMajorKeys = Object.keys(mentry.nodeSignal.sinceByMajor).map(Number);
+      if (!isPreFloor) {
+        const sinceByMajor = mentry.nodeSignal.sinceByMajor || {};
+        const byMajorKeys = Object.keys(sinceByMajor).map(Number);
         for (const major of signalMajors) {
           if (!byMajorKeys.includes(major)) {
             fail(

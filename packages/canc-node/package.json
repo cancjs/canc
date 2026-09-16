@@ -46,6 +46,7 @@
     "lint": "eslint .",
     "test": "jest --colors",
     "test:watch": "jest --colors --watch",
+    "// surface": "Authoritative sequence: npm run check:node-surface (surface:validate -> surface:check)",
     "surface:check": "node ../../scripts/node/surface-check.mjs",
     "surface:docs": "node ../../scripts/node/surface-docs.mjs",
     "surface:lock": "node ../../scripts/node/api-lock.mjs"
