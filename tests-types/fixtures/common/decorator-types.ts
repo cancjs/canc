@@ -11,11 +11,10 @@
  * TypeScript does NOT retype a decorated getter/method/field member just because the decorator
  * FACTORY's declared return type is `any`: a decorator whose factory overload returns
  * `(value, ctx) => any` still leaves the member typed as its own inferred/declared type, on every
- * TS version from 5.0 through latest. The `unknown` payload seen on every decorated getter
- * (assertion 1/3) is unrelated to decorator typing: it comes from `cancAsync`'s own return type
- * (`CancelablePromise<unknown>` always -- its generator's declared return value is never threaded
- * into the constructed promise), so a getter that returns `cancAsync(...)` needs an external cast
- * to satisfy a concretely-typed interface for that reason, not because of decorator erasure.
+ * TS version from 5.0 through latest. The payload of a decorated getter (assertion 1/3) is the
+ * generator's own declared return type, which `cancAsync` threads into the constructed promise, so
+ * `@AsyncMethod() get m()` over a `AsyncResult<string>` body awaits as `string` and needs no cast
+ * to satisfy a concretely-typed interface.
  *
  * The place an `any`-vs-typed difference IS directly observable is the decorator's OWN applied
  * call return (`_DecoratorAppliedNotAny` below): calling the value the factory returns, with
@@ -53,7 +52,7 @@ type _MemberNotAny = Expect<Not<IsAny<_MemberType>>>;
 
 declare const instance: InstanceType<typeof C>;
 const awaited = instance.m(1);
-type _AwaitedIsUnknown = Expect<ExpectExtends<Awaited<typeof awaited>, unknown>>;
+type _AwaitedIsGeneratorReturn = Expect<Equal<Awaited<typeof awaited>, R>>;
 
 // ============================================================ 1b. decorator-applied-result gate
 // The decorator factory's return value, applied with the real (value, context) call shape a

@@ -8,10 +8,11 @@
  * 1. `const x = yield* cancAwait(promise)`. The TYPED path. `cancAwait`
  * returns a `Generator<..., T, T>`, so delegating with `yield*` gives the
  * generator body a value typed as the awaited `T`.
- * 2. bare `yield promise`: the UNTYPED fallback. TypeScript cannot infer the
- * resume type of a plain `yield` expression from the coroutine driver, so
- * the value comes back `unknown` (this is the permanent limitation the
- * docs/yield-vs-yield-star.md page explains). Runtime handling is identical.
+ * 2. bare `yield promise` is the UNTYPED fallback. TypeScript cannot infer the
+ * resume type of a plain `yield` expression from the coroutine driver. Under
+ * `strict` an unannotated body rejects the yield outright, and an annotated one
+ * resolves it as `any` (the limitation the docs/yield-vs-yield-star.md page
+ * explains). Runtime handling is identical.
  *
  * Plus the one-shot combinator helpers `cancAwait.all/race/any/allSettled`,
  * which fold a `CancelablePromise` combinator into a single `yield*` step and
@@ -85,13 +86,16 @@ type _cancAwaitYield = Expect<Equal<ReturnType<(typeof gen)['next']>, IteratorRe
 cancAsync(123);
 
 // ============================================================ untyped path: bare yield
-// A plain `yield promise` cannot carry a resume type through the driver: the
-// generator's TNext is `unknown` unless annotated, so the value is `unknown`.
+// A plain `yield promise` cannot carry a resume type through the driver. Under `strict` a body with
+// no return-type annotation has no resume type to report at all, so the yield is a compile error
+// rather than a value typed `unknown`, and a body that does annotate its return type resolves the
+// value as `any`. Either way a bare yield buys no type safety, which is why the typed path above is
+// the documented one.
 cancAsync(function* () {
-  const u: unknown = yield Promise.resolve(1);
-  type _bareYieldUnknown = Expect<Equal<typeof u, unknown>>;
-  const _n: unknown = u;
-  void _n;
+  // @ts-expect-error a bare yield has no resume type in a body with no return-type annotation
+  const u = yield Promise.resolve(1);
+  type _bareYieldIsAny = Expect<IsAny<typeof u>>;
+  void u;
   return u;
 });
 
