@@ -101,6 +101,8 @@ export function setDrainState(server: IServerLike, drain: CancelablePromise<IDra
 }
 
 /** Clears the drain running for a server. */
-export function clearDrainState(server: IServerLike): void {
-  delete (server as TKeyed)[DRAIN_STATE];
+export function clearDrainState(server: IServerLike, expected?: CancelablePromise<IDrainResult>): void {
+  if (expected === undefined || getDrainState(server) === expected) {
+    delete (server as TKeyed)[DRAIN_STATE];
+  }
 }

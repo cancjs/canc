@@ -98,18 +98,23 @@ export function drainServer(server: IServerLike, options: IDrainOptions = {}): C
       resolve();
     }, grace);
 
-    // race cancels the loser, so a drain that finishes early clears this timer through here
+    // race cancels the loser, so an early finish or cancel clears this timer through here
     handleCancel(() => clearTimeout(timer));
   });
 
-  const drain = new Impl<IDrainResult>((resolve, reject, { handleCancel }) => {
+  let drain: CancelablePromise<IDrainResult>;
+  const settle = Impl.race([Impl.allSettled(outcomes), window]);
+
+  // eslint-disable-next-line prefer-const -- assigned after construction to avoid TDZ in executor closure
+  drain = new Impl<IDrainResult>((resolve, reject, { handleCancel }) => {
     handleCancel(() => {
-      clearDrainState(server);
+      settle.cancel(reason);
+      clearDrainState(server, drain);
     });
 
-    Impl.race([Impl.allSettled(outcomes), window]).then(
+    settle.then(
       () => {
-        clearDrainState(server);
+        clearDrainState(server, drain);
         if (options.closeServer !== false && isFunction(server.closeAllConnections)) {
           server.closeAllConnections();
         }
@@ -117,7 +122,7 @@ export function drainServer(server: IServerLike, options: IDrainOptions = {}): C
         resolve({ canceled, completed, timedOut });
       },
       (error) => {
-        clearDrainState(server);
+        clearDrainState(server, drain);
         reject(error);
       },
     );

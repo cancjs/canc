@@ -242,13 +242,34 @@ describe('graceful drain', () => {
   });
 
   it('clears the drain state when the drain promise is canceled', async () => {
-    const server = new FakeServer();
-    const first = drainServer(server);
-    first.cancel();
+    jest.useFakeTimers();
 
-    const second = drainServer(server);
-    expect(second).not.toBe(first);
-    expect(server.closed).toBe(2);
-    await second;
+    try {
+      const server = new FakeServer();
+      const { req, res } = createExchange(server);
+      ensureRequestCancelState(req, res).live.add(pending({ shield: true }));
+
+      const first = drainServer(server, { timeout: 50 });
+      first.cancel();
+
+      const second = drainServer(server, { timeout: 100 });
+      expect(second).not.toBe(first);
+      await Promise.resolve();
+      expect(jest.getTimerCount()).toBe(1);
+
+      jest.advanceTimersByTime(50);
+      for (let i = 0; i < 20; i++) {
+        await Promise.resolve();
+      }
+      expect(drainServer(server)).toBe(second);
+
+      jest.advanceTimersByTime(50);
+      await second;
+
+      expect(server.allClosed).toBe(1);
+      expect(server.closed).toBe(2);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });
