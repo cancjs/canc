@@ -18,7 +18,7 @@ export const waitFor = tb.waitForFactory(deps);
  * type-only: it drops that option from the signature so passing it fails to compile.
  */
 export const minDelay = tb.minDelayFactory(deps) as <T, F = never>(
-  input: tb.TTimedInput<T>,
+  input: tb.TTimedInput<T, ICancelableKind, F>,
   ms: tb.TDuration,
   options?: TEagerToolboxOptions,
 ) => CancelablePromise<T, F>;
@@ -31,8 +31,8 @@ export const promisifyAll = tb.promisifyAllFactory(deps);
 /**
  * A deferred whose promise is a CancelablePromise, so the holder can cancel it directly.
  */
-export interface ICancelableDeferred<T, F = never> extends tb.IDeferred<T, ICancelableKind, F> {
-  promise: CancelablePromise<T, F>;
+export interface ICancelableDeferred<T> extends tb.IDeferred<T, ICancelableKind> {
+  promise: CancelablePromise<T>;
   cancel: (reason?: any) => void | CancelablePromise<PromiseSettledResult<unknown>[]>;
 }
 
@@ -42,6 +42,4 @@ export interface ICancelableDeferred<T, F = never> extends tb.IDeferred<T, ICanc
  * The narrowing is type-only, with no runtime layer: CancelablePromise.withResolvers hands back a
  * `cancel` alongside the promise, which the shared deferred shape has no way to describe.
  */
-export const defer = tb.deferFactory(deps) as <T = void, F = never>(
-  options?: TEagerToolboxOptions,
-) => ICancelableDeferred<T, F>;
+export const defer = tb.deferFactory(deps) as <T = void>(options?: TEagerToolboxOptions) => ICancelableDeferred<T>;
