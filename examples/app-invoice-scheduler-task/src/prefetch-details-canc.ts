@@ -47,7 +47,9 @@ export function prefetchDetails(
     return running;
   }
 
-  // cancelified api cancels request when lifetime aborts
+  // cancelify boundary: request carries signal
+  // retry: retry does not propagate cancel into attempt already in flight
+  // postSchedulerTask options: scheduler returns native promise so task cancel cannot reach body
   const loadDetail = cancelify(({ getSignal }) => invoicesApi.detail(id, getSignal()), { signal: lifetime });
 
   const task = postSchedulerTask(
