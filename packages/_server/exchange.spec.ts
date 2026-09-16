@@ -1,4 +1,9 @@
+import * as fs from 'fs';
+import * as path from 'path';
+
 import { hasClientLeft, isResponseLive } from './exchange';
+
+const DISCONNECT_PREDICATE = '!res.writableEnded && (res.destroyed || !res.writable)';
 
 describe('exchange', () => {
   describe('isResponseLive', () => {
@@ -35,6 +40,19 @@ describe('exchange', () => {
 
     it('returns false when writableEnded is false, destroyed is false, and writable is true', () => {
       expect(hasClientLeft({ writableEnded: false, destroyed: false, writable: true })).toBe(false);
+    });
+  });
+
+  describe('README disconnect recipe', () => {
+    it('matches the shipped predicate in node and express READMEs', () => {
+      const readmePaths = [
+        path.resolve(__dirname, '../canc-server/canc-server-node/README.md'),
+        path.resolve(__dirname, '../canc-server/canc-server-express/README.md'),
+      ];
+      const missing = readmePaths.filter(
+        (filePath) => !fs.readFileSync(filePath, 'utf8').includes(DISCONNECT_PREDICATE),
+      );
+      expect(missing).toEqual([]);
     });
   });
 });

@@ -126,7 +126,7 @@ res.once('close', () => {
 });
 ```
 
-This matters more than it looks. `IncomingMessage` `'close'` means the request stream completed, which for a body-carrying POST behind `express.json()` happens at the very start of the handler with the client still connected. Wiring cancellation to the request would cancel every such request on arrival. `ServerResponse` `'close'` means the response completed or the connection died early, and `writableEnded` is what separates those two. A pre-flight check on `res.destroyed && !res.writableEnded` covers a client that left before the route was reached, because a request-side check cancels a healthy request on arrival.
+This matters more than it looks. `IncomingMessage` `'close'` means the request stream completed, which for a body-carrying POST behind `express.json()` happens at the very start of the handler with the client still connected. Wiring cancellation to the request would cancel every such request on arrival. `ServerResponse` `'close'` means the response completed or the connection died early, and `writableEnded` is what separates those two. A pre-flight check on `!res.writableEnded && (res.destroyed || !res.writable)` covers a client that left before the route was reached, because a request-side check cancels a healthy request on arrival.
 
 The same reason applies to the request signals the platform offers. Node's `IncomingMessage.prototype.signal` and fastify's `request.signal` are both an unguarded `'close'` listener, so neither is adopted here. An external signal is composed in only when you pass one through the `signal` option.
 
