@@ -879,11 +879,11 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
 
     const This = new.target;
     // `this` when executor calls are synchronous, otherwise NativePromise instance
-    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    // eslint-disable-next-line @typescript-eslint/no-this-alias -- the construction handoff below rebinds this to the Reflect.construct result
     let instance: CancelablePromise<TResult, TFailure> = this;
     // Stable reference to the temporary constructor `this` used to detect synchronous
     // executor settlement (before Reflect.construct returns the real promise instance).
-    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    // eslint-disable-next-line @typescript-eslint/no-this-alias -- both objects must stay reachable to migrate state off the temporary this
     const tempThis = this;
     // Set when a non-strict pre-aborted signal is detected.
     // The executor is NOT run in that
@@ -1727,15 +1727,12 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
    * effect the per-item `.then()`/`.then().catch()` plus `input._chain(resultPromise)` pair produces
    * today, but with no derived canc promise: the input's count is raised once for the internal
    * consumer (completed on the input's own cancel, matching a `handleCancel`-registered onComplete)
-   * Internal-only combiner helper: attaches a combiner's `resultPromise` to this input using
-   * explicit chain accounting instead of the species `.then().catch()` reaction.
+   * and once for the result-as-child via the real `_chain(resultPromise)`. Keeping the input at the
+   * same total count preserves the "canceling the result does NOT cascade to inputs" oracle: a
+   * single completed ref never satisfies the count, so the input stays pending.
    *
-   * Replaces the former `_mirrorDerivedChild` pattern with two separate linkages:
-   * 1. an internal-consumer reference (keeps `this` alive while the combinator is pending)
-   * 2. a real `_chain(resultPromise)` linkage (runs `resultPromise._onParentCanceled` if `this` cancels)
-   *
-   * This gives combinators the exact same cancellation semantics as the old `.then().catch()`
-   * derived child, while avoiding creating and wiring throwaway intermediate promises.
+   * @param resultPromise The combinator result promise (chained as this input's downstream child).
+   * @param bubbleOnComplete Race-style completion timing for the result chain (settle vs cancel).
    */
   protected _chainInput(resultPromise: CancelablePromise<any, any>, bubbleOnComplete?: boolean): void {
     // Internal-consumer ref: same increment the per-item derived child raised via its own `_chain`.
