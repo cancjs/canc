@@ -555,17 +555,9 @@ export type TForAwaitCallback<T> =
   | ((value: T, index: number) => Generator<unknown, void | false, any>)
   | ((value: T, index: number) => CancelablePromise<void | false>);
 
-/**
- * Iterates over an async or sync iterable, running a callback per item at coroutine cancellation points.
- *
- * The callback supports three forms: a sync return, a generator (driven with `yield*`), or a
- * `CancelablePromise` (awaited with `yield`). Returning `false` or throwing `BreakError` stops the
- * loop cleanly. Plain `async` callbacks returning native promises are intentionally not
- * type-supported to steer callers toward cancelable operations, though the runtime dispatches any
- * thenable. Use `cancForAwait.toArray` to collect elements into an array.
- */
 interface ICancForAwait {
   <T>(source: TEachSource<T>, cb: TForAwaitCallback<T>): Generator<Failing<BreakError>, void, any>;
+  /** Collects elements into an array. */
   toArray<T>(source: TEachSource<T>): Generator<Failing<BreakError>, T[], any>;
 }
 
@@ -628,6 +620,12 @@ export function returnStepIterator(it: any): any {
 
 /**
  * Iterates over an async or sync iterable, running a callback per item at coroutine cancellation points.
+ *
+ * The callback supports three forms: a sync return, a generator (driven with `yield*`), or a
+ * `CancelablePromise` (awaited with `yield`). Returning `false` or throwing `BreakError` stops the
+ * loop cleanly. Plain `async` callbacks returning native promises are intentionally not
+ * type-supported to steer callers toward cancelable operations, though the runtime dispatches any
+ * thenable. Use `cancForAwait.toArray` to collect elements into an array.
  */
 export const cancForAwait = function* cancForAwait(
   source: any,
