@@ -1,5 +1,13 @@
 import { Assert, Eq } from '../../../tests-types/fixtures/common/assert-type';
-import type { MatchedError, MatchedOf, SubtractedError, SubtractedOf } from './error-matchers';
+import type {
+  ICatchErrorFn,
+  ISuppressErrorFn,
+  MatchedError,
+  MatchedOf,
+  SubtractedError,
+  SubtractedOf,
+} from './error-matchers';
+import { createCatchError, createSuppressError } from './index';
 
 class FooError extends Error {
   declare name: 'FooError';
@@ -13,6 +21,10 @@ type CtorMatcher = typeof FooError;
 type GuardMatcher = (e: any) => e is BarError;
 type StringMatcher = 'RetryError';
 type PredicateMatcher = (e: any) => boolean;
+
+// 5. Both factory result shapes name a matcher list, but neither requires one to be written out
+const _defaultCatchShape: ICatchErrorFn = createCatchError(TypeError);
+const _defaultSuppressShape: ISuppressErrorFn = createSuppressError(TypeError);
 
 describe('matcher type mappings', () => {
   it('type assertion helpers pass compile-time checks', () => {

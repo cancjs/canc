@@ -26,7 +26,7 @@ export type {
  * What `createSuppressError` produces: the call shape of `suppressCancel`, with the matcher list
  * deciding what counts as caught.
  */
-export interface ISuppressErrorFn<M extends readonly TErrorMatcher[]> {
+export interface ISuppressErrorFn<M extends readonly TErrorMatcher[] = readonly TErrorMatcher[]> {
   <TResult, TFailure>(
     promise: CancelablePromise<TResult, TFailure>,
     options?: ICancelablePromiseOptions,
@@ -42,7 +42,7 @@ export interface ISuppressErrorFn<M extends readonly TErrorMatcher[]> {
  * What `createCatchError` produces: the call shape of `catchCancel`, with the matcher list deciding
  * what counts as caught.
  */
-export interface ICatchErrorFn<M extends readonly TErrorMatcher[]> {
+export interface ICatchErrorFn<M extends readonly TErrorMatcher[] = readonly TErrorMatcher[]> {
   <TResult, TFailure>(
     promise: CancelablePromise<TResult, TFailure>,
     options?: ICancelablePromiseOptions,
@@ -90,6 +90,12 @@ export function createCatchError<M extends readonly TErrorMatcher[]>(...matchers
     flagsEnabled: false,
   }) as unknown as ICatchErrorFn<M>;
 }
+
+/**
+ * @deprecated Use `createCatchError` and `createSuppressError`. These are the names the same two
+ * factories carried in 1.0.0, kept as aliases.
+ */
+export { createCatchError as _createCatchError, createSuppressError as _createSuppressError };
 
 /**
  * A type guard for error objects, given a list of matchers (error names, constructors, or
