@@ -54,6 +54,14 @@ describe('shared error classes', () => {
       expect(Object.getOwnPropertySymbols(new AbortError())).not.toContain(ABORT_ERROR_BRAND);
     });
 
+    // The annotation is half the check: the instance type has to declare the brand for this to
+    // compile without a cast, and the value has to be there for it to pass.
+    it('reads the brand off an instance', () => {
+      const branded: true = new AbortError()[ABORT_ERROR_BRAND];
+
+      expect(branded).toBe(true);
+    });
+
     it('reports a useful string tag', () => {
       expect(Object.prototype.toString.call(new AbortError())).toBe('[object AbortError]');
     });
@@ -93,6 +101,12 @@ describe('shared error classes', () => {
 
       expect(prototype[Symbol.for('@cancjs/promise:TimeoutError')]).toBe(true);
       expect(prototype[TIMEOUT_ERROR_BRAND]).toBe(true);
+    });
+
+    it('reads the brand off an instance', () => {
+      const branded: true = new TimeoutError()[TIMEOUT_ERROR_BRAND];
+
+      expect(branded).toBe(true);
     });
   });
 
@@ -185,8 +199,6 @@ describe('AggregateError', () => {
 // Type assertions for createErrorClass brand integration
 type _checkAbortExclude = Assert<Eq<Exclude<AbortError | TimeoutError | Error, AbortError>, TimeoutError | Error>>;
 const _checkWidenedConstructor: ICancErrorConstructor = AbortError;
-const _checkAbortBrandProperty: true = (new AbortError() as any)[ABORT_ERROR_BRAND];
-const _checkTimeoutBrandProperty: true = (new TimeoutError() as any)[TIMEOUT_ERROR_BRAND];
 // @ts-expect-error - bare ICancErrorConstructor should not have index signature
 // allowing arbitrary properties
 // eslint-disable-next-line @typescript-eslint/no-unused-expressions
