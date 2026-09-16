@@ -11,9 +11,8 @@
  * the shipped declaration files.
  *
  * NOT part of `commonFixtures`. Compiled only in lanes matrix.config.json marks
- * `serverHonoTypes: true`. Not measured against 4.2/4.7/5.0 independently; riding the fastify gate
- * (5.4+) is the conservative choice given hono's own dependency tree also touches Node's stream
- * types the same way express does (see ./server-express-types.ts's header).
+ * `serverHonoTypes: true` (5.9 and newer). Hono requires TS 5.9+ for generic Uint8Array types;
+ * 5.4 reports `error TS2315: Type 'Uint8Array' is not generic.` in hono's shipped types.
  */
 import { cancelableHandler, drain } from '@cancjs/server-hono';
 import type { HttpBindings } from '@hono/node-server';
