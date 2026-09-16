@@ -173,6 +173,57 @@ describe('throttle', () => {
     expect(calls).toEqual([1, 3]);
   });
 
+  it('rate contract: does not invoke closer than ms across a window boundary', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(0);
+    const stamps: number[] = [];
+    const fn = (x: number) => {
+      stamps.push(Date.now());
+      return CancelablePromise.resolve(x);
+    };
+    const throttled = throttle(fn, 100);
+
+    throttled(1);
+    jest.advanceTimersByTime(50);
+    throttled(2);
+    jest.advanceTimersByTime(52);
+    throttled(3);
+    jest.advanceTimersByTime(298);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(stamps).toEqual([0, 100, 202]);
+  });
+
+  it('a trailing invoke re-arms the window, so the next call is not a fresh leading edge', async () => {
+    jest.useFakeTimers();
+    const calls: number[] = [];
+    const fn = (x: number) => {
+      calls.push(x);
+      return CancelablePromise.resolve(x);
+    };
+    const throttled = throttle(fn, 100);
+
+    throttled(1);
+    throttled(2);
+    jest.advanceTimersByTime(100);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(calls).toEqual([1, 2]);
+
+    expect(throttled.isPending).toBe(true);
+
+    throttled(3);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(calls).toEqual([1, 2]);
+
+    jest.advanceTimersByTime(100);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(calls).toEqual([1, 2, 3]);
+  });
+
   it('trailing (default): last args invoked after window', async () => {
     jest.useFakeTimers();
     const calls: number[] = [];

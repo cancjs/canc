@@ -242,6 +242,27 @@ describe('debounce', () => {
     expect(callCount).toBe(1);
   });
 
+  it('maxWait: a trailing invoke leaves no pending work behind', async () => {
+    jest.useFakeTimers();
+    const calls: number[] = [];
+    const fn = (x: number) => {
+      calls.push(x);
+      return CancelablePromise.resolve(x);
+    };
+    const debounced = debounce(fn, 50, { maxWait: 100 });
+
+    debounced(1);
+    jest.advanceTimersByTime(40);
+    debounced(2);
+    jest.advanceTimersByTime(60);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(calls).toEqual([2]);
+    expect(debounced.isPending).toBe(false);
+    expect(debounced.flush()).toBeUndefined();
+  });
+
   it('.cancel() clears timer and rejects pending with CancelError', async () => {
     jest.useFakeTimers();
     let callCount = 0;

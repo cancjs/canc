@@ -59,6 +59,8 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
     const leading = options?.leading === true;
     const trailing = options?.trailing === false ? false : true;
     const maxWait: number | undefined = options != null ? options.maxWait : undefined;
+    // the throttle shape, the only one that owes the next caller a full interval after a trailing invoke
+    const rearmsWindow = maxWait === ms;
     const timers = resolveTimers(options, deps);
 
     let timerId: unknown;
@@ -172,6 +174,10 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
 
       if (trailing && lastArgs) {
         invoke(lastArgs);
+        // otherwise the next call reads a closed window and leading-invokes inside the interval
+        if (rearmsWindow) {
+          timerId = startTimer(timerExpired, ms, timers);
+        }
       } else if (lastArgs) {
         cancelPending();
       }
