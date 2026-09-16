@@ -25,10 +25,12 @@ import { isAbortLike, isTimeoutLike, makeCatch, makeSuppress } from './catch-sup
 export const isCancelError = (error: any): error is CancelError =>
   isObject(error) && error[CANCEL_ERROR_BRAND] === true;
 
+// Guards, not bare predicates: the underlying test is brand-or-name, so a match proves the kind,
+// and a matcher list built from one subtracts that kind from a declared failure set
 /** @internal */
-export const _isAbortLike = isAbortLike(isCancelError);
+export const _isAbortLike = isAbortLike(isCancelError) as (error: any) => error is AbortError;
 /** @internal */
-export const _isTimeoutLike = isTimeoutLike(isCancelError);
+export const _isTimeoutLike = isTimeoutLike(isCancelError) as (error: any) => error is TimeoutError;
 
 /**
  * Brand check: same rationale as isCancelError, but for CancelablePromise instances. Duck-types

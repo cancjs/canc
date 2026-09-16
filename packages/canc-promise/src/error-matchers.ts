@@ -51,7 +51,12 @@ export interface ICatchErrorFn<M extends readonly TErrorMatcher[] = readonly TEr
     promise: PromiseLike<TResult>,
     options?: ICancelablePromiseOptions,
   ): CancelablePromise<TResult | MatchedOf<M>, never>;
-  <TError>(error: TError, options?: ICancelablePromiseOptions): Extract<TError, MatchedOf<M>> | never;
+  // Extraction is empty unless the argument's type overlaps the matcher list, and an unmatched
+  // error is rethrown rather than returned, so the matched set is the honest fallback
+  <TError>(
+    error: TError,
+    options?: ICancelablePromiseOptions,
+  ): [Extract<TError, MatchedOf<M>>] extends [never] ? MatchedOf<M> : Extract<TError, MatchedOf<M>>;
 }
 
 /**
