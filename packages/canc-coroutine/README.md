@@ -343,8 +343,8 @@ const saveUntilFull = canc.async(function* (chunkStream: AsyncIterable<Chunk>, i
 - `yield* canc.forAwait.next()`: argument-free sugar for the common single-loop case. It resolves
   the innermost open loop handle without requiring a temporary variable binding.
 - `yield* loop.next()`: explicit advance on a stored handle (`const loop = yield* canc.forAwait(src)`).
-  Use this when two loops run interleaved or when advancing an outer loop from inside an inner body,
-  where the sugar cannot name a specific loop and always targets the innermost open one.
+  Use this when two loops are open at once and the advance must name one of them, or for
+  `yield* loop.return()`, which requires a handle binding.
 
 ```ts
 const outerLoop = yield* canc.forAwait(streamA);
@@ -357,6 +357,8 @@ for (const a of outerLoop) {
   }
 }
 ```
+
+The sugar resolves handle-form loops only, so inside a callback-form `canc.forAwait` body it advances the enclosing handle loop; use the stored-handle form when managing loops across both styles. The sugar also yields `unknown`, so a body annotated with a concrete failure set uses the stored handle instead.
 
 #### The advance rule and lookahead
 
@@ -388,7 +390,9 @@ A handle iterates once; calling `[Symbol.iterator]()` a second time on the same 
 Exhaustion and an explicit `yield* loop.return()` finish the source's cleanup at that point. A
 plain `break` goes through the synchronous iterator protocol instead, which cannot await in place,
 so cleanup there finishes before the coroutine settles rather than before the line after `break`.
-Call `yield* loop.return()` right after a `break` when that ordering matters.
+Call `yield* loop.return()` right after a `break` when that ordering matters. `yield* loop.return()`
+requires the stored-handle spelling and the sugar has no `.return` equivalent, so a body that needs
+cleanup to finish at the `break` statement stores the handle.
 
 Reach for the handle form when the loop body needs a native `break`, `continue`, or `return` out of
 the coroutine. Use the callback form above for plain streaming with no early exit.
