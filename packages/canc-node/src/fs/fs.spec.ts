@@ -2,7 +2,7 @@ import nodeFs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { CancelablePromise, isCancelError } from '@cancjs/promise';
+import { CancelablePromise, CancelError, isCancelError } from '@cancjs/promise';
 
 import fsJson from '../../surface/fs.json';
 import { isNotFoundError } from '../errors/errno';
@@ -193,5 +193,97 @@ describe('@cancjs/node/fs module exports', () => {
     expect(nodeFs.existsSync(dest)).toBe(true);
 
     nodeFs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('closes the descriptor when a pending open is canceled', async () => {
+    const dir = nodeFs.mkdtempSync(path.join(os.tmpdir(), 'canc-open-'));
+    const file = path.join(dir, 'test.txt');
+    nodeFs.writeFileSync(file, 'hello');
+
+    const realPromises = (nodeFs as any).promises;
+    const closeSpy = jest.fn();
+    const fakeFs = {
+      ...nodeFs,
+      promises: {
+        ...realPromises,
+        open: async (...args: any[]) => {
+          await new Promise((r) => setTimeout(r, 20));
+          const fh = await realPromises.open(...args);
+          const origClose = fh.close.bind(fh);
+          fh.close = async () => {
+            closeSpy();
+            return origClose();
+          };
+          return fh;
+        },
+      },
+    };
+
+    setFs(fakeFs);
+
+    try {
+      const p = fsExports.open(file, 'r');
+      p.cancel('canceled while pending');
+      await expect(p).rejects.toThrow(CancelError);
+
+      await new Promise((r) => setTimeout(r, 50));
+      expect(closeSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      nodeFs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('closes the directory handle when a pending opendir is canceled', async () => {
+    const dir = nodeFs.mkdtempSync(path.join(os.tmpdir(), 'canc-opendir-'));
+
+    const realPromises = (nodeFs as any).promises;
+    const closeSpy = jest.fn();
+    const fakeFs = {
+      ...nodeFs,
+      promises: {
+        ...realPromises,
+        opendir: async (...args: any[]) => {
+          await new Promise((r) => setTimeout(r, 20));
+          const dirHandle = await realPromises.opendir(...args);
+          const origClose = dirHandle.close.bind(dirHandle);
+          dirHandle.close = async () => {
+            closeSpy();
+            return origClose();
+          };
+          return dirHandle;
+        },
+      },
+    };
+
+    setFs(fakeFs);
+
+    try {
+      const p = fsExports.opendir(dir);
+      p.cancel('canceled while pending');
+      await expect(p).rejects.toThrow(CancelError);
+
+      await new Promise((r) => setTimeout(r, 50));
+      expect(closeSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      nodeFs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('canceling open after settle closes nothing and handle still works', async () => {
+    const dir = nodeFs.mkdtempSync(path.join(os.tmpdir(), 'canc-open-settle-'));
+    const file = path.join(dir, 'test.txt');
+    nodeFs.writeFileSync(file, 'hello');
+
+    try {
+      const p = fsExports.open(file, 'r');
+      const fh = await p;
+      p.cancel('after settle');
+      await new Promise((r) => setImmediate(r));
+      const stats = await fh.stat();
+      expect(stats.size).toBe(5);
+      await fh.close();
+    } finally {
+      nodeFs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

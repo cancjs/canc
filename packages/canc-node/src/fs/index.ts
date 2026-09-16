@@ -1,6 +1,9 @@
 import nodeFs from 'node:fs';
 import nodeFsPromises from 'node:fs/promises';
 
+import { CancelablePromise } from '@cancjs/promise';
+
+import { isThenable } from '../../../_util';
 import fsJson from '../../surface/fs.json';
 import { features } from '../features';
 import { decorate } from './file-handle';
@@ -14,7 +17,6 @@ import {
   promisifySignalWrapped,
   promisifyWrapped,
   TCancelable,
-  teardownWrapped,
   TNodeFn,
   TSignatures,
 } from './wrap';
@@ -50,6 +52,44 @@ function closeQuietly(value: unknown): void {
   }
 
   void Promise.resolve(closable.close()).then(undefined, () => {});
+}
+
+/**
+ * Wrap open or opendir with descriptor cleanup if canceled while pending.
+ *
+ * The rescue branch attaches directly to the raw native promise so cleanup survives cancelation of
+ * the outer chain, while cancelation after settling leaves the caller's handle untouched.
+ */
+function teardownOpen<R>(
+  name: 'open' | 'opendir',
+  transform?: (value: unknown) => R,
+): (...args: unknown[]) => CancelablePromise<R> {
+  return function teardownOpenCall(...args: unknown[]): CancelablePromise<R> {
+    let canceled = false;
+    return new CancelablePromise<R>((resolve, _reject, { handleCancel }) => {
+      handleCancel(() => {
+        canceled = true;
+      });
+
+      const started = retryOpen(() => {
+        const raw = viaFsPromises(name)(...args);
+        if (isThenable(raw)) {
+          void (raw as Promise<unknown>).then(
+            (handle) => {
+              if (canceled) {
+                closeQuietly(handle);
+              }
+            },
+            () => {},
+          );
+        }
+        return raw;
+      });
+
+      const chain = transform ? started.then(transform) : (started as CancelablePromise<R>);
+      resolve(chain);
+    });
+  };
 }
 
 /**
@@ -123,14 +163,8 @@ export const mkdtempDisposable = gatedWrapped(
   '24.4.0',
   adopted(fsp.mkdtempDisposable),
 ) as unknown as TCancelable<TMkdtempDisposableFn>;
-export const open = teardownWrapped(
-  (...args: unknown[]) => retryOpen(() => viaFsPromises('open')(...args)).then(decorate),
-  closeQuietly,
-) as TCancelable<TFsPromises['open']>;
-export const opendir = teardownWrapped(
-  (...args: unknown[]) => retryOpen(() => viaFsPromises('opendir')(...args)),
-  closeQuietly,
-) as TCancelable<TFsPromises['opendir']>;
+export const open = teardownOpen('open', decorate) as TCancelable<TFsPromises['open']>;
+export const opendir = teardownOpen('opendir') as TCancelable<TFsPromises['opendir']>;
 export const readFile = promisifySignalWrapped(viaFs('readFile'), entries.get('readFile'), 1) as TCancelable<
   TFsPromises['readFile']
 >;

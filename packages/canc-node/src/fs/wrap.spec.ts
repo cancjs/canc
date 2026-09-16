@@ -1,4 +1,4 @@
-import { CancelError, isCancelError } from '@cancjs/promise';
+import { CancelablePromise, CancelError, isCancelError } from '@cancjs/promise';
 
 import { NotImplementedError } from '../errors/classes';
 import {
@@ -217,12 +217,15 @@ describe('wrap', () => {
     });
   });
 
-  describe('teardownWrapped', () => {
+  describe.each([
+    ['CancelablePromise', (r: (v: unknown) => void) => new CancelablePromise(r)],
+    ['native Promise', (r: (v: unknown) => void) => new Promise(r)],
+  ])('teardownWrapped (%s inner)', (_name, makeInner) => {
     it('runs the teardown exactly once if canceled before settling, zero times if canceled after settling', async () => {
       const teardown = jest.fn();
       let resolveInner: any;
       const fake = () =>
-        new Promise((r) => {
+        makeInner((r) => {
           resolveInner = r;
         });
       const wrapped = teardownWrapped(fake, teardown);
@@ -251,7 +254,7 @@ describe('wrap', () => {
       });
       let resolveInner: any;
       const fake = () =>
-        new Promise((r) => {
+        makeInner((r) => {
           resolveInner = r;
         });
       const wrapped = teardownWrapped(fake, teardown);

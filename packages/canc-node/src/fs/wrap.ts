@@ -2,6 +2,7 @@ import { CancelablePromise } from '@cancjs/promise';
 
 import { IPromiseKind, IToolboxDeps, TPromiseCtor } from '../../../_toolbox';
 import { promisifyFactory } from '../../../_toolbox/promisify';
+import { isCancelable } from '../../../_util';
 import { features } from '../features';
 
 export { gated as gatedWrapped } from '../gate';
@@ -357,6 +358,10 @@ export function teardownWrapped<R = unknown>(
   return function teardownWrappedCall(this: unknown, ...args: unknown[]): CancelablePromise<R> {
     return new CancelablePromise<R>((resolve, _reject, { handleCancel }) => {
       const started = nodeFn.apply(this, args) as R | PromiseLike<R>;
+      if (isCancelable(started)) {
+        // shield cancelable inner so teardown can run once the underlying work resolves
+        (started as unknown as { shield?: boolean }).shield = true;
+      }
 
       // what needs tearing down only exists once the call settles, so the handler waits for it
       handleCancel(() => {
