@@ -42,7 +42,7 @@ function makeBabelDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAn
     if (isGetter) {
       // User returns ready coroutine from getter, so decorator only memoizes per instance
       // Descriptor getter is invoked via .call(this) below
-      // eslint-disable-next-line @typescript-eslint/unbound-method
+      // eslint-disable-next-line @typescript-eslint/unbound-method -- called with .call(this) below
       const originalGetter = descriptor.get!;
 
       descriptor.get = function (this: any) {

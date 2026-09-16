@@ -616,7 +616,7 @@ describe('decorators (TS legacy): metadata preservation', () => {
 
 describe('decorators (TS legacy): getter returns a coroutine', () => {
   // Sentinel returned when the coroutine runs with no bound/call-site `this` (an unbound detached
-  // call under bind:false (the documented unsafe edge)).
+  // call under bind:false, the documented unsafe edge).
   const SENTINEL = -1;
 
   // Shared coroutine body: reports the instance id, or the sentinel when `this` is missing.
