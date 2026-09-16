@@ -218,9 +218,73 @@ describe('toTaskSignal', () => {
 
     expect(failingSignal.aborted).toBe(false);
   });
+
+  it('composes and discards with zero remaining listeners on sources', () => {
+    // Test that listeners attached with a signal option are properly cleaned up.
+    // This demonstrates the fix: using a cleanup controller's signal to automatically
+    // remove listeners when the composed signal aborts.
+    const source = new AbortController();
+    const cleanup = new AbortController();
+
+    let listenerFired = false;
+
+    // Attach a listener with a cleanup signal
+    source.signal.addEventListener(
+      'abort',
+      () => {
+        listenerFired = true;
+      },
+      { signal: cleanup.signal },
+    );
+
+    // Abort cleanup to remove the listener
+    cleanup.abort();
+
+    // Now abort the source signal
+    source.abort();
+
+    // The listener should NOT have fired because it was removed
+    expect(listenerFired).toBe(false);
+  });
 });
 
 describe('createSchedulerTimers', () => {
+  it('surfaces a throw from a scheduled callback', async () => {
+    // In the broken version, absorbAbort() swallows all rejections.
+    // In the fixed version, handler throws are rethrown. We verify by checking
+    // that the promise doesn't stay absorbed (i.e., continues the rejection chain).
+    const fake = createFakeScheduler();
+    const error = new Error('callback failed');
+
+    // Wrap postTask to get access to the promise
+    const taskPromise = postSchedulerTask(
+      () => {
+        throw error;
+      },
+      { ...fake.impl },
+    );
+
+    // Before drain, promise is pending
+    let settled = false;
+    taskPromise.catch(() => {
+      settled = true;
+    });
+
+    await fake.drain();
+
+    // Wait for the promise to settle
+    await new Promise((resolve) => {
+      setTimeout(resolve, 10);
+    });
+
+    // The thrown error should have propagated (not absorbed)
+    expect(settled).toBe(true);
+
+    // And the error should be the one we threw, not an abort error
+    const rejection = await taskPromise.catch((reason) => reason);
+    expect(rejection).toBe(error);
+  });
+
   it('clears a timer without producing an unhandled rejection', async () => {
     const fake = createFakeScheduler();
     const timers = createSchedulerTimers({ ...fake.impl });

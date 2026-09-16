@@ -110,6 +110,11 @@ function composeAbortSignals(signals: AbortSignal[]): AbortSignal {
   }
 
   const controller = new AbortController();
+  // Attach listeners through a cleanup-capable AbortController's signal so the platform
+  // removes them when the controller aborts. Without this fallback, listeners accumulate
+  // on source signals that outlive the composed result.
+  const cleanupSignal = new AbortController();
+
   const forward = (aborted: AbortSignal) => {
     if (!controller.signal.aborted) {
       controller.abort(aborted.reason);
@@ -122,8 +127,11 @@ function composeAbortSignals(signals: AbortSignal[]): AbortSignal {
       break;
     }
 
-    signal.addEventListener('abort', () => forward(signal), { once: true });
+    signal.addEventListener('abort', () => forward(signal), { signal: cleanupSignal.signal });
   }
+
+  // When the composed signal aborts, abort the cleanup signal to remove all listeners
+  controller.signal.addEventListener('abort', () => cleanupSignal.abort());
 
   return controller.signal;
 }
