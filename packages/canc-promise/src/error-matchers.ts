@@ -1,3 +1,4 @@
+import type { AbortError, TimeoutError } from '../../_util';
 import type {
   MatchedError,
   MatchedOf,
@@ -161,26 +162,30 @@ export function isErrorOf<M extends readonly TErrorMatcher[]>(error: unknown, ..
   return compileErrorMatchers(matchers as unknown as TErrorMatcher[], 'isErrorOf')(error);
 }
 
+// The four below are annotated rather than inferred: an inferred guard type makes the declaration
+// emit inline a bare specifier for the shared error module, which no consumer can resolve
+
 /**
  * Catch abort errors only. Matches an abort only, and an ordinary cancellation is rethrown.
  * To swallow a cancellation as well, use `catchCancel(promise, { abort: true })` from `@cancjs/promise`.
  */
-export const catchAbort = createCatchError(_isAbortLike);
+export const catchAbort: ICatchErrorFn<[(error: any) => error is AbortError]> = createCatchError(_isAbortLike);
 
 /**
  * Suppress abort errors only. Matches an abort only, and an ordinary cancellation is rethrown.
  * To swallow a cancellation as well, use `suppressCancel(promise, { abort: true })` from `@cancjs/promise`.
  */
-export const suppressAbort = createSuppressError(_isAbortLike);
+export const suppressAbort: ISuppressErrorFn<[(error: any) => error is AbortError]> = createSuppressError(_isAbortLike);
 
 /**
  * Catch timeout errors only. Matches a timeout only, and an ordinary cancellation is rethrown.
  * To swallow a cancellation as well, use `catchCancel(promise, { timeout: true })` from `@cancjs/promise`.
  */
-export const catchTimeout = createCatchError(_isTimeoutLike);
+export const catchTimeout: ICatchErrorFn<[(error: any) => error is TimeoutError]> = createCatchError(_isTimeoutLike);
 
 /**
  * Suppress timeout errors only. Matches a timeout only, and an ordinary cancellation is rethrown.
  * To swallow a cancellation as well, use `suppressCancel(promise, { timeout: true })` from `@cancjs/promise`.
  */
-export const suppressTimeout = createSuppressError(_isTimeoutLike);
+export const suppressTimeout: ISuppressErrorFn<[(error: any) => error is TimeoutError]> =
+  createSuppressError(_isTimeoutLike);
