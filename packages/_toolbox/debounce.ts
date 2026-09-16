@@ -51,7 +51,7 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
    * Debounce a function call by waiting for `ms` milliseconds of silence before invoking `fn`.
    */
   return function debounce<Args extends unknown[], R, F = never>(
-    fn: (...args: Args) => R | PromiseLike<R>,
+    fn: (...args: Args) => TPromiseOf<K, R, F> | R | PromiseLike<R>,
     ms: number,
     options?: IDebounceOptions,
   ): IDebounced<Args, R, K, F> {
@@ -87,7 +87,8 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
 
       let result: R | PromiseLike<R>;
       try {
-        result = fn(...args);
+        // A flavor's promise type is opaque here, and a thenable by construction
+        result = fn(...args) as R | PromiseLike<R>;
       } catch (e) {
         if (pendingReject) {
           pendingReject(e);
@@ -191,7 +192,7 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
       const own: ICycle<R> = { settled: false, leadingInvoked: false };
       cycle = own;
 
-      const p = construct<R>(
+      const p = construct<R, K, F>(
         deps.Impl,
         function (resolve, reject, ctx?: IExecutorCtx) {
           pendingResolve = resolve;

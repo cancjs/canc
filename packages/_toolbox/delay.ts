@@ -18,10 +18,13 @@ export function delayFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
    * of throwing synchronously out of `delay` itself. A promise input is likewise never observed
    * before the timer completes: a rejection at 10ms surfaces only once `ms` has elapsed, held back
    * rather than reported early - the reason `minDelay` (fails fast) exists alongside this one.
+   *
+   * A bare timer declares no failure set, having no input to take one from. With an input, the
+   * declared set is the input's, held back like everything else until the timer completes.
    */
-  function delay<T = void, F = never>(ms: TDuration, options?: K['options'] & TCallDeps): TPromiseOf<K, T, F>;
+  function delay<T = void>(ms: TDuration, options?: K['options'] & TCallDeps): TPromiseOf<K, T>;
   function delay<T, F = never>(
-    input: TTimedInput<T>,
+    input: TTimedInput<T, K, F>,
     ms: TDuration,
     options?: K['options'] & TCallDeps,
   ): TPromiseOf<K, T, F>;
@@ -36,7 +39,7 @@ export function delayFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
     // thunk until it runs) is canceled if the returned promise is canceled first.
     const eagerCancelable = hasInput && !isThunk(input) && isCancelableLike(input) ? input : undefined;
 
-    return constructTimed<T, K>(
+    return constructTimed<T, K, F>(
       deps,
       (resolve, reject, ctx?: IExecutorCtx) => {
         const fire = (): void => {

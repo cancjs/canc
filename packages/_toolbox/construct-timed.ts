@@ -142,10 +142,10 @@ export function constructTimed<T, K extends IPromiseKind = IPromiseLikeKind, F =
   deps: IToolboxDeps<K>,
   executor: TExecutor<T>,
   options?: object,
-): TPromiseOf<K, T> {
+): TPromiseOf<K, T, F> {
   if ((options as ILazyOption | undefined)?.lazy === true) {
     return new ToolboxLazy<T>(deps.Impl, deps.cancelable === true, executor, options) as unknown as TPromiseOf<K, T, F>;
   }
 
-  return construct<T, K>(deps.Impl, executor, options);
+  return construct<T, K, F>(deps.Impl, executor, options);
 }
