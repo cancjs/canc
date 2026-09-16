@@ -12,10 +12,10 @@
  * the shipped declaration files.
  *
  * NOT part of `commonFixtures`. Compiled only in lanes matrix.config.json marks
- * `serverKoaTypes: true`. Koa's own shipped types pull in only `http` / `http2`, never
- * `@types/node`'s `stream/web.d.ts`, so none of the recursive-type or `NoInfer` floors the other
- * families hit apply here; the gate is set on every lane for consistency with the rest of this
- * file's siblings rather than because koa demands one.
+ * `serverKoaTypes: true` (5.0 and newer). Koa and @types/koa pull in @types/node dependencies
+ * that hit syntax limitations on TS 4.2 (`error TS1109: Expression expected.`) and recursive-type
+ * limitations on TS 4.7 (`'ReadableByteStreamController' is referenced directly or indirectly in
+ * its own type annotation`), fixed only at 5.0+.
  */
 import { cancelableHandler, cancelMiddleware, drain, getRequestSignal } from '@cancjs/server-koa';
 import type { Server } from 'http';
