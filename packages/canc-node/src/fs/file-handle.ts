@@ -1,6 +1,7 @@
 import { CancelablePromise } from '@cancjs/promise';
 
 import manifest from '../../surface/fs.FileHandle.json';
+import { features } from '../features';
 import { adopted, IManifestEntry, passthrough, signalWrapped, TNodeFn } from './wrap';
 
 /** A FileHandle member record, with the routing fields the decoration reads. */
@@ -8,6 +9,9 @@ interface IMemberEntry extends IManifestEntry {
   readonly kind: string;
   readonly wrapper: string;
   readonly cancelCategory: string | null;
+  readonly minMajor?: number;
+  readonly gate?: string | null;
+  readonly callPath?: string;
 }
 
 /** Argument position node reads options from, for the members that do not take them first. */
@@ -18,16 +22,27 @@ const OPTIONS_INDEX: Record<string, number> = {
 
 const members = manifest.exports as readonly IMemberEntry[];
 
-let CancProto: object | undefined;
+let protoCache = new WeakMap<object, object>();
+let cancProtos = new WeakSet<object>();
 
 export function __resetCancProtoForTest() {
-  CancProto = undefined;
+  protoCache = new WeakMap();
+  cancProtos = new WeakSet();
 }
 
 export function decorate<T>(fh: T): T {
   const handle = fh as unknown as Record<string, unknown>;
-  CancProto ??= buildProto(Object.getPrototypeOf(handle) as Record<string, unknown>);
-  Object.setPrototypeOf(handle, CancProto);
+  const nativeProto = Object.getPrototypeOf(handle) as Record<string, unknown> | null;
+
+  if (nativeProto && typeof nativeProto === 'object' && !cancProtos.has(nativeProto)) {
+    let cancProto = protoCache.get(nativeProto);
+    if (!cancProto) {
+      cancProto = buildProto(nativeProto);
+      protoCache.set(nativeProto, cancProto);
+      cancProtos.add(cancProto);
+    }
+    Object.setPrototypeOf(handle, cancProto);
+  }
 
   const ourMembers = new Set(members.map((entry) => entry.name));
   for (const name of Object.getOwnPropertyNames(handle)) {
@@ -45,20 +60,28 @@ export function decorate<T>(fh: T): T {
 }
 
 function buildProto(nativeProto: Record<string, unknown>) {
-  const overrides: Record<string, TNodeFn> = {};
+  const overrides = new Map<PropertyKey, TNodeFn>();
   const skipped: string[] = [];
 
   for (const entry of members) {
-    if (entry.kind !== 'fn') continue;
-    const name = entry.name;
-    const nativeFn = nativeProto[name];
+    if (entry.kind !== 'fn' || entry.callPath === 'sync') continue;
+    if (entry.name === 'close') continue;
+
+    const isAsyncDispose = entry.name === '[Symbol.asyncDispose]';
+    const asyncDisposeSymbol = (Symbol as { asyncDispose?: symbol }).asyncDispose;
+    const key: PropertyKey = isAsyncDispose && asyncDisposeSymbol ? asyncDisposeSymbol : entry.name;
+
+    const nativeFn = (nativeProto as Record<PropertyKey, unknown>)[key];
 
     if (typeof nativeFn !== 'function') {
-      skipped.push(name);
+      const minMajor = entry.minMajor ?? 18;
+      if (minMajor <= features.nodeMajor && entry.gate === null) {
+        skipped.push(entry.name);
+      }
       continue;
     }
 
-    overrides[name] = wrap(name, nativeFn as TNodeFn, entry);
+    overrides.set(key, wrap(entry.name, nativeFn as TNodeFn, entry));
   }
 
   if (skipped.length > 0) {
@@ -66,8 +89,8 @@ function buildProto(nativeProto: Record<string, unknown>) {
   }
 
   const newProto = Object.create(nativeProto) as Record<string, unknown>;
-  for (const [name, fn] of Object.entries(overrides)) {
-    Object.defineProperty(newProto, name, {
+  for (const [key, fn] of overrides) {
+    Object.defineProperty(newProto, key, {
       value: fn,
       writable: true,
       configurable: true,
