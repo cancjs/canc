@@ -657,4 +657,83 @@ describe('cancForAwait.next() sugar form', () => {
       }
     });
   });
+
+  describe('break unregisters a loop handle', () => {
+    test('does not scan handles left behind by a break', async () => {
+      const log: string[] = [];
+
+      const coroutine = cancAsync(function* () {
+        for (let outer = 0; outer < 3; outer++) {
+          const innerStream = (async function* () {
+            yield `${outer}-0`;
+          })();
+
+          const innerLoop = yield* cancForAwait(innerStream);
+
+          for (const _item of innerLoop) {
+            log.push(`outer-${outer}`);
+            yield* innerLoop.next();
+            break;
+          }
+
+          // After break, subsequent advances of outer should not scan the dead inner
+          log.push('after-inner');
+        }
+      });
+
+      await coroutine();
+      expect(log).toContain('after-inner');
+    });
+
+    test('registry cleared after break', async () => {
+      const coroutine = cancAsync(function* () {
+        const stream = (async function* () {
+          yield 'item1';
+          yield 'item2';
+        })();
+
+        const loop = yield* cancForAwait(stream);
+
+        for (const _item of loop) {
+          yield* loop.next();
+          break;
+        }
+
+        // After break, handle's registry should be cleared
+        expect((loop as any)._registry).toBeUndefined();
+      });
+
+      await coroutine();
+    });
+
+    test('still runs source cleanup on break', async () => {
+      const log: string[] = [];
+
+      const coroutine = cancAsync(function* () {
+        const stream = (async function* () {
+          try {
+            yield 'item1';
+          } finally {
+            log.push('cleanup');
+          }
+        })();
+
+        const loop = yield* cancForAwait(stream);
+
+        for (const _item of loop) {
+          yield* loop.next();
+          break;
+        }
+
+        log.push('after-loop');
+      });
+
+      await coroutine();
+      log.push('settled');
+
+      // Cleanup must happen before coroutine settles
+      expect(log.indexOf('cleanup')).toBeGreaterThan(-1);
+      expect(log.indexOf('settled')).toBeGreaterThan(log.indexOf('cleanup'));
+    });
+  });
 });

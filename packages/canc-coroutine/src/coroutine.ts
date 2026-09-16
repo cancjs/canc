@@ -757,6 +757,7 @@ const DONE_RESULT: IteratorResult<any> = { value: undefined, done: true };
 
 interface ILoopRegistry extends Array<ILoopHandle> {
   _entries: number;
+  _pendingCleanups?: Array<PromiseLike<void>>;
 }
 
 interface ILoopHandle extends ICancForAwaitLoop<any> {
@@ -793,8 +794,7 @@ function registerLoopHandle(loop: ILoopHandle, registry: ILoopHandle[]): void {
   registry.push(loop);
 }
 
-// A handle that closed itself drops out, so the settle path has nothing to wait on in the
-// common case
+// pending close moves to settle list
 function unregisterLoop(loop: ILoopHandle): void {
   const registry = loop._registry;
 
@@ -813,27 +813,32 @@ function unregisterLoop(loop: ILoopHandle): void {
 // Settles only after every loop handle the coroutine still holds has closed its source, and stays
 // on the old synchronous path when nothing registered
 function finishCleanups(
-  pending: ILoopHandle[],
+  registry: ILoopRegistry,
   options: TFlagOptions,
   settle: (value?: any) => void,
   value?: any,
 ): void {
-  if (pending.length === 0) {
+  const pending = registry.splice(0, registry.length);
+  const pendingCleanups = registry._pendingCleanups || [];
+  registry._pendingCleanups = undefined;
+
+  if (pending.length === 0 && pendingCleanups.length === 0) {
     settle(value);
 
     return;
   }
 
-  const loops = pending.splice(0, pending.length);
   const cleanups: Array<PromiseLike<void>> = [];
 
-  for (const loop of loops) {
+  for (const loop of pending) {
     const cleanup = disposeLoop(loop);
 
     if (cleanup) {
       cleanups.push(cleanup);
     }
   }
+
+  cleanups.push(...pendingCleanups);
 
   if (cleanups.length === 0) {
     settle(value);
@@ -920,7 +925,15 @@ function createLoopHandle(it: any, async: boolean): ILoopHandle {
         },
 
         return(value?: any): IteratorResult<any> {
-          disposeLoop(loop);
+          const cleanup = disposeLoop(loop);
+          const registry = loop._registry;
+
+          if (cleanup && registry) {
+            // pending close moves to settle list so finishCleanups still awaits it
+            (registry._pendingCleanups ||= []).push(cleanup);
+          }
+
+          unregisterLoop(loop);
 
           return { value, done: true };
         },
