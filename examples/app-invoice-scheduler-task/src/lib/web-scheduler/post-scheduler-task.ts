@@ -30,9 +30,10 @@ export interface ISchedulerTaskPromise<T> extends CancelablePromise<T> {
  * Post `fn` to the platform scheduler and get back a cancelable promise for its result.
  *
  * Canceling aborts the task: queued, it is removed from the queue and never runs; already running,
- * it runs to completion, because a synchronous body cannot be interrupted by anything. The reason
- * travels unchanged. A cancel rejects with a `CancelError` and the abort reason of a caller's own
- * signal is handed back exactly as it was given, with no translation in either direction.
+ * it runs to completion, because the scheduler's promise is native and the abort has nothing to
+ * propagate into. The reason travels unchanged. A cancel rejects with a `CancelError` and the abort
+ * reason of a caller's own signal is handed back exactly as it was given, with no translation in
+ * either direction.
  *
  * Without a scheduler anywhere the task is scheduled through the resolved timers pair instead.
  * Cancellation keeps working; the priority becomes a no-op that still reports what was requested.
@@ -43,9 +44,9 @@ export function postSchedulerTask<T>(
 ): ISchedulerTaskPromise<T> {
   const requested = options?.priority ?? DEFAULT_PRIORITY;
   const pair = resolveScheduler(options);
-  // A task always gets a controller of its own.
-  // Caller signals are forwarded onto it.
-  // This keeps `priority` writable and needs no signal composition.
+  // A task always gets a controller of its own, and a caller's signals are forwarded onto it; that
+  // is what keeps `priority` writable even when the caller brought a lifetime of their own, and it
+  // needs no signal composition, which the community polyfill does not implement.
   const controller = pair ? new pair.TaskController({ priority: requested }) : undefined;
   const port: AbortController = controller ?? new AbortController();
   let ownPriority = requested;
@@ -57,9 +58,8 @@ export function postSchedulerTask<T>(
       settlement();
     };
 
-    // The handler receives the raw reason a caller passed to cancel().
-    // It is normalized back into the error the promise itself rejects with.
-    // What reaches the scheduler is a CancelError.
+    // The handler receives the raw reason a caller passed to cancel(), so it is normalized back
+    // into the error the promise itself rejects with; what reaches the scheduler is a CancelError.
     ctx.handleCancel((reason) => port.abort(toCancelError(reason)));
 
     if (pair && controller) {

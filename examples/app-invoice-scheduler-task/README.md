@@ -74,10 +74,14 @@ the actual lesson:
  size the cancel latency you chose. A flag check placed inside that loop is dead code for the same
  reason: nothing can flip the flag while the loop holds the thread. The chunk-size control makes
  this literal, not just stated, by changing how long that latency is.
-3. **Suspended at a yield or an await.** Cancel lands right there, and any cancelable work the body
- was awaiting is aborted rather than abandoned. The detail prefetch is the case that shows this:
- canceling a render run aborts the request its prefetch was waiting on, and the mock API's call log
- records it as aborted rather than as a completed response nobody read.
+3. **Suspended at a yield or an await.** Canceling a posted task removes it from the queue; once it
+ has started, the library cancels nothing inside the body, because `postTask` hands back a native
+ promise. Canceling the task does not reach in-flight awaited work. Reaching an in-flight request
+ requires handing the same lifetime signal to whatever performs it, which is what the detail
+ prefetch does and why it takes three hand-offs (the task options, `retry`, and the cancelified API
+ boundary). Canceling the render run drops its queued prefetches and aborts the in-flight request
+ through that shared lifetime signal, recorded as aborted in the mock API's call log rather than as a
+ completed response nobody read.
 
 ## Why the toolbox helpers are driven by scheduler-derived timers
 
@@ -89,7 +93,7 @@ The reasons are the same as for any scheduler-backed wait:
  where a background retry competes with work the user is looking at;
 - a wait that has not fired yet can still be re-prioritized, which a queued `setTimeout` callback
  cannot;
-- the delay is not capped at 2^31-1 ms, so a long wait needs no chunking;
+- the pair itself is not capped at 2^31-1ms, though the helpers still split a longer wait into chunks before it reaches the pair;
 - canceling dequeues the pending resume with the real cancel reason instead of an opaque
  `clearTimeout`;
 - deeply nested `setTimeout` calls get clamped to a few milliseconds by browsers, which a retry
@@ -113,11 +117,15 @@ Priorities never reorder `.then` continuations, only the scheduled task or timer
  comparison; canc is one coroutine.
 - `src/prefetch-details-vanilla.ts` vs `src/prefetch-details-canc.ts`: the background lookup,
  promotion, and retry. The vanilla twin writes out the controller registry, the forwarding listener
- and the backoff loop that the canc twin gets from `postSchedulerTask` and `retry`.
+ and the backoff loop that the canc twin gets from `postSchedulerTask` and `retry`. The vanilla twin
+ also exports `supersedePrefetches` to sweep that registry, while the canc side needs no equivalent
+ because the lifetime signal drops the whole set at once.
 - `src/main-vanilla.ts` vs `src/main-canc.ts`: entry points, wiring the shell to search, render and
  prefetch.
-- `src/platform-scheduler.ts`: five lines reading `scheduler` and `TaskController` off `globalThis`
- together, shared by both entries. It carries no cancellation concept of its own.
+- `src/platform-scheduler.ts`: a five-line accessor reading `scheduler` and `TaskController` off
+ `globalThis` together, shared by both entries. The type duplication with `src/lib/web-scheduler/`
+ is deliberate so `src/lib/web-scheduler/` stays movable. It carries no cancellation concept of its
+ own.
 - `src/table-shared.ts`, `src/util/report.ts`, `src/util/responsiveness.ts`: shared shell, not part
  of the diff.
 
