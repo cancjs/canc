@@ -289,6 +289,20 @@ export function cancAsync<
         return self.asyncCancel ? drainDeferred!.promise : undefined;
       };
 
+      const findCurrentLoop = (registry: ILoopRegistry): ILoopHandle | undefined => {
+        let target: ILoopHandle | undefined;
+        let maxEnteredAt = 0;
+
+        for (const candidate of registry) {
+          if (candidate._used && !candidate._finished && candidate._enteredAt > maxEnteredAt) {
+            target = candidate;
+            maxEnteredAt = candidate._enteredAt;
+          }
+        }
+
+        return target;
+      };
+
       const step = (result: any) => {
         if (result.done) {
           genDone = true;
@@ -323,15 +337,7 @@ export function cancAsync<
             const currentLoopMarked: boolean = isObject(value) ? (value as any)[CURRENT_LOOP] : false;
 
             if (currentLoopMarked) {
-              let target: ILoopHandle | undefined;
-              let maxEnteredAt = 0;
-
-              for (const candidate of pendingCleanups) {
-                if (candidate._used && !candidate._finished && candidate._enteredAt > maxEnteredAt) {
-                  target = candidate;
-                  maxEnteredAt = candidate._enteredAt;
-                }
-              }
+              const target = findCurrentLoop(pendingCleanups);
 
               if (!target) {
                 onFulfilled(undefined);
@@ -484,6 +490,20 @@ export function cancAsync<
           let next: IteratorResult<any>;
           try {
             next = gen.next(undefined);
+          } catch (err) {
+            genDone = true;
+            rejectDrained(err);
+            return;
+          }
+          pumpFinally(next);
+          return;
+        }
+
+        // drain pump resolves ordinary yields through shield, which would hand the marker back as the loop
+        if (isObject(result.value) && (result.value as any)[CURRENT_LOOP]) {
+          let next: IteratorResult<any>;
+          try {
+            next = gen.next(findCurrentLoop(pendingCleanups));
           } catch (err) {
             genDone = true;
             rejectDrained(err);
@@ -1007,7 +1027,7 @@ cancForAwait.toArray = function* toArray(source: any): Generator<unknown, any[],
 
 cancForAwait.next = function* next(): Generator<unknown, void, any> {
   const loop = yield { [CURRENT_LOOP]: true };
-  if (!loop) {
+  if (!isObject(loop) || !isFunction((loop as any)._it)) {
     throw new IterationError('No active forAwait loop; canc.forAwait.next() requires a loop in the body');
   }
   yield* pullNextItem(loop);

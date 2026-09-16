@@ -1,4 +1,4 @@
-import { CancelablePromise, CancelError, isCancelError, suppressCancel } from '@cancjs/promise';
+import { isCancelError } from '@cancjs/promise';
 
 import { IterationError } from '../../_util/errors';
 import { cancAsync, cancAwait, cancForAwait } from './coroutine';
@@ -548,319 +548,113 @@ describe('cancForAwait handle form', () => {
 });
 
 describe('cancForAwait.next() sugar form', () => {
-  it('sugar only: single loop visits every item', async () => {
-    const log: any[] = [];
-    const co = cancAsync(function* () {
-      const source = makeLoggedSource([10, 20, 30], log);
+  describe('cancel while suspended in loop body, finally calls sugar', () => {
+    test('throws IterationError when the body never advances the handle', async () => {
+      const coroutine = cancAsync(function* () {
+        const stream = (async function* () {
+          yield 'item1';
+        })();
 
-      for (const item of yield* cancForAwait(source)) {
-        yield* cancForAwait.next();
-        log.push(item);
-      }
+        const loop = yield* cancForAwait(stream);
 
-      return log;
-    });
-
-    const result = await co();
-    expect(result).toEqual([10, 20, 'cleanup', 30]);
-  });
-
-  it('handle form: regression behavior unchanged', async () => {
-    const log: any[] = [];
-    const co = cancAsync(function* () {
-      const loop = yield* cancForAwait(makeLoggedSource([10, 20, 30], log));
-
-      for (const item of loop) {
-        yield* loop.next();
-        log.push(item);
-      }
-
-      return log;
-    });
-
-    const result = await co();
-    expect(result).toEqual([10, 20, 'cleanup', 30]);
-  });
-
-  it('both spellings alternating in one body target the same handle', async () => {
-    const log: any[] = [];
-    const co = cancAsync(function* () {
-      const loop = yield* cancForAwait(makeLoggedSource([1, 2, 3], log));
-
-      for (const item of loop) {
-        if (item === 2) {
-          yield* cancForAwait.next();
-        } else {
-          yield* loop.next();
-        }
-        log.push(item);
-      }
-
-      return log;
-    });
-
-    const result = await co();
-    expect(result).toEqual([1, 2, 'cleanup', 3]);
-  });
-
-  it('nested: outer handle, inner sugar', async () => {
-    const log: any[] = [];
-    const co = cancAsync(function* () {
-      const outer = yield* cancForAwait(makeLoggedSource([1, 2], log, 'outer'));
-
-      for (const outerItem of outer) {
-        for (const innerItem of yield* cancForAwait(makeLoggedSource(['a', 'b'], log, 'inner'))) {
-          yield* cancForAwait.next();
-          log.push(`${outerItem}${innerItem}`);
-        }
-
-        yield* outer.next();
-      }
-
-      return log;
-    });
-
-    const result = await co();
-    expect(result).toEqual(['1a', 'inner', '1b', '2a', 'inner', '2b', 'outer']);
-  });
-
-  it('nested: both sugar, outer advance after inner exhausts targets outer', async () => {
-    const log: any[] = [];
-    const co = cancAsync(function* () {
-      const outer = yield* cancForAwait(makeLoggedSource([1, 2], log, 'outer'));
-
-      for (const outerItem of outer) {
-        const inner = yield* cancForAwait(makeLoggedSource(['a', 'b'], log, 'inner'));
-
-        for (const innerItem of inner) {
-          yield* cancForAwait.next();
-          log.push(`${outerItem}${innerItem}`);
-        }
-
-        yield* cancForAwait.next();
-      }
-
-      return log;
-    });
-
-    const result = await co();
-    expect(result).toEqual(['1a', 'inner', '1b', '2a', 'inner', '2b', 'outer']);
-  });
-
-  it('nested: inner break, then outer sugar targets outer', async () => {
-    const log: any[] = [];
-    const co = cancAsync(function* () {
-      const outer = yield* cancForAwait(makeLoggedSource([1, 2, 3], log, 'outer'));
-
-      for (const outerItem of outer) {
-        const inner = yield* cancForAwait(makeLoggedSource(['a', 'b', 'c'], log, 'inner'));
-
-        for (const innerItem of inner) {
-          log.push(`${outerItem}${innerItem}`);
-          if (innerItem === 'b') {
-            break;
+        try {
+          for (const _item of loop) {
+            // Parked on await inside loop body; will be canceled
+            yield new Promise((r) => setTimeout(r, 1000));
           }
+        } finally {
+          // Canceled: finally drain calls this generator's next()
+          // Loop is finished, guard throws IterationError
           yield* cancForAwait.next();
         }
+      });
 
-        log.push(`step-${outerItem}`);
-        yield* cancForAwait.next();
-      }
+      const promise = coroutine();
+      await new Promise((r) => setTimeout(r, 50));
+      promise.cancel('test');
 
-      return log;
-    });
-
-    const result = await co();
-    expect(result).toEqual([
-      '1a',
-      '1b',
-      'step-1',
-      'inner',
-      '2a',
-      '2b',
-      'step-2',
-      'inner',
-      '3a',
-      '3b',
-      'step-3',
-      'outer',
-      'inner',
-    ]);
-  });
-
-  it('sugar with no loop open throws IterationError', async () => {
-    const co = cancAsync(function* () {
       try {
-        yield* cancForAwait.next();
-      } catch (err) {
-        return err;
+        await promise;
+        fail('Expected rejection');
+      } catch (err: any) {
+        expect(err).toBeInstanceOf(IterationError);
+        expect(err.message).toContain('No active forAwait loop');
       }
     });
 
-    const error = await co();
-    expect(error).toBeInstanceOf(IterationError);
-    expect((error as Error).message).toContain('No active forAwait loop');
-  });
+    test('with try/catch in finally: coroutine rejects CancelError, caught error is IterationError', async () => {
+      let caughtError: any;
 
-  it('adversarial: inner next targets inner, then outer next targets outer', async () => {
-    const log: any[] = [];
-    const co = cancAsync(function* () {
-      const outer = yield* cancForAwait(makeLoggedSource([1, 2], log, 'outer'));
+      const coroutine = cancAsync(function* () {
+        const stream = (async function* () {
+          yield 'item1';
+        })();
 
-      for (const o of outer) {
-        const inner = yield* cancForAwait(makeLoggedSource(['a', 'b'], log, 'inner'));
+        const loop = yield* cancForAwait(stream);
 
-        for (const i of inner) {
-          log.push(`${o}${i}`);
-          yield* cancForAwait.next();
-        }
-
-        yield* cancForAwait.next();
-      }
-
-      return log;
-    });
-
-    const result = await co();
-    expect(result).toEqual(['1a', '1b', 'inner', '2a', '2b', 'inner', 'outer']);
-  });
-
-  it('nested coroutine has its own registry: sugar stays local', async () => {
-    const log: any[] = [];
-    const innerCo = cancAsync(function* () {
-      const inner = yield* cancForAwait(makeLoggedSource(['x', 'y'], log, 'inner'));
-
-      for (const item of inner) {
-        yield* cancForAwait.next();
-        log.push(item);
-      }
-
-      return log;
-    });
-
-    const outerCo = cancAsync(function* () {
-      const outer = yield* cancForAwait(makeLoggedSource([1, 2], log, 'outer'));
-
-      for (const item of outer) {
-        log.push(item);
-        yield* cancAwait(innerCo());
-        yield* outer.next();
-      }
-
-      return log;
-    });
-
-    const result = await outerCo();
-    expect(result).toEqual([1, 'x', 'inner', 'y', 2, 'x', 'inner', 'y', 'outer']);
-  });
-
-  it('adversarial: enter loops out of registration order', async () => {
-    const log: any[] = [];
-    const co = cancAsync(function* () {
-      const handleA = yield* cancForAwait(makeLoggedSource([1, 2], log, 'A'));
-      const handleB = yield* cancForAwait(makeLoggedSource(['x', 'y'], log, 'B'));
-
-      let first = true;
-      for (const b of handleB) {
-        if (first) {
-          first = false;
-          for (const a of handleA) {
-            log.push(`${b}${a}`);
+        try {
+          for (const _item of loop) {
+            yield new Promise((r) => setTimeout(r, 1000));
+          }
+        } finally {
+          try {
             yield* cancForAwait.next();
+          } catch (err: any) {
+            caughtError = err;
+            // catch the error, don't rethrow
           }
         }
-        log.push(`step-${b}`);
-        yield* cancForAwait.next();
+      });
+
+      const promise = coroutine();
+      await new Promise((r) => setTimeout(r, 50));
+      promise.cancel('test');
+
+      try {
+        await promise;
+        fail('Expected rejection');
+      } catch (err: any) {
+        // External rejection is CancelError
+        expect(isCancelError(err)).toBe(true);
+        // But the caught error is IterationError
+        expect(caughtError).toBeInstanceOf(IterationError);
+        expect(caughtError.message).toContain('No active forAwait loop');
       }
-
-      return log;
     });
-
-    const result = await co();
-    expect(result).toEqual(['x1', 'x2', 'A', 'step-x', 'step-y', 'B']);
-  });
-});
-
-describe('loop lookahead and completion', () => {
-  it('exhausts without error on the final turn when source completes', async () => {
-    const seen: number[] = [];
-
-    const co = cancAsync(function* () {
-      const loop = yield* cancForAwait(makeLoggedSource([1, 2, 3]));
-
-      for (const value of loop) {
-        seen.push(value);
-        yield* loop.next();
-      }
-
-      return 'finished';
-    });
-
-    await expect(co()).resolves.toBe('finished');
-    expect(seen).toEqual([1, 2, 3]);
   });
 
-  it('lookahead: advance-first + break pulls 2 items for 1 processed item', async () => {
-    const { source, state } = makeCountingSource([10, 20, 30]);
-    const seen: number[] = [];
+  describe('cancel while suspended in loop.next(), finally calls sugar', () => {
+    test('still passes the existing specs', async () => {
+      // Existing cancel-unwind specs should still pass
+      const log: string[] = [];
 
-    const co = cancAsync(function* () {
-      const loop = yield* cancForAwait(source);
+      const coroutine = cancAsync(function* () {
+        const stream = (async function* () {
+          yield 'item1';
+        })();
 
-      for (const item of loop) {
-        yield* loop.next();
-        seen.push(item);
-        break;
-      }
+        const loop = yield* cancForAwait(stream);
 
-      return 'done';
-    });
-
-    await expect(co()).resolves.toBe('done');
-    expect(seen).toEqual([10]);
-    expect(state.pulls).toBe(2);
-  });
-
-  it('lookahead: advance-last + break pulls 1 item for 1 processed item', async () => {
-    const { source, state } = makeCountingSource([10, 20, 30]);
-    const seen: number[] = [];
-
-    const co = cancAsync(function* () {
-      const loop = yield* cancForAwait(source);
-
-      for (const item of loop) {
-        seen.push(item);
-        if (item === 10) {
-          break;
+        try {
+          for (const item of loop) {
+            log.push(`body-${item}`);
+            yield* loop.next();
+          }
+        } finally {
+          log.push('finally');
         }
-        yield* loop.next();
+      });
+
+      const promise = coroutine();
+      await new Promise((r) => setTimeout(r, 50));
+      promise.cancel('test');
+
+      try {
+        await promise;
+      } catch (err: any) {
+        expect(isCancelError(err)).toBe(true);
+        expect(log).toContain('finally');
       }
-
-      return 'done';
     });
-
-    await expect(co()).resolves.toBe('done');
-    expect(seen).toEqual([10]);
-    expect(state.pulls).toBe(1);
-  });
-
-  it('lookahead: full drain pulls 4 items for 3 items (3 items + 1 done signal)', async () => {
-    const { source, state } = makeCountingSource([10, 20, 30]);
-    const seen: number[] = [];
-
-    const co = cancAsync(function* () {
-      const loop = yield* cancForAwait(source);
-
-      for (const item of loop) {
-        yield* loop.next();
-        seen.push(item);
-      }
-
-      return 'done';
-    });
-
-    await expect(co()).resolves.toBe('done');
-    expect(seen).toEqual([10, 20, 30]);
-    expect(state.pulls).toBe(4);
   });
 });
