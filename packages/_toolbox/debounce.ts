@@ -39,7 +39,9 @@ export type IDebounceDeps = TTimersOverride & {
 // per-call state, so a superseded cycle keeps owning the call it started and nothing else
 interface ICycle<R> {
   result?: PromiseLike<R>;
-  invoked: boolean;
+  settled: boolean;
+  // the leading edge is a commitment to the caller that opened the window, never taken back
+  leadingInvoked: boolean;
 }
 
 /**
@@ -66,11 +68,21 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
     let pendingResolve: ((value: R | PromiseLike<R>) => void) | undefined;
     let pendingReject: ((reason?: any) => void) | undefined;
     let pendingPromise: TPromiseOf<K, R, F> | undefined;
-    let cycle: ICycle<R> = { invoked: false };
+    let cycle: ICycle<R> = { settled: false, leadingInvoked: false };
     let superseding = false;
+
+    function markSettled(own: ICycle<R>): void {
+      own.settled = true;
+      own.result = undefined;
+      // an idle wrapper would otherwise hold the last call's promise for its whole lifetime
+      if (own === cycle) pendingPromise = undefined;
+    }
 
     function invoke(args: Args): void {
       lastArgs = undefined;
+
+      // a superseded cycle must never write the live wrapper's state
+      const own = cycle;
 
       let result: R | PromiseLike<R>;
       try {
@@ -81,10 +93,11 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
           pendingResolve = undefined;
           pendingReject = undefined;
         }
+        markSettled(own);
         return;
       }
 
-      cycle.result = isThenableLike<R>(result) ? result : undefined;
+      own.result = isThenableLike<R>(result) ? result : undefined;
 
       if (pendingResolve) {
         pendingResolve(result);
@@ -92,7 +105,19 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
         pendingReject = undefined;
       }
 
-      cycle.invoked = true;
+      if (isThenableLike<R>(result)) {
+        result.then(
+          function () {
+            markSettled(own);
+          },
+          function () {
+            markSettled(own);
+          },
+        );
+      } else {
+        // nothing to wait for, so the call completed in this tick
+        markSettled(own);
+      }
     }
 
     function clearTimers(): void {
@@ -111,12 +136,7 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
       if (pendingPromise && isCancelableLike(pendingPromise)) {
         pendingPromise.cancel();
       } else if (pendingReject) {
-        // Not-yet-invoked call on a non-cancelable Impl (native twin): the wrapper promise has no
-        // cancel surface of its own, but reject is still live pre-invoke, so settle it directly.
-        // Once invoke() has adopted a thenable this is already undefined and nothing can redirect
-        // the promise, matching the native `withAbortSignal` stance of never faking a CancelError.
-        // Branded, not a bare Error, so a caller can tell supersede from a real failure
-        // a fire-and-forget debounced(x) needs its own handler now, or it goes unhandled
+        // a non-cancelable Impl has no cancel surface, so reject rather than leave it pending
         pendingReject(new SupersededError());
       }
       superseding = false;
@@ -129,7 +149,8 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
      * Cancel whatever the current cycle is: an in-flight call's cancelable result, plus the
      * wrapper promise handed to that call's caller. Shared by an explicit `.cancel()` and a
      * superseding call so both stop the same in-flight work the same way, whether the prior call
-     * already invoked `fn` or is still waiting out the timer.
+     * already invoked `fn` or is still waiting out the timer. An explicit `.cancel()` always gets
+     * here; a superseding call only for a prior call that has not completed.
      */
     function cancelCurrent(): void {
       if (isCancelableLike(cycle.result)) {
@@ -157,7 +178,7 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
     }
 
     function makePromise(): TPromiseOf<K, R, F> {
-      const own: ICycle<R> = { invoked: false };
+      const own: ICycle<R> = { settled: false, leadingInvoked: false };
       cycle = own;
 
       const p = construct<R>(
@@ -202,9 +223,8 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
         timerId = undefined;
       }
 
-      if (pendingPromise && !cycle.invoked) {
-        // cancels a pre-invoke pending call and a post-invoke in-flight one alike
-        // skipped after any invoke: that call ran, its caller is owed the result
+      if (pendingPromise && !cycle.settled && !cycle.leadingInvoked) {
+        // a call that has not completed is superseded, a completed one is owed to its caller
         // not `wrapped.cancel()`, which also clears `maxTimerId` and restarts the maxWait window
         cancelCurrent();
       }
@@ -213,7 +233,7 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
 
       if (leading && startsWindow) {
         invoke(argsArray);
-        cycle.invoked = true;
+        cycle.leadingInvoked = true;
         // armed even with `trailing: false`, because only its expiry closes the window
         timerId = startTimer(timerExpired, ms, timers);
         if (maxWait !== undefined && maxTimerId === undefined) {
@@ -237,16 +257,18 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
     };
 
     wrapped.flush = function (): TPromiseOf<K, R, F> | undefined {
-      if (timerId === undefined && maxTimerId === undefined) return undefined;
+      if ((timerId === undefined && maxTimerId === undefined) || pendingPromise === undefined) return undefined;
 
       const args = lastArgs;
+      // read before invoking, because a call that completes in this tick releases it
+      const p = pendingPromise;
       clearTimers();
 
       if (args) {
         invoke(args);
       }
 
-      const p = pendingPromise;
+      pendingPromise = undefined;
       return p;
     };
 

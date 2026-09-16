@@ -344,23 +344,24 @@ describe('throttle (native)', () => {
     expect(await pb).toBe('b');
   });
 
-  // The native twin's in-flight result has no `cancel`.
-  // Once a call is invoked its wrapper promise has already adopted that result.
-  // So this inherits a reduced regression: a pending supersede still rejects.
-  // And a supersede after invoke causes no second invoke.
-  it('regression (inherited from debounce): a pending call rejects on supersede, an in-flight one is not re-invoked', async () => {
+  // Once invoke() has adopted a thenable, `pendingReject` is gone and the native twin has no cancel
+  // surface, so an in-flight supersede is a no-op here by construction, not by choice.
+  // an unhandled rejection anywhere in here fails the whole suite, so the supersede raising one
+  // on the unclaimed promise would be caught by this test running at all
+  it('a pending call rejects on supersede, an in-flight one runs on and settles its caller', async () => {
     jest.useFakeTimers();
     const calls: string[] = [];
     const fn = (x: string) => {
       calls.push(x);
 
-      return new Promise<string>(() => undefined); // never settles on its own
+      return new Promise<string>((resolve) => {
+        setTimeout(() => resolve(x.toUpperCase()), 200);
+      });
     };
     const throttled = throttle(fn, 50, { leading: false });
 
     const pa = throttled('a');
-
-    throttled('b'); // supersede while 'a' is still pending (pre-invoke)
+    const pb = throttled('b'); // supersede while 'a' is still waiting out its timer
 
     const reasonA = await pa.then(undefined, (e: unknown) => e);
     expect(isSupersededError(reasonA)).toBe(true);
@@ -368,9 +369,13 @@ describe('throttle (native)', () => {
     jest.advanceTimersByTime(50);
     await Promise.resolve();
     await Promise.resolve();
-    expect(calls).toEqual(['b']); // 'b' invoked once, not re-invoked by a later supersede
-
-    throttled('c'); // supersede while 'b' is in flight: no throw, no second invoke of 'b'
     expect(calls).toEqual(['b']);
+
+    const pc = throttled('c'); // supersede while 'b' is in flight
+
+    jest.advanceTimersByTime(300); // long enough for a re-invoked 'b' to show up
+    expect(await pb).toBe('B');
+    expect(await pc).toBe('C');
+    expect(calls).toEqual(['b', 'c']);
   });
 });
