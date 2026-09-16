@@ -2,12 +2,12 @@
   {
     "module": "util",
     "status": "deferred",
-    "reason": "util.aborted adopted internally; no subpath. See QN44"
+    "reason": "util.aborted adopted internally; no subpath"
   },
   {
     "module": "stream/web",
     "status": "excluded",
-    "reason": "WHATWG cancel has different semantics; bridge belongs with fetch. See QN45"
+    "reason": "WHATWG cancel has different semantics; the bridge belongs with fetch"
   },
   {
     "module": "test",
@@ -27,7 +27,7 @@
   {
     "module": "diagnostics_channel",
     "status": "deferred",
-    "reason": "tracingChannel publishing is a canc-core feature, not a node mirror. See QN46"
+    "reason": "tracingChannel publishing is a canc feature, not a node mirror"
   },
   {
     "module": "process",
