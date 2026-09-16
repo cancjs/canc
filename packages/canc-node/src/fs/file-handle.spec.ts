@@ -7,8 +7,56 @@ import { CancelError } from '@cancjs/promise';
 import { describe, expect, jest, test } from '@jest/globals';
 
 import { __resetCancProtoForTest, decorate } from './file-handle';
+import { open } from './index';
+import { resetFs, setFs } from './registry';
 
 describe('FileHandle', () => {
+  test('keeps a real handle usable after a fake implementation was decorated', async () => {
+    const fakeHandle = { close: jest.fn(async () => {}) };
+    setFs({
+      promises: {
+        open: jest.fn(async () => fakeHandle),
+      },
+    } as any);
+
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const fakeOpened = await open('package.json', 'r');
+      await fakeOpened.close();
+    } finally {
+      warnSpy.mockRestore();
+    }
+
+    resetFs();
+
+    const fh = await open('package.json', 'r');
+    try {
+      expect(typeof fh.read).toBe('function');
+      expect(typeof fh.stat).toBe('function');
+      expect(typeof fh.close).toBe('function');
+      const stat = await fh.stat();
+      expect(stat.size).toBeGreaterThan(0);
+      const buf = Buffer.alloc(10);
+      const readResult = await (fh as any).read(buf, 0, 10, 0);
+      expect(readResult.bytesRead).toBe(10);
+    } finally {
+      await fh.close();
+    }
+  });
+
+  test('real open produces zero console.warn calls', async () => {
+    __resetCancProtoForTest();
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const fh = await open('package.json', 'r');
+    try {
+      expect(warnSpy).not.toHaveBeenCalled();
+    } finally {
+      await fh.close();
+      warnSpy.mockRestore();
+    }
+  });
+
   test('fh instanceof native class, fd getter works, override reaches native', async () => {
     const fh = await fs.open('package.json', 'r');
     const NativeClass = fh.constructor;
@@ -40,6 +88,10 @@ describe('FileHandle', () => {
     const fh = await fs.open('package.json', 'r');
     decorate(fh);
 
+    if (typeof Symbol.asyncDispose === 'symbol') {
+      expect(typeof (fh as any)[Symbol.asyncDispose]).toBe('function');
+    }
+
     const origClose = fh.close;
     fh.close = function (...args: any[]) {
       overrideRan = true;
@@ -69,18 +121,22 @@ describe('FileHandle', () => {
     __resetCancProtoForTest();
     const fakeProto = {
       read: jest.fn(),
-      // missing stat
     };
     const fakeFh = Object.create(fakeProto);
     const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
-    decorate(fakeFh);
+    try {
+      decorate(fakeFh);
 
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('missing members'));
-    expect(fakeFh.read).not.toBe(fakeProto.read);
-
-    warnSpy.mockRestore();
-    __resetCancProtoForTest(); // reset again so we don't break next tests
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      const warnMsg = warnSpy.mock.calls[0][0] as string;
+      expect(warnMsg).toContain('missing members');
+      expect(warnMsg).toContain('readFile');
+      expect(fakeFh.read).not.toBe(fakeProto.read);
+    } finally {
+      warnSpy.mockRestore();
+      __resetCancProtoForTest();
+    }
   });
 
   test('fh.writeFile(asyncIterable) canceled mid-stream calls return()', async () => {
