@@ -101,8 +101,49 @@ describe('limit', () => {
 
     const error = await caught;
     expect(isAbortError(error)).toBe(true);
-    expect(error.message).toBe('QUEUED-REASON');
+    expect(error.message).toBe('limit: canceled while queued');
     expect(error.cause).toBe('QUEUED-REASON');
+
+    running.finish();
+    await first;
+  });
+
+  it('gives an object reason the same message and keeps the object itself on cause', async () => {
+    const limited = limit(1);
+    const running = createJob('running');
+    const queued = createJob('queued');
+    const reason = new Error('QUEUED-REASON');
+
+    const first = limited(running.run);
+    const second = limited(queued.run);
+    const caught = second.catch((error: any) => error);
+
+    limited.cancel(reason);
+
+    const error = await caught;
+    expect(isAbortError(error)).toBe(true);
+    expect(error.message).toBe('limit: canceled while queued');
+    expect(error.cause).toBe(reason);
+
+    running.finish();
+    await first;
+  });
+
+  it('leaves cause off the queued rejection when no reason is given', async () => {
+    const limited = limit(1);
+    const running = createJob('running');
+    const queued = createJob('queued');
+
+    const first = limited(running.run);
+    const second = limited(queued.run);
+    const caught = second.catch((error: any) => error);
+
+    limited.cancel();
+
+    const error = await caught;
+    expect(isAbortError(error)).toBe(true);
+    expect(error.message).toBe('limit: canceled while queued');
+    expect(Object.prototype.hasOwnProperty.call(error, 'cause')).toBe(false);
 
     running.finish();
     await first;

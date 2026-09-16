@@ -172,9 +172,11 @@ export function limitFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
             // Non-cancelable implementation: a queued job can still be dropped by rejecting its
             // promise, but a running one has no cancel surface to reach.
             if (!entry.started) {
-              const message = typeof reason === 'string' ? reason : 'limit: canceled while queued';
-              const err = new AbortError(message);
-              (err as any).cause = reason;
+              // One message whatever the reason's type, so callers never have to guess the shape
+              const err = new AbortError('limit: canceled while queued');
+
+              if (reason !== undefined) (err as any).cause = reason;
+
               reject(err);
             }
           },
