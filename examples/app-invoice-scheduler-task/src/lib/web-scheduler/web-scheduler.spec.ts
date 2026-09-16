@@ -1,5 +1,6 @@
 import { CancelablePromise, isCancelError } from '@cancjs/promise';
 import { delay } from '@cancjs/toolbox';
+import { sleep } from '@shared/util';
 
 import { createFakeScheduler } from '../../../test/fake-scheduler';
 import { IPostSchedulerTaskOptions, postSchedulerTask } from './post-scheduler-task';
@@ -232,8 +233,8 @@ describe('createSchedulerTimers', () => {
 
       timers.clearTimeout(handle);
 
-      // One turn of the event loop is what node needs before it decides a rejection went unhandled.
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      // one turn of the event loop is what node needs before it decides a rejection went unhandled
+      await sleep(0);
 
       expect(unhandled).not.toHaveBeenCalled();
     } finally {
