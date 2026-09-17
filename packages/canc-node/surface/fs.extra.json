@@ -48,6 +48,27 @@
       "notes": "removes directory contents while keeping the directory itself"
     },
     {
+      "name": "emptyDirSync",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "failures": ["ENOENT", "EACCES", "EBUSY"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronously removes directory contents while keeping the directory itself"
+    },
+    {
       "name": "ensureDir",
       "kind": "fn",
       "cancelCategory": "D",
@@ -67,6 +88,27 @@
         "bun": "ok"
       },
       "notes": "ensures directory exists, creating parent directories if needed"
+    },
+    {
+      "name": "ensureDirSync",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "failures": ["EACCES", "ENOSPC", "ENOTDIR"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronously ensures directory exists, creating parent directories if needed"
     },
     {
       "name": "ensureFile",
@@ -90,6 +132,27 @@
       "notes": "ensures file exists, creating parent directories if needed"
     },
     {
+      "name": "ensureFileSync",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "failures": ["EACCES", "ENOSPC", "EISDIR"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronously ensures file exists, creating parent directories if needed"
+    },
+    {
       "name": "ensureLink",
       "kind": "fn",
       "cancelCategory": "D",
@@ -109,6 +172,27 @@
         "bun": "ok"
       },
       "notes": "ensures hard link exists, creating parent directories if needed"
+    },
+    {
+      "name": "ensureLinkSync",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "failures": ["ENOENT", "EACCES", "EEXIST", "EXDEV", "EPERM"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronously ensures hard link exists, creating parent directories if needed"
     },
     {
       "name": "ensureSymlink",
@@ -132,6 +216,27 @@
       "notes": "ensures symbolic link exists, creating parent directories if needed"
     },
     {
+      "name": "ensureSymlinkSync",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "failures": ["ENOENT", "EACCES", "EEXIST", "EPERM"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronously ensures symbolic link exists, creating parent directories if needed"
+    },
+    {
       "name": "mkdirp",
       "kind": "fn",
       "cancelCategory": "D",
@@ -153,6 +258,27 @@
       "notes": "deprecated alias of ensureDir"
     },
     {
+      "name": "mkdirpSync",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "failures": ["EACCES", "ENOSPC", "ENOTDIR"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "deprecated alias of ensureDirSync"
+    },
+    {
       "name": "mkdirs",
       "kind": "fn",
       "cancelCategory": "D",
@@ -172,6 +298,27 @@
         "bun": "ok"
       },
       "notes": "deprecated alias of ensureDir"
+    },
+    {
+      "name": "mkdirsSync",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "failures": ["EACCES", "ENOSPC", "ENOTDIR"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "deprecated alias of ensureDirSync"
     },
     {
       "name": "move",
@@ -196,6 +343,27 @@
       "notes": "moves file or directory with cross-device copy-then-delete fallback"
     },
     {
+      "name": "moveSync",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "failures": ["ENOENT", "EACCES", "EXDEV", "EPERM", "EBUSY", "EEXIST"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronously moves file or directory with cross-device copy-then-delete fallback"
+    },
+    {
       "name": "outputFile",
       "kind": "fn",
       "cancelCategory": "A",
@@ -215,6 +383,27 @@
         "bun": "ok"
       },
       "notes": "creates parent directories if needed and writes file"
+    },
+    {
+      "name": "outputFileSync",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "failures": ["EACCES", "ENOSPC"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronously creates parent directories if needed and writes file"
     },
     {
       "name": "outputJson",
@@ -344,9 +533,9 @@
       "notes": "atomic file replacement using temp file and rename"
     },
     {
-      "name": "walk",
+      "name": "replaceFileSync",
       "kind": "fn",
-      "cancelCategory": "A",
+      "cancelCategory": null,
       "callPath": null,
       "nodeSignal": {
         "documented": false,
@@ -355,7 +544,27 @@
         "sinceByMajor": null
       },
       "wrapper": "reimplemented",
-      "teardown": "cancel ends async iteration via return()",
+      "failures": ["EACCES", "ENOSPC", "EXDEV", "EPERM"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous atomic file replacement using temp file and rename"
+    },
+    {
+      "name": "walk",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
       "failures": ["ENOENT", "EACCES", "ELOOP"],
       "minMajor": null,
       "gate": null,

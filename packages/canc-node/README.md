@@ -108,28 +108,38 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 
 #### fs/extra
 
-| Export           | Cancellation     | Node | Deno | Bun |
-| ---------------- | ---------------- | ---- | ---- | --- |
-| `copy`           | stops the work   | 18+  | ✅   | ✅  |
-| `emptyDir`       | stops the work   | 18+  | ✅   | ✅  |
-| `ensureDir`      | before it starts | 18+  | ✅   | ✅  |
-| `ensureFile`     | before it starts | 18+  | ✅   | ✅  |
-| `ensureLink`     | before it starts | 18+  | ✅   | ✅  |
-| `ensureSymlink`  | before it starts | 18+  | ✅   | ✅  |
-| `mkdirp`         | before it starts | 18+  | ✅   | ✅  |
-| `mkdirs`         | before it starts | 18+  | ✅   | ✅  |
-| `move`           | stops the work   | 18+  | ✅   | ✅  |
-| `outputFile`     | stops the work   | 18+  | ✅   | ✅  |
-| `outputJson`     | stops the work   | 18+  | ✅   | ✅  |
-| `outputJsonSync` | -                | 18+  | ✅   | ✅  |
-| `pathExists`     | before it starts | 18+  | ✅   | ✅  |
-| `readJson`       | stops the work   | 18+  | ✅   | ✅  |
-| `readJsonSync`   | -                | 18+  | ✅   | ✅  |
-| `replaceFile`    | stops the work   | 18+  | ✅   | ✅  |
-| `walk`           | stops the work   | 18+  | ✅   | ✅  |
-| `walkSync`       | -                | 18+  | ✅   | ✅  |
-| `writeJson`      | stops the work   | 18+  | ✅   | ✅  |
-| `writeJsonSync`  | -                | 18+  | ✅   | ✅  |
+| Export              | Cancellation     | Node | Deno | Bun |
+| ------------------- | ---------------- | ---- | ---- | --- |
+| `copy`              | stops the work   | 18+  | ✅   | ✅  |
+| `emptyDir`          | stops the work   | 18+  | ✅   | ✅  |
+| `emptyDirSync`      | -                | 18+  | ✅   | ✅  |
+| `ensureDir`         | before it starts | 18+  | ✅   | ✅  |
+| `ensureDirSync`     | -                | 18+  | ✅   | ✅  |
+| `ensureFile`        | before it starts | 18+  | ✅   | ✅  |
+| `ensureFileSync`    | -                | 18+  | ✅   | ✅  |
+| `ensureLink`        | before it starts | 18+  | ✅   | ✅  |
+| `ensureLinkSync`    | -                | 18+  | ✅   | ✅  |
+| `ensureSymlink`     | before it starts | 18+  | ✅   | ✅  |
+| `ensureSymlinkSync` | -                | 18+  | ✅   | ✅  |
+| `mkdirp`            | before it starts | 18+  | ✅   | ✅  |
+| `mkdirpSync`        | -                | 18+  | ✅   | ✅  |
+| `mkdirs`            | before it starts | 18+  | ✅   | ✅  |
+| `mkdirsSync`        | -                | 18+  | ✅   | ✅  |
+| `move`              | stops the work   | 18+  | ✅   | ✅  |
+| `moveSync`          | -                | 18+  | ✅   | ✅  |
+| `outputFile`        | stops the work   | 18+  | ✅   | ✅  |
+| `outputFileSync`    | -                | 18+  | ✅   | ✅  |
+| `outputJson`        | stops the work   | 18+  | ✅   | ✅  |
+| `outputJsonSync`    | -                | 18+  | ✅   | ✅  |
+| `pathExists`        | before it starts | 18+  | ✅   | ✅  |
+| `readJson`          | stops the work   | 18+  | ✅   | ✅  |
+| `readJsonSync`      | -                | 18+  | ✅   | ✅  |
+| `replaceFile`       | stops the work   | 18+  | ✅   | ✅  |
+| `replaceFileSync`   | -                | 18+  | ✅   | ✅  |
+| `walk`              | -                | 18+  | ✅   | ✅  |
+| `walkSync`          | -                | 18+  | ✅   | ✅  |
+| `writeJson`         | stops the work   | 18+  | ✅   | ✅  |
+| `writeJsonSync`     | -                | 18+  | ✅   | ✅  |
 
 #### FileHandle (fs)
 
@@ -159,6 +169,8 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 | `writev`                | stops waiting only | 18+  | ✅   | ✅  |
 
 <!-- generated:end -->
+
+`walk` and `walkSync` are iterables stopped with `break` or `return()` rather than `.cancel()`, so their cancellation cell reads `-`.
 
 ### Shipped subpaths
 
@@ -233,52 +245,54 @@ For multi-step operations (`copy`, `move` across devices, `emptyDir`, `walk`), c
 - `replaceFile` provides atomic single-file replacement using a temporary file and rename;
 - `copy` accepts `{ onProgress }` to track written paths.
 
+`/fs/extra` helpers are cancel-only and do not accept a caller `signal`; `/fs` does.
+
 ### Migration from fs-extra
 
-| fs-extra method                               | @cancjs/node equivalent                       | Differences and notes                                                                                                                                                                                        |
-| --------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `copy`                                        | `copy` (`@cancjs/node/fs/extra`)              | Checkpoints between entries. The `filter` option evaluates the source entry only. The `overwrite` option defaults to `true`. Distinct from `cp` in `@cancjs/node/fs` which delegates to the runtime `fs.cp`. |
-| `copySync`                                    | -                                             | Use `cpSync` from `@cancjs/node/fs/sync` or async `copy`.                                                                                                                                                    |
-| `emptyDir`                                    | `emptyDir` (`@cancjs/node/fs/extra`)          | Removes directory contents while keeping the directory itself.                                                                                                                                               |
-| `emptyDirSync`                                | `emptyDirSync` (`@cancjs/node/fs/extra`)      | Synchronous twin.                                                                                                                                                                                            |
-| `ensureDir` / `mkdirs` / `mkdirp`             | `ensureDir` (`@cancjs/node/fs/extra`)         | Recursively creates directory, ignoring `EEXIST`. `mkdirs` and `mkdirp` are deprecated aliases.                                                                                                              |
-| `ensureDirSync` / `mkdirsSync` / `mkdirpSync` | `ensureDirSync` (`@cancjs/node/fs/extra`)     | Synchronous twin.                                                                                                                                                                                            |
-| `ensureFile`                                  | `ensureFile` (`@cancjs/node/fs/extra`)        | Creates file and any missing parent directories.                                                                                                                                                             |
-| `ensureFileSync`                              | `ensureFileSync` (`@cancjs/node/fs/extra`)    | Synchronous twin.                                                                                                                                                                                            |
-| `ensureLink`                                  | `ensureLink` (`@cancjs/node/fs/extra`)        | Creates hard link and missing parent directories.                                                                                                                                                            |
-| `ensureLinkSync`                              | `ensureLinkSync` (`@cancjs/node/fs/extra`)    | Synchronous twin.                                                                                                                                                                                            |
-| `ensureSymlink`                               | `ensureSymlink` (`@cancjs/node/fs/extra`)     | Creates symbolic link and missing parent directories.                                                                                                                                                        |
-| `ensureSymlinkSync`                           | `ensureSymlinkSync` (`@cancjs/node/fs/extra`) | Synchronous twin.                                                                                                                                                                                            |
-| `move`                                        | `move` (`@cancjs/node/fs/extra`)              | Atomic `rename` on same device; falls back to copy then remove on `EXDEV`. Source is removed only after copy completes. `overwrite` defaults to `true`.                                                      |
-| `moveSync`                                    | `moveSync` (`@cancjs/node/fs/extra`)          | Synchronous twin.                                                                                                                                                                                            |
-| `outputFile`                                  | `outputFile` (`@cancjs/node/fs/extra`)        | Creates parent directories before writing file.                                                                                                                                                              |
-| `outputFileSync`                              | `outputFileSync` (`@cancjs/node/fs/extra`)    | Synchronous twin.                                                                                                                                                                                            |
-| `outputJson`                                  | `outputJson` (`@cancjs/node/fs/extra`)        | Formats JSON and creates parent directories before writing.                                                                                                                                                  |
-| `outputJsonSync`                              | `outputJsonSync` (`@cancjs/node/fs/extra`)    | Synchronous twin.                                                                                                                                                                                            |
-| `pathExists`                                  | `pathExists` (`@cancjs/node/fs/extra`)        | Alias of `exists` from `@cancjs/node/fs`.                                                                                                                                                                    |
-| `pathExistsSync`                              | `existsSync` (`@cancjs/node/fs/sync`)         | Synchronous check.                                                                                                                                                                                           |
-| `readJson`                                    | `readJson` (`@cancjs/node/fs/extra`)          | Strips UTF-8 BOM. Rejects with `JsonParseError` carrying file path on syntax error. Pass `{ throws: false }` to resolve `null`.                                                                              |
-| `readJsonSync`                                | `readJsonSync` (`@cancjs/node/fs/extra`)      | Synchronous twin.                                                                                                                                                                                            |
-| `remove`                                      | `rm` (`@cancjs/node/fs`)                      | Not shipped in `/fs/extra`. Use `rm(path, { recursive: true, force: true })` from `@cancjs/node/fs`, available in Node.js core since v14.14.                                                                 |
-| `removeSync`                                  | `rmSync` (`@cancjs/node/fs/sync`)             | Use `rmSync(path, { recursive: true, force: true })` from `@cancjs/node/fs/sync`.                                                                                                                            |
-| `writeJson`                                   | `writeJson` (`@cancjs/node/fs/extra`)         | Formats and writes JSON data.                                                                                                                                                                                |
-| `writeJsonSync`                               | `writeJsonSync` (`@cancjs/node/fs/extra`)     | Synchronous twin.                                                                                                                                                                                            |
-| -                                             | `replaceFile` (`@cancjs/node/fs/extra`)       | Additive. Atomic replacement via temporary file and rename. Unlinks temporary file on cancel.                                                                                                                |
-| -                                             | `replaceFileSync` (`@cancjs/node/fs/extra`)   | Synchronous twin.                                                                                                                                                                                            |
-| -                                             | `walk` (`@cancjs/node/fs/extra`)              | Additive. Cancelable directory traversal returning async iterable.                                                                                                                                           |
-| -                                             | `walkSync` (`@cancjs/node/fs/extra`)          | Synchronous twin returning iterable.                                                                                                                                                                         |
+| fs-extra method                               | @cancjs/node equivalent                       | Differences and notes                                                                                                                                                                                                                                                                                        |
+| --------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `copy`                                        | `copy` (`@cancjs/node/fs/extra`)              | Checkpoints between entries. The `filter` option evaluates the source entry only. The `overwrite` option defaults to `true`; with `overwrite: false` it skips existing files, and with `errorOnExist: true` it rejects `EEXIST`. Distinct from `cp` in `@cancjs/node/fs` which delegates to runtime `fs.cp`. |
+| `copySync`                                    | -                                             | Use `cpSync` from `@cancjs/node/fs/sync` or async `copy`.                                                                                                                                                                                                                                                    |
+| `emptyDir`                                    | `emptyDir` (`@cancjs/node/fs/extra`)          | Removes directory contents while keeping the directory itself.                                                                                                                                                                                                                                               |
+| `emptyDirSync`                                | `emptyDirSync` (`@cancjs/node/fs/extra`)      | Synchronous twin.                                                                                                                                                                                                                                                                                            |
+| `ensureDir` / `mkdirs` / `mkdirp`             | `ensureDir` (`@cancjs/node/fs/extra`)         | Recursively creates directory, ignoring `EEXIST`. `mkdirs` and `mkdirp` are deprecated aliases.                                                                                                                                                                                                              |
+| `ensureDirSync` / `mkdirsSync` / `mkdirpSync` | `ensureDirSync` (`@cancjs/node/fs/extra`)     | Synchronous twin. `mkdirsSync` and `mkdirpSync` are deprecated aliases.                                                                                                                                                                                                                                      |
+| `ensureFile`                                  | `ensureFile` (`@cancjs/node/fs/extra`)        | Creates file and any missing parent directories. Rejects `EISDIR` if path is an existing directory.                                                                                                                                                                                                          |
+| `ensureFileSync`                              | `ensureFileSync` (`@cancjs/node/fs/extra`)    | Synchronous twin.                                                                                                                                                                                                                                                                                            |
+| `ensureLink`                                  | `ensureLink` (`@cancjs/node/fs/extra`)        | Creates hard link and missing parent directories.                                                                                                                                                                                                                                                            |
+| `ensureLinkSync`                              | `ensureLinkSync` (`@cancjs/node/fs/extra`)    | Synchronous twin.                                                                                                                                                                                                                                                                                            |
+| `ensureSymlink`                               | `ensureSymlink` (`@cancjs/node/fs/extra`)     | Creates symbolic link and missing parent directories.                                                                                                                                                                                                                                                        |
+| `ensureSymlinkSync`                           | `ensureSymlinkSync` (`@cancjs/node/fs/extra`) | Synchronous twin.                                                                                                                                                                                                                                                                                            |
+| `move`                                        | `move` (`@cancjs/node/fs/extra`)              | Atomic `rename` on same device; falls back to copy then remove on `EXDEV`. Source is removed only after copy completes. `overwrite` defaults to `true`; does not remove a non-empty destination first, surfacing `ENOTEMPTY` or `EPERM`. `overwrite: false` rejects `EEXIST` matching fs-extra.              |
+| `moveSync`                                    | `moveSync` (`@cancjs/node/fs/extra`)          | Synchronous twin. Does not retry a busy rename.                                                                                                                                                                                                                                                              |
+| `outputFile`                                  | `outputFile` (`@cancjs/node/fs/extra`)        | Creates parent directories before writing file.                                                                                                                                                                                                                                                              |
+| `outputFileSync`                              | `outputFileSync` (`@cancjs/node/fs/extra`)    | Synchronous twin.                                                                                                                                                                                                                                                                                            |
+| `outputJson`                                  | `outputJson` (`@cancjs/node/fs/extra`)        | Formats JSON and creates parent directories before writing.                                                                                                                                                                                                                                                  |
+| `outputJsonSync`                              | `outputJsonSync` (`@cancjs/node/fs/extra`)    | Synchronous twin.                                                                                                                                                                                                                                                                                            |
+| `pathExists`                                  | `pathExists` (`@cancjs/node/fs/extra`)        | Alias of `exists` from `@cancjs/node/fs`.                                                                                                                                                                                                                                                                    |
+| `pathExistsSync`                              | `existsSync` (`@cancjs/node/fs/sync`)         | Synchronous check.                                                                                                                                                                                                                                                                                           |
+| `readJson`                                    | `readJson` (`@cancjs/node/fs/extra`)          | Strips UTF-8 BOM. Rejects with `JsonParseError` carrying file path on syntax error. Pass `{ throws: false }` to resolve `null` on parse error; missing file still rejects `ENOENT`.                                                                                                                          |
+| `readJsonSync`                                | `readJsonSync` (`@cancjs/node/fs/extra`)      | Synchronous twin. Pass `{ throws: false }` to resolve `null` on parse error; missing file still throws `ENOENT`.                                                                                                                                                                                             |
+| `remove`                                      | `rm` (`@cancjs/node/fs`)                      | Not shipped in `/fs/extra`. Use `rm(path, { recursive: true, force: true })` from `@cancjs/node/fs`, available in Node.js core since v14.14.                                                                                                                                                                 |
+| `removeSync`                                  | `rmSync` (`@cancjs/node/fs/sync`)             | Use `rmSync(path, { recursive: true, force: true })` from `@cancjs/node/fs/sync`.                                                                                                                                                                                                                            |
+| `writeJson`                                   | `writeJson` (`@cancjs/node/fs/extra`)         | Formats and writes JSON data.                                                                                                                                                                                                                                                                                |
+| `writeJsonSync`                               | `writeJsonSync` (`@cancjs/node/fs/extra`)     | Synchronous twin.                                                                                                                                                                                                                                                                                            |
+| -                                             | `replaceFile` (`@cancjs/node/fs/extra`)       | Additive. Atomic replacement via temporary file and rename. Unlinks temporary file on cancel. Does not `fsync`.                                                                                                                                                                                              |
+| -                                             | `replaceFileSync` (`@cancjs/node/fs/extra`)   | Synchronous twin. Does not `fsync`.                                                                                                                                                                                                                                                                          |
+| -                                             | `walk` (`@cancjs/node/fs/extra`)              | Additive. Cancelable directory traversal returning async iterable.                                                                                                                                                                                                                                           |
+| -                                             | `walkSync` (`@cancjs/node/fs/extra`)          | Synchronous twin returning generator.                                                                                                                                                                                                                                                                        |
 
 ### Migration from klaw
 
-| klaw feature     | walk (@cancjs/node/fs/extra)                                                | Differences and notes                                                                                                         |
-| ---------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| Stream interface | `AsyncIterable<WalkEntry>` (`walk`), `Iterable<WalkSyncEntry>` (`walkSync`) | Consumable via `for await (... of ...)` or sync `for (... of ...)`. Cancelable via iterator `return()`.                       |
-| Entry stats      | `{ stats: false }` by default                                               | Yields `Dirent` entries without issuing extra stat syscalls. Set `{ stats: true }` when file metadata is required.            |
-| Filter predicate | Filter on `Dirent` before descending                                        | Evaluates filter before stat syscall and before descending into child directories, pruning subtrees without traversing them.  |
-| Traversal order  | `order: 'breadth-first' \| 'depth-first' \| 'children-first'`               | Explicit ordering options. `children-first` yields children before parent directory for bottom-up processing.                 |
-| Error handling   | `onError: 'throw' \| 'skip' \| 'yield'`                                     | Controls error policy without event listeners. `'yield'` emits `{ path, error }` entries so the caller handles errors inline. |
-| Symlink handling | `followSymlinks: false` with cycle detection                                | Symlink cycle detection prevents infinite loops when `followSymlinks: true`.                                                  |
-| Depth limiting   | `depth: Infinity` (default)                                                 | Numerical depth limit where `0` inspects root entries only without descending.                                                |
+| klaw feature     | walk (@cancjs/node/fs/extra)                                               | Differences and notes                                                                                                         |
+| ---------------- | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Stream interface | `AsyncIterable<IWalkEntry>` (`walk`), `Generator<IWalkEntry>` (`walkSync`) | Consumable via `for await (... of ...)` or sync `for (... of ...)`. Cancelable via iterator `return()`.                       |
+| Entry stats      | `{ stats: false }` by default                                              | Yields `Dirent` entries without issuing extra stat syscalls. Set `{ stats: true }` when file metadata is required.            |
+| Filter predicate | Filter on `Dirent` before descending                                       | Evaluates filter before stat syscall and before descending into child directories, pruning subtrees without traversing them.  |
+| Traversal order  | `order: 'breadth-first' \| 'depth-first' \| 'children-first'`              | Explicit ordering options. `children-first` yields children before parent directory for bottom-up processing.                 |
+| Error handling   | `onError: 'throw' \| 'skip' \| 'yield'`                                    | Controls error policy without event listeners. `'yield'` emits `{ path, error }` entries so the caller handles errors inline. |
+| Symlink handling | `followSymlinks: false` with cycle detection                               | Symlink cycle detection prevents infinite loops when `followSymlinks: true`.                                                  |
+| Depth limiting   | `depth: Infinity` (default)                                                | Numerical depth limit where `0` inspects root entries only without descending.                                                |
 
 ## API
 
