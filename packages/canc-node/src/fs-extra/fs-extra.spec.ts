@@ -389,6 +389,110 @@ describe('fs-extra', () => {
       expect(skippedExists).toBe(false);
     });
 
+    it('skips an existing destination file when overwrite is false', async () => {
+      const src = join(root, 'copy-skip-src');
+      const dest = join(root, 'copy-skip-dest');
+      await fs.mkdir(join(src, 'sub'), { recursive: true });
+      await fs.mkdir(join(dest, 'sub'), { recursive: true });
+      await fs.writeFile(join(src, 'existing.txt'), 'new content 1');
+      await fs.writeFile(join(dest, 'existing.txt'), 'old content 1');
+      await fs.writeFile(join(src, 'sub', 'existing2.txt'), 'new content 2');
+      await fs.writeFile(join(dest, 'sub', 'existing2.txt'), 'old content 2');
+      await fs.writeFile(join(src, 'copied.txt'), 'new file content');
+      await fs.writeFile(join(src, 'sub', 'copied2.txt'), 'new nested file content');
+
+      const progressEntries: Array<{ src: string; dest: string }> = [];
+
+      await copy(src, dest, {
+        overwrite: false,
+        onProgress: (p) => {
+          progressEntries.push(p);
+        },
+      });
+
+      // existing destination files untouched
+      await expect(fs.readFile(join(dest, 'existing.txt'), 'utf8')).resolves.toBe('old content 1');
+      await expect(fs.readFile(join(dest, 'sub', 'existing2.txt'), 'utf8')).resolves.toBe('old content 2');
+
+      // other files copied
+      await expect(fs.readFile(join(dest, 'copied.txt'), 'utf8')).resolves.toBe('new file content');
+      await expect(fs.readFile(join(dest, 'sub', 'copied2.txt'), 'utf8')).resolves.toBe('new nested file content');
+
+      // onProgress must NOT fire for skipped entries
+      expect(progressEntries.some((e) => e.dest.endsWith('existing.txt'))).toBe(false);
+      expect(progressEntries.some((e) => e.dest.endsWith('existing2.txt'))).toBe(false);
+      expect(progressEntries.some((e) => e.dest.endsWith('copied.txt'))).toBe(true);
+      expect(progressEntries.some((e) => e.dest.endsWith('copied2.txt'))).toBe(true);
+    });
+
+    it('rejects EEXIST when overwrite is false and errorOnExist is true', async () => {
+      const src = join(root, 'copy-err-src');
+      const dest = join(root, 'copy-err-dest');
+      await fs.mkdir(src, { recursive: true });
+      await fs.mkdir(dest, { recursive: true });
+      await fs.writeFile(join(src, 'file.txt'), 'src data');
+      await fs.writeFile(join(dest, 'file.txt'), 'dest data');
+
+      let caughtErr: any = null;
+      try {
+        await copy(src, dest, { overwrite: false, errorOnExist: true });
+      } catch (err) {
+        caughtErr = err;
+      }
+      expect(caughtErr).toBeDefined();
+      expect(caughtErr.code).toBe('EEXIST');
+      await expect(fs.readFile(join(dest, 'file.txt'), 'utf8')).resolves.toBe('dest data');
+    });
+
+    const isWindows = process.platform === 'win32';
+    const symlinkTest = isWindows ? it.skip : it;
+
+    symlinkTest(
+      'symlink branch skips existing destination under overwrite: false [skipped on Windows: symlink creation requires elevated privileges]',
+      async () => {
+        const src = join(root, 'sym-skip-src');
+        const dest = join(root, 'sym-skip-dest');
+        await fs.mkdir(src, { recursive: true });
+        await fs.mkdir(dest, { recursive: true });
+        const target = join(root, 'sym-target.txt');
+        await fs.writeFile(target, 'target');
+        await fs.symlink(target, join(src, 'link.txt'));
+        await fs.writeFile(join(dest, 'link.txt'), 'original dest');
+
+        const progress: string[] = [];
+        await copy(src, dest, {
+          overwrite: false,
+          onProgress: (p) => progress.push(p.dest),
+        });
+
+        await expect(fs.readFile(join(dest, 'link.txt'), 'utf8')).resolves.toBe('original dest');
+        expect(progress.some((d) => d.endsWith('link.txt'))).toBe(false);
+      },
+    );
+
+    symlinkTest(
+      'symlink branch rejects EEXIST under overwrite: false and errorOnExist: true [skipped on Windows: symlink creation requires elevated privileges]',
+      async () => {
+        const src = join(root, 'sym-err-src');
+        const dest = join(root, 'sym-err-dest');
+        await fs.mkdir(src, { recursive: true });
+        await fs.mkdir(dest, { recursive: true });
+        const target = join(root, 'sym-target2.txt');
+        await fs.writeFile(target, 'target');
+        await fs.symlink(target, join(src, 'link.txt'));
+        await fs.writeFile(join(dest, 'link.txt'), 'original dest');
+
+        let caughtErr: any = null;
+        try {
+          await copy(src, dest, { overwrite: false, errorOnExist: true });
+        } catch (err) {
+          caughtErr = err;
+        }
+        expect(caughtErr).toBeDefined();
+        expect(caughtErr.code).toBe('EEXIST');
+      },
+    );
+
     it('emptyDir removes children and keeps the root', async () => {
       const emptyTarget = join(root, 'empty-target');
       await fs.mkdir(join(emptyTarget, 'child-dir'), { recursive: true });

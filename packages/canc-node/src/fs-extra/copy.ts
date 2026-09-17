@@ -18,6 +18,13 @@ export interface ICopyOptions {
    */
   overwrite?: boolean;
   /**
+   * When true and overwrite is false, throw an error if destination exists.
+   * When false and overwrite is false, silently skip existing files and symlinks.
+   *
+   * @default false
+   */
+  errorOnExist?: boolean;
+  /**
    * Function to filter copied files/directories.
    * Return true to include, false to exclude.
    * Applied to source entry only.
@@ -25,6 +32,7 @@ export interface ICopyOptions {
   filter?: (src: string, dest: string) => boolean | Promise<boolean>;
   /**
    * Progress callback invoked after each file/directory/symlink entry is copied.
+   * Not invoked for skipped entries.
    */
   onProgress?: (progress: { src: string; dest: string }) => void;
 }
@@ -109,7 +117,18 @@ export async function copyTree(
         await (active.current = symlink(linkTarget, dest));
       }
     } else {
-      await (active.current = symlink(linkTarget, dest));
+      try {
+        await (active.current = symlink(linkTarget, dest));
+      } catch (err) {
+        signal.throwIfAborted();
+        if (isExistsError(err)) {
+          if (options?.errorOnExist) {
+            throw err;
+          }
+          return;
+        }
+        throw err;
+      }
     }
     signal.throwIfAborted();
 
@@ -121,7 +140,18 @@ export async function copyTree(
     signal.throwIfAborted();
 
     const flags = (options?.overwrite ?? true) ? 0 : 1;
-    await (active.current = copyFile(src, dest, flags));
+    try {
+      await (active.current = copyFile(src, dest, flags));
+    } catch (err) {
+      signal.throwIfAborted();
+      if (isExistsError(err) && !(options?.overwrite ?? true)) {
+        if (options?.errorOnExist) {
+          throw err;
+        }
+        return;
+      }
+      throw err;
+    }
     signal.throwIfAborted();
 
     if (options?.onProgress) {
@@ -171,7 +201,17 @@ export function copyTreeSync(src: string, dest: string, options?: ICopyOptions):
         symlinkSync(linkTarget, dest);
       }
     } else {
-      symlinkSync(linkTarget, dest);
+      try {
+        symlinkSync(linkTarget, dest);
+      } catch (err) {
+        if (isExistsError(err)) {
+          if (options?.errorOnExist) {
+            throw err;
+          }
+          return;
+        }
+        throw err;
+      }
     }
 
     if (options?.onProgress) {
@@ -181,7 +221,17 @@ export function copyTreeSync(src: string, dest: string, options?: ICopyOptions):
     ensureDirSync(dirname(dest));
 
     const flags = (options?.overwrite ?? true) ? 0 : 1;
-    copyFileSync(src, dest, flags);
+    try {
+      copyFileSync(src, dest, flags);
+    } catch (err) {
+      if (isExistsError(err) && !(options?.overwrite ?? true)) {
+        if (options?.errorOnExist) {
+          throw err;
+        }
+        return;
+      }
+      throw err;
+    }
 
     if (options?.onProgress) {
       options.onProgress({ src, dest });
