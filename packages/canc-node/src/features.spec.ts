@@ -24,11 +24,12 @@ describe('features', () => {
   it('agrees with the capabilities that mark each release line', () => {
     if (features.hasMkdtempDisposable) {
       expect(features.nodeMajor).toBeGreaterThanOrEqual(24);
+    } else {
+      expect(features.nodeMajor).toBeLessThan(24);
     }
     if (features.hasGlob) {
       expect(features.nodeMajor).toBeGreaterThanOrEqual(22);
-    }
-    if (!features.hasGlob) {
+    } else {
       expect(features.nodeMajor).toBeLessThan(22);
     }
   });

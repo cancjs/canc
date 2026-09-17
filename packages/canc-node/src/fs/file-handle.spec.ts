@@ -11,13 +11,29 @@ import { open } from './index';
 import { resetFs, setFs } from './registry';
 
 describe('FileHandle', () => {
+  const tempDirs: string[] = [];
+
+  afterEach(() => {
+    resetFs();
+    while (tempDirs.length > 0) {
+      const dir = tempDirs.pop();
+      if (dir) {
+        try {
+          nodeFs.rmSync(dir, { recursive: true, force: true });
+        } catch (_err) {
+          // ignore
+        }
+      }
+    }
+  });
+
   test('keeps a real handle usable after a fake implementation was decorated', async () => {
     const fakeHandle = { close: jest.fn(async () => {}) };
     setFs({
       promises: {
         open: jest.fn(async () => fakeHandle),
       },
-    } as any);
+    });
 
     const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
     try {
@@ -66,7 +82,6 @@ describe('FileHandle', () => {
     expect(typeof fh.fd).toBe('number');
 
     const stat = await fh.stat();
-    expect(stat).toBeDefined();
     expect(stat.size).toBeGreaterThan(0);
 
     await fh.close();
@@ -91,10 +106,10 @@ describe('FileHandle', () => {
       expect(typeof fh[Symbol.asyncDispose]).toBe('function');
     }
 
-    const origClose = fh.close;
-    fh.close = function (...args: any[]) {
+    const origClose = fh.close.bind(fh);
+    fh.close = function () {
       overrideRan = true;
-      return (origClose as any).apply(this, args);
+      return origClose();
     };
 
     await (async () => {
@@ -132,6 +147,7 @@ describe('FileHandle', () => {
       expect(warnMsg).toContain('missing members');
       expect(warnMsg).toContain('readFile');
       expect(fakeFh.read).not.toBe(fakeProto.read);
+      expect((fakeFh as Record<string, unknown>).readFile).toBeUndefined();
     } finally {
       warnSpy.mockRestore();
       __resetCancProtoForTest();
@@ -139,16 +155,22 @@ describe('FileHandle', () => {
   });
 
   test('fh.writeFile(asyncIterable) canceled mid-stream calls return()', async () => {
-    const fh = decorate(await fs.open('test-async-iter.tmp', 'w'));
+    const dir = nodeFs.mkdtempSync(path.join(os.tmpdir(), 'canc-fh-iter-'));
+    tempDirs.push(dir);
+    const testFile = path.join(dir, 'iter.tmp');
+    const fh = decorate(await fs.open(testFile, 'w'));
 
     let started = false;
     let returned = false;
-    const asyncIterable = {
+    let unblockNext: (() => void) | undefined;
+    const asyncIterable: AsyncIterable<string> = {
       async *[Symbol.asyncIterator]() {
         try {
           started = true;
           yield 'chunk 1\n';
-          await new Promise((r) => setTimeout(r, 1000));
+          await new Promise<void>((r) => {
+            unblockNext = r;
+          });
           yield 'chunk 2\n';
         } finally {
           returned = true;
@@ -156,23 +178,22 @@ describe('FileHandle', () => {
       },
     };
 
-    const p = fh.writeFile(asyncIterable as any, {});
-
-    // wait until the iterator starts before canceling
-    await new Promise((r) => {
-      const check = () => (started ? r(undefined) : setTimeout(check, 5));
-      check();
-    });
-    p.cancel();
-    await expect(p).rejects.toThrow(CancelError);
-    await new Promise((r) => setTimeout(r, 10)); // wait for finally
-    expect(returned).toBe(true);
-
-    await fh.close();
     try {
-      await fs.unlink('test-async-iter.tmp');
-    } catch (_e) {
-      // ignore
+      const p = fh.writeFile(asyncIterable as unknown as Uint8Array, {});
+
+      // wait until the iterator starts before canceling
+      while (!started) {
+        await new Promise((r) => setImmediate(r));
+      }
+      p.cancel();
+      await expect(p).rejects.toThrow(CancelError);
+      for (let i = 0; i < 5; i++) {
+        await new Promise((r) => setImmediate(r));
+      }
+      expect(returned).toBe(true);
+    } finally {
+      unblockNext?.();
+      await fh.close().catch(() => {});
     }
   });
 
@@ -187,13 +208,15 @@ describe('FileHandle', () => {
     try {
       await fh.stat();
       throw new Error('should have thrown');
-    } catch (e: any) {
-      expect(e.code === 'EBADF' || e.message.includes('closed')).toBe(true);
+    } catch (err: unknown) {
+      const e = err as { code?: string; message?: string };
+      expect(e.code === 'EBADF' || e.message?.includes('closed')).toBe(true);
     }
   });
 
   test('createReadStream and createWriteStream return streams, not promises', async () => {
     const dir = nodeFs.mkdtempSync(path.join(os.tmpdir(), 'canc-fh-streams-'));
+    tempDirs.push(dir);
     const srcFile = path.join(dir, 'src.txt');
     const dstFile = path.join(dir, 'dst.txt');
     nodeFs.writeFileSync(srcFile, 'hello streams');
@@ -216,6 +239,7 @@ describe('FileHandle', () => {
 
   test('createReadStream pipes to createWriteStream end to end', async () => {
     const dir = nodeFs.mkdtempSync(path.join(os.tmpdir(), 'canc-fh-pipe-'));
+    tempDirs.push(dir);
     const srcFile = path.join(dir, 'src.txt');
     const dstFile = path.join(dir, 'dst.txt');
     nodeFs.writeFileSync(srcFile, 'pipe payload data');
@@ -251,6 +275,7 @@ describe('FileHandle', () => {
 
   test('readableWebStream and readLines still return node values', async () => {
     const dir = nodeFs.mkdtempSync(path.join(os.tmpdir(), 'canc-fh-guards-'));
+    tempDirs.push(dir);
     const testFile = path.join(dir, 'lines.txt');
     nodeFs.writeFileSync(testFile, 'line1\nline2\n');
 

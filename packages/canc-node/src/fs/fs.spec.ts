@@ -7,7 +7,7 @@ import { CancelablePromise, CancelError, isCancelError } from '@cancjs/promise';
 import fsJson from '../../surface/fs.json';
 import { isNotFoundError } from '../errors/errno';
 import * as fsExports from './index';
-import { resetFs, setFs } from './registry';
+import { IFsLike, resetFs, setFs } from './registry';
 
 describe('@cancjs/node/fs module exports', () => {
   afterEach(() => {
@@ -200,21 +200,34 @@ describe('@cancjs/node/fs module exports', () => {
     const file = path.join(dir, 'test.txt');
     nodeFs.writeFileSync(file, 'hello');
 
-    const realPromises = (nodeFs as any).promises;
+    const realPromises = nodeFs.promises;
     const closeSpy = jest.fn();
-    const fakeFs = {
+    let proceedOpen: (() => void) | undefined;
+    let openCalled: (() => void) | undefined;
+    let openPromise: Promise<unknown> | undefined;
+    const openStarted = new Promise<void>((r) => {
+      openCalled = r;
+    });
+    const fakeFs: IFsLike = {
       ...nodeFs,
       promises: {
         ...realPromises,
-        open: async (...args: any[]) => {
-          await new Promise((r) => setTimeout(r, 20));
-          const fh = await realPromises.open(...args);
-          const origClose = fh.close.bind(fh);
-          fh.close = async () => {
-            closeSpy();
-            return origClose();
-          };
-          return fh;
+        open: (...args: unknown[]) => {
+          openCalled?.();
+          const pr = (async () => {
+            await new Promise<void>((resolve) => {
+              proceedOpen = resolve;
+            });
+            const fh = await (realPromises.open as (...a: unknown[]) => Promise<any>)(...args);
+            const origClose = fh.close.bind(fh);
+            fh.close = async () => {
+              closeSpy();
+              return origClose();
+            };
+            return fh;
+          })();
+          openPromise = pr;
+          return pr;
         },
       },
     };
@@ -223,10 +236,15 @@ describe('@cancjs/node/fs module exports', () => {
 
     try {
       const p = fsExports.open(file, 'r');
+      await openStarted;
       p.cancel('canceled while pending');
       await expect(p).rejects.toThrow(CancelError);
 
-      await new Promise((r) => setTimeout(r, 50));
+      proceedOpen?.();
+      await openPromise;
+      for (let i = 0; i < 5; i++) {
+        await new Promise((r) => setImmediate(r));
+      }
       expect(closeSpy).toHaveBeenCalledTimes(1);
     } finally {
       nodeFs.rmSync(dir, { recursive: true, force: true });
@@ -236,21 +254,34 @@ describe('@cancjs/node/fs module exports', () => {
   it('closes the directory handle when a pending opendir is canceled', async () => {
     const dir = nodeFs.mkdtempSync(path.join(os.tmpdir(), 'canc-opendir-'));
 
-    const realPromises = (nodeFs as any).promises;
+    const realPromises = nodeFs.promises;
     const closeSpy = jest.fn();
-    const fakeFs = {
+    let proceedOpendir: (() => void) | undefined;
+    let opendirCalled: (() => void) | undefined;
+    let opendirPromise: Promise<unknown> | undefined;
+    const opendirStarted = new Promise<void>((r) => {
+      opendirCalled = r;
+    });
+    const fakeFs: IFsLike = {
       ...nodeFs,
       promises: {
         ...realPromises,
-        opendir: async (...args: any[]) => {
-          await new Promise((r) => setTimeout(r, 20));
-          const dirHandle = await realPromises.opendir(...args);
-          const origClose = dirHandle.close.bind(dirHandle);
-          dirHandle.close = async () => {
-            closeSpy();
-            return origClose();
-          };
-          return dirHandle;
+        opendir: (...args: unknown[]) => {
+          opendirCalled?.();
+          const pr = (async () => {
+            await new Promise<void>((resolve) => {
+              proceedOpendir = resolve;
+            });
+            const dirHandle = await (realPromises.opendir as (...a: unknown[]) => Promise<any>)(...args);
+            const origClose = dirHandle.close.bind(dirHandle);
+            dirHandle.close = async () => {
+              closeSpy();
+              return origClose();
+            };
+            return dirHandle;
+          })();
+          opendirPromise = pr;
+          return pr;
         },
       },
     };
@@ -259,10 +290,15 @@ describe('@cancjs/node/fs module exports', () => {
 
     try {
       const p = fsExports.opendir(dir);
+      await opendirStarted;
       p.cancel('canceled while pending');
       await expect(p).rejects.toThrow(CancelError);
 
-      await new Promise((r) => setTimeout(r, 50));
+      proceedOpendir?.();
+      await opendirPromise;
+      for (let i = 0; i < 5; i++) {
+        await new Promise((r) => setImmediate(r));
+      }
       expect(closeSpy).toHaveBeenCalledTimes(1);
     } finally {
       nodeFs.rmSync(dir, { recursive: true, force: true });
@@ -300,12 +336,7 @@ describe('@cancjs/node/fs module exports', () => {
     const p = fsExports.stat(__filename, { signal: controller.signal } as any);
     controller.abort();
 
-    await expect(
-      Promise.race([
-        p,
-        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout: stat ignored caller signal')), 100)),
-      ]),
-    ).rejects.toThrow(CancelError);
+    await expect(p).rejects.toThrow(CancelError);
   });
 
   it('rejects when the caller aborts an adopted export (mkdir) or promisifyWrapped export (rename)', async () => {
@@ -321,12 +352,7 @@ describe('@cancjs/node/fs module exports', () => {
     const pRename = (fsExports.rename as any)('old.txt', 'new.txt', { signal: controllerRename.signal });
     controllerRename.abort();
 
-    await expect(
-      Promise.race([
-        pRename,
-        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout: rename ignored caller signal')), 100)),
-      ]),
-    ).rejects.toThrow(CancelError);
+    await expect(pRename).rejects.toThrow(CancelError);
 
     // mkdir (adopted export)
     const controllerMkdir = new AbortController();
@@ -350,7 +376,7 @@ describe('@cancjs/node/fs module exports', () => {
       }
     }
 
-    setFs(new ClassFs() as any);
+    setFs(new ClassFs() as unknown as IFsLike);
     await expect(fsExports.stat('some-file')).resolves.toBeDefined();
   });
 

@@ -22,9 +22,7 @@ describe('retry-open EMFILE and ENFILE retry logic', () => {
     const fakeOpen = () => {
       attempts++;
       if (attempts < 3) {
-        const err = new Error('too many open files');
-        (err as any).code = 'EMFILE';
-        throw err;
+        throw Object.assign(new Error('too many open files'), { code: 'EMFILE' });
       }
       return 'handle-ok';
     };
@@ -41,9 +39,7 @@ describe('retry-open EMFILE and ENFILE retry logic', () => {
     const fakeOpen = () => {
       attempts++;
       if (attempts < 2) {
-        const err = new Error('file table overflow');
-        (err as any).code = 'ENFILE';
-        throw err;
+        throw Object.assign(new Error('file table overflow'), { code: 'ENFILE' });
       }
       return 'handle-enfile-ok';
     };
@@ -60,21 +56,18 @@ describe('retry-open EMFILE and ENFILE retry logic', () => {
     let attempts = 0;
     const fakeOpen = () => {
       attempts++;
-      const err = new Error('permission denied');
-      (err as any).code = 'EACCES';
-      throw err;
+      throw Object.assign(new Error('permission denied'), { code: 'EACCES' });
     };
 
-    let caught: any;
+    let caught: { code?: string; message?: string } | undefined;
     try {
       await retryOpen(fakeOpen, { minTimeout: 1 });
     } catch (err) {
-      caught = err;
+      caught = err as { code?: string; message?: string };
     }
 
-    expect(caught).toBeDefined();
-    expect(caught.code).toBe('EACCES');
-    expect(caught.message).toBe('permission denied');
+    expect(caught?.code).toBe('EACCES');
+    expect(caught?.message).toBe('permission denied');
     expect(attempts).toBe(1);
   });
 
@@ -84,56 +77,57 @@ describe('retry-open EMFILE and ENFILE retry logic', () => {
     let attempts = 0;
     const fakeOpen = () => {
       attempts++;
-      const err = new Error('too many open files');
-      (err as any).code = 'EMFILE';
-      throw err;
+      throw Object.assign(new Error('too many open files'), { code: 'EMFILE' });
     };
 
-    let caught: any;
+    let caught: { code?: string } | undefined;
     try {
       await retryOpen(fakeOpen, { retries: 4, minTimeout: 1, factor: 1 });
     } catch (err) {
-      caught = err;
+      caught = err as { code?: string };
     }
 
-    expect(caught).toBeDefined();
-    expect(caught.code).toBe('EMFILE');
+    expect(caught?.code).toBe('EMFILE');
     expect(attempts).toBe(4);
   });
 
   it('rejects CancelError and stops retrying when canceled during retry sleep', async () => {
-    setFs(honestFake, { retryOpen: true });
-
-    let attempts = 0;
-    const fakeOpen = () => {
-      attempts++;
-      const err = new Error('too many open files');
-      (err as any).code = 'EMFILE';
-      throw err;
-    };
-
-    // Long enough minTimeout so cancel lands during the backoff sleep
-    const p = retryOpen(fakeOpen, { minTimeout: 100, factor: 1 });
-
-    // Wait for attempt 1 to fail and enter timer wait
-    await new Promise((resolve) => setTimeout(resolve, 15));
-    expect(attempts).toBe(1);
-
-    p.cancel('operation canceled');
-
-    let caught: any;
+    jest.useFakeTimers();
     try {
-      await p;
-    } catch (err) {
-      caught = err;
+      setFs(honestFake, { retryOpen: true });
+
+      let attempts = 0;
+      const fakeOpen = () => {
+        attempts++;
+        throw Object.assign(new Error('too many open files'), { code: 'EMFILE' });
+      };
+
+      // Long enough minTimeout so cancel lands during the backoff sleep
+      const p = retryOpen(fakeOpen, { minTimeout: 100, factor: 1 });
+
+      // Drain microtasks for attempt 1 to fail and enter timer wait
+      await Promise.resolve();
+      expect(attempts).toBe(1);
+
+      p.cancel('operation canceled');
+
+      let caught: unknown;
+      try {
+        await p;
+      } catch (err) {
+        caught = err;
+      }
+
+      expect(caught).toBeInstanceOf(Error);
+      expect(isCancelError(caught)).toBe(true);
+
+      // Advance fake timers past backoff timer to confirm no further attempts fired
+      jest.advanceTimersByTime(200);
+      await Promise.resolve();
+      expect(attempts).toBe(1);
+    } finally {
+      jest.useRealTimers();
     }
-
-    expect(caught).toBeInstanceOf(Error);
-    expect(isCancelError(caught)).toBe(true);
-
-    // Wait longer than the backoff timer to confirm no further attempts fired
-    await new Promise((resolve) => setTimeout(resolve, 150));
-    expect(attempts).toBe(1);
   });
 
   it('performs zero retries when retryOpen is false (the default)', async () => {
@@ -141,20 +135,17 @@ describe('retry-open EMFILE and ENFILE retry logic', () => {
     let attempts = 0;
     const fakeOpen = () => {
       attempts++;
-      const err = new Error('too many open files');
-      (err as any).code = 'EMFILE';
-      throw err;
+      throw Object.assign(new Error('too many open files'), { code: 'EMFILE' });
     };
 
-    let caught: any;
+    let caught: { code?: string } | undefined;
     try {
       await retryOpen(fakeOpen);
     } catch (err) {
-      caught = err;
+      caught = err as { code?: string };
     }
 
-    expect(caught).toBeDefined();
-    expect(caught.code).toBe('EMFILE');
+    expect(caught?.code).toBe('EMFILE');
     expect(attempts).toBe(1);
   });
 
@@ -168,9 +159,7 @@ describe('retry-open EMFILE and ENFILE retry logic', () => {
         open: jest.fn().mockImplementation(() => {
           attempts++;
           if (attempts < 2) {
-            const err = new Error('too many files');
-            (err as any).code = 'EMFILE';
-            throw err;
+            throw Object.assign(new Error('too many files'), { code: 'EMFILE' });
           }
           return Promise.resolve(fakeHandle);
         }),
@@ -180,7 +169,7 @@ describe('retry-open EMFILE and ENFILE retry logic', () => {
     setFs(fakeFs, { retryOpen: true });
 
     const fh = await open('test.txt');
-    expect(fh).toBeDefined();
+    expect(typeof fh.close).toBe('function');
     expect(attempts).toBe(2);
   });
 
@@ -194,9 +183,7 @@ describe('retry-open EMFILE and ENFILE retry logic', () => {
         opendir: jest.fn().mockImplementation(() => {
           attempts++;
           if (attempts < 2) {
-            const err = new Error('too many files');
-            (err as any).code = 'EMFILE';
-            throw err;
+            throw Object.assign(new Error('too many files'), { code: 'EMFILE' });
           }
           return Promise.resolve(fakeDir);
         }),
@@ -206,7 +193,7 @@ describe('retry-open EMFILE and ENFILE retry logic', () => {
     setFs(fakeFs, { retryOpen: true });
 
     const dir = await opendir('some-dir');
-    expect(dir).toBeDefined();
+    expect(typeof dir.close).toBe('function');
     expect(attempts).toBe(2);
   });
 });
