@@ -88,17 +88,6 @@ export interface IWalkOptions {
    * Returning false prunes the entry and prevents descending.
    */
   filter?: (entry: IWalkEntry) => boolean | Promise<boolean>;
-  /**
-   * Optional custom filesystem methods (used for dependency injection and tests).
-   */
-  fs?: {
-    opendir?: TOpendir;
-    opendirSync?: TOpendirSync;
-    stat?: TStat;
-    statSync?: TStatSync;
-    lstat?: TStat;
-    lstatSync?: TStatSync;
-  };
 }
 
 /**
@@ -161,6 +150,14 @@ async function* walkChildrenFirst(
       yield { path: dirPath, error: err };
     }
     return;
+  } finally {
+    try {
+      if (typeof dirStream.close === 'function') {
+        await dirStream.close();
+      }
+    } catch {
+      // the entries are already read, so a failing close has nothing left to affect
+    }
   }
 
   for (const d of dirents) {
@@ -416,9 +413,9 @@ export async function* walk(dir: string, options?: IWalkOptions): AsyncGenerator
   const needStats = options?.stats ?? false;
   const filter = options?.filter;
 
-  const opendirFn = options?.fs?.opendir ?? opendir;
-  const statFn = options?.fs?.stat ?? stat;
-  const lstatFn = options?.fs?.lstat ?? lstat;
+  const opendirFn = opendir;
+  const statFn = stat;
+  const lstatFn = lstat;
 
   const initialVisited = new Set<string>();
 
@@ -486,6 +483,14 @@ export async function* walk(dir: string, options?: IWalkOptions): AsyncGenerator
         yield { path: dirPath, error: err };
       }
       continue;
+    } finally {
+      try {
+        if (typeof dirStream.close === 'function') {
+          await dirStream.close();
+        }
+      } catch {
+        // the entries are already read, so a failing close has nothing left to affect
+      }
     }
 
     const nextQueueItems: IQueueItem[] = [];
@@ -607,9 +612,9 @@ export function* walkSync(dir: string, options?: IWalkSyncOptions): Generator<IW
   const needStats = options?.stats ?? false;
   const filter = options?.filter;
 
-  const opendirSyncFn = options?.fs?.opendirSync ?? opendirSync;
-  const statSyncFn = options?.fs?.statSync ?? statSync;
-  const lstatSyncFn = options?.fs?.lstatSync ?? lstatSync;
+  const opendirSyncFn = opendirSync;
+  const statSyncFn = statSync;
+  const lstatSyncFn = lstatSync;
 
   const initialVisited = new Set<string>();
 

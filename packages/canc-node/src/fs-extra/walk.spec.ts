@@ -115,74 +115,98 @@ describe('walk and walkSync', () => {
 
   it('filter pruning: pruned directory was never opened via injected fs', async () => {
     const openedDirs: string[] = [];
-    const customFs = {
-      opendir: async (dirPath: string) => {
-        openedDirs.push(dirPath);
-        return fs.opendir(dirPath);
+    const base = getFs();
+    setFs({
+      ...base,
+      promises: {
+        ...base.promises,
+        opendir: async (dirPath: string, ...args: unknown[]) => {
+          openedDirs.push(dirPath);
+          return base.promises.opendir(dirPath, ...args);
+        },
       },
-    };
+    });
 
-    const visited: string[] = [];
-    for await (const entry of walk(root, {
-      fs: customFs as any,
-      filter: ({ dirent }) => {
-        // Prune directory 'a'
-        if (dirent?.name === 'a') return false;
-        return true;
-      },
-    })) {
-      visited.push(entry.path);
+    try {
+      const visited: string[] = [];
+      for await (const entry of walk(root, {
+        filter: ({ dirent }) => {
+          // Prune directory 'a'
+          if (dirent?.name === 'a') return false;
+          return true;
+        },
+      })) {
+        visited.push(entry.path);
+      }
+
+      expect(visited).not.toContain(join(root, 'a'));
+      expect(visited).not.toContain(join(root, 'a', 'fileA.txt'));
+      expect(openedDirs).not.toContain(join(root, 'a'));
+      expect(openedDirs).not.toContain(join(root, 'a', 'subA'));
+    } finally {
+      resetFs();
     }
-
-    expect(visited).not.toContain(join(root, 'a'));
-    expect(visited).not.toContain(join(root, 'a', 'fileA.txt'));
-    expect(openedDirs).not.toContain(join(root, 'a'));
-    expect(openedDirs).not.toContain(join(root, 'a', 'subA'));
   });
 
   it('onError: yield emits error entry for unreadable directory and continues', async () => {
-    const customFs = {
-      opendir: async (dirPath: string) => {
-        if (dirPath === join(root, 'a')) {
-          const err: any = new Error('Permission denied');
-          err.code = 'EACCES';
-          throw err;
-        }
-        return fs.opendir(dirPath);
+    const base = getFs();
+    setFs({
+      ...base,
+      promises: {
+        ...base.promises,
+        opendir: (dirPath: string, ...args: unknown[]) => {
+          if (dirPath === join(root, 'a')) {
+            const err = Object.assign(new Error('Permission denied'), { code: 'EACCES' });
+            return Promise.reject(err);
+          }
+          return base.promises.opendir(dirPath, ...args);
+        },
       },
-    };
+    });
 
-    const entries: any[] = [];
-    for await (const entry of walk(root, { fs: customFs as any, onError: 'yield' })) {
-      entries.push(entry);
+    try {
+      const entries: IWalkEntry[] = [];
+      for await (const entry of walk(root, { onError: 'yield' })) {
+        entries.push(entry);
+      }
+
+      const errEntry = entries.find((e) => e.path === join(root, 'a') && e.error);
+      expect(errEntry).toBeDefined();
+      expect((errEntry?.error as { code?: string } | undefined)?.code).toBe('EACCES');
+
+      // Continued and found entries under root/b
+      const bFile = entries.find((e) => e.path === join(root, 'b', 'fileB.txt'));
+      expect(bFile).toBeDefined();
+    } finally {
+      resetFs();
     }
-
-    const errEntry = entries.find((e) => e.path === join(root, 'a') && e.error);
-    expect(errEntry).toBeDefined();
-    expect(errEntry.error.code).toBe('EACCES');
-
-    // Continued and found entries under root/b
-    const bFile = entries.find((e) => e.path === join(root, 'b', 'fileB.txt'));
-    expect(bFile).toBeDefined();
   });
 
   it('onError: throw (default) ends iteration with that error', async () => {
-    const customFs = {
-      opendir: async (dirPath: string) => {
-        if (dirPath === join(root, 'a')) {
-          const err: any = new Error('Permission denied');
-          err.code = 'EACCES';
-          throw err;
-        }
-        return fs.opendir(dirPath);
+    const base = getFs();
+    setFs({
+      ...base,
+      promises: {
+        ...base.promises,
+        opendir: (dirPath: string, ...args: unknown[]) => {
+          if (dirPath === join(root, 'a')) {
+            const err = Object.assign(new Error('Permission denied'), { code: 'EACCES' });
+            return Promise.reject(err);
+          }
+          return base.promises.opendir(dirPath, ...args);
+        },
       },
-    };
+    });
 
-    await expect(async () => {
-      for await (const _entry of walk(root, { fs: customFs as any, onError: 'throw' })) {
-        // iterate
-      }
-    }).rejects.toThrow('Permission denied');
+    try {
+      await expect(async () => {
+        for await (const _entry of walk(root, { onError: 'throw' })) {
+          // iterate
+        }
+      }).rejects.toThrow('Permission denied');
+    } finally {
+      resetFs();
+    }
   });
 
   const isWindows = process.platform === 'win32';
@@ -221,15 +245,46 @@ describe('walk and walkSync', () => {
   });
 
   it('cancel mid-walk calls return() on underlying source', async () => {
-    const generator = walk(root);
-    const first = await generator.next();
-    expect(first.done).toBe(false);
+    const base = getFs();
+    const closeSpy = jest.fn(async () => {});
+    const returnSpy = jest.fn(async () => ({ done: true, value: undefined }));
 
-    const returnResult = await generator.return();
-    expect(returnResult.done).toBe(true);
+    setFs({
+      ...base,
+      promises: {
+        ...base.promises,
+        opendir: async (dirPath: string, ...args: unknown[]) => {
+          const realDir = await base.promises.opendir(dirPath, ...args);
+          return {
+            path: realDir.path,
+            close: async () => {
+              closeSpy();
+              await realDir.close().catch(() => {});
+            },
+            [Symbol.asyncIterator]() {
+              const iter = realDir[Symbol.asyncIterator]();
+              return {
+                next: () => iter.next(),
+                return: async () => {
+                  returnSpy();
+                  return iter.return ? iter.return() : { done: true, value: undefined };
+                },
+              };
+            },
+          };
+        },
+      },
+    });
 
-    const nextAfterReturn = await generator.next();
-    expect(nextAfterReturn.done).toBe(true);
+    try {
+      const generator = walk(root);
+      const first = await generator.next();
+      expect(first.done).toBe(false);
+      await generator.return();
+      expect(closeSpy).toHaveBeenCalled();
+    } finally {
+      resetFs();
+    }
   });
 
   it('walkSync produces identical sequence for same tree', () => {
