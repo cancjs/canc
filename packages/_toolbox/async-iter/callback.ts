@@ -28,9 +28,9 @@ export function callbackFactory(deps: ICallbackDeps) {
   // Built through the executor rather than a rejected native promise, so the reason reaches the
   // consumer untouched and no transient promise of the wrong implementation is created on the way.
   function rejected(reason: unknown): PromiseLike<never> {
-    return new Impl<never>((_resolve, reject) => {
+    return new Impl((_resolve, reject) => {
       reject(reason);
-    });
+    }) as PromiseLike<never>;
   }
 
   function driveGenerator<T>(gen: Generator<any, T, any>): PromiseLike<T> {

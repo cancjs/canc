@@ -1,4 +1,4 @@
-import { isFunction, isThenableLike } from '../guards';
+import { isThenableLike } from '../guards';
 import { callbackFactory, type ICallbackDeps, type IItemRun } from './callback';
 import { callReturn, getSource } from './pull';
 import type { AnyIterable } from './types';
@@ -62,7 +62,7 @@ function drive<T, R>(
 ): PromiseLike<R> {
   const { Impl } = deps;
 
-  return new Impl<R>((resolve, reject, ctx) => {
+  return new Impl((resolve, reject, ctx) => {
     let iterator: AsyncIterator<T> | undefined;
     let item: IItemRun | undefined;
     let stopped = false;
@@ -85,7 +85,7 @@ function drive<T, R>(
       return iterator ? callReturn(iterator) : undefined;
     };
 
-    if (ctx && isFunction(ctx.handleCancel)) {
+    if (ctx) {
       ctx.handleCancel(abandon);
     }
 

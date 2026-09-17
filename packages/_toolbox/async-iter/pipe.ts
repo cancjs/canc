@@ -12,7 +12,7 @@ function flattenOps(parts: any[]): any[] {
   const result: any[] = [];
 
   function walk(item: any): void {
-    if (Array.isArray(item) && !isPipeOp(item) && !isTermOp(item)) {
+    if (Array.isArray(item)) {
       item.forEach(walk);
     } else {
       result.push(item);
