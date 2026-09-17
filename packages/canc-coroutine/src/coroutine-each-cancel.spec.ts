@@ -188,7 +188,7 @@ describe('cancForAwait / cancForAwait.toArray: cancel semantics (bugs 1-4)', () 
 
     // Declared ahead of the coroutine: the callback below cancels it re-entrantly while co() is
     // still running, so const would hit the temporal dead zone.
-    // eslint-disable-next-line prefer-const -- declared ahead because callback cancels re-entrantly
+    // eslint-disable-next-line prefer-const -- re-entrant callback
     let p: CancelablePromise<any, any>;
     const co = cancAsync(function* () {
       try {
