@@ -1,10 +1,12 @@
+import * as fsSync from 'node:fs';
 import * as fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { CancelError } from '@cancjs/promise';
 
-import { replaceFile } from './replace-file';
+import { getFs, resetFs, setFs } from '../fs/registry';
+import { replaceFile, replaceFileSync } from './replace-file';
 
 async function cleanDir(dirPath: string) {
   try {
@@ -34,6 +36,10 @@ describe('replaceFile', () => {
 
   afterAll(async () => {
     await cleanDir(root);
+  });
+
+  afterEach(() => {
+    resetFs();
   });
 
   it('writes content when target does not exist', async () => {
@@ -136,4 +142,50 @@ describe('replaceFile', () => {
     const linkContent = await fs.readFile(linkFile, 'utf8');
     expect(linkContent).toBe('new content via replaceFile');
   });
+
+  it('replaceFileSync writes content when target does not exist', () => {
+    const file = join(root, 'sync-new-file.txt');
+    replaceFileSync(file, 'hello sync world');
+    expect(fsSync.readFileSync(file, 'utf8')).toBe('hello sync world');
+  });
+
+  it('replaceFileSync replaces content when target exists', () => {
+    const file = join(root, 'sync-existing-file.txt');
+    fsSync.writeFileSync(file, 'initial sync content');
+    replaceFileSync(file, 'updated sync content');
+    expect(fsSync.readFileSync(file, 'utf8')).toBe('updated sync content');
+  });
+
+  it('replaceFileSync leaves target holding old content and leaves no temp file on failure', () => {
+    const dir = join(root, 'sync-rename-failure-dir');
+    fsSync.mkdirSync(dir, { recursive: true });
+    const file = join(dir, 'target.txt');
+    fsSync.writeFileSync(file, 'initial content');
+
+    const originalFs = getFs();
+    setFs({
+      ...originalFs,
+      renameSync: () => {
+        throw new Error('simulated renameSync failure');
+      },
+    });
+
+    expect(() => replaceFileSync(file, 'new content')).toThrow('simulated renameSync failure');
+
+    const files = fsSync.readdirSync(dir);
+    expect(files).toEqual(['target.txt']);
+    expect(fsSync.readFileSync(file, 'utf8')).toBe('initial content');
+  });
+
+  modeTest(
+    'replaceFileSync preserves existing target mode [skipped on Windows: POSIX file modes not supported on Windows]',
+    () => {
+      const file = join(root, 'sync-mode-preserve.txt');
+      fsSync.writeFileSync(file, 'initial content', { mode: 0o755 });
+      replaceFileSync(file, 'new content');
+
+      const st = fsSync.statSync(file);
+      expect(st.mode & 0o777).toBe(0o755);
+    },
+  );
 });
