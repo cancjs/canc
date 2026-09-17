@@ -51,9 +51,11 @@ module.exports = {
     './src/cancel-error.ts': {
       statements: 95,
       // branches capped at 90 (not 95): TS es5 target compiles `class CancelError extends Error`
-      // via the __extends() helper's `_super.call(this, reason) || this` fallback; the `|| this`
-      // side is dead by spec because Error [[Call]] returns an object. Verified both logical
-      // sides of every other branch in this file are exercised (see cancel-error.spec.ts)
+      // via the __extends() helper's `_super.call(this, reason) || this` fallback, the `|| this`
+      // side is dead by spec (Error's [[Call]] always returns an object, so _super.call(...) is
+      // always truthy; the fallback only matters for non-spec-compliant engines). Same class of
+      // structural artifact as other known transpilation quirks. Verified both logical
+      // sides of every other branch in this file ARE exercised (see cancel-error.spec.ts).
       branches: 90,
       lines: 95,
     },

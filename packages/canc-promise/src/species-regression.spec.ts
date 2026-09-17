@@ -13,9 +13,9 @@ describe('species regression', () => {
   });
 
   it('CancelablePromise[Symbol.species] === CancelablePromise', () => {
-    // No own species getter is defined: it resolves via the inherited native
+    // No own species getter is defined — it resolves via the inherited native
     // Promise[Symbol.species] getter (which returns `this`), reached through
-    // Object.setPrototypeOf(CancelablePromise, NativePromise)
+    // Object.setPrototypeOf(CancelablePromise, NativePromise).
     expect((CancelablePromise as any)[Symbol.species]).toBe(CancelablePromise);
   });
 
