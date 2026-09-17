@@ -87,18 +87,52 @@ describe('replaceFile', () => {
     }
   });
 
-  it('cancel removes the temp file with no leftovers in directory', async () => {
-    const dir = join(root, 'cancel-cleanup-dir');
+  it('cancel while write is in flight removes the temp file with no leftovers in directory', async () => {
+    const dir = join(root, 'cancel-cleanup-inflight');
     await fs.mkdir(dir, { recursive: true });
     const file = join(dir, 'target.txt');
     await fs.writeFile(file, 'initial content');
 
-    const p = replaceFile(file, 'x'.repeat(100000));
-    p.cancel();
-    await expect(p).rejects.toThrow(CancelError);
+    let writeStartedResolve!: () => void;
+    const writeStarted = new Promise<void>((resolve) => {
+      writeStartedResolve = resolve;
+    });
 
-    const files = await fs.readdir(dir);
-    expect(files).toEqual(['target.txt']);
+    const originalFs = getFs();
+    setFs({
+      ...originalFs,
+      writeFile: (filePath: any, data: any, options: any, callback?: any) => {
+        const cb = typeof options === 'function' ? options : callback;
+        const opts = typeof options === 'function' ? {} : options;
+        originalFs.writeFile(filePath, data, opts, (...args: any[]) => {
+          writeStartedResolve();
+          setTimeout(() => {
+            cb(...args);
+          }, 50);
+        });
+      },
+      promises: {
+        ...originalFs.promises,
+        writeFile: async (...args: any[]) => {
+          const res = await originalFs.promises.writeFile(...args);
+          writeStartedResolve();
+          await new Promise((resolve) => setTimeout(resolve, 50));
+          return res;
+        },
+      },
+    });
+
+    try {
+      const p = replaceFile(file, 'x'.repeat(10000));
+      await writeStarted;
+      p.cancel();
+      await expect(p).rejects.toThrow(CancelError);
+
+      const files = await fs.readdir(dir);
+      expect(files).toEqual(['target.txt']);
+    } finally {
+      resetFs();
+    }
   });
 
   const isWindows = process.platform === 'win32';

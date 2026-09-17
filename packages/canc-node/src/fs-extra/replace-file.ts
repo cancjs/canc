@@ -18,10 +18,20 @@ export type IReplaceFileSyncOptions = TWriteFileSyncParams[2];
 
 const isNotPermitted = isErrno('EPERM');
 const isNotSupported = isErrno('ENOSYS');
+const isBusy = isErrno('EBUSY');
 
 /** How chmod and chown fail where the file system does not carry the metadata. Not fatal. */
 function isMetadataUnsupported(err: unknown): boolean {
   return isNotPermitted(err) || isNotSupported(err);
+}
+
+/** Retry unlink on transient Windows lock errors during cleanup. */
+function unlinkWithRetry(path: string, attempts = 5): Promise<void> {
+  return unlink(path).catch((err: unknown) => {
+    if (attempts > 1 && (isNotPermitted(err) || isBusy(err))) {
+      return new Promise<void>((resolve) => setTimeout(resolve, 10)).then(() => unlinkWithRetry(path, attempts - 1));
+    }
+  });
 }
 
 /**
@@ -51,7 +61,7 @@ export function replaceFile(path: string, data: TWriteData, options?: IReplaceFi
     handleCancel((reason) => {
       activePromise?.cancel(reason);
       if (!isRenamed) {
-        unlink(tempPath).catch(() => {});
+        void unlinkWithRetry(tempPath);
       }
     });
 
@@ -97,7 +107,7 @@ export function replaceFile(path: string, data: TWriteData, options?: IReplaceFi
         })
         .then(undefined, (err: unknown) => {
           if (!isRenamed) {
-            unlink(tempPath).catch(() => {});
+            void unlinkWithRetry(tempPath);
           }
           throw err;
         }),
