@@ -237,11 +237,11 @@ The `promise` property is built on first access and reused after that. Take it i
 
 #### What the promise settles with
 
-`exec` and `execFile` mirror node's own promisified form. The promise resolves with `stdout` and `stderr`, and rejects on a non-zero exit with the error node decorates.
+`exec` and `execFile` mirror node's own promisified form. The promise resolves with `stdout` and `stderr`, and passes node's error through with `stdout` and `stderr` attached on failure.
 
 `spawn` and `fork` have no promise form in node to mirror. Their promise resolves `{ exitCode: 0, signal: null }` on a clean exit and rejects `ProcessExitError` otherwise, carrying whichever of `exitCode` and `signal` node reported. `child.on("close")` still reports the same outcome without throwing.
 
-Two failures that node reports ambiguously get a typed error: `ProcessSpawnError` when the process could not start, and `ProcessExitError` when it exited non-zero or was killed by a signal.
+One failure that node reports ambiguously gets a typed error: `ProcessSpawnError` when the process could not start. `ProcessExitError` is what `spawn` and `fork` reject with when they exit non-zero or are killed by a signal.
 
 #### Cancellation
 

@@ -89,7 +89,9 @@ describe('exec and execFile', () => {
     });
 
     it("rejects with node's own decorated error on a non-zero exit", async () => {
-      const child = track(exec(`${nodeBin} -e "process.exit(42)"`));
+      const child = track(
+        exec(`${nodeBin} -e "process.stdout.write('out'); process.stderr.write('err'); process.exit(42)"`),
+      );
 
       let caught: unknown;
       try {
@@ -98,7 +100,9 @@ describe('exec and execFile', () => {
         caught = err;
       }
 
-      expect((caught as { code?: number }).code).toBe(42);
+      expect((caught as any).code).toBe(42);
+      expect((caught as any).stdout).toBe('out');
+      expect((caught as any).stderr).toBe('err');
       expect(isProcessExitError(caught)).toBe(false);
     });
 
@@ -112,8 +116,11 @@ describe('exec and execFile', () => {
         caught = err;
       }
 
-      expect(isProcessExitError(caught)).toBe(true);
-      expect((caught as { signal?: string }).signal).toBe('SIGTERM');
+      expect((caught as any).killed).toBe(true);
+      expect((caught as any).cmd).toBeDefined();
+      expect((caught as any).signal).toBe('SIGTERM');
+      expect((caught as any).code).toBe(null);
+      expect(isProcessExitError(caught)).toBe(false);
     });
 
     it('cancels by killing the child, and resolves the cancel only after it exited', async () => {
@@ -160,6 +167,28 @@ describe('exec and execFile', () => {
       await expect(child.promise).resolves.toEqual({ stdout: 'late', stderr: '' });
     });
 
+    it('carries the output node attaches to a failed command', async () => {
+      const execAsync = promisify(exec);
+      const fail = execAsync(
+        `${nodeBin} -e "process.stdout.write('fail-out'); process.stderr.write('fail-err'); process.exit(7)"`,
+      );
+      track(fail.child);
+
+      let caught: any;
+      try {
+        await fail;
+      } catch (err) {
+        caught = err;
+      }
+
+      expect(caught).toBeDefined();
+      expect(Object.keys(caught)).toEqual(
+        expect.arrayContaining(['cmd', 'killed', 'code', 'signal', 'stdout', 'stderr']),
+      );
+      expect(caught.stdout).toBe('fail-out');
+      expect(caught.stderr).toBe('fail-err');
+    });
+
     it('is promisifiable into a cancelable promise carrying the child', async () => {
       const execAsync = promisify(exec);
 
@@ -184,6 +213,27 @@ describe('exec and execFile', () => {
 
       expect(child).toBeInstanceOf(ChildProcess);
       await expect(child.promise).resolves.toEqual({ stdout: 'file-hi', stderr: '' });
+    });
+
+    it("rejects with node's own decorated error on a non-zero exit", async () => {
+      const child = track(
+        execFile(process.execPath, [
+          '-e',
+          "process.stdout.write('file-out'); process.stderr.write('file-err'); process.exit(42)",
+        ]),
+      );
+
+      let caught: unknown;
+      try {
+        await child.promise;
+      } catch (err) {
+        caught = err;
+      }
+
+      expect((caught as any).code).toBe(42);
+      expect((caught as any).stdout).toBe('file-out');
+      expect((caught as any).stderr).toBe('file-err');
+      expect(isProcessExitError(caught)).toBe(false);
     });
 
     it('rejects a missing binary with a spawn error', async () => {

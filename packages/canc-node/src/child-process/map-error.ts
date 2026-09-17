@@ -1,5 +1,5 @@
 import { isObject } from '../../../_util/guards';
-import { ProcessExitError, ProcessSpawnError } from '../errors/classes';
+import { ProcessSpawnError } from '../errors/classes';
 
 interface IChildProcessError {
   code?: string | number | null;
@@ -10,16 +10,16 @@ interface IChildProcessError {
 }
 
 /**
- * Maps the two child process failures node reports ambiguously to typed errors, and passes
+ * Maps child process spawn failures node reports ambiguously to a typed error, and passes
  * everything else through untouched.
  *
- * A failed spawn and a command that could not find its own input both report `ENOENT`, and a
- * process killed by a signal reports no exit code at all. Every other failure keeps node's own
- * error, including the decorated non-zero exit error and `AbortError`.
+ * A failed spawn and a command that could not find its own input both report `ENOENT`.
+ * Every other failure keeps node's own error, including the decorated non-zero exit error
+ * and `AbortError`.
  *
  * @param err The error node reported.
  * @param command The command that was run, used when node did not record one.
- * @returns A typed error for a spawn or signal failure, otherwise the original error.
+ * @returns A typed error for a spawn failure, otherwise the original error.
  */
 export function mapChildProcessError(err: unknown, command?: string): unknown {
   if (!isObject(err)) {
@@ -39,10 +39,6 @@ export function mapChildProcessError(err: unknown, command?: string): unknown {
       error.code === 'E2BIG')
   ) {
     return new ProcessSpawnError(error.message, { code: error.code, command: cmd, cause: err });
-  }
-
-  if (error.signal && !error.code) {
-    return new ProcessExitError(error.message, { exitCode: null, signal: error.signal, command: cmd, cause: err });
   }
 
   return err;

@@ -61,7 +61,10 @@ function createExecPromise(
 
     sink.subscribe((settlement) => {
       if (settlement.error) {
-        reject(mapChildProcessError(settlement.error, command));
+        const err = mapChildProcessError(settlement.error, command) as any;
+        err.stdout = settlement.stdout;
+        err.stderr = settlement.stderr;
+        reject(err);
         return;
       }
       resolve({ stdout: settlement.stdout, stderr: settlement.stderr });
@@ -100,7 +103,7 @@ export function exec(
   const callback = typeof optionsOrCallback === 'function' ? optionsOrCallback : maybeCallback;
   const sink = createSink<ISettlement>();
 
-  const child = nodeExec(command, options!, (error, stdout, stderr) => {
+  const child = nodeExec(command, options ?? {}, (error, stdout, stderr) => {
     sink.settle({ error, stdout, stderr });
     if (callback) {
       callback(error, stdout, stderr);
@@ -178,7 +181,7 @@ export function execFile(
   }
 
   const sink = createSink<ISettlement>();
-  const command = args && args.length > 0 ? `${fileOrCommand} ${args.join(' ')}` : fileOrCommand;
+  const command = args && args.length > 0 ? `${fileOrCommand} ${args.map((a) => `"${a}"`).join(' ')}` : fileOrCommand;
 
   const child = nodeExecFile(fileOrCommand, args ?? [], options as ExecFileOptions, (error, stdout, stderr) => {
     sink.settle({ error, stdout, stderr });
