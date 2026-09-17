@@ -20,7 +20,7 @@
           "26": "v15.4.0"
         }
       },
-      "wrapper": "promisify-custom",
+      "wrapper": "promisify-callback",
       "teardown": "kill with killSignal on cancel, then wait for exit",
       "failures": ["ProcessSpawnError", "ProcessExitError"],
       "minMajor": null,
@@ -48,7 +48,7 @@
           "26": "v15.4.0"
         }
       },
-      "wrapper": "promisify-custom",
+      "wrapper": "promisify-callback",
       "teardown": "kill with killSignal on cancel, then wait for exit",
       "failures": ["ProcessSpawnError", "ProcessExitError"],
       "minMajor": null,
@@ -76,7 +76,7 @@
           "26": "v15.4.0"
         }
       },
-      "wrapper": "cancelify-teardown",
+      "wrapper": "constructor-teardown",
       "teardown": "kill with killSignal on cancel, then wait for exit",
       "failures": ["ProcessSpawnError", "ProcessExitError"],
       "minMajor": null,
@@ -104,7 +104,7 @@
           "26": "v15.4.0"
         }
       },
-      "wrapper": "cancelify-teardown",
+      "wrapper": "constructor-teardown",
       "teardown": "kill with killSignal on cancel, then wait for exit",
       "failures": ["ProcessSpawnError", "ProcessExitError"],
       "minMajor": null,
