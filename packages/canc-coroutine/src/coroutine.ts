@@ -789,7 +789,7 @@ function disposeLoop(loop: ILoopHandle): PromiseLike<void> | undefined {
   return loop._disposed;
 }
 
-function registerLoopHandle(loop: ILoopHandle, registry: ILoopHandle[]): void {
+function registerLoopHandle(loop: ILoopHandle, registry: ILoopRegistry): void {
   loop._registry = registry;
   registry.push(loop);
 }

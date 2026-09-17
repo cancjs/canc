@@ -78,6 +78,27 @@ function makeCountingSource<T>(values: T[]) {
   return { source, state };
 }
 
+// The target scan tests `_used && !_finished`, and a break-exited handle keeps `_used` true, so one
+// read of `_finished` is one scan visit to that handle
+function countScanVisits(loop: any) {
+  const state = { visits: 0 };
+  let finished = loop._finished;
+
+  Object.defineProperty(loop, '_finished', {
+    configurable: true,
+    get() {
+      state.visits++;
+
+      return finished;
+    },
+    set(value: boolean) {
+      finished = value;
+    },
+  });
+
+  return state;
+}
+
 describe('cancForAwait handle form', () => {
   it('visits every item of a finite async source in order', async () => {
     const seen: number[] = [];
@@ -683,6 +704,113 @@ describe('cancForAwait.next() sugar form', () => {
     expect(caught[0]).toBeInstanceOf(IterationError);
     expect((caught[0] as Error).message).toContain('No active forAwait loop');
     expect(log).toEqual(['item-1', 'cleanup']);
+  });
+
+  it('does not scan handles left behind by a break', async () => {
+    const log: string[] = [];
+    const counters: Array<{ visits: number }> = [];
+
+    const co = cancAsync(function* () {
+      const outer = yield* cancForAwait(makeLoggedSource([1, 2, 3], log, 'outer'));
+
+      for (const outerItem of outer) {
+        const inner = yield* cancForAwait(makeLoggedSource(['a', 'b'], log, 'inner'));
+
+        for (const innerItem of inner) {
+          log.push(`${outerItem}${innerItem}`);
+          break;
+        }
+
+        const counter = countScanVisits(inner);
+        counters.push(counter);
+        counter.visits = 0;
+
+        yield* cancForAwait.next();
+      }
+
+      return log;
+    });
+
+    const result = await co();
+
+    expect(result).toEqual(['1a', 'inner', '2a', 'inner', '3a', 'outer', 'inner']);
+    expect(counters).toHaveLength(3);
+    expect(counters.map((counter) => counter.visits)).toEqual([0, 0, 0]);
+  });
+
+  it('clears the registry link of a handle left behind by a break', async () => {
+    const log: string[] = [];
+    const handles: any[] = [];
+
+    const co = cancAsync(function* () {
+      const outer = yield* cancForAwait(makeLoggedSource([1, 2], log, 'outer'));
+
+      for (const outerItem of outer) {
+        const inner = yield* cancForAwait(makeLoggedSource(['a', 'b'], log, 'inner'));
+
+        for (const innerItem of inner) {
+          log.push(`${outerItem}${innerItem}`);
+          break;
+        }
+
+        handles.push(inner);
+        expect((inner as any)._registry).toBeUndefined();
+
+        yield* cancForAwait.next();
+      }
+
+      return log;
+    });
+
+    const result = await co();
+
+    expect(result).toEqual(['1a', 'inner', '2a', 'outer', 'inner']);
+    expect(handles).toHaveLength(2);
+    expect(handles.map((handle) => handle._registry)).toEqual([undefined, undefined]);
+  });
+
+  it('advances the enclosing handle loop from inside a callback-form body', async () => {
+    const log: string[] = [];
+
+    const co = cancAsync(function* () {
+      const outer = yield* cancForAwait(makeLoggedSource([1, 2], log, 'outer'));
+
+      for (const outerItem of outer) {
+        log.push(`outer-${outerItem}`);
+
+        yield* cancForAwait(makeLoggedSource(['a'], log, 'inner'), function* (item: string) {
+          log.push(`cb-${item}`);
+          yield* cancForAwait.next();
+        });
+      }
+
+      return log;
+    });
+
+    const result = await co();
+
+    expect(result).toEqual(['outer-1', 'cb-a', 'inner', 'outer-2', 'cb-a', 'outer', 'inner']);
+  });
+
+  it('throws IterationError from a callback-form body with no handle loop open', async () => {
+    const log: string[] = [];
+
+    const co = cancAsync(function* () {
+      try {
+        yield* cancForAwait(makeLoggedSource(['a'], log, 'inner'), function* (item: string) {
+          log.push(`cb-${item}`);
+          yield* cancForAwait.next();
+        });
+      } catch (err) {
+        return err;
+      }
+    });
+
+    const error = await co();
+
+    expect(error).toBeInstanceOf(IterationError);
+    expect((error as Error).message).toContain('No active forAwait loop');
+    expect(log).toEqual(['cb-a', 'inner']);
   });
 });
 
