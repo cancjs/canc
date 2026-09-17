@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { getFs, resetFs, setFs } from '../fs/registry';
-import { walk, walkSync } from './walk';
+import { IWalkEntry, walk, walkSync } from './walk';
 
 async function cleanDir(dirPath: string) {
   try {
@@ -51,7 +51,7 @@ describe('walk and walkSync', () => {
     await cleanDir(root);
   });
 
-  it('1. yields every entry of a known tree exactly once', async () => {
+  it('yields every entry of a known tree exactly once', async () => {
     const entries: string[] = [];
     for await (const entry of walk(root)) {
       entries.push(entry.path);
@@ -69,7 +69,7 @@ describe('walk and walkSync', () => {
     expect(new Set(entries).size).toBe(expected.length);
   });
 
-  it('2. order produces the three documented orders (breadth-first, depth-first, children-first)', async () => {
+  it('order produces the three documented orders (breadth-first, depth-first, children-first)', async () => {
     // breadth-first
     const bfs: string[] = [];
     for await (const entry of walk(root, { order: 'breadth-first' })) {
@@ -113,7 +113,7 @@ describe('walk and walkSync', () => {
     expect(cfIdxFileA).toBeLessThan(cfIdxA);
   });
 
-  it('3. filter pruning: pruned directory was never opened via injected fs', async () => {
+  it('filter pruning: pruned directory was never opened via injected fs', async () => {
     const openedDirs: string[] = [];
     const customFs = {
       opendir: async (dirPath: string) => {
@@ -127,7 +127,7 @@ describe('walk and walkSync', () => {
       fs: customFs as any,
       filter: ({ dirent }) => {
         // Prune directory 'a'
-        if (dirent.name === 'a') return false;
+        if (dirent?.name === 'a') return false;
         return true;
       },
     })) {
@@ -140,7 +140,7 @@ describe('walk and walkSync', () => {
     expect(openedDirs).not.toContain(join(root, 'a', 'subA'));
   });
 
-  it('4. onError: yield emits error entry for unreadable directory and continues', async () => {
+  it('onError: yield emits error entry for unreadable directory and continues', async () => {
     const customFs = {
       opendir: async (dirPath: string) => {
         if (dirPath === join(root, 'a')) {
@@ -166,7 +166,7 @@ describe('walk and walkSync', () => {
     expect(bFile).toBeDefined();
   });
 
-  it('5. onError: throw (default) ends iteration with that error', async () => {
+  it('onError: throw (default) ends iteration with that error', async () => {
     const customFs = {
       opendir: async (dirPath: string) => {
         if (dirPath === join(root, 'a')) {
@@ -188,8 +188,8 @@ describe('walk and walkSync', () => {
   const isWindows = process.platform === 'win32';
   it(
     isWindows ?
-      '6. a symlink cycle terminates with followSymlinks: true [skipped on Windows: unprivileged symlinks not supported]'
-    : '6. a symlink cycle terminates with followSymlinks: true',
+      'a symlink cycle terminates with followSymlinks: true [skipped on Windows: unprivileged symlinks not supported]'
+    : 'a symlink cycle terminates with followSymlinks: true',
     async () => {
       if (isWindows) {
         return;
@@ -211,7 +211,7 @@ describe('walk and walkSync', () => {
     },
   );
 
-  it('7. depth: 0 yields roots entries only and does not descend', async () => {
+  it('depth: 0 yields roots entries only and does not descend', async () => {
     const entries: string[] = [];
     for await (const entry of walk(root, { depth: 0 })) {
       entries.push(entry.path);
@@ -220,7 +220,7 @@ describe('walk and walkSync', () => {
     expect(entries.sort()).toEqual(expected.sort());
   });
 
-  it('8. cancel mid-walk calls return() on underlying source', async () => {
+  it('cancel mid-walk calls return() on underlying source', async () => {
     const generator = walk(root);
     const first = await generator.next();
     expect(first.done).toBe(false);
@@ -232,7 +232,7 @@ describe('walk and walkSync', () => {
     expect(nextAfterReturn.done).toBe(true);
   });
 
-  it('9. walkSync produces identical sequence for same tree', () => {
+  it('walkSync produces identical sequence for same tree', () => {
     // Sync BFS
     const syncEntriesBfs: string[] = [];
     for (const entry of walkSync(root, { order: 'breadth-first' })) {
@@ -263,7 +263,57 @@ describe('walk and walkSync', () => {
     expect(cfIdxSubA).toBeLessThan(cfIdxA);
   });
 
-  it('10. walk and walkSync call the registered file system', async () => {
+  it('walkSync throws TypeError naming filter option when given an async filter', () => {
+    expect(() => [
+      ...walkSync(root, {
+        // @ts-expect-error async filter is rejected by walkSync typings
+        filter: async () => true,
+      }),
+    ]).toThrow(TypeError);
+
+    expect(() => [
+      ...walkSync(root, {
+        // @ts-expect-error async filter is rejected by walkSync typings
+        filter: async () => true,
+      }),
+    ]).toThrow(/filter/);
+
+    // do not catch in onError
+    expect(() => [
+      ...walkSync(root, {
+        onError: 'skip',
+        // @ts-expect-error async filter is rejected by walkSync typings
+        filter: async () => true,
+      }),
+    ]).toThrow(TypeError);
+
+    expect(() => [
+      ...walkSync(root, {
+        onError: 'yield',
+        // @ts-expect-error async filter is rejected by walkSync typings
+        filter: async () => true,
+      }),
+    ]).toThrow(TypeError);
+  });
+
+  it('walk and walkSync with same sync filter produce identical sequence for same tree', async () => {
+    const syncFilter = (entry: IWalkEntry) => entry.dirent?.name !== 'b';
+
+    const asyncEntries: string[] = [];
+    for await (const entry of walk(root, { filter: syncFilter })) {
+      asyncEntries.push(entry.path);
+    }
+
+    const syncEntries: string[] = [];
+    for (const entry of walkSync(root, { filter: syncFilter })) {
+      syncEntries.push(entry.path);
+    }
+
+    expect(syncEntries).toEqual(asyncEntries);
+    expect(syncEntries.length).toBeGreaterThan(0);
+  });
+
+  it('walk and walkSync call the registered file system', async () => {
     const base = getFs();
     let asyncOpens = 0;
     let syncOpens = 0;

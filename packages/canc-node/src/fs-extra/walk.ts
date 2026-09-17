@@ -87,7 +87,7 @@ export interface IWalkOptions {
    * Filter predicate evaluated on Dirent before stat and before descending.
    * Returning false prunes the entry and prevents descending.
    */
-  filter?: (entry: { path: string; dirent: Dirent }) => boolean | Promise<boolean>;
+  filter?: (entry: IWalkEntry) => boolean | Promise<boolean>;
   /**
    * Optional custom filesystem methods (used for dependency injection and tests).
    */
@@ -99,6 +99,17 @@ export interface IWalkOptions {
     lstat?: TStat;
     lstatSync?: TStatSync;
   };
+}
+
+/**
+ * Options configuring walkSync.
+ */
+export interface IWalkSyncOptions extends Omit<IWalkOptions, 'filter'> {
+  /**
+   * Synchronous filter predicate evaluated on Dirent before stat and before descending.
+   * Returning false prunes the entry and prevents descending.
+   */
+  filter?: (entry: IWalkEntry) => boolean;
 }
 
 interface IQueueItem {
@@ -253,7 +264,7 @@ function* walkSyncChildrenFirst(
   followSymlinks: boolean,
   onError: TWalkOnError,
   needStats: boolean,
-  filter: IWalkOptions['filter'],
+  filter: IWalkSyncOptions['filter'],
   visitedDevIno: Set<string>,
   opendirSyncFn: TOpendirSync,
   statSyncFn: TStatSync,
@@ -298,10 +309,9 @@ function* walkSyncChildrenFirst(
     const entryPath = join(dirPath, d.name);
 
     if (filter) {
-      let keep: boolean;
+      let res: unknown;
       try {
-        const res = filter({ path: entryPath, dirent: d });
-        keep = typeof res === 'boolean' ? res : false;
+        res = filter({ path: entryPath, dirent: d });
       } catch (err) {
         if (onError === 'throw') {
           throw err;
@@ -311,6 +321,10 @@ function* walkSyncChildrenFirst(
         }
         continue;
       }
+      if (typeof res === 'object' && res !== null && typeof (res as { then?: unknown }).then === 'function') {
+        throw new TypeError('walkSync: filter option cannot return a Promise or thenable');
+      }
+      const keep = typeof res === 'boolean' ? res : false;
       if (!keep) {
         continue;
       }
@@ -585,7 +599,7 @@ export async function* walk(dir: string, options?: IWalkOptions): AsyncGenerator
  * @param dir - Root directory path to start traversal from.
  * @param options - Walk options.
  */
-export function* walkSync(dir: string, options?: IWalkOptions): Generator<IWalkEntry, void, unknown> {
+export function* walkSync(dir: string, options?: IWalkSyncOptions): Generator<IWalkEntry, void, unknown> {
   const depthLimit = options?.depth ?? Infinity;
   const followSymlinks = options?.followSymlinks ?? false;
   const order: TWalkOrder = options?.order ?? 'breadth-first';
@@ -679,10 +693,9 @@ export function* walkSync(dir: string, options?: IWalkOptions): Generator<IWalkE
       const entryPath = join(dirPath, d.name);
 
       if (filter) {
-        let keep: boolean;
+        let res: unknown;
         try {
-          const res = filter({ path: entryPath, dirent: d });
-          keep = typeof res === 'boolean' ? res : false;
+          res = filter({ path: entryPath, dirent: d });
         } catch (err) {
           if (onError === 'throw') {
             throw err;
@@ -692,6 +705,10 @@ export function* walkSync(dir: string, options?: IWalkOptions): Generator<IWalkE
           }
           continue;
         }
+        if (typeof res === 'object' && res !== null && typeof (res as { then?: unknown }).then === 'function') {
+          throw new TypeError('walkSync: filter option cannot return a Promise or thenable');
+        }
+        const keep = typeof res === 'boolean' ? res : false;
         if (!keep) {
           continue;
         }
