@@ -170,6 +170,7 @@ export function generateReadmeSupportTables(manifests) {
     const rows = [];
 
     for (const exp of manifest.exports) {
+      if (exp.kind === 'type' || exp.callPath === 'sync' || exp.kind === 'const') continue;
       const exportName = `\`${exp.name}\``;
       const cancellation = renderCancellationBehavior(exp.cancelCategory);
       const nodeVersion = renderNodeVersion(exp);
@@ -229,6 +230,7 @@ export function generateRuntimeCompatDoc(manifests, nodeLock, runtimeLock) {
     const moduleLock = nodeLock.modules?.[manifest.subpath.split('#')[0]] || {};
 
     for (const exp of manifest.exports) {
+      if (exp.kind === 'type' || exp.callPath === 'sync' || exp.kind === 'const') continue;
       const exportName = `\`${exp.name}\``;
       const lockKey = `${lockPrefix}${exp.name}`;
       const lockEntry = moduleLock[lockKey];

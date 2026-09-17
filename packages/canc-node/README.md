@@ -15,7 +15,7 @@ Node built-in modules with cancelable promises and typed failures.
 
 `@cancjs/node` provides cancelable promise wrappers and typed failure channels for Node.js built-in modules. To migrate, replace built-in imports like `node:fs/promises` or `node:child_process` with `@cancjs/node/<module>` (such as `@cancjs/node/fs` or `@cancjs/node/child-process`). All wrapped functions return `CancelablePromise` instances and propagate cancellations cleanly.
 
-Subpath module wrappers are under active development and scheduled for upcoming releases. The root entry `@cancjs/node` provides shared error classes, errno predicates, and runtime feature detection used across all subpaths.
+The package ships the `fs`, `fs/sync`, and `fs/register-graceful` subpaths. Additional module wrappers are under active development and scheduled for upcoming releases. The root entry `@cancjs/node` provides shared error classes, errno predicates, and runtime feature detection used across all subpaths.
 
 ## Features
 
@@ -77,10 +77,9 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 | `appendFile`        | stops the work     | 18+  | ✅   | ✅  |
 | `chmod`             | before it starts   | 18+  | ✅   | ✅  |
 | `chown`             | before it starts   | 18+  | ✅   | ✅  |
-| `constants`         | -                  | 18+  | ✅   | ✅  |
 | `copyFile`          | stops waiting only | 18+  | ✅   | ✅  |
-| `cp`                | stops the work     | 18+  | ✅   | ✅  |
-| `glob`              | stops the work     | 22+  | ✅   | ✅  |
+| `cp`                | stops waiting only | 18+  | ✅   | ✅  |
+| `glob`              | -                  | 22+  | ✅   | ✅  |
 | `lchmod`            | before it starts   | 18+  | ✅   | ✅  |
 | `lchown`            | before it starts   | 18+  | ✅   | ✅  |
 | `link`              | before it starts   | 18+  | ✅   | ✅  |
@@ -96,7 +95,7 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 | `readlink`          | before it starts   | 18+  | ✅   | ✅  |
 | `realpath`          | before it starts   | 18+  | ✅   | ✅  |
 | `rename`            | before it starts   | 18+  | ✅   | ✅  |
-| `rm`                | stops the work     | 18+  | ✅   | ✅  |
+| `rm`                | stops waiting only | 18+  | ✅   | ✅  |
 | `rmdir`             | before it starts   | 18+  | ✅   | ✅  |
 | `stat`              | before it starts   | 18+  | ✅   | ✅  |
 | `statfs`            | before it starts   | 18+  | ✅   | ✅  |
@@ -104,7 +103,7 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 | `truncate`          | before it starts   | 18+  | ✅   | ✅  |
 | `unlink`            | before it starts   | 18+  | ✅   | ✅  |
 | `utimes`            | before it starts   | 18+  | ✅   | ✅  |
-| `watch`             | stops the work     | 18+  | ✅   | ✅  |
+| `watch`             | -                  | 18+  | ✅   | ✅  |
 | `writeFile`         | stops the work     | 18+  | ✅   | ✅  |
 
 #### FileHandle (fs)
@@ -116,35 +115,65 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 | `chmod`                 | before it starts   | 18+  | ✅   | ✅  |
 | `chown`                 | before it starts   | 18+  | ✅   | ✅  |
 | `close`                 | before it starts   | 18+  | ✅   | ✅  |
-| `createReadStream`      | stops the work     | 18+  | ✅   | ✅  |
-| `createWriteStream`     | stops the work     | 18+  | ✅   | ✅  |
+| `createReadStream`      | -                  | 18+  | ✅   | ✅  |
+| `createWriteStream`     | -                  | 18+  | ✅   | ✅  |
 | `datasync`              | before it starts   | 18+  | ✅   | ✅  |
-| `fd`                    | -                  | 18+  | ✅   | ✅  |
-| `pull`                  | stops the work     | 24+  | ✖    | ✖   |
-| `pullSync`              | -                  | 24+  | ✖    | ✖   |
+| `pull`                  | -                  | 24+  | ✖    | ✖   |
 | `read`                  | stops waiting only | 18+  | ✅   | ✅  |
-| `readableWebStream`     | stops the work     | 18+  | ✅   | ✅  |
+| `readableWebStream`     | -                  | 18+  | ✅   | ✅  |
 | `readFile`              | stops the work     | 18+  | ✅   | ✅  |
-| `readLines`             | stops the work     | 18+  | ✅   | ✅  |
+| `readLines`             | -                  | 18+  | ✅   | ✅  |
 | `readv`                 | stops waiting only | 18+  | ✅   | ✅  |
 | `stat`                  | before it starts   | 18+  | ✅   | ✅  |
 | `sync`                  | before it starts   | 18+  | ✅   | ✅  |
 | `truncate`              | before it starts   | 18+  | ✅   | ✅  |
-| `Type`                  | -                  | 22+  | ✅   | ✅  |
 | `utimes`                | before it starts   | 18+  | ✅   | ✅  |
 | `write`                 | stops waiting only | 18+  | ✅   | ✅  |
 | `writeFile`             | stops the work     | 18+  | ✅   | ✅  |
-| `writer`                | stops the work     | 26+  | ✖    | ✖   |
+| `writer`                | -                  | 26+  | ✖    | ✖   |
 | `writev`                | stops waiting only | 18+  | ✅   | ✅  |
 
 <!-- generated:end -->
+
+### Shipped subpaths
+
+The package currently ships three subpaths:
+
+- `fs`: file system operations with cancelable promises
+- `fs/sync`: synchronous file system utilities
+- `fs/register-graceful`: automatic graceful-fs integration hook
+
+The `/fs/sync` subpath drops `realpathSync.native`, which is the only departure from Node's own synchronous file system signatures.
+
+```ts
+import { readFile } from "@cancjs/node/fs";
+import { readFileSync } from "@cancjs/node/fs/sync";
+
+const data = await readFile("package.json", "utf8");
+const syncData = readFileSync("package.json", "utf8");
+```
+
+### File system registry
+
+Custom file system implementations such as `graceful-fs` or mock instances can be registered globally using `setFs`, `getFs`, and `resetFs`.
+
+- `setFs(impl: IFsLike, options?: ISetFsOptions)`: registers an implementation for callback and synchronous operations.
+- `getFs()`: returns the currently registered file system implementation.
+- `resetFs()`: resets the registered file system back to default `node:fs`.
+- `retryOpen(operation, options?)`: retries open and opendir operations on `EMFILE` and `ENFILE` descriptor errors when `retryOpen` is enabled.
+
+When `retryOpen: true` is configured in `ISetFsOptions`, calls to `open` and `opendir` automatically retry with exponential backoff on descriptor exhaustion errors.
+
+To configure `graceful-fs` with descriptor retry automatically, import the side-effect subpath:
+
+```ts
+import "@cancjs/node/fs/register-graceful";
+```
 
 ### Planned subpaths
 
 Wrapped built-in modules are arriving in upcoming releases. Planned subpaths include:
 
-- `fs`: file system operations with cancelable promises
-- `fs/sync`: synchronous file system utilities
 - `fs/extra`: extended file system helper routines
 - `child-process`: process execution and spawning with cancellation
 - `timers`: cancelable timer promises
@@ -188,7 +217,7 @@ Wrapped built-in modules are arriving in upcoming releases. Planned subpaths inc
 
 ### Feature detection
 
-- `features`: frozen object containing module-level capability flags (`hasGlob`, `hasMkdtempDisposable`, `hasStatfs`, `hasAddAbortListener`, `hasAsyncDispose`, `hasConsumersBytes`, `hasSqlite`, `hasWorkerLocks`)
+- `features`: frozen object containing detected runtime version properties (`nodeVersion`, `nodeMajor`) and module-level capability flags (`hasGlob`, `hasMkdtempDisposable`, `hasStatfs`, `hasAddAbortListener`, `hasAsyncDispose`, `hasConsumersBytes`, `hasSqlite`, `hasWorkerLocks`)
 
 ## Compatibility
 

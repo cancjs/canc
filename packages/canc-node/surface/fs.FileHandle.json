@@ -115,7 +115,7 @@
     {
       "name": "createReadStream",
       "kind": "fn",
-      "cancelCategory": "A",
+      "cancelCategory": null,
       "nodeSignal": {
         "documented": true,
         "since": "v20.0.0",
@@ -141,7 +141,7 @@
     {
       "name": "createWriteStream",
       "kind": "fn",
-      "cancelCategory": "A",
+      "cancelCategory": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -204,7 +204,7 @@
     {
       "name": "pull",
       "kind": "fn",
-      "cancelCategory": "A",
+      "cancelCategory": null,
       "nodeSignal": {
         "documented": true,
         "since": "v24.20.0",
@@ -270,7 +270,7 @@
     {
       "name": "readableWebStream",
       "kind": "fn",
-      "cancelCategory": "A",
+      "cancelCategory": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -312,7 +312,7 @@
     {
       "name": "readLines",
       "kind": "fn",
-      "cancelCategory": "A",
+      "cancelCategory": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -508,7 +508,7 @@
     {
       "name": "writer",
       "kind": "fn",
-      "cancelCategory": "A",
+      "cancelCategory": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
