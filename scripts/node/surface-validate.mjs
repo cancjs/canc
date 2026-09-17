@@ -14,6 +14,7 @@ const ALLOWED_CALL_PATHS = new Set(['callback', 'promises', 'sync', null]);
 const ALLOWED_WRAPPERS = new Set([
   'cancelify-signal',
   'cancelify-teardown',
+  'constructor-teardown',
   'promisify-custom',
   'promisify-callback',
   'reimplemented',
