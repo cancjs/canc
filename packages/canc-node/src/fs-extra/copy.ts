@@ -6,6 +6,7 @@ import { isExistsError } from '../errors/errno';
 import { copyFile, lstat, readdir, readlink, symlink, unlink } from '../fs';
 import { copyFileSync, lstatSync, readdirSync, readlinkSync, symlinkSync, unlinkSync } from '../fs/sync';
 import { ensureDir, ensureDirSync } from './ensure';
+import { IAbortSignalLike, throwIfAborted } from './utils';
 
 /**
  * Options for the copy operation.
@@ -55,7 +56,7 @@ interface IActiveCall {
  * an unknown key.
  * Without stripping, Deno would throw ERR_INVALID_ARG_TYPE.
  */
-function statOptionsWithSignal(signal: AbortSignal) {
+function statOptionsWithSignal(signal: IAbortSignalLike) {
   return { bigint: false as const, signal };
 }
 
@@ -66,61 +67,61 @@ export async function copyTree(
   src: string,
   dest: string,
   options: ICopyOptions | undefined,
-  signal: AbortSignal,
+  signal: IAbortSignalLike,
   active: IActiveCall,
 ): Promise<void> {
-  signal.throwIfAborted();
+  throwIfAborted(signal);
 
   if (options?.filter) {
     const shouldCopy = await options.filter(src, dest);
-    signal.throwIfAborted();
+    throwIfAborted(signal);
     if (!shouldCopy) {
       return;
     }
   }
 
   const stats = await (active.current = lstat(src, statOptionsWithSignal(signal)));
-  signal.throwIfAborted();
+  throwIfAborted(signal);
 
   if (stats.isDirectory()) {
     await (active.current = ensureDir(dest));
-    signal.throwIfAborted();
+    throwIfAborted(signal);
 
     if (options?.onProgress) {
       options.onProgress({ src, dest });
     }
 
     const entries = await (active.current = readdir(src, { withFileTypes: true }));
-    signal.throwIfAborted();
+    throwIfAborted(signal);
 
     for (const entry of entries) {
-      signal.throwIfAborted();
+      throwIfAborted(signal);
       await copyTree(join(src, entry.name), join(dest, entry.name), options, signal, active);
     }
   } else if (stats.isSymbolicLink()) {
     await (active.current = ensureDir(dirname(dest)));
-    signal.throwIfAborted();
+    throwIfAborted(signal);
 
     const linkTarget = await (active.current = readlink(src));
-    signal.throwIfAborted();
+    throwIfAborted(signal);
 
     if (options?.overwrite ?? true) {
       try {
         await (active.current = symlink(linkTarget, dest));
       } catch (err) {
-        signal.throwIfAborted();
+        throwIfAborted(signal);
         if (!isExistsError(err)) {
           throw err;
         }
         await (active.current = unlink(dest));
-        signal.throwIfAborted();
+        throwIfAborted(signal);
         await (active.current = symlink(linkTarget, dest));
       }
     } else {
       try {
         await (active.current = symlink(linkTarget, dest));
       } catch (err) {
-        signal.throwIfAborted();
+        throwIfAborted(signal);
         if (isExistsError(err)) {
           if (options?.errorOnExist) {
             throw err;
@@ -130,20 +131,20 @@ export async function copyTree(
         throw err;
       }
     }
-    signal.throwIfAborted();
+    throwIfAborted(signal);
 
     if (options?.onProgress) {
       options.onProgress({ src, dest });
     }
   } else {
     await (active.current = ensureDir(dirname(dest)));
-    signal.throwIfAborted();
+    throwIfAborted(signal);
 
     const flags = (options?.overwrite ?? true) ? 0 : 1;
     try {
       await (active.current = copyFile(src, dest, flags));
     } catch (err) {
-      signal.throwIfAborted();
+      throwIfAborted(signal);
       if (isExistsError(err) && !(options?.overwrite ?? true)) {
         if (options?.errorOnExist) {
           throw err;
@@ -152,7 +153,7 @@ export async function copyTree(
       }
       throw err;
     }
-    signal.throwIfAborted();
+    throwIfAborted(signal);
 
     if (options?.onProgress) {
       options.onProgress({ src, dest });
@@ -248,7 +249,7 @@ export function copyTreeSync(src: string, dest: string, options?: ICopyOptions):
  */
 export function copy(src: string, dest: string, options?: ICopyOptions): CancelablePromise<void> {
   return new CancelablePromise((resolve, _reject, { getSignal, handleCancel }) => {
-    const signal = getSignal() as AbortSignal;
+    const signal = getSignal();
     const active: IActiveCall = { current: null };
     handleCancel((reason) => {
       active.current?.cancel(reason);

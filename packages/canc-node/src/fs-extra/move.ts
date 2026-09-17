@@ -8,6 +8,7 @@ import { lstat, rename, rm } from '../fs';
 import { lstatSync, renameSync, rmSync } from '../fs/sync';
 import { copyTree, copyTreeSync } from './copy';
 import { ensureDir, ensureDirSync } from './ensure';
+import { IAbortSignalLike, throwIfAborted } from './utils';
 
 /**
  * The call presently in flight, so a cancel reaches it directly instead of waiting for
@@ -27,7 +28,7 @@ interface IActiveCall {
  * an unknown key.
  * Without stripping, Deno would throw ERR_INVALID_ARG_TYPE.
  */
-function statOptionsWithSignal(signal: AbortSignal) {
+function statOptionsWithSignal(signal: IAbortSignalLike) {
   return { bigint: false as const, signal };
 }
 
@@ -43,7 +44,6 @@ const deps: IToolboxDeps<ICancelableKind> = {
 
 const retry = retryFactory(deps);
 
-const isNotPermitted = isErrno('EPERM');
 const isBusy = isErrno('EBUSY');
 
 export interface IMoveOptions {
@@ -66,7 +66,7 @@ function isPermanentFailure(value: unknown): value is IPermanentFailure {
 
 /** Windows reports these while another handle still holds the file, and they clear on their own. */
 function isTransient(err: unknown): boolean {
-  return isNotPermitted(err) || isBusy(err) || isTooManyFilesError(err);
+  return isBusy(err) || isTooManyFilesError(err);
 }
 
 function renameWithRetry(src: string, dest: string): CancelablePromise<void> {
@@ -96,12 +96,12 @@ async function moveAcrossDevice(
   src: string,
   dest: string,
   options: IMoveOptions | undefined,
-  signal: AbortSignal,
+  signal: IAbortSignalLike,
   active: IActiveCall,
 ): Promise<void> {
-  signal.throwIfAborted();
+  throwIfAborted(signal);
   await copyTree(src, dest, { overwrite: options?.overwrite ?? true }, signal, active);
-  signal.throwIfAborted();
+  throwIfAborted(signal);
   await (active.current = rm(src, { recursive: true, force: true }));
 }
 
@@ -114,7 +114,7 @@ async function moveAcrossDevice(
  */
 export function move(src: string, dest: string, options?: IMoveOptions): CancelablePromise<void> {
   return new CancelablePromise((resolve, reject, { getSignal, handleCancel }) => {
-    const signal = getSignal() as AbortSignal;
+    const signal = getSignal();
     const active: IActiveCall = { current: null };
     handleCancel((reason) => {
       active.current?.cancel(reason);
@@ -138,15 +138,15 @@ export function move(src: string, dest: string, options?: IMoveOptions): Cancela
 
     const p = checkDest
       .then(() => {
-        signal.throwIfAborted();
+        throwIfAborted(signal);
         return (active.current = ensureDir(dirname(dest)));
       })
       .then(() => {
-        signal.throwIfAborted();
+        throwIfAborted(signal);
         return (active.current = renameWithRetry(src, dest));
       })
       .catch((err: unknown) => {
-        signal.throwIfAborted();
+        throwIfAborted(signal);
         if (isCrossDeviceError(err)) {
           return moveAcrossDevice(src, dest, options, signal, active);
         }

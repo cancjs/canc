@@ -5,6 +5,7 @@ import { CancelablePromise } from '@cancjs/promise';
 import { readdir, rm } from '../fs';
 import { readdirSync, rmSync } from '../fs/sync';
 import { ensureDir, ensureDirSync } from './ensure';
+import { IAbortSignalLike, throwIfAborted } from './utils';
 
 /**
  * The call presently in flight, so a cancel reaches it directly instead of waiting for
@@ -20,17 +21,17 @@ interface IActiveCall {
 /**
  * Internal helper to empty a directory taking an explicit signal.
  */
-async function emptyDirTree(dir: string, signal: AbortSignal, active: IActiveCall): Promise<void> {
-  signal.throwIfAborted();
+async function emptyDirTree(dir: string, signal: IAbortSignalLike, active: IActiveCall): Promise<void> {
+  throwIfAborted(signal);
 
   await (active.current = ensureDir(dir));
-  signal.throwIfAborted();
+  throwIfAborted(signal);
 
   const entries = await (active.current = readdir(dir));
-  signal.throwIfAborted();
+  throwIfAborted(signal);
 
   for (const entry of entries) {
-    signal.throwIfAborted();
+    throwIfAborted(signal);
     await (active.current = rm(join(dir, entry), { recursive: true, force: true }));
   }
 }
@@ -43,7 +44,7 @@ async function emptyDirTree(dir: string, signal: AbortSignal, active: IActiveCal
  */
 export function emptyDir(dir: string): CancelablePromise<void> {
   return new CancelablePromise((resolve, _reject, { getSignal, handleCancel }) => {
-    const signal = getSignal() as AbortSignal;
+    const signal = getSignal();
     const active: IActiveCall = { current: null };
     handleCancel((reason) => {
       active.current?.cancel(reason);

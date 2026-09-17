@@ -174,7 +174,7 @@ describe('move', () => {
     await expect(fs.stat(src)).rejects.toThrow();
   });
 
-  it('retries on transient EPERM or EBUSY errors', async () => {
+  it('retries on transient EBUSY errors', async () => {
     const src = join(root, 'retry-src.txt');
     const dest = join(root, 'retry-dest.txt');
     await fs.writeFile(src, 'retry content');
@@ -198,6 +198,27 @@ describe('move', () => {
     await move(src, dest);
     expect(attempts).toBe(3);
     await expect(fs.readFile(dest, 'utf8')).resolves.toBe('retry content');
+  });
+
+  it('surfaces EPERM that never clears without retrying', async () => {
+    const src = join(root, 'eperm-src.txt');
+    const dest = join(root, 'eperm-dest.txt');
+    await fs.writeFile(src, 'eperm content');
+
+    let renameAttempts = 0;
+    const originalFs = getFs();
+    setFs({
+      ...originalFs,
+      rename: (_oldPath: string, _newPath: string, cb: any) => {
+        renameAttempts++;
+        const err: any = new Error('EPERM: operation not permitted');
+        err.code = 'EPERM';
+        cb(err);
+      },
+    });
+
+    await expect(move(src, dest)).rejects.toThrow();
+    expect(renameAttempts).toBe(1);
   });
 
   it('moveSync on same device uses renameSync and does not call copyFileSync', () => {
