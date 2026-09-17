@@ -7,15 +7,24 @@ import { CancelError } from '@cancjs/promise';
 import { isJsonParseError, JsonParseError } from '../errors/classes';
 import { exists, mkdir, writeFile } from '../fs';
 import { getFs, resetFs, setFs } from '../fs/registry';
+import * as extra from './index';
 import {
   copy,
   emptyDir,
+  emptyDirSync,
   ensureDir,
+  ensureDirSync,
   ensureFile,
+  ensureFileSync,
   ensureLink,
+  ensureLinkSync,
   ensureSymlink,
+  ensureSymlinkSync,
+  mkdirpSync,
+  mkdirsSync,
   move,
   outputFile,
+  outputFileSync,
   outputJson,
   outputJsonSync,
   pathExists,
@@ -103,6 +112,77 @@ describe('fs-extra', () => {
     const file = join(root, 'a/b/c/test.txt');
     await outputFile(file, 'hello');
     await expect(fs.readFile(file, 'utf8')).resolves.toBe('hello');
+  });
+
+  it('all eight new sync functions are exported on the ESM namespace', () => {
+    const expected = [
+      'emptyDirSync',
+      'ensureDirSync',
+      'ensureFileSync',
+      'ensureLinkSync',
+      'ensureSymlinkSync',
+      'mkdirpSync',
+      'mkdirsSync',
+      'outputFileSync',
+    ];
+    for (const name of expected) {
+      expect(typeof (extra as Record<string, unknown>)[name]).toBe('function');
+    }
+  });
+
+  it('ensureDirSync on existing directory returns and aliases match; on path whose parent is a file throws ENOTDIR', async () => {
+    const dir = join(root, 'dir-sync-1');
+    await mkdir(dir);
+    expect(ensureDirSync(dir)).toBeUndefined();
+    expect(mkdirsSync(dir)).toBeUndefined();
+    expect(mkdirpSync(dir)).toBeUndefined();
+
+    const filePath = join(root, 'parent-file-sync.txt');
+    await writeFile(filePath, 'not a dir');
+    const childDir = join(filePath, 'sub');
+    let thrown: any = null;
+    try {
+      ensureDirSync(childDir);
+    } catch (e) {
+      thrown = e;
+    }
+    expect(thrown).not.toBeNull();
+    expect(thrown.code).toBe('ENOTDIR');
+  });
+
+  it('ensureFileSync creates parent dirs and empty file', async () => {
+    const file = join(root, 'ensure-f-sync/a/b.txt');
+    ensureFileSync(file);
+    await expect(fs.readFile(file, 'utf8')).resolves.toBe('');
+  });
+
+  it('ensureLinkSync creates hardlink and parent dirs', async () => {
+    const src = join(root, 'src-link-sync.txt');
+    await writeFile(src, 'content sync');
+    const dest = join(root, 'dest-link-sync/sub/link.txt');
+    ensureLinkSync(src, dest);
+    await expect(fs.readFile(dest, 'utf8')).resolves.toBe('content sync');
+  });
+
+  it('ensureSymlinkSync creates symlink and parent dirs', async () => {
+    const src = join(root, 'src-sym-sync.txt');
+    await writeFile(src, 'sym-content sync');
+    const dest = join(root, 'dest-sym-sync/sub/sym.txt');
+    try {
+      ensureSymlinkSync(src, dest, 'file');
+      await expect(fs.readFile(dest, 'utf8')).resolves.toBe('sym-content sync');
+    } catch (e: any) {
+      if (process.platform === 'win32' && e.code === 'EPERM') {
+        return;
+      }
+      throw e;
+    }
+  });
+
+  it('outputFileSync creates missing parents then writes', async () => {
+    const file = join(root, 'sync-out/a/b/c/test.txt');
+    outputFileSync(file, 'hello sync');
+    await expect(fs.readFile(file, 'utf8')).resolves.toBe('hello sync');
   });
 
   it('pathExists aliases exists', () => {
@@ -314,6 +394,107 @@ describe('fs-extra', () => {
 
       const remainingEntries = await fs.readdir(emptyTarget);
       expect(remainingEntries).toEqual([]);
+    });
+
+    it('emptyDirSync removes children and keeps the root', async () => {
+      const emptyTarget = join(root, 'empty-target-sync');
+      await fs.mkdir(join(emptyTarget, 'child-dir'), { recursive: true });
+      await fs.writeFile(join(emptyTarget, 'child.txt'), 'child file');
+      await fs.writeFile(join(emptyTarget, 'child-dir', 'nested.txt'), 'nested');
+
+      emptyDirSync(emptyTarget);
+
+      const rootStat = await fs.stat(emptyTarget);
+      expect(rootStat.isDirectory()).toBe(true);
+
+      const remainingEntries = await fs.readdir(emptyTarget);
+      expect(remainingEntries).toEqual([]);
+    });
+
+    it('each new sync function routes through setFs', () => {
+      const counts = {
+        mkdirSync: 0,
+        statSync: 0,
+        lstatSync: 0,
+        writeFileSync: 0,
+        linkSync: 0,
+        symlinkSync: 0,
+        readdirSync: 0,
+        rmSync: 0,
+      };
+      const base = getFs();
+      setFs({
+        ...base,
+        mkdirSync: (...args: any[]) => {
+          counts.mkdirSync++;
+          return base.mkdirSync(...args);
+        },
+        statSync: (...args: any[]) => {
+          counts.statSync++;
+          return base.statSync(...args);
+        },
+        lstatSync: (...args: any[]) => {
+          counts.lstatSync++;
+          return base.lstatSync(...args);
+        },
+        writeFileSync: (...args: any[]) => {
+          counts.writeFileSync++;
+          return base.writeFileSync(...args);
+        },
+        linkSync: (...args: any[]) => {
+          counts.linkSync++;
+          return base.linkSync(...args);
+        },
+        symlinkSync: (...args: any[]) => {
+          counts.symlinkSync++;
+          return base.symlinkSync(...args);
+        },
+        readdirSync: (...args: any[]) => {
+          counts.readdirSync++;
+          return base.readdirSync(...args);
+        },
+        rmSync: (...args: any[]) => {
+          counts.rmSync++;
+          return base.rmSync(...args);
+        },
+      });
+
+      try {
+        ensureDirSync(join(root, 'routed-dir-sync'));
+        expect(counts.mkdirSync).toBeGreaterThan(0);
+
+        const prevStat = counts.statSync;
+        ensureFileSync(join(root, 'routed-file-sync.txt'));
+        expect(counts.statSync).toBeGreaterThan(prevStat);
+
+        const linkSrc = join(root, 'routed-src.txt');
+        ensureFileSync(linkSrc);
+        const prevLstat = counts.lstatSync;
+        ensureLinkSync(linkSrc, join(root, 'routed-dst.txt'));
+        expect(counts.lstatSync).toBeGreaterThan(prevLstat);
+
+        const prevLstatSym = counts.lstatSync;
+        try {
+          ensureSymlinkSync(linkSrc, join(root, 'routed-sym-dst.txt'), 'file');
+        } catch (e: any) {
+          if (process.platform !== 'win32' || e.code !== 'EPERM') {
+            throw e;
+          }
+        }
+        expect(counts.lstatSync).toBeGreaterThan(prevLstatSym);
+
+        const prevWrite = counts.writeFileSync;
+        outputFileSync(join(root, 'routed-out-sync.txt'), 'data');
+        expect(counts.writeFileSync).toBeGreaterThan(prevWrite);
+
+        const emptyTarget = join(root, 'routed-empty-sync');
+        ensureDirSync(emptyTarget);
+        const prevReaddir = counts.readdirSync;
+        emptyDirSync(emptyTarget);
+        expect(counts.readdirSync).toBeGreaterThan(prevReaddir);
+      } finally {
+        resetFs();
+      }
     });
 
     it('copy and emptyDir call the registered file system', async () => {

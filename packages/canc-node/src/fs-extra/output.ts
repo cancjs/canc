@@ -3,12 +3,18 @@ import { dirname } from 'node:path';
 import { CancelablePromise } from '@cancjs/promise';
 
 import { writeFile } from '../fs';
-import { ensureDir } from './ensure';
+import { writeFileSync } from '../fs/sync';
+import { ensureDir, ensureDirSync } from './ensure';
 
 type TWriteFileParams = Parameters<typeof writeFile>;
 type TWriteData = TWriteFileParams[1];
 
 export type IOutputFileOptions = TWriteFileParams[2];
+
+type TWriteFileSyncParams = Parameters<typeof writeFileSync>;
+type TWriteFileSyncData = TWriteFileSyncParams[1];
+
+export type IOutputFileSyncOptions = TWriteFileSyncParams[2];
 
 /**
  * Writes a file, creating any missing parent directories first.
@@ -32,4 +38,16 @@ export function outputFile(path: string, data: TWriteData, options?: IOutputFile
       }),
     );
   });
+}
+
+/**
+ * Writes a file synchronously, creating any missing parent directories first.
+ *
+ * @param path - File path to write.
+ * @param data - File contents.
+ * @param options - Encoding, mode and flag, or the encoding shorthand.
+ */
+export function outputFileSync(path: string, data: TWriteFileSyncData, options?: IOutputFileSyncOptions): void {
+  ensureDirSync(dirname(path));
+  writeFileSync(path, data, options);
 }

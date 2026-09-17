@@ -3,7 +3,8 @@ import { join } from 'node:path';
 import { CancelablePromise } from '@cancjs/promise';
 
 import { readdir, rm } from '../fs';
-import { ensureDir } from './ensure';
+import { readdirSync, rmSync } from '../fs/sync';
+import { ensureDir, ensureDirSync } from './ensure';
 
 /**
  * The call presently in flight, so a cancel reaches it directly instead of waiting for
@@ -49,4 +50,18 @@ export function emptyDir(dir: string): CancelablePromise<void> {
     });
     resolve(emptyDirTree(dir, signal, active));
   });
+}
+
+/**
+ * Synchronously ensures that a directory is empty. Deletes all directory contents if it is not empty.
+ * If the directory does not exist, it is created. The directory itself is not deleted.
+ *
+ * @param dir - Directory path to empty.
+ */
+export function emptyDirSync(dir: string): void {
+  ensureDirSync(dir);
+  const entries = readdirSync(dir);
+  for (const entry of entries) {
+    rmSync(join(dir, entry), { recursive: true, force: true });
+  }
 }
