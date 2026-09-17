@@ -138,6 +138,8 @@ async function* walkChildrenFirst(
   }
 
   const dirents: Dirent[] = [];
+  let drainError: unknown;
+  let hasDrainError = false;
   try {
     for await (const d of dirStream) {
       dirents.push(d);
@@ -146,10 +148,8 @@ async function* walkChildrenFirst(
     if (onError === 'throw') {
       throw err;
     }
-    if (onError === 'yield') {
-      yield { path: dirPath, error: err };
-    }
-    return;
+    drainError = err;
+    hasDrainError = true;
   } finally {
     try {
       if (typeof dirStream.close === 'function') {
@@ -252,6 +252,10 @@ async function* walkChildrenFirst(
       stats: entryStats,
     };
   }
+
+  if (hasDrainError && onError === 'yield') {
+    yield { path: dirPath, error: drainError };
+  }
 }
 
 function* walkSyncChildrenFirst(
@@ -281,6 +285,8 @@ function* walkSyncChildrenFirst(
   }
 
   const dirents: Dirent[] = [];
+  let drainError: unknown;
+  let hasDrainError = false;
   try {
     let d: Dirent | null;
     while ((d = dirHandle.readSync()) !== null) {
@@ -290,10 +296,8 @@ function* walkSyncChildrenFirst(
     if (onError === 'throw') {
       throw err;
     }
-    if (onError === 'yield') {
-      yield { path: dirPath, error: err };
-    }
-    return;
+    drainError = err;
+    hasDrainError = true;
   } finally {
     try {
       dirHandle.closeSync();
@@ -397,6 +401,10 @@ function* walkSyncChildrenFirst(
       stats: entryStats,
     };
   }
+
+  if (hasDrainError && onError === 'yield') {
+    yield { path: dirPath, error: drainError };
+  }
 }
 
 /**
@@ -471,6 +479,8 @@ export async function* walk(dir: string, options?: IWalkOptions): AsyncGenerator
     }
 
     const dirents: Dirent[] = [];
+    let drainError: unknown;
+    let hasDrainError = false;
     try {
       for await (const d of dirStream) {
         dirents.push(d);
@@ -479,10 +489,8 @@ export async function* walk(dir: string, options?: IWalkOptions): AsyncGenerator
       if (onError === 'throw') {
         throw err;
       }
-      if (onError === 'yield') {
-        yield { path: dirPath, error: err };
-      }
-      continue;
+      drainError = err;
+      hasDrainError = true;
     } finally {
       try {
         if (typeof dirStream.close === 'function') {
@@ -585,6 +593,10 @@ export async function* walk(dir: string, options?: IWalkOptions): AsyncGenerator
       yield entry;
     }
 
+    if (hasDrainError && onError === 'yield') {
+      yield { path: dirPath, error: drainError };
+    }
+
     if (order === 'breadth-first') {
       for (const nextItem of nextQueueItems) {
         queue.push(nextItem);
@@ -670,6 +682,8 @@ export function* walkSync(dir: string, options?: IWalkSyncOptions): Generator<IW
     }
 
     const dirents: Dirent[] = [];
+    let drainError: unknown;
+    let hasDrainError = false;
     try {
       let d: Dirent | null;
       while ((d = dirHandle.readSync()) !== null) {
@@ -679,10 +693,8 @@ export function* walkSync(dir: string, options?: IWalkSyncOptions): Generator<IW
       if (onError === 'throw') {
         throw err;
       }
-      if (onError === 'yield') {
-        yield { path: dirPath, error: err };
-      }
-      continue;
+      drainError = err;
+      hasDrainError = true;
     } finally {
       try {
         dirHandle.closeSync();
@@ -784,6 +796,10 @@ export function* walkSync(dir: string, options?: IWalkSyncOptions): Generator<IW
 
     for (const entry of entriesToYield) {
       yield entry;
+    }
+
+    if (hasDrainError && onError === 'yield') {
+      yield { path: dirPath, error: drainError };
     }
 
     if (order === 'breadth-first') {

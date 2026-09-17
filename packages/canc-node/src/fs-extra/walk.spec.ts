@@ -402,4 +402,127 @@ describe('walk and walkSync', () => {
     expect(asyncOpens).toBeGreaterThan(0);
     expect(syncOpens).toBeGreaterThan(0);
   });
+
+  it('onError: yield produces read entries before error entry when directory read fails mid-drain', async () => {
+    const base = getFs();
+    const testDir = join(root, 'mid-drain-test');
+
+    setFs({
+      ...base,
+      promises: {
+        ...base.promises,
+        opendir: async (dirPath: string, ...args: unknown[]) => {
+          if (dirPath === testDir) {
+            let count = 0;
+            return {
+              path: dirPath,
+              close: async () => {},
+              [Symbol.asyncIterator]() {
+                return {
+                  next: async () => {
+                    count++;
+                    if (count === 1) {
+                      return {
+                        done: false,
+                        value: { name: 'entry1.txt', isDirectory: () => false, isSymbolicLink: () => false },
+                      };
+                    }
+                    if (count === 2) {
+                      return {
+                        done: false,
+                        value: { name: 'entry2.txt', isDirectory: () => false, isSymbolicLink: () => false },
+                      };
+                    }
+                    throw Object.assign(new Error('Mid-drain read error'), { code: 'EIO' });
+                  },
+                };
+              },
+            };
+          }
+          return base.promises.opendir(dirPath, ...args);
+        },
+      },
+    });
+
+    try {
+      const entries: IWalkEntry[] = [];
+      for await (const entry of walk(testDir, { onError: 'yield' })) {
+        entries.push(entry);
+      }
+
+      expect(entries).toHaveLength(3);
+      expect(entries[0].path).toBe(join(testDir, 'entry1.txt'));
+      expect(entries[0].dirent).toBeDefined();
+      expect(entries[1].path).toBe(join(testDir, 'entry2.txt'));
+      expect(entries[1].dirent).toBeDefined();
+      expect(entries[2].path).toBe(testDir);
+      expect(entries[2].error).toBeDefined();
+      expect((entries[2].error as { code?: string }).code).toBe('EIO');
+
+      const skipEntries: IWalkEntry[] = [];
+      for await (const entry of walk(testDir, { onError: 'skip' })) {
+        skipEntries.push(entry);
+      }
+
+      expect(skipEntries).toHaveLength(2);
+      expect(skipEntries[0].path).toBe(join(testDir, 'entry1.txt'));
+      expect(skipEntries[1].path).toBe(join(testDir, 'entry2.txt'));
+    } finally {
+      resetFs();
+    }
+  });
+
+  it('walkSync with onError: yield produces read entries before error entry when directory read fails mid-drain', () => {
+    const base = getFs();
+    const testDir = join(root, 'mid-drain-sync-test');
+
+    setFs({
+      ...base,
+      opendirSync: (dirPath: string, ...args: unknown[]) => {
+        if (dirPath === testDir) {
+          let count = 0;
+          return {
+            path: dirPath,
+            closeSync: () => {},
+            readSync: () => {
+              count++;
+              if (count === 1) {
+                return { name: 'entry1.txt', isDirectory: () => false, isSymbolicLink: () => false };
+              }
+              if (count === 2) {
+                return { name: 'entry2.txt', isDirectory: () => false, isSymbolicLink: () => false };
+              }
+              throw Object.assign(new Error('Mid-drain sync error'), { code: 'EIO' });
+            },
+          };
+        }
+        return base.opendirSync(dirPath, ...args);
+      },
+    });
+
+    try {
+      const entries: IWalkEntry[] = [];
+      for (const entry of walkSync(testDir, { onError: 'yield' })) {
+        entries.push(entry);
+      }
+
+      expect(entries).toHaveLength(3);
+      expect(entries[0].path).toBe(join(testDir, 'entry1.txt'));
+      expect(entries[1].path).toBe(join(testDir, 'entry2.txt'));
+      expect(entries[2].path).toBe(testDir);
+      expect(entries[2].error).toBeDefined();
+      expect((entries[2].error as { code?: string }).code).toBe('EIO');
+
+      const skipEntries: IWalkEntry[] = [];
+      for (const entry of walkSync(testDir, { onError: 'skip' })) {
+        skipEntries.push(entry);
+      }
+
+      expect(skipEntries).toHaveLength(2);
+      expect(skipEntries[0].path).toBe(join(testDir, 'entry1.txt'));
+      expect(skipEntries[1].path).toBe(join(testDir, 'entry2.txt'));
+    } finally {
+      resetFs();
+    }
+  });
 });
