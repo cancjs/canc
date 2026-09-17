@@ -52,7 +52,7 @@ export interface ISettlementSink<T> {
 }
 
 /**
- * Records a value the first time it settles and replays it to any later subscriber.
+ * Records a value the first time it settles and replays it to a single subscriber.
  *
  * Node's own terminal events (a callback, `close`, `error`) fire once, whether or not anything is
  * listening yet. The sink is what lets a `promise` accessed after the fact still have an answer,
@@ -61,6 +61,7 @@ export interface ISettlementSink<T> {
 export function createSink<T>(): ISettlementSink<T> {
   let settled: T | undefined;
   let hasSettled = false;
+  // single subscriber contract holds because accessor is memoized per child
   let listener: ((value: T) => void) | undefined;
 
   return {

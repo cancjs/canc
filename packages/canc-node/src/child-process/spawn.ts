@@ -17,6 +17,7 @@ type TProcessSettlement =
 /**
  * Records the process's terminal event (`close` or `error`) as soon as it happens, so a `promise`
  * accessed later still has an answer instead of attaching a listener to an event that already fired.
+ * Listeners are attached eagerly, so `listenerCount` differs from plain node.
  *
  * The `error` case needs care node's `close` case does not: node throws an uncaught exception on an
  * `error` with no listener. This recorder is itself a listener, so it would silently swallow that

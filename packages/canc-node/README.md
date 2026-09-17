@@ -233,7 +233,7 @@ console.log("Process PID:", child.pid);
 const result = await child.promise;
 ```
 
-The `promise` property is built on first access and reused after that. Take it in the same tick as the call. A promise taken after the process already reported a spawn failure never settles, because node keeps no record of that failure once it has emitted it. Nothing else about the child is wrapped, so the callback form, the streams, async iteration over `child.stdout` and the option bag all keep node's behavior.
+The `promise` property is built on first access and reused after that. The promise can be taken at any time; the terminal outcome is recorded when it happens and replayed to a late reader (`exec` and `execFile` have always behaved this way through node's callback). Nothing else about the child is wrapped, so the callback form, the streams, async iteration over `child.stdout` and the option bag all keep node's behavior. Because listeners are attached eagerly to record terminal events, `child.listenerCount` differs from plain node.
 
 #### What the promise settles with
 
@@ -245,7 +245,7 @@ One failure that node reports ambiguously gets a typed error: `ProcessSpawnError
 
 #### Cancellation
 
-Canceling sends `killSignal`, defaulting to `SIGTERM`, which is what node's own `signal` option sends on abort. Awaiting `cancel()` waits for the child to exit, under an upper bound so that a cancel cannot hang. There is no escalation and no process tree handling. A child that ignores `SIGTERM` keeps running, and the caller decides what to do about it.
+Canceling sends `killSignal`, defaulting to `SIGTERM`, which is what node's own `signal` option sends on abort. Awaiting `cancel()` waits for the child to exit, under an upper bound of 5 seconds (5000ms) so that a cancel cannot hang. There is no escalation and no process tree handling. A child that ignores `SIGTERM` keeps running, and the caller decides what to do about it.
 
 For `exec`, `execFile` when given a shell option, and `spawn` with `{ shell: true }`, the promise rejecting does not mean the command stopped. The process being signaled is the shell the function inserted, not the command. `spawn` and `fork` without a shell are unaffected. A caller who needs the command itself stopped should run without a shell, or have the command handle its own termination.
 
