@@ -571,7 +571,7 @@ describe('debounce', () => {
     expect(resultB).toBe('b');
   });
 
-  it('keeps in-flight trailing invocation when later call arrives before settlement', async () => {
+  it('cancels an in-flight trailing invocation when a later call arrives before settlement', async () => {
     jest.useFakeTimers();
     let rejectBoom: ((err: Error) => void) | undefined;
     const fn = (x: string) => {
@@ -587,14 +587,14 @@ describe('debounce', () => {
     const pBoom = debounced('boom');
     jest.advanceTimersByTime(50);
 
+    // fn has run and its result is still pending, so the superseding call stops it
     const pNext = debounced('next');
 
-    if (rejectBoom) rejectBoom(new Error('async boom'));
-
     const err = await (pBoom as CancelablePromise<string>).catch((e: unknown) => e);
-    expect(err).toBeInstanceOf(Error);
-    expect((err as Error).message).toBe('async boom');
-    expect(isCancelError(err)).toBe(false);
+    expect(isCancelError(err)).toBe(true);
+
+    // the superseded call already settled, so its own later rejection reaches nobody
+    if (rejectBoom) rejectBoom(new Error('async boom'));
 
     jest.advanceTimersByTime(50);
     expect(await pNext).toBe('next');

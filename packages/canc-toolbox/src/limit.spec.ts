@@ -519,6 +519,8 @@ describe('limit', () => {
 
     const err = await pQueued.then(undefined, (e: unknown) => e);
     expect(isAbortError(err)).toBe(true);
-    expect((err as Error).message).toBe('abandoned-queue');
+    // one constant message whatever the reason's type, with the caller's reason on cause
+    expect((err as Error).message).toBe('limit: canceled while queued');
+    expect((err as Error).cause).toBe('abandoned-queue');
   });
 });
