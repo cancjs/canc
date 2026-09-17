@@ -8,7 +8,7 @@ import { copyFileSync, lstatSync, readdirSync, readlinkSync, symlinkSync, unlink
 import { ensureDir, ensureDirSync } from './ensure';
 
 /**
- * Options for copy operation.
+ * Options for the copy operation.
  */
 export interface ICopyOptions {
   /**
