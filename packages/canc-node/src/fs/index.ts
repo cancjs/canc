@@ -31,21 +31,21 @@ const kCustom = Symbol.for('nodejs.util.promisify.custom');
 /** Resolve the callback function on every call, so a setFs after module load still takes effect. */
 function viaFs(name: string): TNodeFn {
   const fn: TNodeFn = (...args: unknown[]) => {
-    const impl = getFs();
-    return (impl[name] as TNodeFn).apply(impl, args);
+    const impl = getFs() as unknown as Record<string, TNodeFn>;
+    return impl[name](...args);
   };
   Object.defineProperty(fn, kCustom, {
     configurable: true,
     enumerable: false,
     get() {
-      const impl = getFs();
-      const target = impl[name] as unknown as Record<PropertyKey, unknown> | undefined;
+      const impl = getFs() as unknown as Record<string, unknown>;
+      const target = impl[name] as Record<PropertyKey, unknown> | undefined;
       const custom = target?.[kCustom];
       if (typeof custom === 'function') {
         return function (this: unknown, ...args: unknown[]) {
-          const currentImpl = getFs();
+          const currentImpl = getFs() as unknown as Record<string, unknown>;
           const currentTarget = currentImpl[name];
-          const currentCustom = (currentTarget as unknown as Record<PropertyKey, unknown> | undefined)?.[kCustom];
+          const currentCustom = (currentTarget as Record<PropertyKey, unknown> | undefined)?.[kCustom];
           if (typeof currentCustom === 'function') {
             return (currentCustom as TNodeFn).apply(currentImpl, args);
           }
@@ -66,7 +66,7 @@ function viaFs(name: string): TNodeFn {
  */
 function viaFsPromises(name: string): TNodeFn {
   return (...args: unknown[]) => {
-    const promises = getFs().promises as Record<string, TNodeFn> | undefined;
+    const promises = (getFs() as unknown as Record<string, unknown>).promises as Record<string, TNodeFn> | undefined;
     const fn = promises?.[name];
     return typeof fn === 'function' ? fn.apply(promises, args) : fsp[name](...args);
   };

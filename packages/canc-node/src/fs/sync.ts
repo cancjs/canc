@@ -8,7 +8,10 @@ import { TNodeFn, TSignatures } from './wrap';
  * takes effect. Nothing here is cancelable, so the published type is node's own.
  */
 function route<TName extends keyof typeof fs>(name: TName): (typeof fs)[TName] {
-  return ((...args: unknown[]) => (getFs()[name] as TNodeFn)(...args)) as (typeof fs)[TName];
+  return ((...args: unknown[]) => {
+    const impl = getFs() as unknown as Record<string, TNodeFn>;
+    return impl[name as string](...args);
+  }) as (typeof fs)[TName];
 }
 
 export const accessSync = route('accessSync');

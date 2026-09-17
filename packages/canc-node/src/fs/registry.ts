@@ -1,9 +1,83 @@
 import nodeFs from 'node:fs';
 
+type TFsFn = (...args: never[]) => unknown;
+
+type TFsCallbackKeys =
+  | 'appendFile'
+  | 'chmod'
+  | 'chown'
+  | 'copyFile'
+  | 'exists'
+  | 'lchmod'
+  | 'lchown'
+  | 'lstat'
+  | 'readFile'
+  | 'readdir'
+  | 'rename'
+  | 'stat'
+  | 'writeFile';
+
+type TFsSyncKeys =
+  | 'accessSync'
+  | 'appendFileSync'
+  | 'chmodSync'
+  | 'chownSync'
+  | 'closeSync'
+  | 'copyFileSync'
+  | 'cpSync'
+  | 'existsSync'
+  | 'fchmodSync'
+  | 'fchownSync'
+  | 'fdatasyncSync'
+  | 'fstatSync'
+  | 'fsyncSync'
+  | 'ftruncateSync'
+  | 'futimesSync'
+  | 'lchmodSync'
+  | 'lchownSync'
+  | 'linkSync'
+  | 'lstatSync'
+  | 'lutimesSync'
+  | 'mkdirSync'
+  | 'mkdtempSync'
+  | 'openSync'
+  | 'opendirSync'
+  | 'readFileSync'
+  | 'readdirSync'
+  | 'readlinkSync'
+  | 'readSync'
+  | 'readvSync'
+  | 'realpathSync'
+  | 'renameSync'
+  | 'rmSync'
+  | 'rmdirSync'
+  | 'statSync'
+  | 'statfsSync'
+  | 'symlinkSync'
+  | 'truncateSync'
+  | 'unlinkSync'
+  | 'utimesSync'
+  | 'writeFileSync'
+  | 'writeSync'
+  | 'writevSync';
+
+export type IFsPromisesLike = {
+  open?: TFsFn;
+  opendir?: TFsFn;
+} & Record<string, unknown>;
+
+export type IFsSurface = Partial<Record<TFsCallbackKeys | TFsSyncKeys, TFsFn>> & {
+  promises?: IFsPromisesLike;
+};
+
+type RequireAtLeastOne<T, Keys extends keyof T = keyof T> = {
+  [K in Keys]-?: Required<Pick<T, K>> & Partial<Omit<T, K>>;
+}[Keys];
+
 /**
  * A structurally typed file system interface covering callback and synchronous operations.
  */
-export type IFsLike = Record<string, any>;
+export type IFsLike = RequireAtLeastOne<IFsSurface>;
 
 /**
  * Configuration options for the file system implementation registry.

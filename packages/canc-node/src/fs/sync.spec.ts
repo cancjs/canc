@@ -8,7 +8,7 @@ describe('sync', () => {
     resetFs();
   });
 
-  it('exports all 47 names', () => {
+  it('exports all 46 names', () => {
     const expected = [
       'accessSync',
       'appendFileSync',
@@ -65,7 +65,7 @@ describe('sync', () => {
     const fake = {
       readFileSync: jest.fn().mockReturnValue('fake-data'),
     };
-    setFs(fake as any);
+    setFs(fake);
     const res = sync.readFileSync('test.txt');
     expect(fake.readFileSync).toHaveBeenCalledWith('test.txt');
     expect(res).toBe('fake-data');

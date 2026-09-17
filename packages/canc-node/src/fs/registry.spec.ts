@@ -43,9 +43,30 @@ describe('fs registry', () => {
     expect(getFsOptions().retryOpen).toBe(false);
   });
 
+  it('rejects an empty object at compile time', () => {
+    // @ts-expect-error empty fs implementation is not allowed
+    setFs({});
+  });
+
+  it('accepts and routes a partial mock', () => {
+    const mockReadFile = jest.fn();
+    const mockOpen = jest.fn();
+    const partialMock: IFsLike = {
+      readFile: mockReadFile,
+      promises: {
+        open: mockOpen,
+      },
+    };
+
+    setFs(partialMock);
+    expect(getFs()).toBe(partialMock);
+    expect(getFs().readFile).toBe(mockReadFile);
+    expect(getFs().promises?.open).toBe(mockOpen);
+  });
+
   it('enables retryOpen when setFs is called with retryOpen: true', () => {
     const fakeFs: IFsLike = {
-      open: jest.fn(),
+      stat: jest.fn(),
     };
 
     setFs(fakeFs, { retryOpen: true });

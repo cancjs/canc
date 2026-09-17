@@ -1,16 +1,22 @@
 import { isCancelError } from '@cancjs/promise';
 
 import { open, opendir } from './index';
-import { resetFs, setFs } from './registry';
+import { IFsLike, resetFs, setFs } from './registry';
 import { retryOpen, withRetryOpen } from './retry-open';
 
 describe('retry-open EMFILE and ENFILE retry logic', () => {
+  const honestFake: IFsLike = {
+    promises: {
+      open: jest.fn(),
+    },
+  };
+
   afterEach(() => {
     resetFs();
   });
 
   it('retries on EMFILE and succeeds when operation eventually succeeds', async () => {
-    setFs({}, { retryOpen: true });
+    setFs(honestFake, { retryOpen: true });
 
     let attempts = 0;
     const fakeOpen = () => {
@@ -29,7 +35,7 @@ describe('retry-open EMFILE and ENFILE retry logic', () => {
   });
 
   it('retries on ENFILE and succeeds when operation eventually succeeds', async () => {
-    setFs({}, { retryOpen: true });
+    setFs(honestFake, { retryOpen: true });
 
     let attempts = 0;
     const fakeOpen = () => {
@@ -49,7 +55,7 @@ describe('retry-open EMFILE and ENFILE retry logic', () => {
   });
 
   it('does not retry on EACCES and propagates error unchanged after one attempt', async () => {
-    setFs({}, { retryOpen: true });
+    setFs(honestFake, { retryOpen: true });
 
     let attempts = 0;
     const fakeOpen = () => {
@@ -73,7 +79,7 @@ describe('retry-open EMFILE and ENFILE retry logic', () => {
   });
 
   it('is bounded and rejects after configured maximum attempts when EMFILE persists', async () => {
-    setFs({}, { retryOpen: true });
+    setFs(honestFake, { retryOpen: true });
 
     let attempts = 0;
     const fakeOpen = () => {
@@ -96,7 +102,7 @@ describe('retry-open EMFILE and ENFILE retry logic', () => {
   });
 
   it('rejects CancelError and stops retrying when canceled during retry sleep', async () => {
-    setFs({}, { retryOpen: true });
+    setFs(honestFake, { retryOpen: true });
 
     let attempts = 0;
     const fakeOpen = () => {
