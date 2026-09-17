@@ -658,6 +658,29 @@ describe('cancForAwait.next() sugar form', () => {
     });
   });
 
+  describe('sugar inside callback-form body, no enclosing handle-form loop', () => {
+    test('throws IterationError when no enclosing handle-form loop', async () => {
+      const coroutine = cancAsync(function* () {
+        const stream = (async function* () {
+          yield 'item1';
+        })();
+
+        yield* cancForAwait(stream, function* () {
+          // Callback-form with no enclosing handle-form loop
+          yield* cancForAwait.next();
+        });
+      });
+
+      try {
+        await coroutine();
+        fail('Expected IterationError');
+      } catch (err: any) {
+        expect(err).toBeInstanceOf(IterationError);
+        expect(err.message).toContain('No active forAwait loop');
+      }
+    });
+  });
+
   describe('break unregisters a loop handle', () => {
     test('does not scan handles left behind by a break', async () => {
       const log: string[] = [];
