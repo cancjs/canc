@@ -2,27 +2,27 @@
   {
     "name": "execSync",
     "status": "excluded",
-    "reason": "execSync, execFileSync, spawnSync stay in node:child_process; no /child-process/sync needed. See QN69"
+    "reason": "execSync, execFileSync and spawnSync stay in node:child_process; a sync subpath would gain nothing"
   },
   {
     "name": "execFileSync",
     "status": "excluded",
-    "reason": "execSync, execFileSync, spawnSync stay in node:child_process; no /child-process/sync needed. See QN69"
+    "reason": "execSync, execFileSync and spawnSync stay in node:child_process; a sync subpath would gain nothing"
   },
   {
     "name": "spawnSync",
     "status": "excluded",
-    "reason": "execSync, execFileSync, spawnSync stay in node:child_process; no /child-process/sync needed. See QN69"
+    "reason": "execSync, execFileSync and spawnSync stay in node:child_process; a sync subpath would gain nothing"
   },
   {
     "module": "child-process/sync",
     "status": "excluded",
-    "reason": "execSync, execFileSync, spawnSync stay in node:child_process; no /child-process/sync needed. See QN69"
+    "reason": "execSync, execFileSync and spawnSync stay in node:child_process; a sync subpath would gain nothing"
   },
   {
     "module": "child_process/sync",
     "status": "excluded",
-    "reason": "execSync, execFileSync, spawnSync stay in node:child_process; no /child-process/sync needed. See QN69"
+    "reason": "execSync, execFileSync and spawnSync stay in node:child_process; a sync subpath would gain nothing"
   },
   {
     "module": "util",
