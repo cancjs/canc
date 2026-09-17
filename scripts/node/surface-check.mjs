@@ -280,6 +280,59 @@ if (existsSync('scripts/node/surface-docs.mjs')) {
   }
 }
 
+// Check H: nodeSpecifier: null manifests match built exports, and README table cells match manifest
+for (const manifest of manifests) {
+  if (manifest.nodeSpecifier !== null) continue;
+  const pkgJsonPath = join('packages/canc-node/package.json');
+  if (!existsSync(pkgJsonPath)) continue;
+  const pkgJson = JSON.parse(readFileSync(pkgJsonPath, 'utf8'));
+  const exportEntry = pkgJson.exports?.[`./${manifest.subpath}`];
+  const importTarget =
+    typeof exportEntry === 'string' ? exportEntry : (
+      exportEntry?.import?.default || exportEntry?.default || `./dist/${manifest.subpath}.mjs`
+    );
+  const builtModPath = join(process.cwd(), 'packages/canc-node', importTarget);
+  if (!existsSync(builtModPath)) {
+    fail(`Check H failed: built module for ${manifest.subpath} does not exist at ${builtModPath}`);
+    continue;
+  }
+  const { pathToFileURL } = await import('node:url');
+  let builtMod;
+  try {
+    builtMod = await import(pathToFileURL(builtModPath).href);
+  } catch (err) {
+    fail(`Check H failed: could not import built module for ${manifest.subpath}: ${err.message}`);
+    continue;
+  }
+  for (const exp of manifest.exports) {
+    if (exp.kind === 'type') continue;
+    if (!(exp.name in builtMod)) {
+      fail(`Check H failed: export ${exp.name} in manifest ${manifest.subpath} not found on built namespace`);
+    }
+  }
+}
+
+const readmePath = join('packages/canc-node/README.md');
+if (existsSync(readmePath)) {
+  const readmeContent = readFileSync(readmePath, 'utf8');
+  const cellRegex = /`([^`]+)`\s*\(`?@cancjs\/node\/fs\/extra`?\)/g;
+  const extraManifest = manifests.find((m) => m.subpath === 'fs/extra');
+  let match;
+  while ((match = cellRegex.exec(readmeContent)) !== null) {
+    const name = match[1];
+    if (!extraManifest) {
+      fail(`Check H failed: README references @cancjs/node/fs/extra but no matching manifest exists`);
+      break;
+    }
+    const hasExport = extraManifest.exports.some((e) => e.name === name);
+    if (!hasExport) {
+      fail(
+        `Check H failed: README references \`${name}\` (\`@cancjs/node/fs/extra\`) but name is not in fs/extra manifest`,
+      );
+    }
+  }
+}
+
 if (failed) {
   process.exit(1);
 } else {
