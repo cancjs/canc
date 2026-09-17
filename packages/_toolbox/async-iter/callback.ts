@@ -10,8 +10,12 @@ import type { TPromiseCtor } from './types';
 export interface IItemRun {
   /** The callback's outcome, whichever form it took. */
   result: PromiseLike<any>;
-  /** Abandon the run: cancel what the body waits on, then let the body clean up after itself. */
-  stop: () => void;
+  /**
+   * Abandon the run: cancel what the body waits on, then let the body clean up after itself.
+   * Resolves once a generator body's own cleanup has run to completion; callers that only need to
+   * fire the cancel and move on may leave the return value unawaited.
+   */
+  stop: () => Promise<void> | void;
 }
 
 export interface ICallbackDeps {
@@ -104,9 +108,13 @@ export function callbackFactory(deps: ICallbackDeps) {
       if (isGenerator(outcome)) {
         body = outcome;
 
-        return watchGenerator(outcome, (suspendedOn) => {
-          awaited = suspendedOn;
-        });
+        return watchGenerator(
+          outcome,
+          (suspendedOn) => {
+            awaited = suspendedOn;
+          },
+          () => stopped,
+        );
       }
 
       awaited = outcome;
@@ -130,7 +138,7 @@ export function callbackFactory(deps: ICallbackDeps) {
         }
 
         if (body) {
-          unwind(body);
+          return unwind(body);
         }
       },
     };
@@ -139,17 +147,29 @@ export function callbackFactory(deps: ICallbackDeps) {
   return { runItem, runCallback, driveGenerator };
 }
 
-function watchGenerator(body: Generator<any, any, any>, onSuspend: (value: unknown) => void): Generator<any, any, any> {
+// Operators only ever adopt the platform promise, so a pre-bound copy saves every call site from
+// wiring its own Impl the way the injectable terminals lane does.
+const PlainImpl = Promise as unknown as TPromiseCtor;
+
+export const { runItem, runCallback, driveGenerator } = callbackFactory({ Impl: PlainImpl });
+
+function watchGenerator(
+  body: Generator<any, any, any>,
+  onSuspend: (value: unknown) => void,
+  isStopped: () => boolean,
+): Generator<any, any, any> {
   const report = (step: IteratorResult<any>): IteratorResult<any> => {
     onSuspend(step.done ? undefined : step.value);
 
     return step;
   };
 
+  const done: IteratorResult<any> = { done: true, value: undefined };
+
   const watched = {
-    next: (value?: any) => report(body.next(value)),
-    throw: (error?: any) => report(body.throw(error)),
-    return: (value?: any) => report(body.return(value)),
+    next: (value?: any) => (isStopped() ? done : report(body.next(value))),
+    throw: (error?: any) => (isStopped() ? done : report(body.throw(error))),
+    return: (value?: any) => (isStopped() ? done : report(body.return(value))),
     [Symbol.iterator]: () => watched,
   };
 
@@ -159,9 +179,10 @@ function watchGenerator(body: Generator<any, any, any>, onSuspend: (value: unkno
 /**
  * Resume a stopped body with a return completion so its own `finally` blocks run, then keep feeding
  * it whatever those blocks yield until it is finished. Failures during that cleanup are swallowed:
- * the consumer has already walked away from this item and has nowhere to report them.
+ * the consumer has already walked away from this item and has nowhere to report them. Resolves once
+ * the body is fully done, so a caller that needs cleanup finished before moving on can await it.
  */
-function unwind(body: Generator<any, any, any>): void {
+function unwind(body: Generator<any, any, any>): Promise<void> {
   const step = (resume: () => IteratorResult<any>): IteratorResult<any> => {
     try {
       return resume();
@@ -170,16 +191,16 @@ function unwind(body: Generator<any, any, any>): void {
     }
   };
 
-  const pump = (result: IteratorResult<any>): void => {
+  const pump = (result: IteratorResult<any>): Promise<void> => {
     if (result.done) {
-      return;
+      return Promise.resolve();
     }
 
-    void Promise.resolve(result.value).then(
+    return Promise.resolve(result.value).then(
       (value) => pump(step(() => body.next(value))),
       (error) => pump(step(() => body.throw(error))),
     );
   };
 
-  pump(step(() => body.return(undefined)));
+  return pump(step(() => body.return(undefined)));
 }

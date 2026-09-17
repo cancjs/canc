@@ -8,18 +8,10 @@
  * waiting on canceled, then the body resumed so its `finally` blocks run.
  */
 
-import { isGenerator } from '../../_util';
 import type { TAnyFn } from '../../_util/guards';
-import { isCancelableLike } from '../guards';
-import { callbackFactory } from './callback';
+import { type IItemRun, runItem } from './callback';
 import { callReturn, getSource } from './pull';
-import { AnyIterable, IPipeOp, markPipeOp, TPromiseCtor } from './types';
-
-// Operators adopt callback outcomes so they only need the platform promise captured once here
-// to avoid a global lookup on every iteration like the rest of the toolbox
-const PlainPromise = Promise as unknown as TPromiseCtor;
-
-const { runCallback } = callbackFactory({ Impl: PlainPromise });
+import { AnyIterable, IPipeOp, markPipeOp } from './types';
 
 /** What a callback produces once its form is resolved: awaited, or driven to the generator's return. */
 export type TCallbackValue<R> = R extends Generator<any, infer TReturn, any> ? Awaited<TReturn> : Awaited<R>;
@@ -307,7 +299,7 @@ interface IUpstream<I> {
   /** Set once nothing more will be yielded, so a late pull answers done instead of pulling again. */
   finished: boolean;
   /** Run one item's callback, keeping a handle on it so `close` can stop it mid-flight. */
-  run: (callback: TAnyFn, args: any[]) => Promise<any>;
+  run: (callback: TAnyFn, args: any[]) => PromiseLike<any>;
   /** Stop an in-flight item and close the inner iterator and the source, at most once each. */
   close: () => Promise<void>;
   /** Close on a failed pull and rethrow, unless the consumer already walked away. */
@@ -385,114 +377,6 @@ function openUpstream<I>(source: AsyncIterable<I>): IUpstream<I> {
   };
 
   return upstream;
-}
-
-interface IItemRun {
-  /** The callback's outcome, whichever form it took. */
-  result: Promise<any>;
-  /** Abandon the run: cancel what the body waits on, then let the body clean up after itself. */
-  stop: () => Promise<void> | void;
-}
-
-/**
- * Run one item's callback and keep a handle on the work it has in flight. The generator form is
- * driven by the shared driver through a wrapper that reports the value the body is suspended on,
- * which is the only handle there is on a per-item await: canceling that value aborts the real work,
- * and resuming the body with a return completion runs its own cleanup.
- */
-function runItem(callback: TAnyFn, args: any[]): IItemRun {
-  let body: Generator<any, any, any> | undefined;
-  let awaited: unknown;
-  let stopped = false;
-
-  const watch = (...values: any[]): unknown => {
-    const outcome: unknown = callback(...values);
-
-    if (isGenerator(outcome)) {
-      body = outcome;
-      return watchGenerator(
-        outcome,
-        (suspendedOn) => {
-          awaited = suspendedOn;
-        },
-        () => stopped,
-      );
-    }
-
-    awaited = outcome;
-    return outcome;
-  };
-
-  return {
-    result: Promise.resolve(runCallback(watch, args)),
-
-    stop() {
-      if (stopped) {
-        return;
-      }
-      stopped = true;
-
-      const inFlight = awaited;
-      awaited = undefined;
-      if (isCancelableLike(inFlight)) {
-        inFlight.cancel();
-      }
-
-      if (body) {
-        return unwind(body);
-      }
-    },
-  };
-}
-
-function watchGenerator(
-  body: Generator<any, any, any>,
-  onSuspend: (value: unknown) => void,
-  isStopped: () => boolean,
-): Generator<any, any, any> {
-  const report = (step: IteratorResult<any>): IteratorResult<any> => {
-    onSuspend(step.done ? undefined : step.value);
-    return step;
-  };
-
-  const done: IteratorResult<any> = { done: true, value: undefined };
-
-  const watched = {
-    next: (value?: any) => (isStopped() ? done : report(body.next(value))),
-    throw: (error?: any) => (isStopped() ? done : report(body.throw(error))),
-    return: (value?: any) => (isStopped() ? done : report(body.return(value))),
-    [Symbol.iterator]: () => watched,
-  };
-
-  return watched as unknown as Generator<any, any, any>;
-}
-
-/**
- * Resume a stopped body with a return completion so its own `finally` blocks run, then keep feeding
- * it whatever those blocks yield until it is finished. Failures during that cleanup are swallowed:
- * the consumer has already walked away from this item and has nowhere to report them.
- */
-function unwind(body: Generator<any, any, any>): Promise<void> {
-  const step = (resume: () => IteratorResult<any>): IteratorResult<any> => {
-    try {
-      return resume();
-    } catch {
-      return { done: true, value: undefined };
-    }
-  };
-
-  const pump = (result: IteratorResult<any>): Promise<void> => {
-    if (result.done) {
-      return Promise.resolve();
-    }
-
-    return Promise.resolve(result.value).then(
-      (value) => pump(step(() => body.next(value))),
-      (error) => pump(step(() => body.throw(error))),
-    );
-  };
-
-  return pump(step(() => body.return(undefined)));
 }
 
 function iterableOf<T>(createIterator: () => AsyncIterator<T>): AsyncIterable<T> {
