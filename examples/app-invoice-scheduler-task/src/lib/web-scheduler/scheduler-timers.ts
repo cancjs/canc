@@ -39,9 +39,12 @@ export function createSchedulerTimers(options?: ICreateSchedulerTimersOptions): 
       // they surface like uncaught timer callbacks.
       pair.scheduler.postTask(handler, { delay: ms, signal: controller.signal }).catch((reason) => {
         if (!isOwnAbort(reason, controller.signal)) {
-          // Rethrow via Promise.reject to let the error propagate as an unhandled rejection,
-          // which surfaces like an uncaught timer callback in the global error handler.
-          return Promise.reject(reason);
+          // Rethrow via setTimeout to ensure the throw surfaces asynchronously as an unhandled
+          // rejection, matching the behavior of a synchronous timer callback that throws.
+          // The postTask promise resolves before the throw happens, so this doesn't block cleanup.
+          setTimeout(() => {
+            throw reason;
+          });
         }
       });
 

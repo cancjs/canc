@@ -220,69 +220,93 @@ describe('toTaskSignal', () => {
   });
 
   it('composes and discards with zero remaining listeners on sources', () => {
-    // Test that listeners attached with a signal option are properly cleaned up.
-    // This demonstrates the fix: using a cleanup controller's signal to automatically
-    // remove listeners when the composed signal aborts.
-    const source = new AbortController();
-    const cleanup = new AbortController();
+    // Test that the fallback path for composing signals uses a cleanup controller
+    // to manage listener lifetime (verified by checking options passed to addEventListener).
+    const source1 = new AbortController();
+    const source2 = new AbortController();
 
-    let listenerFired = false;
+    // Track addEventListener calls with their options to verify the cleanup signal is used
+    const addEventListenerCalls: Array<{ target: AbortSignal; options?: AddEventListenerOptions }> = [];
+    const addEventListenerOriginal1 = source1.signal.addEventListener.bind(source1.signal);
+    const addEventListenerOriginal2 = source2.signal.addEventListener.bind(source2.signal);
 
-    // Attach a listener with a cleanup signal
-    source.signal.addEventListener(
-      'abort',
-      () => {
-        listenerFired = true;
-      },
-      { signal: cleanup.signal },
-    );
+    (source1.signal as any).addEventListener = (
+      type: string,
+      listener: EventListenerOrEventListenerObject,
+      options?: AddEventListenerOptions | boolean,
+    ) => {
+      addEventListenerCalls.push({ target: source1.signal, options: options as AddEventListenerOptions });
+      return addEventListenerOriginal1(type, listener, options);
+    };
 
-    // Abort cleanup to remove the listener
-    cleanup.abort();
+    (source2.signal as any).addEventListener = (
+      type: string,
+      listener: EventListenerOrEventListenerObject,
+      options?: AddEventListenerOptions | boolean,
+    ) => {
+      addEventListenerCalls.push({ target: source2.signal, options: options as AddEventListenerOptions });
+      return addEventListenerOriginal2(type, listener, options);
+    };
 
-    // Now abort the source signal
-    source.abort();
+    // Temporarily remove TaskSignal.any and AbortSignal.any to force the fallback path
+    const ambient = globalThis as any;
+    const savedTaskSignal = ambient.TaskSignal;
+    const savedAbortSignalAny = (AbortSignal as any).any;
 
-    // The listener should NOT have fired because it was removed
-    expect(listenerFired).toBe(false);
+    try {
+      ambient.TaskSignal = undefined;
+      (AbortSignal as any).any = undefined;
+
+      // Compose the signals - this uses the fallback composeAbortSignals
+      toTaskSignal([source1.signal, source2.signal]);
+
+      // Verify that listeners were attached with a signal option (the cleanup controller's signal)
+      // This proves the cleanup controller fix is in place
+      const listenersWithSignal = addEventListenerCalls.filter((call) => call.options?.signal !== undefined);
+      expect(listenersWithSignal.length).toBeGreaterThan(0);
+    } finally {
+      (source1.signal as any).addEventListener = addEventListenerOriginal1;
+      (source2.signal as any).addEventListener = addEventListenerOriginal2;
+      ambient.TaskSignal = savedTaskSignal;
+      (AbortSignal as any).any = savedAbortSignalAny;
+    }
   });
 });
 
 describe('createSchedulerTimers', () => {
   it('surfaces a throw from a scheduled callback', async () => {
-    // In the broken version, absorbAbort() swallows all rejections.
-    // In the fixed version, handler throws are rethrown. We verify by checking
-    // that the promise doesn't stay absorbed (i.e., continues the rejection chain).
+    // Verify that when a callback handed to the scheduler timers throws, the error surfaces
+    // as an uncaught exception (not absorbed and hidden). We verify by capturing the throw
+    // that happens asynchronously via setTimeout.
     const fake = createFakeScheduler();
-    const error = new Error('callback failed');
+    const timers = createSchedulerTimers({ ...fake.impl });
+    const error = new Error('callback error');
+    let thrownError: Error | undefined;
+    const originalSetTimeout = global.setTimeout;
 
-    // Wrap postTask to get access to the promise
-    const taskPromise = postSchedulerTask(
-      () => {
+    // Mock setTimeout to capture the throw
+    global.setTimeout = jest.fn((callback: () => void) => {
+      try {
+        callback();
+      } catch (e) {
+        thrownError = e as Error;
+      }
+
+      return 0;
+    }) as any;
+
+    try {
+      timers.setTimeout(() => {
         throw error;
-      },
-      { ...fake.impl },
-    );
+      }, 0);
 
-    // Before drain, promise is pending
-    let settled = false;
-    taskPromise.catch(() => {
-      settled = true;
-    });
+      await fake.drain();
 
-    await fake.drain();
-
-    // Wait for the promise to settle
-    await new Promise((resolve) => {
-      setTimeout(resolve, 10);
-    });
-
-    // The thrown error should have propagated (not absorbed)
-    expect(settled).toBe(true);
-
-    // And the error should be the one we threw, not an abort error
-    const rejection = await taskPromise.catch((reason) => reason);
-    expect(rejection).toBe(error);
+      // The thrown error should have been captured by our mock
+      expect(thrownError).toBe(error);
+    } finally {
+      global.setTimeout = originalSetTimeout;
+    }
   });
 
   it('clears a timer without producing an unhandled rejection', async () => {
