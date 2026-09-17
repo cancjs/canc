@@ -71,12 +71,12 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 
 #### child-process
 
-| Export     | Cancellation   | Node | Deno | Bun     |
-| ---------- | -------------- | ---- | ---- | ------- |
-| `exec`     | stops the work | 18+  | ✅   | ✅      |
-| `execFile` | stops the work | 18+  | ✅   | ✅      |
-| `spawn`    | stops the work | 18+  | ✅   | partial |
-| `fork`     | stops the work | 18+  | ✅   | partial |
+| Export     | Cancellation       | Node | Deno | Bun     |
+| ---------- | ------------------ | ---- | ---- | ------- |
+| `exec`     | stops waiting only | 18+  | ✅   | ✅      |
+| `execFile` | stops waiting only | 18+  | ✅   | ✅      |
+| `spawn`    | stops the work     | 18+  | ✅   | partial |
+| `fork`     | stops the work     | 18+  | ✅   | partial |
 
 #### fs
 
@@ -246,6 +246,8 @@ One failure that node reports ambiguously gets a typed error: `ProcessSpawnError
 #### Cancellation
 
 Canceling sends `killSignal`, defaulting to `SIGTERM`, which is what node's own `signal` option sends on abort. Awaiting `cancel()` waits for the child to exit, under an upper bound so that a cancel cannot hang. There is no escalation and no process tree handling. A child that ignores `SIGTERM` keeps running, and the caller decides what to do about it.
+
+For `exec`, `execFile` when given a shell option, and `spawn` with `{ shell: true }`, the promise rejecting does not mean the command stopped. The process being signaled is the shell the function inserted, not the command. `spawn` and `fork` without a shell are unaffected. A caller who needs the command itself stopped should run without a shell, or have the command handle its own termination.
 
 ```ts
 const child = spawn("npm", ["test"]);

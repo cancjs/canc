@@ -140,6 +140,33 @@ describe('exec and execFile', () => {
       await expect(promise).rejects.toThrow(CancelError);
     });
 
+    it('leaves the shell command running when the promise is canceled', async () => {
+      const cmdStr = JSON.stringify('process.stdout.write(process.pid.toString()); setInterval(() => {}, 60000);');
+      const child = track(exec(`${nodeBin} -e ${cmdStr}`));
+      const promise = child.promise;
+      let innerPid: number | undefined;
+
+      try {
+        const [data] = await once(child.stdout!, 'data');
+        innerPid = parseInt(data.toString(), 10);
+
+        await promise.cancel();
+        await expect(promise).rejects.toThrow(CancelError);
+
+        expect(innerPid).not.toBeNaN();
+        // Assert the workload is provably alive
+        expect(() => process.kill(innerPid!, 0)).not.toThrow();
+      } finally {
+        if (innerPid) {
+          try {
+            process.kill(innerPid, 'SIGKILL');
+          } catch {
+            // Already dead
+          }
+        }
+      }
+    });
+
     it("lets an aborted caller signal reach the caller as node's AbortError", async () => {
       const controller = new AbortController();
       const child = track(exec(`${nodeBin} -e "setTimeout(() => {}, 60000)"`, { signal: controller.signal }));

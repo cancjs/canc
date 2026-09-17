@@ -6,7 +6,7 @@
     {
       "name": "exec",
       "kind": "fn",
-      "cancelCategory": "A",
+      "cancelCategory": "B",
       "callPath": "callback",
       "nodeSignal": {
         "documented": true,
@@ -34,7 +34,7 @@
     {
       "name": "execFile",
       "kind": "fn",
-      "cancelCategory": "A",
+      "cancelCategory": "B",
       "callPath": "callback",
       "nodeSignal": {
         "documented": true,
