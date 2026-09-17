@@ -5,13 +5,14 @@ import { createMockApi } from '@shared/mock-api';
 import axios from 'axios';
 
 import { CancIssuesClient } from './issues-client-canc';
+import { toAxiosAdapter } from './mock-adapter';
 
 async function main() {
   const mockBundle = createMockApi();
 
   // Inject the mock adapter into axios.
   const instance = axios.create({
-    adapter: mockBundle.axiosAdapter,
+    adapter: toAxiosAdapter(mockBundle),
   });
 
   const client = new CancIssuesClient(instance);

@@ -1,6 +1,5 @@
 // An axios-adapter-shaped facade over the fake API.
 
-
 import { AbortSignalLike, MockApi } from './core';
 import { createMockFetch } from './mock-fetch';
 
@@ -30,7 +29,7 @@ export type MockAxiosAdapter = (config: MockAxiosConfig) => Promise<MockAxiosRes
  * responses reject with an Error carrying the status, matching axios's default validateStatus.
  */
 
-export function createMockAxiosAdapter(api: MockApi): any {
+export function createMockAxiosAdapter(api: MockApi): MockAxiosAdapter {
   const mockFetch = createMockFetch(api);
 
   return async function mockAxiosAdapter(config: MockAxiosConfig) {

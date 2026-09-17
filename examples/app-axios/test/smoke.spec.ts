@@ -5,12 +5,13 @@ import axios from 'axios';
 
 import { CancIssuesClient } from '../src/issues-client-canc';
 import { VanillaIssuesClient } from '../src/issues-client-vanilla';
+import { toAxiosAdapter } from '../src/mock-adapter';
 
 describe('app-axios smoke', () => {
   it('cancels the previous search when a new search starts', async () => {
     const mockBundle = createMockApi({ latency: 20 });
     const instance = axios.create({
-      adapter: mockBundle.axiosAdapter,
+      adapter: toAxiosAdapter(mockBundle),
     });
     const client = new CancIssuesClient(instance);
 
@@ -44,7 +45,7 @@ describe('app-axios smoke', () => {
   it('aborts an in-flight detail fetch on cancelDetail', async () => {
     const mockBundle = createMockApi({ latency: 20 });
     const instance = axios.create({
-      adapter: mockBundle.axiosAdapter,
+      adapter: toAxiosAdapter(mockBundle),
     });
     const client = new CancIssuesClient(instance);
 
@@ -69,7 +70,7 @@ describe('app-axios smoke', () => {
   it('vanilla client discards stale results but leaves underlying requests in flight', async () => {
     const mockBundle = createMockApi({ latency: 20 });
     const instance = axios.create({
-      adapter: mockBundle.axiosAdapter,
+      adapter: toAxiosAdapter(mockBundle),
     });
     const client = new VanillaIssuesClient(instance);
 
@@ -98,7 +99,7 @@ describe('app-axios smoke', () => {
   it('cancels a request immediately via the cancelable wrapper', async () => {
     const mockBundle = createMockApi({ latency: 20 });
     const instance = axios.create({
-      adapter: mockBundle.axiosAdapter,
+      adapter: toAxiosAdapter(mockBundle),
     });
 
     const cancApi = cancelableAxios.wrap(instance);
