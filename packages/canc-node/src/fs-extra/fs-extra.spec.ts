@@ -282,12 +282,19 @@ describe('fs-extra', () => {
       expect(resSync).toBeNull();
       const _typeCheckSync: null extends typeof resSync ? true : false = true;
       expect(_typeCheckSync).toBe(true);
+    });
 
+    it('rejects a missing file even when throws is false', async () => {
       const noSuchFile = join(root, 'does-not-exist.json');
-      const resMissing = await readJson(noSuchFile, { throws: false });
-      expect(resMissing).toBeNull();
-      const resSyncMissing = readJsonSync(noSuchFile, { throws: false });
-      expect(resSyncMissing).toBeNull();
+      await expect(readJson(noSuchFile, { throws: false })).rejects.toMatchObject({ code: 'ENOENT' });
+      let caughtSync: any;
+      try {
+        readJsonSync(noSuchFile, { throws: false });
+      } catch (err) {
+        caughtSync = err;
+      }
+      expect(caughtSync).toBeDefined();
+      expect(caughtSync.code).toBe('ENOENT');
     });
 
     it('spaces and EOL affect the written bytes', async () => {
@@ -310,6 +317,11 @@ describe('fs-extra', () => {
         reviver: (k: string, v: any) => (k === 'a' ? Number(v) : v),
       });
       expect(revived).toEqual({ a: 10 });
+
+      const arrayReplacerFile = join(root, 'array-replacer.json');
+      await writeJson(arrayReplacerFile, { a: 1, b: 2, c: 3 }, { replacer: ['a', 'c'] });
+      const readArrayReplacer = await readJson(arrayReplacerFile);
+      expect(readArrayReplacer).toEqual({ a: 1, c: 3 });
     });
 
     it('cancel readJson and writeJson rejects CancelError', async () => {

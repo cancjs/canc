@@ -3,7 +3,6 @@ import { dirname } from 'node:path';
 import { CancelablePromise } from '@cancjs/promise';
 
 import { JsonParseError } from '../errors/classes';
-import { isNotFoundError } from '../errors/errno';
 import { readFile, writeFile } from '../fs';
 import { mkdirSync, readFileSync, writeFileSync } from '../fs/sync';
 import { ensureDir } from './ensure';
@@ -52,10 +51,7 @@ function formatJson(object: unknown, options?: IWriteJsonOptions | BufferEncodin
   const spaces = opts.spaces ?? undefined;
   const EOL = opts.EOL ?? '\n';
 
-  // the array replacer and the function replacer are separate JSON.stringify overloads, so a union
-  // argument matches neither and the call has to be split
-  const str =
-    Array.isArray(replacer) ? JSON.stringify(object, replacer, spaces) : JSON.stringify(object, replacer, spaces);
+  const str = JSON.stringify(object, replacer as any, spaces);
   const body = str === undefined ? '' : str;
   if (EOL === '\n') {
     return body + '\n';
@@ -87,24 +83,17 @@ export function readJson<T = any>(
     });
 
     resolve(
-      p
-        .then((content) => {
-          const str = toUtf8String(content, encoding);
-          try {
-            return JSON.parse(str, reviver) as T;
-          } catch (err) {
-            if (!shouldThrow) {
-              return null;
-            }
-            throw new JsonParseError(String(file) + ': ' + (err as Error).message, { path: file, cause: err });
-          }
-        })
-        .catch((err: unknown) => {
-          if (!shouldThrow && isNotFoundError(err)) {
+      p.then((content) => {
+        const str = toUtf8String(content, encoding);
+        try {
+          return JSON.parse(str, reviver) as T;
+        } catch (err) {
+          if (!shouldThrow) {
             return null;
           }
-          throw err;
-        }),
+          throw new JsonParseError(String(file) + ': ' + (err as Error).message, { path: file, cause: err });
+        }
+      }),
     );
   });
 }
@@ -117,15 +106,7 @@ export function readJsonSync<T = any>(file: string, options?: IReadJsonOptions |
   const shouldThrow = opts.throws !== false;
   const reviver = opts.reviver;
 
-  let content: string | Buffer;
-  try {
-    content = readFileSync(file, { encoding, flag: opts.flag });
-  } catch (err) {
-    if (!shouldThrow && isNotFoundError(err)) {
-      return null;
-    }
-    throw err;
-  }
+  const content = readFileSync(file, { encoding, flag: opts.flag });
 
   const str = toUtf8String(content, encoding);
   try {
