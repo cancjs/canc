@@ -51,6 +51,8 @@ export interface MockApiOptions {
  */
 export class MockApi {
   readonly calls: CallRecord[] = [];
+  /** The seed this instance was built with, so a domain can derive its own stream from it. */
+  readonly seed: number;
   private readonly options: Required<Omit<MockApiOptions, 'trace'>> & { trace: (line: string) => void };
   private readonly rand: () => number;
   private readonly createdAt = Date.now();
@@ -64,6 +66,7 @@ export class MockApi {
       seed: options.seed ?? 1,
       trace: options.trace ?? (() => {}),
     };
+    this.seed = this.options.seed;
     this.rand = mulberry32(this.options.seed);
   }
 

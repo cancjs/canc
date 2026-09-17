@@ -31,24 +31,49 @@ interface IPostRecord {
 
 const globals = globalThis as ISchedulerGlobals;
 const goodIds: string[] = [];
-let failingId = '';
+// An id whose seeded failures run out inside the retry budget, so the prefetch recovers.
+let recoveringId = '';
+let recoveringFailures = 0;
+// An id with more seeded failures than the budget, so the prefetch still gives up.
+let exhaustingId = '';
 
-beforeAll(async () => {
+/** How many times this id rejects before it starts resolving, measured on a throwaway api. */
+async function countSeededFailures(id: string): Promise<number> {
   const probe = createMockApi({ seedMode: true });
+  let failures = 0;
 
-  for (let index = 1; index <= 100 && (goodIds.length < 6 || !failingId); index += 1) {
-    const id = `inv-${String(index).padStart(4, '0')}`;
-
+  for (let attempt = 0; attempt < 10; attempt += 1) {
     try {
       await probe.invoices.detail(id);
-      if (goodIds.length < 6) goodIds.push(id);
+      return failures;
     } catch {
-      failingId = failingId || id;
+      failures += 1;
+    }
+  }
+
+  return failures;
+}
+
+beforeAll(async () => {
+  for (let index = 1; index <= 200 && (goodIds.length < 6 || !recoveringId || !exhaustingId); index += 1) {
+    const id = `inv-${String(index).padStart(4, '0')}`;
+    const failures = await countSeededFailures(id);
+
+    if (failures === 0) {
+      if (goodIds.length < 6) goodIds.push(id);
+    } else if (failures < PREFETCH_ATTEMPTS) {
+      if (!recoveringId) {
+        recoveringId = id;
+        recoveringFailures = failures;
+      }
+    } else if (!exhaustingId) {
+      exhaustingId = id;
     }
   }
 
   expect(goodIds).toHaveLength(6);
-  expect(failingId).not.toBe('');
+  expect(recoveringId).not.toBe('');
+  expect(exhaustingId).not.toBe('');
 });
 
 afterEach(() => {
@@ -184,27 +209,32 @@ describe('prefetchDetails, canc flavor', () => {
     expect(isCancelError(await rejection)).toBe(true);
   });
 
+  /** Lets the initial background task and `backoffs` retry waits run, each on the fake scheduler. */
+  async function runPrefetchWithBackoffs(fake: IFakeScheduler, backoffs: number): Promise<void> {
+    fake.advance(PREFETCH_DELAY_MS);
+    await fake.drain();
+    await sleep(0);
+
+    for (let backoff = 0; backoff < backoffs; backoff += 1) {
+      fake.advance(PREFETCH_BACKOFF_MS * Math.pow(2, backoff));
+      await fake.drain();
+      await sleep(0);
+      await flushMicrotasks();
+    }
+  }
+
   it('waits out every retry backoff as a background task', async () => {
     const { fake, posts } = installFakeScheduler();
     const api = createMockApi({ seedMode: true });
     const lifetime = toTaskSignal(startRenderRun());
     const retried: number[] = [];
 
-    const prefetch = prefetchDetails(api.invoices, failingId, lifetime, {
+    const prefetch = prefetchDetails(api.invoices, exhaustingId, lifetime, {
       onRetry: (attempt) => retried.push(attempt),
     });
     const rejection = prefetch.catch((reason: unknown) => reason);
 
-    fake.advance(PREFETCH_DELAY_MS);
-    await fake.drain();
-    await sleep(0);
-
-    for (let backoff = 0; backoff < PREFETCH_ATTEMPTS - 1; backoff += 1) {
-      fake.advance(PREFETCH_BACKOFF_MS * Math.pow(2, backoff));
-      await fake.drain();
-      await sleep(0);
-      await flushMicrotasks();
-    }
+    await runPrefetchWithBackoffs(fake, PREFETCH_ATTEMPTS - 1);
 
     expect(detailCalls(api)).toHaveLength(PREFETCH_ATTEMPTS);
     expect(retried).toEqual([1, 2]);
@@ -214,6 +244,24 @@ describe('prefetchDetails, canc flavor', () => {
       { priority: 'background', delay: PREFETCH_BACKOFF_MS * 2 },
     ]);
     expect(((await rejection) as Error).message).toContain('temporarily unavailable');
+  });
+
+  it('resolves once an id stops failing, so a retry has a recovery to show', async () => {
+    const { fake, posts } = installFakeScheduler();
+    const api = createMockApi({ seedMode: true });
+    const lifetime = toTaskSignal(startRenderRun());
+    const retried: number[] = [];
+
+    const prefetch = prefetchDetails(api.invoices, recoveringId, lifetime, {
+      onRetry: (attempt) => retried.push(attempt),
+    });
+
+    await runPrefetchWithBackoffs(fake, recoveringFailures);
+
+    expect(detailCalls(api)).toHaveLength(recoveringFailures + 1);
+    expect(retried).toHaveLength(recoveringFailures);
+    expect(posts.every((post) => post.priority === 'background')).toBe(true);
+    await expect(prefetch).resolves.toMatchObject({ id: recoveringId });
   });
 
   it('tracks nothing once every prefetch has settled', async () => {
