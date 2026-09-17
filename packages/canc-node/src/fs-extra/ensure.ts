@@ -2,7 +2,7 @@ import { dirname } from 'node:path';
 
 import { CancelablePromise } from '@cancjs/promise';
 
-import { isExistsError, isNotFoundError } from '../errors/errno';
+import { EISDIR, isExistsError, isNotFoundError } from '../errors/errno';
 import { link, lstat, mkdir, stat, symlink, writeFile } from '../fs';
 import { linkSync, lstatSync, mkdirSync, statSync, symlinkSync, writeFileSync } from '../fs/sync';
 
@@ -48,10 +48,19 @@ export function ensureFile(path: string): CancelablePromise<void> {
       activePromise?.cancel(reason);
     });
 
-    activePromise = stat(path);
+    const statPromise = stat(path);
+    activePromise = statPromise;
     resolve(
-      activePromise
-        .then(() => undefined)
+      statPromise
+        .then((stats) => {
+          if (!stats.isFile()) {
+            const err: EISDIR = Object.assign(new Error(`expected a file, got directory: ${path}`), {
+              code: 'EISDIR' as const,
+            });
+            throw err;
+          }
+          return undefined;
+        })
         .catch((err: unknown) => {
           if (isNotFoundError(err)) {
             activePromise = ensureDir(dirname(path));
@@ -73,7 +82,13 @@ export function ensureFile(path: string): CancelablePromise<void> {
  */
 export function ensureFileSync(path: string): void {
   try {
-    statSync(path);
+    const stats = statSync(path);
+    if (!stats.isFile()) {
+      const err: EISDIR = Object.assign(new Error(`expected a file, got directory: ${path}`), {
+        code: 'EISDIR' as const,
+      });
+      throw err;
+    }
   } catch (err: unknown) {
     if (isNotFoundError(err)) {
       ensureDirSync(dirname(path));

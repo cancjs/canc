@@ -156,6 +156,14 @@ describe('fs-extra', () => {
     await expect(fs.readFile(file, 'utf8')).resolves.toBe('');
   });
 
+  it('ensureFileSync and ensureFile on existing directory fail with EISDIR', async () => {
+    const existingDir = join(root, 'existing-dir-for-eisdir');
+    ensureDirSync(existingDir);
+
+    await expect(ensureFile(existingDir)).rejects.toMatchObject({ code: 'EISDIR' });
+    expect(() => ensureFileSync(existingDir)).toThrow(expect.objectContaining({ code: 'EISDIR' }));
+  });
+
   it('ensureLinkSync creates hardlink and parent dirs', async () => {
     const src = join(root, 'src-link-sync.txt');
     await writeFile(src, 'content sync');
