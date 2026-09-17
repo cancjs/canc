@@ -1040,7 +1040,7 @@ cancForAwait.toArray = function* toArray(source: any): Generator<unknown, any[],
 
 cancForAwait.next = function* next(): Generator<unknown, void, any> {
   const loop = yield { [CURRENT_LOOP]: true };
-  if (!isObject(loop) || !isFunction((loop as any)._it)) {
+  if (!isObject(loop) || !isObject((loop as any)._it)) {
     throw new IterationError('No active forAwait loop; canc.forAwait.next() requires a loop in the body');
   }
   yield* pullNextItem(loop);
