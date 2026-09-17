@@ -5,8 +5,9 @@ import { CancelablePromise } from '@cancjs/promise';
 import { IPromiseKind, IToolboxDeps, retryFactory, TPromiseCtor } from '../../../_toolbox';
 import { EEXIST, isCrossDeviceError, isErrno, isNotFoundError, isTooManyFilesError } from '../errors/errno';
 import { lstat, rename, rm } from '../fs';
-import { copyTree } from './copy';
-import { ensureDir } from './ensure';
+import { lstatSync, renameSync, rmSync } from '../fs/sync';
+import { copyTree, copyTreeSync } from './copy';
+import { ensureDir, ensureDirSync } from './ensure';
 
 /**
  * The call presently in flight, so a cancel reaches it directly instead of waiting for
@@ -154,4 +155,44 @@ export function move(src: string, dest: string, options?: IMoveOptions): Cancela
 
     resolve(p);
   });
+}
+
+/**
+ * Moves a file or directory synchronously, with cross-device fallback using copy and delete.
+ *
+ * Does not retry on transient EPERM or EBUSY errors.
+ *
+ * @param src - Source path to move.
+ * @param dest - Destination path.
+ * @param options - Options for the move operation.
+ */
+export function moveSync(src: string, dest: string, options?: IMoveOptions): void {
+  if (options?.overwrite === false) {
+    let destExists = false;
+    try {
+      lstatSync(dest);
+      destExists = true;
+    } catch (err: unknown) {
+      if (!isNotFoundError(err)) {
+        throw err;
+      }
+    }
+    if (destExists) {
+      const err: EEXIST = Object.assign(new Error(`dest already exists: ${dest}`), { code: 'EEXIST' as const });
+      throw err;
+    }
+  }
+
+  ensureDirSync(dirname(dest));
+
+  try {
+    renameSync(src, dest);
+  } catch (err: unknown) {
+    if (isCrossDeviceError(err)) {
+      copyTreeSync(src, dest, { overwrite: options?.overwrite ?? true });
+      rmSync(src, { recursive: true, force: true });
+      return;
+    }
+    throw err;
+  }
 }

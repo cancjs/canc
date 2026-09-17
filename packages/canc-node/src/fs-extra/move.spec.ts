@@ -1,3 +1,4 @@
+import * as fsSync from 'node:fs';
 import * as fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -5,7 +6,7 @@ import { join } from 'node:path';
 import { CancelError } from '@cancjs/promise';
 
 import { getFs, resetFs, setFs } from '../fs/registry';
-import { move } from './move';
+import { move, moveSync } from './move';
 
 async function cleanDir(dirPath: string) {
   try {
@@ -197,5 +198,113 @@ describe('move', () => {
     await move(src, dest);
     expect(attempts).toBe(3);
     await expect(fs.readFile(dest, 'utf8')).resolves.toBe('retry content');
+  });
+
+  it('moveSync on same device uses renameSync and does not call copyFileSync', () => {
+    const src = join(root, 'sync-same-dev-src.txt');
+    const dest = join(root, 'sync-same-dev-dest.txt');
+    fsSync.writeFileSync(src, 'sync-content');
+
+    let renameSyncCalled = false;
+    let copyFileSyncCalled = false;
+    const originalFs = getFs();
+    setFs({
+      ...originalFs,
+      renameSync: (oldPath: string, newPath: string) => {
+        renameSyncCalled = true;
+        return originalFs.renameSync(oldPath, newPath);
+      },
+      copyFileSync: (srcPath: string, destPath: string, flags?: number) => {
+        copyFileSyncCalled = true;
+        return originalFs.copyFileSync(srcPath, destPath, flags);
+      },
+    });
+
+    moveSync(src, dest);
+    expect(renameSyncCalled).toBe(true);
+    expect(copyFileSyncCalled).toBe(false);
+    expect(fsSync.readFileSync(dest, 'utf8')).toBe('sync-content');
+    expect(fsSync.existsSync(src)).toBe(false);
+  });
+
+  it('moveSync with EXDEV forced copies then deletes and destination is byte-identical', () => {
+    const src = join(root, 'sync-exdev-src.bin');
+    const dest = join(root, 'sync-exdev-dest.bin');
+    const payload = Buffer.from('payload-with-bytes-\x00\x01\x02\xff');
+    fsSync.writeFileSync(src, payload);
+
+    let exdevTriggered = false;
+    const originalFs = getFs();
+    setFs({
+      ...originalFs,
+      renameSync: (_oldPath: string, _newPath: string) => {
+        exdevTriggered = true;
+        const err: any = new Error('EXDEV: cross-device link not permitted');
+        err.code = 'EXDEV';
+        throw err;
+      },
+    });
+
+    moveSync(src, dest);
+    expect(exdevTriggered).toBe(true);
+    const destContent = fsSync.readFileSync(dest);
+    expect(Buffer.compare(destContent, payload)).toBe(0);
+    expect(fsSync.existsSync(src)).toBe(false);
+  });
+
+  it('leaves the source in place when the delete step fails', () => {
+    const srcDir = join(root, 'sync-fail-rm-src');
+    const destDir = join(root, 'sync-fail-rm-dest');
+    fsSync.mkdirSync(srcDir, { recursive: true });
+    fsSync.writeFileSync(join(srcDir, 'retained.txt'), 'retained content');
+
+    const originalFs = getFs();
+    setFs({
+      ...originalFs,
+      renameSync: () => {
+        const err: any = new Error('EXDEV');
+        err.code = 'EXDEV';
+        throw err;
+      },
+      rmSync: () => {
+        throw new Error('rmSync failed');
+      },
+    });
+
+    expect(() => moveSync(srcDir, destDir)).toThrow('rmSync failed');
+
+    expect(fsSync.existsSync(srcDir)).toBe(true);
+    expect(fsSync.readFileSync(join(srcDir, 'retained.txt'), 'utf8')).toBe('retained content');
+    expect(fsSync.existsSync(destDir)).toBe(true);
+    expect(fsSync.readFileSync(join(destDir, 'retained.txt'), 'utf8')).toBe('retained content');
+  });
+
+  it('moveSync with overwrite: false onto an existing target throws EEXIST', () => {
+    const src = join(root, 'sync-no-overwrite-src.txt');
+    const dest = join(root, 'sync-no-overwrite-dest.txt');
+    fsSync.writeFileSync(src, 'src content');
+    fsSync.writeFileSync(dest, 'dest content');
+
+    let caughtErr: any = null;
+    try {
+      moveSync(src, dest, { overwrite: false });
+    } catch (e) {
+      caughtErr = e;
+    }
+
+    expect(caughtErr).toBeDefined();
+    expect(caughtErr.code).toBe('EEXIST');
+    expect(fsSync.readFileSync(src, 'utf8')).toBe('src content');
+    expect(fsSync.readFileSync(dest, 'utf8')).toBe('dest content');
+  });
+
+  it('moveSync creates missing destination parent directories before moving', () => {
+    const src = join(root, 'sync-nested-src.txt');
+    const dest = join(root, 'sync-nested/parent/sub/dest.txt');
+    fsSync.writeFileSync(src, 'nested sync content');
+
+    moveSync(src, dest);
+    expect(fsSync.readFileSync(dest, 'utf8')).toBe('nested sync content');
+    expect(fsSync.existsSync(src)).toBe(false);
   });
 });

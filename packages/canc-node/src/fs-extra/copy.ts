@@ -4,7 +4,8 @@ import { CancelablePromise } from '@cancjs/promise';
 
 import { isExistsError } from '../errors/errno';
 import { copyFile, lstat, readdir, readlink, symlink, unlink } from '../fs';
-import { ensureDir } from './ensure';
+import { copyFileSync, lstatSync, readdirSync, readlinkSync, symlinkSync, unlinkSync } from '../fs/sync';
+import { ensureDir, ensureDirSync } from './ensure';
 
 /**
  * Options for copy operation.
@@ -122,6 +123,65 @@ export async function copyTree(
     const flags = (options?.overwrite ?? true) ? 0 : 1;
     await (active.current = copyFile(src, dest, flags));
     signal.throwIfAborted();
+
+    if (options?.onProgress) {
+      options.onProgress({ src, dest });
+    }
+  }
+}
+
+/**
+ * Internal synchronous recursive helper.
+ */
+export function copyTreeSync(src: string, dest: string, options?: ICopyOptions): void {
+  if (options?.filter) {
+    const shouldCopy = options.filter(src, dest);
+    if (!shouldCopy) {
+      return;
+    }
+  }
+
+  const stats = lstatSync(src);
+
+  if (stats.isDirectory()) {
+    ensureDirSync(dest);
+
+    if (options?.onProgress) {
+      options.onProgress({ src, dest });
+    }
+
+    const entries = readdirSync(src, { withFileTypes: true });
+
+    for (const entry of entries) {
+      copyTreeSync(join(src, entry.name), join(dest, entry.name), options);
+    }
+  } else if (stats.isSymbolicLink()) {
+    ensureDirSync(dirname(dest));
+
+    const linkTarget = readlinkSync(src);
+
+    if (options?.overwrite ?? true) {
+      try {
+        symlinkSync(linkTarget, dest);
+      } catch (err) {
+        if (!isExistsError(err)) {
+          throw err;
+        }
+        unlinkSync(dest);
+        symlinkSync(linkTarget, dest);
+      }
+    } else {
+      symlinkSync(linkTarget, dest);
+    }
+
+    if (options?.onProgress) {
+      options.onProgress({ src, dest });
+    }
+  } else {
+    ensureDirSync(dirname(dest));
+
+    const flags = (options?.overwrite ?? true) ? 0 : 1;
+    copyFileSync(src, dest, flags);
 
     if (options?.onProgress) {
       options.onProgress({ src, dest });
