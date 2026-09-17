@@ -20,6 +20,10 @@ const { pathToFileURL } = require('url');
 const ROOT = path.resolve(__dirname, '..');
 const PACKAGES_DIR = path.join(ROOT, 'packages');
 
+// Export surfaces of published releases, read from their tarballs and not from this working tree
+// (the file's own note records how to add one)
+const PEER_FLOOR_SURFACES = require('./peer-floor-surface.json').surfaces;
+
 function listPackages() {
   const names = [];
   for (const name of fs.readdirSync(PACKAGES_DIR)) {
@@ -132,7 +136,141 @@ async function packageExpectsUmd(pkgDir) {
   return configs.some((config) => config && config.output && config.output.format === 'umd');
 }
 
-async function checkPackage(pkgName) {
+// Peers stay external to every bundle, so the built output keeps the import specifiers verbatim
+// Built ESM plus emitted declarations covers value and type imports, the whole resolvable set
+// Never the package's own barrel: that lists what it exports, not what it needs from elsewhere
+const NAMED_IMPORT = /(?:import|export)\s*(?:type\s*)?\{([^}]*)\}\s*from\s*['"](@cancjs\/[^'"]+)['"]/g;
+const QUALIFIED_IMPORT = /import\(\s*['"](@cancjs\/[^'"]+)['"]\s*\)\s*\.\s*([A-Za-z_$][\w$]*)/g;
+
+function listFilesRecursive(dir, acc = []) {
+  if (!fs.existsSync(dir)) return acc;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) listFilesRecursive(full, acc);
+    else acc.push(full);
+  }
+  return acc;
+}
+
+function collectPeerImports(pkgDir) {
+  const byPeer = new Map();
+  const add = (peer, name) => {
+    if (name === 'default') return;
+    if (!byPeer.has(peer)) byPeer.set(peer, new Set());
+    byPeer.get(peer).add(name);
+  };
+
+  for (const file of listFilesRecursive(path.join(pkgDir, 'dist'))) {
+    if (!/\.(mjs|d\.ts|d\.mts|d\.cts)$/.test(file)) continue;
+    const text = fs.readFileSync(file, 'utf8');
+
+    let match;
+    NAMED_IMPORT.lastIndex = 0;
+    while ((match = NAMED_IMPORT.exec(text)) !== null) {
+      for (const clause of match[1].split(',')) {
+        const trimmed = clause.trim().replace(/^type\s+/, '');
+        if (!trimmed) continue;
+        add(match[2], trimmed.split(/\s+as\s+/)[0].trim());
+      }
+    }
+    QUALIFIED_IMPORT.lastIndex = 0;
+    while ((match = QUALIFIED_IMPORT.exec(text)) !== null) {
+      add(match[1], match[2]);
+    }
+  }
+
+  return byPeer;
+}
+
+function parseVersion(version) {
+  const match = /^(\d+)\.(\d+)\.(\d+)/.exec(version);
+  return match ? [Number(match[1]), Number(match[2]), Number(match[3])] : null;
+}
+
+function isAtLeast(a, b) {
+  for (let i = 0; i < 3; i++) {
+    if (a[i] !== b[i]) return a[i] > b[i];
+  }
+  return true;
+}
+
+function workspacePackages() {
+  const found = new Map();
+  for (const name of listPackages()) {
+    const dir = path.join(PACKAGES_DIR, name);
+    found.set(JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8')).name, dir);
+  }
+  return found;
+}
+
+// A floor that is not published yet has no tarball to read, so the release it names is the one
+// being prepared in this tree and the locally built declarations are its surface.
+function localSurface(pkgDir) {
+  const manifest = JSON.parse(fs.readFileSync(path.join(pkgDir, 'package.json'), 'utf8'));
+  const entry = path.join(pkgDir, normalize(manifest.types || ''));
+  if (!manifest.types || !fs.existsSync(entry)) return null;
+
+  const ts = require('typescript');
+  const program = ts.createProgram([entry], { skipLibCheck: true, target: ts.ScriptTarget.ES2018 });
+  const source = program.getSourceFile(entry);
+  const checker = program.getTypeChecker();
+  const symbol = source && checker.getSymbolAtLocation(source);
+  if (!symbol) return null;
+
+  return new Set(checker.getExportsOfModule(symbol).map((s) => s.getName()));
+}
+
+// A package may only import names the release at its own declared peer floor actually ships
+// Otherwise the install resolves quietly against that floor and the call fails at runtime
+function collectPeerFloorViolations(pkgDir, manifest, workspace) {
+  const ranges = { ...(manifest.peerDependencies || {}), ...(manifest.dependencies || {}) };
+  const imports = collectPeerImports(pkgDir);
+  const problems = [];
+
+  for (const [peer, names] of imports) {
+    const range = ranges[peer];
+    if (!range) {
+      problems.push(`imports from ${peer} but neither depends on it nor declares it as a peer`);
+      continue;
+    }
+
+    const declared = /^>=\s*(\S+)$/.exec(range);
+    if (!declared) {
+      problems.push(`peer range for ${peer} is "${range}", expected a floor of the form ">=x.y.z"`);
+      continue;
+    }
+
+    const floor = declared[1];
+    const parsedFloor = parseVersion(floor);
+    let surface = null;
+
+    const published = PEER_FLOOR_SURFACES[peer] && PEER_FLOOR_SURFACES[peer][floor];
+    if (published) {
+      surface = new Set(published);
+    } else {
+      const peerDir = workspace.get(peer);
+      const localVersion =
+        peerDir && parseVersion(JSON.parse(fs.readFileSync(path.join(peerDir, 'package.json'), 'utf8')).version);
+      if (peerDir && parsedFloor && localVersion && isAtLeast(parsedFloor, localVersion)) {
+        surface = localSurface(peerDir);
+      }
+    }
+
+    if (!surface) {
+      problems.push(`no recorded export surface for ${peer}@${floor}, so the declared peer floor cannot be checked`);
+      continue;
+    }
+
+    const absent = [...names].filter((name) => !surface.has(name)).sort();
+    if (absent.length > 0) {
+      problems.push(`imports names absent from ${peer}@${floor} (the declared peer floor): ${absent.join(', ')}`);
+    }
+  }
+
+  return problems;
+}
+
+async function checkPackage(pkgName, workspace) {
   const pkgDir = path.join(PACKAGES_DIR, pkgName);
   const manifest = JSON.parse(fs.readFileSync(path.join(pkgDir, 'package.json'), 'utf8'));
   const packedFiles = packFileList(pkgDir);
@@ -249,6 +387,7 @@ async function checkPackage(pkgName) {
   }
 
   problems.push(...(await collectDefaultExportShadowing(pkgDir, manifest)));
+  problems.push(...collectPeerFloorViolations(pkgDir, manifest, workspace));
 
   try {
     const publintOutput = execSync(`npx publint "${pkgDir}"`, { encoding: 'utf8' });
@@ -273,10 +412,11 @@ async function checkPackage(pkgName) {
 
 async function main() {
   const packages = listPackages();
+  const workspace = workspacePackages();
   let failed = false;
 
   for (const pkgName of packages) {
-    const { pkgName: name, problems, fileCount } = await checkPackage(pkgName);
+    const { pkgName: name, problems, fileCount } = await checkPackage(pkgName, workspace);
     if (problems.length === 0) {
       console.log(`PASS ${name} (${fileCount} files packed)`);
     } else {
