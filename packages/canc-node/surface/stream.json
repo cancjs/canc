@@ -528,7 +528,8 @@
         "deno": "unverified",
         "bun": "unverified"
       },
-      "notes": "node:stream/consumers has no signal option at all; canc registers handleCancel to destroy the source (probe confirms present on node/deno/bun for the single sampled runtime; not verifiable against the node:stream export list used here)"
+      "notes": "node:stream/consumers has no signal option at all; canc registers handleCancel to destroy the source (probe confirms present on node/deno/bun for the single sampled runtime; not verifiable against the node:stream export list used here)",
+      "nodeSpecifier": "node:stream/consumers"
     },
     {
       "name": "json",
@@ -549,7 +550,8 @@
         "deno": "unverified",
         "bun": "unverified"
       },
-      "notes": "node:stream/consumers has no signal option at all; canc registers handleCancel to destroy the source (probe confirms present on node/deno/bun for the single sampled runtime; not verifiable against the node:stream export list used here)"
+      "notes": "node:stream/consumers has no signal option at all; canc registers handleCancel to destroy the source (probe confirms present on node/deno/bun for the single sampled runtime; not verifiable against the node:stream export list used here)",
+      "nodeSpecifier": "node:stream/consumers"
     },
     {
       "name": "buffer",
@@ -570,7 +572,8 @@
         "deno": "unverified",
         "bun": "unverified"
       },
-      "notes": "node:stream/consumers has no signal option at all; canc registers handleCancel to destroy the source (probe confirms present on node/deno/bun for the single sampled runtime; not verifiable against the node:stream export list used here)"
+      "notes": "node:stream/consumers has no signal option at all; canc registers handleCancel to destroy the source (probe confirms present on node/deno/bun for the single sampled runtime; not verifiable against the node:stream export list used here)",
+      "nodeSpecifier": "node:stream/consumers"
     },
     {
       "name": "arrayBuffer",
@@ -591,7 +594,8 @@
         "deno": "unverified",
         "bun": "unverified"
       },
-      "notes": "node:stream/consumers has no signal option at all; canc registers handleCancel to destroy the source (probe confirms present on node/deno/bun for the single sampled runtime; not verifiable against the node:stream export list used here)"
+      "notes": "node:stream/consumers has no signal option at all; canc registers handleCancel to destroy the source (probe confirms present on node/deno/bun for the single sampled runtime; not verifiable against the node:stream export list used here)",
+      "nodeSpecifier": "node:stream/consumers"
     },
     {
       "name": "blob",
@@ -612,7 +616,8 @@
         "deno": "unverified",
         "bun": "unverified"
       },
-      "notes": "node:stream/consumers has no signal option at all; canc registers handleCancel to destroy the source (probe confirms present on node/deno/bun for the single sampled runtime; not verifiable against the node:stream export list used here)"
+      "notes": "node:stream/consumers has no signal option at all; canc registers handleCancel to destroy the source (probe confirms present on node/deno/bun for the single sampled runtime; not verifiable against the node:stream export list used here)",
+      "nodeSpecifier": "node:stream/consumers"
     },
     {
       "name": "bytes",
@@ -632,7 +637,8 @@
         "deno": "unverified",
         "bun": "unverified"
       },
-      "notes": "since-version UNVERIFIED: present on the probed node 24.18.1 runtime; the tracked-major fact base carries no dated entry for it, so gate by feature-detect rather than by version number, do not copy the unconfirmed v24.14.0 figure from an earlier draft (probe confirms present on node/deno/bun for the single sampled runtime; not verifiable against the node:stream export list used here)"
+      "notes": "since-version UNVERIFIED: present on the probed node 24.18.1 runtime; the tracked-major fact base carries no dated entry for it, so gate by feature-detect rather than by version number, do not copy the unconfirmed v24.14.0 figure from an earlier draft (probe confirms present on node/deno/bun for the single sampled runtime; not verifiable against the node:stream export list used here)",
+      "nodeSpecifier": "node:stream/consumers"
     }
   ]
 }

@@ -248,7 +248,37 @@ for (const [mod, lockExports] of Object.entries(nodeLock.modules)) {
 // removals (deprecated no-iv cipher API dropped from the docs after 20), not gaps in coverage.
 // Check A above already requires these be cataloged because they are still real on older majors;
 // this set only exempts them from the "must also exist on the newest major" direction.
+/**
+ * Drop the ` extends Base` a Node doc heading carries. The lock keys a class section by its rendered
+ * heading (`BroadcastChannel extends EventTarget`) while a manifest names the class alone, so the
+ * two only line up once the clause is gone.
+ */
+function stripExtendsClause(key) {
+  return key
+    .split('.')
+    .map((segment) => segment.replace(/\s+extends\s+.*$/, ''))
+    .join('.');
+}
+
+/**
+ * The `node:<mod>/<sub>` a manifest export belongs to, when its own entry declares one. An export
+ * may live in a different specifier than the manifest it is listed under: the `stream` manifest
+ * carries the `node:stream/consumers` members because that is where a consumer reaches them from.
+ */
+function submoduleOf(manifest, name) {
+  const entry = (manifest.exports || []).find((e) => e.name === name);
+  const specifier = entry?.nodeSpecifier;
+
+  return specifier && specifier.includes('/') ? specifier.replace(/^node:/, '') : undefined;
+}
+
+/** Member names the runtime probe actually found on a submodule. */
+function runtimeKeysOf(submodule) {
+  return rtLock.node?.exports?.[submodule]?.keys || [];
+}
+
 const REMOVED_BY_NEWEST_MAJOR = new Set([
+  'stream#stream.Readable::asIndexedPairs',
   'crypto::Cipher',
   'crypto::Decipher',
   'crypto::createCipher',
@@ -278,15 +308,33 @@ for (const [subpath, mmap] of manifestMap.entries()) {
     const lockExports = nodeLock.modules[mod] || {};
     const prefix = subpath.includes('#') ? subpath.split('#')[1] + '.' + name : name;
 
-    const match = Object.entries(lockExports).find(([k, _v]) => {
+    // Every key that names this API, not the first. Node renames a class heading between majors
+    // (`BroadcastChannel` became `BroadcastChannel extends EventTarget` in 26), which leaves the
+    // lock holding one key per spelling, each carrying only the majors that used it. Taking the
+    // first match reports the API as gone from the newest major purely because the heading moved.
+    const matches = Object.entries(lockExports).filter(([k, _v]) => {
       const p = k.split('.');
       p.shift();
-      return p.join('.') === prefix;
+      return stripExtendsClause(p.join('.')) === stripExtendsClause(prefix);
     });
 
-    if (!match || !match[1].presentIn.includes(newestMajor)) {
-      fail(`Check D failed: ${subpath} ${name} has no lock counterpart on newest major`);
+    if (matches.length > 0) {
+      if (!matches.some(([, v]) => v.presentIn.includes(newestMajor))) {
+        fail(`Check D failed: ${subpath} ${name} has no lock counterpart on newest major`);
+      }
+      continue;
     }
+
+    // The doc-scraped lock only covers whole modules. A member of a submodule it never collected
+    // (`node:stream/consumers`) has no counterpart there and never will, so it is checked against
+    // the runtime probe instead of being failed against data that was not gathered.
+    const submodule = submoduleOf(manifest, name);
+
+    if (submodule && runtimeKeysOf(submodule).includes(name)) {
+      continue;
+    }
+
+    fail(`Check D failed: ${subpath} ${name} has no lock counterpart on newest major`);
   }
 }
 
