@@ -6,7 +6,7 @@ import * as timersExports from './index';
 import { scheduler, setImmediate, setInterval, setTimeout } from './index';
 
 describe('@cancjs/node/timers module exports', () => {
-  it('exports exactly the full timers/promises mirror (QN33): setTimeout, setImmediate, setInterval, scheduler', () => {
+  it('exports exactly the full timers/promises mirror: setTimeout, setImmediate, setInterval, scheduler', () => {
     const expected = new Set(['setTimeout', 'setImmediate', 'setInterval', 'scheduler']);
     expect(new Set(Object.keys(timersExports))).toEqual(expected);
   });
