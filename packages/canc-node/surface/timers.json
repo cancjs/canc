@@ -7,7 +7,7 @@
       "name": "setTimeout",
       "kind": "fn",
       "cancelCategory": "C",
-      "callPath": null,
+      "callPath": "promises",
       "nodeSignal": {
         "documented": true,
         "since": "v15.0.0",
@@ -29,7 +29,7 @@
       "name": "setImmediate",
       "kind": "fn",
       "cancelCategory": "C",
-      "callPath": null,
+      "callPath": "promises",
       "nodeSignal": {
         "documented": true,
         "since": "v15.0.0",
@@ -51,7 +51,7 @@
       "name": "setInterval",
       "kind": "fn",
       "cancelCategory": "C",
-      "callPath": null,
+      "callPath": "promises",
       "nodeSignal": {
         "documented": false,
         "since": "v15.9.0",
@@ -73,7 +73,7 @@
       "name": "wait",
       "kind": "fn",
       "cancelCategory": "C",
-      "callPath": null,
+      "callPath": "promises",
       "nodeSignal": {
         "documented": true,
         "since": "v17.3.0",

@@ -7,7 +7,7 @@
       "name": "pipeline",
       "kind": "fn",
       "cancelCategory": "A",
-      "callPath": null,
+      "callPath": "promises",
       "nodeSignal": {
         "documented": true,
         "since": "v15.0.0",
@@ -33,7 +33,7 @@
       "name": "finished",
       "kind": "fn",
       "cancelCategory": "A",
-      "callPath": null,
+      "callPath": "promises",
       "nodeSignal": {
         "documented": true,
         "since": "v15.0.0",
