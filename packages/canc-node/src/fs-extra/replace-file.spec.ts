@@ -8,6 +8,14 @@ import { CancelError } from '@cancjs/promise';
 import { getFs, resetFs, setFs } from '../fs/registry';
 import { replaceFile, replaceFileSync } from './replace-file';
 
+type TFsCall = (...args: unknown[]) => unknown;
+
+// registry members are typed uncallable on purpose, so the widening happens here and nowhere else
+function fsCall(fn: unknown, name: string): TFsCall {
+  if (typeof fn !== 'function') throw new Error(`fs registry has no ${name}`);
+  return fn as TFsCall;
+}
+
 async function cleanDir(dirPath: string) {
   try {
     const entries = await fs.readdir(dirPath, { withFileTypes: true });
@@ -99,12 +107,14 @@ describe('replaceFile', () => {
     });
 
     const originalFs = getFs();
+    const originalWriteFile = fsCall(originalFs.writeFile, 'writeFile');
+    const originalWriteFilePromise = fsCall(originalFs.promises?.writeFile, 'promises.writeFile');
     setFs({
       ...originalFs,
       writeFile: (filePath: any, data: any, options: any, callback?: any) => {
         const cb = typeof options === 'function' ? options : callback;
         const opts = typeof options === 'function' ? {} : options;
-        originalFs.writeFile(filePath, data, opts, (...args: any[]) => {
+        originalWriteFile(filePath, data, opts, (...args: unknown[]) => {
           writeStartedResolve();
           setTimeout(() => {
             cb(...args);
@@ -113,8 +123,8 @@ describe('replaceFile', () => {
       },
       promises: {
         ...originalFs.promises,
-        writeFile: async (...args: any[]) => {
-          const res = await originalFs.promises.writeFile(...args);
+        writeFile: async (...args: unknown[]) => {
+          const res = await originalWriteFilePromise(...args);
           writeStartedResolve();
           await new Promise((resolve) => setTimeout(resolve, 50));
           return res;

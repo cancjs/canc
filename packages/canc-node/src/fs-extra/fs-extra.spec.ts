@@ -35,6 +35,14 @@ import {
   writeJsonSync,
 } from './index';
 
+type TFsCall = (...args: unknown[]) => unknown;
+
+// registry members are typed uncallable on purpose, so the widening happens here and nowhere else
+function fsCall(fn: unknown, name: string): TFsCall {
+  if (typeof fn !== 'function') throw new Error(`fs registry has no ${name}`);
+  return fn as TFsCall;
+}
+
 async function cleanDir(dirPath: string) {
   try {
     const entries = await fs.readdir(dirPath, { withFileTypes: true });
@@ -547,39 +555,47 @@ describe('fs-extra', () => {
         rmSync: 0,
       };
       const base = getFs();
+      const baseMkdirSync = fsCall(base.mkdirSync, 'mkdirSync');
+      const baseStatSync = fsCall(base.statSync, 'statSync');
+      const baseLstatSync = fsCall(base.lstatSync, 'lstatSync');
+      const baseWriteFileSync = fsCall(base.writeFileSync, 'writeFileSync');
+      const baseLinkSync = fsCall(base.linkSync, 'linkSync');
+      const baseSymlinkSync = fsCall(base.symlinkSync, 'symlinkSync');
+      const baseReaddirSync = fsCall(base.readdirSync, 'readdirSync');
+      const baseRmSync = fsCall(base.rmSync, 'rmSync');
       setFs({
         ...base,
-        mkdirSync: (...args: any[]) => {
+        mkdirSync: (...args: unknown[]) => {
           counts.mkdirSync++;
-          return base.mkdirSync(...args);
+          return baseMkdirSync(...args);
         },
-        statSync: (...args: any[]) => {
+        statSync: (...args: unknown[]) => {
           counts.statSync++;
-          return base.statSync(...args);
+          return baseStatSync(...args);
         },
-        lstatSync: (...args: any[]) => {
+        lstatSync: (...args: unknown[]) => {
           counts.lstatSync++;
-          return base.lstatSync(...args);
+          return baseLstatSync(...args);
         },
-        writeFileSync: (...args: any[]) => {
+        writeFileSync: (...args: unknown[]) => {
           counts.writeFileSync++;
-          return base.writeFileSync(...args);
+          return baseWriteFileSync(...args);
         },
-        linkSync: (...args: any[]) => {
+        linkSync: (...args: unknown[]) => {
           counts.linkSync++;
-          return base.linkSync(...args);
+          return baseLinkSync(...args);
         },
-        symlinkSync: (...args: any[]) => {
+        symlinkSync: (...args: unknown[]) => {
           counts.symlinkSync++;
-          return base.symlinkSync(...args);
+          return baseSymlinkSync(...args);
         },
-        readdirSync: (...args: any[]) => {
+        readdirSync: (...args: unknown[]) => {
           counts.readdirSync++;
-          return base.readdirSync(...args);
+          return baseReaddirSync(...args);
         },
-        rmSync: (...args: any[]) => {
+        rmSync: (...args: unknown[]) => {
           counts.rmSync++;
-          return base.rmSync(...args);
+          return baseRmSync(...args);
         },
       });
 
@@ -629,19 +645,22 @@ describe('fs-extra', () => {
 
       const counts = { lstat: 0, readdir: 0, copyFile: 0 };
       const base = getFs();
+      const baseLstat = fsCall(base.lstat, 'lstat');
+      const baseReaddir = fsCall(base.readdir, 'readdir');
+      const baseCopyFile = fsCall(base.copyFile, 'copyFile');
       setFs({
         ...base,
-        lstat: (...args: any[]) => {
+        lstat: (...args: unknown[]) => {
           counts.lstat++;
-          return base.lstat(...args);
+          return baseLstat(...args);
         },
-        readdir: (...args: any[]) => {
+        readdir: (...args: unknown[]) => {
           counts.readdir++;
-          return base.readdir(...args);
+          return baseReaddir(...args);
         },
-        copyFile: (...args: any[]) => {
+        copyFile: (...args: unknown[]) => {
           counts.copyFile++;
-          return base.copyFile(...args);
+          return baseCopyFile(...args);
         },
       });
 
@@ -670,15 +689,16 @@ describe('fs-extra', () => {
       const base = getFs();
       let pendingArgs: any[] | null = null;
       const readdirCalls: any[] = [];
+      const baseReaddir = fsCall(base.readdir, 'readdir');
       setFs({
         ...base,
         // holds the callback instead of invoking it: stands in for a syscall still in flight
         lstat: (...args: any[]) => {
           pendingArgs = args;
         },
-        readdir: (...args: any[]) => {
+        readdir: (...args: unknown[]) => {
           readdirCalls.push(args);
-          return base.readdir(...args);
+          return baseReaddir(...args);
         },
       });
 
@@ -712,14 +732,15 @@ describe('fs-extra', () => {
       const base = getFs();
       let pendingArgs: any[] | null = null;
       const renameCalls: any[] = [];
+      const baseRename = fsCall(base.rename, 'rename');
       setFs({
         ...base,
         lstat: (...args: any[]) => {
           pendingArgs = args;
         },
-        rename: (...args: any[]) => {
+        rename: (...args: unknown[]) => {
           renameCalls.push(args);
-          return base.rename(...args);
+          return baseRename(...args);
         },
       });
 

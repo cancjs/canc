@@ -1,9 +1,24 @@
+import type { Dir } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { getFs, resetFs, setFs } from '../fs/registry';
 import { IWalkEntry, walk, walkSync } from './walk';
+
+type TOpendir = (dirPath: string, ...args: unknown[]) => Promise<Dir>;
+type TOpendirSync = (dirPath: string, ...args: unknown[]) => Dir;
+
+// registry members are typed uncallable on purpose, so the widening happens here and nowhere else
+function asOpendir(fn: unknown): TOpendir {
+  if (typeof fn !== 'function') throw new Error('fs registry has no promises.opendir');
+  return fn as TOpendir;
+}
+
+function asOpendirSync(fn: unknown): TOpendirSync {
+  if (typeof fn !== 'function') throw new Error('fs registry has no opendirSync');
+  return fn as TOpendirSync;
+}
 
 async function cleanDir(dirPath: string) {
   try {
@@ -116,13 +131,14 @@ describe('walk and walkSync', () => {
   it('filter pruning: pruned directory was never opened via injected fs', async () => {
     const openedDirs: string[] = [];
     const base = getFs();
+    const baseOpendir = asOpendir(base.promises?.opendir);
     setFs({
       ...base,
       promises: {
         ...base.promises,
         opendir: async (dirPath: string, ...args: unknown[]) => {
           openedDirs.push(dirPath);
-          return base.promises.opendir(dirPath, ...args);
+          return baseOpendir(dirPath, ...args);
         },
       },
     });
@@ -150,6 +166,7 @@ describe('walk and walkSync', () => {
 
   it('onError: yield emits error entry for unreadable directory and continues', async () => {
     const base = getFs();
+    const baseOpendir = asOpendir(base.promises?.opendir);
     setFs({
       ...base,
       promises: {
@@ -159,7 +176,7 @@ describe('walk and walkSync', () => {
             const err = Object.assign(new Error('Permission denied'), { code: 'EACCES' });
             return Promise.reject(err);
           }
-          return base.promises.opendir(dirPath, ...args);
+          return baseOpendir(dirPath, ...args);
         },
       },
     });
@@ -184,6 +201,7 @@ describe('walk and walkSync', () => {
 
   it('onError: throw (default) ends iteration with that error', async () => {
     const base = getFs();
+    const baseOpendir = asOpendir(base.promises?.opendir);
     setFs({
       ...base,
       promises: {
@@ -193,7 +211,7 @@ describe('walk and walkSync', () => {
             const err = Object.assign(new Error('Permission denied'), { code: 'EACCES' });
             return Promise.reject(err);
           }
-          return base.promises.opendir(dirPath, ...args);
+          return baseOpendir(dirPath, ...args);
         },
       },
     });
@@ -248,13 +266,14 @@ describe('walk and walkSync', () => {
     const base = getFs();
     const closeSpy = jest.fn(async () => {});
     const returnSpy = jest.fn(async () => ({ done: true, value: undefined }));
+    const baseOpendir = asOpendir(base.promises?.opendir);
 
     setFs({
       ...base,
       promises: {
         ...base.promises,
         opendir: async (dirPath: string, ...args: unknown[]) => {
-          const realDir = await base.promises.opendir(dirPath, ...args);
+          const realDir = await baseOpendir(dirPath, ...args);
           return {
             path: realDir.path,
             close: async () => {
@@ -373,17 +392,19 @@ describe('walk and walkSync', () => {
     let asyncOpens = 0;
     let syncOpens = 0;
 
+    const baseOpendir = asOpendir(base.promises?.opendir);
+    const baseOpendirSync = asOpendirSync(base.opendirSync);
     setFs({
       ...base,
-      opendirSync: (...args: any[]) => {
+      opendirSync: (dirPath: string, ...args: unknown[]) => {
         syncOpens++;
-        return base.opendirSync(...args);
+        return baseOpendirSync(dirPath, ...args);
       },
       promises: {
         ...base.promises,
-        opendir: (...args: any[]) => {
+        opendir: (dirPath: string, ...args: unknown[]) => {
           asyncOpens++;
-          return base.promises.opendir(...args);
+          return baseOpendir(dirPath, ...args);
         },
       },
     });
@@ -405,6 +426,7 @@ describe('walk and walkSync', () => {
 
   it('onError: yield produces read entries before error entry when directory read fails mid-drain', async () => {
     const base = getFs();
+    const baseOpendir = asOpendir(base.promises?.opendir);
     const testDir = join(root, 'mid-drain-test');
 
     setFs({
@@ -439,7 +461,7 @@ describe('walk and walkSync', () => {
               },
             };
           }
-          return base.promises.opendir(dirPath, ...args);
+          return baseOpendir(dirPath, ...args);
         },
       },
     });
@@ -474,6 +496,7 @@ describe('walk and walkSync', () => {
 
   it('walkSync with onError: yield produces read entries before error entry when directory read fails mid-drain', () => {
     const base = getFs();
+    const baseOpendirSync = asOpendirSync(base.opendirSync);
     const testDir = join(root, 'mid-drain-sync-test');
 
     setFs({
@@ -496,7 +519,7 @@ describe('walk and walkSync', () => {
             },
           };
         }
-        return base.opendirSync(dirPath, ...args);
+        return baseOpendirSync(dirPath, ...args);
       },
     });
 

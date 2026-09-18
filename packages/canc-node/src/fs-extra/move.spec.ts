@@ -8,6 +8,14 @@ import { CancelError } from '@cancjs/promise';
 import { getFs, resetFs, setFs } from '../fs/registry';
 import { move, moveSync } from './move';
 
+type TFsCall = (...args: unknown[]) => unknown;
+
+// registry members are typed uncallable on purpose, so the widening happens here and nowhere else
+function fsCall(fn: unknown, name: string): TFsCall {
+  if (typeof fn !== 'function') throw new Error(`fs registry has no ${name}`);
+  return fn as TFsCall;
+}
+
 async function cleanDir(dirPath: string) {
   try {
     const entries = await fs.readdir(dirPath, { withFileTypes: true });
@@ -49,11 +57,12 @@ describe('move', () => {
 
     let renameCalled = false;
     const originalFs = getFs();
+    const originalRename = fsCall(originalFs.rename, 'rename');
     setFs({
       ...originalFs,
-      rename: (oldPath: string, newPath: string, cb: any) => {
+      rename: (oldPath: string, newPath: string, cb: unknown) => {
         renameCalled = true;
-        originalFs.rename(oldPath, newPath, cb);
+        originalRename(oldPath, newPath, cb);
       },
     });
 
@@ -181,9 +190,10 @@ describe('move', () => {
 
     let attempts = 0;
     const originalFs = getFs();
+    const originalRename = fsCall(originalFs.rename, 'rename');
     setFs({
       ...originalFs,
-      rename: (oldPath: string, newPath: string, cb: any) => {
+      rename: (oldPath: string, newPath: string, cb: (err?: unknown) => void) => {
         attempts++;
         if (attempts < 3) {
           const err: any = new Error('EBUSY: resource busy or locked');
@@ -191,7 +201,7 @@ describe('move', () => {
           cb(err);
           return;
         }
-        originalFs.rename(oldPath, newPath, cb);
+        originalRename(oldPath, newPath, cb);
       },
     });
 
@@ -229,15 +239,17 @@ describe('move', () => {
     let renameSyncCalled = false;
     let copyFileSyncCalled = false;
     const originalFs = getFs();
+    const originalRenameSync = fsCall(originalFs.renameSync, 'renameSync');
+    const originalCopyFileSync = fsCall(originalFs.copyFileSync, 'copyFileSync');
     setFs({
       ...originalFs,
       renameSync: (oldPath: string, newPath: string) => {
         renameSyncCalled = true;
-        return originalFs.renameSync(oldPath, newPath);
+        return originalRenameSync(oldPath, newPath);
       },
       copyFileSync: (srcPath: string, destPath: string, flags?: number) => {
         copyFileSyncCalled = true;
-        return originalFs.copyFileSync(srcPath, destPath, flags);
+        return originalCopyFileSync(srcPath, destPath, flags);
       },
     });
 
