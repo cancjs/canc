@@ -180,6 +180,10 @@ export function generateReadmeSupportTables(manifests) {
       rows.push([exportName, cancellation, nodeVersion, deno, bun]);
     }
 
+    // A manifest whose exports are all types, constants or sync members renders a header and a
+    // bare header row. Published content, so the section is dropped rather than emitted empty.
+    if (rows.length === 0) continue;
+
     sections.push(`${subpathHeader}\n\n${formatMarkdownTable(headers, rows)}`);
   }
 
@@ -263,6 +267,10 @@ export function generateRuntimeCompatDoc(manifests, nodeLock, runtimeLock) {
 
       rows.push([exportName, ...majorCells, signalSince, added]);
     }
+
+    // A manifest whose exports are all types, constants or sync members renders a header and a
+    // bare header row. Published content, so the section is dropped rather than emitted empty.
+    if (rows.length === 0) continue;
 
     docDerivedSubsections.push(`${subpathHeader}\n\n${formatMarkdownTable(headers, rows)}`);
   }

@@ -37,6 +37,160 @@ Legend: `S` = Documented signal option, `y` = Present without signal, `-` = Abse
 | `spawn`    | S   | S   | S   | S   | S   | v15.4.0      | v0.1.90 |
 | `fork`     | S   | S   | S   | S   | S   | v15.4.0      | v0.5.0  |
 
+### crypto (node:crypto)
+
+| Export            | 18  | 20  | 22  | 24  | 26  | Signal since | Added    |
+| ----------------- | --- | --- | --- | --- | --- | ------------ | -------- |
+| `argon2`          | -   | -   | -   | y   | y   | -            | v24.7.0  |
+| `checkPrime`      | y   | y   | y   | y   | y   | -            | v15.8.0  |
+| `decapsulate`     | -   | -   | -   | y   | y   | -            | v24.7.0  |
+| `encapsulate`     | -   | -   | -   | y   | y   | -            | v24.7.0  |
+| `generateKey`     | y   | y   | y   | y   | y   | -            | v15.0.0  |
+| `generateKeyPair` | y   | y   | y   | y   | y   | -            | v10.12.0 |
+| `generatePrime`   | y   | y   | y   | y   | y   | -            | v15.8.0  |
+| `hkdf`            | y   | y   | y   | y   | y   | -            | v15.0.0  |
+| `pbkdf2`          | y   | y   | y   | y   | y   | -            | v0.5.5   |
+| `randomBytes`     | y   | y   | y   | y   | y   | -            | v0.5.8   |
+| `randomFill`      | y   | y   | y   | y   | y   | -            | v7.10.0  |
+| `scrypt`          | y   | y   | y   | y   | y   | -            | v10.5.0  |
+
+### Socket (dgram)
+
+| Export | 18  | 20  | 22  | 24  | 26  | Signal since | Added   |
+| ------ | --- | --- | --- | --- | --- | ------------ | ------- |
+| `send` | y   | y   | y   | y   | y   | -            | v0.1.99 |
+
+### dns (node:dns/promises)
+
+| Export                  | 18  | 20  | 22  | 24  | 26  | Signal since | Added    |
+| ----------------------- | --- | --- | --- | --- | --- | ------------ | -------- |
+| `resolve`               | y   | y   | y   | y   | y   | -            | v0.1.27  |
+| `resolve4`              | y   | y   | y   | y   | y   | -            | v0.1.16  |
+| `resolve6`              | y   | y   | y   | y   | y   | -            | v0.1.16  |
+| `resolveAny`            | y   | y   | y   | y   | y   | -            | -        |
+| `resolveCaa`            | y   | y   | y   | y   | y   | -            | v15.0.0  |
+| `resolveCname`          | y   | y   | y   | y   | y   | -            | v0.3.2   |
+| `resolveMx`             | y   | y   | y   | y   | y   | -            | v0.1.27  |
+| `resolveNaptr`          | y   | y   | y   | y   | y   | -            | v0.9.12  |
+| `resolveNs`             | y   | y   | y   | y   | y   | -            | v0.1.90  |
+| `resolvePtr`            | y   | y   | y   | y   | y   | -            | v6.0.0   |
+| `resolveSoa`            | y   | y   | y   | y   | y   | -            | v0.11.10 |
+| `resolveSrv`            | y   | y   | y   | y   | y   | -            | v0.1.27  |
+| `resolveTxt`            | y   | y   | y   | y   | y   | -            | v0.1.27  |
+| `reverse`               | y   | y   | y   | y   | y   | -            | v0.1.16  |
+| `lookup`                | y   | y   | y   | y   | y   | -            | v0.1.90  |
+| `lookupService`         | y   | y   | y   | y   | y   | -            | v0.11.14 |
+| `resolveTlsa`           | -   | -   | y   | y   | y   | -            | v23.9.0  |
+| `getServers`            | y   | y   | y   | y   | y   | -            | v0.11.3  |
+| `setServers`            | y   | y   | y   | y   | y   | -            | v0.11.3  |
+| `getDefaultResultOrder` | y   | y   | y   | y   | y   | -            | v20.1.0  |
+| `setDefaultResultOrder` | y   | y   | y   | y   | y   | -            | v16.4.0  |
+| `Resolver`              | y   | y   | y   | y   | y   | -            | v8.3.0   |
+| `cancel`                | y   | y   | y   | y   | y   | -            | v8.3.0   |
+
+### dnsPromises (dns)
+
+| Export     | 18  | 20  | 22  | 24  | 26  | Signal since | Added  |
+| ---------- | --- | --- | --- | --- | --- | ------------ | ------ |
+| `Resolver` | y   | y   | y   | y   | y   | -            | v8.3.0 |
+
+### Resolver (dns)
+
+| Export            | 18  | 20  | 22  | 24  | 26  | Signal since | Added   |
+| ----------------- | --- | --- | --- | --- | --- | ------------ | ------- |
+| `Resolver`        | y   | y   | y   | y   | y   | -            | v8.3.0  |
+| `cancel`          | y   | y   | y   | y   | y   | -            | v8.3.0  |
+| `setLocalAddress` | y   | y   | y   | y   | y   | -            | v15.1.0 |
+
+### events (node:events)
+
+| Export                                           | 18  | 20  | 22  | 24  | 26  | Signal since | Added   |
+| ------------------------------------------------ | --- | --- | --- | --- | --- | ------------ | ------- |
+| `once`                                           | y   | y   | y   | y   | y   | v11.13.0     | v14.5.0 |
+| `on`                                             | y   | y   | y   | y   | y   | v13.6.0      | v14.5.0 |
+| `addAbortListener`                               | S   | S   | S   | S   | S   | v20.5.0      | v20.5.0 |
+| `EventEmitter`                                   | y   | y   | y   | y   | y   | -            | v0.1.26 |
+| `EventTarget`                                    | y   | y   | y   | y   | y   | -            | v14.5.0 |
+| `NodeEventTarget`                                | y   | y   | y   | y   | y   | -            | v14.5.0 |
+| `CustomEvent`                                    | y   | y   | y   | y   | y   | -            | v18.7.0 |
+| `Event`                                          | y   | y   | y   | y   | y   | -            | v14.5.0 |
+| `EventEmitterAsyncResource`                      | y   | y   | y   | y   | -   | -            | v17.4.0 |
+| `EventEmitterAsyncResource extends EventEmitter` | -   | -   | -   | -   | y   | -            | v17.4.0 |
+| `captureRejectionSymbol`                         | y   | y   | -   | -   | y   | -            | v13.4.0 |
+| `captureRejections`                              | y   | y   | -   | -   | y   | -            | v13.4.0 |
+| `defaultMaxListeners`                            | y   | y   | y   | y   | y   | -            | v0.11.2 |
+| `errorMonitor`                                   | y   | y   | y   | y   | y   | -            | v13.6.0 |
+| `getEventListeners`                              | y   | y   | y   | y   | y   | -            | v15.2.0 |
+| `getMaxListeners`                                | y   | y   | y   | y   | y   | -            | v14.5.0 |
+| `listenerCount`                                  | y   | y   | y   | y   | y   | -            | v14.5.0 |
+| `setMaxListeners`                                | y   | y   | y   | y   | y   | -            | v14.5.0 |
+
+### Event (events)
+
+| Export                     | 18  | 20  | 22  | 24  | 26  | Signal since | Added   |
+| -------------------------- | --- | --- | --- | --- | --- | ------------ | ------- |
+| `composedPath`             | y   | y   | y   | y   | y   | -            | v14.5.0 |
+| `initEvent`                | -   | y   | y   | y   | y   | -            | v19.5.0 |
+| `preventDefault`           | y   | y   | y   | y   | y   | -            | v14.5.0 |
+| `stopImmediatePropagation` | y   | y   | y   | y   | y   | -            | v14.5.0 |
+| `stopPropagation`          | y   | y   | y   | y   | y   | -            | v14.5.0 |
+
+### EventEmitter (events)
+
+| Export                | 18  | 20  | 22  | 24  | 26  | Signal since | Added   |
+| --------------------- | --- | --- | --- | --- | --- | ------------ | ------- |
+| `addListener`         | y   | y   | y   | y   | y   | -            | v14.5.0 |
+| `emit`                | y   | y   | y   | y   | y   | -            | v15.2.0 |
+| `eventNames`          | y   | y   | y   | y   | y   | -            | v14.5.0 |
+| `getMaxListeners`     | y   | y   | y   | y   | y   | -            | v14.5.0 |
+| `listenerCount`       | y   | y   | y   | y   | y   | -            | v14.5.0 |
+| `listeners`           | y   | y   | y   | y   | y   | -            | v0.1.26 |
+| `off`                 | y   | y   | y   | y   | y   | -            | v14.5.0 |
+| `on`                  | y   | y   | y   | y   | y   | -            | v14.5.0 |
+| `once`                | y   | y   | y   | y   | y   | -            | v14.5.0 |
+| `prependListener`     | y   | y   | y   | y   | y   | -            | v6.0.0  |
+| `prependOnceListener` | y   | y   | y   | y   | y   | -            | v6.0.0  |
+| `rawListeners`        | y   | y   | y   | y   | y   | -            | v9.4.0  |
+| `removeAllListeners`  | y   | y   | y   | y   | y   | -            | v14.5.0 |
+| `removeListener`      | y   | y   | y   | y   | y   | -            | v14.5.0 |
+| `setMaxListeners`     | y   | y   | y   | y   | y   | -            | v14.5.0 |
+
+### EventEmitterAsyncResource (events)
+
+| Export        | 18  | 20  | 22  | 24  | 26  | Signal since | Added |
+| ------------- | --- | --- | --- | --- | --- | ------------ | ----- |
+| `emitDestroy` | -   | -   | -   | -   | y   | -            | -     |
+
+### EventEmitterAsyncResource extends EventEmitter (events)
+
+| Export        | 18  | 20  | 22  | 24  | 26  | Signal since | Added |
+| ------------- | --- | --- | --- | --- | --- | ------------ | ----- |
+| `emitDestroy` | -   | -   | -   | -   | y   | -            | -     |
+
+### EventTarget (events)
+
+| Export                | 18  | 20  | 22  | 24  | 26  | Signal since | Added   |
+| --------------------- | --- | --- | --- | --- | --- | ------------ | ------- |
+| `addEventListener`    | S   | S   | S   | S   | S   | v14.5.0      | v14.5.0 |
+| `dispatchEvent`       | y   | y   | y   | y   | y   | -            | v14.5.0 |
+| `removeEventListener` | y   | y   | y   | y   | y   | -            | v14.5.0 |
+
+### NodeEventTarget (events)
+
+| Export               | 18  | 20  | 22  | 24  | 26  | Signal since | Added   |
+| -------------------- | --- | --- | --- | --- | --- | ------------ | ------- |
+| `addListener`        | y   | y   | y   | y   | y   | -            | v14.5.0 |
+| `emit`               | y   | y   | y   | y   | y   | -            | v15.2.0 |
+| `eventNames`         | y   | y   | y   | y   | y   | -            | v14.5.0 |
+| `getMaxListeners`    | y   | y   | y   | y   | y   | -            | v14.5.0 |
+| `listenerCount`      | y   | y   | y   | y   | y   | -            | v14.5.0 |
+| `off`                | y   | y   | y   | y   | y   | -            | v14.5.0 |
+| `on`                 | y   | y   | y   | y   | y   | -            | v14.5.0 |
+| `once`               | y   | y   | y   | y   | y   | -            | v14.5.0 |
+| `removeAllListeners` | y   | y   | y   | y   | y   | -            | v14.5.0 |
+| `removeListener`     | y   | y   | y   | y   | y   | -            | v14.5.0 |
+| `setMaxListeners`    | y   | y   | y   | y   | y   | -            | v14.5.0 |
+
 ### fs (node:fs/promises)
 
 | Export              | 18  | 20  | 22  | 24  | 26  | Signal since        | Added    |
@@ -103,11 +257,10 @@ Legend: `S` = Documented signal option, `y` = Present without signal, `-` = Abse
 
 ### readline (node:readline/promises)
 
-| Export                 | 18  | 20  | 22  | 24  | 26  | Signal since | Added   |
-| ---------------------- | --- | --- | --- | --- | --- | ------------ | ------- |
-| `InterfaceConstructor` | -   | -   | -   | -   | -   | -            | -       |
-| `createInterface`      | y   | S   | S   | S   | S   | v20.0.0      | v17.0.0 |
-| `emitKeypressEvents`   | -   | -   | -   | -   | -   | -            | -       |
+| Export               | 18  | 20  | 22  | 24  | 26  | Signal since | Added   |
+| -------------------- | --- | --- | --- | --- | --- | ------------ | ------- |
+| `createInterface`    | y   | S   | S   | S   | S   | v20.0.0      | v17.0.0 |
+| `emitKeypressEvents` | y   | y   | y   | y   | y   | -            | v0.7.7  |
 
 ### InterfaceConstructor (readline)
 
@@ -115,16 +268,14 @@ Legend: `S` = Documented signal option, `y` = Present without signal, `-` = Abse
 | ------------------------ | --- | --- | --- | --- | --- | ------------ | ------- |
 | `[Symbol.asyncIterator]` | -   | -   | -   | -   | -   | -            | -       |
 | `[Symbol.dispose]`       | -   | -   | -   | -   | -   | v23.10.0     | v22.0.0 |
-| `close`                  | -   | -   | -   | -   | -   | -            | -       |
-| `cursor`                 | -   | -   | -   | -   | -   | -            | -       |
-| `getCursorPos`           | -   | -   | -   | -   | -   | -            | -       |
-| `getPrompt`              | -   | -   | -   | -   | -   | -            | -       |
-| `line`                   | -   | -   | -   | -   | -   | -            | -       |
-| `pause`                  | -   | -   | -   | -   | -   | -            | -       |
-| `prompt`                 | -   | -   | -   | -   | -   | -            | -       |
-| `resume`                 | -   | -   | -   | -   | -   | -            | -       |
-| `setPrompt`              | -   | -   | -   | -   | -   | -            | -       |
-| `write`                  | -   | -   | -   | -   | -   | -            | -       |
+| `close`                  | y   | y   | y   | y   | y   | -            | v0.1.98 |
+| `getCursorPos`           | y   | y   | y   | y   | y   | -            | v13.5.0 |
+| `getPrompt`              | y   | y   | y   | y   | y   | -            | v15.3.0 |
+| `pause`                  | y   | y   | y   | y   | y   | -            | v0.3.4  |
+| `prompt`                 | y   | y   | y   | y   | y   | -            | v0.1.98 |
+| `resume`                 | y   | y   | y   | y   | y   | -            | v0.3.4  |
+| `setPrompt`              | y   | y   | y   | y   | y   | -            | v0.1.98 |
+| `write`                  | y   | y   | y   | y   | y   | -            | v0.1.98 |
 
 ### readlinePromises (readline)
 
@@ -149,6 +300,180 @@ Legend: `S` = Documented signal option, `y` = Present without signal, `-` = Abse
 | `cursorTo`        | y   | y   | y   | y   | y   | -            | v17.0.0 |
 | `moveCursor`      | y   | y   | y   | y   | y   | -            | v17.0.0 |
 | `rollback`        | y   | y   | y   | y   | y   | -            | v17.0.0 |
+
+### stream (node:stream)
+
+| Export                    | 18  | 20  | 22  | 24  | 26  | Signal since | Added   |
+| ------------------------- | --- | --- | --- | --- | --- | ------------ | ------- |
+| `pipeline`                | y   | y   | y   | y   | y   | v15.0.0      | v10.0.0 |
+| `finished`                | y   | S   | S   | S   | S   | v15.0.0      | v10.0.0 |
+| `addAbortSignal`          | S   | S   | S   | S   | S   | v15.4.0      | v15.4.0 |
+| `compose`                 | y   | y   | y   | y   | y   | -            | v16.9.0 |
+| `duplexPair`              | -   | y   | y   | y   | y   | -            | v22.6.0 |
+| `from`                    | y   | y   | y   | y   | y   | -            | v12.3.0 |
+| `fromWeb`                 | S   | S   | S   | S   | S   | v17.0.0      | v17.0.0 |
+| `toWeb`                   | y   | y   | y   | y   | y   | -            | v17.0.0 |
+| `getDefaultHighWaterMark` | y   | y   | y   | y   | y   | -            | v19.9.0 |
+| `setDefaultHighWaterMark` | y   | y   | y   | y   | y   | -            | v19.9.0 |
+| `isDestroyed`             | -   | -   | -   | y   | y   | -            | v19.9.0 |
+| `isDisturbed`             | y   | y   | y   | y   | y   | -            | v16.8.0 |
+| `isErrored`               | y   | y   | y   | y   | y   | -            | v17.3.0 |
+| `isReadable`              | y   | y   | y   | y   | y   | -            | v17.4.0 |
+| `isWritable`              | -   | -   | y   | y   | y   | -            | -       |
+| `push`                    | y   | y   | y   | y   | y   | -            | -       |
+| `read`                    | y   | y   | y   | y   | y   | -            | -       |
+| `_construct`              | y   | y   | y   | y   | y   | -            | v15.0.0 |
+| `_destroy`                | y   | y   | y   | y   | y   | -            | v8.0.0  |
+| `_read`                   | y   | y   | y   | y   | y   | -            | v0.9.4  |
+| `_flush`                  | y   | y   | y   | y   | y   | -            | -       |
+| `_transform`              | y   | y   | y   | y   | y   | -            | -       |
+| `_final`                  | y   | y   | y   | y   | y   | -            | v8.0.0  |
+| `_write`                  | y   | y   | y   | y   | y   | -            | -       |
+| `_writev`                 | y   | y   | y   | y   | y   | -            | -       |
+| `text`                    | -   | -   | -   | -   | -   | -            | -       |
+| `json`                    | -   | -   | -   | -   | -   | -            | -       |
+| `buffer`                  | -   | -   | -   | -   | -   | -            | -       |
+| `arrayBuffer`             | -   | -   | -   | -   | -   | -            | -       |
+| `blob`                    | -   | -   | -   | -   | -   | -            | -       |
+| `bytes`                   | -   | -   | -   | -   | -   | -            | v24.0.0 |
+
+### stream (stream)
+
+| Export        | 18  | 20  | 22  | 24  | 26  | Signal since | Added  |
+| ------------- | --- | --- | --- | --- | --- | ------------ | ------ |
+| `Readable`    | y   | y   | y   | y   | y   | -            | v0.9.4 |
+| `Writable`    | y   | y   | y   | y   | y   | -            | v0.9.4 |
+| `Duplex`      | y   | y   | y   | y   | y   | -            | v0.9.4 |
+| `Transform`   | y   | y   | y   | y   | y   | -            | v0.9.4 |
+| `PassThrough` | y   | y   | y   | y   | y   | -            | -      |
+
+### stream.Readable (stream)
+
+| Export           | 18  | 20  | 22  | 24  | 26  | Signal since | Added    |
+| ---------------- | --- | --- | --- | --- | --- | ------------ | -------- |
+| `asIndexedPairs` | S   | S   | -   | -   | -   | v17.5.0      | v17.5.0  |
+| `compose`        | y   | y   | y   | y   | y   | v19.1.0      | v16.9.0  |
+| `destroy`        | y   | y   | y   | y   | y   | -            | v8.0.0   |
+| `drop`           | S   | S   | S   | S   | S   | v17.5.0      | v17.5.0  |
+| `every`          | S   | S   | S   | S   | S   | v17.5.0      | v17.5.0  |
+| `filter`         | S   | S   | S   | S   | S   | v17.4.0      | v17.4.0  |
+| `find`           | S   | S   | S   | S   | S   | v17.5.0      | v17.5.0  |
+| `flatMap`        | S   | S   | S   | S   | S   | v17.5.0      | v17.5.0  |
+| `forEach`        | S   | S   | S   | S   | S   | v17.5.0      | v17.5.0  |
+| `isPaused`       | y   | y   | y   | y   | y   | -            | v0.11.14 |
+| `iterator`       | y   | y   | y   | y   | y   | -            | v16.3.0  |
+| `map`            | S   | S   | S   | S   | S   | v17.4.0      | v17.4.0  |
+| `pause`          | y   | y   | y   | y   | y   | -            | v0.9.4   |
+| `pipe`           | y   | y   | y   | y   | y   | -            | v0.9.4   |
+| `read`           | y   | y   | y   | y   | y   | -            | -        |
+| `reduce`         | S   | S   | S   | S   | S   | v17.5.0      | v17.5.0  |
+| `resume`         | y   | y   | y   | y   | y   | -            | v0.9.4   |
+| `setEncoding`    | y   | y   | y   | y   | y   | -            | v0.9.4   |
+| `some`           | S   | S   | S   | S   | S   | v17.5.0      | v17.5.0  |
+| `take`           | S   | S   | S   | S   | S   | v17.5.0      | v17.5.0  |
+| `toArray`        | S   | S   | S   | S   | S   | v17.5.0      | v17.5.0  |
+| `unpipe`         | y   | y   | y   | y   | y   | -            | v0.9.4   |
+| `unshift`        | y   | y   | y   | y   | y   | -            | v0.9.11  |
+| `wrap`           | y   | y   | y   | y   | y   | -            | v0.9.4   |
+
+### stream.Transform (stream)
+
+| Export    | 18  | 20  | 22  | 24  | 26  | Signal since | Added  |
+| --------- | --- | --- | --- | --- | --- | ------------ | ------ |
+| `destroy` | y   | y   | y   | y   | y   | -            | v8.0.0 |
+
+### stream.Writable (stream)
+
+| Export               | 18  | 20  | 22  | 24  | 26  | Signal since | Added    |
+| -------------------- | --- | --- | --- | --- | --- | ------------ | -------- |
+| `cork`               | y   | y   | y   | y   | y   | -            | v0.11.2  |
+| `destroy`            | y   | y   | y   | y   | y   | -            | v8.0.0   |
+| `end`                | y   | y   | y   | y   | y   | -            | v0.9.4   |
+| `setDefaultEncoding` | y   | y   | y   | y   | y   | -            | v0.11.15 |
+| `uncork`             | y   | y   | y   | y   | y   | -            | v0.11.2  |
+| `write`              | y   | y   | y   | y   | y   | -            | v0.9.4   |
+
+### timers (node:timers/promises)
+
+| Export           | 18  | 20  | 22  | 24  | 26  | Signal since        | Added   |
+| ---------------- | --- | --- | --- | --- | --- | ------------------- | ------- |
+| `setTimeout`     | y   | y   | y   | y   | y   | v15.0.0             | v0.0.1  |
+| `setImmediate`   | y   | y   | y   | y   | y   | v15.0.0             | v0.9.1  |
+| `setInterval`    | y   | y   | y   | y   | y   | works, undocumented | v0.0.1  |
+| `wait`           | S   | S   | S   | S   | S   | v17.3.0             | v17.3.0 |
+| `yield`          | y   | y   | y   | y   | y   | -                   | v17.3.0 |
+| `clearImmediate` | y   | y   | y   | y   | y   | -                   | v0.9.1  |
+| `clearInterval`  | y   | y   | y   | y   | y   | -                   | v0.0.1  |
+| `clearTimeout`   | y   | y   | y   | y   | y   | -                   | v0.0.1  |
+| `Immediate`      | y   | y   | y   | y   | y   | -                   | -       |
+| `Timeout`        | y   | y   | y   | y   | y   | -                   | -       |
+
+### Immediate (timers)
+
+| Export   | 18  | 20  | 22  | 24  | 26  | Signal since | Added   |
+| -------- | --- | --- | --- | --- | --- | ------------ | ------- |
+| `hasRef` | y   | y   | y   | y   | y   | -            | v11.0.0 |
+| `ref`    | y   | y   | y   | y   | y   | -            | v9.7.0  |
+| `unref`  | y   | y   | y   | y   | y   | -            | v9.7.0  |
+
+### Timeout (timers)
+
+| Export    | 18  | 20  | 22  | 24  | 26  | Signal since | Added   |
+| --------- | --- | --- | --- | --- | --- | ------------ | ------- |
+| `close`   | y   | y   | y   | y   | y   | -            | v0.9.1  |
+| `hasRef`  | y   | y   | y   | y   | y   | -            | v11.0.0 |
+| `ref`     | y   | y   | y   | y   | y   | -            | v9.7.0  |
+| `refresh` | y   | y   | y   | y   | y   | -            | v10.2.0 |
+| `unref`   | y   | y   | y   | y   | y   | -            | v9.7.0  |
+
+### worker_threads (node:worker_threads)
+
+| Export                | 18  | 20  | 22  | 24  | 26  | Signal since | Added   |
+| --------------------- | --- | --- | --- | --- | --- | ------------ | ------- |
+| `postMessageToThread` | -   | y   | y   | y   | y   | -            | v22.5.0 |
+
+### locks.LockManager (worker_threads)
+
+| Export    | 18  | 20  | 22  | 24  | 26  | Signal since | Added   |
+| --------- | --- | --- | --- | --- | --- | ------------ | ------- |
+| `query`   | -   | -   | -   | y   | y   | -            | v24.5.0 |
+| `request` | -   | -   | -   | S   | S   | v24.5.0      | v24.5.0 |
+
+### Worker (worker_threads)
+
+| Export              | 18  | 20  | 22  | 24  | 26  | Signal since | Added   |
+| ------------------- | --- | --- | --- | --- | --- | ------------ | ------- |
+| `cpuUsage`          | -   | -   | y   | y   | y   | -            | v24.6.0 |
+| `getHeapSnapshot`   | y   | y   | y   | y   | y   | -            | v13.9.0 |
+| `getHeapStatistics` | -   | -   | y   | y   | y   | -            | v24.0.0 |
+| `startCpuProfile`   | -   | -   | y   | y   | y   | -            | v24.8.0 |
+| `startHeapProfile`  | -   | -   | -   | y   | y   | -            | v24.9.0 |
+| `terminate`         | y   | y   | y   | y   | y   | -            | v10.5.0 |
+
+### zlib (node:zlib)
+
+| Export              | 18  | 20  | 22  | 24  | 26  | Signal since | Added   |
+| ------------------- | --- | --- | --- | --- | --- | ------------ | ------- |
+| `brotliCompress`    | y   | y   | y   | y   | y   | -            | v11.7.0 |
+| `brotliDecompress`  | y   | y   | y   | y   | y   | -            | v11.7.0 |
+| `compressBrotli`    | -   | -   | -   | y   | y   | -            | v25.9.0 |
+| `compressDeflate`   | -   | -   | -   | y   | y   | -            | v25.9.0 |
+| `compressGzip`      | -   | -   | -   | y   | y   | -            | v25.9.0 |
+| `compressZstd`      | -   | -   | -   | y   | y   | -            | v25.9.0 |
+| `decompressBrotli`  | -   | -   | -   | y   | y   | -            | v25.9.0 |
+| `decompressDeflate` | -   | -   | -   | y   | y   | -            | v25.9.0 |
+| `decompressGzip`    | -   | -   | -   | y   | y   | -            | v25.9.0 |
+| `decompressZstd`    | -   | -   | -   | y   | y   | -            | v25.9.0 |
+| `deflate`           | y   | y   | y   | y   | y   | -            | v0.6.0  |
+| `deflateRaw`        | y   | y   | y   | y   | y   | -            | v0.6.0  |
+| `gunzip`            | y   | y   | y   | y   | y   | -            | v0.6.0  |
+| `gzip`              | y   | y   | y   | y   | y   | -            | v0.6.0  |
+| `inflate`           | y   | y   | y   | y   | y   | -            | v0.6.0  |
+| `inflateRaw`        | y   | y   | y   | y   | y   | -            | v0.6.0  |
+| `unzip`             | y   | y   | y   | y   | y   | -            | v0.6.0  |
+| `zipFiles`          | -   | -   | -   | -   | y   | -            | v26.8.0 |
+| `zstdCompress`      | -   | -   | y   | y   | y   | -            | v23.8.0 |
+| `zstdDecompress`    | -   | -   | y   | y   | y   | -            | v23.8.0 |
 
 ## Execution-derived: alternative runtimes
 
