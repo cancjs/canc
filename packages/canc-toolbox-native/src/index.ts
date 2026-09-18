@@ -11,6 +11,10 @@ import { deps, INativeKind } from './deps';
 
 export const delay = tb.delayFactory(deps);
 
+// No cancel channel to remove the abort listener through, so it comes off on settle only; a race
+// against a signal that never fires leaks it for as long as the signal lives, unlike the twin
+export const fromAbortSignal = tb.fromAbortSignalFactory(deps);
+
 // `defer` and `minDelay` start their work on the call, so `lazy` has nothing to defer.
 // The casts are type-only: they mark that option as unusable so passing it fails to compile.
 interface INoLazy {

@@ -22,6 +22,26 @@ export const minDelay = tb.minDelayFactory(deps) as <T, F = never>(
   ms: tb.TDuration,
   options?: TEagerToolboxOptions,
 ) => CancelablePromise<T, F>;
+/**
+ * Fulfill once `signal` aborts. This never rejects; the only rejection is a `CancelError` from an
+ * explicit `cancel()` on the returned promise, since aborting is the awaited event, not a failure.
+ * Resolves `void`, not the abort reason: the caller already holds `signal` and reads
+ * `signal.reason` off it directly.
+ *
+ * Canceling before the signal aborts removes the listener, which is the whole reason this returns a
+ * CancelablePromise instead of a plain one: a `race` against a signal that never fires would
+ * otherwise leak the listener for as long as the signal itself lives.
+ *
+ * This is not how to make an operation cancelable BY a signal. For that, pass `signal` as a
+ * constructor option to the operation's own promise, or to `cancelify` / `promisify`.
+ *
+ * The listener attaches on the call, so `lazy` has nothing to defer. The cast is type-only: it
+ * drops that option from the signature so passing it fails to compile.
+ */
+export const fromAbortSignal = tb.fromAbortSignalFactory(deps) as (
+  signal: tb.IAbortSignalLike,
+  options?: TEagerToolboxOptions,
+) => CancelablePromise<void>;
 export const retry = tb.retryFactory(deps);
 export const limit = tb.limitFactory(deps);
 export const map = tb.mapFactory(deps);

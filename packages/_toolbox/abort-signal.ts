@@ -1,5 +1,7 @@
-import { IExecutorCtx, TExecutor, TPromiseCtor } from './construct';
+import { construct, IExecutorCtx, TExecutor, TPromiseCtor } from './construct';
+import { IToolboxDeps } from './deps';
 import { isObjectLike } from './guards';
+import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
 
 /**
  * Structural AbortSignal shape, so this module carries no dependency on the ambient DOM/Node
@@ -120,4 +122,51 @@ export function withAbortSignal(Ctor: TPromiseCtor): TPromiseCtor {
   (AbortAwareCtor as unknown as { resolve: TPromiseCtor['resolve'] }).resolve = Ctor.resolve.bind(Ctor);
 
   return AbortAwareCtor as unknown as TPromiseCtor;
+}
+
+/** Bind `fromAbortSignal` to one promise implementation. */
+export function fromAbortSignalFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IToolboxDeps<K>) {
+  /**
+   * Fulfill once `signal` aborts. Aborting is the awaited event here, not a failure: this never
+   * rejects, except with a `CancelError` from an explicit `cancel()` on the returned promise.
+   * Resolves `void` rather than the abort reason; the caller already holds `signal` and reads
+   * `signal.reason` directly.
+   *
+   * An already-aborted signal fulfills too, on a microtask rather than synchronously, so callers can
+   * rely on the same "settles later" ordering whether the abort already happened or is still
+   * pending.
+   *
+   * This is not how to make an operation cancelable BY a signal. For that, pass `signal` as a
+   * constructor option to the operation's own promise.
+   */
+  return function fromAbortSignal(signal: IAbortSignalLike, options?: K['options']): TPromiseOf<K, void> {
+    return construct<void, K>(
+      deps.Impl,
+      (resolve, _reject, ctx?: IExecutorCtx) => {
+        if (signal.aborted) {
+          // Settle through the bound implementation's own resolve, so a pre-aborted signal
+          // fulfills on a microtask instead of synchronously inside the executor.
+          deps.Impl.resolve(undefined).then(() => resolve(undefined));
+
+          return;
+        }
+
+        const onAbort = (): void => {
+          signal.removeEventListener('abort', onAbort);
+          resolve(undefined);
+        };
+
+        // Registered before the listener attaches, so a cancel racing the abort event still
+        // detaches cleanly regardless of which one runs first.
+        if (ctx) {
+          ctx.handleCancel(() => {
+            signal.removeEventListener('abort', onAbort);
+          });
+        }
+
+        signal.addEventListener('abort', onAbort, { once: true });
+      },
+      options,
+    );
+  };
 }

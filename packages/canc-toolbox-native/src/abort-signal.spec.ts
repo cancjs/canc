@@ -1,4 +1,4 @@
-import { delay, minDelay, promisify, retry, timeout, TimeoutError, waitFor } from './index';
+import { delay, fromAbortSignal, minDelay, promisify, retry, timeout, TimeoutError, waitFor } from './index';
 
 // Zero-dependency twin: no import from `@cancjs/promise`, so the name checks below are inlined
 // rather than reusing `isAbortError`/`isCancelError` from that package. Same convention already
@@ -243,6 +243,40 @@ describe('native helpers honor options.signal', () => {
 
       await expect(wrapped()).rejects.toBe(controller.signal.reason);
       expect(fn).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('fromAbortSignal (native twin)', () => {
+    it('fulfills undefined when the controller aborts, no cancel on the result', async () => {
+      const controller = new AbortController();
+      const promise = fromAbortSignal(controller.signal);
+      expect('cancel' in promise).toBe(false);
+      controller.abort();
+      await expect(promise).resolves.toBeUndefined();
+    });
+
+    it('a pre-aborted signal fulfills asynchronously', async () => {
+      const controller = new AbortController();
+      controller.abort();
+
+      let settledSync = false;
+      const promise = fromAbortSignal(controller.signal);
+      void promise.then(() => {
+        settledSync = true;
+      });
+
+      expect(settledSync).toBe(false);
+      await promise;
+      expect(settledSync).toBe(true);
+    });
+
+    it('removes the listener once it fulfills', async () => {
+      const controller = new AbortController();
+      const removeSpy = jest.spyOn(controller.signal, 'removeEventListener');
+      const promise = fromAbortSignal(controller.signal);
+      controller.abort();
+      await promise;
+      expect(removeSpy).toHaveBeenCalledWith('abort', expect.any(Function));
     });
   });
 });
