@@ -36,7 +36,9 @@ const REQUIRED_EXPORT_FIELDS = [
   'runtime',
 ];
 
-const ALLOWED_EXPORT_FIELDS = new Set([...REQUIRED_EXPORT_FIELDS, 'teardown', 'notes', 'probed']);
+// 'nodeSpecifier' overrides the manifest's own specifier for one export, for a member reached
+// through a submodule the manifest is not named after (node:stream/consumers under stream).
+const ALLOWED_EXPORT_FIELDS = new Set([...REQUIRED_EXPORT_FIELDS, 'teardown', 'notes', 'probed', 'nodeSpecifier']);
 
 const REQUIRED_SIGNAL_FIELDS = ['documented', 'since', 'probed'];
 const ALLOWED_SIGNAL_FIELDS = new Set([...REQUIRED_SIGNAL_FIELDS, 'sinceByMajor']);
