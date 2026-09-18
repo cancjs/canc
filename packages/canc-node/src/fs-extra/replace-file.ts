@@ -58,11 +58,14 @@ export function replaceFile(path: string, data: TWriteData, options?: IReplaceFi
     let activePromise: CancelablePromise<unknown> | null = null;
     let isRenamed = false;
 
+    // returned, not dropped: a returned thenable is awaited before the cancelation settles
     handleCancel((reason) => {
       activePromise?.cancel(reason);
-      if (!isRenamed) {
-        void unlinkWithRetry(tempPath);
+      if (isRenamed) {
+        return undefined;
       }
+
+      return unlinkWithRetry(tempPath);
     });
 
     const writePromise = (activePromise = writeFile(tempPath, data, options));
@@ -106,10 +109,14 @@ export function replaceFile(path: string, data: TWriteData, options?: IReplaceFi
           });
         })
         .then(undefined, (err: unknown) => {
-          if (!isRenamed) {
-            void unlinkWithRetry(tempPath);
+          if (isRenamed) {
+            throw err;
           }
-          throw err;
+
+          // chained so the rejection waits for the temp file to go, same as the cancel path
+          return unlinkWithRetry(tempPath).then(() => {
+            throw err;
+          });
         }),
     );
   });
