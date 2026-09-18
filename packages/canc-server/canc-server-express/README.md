@@ -201,7 +201,7 @@ Options given to `cancelMiddleware` are inherited by every handler on the reques
 
 ## Compatibility
 
-Node.js 18 and later, express 4.18 and later (including express 5), TypeScript 4.2 and later. Requires `@cancjs/promise >=1.0.0` and `@cancjs/coroutine >=1.0.0` as peer dependencies. Everything else follows [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise#compatibility).
+Node.js 18 and later, express 4.18 and later (including express 5), TypeScript 4.2 and later. Requires `@cancjs/promise >=1.1.0` and `@cancjs/coroutine >=1.0.0` as peer dependencies. Everything else follows [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise#compatibility).
 
 ## Documentation
 

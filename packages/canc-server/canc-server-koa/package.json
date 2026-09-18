@@ -68,7 +68,7 @@
   },
   "peerDependencies": {
     "@cancjs/coroutine": ">=1.0.0",
-    "@cancjs/promise": ">=1.0.0",
+    "@cancjs/promise": ">=1.1.0",
     "koa": ">=2.13.0"
   },
   "typesVersions": {
