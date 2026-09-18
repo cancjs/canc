@@ -419,8 +419,10 @@ if (existsSync(fileHandlePath)) {
   }
 }
 
+// Guarded on the tree under test, not on the script: `CANC_SURFACE_ROOT` can point at a
+// surface-only fixture, and a docs check has nothing to compare against there.
 const surfaceDocsPath = join(HERE, 'surface-docs.mjs');
-if (existsSync(surfaceDocsPath)) {
+if (existsSync(surfaceDocsPath) && existsSync(join(ROOT, 'packages', 'canc-node', 'README.md'))) {
   try {
     // cwd: ROOT, not inherited from the caller -- surface-docs.mjs's own module resolution
     // (and, transitively, TypeScript's) is anchored to the process cwd, not to argv[1]
@@ -433,7 +435,7 @@ if (existsSync(surfaceDocsPath)) {
 // Check H: nodeSpecifier: null manifests match built exports, and README table cells match manifest
 for (const manifest of manifests) {
   if (manifest.nodeSpecifier !== null) continue;
-  const pkgJsonPath = join('packages/canc-node/package.json');
+  const pkgJsonPath = join(ROOT, 'packages', 'canc-node', 'package.json');
   if (!existsSync(pkgJsonPath)) continue;
   const pkgJson = JSON.parse(readFileSync(pkgJsonPath, 'utf8'));
   const exportEntry = pkgJson.exports?.[`./${manifest.subpath}`];
@@ -441,7 +443,7 @@ for (const manifest of manifests) {
     typeof exportEntry === 'string' ? exportEntry : (
       exportEntry?.import?.default || exportEntry?.default || `./dist/${manifest.subpath}.mjs`
     );
-  const builtModPath = join(process.cwd(), 'packages/canc-node', importTarget);
+  const builtModPath = join(ROOT, 'packages', 'canc-node', importTarget);
   if (!existsSync(builtModPath)) {
     fail(`Check H failed: built module for ${manifest.subpath} does not exist at ${builtModPath}`);
     continue;
@@ -462,7 +464,7 @@ for (const manifest of manifests) {
   }
 }
 
-const readmePath = join('packages/canc-node/README.md');
+const readmePath = join(ROOT, 'packages', 'canc-node', 'README.md');
 if (existsSync(readmePath)) {
   const readmeContent = readFileSync(readmePath, 'utf8');
   const cellRegex = /`([^`]+)`\s*\(`?@cancjs\/node\/fs\/extra`?\)/g;
@@ -485,8 +487,10 @@ if (existsSync(readmePath)) {
 
 // Checks A through G compare the manifest to node's API. Check I is the other direction: what the
 // package actually publishes, read off the built declarations, against the committed record of it.
+// Same guard as the docs check: the baseline is read off built declarations, which a fixture tree
+// does not carry.
 const surfaceBaselinePath = join(HERE, 'surface-baseline.mjs');
-if (existsSync(surfaceBaselinePath)) {
+if (existsSync(surfaceBaselinePath) && existsSync(join(ROOT, 'packages', 'canc-node', 'dist'))) {
   try {
     execSync(`node "${surfaceBaselinePath}" --check`, { stdio: 'inherit', cwd: ROOT });
   } catch (_err) {
