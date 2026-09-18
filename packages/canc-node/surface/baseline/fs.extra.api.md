@@ -346,7 +346,7 @@ valueOf: () => string
 ## `pathExists` (const)
 
 ```text
-(path: PathLike): any
+(path: PathLike): CancelablePromise<boolean>
 ```
 
 ## `readJson<T = any>` (function)

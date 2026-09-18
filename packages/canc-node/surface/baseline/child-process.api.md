@@ -67,7 +67,7 @@ extends CommonSpawnOptions
 ## `TExecPromise<T extends string | Buffer = string>` (type)
 
 ```text
-any
+child: IExecChildProcess<T>
 ```
 
 ## `exec` (function)
