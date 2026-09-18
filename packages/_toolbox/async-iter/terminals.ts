@@ -76,13 +76,17 @@ function drive<T, R>(
       const current = item;
       item = undefined;
 
-      // Aborts what an in-flight callback waits on and resumes a generator body so its own cleanup
-      // runs, the same way a stopped operator abandons an item.
-      if (current) {
-        current.stop();
-      }
+      const close = (): unknown => (iterator ? callReturn(iterator) : undefined);
 
-      return iterator ? callReturn(iterator) : undefined;
+      // Aborts what an in-flight callback waits on and resumes a generator body so its own cleanup
+      // runs, the same way a stopped operator abandons an item. Awaited before the source is
+      // closed: an asynchronous body cleanup would otherwise still be running when the source's
+      // own `finally` starts, which is the reverse of the order every operator already uses.
+      const unwound = current ? current.stop() : undefined;
+
+      // Closes on both settlements on purpose. A body cleanup that throws must not strand the
+      // source open, and this is the only place a canceled drive closes it.
+      return unwound ? Impl.resolve(unwound).then(close, close) : close();
     };
 
     if (ctx) {

@@ -67,6 +67,11 @@ function pendingWork(): IWork {
   return { promise, state };
 }
 
+/** A promise that settles on a macrotask, so a cleanup built on it is genuinely asynchronous. */
+function tick(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 /** The reason a canceled drive settled with, without letting the rejection go unhandled. */
 async function reasonOf(promise: CancelablePromise<unknown>): Promise<unknown> {
   return promise.catch((error: unknown) => error);
@@ -309,6 +314,55 @@ describe('async iterator cancellation', () => {
       expect(work.state.aborted).toBe(1);
       expect(cleanup.ran).toBe(1);
       expect(trace.closes).toBe(1);
+    });
+
+    it('runs an in-flight callback body cleanup before closing the source', async () => {
+      // The terminal's own callback, not an operator's: `drive` stops the item and closes the
+      // source on the same cancel, and the body's `finally` has to win that ordering or a source
+      // whose cleanup depends on the item being done sees it mid-flight.
+      const order: string[] = [];
+      const work = pendingWork();
+
+      const source: AsyncIterable<number> = {
+        [Symbol.asyncIterator]: async function* endless() {
+          try {
+            for (let value = 0; ; value++) {
+              yield value;
+            }
+          } finally {
+            order.push('source closed');
+          }
+        },
+      };
+
+      const promise: CancelablePromise<void> = asyncIter.pipe(
+        source,
+        [],
+        asyncIter.forEach<number>(function* consume() {
+          try {
+            yield* cancAwait(work.promise);
+          } finally {
+            // Asynchronous cleanup: a synchronous `finally` finishes inside the cancel call itself
+            // and cannot tell a chained close from an unchained one.
+            yield* cancAwait(tick());
+            order.push('body cleanup');
+          }
+        }),
+      );
+
+      promise.catch(suppressCancel);
+
+      await flush();
+      expect(order).toEqual([]);
+
+      promise.cancel();
+      expect(isCancelError(await reasonOf(promise))).toBe(true);
+
+      await flush();
+      await tick();
+      await flush();
+
+      expect(order).toEqual(['body cleanup', 'source closed']);
     });
 
     it('cancels the cancelable promise a callback returned', async () => {
