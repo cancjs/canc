@@ -7,6 +7,8 @@
   },
   "include": ["src", "../_util", "../canc-coroutine/src"],
   // Restates the base list because a child `exclude` replaces the parent's rather than merging.
+  // The globs resolve from THIS directory, so the `../` forms are what reach `../canc-coroutine/src`;
+  // the bare ones never did, which is why the production build was type-checking 12 coroutine specs.
   // The matrix entry is the point: it is a type-matrix fixture, not a published entry, and packing
   // its declaration ships an import of reflect-metadata, a devDependency consumers do not have.
   "exclude": [
@@ -21,6 +23,10 @@
     "**/*.spec.tsx",
     "**/*.test.ts",
     "**/*.test.tsx",
+    "../**/*.spec.ts",
+    "../**/*.spec.tsx",
+    "../**/*.test.ts",
+    "../**/*.test.tsx",
     "src/decorators.matrix.ts"
   ]
 }
