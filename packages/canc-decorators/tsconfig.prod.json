@@ -5,5 +5,22 @@
     "outDir": "build",
     "rootDir": "../.."
   },
-  "include": ["src", "../_util", "../canc-coroutine/src"]
+  "include": ["src", "../_util", "../canc-coroutine/src"],
+  // Restates the base list because a child `exclude` replaces the parent's rather than merging.
+  // The matrix entry is the point: it is a type-matrix fixture, not a published entry, and packing
+  // its declaration ships an import of reflect-metadata, a devDependency consumers do not have.
+  "exclude": [
+    "node_modules",
+    "**/~~*",
+    "**/*~~*",
+    "**/build/**/*",
+    "**/dist/**/*",
+    "**/__tests__/**/*",
+    "**/__mocks__/**/*",
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "src/decorators.matrix.ts"
+  ]
 }
