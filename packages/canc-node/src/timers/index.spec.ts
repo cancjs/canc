@@ -163,14 +163,34 @@ Module._resolveFilename = function (request, ...rest) {
 };
 `;
 
+const ELAPSED_MARKER = '<<elapsed>>';
+
+/**
+ * Runs a program in a real subprocess and reports how long the CHILD itself was alive.
+ *
+ * The child times itself and prints the figure on exit, after a marker. Timing the `execFileSync`
+ * call instead folds node's startup and this machine's process-spawn cost into every measurement,
+ * which is what made these assertions fail under a parallel run while passing standalone. What they
+ * are about is whether a timer was cleared, and that is a property of the child alone.
+ */
 function runChild(program: string, timeoutMs: number): { stdout: string; elapsedMs: number } {
-  const start = Date.now();
-  const stdout = execFileSync(process.execPath, ['-e', `${hook}\n${program}`], {
+  const timer = [
+    'const __start = Date.now();',
+    `process.on('exit', function () { process.stdout.write('${ELAPSED_MARKER}' + (Date.now() - __start)); });`,
+  ].join('\n');
+
+  const raw = execFileSync(process.execPath, ['-e', `${hook}\n${timer}\n${program}`], {
     cwd: __dirname,
     encoding: 'utf8',
     timeout: timeoutMs,
   });
-  return { stdout, elapsedMs: Date.now() - start };
+
+  const at = raw.lastIndexOf(ELAPSED_MARKER);
+  if (at === -1) {
+    throw new Error(`child did not report its elapsed time: ${raw}`);
+  }
+
+  return { stdout: raw.slice(0, at), elapsedMs: Number(raw.slice(at + ELAPSED_MARKER.length)) };
 }
 
 describe('setTimeout canceled: the process is not held open (real subprocess)', () => {
