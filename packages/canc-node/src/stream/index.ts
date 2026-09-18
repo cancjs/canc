@@ -363,5 +363,7 @@ export const finished = signalWrapped(rawFinished, entries.get('finished'), 1) a
 // the /stream subpath's public surface also carries the consumers and the Readable promise
 // terminals; each lives in its own file so a reader following just pipeline and finished does not
 // scroll past the rest
-export * from './consumers';
-export * from './terminals';
+export type { IConsumerOptions } from './consumers';
+export { arrayBuffer, blob, buffer, bytes, json, text } from './consumers';
+export type { IReadableTerminalOptions, IReadableVisitorOptions } from './terminals';
+export { every, find, forEach, reduce, some, toArray } from './terminals';
