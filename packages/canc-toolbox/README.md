@@ -135,6 +135,18 @@ signal that aborts with a `CancelError` rather than a bare `DOMException`, use
 `createCancelSignal` from
 [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise#abortsignal-interop).
 
+`fromAbortSignal(signal, options?)` is the inverse of `toAbortSignal`: it fulfills once `signal`
+aborts, and never rejects on its own (canceling it explicitly still rejects with a `CancelError`).
+Read `signal.reason` off the signal itself; the resolved value is `void`.
+
+```js
+await fromAbortSignal(userSignal);
+console.log('the user aborted:', userSignal.reason);
+```
+
+This is not how to make an operation cancelable by a signal. For that, pass `signal` as a
+`CancelablePromise` constructor option to the operation itself.
+
 ### Ending a flow
 
 > Note: Error classes and filtering helpers (`AbortError`, `isAbortError`, `TimeoutError`, `isTimeoutError`, `createCatchError`, `createSuppressError`, `catchAbort`, `suppressAbort`, `catchTimeout`, `suppressTimeout`) have moved to `@cancjs/promise`. Re-exports in `@cancjs/toolbox` are deprecated and maintained for backward compatibility.
@@ -341,11 +353,12 @@ queued, and every dropped job still settles provided the underlying job itself s
 
 ### Signal interop
 
-| Export                            | Description                                                      |
-| --------------------------------- | ---------------------------------------------------------------- |
-| `toAbortSignal(promise)`          | Signal that aborts when a cancelable promise is canceled         |
-| `withSignal(signal, promiseOrFn)` | Races work against a signal, passes through when there is none   |
-| `createAbortSignal()`             | Plain `AbortController` convenience, returns `{ signal, abort }` |
+| Export                              | Description                                                      |
+| ----------------------------------- | ---------------------------------------------------------------- |
+| `toAbortSignal(promise)`            | Signal that aborts when a cancelable promise is canceled         |
+| `fromAbortSignal(signal, options?)` | Fulfills once `signal` aborts, cancel removes the listener       |
+| `withSignal(signal, promiseOrFn)`   | Races work against a signal, passes through when there is none   |
+| `createAbortSignal()`               | Plain `AbortController` convenience, returns `{ signal, abort }` |
 
 ### Filtering errors (deprecated, import from @cancjs/promise)
 
