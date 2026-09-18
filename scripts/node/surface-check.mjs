@@ -6,7 +6,9 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const ROOT = join(HERE, '..', '..');
+// Resolved from the script location so the check works from any cwd. The override exists for the
+// spec that runs this against a throwaway fixture tree; nothing in normal use sets it.
+const ROOT = process.env.CANC_SURFACE_ROOT || join(HERE, '..', '..');
 const surfaceDir = join(ROOT, 'packages', 'canc-node', 'surface');
 const nodeLock = JSON.parse(readFileSync(join(surfaceDir, 'node-api.lock.json'), 'utf8'));
 const rtLock = JSON.parse(readFileSync(join(surfaceDir, 'runtime.lock.json'), 'utf8'));

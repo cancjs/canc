@@ -48,7 +48,12 @@ function buildFixture(breakSinceByMajor: boolean): string {
 }
 
 function runCheck(tempRoot: string) {
-  return spawnSync('node', [scriptPath], { cwd: tempRoot, encoding: 'utf8' });
+  return spawnSync('node', [scriptPath], {
+    cwd: tempRoot,
+    encoding: 'utf8',
+    // the script resolves from its own location, so point it at the fixture tree explicitly
+    env: { ...process.env, CANC_SURFACE_ROOT: tempRoot },
+  });
 }
 
 describe('surface-check signal-map fallback', () => {
