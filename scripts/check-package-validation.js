@@ -466,6 +466,17 @@ async function checkPackage(pkgName, workspace) {
     }
   }
 
+  // Check 4: nothing test-only belongs in a tarball. The specifier checks above cannot see this,
+  // because a spec declaration is self-contained with relative imports and so resolves fine. It is
+  // still test surface a consumer downloads, and the published `toolbox-native` carried 108 of them.
+  for (const f of packedFiles) {
+    if (/\.spec\.d\.(m|c)?ts$/.test(f) || /\.test\.d\.(m|c)?ts$/.test(f)) {
+      problems.push(`packed files include the test declaration ${f}`);
+    } else if (/(^|\/)tests-types\//.test(f)) {
+      problems.push(`packed files include the type-matrix harness file ${f}`);
+    }
+  }
+
   if (inspectedDtsCount === 0) {
     problems.push('package packed zero type declaration (.d.ts) files');
   }
