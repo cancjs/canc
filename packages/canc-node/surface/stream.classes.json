@@ -7,6 +7,7 @@
       "name": "Readable",
       "kind": "class",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -27,6 +28,7 @@
       "name": "Writable",
       "kind": "class",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -47,6 +49,7 @@
       "name": "Duplex",
       "kind": "class",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -67,6 +70,7 @@
       "name": "Transform",
       "kind": "class",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -87,6 +91,7 @@
       "name": "PassThrough",
       "kind": "class",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,

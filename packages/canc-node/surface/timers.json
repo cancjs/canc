@@ -7,6 +7,7 @@
       "name": "setTimeout",
       "kind": "fn",
       "cancelCategory": "C",
+      "callPath": null,
       "nodeSignal": {
         "documented": true,
         "since": "v15.0.0",
@@ -28,6 +29,7 @@
       "name": "setImmediate",
       "kind": "fn",
       "cancelCategory": "C",
+      "callPath": null,
       "nodeSignal": {
         "documented": true,
         "since": "v15.0.0",
@@ -49,6 +51,7 @@
       "name": "setInterval",
       "kind": "fn",
       "cancelCategory": "C",
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": "v15.9.0",
@@ -70,6 +73,7 @@
       "name": "wait",
       "kind": "fn",
       "cancelCategory": "C",
+      "callPath": null,
       "nodeSignal": {
         "documented": true,
         "since": "v17.3.0",
@@ -91,6 +95,7 @@
       "name": "yield",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -111,6 +116,7 @@
       "name": "clearImmediate",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -131,6 +137,7 @@
       "name": "clearInterval",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -151,6 +158,7 @@
       "name": "clearTimeout",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -171,6 +179,7 @@
       "name": "Immediate",
       "kind": "class",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -191,6 +200,7 @@
       "name": "Timeout",
       "kind": "class",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,

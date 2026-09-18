@@ -7,6 +7,7 @@
       "name": "destroy",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,

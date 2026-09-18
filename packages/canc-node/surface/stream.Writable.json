@@ -7,6 +7,7 @@
       "name": "closed",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -27,6 +28,7 @@
       "name": "cork",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -47,6 +49,7 @@
       "name": "destroy",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -67,6 +70,7 @@
       "name": "destroyed",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -87,6 +91,7 @@
       "name": "end",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -107,6 +112,7 @@
       "name": "errored",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -127,6 +133,7 @@
       "name": "setDefaultEncoding",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -147,6 +154,7 @@
       "name": "uncork",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -167,6 +175,7 @@
       "name": "writable",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -187,6 +196,7 @@
       "name": "writableAborted",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -207,6 +217,7 @@
       "name": "writableCorked",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -227,6 +238,7 @@
       "name": "writableEnded",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -247,6 +259,7 @@
       "name": "writableFinished",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -267,6 +280,7 @@
       "name": "writableHighWaterMark",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -287,6 +301,7 @@
       "name": "writableLength",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -307,6 +322,7 @@
       "name": "writableNeedDrain",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -327,6 +343,7 @@
       "name": "writableObjectMode",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -347,6 +364,7 @@
       "name": "write",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,

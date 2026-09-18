@@ -7,6 +7,7 @@
       "name": "bubbles",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -27,6 +28,7 @@
       "name": "cancelBubble",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -47,6 +49,7 @@
       "name": "cancelable",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -67,6 +70,7 @@
       "name": "composed",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -87,6 +91,7 @@
       "name": "composedPath",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -107,6 +112,7 @@
       "name": "currentTarget",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -127,6 +133,7 @@
       "name": "defaultPrevented",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -147,6 +154,7 @@
       "name": "eventPhase",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -167,6 +175,7 @@
       "name": "initEvent",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -187,6 +196,7 @@
       "name": "isTrusted",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -207,6 +217,7 @@
       "name": "preventDefault",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -227,6 +238,7 @@
       "name": "returnValue",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -247,6 +259,7 @@
       "name": "srcElement",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -267,6 +280,7 @@
       "name": "stopImmediatePropagation",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -287,6 +301,7 @@
       "name": "stopPropagation",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -307,6 +322,7 @@
       "name": "target",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -327,6 +343,7 @@
       "name": "timeStamp",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -347,6 +364,7 @@
       "name": "type",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
