@@ -60,6 +60,9 @@
     "graceful",
     "canc"
   ],
+  "dependencies": {
+    "@types/node": ">=18"
+  },
   "devDependencies": {
     "@cancjs/coroutine": "*",
     "@cancjs/promise": "*"
