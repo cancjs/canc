@@ -26,6 +26,10 @@ function isMetadataUnsupported(err: unknown): boolean {
 }
 
 /** Retry unlink on transient Windows lock errors during cleanup. */
+function noop(): void {
+  // the in-flight call's own outcome is irrelevant here, only that it has stopped
+}
+
 function unlinkWithRetry(path: string, attempts = 5): Promise<void> {
   return unlink(path).catch((err: unknown) => {
     if (attempts > 1 && (isNotPermitted(err) || isBusy(err))) {
@@ -59,13 +63,21 @@ export function replaceFile(path: string, data: TWriteData, options?: IReplaceFi
     let isRenamed = false;
 
     // returned, not dropped: a returned thenable is awaited before the cancelation settles
+    // the in-flight call is waited on FIRST, because canceling a write does not un-schedule the
+    // write already handed to the platform: unlinking straight away hits ENOENT and the write then
+    // recreates the temp file behind the cleanup
     handleCancel((reason) => {
-      activePromise?.cancel(reason);
+      const inFlight = activePromise;
+      activePromise = null;
+      inFlight?.cancel(reason);
+
       if (isRenamed) {
         return undefined;
       }
 
-      return unlinkWithRetry(tempPath);
+      const settled = inFlight ? inFlight.then(noop, noop) : undefined;
+
+      return settled ? settled.then(() => unlinkWithRetry(tempPath)) : unlinkWithRetry(tempPath);
     });
 
     const writePromise = (activePromise = writeFile(tempPath, data, options));
