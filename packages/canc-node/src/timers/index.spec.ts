@@ -168,10 +168,11 @@ const ELAPSED_MARKER = '<<elapsed>>';
 /**
  * Runs a program in a real subprocess and reports how long the CHILD itself was alive.
  *
- * The child times itself and prints the figure on exit, after a marker. Timing the `execFileSync`
- * call instead folds node's startup and this machine's process-spawn cost into every measurement,
- * which is what made these assertions fail under a parallel run while passing standalone. What they
- * are about is whether a timer was cleared, and that is a property of the child alone.
+ * The child times itself rather than this side timing `execFileSync`, which folded node startup and
+ * process-spawn cost into the figure. Only the lower-bound check reads the elapsed time now; the
+ * upper bounds were removed because even the child's own lifetime tracks machine load once enough
+ * suites run in parallel. A timer that was never cleared outlives the spawn timeout below, and
+ * `execFileSync` throws on it, which is a sharper signal than any millisecond threshold.
  */
 function runChild(program: string, timeoutMs: number): { stdout: string; elapsedMs: number } {
   const timer = [
@@ -207,12 +208,12 @@ p.then(
 );
 `;
 
-    const { stdout, elapsedMs } = runChild(program, 8000);
+    const { stdout } = runChild(program, 8000);
 
     expect(stdout).toBe('REJECTED:CancelError');
-    // if the underlying node timer were merely abandoned rather than cleared, this process would
-    // not exit until the original 10s delay elapsed
-    expect(elapsedMs).toBeLessThan(3000);
+    // an uncleared 10s timer would hold the loop open past runChild's 8s spawn timeout, which
+    // throws rather than returning, so reaching this line is itself the proof
+    // no wall-clock upper bound here: it measured machine load as much as the timer
   });
 });
 
@@ -226,10 +227,9 @@ timers.setTimeout(10000, undefined, { ref: false });
 process.stdout.write('SCRIPT_END');
 `;
 
-    const { stdout, elapsedMs } = runChild(program, 8000);
+    const { stdout } = runChild(program, 8000);
 
     expect(stdout).toBe('SCRIPT_END');
-    expect(elapsedMs).toBeLessThan(3000);
   });
 
   it('control: the same 10s timer WITHOUT ref: false holds the process open for the full delay', () => {
@@ -262,9 +262,8 @@ async function main() {
 main();
 `;
 
-    const { stdout, elapsedMs } = runChild(program, 8000);
+    const { stdout } = runChild(program, 8000);
 
     expect(stdout).toBe('DONE');
-    expect(elapsedMs).toBeLessThan(3000);
   });
 });
