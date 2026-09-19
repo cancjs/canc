@@ -30,10 +30,6 @@ function isMetadataUnsupported(err: unknown): boolean {
   return isNotPermitted(err) || isNotSupported(err);
 }
 
-function noop(): void {
-  // the in-flight call's own outcome is irrelevant here, only that it has stopped
-}
-
 /**
  * Retry unlink on transient lock errors during cleanup.
  *
@@ -90,9 +86,9 @@ export function replaceFile(path: string, data: TWriteData, options?: IReplaceFi
     let isRenamed = false;
 
     // returned, not dropped: a returned thenable is awaited before the cancelation settles
-    // the in-flight call is waited on FIRST, because canceling a write does not un-schedule the
-    // write already handed to the platform: unlinking straight away hits ENOENT and the write then
-    // recreates the temp file behind the cleanup
+    // canceling the wrapper does not un-schedule a write already handed to the platform, and
+    // awaiting the wrapper proves nothing about the fs callback, so the late write is handled by
+    // unlinkWithRetry treating ENOENT as "not yet" rather than as done
     handleCancel((reason) => {
       const inFlight = activePromise;
       activePromise = null;
@@ -102,9 +98,7 @@ export function replaceFile(path: string, data: TWriteData, options?: IReplaceFi
         return undefined;
       }
 
-      const settled = inFlight ? inFlight.then(noop, noop) : undefined;
-
-      return settled ? settled.then(() => unlinkWithRetry(tempPath)) : unlinkWithRetry(tempPath);
+      return unlinkWithRetry(tempPath);
     });
 
     const writePromise = (activePromise = writeFile(tempPath, data, options));
