@@ -205,14 +205,24 @@ function collectBareSpecifiers(content) {
  * builtins always resolve; anything else has to be declared, because a transitive dependency is not
  * a promise the manifest makes.
  */
-function isResolvableBareSpecifier(specifier, manifest) {
-  if (specifier.startsWith('node:')) return true;
+/** Whether a manifest asks for a package by any dependency kind a consumer install would honour. */
+function declaresDependency(manifest, name) {
+  return [manifest.dependencies, manifest.peerDependencies, manifest.optionalDependencies].some(
+    (set) => set && Object.prototype.hasOwnProperty.call(set, name),
+  );
+}
 
+function isResolvableBareSpecifier(specifier, manifest) {
   // `@scope/name/deep/path` and `name/deep/path` both resolve through the package name alone.
   const segments = specifier.split('/');
   const pkgName = specifier.startsWith('@') ? segments.slice(0, 2).join('/') : segments[0];
 
-  if (require('module').builtinModules.includes(pkgName)) return true;
+  // a builtin resolves at runtime, but a declaration importing one needs `@types/node`
+  // nothing installs those types unless this manifest asks for them
+  // waving `node:` through is how a package ships `.d.ts` that fails to compile for a consumer
+  if (specifier.startsWith('node:') || require('module').builtinModules.includes(pkgName)) {
+    return declaresDependency(manifest, '@types/node');
+  }
 
   const declared = [manifest.dependencies, manifest.peerDependencies, manifest.optionalDependencies].filter(Boolean);
 
