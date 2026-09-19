@@ -20,6 +20,11 @@ const isNotPermitted = isErrno('EPERM');
 const isNotSupported = isErrno('ENOSYS');
 const isBusy = isErrno('EBUSY');
 
+// ~480ms budget, where the old 5 attempts at 10ms gave 40ms
+// 40ms is routinely shorter than the Windows antivirus and indexer holds this retry exists for
+const UNLINK_ATTEMPTS = 12;
+const UNLINK_RETRY_MS = 40;
+
 /** How chmod and chown fail where the file system does not carry the metadata. Not fatal. */
 function isMetadataUnsupported(err: unknown): boolean {
   return isNotPermitted(err) || isNotSupported(err);
@@ -29,12 +34,34 @@ function noop(): void {
   // the in-flight call's own outcome is irrelevant here, only that it has stopped
 }
 
-/** Retry unlink on transient Windows lock errors during cleanup. */
-function unlinkWithRetry(path: string, attempts = 5): Promise<void> {
+/**
+ * Retry unlink on transient lock errors during cleanup.
+ *
+ * ENOENT counts as transient rather than as success: the cleanup can run before the write it is
+ * undoing has reached the disk, and treating "not there yet" as done leaves the file behind once
+ * the write lands. Everything else that is not a known-transient errno is rethrown, because a
+ * swallowed failure leaves a temp file while the promise settles clean and tells nobody.
+ */
+function unlinkWithRetry(path: string, attempts = UNLINK_ATTEMPTS): Promise<void> {
   return unlink(path).catch((err: unknown) => {
-    if (attempts > 1 && (isNotPermitted(err) || isBusy(err))) {
-      return new Promise<void>((resolve) => setTimeout(resolve, 10)).then(() => unlinkWithRetry(path, attempts - 1));
+    const transient = isNotPermitted(err) || isBusy(err) || isNotFoundError(err);
+
+    if (!transient) {
+      throw err;
     }
+
+    if (attempts <= 1) {
+      // a final ENOENT means the file never appeared, which is the outcome this wants anyway
+      if (isNotFoundError(err)) {
+        return undefined;
+      }
+
+      throw err;
+    }
+
+    return new Promise<void>((resolve) => setTimeout(resolve, UNLINK_RETRY_MS)).then(() =>
+      unlinkWithRetry(path, attempts - 1),
+    );
   });
 }
 

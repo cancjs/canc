@@ -232,4 +232,32 @@ describe('replaceFile', () => {
       expect(st.mode & 0o777).toBe(0o755);
     },
   );
+
+  it('removes a temporary file that lands after the cancelation', async () => {
+    const file = join(root, 'late-write.txt');
+    await fs.writeFile(file, 'initial content');
+
+    // the platform write is delayed, so cancel runs before the temp file exists and the write
+    // creates it afterwards; an unlink that reads ENOENT as success leaves the file behind
+    // the callback-style top-level member is what the wrappers reach through, not `promises`
+    const originalFs = getFs();
+    const realWriteFile = fsCall((originalFs as unknown as Record<string, unknown>).writeFile, 'writeFile');
+    setFs({
+      ...originalFs,
+      writeFile: (...args: unknown[]) => {
+        const callback = args[args.length - 1] as (err: unknown) => void;
+        const rest = args.slice(0, -1);
+        setTimeout(() => realWriteFile(...rest, callback), 60);
+      },
+    } as never);
+
+    const pending = replaceFile(file, 'new content');
+    await pending.cancel();
+    await pending.catch(() => undefined);
+
+    await new Promise((resolve) => setTimeout(resolve, 400));
+
+    const leftovers = (await fs.readdir(root)).filter((name) => name.includes('.tmp-'));
+    expect(leftovers).toEqual([]);
+  });
 });
