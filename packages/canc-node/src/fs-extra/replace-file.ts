@@ -25,11 +25,11 @@ function isMetadataUnsupported(err: unknown): boolean {
   return isNotPermitted(err) || isNotSupported(err);
 }
 
-/** Retry unlink on transient Windows lock errors during cleanup. */
 function noop(): void {
   // the in-flight call's own outcome is irrelevant here, only that it has stopped
 }
 
+/** Retry unlink on transient Windows lock errors during cleanup. */
 function unlinkWithRetry(path: string, attempts = 5): Promise<void> {
   return unlink(path).catch((err: unknown) => {
     if (attempts > 1 && (isNotPermitted(err) || isBusy(err))) {
