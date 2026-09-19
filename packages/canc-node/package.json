@@ -221,6 +221,9 @@
   },
   "files": ["dist"],
   "keywords": ["node", "fs", "cancel", "cancelable", "cancellation", "canc"],
+  "dependencies": {
+    "@types/node": ">=18"
+  },
   "devDependencies": {
     "@cancjs/promise": "*"
   },
