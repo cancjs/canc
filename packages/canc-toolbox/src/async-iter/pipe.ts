@@ -1,6 +1,14 @@
 import type { CancelablePromise } from '@cancjs/promise';
 
-import type { IPipeableAsyncIterable, IPipeOp, ITermOp } from '../../../_toolbox/async-iter';
+import type {
+  IPipeableAsyncIterable,
+  IPipeOp,
+  IPipeWalkLazy,
+  IPipeWalkTerm,
+  ITermOp,
+  TPipeElementOf,
+  TPipeWalk,
+} from '../../../_toolbox/async-iter';
 import type { TPipeSource } from '../../../_toolbox/async-iter/pipe';
 import { applyPipe } from '../../../_toolbox/async-iter/pipe';
 
@@ -133,9 +141,32 @@ export interface ICancelablePipeable<T> extends IPipeableAsyncIterable<T> {
     op9: IPipeOp<B8, B9>,
     term: ITermOp<B9, R>,
   ): CancelablePromise<R>;
-  pipe<R>(ops: readonly unknown[], term: ITermOp<any, R>, ...rest: unknown[]): CancelablePromise<R>;
-  pipe(ops: readonly unknown[]): ICancelablePipeable<any>;
+  pipe<TOps extends readonly unknown[], R>(
+    ops: readonly [...TOps],
+    term: ITermOp<TPipeElementOf<T, TOps>, R>,
+  ): TCancelableGroupedTerm<T, TOps, R>;
+  pipe<TOps extends readonly unknown[]>(ops: readonly [...TOps]): TCancelableGrouped<T, TOps>;
 }
+
+/**
+ * Return type of the array-grouped `pipe`, with no terminal supplied outside the group.
+ *
+ * Mirrors the shared walk and swaps in the canc-bound results, since every terminal reachable from
+ * this entry hands back a CancelablePromise.
+ */
+export type TCancelableGrouped<TSource, TOps extends readonly unknown[]> =
+  [TPipeWalk<TSource, TOps>] extends [never] ? never
+  : TPipeWalk<TSource, TOps> extends IPipeWalkTerm<infer R> ? CancelablePromise<R>
+  : TPipeWalk<TSource, TOps> extends IPipeWalkLazy<infer TCurrent> ? ICancelablePipeable<TCurrent>
+  : never;
+
+/**
+ * Return type of the array-grouped `pipe` with a trailing terminal.
+ */
+export type TCancelableGroupedTerm<TSource, TOps extends readonly unknown[], R> =
+  [TPipeWalk<TSource, TOps>] extends [never] ? never
+  : TPipeWalk<TSource, TOps> extends IPipeWalkLazy<any> ? CancelablePromise<R>
+  : never;
 
 /**
  * Pipe a source through operators and optionally a terminal bound to CancelablePromise.
@@ -294,16 +325,23 @@ export function pipe<A, B1, B2, B3, B4, B5, B6, B7, B8, B9, R>(
 /**
  * Array-grouped form, which the ladder above does not cover.
  *
- * An array of operators is matched as a whole, so the element type is not threaded through it and a
- * mismatch between two grouped operators is caught by the runtime rather than the compiler.
+ * The operator list is walked recursively, so the element type threads through a group the same way
+ * it threads through bare operators, and a group that does not line up resolves to `never`.
+ *
+ * One boundary is worth knowing: an array literal nested inside another array literal infers as an
+ * array rather than as a tuple, so its operators are not checked against each other in order. An
+ * inline arrow inside a group has no contextual parameter type for the same reason, and needs an
+ * annotation or a named callback.
  */
-export function pipe<A, R>(
+export function pipe<A, TOps extends readonly unknown[], R>(
   source: TPipeSource<A>,
-  ops: readonly unknown[],
-  term: ITermOp<any, R>,
-  ...rest: unknown[]
-): CancelablePromise<R>;
-export function pipe<A>(source: TPipeSource<A>, ops: readonly unknown[]): ICancelablePipeable<any>;
+  ops: readonly [...TOps],
+  term: ITermOp<TPipeElementOf<A, TOps>, R>,
+): TCancelableGroupedTerm<A, TOps, R>;
+export function pipe<A, TOps extends readonly unknown[]>(
+  source: TPipeSource<A>,
+  ops: readonly [...TOps],
+): TCancelableGrouped<A, TOps>;
 export function pipe(source: TPipeSource<unknown>, ...parts: unknown[]): unknown {
   return applyPipe(source, parts);
 }

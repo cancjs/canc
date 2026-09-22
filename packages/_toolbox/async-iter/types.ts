@@ -1,3 +1,5 @@
+import type { TAnyFn } from '../../_util/guards';
+
 /**
  * Brand symbol identifying a pipe operator function.
  *
@@ -80,6 +82,95 @@ export function isPipeOp(value: unknown): value is IPipeOp<any, any> {
 export function isTermOp(value: unknown): value is ITermOp<any, any> {
   return typeof value === 'function' && (value as any)[TERM_OP_BRAND] === true;
 }
+
+/**
+ * Outcome of walking a pipeline that never reaches a terminal, carrying the element type it ends on.
+ */
+export interface IPipeWalkLazy<T> {
+  readonly kind: 'lazy';
+  readonly element: T;
+}
+
+/**
+ * Outcome of walking a pipeline that ends in a terminal, carrying the value the terminal resolves.
+ */
+export interface IPipeWalkTerm<R> {
+  readonly kind: 'term';
+  readonly result: R;
+}
+
+/**
+ * Walks an operator list, threading the element type from one operator to the next.
+ *
+ * A tuple entry that is itself a list is spliced in, so grouped and nested forms read the same as a
+ * flat list. Anything the walk cannot make sense of, including an operator whose input does not
+ * match the element type reaching it and a terminal that is not last, resolves to `never`.
+ *
+ * A list whose length TypeScript does not know, which is what an array literal nested inside another
+ * array literal infers to, is threaded as a single application of its element type. That is exact
+ * for a group of one and for operators that do not change the element type.
+ */
+export type TPipeWalk<TCurrent, TOps extends readonly unknown[]> =
+  number extends TOps['length'] ? TPipeWalkOp<TCurrent, TOps[number], readonly []>
+  : TOps extends readonly [infer THead, ...infer TRest] ? TPipeWalkHead<TCurrent, THead, TRest>
+  : IPipeWalkLazy<TCurrent>;
+
+type TPipeWalkHead<TCurrent, THead, TRest extends readonly unknown[]> =
+  THead extends readonly unknown[] ?
+    number extends THead['length'] ?
+      TPipeWalkOp<TCurrent, THead[number], TRest>
+    : TPipeWalk<TCurrent, readonly [...THead, ...TRest]>
+  : TPipeWalkOp<TCurrent, THead, TRest>;
+
+type TPipeWalkOp<TCurrent, TOp, TRest extends readonly unknown[]> =
+  0 extends 1 & TOp ?
+    // an `any` operator says nothing about either side, so the element type goes with it
+    TPipeWalk<any, TRest>
+  : [TOp] extends [ITermOp<infer I, infer R>] ?
+    [TCurrent] extends [I] ?
+      TRest extends readonly [] ?
+        IPipeWalkTerm<R>
+      : never
+    : never
+  : [TOp] extends [IPipeOp<infer I, infer O>] ?
+    [TCurrent] extends [I] ?
+      TPipeWalk<O, TRest>
+    : never
+  : [TOp] extends [TAnyFn] ? never
+  : // the options object is split out before the operators run, so it threads nothing
+  [TOp] extends [object] ? TPipeWalk<TCurrent, TRest>
+  : never;
+
+/**
+ * Element type an operator list ends on, or `never` when the list does not thread or ends early.
+ *
+ * Used as the input side of a trailing terminal so the terminal infers its own type argument from
+ * the operators before it.
+ */
+export type TPipeElementOf<TSource, TOps extends readonly unknown[]> =
+  [TPipeWalk<TSource, TOps>] extends [never] ? never
+  : TPipeWalk<TSource, TOps> extends IPipeWalkLazy<infer TCurrent> ? TCurrent
+  : never;
+
+/**
+ * Return type of the array-grouped `pipe`, with no terminal supplied outside the group.
+ */
+export type TPipeGrouped<TSource, TOps extends readonly unknown[]> =
+  [TPipeWalk<TSource, TOps>] extends [never] ? never
+  : TPipeWalk<TSource, TOps> extends IPipeWalkTerm<infer R> ? PromiseLike<R>
+  : TPipeWalk<TSource, TOps> extends IPipeWalkLazy<infer TCurrent> ? IPipeableAsyncIterable<TCurrent>
+  : never;
+
+/**
+ * Return type of the array-grouped `pipe` with a trailing terminal.
+ *
+ * The group has to thread and has to end lazily, so a terminal inside the group followed by a second
+ * one outside it resolves to `never` rather than quietly dropping a step.
+ */
+export type TPipeGroupedTerm<TSource, TOps extends readonly unknown[], R> =
+  [TPipeWalk<TSource, TOps>] extends [never] ? never
+  : TPipeWalk<TSource, TOps> extends IPipeWalkLazy<any> ? PromiseLike<R>
+  : never;
 
 /**
  * Async iterable augmented with a fluent `.pipe()` method.
@@ -213,8 +304,11 @@ export interface IPipeableAsyncIterable<T> extends AsyncIterable<T> {
     op9: IPipeOp<B8, B9>,
     term: ITermOp<B9, R>,
   ): PromiseLike<R>;
-  pipe<R>(ops: readonly unknown[], term: ITermOp<any, R>, ...rest: unknown[]): PromiseLike<R>;
-  pipe(ops: readonly unknown[]): IPipeableAsyncIterable<any>;
+  pipe<TOps extends readonly unknown[], R>(
+    ops: readonly [...TOps],
+    term: ITermOp<TPipeElementOf<T, TOps>, R>,
+  ): TPipeGroupedTerm<T, TOps, R>;
+  pipe<TOps extends readonly unknown[]>(ops: readonly [...TOps]): TPipeGrouped<T, TOps>;
 }
 
 /**

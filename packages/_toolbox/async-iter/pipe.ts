@@ -1,6 +1,14 @@
 import { splitConfig } from './options';
 import { from } from './sources';
-import type { AnyIterable, IPipeableAsyncIterable, IPipeOp, ITermOp } from './types';
+import type {
+  AnyIterable,
+  IPipeableAsyncIterable,
+  IPipeOp,
+  ITermOp,
+  TPipeElementOf,
+  TPipeGrouped,
+  TPipeGroupedTerm,
+} from './types';
 import { isPipeOp, isTermOp } from './types';
 import { createPipeableWrapper } from './wrapper';
 
@@ -96,7 +104,8 @@ export function makePipeable<T>(asyncIterable: AsyncIterable<T>): IPipeableAsync
  *
  * The overloads thread the element type from the source through every operator, so a terminal that
  * is not last, or a second terminal, matches no overload. The array-grouped form
- * `pipe(source, [op1, op2], terminal)` is outside the ladder and keeps the runtime check.
+ * `pipe(source, [op1, op2], terminal)` is threaded by a recursive type instead, and keeps the
+ * runtime check as its backstop.
  *
  * An optional trailing config object is accepted in any position; the first plain object wins.
  */
@@ -251,16 +260,26 @@ export function pipe<A, B1, B2, B3, B4, B5, B6, B7, B8, B9, R>(
 /**
  * Array-grouped form, which the ladder above does not cover.
  *
- * An array of operators is matched as a whole, so the element type is not threaded through it and a
- * mismatch between two grouped operators is caught by the runtime rather than the compiler.
+ * The operator list is walked recursively, so the element type threads through a group the same way
+ * it threads through bare operators, and a group that does not line up resolves to `never`.
+ *
+ * One boundary is worth knowing: an array literal nested inside another array literal infers as an
+ * array rather than as a tuple, so its operators are not checked against each other in order. An
+ * inline arrow inside a group has no contextual parameter type for the same reason, and needs an
+ * annotation or a named callback.
  */
-export function pipe<A, R>(
+export function pipe<A, TOps extends readonly unknown[], R>(
   source: TPipeSource<A>,
-  ops: readonly unknown[],
-  term: ITermOp<any, R>,
-  ...rest: unknown[]
-): PromiseLike<R>;
-export function pipe<A>(source: TPipeSource<A>, ops: readonly unknown[]): IPipeableAsyncIterable<any>;
+  ops: readonly [...TOps],
+  term: ITermOp<TPipeElementOf<A, TOps>, R>,
+): TPipeGroupedTerm<A, TOps, R>;
+export function pipe<A, TOps extends readonly unknown[]>(
+  source: TPipeSource<A>,
+  ops: readonly [...TOps],
+): TPipeGrouped<A, TOps>;
+// dormant fallback, kept for the day a real pipeline the recursive walk cannot type shows up
+// interface IOpList extends Array<ITermOp<any, any> | IPipeOp<any, any> | IOpList> {}
+// export function pipe(source: TPipeSource<any>, ...ops: IOpList): AsyncIterable<any> | PromiseLike<any>;
 export function pipe(source: TPipeSource<unknown>, ...parts: unknown[]): unknown {
   return applyPipe(source, parts);
 }
