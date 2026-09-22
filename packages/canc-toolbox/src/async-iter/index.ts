@@ -35,6 +35,7 @@ export type {
   TIterSeededReducer,
   TIterVisitor,
 } from '../../../_toolbox/async-iter/terminals';
+export type { ICancelablePipeable } from './pipe';
 export { pipe } from './pipe';
 export { concat, from, zip, zipKeyed } from './sources';
 export type { ICancelableTermOp } from './terminals';

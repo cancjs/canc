@@ -158,6 +158,7 @@ function writeFixture(version, tarballs) {
   if (version.typeAssertions) {
     files.push(localSource('type-assertions.ts'));
     files.push(localSource('coroutine-types.ts'));
+    files.push(localSource('async-iter-types.ts'));
   }
   if (version.serverExpressTypes) {
     files.push(localSource('server-express-types.ts'));

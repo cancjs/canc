@@ -13,10 +13,11 @@
       "@cancjs/decorators/babel-legacy": [
         "../packages/canc-decorators/src/babel-legacy"
       ],
+      "@cancjs/toolbox/async-iter": ["../packages/canc-toolbox/src/async-iter"],
       "@cancjs/server-*": ["../packages/canc-server/canc-server-*/src"],
       "@cancjs/*": ["../packages/canc-*/src"]
     }
   },
   "include": ["scripts", "fixtures/common"],
-  "exclude": ["fixtures/ts-*", "fixtures/common/async-iter-types.ts"]
+  "exclude": ["fixtures/ts-*"]
 }

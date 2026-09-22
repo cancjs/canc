@@ -186,7 +186,7 @@ describe('pipe', () => {
       toArray(),
     );
 
-    expect(result && typeof result.then).toBe('function');
+    expect(typeof result.then).toBe('function');
     const value = await result;
     expect(value).toEqual([2, 4]);
   });
