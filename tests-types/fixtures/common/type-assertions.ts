@@ -163,8 +163,18 @@ wr.resolve(123);
 const cc = catchCancel(Promise.resolve(7));
 type _catchCancel = Expect<Equal<typeof cc, CancelablePromise<number | CancelError>>>;
 
+// Each flag option adds its error kind to the resolution side, because a caught error is the
+// value the returned promise resolves with
 const ccOpt = catchCancel(Promise.resolve(7), { bubble: false, abort: true });
-type _catchCancelOpt = Expect<Equal<typeof ccOpt, CancelablePromise<number | CancelError>>>;
+type _catchCancelOpt = Expect<Equal<typeof ccOpt, CancelablePromise<number | CancelError | AbortError>>>;
+
+const ccTimeout = catchCancel(Promise.resolve(7), { timeout: true });
+type _catchCancelTimeout = Expect<Equal<typeof ccTimeout, CancelablePromise<number | CancelError | TimeoutError>>>;
+
+const ccBothFlags = catchCancel(Promise.resolve(7), { abort: true, timeout: true });
+type _catchCancelBothFlags = Expect<
+  Equal<typeof ccBothFlags, CancelablePromise<number | CancelError | AbortError | TimeoutError>>
+>;
 
 const sc = suppressCancel(Promise.resolve(7));
 type _suppressCancel = Expect<Equal<typeof sc, CancelablePromise<number | void>>>;
