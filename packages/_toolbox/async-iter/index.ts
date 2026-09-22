@@ -16,6 +16,8 @@ export type {
   IPipeWalkTerm,
   ITermOp,
   PipeOp,
+  TAnySource,
+  TElementOf,
   TermOp,
   TPipeElementOf,
   TPipeGrouped,

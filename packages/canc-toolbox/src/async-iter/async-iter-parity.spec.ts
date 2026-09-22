@@ -334,7 +334,7 @@ describe('async iterator parity (TC39 spec behavior)', () => {
     it('closes longer sources', async () => {
       const { probe: probe2, iterable: iter2 } = makeSource();
       const { probe: probe3, iterable: iter3 } = makeSource();
-      await asyncIter.toArray<[number, number]>()(asyncIter.zip([1, 2], iter2, iter3));
+      await asyncIter.toArray()(asyncIter.zip([1, 2], iter2, iter3));
       await flush();
       expect(probe2.closed).toBe(1);
       expect(probe3.closed).toBe(1);

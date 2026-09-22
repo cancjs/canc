@@ -1,13 +1,17 @@
-import type { AnyIterable, IAsyncIterOptions } from './index';
+import type { IAsyncIterOptions } from './index';
 import { splitConfig } from './options';
 import { callReturn, getSource } from './pull';
+import type { TAnySource, TElementOf } from './types';
 
 /**
  * Normalize a source into an async iterable.
  * Accepts: async iterable, sync iterable, or a single promise.
  * Non-iterable values throw TypeError.
  */
-export function from<T>(source: AnyIterable<T> | PromiseLike<T>, _opts?: IAsyncIterOptions): AsyncIterable<T> {
+export function from<T>(source: AsyncIterable<T>, opts?: IAsyncIterOptions): AsyncIterable<T>;
+export function from<T>(source: Iterable<T | PromiseLike<T>>, opts?: IAsyncIterOptions): AsyncIterable<T>;
+export function from<T>(source: PromiseLike<T>, opts?: IAsyncIterOptions): AsyncIterable<T>;
+export function from<T>(source: TAnySource<T>, _opts?: IAsyncIterOptions): AsyncIterable<T> {
   // Thenable sources yield their resolved value
   if (source != null && typeof (source as any).then === 'function') {
     return createAsyncIterable<T>(async function* () {
@@ -25,11 +29,18 @@ export function from<T>(source: AnyIterable<T> | PromiseLike<T>, _opts?: IAsyncI
  * Concatenate multiple sources, draining each in order.
  * Forward return() to the current active source.
  */
-export function concat<T>(...args: any[]): AsyncIterable<T> {
+export function concat<TSources extends readonly TAnySource<any>[]>(
+  ...sources: TSources
+): AsyncIterable<TElementOf<TSources[number]>>;
+export function concat<TSources extends readonly TAnySource<any>[]>(
+  ...sourcesAndOptions: [...TSources, IAsyncIterOptions]
+): AsyncIterable<TElementOf<TSources[number]>>;
+export function concat<T>(...args: unknown[]): AsyncIterable<T> {
   const { rest: sources } = splitConfig(args);
 
   return createAsyncIterable<T>(async function* () {
-    for (const source of sources) {
+    // the source shapes are one overload each, so the list is picked apart once here
+    for (const source of sources as AsyncIterable<T>[]) {
       const { it } = getSource<T>(from<T>(source));
       // hand-driven: a for-await closes on abrupt completion and the finally would close again
       let exhausted = false;
@@ -58,11 +69,17 @@ export function concat<T>(...args: any[]): AsyncIterable<T> {
  * Yields tuples of values. Ends when the shortest source ends.
  * On early stop, calls return() on all sources (including losers).
  */
-export function zip<T extends readonly any[]>(...args: any[]): AsyncIterable<T> {
+export function zip<TSources extends readonly TAnySource<any>[]>(
+  ...sources: TSources
+): AsyncIterable<{ -readonly [K in keyof TSources]: TElementOf<TSources[K]> }>;
+export function zip<TSources extends readonly TAnySource<any>[]>(
+  ...sourcesAndOptions: [...TSources, IAsyncIterOptions]
+): AsyncIterable<{ -readonly [K in keyof TSources]: TElementOf<TSources[K]> }>;
+export function zip<T extends readonly unknown[]>(...args: unknown[]): AsyncIterable<T> {
   const { rest: sources } = splitConfig(args);
 
   return createAsyncIterable<T>(async function* () {
-    const iterators = sources.map((src) => getSource<any>(from(src)).it);
+    const iterators = (sources as AsyncIterable<any>[]).map((src) => getSource<any>(from(src)).it);
 
     if (iterators.length === 0) {
       return;
@@ -89,13 +106,13 @@ export function zip<T extends readonly any[]>(...args: any[]): AsyncIterable<T> 
  * Yields objects with the keys from the shape. Ends when the shortest source ends.
  * On early stop, calls return() on all sources.
  */
-export function zipKeyed<T extends Record<string, AnyIterable<any>>>(
+export function zipKeyed<T extends Record<string, TAnySource<any>>>(
   shape: T,
   _opts?: IAsyncIterOptions,
-): AsyncIterable<{ [K in keyof T]: Awaited<T[K] extends AsyncIterable<infer U> ? U : any> }> {
+): AsyncIterable<{ [K in keyof T]: TElementOf<T[K]> }> {
   return createAsyncIterable(async function* () {
     const keys = Object.keys(shape);
-    const iterators = keys.map((key) => getSource<any>(from(shape[key])).it);
+    const iterators = keys.map((key) => getSource<any>(from(shape[key] as AsyncIterable<any>)).it);
 
     if (iterators.length === 0) {
       return;

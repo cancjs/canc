@@ -1,10 +1,10 @@
 import { splitConfig } from './options';
 import { from } from './sources';
 import type {
-  AnyIterable,
   IPipeableAsyncIterable,
   IPipeOp,
   ITermOp,
+  TAnySource,
   TPipeElementOf,
   TPipeGrouped,
   TPipeGroupedTerm,
@@ -18,7 +18,7 @@ import { createPipeableWrapper } from './wrapper';
  * A single promise yields its resolved value; anything that is neither iterable nor thenable is a
  * `TypeError` when the pipeline is driven.
  */
-export type TPipeSource<T> = AnyIterable<T> | PromiseLike<T>;
+export type TPipeSource<T> = TAnySource<T>;
 
 /**
  * Deep-flatten an args array, unwrapping arrays recursively to a single op list.
@@ -68,7 +68,8 @@ export function applyPipe(source: TPipeSource<unknown>, parts: unknown[]): unkno
     }
   }
 
-  let composed: AsyncIterable<unknown> = from(source);
+  // the three source shapes are one overload each, so the union needs picking apart once here
+  let composed: AsyncIterable<unknown> = from(source as AsyncIterable<unknown>);
 
   const opsToApply = terminalIndex === -1 ? flatOps : flatOps.slice(0, terminalIndex);
   for (const op of opsToApply) {

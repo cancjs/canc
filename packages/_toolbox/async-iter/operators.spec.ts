@@ -1,4 +1,6 @@
 import { drop, filter, flatMap, map, take } from './operators';
+import type { IPipeOp } from './types';
+import { isPipeOp } from './types';
 
 interface ITrace {
   /** Values the source handed out. */
@@ -519,5 +521,63 @@ describe('stopping a chain', () => {
     await iterator.return?.(undefined);
 
     expect(order).toEqual(['callback-cleanup', 'source-close']);
+  });
+});
+
+type TExact<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
+
+function assertExact<A, B>(_check: TExact<A, B> extends true ? true : never): void {}
+
+interface ICat {
+  kind: 'cat';
+  meow: true;
+}
+
+interface IDog {
+  kind: 'dog';
+  woof: true;
+}
+
+type TPet = ICat | IDog;
+
+function isCat(value: TPet): value is ICat {
+  return value.kind === 'cat';
+}
+
+describe('operator typing', () => {
+  it('narrows the element type on a type-guard predicate', () => {
+    const catsOnly = filter(isCat);
+
+    assertExact<typeof catsOnly, IPipeOp<TPet, ICat>>(true);
+    expect(isPipeOp(catsOnly)).toBe(true);
+  });
+
+  it('leaves the element type alone for the other predicate forms', () => {
+    const awake = filter(async (value: TPet) => value.kind === 'cat');
+
+    assertExact<typeof awake, IPipeOp<TPet, TPet>>(true);
+    expect(isPipeOp(awake)).toBe(true);
+  });
+
+  it('takes the mapped element type from whichever form the callback was written in', () => {
+    const sync = map((value: TPet) => value.kind);
+    const async = map(async (value: TPet) => value.kind);
+    const generated = map(function* (value: TPet) {
+      yield Promise.resolve();
+
+      return value.kind;
+    });
+
+    assertExact<typeof sync, IPipeOp<TPet, 'cat' | 'dog'>>(true);
+    assertExact<typeof async, IPipeOp<TPet, 'cat' | 'dog'>>(true);
+    assertExact<typeof generated, IPipeOp<TPet, 'cat' | 'dog'>>(true);
+    expect([sync, async, generated].every(isPipeOp)).toBe(true);
+  });
+
+  it('takes the flattened element type from the iterable the callback produces', () => {
+    const flattened = flatMap(async (value: TPet) => [value.kind]);
+
+    assertExact<typeof flattened, IPipeOp<TPet, 'cat' | 'dog'>>(true);
+    expect(isPipeOp(flattened)).toBe(true);
   });
 });

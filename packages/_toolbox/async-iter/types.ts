@@ -325,4 +325,26 @@ export function isPipeable(value: unknown): value is IPipeableAsyncIterable<any>
  */
 export type AnyIterable<T> = AsyncIterable<T> | Iterable<T>;
 
+/**
+ * Anything a source function or a pipeline head accepts as input.
+ *
+ * A synchronous iterable may hand out promises, which are awaited as they are pulled, so the two
+ * iterable forms are spelled out separately rather than through `AnyIterable`. A single promise
+ * produces one value.
+ */
+export type TAnySource<T> = AsyncIterable<T> | Iterable<T | PromiseLike<T>> | PromiseLike<T>;
+
+/**
+ * Element type a source produces once it has been normalized.
+ *
+ * A synchronous iterable of promises is awaited value by value as it is pulled, so its element type
+ * is the awaited one; an async iterable is taken at face value, and a lone promise produces its
+ * resolved value.
+ */
+export type TElementOf<TSource> =
+  TSource extends AsyncIterable<infer T> ? T
+  : TSource extends Iterable<infer T> ? Awaited<T>
+  : TSource extends PromiseLike<infer T> ? Awaited<T>
+  : never;
+
 export type { TPromiseCtor } from '../construct';

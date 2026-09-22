@@ -4,6 +4,8 @@ export type {
   IPipeOp,
   ITermOp,
   PipeOp,
+  TAnySource,
+  TElementOf,
   TermOp,
   TPromiseCtor,
 } from '../../../_toolbox/async-iter';
@@ -30,6 +32,7 @@ export type {
   TCallbackResult,
   TIterPredicate,
   TIterReducer,
+  TIterSeededReducer,
   TIterVisitor,
 } from '../../../_toolbox/async-iter/terminals';
 export { pipe } from './pipe';
