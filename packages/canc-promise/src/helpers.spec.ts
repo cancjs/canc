@@ -533,21 +533,27 @@ describe('promoted error exports', () => {
   });
 });
 
-describe('catchCancel / suppressCancel type subtraction options', () => {
-  it('types subtraction of abort and timeout flags correctly', () => {
+describe('catchCancel / suppressCancel flag option types', () => {
+  it('subtracts the abort and timeout flags from the failure set and carries them on the catch result', () => {
     type SampleErrors = RealAbortError | RealTimeoutError | TypeError;
     const p = CancelablePromise.resolve(1) as unknown as CancelablePromise<number, SampleErrors>;
 
-    // 1. inline { abort: true } subtracts AbortError
+    // 1. inline { abort: true } subtracts AbortError and carries it to the resolution side
     const _c1 = catchCancel(p, { abort: true });
-    const _check1: Eq<typeof _c1, CancelablePromise<number | CancelError, RealTimeoutError | TypeError>> = true;
+    const _check1: Eq<
+      typeof _c1,
+      CancelablePromise<number | CancelError | RealAbortError, RealTimeoutError | TypeError>
+    > = true;
 
     const _s1 = suppressCancel(p, { abort: true });
     const _checkS1: Eq<typeof _s1, CancelablePromise<number | void, RealTimeoutError | TypeError>> = true;
 
     // 2. { abort: true, timeout: true } subtracts both
     const _c2 = catchCancel(p, { abort: true, timeout: true });
-    const _check2: Eq<typeof _c2, CancelablePromise<number | CancelError, TypeError>> = true;
+    const _check2: Eq<
+      typeof _c2,
+      CancelablePromise<number | CancelError | RealAbortError | RealTimeoutError, TypeError>
+    > = true;
 
     const _s2 = suppressCancel(p, { abort: true, timeout: true });
     const _checkS2: Eq<typeof _s2, CancelablePromise<number | void, TypeError>> = true;
@@ -570,11 +576,17 @@ describe('catchCancel / suppressCancel type subtraction options', () => {
     // 5. { abort: true } satisfies ICatchSuppressOptions and as const both subtract
     const bagSatisfies = { abort: true } satisfies ICatchSuppressOptions;
     const _c5a = catchCancel(p, bagSatisfies);
-    const _check5a: Eq<typeof _c5a, CancelablePromise<number | CancelError, RealTimeoutError | TypeError>> = true;
+    const _check5a: Eq<
+      typeof _c5a,
+      CancelablePromise<number | CancelError | RealAbortError, RealTimeoutError | TypeError>
+    > = true;
 
     const bagAsConst = { abort: true } as const;
     const _c5b = catchCancel(p, bagAsConst);
-    const _check5b: Eq<typeof _c5b, CancelablePromise<number | CancelError, RealTimeoutError | TypeError>> = true;
+    const _check5b: Eq<
+      typeof _c5b,
+      CancelablePromise<number | CancelError | RealAbortError, RealTimeoutError | TypeError>
+    > = true;
 
     // 6. suppressCancel(p) with no options leaves TFailure untouched
     const _s6 = suppressCancel(p);
