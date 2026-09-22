@@ -1,4 +1,12 @@
-export type { AnyIterable, IPipeableAsyncIterable, IPipeOp, ITermOp, TPromiseCtor } from '../../../_toolbox/async-iter';
+export type {
+  AnyIterable,
+  IPipeableAsyncIterable,
+  IPipeOp,
+  ITermOp,
+  PipeOp,
+  TermOp,
+  TPromiseCtor,
+} from '../../../_toolbox/async-iter';
 export type { ISourceNormalized } from '../../../_toolbox/async-iter';
 export type { IAsyncIterOptions } from '../../../_toolbox/async-iter';
 export type { ISplitConfigResult } from '../../../_toolbox/async-iter';

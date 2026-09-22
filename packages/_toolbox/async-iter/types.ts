@@ -29,6 +29,9 @@ export interface IPipeOp<I, O> {
   readonly [PIPE_OP_BRAND]: true;
 }
 
+/** Convenient alias matching the design document naming. */
+export type PipeOp<I, O> = IPipeOp<I, O>;
+
 /**
  * Terminal consumer converting an input async iterable into a promise.
  *
@@ -38,6 +41,9 @@ export interface ITermOp<I, R> {
   (source: AsyncIterable<I>): PromiseLike<R>;
   readonly [TERM_OP_BRAND]: true;
 }
+
+/** Convenient alias matching the design document naming. */
+export type TermOp<I, R> = ITermOp<I, R>;
 
 /**
  * Brands a transformation function as a pipe operator.
