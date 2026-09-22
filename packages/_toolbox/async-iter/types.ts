@@ -85,10 +85,136 @@ export function isTermOp(value: unknown): value is ITermOp<any, any> {
  * Async iterable augmented with a fluent `.pipe()` method.
  *
  * Produced by `makePipeable` or `pipe` to allow chaining operators directly on the iterable.
+ *
+ * The `.pipe` overloads mirror the free `pipe` without its source argument: a lazy set that returns
+ * another pipeable iterable, and a terminal set that ends the chain in a promise. A terminal placed
+ * anywhere but last, or a second terminal, matches no overload and is a compile error.
  */
 export interface IPipeableAsyncIterable<T> extends AsyncIterable<T> {
   readonly [PIPEABLE_BRAND]: true;
-  pipe(...parts: any[]): any;
+  pipe(): IPipeableAsyncIterable<T>;
+  pipe<R>(term: ITermOp<T, R>): PromiseLike<R>;
+  pipe<B1>(op1: IPipeOp<T, B1>): IPipeableAsyncIterable<B1>;
+  pipe<B1, R>(op1: IPipeOp<T, B1>, term: ITermOp<B1, R>): PromiseLike<R>;
+  pipe<B1, B2>(op1: IPipeOp<T, B1>, op2: IPipeOp<B1, B2>): IPipeableAsyncIterable<B2>;
+  pipe<B1, B2, R>(op1: IPipeOp<T, B1>, op2: IPipeOp<B1, B2>, term: ITermOp<B2, R>): PromiseLike<R>;
+  pipe<B1, B2, B3>(op1: IPipeOp<T, B1>, op2: IPipeOp<B1, B2>, op3: IPipeOp<B2, B3>): IPipeableAsyncIterable<B3>;
+  pipe<B1, B2, B3, R>(
+    op1: IPipeOp<T, B1>,
+    op2: IPipeOp<B1, B2>,
+    op3: IPipeOp<B2, B3>,
+    term: ITermOp<B3, R>,
+  ): PromiseLike<R>;
+  pipe<B1, B2, B3, B4>(
+    op1: IPipeOp<T, B1>,
+    op2: IPipeOp<B1, B2>,
+    op3: IPipeOp<B2, B3>,
+    op4: IPipeOp<B3, B4>,
+  ): IPipeableAsyncIterable<B4>;
+  pipe<B1, B2, B3, B4, R>(
+    op1: IPipeOp<T, B1>,
+    op2: IPipeOp<B1, B2>,
+    op3: IPipeOp<B2, B3>,
+    op4: IPipeOp<B3, B4>,
+    term: ITermOp<B4, R>,
+  ): PromiseLike<R>;
+  pipe<B1, B2, B3, B4, B5>(
+    op1: IPipeOp<T, B1>,
+    op2: IPipeOp<B1, B2>,
+    op3: IPipeOp<B2, B3>,
+    op4: IPipeOp<B3, B4>,
+    op5: IPipeOp<B4, B5>,
+  ): IPipeableAsyncIterable<B5>;
+  pipe<B1, B2, B3, B4, B5, R>(
+    op1: IPipeOp<T, B1>,
+    op2: IPipeOp<B1, B2>,
+    op3: IPipeOp<B2, B3>,
+    op4: IPipeOp<B3, B4>,
+    op5: IPipeOp<B4, B5>,
+    term: ITermOp<B5, R>,
+  ): PromiseLike<R>;
+  pipe<B1, B2, B3, B4, B5, B6>(
+    op1: IPipeOp<T, B1>,
+    op2: IPipeOp<B1, B2>,
+    op3: IPipeOp<B2, B3>,
+    op4: IPipeOp<B3, B4>,
+    op5: IPipeOp<B4, B5>,
+    op6: IPipeOp<B5, B6>,
+  ): IPipeableAsyncIterable<B6>;
+  pipe<B1, B2, B3, B4, B5, B6, R>(
+    op1: IPipeOp<T, B1>,
+    op2: IPipeOp<B1, B2>,
+    op3: IPipeOp<B2, B3>,
+    op4: IPipeOp<B3, B4>,
+    op5: IPipeOp<B4, B5>,
+    op6: IPipeOp<B5, B6>,
+    term: ITermOp<B6, R>,
+  ): PromiseLike<R>;
+  pipe<B1, B2, B3, B4, B5, B6, B7>(
+    op1: IPipeOp<T, B1>,
+    op2: IPipeOp<B1, B2>,
+    op3: IPipeOp<B2, B3>,
+    op4: IPipeOp<B3, B4>,
+    op5: IPipeOp<B4, B5>,
+    op6: IPipeOp<B5, B6>,
+    op7: IPipeOp<B6, B7>,
+  ): IPipeableAsyncIterable<B7>;
+  pipe<B1, B2, B3, B4, B5, B6, B7, R>(
+    op1: IPipeOp<T, B1>,
+    op2: IPipeOp<B1, B2>,
+    op3: IPipeOp<B2, B3>,
+    op4: IPipeOp<B3, B4>,
+    op5: IPipeOp<B4, B5>,
+    op6: IPipeOp<B5, B6>,
+    op7: IPipeOp<B6, B7>,
+    term: ITermOp<B7, R>,
+  ): PromiseLike<R>;
+  pipe<B1, B2, B3, B4, B5, B6, B7, B8>(
+    op1: IPipeOp<T, B1>,
+    op2: IPipeOp<B1, B2>,
+    op3: IPipeOp<B2, B3>,
+    op4: IPipeOp<B3, B4>,
+    op5: IPipeOp<B4, B5>,
+    op6: IPipeOp<B5, B6>,
+    op7: IPipeOp<B6, B7>,
+    op8: IPipeOp<B7, B8>,
+  ): IPipeableAsyncIterable<B8>;
+  pipe<B1, B2, B3, B4, B5, B6, B7, B8, R>(
+    op1: IPipeOp<T, B1>,
+    op2: IPipeOp<B1, B2>,
+    op3: IPipeOp<B2, B3>,
+    op4: IPipeOp<B3, B4>,
+    op5: IPipeOp<B4, B5>,
+    op6: IPipeOp<B5, B6>,
+    op7: IPipeOp<B6, B7>,
+    op8: IPipeOp<B7, B8>,
+    term: ITermOp<B8, R>,
+  ): PromiseLike<R>;
+  pipe<B1, B2, B3, B4, B5, B6, B7, B8, B9>(
+    op1: IPipeOp<T, B1>,
+    op2: IPipeOp<B1, B2>,
+    op3: IPipeOp<B2, B3>,
+    op4: IPipeOp<B3, B4>,
+    op5: IPipeOp<B4, B5>,
+    op6: IPipeOp<B5, B6>,
+    op7: IPipeOp<B6, B7>,
+    op8: IPipeOp<B7, B8>,
+    op9: IPipeOp<B8, B9>,
+  ): IPipeableAsyncIterable<B9>;
+  pipe<B1, B2, B3, B4, B5, B6, B7, B8, B9, R>(
+    op1: IPipeOp<T, B1>,
+    op2: IPipeOp<B1, B2>,
+    op3: IPipeOp<B2, B3>,
+    op4: IPipeOp<B3, B4>,
+    op5: IPipeOp<B4, B5>,
+    op6: IPipeOp<B5, B6>,
+    op7: IPipeOp<B6, B7>,
+    op8: IPipeOp<B7, B8>,
+    op9: IPipeOp<B8, B9>,
+    term: ITermOp<B9, R>,
+  ): PromiseLike<R>;
+  pipe<R>(ops: readonly unknown[], term: ITermOp<any, R>, ...rest: unknown[]): PromiseLike<R>;
+  pipe(ops: readonly unknown[]): IPipeableAsyncIterable<any>;
 }
 
 /**

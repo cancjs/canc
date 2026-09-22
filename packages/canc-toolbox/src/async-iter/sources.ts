@@ -6,12 +6,14 @@ import {
   zip as toolboxZip,
   zipKeyed as toolboxZipKeyed,
 } from '../../../_toolbox/async-iter/sources';
+import type { ICancelablePipeable } from './pipe';
 
 /**
  * Wrap the toolbox from() with makePipeable to add the pipe method.
  */
-export function from<T>(source: AnyIterable<T> | PromiseLike<T>, opts?: any) {
-  return makePipeable(toolboxFrom(source, opts));
+export function from<T>(source: AnyIterable<T> | PromiseLike<T>, opts?: any): ICancelablePipeable<T> {
+  // every terminal reachable from the canc entry is canc-bound, which the shared wrapper cannot say
+  return makePipeable(toolboxFrom(source, opts)) as ICancelablePipeable<T>;
 }
 
 /**
