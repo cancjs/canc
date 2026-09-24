@@ -169,7 +169,8 @@ export type TPipeGrouped<TSource, TOps extends readonly unknown[]> =
  */
 export type TPipeGroupedTerm<TSource, TOps extends readonly unknown[], R> =
   [TPipeWalk<TSource, TOps>] extends [never] ? never
-  : TPipeWalk<TSource, TOps> extends IPipeWalkLazy<any> ? PromiseLike<R>
+  : // any here checks the walk shape (lazy vs terminal), not the element type
+  TPipeWalk<TSource, TOps> extends IPipeWalkLazy<any> ? PromiseLike<R>
   : never;
 
 /**

@@ -165,7 +165,8 @@ export type TCancelableGrouped<TSource, TOps extends readonly unknown[]> =
  */
 export type TCancelableGroupedTerm<TSource, TOps extends readonly unknown[], R> =
   [TPipeWalk<TSource, TOps>] extends [never] ? never
-  : TPipeWalk<TSource, TOps> extends IPipeWalkLazy<any> ? CancelablePromise<R>
+  : // any here checks the walk shape (lazy vs terminal), not the element type
+  TPipeWalk<TSource, TOps> extends IPipeWalkLazy<any> ? CancelablePromise<R>
   : never;
 
 /**
