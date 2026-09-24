@@ -73,27 +73,27 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 
 | Export     | Cancellation       | Node | Deno | Bun     |
 | ---------- | ------------------ | ---- | ---- | ------- |
-| `exec`     | stops waiting only | 18+  | ✅   | ✅      |
-| `execFile` | stops waiting only | 18+  | ✅   | ✅      |
-| `spawn`    | stops the work     | 18+  | ✅   | partial |
-| `fork`     | stops the work     | 18+  | ✅   | partial |
+| `exec`     | stops waiting only | 18+  | yes  | yes     |
+| `execFile` | stops waiting only | 18+  | yes  | yes     |
+| `spawn`    | stops the work     | 18+  | yes  | partial |
+| `fork`     | stops the work     | 18+  | yes  | partial |
 
 #### crypto
 
 | Export            | Cancellation       | Node | Deno       | Bun        |
 | ----------------- | ------------------ | ---- | ---------- | ---------- |
 | `argon2`          | stops waiting only | 24+  | unverified | unverified |
-| `checkPrime`      | stops waiting only | 18+  | ✅         | ✅         |
+| `checkPrime`      | stops waiting only | 18+  | yes        | yes        |
 | `decapsulate`     | stops waiting only | 24+  | unverified | unverified |
 | `encapsulate`     | stops waiting only | 24+  | unverified | unverified |
-| `generateKey`     | stops waiting only | 18+  | ✅         | ✅         |
-| `generateKeyPair` | stops waiting only | 18+  | ✅         | ✅         |
-| `generatePrime`   | stops waiting only | 18+  | ✅         | ✅         |
-| `hkdf`            | stops waiting only | 18+  | ✅         | ✅         |
-| `pbkdf2`          | stops waiting only | 18+  | ✅         | ✅         |
-| `randomBytes`     | stops waiting only | 18+  | ✅         | ✅         |
-| `randomFill`      | stops waiting only | 18+  | ✅         | ✅         |
-| `scrypt`          | stops waiting only | 18+  | ✅         | ✅         |
+| `generateKey`     | stops waiting only | 18+  | yes        | yes        |
+| `generateKeyPair` | stops waiting only | 18+  | yes        | yes        |
+| `generatePrime`   | stops waiting only | 18+  | yes        | yes        |
+| `hkdf`            | stops waiting only | 18+  | yes        | yes        |
+| `pbkdf2`          | stops waiting only | 18+  | yes        | yes        |
+| `randomBytes`     | stops waiting only | 18+  | yes        | yes        |
+| `randomFill`      | stops waiting only | 18+  | yes        | yes        |
+| `scrypt`          | stops waiting only | 18+  | yes        | yes        |
 
 #### Socket (dgram)
 
@@ -105,41 +105,41 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 
 | Export                  | Cancellation       | Node | Deno   | Bun    |
 | ----------------------- | ------------------ | ---- | ------ | ------ |
-| `resolve`               | stops waiting only | 18+  | ✅     | ✅     |
-| `resolve4`              | stops waiting only | 18+  | ✅     | ✅     |
-| `resolve6`              | stops waiting only | 18+  | ✅     | ✅     |
-| `resolveAny`            | stops waiting only | 18+  | ✅     | ✅     |
-| `resolveCaa`            | stops waiting only | 18+  | ✅     | ✅     |
-| `resolveCname`          | stops waiting only | 18+  | ✅     | ✅     |
-| `resolveMx`             | stops waiting only | 18+  | ✅     | ✅     |
-| `resolveNaptr`          | stops waiting only | 18+  | ✅     | ✅     |
-| `resolveNs`             | stops waiting only | 18+  | ✅     | ✅     |
-| `resolvePtr`            | stops waiting only | 18+  | ✅     | ✅     |
-| `resolveSoa`            | stops waiting only | 18+  | ✅     | ✅     |
-| `resolveSrv`            | stops waiting only | 18+  | ✅     | ✅     |
-| `resolveTxt`            | stops waiting only | 18+  | ✅     | ✅     |
-| `reverse`               | stops waiting only | 18+  | ✅     | ✅     |
-| `lookup`                | stops waiting only | 18+  | ✅     | ✅     |
-| `lookupService`         | stops waiting only | 18+  | ✅     | ✅     |
+| `resolve`               | stops waiting only | 18+  | yes    | yes    |
+| `resolve4`              | stops waiting only | 18+  | yes    | yes    |
+| `resolve6`              | stops waiting only | 18+  | yes    | yes    |
+| `resolveAny`            | stops waiting only | 18+  | yes    | yes    |
+| `resolveCaa`            | stops waiting only | 18+  | yes    | yes    |
+| `resolveCname`          | stops waiting only | 18+  | yes    | yes    |
+| `resolveMx`             | stops waiting only | 18+  | yes    | yes    |
+| `resolveNaptr`          | stops waiting only | 18+  | yes    | yes    |
+| `resolveNs`             | stops waiting only | 18+  | yes    | yes    |
+| `resolvePtr`            | stops waiting only | 18+  | yes    | yes    |
+| `resolveSoa`            | stops waiting only | 18+  | yes    | yes    |
+| `resolveSrv`            | stops waiting only | 18+  | yes    | yes    |
+| `resolveTxt`            | stops waiting only | 18+  | yes    | yes    |
+| `reverse`               | stops waiting only | 18+  | yes    | yes    |
+| `lookup`                | stops waiting only | 18+  | yes    | yes    |
+| `lookupService`         | stops waiting only | 18+  | yes    | yes    |
 | `resolveTlsa`           | stops waiting only | 22+  | absent | absent |
-| `getServers`            | -                  | 18+  | ✅     | ✅     |
-| `setServers`            | -                  | 18+  | ✅     | ✅     |
-| `getDefaultResultOrder` | -                  | 18+  | ✅     | ✅     |
-| `setDefaultResultOrder` | -                  | 18+  | ✅     | ✅     |
-| `Resolver`              | -                  | 18+  | ✅     | ✅     |
+| `getServers`            | -                  | 18+  | yes    | yes    |
+| `setServers`            | -                  | 18+  | yes    | yes    |
+| `getDefaultResultOrder` | -                  | 18+  | yes    | yes    |
+| `setDefaultResultOrder` | -                  | 18+  | yes    | yes    |
+| `Resolver`              | -                  | 18+  | yes    | yes    |
 | `cancel`                | -                  | 18+  | method | method |
 
 #### dnsPromises (dns)
 
 | Export     | Cancellation | Node | Deno | Bun |
 | ---------- | ------------ | ---- | ---- | --- |
-| `Resolver` | -            | 18+  | ✅   | ✅  |
+| `Resolver` | -            | 18+  | yes  | yes |
 
 #### Resolver (dns)
 
 | Export            | Cancellation | Node | Deno   | Bun    |
 | ----------------- | ------------ | ---- | ------ | ------ |
-| `Resolver`        | -            | 18+  | ✅     | ✅     |
+| `Resolver`        | -            | 18+  | yes    | yes    |
 | `cancel`          | -            | 18+  | method | method |
 | `setLocalAddress` | -            | 18+  | method | method |
 
@@ -147,24 +147,24 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 
 | Export                                           | Cancellation       | Node | Deno       | Bun        |
 | ------------------------------------------------ | ------------------ | ---- | ---------- | ---------- |
-| `once`                                           | stops waiting only | 18+  | ✅         | ✅         |
-| `on`                                             | stops the work     | 18+  | ✅         | ✅         |
-| `addAbortListener`                               | -                  | 18+  | ✅         | ✅         |
-| `EventEmitter`                                   | -                  | 18+  | ✅         | ✅         |
+| `once`                                           | stops waiting only | 18+  | yes        | yes        |
+| `on`                                             | stops the work     | 18+  | yes        | yes        |
+| `addAbortListener`                               | -                  | 18+  | yes        | yes        |
+| `EventEmitter`                                   | -                  | 18+  | yes        | yes        |
 | `EventTarget`                                    | -                  | 18+  | unverified | unverified |
 | `NodeEventTarget`                                | -                  | 18+  | unverified | unverified |
 | `CustomEvent`                                    | -                  | 18+  | unverified | unverified |
 | `Event`                                          | -                  | 18+  | unverified | unverified |
-| `EventEmitterAsyncResource`                      | -                  | 18+  | ✅         | ✅         |
+| `EventEmitterAsyncResource`                      | -                  | 18+  | yes        | yes        |
 | `EventEmitterAsyncResource extends EventEmitter` | -                  | 18+  | unverified | unverified |
-| `captureRejectionSymbol`                         | -                  | 18+  | ✅         | ✅         |
-| `captureRejections`                              | -                  | 18+  | ✖          | ✅         |
-| `defaultMaxListeners`                            | -                  | 18+  | ✅         | ✅         |
-| `errorMonitor`                                   | -                  | 18+  | ✅         | ✅         |
-| `getEventListeners`                              | -                  | 18+  | ✅         | ✅         |
-| `getMaxListeners`                                | -                  | 18+  | ✅         | ✅         |
-| `listenerCount`                                  | -                  | 18+  | ✅         | ✅         |
-| `setMaxListeners`                                | -                  | 18+  | ✅         | ✅         |
+| `captureRejectionSymbol`                         | -                  | 18+  | yes        | yes        |
+| `captureRejections`                              | -                  | 18+  | no         | yes        |
+| `defaultMaxListeners`                            | -                  | 18+  | yes        | yes        |
+| `errorMonitor`                                   | -                  | 18+  | yes        | yes        |
+| `getEventListeners`                              | -                  | 18+  | yes        | yes        |
+| `getMaxListeners`                                | -                  | 18+  | yes        | yes        |
+| `listenerCount`                                  | -                  | 18+  | yes        | yes        |
+| `setMaxListeners`                                | -                  | 18+  | yes        | yes        |
 
 #### Event (events)
 
@@ -236,106 +236,106 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 
 | Export              | Cancellation       | Node | Deno | Bun |
 | ------------------- | ------------------ | ---- | ---- | --- |
-| `access`            | before it starts   | 18+  | ✅   | ✅  |
-| `appendFile`        | stops the work     | 18+  | ✅   | ✅  |
-| `chmod`             | before it starts   | 18+  | ✅   | ✅  |
-| `chown`             | before it starts   | 18+  | ✅   | ✅  |
-| `copyFile`          | stops waiting only | 18+  | ✅   | ✅  |
-| `cp`                | stops waiting only | 18+  | ✅   | ✅  |
-| `glob`              | -                  | 22+  | ✅   | ✅  |
-| `lchmod`            | before it starts   | 18+  | ✅   | ✅  |
-| `lchown`            | before it starts   | 18+  | ✅   | ✅  |
-| `link`              | before it starts   | 18+  | ✅   | ✅  |
-| `lstat`             | before it starts   | 18+  | ✅   | ✅  |
-| `lutimes`           | before it starts   | 18+  | ✅   | ✅  |
-| `mkdir`             | before it starts   | 18+  | ✅   | ✅  |
-| `mkdtemp`           | before it starts   | 18+  | ✅   | ✅  |
-| `mkdtempDisposable` | before it starts   | 24+  | ✅   | ✖   |
-| `open`              | stops the work     | 18+  | ✅   | ✅  |
-| `opendir`           | stops the work     | 18+  | 🚧   | ✅  |
-| `readFile`          | stops the work     | 18+  | ✅   | ✅  |
-| `readdir`           | before it starts   | 18+  | ✅   | ✅  |
-| `readlink`          | before it starts   | 18+  | ✅   | ✅  |
-| `realpath`          | before it starts   | 18+  | ✅   | ✅  |
-| `rename`            | before it starts   | 18+  | ✅   | ✅  |
-| `rm`                | stops waiting only | 18+  | ✅   | ✅  |
-| `rmdir`             | before it starts   | 18+  | ✅   | ✅  |
-| `stat`              | before it starts   | 18+  | ✅   | ✅  |
-| `statfs`            | before it starts   | 18+  | ✅   | ✅  |
-| `symlink`           | before it starts   | 18+  | ✅   | ✅  |
-| `truncate`          | before it starts   | 18+  | ✅   | ✅  |
-| `unlink`            | before it starts   | 18+  | ✅   | ✅  |
-| `utimes`            | before it starts   | 18+  | ✅   | ✅  |
-| `watch`             | -                  | 18+  | ✅   | ✅  |
-| `writeFile`         | stops the work     | 18+  | ✅   | ✅  |
+| `access`            | before it starts   | 18+  | yes  | yes |
+| `appendFile`        | stops the work     | 18+  | yes  | yes |
+| `chmod`             | before it starts   | 18+  | yes  | yes |
+| `chown`             | before it starts   | 18+  | yes  | yes |
+| `copyFile`          | stops waiting only | 18+  | yes  | yes |
+| `cp`                | stops waiting only | 18+  | yes  | yes |
+| `glob`              | -                  | 22+  | yes  | yes |
+| `lchmod`            | before it starts   | 18+  | yes  | yes |
+| `lchown`            | before it starts   | 18+  | yes  | yes |
+| `link`              | before it starts   | 18+  | yes  | yes |
+| `lstat`             | before it starts   | 18+  | yes  | yes |
+| `lutimes`           | before it starts   | 18+  | yes  | yes |
+| `mkdir`             | before it starts   | 18+  | yes  | yes |
+| `mkdtemp`           | before it starts   | 18+  | yes  | yes |
+| `mkdtempDisposable` | before it starts   | 24+  | yes  | no  |
+| `open`              | stops the work     | 18+  | yes  | yes |
+| `opendir`           | stops the work     | 18+  | warn | yes |
+| `readFile`          | stops the work     | 18+  | yes  | yes |
+| `readdir`           | before it starts   | 18+  | yes  | yes |
+| `readlink`          | before it starts   | 18+  | yes  | yes |
+| `realpath`          | before it starts   | 18+  | yes  | yes |
+| `rename`            | before it starts   | 18+  | yes  | yes |
+| `rm`                | stops waiting only | 18+  | yes  | yes |
+| `rmdir`             | before it starts   | 18+  | yes  | yes |
+| `stat`              | before it starts   | 18+  | yes  | yes |
+| `statfs`            | before it starts   | 18+  | yes  | yes |
+| `symlink`           | before it starts   | 18+  | yes  | yes |
+| `truncate`          | before it starts   | 18+  | yes  | yes |
+| `unlink`            | before it starts   | 18+  | yes  | yes |
+| `utimes`            | before it starts   | 18+  | yes  | yes |
+| `watch`             | -                  | 18+  | yes  | yes |
+| `writeFile`         | stops the work     | 18+  | yes  | yes |
 
 #### fs/extra
 
 | Export              | Cancellation     | Node | Deno | Bun |
 | ------------------- | ---------------- | ---- | ---- | --- |
-| `copy`              | stops the work   | 18+  | ✅   | ✅  |
-| `emptyDir`          | stops the work   | 18+  | ✅   | ✅  |
-| `emptyDirSync`      | -                | 18+  | ✅   | ✅  |
-| `ensureDir`         | before it starts | 18+  | ✅   | ✅  |
-| `ensureDirSync`     | -                | 18+  | ✅   | ✅  |
-| `ensureFile`        | before it starts | 18+  | ✅   | ✅  |
-| `ensureFileSync`    | -                | 18+  | ✅   | ✅  |
-| `ensureLink`        | before it starts | 18+  | ✅   | ✅  |
-| `ensureLinkSync`    | -                | 18+  | ✅   | ✅  |
-| `ensureSymlink`     | before it starts | 18+  | ✅   | ✅  |
-| `ensureSymlinkSync` | -                | 18+  | ✅   | ✅  |
-| `mkdirp`            | before it starts | 18+  | ✅   | ✅  |
-| `mkdirpSync`        | -                | 18+  | ✅   | ✅  |
-| `mkdirs`            | before it starts | 18+  | ✅   | ✅  |
-| `mkdirsSync`        | -                | 18+  | ✅   | ✅  |
-| `move`              | stops the work   | 18+  | ✅   | ✅  |
-| `moveSync`          | -                | 18+  | ✅   | ✅  |
-| `outputFile`        | stops the work   | 18+  | ✅   | ✅  |
-| `outputFileSync`    | -                | 18+  | ✅   | ✅  |
-| `outputJson`        | stops the work   | 18+  | ✅   | ✅  |
-| `outputJsonSync`    | -                | 18+  | ✅   | ✅  |
-| `pathExists`        | before it starts | 18+  | ✅   | ✅  |
-| `readJson`          | stops the work   | 18+  | ✅   | ✅  |
-| `readJsonSync`      | -                | 18+  | ✅   | ✅  |
-| `replaceFile`       | stops the work   | 18+  | ✅   | ✅  |
-| `replaceFileSync`   | -                | 18+  | ✅   | ✅  |
-| `walk`              | -                | 18+  | ✅   | ✅  |
-| `walkSync`          | -                | 18+  | ✅   | ✅  |
-| `writeJson`         | stops the work   | 18+  | ✅   | ✅  |
-| `writeJsonSync`     | -                | 18+  | ✅   | ✅  |
+| `copy`              | stops the work   | 18+  | yes  | yes |
+| `emptyDir`          | stops the work   | 18+  | yes  | yes |
+| `emptyDirSync`      | -                | 18+  | yes  | yes |
+| `ensureDir`         | before it starts | 18+  | yes  | yes |
+| `ensureDirSync`     | -                | 18+  | yes  | yes |
+| `ensureFile`        | before it starts | 18+  | yes  | yes |
+| `ensureFileSync`    | -                | 18+  | yes  | yes |
+| `ensureLink`        | before it starts | 18+  | yes  | yes |
+| `ensureLinkSync`    | -                | 18+  | yes  | yes |
+| `ensureSymlink`     | before it starts | 18+  | yes  | yes |
+| `ensureSymlinkSync` | -                | 18+  | yes  | yes |
+| `mkdirp`            | before it starts | 18+  | yes  | yes |
+| `mkdirpSync`        | -                | 18+  | yes  | yes |
+| `mkdirs`            | before it starts | 18+  | yes  | yes |
+| `mkdirsSync`        | -                | 18+  | yes  | yes |
+| `move`              | stops the work   | 18+  | yes  | yes |
+| `moveSync`          | -                | 18+  | yes  | yes |
+| `outputFile`        | stops the work   | 18+  | yes  | yes |
+| `outputFileSync`    | -                | 18+  | yes  | yes |
+| `outputJson`        | stops the work   | 18+  | yes  | yes |
+| `outputJsonSync`    | -                | 18+  | yes  | yes |
+| `pathExists`        | before it starts | 18+  | yes  | yes |
+| `readJson`          | stops the work   | 18+  | yes  | yes |
+| `readJsonSync`      | -                | 18+  | yes  | yes |
+| `replaceFile`       | stops the work   | 18+  | yes  | yes |
+| `replaceFileSync`   | -                | 18+  | yes  | yes |
+| `walk`              | -                | 18+  | yes  | yes |
+| `walkSync`          | -                | 18+  | yes  | yes |
+| `writeJson`         | stops the work   | 18+  | yes  | yes |
+| `writeJsonSync`     | -                | 18+  | yes  | yes |
 
 #### FileHandle (fs)
 
 | Export                  | Cancellation       | Node | Deno | Bun |
 | ----------------------- | ------------------ | ---- | ---- | --- |
-| `[Symbol.asyncDispose]` | -                  | 18+  | ✅   | ✅  |
-| `appendFile`            | stops the work     | 18+  | ✅   | ✅  |
-| `chmod`                 | before it starts   | 18+  | ✅   | ✅  |
-| `chown`                 | before it starts   | 18+  | ✅   | ✅  |
-| `close`                 | before it starts   | 18+  | ✅   | ✅  |
-| `createReadStream`      | -                  | 18+  | ✅   | ✅  |
-| `createWriteStream`     | -                  | 18+  | ✅   | ✅  |
-| `datasync`              | before it starts   | 18+  | ✅   | ✅  |
-| `pull`                  | -                  | 24+  | ✖    | ✖   |
-| `read`                  | stops waiting only | 18+  | ✅   | ✅  |
-| `readableWebStream`     | -                  | 18+  | ✅   | ✅  |
-| `readFile`              | stops the work     | 18+  | ✅   | ✅  |
-| `readLines`             | -                  | 18+  | ✅   | ✅  |
-| `readv`                 | stops waiting only | 18+  | ✅   | ✅  |
-| `stat`                  | before it starts   | 18+  | ✅   | ✅  |
-| `sync`                  | before it starts   | 18+  | ✅   | ✅  |
-| `truncate`              | before it starts   | 18+  | ✅   | ✅  |
-| `utimes`                | before it starts   | 18+  | ✅   | ✅  |
-| `write`                 | stops waiting only | 18+  | ✅   | ✅  |
-| `writeFile`             | stops the work     | 18+  | ✅   | ✅  |
-| `writer`                | -                  | 26+  | ✖    | ✖   |
-| `writev`                | stops waiting only | 18+  | ✅   | ✅  |
+| `[Symbol.asyncDispose]` | -                  | 18+  | yes  | yes |
+| `appendFile`            | stops the work     | 18+  | yes  | yes |
+| `chmod`                 | before it starts   | 18+  | yes  | yes |
+| `chown`                 | before it starts   | 18+  | yes  | yes |
+| `close`                 | before it starts   | 18+  | yes  | yes |
+| `createReadStream`      | -                  | 18+  | yes  | yes |
+| `createWriteStream`     | -                  | 18+  | yes  | yes |
+| `datasync`              | before it starts   | 18+  | yes  | yes |
+| `pull`                  | -                  | 24+  | no   | no  |
+| `read`                  | stops waiting only | 18+  | yes  | yes |
+| `readableWebStream`     | -                  | 18+  | yes  | yes |
+| `readFile`              | stops the work     | 18+  | yes  | yes |
+| `readLines`             | -                  | 18+  | yes  | yes |
+| `readv`                 | stops waiting only | 18+  | yes  | yes |
+| `stat`                  | before it starts   | 18+  | yes  | yes |
+| `sync`                  | before it starts   | 18+  | yes  | yes |
+| `truncate`              | before it starts   | 18+  | yes  | yes |
+| `utimes`                | before it starts   | 18+  | yes  | yes |
+| `write`                 | stops waiting only | 18+  | yes  | yes |
+| `writeFile`             | stops the work     | 18+  | yes  | yes |
+| `writer`                | -                  | 26+  | no   | no  |
+| `writev`                | stops waiting only | 18+  | yes  | yes |
 
 #### readline
 
 | Export               | Cancellation | Node | Deno | Bun |
 | -------------------- | ------------ | ---- | ---- | --- |
-| `createInterface`    | -            | 18+  | ✅   | ✅  |
+| `createInterface`    | -            | 18+  | yes  | yes |
 | `emitKeypressEvents` | -            | 18+  | n/a  | n/a |
 
 #### InterfaceConstructor (readline)
@@ -357,8 +357,8 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 
 | Export      | Cancellation | Node | Deno | Bun |
 | ----------- | ------------ | ---- | ---- | --- |
-| `Interface` | -            | 18+  | ✅   | ✅  |
-| `Readline`  | -            | 18+  | ✅   | ✅  |
+| `Interface` | -            | 18+  | yes  | yes |
+| `Readline`  | -            | 18+  | yes  | yes |
 
 #### readlinePromises.Interface (readline)
 
@@ -381,21 +381,21 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 
 | Export                    | Cancellation   | Node | Deno       | Bun        |
 | ------------------------- | -------------- | ---- | ---------- | ---------- |
-| `pipeline`                | stops the work | 18+  | ✅         | ✅         |
-| `finished`                | stops the work | 18+  | ✅         | ✅         |
-| `addAbortSignal`          | -              | 18+  | ✅         | ✅         |
-| `compose`                 | -              | 18+  | ✅         | ✅         |
-| `duplexPair`              | -              | 18+  | ✅         | ✅         |
+| `pipeline`                | stops the work | 18+  | yes        | yes        |
+| `finished`                | stops the work | 18+  | yes        | yes        |
+| `addAbortSignal`          | -              | 18+  | yes        | yes        |
+| `compose`                 | -              | 18+  | yes        | yes        |
+| `duplexPair`              | -              | 18+  | yes        | yes        |
 | `from`                    | -              | 18+  | unverified | unverified |
 | `fromWeb`                 | -              | 18+  | unverified | unverified |
 | `toWeb`                   | -              | 18+  | unverified | unverified |
-| `getDefaultHighWaterMark` | -              | 18+  | ✅         | ✅         |
-| `setDefaultHighWaterMark` | -              | 18+  | ✅         | ✅         |
-| `isDestroyed`             | -              | 18+  | ✅         | ✅         |
-| `isDisturbed`             | -              | 18+  | ✅         | ✅         |
-| `isErrored`               | -              | 18+  | ✅         | ✅         |
-| `isReadable`              | -              | 18+  | ✅         | ✅         |
-| `isWritable`              | -              | 18+  | ✅         | ✅         |
+| `getDefaultHighWaterMark` | -              | 18+  | yes        | yes        |
+| `setDefaultHighWaterMark` | -              | 18+  | yes        | yes        |
+| `isDestroyed`             | -              | 18+  | yes        | yes        |
+| `isDisturbed`             | -              | 18+  | yes        | yes        |
+| `isErrored`               | -              | 18+  | yes        | yes        |
+| `isReadable`              | -              | 18+  | yes        | yes        |
+| `isWritable`              | -              | 18+  | yes        | yes        |
 | `push`                    | -              | 18+  | unverified | unverified |
 | `read`                    | -              | 18+  | unverified | unverified |
 | `_construct`              | -              | 18+  | unverified | unverified |
@@ -417,11 +417,11 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 
 | Export        | Cancellation | Node | Deno | Bun |
 | ------------- | ------------ | ---- | ---- | --- |
-| `Readable`    | -            | 18+  | ✅   | ✅  |
-| `Writable`    | -            | 18+  | ✅   | ✅  |
-| `Duplex`      | -            | 18+  | ✅   | ✅  |
-| `Transform`   | -            | 18+  | ✅   | ✅  |
-| `PassThrough` | -            | 18+  | ✅   | ✅  |
+| `Readable`    | -            | 18+  | yes  | yes |
+| `Writable`    | -            | 18+  | yes  | yes |
+| `Duplex`      | -            | 18+  | yes  | yes |
+| `Transform`   | -            | 18+  | yes  | yes |
+| `PassThrough` | -            | 18+  | yes  | yes |
 
 #### stream.Readable (stream)
 
@@ -473,9 +473,9 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 
 | Export           | Cancellation   | Node | Deno       | Bun        |
 | ---------------- | -------------- | ---- | ---------- | ---------- |
-| `setTimeout`     | stops the work | 18+  | ✅         | ✅         |
-| `setImmediate`   | stops the work | 18+  | ✅         | ✅         |
-| `setInterval`    | stops the work | 18+  | ✅         | ✅         |
+| `setTimeout`     | stops the work | 18+  | yes        | yes        |
+| `setImmediate`   | stops the work | 18+  | yes        | yes        |
+| `setInterval`    | stops the work | 18+  | yes        | yes        |
 | `wait`           | stops the work | 18+  | unverified | unverified |
 | `yield`          | -              | 18+  | unverified | unverified |
 | `clearImmediate` | -              | 18+  | unverified | unverified |
@@ -506,7 +506,7 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 
 | Export                | Cancellation | Node | Deno | Bun    |
 | --------------------- | ------------ | ---- | ---- | ------ |
-| `postMessageToThread` | -            | 20+  | ✅   | absent |
+| `postMessageToThread` | -            | 20+  | yes  | absent |
 
 #### locks.LockManager (worker_threads)
 
@@ -530,8 +530,8 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 
 | Export              | Cancellation       | Node | Deno       | Bun        |
 | ------------------- | ------------------ | ---- | ---------- | ---------- |
-| `brotliCompress`    | stops waiting only | 18+  | ✅         | ✅         |
-| `brotliDecompress`  | stops waiting only | 18+  | ✅         | ✅         |
+| `brotliCompress`    | stops waiting only | 18+  | yes        | yes        |
+| `brotliDecompress`  | stops waiting only | 18+  | yes        | yes        |
 | `compressBrotli`    | stops the work     | 24+  | unverified | unverified |
 | `compressDeflate`   | stops the work     | 24+  | unverified | unverified |
 | `compressGzip`      | stops the work     | 24+  | unverified | unverified |
@@ -540,16 +540,16 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 | `decompressDeflate` | stops the work     | 24+  | unverified | unverified |
 | `decompressGzip`    | stops the work     | 24+  | unverified | unverified |
 | `decompressZstd`    | stops the work     | 24+  | unverified | unverified |
-| `deflate`           | stops waiting only | 18+  | ✅         | ✅         |
-| `deflateRaw`        | stops waiting only | 18+  | ✅         | ✅         |
-| `gunzip`            | stops waiting only | 18+  | ✅         | ✅         |
-| `gzip`              | stops waiting only | 18+  | ✅         | ✅         |
-| `inflate`           | stops waiting only | 18+  | ✅         | ✅         |
-| `inflateRaw`        | stops waiting only | 18+  | ✅         | ✅         |
-| `unzip`             | stops waiting only | 18+  | ✅         | ✅         |
+| `deflate`           | stops waiting only | 18+  | yes        | yes        |
+| `deflateRaw`        | stops waiting only | 18+  | yes        | yes        |
+| `gunzip`            | stops waiting only | 18+  | yes        | yes        |
+| `gzip`              | stops waiting only | 18+  | yes        | yes        |
+| `inflate`           | stops waiting only | 18+  | yes        | yes        |
+| `inflateRaw`        | stops waiting only | 18+  | yes        | yes        |
+| `unzip`             | stops waiting only | 18+  | yes        | yes        |
 | `zipFiles`          | stops the work     | 26+  | unverified | unverified |
-| `zstdCompress`      | stops waiting only | 22+  | ✅         | ✅         |
-| `zstdDecompress`    | stops waiting only | 22+  | ✅         | ✅         |
+| `zstdCompress`      | stops waiting only | 22+  | yes        | yes        |
+| `zstdDecompress`    | stops waiting only | 22+  | yes        | yes        |
 
 <!-- generated:end -->
 

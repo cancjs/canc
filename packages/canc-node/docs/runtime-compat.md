@@ -506,7 +506,7 @@ Live import results across Node.js, Deno, and Bun runtime environments.
 | `readline`          | 9 exports   | 9 exports   | 9 exports   |
 | `readline/promises` | 4 exports   | 4 exports   | 4 exports   |
 | `dgram`             | 4 exports   | 3 exports   | 3 exports   |
-| `sqlite`            | 6 exports   | 5 exports   | ✖ missing   |
+| `sqlite`            | 6 exports   | 5 exports   | missing     |
 | `util`              | 35 exports  | 34 exports  | 40 exports  |
 
 ### Signal honoring
@@ -546,15 +546,15 @@ Live probe results executing candidate operations with a pre-aborted signal.
 
 | API                                       | Min Node.js  | Deno       | Bun        | Gate mechanism                              |
 | ----------------------------------------- | ------------ | ---------- | ---------- | ------------------------------------------- |
-| `fs.statfs`                               | 18.15        | ✅         | ✅         | feature-detect                              |
-| `fs.glob`                                 | 22.0         | ✅         | ✅         | throw NotImplementedError on older versions |
-| `fs.mkdtempDisposable`                    | 24.4         | ✅         | ✖          | feature-detect                              |
-| `FileHandle.pull / writer`                | 25.9 (26+)   | ✖          | ✖          | feature-detect                              |
+| `fs.statfs`                               | 18.15        | yes        | yes        | feature-detect                              |
+| `fs.glob`                                 | 22.0         | yes        | yes        | throw NotImplementedError on older versions |
+| `fs.mkdtempDisposable`                    | 24.4         | yes        | no         | feature-detect                              |
+| `FileHandle.pull / writer`                | 25.9 (26+)   | no         | no         | feature-detect                              |
 | `fs.stat / lstat signal`                  | 26.8         | n/a        | n/a        | conditional forward                         |
 | `FileHandle.stat signal`                  | 26.1         | n/a        | n/a        | conditional forward                         |
-| `events.addAbortListener`                 | 18.18 / 20.5 | ✅         | ✅         | polyfill                                    |
-| `Symbol.asyncDispose`                     | 18.18 / 20.4 | ✅         | ✅         | feature-detect                              |
-| `stream/consumers.bytes`                  | unverified   | ✅         | ✅         | feature-detect                              |
+| `events.addAbortListener`                 | 18.18 / 20.5 | yes        | yes        | polyfill                                    |
+| `Symbol.asyncDispose`                     | 18.18 / 20.4 | yes        | yes        | feature-detect                              |
+| `stream/consumers.bytes`                  | unverified   | yes        | yes        | feature-detect                              |
 | `dns.resolveTlsa`                         | 22           | unverified | unverified | throw                                       |
 | `zlib zstd family`                        | 22           | unverified | unverified | throw                                       |
 | `zlib iterable compression`               | 24           | unverified | unverified | throw                                       |
@@ -563,7 +563,7 @@ Live probe results executing candidate operations with a pre-aborted signal.
 | `worker_threads.locks`                    | 24           | unverified | unverified | throw                                       |
 | `net.BoundSocket`                         | 26.4         | unverified | unverified | feature-detect                              |
 | `http.IncomingMessage.signal`             | 26           | unverified | unverified | feature-detect                              |
-| `node:sqlite`                             | 22.5         | ✅         | ✖          | dynamic import in try/catch                 |
+| `node:sqlite`                             | 22.5         | yes        | no         | dynamic import in try/catch                 |
 
 <!-- generated:end -->
 
