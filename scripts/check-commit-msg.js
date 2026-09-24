@@ -142,11 +142,13 @@ if (stagedFiles.length > 0) {
   }
 
   const nonChangesetFiles = stagedFiles.filter((f) => !f.startsWith('.changeset/'));
+  const packageFiles = nonChangesetFiles.filter((f) => f.startsWith('packages/'));
+  const nonPackageFiles = nonChangesetFiles.filter((f) => !f.startsWith('packages/'));
+  const stagedPkgScopes = new Set(packageFiles.map(getPackageForFile).filter(Boolean));
 
-  if (nonChangesetFiles.length > 0 && nonChangesetFiles.every((f) => f.startsWith('packages/'))) {
-    const pkgScopes = new Set(nonChangesetFiles.map(getPackageForFile).filter(Boolean));
-    if (pkgScopes.size === 1) {
-      const [expectedPkgScope] = [...pkgScopes];
+  if (nonChangesetFiles.length > 0 && packageFiles.length === nonChangesetFiles.length) {
+    if (stagedPkgScopes.size === 1) {
+      const [expectedPkgScope] = [...stagedPkgScopes];
       if (PACKAGE_SCOPES.has(scope) && scope !== expectedPkgScope) {
         console.error(
           `Commit scope "(${scope})" does not match package scope "(${expectedPkgScope})".\n` +
@@ -157,12 +159,24 @@ if (stagedFiles.length > 0) {
         process.exit(1);
       }
     }
+  } else if (packageFiles.length > 0 && nonPackageFiles.length > 0 && stagedPkgScopes.size === 1) {
+    const [expectedPkgScope] = [...stagedPkgScopes];
+    console.error(
+      `Commit touches files in a single package directory ("${expectedPkgScope}") and other directories.\n` +
+        `Split the commit: package-owned changes must be committed separately under their own scope.\n` +
+        `Package files:\n` +
+        packageFiles.map((f) => `  ${f}`).join('\n') +
+        `\nOther files:\n` +
+        nonPackageFiles.map((f) => `  ${f}`).join('\n'),
+    );
+    process.exit(1);
   }
 
   if (scope === 'docs' && stagedFiles.every((f) => f.startsWith('packages/'))) {
-    console.warn(
-      'warning: (docs) scope is reserved for repo-wide docs; package documentation typically uses package scope (e.g. (promise), (toolbox)) or (repo).',
+    console.error(
+      '(docs) scope is reserved for repo-wide docs; package documentation uses package scope (e.g. (promise), (toolbox)) or (repo).',
     );
+    process.exit(1);
   }
 }
 
