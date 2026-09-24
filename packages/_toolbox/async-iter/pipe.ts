@@ -278,9 +278,6 @@ export function pipe<A, TOps extends readonly unknown[]>(
   source: TPipeSource<A>,
   ops: readonly [...TOps],
 ): TPipeGrouped<A, TOps>;
-// dormant fallback, kept for the day a real pipeline the recursive walk cannot type shows up
-// interface IOpList extends Array<ITermOp<any, any> | IPipeOp<any, any> | IOpList> {}
-// export function pipe(source: TPipeSource<any>, ...ops: IOpList): AsyncIterable<any> | PromiseLike<any>;
 export function pipe(source: TPipeSource<unknown>, ...parts: unknown[]): unknown {
   return applyPipe(source, parts);
 }
