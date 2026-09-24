@@ -203,14 +203,14 @@ const timers = require(${JSON.stringify(timersEntry)});
 const p = timers.setTimeout(10000);
 global.setTimeout(function () { p.cancel('stop'); }, 10);
 p.then(
- function () { process.stdout.write('RESOLVED'); },
- function (err) { process.stdout.write('REJECTED:' + (err && err.name)); }
+ function () { process.stdout.write('resolved'); },
+ function (err) { process.stdout.write('rejected:' + (err && err.name)); }
 );
 `;
 
     const { stdout } = runChild(program, 8000);
 
-    expect(stdout).toBe('REJECTED:CancelError');
+    expect(stdout).toBe('rejected:CancelError');
     // an uncleared 10s timer would hold the loop open past runChild's 8s spawn timeout, which
     // throws rather than returning, so reaching this line is itself the proof
     // no wall-clock upper bound here: it measured machine load as much as the timer
