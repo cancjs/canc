@@ -77,9 +77,9 @@ const GATED_CAPABILITIES = [
   { api: 'node:sqlite', minNode: '22.5', deno: 'ok', bun: 'missing', gate: 'dynamic import in try/catch' },
 ];
 
-const GLYPH_OK = '\u2705';
-const GLYPH_WARN = '\u{1F6A7}';
-const GLYPH_CROSS = '\u2716';
+const GLYPH_OK = 'yes';
+const GLYPH_WARN = 'warn';
+const GLYPH_CROSS = 'no';
 
 let unverifiedCount = 0;
 
@@ -296,7 +296,7 @@ export function generateRuntimeCompatDoc(manifests, nodeLock, runtimeLock) {
         return 'unverified';
       }
       if (exp.error) {
-        return `${GLYPH_CROSS} missing`;
+        return 'missing';
       }
       if (Array.isArray(exp.keys)) {
         return `${exp.keys.length} exports`;
