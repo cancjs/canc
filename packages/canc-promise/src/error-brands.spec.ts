@@ -348,14 +348,11 @@ const _checkCancelErrorName: string = new CancelError().name;
 
 // Type assertions for the factory-built classes
 // Names are plain strings, so a shape that stopped carrying the brand would collapse them into one
-declare const _BRAND_ONE: unique symbol;
-declare const _BRAND_TWO: unique symbol;
-
 // @ts-expect-error - a different brand is a different constructor type
-const _checkBrandAssignable: ICancErrorConstructor<'Same', typeof _BRAND_ONE> =
-  null as unknown as ICancErrorConstructor<'Same', typeof _BRAND_TWO>;
+const _checkBrandAssignable: ICancErrorConstructor<'Same', '@cancjs/test:One'> =
+  null as unknown as ICancErrorConstructor<'Same', '@cancjs/test:Two'>;
 type _checkBrandIdentity = Assert<
-  Eq<Eq<ICancErrorConstructor<'Same', typeof _BRAND_ONE>, ICancErrorConstructor<'Same', typeof _BRAND_TWO>>, false>
+  Eq<Eq<ICancErrorConstructor<'Same', '@cancjs/test:One'>, ICancErrorConstructor<'Same', '@cancjs/test:Two'>>, false>
 >;
 type _checkBuiltClassesDiffer = Assert<Eq<Eq<AbortError, TimeoutError>, false>>;
 // @ts-expect-error - a bare Error carries no brand
