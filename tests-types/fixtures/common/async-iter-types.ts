@@ -59,17 +59,22 @@ async function testOverloadLadder() {
   type _tTerm = Expect<Equal<typeof terminalPromise, CancelablePromise<string[]>>>;
 
   // 3. pipe(src, toArray(), map(f)) is a compile error (terminal not last)
+  // prettier-ignore
   // @ts-expect-error terminal must be the last operator
   pipe(numbers, toArray(), map((x: any) => x));
 
   // 4. pipe(src, toArray(), find(p)) is a compile error (two terminals)
+  // prettier-ignore
   // @ts-expect-error cannot pipe two terminal operators
   pipe(numbers, toArray(), find(() => true));
 
   // 5. Chained: from(src).pipe(op).pipe(term)
   const chained = from([1, 2, 3])
     .pipe(map((x: number) => String(x)))
-    .pipe(filter((s: string) => s.length > 0), toArray());
+    .pipe(
+      filter((s: string) => s.length > 0),
+      toArray(),
+    );
   type _tChained = Expect<Equal<typeof chained, CancelablePromise<string[]>>>;
 
   void lazy;
@@ -123,11 +128,17 @@ async function testOperatorInference() {
   type _tKeyed = Expect<Equal<typeof keyed, ICancelablePipeable<{ count: number; label: string }>>>;
 
   // reduce with init
-  const reducedWithInit = pipe(numbers, reduce((acc: number, val: number) => acc + val, 0));
+  const reducedWithInit = pipe(
+    numbers,
+    reduce((acc: number, val: number) => acc + val, 0),
+  );
   type _tReducedWithInit = Expect<Equal<typeof reducedWithInit, CancelablePromise<number>>>;
 
   // reduce without init
-  const reducedNoInit = pipe(numbers, reduce((acc: number, val: number) => acc + val));
+  const reducedNoInit = pipe(
+    numbers,
+    reduce((acc: number, val: number) => acc + val),
+  );
   type _tReducedNoInit = Expect<Equal<typeof reducedNoInit, CancelablePromise<number>>>;
 
   // from<T> reads T from source
@@ -138,16 +149,28 @@ async function testOperatorInference() {
   type _tJoined = Expect<Equal<typeof joined, ICancelablePipeable<number>>>;
 
   // terminals
-  const found = pipe(numbers, find((x: number) => x > 1));
+  const found = pipe(
+    numbers,
+    find((x: number) => x > 1),
+  );
   type _tFound = Expect<Equal<typeof found, CancelablePromise<number | undefined>>>;
 
-  const somed = pipe(numbers, some((x: number) => x > 1));
+  const somed = pipe(
+    numbers,
+    some((x: number) => x > 1),
+  );
   type _tSomed = Expect<Equal<typeof somed, CancelablePromise<boolean>>>;
 
-  const everyed = pipe(numbers, every((x: number) => x > 1));
+  const everyed = pipe(
+    numbers,
+    every((x: number) => x > 1),
+  );
   type _tEveryed = Expect<Equal<typeof everyed, CancelablePromise<boolean>>>;
 
-  const each = pipe(numbers, forEach((_x: number) => {}));
+  const each = pipe(
+    numbers,
+    forEach((_x: number) => {}),
+  );
   type _tEach = Expect<Equal<typeof each, CancelablePromise<void>>>;
 
   const inc = pipe(numbers, includes(1));
@@ -159,7 +182,10 @@ async function testOperatorInference() {
   const taken = pipe(numbers, take<number>(1));
   type _tTaken = Expect<Equal<typeof taken, ICancelablePipeable<number>>>;
 
-  const flatMapped = pipe(numbers, flatMap((x: number) => [x, x * 2]));
+  const flatMapped = pipe(
+    numbers,
+    flatMap((x: number) => [x, x * 2]),
+  );
   type _tFlatMapped = Expect<Equal<typeof flatMapped, ICancelablePipeable<number>>>;
 
   void filtered;
