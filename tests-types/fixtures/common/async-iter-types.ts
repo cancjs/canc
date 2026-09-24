@@ -1,12 +1,5 @@
 import type { CancelablePromise } from '@cancjs/promise';
-import type {
-  AnyIterable,
-  ICancelablePipeable,
-  ICancelableTermOp,
-  IPipeableAsyncIterable,
-  IPipeOp,
-  ITermOp,
-} from '@cancjs/toolbox/async-iter';
+import type { ICancelablePipeable } from '@cancjs/toolbox/async-iter';
 import {
   concat,
   drop,
