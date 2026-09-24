@@ -42,8 +42,10 @@ const rewriteSharedDirImports = (typesDir) => {
 
       if (entry.isDirectory()) {
         walk(entryPath);
-      } else if (entry.isFile() && entry.name.endsWith('.d.ts')) {
-        // Rollup emits .d.ts only; duplicateAsMts and downlevelTypes create variant copies afterward
+      } else if (entry.isFile() && /\.d\.(ts|cts)$/.test(entry.name)) {
+        // Rollup emits .d.ts only; duplicateAsMts and downlevelTypes create variant copies
+        // afterward. check-package-validation.js also flags .d.cts, so a future emit path needs
+        // the same rewrite here to avoid a repaired-gate/unrepaired-output split.
         const original = fs.readFileSync(entryPath, 'utf8');
         const rewritten = original.replace(specifierPattern, (_match, prefix, quote, _prefixPath, dirName, subpath) => {
           const target = path.join(typesDir, dirName);
