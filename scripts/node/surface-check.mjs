@@ -52,14 +52,12 @@ const exNames = new Set(exclusions.filter((e) => e.name).map((e) => e.name));
 const exKeys = new Set(exclusions.filter((e) => e.key).map((e) => `${e.module}::${e.key}`));
 
 let failed = false;
-let _warnings = false;
 function fail(msg) {
   console.error(msg);
   failed = true;
 }
 function warn(msg) {
   console.warn(msg);
-  _warnings = true;
 }
 
 // every exclusion entry exists so a reviewer can tell "not shipped" from "forgotten" -- an empty
