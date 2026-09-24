@@ -1,5 +1,6 @@
 // Runs by CI, cron, or hand.
 // Authoritative sequence: check:node-surface (surface:validate -> surface:check)
+// owns letters A B C D F G H I W, letter H reused by error-thrown-check.mjs for another check
 import { execSync } from 'child_process';
 import { existsSync, readdirSync, readFileSync } from 'fs';
 import { dirname, join } from 'path';
@@ -339,8 +340,8 @@ for (const [subpath, mmap] of manifestMap.entries()) {
 }
 
 // Check W: wrapper matches combinator actually used in index.ts / file-handle.ts
-const fsIndexPath = 'packages/canc-node/src/fs/index.ts';
-const fileHandlePath = 'packages/canc-node/src/fs/file-handle.ts';
+const fsIndexPath = join(ROOT, 'packages', 'canc-node', 'src', 'fs', 'index.ts');
+const fileHandlePath = join(ROOT, 'packages', 'canc-node', 'src', 'fs', 'file-handle.ts');
 
 if (existsSync(fsIndexPath)) {
   const fsIndexSrc = readFileSync(fsIndexPath, 'utf8');

@@ -1,4 +1,5 @@
 // Flags an exported *Error class never constructed in production src
+// owns letter H, collides in name only with surface-check.mjs's unrelated Check H
 import { readdirSync, readFileSync, statSync } from 'fs';
 import { dirname, join, relative } from 'path';
 import { fileURLToPath } from 'url';
