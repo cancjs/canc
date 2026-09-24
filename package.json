@@ -29,7 +29,7 @@
     "format": "run-p -c format:workspaces format:root",
     "format:workspaces": "cross-env NODE_OPTIONS=--no-deprecation lerna run format --stream --no-bail",
     "format:root": "eslint --fix *.{js,mjs,json,md} scripts docs packages/_util packages/_toolbox packages/_server packages/canc-server/*.{ts,js,mjs,json} tests-dist",
-    "check:node-surface": "node scripts/node/surface-validate.mjs && node scripts/node/surface-check.mjs && node scripts/node/surface-docs.mjs --check && node scripts/node/error-thrown-check.mjs"
+    "check:node-surface": "node scripts/node/check-node-surface.mjs"
   },
   "workspaces": [
     "packages/*",
