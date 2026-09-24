@@ -61,7 +61,6 @@ export default defineConfig(
     // Generated type-matrix fixtures and packed tarballs.
     'tests-types/fixtures/ts-*/**',
     'tests-types/.tarballs/**',
-    'tests-types/fixtures/common/async-iter-types.ts',
     // Benchmark generated results.
     'benchmarks/results/**',
   ]),
