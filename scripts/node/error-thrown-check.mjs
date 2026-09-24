@@ -1,8 +1,11 @@
 // Flags an exported *Error class never constructed in production src
 import { readdirSync, readFileSync, statSync } from 'fs';
-import { join, relative } from 'path';
+import { dirname, join, relative } from 'path';
+import { fileURLToPath } from 'url';
 
-const root = process.cwd();
+const HERE = dirname(fileURLToPath(import.meta.url));
+// resolved from script location so the check works from any cwd, override for the fixture spec
+const root = process.env.CANC_SURFACE_ROOT || join(HERE, '..', '..');
 const SKIP_DIRS = new Set(['node_modules', 'dist', 'coverage']);
 
 function collectFiles(dir, out) {
