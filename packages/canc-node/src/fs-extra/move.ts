@@ -86,7 +86,7 @@ function renameWithRetry(src: string, dest: string): CancelablePromise<void> {
 
   return attempts.then((result) => {
     if (isPermanentFailure(result)) {
-      return CancelablePromise.reject(result.permanent);
+      return CancelablePromise.reject<void, unknown>(result.permanent);
     }
     return undefined;
   });
