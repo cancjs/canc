@@ -394,18 +394,18 @@ Legend: `S` = Documented signal option, `y` = Present without signal, `-` = Abse
 
 ### timers (node:timers/promises)
 
-| Export           | 18  | 20  | 22  | 24  | 26  | Signal since        | Added   |
-| ---------------- | --- | --- | --- | --- | --- | ------------------- | ------- |
-| `setTimeout`     | y   | y   | y   | y   | y   | v15.0.0             | v0.0.1  |
-| `setImmediate`   | y   | y   | y   | y   | y   | v15.0.0             | v0.9.1  |
-| `setInterval`    | y   | y   | y   | y   | y   | works, undocumented | v0.0.1  |
-| `wait`           | S   | S   | S   | S   | S   | v17.3.0             | v17.3.0 |
-| `yield`          | y   | y   | y   | y   | y   | -                   | v17.3.0 |
-| `clearImmediate` | y   | y   | y   | y   | y   | -                   | v0.9.1  |
-| `clearInterval`  | y   | y   | y   | y   | y   | -                   | v0.0.1  |
-| `clearTimeout`   | y   | y   | y   | y   | y   | -                   | v0.0.1  |
-| `Immediate`      | y   | y   | y   | y   | y   | -                   | -       |
-| `Timeout`        | y   | y   | y   | y   | y   | -                   | -       |
+| Export            | 18  | 20  | 22  | 24  | 26  | Signal since        | Added   |
+| ----------------- | --- | --- | --- | --- | --- | ------------------- | ------- |
+| `setTimeout`      | y   | y   | y   | y   | y   | v15.0.0             | v0.0.1  |
+| `setImmediate`    | y   | y   | y   | y   | y   | v15.0.0             | v0.9.1  |
+| `setInterval`     | y   | y   | y   | y   | y   | works, undocumented | v0.0.1  |
+| `scheduler.wait`  | S   | S   | S   | S   | S   | v17.3.0             | v17.3.0 |
+| `scheduler.yield` | y   | y   | y   | y   | y   | -                   | v17.3.0 |
+| `clearImmediate`  | y   | y   | y   | y   | y   | -                   | v0.9.1  |
+| `clearInterval`   | y   | y   | y   | y   | y   | -                   | v0.0.1  |
+| `clearTimeout`    | y   | y   | y   | y   | y   | -                   | v0.0.1  |
+| `Immediate`       | y   | y   | y   | y   | y   | -                   | -       |
+| `Timeout`         | y   | y   | y   | y   | y   | -                   | -       |
 
 ### Immediate (timers)
 

@@ -89,6 +89,7 @@
         "deno": "unverified",
         "bun": "unverified"
       },
+      "parent": "scheduler",
       "notes": "exported as scheduler.wait (nested under scheduler, not a bare top-level key; unverified against module-level export list)"
     },
     {
@@ -110,6 +111,7 @@
         "deno": "unverified",
         "bun": "unverified"
       },
+      "parent": "scheduler",
       "notes": "takes no options at all; plain re-export as scheduler.yield (nested under scheduler, not a bare top-level key; unverified against module-level export list)"
     },
     {

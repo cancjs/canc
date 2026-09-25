@@ -470,18 +470,18 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 
 #### timers
 
-| Export           | Cancellation   | Node | Deno       | Bun        |
-| ---------------- | -------------- | ---- | ---------- | ---------- |
-| `setTimeout`     | stops the work | 18+  | yes        | yes        |
-| `setImmediate`   | stops the work | 18+  | yes        | yes        |
-| `setInterval`    | stops the work | 18+  | yes        | yes        |
-| `wait`           | stops the work | 18+  | unverified | unverified |
-| `yield`          | -              | 18+  | unverified | unverified |
-| `clearImmediate` | -              | 18+  | unverified | unverified |
-| `clearInterval`  | -              | 18+  | unverified | unverified |
-| `clearTimeout`   | -              | 18+  | unverified | unverified |
-| `Immediate`      | -              | 18+  | unverified | unverified |
-| `Timeout`        | -              | 18+  | unverified | unverified |
+| Export            | Cancellation   | Node | Deno       | Bun        |
+| ----------------- | -------------- | ---- | ---------- | ---------- |
+| `setTimeout`      | stops the work | 18+  | yes        | yes        |
+| `setImmediate`    | stops the work | 18+  | yes        | yes        |
+| `setInterval`     | stops the work | 18+  | yes        | yes        |
+| `scheduler.wait`  | stops the work | 18+  | unverified | unverified |
+| `scheduler.yield` | -              | 18+  | unverified | unverified |
+| `clearImmediate`  | -              | 18+  | unverified | unverified |
+| `clearInterval`   | -              | 18+  | unverified | unverified |
+| `clearTimeout`    | -              | 18+  | unverified | unverified |
+| `Immediate`       | -              | 18+  | unverified | unverified |
+| `Timeout`         | -              | 18+  | unverified | unverified |
 
 #### Immediate (timers)
 
