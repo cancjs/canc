@@ -1,6 +1,6 @@
 // Runs by CI, cron, or hand.
 // Authoritative sequence: check:node-surface (surface:validate -> surface:check)
-// owns letters A B C D F G H I W, letter H reused by error-thrown-check.mjs for another check
+// owns letters A B C D F G H I J W, letter H reused by error-thrown-check.mjs for another check
 import { execSync } from 'child_process';
 import { existsSync, readdirSync, readFileSync } from 'fs';
 import { dirname, join } from 'path';
@@ -494,6 +494,60 @@ if (existsSync(surfaceBaselinePath) && existsSync(join(ROOT, 'packages', 'canc-n
     execSync(`node "${surfaceBaselinePath}" --check`, { stdio: 'inherit', cwd: ROOT });
   } catch (_err) {
     fail(`Check I failed: the published surface does not match its baseline`);
+  }
+}
+
+// Check J: no manifest-only field reaches the published bundles.
+// A src module that imports a raw surface/*.json instead of the projected/ view leaks it whole.
+// ALLOWED_IN_DIST names every field a real consumer reads, swept against the built output.
+const distDir = join(ROOT, 'packages', 'canc-node', 'dist');
+if (existsSync(distDir)) {
+  const ALLOWED_IN_DIST = new Set([
+    'name',
+    'exports',
+    'nodeSignal',
+    'documented',
+    'since',
+    'sinceByMajor',
+    'probed',
+    'kind',
+    'wrapper',
+    'adopted',
+    'minMajor',
+    'gate',
+    'callPath',
+  ]);
+
+  const manifestOnlyKeys = new Set();
+  for (const manifest of manifests) {
+    for (const exp of manifest.exports || []) {
+      for (const key of Object.keys(exp)) {
+        if (!ALLOWED_IN_DIST.has(key)) manifestOnlyKeys.add(key);
+      }
+    }
+  }
+
+  function collectFiles(dir) {
+    const out = [];
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) out.push(...collectFiles(full));
+      else if (entry.name.endsWith('.cjs') || entry.name.endsWith('.mjs')) out.push(full);
+    }
+    return out;
+  }
+
+  const distFiles = collectFiles(distDir);
+  for (const key of manifestOnlyKeys) {
+    for (const file of distFiles) {
+      const contents = readFileSync(file, 'utf8');
+      if (contents.includes(`"${key}"`) || contents.includes(`${key}:`)) {
+        fail(
+          `Check J failed: manifest-only field "${key}" found in ${file} (surface manifest inlined into the bundle)`,
+        );
+        break;
+      }
+    }
   }
 }
 
