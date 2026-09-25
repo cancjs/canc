@@ -42,7 +42,6 @@ function isLongLabel(label: string): label is string {
 }
 
 async function testOverloadLadder() {
-  // 1. pipe(src, map(f), filter(g)) infers IPipeableAsyncIterable<O>, no any anywhere in result
   const lazy = pipe(
     numbers,
     map((x: number) => String(x)),
