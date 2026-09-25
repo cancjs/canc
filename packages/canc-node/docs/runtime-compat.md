@@ -86,7 +86,6 @@ Legend: `S` = Documented signal option, `y` = Present without signal, `-` = Abse
 | `getDefaultResultOrder` | y   | y   | y   | y   | y   | -            | v20.1.0  |
 | `setDefaultResultOrder` | y   | y   | y   | y   | y   | -            | v16.4.0  |
 | `Resolver`              | y   | y   | y   | y   | y   | -            | v8.3.0   |
-| `cancel`                | y   | y   | y   | y   | y   | -            | v8.3.0   |
 
 ### dnsPromises (dns)
 

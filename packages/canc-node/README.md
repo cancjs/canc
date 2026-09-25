@@ -127,7 +127,6 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 | `getDefaultResultOrder` | -                  | 18+  | yes    | yes    |
 | `setDefaultResultOrder` | -                  | 18+  | yes    | yes    |
 | `Resolver`              | -                  | 18+  | yes    | yes    |
-| `cancel`                | -                  | 18+  | method | method |
 
 #### dnsPromises (dns)
 
