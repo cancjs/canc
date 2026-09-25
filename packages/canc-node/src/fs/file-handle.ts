@@ -2,7 +2,7 @@ import type * as nodeFsPromises from 'node:fs/promises';
 
 import { CancelablePromise } from '@cancjs/promise';
 
-import manifest from '../../surface/fs.FileHandle.json';
+import manifest from '../../surface/projected/fs.FileHandle.json';
 import { features } from '../features';
 import { adopted, IManifestEntry, passthrough, signalWrapped, TCancelableFileHandle, TNodeFn } from './wrap';
 
@@ -12,10 +12,10 @@ export type { TCancelableFileHandle };
 interface IMemberEntry extends IManifestEntry {
   readonly kind: string;
   readonly wrapper: string;
-  readonly cancelCategory: string | null;
-  readonly minMajor?: number;
+  readonly adopted: boolean;
+  readonly minMajor?: number | null;
   readonly gate?: string | null;
-  readonly callPath?: string;
+  readonly callPath?: string | null;
 }
 
 /** Argument position node reads options from, for the members that do not take them first. */
@@ -137,6 +137,6 @@ function wrap(name: string, nativeFn: TNodeFn, known?: IMemberEntry): TNodeFn {
     case 'promisify-custom':
       return adopted(nativeFn);
     default:
-      return entry?.cancelCategory === 'D' ? adopted(nativeFn) : nativeFn;
+      return entry?.adopted ? adopted(nativeFn) : nativeFn;
   }
 }

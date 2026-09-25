@@ -3,7 +3,7 @@ import * as nodeStreamPromises from 'node:stream/promises';
 
 import { CancelablePromise } from '@cancjs/promise';
 
-import streamJson from '../../surface/stream.json';
+import streamJson from '../../surface/projected/stream.json';
 
 export { addAbortSignal, Duplex, duplexPair, PassThrough, Readable, Transform, Writable };
 

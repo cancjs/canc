@@ -1,0 +1,94 @@
+{
+  "exports": [
+    {
+      "name": "setTimeout",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v15.0.0",
+        "probed": "reject:AbortError",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "setImmediate",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v15.0.0",
+        "probed": "reject:AbortError",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "setInterval",
+      "nodeSignal": {
+        "documented": false,
+        "since": "v15.9.0",
+        "probed": "reject:AbortError",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "wait",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v17.3.0",
+        "probed": "reject:AbortError",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "yield",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "clearImmediate",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "clearInterval",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "clearTimeout",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "Immediate",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "Timeout",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    }
+  ]
+}

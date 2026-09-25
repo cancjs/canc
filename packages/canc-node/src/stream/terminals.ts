@@ -2,7 +2,7 @@ import type { Readable } from 'node:stream';
 
 import { CancelablePromise } from '@cancjs/promise';
 
-import readableJson from '../../surface/stream.Readable.json';
+import readableJson from '../../surface/projected/stream.Readable.json';
 
 // local copy of the signal-forwarding combinator also at packages/canc-node/src/stream/index.ts
 // and packages/canc-node/src/timers/index.ts; same names and behavior, dedupe later

@@ -1,0 +1,13 @@
+{
+  "exports": [
+    {
+      "name": "question",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v17.0.0",
+        "probed": null,
+        "sinceByMajor": null
+      }
+    }
+  ]
+}

@@ -1,0 +1,328 @@
+{
+  "exports": [
+    {
+      "name": "asIndexedPairs",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v17.5.0",
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "closed",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "compose",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v19.1.0",
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "destroy",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "destroyed",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "drop",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v17.5.0",
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "errored",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "every",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v17.5.0",
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "filter",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v17.4.0",
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "find",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v17.5.0",
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "flatMap",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v17.5.0",
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "forEach",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v17.5.0",
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "isPaused",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "iterator",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "map",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v17.4.0",
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "pause",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "pipe",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "read",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "readable",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "readableAborted",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "readableDidRead",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "readableEncoding",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "readableEnded",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "readableFlowing",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "readableHighWaterMark",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "readableLength",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "readableObjectMode",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "reduce",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v17.5.0",
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "resume",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "setEncoding",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "some",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v17.5.0",
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "take",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v17.5.0",
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "toArray",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v17.5.0",
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "unpipe",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "unshift",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "wrap",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    }
+  ]
+}

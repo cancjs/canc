@@ -2,7 +2,7 @@ import * as nodeTimersPromises from 'node:timers/promises';
 
 import { CancelablePromise } from '@cancjs/promise';
 
-import timersJson from '../../surface/timers.json';
+import timersJson from '../../surface/projected/timers.json';
 
 // local copy of the signal-forwarding combinator also at packages/canc-node/src/stream/index.ts
 // and packages/canc-node/src/fs/wrap.ts (once that module reaches this branch); same names and

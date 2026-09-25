@@ -1,0 +1,305 @@
+{
+  "exports": [
+    {
+      "name": "access",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "appendFile",
+      "nodeSignal": {
+        "documented": false,
+        "since": "v15.2.0",
+        "probed": "reject:AbortError",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "chmod",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "chown",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "constants",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "copyFile",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "n/a:no-options-arg",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "cp",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "glob",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "lchmod",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "lchown",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "link",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "lstat",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v26.8.0",
+        "probed": "resolve",
+        "sinceByMajor": {
+          "26": "v26.8.0"
+        }
+      }
+    },
+    {
+      "name": "lutimes",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "mkdir",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "mkdtemp",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "mkdtempDisposable",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "open",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "n/a:no-options-arg",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "opendir",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "readFile",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v15.2.0",
+        "probed": "reject:AbortError",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "readdir",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "readlink",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "realpath",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "rename",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "rm",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "rmdir",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "stat",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v26.8.0",
+        "probed": "resolve",
+        "sinceByMajor": {
+          "26": "v26.8.0"
+        }
+      }
+    },
+    {
+      "name": "statfs",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "symlink",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "truncate",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "unlink",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "utimes",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "watch",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v15.9.0",
+        "probed": "reject:AbortError",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "writeFile",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v15.2.0",
+        "probed": "reject:AbortError",
+        "sinceByMajor": null
+      }
+    }
+  ]
+}
