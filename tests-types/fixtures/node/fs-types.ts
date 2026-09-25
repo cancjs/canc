@@ -105,8 +105,15 @@ export async function fileHandleAssertions(path: string, nativeHandle: nodeFsp.F
   // property access is the assertion, it fails to compile if the stream has no pipe
   void rs.pipe;
 
-  type H1 = Expect<Equal<ReturnType<fs.TCancelableFileHandle['readableWebStream']>, ReturnType<nodeFsp.FileHandle['readableWebStream']>>>;
-  type H2 = Expect<Equal<ReturnType<fs.TCancelableFileHandle['createReadStream']>, ReturnType<nodeFsp.FileHandle['createReadStream']>>>;
+  type H1 = Expect<
+    Equal<
+      ReturnType<fs.TCancelableFileHandle['readableWebStream']>,
+      ReturnType<nodeFsp.FileHandle['readableWebStream']>
+    >
+  >;
+  type H2 = Expect<
+    Equal<ReturnType<fs.TCancelableFileHandle['createReadStream']>, ReturnType<nodeFsp.FileHandle['createReadStream']>>
+  >;
   type H3 = Expect<Equal<typeof fh, fs.TCancelableFileHandle>>;
   type H4 = Expect<Equal<typeof decorated, fs.TCancelableFileHandle>>;
 
