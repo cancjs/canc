@@ -1,6 +1,6 @@
 // Runs by CI, cron, or hand.
 // Authoritative sequence: check:node-surface (surface:validate -> surface:check)
-// owns letters A B C D F G H I J W, letter H reused by error-thrown-check.mjs for another check
+// owns letters A B C D E F G H I J W, error-thrown-check.mjs owns no letter, named instead
 import { execSync } from 'child_process';
 import { existsSync, readdirSync, readFileSync } from 'fs';
 import { dirname, join } from 'path';
