@@ -38,7 +38,14 @@ const REQUIRED_EXPORT_FIELDS = [
 
 // 'nodeSpecifier' overrides the manifest's own specifier for one export, for a member reached
 // through a submodule the manifest is not named after (node:stream/consumers under stream).
-const ALLOWED_EXPORT_FIELDS = new Set([...REQUIRED_EXPORT_FIELDS, 'teardown', 'notes', 'probed', 'nodeSpecifier']);
+const ALLOWED_EXPORT_FIELDS = new Set([
+  ...REQUIRED_EXPORT_FIELDS,
+  'teardown',
+  'notes',
+  'probed',
+  'nodeSpecifier',
+  'parent',
+]);
 
 const REQUIRED_SIGNAL_FIELDS = ['documented', 'since', 'probed'];
 const ALLOWED_SIGNAL_FIELDS = new Set([...REQUIRED_SIGNAL_FIELDS, 'sinceByMajor']);
@@ -258,6 +265,9 @@ export async function validateManifest(manifest, filename, nodeLock = null) {
 
     if (exp.teardown !== undefined && exp.teardown !== null && typeof exp.teardown !== 'string') {
       addErr(expName, 'teardown', 'must be a string or null');
+    }
+    if (exp.parent !== undefined && (typeof exp.parent !== 'string' || exp.parent.trim() === '')) {
+      addErr(expName, 'parent', 'must be a non-empty string');
     }
     if (exp.notes !== undefined && typeof exp.notes !== 'string') {
       addErr(expName, 'notes', 'must be a string');

@@ -135,6 +135,11 @@ function renderNodeVersion(exp) {
   return '18+';
 }
 
+// dotted form for a manifest entry nested under a parent, e.g. scheduler.wait
+function renderExportName(exp) {
+  return exp.parent ? `${exp.parent}.${exp.name}` : exp.name;
+}
+
 function formatMarkdownTable(headers, rows) {
   const colWidths = headers.map((h, i) => {
     let max = h.length;
@@ -171,7 +176,7 @@ export function generateReadmeSupportTables(manifests) {
 
     for (const exp of manifest.exports) {
       if (exp.kind === 'type' || exp.callPath === 'sync' || exp.kind === 'const') continue;
-      const exportName = `\`${exp.name}\``;
+      const exportName = `\`${renderExportName(exp)}\``;
       const cancellation = renderCancellationBehavior(exp.cancelCategory);
       const nodeVersion = renderNodeVersion(exp);
       const deno = renderStatusGlyph(exp.runtime?.deno);
@@ -244,7 +249,7 @@ export function generateRuntimeCompatDoc(manifests, nodeLock, runtimeLock) {
 
     for (const exp of manifest.exports) {
       if (exp.kind === 'type' || exp.callPath === 'sync' || exp.kind === 'const') continue;
-      const exportName = `\`${exp.name}\``;
+      const exportName = `\`${renderExportName(exp)}\``;
       const lockKey = `${lockPrefix}${exp.name}`;
       let lockEntry = moduleLock[lockKey];
       if (!lockEntry && moduleLock) {
@@ -367,6 +372,31 @@ export function generateRuntimeCompatDoc(manifests, nodeLock, runtimeLock) {
   return sections.join('\n\n');
 }
 
+// guards the dns-shaped defect: a renderer dropping a manifest's declared parent nesting
+export function assertNestedExportsRendered(manifests, renderedReadme) {
+  const violations = [];
+
+  for (const manifest of manifests) {
+    for (const exp of manifest.exports) {
+      if (!exp.parent) continue;
+      const barePattern = new RegExp(`^\\|\\s*\`${exp.name}\`\\s*\\|`, 'm');
+      const nestedPattern = new RegExp(`\`${exp.parent}\\.${exp.name}\``);
+      if (barePattern.test(renderedReadme)) {
+        violations.push(
+          `${manifest.subpath}: "${exp.name}" declares parent "${exp.parent}" but rendered as a bare row`,
+        );
+      }
+      if (!nestedPattern.test(renderedReadme)) {
+        violations.push(
+          `${manifest.subpath}: "${exp.name}" declares parent "${exp.parent}" but "${exp.parent}.${exp.name}" never appears rendered`,
+        );
+      }
+    }
+  }
+
+  return violations;
+}
+
 function updateGeneratedBlock(content, newBlock) {
   const startMarker = '<!-- generated:start -->';
   const endMarker = '<!-- generated:end -->';
@@ -407,6 +437,11 @@ export async function generateAll(options = {}) {
 
   // 1. Generate README tables
   const readmeGenerated = generateReadmeSupportTables(manifests);
+
+  const nestingViolations = assertNestedExportsRendered(manifests, readmeGenerated);
+  if (nestingViolations.length > 0) {
+    throw new Error(`nested export rendered flat:\n${nestingViolations.join('\n')}`);
+  }
 
   let readmeContent = await readFile(README_PATH, 'utf8');
   if (!readmeContent.includes('<!-- generated:start -->')) {
