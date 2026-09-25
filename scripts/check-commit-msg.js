@@ -141,28 +141,44 @@ if (stagedFiles.length > 0) {
     process.exit(1);
   }
 
+  // Changesets ride with whatever they describe; the path set used for scope
+  // checks must never be diluted by their presence.
   const nonChangesetFiles = stagedFiles.filter((f) => !f.startsWith('.changeset/'));
   const packageFiles = nonChangesetFiles.filter((f) => f.startsWith('packages/'));
   const nonPackageFiles = nonChangesetFiles.filter((f) => !f.startsWith('packages/'));
   const stagedPkgScopes = new Set(packageFiles.map(getPackageForFile).filter(Boolean));
 
-  if (nonChangesetFiles.length > 0 && packageFiles.length === nonChangesetFiles.length) {
-    if (stagedPkgScopes.size === 1) {
-      const [expectedPkgScope] = [...stagedPkgScopes];
-      if (PACKAGE_SCOPES.has(scope) && scope !== expectedPkgScope) {
-        console.error(
-          `Commit scope "(${scope})" does not match package scope "(${expectedPkgScope})".\n` +
-            `Files are in package directory for "${expectedPkgScope}":\n` +
-            nonChangesetFiles.map((f) => `  ${f}`).join('\n') +
-            `\nUse "(${expectedPkgScope})" or a cross-cutting scope (e.g. test, build, docs, types, repo).`,
-        );
-        process.exit(1);
-      }
+  // Two or more package scopes together used to get no check at all.
+  // The answer is always split the commit.
+  if (stagedPkgScopes.size >= 2) {
+    console.error(
+      `Commit touches ${stagedPkgScopes.size} package scopes: ${[...stagedPkgScopes].join(', ')}.\n` +
+        `Split the commit: each package's changes must be committed separately under its own scope.\n` +
+        `Package files:\n` +
+        packageFiles.map((f) => `  ${f}`).join('\n'),
+    );
+    process.exit(1);
+  }
+
+  // Cross-cutting scopes still allowed over a package-only commit. "docs" is
+  // deliberately excluded: package docs take the package's own scope.
+  const PKG_CROSS_CUTTING_SCOPES = new Set(['test', 'build', 'types', 'repo']);
+
+  if (packageFiles.length > 0 && nonPackageFiles.length === 0) {
+    const [expectedPkgScope] = [...stagedPkgScopes];
+    if (expectedPkgScope && scope !== expectedPkgScope && !PKG_CROSS_CUTTING_SCOPES.has(scope)) {
+      console.error(
+        `Commit scope "(${scope})" does not match package scope "(${expectedPkgScope})".\n` +
+          `Files are in package directory for "${expectedPkgScope}":\n` +
+          nonChangesetFiles.map((f) => `  ${f}`).join('\n') +
+          `\nUse "(${expectedPkgScope})" or a cross-cutting scope (test, build, types, repo).`,
+      );
+      process.exit(1);
     }
-  } else if (packageFiles.length > 0 && nonPackageFiles.length > 0 && stagedPkgScopes.size === 1) {
+  } else if (packageFiles.length > 0 && nonPackageFiles.length > 0) {
     const [expectedPkgScope] = [...stagedPkgScopes];
     console.error(
-      `Commit touches files in a single package directory ("${expectedPkgScope}") and other directories.\n` +
+      `Commit touches files in a package directory ("${expectedPkgScope}") and other directories.\n` +
         `Split the commit: package-owned changes must be committed separately under their own scope.\n` +
         `Package files:\n` +
         packageFiles.map((f) => `  ${f}`).join('\n') +
@@ -170,13 +186,39 @@ if (stagedFiles.length > 0) {
         nonPackageFiles.map((f) => `  ${f}`).join('\n'),
     );
     process.exit(1);
-  }
+  } else if (packageFiles.length === 0 && nonPackageFiles.length > 0) {
+    // No package paths at all: validate the scope against the non-package
+    // paths instead of skipping the check entirely.
+    const classifyNonPackagePath = (f) => {
+      if (f.startsWith('examples/') || f === 'examples') return 'examples';
+      if (f.startsWith('scripts/')) return 'build';
+      if (f.startsWith('tests-types/')) return 'types';
+      if (f.startsWith('tests-dist/')) return 'test';
+      if (f.startsWith('benchmarks/')) return 'bench';
+      if (f.startsWith('.github/')) return 'repo';
+      if (f.startsWith('docs/') || f === 'README.md') return 'docs';
+      return null;
+    };
+    const expectedScopes = new Set(nonPackageFiles.map(classifyNonPackagePath).filter(Boolean));
 
-  if (scope === 'docs' && stagedFiles.every((f) => f.startsWith('packages/'))) {
-    console.error(
-      '(docs) scope is reserved for repo-wide docs; package documentation uses package scope (e.g. (promise), (toolbox)) or (repo).',
-    );
-    process.exit(1);
+    if (expectedScopes.size > 0 && !expectedScopes.has(scope)) {
+      console.error(
+        `Commit scope "(${scope})" does not match the staged paths.\n` +
+          `Expected scope(s): ${[...expectedScopes].join(', ')}\n` +
+          `Files:\n` +
+          nonPackageFiles.map((f) => `  ${f}`).join('\n'),
+      );
+      process.exit(1);
+    }
+
+    if (expectedScopes.size === 0 && PACKAGE_SCOPES.has(scope)) {
+      console.error(
+        `Commit scope "(${scope})" is a package scope but no staged file is under that package's directory.\n` +
+          `Files:\n` +
+          nonPackageFiles.map((f) => `  ${f}`).join('\n'),
+      );
+      process.exit(1);
+    }
   }
 }
 
