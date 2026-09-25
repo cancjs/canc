@@ -34,7 +34,7 @@ extends ProcessEnvOptions, MessagingOptions, Abortable
 
 ```text
 extends ChildProcess
-readonly promise: CancelablePromise<IExecResult<T>>
+readonly promise: CancelablePromise<IExecResult<T>, never>
 ```
 
 ## `IExecResult<T extends string | Buffer = string>` (interface)
@@ -48,7 +48,7 @@ stdout: T
 
 ```text
 extends ChildProcess
-readonly promise: CancelablePromise<IProcessResult>
+readonly promise: CancelablePromise<IProcessResult, never>
 ```
 
 ## `IProcessResult` (interface)

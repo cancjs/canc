@@ -60,6 +60,6 @@ signal?: AbortSignal | undefined
 ## `once` (function)
 
 ```text
-(emitter: EventEmitter<DefaultEventMap>, eventName: string | symbol, options?: IOnceOptions | undefined): CancelablePromise<Array<any>>
-(emitter: EventTarget, eventName: string, options?: IOnceOptions | undefined): CancelablePromise<Array<any>>
+(emitter: EventEmitter<DefaultEventMap>, eventName: string | symbol, options?: IOnceOptions | undefined): CancelablePromise<Array<any>, never>
+(emitter: EventTarget, eventName: string, options?: IOnceOptions | undefined): CancelablePromise<Array<any>, never>
 ```

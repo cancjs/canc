@@ -369,6 +369,7 @@ valueOf: () => symbol
 ```text
 extends BaseJsonParseError
 new (message?: string | undefined, options?: Error | IJsonParseErrorOptions | undefined): JsonParseError
+static readonly name: "JsonParseError"
 readonly cause?: unknown
 message: string
 name: string
@@ -400,6 +401,7 @@ readonly syscall?: string | undefined
 ```text
 extends BaseNotImplementedError
 new (message?: string | undefined, options?: INotImplementedErrorOptions | undefined): NotImplementedError
+static readonly name: "NotImplementedError"
 readonly cause?: unknown
 readonly feature?: string | undefined
 message: string
@@ -432,6 +434,7 @@ valueOf: () => symbol
 ```text
 extends BaseProcessExitError
 new (message?: string | undefined, options?: IProcessExitErrorOptions | undefined): ProcessExitError
+static readonly name: "ProcessExitError"
 readonly cause?: unknown
 readonly command?: string | undefined
 readonly exitCode?: number | null | undefined
@@ -447,6 +450,7 @@ readonly stdout?: string | Buffer<ArrayBufferLike> | undefined
 ```text
 extends BaseProcessSpawnError
 new (message?: string | undefined, options?: IProcessSpawnErrorOptions | undefined): ProcessSpawnError
+static readonly name: "ProcessSpawnError"
 readonly cause?: unknown
 readonly code?: string | undefined
 readonly command?: string | undefined

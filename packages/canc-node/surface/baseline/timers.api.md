@@ -35,7 +35,7 @@ yield: () => Promise<void>
 ## `setImmediate<T = void>` (function)
 
 ```text
-<T = void>(value?: T | undefined, options?: ITimersOptions | undefined): CancelablePromise<T>
+<T = void>(value?: T | undefined, options?: ITimersOptions | undefined): CancelablePromise<T, never>
 ```
 
 ## `setInterval<T = number>` (function)
@@ -47,5 +47,5 @@ yield: () => Promise<void>
 ## `setTimeout<T = void>` (function)
 
 ```text
-<T = void>(delay?: number | undefined, value?: T | undefined, options?: ITimersOptions | undefined): CancelablePromise<T>
+<T = void>(delay?: number | undefined, value?: T | undefined, options?: ITimersOptions | undefined): CancelablePromise<T, never>
 ```
