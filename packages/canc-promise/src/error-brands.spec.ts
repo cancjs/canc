@@ -172,6 +172,41 @@ describe('brand scheme: brands are non-enumerable', () => {
   });
 });
 
+interface ITypeBrandEntry {
+  name: string;
+  prototype: object;
+  key: string;
+}
+
+// Classes built with a brand key (AbortError, TimeoutError) also carry the type-level literal
+// on the prototype under `_cancErrorBrand`, alongside the registry symbol above.
+const TYPE_BRAND_ENTRIES: ITypeBrandEntry[] = [
+  { name: 'AbortError', prototype: AbortError.prototype, key: '@cancjs/promise:AbortError' },
+  { name: 'TimeoutError', prototype: TimeoutError.prototype, key: '@cancjs/promise:TimeoutError' },
+];
+
+describe('brand scheme: _cancErrorBrand carries the type-level literal, non-enumerably', () => {
+  it.each(TYPE_BRAND_ENTRIES)('$name prototype carries the literal key', ({ prototype, key }) => {
+    expect((prototype as Record<string, unknown>)._cancErrorBrand).toBe(key);
+  });
+
+  it.each(TYPE_BRAND_ENTRIES)('$name _cancErrorBrand descriptor is non-enumerable', ({ prototype }) => {
+    const descriptor = Object.getOwnPropertyDescriptor(prototype, '_cancErrorBrand');
+
+    expect(descriptor).toBeDefined();
+    expect(descriptor!.enumerable).toBe(false);
+  });
+
+  // The Symbol.for registry brand must keep passing alongside the string-literal brand: the two
+  // are independent markers on the same prototype, and this pins that neither shadows the other.
+  it.each(TYPE_BRAND_ENTRIES)('$name keeps its Symbol.for registry brand too', ({ name, key }) => {
+    const entry = BRAND_KEYS.find((candidate) => candidate.name === name);
+
+    expect(entry).toBeDefined();
+    expect(Symbol.keyFor(entry!.brand)).toBe(key);
+  });
+});
+
 interface ICrossCopyEntry {
   name: string;
   brand: symbol;
