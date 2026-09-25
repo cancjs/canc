@@ -73,6 +73,7 @@ export function markTermOp<I, R>(fn: (source: AsyncIterable<I>) => PromiseLike<R
  * Returns true if the value is an `IPipeOp` branded function.
  */
 export function isPipeOp(value: unknown): value is IPipeOp<any, any> {
+  // any here narrows the brand only, not the element types the caller still has to check
   return typeof value === 'function' && (value as any)[PIPE_OP_BRAND] === true;
 }
 
@@ -80,6 +81,7 @@ export function isPipeOp(value: unknown): value is IPipeOp<any, any> {
  * Returns true if the value is an `ITermOp` branded function.
  */
 export function isTermOp(value: unknown): value is ITermOp<any, any> {
+  // any here narrows the brand only, not the element types the caller still has to check
   return typeof value === 'function' && (value as any)[TERM_OP_BRAND] === true;
 }
 
