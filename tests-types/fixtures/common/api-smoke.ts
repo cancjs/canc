@@ -106,7 +106,7 @@ void pAny;
 // --- resolve / reject / withResolvers ------------------------------------
 const pResolve = CancelablePromise.resolve(123);
 const pResolveVoid = CancelablePromise.resolve();
-const pReject = CancelablePromise.reject<number>('nope');
+const pReject = CancelablePromise.reject<number, string>('nope');
 void pResolve; void pResolveVoid; void pReject;
 
 const wr: ICancelablePromiseWithResolvers<string> = CancelablePromise.withResolvers<string>();

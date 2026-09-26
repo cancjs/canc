@@ -1,14 +1,18 @@
+import { Eq } from '../../../tests-types/fixtures/common/assert-type';
 import { CancelError } from './cancel-error';
 import { CancelablePromise, ICancelable } from './cancelable-promise';
 import {
-  _TimeoutError as TimeoutError,
+  AbortError as RealAbortError,
   CANCEL_SIGNAL_BRAND,
   catchCancel,
   createCancelSignal,
+  ICatchSuppressOptions,
   isCancelError,
   isCancelSignal,
   makeCancelable,
   suppressCancel,
+  TimeoutError as RealTimeoutError,
+  TimeoutError,
 } from './helpers';
 
 function flushPromises(): Promise<void> {
@@ -503,19 +507,66 @@ describe('makeCancelable', () => {
   });
 });
 
-describe('demoted error exports', () => {
-  it('demotes shared error classes to internal exports', () => {
-    // @ts-expect-error AbortError is demoted to _AbortError
+describe('promoted error exports', () => {
+  it('promotes shared error classes to public exports', () => {
     type _TestAbortError = import('@cancjs/promise').AbortError;
-    // @ts-expect-error TimeoutError is demoted to _TimeoutError
     type _TestTimeoutError = import('@cancjs/promise').TimeoutError;
-    // @ts-expect-error isAbortError is demoted to _isAbortError
     type _TestIsAbortError = typeof import('@cancjs/promise').isAbortError;
-    // @ts-expect-error isTimeoutError is demoted to _isTimeoutError
     type _TestIsTimeoutError = typeof import('@cancjs/promise').isTimeoutError;
 
     // AggregateError and isAggregateError remain public exports
     type _TestAggregateError = import('@cancjs/promise').AggregateError;
     type _TestIsAggregateError = typeof import('@cancjs/promise').isAggregateError;
+  });
+});
+
+describe('catchCancel / suppressCancel type subtraction options', () => {
+  it('types subtraction of abort and timeout flags correctly', () => {
+    type SampleErrors = RealAbortError | RealTimeoutError | TypeError;
+    const p = CancelablePromise.resolve(1) as unknown as CancelablePromise<number, SampleErrors>;
+
+    // 1. inline { abort: true } subtracts AbortError
+    const _c1 = catchCancel(p, { abort: true });
+    const _check1: Eq<typeof _c1, CancelablePromise<number | CancelError, RealTimeoutError | TypeError>> = true;
+
+    const _s1 = suppressCancel(p, { abort: true });
+    const _checkS1: Eq<typeof _s1, CancelablePromise<number | void, RealTimeoutError | TypeError>> = true;
+
+    // 2. { abort: true, timeout: true } subtracts both
+    const _c2 = catchCancel(p, { abort: true, timeout: true });
+    const _check2: Eq<typeof _c2, CancelablePromise<number | CancelError, TypeError>> = true;
+
+    const _s2 = suppressCancel(p, { abort: true, timeout: true });
+    const _checkS2: Eq<typeof _s2, CancelablePromise<number | void, TypeError>> = true;
+
+    // 3. { abort: false } subtracts nothing
+    const _c3 = catchCancel(p, { abort: false });
+    const _check3: Eq<typeof _c3, CancelablePromise<number | CancelError, SampleErrors>> = true;
+
+    const _s3 = suppressCancel(p, { abort: false });
+    const _checkS3: Eq<typeof _s3, CancelablePromise<number | void, SampleErrors>> = true;
+
+    // 4. a hoisted const bag = { abort: true } subtracts nothing (since abort widens to boolean)
+    const bag = { abort: true };
+    const _c4 = catchCancel(p, bag);
+    const _check4: Eq<typeof _c4, CancelablePromise<number | CancelError, SampleErrors>> = true;
+
+    const _s4 = suppressCancel(p, bag);
+    const _checkS4: Eq<typeof _s4, CancelablePromise<number | void, SampleErrors>> = true;
+
+    // 5. { abort: true } satisfies ICatchSuppressOptions and as const both subtract
+    const bagSatisfies = { abort: true } satisfies ICatchSuppressOptions;
+    const _c5a = catchCancel(p, bagSatisfies);
+    const _check5a: Eq<typeof _c5a, CancelablePromise<number | CancelError, RealTimeoutError | TypeError>> = true;
+
+    const bagAsConst = { abort: true } as const;
+    const _c5b = catchCancel(p, bagAsConst);
+    const _check5b: Eq<typeof _c5b, CancelablePromise<number | CancelError, RealTimeoutError | TypeError>> = true;
+
+    // 6. suppressCancel(p) with no options leaves TFailure untouched
+    const _s6 = suppressCancel(p);
+    const _checkS6: Eq<typeof _s6, CancelablePromise<number | void, SampleErrors>> = true;
+
+    void [_check1, _checkS1, _check2, _checkS2, _check3, _checkS3, _check4, _checkS4, _check5a, _check5b, _checkS6];
   });
 });

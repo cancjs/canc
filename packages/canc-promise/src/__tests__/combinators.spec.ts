@@ -331,16 +331,18 @@ describe('combinators', () => {
       const err = await result.catch((e) => e);
 
       expect(err).toBeInstanceOf(Error);
-      expect(err.name).toBe('AggregateError');
+      expect((err as any).name).toBe('AggregateError');
       // Order keyed by input index, NOT by settlement time.
-      expect(err.errors).toEqual([e0, e1]);
+      expect((err as any).errors).toEqual([e0, e1]);
     });
 
-    it('rejects an empty iterable with an AggregateError (empty errors)', async () => {
-      const result = CancelablePromise.any([]);
-      const err = await result.catch((e) => e);
-      expect(err.name).toBe('AggregateError');
-      expect(err.errors).toEqual([]);
+    it('rejects with empty AggregateError for empty iterable', async () => {
+      expect.assertions(2);
+
+      await CancelablePromise.any([]).catch((err) => {
+        expect((err as any).name).toBe('AggregateError');
+        expect((err as any).errors).toEqual([]);
+      });
     });
 
     it('fulfills immediately with a sync value', async () => {

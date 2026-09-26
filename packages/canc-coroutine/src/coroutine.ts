@@ -1,4 +1,12 @@
-import { CancelablePromise, CancelError, ICancelablePromiseOptions, isCancelError } from '@cancjs/promise';
+import {
+  AggregateError,
+  CancelablePromise,
+  CancelError,
+  Failing,
+  FailureOf,
+  ICancelablePromiseOptions,
+  isCancelError,
+} from '@cancjs/promise';
 
 import { copyFunctionMetadata, IFn, isFunction, isGenerator, isObject, isThenable, setFnName } from '../../_util';
 
@@ -15,6 +23,9 @@ const BREAK_ERROR_BRAND = Symbol.for('@cancjs/coroutine:BreakError');
 // returning `false`. A break is normal loop termination, not an error: the coroutine resolves past
 // the loop rather than rejecting.
 export class BreakError extends Error {
+  declare readonly [BREAK_ERROR_BRAND]: true;
+  declare name: 'BreakError';
+
   constructor(message = '') {
     super(message);
 
@@ -48,7 +59,15 @@ function isReturnUnwind(value: unknown): boolean {
 
 // `PNext` is `any`: a coroutine body mixes bare `yield` (raw value in, no send type) with
 // `yield*` (typed send value from `cancAwait`), so no single `PNext` fits every yield in the body.
-export type AsyncResult<T = void> = Generator<unknown, T, any>;
+/** Anything that is not an object can never carry a failure phantom, so admitting the primitive
+ * types costs no checking power and keeps a bare `yield` of an ordinary value working. */
+type TPrimitiveYield = string | number | boolean | bigint | symbol | null | undefined | void;
+
+export type AsyncResult<TResult = void, TFailure = unknown> = Generator<
+  unknown extends TFailure ? unknown : Failing<TFailure> | TPrimitiveYield,
+  TResult,
+  any
+>;
 
 export interface IGeneratorLikeFn<TThis = any> extends IFn {
   (this: TThis, ...args: any[]): TGeneratorLike;
@@ -66,7 +85,7 @@ function isGeneratorLike(value: any): boolean {
 }
 
 type TCoroutineReturn<TFn extends IGeneratorLikeFn, TReturn = ReturnType<TFn>> = Awaited<
-  TReturn extends Generator<unknown, infer R, unknown> ? R : never
+  TReturn extends Generator<infer _Y, infer R, infer _N> ? R : never
 >;
 
 // Flag-only options passed to per-step yielded-value wrappers: the coroutine-level `signal`
@@ -112,11 +131,15 @@ function toPromiseOptions(options?: TCoroutineOptions): ICancelablePromiseOption
   return promiseOptions;
 }
 
+type TCoroutineYield<TFn extends IGeneratorLikeFn, TReturn = ReturnType<TFn>> =
+  TReturn extends Generator<infer Y, infer _R, infer _N> ? Y : never;
+
 export function cancAsync<
   TFn extends IGeneratorLikeFn<TThis>,
   TArgs extends any[] = Parameters<TFn>,
   TReturn = TCoroutineReturn<TFn>,
   TThis = any,
+  TFailure = FailureOf<TCoroutineYield<TFn>>,
 >(genFn: TFn, ctx?: TThis, options?: TCoroutineOptions) {
   if (!isFunction(genFn)) {
     throw new TypeError('Argument is not a function');
@@ -149,8 +172,12 @@ export function cancAsync<
 
   setFnName(coroutine, 'coroutine', genFn, options?.displayName);
 
-  function coroutine(this: any, ...args: TArgs): CancelablePromise<TReturn> {
-    const { promise: coroutinePromise, resolve, reject } = CancelablePromise.withResolvers<TReturn>(promiseOptions);
+  function coroutine(this: any, ...args: TArgs): CancelablePromise<TReturn, TFailure> {
+    const {
+      promise: coroutinePromise,
+      resolve,
+      reject,
+    } = CancelablePromise.withResolvers<TReturn, TFailure>(promiseOptions);
 
     try {
       // `this` threading: an explicitly supplied `ctx` wins; otherwise the call-site `this` of the
@@ -197,7 +224,7 @@ export function cancAsync<
       // is deferred behind the finally settling (and can be lost in a race). Canceling it here at
       // drain start makes scope-exit abort the in-flight work immediately, regardless of the
       // finally's duration. Cleared once the step settles.
-      let pendingSource: CancelablePromise<any> | undefined;
+      let pendingSource: CancelablePromise<any, any> | undefined;
 
       // Deferred that settles when the finally drain completes. Deposited on the first cancel that
       // starts a drain; the drain's terminal branches (pumpFinally done / any sync-or-async throw)
@@ -515,7 +542,23 @@ function createYielder<TProduce, TSend>(
   };
 }
 
-type cancAwait = <T>(value: Promise<T> | T) => T;
+/**
+ * `throw`, as a yieldable step. Runtime: a generator that throws on its first `next()`, so `yield*`
+ * propagates it at the call site and ordinary try/catch/finally behaves exactly as with a bare
+ * `throw`. The yield type is a type-level carrier only; nothing is ever yielded.
+ *
+ * Note: `yield*` is not a call expression, so TypeScript does not treat what follows as unreachable.
+ * A bare `yield* canc.throw(e)` as the last statement of a body with a declared non-void return type
+ * gives TS2355 ("A function whose declared type is neither 'undefined', 'void', nor 'any' must return
+ * a value"). Use `return yield* canc.throw(e)` instead, as `never` widens to any return type.
+ */
+export function cancThrow<TFailure>(error: TFailure): Generator<Failing<TFailure>, never, any> {
+  return (function* (): Generator<Failing<TFailure>, never, any> {
+    throw error;
+  })();
+}
+
+type cancAwait = <T>(value: T) => T;
 
 /**
  * One-shot combinator helpers for the typed `yield*` path.
@@ -546,22 +589,22 @@ type TSettledTuple<T extends readonly unknown[]> = { -readonly [K in keyof T]: P
 type ICancAwaitAll = <T extends readonly unknown[] | []>(
   values: readonly [...T],
   options?: ICancelablePromiseOptions,
-) => Generator<CancelablePromise<TAwaitedTuple<T>>, TAwaitedTuple<T>, TAwaitedTuple<T>>;
+) => Generator<CancelablePromise<TAwaitedTuple<T>, FailureOf<T[number]>>, TAwaitedTuple<T>, TAwaitedTuple<T>>;
 
 type ICancAwaitRace = <T extends readonly unknown[] | []>(
   values: readonly [...T],
   options?: ICancelablePromiseOptions,
-) => Generator<CancelablePromise<Awaited<T[number]>>, Awaited<T[number]>, Awaited<T[number]>>;
+) => Generator<CancelablePromise<Awaited<T[number]>, FailureOf<T[number]>>, Awaited<T[number]>, Awaited<T[number]>>;
 
 type ICancAwaitAny = <T extends readonly unknown[] | []>(
   values: readonly [...T],
   options?: ICancelablePromiseOptions,
-) => Generator<CancelablePromise<Awaited<T[number]>>, Awaited<T[number]>, Awaited<T[number]>>;
+) => Generator<CancelablePromise<Awaited<T[number]>, AggregateError>, Awaited<T[number]>, Awaited<T[number]>>;
 
 type ICancAwaitAllSettled = <T extends readonly unknown[] | []>(
   values: readonly [...T],
   options?: ICancelablePromiseOptions,
-) => Generator<CancelablePromise<TSettledTuple<T>>, TSettledTuple<T>, TSettledTuple<T>>;
+) => Generator<CancelablePromise<TSettledTuple<T>, never>, TSettledTuple<T>, TSettledTuple<T>>;
 
 // Mirrors `CancelablePromise.try`: folds a possibly-sync-throwing call into a single yielded step.
 // The `yield*` value is the call's own (awaited) result, same tuple/union-free shape as a plain
@@ -569,7 +612,7 @@ type ICancAwaitAllSettled = <T extends readonly unknown[] | []>(
 type ICancAwaitTry = <T, TArgs extends any[]>(
   fn: (...args: TArgs) => T | PromiseLike<T>,
   ...args: TArgs
-) => Generator<CancelablePromise<Awaited<T>>, Awaited<T>, Awaited<T>>;
+) => Generator<CancelablePromise<Awaited<T>, FailureOf<T>>, Awaited<T>, Awaited<T>>;
 
 // `each` accepts an async iterable or a sync iterable whose members may be promises: both are
 // driven one pull at a time, awaiting each value at a coroutine cancellation point. The callback
@@ -586,12 +629,12 @@ export type TForAwaitCallback<T> =
   | ((value: T, index: number) => CancelablePromise<void | false>);
 
 interface ICancForAwait {
-  <T>(source: TEachSource<T>, cb: TForAwaitCallback<T>): Generator<unknown, void, any>;
-  toArray<T>(source: TEachSource<T>): Generator<unknown, T[], any>;
+  <T>(source: TEachSource<T>, cb: TForAwaitCallback<T>): Generator<Failing<BreakError>, void, any>;
+  toArray<T>(source: TEachSource<T>): Generator<Failing<BreakError>, T[], any>;
 }
 
 interface ICancAwait {
-  <T>(value: Promise<T> | T): Generator<Promise<T> | T, T, T>;
+  <T>(value: T): Generator<T, Awaited<T>, any>;
   all: ICancAwaitAll;
   race: ICancAwaitRace;
   any: ICancAwaitAny;
@@ -599,7 +642,7 @@ interface ICancAwait {
   try: ICancAwaitTry;
 }
 
-function makeCombinator(build: (...args: any[]) => CancelablePromise<any>) {
+function makeCombinator(build: (...args: any[]) => CancelablePromise<any, any>) {
   return function* (...args: any[]): Generator<any, any, any> {
     return yield build(...args);
   };

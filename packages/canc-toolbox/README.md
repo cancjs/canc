@@ -117,8 +117,8 @@ That is the promise constructor antipattern in cancelable clothing. Wrap once, c
 
 ### Signal interop
 
-`toAbortSignal(promise)` derives a signal that aborts when the promise is canceled or otherwise
-rejects, for handing cancelable work to an API that only speaks `AbortSignal`.
+`toAbortSignal(promise)` derives a signal that aborts when the promise is canceled or rejects.
+Use it when passing cancelable work to an API that only speaks `AbortSignal`.
 
 `withSignal(signal, promiseOrFn)` is the inverse convenience: it races work against an incoming
 signal, and passes the value through unraced when the signal is `undefined`, so optional
@@ -134,6 +134,8 @@ signal that aborts with a `CancelError` rather than a bare `DOMException`, use
 [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise#abortsignal-interop).
 
 ### Ending a flow
+
+> Note: Error classes and filtering helpers (`AbortError`, `isAbortError`, `TimeoutError`, `isTimeoutError`, `createCatchError`, `createSuppressError`, `catchAbort`, `suppressAbort`, `catchTimeout`, `suppressTimeout`) have moved to `@cancjs/promise`. Re-exports in `@cancjs/toolbox` are deprecated and maintained for backward compatibility.
 
 Filtering error helpers swallow specific expected errors when a flow ends:
 
@@ -199,6 +201,16 @@ Pipeable operators for cancelable async iterables are planned as the `@cancjs/to
 entry point 🚧. Until it lands, consume and produce async iterables with `canc.forAwait` and
 `cancGen.async` from
 [`@cancjs/coroutine`](https://github.com/cancjs/canc/tree/master/packages/canc-coroutine).
+
+### Declared failures
+
+Helpers in `@cancjs/toolbox` preserve and propagate the declared failure types of the promises they wrap. In addition:
+
+- `timeout` and `waitFor` declare `TimeoutError` in their return type's failure set.
+- `retry`, `minDelay`, `debounce`, `throttle`, and the `LazyPromise` family propagate the failure set of their underlying work or promise.
+- `delay`, `promisify`, `cancelify`, and deferred constructors return promises with a `never` failure set by default unless an underlying input specifies otherwise.
+
+Cancellation (rejection with a `CancelError`) is part of the cancellation control flow rather than an application failure set. See [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) for details on declared failures and error matching.
 
 ## API
 
@@ -276,7 +288,7 @@ floor on success, not a timer. Pick the one that matches what a failure should d
 | `withSignal(signal, promiseOrFn)` | Races work against a signal, passes through when there is none   |
 | `createAbortSignal()`             | Plain `AbortController` convenience, returns `{ signal, abort }` |
 
-### Filtering errors
+### Filtering errors (deprecated, import from @cancjs/promise)
 
 | Export                             | Description                                                                         |
 | ---------------------------------- | ----------------------------------------------------------------------------------- |
@@ -302,7 +314,7 @@ floor on success, not a timer. Pick the one that matches what a failure should d
 
 ### Errors
 
-`AbortError`, `isAbortError(error)`, `TimeoutError`, `isTimeoutError(error)`.
+`AbortError`, `isAbortError(error)`, `TimeoutError`, `isTimeoutError(error)` (deprecated; import from `@cancjs/promise`).
 
 ## Compatibility
 

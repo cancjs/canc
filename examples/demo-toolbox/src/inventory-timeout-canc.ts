@@ -10,6 +10,9 @@ type InventoryApi = MockApiBundle['inventory'];
  * underlying inventory call immediately. The mock API logs aborted (see spec)
  * compared to vanilla completed.
  */
-export function fetchInventoryWithTimeout(inventoryApi: InventoryApi, productId: string): CancelablePromise<number> {
+export function fetchInventoryWithTimeout(
+  inventoryApi: InventoryApi,
+  productId: string,
+): CancelablePromise<number, any> {
   return timeout(inventoryApi.check(productId), 500);
 }

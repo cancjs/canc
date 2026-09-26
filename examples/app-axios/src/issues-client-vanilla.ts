@@ -14,6 +14,7 @@ export class VanillaIssuesClient {
 
   constructor(private instance: AxiosInstance) {}
 
+  // (Native Promise cannot declare failures — see -canc twin)
   async searchIssues(query: string): Promise<SearchResult> {
     const searchId = `search_${Date.now()}_${Math.random()}`;
     const ac = new AbortController();

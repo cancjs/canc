@@ -73,8 +73,11 @@ const profile = createLazyPromise(loadProfile, { signal });
 ```
 
 An already-aborted signal means the executor never runs at all; aborting while it is running
-rejects with the signal's `reason`. The underlying work itself keeps going. Only the waiting
-stops, because a native promise cannot be canceled. `lazy` and `createLazyPromise` wrap functions or promises.
+rejects with the signal's `reason`. The underlying work itself keeps going. Only the waiting stops, because a native promise cannot be canceled. `lazy` and `createLazyPromise` wrap functions or promises.
+
+### Declared failures
+
+`@cancjs/toolbox-native` operates entirely on built-in native promises. Native promises in JavaScript do not track failure types at the type level, so helpers in this package do not declare typed failure sets. Applications requiring typed failure contracts should use [`@cancjs/toolbox`](https://github.com/cancjs/canc/tree/master/packages/canc-toolbox) with [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise).
 
 ## API
 

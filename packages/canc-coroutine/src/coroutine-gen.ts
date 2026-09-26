@@ -1,7 +1,17 @@
-import { CancelablePromise, CancelError, ICancelablePromiseOptions, isCancelError } from '@cancjs/promise';
+import {
+  AggregateError,
+  CancelablePromise,
+  CancelError,
+  Failing,
+  FAILURE,
+  FailureOf,
+  ICancelablePromiseOptions,
+  isCancelError,
+} from '@cancjs/promise';
 
 import { isFunction, isGenerator, isObject, isThenable, setFnName } from '../../_util';
 import {
+  BreakError,
   getStepIterator,
   IGeneratorLikeFn,
   returnStepIterator,
@@ -60,27 +70,27 @@ type TGenSettledTuple<T extends readonly unknown[]> = { -readonly [K in keyof T]
 type ICancGenAwaitAll = <T extends readonly unknown[] | []>(
   values: readonly [...T],
   options?: ICancelablePromiseOptions,
-) => Generator<TAwaited<TGenAwaitedTuple<T>>, TGenAwaitedTuple<T>, TGenAwaitedTuple<T>>;
+) => Generator<TAwaited<TGenAwaitedTuple<T>> & Failing<FailureOf<T[number]>>, TGenAwaitedTuple<T>, TGenAwaitedTuple<T>>;
 
 type ICancGenAwaitRace = <T extends readonly unknown[] | []>(
   values: readonly [...T],
   options?: ICancelablePromiseOptions,
-) => Generator<TAwaited<Awaited<T[number]>>, Awaited<T[number]>, Awaited<T[number]>>;
+) => Generator<TAwaited<Awaited<T[number]>> & Failing<FailureOf<T[number]>>, Awaited<T[number]>, Awaited<T[number]>>;
 
 type ICancGenAwaitAny = <T extends readonly unknown[] | []>(
   values: readonly [...T],
   options?: ICancelablePromiseOptions,
-) => Generator<TAwaited<Awaited<T[number]>>, Awaited<T[number]>, Awaited<T[number]>>;
+) => Generator<TAwaited<Awaited<T[number]>> & Failing<AggregateError>, Awaited<T[number]>, Awaited<T[number]>>;
 
 type ICancGenAwaitAllSettled = <T extends readonly unknown[] | []>(
   values: readonly [...T],
   options?: ICancelablePromiseOptions,
-) => Generator<TAwaited<TGenSettledTuple<T>>, TGenSettledTuple<T>, TGenSettledTuple<T>>;
+) => Generator<TAwaited<TGenSettledTuple<T>> & Failing<never>, TGenSettledTuple<T>, TGenSettledTuple<T>>;
 
 type ICancGenAwaitTry = <T, TArgs extends any[]>(
   fn: (...args: TArgs) => T | PromiseLike<T>,
   ...args: TArgs
-) => Generator<TAwaited<Awaited<T>>, Awaited<T>, Awaited<T>>;
+) => Generator<TAwaited<Awaited<T>> & Failing<FailureOf<T>>, Awaited<T>, Awaited<T>>;
 
 /**
  * Internal await inside a `cancGenAsync` body: suspend on `value`, resume with its resolution, typed
@@ -92,7 +102,7 @@ type ICancGenAwaitTry = <T, TArgs extends any[]>(
  * const n = yield* cancGenAwait(Promise.resolve(1)); // n: number, no cast
  */
 export interface ICancGenAwait {
-  <T>(value: Promise<T> | T): Generator<TAwaited<Awaited<T>>, Awaited<T>, Awaited<T>>;
+  <T>(value: T): Generator<TAwaited<Awaited<T>> & Failing<FailureOf<T>>, Awaited<T>, any>;
   all: ICancGenAwaitAll;
   race: ICancGenAwaitRace;
   any: ICancGenAwaitAny;
@@ -110,7 +120,7 @@ function cancGenAwaitImpl<T>(value: Promise<T> | T): Generator<TAwaited<Awaited<
 // wrapped in the `awaited(...)` marker instead of a bare `yield`, so the `cancGenAsync` driver treats
 // it as an INTERNAL await (never emitted to the consumer's `for await`), matching every other
 // `cancGenAwait` step.
-function makeGenCombinator(build: (...args: any[]) => CancelablePromise<any>) {
+function makeGenCombinator(build: (...args: any[]) => CancelablePromise<any, any>) {
   return function* (...args: any[]): Generator<TAwaited<any>, any, any> {
     return yield awaited(build(...args));
   };
@@ -127,13 +137,38 @@ cancGenAwait.allSettled = makeGenCombinator(
 cancGenAwait.try = makeGenCombinator(CancelablePromise.try.bind(CancelablePromise)) as ICancGenAwait['try'];
 
 /**
+ * `throw`, as a yieldable step in the async-generator dialect (`cancGen.throw`). Runtime: a generator
+ * that throws on its first `next()`, so `yield*` propagates it at the call site and ordinary
+ * try/catch/finally behaves exactly as with a bare `throw`. The yield type carries `Failing<TFailure>`
+ * intersected with `TAwaited<never>` so the `cancGenAsync` emit filter `Exclude<TYield, TAwaited<any>>`
+ * strips it from the consumer-facing emit type.
+ */
+export function cancGenThrow<TFailure>(error: TFailure): Generator<TAwaited<never> & Failing<TFailure>, never, any> {
+  return (function* (): Generator<TAwaited<never> & Failing<TFailure>, never, any> {
+    throw error;
+  })();
+}
+
+/**
  * Body annotation for a `cancGenAsync` generator. `E` = emit type (what the consumer's `for await`
  * sees); `R` = final return. The `| TAwaited<any>` admits `yield* cancGenAwait(...)` internal awaits;
  * the `cancGenAsync` signature strips the marker from the consumer-facing emit type. Mirror of
  * `AsyncResult`. Optional: for a body that only `yield`s emits and `yield*`s `cancGenAwait`, `E` and
  * `R` infer from the body. Annotate for explicitness or to pin a bare `yield`'s type.
  */
-export type AsyncGenResult<E, R = void> = Generator<E | TAwaited<any>, R, any>;
+export type AsyncGenResult<TEmit, TReturn = void, TFailure = unknown> = Generator<
+  TEmit | (unknown extends TFailure ? TAwaited<any> : TAwaited<any> & Failing<TFailure>),
+  TReturn,
+  any
+>;
+
+export interface ICancAsyncGenerator<T, TReturn = any, TNext = any, TFailure = never> extends AsyncGenerator<
+  T,
+  TReturn,
+  TNext
+> {
+  readonly [FAILURE]?: TFailure;
+}
 
 // Public typed signature: the emit type flows to the consumer and the internal-await marker is
 // stripped. `Exclude<TYield, TAwaited<any>>` drops the marker (its unique `Symbol.for` key means real
@@ -142,11 +177,14 @@ export type AsyncGenResult<E, R = void> = Generator<E | TAwaited<any>, R, any>;
 export function cancGenAsync<TYield, TReturn, TArgs extends any[], TThis = any>(
   genFn: (this: TThis, ...args: TArgs) => Generator<TYield, TReturn, any>,
   options?: TCancelableCoroutineGenOptions,
-): (this: TThis, ...args: TArgs) => AsyncGenerator<Exclude<TYield, TAwaited<any>>, TReturn>;
+): (
+  this: TThis,
+  ...args: TArgs
+) => ICancAsyncGenerator<Exclude<TYield, TAwaited<any>>, TReturn, any, FailureOf<TYield>>;
 export function cancGenAsync(
   genFn: IGeneratorLikeFn,
   options?: TCancelableCoroutineGenOptions,
-): (...args: any[]) => AsyncGenerator<any, any>;
+): (...args: any[]) => ICancAsyncGenerator<any, any>;
 export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCoroutineGenOptions = {}) {
   if (!isFunction(genFn)) {
     throw new TypeError('Argument is not a function');
@@ -171,16 +209,16 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
     let canceled = false;
     // The in-flight awaited source (internal await or the completed-return awaitable). Tracked so a
     // cancel arriving mid-await can abort the underlying op by canceling this source directly.
-    let pendingSource: CancelablePromise<any> | undefined;
+    let pendingSource: CancelablePromise<any, any> | undefined;
 
     const asyncGen = {
       [Symbol.asyncIterator]() {
         return this;
       },
-    } as AsyncGenerator;
+    } as ICancAsyncGenerator<any, any>;
 
     for (const method of genMethods) {
-      asyncGen[method] = (value?: any): CancelablePromise<any> => {
+      asyncGen[method] = (value?: any): CancelablePromise<any, any> => {
         return new CancelablePromise((resolve, reject, { handleCancel }) => {
           const step: TAsyncGeneratorStep = {
             method,
@@ -356,8 +394,8 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
  * `return false` from any form breaks the loop. `.toArray` collects into an array instead.
  */
 interface ICancGenForAwait {
-  <T>(source: TEachSource<T>, cb: TForAwaitCallback<T>): Generator<TAwaited<any>, void, any>;
-  toArray<T>(source: TEachSource<T>): Generator<TAwaited<any>, T[], any>;
+  <T>(source: TEachSource<T>, cb: TForAwaitCallback<T>): Generator<TAwaited<any> & Failing<BreakError>, void, any>;
+  toArray<T>(source: TEachSource<T>): Generator<TAwaited<any> & Failing<BreakError>, T[], any>;
 }
 
 export const cancGenForAwait = function* cancGenForAwait(
@@ -431,6 +469,9 @@ cancGenForAwait.toArray = function* toArray(source: any): Generator<TAwaited<any
  * per-item body). Direct `yield* source` cannot work: a sync producer generator cannot `yield*` an
  * async iterable.
  */
+export function cancGenDelegate<T>(
+  source: TEachSource<T>,
+): Generator<T | (TAwaited<any> & Failing<BreakError>), void, any>;
 export function cancGenDelegate<T>(source: TEachSource<T>): Generator<T | TAwaited<any>, void, any> {
   return (function* (): Generator<T | TAwaited<any>, void, any> {
     const { it, async: isAsync } = getStepIterator(source);

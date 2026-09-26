@@ -88,7 +88,10 @@ export function promisifyFactory<K extends IPromiseKind = IPromiseLikeKind>(deps
    * Turn an errfirst (or value-first) callback function into one returning a promise built against
    * the bound implementation.
    */
-  return function promisify(fn: TCallbackFn, options?: IPromisifyOptions): (...args: any[]) => TPromiseOf<K, any> {
+  return function promisify(
+    fn: TCallbackFn,
+    options?: IPromisifyOptions,
+  ): (...args: any[]) => TPromiseOf<K, any, never> {
     const errorFirst = options?.errorFirst !== false;
     const multiArgs = options?.multiArgs;
     const useCustom = options?.custom !== false;
@@ -99,7 +102,7 @@ export function promisifyFactory<K extends IPromiseKind = IPromiseLikeKind>(deps
     const customImpl = useCustom ? (fn as unknown as Record<PropertyKey, unknown>)[kCustom] : undefined;
     const custom: TCallbackFn | undefined = typeof customImpl === 'function' ? (customImpl as TCallbackFn) : undefined;
 
-    const wrapped = function (this: unknown, ...callArgs: any[]): TPromiseOf<K, any> {
+    const wrapped = function (this: unknown, ...callArgs: any[]): TPromiseOf<K, any, never> {
       // `run` is an arrow, so it keeps this function's receiver without aliasing it.
       const run = (resolve: (value: any) => void, reject: (reason?: any) => void, ctx?: IExecutorCtx) => {
         // Custom impl short-circuits the callback path entirely: call it and adopt its promise.
@@ -181,7 +184,7 @@ export function promisifyAllFactory<K extends IPromiseKind = IPromiseLikeKind>(d
   // It lives in the factory closure rather than at module scope: the inlinable shared directory is
   // bundled into every consuming package, so a module-level cache would be a different object per
   // copy while claiming to be one.
-  const wrappedCache = new WeakMap<TCallbackFn, (...args: any[]) => TPromiseOf<K, any>>();
+  const wrappedCache = new WeakMap<TCallbackFn, (...args: any[]) => TPromiseOf<K, any, never>>();
 
   /**
    * Batch-promisify the methods of an object. See IPromisifyAllOptions for selection, naming, and

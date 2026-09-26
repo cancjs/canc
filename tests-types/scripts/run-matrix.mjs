@@ -117,7 +117,7 @@ function writeFixture(version, tarballs) {
     ) + '\n',
   );
 
-  const files = ['../common/api-smoke.ts'];
+  const files = config.commonFixtures ? [...config.commonFixtures] : ['../common/api-smoke.ts'];
   if (version.typeAssertions) {
     files.push('../common/type-assertions.ts');
     files.push('../common/coroutine-types.ts');

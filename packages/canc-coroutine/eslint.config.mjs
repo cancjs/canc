@@ -23,4 +23,14 @@ export default tseslint.config(
       },
     },
   },
+
+  // Throw-only generators in the public API. `cancThrow` and `cancGenThrow` are intentional
+  // generators that throw on first next() without yielding, a deliberate pattern for propagating
+  // typed errors at the call site. The require-yield rule is correctly suppressed here, not a mistake.
+  {
+    files: ['src/coroutine.ts', 'src/coroutine-gen.ts'],
+    rules: {
+      'require-yield': 'off',
+    },
+  },
 );

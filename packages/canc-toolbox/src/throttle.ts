@@ -1,4 +1,4 @@
 import { throttleFactory } from '../../_toolbox/throttle';
-import { deps } from './deps';
+import { deps, ICancelableKind } from './deps';
 
-export const throttle = throttleFactory(deps);
+export const throttle = throttleFactory<ICancelableKind>(deps);

@@ -108,7 +108,7 @@ describe('state machine matrix', () => {
       p2.then(() => order.push('then')).catch(() => {
         /* noop for unhandled */
       });
-      p2.catch((reason) => order.push(`catch:${reason}`));
+      p2.catch((reason) => order.push(`catch:${reason as any}`));
       p2.finally(() => {
         order.push('finally');
       }).catch(() => {
@@ -261,7 +261,7 @@ describe('state machine matrix', () => {
 
       await promise.catch((err) => {
         expect(err).toBeInstanceOf(CancelError);
-        expect(err.message).toBe('specific-reason');
+        expect((err as any).message).toBe('specific-reason');
       });
     });
   });
@@ -444,7 +444,7 @@ describe('state machine matrix', () => {
       expect(() => promise.cancel('second')).not.toThrow();
 
       await promise.catch((err) => {
-        expect(err.message).toBe('first');
+        expect((err as any).message).toBe('first');
       });
     });
 

@@ -1,3 +1,4 @@
+import { TimeoutError } from '../_util';
 import { IExecutorCtx } from './construct';
 import { constructTimed } from './construct-timed';
 import { IToolboxDeps } from './deps';
@@ -22,7 +23,7 @@ export function waitForFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: 
    * timer. The condition may be sync or async; an async condition is awaited before the next poll is
    * scheduled, so slow conditions never overlap.
    */
-  return function waitFor(condition: () => unknown, options?: IWaitForOptions): TPromiseOf<K, void> {
+  return function waitFor(condition: () => unknown, options?: IWaitForOptions): TPromiseOf<K, void, TimeoutError> {
     const interval = options?.interval ?? 20;
     const limit = options?.timeout ?? Infinity;
 
@@ -69,7 +70,15 @@ export function waitForFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: 
         };
 
         if (limit !== Infinity) {
-          deadlineId = startTimer(() => finish(() => reject(new Error('waitFor timed out'))), limit, deps);
+          deadlineId = startTimer(
+            () =>
+              finish(() => {
+                const Ctor = deps.TimeoutError || TimeoutError;
+                reject(new Ctor('waitFor timed out'));
+              }),
+            limit,
+            deps,
+          );
         }
 
         if (ctx) {

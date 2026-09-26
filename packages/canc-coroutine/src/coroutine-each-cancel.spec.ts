@@ -201,7 +201,7 @@ describe('cancForAwait / cancForAwait.toArray — cancel semantics (bugs 1-4)', 
     // Declared ahead of the coroutine: the callback below cancels it re-entrantly while co() is
     // still running, so const would hit the temporal dead zone.
     // eslint-disable-next-line prefer-const -- see above
-    let p: CancelablePromise<any>;
+    let p: CancelablePromise<any, any>;
     const co = cancAsync(function* () {
       try {
         yield* cancForAwait(source, (value: number) => {

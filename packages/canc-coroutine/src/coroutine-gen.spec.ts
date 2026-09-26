@@ -1,6 +1,13 @@
 import { CancelablePromise, CancelError, isCancelError, suppressCancel } from '@cancjs/promise';
 
-import { AsyncGenResult, cancGenAsync, cancGenAwait, cancGenDelegate, cancGenForAwait } from './coroutine-gen';
+import {
+  AsyncGenResult,
+  cancGenAsync,
+  cancGenAwait,
+  cancGenDelegate,
+  cancGenForAwait,
+  cancGenThrow,
+} from './coroutine-gen';
 
 // Helpers
 async function drain<T>(iter: AsyncIterator<T> | AsyncIterable<T>): Promise<{ values: T[]; ret: any }> {
@@ -242,7 +249,7 @@ describe('cancGenAsync — native async-generator parity', () => {
     }
     const cancGen = cancGenAsync(function* (): AsyncGenResult<string> {
       try {
-        yield* cancGenAwait<string>(CancelablePromise.reject('nope'));
+        yield* cancGenAwait(CancelablePromise.reject('nope'));
         yield 'unreached';
       } catch (e) {
         yield `err:${String(e)}`;
@@ -1036,5 +1043,126 @@ describe('cancGenAsync displayName', () => {
     });
 
     expect((gen as any).name).toBe((gen as any).displayName);
+  });
+});
+
+describe('cancGenThrow', () => {
+  class FooError extends Error {
+    constructor() {
+      super('foo');
+      this.name = 'FooError';
+    }
+  }
+
+  it('throws on the first next() call when driven raw', () => {
+    const err = new FooError();
+    const gen = cancGenThrow(err);
+    expect(() => gen.next()).toThrow(err);
+  });
+
+  it('caught by ordinary try/catch inside coroutine-gen and finally runs', async () => {
+    let caught: any = null;
+    let finallyRan = false;
+    const err = new FooError();
+
+    const gen = cancGenAsync(function* () {
+      try {
+        yield 1;
+        yield* cancGenThrow(err);
+        yield 2;
+      } catch (e) {
+        caught = e;
+      } finally {
+        finallyRan = true;
+      }
+      yield 3;
+    });
+
+    const { values } = await drain(gen());
+    expect(caught).toBe(err);
+    expect(finallyRan).toBe(true);
+    expect(values).toEqual([1, 3]);
+  });
+
+  it('uncaught throw rejects the in-flight .next() promise and runs finally', async () => {
+    let finallyRan = false;
+    const err = new FooError();
+
+    const gen = cancGenAsync(function* () {
+      try {
+        yield 1;
+        yield* cancGenThrow(err);
+      } finally {
+        finallyRan = true;
+      }
+    });
+
+    const iter = gen();
+    const first = await iter.next();
+    expect(first).toEqual({ value: 1, done: false });
+
+    await expect(iter.next()).rejects.toBe(err);
+    expect(finallyRan).toBe(true);
+  });
+
+  it('driver saw no extra yielded value from cancGenThrow', async () => {
+    const yieldedValues: any[] = [];
+    const err = new FooError();
+
+    const gen = cancGenAsync(function* () {
+      yield 1;
+      try {
+        yield* cancGenThrow(err);
+      } catch {
+        // swallow
+      }
+      yield 2;
+    });
+
+    const iter = gen();
+    for await (const val of iter) {
+      yieldedValues.push(val);
+    }
+
+    expect(yieldedValues).toEqual([1, 2]);
+  });
+
+  it('type spec: emit type excludes Failing<TFailure> and infers exact emit type', () => {
+    const err = new FooError();
+    const gen = cancGenAsync(function* () {
+      const val = 42 as number;
+      yield val;
+      yield* cancGenThrow(err);
+    });
+
+    const producer: AsyncGenerator<number, void> = gen();
+    expect(producer).toBeDefined();
+
+    type TEmit = typeof gen extends (...args: any[]) => AsyncGenerator<infer E, any> ? E : never;
+    const testEmitType: TEmit = 42;
+    expect(typeof testEmitType).toBe('number');
+  });
+
+  it('type spec: cancGenAwait carries failure on marker while yield* resumes with unwrapped type', () => {
+    class FooError extends Error {}
+    class BarError extends Error {}
+
+    const pFoo = CancelablePromise.resolve(42) as CancelablePromise<number, FooError>;
+    const pBar = CancelablePromise.resolve('hello') as CancelablePromise<string, BarError>;
+
+    const gen = cancGenAsync(function* () {
+      const n = yield* cancGenAwait(pFoo);
+      const s = yield* cancGenAwait(pBar);
+      yield n;
+      if (n > 50) yield* cancGenThrow(new FooError());
+      return s;
+    });
+
+    const producer: AsyncGenerator<number, string> = gen();
+    expect(producer).toBeDefined();
+
+    type TEmit = typeof gen extends (...args: any[]) => AsyncGenerator<infer E, any> ? E : never;
+    const testEmit: TEmit = 100;
+    expect(typeof testEmit).toBe('number');
   });
 });

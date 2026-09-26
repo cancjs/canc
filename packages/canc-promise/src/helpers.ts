@@ -35,13 +35,7 @@ export const _isTimeoutLike = isTimeoutLike(isCancelError);
 export const isCancPromise = (value: any): value is CancelablePromise<any> =>
   isObject(value) && value[CANCEL_PROMISE_BRAND] === true;
 
-export { AggregateError, isAggregateError };
-/** @internal */ export {
-  AbortError as _AbortError,
-  isAbortError as _isAbortError,
-  isTimeoutError as _isTimeoutError,
-  TimeoutError as _TimeoutError,
-};
+export { AbortError, AggregateError, isAbortError, isAggregateError, isTimeoutError, TimeoutError };
 
 // Agent-wide brand marking a "cancel signal": an AbortSignal that aborts with a CancelError.
 // Same Symbol.for-registry rationale as CANCEL_ERROR_BRAND, cross-realm/cross-copy safe.
@@ -95,32 +89,54 @@ export interface ICatchSuppressOptions extends ICancelablePromiseOptions {
   timeout?: boolean;
 }
 
+type TSubtractFlags<O> =
+  (O extends { abort: true } ? AbortError : never) | (O extends { timeout: true } ? TimeoutError : never);
+
 // One code path for both the built-in pair below and the matcher factories in error-matchers.ts:
 // only the base predicate differs. Here it is the CancelError brand check.
 const catchCancelImpl = makeCatch({ matches: isCancelError, isCancelError, flagsEnabled: true });
 const suppressCancelImpl = makeSuppress({ matches: isCancelError, isCancelError, flagsEnabled: true });
 
-export function catchCancel<TResult>(
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- default type parameter constrains extension to ICatchSuppressOptions but defaults to empty object to avoid silent behavior changes if required members are added later
+export function catchCancel<TResult, TFailure, O extends ICatchSuppressOptions = {}>(
+  promise: CancelablePromise<TResult, TFailure>,
+  options?: O,
+): CancelablePromise<TResult | CancelError, Exclude<TFailure, TSubtractFlags<O>>>;
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export function catchCancel<TResult, O extends ICatchSuppressOptions = {}>(
   promise: PromiseLike<TResult>,
-  options?: ICatchSuppressOptions,
-): CancelablePromise<TResult | CancelError>;
-export function catchCancel<TError>(error: TError, options?: ICatchSuppressOptions): CancelError | TError | never;
-export function catchCancel<TResult, TError>(
+  options?: O,
+): CancelablePromise<TResult | CancelError, never>;
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export function catchCancel<TError, O extends ICatchSuppressOptions = {}>(
+  error: TError,
+  options?: O,
+): CancelError | TError | never;
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export function catchCancel<TResult, TError, O extends ICatchSuppressOptions = {}>(
   errorOrPromise: PromiseLike<TResult> | TError,
-  options?: ICatchSuppressOptions,
-): CancelablePromise<TResult | CancelError> | CancelError | TError | never {
+  options?: O,
+): CancelablePromise<TResult | CancelError, any> | CancelError | TError | never {
   return catchCancelImpl(errorOrPromise, options);
 }
 
-export function suppressCancel<TResult>(
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- default type parameter constrains extension to ICatchSuppressOptions but defaults to empty object to avoid silent behavior changes if required members are added later
+export function suppressCancel<TResult, TFailure, O extends ICatchSuppressOptions = {}>(
+  promise: CancelablePromise<TResult, TFailure>,
+  options?: O,
+): CancelablePromise<TResult | void, Exclude<TFailure, TSubtractFlags<O>>>;
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export function suppressCancel<TResult, O extends ICatchSuppressOptions = {}>(
   promise: PromiseLike<TResult>,
-  options?: ICatchSuppressOptions,
-): CancelablePromise<TResult | void>;
-export function suppressCancel<TError>(error: TError, options?: ICatchSuppressOptions): void | never;
-export function suppressCancel<TResult, TError>(
+  options?: O,
+): CancelablePromise<TResult | void, never>;
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export function suppressCancel<TError, O extends ICatchSuppressOptions = {}>(error: TError, options?: O): void | never;
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export function suppressCancel<TResult, TError, O extends ICatchSuppressOptions = {}>(
   errorOrPromise: PromiseLike<TResult> | TError,
-  options?: ICatchSuppressOptions,
-): CancelablePromise<TResult | void> | void | never {
+  options?: O,
+): CancelablePromise<TResult | void, any> | void | never {
   return suppressCancelImpl(errorOrPromise, options);
 }
 

@@ -18,22 +18,30 @@ export { createAbortSignal, toAbortSignal, withSignal } from './abort';
 export type { ICancelifyContext, ICancelifyOptions, TCancelifyFn } from './cancelify';
 export { cancelify } from './cancelify';
 export { debounce } from './debounce';
-export {
-  AbortError,
-  catchAbort,
-  catchTimeout,
-  createCatchError,
-  createSuppressError,
-  isAbortError,
-  isTimeoutError,
-  suppressAbort,
-  suppressTimeout,
-  TimeoutError,
-} from './errors';
+/** @deprecated Import from @cancjs/promise instead. */
+export { AbortError } from '@cancjs/promise';
+/** @deprecated Import from @cancjs/promise instead. */
+export { catchAbort } from '@cancjs/promise';
+/** @deprecated Import from @cancjs/promise instead. */
+export { catchTimeout } from '@cancjs/promise';
+/** @deprecated Import from @cancjs/promise instead. */
+export { createCatchError } from '@cancjs/promise';
+/** @deprecated Import from @cancjs/promise instead. */
+export { createSuppressError } from '@cancjs/promise';
+/** @deprecated Import from @cancjs/promise instead. */
+export { isAbortError } from '@cancjs/promise';
+/** @deprecated Import from @cancjs/promise instead. */
+export { isTimeoutError } from '@cancjs/promise';
+/** @deprecated Import from @cancjs/promise instead. */
+export { suppressAbort } from '@cancjs/promise';
+/** @deprecated Import from @cancjs/promise instead. */
+export { suppressTimeout } from '@cancjs/promise';
+/** @deprecated Import from @cancjs/promise instead. */
 export type { IExecutorCtx, IToolboxOptions, TEagerToolboxOptions, THandleCancel, TToolboxExecutor } from './options';
 export type { ICancelableDeferred } from './prebound';
 export { defer, delay, minDelay, promisify, promisifyAll, retry, timeout, waitFor } from './prebound';
 export { throttle } from './throttle';
+/** @deprecated Import from @cancjs/promise instead. */
 export type {
   ICatchErrorFn,
   ISuppressErrorFn,
@@ -41,3 +49,5 @@ export type {
   TErrorMatcher,
   TErrorPredicate,
 } from '@cancjs/promise';
+/** @deprecated Import from @cancjs/promise instead. */
+export { TimeoutError } from '@cancjs/promise';

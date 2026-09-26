@@ -198,7 +198,7 @@ describe('rfc §3 — catchCancel and in-body catch vs coroutine cancel', () => 
   it('in-body catch DOES catch a sub-operation that fails independently', async () => {
     const co = cancAsync(function* () {
       try {
-        yield* cancAwait<string>(Promise.reject(new Error('sub-op-failed')));
+        yield* cancAwait(Promise.reject<string>(new Error('sub-op-failed')));
         return 'no-throw';
       } catch (e) {
         return `caught:${(e as Error).message}`;

@@ -1,6 +1,21 @@
-import { CancelError, createCancelSignal, isCancelError } from '@cancjs/promise';
+import {
+  AbortError,
+  CancelablePromise,
+  CancelError,
+  createCancelSignal,
+  createIsError,
+  isCancelError,
+  isTimeoutError,
+  TimeoutError,
+} from '@cancjs/promise';
 
-import { cancelableFetchFactory, cancelableFetchLaterFactory } from './base';
+import {
+  cancelableFetchFactory,
+  cancelableFetchLaterFactory,
+  IFetchLaterResultLike,
+  TCancelableFetchFailure,
+  TCancelableFetchLaterPromise,
+} from './base';
 
 // Minimal AbortController/AbortSignal test doubles: enough surface for the factory (signal with
 // aborted flag + abort()/onabort/addEventListener/dispatchEvent).
@@ -732,5 +747,40 @@ describe('import safety', () => {
         expect(typeof mod.cancelableFetchLaterFactory).toBe('function');
       });
     }).not.toThrow();
+  });
+});
+
+describe('declared failure set', () => {
+  it('types public return values with TCancelableFetchFailure', () => {
+    const fetchFn = cancelableFetchFactory({ fetch: jest.fn().mockImplementation(() => new Promise(() => {})) });
+    const fetchLaterFn = cancelableFetchLaterFactory({ fetchLater: jest.fn().mockReturnValue({ activated: false }) });
+    const _p1: CancelablePromise<any, TCancelableFetchFailure> = fetchFn('https://example.com');
+    const _p2: TCancelableFetchLaterPromise = fetchLaterFn('https://example.com');
+    const _p3: CancelablePromise<IFetchLaterResultLike, TCancelableFetchFailure> = _p2;
+    expect(_p1).toBeDefined();
+    expect(_p2).toBeDefined();
+    expect(_p3).toBeDefined();
+    _p1.catch(() => {});
+    _p2.catch(() => {});
+  });
+
+  it('matches AbortSignal.timeout() driven rejection with isTimeoutError and declared set guard', async () => {
+    const timeoutErr = new TimeoutError('The operation timed out');
+    const mockFetch = jest.fn().mockRejectedValue(timeoutErr);
+    const fetchFn = cancelableFetchFactory({ fetch: mockFetch });
+
+    const isFetchFailure = createIsError(TimeoutError, AbortError);
+    const promise = fetchFn('https://example.com');
+
+    let caughtError: unknown = null;
+    try {
+      await promise;
+    } catch (err) {
+      caughtError = err;
+    }
+
+    expect(caughtError).not.toBeNull();
+    expect(isTimeoutError(caughtError)).toBe(true);
+    expect(isFetchFailure(caughtError)).toBe(true);
   });
 });

@@ -29,7 +29,6 @@ import type {
 } from '@cancjs/promise';
 import type { Equal, Expect } from './assert-type';
 
-// @ts-expect-error AbortError is no longer a public export of @cancjs/promise
 import { AbortError } from '@cancjs/promise';
 void AbortError;
 
@@ -118,7 +117,7 @@ const race = CancelablePromise.race([Promise.resolve(1), Promise.resolve(2)]);
 type _race = Expect<Equal<typeof race, CancelablePromise<number>>>;
 
 const any = CancelablePromise.any([Promise.resolve(1), Promise.resolve('a')] as const);
-type _any = Expect<Equal<typeof any, CancelablePromise<number | string>>>;
+type _any = Expect<Equal<typeof any, CancelablePromise<number | string, AggregateError>>>;
 
 // @ts-expect-error all() requires an iterable, not a bare value
 CancelablePromise.all(123);
@@ -129,8 +128,8 @@ type _resAwait = Expect<Equal<typeof resNested, CancelablePromise<number>>>;
 
 const allSettled = CancelablePromise.allSettled([Promise.resolve(1), Promise.resolve('a')] as const);
 type _allSettled = Expect<Equal<
- typeof allSettled,
- CancelablePromise<[PromiseSettledResult<number>, PromiseSettledResult<string>]>
+  typeof allSettled,
+  CancelablePromise<[PromiseSettledResult<number>, PromiseSettledResult<string>]>
 >>;
 
 // ============================================================ withResolvers
@@ -174,10 +173,10 @@ const st = suppressTimeout(Promise.resolve(7));
 type _suppressTimeout = Expect<Equal<typeof st, CancelablePromise<number | void>>>;
 
 const cce = createCatchError(ToolboxAbortError);
-type _createCatchError = Expect<Equal<typeof cce, ICatchErrorFn>>;
+type _createCatchError = Expect<Equal<typeof cce, ICatchErrorFn<[typeof ToolboxAbortError]>>>;
 
 const cse = createSuppressError(ToolboxTimeoutError);
-type _createSuppressError = Expect<Equal<typeof cse, ISuppressErrorFn>>;
+type _createSuppressError = Expect<Equal<typeof cse, ISuppressErrorFn<[typeof ToolboxTimeoutError]>>>;
 
 const nsa = nativeSuppressAbort(Promise.resolve(7));
 type _nativeSuppressAbort = Expect<Equal<typeof nsa, Promise<number | void>>>;

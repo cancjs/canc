@@ -35,12 +35,12 @@ gap in this library: the type of a `yield` expression cannot depend on the opera
 
 The relevant TypeScript issues:
 
-- [microsoft/TypeScript#32523](https://github.com/microsoft/TypeScript/issues/32523) — request for
+- [microsoft/TypeScript#32523](https://github.com/microsoft/TypeScript/issues/32523): request for
   per-yield contextual typing, closed as a design limitation. This is the canonical "why generators
   can't type their resumed values" thread.
-- [microsoft/TypeScript#36967](https://github.com/microsoft/TypeScript/issues/36967) — open,
+- [microsoft/TypeScript#36967](https://github.com/microsoft/TypeScript/issues/36967): open,
   tracking stronger inference for generator `next` values.
-- [microsoft/TypeScript#43632](https://github.com/microsoft/TypeScript/issues/43632) — open,
+- [microsoft/TypeScript#43632](https://github.com/microsoft/TypeScript/issues/43632): open,
   related proposal for typing the resumed value from the yielded operand.
 
 Until one of those lands, `yield*` delegation is the only way to get a typed resumed value, and it
@@ -59,6 +59,8 @@ In the mirror generator namespace, `cancGenAwait(p)` works the same way: it retu
 to delegate, so `yield* cancGenAwait(p)` inside a `cancGenAsync` body resumes with the correct
 resolved type, no cast required.
 
+The same `yield*` delegation pattern powers `cancThrow(err)` and `cancGenThrow(err)`. Yielding `cancThrow` returns `never` through `yield*` while conveying the failure type to the enclosing generator's yield slot.
+
 ## Combinator helpers
 
 `cancAwait` also carries one-shot combinator helpers so you keep tuple inference when awaiting several
@@ -66,7 +68,7 @@ promises at once:
 
 ```ts
 const [user, posts] = yield* cancAwait.all([fetchUser(id), fetchPosts(id)]);
-// ^ User ^ Post[] — a tuple, not unknown[]
+// ^ User ^ Post[]: a tuple, not unknown[]
 
 const first = yield* cancAwait.race([slow(), fast()]);
 const winner = yield* cancAwait.any([primary(), backup()]);

@@ -1,4 +1,4 @@
-import { _TimeoutError, CancelablePromise } from '@cancjs/promise';
+import { CancelablePromise, TimeoutError } from '@cancjs/promise';
 
 import { IPromiseKind, IToolboxDeps, TPromiseCtor } from '../../_toolbox';
 import { IToolboxOptions } from './options';
@@ -9,7 +9,7 @@ import { IToolboxOptions } from './options';
  * accept the canc options, without a wrapper or a cast per helper.
  */
 export interface ICancelableKind extends IPromiseKind {
-  promise: CancelablePromise<this['value']>;
+  promise: CancelablePromise<this['value'], this['failure']>;
   options: IToolboxOptions;
 }
 
@@ -26,5 +26,5 @@ export const deps: IToolboxDeps<ICancelableKind> = {
   // executor, which is what lets a `{ lazy: true }` deferred wrapper built from this deps object
   // cancel before its first subscription and not just after.
   cancelable: true,
-  TimeoutError: _TimeoutError,
+  TimeoutError,
 };

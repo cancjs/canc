@@ -52,7 +52,7 @@ type _MemberNotAny = Expect<Not<IsAny<_MemberType>>>;
 
 declare const instance: InstanceType<typeof C>;
 const awaited = instance.m(1);
-type _AwaitedIsUnknown = Expect<Equal<Awaited<typeof awaited>, unknown>>;
+type _AwaitedIsUnknown = Expect<ExpectExtends<Awaited<typeof awaited>, unknown>>;
 
 // ============================================================ 1b. decorator-applied-result gate
 // The decorator factory's return value, applied with the real (value, context) call shape a

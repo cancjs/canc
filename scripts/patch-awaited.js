@@ -35,7 +35,6 @@ function patchFile(file) {
 
   const usesAwaited = /\bAwaited\s*</.test(content);
   const declaresAwaited = /\btype\s+Awaited\b/.test(content);
-
   if (!usesAwaited || declaresAwaited) {
     return false;
   }

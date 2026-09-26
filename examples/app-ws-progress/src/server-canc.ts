@@ -59,8 +59,8 @@ export function startServer(backend: ExportBackend, port = 0): Promise<ServerHan
 function handleConnection(ws: WebSocket, transcode: Transcoder): void {
   // The connection's cancel root: an intentional scope handle. A pending-forever CancelablePromise,
   // never resolved; canceling it cancels every job below. This is the only hand-built primitive.
-  const connectionRoot = new CancelablePromise<void>(() => {});
-  const jobs = new Map<string, CancelablePromise<void>>();
+  const connectionRoot = new CancelablePromise<void, any>(() => {});
+  const jobs = new Map<string, CancelablePromise<void, any>>();
 
   // Socket close = second cancel path. Cancel the root; its children (all jobs) go with it.
   ws.on('close', () => connectionRoot.cancel(new CancelError('Connection closed')));
@@ -75,8 +75,8 @@ function handleConnection(ws: WebSocket, transcode: Transcoder): void {
 async function readMessages(
   ws: WebSocket,
   transcode: Transcoder,
-  connectionRoot: CancelablePromise<void>,
-  jobs: Map<string, CancelablePromise<void>>,
+  connectionRoot: CancelablePromise<void, any>,
+  jobs: Map<string, CancelablePromise<void, any>>,
 ): Promise<void> {
   // The signal dies with the connection root, ending this native iterator cleanly.
   const signal = toAbortSignal(connectionRoot);
@@ -96,7 +96,7 @@ function dispatch(
   message: ClientMessage,
   ws: WebSocket,
   transcode: Transcoder,
-  jobs: Map<string, CancelablePromise<void>>,
+  jobs: Map<string, CancelablePromise<void, any>>,
 ): void {
   if (message.type === 'start') {
     if (jobs.has(message.jobId)) return;
@@ -111,8 +111,8 @@ function runJob(
   jobId: string,
   ws: WebSocket,
   transcode: Transcoder,
-  jobs: Map<string, CancelablePromise<void>>,
-): CancelablePromise<void> {
+  jobs: Map<string, CancelablePromise<void, any>>,
+): CancelablePromise<void, any> {
   // The job is a coroutine that consumes the export stream. Its own cancel runs the iterator's
   // `return()` for us, which aborts the chunk in flight and stops every later chunk.
   const job = canc.async(function* () {

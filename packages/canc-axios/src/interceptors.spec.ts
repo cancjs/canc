@@ -81,7 +81,7 @@ describe('interceptors', () => {
     const bad = api.get('/bad');
     await nextTick();
     stub.fail(500);
-    const error = await bad.catch((reason) => reason);
+    const error = await bad.catch((reason: any) => reason);
 
     expect(errorSignal).toBe(error.config.signal);
     expect(isCancelError(error)).toBe(false);

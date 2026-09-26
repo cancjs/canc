@@ -10,7 +10,7 @@ function createFetch(fetch: any) {
   return cancelableFetchFactory({ fetch });
 }
 
-function searchRepos(query: string, fetch: any): CancelablePromise<Repo> {
+function searchRepos(query: string, fetch: any): CancelablePromise<Repo, any> {
   const cancelableFetch = createFetch(fetch);
 
   // Chain: search → detail fetch. Canceling the coroutine cancels both legs.
@@ -32,7 +32,7 @@ function searchRepos(query: string, fetch: any): CancelablePromise<Repo> {
 }
 
 // External signal: pass signal into fetch. Returns CancelablePromise chain.
-function searchReposWithExternal(query: string, fetch: any, signal?: AbortSignal): CancelablePromise<Repo> {
+function searchReposWithExternal(query: string, fetch: any, signal?: AbortSignal): CancelablePromise<Repo, any> {
   const cancelableFetch = createFetch(fetch);
 
   return canc.async(function* () {
@@ -53,7 +53,7 @@ function searchReposWithExternal(query: string, fetch: any, signal?: AbortSignal
 }
 
 // Pre-aborted signal: promise born-canceled (no fetch starts).
-function searchReposPreAborted(query: string, fetch: any): CancelablePromise<Repo> {
+function searchReposPreAborted(query: string, fetch: any): CancelablePromise<Repo, any> {
   // Demonstrates pre-aborted signal making fetch reject immediately on construction.
   const abortController = new AbortController();
   abortController.abort();
@@ -71,8 +71,8 @@ function searchReposPreAborted(query: string, fetch: any): CancelablePromise<Rep
 }
 
 // Timeout composition: race with timeout (stops underlying fetch if timeout wins).
-function searchReposWithTimeout(query: string, fetch: any, timeoutMs = 100): CancelablePromise<Repo> {
-  return timeout(searchRepos(query, fetch), timeoutMs) as CancelablePromise<Repo>;
+function searchReposWithTimeout(query: string, fetch: any, timeoutMs = 100): CancelablePromise<Repo, any> {
+  return timeout(searchRepos(query, fetch), timeoutMs) as CancelablePromise<Repo, any>;
 }
 
 export { searchRepos, searchReposPreAborted, searchReposWithExternal, searchReposWithTimeout };

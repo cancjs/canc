@@ -1,5 +1,6 @@
 import '@cancjs/unhandled-rejection/register';
 
+import { isCancelError } from '@cancjs/promise';
 import { createMockApi } from '@shared/mock-api';
 import axios from 'axios';
 
@@ -29,7 +30,12 @@ async function main() {
 
   // Await both. Search 1 will settle as canceled; search 2 completes.
   const result2 = await search2Promise.catch((err) => {
-    console.error(` Search 2 rejected: ${err.message}`);
+    // The failure set is declared, so err is narrowed to AxiosError | CancelError.
+    if (isCancelError(err)) {
+      console.log(' Search 2 canceled');
+    } else {
+      console.error(` Search 2 rejected: ${err.message}`);
+    }
     return { issues: [], query: 'feature' };
   });
 

@@ -3,18 +3,21 @@ import { isObject } from './guards';
 /**
  * Instance shape shared by every error class built here.
  */
-export interface ICancError extends Error {
-  name: string;
+export interface ICancError<TName extends string = string> extends Error {
+  name: TName;
   message: string;
 }
 
 /**
  * Constructor shape {@link createErrorClass} produces. Each class below also declares a type alias
  * of the same name, so the exported name works in value and in type position.
+ *
+ * The return type omits brand properties to prevent index signature widening on bare `ICancErrorConstructor`.
+ * Specific error classes (AbortError, TimeoutError) provide more precise types through their type aliases.
  */
-export interface ICancErrorConstructor {
-  readonly prototype: ICancError;
-  new (message?: string): ICancError;
+export interface ICancErrorConstructor<TName extends string = string, _TBrand extends symbol = symbol> {
+  readonly prototype: ICancError<TName>;
+  new (message?: string): ICancError<TName>;
 }
 
 interface IDomExceptionConstructor {
@@ -46,11 +49,11 @@ function defineQuietly(target: object, key: PropertyKey, value: unknown): void {
 // `class X extends DOMException` compiles down to `DOMException.call(this, ...)` under the es5
 // target, and that throws "Illegal constructor". Reflect.construct is the portable way to get a
 // DOMException-backed instance whose prototype chain still points at the subclass.
-function createDomExceptionClass(
+function createDomExceptionClass<TName extends string, TBrand extends symbol>(
   domException: IDomExceptionConstructor,
-  name: string,
+  name: TName,
   defaultMessage?: string,
-): ICancErrorConstructor {
+): ICancErrorConstructor<TName, TBrand> {
   class DomExceptionBackedError {
     constructor(message?: string) {
       const target = new.target;
@@ -58,7 +61,7 @@ function createDomExceptionClass(
         domException,
         [resolveMessage(message, defaultMessage), name],
         target,
-      ) as ICancError;
+      ) as ICancError<TName>;
 
       if (Object.getPrototypeOf(instance) !== target.prototype) {
         Object.setPrototypeOf(instance, target.prototype);
@@ -70,12 +73,15 @@ function createDomExceptionClass(
 
   Object.setPrototypeOf(DomExceptionBackedError.prototype, domException.prototype);
 
-  return DomExceptionBackedError as unknown as ICancErrorConstructor;
+  return DomExceptionBackedError as unknown as ICancErrorConstructor<TName, TBrand>;
 }
 
-function createNativeErrorClass(name: string, defaultMessage?: string): ICancErrorConstructor {
+function createNativeErrorClass<TName extends string, TBrand extends symbol>(
+  name: TName,
+  defaultMessage?: string,
+): ICancErrorConstructor<TName, TBrand> {
   class NativeErrorBackedError extends Error {
-    name: string;
+    name: TName;
 
     constructor(message?: string) {
       super(resolveMessage(message, defaultMessage));
@@ -87,7 +93,7 @@ function createNativeErrorClass(name: string, defaultMessage?: string): ICancErr
     }
   }
 
-  return NativeErrorBackedError;
+  return NativeErrorBackedError as unknown as ICancErrorConstructor<TName, TBrand>;
 }
 
 /**
@@ -96,7 +102,11 @@ function createNativeErrorClass(name: string, defaultMessage?: string): ICancErr
  * value), and by Error everywhere else. The two bases take different constructor arguments,
  * `(message, name)` against `(message)`, so the branches cannot share a constructor body.
  */
-export function createErrorClass(name: string, defaultMessage?: string): ICancErrorConstructor {
+export function createErrorClass<TName extends string, TBrand extends symbol = symbol>(
+  name: TName,
+  brand?: TBrand,
+  defaultMessage?: string,
+): ICancErrorConstructor<TName, TBrand> {
   const domException =
     typeof DOMException !== 'undefined' && typeof Reflect !== 'undefined' && typeof Reflect.construct === 'function' ?
       DOMException
@@ -104,12 +114,16 @@ export function createErrorClass(name: string, defaultMessage?: string): ICancEr
 
   const ErrorClass =
     domException ?
-      createDomExceptionClass(domException, name, defaultMessage)
-    : createNativeErrorClass(name, defaultMessage);
+      createDomExceptionClass<TName, TBrand>(domException, name, defaultMessage)
+    : createNativeErrorClass<TName, TBrand>(name, defaultMessage);
 
   // The classes are built inside a factory, so their intrinsic name would otherwise be the local
   // one used above. Callers that match an error by constructor read this.
   defineQuietly(ErrorClass, 'name', name);
+
+  if (brand !== undefined) {
+    brandPrototype(ErrorClass.prototype, brand);
+  }
 
   if (typeof Symbol !== 'undefined' && Symbol.toStringTag) {
     // defineProperty rather than assignment: DOMException.prototype exposes Symbol.toStringTag as
@@ -128,17 +142,18 @@ export const AGGREGATE_ERROR_BRAND = Symbol.for('@cancjs/promise:AggregateError'
  * Rejected or thrown when an operation is aborted. Carries the same `name` as the DOMException a
  * real AbortSignal produces, so one code path handles both.
  */
-export const AbortError = createErrorClass('AbortError', 'The operation was aborted');
-export type AbortError = ICancError;
+export const AbortError = createErrorClass('AbortError', ABORT_ERROR_BRAND, 'The operation was aborted');
+export type AbortError = InstanceType<typeof AbortError>;
 
 /**
  * Rejected when a deadline elapses before the operation it guards settles.
  */
-export const TimeoutError = createErrorClass('TimeoutError', 'The operation was aborted due to timeout');
-export type TimeoutError = ICancError;
-
-brandPrototype(AbortError.prototype, ABORT_ERROR_BRAND);
-brandPrototype(TimeoutError.prototype, TIMEOUT_ERROR_BRAND);
+export const TimeoutError = createErrorClass(
+  'TimeoutError',
+  TIMEOUT_ERROR_BRAND,
+  'The operation was aborted due to timeout',
+);
+export type TimeoutError = InstanceType<typeof TimeoutError>;
 
 /**
  * Instance shape of {@link AggregateError}, platform class or shim alike.

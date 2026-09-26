@@ -143,13 +143,13 @@ class ToolboxLazy<T> implements PromiseLike<T> {
  * helper. `minDelay`, `defer`, `debounce` and `throttle` keep calling `construct` unchanged and do
  * not read `options.lazy`.
  */
-export function constructTimed<T, K extends IPromiseKind = IPromiseLikeKind>(
+export function constructTimed<T, K extends IPromiseKind = IPromiseLikeKind, F = never>(
   deps: IToolboxDeps<K>,
   executor: TExecutor<T>,
   options?: object,
 ): TPromiseOf<K, T> {
   if ((options as ILazyOption | undefined)?.lazy === true) {
-    return new ToolboxLazy<T>(deps.Impl, deps.cancelable === true, executor, options) as unknown as TPromiseOf<K, T>;
+    return new ToolboxLazy<T>(deps.Impl, deps.cancelable === true, executor, options) as unknown as TPromiseOf<K, T, F>;
   }
 
   return construct<T, K>(deps.Impl, executor, options);

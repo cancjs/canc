@@ -132,6 +132,12 @@ beacon.cancel();
 `cancelableFetchLaterFactory` takes the same configuration as the immediate factory, plus
 `fetchLater` and `pollInterval` (how often the activation flag is checked).
 
+### Declared failures
+
+`cancelableFetch` returns a `CancelablePromise<Response, AbortError | TimeoutError>`. Request failures produce either a platform `AbortError` or a `TimeoutError`.
+
+Canceling a request in flight rejects the promise with a `CancelError` whose `cause` is an `AbortError`. Cancellation itself is part of the control flow mechanism and does not alter the declared application failure set. See [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) for details on declared failure handling.
+
 ## API
 
 `cancelableFetch(input, init?)` returns `CancelablePromise<Response>`. Also the default export.

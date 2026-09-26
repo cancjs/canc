@@ -29,11 +29,14 @@ In both tiers, a minor release is allowed to:
 - change an internal default
 - restrict a type to be more precise than before
 - rename an export, as long as the old name keeps working under a deprecation notice
+- remove a member from a return type's declared failure set
 
 A minor release is never allowed to remove something public. Deleting an export, a type, or an
 option is a major-only change in both tiers. That rule is what makes the tilde pin safe for the
 ecosystem tier: a minor can surprise you with new behavior, but it will never make a function you
 already call disappear out from under you.
+
+The declared failure set (`TFailure` on `CancelablePromise`) is part of a function's type contract. In ecosystem-tier packages, adding a new failure type to a return type's declared failure set is breaking in the same way any other type narrowing is, because consumers handling failure types exhaustively may fail to cover the new case. Removing a failure type from a return type is non-breaking.
 
 ## Deprecation
 
