@@ -6,15 +6,15 @@
  * 1. packs each target package (`npm pack`) into tests-types/.tarballs/ so the
  * fixture type-checks against the BUILT, publishable dist — never src.
  * 2. materialises an isolated fixture project under tests-types/fixtures/ts-<id>/
- * (its own package.json + tsconfig + entry importing the shared common/*.ts),
+ * (its own package.json + tsconfig + its own copy of the shared common/*.ts),
+ * clearing the previous generated files first so no stale config survives,
  * 3. installs that fixture's pinned `typescript` alias + the package tarballs
  * into the fixture's OWN node_modules (no workspace hoisting → versions can
  * diverge freely),
  * 4. runs the fixture-local `tsc --noEmit` and records pass/fail.
  *
- * The `latest` lane additionally compiles the type-assertion suites
- * (common/type-assertions.ts + common/coroutine-types.ts) via its
- * `typeAssertions` flag.
+ * Lanes with `typeAssertions` additionally compile the type-assertion suites
+ * (common/type-assertions.ts + common/coroutine-types.ts).
  *
  * Flags:
  * --setup-only pack + install fixtures, don't run tsc
@@ -32,6 +32,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const testsTypesDir = path.resolve(__dirname, '..');
 const repoRoot = path.resolve(testsTypesDir, '..');
 const fixturesDir = path.join(testsTypesDir, 'fixtures');
+const commonDir = path.join(fixturesDir, 'common');
 const tarballsDir = path.join(testsTypesDir, '.tarballs');
 const config = JSON.parse(fs.readFileSync(path.join(testsTypesDir, 'matrix.config.json'), 'utf8'));
 
@@ -90,9 +91,64 @@ function packPackages() {
   return tarballs;
 }
 
+// ---- 1b. discard anything left over from a previous shape -----------------
+// Every file in a fixture dir except node_modules is generated, so a fixture is rebuilt from
+// scratch rather than written over. Writing over leaves whatever the previous config produced:
+// a `files` entry pointing at a source that no longer exists fails the lane with TS6053, and a
+// tsconfig option that was dropped from the generator keeps applying forever. node_modules is
+// preserved so `--no-install` stays useful.
+function resetFixtureDir(dir) {
+  if (!fs.existsSync(dir)) return;
+  for (const entry of fs.readdirSync(dir)) {
+    if (entry === 'node_modules') continue;
+    fs.rmSync(path.join(dir, entry), { recursive: true, force: true });
+  }
+}
+
+// Fixture dirs for lanes that are no longer in the config are dead: nothing regenerates them and
+// nothing type-checks them, but they sit in the tree looking like current state. The expected set
+// comes from the whole config, never from the --only filter, so a filtered run cannot delete the
+// lanes it was told to skip.
+function pruneStaleFixtures() {
+  if (!fs.existsSync(fixturesDir)) return;
+  const expected = new Set();
+  for (const version of config.versions) {
+    expected.add(`ts-${version.id}`);
+    if (version.decoratorTypes) {
+      for (const flavor of DECORATOR_FLAVORS) expected.add(`ts-${version.id}${flavor.suffix}`);
+    }
+  }
+  for (const entry of fs.readdirSync(fixturesDir)) {
+    if (!entry.startsWith('ts-') || expected.has(entry)) continue;
+    fs.rmSync(path.join(fixturesDir, entry), { recursive: true, force: true });
+    console.log(dim(` removed stale fixture ${entry}`));
+  }
+}
+
+// ---- 1c. give each fixture its own copy of the shared sources -------------
+// TypeScript resolves a bare specifier starting from the directory of the file that contains it.
+// Compiling fixtures/common/api-smoke.ts in place therefore searches fixtures/common/node_modules,
+// then fixtures/, then tests-types/, then the repo root, where the workspace symlinks answer with
+// the working tree. The fixture's own node_modules is never on that path, so the pinned tarball was
+// installed and then ignored: every lane silently type-checked the working tree instead of the
+// publishable artifact. Copying the sources into the fixture puts the lookup inside the fixture,
+// which is the only way the packed tarball is what gets checked.
+function copyCommonSources(dir) {
+  const target = path.join(dir, 'common');
+  fs.mkdirSync(target, { recursive: true });
+  for (const entry of fs.readdirSync(commonDir)) {
+    if (entry.endsWith('.ts')) fs.copyFileSync(path.join(commonDir, entry), path.join(target, entry));
+  }
+}
+
+// matrix.config.json still spells the shared sources the way they sit in the tree
+// (`../common/x.ts`); they compile from the fixture's own copy.
+const localSource = (p) => `./common/${path.basename(p)}`;
+
 // ---- 2. materialise a fixture project -------------------------------------
 function writeFixture(version, tarballs) {
   const dir = path.join(fixturesDir, `ts-${version.id}`);
+  resetFixtureDir(dir);
   fs.mkdirSync(dir, { recursive: true });
 
   const deps = { typescript: version.typescript };
@@ -117,10 +173,12 @@ function writeFixture(version, tarballs) {
     ) + '\n',
   );
 
-  const files = config.commonFixtures ? [...config.commonFixtures] : ['../common/api-smoke.ts'];
+  copyCommonSources(dir);
+
+  const files = (config.commonFixtures || ['../common/api-smoke.ts']).map(localSource);
   if (version.typeAssertions) {
-    files.push('../common/type-assertions.ts');
-    files.push('../common/coroutine-types.ts');
+    files.push(localSource('type-assertions.ts'));
+    files.push(localSource('coroutine-types.ts'));
   }
 
   // Downlevel-friendly tsconfig. moduleResolution per version drives which
@@ -166,7 +224,9 @@ const DECORATOR_FLAVORS = [
 
 function writeDecoratorFixture(version, tarballs, flavor) {
   const dir = path.join(fixturesDir, `ts-${version.id}${flavor.suffix}`);
+  resetFixtureDir(dir);
   fs.mkdirSync(dir, { recursive: true });
+  copyCommonSources(dir);
 
   const deps = { typescript: version.typescript };
   for (const [name, tarball] of Object.entries(tarballs)) {
@@ -204,13 +264,20 @@ function writeDecoratorFixture(version, tarballs, flavor) {
       useDefineForClassFields: false,
       types: [],
     },
-    files: [flavor.file],
+    files: [localSource(flavor.file)],
   };
   fs.writeFileSync(path.join(dir, 'tsconfig.json'), JSON.stringify(tsconfig, null, 2) + '\n');
   return dir;
 }
 
 function installFixture(dir) {
+  // Every build packs to the same cancjs-<pkg>-1.0.0.tgz, and npm treats a name@version already
+  // present in node_modules as satisfied, so a fixture keeps its first extraction forever: the lane
+  // then type-checks an artifact from some earlier build while looking perfectly current. Drop the
+  // packed scope and the hidden lockfile that records it so the tarballs just packed are the ones
+  // installed. `typescript` is pinned per lane and expensive to fetch, so it stays.
+  fs.rmSync(path.join(dir, 'node_modules', '@cancjs'), { recursive: true, force: true });
+  fs.rmSync(path.join(dir, 'node_modules', '.package-lock.json'), { force: true });
   // Isolated install: --no-package-lock keeps the dir clean; --no-audit/--no-fund quiet.
   run(npmCmd, ['install', '--no-package-lock', '--no-audit', '--no-fund', '--silent'], { cwd: dir });
 }
@@ -243,6 +310,8 @@ function main() {
     console.error(red(`No versions matched --only "${onlyList.join(',')}"`));
     process.exit(2);
   }
+
+  pruneStaleFixtures();
 
   console.log(bold(`TS matrix: packing ${config.packages.length} package(s)...`));
   const tarballs = packPackages();

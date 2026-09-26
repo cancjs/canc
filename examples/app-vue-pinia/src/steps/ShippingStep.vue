@@ -3,33 +3,51 @@
 <script setup lang="ts">
 import { inject } from 'vue';
 import { useRouter } from 'vue-router';
+
 import { CHECKOUT_STORE_KEY } from '../store-key';
 
 const store = inject(CHECKOUT_STORE_KEY)!();
 const router = useRouter();
 
 function quote() {
- store.quoteShipping();
+  store.quoteShipping();
 }
 
 function back() {
- router.push('/address');
+  router.push('/address');
 }
 
 function next() {
- router.push('/review');
+  router.push('/review');
 }
 </script>
 
 <template>
- <section>
- <h2>Shipping</h2>
- <button type="button" data-testid="quote-shipping" @click="quote">Get quote</button>
- <div data-testid="shipping-status">{{ store.shippingStatus }}</div>
- <div data-testid="shipping-carrier">{{ store.shipping?.carrier ?? '' }}</div>
- <button type="button" data-testid="back-to-address" @click="back">Back</button>
- <button type="button" data-testid="next-to-review" :disabled="store.shippingStatus !== 'done'" @click="next">
- Continue
- </button>
- </section>
+  <section>
+    <h2>Shipping</h2>
+    <button
+      type="button"
+      data-testid="quote-shipping"
+      @click="quote"
+    >
+      Get quote
+    </button>
+    <div data-testid="shipping-status">{{ store.shippingStatus }}</div>
+    <div data-testid="shipping-carrier">{{ store.shipping?.carrier ?? '' }}</div>
+    <button
+      type="button"
+      data-testid="back-to-address"
+      @click="back"
+    >
+      Back
+    </button>
+    <button
+      type="button"
+      data-testid="next-to-review"
+      :disabled="store.shippingStatus !== 'done'"
+      @click="next"
+    >
+      Continue
+    </button>
+  </section>
 </template>

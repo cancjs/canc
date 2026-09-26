@@ -15,7 +15,7 @@
     "@cancjs/toolbox": "file:../../packages/canc-toolbox",
     "@cancjs/unhandled-rejection": "file:../../packages/canc-unhandled-rejection",
     "@shared/mock-api": "file:../_shared/mock-api",
-    "axios": "1.7.9"
+    "axios": "1.16.0"
   },
   "devDependencies": {
     "@types/jest": "30.0.0",

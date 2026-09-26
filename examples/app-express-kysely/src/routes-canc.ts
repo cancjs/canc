@@ -1,6 +1,7 @@
 import * as canc from '@cancjs/coroutine';
 import { Router } from 'express';
 
+import { executeCancelable } from './lib/cancelable-kysely';
 import { cancAsyncRoute } from './lib/cancelable-route';
 import type { ReportDb } from './mock/db';
 import { buildReport } from './report-service-canc';
@@ -20,12 +21,11 @@ export function createReportRouter(rdb: ReportDb): Router {
     }),
   );
 
-  router.get('/products', (_req, res, next) => {
-    rdb.db
-      .selectFrom('products')
-      .selectAll()
-      .execute()
-      .then((products) => res.json(products), next);
+  router.get('/products', (req, res, next) => {
+    executeCancelable(rdb.db.selectFrom('products').selectAll(), { inflightQueryAbortStrategy: rdb.strategy }).then(
+      (products) => res.json(products),
+      next,
+    );
   });
 
   return router;

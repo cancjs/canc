@@ -89,6 +89,46 @@ function hasEventTarget(): boolean {
   return typeof globalThis !== 'undefined' && typeof (globalThis as any).addEventListener === 'function';
 }
 
+interface EdgeRuntimeGlobal {
+  EdgeRuntime?: unknown;
+}
+
+// Vercel's Edge Runtime implements no `navigator`, so there is no standardized signal to read
+// there. The `EdgeRuntime` global is the check Vercel documents, and only its presence is
+// documented, so the value is not compared against anything.
+function isEdgeRuntime(): boolean {
+  const edgeRuntime = (globalThis as EdgeRuntimeGlobal).EdgeRuntime;
+  return typeof edgeRuntime !== 'undefined';
+}
+
+interface NavigatorLike {
+  userAgent?: unknown;
+}
+
+const RUNTIME_TOKENS = new Set(['node.js', 'bun', 'deno', 'cloudflare-workers']);
+
+// WinterCG runtime identification: "Node.js/22", "Bun/1.0.28", "Deno/1.40.0", "Cloudflare-Workers".
+// Absent on Node < 21 and in plenty of embedders, so this narrows when it can and says nothing
+// when it cannot. A Mozilla/... (browser or jsdom) userAgent is treated as no signal, not as
+// "browser", so a jsdom test host never outranks a real node process.
+function readRuntimeToken(): string | undefined {
+  try {
+    const nav = (globalThis as { navigator?: NavigatorLike }).navigator;
+    const userAgent = nav?.userAgent;
+    if (typeof userAgent !== 'string') {
+      return undefined;
+    }
+    // Not every runtime separates product and version with a slash: AWS LLRT reports "llrt 1.2.3",
+    // whose leading token is the whole string. Anything added to the allowlist needs its real
+    // userAgent shape checked rather than assumed.
+    const leading = userAgent.split('/', 1)[0].trim().toLowerCase();
+    return RUNTIME_TOKENS.has(leading) ? leading : undefined;
+  } catch {
+    // A hostile host can make `navigator` (or `.userAgent`) a throwing getter.
+    return undefined;
+  }
+}
+
 function makeNodeSetup(options?: RegisterOptions): () => (() => void) | null {
   return () => {
     if (!hasNodeProcess()) {
@@ -176,13 +216,49 @@ export function registerWorker(options?: RegisterOptions): void {
   registerEventTarget('worker', options);
 }
 
+// Vercel Edge, Next.js edge routes and the edge-runtime test harness all expose the same global,
+// so the label names the runtime rather than any one product built on it.
+export function registerEdgeRuntime(options?: RegisterOptions): void {
+  registerEventTarget('edge-runtime', options);
+}
+
 export function register(options?: RegisterOptions): void {
+  if (isElectronRuntime()) {
+    registerElectron(options);
+    return;
+  }
+
+  const token = readRuntimeToken();
+  switch (token) {
+    case 'bun':
+      registerBun(options);
+      return;
+    case 'deno':
+      registerDeno(options);
+      return;
+    case 'node.js':
+      registerNode(options);
+      return;
+    case 'cloudflare-workers':
+      registerWorker(options);
+      return;
+    default:
+      break;
+  }
+
+  // Between the two: the standardized signal wins wherever one exists, and this runtime has none,
+  // so its documented global is read before the older duck-typing chain.
+  if (isEdgeRuntime()) {
+    registerEdgeRuntime(options);
+    return;
+  }
+
+  // No (or unrecognized) userAgent token: fall back to the original global/process.versions
+  // sniffing, kept literally intact.
   if (isBunRuntime()) {
     registerBun(options);
   } else if (isDenoRuntime()) {
     registerDeno(options);
-  } else if (isElectronRuntime()) {
-    registerElectron(options);
   } else if (typeof process !== 'undefined' && (process as any).versions?.node) {
     registerNode(options);
   } else if (hasEventTarget()) {

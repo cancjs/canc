@@ -98,11 +98,29 @@ describe('lazy promise smoke', () => {
  * still holds after the phase's file moves and rewiring).
  */
 const lazySource = path.join(__dirname, '..', '..', '_toolbox', 'lazy', 'lazy-promise.ts');
+const repoRoot = path.resolve(__dirname, '../../..');
 
 const hook = `
 const ts = require(${JSON.stringify(require.resolve('typescript'))});
 const Module = require('module');
 const fs = require('fs');
+const path = require('path');
+
+// Map @cancjs/* specifiers to source (plain imports via .then() have no jest moduleNameMapper),
+// so lazy-promise.ts's bare 'import ... from "@cancjs/promise"' transpiles to a require() that
+// must resolve the same way it does in the test. Subpath specifiers (e.g. @cancjs/toolbox/async-iter)
+// would map to a nonexistent path; let them fall through to the original resolver with its error.
+const originalResolveFilename = Module._resolveFilename;
+Module._resolveFilename = function (request, parent, isMain) {
+ const match = request.match(/^@cancjs\\/([^\\/]+)(?:\\/(.*))?$/);
+ if (match && !match[2]) {
+  const packageName = match[1];
+  const srcPath = path.resolve(${JSON.stringify(repoRoot)}, 'packages', 'canc-' + packageName, 'src', 'index.ts');
+  return originalResolveFilename.call(this, srcPath, parent, isMain);
+ }
+ return originalResolveFilename.call(this, request, parent, isMain);
+};
+
 Module._extensions['.ts'] = function (module, filename) {
  const source = fs.readFileSync(filename, 'utf8');
  const out = ts.transpileModule(source, {

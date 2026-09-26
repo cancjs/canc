@@ -14,6 +14,7 @@
     "typecheck": "tsc --noEmit --project tsconfig.json"
   },
   "dependencies": {
+    "@cancjs/coroutine": "file:../../packages/canc-coroutine",
     "@cancjs/promise": "file:../../packages/canc-promise",
     "@cancjs/toolbox": "file:../../packages/canc-toolbox",
     "@cancjs/unhandled-rejection": "file:../../packages/canc-unhandled-rejection",

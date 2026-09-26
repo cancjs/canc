@@ -18,8 +18,10 @@ import { defineConfig, globalIgnores } from 'eslint/config';
 import prettierConfig from 'eslint-config-prettier';
 import prettier from 'eslint-plugin-prettier';
 import simpleImportSort from 'eslint-plugin-simple-import-sort';
+import pluginVue from 'eslint-plugin-vue';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
+import vueParser from 'vue-eslint-parser';
 
 const prettierCodeOptions = {
   endOfLine: 'auto',
@@ -41,8 +43,6 @@ export default defineConfig(
     '**/build/**',
     '**/coverage/**',
     '**/package-lock.json',
-    // Vue single file components need the vue parser, which this project does not install.
-    '**/*.vue',
   ]),
 
   {
@@ -63,6 +63,48 @@ export default defineConfig(
 
       // Example code shows shapes the reader already has in front of them. Naming every parameter
       // type and writing out every any is noise here, not safety.
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-empty-function': 'off',
+
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        {
+          vars: 'all',
+          varsIgnorePattern: '^_',
+          args: 'after-used',
+          argsIgnorePattern: '^_',
+          ignoreRestSiblings: true,
+          caughtErrors: 'all',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
+    },
+  },
+
+  {
+    files: ['**/*.vue'],
+    extends: [
+      js.configs.recommended,
+      tseslint.configs.recommended,
+      tseslint.configs.disableTypeChecked,
+      pluginVue.configs['flat/recommended'],
+    ],
+    languageOptions: {
+      parser: vueParser,
+      parserOptions: {
+        parser: tseslint.parser,
+        ecmaFeatures: { jsx: true },
+        extraFileExtensions: ['.vue'],
+      },
+      globals: {
+        ...globals.node,
+        ...globals.browser,
+      },
+    },
+    rules: {
+      eqeqeq: ['error', 'always', { null: 'ignore' }],
+      'prefer-const': 'warn',
+
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-empty-function': 'off',
 
@@ -110,7 +152,7 @@ export default defineConfig(
   },
 
   {
-    files: ['**/*.{ts,tsx,js,jsx,cjs,mjs}'],
+    files: ['**/*.{ts,tsx,js,jsx,cjs,mjs,vue}'],
     plugins: { 'simple-import-sort': simpleImportSort },
     rules: {
       'simple-import-sort/imports': 'error',
@@ -119,7 +161,7 @@ export default defineConfig(
   },
 
   {
-    files: ['**/*.{ts,tsx,js,jsx,cjs,mjs}'],
+    files: ['**/*.{ts,tsx,js,jsx,cjs,mjs,vue}'],
     extends: [prettierConfig],
     plugins: { prettier },
     rules: {

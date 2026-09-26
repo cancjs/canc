@@ -1,47 +1,43 @@
 // Without cancellation support, isolation requires manual flag tracking.
 // When one widget fails, dependent widgets must manually check _isCanceled.
 
-import { sleep } from '@shared/util';
+import { mockApi, vanillaWidgets } from './widgets-shared.js';
 
-const completed: string[] = [];
 let isCanceled = false;
 
-function loadWidget(name: string, delay: number): Promise<string> {
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      if (isCanceled) {
-        // manual isolation (wasted work checking flag)
-        reject(new Error(`${name} isolated`));
-        return;
-      }
-
-      if (name === 'alerts') {
-        isCanceled = true;
-        reject(new Error('alerts failed'));
-      } else {
-        completed.push(name);
-        resolve(name);
-      }
-    }, delay);
-  });
-}
+// manual isolation wrap
+const manualIsolatedNews = async (symbol: string) => {
+  const result = await vanillaWidgets.quotePrice(symbol);
+  if (isCanceled) throw new Error(`isolated quotePrice canceled`);
+  return result;
+};
 
 async function runIsolationVanilla(): Promise<void> {
-  const results = Promise.all([
-    loadWidget('sales', 50),
-    loadWidget('traffic', 50),
-    loadWidget('alerts', 10),
-    loadWidget('news', 50),
-  ]);
+  mockApi.reset();
+  isCanceled = false;
 
   try {
-    await results;
+    await Promise.all([
+      vanillaWidgets.loadOrders('user-1').catch((e) => {
+        isCanceled = true;
+        throw e;
+      }),
+      vanillaWidgets.checkInventory('product-1').catch((e) => {
+        isCanceled = true;
+        throw e;
+      }),
+      vanillaWidgets.checkInventory('non-existent').catch((e) => {
+        isCanceled = true;
+        throw e;
+      }), // fails
+      manualIsolatedNews('AAPL'),
+    ]);
   } catch {
     // keeps running (isolation not automatic)
   }
 
-  await sleep(100);
-  console.log(`Vanilla isolation - completed: ${completed.length}`);
+  const reportCompleted = mockApi.calls.filter((c) => c.status === 'completed').length;
+  console.log(`Vanilla isolation - completed: ${reportCompleted}`);
 }
 
 export { runIsolationVanilla };

@@ -6,10 +6,13 @@ import { onScopeDispose, type SetupContext } from 'vue';
  * What a setup function may return: a plain value (a sync setup), a generator (the short form,
  * wrapped into a coroutine here), or a promise (a setup already wrapped with `canc.async`).
  */
-export type SetupResult<Result> = Result | Promise<Result> | Generator<unknown, Result, any>;
+export type SetupResult<Result, Failure = unknown> = Result | Promise<Result> | canc.AsyncResult<Result, Failure>;
 
 /** A setup function in any of the three supported shapes. */
-export type CancelableSetup<Props, Result> = (props: Props, ctx: SetupContext) => SetupResult<Result>;
+export type CancelableSetup<Props, Result, Failure = unknown> = (
+  props: Props,
+  ctx: SetupContext,
+) => SetupResult<Result, Failure>;
 
 function isGenerator(value: unknown): value is Generator<unknown, unknown, any> {
   if (typeof value !== 'object' || value === null) return false;
@@ -48,7 +51,7 @@ function isGenerator(value: unknown): value is Generator<unknown, unknown, any> 
  * `await` has no scope hook to cancel, so this setup-option wrapper is the opt-in.
  */
 export function cancelableSetup<Props, Result>(
-  setup: CancelableSetup<Props, Result>,
+  setup: CancelableSetup<Props, Result, any>,
 ): (props: Props, ctx: SetupContext) => Result | Promise<Result> {
   return (props: Props, ctx: SetupContext) => {
     const started = setup(props, ctx);

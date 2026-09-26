@@ -3,6 +3,7 @@
 <script setup lang="ts">
 import { inject, ref } from 'vue';
 import { useRouter } from 'vue-router';
+
 import { CHECKOUT_STORE_KEY } from '../store-key';
 
 const store = inject(CHECKOUT_STORE_KEY)!();
@@ -11,23 +12,40 @@ const line1 = ref('221B Baker St');
 const city = ref('London');
 
 function validate() {
- store.validateAddress(line1.value, city.value);
+  store.validateAddress(line1.value, city.value);
 }
 
 function next() {
- router.push('/shipping');
+  router.push('/shipping');
 }
 </script>
 
 <template>
- <section>
- <h2>Address</h2>
- <input data-testid="line1" v-model="line1" />
- <input data-testid="city" v-model="city" />
- <button type="button" data-testid="validate-address" @click="validate">Validate</button>
- <div data-testid="address-status">{{ store.addressStatus }}</div>
- <button type="button" data-testid="next-to-shipping" :disabled="store.addressStatus !== 'done'" @click="next">
- Continue
- </button>
- </section>
+  <section>
+    <h2>Address</h2>
+    <input
+      v-model="line1"
+      data-testid="line1"
+    />
+    <input
+      v-model="city"
+      data-testid="city"
+    />
+    <button
+      type="button"
+      data-testid="validate-address"
+      @click="validate"
+    >
+      Validate
+    </button>
+    <div data-testid="address-status">{{ store.addressStatus }}</div>
+    <button
+      type="button"
+      data-testid="next-to-shipping"
+      :disabled="store.addressStatus !== 'done'"
+      @click="next"
+    >
+      Continue
+    </button>
+  </section>
 </template>

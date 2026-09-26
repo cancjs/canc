@@ -10,17 +10,19 @@ export interface MockAxiosConfig {
   method?: string;
   baseURL?: string;
   signal?: AbortSignalLike;
+  [key: string]: any;
 }
 
 export interface MockAxiosResponse<T = unknown> {
   data: T;
   status: number;
   statusText: string;
-  config: MockAxiosConfig;
-  headers: Record<string, string>;
+  config: any;
+  headers: any;
+  request?: any;
 }
 
-export type MockAxiosAdapter = (config: MockAxiosConfig) => Promise<MockAxiosResponse>;
+export type MockAxiosAdapter = (config: any) => Promise<MockAxiosResponse>;
 
 /**
  * Builds an axios adapter bound to a MockApi. Reuses the mockFetch router for path handling. On
@@ -31,7 +33,13 @@ export function createMockAxiosAdapter(api: MockApi): MockAxiosAdapter {
   const mockFetch = createMockFetch(api);
 
   return async function mockAxiosAdapter(config) {
-    const url = `${config.baseURL ?? ''}${config.url ?? ''}`;
+    let url = `${config.baseURL ?? ''}${config.url ?? ''}`;
+    if (config.params) {
+      const searchParams = new URLSearchParams(config.params).toString();
+      if (searchParams) {
+        url += (url.includes('?') ? '&' : '?') + searchParams;
+      }
+    }
     // On abort, mockFetch rejects with an AbortError that propagates straight to the caller.
     const response = await mockFetch(url, { method: config.method, signal: config.signal });
 

@@ -16,9 +16,12 @@ interface AppBundle {
   rdb: ReportDb;
 }
 
-export async function runDisconnectScenario(flavor: 'vanilla' | 'canc', createApp: () => AppBundle): Promise<void> {
+export async function runDisconnectScenario(
+  flavor: 'vanilla' | 'canc',
+  createApp: () => Promise<AppBundle>,
+): Promise<void> {
   const bootStart = Date.now();
-  const { app, rdb } = createApp();
+  const { app, rdb } = await createApp();
   console.log(`[${flavor}] database seeded in ${Date.now() - bootStart}ms`);
 
   const server = http.createServer(app);
@@ -33,7 +36,7 @@ export async function runDisconnectScenario(flavor: 'vanilla' | 'canc', createAp
   request.on('error', () => {}); // destroying the socket surfaces here; expected
 
   // Let the first couple of slices run, then hang up.
-  await sleep(40);
+  await sleep(150);
   const runBeforeDisconnect = countAggregateQueries(rdb);
   request.destroy();
 
@@ -53,7 +56,7 @@ export async function runDisconnectScenario(flavor: 'vanilla' | 'canc', createAp
   }
 
   await new Promise<void>((resolve) => server.close(() => resolve()));
-  rdb.close();
+  await rdb.close();
 }
 
 function countAggregateQueries(rdb: ReportDb): number {

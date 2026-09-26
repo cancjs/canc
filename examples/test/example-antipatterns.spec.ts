@@ -24,6 +24,14 @@ function walk(dir: string, files: string[] = []): string[] {
 
 const allFiles = walk(EXAMPLES_ROOT);
 const sourceFiles = allFiles.filter((f) => /\.(ts|tsx)$/.test(f) && !f.endsWith('.spec.ts'));
+const specFiles = allFiles.filter(
+  (f) =>
+    /\.spec\.ts$/.test(f) &&
+    !f.includes('demo-fetch') &&
+    !f.includes('demo-signal-interop') &&
+    !f.includes('demo-toolbox') &&
+    !f.endsWith('example-antipatterns.spec.ts'),
+);
 
 function grep(pattern: RegExp, files: string[]): string[] {
   const hits: string[] = [];
@@ -72,6 +80,16 @@ describe('killed antipatterns stay dead', () => {
 
   it('backup-manifest.canc.json is not committed at the examples root', () => {
     const hits = allFiles.filter((f) => f === join(EXAMPLES_ROOT, 'backup-manifest.canc.json'));
+    expect(hits).toEqual([]);
+  });
+
+  it('no async executor: new CancelablePromise(async...)', () => {
+    const hits = grep(/new CancelablePromise\(\s*async/g, sourceFiles);
+    expect(hits).toEqual([]);
+  });
+
+  it('no placeholder spec: expect(true).toBe(true)', () => {
+    const hits = grep(/expect\s*\(\s*true\s*\)\s*\.\s*toBe\s*\(\s*true\s*\)/g, specFiles);
     expect(hits).toEqual([]);
   });
 });

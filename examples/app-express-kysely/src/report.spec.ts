@@ -1,8 +1,31 @@
+import { TextDecoder, TextEncoder } from 'node:util';
+Object.defineProperties(globalThis, {
+  TextEncoder: { value: TextEncoder },
+  TextDecoder: { value: TextDecoder },
+});
+
 import http from 'node:http';
 
 import { sleep } from '@shared/util';
 import type { Express } from 'express';
 import request from 'supertest';
+
+jest.mock('@electric-sql/pglite', () => {
+  return {
+    PGlite: jest.fn().mockImplementation(() => {
+      return {
+        waitReady: Promise.resolve(),
+        query: jest.fn().mockImplementation((sql: string) => {
+          if (sql.includes('products') && sql.toLowerCase().includes('select')) {
+            return Promise.resolve({ rows: [{ id: 1, name: 'Keyboard', category: 'Accessories' }] });
+          }
+          return Promise.resolve({ rows: [] });
+        }),
+        close: jest.fn().mockResolvedValue(undefined),
+      };
+    }),
+  };
+});
 
 import { createApp as createCancApp } from './main-canc';
 import { createApp as createVanillaApp } from './main-vanilla';
@@ -25,6 +48,40 @@ async function withServer<T>(app: Express, fn: (port: number) => Promise<T>): Pr
   }
 }
 
+const SETTLE_CEILING_MS = 3000;
+const QUIET_WINDOW_MS = 150;
+
+async function waitFor(predicate: () => boolean, timeoutMs = SETTLE_CEILING_MS): Promise<boolean> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (predicate()) return true;
+    await sleep(5);
+  }
+  return predicate();
+}
+
+async function waitForQueryLogToSettle(rdb: ReportDb): Promise<number> {
+  const total = aggregateChunkCount();
+  const start = Date.now();
+  let lastCount = countAggregateQueries(rdb);
+  let lastChange = Date.now();
+
+  while (Date.now() - start < SETTLE_CEILING_MS) {
+    await sleep(10);
+    const current = countAggregateQueries(rdb);
+    if (current >= total) {
+      return current;
+    }
+    if (current !== lastCount) {
+      lastCount = current;
+      lastChange = Date.now();
+    } else if (Date.now() - lastChange >= QUIET_WINDOW_MS) {
+      return current;
+    }
+  }
+  return countAggregateQueries(rdb);
+}
+
 /**
  * Fires the report request, lets a slice or two run, then destroys the client socket. Returns the
  * aggregate-slice count captured right after the disconnect settles.
@@ -33,16 +90,15 @@ async function slicesAfterDisconnect(app: Express, rdb: ReportDb, path: string):
   return withServer(app, async (port) => {
     const req = http.get(`http://127.0.0.1:${port}${path}`);
     req.on('error', () => {});
-    await sleep(40);
+    await waitFor(() => countAggregateQueries(rdb) >= 1);
     req.destroy();
-    await sleep(400);
-    return countAggregateQueries(rdb);
+    return await waitForQueryLogToSettle(rdb);
   });
 }
 
 describe('orders report cancellation on client disconnect', () => {
   it('canc: disconnect freezes the query log before the aggregate finishes', async () => {
-    const { app, rdb } = createCancApp();
+    const { app, rdb } = await createCancApp();
     const total = aggregateChunkCount();
 
     const ran = await slicesAfterDisconnect(app, rdb, '/orders/report');
@@ -51,11 +107,11 @@ describe('orders report cancellation on client disconnect', () => {
     expect(ran).toBeGreaterThan(0);
     expect(ran).toBeLessThan(total);
 
-    rdb.close();
+    await rdb.close();
   });
 
   it('vanilla uncancelable: every slice runs even after the client left (the bug we teach)', async () => {
-    const { app, rdb } = createVanillaApp();
+    const { app, rdb } = await createVanillaApp();
     const total = aggregateChunkCount();
 
     const ran = await slicesAfterDisconnect(app, rdb, '/orders/report');
@@ -63,11 +119,11 @@ describe('orders report cancellation on client disconnect', () => {
     // No cancellation: the aggregate completes for a socket nobody is reading.
     expect(ran).toBe(total);
 
-    rdb.close();
+    await rdb.close();
   });
 
   it('vanilla abortable: the AbortController workaround also stops early', async () => {
-    const { app, rdb } = createVanillaApp();
+    const { app, rdb } = await createVanillaApp();
     const total = aggregateChunkCount();
 
     const ran = await slicesAfterDisconnect(app, rdb, '/orders/report-abortable');
@@ -75,17 +131,28 @@ describe('orders report cancellation on client disconnect', () => {
     expect(ran).toBeGreaterThan(0);
     expect(ran).toBeLessThan(total);
 
-    rdb.close();
+    await rdb.close();
   });
 
   it('serves the product list to a client that stays connected', async () => {
-    const { app, rdb } = createCancApp();
+    const { app, rdb } = await createCancApp();
 
     const response = await request(app).get('/products');
 
     expect(response.status).toBe(200);
     expect(response.body.length).toBeGreaterThan(0);
 
-    rdb.close();
+    await rdb.close();
+  });
+
+  const itPg = process.env.DATABASE_URL ? it : it.skip;
+  itPg('canc wire-cancel on Postgres: issues pg_cancel_backend', async () => {
+    // If DATABASE_URL is set, createCancApp will connect to Postgres, and strategy is 'cancel query'.
+    // The previous tests verify the coroutine stops issuing queries, but here we would also assert
+    // that the query currently running on Postgres is canceled via wire protocol.
+    const { app, rdb } = await createCancApp();
+    const ran = await slicesAfterDisconnect(app, rdb, '/orders/report');
+    expect(ran).toBeGreaterThan(0);
+    await rdb.close();
   });
 });

@@ -1,7 +1,16 @@
 import * as canc from '@cancjs/coroutine';
+import { delay } from '@cancjs/toolbox';
 
+import { executeCancelable, executeTakeFirstCancelable } from './lib/cancelable-kysely';
 import type { ReportDb } from './mock/db';
-import { aggregateChunkCount, fetchOrdersPage, fetchTopCustomers, grandTotalChunk } from './report-queries';
+import {
+  aggregateChunkCount,
+  CHUNK_LATENCY_MS,
+  grandTotalChunkQuery,
+  mapTopCustomersRow,
+  ordersPageQuery,
+  topCustomersQuery,
+} from './report-queries';
 
 const PAGE_LIMIT = 20;
 const TOP_CUSTOMER_LIMIT = 10;
@@ -13,16 +22,25 @@ const TOP_CUSTOMER_LIMIT = 10;
  * remaining slices never run.
  */
 export const buildReport = canc.async(function* (rdb: ReportDb) {
-  const page = yield* canc.await(fetchOrdersPage(rdb, PAGE_LIMIT));
+  const page = yield* canc.await(
+    executeCancelable(ordersPageQuery(rdb, PAGE_LIMIT), { inflightQueryAbortStrategy: rdb.strategy }),
+  );
 
-  const topCustomers = yield* canc.await(fetchTopCustomers(rdb, TOP_CUSTOMER_LIMIT));
+  const topCustomersRaw = yield* canc.await(
+    executeCancelable(topCustomersQuery(rdb, TOP_CUSTOMER_LIMIT), { inflightQueryAbortStrategy: rdb.strategy }),
+  );
+  const topCustomers = topCustomersRaw.map(mapTopCustomersRow);
 
   // The slow aggregate, one slice at a time. Each `canc.await` is a cancellation point: if the
   // client left, the coroutine is canceled here and nothing below runs.
   let grandTotal = 0;
   const chunks = aggregateChunkCount();
   for (let chunk = 0; chunk < chunks; chunk++) {
-    grandTotal += yield* canc.await(grandTotalChunk(rdb, chunk));
+    yield* canc.await(delay(CHUNK_LATENCY_MS)); // canceled here — the remaining slices and their queries never run
+    const row = yield* canc.await(
+      executeTakeFirstCancelable(grandTotalChunkQuery(rdb, chunk), { inflightQueryAbortStrategy: rdb.strategy }),
+    );
+    grandTotal += Number(row?.subtotal ?? 0);
   }
 
   return { page, topCustomers, grandTotal };

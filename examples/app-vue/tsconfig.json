@@ -4,6 +4,7 @@
  "jsx": "preserve",
  "lib": ["es2022", "dom", "dom.iterable"],
  "types": ["node", "jest"],
+ "isolatedModules": true,
  "verbatimModuleSyntax": false
  },
  "include": ["src/**/*.ts", "src/**/*.vue"]

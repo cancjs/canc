@@ -1,44 +1,29 @@
 // CancelablePromise.race: first to settle wins, rest canceled.
 // Demonstrates cancel of losers on any settlement.
 
-import { CancelablePromise } from '@cancjs/promise';
-import { sleep } from '@shared/util';
+import * as canc from '@cancjs/coroutine';
 
-const settled: string[] = [];
-const canceled: string[] = [];
-
-function loadWidget(name: string, delay: number): CancelablePromise<string> {
-  return new CancelablePromise((resolve, onCancel) => {
-    const timeout = setTimeout(() => {
-      settled.push(name);
-      resolve(name);
-    }, delay);
-
-    onCancel(() => {
-      clearTimeout(timeout);
-      canceled.push(name);
-    });
-  });
-}
+import { cancWidgets, mockApi } from './widgets-shared.js';
 
 async function runRaceCanc(): Promise<void> {
-  const result = CancelablePromise.race([
-    loadWidget('sales', 100),
-    loadWidget('traffic', 100),
-    loadWidget('alerts', 10), // winner
-    loadWidget('news', 100),
-  ]);
+  mockApi.reset();
 
   try {
-    const winner = await result;
-    console.log(`Canc race - winner: ${winner}`);
+    const winner = await canc.async(function* () {
+      return yield* canc.await.race([
+        cancWidgets.getDeployStatus('deploy-1'), // winner
+        cancWidgets.loadOrders('user-1'),
+        cancWidgets.checkInventory('product-1'),
+        cancWidgets.quotePrice('AAPL'),
+      ]);
+    })();
+    console.log(`Canc race - winner: ${JSON.stringify(winner)}`);
   } catch {
-    // Race completed
+    // Race completed (by rejection)
   }
 
-  // canceled here: losers canceled
-  await sleep(150);
-  console.log(`Canc race - canceled: ${canceled.length}`);
+  const reportCanceled = mockApi.calls.filter((c) => c.status === 'aborted').length;
+  console.log(`Canc race - canceled: ${reportCanceled}`);
 }
 
 export { runRaceCanc };

@@ -14,6 +14,7 @@
     "app-cli-graceful",
     "app-crawler-race",
     "app-express-kysely",
+    "app-fetch-streaming",
     "app-fastify-mongoose",
     "app-fullstack-cancel",
     "app-nestjs-typeorm",
@@ -26,6 +27,7 @@
     "app-vue-suspense",
     "app-ws-progress",
     "demo-async-dispose",
+    "demo-async-iter",
     "demo-chain-propagation",
     "demo-combinators",
     "demo-coroutine",
@@ -37,16 +39,18 @@
   ],
   "scripts": {
     "examples:typecheck": "tsc --noEmit --project tsconfig.examples.json",
-    "examples:test": "jest --colors",
+    "examples:test": "jest --colors && npm run test --prefix app-express-kysely",
     "examples:lint": "eslint .",
     "examples:format": "eslint --fix ."
   },
   "devDependencies": {
     "@types/jest": "30.0.0",
+    "eslint-plugin-vue": "10.10.0",
     "glob": "10.5.0",
     "jest": "30.4.2",
     "ts-jest": "29.4.11",
-    "typescript": "^5.4.0"
+    "typescript": "^5.4.0",
+    "vue-eslint-parser": "10.4.1"
   },
   "engines": {
     "npm": ">=9"

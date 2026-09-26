@@ -2,7 +2,8 @@
  "extends": "../tsconfig.examples.json",
  "compilerOptions": {
  "jsx": "preserve",
- "lib": ["es2022", "dom", "dom.iterable"]
+ "lib": ["es2022", "dom", "dom.iterable"],
+ "isolatedModules": true
  },
  "include": ["src/**/*.ts", "src/**/*.vue", "test/**/*.ts"],
  "exclude": []

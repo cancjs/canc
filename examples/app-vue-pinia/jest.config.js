@@ -34,7 +34,6 @@ function project(flavor) {
             esModuleInterop: true,
             strict: true,
           },
-          isolatedModules: true,
         },
       ],
       // pinia's own build ships ESM-only (no CJS export); ts-jest also transforms its plain .js
@@ -43,7 +42,6 @@ function project(flavor) {
         'ts-jest',
         {
           tsconfig: { target: 'es2020', module: 'commonjs', allowJs: true },
-          isolatedModules: true,
         },
       ],
     },

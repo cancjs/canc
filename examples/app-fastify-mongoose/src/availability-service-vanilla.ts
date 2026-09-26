@@ -1,11 +1,11 @@
 import { AvailabilityResult } from './availability';
-import { findRooms, loadRates, scanBookings } from './mock/db';
+import { findRooms, loadRates, scanBookings } from './bookings-repository';
 
-// (no cancelable repository boundary - see -canc) The repository fns are used exactly as mock/db.ts
-// exports them: plain promises, called directly by the search below.
-// (no cancellation counterpart - see -canc) There is nothing to skip a query that has not started.
-// (no cancellation counterpart - see -canc) The scan gets no signal here either, so the query-level
-// abort flag in mock/db.ts has nothing to switch on and every booking is walked.
+// (no cancelable repository boundary, see -canc) The repository fns are used exactly as
+// bookings-repository.ts exports them: plain promises, called directly by the search below.
+// (no cancellation counterpart, see -canc) There is nothing to skip a query that has not started.
+// (no cancellation counterpart, see -canc) No query gets a signal here either, so the query-level
+// abort flag in bookings-repository.ts has nothing to switch on and every booking is walked.
 
 // Plain uncancelable availability search: find rooms, load their rates, scan bookings for occupancy.
 // A dropped connection cannot stop this. Once the first query starts, every step below runs to

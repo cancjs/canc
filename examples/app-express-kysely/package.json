@@ -6,23 +6,24 @@
   "scripts": {
     "start:vanilla": "tsx src/main-vanilla.ts",
     "start:canc": "tsx src/main-canc.ts",
-    "test": "jest --colors",
+    "test": "node --experimental-vm-modules ../../node_modules/jest/bin/jest.js --colors",
     "typecheck": "tsc --noEmit --project tsconfig.json"
   },
   "dependencies": {
-    "@cancjs/promise": "file:../../packages/canc-promise",
     "@cancjs/coroutine": "file:../../packages/canc-coroutine",
+    "@cancjs/promise": "file:../../packages/canc-promise",
     "@cancjs/toolbox": "file:../../packages/canc-toolbox",
     "@cancjs/unhandled-rejection": "file:../../packages/canc-unhandled-rejection",
-    "better-sqlite3": "12.11.1",
+    "@electric-sql/pglite": "0.2.17",
     "express": "5.2.1",
-    "kysely": "0.29.3"
+    "kysely": "0.29.3",
+    "pg": "8.22.0"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "7.6.13",
     "@types/express": "5.0.6",
     "@types/jest": "30.0.0",
     "@types/node": "20.12.12",
+    "@types/pg": "8.20.0",
     "@types/supertest": "7.2.0",
     "jest": "30.4.2",
     "supertest": "7.2.2",

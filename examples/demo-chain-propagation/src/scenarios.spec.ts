@@ -1,12 +1,13 @@
+import { isCancelError } from '@cancjs/promise';
 import { createMockApi } from '@shared/mock-api';
 
 import { loadProductProfile } from './page-load-canc';
 
 describe('demo-chain-propagation scenarios', () => {
-  it('bubble scenario: canceling both consumers bubbles up to source', async () => {
+  it('down scenario: canceling the source aborts all three downstream calls', async () => {
     const mockApi = createMockApi();
-    const { products: productsApi, music: musicApi, invoices: invoicesApi } = mockApi;
-    const profilePromise = loadProductProfile(productsApi, musicApi, invoicesApi, 'prod-test');
+    const { products: productsApi, inventory: inventoryApi, orders: ordersApi, invoices: invoicesApi } = mockApi;
+    const profilePromise = loadProductProfile(productsApi, inventoryApi, ordersApi, invoicesApi, 'p1');
 
     profilePromise.cancel();
 
@@ -14,41 +15,57 @@ describe('demo-chain-propagation scenarios', () => {
       await profilePromise;
       throw new Error('should have canceled');
     } catch (err) {
-      expect(err).toBeDefined();
-      expect(err instanceof Error && err.constructor.name).toBe('CancelError');
+      expect(isCancelError(err)).toBe(true);
     }
 
-    // When bubble-up occurs, the legs cancel too.
-    // The mock API log should show aborted statuses.
-    const callStatuses = mockApi.api.calls.map((c) => c.status);
-    expect(callStatuses.some((s) => s === 'aborted')).toBe(true);
+    const callStatuses = mockApi.api.calls.map((c: any) => c.status);
+    expect(callStatuses.every((s: any) => s === 'aborted')).toBe(true);
   });
 
-  it('partial scenario with bubble:false: source completes despite image cancelation', async () => {
+  it('bubble up scenario: canceling both consumers aborts the source', async () => {
     const mockApi = createMockApi();
-    const { products: productsApi, music: musicApi, invoices: invoicesApi } = mockApi;
-    const profilePromise = loadProductProfile(productsApi, musicApi, invoicesApi, 'prod-test-2', { bubble: false });
+    const { products: productsApi, inventory: inventoryApi, orders: ordersApi, invoices: invoicesApi } = mockApi;
+    const profilePromise = loadProductProfile(productsApi, inventoryApi, ordersApi, invoicesApi, 'p2');
 
-    profilePromise.cancel();
+    const stockConsumer = profilePromise.then((x) => x.stock);
+    const ordersConsumer = profilePromise.then((x) => x.orders);
+
+    stockConsumer.cancel();
+    ordersConsumer.cancel();
 
     try {
       await profilePromise;
       throw new Error('should have canceled');
     } catch (err) {
-      expect(err).toBeDefined();
+      expect(isCancelError(err)).toBe(true);
     }
 
-    // When image has bubble:false, the source was not canceled by image alone.
-    // The source still ran through and the API calls should complete.
-    const callStatuses = mockApi.api.calls.map((c) => c.status);
-    const hasCompleted = callStatuses.some((s) => s === 'completed');
-    expect(hasCompleted || callStatuses.some((s) => s === 'aborted')).toBe(true);
+    const callStatuses = mockApi.api.calls.map((c: any) => c.status);
+    expect(callStatuses.every((s: any) => s === 'aborted')).toBe(true);
+  });
+
+  it('partial scenario: canceling one consumer keeps the source and surviving consumer completing', async () => {
+    const mockApi = createMockApi();
+    const { products: productsApi, inventory: inventoryApi, orders: ordersApi, invoices: invoicesApi } = mockApi;
+    const profilePromise = loadProductProfile(productsApi, inventoryApi, ordersApi, invoicesApi, 'p3');
+
+    const stockConsumer = profilePromise.then((x) => x.stock);
+    const ordersConsumer = profilePromise.then((x) => x.orders);
+
+    stockConsumer.cancel();
+
+    await ordersConsumer;
+
+    const callStatuses = mockApi.api.calls.map((c: any) => c.status);
+    expect(callStatuses.every((s: any) => s === 'completed')).toBe(true);
   });
 
   it('shield scenario: shielded audit survives cancellation', async () => {
     const mockApi = createMockApi();
-    const { products: productsApi, music: musicApi, invoices: invoicesApi } = mockApi;
-    const profilePromise = loadProductProfile(productsApi, musicApi, invoicesApi, 'prod-test-3', { shield: true });
+    const { products: productsApi, inventory: inventoryApi, orders: ordersApi, invoices: invoicesApi } = mockApi;
+    const profilePromise = loadProductProfile(productsApi, inventoryApi, ordersApi, invoicesApi, 'p4', {
+      shield: true,
+    });
 
     profilePromise.cancel();
 
@@ -56,19 +73,15 @@ describe('demo-chain-propagation scenarios', () => {
       await profilePromise;
       throw new Error('should have canceled');
     } catch (err) {
-      expect(err).toBeDefined();
+      expect(isCancelError(err)).toBe(true);
     }
 
-    // Shield protects from propagating its own cancellation. The audit call should show as
-    // completed or handled even under cancellation.
-    const callStatuses = mockApi.api.calls.map((c) => c.status);
-    expect(callStatuses.length).toBeGreaterThan(0);
-  });
+    await new Promise((resolve) => setTimeout(resolve, 80));
 
-  it('both entrypoints typecheck', async () => {
-    // This is a compile-time check; it passes if tsconfig validates both imports.
-    // Vanilla entry exists and can be imported (compile only).
-    const shouldCompile = true;
-    expect(shouldCompile).toBe(true);
+    const auditCall = mockApi.api.calls.find((c: any) => c.endpoint === 'invoices.get');
+    expect(auditCall?.status).toBe('completed');
+
+    const otherCalls = mockApi.api.calls.filter((c: any) => c.endpoint !== 'invoices.get');
+    expect(otherCalls.every((c: any) => c.status === 'aborted')).toBe(true);
   });
 });

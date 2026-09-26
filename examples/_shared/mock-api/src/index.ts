@@ -7,6 +7,7 @@ export { MockApi } from './core';
 export type {
   Album,
   ChatApi,
+  Comment,
   DocChunk,
   Domains,
   Flight,
@@ -18,6 +19,7 @@ export type {
   Product,
   Quote,
   RagApi,
+  SearchResult,
   Supplier,
   Track,
 } from './domains';

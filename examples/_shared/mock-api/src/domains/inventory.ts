@@ -9,6 +9,10 @@ const INVENTORY: Inventory[] = [
   { id: 'product-1', quantity: 10 },
   { id: 'product-2', quantity: 0 },
   { id: 'product-3', quantity: 5 },
+  { id: 'p1', quantity: 10 },
+  { id: 'p2', quantity: 0 },
+  { id: 'p3', quantity: 5 },
+  { id: 'p4', quantity: 8 },
 ];
 
 export interface InventoryApi {

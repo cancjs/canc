@@ -8,7 +8,7 @@ GitHub-style repository search. Search endpoint returns a list; follow-up readme
 
 ## Teaching Goals
 
-- **Chain cancellation:** cancel() flows through .then() chain → both fetches aborted.
+- **Chain cancellation:** cancel() flows through coroutine chain → both fetches aborted.
 - **External abort signals:** AbortController signal passed into fetch — either fires independently.
 - **Pre-aborted signals:** signal already aborted when fetch starts → rejects immediately (born-canceled), no network call.
 - **Timeout composition:** timeout() wraps the promise chain; on timeout, underlying fetches canceled.
@@ -34,14 +34,14 @@ npm run typecheck
 
 ## File Map
 
-- `src/repo-search-vanilla.ts` / `-canc.ts` — twin modules (payload). Vanilla has `searchRepos` (uncancelable, comments) + `searchReposAbortable` (workaround). Canc has `searchRepos` + `searchReposWithExternal` + `searchReposPreAborted` + `searchReposWithTimeout`.
+- `src/repo-search-vanilla.ts` / `-canc.ts` — twin modules (payload). Both have `searchRepos` (vanilla is uncancelable), `searchReposWithExternal`, `searchReposPreAborted`, and `searchReposWithTimeout`. Vanilla shows the `AbortController` boilerplate; Canc shows coroutines.
 - `src/main-vanilla.ts` / `main-canc.ts` — scenarios: uncancelable, external abort, timeout.
 - `src/repo.ts` — shared types.
 - `test/smoke.spec.ts` — thin smoke: verify cancel → fetch aborted marker, timeout → aborted marker.
 
 ## Diff
 
-Both flavors align on function names (modulo `Abortable`/`WithExternal`/etc suffixes) and export positions. Vanilla's boilerplate is the teaching point — see the comment markers for side effects.
+Both flavors align on function names and export positions. Vanilla's boilerplate is the teaching point — see the comment markers for side effects.
 
 Example vanilla → canc transition:
 
@@ -58,13 +58,12 @@ try {
 }
 
 // Canc: fetch + timeout compose cleanly
-const promise = cancelableFetch(url).then(/* ... */);
-return timeout(promise, ms);
+return timeout(searchRepos(query, fetch), ms);
 ```
 
 ## Honesty Notes
 
-- **Chain**: cancellation stops at fetch level (abort sent to underlying API; query already in flight when cancel() fires may still complete server-side).
+- **Chain**: cancellation stops at the fetch layer (network request aborted). If a request was already in flight, the server may still complete the processing, but the client abandons the result.
 - **External signals**: standard AbortSignal shapes; fallback to onabort for legacy polyfills.
 - **Pre-aborted**: fetch rejects before any network call; truly born-canceled.
 - **Timeout**: underlying promise canceled when ms elapses; fetch network cancel follows immediately.

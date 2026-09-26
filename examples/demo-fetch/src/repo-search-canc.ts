@@ -1,6 +1,6 @@
 import * as canc from '@cancjs/coroutine';
 import { cancelableFetchFactory } from '@cancjs/fetch';
-import { CancelablePromise } from '@cancjs/promise';
+import { CancelablePromise, createCancelSignal } from '@cancjs/promise';
 import { timeout } from '@cancjs/toolbox';
 
 import { Repo } from './repo';
@@ -22,7 +22,7 @@ function searchRepos(query: string, fetch: any): CancelablePromise<Repo, any> {
     if (!products.length) throw new Error('No items found');
     const top = products[0];
 
-    // Fetch details of top hit. If chain is canceled now, this fetch aborts (cancel flows down).
+    // canceled here — nothing below runs
     const detailRes = yield* canc.await(cancelableFetch(`/products/${top.id}`));
     if (!detailRes.ok) throw new Error(`Detail fetch failed: ${detailRes.status}`);
     const detail = yield* canc.await(detailRes.json());
@@ -43,7 +43,7 @@ function searchReposWithExternal(query: string, fetch: any, signal?: AbortSignal
     if (!products.length) throw new Error('No items found');
     const top = products[0];
 
-    // Fetch details with same signal. Cancel flows down to both legs.
+    // If aborted here, network request stops.
     const detailRes = yield* canc.await(cancelableFetch(`/products/${top.id}`, { signal }));
     if (!detailRes.ok) throw new Error(`Detail fetch failed: ${detailRes.status}`);
     const detail = yield* canc.await(detailRes.json());
@@ -55,18 +55,18 @@ function searchReposWithExternal(query: string, fetch: any, signal?: AbortSignal
 // Pre-aborted signal: promise born-canceled (no fetch starts).
 function searchReposPreAborted(query: string, fetch: any): CancelablePromise<Repo, any> {
   // Demonstrates pre-aborted signal making fetch reject immediately on construction.
-  const abortController = new AbortController();
-  abortController.abort();
+  const cancelSignal = createCancelSignal('pre-aborted');
+  cancelSignal.cancel();
 
   const cancelableFetch = createFetch(fetch);
 
   return canc.async(function* () {
     yield* canc.await(
       cancelableFetch('/products/p1', {
-        signal: abortController.signal,
+        signal: cancelSignal.signal,
       }),
     );
-    return { id: 'p1', name: '', url: '', readme: '' };
+    return { id: 'p1', name: '', url: '', readme: '' } as Repo;
   })();
 }
 

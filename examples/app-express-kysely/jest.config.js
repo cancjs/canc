@@ -5,6 +5,7 @@ const base = require('../jest.config.base.js');
 module.exports = {
   ...base,
   displayName: 'app-express-kysely',
+  testEnvironment: 'node',
   rootDir: '.',
   transform: {
     '^.+\\.[tj]sx?$': [
@@ -22,5 +23,5 @@ module.exports = {
       },
     ],
   },
-  transformIgnorePatterns: ['/node_modules/(?!kysely/)'],
+  transformIgnorePatterns: ['/node_modules/'],
 };

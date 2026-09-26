@@ -10,7 +10,7 @@ async function searchRepos(query: string, fetch: any): Promise<Repo> {
   if (!products.length) throw new Error('No items found');
   const top = products[0];
 
-  // Fetch details of top hit. If caller cancels now, this completes anyway (wasted work).
+  // keeps running after the user left (wasted work)
   const detailRes = await fetch(`/products/${top.id}`);
   if (!detailRes.ok) throw new Error(`Detail fetch failed: ${detailRes.status}`);
   const detail = (await detailRes.json()) as any;
@@ -19,14 +19,8 @@ async function searchRepos(query: string, fetch: any): Promise<Repo> {
 
 // Workaround: manual AbortController signal plumbing. External signal combined
 // with local timeout — count the boilerplate.
-async function searchReposAbortable(
-  query: string,
-  fetch: any,
-  signal?: AbortSignal,
-  timeoutMs = Infinity,
-): Promise<Repo> {
+async function searchReposWithExternal(query: string, fetch: any, signal?: AbortSignal): Promise<Repo> {
   const controller = new AbortController();
-  let timeoutId: any;
   let localAborted = false;
 
   const combinedSignal = signal || controller.signal;
@@ -41,28 +35,55 @@ async function searchReposAbortable(
     });
   }
 
+  const res = await fetch(`/products`, {
+    signal: combinedSignal,
+  });
+  if (!res.ok) throw new Error(`Search failed: ${res.status}`);
+  const products = (await res.json()) as Array<{ id: string; name: string }>;
+  const top = products[0];
+  if (!top) throw new Error('No items found');
+
+  // If aborted here, network request stops.
+  const detailRes = await fetch(`/products/${top.id}`, {
+    signal: combinedSignal,
+  });
+  if (!detailRes.ok) throw new Error(`Detail fetch failed: ${detailRes.status}`);
+  const detail = (await detailRes.json()) as any;
+  return { ...top, url: '', readme: JSON.stringify(detail) } as Repo;
+}
+
+async function searchReposPreAborted(query: string, fetch: any): Promise<Repo> {
+  const controller = new AbortController();
+  controller.abort();
+
+  await fetch('/products/p1', {
+    signal: controller.signal,
+  });
+  return { id: 'p1', name: '', url: '', readme: '' } as Repo;
+}
+
+async function searchReposWithTimeout(query: string, fetch: any, timeoutMs = 100): Promise<Repo> {
+  const controller = new AbortController();
+  let timeoutId: any;
+
   // Timeout logic.
   if (timeoutMs !== Infinity) {
     timeoutId = setTimeout(() => {
-      if (!localAborted) {
-        localAborted = true;
-        controller.abort(new Error('Timeout'));
-      }
+      controller.abort(new Error('Timeout'));
     }, timeoutMs);
   }
 
   try {
     const res = await fetch(`/products`, {
-      signal: combinedSignal,
+      signal: controller.signal,
     });
     if (!res.ok) throw new Error(`Search failed: ${res.status}`);
     const products = (await res.json()) as Array<{ id: string; name: string }>;
     const top = products[0];
     if (!top) throw new Error('No items found');
 
-    // Fetch details. If aborted here, network request stops.
     const detailRes = await fetch(`/products/${top.id}`, {
-      signal: combinedSignal,
+      signal: controller.signal,
     });
     if (!detailRes.ok) throw new Error(`Detail fetch failed: ${detailRes.status}`);
     const detail = (await detailRes.json()) as any;
@@ -72,4 +93,4 @@ async function searchReposAbortable(
   }
 }
 
-export { searchRepos, searchReposAbortable };
+export { searchRepos, searchReposPreAborted, searchReposWithExternal, searchReposWithTimeout };

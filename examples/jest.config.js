@@ -25,8 +25,13 @@ const splicedProjects = multiProjectConfigs.flatMap((dir) =>
 // they get an inline project each; the workspace-root specs under test/ get one too.
 const multiProjectPaths = multiProjectConfigs.map((dir) => `${dir}/jest.config.js`);
 const ownConfigs = glob
-  .sync('*/jest.config.js', { cwd: __dirname })
-  .filter((p) => !p.includes('~~') && !multiProjectPaths.includes(p.split(path.sep).join('/')))
+  .sync('{*,_shared/*}/jest.config.{js,cjs}', { cwd: __dirname })
+  .filter(
+    (p) =>
+      !p.includes('~~') &&
+      !p.includes('app-express-kysely') &&
+      !multiProjectPaths.includes(p.split(path.sep).join('/')),
+  )
   .map((p) => path.join('<rootDir>', p));
 
 module.exports = {

@@ -1,45 +1,46 @@
 import type { MockApiBundle, Product } from '@shared/mock-api';
+import type { Order } from '@shared/mock-api/src/domains/orders';
 
 import { report } from './report';
 
-// Sliced from the bundle type only for typing (no bundle value ever crosses a function
-// boundary here). Each function takes just the domain apis it calls.
 type ProductsApi = MockApiBundle['products'];
-type MusicApi = MockApiBundle['music'];
+type InventoryApi = MockApiBundle['inventory'];
+type OrdersApi = MockApiBundle['orders'];
 type InvoicesApi = MockApiBundle['invoices'];
 
 /**
- * Product profile fetch: single source fanning out to two consumers (image + reviews).
+ * Product profile fetch: single source fanning out to two consumers (inventory + orders).
  * Vanilla: plain promises, no cancellation. If the caller abandons the page, both
  * downstream requests stay in flight (wasted work).
  */
 export async function loadProductProfile(
   productsApi: ProductsApi,
-  musicApi: MusicApi,
+  inventoryApi: InventoryApi,
+  ordersApi: OrdersApi,
   invoicesApi: InvoicesApi,
   productId: string,
 ): Promise<{
   product: Product;
-  image: string;
-  reviews: string[];
+  stock: number;
+  orders: Order[];
 }> {
   report('fetching product');
   // keeps running, nobody can stop this from the consumer side
   const product = await productsApi.get(productId);
 
-  report('starting image + reviews fetch');
-  // Both consumers start: image and reviews.
+  report('starting inventory + orders fetch');
+  // Both consumers start: inventory and orders.
   // If the consumer cancels now, neither request stops.
-  const imagePromise = musicApi.albums().then(() => 'image-url');
-  const reviewsPromise = musicApi.albums().then((albums) => albums.map((x) => x.title));
+  const auditPromise = invoicesApi.get('audit-1');
+  const inventoryPromise = inventoryApi.check(productId);
+  const ordersPromise = ordersApi.forProduct(productId);
 
-  const [image, reviews] = await Promise.all([imagePromise, reviewsPromise]);
+  const [stock, orders] = await Promise.all([inventoryPromise, ordersPromise]);
 
   report('writing audit log');
-  // Audit log hangs off the reviews consumer. If reviews is canceled, audit still runs.
   // orphaned result: computed, delivered to no one
-  await invoicesApi.get('audit-1');
+  await auditPromise;
 
   report('returning results');
-  return { product, image, reviews };
+  return { product, stock, orders };
 }

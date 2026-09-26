@@ -12,6 +12,7 @@ export interface Invoice {
 const INVOICES: Invoice[] = [
   { id: 'inv1', customer: 'Wayne Ent', total: 1200, paid: false },
   { id: 'inv2', customer: 'Stark Ind', total: 8400, paid: true },
+  { id: 'audit-1', customer: 'System Audit', total: 0, paid: true },
 ];
 
 export interface InvoicesApi {

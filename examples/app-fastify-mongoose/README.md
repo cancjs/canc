@@ -10,7 +10,7 @@ is listening to.
   (`src/lib/cancelable-route.ts`). The `close` event on the raw request cancels the handler's
   coroutine; the handler still owns `reply.send` and full control of the response.
 - The cancelable boundary living in the service (`src/availability-service-canc.ts`), not in the
-  data layer. `cancelify` turns the plain repository fns of `src/mock/db.ts` into canc-native ones,
+  data layer. `cancelify` turns the plain repository fns of `src/bookings-repository.ts` into canc-native ones,
   so the repository stays an ordinary Mongoose module that knows nothing about canc.
 - A three-step chain built with `canc.async` / `canc.await` over that boundary: find the rooms,
   load their nightly rates, then scan the bookings for occupancy. Cancellation is ambient, so no
@@ -76,7 +76,8 @@ The service twins align step for step. The canc side opens with the `cancelify` 
 vanilla side has no use for, then every `await` becomes `yield* canc.await` inside a `canc.async`
 generator, and the comment at each step changes from "this always runs" to "canceled here, this is
 skipped". The route handlers differ by the `cancAsyncRoute` wrapper, which exists only on the canc
-side. The repository (`src/mock/db.ts`) is shared by both flavors and is identical for each.
+side. The repository (`src/bookings-repository.ts`) is shared by both flavors and is identical for each.
+It holds the plain Mongoose query functions and contains no canc imports.
 
 ## Honesty notes
 
@@ -86,28 +87,35 @@ The chain level is the default and the one this example leans on. A canceled cor
 between steps, so a query that has not started yet is never issued and the partial result is
 discarded instead of being assembled for a dead socket. Nothing is killed on the database server.
 
-The document scan is the second layer. Mongoose's `cursor.eachAsync` takes a `signal` option, and
-that signal is a client-side loop stop. It stops pulling further batches and resolves. It does not
+The document scan is the second layer. Mongoose's `cursor.eachAsync` takes a `signal` option,
+added in [Mongoose PR 12323](https://github.com/Automattic/mongoose/pull/12323). That signal is a
+client-side loop stop. It stops pulling further batches and resolves immediately. It does not
 close the cursor, does not abort the operation already in flight, and does not reject. No
-connection is dropped, which makes it the cheap and safe cancellation point, and it is the only
-place this example spends a signal. `scanBookings` in `src/mock/db.ts` implements those same stop
-semantics by hand, because mockingoose replaces the cursor with a stand-in that drops the options
-argument. Every signal is inert through mockingoose, so the mock has to carry the behavior itself.
+connection is dropped, which makes it the cheap and safe cancellation point. In this example,
+`scanBookings` passes `options.signal` directly to `eachAsync`. Because mockingoose replaces
+the cursor with a stand-in that drops the options argument, the mock setup in `src/mock/db.ts`
+supplies a cursor stand-in that reproduces these exact stop semantics.
 
-True statement-level cancellation does exist. Mongoose forwards an `AbortSignal` from the query
+True statement-level cancellation also exists. Mongoose forwards an `AbortSignal` from the query
 options straight to the driver, and the driver's cursor closes when that signal aborts, so the
-operation really does stop on the server. That is the
+operation really does stop on the server. That uses the
 [`Abortable`](https://mongodb.github.io/node-mongodb-native/7.0/types/Abortable.html) interface of
-the MongoDB Node driver, version 7.2 here. The cost is
-[NODE-6062](https://jira.mongodb.org/browse/NODE-6062): aborting this way makes the driver drop the
-connection and open a new one. Under load, canceling every disconnected request that way turns
-into connection churn, which is why it fits an explicit user cancel (someone clicking "stop" on a
-slow report) better than ambient request cancellation.
+the MongoDB Node driver (version 7.2 here), which provides the typed signal option on find and
+aggregate. Signal support was added to find and aggregate in
+[driver PR 4364](https://github.com/mongodb/node-mongodb-native/pull/4364).
 
-So `ABORT_QUERIES` in `src/mock/db.ts` is off by default. Turning it on passes the signal the typed
-way, `Model.find(filter, null, { signal })`, never through `setOptions`, which only carries a signal
-through an index signature and is not typed for it. Through mockingoose the flag changes nothing
-here, so treat it as a documented escape hatch rather than a feature of this example.
+The cost is tracked under [NODE-6062](https://jira.mongodb.org/browse/NODE-6062), the open ticket
+for the connection churn that aborting causes. Aborting signals during socket reads and writes
+causes connection reestablishment. Signals suit low-frequency human interactive interruption
+such as someone pressing stop, and aborting hundreds of programmatic operations can empty the
+driver's connection pool.
+
+`ABORT_QUERIES` in `src/bookings-repository.ts` is enabled by default so the demo shows the
+mechanism out of the box. It must not be enabled for frequently-running queries until the
+referenced driver issues are resolved. Passing the signal the typed way uses
+`Model.find(filter, null, { signal })`, never `Query#setOptions({ signal })` (which only carries a
+signal through an unchecked index signature). Through mockingoose the flag changes nothing
+observable here, so it is a documented switch rather than a feature of this example's output.
 
 ## Why plain vanilla, not a workaround
 
@@ -121,7 +129,8 @@ The data layer runs against [mockingoose](https://www.npmjs.com/package/mockingo
 intercepts Mongoose model methods and returns canned documents, so no MongoDB server is needed.
 mockingoose 3.0.0 declares Mongoose 9 as a peer dependency and worked against the pinned Mongoose
 9.7.4 here, so the mongodb-memory-server fallback was not needed. The mock setup and seed data live
-in `src/mock/db.ts` and `src/mock/models.ts`; treat them as a black box.
+in `src/mock/db.ts` and `src/mock/models.ts`; treat them as a black box. The query functions
+themselves live in `src/bookings-repository.ts` and are part of the example code.
 
 ## Helper code
 
