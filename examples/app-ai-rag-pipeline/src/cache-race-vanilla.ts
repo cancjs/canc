@@ -1,10 +1,4 @@
-// Cache-vs-pipeline race, plain uncancelable version. A fast cache lookup runs against the full
-// pipeline. Whichever settles first is the answer.
-//
-// Promise.race resolves with the winner, but the loser keeps running. When the cache wins, the whole
-// pipeline below it still embeds, retrieves, reranks, and generates — the user already got the cached
-// answer, yet this work still runs and bills. The mirrored comment in cache-race-canc.ts shows the
-// pipeline being canceled at that same point.
+// cache-vs-pipeline race where losing pipeline keeps running in background
 
 import type { ChatApi, RagApi } from '@shared/mock-api';
 
@@ -15,7 +9,7 @@ export function answerWithCache(ragApi: RagApi, chatApi: ChatApi, query: string)
   return Promise.race([lookupCache(query), ragPipeline(ragApi, chatApi, query)]);
 }
 
-// A fast semantic-cache lookup. Resolves quickly when there is a cached answer for the query.
+// fast semantic-cache lookup resolving quickly on cache hits
 function lookupCache(query: string): Promise<RagAnswer> {
   return new Promise((resolve) => {
     setTimeout(() => {

@@ -14,29 +14,39 @@ type GuardMatcher = (e: any) => e is BarError;
 type StringMatcher = 'RetryError';
 type PredicateMatcher = (e: any) => boolean;
 
-// 1. MatchedError assertions for all 4 matcher kinds
-type _checkCtorMatched = Assert<Eq<MatchedError<CtorMatcher>, FooError>>;
-type _checkGuardMatched = Assert<Eq<MatchedError<GuardMatcher>, BarError>>;
-type _checkStringMatched = Assert<Eq<MatchedError<StringMatcher>, Error & { name: 'RetryError' }>>;
-type _checkPredicateMatched = Assert<Eq<MatchedError<PredicateMatcher>, Error>>;
-
-// 2. SubtractedError assertions for all 4 matcher kinds
-type _checkCtorSubtracted = Assert<Eq<SubtractedError<CtorMatcher>, FooError>>;
-type _checkGuardSubtracted = Assert<Eq<SubtractedError<GuardMatcher>, BarError>>;
-type _checkStringSubtracted = Assert<Eq<SubtractedError<StringMatcher>, Error & { name: 'RetryError' }>>;
-type _checkPredicateSubtracted = Assert<Eq<SubtractedError<PredicateMatcher>, never>>;
-
-// 3. MatchedOf and SubtractedOf tuple assertions
-type _checkMatchedOfTuple = Assert<Eq<MatchedOf<[CtorMatcher, GuardMatcher]>, FooError | BarError>>;
-type _checkSubtractedOfTuple = Assert<Eq<SubtractedOf<[CtorMatcher, GuardMatcher]>, FooError | BarError>>;
-
-// 4. Load-bearing negative assertion: plain predicate subtracts NOTHING from failure set
-type _checkPredicateSubtractsNothing = Assert<
-  Eq<Exclude<FooError | BarError, SubtractedOf<[PredicateMatcher]>>, FooError | BarError>
->;
-
 describe('matcher type mappings', () => {
   it('type assertion helpers pass compile-time checks', () => {
-    expect(true).toBe(true);
+    // 1. MatchedError assertions for all 4 matcher kinds
+    const checkCtorMatched: Assert<Eq<MatchedError<CtorMatcher>, FooError>> = true;
+    const checkGuardMatched: Assert<Eq<MatchedError<GuardMatcher>, BarError>> = true;
+    const checkStringMatched: Assert<Eq<MatchedError<StringMatcher>, Error & { name: 'RetryError' }>> = true;
+    const checkPredicateMatched: Assert<Eq<MatchedError<PredicateMatcher>, Error>> = true;
+
+    // 2. SubtractedError assertions for all 4 matcher kinds
+    const checkCtorSubtracted: Assert<Eq<SubtractedError<CtorMatcher>, FooError>> = true;
+    const checkGuardSubtracted: Assert<Eq<SubtractedError<GuardMatcher>, BarError>> = true;
+    const checkStringSubtracted: Assert<Eq<SubtractedError<StringMatcher>, Error & { name: 'RetryError' }>> = true;
+    const checkPredicateSubtracted: Assert<Eq<SubtractedError<PredicateMatcher>, never>> = true;
+
+    // 3. MatchedOf and SubtractedOf tuple assertions
+    const checkMatchedOfTuple: Assert<Eq<MatchedOf<[CtorMatcher, GuardMatcher]>, FooError | BarError>> = true;
+    const checkSubtractedOfTuple: Assert<Eq<SubtractedOf<[CtorMatcher, GuardMatcher]>, FooError | BarError>> = true;
+
+    // 4. Load-bearing negative assertion: plain predicate subtracts NOTHING from failure set
+    const checkPredicateSubtractsNothing: Assert<
+      Eq<Exclude<FooError | BarError, SubtractedOf<[PredicateMatcher]>>, FooError | BarError>
+    > = true;
+
+    expect(checkCtorMatched).toBe(true);
+    expect(checkGuardMatched).toBe(true);
+    expect(checkStringMatched).toBe(true);
+    expect(checkPredicateMatched).toBe(true);
+    expect(checkCtorSubtracted).toBe(true);
+    expect(checkGuardSubtracted).toBe(true);
+    expect(checkStringSubtracted).toBe(true);
+    expect(checkPredicateSubtracted).toBe(true);
+    expect(checkMatchedOfTuple).toBe(true);
+    expect(checkSubtractedOfTuple).toBe(true);
+    expect(checkPredicateSubtractsNothing).toBe(true);
   });
 });

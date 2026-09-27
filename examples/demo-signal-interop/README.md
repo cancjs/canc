@@ -13,6 +13,18 @@ signal-based APIs and vice versa.
 | **Classification** (`CancelError`, `.aborted`, `.cause`) | Distinguish abort errors from normal failures |
 | **withSignal wrapper** | Reusable cancellation wrapper for any async work |
 
+## Prerequisites
+
+The examples consume the built `dist` of each `@cancjs/*` package through a npm `file:`.
+Build the monorepo first, then install this workspace:
+
+```
+cd ../../ # monorepo root (canc)
+npm run build
+cd examples
+npm install
+```
+
 ## Running both flavors
 
 ```bash
@@ -29,11 +41,11 @@ Diff vanilla and canc twins to see the delta:
 
 ```
 src/
- in-{vanilla,canc}.ts — Signal to CancelablePromise
- out-{vanilla,canc}.ts — CancelablePromise to signal (toAbortSignal)
- compose-{vanilla,canc}.ts — AbortSignal.timeout + array composition
- classify-{vanilla,canc}.ts — Error type inspection + suppress helpers
- with-signal-{vanilla,canc} — Reusable withSignal wrapper
+ in-{vanilla,canc}.ts: Signal to CancelablePromise
+ out-{vanilla,canc}.ts: CancelablePromise to signal (toAbortSignal)
+ compose-{vanilla,canc}.ts: AbortSignal.timeout + array composition
+ classify-{vanilla,canc}.ts: Error type inspection + suppress helpers
+ with-signal-{vanilla,canc}: Reusable withSignal wrapper
 ```
 
 ## Key points
@@ -130,5 +142,5 @@ npm run typecheck # both flavors type-check
 
 ## Packages used
 
-- `@cancjs/promise` — core CancelablePromise, toAbortSignal, CancelError, helpers
-- `@cancjs/toolbox` — (future: timeout/retry helpers)
+- `@cancjs/promise`: core CancelablePromise, toAbortSignal, CancelError, helpers
+- `@cancjs/toolbox`: timeout/retry helpers (future)

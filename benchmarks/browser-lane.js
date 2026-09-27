@@ -4,11 +4,11 @@
 /**
  * Browser lane. Loads the built UMD bundle (packages/canc-promise/dist/index.umd.js)
  * into a real chromium/firefox/webkit page via playwright and runs tinybench suites a-e
- * (mirrors micro suite shapes) *inside the page context* — proves numbers aren't a
+ * (mirrors micro suite shapes) *inside the page context*; proves numbers aren't a
  * node-only artifact (JIT/engine differences across browsers matter for a browser-shipped
  * lib). Native Promise is always available in-page; CancelablePromise comes from the UMD
  * global `canc_promise` set by the bundle itself (invariant 1: native Promise captured
- * at module load, so loading order here — bundle first — matters, matches real usage).
+ * at module load, so loading order here (bundle first) matters, matches real usage).
  *
  * bluebird is NOT loaded in-page: no browser UMD build of bluebird is part of this repo's
  * dist output; browser lane compares
@@ -32,13 +32,13 @@ const UMD_BUNDLE = path.join(__dirname, '..', 'packages', 'canc-promise', 'dist'
 // tinybench's package.json "exports" only maps the package root (not subpaths), so
 // require.resolve('tinybench/dist/index.js') is blocked by ERR_PACKAGE_PATH_NOT_EXPORTED.
 // Resolve the CJS main entry (dist/index.cjs) then derive the sibling ESM file (dist/index.js)
-// by directory — that file is what actually has plain `export { Bench }` syntax we need.
+// by directory: that file is what actually has plain `export { Bench }` syntax we need.
 const TINYBENCH_ESM = path.join(path.dirname(require.resolve('tinybench')), 'index.js');
 
 // Per-browser tinybench config. Firefox and webkit clamp performance.now() to a
 // coarse resolution (Spectre mitigation), so a single sub-microsecond fn() call
-// reads as 0 or 1 clamped tick — tinybench's per-sample duration is dominated by
-// timer quantization, not the work, and RME blows up to ±20-70% (useless).
+// reads as 0 or 1 clamped tick: tinybench's per-sample duration is dominated by
+// timer quantization, not the work, and RME blows up to +/-20-70% (useless).
 //
 // Fix = per-sample batching: each tinybench sample runs the case body `batch` times
 // and awaits them all, so the measured interval sits well above the timer clamp. The
@@ -343,10 +343,10 @@ async function runInPage(page, benchOptions, batch) {
   await page.addScriptTag({ path: UMD_BUNDLE });
 
   // tinybench ships ESM-only (dist/index.js has `export { x as Bench, ... }`, no
-  // UMD/global build) — inject it as a module script and stash the export on
+  // UMD/global build); inject it as a module script and stash the export on
   // window so the plain (non-module) evaluate() below can reach it.
   // Rewrite the trailing `export { x as Bench, ... }` statement into a window assignment
-  // instead of appending new code after it — the export renames internal minified bindings
+  // instead of appending new code after it: the export renames internal minified bindings
   // (e.g. `x`) to `Bench`, so a bare `window.__Tinybench = { Bench }` appended afterwards
   // would hit a ReferenceError (no local `Bench` binding exists, only the rename target).
   const tinybenchSrc = fs.readFileSync(TINYBENCH_ESM, 'utf8').replace(/export\s*\{([^}]*)\};?\s*$/, (_m, names) => {
@@ -401,7 +401,7 @@ async function runInPage(page, benchOptions, batch) {
       async function calibrate(body, maxBatch) {
         if (maxBatch <= 1) return 1;
         const probe = 25;
-        // Warm the case up first so JIT has tiered up before we measure — a cold probe
+        // Warm the case up first so JIT has tiered up before we measure: a cold probe
         // underestimates per-op cost, picks an oversized batch, and starves the case of
         // samples. Then take the median of a few warm bursts to reject residual hiccups.
         for (let warm = 0; warm < 4; warm++) {
@@ -486,7 +486,7 @@ async function runInPage(page, benchOptions, batch) {
         for (const task of bench.tasks) {
           const r = task.result;
           const b = caseBatch[task.name] || 1;
-          // r.samples are per-sample durations (ms) — trim outliers, then scale for batch.
+          // r.samples are per-sample durations (ms); trim outliers, then scale for batch.
           const t = r ? trimStats(r.samples) : { mean: null, rme: null, n: 0 };
           results.push({
             suite: suite.id,
@@ -526,7 +526,7 @@ function toMarkdown(browserResults) {
   for (const { browser, version, tasks } of browserResults) {
     for (const task of tasks) {
       const ops = task.opsPerSec != null ? task.opsPerSec.toFixed(0) : 'n/a';
-      const margin = task.marginPct != null ? `±${task.marginPct.toFixed(2)}%` : 'n/a';
+      const margin = task.marginPct != null ? `+/-${task.marginPct.toFixed(2)}%` : 'n/a';
       const mean = task.meanMs != null ? task.meanMs.toFixed(4) : 'n/a';
       lines.push(
         `| ${browser} ${version} | ${task.suite} | ${task.name} | ${ops} | ${margin} | ${mean} | ${task.samples} |`,

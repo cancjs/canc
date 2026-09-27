@@ -106,7 +106,7 @@ describe('CancelError brand', () => {
     expect(other instanceof CancelError).toBe(false);
   });
 
-  // A subclass that rewrites `name` is still ours, which is why detection cannot key on the name.
+  // Subclass that rewrites name retains prototype brand, so detection cannot key on name alone
   it('matches a subclass that rewrites the name', () => {
     class Weird extends CancelError {
       constructor() {

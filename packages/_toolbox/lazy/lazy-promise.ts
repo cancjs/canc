@@ -30,8 +30,8 @@ export interface ILazyPromiseOptions extends ICancelablePromiseOptions, IPromise
  * what every duck-typed cancelability check in this repo already accepts.
  */
 export class LazyPromise<T = any> extends LazyBase<T> {
-  // Static surface mirrored from CancelablePromise. The implementations are inherited; these
-  // declarations only narrow the flavor and its options bag, and emit nothing.
+  // Static surface mirrored from CancelablePromise where inherited implementations are narrowed
+  // by these declarations to the flavor and options bag without emitting anything
   declare static try: <V, TArgs extends any[]>(
     fn: (...args: TArgs) => V | PromiseLike<V>,
     ...args: TArgs
@@ -51,9 +51,8 @@ export class LazyPromise<T = any> extends LazyBase<T> {
   protected _canceledBeforeStart = false;
   protected _cancelError?: CancelError;
   protected _resettable: boolean;
-  // Live-consumer tally, only meaningful for a resettable lazy. Each `then` that subscribes before
-  // settlement increments it; a per-consumer cancel decrements it. Reaching zero before settlement
-  // triggers teardown + reset.
+  // Live consumer tally for resettable lazy where each then subscribing before settlement
+  // increments and a per consumer cancel decrements triggering teardown and reset on zero
   protected _consumers = 0;
 
   constructor(executor: TLazyExecutor<T>, options?: ILazyPromiseOptions) {
@@ -133,7 +132,7 @@ export class LazyPromise<T = any> extends LazyBase<T> {
     }
   }
 
-  // Return to UNSTARTED so a later subscription re-runs the executor from scratch (resettable only).
+  // Return to UNSTARTED so a later subscription re-runs the executor from scratch
   protected _reset(): void {
     this._state = 'UNSTARTED';
     this._inner = undefined;

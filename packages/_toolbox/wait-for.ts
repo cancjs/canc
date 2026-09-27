@@ -1,11 +1,11 @@
 import { TimeoutError } from '../_util';
 import { IExecutorCtx } from './construct';
 import { constructTimed } from './construct-timed';
-import { IToolboxDeps } from './deps';
+import { IToolboxDeps, TCallDeps } from './deps';
 import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
-import { startTimer, stopTimer } from './timers';
+import { resolveTimers, startTimer, stopTimer } from './timers';
 
-export interface IWaitForOptions {
+export type IWaitForOptions = TCallDeps & {
   /** Poll interval in milliseconds. Default: 20. */
   interval?: number;
   /** Reject with a plain Error after this many ms. Default: Infinity (no cap). */
@@ -13,7 +13,7 @@ export interface IWaitForOptions {
   /** Defer the first poll until the first subscription. Not contagious past a chained `.then`. */
   lazy?: boolean;
   [key: string]: unknown;
-}
+};
 
 /** Bind `waitFor` to one promise implementation and set of timers. */
 export function waitForFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IToolboxDeps<K>) {
@@ -26,6 +26,7 @@ export function waitForFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: 
   return function waitFor(condition: () => unknown, options?: IWaitForOptions): TPromiseOf<K, void, TimeoutError> {
     const interval = options?.interval ?? 20;
     const limit = options?.timeout ?? Infinity;
+    const timers = resolveTimers(options, deps);
 
     return constructTimed<void, K>(
       deps,
@@ -35,8 +36,8 @@ export function waitForFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: 
         let settled = false;
 
         const clearTimers = () => {
-          if (timerId !== undefined) stopTimer(timerId, deps);
-          if (deadlineId !== undefined) stopTimer(deadlineId, deps);
+          if (timerId !== undefined) stopTimer(timerId, timers);
+          if (deadlineId !== undefined) stopTimer(deadlineId, timers);
         };
 
         const finish = (fn: () => void) => {
@@ -62,7 +63,7 @@ export function waitForFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: 
               if (value) {
                 finish(() => resolve());
               } else if (!settled) {
-                timerId = startTimer(poll, interval, deps);
+                timerId = startTimer(poll, interval, timers);
               }
             },
             (error: any) => finish(() => reject(error)),
@@ -73,11 +74,11 @@ export function waitForFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: 
           deadlineId = startTimer(
             () =>
               finish(() => {
-                const Ctor = deps.TimeoutError || TimeoutError;
+                const Ctor = options?.TimeoutError ?? deps.TimeoutError ?? TimeoutError;
                 reject(new Ctor('waitFor timed out'));
               }),
             limit,
-            deps,
+            timers,
           );
         }
 

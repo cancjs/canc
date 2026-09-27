@@ -2,10 +2,8 @@ import { CancelablePromise, isCancelError } from '@cancjs/promise';
 
 import { cancelify, promisify } from './index';
 
-// Cross-module contract: cancelify and promisify both hand a consumer a cancel-time hook, and both
-// must reject the returned promise with a branded CancelError regardless of which hook shape the
-// caller uses. These checks exercise the two modules together through the public barrel, the way an
-// integrator actually imports them, rather than through either module's own internal spec.
+// Cross-module contract ensures cancelify and promisify both hand a consumer a cancel-time hook
+// and reject the returned promise with a branded CancelError through the public barrel
 describe('cancelify + promisify cross-module contract', () => {
   it('cancelify: an imperative { promise, cancel } handle wired via ctx.handleCancel runs on cancel and rejects a branded CancelError', async () => {
     const cancel = jest.fn();
@@ -33,7 +31,7 @@ describe('cancelify + promisify cross-module contract', () => {
   it('promisify: options.handleCancel fires with exactly (handle, args, getSignal, reason) when a pending call is canceled', async () => {
     const handle = { stop: jest.fn() };
     const fn = (_a: number, _cb: (err: any, value: number) => void) => {
-      // A synchronous imperative handle (e.g. ClientRequest); the callback never fires on its own.
+      // A synchronous imperative handle where the callback never fires on its own
       return handle;
     };
 

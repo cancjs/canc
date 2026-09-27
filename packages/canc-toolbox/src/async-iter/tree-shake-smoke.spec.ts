@@ -40,7 +40,6 @@ describe('async-iter tree-shaking', () => {
   });
 
   it('operators can be selectively imported and used', () => {
-    // Test that we can import specific operators without needing the full surface
     const mapOp = asyncIter.map((x: number) => x * 2);
     const toArrayOp = asyncIter.toArray<number>();
 

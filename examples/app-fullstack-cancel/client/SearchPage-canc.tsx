@@ -7,9 +7,7 @@ import type { UserHit } from './user-hit';
 
 const DEBOUNCE_MS = 250;
 
-// Typeahead user search. Typing runs a debounced search, and each run cancels the previous one (its
-// pending wait, or its in-flight request), so a stale response can never overwrite a newer result. A
-// canceled search is treated as nothing happened, not an error. The pending search is canceled on unmount.
+// typeahead search where new runs or unmount cancel pending request
 export function SearchPage({ api }: { api: SearchApi }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<UserHit[]>([]);

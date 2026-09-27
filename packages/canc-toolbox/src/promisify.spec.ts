@@ -45,7 +45,7 @@ describe('promisify', () => {
     it('fires once with (handle, args, getSignal, reason) on cancel; promise rejects a CancelError', async () => {
       const handle = { stop: jest.fn() };
       const fn = (_a: number, _cb: (err: any, value: number) => void) => {
-        // A synchronous imperative handle, like a ClientRequest or ChildProcess would return —
+        // A synchronous imperative handle, like a ClientRequest or ChildProcess.
         // the callback never fires, so only the cancel path can settle the promise.
         return handle;
       };
@@ -98,9 +98,8 @@ describe('promisify', () => {
       promise.cancel('bye');
 
       expect(injectedSignal.aborted).toBe(true);
-      // Current code: the injected signal's reason is RAW (promisify's makeCancelSignal call
-      // passes no normalizeReason), unlike cancelify which brands via toCancelError. Asserting
-      // the actual behavior here, not changing it (see phase follow-up on promisify parity).
+      // Asserting actual behavior where injected signal reason is raw unlike cancelify which
+      // brands via toCancelError pending a phase followup on promisify parity
       expect(isCancelError(injectedSignal.reason)).toBe(false);
 
       const reason = await promise.catch((e) => e);
@@ -114,7 +113,7 @@ describe('promisify', () => {
 
       const errfirstFn = (cb: (err: any, value?: number) => void) => {
         firedCallback = cb;
-        // Simulate a slow async op: the real callback fires only after we've already canceled.
+        // Simulates a slow async op where callback fires after cancel()
         setTimeout(() => cb(null, 42), 50);
       };
 

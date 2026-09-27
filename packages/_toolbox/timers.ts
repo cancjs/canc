@@ -27,6 +27,34 @@ export interface ITimers {
   clearTimeout: (handle: any) => void;
 }
 
+/**
+ * A timers override: the whole pair, or neither function. The two are co-dependent, so half a pair
+ * is rejected at compile time rather than silently completed from another source.
+ */
+export type TTimersOverride = ITimers | { setTimeout?: undefined; clearTimeout?: undefined };
+
+/**
+ * Resolve one whole pair, the call's before the factory's. Never mixes a caller's `setTimeout` with
+ * a factory's `clearTimeout`: that combination leaks the timer it thinks it cleared, because the
+ * handle one function produced means nothing to the other. Returning `undefined` says neither
+ * source supplied a pair, which leaves the ambient timers to be read at call time.
+ */
+export function resolveTimers(call?: TTimersOverride, factory?: TTimersOverride): ITimers | undefined {
+  if (isTimersPair(call)) {
+    return call;
+  }
+
+  if (isTimersPair(factory)) {
+    return factory;
+  }
+
+  return undefined;
+}
+
+function isTimersPair(timers: TTimersOverride | undefined): timers is ITimers {
+  return timers != null && typeof timers.setTimeout === 'function' && typeof timers.clearTimeout === 'function';
+}
+
 const TIMER_BRAND = Symbol.for('@cancjs/toolbox:Timer');
 
 /** The handle returned for a chunked timer. Short timers hand back the platform handle instead. */
@@ -47,12 +75,7 @@ const readClock: () => number =
     () => performance.now()
   : () => Date.now();
 
-// The ambient timers are read at CALL time, not captured at module load. This is the opposite of
-// the native Promise capture in the core package, and it is deliberate: capturing here would pin
-// whatever `setTimeout` existed at import time, which breaks a consumer that installs fake timers
-// afterwards. A suite that wants the real clock passes `timers` instead. Do not turn these into
-// module-level constants. They are also read as bare identifiers rather than off a global object,
-// so the module works in a browser, in node and in a worker alike.
+// read ambient timers at call time so installed fake timers are respected
 function schedule(handler: () => void, ms: number, timers?: Partial<ITimers>): any {
   return timers?.setTimeout ? timers.setTimeout(handler, ms) : setTimeout(handler, ms);
 }

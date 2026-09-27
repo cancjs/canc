@@ -18,8 +18,7 @@ import type { ResourceFactory } from './cancelable-suspense';
 export function useCancelableSuspense<T>(factory: ResourceFactory<T>, deps: DependencyList): T {
   const resource: CancelablePromise<T> = useMemo(() => cancelify(({ getSignal }) => factory(getSignal))(), deps);
 
-  // Never runs while this component is suspended: the effect is only scheduled after a commit, and
-  // a suspending component never commits. So the cancel below is dead code on the abandon path.
+  // The cancel below is dead code on the abandon path because effects only run after a commit.
   useEffect(() => {
     suppressCancel(resource);
     return () => {

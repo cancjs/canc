@@ -25,10 +25,7 @@ async function main(): Promise<void> {
     canceling = true;
     console.log('canc: SIGINT received, canceling the whole task tree');
 
-    // await backupTask.cancel() before process.exit: cancellation reaches every in-flight download
-    // immediately, and this only settles once the shielded finally has finished writing `manifest`
-    // -- ordered ahead of exit rather than racing it. cancel() always settles rejected once that
-    // finally completes, so the rejection itself is expected here, not an error to surface.
+    // cancel settles once shielded finally writes manifest, ordered ahead of exit
     (async () => {
       try {
         await backupTask.cancel();
@@ -45,8 +42,7 @@ async function main(): Promise<void> {
   console.log('canc: backup starting');
   const backupTask = runBackup(api, manifest);
   try {
-    // canceled here -- the SIGINT handler above owns the write and exit once its own await of
-    // backupTask.cancel() settles, so this rejection needs no handling beyond letting it fall through
+    // SIGINT handler owns write and exit on cancel; ignore cancel rejection
     await backupTask;
   } catch (error) {
     if (!isCancelError(error)) throw error;

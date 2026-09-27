@@ -1,42 +1,48 @@
-# app-axios — Axios Adapter with Cancelable Requests
+# app-axios
 
-An issue tracker API client using axios, demonstrating how to make axios request methods return `CancelablePromise` via the `cancAxios` adapter wrapper.
+An issue tracker API client using Axios, demonstrating how to make Axios request methods return `CancelablePromise` via `@cancjs/axios`.
 
 ## What it teaches
 
-The `cancAxios(instance)` adapter (in `src/lib/canc-axios.ts`) wraps an axios instance so all request methods return `CancelablePromise`. Calling `.cancel()` on the returned promise aborts the underlying request via `AbortSignal`, with cancellation flowing through axios' response interceptors.
+1. **Drop-in Axios wrapper.** Wrapping an existing `AxiosInstance` with `cancelableAxios.wrap(instance)` produces an `ICancelableAxiosInstance` where request methods (e.g., `.get()`, `.post()`, `.delete()`) return a `CancelablePromise` instead of a native `Promise`.
+2. **Transparent request aborting.** Calling `.cancel()` on the returned promise automatically aborts the underlying network request via `AbortSignal`, with the cancellation propagating cleanly through Axios response interceptors.
+3. **Explicit failure signatures.** The returned promises carry declared failure types, such as `CancelablePromise<SearchResult, AxiosError>`, allowing catch blocks to narrow the thrown error type automatically.
+4. **Boilerplate reduction.** In contrast to the manual vanilla registry pattern (tracking request IDs, holding `AbortController` instances, and cleanup on settle), the cancelable client simply cancels the previous query promise before triggering the next one.
 
-The vanilla twin uses the manual registry pattern every app reinvents: track every in-flight request ID, maintain an `AbortController` per request, and manually clean up on settle. When a new request supersedes an old one, the old request still completes (its result is discarded) but resources must be managed by hand.
+## Prerequisites
 
-The canc twin simply calls `.cancel()` on the previous promise before starting a new one (no registry boilerplate, no manual cleanup).
+The examples consume the built `dist` of each `@cancjs/*` package through a npm `file:`.
+Build the monorepo first, then install this workspace:
 
-## Files to review
-
-- `src/lib/canc-axios.ts` — the adapter (use `cancelify` to wrap signal-aware axios calls)
-- `src/issues-client-vanilla.ts` / `src/issues-client-canc.ts` — issue client twins
-- `src/main-vanilla.ts` / `src/main-canc.ts` — scenario: search supersedes previous search
-
-## Cancellation depth
-
-Axios itself does not natively cancel the underlying fetch; it respects the `signal` option passed to the underlying transport. The mock adapter aborts immediately. A real axios instance with the default fetch transport honors the signal via fetch's native abort.
-
-**Honesty note on declared failures**: The `-canc` twin declares failures in its promise signature (`CancelablePromise<SearchResult, AxiosError>`), so the catch block narrows them automatically. The `-vanilla` twin cannot declare failures because the native `Promise` takes only one generic type; its catch block must type the error as `unknown` and rely on manual `instanceof`/`isCancel` checks.
-
-**Note on dependency versioning**: The `axios` dependency in `package.json` pins the exact version declared by `@cancjs/axios` in its devDependencies to ensure type definitions align across the monorepo.
+```
+cd ../../ # monorepo root (canc)
+npm run build
+cd examples
+npm install
+```
 
 ## Running both flavors
 
-```bash
-npm run start:vanilla # vanilla: registry pattern, manual cleanup
-npm run start:canc # canc: direct .cancel(), no boilerplate
-```
-
-## Testing
+From the examples root:
 
 ```bash
-npm test # smoke test: verify cancellation aborts the request via AbortSignal
+npm run start:vanilla --workspace=app-axios # vanilla: manual abort controller registry
+npm run start:canc --workspace=app-axios    # canc: direct promise cancellation
 ```
 
-## Future extraction
+Or run the tests:
 
-This adapter is a prototype seed for a future `@cancjs/axios` package. Copy `src/lib/canc-axios.ts` freely for your own projects.
+```bash
+npm test --workspace=app-axios
+```
+
+## Files to diff
+
+The teaching payload lives in the client twins. Read them side by side:
+
+- `src/issues-client-vanilla.ts` vs `src/issues-client-canc.ts`: manual `AbortController` registration vs simple promise cancellation.
+- `src/main-vanilla.ts` vs `src/main-canc.ts`: orchestrating queries where a new search supersedes the in-flight one.
+
+## Honesty note
+
+Axios cancellation aborts the underlying request via `AbortSignal`. This cancels the network connection and prevents processing the response on the client side. However, if the server has already received and started processing the request, network cancellation does not stop database commits or side effects already underway on the server itself.

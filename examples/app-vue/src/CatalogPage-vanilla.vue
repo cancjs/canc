@@ -11,9 +11,7 @@ const category = ref<Category>('all');
 const products = ref<Product[]>([]);
 const loading = ref(false);
 
-// Each filter change reloads the catalog. Without a cancelable chain the previous load must be torn
-// down by hand: an AbortController for the request plus a `stale` flag so a slow earlier response
-// cannot overwrite the list for the current filter (the awaited-watch footgun this example is about).
+// filter change reloads catalog; requires manual AbortController and stale flag
 watch(
   category,
   (filterCategory) => {
@@ -29,10 +27,10 @@ watch(
         loading.value = false;
       })
       .catch((error) => {
-        // the aborted request rejects here — swallow it by hand, or it is an unhandled rejection.
+        // the aborted request rejects here: swallow it by hand, or it is an unhandled rejection.
         if (error?.name !== 'AbortError') throw error;
       });
-    // The cleanup runs before the next callback (and on unmount): abort the request and mark it stale.
+    // cleanup runs before next callback and on unmount; aborts request and marks stale
     onWatcherCleanup(() => {
       stale = true;
       controller.abort();

@@ -1,5 +1,4 @@
-// Shared types and the tiny embed step used by both flavors. The vanilla and canc pipelines differ
-// only in how they thread cancellation, so everything that is not cancellation lives here.
+// shared types and utilities for both flavors
 
 import { AbortError, isAbortError } from '@cancjs/toolbox';
 import type { AbortSignalLike, DocChunk, RagApi } from '@shared/mock-api';
@@ -11,8 +10,7 @@ export interface RagAnswer {
   sources: string[];
 }
 
-// A deterministic query embedding. Same query text always yields the same vector, so cache lookups
-// and runs are reproducible. This mirrors the mock-api's own document embeddings.
+// deterministic query embedding for reproducible cache lookups
 const EMBED_LATENCY = 5;
 
 export function embed(query: string, signal?: AbortSignalLike): Promise<number[]> {
@@ -37,9 +35,7 @@ export function embed(query: string, signal?: AbortSignalLike): Promise<number[]
   });
 }
 
-// Two retrieval legs: a vector search over embeddings and a plain keyword search. Both are needed,
-// so there is no loser to cancel here. They both hit the mock rag endpoint; in a real system one
-// would query a vector DB and the other a text index.
+// retrieval legs hitting vector and keyword endpoints
 export function vectorSearch(ragApi: RagApi, query: string, signal?: AbortSignalLike): Promise<DocChunk[]> {
   return ragApi.search(query, signal);
 }
@@ -48,16 +44,10 @@ export function keywordSearch(ragApi: RagApi, query: string, signal?: AbortSigna
   return ragApi.search(query, signal);
 }
 
-// The retrieval legs as a bounded async source: both legs start at once, then the generator yields
-// each result as it settles, and completes. Both flavors drain it to a finite array, the canc flavor
-// with cancForAwait.toArray, the vanilla flavor with a for-await loop. This is the "collect a finite set"
-// shape, the mirror of the token stream's "consume as it arrives" shape below. Starting both legs up
-// front keeps both requests in flight, so a cancel aborts them together at the mock-api boundary.
-//
-// The generator owns its own AbortController and mirrors any incoming signal into it, so an early
-// `.return()` (a consumer stopping the pull, e.g. a canceled coroutine) aborts both legs even though
-// the caller's own signal has already settled by then. The vanilla flavor never returns early, so this
-// finally is a harmless no-op there.
+/**
+ * Yields each retrieval leg as it settles.
+ * Early return from cancel aborts both legs via internal controller.
+ */
 export async function* retrieveLegs(
   ragApi: RagApi,
   query: string,
@@ -66,9 +56,7 @@ export async function* retrieveLegs(
   const controller = new AbortController();
   const detach = attachAbort(signal, () => controller.abort());
   try {
-    // A cancel abandons this generator between pulls, so a leg still in flight rejects with an
-    // AbortError that nobody is awaiting. Absorb that abort here: the pipeline already accounts for
-    // the cancel, so an unconsumed leg's abort is expected, not a failure to surface.
+    // absorb unawaited abort errors from abandoned pulls
     const legs = [vectorSearch(ragApi, query, controller.signal), keywordSearch(ragApi, query, controller.signal)].map(
       (leg) => leg.catch(ignoreAbort),
     );
@@ -87,7 +75,7 @@ function ignoreAbort(error: unknown): DocChunk[] | undefined {
   throw error;
 }
 
-// Merge the retrieval legs, de-duplicating by chunk id.
+// merge retrieval legs, deduplicating by chunk id
 export function mergeHits(legs: DocChunk[][]): DocChunk[] {
   const byId = new Map<string, DocChunk>();
   for (const chunk of legs.flat()) byId.set(chunk.id, chunk);

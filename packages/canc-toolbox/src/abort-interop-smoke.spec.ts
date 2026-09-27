@@ -15,7 +15,7 @@ describe('abort signal interop smoke: promise cancels -> consumer aborts with Ca
     return new Promise((resolve, reject) => {
       const signal = options?.signal;
       if (!signal) {
-        // For this test, we expect a signal; if none is passed, just resolve to avoid hanging.
+        // Resolves immediately when no signal passed rather than hang
         resolve(undefined as unknown as T);
         return;
       }
@@ -40,7 +40,7 @@ describe('abort signal interop smoke: promise cancels -> consumer aborts with Ca
   it('canceling a promise aborts a signal-aware consumer with a CancelError', async () => {
     // Create a promise that will be canceled.
     const promise = new CancelablePromise<void>(() => {
-      // Never settles on its own; we'll cancel it explicitly.
+      // Never settles on its own, canceled explicitly below
     });
 
     // Derive a signal from the promise.

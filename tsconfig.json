@@ -11,6 +11,7 @@
       "@cancjs/fetch": ["./packages/canc-fetch/src/index"],
       "@cancjs/axios": ["./packages/canc-axios/src/index"],
       "@cancjs/toolbox": ["./packages/canc-toolbox/src/index"],
+      "@cancjs/toolbox-native": ["./packages/canc-toolbox-native/src/index"],
       "@cancjs/decorators": ["./packages/canc-decorators/src/index"],
       "@cancjs/unhandled-rejection": [
         "./packages/canc-unhandled-rejection/src/index"

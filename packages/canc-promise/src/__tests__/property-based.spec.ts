@@ -12,7 +12,7 @@ import { isCancelError } from '../helpers';
  * 1. No unhandled rejection events (all rejections caught or promise uncanceled)
  * 2. Every CancelError has expected shape (name, isCanceled, isBubbled flags)
  * 3. Terminal states consistent (no double-settle, no re-cancellation)
- * 4. Bubble counters never negative (internal assertion on (this as any)._completedChainsCount)
+ * 4. Bubble counters never negative and properly sync with total chains
  *
  * Also: systematic "cancel at every await point" test for a fixed 5-step chain.
  *
@@ -76,12 +76,18 @@ const operationArbitrary = fc.letrec((tie: any) => ({
     fc
       .tuple(fc.constant('cancel'), fc.integer({ min: 0, max: 100 }))
       .map(([_op, tick]: [string, number]) => ({ type: 'cancel' as const, tick })),
+    fc
+      .tuple(fc.constant('all'), fc.integer({ min: 0, max: 100 }))
+      .map(([_op, tick]: [string, number]) => ({ type: 'all' as const, tick })),
+    fc
+      .tuple(fc.constant('race'), fc.integer({ min: 0, max: 100 }))
+      .map(([_op, tick]: [string, number]) => ({ type: 'race' as const, tick })),
   ),
   operations: fc.array(tie('operation'), { minLength: 1, maxLength: 10 }),
 })).operations;
 
 interface Operation {
-  type: 'then' | 'catch' | 'finally' | 'cancel';
+  type: 'then' | 'catch' | 'finally' | 'cancel' | 'all' | 'race';
   tick: number;
 }
 
@@ -90,6 +96,7 @@ interface Operation {
  */
 async function executeOperationSequence(ops: Operation[], _seed: number) {
   const promises: CancelablePromise<any>[] = [];
+  const chainOwners: CancelablePromise<any>[] = [];
   const cancelErrors: CancelError[] = [];
   const rejectionReasons: any[] = [];
   let currentPromise = CancelablePromise.resolve('init');
@@ -99,11 +106,13 @@ async function executeOperationSequence(ops: Operation[], _seed: number) {
 
   for (const op of ops) {
     if (op.type === 'then') {
+      chainOwners.push(currentPromise);
       currentPromise = currentPromise.then((_val) => {
         executedOps++;
         return `then-${executedOps}`;
       });
     } else if (op.type === 'catch') {
+      chainOwners.push(currentPromise);
       currentPromise = currentPromise.catch((err) => {
         if (isCancelError(err)) {
           cancelErrors.push(err);
@@ -113,6 +122,7 @@ async function executeOperationSequence(ops: Operation[], _seed: number) {
         return `caught-${executedOps}`;
       });
     } else if (op.type === 'finally') {
+      chainOwners.push(currentPromise);
       currentPromise = currentPromise.finally(() => {
         executedOps++;
       });
@@ -122,6 +132,24 @@ async function executeOperationSequence(ops: Operation[], _seed: number) {
         const reason = new CancelError(`Injected cancel at tick ${op.tick}`);
         currentPromise.cancel(reason);
       }
+    } else if (op.type === 'all') {
+      chainOwners.push(currentPromise);
+      const sibling1 = CancelablePromise.resolve('resolved-sibling');
+      const sibling2 = new CancelablePromise(() => {});
+      const sibling3 = new CancelablePromise(() => {});
+      sibling3.cancel(new CancelError('Pre-canceled sibling'));
+      chainOwners.push(sibling3);
+      sibling3.catch(() => {});
+      currentPromise = CancelablePromise.all([currentPromise, sibling1, sibling2, sibling3]) as any;
+    } else if (op.type === 'race') {
+      chainOwners.push(currentPromise);
+      const sibling1 = CancelablePromise.resolve('resolved-sibling');
+      const sibling2 = new CancelablePromise(() => {});
+      const sibling3 = new CancelablePromise(() => {});
+      sibling3.cancel(new CancelError('Pre-canceled sibling'));
+      chainOwners.push(sibling3);
+      sibling3.catch(() => {});
+      currentPromise = CancelablePromise.race([currentPromise, sibling1, sibling2, sibling3]) as any;
     }
     promises.push(currentPromise);
   }
@@ -137,6 +165,7 @@ async function executeOperationSequence(ops: Operation[], _seed: number) {
     settlementResults: results,
     cancelErrors,
     rejectionReasons,
+    chainOwners,
   };
 }
 
@@ -159,10 +188,23 @@ describe('Property-based (fast-check) tests', () => {
         // Invariant 3: Settlement results are consistent
         expect(result.settlementResults.length).toBe(result.promiseCount);
 
-        // Invariant 4: Bubble counters never negative
-        // (Would require internal access to verify; semantic check: no double-settle)
+        // Invariant 4: Bubble counters never negative and properly sync
         for (const res of result.settlementResults) {
           expect(['fulfilled', 'rejected']).toContain(res.status);
+        }
+        for (const owner of result.chainOwners) {
+          const chainsCount = (owner as any)._chainsCount ?? 0;
+          const completedChainsCount = (owner as any)._completedChainsCount ?? 0;
+          expect(chainsCount).toBeGreaterThanOrEqual(0);
+          expect(completedChainsCount).toBeGreaterThanOrEqual(0);
+          expect(completedChainsCount).toBeLessThanOrEqual(chainsCount);
+
+          if (owner.isCanceled) {
+            const reason = (owner as any)._rejectionReason;
+            if (reason?.isBubbled === true) {
+              expect(completedChainsCount).toBe(chainsCount);
+            }
+          }
         }
       }),
       {

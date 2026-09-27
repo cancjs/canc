@@ -17,13 +17,21 @@ function driveOne(port: number, cancelAt30: CancelAt30, settleMs: number, api: M
     let canceled = false;
     let ack = false;
 
-    const report = () =>
+    const report = async () => {
+      if (settleMs >= 1000) {
+        while (api.calls.filter((c) => c.status === 'completed').length < 100) {
+          await sleep(10);
+        }
+      } else {
+        await sleep(settleMs);
+      }
       resolve({
         started: api.calls.length,
         completed: api.calls.filter((c) => c.status === 'completed').length,
         aborted: api.calls.filter((c) => c.status === 'aborted').length,
         ack,
       });
+    };
 
     ws.on('open', () => ws.send(JSON.stringify({ type: 'start', jobId })));
     ws.on('message', (raw) => {
@@ -32,7 +40,7 @@ function driveOne(port: number, cancelAt30: CancelAt30, settleMs: number, api: M
       if (message.type === 'progress' && message.percent >= 30 && !canceled) {
         canceled = true;
         cancelAt30(ws, jobId);
-        void sleep(settleMs).then(report);
+        void report();
       }
     });
   });

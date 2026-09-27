@@ -1,12 +1,4 @@
-// Observable flavor of the orders service. This is the fair RxJS competitor: the request is
-// started inside the Observable and its teardown aborts, which is exactly how Angular's own
-// HttpClient behaves. Unsubscribing therefore cancels for real, it does not merely ignore the
-// response.
-//
-// Two ways to consume it are shown. The pure-RxJS components (the -obs twins) subscribe to it
-// directly, with switchMap for the supersede and takeUntilDestroyed for the unmount. The canc
-// components consume the same service through toCancelablePromise, which turns unsubscribe into
-// cancel() and lets the two cancellation systems cooperate (see app.config-obs.ts).
+// observable flavor of orders service where unsubscribe aborts underlying request
 
 import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
@@ -37,14 +29,13 @@ export class OrdersServiceObservable {
           subscriber.complete();
         },
         (error: unknown) => {
-          // An abort rejects the request too, but by then nobody is listening.
+          // abort rejects request when subscriber is already closed
           if (subscriber.closed) return;
           subscriber.error(error);
         },
       );
 
-      // Teardown is the cancellation this flavor has. It runs on unsubscribe and on the
-      // takeUntilDestroyed teardown, so both the supersede and the unmount abort the request.
+      // unsubscribe teardown aborts underlying request
       return () => controller.abort();
     });
   }

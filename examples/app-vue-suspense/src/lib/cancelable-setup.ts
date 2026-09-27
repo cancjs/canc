@@ -14,9 +14,9 @@ export type CancelableSetup<Props, Result, Failure = unknown> = (
   ctx: SetupContext,
 ) => SetupResult<Result, Failure>;
 
-function isGenerator(value: unknown): value is Generator<unknown, unknown, any> {
+function isGenerator(value: unknown): value is canc.TGeneratorLike<unknown, unknown, any> {
   if (typeof value !== 'object' || value === null) return false;
-  const candidate = value as Generator<unknown, unknown, any>;
+  const candidate = value as canc.TGeneratorLike<unknown, unknown, any>;
   return (
     typeof candidate.next === 'function' &&
     typeof candidate.throw === 'function' &&

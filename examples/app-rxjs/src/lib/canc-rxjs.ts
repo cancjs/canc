@@ -1,14 +1,4 @@
-// Interop between RxJS Observables and canc CancelablePromises. This is a seed for a future
-// @cancjs/rxjs package: it has no example-specific dependencies, so you can copy this file into
-// your own project today and adapt it as-is.
-//
-// Three bridges:
-// - toCancelablePromise(observable): take the first value of a stream as a promise, and make
-// the promise's cancel() unsubscribe the stream (running its teardown).
-// - fromCancelablePromise(factory): wrap a cancelable-promise factory as an Observable, and make the
-// Observable's unsubscribe cancel the promise.
-// - from(observable): view a whole stream as a cancelable async-iterable for `for await`, and make
-// ending the loop (or canceling the consuming coroutine) unsubscribe the stream.
+// interop bridges between RxJS Observables and CancelablePromises
 
 import CancelablePromise from '@cancjs/promise';
 import type { Subscribable, Unsubscribable } from 'rxjs';
@@ -86,13 +76,15 @@ export function fromCancelablePromise<T>(factory: () => CancelablePromise<T>): O
   });
 }
 
-// A cancelable async-iterable view of an Observable: every emission becomes an item in a
-// `for await` loop, and stopping the loop (break, throw, or a canceling coroutine calling the
-// iterator's return()) unsubscribes from the source.
+/**
+ * Cancelable async-iterable view of an Observable.
+ * Stopping iteration unsubscribes from the source.
+ */
 export interface CancelableAsyncIterable<T> extends AsyncIterable<T> {
-  // The promise that drives the bridge. Canceling it unsubscribes and ends the iteration, so the
-  // whole stream can be torn down without holding the iterator. Rejects with a CancelError on
-  // cancel, resolves when the source completes, rejects with the source error otherwise.
+  /**
+   * Driving promise; canceling it unsubscribes and ends iteration.
+   * Resolves when the source completes, rejects with source error or CancelError.
+   */
   readonly done: CancelablePromise<void>;
 }
 
@@ -118,21 +110,18 @@ export interface CancelableAsyncIterable<T> extends AsyncIterable<T> {
  * cancels that promise. Canceling `.done` directly does the same from the other side.
  */
 export function from<T>(observable: Subscribable<T>): CancelableAsyncIterable<T> {
-  // Queue of source emissions awaiting a consumer pull, and the reverse: consumer pulls parked
-  // waiting for the next emission. At most one of the two is non-empty at any time.
+  // queue of emissions awaiting consumer pull, or parked consumer pulls
   const values: T[] = [];
   const pulls: Array<{
     resolve: (result: IteratorResult<T>) => void;
     reject: (reason: unknown) => void;
   }> = [];
 
-  // eslint-disable-next-line prefer-const -- assigned later, once the subscription exists
   let subscription: Unsubscribable | undefined;
   let finished = false; // source completed or errored, or consumer stopped
   let failure: { error: unknown } | undefined; // set on source error, drained before "done"
 
-  // The driver: its cancel handler tears the subscription down, so canceling it (or the consuming
-  // coroutine) unsubscribes. It settles when the source completes/errors.
+  // cancel handler tears subscription down on cancel or when coroutine cancels
   let settleDone: () => void = () => {};
   let failDone: (reason: unknown) => void = () => {};
   const done = new CancelablePromise<void>((resolve, reject, { handleCancel }) => {

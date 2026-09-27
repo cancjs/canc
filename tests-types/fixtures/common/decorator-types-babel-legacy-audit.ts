@@ -1,13 +1,13 @@
 /**
  * Babel-legacy-flavor audit, mirroring ./decorator-types-legacy-audit.ts against
  * `@cancjs/decorators/babel-legacy`. Compiled here as plain TypeScript with
- * `experimentalDecorators:false` decorator SYNTAX disabled at the type level is not applicable —
+ * `experimentalDecorators:false` decorator SYNTAX disabled at the type level is not applicable.
  * babel legacy decorators are a babel transform, not a tsc one, so this file only proves the
  * shipped `.d.ts` signature for `BabelLegacyAsyncMethod`'s options-factory overload does not erase
  * the getter's type when the RETURNED decorator function is applied to a manually-typed member
  * (mirrors how demo-decorators' babel-legacy flavor is plain JS with no static decorator
  * application in TypeScript at all). The options factory returns `MethodDecorator |
- * PropertyDecorator`, a union that does not retype a getter either way — never erased, matching
+ * PropertyDecorator`, a union that does not retype a getter either way, never erased, matching
  * the ts-legacy audit result.
  */
 import { AsyncMethod } from '@cancjs/decorators/babel-legacy';

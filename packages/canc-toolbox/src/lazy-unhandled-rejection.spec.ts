@@ -27,10 +27,8 @@ const Module = require('module');
 const fs = require('fs');
 const path = require('path');
 
-// Map @cancjs/* specifiers to source (plain imports via .then() have no jest moduleNameMapper),
-// so lazy-promise.ts's bare 'import ... from "@cancjs/promise"' transpiles to a require() that
-// must resolve the same way it does in the test. Subpath specifiers (e.g. @cancjs/toolbox/async-iter)
-// would map to a nonexistent path; let them fall through to the original resolver with its error.
+// Map @cancjs specifiers to source so lazy-promise bare imports transpile to a require that
+// resolves properly while subpath specifiers fall through to original resolver with its error
 const originalResolveFilename = Module._resolveFilename;
 Module._resolveFilename = function (request, parent, isMain) {
  const match = request.match(/^@cancjs\\/([^\\/]+)(?:\\/(.*))?$/);
@@ -91,7 +89,7 @@ if (mode === 'lazy-reject-unconsumed') {
  floated.then(noop, noop);
 }
 
-setTimeout(function () { process.stdout.write('EVENTS:' + JSON.stringify(events)); }, 150);
+process.on('beforeExit', function () { process.stdout.write('EVENTS:' + JSON.stringify(events)); });
 `;
 
   const out = execFileSync(process.execPath, ['-e', program], {

@@ -31,12 +31,11 @@ export const buildReport = canc.async(function* (rdb: ReportDb) {
   );
   const topCustomers = topCustomersRaw.map(mapTopCustomersRow);
 
-  // The slow aggregate, one slice at a time. Each `canc.await` is a cancellation point: if the
-  // client left, the coroutine is canceled here and nothing below runs.
+  // slow aggregate: canc.await cancels between slices if client disconnected
   let grandTotal = 0;
   const chunks = aggregateChunkCount();
   for (let chunk = 0; chunk < chunks; chunk++) {
-    yield* canc.await(delay(CHUNK_LATENCY_MS)); // canceled here — the remaining slices and their queries never run
+    yield* canc.await(delay(CHUNK_LATENCY_MS)); // canceled here, remaining slices never run
     const row = yield* canc.await(
       executeTakeFirstCancelable(grandTotalChunkQuery(rdb, chunk), { inflightQueryAbortStrategy: rdb.strategy }),
     );

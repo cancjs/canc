@@ -2,7 +2,7 @@
  "name": "@shared/mock-api",
  "version": "0.0.0",
  "private": true,
- "description": "Signal-aware fake API for canc examples. Aux code, not a copy target.",
+ "description": "Signal-aware fake API for canc examples, not a copy target.",
  "main": "src/index.ts",
  "types": "src/index.ts",
  "scripts": {

@@ -1,9 +1,4 @@
-// Manual (non-decorator) flavor of the orders service. The getters below are identical to the
-// decorator flavor; the only difference is that the constructor does by hand what @AsyncMethod
-// does for free. Swapping the ORDERS_SERVICE provider between this and the decorator flavor shows
-// both against the identical dashboard.
-//
-// Angular's own @Injectable decorator is untouched; there is no canc decorator here at all.
+// manual flavor of orders service binding coroutines in constructor
 
 import { inject, Injectable } from '@angular/core';
 import * as canc from '@cancjs/coroutine';
@@ -17,9 +12,7 @@ import type { CancelableOrdersService, OrderDetail, OrderSummary } from './order
 export class OrdersServiceManual implements CancelableOrdersService {
   private readonly api = inject(ORDERS_API);
 
-  // Wrap each signal-aware API call as a CancelablePromise so a coroutine cancel() aborts the
-  // request. getSignal() is only materialized if the underlying call reaches for it. The field
-  // types are written out because an initializer that reads `this` cannot be inferred from itself.
+  // cancelified API calls where cancel() aborts underlying request
   private readonly listOrders: () => CancelablePromise<OrderSummary[]> = cancelify(({ getSignal }) =>
     this.api.listOrders(getSignal()),
   );
@@ -28,8 +21,7 @@ export class OrdersServiceManual implements CancelableOrdersService {
   );
 
   constructor() {
-    // What the decorator does on first access: read the getter once, bind it, and keep the result
-    // as an own property. Without it a bare getter would build a fresh coroutine on every access.
+    // bind getter once to prevent constructing fresh coroutines on access
     canc.asyncMethod(this, 'list');
     canc.asyncMethod(this, 'detail');
   }

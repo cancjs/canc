@@ -2,7 +2,7 @@
 
 Signal-aware fake API shared by the canc examples.
 
-**Not for copying.** This is aux scaffolding for the examples, not a library. It exists so a demo
+**Not for copying.** This is mock scaffolding for the examples, not a library. It exists so a demo
 can prove that a `cancel()` really reached a simulated network call, rather than just dropping the
 result on the floor. When you read an example, treat this package as "your API client" and focus on
 the cancellation code around it.

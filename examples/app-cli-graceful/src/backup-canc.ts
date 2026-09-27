@@ -31,7 +31,7 @@ export function runBackup(api: SiteApi, manifest: Manifest): CancelablePromise<v
       const jobs = urls.map((url) => downloadPool.run(() => downloadOne(url)));
       yield* canc.await(Promise.all(jobs));
     } finally {
-      // shielded: canceled here -- drain the pool so every in-flight download stops and no queued
+      // shielded: if canceled here, drain the pool so every in-flight download stops and no queued
       // one starts, driven to completion regardless, so remaining urls are always marked queued in
       // the manifest before backupTask.cancel() settles in main-canc.ts
       downloadPool.cancelAll();

@@ -1,18 +1,18 @@
 # canc benchmarks
 
-**Generated doc — do not hand-edit.** Regenerate with `npm run bench:report` after (re)running suites; source data lives in `benchmarks/results/*.json`, generator is `benchmarks/generate-report.js`.
+**Generated doc: do not hand-edit.** Regenerate with `npm run bench:report` after (re)running suites; source data lives in `benchmarks/results/*.json`, generator is `benchmarks/generate-report.js`.
 
 ## Methodology
 
-**Hardware / environment.** Each suite captures its own `env` block at run time: Node version, OS platform/arch, CPU model + logical core count, ISO timestamp. See the per-suite headers below for the exact machine each number came from — numbers are NOT normalized across machines, so don't diff two results/*.json captured on different hardware and read the delta as signal.
+**Hardware / environment.** Each suite captures its own `env` block at run time: Node version, OS platform/arch, CPU model + logical core count, ISO timestamp. See the per-suite headers below for the exact machine each number came from. Numbers are NOT normalized across machines, so don't diff two results/*.json captured on different hardware and read the delta as signal.
 
-**Runs.** Node-lane suites use [tinybench](https://github.com/tinylibs/tinybench) (warmup pass + timed run, default `time: 100`/`iterations: 10` per case, overridable per suite) reporting ops/sec, relative margin of error (rme), mean, and sample count. The macro-realworld suite is self-timed (`process.hrtime`-style, no tinybench) because it measures whole simulated flows (waterfalls, component lifecycles) rather than isolated hot-loop cases; it also samples `process.memoryUsage().heapUsed` with `--expose-gc` for per-1k-in-flight memory figures. The browser lane runs the same tinybench cases inside real chromium/firefox/webkit pages via Playwright, loading the built UMD bundles — not the Node-lane source — so it also catches build/bundling regressions.
+**Runs.** Node-lane suites use [tinybench](https://github.com/tinylibs/tinybench) (warmup pass + timed run, default `time: 100`/`iterations: 10` per case, overridable per suite) reporting ops/sec, relative margin of error (rme), mean, and sample count. The macro-realworld suite is self-timed (`process.hrtime`-style, no tinybench) because it measures whole simulated flows (waterfalls, component lifecycles) rather than isolated hot-loop cases; it also samples `process.memoryUsage().heapUsed` with `--expose-gc` for per-1k-in-flight memory figures. The browser lane runs the same tinybench cases inside real chromium/firefox/webkit pages via Playwright, loading the built UMD bundles (not the Node-lane source) so it also catches build/bundling regressions.
 
-**Baselines.** Only **native `Promise`** and **bluebird** (`cancellation: true`) are benchmarked as baselines — c-promise2/p-cancelable/alkemics were dropped from bench deps per decision. bluebird is not always a like-for-like comparison: a canceled bluebird promise never settles by design, so any flow that awaits a canceled chain to completion (e.g. the lifecycle macro) marks bluebird `lifecycleComparable: false` and its number reflects only the synchronous cancel call, not equivalent work — see the footnote on that table.
+**Baselines.** Only **native `Promise`** and **bluebird** (`cancellation: true`) are benchmarked as baselines: c-promise2/p-cancelable/alkemics were dropped from bench deps per decision. bluebird is not always a like-for-like comparison: a canceled bluebird promise never settles by design, so any flow that awaits a canceled chain to completion (e.g. the lifecycle macro) marks bluebird `lifecycleComparable: false` and its number reflects only the synchronous cancel call, not equivalent work; see the footnote on that table.
 
-**"Microbenchmarks lie" disclaimer.** Numbers here measure isolated hot loops (construct, chain, fanout, all/race, cancel storm) run thousands to millions of times back-to-back — a regime real applications rarely hit. JIT warmup, inlining, and deopt behavior in a tight microbenchmark loop can differ substantially from a promise chain that runs once per user action alongside real I/O. Treat ops/sec columns as **relative** signal ("canc chain-10 is roughly Nx slower than native chain-10 on this machine, this Node version"), not as an absolute cost you can multiply into a production budget. The macro-realworld suite exists specifically to counter this — it simulates whole request flows instead of isolated ops — but even that is a simulation (setImmediate-based mock fetch, no real network/timer jitter), not a real app. Margin-of-error columns matter: wide margins (commonly seen in the browser lane, especially firefox/webkit under Playwright) mean the number is noisy, not necessarily wrong — don't over-read small deltas inside the margin.
+**"Microbenchmarks lie" disclaimer.** Numbers here measure isolated hot loops (construct, chain, fanout, all/race, cancel storm) run thousands to millions of times back-to-back, a regime real applications rarely hit. JIT warmup, inlining, and deopt behavior in a tight microbenchmark loop can differ substantially from a promise chain that runs once per user action alongside real I/O. Treat ops/sec columns as **relative** signal ("canc chain-10 is roughly Nx slower than native chain-10 on this machine, this Node version"), not as an absolute cost you can multiply into a production budget. The macro-realworld suite exists specifically to counter this (it simulates whole request flows instead of isolated ops) but even that is a simulation (setImmediate-based mock fetch, no real network/timer jitter), not a real app. Margin-of-error columns matter: wide margins (commonly seen in the browser lane, especially firefox/webkit under Playwright) mean the number is noisy, not necessarily wrong; don't over-read small deltas inside the margin.
 
-**Optimization pass.** Numbers below are post-optimization: per-instance memory layout, derived-promise construction, combinator internals, and the cancellation path have all been tuned since the original baseline. Construction and memory footprint improved substantially; chain/combinator throughput improved but remains behind bluebird on some cases because closing the gap further would mean bypassing the native species-constructor machinery this library is built on — a tradeoff not taken here. This doc reports numbers as measured, not as targets.
+**Optimization pass.** Numbers below are post-optimization: per-instance memory layout, derived-promise construction, combinator internals, and the cancellation path have all been tuned since the original baseline. Construction and memory footprint improved substantially; chain/combinator throughput improved but remains behind bluebird on some cases because closing the gap further would mean bypassing the native species-constructor machinery this library is built on, a tradeoff not taken here. This doc reports numbers as measured, not as targets.
 
 ## Summary (README embed)
 
@@ -27,7 +27,7 @@
 
 ### browser-lane
 
-Playwright, UMD dist bundles loaded in-page. Node-lane numbers above are NOT directly comparable to these (different engines, different harness overhead) — browser lane exists to catch cross-engine regressions, not to be read against Node numbers.
+Playwright, UMD dist bundles loaded in-page. Node-lane numbers above are NOT directly comparable to these (different engines, different harness overhead); browser lane exists to catch cross-engine regressions, not to be read against Node numbers.
 
 | Browser                | Suite                   | Case                       |  ops/sec |  margin | mean (ms) | samples |
 | ---------------------- | ----------------------- | -------------------------- | -------: | ------: | --------: | ------: |
@@ -126,7 +126,7 @@ Flows: waterfall (5 sequential + 3 parallel requests, 30% canceled mid-flight) �
 | canc (CancelablePromise)           | 19.302 |   +385.8% | 57.905 |      579 |
 | bluebird (cancellation:true)*      |  0.847 |      n/c* |  2.540 |       25 |
 
-\* Not comparable: a canceled bluebird promise never settles by design, so its lifecycle flow cannot be awaited to completion like native/canc — only the synchronous cancel work is timed.
+\* Not comparable: a canceled bluebird promise never settles by design, so its lifecycle flow cannot be awaited to completion like native/canc; only the synchronous cancel work is timed.
 
 #### Memory — retained heap per 1000 in-flight requests
 

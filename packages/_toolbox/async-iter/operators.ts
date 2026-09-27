@@ -1,9 +1,12 @@
-// Pipeable operators: lazy transforms taking one async iterable and returning another. They bind no
-// promise implementation, since all they do is transform pulls, so every entry re-exports them
-// unchanged. Two rules hold for all of them. A downstream `return()` closes the upstream iterator
-// (and, for flatMap, the active inner one), which is what makes a stopped consumer run the source's
-// own cleanup. And an in-flight per-item callback is stopped as part of that: a cancelable value the
-// body waits on is canceled, then the body is resumed so its `finally` blocks run.
+/**
+ * Pipeable operators: lazy transforms taking one async iterable and returning another. They bind no
+ * promise implementation; all they do is transform pulls, so every entry re-exports them unchanged.
+ *
+ * Two rules hold for all of them: a downstream `return()` closes the upstream iterator (and, for
+ * flatMap, the active inner one), which lets a stopped consumer run the source's own cleanup; and an
+ * in-flight per-item callback is stopped as part of that, with any cancelable value the body is
+ * waiting on canceled, then the body resumed so its `finally` blocks run.
+ */
 
 import { isGenerator } from '../../_util';
 import type { TAnyFn } from '../../_util/guards';
@@ -12,8 +15,8 @@ import { runCallback } from './callback';
 import { callReturn, getSource } from './pull';
 import { AnyIterable, IPipeOp, markPipeOp, TPromiseCtor } from './types';
 
-// Operators only ever adopt a callback's outcome, so the platform promise is all they need. Captured
-// once here rather than read per call, the same way the rest of the toolbox treats it.
+// Operators adopt callback outcomes so they only need the platform promise captured once here
+// to avoid a global lookup on every iteration like the rest of the toolbox
 const PlainPromise = Promise as unknown as TPromiseCtor;
 
 /** What a callback produces once its form is resolved: awaited, or driven to the generator's return. */

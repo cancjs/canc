@@ -68,8 +68,8 @@ export const LAZY_PROMISE_BRAND = Symbol.for('@cancjs/toolbox:LazyPromise');
  * implementation via {@link _resolveImpl} and layer on cancellation (see the cancelable flavor).
  */
 export abstract class LazyBase<T = any> implements PromiseLike<T> {
-  // Build through `new this(...)`, so a static called on a flavor produces that flavor. The cast
-  // covers only the base being abstract; at runtime `this` is always a concrete flavor.
+  // Build through new this so a static called on a flavor produces that flavor with a cast
+  // covering the abstract base since at runtime this is always a concrete flavor
   protected static _new<V>(executor: TLazyExecutor<V>, options?: object): LazyBase<V> {
     const Ctor = this as unknown as new (executor: TLazyExecutor<V>, options?: object) => LazyBase<V>;
 
@@ -191,8 +191,8 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
    * built until the result is subscribed, so nested lazy promises are not started until then.
    */
   static all<V>(values: Iterable<V | PromiseLike<V>>, options?: object): LazyBase<V[]> {
-    // The aggregate refers to itself so the implementation is resolved at start time, the same
-    // per-call precedence a subscription gets. The executor cannot run before the assignment.
+    // Aggregate refers to itself to resolve implementation at start time with the same per call
+    // precedence a subscription gets since executor cannot run before assignment
     const aggregate: LazyBase<V[]> = this._new<V[]>(
       (resolve) => resolve(aggregate._resolveImplStatics().all(values) as PromiseLike<V[]>),
       options,
@@ -265,9 +265,8 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
     return this._resolveImpl() as unknown as ILazyImplStatics;
   }
 
-  // Builds and runs the underlying promise once, wiring the executor's handleCancel arg and its
-  // optional teardown return into a single teardown list. Idempotent per lifecycle: once RUNNING or
-  // SETTLED it returns the cached inner.
+  // Builds and runs underlying promise once wiring executor handleCancel and optional teardown
+  // into a single list idempotently returning cached inner once running or settled
   protected _start(): PromiseLike<T> {
     if (this._inner) {
       return this._inner;
@@ -282,9 +281,8 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
       }
     };
 
-    // Cancelable-family impls carry the three-arg executor with a ctx object. A plain
-    // PromiseConstructor (native twin, injected Promise) ignores the third arg, so teardown wiring
-    // falls back to the executor's return value only.
+    // Cancelable impls carry three arg executor with ctx while plain PromiseConstructor ignores
+    // the third arg so teardown wiring falls back to the executor return value only
     const inner = new Impl((resolve: (value?: any) => void, reject: (reason?: any) => void, ctx) => {
       const returned = this._executor(
         resolve as (value?: T | PromiseLike<T>) => void,
@@ -302,7 +300,8 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
     const markSettled = () => {
       this._state = 'SETTLED';
     };
-    // Cache-settle marker. Await-safe: adopting the inner via then keeps A+ microtask ordering.
+    // Cache settle marker which is await safe since adopting the inner via then keeps A+
+    // microtask ordering
     inner.then(markSettled, markSettled);
 
     return inner;
@@ -333,19 +332,17 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
     return inner.then(onFulfilled, onRejected);
   }
 
-  // Subclass hook run at the top of every `then`, before starting. Returning a PromiseLike
-  // short-circuits the subscription entirely (e.g. a cancel-before-start rejection); returning
-  // undefined proceeds to `_start`. Base never short-circuits.
+  // Subclass hook run at top of every then before starting where returning a PromiseLike short
+  // circuits the subscription entirely and returning undefined proceeds to start
   protected _beforeSubscribe(): PromiseLike<T> | undefined {
     return undefined;
   }
 
-  // Subclass hook run after `_start` on a live subscription (e.g. consumer counting). Base no-op.
+  // Subclass hook run after start on a live subscription for things like consumer counting
   protected _afterSubscribe(): void {}
 
-  // Subclass hook: whether the executor may still be started. A flavor that can be canceled before
-  // it starts reports false once that has happened, so `execute()` stays a no-op rather than
-  // building a rejection nobody subscribed to.
+  // Subclass hook whether executor may still be started so a flavor canceled before it starts
+  // reports false and execute stays a no-op instead of building unsubscribed rejection
   protected _isStartable(): boolean {
     return true;
   }

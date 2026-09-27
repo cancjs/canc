@@ -1,22 +1,14 @@
-// Aux scaffolding: an in-memory invoicing database on TypeORM over better-sqlite3. Pretend this is
-// your real Postgres. It is here only so the API has customers to bill and a bulk-generation
-// endpoint slow enough that a client can disconnect partway through.
+// In-memory invoicing database on TypeORM over better-sqlite3 (mock data layer)
 //
-// Honesty note: better-sqlite3 runs every statement synchronously on the calling thread. Nothing
-// here can abort a statement that is already executing. What cancellation buys us is stopping
-// BETWEEN inserts: the bulk generator below writes one chunk of invoices per step, so the coroutine
-// can decide, at each chunk boundary, whether the client is still connected. If not, the remaining
-// chunks never run and the surrounding transaction rolls back what it had written. A production
-// Postgres driver could go further and issue a wire-level cancel of an in-flight statement (see
-// README, "Real databases"). For a unit-level alternative that mocks the repository entirely, the
-// README points at mock-typeorm.
+// Honesty note: better-sqlite3 statements execute synchronously on the calling thread.
+// Cancellation stops between chunked inserts, not inside a running statement.
+// Disconnect aborts remaining chunks and rolls back the transaction.
 
 import 'reflect-metadata';
 
 import { Column, DataSource, Entity, PrimaryColumn } from 'typeorm';
 
-// Column types are declared explicitly rather than inferred from emitted decorator metadata: the
-// tsx runner (esbuild) does not emit design:type metadata, so TypeORM cannot guess the types.
+// explicit column types needed because esbuild does not emit design:type metadata
 @Entity('customers')
 export class Customer {
   @PrimaryColumn('integer')

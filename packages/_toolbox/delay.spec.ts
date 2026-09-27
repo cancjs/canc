@@ -9,7 +9,7 @@ import { MAX_TIMEOUT } from './timers';
 
 interface ITestKind extends IPromiseKind {
   promise: CancelablePromise<this['value']>;
-  options: object;
+  options: Record<string, unknown>;
 }
 
 const deps: IToolboxDeps<ITestKind> = { Impl: CancelablePromise as unknown as TPromiseCtor };
@@ -193,8 +193,8 @@ describe('delay (cancelable)', () => {
   });
 });
 
-// Kept in one file on purpose. The two helpers exist as a pair precisely because they answer a
-// rejection differently, so the assertions that pin that difference have to move together.
+// Kept in one file because the two helpers exist as a pair precisely because they answer a
+// rejection differently so assertions that pin that difference must move together
 describe('delay and minDelay: the rejection-timing contrast', () => {
   afterEach(() => {
     jest.useRealTimers();

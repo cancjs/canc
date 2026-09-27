@@ -2,8 +2,7 @@ import type { MikroORM } from '@mikro-orm/core';
 
 import { type User, UserSchema } from './entities/user';
 
-// MikroORM 7.1 accepts this on em.fork()/find()/count() etc. Declared locally so the module does
-// not depend on the type being re-exported by a given driver package.
+// declared locally so module does not depend on driver package re-exports
 export type InflightQueryAbortStrategy = 'ignore query' | 'cancel query' | 'kill session';
 
 export interface OrmConnectionData {
@@ -97,7 +96,7 @@ async function seed(orm: MikroORM): Promise<void> {
       city: CITIES[id % CITIES.length],
     });
   }
-  // Bulk insert bypasses the unit of work, so seeding 50k rows stays fast.
+  // bulk insert bypasses unit of work for fast seeding
   const CHUNK = 2_000;
   for (let i = 0; i < rows.length; i += CHUNK) {
     await em.insertMany(UserSchema, rows.slice(i, i + CHUNK));

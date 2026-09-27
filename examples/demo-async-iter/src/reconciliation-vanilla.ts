@@ -1,10 +1,16 @@
 // Vanilla async iteration: plain for-await loops, no cancellation support.
 // Compare side-by-side with reconciliation-canc.ts to see the difference.
 
+// --- setup
+
+import { sleep } from '@shared/util';
+
 import { archivedStream, Transaction, transactionStream } from './mock/transactions';
 import { formatTx, getAmount, isPositive, sumAmounts } from './reconciliation-shared';
 
-// ── Scenario 1: Filter and Map ──────────────────────────────────────────────
+// --- compose
+
+// scenario 1: filter and map
 
 /**
  * Filters positive transactions and formats them. Runs to completion: once started, every
@@ -15,13 +21,16 @@ export async function filterAndFormat(log?: (msg: string) => void): Promise<stri
   // Pulls every item even if nobody is waiting for the result (wasted work).
   for await (const tx of transactionStream(log)) {
     if (isPositive(tx)) {
+      await sleep(5);
       result.push(formatTx(tx));
     }
   }
   return result;
 }
 
-// ── Scenario 2: Three ways to consume ───────────────────────────────────────
+// --- consume
+
+// scenario 2: three ways to consume
 
 /**
  * Demonstrates find, reduce, some as manual for-await loops.
@@ -55,7 +64,7 @@ export async function threeConsumers(log?: (msg: string) => void): Promise<void>
   log?.(`some pending: ${hasPending}`);
 }
 
-// ── Scenario 3: Static source composition ───────────────────────────────────
+// scenario 3: static source composition
 
 /**
  * Concatenates two streams by consuming them sequentially.
@@ -71,7 +80,7 @@ export async function concatStreams(log?: (msg: string) => void): Promise<string
   return ids;
 }
 
-// ── Scenario 4: Stream with break ───────────────────────────────────────────
+// scenario 4: stream with break
 
 /**
  * Processes items one at a time, stopping when the callback returns false.
@@ -88,5 +97,7 @@ export async function streamWithBreak(
   }
 }
 
-// (no cancellation counterpart: once a for-await loop is running, there is no way for an
-// external caller to stop the in-flight await or abort the source from outside the loop)
+// scenario 5 (bonus): helper pipeline with take
+// (no vanilla counterpart: take(n) operator requires stream composition and automatic
+// source closing, which cannot be modeled side-by-side with vanilla loops without
+// extensive boilerplate)

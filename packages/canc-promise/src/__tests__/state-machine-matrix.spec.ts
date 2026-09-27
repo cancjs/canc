@@ -11,7 +11,7 @@ import { isCancelError } from '../helpers';
  * thenable resolution. Executor throw -> rejection. Double-settle no-ops. `new` w/o
  * executor-fn -> TypeError (match native).
  *
- * No src edits — regressions found here are reported via tracker Gap, not fixed inline.
+ * No src edits: regressions found here are reported via tracker Gap, not fixed inline.
  */
 
 const NativePromise = Promise;
@@ -191,8 +191,8 @@ describe('state machine matrix', () => {
   describe('construct: resolve(self-ish)', () => {
     // Resolving with a thenable whose `then` calls back into resolving itself indefinitely would
     // be a genuine self-resolution cycle (native Promise TypeErrors on true self-resolution via
-    // `resolve(promise)` where promise === itself only when done through the *same* resolve call
-    // synchronously — here we approximate "self-ish" with a thenable that resolves to itself,
+    // `resolve(promise)` where promise === itself only when done through the same resolve call
+    // synchronously; approximates "self-ish" with a thenable that resolves to a fixed value,
     // exercising the adoption chain without hanging the test).
     it('resolving with a thenable that resolves to a fixed value terminates (no infinite adoption)', async () => {
       let calls = 0;
@@ -481,28 +481,32 @@ describe('state machine matrix', () => {
     });
   });
 
-  describe('new without executor function (GAP vs native — see note)', () => {
+  describe('new without executor function (GAP vs native: see note)', () => {
     // GAP, not fixed here: native `new Promise(nonFunction)` throws SYNCHRONOUSLY from the
     // engine's own "resolver is not callable" check, which runs BEFORE the executor is ever
-    // invoked, confirmed below. CancelablePromise's constructor has no equivalent upfront check:
+    // invoked, confirmed below.
+    // CancelablePromise's constructor has no equivalent upfront check:
     // it unconditionally calls `executor(resolve, reject, { handleCancel })` inside the wrapper
-    // handed to `Reflect.construct(NativePromise, [wrapper], This)`. That call throws "executor
+    // handed to `Reflect.construct(NativePromise, [wrapper], This)`.
+    // That call throws "executor
     // is not a function", but because it happens INSIDE the wrapper that native Promise's own
     // internals invoke (and native Promise's spec'd behavior is to catch an executor throw and
     // turn it into a REJECTION of the promise under construction, not a rethrow), the TypeError
-    // never surfaces as a synchronous throw from `new CancelablePromise(...)`. Verified directly:
+    // never surfaces as a synchronous throw from `new CancelablePromise(...)`.
+    // Verified directly:
     // a try/catch wrapped tightly around the `new` call does NOT catch anything (see
     // child-process probe below), the rejection settles asynchronously on a promise that was
     // never returned to any caller (construction blew up before `Reflect.construct` could hand
     // back `instance`), so it is an ORPHANED, permanently unhandled rejection that crashes the
-    // process under Node's default `--unhandled-rejections=throw`. This does not match native
+    // process under Node's default `--unhandled-rejections=throw`.
+    // This does not match native
     // `new Promise(nonFunction)` behavior (synchronous TypeError).
     //
     // Run out-of-process (spawnSync) since the crash is fatal to the whole worker if triggered
     // in-process, this keeps the assertion deterministic without taking down the test runner.
-    it('GAP: does NOT synchronously TypeError like native — crashes as an orphaned unhandled rejection instead', () => {
+    it('GAP: does NOT synchronously TypeError like native and crashes as an orphaned unhandled rejection instead', () => {
       // Precompile the (small) dependency set to plain CJS with the TS compiler API, write to a
-      // scratch temp dir, then run in a REAL child process — the crash under test is fatal to
+      // scratch temp dir, then run in a REAL child process because the crash under test is fatal to
       // whatever process it happens in, so it must not run in this jest worker.
       const ts = require('typescript');
       const fs = require('fs');
@@ -547,7 +551,8 @@ describe('state machine matrix', () => {
       compile(path.join(utilRoot, 'error-matchers.ts'), 'error-matchers.js');
       compile(path.join(utilRoot, 'fn-meta.ts'), 'fn-meta.js');
       // The flattening above keys every module on its basename, so the shared util lands as
-      // `_util.js` while its own siblings still require it as `./index`. One re-export file keeps
+      // `_util.js` while its own siblings still require it as `./index`.
+      // One re-export file keeps
       // that a single module instance instead of a second copy.
       fs.writeFileSync(path.join(tmpDir, 'index.js'), "module.exports = require('./_util');\n");
 
@@ -628,12 +633,6 @@ describe('state machine matrix', () => {
   });
 
   describe('derived-child inherits forceCancelable through thenable adoption', () => {
-    // A then-derived child copies the parent's flags. When the parent is forceCancelable:false,
-    // the child must go FORCE_PENDING (non-cancelable) while adopting a thenable returned by the
-    // handler, and cancel() on it must be a no-op. Previously the internal-construction resolve
-    // wrapper consulted a shared stand-in that always said forceCancelable:true, so the inherited
-    // false was ignored: getter and behavior contradicted each other.
-
     it('parent {forceCancelable:false} -> handler returns thenable: child stays non-cancelable', async () => {
       let releaseInner: (v: string) => void = () => {};
       const inner = new NativePromise<string>((res) => {
@@ -676,8 +675,6 @@ describe('state machine matrix', () => {
     });
 
     it('flags are assigned before the adoption reaction fires (microtask ordering)', async () => {
-      // then() copies flags synchronously right after construction; the resolve wrapper runs on
-      // a later microtask. So at adoption time the inherited bit is already present.
       let releaseInner: (v: string) => void = () => {};
       const inner = new NativePromise<string>((res) => {
         releaseInner = res;

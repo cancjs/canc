@@ -1,7 +1,6 @@
-// Per-flavor fixture tsconfig: babel-legacy decorators. The decorator functions are compiled as
-// plain TS (no decorator syntax in the spec — babel's descriptor shape is constructed by hand and
-// applied manually, so no babel toolchain is needed to exercise the runtime). Kept as a distinct
-// fixture so `check:babel-legacy` proves the source + spec type-check independently.
+// Per-flavor fixture tsconfig for babel-legacy decorators
+// Decorators compile as plain TS with manual descriptors (no babel toolchain)
+// Proves source and spec type-check independently under check:babel-legacy
 {
   "extends": "../../tsconfig.test",
   "compilerOptions": {

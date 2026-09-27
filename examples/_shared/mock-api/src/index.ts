@@ -1,6 +1,4 @@
-// Shared fake API for the canc examples. This is example scaffolding, not a library to copy: it
-// exists so demos can prove a cancel() actually reached a simulated network call (see the
-// started/aborted markers in `mockApi.calls`). See README.md.
+// Shared fake API for the canc examples (see README.md).
 
 export type { AbortSignalLike, CallRecord, CallStatus, MockApiOptions } from './core';
 export { MockApi } from './core';
@@ -13,6 +11,8 @@ export type {
   Flight,
   Hotel,
   Invoice,
+  InvoiceDetail,
+  InvoiceLine,
   Issue,
   Order,
   PricePoint,

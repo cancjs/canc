@@ -3,7 +3,12 @@
  * Teaching: signal ↔ promise interop WITHOUT canc
  */
 
-import { classifyAbortErrorVanilla, suppressAbortVanilla, suppressMultipleErrorsVanilla } from './classify-vanilla.js';
+import {
+  classifyAbortErrorVanilla,
+  isAbortErrorCheckVanilla,
+  suppressAbortVanilla,
+  suppressMultipleErrorsVanilla,
+} from './classify-vanilla.js';
 import { composeMultipleSignalsVanilla, composeTimeoutAndSignalVanilla } from './compose-vanilla.js';
 import { preAbortedSignalVanilla, signalArrayVanilla, signalToPromiseVanilla } from './in-vanilla.js';
 import { promiseToSignalVanilla, signalFeedingMultipleAPIsVanilla } from './out-vanilla.js';
@@ -27,6 +32,7 @@ async function main() {
   await classifyAbortErrorVanilla();
   await suppressAbortVanilla();
   await suppressMultipleErrorsVanilla();
+  await isAbortErrorCheckVanilla();
 
   console.log('\n=== withSignal wrapper (vanilla) ===');
   await withSignalWrapperVanilla();

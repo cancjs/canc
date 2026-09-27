@@ -34,7 +34,7 @@ async function main(): Promise<void> {
   console.log('');
 
   // Awaiting cancel() waits for all handlers to settle, proving cancellation is synchronous
-  // under the hood but its effects (cleanup) are observable.
+  // internally but its effects (cleanup) are observable.
   {
     console.log('canc: await cancel() ordering');
     const pending = loadProfileCancelable(mockApi.products, 'p2');
@@ -45,9 +45,7 @@ async function main(): Promise<void> {
 
   console.log('');
 
-  // Up: a child cancel bubbles to auto-cancel the source. A bare AbortController has no
-  // equivalent: only the holder of the controller can abort, and it has no notion of "every
-  // consumer lost interest, stop on its own."
+  // Child cancel bubbles to auto-cancel the source.
   {
     console.log('canc: start load (two consumers, no direct cancel on the source)');
     const pending = loadProfileCancelable(mockApi.products, 'p3');

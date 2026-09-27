@@ -52,7 +52,7 @@ export function createPool(limit: number): Pool {
           running.add(p as CancelablePromise<unknown>);
           // handleCancel now targets the in-flight job so canceling the handle cancels the job.
           handleCancel((r) => p.cancel(r));
-          // finally-equivalent via then(f, f): free the slot and pump whether the job settled or not.
+          // Free the slot and pump on settle.
           p.then(resolve, reject).then(
             () => {
               running.delete(p as CancelablePromise<unknown>);

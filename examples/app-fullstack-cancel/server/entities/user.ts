@@ -1,7 +1,6 @@
 import { EntitySchema } from '@mikro-orm/core';
 
-// The one entity the demo searches. Kept intentionally small; the point is cancellation, not a
-// rich domain model.
+// minimal user entity for search demo
 export interface User {
   id: number;
   name: string;

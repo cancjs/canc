@@ -249,6 +249,15 @@ export default defineConfig(
     },
   },
 
+  // Promise helper overrides use empty-object defaults (`O extends ICatchSuppressOptions = {}`)
+  // so callers can omit options without forcing an explicit object type.
+  {
+    files: ['packages/canc-promise/src/helpers.ts', 'src/helpers.ts'],
+    rules: {
+      '@typescript-eslint/no-empty-object-type': 'off',
+    },
+  },
+
   // JavaScript sources (jest, rollup and eslint configs, scripts). Not in any tsconfig project,
   // so type-aware rules cannot run on them.
   {

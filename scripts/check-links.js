@@ -1,5 +1,5 @@
 // Checks relative links and image srcs in markdown/mdx-ish files for dead targets.
-// Skips absolute URLs (http/https/mailto) and in-page anchors (#foo) — those need a live
+// Skips absolute URLs (http/https/mailto) and in-page anchors (#foo). Those need a live
 // renderer or network access to verify and aren't what this check is for.
 //
 // Usage: node scripts/check-links.js <file...>

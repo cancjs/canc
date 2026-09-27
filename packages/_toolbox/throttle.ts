@@ -1,13 +1,14 @@
 import { debounceFactory, IDebounced, IDebounceDeps } from './debounce';
+import { TCallDeps } from './deps';
 import { IPromiseKind, IPromiseLikeKind } from './kind';
 
-export interface IThrottleOptions {
+export type IThrottleOptions = TCallDeps & {
   leading?: boolean;
   trailing?: boolean;
   /** The throttle window always starts immediately, so a `lazy` flag would be accepted and ignored. */
   lazy?: never;
   [key: string]: unknown;
-}
+};
 
 export type IThrottled<Args extends unknown[], R, K extends IPromiseKind = IPromiseLikeKind, F = never> = IDebounced<
   Args,
@@ -25,6 +26,7 @@ export function throttleFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
     options?: IThrottleOptions,
   ): IThrottled<Args, R, K, F> {
     return debounce(fn, ms, {
+      ...options,
       leading: options?.leading === false ? false : true,
       trailing: options?.trailing === false ? false : true,
       maxWait: ms,

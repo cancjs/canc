@@ -1,4 +1,4 @@
-# demo-fetch: GitHub Repo Search
+# demo-fetch
 
 Demonstrates cancelable fetch in a realistic chain: search repositories, fetch the readme of the top hit. Teaches chain cancellation, external abort signals, pre-aborted signals, and timeout composition.
 
@@ -9,7 +9,7 @@ GitHub-style repository search. Search endpoint returns a list; follow-up readme
 ## Teaching Goals
 
 - **Chain cancellation:** cancel() flows through coroutine chain → both fetches aborted.
-- **External abort signals:** AbortController signal passed into fetch — either fires independently.
+- **External abort signals:** AbortController signal passed into fetch; either fires independently.
 - **Pre-aborted signals:** signal already aborted when fetch starts → rejects immediately (born-canceled), no network call.
 - **Timeout composition:** timeout() wraps the promise chain; on timeout, underlying fetches canceled.
 - **Vanilla bloat:** manual AbortController threading + combining external signal with timeout + listener cleanup. See the plumbing.
@@ -34,10 +34,10 @@ npm run typecheck
 
 ## File Map
 
-- `src/repo-search-vanilla.ts` / `-canc.ts` — twin modules (payload). Both have `searchRepos` (vanilla is uncancelable), `searchReposWithExternal`, `searchReposPreAborted`, and `searchReposWithTimeout`. Vanilla shows the `AbortController` boilerplate; Canc shows coroutines.
-- `src/main-vanilla.ts` / `main-canc.ts` — scenarios: uncancelable, external abort, timeout.
-- `src/repo.ts` — shared types.
-- `test/smoke.spec.ts` — thin smoke: verify cancel → fetch aborted marker, timeout → aborted marker.
+- `src/repo-search-vanilla.ts` / `-canc.ts`: twin modules (payload). Both have `searchRepos` (vanilla is uncancelable), `searchReposWithExternal`, `searchReposPreAborted`, and `searchReposWithTimeout`. Vanilla shows the `AbortController` boilerplate; Canc shows coroutines.
+- `src/main-vanilla.ts` / `main-canc.ts`: scenarios (uncancelable, external abort, timeout).
+- `src/repo.ts`: shared types.
+- `test/smoke.spec.ts`: thin smoke (verify cancel → fetch aborted marker, timeout → aborted marker).
 
 ## Diff
 
@@ -70,4 +70,4 @@ return timeout(searchRepos(query, fetch), ms);
 
 ## Copy
 
-Helper code in `src/lib/` (future extraction targets) is publishable-tidy. Aux code and mock-api are scaffolding — copy src/repo-search-canc.ts for your use case, not the aux.
+Helper code in `src/lib/` (future extraction targets) is publishable-tidy. Mock-api and other support code are scaffolding; copy `src/repo-search-canc.ts` for your use case, not the scaffolding.

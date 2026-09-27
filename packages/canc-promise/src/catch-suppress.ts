@@ -43,13 +43,7 @@ export function makeCatch(deps: IErrorMatchDeps) {
   const isCaught = makeIsCaught(deps);
 
   return function catchError(errorOrPromise: any, options?: ICatchSuppressOptions): any {
-    // todo: duck-check via isThenable (not `instanceof CancelablePromise`) so foreign
-    // thenables, a plain native Promise, a different @cancjs/promise copy (dual-package hazard),
-    // another cancelable implementation — are also handled instead of falling through to the
-    // error branch (where they'd previously throw synchronously since a promise is never a
-    // CancelError). CancelablePromise.resolve(...) wraps/adopts the foreign thenable so .catch()
-    // works uniformly regardless of what actually produced it. Any promise can reject with a
-    // CancelError (not just ones created via cancel()), so this must be recognized here too.
+    // duck-check via isThenable to handle foreign thenables and dual-copy instances
     if (isThenable(errorOrPromise)) {
       return new CancelablePromise((resolve, reject, ctx) => {
         CancelablePromise.resolve(errorOrPromise).then(resolve, (error: any) => {
@@ -82,7 +76,8 @@ export function makeSuppress(deps: IErrorMatchDeps) {
   const isCaught = makeIsCaught(deps);
 
   return function suppressError(errorOrPromise: any, options?: ICatchSuppressOptions): any {
-    // todo: same isThenable widening as makeCatch above, see that comment. Any thenable
+    // Same isThenable widening as makeCatch above, see that comment.
+    // Any thenable
     // (native Promise, foreign cancelable, other @cancjs/promise copy) rejecting with a
     // CancelError gets suppressed, not just CancelablePromise instances.
     if (isThenable(errorOrPromise)) {

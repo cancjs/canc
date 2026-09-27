@@ -3,7 +3,8 @@
  * Canc: { signal: [timeout, userSignal] } → first-wins, auto cleanup
  */
 
-import { CancelablePromise } from '@cancjs/promise';
+import { CancelablePromise, isCancelError } from '@cancjs/promise';
+import { isAbortError } from '@cancjs/toolbox';
 import { setTimeout } from 'timers/promises';
 
 async function slowerFetch(): Promise<string> {
@@ -27,12 +28,12 @@ export async function composeTimeoutAndSignalCanc() {
   );
 
   try {
-    // Timeout fires first — promise rejects
+    // Timeout fires first: promise rejects
     const result = await promise;
     console.log('[canc] result:', result);
   } catch (err: unknown) {
-    if (err instanceof DOMException && err.name === 'AbortError') {
-      // Canceled here — nothing below runs
+    if (isAbortError(err) || isCancelError(err)) {
+      // Canceled here: nothing below runs
       console.log('[canc] timeout or user abort');
     } else {
       throw err;
@@ -60,8 +61,8 @@ export async function composeMultipleSignalsCanc() {
     const result = await promise;
     console.log('[canc] result:', result);
   } catch (err: unknown) {
-    if (err instanceof DOMException && err.name === 'AbortError') {
-      // Canceled here — nothing below runs
+    if (isAbortError(err) || isCancelError(err)) {
+      // Canceled here: nothing below runs
       console.log('[canc] one of the signals aborted');
     } else {
       throw err;

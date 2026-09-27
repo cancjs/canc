@@ -12,15 +12,11 @@ import { Observable } from 'rxjs';
 @Injectable()
 export class CancelInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
-    const request = context.switchToHttp().getRequest();
-
-    // (nothing cancelable on the request, see -canc; the handler runs to completion regardless)
-
-    // (no cancellation counterpart, see -canc; a disconnect cannot stop the handler chain)
+    // (nothing cancelable on request, see -canc)
     const response = context.switchToHttp().getResponse();
-    request.on('close', () => {
+    response.on('close', () => {
       if (!response.writableEnded) {
-        // client left, but nothing below can act on it, the handler already runs to the end
+        // client left, but plain promise chain cannot be aborted
       }
     });
 

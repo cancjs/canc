@@ -28,7 +28,7 @@ export async function signalToPromiseVanilla() {
     await setTimeout(50);
     controller.abort();
     const result = await promise;
-    // keeps running after abort — wasted work
+    // keeps running after abort: wasted work
     console.log('[vanilla] result:', result);
   } catch (err: unknown) {
     if (err instanceof DOMException && err.name === 'AbortError') {

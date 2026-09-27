@@ -4,9 +4,7 @@ import { Component, inject, Input, OnChanges } from '@angular/core';
 import { cancelableResource } from '../lib/cancelable-resource';
 import { CANCELABLE_ORDERS_SERVICE, type OrderDetail } from './orders.types';
 
-// Detail pane. Picking another row supersedes the detail load in flight and the resource cancels it,
-// which aborts the request at the fake network boundary. Destroy cancels it too. The component keeps
-// none of that wiring: it starts a load and reads three fields.
+// superseding or unmounting cancels in-flight load at network boundary
 @Component({
   selector: 'app-detail-pane',
   standalone: true,
@@ -40,8 +38,7 @@ export class DetailPaneComponent implements OnChanges {
   private readonly orders = inject(CANCELABLE_ORDERS_SERVICE);
 
   ngOnChanges(): void {
-    // Clearing the selection cancels the load in flight, so an empty pane costs nothing and no late
-    // response can land on it.
+    // clearing selection cancels load in flight
     if (!this.orderId) {
       this.orderDetail.reset();
       return;

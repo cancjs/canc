@@ -1,5 +1,4 @@
-// Composes every domain module into one bundle keyed by domain name. Each domain file owns its
-// own dataset and endpoints; this file only wires them to a shared MockApi instance.
+// Composes every domain module into one bundle keyed by domain name.
 
 import { MockApi } from '../core';
 import { ChatApi, createChatApi } from './chat';
@@ -24,7 +23,7 @@ export type { Deployment } from './deployments';
 export type { Flight } from './flights';
 export type { Hotel } from './hotels';
 export type { Inventory } from './inventory';
-export type { Invoice } from './invoices';
+export type { Invoice, InvoiceDetail, InvoiceLine } from './invoices';
 export type { Comment, Issue, SearchResult } from './issues';
 export type { Mail } from './mail';
 export type { Album, Track } from './music';

@@ -13,7 +13,7 @@ function createFetch(fetch: any) {
 function searchRepos(query: string, fetch: any): CancelablePromise<Repo, any> {
   const cancelableFetch = createFetch(fetch);
 
-  // Chain: search → detail fetch. Canceling the coroutine cancels both legs.
+  // Coroutine cancellation stops both legs.
   return canc.async(function* () {
     const searchRes = yield* canc.await(cancelableFetch('/products'));
     if (!searchRes.ok) throw new Error(`Search failed: ${searchRes.status}`);
@@ -22,7 +22,7 @@ function searchRepos(query: string, fetch: any): CancelablePromise<Repo, any> {
     if (!products.length) throw new Error('No items found');
     const top = products[0];
 
-    // canceled here — nothing below runs
+    // canceled here: nothing below runs
     const detailRes = yield* canc.await(cancelableFetch(`/products/${top.id}`));
     if (!detailRes.ok) throw new Error(`Detail fetch failed: ${detailRes.status}`);
     const detail = yield* canc.await(detailRes.json());
@@ -31,7 +31,7 @@ function searchRepos(query: string, fetch: any): CancelablePromise<Repo, any> {
   })();
 }
 
-// External signal: pass signal into fetch. Returns CancelablePromise chain.
+// Passes external signal to return a cancelable fetch chain.
 function searchReposWithExternal(query: string, fetch: any, signal?: AbortSignal): CancelablePromise<Repo, any> {
   const cancelableFetch = createFetch(fetch);
 

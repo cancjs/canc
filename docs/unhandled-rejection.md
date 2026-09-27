@@ -16,7 +16,7 @@ The `register()` function determines the runtime environment by checking signals
 
 **First signal: Electron.** Checked via `process.versions.electron`. Electron is orthogonal: a renderer process has both a Node.js process and a DOM, so both rejection mechanisms are hooked there. Main process gets only the process hook.
 
-**Primary signal: Runtime token from navigator.userAgent.** On Node.js 21+, Deno 2+, Bun, and Cloudflare Workers, `navigator.userAgent` contains a runtime-identifying string: `Node.js/22`, `Deno/1.40.0`, `Bun/1.0.28`, or `Cloudflare-Workers`. When a recognized token is present, it routes directly to the corresponding handler. Unrecognized or browser-shaped strings (like `Mozilla/5.0 (...) jsdom/20.0.0`) return no signal and fall through to the next check.
+**Primary signal: Runtime token from navigator.userAgent.** On Node.js 21+, Deno 2+, Bun, and Cloudflare Workers (when opted into Cloudflare's `global_navigator` compatibility flag), `navigator.userAgent` contains a runtime-identifying string: `Node.js/22`, `Deno/1.40.0`, `Bun/1.0.28`, or `Cloudflare-Workers`. When a recognized token is present, it routes directly to the corresponding handler. Without that flag, Cloudflare Workers have no `navigator` and detection falls back to the generic `addEventListener` branch (labeled `browser`). Unrecognized or browser-shaped strings (like `Mozilla/5.0 (...) jsdom/20.0.0`) return no signal and fall through to the next check.
 
 **Edge Runtime global.** Vercel Edge Runtime and other runtimes exposing the `EdgeRuntime` global are detected here. This check sits between standardized signals (userAgent tokens) and the legacy fallback chain.
 
@@ -47,7 +47,7 @@ Bundlers such as Webpack, Vite, or Rollup may define a stubbed `process` object 
 
 ### Edge and Worker Runtimes
 
-Cloudflare Workers is recognized by the `Cloudflare-Workers` navigator token and registers as `worker`. Netlify Edge Functions run on Deno Deploy infrastructure and arrive with a `Deno/x.y.z` userAgent, so they are routed through the deno branch with the correct mechanism. Every other edge runtime without a recognized userAgent token falls through to the global/`process.versions` chain.
+Cloudflare Workers are recognized by the `Cloudflare-Workers` navigator token when the Worker has opted into Cloudflare's `global_navigator` compatibility flag; without it there is no `navigator` at all, and detection falls through to the generic `addEventListener` branch, which still installs the correct handler under the `browser` label instead of `worker`. Netlify Edge Functions run on Deno (Netlify's own docs describe it as a runtime based on Deno; the underlying infrastructure has been reported elsewhere as Deno Deploy, but that detail is not Netlify's own claim and can change). They are expected to present a Deno-shaped `navigator.userAgent` and so route through the same branch as Deno, under the label `deno` rather than `netlify`. Every other edge runtime without a recognized userAgent token falls through to the global/`process.versions` chain.
 
 **Vercel Edge.** Vercel's Edge Runtime exposes the `EdgeRuntime` global. This package detects the presence of this global and registers via `registerEdgeRuntime()`, labeled `edge-runtime`. The detection branch sits between the standardized userAgent signals and the legacy fallback chain. Explicit registration is available for runtimes where autodetection is not desired.
 

@@ -268,10 +268,11 @@ Declared failures can be specified or extracted using three type forms:
 
 Error matching and suppression helpers are available in three families:
 
-| Family | Helpers | Usage |
-| Inline | `catchErrors`, `suppressErrors`, `isErrorOf` | Takes matcher arguments directly at call sites. `catchErrors` and `suppressErrors` narrow `TFailure` on promises or assert raw caught errors. |
-| Factory | `createCatchError`, `createSuppressError`, `createIsError` | Compiles matcher arguments into reusable functions. `createIsError` produces a type guard. |
-| Fixed-kind | `catchCancel`, `suppressCancel`, `catchAbort`, `suppressAbort`, `catchTimeout`, `suppressTimeout` | Pre-configured helpers targeting specific built-in error types (`CancelError`, `AbortError`, `TimeoutError`). |
+| Family     | Helpers                                                                                           | Usage                                                                                                                                         |
+| ---------- | ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Inline     | `catchErrors`, `suppressErrors`, `isErrorOf`                                                      | Takes matcher arguments directly at call sites. `catchErrors` and `suppressErrors` narrow `TFailure` on promises or assert raw caught errors. |
+| Factory    | `createCatchError`, `createSuppressError`, `createIsError`                                        | Compiles matcher arguments into reusable functions. `createIsError` produces a type guard.                                                    |
+| Fixed-kind | `catchCancel`, `suppressCancel`, `catchAbort`, `suppressAbort`, `catchTimeout`, `suppressTimeout` | Pre-configured helpers targeting specific built-in error types (`CancelError`, `AbortError`, `TimeoutError`).                                 |
 
 #### Error callback parameter typing
 

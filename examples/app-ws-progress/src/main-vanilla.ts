@@ -1,6 +1,4 @@
-// Scripted run of the vanilla server: start a job, "cancel" it at ~30%, then report how many
-// chunks the server actually transcoded. The cancel only stops sending, so every chunk still
-// completes on the server: started climbs to 100, aborted stays 0. That gap is the lesson.
+// scripted run of vanilla server showing chunks transcode to 100% despite cancel
 
 import { MockApi } from '@shared/mock-api';
 import { sleep } from '@shared/util';
@@ -53,7 +51,7 @@ function runScenario(
         canceled = true;
         console.log(`cancel at ${message.percent}%`);
         cancelAt30(ws, jobId);
-        // Wait for the WHOLE export to finish anyway, then report: nothing was actually stopped.
+        // wait for whole export to finish to show nothing was stopped
         void sleep(700).then(report);
       }
       if (message.type === 'canceled') console.log('server ack: canceled (sending only)');

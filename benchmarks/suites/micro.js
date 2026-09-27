@@ -2,7 +2,7 @@
 
 /**
  * Micro benchmark suites. Isolated hot-path costs of CancelablePromise vs
- * native Promise vs bluebird. NOT representative of real apps —
+ * native Promise vs bluebird. NOT representative of real apps;
  * see macro suite for that. µbenchmarks lie; treat these as relative
  * signal, not absolute truth.
  *
@@ -11,7 +11,7 @@
  * b) then-chain depth 1 / 10 / 100 (build + settle)
  * c) fanout: 1 promise, 100 then children
  * d) all / race width 10 / 1000
- * e) cancel storm: build depth-50 chain, cancel root (canc + bluebird only —
+ * e) cancel storm: build depth-50 chain, cancel root (canc + bluebird only;
  * native Promise has no cancellation)
  * f) coroutine step loop vs native async/await (cancAsync vs async fn, 100 awaits)
  * g) allocation pressure: 10k promises, heapUsed delta + GC count
@@ -23,7 +23,7 @@
  * k) then() on an already-settled promise (hot resubscription)
  * l) executor handleCancel registration cost
  *
- * Deopt discipline: every case is monomorphic — a case never mixes impls or
+ * Deopt discipline: every case is monomorphic: a case never mixes impls or
  * feeds a callback polymorphic inputs. Each impl gets its own case so V8 keeps
  * the call sites monomorphic and the numbers comparable.
  */
@@ -36,10 +36,6 @@ const Bluebird = require('bluebird');
 
 // bluebird cancellation is opt-in and global; enable once so case (e) works.
 Bluebird.config({ cancellation: true });
-
-// ---------------------------------------------------------------------------
-// helpers (kept monomorphic per impl — no shared polymorphic call sites)
-// ---------------------------------------------------------------------------
 
 // b) then-chain of a given depth, returns the tail promise (settled).
 function nativeChain(depth) {
@@ -102,7 +98,7 @@ function buildCancChain(depth) {
   const root = new CancelablePromise((_resolve) => {
     never = _resolve;
   });
-  void never; // never resolved — chain stays pending until cancel
+  void never; // never resolved: chain stays pending until cancel
   let tail = root;
   for (let i = 0; i < depth; i++) tail = tail.then((x) => x + 1);
   return { root, tail };
@@ -123,7 +119,7 @@ function buildBbChain(depth) {
 function buildBubbleChain(depth) {
   const root = new CancelablePromise(
     () => {
-      // never settles — stays pending until the bubble reaches it
+      // never settles: stays pending until the bubble reaches it
     },
     { bubble: true },
   );
@@ -138,11 +134,11 @@ function buildBubbleChain(depth) {
 
 // j) signal-wired construct: option { signal } adds an abort listener on construct and
 // removes it on settle. Common real usage (fetch-style). Measures listener add/remove
-// overhead vs a plain construct+resolve. One controller reused across iterations —
+// overhead vs a plain construct+resolve. One controller reused across iterations;
 // the listener is added then removed each op, so no accumulation.
 const sharedController = new AbortController();
 
-// k) then() on an already-settled promise — hot resubscription. A single settled root is
+// k) then() on an already-settled promise: hot resubscription. A single settled root is
 // reused; each op attaches one then() child. Measures the derived-promise construction
 // cost isolated from chain-building.
 const settledCanc = CancelablePromise.resolve(1);
@@ -169,10 +165,6 @@ async function nativeLoop() {
   }
   return acc;
 }
-
-// ---------------------------------------------------------------------------
-// tinybench cases (a–f). Each fn returns a promise; tinybench awaits it.
-// ---------------------------------------------------------------------------
 
 const cases = [
   // a) construct + resolve throughput
@@ -369,7 +361,7 @@ const cases = [
     },
   },
 
-  // h) bubble path: depth-10 chain, cancel the LEAF, bubble to root (canc only —
+  // h) bubble path: depth-10 chain, cancel the LEAF, bubble to root (canc only;
   // bluebird has no bubble-to-root semantics)
   {
     name: 'h/bubble-leaf-10 canc',
@@ -470,11 +462,9 @@ const cases = [
 
 module.exports = { name: 'micro', cases };
 
-// ---------------------------------------------------------------------------
-// g) allocation pressure lane. Not a tinybench ops/s case — it measures heapUsed
+// g) allocation pressure lane. Not a tinybench ops/s case: it measures heapUsed
 // delta + GC count for 10k allocated promises. Requires --expose-gc. Run
 // directly: `node --expose-gc suites/micro.js`. Writes micro-alloc.{json,md}.
-// ---------------------------------------------------------------------------
 
 const ALLOC_COUNT = 10000;
 
@@ -565,7 +555,7 @@ async function runAllocationLane() {
   lines.push('## Suite: micro-alloc (10k promises)');
   lines.push('');
   lines.push(
-    `Node ${result.env.node} · ${result.env.platform}/${result.env.arch} · ${result.env.cpuModel} (${result.env.cpuCount} cores) · ${result.env.timestamp}`,
+    `Node ${result.env.node} / ${result.env.platform}/${result.env.arch} / ${result.env.cpuModel} (${result.env.cpuCount} cores) / ${result.env.timestamp}`,
   );
   lines.push('');
   lines.push('| Impl | count | heap delta (KB) | bytes/promise | GC during alloc |');

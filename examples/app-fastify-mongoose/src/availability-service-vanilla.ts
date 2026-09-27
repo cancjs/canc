@@ -1,17 +1,9 @@
 import { AvailabilityResult } from './availability';
 import { findRooms, loadRates, scanBookings } from './bookings-repository';
 
-// (no cancelable repository boundary, see -canc) The repository fns are used exactly as
-// bookings-repository.ts exports them: plain promises, called directly by the search below.
-// (no cancellation counterpart, see -canc) There is nothing to skip a query that has not started.
-// (no cancellation counterpart, see -canc) No query gets a signal here either, so the query-level
-// abort flag in bookings-repository.ts has nothing to switch on and every booking is walked.
+// (no cancelable repository boundary, see -canc)
 
-// Plain uncancelable availability search: find rooms, load their rates, scan bookings for occupancy.
-// A dropped connection cannot stop this. Once the first query starts, every step below runs to
-// completion and the result is thrown away. The workaround flavor (AbortController threading,
-// staleness flags) lives in the express-kysely example; here vanilla stays plain so the canc twin's
-// ambient cancellation stands out on its own.
+// uncancelable availability search runs every query to completion
 export async function searchAvailability(hotelId: string, date: string): Promise<AvailabilityResult> {
   const rooms = await findRooms(hotelId);
   const roomIds = rooms.map((room) => room._id);

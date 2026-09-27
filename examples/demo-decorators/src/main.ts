@@ -1,12 +1,11 @@
-import '@cancjs/unhandled-rejection/register';
-
-// Runs the shared scenario against one flavor and prints an identical output block regardless of
-// which wiring produced the IssueClient. Flavor comes from argv so each npm script can target one
-// (the stage-3 and TS-legacy flavors need different compiler flags, so they cannot share a single
-// tsx process; each start script points tsx at the matching tsconfig).
+// Runs the shared scenario against one flavor chosen via argv to print an identical output block.
+// stage-3 and TS-legacy need different compiler flags; each gets its own process
 //
 // Usage: tsx src/main.ts <stage3 | ts-legacy | manual>
 // The babel-legacy flavor needs babel's transform and is exercised by the smoke test, not here.
+
+import '@cancjs/unhandled-rejection/register';
+
 import { createMockApi } from '@shared/mock-api';
 
 import type { IssueClientShape, IssuesApi } from './issue-types.js';
@@ -15,12 +14,7 @@ import { runScenario } from './scenario.js';
 type Flavor = 'stage3' | 'ts-legacy' | 'manual';
 type ClientCtor = new (issuesApi: IssuesApi) => IssueClientShape;
 
-// manual has no decorator, so its fields keep their own declared Promise-returning type and match
-// ClientCtor with no cast. stage3 and ts-legacy decorate getters that return canc.async(...); the
-// decorator preserves the getter's own type, but canc.async itself always returns
-// CancelablePromise<unknown>, so the class does not structurally match ClientCtor's plain
-// Promise<T>-returning methods from the outside, even though every call site still gets a real,
-// correctly-valued CancelablePromise at runtime.
+// stage3 and ts-legacy decorate getters; cast needed for external ClientCtor shape
 async function loadClientClass(flavor: Flavor): Promise<ClientCtor> {
   switch (flavor) {
     case 'stage3':

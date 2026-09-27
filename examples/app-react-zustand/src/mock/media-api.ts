@@ -1,5 +1,5 @@
-// Aux scaffolding: wraps @shared/mock-api's music domain behind a small, browser-friendly facade.
-// Treat this as "your API client" — the teaching payload is the store, not this file.
+// Scaffolding: wraps @shared/mock-api's music domain behind a small, browser-friendly facade
+// Treat this as "your API client": the teaching payload is the store, not this file.
 
 import { type Album, createMockApi, type Track } from '@shared/mock-api';
 

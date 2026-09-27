@@ -21,16 +21,14 @@ export class CancelInterceptor implements NestInterceptor {
     const request = context.switchToHttp().getRequest<CancelableRequest>();
     const response = context.switchToHttp().getResponse();
 
-    // Express fires 'close' on the request when the socket goes away (on Fastify it is
-    // request.raw.on('close')). response.writableEnded stays false only while the response is open.
-    request.on('close', () => {
+    // listen on response because request close fires as soon as body is consumed
+    response.on('close', () => {
       if (!response.writableEnded) {
         void (request.cancelable as CancelablePromise<unknown> | undefined)?.cancel('client disconnected');
       }
     });
 
-    // Bridge the handler Observable to a promise, then swallow a CancelError so a disconnect does
-    // not surface as a 500; the socket is already gone.
+    // bridge Observable to promise and swallow CancelError on disconnect
     return from(
       lastValueFrom(next.handle()).catch((error: unknown) => {
         if (isCancelError(error)) return undefined;

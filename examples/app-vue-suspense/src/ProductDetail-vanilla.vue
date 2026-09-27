@@ -3,10 +3,8 @@ import { defineComponent } from 'vue';
 
 import { loadProductDetail, type ProductDetail } from './mock/catalog-api';
 
-// (no cancellation counterpart, see -canc) A plain async setup drives <Suspense> the same way, but
-// there is no scope hook on the bare await: switching products tears this scope down before the load
-// settles, and the request keeps running to completion in the background (a completed marker with no
-// aborted marker in the call log).
+// (no cancellation counterpart, see -canc) A plain async setup drives <Suspense> the same way.
+// Switching products tears this scope down before the load settles.
 export default defineComponent({
   props: { id: { type: String, required: true } },
   async setup(props: { id: string }) {

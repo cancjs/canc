@@ -9,7 +9,7 @@ async function main() {
   const consumerPromise = consumeFeedCanc();
   suppressCancel(consumerPromise); // node one-shot script, suppress the top-level CancelError
 
-  // Wait enough time to fetch the first page and start the second page fetch (which has 50ms latency).
+  // Wait long enough to fetch the first page and start the second page fetch.
   await sleep(65);
 
   console.log('--- User navigated away, canceling ---');

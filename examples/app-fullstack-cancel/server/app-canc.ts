@@ -4,7 +4,7 @@ import { ormReqContext } from './lib/orm-req-context-canc';
 import type { OrmConnectionData } from './orm';
 import { searchRouter } from './routes-canc';
 
-// The canc app. One middleware wires per-request cancellation into the ORM; the routes stay signal-free.
+// middleware wires cancellation into ORM so routes stay signal-free
 export function createApp({ orm, inflightQueryAbortStrategy }: OrmConnectionData): Express {
   const app = express();
   app.use(ormReqContext(orm, { inflightQueryAbortStrategy }));

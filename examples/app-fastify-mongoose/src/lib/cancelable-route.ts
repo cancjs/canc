@@ -13,12 +13,15 @@ export function cancAsyncRoute(handler: (request: FastifyRequest, reply: Fastify
   return (request: FastifyRequest, reply: FastifyReply) => {
     const task = canc.async(handler)(request, reply);
 
-    request.raw.on('close', () => {
-      if (!reply.sent) task.cancel('client disconnected');
+    // listen on reply.raw because request.raw close fires as soon as body is consumed
+    reply.raw.on('close', () => {
+      if (!reply.raw.writableEnded) task.cancel('client disconnected');
     });
+    // cancel early if socket was already destroyed before handler ran
+    if (request.raw.destroyed) task.cancel('client disconnected');
 
     return task.catch((err) => {
-      if (isCancelError(err)) return; // canceled here, the client already left
+      if (isCancelError(err)) return; // canceled on client disconnect
       throw err;
     });
   };

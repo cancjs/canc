@@ -13,13 +13,13 @@ describe('Cross-package declared failure flow', () => {
     const fetchWithTimeout = () => timeout(cancelableFetch('https://api.example.com/data'), 10);
 
     // 3. Wrapped by a toolbox retry (3 attempts)
-    const robustFetch = () => retry(fetchWithTimeout, { retries: 2, minTimeout: 1 });
+    const retryFetch = () => retry(fetchWithTimeout, { retries: 2, minTimeout: 1 });
 
     // 4. Consumed by a coroutine
     const fetchCoroutine = canc.async(function* () {
       try {
         // Assert inferred failure set at hop 3:
-        const response = yield* canc.await(robustFetch());
+        const response = yield* canc.await(retryFetch());
         return yield* canc.await(response.json());
       } catch (error) {
         // Narrow with the core inline helper
@@ -35,7 +35,7 @@ describe('Cross-package declared failure flow', () => {
     expect(result).toBe('timed-out-gracefully');
 
     // Type-level assertions
-    // robustFetch should return CancelablePromise<Response, TimeoutError | AbortError>
+    // retryFetch should return CancelablePromise<Response, TimeoutError | AbortError>
     // but the types are properly propagated
     const _typeCheckHop2: import('@cancjs/promise').CancelablePromise<
       Response,
@@ -44,7 +44,7 @@ describe('Cross-package declared failure flow', () => {
     const _typeCheckHop3: import('@cancjs/promise').CancelablePromise<
       Response,
       import('@cancjs/promise').AbortError | TimeoutError
-    > = robustFetch();
+    > = retryFetch();
 
     // No actual code to run for the typechecks, just their presence is the assertion
     _typeCheckHop2.cancel();

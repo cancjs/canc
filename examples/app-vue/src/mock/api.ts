@@ -1,12 +1,4 @@
-// Aux code: a fake marketplace API for the example, built on the shared MockApi engine so a cancel
-// really reaches a simulated network boundary (see the started/aborted markers in `api.calls`).
-// Pretend this is your backend. This is scaffolding, not a copy target.
-//
-// Two endpoints: a catalog listing that takes a category filter, and a per-product image lookup.
-// Image latency is deliberately higher than the listing so a burst of filter changes leaves image
-// prefetches in flight (the fanout the example cancels). The shared domains ship generic product
-// endpoints, but a filtered catalog plus an image URL lookup are specific to this example, so they
-// are defined here on top of the same signal-aware `respond`.
+// mock marketplace API over shared MockApi for Vue catalog examples
 
 import { type AbortSignalLike, MockApi } from '@shared/mock-api';
 

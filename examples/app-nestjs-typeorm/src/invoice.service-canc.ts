@@ -22,13 +22,10 @@ const LIST_LIMIT = 200;
  */
 @Injectable()
 export class InvoiceService {
-  // The @Inject(DataSource) is explicit rather than inferred: the tsx runner (esbuild) does not
-  // emit constructor param metadata, so Nest cannot infer the token from the type alone.
+  // explicit inject needed because esbuild does not emit param metadata
   constructor(@Inject(DataSource) private readonly dataSource: DataSource) {}
 
-  // @AsyncMethod (the experimental-decorators build) wraps the method. Decorators apply bottom-up,
-  // so @BillingTier sets its marker first and the wrapper carries it forward. This is the
-  // coexistence proof the guard checks.
+  // @AsyncMethod preserves @BillingTier metadata applied bottom-up
   @AsyncMethod()
   @BillingTier('standard')
   *listInvoices(): AsyncResult<number> {
@@ -56,16 +53,14 @@ export class InvoiceService {
     yield* canc.await(queryRunner.startTransaction());
     try {
       for (let i = 0; i < groups.length; i++) {
-        // Each canc.await is a cancellation point: if the client left, the coroutine is canceled
-        // here and the chunks below never run.
+        // canceled here: remaining chunks never run if client disconnected
         generated += yield* canc.await(
           generateInvoiceChunk(queryRunner.manager, groups[i], before + generated + 1, issuedAt),
         );
       }
       yield* canc.await(queryRunner.commitTransaction());
     } finally {
-      // shielded: canceled here, this cleanup is driven to completion regardless. A partial run
-      // rolls back so the invoice count is left exactly as it was before the request started.
+      // shielded finally rolls partial transaction back to starting count
       if (!queryRunner.isTransactionActive) {
         // committed already; nothing to undo
       } else {

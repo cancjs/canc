@@ -27,7 +27,21 @@ propagates `return()` back to the source, stopping it mid-stream.
 | `reconciliation-vanilla.ts` | `reconciliation-canc.ts` | for-await loops vs pipe expressions |
 | `main-vanilla.ts` | `main-canc.ts` | no cancel scenario vs cancel mid-pipeline |
 
+Note: the `canc` files showcase a cancel-mid-pipeline scenario and a take-operator pipeline (the `topPositiveIds` export) that have no direct structural counterpart on the vanilla side because vanilla async iteration lacks a mechanism to abort or compositionally close in-flight streams from the outside.
+
 Shared helpers live in `reconciliation-shared.ts`. The mock data source is in `mock/transactions.ts`.
+
+## Prerequisites
+
+The examples consume the built `dist` of each `@cancjs/*` package through a npm `file:`.
+Build the monorepo first, then install this workspace:
+
+```
+cd ../../ # monorepo root (canc)
+npm run build
+cd examples
+npm install
+```
 
 ## Running
 

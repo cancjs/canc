@@ -134,25 +134,40 @@ export function createErrorClass<TName extends string, TBrand extends symbol = s
   return ErrorClass;
 }
 
+/**
+ * Prototype brand for AbortError instances, registered under `Symbol.for('@cancjs/promise:AbortError')`.
+ */
 export const ABORT_ERROR_BRAND = Symbol.for('@cancjs/promise:AbortError');
+
+/**
+ * Prototype brand for TimeoutError instances, registered under `Symbol.for('@cancjs/promise:TimeoutError')`.
+ */
 export const TIMEOUT_ERROR_BRAND = Symbol.for('@cancjs/promise:TimeoutError');
+
+/**
+ * Prototype brand for AggregateError shim instances, registered under `Symbol.for('@cancjs/promise:AggregateError')`.
+ */
 export const AGGREGATE_ERROR_BRAND = Symbol.for('@cancjs/promise:AggregateError');
 
 /**
  * Rejected or thrown when an operation is aborted. Carries the same `name` as the DOMException a
- * real AbortSignal produces, so one code path handles both.
+ * real AbortSignal produces, so one code path handles both. Identified across realms by its
+ * `Symbol.for('@cancjs/promise:AbortError')` prototype brand.
  */
 export const AbortError = createErrorClass('AbortError', ABORT_ERROR_BRAND, 'The operation was aborted');
+/** Instance type of {@link AbortError}. */
 export type AbortError = InstanceType<typeof AbortError>;
 
 /**
- * Rejected when a deadline elapses before the operation it guards settles.
+ * Rejected when a deadline elapses before the operation it guards settles. Identified across
+ * realms by its `Symbol.for('@cancjs/promise:TimeoutError')` prototype brand.
  */
 export const TimeoutError = createErrorClass(
   'TimeoutError',
   TIMEOUT_ERROR_BRAND,
   'The operation was aborted due to timeout',
 );
+/** Instance type of {@link TimeoutError}. */
 export type TimeoutError = InstanceType<typeof TimeoutError>;
 
 /**
@@ -204,20 +219,34 @@ function findPlatformAggregateError(): IAggregateErrorConstructor | undefined {
  * builtin prototype is not ours to mutate, so platform instances are recognized by name.
  */
 export const AggregateError: IAggregateErrorConstructor = findPlatformAggregateError() ?? AggregateErrorShim;
+/** Instance type of {@link AggregateError}. */
 export type AggregateError = IAggregateError;
 
+/**
+ * Construct an AggregateError instance wrapping an array of errors.
+ */
 export function createAggregateError(errors: any[], message?: string): IAggregateError {
   return new AggregateError(errors, message);
 }
 
-// Brand first, name second. The name fallback is here because the platform produces these three
-// kinds itself (fetch, AbortSignal.timeout(), the builtin AggregateError) and a producer we did not
-// write cannot be branded. Errors that only canc produces are matched by brand alone.
+// Brand first, name second. The name fallback exists because the platform produces these three
+// kinds itself (fetch, AbortSignal.timeout(), the builtin AggregateError) and an external producer
+// cannot be branded. Errors that only canc produces are matched by brand alone.
+
+/**
+ * Whether value is an AbortError. Matches the `Symbol.for('@cancjs/promise:AbortError')` prototype brand or the `name` property, never `instanceof`.
+ */
 export const isAbortError = (error: any): error is AbortError =>
   isObject(error) && (error[ABORT_ERROR_BRAND] === true || error.name === 'AbortError');
 
+/**
+ * Whether value is a TimeoutError. Matches the `Symbol.for('@cancjs/promise:TimeoutError')` prototype brand or the `name` property, never `instanceof`.
+ */
 export const isTimeoutError = (error: any): error is TimeoutError =>
   isObject(error) && (error[TIMEOUT_ERROR_BRAND] === true || error.name === 'TimeoutError');
 
+/**
+ * Whether value is an AggregateError. Matches the `Symbol.for('@cancjs/promise:AggregateError')` prototype brand or the `name` property, never `instanceof`.
+ */
 export const isAggregateError = (error: any): error is AggregateError =>
   isObject(error) && (error[AGGREGATE_ERROR_BRAND] === true || error.name === 'AggregateError');

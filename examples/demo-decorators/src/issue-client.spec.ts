@@ -1,7 +1,6 @@
 import { createMockApi } from '@shared/mock-api';
 
-// The babel-legacy flavor is a plain .js file transformed by babel-jest (see jest.config.js
-// transform). It has no type declarations, so its import is untyped here on purpose.
+// The untyped babel-legacy .js flavor requires babel-jest transformation without type declarations.
 // @ts-expect-error no declaration for the untyped .js flavor
 import { IssueClient as BabelLegacyClient } from './babel-legacy/issue-client.js';
 import type { IssueClientShape, IssuesApi } from './issue-types.js';
@@ -37,8 +36,7 @@ describe('demo-decorators: every flavor runs the same scenario', () => {
 
     // Canceling clientA surfaced as a CancelError through ordinary try/catch.
     expect(result.clientACanceled).toBe(true);
-    // clientB's independent call resolved — the historical lateBindMethod cross-instance bug
-    // would have canceled B's in-flight call too. This one assert guards that isolation.
+    // Assert clientB resolves independently to prevent historical cross-instance bugs.
     expect(result.clientBResolved).toBe(true);
 
     // The mock API logged an abort, proving cancel reached the simulated request boundary.

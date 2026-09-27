@@ -1,4 +1,4 @@
-# Toolbox Utilities Example
+# demo-toolbox
 
 Learn how cancellation transforms common async patterns: pollers stop polling, retries stop backoffing and in-flight attempts, delays clear timers, signals propagate.
 
@@ -37,18 +37,18 @@ npm run typecheck # Both flavors must type-check
 ## Files to study
 
 ### Example code (teaching payload)
-- `src/poll-deploy-vanilla.ts` / `src/poll-deploy-canc.ts` — poller pattern
-- `src/retry-payment-vanilla.ts` / `src/retry-payment-canc.ts` — exponential backoff with cancellation
-- `src/inventory-timeout-vanilla.ts` / `src/inventory-timeout-canc.ts` — timeout that cancels the underlying work
-- `src/email-delay-vanilla.ts` / `src/email-delay-canc.ts` — timer cleanup
-- `src/gateway-signal-vanilla.ts` / `src/gateway-signal-canc.ts` — signal propagation
-- `src/suppress-vanilla.ts` / `src/suppress-canc.ts` — error suppression in cleanup
+- `src/poll-deploy-vanilla.ts` / `src/poll-deploy-canc.ts`: poller pattern
+- `src/retry-payment-vanilla.ts` / `src/retry-payment-canc.ts`: exponential backoff with cancellation
+- `src/inventory-timeout-vanilla.ts` / `src/inventory-timeout-canc.ts`: timeout that cancels the underlying work
+- `src/email-delay-vanilla.ts` / `src/email-delay-canc.ts`: timer cleanup
+- `src/gateway-signal-vanilla.ts` / `src/gateway-signal-canc.ts`: signal propagation
+- `src/suppress-vanilla.ts` / `src/suppress-canc.ts`: error suppression in cleanup
 
 ### Helper code (publishable-tidy, may copy)
 None in this example; helpers are simple enough to inline.
 
-### Aux code (scaffolding, don't copy)
-- `@shared/mock-api` — fake network layer with abort tracking
+### Scaffolding (don't copy)
+- `@shared/mock-api`: fake network layer with abort tracking
 
 ## Diff workflow
 
@@ -66,4 +66,12 @@ Specs use Jest fake timers to assert:
 
 ## Notes
 
-All promises in the canc flavor return a `CancelablePromise<T>` — which is a native `Promise<T>` subclass. Vanilla returns `Promise<T>`. Both are awaitable and type-compatible at the call site.
+All promises in the canc flavor return a `CancelablePromise<T>`, a native `Promise<T>` subclass. Vanilla returns `Promise<T>`. Both are awaitable and type-compatible at the call site.
+
+## Honesty note
+
+Cancellation in these toolbox utilities operates at the promise and timer layer:
+- **waitFor (poller):** Clears the polling interval timer and cancels the current pending status request.
+- **retry (backoff):** Clears the backoff delay timer and cancels the current active attempt's promise.
+- **delay / timeout:** Clears the underlying timer (`setTimeout`) and cancels the wrapped execution promise.
+However, cancellation cannot undo side effects (like database mutations or external API calls) that have already completed on the server before the cancel event was received.

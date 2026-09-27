@@ -36,24 +36,22 @@ export function makePipeable<T>(asyncIterable: AsyncIterable<T>): IPipeableAsync
 
 /**
  * Pipe a source through operators and optionally a terminal.
- * `pipe(source)` → pipeable AsyncIterable (lazy, no pulls until consumed)
- * `pipe(source, op1, op2, ...)` → pipeable AsyncIterable
- * `pipe(source, op1, op2, ..., terminal)` → result of terminal (CancelablePromise in canc entry)
+ * `pipe(source)` returns a pipeable AsyncIterable (lazy, no pulls until consumed).
+ * `pipe(source, op1, op2, ...)` returns a pipeable AsyncIterable.
+ * `pipe(source, op1, op2, ..., terminal)` returns the terminal's result (a CancelablePromise in the canc entry).
  *
- * Supports optional trailing config object (first plain object wins):
- * `pipe(source, [ops...], config)` or `pipe(source, [ops...], term, config)` (config ignored in latter)
+ * Supports an optional trailing config object (the first plain object wins):
+ * `pipe(source, [ops...], config)` or `pipe(source, [ops...], term, config)` (config is ignored in the latter).
  *
  * Terminal must be the last operator; throws TypeError otherwise.
  */
 export function pipe<T>(source: AnyIterable<T>, ...parts: any[]): any {
-  // Extract config first (it should be at the end after all ops/term)
   const { config: _config, rest: allParts } = splitConfig(parts);
 
-  // Deep-flatten to a single op list
   const flatOps = flattenOps(allParts);
 
-  // Scan for terminals; terminal must be the last non-config op.
-  // Rule: once we encounter a terminal, all remaining must be terminals (but we only keep the last one).
+  // terminal must be the last non-config op; once one appears, everything after must also be a
+  // terminal (only the last is kept)
   let terminalIndex = -1;
   let foundTerminal = false;
 
@@ -64,15 +62,12 @@ export function pipe<T>(source: AnyIterable<T>, ...parts: any[]): any {
       foundTerminal = true;
       terminalIndex = i;
     } else if (foundTerminal) {
-      // Found a non-terminal after a terminal: error
       throw new TypeError('A terminal operator must be the last operator');
     }
   }
 
-  // Start with the source wrapped in from()
   let composed: AsyncIterable<any> = from(source);
 
-  // Apply all ops before the terminal (or all ops if no terminal)
   const opsToApply = terminalIndex === -1 ? flatOps : flatOps.slice(0, terminalIndex);
   for (const op of opsToApply) {
     if (isPipeOp(op)) {
@@ -80,12 +75,10 @@ export function pipe<T>(source: AnyIterable<T>, ...parts: any[]): any {
     }
   }
 
-  // If there's a terminal, apply it and return the result
   if (terminalIndex !== -1) {
     const terminal = flatOps[terminalIndex];
     return terminal(composed);
   }
 
-  // No terminal: return a pipeable async iterable (lazy)
   return makePipeable(composed);
 }

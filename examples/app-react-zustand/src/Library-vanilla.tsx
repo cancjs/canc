@@ -1,5 +1,4 @@
-// Dumb, selector-driven component. All cancellation policy (or lack of it) lives in the store —
-// this file only ever reads state and dispatches actions.
+// selector-driven component; cancellation policy lives in store
 
 import { useEffect } from 'react';
 
@@ -15,8 +14,8 @@ export function Library() {
 
   useEffect(() => {
     loadAlbums();
-    // cancel in store, not in component — reset() is the store's own cleanup, called here only
-    // as the unmount trigger (no cancellation counterpart — see Library-canc.tsx)
+    // cancel in store, not in component: reset() is the store's own cleanup, called here only
+    // as the unmount trigger (no cancellation counterpart, see Library-canc.tsx)
     return () => reset();
   }, []);
 

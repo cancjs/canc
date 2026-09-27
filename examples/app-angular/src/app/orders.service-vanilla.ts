@@ -1,15 +1,11 @@
-// Vanilla flavor of the orders service. Plain async methods, no cancelable chain to hand back. A
-// detail load started here keeps running even after the component moved on to another row; the
-// component has to guard against the stale result itself (see detail-pane.component-vanilla.ts).
-//
-// Angular's own @Injectable decorator is untouched. There is no canc decorator counterpart here.
+// vanilla flavor of orders service with plain async methods and no cancel chain
 
 import { inject, Injectable } from '@angular/core';
 
 import { ORDERS_API } from './orders.api';
 import type { OrderDetail, OrdersServiceShape, OrderSummary } from './orders.types';
 
-// (no cancelable wrapper counterpart — see orders.service-canc.ts)
+// (no cancellation counterpart, see -canc)
 
 @Injectable()
 export class OrdersService implements OrdersServiceShape {
@@ -20,7 +16,7 @@ export class OrdersService implements OrdersServiceShape {
   }
 
   async detail(id: string): Promise<OrderDetail> {
-    // No signal is threaded, so this request runs to completion even if the caller moved on.
+    // request runs to completion with no signal threaded
     return this.api.orderDetail(id);
   }
 }

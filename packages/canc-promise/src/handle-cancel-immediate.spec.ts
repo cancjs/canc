@@ -6,7 +6,7 @@ import { isCancelError } from './helpers';
  * handleCancel immediate-fire opt-in.
  *
  * Default is unchanged: registering handleCancel on an already-canceled promise is a silent no-op
- * (strict → throw). Opt-in `handleCancel(fn, { immediate: true })` fires `fn` on an already-canceled
+ * (strict throws). Opt-in `handleCancel(fn, { immediate: true })` fires `fn` on an already-canceled
  * promise, asynchronously (microtask) with the ORIGINAL cancel reason. The immediate opt-in also
  * suppresses the strict throw for that call.
  */
@@ -121,7 +121,7 @@ describe('handleCancel immediate opt-in', () => {
       { immediate: true },
     );
 
-    expect(count).toBe(0); // not fired yet — still pending
+    expect(count).toBe(0); // not fired yet while still pending
     promise.cancel('stop');
 
     await macrotask();

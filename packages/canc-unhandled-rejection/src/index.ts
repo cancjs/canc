@@ -1,9 +1,34 @@
 import { isAbortError, isCancelError, isTimeoutError } from '@cancjs/promise';
 
+/**
+ * Options shared by every `register*` function.
+ *
+ * A CancelError is always suppressed (canceling is not a failure). `abort` and `timeout` extend
+ * that suppression to AbortError and TimeoutError. `warn` overrides the global console warning
+ * toggle (see {@link setWarn}) for this one registration. `onUnhandledRejection`, when given,
+ * replaces the default handling (rethrow on Node, the platform default elsewhere) for anything
+ * not suppressed.
+ */
 export interface RegisterOptions {
+  /**
+   * Overrides the global console warning toggle for this registration.
+   * Defaults to the global setting (read from `CANC_UNHANDLED_WARN` at module load, default `true`).
+   */
   warn?: boolean;
+  /**
+   * Widens suppression to include `AbortError` rejections.
+   * Defaults to `false`.
+   */
   abort?: boolean;
+  /**
+   * Widens suppression to include `TimeoutError` rejections.
+   * Defaults to `false`.
+   */
   timeout?: boolean;
+  /**
+   * Custom callback invoked for non-suppressed rejections instead of default handling.
+   * Defaults to `undefined` (rethrows on Node, lets event proceed to platform default elsewhere).
+   */
   onUnhandledRejection?: (reason: unknown, promise?: Promise<unknown>) => void;
 }
 
@@ -19,6 +44,7 @@ function readWarnEnv(): boolean {
 
 let globalWarn: boolean = readWarnEnv();
 
+/** Overrides the default console-warning toggle read from `CANC_UNHANDLED_WARN` at module load. */
 export function setWarn(enabled: boolean): void {
   globalWarn = enabled;
 }
@@ -154,6 +180,7 @@ function makeNodeSetup(options?: RegisterOptions): () => (() => void) | null {
   };
 }
 
+/** Registers Node's `process.on('unhandledRejection', ...)`. No-op (with a console warning) if no Node `process` is present. */
 export function registerNode(options?: RegisterOptions): void {
   tryRegister('node', makeNodeSetup(options), options);
 }
@@ -194,16 +221,21 @@ function registerEventTarget(type: string, options?: RegisterOptions, expectSibl
   );
 }
 
+/** Registers `window.addEventListener('unhandledrejection', ...)`. No-op (with a console warning) if no such global exists. */
 export function registerBrowser(options?: RegisterOptions): void {
   registerEventTarget('browser', options);
 }
 
+/** Registers Deno's `addEventListener('unhandledrejection', ...)`, the same standardized DOM-style event Deno implements. */
 export function registerDeno(options?: RegisterOptions): void {
   registerEventTarget('deno', options);
 }
 
-// Bun defines process.versions.node, so the node mechanism is the one that works, but the
-// registration is labeled bun to keep duplicate detection and warnings truthful.
+/**
+ * Registers Bun's unhandled-rejection handling. Bun defines `process.versions.node`, so the Node
+ * mechanism is what actually runs underneath, but the registration is labeled `bun` to keep
+ * duplicate detection and warnings truthful.
+ */
 export function registerBun(options?: RegisterOptions): void {
   if (hasNodeProcess()) {
     tryRegister('bun', makeNodeSetup(options), options);
@@ -212,16 +244,30 @@ export function registerBun(options?: RegisterOptions): void {
   }
 }
 
+/** Registers a worker-scope `addEventListener('unhandledrejection', ...)` (Cloudflare Workers and similar). */
 export function registerWorker(options?: RegisterOptions): void {
   registerEventTarget('worker', options);
 }
 
-// Vercel Edge, Next.js edge routes and the edge-runtime test harness all expose the same global,
-// so the label names the runtime rather than any one product built on it.
+/**
+ * Registers the edge-runtime `addEventListener('unhandledrejection', ...)`. Vercel Edge, Next.js
+ * edge routes and the edge-runtime test harness all expose the same global, so the label names the
+ * runtime rather than any one product built on it.
+ */
 export function registerEdgeRuntime(options?: RegisterOptions): void {
   registerEventTarget('edge-runtime', options);
 }
 
+/**
+ * Auto-detects the current runtime and registers the matching unhandled-rejection handler.
+ * Electron is checked first (it has both a Node process and a DOM), then the WinterCG
+ * `navigator.userAgent` token, then the documented Edge Runtime global, then falls back to
+ * duck-typing globals and `process.versions`. Warns and does nothing if no target is recognized.
+ *
+ * Suppresses `CancelError` rejections while letting real rejections pass to `onUnhandledRejection`
+ * or default runtime handling. Registration is idempotent per runtime target; multiple calls for
+ * the same target skip duplicate installation. Installed handlers can be removed with {@link unregister}.
+ */
 export function register(options?: RegisterOptions): void {
   if (isElectronRuntime()) {
     registerElectron(options);
@@ -268,8 +314,12 @@ export function register(options?: RegisterOptions): void {
   }
 }
 
-// An Electron renderer has both a node process and a DOM, and renderer rejections land on the DOM
-// event, so both targets are hooked. A main process has no addEventListener and gets node only.
+/**
+ * Registers Electron's unhandled-rejection handling. A renderer process has both a Node process
+ * and a DOM, and renderer rejections land on the DOM event, so both targets are hooked; a main
+ * process has no `addEventListener` and gets the Node target only. Falls back to {@link register}
+ * when called outside Electron.
+ */
 export function registerElectron(options?: RegisterOptions): void {
   if (!isElectronRuntime()) {
     register(options);
@@ -283,6 +333,7 @@ export function registerElectron(options?: RegisterOptions): void {
   }
 }
 
+/** Removes every handler installed by any `register*` call so far. */
 export function unregister(): void {
   for (const reg of registrations) {
     reg.remove();

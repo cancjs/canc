@@ -1,6 +1,4 @@
-// An axios-adapter-shaped facade over the fake API, for the axios/decorators example. Axios lets
-// you swap the transport via `config.adapter`; this one routes to a domain endpoint and honors
-// `config.signal`. Only the fields the example reads are populated.
+// An axios-adapter-shaped facade over the fake API.
 
 import { AbortSignalLike, MockApi } from './core';
 import { createMockFetch } from './mock-fetch';

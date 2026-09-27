@@ -3,15 +3,12 @@ import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { FlightRow } from './FlightRow-vanilla';
 import type { FlightApi, FlightDestination } from './mock/api';
 
-// A plain search. There is no cancelable chain to hand back; the caller threads an AbortController
-// and a request id by hand instead (see the effect below) — the bloat this example is about.
+// plain search requiring manual AbortController and request-id wiring
 function searchDestinations(api: FlightApi, query: string, signal: AbortSignal): Promise<FlightDestination[]> {
   return api.searchDestinations(query, signal);
 }
 
-// Typeahead destination search. Every keystroke starts a fresh search, but without a cancelable
-// chain each one must be torn down by hand: an AbortController for the request, an isMounted ref
-// for setState, and a request-id compare so a slow earlier response can't overwrite a newer one.
+// typeahead search with manual abort controller, isMounted ref, and request id
 export function SearchPage({ api }: { api: FlightApi }): ReactNode {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<FlightDestination[]>([]);

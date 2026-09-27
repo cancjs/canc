@@ -1,15 +1,20 @@
-// Naming helpers for wrapper functions (coroutine, cancelify, promisify, ...). A wrapper hands back
-// a brand-new function object, so stack traces and devtools lose the original name unless something
-// re-derives and assigns one. Pure functions only, no module state (a shared inlinable dir is
-// bundled per consuming package, so any module-level state here would be a different copy per
-// package while claiming to be one).
+/**
+ * Naming helpers for wrapper functions (coroutine, cancelify, promisify, ...). A wrapper hands back
+ * a brand-new function object, so stack traces and devtools lose the original name unless something
+ * re-derives and assigns one. Pure functions only, no module state: a shared inlinable dir is
+ * bundled per consuming package, so any module-level state here would be a different copy per
+ * package while claiming to be one.
+ */
 
 import type { TAnyFn } from './guards';
 
-// `extends TAnyFn`, not the bare `Function` type the repo bans elsewhere: a purely optional-property
-// interface is a TS "weak type", and passing a plain function value against a generic parameter
-// constrained by a weak type fails with "has no properties in common" even though every function is
-// structurally fine. A real call signature (`TAnyFn`) makes IFn a non-weak type and fixes that.
+/**
+ * Extends `TAnyFn` rather than the bare `Function` type the repo bans elsewhere: a purely
+ * optional-property interface is a TypeScript "weak type", and passing a plain function value
+ * against a generic parameter constrained by a weak type fails with "has no properties in common"
+ * even though every function is structurally fine. A real call signature (`TAnyFn`) makes `IFn` a
+ * non-weak type and fixes that.
+ */
 export interface IFn extends TAnyFn {
   displayName?: string;
 }

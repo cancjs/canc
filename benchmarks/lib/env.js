@@ -4,7 +4,7 @@ const os = require('os');
 
 /**
  * Captures node version + CPU info for result provenance ("node version
- * + CPU captured"). Kept as plain fields, not a class — results get JSON.stringify'd.
+ * + CPU captured"). Kept as plain fields, not a class; results get JSON.stringify'd.
  */
 function captureEnv() {
   const cpus = os.cpus() || [];

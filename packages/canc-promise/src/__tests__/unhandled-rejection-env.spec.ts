@@ -74,33 +74,33 @@ function log(msg) {
 }
 
 if (mode === 'plain-no-handler') {
- // Plain rejection, no handler → fires unhandledRejection
+ // plain rejection without handler fires unhandledRejection
  new CancelablePromise(function (_resolve, reject) {
  reject(new Error('plain rejection'));
  });
- setTimeout(() => {
+ process.on('beforeExit', () => {
  log('done-waiting');
- }, 200);
+ });
 
 } else if (mode === 'cancelerror-no-handler') {
- // CancelError rejection, no handler → suppressed
+ // CancelError rejection without handler is suppressed
  new CancelablePromise(function (_resolve, reject) {
  reject(new CancelError('cancel error'));
  });
- setTimeout(() => {
+ process.on('beforeExit', () => {
  log('done-waiting');
- }, 200);
+ });
 
 } else if (mode === 'cancel-call') {
- // cancel() call → suppressed
+ // cancel() call is suppressed
  var p = new CancelablePromise(function () {});
  p.cancel('explicit cancel');
- setTimeout(() => {
+ process.on('beforeExit', () => {
  log('done-waiting');
- }, 200);
+ });
 
 } else if (mode === 'plain-handle-later') {
- // Reject plain error, then add handler after microtask (late catch) → no unhandledRejection
+ // reject plain error then add handler after microtask (late catch): no unhandledRejection
  var p = new CancelablePromise(function (_resolve, reject) {
  reject(new Error('late-handled'));
  });
@@ -110,9 +110,9 @@ if (mode === 'plain-no-handler') {
  log('caught-in-macrotask');
  });
  }, 0);
- setTimeout(() => {
+ process.on('beforeExit', () => {
  log('done-waiting');
- }, 200);
+ });
 
 } else if (mode === 'cancelerror-handle-later') {
  // CancelError rejection, handle later (should still be suppressed)
@@ -124,9 +124,9 @@ if (mode === 'plain-no-handler') {
  log('caught-cancel');
  });
  }, 0);
- setTimeout(() => {
+ process.on('beforeExit', () => {
  log('done-waiting');
- }, 200);
+ });
 
 } else if (mode === 'multiple-rejections') {
  // Multiple unhandled plain rejections
@@ -136,9 +136,9 @@ if (mode === 'plain-no-handler') {
  new CancelablePromise(function (_resolve, reject) {
  reject(new Error('second'));
  });
- setTimeout(() => {
+ process.on('beforeExit', () => {
  log('done-waiting');
- }, 200);
+ });
 
 } else if (mode === 'cancelerror-mixed') {
  // Mix: CancelError (suppressed) + plain rejection (fires)
@@ -148,12 +148,12 @@ if (mode === 'plain-no-handler') {
  new CancelablePromise(function (_resolve, reject) {
  reject(new Error('should-fire'));
  });
- setTimeout(() => {
+ process.on('beforeExit', () => {
  log('done-waiting');
- }, 200);
+ });
 
 } else if (mode === 'chain-cancelerror') {
- // Chain: reject CancelError on parent → child inherits suppression
+ // reject CancelError on parent causes child to inherit suppression
  var parent = new CancelablePromise(function (_resolve, reject) {
  reject(new CancelError('parent-cancel'));
  });
@@ -161,49 +161,49 @@ if (mode === 'plain-no-handler') {
  function () { return 'ok'; },
  function (err) { return CancelablePromise.reject(err); }
  );
- setTimeout(() => {
+ process.on('beforeExit', () => {
  log('done-waiting');
- }, 200);
+ });
 
 } else if (mode === 'async-plain-reject') {
- // Async rejection (setTimeout) of plain error → unhandledRejection fires
+ // async rejection of plain error fires unhandledRejection
  new CancelablePromise(function (_resolve, reject) {
  setTimeout(function () {
  reject(new Error('async-plain'));
  }, 10);
  });
- setTimeout(() => {
+ process.on('beforeExit', () => {
  log('done-waiting');
- }, 200);
+ });
 
 } else if (mode === 'async-cancelerror-reject') {
- // Async rejection of CancelError → suppressed
+ // async rejection of CancelError is suppressed
  new CancelablePromise(function (_resolve, reject) {
  setTimeout(function () {
  reject(new CancelError('async-cancel'));
  }, 10);
  });
- setTimeout(() => {
+ process.on('beforeExit', () => {
  log('done-waiting');
- }, 200);
+ });
 
 } else if (mode === 'reject-null') {
  // Reject with null (not Error)
  new CancelablePromise(function (_resolve, reject) {
  reject(null);
  });
- setTimeout(() => {
+ process.on('beforeExit', () => {
  log('done-waiting');
- }, 200);
+ });
 
 } else if (mode === 'reject-string') {
  // Reject with string
  new CancelablePromise(function (_resolve, reject) {
  reject('plain string rejection');
  });
- setTimeout(() => {
+ process.on('beforeExit', () => {
  log('done-waiting');
- }, 200);
+ });
 
 } else if (mode === 'sync-handler-plain') {
  // Plain rejection + immediate sync catch in executor
@@ -213,45 +213,45 @@ if (mode === 'plain-no-handler') {
  p.catch(function () {
  log('sync-caught');
  });
- setTimeout(() => {
+ process.on('beforeExit', () => {
  log('done-waiting');
- }, 200);
+ });
 
 } else if (mode === 'sync-handler-cancelerror') {
- // CancelError + sync catch → no event
+ // CancelError with sync catch emits no event
  var p = new CancelablePromise(function (_resolve, reject) {
  reject(new CancelError('sync-catch-cancel'));
  });
  p.catch(function () {
  log('sync-caught-cancel');
  });
- setTimeout(() => {
+ process.on('beforeExit', () => {
  log('done-waiting');
- }, 200);
+ });
 
 } else if (mode === 'chain-plain-rejection') {
- // Resolve with value, then chain rejects plain → fires
+ // resolve with value then chain rejects plain: fires unhandledRejection
  var p = new CancelablePromise(function (resolve) {
  resolve('ok');
  });
  var p2 = p.then(function () {
  return CancelablePromise.reject(new Error('chain-plain'));
  });
- setTimeout(() => {
+ process.on('beforeExit', () => {
  log('done-waiting');
- }, 200);
+ });
 
 } else if (mode === 'chain-cancelerror-rejection') {
- // Chain rejection of CancelError → suppressed
+ // chain rejection of CancelError is suppressed
  var p = new CancelablePromise(function (resolve) {
  resolve('ok');
  });
  var p2 = p.then(function () {
  return CancelablePromise.reject(new CancelError('chain-cancel'));
  });
- setTimeout(() => {
+ process.on('beforeExit', () => {
  log('done-waiting');
- }, 200);
+ });
 }
 `;
 }

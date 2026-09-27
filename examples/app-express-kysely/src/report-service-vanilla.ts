@@ -25,12 +25,11 @@ export async function buildReport(rdb: ReportDb): Promise<ReportPayload> {
   const topCustomersRaw = await topCustomersQuery(rdb, TOP_CUSTOMER_LIMIT).execute();
   const topCustomers = topCustomersRaw.map(mapTopCustomersRow);
 
-  // The slow aggregate, one slice at a time. Nothing checks whether the client is still here, so
-  // every slice runs to the end even after the socket is dead. This aggregate still burns CPU.
+  // slow aggregate: uncancelable loop runs every slice even if socket closed
   let grandTotal = 0;
   const chunks = aggregateChunkCount();
   for (let chunk = 0; chunk < chunks; chunk++) {
-    await sleep(CHUNK_LATENCY_MS); // keeps querying for a socket nobody reads
+    await sleep(CHUNK_LATENCY_MS); // keeps querying for dead socket
     const row = await grandTotalChunkQuery(rdb, chunk).executeTakeFirst();
     grandTotal += Number(row?.subtotal ?? 0);
   }
@@ -58,13 +57,12 @@ export async function buildReportAbortable(rdb: ReportDb, signal: AbortSignal): 
   });
   const topCustomers = topCustomersRaw.map(mapTopCustomersRow);
 
-  // The slow aggregate, one slice at a time. Every slice must re-check the signal by hand; miss
-  // one boundary and the endpoint keeps computing for a client that already left.
+  // slow aggregate: each slice re-checks signal by hand
   let grandTotal = 0;
   const chunks = aggregateChunkCount();
   for (let chunk = 0; chunk < chunks; chunk++) {
     throwIfAborted(signal);
-    await sleep(CHUNK_LATENCY_MS); // keeps querying for a socket nobody reads
+    await sleep(CHUNK_LATENCY_MS); // keeps querying for dead socket
     throwIfAborted(signal);
     const row = await grandTotalChunkQuery(rdb, chunk).executeTakeFirst({
       signal,

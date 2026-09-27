@@ -1,7 +1,6 @@
-// Runs every flavor that node/tsx can execute directly, one after another, so the output blocks
-// line up for a side-by-side read. Each flavor runs in its own tsx process with its own tsconfig
-// (stage-3 and TS-legacy need opposite `experimentalDecorators` settings). The babel-legacy flavor
-// needs babel's transform and is covered by the smoke test instead.
+// Sequentially runs executable flavors in dedicated processes with matching tsconfigs.
+
+// Aligning output blocks for comparison skips babel-legacy which requires a transform.
 
 import { spawnSync } from 'node:child_process';
 

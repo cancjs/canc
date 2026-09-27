@@ -1,4 +1,4 @@
-// Shared types and the usage log, used by both flavors. Nothing cancellation-specific lives here.
+// Shared types and the usage log, used by both flavors.
 
 export interface ChatRequest {
   prompt: string;

@@ -4,17 +4,22 @@ import type { NextFunction, Request, Response } from 'express';
 
 /**
  * Installs the AbortController workaround. `res.locals.abortSignal` fires when the client
- * disconnects; the abortable handler must thread it into every step by hand. The uncancelable
- * handler ignores it, which is the point: there is no built-in way to stop that one.
+ * disconnects
  */
 export function abortOnDisconnect(req: Request, res: Response, next: NextFunction): void {
   const controller = new AbortController();
 
-  req.on('close', () => {
+  // listen on res because req close fires as soon as body is consumed
+  res.on('close', () => {
     if (!res.writableEnded) {
       controller.abort(new DOMException('client disconnected', 'AbortError'));
     }
   });
+
+  // abort early if socket was already destroyed before handler ran
+  if (req.destroyed) {
+    controller.abort(new DOMException('client disconnected', 'AbortError'));
+  }
 
   res.locals.abortSignal = controller.signal;
 

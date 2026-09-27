@@ -5,9 +5,7 @@ import { Component, EventEmitter, inject, OnInit, Output } from '@angular/core';
 import { promiseResource } from '../lib/promise-resource';
 import { ORDERS_SERVICE, type OrderSummary } from './orders.types';
 
-// Orders table. It lists the orders and emits the selected id; the supersede lesson lives in the
-// detail pane beside it. What it adds here is the other half: a user who leaves before the list
-// arrives still pays for it, because a plain promise has no lifetime to be bound to.
+// orders table where unmounting leaves in-flight list running
 @Component({
   selector: 'app-orders-table',
   standalone: true,
@@ -39,8 +37,7 @@ export class OrdersTableComponent implements OnInit {
   private readonly ordersService = inject(ORDERS_SERVICE);
 
   ngOnInit(): void {
-    // (no cancelable promise counterpart, see -canc) A plain promise is all the service can hand
-    // back, and the resource takes it as is.
+    // (no cancellation counterpart, see -canc)
     this.orders.run(this.ordersService.list());
   }
 

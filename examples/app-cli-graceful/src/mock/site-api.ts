@@ -1,6 +1,4 @@
-// Fake site to back up. Aux scaffolding only (not for copying) -- pretend this is a real site
-// crawl + asset fetch. Every call honors an AbortSignal and logs started/aborted markers so the
-// SIGINT spec can prove in-flight downloads were really aborted and queued ones never started.
+// mock site crawl and asset fetch for backup specs
 
 export interface SitePage {
   url: string;

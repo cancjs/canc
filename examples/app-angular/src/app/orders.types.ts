@@ -1,5 +1,4 @@
-// Shared shapes for the orders service. Suffix-free: identical across both service flavors, so only
-// the decorator vs manual wiring differs between them.
+// shared types and DI tokens for orders service flavors
 
 import { InjectionToken } from '@angular/core';
 import type { CancelablePromise } from '@cancjs/promise';

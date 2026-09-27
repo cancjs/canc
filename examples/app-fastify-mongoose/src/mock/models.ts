@@ -1,6 +1,4 @@
-// Pretend this is your existing Mongoose data layer. Three collections back a hotel
-// availability search: rooms in a hotel, nightly rates per room, and existing bookings
-// used to compute occupancy. Reader can treat this file as a black box.
+// mock Mongoose schema for hotel availability search
 
 import { model, Schema } from 'mongoose';
 

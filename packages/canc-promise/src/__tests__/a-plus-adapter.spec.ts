@@ -11,7 +11,7 @@ import { CancelablePromise } from '../cancelable-promise';
  * Adapter pattern: deferred = withResolvers() (ES2024 standard).
  *
  * Note: This spec is designed to be run with promises-aplus-tests npm package.
- * Jest integration: we run the adapter object as a test to verify the interface exists.
+ * Jest integration: runs the adapter object as a test to verify the interface exists.
  */
 
 /**

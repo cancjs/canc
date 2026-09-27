@@ -29,8 +29,7 @@ module.exports = {
     ...mergeTsJestConfig({ tsconfig: '<rootDir>/../../tsconfig.json' }),
   },
   displayName: packageJson.name,
-  // coverage gate. coroutine.ts moved out to @cancjs/coroutine — its
-  // own coverage lives in that package's jest config now.
+  // coroutine.ts coverage moved to @cancjs/coroutine jest config
   // Global entry required by ts-jest coverage instrumentation even w/ only per-file thresholds.
   coverageThreshold: {
     global: {
@@ -51,12 +50,7 @@ module.exports = {
     },
     './src/cancel-error.ts': {
       statements: 95,
-      // branches capped at 90 (not 95): TS es5 target compiles `class CancelError extends Error`
-      // via the __extends() helper's `_super.call(this, reason) || this` fallback — the `|| this`
-      // side is dead by spec (Error's [[Call]] always returns an object, so _super.call(...) is
-      // always truthy; the fallback only matters for non-spec-compliant engines). Same class of
-      // structural artifact as other known transpilation quirks. Verified both logical
-      // sides of every other branch in this file ARE exercised (see cancel-error.spec.ts).
+      // branches capped at 90 because TS es5 __extends() fallback '|| this' is unreachable on spec Error
       branches: 90,
       lines: 95,
     },

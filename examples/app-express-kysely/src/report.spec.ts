@@ -7,7 +7,7 @@ Object.defineProperties(globalThis, {
 import http from 'node:http';
 
 import { sleep } from '@shared/util';
-import type { Express } from 'express';
+import express, { type Express } from 'express';
 import request from 'supertest';
 
 jest.mock('@electric-sql/pglite', () => {
@@ -17,7 +17,13 @@ jest.mock('@electric-sql/pglite', () => {
         waitReady: Promise.resolve(),
         query: jest.fn().mockImplementation((sql: string) => {
           if (sql.includes('products') && sql.toLowerCase().includes('select')) {
-            return Promise.resolve({ rows: [{ id: 1, name: 'Keyboard', category: 'Accessories' }] });
+            return Promise.resolve({
+              rows: [
+                { id: 1, name: 'Mechanical Keyboard', category: 'electronics' },
+                { id: 2, name: 'Ergonomic Mouse', category: 'electronics' },
+                { id: 3, name: 'Desk Mat', category: 'accessories' },
+              ],
+            });
           }
           return Promise.resolve({ rows: [] });
         }),
@@ -103,7 +109,7 @@ describe('orders report cancellation on client disconnect', () => {
 
     const ran = await slicesAfterDisconnect(app, rdb, '/orders/report');
 
-    // The chain stopped between slices: fewer than all of them ran.
+    // chain stopped between slices: partial count ran
     expect(ran).toBeGreaterThan(0);
     expect(ran).toBeLessThan(total);
 
@@ -116,7 +122,7 @@ describe('orders report cancellation on client disconnect', () => {
 
     const ran = await slicesAfterDisconnect(app, rdb, '/orders/report');
 
-    // No cancellation: the aggregate completes for a socket nobody is reading.
+    // uncancelable: full aggregate completes for dead socket
     expect(ran).toBe(total);
 
     await rdb.close();
@@ -141,15 +147,46 @@ describe('orders report cancellation on client disconnect', () => {
 
     expect(response.status).toBe(200);
     expect(response.body.length).toBeGreaterThan(0);
+    await rdb.close();
+  });
 
+  it('completes the full POST request with body parser when client stays connected', async () => {
+    const { app, rdb } = await createCancApp();
+    const { cancAsyncRoute } = require('./lib/cancelable-route');
+    const canc = require('@cancjs/coroutine');
+
+    app.post(
+      '/test-post',
+      express.json(),
+      cancAsyncRoute(function* (req: any, res: any) {
+        const result = yield* canc.await(Promise.resolve({ received: req.body }));
+        res.json(result);
+      }),
+    );
+
+    const response = await request(app).post('/test-post').send({ foo: 'bar' }).expect(200);
+
+    expect(response.body).toEqual({ received: { foo: 'bar' } });
+    await rdb.close();
+  });
+
+  it('completes the full POST request with body parser on vanilla abortable when client stays connected', async () => {
+    const { app, rdb } = await createVanillaApp();
+    const { abortOnDisconnect } = require('./middleware-vanilla');
+
+    app.post('/test-post', express.json(), abortOnDisconnect, (req, res) => {
+      res.json({ received: req.body });
+    });
+
+    const response = await request(app).post('/test-post').send({ foo: 'bar' }).expect(200);
+
+    expect(response.body).toEqual({ received: { foo: 'bar' } });
     await rdb.close();
   });
 
   const itPg = process.env.DATABASE_URL ? it : it.skip;
   itPg('canc wire-cancel on Postgres: issues pg_cancel_backend', async () => {
-    // If DATABASE_URL is set, createCancApp will connect to Postgres, and strategy is 'cancel query'.
-    // The previous tests verify the coroutine stops issuing queries, but here we would also assert
-    // that the query currently running on Postgres is canceled via wire protocol.
+    // with DATABASE_URL set, assert running Postgres query is canceled via wire protocol
     const { app, rdb } = await createCancApp();
     const ran = await slicesAfterDisconnect(app, rdb, '/orders/report');
     expect(ran).toBeGreaterThan(0);

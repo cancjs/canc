@@ -17,6 +17,7 @@
     "app-fetch-streaming",
     "app-fastify-mongoose",
     "app-fullstack-cancel",
+    "app-invoice-scheduler-task",
     "app-nestjs-typeorm",
     "app-react",
     "app-react-suspense",

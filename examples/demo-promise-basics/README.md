@@ -50,6 +50,8 @@ The canc entry runs three scenarios:
  uncancelable to workaround to built-in progression, then the canc-only bubble scenario (vanilla
  carries a placeholder comment at the aligned position instead).
 
+Note: the `canc` files showcase an `await cancel()` ordering scenario and a two-way propagation bubble scenario that have no direct structural counterpart on the vanilla side because vanilla promises lack synchronous cancellation state observation and automatic multi-consumer reference counting.
+
 ## Notes
 
 - **Cancellation reaches the network:** the mock API logs `aborted` markers proving cancel

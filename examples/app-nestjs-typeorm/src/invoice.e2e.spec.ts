@@ -25,13 +25,24 @@ async function boot(module: any): Promise<{ app: INestApplication; dataSource: D
 }
 
 /** Fires POST /invoices/bulk, lets a chunk or two run, destroys the socket, returns the count after. */
-async function countAfterDisconnect(dataSource: DataSource, port: number): Promise<number> {
+async function countAfterDisconnect(dataSource: DataSource, port: number, targetCount = 0): Promise<number> {
   const req = http.request({ host: '127.0.0.1', port, path: '/invoices/bulk', method: 'POST' }, (res) => res.resume());
   req.on('error', () => {});
   req.end();
   await sleep(60);
   req.destroy();
-  await sleep(600);
+
+  if (targetCount > 0) {
+    while (true) {
+      const count = await countInvoices(dataSource.manager);
+      if (count === targetCount) {
+        return count;
+      }
+      await sleep(20);
+    }
+  } else {
+    await sleep(200);
+  }
   return countInvoices(dataSource.manager);
 }
 
@@ -47,7 +58,7 @@ describe('bulk invoice generation cancellation on client disconnect', () => {
     const before = await countInvoices(dataSource.manager);
     const after = await countAfterDisconnect(dataSource, port);
 
-    // Rollback proof: the partial transaction was undone, so the count is exactly what it was.
+    // rollback proof: count unchanged after partial transaction undone
     expect(before).toBe(0);
     expect(after).toBe(0);
 
@@ -72,7 +83,7 @@ describe('bulk invoice generation cancellation on client disconnect', () => {
 
     await request(app.getHttpServer()).get('/invoices').expect(200);
 
-    // The guard read the @BillingTier('standard') marker off the wrapped listInvoices method.
+    // guard read marker off wrapped method
     expect(BillingTierGuard.lastSeenTier).toBe('standard');
 
     await app.close();
@@ -83,10 +94,23 @@ describe('bulk invoice generation cancellation on client disconnect', () => {
     const { app, dataSource, port } = await boot(VanillaModule);
 
     const before = await countInvoices(dataSource.manager);
-    const after = await countAfterDisconnect(dataSource, port);
+    const after = await countAfterDisconnect(dataSource, port, SEED_CUSTOMER_COUNT);
 
-    // No cancellation: the transaction committed the full run for a socket nobody is reading.
+    // uncancelable: full transaction committed for disconnected socket
     expect(before).toBe(0);
+    expect(after).toBe(SEED_CUSTOMER_COUNT);
+
+    await app.close();
+    await dataSource.destroy();
+  });
+
+  it('completes the full POST bulk transaction when client stays connected with a body', async () => {
+    const { app, dataSource } = await boot(CancModule);
+
+    const response = await request(app.getHttpServer()).post('/invoices/bulk').send({ dummy: 'payload' }).expect(201);
+
+    expect(response.body.generated).toBe(SEED_CUSTOMER_COUNT);
+    const after = await countInvoices(dataSource.manager);
     expect(after).toBe(SEED_CUSTOMER_COUNT);
 
     await app.close();

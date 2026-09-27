@@ -5,9 +5,7 @@ import type { MarketplaceApi, Product } from './mock/api';
 
 const props = defineProps<{ api: MarketplaceApi; product: Product }>();
 
-// Prefetch this card's image with a plain promise. There is no cancelable chain to hand back, and
-// no cleanup can stop the request: once onMounted starts it, filtering this product out (which
-// unmounts the card) cannot abort it.
+// plain image prefetch on mount; cannot be aborted if card unmounts
 const image = ref<string>();
 const pending = ref(true);
 
@@ -15,14 +13,14 @@ onMounted(() => {
   props.api
     .productImage(props.product.id)
     .then((url) => {
-      // state update for a card that may already be unmounted — the request completed anyway.
+      // state update for a card that may already be unmounted: the request completed anyway.
       image.value = url;
       pending.value = false;
     })
     .catch(() => {
       pending.value = false;
     });
-  // (no cancellation counterpart — the prefetch keeps running after the card unmounts)
+  // (no cancellation counterpart: the prefetch keeps running after the card unmounts)
 });
 </script>
 

@@ -91,13 +91,15 @@ describe('declared failure smoke coverage', () => {
     });
     pCombined.catch(() => {});
 
-    // 3a. Inline form (catchErrors)
+    // 3a.
+    // Inline form (catchErrors)
     const pSubInline = catchErrors(pCombined, SmokeError);
     const cSubInline: Eq<typeof pSubInline, CancelablePromise<number | SmokeError, SecondSmokeError>> = true;
     expect(cSubInline).toBe(true);
     await expect(pSubInline).resolves.toBeInstanceOf(SmokeError);
 
-    // 3b. Factory form (createCatchError)
+    // 3b.
+    // Factory form (createCatchError)
     const catchSmoke = createCatchError(SmokeError);
     const pSubFactory = catchSmoke(pCombined);
     const cSubFactory: Eq<typeof pSubFactory, CancelablePromise<number | SmokeError, SecondSmokeError>> = true;

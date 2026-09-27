@@ -1,9 +1,7 @@
 import { readdirSync, readFileSync, statSync } from 'fs';
 import { join, relative } from 'path';
 
-// Scans example source for the antipatterns the example-fixes tasks were meant to kill. Not a
-// substitute for each task's own acceptance check; this is the repo-wide sweep so a future example
-// cannot silently reintroduce a killed pattern.
+// repo-wide sweep asserting killed antipatterns stay dead in example sources
 
 const EXAMPLES_ROOT = join(__dirname, '..');
 const SKIP_DIRS = new Set(['node_modules', 'dist', 'build', '.git', 'out', '~~legacy examples']);

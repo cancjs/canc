@@ -1,7 +1,4 @@
-// Mock code: a fake transcoder. Pretend this is ffmpeg processing one chunk of a video export.
-// It is scaffolding, not a copy target. It exists so the example can prove a cancel() actually
-// stopped the work: every chunk that starts is recorded on the shared MockApi call log, and a
-// chunk aborted mid-flight is marked 'aborted' there.
+// fake transcoder to prove cancel() stopped work
 
 import { CancelablePromise } from '@cancjs/promise';
 import { cancelify } from '@cancjs/toolbox';
@@ -20,8 +17,7 @@ export type ExportBackend = MockApi;
  * the chunk in flight. Built once from the signal-aware backend so the job stays signal-free. */
 export type Transcoder = (chunk: TranscodeChunk) => CancelablePromise<TranscodeChunk>;
 
-// Cancelify the signal-aware backend at its boundary (recipe 4). `getSignal()` mints the abort
-// signal lazily and hands it to the raw call; the job that uses `transcode` never touches a signal.
+// cancelify signal-aware backend at its boundary so job stays signal-free
 export function createTranscoder(backend: ExportBackend): Transcoder {
   return cancelify(({ getSignal }, chunk: TranscodeChunk) => transcodeChunk(backend, chunk, getSignal()));
 }

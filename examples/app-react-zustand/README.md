@@ -75,6 +75,12 @@ about without mounting a component.
 - **Unmount cancels too.** `reset()` is called from the component's cleanup effect on unmount, and
  in the canc store that cancels whatever load was still outstanding.
 
+## Honesty note
+
+Cancellation in the Zustand store operates on the async fetch layer:
+- Canceling the outstanding query promise aborts the network request immediately and prevents updating the store's `tracks` list state.
+- However, cancellation does not roll back synchronous state changes that were made before the asynchronous call was initiated, such as updating the `currentAlbumId` or setting the loading `status` to `'pending'`.
+
 ## Copying
 
 `src/store-canc.ts`'s pattern, one `CancelablePromise` field per in-flight action, cancel it

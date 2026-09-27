@@ -30,8 +30,7 @@ class Sub<T> extends CancelablePromise<T> {}
 
 describe('species identity', () => {
   it('CancelablePromise[Symbol.species] === CancelablePromise', () => {
-    // No own species getter — resolves via inherited native Promise[Symbol.species] (returns
-    // `this`) reached through Object.setPrototypeOf(CancelablePromise, NativePromise).
+    // resolves via inherited native Promise[Symbol.species] returning this
     expect((CancelablePromise as any)[Symbol.species]).toBe(CancelablePromise);
   });
 
@@ -276,7 +275,7 @@ describe('cross-realm CancelError recognition (duck-typing)', () => {
 			err;
 		`);
 
-    // Genuinely foreign: not our CancelError instance (different realm's Error), yet branded.
+    // Genuinely foreign: not a local CancelError instance (different realm Error), yet branded
     expect(foreignBranded instanceof CancelError).toBe(false);
     expect(foreignBranded instanceof Error).toBe(false); // cross-realm Error identity differs
     expect(isCancelError(foreignBranded)).toBe(true);

@@ -7,8 +7,7 @@ export interface ChatApi {
   stream(prompt: string, signal?: AbortSignalLike): AsyncGenerator<string, void, void>;
 }
 
-// Token stream: one respond() per token so each token is independently abortable and traced. The
-// generator throws AbortError out of whichever `respond` is in flight when the signal fires.
+// Token stream: each token is an independently abortable and traced respond().
 async function* streamTokens(
   api: MockApi,
   prompt: string,

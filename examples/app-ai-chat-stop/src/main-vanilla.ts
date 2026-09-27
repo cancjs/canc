@@ -1,6 +1,4 @@
-// Vanilla entry: boots the express server, then drives a scripted Stop against it so the run has
-// a deterministic end. Watch the usage log: the abortable route stops billing, the leaky route
-// does not. Open http://localhost:PORT to try the browser client by hand.
+// Vanilla entry: boots the express server, then drives a scripted Stop against it.
 
 import { runScenario } from './scenario';
 import { createServer } from './server-vanilla';

@@ -1,6 +1,5 @@
 <script setup lang="ts">
-// Shared chrome around whichever CatalogPage flavor is mounted. Suffix-free: identical for both
-// entries, so it carries no cancellation logic of its own.
+// shared chrome around mounted CatalogPage; identical for both entries
 defineProps<{ title: string }>();
 </script>
 

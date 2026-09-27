@@ -3,9 +3,8 @@ import { CancelablePromise } from '@cancjs/promise';
 import { MAX_TIMEOUT } from '../../_toolbox';
 import { delay, isTimeoutError, timeout } from './index';
 
-// Integration-level checks that the reshaped time helpers hold the relationships the userland
-// spec claims, not just that each helper works in isolation. Every case here exercises the
-// PUBLIC package entry point (`./index`), the same surface a consumer imports.
+// Integration checks ensure time helpers hold the relationships claimed by userland spec and
+// exercise the public package entry point the same way a consumer imports it
 describe('time helper duality (cancelable)', () => {
   afterEach(() => {
     jest.useRealTimers();

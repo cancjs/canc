@@ -35,8 +35,7 @@ describe('isCancelError', () => {
     expect(isCancelError(new CancelError())).toBe(true);
   });
 
-  // Detection is brand-based, not name-based. A foreign object merely named 'CancelError' is
-  // NOT a canc CancelError and must not be matched (false-suppression regression).
+  // Guard against false suppression: matching requires the brand symbol, not just the name
   it('does not match a foreign name-only lookalike', () => {
     expect(isCancelError({ message: '', name: 'CancelError' })).toBe(false);
   });
@@ -65,8 +64,7 @@ describe('createCancelSignal', () => {
     expect(isCancelSignal(result.signal)).toBe(true);
   });
 
-  // Anti-stub: a raw AbortSignal carries no brand, so the check must be false — proves the brand
-  // is a real own-prop, not a no-op that returns true for any signal.
+  // raw AbortSignal carries no brand so check must be false
   it('does not brand a plain AbortSignal', () => {
     expect(isCancelSignal(new AbortController().signal)).toBe(false);
   });
@@ -178,7 +176,7 @@ describe('catchCancel', () => {
     }
   });
 
-  // todo: duck-check widening, a plain native Promise (foreign thenable) rejecting with a
+  // Duck-check widening: a plain native Promise (foreign thenable) rejecting with a
   // CancelError is caught and returned, not just CancelablePromise instances.
   it('catches a CancelError from a plain native Promise', async () => {
     const nativePromise = Promise.reject(new CancelError('native reject'));
@@ -201,7 +199,8 @@ describe('catchCancel', () => {
   });
 
   // default behavior (no options / abort:false) leaves a bare AbortError unmatched, must
-  // still rethrow. Proves the {abort} option is not accidentally always-on.
+  // still rethrow.
+  // Proves the {abort} option is not accidentally always-on.
   it('rethrows a plain AbortError by default (no abort option)', async () => {
     const nativePromise = Promise.reject(new AbortError());
 
@@ -296,7 +295,7 @@ describe('suppressCancel', () => {
     }
   });
 
-  // todo: widened to a duck-check (isThenable) instead of `instanceof CancelablePromise`, so
+  // Widened to a duck-check (isThenable) instead of `instanceof CancelablePromise`, so
   // a PLAIN native Promise rejecting with a CancelError is also suppressed correctly, the
   // brand-based isCancelError (`Symbol.for('@cancjs/promise:CancelError')`) makes this
   // detection copy/realm-safe regardless of what produced the rejection (mirrors the brand
@@ -373,7 +372,8 @@ describe('suppressCancel', () => {
   });
 
   // A CancelError produced by a timeout-driven cancellation: cause is a TimeoutError, so
-  // `timedOut` is true and `aborted` is false. Proves the getters are independent.
+  // `timedOut` is true and `aborted` is false.
+  // Proves the getters are independent.
   it('a CancelError caused by a timeout has timedOut true and aborted false', () => {
     const cancelError = new CancelError(undefined, { cause: new TimeoutError() });
 

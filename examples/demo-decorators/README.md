@@ -12,15 +12,15 @@ Domain: an `IssueClient` for an issue/ticket service, with `searchIssues`, `load
 Each flavor lives in its own subfolder with its own compiler/transform config, because the dialects
 need different emit settings and cannot share one compilation:
 
-- `src/stage3/` — native TC39 stage-3 decorators (TypeScript 5+, `experimentalDecorators: false`).
- Uses `AsyncMethod` / `BindMethod`.
-- `src/ts-legacy/` — TypeScript legacy decorators (`experimentalDecorators: true`). Uses
- `LegacyAsyncMethod` / `LegacyBindMethod`.
-- `src/babel-legacy/` — Babel legacy decorators (`@babel/plugin-proposal-decorators`, `legacy: true`).
- Written as `.js` because it needs Babel's transform. Uses `BabelLegacyAsyncMethod` /
- `BabelLegacyBindMethod`.
-- `src/manual/` — no decorators at all: the constructor does `this.method = canc.async(this.method, this)`,
- which is exactly what the decorators desugar to. Works under any toolchain.
+- `src/stage3/`: native TC39 stage-3 decorators (TypeScript 5+, `experimentalDecorators: false`).
+  Uses `AsyncMethod` / `BindMethod`.
+- `src/ts-legacy/`: TypeScript legacy decorators (`experimentalDecorators: true`). Uses
+  `LegacyAsyncMethod` / `LegacyBindMethod`.
+- `src/babel-legacy/`: Babel legacy decorators (`@babel/plugin-proposal-decorators`, `legacy: true`).
+  Written as `.js` because it needs Babel's transform. Uses `BabelLegacyAsyncMethod` /
+  `BabelLegacyBindMethod`.
+- `src/manual/`: no decorators at all. The constructor does `this.method = canc.async(this.method, this)`,
+  which is exactly what the decorators desugar to. Works under any toolchain.
 
 Every flavor imports from `@cancjs/decorators`; pick the decorator matching your build. Applying a
 decorator under the wrong compiler flavor fails fast with a message telling you which one to use

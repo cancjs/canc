@@ -20,9 +20,7 @@ function countByStatus(api: OrdersApi, endpoint: string, status: string): number
   return api.calls.filter((c) => c.endpoint === endpoint && c.status === status).length;
 }
 
-// Components are provided in the testing module and pulled via TestBed.inject, so inject()/
-// DestroyRef work; the spec then drives ngOnChanges/onDestroy by hand. This exercises the
-// cancellation logic without compiling a template, so it runs under plain ts-jest.
+// drives ngOnChanges/onDestroy by hand to test cancel logic under plain ts-jest
 
 describe('canc detail pane (decorator service)', () => {
   beforeEach(() => jest.useFakeTimers());
@@ -151,8 +149,7 @@ describe('canc detail pane (Observable service adapted to promises)', () => {
     TestBed.resetTestingModule();
   });
 
-  // The adapter is only worth anything if the Observable really aborts on unsubscribe. A service
-  // that wrapped an already-started promise would still report a completed call here.
+  // verify adapter aborts rather than wrapping an already-started promise
   it('aborts the superseded request through unsubscribe', async () => {
     const api = createOrdersApi({ latency: LATENCY });
     TestBed.configureTestingModule({
@@ -294,7 +291,7 @@ describe('vanilla detail pane', () => {
     jest.advanceTimersByTime(LATENCY);
     await Promise.resolve();
 
-    // The reset does invalidate the response, so the pane stays empty. The request still ran.
+    // reset invalidates response while underlying request still completes
     expect(countByStatus(api, 'orders.detail', 'completed')).toBe(1);
     expect(countByStatus(api, 'orders.detail', 'aborted')).toBe(0);
     expect(pane.orderDetail.status).toBe('idle');

@@ -1,7 +1,7 @@
 import { TimeoutError } from '../_util';
 import { TPromiseCtor } from './construct';
 import { IPromiseKind, IPromiseLikeKind } from './kind';
-import { ITimers } from './timers';
+import { TTimersOverride } from './timers';
 
 /** Structural AbortController, so no dependency on the ambient DOM/Node type in envs that polyfill it. */
 export type TAbortControllerCtor = new () => { abort(reason?: any): void; signal: any };
@@ -11,10 +11,11 @@ export type TAbortControllerCtor = new () => { abort(reason?: any): void; signal
  * and hands the same object to each factory, so a bound helper's signature is the algorithm's own
  * signature and there is nothing left to keep in sync by hand.
  *
- * The timer functions are optional: leaving them out schedules against the ambient `setTimeout`,
- * which is what a consumer wants until it needs to escape a fake clock.
+ * The timer functions are optional, and go in as a whole pair or not at all: leaving them out
+ * schedules against the ambient `setTimeout`, which is what a consumer wants until it needs to
+ * escape a fake clock.
  */
-export interface IToolboxDeps<K extends IPromiseKind = IPromiseLikeKind> extends Partial<ITimers> {
+export type IToolboxDeps<K extends IPromiseKind = IPromiseLikeKind> = TTimersOverride & {
   /** The promise implementation every product of this factory constructs against. */
   Impl: TPromiseCtor;
   /** AbortController implementation used where an outbound signal is minted. */
@@ -38,4 +39,20 @@ export interface IToolboxDeps<K extends IPromiseKind = IPromiseLikeKind> extends
    * casting each helper's result.
    */
   kind?: K;
-}
+};
+
+/**
+ * The dependencies a single call may override, under the same names as the factory bag so that one
+ * rule covers both: a call's value wins over the factory's, and the ambient one is the last resort.
+ * Timers resolve as a pair through `resolveTimers`; the standalone members resolve on their own.
+ *
+ * `Impl` and `kind` are deliberately absent. Both decide the TYPE of what a helper returns, which a
+ * per-call argument cannot change, so accepting them here would be a promise the signature could
+ * not keep. They are the one documented exception to every dependency being overridable per call.
+ */
+export type TCallDeps = TTimersOverride & {
+  /** AbortController implementation used where an outbound signal is minted. */
+  AbortController?: TAbortControllerCtor;
+  /** The TimeoutError constructor this call rejects with when a deadline is missed. */
+  TimeoutError?: typeof TimeoutError;
+};

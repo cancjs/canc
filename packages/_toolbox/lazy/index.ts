@@ -1,6 +1,5 @@
-// Only the cancellation-free base belongs in this barrel. Each flavor is imported by its own path
-// so that the native toolbox, which must not depend on the cancelable promise package at all,
-// never reaches the cancelable flavor through here.
+// Only the cancellation free base belongs in this barrel since each flavor is imported by its
+// own path so the native toolbox never reaches the cancelable flavor through here
 export {
   ILazyImplStatics,
   ILazyWithResolvers,

@@ -1,4 +1,4 @@
-// Promise.race: first to settle (win or fail) returns. Remaining keep running.
+// Promise.race: first to settle (win or fail) returns; remaining keep running.
 
 import { mockApi, vanillaWidgets } from './widgets-shared.js';
 

@@ -55,10 +55,11 @@ function normalize(p) {
   return p.startsWith('./') ? p.slice(2) : p;
 }
 
-// The CJS interop shim copies every barrel export onto the default export object, so in a package
-// that has a default export, a barrel name matching one of that object's own properties overwrites
-// the property in the CJS build only. ESM and UMD keep both. Nothing collides today, so this is a
-// guard against a future export silently deleting a static from one build.
+// The interop shim copies every barrel export onto the default export object,
+// so in a package that has a default export, a barrel name matching one of that
+// object's own properties overwrites the property in CJS and UMD builds
+// ESM keeps both separate; nothing collides today, so this guards against a
+// future export silently deleting a static in CJS and UMD targets
 async function collectDefaultExportShadowing(pkgDir, manifest) {
   const entry = typeof manifest.module === 'string' ? manifest.module : null;
   if (!entry) return [];
@@ -83,7 +84,7 @@ async function collectDefaultExportShadowing(pkgDir, manifest) {
 
   if (shadowed.length === 0) return [];
 
-  return [`barrel exports shadow members of the default export in the CJS build: ${shadowed.sort().join(', ')}`];
+  return [`barrel exports shadow members of the default export in CJS and UMD builds: ${shadowed.sort().join(', ')}`];
 }
 
 async function checkPackage(pkgName) {
@@ -131,7 +132,7 @@ async function checkPackage(pkgName) {
     for (const f of packedFiles) {
       if (/\.d\.(m|c)?ts$/.test(f)) {
         const content = fs.readFileSync(path.join(pkgDir, f), 'utf8');
-        if (content.includes("'@cancjs/") || content.includes('"@cancjs/')) {
+        if (/(?:from\s+|import\()\s*['"]@cancjs\//.test(content)) {
           problems.push(`dependency-free package ships types containing a bare @cancjs/ import specifier in ${f}`);
         }
       }

@@ -20,10 +20,21 @@ Special options:
 - `{ bubble: false }` on a consumer: its cancellation does NOT bubble up. Useful for non-critical branches (stock fetch is optional, so if the user leaves, canceling the stock leg alone should not stop the orders consumer).
 - `{ shield: true }` on a node: protects its own cancellation from propagating down. Upstream rejection from the canceled source is still adopted (a shielded node still sees the parent's `CancelError`). This differs from `asyncio.shield()` in Python, which stops rejection entirely. Honesty note: canc's shield stops cancellation, not rejection, so a critical failure still propagates.
 
+## Prerequisites
+
+The examples consume the built `dist` of each `@cancjs/*` package through a npm `file:`.
+Build the monorepo first, then install this workspace:
+
+```
+cd ../../ # monorepo root (canc)
+npm run build
+cd examples
+npm install
+```
+
 ## Run both flavors
 
 ```bash
-npm install
 npm run start:vanilla # Plain promises: all calls complete regardless
 npm run start:canc # CancelablePromise: see the cancellation in action
 npm run test # Smoke tests: bubble and partial scenarios

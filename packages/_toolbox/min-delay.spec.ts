@@ -7,7 +7,7 @@ import { minDelayFactory } from './min-delay';
 
 interface ITestKind extends IPromiseKind {
   promise: CancelablePromise<this['value']>;
-  options: object;
+  options: Record<string, unknown>;
 }
 
 const deps: IToolboxDeps<ITestKind> = { Impl: CancelablePromise as unknown as TPromiseCtor };

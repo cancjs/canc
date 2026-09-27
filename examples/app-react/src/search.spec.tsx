@@ -16,7 +16,7 @@ async function typeThreeChars(): Promise<void> {
   const input = screen.getByLabelText('destination');
   for (const value of ['l', 'lo', 'lon']) {
     fireEvent.change(input, { target: { value } });
-    // Flush the effect that starts (and, for canc, cancels the previous) search — but do NOT let a
+    // Flush the effect that starts (and, for canc, cancels the previous) search, but do NOT let a
     // search's latency elapse: the next keystroke lands first.
     await act(async () => {
       await Promise.resolve();
@@ -62,7 +62,7 @@ describe('canc SearchPage', () => {
 
     expect(countByStatus(api.calls, 'flights.searchDestinations', 'aborted')).toBe(1);
     expect(countByStatus(api.calls, 'flights.searchDestinations', 'completed')).toBe(0);
-    // React warns "state update on an unmounted component" via console.error — none should fire.
+    // React warns "state update on an unmounted component" via console.error: none should fire.
     expect(errorSpy).not.toHaveBeenCalled();
     errorSpy.mockRestore();
   });

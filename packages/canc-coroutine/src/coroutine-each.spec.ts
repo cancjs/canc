@@ -3,7 +3,7 @@ import { CancelablePromise, CancelError, isCancelError, suppressCancel } from '@
 import { BreakError, cancAsync, cancAwait, cancForAwait, isBreakError } from './coroutine';
 
 // Deterministic microtask flush (mirrors coroutine.spec): drains the microtask queue N times so
-// chained then-callbacks all run, no arbitrary sleeps (testing doctrine).
+// chained then-callbacks all run, no arbitrary sleeps.
 const flush = async (times = 12) => {
   for (let i = 0; i < times; i++) {
     await Promise.resolve();
@@ -181,9 +181,6 @@ describe('cancForAwait', () => {
     const order: string[] = [];
 
     const co = cancAsync(function* () {
-      // Discouraged path (docs): a callback returning a bare native promise, not a CancelablePromise,
-      // still works at runtime but breaks the per-item cancel chain. Cast needed only because the
-      // type intentionally steers callers toward a CancelablePromise return.
       yield* cancForAwait(makeAsyncSource([1, 2]), ((value: number) => {
         order.push(`start:${value}`);
 
@@ -248,7 +245,7 @@ describe('cancForAwait', () => {
   });
 });
 
-describe('cancForAwait — generator-fn callback', () => {
+describe('cancForAwait: generator-fn callback', () => {
   it('runs a cancelable per-item body via yield* delegate (bare generator fn)', async () => {
     const order: string[] = [];
     const work = (v: number) =>

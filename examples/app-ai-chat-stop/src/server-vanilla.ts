@@ -1,8 +1,6 @@
 // Vanilla server: an express app whose /chat route streams tokens over a chunked text response.
 //
-// Disconnect handling is manual: create an AbortController per request, listen for the socket
-// 'close', and abort the controller so the threaded signal reaches the LLM. Miss any of these and
-// the stream keeps billing after the user is gone (the uncancelable route below shows exactly that).
+// Disconnect handling is manual: create an AbortController per request and listen for 'close'.
 
 import express, { Express } from 'express';
 
@@ -15,11 +13,10 @@ export function createServer(): { app: Express; log: UsageLog } {
   app.use(express.json());
   app.use(express.static('public'));
 
-  // Uncancelable route: no controller, no 'close' handler. A Stop closes the socket but the
-  // service keeps pulling paid tokens until the model finishes.
+  // Uncancelable route: no controller, no 'close' handler.
   app.post('/chat/leaky', async (req, res) => {
     const sink = { write: (token: string) => res.write(token) };
-    // nothing to abort — the request runs to completion no matter what the client does
+    // nothing to abort: the request runs to completion no matter what the client does
     await streamChat({ prompt: req.body.prompt }, sink, log);
     res.end();
   });

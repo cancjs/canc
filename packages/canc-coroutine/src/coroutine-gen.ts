@@ -42,10 +42,9 @@ interface TAsyncGeneratorStep {
   next: TAsyncGeneratorStep | null;
 }
 
-// `awaited(value)` marks a yielded value as an *internal await* (the coroutine suspends on it but
-// does NOT emit it to the async-iterator consumer). A plain `yield value` is an *emitted* value —
-// it surfaces as the `{ value }` of the consumer's `.next()` / `for await` loop, mirroring native
-// async-generator semantics where every `yield x` yields to the consumer and `await x` does not.
+// `awaited(value)` marks a yielded value as an internal await without emitting it.
+// A plain `yield value` is an emitted value surfacing as `{ value }` to the consumer,
+// mirroring native async generators where `yield x` emits and `await x` does not.
 const awaitedSymbol = Symbol.for('@cancjs/coroutine:awaited');
 
 interface TAwaited<T = any> {
@@ -54,16 +53,10 @@ interface TAwaited<T = any> {
 
 const isAwaited = (value: any): value is TAwaited => isObject(value) && awaitedSymbol in value;
 
-// Low-level: builds the internal-await marker directly. Inside a `cancGenAsync` body,
-// prefer `yield* cancGenAwait(value)` — it is typed (the resume value flows through `yield*`), while
-// a bare `yield awaited(value)` is not.
 const awaited = <T = any>(value: T | TAwaited<T>): TAwaited<T> => ({
   [awaitedSymbol]: isAwaited(value) ? value[awaitedSymbol] : value,
 });
 
-// Same tuple/union types as `cancAwait.all/race/any/allSettled/try` (coroutine.ts), re-declared here
-// (not imported) since the combinator's RESULT shape is identical between the two worlds and only
-// the yielded carrier differs: bare value vs the `awaited(...)` marker.
 type TGenAwaitedTuple<T extends readonly unknown[]> = { -readonly [K in keyof T]: Awaited<T[K]> };
 type TGenSettledTuple<T extends readonly unknown[]> = { -readonly [K in keyof T]: PromiseSettledResult<Awaited<T[K]>> };
 
@@ -116,10 +109,6 @@ function cancGenAwaitImpl<T>(value: Promise<T> | T): Generator<TAwaited<Awaited<
   })();
 }
 
-// Gen-world analog of coroutine.ts's `makeCombinator`: same one-step fold, but the built promise is
-// wrapped in the `awaited(...)` marker instead of a bare `yield`, so the `cancGenAsync` driver treats
-// it as an INTERNAL await (never emitted to the consumer's `for await`), matching every other
-// `cancGenAwait` step.
 function makeGenCombinator(build: (...args: any[]) => CancelablePromise<any, any>) {
   return function* (...args: any[]): Generator<TAwaited<any>, any, any> {
     return yield awaited(build(...args));
@@ -170,10 +159,16 @@ export interface ICancAsyncGenerator<T, TReturn = any, TNext = any, TFailure = n
   readonly [FAILURE]?: TFailure;
 }
 
-// Public typed signature: the emit type flows to the consumer and the internal-await marker is
-// stripped. `Exclude<TYield, TAwaited<any>>` drops the marker (its unique `Symbol.for` key means real
-// emit types never structurally match it), so the consumer's `for await` value is exactly the emit
-// type. Mirror of `cancAsync` for the `async *` world (`cancGen.async`).
+/**
+ * Wraps a generator function into an async generator whose yielded values are emitted and internal awaits are consumed.
+ *
+ * Emits values yielded directly, while values yielded via `cancGenAwait` or internal helpers are
+ * awaited within the generator and not emitted to consumers. Canceling an in-flight iteration step
+ * cancels the generator and executes enclosing `finally` blocks.
+ *
+ * @param genFn Generator function defining the async generator body.
+ * @param options Async generator and promise execution options.
+ */
 export function cancGenAsync<TYield, TReturn, TArgs extends any[], TThis = any>(
   genFn: (this: TThis, ...args: TArgs) => Generator<TYield, TReturn, any>,
   options?: TCancelableCoroutineGenOptions,
@@ -197,18 +192,12 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
   function coroutineGenWrapper(this: any, ...args: any[]) {
     const gen: TGeneratorLike = genFn.apply(this, args);
 
-    // Linked-list queue of pending step requests. `currentStep` = the step being resolved right
-    // now; `queuedStep` = the tail. A new `.next()/.throw()/.return()` call while a step is in
-    // flight is appended and served in FIFO order once the current one settles — same ordering
-    // guarantee a native async generator gives.
     let currentStep: TAsyncGeneratorStep | null = null;
     let queuedStep: TAsyncGeneratorStep | null = null;
     let done = false;
     // Distinct from `done` (which is also true on normal completion): set only by a cancel, so a
     // source that settles AFTER cancel can be dropped instead of driving the (torn-down) generator.
     let canceled = false;
-    // The in-flight awaited source (internal await or the completed-return awaitable). Tracked so a
-    // cancel arriving mid-await can abort the underlying op by canceling this source directly.
     let pendingSource: CancelablePromise<any, any> | undefined;
 
     const asyncGen = {
@@ -274,9 +263,6 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
       const settledValue = isAwaitedValue ? rawValue[awaitedSymbol] : rawValue;
 
       if (result.done) {
-        // A completed generator's return value is never awaited-as-internal — it is the final
-        // `{ value, done: true }` result. Resolve the awaitable then settle. Track it as the
-        // outstanding source so a cancel mid-await aborts it.
         pendingSource = CancelablePromise.resolve(settledValue);
         pendingSource.then(
           (value) => {
@@ -294,8 +280,6 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
       }
 
       if (isAwaitedValue) {
-        // Internal await: suspend on the value, feed the outcome back into the generator, do NOT
-        // emit to the consumer. Track the source so a cancel mid-await aborts the underlying op.
         pendingSource = CancelablePromise.resolve(settledValue);
         pendingSource.then(
           (value) => {
@@ -343,9 +327,6 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
       done = true;
       canceled = true;
 
-      // Abort the in-flight awaited source directly. Its `.then` continuations are already gated on
-      // `canceled`, so canceling here fires the underlying op's cancel handlers (the abort) without
-      // driving the generator, which is about to be torn down below.
       const outstanding = pendingSource;
       pendingSource = undefined;
       if (outstanding?.cancelable) {
@@ -356,15 +337,12 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
       try {
         gen.return(undefined);
       } catch {
-        // Swallow cleanup errors — cancellation still proceeds.
+        // swallow cleanup errors so cancellation still proceeds
       }
 
       const cancelError =
         isCancelError(reason) ? reason : new CancelError(typeof reason === 'string' ? reason : 'Canceled');
 
-      // Drain the queue: the canceled step resolves as done (its own promise is already being
-      // canceled, so a rejection here would be redundant/unhandled), every OTHER pending step is
-      // rejected with a CancelError. Walk the whole linked list from the head.
       let step: TAsyncGeneratorStep | null = currentStep || queuedStep;
 
       while (step) {
@@ -386,18 +364,23 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
 }
 
 /**
- * `for await` CONSUME inside a `cancGenAsync` producer body (`cancGen.forAwait`): pull each item of
- * `source` at an internal cancellation point (the pulls are marker-wrapped, so they stay internal and
- * are NEVER emitted to our consumer), running `cb` per item. `cb` has three forms (mirror of
- * `cancForAwait`): a sync fn, a bare generator fn (its `cancGenAwait` steps run inline on this
- * driver), or a `cancAsync` coroutine fn (returns a `CancelablePromise`, awaited via marker `yield`).
- * `return false` from any form breaks the loop. `.toArray` collects into an array instead.
+ * Consumes an iterable inside a `cancGenAsync` producer body without emitting pulls to the outer consumer.
+ *
+ * Each item of `source` is pulled at an internal cancellation point and passed to `cb`. The callback
+ * supports three forms: a sync return, a generator (delegated with `yield*`), or a `cancAsync`
+ * coroutine returning a `CancelablePromise`. Returning `false` or throwing `BreakError` stops the
+ * loop cleanly. Plain `async` callbacks returning native promises are intentionally not
+ * type-supported to steer callers toward cancelable operations, though the runtime dispatches any
+ * thenable. Use `cancGenForAwait.toArray` to collect elements into an array instead.
  */
 interface ICancGenForAwait {
   <T>(source: TEachSource<T>, cb: TForAwaitCallback<T>): Generator<TAwaited<any> & Failing<BreakError>, void, any>;
   toArray<T>(source: TEachSource<T>): Generator<TAwaited<any> & Failing<BreakError>, T[], any>;
 }
 
+/**
+ * Consumes an iterable inside a `cancGenAsync` producer body without emitting pulls to the outer consumer.
+ */
 export const cancGenForAwait = function* cancGenForAwait(
   source: any,
   cb: (value: any, index: number) => any,
@@ -407,8 +390,6 @@ export const cancGenForAwait = function* cancGenForAwait(
 
   try {
     while (true) {
-      // Marker-wrapped pull: internal await, not an emit. For an async source the `.next()` promise is
-      // the cancellation point; for a sync source the yielded VALUE (which may be a promise) is.
       const result: IteratorResult<any> = yield awaited(it.next());
 
       if (result.done) {
@@ -434,9 +415,6 @@ export const cancGenForAwait = function* cancGenForAwait(
       }
     }
   } finally {
-    // Runs on normal completion, break, throw, AND on cancel-drain (the cancGenAsync driver reaches
-    // here via gen.return()). Await source cleanup so its own `finally` settles. No RETURN_UNWIND: that
-    // sentinel is a cancAsync-driver concern; the cancGenAsync driver drives cleanup directly.
     yield awaited(returnStepIterator(it));
   }
 } as unknown as ICancGenForAwait;

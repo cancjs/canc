@@ -187,6 +187,7 @@ type _checkAbortExclude = Assert<Eq<Exclude<AbortError | TimeoutError | Error, A
 const _checkWidenedConstructor: ICancErrorConstructor = AbortError;
 const _checkAbortBrandProperty: true = (new AbortError() as any)[ABORT_ERROR_BRAND];
 const _checkTimeoutBrandProperty: true = (new TimeoutError() as any)[TIMEOUT_ERROR_BRAND];
-// @ts-expect-error - bare ICancErrorConstructor should not have index signature allowing arbitrary properties
+// @ts-expect-error - bare ICancErrorConstructor should not have index signature
+// allowing arbitrary properties
 // eslint-disable-next-line @typescript-eslint/no-unused-expressions
 new (AbortError as ICancErrorConstructor)().anythingAtAll;

@@ -356,8 +356,8 @@ describe('async iterator cancellation', () => {
 
       await flush();
 
-      // The source is still closed. Only the work the async callback holds is out of reach, because
-      // an async function body cannot be resumed with a return completion from the outside.
+      // The source is still closed but work the async callback holds is out of reach because
+      // an async function body cannot be resumed with a return completion from outside
       expect(trace.closes).toBe(1);
       expect(work.state.aborted).toBe(0);
 

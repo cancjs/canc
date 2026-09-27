@@ -1,7 +1,4 @@
-// Canc chat service: the LLM boundary is cancelified once, so the coroutine body reads like plain
-// async/await with no signal in sight. Canceling the chat cancels the wrapped call, which aborts
-// the underlying signal, so a Stop stops the in-flight request and token billing rather than only
-// dropping the local pull.
+// canc chat service: stream boundary is cancelified for plain async/await
 
 import * as canc from '@cancjs/coroutine';
 import { CancelablePromise } from '@cancjs/promise';
@@ -27,8 +24,7 @@ const streamTurn = cancelify(async ({ getSignal }, prompt: string, sink: ChatSin
   }
 });
 
-// Cancelable: canceling the returned promise cancels streamTurn, which aborts the signal the LLM
-// sees. Stop cancels the chain, and nothing below the cancel point runs (no wasted paid tokens).
+// Cancelable: canceling the returned promise cancels streamTurn, which aborts the signal.
 export function streamChat(req: ChatRequest, sink: ChatSink, log: UsageLog): CancelablePromise<void> {
   let completed = false;
 

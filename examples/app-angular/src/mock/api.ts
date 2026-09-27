@@ -1,11 +1,4 @@
-// Aux code: a fake orders API for the example, built on the shared MockApi engine so cancellation
-// really reaches a simulated network boundary (see the started/aborted markers in `api.calls`).
-// Pretend this is your backend. This is scaffolding, not a copy target.
-//
-// The shared domains ship `orders.list`, but the dashboard also needs a per-order detail lookup
-// with enough latency that switching rows leaves the previous detail request in flight (the race
-// the example is about). That detail endpoint is defined here on top of the same signal-aware
-// `respond`.
+// fake orders API on MockApi engine simulating network boundary
 
 import { type AbortSignalLike, MockApi } from '@shared/mock-api';
 

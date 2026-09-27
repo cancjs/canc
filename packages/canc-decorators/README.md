@@ -150,6 +150,43 @@ Both decorators can be applied bare or called with options:
 @AsyncMethod({ bind: true })
 ```
 
+#### Dialect mechanics
+
+Each dialect wires methods, getters, and class fields according to the compiler runtime:
+
+- **Standard decorators (stage-3)**: Invoked as `(value, context)`. Method decorators return the
+  wrapped function for `bind: false`, or use `context.addInitializer` to install an own-bound
+  property per instance for `bind: true`. Field decorators receive `value === undefined` and return
+  an `(initialValue) => wrapped` transformer. Getter decorators return an accessor that evaluates the
+  getter lazily, optionally binds to `this`, and memoizes the result on the instance.
+- **TypeScript legacy (`experimentalDecorators: true`)**: Invoked as
+  `(target, propertyKey, descriptor)` for methods and getters, and `(target, propertyKey)` without
+  a descriptor for fields. For prototype methods, `bind: false` rewrites `descriptor.value` once;
+  `bind: true` installs a lazy prototype accessor that replaces itself with an own-bound property on
+  first access. For class fields, the decorator installs a lazy accessor whose setter captures the
+  field initial value when assigned in the constructor, then defines a wrapped own property.
+- **Babel legacy (`@babel/plugin-proposal-decorators` with `legacy: true`)**: Methods and getters
+  mirror TypeScript legacy. Class fields receive a property descriptor with an `initializer`
+  function instead of `value`. The decorator rewrites `descriptor.initializer` so the wrapped or
+  bound function is produced per instance at construction time.
+
+#### Type preservation
+
+Stage-3 decorator return types redefine the decorated member type in TypeScript. The overloads for
+`@AsyncMethod` and `@BindMethod` stay generic and identity-preserving rather than returning `any`,
+allowing decorated getters and methods to retain their declared types.
+
+In TypeScript legacy and Babel legacy, decorator return types do not redefine member types; their
+factory overloads return `any` so a single decorator applies to methods, getters, and fields without
+type mismatch.
+
+#### Babel stage-3 field ordering
+
+When using `@babel/plugin-proposal-decorators` (version "2023-05"), declaring a plain undecorated
+class field before a decorated class field in the same class body can trigger a runtime error during
+class definition. To avoid this limitation, declare decorated fields before undecorated fields or
+use getter style.
+
 ### Method style and getter style
 
 There are two ways to attach a coroutine to a class, and in TypeScript they are not

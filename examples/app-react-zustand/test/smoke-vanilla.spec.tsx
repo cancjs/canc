@@ -23,8 +23,7 @@ describe('app-react-zustand vanilla', () => {
 
     await waitFor(() => expect(useLibraryStore.getState().status).toBe('loaded'));
 
-    // vanilla inverted: the stale guard only skips the STATE WRITE, the request itself always
-    // completes (the bug we teach, not something to assert away)
+    // stale guard only skips state write; request itself still completes on wire
     await waitFor(() => {
       const trackCalls = mockCalls.filter((call) => call.endpoint === 'music.tracks');
       expect(trackCalls.filter((call) => call.status === 'completed').length).toBe(2);

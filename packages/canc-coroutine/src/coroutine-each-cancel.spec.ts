@@ -3,17 +3,13 @@ import { CancelablePromise, CancelError, isCancelError, suppressCancel } from '@
 import { cancAsync, cancForAwait } from './coroutine';
 
 // Deterministic microtask flush (mirrors coroutine-each.spec): drains the microtask queue N times
-// so chained then-callbacks all run, no arbitrary sleeps (testing doctrine).
+// so chained then-callbacks all run, no arbitrary sleeps.
 const flush = async (times = 12) => {
   for (let i = 0; i < times; i++) {
     await Promise.resolve();
   }
 };
 
-// Controllable async source: each pull blocks on an externally-resolved deferred. A test can hold
-// the coroutine mid-stream and cancel it deterministically. `finallyRan` records cleanup.
-// `rejectPendingOnReturn` makes an outstanding pull's promise REJECT when `.return()` is called
-// (models a source whose in-flight I/O is aborted on cleanup).
 function makeControllableSource<T>(opts: { rejectPendingOnReturn?: boolean; returnRejects?: boolean } = {}) {
   const gate: Array<{ resolve: (v: T) => void; reject: (e: any) => void; settled: boolean }> = [];
   const state = { finallyRan: false, pulls: 0 };
@@ -77,9 +73,7 @@ function trackUnhandled() {
   };
 }
 
-describe('cancForAwait / cancForAwait.toArray — cancel semantics (bugs 1-4)', () => {
-  // BUG 1: finally-drain must preserve return-unwind. Code AFTER the `yield* each(...)` in the
-  // coroutine body must NOT execute when the coroutine is canceled mid-stream.
+describe('cancForAwait / cancForAwait.toArray: cancel semantics (bugs 1-4)', () => {
   it('bug1: code after yield* each does not run on cancel (return-unwind preserved)', async () => {
     const { source, deliver, state } = makeControllableSource<number>();
     let completed = false;
@@ -88,7 +82,6 @@ describe('cancForAwait / cancForAwait.toArray — cancel semantics (bugs 1-4)', 
       yield* cancForAwait(source, () => {
         /* consume */
       });
-      // This line represents parent code after the delegated loop. On cancel it MUST NOT run.
       completed = true;
     });
 
@@ -109,11 +102,6 @@ describe('cancForAwait / cancForAwait.toArray — cancel semantics (bugs 1-4)', 
     expect(completed).toBe(false);
   });
 
-  // BUG 2 (regression guard): a source that aborts its still-suspended in-flight `.next()` when
-  // `.return()` is called (rejecting the pull promise the driver handed off) must not orphan that
-  // rejection nor turn it into the coroutine outcome. The driver already keeps a handler on the
-  // yielded pull and goes inert on cancel, and `returnStepIterator` now swallows the cleanup
-  // rejection (bug 3) — together these subsume the old manual `pending.catch(() => undefined)`.
   it('bug2: in-flight pull rejected by return() on cancel does not go unhandled', async () => {
     const tracker = trackUnhandled();
     try {
@@ -200,7 +188,7 @@ describe('cancForAwait / cancForAwait.toArray — cancel semantics (bugs 1-4)', 
 
     // Declared ahead of the coroutine: the callback below cancels it re-entrantly while co() is
     // still running, so const would hit the temporal dead zone.
-    // eslint-disable-next-line prefer-const -- see above
+    // eslint-disable-next-line prefer-const
     let p: CancelablePromise<any, any>;
     const co = cancAsync(function* () {
       try {
@@ -283,8 +271,6 @@ describe('cancForAwait / cancForAwait.toArray — cancel semantics (bugs 1-4)', 
     expect(order).toEqual(['finally-start', 'finally-end']);
   });
 
-  // Regression guard: the bug1 fix (return-unwind resume) must NOT break normal completion — code
-  // after a `yield* each` that drains fully MUST still run.
   it('regression: code after yield* each runs on normal completion', async () => {
     let completed = false;
     const co = cancAsync(function* () {

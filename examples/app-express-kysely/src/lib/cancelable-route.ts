@@ -11,11 +11,12 @@ export function cancAsyncRoute(handler: (req: Request, res: Response, next: Next
   return (req: Request, res: Response, next: NextFunction): void => {
     const task = canc.async(handler)(req, res, next);
 
-    req.on('close', () => {
-      if (!res.writableEnded) {
-        task.cancel('client disconnected');
-      }
+    // listen on res because req close fires as soon as body is consumed
+    res.on('close', () => {
+      if (!res.writableEnded) task.cancel('client disconnected');
     });
+    // cancel early if socket was already destroyed before handler ran
+    if (req.destroyed) task.cancel('client disconnected');
 
     task.catch((err: unknown) => {
       if (!isCancelError(err)) next(err);

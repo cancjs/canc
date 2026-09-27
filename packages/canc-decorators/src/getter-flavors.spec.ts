@@ -5,19 +5,15 @@ import { AsyncMethod } from './decorators';
 import { BabelLegacyAsyncMethod } from './decorators-babel-legacy';
 import { LegacyAsyncMethod } from './decorators-legacy';
 
-// Proves the Style-B getter (user returns cancAsync(...) from the getter, the decorator only
-// memoizes) behaves identically across all 3 decorator flavors end to end. Each flavor's decorator
-// function is invoked directly with its own real runtime call shape (no compiler/transform needed
-// here, the per-flavor spec files already prove the syntax compiles), so one file can exercise
-// stage-3, TS-legacy and babel-legacy side by side without conflicting tsconfig/babel requirements.
-// Not a substitute for the per-flavor matrices; this is the cross-flavor integration check.
+// Cross-flavor integration check for Style-B getter (getter returns cancAsync, decorator memoizes)
+// Exercises stage-3, TS-legacy, and babel-legacy side by side via direct runtime invocation
 
 function* idBody(this: { id: number } | undefined): Generator<any, any, any> {
   return yield Promise.resolve(this ? this.id : -1);
 }
 
 describe('Style-B getter across all 3 decorator flavors', () => {
-  it('stage-3 — getter returns a CancelablePromise, cancel surfaces CancelError, instances isolated', async () => {
+  it('stage-3: getter returns a CancelablePromise, cancel surfaces CancelError, instances isolated', async () => {
     class C {
       id: number;
       constructor(id: number) {
@@ -58,7 +54,7 @@ describe('Style-B getter across all 3 decorator flavors', () => {
     expect(await inst2.run()).toBe(2);
   });
 
-  it('ts-legacy — getter returns a CancelablePromise, cancel surfaces CancelError, instances isolated', async () => {
+  it('ts-legacy: getter returns a CancelablePromise, cancel surfaces CancelError, instances isolated', async () => {
     class C {
       id: number;
       constructor(id: number) {
@@ -92,7 +88,7 @@ describe('Style-B getter across all 3 decorator flavors', () => {
     expect(await inst2.run()).toBe(20);
   });
 
-  it('babel-legacy — getter returns a CancelablePromise, cancel surfaces CancelError, instances isolated', async () => {
+  it('babel-legacy: getter returns a CancelablePromise, cancel surfaces CancelError, instances isolated', async () => {
     class C {
       id: number;
       constructor(id: number) {

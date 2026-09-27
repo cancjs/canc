@@ -1,7 +1,6 @@
 import { type ReactNode } from 'react';
 
-// Shared chrome around whichever detail panel flavor is mounted. Suffix-free: identical for both
-// entries, so it carries no cancellation logic of its own.
+// Shared chrome around whichever detail panel flavor is mounted without its own cancellation logic.
 export function App({ title, children }: { title: string; children: ReactNode }): ReactNode {
   return (
     <main style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 560, margin: '2rem auto', padding: '0 1rem' }}>
@@ -15,8 +14,7 @@ export function App({ title, children }: { title: string; children: ReactNode })
   );
 }
 
-// Shared picker chrome. The list itself never suspends; selecting a destination is what starts a
-// suspending details load in the flavored panel below.
+// Shared picker chrome that triggers a suspending details load when a destination is selected.
 export function DestinationPicker({
   destinations,
   selected,

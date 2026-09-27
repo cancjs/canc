@@ -29,8 +29,7 @@ function ResourceReader<T>({
   resource: CancelablePromise<T>;
   children: (value: T) => ReactNode;
 }): ReactNode {
-  // Suspends until the resource settles. While suspended this component never commits, so its own
-  // effects never run. Cancellation cannot live here.
+  // Suspends until the resource settles and its effects never run while suspended.
   return children(use(resource));
 }
 
@@ -51,8 +50,7 @@ export function CancelableSuspense<T>({
   fallback: ReactNode;
   children: (value: T) => ReactNode;
 }): ReactNode {
-  // The boundary commits even while its child suspends, so this cleanup fires on unmount or when a
-  // new resource supersedes the old one. Canceling here aborts the in-flight request.
+  // Canceling here aborts the in-flight request when unmounting or when superseded.
   useEffect(() => {
     suppressCancel(resource);
     return () => {

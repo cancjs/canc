@@ -6,10 +6,10 @@ import { isCancelError } from '../helpers';
  * Two-way propagation matrix (THE core suite).
  *
  * Covers the defining canc semantics:
- * - DOWN: cancel a parent → children (and grandchildren) reject with a CancelError; cancel handlers
+ * - DOWN: cancel a parent: children (and grandchildren) reject with a CancelError; cancel handlers
  * fire; ordering; isBubbled flag correctness on down- vs up-propagated errors.
- * - UP: cancel ALL children of a parent → parent auto-cancels (bubble) with a `isBubbled`
- * CancelError; cancel only SOME children → parent stays pending; late child after a bubble; a
+ * - UP: cancel ALL children of a parent: parent auto-cancels (bubble) with a `isBubbled`
+ * CancelError; cancel only SOME children: parent stays pending; late child after a bubble; a
  * child that settles normally does not block a sibling's cancel from bubbling; bubble:false at
  * the parent stops upward flow; bubble:false mid-chain isolates a segment.
  * - Chains through catch/finally; cancel a mid-chain node (down from there, up when sole consumer);
@@ -23,7 +23,7 @@ import { isCancelError } from '../helpers';
 
 const NativePromise = Promise;
 
-/** Bounded macrotask flush — used only where a setTimeout executor drives settlement. */
+/** Bounded macrotask flush used only where a setTimeout executor drives settlement. */
 function macrotask(): Promise<void> {
   return new NativePromise((resolve) => setTimeout(resolve, 5));
 }
@@ -39,7 +39,7 @@ async function drain(turns = 6): Promise<void> {
  * Suppress a promise's potential unhandled rejection without affecting assertions.
  *
  * NOTE: this attaches a `.then(undefined, noop)` which, on a bubble-capable promise, registers a
- * live cancel-chain consumer that never itself cancels — so it will BLOCK upward bubble from that
+ * live cancel-chain consumer that never itself cancels, which will BLOCK upward bubble from that
  * node. Use `silence()` only on the LEAF/tail promises whose rejection you want to swallow, never on
  * a node you expect to bubble-cancel from below. A promise that bubble-cancels suppresses its own
  * rejection internally (via _runCancellation's catch(noop)), so it needs no external silence.
@@ -51,11 +51,8 @@ function silence(p: PromiseLike<any>): void {
 }
 
 describe('two-way propagation matrix', () => {
-  // ─────────────────────────────────────────────────────────────────────────────
-  // DOWN propagation: cancel parent → children reject
-  // ─────────────────────────────────────────────────────────────────────────────
-  describe('down: cancel parent → descendants reject', () => {
-    it('1. cancel parent → direct child rejects with CancelError', async () => {
+  describe('down: cancel parent causes descendants to reject', () => {
+    it('1. cancel parent causes direct child to reject with CancelError', async () => {
       const parent = new CancelablePromise<number>(() => {
         /**/
       });
@@ -71,7 +68,7 @@ describe('two-way propagation matrix', () => {
       expect(isCancelError(caught)).toBe(true);
     });
 
-    it('2. cancel parent → grandchild rejects with CancelError too', async () => {
+    it('2. cancel parent causes grandchild to reject with CancelError too', async () => {
       const parent = new CancelablePromise<number>(() => {
         /**/
       });
@@ -89,7 +86,7 @@ describe('two-way propagation matrix', () => {
       expect(isCancelError(caught)).toBe(true);
     });
 
-    it('3. cancel parent → all N direct children reject', async () => {
+    it('3. cancel parent causes all N direct children to reject', async () => {
       const parent = new CancelablePromise<number>(() => {
         /**/
       });
@@ -104,7 +101,7 @@ describe('two-way propagation matrix', () => {
       }
     });
 
-    it('4. cancel parent → registered cancel handler on parent fires with the reason', async () => {
+    it('4. cancel parent fires registered cancel handler on parent with the reason', async () => {
       const handler = jest.fn();
       const parent = new CancelablePromise<number>((_r, _j, { handleCancel }) => {
         handleCancel(handler);
@@ -134,7 +131,8 @@ describe('two-way propagation matrix', () => {
         caught = err;
       });
       expect(isCancelError(caught)).toBe(true);
-      // The child adopts the parent's rejection (down). It is a plain cancel, not a bubble.
+      // The child adopts the parent's rejection (down).
+      // It is a plain cancel, not a bubble.
       expect((caught as CancelError).isBubbled).toBe(false);
     });
 
@@ -229,11 +227,8 @@ describe('two-way propagation matrix', () => {
     });
   });
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // UP propagation (bubble): cancel all children → parent auto-cancels
-  // ─────────────────────────────────────────────────────────────────────────────
   describe('up: bubble cancel from children to parent', () => {
-    it('11. cancel the sole child → parent auto-cancels (bubbled)', async () => {
+    it('11. cancel the sole child auto-cancels parent (bubbled)', async () => {
       const parent = new CancelablePromise<number>(() => {
         /**/
       });
@@ -266,7 +261,7 @@ describe('two-way propagation matrix', () => {
       expect((caught as CancelError).isBubbled).toBe(true);
     });
 
-    it('13. cancel ALL of N children → parent auto-cancels', async () => {
+    it('13. cancel ALL of N children auto-cancels parent', async () => {
       const parent = new CancelablePromise<number>(() => {
         /**/
       });
@@ -283,7 +278,7 @@ describe('two-way propagation matrix', () => {
 
       c2.cancel();
       await drain();
-      // Not all consumers canceled yet → parent still pending.
+      // not all consumers canceled yet so parent stays pending
       expect(parent.isCanceled).toBe(false);
 
       c3.cancel();
@@ -291,7 +286,7 @@ describe('two-way propagation matrix', () => {
       expect(parent.isCanceled).toBe(true);
     });
 
-    it('14. cancel only ONE of N children → parent STAYS pending', async () => {
+    it('14. cancel only ONE of N children leaves parent pending', async () => {
       const parent = new CancelablePromise<number>(() => {
         /**/
       });
@@ -326,7 +321,7 @@ describe('two-way propagation matrix', () => {
       expect((parent as any)._completedChainsCount).toBe(1);
     });
 
-    it('16. one child cancels, the other fulfills → NO bubble (consumer consumed the value)', async () => {
+    it('16. one child cancels, the other fulfills: NO bubble (consumer consumed the value)', async () => {
       const parent = new CancelablePromise<number>((resolve) => {
         setTimeout(() => resolve(9), 1);
       });
@@ -338,7 +333,7 @@ describe('two-way propagation matrix', () => {
 
       await expect(okChild).resolves.toBe(18);
       await macrotask();
-      // A consumer resolved normally → parent value was consumed, no upward cancel.
+      // a consumer resolved normally so parent value was consumed with no upward cancel
       expect(parent.isCanceled).toBe(false);
     });
 
@@ -356,7 +351,7 @@ describe('two-way propagation matrix', () => {
       expect(parent.isCanceled).toBe(true);
     });
 
-    it('18. late child added AFTER parent already bubble-canceled → adopts cancellation', async () => {
+    it('18. late child added AFTER parent already bubble-canceled adopts cancellation', async () => {
       const parent = new CancelablePromise<number>(() => {
         /**/
       });
@@ -412,11 +407,8 @@ describe('two-way propagation matrix', () => {
     });
   });
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // bubble:false — upward isolation
-  // ─────────────────────────────────────────────────────────────────────────────
   describe('bubble:false isolation', () => {
-    it('21. bubble:false parent → canceling its sole child does NOT cancel parent', async () => {
+    it('21. bubble:false parent: canceling its sole child does NOT cancel parent', async () => {
       const parent = new CancelablePromise<number>(
         (resolve) => {
           setTimeout(() => resolve(5), 1);
@@ -436,7 +428,7 @@ describe('two-way propagation matrix', () => {
       await expect(parent).resolves.toBe(5);
     });
 
-    it('22. bubble:false parent still propagates DOWN (cancel parent → child rejects)', async () => {
+    it('22. bubble:false parent still propagates DOWN (cancel parent rejects child)', async () => {
       const parent = new CancelablePromise<number>(
         () => {
           /**/
@@ -456,7 +448,7 @@ describe('two-way propagation matrix', () => {
     });
 
     it('23. bubble:false mid-chain isolates the upper segment', async () => {
-      // grandparent (bubble default) → parent (bubble:false) → child
+      // grandparent (bubble default) to parent (bubble:false) to child
       const grandparent = new CancelablePromise<number>((resolve) => {
         setTimeout(() => resolve(1), 1);
       });
@@ -508,15 +500,12 @@ describe('two-way propagation matrix', () => {
 
       // child had bubble:false when grandchild linked? Linkage happened at then() time with
       // inherited bubble:true, so grandchild->child bubble may still occur; assert the isolation
-      // boundary we control: parent remains resolved.
+      // boundary: parent remains resolved.
       await expect(parent).resolves.toBe(3);
       expect(parent.isCanceled).toBe(false);
     });
   });
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // chains through catch / finally
-  // ─────────────────────────────────────────────────────────────────────────────
   describe('chains through catch / finally', () => {
     it('26. cancel propagates through a .catch() node in the chain', async () => {
       const parent = new CancelablePromise<number>(() => {
@@ -588,19 +577,16 @@ describe('two-way propagation matrix', () => {
     });
   });
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // cancel a mid-chain node
-  // ─────────────────────────────────────────────────────────────────────────────
   describe('cancel mid-chain node', () => {
-    it('30. cancel mid node → downstream rejects, upstream bubbles (mid is sole consumer)', async () => {
+    it('30. cancel mid node: downstream rejects, upstream bubbles (mid is sole consumer)', async () => {
       const root = new CancelablePromise<number>(() => {
         /**/
       });
       const mid = root.then((v) => v);
       const tail = mid.then((v) => v);
       silence(tail);
-      // NB: do NOT silence(root) — that would register a non-canceling consumer and block the
-      // bubble. A bubble-canceled root suppresses its own rejection internally.
+      // do not silence root: registers a non-canceling consumer and blocks bubble
+      // A bubble-canceled root suppresses its own rejection internally.
 
       mid.cancel();
       await drain();
@@ -616,7 +602,7 @@ describe('two-way propagation matrix', () => {
       expect(root.isCanceled).toBe(true);
     });
 
-    it('31. cancel mid node while root has ANOTHER consumer → root stays pending', async () => {
+    it('31. cancel mid node while root has ANOTHER consumer: root stays pending', async () => {
       const root = new CancelablePromise<number>((resolve) => {
         setTimeout(() => resolve(4), 1);
       });
@@ -641,11 +627,8 @@ describe('two-way propagation matrix', () => {
     });
   });
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // diamond shapes
-  // ─────────────────────────────────────────────────────────────────────────────
   describe('diamond shapes', () => {
-    it('32. diamond: cancel ONE branch → root stays pending (other branch consumes)', async () => {
+    it('32. diamond: cancel ONE branch: root stays pending (other branch consumes)', async () => {
       const root = new CancelablePromise<number>((resolve) => {
         setTimeout(() => resolve(10), 1);
       });
@@ -660,7 +643,7 @@ describe('two-way propagation matrix', () => {
       expect(root.isCanceled).toBe(false);
     });
 
-    it('33. diamond: cancel BOTH branches → root bubble-cancels', async () => {
+    it('33. diamond: cancel BOTH branches: root bubble-cancels', async () => {
       const root = new CancelablePromise<number>(() => {
         /**/
       });
@@ -684,7 +667,7 @@ describe('two-way propagation matrix', () => {
       expect((caught as CancelError).isBubbled).toBe(true);
     });
 
-    it('34. diamond join: cancel the all() result → result canceled + downstream rejects', async () => {
+    it('34. diamond join: cancel the all() result cancels result and rejects downstream', async () => {
       const root = new CancelablePromise<number>(() => {
         /**/
       });
@@ -706,7 +689,7 @@ describe('two-way propagation matrix', () => {
       expect(isCancelError(caught)).toBe(true);
     });
 
-    it('34b. diamond join: cancel BOTH branches → all() result rejects (up-bubble into combinator)', async () => {
+    it('34b. diamond join: cancel BOTH branches causes all() result to reject (up-bubble into combinator)', async () => {
       const root = new CancelablePromise<number>((resolve) => {
         setTimeout(() => resolve(0), 1);
       });
@@ -728,11 +711,8 @@ describe('two-way propagation matrix', () => {
     });
   });
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // deep chain — no stack overflow
-  // ─────────────────────────────────────────────────────────────────────────────
   describe('deep chains', () => {
-    it('35. depth-100 chain: cancel head → tail rejects, no stack overflow', async () => {
+    it('35. depth-100 chain: cancel head causes tail to reject without stack overflow', async () => {
       let node = new CancelablePromise<number>(() => {
         /**/
       });
@@ -753,7 +733,7 @@ describe('two-way propagation matrix', () => {
       expect(isCancelError(caught)).toBe(true);
     });
 
-    it('36. depth-100 chain: cancel tail → bubbles all the way up to head (single pass)', async () => {
+    it('36. depth-100 chain: cancel tail bubbles all the way up to head (single pass)', async () => {
       const nodes: CancelablePromise<number>[] = [];
       let node = new CancelablePromise<number>(() => {
         /**/
@@ -793,7 +773,7 @@ describe('two-way propagation matrix', () => {
       const mid = nodes[25];
       const tail = nodes[nodes.length - 1];
       silence(tail);
-      // NB: no silence(head) — it would register a non-canceling consumer and block up-bubble.
+      // no silence(head) because it registers a non-canceling consumer and blocks up-bubble
 
       mid.cancel();
       await drain(80);

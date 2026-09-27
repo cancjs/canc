@@ -1,6 +1,4 @@
-// Shared scripted scenario used by both entries: send a chat request, read a few streamed tokens,
-// then hang up mid-stream (the Stop button). Prints what arrived and the resulting usage log so the
-// vanilla vs canc difference is visible without a browser.
+// Shared scripted scenario used by both entries.
 
 import http from 'node:http';
 

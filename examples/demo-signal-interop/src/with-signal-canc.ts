@@ -3,7 +3,8 @@
  * Canc: { signal } option makes it trivial
  */
 
-import { CancelablePromise } from '@cancjs/promise';
+import { CancelablePromise, isCancelError } from '@cancjs/promise';
+import { isAbortError } from '@cancjs/toolbox';
 import { setTimeout } from 'timers/promises';
 
 // Canc wrapper: just { signal } option.
@@ -19,7 +20,7 @@ export function withSignalCanc<T>(signal: AbortSignal, work: () => Promise<T>): 
 }
 
 export async function withSignalWrapperCanc() {
-  // Demonstrates AbortSignal interop: withSignal wrapper pattern (p-signal style).
+  // withSignal wrapper adopting incoming AbortSignal
   const controller = new AbortController();
 
   try {
@@ -29,8 +30,8 @@ export async function withSignalWrapperCanc() {
     });
     console.log('[canc] result:', result);
   } catch (err: unknown) {
-    if (err instanceof DOMException && err.name === 'AbortError') {
-      // Canceled here — nothing below runs
+    if (isAbortError(err) || (isCancelError(err) && err.aborted)) {
+      // Canceled here: nothing below runs
       console.log('[canc] work aborted');
     } else {
       throw err;

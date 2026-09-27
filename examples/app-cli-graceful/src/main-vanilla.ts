@@ -29,7 +29,7 @@ async function main(): Promise<void> {
   console.log('vanilla: backup starting');
   await runBackup(api, manifest, () => aborted);
 
-  // manifest may be half-written -- exit raced the flush if SIGINT landed near process.exit
+  // manifest may be half-written if exit raced the flush when SIGINT landed near process.exit
   mkdirSync(outDir, { recursive: true });
   writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
   console.log(`vanilla: manifest written (partial=${manifest.partial}) at ${manifestPath}`);

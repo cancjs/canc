@@ -4,9 +4,7 @@ import { Component, EventEmitter, inject, OnInit, Output } from '@angular/core';
 import { cancelableResource } from '../lib/cancelable-resource';
 import { CANCELABLE_ORDERS_SERVICE, type OrderSummary } from './orders.types';
 
-// Orders table. It lists the orders and emits the selected id; the supersede lesson lives in the
-// detail pane beside it. What it adds here is the other half: a user who leaves before the list
-// arrives cancels it, because the resource is bound to the component's lifetime.
+// orders table where unmounting cancels in-flight list request
 @Component({
   selector: 'app-orders-table',
   standalone: true,

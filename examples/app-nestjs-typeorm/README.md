@@ -76,5 +76,5 @@ written. A production Postgres driver could go further and issue a wire-level ca
 statement.
 
 For a unit-level alternative that mocks the repository entirely (no real database), see
-[mock-typeorm](https://www.npmjs.com/package/mock-typeorm); the DataSource in `mock/db.ts` is aux
+[mock-typeorm](https://www.npmjs.com/package/mock-typeorm); the DataSource in `mock/db.ts` is test-only
 scaffolding, not something to copy.

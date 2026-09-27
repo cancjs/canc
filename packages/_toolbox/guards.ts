@@ -1,8 +1,14 @@
-// Duck-type checks shared by the toolbox algorithms.
+// Duck-type checks shared by the toolbox algorithms
 //
-// These structural guards are kept local to _toolbox so that neither shared module carries a
-// package reference, protecting the zero-dependency toolbox-native twin from dragging in any
-// external package dependency.
+// Structural guards are kept local to _toolbox so shared code avoids package
+// references, protecting the zero-dependency @cancjs/toolbox-native twin
+//
+// Carve-out: _toolbox/lazy/lazy-promise.ts runtime-imports @cancjs/promise, which
+// is fine because it is unreachable from @cancjs/toolbox-native (builds lazy-promise-native)
+//
+// Real test: whether toolbox-native can reach the code, not whether a package
+// reference appears in the directory; packed .d.ts check in
+// scripts/check-package-validation.js enforces it
 
 /** A thenable exposing a `cancel` method, the minimal shape needed to stop it. */
 export interface ICancelableLike {

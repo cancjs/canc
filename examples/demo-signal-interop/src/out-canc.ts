@@ -3,8 +3,8 @@
  * Canc: toAbortSignal(p) feeds signal-taking APIs
  */
 
-import { CancelablePromise } from '@cancjs/promise';
-import { toAbortSignal } from '@cancjs/toolbox';
+import { CancelablePromise, isCancelError } from '@cancjs/promise';
+import { isAbortError, toAbortSignal } from '@cancjs/toolbox';
 import { setTimeout } from 'timers/promises';
 
 type MockSDKCall = {
@@ -21,7 +21,7 @@ const mockSDK: MockSDKCall = {
       }
       return 'SDK call completed';
     } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') {
+      if (isAbortError(err)) {
         throw err;
       }
       throw err;
@@ -30,18 +30,18 @@ const mockSDK: MockSDKCall = {
 };
 
 export async function promiseToSignalCanc() {
-  const promise = new CancelablePromise<string>((resolve, reject) => {
-    mockSDK.start(toAbortSignal(promise)).then(resolve, reject);
-  });
+  const { promise, resolve, reject } = CancelablePromise.withResolvers<string>();
+  const signal = toAbortSignal(promise);
+  mockSDK.start(signal).then(resolve, reject);
 
-  // Canceled here — nothing below runs
+  // Canceled here: nothing below runs
   try {
     await setTimeout(50);
     promise.cancel();
     const result = await promise;
     console.log('[canc] SDK result:', result);
   } catch (err: unknown) {
-    if (err instanceof DOMException && err.name === 'AbortError') {
+    if (isAbortError(err) || isCancelError(err)) {
       console.log('[canc] SDK call aborted');
     } else {
       throw err;
@@ -50,11 +50,10 @@ export async function promiseToSignalCanc() {
 }
 
 export async function signalFeedingMultipleAPIsCanc() {
-  const promise = new CancelablePromise<string[]>((resolve, reject) => {
-    const signal = toAbortSignal(promise);
-    // All APIs abort together when promise is canceled
-    Promise.all([mockSDK.start(signal), mockSDK.start(signal), mockSDK.start(signal)]).then(resolve, reject);
-  });
+  const { promise, resolve, reject } = CancelablePromise.withResolvers<string[]>();
+  const signal = toAbortSignal(promise);
+  // All APIs abort together when promise is canceled
+  Promise.all([mockSDK.start(signal), mockSDK.start(signal), mockSDK.start(signal)]).then(resolve, reject);
 
   try {
     await setTimeout(50);
@@ -62,7 +61,7 @@ export async function signalFeedingMultipleAPIsCanc() {
     const result = await promise;
     console.log('[canc] all results:', result);
   } catch (err: unknown) {
-    if (err instanceof DOMException && err.name === 'AbortError') {
+    if (isAbortError(err) || isCancelError(err)) {
       console.log('[canc] all SDK calls aborted');
     } else {
       throw err;

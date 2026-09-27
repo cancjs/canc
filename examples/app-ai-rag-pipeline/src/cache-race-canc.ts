@@ -1,9 +1,4 @@
-// Cache-vs-pipeline race, cancelable version. Same shape as cache-race-vanilla.ts, but the race is a
-// CancelablePromise.race, so the loser is canceled, not left running.
-//
-// When the cache wins, race() cancels the full pipeline. Cancellation flows down the whole tree: the
-// in-flight retrieve calls abort (aborted markers appear in mockApi.calls) and no rerank or generate
-// call is ever made. This is the loser-cancel doing real work on a live tree.
+// cache-vs-pipeline race where loser cancels down whole tree
 
 import { CancelablePromise } from '@cancjs/promise';
 import type { ChatApi, RagApi } from '@shared/mock-api';
@@ -15,7 +10,7 @@ export function answerWithCache(ragApi: RagApi, chatApi: ChatApi, query: string)
   return CancelablePromise.race([lookupCache(query), ragPipeline(ragApi, chatApi, query)]);
 }
 
-// A fast semantic-cache lookup. Resolves quickly when there is a cached answer for the query.
+// fast semantic-cache lookup resolving quickly on cache hits
 function lookupCache(query: string): CancelablePromise<RagAnswer, any> {
   return new CancelablePromise((resolve) => {
     setTimeout(() => {

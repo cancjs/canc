@@ -1,6 +1,4 @@
-// Shared, flavor-independent glue for the log viewer: how tail lines and search results print, and
-// a tiny scripted "user" that clicks two log lines in quick succession. No cancellation logic lives
-// here; the twins differ only in how the search stream is wired (see search-{vanilla,canc}.ts).
+// shared render helpers and scripted user click sequence for log viewer
 
 import { Subject } from 'rxjs';
 

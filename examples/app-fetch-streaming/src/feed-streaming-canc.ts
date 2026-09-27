@@ -8,7 +8,7 @@ import { FeedPage, fetchFeedPage } from './mock/feed-api';
 const cancelableFetchPage = cancelify(({ getSignal }, cursor?: number) => fetchFeedPage(cursor, getSignal()));
 
 // 1. A coroutine generator producer.
-// Uses cancGen.async and yields items from pages. No raw AbortController.
+// Uses cancGen.async and yields items from pages without raw AbortController.
 export const fetchFeedCanc = cancGen.async(function* () {
   let cursor: number | null = 0;
   do {
@@ -18,7 +18,7 @@ export const fetchFeedCanc = cancGen.async(function* () {
       yield item;
     }
 
-    // canceled here — the remaining pages are never fetched.
+    // when canceled here, the remaining pages are never fetched
     cursor = page.nextCursor;
   } while (cursor !== null);
 });

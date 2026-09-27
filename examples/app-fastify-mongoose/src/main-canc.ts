@@ -10,11 +10,11 @@ import { searchAvailability } from './availability-service-canc';
 import { cancAsyncRoute } from './lib/cancelable-route';
 import { BOOKING_COUNT, installMocks, queryLog, resetQueryLog } from './mock/db';
 
-// Each query is held open for this long so a disconnect can land between two of them.
+// query latency window allowing mid-flight disconnect
 const QUERY_LATENCY_MS = 50;
-// Documents the scan must get through before the late scenario drops the socket.
+// progress threshold before late disconnect
 const SCAN_PROGRESS_BEFORE_DISCONNECT = 4;
-// Long enough for the whole chain, scan included, to finish for a socket nobody is listening to.
+// settle window for all queries to finish
 const SETTLE_MS = 1000;
 
 async function buildServer() {
@@ -27,14 +27,14 @@ async function buildServer() {
       const date = (request.query as { date?: string }).date ?? '2026-08-01';
 
       const result = yield* canc.await(searchAvailability(hotelId, date));
-      reply.send(result); // handler owns the response, full control
+      reply.send(result); // handler owns response, full control
     }),
   );
 
   return app;
 }
 
-// Report helpers, instrumentation only. They read the mock's query log, never the business logic.
+// instrumentation helpers reading mock query log
 function reportIssuedQueries(): string[] {
   return queryLog.map((entry) => entry.op);
 }
@@ -43,8 +43,7 @@ function reportScannedBookings(): number {
   return queryLog.find((entry) => entry.op === 'scanBookings')?.documentsScanned ?? 0;
 }
 
-// Fire a request, then destroy the socket as soon as the scenario's moment arrives. Polling the
-// query log instead of a fixed delay keeps both scenarios landing where they are meant to.
+// polls query log to trigger disconnect at exact scenario step
 function requestThenDisconnect(port: number, hasReachedMoment: () => boolean): Promise<void> {
   return new Promise((resolve) => {
     const req = http.get({ port, path: '/availability?hotelId=grand-plaza&date=2026-08-01' }, () => {});
@@ -69,7 +68,7 @@ async function main() {
   console.log('=== Cancelable: client disconnects during the first query ===');
   resetQueryLog();
   await requestThenDisconnect(port, () => reportIssuedQueries().includes('findRooms'));
-  // Give the canceled chain a beat to settle before reading the log.
+  // let canceled chain settle before checking log
   await sleep(SETTLE_MS);
   console.log('Queries issued:', reportIssuedQueries().join(', ') || '(none)');
   console.log(

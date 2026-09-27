@@ -11,7 +11,7 @@ import { LegacyAsyncMethod, LegacyBindMethod } from './decorators-legacy';
 /**
  * TS legacy decorators matrix (`experimentalDecorators: true`).
  *
- * Same matrix as ES stage-3: 3 decorator types × 3 member types × 2 instance isolation +
+ * Same matrix as ES stage-3: 3 decorator types x 3 member types x 2 instance isolation +
  * GC assertion.
  */
 
@@ -32,14 +32,12 @@ async function forceCollect(done: () => boolean, cycles = 25, gap = 20): Promise
   }
 }
 
-// Access a property for its side effect (materializing a per-instance own-bound method) without
-// retaining the result. A plain `const x = inst.method` is downleveled to a function-scoped `var`
-// under the es5 target and would pin the instance for the whole test, defeating the GC assertion.
+// Access a property for side effect without retaining result since es5 var assignment defeats GC
 function touch(_value: unknown): void {
   // intentionally empty
 }
 
-describe('decorators (TS legacy) — LegacyAsyncMethod', () => {
+describe('decorators (TS legacy): LegacyAsyncMethod', () => {
   describe('bind:false (default)', () => {
     it('proto method wraps at decoration time', async () => {
       class C {
@@ -201,7 +199,7 @@ describe('decorators (TS legacy) — LegacyAsyncMethod', () => {
   });
 
   describe('2-instance isolation', () => {
-    it('bind:false — each instance calls its own method', async () => {
+    it('bind:false: each instance calls its own method', async () => {
       const log: number[] = [];
 
       class C {
@@ -227,7 +225,7 @@ describe('decorators (TS legacy) — LegacyAsyncMethod', () => {
       expect(log).toEqual([1, 2]);
     });
 
-    it('bind:true — each instance has own bound method', async () => {
+    it('bind:true: each instance has own bound method', async () => {
       const log: number[] = [];
 
       class C {
@@ -258,7 +256,7 @@ describe('decorators (TS legacy) — LegacyAsyncMethod', () => {
   });
 
   describe('GC assertion', () => {
-    it('instance1 released while instance2 active — instance1 collects', async () => {
+    it('instance1 released while instance2 active, instance1 collects', async () => {
       if (!global.gc) {
         expect(global.gc).toBeUndefined();
         return;
@@ -286,8 +284,7 @@ describe('decorators (TS legacy) — LegacyAsyncMethod', () => {
         finalized.push(true);
       });
 
-      // inst1 lives ONLY in this nested sync function. If it were a local of the async test body
-      // it would be captured by the es5 generator state machine and pinned across the awaits below.
+      // Nested so inst1 is not captured by the es5 async generator and pinned across awaits.
       const registerInstance1 = () => {
         const inst1 = new GcA();
         touch(inst1.method);
@@ -307,7 +304,7 @@ describe('decorators (TS legacy) — LegacyAsyncMethod', () => {
   });
 });
 
-describe('decorators (TS legacy) — LegacyBindMethod', () => {
+describe('decorators (TS legacy): LegacyBindMethod', () => {
   describe('bind:true (default)', () => {
     it('proto method is bound per instance at construction', async () => {
       class C {
@@ -421,7 +418,7 @@ describe('decorators (TS legacy) — LegacyBindMethod', () => {
   });
 
   describe('2-instance isolation', () => {
-    it('default bind:true — each instance has own bound method', () => {
+    it('default bind:true: each instance has own bound method', () => {
       const log: number[] = [];
 
       class C {
@@ -449,7 +446,7 @@ describe('decorators (TS legacy) — LegacyBindMethod', () => {
   });
 
   describe('GC assertion', () => {
-    it('instance1 released while instance2 active — instance1 collects', async () => {
+    it('instance1 released while instance2 active, instance1 collects', async () => {
       if (!global.gc) {
         expect(global.gc).toBeUndefined();
         return;
@@ -477,8 +474,7 @@ describe('decorators (TS legacy) — LegacyBindMethod', () => {
         finalized.push(true);
       });
 
-      // inst1 lives ONLY in this nested sync function. If it were a local of the async test body
-      // it would be captured by the es5 generator state machine and pinned across the awaits below.
+      // Nested so inst1 is not captured by the es5 async generator and pinned across awaits.
       const registerInstance1 = () => {
         const inst1 = new GcA();
         touch(inst1.method);
@@ -498,7 +494,7 @@ describe('decorators (TS legacy) — LegacyBindMethod', () => {
   });
 });
 
-describe('decorators (TS legacy) — error handling', () => {
+describe('decorators (TS legacy): error handling', () => {
   it('LegacyAsyncMethod rejects non-method field', () => {
     expect(() => {
       class C {
@@ -533,29 +529,21 @@ describe('decorators (TS legacy) — error handling', () => {
   });
 });
 
-// ============================================================================
-// Metadata preservation (SetMetadata-style fn-level + key-level metadata)
-// ============================================================================
-//
-// TS-legacy SetMetadata style: attach metadata to the method function (descriptor.value) identity.
-// Our decorator rewrites descriptor.value with the coroutine/bound wrapper; the metadata must be
-// copied across. Key-level metadata (prototype + property key) is never touched by wrapping.
+// SetMetadata attaches metadata to method function identity via reflect-metadata
+// Decorator wrapper must copy metadata across; key-level metadata is untouched
 
 const FN_META = 'fn-meta-key';
 const KEY_META = 'key-meta-key';
 
-// Legacy method decorator writing metadata onto the method FUNCTION (SetMetadata style).
-// Typed `any` at the decorator boundary: a legacy decorator that must apply on methods here stacks
-// with the library decorators, and TS's method-vs-property overload resolution across the stack is
-// too strict to accept a precisely-typed local helper. The runtime shape is a normal legacy method
-// decorator reading `descriptor.value`.
+// Legacy method decorator writing metadata onto method function (SetMetadata style)
+// Typed `any` at decorator boundary to stack cleanly with library decorators
 const SetFnMeta =
   (value: string): any =>
   (_target: any, _key: string | symbol, descriptor: PropertyDescriptor): void => {
     Reflect.defineMetadata(FN_META, value, descriptor.value);
   };
 
-describe('decorators (TS legacy) — metadata preservation', () => {
+describe('decorators (TS legacy): metadata preservation', () => {
   it('fn-level metadata survives LegacyAsyncMethod (meta below canc)', () => {
     class C {
       @LegacyAsyncMethod()
@@ -624,21 +612,11 @@ describe('decorators (TS legacy) — metadata preservation', () => {
   });
 });
 
-// ============================================================================
-// Flavor mismatch guard (wrong-shaped invocation)
-// ============================================================================
+// The decorator memoizes the user-built coroutine per instance and optionally binds it
 
-// ============================================================================
-// Getter returns a coroutine (new semantics) — full this-matrix
-// ============================================================================
-//
-// The user builds the coroutine themselves with cancAsync inside the getter and returns it. The
-// decorator no longer wraps a bare generator function; it only memoizes the returned coroutine
-// per instance, and for bind:true binds it to the instance so a detached call keeps `this`.
-
-describe('decorators (TS legacy) — getter returns a coroutine', () => {
+describe('decorators (TS legacy): getter returns a coroutine', () => {
   // Sentinel returned when the coroutine runs with no bound/call-site `this` (an unbound detached
-  // call under bind:false — the documented unsafe edge).
+  // call under bind:false (the documented unsafe edge)).
   const SENTINEL = -1;
 
   // Shared coroutine body: reports the instance id, or the sentinel when `this` is missing.
@@ -648,7 +626,7 @@ describe('decorators (TS legacy) — getter returns a coroutine', () => {
 
   // Case 1: @LegacyAsyncMethod() get m() { return cancAsync(fn, this) }
   // inst.m() resolves; a detached call still resolves because `, this` bound the coroutine.
-  it('LegacyAsyncMethod with `, this` — call and detached call both resolve the instance id', async () => {
+  it('LegacyAsyncMethod with `, this`: call and detached call both resolve the instance id', async () => {
     class C {
       id: number;
 
@@ -710,7 +688,7 @@ describe('decorators (TS legacy) — getter returns a coroutine', () => {
 
   // Case 3: @LegacyAsyncMethod() get m() { return cancAsync(fn) } (omit `, this`).
   // A normal call carries call-site `this`; a detached call loses it (documented unsafe edge).
-  it('LegacyAsyncMethod without `, this` — call-site this works, detached call loses this', async () => {
+  it('LegacyAsyncMethod without `, this`: call-site this works, detached call loses this', async () => {
     class C {
       id: number;
 
@@ -735,7 +713,7 @@ describe('decorators (TS legacy) — getter returns a coroutine', () => {
 
   // Case 4: @LegacyBindMethod() get m() { return cancAsync(fn) } (omit `, this`).
   // The decorator binds the coroutine to the instance, so a detached call keeps this.
-  it('LegacyBindMethod without `, this` — decorator binds, detached call resolves the instance id', async () => {
+  it('LegacyBindMethod without `, this`: decorator binds, detached call resolves the instance id', async () => {
     class C {
       id: number;
 
@@ -757,7 +735,7 @@ describe('decorators (TS legacy) — getter returns a coroutine', () => {
 
   // Case 5: @LegacyBindMethod() get m() { return cancAsync(fn, this) }.
   // The `.bind` is a no-op over an already-bound coroutine; detached call still resolves.
-  it('LegacyBindMethod with `, this` — bind is a no-op, detached call still resolves the instance id', async () => {
+  it('LegacyBindMethod with `, this`: bind is a no-op, detached call still resolves the instance id', async () => {
     class C {
       id: number;
 
@@ -823,7 +801,7 @@ describe('decorators (TS legacy) — getter returns a coroutine', () => {
 
     expect(isCancelError(caught)).toBe(true);
 
-    // inst2's call is still pending (not disturbed by inst1's cancel); resolve it deterministically.
+    // inst2 is undisturbed by inst1's cancel so resolve deterministically
     let disturbed: unknown;
     const race = Promise.race([
       pending2.then(
@@ -848,7 +826,7 @@ describe('decorators (TS legacy) — getter returns a coroutine', () => {
   });
 });
 
-describe('decorators (TS legacy) — flavor mismatch guard', () => {
+describe('decorators (TS legacy): flavor mismatch guard', () => {
   it('LegacyAsyncMethod rejects stage-3 call shape (value, context)', () => {
     function* method(): Generator<any, any, any> {
       return yield Promise.resolve(1);
@@ -888,14 +866,14 @@ describe('decorators (TS legacy) — flavor mismatch guard', () => {
     }
 
     expect(() => {
-      // AsyncMethod applied with legacy args (target, propertyKey, descriptor) instead of (value, context).
+      // AsyncMethod applied with legacy args
       (AsyncMethod as any)({}, 'method', { value: method, configurable: true, writable: true });
     }).toThrow(/@cancjs\/decorators\/legacy/);
   });
 
   it('LegacyAsyncMethod accepts a babel-legacy import used correctly elsewhere without cross-contamination', () => {
     // Sanity: babel-legacy entry point itself still works when called with its own shape, proving
-    // the guard above is about shape detection, not blanket rejection of `initializer`-bearing objects.
+    // the guard is for shape detection rather than blanket rejection of initializers
     const descriptor = {
       initializer: function (this: any) {
         return function* (this: any): Generator<any, any, any> {

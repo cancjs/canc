@@ -10,7 +10,6 @@ function delay(ms: number) {
 }
 
 describe('cancel-cleanup collector', () => {
-  // 1. tail cancel awaits source teardown
   it('tail cancel awaits the source teardown', async () => {
     const order: string[] = [];
 
@@ -41,7 +40,6 @@ describe('cancel-cleanup collector', () => {
     expect(order).toEqual(['source-cleanup-done', 'await-cancel-returned']);
   });
 
-  // 2. source cancel still awaits its own teardown
   it('source cancel awaits its own teardown', async () => {
     const order: string[] = [];
 
@@ -67,7 +65,6 @@ describe('cancel-cleanup collector', () => {
     expect(order).toEqual(['source-cleanup-done', 'await-cancel-returned']);
   });
 
-  // 3. rejecting teardown appears as rejected entry, no unhandled rejection
   it('rejecting teardown appears as rejected entry without unhandled rejection', async () => {
     const unhandledSpy = jest.fn();
     process.on('unhandledRejection', unhandledSpy);
@@ -96,7 +93,6 @@ describe('cancel-cleanup collector', () => {
     }
   });
 
-  // 4. multi-layer chain: every ancestor's teardown is collected
   it('multi-layer chain collects all ancestor teardowns', async () => {
     const cleanups: string[] = [];
 
@@ -127,8 +123,7 @@ describe('cancel-cleanup collector', () => {
     expect(cleanups).toContain('root');
   });
 
-  // 5. diamond: canceling all children bubbles to source, cleanup fires once
-  it('diamond: source teardown collected when all children canceled', async () => {
+  it('diamond: source teardown collected exactly once when all children canceled', async () => {
     let cleanupCount = 0;
 
     const src = new CancelablePromise<number>((_resolve, _reject, { handleCancel }) => {
@@ -142,7 +137,7 @@ describe('cancel-cleanup collector', () => {
     const childA = src.then((v) => v);
     const childB = src.then((v) => v);
 
-    // Cancel both children — src bubble fires when all refs complete
+    // canceling both children bubbles to source once all refs complete
     childA.cancel();
     childA.catch(() => {
       /**/
@@ -159,7 +154,6 @@ describe('cancel-cleanup collector', () => {
     expect(cleanupCount).toBe(1);
   });
 
-  // 6. await using over a chain exits only after source teardown
   it('await using over a chain awaits source teardown', async () => {
     const order: string[] = [];
 
@@ -194,7 +188,6 @@ describe('cancel-cleanup collector', () => {
     expect(order).toEqual(['source-cleanup-done', 'dispose-returned']);
   });
 
-  // 7. zero-cost proof: no collector allocated when return is not consumed
   it('zero-cost: cancel without consuming return allocates no collector', async () => {
     const allSettledSpy = jest.spyOn(CancelablePromise, 'allSettled');
     const beforeCount = allSettledSpy.mock.calls.length;
@@ -229,7 +222,6 @@ describe('cancel-cleanup collector', () => {
     allSettledSpy.mockRestore();
   });
 
-  // 8. coroutine mid-chain: drain deferred is collected
   it('coroutine mid-chain: drain is collected by tail cancel', async () => {
     const order: string[] = [];
 
@@ -270,7 +262,6 @@ describe('cancel-cleanup collector', () => {
     expect(order.indexOf('await-returned')).toBeGreaterThan(order.indexOf('coroutine-finally'));
   });
 
-  // 9. sync mode: thenable handler throws under strict
   it('sync mode strict: thenable-returning handler throws', () => {
     const p = new CancelablePromise<number>(
       (_resolve, _reject, { handleCancel }) => {
@@ -282,7 +273,6 @@ describe('cancel-cleanup collector', () => {
     expect(() => p.cancel()).toThrow(/thenable/i);
   });
 
-  // 9b. sync mode non-strict: thenable absorbed, no unhandled rejection
   it('sync mode non-strict: thenable absorbed without unhandled rejection', async () => {
     const unhandledSpy = jest.fn();
     process.on('unhandledRejection', unhandledSpy);

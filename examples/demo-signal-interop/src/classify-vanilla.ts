@@ -55,3 +55,16 @@ export async function suppressMultipleErrorsVanilla() {
     }
   }
 }
+
+export async function isAbortErrorCheckVanilla() {
+  try {
+    const result = await mayFailTask();
+    console.log('[vanilla] result:', result);
+  } catch (err: unknown) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      console.log('[vanilla] abort error — cause:', err.name);
+    } else if (err instanceof Error) {
+      console.log('[vanilla] other error:', err.message);
+    }
+  }
+}

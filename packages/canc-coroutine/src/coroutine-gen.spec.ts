@@ -51,7 +51,7 @@ function recordParity(scenario: string, native: any, canc: any) {
 
 // Native-parity tests: build both a native async generator and a canc coroutine-gen,
 // run identical driver scripts, assert identical output.
-describe('cancGenAsync — native async-generator parity', () => {
+describe('cancGenAsync: native async-generator parity', () => {
   it('empty generator: no emissions, done immediately', async () => {
     async function* nativeGen(): AsyncGenerator<never, void> {}
     const cancGen = cancGenAsync(function* (): Generator<never, void> {});
@@ -323,7 +323,7 @@ describe('cancGenAsync — native async-generator parity', () => {
 });
 
 // Protocol correctness
-describe('cancGenAsync — protocol', () => {
+describe('cancGenAsync: protocol', () => {
   it('exposes Symbol.asyncIterator returning self', () => {
     const it = cancGenAsync(function* () {})();
     expect(typeof (it as any)[Symbol.asyncIterator]).toBe('function');
@@ -382,7 +382,7 @@ describe('cancGenAsync — protocol', () => {
 });
 
 // Queued-call ordering
-describe('cancGenAsync — queued call ordering', () => {
+describe('cancGenAsync: queued call ordering', () => {
   it('serves concurrently-issued next() calls FIFO', async () => {
     const it = cancGenAsync(function* (): AsyncGenResult<string> {
       yield* cancGenAwait(Promise.resolve());
@@ -441,7 +441,7 @@ describe('cancGenAsync — queued call ordering', () => {
 });
 
 // Cancellation
-describe('cancGenAsync — cancellation', () => {
+describe('cancGenAsync: cancellation', () => {
   it('cancel current step rejects it with CancelError', async () => {
     const it = cancGenAsync(function* (): AsyncGenResult<unknown> {
       yield* cancGenAwait(new Promise(() => {}));
@@ -549,8 +549,8 @@ describe('cancGenAsync — cancellation', () => {
   });
 });
 
-// for-await + break (iterator.return path)
-describe('cancGenAsync — for-await break', () => {
+// Loop break and iterator return path
+describe('cancGenAsync: for-await break', () => {
   it('break in for-await calls return() and runs finally', async () => {
     const log: string[] = [];
     const gen = cancGenAsync(function* (): Generator<number, void, any> {
@@ -609,7 +609,7 @@ describe('cancGenAsync — for-await break', () => {
 });
 
 // transformYield hook
-describe('cancGenAsync — transformYield', () => {
+describe('cancGenAsync: transformYield', () => {
   it('transforms each yielded value before emission', async () => {
     const it = cancGenAsync(
       function* (): Generator<number, void> {
@@ -658,7 +658,7 @@ describe('cancGenAsync — transformYield', () => {
 });
 
 // cancGenDelegate / cancGenForAwait: producer-side consume + re-emit helpers
-describe('cancGenDelegate — re-emit a sub async-iterable', () => {
+describe('cancGenDelegate: re-emit a sub async-iterable', () => {
   it('re-emits the sub-iterable items to the consumer for-await, in order', async () => {
     async function* sub(): AsyncGenerator<number, void> {
       yield 1;
@@ -684,7 +684,7 @@ describe('cancGenDelegate — re-emit a sub async-iterable', () => {
   });
 });
 
-describe('cancGenForAwait — consume inside a producer', () => {
+describe('cancGenForAwait: consume inside a producer', () => {
   it('runs cb per item and does not emit any of them to the consumer', async () => {
     const seen: Array<[number, number]> = [];
 
@@ -753,7 +753,7 @@ function makeControllableSource<T>() {
   return { source, deliver, state };
 }
 
-describe('cancGenAsync — cancel mid-cancGenForAwait/cancGenDelegate runs sub return() cleanup', () => {
+describe('cancGenAsync: cancel mid-cancGenForAwait/cancGenDelegate runs sub return() cleanup', () => {
   it('cancel mid-cancGenForAwait (sub pull in flight) runs the sub source finally', async () => {
     const { source, deliver, state } = makeControllableSource<number>();
     const seen: number[] = [];
@@ -806,7 +806,7 @@ describe('cancGenAsync — cancel mid-cancGenForAwait/cancGenDelegate runs sub r
 });
 
 // Cancel aborts the in-flight awaited source (the underlying op is canceled, not just abandoned).
-describe('cancGenAsync — cancel aborts in-flight source', () => {
+describe('cancGenAsync: cancel aborts in-flight source', () => {
   it('cancel fires the awaited source cancel handler (abort)', async () => {
     let aborted = 0;
     // A never-settling source that records its own cancellation.
@@ -863,7 +863,7 @@ describe('cancGenAsync — cancel aborts in-flight source', () => {
   });
 });
 
-describe('cancGenAwait — combinator parity (all/race/any/allSettled/try)', () => {
+describe('cancGenAwait: combinator parity (all/race/any/allSettled/try)', () => {
   it('all(): resolves the tuple as an internal await, not emitted to the consumer', async () => {
     const producer = cancGenAsync(function* (): AsyncGenResult<string, void> {
       const [n, s] = yield* cancGenAwait.all([Promise.resolve(1), Promise.resolve('a')]);
@@ -872,7 +872,7 @@ describe('cancGenAwait — combinator parity (all/race/any/allSettled/try)', () 
 
     const { values } = await drain(producer());
 
-    // Only the bare `yield` surfaces to the consumer — the combinator's own tuple never does.
+    // Only the bare `yield` surfaces to the consumer; the combinator's own tuple never does.
     expect(values).toEqual(['combined:1:a']);
   });
 
@@ -974,11 +974,6 @@ describe('cancGenAwait — combinator parity (all/race/any/allSettled/try)', () 
   });
 
   it('emit-vs-await contract: a bare `yield` from a combinator WOULD leak into the consumer (anti-stub guard)', async () => {
-    // Sanity check on the test itself: prove drain() actually surfaces whatever a combinator yields
-    // bare, unresolved, so the "not emitted" assertions above are meaningful (they would fail if a
-    // real combinator did a bare `yield build(...)` instead of `yield awaited(build(...))` — the
-    // driver only resolves+hides `awaited(...)` values; anything else, including a raw combined
-    // CancelablePromise, is emitted to the consumer as-is).
     const leaky = cancGenAsync(function* (): AsyncGenResult<any, void> {
       // Simulates what a combinator would produce if it forgot to wrap in `awaited(...)`.
       yield CancelablePromise.all([Promise.resolve(1), Promise.resolve('a')]);
@@ -994,7 +989,7 @@ describe('cancGenAwait — combinator parity (all/race/any/allSettled/try)', () 
 });
 
 // Native-parity table (printed in spec output)
-describe('cancGenAsync — native-parity table', () => {
+describe('cancGenAsync: native-parity table', () => {
   it('every recorded scenario matches native async-generator output', () => {
     const header = 'scenario | native === canc';
     const sep = '--------------------------------|-----------------';

@@ -3,19 +3,6 @@ import { async as cancAsync } from '@cancjs/coroutine';
 
 import { copyFunctionMetadata, isBabelLegacyDescriptor, isFunction, isStage3Context, TAnyFn } from '../../_util';
 
-/**
- * TS legacy decorators (`experimentalDecorators: true`). Runtime shape:
- * method/getter → (target=prototype, propertyKey, descriptor)
- * field/prop → (target=prototype, propertyKey) [no descriptor]
- *
- * bind:false → proto-level wrap (rewrite descriptor.value once on the prototype).
- * bind:true → per-instance: a lazy accessor that, on first read, installs an own, ctx-bound
- * immutable property on the INSTANCE (self-replacing own-property). The previous
- * implementation cached bound methods in a Map stored on the prototype keyed by
- * property name — the first instance's bound method leaked to every other instance
- * and pinned the first instance forever. Per-instance own-property fixes both.
- */
-
 interface IMethodDecoratorOptions {
   bind?: boolean;
 }
@@ -51,10 +38,8 @@ function definePerInstanceAccessor(target: any, propertyKey: string | symbol, pr
   });
 }
 
-// Stage-3 decorators invoke as (value, context) — the second argument is always a context
-// object carrying `kind`. A TS-legacy decorator receiving that shape means it was applied under
-// `experimentalDecorators: false` (stage-3 compiler output); fail with a message pointing at the
-// stage-3 entry point instead of crashing on `propertyKey` being an object.
+// Stage-3 decorators invoke as (value, context) where second argument is always a context object
+// A TS-legacy decorator receiving that shape was applied under experimentalDecorators: false
 function assertLegacyCallShape(propertyKey: any): void {
   if (isStage3Context(propertyKey)) {
     throw new Error(
@@ -65,10 +50,8 @@ function assertLegacyCallShape(propertyKey: any): void {
   }
 }
 
-// Babel-legacy descriptors always carry an `initializer` key (methods/getters get a real
-// descriptor without it; fields get one set to a function or explicit null). TS-legacy never
-// produces that shape — its field calls omit the descriptor entirely. Seeing it here means this
-// decorator was applied under babel's legacy decorator transform instead of TS's.
+// Babel-legacy descriptors carry an initializer key; TS-legacy field calls omit descriptor entirely
+// Seeing an initializer key here means decorator was applied under babel legacy transform
 function assertNotBabelLegacyDescriptor(descriptor: any): void {
   if (isBabelLegacyDescriptor(descriptor)) {
     throw new Error(
@@ -87,12 +70,10 @@ function makeLegacyDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TA
     const isProtoMethod = !!descriptor && !descriptor.get;
     const isGetter = !!descriptor && !!descriptor.get;
 
-    // --- getter ---
     if (isGetter) {
-      // The user returns a ready coroutine (a cancAsync result) from the getter, so the decorator
-      // never wraps it. It optionally binds the function to the instance (bind:true), then memoizes
-      // per instance.
-      // eslint-disable-next-line @typescript-eslint/unbound-method -- called with .call(this) below
+      // User returns ready coroutine from getter, so decorator only memoizes per instance
+      // Descriptor getter is invoked via .call(this) below
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       const originalGetter = descriptor!.get!;
 
       descriptor!.get = function (this: any) {
@@ -112,7 +93,6 @@ function makeLegacyDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TA
       return;
     }
 
-    // --- proto method ---
     if (isProtoMethod) {
       const originalMethod = descriptor!.value as TAnyFn;
 
@@ -121,26 +101,21 @@ function makeLegacyDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TA
       }
 
       if (isBind) {
-        // bind:true → lazy per-instance own-bound property.
+        // bind:true: lazy per-instance own-bound property
         delete descriptor!.value;
         delete (descriptor as any).writable;
         definePerInstanceAccessor(target, propertyKey, (self) =>
           copyFunctionMetadata(originalMethod, wrap(originalMethod, self)),
         );
       } else {
-        // bind:false → proto wrap once. Preserve metadata another decorator attached to the
-        // original method function (SetMetadata-style), otherwise it is lost on the wrapper.
+        // bind:false: proto wrap once, preserving metadata attached to original method
         descriptor!.value = copyFunctionMetadata(originalMethod, wrap(originalMethod, undefined));
       }
 
       return;
     }
 
-    // --- field / property (no descriptor) ---
-    // The initial value is not observable here in the TS-legacy runtime; install a lazy accessor
-    // that wraps the field's initial value on first read. Because class-field initializers run in
-    // the constructor and assign via [[Set]], our accessor's setter captures that initial value
-    // and re-installs the wrapped own-property per instance.
+    // Field initial value is assigned via [[Set]] in constructor and captured by setter
     definePerInstanceFieldAccessor(target, propertyKey, isBind, wrap);
   };
 }
@@ -172,12 +147,12 @@ function definePerInstanceFieldAccessor(
   });
 }
 
-// Return type `any` on the factory overload is deliberate: a `MethodDecorator | PropertyDecorator`
-// union is not resolvable in a legacy decorator position (TS rejects it with "unable to resolve
-// signature"), and the same decorator must be usable on methods, getters and fields alike. `any`
-// lets the single runtime decorator apply in every member position. Unlike stage-3, a TS legacy
-// decorator return value never redefines the decorated member's own type, so this `any` does not
-// erase anything at the call site; no identity-preserving overloads needed here.
+/**
+ * Wraps a class method, field, or getter with a cancelable coroutine under TypeScript legacy decorators.
+ *
+ * By default (`bind: false`), wraps the method at prototype level. With `bind: true`,
+ * installs a lazy per-instance own-bound property on first access.
+ */
 export function LegacyAsyncMethod(target: any, propertyKey: string | symbol): void;
 export function LegacyAsyncMethod(target: any, propertyKey: string | symbol, descriptor: PropertyDescriptor): void;
 export function LegacyAsyncMethod(options?: IMethodDecoratorOptions): any;
@@ -193,6 +168,7 @@ export function LegacyAsyncMethod(
   return makeLegacyDecorator(isBind, (fn, ctx) => cancAsync(fn as any, ctx));
 }
 
+/** Same call shapes as {@link LegacyAsyncMethod}; `bind:true` is the default here instead of `bind:false`. */
 export function LegacyBindMethod(target: any, propertyKey: string | symbol): void;
 export function LegacyBindMethod(target: any, propertyKey: string | symbol, descriptor: PropertyDescriptor): void;
 export function LegacyBindMethod(options?: IMethodDecoratorOptions): any;

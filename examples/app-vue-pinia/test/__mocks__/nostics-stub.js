@@ -1,7 +1,6 @@
 // Pinia's dev-time diagnostics reporting is not part of the store behavior under test.
-// nostics ships ESM-only with no jest-friendly path, so it is stubbed out here instead of
-// transformed. Each diagnostic code becomes a handle matching the real shape closely enough
-// for pinia's internals: callable, returns an Error-like object, never invoked in these specs.
+// nostics ships ESM-only, so it is stubbed out here instead of transformed.
+// Each diagnostic code becomes a handle matching the real shape for pinia internals.
 function createConsoleReporter() {
   return () => {};
 }

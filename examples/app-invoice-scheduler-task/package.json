@@ -1,0 +1,34 @@
+{
+  "name": "app-invoice-scheduler-task",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Invoice ledger table that chunks a large render and prefetches details through a prioritized scheduler, canceling stale work as the filter changes.",
+  "scripts": {
+    "dev:vanilla": "vite --config vite.config.ts --open /vanilla.html",
+    "dev:canc": "vite --config vite.config.ts --open /canc.html",
+    "start:vanilla": "vite build --config vite.config.ts && vite preview --config vite.config.ts --open /vanilla.html",
+    "start:canc": "vite build --config vite.config.ts && vite preview --config vite.config.ts --open /canc.html",
+    "test": "jest --colors",
+    "typecheck": "tsc --noEmit --project tsconfig.json"
+  },
+  "dependencies": {
+    "@shared/mock-api": "*",
+    "@shared/util": "*",
+    "@cancjs/promise": "file:../../packages/canc-promise",
+    "@cancjs/coroutine": "file:../../packages/canc-coroutine",
+    "@cancjs/toolbox": "file:../../packages/canc-toolbox",
+    "@cancjs/unhandled-rejection": "file:../../packages/canc-unhandled-rejection"
+  },
+  "devDependencies": {
+    "@types/jest": "30.0.0",
+    "@types/node": "20.12.12",
+    "jest": "30.4.2",
+    "jest-environment-jsdom": "30.4.1",
+    "ts-jest": "29.4.11",
+    "typescript": "5.9.3",
+    "vite": "8.1.5"
+  },
+  "engines": {
+    "npm": ">=9"
+  }
+}

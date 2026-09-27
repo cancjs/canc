@@ -3,9 +3,11 @@ import { Component } from '@angular/core';
 import { DetailPaneComponent } from './detail-pane.component-vanilla';
 import { OrdersTableComponent } from './orders-table.component-vanilla';
 
-// Admin dashboard: an orders table beside a detail pane. Clicking a row loads its detail; clicking
-// another row cannot cancel the previous load, which runs to completion (see
-// detail-pane.component-vanilla.ts).
+/**
+ * Admin dashboard: an orders table beside a detail pane. Clicking a row loads its detail; clicking
+ * another row cannot cancel the previous load, which runs to completion (see
+ * detail-pane.component-vanilla.ts).
+ */
 @Component({
   selector: 'app-dashboard',
   standalone: true,

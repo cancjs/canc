@@ -3,20 +3,6 @@ import { async as cancAsync } from '@cancjs/coroutine';
 
 import { copyFunctionMetadata, isFunction, isStage3Context, TAnyFn } from '../../_util';
 
-/**
- * Babel legacy decorators (`@babel/plugin-proposal-decorators` with `legacy: true` +
- * `@babel/plugin-proposal-class-properties` / `loose`). Runtime shape mirrors TS-legacy for
- * methods and getters — `(target=prototype, propertyKey, descriptor)` — but class FIELDS are
- * always given a descriptor carrying `initializer` (a function producing the field's initial
- * value) instead of `value`. That `initializer` is the hook TS-legacy lacks; we rewrite it so
- * the wrapped/bound function is produced per instance at construction.
- *
- * Policy identical to the other flavors:
- * bind:false → proto-level wrap (methods) / initializer wraps value with no ctx (fields).
- * bind:true → per-instance own-bound property (lazy accessor for methods; initializer for
- * fields — both run per instance, no shared cross-instance state).
- */
-
 interface IBabelPropertyDescriptor extends PropertyDescriptor {
   initializer?: (() => any) | null;
 }
@@ -34,10 +20,8 @@ function setProperty(target: any, key: string | symbol, value: any) {
   });
 }
 
-// Stage-3 decorators invoke as (value, context) — the second argument is always a context
-// object carrying `kind`. A babel-legacy decorator receiving that shape means it was applied
-// under stage-3 (native TS 5+ / babel's non-legacy plugin version) output; fail with a message
-// pointing at the stage-3 entry point instead of crashing on `propertyKey` being an object.
+// Stage-3 decorators invoke as (value, context) where second argument is always a context object
+// A babel-legacy decorator receiving that shape was applied under stage-3 compiler output
 function assertBabelLegacyCallShape(propertyKey: any): void {
   if (isStage3Context(propertyKey)) {
     throw new Error(
@@ -55,12 +39,10 @@ function makeBabelDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAn
     const isField = isFunction(descriptor?.initializer) || descriptor?.initializer === null;
     const isGetter = !!descriptor?.get;
 
-    // --- getter ---
     if (isGetter) {
-      // The user returns a ready coroutine (a cancAsync result) from the getter, so the decorator
-      // never wraps it. It optionally binds the function to the instance (bind:true), then memoizes
-      // per instance.
-      // eslint-disable-next-line @typescript-eslint/unbound-method -- called with .call(this) below
+      // User returns ready coroutine from getter, so decorator only memoizes per instance
+      // Descriptor getter is invoked via .call(this) below
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       const originalGetter = descriptor.get!;
 
       descriptor.get = function (this: any) {
@@ -79,7 +61,6 @@ function makeBabelDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAn
       return descriptor;
     }
 
-    // --- field (arrow-fn class property) ---
     if (isField) {
       const originalInitializer = descriptor.initializer;
 
@@ -96,7 +77,6 @@ function makeBabelDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAn
       return descriptor;
     }
 
-    // --- proto method ---
     const originalMethod = descriptor.value as TAnyFn;
 
     if (!isFunction(originalMethod)) {
@@ -104,8 +84,7 @@ function makeBabelDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAn
     }
 
     if (isBind) {
-      // bind:true → lazy per-instance own-bound property (self-replacing own-property; no
-      // prototype-level shared cache → cross-instance isolation + collectable instances).
+      // bind:true: lazy per-instance own-bound property with per-instance isolation and GC
       delete descriptor.value;
       delete descriptor.writable;
 
@@ -118,8 +97,7 @@ function makeBabelDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAn
         setProperty(this, propertyKey, value);
       };
     } else {
-      // bind:false → proto wrap once. Preserve metadata another decorator attached to the original
-      // method function (SetMetadata-style), otherwise it is lost on the wrapper.
+      // bind:false: proto wrap once, preserving metadata attached to original method
       descriptor.value = copyFunctionMetadata(originalMethod, wrap(originalMethod, undefined));
     }
 
@@ -127,9 +105,12 @@ function makeBabelDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAn
   };
 }
 
-// Babel legacy decorator return value never redefines the decorated member's own type (same as TS
-// legacy), so the `any` positions below do not erase anything at the call site; no
-// identity-preserving overloads needed here.
+/**
+ * Wraps a class method, field, or getter with a cancelable coroutine under Babel legacy decorators.
+ *
+ * By default (`bind: false`), wraps the method at prototype level. With `bind: true`,
+ * installs a per-instance own-bound property.
+ */
 export function BabelLegacyAsyncMethod(target: any, propertyKey: string | symbol, descriptor: PropertyDescriptor): any;
 export function BabelLegacyAsyncMethod(options?: IMethodDecoratorOptions): MethodDecorator | PropertyDecorator;
 export function BabelLegacyAsyncMethod(
@@ -146,6 +127,7 @@ export function BabelLegacyAsyncMethod(
   return makeBabelDecorator(isBind, (fn, ctx) => cancAsync(fn as any, ctx)) as any;
 }
 
+/** Same call shapes as {@link BabelLegacyAsyncMethod}; `bind:true` is the default here instead of `bind:false`. */
 export function BabelLegacyBindMethod(target: any, propertyKey: string | symbol, descriptor: PropertyDescriptor): any;
 export function BabelLegacyBindMethod(options?: IMethodDecoratorOptions): MethodDecorator | PropertyDecorator;
 export function BabelLegacyBindMethod(

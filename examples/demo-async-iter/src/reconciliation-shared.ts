@@ -1,5 +1,4 @@
-// Shared predicates and mappers used by both twins. Extracted here so neither twin imports from
-// the other (twin independence rule).
+// shared predicates and mappers used by both twins
 
 import type { Transaction } from './mock/transactions';
 

@@ -64,9 +64,8 @@ describe('createAbortSignal (plain convenience)', () => {
   });
 });
 
-// An external signal and a deadline used to need a dedicated helper to compose. They no longer do:
-// the deadline is `timeout`'s own argument and the signal is an ordinary cancelable option, so one
-// call covers both races. These are the assertions that helper carried, kept against the pair.
+// A single timeout call now composes a deadline and an external signal without a dedicated
+// helper since deadline is its argument and signal is an option so assertions are kept here
 describe('timeout with an external signal: deadline and signal in one call', () => {
   it('the external signal aborting first wins the race', async () => {
     const controller = new AbortController();
@@ -76,7 +75,9 @@ describe('timeout with an external signal: deadline and signal in one call', () 
   });
 
   it('the deadline wins when no external signal aborts', async () => {
+    jest.useFakeTimers();
     const promise = timeout(new Promise(() => {}), 5);
+    jest.advanceTimersByTime(5);
     await expect(promise).rejects.toBeDefined();
   });
 
@@ -131,9 +132,8 @@ describe('toAbortSignal: inverse interop (promise cancels -> signal fires)', () 
   });
 });
 
-// A canc input is wired through handleCancel, not .then, so it no longer registers as a chain
-// consumer: taking a signal off a bubble-capable promise must not change that promise's own
-// cancellation semantics. The plain-thenable branch above is untouched (any rejection aborts).
+// A canc input is wired through handleCancel rather than .then so taking a signal off a bubble
+// capable promise must not change its own cancellation semantics while thenables remain untouched
 describe('toAbortSignal: canc promises take the cancel path, not the rejection path', () => {
   it('does not suppress bubble-cancel (fails on the old .then-based wiring)', async () => {
     const parent = new CancelablePromise<number>(() => {

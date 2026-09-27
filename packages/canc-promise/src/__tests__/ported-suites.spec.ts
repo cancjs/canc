@@ -6,15 +6,15 @@ import { isCancelError } from '../helpers';
  *
  * This spec consolidates cancelable-promise test patterns from reference libraries, ported to canc semantics.
  * Translations:
- * - **Bluebird**: `onCancel()` handlers → `handleCancel()` (semantics identical, registered callbacks fire on cancel).
- * Bluebird's "never settles on cancel" model → canc rejection with CancelError (native Promise compatible).
+ * - **Bluebird**: `onCancel()` handlers map to `handleCancel()` (semantics identical, registered callbacks fire on cancel).
+ * Bluebird's "never settles on cancel" model maps to canc rejection with CancelError (native Promise compatible).
  * `isCanceled` property, handler execution order, multiple handlers per promise all map directly.
- * - **p-cancelable**: Simple one-way shallow cancellation → exercised as canc promises with bubble:false.
- * `onCancel` → `handleCancel`. Tests for cancel-after-settle no-op, isCanceled getter, multiple handler calls.
- * - **Alkemics**: Downward-only chain cancellation → canc with bubble:false on children to isolate up-bubble.
+ * - **p-cancelable**: Simple one-way shallow cancellation is exercised as canc promises with bubble:false.
+ * `onCancel` maps to `handleCancel`. Tests for cancel-after-settle no-op, isCanceled getter, multiple handler calls.
+ * - **Alkemics**: Downward-only chain cancellation is ported to canc with bubble:false on children to isolate up-bubble.
  * Silent-skip model not directly translatable (canc rejects), but cancellation propagation down chains tested.
  *
- * **Skip list:** None — all patterns are compatible with canc's rejection-based CancelError model.
+ * **Skip list:** None. All patterns are compatible with canc's rejection-based CancelError model.
  *
  * Determinism: microtask draining via `drain()` (no arbitrary sleeps); handler assertion via internal
  * `_cancelHandlers` length / fire counts.
@@ -42,9 +42,6 @@ function silence(p: PromiseLike<any>): void {
 }
 
 describe('ported suites', () => {
-  // ─────────────────────────────────────────────────────────────────────────────
-  // BLUEBIRD PORT: handleCancel registration and handler semantics
-  // ─────────────────────────────────────────────────────────────────────────────
   describe('bluebird: handleCancel fundamentals', () => {
     it('1. registers a single handler and fires on cancel', async () => {
       let fired = false;
@@ -169,11 +166,8 @@ describe('ported suites', () => {
     });
   });
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // BLUEBIRD PORT: Chain cancellation and handler execution order
-  // ─────────────────────────────────────────────────────────────────────────────
   describe('bluebird: chain cancellation semantics', () => {
-    it('8. cancel parent → child rejects with CancelError', async () => {
+    it('8. cancel parent causes child to reject with CancelError', async () => {
       const parent = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
         handleCancel(() => {});
       });
@@ -216,7 +210,7 @@ describe('ported suites', () => {
       expect(isCancelError(caught2)).toBe(true);
     });
 
-    it('10. cancel parent → callbacks in derived .then() not invoked', async () => {
+    it('10. cancel parent ensures callbacks in derived .then() not invoked', async () => {
       let thenCalled = false;
       const parent = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
         handleCancel(() => {});
@@ -278,9 +272,6 @@ describe('ported suites', () => {
     });
   });
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // P-CANCELABLE PORT: Simple shallow cancel semantics
-  // ─────────────────────────────────────────────────────────────────────────────
   describe('p-cancelable: single-promise cancel', () => {
     it('13. promise is instanceof Promise', () => {
       const p = new CancelablePromise<number>((resolve) => {
@@ -407,9 +398,6 @@ describe('ported suites', () => {
     });
   });
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // ALKEMICS PORT: Downward chain propagation
-  // ─────────────────────────────────────────────────────────────────────────────
   describe('alkemics: chain propagation patterns', () => {
     it('21. cancel parent propagates rejection to .then() chain', async () => {
       const parent = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
@@ -532,20 +520,16 @@ describe('ported suites', () => {
     });
   });
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // BLUEBIRD PORT: Two-way propagation (parent-child relationships)
-  // ─────────────────────────────────────────────────────────────────────────────
   describe('bluebird: two-way handler/follower semantics', () => {
     it('27. child cancellation fires handlers on parent', async () => {
-      let _parentFired = false;
+      let parentFired = false;
       const parent = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
         handleCancel(() => {
-          _parentFired = true;
+          parentFired = true;
         });
-        // Never resolve — keep pending
+        // never resolve to keep pending
       });
       const child = parent.then((v) => v); // Derived child
-      silence(parent);
       silence(child);
 
       // Cancel child rejects it with CancelError
@@ -554,6 +538,8 @@ describe('ported suites', () => {
 
       // Child is canceled
       expect(child.isCanceled).toBe(true);
+      expect(parent.isCanceled).toBe(true);
+      expect(parentFired).toBe(true);
     });
 
     it('28. cancel parent affects all children', async () => {
@@ -647,9 +633,6 @@ describe('ported suites', () => {
     });
   });
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // ADVANCED: Nested chains, error handling, and handler order
-  // ─────────────────────────────────────────────────────────────────────────────
   describe('advanced chain and handler patterns', () => {
     it('32. catch() returning a value stops cancellation propagation', async () => {
       const parent = new CancelablePromise<number>((resolve, reject, { handleCancel }) => {
@@ -856,12 +839,11 @@ describe('ported suites', () => {
     });
 
     it('42. CancelError carries isBubbled flag for upward vs downward cancels', async () => {
-      let downErr: any, _upErr: any;
+      let downErr: any, upErr: any;
       const parent = new CancelablePromise<void>((resolve, reject, { handleCancel }) => {
         handleCancel(() => {});
       });
       const child = parent.then(() => {});
-      silence(parent);
       silence(child);
 
       // Down cancel (parent.cancel)
@@ -869,10 +851,22 @@ describe('ported suites', () => {
       await parent.catch((e) => {
         downErr = e;
       });
+
+      const parentUp = new CancelablePromise<void>((resolve, reject, { handleCancel }) => {
+        handleCancel(() => {});
+      });
+      const childUp = parentUp.then(() => {});
+      silence(childUp);
+
+      childUp.cancel();
+      await parentUp.catch((e) => {
+        upErr = e;
+      });
       await drain();
 
       // Down cancels are not marked as bubbled
       expect(downErr.isBubbled).toBe(false);
+      expect(upErr.isBubbled).toBe(true);
     });
 
     it('43. multiple handlers on same promise fire in registration order', async () => {
@@ -939,9 +933,6 @@ describe('ported suites', () => {
     });
   });
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // EDGE CASES & STRESS
-  // ─────────────────────────────────────────────────────────────────────────────
   describe('edge cases and stress tests', () => {
     it('47. large number of handlers all fire', async () => {
       let count = 0;
@@ -1028,7 +1019,7 @@ describe('ported suites', () => {
       silence(outer);
       silence(inner);
 
-      // Both are pending when we cancel outer
+      // Cancel while both promises remain pending
       outer.cancel();
       await drain();
 

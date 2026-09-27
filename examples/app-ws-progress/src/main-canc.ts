@@ -1,8 +1,6 @@
 import '@cancjs/unhandled-rejection/register';
 
-// Scripted run of the canc server: start a job, cancel it at ~30%, then report how many chunks
-// the server actually transcoded. Cancel reaches the encoder, so the started count freezes near
-// the cancel point and the chunk in flight is marked aborted.
+// scripted run of canc server verifying cancel stops transcoding at ~30%
 import { MockApi } from '@shared/mock-api';
 import { sleep } from '@shared/util';
 import { WebSocket } from 'ws';
@@ -54,7 +52,7 @@ function runScenario(
         canceled = true;
         console.log(`cancel at ${message.percent}%`);
         cancelAt30(ws, jobId);
-        // Let the server settle the cancel, confirm no more chunks start, then report.
+        // let server settle cancel and confirm no more chunks start
         void sleep(80).then(report);
       }
       if (message.type === 'canceled') console.log('server ack: canceled');

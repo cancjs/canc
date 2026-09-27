@@ -46,8 +46,7 @@ async function main(): Promise<void> {
 
   console.log('');
 
-  // (no two-way counterpart. An AbortController only aborts when its holder calls abort();
-  // it has no notion of "every consumer lost interest, stop on its own." See -canc.)
+  // Bare AbortController cannot auto-abort when consumers lose interest.
 }
 
 main();

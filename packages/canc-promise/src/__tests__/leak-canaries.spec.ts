@@ -74,7 +74,6 @@ async function drain() {
 const describeIfGC = hasGC ? describe : describe.skip;
 
 describeIfGC('leak canaries (GC probe)', () => {
-  // Probe (a): settled promise + retained parent -> child collectable
   describe('(a) settled + retained parent -> child collectable', () => {
     it('child promise can be collected when parent is retained but settled', async () => {
       let parent: CancelablePromise<number> | undefined = new CancelablePromise<number>((resolve) => {
@@ -98,7 +97,6 @@ describeIfGC('leak canaries (GC probe)', () => {
     });
   });
 
-  // Probe (b): canceled chains collectable
   describe('(b) canceled chains collectable', () => {
     it('canceled promise and chain are collectable after cancel', async () => {
       let root: CancelablePromise<number> | undefined = new CancelablePromise<number>((resolve) => {
@@ -126,7 +124,6 @@ describeIfGC('leak canaries (GC probe)', () => {
     });
   });
 
-  // Probe (c): signal-attached settled promises collectable while signal alive
   describe('(c) signal-attached settled collectable while signal alive', () => {
     it('settled promise with signal listener can be collected while signal alive', async () => {
       // Mock AbortSignal
@@ -163,14 +160,12 @@ describeIfGC('leak canaries (GC probe)', () => {
     });
   });
 
-  // Probe (d): handlers array released after cancel
   describe('(d) handlers array released after cancel', () => {
     it('internal handlers array released after cancellation', async () => {
       let promise: CancelablePromise<any> | undefined = new CancelablePromise<number>((resolve) => {
         setTimeout(() => resolve(1), 1000);
       });
 
-      // Register multiple cancel handlers to ensure handlers array exists
       const handlers = [
         () => {
           /* */
@@ -187,14 +182,12 @@ describeIfGC('leak canaries (GC probe)', () => {
         (promise as any).handleCancel(handler);
       }
 
-      // Verify promise has internal state (handlers registered)
       expect(promise.isCancelable).toBe(true);
 
       // Cancel to trigger handler cleanup
       promise.cancel();
       await drain();
 
-      // Verify cancellation succeeded
       expect(promise.isCanceled).toBe(true);
 
       // Release reference
@@ -204,7 +197,6 @@ describeIfGC('leak canaries (GC probe)', () => {
     });
   });
 
-  // Probe (e): 10k transient children -> heapUsed plateau
   describe('(e) long-lived parent with 10k transient children heap plateau', () => {
     it('10k transient children do not accumulate unbounded heap (generous margin)', async () => {
       // Warm up - single generation to establish baseline
@@ -273,10 +265,6 @@ describeIfGC('leak canaries (GC probe)', () => {
       console.log(`Heap peak (run 2): ${secondRun} bytes (Delta ${growth} bytes)`);
       console.log(`Growth ratio: ${ratio.toFixed(2)}x`);
 
-      // A leak looks like ~2.0: the second burst allocates as much again on top of a heap that
-      // never shrank from the first. A plateau looks like ~1.0: the second burst's garbage gets
-      // collected same as the first, so growth-over-baseline stays flat. Measured 1.000-1.001 on
-      // this implementation with a real collector; 1.2 leaves headroom without being close to 2.0.
       expect(ratio).toBeLessThan(1.2);
     });
   });

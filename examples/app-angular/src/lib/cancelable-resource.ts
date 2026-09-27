@@ -20,7 +20,7 @@ export class CancelableResource<T> {
   private pending: CancelablePromise<T> | undefined;
 
   constructor(destroyRef: DestroyRef) {
-    // Destroy cancels whatever is still in flight, which aborts its request.
+    // destroy cancels in-flight load and aborts request
     destroyRef.onDestroy(() => this.reset());
   }
 
@@ -42,7 +42,7 @@ export class CancelableResource<T> {
       (reason: unknown) => {
         if (this.pending !== promise) return;
         this.pending = undefined;
-        // A canceled run has no result to show, so it goes back to idle instead of surfacing.
+        // canceled run resets to idle instead of surfacing
         this.status = isCancelError(reason) ? 'idle' : 'rejected';
         this.error = isCancelError(reason) ? undefined : reason;
       },
@@ -59,7 +59,7 @@ export class CancelableResource<T> {
 
   private cancelPending(): void {
     const pending = this.pending;
-    // Cleared first, so the cancel rejection lands on a run this resource no longer tracks.
+    // clear pending reference before triggering cancel rejection
     this.pending = undefined;
     pending?.cancel();
   }

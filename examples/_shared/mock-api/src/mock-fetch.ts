@@ -1,6 +1,4 @@
-// A fetch-shaped facade over the fake API, for demos that inject a custom fetch into the
-// @cancjs/fetch factory. It reads the URL path, routes to a domain endpoint, and honors
-// `init.signal` the same way a real fetch does (rejecting with an AbortError on abort).
+// A fetch-shaped facade over the fake API.
 //
 // Only the members the examples touch are implemented; this is not a spec-complete Response.
 

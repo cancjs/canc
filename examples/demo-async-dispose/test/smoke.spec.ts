@@ -11,7 +11,7 @@ describe('demo-async-dispose smoke', () => {
     {
       await using r = generateReport(ragApi, 'r1');
       report = r;
-      // Exit the scope without awaiting. Dispose should cancel the fetch step in flight.
+      // scope exit without await; dispose cancels in-flight fetch
     }
 
     expect(report.isCanceled).toBe(true);

@@ -1,6 +1,8 @@
 // Cancelable async iteration: pipe operators, cancel forwards return() to the source.
 // Compare side-by-side with reconciliation-vanilla.ts to see the difference.
 
+// --- setup
+
 import * as canc from '@cancjs/coroutine';
 import * as asyncIter from '@cancjs/toolbox/async-iter';
 import { sleep } from '@shared/util';
@@ -8,7 +10,9 @@ import { sleep } from '@shared/util';
 import { archivedStream, Transaction, transactionStream } from './mock/transactions';
 import { formatTx, getAmount, isPositive, sumAmounts } from './reconciliation-shared';
 
-// ── Scenario 1: Filter and Map ──────────────────────────────────────────────
+// --- compose
+
+// scenario 1: filter and map
 
 /**
  * Filters positive transactions and formats them. Cancelable: canceling the returned promise
@@ -34,33 +38,35 @@ export const filterAndFormat = canc.async(function* (log?: (msg: string) => void
   return result;
 });
 
-// ── Scenario 2: Three ways to consume ───────────────────────────────────────
+// --- consume
+
+// scenario 2: three ways to consume
 
 /**
  * The same find/reduce/some logic as vanilla, but each is a single pipe expression.
  * Three terminate forms: wrapper (from().pipe()), free (pipe()), standalone (op()(pipe())).
  */
 export const threeConsumers = canc.async(function* (log?: (msg: string) => void) {
-  // Form 1 — wrapper: from(source).pipe(terminal)
+  // Form 1 (wrapper): from(source).pipe(terminal)
   const found = yield* canc.await(
     asyncIter.from(transactionStream(log)).pipe(asyncIter.find((tx: Transaction) => tx.amount > 150)),
   );
   log?.(`find result: ${found?.id}`);
 
-  // Form 2 — free: pipe(source, operators..., terminal)
+  // Form 2 (free): pipe(source, operators..., terminal)
   const total = yield* canc.await(
     asyncIter.pipe(transactionStream(log), asyncIter.map(getAmount), asyncIter.reduce(sumAmounts, 0)),
   );
   log?.(`reduce total: ${total}`);
 
-  // Form 3 — standalone: terminal(pred)(pipe(source))
+  // Form 3 (standalone): terminal(pred)(pipe(source))
   const hasPending = yield* canc.await(
     asyncIter.some((tx: Transaction) => tx.status === 'pending')(asyncIter.pipe(transactionStream(log))),
   );
   log?.(`some pending: ${hasPending}`);
 });
 
-// ── Scenario 3: Static source composition ───────────────────────────────────
+// scenario 3: static source composition
 
 /**
  * Concat two streams and collect ids. Cancel stops pulling from whichever source is active.
@@ -76,7 +82,7 @@ export const concatStreams = canc.async(function* (log?: (msg: string) => void) 
   return allIds;
 });
 
-// ── Scenario 4: Stream with break ───────────────────────────────────────────
+// scenario 4: stream with break
 
 /**
  * Processes items one at a time via cancForAwait. A generator callback makes each step
@@ -98,7 +104,7 @@ export const streamWithBreak = canc.async(function* (
   });
 });
 
-// ── Scenario 5 (BONUS): Helper pipeline with take ───────────────────────────
+// scenario 5 (bonus): helper pipeline with take
 
 /**
  * Shows the operator pipeline composing filter + map + take in one expression,

@@ -14,7 +14,7 @@ async function main(): Promise<void> {
     await using report = generateReport(ragApi, 'r1');
     const generated = await report;
     console.log('canc: report generated:', generated);
-    // [Symbol.asyncDispose] called here. Dispose after settle is a silent no-op.
+    // [Symbol.asyncDispose] called here; dispose after settle is a no-op
     console.log('canc: scope exited, cleanup settled');
   }
 
@@ -28,7 +28,7 @@ async function main(): Promise<void> {
       await report;
       throw new Error('Simulate user error');
     } catch (error) {
-      // canceled here: scope exit called dispose, which canceled the promise.
+      // canceled here: scope exit called dispose, canceling the promise
       if (error instanceof Error && error.message === 'Simulate user error') {
         console.log('canc: caught error, dispose ran (cleanup automatic)');
       } else {

@@ -17,22 +17,35 @@ export type TErrorConstructor = new (...args: any[]) => any;
  */
 export type TErrorMatcher = string | TErrorPredicate | TErrorConstructor;
 
+/**
+ * Infers the error type matched by a single error matcher.
+ */
 export type MatchedError<M> =
   M extends TErrorConstructor ? InstanceType<M>
   : M extends (error: any) => error is infer G ? G
   : M extends string ? Error & { name: M }
   : Error;
 
+/**
+ * Infers the error type narrowed out by a single error matcher.
+ */
 export type SubtractedError<M> =
   M extends TErrorConstructor ? InstanceType<M>
   : M extends (error: any) => error is infer G ? G
   : M extends string ? Error & { name: M }
   : never;
 
+/**
+ * Union of error types matched by an array or tuple of error matchers.
+ */
 export type MatchedOf<M extends readonly TErrorMatcher[]> = MatchedError<M[number]>;
+
+/**
+ * Union of error types narrowed out by an array or tuple of error matchers.
+ */
 export type SubtractedOf<M extends readonly TErrorMatcher[]> = SubtractedError<M[number]>;
 
-// Our error classes carry their identity as a Symbol.for entry on the prototype, and Symbol.keyFor
+// Error classes carry their identity as a Symbol.for entry on the prototype, and Symbol.keyFor
 // answers with a string only for registry symbols. Scanning for one is how a constructor is mapped
 // to the brand its instances answer to, without the class having to declare anything.
 function findRegistryBrand(prototype: object): symbol | undefined {

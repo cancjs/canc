@@ -14,5 +14,6 @@ module.exports = {
   },
   moduleNameMapper: {
     '^@shared/(.*)$': '<rootDir>/../_shared/$1',
+    '^(\\.{1,2}/.*)\\.js$': '$1',
   },
 };

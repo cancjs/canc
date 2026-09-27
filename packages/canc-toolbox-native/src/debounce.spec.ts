@@ -1,4 +1,122 @@
+import { ITimers } from '../../_toolbox';
 import { debounce } from './debounce';
+
+interface IFakeTimers {
+  timers: ITimers;
+  setTimeout: jest.Mock<number, [handler: () => void, ms?: number]>;
+  clearTimeout: jest.Mock<void, [handle: unknown]>;
+  delays: number[];
+  advance(ms: number): void;
+}
+
+/** A timers pair on a virtual clock, so scheduling is provably routed through the call, not the ambient. */
+function createFakeTimers(): IFakeTimers {
+  const scheduled: Array<{ id: number; due: number; handler: () => void }> = [];
+  const delays: number[] = [];
+  let now = 0;
+  let nextId = 1;
+
+  const setTimeoutMock = jest.fn((handler: () => void, ms?: number) => {
+    const id = nextId++;
+
+    delays.push(ms ?? 0);
+    scheduled.push({ id, due: now + (ms ?? 0), handler });
+
+    return id;
+  });
+
+  const clearTimeoutMock = jest.fn((handle: unknown) => {
+    const index = scheduled.findIndex((entry) => entry.id === handle);
+
+    if (index >= 0) scheduled.splice(index, 1);
+  });
+
+  return {
+    timers: { setTimeout: setTimeoutMock, clearTimeout: clearTimeoutMock },
+    setTimeout: setTimeoutMock,
+    clearTimeout: clearTimeoutMock,
+    delays,
+    advance: (ms: number) => {
+      now += ms;
+
+      for (;;) {
+        const due = scheduled.filter((entry) => entry.due <= now).sort((a, b) => a.due - b.due)[0];
+
+        if (!due) return;
+
+        scheduled.splice(scheduled.indexOf(due), 1);
+        due.handler();
+      }
+    },
+  };
+}
+
+describe('debounce (native): per-call timers', () => {
+  it('an injected pair receives the setTimeout and the matching clearTimeout for a call superseded before firing', async () => {
+    const pair = createFakeTimers();
+    const fn = (x: number) => Promise.resolve(x);
+    const debounced = debounce(fn, 100, { ...pair.timers });
+
+    debounced(1);
+    const firstHandle = pair.setTimeout.mock.results[0].value;
+
+    debounced(2);
+
+    expect(pair.setTimeout).toHaveBeenCalledTimes(2);
+    expect(pair.clearTimeout).toHaveBeenCalledWith(firstHandle);
+
+    pair.advance(100);
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+
+  it('maxWait schedules through the injected pair', async () => {
+    const pair = createFakeTimers();
+    let callCount = 0;
+    const fn = () => {
+      callCount++;
+
+      return Promise.resolve(callCount);
+    };
+    const debounced = debounce(fn, 100, { maxWait: 150, ...pair.timers });
+
+    debounced();
+
+    expect(pair.delays).toEqual([100, 150]);
+
+    pair.advance(100);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(callCount).toBe(1);
+    expect(pair.clearTimeout).toHaveBeenCalledTimes(1);
+  });
+
+  it('.cancel() clears through the injected pair and .flush() fires without waiting', async () => {
+    const pair = createFakeTimers();
+    let callCount = 0;
+    const fn = (x: number) => {
+      callCount++;
+
+      return Promise.resolve(x);
+    };
+
+    const cancelDebounced = debounce(fn, 100, { ...pair.timers });
+    cancelDebounced(1);
+    cancelDebounced.cancel();
+    expect(pair.clearTimeout).toHaveBeenCalledTimes(1);
+    expect(callCount).toBe(0);
+
+    const flushDebounced = debounce(fn, 100, { ...pair.timers });
+    const p = flushDebounced(5);
+    const flushed = flushDebounced.flush();
+
+    expect(flushed).toBe(p);
+    const result = await flushed!;
+    expect(result).toBe(5);
+    expect(callCount).toBe(1);
+  });
+});
 
 describe('debounce (native)', () => {
   afterEach(() => {

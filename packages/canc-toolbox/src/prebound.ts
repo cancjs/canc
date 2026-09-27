@@ -4,10 +4,12 @@ import * as tb from '../../_toolbox';
 import { deps, ICancelableKind } from './deps';
 import { TEagerToolboxOptions } from './options';
 
-// Prebound canc utilities. Each binds a shared toolbox factory to CancelablePromise, so a bare
-// `delay(100)` is cancelable by default and surfaces a CancelablePromise<T> return type callers can
-// `.cancel()` without a cast. The signatures below are the factories' own: there is no wrapper
-// layer to keep in sync.
+/**
+ * Prebound canc utilities. Each binds a shared toolbox factory to CancelablePromise, so a bare
+ * `delay(100)` is cancelable by default and surfaces a CancelablePromise<T> return type callers can
+ * `.cancel()` without a cast. The signatures below are the factories' own: there is no wrapper
+ * layer to keep in sync.
+ */
 export const delay = tb.delayFactory(deps);
 export const timeout = tb.timeoutFactory(deps);
 export const waitFor = tb.waitForFactory(deps);

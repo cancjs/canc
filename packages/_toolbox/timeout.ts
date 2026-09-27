@@ -1,11 +1,11 @@
 import { isTimeoutError, TimeoutError } from '../_util';
 import { IExecutorCtx } from './construct';
 import { constructTimed } from './construct-timed';
-import { IToolboxDeps } from './deps';
+import { IToolboxDeps, TCallDeps } from './deps';
 import { parseTimedArgs, resolveDuration, TDuration } from './duration';
 import { IEagerSource, startInput, TTimedInput } from './input';
 import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
-import { startTimer, stopTimer } from './timers';
+import { resolveTimers, startTimer, stopTimer } from './timers';
 
 export { isTimeoutError, TimeoutError };
 
@@ -26,11 +26,11 @@ export function timeoutFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: 
    * cancelable, the input is canceled with that same TimeoutError so it stops instead of running
    * detached. The timer is always cleared once the race settles.
    */
-  function timeout(ms: TDuration, options?: K['options']): TPromiseOf<K, never, TimeoutError>;
+  function timeout(ms: TDuration, options?: K['options'] & TCallDeps): TPromiseOf<K, never, TimeoutError>;
   function timeout<T, F = never>(
     input: TTimedInput<T>,
     ms?: TDuration,
-    options?: K['options'],
+    options?: K['options'] & TCallDeps,
   ): TPromiseOf<K, T, F | TimeoutError>;
   function timeout<T, F = never>(...rest: unknown[]): TPromiseOf<K, T, F | TimeoutError> {
     const parsed = parseTimedArgs<TTimedInput<T>>(rest, Infinity);
@@ -38,10 +38,10 @@ export function timeoutFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: 
     // malformed range throws synchronously out of this call instead of becoming a rejection.
     const ms = resolveDuration(parsed.duration);
     const { hasInput, input, options } = parsed;
+    const timers = resolveTimers(options, deps);
 
-    // The returned promise owns the timer so that canceling it (cancelable flavor) clears the
-    // pending timeout and stops the underlying operation, leaving no leaked work. Under a plain
-    // native Promise the context is undefined and the timer simply runs to completion.
+    // Returned promise owns the timer so canceling the cancelable flavor clears pending timeout
+    // stopping underlying operation while plain native Promise lets timer run to completion
     return constructTimed<T, K>(
       deps,
       (resolve, reject, ctx?: IExecutorCtx) => {
@@ -63,7 +63,7 @@ export function timeoutFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: 
             if (settled) return;
             settled = true;
 
-            const Ctor = deps.TimeoutError || TimeoutError;
+            const Ctor = options?.TimeoutError ?? deps.TimeoutError ?? TimeoutError;
             const error = new Ctor();
 
             // Deadline won: stop the underlying operation so it does not run detached, and report
@@ -72,13 +72,13 @@ export function timeoutFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: 
             reject(error);
           },
           ms,
-          deps,
+          timers,
         );
 
         if (ctx) {
           ctx.handleCancel(() => {
             settled = true;
-            stopTimer(id, deps);
+            stopTimer(id, timers);
             started?.cancelable?.cancel();
           });
         }
@@ -88,13 +88,13 @@ export function timeoutFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: 
             (value: T) => {
               if (settled) return;
               settled = true;
-              stopTimer(id, deps);
+              stopTimer(id, timers);
               resolve(value);
             },
             (reason: any) => {
               if (settled) return;
               settled = true;
-              stopTimer(id, deps);
+              stopTimer(id, timers);
               reject(reason);
             },
           );

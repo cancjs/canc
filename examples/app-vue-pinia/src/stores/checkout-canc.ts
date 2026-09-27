@@ -1,6 +1,5 @@
-// Pinia checkout store, canc. Each step action tracks its own in-flight CancelablePromise;
-// goToStep cancels whatever step the user is abandoning before moving on, so a slow validate
-// call can never land after the wizard has already moved past it.
+// Pinia checkout store, canc.
+// goToStep cancels whatever step the user is abandoning before moving on.
 
 import * as canc from '@cancjs/coroutine';
 import { CancelablePromise, isCancelError } from '@cancjs/promise';
@@ -39,7 +38,7 @@ export const useCheckoutStore = defineStore('checkout-canc', {
 
   actions: {
     validateAddress(line1: string, city: string) {
-      // canceled here -- a second validate call (or leaving the step) drops the first
+      // canceled here: a second validate call (or leaving the step) drops the first
       this.addressLoad?.cancel();
       this.addressStatus = 'loading';
 
@@ -52,7 +51,7 @@ export const useCheckoutStore = defineStore('checkout-canc', {
 
     quoteShipping() {
       if (!this.address) return;
-      // canceled here -- re-quoting (or navigating away) drops the outstanding quote
+      // canceled here: re-quoting (or navigating away) drops the outstanding quote
       this.shippingLoad?.cancel();
       this.shippingStatus = 'loading';
 
@@ -65,7 +64,7 @@ export const useCheckoutStore = defineStore('checkout-canc', {
 
     prepareReview() {
       if (!this.address || !this.shipping) return;
-      // canceled here -- the recap+confirm sequence below is one cancelable unit
+      // canceled here: the recap+confirm sequence below is one cancelable unit
       this.reviewLoad?.cancel();
       this.reviewStatus = 'loading';
       const addressId = this.address.addressId;
@@ -81,7 +80,7 @@ export const useCheckoutStore = defineStore('checkout-canc', {
       this.reviewLoad = load;
     },
 
-    // canceled here -- goToStep drops whatever the abandoned step still had in flight, so a stale
+    // canceled here: goToStep drops whatever the abandoned step still had in flight, so a stale
     // validate/quote/review can never overwrite state after the wizard has moved on
     goToStep(next: StepName) {
       const current = this.step;
@@ -91,9 +90,7 @@ export const useCheckoutStore = defineStore('checkout-canc', {
       this.step = next;
     },
 
-    // rollback-in-cancel-handler: showing the pattern once. If a shipping quote is canceled after
-    // an optimistic UI already showed a carrier, handleCancel undoes it -- rollback lives at the
-    // cancellation site, not scattered through .then chains.
+    // rollback-in-cancel-handler: showing the pattern once.
     quoteShippingOptimistic() {
       if (!this.address) return;
       this.shippingLoad?.cancel();
@@ -105,7 +102,7 @@ export const useCheckoutStore = defineStore('checkout-canc', {
         this.shippingStatus = 'done';
       });
       load.catch((err) => {
-        if (!isCancelError(err)) return;
+        if (!isCancelError(err)) throw err;
         // rollback: drop the optimistic placeholder so the UI does not show a fake quote
         this.shipping = null;
         this.shippingStatus = 'idle';
@@ -114,7 +111,7 @@ export const useCheckoutStore = defineStore('checkout-canc', {
     },
 
     dispose() {
-      // $onAction cleanup on store dispose -- cancel every step still outstanding
+      // $onAction cleanup on store dispose: cancel every step still outstanding
       this.addressLoad?.cancel();
       this.shippingLoad?.cancel();
       this.reviewLoad?.cancel();

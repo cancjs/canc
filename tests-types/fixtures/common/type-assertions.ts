@@ -1,17 +1,17 @@
 /**
  * Type-level assertion suite. Compiled only in the `latest` TS lane of the
- * TS-version matrix (matrix.config.json → version with `typeAssertions:true`).
+ * TS-version matrix (matrix.config.json to version with `typeAssertions:true`).
  *
  * Each `type _NN = Expect<Equal<Actual, Expected>>` line is a real assertion:
  * if the shipped `.d.ts` ever changes the inferred type, `Equal` becomes `false`
  * and `Expect<false>` fails compilation. Every area also has at least one
- * intentional-error case guarded by `@ts-expect-error` — those LINES must error;
+ * intentional-error case guarded by `@ts-expect-error`, those LINES must error;
  * if the type surface drifts so they stop erroring, `tsc` reports the unused
  * directive and the lane goes red. So both a too-loose and a too-strict drift
  * are caught.
  *
  * Assertions are pinned to the ACTUAL current contract (e.g. `cancAsync` is
- * declared to return `CancelablePromise<unknown>` today — asserted as such;
+ * declared to return `CancelablePromise<unknown>` today, asserted as such;
  * tighten here in lockstep if P?-? ever narrows that return).
  */
 import CancelablePromise, {
@@ -74,11 +74,11 @@ declare const p: CancelablePromise<number>;
 const then1 = p.then((n) => `${n}`);
 type _then1 = Expect<Equal<typeof then1, CancelablePromise<string>>>;
 
-// no onRejected → result carries just the fulfilled mapping
+// no onRejected: result carries just the fulfilled mapping
 const then2 = p.then((n) => n * 2);
 type _then2 = Expect<Equal<typeof then2, CancelablePromise<number>>>;
 
-// onFulfilled + onRejected → union of both branches
+// onFulfilled + onRejected: union of both branches
 const then3 = p.then((n) => `${n}`, () => 0);
 type _then3 = Expect<Equal<typeof then3, CancelablePromise<string | number>>>;
 
@@ -99,7 +99,7 @@ type _all2 = Expect<Equal<typeof all2, CancelablePromise<[number, string]>>>;
 const all3 = CancelablePromise.all([Promise.resolve(1), Promise.resolve('a'), Promise.resolve(true)]);
 type _all3 = Expect<Equal<typeof all3, CancelablePromise<[number, string, boolean]>>>;
 
-// 10-arity is the last fixed overload before the variadic fallback — spot-check it.
+// 10-arity is the last fixed overload before the variadic fallback, spot-check it.
 const all10 = CancelablePromise.all([
  Promise.resolve(1), Promise.resolve('a'), Promise.resolve(true),
  Promise.resolve(4), Promise.resolve('e'), Promise.resolve(6),
@@ -110,7 +110,7 @@ type _all10 = Expect<Equal<
  CancelablePromise<[number, string, boolean, number, string, number, string, number, string, number]>
 >>;
 
-// homogeneous array (not a tuple literal) → element array, not a tuple
+// homogeneous array (not a tuple literal): element array, not a tuple
 const allArr = CancelablePromise.all([Promise.resolve(1), Promise.resolve(2)] as Promise<number>[]);
 type _allArr = Expect<Equal<typeof allArr, CancelablePromise<number[]>>>;
 

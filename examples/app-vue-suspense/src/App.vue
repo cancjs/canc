@@ -3,9 +3,8 @@ import { type Component, ref } from 'vue';
 
 import { PRODUCT_IDS } from './mock/catalog-api';
 
-// The flavored ProductDetail component is injected by the entry (main-canc.ts / main-vanilla.ts),
-// so this shell carries no cancellation logic and no flavor split. Selecting a product remounts the
-// detail component under <Suspense> with a fresh key, tearing down the previous one mid-load.
+// The flavored ProductDetail component is injected by the entry (main-canc.ts / main-vanilla.ts).
+// Selecting a product remounts the detail component under <Suspense> with a fresh key.
 defineProps<{ detailComponent: Component; title: string }>();
 
 const selected = ref<string | null>(null);

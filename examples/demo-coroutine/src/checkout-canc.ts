@@ -38,10 +38,7 @@ export function createCheckoutCancelable(
       const confirmation = yield* canc.await(confirm(orderId, chargeResult.id));
       checkoutDone = true;
 
-      // Cancellation gap: the notification vendor takes no signal, so once this step
-      // starts it runs to completion even if the coroutine is canceled right after.
-      // A stale order confirmation email is harmless, so the gap is left open rather
-      // than blocked on a workaround.
+      // Cancellation gap: notification vendor takes no signal and runs to completion if aborted.
       yield* canc.await(legacyConfirmEmail(orderId));
 
       return confirmation;

@@ -5,9 +5,7 @@ import { Component, inject, Input, OnChanges } from '@angular/core';
 import { promiseResource } from '../lib/promise-resource';
 import { type OrderDetail, ORDERS_SERVICE } from './orders.types';
 
-// Detail pane. Picking another row supersedes the detail load in flight and the resource drops its
-// response, which is all a plain promise allows. The request runs to completion, and so does the one
-// left over on destroy. The component keeps the staleness guard out of sight, not the wasted work.
+// superseding or unmounting drops late response while request keeps running
 @Component({
   selector: 'app-detail-pane',
   standalone: true,
@@ -41,15 +39,13 @@ export class DetailPaneComponent implements OnChanges {
   private readonly orders = inject(ORDERS_SERVICE);
 
   ngOnChanges(): void {
-    // Clearing the selection invalidates the load in flight. It keeps running, and only its result
-    // is thrown away, so an empty pane still costs a full request.
+    // clearing selection drops result while request keeps running
     if (!this.orderId) {
       this.orderDetail.reset();
       return;
     }
 
-    // (no cancelable promise counterpart, see -canc) A plain promise is all the service can hand
-    // back, and the resource takes it as is.
+    // (no cancellation counterpart, see -canc)
     this.orderDetail.run(this.orders.detail(this.orderId));
   }
 }

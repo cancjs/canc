@@ -106,9 +106,7 @@ describe('vanilla CatalogPage', () => {
     jest.advanceTimersByTime(LATENCY);
     await flush();
 
-    // Inverted assertion: the AbortController workaround aborts the request, but the stale flag is
-    // what actually protects the state. This documents that the vanilla flavor's cancellation is a
-    // hand-rolled add-on, not the promise's own contract.
+    // abort controller aborts request; stale flag protects component state
     expect(countByStatus(api.calls, 'catalog.list', 'aborted')).toBe(2);
     wrapper.unmount();
   });

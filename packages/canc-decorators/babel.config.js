@@ -14,7 +14,7 @@ module.exports = {
   plugins: [
     // Stage-3 decorators apply their own class-elements handling; @babel/plugin-transform-class-
     // properties is only needed for LEGACY decorators and actively breaks stage-3 parsing if
-    // included alongside it (confirmed empirically against @babel/core 7.29.7 — the combination
+    // included alongside it (confirmed empirically against @babel/core 7.29.7: the combination
     // makes the parser reject `@` syntax entirely with a misleading "Decorators are not enabled").
     ['@babel/plugin-proposal-decorators', { version: '2023-05' }],
   ],

@@ -1,9 +1,11 @@
-// Native-Promise entry: every utility is prebound to the platform's Promise, so nothing here is
-// cancelable. This is the reduced export set for consumers who only want timing, retry, and
-// promisify helpers on plain promises. Use `@cancjs/toolbox` for cancellation support.
-//
-// Each export is a shared toolbox factory bound to the captured native Promise, so the signatures
-// below are the factories' own: there is no wrapper layer to keep in sync with the cancelable twin.
+/**
+ * Native-Promise entry: every utility is prebound to the platform's Promise, so nothing here is
+ * cancelable. This is the reduced export set for consumers who only want timing, retry, and
+ * promisify helpers on plain promises. Use `@cancjs/toolbox` for cancellation support.
+ *
+ * Each export is a shared toolbox factory bound to the captured native Promise, so the signatures
+ * below are the factories' own: there is no wrapper layer to keep in sync with the cancelable twin.
+ */
 import * as tb from '../../_toolbox';
 import { deps, INativeKind } from './deps';
 

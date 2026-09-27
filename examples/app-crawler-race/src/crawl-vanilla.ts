@@ -1,9 +1,4 @@
-// Crawl a site depth-2, reporting broken (404) links, with a hand-rolled cancellation attempt.
-//
-// Every page fetch runs through a plain concurrency queue. Cancellation is threaded by hand: each
-// crawl level owns an AbortController and the queue tracks controllers so Stop can abort them. It
-// still leaks: a queued fetch has no controller yet, so draining the queue cannot abort what has
-// not started, and deeper fetches dispatched a tick before Stop already left with their own signal.
+// Crawl a site depth-2, reporting broken (404) links, with hand-rolled abort.
 
 import type { MockApi } from '@shared/mock-api';
 import { sleep } from '@shared/util';
@@ -11,8 +6,7 @@ import { sleep } from '@shared/util';
 import { createSiteApi, HOME_URL, type Page } from './mock/site';
 import type { CrawlReport } from './types';
 
-// A minimal concurrency queue. It collects the controllers of running jobs so a caller can try to
-// abort them, but a queued job has no controller yet, so it cannot be aborted before it starts.
+// collects running controllers to attempt aborts; queued jobs have no controller yet
 function createQueue(limit: number) {
   let active = 0;
   const waiting: Array<() => void> = [];
@@ -64,8 +58,7 @@ export function crawlSite(api: MockApi, concurrency: number): { result: Promise<
   };
 
   const result = visit(HOME_URL, 2).then(() => ({ visited, broken }));
-  // Aborts only what is running now. Queued pages have no controller so they still start, and the
-  // fetches dispatched a tick before this call keep running (grandchildren leak).
+  // aborts only running fetches, queued pages and deeper fetches still run
   const cancel = () => queue.abortRunning();
 
   return { result, cancel };

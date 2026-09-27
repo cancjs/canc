@@ -66,9 +66,8 @@ describe('lazy promise smoke', () => {
   });
 
   it('cancelify(fn, { lazy: true }) still resolves end to end after the rewiring', async () => {
-    // cancelify does not route through the { lazy: true } deferred-start wrapper (it builds a
-    // CancelablePromise directly), so the option is opaque to it here. The point of this case is
-    // that passing it does not break anything post-move: the call still resolves normally.
+    // Cancelify does not route through the lazy deferred-start wrapper so the option is opaque
+    // here and this case just ensures passing it does not break anything post-move
     const wrapped = cancelify(() => Promise.resolve('done'), { lazy: true } as unknown as Record<string, never>);
 
     await expect(wrapped()).resolves.toBe('done');
@@ -106,10 +105,8 @@ const Module = require('module');
 const fs = require('fs');
 const path = require('path');
 
-// Map @cancjs/* specifiers to source (plain imports via .then() have no jest moduleNameMapper),
-// so lazy-promise.ts's bare 'import ... from "@cancjs/promise"' transpiles to a require() that
-// must resolve the same way it does in the test. Subpath specifiers (e.g. @cancjs/toolbox/async-iter)
-// would map to a nonexistent path; let them fall through to the original resolver with its error.
+// Map @cancjs specifiers to source so lazy-promise bare imports transpile to a require that
+// resolves properly while subpath specifiers fall through to original resolver with its error
 const originalResolveFilename = Module._resolveFilename;
 Module._resolveFilename = function (request, parent, isMain) {
  const match = request.match(/^@cancjs\\/([^\\/]+)(?:\\/(.*))?$/);
@@ -163,7 +160,7 @@ if (mode === 'execute-then-consume') {
  floated.then(noop, noop);
 }
 
-setTimeout(function () { process.stdout.write('EVENTS:' + JSON.stringify(events)); }, 150);
+process.on('beforeExit', function () { process.stdout.write('EVENTS:' + JSON.stringify(events)); });
 `;
 
   const out = execFileSync(process.execPath, ['-e', program], {

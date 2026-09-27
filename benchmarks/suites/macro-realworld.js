@@ -10,7 +10,7 @@
  * - overhead per operation in microseconds, and % vs native
  * - retained memory per 1000 in-flight operations
  *
- * Flows (all local, no real network — resolution driven by setImmediate so the
+ * Flows (all local, no real network: resolution driven by setImmediate so the
  * microtask/macrotask interleaving resembles real async I/O):
  *
  * 1. mock-fetch waterfall: 5 sequential "requests" then 3 parallel ones
@@ -38,10 +38,6 @@ const { captureEnv } = require('../lib/env');
 
 Bluebird.config({ cancellation: true });
 
-// ---------------------------------------------------------------------------
-// Tunables
-// ---------------------------------------------------------------------------
-
 const WATERFALL_RUNS = 20000; // waterfall flow iterations per impl
 const WATERFALL_CANCEL_RATE = 0.3; // 30% canceled mid-flight
 const LIFECYCLE_RUNS = 10000; // component-lifecycle iterations per impl
@@ -63,18 +59,10 @@ function makeRng(seed) {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Flow factories — one object per implementation. Each exposes:
-// waterfall(cancelMidFlight) -> Promise settling when the flow is done/aborted
-// lifecycle() -> Promise settling after mount+requests+unmount
-// inflight() -> { promises: [...], cancelAll() } for memory
-// Every impl swallows its own cancellation so the harness loop never rejects.
-// ---------------------------------------------------------------------------
-
 const impls = {
   // Native Promise + hand-rolled AbortController. This is the honest baseline:
   // what you write today if you want cancellation without a library. Note the
-  // manual ceremony (signal checks, listener wiring) — that's the point.
+  // manual ceremony (signal checks, listener wiring): that's the point.
   native: {
     name: 'native (Promise + AbortController)',
 
@@ -276,15 +264,11 @@ function swallowAll() {
   /* macro flow, any settle is fine */
 }
 
-// ---------------------------------------------------------------------------
-// Timing + memory
-// ---------------------------------------------------------------------------
-
 async function timeFlow(runOne, total, opsPerRun, seed) {
   const rng = makeRng(seed);
   const warmup = Math.floor(total * WARMUP_FRACTION);
 
-  // Warmup (untimed) — let V8 tier up.
+  // Warmup (untimed): let V8 tier up.
   for (let i = 0; i < warmup; i++) {
     await runOne(rng() < WATERFALL_CANCEL_RATE);
   }
@@ -329,10 +313,6 @@ async function measureMemoryPer1k(impl) {
 }
 
 function noop() {}
-
-// ---------------------------------------------------------------------------
-// Runner
-// ---------------------------------------------------------------------------
 
 async function run() {
   const env = captureEnv();
@@ -385,10 +365,6 @@ async function run() {
   return { result, md };
 }
 
-// ---------------------------------------------------------------------------
-// Markdown + plain-English summary
-// ---------------------------------------------------------------------------
-
 function pct(value, base) {
   if (base === 0) return 'n/a';
   const p = ((value - base) / base) * 100;
@@ -406,17 +382,17 @@ function toMarkdown(result) {
   lines.push('## Suite: macro-realworld');
   lines.push('');
   lines.push(
-    `Node ${env.node} · ${env.platform}/${env.arch} · ${env.cpuModel} (${env.cpuCount} cores) · ${env.timestamp}`,
+    `Node ${env.node} / ${env.platform}/${env.arch} / ${env.cpuModel} (${env.cpuCount} cores) / ${env.timestamp}`,
   );
   lines.push('');
   lines.push(
     `Flows: waterfall (5 sequential + 3 parallel requests, ${Math.round(
       params.waterfallCancelRate * 100,
-    )}% canceled mid-flight) × ${params.waterfallRuns.toLocaleString()} · ` +
-      `component-lifecycle (mount → ${params.lifecycleRequests} requests → unmount-cancel) × ${params.lifecycleRuns.toLocaleString()}.`,
+    )}% canceled mid-flight) x ${params.waterfallRuns.toLocaleString()} / ` +
+      `component-lifecycle (mount to ${params.lifecycleRequests} requests to unmount-cancel) x ${params.lifecycleRuns.toLocaleString()}.`,
   );
   lines.push('');
-  lines.push('### Waterfall — overhead per request operation');
+  lines.push('### Waterfall: overhead per request operation');
   lines.push('');
   lines.push('| Impl | µs/op | vs native | µs/run | total ms |');
   lines.push('|------|------:|----------:|-------:|---------:|');
@@ -424,12 +400,12 @@ function toMarkdown(result) {
     const w = results[key].waterfall;
     lines.push(
       `| ${results[key].name} | ${w.usPerOp.toFixed(3)} | ${
-        key === 'native' ? '—' : pct(w.usPerOp, nativeW)
+        key === 'native' ? '-' : pct(w.usPerOp, nativeW)
       } | ${w.usPerRun.toFixed(3)} | ${w.totalMs.toFixed(0)} |`,
     );
   }
   lines.push('');
-  lines.push('### Component-lifecycle — overhead per request operation');
+  lines.push('### Component-lifecycle: overhead per request operation');
   lines.push('');
   lines.push('| Impl | µs/op | vs native | µs/run | total ms |');
   lines.push('|------|------:|----------:|-------:|---------:|');
@@ -439,7 +415,7 @@ function toMarkdown(result) {
     const comparable = results[key].lifecycleComparable;
     if (!comparable) anyNonComparable = true;
     const vs =
-      key === 'native' ? '—'
+      key === 'native' ? '-'
       : comparable ? pct(l.usPerOp, nativeL)
       : 'n/c*';
     const label = comparable ? results[key].name : `${results[key].name}*`;
@@ -449,12 +425,12 @@ function toMarkdown(result) {
   if (anyNonComparable) {
     lines.push(
       '\\* Not comparable: a canceled bluebird promise never settles by design, so its ' +
-        'lifecycle flow cannot be awaited to completion like native/canc — only the ' +
+        'lifecycle flow cannot be awaited to completion like native/canc; only the ' +
         'synchronous cancel work is timed.',
     );
     lines.push('');
   }
-  lines.push('### Memory — retained heap per 1000 in-flight requests');
+  lines.push('### Memory: retained heap per 1000 in-flight requests');
   lines.push('');
   const memSupported = order.some((k) => results[k].memory.supported);
   if (memSupported) {
@@ -465,7 +441,7 @@ function toMarkdown(result) {
       lines.push(`| ${results[key].name} | ${m.supported ? (m.kbPer1k / 1024).toFixed(2) : 'n/a'} |`);
     }
   } else {
-    lines.push('_Memory not measured — run with `node --expose-gc` for per-1k heap numbers._');
+    lines.push('_Memory not measured; run with `node --expose-gc` for per-1k heap numbers._');
   }
   lines.push('');
   lines.push('### Summary');
@@ -497,7 +473,7 @@ function buildSummary(result) {
   const nMem = results.native.memory;
 
   // Direction word from the sign; magnitude bucket from the size. No canned
-  // conclusion — the sentence follows whatever the numbers actually say.
+  // conclusion: the sentence follows whatever the numbers actually say.
   const dir = (delta) => (delta <= 0 ? 'faster than' : 'slower than');
   const bucket = (delta) => {
     const a = Math.abs(delta);
@@ -531,24 +507,24 @@ function buildSummary(result) {
     `${bucket(lDelta)} native on the cancel-heavy lifecycle flow ` + `(${lDelta >= 0 ? '+' : ''}${lDelta.toFixed(0)}%)`;
 
   // Honest bottom line: costs are real and grow with cancel density. The value
-  // proposition is correctness/ergonomics stated as a trade-off — not a claim
+  // proposition is correctness/ergonomics stated as a trade-off, not a claim
   // that canc is free.
   const bottom =
     Math.abs(wDelta) < 5 && Math.abs(lDelta) < 30 ?
       `Bottom line: on request-shaped async work the overhead is small relative to the async ` +
       `gaps themselves, so the choice comes down to ergonomics and correctness rather than throughput.`
-    : `Bottom line: cancelable promises are not free — the cost is a real per-operation tax that ` +
-      `grows with how much cancellation the flow does (see the lifecycle row) — but it buys real, ` +
+    : `Bottom line: cancelable promises are not free. The cost is a real per-operation tax that ` +
+      `grows with how much cancellation the flow does (see the lifecycle row), but it buys real, ` +
       `try/catch-native cancellation without the manual AbortController plumbing the baseline needs. ` +
       `For I/O-bound flows the tax is dwarfed by network and timer latency; for hot, cancel-dense ` +
       `loops it is worth measuring against your own budget.`;
 
   return (
-    `In a simulated app — a 5-then-3 request waterfall and a mount/unmount-cancel component ` +
-    `lifecycle — canc's cancelable promises come out ${wPhrase} on the waterfall and are ${lPhrase}, ` +
+    `In a simulated app (a 5-then-3 request waterfall and a mount/unmount-cancel component ` +
+    `lifecycle), canc's cancelable promises come out ${wPhrase} on the waterfall and are ${lPhrase}, ` +
     `while giving you cancellation as a first-class rejection instead of hand-rolled AbortController ` +
     `wiring. Bluebird's cancellation runs ${Math.abs(bbDelta).toFixed(0)}% ${dir(bbDelta)} native on ` +
-    `the same waterfall (its lifecycle flow is not directly comparable — canceled bluebird promises ` +
+    `the same waterfall (its lifecycle flow is not directly comparable; canceled bluebird promises ` +
     `never settle).${mem} ${bottom}`
   );
 }

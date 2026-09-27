@@ -12,7 +12,7 @@ export type CancelableEffectCallback = () => CancelablePromise<unknown> | void |
  * Generator effect callback. A bare generator function passed to `useCancelableEffect` is wrapped
  * as a coroutine and canceled automatically when dependencies change or the component unmounts.
  */
-export type CancelableGeneratorEffectCallback = () => Generator<unknown, unknown, any>;
+export type CancelableGeneratorEffectCallback = () => canc.TGeneratorLike<unknown, unknown, any>;
 
 function isGeneratorFunction(value: unknown): value is CancelableGeneratorEffectCallback {
   if (typeof value !== 'function') return false;

@@ -1,8 +1,4 @@
-// canc flavor: a line click triggers a context search, and a new click should replace the old one.
-// switchMap unsubscribes the previous inner Observable, and here the inner Observable is
-// fromCancelablePromise(factory) around a CancelablePromise. Unsubscribing runs the promise's cancel(),
-// which aborts the underlying search. The boundary that leaked in the vanilla twin is now closed:
-// the search actually stops. The search records prove it (one `aborted`, one `completed`).
+// canc flavor: switchMap with fromCancelablePromise aborts in-flight search on new click
 
 import { cancelify } from '@cancjs/toolbox';
 import { Observable, Subject, switchMap } from 'rxjs';
@@ -18,8 +14,7 @@ import { renderContext } from './viewer';
 export function contextSearches(clicks: Subject<number>, log: SearchRecord[]): Observable<[number, LogLine[]]> {
   return clicks.pipe(
     switchMap((lineSeq) => {
-      // fromCancelablePromise(factory): switching away unsubscribes this Observable, and unsubscribe
-      // cancels the promise — the previous search is aborted, not left running (no wasted work).
+      // switching away unsubscribes Observable, canceling the underlying search promise
       const search = () => cancelify(({ getSignal }) => searchContext(lineSeq, log, getSignal()))();
       return fromCancelablePromise(search).pipe(mapWithSeq(lineSeq));
     }),

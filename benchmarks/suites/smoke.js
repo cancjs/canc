@@ -2,7 +2,7 @@
 
 /**
  * Trivial one-suite smoke test. Not a real
- * micro-benchmark (see micro.js for the actual construct/resolve/chain suites) —
+ * micro-benchmark (see micro.js for the actual construct/resolve/chain suites);
  * just proves the runner + JSON + md pipeline works end to end.
  */
 module.exports = {

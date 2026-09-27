@@ -12,8 +12,7 @@ export function generateReport(ragApi: RagApi, reportId: string): Promise<Report
 
   const promise = (async (): Promise<Report> => {
     try {
-      // Fetch data chunks. The underlying call stops if the controller aborts.
-      // canceled here: nothing below runs
+      // fetch data chunks; stops if controller aborts
       const chunks = await ragApi.search(reportId, controller.signal);
       const report: Report = {
         id: reportId,
@@ -21,25 +20,20 @@ export function generateReport(ragApi: RagApi, reportId: string): Promise<Report
         chunkCount: chunks.length,
       };
 
-      // Render and upload (simulated). Still stops if the controller aborts.
-      // canceled here: nothing below runs
+      // render and upload; stops if controller aborts
       await ragApi.search(reportId, controller.signal);
 
       return report;
     } finally {
-      // The audit write is never given the controller's signal, on purpose, so it always runs to
-      // completion. That guarantee lives in remembering to leave this one call unwired rather than
-      // in an explicit option (compare the shielded yield in report-canc.ts).
+      // audit write is deliberately left unwired so it always runs to completion
       await ragApi.search(reportId);
     }
   })();
 
-  // Manual disposal protocol: nothing calls this unless we attach it ourselves.
+  // manual disposal protocol attached directly to promise
   (promise as any)[Symbol.asyncDispose] = async () => {
     controller.abort();
-    // A plain promise has no built-in way to mark its own rejection handled, so an aborted
-    // promise nobody else awaits becomes an unhandled rejection and crashes the process.
-    // We have to remember this catch on every dispose path; CancelablePromise does it for free.
+    // catch unhandled rejection when aborted promise is not awaited
     await promise.catch(() => {});
   };
 

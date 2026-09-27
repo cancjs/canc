@@ -68,8 +68,7 @@ export function addCheckoutOperations(api: MockApi) {
     releaseReservation: (reservationId: string, signal?: AbortSignalLike): Promise<void> =>
       api.respond('checkout.releaseReservation', { reservationId }, () => undefined, signal),
 
-    // Legacy notification vendor. No signal parameter: this call cannot be aborted once
-    // started, no matter which flavor calls it.
+    // Legacy notification vendor lacks a signal parameter and cannot be aborted once started.
     legacyConfirmEmail: (orderId: string): Promise<void> =>
       api.respond('checkout.legacyConfirmEmail', { orderId }, () => undefined),
   };
