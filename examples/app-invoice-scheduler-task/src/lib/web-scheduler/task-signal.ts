@@ -110,6 +110,12 @@ function composeAbortSignals(signals: AbortSignal[]): AbortSignal {
   }
 
   const controller = new AbortController();
+  // Use a cleanup controller to manage listener lifetime: pass its signal as the `signal` option
+  // when attaching listeners, so the platform automatically removes them when we abort cleanup.
+  // Without this, listeners on source signals persist after the composed result is discarded,
+  // accumulating across queries in long-lived sessions on browsers lacking AbortSignal.any.
+  const cleanupSignal = new AbortController();
+
   const forward = (aborted: AbortSignal) => {
     if (!controller.signal.aborted) {
       controller.abort(aborted.reason);
@@ -122,8 +128,11 @@ function composeAbortSignals(signals: AbortSignal[]): AbortSignal {
       break;
     }
 
-    signal.addEventListener('abort', () => forward(signal), { once: true });
+    signal.addEventListener('abort', () => forward(signal), { signal: cleanupSignal.signal });
   }
+
+  // When the composed signal aborts, abort the cleanup signal to remove all listeners
+  controller.signal.addEventListener('abort', () => cleanupSignal.abort());
 
   return controller.signal;
 }

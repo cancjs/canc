@@ -29,6 +29,8 @@ const ownConfigs = glob
   .filter(
     (p) =>
       !p.includes('~~') &&
+      // kysely ESM fails under CJS transform with SyntaxError: Unexpected token 'export'
+      // runs in its own process via npm run test --prefix app-express-kysely
       !p.includes('app-express-kysely') &&
       !multiProjectPaths.includes(p.split(path.sep).join('/')),
   )

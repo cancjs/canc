@@ -39,4 +39,4 @@ npm run start:canc
 - `src/main-canc.ts` vs `src/main-vanilla.ts`: entry points that trigger cancellation.
 - `src/mock/`: scaffolding for a mock latency-controlled API (ignore).
 
-*Note: A future follow-up will demonstrate composing the stream through the `@cancjs/toolbox/async-iter` helpers once they are available.*
+Composing the stream through the `@cancjs/toolbox/async-iter` helpers is demonstrated in `demo-async-iter`.

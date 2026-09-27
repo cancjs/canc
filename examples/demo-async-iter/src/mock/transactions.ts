@@ -20,6 +20,15 @@ const ARCHIVED: Transaction[] = [
   { id: 'tx-archived-2', amount: -500, status: 'completed' },
 ];
 
+let streamClosedResolvers: Array<() => void> = [];
+
+/** Test hook: returns a promise that settles on next transactionStream finally. */
+export function waitForStreamClosed(): Promise<void> {
+  return new Promise((resolve) => {
+    streamClosedResolvers.push(resolve);
+  });
+}
+
 /**
  * Async generator yielding transactions one at a time. Each item takes ~30ms, simulating a
  * slow external data source (database cursor, paginated API). The finally block logs cleanup
@@ -34,6 +43,11 @@ export async function* transactionStream(log?: (msg: string) => void): AsyncGene
     }
   } finally {
     log?.('stream closed');
+    const resolvers = streamClosedResolvers;
+    streamClosedResolvers = [];
+    for (const resolve of resolvers) {
+      resolve();
+    }
   }
 }
 

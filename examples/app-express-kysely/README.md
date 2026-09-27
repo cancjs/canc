@@ -55,7 +55,10 @@ To run the opt-in wire-cancel path, run `DATABASE_URL=... npm run start:canc` co
   is wired per-route by `cancAsyncRoute`.
 - `src/routes-vanilla.ts` vs `src/routes-canc.ts`: route handlers. Vanilla needs a second
   `/orders/report-abortable` route for the workaround; canc has one report route, written as a
-  generator passed to `cancAsyncRoute`.
+  generator passed to `cancAsyncRoute`. Both files also serve `/products`. The canc one goes through
+  `cancAsyncRoute` as well, so a disconnect cancels it, but a single short query leaves almost
+  nothing to stop: the cancel only lands in time if it arrives before the statement is sent. The
+  report route is where the difference is visible.
 
 ## Honesty matrix
 
@@ -63,9 +66,14 @@ To run the opt-in wire-cancel path, run `DATABASE_URL=... npm run start:canc` co
 |---|---|---|
 | remaining slices skipped, socket released | yes | yes |
 | in-flight await rejects at a statement boundary | yes (async driver) | yes |
-| a running statement killed server-side | **no** (thread blocked; no `cancelQuery`) | **yes** via `'cancel query'` → `pg_cancel_backend` |
-| session/backend killed | no | yes via `'kill session'` → `pg_terminate_backend` |
+| a running statement killed server-side | **no** (thread blocked; no `cancelQuery`) | **yes** via `'cancel query'` -> `pg_cancel_backend` |
+| session/backend killed | no | yes via `'kill session'` -> `pg_terminate_backend` |
 
 ## Copying
 
 `src/lib/cancelable-kysely.ts` and `src/lib/cancelable-route.ts` are the reusable pieces. `src/mock/` is scaffolding.
+
+One limit worth knowing before copying: kysely takes a signal per query, not per transaction. So
+`transactionCancelable` rejects its caller on cancel, and the transaction it opened still runs to the
+end and commits. Canceling the queries inside the body is what stops a transaction, because kysely
+rolls back when the body rejects. `src/lib/cancelable-kysely.spec.ts` asserts both halves of that.

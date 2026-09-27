@@ -1,5 +1,6 @@
 import { isCancelError } from '@cancjs/promise';
 
+import { waitForStreamClosed } from '../src/mock/transactions';
 import { filterAndFormat, topPositiveIds } from '../src/reconciliation-canc';
 import { filterAndFormat as filterAndFormatVanilla } from '../src/reconciliation-vanilla';
 
@@ -16,6 +17,7 @@ describe('demo-async-iter', () => {
 
   it('cancel mid-pipeline stops pulling and closes the source', async () => {
     const logs: string[] = [];
+    const closedPromise = waitForStreamClosed();
 
     const pipeline = filterAndFormat((msg) => {
       logs.push(msg);
@@ -36,8 +38,8 @@ describe('demo-async-iter', () => {
     const pulled = logs.filter((l) => l.startsWith('pulling'));
     expect(pulled.length).toBeLessThan(6);
 
-    // source finally block fires once return() propagates through operator chain
-    await new Promise((r) => setTimeout(r, 100));
+    // source generator finally block fires once return() propagates
+    await closedPromise;
     expect(logs).toContain('stream closed');
   });
 

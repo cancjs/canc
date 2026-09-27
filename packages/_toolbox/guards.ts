@@ -32,6 +32,11 @@ export function isCancelableLike(value: unknown): value is ICancelableLike {
   return isObjectLike(value) && typeof value.cancel === 'function';
 }
 
+/** Whether a value can be iterated, either synchronously or asynchronously. */
+export function isIterable(value: unknown): boolean {
+  return isObjectLike(value) && (isFunction(value[Symbol.iterator]) || isFunction(value[Symbol.asyncIterator]));
+}
+
 /**
  * Well-known registry brand for `@cancjs/promise`'s CancelError (`cancel-error.ts`). Checked here
  * by the raw `Symbol.for` key rather than imported, so this module (and the native toolbox twin

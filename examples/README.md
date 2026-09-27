@@ -69,10 +69,12 @@ layer cancellation actually reaches.
 
 ## Servers and databases
 
-* [app-express-kysely](app-express-kysely) slow report endpoint over SQLite. Client disconnect
-	cancels the remaining query chain.
+* [app-express-kysely](app-express-kysely) slow report endpoint over PGlite. Cancellation is threaded
+	into Kysely through one helper, with an opt-in pg path for real wire-cancel.
 * [app-fastify-mongoose](app-fastify-mongoose) hotel availability search. The route handler is a
 	coroutine, the repository is cancelified, so no signal is threaded through the service.
+* [app-fullstack-cancel](app-fullstack-cancel) user search across a React client, Express route,
+	and MikroORM over PGlite. Cancel aborts the HTTP request and stops database queries.
 * [app-nestjs-typeorm](app-nestjs-typeorm) invoicing API. An interceptor cancels the request scope,
 	and a bulk endpoint rolls its transaction back in a shielded `finally`.
 
@@ -82,6 +84,8 @@ layer cancellation actually reaches.
 	browser, server and the model call.
 * [app-ai-rag-pipeline](app-ai-rag-pipeline) retrieval pipeline (embed, retrieve, rerank, stream)
 	as one cancelable flow. No API key needed.
+* [app-fetch-streaming](app-fetch-streaming) paginated activity feed streaming. Stopping early
+	aborts the in-flight page fetch and halts pagination.
 * [app-ws-progress](app-ws-progress) video export progress over a WebSocket. Cancel stops the
 	transcode, not just the progress bar.
 
@@ -117,6 +121,8 @@ layer cancellation actually reaches.
 	cancelable promises.
 * [demo-async-dispose](demo-async-dispose) `await using` scopes, cleanup ordering, shield survival,
 	disposal after settle.
+* [demo-async-iter](demo-async-iter) stream transforms with async iterator pipe operators and
+	cancel propagation back to the source generator.
 
 ## Shared code
 

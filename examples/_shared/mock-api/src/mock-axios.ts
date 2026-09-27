@@ -8,32 +8,34 @@ export interface MockAxiosConfig {
   method?: string;
   baseURL?: string;
   signal?: AbortSignalLike;
-  [key: string]: any;
+  params?: Record<string, string | number | boolean | null | undefined>;
+  headers?: Record<string, string>;
 }
 
 export interface MockAxiosResponse<T = unknown> {
   data: T;
   status: number;
   statusText: string;
-  config: any;
-  headers: any;
-  request?: any;
+  config: MockAxiosConfig;
+  headers: Record<string, string>;
+  request?: unknown;
 }
 
-export type MockAxiosAdapter = (config: any) => Promise<MockAxiosResponse>;
+export type MockAxiosAdapter = (config: MockAxiosConfig) => Promise<MockAxiosResponse>;
 
 /**
  * Builds an axios adapter bound to a MockApi. Reuses the mockFetch router for path handling. On
  * abort it rejects with an AbortError (axios surfaces this as a canceled request); non-2xx
  * responses reject with an Error carrying the status, matching axios's default validateStatus.
  */
+
 export function createMockAxiosAdapter(api: MockApi): MockAxiosAdapter {
   const mockFetch = createMockFetch(api);
 
-  return async function mockAxiosAdapter(config) {
+  return async function mockAxiosAdapter(config: MockAxiosConfig) {
     let url = `${config.baseURL ?? ''}${config.url ?? ''}`;
     if (config.params) {
-      const searchParams = new URLSearchParams(config.params).toString();
+      const searchParams = new URLSearchParams(config.params as Record<string, string>).toString();
       if (searchParams) {
         url += (url.includes('?') ? '&' : '?') + searchParams;
       }

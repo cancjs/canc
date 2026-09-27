@@ -9,9 +9,9 @@ type OrdersApi = MockApiBundle['orders'];
 type InvoicesApi = MockApiBundle['invoices'];
 
 /**
- * Product profile fetch: single source fanning out to two consumers (inventory + orders).
- * Vanilla: plain promises, no cancellation. If the caller abandons the page, both
- * downstream requests stay in flight (wasted work).
+ * Product profile fetch: four requests started together, then awaited in order.
+ * Vanilla: plain promises, no cancellation. If the caller abandons the page, every
+ * request stays in flight (wasted work).
  */
 export async function loadProductProfile(
   productsApi: ProductsApi,
@@ -24,23 +24,29 @@ export async function loadProductProfile(
   stock: number;
   orders: Order[];
 }> {
-  report('fetching product');
-  // keeps running, nobody can stop this from the consumer side
-  const product = await productsApi.get(productId);
-
-  report('starting inventory + orders fetch');
-  // Both consumers start: inventory and orders.
-  // If the consumer cancels now, neither request stops.
-  const auditPromise = invoicesApi.get('audit-1');
-  const inventoryPromise = inventoryApi.check(productId);
+  report('starting product, stock, orders and audit fetches');
+  // Same four requests start here, and nothing downstream can stop any of them once the
+  // caller leaves the page
+  const productPromise = productsApi.get(productId);
+  const stockPromise = inventoryApi.check(productId);
   const ordersPromise = ordersApi.forProduct(productId);
+  const auditPromise = invoicesApi.get('audit-1');
 
-  const [stock, orders] = await Promise.all([inventoryPromise, ordersPromise]);
+  try {
+    const product = await productPromise;
 
-  report('writing audit log');
-  // orphaned result: computed, delivered to no one
-  await auditPromise;
+    report('product ready, awaiting stock and orders');
+    const [stock, orders] = await Promise.all([stockPromise, ordersPromise]);
 
-  report('returning results');
-  return { product, stock, orders };
+    report('awaiting audit');
+    // orphaned result: computed, delivered to no one
+    await auditPromise;
+
+    report('returning results');
+    return { product, stock, orders };
+  } finally {
+    // (no cancellation counterpart, see -canc) a plain promise has no cancel, so this block
+    // can log the wasted requests but cannot stop them, unlike the coroutine finally in the
+    // canc twin
+  }
 }

@@ -40,7 +40,9 @@
   ],
   "scripts": {
     "examples:typecheck": "tsc --noEmit --project tsconfig.examples.json",
-    "examples:test": "jest --colors && npm run test --prefix app-express-kysely",
+    "test:aggregate": "jest --colors",
+    "test:kysely": "npm run test --prefix app-express-kysely",
+    "examples:test": "node -e \"const s=(c)=>{try{require('child_process').execSync(c,{stdio:'inherit'})}catch{process.exitCode=1}}; s('npm run test:aggregate'); s('npm run test:kysely');\"",
     "examples:lint": "eslint .",
     "examples:format": "eslint --fix ."
   },

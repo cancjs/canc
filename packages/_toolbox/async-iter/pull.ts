@@ -1,22 +1,21 @@
 import { isFunction, isObjectLike } from '../guards';
 
+/** @deprecated Collapse to `{ it }` — the `async` field was always `true` and never read */
 export interface ISourceNormalized<T> {
   it: AsyncIterator<T>;
-  async: true;
+  async?: true;
 }
 
-export function getSource<T>(source: AsyncIterable<T> | Iterable<T>): ISourceNormalized<T> {
+export function getSource<T>(source: AsyncIterable<T> | Iterable<T>): { it: AsyncIterator<T> } {
   if (isObjectLike(source) && isFunction((source as any)[Symbol.asyncIterator])) {
     return {
       it: (source as AsyncIterable<T>)[Symbol.asyncIterator](),
-      async: true,
     };
   }
 
   if (isObjectLike(source) && isFunction((source as any)[Symbol.iterator])) {
     return {
       it: wrapSyncIterator((source as Iterable<T>)[Symbol.iterator]()),
-      async: true,
     };
   }
 
@@ -26,7 +25,11 @@ export function getSource<T>(source: AsyncIterable<T> | Iterable<T>): ISourceNor
 function wrapSyncIterator<T>(syncIt: Iterator<T>): AsyncIterator<T> {
   return {
     next(value?: any): Promise<IteratorResult<T>> {
-      return Promise.resolve(syncIt.next(value));
+      const step = syncIt.next(value);
+      if (step.done) {
+        return Promise.resolve(step);
+      }
+      return Promise.resolve(step.value).then((resolved) => ({ done: false, value: resolved }));
     },
     return(value?: any): Promise<IteratorResult<T, any>> {
       if (syncIt.return) {
@@ -38,8 +41,7 @@ function wrapSyncIterator<T>(syncIt: Iterator<T>): AsyncIterator<T> {
       if (syncIt.throw) {
         return Promise.resolve(syncIt.throw(error));
       }
-      const err = error instanceof Error ? error : new Error(String(error));
-      return Promise.reject(err);
+      throw error;
     },
   };
 }

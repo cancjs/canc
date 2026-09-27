@@ -65,17 +65,18 @@ function installFakeScheduler(): { fake: IFakeScheduler } {
   return { fake };
 }
 
-/** Drains the fake scheduler, flushes microtasks, and lets the mock api's real 0ms latency tick. */
+// bound to 8 rounds so mock api 0ms latency and follow-up scheduler tasks cycle
 async function settle(fake: IFakeScheduler, rounds = 8): Promise<void> {
   for (let round = 0; round < rounds; round += 1) {
     await fake.drain();
     await flushMicrotasks();
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await jest.advanceTimersByTimeAsync(0);
   }
 }
 
 beforeEach(() => {
   jest.resetModules();
+  jest.useFakeTimers();
   document.body.innerHTML = '<div id="app"></div>';
   StubIntersectionObserver.instances = [];
   (globalThis as { IntersectionObserver?: unknown }).IntersectionObserver = StubIntersectionObserver;
@@ -85,6 +86,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  jest.useRealTimers();
   performance.now = realNow;
   delete globals.scheduler;
   delete globals.TaskController;
@@ -101,11 +103,9 @@ describe('app-invoice-scheduler-task smoke, canc flavor', () => {
     try {
       await import('../src/main-canc');
 
-      // let the initial search resolve, which needs a real tick for the mock api's own setTimeout
-      for (let round = 0; round < 6; round += 1) {
-        await flushMicrotasks();
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      }
+      // let the initial search resolve through its own fake-timed 0ms latency
+      await jest.advanceTimersByTimeAsync(0);
+      await flushMicrotasks();
 
       // first screenful, then one more chunk: the render is still genuinely in flight from here
       fake.runNext();
@@ -138,6 +138,8 @@ describe('app-invoice-scheduler-task smoke, canc flavor', () => {
       filterInput.dispatchEvent(new Event('input'));
 
       fake.advance(150);
+      await jest.advanceTimersByTimeAsync(150);
+      await flushMicrotasks();
       await settle(fake);
 
       // no rows survived from the canceled run, and the new filter matched nothing
@@ -149,8 +151,8 @@ describe('app-invoice-scheduler-task smoke, canc flavor', () => {
 
       expect(mockApiModule.__detailCalls()).not.toContain(prefetchedId);
 
-      // one real turn of the event loop is what node needs before flagging a rejection unhandled
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      // one tick of fake timers is what node needs before flagging a rejection unhandled
+      await jest.advanceTimersByTimeAsync(0);
       expect(unhandled).not.toHaveBeenCalled();
     } finally {
       process.off('unhandledRejection', unhandled);

@@ -79,6 +79,8 @@ const DAY_MS = 86400000;
 const DETAIL_LINE_MAX = 4;
 const PDF_BYTE_LENGTH = 64;
 const DETAIL_FAIL_RATE = 0.1;
+// A failing id fails this many attempts at most, then succeeds, so a retry has a recovery to show.
+const DETAIL_FAIL_ATTEMPTS_MAX = 4;
 
 // A fixed row several examples depend on by exact id.
 const AUDIT_INVOICE: Invoice = {
@@ -99,28 +101,34 @@ function hashId(id: string): number {
 }
 
 /**
- * Builds the base dataset once from the MockApi's seeded PRNG: 5,000 invoices with a customer,
- * total, paid flag and issue date. Heavier per-invoice detail (lines, due date, pdf bytes, and
- * the ~1-in-10 failure) is derived lazily per id in `detail`, from a seed captured here, so it
- * never needs a second full pass over the dataset.
+ * Builds the base dataset: 5,000 invoices with a customer, total, paid flag and issue date.
+ * The generator is derived from the MockApi's seed rather than taken from its shared stream, so
+ * the dataset stays reproducible without making every other domain's values a function of how
+ * many invoices exist. Heavier per-invoice detail (lines, due date, pdf bytes, and the ~1-in-10
+ * failure) is derived lazily per id in `detail`, from a seed captured here, so it never needs a
+ * second full pass over the dataset.
  */
-function generateInvoices(api: MockApi): { invoices: Invoice[]; detailSeedBase: number } {
+function generateInvoices(seed: number): { invoices: Invoice[]; detailSeedBase: number } {
+  const rand = mulberry32((seed ^ hashId('invoices')) >>> 0);
   const invoices: Invoice[] = [];
   for (let i = 1; i <= INVOICE_COUNT; i++) {
     const id = `inv-${String(i).padStart(4, '0')}`;
-    const customer = CUSTOMER_NAMES[Math.floor(api.random() * CUSTOMER_NAMES.length)];
-    const total = Math.round((50 + api.random() * 9950) * 100) / 100;
-    const paid = api.random() < 0.6;
-    const issuedAt = ISSUED_ANCHOR + Math.floor(api.random() * ISSUED_SPREAD_DAYS) * DAY_MS;
+    const customer = CUSTOMER_NAMES[Math.floor(rand() * CUSTOMER_NAMES.length)];
+    const total = Math.round((50 + rand() * 9950) * 100) / 100;
+    const paid = rand() < 0.6;
+    const issuedAt = ISSUED_ANCHOR + Math.floor(rand() * ISSUED_SPREAD_DAYS) * DAY_MS;
     invoices.push({ id, customer, total, paid, issuedAt });
   }
   // One extra draw, captured once, seeds every per-id detail derivation below.
-  const detailSeedBase = Math.floor(api.random() * 0xffffffff);
+  const detailSeedBase = Math.floor(rand() * 0xffffffff);
   return { invoices, detailSeedBase };
 }
 
-/** Derives the heavier detail payload for one invoice id, deterministic given the seed base. */
-function buildDetail(invoice: Invoice, detailSeedBase: number): { detail: InvoiceDetail; fails: boolean } {
+/**
+ * Derives the heavier detail payload for one invoice id, deterministic given the seed base.
+ * `failAttempts` is how many of the first attempts at this id reject before it starts resolving.
+ */
+function buildDetail(invoice: Invoice, detailSeedBase: number): { detail: InvoiceDetail; failAttempts: number } {
   const rand = mulberry32((detailSeedBase ^ hashId(invoice.id)) >>> 0);
   const lineCount = 1 + Math.floor(rand() * DETAIL_LINE_MAX);
   const lines: InvoiceLine[] = [];
@@ -134,22 +142,42 @@ function buildDetail(invoice: Invoice, detailSeedBase: number): { detail: Invoic
   const pdfBytes: number[] = [];
   for (let b = 0; b < PDF_BYTE_LENGTH; b++) pdfBytes.push(Math.floor(rand() * 256));
   const fails = rand() < DETAIL_FAIL_RATE;
-  return { detail: { id: invoice.id, lines, dueAt, pdfBytes }, fails };
+  const failAttempts = fails ? 1 + Math.floor(rand() * DETAIL_FAIL_ATTEMPTS_MAX) : 0;
+  return { detail: { id: invoice.id, lines, dueAt, pdfBytes }, failAttempts };
+}
+
+interface Dataset {
+  generated: Invoice[];
+  all: Invoice[];
+  byId: Map<string, Invoice>;
+  detailSeedBase: number;
 }
 
 export function createInvoicesApi(api: MockApi): InvoicesApi {
-  const { invoices: GENERATED, detailSeedBase } = generateInvoices(api);
-  const ALL: Invoice[] = [...GENERATED, AUDIT_INVOICE];
-  const BY_ID = new Map(ALL.map((invoice) => [invoice.id, invoice]));
+  // Built on the first invoice call, not here: a module that never touches an invoice pays
+  // nothing for the 5,000 rows.
+  let dataset: Dataset | undefined;
+  // Attempts seen per id, on this api instance, so a seeded failure recovers instead of
+  // rejecting forever.
+  const attempts = new Map<string, number>();
+
+  function data(): Dataset {
+    if (!dataset) {
+      const { invoices, detailSeedBase } = generateInvoices(api.seed);
+      const all = [...invoices, AUDIT_INVOICE];
+      dataset = { generated: invoices, all, byId: new Map(all.map((i) => [i.id, i])), detailSeedBase };
+    }
+    return dataset;
+  }
 
   return {
-    list: (signal) => api.respond('invoices.list', {}, () => clone(ALL), signal),
+    list: (signal) => api.respond('invoices.list', {}, () => clone(data().all), signal),
     get: (id, signal) =>
       api.respond(
         'invoices.get',
         { id },
         () => {
-          const found = BY_ID.get(id);
+          const found = data().byId.get(id);
           if (!found) throw new Error(`no invoice ${id}`);
           return clone(found);
         },
@@ -160,8 +188,9 @@ export function createInvoicesApi(api: MockApi): InvoicesApi {
         'invoices.search',
         { filter },
         () => {
+          const { generated } = data();
           const needle = filter.trim().toLowerCase();
-          const matches = needle ? GENERATED.filter((i) => i.customer.toLowerCase().includes(needle)) : GENERATED;
+          const matches = needle ? generated.filter((i) => i.customer.toLowerCase().includes(needle)) : generated;
           return clone(matches);
         },
         signal,
@@ -171,10 +200,13 @@ export function createInvoicesApi(api: MockApi): InvoicesApi {
         'invoices.detail',
         { id },
         () => {
-          const invoice = BY_ID.get(id);
+          const { byId, detailSeedBase } = data();
+          const invoice = byId.get(id);
           if (!invoice) throw new Error(`no invoice ${id}`);
-          const { detail, fails } = buildDetail(invoice, detailSeedBase);
-          if (fails) throw new Error(`invoice detail temporarily unavailable: ${id}`);
+          const { detail, failAttempts } = buildDetail(invoice, detailSeedBase);
+          const seen = (attempts.get(id) ?? 0) + 1;
+          attempts.set(id, seen);
+          if (seen <= failAttempts) throw new Error(`invoice detail temporarily unavailable: ${id}`);
           return clone(detail);
         },
         signal,

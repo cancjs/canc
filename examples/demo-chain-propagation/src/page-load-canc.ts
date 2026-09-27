@@ -1,5 +1,4 @@
 import * as canc from '@cancjs/coroutine';
-import { CancelablePromise } from '@cancjs/promise';
 import { cancelify } from '@cancjs/toolbox';
 import type { MockApiBundle } from '@shared/mock-api';
 
@@ -27,7 +26,7 @@ export const loadProductProfile = canc.async(function* (
 ) {
   const loadProduct = cancelify(({ getSignal }, id: string) => productsApi.get(id, getSignal()));
 
-  // Stock leg: isolate with bubble:false (omit when unset to retain the bubble:true default).
+  // Omit the key when unset, since bubble:undefined would force false, not the default true
   const checkInventory = cancelify(
     ({ getSignal }, id: string) => inventoryApi.check(id, getSignal()),
     options?.bubble === false ? { bubble: false } : undefined,
@@ -41,24 +40,36 @@ export const loadProductProfile = canc.async(function* (
     shield: options?.shield,
   });
 
-  let auditPromise: CancelablePromise<any> | undefined;
+  report('starting product, stock, orders and audit fetches');
+  // Neither leg reads the product, so all four requests start before the first suspension point.
+  // A cancel arriving on the next tick then finds four calls in flight, not one.
+  const productPromise = loadProduct(productId);
+  const stockPromise = checkInventory(productId);
+  const ordersPromise = loadOrders(productId);
+  const auditPromise = loadAuditLog('audit-1');
+
   try {
-    report('fetching product');
-    auditPromise = loadAuditLog('audit-1');
-    const product = yield* canc.await(loadProduct(productId));
+    const product = yield* canc.await(productPromise);
 
-    report('starting inventory + orders fetch');
-    const legsPromise = CancelablePromise.all([checkInventory(productId), loadOrders(productId)]);
+    report('product ready, awaiting stock and orders');
+    const [stock, orders] = yield* canc.await.all([stockPromise, ordersPromise]);
 
-    report('awaiting all');
-    const [stock, orders] = yield* canc.await(legsPromise);
-
+    report('awaiting audit');
+    // consumed here on the happy path, canceled in the finally below unless shield:true
     yield* canc.await(auditPromise);
 
     report('returning results');
     return { product, stock, orders };
   } finally {
-    if (!options?.shield && auditPromise?.cancelable) {
+    // A cancel reaches only the promise this coroutine is suspended on, and canceling a
+    // combinator result deliberately does not reach its inputs, so the legs started earlier
+    // are canceled here
+    for (const leg of [stockPromise, ordersPromise]) {
+      if (leg.cancelable) {
+        leg.cancel();
+      }
+    }
+    if (!options?.shield && auditPromise.cancelable) {
       auditPromise.cancel();
     }
   }

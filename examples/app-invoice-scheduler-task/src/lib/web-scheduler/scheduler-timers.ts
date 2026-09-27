@@ -14,9 +14,10 @@ export type ICreateSchedulerTimersOptions = ISchedulerDeps & {
  * scheduler exists.
  *
  * What this buys over the built-in timers: the resumption happens in a chosen band instead of one
- * undifferentiated timer queue, a pending resumption can still be reprioritized, a long wait
- * needs no chunking because the delay is not capped at a signed 32 bit integer, and clearing a
- * timer removes the entry from the queue rather than leaving an opaque callback behind.
+ * undifferentiated timer queue, a pending resumption can still be reprioritized, the pair itself
+ * is not capped at 2^31-1ms (though the helpers still split a longer wait into chunks before it
+ * reaches the pair), and clearing a timer removes the entry from the queue rather than leaving an
+ * opaque callback behind.
  *
  * The honest limits: a hidden tab throttles both kinds of timer, the background band has no
  * specified protection against starvation, and where no scheduler exists (Safari today, node) this
@@ -33,8 +34,19 @@ export function createSchedulerTimers(options?: ICreateSchedulerTimersOptions): 
 
       const controller = new pair.TaskController({ priority: options?.priority ?? DEFAULT_PRIORITY });
 
-      // absorb rejection so clearTimeout does not surface unhandled rejection
-      pair.scheduler.postTask(handler, { delay: ms, signal: controller.signal }).catch(absorbAbort);
+      // postTask can reject in two ways: the controller signal aborts (from clearTimeout below),
+      // or the handler itself throws. Only absorb the abort rejection; rethrow handler throws so
+      // they surface like uncaught timer callbacks.
+      pair.scheduler.postTask(handler, { delay: ms, signal: controller.signal }).catch((reason) => {
+        if (!isOwnAbort(reason, controller.signal)) {
+          // Rethrow via setTimeout to ensure the throw surfaces asynchronously as an unhandled
+          // rejection, matching the behavior of a synchronous timer callback that throws.
+          // The postTask promise resolves before the throw happens, so this doesn't block cleanup.
+          setTimeout(() => {
+            throw reason;
+          });
+        }
+      });
 
       return controller;
     },
@@ -51,8 +63,8 @@ export function createSchedulerTimers(options?: ICreateSchedulerTimersOptions): 
   };
 }
 
-function absorbAbort(): void {
-  /* the only way this rejects is the clearTimeout above */
+function isOwnAbort(reason: unknown, signal: AbortSignal): boolean {
+  return signal.aborted && reason === signal.reason;
 }
 
 // presence of abort distinguishes TaskController from platform timer handle

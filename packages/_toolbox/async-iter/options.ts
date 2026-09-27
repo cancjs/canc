@@ -1,5 +1,4 @@
-import { isFunction, isObjectLike } from '../guards';
-import { isPipeOp, isTermOp } from './types';
+import { isIterable, isObjectLike, isThenableLike } from '../guards';
 
 export type IAsyncIterOptions = object;
 
@@ -14,14 +13,7 @@ export function splitConfig<T extends unknown[]>(args: T): ISplitConfigResult<T[
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
 
-    if (
-      isObjectLike(arg) &&
-      !Array.isArray(arg) &&
-      !isFunction(arg) &&
-      !isPipeOp(arg) &&
-      !isTermOp(arg) &&
-      !isIterable(arg)
-    ) {
+    if (isObjectLike(arg) && !Array.isArray(arg) && !isThenableLike(arg) && !isIterable(arg)) {
       configIndex = i;
       break;
     }
@@ -35,13 +27,4 @@ export function splitConfig<T extends unknown[]>(args: T): ISplitConfigResult<T[
   const rest = [...args.slice(0, configIndex), ...args.slice(configIndex + 1)] as T[number][];
 
   return { config, rest };
-}
-
-function isIterable(value: unknown): boolean {
-  if (!isObjectLike(value)) {
-    return false;
-  }
-  return (
-    typeof (value as any)[Symbol.iterator] === 'function' || typeof (value as any)[Symbol.asyncIterator] === 'function'
-  );
 }

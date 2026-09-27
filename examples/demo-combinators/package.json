@@ -10,10 +10,10 @@
   },
   "dependencies": {
     "@cancjs/coroutine": "file:../../packages/canc-coroutine",
+    "@cancjs/promise": "file:../../packages/canc-promise",
     "@cancjs/toolbox": "file:../../packages/canc-toolbox",
     "@cancjs/unhandled-rejection": "file:../../packages/canc-unhandled-rejection",
-    "@shared/mock-api": "file:../_shared/mock-api",
-    "@shared/util": "file:../_shared/util"
+    "@shared/mock-api": "file:../_shared/mock-api"
   },
   "devDependencies": {
     "@types/jest": "30.0.0",

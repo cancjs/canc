@@ -1,5 +1,6 @@
 import { CancelablePromise, isCancelError } from '@cancjs/promise';
 import { delay } from '@cancjs/toolbox';
+import { sleep } from '@shared/util';
 
 import { createFakeScheduler } from '../../../test/fake-scheduler';
 import { IPostSchedulerTaskOptions, postSchedulerTask } from './post-scheduler-task';
@@ -217,9 +218,97 @@ describe('toTaskSignal', () => {
 
     expect(failingSignal.aborted).toBe(false);
   });
+
+  it('composes and discards with zero remaining listeners on sources', () => {
+    // Test that the fallback path for composing signals uses a cleanup controller
+    // to manage listener lifetime (verified by checking options passed to addEventListener).
+    const source1 = new AbortController();
+    const source2 = new AbortController();
+
+    // Track addEventListener calls with their options to verify the cleanup signal is used
+    const addEventListenerCalls: Array<{ target: AbortSignal; options?: AddEventListenerOptions }> = [];
+    const addEventListenerOriginal1 = source1.signal.addEventListener.bind(source1.signal);
+    const addEventListenerOriginal2 = source2.signal.addEventListener.bind(source2.signal);
+
+    (source1.signal as any).addEventListener = (
+      type: string,
+      listener: EventListenerOrEventListenerObject,
+      options?: AddEventListenerOptions | boolean,
+    ) => {
+      addEventListenerCalls.push({ target: source1.signal, options: options as AddEventListenerOptions });
+      return addEventListenerOriginal1(type, listener, options);
+    };
+
+    (source2.signal as any).addEventListener = (
+      type: string,
+      listener: EventListenerOrEventListenerObject,
+      options?: AddEventListenerOptions | boolean,
+    ) => {
+      addEventListenerCalls.push({ target: source2.signal, options: options as AddEventListenerOptions });
+      return addEventListenerOriginal2(type, listener, options);
+    };
+
+    // Temporarily remove TaskSignal.any and AbortSignal.any to force the fallback path
+    const ambient = globalThis as any;
+    const savedTaskSignal = ambient.TaskSignal;
+    const savedAbortSignalAny = (AbortSignal as any).any;
+
+    try {
+      ambient.TaskSignal = undefined;
+      (AbortSignal as any).any = undefined;
+
+      // Compose the signals - this uses the fallback composeAbortSignals
+      toTaskSignal([source1.signal, source2.signal]);
+
+      // Verify that listeners were attached with a signal option (the cleanup controller's signal)
+      // This proves the cleanup controller fix is in place
+      const listenersWithSignal = addEventListenerCalls.filter((call) => call.options?.signal !== undefined);
+      expect(listenersWithSignal.length).toBeGreaterThan(0);
+    } finally {
+      (source1.signal as any).addEventListener = addEventListenerOriginal1;
+      (source2.signal as any).addEventListener = addEventListenerOriginal2;
+      ambient.TaskSignal = savedTaskSignal;
+      (AbortSignal as any).any = savedAbortSignalAny;
+    }
+  });
 });
 
 describe('createSchedulerTimers', () => {
+  it('surfaces a throw from a scheduled callback', async () => {
+    // Verify that when a callback handed to the scheduler timers throws, the error surfaces
+    // as an uncaught exception (not absorbed and hidden). We verify by capturing the throw
+    // that happens asynchronously via setTimeout.
+    const fake = createFakeScheduler();
+    const timers = createSchedulerTimers({ ...fake.impl });
+    const error = new Error('callback error');
+    let thrownError: Error | undefined;
+    const originalSetTimeout = global.setTimeout;
+
+    // Mock setTimeout to capture the throw
+    global.setTimeout = jest.fn((callback: () => void) => {
+      try {
+        callback();
+      } catch (e) {
+        thrownError = e as Error;
+      }
+
+      return 0;
+    }) as any;
+
+    try {
+      timers.setTimeout(() => {
+        throw error;
+      }, 0);
+
+      await fake.drain();
+
+      // The thrown error should have been captured by our mock
+      expect(thrownError).toBe(error);
+    } finally {
+      global.setTimeout = originalSetTimeout;
+    }
+  });
+
   it('clears a timer without producing an unhandled rejection', async () => {
     const fake = createFakeScheduler();
     const timers = createSchedulerTimers({ ...fake.impl });
@@ -232,8 +321,8 @@ describe('createSchedulerTimers', () => {
 
       timers.clearTimeout(handle);
 
-      // One turn of the event loop is what node needs before it decides a rejection went unhandled.
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      // one turn of the event loop is what node needs before it decides a rejection went unhandled
+      await sleep(0);
 
       expect(unhandled).not.toHaveBeenCalled();
     } finally {

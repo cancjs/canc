@@ -363,6 +363,12 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
   return coroutineGenWrapper;
 }
 
+interface ICancGenForAwait {
+  <T>(source: TEachSource<T>, cb: TForAwaitCallback<T>): Generator<TAwaited<any> & Failing<BreakError>, void, any>;
+  /** Collects elements into an array. */
+  toArray<T>(source: TEachSource<T>): Generator<TAwaited<any> & Failing<BreakError>, T[], any>;
+}
+
 /**
  * Consumes an iterable inside a `cancGenAsync` producer body without emitting pulls to the outer consumer.
  *
@@ -372,14 +378,6 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
  * loop cleanly. Plain `async` callbacks returning native promises are intentionally not
  * type-supported to steer callers toward cancelable operations, though the runtime dispatches any
  * thenable. Use `cancGenForAwait.toArray` to collect elements into an array instead.
- */
-interface ICancGenForAwait {
-  <T>(source: TEachSource<T>, cb: TForAwaitCallback<T>): Generator<TAwaited<any> & Failing<BreakError>, void, any>;
-  toArray<T>(source: TEachSource<T>): Generator<TAwaited<any> & Failing<BreakError>, T[], any>;
-}
-
-/**
- * Consumes an iterable inside a `cancGenAsync` producer body without emitting pulls to the outer consumer.
  */
 export const cancGenForAwait = function* cancGenForAwait(
   source: any,

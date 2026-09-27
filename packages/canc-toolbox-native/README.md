@@ -77,7 +77,7 @@ The case this exists for is a timers pair backed by the platform's prioritized t
 rather than the ordinary timer queue. A wait resumes at a priority the caller chose, instead of
 joining one undifferentiated queue where background work competes with work the user is looking
 at; a resume that has not fired yet can still be re-prioritized, which a queued `setTimeout`
-callback cannot; the underlying delay is not capped at 2^31-1ms, so a long wait needs no chunking;
+callback cannot; the pair itself is not capped at 2^31-1ms, though the helpers still split a longer wait into chunks before it reaches the pair;
 and deeply nested `setTimeout` calls get clamped to a few milliseconds by browsers, a penalty a
 poll or backoff loop hits and a scheduled task does not accumulate. Canceling a wait here still
 only stops the waiting, the same limit as everywhere else in this package: the underlying attempt

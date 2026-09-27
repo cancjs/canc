@@ -1,4 +1,47 @@
+import { map } from '../../../_toolbox/async-iter/operators';
 import * as asyncIter from './index';
+
+// a runaway zip round only ever schedules microtasks, so no timer can interrupt it and a capped
+// drain is the only way such a loop fails instead of hanging the suite
+async function drainCapped(source: AsyncIterable<unknown>, cap: number): Promise<unknown[]> {
+  const values: unknown[] = [];
+
+  for await (const value of source) {
+    values.push(value);
+
+    if (values.length >= cap) {
+      break;
+    }
+  }
+
+  return values;
+}
+
+function trackedSource<T>(values: T[]) {
+  const stats = { opens: 0, returns: 0 };
+
+  const iterable: AsyncIterable<T> = {
+    [Symbol.asyncIterator](): AsyncIterator<T> {
+      stats.opens++;
+      let index = 0;
+
+      return {
+        next(): Promise<IteratorResult<T>> {
+          if (index >= values.length) {
+            return Promise.resolve({ done: true, value: undefined });
+          }
+          return Promise.resolve({ done: false, value: values[index++] });
+        },
+        return(): Promise<IteratorResult<T>> {
+          stats.returns++;
+          return Promise.resolve({ done: true, value: undefined });
+        },
+      };
+    },
+  };
+
+  return { iterable, stats };
+}
 
 describe('async-iter sources', () => {
   describe('from', () => {
@@ -32,8 +75,7 @@ describe('async-iter sources', () => {
       const source = asyncIter.from([Promise.resolve(1), Promise.resolve(2), Promise.resolve(3)]);
       const values: unknown[] = [];
       for await (const value of source) {
-        // Note: from() yields the promises as-is; awaiting is the consumer's responsibility
-        values.push(await (value as unknown as PromiseLike<number>));
+        values.push(value);
       }
 
       expect(values).toEqual([1, 2, 3]);
@@ -49,14 +91,52 @@ describe('async-iter sources', () => {
       expect(values).toEqual([42]);
     });
 
-    it('wraps a single value', async () => {
-      const source = asyncIter.from(42);
-      const values: unknown[] = [];
-      for await (const value of source) {
-        values.push(value);
-      }
+    it('rejects a non-iterable value with a TypeError', async () => {
+      expect(() => {
+        const source = asyncIter.from(42 as any);
 
-      expect(values).toEqual([42]);
+        for (const _x of [] as any[]) {
+          /* trigger */
+        }
+        void source[Symbol.asyncIterator]();
+      }).toThrow(TypeError);
+    });
+
+    it('yields the same values when drained twice', async () => {
+      const source = asyncIter.from([1, 2, 3]);
+
+      const first: unknown[] = [];
+      for await (const v of source) first.push(v);
+
+      const second: unknown[] = [];
+      for await (const v of source) second.push(v);
+
+      expect(first).toEqual([1, 2, 3]);
+      expect(second).toEqual([1, 2, 3]);
+    });
+
+    it('does not open the source at pipe construction time', async () => {
+      const spy = jest.fn(function* () {
+        yield 1;
+        yield 2;
+      });
+      const iterable = { [Symbol.asyncIterator]: spy } as any;
+
+      asyncIter.pipe(
+        iterable,
+        map((x: number) => x * 2),
+      );
+      expect(spy).not.toHaveBeenCalled();
+
+      const items: number[] = [];
+      const piped = asyncIter.pipe(
+        iterable,
+        map((x: number) => x * 2),
+      );
+      for await (const item of piped as AsyncIterable<number>) {
+        items.push(item);
+      }
+      expect(spy).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -86,6 +166,29 @@ describe('async-iter sources', () => {
       }
 
       expect(values).toEqual([1, 2, 3, 4]);
+    });
+
+    it('closes the active source once and never opens the next one on an early break', async () => {
+      const first = trackedSource([1, 2]);
+      const second = trackedSource([3, 4]);
+
+      for await (const value of asyncIter.concat(first.iterable, second.iterable)) {
+        expect(value).toBe(1);
+        break;
+      }
+
+      expect(first.stats.returns).toBe(1);
+      expect(second.stats.opens).toBe(0);
+    });
+
+    it('treats a promise as a source rather than as config', async () => {
+      const values: unknown[] = [];
+
+      for await (const value of asyncIter.concat(Promise.resolve(1), [2])) {
+        values.push(value);
+      }
+
+      expect(values).toEqual([1, 2]);
     });
   });
 
@@ -139,6 +242,90 @@ describe('async-iter sources', () => {
         [2, 'b', false],
       ]);
     });
+
+    it('zip with no sources completes', async () => {
+      expect(await drainCapped(asyncIter.zip(), 4)).toEqual([]);
+      expect(await drainCapped(asyncIter.zip({}), 4)).toEqual([]);
+    });
+
+    it('treats a promise as a source rather than as config', async () => {
+      expect(await drainCapped(asyncIter.zip(Promise.resolve(1), [2]), 4)).toEqual([[1, 2]]);
+    });
+
+    it('closes the longer source exactly once when the shorter one ends', async () => {
+      const shorter = trackedSource([1]);
+      const longer = trackedSource(['a', 'b', 'c']);
+
+      const values = await drainCapped(asyncIter.zip(shorter.iterable, longer.iterable), 8);
+
+      expect(values).toEqual([[1, 'a']]);
+      expect(longer.stats.returns).toBe(1);
+      expect(shorter.stats.returns).toBe(1);
+    });
+
+    it('waits for an in-flight pull before closing a source that outlives the round', async () => {
+      const order: string[] = [];
+
+      const failing: AsyncIterable<number> = {
+        [Symbol.asyncIterator]: () => ({
+          next: () => Promise.reject(new Error('boom')),
+        }),
+      };
+
+      const slow: AsyncIterable<number> = {
+        [Symbol.asyncIterator]: () => ({
+          next: () =>
+            new Promise<IteratorResult<number>>((resolve) => {
+              setTimeout(() => {
+                order.push('next');
+                resolve({ done: false, value: 1 });
+              }, 20);
+            }),
+          return: () => {
+            order.push('return');
+            return Promise.resolve({ done: true, value: undefined });
+          },
+        }),
+      };
+
+      await expect(drainCapped(asyncIter.zip(failing, slow), 4)).rejects.toThrow('boom');
+
+      expect(order).toEqual(['next', 'return']);
+    });
+
+    it('does not leave a rejected source unhandled when two sources fail', async () => {
+      const unhandled: unknown[] = [];
+      const onUnhandled = (reason: unknown) => {
+        unhandled.push(reason);
+      };
+      process.on('unhandledRejection', onUnhandled);
+
+      try {
+        const late: AsyncIterable<number> = {
+          [Symbol.asyncIterator]: () => ({
+            next: () =>
+              new Promise<IteratorResult<number>>((_resolve, reject) => {
+                setTimeout(() => reject(new Error('late')), 10);
+              }),
+          }),
+        };
+
+        const immediate: AsyncIterable<number> = {
+          [Symbol.asyncIterator]: () => ({
+            next: (): Promise<IteratorResult<number>> => {
+              throw new Error('immediate');
+            },
+          }),
+        };
+
+        await expect(drainCapped(asyncIter.zip(late, immediate), 4)).rejects.toBeInstanceOf(Error);
+        await new Promise((resolve) => setTimeout(resolve, 60));
+
+        expect(unhandled).toEqual([]);
+      } finally {
+        process.off('unhandledRejection', onUnhandled);
+      }
+    });
   });
 
   describe('zipKeyed', () => {
@@ -172,6 +359,10 @@ describe('async-iter sources', () => {
         { x: 1, y: 'a' },
         { x: 2, y: 'b' },
       ]);
+    });
+
+    it('zipKeyed with no sources completes', async () => {
+      expect(await drainCapped(asyncIter.zipKeyed({}), 4)).toEqual([]);
     });
   });
 });
