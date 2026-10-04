@@ -8,6 +8,11 @@
     "lib": ["es2022", "dom"],
     "baseUrl": ".",
     "paths": {
+      "@cancjs/coroutine/gen": ["../packages/canc-coroutine/src/gen"],
+      "@cancjs/decorators/legacy": ["../packages/canc-decorators/src/legacy"],
+      "@cancjs/decorators/babel-legacy": [
+        "../packages/canc-decorators/src/babel-legacy"
+      ],
       "@cancjs/server-*": ["../packages/canc-server/canc-server-*/src"],
       "@cancjs/*": ["../packages/canc-*/src"]
     }

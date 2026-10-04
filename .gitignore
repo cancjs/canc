@@ -21,6 +21,7 @@ coverage
 *.lcov
 .nyc_output
 lib-cov
+benchmarks/results/
 
 # Build output (load-bearing for build outputs)
 dist

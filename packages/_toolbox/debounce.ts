@@ -16,7 +16,6 @@ export type IDebounceOptions = TCallDeps & {
   maxWait?: number;
   /** The debounce timer always runs immediately, so a `lazy` flag would be accepted and ignored. */
   lazy?: never;
-  [key: string]: unknown;
 };
 
 /**
@@ -24,7 +23,7 @@ export type IDebounceOptions = TCallDeps & {
  */
 export interface IDebounced<Args extends unknown[], R, K extends IPromiseKind = IPromiseLikeKind, F = never> {
   (...args: Args): TPromiseOf<K, R, F>;
-  cancel(): void;
+  cancel(reason?: any): void;
   flush(): TPromiseOf<K, R, F> | undefined;
   readonly isPending: boolean;
 }
@@ -133,13 +132,18 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
       }
     }
 
-    function cancelPending(): void {
+    function cancelPending(reason?: any): void {
       superseding = true;
       if (pendingPromise && isCancelableLike(pendingPromise)) {
-        pendingPromise.cancel();
+        pendingPromise.cancel(reason);
       } else if (pendingReject) {
-        // a non-cancelable Impl has no cancel surface, so reject rather than leave it pending
-        pendingReject(new SupersededError());
+        // Not-yet-invoked call on a non-cancelable Impl (native twin): the wrapper promise has no
+        // cancel surface of its own, but reject is still live pre-invoke, so settle it directly.
+        // Once invoke() has adopted a thenable this is already undefined and nothing can redirect
+        // the promise, matching the native `withAbortSignal` stance of never faking a CancelError.
+        // Branded, not a bare Error, so a caller can tell supersede from a real failure
+        // a fire-and-forget debounced(x) needs its own handler now, or it goes unhandled
+        pendingReject(Object.assign(new SupersededError(), { cause: reason }));
       }
       superseding = false;
       pendingResolve = undefined;
@@ -154,12 +158,12 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
      * already invoked `fn` or is still waiting out the timer. An explicit `.cancel()` always gets
      * here; a superseding call only for a prior call that has not completed.
      */
-    function cancelCurrent(): void {
+    function cancelCurrent(reason?: any): void {
       if (isCancelableLike(cycle.result)) {
-        cycle.result.cancel();
+        cycle.result.cancel(reason);
       }
       cycle.result = undefined;
-      cancelPending();
+      cancelPending(reason);
     }
 
     function timerExpired(): void {
@@ -256,10 +260,10 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
       return promise;
     } as unknown as IDebounced<Args, R, K, F>;
 
-    wrapped.cancel = function (): void {
+    wrapped.cancel = function (reason?: any): void {
       clearTimers();
       lastArgs = undefined;
-      cancelCurrent();
+      cancelCurrent(reason);
     };
 
     wrapped.flush = function (): TPromiseOf<K, R, F> | undefined {

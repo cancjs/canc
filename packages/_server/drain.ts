@@ -92,30 +92,41 @@ export function drainServer(server: IServerLike, options: IDrainOptions = {}): C
     state.cancel(reason);
   }
 
-  const window = new CancelablePromise<void>((resolve, _reject, { handleCancel }) => {
+  const window = new Impl<void>((resolve, _reject, { handleCancel }) => {
     const timer = setTimeout(() => {
       timedOut = true;
       resolve();
     }, grace);
 
-    // race cancels the loser, so a drain that finishes early clears this timer through here
+    // race cancels the loser, so an early finish or cancel clears this timer through here
     handleCancel(() => clearTimeout(timer));
   });
 
-  const drain = Impl.race([Impl.allSettled(outcomes), window]).then(
-    () => {
-      clearDrainState(server);
-      if (options.closeServer !== false && isFunction(server.closeAllConnections)) {
-        server.closeAllConnections();
-      }
+  let drain: CancelablePromise<IDrainResult>;
+  const settle = Impl.race([Impl.allSettled(outcomes), window]);
 
-      return { canceled, completed, timedOut };
-    },
-    (error) => {
-      clearDrainState(server);
-      throw error;
-    },
-  );
+  // eslint-disable-next-line prefer-const -- assigned after construction to avoid TDZ in executor closure
+  drain = new Impl<IDrainResult>((resolve, reject, { handleCancel }) => {
+    handleCancel(() => {
+      settle.cancel(reason);
+      clearDrainState(server, drain);
+    });
+
+    settle.then(
+      () => {
+        clearDrainState(server, drain);
+        if (options.closeServer !== false && isFunction(server.closeAllConnections)) {
+          server.closeAllConnections();
+        }
+
+        resolve({ canceled, completed, timedOut });
+      },
+      (error) => {
+        clearDrainState(server, drain);
+        reject(error);
+      },
+    );
+  });
 
   setDrainState(server, drain);
 

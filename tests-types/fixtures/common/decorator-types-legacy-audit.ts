@@ -9,22 +9,23 @@
  * legacy mode), so the getter's own inferred return type is never erased here regardless of
  * whether the legacy decorator's factory overload declares a concrete return type or `any`.
  */
-import { AsyncMethod } from '@cancjs/decorators/legacy';
 import { async as cancAsync, AsyncResult } from '@cancjs/coroutine';
+import { AsyncMethod } from '@cancjs/decorators/legacy';
 import CancelablePromise from '@cancjs/promise';
-import type { Expect, ExpectExtends, Not, IsAny } from './assert-type';
+
+import type { Expect, ExpectExtends, IsAny, Not } from './assert-type';
 
 type Args = [id: number];
 type R = string;
 
 function* body(this: unknown, id: number): AsyncResult<R> {
- return String(id);
+  return String(id);
 }
 
 class C {
- @AsyncMethod() get m() {
- return cancAsync(body, this);
- }
+  @AsyncMethod() get m() {
+    return cancAsync(body, this);
+  }
 }
 
 // cancAsync's own return type is always CancelablePromise<unknown> (see ./decorator-types.ts doc

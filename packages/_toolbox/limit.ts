@@ -61,6 +61,8 @@ function checkConcurrency(value: number): number {
 
 /** Bind `limit` to one promise implementation following the dependency-injection recipe. */
 export function limitFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IToolboxDeps<K>) {
+  const isCancelable = Boolean(deps.cancelable);
+
   /**
    * Create a limiter that runs at most `concurrency` jobs at once and queues the rest.
    *
@@ -74,15 +76,16 @@ export function limitFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
    * on its own, and `cancel` on the limiter rejects the queued jobs (with an AbortError carrying the reason) while
    * whatever is already running is left to finish.
    *
-   * When a running job is non-cancelable (such as a plain Promise), canceling its handle or the
-   * limiter rejects the handle but cannot stop the underlying work. The limiter slot remains held
-   * until that job settles, preventing active concurrency from exceeding the cap.
+   * When a running job is non-cancelable (such as a plain Promise), canceling the limiter cannot
+   * stop the underlying work and leaves the running handle pending until the job finishes. The
+   * limiter slot remains held until that job settles; a job that never settles holds its slot
+   * forever, preventing active concurrency from exceeding the cap.
    *
    * Lowering `concurrency` while jobs are in flight does not abort running jobs; `active` may
    * temporarily exceed `concurrency` until running jobs settle.
    *
-   * Every promise this hands out settles. Jobs dropped from the queue reject rather than staying
-   * pending forever.
+   * Every promise this hands out settles, provided the underlying job itself settles. Jobs dropped
+   * from the queue reject rather than staying pending forever.
    */
   return function limit(concurrency: number): ILimited<K> {
     let max = checkConcurrency(concurrency);
@@ -109,10 +112,11 @@ export function limitFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
     const release = (entry: IEntry): void => {
       const index = running.indexOf(entry);
 
-      if (index !== -1) running.splice(index, 1);
-
-      active--;
-      pump();
+      if (index !== -1) {
+        running.splice(index, 1);
+        active--;
+        pump();
+      }
     };
 
     const run = <T, Args extends unknown[]>(
@@ -170,7 +174,7 @@ export function limitFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
 
             // Route through the handle where there is one: its own cancel handler stops the job,
             // and the implementation is what mints the CancelError the caller sees.
-            if (isCancelableLike(entry.handle)) {
+            if (isCancelable && isCancelableLike(entry.handle)) {
               entry.handle.cancel(reason);
               return;
             }
@@ -199,6 +203,8 @@ export function limitFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
               return;
             }
 
+            // A running non-cancelable job cannot be aborted; its slot remains held in running
+            // until settlement (a job that never settles holds its slot forever, leaking capacity).
             if (isCancelableLike(entry.job)) entry.job.cancel(reason);
           });
         }

@@ -1,5 +1,6 @@
-import { CancelablePromise, isCancelError } from '@cancjs/promise';
+import { CancelablePromise, isAbortError, isCancelError } from '@cancjs/promise';
 
+import { limitFactory } from '../../_toolbox/limit';
 import { limit } from './index';
 
 // Drain the microtask queue enough times to let a canceled job's chain settle and the freed slot be
@@ -133,6 +134,39 @@ describe('limit', () => {
 
     await flushMicrotasks();
 
+    expect(limited.active).toBe(0);
+  });
+
+  it('keeps slot occupied when a non-cancelable running job is canceled until it settles', async () => {
+    const limited = limit(1);
+    let finishJob: () => void = () => {};
+    const nonCancelableJob = () =>
+      new Promise<string>((resolve) => {
+        finishJob = () => resolve('done');
+      });
+
+    const handle = limited(nonCancelableJob);
+    const queuedJob = createJob('queued');
+    const queuedHandle = limited(queuedJob.run);
+
+    expect(limited.active).toBe(1);
+    expect(limited.pending).toBe(1);
+
+    handle.cancel();
+    await flushMicrotasks();
+
+    // Handle canceled, but non-cancelable job is still executing;
+    // slot remains held so queued job does not start
+    expect(limited.active).toBe(1);
+    expect(queuedJob.started).toBe(false);
+
+    finishJob();
+    await flushMicrotasks();
+
+    // Now slot is freed and queued job starts
+    expect(queuedJob.started).toBe(true);
+    queuedJob.finish();
+    await queuedHandle;
     expect(limited.active).toBe(0);
   });
 
@@ -466,5 +500,27 @@ describe('limit', () => {
     expect(results[total - 1]).toBe(total - 1);
     expect(limited.active).toBe(0);
     expect(limited.pending).toBe(0);
+  });
+
+  it('settles queued entries when abandoned under cancelable deps with non-cancelable handle', async () => {
+    const customLimit = limitFactory({
+      Impl: Promise as unknown as any,
+    })(1);
+
+    const blocker = new Promise(() => {});
+    const queuedJob = jest.fn(() => Promise.resolve('ok'));
+
+    customLimit(() => blocker);
+    const pQueued = customLimit(queuedJob);
+
+    expect(customLimit.pending).toBe(1);
+
+    customLimit.cancel('abandoned-queue');
+
+    const err = await pQueued.then(undefined, (e: unknown) => e);
+    expect(isAbortError(err)).toBe(true);
+    // one constant message whatever the reason's type, with the caller's reason on cause
+    expect((err as Error).message).toBe('limit: canceled while queued');
+    expect((err as Error).cause).toBe('abandoned-queue');
   });
 });

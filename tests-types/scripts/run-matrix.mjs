@@ -18,9 +18,9 @@
  * (common/type-assertions.ts + common/coroutine-types.ts). Lanes with `serverExpressTypes` /
  * `serverFastifyTypes` / `serverHonoTypes` / `serverKoaTypes` additionally compile
  * common/server-express-types.ts + common/server-node-types.ts / common/server-fastify-types.ts /
- * common/server-hono-types.ts / common/server-koa-types.ts (express/fastify/hono gated because
- * those frameworks' own shipped types hit real TypeScript version floors below 5.0 / 5.4, see
- * each file's header; koa has no such floor, so serverKoaTypes is set on every lane).
+ * common/server-hono-types.ts / common/server-koa-types.ts (express/koa gated to TS 5.0+ because
+ * their type dependencies hit syntax/recursive-type limits on TS<5.0; fastify gated to TS 5.4+
+ * for NoInfer; hono gated to TS 5.9+ due to generic Uint8Array in shipped declarations).
  *
  * Flags:
  * --setup-only pack + install fixtures, don't run tsc

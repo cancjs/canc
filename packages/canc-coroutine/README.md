@@ -350,10 +350,12 @@ const saveUntilFull = canc.async(function* (chunkStream: AsyncIterable<Chunk>, i
 const outerLoop = yield* canc.forAwait(streamA);
 
 for (const a of outerLoop) {
-  const innerLoop = yield* canc.forAwait(streamB);
+  yield* outerLoop.next();
+
+  const innerLoop = yield* canc.forAwait(makeStreamB());
   for (const b of innerLoop) {
-    yield* outerLoop.next(); // advances outer from inner
-    yield* innerLoop.next();
+    yield* canc.forAwait.next();
+    handlePair(a, b);
   }
 }
 ```

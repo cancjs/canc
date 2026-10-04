@@ -1,20 +1,23 @@
 import { CancelablePromise, ICancelablePromiseOptions } from '@cancjs/promise';
 import { EventEmitter } from 'events';
 
-/** Stand-in for ServerResponse, carrying the two things the disconnect guard reads. */
+/** Stand-in for ServerResponse, carrying the three things the disconnect guard reads. */
 export class FakeResponse extends EventEmitter {
   destroyed = false;
   writableEnded = false;
+  writable = true;
 
   /** Normal completion: the response ends, then closes with nothing left to cancel. */
   end(): void {
     this.writableEnded = true;
+    this.writable = false;
     this.emit('close');
   }
 
   /** Client went away mid-response, which tears the response down as well as the socket. */
   disconnect(): void {
     this.destroyed = true;
+    this.writable = false;
     this.emit('close');
   }
 }

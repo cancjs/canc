@@ -192,8 +192,10 @@ async function checkPackage(pkgName) {
     }
   }
 
+  let inspectedDtsCount = 0;
   for (const f of packedFiles) {
     if (/\.d\.(m|c)?ts$/.test(f)) {
+      inspectedDtsCount++;
       const content = fs.readFileSync(path.join(pkgDir, f), 'utf8');
 
       // Check 1: unconditional /['"]packages\// regex test
@@ -203,35 +205,47 @@ async function checkPackage(pkgName) {
 
       // Check 2: resolve relative specifiers to assert target exists in tarball
       const matches = [
-        ...content.matchAll(/(?:import|export)(?:.+?from)?\s*['"](\.\.?[^'"]+)['"]/g),
-        ...content.matchAll(/import\(['"](\.\.?[^'"]+)['"]\)/g),
+        ...content.matchAll(/(?:import|export)(?:[\s\S]+?from)?\s*['"](\.\.?[^'"]+)['"]/g),
+        ...content.matchAll(/import\(\s*['"](\.\.?[^'"]+)['"]\s*\)/g),
+        ...content.matchAll(/require\(\s*['"](\.\.?[^'"]+)['"]\s*\)/g),
       ];
 
       for (const match of matches) {
         const specifier = match[1];
-        const target = path.join(path.dirname(f), specifier).replace(/\\/g, '/');
+        const rawTarget = path.join(path.dirname(f), specifier).replace(/\\/g, '/');
+        const normalizedTarget = rawTarget.endsWith('/') ? rawTarget.slice(0, -1) : rawTarget;
 
         let found = false;
-        const exts = ['', '.d.ts', '.d.mts', '.d.cts', '/index.d.ts', '/index.d.mts', '/index.d.cts'];
-        for (const ext of exts) {
-          const testTarget = target + ext;
-          if (ext === '' && testTarget.match(/\.[mc]?js$/)) {
-            const dtsTarget = testTarget.replace(/\.([mc]?)js$/, '.d.$1ts');
-            if (packedFiles.has(dtsTarget)) {
-              found = true;
-              break;
-            }
-          }
-          if (packedFiles.has(testTarget)) {
+        const candidates = [
+          normalizedTarget,
+          normalizedTarget + '.d.ts',
+          normalizedTarget + '.d.mts',
+          normalizedTarget + '.d.cts',
+          normalizedTarget + '/index.d.ts',
+          normalizedTarget + '/index.d.mts',
+          normalizedTarget + '/index.d.cts',
+        ];
+
+        if (normalizedTarget.match(/\.[mc]?js$/)) {
+          candidates.push(normalizedTarget.replace(/\.([mc]?)js$/, '.d.$1ts'));
+        }
+
+        for (const candidate of candidates) {
+          if (packedFiles.has(candidate)) {
             found = true;
             break;
           }
         }
+
         if (!found) {
           problems.push(`packed types contain an unresolvable relative import ${specifier} in ${f}`);
         }
       }
     }
+  }
+
+  if (inspectedDtsCount === 0) {
+    problems.push('package packed zero type declaration (.d.ts) files');
   }
 
   problems.push(...(await collectDefaultExportShadowing(pkgDir, manifest)));

@@ -353,4 +353,45 @@ describe('debounce (native)', () => {
     expect(isSupersededError(other)).toBe(true);
     expect(other instanceof SupersededError).toBe(false);
   });
+
+  it('keeps in-flight trailing invocation when later call arrives before settlement', async () => {
+    jest.useFakeTimers();
+    let rejectBoom: ((err: Error) => void) | undefined;
+    const fn = (x: string) => {
+      if (x === 'boom') {
+        return new Promise<string>((_resolve, reject) => {
+          rejectBoom = reject;
+        });
+      }
+      return Promise.resolve(x);
+    };
+    const debounced = debounce(fn, 50, { leading: false });
+
+    const pBoom = debounced('boom');
+    jest.advanceTimersByTime(50);
+
+    const pNext = debounced('next');
+
+    if (rejectBoom) rejectBoom(new Error('async boom'));
+
+    const err = await pBoom.then(undefined, (e: unknown) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect((err as Error).message).toBe('async boom');
+    expect(isSupersededError(err)).toBe(false);
+
+    jest.advanceTimersByTime(50);
+    expect(await pNext).toBe('next');
+  });
+
+  it('flush returns undefined in the dead window after trailing invocation', async () => {
+    jest.useFakeTimers();
+    const fn = jest.fn((x: string) => x);
+    const debounced = debounce(fn, 50, { maxWait: 100 });
+
+    debounced('first');
+    jest.advanceTimersByTime(50);
+    expect(fn).toHaveBeenCalledTimes(1);
+
+    expect(debounced.flush()).toBeUndefined();
+  });
 });

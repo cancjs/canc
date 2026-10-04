@@ -1,3 +1,4 @@
+import { CancelError } from '@cancjs/promise';
 import { MockApi } from '@shared/mock-api';
 import { sleep } from '@shared/util';
 
@@ -25,16 +26,17 @@ describe('app-crawler-race smoke', () => {
     await afterStarted(api, 3);
     crawl.cancel('stopped');
 
-    let canceled = false;
+    let error: unknown;
     try {
       await crawl;
-    } catch {
-      canceled = true;
+    } catch (e) {
+      error = e;
     }
     // Give a full latency window to settle, proving none complete after the cancel.
     await sleep(80);
 
-    expect(canceled).toBe(true);
+    expect(error).toBeInstanceOf(CancelError);
+    expect((error as CancelError).message).toBe('stopped');
     // Some pages were in flight and got aborted.
     expect(pageCalls(api, 'aborted')).toBeGreaterThan(0);
     // Some pages never started at all: the cancel drained the queue before they got a slot.
@@ -61,7 +63,7 @@ describe('app-crawler-race smoke', () => {
     await sleep(150);
 
     // The leak: the vanilla queue keeps pumping past Stop, so it completes strictly more pages than
-    // the canc crawl, whose one cancel() drained the pool.
+    // the canc crawl, whose one cancel() drained the limiter.
     expect(pageCalls(vanillaApi, 'completed')).toBeGreaterThan(pageCalls(cancApi, 'completed'));
   });
 });

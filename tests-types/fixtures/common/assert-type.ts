@@ -12,8 +12,7 @@
  */
 
 // Invariant structural equality (distinguishes `any`, tuples vs arrays, unions).
-export type Equal<A, B> =
- (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
+export type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 
 // Gate: only `true` passes. `Expect<false>` is a compile error at the use site.
 export type Expect<T extends true> = T;
@@ -27,4 +26,3 @@ export type IsAny<T> = 0 extends 1 & T ? true : false;
 export type Not<T extends boolean> = T extends true ? false : true;
 export type Eq<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 export type Assert<T extends true> = T;
-

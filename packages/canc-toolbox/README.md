@@ -318,6 +318,8 @@ floor on success, not a timer. Pick the one that matches what a failure should d
 | `debounce(fn, ms, options?)` | Debounces function calls, returning a wrapper with `cancel()`, `flush()`, `isPending` |
 | `throttle(fn, ms, options?)` | Throttles function calls, returning a wrapper with `cancel()`, `flush()`, `isPending` |
 
+A superseding call cancels an in-flight call on a cancelable promise implementation or rejects a not-yet-invoked call with `SupersededError` on a plain implementation. A fire-and-forget call needs a rejection handler attached so a superseded call is not unhandled.
+
 ### Concurrency
 
 | Export                         | Description                                                                                                  |
@@ -326,7 +328,7 @@ floor on success, not a timer. Pick the one that matches what a failure should d
 | `map(input, mapper, options?)` | Concurrency-bounded, input-ordered `map`; cancel stops in-flight work and drops the queue                    |
 
 Both are built on the same limiter. Canceling either stops what is running and never starts what is
-queued, and every dropped job still settles rather than hanging forever.
+queued, and every dropped job still settles provided the underlying job itself settles.
 
 ### Adapters
 
@@ -369,6 +371,11 @@ queued, and every dropped job still settles rather than hanging forever.
 | `isLazyPromise(value)`                        | Brand check                                                               |
 
 ### Errors
+
+| Export                     | Description                                                      |
+| -------------------------- | ---------------------------------------------------------------- |
+| `SupersededError`          | Error class thrown when a trailing or pending call is superseded |
+| `isSupersededError(error)` | Checks whether an error is a `SupersededError`                   |
 
 `AbortError`, `isAbortError(error)`, `TimeoutError`, `isTimeoutError(error)` (deprecated; import from `@cancjs/promise`).
 

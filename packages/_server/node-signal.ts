@@ -85,7 +85,7 @@ function wireDisconnect(req: IRequestLike, res: IResponseLike, state: IRequestCa
   res.once('close', () => {
     untrackRequest(req, state);
 
-    if (!res.writableEnded) {
+    if (hasClientLeft(res)) {
       state.cancel(CLIENT_DISCONNECTED);
     }
   });

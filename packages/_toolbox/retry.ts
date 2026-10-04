@@ -90,6 +90,10 @@ export function retryFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
     const onRetry = options?.onRetry;
     const timers = resolveTimers(options, deps);
 
+    if (typeof jitter === 'number' && jitter < 0) {
+      throw new RangeError('retry: jitter cannot be negative', { cause: jitter });
+    }
+
     return constructTimed<T, K>(
       deps,
       (resolve, reject, ctx?: IExecutorCtx) => {
@@ -154,11 +158,13 @@ export function retryFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
                 return;
               }
 
-              // guarded again because an async shouldRetry resumes here after the outer try exited
               try {
                 onRetry?.(reason, n, wait);
                 scheduleNext(n, wait);
               } catch (err) {
+                if (err instanceof Error && err.cause === undefined) {
+                  err.cause = reason;
+                }
                 reject(err);
               }
             };
@@ -170,7 +176,12 @@ export function retryFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
                 deps.Impl.resolve(result).then(
                   (allow: boolean) => afterShouldRetry(allow),
                   (err: any) => {
-                    if (!canceled) reject(err);
+                    if (!canceled) {
+                      if (err instanceof Error && err.cause === undefined) {
+                        err.cause = reason;
+                      }
+                      reject(err);
+                    }
                   },
                 );
                 return;
@@ -182,6 +193,9 @@ export function retryFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
 
             afterShouldRetry(true);
           } catch (err) {
+            if (err instanceof Error && err.cause === undefined) {
+              err.cause = reason;
+            }
             reject(err);
           }
         };

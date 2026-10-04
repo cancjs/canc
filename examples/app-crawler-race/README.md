@@ -1,7 +1,7 @@
 # app-crawler-race
 
 A site-health crawl. Starting from the home page, the crawler fans out two levels deep through a
-fixed-concurrency pool, fetching every linked page and reporting the broken (404) ones. Partway
+fixed-concurrency limiter, fetching every linked page and reporting the broken (404) ones. Partway
 through, the operator hits Stop. With canc, one `cancel()` on the crawl root prunes the entire
 in-flight subtree at every depth. The vanilla twin threads a hand-rolled abort and still leaks.
 
@@ -33,7 +33,7 @@ fetches were started, aborted, or completed.
 ## What it shows
 
 - **One cancel() prunes the whole subtree.** The crawl root is a `CancelablePromise`. Its cancel
- handler calls `pool.cancel()` once. That drains the pool in a single call: pages still queued
+ handler calls `limiter.cancel()` once. That drains the limiter in a single call: pages still queued
  never start (born-canceled) and pages in flight are aborted at the request boundary. There is no
  per-level plumbing. The same cancel reaches a fetch at depth 0 and a fetch at depth 2 alike,
  because cancellation propagates down the tree of cancelable nodes on its own.
@@ -42,7 +42,7 @@ fetches were started, aborted, or completed.
  fetch has no controller yet, so draining the queue cannot stop it, and the fetches dispatched a
  tick before Stop already left with their own signal. The result: aborting the running fetches
  makes the crawl reject, yet the queued and in-flight pages run to completion anyway. The
- `completed` count keeps climbing after Stop. That is the grandchild leak the pool avoids.
+ `completed` count keeps climbing after Stop. That is the grandchild leak the limiter avoids.
 - **Cancel-aware concurrency limiter.** The limiter is `@cancjs/toolbox`'s `limit`. It runs at
  most four fetches at once and exposes `cancel(reason)`, which drops the queue and cancels every
  in-flight job.

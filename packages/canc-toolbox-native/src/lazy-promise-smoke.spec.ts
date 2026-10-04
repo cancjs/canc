@@ -93,10 +93,27 @@ describe('lazy promise smoke (native)', () => {
  */
 const lazySource = path.join(__dirname, '..', '..', '_toolbox', 'lazy', 'lazy-promise-native.ts');
 
+const repoRoot = path.resolve(__dirname, '../../..');
+
 const hook = `
 const ts = require(${JSON.stringify(require.resolve('typescript'))});
 const Module = require('module');
 const fs = require('fs');
+const path = require('path');
+
+// Map @cancjs specifiers to source so lazy-promise bare imports transpile to a require that
+// resolves properly while subpath specifiers fall through to original resolver with its error
+const originalResolveFilename = Module._resolveFilename;
+Module._resolveFilename = function (request, parent, isMain) {
+ const match = request.match(/^@cancjs\\/([^\\/]+)(?:\\/(.*))?$/);
+ if (match && !match[2]) {
+  const packageName = match[1];
+  const srcPath = path.resolve(${JSON.stringify(repoRoot)}, 'packages', 'canc-' + packageName, 'src', 'index.ts');
+  return originalResolveFilename.call(this, srcPath, parent, isMain);
+ }
+ return originalResolveFilename.call(this, request, parent, isMain);
+};
+
 Module._extensions['.ts'] = function (module, filename) {
  const source = fs.readFileSync(filename, 'utf8');
  const out = ts.transpileModule(source, {

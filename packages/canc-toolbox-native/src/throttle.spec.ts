@@ -378,4 +378,32 @@ describe('throttle (native)', () => {
     expect(await pc).toBe('C');
     expect(calls).toEqual(['b', 'c']);
   });
+
+  it('rejects unknown option keys at compile time', () => {
+    const fn = () => Promise.resolve(1);
+    // @ts-expect-error trailng typo is rejected
+    throttle(fn, 50, { trailng: false });
+    // @ts-expect-error maxWait is a debounce option not on throttle
+    throttle(fn, 50, { maxWait: 999 });
+  });
+
+  it('rate contract: does not invoke closer than ms across a window boundary', () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(0);
+    const timestamps: number[] = [];
+    const fn = () => {
+      timestamps.push(Date.now());
+      return 1;
+    };
+    const throttled = throttle(fn, 100);
+
+    throttled();
+    jest.advanceTimersByTime(50);
+    throttled();
+    jest.advanceTimersByTime(52);
+    throttled();
+    jest.advanceTimersByTime(298);
+
+    expect(timestamps).toEqual([0, 100, 202]);
+  });
 });

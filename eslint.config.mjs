@@ -58,9 +58,12 @@ export default defineConfig(
     '**/node_modules/**',
     '**/package-lock.json',
     'examples/**',
-    // Type-matrix fixtures, compiled by the matrix runner against a range of TypeScript
-    // versions. Linting them with this repo's single TS config would be meaningless.
-    'tests-types/fixtures/**',
+    // Generated type-matrix fixtures and packed tarballs.
+    'tests-types/fixtures/ts-*/**',
+    'tests-types/.tarballs/**',
+    'tests-types/fixtures/common/async-iter-types.ts',
+    // Benchmark generated results.
+    'benchmarks/results/**',
   ]),
 
   // Presets must stay scoped to JS/TS. Unscoped they also apply to the JSON and markdown blocks
@@ -293,6 +296,22 @@ export default defineConfig(
       'import-x/first': 'error',
       'import-x/newline-after-import': 'error',
       'import-x/no-duplicates': 'error',
+    },
+  },
+
+  // Type fixture source files under tests-types/fixtures/common. These files test type inference,
+  // compiler behaviors, and declarations; they assign variables purely to check types, include
+  // multiple imports, etc.
+  {
+    files: ['tests-types/fixtures/**/*.{ts,tsx}'],
+    rules: {
+      '@typescript-eslint/no-unused-vars': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      'import-x/first': 'off',
+      'import-x/no-duplicates': 'off',
+      'simple-import-sort/imports': 'off',
     },
   },
 

@@ -1,5 +1,6 @@
-// Guards the inlinable shared dirs under packages/ (currently packages/_util, packages/_toolbox;
-// any future packages/_* dir with no package.json is picked up automatically).
+// Guards the inlinable shared dirs under packages/ (currently packages/_util,
+// packages/_toolbox, packages/_server; any future packages/_* dir with no
+// package.json is picked up automatically).
 // Those dirs have no package.json, so changesets cannot see them, yet their bytes are bundled
 // per-package into every importer's published output.
 // A change there must ship a changeset for every package whose published bundle inlines the
@@ -223,7 +224,7 @@ function main() {
 
   if (missingAny) {
     console.error(
-      '\nFAIL: this PR touches a shared dir with no package.json (packages/_util, packages/_toolbox, ' +
+      '\nFAIL: this PR touches a shared dir with no package.json (packages/_util, packages/_toolbox, packages/_server, ' +
         "or similar). Those bytes are inlined into every importing package's published output but " +
         'invisible to changesets. Add a changeset covering every importer package listed above.',
     );

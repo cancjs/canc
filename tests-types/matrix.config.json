@@ -25,21 +25,19 @@
     "@types/node": "~20.19.43"
   },
   "commonFixtures": ["../common/api-smoke.ts", "../common/failure-types.ts"],
-  "serverTypesComment": "common/server-express-types.ts, common/server-node-types.ts, common/server-fastify-types.ts, common/server-hono-types.ts and common/server-koa-types.ts compile only in versions marked serverExpressTypes / serverFastifyTypes / serverHonoTypes / serverKoaTypes (server-node rides the express gate, server-hono rides the fastify gate; see each file header). None of these gates are a defect in what this repo ships: express pulls in @types/node's stream/web.d.ts through @types/express-serve-static-core, which hits a real TypeScript recursive-type limitation (`ReadableByteStreamController` etc. 'referenced directly or indirectly in its own type annotation') fixed only at 5.0+, so 4.2/4.7 cannot parse it regardless of which @types/node version is installed. Fastify's own shipped .d.ts additionally needs the NoInfer utility type (TypeScript 5.4+), so it and hono start one lane later. Koa pulls in only http/http2, never stream/web.d.ts, so serverKoaTypes is set on every lane from 4.2 up; see each fixture file's own header for the measured errors.",
+  "serverTypesComment": "common/server-express-types.ts, common/server-node-types.ts, common/server-fastify-types.ts, common/server-hono-types.ts and common/server-koa-types.ts compile only in versions marked serverExpressTypes / serverFastifyTypes / serverHonoTypes / serverKoaTypes (server-node rides the express gate; see each file header). None of these gates are a defect in what this repo ships: express and koa pull in @types/node dependencies that hit syntax/recursive-type limitations on TS 4.2/4.7; fastify requires NoInfer (TS 5.4+); hono requires TS 5.9+ for generic Uint8Array types. See each fixture file's own header for the measured errors.",
   "versions": [
     {
       "id": "4.2",
       "typescript": "4.2.4",
       "moduleResolution": "node",
-      "lib": ["es2020", "dom"],
-      "serverKoaTypes": true
+      "lib": ["es2020", "dom"]
     },
     {
       "id": "4.7",
       "typescript": "4.7.4",
       "moduleResolution": "node16",
-      "lib": ["es2022", "dom"],
-      "serverKoaTypes": true
+      "lib": ["es2022", "dom"]
     },
     {
       "id": "5.0",
@@ -58,7 +56,6 @@
       "decoratorTypes": true,
       "serverExpressTypes": true,
       "serverFastifyTypes": true,
-      "serverHonoTypes": true,
       "serverKoaTypes": true
     },
     {

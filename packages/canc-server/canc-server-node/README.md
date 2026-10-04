@@ -127,7 +127,7 @@ res.once('close', () => {
 });
 ```
 
-This matters more than it looks. `IncomingMessage` `'close'` means the request stream completed, which for a body-carrying POST happens once the body is read, with the client still connected. Wiring cancellation to the request would cancel every such request on arrival. `ServerResponse` `'close'` means the response completed or the connection died early, and `writableEnded` is what separates those two. A pre-flight check on `hasClientLeft(res)` covers a client that left before the handler was reached, because a request-side check cancels a healthy request on arrival.
+This matters more than it looks. `IncomingMessage` `'close'` means the request stream completed, which for a body-carrying POST happens once the body is read, with the client still connected. Wiring cancellation to the request would cancel every such request on arrival. `ServerResponse` `'close'` means the response completed or the connection died early, and `writableEnded` is what separates those two. A pre-flight check on `!res.writableEnded && (res.destroyed || !res.writable)` covers a client that left before the handler was reached, because a request-side check cancels a healthy request on arrival.
 
 The same reason applies to the request signal node itself offers. `IncomingMessage.prototype.signal` is an unguarded `'close'` listener, so it is deliberately not adopted here. An external signal is composed in only when you pass one through the `signal` option.
 

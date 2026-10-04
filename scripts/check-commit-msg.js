@@ -6,7 +6,7 @@
 const { execSync } = require('child_process');
 const fs = require('fs');
 
-const SUBJECT_RE = /^\([a-z]+\) [A-Z].{0,68}$/;
+const SUBJECT_RE = /^\([a-z][a-z-]*\) [A-Z].{0,68}$/;
 
 const PACKAGE_TO_SCOPE = {
   'canc-promise': 'promise',
@@ -17,6 +17,8 @@ const PACKAGE_TO_SCOPE = {
   'canc-toolbox': 'toolbox',
   'canc-toolbox-native': 'toolbox',
   'canc-server': 'server',
+  'canc-node': 'node',
+  'canc-unhandled-rejection': 'unhandled-rejection',
   _toolbox: 'toolbox',
   _util: 'util',
   _server: 'server',
@@ -59,8 +61,35 @@ if (!SUBJECT_RE.test(subject)) {
   process.exit(1);
 }
 
-const scopeMatch = subject.match(/^\(([a-z]+)\)/);
+// Mirrors documented scopes and adding a package requires adding both entries
+const ALLOWED_SCOPES = new Set([
+  'promise',
+  'coroutine',
+  'fetch',
+  'decorators',
+  'axios',
+  'toolbox',
+  'lazy',
+  'util',
+  'server',
+  'node',
+  'unhandled-rejection',
+  'build',
+  'repo',
+  'test',
+  'bench',
+  'types',
+  'docs',
+  'examples',
+]);
+
+const scopeMatch = subject.match(/^\(([a-z][a-z-]*)\)/);
 const scope = scopeMatch ? scopeMatch[1] : '';
+
+if (!ALLOWED_SCOPES.has(scope)) {
+  console.error(`unknown commit scope "(${scope})". Allowed scopes: ${[...ALLOWED_SCOPES].join(', ')}`);
+  process.exit(1);
+}
 
 function getStagedFiles() {
   try {

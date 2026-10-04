@@ -50,7 +50,7 @@ export interface IDrainOptions {
   timeout?: number;
   /** Reason the in-flight requests are canceled with. Defaults to the shutdown reason. */
   reason?: string;
-  /** Whether to stop accepting new connections first. Defaults to true. */
+  /** Whether to stop accepting new connections first. Gates every connection-closing call, not only the listener itself. Defaults to true. */
   closeServer?: boolean;
 }
 

@@ -28,9 +28,9 @@ export type IToolboxDeps<K extends IPromiseKind = IPromiseLikeKind> = TTimersOve
   TimeoutError?: typeof TimeoutError;
   /**
    * Whether `Impl` products are cancelable-shaped (expose `cancel` and pass a `handleCancel`-bearing
-   * ctx into the executor). Read only by the `{ lazy: true }` construction path (`./construct-timed`) to decide
-   * whether a deferred wrapper exposes a working `cancel`; every other factory already feature-detects
-   * cancelability per call through the executor's own `ctx` argument and ignores this flag.
+   * ctx into the executor). Read by `{ lazy: true }` (`./construct-timed`) and `limit` (`./limit`) to
+   * decide whether a wrapper or queued entry exposes a working `cancel`; other factories feature-detect
+   * cancelability per call through the executor's own `ctx` argument.
    */
   cancelable?: boolean;
   /**

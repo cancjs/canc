@@ -10,58 +10,57 @@
  * This file is deliberately runtime-dead (nothing executes); it exists purely
  * to make `tsc --noEmit` chew through the types.
  */
-import CancelablePromise, {
- CancelablePromise as NamedCP,
- CancelError,
- isCancelError,
- createCancelSignal,
- catchCancel,
- suppressCancel,
- makeCancelable,
-} from '@cancjs/promise';
-
-import {
-  catchAbort,
-  suppressAbort,
-  catchTimeout,
-  suppressTimeout,
-  createCatchError,
-  createSuppressError,
-} from '@cancjs/toolbox';
-
-import {
-  catchAbort as nativeCatchAbort,
-  suppressAbort as nativeSuppressAbort,
-  catchTimeout as nativeCatchTimeout,
-  suppressTimeout as nativeSuppressTimeout,
-  createCatchError as nativeCreateCatchError,
-  createSuppressError as nativeCreateSuppressError,
-  AbortError as NativeAbortError,
-  TimeoutError as NativeTimeoutError,
-} from '@cancjs/toolbox-native';
-
 // coroutine (cancAsync/cancAwait) lives in its own package now; core no longer re-exports it.
 import { async as cancAsync, await as cancAwait } from '@cancjs/coroutine';
-
 import type {
- ICancelablePromiseOptions,
- ICancelablePromiseFlagOptions,
- ICancelablePromiseWithResolvers,
- ICancelable,
- IHandleCancelOptions,
- TCancelReason,
- TCancelablePromiseStates,
- TOnCancel,
+  ICancelable,
+  ICancelablePromiseFlagOptions,
+  ICancelablePromiseOptions,
+  ICancelablePromiseWithResolvers,
+  IHandleCancelOptions,
+  TCancelablePromiseStates,
+  TCancelReason,
+  TOnCancel,
 } from '@cancjs/promise';
+import CancelablePromise, {
+  CancelablePromise as NamedCP,
+  CancelError,
+  catchCancel,
+  createCancelSignal,
+  isCancelError,
+  makeCancelable,
+  suppressCancel,
+} from '@cancjs/promise';
+import {
+  catchAbort,
+  catchTimeout,
+  createCatchError,
+  createSuppressError,
+  suppressAbort,
+  suppressTimeout,
+} from '@cancjs/toolbox';
+import {
+  AbortError as NativeAbortError,
+  catchAbort as nativeCatchAbort,
+  catchTimeout as nativeCatchTimeout,
+  createCatchError as nativeCreateCatchError,
+  createSuppressError as nativeCreateSuppressError,
+  suppressAbort as nativeSuppressAbort,
+  suppressTimeout as nativeSuppressTimeout,
+  TimeoutError as NativeTimeoutError,
+} from '@cancjs/toolbox-native';
 
 const _sameClass: typeof NamedCP = CancelablePromise;
 void _sameClass;
 
-const p = new CancelablePromise<number>((resolve, reject, ctx) => {
-  ctx.handleCancel((reason?: TCancelReason) => void reason);
- reject(new Error('x'));
- resolve(1);
-}, { bubble: true, strict: false, shield: true, asyncCancel: true, forceCancelable: false });
+const p = new CancelablePromise<number>(
+  (resolve, reject, ctx) => {
+    ctx.handleCancel((reason?: TCancelReason) => void reason);
+    reject(new Error('x'));
+    resolve(1);
+  },
+  { bubble: true, strict: false, shield: true, asyncCancel: true, forceCancelable: false },
+);
 
 // flag options object typed on its own
 const _flags: ICancelablePromiseFlagOptions = { bubble: false };
@@ -80,13 +79,11 @@ void _hc;
 const _canceled: boolean = p.isCanceled;
 const _cancelable: boolean = p.isCancelable;
 const _cancelRet: void | CancelablePromise<PromiseSettledResult<unknown>[]> = p.cancel('done');
-void _canceled; void _cancelable; void _cancelRet;
+void _canceled;
+void _cancelable;
+void _cancelRet;
 
-const pAll = CancelablePromise.all([
- Promise.resolve(1),
- Promise.resolve('a'),
- Promise.resolve(true),
-]); // CancelablePromise<[number, string, boolean]>
+const pAll = CancelablePromise.all([Promise.resolve(1), Promise.resolve('a'), Promise.resolve(true)]); // CancelablePromise<[number, string, boolean]>
 void pAll;
 
 const pAllSettled = CancelablePromise.allSettled([Promise.resolve(1), Promise.resolve('a')] as const);
@@ -101,7 +98,9 @@ void pAny;
 const pResolve = CancelablePromise.resolve(123);
 const pResolveVoid = CancelablePromise.resolve();
 const pReject = CancelablePromise.reject<number, string>('nope');
-void pResolve; void pResolveVoid; void pReject;
+void pResolve;
+void pResolveVoid;
+void pReject;
 
 const wr: ICancelablePromiseWithResolvers<string> = CancelablePromise.withResolvers<string>();
 wr.resolve('ok');
@@ -111,9 +110,9 @@ const _wrPromise: CancelablePromise<string> = wr.promise;
 void _wrPromise;
 
 const coro = cancAsync(function* () {
- const n: number = yield* cancAwait(Promise.resolve(1)); // yield* typed as awaited value
- const s: string = yield* cancAwait('literal'); // sync value passthrough
- return n + s.length;
+  const n: number = yield* cancAwait(Promise.resolve(1)); // yield* typed as awaited value
+  const s: string = yield* cancAwait('literal'); // sync value passthrough
+  return n + s.length;
 });
 const _coroResult = coro(); // CancelablePromise<unknown>
 void _coroResult;
@@ -136,17 +135,36 @@ const _ncce = nativeCreateCatchError('AbortError');
 const _ncse = nativeCreateSuppressError('TimeoutError');
 declare const _n: NativeAbortError;
 declare const _nt: NativeTimeoutError;
-void _isErr; void _cc; void _sc; void _mc; void _ca; void _sa; void _ct; void _st; void _cce; void _cse;
-void _nca; void _nsa; void _nct; void _nst; void _ncce; void _ncse; void _n; void _nt;
+void _isErr;
+void _cc;
+void _sc;
+void _mc;
+void _ca;
+void _sa;
+void _ct;
+void _st;
+void _cce;
+void _cse;
+void _nca;
+void _nsa;
+void _nct;
+void _nst;
+void _ncce;
+void _ncse;
+void _n;
+void _nt;
 
 const _state: TCancelablePromiseStates = 'PENDING';
 const _onCancel: TOnCancel = () => {};
 const _cancelable2: ICancelable<number> = p;
-void _state; void _onCancel; void _cancelable2;
+void _state;
+void _onCancel;
+void _cancelable2;
 
 const err = new CancelError('reason', { cause: new Error('c') });
 const _bubbled: boolean = err.bubbled;
 const _disposed: boolean = err.disposed;
-void _bubbled; void _disposed;
+void _bubbled;
+void _disposed;
 
 export {};

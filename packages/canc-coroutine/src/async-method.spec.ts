@@ -239,7 +239,7 @@ describe('asyncMethod', () => {
     class C {
       get load(): any {
         return cancAsync(function* () {
-          return yield* cancAwait(new Promise((r) => setTimeout(r, 10_000, 'late')));
+          return yield* cancAwait(new Promise(() => {}));
         });
       }
     }

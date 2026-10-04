@@ -9,6 +9,7 @@ import * as canc from '@cancjs/coroutine';
 import { throw as cancThrowAlias } from '@cancjs/coroutine';
 import { isCancelError, suppressCancel } from '@cancjs/promise';
 
+// Jest moduleNameMapper maps package roots to src/index.ts, so the /gen subpath imports from ./gen
 import * as cancGen from './gen';
 
 class FooError extends Error {

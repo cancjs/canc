@@ -27,23 +27,24 @@
  * call signature, so an exact structural `Equal` against a bare arrow-function type is the wrong
  * tool here.
  */
-import { AsyncMethod, BindMethod } from '@cancjs/decorators';
 import { async as cancAsync, AsyncResult } from '@cancjs/coroutine';
+import { AsyncMethod, BindMethod } from '@cancjs/decorators';
 import CancelablePromise from '@cancjs/promise';
+
 import type { Equal, Expect, ExpectExtends, IsAny, Not } from './assert-type';
 
 type Args = [id: number];
 type R = string;
 
 function* body(this: unknown, id: number): AsyncResult<R> {
- return String(id);
+  return String(id);
 }
 
 // ============================================================ 1. getter preserved
 class C {
- @AsyncMethod() get m() {
- return cancAsync(body, this);
- }
+  @AsyncMethod() get m() {
+    return cancAsync(body, this);
+  }
 }
 
 type _MemberType = InstanceType<typeof C>['m'];
@@ -67,7 +68,7 @@ type _DecoratorAppliedNotAny = Expect<Not<IsAny<_DecoratorAppliedResult>>>;
 // decorator, sets the payload. The getter's inferred type survives decoration unchanged (assertion
 // 1), so C structurally satisfies IShape from the outside with no cast.
 interface IShape {
- m(...a: Args): Promise<unknown>;
+  m(...a: Args): Promise<unknown>;
 }
 
 const c: IShape = new C();
@@ -75,9 +76,9 @@ void c;
 
 // ============================================================ 3. @BindMethod() getter: same shape
 class CBind {
- @BindMethod() get m() {
- return cancAsync(body, this);
- }
+  @BindMethod() get m() {
+    return cancAsync(body, this);
+  }
 }
 
 type _BindMemberType = InstanceType<typeof CBind>['m'];
@@ -91,9 +92,9 @@ void cBind;
 // CancelablePromise-returning method, and it is NOT erased to `any` either. This documents Style
 // A's cast tax: callers still need a manual cast to consume it as a promise-returning method.
 class CMethod {
- @AsyncMethod() *m(id: number): AsyncResult<R> {
- return String(id);
- }
+  @AsyncMethod() *m(id: number): AsyncResult<R> {
+    return String(id);
+  }
 }
 
 type _MethodMemberType = InstanceType<typeof CMethod>['m'];
