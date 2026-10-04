@@ -429,3 +429,51 @@ describe('async iterator terminal operators', () => {
     });
   });
 });
+
+type TExact<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
+
+function assertExact<A, B>(_check: TExact<A, B> extends true ? true : never): void {}
+
+interface IOrder {
+  total: number;
+}
+
+const orders: IOrder[] = [{ total: 10 }, { total: 5 }];
+
+describe('terminal typing', () => {
+  it('takes the accumulator type from the initial value', async () => {
+    const totals = asyncIter.pipe(
+      orders,
+      asyncIter.reduce((carried: number, order) => carried + order.total, 0),
+    );
+    const labels = asyncIter.pipe(
+      orders,
+      asyncIter.reduce((carried: string[], order) => carried.concat(String(order.total)), []),
+    );
+
+    assertExact<typeof totals, CancelablePromise<number>>(true);
+    assertExact<typeof labels, CancelablePromise<string[]>>(true);
+    await expect(totals).resolves.toBe(15);
+    await expect(labels).resolves.toEqual(['10', '5']);
+  });
+
+  it('takes it from the callback when there is none, where the first item seeds it', async () => {
+    const summed = asyncIter.pipe(
+      [1, 2, 3],
+      asyncIter.reduce((carried, value) => carried + value),
+    );
+    const counted = asyncIter.pipe(
+      orders,
+      asyncIter.reduce((carried: IOrder | number, order) => {
+        const running = typeof carried === 'number' ? carried : carried.total;
+
+        return running + order.total;
+      }),
+    );
+
+    assertExact<typeof summed, CancelablePromise<number>>(true);
+    assertExact<typeof counted, CancelablePromise<number | IOrder>>(true);
+    await expect(summed).resolves.toBe(6);
+    await expect(counted).resolves.toBe(15);
+  });
+});

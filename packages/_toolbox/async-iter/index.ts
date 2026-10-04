@@ -8,7 +8,23 @@ export { makePipeable, pipe } from './pipe';
 export type { ISourceNormalized } from './pull';
 export { callReturn, getSource } from './pull';
 export { concat, from, zip, zipKeyed } from './sources';
-export type { AnyIterable, IPipeableAsyncIterable, IPipeOp, ITermOp, TPromiseCtor } from './types';
+export type {
+  AnyIterable,
+  IPipeableAsyncIterable,
+  IPipeOp,
+  IPipeWalkLazy,
+  IPipeWalkTerm,
+  ITermOp,
+  PipeOp,
+  TAnySource,
+  TElementOf,
+  TermOp,
+  TPipeElementOf,
+  TPipeGrouped,
+  TPipeGroupedTerm,
+  TPipeWalk,
+  TPromiseCtor,
+} from './types';
 export {
   isPipeable,
   isPipeOp,

@@ -1,3 +1,5 @@
+import type { CancelablePromise } from '@cancjs/promise';
+
 import { map } from '../../../_toolbox/async-iter/operators';
 import * as asyncIter from './index';
 
@@ -364,5 +366,50 @@ describe('async-iter sources', () => {
     it('zipKeyed with no sources completes', async () => {
       expect(await drainCapped(asyncIter.zipKeyed({}), 4)).toEqual([]);
     });
+  });
+});
+
+type TExact<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
+
+function assertExact<A, B>(_check: TExact<A, B> extends true ? true : never): void {}
+
+// read back through the platform type rather than the package's own helper, so the assertion
+// cannot pass by agreeing with the code it checks
+type TElement<X> = X extends AsyncIterable<infer E> ? E : never;
+
+const numbers: AsyncIterable<number> = asyncIter.from([1, 2]);
+
+describe('source typing', () => {
+  it('rebuilds a tuple element type from the zipped sources', async () => {
+    const zipped = asyncIter.zip(numbers, ['a', 'b']);
+
+    assertExact<TElement<typeof zipped>, [number, string]>(true);
+    await expect(asyncIter.toArray()(zipped)).resolves.toEqual([
+      [1, 'a'],
+      [2, 'b'],
+    ]);
+  });
+
+  it('rebuilds a keyed element type from the zipped shape', async () => {
+    const keyed = asyncIter.zipKeyed({ count: numbers, label: ['a', 'b'] });
+
+    assertExact<TElement<typeof keyed>, { count: number; label: string }>(true);
+    await expect(asyncIter.toArray()(keyed)).resolves.toEqual([
+      { count: 1, label: 'a' },
+      { count: 2, label: 'b' },
+    ]);
+  });
+
+  it('reads the element type off the source, awaiting a synchronous iterable of promises', async () => {
+    const awaited = asyncIter.from([Promise.resolve(1), Promise.resolve(2)]);
+    const joined = asyncIter.concat(numbers, [3, 4]);
+    const piped = asyncIter.pipe([Promise.resolve('a')], asyncIter.toArray());
+
+    assertExact<TElement<typeof awaited>, number>(true);
+    assertExact<TElement<typeof joined>, number>(true);
+    assertExact<typeof piped, CancelablePromise<string[]>>(true);
+    await expect(asyncIter.toArray()(awaited)).resolves.toEqual([1, 2]);
+    await expect(asyncIter.toArray()(joined)).resolves.toEqual([1, 2, 3, 4]);
+    await expect(piped).resolves.toEqual(['a']);
   });
 });

@@ -1,4 +1,6 @@
-import { map, take } from '../../../_toolbox/async-iter/operators';
+import type { CancelablePromise } from '@cancjs/promise';
+
+import { filter, map, take } from '../../../_toolbox/async-iter/operators';
 import { isPipeable } from '../../../_toolbox/async-iter/types';
 import { pipe } from './pipe';
 import { from } from './sources';
@@ -9,6 +11,64 @@ const anyMap = map as any;
 const anyTake = take as any;
 
 const anyPipe = pipe as any;
+
+type TExact<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
+
+function assertExact<A, B>(_check: TExact<A, B> extends true ? true : never): void {}
+
+interface IThing {
+  id: number;
+  label: string;
+}
+
+const typedSource: IThing[] = [];
+
+function toLabel(value: IThing): string {
+  return value.label;
+}
+
+function isLongLabel(value: string): value is string {
+  return value.length > 3;
+}
+
+function toId(value: IThing): number {
+  return value.id;
+}
+
+function keepLabel(value: string): string {
+  return value;
+}
+
+describe('pipe typing', () => {
+  it('threads the element type through a group and into a trailing terminal', () => {
+    const grouped = pipe(typedSource, [map(toLabel), filter(isLongLabel)], toArray());
+
+    assertExact<typeof grouped, CancelablePromise<string[]>>(true);
+    expect(typeof grouped.then).toBe('function');
+  });
+
+  it('threads through nested groups', () => {
+    const nested = pipe(typedSource, [[map(toLabel)], [filter(isLongLabel)]], toArray());
+
+    assertExact<typeof nested, CancelablePromise<string[]>>(true);
+    expect(typeof nested.then).toBe('function');
+  });
+
+  it('resolves never when two adjacent operators do not line up', () => {
+    const mismatched = pipe(typedSource, [map(toId), map(keepLabel)], toArray());
+
+    assertExact<typeof mismatched, never>(true);
+    expect(mismatched).toBeDefined();
+  });
+
+  it('cannot type an inline arrow inside a group', () => {
+    // an array literal element has no contextual type, so the parameter is implicitly any
+    // @ts-expect-error the parameter is implicitly any
+    const inline = pipe(typedSource, [map((value) => value.label)], toArray());
+
+    expect(inline).toBeDefined();
+  });
+});
 
 describe('pipe', () => {
   it('pipe with no ops returns a pipeable async iterable (inert until consumed)', async () => {
@@ -126,7 +186,7 @@ describe('pipe', () => {
       toArray(),
     );
 
-    expect(result && typeof result.then).toBe('function');
+    expect(typeof result.then).toBe('function');
     const value = await result;
     expect(value).toEqual([2, 4]);
   });

@@ -13,6 +13,18 @@ export type TIterPredicate<T> = (value: T, index: number) => TCallbackResult<unk
 export type TIterVisitor<T> = (value: T, index: number) => TCallbackResult<unknown>;
 export type TIterReducer<T, A> = (accumulator: A, value: T, index: number) => TCallbackResult<A>;
 
+// blocks inference from the position it wraps, the way the built-in NoInfer does from TypeScript
+// 5.4 on, which is past the floor these types have to compile under
+type TFixed<T> = [T][T extends unknown ? 0 : never];
+
+/**
+ * Reducer for the form called without an initial value, where the first item seeds the accumulator.
+ *
+ * The accumulator reaching the callback is therefore either an element of the source or whatever an
+ * earlier call returned, and the result type comes from the callback rather than from an argument.
+ */
+export type TIterSeededReducer<T, A> = (accumulator: TFixed<T> | A, value: T, index: number) => TCallbackResult<A>;
+
 /** Keep pulling. */
 interface IContinue {
   done: false;

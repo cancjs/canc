@@ -2,7 +2,12 @@ import { CancelablePromise } from '@cancjs/promise';
 
 import type { AnyIterable, ITermOp } from '../../../_toolbox/async-iter';
 import { markTermOp } from '../../../_toolbox/async-iter';
-import type { TIterPredicate, TIterReducer, TIterVisitor } from '../../../_toolbox/async-iter/terminals';
+import type {
+  TIterPredicate,
+  TIterReducer,
+  TIterSeededReducer,
+  TIterVisitor,
+} from '../../../_toolbox/async-iter/terminals';
 import {
   everyFactory,
   findFactory,
@@ -48,7 +53,7 @@ export function toArray<I>(): ICancelableTermOp<I, I[]> {
  * accumulator, so an empty source rejects with a TypeError.
  */
 export function reduce<I, A>(reducer: TIterReducer<I, A>, initial: A): ICancelableTermOp<I, A>;
-export function reduce<I>(reducer: TIterReducer<I, I>): ICancelableTermOp<I, I>;
+export function reduce<I, A = I>(reducer: TIterSeededReducer<I, A>): ICancelableTermOp<I, A>;
 export function reduce<I, A>(reducer: TIterReducer<I, A>, ...initial: [A?]): ICancelableTermOp<I, A> {
   return markTermOp<I, A>((source) => boundReduce<I, A>(source, reducer, ...initial)) as ICancelableTermOp<I, A>;
 }

@@ -255,9 +255,10 @@ chain is a `cancAsync` body that has not been called yet, not a chain of lazy pr
 
 ### Lazy async iterator helpers
 
-Pipeable operators for cancelable async iterables are planned as the `@cancjs/toolbox/async-iter`
-entry point 🚧. Until it lands, consume and produce async iterables with `canc.forAwait` and
-`cancGen.async` from
+Pipeable operators for cancelable async iterables are available under the `@cancjs/toolbox/async-iter`
+entry point. Pipelines are constructed via `pipe(source, ...ops)` or `from(source).pipe(...)`,
+providing full generic inference and cancelable terminal returns (`toArray`, `reduce`, `find`, `some`, `every`, `forEach`, `includes`).
+In addition, async iterables can be consumed and produced with `canc.forAwait` and `cancGen.async` from
 [`@cancjs/coroutine`](https://github.com/cancjs/canc/tree/master/packages/canc-coroutine).
 
 ### Declared failures

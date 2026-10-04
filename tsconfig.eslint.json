@@ -27,7 +27,6 @@
     // Manual runtime checks, run by their own runtime (bun, deno) with that runtime's resolver.
     "**/smoke/**",
     "**/dist/**/*",
-    "tests-types/fixtures/ts-*/**",
-    "tests-types/fixtures/common/async-iter-types.ts"
+    "tests-types/fixtures/ts-*/**"
   ]
 }

@@ -1,4 +1,14 @@
-export type { AnyIterable, IPipeableAsyncIterable, IPipeOp, ITermOp, TPromiseCtor } from '../../../_toolbox/async-iter';
+export type {
+  AnyIterable,
+  IPipeableAsyncIterable,
+  IPipeOp,
+  ITermOp,
+  PipeOp,
+  TAnySource,
+  TElementOf,
+  TermOp,
+  TPromiseCtor,
+} from '../../../_toolbox/async-iter';
 export type { ISourceNormalized } from '../../../_toolbox/async-iter';
 export type { IAsyncIterOptions } from '../../../_toolbox/async-iter';
 export type { ISplitConfigResult } from '../../../_toolbox/async-iter';
@@ -22,8 +32,10 @@ export type {
   TCallbackResult,
   TIterPredicate,
   TIterReducer,
+  TIterSeededReducer,
   TIterVisitor,
 } from '../../../_toolbox/async-iter/terminals';
+export type { ICancelablePipeable } from './pipe';
 export { pipe } from './pipe';
 export { concat, from, zip, zipKeyed } from './sources';
 export type { ICancelableTermOp } from './terminals';
