@@ -49,10 +49,18 @@ function isGenerator(value: unknown): value is canc.TGeneratorLike<unknown, unkn
  * dropping the pending component), `onScopeDispose` cancels the in-flight coroutine, aborting any
  * request it wired through `canc.await`. Vue's `<script setup>` cannot host this, its top-level
  * `await` has no scope hook to cancel, so this setup-option wrapper is the opt-in.
+ *
+ * The coroutine itself is what gets returned to Vue as the async setup result, and Vue awaits it
+ * ("setup()" is one of the documented sources `onErrorCaptured` / `app.config.errorHandler` cover),
+ * so a real failure in the load already reaches Vue's own error system with no extra wiring here.
+ * A superseded or torn-down run's `CancelError` must NOT take that same path (it is expected, not a
+ * setup failure), so the promise handed back is the `suppressCancel`-wrapped one, not the raw
+ * coroutine: its resolved placeholder value is never read for that run, since Vue only reaches it
+ * after already discarding the branch that owned it.
  */
 export function cancelableSetup<Props, Result>(
   setup: CancelableSetup<Props, Result, any>,
-): (props: Props, ctx: SetupContext) => Result | Promise<Result> {
+): (props: Props, ctx: SetupContext) => Result | Promise<Result | undefined> {
   return (props: Props, ctx: SetupContext) => {
     const started = setup(props, ctx);
 
@@ -73,9 +81,8 @@ export function cancelableSetup<Props, Result>(
       task.cancel('setup scope disposed');
     });
 
-    // A superseded setup rejects with CancelError; that is expected, not an error to surface.
-    suppressCancel(task);
-
-    return task;
+    // suppressed promise keeps a superseded run's CancelError from reaching Vue's own await
+    // a real error on task still rejects this one, unchanged
+    return suppressCancel(task);
   };
 }

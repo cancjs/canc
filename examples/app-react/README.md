@@ -64,15 +64,38 @@ are written to be lifted straight into your own project. Copy them freely. They 
 future `@cancjs/react` package.
 
 - `useCancelable(factory, deps)`: fetch-on-dependency-change in one call. Runs the factory as a
- `CancelablePromise`, re-runs and cancels the previous run when `deps` change, cancels the last run
- on unmount, and returns `{ status, value, error }`. Reach for this first.
+  `CancelablePromise`, re-runs and cancels the previous run when `deps` change, cancels the last run
+  on unmount, and returns `{ status, value, error }`. Because `useCancelableEffect` throws to the error
+  boundary on failure, `status: 'rejected'` cannot render as composed; use `usePromiseState` directly
+  if you want to render an error inline
 - `useCancelableEffect(callback, deps)`: the low-level effect-only primitive. Use it when you start
- a cancelable run but render nothing from it (fire-and-forget analytics or a warm-cache prefetch).
- Returning a `CancelablePromise` makes its `cancel()` the effect cleanup.
+  a cancelable run but render nothing from it (fire-and-forget analytics or a warm-cache prefetch).
+  Returning a `CancelablePromise` makes its `cancel()` the effect cleanup.
 - `usePromiseState(promise)`: tracks one promise's settlement as render state, for manual control
- when you build the chain yourself. `useCancelable` composes it internally.
-- `useCancelableCallback(factory)`: latest-wins imperative runner for event handlers, where each
- call cancels the previous still-pending one.
+  when you build the chain yourself. `useCancelable` composes it internally. `idle` covers both
+  "nothing started" and a run that was canceled.
+- `useCancelableCallback(factory, options?)`: imperative call for event handlers. Returns
+  `{ run, cancelPending, pending }`. `pending` reflects whether a run is in flight, derived from
+  the run's own settlement. `options.cancelPrevious` (default `true`) cancels a still-pending run
+  when a new one starts; `false` rejects the new call instead of touching the pending one. That
+  conflict rejection is yours to catch on the promise `run()` returns. It does not reach the error
+  boundary, and the hook marks it handled, so a bare `void run()` on a double click is dropped on
+  purpose rather than surfacing as an unhandled rejection.
+  `cancelPending(reason?)` cancels the in-flight run, defaulting to the "unmounted" reason.
+  The example components are effect-driven (typeahead search and hover state), so
+  `useCancelableCallback` is verified in its own spec (`src/use-cancelable-callback.spec.tsx`)
+  covering imperative event handlers and pending spinner state.
+- Error boundaries required: `useCancelable`, `useCancelableEffect`, and `useCancelableCallback` escalate
+  a non-cancel failure of a run they started to the nearest error boundary by throwing from a state
+  updater, which unmounts the subtree. A `cancelPrevious: false` conflict is not one of those failures
+
+## Cancel reasons
+
+The hooks pass a reason string to every `cancel()` call: `unmounted`, `superseded` (a new call
+replaced a pending one), `deps-changed` (a dependency array change replaced the run). They are
+exported from `@shared/util` (`CANCEL_REASON_UNMOUNTED`, `CANCEL_REASON_SUPERSEDED`,
+`CANCEL_REASON_DEPS_CHANGED`). `isCancelError` stays the check for "was this a cancel"; the reason
+is the detail a consumer branches on to answer "why".
 
 ## Notes
 

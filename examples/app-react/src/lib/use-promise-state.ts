@@ -12,10 +12,13 @@ export interface PromiseState<T> {
 /**
  * Tracks the settlement of the latest promise passed in and exposes it as render state. Latest
  * wins: when the input promise changes, an older one's resolution is ignored, so a stale response
- * can never overwrite fresher data. A `CancelError` (the promise was canceled) resets to `idle`
- * rather than surfacing as an error, since a canceled request has no result to show.
+ * can never overwrite fresher data. `idle` covers both "nothing started" (pass `undefined`) and
+ * a run that was canceled: a canceled run has no result to show and resets to `idle`.
  *
- * Pass `undefined` for "nothing in flight" (state stays / returns to `idle`).
+ * A non-cancel rejection stays local to `error` here rather than escalating to the nearest error
+ * boundary the way `useCancelableEffect` does: this hook already hands the caller a channel to
+ * render the failure inline, and a boundary throw would unmount the very state it just set, in the
+ * same render, discarding it before anything could read it.
  */
 export function usePromiseState<T>(promise: PromiseLike<T> | undefined): PromiseState<T> {
   const [state, setState] = useState<PromiseState<T>>({ status: 'idle' });
@@ -36,8 +39,11 @@ export function usePromiseState<T>(promise: PromiseLike<T> | undefined): Promise
       },
       (error) => {
         if (latest.current !== promise) return;
-        if (isCancelError(error)) setState({ status: 'idle' });
-        else setState({ status: 'rejected', error });
+        if (isCancelError(error)) {
+          setState({ status: 'idle' });
+          return;
+        }
+        setState({ status: 'rejected', error });
       },
     );
   }, [promise]);

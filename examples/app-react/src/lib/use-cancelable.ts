@@ -23,6 +23,11 @@ export type CancelableFactory<T> = (getSignal: () => AbortSignal) => Promise<T>;
  * cleanup, track its settlement) into the one call a data fetch actually wants. When you need only
  * the cancel-on-cleanup effect and no render state, reach for `useCancelableEffect` instead; for
  * manual control over settlement tracking, `usePromiseState`.
+ *
+ * `useCancelableEffect`'s own cleanup wiring runs first, so a non-cancel rejection reaches its
+ * error-boundary escalation (see that hook) before `usePromiseState` here would otherwise render
+ * `status: 'rejected'`. Wrap a tree calling this hook in an error boundary if the factory's work
+ * can fail for a reason other than being superseded or unmounted.
  */
 export function useCancelable<T>(factory: CancelableFactory<T>, deps: DependencyList): PromiseState<T> {
   // A fresh cancelable run per deps change. cancelify supplies the abort signal to the factory.

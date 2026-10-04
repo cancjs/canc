@@ -1,6 +1,7 @@
 import * as canc from '@cancjs/coroutine';
-import { type CancelablePromise, isCancPromise, suppressCancel } from '@cancjs/promise';
-import { type DependencyList, useEffect } from 'react';
+import { type CancelablePromise, isCancelError, isCancPromise, type TCancelReason } from '@cancjs/promise';
+import { CANCEL_REASON_DEPS_CHANGED, CANCEL_REASON_UNMOUNTED } from '@shared/util';
+import { type DependencyList, useEffect, useRef, useState } from 'react';
 
 /**
  * Effect callback returning a promise, cleanup function, or nothing. Return a `CancelablePromise`
@@ -32,8 +33,17 @@ export function useCancelableEffect(generator: CancelableGeneratorEffectCallback
  * chain (rejecting it with a `CancelError` that regular `try/catch` sees). A returned function is
  * used as cleanup unchanged; anything else is ignored.
  *
- * A superseded or unmount-time cancel is expected, not an error, so the hook suppresses the
- * resulting `CancelError` itself. Callers never need their own `suppressCancel` call.
+ * A superseded or unmount-time cancel is expected, not an error, so the hook swallows the
+ * resulting `CancelError` itself. Callers never need their own cancel handling for it. The cancel
+ * carries "unmounted" or "deps-changed" (the exported reason constants) so a consumer catching
+ * the `CancelError` can branch on `error.reason`.
+ *
+ * This effect has no return channel for its promise's settlement (unlike `usePromiseState`,
+ * there is no render state to read), so any OTHER rejection is escalated to the nearest React
+ * error boundary instead of being dropped: it is thrown from a state update, which is the
+ * supported way to hand an async error to `componentDidCatch`/`getDerivedStateFromError` since
+ * effects are not one of the places a boundary looks by itself. Wrap a tree using this hook in an
+ * error boundary if the effect's work can fail for a reason other than being canceled.
  *
  * This mirrors the plain `useAsyncEffect` shape one keystroke at a time: the only change is the
  * `isCancPromise` branch that returns `result.cancel` instead of dropping the promise on the floor.
@@ -44,21 +54,45 @@ export function useCancelableEffect(
   callbackOrGenerator: CancelableEffectCallback | CancelableGeneratorEffectCallback,
   deps?: DependencyList,
 ): void {
+  // reset on mount/remount so StrictMode simulation leaves flag clear
+  // flips before main cleanup to distinguish unmount from deps change
+  const unmounting = useRef(false);
   useEffect(() => {
+    unmounting.current = false;
+    return () => {
+      unmounting.current = true;
+    };
+  }, []);
+
+  // Unused slot: calling this setter with an updater that throws makes the next render throw,
+  // which is what lets a rejection from outside React's call stack reach a boundary at all.
+  const [, escalateToErrorBoundary] = useState<undefined>();
+
+  useEffect(() => {
+    const cleanupReason = (): TCancelReason =>
+      unmounting.current ? CANCEL_REASON_UNMOUNTED : CANCEL_REASON_DEPS_CHANGED;
+
+    const swallowCancelEscalateRest = (error: unknown): void => {
+      if (isCancelError(error)) return;
+      escalateToErrorBoundary(() => {
+        throw error;
+      });
+    };
+
     if (isGeneratorFunction(callbackOrGenerator)) {
       const promise = canc.async(callbackOrGenerator as any)();
-      suppressCancel(promise);
+      promise.then(undefined, swallowCancelEscalateRest);
       return () => {
-        promise.cancel();
+        promise.cancel(cleanupReason());
       };
     }
 
     const result = callbackOrGenerator();
 
     if (isCancPromise(result)) {
-      suppressCancel(result);
+      result.then(undefined, swallowCancelEscalateRest);
       return () => {
-        result.cancel();
+        result.cancel(cleanupReason());
       };
     }
 

@@ -1,5 +1,5 @@
 import * as canc from '@cancjs/coroutine';
-import { type CancelablePromise, FailureOf, isCancelError, isCancPromise } from '@cancjs/promise';
+import { type CancelablePromise, FailureOf, isCancPromise } from '@cancjs/promise';
 import { effectScope, type SetupContext } from 'vue';
 
 import { type CancelableSetup, cancelableSetup } from '../src/lib/cancelable-setup';
@@ -94,7 +94,7 @@ describe('cancelableSetup', () => {
     expect(result).toBe(bindings);
   });
 
-  it('cancels the in-flight setup when the scope is disposed', async () => {
+  it('cancels the in-flight setup when the scope is disposed, without surfacing CancelError to the setup result', async () => {
     const load = deferred<string>();
     let cleanedUp = false;
     const setup = cancelableSetup(function* () {
@@ -108,11 +108,13 @@ describe('cancelableSetup', () => {
     const { result, scope } = runInScope(setup, {});
     scope.stop();
 
-    const error = await Promise.resolve(result).then(
-      () => undefined,
-      (reason: unknown) => reason,
+    // result is what Vue awaits as the setup's own outcome
+    // a canceled run must not reject it, or Vue treats the teardown as a setup failure
+    const outcome = await Promise.resolve(result).then(
+      () => 'resolved',
+      () => 'rejected',
     );
-    expect(isCancelError(error)).toBe(true);
+    expect(outcome).toBe('resolved');
     expect(cleanedUp).toBe(true);
   });
 });
