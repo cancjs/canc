@@ -10,7 +10,14 @@ export {
 } from './catch-suppress';
 export { construct, IExecutorCtx, TExecutor, THandleCancel, TPromiseCtor } from './construct';
 export { constructTimed } from './construct-timed';
-export { debounceFactory, IDebounced, IDebounceDeps, IDebounceOptions } from './debounce';
+export {
+  debounceFactory,
+  IDebounced,
+  IDebounceDeps,
+  IDebounceOptions,
+  isSupersededError,
+  SupersededError,
+} from './debounce';
 export { deferFactory, IDeferred } from './defer';
 export { delayFactory } from './delay';
 export { IToolboxDeps, TAbortControllerCtor, TCallDeps } from './deps';
@@ -29,5 +36,5 @@ export {
 export { IRetryOptions, retryFactory } from './retry';
 export { IThrottled, IThrottleOptions, throttleFactory } from './throttle';
 export { isTimeoutError, TimeoutError, timeoutFactory } from './timeout';
-export { ITimers, MAX_TIMEOUT, resolveTimers, startTimer, stopTimer, TTimersOverride } from './timers';
+export { ITimers, MAX_TIMEOUT, readClock, resolveTimers, startTimer, stopTimer, TTimersOverride } from './timers';
 export { IWaitForOptions, waitForFactory } from './wait-for';

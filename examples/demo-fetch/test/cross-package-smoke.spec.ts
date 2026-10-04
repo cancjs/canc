@@ -13,7 +13,7 @@ describe('Cross-package declared failure flow', () => {
     const fetchWithTimeout = () => timeout(cancelableFetch('https://api.example.com/data'), 10);
 
     // 3. Wrapped by a toolbox retry (3 attempts)
-    const retryFetch = () => retry(fetchWithTimeout, { retries: 2, minTimeout: 1 });
+    const retryFetch = () => retry(fetchWithTimeout, { retries: 2, initialDelay: 1 });
 
     // 4. Consumed by a coroutine
     const fetchCoroutine = canc.async(function* () {

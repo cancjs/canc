@@ -1,5 +1,6 @@
 import { ITimers } from '../../_toolbox';
 import { debounce } from './debounce';
+import { isSupersededError, SupersededError } from './errors';
 
 interface IFakeTimers {
   timers: ITimers;
@@ -57,7 +58,7 @@ describe('debounce (native): per-call timers', () => {
     const fn = (x: number) => Promise.resolve(x);
     const debounced = debounce(fn, 100, { ...pair.timers });
 
-    debounced(1);
+    debounced(1).then(undefined, () => undefined);
     const firstHandle = pair.setTimeout.mock.results[0].value;
 
     debounced(2);
@@ -89,7 +90,7 @@ describe('debounce (native): per-call timers', () => {
     await Promise.resolve();
 
     expect(callCount).toBe(1);
-    expect(pair.clearTimeout).toHaveBeenCalledTimes(1);
+    expect(pair.clearTimeout).toHaveBeenCalledTimes(2);
   });
 
   it('.cancel() clears through the injected pair and .flush() fires without waiting', async () => {
@@ -102,7 +103,7 @@ describe('debounce (native): per-call timers', () => {
     };
 
     const cancelDebounced = debounce(fn, 100, { ...pair.timers });
-    cancelDebounced(1);
+    cancelDebounced(1).then(undefined, () => undefined);
     cancelDebounced.cancel();
     expect(pair.clearTimeout).toHaveBeenCalledTimes(1);
     expect(callCount).toBe(0);
@@ -132,8 +133,8 @@ describe('debounce (native)', () => {
     };
     const debounced = debounce(fn, 100);
 
-    debounced(1);
-    debounced(2);
+    debounced(1).then(undefined, () => undefined);
+    debounced(2).then(undefined, () => undefined);
     debounced(3);
 
     expect(callCount).toBe(0);
@@ -148,8 +149,8 @@ describe('debounce (native)', () => {
     const fn = (x: number) => Promise.resolve(x * 10);
     const debounced = debounce(fn, 50);
 
-    debounced(1);
-    debounced(2);
+    debounced(1).then(undefined, () => undefined);
+    debounced(2).then(undefined, () => undefined);
     const p = debounced(3);
 
     jest.advanceTimersByTime(50);
@@ -181,7 +182,7 @@ describe('debounce (native)', () => {
     };
     const debounced = debounce(fn, 100, { maxWait: 150 });
 
-    debounced();
+    debounced().then(undefined, () => undefined);
     jest.advanceTimersByTime(80);
     debounced();
     jest.advanceTimersByTime(70);
@@ -189,6 +190,23 @@ describe('debounce (native)', () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(callCount).toBe(1);
+  });
+
+  it('leading:false + trailing:false: fn never called', async () => {
+    jest.useFakeTimers();
+    let callCount = 0;
+    const fn = () => {
+      callCount++;
+      return Promise.resolve(1);
+    };
+    const debounced = debounce(fn, 100, { leading: false, trailing: false });
+
+    const p = debounced();
+    jest.advanceTimersByTime(200);
+
+    const reason = await p.then(undefined, (e) => e);
+    expect(isSupersededError(reason)).toBe(true);
+    expect(callCount).toBe(0);
   });
 
   it('.cancel() clears timer', async () => {
@@ -200,7 +218,7 @@ describe('debounce (native)', () => {
     };
     const debounced = debounce(fn, 100);
 
-    debounced();
+    debounced().then(undefined, () => undefined);
     debounced.cancel();
     jest.advanceTimersByTime(200);
     await Promise.resolve();
@@ -238,5 +256,101 @@ describe('debounce (native)', () => {
     const p = debounced();
     expect(p).toBeInstanceOf(Promise);
     expect('cancel' in p).toBe(false);
+  });
+
+  // the native twin has no cancel surface, so the value arriving is the whole assertion here
+  it('leading: a superseding call leaves the leading call that already ran alone', async () => {
+    jest.useFakeTimers();
+    const calls: string[] = [];
+    const fn = (x: string) => {
+      calls.push(x);
+
+      return new Promise<string>((resolve) => {
+        setTimeout(() => resolve(x.toUpperCase()), 200);
+      });
+    };
+    const debounced = debounce(fn, 50, { leading: true });
+
+    const pa = debounced('a');
+    jest.advanceTimersByTime(5);
+    const pb = debounced('b');
+
+    jest.advanceTimersByTime(300);
+    expect(await pa).toBe('A');
+
+    jest.advanceTimersByTime(300);
+    expect(await pb).toBe('B');
+    expect(calls).toEqual(['a', 'b']);
+  });
+
+  it('leading: the leading edge fires again after a quiet period', async () => {
+    jest.useFakeTimers();
+    const calls: string[] = [];
+    const fn = (x: string) => {
+      calls.push(x);
+      return Promise.resolve(x);
+    };
+    const debounced = debounce(fn, 50, { leading: true });
+
+    debounced('a');
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(calls).toEqual(['a']);
+
+    jest.advanceTimersByTime(200);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(calls).toEqual(['a']);
+
+    const pb = debounced('b');
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(calls).toEqual(['a', 'b']);
+    expect(await pb).toBe('b');
+  });
+
+  // Once invoke() has adopted a thenable, `pendingReject` is gone and the native twin has no cancel
+  // surface, so an in-flight supersede is a no-op here by construction, not by choice.
+  // an unhandled rejection anywhere in here fails the whole suite, so the supersede raising one
+  // on the unclaimed promise would be caught by this test running at all
+  it('a pending call rejects on supersede, an in-flight one runs on and settles its caller', async () => {
+    jest.useFakeTimers();
+    const calls: string[] = [];
+    const fn = (x: string) => {
+      calls.push(x);
+
+      return new Promise<string>((resolve) => {
+        setTimeout(() => resolve(x.toUpperCase()), 200);
+      });
+    };
+    const debounced = debounce(fn, 50);
+
+    const pa = debounced('a');
+    const pb = debounced('b'); // supersede while 'a' is still waiting out its timer
+
+    const reasonA = await pa.then(undefined, (e: unknown) => e);
+    expect(isSupersededError(reasonA)).toBe(true);
+
+    jest.advanceTimersByTime(50);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(calls).toEqual(['b']);
+
+    const pc = debounced('c'); // supersede while 'b' is in flight
+
+    jest.advanceTimersByTime(300); // long enough for a re-invoked 'b' to show up
+    expect(await pb).toBe('B');
+    expect(await pc).toBe('C');
+    expect(calls).toEqual(['b', 'c']);
+  });
+
+  // simulates a second package copy: no shared prototype, only the registry symbol
+  it('isSupersededError matches a hand-built cross-copy object by brand alone', () => {
+    const SUPERSEDED_ERROR_BRAND = Symbol.for('@cancjs/toolbox:SupersededError');
+    const other = Object.create(null) as Record<symbol, unknown>;
+    other[SUPERSEDED_ERROR_BRAND] = true;
+
+    expect(isSupersededError(other)).toBe(true);
+    expect(other instanceof SupersededError).toBe(false);
   });
 });

@@ -88,12 +88,19 @@ function flush(): Promise<void> {
 interface ICancelableWork {
   promise: Promise<never> & { cancel: () => void };
   state: { canceled: number };
+  /** Settles once something awaits the work, which is the point the awaiting body is suspended. */
+  awaited: Promise<void>;
 }
 
 /** A cancelable-shaped promise that stays pending until it is canceled, standing in for real work. */
 function cancelableWork(): ICancelableWork {
   const state = { canceled: 0 };
   let fail: (reason: unknown) => void = () => undefined;
+  let reached: () => void = () => undefined;
+
+  const awaited = new Promise<void>((resolve) => {
+    reached = resolve;
+  });
 
   const promise = new Promise<never>((_resolve, reject) => {
     fail = reject;
@@ -105,7 +112,13 @@ function cancelableWork(): ICancelableWork {
   };
   promise.catch(() => undefined);
 
-  return { promise, state };
+  const settle = promise.then.bind(promise);
+  promise.then = ((onFulfilled?: any, onRejected?: any) => {
+    reached();
+    return settle(onFulfilled, onRejected);
+  }) as typeof promise.then;
+
+  return { promise, state, awaited };
 }
 
 describe('map', () => {
@@ -351,7 +364,7 @@ describe('stopping a chain', () => {
 
     const iterator = take<number>(2)(mapped)[Symbol.asyncIterator]();
     const pull = iterator.next();
-    await flush();
+    await work.awaited;
 
     expect(work.state.canceled).toBe(0);
     expect(cleanup.ran).toBe(0);
@@ -371,7 +384,7 @@ describe('stopping a chain', () => {
     const mapped = map(() => work.promise)(source);
     const iterator = mapped[Symbol.asyncIterator]();
     const pull = iterator.next();
-    await flush();
+    await work.awaited;
 
     await iterator.return?.(undefined);
 
@@ -386,7 +399,7 @@ describe('stopping a chain', () => {
     const mapped = map(async () => work.promise)(source);
     const iterator = mapped[Symbol.asyncIterator]();
     const pull = iterator.next();
-    await flush();
+    await work.awaited;
 
     await iterator.return?.(undefined);
 

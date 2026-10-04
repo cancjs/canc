@@ -91,7 +91,7 @@ describe('debounce: per-call timers', () => {
     await Promise.resolve();
 
     expect(callCount).toBe(1);
-    expect(pair.clearTimeout).toHaveBeenCalledTimes(1);
+    expect(pair.clearTimeout).toHaveBeenCalledTimes(2);
   });
 
   it('.cancel() clears through the injected pair and .flush() fires without waiting', async () => {
@@ -242,6 +242,27 @@ describe('debounce', () => {
     expect(callCount).toBe(1);
   });
 
+  it('maxWait: a trailing invoke leaves no pending work behind', async () => {
+    jest.useFakeTimers();
+    const calls: number[] = [];
+    const fn = (x: number) => {
+      calls.push(x);
+      return CancelablePromise.resolve(x);
+    };
+    const debounced = debounce(fn, 50, { maxWait: 100 });
+
+    debounced(1);
+    jest.advanceTimersByTime(40);
+    debounced(2);
+    jest.advanceTimersByTime(60);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(calls).toEqual([2]);
+    expect(debounced.isPending).toBe(false);
+    expect(debounced.flush()).toBeUndefined();
+  });
+
   it('.cancel() clears timer and rejects pending with CancelError', async () => {
     jest.useFakeTimers();
     let callCount = 0;
@@ -348,9 +369,11 @@ describe('debounce', () => {
     };
     const debounced = debounce(fn, 100, { leading: false, trailing: false });
 
-    debounced();
+    const p = debounced();
     jest.advanceTimersByTime(200);
-    await Promise.resolve();
+
+    const reason = await (p as unknown as CancelablePromise<number>).catch((e: any) => e);
+    expect(isCancelError(reason)).toBe(true);
     expect(callCount).toBe(0);
   });
 
@@ -378,5 +401,173 @@ describe('debounce', () => {
     const p = debounced();
     expect(p).toBeInstanceOf(CancelablePromise);
     (p as CancelablePromise<number>).cancel();
+  });
+
+  it('leading: a superseding call leaves the leading call that already ran alone', async () => {
+    jest.useFakeTimers();
+    const calls: string[] = [];
+    const fn = (x: string) => {
+      calls.push(x);
+
+      return new CancelablePromise<string>((resolve) => {
+        // still in flight when the next call arrives, so canceling it would be observable
+        setTimeout(() => resolve(x.toUpperCase()), 200);
+      });
+    };
+    const debounced = debounce(fn, 50, { leading: true });
+
+    const pa = debounced('a');
+    jest.advanceTimersByTime(5);
+    debounced('b');
+
+    jest.advanceTimersByTime(300);
+    const outcomeA = await (pa as CancelablePromise<string>).then(
+      (v) => v,
+      (e: any) => e,
+    );
+    expect(isCancelError(outcomeA)).toBe(false);
+    expect(outcomeA).toBe('A');
+    expect(calls).toEqual(['a', 'b']);
+  });
+
+  it('leading: the leading edge fires again after a quiet period', async () => {
+    jest.useFakeTimers();
+    const calls: string[] = [];
+    const fn = (x: string) => {
+      calls.push(x);
+      return CancelablePromise.resolve(x);
+    };
+    const debounced = debounce(fn, 50, { leading: true });
+
+    debounced('a');
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(calls).toEqual(['a']);
+
+    jest.advanceTimersByTime(200);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(calls).toEqual(['a']);
+
+    const pb = debounced('b');
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(calls).toEqual(['a', 'b']);
+    expect(await pb).toBe('b');
+  });
+
+  it('a superseding call cancels a call whose result has not settled', async () => {
+    jest.useFakeTimers();
+    let bCanceled = false;
+    const fn = (x: string) =>
+      new CancelablePromise<string>((resolve, _reject, { handleCancel }) => {
+        if (x === 'b') {
+          if (handleCancel) {
+            handleCancel(() => {
+              bCanceled = true;
+            });
+          }
+          return; // 'b' never settles on its own, only via cancel
+        }
+        resolve(x);
+      });
+    const debounced = debounce(fn, 50);
+
+    const pa = debounced('a');
+    const pb = debounced('b'); // supersede while 'a' is still waiting out its timer
+
+    const reasonA = await (pa as CancelablePromise<string>).catch((e: any) => e);
+    expect(isCancelError(reasonA)).toBe(true);
+
+    jest.advanceTimersByTime(50);
+    await Promise.resolve();
+    await Promise.resolve();
+    // 'b' has now been invoked and is in flight, never settling by itself
+
+    const pc = debounced('c'); // supersede while 'b' is in flight
+
+    const reasonB = await (pb as CancelablePromise<string>).catch((e: any) => e);
+    expect(isCancelError(reasonB)).toBe(true);
+    expect(bCanceled).toBe(true);
+
+    jest.advanceTimersByTime(50);
+    const resultC = await pc;
+    expect(resultC).toBe('c');
+  });
+
+  it('a superseding call keeps a call whose result already settled', async () => {
+    jest.useFakeTimers();
+    let bCanceled = false;
+    const fn = (x: string) =>
+      new CancelablePromise<string>((resolve, _reject, { handleCancel }) => {
+        if (x === 'b') {
+          if (handleCancel) {
+            handleCancel(() => {
+              bCanceled = true;
+            });
+          }
+          setTimeout(() => resolve('B'), 10);
+          return;
+        }
+        resolve(x);
+      });
+    const debounced = debounce(fn, 50);
+
+    const pa = debounced('a');
+    const pb = debounced('b');
+    await (pa as CancelablePromise<string>).catch(() => undefined);
+
+    jest.advanceTimersByTime(50); // the trailing edge invokes 'b'
+    await Promise.resolve();
+    await Promise.resolve();
+
+    jest.advanceTimersByTime(10); // 'b' settles before anything supersedes it
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const pc = debounced('c');
+
+    expect(await pb).toBe('B');
+    expect(bCanceled).toBe(false);
+
+    jest.advanceTimersByTime(50);
+    expect(await pc).toBe('c');
+  });
+
+  it('a settled leading call releases its promise, so flush has nothing left to return', async () => {
+    jest.useFakeTimers();
+    const debounced = debounce((x: string) => CancelablePromise.resolve(x), 50, { leading: true });
+
+    const pa = debounced('a');
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(await pa).toBe('a');
+
+    expect(debounced.isPending).toBe(true); // the window is still open, but nothing is waiting in it
+    expect(debounced.flush()).toBeUndefined();
+  });
+
+  it('a superseding call cancels the wrapper of an in-flight result that has no cancel surface', async () => {
+    jest.useFakeTimers();
+    // 'a' resolves through a plain promise with no cancel surface, and never settles on its own,
+    // so it stays genuinely in flight once 'b' supersedes it
+    const fn = (x: string) => (x === 'a' ? new Promise<string>(() => undefined) : Promise.resolve(x));
+    const debounced = debounce(fn, 50);
+
+    const pa = debounced('a');
+    jest.advanceTimersByTime(50);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const pb = debounced('b');
+
+    const reasonA = await (pa as CancelablePromise<string>).catch((e: any) => e);
+    expect(isCancelError(reasonA)).toBe(true);
+
+    jest.advanceTimersByTime(50);
+    const resultB = await pb;
+    expect(resultB).toBe('b');
   });
 });

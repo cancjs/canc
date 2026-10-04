@@ -1,4 +1,4 @@
-import { ITimers, MAX_TIMEOUT, startTimer, stopTimer } from './timers';
+import { ITimers, MAX_TIMEOUT, readClock, startTimer, stopTimer } from './timers';
 
 const TIMER_BRAND = Symbol.for('@cancjs/toolbox:Timer');
 
@@ -231,6 +231,16 @@ describe('startTimer / stopTimer', () => {
 
       expect(timers.clearTimeout).toHaveBeenCalledTimes(1);
       expect(globalClearTimeout).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('readClock', () => {
+    it('returns a non-negative number and is monotonic', () => {
+      const t1 = readClock();
+      const t2 = readClock();
+      expect(typeof t1).toBe('number');
+      expect(t1).toBeGreaterThanOrEqual(0);
+      expect(t2).toBeGreaterThanOrEqual(t1);
     });
   });
 });

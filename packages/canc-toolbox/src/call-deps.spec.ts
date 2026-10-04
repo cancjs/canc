@@ -145,8 +145,9 @@ describe('per-call dependencies (cancelable)', () => {
         return CancelablePromise.reject(new Error('nope'));
       },
       {
-        retries: 3,
-        minTimeout: 100,
+        // 2 retries after the first call = 3 attempts total, matching `attempts` below.
+        retries: 2,
+        initialDelay: 100,
         factor: 2,
         setTimeout: pair.setTimeout,
         clearTimeout: pair.clearTimeout,

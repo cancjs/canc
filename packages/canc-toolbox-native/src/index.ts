@@ -11,8 +11,8 @@ import { deps, INativeKind } from './deps';
 
 export const delay = tb.delayFactory(deps);
 
-// `defer` and `minDelay` start their work on the call, so `lazy` has nothing to defer. The casts
-// are type-only: they mark that option as unusable so passing it fails to compile.
+// `defer` and `minDelay` start their work on the call, so `lazy` has nothing to defer.
+// The casts are type-only: they mark that option as unusable so passing it fails to compile.
 interface INoLazy {
   lazy?: never;
   [key: string]: unknown;
@@ -54,7 +54,9 @@ export {
   createCatchError,
   createSuppressError,
   isAbortError,
+  isSupersededError,
   isTimeoutError,
+  SupersededError,
   suppressAbort,
   suppressTimeout,
   TimeoutError,

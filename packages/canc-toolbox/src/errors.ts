@@ -11,3 +11,5 @@ export {
   suppressTimeout,
   TimeoutError,
 } from '@cancjs/promise';
+// toolbox-only, no promise-package concept to relocate: straight off _util
+export { isSupersededError, SupersededError } from '../../_util';

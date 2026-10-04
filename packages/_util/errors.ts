@@ -150,6 +150,11 @@ export const TIMEOUT_ERROR_BRAND = Symbol.for('@cancjs/promise:TimeoutError');
 export const AGGREGATE_ERROR_BRAND = Symbol.for('@cancjs/promise:AggregateError');
 
 /**
+ * Prototype brand for SupersededError instances, registered under `Symbol.for('@cancjs/toolbox:SupersededError')`.
+ */
+export const SUPERSEDED_ERROR_BRAND = Symbol.for('@cancjs/toolbox:SupersededError');
+
+/**
  * Rejected or thrown when an operation is aborted. Carries the same `name` as the DOMException a
  * real AbortSignal produces, so one code path handles both. Identified across realms by its
  * `Symbol.for('@cancjs/promise:AbortError')` prototype brand.
@@ -169,6 +174,17 @@ export const TimeoutError = createErrorClass(
 );
 /** Instance type of {@link TimeoutError}. */
 export type TimeoutError = InstanceType<typeof TimeoutError>;
+
+/**
+ * Rejected when a debounced or throttled call is superseded by a later call before it settles.
+ * On a cancelable promise implementation the wrapper promise is canceled instead, so this class
+ * only ever surfaces from a non-cancelable (native-twin) implementation, where rejecting is the
+ * only way to settle a call that will never run. Identified across realms by its
+ * `Symbol.for('@cancjs/toolbox:SupersededError')` prototype brand.
+ */
+export const SupersededError = createErrorClass('SupersededError', SUPERSEDED_ERROR_BRAND, 'call superseded');
+/** Instance type of {@link SupersededError}. */
+export type SupersededError = InstanceType<typeof SupersededError>;
 
 /**
  * Instance shape of {@link AggregateError}, platform class or shim alike.
@@ -244,6 +260,12 @@ export const isAbortError = (error: any): error is AbortError =>
  */
 export const isTimeoutError = (error: any): error is TimeoutError =>
   isObject(error) && (error[TIMEOUT_ERROR_BRAND] === true || error.name === 'TimeoutError');
+
+/**
+ * Whether value is a SupersededError. Matches the `Symbol.for('@cancjs/toolbox:SupersededError')` prototype brand or the `name` property, never `instanceof`.
+ */
+export const isSupersededError = (error: any): error is SupersededError =>
+  isObject(error) && (error[SUPERSEDED_ERROR_BRAND] === true || error.name === 'SupersededError');
 
 /**
  * Whether value is an AggregateError. Matches the `Symbol.for('@cancjs/promise:AggregateError')` prototype brand or the `name` property, never `instanceof`.

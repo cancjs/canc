@@ -1,3 +1,5 @@
+import { CancelablePromise, isCancelError } from '@cancjs/promise';
+
 import { ITimers } from '../../_toolbox';
 import { retry } from './index';
 
@@ -74,59 +76,24 @@ function trackUnhandledRejections() {
   };
 }
 
-describe('retry', () => {
-  afterEach(() => {
-    jest.useRealTimers();
-  });
-
+// This file is the cancelable twin's own retry spec, which did not exist before this change.
+// It carries the same backoff-default regression coverage as the native package, plus the
+// cancel-specific behavior that only applies here.
+describe('retry (cancelable)', () => {
   it('resolves on the first success (happy path)', async () => {
     const fn = jest.fn().mockResolvedValue('ok');
     await expect(retry(fn, { retries: 3 })).resolves.toBe('ok');
     expect(fn).toHaveBeenCalledTimes(1);
   });
 
-  it('retries until success', async () => {
-    let calls = 0;
-    const fn = jest.fn().mockImplementation(() => {
-      calls++;
-      return calls < 3 ? Promise.reject(new Error('fail')) : Promise.resolve('third');
-    });
-    await expect(retry(fn, { retries: 5, initialDelay: 0 })).resolves.toBe('third');
-    expect(fn).toHaveBeenCalledTimes(3);
-  });
-
-  it('rejects with the last error after exhausting retries', async () => {
-    const firstError = new Error('first');
-    const lastError = new Error('last');
-    const fn = jest.fn().mockRejectedValueOnce(firstError).mockRejectedValueOnce(lastError);
-    // retries: 1 means one retry after the first call, so 2 calls total
-    await expect(retry(fn, { retries: 1, initialDelay: 0 })).rejects.toBe(lastError);
-    expect(fn).toHaveBeenCalledTimes(2);
-  });
-
-  it('returns a plain native Promise, not a cancelable one', () => {
+  it('returns a CancelablePromise', () => {
     const promise = retry(() => Promise.resolve('v'));
-    expect(promise).toBeInstanceOf(Promise);
-    expect('cancel' in promise).toBe(false);
+    expect(promise).toBeInstanceOf(CancelablePromise);
+    promise.cancel();
   });
 
-  it('no cancel: a pending backoff wait runs to completion and attempts continue', async () => {
-    jest.useFakeTimers();
-    const fn = jest.fn().mockRejectedValue(new Error('fail'));
-    const promise = retry(fn, { retries: 3, initialDelay: 100, factor: 2 });
-    promise.catch(() => {
-      /* swallow */
-    });
-
-    await flushMicrotasks();
-    expect(fn).toHaveBeenCalledTimes(1);
-
-    jest.advanceTimersByTime(100);
-    await flushMicrotasks();
-    expect(fn).toHaveBeenCalledTimes(2);
-  });
-
-  // Assertion 1 (must FAIL on pre-reshape code, which has no backoff by default: every wait is 0).
+  // Assertion 1 (must FAIL on pre-reshape code, which has no backoff by default: every wait is 0),
+  // re-run here because the cancelable twin previously had no retry spec of its own at all.
   it('the default backoff is 300, 600, 1200 for successive attempts', async () => {
     const pair = createFakeTimers();
     const fn = jest.fn().mockRejectedValue(new Error('fail'));
@@ -161,181 +128,84 @@ describe('retry', () => {
     expect(pair.delays).toEqual([50]);
   });
 
-  // Assertion 3
-  it('factor: 1 produces a constant wait', async () => {
+  // Assertion 9a
+  it('canceling during a backoff wait clears the timer and starts no further attempt', async () => {
     const pair = createFakeTimers();
     const fn = jest.fn().mockRejectedValue(new Error('fail'));
-    const promise = retry(fn, { retries: 3, initialDelay: 40, factor: 1, ...pair.timers });
+    const promise = retry(fn, { retries: 3, initialDelay: 100, ...pair.timers });
     promise.catch(() => {
       /* swallow */
     });
 
     await flushMicrotasks();
-    pair.advance(40);
-    await flushMicrotasks();
-    pair.advance(40);
-    await flushMicrotasks();
-    pair.advance(40);
-    await flushMicrotasks();
-
-    expect(pair.delays).toEqual([40, 40, 40]);
-  });
-
-  // Assertion 4
-  it('maxDelay caps a long exponential sequence', async () => {
-    const pair = createFakeTimers();
-    const fn = jest.fn().mockRejectedValue(new Error('fail'));
-    const promise = retry(fn, {
-      retries: 5,
-      initialDelay: 100,
-      factor: 10,
-      maxDelay: 500,
-      ...pair.timers,
-    });
-    promise.catch(() => {
-      /* swallow */
-    });
-
-    await flushMicrotasks();
-    for (let i = 0; i < 5; i++) {
-      pair.advance(500);
-      await flushMicrotasks();
-    }
-
-    // Uncapped this would be 100, 1000, 10000, 100000, 1000000.
-    expect(pair.delays).toEqual([100, 500, 500, 500, 500]);
-  });
-
-  // Assertion 5
-  it('jitter: false (default) produces exactly the computed delay', async () => {
-    const pair = createFakeTimers();
-    const fn = jest.fn().mockRejectedValue(new Error('fail'));
-    const promise = retry(fn, { retries: 1, initialDelay: 200, ...pair.timers });
-    promise.catch(() => {
-      /* swallow */
-    });
-
-    await flushMicrotasks();
-    expect(pair.delays).toEqual([200]);
-  });
-
-  it('jitter: true keeps every wait within [0, computed] and produces variance', async () => {
-    const pair = createFakeTimers();
-    const fn = jest.fn().mockRejectedValue(new Error('fail'));
-    const promise = retry(fn, { retries: 200, initialDelay: 100, factor: 1, jitter: true, ...pair.timers });
-    promise.catch(() => {
-      /* swallow */
-    });
-
-    await flushMicrotasks();
-    for (let i = 0; i < 200; i++) {
-      pair.advance(100);
-      await flushMicrotasks();
-    }
-
-    expect(pair.delays.length).toBe(200);
-    for (const wait of pair.delays) {
-      expect(wait).toBeGreaterThanOrEqual(0);
-      expect(wait).toBeLessThanOrEqual(100);
-    }
-    expect(new Set(pair.delays).size).toBeGreaterThanOrEqual(2);
-  });
-
-  it('jitter: 0.5 keeps every wait within [computed*0.5, computed*1.5]', async () => {
-    const pair = createFakeTimers();
-    const fn = jest.fn().mockRejectedValue(new Error('fail'));
-    const promise = retry(fn, { retries: 50, initialDelay: 100, factor: 1, jitter: 0.5, ...pair.timers });
-    promise.catch(() => {
-      /* swallow */
-    });
-
-    await flushMicrotasks();
-    for (let i = 0; i < 50; i++) {
-      pair.advance(150);
-      await flushMicrotasks();
-    }
-
-    expect(pair.delays.length).toBe(50);
-    for (const wait of pair.delays) {
-      expect(wait).toBeGreaterThanOrEqual(50);
-      expect(wait).toBeLessThanOrEqual(150);
-    }
-  });
-
-  // Assertion 6
-  it('shouldRetry returning false stops immediately, rejects with the original reason, and skips onRetry', async () => {
-    const pair = createFakeTimers();
-    const error = new Error('boom');
-    const fn = jest.fn().mockRejectedValue(error);
-    const onRetry = jest.fn();
-    const shouldRetry = jest.fn().mockReturnValue(false);
-
-    await expect(retry(fn, { retries: 3, shouldRetry, onRetry, ...pair.timers })).rejects.toBe(error);
     expect(fn).toHaveBeenCalledTimes(1);
-    expect(onRetry).not.toHaveBeenCalled();
+    expect(pair.delays).toEqual([100]);
+
+    promise.cancel();
+
+    pair.advance(1000);
+    await flushMicrotasks();
+
+    expect(fn).toHaveBeenCalledTimes(1);
+    const reason = await promise.catch((error: unknown) => error);
+    expect(isCancelError(reason)).toBe(true);
+  });
+
+  // Assertion 9b
+  it('canceling during an in-flight attempt cancels it', async () => {
+    let inner: CancelablePromise<never> | undefined;
+    const fn = jest.fn(() => {
+      inner = new CancelablePromise<never>((_resolve, _reject, ctx) => {
+        ctx?.handleCancel(() => {
+          /* the library settles this as canceled on its own */
+        });
+      });
+      return inner;
+    });
+
+    const promise = retry(fn, { retries: 3 });
+
+    await flushMicrotasks();
+    expect(fn).toHaveBeenCalledTimes(1);
+
+    promise.cancel();
+
+    const innerReason = await inner!.catch((error: unknown) => error);
+    expect(isCancelError(innerReason)).toBe(true);
+
+    const outerReason = await promise.catch((error: unknown) => error);
+    expect(isCancelError(outerReason)).toBe(true);
+  });
+
+  // Assertion 9c
+  it('canceling during an async shouldRetry aborts the whole retry and schedules no attempt', async () => {
+    const pair = createFakeTimers();
+    const fn = jest.fn().mockRejectedValue(new Error('fail'));
+    let resolveShouldRetry: ((value: boolean) => void) | undefined;
+    const shouldRetry = jest.fn(
+      () =>
+        new Promise<boolean>((res) => {
+          resolveShouldRetry = res;
+        }),
+    );
+
+    const promise = retry(fn, { retries: 3, initialDelay: 100, shouldRetry, ...pair.timers });
+    promise.catch(() => {
+      /* swallow */
+    });
+
+    await flushMicrotasks();
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(shouldRetry).toHaveBeenCalledTimes(1);
+
+    promise.cancel();
+    resolveShouldRetry?.(true);
+    await flushMicrotasks();
+
     expect(pair.delays).toEqual([]);
-  });
-
-  it('an async shouldRetry returning false stops immediately and rejects with the original reason', async () => {
-    const pair = createFakeTimers();
-    const error = new Error('boom');
-    const fn = jest.fn().mockRejectedValue(error);
-    const onRetry = jest.fn();
-    const shouldRetry = jest.fn().mockResolvedValue(false);
-
-    await expect(retry(fn, { retries: 3, shouldRetry, onRetry, ...pair.timers })).rejects.toBe(error);
     expect(fn).toHaveBeenCalledTimes(1);
-    expect(onRetry).not.toHaveBeenCalled();
-  });
-
-  // Assertion 7
-  it('delay() overrides the computed wait, and undefined accepts computedDelay', async () => {
-    const pair = createFakeTimers();
-    const fn = jest.fn().mockRejectedValue(new Error('fail'));
-    const seenCtx: unknown[] = [];
-    const delayFn = jest.fn((ctx: unknown) => {
-      seenCtx.push(ctx);
-      return 42;
-    });
-
-    const promise = retry(fn, { retries: 1, initialDelay: 300, delay: delayFn, ...pair.timers });
-    promise.catch(() => {
-      /* swallow */
-    });
-
-    await flushMicrotasks();
-    expect(pair.delays).toEqual([42]);
-    expect(seenCtx[0]).toMatchObject({ attempt: 1, retriesLeft: 1, computedDelay: 300 });
-    expect(typeof (seenCtx[0] as { elapsed: number }).elapsed).toBe('number');
-  });
-
-  it('delay() returning undefined accepts computedDelay verbatim', async () => {
-    const pair = createFakeTimers();
-    const fn = jest.fn().mockRejectedValue(new Error('fail'));
-    const delayFn = jest.fn(() => undefined);
-
-    const promise = retry(fn, { retries: 1, initialDelay: 77, delay: delayFn, ...pair.timers });
-    promise.catch(() => {
-      /* swallow */
-    });
-
-    await flushMicrotasks();
-    expect(pair.delays).toEqual([77]);
-  });
-
-  // Assertion 8
-  it('onRetry receives the actual delay as its third argument', async () => {
-    const pair = createFakeTimers();
-    const fn = jest.fn().mockRejectedValue(new Error('fail'));
-    const onRetry = jest.fn();
-
-    const promise = retry(fn, { retries: 1, initialDelay: 65, delay: () => 65, onRetry, ...pair.timers });
-    promise.catch(() => {
-      /* swallow */
-    });
-
-    await flushMicrotasks();
-    expect(onRetry).toHaveBeenCalledWith(expect.any(Error), 1, 65);
+    const reason = await promise.catch((error: unknown) => error);
+    expect(isCancelError(reason)).toBe(true);
   });
 
   // Must FAIL on pre-alias code: minTimeout was an unknown key, wait was 300.
@@ -524,6 +394,35 @@ describe('retry', () => {
     expect(pair.delays).toEqual([]);
   });
 
+  it('rejects with the last error after exhausting retries', async () => {
+    const firstError = new Error('first');
+    const lastError = new Error('last');
+    const fn = jest.fn().mockRejectedValueOnce(firstError).mockRejectedValueOnce(lastError);
+    // retries: 1 means one retry after the first call, so 2 calls total
+    await expect(retry(fn, { retries: 1, initialDelay: 0 })).rejects.toBe(lastError);
+    expect(fn).toHaveBeenCalledTimes(2);
+  });
+
+  it('delay() overrides the computed wait, and undefined accepts computedDelay', async () => {
+    const pair = createFakeTimers();
+    const fn = jest.fn().mockRejectedValue(new Error('fail'));
+    const seenCtx: unknown[] = [];
+    const delayFn = jest.fn((ctx: unknown) => {
+      seenCtx.push(ctx);
+      return 42;
+    });
+
+    const promise = retry(fn, { retries: 1, initialDelay: 300, delay: delayFn, ...pair.timers });
+    promise.catch(() => {
+      /* swallow */
+    });
+
+    await flushMicrotasks();
+    expect(pair.delays).toEqual([42]);
+    expect(seenCtx[0]).toMatchObject({ attempt: 1, retriesLeft: 1, computedDelay: 300 });
+    expect(typeof (seenCtx[0] as { elapsed: number }).elapsed).toBe('number');
+  });
+
   it('retriesLeft counts the attempts still allowed after the current one', async () => {
     const pair = createFakeTimers();
     const seenRetriesLeft: number[] = [];
@@ -613,5 +512,38 @@ describe('retry', () => {
     }
 
     expect(fn).toHaveBeenCalledTimes(4);
+  });
+
+  it('canceling before the first attempt never calls the input', async () => {
+    const fn = jest.fn().mockResolvedValue('ok');
+    const promise = retry(fn);
+    promise.cancel();
+
+    const reason = await promise.catch((e) => e);
+    expect(isCancelError(reason)).toBe(true);
+    expect(fn).not.toHaveBeenCalled();
+  });
+
+  it('cancel racing the assignment cancels the returned cancelable', async () => {
+    const cancelSpy = jest.fn();
+
+    const fn = jest.fn(() => {
+      const inner = new CancelablePromise<string>((_res) => {});
+      inner.cancel = cancelSpy;
+
+      // The race: cancel the outer promise while input() is running!
+      // handleCancel will fire synchronously, see currentAttempt as undefined, and miss it.
+      promise.cancel();
+
+      return inner;
+    });
+
+    const promise = retry(fn);
+    await flushMicrotasks();
+
+    expect(cancelSpy).toHaveBeenCalledTimes(1);
+
+    const reason = await promise.catch((e) => e);
+    expect(isCancelError(reason)).toBe(true);
   });
 });

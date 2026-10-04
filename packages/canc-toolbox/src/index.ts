@@ -18,6 +18,7 @@ export { createAbortSignal, toAbortSignal, withSignal } from './abort';
 export type { ICancelifyContext, ICancelifyOptions, TCancelifyFn } from './cancelify';
 export { cancelify } from './cancelify';
 export { debounce } from './debounce';
+export { isSupersededError, SupersededError } from './errors';
 /** @deprecated Import from @cancjs/promise instead. */
 export { AbortError } from '@cancjs/promise';
 /** @deprecated Import from @cancjs/promise instead. */

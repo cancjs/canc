@@ -35,7 +35,7 @@ describe('prebound exports return CancelablePromise', () => {
   });
 
   it('retry result exposes cancel without a cast', () => {
-    const promise = retry(() => Promise.reject(new Error('nope')), { retries: 5, minTimeout: 1000 });
+    const promise = retry(() => Promise.reject(new Error('nope')), { retries: 5, initialDelay: 1000 });
     expect(promise).toBeInstanceOf(CancelablePromise);
     promise.cancel();
   });

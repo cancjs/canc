@@ -9,7 +9,7 @@ import { getPlatformScheduler, IPlatformScheduler, TTaskPriority } from './platf
 
 // delay threshold before fetching offscreen rows
 export const PREFETCH_DELAY_MS = 100;
-// total retry attempts
+// total attempts including initial fetch
 export const PREFETCH_ATTEMPTS = 3;
 export const PREFETCH_BACKOFF_MS = 200;
 
