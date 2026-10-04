@@ -112,7 +112,9 @@ describe('declared failure smoke coverage', () => {
     });
     pWithAbort.catch(() => {});
     const pSubCancel = catchCancel(pWithAbort, { abort: true });
-    const cSubCancel: Eq<typeof pSubCancel, CancelablePromise<number | CancelError, SmokeError>> = true;
+    // AbortError leaves the failure channel and lands on the resolution side, which is what the
+    // isAbortError expectation below actually receives
+    const cSubCancel: Eq<typeof pSubCancel, CancelablePromise<number | CancelError | AbortError, SmokeError>> = true;
     expect(cSubCancel).toBe(true);
     const resCancel = await pSubCancel;
     expect(isAbortError(resCancel)).toBe(true);

@@ -118,7 +118,7 @@ const _coroResult = coro(); // CancelablePromise<unknown>
 void _coroResult;
 
 const _isErr: boolean = isCancelError(new CancelError());
-const _cc = catchCancel(Promise.resolve(5), { bubble: false, abort: true }); // CancelablePromise<number | CancelError>
+const _cc = catchCancel(Promise.resolve(5), { bubble: false, abort: true }); // CancelablePromise<number | CancelError | AbortError>
 const _sc = suppressCancel(Promise.resolve(5)); // CancelablePromise<number | void>
 const _mc = makeCancelable(Promise.resolve(5)); // CancelablePromise<number>
 const _ca = catchAbort(Promise.resolve(5));

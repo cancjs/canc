@@ -42,7 +42,7 @@ import {
 import type { FailureOf } from '@cancjs/promise';
 import CancelablePromise from '@cancjs/promise';
 
-import type { Equal, Expect, IsAny, Not } from './assert-type';
+import type { Equal, Expect, ExpectExtends, IsAny, Not } from './assert-type';
 
 class MatrixFooError extends Error {
   declare readonly _tag: 'MatrixFooError';
@@ -376,6 +376,9 @@ const annotatedGen = cancGenAsync(function* (): AsyncGenResult<number, string, M
 });
 type _annotatedGenType = Expect<
   Equal<ReturnType<typeof annotatedGen>, ICancAsyncGenerator<number, string, any, MatrixFooError>>
+>;
+type _annotatedGenCovariant = Expect<
+  ExpectExtends<ReturnType<typeof annotatedGen>, AsyncGenerator<number, string, any>>
 >;
 
 cancGenAsync(function* (): AsyncGenResult<number, string, MatrixFooError> {

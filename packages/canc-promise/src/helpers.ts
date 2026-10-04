@@ -110,7 +110,9 @@ export interface ICatchSuppressOptions extends ICancelablePromiseOptions {
   timeout?: boolean;
 }
 
-type TSubtractFlags<O> =
+// Errors the option flags add to the caught set: subtracted from the failure channel, and added
+// to the resolution side, because a caught error is what the promise resolves with
+type TFlaggedErrors<O> =
   (O extends { abort: true } ? AbortError : never) | (O extends { timeout: true } ? TimeoutError : never);
 
 // Shared logic implementation used by both catchCancel and suppressCancel
@@ -121,11 +123,11 @@ const suppressCancelImpl = makeSuppress({ matches: isCancelError, isCancelError,
 export function catchCancel<TResult, TFailure, O extends ICatchSuppressOptions = {}>(
   promise: CancelablePromise<TResult, TFailure>,
   options?: O,
-): CancelablePromise<TResult | CancelError, Exclude<TFailure, TSubtractFlags<O>>>;
+): CancelablePromise<TResult | CancelError | TFlaggedErrors<O>, Exclude<TFailure, TFlaggedErrors<O>>>;
 export function catchCancel<TResult, O extends ICatchSuppressOptions = {}>(
   promise: PromiseLike<TResult>,
   options?: O,
-): CancelablePromise<TResult | CancelError, never>;
+): CancelablePromise<TResult | CancelError | TFlaggedErrors<O>, never>;
 export function catchCancel<TError, O extends ICatchSuppressOptions = {}>(
   error: TError,
   options?: O,
@@ -140,7 +142,7 @@ export function catchCancel<TResult, TError, O extends ICatchSuppressOptions = {
 export function suppressCancel<TResult, TFailure, O extends ICatchSuppressOptions = {}>(
   promise: CancelablePromise<TResult, TFailure>,
   options?: O,
-): CancelablePromise<TResult | void, Exclude<TFailure, TSubtractFlags<O>>>;
+): CancelablePromise<TResult | void, Exclude<TFailure, TFlaggedErrors<O>>>;
 export function suppressCancel<TResult, O extends ICatchSuppressOptions = {}>(
   promise: PromiseLike<TResult>,
   options?: O,
