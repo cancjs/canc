@@ -18,15 +18,14 @@ class FooError extends Error {
   }
 }
 
-// Deterministic microtask flush (mirrors coroutine-each.spec): drains the microtask queue N
-// times so chained then-callbacks all run, no arbitrary sleeps.
+// deterministic microtask flush: drains microtask queue
 const flush = async (times = 12) => {
   for (let i = 0; i < times; i++) {
     await Promise.resolve();
   }
 };
 
-describe('canc / cancGen mirror namespaces resolve from built entry points', () => {
+describe('canc / cancGen mirror namespaces resolve from source mapping', () => {
   it('canc.async + canc.forAwait consume a source end-to-end', async () => {
     const seen: number[] = [];
 

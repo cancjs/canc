@@ -31,7 +31,10 @@ const trace = () => ({
 const sharedDirNames = ['_util', '_toolbox', '_server'];
 
 const rewriteSharedDirImports = (typesDir) => {
-  const specifierPattern = new RegExp(`(['"])((?:\\.\\./)+)(${sharedDirNames.join('|')})((?:/[^'"]*)?)\\1`, 'g');
+  const specifierPattern = new RegExp(
+    `(from\\s+|import\\s*|import\\s*\\(\\s*)(['"])((?:\\.\\./)+|packages/)(${sharedDirNames.join('|')})((?:/[^'"]*)?)\\2`,
+    'g',
+  );
 
   const walk = (dir) => {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -39,13 +42,13 @@ const rewriteSharedDirImports = (typesDir) => {
 
       if (entry.isDirectory()) {
         walk(entryPath);
-      } else if (entry.isFile() && entry.name.endsWith('.d.ts')) {
+      } else if (entry.isFile() && (entry.name.endsWith('.d.ts') || entry.name.endsWith('.d.mts'))) {
         const original = fs.readFileSync(entryPath, 'utf8');
-        const rewritten = original.replace(specifierPattern, (_match, quote, _dots, dirName, subpath) => {
+        const rewritten = original.replace(specifierPattern, (_match, prefix, quote, _prefixPath, dirName, subpath) => {
           const target = path.join(typesDir, dirName);
           const relative = path.relative(path.dirname(entryPath), target).split(path.sep).join('/');
 
-          return `${quote}${relative.startsWith('.') ? relative : `./${relative}`}${subpath}${quote}`;
+          return `${prefix}${quote}${relative.startsWith('.') ? relative : `./${relative}`}${subpath}${quote}`;
         });
 
         if (rewritten !== original) {

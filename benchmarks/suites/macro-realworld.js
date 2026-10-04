@@ -131,9 +131,9 @@ const impls = {
     name: 'canc (CancelablePromise)',
 
     request(value) {
-      return new CancelablePromise((resolve, reject, onCancel) => {
+      return new CancelablePromise((resolve, reject, ctx) => {
         const t = setImmediate(() => resolve(value));
-        onCancel(() => clearImmediate(t));
+        ctx.handleCancel(() => clearImmediate(t));
       });
     },
 
@@ -317,27 +317,50 @@ function noop() {}
 async function run() {
   const env = captureEnv();
   const results = {};
+  const tasks = [];
 
   const order = ['native', 'canc', 'bluebird'];
 
   for (const key of order) {
     const impl = impls[key];
 
-    const waterfall = await timeFlow(
-      (cancel) => impl.waterfall(cancel),
-      WATERFALL_RUNS,
-      8, // 5 sequential + 3 parallel "requests" per run
-      0x1234567 + key.length,
-    );
+    let waterfall;
+    try {
+      waterfall = await timeFlow(
+        (cancel) => impl.waterfall(cancel),
+        WATERFALL_RUNS,
+        8, // 5 sequential + 3 parallel "requests" per run
+        0x1234567 + key.length,
+      );
+      tasks.push({ name: `${key}/waterfall`, error: null });
+    } catch (err) {
+      const errMsg = err.stack || err.message || String(err);
+      console.error(`Case "${key}/waterfall" failed: ${errMsg}`);
+      waterfall = { usPerOp: null, usPerRun: null, totalMs: null, runs: 0, error: err.message || String(err) };
+      tasks.push({ name: `${key}/waterfall`, error: err.message || String(err) });
+    }
 
-    const lifecycle = await timeFlow(
-      () => impl.lifecycle(),
-      LIFECYCLE_RUNS,
-      LIFECYCLE_REQUESTS,
-      0x7654321 + key.length,
-    );
+    let lifecycle;
+    try {
+      lifecycle = await timeFlow(() => impl.lifecycle(), LIFECYCLE_RUNS, LIFECYCLE_REQUESTS, 0x7654321 + key.length);
+      tasks.push({ name: `${key}/lifecycle`, error: null });
+    } catch (err) {
+      const errMsg = err.stack || err.message || String(err);
+      console.error(`Case "${key}/lifecycle" failed: ${errMsg}`);
+      lifecycle = { usPerOp: null, usPerRun: null, totalMs: null, runs: 0, error: err.message || String(err) };
+      tasks.push({ name: `${key}/lifecycle`, error: err.message || String(err) });
+    }
 
-    const memory = await measureMemoryPer1k(impl);
+    let memory;
+    try {
+      memory = await measureMemoryPer1k(impl);
+      tasks.push({ name: `${key}/memory`, error: null });
+    } catch (err) {
+      const errMsg = err.stack || err.message || String(err);
+      console.error(`Case "${key}/memory" failed: ${errMsg}`);
+      memory = { supported: false, error: err.message || String(err) };
+      tasks.push({ name: `${key}/memory`, error: err.message || String(err) });
+    }
 
     results[key] = {
       name: impl.name,
@@ -359,6 +382,7 @@ async function run() {
       inflightSample: INFLIGHT_SAMPLE,
     },
     results,
+    tasks,
   };
 
   const md = toMarkdown(result);
@@ -375,8 +399,14 @@ function pct(value, base) {
 function toMarkdown(result) {
   const { env, params, results } = result;
   const order = Object.keys(results);
-  const nativeW = results.native.waterfall.usPerOp;
-  const nativeL = results.native.lifecycle.usPerOp;
+  const nativeW =
+    results.native && results.native.waterfall && results.native.waterfall.usPerOp != null ?
+      results.native.waterfall.usPerOp
+    : null;
+  const nativeL =
+    results.native && results.native.lifecycle && results.native.lifecycle.usPerOp != null ?
+      results.native.lifecycle.usPerOp
+    : null;
 
   const lines = [];
   lines.push('## Suite: macro-realworld');
@@ -398,11 +428,18 @@ function toMarkdown(result) {
   lines.push('|------|------:|----------:|-------:|---------:|');
   for (const key of order) {
     const w = results[key].waterfall;
-    lines.push(
-      `| ${results[key].name} | ${w.usPerOp.toFixed(3)} | ${
-        key === 'native' ? '-' : pct(w.usPerOp, nativeW)
-      } | ${w.usPerRun.toFixed(3)} | ${w.totalMs.toFixed(0)} |`,
-    );
+    if (w.error) {
+      const errMsg = (w.error.message || String(w.error)).replace(/\|/g, '\\|').replace(/\n/g, ' ');
+      lines.push(`| **FAILED:** ${results[key].name}<br>_${errMsg}_ | n/a | n/a | n/a | n/a |`);
+    } else {
+      const vs =
+        key === 'native' ? '-'
+        : nativeW != null ? pct(w.usPerOp, nativeW)
+        : 'n/a';
+      lines.push(
+        `| ${results[key].name} | ${w.usPerOp.toFixed(3)} | ${vs} | ${w.usPerRun.toFixed(3)} | ${w.totalMs.toFixed(0)} |`,
+      );
+    }
   }
   lines.push('');
   lines.push('### Component-lifecycle: overhead per request operation');
@@ -412,14 +449,20 @@ function toMarkdown(result) {
   let anyNonComparable = false;
   for (const key of order) {
     const l = results[key].lifecycle;
-    const comparable = results[key].lifecycleComparable;
-    if (!comparable) anyNonComparable = true;
-    const vs =
-      key === 'native' ? '-'
-      : comparable ? pct(l.usPerOp, nativeL)
-      : 'n/c*';
-    const label = comparable ? results[key].name : `${results[key].name}*`;
-    lines.push(`| ${label} | ${l.usPerOp.toFixed(3)} | ${vs} | ${l.usPerRun.toFixed(3)} | ${l.totalMs.toFixed(0)} |`);
+    if (l.error) {
+      const errMsg = (l.error.message || String(l.error)).replace(/\|/g, '\\|').replace(/\n/g, ' ');
+      lines.push(`| **FAILED:** ${results[key].name}<br>_${errMsg}_ | n/a | n/a | n/a | n/a |`);
+    } else {
+      const comparable = results[key].lifecycleComparable;
+      if (!comparable) anyNonComparable = true;
+      const vs =
+        key === 'native' ? '-'
+        : !comparable ? 'n/c*'
+        : nativeL != null ? pct(l.usPerOp, nativeL)
+        : 'n/a';
+      const label = comparable ? results[key].name : `${results[key].name}*`;
+      lines.push(`| ${label} | ${l.usPerOp.toFixed(3)} | ${vs} | ${l.usPerRun.toFixed(3)} | ${l.totalMs.toFixed(0)} |`);
+    }
   }
   lines.push('');
   if (anyNonComparable) {
@@ -432,13 +475,18 @@ function toMarkdown(result) {
   }
   lines.push('### Memory: retained heap per 1000 in-flight requests');
   lines.push('');
-  const memSupported = order.some((k) => results[k].memory.supported);
+  const memSupported = order.some((k) => results[k].memory && results[k].memory.supported);
   if (memSupported) {
     lines.push('| Impl | MB / 1k in-flight |');
     lines.push('|------|------------------:|');
     for (const key of order) {
       const m = results[key].memory;
-      lines.push(`| ${results[key].name} | ${m.supported ? (m.kbPer1k / 1024).toFixed(2) : 'n/a'} |`);
+      if (m && m.error) {
+        const errMsg = (m.error.message || String(m.error)).replace(/\|/g, '\\|').replace(/\n/g, ' ');
+        lines.push(`| **FAILED:** ${results[key].name}<br>_${errMsg}_ | n/a |`);
+      } else {
+        lines.push(`| ${results[key].name} | ${m && m.supported ? (m.kbPer1k / 1024).toFixed(2) : 'n/a'} |`);
+      }
     }
   } else {
     lines.push('_Memory not measured; run with `node --expose-gc` for per-1k heap numbers._');
@@ -457,6 +505,27 @@ function toMarkdown(result) {
  */
 function buildSummary(result) {
   const { results } = result;
+  const hasErrors = Object.values(results).some(
+    (r) => (r.waterfall && r.waterfall.error) || (r.lifecycle && r.lifecycle.error) || (r.memory && r.memory.error),
+  );
+  if (
+    hasErrors ||
+    !results.native ||
+    !results.native.waterfall ||
+    results.native.waterfall.usPerOp == null ||
+    !results.native.lifecycle ||
+    results.native.lifecycle.usPerOp == null ||
+    !results.canc ||
+    !results.canc.waterfall ||
+    results.canc.waterfall.usPerOp == null ||
+    !results.canc.lifecycle ||
+    results.canc.lifecycle.usPerOp == null ||
+    !results.bluebird ||
+    !results.bluebird.waterfall ||
+    results.bluebird.waterfall.usPerOp == null
+  ) {
+    return 'Summary not available: one or more benchmark cases failed.';
+  }
   const nW = results.native.waterfall.usPerOp;
   const cW = results.canc.waterfall.usPerOp;
   const nL = results.native.lifecycle.usPerOp;

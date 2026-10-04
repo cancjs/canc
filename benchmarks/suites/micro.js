@@ -3,7 +3,7 @@
 /**
  * Micro benchmark suites. Isolated hot-path costs of CancelablePromise vs
  * native Promise vs bluebird. NOT representative of real apps;
- * see macro suite for that. µbenchmarks lie; treat these as relative
+ * see macro suite for that. Micro-benchmarks lie; treat these as relative
  * signal, not absolute truth.
  *
  * Cases (each: native, CancelablePromise, and bluebird where the API allows):
@@ -438,8 +438,8 @@ const cases = [
   {
     name: 'l/handleCancel-register canc',
     fn() {
-      return new CancelablePromise((res, _rej, handleCancel) => {
-        handleCancel(() => {});
+      return new CancelablePromise((res, _rej, ctx) => {
+        ctx.handleCancel(() => {});
         res(1);
       });
     },

@@ -22,7 +22,12 @@ function resultToMarkdown(result) {
     const ops = task.opsPerSec != null ? task.opsPerSec.toFixed(0) : 'n/a';
     const margin = task.marginPct != null ? `+/-${task.marginPct.toFixed(2)}%` : 'n/a';
     const mean = task.meanMs != null ? task.meanMs.toFixed(4) : 'n/a';
-    lines.push(`| ${task.name} | ${ops} | ${margin} | ${mean} | ${task.samples} |`);
+    let nameCell = task.name;
+    if (task.error) {
+      const errMsg = (task.error.message || String(task.error)).replace(/\|/g, '\\|').replace(/\n/g, ' ');
+      nameCell = `**FAILED:** ${task.name}<br>_${errMsg}_`;
+    }
+    lines.push(`| ${nameCell} | ${ops} | ${margin} | ${mean} | ${task.samples} |`);
   }
 
   lines.push('');
