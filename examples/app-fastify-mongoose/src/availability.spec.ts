@@ -1,12 +1,12 @@
 import http from 'node:http';
 
 import * as canc from '@cancjs/coroutine';
+import { cancelableHandler } from '@cancjs/server-fastify';
 import { sleep } from '@shared/util';
 import Fastify, { FastifyInstance } from 'fastify';
 
 import { searchAvailability as searchCanc } from './availability-service-canc';
 import { searchAvailability as searchVanilla } from './availability-service-vanilla';
-import { cancAsyncRoute } from './lib/cancelable-route';
 import { BOOKING_COUNT, installMocks, queryLog, resetQueryLog } from './mock/db';
 
 const QUERY_LATENCY_MS = 50;
@@ -18,7 +18,7 @@ async function buildServer(flavor: 'canc' | 'vanilla'): Promise<FastifyInstance>
   if (flavor === 'canc') {
     app.get(
       '/availability',
-      cancAsyncRoute(function* (_request, reply) {
+      cancelableHandler(function* (_request, reply) {
         const result = yield* canc.await(searchCanc('grand-plaza', '2026-08-01'));
         reply.send(result);
       }),
@@ -131,7 +131,7 @@ describe('app-fastify-mongoose availability search', () => {
     app = Fastify();
     app.post(
       '/test-post',
-      cancAsyncRoute(function* (request, reply) {
+      cancelableHandler(function* (request, reply) {
         const result = yield* canc.await(Promise.resolve({ received: request.body }));
         reply.send(result);
       }),

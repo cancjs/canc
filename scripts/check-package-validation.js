@@ -21,10 +21,30 @@ const ROOT = path.resolve(__dirname, '..');
 const PACKAGES_DIR = path.join(ROOT, 'packages');
 
 function listPackages() {
-  return fs
-    .readdirSync(PACKAGES_DIR)
-    .filter((name) => fs.existsSync(path.join(PACKAGES_DIR, name, 'package.json')))
-    .sort();
+  const names = [];
+  for (const name of fs.readdirSync(PACKAGES_DIR)) {
+    const dir = path.join(PACKAGES_DIR, name);
+    if (fs.existsSync(path.join(dir, 'package.json'))) {
+      names.push(name);
+      continue;
+    }
+    // Family container with no manifest of its own (e.g. packages/canc-server): descend one
+    // level and take children that have a manifest.
+    // No further descent, matches repo layout.
+    for (const childName of fs.readdirSync(dir)) {
+      if (fs.existsSync(path.join(dir, childName, 'package.json'))) {
+        names.push(path.join(name, childName));
+      }
+    }
+  }
+  return names.sort();
+}
+
+// npm 11 prints a top-level array; npm 12 keys the same payload by package name instead,
+// breaking the old array destructure; a single-package dry-run has one entry either way
+function firstPackResult(rawJson) {
+  const parsed = JSON.parse(rawJson);
+  return Array.isArray(parsed) ? parsed[0] : Object.values(parsed)[0];
 }
 
 function packFileList(pkgDir) {
@@ -32,7 +52,7 @@ function packFileList(pkgDir) {
     cwd: pkgDir,
     encoding: 'utf8',
   });
-  const [result] = JSON.parse(out);
+  const result = firstPackResult(out);
   return new Set(result.files.map((f) => f.path.split(path.sep).join('/')));
 }
 
@@ -87,6 +107,31 @@ async function collectDefaultExportShadowing(pkgDir, manifest) {
   return [`barrel exports shadow members of the default export in CJS and UMD builds: ${shadowed.sort().join(', ')}`];
 }
 
+// UMD is a browser-consumer concern; read it off the package's own rollup config instead of the
+// unpkg/jsdelivr manifest keys, so dropping those keys by accident does not silently disable the
+// check they exist to corroborate.
+// Server packages pass formats: ['cjs', 'esm'] and never emit a umd output entry; everyone else
+// takes the base config's default four formats.
+async function packageExpectsUmd(pkgDir) {
+  const configPath = path.join(pkgDir, 'rollup.config.mjs');
+  if (!fs.existsSync(configPath)) return false;
+
+  // plugin-typescript resolves its tsconfig option against process.cwd(), not the config
+  // file's own directory, so importing it for inspection needs a real chdir into the package.
+  const previousCwd = process.cwd();
+  process.chdir(pkgDir);
+  let rollupConfig;
+  try {
+    rollupConfig = (await import(pathToFileURL(configPath).href)).default;
+  } finally {
+    process.chdir(previousCwd);
+  }
+
+  const configs = Array.isArray(rollupConfig) ? rollupConfig : [rollupConfig];
+
+  return configs.some((config) => config && config.output && config.output.format === 'umd');
+}
+
 async function checkPackage(pkgName) {
   const pkgDir = path.join(PACKAGES_DIR, pkgName);
   const manifest = JSON.parse(fs.readFileSync(path.join(pkgDir, 'package.json'), 'utf8'));
@@ -106,6 +151,7 @@ async function checkPackage(pkgName) {
   const hasMjs = [...packedFiles].some((f) => f.endsWith('.mjs') && !f.endsWith('.d.mts'));
   const hasUmd = [...packedFiles].some((f) => /\.umd\.js$/.test(f));
   const hasUmdMin = [...packedFiles].some((f) => /\.umd\.min\.js$/.test(f));
+  const expectsUmd = await packageExpectsUmd(pkgDir);
 
   const exportsText = JSON.stringify(manifest.exports || {});
   const declaresLegacyTypesCondition = /types@</.test(exportsText);
@@ -122,8 +168,15 @@ async function checkPackage(pkgName) {
   if (!hasCjs || !hasMjs) {
     problems.push(`missing dual CJS/ESM output (cjs present: ${hasCjs}, mjs present: ${hasMjs})`);
   }
-  if (!hasUmd || !hasUmdMin) {
-    problems.push(`missing UMD output (umd present: ${hasUmd}, umd.min present: ${hasUmdMin})`);
+  if (expectsUmd) {
+    if (!hasUmd || !hasUmdMin) {
+      problems.push(`missing UMD output (umd present: ${hasUmd}, umd.min present: ${hasUmdMin})`);
+    }
+    // rollup says this package builds a UMD bundle; the CDN pointer fields are how a
+    // consumer actually reaches it, so their absence is a real gap, not a style nit.
+    if (typeof manifest.unpkg !== 'string' || typeof manifest.jsdelivr !== 'string') {
+      problems.push('rollup config emits a UMD build but the manifest has no unpkg/jsdelivr entry');
+    }
   }
   if (declaresLegacyTypesCondition && !hasDownlevelDts) {
     problems.push('exports declares a "types@<range>" condition but no dist/types-ts* output is packed');
@@ -180,4 +233,8 @@ async function main() {
   process.exit(failed ? 1 : 0);
 }
 
-main();
+if (require.main === module) {
+  main();
+}
+
+module.exports = { firstPackResult };

@@ -1,0 +1,13 @@
+{
+  "extends": "../tsconfig.server.json",
+  "compilerOptions": {
+    "lib": ["es2022", "dom"]
+  },
+  "include": [
+    "src",
+    "../../_util",
+    "../../_server",
+    "../../canc-promise/src",
+    "../../canc-coroutine/src"
+  ]
+}

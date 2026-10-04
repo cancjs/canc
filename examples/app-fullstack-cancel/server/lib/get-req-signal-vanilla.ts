@@ -19,8 +19,9 @@ export function getReqSignal(req: Request, res: Response): AbortSignal {
     res.on('close', () => {
       if (!res.writableEnded) signalHandle!.abort();
     });
-    // abort early if socket is already destroyed
-    if (req.destroyed) signalHandle.abort();
+    // read res here too: a consumed request stream destroys itself with the socket still open,
+    // so req.destroyed would abort every body-carrying request on arrival
+    if (res.destroyed && !res.writableEnded) signalHandle.abort();
   }
   return signalHandle.signal;
 }

@@ -1,0 +1,80 @@
+{
+  "name": "@cancjs/server-fastify",
+  "version": "1.0.0",
+  "description": "Cancel Fastify route handlers when the client disconnects or a deadline passes.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cancjs/canc.git",
+    "directory": "packages/canc-server/canc-server-fastify"
+  },
+  "homepage": "https://github.com/cancjs/canc/tree/master/packages/canc-server/canc-server-fastify#readme",
+  "bugs": "https://github.com/cancjs/canc/issues",
+  "author": "bisubus",
+  "type": "commonjs",
+  "exports": {
+    ".": {
+      "import": {
+        "types@<4.7": "./dist/types-ts4.2/index.d.mts",
+        "types": "./dist/types/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types@<4.7": "./dist/types-ts4.2/index.d.ts",
+        "types": "./dist/types/index.d.ts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "main": "dist/index.cjs",
+  "module": "dist/index.mjs",
+  "types": "dist/types/index.d.ts",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18",
+    "npm": ">=9"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "rimraf dist && rollup --config ./rollup.config.mjs",
+    "check": "tsc --noEmit --project ./tsconfig.prod.json",
+    "format:src": "eslint --fix ./src",
+    "format": "eslint --fix .",
+    "lint:src": "eslint ./src",
+    "lint": "eslint .",
+    "test": "jest --colors",
+    "test:watch": "jest --colors --watch"
+  },
+  "files": ["dist"],
+  "keywords": [
+    "fastify",
+    "server",
+    "cancel",
+    "cancellation",
+    "cancelable",
+    "disconnect",
+    "timeout",
+    "graceful-shutdown",
+    "promise",
+    "canc"
+  ],
+  "devDependencies": {
+    "@cancjs/coroutine": "*",
+    "@cancjs/promise": "*",
+    "fastify": "5.10.0",
+    "fastify-plugin": "6.0.0"
+  },
+  "peerDependencies": {
+    "@cancjs/coroutine": ">=1.0.0",
+    "@cancjs/promise": ">=1.0.0",
+    "fastify": ">=5",
+    "fastify-plugin": ">=5"
+  },
+  "typesVersions": {
+    "<4.7": {
+      "dist/types/*": ["dist/types-ts4.2/*"]
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.server.json",
+  "include": [
+    "src",
+    "../../_util",
+    "../../_server",
+    "../../canc-promise/src",
+    "../../canc-coroutine/src"
+  ]
+}

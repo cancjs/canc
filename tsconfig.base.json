@@ -25,7 +25,8 @@
       "@cancjs/decorators": ["./packages/canc-decorators/src/index"],
       "@cancjs/unhandled-rejection": [
         "./packages/canc-unhandled-rejection/src/index"
-      ]
+      ],
+      "@cancjs/server-*": ["./packages/canc-server/*/src/index"]
     },
     "typeRoots": ["node_modules/@types"],
     "esModuleInterop": true,

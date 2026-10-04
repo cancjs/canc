@@ -14,7 +14,7 @@
     "test": "cross-env NODE_OPTIONS=--no-deprecation lerna run test --stream",
     "lint": "run-p -c lint:workspaces lint:root",
     "lint:workspaces": "cross-env NODE_OPTIONS=--no-deprecation lerna run lint --stream --no-bail",
-    "lint:root": "eslint *.{js,mjs,json,md} scripts docs packages/_util packages/_toolbox tests-dist",
+    "lint:root": "eslint *.{js,mjs,json,md} scripts docs packages/_util packages/_toolbox packages/_server packages/canc-server/*.{ts,js,mjs,json} tests-dist",
     "changeset": "changeset",
     "release:version": "changeset version",
     "release:publish": "changeset publish",
@@ -28,9 +28,15 @@
     "test:dist": "npm run test -w @cancjs/tests-dist",
     "format": "run-p -c format:workspaces format:root",
     "format:workspaces": "cross-env NODE_OPTIONS=--no-deprecation lerna run format --stream --no-bail",
-    "format:root": "eslint --fix *.{js,mjs,json,md} scripts docs packages/_util packages/_toolbox tests-dist"
+    "format:root": "eslint --fix *.{js,mjs,json,md} scripts docs packages/_util packages/_toolbox packages/_server packages/canc-server/*.{ts,js,mjs,json} tests-dist"
   },
-  "workspaces": ["packages/*", "benchmarks", "tests-types", "tests-dist"],
+  "workspaces": [
+    "packages/*",
+    "packages/canc-server/*",
+    "benchmarks",
+    "tests-types",
+    "tests-dist"
+  ],
   "devDependencies": {
     "@arethetypeswrong/cli": "~0.18.5",
     "@changesets/changelog-github": "~0.7.0",
@@ -75,5 +81,10 @@
     "downlevel-dts": {
       "typescript": "~5.9.3"
     }
+  },
+  "allowScripts": {
+    "lefthook@2.1.10": true,
+    "nx@22.7.7": true,
+    "unrs-resolver@1.12.2": true
   }
 }

@@ -16,7 +16,7 @@ export interface InvoiceServiceLike {
 
 /**
  * The shape the canc controller depends on. Both the decorated and the manual service return
- * cancelable promises, so the controller can hand them to the interceptor's `run` hook.
+ * cancelable promises, so the controller can bind either one to the request's cancel signal.
  */
 export interface CancInvoiceServiceLike {
   listInvoices(): CancelablePromise<number>;

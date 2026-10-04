@@ -46,15 +46,19 @@ canceled.
 The point is that route handlers never touch a signal. One middleware wires per-request cancellation
 into the ORM, and the handler reads like ordinary code.
 
-- `server/lib/get-req-signal-canc.ts` gives each request an `AbortSignal`. Express does not provide
-  one, so this fills the gap: a lazily created handle, stored under a namespaced key, aborted when the
-  client disconnects with a `CancelError` reason so the rejection reads as a cancellation.
+- `getRequestSignal` (`@cancjs/server-express`) gives each request an `AbortSignal`. Express does not
+  provide one, so the package fills the gap: a handle created on first use and cached, aborted when
+  the client disconnects with a `CancelError` reason so the rejection reads as a cancellation.
 - `server/lib/orm-req-context-canc.ts` is the middleware (`ormReqContext`). It forks a request-scoped
   `EntityManager` bound to that signal and publishes it through MikroORM's `RequestContext`, so every
   query in the request cancels together. `getReqEm()` (in `server/lib/get-req-em.ts`) hands the
   handler that fork.
-- `server/lib/cancelable-route.ts` wraps a generator handler as a coroutine and cancels it when the
-  client disconnects. Each `yield*` step is a cancellation point.
+- `cancelableHandler` (`@cancjs/server-express`) wraps a generator handler as a coroutine and cancels
+  it when the client disconnects. Each `yield*` step is a cancellation point.
+
+The middleware and the route wrapper share one signal rather than wiring a listener each: the first
+caller installs it, everyone after gets the cached one. So a disconnect cancels the coroutine and the
+ORM fork in a single step.
 
 The search itself (`server/search-service-canc.ts`) is a coroutine: find matching users, then enrich
 each hit with a per-city count. A cancel stops the loop between statements, so the remaining rows are
@@ -66,7 +70,7 @@ Avoid threading the request signal by hand (and note that `req.signal` does not 
 express):
 
 ```ts
-app.get('/api/search', cancAsyncRoute(function* (req, res) {
+app.get('/api/search', cancelableHandler(function* (req, res) {
   const fork = orm.em.fork({ signal: req.signal, inflightQueryAbortStrategy: 'cancel query' });
   const hits = yield* canc.await(fork.find(User, whereMatch(q)));
   res.json(hits);
@@ -78,7 +82,7 @@ Prefer one middleware, then a handler with no fork and no signal in sight:
 ```ts
 app.use(ormReqContext(orm, { inflightQueryAbortStrategy }));
 
-app.get('/api/search', cancAsyncRoute(function* (req, res) {
+app.get('/api/search', cancelableHandler(function* (req, res) {
   const em = getReqEm();                              // request fork, signal already bound
   const hits = yield* canc.await(searchUsers(em, q));
   res.json(hits);
@@ -89,7 +93,7 @@ For MikroORM the request fork is the only request-scoped thing a handler needs: 
 isolated identity map and the cancellation signal. Capture it at the top of the handler, before the
 first await, while the async context is live; its signal stays wired for every query no matter when
 it runs. Code that is not ORM-aware and needs the raw signal deep in a call stack can still read
-`getReqSignal(req, res)`; there is no need for a separate async-context library, since MikroORM
+`getRequestSignal(req, res)`; there is no need for a separate async-context library, since MikroORM
 already provides the one that matters.
 
 ## Files to diff
@@ -98,13 +102,17 @@ The `-vanilla` twin does exactly the same job with a hand-threaded AbortControll
 what canc removes.
 
 - `server/search-service-vanilla.ts` vs `server/search-service-canc.ts`: the search, with a drilled
-  signal and manual `throwIfAborted` versus an ambient coroutine.
-- `server/routes-vanilla.ts` vs `server/routes-canc.ts`: reading the signal and threading it by hand
-  versus a signal-free generator route.
+  signal and manual `throwIfAborted` between statements versus an ambient coroutine.
+- `server/routes-vanilla.ts` vs `server/routes-canc.ts`: reading the signal back, threading it into
+  the service and checking it before responding, versus a signal-free generator route.
 - `server/lib/orm-req-context-vanilla.ts` vs `server/lib/orm-req-context-canc.ts`: the same
-  RequestContext middleware, with the fork bound to the abort signal only on the canc side.
-- `server/lib/get-req-signal-vanilla.ts` vs `server/lib/get-req-signal-canc.ts`: a plain
-  AbortController versus a canc signal handle that aborts with a CancelError.
+  RequestContext middleware, binding the same request signal to the fork. Only the source of the
+  signal differs, so this pair is nearly identical on purpose: binding a signal to the fork is a
+  MikroORM feature and the vanilla side gets it too. The cost shows up one layer down.
+- `server/lib/get-req-signal-vanilla.ts` has no `-canc` twin left to diff against. It stays
+  hand-rolled on purpose, because that is what writing this yourself costs; the canc side is now
+  `getRequestSignal` from `@cancjs/server-express`, which is the same idea with the disconnect guard
+  and the per-request caching already in it.
 - `client/SearchPage-vanilla.tsx` vs `client/SearchPage-canc.tsx`: an AbortController plus a
   request-id staleness guard versus a CancelablePromise that cancels the previous search.
 - `client/api-vanilla.ts` vs `client/api-canc.ts`: a signal argument on every call versus a
@@ -150,6 +158,7 @@ Any UI layer can sit on top. For the same idea in a larger React example, see `.
 
 ## Files to copy
 
-`server/lib/get-req-signal-canc.ts`, `server/lib/orm-req-context-canc.ts`, `server/lib/get-req-em.ts`,
-and `server/lib/cancelable-route.ts` are the reusable pieces on the server. `server/orm.ts` and the
-seed are scaffolding for this demo, not something to copy.
+`server/lib/orm-req-context-canc.ts` and `server/lib/get-req-em.ts` are the reusable pieces on the
+server; the request signal and the route wrapper they used to sit next to now ship as
+`@cancjs/server-express`. `server/orm.ts` and the seed are scaffolding for this demo, not something
+to copy.

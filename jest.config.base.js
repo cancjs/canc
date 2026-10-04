@@ -36,7 +36,10 @@ module.exports = {
   // which doesn't exist. Anchor to the monorepo root (this file's own directory, always the repo
   // root regardless of which package's rootDir jest is invoked with) instead of the `<rootDir>`
   // token.
+  // Order matters: jest tries mappers in sequence, and the general rule below would send
+  // @cancjs/server-node to packages/canc-server-node/src, one directory level too shallow.
   moduleNameMapper: {
+    '^@cancjs/server-(.*)$': path.join(__dirname, 'packages/canc-server/canc-server-$1/src'),
     '^@cancjs/(.*)$': path.join(__dirname, 'packages/canc-$1/src'),
   },
 

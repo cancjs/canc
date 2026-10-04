@@ -34,8 +34,8 @@ To run the opt-in wire-cancel path, run `DATABASE_URL=... npm run start:canc` co
 
 ## What it shows
 
-- `cancAsyncRoute` (`src/lib/cancelable-route.ts`, canc) wraps a generator route handler as a
-  `canc.async` coroutine and cancels it on `req.on('close')`. The handler keeps the normal
+- `cancelableHandler` (`@cancjs/server-express`, canc) wraps a generator route handler as a
+  `canc.async` coroutine and cancels it when the client disconnects. The handler keeps the normal
   `(req, res, next)` shape and owns the response; the wrapper only adds the cancellation wiring.
 - `executeCancelable` (`src/lib/cancelable-kysely.ts`, canc) integrates cancellation INTO kysely via one reusable helper. The app code stays signal-free.
 - `buildReport` (canc) is a `canc.async` coroutine: a page query, a per-customer totals query, then
@@ -51,14 +51,14 @@ To run the opt-in wire-cancel path, run `DATABASE_URL=... npm run start:canc` co
   without cancellation. The vanilla file adds a second `buildReportAbortable` function showing the
   manual-signal cost; the canc file needs no such second flavor.
 - `src/middleware-vanilla.ts`: disconnect wiring for the abortable workaround, exposing an
-  AbortSignal the handler threads by hand. The canc flavor needs no such middleware: cancellation
-  is wired per-route by `cancAsyncRoute`.
+  AbortSignal the handler threads by hand. It has no `-canc` twin on purpose: the canc flavor needs
+  no middleware, because cancellation is wired per-route by `cancelableHandler`.
 - `src/routes-vanilla.ts` vs `src/routes-canc.ts`: route handlers. Vanilla needs a second
   `/orders/report-abortable` route for the workaround; canc has one report route, written as a
-  generator passed to `cancAsyncRoute`. Both files also serve `/products`. The canc one goes through
-  `cancAsyncRoute` as well, so a disconnect cancels it, but a single short query leaves almost
-  nothing to stop: the cancel only lands in time if it arrives before the statement is sent. The
-  report route is where the difference is visible.
+  generator passed to `cancelableHandler`. Both files also serve `/products`. The canc one goes
+  through `cancelableHandler` as well, so a disconnect cancels it, but a single short query leaves
+  almost nothing to stop: the cancel only lands in time if it arrives before the statement is sent.
+  The report route is where the difference is visible.
 
 ## Honesty matrix
 
@@ -71,7 +71,8 @@ To run the opt-in wire-cancel path, run `DATABASE_URL=... npm run start:canc` co
 
 ## Copying
 
-`src/lib/cancelable-kysely.ts` and `src/lib/cancelable-route.ts` are the reusable pieces. `src/mock/` is scaffolding.
+`src/lib/cancelable-kysely.ts` is the reusable piece. The route wrapper it used to sit next to now
+ships as `@cancjs/server-express`. `src/mock/` is scaffolding.
 
 One limit worth knowing before copying: kysely takes a signal per query, not per transaction. So
 `transactionCancelable` rejects its caller on cancel, and the transaction it opened still runs to the
