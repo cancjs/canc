@@ -1,0 +1,526 @@
+{
+  "subpath": "fs#FileHandle",
+  "nodeSpecifier": "node:fs/promises",
+  "status": "planned",
+  "exports": [
+    {
+      "name": "[Symbol.asyncDispose]",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": 18,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "Idempotent resource disposal, delegates to close"
+    },
+    {
+      "name": "appendFile",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v22.0.0",
+        "probed": "reject:AbortError",
+        "sinceByMajor": {
+          "22": "v22.0.0",
+          "24": "v22.0.0",
+          "26": "v22.0.0"
+        }
+      },
+      "wrapper": "cancelify-signal",
+      "failures": ["EBADF"],
+      "minMajor": 18,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": ""
+    },
+    {
+      "name": "chmod",
+      "kind": "fn",
+      "cancelCategory": "D",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": ["EBADF", "EPERM"],
+      "minMajor": 18,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": ""
+    },
+    {
+      "name": "chown",
+      "kind": "fn",
+      "cancelCategory": "D",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": ["EBADF", "EPERM"],
+      "minMajor": 18,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": ""
+    },
+    {
+      "name": "close",
+      "kind": "fn",
+      "cancelCategory": "D",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": 18,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "Idempotent, resolves without error on closed handle; shielded in canc wrappers"
+    },
+    {
+      "name": "createReadStream",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v20.0.0",
+        "probed": "reject:AbortError",
+        "sinceByMajor": {
+          "20": "v20.0.0",
+          "22": "v20.0.0",
+          "24": "v20.0.0",
+          "26": "v20.0.0"
+        }
+      },
+      "wrapper": "cancelify-signal",
+      "failures": ["EBADF", "EISDIR"],
+      "minMajor": 18,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "Returns readable stream; signal destroys stream on abort"
+    },
+    {
+      "name": "createWriteStream",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "cancelify-teardown",
+      "failures": ["EBADF"],
+      "minMajor": 18,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "Returns writable stream; destroy on cancel"
+    },
+    {
+      "name": "datasync",
+      "kind": "fn",
+      "cancelCategory": "D",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": ["EBADF", "EPERM"],
+      "minMajor": 18,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": ""
+    },
+    {
+      "name": "fd",
+      "kind": "const",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": 18,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "Numeric property getter, returns -1 when closed"
+    },
+    {
+      "name": "pull",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v24.20.0",
+        "probed": null,
+        "sinceByMajor": {
+          "24": "v24.20.0",
+          "26": "v25.9.0"
+        }
+      },
+      "wrapper": "gated",
+      "failures": ["EBADF", "EISDIR"],
+      "minMajor": 24,
+      "gate": "feature-detect",
+      "runtime": {
+        "deno": "unsupported",
+        "bun": "unsupported"
+      },
+      "notes": "Streaming pull API, Node 24.20.0+ / 25.9.0+"
+    },
+    {
+      "name": "pullSync",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": ["EBADF", "EISDIR"],
+      "minMajor": 24,
+      "gate": "feature-detect",
+      "runtime": {
+        "deno": "unsupported",
+        "bun": "unsupported"
+      },
+      "notes": "Sync pull method in /fs/sync"
+    },
+    {
+      "name": "read",
+      "kind": "fn",
+      "cancelCategory": "B",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "promisify-custom",
+      "failures": ["EBADF", "EISDIR"],
+      "minMajor": 18,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "Single syscall read"
+    },
+    {
+      "name": "readableWebStream",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": ["EBADF", "EISDIR"],
+      "minMajor": 18,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "Returns web ReadableStream; cancel via stream.cancel()"
+    },
+    {
+      "name": "readFile",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v15.2.0",
+        "probed": "reject:AbortError",
+        "sinceByMajor": null
+      },
+      "wrapper": "cancelify-signal",
+      "failures": ["EBADF", "EISDIR"],
+      "minMajor": 18,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": ""
+    },
+    {
+      "name": "readLines",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": ["EBADF", "EISDIR"],
+      "minMajor": 18,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "Returns AsyncIterable; break or cancel ends iteration"
+    },
+    {
+      "name": "readv",
+      "kind": "fn",
+      "cancelCategory": "B",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "promisify-custom",
+      "failures": ["EBADF", "EISDIR"],
+      "minMajor": 18,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "Single syscall vectored read"
+    },
+    {
+      "name": "stat",
+      "kind": "fn",
+      "cancelCategory": "D",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v24.16.0",
+        "probed": "reject:AbortError",
+        "sinceByMajor": {
+          "24": "v24.16.0",
+          "26": "v26.1.0"
+        }
+      },
+      "wrapper": "gated",
+      "failures": ["EBADF"],
+      "minMajor": 18,
+      "gate": "feature-detect",
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "Accepts signal since v24.16.0 / v26.1.0"
+    },
+    {
+      "name": "sync",
+      "kind": "fn",
+      "cancelCategory": "D",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": ["EBADF", "EPERM"],
+      "minMajor": 18,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": ""
+    },
+    {
+      "name": "truncate",
+      "kind": "fn",
+      "cancelCategory": "D",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": ["EBADF", "EPERM"],
+      "minMajor": 18,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": ""
+    },
+    {
+      "name": "Type",
+      "kind": "type",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": 22,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "Type helper/reference in doc; not a callable handle method"
+    },
+    {
+      "name": "utimes",
+      "kind": "fn",
+      "cancelCategory": "D",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": ["EBADF", "EPERM"],
+      "minMajor": 18,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": ""
+    },
+    {
+      "name": "write",
+      "kind": "fn",
+      "cancelCategory": "B",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "promisify-custom",
+      "failures": ["EBADF"],
+      "minMajor": 18,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "Single syscall write"
+    },
+    {
+      "name": "writeFile",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v22.0.0",
+        "probed": "reject:AbortError",
+        "sinceByMajor": {
+          "22": "v22.0.0",
+          "24": "v22.0.0",
+          "26": "v22.0.0"
+        }
+      },
+      "wrapper": "cancelify-signal",
+      "failures": ["EBADF"],
+      "minMajor": 18,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": ""
+    },
+    {
+      "name": "writer",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "gated",
+      "failures": ["EBADF"],
+      "minMajor": 26,
+      "gate": "feature-detect",
+      "runtime": {
+        "deno": "unsupported",
+        "bun": "unsupported"
+      },
+      "notes": "Node 25.9.0+ streaming writer API"
+    },
+    {
+      "name": "writev",
+      "kind": "fn",
+      "cancelCategory": "B",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "promisify-custom",
+      "failures": ["EBADF"],
+      "minMajor": 18,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "Single syscall vectored write"
+    }
+  ]
+}

@@ -1,0 +1,133 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SubpathManifest",
+  "type": "object",
+  "required": ["subpath", "nodeSpecifier", "status", "exports"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "subpath": {
+      "type": "string"
+    },
+    "nodeSpecifier": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["supported", "planned", "deferred", "excluded"]
+    },
+    "exports": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/ExportEntry"
+      }
+    }
+  },
+  "definitions": {
+    "ExportEntry": {
+      "type": "object",
+      "required": [
+        "name",
+        "kind",
+        "cancelCategory",
+        "nodeSignal",
+        "wrapper",
+        "failures",
+        "minMajor",
+        "gate",
+        "runtime"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["fn", "class", "const", "type", "namespace"]
+        },
+        "cancelCategory": {
+          "type": ["string", "null"],
+          "enum": ["A", "B", "C", "D", null]
+        },
+        "callPath": {
+          "type": ["string", "null"],
+          "enum": ["callback", "promises", null]
+        },
+        "nodeSignal": {
+          "type": "object",
+          "required": ["documented", "since", "probed"],
+          "additionalProperties": false,
+          "properties": {
+            "documented": {
+              "type": "boolean"
+            },
+            "since": {
+              "type": ["string", "null"]
+            },
+            "sinceByMajor": {
+              "type": ["object", "null"],
+              "additionalProperties": {
+                "type": "string"
+              },
+              "propertyNames": {
+                "pattern": "^[0-9]+$"
+              }
+            },
+            "probed": {
+              "type": ["string", "null"]
+            }
+          }
+        },
+        "wrapper": {
+          "type": "string",
+          "enum": [
+            "cancelify-signal",
+            "cancelify-teardown",
+            "promisify-custom",
+            "promisify-callback",
+            "reimplemented",
+            "passthrough",
+            "gated"
+          ]
+        },
+        "teardown": {
+          "type": ["string", "null"]
+        },
+        "failures": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "minMajor": {
+          "type": ["integer", "null"]
+        },
+        "gate": {
+          "type": ["string", "null"],
+          "enum": ["feature-detect", "throw", "polyfill", null]
+        },
+        "runtime": {
+          "type": "object",
+          "required": ["deno", "bun"],
+          "additionalProperties": {
+            "type": "string"
+          },
+          "properties": {
+            "deno": {
+              "type": "string"
+            },
+            "bun": {
+              "type": "string"
+            }
+          }
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

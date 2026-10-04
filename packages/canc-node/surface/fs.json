@@ -1,0 +1,720 @@
+{
+  "subpath": "fs",
+  "nodeSpecifier": "node:fs/promises",
+  "status": "planned",
+  "exports": [
+    {
+      "name": "access",
+      "kind": "fn",
+      "cancelCategory": "D",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": ["ENOENT", "EACCES"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": ""
+    },
+    {
+      "name": "appendFile",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "nodeSignal": {
+        "documented": false,
+        "since": "v15.2.0",
+        "probed": "reject:AbortError",
+        "sinceByMajor": null
+      },
+      "wrapper": "cancelify-signal",
+      "teardown": "same as writeFile",
+      "failures": ["ENOENT", "EACCES", "EISDIR", "ENOSPC", "EROFS"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "signal works but is undocumented at module level"
+    },
+    {
+      "name": "chmod",
+      "kind": "fn",
+      "cancelCategory": "D",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": ["ENOENT", "EACCES", "EPERM", "EROFS"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": ""
+    },
+    {
+      "name": "chown",
+      "kind": "fn",
+      "cancelCategory": "D",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": ["ENOENT", "EACCES", "EPERM", "EROFS"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": ""
+    },
+    {
+      "name": "constants",
+      "kind": "const",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "Exported object containing file system constants"
+    },
+    {
+      "name": "copyFile",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "n/a:no-options-arg",
+        "sinceByMajor": null
+      },
+      "wrapper": "cancelify-teardown",
+      "teardown": "unlink partial dest on cancel",
+      "failures": ["ENOENT", "EACCES", "EISDIR", "ENOSPC", "EXDEV"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "copyFile(src, dest, mode) takes no options argument; unlink partial dest on cancel"
+    },
+    {
+      "name": "cp",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "teardown": "stop at next entry; partial tree remains",
+      "failures": [
+        "ENOENT",
+        "EACCES",
+        "EEXIST",
+        "ENOSPC",
+        "EISDIR",
+        "ENOTDIR",
+        "EXDEV"
+      ],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": ""
+    },
+    {
+      "name": "glob",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      },
+      "wrapper": "gated",
+      "failures": ["ENOENT", "EACCES"],
+      "minMajor": 22,
+      "gate": "throw",
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "Async generator, cancel ends iteration; Node 22+"
+    },
+    {
+      "name": "lchmod",
+      "kind": "fn",
+      "cancelCategory": "D",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": ["ENOENT", "EACCES", "EPERM", "ENOSYS", "EROFS"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": ""
+    },
+    {
+      "name": "lchown",
+      "kind": "fn",
+      "cancelCategory": "D",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": ["ENOENT", "EACCES", "EPERM", "ENOSYS", "EROFS"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": ""
+    },
+    {
+      "name": "link",
+      "kind": "fn",
+      "cancelCategory": "D",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": ["ENOENT", "EACCES", "EEXIST", "EXDEV", "EPERM", "EROFS"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": ""
+    },
+    {
+      "name": "lstat",
+      "kind": "fn",
+      "cancelCategory": "D",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v26.8.0",
+        "probed": "resolve",
+        "sinceByMajor": {
+          "26": "v26.8.0"
+        }
+      },
+      "wrapper": "gated",
+      "failures": ["ENOENT", "EACCES", "ENOTDIR", "ENAMETOOLONG"],
+      "minMajor": null,
+      "gate": "feature-detect",
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "forward signal only on 26.8+; deno rejects unknown option keys"
+    },
+    {
+      "name": "lutimes",
+      "kind": "fn",
+      "cancelCategory": "D",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": ["ENOENT", "EACCES", "EPERM", "ENOSYS", "EROFS"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": ""
+    },
+    {
+      "name": "mkdir",
+      "kind": "fn",
+      "cancelCategory": "D",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": ["ENOENT", "EACCES", "EEXIST", "ENOSPC", "EROFS"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": ""
+    },
+    {
+      "name": "mkdtemp",
+      "kind": "fn",
+      "cancelCategory": "D",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": ["ENOENT", "EACCES", "EEXIST", "ENOSPC", "EROFS"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": ""
+    },
+    {
+      "name": "mkdtempDisposable",
+      "kind": "fn",
+      "cancelCategory": "D",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "gated",
+      "failures": ["EACCES", "ENOSPC"],
+      "minMajor": 24,
+      "gate": "feature-detect",
+      "runtime": {
+        "deno": "ok",
+        "bun": "MISSING"
+      },
+      "notes": "Returns disposable that rm -rf on dispose; v24.4.0+"
+    },
+    {
+      "name": "open",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "n/a:no-options-arg",
+        "sinceByMajor": null
+      },
+      "wrapper": "cancelify-teardown",
+      "teardown": "close the FileHandle the promise resolves with",
+      "failures": [
+        "ENOENT",
+        "EACCES",
+        "EEXIST",
+        "EISDIR",
+        "EMFILE",
+        "ENFILE",
+        "ELOOP"
+      ],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": ""
+    },
+    {
+      "name": "opendir",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      },
+      "wrapper": "cancelify-teardown",
+      "teardown": "dir.close()",
+      "failures": ["ENOENT", "EACCES", "ENOTDIR", "EMFILE"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "strict-options",
+        "bun": "ok"
+      },
+      "notes": "deno throws ERR_INVALID_ARG_TYPE on unknown option keys; never forward signal here"
+    },
+    {
+      "name": "readFile",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v15.2.0",
+        "probed": "reject:AbortError",
+        "sinceByMajor": null
+      },
+      "wrapper": "cancelify-signal",
+      "teardown": "node closes fd",
+      "failures": [
+        "ENOENT",
+        "EACCES",
+        "EISDIR",
+        "EMFILE",
+        "ENAMETOOLONG",
+        "ELOOP"
+      ],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": ""
+    },
+    {
+      "name": "readdir",
+      "kind": "fn",
+      "cancelCategory": "D",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": ["ENOENT", "EACCES", "ENOTDIR"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": ""
+    },
+    {
+      "name": "readlink",
+      "kind": "fn",
+      "cancelCategory": "D",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": ["ENOENT", "EACCES", "EINVAL"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": ""
+    },
+    {
+      "name": "realpath",
+      "kind": "fn",
+      "cancelCategory": "D",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": ["ENOENT", "EACCES", "ELOOP", "ENAMETOOLONG"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": ""
+    },
+    {
+      "name": "rename",
+      "kind": "fn",
+      "cancelCategory": "D",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [
+        "ENOENT",
+        "EACCES",
+        "EEXIST",
+        "EXDEV",
+        "EBUSY",
+        "EPERM",
+        "EROFS"
+      ],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": ""
+    },
+    {
+      "name": "rm",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "teardown": "stop at next entry; partial deletion remains",
+      "failures": ["ENOENT", "EACCES", "EPERM", "EBUSY", "ENOTEMPTY"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": ""
+    },
+    {
+      "name": "rmdir",
+      "kind": "fn",
+      "cancelCategory": "D",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": ["ENOENT", "EACCES", "ENOTEMPTY", "EBUSY", "EPERM", "EROFS"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": ""
+    },
+    {
+      "name": "stat",
+      "kind": "fn",
+      "cancelCategory": "D",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v26.8.0",
+        "probed": "resolve",
+        "sinceByMajor": {
+          "26": "v26.8.0"
+        }
+      },
+      "wrapper": "gated",
+      "teardown": null,
+      "failures": ["ENOENT", "EACCES", "ENOTDIR", "ELOOP", "ENAMETOOLONG"],
+      "minMajor": null,
+      "gate": "feature-detect",
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "forward signal only on 26.8+; deno rejects unknown option keys"
+    },
+    {
+      "name": "statfs",
+      "kind": "fn",
+      "cancelCategory": "D",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": ["ENOENT", "EACCES"],
+      "minMajor": 18,
+      "gate": "feature-detect",
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "v19.6.0 / v18.15.0, so gate within the 18 line too"
+    },
+    {
+      "name": "symlink",
+      "kind": "fn",
+      "cancelCategory": "D",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": ["ENOENT", "EACCES", "EEXIST", "EPERM", "EROFS"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": ""
+    },
+    {
+      "name": "truncate",
+      "kind": "fn",
+      "cancelCategory": "D",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": ["ENOENT", "EACCES", "EISDIR", "EROFS", "EPERM"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": ""
+    },
+    {
+      "name": "unlink",
+      "kind": "fn",
+      "cancelCategory": "D",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": ["ENOENT", "EACCES", "EPERM", "EBUSY", "EROFS"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": ""
+    },
+    {
+      "name": "utimes",
+      "kind": "fn",
+      "cancelCategory": "D",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": ["ENOENT", "EACCES", "EPERM", "EROFS"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": ""
+    },
+    {
+      "name": "watch",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v15.9.0",
+        "probed": "reject:AbortError",
+        "sinceByMajor": null
+      },
+      "wrapper": "cancelify-signal",
+      "teardown": "iterator ends, watcher closed",
+      "failures": ["ENOENT", "EACCES", "ENOSPC"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": ""
+    },
+    {
+      "name": "writeFile",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v15.2.0",
+        "probed": "reject:AbortError",
+        "sinceByMajor": null
+      },
+      "wrapper": "cancelify-signal",
+      "teardown": "node stops writing; partial file remains",
+      "failures": [
+        "ENOENT",
+        "EACCES",
+        "EISDIR",
+        "ENOSPC",
+        "EDQUOT",
+        "EROFS",
+        "EMFILE"
+      ],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "partial-write hazard, see fs.md section 4"
+    }
+  ]
+}
