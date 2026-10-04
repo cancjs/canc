@@ -250,11 +250,12 @@ entry point 🚧. Until it lands, consume and produce async iterables with `canc
 
 ### Declared failures
 
-Helpers in `@cancjs/toolbox` preserve and propagate the declared failure types of the promises they wrap. In addition:
+A helper that takes the work as an argument reads the declared failure set off that argument, so the set survives the wrapper with no type argument at the call site.
 
-- `timeout` and `waitFor` declare `TimeoutError` in their return type's failure set.
-- `retry`, `minDelay`, `debounce`, `throttle`, and the `LazyPromise` family propagate the failure set of their underlying work or promise.
-- `delay`, `promisify`, `cancelify`, and deferred constructors return promises with a `never` failure set by default unless an underlying input specifies otherwise.
+- `retry`, `minDelay`, `debounce`, `throttle` and `delay(input, ms)` take the failure set from the work they wrap.
+- `timeout` and `waitFor` declare `TimeoutError`. `timeout` declares it in place of the input's set, not on top of it, so `timeout(input, ms)` declares `TimeoutError` alone.
+- `delay(ms)`, `defer` and `promisify` declare a `never` failure set. None of them wraps a promise to read one from.
+- `cancelify` and the `LazyPromise` family declare a `never` failure set even though they do wrap work. Neither carries the wrapped set yet.
 
 Cancellation (rejection with a `CancelError`) is part of the cancellation control flow rather than an application failure set. See [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) for details on declared failures and error matching.
 

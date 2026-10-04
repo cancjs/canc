@@ -1,5 +1,21 @@
 import { Assert, Eq } from '../../../tests-types/fixtures/common/assert-type';
-import type { MatchedError, MatchedOf, SubtractedError, SubtractedOf } from './error-matchers';
+import type {
+  ICatchErrorFn,
+  ISuppressErrorFn,
+  MatchedError,
+  MatchedOf,
+  SubtractedError,
+  SubtractedOf,
+} from './error-matchers';
+import type { AbortError, TimeoutError } from './helpers';
+import type { CancelablePromise } from './index';
+import {
+  catchAbort,
+  catchTimeout,
+  createCatchError,
+  createSuppressError,
+  TimeoutError as TimeoutErrorClass,
+} from './index';
 
 class FooError extends Error {
   declare name: 'FooError';
@@ -13,6 +29,24 @@ type CtorMatcher = typeof FooError;
 type GuardMatcher = (e: any) => e is BarError;
 type StringMatcher = 'RetryError';
 type PredicateMatcher = (e: any) => boolean;
+
+// 5. Both factory result shapes name a matcher list, but neither requires one to be written out
+const _defaultCatchShape: ICatchErrorFn = createCatchError(TypeError);
+const _defaultSuppressShape: ISuppressErrorFn = createSuppressError(TypeError);
+
+// Declared but never called: the parameters exist so the two results below can be inferred from a
+// real call site rather than annotated into existence
+function _builtInMatcherShapes(work: CancelablePromise<number, AbortError | TypeError>, rawError: unknown) {
+  // 6. The built-in abort matcher proves the kind it matches, so it leaves the declared failure set
+  const caughtAbort = catchAbort(work);
+  type _checkAbortSubtracted = Assert<Eq<typeof caughtAbort, CancelablePromise<number | AbortError, TypeError>>>;
+
+  // 7. A raw error the caller knows nothing about still comes back typed as what the matcher takes
+  const caughtTimeout = catchTimeout(rawError);
+  type _checkRawTimeout = Assert<Eq<typeof caughtTimeout, TimeoutError>>;
+
+  return [caughtAbort, caughtTimeout] as const;
+}
 
 describe('matcher type mappings', () => {
   it('type assertion helpers pass compile-time checks', () => {
@@ -48,5 +82,11 @@ describe('matcher type mappings', () => {
     expect(checkMatchedOfTuple).toBe(true);
     expect(checkSubtractedOfTuple).toBe(true);
     expect(checkPredicateSubtractsNothing).toBe(true);
+  });
+
+  it('hands a matched raw error back', () => {
+    const caught = catchTimeout(new TimeoutErrorClass('too slow') as unknown);
+
+    expect(caught.name).toBe('TimeoutError');
   });
 });

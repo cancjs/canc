@@ -30,7 +30,7 @@ export async function classifyAbortErrorCanc() {
     // Inspect CancelError: .aborted + .cause
     if (isCancelError(err)) {
       if (err.aborted) {
-        console.log('[canc] aborted — cause:', (err.cause as Error | undefined)?.name);
+        console.log('[canc] aborted — cause:', err.cause?.name);
       } else {
         console.log('[canc] canceled');
       }

@@ -27,6 +27,7 @@ import CancelablePromise, {
   catchCancel,
   makeCancelable,
   suppressCancel,
+  TimeoutError,
 } from '@cancjs/promise';
 // @ts-expect-error suppress is no longer exported by @cancjs/toolbox
 import { suppress } from '@cancjs/toolbox';
@@ -175,7 +176,7 @@ type _makeCancelable = Expect<Equal<typeof mc, CancelablePromise<number>>>;
 const _bad: CancelablePromise<number> = catchCancel(new CancelError());
 
 const ca = catchAbort(Promise.resolve(7));
-type _catchAbort = Expect<Equal<typeof ca, CancelablePromise<number | Error>>>;
+type _catchAbort = Expect<Equal<typeof ca, CancelablePromise<number | AbortError>>>;
 
 const sa = suppressAbort(Promise.resolve(7));
 type _suppressAbort = Expect<Equal<typeof sa, CancelablePromise<number | void>>>;
@@ -184,7 +185,7 @@ const tas = toAbortSignal(Promise.resolve(7));
 type _toAbortSignal = Expect<Equal<typeof tas, AbortSignal>>;
 
 const ct = catchTimeout(Promise.resolve(7));
-type _catchTimeout = Expect<Equal<typeof ct, CancelablePromise<number | Error>>>;
+type _catchTimeout = Expect<Equal<typeof ct, CancelablePromise<number | TimeoutError>>>;
 
 const st = suppressTimeout(Promise.resolve(7));
 type _suppressTimeout = Expect<Equal<typeof st, CancelablePromise<number | void>>>;

@@ -25,10 +25,12 @@ import { isAbortLike, isTimeoutLike, makeCatch, makeSuppress } from './catch-sup
 export const isCancelError = (error: any): error is CancelError =>
   isObject(error) && error[CANCEL_ERROR_BRAND] === true;
 
+// Guards, not bare predicates: the underlying test is brand-or-name, so a match proves the kind,
+// and a matcher list built from one subtracts that kind from a declared failure set
 /** @internal */
-export const _isAbortLike = isAbortLike(isCancelError);
+export const _isAbortLike = isAbortLike(isCancelError) as (error: any) => error is AbortError;
 /** @internal */
-export const _isTimeoutLike = isTimeoutLike(isCancelError);
+export const _isTimeoutLike = isTimeoutLike(isCancelError) as (error: any) => error is TimeoutError;
 
 /**
  * Brand check: same rationale as isCancelError, but for CancelablePromise instances. Duck-types
@@ -40,6 +42,17 @@ export const isCancPromise = (value: any): value is CancelablePromise<any> =>
   isObject(value) && value[CANCEL_PROMISE_BRAND] === true;
 
 export { AbortError, AggregateError, isAbortError, isAggregateError, isTimeoutError, TimeoutError };
+
+/**
+ * @deprecated Use `AbortError`, `isAbortError`, `TimeoutError` and `isTimeoutError`. These are the
+ * names the same four bindings carried in 1.0.0, kept as aliases.
+ */
+export {
+  AbortError as _AbortError,
+  isAbortError as _isAbortError,
+  isTimeoutError as _isTimeoutError,
+  TimeoutError as _TimeoutError,
+};
 
 // App-wide brand marking a "cancel signal": an AbortSignal that aborts with a CancelError.
 // Same Symbol.for-registry rationale as CANCEL_ERROR_BRAND, cross-realm/cross-copy safe.

@@ -21,10 +21,11 @@ export function minDelayFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
    * shape holds everything until its timer completes.
    *
    * The input is required. Canceling the returned promise clears the floor timer and cancels the
-   * input when it is cancelable.
+   * input when it is cancelable. The declared failure set is the input's: the floor delays a value
+   * and passes a rejection straight through.
    */
   return function minDelay<T, F = never>(
-    input: TTimedInput<T>,
+    input: TTimedInput<T, K, F>,
     ms: TDuration,
     options?: K['options'] & TCallDeps,
   ): TPromiseOf<K, T, F> {
@@ -37,13 +38,13 @@ export function minDelayFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
     const floor = resolveDuration(ms);
     const timers = resolveTimers(options, deps);
 
-    return construct<T, K>(
+    return construct<T, K, F>(
       deps.Impl,
       (resolve, reject, ctx?: IExecutorCtx) => {
         let started: IEagerSource<T>;
 
         try {
-          started = startInput<T>(input);
+          started = startInput<T, K, F>(input);
         } catch (error) {
           reject(error);
 

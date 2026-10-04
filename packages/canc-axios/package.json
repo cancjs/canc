@@ -56,7 +56,7 @@
     "axios-legacy": "npm:axios@0.22.0"
   },
   "peerDependencies": {
-    "@cancjs/promise": ">=1.0.0",
+    "@cancjs/promise": ">=1.1.0",
     "@cancjs/toolbox": ">=1.0.0",
     "axios": ">=0.22"
   },

@@ -1,4 +1,4 @@
-import { Charge, Confirmation, StockReservation } from './mock/checkout-ops';
+import { Charge, Confirmation, NegativeChargeError, StockReservation } from './mock/checkout-ops';
 
 /**
  * Vanilla checkout using AbortSignal threading.
@@ -26,12 +26,9 @@ export function createCheckoutVanilla(
       signal.throwIfAborted();
       const [chargeResult] = await Promise.all([charge(orderId, signal), addPoints(orderId, signal)]);
 
-      // If the app determines it must cancel itself from within, rather than waiting for an
-      // external signal, it can explicitly reject with an AbortError.
+      // throws matching domain error to align with coroutine failure twin
       if (chargeResult.amount < 0) {
-        const err = new Error('Negative charge amount');
-        err.name = 'AbortError';
-        throw err;
+        throw new NegativeChargeError('Negative charge amount');
       }
 
       // Must remember to check the signal after every await

@@ -139,9 +139,12 @@ const checkout = canc.async(function* (orderId: string) {
 
 At runtime `yield promise` and `yield* canc.await(promise)` do the same thing. The difference is
 typing. A bare `yield` is typed by the generator-wide next type, which TypeScript cannot narrow
-per step, so the resumed value comes back as `unknown`. `canc.await(promise)` returns a one-shot
-generator whose return type carries `Awaited<T>`, and `yield*` delegation reads that type back.
-The starred form is the one to write.
+per step, so the resumed value comes back as `unknown`. In addition, under TypeScript strict mode,
+an unannotated generator cannot bare-yield without an `AsyncResult` return-type annotation, and
+a generator annotated with declared failures cannot bare-yield a promise at all.
+
+`canc.await(promise)` returns a one-shot generator whose return type carries `Awaited<T>`, and
+`yield*` delegation reads that type back. The starred form is the one to write.
 
 The distinction also keeps the two yield roles separate. In the async generator namespace
 (`cancGen.async`), a bare `yield` emits a value to the consumer, just as it does in a native
@@ -237,7 +240,63 @@ When a generator is annotated with a specific failure set like `AsyncResult<numb
 - **Primitives**: Bare `yield 42` or `yield 'hello'` is permitted because primitives cannot carry failure phantoms.
 - **Awaited steps**: `yield* canc.await(promise)` verifies that any failure declared on `promise` is assignable to the declared `TFailure`.
 - **Explicit error steps**: `yield* canc.throw(err)` verifies that `err` is assignable to `TFailure`.
+- **Promises**: Bare-yielding a promise directly is rejected with compiler error `TS2322` because promises do not carry failure brand phantoms. Use `yield* canc.await(promise)`.
 - **Plain objects**: Yielding a plain object directly (without `canc.await` or `canc.throw`) causes a TypeScript compilation error (`TS2353` for object literals or `TS2559` for object variables) because plain objects do not carry failure brand phantoms.
+
+#### Annotation requirements for bare `yield` and compiler errors
+
+When using bare `yield` expressions rather than `yield*`, TypeScript enforces two rules:
+
+1. **Unannotated bodies cannot bare-yield without a return-type annotation**: Under strict compiler settings (`strict: true` or `noImplicitAny: true`), an unannotated generator function cannot bare-yield a value. TypeScript reports:
+
+```text
+error TS7057: 'yield' expression implicitly results in an 'any' type because its containing generator lacks a return-type annotation.
+```
+
+To resolve this error, annotate the generator function return type with `AsyncResult<TResult, TFailure>` (or `AsyncResult<TResult>` when no failure set is declared):
+
+```ts
+// Fails with TS7057: unannotated generator lacks a return-type annotation
+const unannotated = canc.async(function* () {
+  const value = yield 42;
+  return value;
+});
+```
+
+```ts
+// Fixed: annotate generator return type with AsyncResult
+const annotated = canc.async(function* (): AsyncResult<number> {
+  const value = yield 42;
+  return (value as number) + 1;
+});
+```
+
+2. **Bodies annotated with a concrete failure set cannot bare-yield a promise**: When a generator body is annotated with a concrete failure set (such as `AsyncResult<User, UserNotFoundError>`), bare-yielding a promise is rejected by the compiler:
+
+```text
+error TS2322: Type 'Promise<User>' is not assignable to type 'TPrimitiveYield | Failing<UserNotFoundError>'.
+  Type 'Promise<User>' has no properties in common with type 'Failing<UserNotFoundError>'.
+```
+
+A native promise carries no failure brand properties, so TypeScript's weak-type check rejects it. Bare-yielding an object literal similarly causes `error TS2353: Object literal may only specify known properties`, and yielding an object variable causes `error TS2559: Type '{ ... }' has no properties in common with type 'Failing<UserNotFoundError>'`.
+
+To resolve this error, await promises using `yield* canc.await(...)`:
+
+```ts
+// Fails with TS2322: bare yield of promise into concrete failure set
+const loadUser = canc.async(function* (): AsyncResult<User, UserNotFoundError> {
+  const user = yield fetchUser(id);
+  return user as User;
+});
+```
+
+```ts
+// Fixed: await using canc.await
+const loadUserFixed = canc.async(function* (): AsyncResult<User, UserNotFoundError> {
+  const user = yield* canc.await(fetchUser(id));
+  return user;
+});
+```
 
 #### Non-tail `yield* canc.throw(...)` and TS2355
 
@@ -255,14 +314,16 @@ Because `canc.throw` returns `Generator<..., never, ...>`, its `never` return ty
 
 #### Error handling inside coroutines
 
-Errors raised by `canc.throw` or rejected promises can be caught inside the generator using standard `try`/`catch` blocks:
+Errors raised by `canc.throw` or rejected promises can be caught inside the generator using standard `try`/`catch` blocks and inspected with error utilities such as `isErrorOf` from `@cancjs/promise`:
 
 ```ts
+import { isErrorOf } from '@cancjs/promise';
+
 const safeLoad = canc.async(function* (id: string) {
   try {
     return yield* canc.await(fetchUser(id));
   } catch (err) {
-    if (err instanceof UserNotFoundError) {
+    if (isErrorOf(err, UserNotFoundError)) {
       return null;
     }
     throw err;

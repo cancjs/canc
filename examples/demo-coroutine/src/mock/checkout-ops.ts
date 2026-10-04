@@ -20,6 +20,14 @@ export interface Confirmation {
   orderId: string;
 }
 
+/** Domain error raised when a charge amount is negative. */
+export class NegativeChargeError extends Error {
+  constructor(message: string = 'Negative charge amount') {
+    super(message);
+    this.name = 'NegativeChargeError';
+  }
+}
+
 export function addCheckoutOperations(api: MockApi) {
   return {
     reserveStock: (orderId: string, signal?: AbortSignalLike): Promise<StockReservation> =>

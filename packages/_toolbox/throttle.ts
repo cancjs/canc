@@ -1,6 +1,6 @@
 import { debounceFactory, IDebounced, IDebounceDeps } from './debounce';
 import { TCallDeps } from './deps';
-import { IPromiseKind, IPromiseLikeKind } from './kind';
+import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
 
 export type IThrottleOptions = TCallDeps & {
   leading?: boolean;
@@ -17,14 +17,14 @@ export type IThrottled<Args extends unknown[], R, K extends IPromiseKind = IProm
 >;
 
 export function throttleFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IDebounceDeps) {
-  const debounce = debounceFactory(deps);
+  const debounce = debounceFactory<K>(deps);
 
   return function throttle<Args extends unknown[], R, F = never>(
-    fn: (...args: Args) => R | PromiseLike<R>,
+    fn: (...args: Args) => TPromiseOf<K, R, F> | R | PromiseLike<R>,
     ms: number,
     options?: IThrottleOptions,
   ): IThrottled<Args, R, K, F> {
-    return debounce(fn, ms, {
+    return debounce<Args, R, F>(fn, ms, {
       ...options,
       leading: options?.leading === false ? false : true,
       trailing: options?.trailing === false ? false : true,

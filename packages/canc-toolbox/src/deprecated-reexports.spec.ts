@@ -10,6 +10,8 @@ import {
   suppressTimeout as promiseSuppressTimeout,
   TimeoutError as PromiseTimeoutError,
 } from '@cancjs/promise';
+import * as fs from 'fs';
+import * as path from 'path';
 
 import {
   AbortError as ToolboxAbortError,
@@ -54,5 +56,20 @@ describe('Deprecated error family re-exports', () => {
   });
   it('resolves TimeoutError to the exact same object', () => {
     expect(ToolboxTimeoutError).toBe(PromiseTimeoutError);
+  });
+  it('requires every deprecated re-export marker to precede a statement from @cancjs/promise', () => {
+    const indexPath = path.join(__dirname, 'index.ts');
+    const indexSource = fs.readFileSync(indexPath, 'utf8');
+    const markerRegex = /\/\*\*[\s\S]*?@deprecated Import from @cancjs\/promise instead\.[\s\S]*?\*\/\s*([\s\S]*?;)/g;
+    const statements: string[] = [];
+    let match: RegExpExecArray | null;
+    while ((match = markerRegex.exec(indexSource)) !== null) {
+      statements.push(match[1].trim());
+    }
+
+    expect(statements.length).toBeGreaterThan(0);
+    for (const statement of statements) {
+      expect(statement).toContain("from '@cancjs/promise'");
+    }
   });
 });

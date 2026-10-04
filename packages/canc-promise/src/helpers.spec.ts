@@ -14,6 +14,7 @@ import {
   TimeoutError as RealTimeoutError,
   TimeoutError,
 } from './helpers';
+import * as entry from './index';
 
 function flushPromises(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
@@ -29,6 +30,18 @@ class AbortError extends Error {
     Object.setPrototypeOf(this, new.target.prototype);
   }
 }
+
+// underscore-prefixed names shipped in 1.0.0, kept as aliases so identity checks still pass
+describe('former names of the renamed error helpers', () => {
+  it('re-exports each one as the same binding', () => {
+    expect(entry._AbortError).toBe(entry.AbortError);
+    expect(entry._isAbortError).toBe(entry.isAbortError);
+    expect(entry._TimeoutError).toBe(entry.TimeoutError);
+    expect(entry._isTimeoutError).toBe(entry.isTimeoutError);
+    expect(entry._createCatchError).toBe(entry.createCatchError);
+    expect(entry._createSuppressError).toBe(entry.createSuppressError);
+  });
+});
 
 describe('isCancelError', () => {
   it('strictly detects cancel error', () => {

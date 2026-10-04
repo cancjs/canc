@@ -258,7 +258,12 @@ function writeDecoratorFixture(version, tarballs, flavor) {
 function installFixture(dir) {
   fs.rmSync(path.join(dir, 'node_modules', '@cancjs'), { recursive: true, force: true });
   fs.rmSync(path.join(dir, 'node_modules', '.package-lock.json'), { force: true });
-  run(npmCmd, ['install', '--no-package-lock', '--no-audit', '--no-fund', '--silent'], { cwd: dir });
+  // --legacy-peer-deps: tarball peer floors name a version pending changesets will produce
+  // strict peers would check a release state that does not exist yet
+  // peer correctness still enforced by check-package-validation.js and the peer-import gate
+  run(npmCmd, ['install', '--no-package-lock', '--no-audit', '--no-fund', '--silent', '--legacy-peer-deps'], {
+    cwd: dir,
+  });
 }
 
 function tscFor(dir) {

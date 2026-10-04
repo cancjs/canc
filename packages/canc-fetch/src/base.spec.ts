@@ -1,9 +1,10 @@
 import {
-  AbortError,
   CancelablePromise,
   CancelError,
   createCancelSignal,
   createIsError,
+  FailureOf,
+  isAbortError,
   isCancelError,
   isTimeoutError,
   TimeoutError,
@@ -16,6 +17,7 @@ import {
   TCancelableFetchFailure,
   TCancelableFetchLaterPromise,
 } from './base';
+import { cancelableFetch } from './index';
 
 // Minimal AbortController/AbortSignal test doubles: enough surface for the factory (signal with
 // aborted flag + abort()/onabort/addEventListener/dispatchEvent).
@@ -208,6 +210,7 @@ describe('cancelableFetchFactory', () => {
 
     expect(calls[0].signal.aborted).toBe(true);
     expect(isCancelError(error)).toBe(true);
+    expect(isAbortError(error)).toBe(false);
   });
 
   it('maps an external abort to a CancelError carrying the abort error as cause', async () => {
@@ -228,6 +231,7 @@ describe('cancelableFetchFactory', () => {
 
     expect(error).toBeInstanceOf(CancelError);
     expect(isCancelError(error)).toBe(true);
+    expect(isAbortError(error)).toBe(false);
     expect(error.cause).toBeDefined();
     expect(error.cause.name).toBe('AbortError');
   });
@@ -248,6 +252,8 @@ describe('cancelableFetchFactory', () => {
 
     expect(calls[0].signal.aborted).toBe(true);
     expect(isCancelError(error)).toBe(true);
+    expect(isAbortError(error)).toBe(false);
+    expect(error?.cause).toBeDefined();
   });
 
   it('reads a signal from a Request-object input', async () => {
@@ -869,7 +875,7 @@ describe('declared failure set', () => {
     const mockFetch = jest.fn().mockRejectedValue(timeoutErr);
     const fetchFn = cancelableFetchFactory({ fetch: mockFetch });
 
-    const isFetchFailure = createIsError(TimeoutError, AbortError);
+    const isFetchFailure = createIsError(TimeoutError);
     const promise = fetchFn('https://example.com');
 
     let caughtError: unknown = null;
@@ -884,3 +890,11 @@ describe('declared failure set', () => {
     expect(isFetchFailure(caughtError)).toBe(true);
   });
 });
+
+type Eq<A, B> =
+  [A] extends [B] ?
+    [B] extends [A] ?
+      true
+    : false
+  : false;
+const _checkFetchFailure: Eq<FailureOf<ReturnType<typeof cancelableFetch>>, TimeoutError> = true;

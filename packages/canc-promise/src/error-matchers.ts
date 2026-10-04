@@ -1,3 +1,4 @@
+import type { AbortError, TimeoutError } from '../../_util';
 import type {
   MatchedError,
   MatchedOf,
@@ -26,7 +27,7 @@ export type {
  * What `createSuppressError` produces: the call shape of `suppressCancel`, with the matcher list
  * deciding what counts as caught.
  */
-export interface ISuppressErrorFn<M extends readonly TErrorMatcher[]> {
+export interface ISuppressErrorFn<M extends readonly TErrorMatcher[] = readonly TErrorMatcher[]> {
   <TResult, TFailure>(
     promise: CancelablePromise<TResult, TFailure>,
     options?: ICancelablePromiseOptions,
@@ -42,7 +43,7 @@ export interface ISuppressErrorFn<M extends readonly TErrorMatcher[]> {
  * What `createCatchError` produces: the call shape of `catchCancel`, with the matcher list deciding
  * what counts as caught.
  */
-export interface ICatchErrorFn<M extends readonly TErrorMatcher[]> {
+export interface ICatchErrorFn<M extends readonly TErrorMatcher[] = readonly TErrorMatcher[]> {
   <TResult, TFailure>(
     promise: CancelablePromise<TResult, TFailure>,
     options?: ICancelablePromiseOptions,
@@ -51,7 +52,12 @@ export interface ICatchErrorFn<M extends readonly TErrorMatcher[]> {
     promise: PromiseLike<TResult>,
     options?: ICancelablePromiseOptions,
   ): CancelablePromise<TResult | MatchedOf<M>, never>;
-  <TError>(error: TError, options?: ICancelablePromiseOptions): Extract<TError, MatchedOf<M>> | never;
+  // Extraction is empty unless the argument's type overlaps the matcher list, and an unmatched
+  // error is rethrown rather than returned, so the matched set is the honest fallback
+  <TError>(
+    error: TError,
+    options?: ICancelablePromiseOptions,
+  ): [Extract<TError, MatchedOf<M>>] extends [never] ? MatchedOf<M> : Extract<TError, MatchedOf<M>>;
 }
 
 /**
@@ -90,6 +96,12 @@ export function createCatchError<M extends readonly TErrorMatcher[]>(...matchers
     flagsEnabled: false,
   }) as unknown as ICatchErrorFn<M>;
 }
+
+/**
+ * @deprecated Use `createCatchError` and `createSuppressError`. These are the names the same two
+ * factories carried in 1.0.0, kept as aliases.
+ */
+export { createCatchError as _createCatchError, createSuppressError as _createSuppressError };
 
 /**
  * A type guard for error objects, given a list of matchers (error names, constructors, or
@@ -150,26 +162,30 @@ export function isErrorOf<M extends readonly TErrorMatcher[]>(error: unknown, ..
   return compileErrorMatchers(matchers as unknown as TErrorMatcher[], 'isErrorOf')(error);
 }
 
+// The four below are annotated rather than inferred: an inferred guard type makes the declaration
+// emit inline a bare specifier for the shared error module, which no consumer can resolve
+
 /**
  * Catch abort errors only. Matches an abort only, and an ordinary cancellation is rethrown.
  * To swallow a cancellation as well, use `catchCancel(promise, { abort: true })` from `@cancjs/promise`.
  */
-export const catchAbort = createCatchError(_isAbortLike);
+export const catchAbort: ICatchErrorFn<[(error: any) => error is AbortError]> = createCatchError(_isAbortLike);
 
 /**
  * Suppress abort errors only. Matches an abort only, and an ordinary cancellation is rethrown.
  * To swallow a cancellation as well, use `suppressCancel(promise, { abort: true })` from `@cancjs/promise`.
  */
-export const suppressAbort = createSuppressError(_isAbortLike);
+export const suppressAbort: ISuppressErrorFn<[(error: any) => error is AbortError]> = createSuppressError(_isAbortLike);
 
 /**
  * Catch timeout errors only. Matches a timeout only, and an ordinary cancellation is rethrown.
  * To swallow a cancellation as well, use `catchCancel(promise, { timeout: true })` from `@cancjs/promise`.
  */
-export const catchTimeout = createCatchError(_isTimeoutLike);
+export const catchTimeout: ICatchErrorFn<[(error: any) => error is TimeoutError]> = createCatchError(_isTimeoutLike);
 
 /**
  * Suppress timeout errors only. Matches a timeout only, and an ordinary cancellation is rethrown.
  * To swallow a cancellation as well, use `suppressCancel(promise, { timeout: true })` from `@cancjs/promise`.
  */
-export const suppressTimeout = createSuppressError(_isTimeoutLike);
+export const suppressTimeout: ISuppressErrorFn<[(error: any) => error is TimeoutError]> =
+  createSuppressError(_isTimeoutLike);

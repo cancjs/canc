@@ -75,9 +75,13 @@ export function retryFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
    *
    * A throw from `shouldRetry`, `delay` or `onRetry` rejects the returned promise with that error
    * and starts no further attempt.
+   *
+   * The declared failure set comes from `input`: an attempt that returns a promise of the bound
+   * implementation carries its failures out through the returned promise, since a rejection of the
+   * last attempt is what the caller sees.
    */
   return function retry<T, F = never>(
-    input: (attempt: number) => T | PromiseLike<T>,
+    input: (attempt: number) => TPromiseOf<K, T, F> | T | PromiseLike<T>,
     options?: IRetryOptions<K>,
   ): TPromiseOf<K, T, F> {
     const retries = options?.retries ?? 3;
@@ -94,7 +98,7 @@ export function retryFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
       throw new RangeError('retry: jitter cannot be negative', { cause: jitter });
     }
 
-    return constructTimed<T, K>(
+    return constructTimed<T, K, F>(
       deps,
       (resolve, reject, ctx?: IExecutorCtx) => {
         const startedAt = readClock();
@@ -210,7 +214,8 @@ export function retryFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
               // Captured off the raw return of `input(n)`, not the wrapper chain, so canceling it
               // reaches the actual work directly rather than depending on adoption cascading a
               // cancel signal down through an intermediate link.
-              const raw = input(n);
+              // A flavor's promise type is opaque here, and a thenable by construction
+              const raw = input(n) as T | PromiseLike<T>;
 
               if (isThenableLike<T>(raw)) {
                 currentAttempt = raw as PromiseLike<T> & { cancel?: (reason?: any) => void };
