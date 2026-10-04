@@ -395,7 +395,9 @@ const FORMAT_BUILDERS = {
 // the same tsconfig with declaration emit disabled.
 const createEntryConfigs = (entry, options, emitDeclaration, formats = ALL_FORMATS) => {
   const mergedOptions = { ...options, ...entry, name: entry.name || (options && options.name) };
-  return formats.map((format) => FORMAT_BUILDERS[format](entry, emitDeclaration, mergedOptions));
+  // noUmd: node-only packages whose code imports a builtin, so no browser global bundle can run
+  const selected = mergedOptions.noUmd ? formats.filter((format) => !format.startsWith('umd')) : formats;
+  return selected.map((format) => FORMAT_BUILDERS[format](entry, emitDeclaration, mergedOptions));
 };
 
 export const createConfigs = (options = { name: 'LibraryName' }) =>

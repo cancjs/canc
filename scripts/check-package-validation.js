@@ -375,6 +375,7 @@ async function checkPackage(pkgName, workspace) {
   const hasUmd = [...packedFiles].some((f) => /\.umd\.js$/.test(f));
   const hasUmdMin = [...packedFiles].some((f) => /\.umd\.min\.js$/.test(f));
   const expectsUmd = await packageExpectsUmd(pkgDir);
+  const declaresCdnEntry = typeof manifest.unpkg === 'string' || typeof manifest.jsdelivr === 'string';
 
   const exportsText = JSON.stringify(manifest.exports || {});
   const declaresLegacyTypesCondition = /types@</.test(exportsText);
@@ -400,6 +401,9 @@ async function checkPackage(pkgName, workspace) {
     if (typeof manifest.unpkg !== 'string' || typeof manifest.jsdelivr !== 'string') {
       problems.push('rollup config emits a UMD build but the manifest has no unpkg/jsdelivr entry');
     }
+  }
+  if (!declaresCdnEntry && (hasUmd || hasUmdMin)) {
+    problems.push('ships a UMD build but declares no unpkg/jsdelivr entry point for it');
   }
   if (declaresLegacyTypesCondition && !hasDownlevelDts) {
     problems.push('exports declares a "types@<range>" condition but no dist/types-ts* output is packed');
