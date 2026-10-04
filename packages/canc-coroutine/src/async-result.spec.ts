@@ -84,6 +84,19 @@ const forAwaitToArrayInferFn = cancAsync(function* () {
 type TForAwaitToArrayFailure = FailureOf<ReturnType<typeof forAwaitToArrayInferFn>>;
 const checkForAwaitToArrayInfer: Eq<TForAwaitToArrayFailure, BreakError> = true;
 
+// Handle form: `break` is native, so unlike checkForAwaitInfer above no BreakError enters the set.
+const forAwaitHandleInferFn = cancAsync(function* () {
+  const loop = yield* cancForAwait([1, 2]);
+  for (const item of loop) {
+    void item;
+    break;
+  }
+  yield* loop.return();
+  return 42;
+});
+type TForAwaitHandleFailure = FailureOf<ReturnType<typeof forAwaitHandleInferFn>>;
+const checkForAwaitHandleInfer: Eq<TForAwaitHandleFailure, never> = true;
+
 function* forAwaitMismatchedAnnotation(): Generator<Failing<FooError>, number, any> {
   // @ts-expect-error TS2322
   yield* cancForAwait([1, 2], () => {});
@@ -100,7 +113,9 @@ void _cancAwaitCheck;
 void _yieldCheck;
 void forAwaitInferFn;
 void forAwaitToArrayInferFn;
+void forAwaitHandleInferFn;
 void forAwaitMismatchedAnnotation;
 void forAwaitMatchedAnnotation;
 void checkForAwaitInfer;
 void checkForAwaitToArrayInfer;
+void checkForAwaitHandleInfer;

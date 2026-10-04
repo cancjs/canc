@@ -155,6 +155,11 @@ export const AGGREGATE_ERROR_BRAND = Symbol.for('@cancjs/promise:AggregateError'
 export const SUPERSEDED_ERROR_BRAND = Symbol.for('@cancjs/toolbox:SupersededError');
 
 /**
+ * Prototype brand for IterationError instances, registered under `Symbol.for('@cancjs/coroutine:IterationError')`.
+ */
+export const ITERATION_ERROR_BRAND = Symbol.for('@cancjs/coroutine:IterationError');
+
+/**
  * Rejected or thrown when an operation is aborted. Carries the same `name` as the DOMException a
  * real AbortSignal produces, so one code path handles both. Identified across realms by its
  * `Symbol.for('@cancjs/promise:AbortError')` prototype brand.
@@ -185,6 +190,15 @@ export type TimeoutError = InstanceType<typeof TimeoutError>;
 export const SupersededError = createErrorClass('SupersededError', SUPERSEDED_ERROR_BRAND, 'call superseded');
 /** Instance type of {@link SupersededError}. */
 export type SupersededError = InstanceType<typeof SupersededError>;
+
+/**
+ * Thrown when a loop handle is used incorrectly: when a loop body skips `loop.next()` before the
+ * next turn, or when `[Symbol.iterator]()` is called a second time on the same handle. Identified
+ * across realms by its `Symbol.for('@cancjs/coroutine:IterationError')` prototype brand.
+ */
+export const IterationError = createErrorClass('IterationError', ITERATION_ERROR_BRAND);
+/** Instance type of {@link IterationError}. */
+export type IterationError = InstanceType<typeof IterationError>;
 
 /**
  * Instance shape of {@link AggregateError}, platform class or shim alike.
