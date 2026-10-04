@@ -1,8 +1,38 @@
 import { CancelablePromise, CancelError, isCancelError, isCancelSignal } from '@cancjs/promise';
 
+import type { IAbortSignalLike } from '../../_toolbox';
 import { createAbortSignal, toAbortSignal, withSignal } from './abort';
 import { AbortError, isAbortError } from './errors';
-import { timeout } from './prebound';
+import { fromAbortSignal, timeout } from './prebound';
+
+/** A fake signal that counts listener attach and detach, so removal can be asserted directly. */
+function spySignal(): IAbortSignalLike & { addCalls: number; removeCalls: number; fire(): void } {
+  let listener: (() => void) | undefined;
+  let aborted = false;
+
+  return {
+    get aborted() {
+      return aborted;
+    },
+    reason: undefined,
+    addCalls: 0,
+    removeCalls: 0,
+    addEventListener(_type: 'abort', fn: () => void) {
+      this.addCalls++;
+      listener = fn;
+    },
+    removeEventListener(_type: 'abort', fn: () => void) {
+      if (listener === fn) {
+        this.removeCalls++;
+        listener = undefined;
+      }
+    },
+    fire() {
+      aborted = true;
+      listener?.();
+    },
+  };
+}
 
 function abortReason(controller = new AbortController()): Error {
   controller.abort();
@@ -265,5 +295,103 @@ describe('withSignal (p-signal-shaped)', () => {
       return 'v';
     });
     expect(received).toBeUndefined();
+  });
+});
+
+describe('fromAbortSignal: awaitable abort event', () => {
+  it('aborting the controller fulfills the promise with undefined', async () => {
+    const controller = new AbortController();
+    const promise = fromAbortSignal(controller.signal);
+    controller.abort();
+    await expect(promise).resolves.toBeUndefined();
+  });
+
+  it('a pre-aborted signal fulfills asynchronously, not synchronously', async () => {
+    const controller = new AbortController();
+    controller.abort();
+
+    let settledSync = false;
+    const promise = fromAbortSignal(controller.signal);
+    void promise.then(() => {
+      settledSync = true;
+    });
+
+    // No microtask has run yet at this point, so a synchronous resolve would already show here.
+    expect(settledSync).toBe(false);
+    await promise;
+    expect(settledSync).toBe(true);
+  });
+
+  describe('listener removal', () => {
+    it('removes the real signal listener once it fulfills', async () => {
+      const controller = new AbortController();
+      const removeSpy = jest.spyOn(controller.signal, 'removeEventListener');
+      const promise = fromAbortSignal(controller.signal);
+      controller.abort();
+      await promise;
+      expect(removeSpy).toHaveBeenCalledWith('abort', expect.any(Function));
+    });
+
+    it('removes the real signal listener on cancel', async () => {
+      const controller = new AbortController();
+      const removeSpy = jest.spyOn(controller.signal, 'removeEventListener');
+      const promise = fromAbortSignal(controller.signal);
+      promise.cancel();
+      await promise.catch(() => undefined);
+      expect(removeSpy).toHaveBeenCalledWith('abort', expect.any(Function));
+    });
+
+    it('fake signal: add and remove counts match on the fulfilled path', async () => {
+      const fake = spySignal();
+      const promise = fromAbortSignal(fake);
+      fake.fire();
+      await promise;
+      expect(fake.addCalls).toBe(1);
+      expect(fake.removeCalls).toBe(1);
+    });
+
+    it('fake signal: add and remove counts match on the canceled path', async () => {
+      const fake = spySignal();
+      const promise = fromAbortSignal(fake);
+      promise.cancel();
+      await promise.catch(() => undefined);
+      expect(fake.addCalls).toBe(1);
+      expect(fake.removeCalls).toBe(1);
+    });
+
+    it('a pre-aborted signal never attaches a listener', async () => {
+      const fake = spySignal();
+      fake.fire();
+      await fromAbortSignal(fake);
+      expect(fake.addCalls).toBe(0);
+      expect(fake.removeCalls).toBe(0);
+    });
+  });
+
+  it('cancel rejects with a CancelError', async () => {
+    const controller = new AbortController();
+    const promise = fromAbortSignal(controller.signal);
+    promise.cancel();
+    const error = await promise.catch((e: unknown) => e);
+    expect(isCancelError(error)).toBe(true);
+  });
+
+  it('a race loser removes its listener without an explicit cancel', async () => {
+    // The signal never fires on its own here, so fromAbortSignal would never settle by itself;
+    // the other participant winning is what proves the loser's listener still comes off.
+    const fake = spySignal();
+    const winner = await CancelablePromise.race([CancelablePromise.resolve('fast'), fromAbortSignal(fake)]);
+    expect(winner).toBe('fast');
+    expect(fake.addCalls).toBe(1);
+    expect(fake.removeCalls).toBe(1);
+  });
+
+  it('type: the return is exactly CancelablePromise<void>, nothing wider', () => {
+    // A wrong return type makes the annotation below a compile error.
+    type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
+    type TReturnIsVoidCancelable =
+      Equal<ReturnType<typeof fromAbortSignal>, CancelablePromise<void>> extends true ? true : never;
+    const check: TReturnIsVoidCancelable = true;
+    expect(check).toBe(true);
   });
 });

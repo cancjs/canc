@@ -1,4 +1,4 @@
-export { IAbortSignalLike, IAbortSignalOptions, withAbortSignal } from './abort-signal';
+export { fromAbortSignalFactory, IAbortSignalLike, IAbortSignalOptions, withAbortSignal } from './abort-signal';
 export { makeCancelSignal, TGetSignal } from './cancel-signal';
 export {
   createCatchErrorFactory,

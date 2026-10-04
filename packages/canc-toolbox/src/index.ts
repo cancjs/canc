@@ -23,7 +23,19 @@ export { debounce } from './debounce';
 export { isSupersededError, SupersededError } from './errors';
 export type { IExecutorCtx, IToolboxOptions, TEagerToolboxOptions, THandleCancel, TToolboxExecutor } from './options';
 export type { ICancelableDeferred } from './prebound';
-export { defer, delay, limit, map, minDelay, promisify, promisifyAll, retry, timeout, waitFor } from './prebound';
+export {
+  defer,
+  delay,
+  fromAbortSignal,
+  limit,
+  map,
+  minDelay,
+  promisify,
+  promisifyAll,
+  retry,
+  timeout,
+  waitFor,
+} from './prebound';
 export { throttle } from './throttle';
 /** @deprecated Import from @cancjs/promise instead. */
 export {

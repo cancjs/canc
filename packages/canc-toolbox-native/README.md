@@ -64,6 +64,10 @@ itself settles.
 Under `debounce` and `throttle`, a superseded pending or trailing call rejects with `SupersededError`.
 A fire-and-forget call needs a rejection handler attached so a superseded call is not unhandled.
 
+`fromAbortSignal(signal)` is here, and fulfills once `signal` aborts. Without a cancel channel its
+listener comes off on settle only, so racing it against a signal that never fires holds the listener
+for as long as the signal lives; the cancelable twin detaches on cancel.
+
 `cancelify` and signal generation (`toAbortSignal`, `withSignal`, `createAbortSignal`) have no meaning without cancellation and are twin-only; `catchAbort`, `suppressAbort`, `catchTimeout`, `suppressTimeout`, `createCatchError`, and `createSuppressError` are provided to filter errors on native promises (no cancellation handling).
 
 ### Custom timers per call

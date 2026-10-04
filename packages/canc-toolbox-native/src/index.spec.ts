@@ -15,6 +15,7 @@ describe('index exports', () => {
         'debounce',
         'defer',
         'delay',
+        'fromAbortSignal',
         'isAbortError',
         'isLazyPromise',
         'isSupersededError',
