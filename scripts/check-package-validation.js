@@ -182,6 +182,91 @@ function collectPeerImports(pkgDir) {
   return byPeer;
 }
 
+/** Every non-relative module specifier an emitted declaration references. */
+function collectBareSpecifiers(content) {
+  const found = new Set();
+  const patterns = [
+    /(?:import|export)(?:[\s\S]+?from)?\s*['"]([^.'"][^'"]*)['"]/g,
+    /import\(\s*['"]([^.'"][^'"]*)['"]\s*\)/g,
+    /require\(\s*['"]([^.'"][^'"]*)['"]\s*\)/g,
+  ];
+
+  for (const pattern of patterns) {
+    for (const match of content.matchAll(pattern)) {
+      found.add(match[1]);
+    }
+  }
+
+  return found;
+}
+
+/**
+ * Whether a consumer installing only this package's manifest could resolve the specifier. Node
+ * builtins always resolve; anything else has to be declared, because a transitive dependency is not
+ * a promise the manifest makes.
+ */
+/** Whether a manifest asks for a package by any dependency kind a consumer install would honour. */
+function declaresDependency(manifest, name) {
+  return [manifest.dependencies, manifest.peerDependencies, manifest.optionalDependencies].some(
+    (set) => set && Object.prototype.hasOwnProperty.call(set, name),
+  );
+}
+
+function isResolvableBareSpecifier(specifier, manifest) {
+  // `@scope/name/deep/path` and `name/deep/path` both resolve through the package name alone.
+  const segments = specifier.split('/');
+  const pkgName = specifier.startsWith('@') ? segments.slice(0, 2).join('/') : segments[0];
+
+  // a builtin resolves at runtime, but a declaration importing one needs `@types/node`
+  // nothing installs those types unless this manifest asks for them
+  // waving `node:` through is how a package ships `.d.ts` that fails to compile for a consumer
+  if (specifier.startsWith('node:') || require('module').builtinModules.includes(pkgName)) {
+    return declaresDependency(manifest, '@types/node');
+  }
+
+  const declared = [manifest.dependencies, manifest.peerDependencies, manifest.optionalDependencies].filter(Boolean);
+
+  if (declared.some((set) => Object.prototype.hasOwnProperty.call(set, pkgName))) return true;
+
+  return declaredTypeSatellites(declared).has(pkgName);
+}
+
+/**
+ * Type-only packages a consumer necessarily has because a declared dependency's DefinitelyTyped
+ * package requires them. An untyped dependency like express forces the consumer to install
+ * `@types/express`, which in turn depends on `@types/express-serve-static-core`, so a declaration
+ * referencing `express-serve-static-core` does resolve on their machine even though this package
+ * never names it.
+ *
+ * Deliberately one level deep and driven by the installed manifests rather than a hand-kept list of
+ * names, so a satellite that stops being required stops being accepted.
+ */
+function declaredTypeSatellites(declared) {
+  const allowed = new Set();
+
+  for (const set of declared) {
+    for (const dep of Object.keys(set)) {
+      if (dep.startsWith('@types/')) continue;
+
+      const typesPkg = `@types/${dep.replace('@', '').replace('/', '__')}`;
+
+      try {
+        const typesManifest = require(require.resolve(`${typesPkg}/package.json`, { paths: [ROOT] }));
+
+        for (const name of Object.keys(typesManifest.dependencies || {})) {
+          if (name.startsWith('@types/')) {
+            allowed.add(name.slice('@types/'.length).replace('__', '/'));
+          }
+        }
+      } catch {
+        // No DefinitelyTyped package for this dependency, so it contributes no satellites.
+      }
+    }
+  }
+
+  return allowed;
+}
+
 function parseVersion(version) {
   const match = /^(\d+)\.(\d+)\.(\d+)/.exec(version);
   return match ? [Number(match[1]), Number(match[2]), Number(match[3])] : null;
@@ -379,6 +464,26 @@ async function checkPackage(pkgName, workspace) {
           problems.push(`packed types contain an unresolvable relative import ${specifier} in ${f}`);
         }
       }
+
+      // Check 3: the general form the first two are special cases of. A bare specifier a consumer
+      // cannot resolve is a broken declaration whatever its shape, so the `packages/` case above is
+      // one instance rather than the whole rule.
+      for (const specifier of collectBareSpecifiers(content)) {
+        if (!isResolvableBareSpecifier(specifier, manifest)) {
+          problems.push(`packed types import ${specifier} in ${f}, which is not a declared dependency or peer`);
+        }
+      }
+    }
+  }
+
+  // Check 4: nothing test-only belongs in a tarball. The specifier checks above cannot see this,
+  // because a spec declaration is self-contained with relative imports and so resolves fine. It is
+  // still test surface a consumer downloads, and the published `toolbox-native` carried 108 of them.
+  for (const f of packedFiles) {
+    if (/\.spec\.d\.(m|c)?ts$/.test(f) || /\.test\.d\.(m|c)?ts$/.test(f)) {
+      problems.push(`packed files include the test declaration ${f}`);
+    } else if (/(^|\/)tests-types\//.test(f)) {
+      problems.push(`packed files include the type-matrix harness file ${f}`);
     }
   }
 

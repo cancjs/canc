@@ -162,7 +162,7 @@ Both raise a `CancelError`. The discriminator is `isCancelError(error) && !error
 
 ## Compatibility
 
-Node.js 18 and later, Koa 2.13 and later (including Koa 3), TypeScript 4.2 and later. Requires `@cancjs/promise >=1.0.0` and `@cancjs/coroutine >=1.0.0` as peer dependencies. Everything else follows [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise#compatibility).
+Node.js 18 and later, Koa 2.13 and later (including Koa 3), TypeScript 4.2 and later. Requires `@cancjs/promise >=1.1.0` and `@cancjs/coroutine >=1.0.0` as peer dependencies. Everything else follows [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise#compatibility).
 
 Client disconnect detection is only as good as the network below it. A connection dropped without a FIN produces no event until TCP times out, and a buffering reverse proxy may never pass a client abort to the origin.
 

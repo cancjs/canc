@@ -5,5 +5,32 @@
     "rootDir": "../.."
   },
   "include": ["src", "../_toolbox"],
-  "exclude": ["../_toolbox/lazy/lazy-promise.ts"]
+  // Restates the base list because a child `exclude` replaces the parent's rather than merging, and
+  // its globs resolve from THIS directory, so the `../` forms are what reach the inlined shared dir.
+  // Without them the production build compiles every spec under `_toolbox` and packs a declaration
+  // for each one.
+  "exclude": [
+    "node_modules",
+    "**/~~*",
+    "**/*~~*",
+    "../**/~~*",
+    "../**/*~~*",
+    "**/build/**/*",
+    "**/dist/**/*",
+    "../**/build/**/*",
+    "../**/dist/**/*",
+    "**/__tests__/**/*",
+    "**/__mocks__/**/*",
+    "../**/__tests__/**/*",
+    "../**/__mocks__/**/*",
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "../**/*.spec.ts",
+    "../**/*.spec.tsx",
+    "../**/*.test.ts",
+    "../**/*.test.tsx",
+    "../_toolbox/lazy/lazy-promise.ts"
+  ]
 }

@@ -60,13 +60,16 @@
     "graceful",
     "canc"
   ],
+  "dependencies": {
+    "@types/node": ">=18"
+  },
   "devDependencies": {
     "@cancjs/coroutine": "*",
     "@cancjs/promise": "*"
   },
   "peerDependencies": {
     "@cancjs/coroutine": ">=1.0.0",
-    "@cancjs/promise": ">=1.0.0"
+    "@cancjs/promise": ">=1.1.0"
   },
   "typesVersions": {
     "<4.7": {
