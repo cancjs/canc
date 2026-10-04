@@ -320,16 +320,15 @@ yield* canc.forAwait(chunkStream, function* (chunk) {
 
 ### The loop handle form
 
-Called without a callback, `canc.forAwait` returns a handle instead of driving one. A `for...of`
-over the handle keeps the loop body in the coroutine's own frame, so `break`, `continue` and
-`return` are the native keywords, and the body closes over the surrounding bindings directly:
+Called without a callback, `canc.forAwait` returns an iterable handle instead of driving a callback.
+A `for...of` loop over `yield* canc.forAwait(source)` keeps the body in the coroutine's own frame,
+so `break`, `continue` and `return` are native keywords, and the body closes over surrounding
+bindings directly:
 
 ```ts
 const saveUntilFull = canc.async(function* (chunkStream: AsyncIterable<Chunk>, isFull: () => boolean) {
-  const loop = yield* canc.forAwait(chunkStream);
-
-  for (const chunk of loop) {
-    yield* loop.next(); // pulls the next item, advance before any branch below
+  for (const chunk of yield* canc.forAwait(chunkStream)) {
+    yield* canc.forAwait.next(); // pulls the next item, advance at the top of the body
 
     if (chunk.skip) continue;
     if (isFull()) break;
@@ -339,19 +338,61 @@ const saveUntilFull = canc.async(function* (chunkStream: AsyncIterable<Chunk>, i
 });
 ```
 
-`yield* loop.next()` is the cancellation point. Put it first in the loop body, before `continue`,
-`break` or `return`: skipping it throws `IterationError` on the next turn instead of looping
-forever. A handle iterates once; call `canc.forAwait` again for another pass, and calling
-`[Symbol.iterator]()` a second time on the same handle throws `IterationError` too.
+#### Both spellings
 
-Creating the handle already pulls the first item, one suspension, before the loop body runs. That
-pull happens even if the loop never executes, which matters for a source that is expensive or has
-side effects on open.
+- `yield* canc.forAwait.next()`: argument-free sugar for the common single-loop case. It resolves
+  the innermost open loop handle without requiring a temporary variable binding.
+- `yield* loop.next()`: explicit advance on a stored handle (`const loop = yield* canc.forAwait(src)`).
+  Use this when two loops are open at once and the advance must name one of them, or for
+  `yield* loop.return()`, which requires a handle binding.
+
+```ts
+const outerLoop = yield* canc.forAwait(streamA);
+
+for (const a of outerLoop) {
+  const innerLoop = yield* canc.forAwait(streamB);
+  for (const b of innerLoop) {
+    yield* outerLoop.next(); // advances outer from inner
+    yield* innerLoop.next();
+  }
+}
+```
+
+The sugar resolves handle-form loops only, so inside a callback-form `canc.forAwait` body it advances the enclosing handle loop; use the stored-handle form when managing loops across both styles. The sugar also yields `unknown`, so a body annotated with a concrete failure set uses the stored handle instead.
+
+#### The advance rule and lookahead
+
+Creating the handle with `yield* canc.forAwait(source)` prefetches the first item before the loop
+body runs, even if the body never executes. Each advance (`yield* canc.forAwait.next()` or `yield* loop.next()`) pulls the next item.
+At any moment, the source is at most one item ahead of the body.
+
+Follow these rules for advancing the loop:
+
+1. **Default: advance first.** Place `yield* canc.forAwait.next()` (or `yield* loop.next()`) at the
+   top of the loop body. Because the advance runs before any branching logic, `continue` works
+   directly without ceremony. On an early `break`, the lookahead item already pulled is discarded.
+   For ordinary sources (arrays, paginated HTTP queries, database cursors), this costs at most one
+   extra request.
+
+2. **Exception: destructive sources.** For one-shot, destructive sources where a discarded lookahead
+   item means a lost message (such as a queue, a message channel, or a single-use stream), advance
+   last and do not use `continue`, or use the callback form of `canc.forAwait`.
+
+The advance-first default avoids hidden runtime bugs. An advance-last loop that contains a
+`continue` branch without advancing will throw `IterationError` on the following turn. Because error
+and skip branches are often rarely exercised in tests, advance-first is the safer default.
+
+A handle iterates once; calling `[Symbol.iterator]()` a second time on the same handle throws
+`IterationError`.
+
+#### Cleanup timing
 
 Exhaustion and an explicit `yield* loop.return()` finish the source's cleanup at that point. A
 plain `break` goes through the synchronous iterator protocol instead, which cannot await in place,
 so cleanup there finishes before the coroutine settles rather than before the line after `break`.
-Call `yield* loop.return()` right after a `break` when that ordering matters.
+Call `yield* loop.return()` right after a `break` when that ordering matters. `yield* loop.return()`
+requires the stored-handle spelling and the sugar has no `.return` equivalent, so a body that needs
+cleanup to finish at the `break` statement stores the handle.
 
 Reach for the handle form when the loop body needs a native `break`, `continue`, or `return` out of
 the coroutine. Use the callback form above for plain streaming with no early exit.
@@ -558,21 +599,22 @@ lookup and cannot be overridden from a subclass through the prototype chain.
 
 ### `@cancjs/coroutine`
 
-| Export                                                      | Alias           | Description                                                                           |
-| ----------------------------------------------------------- | --------------- | ------------------------------------------------------------------------------------- |
-| `cancAsync(genFn, ctx?, options?)`                          | `canc.async`    | Wraps a generator function into a function returning a `CancelablePromise`            |
-| `cancAwait(value)`                                          | `canc.await`    | One step, used as `yield* cancAwait(value)`                                           |
-| `cancAwait.all` / `.race` / `.any` / `.allSettled` / `.try` |                 | Combinators folded into a single step, tuple types preserved                          |
-| `cancThrow(error)`                                          | `canc.throw`    | Yieldable `throw` step for declaring and raising errors inside coroutines             |
-| `cancForAwait(source, callback)`                            | `canc.forAwait` | Consumes an async or sync iterable, one cancellation point per item                   |
-| `cancForAwait(source)`                                      | `canc.forAwait` | Called without a callback, returns a loop handle for a native `for...of` body         |
-| `cancForAwait.toArray(source)`                              |                 | Collects a source into an array                                                       |
-| `asyncMethod(instance, key, options?)`                      |                 | Installs the member as an own property, wrapping a method or field with `cancAsync`   |
-| `bindMethod(instance, key)`                                 |                 | Installs the member as an own property, bound to the instance, never wrapped          |
-| `BreakError`, `isBreakError`                                |                 | Breaking out of a stream from deeper code                                             |
-| `IterationError`                                            |                 | Thrown by a loop handle used out of turn: skipped `next()`, or iterated a second time |
-| `AsyncResult<TResult, TFailure>`                            |                 | Return type for a generator body with optional failure set                            |
-| `ICancForAwaitLoop<T>`                                      |                 | Type of the handle returned by the callback-less form of `cancForAwait`               |
+| Export                                                      | Alias                | Description                                                                           |
+| ----------------------------------------------------------- | -------------------- | ------------------------------------------------------------------------------------- |
+| `cancAsync(genFn, ctx?, options?)`                          | `canc.async`         | Wraps a generator function into a function returning a `CancelablePromise`            |
+| `cancAwait(value)`                                          | `canc.await`         | One step, used as `yield* cancAwait(value)`                                           |
+| `cancAwait.all` / `.race` / `.any` / `.allSettled` / `.try` |                      | Combinators folded into a single step, tuple types preserved                          |
+| `cancThrow(error)`                                          | `canc.throw`         | Yieldable `throw` step for declaring and raising errors inside coroutines             |
+| `cancForAwait(source, callback)`                            | `canc.forAwait`      | Consumes an async or sync iterable, one cancellation point per item                   |
+| `cancForAwait(source)`                                      | `canc.forAwait`      | Called without a callback, returns a loop handle for a native `for...of` body         |
+| `cancForAwait.next()`                                       | `canc.forAwait.next` | Advances the innermost open loop handle, pulling the next item                        |
+| `cancForAwait.toArray(source)`                              |                      | Collects a source into an array                                                       |
+| `asyncMethod(instance, key, options?)`                      |                      | Installs the member as an own property, wrapping a method or field with `cancAsync`   |
+| `bindMethod(instance, key)`                                 |                      | Installs the member as an own property, bound to the instance, never wrapped          |
+| `BreakError`, `isBreakError`                                |                      | Breaking out of a stream from deeper code                                             |
+| `IterationError`                                            |                      | Thrown by a loop handle used out of turn: skipped `next()`, or iterated a second time |
+| `AsyncResult<TResult, TFailure>`                            |                      | Return type for a generator body with optional failure set                            |
+| `ICancForAwaitLoop<T>`                                      |                      | Type of the handle returned by the callback-less form of `cancForAwait`               |
 
 `options` are
 [`CancelablePromise` options](https://github.com/cancjs/canc/tree/master/packages/canc-promise#options)

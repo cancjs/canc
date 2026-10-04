@@ -245,6 +245,46 @@ type _forAwaitHandleResult = Expect<
   Equal<ReturnType<typeof forAwaitHandleCo>, CancelablePromise<string, never>>
 >;
 
+// ============================================================ forAwait sugar form: cancForAwait.next(), no BreakError
+const forAwaitSugarCo = cancAsync(function* () {
+  const asyncLoop = yield* cancForAwait(asyncNumberSource());
+  for (const item of asyncLoop) {
+    type _asyncSugarItemNumber = Expect<Equal<typeof item, number>>;
+    type _asyncSugarItemNotAny = Expect<Not<IsAny<typeof item>>>;
+    void item;
+    const nextSugarResult = yield* cancForAwait.next();
+    type _nextSugarResultVoid = Expect<Equal<typeof nextSugarResult, void>>;
+  }
+
+  const valuesLoop = yield* cancForAwait(['a', 'b']);
+  for (const item of valuesLoop) {
+    type _valuesSugarItemString = Expect<Equal<typeof item, string>>;
+    type _valuesSugarItemNotAny = Expect<Not<IsAny<typeof item>>>;
+    void item;
+    const nextSugarValuesResult = yield* cancForAwait.next();
+    type _nextSugarValuesResultVoid = Expect<Equal<typeof nextSugarValuesResult, void>>;
+  }
+
+  const promisesLoop = yield* cancForAwait([Promise.resolve(true), Promise.resolve(false)]);
+  for (const item of promisesLoop) {
+    type _promisesSugarItemBoolean = Expect<Equal<typeof item, boolean>>;
+    type _promisesSugarItemNotAny = Expect<Not<IsAny<typeof item>>>;
+    void item;
+    const nextSugarPromisesResult = yield* cancForAwait.next();
+    type _nextSugarPromisesResultVoid = Expect<Equal<typeof nextSugarPromisesResult, void>>;
+  }
+
+  return 'done';
+});
+type _forAwaitSugarResult = Expect<
+  Equal<ReturnType<typeof forAwaitSugarCo>, CancelablePromise<string, never>>
+>;
+
+// cancForAwait.next() returns Generator<unknown, void, any>
+const sugarNextGen = cancForAwait.next();
+type _sugarNextGenYield = typeof sugarNextGen extends Generator<infer Y, infer R, any> ? [Y, R] : never;
+type _sugarNextGenCheck = Expect<Equal<_sugarNextGenYield, [unknown, void]>>;
+
 // ============================================================ cancGenAsync: typed internal await (no cast tax)
 // Annotated: AsyncGenResult pins the emit (E) and return (R) types explicitly.
 const producerAnnotated = cancGenAsync(function* (): AsyncGenResult<number, void> {

@@ -68,6 +68,10 @@ function isReturnUnwind(value: unknown): boolean {
 // driver because the `for...of` return hook that a `break` fires cannot await
 const REGISTER_CLEANUP = Symbol.for('@cancjs/coroutine:registerCleanup');
 
+// Driver-understood marker for deriving the current loop target: the sugar `canc.forAwait.next()`
+// yields this to ask the driver to resolve and resume with the innermost-entered open loop
+const CURRENT_LOOP = Symbol.for('@cancjs/coroutine:currentLoop');
+
 // `PNext` is `any`: a coroutine body mixes bare `yield` (raw value in, no send type) with
 // `yield*` (typed send value from `cancAwait`), so no single `PNext` fits every yield in the body.
 /** Anything that is not an object can never carry a failure phantom, so admitting the primitive
@@ -220,7 +224,7 @@ export function cancAsync<
       let abortableTryBodySource: CancelablePromise<any, any> | undefined;
 
       // Loop handles opened by this invocation, so two calls of one coroutine never share sources
-      const pendingCleanups: ILoopHandle[] = [];
+      const pendingCleanups: ILoopRegistry = Object.assign([], { _entries: 0 });
 
       let drainDeferred: { promise: CancelablePromise<any>; resolve: (v?: any) => void } | undefined;
       const settleDrain = () => {
@@ -285,6 +289,20 @@ export function cancAsync<
         return self.asyncCancel ? drainDeferred!.promise : undefined;
       };
 
+      const findCurrentLoop = (registry: ILoopRegistry): ILoopHandle | undefined => {
+        let target: ILoopHandle | undefined;
+        let maxEnteredAt = 0;
+
+        for (const candidate of registry) {
+          if (candidate._used && !candidate._finished && candidate._enteredAt > maxEnteredAt) {
+            target = candidate;
+            maxEnteredAt = candidate._enteredAt;
+          }
+        }
+
+        return target;
+      };
+
       const step = (result: any) => {
         if (result.done) {
           genDone = true;
@@ -312,6 +330,21 @@ export function cancAsync<
             if (loop !== undefined) {
               registerLoopHandle(loop, pendingCleanups);
               onFulfilled(undefined);
+
+              return;
+            }
+
+            const currentLoopMarked: boolean = isObject(value) ? (value as any)[CURRENT_LOOP] : false;
+
+            if (currentLoopMarked) {
+              const target = findCurrentLoop(pendingCleanups);
+
+              if (!target) {
+                onFulfilled(undefined);
+                return;
+              }
+
+              onFulfilled(target);
 
               return;
             }
@@ -457,6 +490,20 @@ export function cancAsync<
           let next: IteratorResult<any>;
           try {
             next = gen.next(undefined);
+          } catch (err) {
+            genDone = true;
+            rejectDrained(err);
+            return;
+          }
+          pumpFinally(next);
+          return;
+        }
+
+        // drain pump resolves ordinary yields through shield, which would hand the marker back as the loop
+        if (isObject(result.value) && (result.value as any)[CURRENT_LOOP]) {
+          let next: IteratorResult<any>;
+          try {
+            next = gen.next(findCurrentLoop(pendingCleanups));
           } catch (err) {
             genDone = true;
             rejectDrained(err);
@@ -644,6 +691,8 @@ interface ICancForAwait {
   <T>(source: TEachSource<T>, cb: TForAwaitCallback<T>): Generator<Failing<BreakError>, void, any>;
   /** Collects elements into an array. */
   toArray<T>(source: TEachSource<T>): Generator<Failing<BreakError>, T[], any>;
+  /** Advances the innermost open forAwait loop. Delegate it with `yield*`. */
+  next(): Generator<unknown, void, any>;
 }
 
 interface ICancAwait {
@@ -706,6 +755,11 @@ export function returnStepIterator(it: any): any {
 // Shared by every exhausted handle, so a done turn allocates nothing
 const DONE_RESULT: IteratorResult<any> = { value: undefined, done: true };
 
+interface ILoopRegistry extends Array<ILoopHandle> {
+  _entries: number;
+  _pendingCleanups?: Array<PromiseLike<void>>;
+}
+
 interface ILoopHandle extends ICancForAwaitLoop<any> {
   _it: any;
   _async: boolean;
@@ -714,7 +768,8 @@ interface ILoopHandle extends ICancForAwaitLoop<any> {
   _used: boolean;
   _finished: boolean;
   _disposing: boolean;
-  _registry: ILoopHandle[] | undefined;
+  _enteredAt: number;
+  _registry: ILoopRegistry | undefined;
   _disposed: PromiseLike<void> | undefined;
 }
 
@@ -724,6 +779,7 @@ function disposeLoop(loop: ILoopHandle): PromiseLike<void> | undefined {
   if (!loop._disposing) {
     loop._disposing = true;
     loop._finished = true;
+    // final turn relies on this to avoid throwing IterationError on exhaustion
     loop._stale = false;
 
     const cleanup = returnStepIterator(loop._it);
@@ -733,13 +789,12 @@ function disposeLoop(loop: ILoopHandle): PromiseLike<void> | undefined {
   return loop._disposed;
 }
 
-function registerLoopHandle(loop: ILoopHandle, registry: ILoopHandle[]): void {
+function registerLoopHandle(loop: ILoopHandle, registry: ILoopRegistry): void {
   loop._registry = registry;
   registry.push(loop);
 }
 
-// A handle that closed itself drops out, so the settle path has nothing to wait on in the
-// common case
+// pending close moves to settle list
 function unregisterLoop(loop: ILoopHandle): void {
   const registry = loop._registry;
 
@@ -758,27 +813,32 @@ function unregisterLoop(loop: ILoopHandle): void {
 // Settles only after every loop handle the coroutine still holds has closed its source, and stays
 // on the old synchronous path when nothing registered
 function finishCleanups(
-  pending: ILoopHandle[],
+  registry: ILoopRegistry,
   options: TFlagOptions,
   settle: (value?: any) => void,
   value?: any,
 ): void {
-  if (pending.length === 0) {
+  const pending = registry.splice(0, registry.length);
+  const pendingCleanups = registry._pendingCleanups || [];
+  registry._pendingCleanups = undefined;
+
+  if (pending.length === 0 && pendingCleanups.length === 0) {
     settle(value);
 
     return;
   }
 
-  const loops = pending.splice(0, pending.length);
   const cleanups: Array<PromiseLike<void>> = [];
 
-  for (const loop of loops) {
+  for (const loop of pending) {
     const cleanup = disposeLoop(loop);
 
     if (cleanup) {
       cleanups.push(cleanup);
     }
   }
+
+  cleanups.push(...pendingCleanups);
 
   if (cleanups.length === 0) {
     settle(value);
@@ -836,6 +896,7 @@ function createLoopHandle(it: any, async: boolean): ILoopHandle {
     _used: false,
     _finished: false,
     _disposing: false,
+    _enteredAt: 0,
     _registry: undefined,
     _disposed: undefined,
 
@@ -844,6 +905,7 @@ function createLoopHandle(it: any, async: boolean): ILoopHandle {
         throw new IterationError('A forAwait loop handle iterates once, call forAwait again for another pass');
       }
       loop._used = true;
+      loop._enteredAt = loop._registry ? ++loop._registry._entries : 0;
 
       return {
         next(): IteratorResult<any> {
@@ -863,7 +925,15 @@ function createLoopHandle(it: any, async: boolean): ILoopHandle {
         },
 
         return(value?: any): IteratorResult<any> {
-          disposeLoop(loop);
+          const cleanup = disposeLoop(loop);
+          const registry = loop._registry;
+
+          if (cleanup && registry) {
+            // pending close moves to settle list so finishCleanups still awaits it
+            (registry._pendingCleanups ||= []).push(cleanup);
+          }
+
+          unregisterLoop(loop);
 
           return { value, done: true };
         },
@@ -967,6 +1037,14 @@ cancForAwait.toArray = function* toArray(source: any): Generator<unknown, any[],
 
   return collected;
 } as ICancForAwait['toArray'];
+
+cancForAwait.next = function* next(): Generator<unknown, void, any> {
+  const loop = yield { [CURRENT_LOOP]: true };
+  if (!isObject(loop) || !isObject((loop as any)._it)) {
+    throw new IterationError('No active forAwait loop; canc.forAwait.next() requires a loop in the body');
+  }
+  yield* pullNextItem(loop);
+} as ICancForAwait['next'];
 
 function findDescriptor(instance: any, key: string): PropertyDescriptor | undefined {
   let target: any = instance;

@@ -1,7 +1,7 @@
 import { CancelablePromise, Failing, FailureOf } from '@cancjs/promise';
 
 import { Eq } from '../../../tests-types/fixtures/common/assert-type';
-import { AsyncResult, BreakError, cancAsync, cancAwait, cancForAwait } from './coroutine';
+import { AsyncResult, BreakError, cancAsync, cancAwait, cancForAwait, ICancForAwaitLoop } from './coroutine';
 
 // Type-level only: no runtime assertions needed, ts-jest typechecks this file on every run,
 // so a signature regression fails the test the same way a broken assertion would.
@@ -97,6 +97,38 @@ const forAwaitHandleInferFn = cancAsync(function* () {
 type TForAwaitHandleFailure = FailureOf<ReturnType<typeof forAwaitHandleInferFn>>;
 const checkForAwaitHandleInfer: Eq<TForAwaitHandleFailure, never> = true;
 
+// Sugar form: argument-free advance, `break` is native, so no BreakError enters the set
+const forAwaitSugarInferFn = cancAsync(function* () {
+  const loop = yield* cancForAwait([1, 2]);
+  for (const item of loop) {
+    void item;
+    yield* cancForAwait.next();
+    break;
+  }
+  return 42;
+});
+type TForAwaitSugarFailure = FailureOf<ReturnType<typeof forAwaitSugarInferFn>>;
+const checkForAwaitSugarInfer: Eq<TForAwaitSugarFailure, never> = true;
+
+function* forAwaitSugarAnnotated(): AsyncResult<number> {
+  const loop = yield* cancForAwait([1, 2]);
+  for (const item of loop) {
+    void item;
+    yield* cancForAwait.next();
+  }
+  return 42;
+}
+
+function* forAwaitSugarAnnotatedFailureSet(loop: ICancForAwaitLoop<number>): AsyncResult<number, FooError> {
+  for (const item of loop) {
+    void item;
+    // Advance yields unknown, which narrowed failure set rejects, so body uses stored handle
+    // @ts-expect-error TS2322
+    yield* cancForAwait.next();
+  }
+  return 42;
+}
+
 function* forAwaitMismatchedAnnotation(): Generator<Failing<FooError>, number, any> {
   // @ts-expect-error TS2322
   yield* cancForAwait([1, 2], () => {});
@@ -114,8 +146,12 @@ void _yieldCheck;
 void forAwaitInferFn;
 void forAwaitToArrayInferFn;
 void forAwaitHandleInferFn;
+void forAwaitSugarInferFn;
+void forAwaitSugarAnnotated;
+void forAwaitSugarAnnotatedFailureSet;
 void forAwaitMismatchedAnnotation;
 void forAwaitMatchedAnnotation;
 void checkForAwaitInfer;
 void checkForAwaitToArrayInfer;
 void checkForAwaitHandleInfer;
+void checkForAwaitSugarInfer;
