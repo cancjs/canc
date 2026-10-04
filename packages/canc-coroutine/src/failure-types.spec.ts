@@ -177,6 +177,7 @@ const g10 = cancGenAsync(function* (): AsyncGenResult<number, void> {
 void [
   c1,
   c2,
+  fn2Negative,
   deadCode,
   deadCode2,
   deadCode3,

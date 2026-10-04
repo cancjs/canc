@@ -42,7 +42,9 @@ npm run examples:typecheck
 ```
 
 Each example has its own README with the file map, what to diff, and an honesty note about which
-layer cancellation actually reaches.
+layer cancellation actually reaches. For why the disconnect examples do not just read the
+platform's own request signal, see the honesty note in
+[app-express-kysely](app-express-kysely/README.md).
 
 ## React and state management
 

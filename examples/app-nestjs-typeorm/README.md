@@ -78,3 +78,15 @@ statement.
 For a unit-level alternative that mocks the repository entirely (no real database), see
 [mock-typeorm](https://www.npmjs.com/package/mock-typeorm); the DataSource in `mock/db.ts` is test-only
 scaffolding, not something to copy.
+
+Node core exposes a `request.signal` on the incoming message
+(`IncomingMessage.prototype.signal`, added in Node 24.16.0 / 26.1.0), and it
+looks like the obvious hook for this. It is not: that signal aborts when the
+request stream ends, not when the client disconnects, so it would fire before a
+body-carrying request even reaches the controller. `CancelInterceptor` installs
+its signal through `getRequestSignal` instead, which listens on the underlying
+Node response and only treats a close event as a disconnect while the response
+has not finished writing. `cancel.interceptor-vanilla.ts` reaches for the
+identical `response.on('close')` plus `!response.writableEnded` guard, for the
+same reason: the vanilla side already gets the check right, cancellation is
+simply not wired to it.

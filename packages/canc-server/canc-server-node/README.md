@@ -131,6 +131,10 @@ This matters more than it looks. `IncomingMessage` `'close'` means the request s
 
 The same reason applies to the request signal node itself offers. `IncomingMessage.prototype.signal` is an unguarded `'close'` listener, so it is deliberately not adopted here. An external signal is composed in only when you pass one through the `signal` option.
 
+### Not the platform request signal
+
+Node's `IncomingMessage.prototype.signal` (`request.signal`) aborts when the request stream ends, not when the client disconnects. With a body parser on a POST that happens before the handler runs, so work started from that signal is canceled immediately. This package listens on the response instead, and only treats a close as a disconnect while the response has not finished writing.
+
 ### Handler kinds
 
 The handler kind is read from what it returns, not from how it was declared.
@@ -157,7 +161,9 @@ Cancellation is always a `CancelError`. What differs between the three triggers 
 
 Raw node has no `next(err)` and no error middleware. What settles a request after its handler rejects is `options.onError`, and it defaults to `cancelErrorHandler()`. A cancellation that is not a deadline, on a response whose socket is already gone, is dropped before `onError` is called: there is nobody left to answer. A deadline always reaches `onError`, because the client is still there and expects a response.
 
-`cancelErrorHandler()` answers a deadline with the status stamped on the error, answers a shutdown cancellation with its fallback status (`503`, or whatever `status` you pass), leaves a departed client alone, and rethrows anything that is not a cancellation. Nothing awaits that throw, so it surfaces as an unhandled rejection instead of being silently dropped, which is the closest raw node comes to "forward it".
+`cancelErrorHandler()` answers a deadline with the status stamped on the error, answers a shutdown cancellation with its fallback status (`503`, or whatever `status` you pass), and leaves a departed client alone. Anything that is not a cancellation, a plain bug in a handler, answers `500` and goes to `console.error`.
+
+That last part is where this package differs from the four framework adapters. Each of those forwards such an error to a framework error handler that already answers and logs. Raw node has no pipeline behind the wrapper, so the wrapper holds the only reference left to a response the client is still waiting on. Pass `cancelErrorHandler({ rethrow: true })` to get the throw back instead. Nothing awaits it, so it surfaces as an unhandled rejection: opt in only where a process level handler is installed to receive it.
 
 Pass your own `onError` when a caller already has an error pipeline: an adapter for restify, AdonisJS, a Pages Router API route, or Nest on the raw server reads the error from there instead.
 
@@ -178,7 +184,7 @@ Cancelable promise flags (`bubble`, `shield`, `strict`, `asyncCancel`, `forceCan
 ### Handlers
 
 - `cancelableHandler(handler, options?)` wraps a `(req, res)` handler and returns a plain node request listener
-- `cancelErrorHandler(options?)` maps a cancellation to a response; the default `onError`
+- `cancelErrorHandler(options?)` maps a cancellation to a response and answers `500` for anything else; the default `onError`. Takes `status` and `rethrow`
 
 ### Request signal
 

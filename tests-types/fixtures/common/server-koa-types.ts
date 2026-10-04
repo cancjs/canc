@@ -5,7 +5,7 @@
  * context type flow through to `ctx.state` / `ctx.db`, a plain async handler typechecks alongside
  * the generator form, a wrong-arity handler is a compile error (koa handlers take only the
  * context, never `next`), `cancelMiddleware` is assignable wherever koa expects a `Middleware`,
- * `getRequestSignal` takes the raw context without a cast, and `drain` rejects the koa
+ * `getRequestSignal` takes the raw context without a cast, and `shutdown` rejects the koa
  * application in place of what `app.listen()` returns.
  *
  * Deliberately runtime-dead (nothing executes); exists purely to make `tsc --noEmit` chew through
@@ -17,7 +17,7 @@
  * limitations on TS 4.7 (`'ReadableByteStreamController' is referenced directly or indirectly in
  * its own type annotation`), fixed only at 5.0+.
  */
-import { cancelableHandler, cancelMiddleware, drain, getRequestSignal } from '@cancjs/server-koa';
+import { cancelableHandler, cancelMiddleware, shutdown, getRequestSignal } from '@cancjs/server-koa';
 import type { Server } from 'http';
 import Koa, { Context, Middleware } from 'koa';
 
@@ -63,11 +63,11 @@ const readSignal = (): ReturnType<typeof getRequestSignal> => getRequestSignal(c
 void readSignal;
 
 const server = {} as Server;
-const goodDrain = () => drain(server);
-const badDrain = () =>
-  // @ts-expect-error a drain needs the http server, which is what app.listen() hands back
-  drain(app);
-void goodDrain;
-void badDrain;
+const goodShutdown = () => shutdown(server);
+const badShutdown = () =>
+  // @ts-expect-error a shutdown needs the http server, which is what app.listen() hands back
+  shutdown(app);
+void goodShutdown;
+void badShutdown;
 
 export {};

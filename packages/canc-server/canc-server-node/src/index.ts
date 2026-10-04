@@ -25,6 +25,9 @@ export type {
   IShutdownResult,
 } from '../../../_server/types';
 
+/** Status answered for a handler failure that is not a cancellation. */
+const HANDLER_FAILED_STATUS = 500;
+
 /** A plain node handler: the shape `cancelableHandler` accepts alongside the generator form. */
 export type TNodeHandler<
   TReq extends IncomingMessage = IncomingMessage,
@@ -50,6 +53,18 @@ export interface INodeCancelableHandlerOptions<
    * pipeline. Defaults to `cancelErrorHandler()`.
    */
   onError?: TNodeErrorHandler<TReq, TRes>;
+}
+
+/** Options `cancelErrorHandler` accepts on raw node, adding the opt-in rethrow. */
+export interface INodeCancelErrorHandlerOptions extends ICancelErrorHandlerOptions {
+  /**
+   * Throws anything that is not a cancellation instead of answering `500`. Nothing awaits the
+   * throw, so it surfaces as an unhandled rejection and, under node's default settings, ends the
+   * process without answering the request. Opt in only where a process level handler is installed
+   * to receive it.
+   * Defaults to `false`.
+   */
+  rethrow?: boolean;
 }
 
 /**
@@ -113,36 +128,57 @@ export function getRequestSignal(req: IncomingMessage, res: ServerResponse): Can
  *
  * A deadline answers with the status stamped on it (`503` unless the timeout option names another
  * one), a shutdown cancellation with the fallback status, and a response that can no longer be
- * answered gets nothing. Anything that is not a cancellation is rethrown: raw node has nowhere further to
- * forward it to, and nothing here awaits the throw, so it surfaces as an unhandled rejection instead
- * of being silently dropped.
+ * answered gets nothing. Anything that is not a cancellation answers `500` and is logged.
+ *
+ * The other four adapters hand such an error to the framework's own error handler, and this is the
+ * closest raw node gets to the same thing: there is no pipeline behind the wrapper, so it holds the
+ * only reference left to a response the client is still waiting on. Pass `rethrow: true` to get the
+ * throw back where a process level handler is installed to take it.
  */
 export function cancelErrorHandler<
   TReq extends IncomingMessage = IncomingMessage,
   TRes extends ServerResponse = ServerResponse,
->(options: ICancelErrorHandlerOptions = {}): TNodeErrorHandler<TReq, TRes> {
+>(options: INodeCancelErrorHandlerOptions = {}): TNodeErrorHandler<TReq, TRes> {
   const fallback = options.status ?? DEFAULT_TIMEOUT_STATUS;
+  const rethrow = options.rethrow === true;
 
   return function cancelErrorRoute(error, _req, res) {
     if (!isCancelError(error)) {
-      throw error;
-    }
+      if (rethrow) {
+        throw error;
+      }
 
-    if (!isResponseLive(res)) {
-      return;
-    }
-
-    // a partially written response cannot carry a status any more, so the only honest move left is
-    // to stop writing and let the client see a truncated body
-    if (res.headersSent) {
-      res.end();
+      // the status alone would bury a handler bug: nothing downstream of here ever sees the error
+      logHandlerFailure(error);
+      answerWith(res, HANDLER_FAILED_STATUS);
 
       return;
     }
 
-    res.statusCode = statusOf(error, fallback);
-    res.end();
+    answerWith(res, statusOf(error, fallback));
   };
+}
+
+/** Sends a bare status to a response that can still carry one. */
+function answerWith(res: ServerResponse, status: number): void {
+  if (!isResponseLive(res)) {
+    return;
+  }
+
+  // a partially written response cannot carry a status any more, so the only honest move left is
+  // to stop writing and let the client see a truncated body
+  if (res.headersSent) {
+    res.end();
+
+    return;
+  }
+
+  res.statusCode = status;
+  res.end();
+}
+
+function logHandlerFailure(error: unknown): void {
+  console.error('[@cancjs/server-node] request handler failed', error);
 }
 
 /**

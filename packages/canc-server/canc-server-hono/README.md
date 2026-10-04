@@ -120,6 +120,10 @@ Every call checks whether `@hono/node-server` published its node request and res
 
 A Web runtime has no response object to hang a settle event off, so the wrapper collects its own teardown callbacks and fires them once when the handler's task settles, in place of the response close event the node path uses.
 
+### Not the platform request signal
+
+Hono does not expose a `request.signal` under that name, so there is nothing here to avoid adopting by that route; on `@hono/node-server` this package still listens on the node response close event rather than the request, for the same reason the node and fastify integrations do.
+
 ### The wrapper never writes the response
 
 A cancellation whose client is already gone still has to answer with something, because a Hono handler must resolve to a `Response`. It answers `499`, the status nginx logs for a client that closed the request first, and that response never reaches a reader. A deadline is different: the client is still there, so the error is thrown on to `app.onError` instead of being swallowed.

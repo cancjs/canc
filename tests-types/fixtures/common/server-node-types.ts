@@ -3,7 +3,7 @@
  * from the installed tarball, never from src) and checks the handler-inference contract it
  * advertises: a bare `function* (req, res)` infers both parameters with no annotations, a plain
  * async handler typechecks alongside the generator form, a wrong-arity handler is a compile
- * error, `getRequestSignal` takes the raw request/response with no cast, and `drain` takes the
+ * error, `getRequestSignal` takes the raw request/response with no cast, and `shutdown` takes the
  * raw `http.Server`.
  *
  * Deliberately runtime-dead (nothing executes); exists purely to make `tsc --noEmit` chew through
@@ -15,7 +15,7 @@
  * and fastify files and the isolated per-lane `node_modules` is shared, so there is nothing to
  * gain by giving it a separate, lower floor.
  */
-import { cancelableHandler, drain, getRequestSignal } from '@cancjs/server-node';
+import { cancelableHandler, shutdown, getRequestSignal } from '@cancjs/server-node';
 import type { IncomingMessage, Server, ServerResponse } from 'http';
 
 const bareHandler = cancelableHandler(function* (req, res) {
@@ -43,7 +43,7 @@ const readSignal = (): ReturnType<typeof getRequestSignal> => getRequestSignal(r
 void readSignal;
 
 const server = {} as Server;
-const goodDrain = () => drain(server);
-void goodDrain;
+const goodShutdown = () => shutdown(server);
+void goodShutdown;
 
 export {};

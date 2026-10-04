@@ -4,7 +4,7 @@
  * advertises: a bare `function* (c, next)` infers both parameters with no annotations, a plain
  * async handler typechecks alongside the generator form, `Bindings` flows through to `c.env`, a
  * generator returning something other than a `Response` is a compile error, a wrong-arity handler
- * is a compile error, and `drain` rejects the `Hono` application in place of what `serve()`
+ * is a compile error, and `shutdown` rejects the `Hono` application in place of what `serve()`
  * returns.
  *
  * Deliberately runtime-dead (nothing executes); exists purely to make `tsc --noEmit` chew through
@@ -14,7 +14,7 @@
  * `serverHonoTypes: true` (5.9 and newer). Hono requires TS 5.9+ for generic Uint8Array types;
  * 5.4 reports `error TS2315: Type 'Uint8Array' is not generic.` in hono's shipped types.
  */
-import { cancelableHandler, drain } from '@cancjs/server-hono';
+import { cancelableHandler, shutdown } from '@cancjs/server-hono';
 import type { HttpBindings } from '@hono/node-server';
 import { Hono } from 'hono';
 
@@ -74,9 +74,9 @@ const wrongArityHandler = () =>
   );
 void wrongArityHandler;
 
-const badDrain = () =>
-  // @ts-expect-error drain takes what serve() returned, never the application itself
-  drain(app);
-void badDrain;
+const badShutdown = () =>
+  // @ts-expect-error shutdown takes what serve() returned, never the application itself
+  shutdown(app);
+void badShutdown;
 
 export {};

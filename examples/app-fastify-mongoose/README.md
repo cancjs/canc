@@ -118,6 +118,14 @@ referenced driver issues (such as [NODE-6062](https://jira.mongodb.org/browse/NO
 signal through an unchecked index signature). Through mockingoose the flag changes nothing
 observable here, so it is a documented switch rather than a feature of this example's output.
 
+Fastify's own `request.signal` (`lib/request.js`) has the same shape as Node
+core's `IncomingMessage.prototype.signal` (added in Node 24.16.0 / 26.1.0): it
+aborts when the request stream ends, not when the client disconnects, so a
+route reading a request body would see it fire before the handler even starts.
+`cancelableHandler` (`@cancjs/server-fastify`) does not use it. It listens on
+the response instead, and only treats a close event as a disconnect while the
+response has not finished writing.
+
 ## Why plain vanilla, not a workaround
 
 This example keeps the vanilla twin as plain uncancelable promises so the ambient cancellation of

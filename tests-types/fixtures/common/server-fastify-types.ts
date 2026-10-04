@@ -4,8 +4,8 @@
  * contract it advertises: a bare `function* (request, reply)` infers both parameters with no
  * annotations, a plain async handler typechecks alongside the generator form, `RouteGeneric
  * ['Reply']` constrains the generator return, a wrong-arity handler is a compile error, and
- * `drain(app.server)` does not compile because the wrapper is narrowed to the instance so
- * `onClose` hooks run after the drain rather than during it.
+ * `shutdown(app.server)` does not compile because the wrapper is narrowed to the instance so
+ * `onClose` hooks run after the shutdown rather than during it.
  *
  * Deliberately runtime-dead (nothing executes); exists purely to make `tsc --noEmit` chew through
  * the shipped declaration files.
@@ -19,7 +19,7 @@
  * hits the identical wall with or without this package in the middle. This file is compiled only
  * in lanes matrix.config.json marks `serverFastifyTypes: true` (5.4 and newer).
  */
-import { cancelableHandler, drain } from '@cancjs/server-fastify';
+import { cancelableHandler, shutdown } from '@cancjs/server-fastify';
 import Fastify from 'fastify';
 
 const bareHandler = cancelableHandler(function* (request, reply) {
@@ -63,11 +63,11 @@ const wrongArityHandler = () =>
 void wrongArityHandler;
 
 const app = Fastify();
-const goodDrain = () => drain(app);
-const badDrain = () =>
-  // @ts-expect-error the drain is narrowed to the instance so onClose hooks run after it
-  drain(app.server);
-void goodDrain;
-void badDrain;
+const goodShutdown = () => shutdown(app);
+const badShutdown = () =>
+  // @ts-expect-error the shutdown is narrowed to the instance so onClose hooks run after it
+  shutdown(app.server);
+void goodShutdown;
+void badShutdown;
 
 export {};

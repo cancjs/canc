@@ -23,7 +23,7 @@
  * as this one. `@cancjs/server-koa` has its own file too, ./server-koa-types.ts, ungated (koa hits
  * no equivalent TypeScript version floor).
  */
-import { cancelableHandler, drain, getRequestSignal } from '@cancjs/server-express';
+import { cancelableHandler, shutdown, getRequestSignal } from '@cancjs/server-express';
 import type { Express, Request, Response } from 'express';
 import type { ParamsDictionary, Query } from 'express-serve-static-core';
 import type { Server } from 'http';
@@ -73,11 +73,11 @@ void readSignal;
 
 const server = {} as Server;
 const app = {} as Express;
-const goodDrain = () => drain(server);
-const badDrain = () =>
-  // @ts-expect-error a drain needs the http server, which is what app.listen() hands back
-  drain(app);
-void goodDrain;
-void badDrain;
+const goodShutdown = () => shutdown(server);
+const badShutdown = () =>
+  // @ts-expect-error a shutdown needs the http server, which is what app.listen() hands back
+  shutdown(app);
+void goodShutdown;
+void badShutdown;
 
 export {};
