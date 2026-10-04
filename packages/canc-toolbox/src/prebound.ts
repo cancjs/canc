@@ -23,6 +23,8 @@ export const minDelay = tb.minDelayFactory(deps) as <T, F = never>(
   options?: TEagerToolboxOptions,
 ) => CancelablePromise<T, F>;
 export const retry = tb.retryFactory(deps);
+export const limit = tb.limitFactory(deps);
+export const map = tb.mapFactory(deps);
 export const promisify = tb.promisifyFactory(deps);
 export const promisifyAll = tb.promisifyAllFactory(deps);
 

@@ -1,2 +1,2 @@
-export type { Pool } from './pool';
-export { createPool } from './pool';
+// empty for now, awaiting the next extraction candidate
+export {};

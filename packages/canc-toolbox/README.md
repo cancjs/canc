@@ -23,7 +23,7 @@ signals around, because canceling a promise reaches the underlying request on it
 
 ## Features
 
-- timing, control and rate limiting helpers that clean up after themselves on cancellation
+- timing, control, rate limiting and concurrency helpers that clean up after themselves on cancellation
 - adapters that make signal-aware and callback-style APIs return cancelable promises
 - `AbortSignal` interop in both directions, including timeout composition
 - deliberate ways to end a cancelable flow instead of blanket error swallowing
@@ -317,6 +317,16 @@ floor on success, not a timer. Pick the one that matches what a failure should d
 | ---------------------------- | ------------------------------------------------------------------------------------- |
 | `debounce(fn, ms, options?)` | Debounces function calls, returning a wrapper with `cancel()`, `flush()`, `isPending` |
 | `throttle(fn, ms, options?)` | Throttles function calls, returning a wrapper with `cancel()`, `flush()`, `isPending` |
+
+### Concurrency
+
+| Export                         | Description                                                                                                  |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| `limit(concurrency)`           | A callable pool: `limited(fn, ...args)`, plus `active`, `pending`, settable `concurrency`, `cancel(reason?)` |
+| `map(input, mapper, options?)` | Concurrency-bounded, input-ordered `map`; cancel stops in-flight work and drops the queue                    |
+
+Both are built on the same limiter. Canceling either stops what is running and never starts what is
+queued, and every dropped job still settles rather than hanging forever.
 
 ### Adapters
 

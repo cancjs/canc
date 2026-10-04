@@ -1,7 +1,7 @@
 # app-cli-graceful
 
 Site backup CLI: crawl a page list, download every page and asset through a small concurrency
-pool, write a manifest. Ctrl-C cancels the whole task tree gracefully; a second Ctrl-C forces an
+limiter, write a manifest. Ctrl-C cancels the whole task tree gracefully; a second Ctrl-C forces an
 immediate exit.
 
 ## Run
@@ -21,10 +21,10 @@ force-exit immediately.
 
 ## What it shows
 
-- `@shared/lib`'s `createPool`: a small cancel-aware concurrency pool. Canceling a job's promise
- while queued removes it from the queue so it never starts; `cancelAll()` cancels every in-flight
- job and drains the rest.
-- `src/backup-canc.ts`: the pool driven from a `canc.async` coroutine (the task tree root). One
+- `@cancjs/toolbox`'s `limit`: a small cancel-aware concurrency limiter. Canceling a job's promise
+ while queued removes it from the queue so it never starts; `limiter.cancel()` cancels every
+ in-flight job and drains the rest.
+- `src/backup-canc.ts`: the limiter driven from a `canc.async` coroutine (the task tree root). One
  `backupTask.cancel()` call in `main-canc.ts` cancels every in-flight download; the coroutine's
  `finally` still runs (shielded from cancellation) so the partial manifest is always buildable
  from up-to-date data.
@@ -66,5 +66,5 @@ the signal to the network layer the same way; see `demo-fetch` for a wire-level 
 
 ## Copying this code
 
-The concurrency pool (`@shared/lib`'s `createPool`) is written to be copied into your own
-project; see `examples/_shared/lib`.
+The concurrency limiter is `@cancjs/toolbox`'s `limit`, published and ready to use as-is; see
+its docs for the full surface.

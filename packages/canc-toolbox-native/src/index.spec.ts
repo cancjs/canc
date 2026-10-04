@@ -21,6 +21,8 @@ describe('index exports', () => {
         'isTimeoutError',
         'LazyPromise',
         'lazy',
+        'limit',
+        'map',
         'minDelay',
         'promisify',
         'promisifyAll',

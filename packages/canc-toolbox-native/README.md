@@ -22,7 +22,7 @@ library that should not force a promise implementation on its consumers.
 
 ## Features
 
-- timing, control and rate limiting helpers on plain `Promise`
+- timing, control, rate limiting and concurrency helpers on plain `Promise`
 - callback adapters (`promisify`, `promisifyAll`) with the same options as the cancelable twin
 - no dependencies
 
@@ -56,7 +56,9 @@ const quotes = await timeout(fetchQuotes(), 3000);
 The difference from the cancelable twin is what happens to work already in flight. Here nothing
 can be stopped: `timeout` rejects but the underlying promise runs to completion, a pending `retry`
 attempt finishes even after the returned promise has been abandoned, and a `delay` timer that
-nobody waits for still fires.
+nobody waits for still fires. Same story for `limit` and `map`: `limited.cancel()` rejects the
+still-queued handles but lets running jobs finish, and a `map` in progress cannot be stopped, only
+abandoned by the caller. Every handle still settles, queued or not.
 
 `cancelify` and signal generation (`toAbortSignal`, `withSignal`, `createAbortSignal`) have no meaning without cancellation and are twin-only; `catchAbort`, `suppressAbort`, `catchTimeout`, `suppressTimeout`, `createCatchError`, and `createSuppressError` are provided to filter errors on native promises (no cancellation handling).
 
@@ -111,6 +113,7 @@ rejects with the signal's `reason`. The underlying work itself keeps going. Only
 `delay(ms, options?)`, `delay(input, ms, options?)`, `minDelay(input, ms, options?)`,
 `timeout(ms, options?)`, `timeout(input, ms?, options?)`, `waitFor(condition, options?)`,
 `retry(input, options?)`, `debounce(fn, ms, options?)`, `throttle(fn, ms, options?)`, `defer(options?)`,
+`limit(concurrency)`, `map(input, mapper, options?)`,
 `promisify(fn, options?)`, `promisifyAll(source, options?)`,
 `catchAbort(promiseOrError)`, `suppressAbort(promiseOrError)`, `catchTimeout(promiseOrError)`, `suppressTimeout(promiseOrError)`, `createCatchError(...matchers)`, `createSuppressError(...matchers)`,
 `AbortError`, `isAbortError(error)`, `TimeoutError`, `isTimeoutError(error)`, `LazyPromise`, `LazyPromise.try(fn, ...args)`,
