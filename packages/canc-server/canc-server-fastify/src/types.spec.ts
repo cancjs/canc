@@ -1,6 +1,6 @@
 import Fastify from 'fastify';
 
-import { cancelableHandler, drain } from './index';
+import { cancelableHandler, shutdown } from './index';
 
 // compile-time coverage: under strict mode a parameter the contextual type failed to reach is an
 // implicit any, so these cases fail the build rather than an assertion
@@ -59,12 +59,12 @@ describe('handler typing', () => {
   });
 });
 
-describe('drain typing', () => {
+describe('shutdown typing', () => {
   it('takes the instance and not the raw server', async () => {
     const instance = Fastify();
 
-    // @ts-expect-error the drain is narrowed to the instance so onClose hooks run after it
-    const wrong = () => drain(instance.server);
+    // @ts-expect-error the shutdown is narrowed to the instance so onClose hooks run after it
+    const wrong = () => shutdown(instance.server);
 
     expect(typeof wrong).toBe('function');
     await instance.close();

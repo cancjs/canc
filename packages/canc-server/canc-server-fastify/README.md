@@ -17,7 +17,7 @@ A Fastify handler keeps running after the client is gone. The database query fin
 
 This package gives every request one cancel signal, wired from the response side, and a wrapper that runs a route handler under it. A generator handler stops at its next `yield`. Request-scoped work started elsewhere, an ORM context or an outbound fetch, can take the same signal and stop with it, because the signal is installed once per request and shared.
 
-It also carries the two things a server needs around that: a per-handler deadline that answers with a status you choose, and a graceful drain that cancels everything in flight during shutdown.
+It also carries the two things a server needs around that: a per-handler deadline that answers with a status you choose, and a graceful shutdown that cancels everything in flight before the process exits.
 
 ## Features
 
@@ -25,7 +25,7 @@ It also carries the two things a server needs around that: a per-handler deadlin
 - Generator handlers stop mid-flight, at the `yield` they are suspended on
 - Per-route or per-app deadline, with the HTTP status and message of your choosing
 - Never writes to a socket the client has already left
-- Graceful drain that cancels in-flight handlers and closes the instance
+- Graceful shutdown that cancels in-flight handlers and closes the instance
 - No decorators on the request or the instance, so no module augmentation is needed
 - Route generics flow through, including the reply type
 
@@ -67,9 +67,9 @@ Shutting down:
 
 ```js
 process.on('SIGTERM', async () => {
-  const { canceled, completed, timedOut } = await cancServer.drain(app, { timeout: 10_000 });
+  const { canceled, completed, timedOut } = await cancServer.shutdown(app, { timeout: 10_000 });
 
-  console.log(`drained: ${completed} finished, ${canceled} canceled, gave up: ${timedOut}`);
+  console.log(`shut down: ${completed} finished, ${canceled} canceled, gave up: ${timedOut}`);
 });
 ```
 
@@ -116,9 +116,9 @@ The deadline default status is 503. Set `timeout: { ms: 30_000, status: 504 }` f
 
 Both raise a `CancelError`. The discriminator is `isCancelError(error) && !error.timedOut`; a deadline sets `timedOut` through its `TimeoutError` cause. The exported reason strings are for logs and for humans reading them, never for branching.
 
-### Draining
+### Shutting down
 
-`drain` takes the Fastify instance, not `app.server`. It closes the server to new connections, closes idle ones, cancels every in-flight handler with the shutdown reason, waits for them within the grace window, and only then awaits `app.close()`, so `onClose` hooks and plugin teardown run against a drained server. It cancels the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it. A second call while the first is still running joins it rather than starting over.
+`shutdown` takes the Fastify instance, not `app.server`. It closes the server to new connections, closes idle ones, cancels every in-flight handler with the shutdown reason, waits for them within the grace window, and only then awaits `app.close()`, so `onClose` hooks and plugin teardown run against a server that has already finished canceling its handlers. It cancels the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it. A second call while the first is still running joins it rather than starting over.
 
 ## API
 
@@ -129,7 +129,7 @@ Both raise a `CancelError`. The discriminator is `isCancelError(error) && !error
 | `cancelableHandler` | `(handler, options?) => RouteHandlerMethod` |
 | `getRequestSignal`  | `(request, reply) => CancelSignal`          |
 
-`getRequestSignal` is public on purpose. Request-scoped work outside the route, an ORM context or an outbound call, should take its signal from here rather than wiring a second listener.
+`getRequestSignal` is public on purpose, and it is not `request.signal`. Fastify wires that one as `raw.on('close', onAbort)` with no guard, so on a POST with a body it aborts a millisecond into the handler while the socket is still open; `getRequestSignal` is the guarded replacement, wired from the response instead. Request-scoped work outside the route, an ORM context or an outbound call, should take its signal from here rather than wiring a second listener.
 
 ### Registration
 
@@ -137,7 +137,7 @@ Both raise a `CancelError`. The discriminator is `isCancelError(error) && !error
 | -------------------- | ----------------------------------------------- |
 | `cancelPlugin`       | `FastifyPluginAsync<ICancelableHandlerOptions>` |
 | `cancelErrorHandler` | `(options?) => TCancelErrorHandler`             |
-| `drain`              | `(app, options?) => Promise<IDrainResult>`      |
+| `shutdown`           | `(app, options?) => Promise<IShutdownResult>`   |
 
 ### Reasons
 
@@ -145,7 +145,7 @@ Both raise a `CancelError`. The discriminator is `isCancelError(error) && !error
 
 ### Types
 
-`ICancelableHandlerOptions`, `ICancelErrorHandlerOptions`, `IDrainOptions`, `IDrainResult`, `TCancelErrorHandler`, `TFastifyRouteHandler`, `TTimeoutOption`.
+`ICancelableHandlerOptions`, `ICancelErrorHandlerOptions`, `IShutdownOptions`, `IShutdownResult`, `TCancelErrorHandler`, `TFastifyRouteHandler`, `TTimeoutOption`.
 
 ## Compatibility
 

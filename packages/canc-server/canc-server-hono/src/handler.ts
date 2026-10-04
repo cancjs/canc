@@ -87,6 +87,12 @@ export function cancelableHandler<E extends Env = any, P extends string = any, I
 }
 
 /**
+ * On `@hono/node-server`, the guarded replacement for node's own `IncomingMessage.prototype.signal`,
+ * which aborts once the request stream finishes being read rather than when the client disconnects,
+ * so a body-carrying request would abort on arrival if a handler read it directly. This signal is
+ * wired from the node response instead. On a Web standard runtime there is no such defect to guard
+ * against, so this reads `Request.signal` as-is.
+ *
  * The cancel signal for a request, installed and wired on first use and cached for every later
  * caller. Request scoped work started outside a route, a database context or an outbound call,
  * takes the same signal and stops with the same cancellation instead of wiring a second listener.

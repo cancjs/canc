@@ -9,9 +9,9 @@ import {
   cancelableHandler,
   cancelErrorHandler,
   cancelMiddleware,
-  drain,
   getRequestSignal,
   SERVER_SHUTDOWN,
+  shutdown,
 } from './index';
 
 interface IDeferred<T> {
@@ -504,7 +504,7 @@ describe('cancellation after the response ended', () => {
   });
 });
 
-describe('drain', () => {
+describe('shutdown', () => {
   it('cancels a hung handler instead of waiting for it', async () => {
     const started = deferred();
 
@@ -525,11 +525,11 @@ describe('drain', () => {
     const port = await listen(app);
     const instance = server!;
 
-    // the drain kills the connection on its way out, so this one is never read back
+    // the shutdown kills the connection on its way out, so this one is never read back
     send(port, '/hang').catch(() => undefined);
     await started.promise;
 
-    const result = await drain(instance, { timeout: 5000 });
+    const result = await shutdown(instance, { timeout: 5000 });
 
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
     expect((instance as http.Server).listening).toBe(false);
@@ -550,8 +550,8 @@ describe('drain', () => {
     await listen(app);
 
     const instance = server!;
-    const first = drain(instance, { timeout: 1000 });
-    const second = drain(instance, { timeout: 1000 });
+    const first = shutdown(instance, { timeout: 1000 });
+    const second = shutdown(instance, { timeout: 1000 });
 
     expect(await first).toEqual(await second);
   });

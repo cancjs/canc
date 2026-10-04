@@ -1,18 +1,18 @@
 import { CancelSignal, isCancelError } from '@cancjs/promise';
 import type { IncomingMessage, Server, ServerResponse } from 'http';
 
-import { drainServer } from '../../../_server/drain';
 import { isResponseLive, isUnanswerable, statusOf, toRequestLike, toResponseLike } from '../../../_server/exchange';
 import { getNodeRequestSignal } from '../../../_server/node-signal';
 import { runCancelableHandler } from '../../../_server/run';
+import { shutdownServer } from '../../../_server/shutdown';
 import { DEFAULT_TIMEOUT_STATUS } from '../../../_server/timeout';
 import {
   ICancelableHandlerOptions,
   ICancelErrorHandlerOptions,
-  IDrainOptions,
-  IDrainResult,
   IRequestLike,
   IResponseLike,
+  IShutdownOptions,
+  IShutdownResult,
   THandlerFn,
 } from '../../../_server/types';
 import { TAnyFn } from '../../../_util';
@@ -21,8 +21,8 @@ export { CLIENT_DISCONNECTED, HANDLER_TIMEOUT, SERVER_SHUTDOWN } from '../../../
 export type {
   ICancelableHandlerOptions,
   ICancelErrorHandlerOptions,
-  IDrainOptions,
-  IDrainResult,
+  IShutdownOptions,
+  IShutdownResult,
 } from '../../../_server/types';
 
 /** A plain node handler: the shape `cancelableHandler` accepts alongside the generator form. */
@@ -94,6 +94,11 @@ export function cancelableHandler<
 }
 
 /**
+ * The guarded replacement for node's own `IncomingMessage.prototype.signal`. That signal aborts once
+ * the request stream finishes being read, not when the client disconnects, so a body-carrying request
+ * would abort on arrival if a handler read it directly. This one is wired from the response's close
+ * event instead, guarded so it fires only when the response has not finished.
+ *
  * The cancel signal for a request, installed and wired on first use and cached for every later
  * caller. Request-scoped work started outside the handler, a database context or a job handle, takes
  * the same signal and stops with the same cancellation instead of wiring a second listener.
@@ -146,6 +151,6 @@ export function cancelErrorHandler<
  * the first is still running returns that same result, so wiring it to both `SIGTERM` and `SIGINT`
  * needs no guard.
  */
-export function drain(server: Server, options?: IDrainOptions): Promise<IDrainResult> {
-  return drainServer(server, options);
+export function shutdown(server: Server, options?: IShutdownOptions): Promise<IShutdownResult> {
+  return shutdownServer(server, options);
 }

@@ -1,6 +1,6 @@
 import { CancelablePromise, CancelSignal } from '@cancjs/promise';
 
-import { ICancelableHandlerOptions, IDrainResult, IRequestLike, IServerLike } from './types';
+import { ICancelableHandlerOptions, IRequestLike, IServerLike, IShutdownResult } from './types';
 
 /**
  * Key the per-request cancel state is cached under. Registered through `Symbol.for`, so every copy
@@ -15,13 +15,13 @@ export const REQUEST_CANCEL_STATE = Symbol.for('@cancjs/server-node:RequestCance
  *
  * This registry hangs off the `http.Server` instance and never off a module-level variable. This
  * directory is inlined into every server package, so a module-scope set would exist once per copy
- * and a drain would see only the requests its own copy happened to record. Per-server state has no
- * such split. Load-bearing, do not lift it to module scope.
+ * and a shutdown would see only the requests its own copy happened to record. Per-server state has
+ * no such split. Load-bearing, do not lift it to module scope.
  */
 export const LIVE_REQUESTS = Symbol.for('@cancjs/server-node:LiveRequests');
 
-/** Key the in-flight drain promise is cached under, so a second drain of the same server is a no-op. */
-export const DRAIN_STATE = Symbol.for('@cancjs/server-node:Drain');
+/** Key the in-flight shutdown promise is cached under, so a second shutdown of the same server is a no-op. */
+export const SHUTDOWN_STATE = Symbol.for('@cancjs/server-node:Shutdown');
 
 /** Everything a request's cancellation is driven from, cached on the raw request object. */
 export interface IRequestCancelState {
@@ -30,8 +30,8 @@ export interface IRequestCancelState {
   options: ICancelableHandlerOptions;
   live: Set<CancelablePromise<unknown>>;
   timer?: unknown;
-  /** Set by a drain before it cancels the signal, so a shutdown is not reported as a disconnect. */
-  draining?: boolean;
+  /** Set by a shutdown before it cancels the signal, so a shutdown is not reported as a disconnect. */
+  shuttingDown?: boolean;
 }
 
 type TKeyed = Record<symbol, unknown>;
@@ -53,7 +53,7 @@ export function setRequestState(req: IRequestLike, state: IRequestCancelState): 
 
 /**
  * The server a request arrived on. Node sets `server` on every socket its own listener created, so
- * this is how a handler reaches the object a drain is called with without the caller threading it.
+ * this is how a handler reaches the object shutdown is called with without the caller threading it.
  */
 export function getRequestServer(req: IRequestLike): IServerLike | undefined {
   const socket = req.socket as { server?: unknown } | null | undefined;
@@ -90,19 +90,19 @@ export function untrackRequest(req: IRequestLike, state: IRequestCancelState): v
   getLiveRequests(getRequestServer(req))?.delete(state);
 }
 
-/** Reads the drain already running for a server, if any. */
-export function getDrainState(server: IServerLike): CancelablePromise<IDrainResult> | undefined {
-  return (server as TKeyed)[DRAIN_STATE] as CancelablePromise<IDrainResult> | undefined;
+/** Reads the shutdown already running for a server, if any. */
+export function getShutdownState(server: IServerLike): CancelablePromise<IShutdownResult> | undefined {
+  return (server as TKeyed)[SHUTDOWN_STATE] as CancelablePromise<IShutdownResult> | undefined;
 }
 
-/** Caches the drain running for a server. */
-export function setDrainState(server: IServerLike, drain: CancelablePromise<IDrainResult>): void {
-  define(server, DRAIN_STATE, drain);
+/** Caches the shutdown running for a server. */
+export function setShutdownState(server: IServerLike, shutdown: CancelablePromise<IShutdownResult>): void {
+  define(server, SHUTDOWN_STATE, shutdown);
 }
 
-/** Clears the drain running for a server. */
-export function clearDrainState(server: IServerLike, expected?: CancelablePromise<IDrainResult>): void {
-  if (expected === undefined || getDrainState(server) === expected) {
-    delete (server as TKeyed)[DRAIN_STATE];
+/** Clears the shutdown running for a server. */
+export function clearShutdownState(server: IServerLike, expected?: CancelablePromise<IShutdownResult>): void {
+  if (expected === undefined || getShutdownState(server) === expected) {
+    delete (server as TKeyed)[SHUTDOWN_STATE];
   }
 }

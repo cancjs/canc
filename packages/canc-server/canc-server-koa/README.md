@@ -17,7 +17,7 @@ A Koa handler keeps running after the client is gone. The query finishes, the up
 
 This package gives each request one cancel signal, wired from the response side, and a wrapper that runs a handler under it. A generator handler stops at its next `yield`. Request-scoped work started elsewhere, a database context or an outbound fetch, can take the same signal and stop with it, because the signal is installed once per request and shared by every consumer.
 
-It also carries the two things a server needs around that: a per-handler deadline that answers with a status you choose, and a graceful drain that cancels everything in flight during shutdown.
+It also carries the two things a server needs around that: a per-handler deadline that answers with a status you choose, and a graceful shutdown that cancels everything in flight before the process exits.
 
 ## Features
 
@@ -25,7 +25,7 @@ It also carries the two things a server needs around that: a per-handler deadlin
 - Generator handlers stop mid-flight, at the `yield` they are suspended on
 - Per-route or per-app deadline, with the HTTP status and message of your choosing
 - Never writes to a socket the client has already left
-- Graceful drain that cancels in-flight handlers and closes the server
+- Graceful shutdown that cancels in-flight handlers and closes the server
 - No properties added to `ctx`, so no module augmentation is needed
 - Koa's context generics flow through, including a bare `function* (ctx)` with no annotations
 - Works with Koa 2 and Koa 3, and with any router that takes a plain middleware
@@ -71,9 +71,9 @@ Shutting down:
 
 ```js
 process.on('SIGTERM', async () => {
-  const { canceled, completed, timedOut } = await cancServer.drain(server, { timeout: 10_000 });
+  const { canceled, completed, timedOut } = await cancServer.shutdown(server, { timeout: 10_000 });
 
-  console.log(`drained: ${completed} finished, ${canceled} canceled, gave up: ${timedOut}`);
+  console.log(`shut down: ${completed} finished, ${canceled} canceled, gave up: ${timedOut}`);
 });
 ```
 
@@ -88,6 +88,8 @@ The listener is `ctx.res.on('close')` guarded by `!writableEnded`, never `ctx.re
 ### One listener, one cancellation
 
 The cancel state is cached on the raw request under a registered symbol, so the middleware, the route wrapper, and anything else asking for `getRequestSignal` all reach the same object. A request has exactly one close listener no matter how many consumers want the signal, and one disconnect produces one cancellation.
+
+`getRequestSignal` is the guarded replacement for node's own `IncomingMessage.prototype.signal`, which `ctx.req` inherits and which aborts once the request stream finishes reading rather than when the client disconnects, so a body-carrying request would abort on arrival if that signal were adopted as-is.
 
 ### Middleware is the error handler
 
@@ -122,9 +124,9 @@ The deadline default status is 503. Set `timeout: { ms: 30_000, status: 504 }` f
 
 Both raise a `CancelError`. The discriminator is `isCancelError(error) && !error.timedOut`; a deadline sets `timedOut` through its `TimeoutError` cause. The exported reason strings are for logs and for humans reading them, never for branching.
 
-### Draining
+### Shutting down
 
-`drain` takes the `http.Server` that `app.listen()` returns, not the Koa application, because a Koa application has no `close` of its own to sequence against. It stops accepting new connections, closes idle ones, cancels every in-flight handler with the shutdown reason, and waits for them within the grace window. It cancels the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it. It resolves with what happened rather than throwing, and a second call while the first is still running joins it rather than starting over, so a pair of signal handlers is safe to wire without a guard.
+`shutdown` takes the `http.Server` that `app.listen()` returns, not the Koa application, because a Koa application has no `close` of its own to sequence against. It stops accepting new connections, closes idle ones, cancels every in-flight handler with the shutdown reason, and waits for them within the grace window. It cancels the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it. It resolves with what happened rather than throwing, and a second call while the first is still running joins it rather than starting over, so a pair of signal handlers is safe to wire without a guard.
 
 ## API
 
@@ -135,14 +137,14 @@ Both raise a `CancelError`. The discriminator is `isCancelError(error) && !error
 | `cancelableHandler` | `(handler, options?) => (ctx) => Promise<void>` |
 | `getRequestSignal`  | `(ctx) => CancelSignal`                         |
 
-`getRequestSignal` is public on purpose. Request-scoped work outside the route, a database context or an outbound call, should take its signal from here rather than wiring a second listener.
+`getRequestSignal` is public on purpose, and it is not `ctx.req.signal` or anything derived from it: node's `IncomingMessage.prototype.signal` aborts once the request stream finishes reading rather than when the client disconnects, so a body-carrying request would abort on arrival if that signal were adopted as-is. Request-scoped work outside the route, a database context or an outbound call, should take its signal from here rather than wiring a second listener.
 
 ### Registration
 
-| Export             | Signature                                     |
-| ------------------ | --------------------------------------------- |
-| `cancelMiddleware` | `(options?) => Middleware`                    |
-| `drain`            | `(server, options?) => Promise<IDrainResult>` |
+| Export             | Signature                                        |
+| ------------------ | ------------------------------------------------ |
+| `cancelMiddleware` | `(options?) => Middleware`                       |
+| `shutdown`         | `(server, options?) => Promise<IShutdownResult>` |
 
 `cancelMiddleware` is optional if every route is wrapped, since a wrapped route installs the signal on its own. Mount it when one deadline or one `onDisconnect` hook should cover a whole router, or when a cancellation raised by request-scoped work outside a wrapped handler still needs an answer.
 
@@ -152,7 +154,7 @@ Both raise a `CancelError`. The discriminator is `isCancelError(error) && !error
 
 ### Types
 
-`ICancelableHandlerOptions`, `IDrainOptions`, `IDrainResult`.
+`ICancelableHandlerOptions`, `IShutdownOptions`, `IShutdownResult`.
 
 ## Compatibility
 

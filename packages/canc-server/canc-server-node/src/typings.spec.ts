@@ -1,7 +1,7 @@
 import { CancelSignal } from '@cancjs/promise';
 import type { IncomingMessage, Server, ServerResponse } from 'http';
 
-import { cancelableHandler, drain, getRequestSignal } from './index';
+import { cancelableHandler, getRequestSignal, shutdown } from './index';
 
 // This suite asserts at compile time. ts-jest reports type errors as test failures, so a signature
 // that stops inferring fails the run rather than passing silently.
@@ -45,9 +45,9 @@ describe('other exports', () => {
     expect(read).toBeInstanceOf(Function);
   });
 
-  it('drains the raw http server', () => {
+  it('shuts down the raw http server', () => {
     const server = {} as Server;
-    const good = () => drain(server);
+    const good = () => shutdown(server);
 
     expect(good).toBeInstanceOf(Function);
   });

@@ -8,10 +8,10 @@ import {
   cancelableHandler,
   cancelMiddleware,
   CLIENT_DISCONNECTED,
-  drain,
   getRequestSignal,
   HANDLER_TIMEOUT,
   SERVER_SHUTDOWN,
+  shutdown,
 } from './index';
 
 const servers: Server[] = [];
@@ -528,7 +528,7 @@ describe('cancel middleware error path', () => {
   });
 });
 
-describe('drain', () => {
+describe('shutdown', () => {
   it('cancels a live request and reports the outcome', async () => {
     const app = new Koa();
     const started = deferred();
@@ -549,7 +549,7 @@ describe('drain', () => {
     const pending = httpRequest(port, { path: '/hang' });
 
     await started.promise;
-    const result = await drain(lastServer(), { timeout: 1000 });
+    const result = await shutdown(lastServer(), { timeout: 1000 });
 
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
     expect((await pending).status).toBe(503);
@@ -567,7 +567,7 @@ describe('drain', () => {
             started.resolve();
             yield never();
           },
-          // a shielded handler ignores the cancellation a drain sends it, which is the
+          // a shielded handler ignores the cancellation a shutdown sends it, which is the
           // case the grace window exists for
           { shield: true },
         ),
@@ -578,7 +578,7 @@ describe('drain', () => {
     const client = await rawRequest(port, 'GET /shielded HTTP/1.1\r\nHost: localhost\r\n\r\n');
 
     await started.promise;
-    const result = await drain(lastServer(), { timeout: 100 });
+    const result = await shutdown(lastServer(), { timeout: 100 });
     client.destroy();
 
     expect(result.timedOut).toBe(true);
@@ -598,9 +598,9 @@ describe('drain', () => {
 
     await listen(app);
     const server = lastServer();
-    const first = drain(server, { timeout: 100 });
+    const first = shutdown(server, { timeout: 100 });
 
-    expect(drain(server)).toBe(first);
+    expect(shutdown(server)).toBe(first);
     expect(await first).toEqual({ canceled: 0, completed: 0, timedOut: false });
   });
 });

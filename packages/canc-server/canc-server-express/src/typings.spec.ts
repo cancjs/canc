@@ -3,7 +3,7 @@ import type { Express, Request, RequestHandler, Response } from 'express';
 import type { ParamsDictionary } from 'express-serve-static-core';
 import type { Server } from 'http';
 
-import { cancelableHandler, drain, getRequestSignal } from './index';
+import { cancelableHandler, getRequestSignal, shutdown } from './index';
 
 // This suite asserts at compile time. ts-jest reports type errors as test failures, so a signature
 // that stops inferring fails the run rather than passing silently.
@@ -72,13 +72,13 @@ describe('other exports', () => {
     expect(read).toBeInstanceOf(Function);
   });
 
-  it('drains the http server and not the app that runs on it', () => {
+  it('shuts down the http server and not the app that runs on it', () => {
     const server = {} as Server;
     const app = {} as Express;
-    const good = () => drain(server);
+    const good = () => shutdown(server);
     const bad = () =>
-      // @ts-expect-error a drain needs the http server, which is what app.listen() hands back
-      drain(app);
+      // @ts-expect-error a shutdown needs the http server, which is what app.listen() hands back
+      shutdown(app);
 
     expect(good).toBeInstanceOf(Function);
     expect(bad).toBeInstanceOf(Function);
