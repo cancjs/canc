@@ -172,6 +172,41 @@ describe('brand scheme: brands are non-enumerable', () => {
   });
 });
 
+interface ITypeBrandEntry {
+  name: string;
+  prototype: object;
+  key: string;
+}
+
+// Classes built with a brand key (AbortError, TimeoutError) also carry the type-level literal
+// on the prototype under `_cancErrorBrand`, alongside the registry symbol above.
+const TYPE_BRAND_ENTRIES: ITypeBrandEntry[] = [
+  { name: 'AbortError', prototype: AbortError.prototype, key: '@cancjs/promise:AbortError' },
+  { name: 'TimeoutError', prototype: TimeoutError.prototype, key: '@cancjs/promise:TimeoutError' },
+];
+
+describe('brand scheme: _cancErrorBrand carries the type-level literal, non-enumerably', () => {
+  it.each(TYPE_BRAND_ENTRIES)('$name prototype carries the literal key', ({ prototype, key }) => {
+    expect((prototype as Record<string, unknown>)._cancErrorBrand).toBe(key);
+  });
+
+  it.each(TYPE_BRAND_ENTRIES)('$name _cancErrorBrand descriptor is non-enumerable', ({ prototype }) => {
+    const descriptor = Object.getOwnPropertyDescriptor(prototype, '_cancErrorBrand');
+
+    expect(descriptor).toBeDefined();
+    expect(descriptor!.enumerable).toBe(false);
+  });
+
+  // The Symbol.for registry brand must keep passing alongside the string-literal brand: the two
+  // are independent markers on the same prototype, and this pins that neither shadows the other.
+  it.each(TYPE_BRAND_ENTRIES)('$name keeps its Symbol.for registry brand too', ({ name, key }) => {
+    const entry = BRAND_KEYS.find((candidate) => candidate.name === name);
+
+    expect(entry).toBeDefined();
+    expect(Symbol.keyFor(entry!.brand)).toBe(key);
+  });
+});
+
 interface ICrossCopyEntry {
   name: string;
   brand: symbol;
@@ -348,14 +383,11 @@ const _checkCancelErrorName: string = new CancelError().name;
 
 // Type assertions for the factory-built classes
 // Names are plain strings, so a shape that stopped carrying the brand would collapse them into one
-declare const _BRAND_ONE: unique symbol;
-declare const _BRAND_TWO: unique symbol;
-
 // @ts-expect-error - a different brand is a different constructor type
-const _checkBrandAssignable: ICancErrorConstructor<'Same', typeof _BRAND_ONE> =
-  null as unknown as ICancErrorConstructor<'Same', typeof _BRAND_TWO>;
+const _checkBrandAssignable: ICancErrorConstructor<'Same', '@cancjs/test:One'> =
+  null as unknown as ICancErrorConstructor<'Same', '@cancjs/test:Two'>;
 type _checkBrandIdentity = Assert<
-  Eq<Eq<ICancErrorConstructor<'Same', typeof _BRAND_ONE>, ICancErrorConstructor<'Same', typeof _BRAND_TWO>>, false>
+  Eq<Eq<ICancErrorConstructor<'Same', '@cancjs/test:One'>, ICancErrorConstructor<'Same', '@cancjs/test:Two'>>, false>
 >;
 type _checkBuiltClassesDiffer = Assert<Eq<Eq<AbortError, TimeoutError>, false>>;
 // @ts-expect-error - a bare Error carries no brand

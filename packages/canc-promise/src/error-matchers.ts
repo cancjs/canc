@@ -63,7 +63,9 @@ export interface ICatchErrorFn<M extends readonly TErrorMatcher[] = readonly TEr
 /**
  * Build a `suppressCancel` for a chosen set of error kinds. A matched rejection resolves with
  * undefined, anything else keeps rejecting; a matched raw error is swallowed, anything else is
- * rethrown. The `abort` and `timeout` options widen the match exactly as they do on `suppressCancel`.
+ * rethrown. This factory takes no `abort` or `timeout` options: it always runs with flags
+ * disabled, so the matcher list passed in is the whole match. Widening the match with `abort`
+ * or `timeout` is a per call concern, only available on the non-factory `suppressCancel`.
  *
  * A matcher is an error name, an error constructor (matched by instance, by registry brand, or by
  * name, so a second copy of the class and a foreign error of the same kind both match), or a

@@ -10,6 +10,8 @@ import {
   isAbortError,
   isAggregateError,
   isTimeoutError,
+  IterationError,
+  SupersededError,
   TIMEOUT_ERROR_BRAND,
   TimeoutError,
 } from '../../_util';
@@ -54,11 +56,26 @@ describe('shared error classes', () => {
       expect(Object.getOwnPropertySymbols(new AbortError())).not.toContain(ABORT_ERROR_BRAND);
     });
 
-    // The annotation is half the check: the instance type has to declare the brand for this to
-    // compile without a cast, and the value has to be there for it to pass.
-    it('reads the brand off an instance', () => {
-      const branded: true = new AbortError()[ABORT_ERROR_BRAND];
+    it('carries the brand key on the prototype, non-enumerable', () => {
+      const descriptor = Object.getOwnPropertyDescriptor(AbortError.prototype, '_cancErrorBrand');
 
+      expect(descriptor).toEqual({
+        value: '@cancjs/promise:AbortError',
+        enumerable: false,
+        writable: false,
+        configurable: false,
+      });
+      expect(Object.keys(new AbortError())).not.toContain('_cancErrorBrand');
+      expect(Symbol.for(new AbortError()._cancErrorBrand)).toBe(ABORT_ERROR_BRAND);
+    });
+
+    // The annotation is half the check: the instance type has to declare the brand key for this
+    // to compile without a cast, and the value has to be there for it to pass.
+    it('reads the brand off an instance', () => {
+      const key: '@cancjs/promise:AbortError' = new AbortError()._cancErrorBrand;
+      const branded = (new AbortError() as unknown as Record<symbol, unknown>)[ABORT_ERROR_BRAND];
+
+      expect(key).toBe('@cancjs/promise:AbortError');
       expect(branded).toBe(true);
     });
 
@@ -103,10 +120,46 @@ describe('shared error classes', () => {
       expect(prototype[TIMEOUT_ERROR_BRAND]).toBe(true);
     });
 
-    it('reads the brand off an instance', () => {
-      const branded: true = new TimeoutError()[TIMEOUT_ERROR_BRAND];
+    it('carries the brand key on the prototype, non-enumerable', () => {
+      const descriptor = Object.getOwnPropertyDescriptor(TimeoutError.prototype, '_cancErrorBrand');
 
+      expect(descriptor).toEqual({
+        value: '@cancjs/promise:TimeoutError',
+        enumerable: false,
+        writable: false,
+        configurable: false,
+      });
+      expect(Object.keys(new TimeoutError())).not.toContain('_cancErrorBrand');
+      expect(Symbol.for(new TimeoutError()._cancErrorBrand)).toBe(TIMEOUT_ERROR_BRAND);
+    });
+
+    // The annotation is half the check: the instance type has to declare the brand key for this
+    // to compile without a cast, and the value has to be there for it to pass.
+    it('reads the brand off an instance', () => {
+      const key: '@cancjs/promise:TimeoutError' = new TimeoutError()._cancErrorBrand;
+      const branded = (new TimeoutError() as unknown as Record<symbol, unknown>)[TIMEOUT_ERROR_BRAND];
+
+      expect(key).toBe('@cancjs/promise:TimeoutError');
       expect(branded).toBe(true);
+    });
+  });
+
+  describe('brand keys', () => {
+    it.each([
+      [AbortError, '@cancjs/promise:AbortError'],
+      [TimeoutError, '@cancjs/promise:TimeoutError'],
+      [SupersededError, '@cancjs/toolbox:SupersededError'],
+      [IterationError, '@cancjs/coroutine:IterationError'],
+    ] as const)('%p carries its key next to the registry symbol', (ErrorClass, key) => {
+      const prototype = ErrorClass.prototype as unknown as Record<PropertyKey, unknown>;
+
+      expect(prototype._cancErrorBrand).toBe(key);
+      expect(Object.prototype.propertyIsEnumerable.call(prototype, '_cancErrorBrand')).toBe(false);
+      expect(prototype[Symbol.for(key)]).toBe(true);
+    });
+
+    it('leaves an unbranded class without a key', () => {
+      expect('_cancErrorBrand' in createErrorClass('PlainError').prototype).toBe(false);
     });
   });
 

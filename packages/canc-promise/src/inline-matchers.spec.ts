@@ -3,16 +3,13 @@ import { Eq } from '../../../tests-types/fixtures/common/assert-type';
 import { CancelablePromise } from './cancelable-promise';
 import { catchErrors, createCatchError, createSuppressError, isErrorOf, suppressErrors } from './error-matchers';
 
-const FOO_BRAND = Symbol.for('@cancjs/promise:FooError');
-const FooError = createErrorClass('FooError', FOO_BRAND);
+const FooError = createErrorClass('FooError', '@cancjs/promise:FooError');
 type FooError = InstanceType<typeof FooError>;
 
-const BAR_BRAND = Symbol.for('@cancjs/promise:BarError');
-const BarError = createErrorClass('BarError', BAR_BRAND);
+const BarError = createErrorClass('BarError', '@cancjs/promise:BarError');
 type BarError = InstanceType<typeof BarError>;
 
-const RETRY_BRAND = Symbol.for('@cancjs/promise:RetryError');
-const _RetryError = createErrorClass('RetryError', RETRY_BRAND);
+const _RetryError = createErrorClass('RetryError', '@cancjs/promise:RetryError');
 type _RetryError = InstanceType<typeof _RetryError>;
 
 const pBoth: CancelablePromise<number, FooError | BarError> = CancelablePromise.resolve(1) as any;

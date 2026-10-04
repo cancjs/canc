@@ -12,15 +12,17 @@ export interface ICancError extends Error {
  * Constructor shape {@link createErrorClass} produces. Each class below also declares a type alias
  * of the same name, so the exported name works in value and in type position.
  *
- * Type-level identity rests on the brand, the same registry symbol the factory installs on the
- * prototype, not on `name`. Two classes sharing a name are still distinct types, and a subclass
- * stays free to rename itself, which a literal `name` would forbid. `TBrand` defaults to `never`,
- * so the bare form drops the brand member instead of widening it into a symbol index signature.
+ * Type-level identity rests on the brand key, the string the factory stores as `_cancErrorBrand`
+ * on the prototype next to the registry symbol, not on `name`. Two classes sharing a name are still
+ * distinct types, and a subclass stays free to rename itself, which a literal `name` would forbid.
+ * The key is a string literal rather than the symbol because every package inlines its own copy of
+ * these classes, and a string literal is the same type in every copy while a `unique symbol` is not.
+ * `TBrand` defaults to `never`, so the bare form drops the brand member instead of widening it.
  */
-export interface ICancErrorConstructor<TName extends string = string, TBrand extends symbol = never> {
+export interface ICancErrorConstructor<TName extends string = string, TBrand extends string = never> {
   readonly name: TName;
   readonly prototype: ICancError;
-  new (message?: string): ICancError & Readonly<Record<TBrand, true>>;
+  new (message?: string): ICancError & { readonly [K in TBrand as '_cancErrorBrand']: K };
 }
 
 interface IDomExceptionConstructor {
@@ -36,9 +38,13 @@ const resolveMessage = (message: string | undefined, defaultMessage: string | un
   // Not `message || defaultMessage`: an explicit empty message stays empty.
   message === undefined ? defaultMessage : message;
 
-function brandPrototype(prototype: object, brand: symbol): void {
+function brandPrototype(prototype: object, brand: symbol, key?: string): void {
   // Non-enumerable and non-writable by defineProperty default, which is what a brand wants.
   Object.defineProperty(prototype, brand, { value: true });
+
+  if (key !== undefined) {
+    Object.defineProperty(prototype, '_cancErrorBrand', { value: key });
+  }
 }
 
 function defineQuietly(target: object, key: PropertyKey, value: unknown): void {
@@ -52,7 +58,7 @@ function defineQuietly(target: object, key: PropertyKey, value: unknown): void {
 // `class X extends DOMException` compiles down to `DOMException.call(this, ...)` under the es5
 // target, and that throws "Illegal constructor". Reflect.construct is the portable way to get a
 // DOMException-backed instance whose prototype chain still points at the subclass.
-function createDomExceptionClass<TName extends string, TBrand extends symbol>(
+function createDomExceptionClass<TName extends string, TBrand extends string>(
   domException: IDomExceptionConstructor,
   name: TName,
   defaultMessage?: string,
@@ -79,7 +85,7 @@ function createDomExceptionClass<TName extends string, TBrand extends symbol>(
   return DomExceptionBackedError as unknown as ICancErrorConstructor<TName, TBrand>;
 }
 
-function createNativeErrorClass<TName extends string, TBrand extends symbol>(
+function createNativeErrorClass<TName extends string, TBrand extends string>(
   name: TName,
   defaultMessage?: string,
 ): ICancErrorConstructor<TName, TBrand> {
@@ -104,8 +110,11 @@ function createNativeErrorClass<TName extends string, TBrand extends symbol>(
  * canc error and the DOMException the platform throws for the same condition are the same kind of
  * value), and by Error everywhere else. The two bases take different constructor arguments,
  * `(message, name)` against `(message)`, so the branches cannot share a constructor body.
+ *
+ * `brand` is a registry key. The prototype gets `Symbol.for(brand)`, which the guards test, and
+ * `_cancErrorBrand` holding the key itself, which the instance type references.
  */
-export function createErrorClass<TName extends string, TBrand extends symbol = never>(
+export function createErrorClass<TName extends string, TBrand extends string = never>(
   name: TName,
   brand?: TBrand,
   defaultMessage?: string,
@@ -125,7 +134,7 @@ export function createErrorClass<TName extends string, TBrand extends symbol = n
   defineQuietly(ErrorClass, 'name', name);
 
   if (brand !== undefined) {
-    brandPrototype(ErrorClass.prototype, brand);
+    brandPrototype(ErrorClass.prototype, Symbol.for(brand), brand);
   }
 
   if (typeof Symbol !== 'undefined' && Symbol.toStringTag) {
@@ -167,7 +176,7 @@ export const ITERATION_ERROR_BRAND = Symbol.for('@cancjs/coroutine:IterationErro
  * real AbortSignal produces, so one code path handles both. Identified across realms by its
  * `Symbol.for('@cancjs/promise:AbortError')` prototype brand.
  */
-export const AbortError = createErrorClass('AbortError', ABORT_ERROR_BRAND, 'The operation was aborted');
+export const AbortError = createErrorClass('AbortError', '@cancjs/promise:AbortError', 'The operation was aborted');
 /** Instance type of {@link AbortError}. */
 export type AbortError = InstanceType<typeof AbortError>;
 
@@ -177,7 +186,7 @@ export type AbortError = InstanceType<typeof AbortError>;
  */
 export const TimeoutError = createErrorClass(
   'TimeoutError',
-  TIMEOUT_ERROR_BRAND,
+  '@cancjs/promise:TimeoutError',
   'The operation was aborted due to timeout',
 );
 /** Instance type of {@link TimeoutError}. */
@@ -190,7 +199,11 @@ export type TimeoutError = InstanceType<typeof TimeoutError>;
  * only way to settle a call that will never run. Identified across realms by its
  * `Symbol.for('@cancjs/toolbox:SupersededError')` prototype brand.
  */
-export const SupersededError = createErrorClass('SupersededError', SUPERSEDED_ERROR_BRAND, 'call superseded');
+export const SupersededError = createErrorClass(
+  'SupersededError',
+  '@cancjs/toolbox:SupersededError',
+  'call superseded',
+);
 /** Instance type of {@link SupersededError}. */
 export type SupersededError = InstanceType<typeof SupersededError>;
 
@@ -199,7 +212,7 @@ export type SupersededError = InstanceType<typeof SupersededError>;
  * next turn, or when `[Symbol.iterator]()` is called a second time on the same handle. Identified
  * across realms by its `Symbol.for('@cancjs/coroutine:IterationError')` prototype brand.
  */
-export const IterationError = createErrorClass('IterationError', ITERATION_ERROR_BRAND);
+export const IterationError = createErrorClass('IterationError', '@cancjs/coroutine:IterationError');
 /** Instance type of {@link IterationError}. */
 export type IterationError = InstanceType<typeof IterationError>;
 
