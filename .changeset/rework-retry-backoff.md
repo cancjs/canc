@@ -2,6 +2,7 @@
 "@cancjs/axios": patch
 "@cancjs/coroutine": patch
 "@cancjs/decorators": patch
+"@cancjs/node": minor
 "@cancjs/toolbox": minor
 "@cancjs/toolbox-native": minor
 ---
@@ -11,3 +12,4 @@
 (toolbox) Add `factor`, `jitter`, `shouldRetry` and a `delay` override to retry, and pass the actual wait to `onRetry`.
 (toolbox) Reject the retry with the thrown error when `shouldRetry`, `delay` or `onRetry` throws, and when a negative `jitter` fraction inverts the delay range, instead of leaving the retry pending.
 (toolbox) Report the retries still allowed after the current attempt in `retriesLeft` on the per-failure context, one more than before.
+(node) Make one more attempt than before when reopening a file or moving across devices under `EMFILE`/`ENFILE`/`EXDEV`, for the same configured retry count. `retries` now means attempts after the first call, matching the option's own name; nothing to change in your own configuration.

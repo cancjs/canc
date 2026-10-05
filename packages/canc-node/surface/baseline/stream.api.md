@@ -71,25 +71,25 @@ new (opts?: WritableOptions<Writable> | undefined): Writable
 ## `arrayBuffer` (const)
 
 ```text
-(stream: NodeJS.ReadableStream | AsyncIterable<any> | ReadableStream<any>, options?: IConsumerOptions | undefined): CancelablePromise<ArrayBuffer>
+(stream: NodeJS.ReadableStream | AsyncIterable<any> | ReadableStream<any>, options?: IConsumerOptions | undefined): CancelablePromise<ArrayBuffer, never>
 ```
 
 ## `blob` (const)
 
 ```text
-(stream: NodeJS.ReadableStream | AsyncIterable<any> | ReadableStream<any>, options?: IConsumerOptions | undefined): CancelablePromise<Blob>
+(stream: NodeJS.ReadableStream | AsyncIterable<any> | ReadableStream<any>, options?: IConsumerOptions | undefined): CancelablePromise<Blob, never>
 ```
 
 ## `buffer` (const)
 
 ```text
-(stream: NodeJS.ReadableStream | AsyncIterable<any> | ReadableStream<any>, options?: IConsumerOptions | undefined): CancelablePromise<NonSharedBuffer>
+(stream: NodeJS.ReadableStream | AsyncIterable<any> | ReadableStream<any>, options?: IConsumerOptions | undefined): CancelablePromise<NonSharedBuffer, never>
 ```
 
 ## `bytes` (const)
 
 ```text
-(stream: NodeJS.ReadableStream | AsyncIterable<any> | ReadableStream<any>, options?: IConsumerOptions | undefined): CancelablePromise<Uint8Array<ArrayBufferLike>>
+(stream: NodeJS.ReadableStream | AsyncIterable<any> | ReadableStream<any>, options?: IConsumerOptions | undefined): CancelablePromise<Uint8Array<ArrayBufferLike>, never>
 ```
 
 ## `duplexPair` (function)
@@ -101,65 +101,65 @@ new (opts?: WritableOptions<Writable> | undefined): Writable
 ## `every<T = unknown>` (function)
 
 ```text
-<T = unknown>(stream: Readable, fn: (data: T, options: IReadableVisitorOptions) => boolean | Promise<boolean>, options?: IReadableTerminalOptions | undefined): CancelablePromise<boolean>
+<T = unknown>(stream: Readable, fn: (data: T, options: IReadableVisitorOptions) => boolean | Promise<boolean>, options?: IReadableTerminalOptions | undefined): CancelablePromise<boolean, never>
 ```
 
 ## `find<T = unknown>` (function)
 
 ```text
-<T = unknown>(stream: Readable, fn: (data: T, options: IReadableVisitorOptions) => boolean | Promise<boolean>, options?: IReadableTerminalOptions | undefined): CancelablePromise<T | undefined>
+<T = unknown>(stream: Readable, fn: (data: T, options: IReadableVisitorOptions) => boolean | Promise<boolean>, options?: IReadableTerminalOptions | undefined): CancelablePromise<T | undefined, never>
 ```
 
 ## `finished` (const)
 
 ```text
-(stream: ReadableStream | WritableStream | ReadWriteStream, options?: FinishedOptions | undefined): CancelablePromise<void>
+(stream: ReadableStream | WritableStream | ReadWriteStream, options?: FinishedOptions | undefined): CancelablePromise<void, never>
 ```
 
 ## `forEach<T = unknown>` (function)
 
 ```text
-<T = unknown>(stream: Readable, fn: (data: T, options: IReadableVisitorOptions) => void | Promise<void>, options?: IReadableTerminalOptions | undefined): CancelablePromise<void>
+<T = unknown>(stream: Readable, fn: (data: T, options: IReadableVisitorOptions) => void | Promise<void>, options?: IReadableTerminalOptions | undefined): CancelablePromise<void, never>
 ```
 
 ## `json` (const)
 
 ```text
-(stream: NodeJS.ReadableStream | AsyncIterable<any> | ReadableStream<any>, options?: IConsumerOptions | undefined): CancelablePromise<unknown>
+(stream: NodeJS.ReadableStream | AsyncIterable<any> | ReadableStream<any>, options?: IConsumerOptions | undefined): CancelablePromise<unknown, never>
 ```
 
 ## `pipeline` (const)
 
 ```text
-(source: PipelineSource<any>, destination: WritableStream | PipelineDestinationIterableFunction<string | Buffer<ArrayBufferLike>> | PipelineDestinationPromiseFunction<string | Buffer<ArrayBufferLike>, any> | PipelineDestinationIterableFunction<any> | PipelineDestinationPromiseFunction<any, any>, options?: PipelineOptions | undefined): CancelablePromise<any>
-(source: PipelineSource<any>, transform1: PipelineTransform<PipelineSource<any>, any>, destination: WritableStream | PipelineDestinationIterableFunction<string | Buffer<ArrayBufferLike>> | PipelineDestinationPromiseFunction<string | Buffer<ArrayBufferLike>, any> | PipelineDestinationIterableFunction<any> | PipelineDestinationPromiseFunction<any, any>, options?: PipelineOptions | undefined): CancelablePromise<any>
-(source: PipelineSource<any>, transform1: PipelineTransform<PipelineSource<any>, any>, transform2: PipelineTransform<PipelineTransform<PipelineSource<any>, any>, any>, destination: WritableStream | PipelineDestinationIterableFunction<string | Buffer<ArrayBufferLike>> | PipelineDestinationPromiseFunction<string | Buffer<ArrayBufferLike>, any> | PipelineDestinationIterableFunction<any> | PipelineDestinationPromiseFunction<any, any>, options?: PipelineOptions | undefined): CancelablePromise<any>
-(source: PipelineSource<any>, transform1: PipelineTransform<PipelineSource<any>, any>, transform2: PipelineTransform<PipelineTransform<PipelineSource<any>, any>, any>, transform3: PipelineTransform<PipelineTransform<PipelineTransform<PipelineSource<any>, any>, any>, any>, destination: WritableStream | PipelineDestinationIterableFunction<string | Buffer<ArrayBufferLike>> | PipelineDestinationPromiseFunction<string | Buffer<ArrayBufferLike>, any> | PipelineDestinationIterableFunction<any> | PipelineDestinationPromiseFunction<any, any>, options?: PipelineOptions | undefined): CancelablePromise<any>
-(source: PipelineSource<any>, transform1: PipelineTransform<PipelineSource<any>, any>, transform2: PipelineTransform<PipelineTransform<PipelineSource<any>, any>, any>, transform3: PipelineTransform<PipelineTransform<PipelineTransform<PipelineSource<any>, any>, any>, any>, transform4: PipelineTransform<PipelineTransform<PipelineTransform<PipelineTransform<PipelineSource<any>, any>, any>, any>, any>, destination: WritableStream | PipelineDestinationIterableFunction<string | Buffer<ArrayBufferLike>> | PipelineDestinationPromiseFunction<string | Buffer<ArrayBufferLike>, any> | PipelineDestinationIterableFunction<any> | PipelineDestinationPromiseFunction<any, any>, options?: PipelineOptions | undefined): CancelablePromise<any>
-(streams: ReadonlyArray<ReadableStream | WritableStream | ReadWriteStream>, options?: PipelineOptions | undefined): CancelablePromise<void>
-(stream1: ReadableStream, stream2: WritableStream | ReadWriteStream, ...streams: Array<WritableStream | ReadWriteStream | PipelineOptions>): CancelablePromise<void>
+(source: PipelineSource<any>, destination: WritableStream | PipelineDestinationIterableFunction<string | Buffer<ArrayBufferLike>> | PipelineDestinationPromiseFunction<string | Buffer<ArrayBufferLike>, any> | PipelineDestinationIterableFunction<any> | PipelineDestinationPromiseFunction<any, any>, options?: PipelineOptions | undefined): CancelablePromise<any, never>
+(source: PipelineSource<any>, transform1: PipelineTransform<PipelineSource<any>, any>, destination: WritableStream | PipelineDestinationIterableFunction<string | Buffer<ArrayBufferLike>> | PipelineDestinationPromiseFunction<string | Buffer<ArrayBufferLike>, any> | PipelineDestinationIterableFunction<any> | PipelineDestinationPromiseFunction<any, any>, options?: PipelineOptions | undefined): CancelablePromise<any, never>
+(source: PipelineSource<any>, transform1: PipelineTransform<PipelineSource<any>, any>, transform2: PipelineTransform<PipelineTransform<PipelineSource<any>, any>, any>, destination: WritableStream | PipelineDestinationIterableFunction<string | Buffer<ArrayBufferLike>> | PipelineDestinationPromiseFunction<string | Buffer<ArrayBufferLike>, any> | PipelineDestinationIterableFunction<any> | PipelineDestinationPromiseFunction<any, any>, options?: PipelineOptions | undefined): CancelablePromise<any, never>
+(source: PipelineSource<any>, transform1: PipelineTransform<PipelineSource<any>, any>, transform2: PipelineTransform<PipelineTransform<PipelineSource<any>, any>, any>, transform3: PipelineTransform<PipelineTransform<PipelineTransform<PipelineSource<any>, any>, any>, any>, destination: WritableStream | PipelineDestinationIterableFunction<string | Buffer<ArrayBufferLike>> | PipelineDestinationPromiseFunction<string | Buffer<ArrayBufferLike>, any> | PipelineDestinationIterableFunction<any> | PipelineDestinationPromiseFunction<any, any>, options?: PipelineOptions | undefined): CancelablePromise<any, never>
+(source: PipelineSource<any>, transform1: PipelineTransform<PipelineSource<any>, any>, transform2: PipelineTransform<PipelineTransform<PipelineSource<any>, any>, any>, transform3: PipelineTransform<PipelineTransform<PipelineTransform<PipelineSource<any>, any>, any>, any>, transform4: PipelineTransform<PipelineTransform<PipelineTransform<PipelineTransform<PipelineSource<any>, any>, any>, any>, any>, destination: WritableStream | PipelineDestinationIterableFunction<string | Buffer<ArrayBufferLike>> | PipelineDestinationPromiseFunction<string | Buffer<ArrayBufferLike>, any> | PipelineDestinationIterableFunction<any> | PipelineDestinationPromiseFunction<any, any>, options?: PipelineOptions | undefined): CancelablePromise<any, never>
+(streams: ReadonlyArray<ReadableStream | WritableStream | ReadWriteStream>, options?: PipelineOptions | undefined): CancelablePromise<void, never>
+(stream1: ReadableStream, stream2: WritableStream | ReadWriteStream, ...streams: Array<WritableStream | ReadWriteStream | PipelineOptions>): CancelablePromise<void, never>
 ```
 
 ## `reduce<T = unknown, TAcc = T>` (function)
 
 ```text
-<T = unknown, TAcc = T>(stream: Readable, fn: (previous: TAcc, data: T, options: IReadableVisitorOptions) => TAcc | Promise<TAcc>, initial?: TAcc | undefined, options?: Pick<IReadableTerminalOptions, "signal"> | undefined): CancelablePromise<TAcc>
+<T = unknown, TAcc = T>(stream: Readable, fn: (previous: TAcc, data: T, options: IReadableVisitorOptions) => TAcc | Promise<TAcc>, initial?: TAcc | undefined, options?: Pick<IReadableTerminalOptions, "signal"> | undefined): CancelablePromise<TAcc, never>
 ```
 
 ## `some<T = unknown>` (function)
 
 ```text
-<T = unknown>(stream: Readable, fn: (data: T, options: IReadableVisitorOptions) => boolean | Promise<boolean>, options?: IReadableTerminalOptions | undefined): CancelablePromise<boolean>
+<T = unknown>(stream: Readable, fn: (data: T, options: IReadableVisitorOptions) => boolean | Promise<boolean>, options?: IReadableTerminalOptions | undefined): CancelablePromise<boolean, never>
 ```
 
 ## `text` (const)
 
 ```text
-(stream: NodeJS.ReadableStream | AsyncIterable<any> | ReadableStream<any>, options?: IConsumerOptions | undefined): CancelablePromise<string>
+(stream: NodeJS.ReadableStream | AsyncIterable<any> | ReadableStream<any>, options?: IConsumerOptions | undefined): CancelablePromise<string, never>
 ```
 
 ## `toArray<T = unknown>` (function)
 
 ```text
-<T = unknown>(stream: Readable, options?: Pick<IReadableTerminalOptions, "signal"> | undefined): CancelablePromise<Array<T>>
+<T = unknown>(stream: Readable, options?: Pick<IReadableTerminalOptions, "signal"> | undefined): CancelablePromise<Array<T>, never>
 ```

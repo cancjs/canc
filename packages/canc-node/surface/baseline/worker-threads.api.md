@@ -31,8 +31,8 @@ steal?: boolean | undefined
 ## `IRequestLockFn` (interface)
 
 ```text
-<T>(name: string, fn: TLockBody<T>): CancelablePromise<T>
-<T>(name: string, options: ILockOptions, fn: TLockBody<T>): CancelablePromise<T>
+<T>(name: string, fn: TLockBody<T>): CancelablePromise<T, never>
+<T>(name: string, options: ILockOptions, fn: TLockBody<T>): CancelablePromise<T, never>
 ```
 
 ## `IRunTaskOptions` (interface)
@@ -53,7 +53,7 @@ new (filename: string | URL, options?: WorkerOptions | undefined): IWorkerWithPr
 
 ```text
 extends NodeWorker
-readonly promise: CancelablePromise<number>
+readonly promise: CancelablePromise<number, never>
 ```
 
 ## `MessageChannel` (class)
@@ -261,14 +261,14 @@ MessagePort | null
 ## `requestLock` (const)
 
 ```text
-<T>(name: string, fn: TLockBody<T>): CancelablePromise<T>
-<T>(name: string, options: ILockOptions, fn: TLockBody<T>): CancelablePromise<T>
+<T>(name: string, fn: TLockBody<T>): CancelablePromise<T, never>
+<T>(name: string, options: ILockOptions, fn: TLockBody<T>): CancelablePromise<T, never>
 ```
 
 ## `runTask<TResult = unknown>` (function)
 
 ```text
-<TResult = unknown>(script: string | URL, workerData?: unknown, options?: IRunTaskOptions | undefined): CancelablePromise<TResult>
+<TResult = unknown>(script: string | URL, workerData?: unknown, options?: IRunTaskOptions | undefined): CancelablePromise<TResult, never>
 ```
 
 ## `threadId` (const)

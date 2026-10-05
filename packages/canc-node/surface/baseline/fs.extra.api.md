@@ -220,13 +220,13 @@ valueOf: () => string
 ## `copy` (function)
 
 ```text
-(src: string, dest: string, options?: ICopyOptions | undefined): CancelablePromise<void>
+(src: string, dest: string, options?: ICopyOptions | undefined): CancelablePromise<void, never>
 ```
 
 ## `emptyDir` (function)
 
 ```text
-(dir: string): CancelablePromise<void>
+(dir: string): CancelablePromise<void, never>
 ```
 
 ## `emptyDirSync` (function)
@@ -238,7 +238,7 @@ valueOf: () => string
 ## `ensureDir` (function)
 
 ```text
-(path: string): CancelablePromise<void>
+(path: string): CancelablePromise<void, never>
 ```
 
 ## `ensureDirSync` (function)
@@ -250,7 +250,7 @@ valueOf: () => string
 ## `ensureFile` (function)
 
 ```text
-(path: string): CancelablePromise<void>
+(path: string): CancelablePromise<void, never>
 ```
 
 ## `ensureFileSync` (function)
@@ -262,7 +262,7 @@ valueOf: () => string
 ## `ensureLink` (function)
 
 ```text
-(srcPath: string, dstPath: string): CancelablePromise<void>
+(srcPath: string, dstPath: string): CancelablePromise<void, never>
 ```
 
 ## `ensureLinkSync` (function)
@@ -274,7 +274,7 @@ valueOf: () => string
 ## `ensureSymlink` (function)
 
 ```text
-(srcPath: string, dstPath: string, type?: string | undefined): CancelablePromise<void>
+(srcPath: string, dstPath: string, type?: string | undefined): CancelablePromise<void, never>
 ```
 
 ## `ensureSymlinkSync` (function)
@@ -286,7 +286,7 @@ valueOf: () => string
 ## `mkdirp` (const)
 
 ```text
-(path: string): CancelablePromise<void>
+(path: string): CancelablePromise<void, never>
 ```
 
 ## `mkdirpSync` (const)
@@ -298,7 +298,7 @@ valueOf: () => string
 ## `mkdirs` (const)
 
 ```text
-(path: string): CancelablePromise<void>
+(path: string): CancelablePromise<void, never>
 ```
 
 ## `mkdirsSync` (const)
@@ -310,7 +310,7 @@ valueOf: () => string
 ## `move` (function)
 
 ```text
-(src: string, dest: string, options?: IMoveOptions | undefined): CancelablePromise<void>
+(src: string, dest: string, options?: IMoveOptions | undefined): CancelablePromise<void, never>
 ```
 
 ## `moveSync` (function)
@@ -322,7 +322,7 @@ valueOf: () => string
 ## `outputFile` (function)
 
 ```text
-(path: string, data: string | Stream | ArrayBufferView<ArrayBufferLike> | Iterable<string | ArrayBufferView<ArrayBufferLike>> | AsyncIterable<string | ArrayBufferView<ArrayBufferLike>>, options?: BufferEncoding | (ObjectEncodingOptions & { mode?: Mode | undefined; flag?: OpenMode | undefined; flush?: boolean | undefined; } & Abortable) | null | undefined): CancelablePromise<void>
+(path: string, data: string | Stream | ArrayBufferView<ArrayBufferLike> | Iterable<string | ArrayBufferView<ArrayBufferLike>> | AsyncIterable<string | ArrayBufferView<ArrayBufferLike>>, options?: BufferEncoding | (ObjectEncodingOptions & { mode?: Mode | undefined; flag?: OpenMode | undefined; flush?: boolean | undefined; } & Abortable) | null | undefined): CancelablePromise<void, never>
 ```
 
 ## `outputFileSync` (function)
@@ -334,7 +334,7 @@ valueOf: () => string
 ## `outputJson` (function)
 
 ```text
-(file: string, data: unknown, options?: BufferEncoding | IWriteJsonOptions | null | undefined): CancelablePromise<void>
+(file: string, data: unknown, options?: BufferEncoding | IWriteJsonOptions | null | undefined): CancelablePromise<void, never>
 ```
 
 ## `outputJsonSync` (function)
@@ -346,14 +346,14 @@ valueOf: () => string
 ## `pathExists` (const)
 
 ```text
-(path: PathLike): CancelablePromise<boolean>
+(path: PathLike): CancelablePromise<boolean, never>
 ```
 
 ## `readJson<T = any>` (function)
 
 ```text
-<T = any>(file: string, options: IReadJsonOptions & { throws: false; }): CancelablePromise<T | null>
-<T = any>(file: string, options?: BufferEncoding | IReadJsonOptions | null | undefined): CancelablePromise<T>
+<T = any>(file: string, options: IReadJsonOptions & { throws: false; }): CancelablePromise<T | null, never>
+<T = any>(file: string, options?: BufferEncoding | IReadJsonOptions | null | undefined): CancelablePromise<T, never>
 ```
 
 ## `readJsonSync<T = any>` (function)
@@ -366,7 +366,7 @@ valueOf: () => string
 ## `replaceFile` (function)
 
 ```text
-(path: string, data: string | Stream | ArrayBufferView<ArrayBufferLike> | Iterable<string | ArrayBufferView<ArrayBufferLike>> | AsyncIterable<string | ArrayBufferView<ArrayBufferLike>>, options?: BufferEncoding | (ObjectEncodingOptions & { mode?: Mode | undefined; flag?: OpenMode | undefined; flush?: boolean | undefined; } & Abortable) | null | undefined): CancelablePromise<void>
+(path: string, data: string | Stream | ArrayBufferView<ArrayBufferLike> | Iterable<string | ArrayBufferView<ArrayBufferLike>> | AsyncIterable<string | ArrayBufferView<ArrayBufferLike>>, options?: BufferEncoding | (ObjectEncodingOptions & { mode?: Mode | undefined; flag?: OpenMode | undefined; flush?: boolean | undefined; } & Abortable) | null | undefined): CancelablePromise<void, never>
 ```
 
 ## `replaceFileSync` (function)
@@ -390,7 +390,7 @@ valueOf: () => string
 ## `writeJson` (function)
 
 ```text
-(file: string, object: unknown, options?: BufferEncoding | IWriteJsonOptions | null | undefined): CancelablePromise<void>
+(file: string, object: unknown, options?: BufferEncoding | IWriteJsonOptions | null | undefined): CancelablePromise<void, never>
 ```
 
 ## `writeJsonSync` (function)

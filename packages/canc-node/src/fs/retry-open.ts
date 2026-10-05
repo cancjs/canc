@@ -83,13 +83,14 @@ export function retryOpen<T>(
     return isThenable(started) ? (started as PromiseLike<T>).then(undefined, classify) : started;
   }, opts);
 
+  // Awaited<T> and T are unrelated to the checker while T is generic
   return attempted.then((result) => {
     if (isFatal(result)) {
       throw result[kFatal];
     }
 
     return result;
-  });
+  }) as CancelablePromise<T>;
 }
 
 /**

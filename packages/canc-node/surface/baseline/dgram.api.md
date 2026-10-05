@@ -85,13 +85,13 @@ valueOf: () => string
 ## `bind` (function)
 
 ```text
-(socket: Socket, port?: number | undefined, addr?: string | undefined): CancelablePromise<void>
+(socket: Socket, port?: number | undefined, addr?: string | undefined): CancelablePromise<void, never>
 ```
 
 ## `connect` (function)
 
 ```text
-(socket: Socket, port: number, addr?: string | undefined): CancelablePromise<void>
+(socket: Socket, port: number, addr?: string | undefined): CancelablePromise<void, never>
 ```
 
 ## `createSocket` (function)
@@ -111,6 +111,6 @@ valueOf: () => string
 ## `send` (function)
 
 ```text
-(socket: Socket, msg: string | Uint8Array<ArrayBufferLike>, offset: number, length: number, port: number, addr?: string | undefined): CancelablePromise<number>
-(socket: Socket, msg: string | Uint8Array<ArrayBufferLike>, port: number, addr?: string | undefined): CancelablePromise<number>
+(socket: Socket, msg: string | Uint8Array<ArrayBufferLike>, offset: number, length: number, port: number, addr?: string | undefined): CancelablePromise<number, never>
+(socket: Socket, msg: string | Uint8Array<ArrayBufferLike>, port: number, addr?: string | undefined): CancelablePromise<number, never>
 ```

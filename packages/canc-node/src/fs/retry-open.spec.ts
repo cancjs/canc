@@ -88,7 +88,7 @@ describe('retry-open EMFILE and ENFILE retry logic', () => {
     }
 
     expect(caught?.code).toBe('EMFILE');
-    expect(attempts).toBe(4);
+    expect(attempts).toBe(5);
   });
 
   it('rejects CancelError and stops retrying when canceled during retry sleep', async () => {
