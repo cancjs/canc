@@ -1,4 +1,4 @@
-import { createMultiConfigs } from '../../rollup.config.base.js';
+import { createMultiConfigs } from '../../rollup.config.base.mjs';
 
 // node-only package: every entry imports a node builtin, so none can run in a browser.
 // Opt out of UMD outputs package-wide rather than ship a bundle rollup warns is broken.

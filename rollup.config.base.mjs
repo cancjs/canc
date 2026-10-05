@@ -5,10 +5,26 @@ import rollupTerser from '@rollup/plugin-terser';
 import rollupTypescript from '@rollup/plugin-typescript';
 import { execFileSync } from 'child_process';
 import fs from 'fs';
+import { createRequire } from 'module';
 import path from 'path';
 import rollupFilesize from 'rollup-plugin-filesize';
 import rollupExternals from 'rollup-plugin-node-externals';
 import { fileURLToPath } from 'url';
+
+// Node 18 worker threads lack global webcrypto, needed by terser
+if (process.versions.node.startsWith('18.')) {
+  const require = createRequire(import.meta.url);
+  const wt = require('worker_threads');
+  const NativeWorker = wt.Worker;
+  wt.Worker = class extends NativeWorker {
+    constructor(filename, options = {}) {
+      super(filename, {
+        ...options,
+        execArgv: [...(options.execArgv || process.execArgv), '--experimental-global-webcrypto'],
+      });
+    }
+  };
+}
 
 const isVerbose = process.argv.slice(2).indexOf('--silent') === -1;
 
