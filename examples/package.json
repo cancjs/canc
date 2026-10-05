@@ -57,5 +57,17 @@
   },
   "engines": {
     "npm": ">=9"
+  },
+  "allowScripts": {
+    "better-sqlite3@12.11.1": true,
+    "esbuild@0.23.0": true,
+    "esbuild@0.19.12": true,
+    "esbuild@0.25.12": true,
+    "esbuild@0.28.1": true,
+    "esbuild@0.21.5": true,
+    "lmdb@3.0.13": true,
+    "msgpackr-extract@3.0.4": true,
+    "unrs-resolver@1.12.2": true,
+    "@nestjs/core": false
   }
 }
