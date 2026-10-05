@@ -21,6 +21,7 @@ jobs:
   test:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
         node-version: ['18.x', '22.x', '24.x']
@@ -36,6 +37,7 @@ jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
         node-version: ['18.x', '22.x', '24.x']
@@ -47,6 +49,8 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npm run build
+        env:
+          NODE_OPTIONS: '--no-deprecation --experimental-global-webcrypto'
 
   decorators-babel-stage3:
     # Proves the stage-3 decorator flavor (@cancjs/decorators default export) compiles and runs
