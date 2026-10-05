@@ -18,7 +18,8 @@
       "@cancjs/server-express",
       "@cancjs/server-fastify",
       "@cancjs/server-hono",
-      "@cancjs/server-koa"
+      "@cancjs/server-koa",
+      "@cancjs/node"
     ]
   ],
   "ignore": ["@cancjs/benchmarks", "@cancjs/tests-types"],

@@ -1,0 +1,398 @@
+{
+  "exports": [
+    {
+      "name": "[Symbol.asyncDispose]",
+      "kind": "fn",
+      "wrapper": "passthrough",
+      "adopted": false,
+      "minMajor": 18,
+      "gate": null,
+      "callPath": "promises",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "appendFile",
+      "kind": "fn",
+      "wrapper": "cancelify-signal",
+      "adopted": false,
+      "minMajor": 18,
+      "gate": null,
+      "callPath": "promises",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v22.0.0",
+        "probed": "reject:AbortError",
+        "sinceByMajor": {
+          "22": "v22.0.0",
+          "24": "v22.0.0",
+          "26": "v22.0.0"
+        }
+      }
+    },
+    {
+      "name": "chmod",
+      "kind": "fn",
+      "wrapper": "passthrough",
+      "adopted": true,
+      "minMajor": 18,
+      "gate": null,
+      "callPath": "promises",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "chown",
+      "kind": "fn",
+      "wrapper": "passthrough",
+      "adopted": true,
+      "minMajor": 18,
+      "gate": null,
+      "callPath": "promises",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "close",
+      "kind": "fn",
+      "wrapper": "passthrough",
+      "adopted": true,
+      "minMajor": 18,
+      "gate": null,
+      "callPath": "promises",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "createReadStream",
+      "kind": "fn",
+      "wrapper": "passthrough",
+      "adopted": false,
+      "minMajor": 18,
+      "gate": null,
+      "callPath": "promises",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v20.0.0",
+        "probed": "reject:AbortError",
+        "sinceByMajor": {
+          "20": "v20.0.0",
+          "22": "v20.0.0",
+          "24": "v20.0.0",
+          "26": "v20.0.0"
+        }
+      }
+    },
+    {
+      "name": "createWriteStream",
+      "kind": "fn",
+      "wrapper": "passthrough",
+      "adopted": false,
+      "minMajor": 18,
+      "gate": null,
+      "callPath": "promises",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "datasync",
+      "kind": "fn",
+      "wrapper": "passthrough",
+      "adopted": true,
+      "minMajor": 18,
+      "gate": null,
+      "callPath": "promises",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "fd",
+      "kind": "const",
+      "wrapper": "passthrough",
+      "adopted": false,
+      "minMajor": 18,
+      "gate": null,
+      "callPath": "promises",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "pull",
+      "kind": "fn",
+      "wrapper": "passthrough",
+      "adopted": false,
+      "minMajor": 24,
+      "gate": "feature-detect",
+      "callPath": "promises",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v24.20.0",
+        "probed": null,
+        "sinceByMajor": {
+          "24": "v24.20.0",
+          "26": "v25.9.0"
+        }
+      }
+    },
+    {
+      "name": "pullSync",
+      "kind": "fn",
+      "wrapper": "passthrough",
+      "adopted": false,
+      "minMajor": 24,
+      "gate": "feature-detect",
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "read",
+      "kind": "fn",
+      "wrapper": "promisify-custom",
+      "adopted": false,
+      "minMajor": 18,
+      "gate": null,
+      "callPath": "promises",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "readableWebStream",
+      "kind": "fn",
+      "wrapper": "passthrough",
+      "adopted": false,
+      "minMajor": 18,
+      "gate": null,
+      "callPath": "promises",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "readFile",
+      "kind": "fn",
+      "wrapper": "cancelify-signal",
+      "adopted": false,
+      "minMajor": 18,
+      "gate": null,
+      "callPath": "promises",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v15.2.0",
+        "probed": "reject:AbortError",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "readLines",
+      "kind": "fn",
+      "wrapper": "passthrough",
+      "adopted": false,
+      "minMajor": 18,
+      "gate": null,
+      "callPath": "promises",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "readv",
+      "kind": "fn",
+      "wrapper": "promisify-custom",
+      "adopted": false,
+      "minMajor": 18,
+      "gate": null,
+      "callPath": "promises",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "stat",
+      "kind": "fn",
+      "wrapper": "gated",
+      "adopted": true,
+      "minMajor": 18,
+      "gate": "feature-detect",
+      "callPath": "promises",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v24.16.0",
+        "probed": "reject:AbortError",
+        "sinceByMajor": {
+          "24": "v24.16.0",
+          "26": "v26.1.0"
+        }
+      }
+    },
+    {
+      "name": "sync",
+      "kind": "fn",
+      "wrapper": "passthrough",
+      "adopted": true,
+      "minMajor": 18,
+      "gate": null,
+      "callPath": "promises",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "truncate",
+      "kind": "fn",
+      "wrapper": "passthrough",
+      "adopted": true,
+      "minMajor": 18,
+      "gate": null,
+      "callPath": "promises",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "Type",
+      "kind": "type",
+      "wrapper": "passthrough",
+      "adopted": false,
+      "minMajor": 22,
+      "gate": null,
+      "callPath": "promises",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "utimes",
+      "kind": "fn",
+      "wrapper": "passthrough",
+      "adopted": true,
+      "minMajor": 18,
+      "gate": null,
+      "callPath": "promises",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "write",
+      "kind": "fn",
+      "wrapper": "promisify-custom",
+      "adopted": false,
+      "minMajor": 18,
+      "gate": null,
+      "callPath": "promises",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "writeFile",
+      "kind": "fn",
+      "wrapper": "cancelify-signal",
+      "adopted": false,
+      "minMajor": 18,
+      "gate": null,
+      "callPath": "promises",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v22.0.0",
+        "probed": "reject:AbortError",
+        "sinceByMajor": {
+          "22": "v22.0.0",
+          "24": "v22.0.0",
+          "26": "v22.0.0"
+        }
+      }
+    },
+    {
+      "name": "writer",
+      "kind": "fn",
+      "wrapper": "passthrough",
+      "adopted": false,
+      "minMajor": 26,
+      "gate": "feature-detect",
+      "callPath": "promises",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "writev",
+      "kind": "fn",
+      "wrapper": "promisify-custom",
+      "adopted": false,
+      "minMajor": 18,
+      "gate": null,
+      "callPath": "promises",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    }
+  ]
+}

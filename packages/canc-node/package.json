@@ -1,6 +1,6 @@
 {
   "name": "@cancjs/node",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Node built-in modules with cancelable promises and typed failures.",
   "license": "MIT",
   "repository": {
@@ -217,10 +217,14 @@
     "// surface": "Authoritative sequence: npm run check:node-surface (surface:validate -> surface:check)",
     "surface:check": "node ../../scripts/node/surface-check.mjs",
     "surface:docs": "node ../../scripts/node/surface-docs.mjs",
-    "surface:lock": "node ../../scripts/node/api-lock.mjs"
+    "surface:lock": "node ../../scripts/node/api-lock.mjs",
+    "surface:project": "node ../../scripts/node/generate-surface-projections.mjs"
   },
   "files": ["dist"],
   "keywords": ["node", "fs", "cancel", "cancelable", "cancellation", "canc"],
+  "dependencies": {
+    "@types/node": ">=18"
+  },
   "devDependencies": {
     "@cancjs/promise": "*"
   },

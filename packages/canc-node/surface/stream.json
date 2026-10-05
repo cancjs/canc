@@ -7,6 +7,7 @@
       "name": "pipeline",
       "kind": "fn",
       "cancelCategory": "A",
+      "callPath": "promises",
       "nodeSignal": {
         "documented": true,
         "since": "v15.0.0",
@@ -32,6 +33,7 @@
       "name": "finished",
       "kind": "fn",
       "cancelCategory": "A",
+      "callPath": "promises",
       "nodeSignal": {
         "documented": true,
         "since": "v15.0.0",
@@ -53,6 +55,7 @@
       "name": "addAbortSignal",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": true,
         "since": "v15.4.0",
@@ -73,6 +76,7 @@
       "name": "compose",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -93,6 +97,7 @@
       "name": "duplexPair",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -113,6 +118,7 @@
       "name": "from",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -133,6 +139,7 @@
       "name": "fromWeb",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": true,
         "since": "v17.0.0",
@@ -153,6 +160,7 @@
       "name": "toWeb",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -173,6 +181,7 @@
       "name": "getDefaultHighWaterMark",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -193,6 +202,7 @@
       "name": "setDefaultHighWaterMark",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -213,6 +223,7 @@
       "name": "isDestroyed",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -233,6 +244,7 @@
       "name": "isDisturbed",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -253,6 +265,7 @@
       "name": "isErrored",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -273,6 +286,7 @@
       "name": "isReadable",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -293,6 +307,7 @@
       "name": "isWritable",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -313,6 +328,7 @@
       "name": "push",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -333,6 +349,7 @@
       "name": "read",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -353,6 +370,7 @@
       "name": "_construct",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -373,6 +391,7 @@
       "name": "_destroy",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -393,6 +412,7 @@
       "name": "_read",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -413,6 +433,7 @@
       "name": "_flush",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -433,6 +454,7 @@
       "name": "_transform",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -453,6 +475,7 @@
       "name": "_final",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -473,6 +496,7 @@
       "name": "_write",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -493,6 +517,7 @@
       "name": "_writev",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -513,6 +538,7 @@
       "name": "text",
       "kind": "fn",
       "cancelCategory": "A",
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -528,12 +554,14 @@
         "deno": "unverified",
         "bun": "unverified"
       },
-      "notes": "node:stream/consumers has no signal option at all; canc registers handleCancel to destroy the source (probe confirms present on node/deno/bun for the single sampled runtime; not verifiable against the node:stream export list used here)"
+      "notes": "node:stream/consumers has no signal option at all; canc registers handleCancel to destroy the source (probe confirms present on node/deno/bun for the single sampled runtime; not verifiable against the node:stream export list used here)",
+      "nodeSpecifier": "node:stream/consumers"
     },
     {
       "name": "json",
       "kind": "fn",
       "cancelCategory": "A",
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -549,12 +577,14 @@
         "deno": "unverified",
         "bun": "unverified"
       },
-      "notes": "node:stream/consumers has no signal option at all; canc registers handleCancel to destroy the source (probe confirms present on node/deno/bun for the single sampled runtime; not verifiable against the node:stream export list used here)"
+      "notes": "node:stream/consumers has no signal option at all; canc registers handleCancel to destroy the source (probe confirms present on node/deno/bun for the single sampled runtime; not verifiable against the node:stream export list used here)",
+      "nodeSpecifier": "node:stream/consumers"
     },
     {
       "name": "buffer",
       "kind": "fn",
       "cancelCategory": "A",
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -570,12 +600,14 @@
         "deno": "unverified",
         "bun": "unverified"
       },
-      "notes": "node:stream/consumers has no signal option at all; canc registers handleCancel to destroy the source (probe confirms present on node/deno/bun for the single sampled runtime; not verifiable against the node:stream export list used here)"
+      "notes": "node:stream/consumers has no signal option at all; canc registers handleCancel to destroy the source (probe confirms present on node/deno/bun for the single sampled runtime; not verifiable against the node:stream export list used here)",
+      "nodeSpecifier": "node:stream/consumers"
     },
     {
       "name": "arrayBuffer",
       "kind": "fn",
       "cancelCategory": "A",
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -591,12 +623,14 @@
         "deno": "unverified",
         "bun": "unverified"
       },
-      "notes": "node:stream/consumers has no signal option at all; canc registers handleCancel to destroy the source (probe confirms present on node/deno/bun for the single sampled runtime; not verifiable against the node:stream export list used here)"
+      "notes": "node:stream/consumers has no signal option at all; canc registers handleCancel to destroy the source (probe confirms present on node/deno/bun for the single sampled runtime; not verifiable against the node:stream export list used here)",
+      "nodeSpecifier": "node:stream/consumers"
     },
     {
       "name": "blob",
       "kind": "fn",
       "cancelCategory": "A",
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -612,12 +646,14 @@
         "deno": "unverified",
         "bun": "unverified"
       },
-      "notes": "node:stream/consumers has no signal option at all; canc registers handleCancel to destroy the source (probe confirms present on node/deno/bun for the single sampled runtime; not verifiable against the node:stream export list used here)"
+      "notes": "node:stream/consumers has no signal option at all; canc registers handleCancel to destroy the source (probe confirms present on node/deno/bun for the single sampled runtime; not verifiable against the node:stream export list used here)",
+      "nodeSpecifier": "node:stream/consumers"
     },
     {
       "name": "bytes",
       "kind": "fn",
       "cancelCategory": "A",
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -632,7 +668,8 @@
         "deno": "unverified",
         "bun": "unverified"
       },
-      "notes": "since-version UNVERIFIED: present on the probed node 24.18.1 runtime; the tracked-major fact base carries no dated entry for it, so gate by feature-detect rather than by version number, do not copy the unconfirmed v24.14.0 figure from an earlier draft (probe confirms present on node/deno/bun for the single sampled runtime; not verifiable against the node:stream export list used here)"
+      "notes": "since-version UNVERIFIED: present on the probed node 24.18.1 runtime; the tracked-major fact base carries no dated entry for it, so gate by feature-detect rather than by version number, do not copy the unconfirmed v24.14.0 figure from an earlier draft (probe confirms present on node/deno/bun for the single sampled runtime; not verifiable against the node:stream export list used here)",
+      "nodeSpecifier": "node:stream/consumers"
     }
   ]
 }

@@ -4,7 +4,7 @@ import nodeFsPromises from 'node:fs/promises';
 import { CancelablePromise } from '@cancjs/promise';
 
 import { isThenable } from '../../../_util';
-import fsJson from '../../surface/fs.json';
+import fsJson from '../../surface/projected/fs.json';
 import { features } from '../features';
 import { decorate, TCancelableFileHandle } from './file-handle';
 import { getFs } from './registry';

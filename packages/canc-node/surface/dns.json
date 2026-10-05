@@ -442,27 +442,6 @@
       },
       "notes": "ES6 class, our constructor uses Reflect.construct so it survives es5 downlevel emit; instance methods resolve, resolve4, resolve6, resolveAny, resolveCaa, resolveCname, resolveMx, resolveNaptr, resolveNs, resolvePtr, resolveSoa, resolveSrv, resolveTlsa, resolveTxt, reverse are category A, cancel calls this.cancel() and really stops the query, and cancels every other outstanding query on the same resolver too, observed code ECANCELLED; cancel, getServers, setServers, setLocalAddress are inherited from ResolverBase unchanged. Member detail is in dns.Resolver.json, this entry is the class declaration only",
       "callPath": "promises"
-    },
-    {
-      "name": "cancel",
-      "kind": "fn",
-      "cancelCategory": null,
-      "nodeSignal": {
-        "documented": false,
-        "since": null,
-        "probed": null
-      },
-      "wrapper": "passthrough",
-      "failures": [],
-      "minMajor": null,
-      "gate": null,
-      "runtime": {
-        "deno": "method",
-        "bun": "method"
-      },
-      "probed": "ECANCELLED",
-      "notes": "Resolver.prototype.cancel, documented as its own heading in the dns/promises page rather than nested under the class, which is why the node docs extraction files it here instead of under Resolver; inherited unchanged, cancels every outstanding query on the resolver, observed code ECANCELLED. Same member as dns.Resolver.json cancel, duplicated only because the two node doc sections nest it differently",
-      "callPath": "promises"
     }
   ]
 }

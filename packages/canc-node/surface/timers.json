@@ -7,6 +7,7 @@
       "name": "setTimeout",
       "kind": "fn",
       "cancelCategory": "C",
+      "callPath": "promises",
       "nodeSignal": {
         "documented": true,
         "since": "v15.0.0",
@@ -28,6 +29,7 @@
       "name": "setImmediate",
       "kind": "fn",
       "cancelCategory": "C",
+      "callPath": "promises",
       "nodeSignal": {
         "documented": true,
         "since": "v15.0.0",
@@ -49,6 +51,7 @@
       "name": "setInterval",
       "kind": "fn",
       "cancelCategory": "C",
+      "callPath": "promises",
       "nodeSignal": {
         "documented": false,
         "since": "v15.9.0",
@@ -70,6 +73,7 @@
       "name": "wait",
       "kind": "fn",
       "cancelCategory": "C",
+      "callPath": "promises",
       "nodeSignal": {
         "documented": true,
         "since": "v17.3.0",
@@ -85,12 +89,14 @@
         "deno": "unverified",
         "bun": "unverified"
       },
+      "parent": "scheduler",
       "notes": "exported as scheduler.wait (nested under scheduler, not a bare top-level key; unverified against module-level export list)"
     },
     {
       "name": "yield",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -105,12 +111,14 @@
         "deno": "unverified",
         "bun": "unverified"
       },
+      "parent": "scheduler",
       "notes": "takes no options at all; plain re-export as scheduler.yield (nested under scheduler, not a bare top-level key; unverified against module-level export list)"
     },
     {
       "name": "clearImmediate",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -131,6 +139,7 @@
       "name": "clearInterval",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -151,6 +160,7 @@
       "name": "clearTimeout",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -171,6 +181,7 @@
       "name": "Immediate",
       "kind": "class",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -191,6 +202,7 @@
       "name": "Timeout",
       "kind": "class",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,

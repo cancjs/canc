@@ -6,7 +6,7 @@ import * as timersExports from './index';
 import { scheduler, setImmediate, setInterval, setTimeout } from './index';
 
 describe('@cancjs/node/timers module exports', () => {
-  it('exports exactly the full timers/promises mirror (QN33): setTimeout, setImmediate, setInterval, scheduler', () => {
+  it('exports exactly the full timers/promises mirror: setTimeout, setImmediate, setInterval, scheduler', () => {
     const expected = new Set(['setTimeout', 'setImmediate', 'setInterval', 'scheduler']);
     expect(new Set(Object.keys(timersExports))).toEqual(expected);
   });
@@ -163,14 +163,35 @@ Module._resolveFilename = function (request, ...rest) {
 };
 `;
 
+const ELAPSED_MARKER = '<<elapsed>>';
+
+/**
+ * Runs a program in a real subprocess and reports how long the CHILD itself was alive.
+ *
+ * The child times itself rather than this side timing `execFileSync`, which folded node startup and
+ * process-spawn cost into the figure. Only the lower-bound check reads the elapsed time now; the
+ * upper bounds were removed because even the child's own lifetime tracks machine load once enough
+ * suites run in parallel. A timer that was never cleared outlives the spawn timeout below, and
+ * `execFileSync` throws on it, which is a sharper signal than any millisecond threshold.
+ */
 function runChild(program: string, timeoutMs: number): { stdout: string; elapsedMs: number } {
-  const start = Date.now();
-  const stdout = execFileSync(process.execPath, ['-e', `${hook}\n${program}`], {
+  const timer = [
+    'const __start = Date.now();',
+    `process.on('exit', function () { process.stdout.write('${ELAPSED_MARKER}' + (Date.now() - __start)); });`,
+  ].join('\n');
+
+  const raw = execFileSync(process.execPath, ['-e', `${hook}\n${timer}\n${program}`], {
     cwd: __dirname,
     encoding: 'utf8',
     timeout: timeoutMs,
   });
-  return { stdout, elapsedMs: Date.now() - start };
+
+  const at = raw.lastIndexOf(ELAPSED_MARKER);
+  if (at === -1) {
+    throw new Error(`child did not report its elapsed time: ${raw}`);
+  }
+
+  return { stdout: raw.slice(0, at), elapsedMs: Number(raw.slice(at + ELAPSED_MARKER.length)) };
 }
 
 describe('setTimeout canceled: the process is not held open (real subprocess)', () => {
@@ -182,17 +203,17 @@ const timers = require(${JSON.stringify(timersEntry)});
 const p = timers.setTimeout(10000);
 global.setTimeout(function () { p.cancel('stop'); }, 10);
 p.then(
- function () { process.stdout.write('RESOLVED'); },
- function (err) { process.stdout.write('REJECTED:' + (err && err.name)); }
+ function () { process.stdout.write('resolved'); },
+ function (err) { process.stdout.write('rejected:' + (err && err.name)); }
 );
 `;
 
-    const { stdout, elapsedMs } = runChild(program, 8000);
+    const { stdout } = runChild(program, 8000);
 
-    expect(stdout).toBe('REJECTED:CancelError');
-    // if the underlying node timer were merely abandoned rather than cleared, this process would
-    // not exit until the original 10s delay elapsed
-    expect(elapsedMs).toBeLessThan(3000);
+    expect(stdout).toBe('rejected:CancelError');
+    // an uncleared 10s timer would hold the loop open past runChild's 8s spawn timeout, which
+    // throws rather than returning, so reaching this line is itself the proof
+    // no wall-clock upper bound here: it measured machine load as much as the timer
   });
 });
 
@@ -206,10 +227,9 @@ timers.setTimeout(10000, undefined, { ref: false });
 process.stdout.write('SCRIPT_END');
 `;
 
-    const { stdout, elapsedMs } = runChild(program, 8000);
+    const { stdout } = runChild(program, 8000);
 
     expect(stdout).toBe('SCRIPT_END');
-    expect(elapsedMs).toBeLessThan(3000);
   });
 
   it('control: the same 10s timer WITHOUT ref: false holds the process open for the full delay', () => {
@@ -242,9 +262,8 @@ async function main() {
 main();
 `;
 
-    const { stdout, elapsedMs } = runChild(program, 8000);
+    const { stdout } = runChild(program, 8000);
 
     expect(stdout).toBe('DONE');
-    expect(elapsedMs).toBeLessThan(3000);
   });
 });

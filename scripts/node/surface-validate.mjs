@@ -36,7 +36,16 @@ const REQUIRED_EXPORT_FIELDS = [
   'runtime',
 ];
 
-const ALLOWED_EXPORT_FIELDS = new Set([...REQUIRED_EXPORT_FIELDS, 'teardown', 'notes', 'probed']);
+// 'nodeSpecifier' overrides the manifest's own specifier for one export, for a member reached
+// through a submodule the manifest is not named after (node:stream/consumers under stream).
+const ALLOWED_EXPORT_FIELDS = new Set([
+  ...REQUIRED_EXPORT_FIELDS,
+  'teardown',
+  'notes',
+  'probed',
+  'nodeSpecifier',
+  'parent',
+]);
 
 const REQUIRED_SIGNAL_FIELDS = ['documented', 'since', 'probed'];
 const ALLOWED_SIGNAL_FIELDS = new Set([...REQUIRED_SIGNAL_FIELDS, 'sinceByMajor']);
@@ -154,6 +163,22 @@ export async function validateManifest(manifest, filename, nodeLock = null) {
             }
             if (typeof ver !== 'string' || ver.length === 0) {
               addErr(expName, 'nodeSignal.sinceByMajor', `value for major "${maj}" must be a non-empty string`);
+              continue;
+            }
+
+            // a value must lie on the major line it is filed under
+            // the map exists to record a backport, 18 getting v18.18.0 while 20 got v20.5.0
+            // checking only that the key is present left a wrong-line version invisible
+            // a version below the key's line is fine, the feature predates that major
+            const verMajor = Number(/^v(\d+)\./.exec(ver)?.[1]);
+            if (Number.isNaN(verMajor)) {
+              addErr(expName, 'nodeSignal.sinceByMajor', `value "${ver}" for major "${maj}" is not a vX.Y.Z version`);
+            } else if (verMajor > Number(maj)) {
+              addErr(
+                expName,
+                'nodeSignal.sinceByMajor',
+                `value "${ver}" for major "${maj}" is from a later major, so it cannot be when ${maj} got it`,
+              );
             }
           }
         }
@@ -240,6 +265,9 @@ export async function validateManifest(manifest, filename, nodeLock = null) {
 
     if (exp.teardown !== undefined && exp.teardown !== null && typeof exp.teardown !== 'string') {
       addErr(expName, 'teardown', 'must be a string or null');
+    }
+    if (exp.parent !== undefined && (typeof exp.parent !== 'string' || exp.parent.trim() === '')) {
+      addErr(expName, 'parent', 'must be a non-empty string');
     }
     if (exp.notes !== undefined && typeof exp.notes !== 'string') {
       addErr(expName, 'notes', 'must be a string');

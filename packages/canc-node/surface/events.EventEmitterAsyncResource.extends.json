@@ -7,6 +7,7 @@
       "name": "asyncId",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -27,6 +28,7 @@
       "name": "asyncResource",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -47,6 +49,7 @@
       "name": "emitDestroy",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -67,6 +70,7 @@
       "name": "triggerAsyncId",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,

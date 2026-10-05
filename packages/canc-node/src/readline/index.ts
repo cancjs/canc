@@ -1,7 +1,7 @@
 import type { Completer, Interface as NodeInterface, ReadLineOptions } from 'node:readline/promises';
 import { createInterface as nodeCreateInterface } from 'node:readline/promises';
 
-import questionManifest from '../../surface/readline.readlinePromises.Interface.json';
+import questionManifest from '../../surface/projected/readline.readlinePromises.Interface.json';
 import { IManifestEntry, signalWrapped, TCancelable, TNodeFn } from '../fs/wrap';
 
 export type { Completer, ReadLineOptions } from 'node:readline/promises';

@@ -102,7 +102,8 @@ export async function fileHandleAssertions(path: string, nativeHandle: nodeFsp.F
   decorated.readFile().cancel();
 
   const rs = fh.createReadStream();
-  rs.pipe;
+  // property access is the assertion, it fails to compile if the stream has no pipe
+  void rs.pipe;
 
   type H1 = Expect<Equal<ReturnType<fs.TCancelableFileHandle['readableWebStream']>, ReturnType<nodeFsp.FileHandle['readableWebStream']>>>;
   type H2 = Expect<Equal<ReturnType<fs.TCancelableFileHandle['createReadStream']>, ReturnType<nodeFsp.FileHandle['createReadStream']>>>;

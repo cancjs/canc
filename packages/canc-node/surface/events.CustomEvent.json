@@ -7,6 +7,7 @@
       "name": "detail",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,

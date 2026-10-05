@@ -27,13 +27,19 @@ export default tseslint.config(
   // The published barrels re-export by name, never by `export *`: a star export hands the
   // public surface to whoever last added an `export` keyword inside the target module, which is
   // the opposite of a deliberate published list.
+  //
+  // A `node:` target is the one exception, and it is the rule's own reasoning rather than an escape
+  // from it. Mirroring the remainder of a builtin is the point of those modules: the names come from
+  // the runtime, so enumerating them here would pin the published surface to whichever Node built
+  // the tarball. What the package actually promises is pinned by the surface manifests and the
+  // baseline, which is where a change to it has to be declared.
   {
     files: ['src/**/*.ts'],
     rules: {
       'no-restricted-syntax': [
         'error',
         {
-          selector: 'ExportAllDeclaration',
+          selector: 'ExportAllDeclaration[source.value=/^(?!node:)/]',
           message: 'Re-export by name (export { a, b } from "./x"), not export *.',
         },
       ],

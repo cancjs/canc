@@ -7,6 +7,7 @@
       "name": "once",
       "kind": "fn",
       "cancelCategory": "B",
+      "callPath": null,
       "nodeSignal": {
         "documented": true,
         "since": "v11.13.0",
@@ -28,6 +29,7 @@
       "name": "on",
       "kind": "fn",
       "cancelCategory": "A",
+      "callPath": null,
       "nodeSignal": {
         "documented": true,
         "since": "v13.6.0",
@@ -49,11 +51,18 @@
       "name": "addAbortListener",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": true,
         "since": "v20.5.0",
         "probed": null,
-        "sinceByMajor": null
+        "sinceByMajor": {
+          "18": "v18.18.0",
+          "20": "v20.5.0",
+          "22": "v20.5.0",
+          "24": "v20.5.0",
+          "26": "v20.5.0"
+        }
       },
       "wrapper": "gated",
       "failures": [],
@@ -69,6 +78,7 @@
       "name": "EventEmitter",
       "kind": "class",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -89,6 +99,7 @@
       "name": "EventTarget",
       "kind": "class",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -109,6 +120,7 @@
       "name": "NodeEventTarget",
       "kind": "class",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -129,6 +141,7 @@
       "name": "CustomEvent",
       "kind": "class",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -149,6 +162,7 @@
       "name": "Event",
       "kind": "class",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -169,6 +183,7 @@
       "name": "EventEmitterAsyncResource",
       "kind": "class",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -189,6 +204,7 @@
       "name": "EventEmitterAsyncResource extends EventEmitter",
       "kind": "class",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -209,6 +225,7 @@
       "name": "captureRejectionSymbol",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -229,6 +246,7 @@
       "name": "captureRejections",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -249,6 +267,7 @@
       "name": "defaultMaxListeners",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -269,6 +288,7 @@
       "name": "errorMonitor",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -289,6 +309,7 @@
       "name": "getEventListeners",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -309,6 +330,7 @@
       "name": "getMaxListeners",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -329,6 +351,7 @@
       "name": "listenerCount",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -349,6 +372,7 @@
       "name": "setMaxListeners",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,

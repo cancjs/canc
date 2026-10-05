@@ -1,5 +1,6 @@
 // Runs by CI, cron, or hand.
 // Authoritative sequence: check:node-surface (surface:validate -> surface:check)
+// owns letters A B C D E F G H I J W, error-thrown-check.mjs owns no letter, named instead
 import { execSync } from 'child_process';
 import { existsSync, readdirSync, readFileSync } from 'fs';
 import { dirname, join } from 'path';
@@ -51,14 +52,12 @@ const exNames = new Set(exclusions.filter((e) => e.name).map((e) => e.name));
 const exKeys = new Set(exclusions.filter((e) => e.key).map((e) => `${e.module}::${e.key}`));
 
 let failed = false;
-let _warnings = false;
 function fail(msg) {
   console.error(msg);
   failed = true;
 }
 function warn(msg) {
   console.warn(msg);
-  _warnings = true;
 }
 
 // every exclusion entry exists so a reviewer can tell "not shipped" from "forgotten" -- an empty
@@ -248,7 +247,37 @@ for (const [mod, lockExports] of Object.entries(nodeLock.modules)) {
 // removals (deprecated no-iv cipher API dropped from the docs after 20), not gaps in coverage.
 // Check A above already requires these be cataloged because they are still real on older majors;
 // this set only exempts them from the "must also exist on the newest major" direction.
+/**
+ * Drop the ` extends Base` a Node doc heading carries. The lock keys a class section by its rendered
+ * heading (`BroadcastChannel extends EventTarget`) while a manifest names the class alone, so the
+ * two only line up once the clause is gone.
+ */
+function stripExtendsClause(key) {
+  return key
+    .split('.')
+    .map((segment) => segment.replace(/\s+extends\s+.*$/, ''))
+    .join('.');
+}
+
+/**
+ * The `node:<mod>/<sub>` a manifest export belongs to, when its own entry declares one. An export
+ * may live in a different specifier than the manifest it is listed under: the `stream` manifest
+ * carries the `node:stream/consumers` members because that is where a consumer reaches them from.
+ */
+function submoduleOf(manifest, name) {
+  const entry = (manifest.exports || []).find((e) => e.name === name);
+  const specifier = entry?.nodeSpecifier;
+
+  return specifier && specifier.includes('/') ? specifier.replace(/^node:/, '') : undefined;
+}
+
+/** Member names the runtime probe actually found on a submodule. */
+function runtimeKeysOf(submodule) {
+  return rtLock.node?.exports?.[submodule]?.keys || [];
+}
+
 const REMOVED_BY_NEWEST_MAJOR = new Set([
+  'stream#stream.Readable::asIndexedPairs',
   'crypto::Cipher',
   'crypto::Decipher',
   'crypto::createCipher',
@@ -278,21 +307,39 @@ for (const [subpath, mmap] of manifestMap.entries()) {
     const lockExports = nodeLock.modules[mod] || {};
     const prefix = subpath.includes('#') ? subpath.split('#')[1] + '.' + name : name;
 
-    const match = Object.entries(lockExports).find(([k, _v]) => {
+    // Every key that names this API, not the first. Node renames a class heading between majors
+    // (`BroadcastChannel` became `BroadcastChannel extends EventTarget` in 26), which leaves the
+    // lock holding one key per spelling, each carrying only the majors that used it. Taking the
+    // first match reports the API as gone from the newest major purely because the heading moved.
+    const matches = Object.entries(lockExports).filter(([k, _v]) => {
       const p = k.split('.');
       p.shift();
-      return p.join('.') === prefix;
+      return stripExtendsClause(p.join('.')) === stripExtendsClause(prefix);
     });
 
-    if (!match || !match[1].presentIn.includes(newestMajor)) {
-      fail(`Check D failed: ${subpath} ${name} has no lock counterpart on newest major`);
+    if (matches.length > 0) {
+      if (!matches.some(([, v]) => v.presentIn.includes(newestMajor))) {
+        fail(`Check D failed: ${subpath} ${name} has no lock counterpart on newest major`);
+      }
+      continue;
     }
+
+    // The doc-scraped lock only covers whole modules. A member of a submodule it never collected
+    // (`node:stream/consumers`) has no counterpart there and never will, so it is checked against
+    // the runtime probe instead of being failed against data that was not gathered.
+    const submodule = submoduleOf(manifest, name);
+
+    if (submodule && runtimeKeysOf(submodule).includes(name)) {
+      continue;
+    }
+
+    fail(`Check D failed: ${subpath} ${name} has no lock counterpart on newest major`);
   }
 }
 
 // Check W: wrapper matches combinator actually used in index.ts / file-handle.ts
-const fsIndexPath = 'packages/canc-node/src/fs/index.ts';
-const fileHandlePath = 'packages/canc-node/src/fs/file-handle.ts';
+const fsIndexPath = join(ROOT, 'packages', 'canc-node', 'src', 'fs', 'index.ts');
+const fileHandlePath = join(ROOT, 'packages', 'canc-node', 'src', 'fs', 'file-handle.ts');
 
 if (existsSync(fsIndexPath)) {
   const fsIndexSrc = readFileSync(fsIndexPath, 'utf8');
@@ -371,8 +418,10 @@ if (existsSync(fileHandlePath)) {
   }
 }
 
+// Guarded on the tree under test, not on the script: `CANC_SURFACE_ROOT` can point at a
+// surface-only fixture, and a docs check has nothing to compare against there.
 const surfaceDocsPath = join(HERE, 'surface-docs.mjs');
-if (existsSync(surfaceDocsPath)) {
+if (existsSync(surfaceDocsPath) && existsSync(join(ROOT, 'packages', 'canc-node', 'README.md'))) {
   try {
     // cwd: ROOT, not inherited from the caller -- surface-docs.mjs's own module resolution
     // (and, transitively, TypeScript's) is anchored to the process cwd, not to argv[1]
@@ -385,7 +434,7 @@ if (existsSync(surfaceDocsPath)) {
 // Check H: nodeSpecifier: null manifests match built exports, and README table cells match manifest
 for (const manifest of manifests) {
   if (manifest.nodeSpecifier !== null) continue;
-  const pkgJsonPath = join('packages/canc-node/package.json');
+  const pkgJsonPath = join(ROOT, 'packages', 'canc-node', 'package.json');
   if (!existsSync(pkgJsonPath)) continue;
   const pkgJson = JSON.parse(readFileSync(pkgJsonPath, 'utf8'));
   const exportEntry = pkgJson.exports?.[`./${manifest.subpath}`];
@@ -393,7 +442,7 @@ for (const manifest of manifests) {
     typeof exportEntry === 'string' ? exportEntry : (
       exportEntry?.import?.default || exportEntry?.default || `./dist/${manifest.subpath}.mjs`
     );
-  const builtModPath = join(process.cwd(), 'packages/canc-node', importTarget);
+  const builtModPath = join(ROOT, 'packages', 'canc-node', importTarget);
   if (!existsSync(builtModPath)) {
     fail(`Check H failed: built module for ${manifest.subpath} does not exist at ${builtModPath}`);
     continue;
@@ -414,7 +463,7 @@ for (const manifest of manifests) {
   }
 }
 
-const readmePath = join('packages/canc-node/README.md');
+const readmePath = join(ROOT, 'packages', 'canc-node', 'README.md');
 if (existsSync(readmePath)) {
   const readmeContent = readFileSync(readmePath, 'utf8');
   const cellRegex = /`([^`]+)`\s*\(`?@cancjs\/node\/fs\/extra`?\)/g;
@@ -437,12 +486,68 @@ if (existsSync(readmePath)) {
 
 // Checks A through G compare the manifest to node's API. Check I is the other direction: what the
 // package actually publishes, read off the built declarations, against the committed record of it.
+// Same guard as the docs check: the baseline is read off built declarations, which a fixture tree
+// does not carry.
 const surfaceBaselinePath = join(HERE, 'surface-baseline.mjs');
-if (existsSync(surfaceBaselinePath)) {
+if (existsSync(surfaceBaselinePath) && existsSync(join(ROOT, 'packages', 'canc-node', 'dist'))) {
   try {
     execSync(`node "${surfaceBaselinePath}" --check`, { stdio: 'inherit', cwd: ROOT });
   } catch (_err) {
     fail(`Check I failed: the published surface does not match its baseline`);
+  }
+}
+
+// Check J: no manifest-only field reaches the published bundles.
+// A src module that imports a raw surface/*.json instead of the projected/ view leaks it whole.
+// ALLOWED_IN_DIST names every field a real consumer reads, swept against the built output.
+const distDir = join(ROOT, 'packages', 'canc-node', 'dist');
+if (existsSync(distDir)) {
+  const ALLOWED_IN_DIST = new Set([
+    'name',
+    'exports',
+    'nodeSignal',
+    'documented',
+    'since',
+    'sinceByMajor',
+    'probed',
+    'kind',
+    'wrapper',
+    'adopted',
+    'minMajor',
+    'gate',
+    'callPath',
+  ]);
+
+  const manifestOnlyKeys = new Set();
+  for (const manifest of manifests) {
+    for (const exp of manifest.exports || []) {
+      for (const key of Object.keys(exp)) {
+        if (!ALLOWED_IN_DIST.has(key)) manifestOnlyKeys.add(key);
+      }
+    }
+  }
+
+  function collectFiles(dir) {
+    const out = [];
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) out.push(...collectFiles(full));
+      else if (entry.name.endsWith('.cjs') || entry.name.endsWith('.mjs')) out.push(full);
+    }
+    return out;
+  }
+
+  const distFiles = collectFiles(distDir);
+  for (const key of manifestOnlyKeys) {
+    for (const file of distFiles) {
+      const contents = readFileSync(file, 'utf8');
+      if (contents.includes(`"${key}"`) || contents.includes(`${key}:`)) {
+        fail(
+          `Check J failed: manifest-only field "${key}" found in ${file} (surface manifest inlined into the bundle)`,
+        );
+        break;
+      }
+    }
   }
 }
 

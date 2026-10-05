@@ -1,8 +1,12 @@
 // Flags an exported *Error class never constructed in production src
+// owns the name "error-class-construction", no letter (letters rot, names don't)
 import { readdirSync, readFileSync, statSync } from 'fs';
-import { join, relative } from 'path';
+import { dirname, join, relative } from 'path';
+import { fileURLToPath } from 'url';
 
-const root = process.cwd();
+const HERE = dirname(fileURLToPath(import.meta.url));
+// resolved from script location so the check works from any cwd, override for the fixture spec
+const root = process.env.CANC_SURFACE_ROOT || join(HERE, '..', '..');
 const SKIP_DIRS = new Set(['node_modules', 'dist', 'coverage']);
 
 function collectFiles(dir, out) {
@@ -90,15 +94,17 @@ for (const [name, decl] of declarations) {
     failed = true;
     unthrown.push(name);
     console.error(
-      `Check H failed: ${name} (declared ${relative(root, decl.file)}:${decl.lineIndex + 1}) is exported but never constructed in src/ outside specs`,
+      `error-class-construction check failed: ${name} (declared ${relative(root, decl.file)}:${decl.lineIndex + 1}) is exported but never constructed in src/ outside specs`,
     );
   }
 }
 
 if (failed) {
-  console.error(`Check H failed: unthrown error class${unthrown.length > 1 ? 'es' : ''}: ${unthrown.join(', ')}`);
+  console.error(
+    `error-class-construction check failed: unthrown error class${unthrown.length > 1 ? 'es' : ''}: ${unthrown.join(', ')}`,
+  );
   process.exit(1);
 } else {
-  console.log(`Check H passed: ${declarations.size} exported error classes all constructed`);
+  console.log(`error-class-construction check passed: ${declarations.size} exported error classes all constructed`);
   process.exit(0);
 }

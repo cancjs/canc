@@ -7,6 +7,7 @@
       "name": "asIndexedPairs",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": true,
         "since": "v17.5.0",
@@ -27,6 +28,7 @@
       "name": "closed",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -47,6 +49,7 @@
       "name": "compose",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": true,
         "since": "v19.1.0",
@@ -67,6 +70,7 @@
       "name": "destroy",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -87,6 +91,7 @@
       "name": "destroyed",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -107,6 +112,7 @@
       "name": "drop",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": true,
         "since": "v17.5.0",
@@ -127,6 +133,7 @@
       "name": "errored",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -147,6 +154,7 @@
       "name": "every",
       "kind": "fn",
       "cancelCategory": "A",
+      "callPath": null,
       "nodeSignal": {
         "documented": true,
         "since": "v17.5.0",
@@ -168,6 +176,7 @@
       "name": "filter",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": true,
         "since": "v17.4.0",
@@ -188,6 +197,7 @@
       "name": "find",
       "kind": "fn",
       "cancelCategory": "A",
+      "callPath": null,
       "nodeSignal": {
         "documented": true,
         "since": "v17.5.0",
@@ -209,6 +219,7 @@
       "name": "flatMap",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": true,
         "since": "v17.5.0",
@@ -229,6 +240,7 @@
       "name": "forEach",
       "kind": "fn",
       "cancelCategory": "A",
+      "callPath": null,
       "nodeSignal": {
         "documented": true,
         "since": "v17.5.0",
@@ -250,6 +262,7 @@
       "name": "isPaused",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -270,6 +283,7 @@
       "name": "iterator",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -290,6 +304,7 @@
       "name": "map",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": true,
         "since": "v17.4.0",
@@ -310,6 +325,7 @@
       "name": "pause",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -330,6 +346,7 @@
       "name": "pipe",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -350,6 +367,7 @@
       "name": "read",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -370,6 +388,7 @@
       "name": "readable",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -390,6 +409,7 @@
       "name": "readableAborted",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -410,6 +430,7 @@
       "name": "readableDidRead",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -430,6 +451,7 @@
       "name": "readableEncoding",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -450,6 +472,7 @@
       "name": "readableEnded",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -470,6 +493,7 @@
       "name": "readableFlowing",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -490,6 +514,7 @@
       "name": "readableHighWaterMark",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -510,6 +535,7 @@
       "name": "readableLength",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -530,6 +556,7 @@
       "name": "readableObjectMode",
       "kind": "const",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -550,6 +577,7 @@
       "name": "reduce",
       "kind": "fn",
       "cancelCategory": "A",
+      "callPath": null,
       "nodeSignal": {
         "documented": true,
         "since": "v17.5.0",
@@ -571,6 +599,7 @@
       "name": "resume",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -591,6 +620,7 @@
       "name": "setEncoding",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -611,6 +641,7 @@
       "name": "some",
       "kind": "fn",
       "cancelCategory": "A",
+      "callPath": null,
       "nodeSignal": {
         "documented": true,
         "since": "v17.5.0",
@@ -632,6 +663,7 @@
       "name": "take",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": true,
         "since": "v17.5.0",
@@ -652,6 +684,7 @@
       "name": "toArray",
       "kind": "fn",
       "cancelCategory": "A",
+      "callPath": null,
       "nodeSignal": {
         "documented": true,
         "since": "v17.5.0",
@@ -673,6 +706,7 @@
       "name": "unpipe",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -693,6 +727,7 @@
       "name": "unshift",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -713,6 +748,7 @@
       "name": "wrap",
       "kind": "fn",
       "cancelCategory": null,
+      "callPath": null,
       "nodeSignal": {
         "documented": false,
         "since": null,

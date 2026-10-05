@@ -143,6 +143,18 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+describe('surface/dns.json module-level export parity', () => {
+  it('every manifest export is an own key of node:dns/promises', () => {
+    const dnsJson = require('../../surface/dns.json') as { exports: Array<{ name: string }> };
+    const manifestNames = dnsJson.exports.map((e) => e.name);
+    const realNames = new Set(Object.keys(nodeDnsPromises));
+
+    const notOnNode = manifestNames.filter((name) => !realNames.has(name));
+
+    expect(notOnNode).toEqual([]);
+  });
+});
+
 describe('@cancjs/node/dns module-level exports', () => {
   let originalServers: string[];
 

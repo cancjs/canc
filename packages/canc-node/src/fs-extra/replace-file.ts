@@ -20,17 +20,44 @@ const isNotPermitted = isErrno('EPERM');
 const isNotSupported = isErrno('ENOSYS');
 const isBusy = isErrno('EBUSY');
 
+// ~480ms budget, where the old 5 attempts at 10ms gave 40ms
+// 40ms is routinely shorter than the Windows antivirus and indexer holds this retry exists for
+const UNLINK_ATTEMPTS = 12;
+const UNLINK_RETRY_MS = 40;
+
 /** How chmod and chown fail where the file system does not carry the metadata. Not fatal. */
 function isMetadataUnsupported(err: unknown): boolean {
   return isNotPermitted(err) || isNotSupported(err);
 }
 
-/** Retry unlink on transient Windows lock errors during cleanup. */
-function unlinkWithRetry(path: string, attempts = 5): Promise<void> {
+/**
+ * Retry unlink on transient lock errors during cleanup.
+ *
+ * ENOENT counts as transient rather than as success: the cleanup can run before the write it is
+ * undoing has reached the disk, and treating "not there yet" as done leaves the file behind once
+ * the write lands. Everything else that is not a known-transient errno is rethrown, because a
+ * swallowed failure leaves a temp file while the promise settles clean and tells nobody.
+ */
+function unlinkWithRetry(path: string, attempts = UNLINK_ATTEMPTS): Promise<void> {
   return unlink(path).catch((err: unknown) => {
-    if (attempts > 1 && (isNotPermitted(err) || isBusy(err))) {
-      return new Promise<void>((resolve) => setTimeout(resolve, 10)).then(() => unlinkWithRetry(path, attempts - 1));
+    const transient = isNotPermitted(err) || isBusy(err) || isNotFoundError(err);
+
+    if (!transient) {
+      throw err;
     }
+
+    if (attempts <= 1) {
+      // a final ENOENT means the file never appeared, which is the outcome this wants anyway
+      if (isNotFoundError(err)) {
+        return undefined;
+      }
+
+      throw err;
+    }
+
+    return new Promise<void>((resolve) => setTimeout(resolve, UNLINK_RETRY_MS)).then(() =>
+      unlinkWithRetry(path, attempts - 1),
+    );
   });
 }
 
@@ -58,11 +85,20 @@ export function replaceFile(path: string, data: TWriteData, options?: IReplaceFi
     let activePromise: CancelablePromise<unknown> | null = null;
     let isRenamed = false;
 
+    // returned, not dropped: a returned thenable is awaited before the cancelation settles
+    // canceling the wrapper does not un-schedule a write already handed to the platform, and
+    // awaiting the wrapper proves nothing about the fs callback, so the late write is handled by
+    // unlinkWithRetry treating ENOENT as "not yet" rather than as done
     handleCancel((reason) => {
-      activePromise?.cancel(reason);
-      if (!isRenamed) {
-        void unlinkWithRetry(tempPath);
+      const inFlight = activePromise;
+      activePromise = null;
+      inFlight?.cancel(reason);
+
+      if (isRenamed) {
+        return undefined;
       }
+
+      return unlinkWithRetry(tempPath);
     });
 
     const writePromise = (activePromise = writeFile(tempPath, data, options));
@@ -106,10 +142,14 @@ export function replaceFile(path: string, data: TWriteData, options?: IReplaceFi
           });
         })
         .then(undefined, (err: unknown) => {
-          if (!isRenamed) {
-            void unlinkWithRetry(tempPath);
+          if (isRenamed) {
+            throw err;
           }
-          throw err;
+
+          // chained so the rejection waits for the temp file to go, same as the cancel path
+          return unlinkWithRetry(tempPath).then(() => {
+            throw err;
+          });
         }),
     );
   });

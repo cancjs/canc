@@ -1,0 +1,283 @@
+{
+  "exports": [
+    {
+      "name": "pipeline",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v15.0.0",
+        "probed": "reject:AbortError",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "finished",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v15.0.0",
+        "probed": "reject:AbortError",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "addAbortSignal",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v15.4.0",
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "compose",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "duplexPair",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "from",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "fromWeb",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v17.0.0",
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "toWeb",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "getDefaultHighWaterMark",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "setDefaultHighWaterMark",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "isDestroyed",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "isDisturbed",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "isErrored",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "isReadable",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "isWritable",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "push",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "read",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "_construct",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "_destroy",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "_read",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "_flush",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "_transform",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "_final",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "_write",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "_writev",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "text",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "json",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "buffer",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "arrayBuffer",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "blob",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      }
+    },
+    {
+      "name": "bytes",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      }
+    }
+  ]
+}
