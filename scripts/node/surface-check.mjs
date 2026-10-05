@@ -19,7 +19,7 @@ for (const file of readdirSync(surfaceDir)) {
   }
 }
 
-const coveredModules = new Set(manifests.map((m) => m.subpath.split('#')[0]));
+const coveredModules = new Set(manifests.filter((m) => m.nodeSpecifier !== null).map((m) => m.subpath.split('#')[0]));
 const exModules = new Set(exclusions.map((e) => e.module));
 
 let failed = false;
@@ -152,7 +152,9 @@ for (const [mod, lockExports] of Object.entries(nodeLock.modules)) {
           let specifier = null;
           for (const m of manifests) {
             if (m.subpath === subpath) {
-              specifier = m.nodeSpecifier.replace(/^node:/, '');
+              if (m.nodeSpecifier) {
+                specifier = m.nodeSpecifier.replace(/^node:/, '');
+              }
               break;
             }
           }
@@ -169,6 +171,8 @@ for (const [mod, lockExports] of Object.entries(nodeLock.modules)) {
 }
 
 for (const [subpath, mmap] of manifestMap.entries()) {
+  const manifest = manifests.find((m) => m.subpath === subpath);
+  if (!manifest || manifest.nodeSpecifier === null) continue;
   const mod = subpath.split('#')[0];
   for (const [name, _mentry] of mmap.entries()) {
     if (name === 'Type' || name === 'FileHandle' || name.startsWith('[Symbol')) continue;
@@ -273,6 +277,59 @@ if (existsSync('scripts/node/surface-docs.mjs')) {
     execSync('node scripts/node/surface-docs.mjs --check', { stdio: 'inherit' });
   } catch (_err) {
     fail(`Check G failed: generated docs stale`);
+  }
+}
+
+// Check H: nodeSpecifier: null manifests match built exports, and README table cells match manifest
+for (const manifest of manifests) {
+  if (manifest.nodeSpecifier !== null) continue;
+  const pkgJsonPath = join('packages/canc-node/package.json');
+  if (!existsSync(pkgJsonPath)) continue;
+  const pkgJson = JSON.parse(readFileSync(pkgJsonPath, 'utf8'));
+  const exportEntry = pkgJson.exports?.[`./${manifest.subpath}`];
+  const importTarget =
+    typeof exportEntry === 'string' ? exportEntry : (
+      exportEntry?.import?.default || exportEntry?.default || `./dist/${manifest.subpath}.mjs`
+    );
+  const builtModPath = join(process.cwd(), 'packages/canc-node', importTarget);
+  if (!existsSync(builtModPath)) {
+    fail(`Check H failed: built module for ${manifest.subpath} does not exist at ${builtModPath}`);
+    continue;
+  }
+  const { pathToFileURL } = await import('node:url');
+  let builtMod;
+  try {
+    builtMod = await import(pathToFileURL(builtModPath).href);
+  } catch (err) {
+    fail(`Check H failed: could not import built module for ${manifest.subpath}: ${err.message}`);
+    continue;
+  }
+  for (const exp of manifest.exports) {
+    if (exp.kind === 'type') continue;
+    if (!(exp.name in builtMod)) {
+      fail(`Check H failed: export ${exp.name} in manifest ${manifest.subpath} not found on built namespace`);
+    }
+  }
+}
+
+const readmePath = join('packages/canc-node/README.md');
+if (existsSync(readmePath)) {
+  const readmeContent = readFileSync(readmePath, 'utf8');
+  const cellRegex = /`([^`]+)`\s*\(`?@cancjs\/node\/fs\/extra`?\)/g;
+  const extraManifest = manifests.find((m) => m.subpath === 'fs/extra');
+  let match;
+  while ((match = cellRegex.exec(readmeContent)) !== null) {
+    const name = match[1];
+    if (!extraManifest) {
+      fail(`Check H failed: README references @cancjs/node/fs/extra but no matching manifest exists`);
+      break;
+    }
+    const hasExport = extraManifest.exports.some((e) => e.name === name);
+    if (!hasExport) {
+      fail(
+        `Check H failed: README references \`${name}\` (\`@cancjs/node/fs/extra\`) but name is not in fs/extra manifest`,
+      );
+    }
   }
 }
 

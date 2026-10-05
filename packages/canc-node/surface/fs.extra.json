@@ -1,0 +1,641 @@
+{
+  "subpath": "fs/extra",
+  "nodeSpecifier": null,
+  "status": "supported",
+  "exports": [
+    {
+      "name": "copy",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "teardown": "stop before next entry; partial tree remains",
+      "failures": ["ENOENT", "EACCES", "EEXIST", "ENOSPC", "EXDEV"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "cancelable recursive copy with progress reporting and filter predicate"
+    },
+    {
+      "name": "emptyDir",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "teardown": "stop before next child removal; root remains",
+      "failures": ["ENOENT", "EACCES", "EBUSY"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "removes directory contents while keeping the directory itself"
+    },
+    {
+      "name": "emptyDirSync",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "failures": ["ENOENT", "EACCES", "EBUSY"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronously removes directory contents while keeping the directory itself"
+    },
+    {
+      "name": "ensureDir",
+      "kind": "fn",
+      "cancelCategory": "D",
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "failures": ["EACCES", "ENOSPC", "ENOTDIR"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "ensures directory exists, creating parent directories if needed"
+    },
+    {
+      "name": "ensureDirSync",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "failures": ["EACCES", "ENOSPC", "ENOTDIR"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronously ensures directory exists, creating parent directories if needed"
+    },
+    {
+      "name": "ensureFile",
+      "kind": "fn",
+      "cancelCategory": "D",
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "failures": ["EACCES", "ENOSPC", "EISDIR"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "ensures file exists, creating parent directories if needed"
+    },
+    {
+      "name": "ensureFileSync",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "failures": ["EACCES", "ENOSPC", "EISDIR"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronously ensures file exists, creating parent directories if needed"
+    },
+    {
+      "name": "ensureLink",
+      "kind": "fn",
+      "cancelCategory": "D",
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "failures": ["ENOENT", "EACCES", "EEXIST", "EXDEV", "EPERM"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "ensures hard link exists, creating parent directories if needed"
+    },
+    {
+      "name": "ensureLinkSync",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "failures": ["ENOENT", "EACCES", "EEXIST", "EXDEV", "EPERM"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronously ensures hard link exists, creating parent directories if needed"
+    },
+    {
+      "name": "ensureSymlink",
+      "kind": "fn",
+      "cancelCategory": "D",
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "failures": ["ENOENT", "EACCES", "EEXIST", "EPERM"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "ensures symbolic link exists, creating parent directories if needed"
+    },
+    {
+      "name": "ensureSymlinkSync",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "failures": ["ENOENT", "EACCES", "EEXIST", "EPERM"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronously ensures symbolic link exists, creating parent directories if needed"
+    },
+    {
+      "name": "mkdirp",
+      "kind": "fn",
+      "cancelCategory": "D",
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "failures": ["EACCES", "ENOSPC", "ENOTDIR"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "deprecated alias of ensureDir"
+    },
+    {
+      "name": "mkdirpSync",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "failures": ["EACCES", "ENOSPC", "ENOTDIR"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "deprecated alias of ensureDirSync"
+    },
+    {
+      "name": "mkdirs",
+      "kind": "fn",
+      "cancelCategory": "D",
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "failures": ["EACCES", "ENOSPC", "ENOTDIR"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "deprecated alias of ensureDir"
+    },
+    {
+      "name": "mkdirsSync",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "failures": ["EACCES", "ENOSPC", "ENOTDIR"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "deprecated alias of ensureDirSync"
+    },
+    {
+      "name": "move",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "teardown": "source is removed last, so cancel never loses data",
+      "failures": ["ENOENT", "EACCES", "EXDEV", "EPERM", "EBUSY", "EEXIST"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "moves file or directory with cross-device copy-then-delete fallback"
+    },
+    {
+      "name": "moveSync",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "failures": ["ENOENT", "EACCES", "EXDEV", "EPERM", "EBUSY", "EEXIST"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronously moves file or directory with cross-device copy-then-delete fallback"
+    },
+    {
+      "name": "outputFile",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "failures": ["EACCES", "ENOSPC"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "creates parent directories if needed and writes file"
+    },
+    {
+      "name": "outputFileSync",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "failures": ["EACCES", "ENOSPC"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronously creates parent directories if needed and writes file"
+    },
+    {
+      "name": "outputJson",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "failures": ["EACCES", "ENOSPC"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "creates parent directories if needed and writes JSON file"
+    },
+    {
+      "name": "outputJsonSync",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "failures": ["EACCES", "ENOSPC"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronously creates parent directories if needed and writes JSON file"
+    },
+    {
+      "name": "pathExists",
+      "kind": "fn",
+      "cancelCategory": "D",
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "alias of exists from /fs; never rejects"
+    },
+    {
+      "name": "readJson",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "failures": ["ENOENT", "EACCES", "JsonParseError"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "reads and parses JSON file with BOM stripping and custom error"
+    },
+    {
+      "name": "readJsonSync",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "failures": ["ENOENT", "EACCES", "JsonParseError"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronously reads and parses JSON file with BOM stripping and custom error"
+    },
+    {
+      "name": "replaceFile",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "teardown": "unlink the temp file; target untouched",
+      "failures": ["EACCES", "ENOSPC", "EXDEV", "EPERM"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "atomic file replacement using temp file and rename"
+    },
+    {
+      "name": "replaceFileSync",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "failures": ["EACCES", "ENOSPC", "EXDEV", "EPERM"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous atomic file replacement using temp file and rename"
+    },
+    {
+      "name": "walk",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "failures": ["ENOENT", "EACCES", "ELOOP"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "async iterable directory walker with ordering, cycle detection, and filtering"
+    },
+    {
+      "name": "walkSync",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "failures": ["ENOENT", "EACCES", "ELOOP"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous iterable directory walker with ordering, cycle detection, and filtering"
+    },
+    {
+      "name": "writeJson",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "failures": ["ENOENT", "EACCES", "EISDIR", "ENOSPC", "EROFS"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "formats and writes JSON object to file"
+    },
+    {
+      "name": "writeJsonSync",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "failures": ["ENOENT", "EACCES", "EISDIR", "ENOSPC", "EROFS"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronously formats and writes JSON object to file"
+    }
+  ]
+}

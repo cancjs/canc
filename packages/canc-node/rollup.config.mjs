@@ -21,6 +21,7 @@ const configs = createMultiConfigs(
     { input: 'src/fs/index.ts', base: 'fs/index', name: 'canc_node_fs' },
     { input: 'src/fs/sync.ts', base: 'fs/sync', name: 'canc_node_fs_sync' },
     { input: 'src/fs/register-graceful.ts', base: 'fs/register-graceful', name: 'canc_node_fs_register_graceful' },
+    { input: 'src/fs-extra/index.ts', base: 'fs/extra', name: 'canc_node_fs_extra' },
   ],
   { noUmd: true },
 );

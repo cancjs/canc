@@ -60,6 +60,18 @@
         "types": "./dist/types/fs/register-graceful.d.ts",
         "default": "./dist/fs/register-graceful.cjs"
       }
+    },
+    "./fs/extra": {
+      "import": {
+        "types@<4.7": "./dist/types-ts4.2/fs-extra/index.d.mts",
+        "types": "./dist/types/fs-extra/index.d.mts",
+        "default": "./dist/fs/extra.mjs"
+      },
+      "require": {
+        "types@<4.7": "./dist/types-ts4.2/fs-extra/index.d.ts",
+        "types": "./dist/types/fs-extra/index.d.ts",
+        "default": "./dist/fs/extra.cjs"
+      }
     }
   },
   "main": "dist/index.cjs",
@@ -108,7 +120,8 @@
     "*": {
       "fs": ["dist/types/fs/index.d.ts"],
       "fs/sync": ["dist/types/fs/sync.d.ts"],
-      "fs/register-graceful": ["dist/types/fs/register-graceful.d.ts"]
+      "fs/register-graceful": ["dist/types/fs/register-graceful.d.ts"],
+      "fs/extra": ["dist/types/fs-extra/index.d.ts"]
     }
   }
 }

@@ -69,8 +69,8 @@ export async function validateManifest(manifest, filename, nodeLock = null) {
   if (typeof manifest.subpath !== 'string') {
     addErr(null, 'subpath', 'must be a string');
   }
-  if (typeof manifest.nodeSpecifier !== 'string') {
-    addErr(null, 'nodeSpecifier', 'must be a string');
+  if (manifest.nodeSpecifier !== null && typeof manifest.nodeSpecifier !== 'string') {
+    addErr(null, 'nodeSpecifier', 'must be a string or null');
   }
   if (!ALLOWED_STATUSES.has(manifest.status)) {
     addErr(null, 'status', `invalid status "${manifest.status}", expected one of: ${[...ALLOWED_STATUSES].join(', ')}`);
