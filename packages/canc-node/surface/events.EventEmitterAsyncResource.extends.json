@@ -1,0 +1,87 @@
+{
+  "subpath": "events#EventEmitterAsyncResource extends EventEmitter",
+  "nodeSpecifier": "node:events",
+  "status": "supported",
+  "exports": [
+    {
+      "name": "asyncId",
+      "kind": "const",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "lock artifact duplicate of EventEmitterAsyncResource, same underlying class"
+    },
+    {
+      "name": "asyncResource",
+      "kind": "const",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "lock artifact duplicate of EventEmitterAsyncResource, same underlying class"
+    },
+    {
+      "name": "emitDestroy",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "lock artifact duplicate of EventEmitterAsyncResource, same underlying class"
+    },
+    {
+      "name": "triggerAsyncId",
+      "kind": "const",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "lock artifact duplicate of EventEmitterAsyncResource, same underlying class"
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "subpath": "dgram",
+  "nodeSpecifier": "node:dgram",
+  "status": "planned",
+  "exports": [
+    {
+      "name": "createSocket",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v15.6.0",
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous socket factory, re-exported unchanged; node documents an options.signal that closes the socket on abort (since v15.6.0, predates the v18 floor), honored automatically since we hand the options object to node untouched"
+    },
+    {
+      "name": "Socket",
+      "kind": "class",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "structural re-export; two terminal events (listening and close), so it carries no promise property per the class 2 rule; only bind, connect and send are promisified; member detail in dgram#Socket"
+    }
+  ]
+}

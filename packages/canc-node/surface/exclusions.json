@@ -25,6 +25,12 @@
     "reason": "execSync, execFileSync and spawnSync stay in node:child_process; a sync subpath would gain nothing"
   },
   {
+    "module": "readline",
+    "key": "readline.InterfaceConstructor.question",
+    "status": "excluded",
+    "reason": "doc-only artifact of the pre-20 combined Interface declaration; the v18 doc snapshot listed question directly on the shared base class, later docs split it onto readline.Interface.question (callback) and readlinePromises.Interface.question (promise), both already covered under their own subpaths"
+  },
+  {
     "module": "util",
     "status": "deferred",
     "reason": "util.aborted adopted internally; no subpath"
@@ -110,5 +116,70 @@
     "module": "sqlite",
     "status": "deferred",
     "reason": "sync query API blocking. async backup uncancelable"
+  },
+  {
+    "module": "dgram",
+    "status": "deferred",
+    "reason": "planned subpath, not implemented yet"
+  },
+  {
+    "module": "dns",
+    "status": "deferred",
+    "reason": "planned subpath, not implemented yet"
+  },
+  {
+    "module": "events",
+    "status": "deferred",
+    "reason": "planned subpath, not implemented yet"
+  },
+  {
+    "module": "http",
+    "status": "deferred",
+    "reason": "planned subpath, not implemented yet"
+  },
+  {
+    "module": "http2",
+    "status": "deferred",
+    "reason": "planned subpath, not implemented yet"
+  },
+  {
+    "module": "https",
+    "status": "deferred",
+    "reason": "planned subpath, not implemented yet"
+  },
+  {
+    "module": "net",
+    "status": "deferred",
+    "reason": "planned subpath, not implemented yet"
+  },
+  {
+    "module": "readline",
+    "status": "deferred",
+    "reason": "planned subpath, not implemented yet"
+  },
+  {
+    "module": "stream",
+    "status": "deferred",
+    "reason": "planned subpath, not implemented yet"
+  },
+  {
+    "module": "timers",
+    "status": "deferred",
+    "reason": "planned subpath, not implemented yet"
+  },
+  {
+    "module": "tls",
+    "status": "deferred",
+    "reason": "planned subpath, not implemented yet"
+  },
+  {
+    "module": "worker_threads",
+    "status": "deferred",
+    "reason": "planned subpath, not implemented yet"
+  },
+  {
+    "module": "zlib",
+    "status": "deferred",
+    "reason": "planned subpath, not implemented yet"
   }
 ]

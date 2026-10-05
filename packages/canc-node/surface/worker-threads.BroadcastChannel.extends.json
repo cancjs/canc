@@ -1,0 +1,127 @@
+{
+  "subpath": "worker_threads#BroadcastChannel extends EventTarget",
+  "nodeSpecifier": "node:worker_threads",
+  "status": "planned",
+  "exports": [
+    {
+      "name": "close",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "lock artifact duplicate of worker-threads#BroadcastChannel, same underlying class"
+    },
+    {
+      "name": "onmessage",
+      "kind": "const",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "lock artifact duplicate of worker-threads#BroadcastChannel, same underlying class"
+    },
+    {
+      "name": "onmessageerror",
+      "kind": "const",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "lock artifact duplicate of worker-threads#BroadcastChannel, same underlying class"
+    },
+    {
+      "name": "postMessage",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "lock artifact duplicate of worker-threads#BroadcastChannel, same underlying class"
+    },
+    {
+      "name": "ref",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "lock artifact duplicate of worker-threads#BroadcastChannel, same underlying class"
+    },
+    {
+      "name": "unref",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "lock artifact duplicate of worker-threads#BroadcastChannel, same underlying class"
+    }
+  ]
+}

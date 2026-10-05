@@ -1,0 +1,1539 @@
+{
+  "subpath": "crypto",
+  "nodeSpecifier": "node:crypto",
+  "status": "planned",
+  "exports": [
+    {
+      "name": "Certificate",
+      "kind": "class",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous class, re-exported unchanged; no async operation to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "Cipher",
+      "kind": "class",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "synchronous class, re-exported unchanged; no async operation to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "Cipheriv",
+      "kind": "class",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous class, re-exported unchanged; no async operation to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "DEFAULT_ENCODING",
+      "kind": "const",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "gated",
+      "failures": [],
+      "minMajor": null,
+      "gate": "feature-detect",
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "removed after 18; feature-detected, not re-exported when absent",
+      "callPath": "sync"
+    },
+    {
+      "name": "Decipher",
+      "kind": "class",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "synchronous class, re-exported unchanged; no async operation to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "Decipheriv",
+      "kind": "class",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous class, re-exported unchanged; no async operation to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "DiffieHellman",
+      "kind": "class",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous class, re-exported unchanged; no async operation to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "DiffieHellmanGroup",
+      "kind": "class",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous class, re-exported unchanged; no async operation to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "ECDH",
+      "kind": "class",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous class, re-exported unchanged; no async operation to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "Hash",
+      "kind": "class",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous class, re-exported unchanged; no async operation to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "Hmac",
+      "kind": "class",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous class, re-exported unchanged; no async operation to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "KeyObject",
+      "kind": "class",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous class, re-exported unchanged; no async operation to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "Sign",
+      "kind": "class",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous class, re-exported unchanged; no async operation to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "Verify",
+      "kind": "class",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous class, re-exported unchanged; no async operation to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "X509Certificate",
+      "kind": "class",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous class, re-exported unchanged; no async operation to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "argon2",
+      "kind": "fn",
+      "cancelCategory": "B",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "gated",
+      "teardown": "none; the callback still fires later and the threadpool slot stays occupied until it does",
+      "failures": [],
+      "minMajor": 24,
+      "gate": "throw",
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "argon2 kdf, threadpool job; cancel stops waiting only, canceling does not free the pool slot; throws NotImplementedError below 24",
+      "callPath": "callback"
+    },
+    {
+      "name": "argon2Sync",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "gated",
+      "failures": [],
+      "minMajor": 24,
+      "gate": "throw",
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "synchronous argon2 kdf; throws NotImplementedError below 24",
+      "callPath": "sync"
+    },
+    {
+      "name": "checkPrime",
+      "kind": "fn",
+      "cancelCategory": "B",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "promisify-callback",
+      "teardown": "none; the callback still fires later and the threadpool slot stays occupied until it does",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "primality check on the threadpool; cancel stops waiting only, canceling does not free the pool slot",
+      "callPath": "callback"
+    },
+    {
+      "name": "checkPrimeSync",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "constants",
+      "kind": "const",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "exported object of crypto constants, re-exported unchanged",
+      "callPath": "sync"
+    },
+    {
+      "name": "createCipher",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "gated",
+      "failures": [],
+      "minMajor": null,
+      "gate": "feature-detect",
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "deprecated no-iv cipher constructor, removed after 20; feature-detected, throws when absent",
+      "callPath": "sync"
+    },
+    {
+      "name": "createCipheriv",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "createDecipher",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "gated",
+      "failures": [],
+      "minMajor": null,
+      "gate": "feature-detect",
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "deprecated no-iv decipher constructor, removed after 20; feature-detected, throws when absent",
+      "callPath": "sync"
+    },
+    {
+      "name": "createDecipheriv",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "createDiffieHellman",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "createDiffieHellmanGroup",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "createECDH",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "createHash",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "createHmac",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "createPrivateKey",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "createPublicKey",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "createSecretKey",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "createSign",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "createVerify",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "decapsulate",
+      "kind": "fn",
+      "cancelCategory": "B",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "gated",
+      "teardown": "none; the callback still fires later and the threadpool slot stays occupied until it does",
+      "failures": [],
+      "minMajor": 24,
+      "gate": "throw",
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "post-quantum KEM decapsulation, threadpool job; cancel stops waiting only, canceling does not free the pool slot; throws NotImplementedError below 24",
+      "callPath": "callback"
+    },
+    {
+      "name": "diffieHellman",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "one-shot key agreement; node added an optional callback at 24, out of scope for this subpath, still exported synchronously",
+      "callPath": "sync"
+    },
+    {
+      "name": "encapsulate",
+      "kind": "fn",
+      "cancelCategory": "B",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "gated",
+      "teardown": "none; the callback still fires later and the threadpool slot stays occupied until it does",
+      "failures": [],
+      "minMajor": 24,
+      "gate": "throw",
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "post-quantum KEM encapsulation, threadpool job; cancel stops waiting only, canceling does not free the pool slot; throws NotImplementedError below 24",
+      "callPath": "callback"
+    },
+    {
+      "name": "fips",
+      "kind": "const",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "deprecated boolean property, alias of getFips/setFips; feature-detected across runtimes",
+      "callPath": "sync"
+    },
+    {
+      "name": "generateKey",
+      "kind": "fn",
+      "cancelCategory": "B",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "promisify-callback",
+      "teardown": "none; the callback still fires later and the threadpool slot stays occupied until it does",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "generates a symmetric key on the threadpool; cancel stops waiting only, canceling does not free the pool slot",
+      "callPath": "callback"
+    },
+    {
+      "name": "generateKeyPair",
+      "kind": "fn",
+      "cancelCategory": "B",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "promisify-callback",
+      "teardown": "none; the callback still fires later and the threadpool slot stays occupied until it does",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "generates an asymmetric key pair on the threadpool; cancel stops waiting only, canceling does not free the pool slot",
+      "callPath": "callback"
+    },
+    {
+      "name": "generateKeyPairSync",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "generateKeySync",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "generatePrime",
+      "kind": "fn",
+      "cancelCategory": "B",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "promisify-callback",
+      "teardown": "none; the callback still fires later and the threadpool slot stays occupied until it does",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "searches for a prime on the threadpool; cancel stops waiting only, canceling does not free the pool slot",
+      "callPath": "callback"
+    },
+    {
+      "name": "generatePrimeSync",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "getCipherInfo",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "getCiphers",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "getCurves",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "getDiffieHellman",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "getFips",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "getHashes",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "getRandomValues",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "hash",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "gated",
+      "failures": [],
+      "minMajor": 20,
+      "gate": "throw",
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous one-shot digest, no callback form; throws NotImplementedError below 20",
+      "callPath": "sync"
+    },
+    {
+      "name": "hkdf",
+      "kind": "fn",
+      "cancelCategory": "B",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "promisify-callback",
+      "teardown": "none; the callback still fires later and the threadpool slot stays occupied until it does",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "HKDF derivation on the threadpool; cancel stops waiting only, canceling does not free the pool slot",
+      "callPath": "callback"
+    },
+    {
+      "name": "hkdfSync",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "pbkdf2",
+      "kind": "fn",
+      "cancelCategory": "B",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "promisify-callback",
+      "teardown": "none; the callback still fires later and the threadpool slot stays occupied until it does",
+      "failures": ["ERR_CRYPTO_INVALID_DIGEST"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "derives a key on the threadpool; cancel stops waiting only, canceling does not free the pool slot",
+      "callPath": "callback"
+    },
+    {
+      "name": "pbkdf2Sync",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "privateDecrypt",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "privateEncrypt",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "publicDecrypt",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "publicEncrypt",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "randomBytes",
+      "kind": "fn",
+      "cancelCategory": "B",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "promisify-callback",
+      "teardown": "none; the callback still fires later and the threadpool slot stays occupied until it does",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "random byte generation, large sizes run on the threadpool; cancel stops waiting only, canceling does not free the pool slot",
+      "callPath": "callback"
+    },
+    {
+      "name": "randomFill",
+      "kind": "fn",
+      "cancelCategory": "B",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "promisify-callback",
+      "teardown": "none; the callback still fires later and the threadpool slot stays occupied until it does",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "fills a typed array with random bytes on the threadpool; cancel stops waiting only, canceling does not free the pool slot",
+      "callPath": "callback"
+    },
+    {
+      "name": "randomFillSync",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "randomInt",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "randomUUID",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "randomUUIDv7",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "gated",
+      "failures": [],
+      "minMajor": 24,
+      "gate": "throw",
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "UUIDv7 generator; throws NotImplementedError below 24",
+      "callPath": "sync"
+    },
+    {
+      "name": "scrypt",
+      "kind": "fn",
+      "cancelCategory": "B",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "promisify-callback",
+      "teardown": "none; the callback still fires later and the threadpool slot stays occupied until it does",
+      "failures": ["ERR_CRYPTO_INVALID_SCRYPT_PARAMS"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "heaviest primitive node ships; the one users most want a bound on; cancel stops waiting only, canceling does not free the pool slot",
+      "callPath": "callback"
+    },
+    {
+      "name": "scryptSync",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "secureHeapUsed",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "setEngine",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "setFips",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "sign",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "one-shot sign; node added an optional callback at 26, out of scope for this subpath, still exported synchronously",
+      "callPath": "sync"
+    },
+    {
+      "name": "subtle",
+      "kind": "const",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "gated",
+      "failures": [],
+      "minMajor": 26,
+      "gate": "feature-detect",
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "WebCrypto SubtleCrypto instance, alias of webcrypto.subtle",
+      "callPath": "sync"
+    },
+    {
+      "name": "timingSafeEqual",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged; no promise to cancel",
+      "callPath": "sync"
+    },
+    {
+      "name": "verify",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "one-shot verify; node added an optional callback at 26, out of scope for this subpath, still exported synchronously",
+      "callPath": "sync"
+    },
+    {
+      "name": "webcrypto",
+      "kind": "const",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "WebCrypto implementation, re-exported unchanged; its own operations are native promises, not node callbacks",
+      "callPath": "sync"
+    }
+  ]
+}

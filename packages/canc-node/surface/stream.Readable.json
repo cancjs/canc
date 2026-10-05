@@ -1,0 +1,733 @@
+{
+  "subpath": "stream#stream.Readable",
+  "nodeSpecifier": "node:stream",
+  "status": "supported",
+  "exports": [
+    {
+      "name": "asIndexedPairs",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": true,
+        "since": "v17.5.0",
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "cancelify-signal",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited Readable prototype member, structural re-export only"
+    },
+    {
+      "name": "closed",
+      "kind": "const",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited Readable prototype member, structural re-export only"
+    },
+    {
+      "name": "compose",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": true,
+        "since": "v19.1.0",
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "cancelify-signal",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "lazy Readable helper; returns a stream not a promise, canc does not wrap it, see cancjs toolbox async-iter"
+    },
+    {
+      "name": "destroy",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited Readable prototype member, structural re-export only"
+    },
+    {
+      "name": "destroyed",
+      "kind": "const",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited Readable prototype member, structural re-export only"
+    },
+    {
+      "name": "drop",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": true,
+        "since": "v17.5.0",
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "cancelify-signal",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "lazy Readable helper; returns a stream not a promise, canc does not wrap it, see cancjs toolbox async-iter"
+    },
+    {
+      "name": "errored",
+      "kind": "const",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited Readable prototype member, structural re-export only"
+    },
+    {
+      "name": "every",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v17.5.0",
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "cancelify-signal",
+      "teardown": "stops pulling from the source on cancel",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "Readable promise terminal wrapped by /stream; see the terminals module"
+    },
+    {
+      "name": "filter",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": true,
+        "since": "v17.4.0",
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "cancelify-signal",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "lazy Readable helper; returns a stream not a promise, canc does not wrap it, see cancjs toolbox async-iter"
+    },
+    {
+      "name": "find",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v17.5.0",
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "cancelify-signal",
+      "teardown": "stops pulling from the source on cancel",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "Readable promise terminal wrapped by /stream; see the terminals module"
+    },
+    {
+      "name": "flatMap",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": true,
+        "since": "v17.5.0",
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "cancelify-signal",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "lazy Readable helper; returns a stream not a promise, canc does not wrap it, see cancjs toolbox async-iter"
+    },
+    {
+      "name": "forEach",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v17.5.0",
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "cancelify-signal",
+      "teardown": "stops pulling from the source on cancel",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "Readable promise terminal wrapped by /stream; see the terminals module"
+    },
+    {
+      "name": "isPaused",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited Readable prototype member, structural re-export only"
+    },
+    {
+      "name": "iterator",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited Readable prototype member, structural re-export only"
+    },
+    {
+      "name": "map",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": true,
+        "since": "v17.4.0",
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "cancelify-signal",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "lazy Readable helper; returns a stream not a promise, canc does not wrap it, see cancjs toolbox async-iter"
+    },
+    {
+      "name": "pause",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited Readable prototype member, structural re-export only"
+    },
+    {
+      "name": "pipe",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited Readable prototype member, structural re-export only"
+    },
+    {
+      "name": "read",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited Readable prototype member, structural re-export only"
+    },
+    {
+      "name": "readable",
+      "kind": "const",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited Readable prototype member, structural re-export only"
+    },
+    {
+      "name": "readableAborted",
+      "kind": "const",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited Readable prototype member, structural re-export only"
+    },
+    {
+      "name": "readableDidRead",
+      "kind": "const",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited Readable prototype member, structural re-export only"
+    },
+    {
+      "name": "readableEncoding",
+      "kind": "const",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited Readable prototype member, structural re-export only"
+    },
+    {
+      "name": "readableEnded",
+      "kind": "const",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited Readable prototype member, structural re-export only"
+    },
+    {
+      "name": "readableFlowing",
+      "kind": "const",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited Readable prototype member, structural re-export only"
+    },
+    {
+      "name": "readableHighWaterMark",
+      "kind": "const",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited Readable prototype member, structural re-export only"
+    },
+    {
+      "name": "readableLength",
+      "kind": "const",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited Readable prototype member, structural re-export only"
+    },
+    {
+      "name": "readableObjectMode",
+      "kind": "const",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited Readable prototype member, structural re-export only"
+    },
+    {
+      "name": "reduce",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v17.5.0",
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "cancelify-signal",
+      "teardown": "stops pulling from the source on cancel",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "Readable promise terminal wrapped by /stream; see the terminals module"
+    },
+    {
+      "name": "resume",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited Readable prototype member, structural re-export only"
+    },
+    {
+      "name": "setEncoding",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited Readable prototype member, structural re-export only"
+    },
+    {
+      "name": "some",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v17.5.0",
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "cancelify-signal",
+      "teardown": "stops pulling from the source on cancel",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "Readable promise terminal wrapped by /stream; see the terminals module"
+    },
+    {
+      "name": "take",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": true,
+        "since": "v17.5.0",
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "cancelify-signal",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "lazy Readable helper; returns a stream not a promise, canc does not wrap it, see cancjs toolbox async-iter"
+    },
+    {
+      "name": "toArray",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v17.5.0",
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "cancelify-signal",
+      "teardown": "stops pulling from the source on cancel",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "Readable promise terminal wrapped by /stream; see the terminals module"
+    },
+    {
+      "name": "unpipe",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited Readable prototype member, structural re-export only"
+    },
+    {
+      "name": "unshift",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited Readable prototype member, structural re-export only"
+    },
+    {
+      "name": "wrap",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "inherited Readable prototype member, structural re-export only"
+    }
+  ]
+}

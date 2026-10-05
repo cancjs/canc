@@ -2,9 +2,14 @@
 // Authoritative sequence: check:node-surface (surface:validate -> surface:check)
 import { execSync } from 'child_process';
 import { existsSync, readdirSync, readFileSync } from 'fs';
-import { join } from 'path';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 
-const surfaceDir = 'packages/canc-node/surface';
+const HERE = dirname(fileURLToPath(import.meta.url));
+// Resolved from the script location so the check works from any cwd. The override exists for the
+// spec that runs this against a throwaway fixture tree; nothing in normal use sets it.
+const ROOT = process.env.CANC_SURFACE_ROOT || join(HERE, '..', '..');
+const surfaceDir = join(ROOT, 'packages', 'canc-node', 'surface');
 const nodeLock = JSON.parse(readFileSync(join(surfaceDir, 'node-api.lock.json'), 'utf8'));
 const rtLock = JSON.parse(readFileSync(join(surfaceDir, 'runtime.lock.json'), 'utf8'));
 const exclusions = JSON.parse(readFileSync(join(surfaceDir, 'exclusions.json'), 'utf8'));
@@ -38,8 +43,12 @@ function toModKey(subpath, nodeSpecifier) {
 const coveredModules = new Set(
   manifests.filter((m) => m.nodeSpecifier !== null).map((m) => toModKey(m.subpath, m.nodeSpecifier)),
 );
-const exModules = new Set(exclusions.filter((e) => e.module).map((e) => e.module));
+// a module-level entry (no "key") drops every lock fact for that module; a keyed entry drops
+// exactly one lock fact, for a name that is real but does not survive to the newest major
+// (a doc-structure artifact rather than a removal worth failing the build over)
+const exModules = new Set(exclusions.filter((e) => e.module && !e.key).map((e) => e.module));
 const exNames = new Set(exclusions.filter((e) => e.name).map((e) => e.name));
+const exKeys = new Set(exclusions.filter((e) => e.key).map((e) => `${e.module}::${e.key}`));
 
 let failed = false;
 let _warnings = false;
@@ -50,6 +59,15 @@ function fail(msg) {
 function warn(msg) {
   console.warn(msg);
   _warnings = true;
+}
+
+// every exclusion entry exists so a reviewer can tell "not shipped" from "forgotten" -- an empty
+// reason defeats that, so it is a fail, not a lint nit
+for (const entry of exclusions) {
+  const label = entry.module ? `module ${entry.module}` : `name ${entry.name}`;
+  if (typeof entry.reason !== 'string' || entry.reason.trim().length === 0) {
+    fail(`Check A failed: exclusion entry for ${label} has no reason`);
+  }
 }
 
 const manifestMap = new Map();
@@ -64,11 +82,28 @@ const newestMajor = Object.keys(nodeLock.generatedFrom)
   .map(Number)
   .sort((a, b) => b - a)[0];
 
+// Class families a phase deliberately did not wrap or catalog member-by-member (out-of-scope
+// fence recorded in the phase task, not a module exclusion). Keyed by top-level module, value is
+// the set of class names (matched as the lock key's second segment) to skip entirely, both the
+// class declaration and every member under it.
+const OUT_OF_SCOPE_CLASSES = {
+  zlib: new Set(['ZipEntry', 'ZipFile']),
+};
+
 for (const [mod, lockExports] of Object.entries(nodeLock.modules)) {
   if (exModules.has(mod)) continue;
-  if (!coveredModules.has(mod)) continue;
+  if (!coveredModules.has(mod)) {
+    // a lock module that is neither manifested nor in the exclusion register is a silent gap:
+    // nobody decided "not shipped" or "forgotten" for it
+    fail(`Check A failed: uncovered module ${mod} (no manifest, no exclusion entry)`);
+    continue;
+  }
+
+  const fencedClasses = OUT_OF_SCOPE_CLASSES[mod];
 
   for (const [lockKey, lockVal] of Object.entries(lockExports)) {
+    if (exKeys.has(`${mod}::${lockKey}`)) continue;
+
     const prefix = lockKey.split('.')[0];
     if (
       prefix.includes('callback') ||
@@ -79,6 +114,8 @@ for (const [mod, lockExports] of Object.entries(nodeLock.modules)) {
     ) {
       continue;
     }
+
+    if (fencedClasses && fencedClasses.has(lockKey.split('.')[1])) continue;
 
     const parts = lockKey.includes('[') ? lockKey.replace(/\[.*?\]/, 'SYMBOL').split('.') : lockKey.split('.');
     const name = lockKey.includes('[') ? lockKey.slice(lockKey.indexOf('[')) : parts.pop();
@@ -207,12 +244,37 @@ for (const [mod, lockExports] of Object.entries(nodeLock.modules)) {
   }
 }
 
+// Entries the doc extraction shows on an older tracked major but not on the newest one: real
+// removals (deprecated no-iv cipher API dropped from the docs after 20), not gaps in coverage.
+// Check A above already requires these be cataloged because they are still real on older majors;
+// this set only exempts them from the "must also exist on the newest major" direction.
+const REMOVED_BY_NEWEST_MAJOR = new Set([
+  'crypto::Cipher',
+  'crypto::Decipher',
+  'crypto::createCipher',
+  'crypto::createDecipher',
+  'crypto::DEFAULT_ENCODING',
+  'crypto#Cipher::final',
+  'crypto#Cipher::getAuthTag',
+  'crypto#Cipher::setAAD',
+  'crypto#Cipher::setAutoPadding',
+  'crypto#Cipher::update',
+  'crypto#Decipher::final',
+  'crypto#Decipher::setAAD',
+  'crypto#Decipher::setAuthTag',
+  'crypto#Decipher::setAutoPadding',
+  'crypto#Decipher::update',
+  'zlib#ZlibBase::bytesRead',
+  'zlib#ZlibBase::crc32',
+]);
+
 for (const [subpath, mmap] of manifestMap.entries()) {
   const manifest = manifests.find((m) => m.subpath === subpath);
   if (!manifest || manifest.nodeSpecifier === null) continue;
   const mod = toModKey(manifest.subpath, manifest.nodeSpecifier);
   for (const [name, _mentry] of mmap.entries()) {
     if (name === 'Type' || name === 'FileHandle' || name.startsWith('[Symbol')) continue;
+    if (REMOVED_BY_NEWEST_MAJOR.has(`${subpath}::${name}`)) continue;
     const lockExports = nodeLock.modules[mod] || {};
     const prefix = subpath.includes('#') ? subpath.split('#')[1] + '.' + name : name;
 
@@ -309,9 +371,12 @@ if (existsSync(fileHandlePath)) {
   }
 }
 
-if (existsSync('scripts/node/surface-docs.mjs')) {
+const surfaceDocsPath = join(HERE, 'surface-docs.mjs');
+if (existsSync(surfaceDocsPath)) {
   try {
-    execSync('node scripts/node/surface-docs.mjs --check', { stdio: 'inherit' });
+    // cwd: ROOT, not inherited from the caller -- surface-docs.mjs's own module resolution
+    // (and, transitively, TypeScript's) is anchored to the process cwd, not to argv[1]
+    execSync(`node "${surfaceDocsPath}" --check`, { stdio: 'inherit', cwd: ROOT });
   } catch (_err) {
     fail(`Check G failed: generated docs stale`);
   }
@@ -367,6 +432,17 @@ if (existsSync(readmePath)) {
         `Check H failed: README references \`${name}\` (\`@cancjs/node/fs/extra\`) but name is not in fs/extra manifest`,
       );
     }
+  }
+}
+
+// Checks A through G compare the manifest to node's API. Check I is the other direction: what the
+// package actually publishes, read off the built declarations, against the committed record of it.
+const surfaceBaselinePath = join(HERE, 'surface-baseline.mjs');
+if (existsSync(surfaceBaselinePath)) {
+  try {
+    execSync(`node "${surfaceBaselinePath}" --check`, { stdio: 'inherit', cwd: ROOT });
+  } catch (_err) {
+    fail(`Check I failed: the published surface does not match its baseline`);
   }
 }
 

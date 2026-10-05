@@ -1,0 +1,263 @@
+{
+  "subpath": "readline#InterfaceConstructor",
+  "nodeSpecifier": "node:readline/promises",
+  "status": "planned",
+  "exports": [
+    {
+      "name": "[Symbol.asyncIterator]",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "Iterates lines; break or return closes the interface",
+      "callPath": "promises"
+    },
+    {
+      "name": "[Symbol.dispose]",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": true,
+        "since": "v23.10.0",
+        "probed": null,
+        "sinceByMajor": {
+          "22": "v22.15.0",
+          "24": "v23.10.0",
+          "26": "v23.10.0"
+        }
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": 22,
+      "gate": "feature-detect",
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "Backported to the 22 LTS line at v22.15.0; a major-only gate reads 22.0-22.14 wrong. Absent on 18 and 20. Documented pattern for 22.15+, manual close() fallback below that",
+      "callPath": "promises"
+    },
+    {
+      "name": "close",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "Ends input, removes listeners, restores stdin mode; the manual fallback below Symbol.dispose",
+      "callPath": "promises"
+    },
+    {
+      "name": "cursor",
+      "kind": "const",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "Current cursor offset; property, not a call",
+      "callPath": "promises"
+    },
+    {
+      "name": "getCursorPos",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "Sync accessor, no failure path",
+      "callPath": "promises"
+    },
+    {
+      "name": "getPrompt",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "Sync accessor, no failure path",
+      "callPath": "promises"
+    },
+    {
+      "name": "line",
+      "kind": "const",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "Current input buffer; property, not a call",
+      "callPath": "promises"
+    },
+    {
+      "name": "pause",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "Sync, returns this; no failure path",
+      "callPath": "promises"
+    },
+    {
+      "name": "prompt",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "Sync, writes the prompt string; no failure path",
+      "callPath": "promises"
+    },
+    {
+      "name": "resume",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "Sync, returns this; no failure path",
+      "callPath": "promises"
+    },
+    {
+      "name": "setPrompt",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "Sync setter; no failure path",
+      "callPath": "promises"
+    },
+    {
+      "name": "write",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "Sync write to the underlying stream; no failure path",
+      "callPath": "promises"
+    }
+  ]
+}

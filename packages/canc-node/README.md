@@ -177,18 +177,76 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 | `writer`                | -                  | 26+  | ✖    | ✖   |
 | `writev`                | stops waiting only | 18+  | ✅   | ✅  |
 
+#### readline
+
+| Export                 | Cancellation | Node | Deno | Bun |
+| ---------------------- | ------------ | ---- | ---- | --- |
+| `InterfaceConstructor` | -            | 18+  | n/a  | n/a |
+| `createInterface`      | -            | 18+  | ✅   | ✅  |
+| `emitKeypressEvents`   | -            | 18+  | n/a  | n/a |
+
+#### InterfaceConstructor (readline)
+
+| Export                   | Cancellation | Node | Deno       | Bun        |
+| ------------------------ | ------------ | ---- | ---------- | ---------- |
+| `[Symbol.asyncIterator]` | -            | 18+  | unverified | unverified |
+| `[Symbol.dispose]`       | -            | 22+  | unverified | unverified |
+| `close`                  | -            | 18+  | unverified | unverified |
+| `cursor`                 | -            | 18+  | unverified | unverified |
+| `getCursorPos`           | -            | 18+  | unverified | unverified |
+| `getPrompt`              | -            | 18+  | unverified | unverified |
+| `line`                   | -            | 18+  | unverified | unverified |
+| `pause`                  | -            | 18+  | unverified | unverified |
+| `prompt`                 | -            | 18+  | unverified | unverified |
+| `resume`                 | -            | 18+  | unverified | unverified |
+| `setPrompt`              | -            | 18+  | unverified | unverified |
+| `write`                  | -            | 18+  | unverified | unverified |
+
+#### readlinePromises (readline)
+
+| Export      | Cancellation | Node | Deno | Bun |
+| ----------- | ------------ | ---- | ---- | --- |
+| `Interface` | -            | 18+  | ✅   | ✅  |
+| `Readline`  | -            | 18+  | ✅   | ✅  |
+
+#### readlinePromises.Interface (readline)
+
+| Export     | Cancellation   | Node | Deno       | Bun        |
+| ---------- | -------------- | ---- | ---------- | ---------- |
+| `question` | stops the work | 18+  | unverified | unverified |
+
+#### readlinePromises.Readline (readline)
+
+| Export            | Cancellation | Node | Deno       | Bun        |
+| ----------------- | ------------ | ---- | ---------- | ---------- |
+| `clearLine`       | -            | 18+  | unverified | unverified |
+| `clearScreenDown` | -            | 18+  | unverified | unverified |
+| `commit`          | -            | 18+  | unverified | unverified |
+| `cursorTo`        | -            | 18+  | unverified | unverified |
+| `moveCursor`      | -            | 18+  | unverified | unverified |
+| `rollback`        | -            | 18+  | unverified | unverified |
+
 <!-- generated:end -->
 
 `walk` and `walkSync` are iterables stopped with `break` or `return()` rather than `.cancel()`, so their cancellation cell reads `-`.
 
 ### Shipped subpaths
 
-The package currently ships four subpaths:
+The package currently ships thirteen subpaths:
 
 - `fs`: file system operations with cancelable promises
 - `fs/sync`: synchronous file system utilities
 - `fs/register-graceful`: automatic graceful-fs integration hook
 - `child-process`: external commands and spawned processes with cancellation support
+- `timers`: cancelable timer promises
+- `stream`: stream consumers, pipeline helpers and readable terminals
+- `events`: event listener helpers and cancelable event promises
+- `dns`: cancelable DNS resolution
+- `readline`: cancelable line-by-line reading
+- `crypto`: cancelable cryptographic operations
+- `zlib`: cancelable compression utilities
+- `worker-threads`: worker thread coordination
+- `dgram`: UDP socket helpers
 
 The `/fs/sync` subpath drops `realpathSync.native`, which is the only departure from Node's own synchronous file system signatures.
 
@@ -213,7 +271,7 @@ When `retryOpen: true` is configured in `ISetFsOptions`, calls to `open` and `op
 
 To configure `graceful-fs` with descriptor retry automatically, import the side-effect subpath:
 
-```ts
+````ts
 import "@cancjs/node/fs/register-graceful";
 
 ### child-process
@@ -231,7 +289,7 @@ console.log("Process PID:", child.pid);
 
 // the promise is ours
 const result = await child.promise;
-```
+````
 
 The `promise` property is built on first access and reused after that. The promise can be taken at any time; the terminal outcome is recorded when it happens and replayed to a late reader (`exec` and `execFile` have always behaved this way through node's callback). Nothing else about the child is wrapped, so the callback form, the streams, async iteration over `child.stdout` and the option bag all keep node's behavior. Because listeners are attached eagerly to record terminal events, `child.listenerCount` differs from plain node.
 
@@ -264,23 +322,111 @@ import { timeout } from "@cancjs/toolbox";
 const result = await timeout(exec("long-running-command").promise, 10000);
 ```
 
+### timers
+
+`setTimeout`, `setImmediate`, `setInterval`, `scheduler.wait` and `scheduler.yield` are exported
+for drop-in symmetry with `node:timers/promises`, plus a `ref` option that lets a pending timer
+skip holding the event loop open. For most call sites, `delay` and `timeout` from
+`@cancjs/toolbox` are the idiomatic choice: they already return cancelable promises and compose
+with the rest of canc without an extra import. Reach for this subpath when porting code that
+already calls `node:timers/promises` directly, or when `ref: false` is needed.
+
+`setInterval` returns an async iterable rather than a promise. Cancel it by calling `cancel()` on
+the returned iterator, or by breaking a `for await` loop over it; both end iteration and clear the
+underlying timer. `scheduler.yield` takes no options and is node's own function, unwrapped.
+
+### stream
+
+`pipeline` and `finished` wrap `node:stream/promises`, alongside the stream classes,
+`addAbortSignal`, `Readable.from`, `Duplex.from` and `duplexPair`, re-exported structurally so a
+caller does not need a second import to use the wrappers. Canceling `pipeline` destroys every
+stream in the chain, the same teardown node runs for its own aborted pipeline. Canceling `finished`
+removes the listeners it attached.
+
+`text`, `json`, `buffer`, `arrayBuffer`, `blob` and `bytes` wrap `node:stream/consumers`. None of
+these take a signal from node, so canceling destroys the source stream directly; pass
+`{ destroyOnCancel: false }` when the stream is shared with another reader. `bytes` is
+feature-gated and throws `NotImplementedError` on a runtime that lacks it.
+
+`toArray`, `reduce`, `some`, `every`, `find` and `forEach` wrap the promise-returning `Readable`
+terminals. They are free functions taking the stream as their first argument, `toArray(stream)`,
+not a `Readable.prototype` patch, so `stream.toArray()` is not this package's API. The lazy
+helpers `map`, `filter`, `take`, `drop` and `flatMap` return a stream rather than a promise and are
+not wrapped here; `@cancjs/toolbox/async-iter` owns that shape.
+
+### events
+
+`once` and `on` wrap `node:events`, alongside `addAbortListener` (polyfilled below Node 18.18) and
+`EventEmitter`, re-exported structurally. Both already accept an `AbortSignal`; what this subpath
+adds on top is consumer counting, which no controller gives you on its own. Canceling one consumer
+of a shared `once` call leaves the listener in place for whoever else is still waiting, and only
+removes it once every consumer has given up:
+
+```ts
+import { once } from "@cancjs/node/events";
+
+const ready = once(emitter, "ready");
+const a = ready.then(([value]) => value);
+const b = ready.then(([value]) => value + 1);
+
+a.cancel();
+// emitter.listenerCount("ready") is still 1: b is still waiting.
+
+emitter.emit("ready", 41);
+// a rejects CancelError, b resolves 42.
+```
+
+### dns
+
+Canceling a module-level lookup such as `resolve4` only stops waiting for the result. Node gives no way to interrupt the query itself, so it keeps running in the background and the answer is discarded when it arrives.
+
+A `Resolver` instance is different: canceling one of its queries is real, but the underlying cancel is scoped to the whole resolver, not the single query. It stops every query currently in flight on that resolver, not just the one that was canceled.
+
+`resolveTlsa` needs Node 22 or later and is not available on Deno or Bun.
+
+### readline
+
+`question` answers a cancelable promise. Canceling it aborts the pending prompt through node's own `signal` handling and restores the interface to the state it was in before the call, including stdin's raw mode. A canceled question never consumes the next line typed at the prompt.
+
+### crypto
+
+Every promisified function in this subpath runs on Node's libuv threadpool, and node gives no way to preempt that work once it has started. Canceling stops waiting: the returned promise rejects with `CancelError`, but the call keeps running to completion in the background, and the threadpool slot it holds stays occupied until it finishes. With the default pool of four slots, a canceled `scrypt` or `argon2` call can delay unrelated `fs` and `dns` operations that are queued behind it. Bound the cost up front (smaller iteration counts, smaller inputs) rather than relying on cancellation to free resources.
+
+The synchronous factory surface (`createHash`, `createCipheriv`, `randomUUID`, `webcrypto`, `constants`, and everything else that never had a callback form) passes through unchanged, so building a cipher or a hash does not need a second import.
+
+`argon2`, `encapsulate`, and `decapsulate` need Node 24 or later and throw `NotImplementedError` on older runtimes.
+
+### zlib
+
+This subpath ships three different cancellation shapes, and they are not interchangeable:
+
+- One-shot buffer functions (`gzip`, `deflate`, `brotliCompress`, the zstd family, and their decompressing counterparts) run on the threadpool exactly like the crypto functions above. Canceling only stops waiting; the compression or decompression keeps running, and the threadpool slot stays occupied until it finishes, which can delay unrelated `fs` and `dns` work the same way.
+- Stream factories (`createGzip`, `createBrotliCompress`, the zstd stream classes, and the rest of the re-exported factory surface) are genuinely stoppable: calling `destroy()` on the returned stream stops the underlying codec.
+- The iterable codec family (`compressGzip`, `decompressBrotli`, and their six siblings, Node 24+) cancels between chunks: it stops pulling from the source iterable and calls the source iterator's own `return()`, so nothing further reaches the codec after that point.
+- `zipFiles` (Node 26+) checkpoints per file: canceling mid-list stops opening any further entry at the next file boundary, keeps every entry already written, and never rolls an entry back.
+
+The zstd family, the iterable codec family, and the zip archive family are all version-gated and throw `NotImplementedError` on a runtime that does not ship them.
+
+### worker-threads
+
+A `Worker` has exactly one terminal event, `exit`, so it carries a lazy `promise` property that settles when the thread stops: `await worker.promise` resolves to the exit code. The property is built on first access and never shows up in `Object.keys`, a spread, or `JSON.stringify`.
+
+`terminate()` stops a thread at whatever point it happens to be at. There is no `finally`, no flush, no unload hook: a thread mid-write when terminated leaves that write unfinished. `runTask` therefore posts a stop message and gives the worker `gracePeriod` (5000ms by default) to exit on its own before falling back to `terminate()`, so a cooperating worker gets to clean up first. Pass `{ terminate: 'immediate' }` for a worker that does not cooperate, which skips the grace period and terminates right away.
+
+`requestLock` wraps `worker_threads.locks.request` (Node 24.5.0+). Canceling while waiting for the lock aborts the acquisition; canceling while holding it cancels the running body and then releases the lock, and the release itself cannot be interrupted by the same cancel.
+
+### dgram
+
+`send` resolves once the datagram is handed to the kernel. **A sent datagram cannot be recalled**, so canceling after that point is a no-op; canceling before the underlying `socket.send` call runs prevents it from being sent at all. `bind` and `connect` are cancelable up to the point they complete: canceling either closes the socket, which frees the port. `dgram.Socket` has no `promise` property, because it has two terminal events (`listening` and `close`) rather than one.
+
 ### Planned subpaths
 
 Wrapped built-in modules are arriving in upcoming releases. Planned subpaths include:
 
 - `fs/extra`: extended file system helper routines
-- `timers`: cancelable timer promises
-- `stream`: stream consumers and pipeline helpers
-- `events`: event listener helpers and cancelable event promises
-- `dns`: cancelable DNS resolution
 - `net`: networking helpers
 - `tls`: TLS socket utilities
 - `http`: HTTP, HTTPS, and HTTP/2 clients and servers
-- `crypto`: cancelable cryptographic operations
-- `zlib`: cancelable compression utilities
-- `worker-threads`: worker thread coordination
-- `readline`: cancelable line-by-line reading
-- `dgram`: UDP socket helpers
 
 ## File system
 

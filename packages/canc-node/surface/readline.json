@@ -1,0 +1,75 @@
+{
+  "subpath": "readline",
+  "nodeSpecifier": "node:readline/promises",
+  "status": "planned",
+  "exports": [
+    {
+      "name": "InterfaceConstructor",
+      "kind": "type",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "n/a",
+        "bun": "n/a"
+      },
+      "notes": "Shared base type behind callback readline.Interface and readlinePromises.Interface; not itself importable",
+      "callPath": "promises"
+    },
+    {
+      "name": "createInterface",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": true,
+        "since": "v20.0.0",
+        "probed": null,
+        "sinceByMajor": {
+          "20": "v20.0.0",
+          "22": "v20.0.0",
+          "24": "v20.0.0",
+          "26": "v20.0.0"
+        }
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": "feature-detect",
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "Synchronous factory returning an Interface, not a promise; a signal in the options bag reaches node unchanged. Undocumented signal support on 18, documented from 20",
+      "callPath": "promises"
+    },
+    {
+      "name": "emitKeypressEvents",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "n/a",
+        "bun": "n/a"
+      },
+      "notes": "Terminal control helper from base node:readline, not part of the readline/promises runtime export list; not re-exported from this subpath (rejected bucket)",
+      "callPath": "promises"
+    }
+  ]
+}

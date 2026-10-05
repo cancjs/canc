@@ -1,4 +1,5 @@
 import rollupCommonjs from '@rollup/plugin-commonjs';
+import rollupJson from '@rollup/plugin-json';
 import rollupResolve from '@rollup/plugin-node-resolve';
 import rollupTerser from '@rollup/plugin-terser';
 import rollupTypescript from '@rollup/plugin-typescript';
@@ -220,6 +221,7 @@ const createCommonConfig = (emitDeclaration, entry) => ({
     // isVerbose && rollupProgress(),
     rollupExternals(),
     rollupResolve(),
+    rollupJson(),
     createTypescriptPlugin(emitDeclaration),
     rollupCommonjs(),
   ],

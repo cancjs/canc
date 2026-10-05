@@ -1,0 +1,29 @@
+{
+  "subpath": "readline#readlinePromises.Interface",
+  "nodeSpecifier": "node:readline/promises",
+  "status": "planned",
+  "exports": [
+    {
+      "name": "question",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v17.0.0",
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "cancelify-signal",
+      "teardown": "close the interface and restore stdin mode",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "No OS-level failure codes; rejects with node's AbortError on cancel. A canceled question must not consume the caller's next line",
+      "callPath": "promises"
+    }
+  ]
+}

@@ -1,0 +1,638 @@
+{
+  "subpath": "stream",
+  "nodeSpecifier": "node:stream",
+  "status": "supported",
+  "exports": [
+    {
+      "name": "pipeline",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v15.0.0",
+        "probed": "reject:AbortError",
+        "sinceByMajor": null
+      },
+      "wrapper": "cancelify-signal",
+      "teardown": "node destroys every stream in the chain",
+      "failures": [
+        "ERR_STREAM_PREMATURE_CLOSE",
+        "ERR_STREAM_DESTROYED",
+        "EPIPE"
+      ],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "promise form from node:stream/promises; a doc section split records signal on majors 18-24 in one place and omits 26, extractor artifact not an API change"
+    },
+    {
+      "name": "finished",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v15.0.0",
+        "probed": "reject:AbortError",
+        "sinceByMajor": null
+      },
+      "wrapper": "cancelify-signal",
+      "teardown": "removes its listeners",
+      "failures": ["ERR_STREAM_PREMATURE_CLOSE"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "promise form from node:stream/promises"
+    },
+    {
+      "name": "addAbortSignal",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": true,
+        "since": "v15.4.0",
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "cancelify-signal",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "native signal option, structural re-export, canc does not add teardown behavior"
+    },
+    {
+      "name": "compose",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "structural re-export; no options argument at module level"
+    },
+    {
+      "name": "duplexPair",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "structural re-export"
+    },
+    {
+      "name": "from",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "structural re-export; Readable.from"
+    },
+    {
+      "name": "fromWeb",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": true,
+        "since": "v17.0.0",
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "cancelify-signal",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "native signal option, structural re-export, canc does not add teardown behavior"
+    },
+    {
+      "name": "toWeb",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "stream/web bridge; out of scope, structural passthrough only"
+    },
+    {
+      "name": "getDefaultHighWaterMark",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "sync inspection helper, no cancelable async involved"
+    },
+    {
+      "name": "setDefaultHighWaterMark",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "sync inspection helper, no cancelable async involved"
+    },
+    {
+      "name": "isDestroyed",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "sync inspection helper, no cancelable async involved"
+    },
+    {
+      "name": "isDisturbed",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "sync inspection helper, no cancelable async involved"
+    },
+    {
+      "name": "isErrored",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "sync inspection helper, no cancelable async involved"
+    },
+    {
+      "name": "isReadable",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "sync inspection helper, no cancelable async involved"
+    },
+    {
+      "name": "isWritable",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "sync inspection helper, no cancelable async involved"
+    },
+    {
+      "name": "push",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "implementer facing stream primitive documented at module level in the node docs"
+    },
+    {
+      "name": "read",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "implementer facing stream primitive documented at module level in the node docs"
+    },
+    {
+      "name": "_construct",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "Readable implementer hook, not part of the consumer facing surface canc wraps"
+    },
+    {
+      "name": "_destroy",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "Readable implementer hook, not part of the consumer facing surface canc wraps"
+    },
+    {
+      "name": "_read",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "Readable implementer hook, not part of the consumer facing surface canc wraps"
+    },
+    {
+      "name": "_flush",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "Transform implementer hook, not part of the consumer facing surface canc wraps"
+    },
+    {
+      "name": "_transform",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "Transform implementer hook, not part of the consumer facing surface canc wraps"
+    },
+    {
+      "name": "_final",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "Writable implementer hook, not part of the consumer facing surface canc wraps"
+    },
+    {
+      "name": "_write",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "Writable implementer hook, not part of the consumer facing surface canc wraps"
+    },
+    {
+      "name": "_writev",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "Writable implementer hook, not part of the consumer facing surface canc wraps"
+    },
+    {
+      "name": "text",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      },
+      "wrapper": "cancelify-teardown",
+      "teardown": "stream.destroy()",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "node:stream/consumers has no signal option at all; canc registers handleCancel to destroy the source (probe confirms present on node/deno/bun for the single sampled runtime; not verifiable against the node:stream export list used here)"
+    },
+    {
+      "name": "json",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      },
+      "wrapper": "cancelify-teardown",
+      "teardown": "stream.destroy()",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "node:stream/consumers has no signal option at all; canc registers handleCancel to destroy the source (probe confirms present on node/deno/bun for the single sampled runtime; not verifiable against the node:stream export list used here)"
+    },
+    {
+      "name": "buffer",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      },
+      "wrapper": "cancelify-teardown",
+      "teardown": "stream.destroy()",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "node:stream/consumers has no signal option at all; canc registers handleCancel to destroy the source (probe confirms present on node/deno/bun for the single sampled runtime; not verifiable against the node:stream export list used here)"
+    },
+    {
+      "name": "arrayBuffer",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      },
+      "wrapper": "cancelify-teardown",
+      "teardown": "stream.destroy()",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "node:stream/consumers has no signal option at all; canc registers handleCancel to destroy the source (probe confirms present on node/deno/bun for the single sampled runtime; not verifiable against the node:stream export list used here)"
+    },
+    {
+      "name": "blob",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      },
+      "wrapper": "cancelify-teardown",
+      "teardown": "stream.destroy()",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "node:stream/consumers has no signal option at all; canc registers handleCancel to destroy the source (probe confirms present on node/deno/bun for the single sampled runtime; not verifiable against the node:stream export list used here)"
+    },
+    {
+      "name": "bytes",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": "resolve",
+        "sinceByMajor": null
+      },
+      "wrapper": "gated",
+      "failures": [],
+      "minMajor": 24,
+      "gate": "feature-detect",
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "since-version UNVERIFIED: present on the probed node 24.18.1 runtime; the tracked-major fact base carries no dated entry for it, so gate by feature-detect rather than by version number, do not copy the unconfirmed v24.14.0 figure from an earlier draft (probe confirms present on node/deno/bun for the single sampled runtime; not verifiable against the node:stream export list used here)"
+    }
+  ]
+}

@@ -1,0 +1,447 @@
+{
+  "subpath": "worker_threads",
+  "nodeSpecifier": "node:worker_threads",
+  "status": "planned",
+  "exports": [
+    {
+      "name": "BroadcastChannel",
+      "kind": "class",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "structural re-export, unmodified node class; only Worker gets a promise property, per the class 2 rule"
+    },
+    {
+      "name": "BroadcastChannel extends EventTarget",
+      "kind": "class",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "lock artifact: the 26-line docs render the class heading as BroadcastChannel extends EventTarget, same class as BroadcastChannel (not a top-level node:worker_threads export key; unverified against module-level export list)"
+    },
+    {
+      "name": "MessageChannel",
+      "kind": "class",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "structural re-export, unmodified node class"
+    },
+    {
+      "name": "MessagePort",
+      "kind": "class",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "structural re-export, unmodified node class; member detail in worker-threads#MessagePort"
+    },
+    {
+      "name": "SHARE_ENV",
+      "kind": "const",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "symbol constant for the env option in Worker options; presentIn gap at majors 22/24 in the lock reads as a docs-extraction artifact, not a real removal"
+    },
+    {
+      "name": "Worker",
+      "kind": "class",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "reimplemented",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "our export wraps node Worker to add a lazy, memoized, non-enumerable promise property settling on exit, matching src/child-process/promise.ts; member detail in worker-threads#Worker, this entry is the class declaration only"
+    },
+    {
+      "name": "getEnvironmentData",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged"
+    },
+    {
+      "name": "isInternalThread",
+      "kind": "const",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": 26,
+      "gate": "throw",
+      "runtime": {
+        "deno": "ok",
+        "bun": "absent"
+      },
+      "notes": "boolean flag, node 26+ only per the lock; throws NotImplementedError below 26"
+    },
+    {
+      "name": "isMainThread",
+      "kind": "const",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "boolean flag, re-exported unchanged; presentIn gap at majors 22/24 in the lock reads as a docs-extraction artifact"
+    },
+    {
+      "name": "isMarkedAsUntransferable",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": 22,
+      "gate": "throw",
+      "runtime": {
+        "deno": "ok",
+        "bun": "absent"
+      },
+      "notes": "synchronous predicate, node 22+ per the lock; throws NotImplementedError below 22"
+    },
+    {
+      "name": "locks",
+      "kind": "const",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": 24,
+      "gate": "throw",
+      "runtime": {
+        "deno": "ok",
+        "bun": "absent"
+      },
+      "notes": "Web Locks API singleton, re-exported unchanged; LockManager and Lock member detail in worker-threads#locks, worker-threads#locks.LockManager and worker-threads#locks.Lock; LockManager.request is the only signal-bearing API in this module, see that entry; throws NotImplementedError below 24"
+    },
+    {
+      "name": "markAsUncloneable",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": 22,
+      "gate": "throw",
+      "runtime": {
+        "deno": "ok",
+        "bun": "absent"
+      },
+      "notes": "synchronous, node 22+ per the lock; throws NotImplementedError below 22"
+    },
+    {
+      "name": "markAsUntransferable",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged"
+    },
+    {
+      "name": "moveMessagePortToContext",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged"
+    },
+    {
+      "name": "parentPort",
+      "kind": "const",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "nullable handle, re-exported unchanged; presentIn gap at majors 22/24 in the lock reads as a docs-extraction artifact"
+    },
+    {
+      "name": "postMessageToThread",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "promises",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": 20,
+      "gate": "throw",
+      "runtime": {
+        "deno": "ok",
+        "bun": "absent"
+      },
+      "notes": "resolves a real node Promise once the target thread receives the message; node 20+ per the lock, throws NotImplementedError below 20"
+    },
+    {
+      "name": "receiveMessageOnPort",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged"
+    },
+    {
+      "name": "resourceLimits",
+      "kind": "const",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "object, re-exported unchanged; presentIn gap at majors 22/24 in the lock reads as a docs-extraction artifact"
+    },
+    {
+      "name": "setEnvironmentData",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronous, re-exported unchanged"
+    },
+    {
+      "name": "threadId",
+      "kind": "const",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "number, re-exported unchanged; presentIn gap at majors 22/24 in the lock reads as a docs-extraction artifact"
+    },
+    {
+      "name": "threadName",
+      "kind": "const",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": 22,
+      "gate": "throw",
+      "runtime": {
+        "deno": "ok",
+        "bun": "absent"
+      },
+      "notes": "string, node 22+ per the lock; throws NotImplementedError below 22"
+    },
+    {
+      "name": "workerData",
+      "kind": "const",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "value, re-exported unchanged"
+    }
+  ]
+}

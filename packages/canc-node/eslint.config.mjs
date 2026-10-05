@@ -23,4 +23,20 @@ export default tseslint.config(
       },
     },
   },
+
+  // The published barrels re-export by name, never by `export *`: a star export hands the
+  // public surface to whoever last added an `export` keyword inside the target module, which is
+  // the opposite of a deliberate published list.
+  {
+    files: ['src/**/*.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'ExportAllDeclaration',
+          message: 'Re-export by name (export { a, b } from "./x"), not export *.',
+        },
+      ],
+    },
+  },
 );

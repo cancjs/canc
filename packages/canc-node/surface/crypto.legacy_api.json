@@ -1,0 +1,67 @@
+{
+  "subpath": "crypto#legacy_api",
+  "nodeSpecifier": "node:crypto",
+  "status": "planned",
+  "exports": [
+    {
+      "name": "exportChallenge",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "deprecated legacy alias of the Certificate members; same instance methods, documented under a separate heading",
+      "callPath": "sync"
+    },
+    {
+      "name": "exportPublicKey",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "deprecated legacy alias of the Certificate members; same instance methods, documented under a separate heading",
+      "callPath": "sync"
+    },
+    {
+      "name": "verifySpkac",
+      "kind": "fn",
+      "cancelCategory": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "deprecated legacy alias of the Certificate members; same instance methods, documented under a separate heading",
+      "callPath": "sync"
+    }
+  ]
+}

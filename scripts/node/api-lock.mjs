@@ -9,6 +9,7 @@ const TRACKED_MAJORS = [18, 20, 22, 24, 26];
 
 const COVERED_MODULES = [
   'fs',
+  'crypto',
   'child_process',
   'timers',
   'stream',

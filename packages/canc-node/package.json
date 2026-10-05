@@ -84,6 +84,114 @@
         "types": "./dist/types/child-process/index.d.ts",
         "default": "./dist/child-process.cjs"
       }
+    },
+    "./timers": {
+      "import": {
+        "types@<4.7": "./dist/types-ts4.2/timers/index.d.mts",
+        "types": "./dist/types/timers/index.d.mts",
+        "default": "./dist/timers.mjs"
+      },
+      "require": {
+        "types@<4.7": "./dist/types-ts4.2/timers/index.d.ts",
+        "types": "./dist/types/timers/index.d.ts",
+        "default": "./dist/timers.cjs"
+      }
+    },
+    "./stream": {
+      "import": {
+        "types@<4.7": "./dist/types-ts4.2/stream/index.d.mts",
+        "types": "./dist/types/stream/index.d.mts",
+        "default": "./dist/stream.mjs"
+      },
+      "require": {
+        "types@<4.7": "./dist/types-ts4.2/stream/index.d.ts",
+        "types": "./dist/types/stream/index.d.ts",
+        "default": "./dist/stream.cjs"
+      }
+    },
+    "./events": {
+      "import": {
+        "types@<4.7": "./dist/types-ts4.2/events/index.d.mts",
+        "types": "./dist/types/events/index.d.mts",
+        "default": "./dist/events.mjs"
+      },
+      "require": {
+        "types@<4.7": "./dist/types-ts4.2/events/index.d.ts",
+        "types": "./dist/types/events/index.d.ts",
+        "default": "./dist/events.cjs"
+      }
+    },
+    "./dns": {
+      "import": {
+        "types@<4.7": "./dist/types-ts4.2/dns/index.d.mts",
+        "types": "./dist/types/dns/index.d.mts",
+        "default": "./dist/dns.mjs"
+      },
+      "require": {
+        "types@<4.7": "./dist/types-ts4.2/dns/index.d.ts",
+        "types": "./dist/types/dns/index.d.ts",
+        "default": "./dist/dns.cjs"
+      }
+    },
+    "./readline": {
+      "import": {
+        "types@<4.7": "./dist/types-ts4.2/readline/index.d.mts",
+        "types": "./dist/types/readline/index.d.mts",
+        "default": "./dist/readline.mjs"
+      },
+      "require": {
+        "types@<4.7": "./dist/types-ts4.2/readline/index.d.ts",
+        "types": "./dist/types/readline/index.d.ts",
+        "default": "./dist/readline.cjs"
+      }
+    },
+    "./crypto": {
+      "import": {
+        "types@<4.7": "./dist/types-ts4.2/crypto/index.d.mts",
+        "types": "./dist/types/crypto/index.d.mts",
+        "default": "./dist/crypto.mjs"
+      },
+      "require": {
+        "types@<4.7": "./dist/types-ts4.2/crypto/index.d.ts",
+        "types": "./dist/types/crypto/index.d.ts",
+        "default": "./dist/crypto.cjs"
+      }
+    },
+    "./zlib": {
+      "import": {
+        "types@<4.7": "./dist/types-ts4.2/zlib/index.d.mts",
+        "types": "./dist/types/zlib/index.d.mts",
+        "default": "./dist/zlib.mjs"
+      },
+      "require": {
+        "types@<4.7": "./dist/types-ts4.2/zlib/index.d.ts",
+        "types": "./dist/types/zlib/index.d.ts",
+        "default": "./dist/zlib.cjs"
+      }
+    },
+    "./worker-threads": {
+      "import": {
+        "types@<4.7": "./dist/types-ts4.2/worker-threads/index.d.mts",
+        "types": "./dist/types/worker-threads/index.d.mts",
+        "default": "./dist/worker-threads.mjs"
+      },
+      "require": {
+        "types@<4.7": "./dist/types-ts4.2/worker-threads/index.d.ts",
+        "types": "./dist/types/worker-threads/index.d.ts",
+        "default": "./dist/worker-threads.cjs"
+      }
+    },
+    "./dgram": {
+      "import": {
+        "types@<4.7": "./dist/types-ts4.2/dgram/index.d.mts",
+        "types": "./dist/types/dgram/index.d.mts",
+        "default": "./dist/dgram.mjs"
+      },
+      "require": {
+        "types@<4.7": "./dist/types-ts4.2/dgram/index.d.ts",
+        "types": "./dist/types/dgram/index.d.ts",
+        "default": "./dist/dgram.cjs"
+      }
     }
   },
   "main": "dist/index.cjs",
@@ -135,7 +243,16 @@
       "fs/sync": ["dist/types/fs/sync.d.ts"],
       "fs/register-graceful": ["dist/types/fs/register-graceful.d.ts"],
       "fs/extra": ["dist/types/fs-extra/index.d.ts"],
-      "child-process": ["dist/types/child-process/index.d.ts"]
+      "child-process": ["dist/types/child-process/index.d.ts"],
+      "timers": ["dist/types/timers/index.d.ts"],
+      "stream": ["dist/types/stream/index.d.ts"],
+      "events": ["dist/types/events/index.d.ts"],
+      "dns": ["dist/types/dns/index.d.ts"],
+      "readline": ["dist/types/readline/index.d.ts"],
+      "crypto": ["dist/types/crypto/index.d.ts"],
+      "zlib": ["dist/types/zlib/index.d.ts"],
+      "worker-threads": ["dist/types/worker-threads/index.d.ts"],
+      "dgram": ["dist/types/dgram/index.d.ts"]
     }
   }
 }

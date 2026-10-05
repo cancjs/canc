@@ -1,0 +1,47 @@
+{
+  "subpath": "worker_threads#locks.Lock",
+  "nodeSpecifier": "node:worker_threads",
+  "status": "planned",
+  "exports": [
+    {
+      "name": "mode",
+      "kind": "const",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": 24,
+      "gate": "throw",
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "getter, \"exclusive\" or \"shared\"; node 24+ per the lock"
+    },
+    {
+      "name": "name",
+      "kind": "const",
+      "cancelCategory": null,
+      "callPath": "sync",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null
+      },
+      "wrapper": "passthrough",
+      "failures": [],
+      "minMajor": 24,
+      "gate": "throw",
+      "runtime": {
+        "deno": "method",
+        "bun": "method"
+      },
+      "notes": "getter, the lock name passed to request(); node 24+ per the lock"
+    }
+  ]
+}
