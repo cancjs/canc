@@ -15,7 +15,7 @@ Node built-in modules with cancelable promises and typed failures.
 
 `@cancjs/node` provides cancelable promise wrappers and typed failure channels for Node.js built-in modules. To migrate, replace built-in imports like `node:fs/promises` or `node:child_process` with `@cancjs/node/<module>` (such as `@cancjs/node/fs` or `@cancjs/node/child-process`). All wrapped functions return `CancelablePromise` instances and propagate cancellations cleanly.
 
-Subpath module wrappers are under active development and scheduled for upcoming releases. The root entry `@cancjs/node` provides shared error classes, errno predicates, and runtime feature detection used across all subpaths.
+The package ships the `fs`, `fs/sync`, and `fs/register-graceful` subpaths. Additional module wrappers are under active development and scheduled for upcoming releases. The root entry `@cancjs/node` provides shared error classes, errno predicates, and runtime feature detection used across all subpaths.
 
 ## Features
 
@@ -57,90 +57,123 @@ try {
 
 The root entry point exposes portable error code guards and custom error classes used across all `@cancjs/node` subpaths. Syscall error guards verify standard error codes without relying on non-portable numeric errno values or fragile instanceof checks.
 
-Feature detection probes capability support at module load time without sniffing versions or inspecting vendor-specific globals.
+Feature detection probes capability support at module load time, without inspecting vendor-specific globals. Some Node facts are finer than a release line, so the version the runtime reports settles those, and the capability probes are the fallback for a runtime that reports no version.
 
 ## Description
 
 ### Subpath support
 
+For operations marked "stops waiting only", cancellation stops waiting for completion while the underlying runtime operation continues in the background.
+
+Cancellation never undoes work that already happened. A canceled `copyFile` leaves whatever was already written to the destination, the same as an interrupted copy does, and it never deletes a path you did not ask to delete.
+
 <!-- generated:start -->
 
 #### fs
 
-| Export              | Category | Node | Signal              | Deno | Bun |
-| ------------------- | -------- | ---- | ------------------- | ---- | --- |
-| `access`            | D        | 18+  | -                   | ✅   | ✅  |
-| `appendFile`        | A        | 18+  | works, undocumented | ✅   | ✅  |
-| `chmod`             | D        | 18+  | -                   | ✅   | ✅  |
-| `chown`             | D        | 18+  | -                   | ✅   | ✅  |
-| `constants`         | -        | 18+  | -                   | ✅   | ✅  |
-| `copyFile`          | A        | 18+  | -                   | ✅   | ✅  |
-| `cp`                | A        | 18+  | -                   | ✅   | ✅  |
-| `glob`              | A        | 22+  | -                   | ✅   | ✅  |
-| `lchmod`            | D        | 18+  | -                   | ✅   | ✅  |
-| `lchown`            | D        | 18+  | -                   | ✅   | ✅  |
-| `link`              | D        | 18+  | -                   | ✅   | ✅  |
-| `lstat`             | D        | 18+  | v26.8.0             | ✅   | ✅  |
-| `lutimes`           | D        | 18+  | -                   | ✅   | ✅  |
-| `mkdir`             | D        | 18+  | -                   | ✅   | ✅  |
-| `mkdtemp`           | D        | 18+  | -                   | ✅   | ✅  |
-| `mkdtempDisposable` | D        | 24+  | -                   | ✅   | ✖   |
-| `open`              | A        | 18+  | -                   | ✅   | ✅  |
-| `opendir`           | A        | 18+  | -                   | 🚧   | ✅  |
-| `readFile`          | A        | 18+  | v15.2.0             | ✅   | ✅  |
-| `readdir`           | D        | 18+  | -                   | ✅   | ✅  |
-| `readlink`          | D        | 18+  | -                   | ✅   | ✅  |
-| `realpath`          | D        | 18+  | -                   | ✅   | ✅  |
-| `rename`            | D        | 18+  | -                   | ✅   | ✅  |
-| `rm`                | A        | 18+  | -                   | ✅   | ✅  |
-| `rmdir`             | D        | 18+  | -                   | ✅   | ✅  |
-| `stat`              | D        | 18+  | v26.8.0             | ✅   | ✅  |
-| `statfs`            | D        | 18+  | -                   | ✅   | ✅  |
-| `symlink`           | D        | 18+  | -                   | ✅   | ✅  |
-| `truncate`          | D        | 18+  | -                   | ✅   | ✅  |
-| `unlink`            | D        | 18+  | -                   | ✅   | ✅  |
-| `utimes`            | D        | 18+  | -                   | ✅   | ✅  |
-| `watch`             | A        | 18+  | v15.9.0             | ✅   | ✅  |
-| `writeFile`         | A        | 18+  | v15.2.0             | ✅   | ✅  |
+| Export              | Cancellation       | Node | Deno | Bun |
+| ------------------- | ------------------ | ---- | ---- | --- |
+| `access`            | before it starts   | 18+  | ✅   | ✅  |
+| `appendFile`        | stops the work     | 18+  | ✅   | ✅  |
+| `chmod`             | before it starts   | 18+  | ✅   | ✅  |
+| `chown`             | before it starts   | 18+  | ✅   | ✅  |
+| `copyFile`          | stops waiting only | 18+  | ✅   | ✅  |
+| `cp`                | stops waiting only | 18+  | ✅   | ✅  |
+| `glob`              | -                  | 22+  | ✅   | ✅  |
+| `lchmod`            | before it starts   | 18+  | ✅   | ✅  |
+| `lchown`            | before it starts   | 18+  | ✅   | ✅  |
+| `link`              | before it starts   | 18+  | ✅   | ✅  |
+| `lstat`             | before it starts   | 18+  | ✅   | ✅  |
+| `lutimes`           | before it starts   | 18+  | ✅   | ✅  |
+| `mkdir`             | before it starts   | 18+  | ✅   | ✅  |
+| `mkdtemp`           | before it starts   | 18+  | ✅   | ✅  |
+| `mkdtempDisposable` | before it starts   | 24+  | ✅   | ✖   |
+| `open`              | stops the work     | 18+  | ✅   | ✅  |
+| `opendir`           | stops the work     | 18+  | 🚧   | ✅  |
+| `readFile`          | stops the work     | 18+  | ✅   | ✅  |
+| `readdir`           | before it starts   | 18+  | ✅   | ✅  |
+| `readlink`          | before it starts   | 18+  | ✅   | ✅  |
+| `realpath`          | before it starts   | 18+  | ✅   | ✅  |
+| `rename`            | before it starts   | 18+  | ✅   | ✅  |
+| `rm`                | stops waiting only | 18+  | ✅   | ✅  |
+| `rmdir`             | before it starts   | 18+  | ✅   | ✅  |
+| `stat`              | before it starts   | 18+  | ✅   | ✅  |
+| `statfs`            | before it starts   | 18+  | ✅   | ✅  |
+| `symlink`           | before it starts   | 18+  | ✅   | ✅  |
+| `truncate`          | before it starts   | 18+  | ✅   | ✅  |
+| `unlink`            | before it starts   | 18+  | ✅   | ✅  |
+| `utimes`            | before it starts   | 18+  | ✅   | ✅  |
+| `watch`             | -                  | 18+  | ✅   | ✅  |
+| `writeFile`         | stops the work     | 18+  | ✅   | ✅  |
 
 #### FileHandle (fs)
 
-| Export                  | Category | Node | Signal   | Deno | Bun |
-| ----------------------- | -------- | ---- | -------- | ---- | --- |
-| `[Symbol.asyncDispose]` | -        | 18+  | -        | ✅   | ✅  |
-| `appendFile`            | A        | 18+  | v22.0.0  | ✅   | ✅  |
-| `chmod`                 | D        | 18+  | -        | ✅   | ✅  |
-| `chown`                 | D        | 18+  | -        | ✅   | ✅  |
-| `close`                 | D        | 18+  | -        | ✅   | ✅  |
-| `createReadStream`      | A        | 18+  | v20.0.0  | ✅   | ✅  |
-| `createWriteStream`     | A        | 18+  | -        | ✅   | ✅  |
-| `datasync`              | D        | 18+  | -        | ✅   | ✅  |
-| `fd`                    | -        | 18+  | -        | ✅   | ✅  |
-| `pull`                  | A        | 24+  | v24.20.0 | ✖    | ✖   |
-| `pullSync`              | -        | 24+  | -        | ✖    | ✖   |
-| `read`                  | B        | 18+  | -        | ✅   | ✅  |
-| `readableWebStream`     | A        | 18+  | -        | ✅   | ✅  |
-| `readFile`              | A        | 18+  | v15.2.0  | ✅   | ✅  |
-| `readLines`             | A        | 18+  | -        | ✅   | ✅  |
-| `readv`                 | B        | 18+  | -        | ✅   | ✅  |
-| `stat`                  | D        | 18+  | v24.16.0 | ✅   | ✅  |
-| `sync`                  | D        | 18+  | -        | ✅   | ✅  |
-| `truncate`              | D        | 18+  | -        | ✅   | ✅  |
-| `Type`                  | -        | 22+  | -        | ✅   | ✅  |
-| `utimes`                | D        | 18+  | -        | ✅   | ✅  |
-| `write`                 | B        | 18+  | -        | ✅   | ✅  |
-| `writeFile`             | A        | 18+  | v22.0.0  | ✅   | ✅  |
-| `writer`                | A        | 26+  | -        | ✖    | ✖   |
-| `writev`                | B        | 18+  | -        | ✅   | ✅  |
+| Export                  | Cancellation       | Node | Deno | Bun |
+| ----------------------- | ------------------ | ---- | ---- | --- |
+| `[Symbol.asyncDispose]` | -                  | 18+  | ✅   | ✅  |
+| `appendFile`            | stops the work     | 18+  | ✅   | ✅  |
+| `chmod`                 | before it starts   | 18+  | ✅   | ✅  |
+| `chown`                 | before it starts   | 18+  | ✅   | ✅  |
+| `close`                 | before it starts   | 18+  | ✅   | ✅  |
+| `createReadStream`      | -                  | 18+  | ✅   | ✅  |
+| `createWriteStream`     | -                  | 18+  | ✅   | ✅  |
+| `datasync`              | before it starts   | 18+  | ✅   | ✅  |
+| `pull`                  | -                  | 24+  | ✖    | ✖   |
+| `read`                  | stops waiting only | 18+  | ✅   | ✅  |
+| `readableWebStream`     | -                  | 18+  | ✅   | ✅  |
+| `readFile`              | stops the work     | 18+  | ✅   | ✅  |
+| `readLines`             | -                  | 18+  | ✅   | ✅  |
+| `readv`                 | stops waiting only | 18+  | ✅   | ✅  |
+| `stat`                  | before it starts   | 18+  | ✅   | ✅  |
+| `sync`                  | before it starts   | 18+  | ✅   | ✅  |
+| `truncate`              | before it starts   | 18+  | ✅   | ✅  |
+| `utimes`                | before it starts   | 18+  | ✅   | ✅  |
+| `write`                 | stops waiting only | 18+  | ✅   | ✅  |
+| `writeFile`             | stops the work     | 18+  | ✅   | ✅  |
+| `writer`                | -                  | 26+  | ✖    | ✖   |
+| `writev`                | stops waiting only | 18+  | ✅   | ✅  |
 
 <!-- generated:end -->
+
+### Shipped subpaths
+
+The package currently ships three subpaths:
+
+- `fs`: file system operations with cancelable promises
+- `fs/sync`: synchronous file system utilities
+- `fs/register-graceful`: automatic graceful-fs integration hook
+
+The `/fs/sync` subpath drops `realpathSync.native`, which is the only departure from Node's own synchronous file system signatures.
+
+```ts
+import { readFile } from "@cancjs/node/fs";
+import { readFileSync } from "@cancjs/node/fs/sync";
+
+const data = await readFile("package.json", "utf8");
+const syncData = readFileSync("package.json", "utf8");
+```
+
+### File system registry
+
+Custom file system implementations such as `graceful-fs` or mock instances can be registered globally using `setFs`, `getFs`, and `resetFs`.
+
+- `setFs(impl: IFsLike, options?: ISetFsOptions)`: registers an implementation for callback and synchronous operations.
+- `getFs()`: returns the currently registered file system implementation.
+- `resetFs()`: resets the registered file system back to default `node:fs`.
+- `retryOpen(operation, options?)`: retries open and opendir operations on `EMFILE` and `ENFILE` descriptor errors when `retryOpen` is enabled.
+
+When `retryOpen: true` is configured in `ISetFsOptions`, calls to `open` and `opendir` automatically retry with exponential backoff on descriptor exhaustion errors.
+
+To configure `graceful-fs` with descriptor retry automatically, import the side-effect subpath:
+
+```ts
+import "@cancjs/node/fs/register-graceful";
+```
 
 ### Planned subpaths
 
 Wrapped built-in modules are arriving in upcoming releases. Planned subpaths include:
 
-- `fs`: file system operations with cancelable promises
-- `fs/sync`: synchronous file system utilities
 - `fs/extra`: extended file system helper routines
 - `child-process`: process execution and spawning with cancellation
 - `timers`: cancelable timer promises
@@ -184,7 +217,7 @@ Wrapped built-in modules are arriving in upcoming releases. Planned subpaths inc
 
 ### Feature detection
 
-- `features`: frozen object containing module-level capability flags (`hasGlob`, `hasMkdtempDisposable`, `hasStatfs`, `hasAddAbortListener`, `hasAsyncDispose`, `hasConsumersBytes`, `hasSqlite`, `hasWorkerLocks`)
+- `features`: frozen object containing detected runtime version properties (`nodeVersion`, `nodeMajor`) and module-level capability flags (`hasGlob`, `hasMkdtempDisposable`, `hasStatfs`, `hasAddAbortListener`, `hasAsyncDispose`, `hasConsumersBytes`, `hasSqlite`, `hasWorkerLocks`)
 
 ## Compatibility
 

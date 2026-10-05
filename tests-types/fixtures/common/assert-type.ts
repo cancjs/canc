@@ -23,6 +23,10 @@ export type ExpectExtends<A, B> = A extends B ? true : false;
 // Detect the `any` escape hatch so assertions can forbid it.
 export type IsAny<T> = 0 extends 1 & T ? true : false;
 
+// Detect an erased type. `unknown` is a valid type and a useless published one, so
+// assertions have to be able to forbid it the same way they forbid `any`.
+export type IsUnknown<T> = IsAny<T> extends true ? false : unknown extends T ? true : false;
+
 export type Not<T extends boolean> = T extends true ? false : true;
 export type Eq<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 export type Assert<T extends true> = T;

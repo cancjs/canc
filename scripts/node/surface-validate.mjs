@@ -10,7 +10,7 @@ const SURFACE_DIR = join(ROOT, 'packages', 'canc-node', 'surface');
 const ALLOWED_STATUSES = new Set(['supported', 'planned', 'deferred', 'excluded']);
 const ALLOWED_KINDS = new Set(['fn', 'class', 'const', 'type', 'namespace']);
 const ALLOWED_CANCEL_CATEGORIES = new Set(['A', 'B', 'C', 'D', null]);
-const ALLOWED_CALL_PATHS = new Set(['callback', 'promises', null]);
+const ALLOWED_CALL_PATHS = new Set(['callback', 'promises', 'sync', null]);
 const ALLOWED_WRAPPERS = new Set([
   'cancelify-signal',
   'cancelify-teardown',
@@ -26,6 +26,7 @@ const REQUIRED_EXPORT_FIELDS = [
   'name',
   'kind',
   'cancelCategory',
+  'callPath',
   'nodeSignal',
   'wrapper',
   'failures',
@@ -34,7 +35,7 @@ const REQUIRED_EXPORT_FIELDS = [
   'runtime',
 ];
 
-const ALLOWED_EXPORT_FIELDS = new Set([...REQUIRED_EXPORT_FIELDS, 'callPath', 'teardown', 'notes']);
+const ALLOWED_EXPORT_FIELDS = new Set([...REQUIRED_EXPORT_FIELDS, 'teardown', 'notes']);
 
 const REQUIRED_SIGNAL_FIELDS = ['documented', 'since', 'probed'];
 const ALLOWED_SIGNAL_FIELDS = new Set([...REQUIRED_SIGNAL_FIELDS, 'sinceByMajor']);

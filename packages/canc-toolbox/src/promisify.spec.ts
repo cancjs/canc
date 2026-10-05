@@ -107,6 +107,27 @@ describe('promisify', () => {
     });
   });
 
+  describe('signal option (caller inbound)', () => {
+    it('an already-aborted signal produces a canceled promise', async () => {
+      const fn = jest.fn((cb: (err: any, value?: number) => void) => cb(null, 1));
+      const controller = new AbortController();
+      controller.abort('bye');
+
+      const promise = promisify(fn, { signal: controller.signal as any })() as CancelablePromise<number>;
+
+      const reason = await promise.catch((e) => e);
+      expect(isCancelError(reason)).toBe(true);
+      expect(promise.isCanceled).toBe(true);
+    });
+
+    it('the option type rejects a non-signal value', () => {
+      const fn = (cb: (err: any, value?: number) => void) => cb(null, 1);
+
+      // @ts-expect-error signal must be an IAbortSignalLike or an array of them, not a number.
+      promisify(fn, { signal: 123 });
+    });
+  });
+
   describe('short-circuit on cancel', () => {
     it('a late-firing callback after cancel is a no-op: no throw, no double-settle', async () => {
       let timer: ReturnType<typeof setTimeout> | undefined;

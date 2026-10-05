@@ -1,4 +1,5 @@
 import { setFnName } from '../_util';
+import { IAbortSignalLike } from './abort-signal';
 import { makeCancelSignal, TGetSignal } from './cancel-signal';
 import { IExecutorCtx } from './construct';
 import { constructTimed } from './construct-timed';
@@ -39,6 +40,11 @@ export interface IPromisifyOptions {
   lazy?: boolean;
   /** Overrides the generated `promisify: <name>` displayName verbatim. */
   displayName?: string;
+  /**
+   * Forwarded to the CancelablePromise; caller inbound signal, distinct from the outbound signal
+   * minted by getSignal().
+   */
+  signal?: IAbortSignalLike | IAbortSignalLike[];
   [key: string]: unknown;
 }
 
@@ -143,6 +149,7 @@ export function promisifyFactory<K extends IPromiseKind = IPromiseLikeKind>(deps
         }
       };
 
+      // options bag forwarded to the promise constructor, so signal, bubble, and other promise opts pass through
       return constructTimed<any, K>(deps, run, options);
     };
 

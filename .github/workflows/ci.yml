@@ -101,6 +101,8 @@ jobs:
       - run: npm run build
       - name: TS version matrix (+ type assertions)
         run: npm run matrix --workspace=@cancjs/tests-types
+      - name: Node surface type assertions
+        run: npm --prefix tests-types run types:node
 
   dist-tests:
     # Interop checks that require() the built dist/index.cjs of several packages, so they need a

@@ -36,7 +36,6 @@ Legend: `S` = Documented signal option, `y` = Present without signal, `-` = Abse
 | `appendFile`        | y   | y   | y   | y   | y   | works, undocumented | v10.0.0  |
 | `chmod`             | y   | y   | y   | y   | y   | -                   | v10.0.0  |
 | `chown`             | y   | y   | y   | y   | y   | -                   | v10.0.0  |
-| `constants`         | y   | y   | -   | -   | y   | -                   | v18.4.0  |
 | `copyFile`          | y   | y   | y   | y   | y   | -                   | v10.0.0  |
 | `cp`                | y   | y   | y   | y   | y   | -                   | v16.7.0  |
 | `glob`              | -   | -   | y   | y   | y   | -                   | v22.0.0  |
@@ -78,9 +77,7 @@ Legend: `S` = Documented signal option, `y` = Present without signal, `-` = Abse
 | `createReadStream`      | y   | S   | S   | S   | S   | v20.0.0      | v16.11.0 |
 | `createWriteStream`     | y   | y   | y   | y   | y   | -            | v16.11.0 |
 | `datasync`              | y   | y   | y   | y   | y   | -            | v10.0.0  |
-| `fd`                    | y   | y   | -   | -   | y   | -            | v10.0.0  |
 | `pull`                  | -   | -   | -   | S   | S   | v24.20.0     | v25.9.0  |
-| `pullSync`              | -   | -   | -   | y   | y   | -            | v25.9.0  |
 | `read`                  | y   | y   | y   | y   | y   | -            | v10.0.0  |
 | `readableWebStream`     | y   | y   | y   | y   | y   | -            | v17.0.0  |
 | `readFile`              | S   | S   | S   | S   | S   | v15.2.0      | v10.0.0  |
@@ -89,7 +86,6 @@ Legend: `S` = Documented signal option, `y` = Present without signal, `-` = Abse
 | `stat`                  | y   | y   | y   | S   | S   | v24.16.0     | v10.0.0  |
 | `sync`                  | y   | y   | y   | y   | y   | -            | v10.0.0  |
 | `truncate`              | y   | y   | y   | y   | y   | -            | v10.0.0  |
-| `Type`                  | -   | -   | y   | y   | -   | -            | v10.0.0  |
 | `utimes`                | y   | y   | y   | y   | y   | -            | v10.0.0  |
 | `write`                 | y   | y   | y   | y   | y   | -            | v10.0.0  |
 | `writeFile`             | y   | y   | S   | S   | S   | v22.0.0      | v10.0.0  |

@@ -77,8 +77,15 @@ for (const [mod, lockExports] of Object.entries(nodeLock.modules)) {
     const signalMajors = lockVal.signalIn || [];
     if (signalMajors.length > 0) {
       const hasSignal = mentry.nodeSignal && mentry.nodeSignal.since !== null;
+      // passthrough counts: it hands node the caller's arguments untouched, so a signal in the
+      // options bag reaches node the way node documents. That is the case for the members returning
+      // an async iterable or stream, where there is no promise to carry a cancel in the first place
       const isSignalWrapper =
-        mentry.wrapper === 'cancelify-signal' || mentry.wrapper === 'cancelify-teardown' || mentry.wrapper === 'gated';
+        mentry.wrapper === 'cancelify-signal' ||
+        mentry.wrapper === 'cancelify-teardown' ||
+        mentry.wrapper === 'gated' ||
+        (mentry.wrapper === 'passthrough' &&
+          (name === 'watch' || name === 'glob' || name === 'createReadStream' || name === 'pull'));
       if (!hasSignal || !isSignalWrapper) {
         const firstMajor = Math.min(...signalMajors);
         const sinceVer = nodeLock.generatedFrom[firstMajor] || `v${firstMajor}`;
@@ -176,6 +183,87 @@ for (const [subpath, mmap] of manifestMap.entries()) {
 
     if (!match || !match[1].presentIn.includes(newestMajor)) {
       fail(`Check D failed: ${subpath} ${name} has no lock counterpart on newest major`);
+    }
+  }
+}
+
+// Check W: wrapper matches combinator actually used in index.ts / file-handle.ts
+const fsIndexPath = 'packages/canc-node/src/fs/index.ts';
+const fileHandlePath = 'packages/canc-node/src/fs/file-handle.ts';
+
+if (existsSync(fsIndexPath)) {
+  const fsIndexSrc = readFileSync(fsIndexPath, 'utf8');
+  const exportCombinators = new Map();
+  const exportRe = /export\s+const\s+(\w+)\s*=\s*([a-zA-Z0-9_$.]+)/g;
+  for (const match of fsIndexSrc.matchAll(exportRe)) {
+    const [, expName, rhs] = match;
+    exportCombinators.set(expName, rhs);
+  }
+
+  const COMBINATOR_MAP = {
+    adopted: 'promisify-custom',
+    promisifyWrapped: 'promisify-callback',
+    promisifySignalWrapped: 'cancelify-signal',
+    teardownOpen: 'cancelify-teardown',
+    gatedWrapped: 'gated',
+    passthrough: 'passthrough',
+    'nodeFsPromises.constants': 'passthrough',
+  };
+
+  const fsManifest = manifestMap.get('fs');
+  if (fsManifest) {
+    for (const [name, mentry] of fsManifest.entries()) {
+      const combinator = exportCombinators.get(name);
+      if (!combinator) {
+        fail(`Check W failed: fs export ${name} not found in ${fsIndexPath}`);
+        continue;
+      }
+      const expectedWrapper = COMBINATOR_MAP[combinator];
+      if (!expectedWrapper) {
+        fail(`Check W failed: fs export ${name} uses unknown combinator ${combinator}`);
+        continue;
+      }
+      if (mentry.wrapper !== expectedWrapper) {
+        fail(
+          `Check W failed: fs export ${name} uses combinator ${combinator} in index.ts but manifest wrapper is ${mentry.wrapper} (expected ${expectedWrapper})`,
+        );
+      }
+    }
+  }
+}
+
+if (existsSync(fileHandlePath)) {
+  const fileHandleSrc = readFileSync(fileHandlePath, 'utf8');
+  const switchCases = new Set([...fileHandleSrc.matchAll(/case\s+'([^']+)'/g)].map((m) => m[1]));
+
+  const EXPECTED_HANDLE_WRAPPERS = {
+    appendFile: 'cancelify-signal',
+    close: 'passthrough',
+    read: 'promisify-custom',
+    readFile: 'cancelify-signal',
+    readv: 'promisify-custom',
+    stat: 'gated',
+    write: 'promisify-custom',
+    writeFile: 'cancelify-signal',
+    writev: 'promisify-custom',
+  };
+
+  const handleManifest = manifestMap.get('fs#FileHandle');
+  if (handleManifest) {
+    for (const [name, mentry] of handleManifest.entries()) {
+      const expectedWrapper = EXPECTED_HANDLE_WRAPPERS[name] || 'passthrough';
+      if (mentry.wrapper !== expectedWrapper) {
+        fail(
+          `Check W failed: FileHandle member ${name} routing expects wrapper ${expectedWrapper} but manifest has ${mentry.wrapper}`,
+        );
+      }
+      if (mentry.kind === 'fn' && mentry.callPath !== 'sync' && name !== 'close') {
+        if (!switchCases.has(mentry.wrapper)) {
+          fail(
+            `Check W failed: FileHandle member ${name} wrapper ${mentry.wrapper} not handled in file-handle.ts switch`,
+          );
+        }
+      }
     }
   }
 }

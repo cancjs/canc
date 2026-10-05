@@ -1,0 +1,221 @@
+import nodeFs from 'node:fs';
+import nodeFsPromises from 'node:fs/promises';
+
+import { CancelablePromise } from '@cancjs/promise';
+
+import { isThenable } from '../../../_util';
+import fsJson from '../../surface/fs.json';
+import { features } from '../features';
+import { decorate, TCancelableFileHandle } from './file-handle';
+import { getFs } from './registry';
+import { retryOpen } from './retry-open';
+import {
+  adopted,
+  gatedWrapped,
+  IManifestEntry,
+  passthrough,
+  promisifySignalWrapped,
+  promisifyWrapped,
+  TCancelable,
+  TNodeFn,
+  TSignatures,
+} from './wrap';
+
+// node's own signatures are overloaded per call, so the bindings reach both APIs through one view
+const fsp = nodeFsPromises as unknown as Record<string, TNodeFn>;
+
+const entries = new Map<string, IManifestEntry>(fsJson.exports.map((entry) => [entry.name, entry as IManifestEntry]));
+
+const kCustom = Symbol.for('nodejs.util.promisify.custom');
+
+/** Resolve the callback function on every call, so a setFs after module load still takes effect. */
+function viaFs(name: string): TNodeFn {
+  const fn: TNodeFn = (...args: unknown[]) => {
+    const impl = getFs() as unknown as Record<string, TNodeFn>;
+    return impl[name](...args);
+  };
+  Object.defineProperty(fn, kCustom, {
+    configurable: true,
+    enumerable: false,
+    get() {
+      const impl = getFs() as unknown as Record<string, unknown>;
+      const target = impl[name] as Record<PropertyKey, unknown> | undefined;
+      const custom = target?.[kCustom];
+      if (typeof custom === 'function') {
+        return function (this: unknown, ...args: unknown[]) {
+          const currentImpl = getFs() as unknown as Record<string, unknown>;
+          const currentTarget = currentImpl[name];
+          const currentCustom = (currentTarget as Record<PropertyKey, unknown> | undefined)?.[kCustom];
+          if (typeof currentCustom === 'function') {
+            return (currentCustom as TNodeFn).apply(currentImpl, args);
+          }
+          return new Promise((resolve) => {
+            (currentTarget as TNodeFn).apply(currentImpl, [...args, resolve]);
+          });
+        };
+      }
+      return undefined;
+    },
+  });
+  return fn;
+}
+
+/**
+ * Resolve the promise-API function on every call. A patched implementation passes `fs.promises`
+ * through untouched, so node's own is the fallback and usually the answer.
+ */
+function viaFsPromises(name: string): TNodeFn {
+  return (...args: unknown[]) => {
+    const promises = (getFs() as unknown as Record<string, unknown>).promises as Record<string, TNodeFn> | undefined;
+    const fn = promises?.[name];
+    return typeof fn === 'function' ? fn.apply(promises, args) : fsp[name](...args);
+  };
+}
+
+/** Cancel teardown for the calls that hand back something holding a descriptor. */
+function closeQuietly(value: unknown): void {
+  const closable = value as { close?: () => unknown } | null | undefined;
+  if (!closable || typeof closable.close !== 'function') {
+    return;
+  }
+
+  void Promise.resolve(closable.close()).then(undefined, () => {});
+}
+
+/**
+ * Wrap open or opendir with descriptor cleanup if canceled while pending.
+ *
+ * The rescue branch attaches directly to the raw native promise so cleanup survives cancelation of
+ * the outer chain, while cancelation after settling leaves the caller's handle untouched.
+ */
+function teardownOpen<R>(
+  name: 'open' | 'opendir',
+  transform?: (value: unknown) => R,
+): (...args: unknown[]) => CancelablePromise<R> {
+  return function teardownOpenCall(...args: unknown[]): CancelablePromise<R> {
+    let canceled = false;
+    return new CancelablePromise<R>((resolve, _reject, { handleCancel }) => {
+      handleCancel(() => {
+        canceled = true;
+      });
+
+      const started = retryOpen(() => {
+        const raw = viaFsPromises(name)(...args);
+        if (isThenable(raw)) {
+          void (raw as Promise<unknown>).then(
+            (handle) => {
+              if (canceled) {
+                closeQuietly(handle);
+              }
+            },
+            () => {},
+          );
+        }
+        return raw;
+      });
+
+      const chain = transform ? started.then(transform) : (started as CancelablePromise<R>);
+      resolve(chain);
+    });
+  };
+}
+
+/**
+ * A temporary directory handle, for a runtime newer than the installed node typings describe.
+ *
+ * The member arrived in node 24.4. Typings older than that carry no declaration to derive from, so
+ * this stands in until the consumer installs typings that do.
+ */
+interface IDisposableTempDir {
+  readonly path: string;
+  remove(): Promise<void>;
+}
+
+type TFsPromises = typeof nodeFsPromises;
+
+/**
+ * The declaration for a member the installed node typings may predate, or a stand-in.
+ *
+ * The condition is left unresolved in the emitted declarations, so it answers against the typings
+ * the consumer installed rather than the ones this package was built with. A consumer on node 22
+ * typings gets node's own `glob` signature; one on node 20 gets the stand-in.
+ */
+type TWhenTyped<TName extends string, TFallback> = TFsPromises extends Record<TName, infer TFn> ? TFn : TFallback;
+
+type TGlobFn = TWhenTyped<
+  'glob',
+  (
+    pattern: string | readonly string[],
+    options?: { cwd?: string; exclude?: (path: string) => boolean; withFileTypes?: boolean },
+  ) => AsyncIterable<string>
+>;
+
+type TMkdtempDisposableFn = TWhenTyped<
+  'mkdtempDisposable',
+  (
+    prefix: string,
+    options?: { encoding?: BufferEncoding | null } | BufferEncoding | null,
+  ) => Promise<IDisposableTempDir>
+>;
+
+export const access = adopted(fsp.access, 1) as TCancelable<TFsPromises['access']>;
+export const appendFile = promisifySignalWrapped(viaFs('appendFile'), entries.get('appendFile'), 2) as TCancelable<
+  TFsPromises['appendFile']
+>;
+export const chmod = promisifyWrapped(viaFs('chmod'), 2) as TCancelable<TFsPromises['chmod']>;
+export const chown = promisifyWrapped(viaFs('chown'), 3) as TCancelable<TFsPromises['chown']>;
+export const constants = nodeFsPromises.constants;
+// node takes no signal here and cancel does not undo: a canceled copy leaves what node had written,
+// exactly as an interrupted node copy does. Unlinking dest would delete a file the caller named as a
+// target, not as something to remove, and it was theirs before the copy started
+export const copyFile = promisifyWrapped(viaFs('copyFile'), 2) as TCancelable<TFsPromises['copyFile']>;
+export const cp = adopted(fsp.cp, 2) as TCancelable<TFsPromises['cp']>;
+export const glob = gatedWrapped(
+  features.hasGlob,
+  'glob',
+  '22',
+  passthrough(fsp.glob),
+) as unknown as TSignatures<TGlobFn>;
+export const lchmod = promisifyWrapped(viaFs('lchmod'), 2) as TCancelable<TFsPromises['lchmod']>;
+export const lchown = promisifyWrapped(viaFs('lchown'), 3) as TCancelable<TFsPromises['lchown']>;
+export const link = adopted(fsp.link, 2) as TCancelable<TFsPromises['link']>;
+export const lstat = promisifySignalWrapped(viaFs('lstat'), entries.get('lstat'), 1) as TCancelable<
+  TFsPromises['lstat']
+>;
+export const lutimes = adopted(fsp.lutimes, 3) as TCancelable<TFsPromises['lutimes']>;
+export const mkdir = adopted(fsp.mkdir, 1) as TCancelable<TFsPromises['mkdir']>;
+export const mkdtemp = adopted(fsp.mkdtemp, 1) as TCancelable<TFsPromises['mkdtemp']>;
+export const mkdtempDisposable = gatedWrapped(
+  features.hasMkdtempDisposable,
+  'mkdtempDisposable',
+  '24.4.0',
+  adopted(fsp.mkdtempDisposable, 1),
+) as unknown as TCancelable<TMkdtempDisposableFn>;
+export const open = teardownOpen('open', decorate) as TCancelable<TFsPromises['open']>;
+export const opendir = teardownOpen('opendir') as TCancelable<TFsPromises['opendir']>;
+export const readFile = promisifySignalWrapped(viaFs('readFile'), entries.get('readFile'), 1) as TCancelable<
+  TFsPromises['readFile']
+>;
+export const readdir = promisifyWrapped(viaFs('readdir'), 1) as TCancelable<TFsPromises['readdir']>;
+export const readlink = adopted(fsp.readlink, 1) as TCancelable<TFsPromises['readlink']>;
+export const realpath = adopted(fsp.realpath, 1) as TCancelable<TFsPromises['realpath']>;
+export const rename = promisifyWrapped(viaFs('rename'), 2) as TCancelable<TFsPromises['rename']>;
+export const rm = adopted(fsp.rm, 1) as TCancelable<TFsPromises['rm']>;
+export const rmdir = adopted(fsp.rmdir, 1) as TCancelable<TFsPromises['rmdir']>;
+export const stat = promisifySignalWrapped(viaFs('stat'), entries.get('stat'), 1) as TCancelable<TFsPromises['stat']>;
+export const statfs = adopted(fsp.statfs, 1) as TCancelable<TFsPromises['statfs']>;
+export const symlink = adopted(fsp.symlink, 2) as TCancelable<TFsPromises['symlink']>;
+export const truncate = adopted(fsp.truncate, 1) as TCancelable<TFsPromises['truncate']>;
+export const unlink = adopted(fsp.unlink, 1) as TCancelable<TFsPromises['unlink']>;
+export const utimes = adopted(fsp.utimes, 3) as TCancelable<TFsPromises['utimes']>;
+export const watch = passthrough(fsp.watch) as unknown as TSignatures<TFsPromises['watch']>;
+export const writeFile = promisifySignalWrapped(viaFs('writeFile'), entries.get('writeFile'), 2) as TCancelable<
+  TFsPromises['writeFile']
+>;
+
+export const Dir = nodeFs.Dir;
+export const Dirent = nodeFs.Dirent;
+export const Stats = nodeFs.Stats;
+export type { BigIntStats, StatsFs as StatFs } from 'node:fs';
+export type { TCancelableFileHandle };
+export const exists = promisifyWrapped(viaFs('exists'), 1) as TCancelable<typeof nodeFs.exists.__promisify__>;

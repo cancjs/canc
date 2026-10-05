@@ -21,7 +21,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": "Idempotent resource disposal, delegates to close"
+      "notes": "Idempotent resource disposal, delegates to close",
+      "callPath": "promises"
     },
     {
       "name": "appendFile",
@@ -45,7 +46,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": ""
+      "notes": "",
+      "callPath": "promises"
     },
     {
       "name": "chmod",
@@ -65,7 +67,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": ""
+      "notes": "",
+      "callPath": "promises"
     },
     {
       "name": "chown",
@@ -85,7 +88,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": ""
+      "notes": "",
+      "callPath": "promises"
     },
     {
       "name": "close",
@@ -105,12 +109,13 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": "Idempotent, resolves without error on closed handle; shielded in canc wrappers"
+      "notes": "Idempotent, resolves without error on closed handle; shielded in canc wrappers",
+      "callPath": "promises"
     },
     {
       "name": "createReadStream",
       "kind": "fn",
-      "cancelCategory": "A",
+      "cancelCategory": null,
       "nodeSignal": {
         "documented": true,
         "since": "v20.0.0",
@@ -122,7 +127,7 @@
           "26": "v20.0.0"
         }
       },
-      "wrapper": "cancelify-signal",
+      "wrapper": "passthrough",
       "failures": ["EBADF", "EISDIR"],
       "minMajor": 18,
       "gate": null,
@@ -130,19 +135,20 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": "Returns readable stream; signal destroys stream on abort"
+      "notes": "Returns readable stream; signal destroys stream on abort",
+      "callPath": "promises"
     },
     {
       "name": "createWriteStream",
       "kind": "fn",
-      "cancelCategory": "A",
+      "cancelCategory": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
         "probed": null,
         "sinceByMajor": null
       },
-      "wrapper": "cancelify-teardown",
+      "wrapper": "passthrough",
       "failures": ["EBADF"],
       "minMajor": 18,
       "gate": null,
@@ -150,7 +156,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": "Returns writable stream; destroy on cancel"
+      "notes": "Returns writable stream; destroy on cancel",
+      "callPath": "promises"
     },
     {
       "name": "datasync",
@@ -170,7 +177,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": ""
+      "notes": "",
+      "callPath": "promises"
     },
     {
       "name": "fd",
@@ -190,12 +198,13 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": "Numeric property getter, returns -1 when closed"
+      "notes": "Numeric property getter, returns -1 when closed",
+      "callPath": "promises"
     },
     {
       "name": "pull",
       "kind": "fn",
-      "cancelCategory": "A",
+      "cancelCategory": null,
       "nodeSignal": {
         "documented": true,
         "since": "v24.20.0",
@@ -205,7 +214,7 @@
           "26": "v25.9.0"
         }
       },
-      "wrapper": "gated",
+      "wrapper": "passthrough",
       "failures": ["EBADF", "EISDIR"],
       "minMajor": 24,
       "gate": "feature-detect",
@@ -213,7 +222,8 @@
         "deno": "unsupported",
         "bun": "unsupported"
       },
-      "notes": "Streaming pull API, Node 24.20.0+ / 25.9.0+"
+      "notes": "Returns stream.ByteReadableStream (async iterable and readable stream), not a promise; Node 24.20.0+ / 25.9.0+",
+      "callPath": "promises"
     },
     {
       "name": "pullSync",
@@ -233,7 +243,8 @@
         "deno": "unsupported",
         "bun": "unsupported"
       },
-      "notes": "Sync pull method in /fs/sync"
+      "notes": "Sync pull method in /fs/sync",
+      "callPath": "sync"
     },
     {
       "name": "read",
@@ -253,12 +264,13 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": "Single syscall read"
+      "notes": "Single syscall read",
+      "callPath": "promises"
     },
     {
       "name": "readableWebStream",
       "kind": "fn",
-      "cancelCategory": "A",
+      "cancelCategory": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -273,7 +285,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": "Returns web ReadableStream; cancel via stream.cancel()"
+      "notes": "Returns web ReadableStream; cancel via stream.cancel()",
+      "callPath": "promises"
     },
     {
       "name": "readFile",
@@ -293,12 +306,13 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": ""
+      "notes": "",
+      "callPath": "promises"
     },
     {
       "name": "readLines",
       "kind": "fn",
-      "cancelCategory": "A",
+      "cancelCategory": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
@@ -313,7 +327,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": "Returns AsyncIterable; break or cancel ends iteration"
+      "notes": "Returns AsyncIterable; break or cancel ends iteration",
+      "callPath": "promises"
     },
     {
       "name": "readv",
@@ -333,7 +348,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": "Single syscall vectored read"
+      "notes": "Single syscall vectored read",
+      "callPath": "promises"
     },
     {
       "name": "stat",
@@ -356,7 +372,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": "Accepts signal since v24.16.0 / v26.1.0"
+      "notes": "Accepts signal since v24.16.0 / v26.1.0",
+      "callPath": "promises"
     },
     {
       "name": "sync",
@@ -376,7 +393,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": ""
+      "notes": "",
+      "callPath": "promises"
     },
     {
       "name": "truncate",
@@ -396,7 +414,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": ""
+      "notes": "",
+      "callPath": "promises"
     },
     {
       "name": "Type",
@@ -416,7 +435,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": "Type helper/reference in doc; not a callable handle method"
+      "notes": "Type helper/reference in doc; not a callable handle method",
+      "callPath": "promises"
     },
     {
       "name": "utimes",
@@ -436,7 +456,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": ""
+      "notes": "",
+      "callPath": "promises"
     },
     {
       "name": "write",
@@ -456,7 +477,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": "Single syscall write"
+      "notes": "Single syscall write",
+      "callPath": "promises"
     },
     {
       "name": "writeFile",
@@ -480,19 +502,20 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": ""
+      "notes": "",
+      "callPath": "promises"
     },
     {
       "name": "writer",
       "kind": "fn",
-      "cancelCategory": "A",
+      "cancelCategory": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
         "probed": null,
         "sinceByMajor": null
       },
-      "wrapper": "gated",
+      "wrapper": "passthrough",
       "failures": ["EBADF"],
       "minMajor": 26,
       "gate": "feature-detect",
@@ -500,7 +523,8 @@
         "deno": "unsupported",
         "bun": "unsupported"
       },
-      "notes": "Node 25.9.0+ streaming writer API"
+      "notes": "Returns stream.Writer (stream writer object), not a promise; Node 25.9.0+",
+      "callPath": "promises"
     },
     {
       "name": "writev",
@@ -520,7 +544,8 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": "Single syscall vectored write"
+      "notes": "Single syscall vectored write",
+      "callPath": "promises"
     }
   ]
 }
