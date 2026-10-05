@@ -69,6 +69,15 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 
 <!-- generated:start -->
 
+#### child-process
+
+| Export     | Cancellation       | Node | Deno | Bun     |
+| ---------- | ------------------ | ---- | ---- | ------- |
+| `exec`     | stops waiting only | 18+  | ✅   | ✅      |
+| `execFile` | stops waiting only | 18+  | ✅   | ✅      |
+| `spawn`    | stops the work     | 18+  | ✅   | partial |
+| `fork`     | stops the work     | 18+  | ✅   | partial |
+
 #### fs
 
 | Export              | Cancellation       | Node | Deno | Bun |
@@ -174,11 +183,12 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 
 ### Shipped subpaths
 
-The package currently ships three subpaths:
+The package currently ships four subpaths:
 
 - `fs`: file system operations with cancelable promises
 - `fs/sync`: synchronous file system utilities
 - `fs/register-graceful`: automatic graceful-fs integration hook
+- `child-process`: external commands and spawned processes with cancellation support
 
 The `/fs/sync` subpath drops `realpathSync.native`, which is the only departure from Node's own synchronous file system signatures.
 
@@ -205,6 +215,53 @@ To configure `graceful-fs` with descriptor retry automatically, import the side-
 
 ```ts
 import "@cancjs/node/fs/register-graceful";
+
+### child-process
+
+Import from `@cancjs/node/child-process` to run external commands with cancellation support. Every function returns the same `ChildProcess` node returns, with one property added:
+
+```ts
+import { spawn } from "@cancjs/node/child-process";
+
+const child = spawn("npm", ["test"]);
+
+// node's own API, unchanged
+child.stdout.pipe(process.stdout);
+console.log("Process PID:", child.pid);
+
+// the promise is ours
+const result = await child.promise;
+```
+
+The `promise` property is built on first access and reused after that. The promise can be taken at any time; the terminal outcome is recorded when it happens and replayed to a late reader (`exec` and `execFile` have always behaved this way through node's callback). Nothing else about the child is wrapped, so the callback form, the streams, async iteration over `child.stdout` and the option bag all keep node's behavior. Because listeners are attached eagerly to record terminal events, `child.listenerCount` differs from plain node.
+
+#### What the promise settles with
+
+`exec` and `execFile` mirror node's own promisified form. The promise resolves with `stdout` and `stderr`, and passes node's error through with `stdout` and `stderr` attached on failure.
+
+`spawn` and `fork` have no promise form in node to mirror. Their promise resolves `{ exitCode: 0, signal: null }` on a clean exit and rejects `ProcessExitError` otherwise, carrying whichever of `exitCode` and `signal` node reported. `child.on("close")` still reports the same outcome without throwing.
+
+One failure that node reports ambiguously gets a typed error: `ProcessSpawnError` when the process could not start. `ProcessExitError` is what `spawn` and `fork` reject with when they exit non-zero or are killed by a signal.
+
+#### Cancellation
+
+Canceling sends `killSignal`, defaulting to `SIGTERM`, which is what node's own `signal` option sends on abort. Awaiting `cancel()` waits for the child to exit, under an upper bound of 5 seconds (5000ms) so that a cancel cannot hang. There is no escalation and no process tree handling. A child that ignores `SIGTERM` keeps running, and the caller decides what to do about it.
+
+For `exec`, `execFile` when given a shell option, and `spawn` with `{ shell: true }`, the promise rejecting does not mean the command stopped. The process being signaled is the shell the function inserted, not the command. `spawn` and `fork` without a shell are unaffected. A caller who needs the command itself stopped should run without a shell, or have the command handle its own termination.
+
+```ts
+const child = spawn("npm", ["test"]);
+await child.promise.cancel();
+```
+
+Node options are forwarded untouched, `timeout` and `killSignal` included, so `exec(command, { timeout: 10000 })` terminates through node exactly as it does without this package. An `AbortSignal` passed as `signal` also reaches node untouched, which means an abort produces node's `AbortError` rather than a `CancelError`. To get canc semantics on a deadline, compose instead:
+
+```ts
+import { exec } from "@cancjs/node/child-process";
+import { timeout } from "@cancjs/toolbox";
+
+// deadlines produce a CancelError marked as timed out
+const result = await timeout(exec("long-running-command").promise, 10000);
 ```
 
 ### Planned subpaths
@@ -212,7 +269,6 @@ import "@cancjs/node/fs/register-graceful";
 Wrapped built-in modules are arriving in upcoming releases. Planned subpaths include:
 
 - `fs/extra`: extended file system helper routines
-- `child-process`: process execution and spawning with cancellation
 - `timers`: cancelable timer promises
 - `stream`: stream consumers and pipeline helpers
 - `events`: event listener helpers and cancelable event promises
@@ -313,11 +369,8 @@ For multi-step operations (`copy`, `move` across devices, `emptyDir`, `walk`), c
 ### Error classes
 
 - `NotImplementedError`: thrown when a version-gated export is invoked on an older runtime
-- `ProcessExitError`: thrown when a child process exits with a non-zero exit code
-- `ProcessSignalError`: thrown when a child process is terminated by a signal
+- `ProcessExitError`: thrown when a child process exits with a non-zero exit code or is terminated by a signal
 - `ProcessSpawnError`: thrown when a child process fails to spawn
-- `ProcessMaxBufferError`: thrown when child process output exceeds the configured buffer limit
-- `ProcessIpcError`: thrown when an IPC channel disconnects unexpectedly
 - `JsonParseError`: thrown when parsing JSON input fails
 
 ### Feature detection

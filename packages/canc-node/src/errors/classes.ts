@@ -31,10 +31,7 @@ function initError<T extends Error>(
 
 export const NOT_IMPLEMENTED_ERROR_BRAND = Symbol.for('@cancjs/node:NotImplementedError');
 export const PROCESS_EXIT_ERROR_BRAND = Symbol.for('@cancjs/node:ProcessExitError');
-export const PROCESS_SIGNAL_ERROR_BRAND = Symbol.for('@cancjs/node:ProcessSignalError');
 export const PROCESS_SPAWN_ERROR_BRAND = Symbol.for('@cancjs/node:ProcessSpawnError');
-export const PROCESS_MAX_BUFFER_ERROR_BRAND = Symbol.for('@cancjs/node:ProcessMaxBufferError');
-export const PROCESS_IPC_ERROR_BRAND = Symbol.for('@cancjs/node:ProcessIpcError');
 export const JSON_PARSE_ERROR_BRAND = Symbol.for('@cancjs/node:JsonParseError');
 
 export interface INotImplementedErrorOptions {
@@ -100,33 +97,6 @@ export class ProcessExitError extends BaseProcessExitError {
 }
 brandPrototype(ProcessExitError.prototype, PROCESS_EXIT_ERROR_BRAND);
 
-export interface IProcessSignalErrorOptions {
-  signal?: string | null;
-  command?: string;
-  cause?: unknown;
-}
-
-const BaseProcessSignalError = wirePrototype(
-  createErrorClass('ProcessSignalError', 'Process was terminated by a signal'),
-  Error,
-);
-
-export class ProcessSignalError extends BaseProcessSignalError {
-  readonly signal?: string | null;
-  readonly command?: string;
-  readonly cause?: unknown;
-
-  constructor(message?: string, options?: IProcessSignalErrorOptions) {
-    super(message);
-    initError(this, 'ProcessSignalError', 'Process was terminated by a signal', message, options, [
-      'signal',
-      'command',
-      'cause',
-    ]);
-  }
-}
-brandPrototype(ProcessSignalError.prototype, PROCESS_SIGNAL_ERROR_BRAND);
-
 export interface IProcessSpawnErrorOptions {
   code?: string;
   command?: string;
@@ -153,49 +123,6 @@ export class ProcessSpawnError extends BaseProcessSpawnError {
   }
 }
 brandPrototype(ProcessSpawnError.prototype, PROCESS_SPAWN_ERROR_BRAND);
-
-export interface IProcessMaxBufferErrorOptions {
-  command?: string;
-  cause?: unknown;
-}
-
-const BaseProcessMaxBufferError = wirePrototype(
-  createErrorClass('ProcessMaxBufferError', 'Process stdio exceeded maxBuffer'),
-  Error,
-);
-
-export class ProcessMaxBufferError extends BaseProcessMaxBufferError {
-  readonly command?: string;
-  readonly cause?: unknown;
-
-  constructor(message?: string, options?: IProcessMaxBufferErrorOptions) {
-    super(message);
-    initError(this, 'ProcessMaxBufferError', 'Process stdio exceeded maxBuffer', message, options, [
-      'command',
-      'cause',
-    ]);
-  }
-}
-brandPrototype(ProcessMaxBufferError.prototype, PROCESS_MAX_BUFFER_ERROR_BRAND);
-
-export interface IProcessIpcErrorOptions {
-  cause?: unknown;
-}
-
-const BaseProcessIpcError = wirePrototype(
-  createErrorClass('ProcessIpcError', 'Process IPC channel disconnected'),
-  Error,
-);
-
-export class ProcessIpcError extends BaseProcessIpcError {
-  readonly cause?: unknown;
-
-  constructor(message?: string, options?: IProcessIpcErrorOptions) {
-    super(message);
-    initError(this, 'ProcessIpcError', 'Process IPC channel disconnected', message, options, ['cause']);
-  }
-}
-brandPrototype(ProcessIpcError.prototype, PROCESS_IPC_ERROR_BRAND);
 
 export interface IJsonParseErrorOptions {
   path?: string;
@@ -225,25 +152,10 @@ export const isProcessExitError = (error: unknown): error is ProcessExitError =>
   ((error as Record<symbol, unknown>)[PROCESS_EXIT_ERROR_BRAND] === true ||
     (error as { name?: unknown }).name === 'ProcessExitError');
 
-export const isProcessSignalError = (error: unknown): error is ProcessSignalError =>
-  isObject(error) &&
-  ((error as Record<symbol, unknown>)[PROCESS_SIGNAL_ERROR_BRAND] === true ||
-    (error as { name?: unknown }).name === 'ProcessSignalError');
-
 export const isProcessSpawnError = (error: unknown): error is ProcessSpawnError =>
   isObject(error) &&
   ((error as Record<symbol, unknown>)[PROCESS_SPAWN_ERROR_BRAND] === true ||
     (error as { name?: unknown }).name === 'ProcessSpawnError');
-
-export const isProcessMaxBufferError = (error: unknown): error is ProcessMaxBufferError =>
-  isObject(error) &&
-  ((error as Record<symbol, unknown>)[PROCESS_MAX_BUFFER_ERROR_BRAND] === true ||
-    (error as { name?: unknown }).name === 'ProcessMaxBufferError');
-
-export const isProcessIpcError = (error: unknown): error is ProcessIpcError =>
-  isObject(error) &&
-  ((error as Record<symbol, unknown>)[PROCESS_IPC_ERROR_BRAND] === true ||
-    (error as { name?: unknown }).name === 'ProcessIpcError');
 
 export const isJsonParseError = (error: unknown): error is JsonParseError =>
   isObject(error) &&

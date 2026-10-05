@@ -228,13 +228,28 @@ export function generateRuntimeCompatDoc(manifests, nodeLock, runtimeLock) {
     const headers = ['Export', '18', '20', '22', '24', '26', 'Signal since', 'Added'];
     const rows = [];
 
-    const moduleLock = nodeLock.modules?.[manifest.subpath.split('#')[0]] || {};
+    const base = manifest.subpath.split('#')[0];
+    const specMod = manifest.nodeSpecifier ? manifest.nodeSpecifier.replace(/^node:/, '').split('/')[0] : null;
+    const unhyphenated = base.replace(/-/g, '_');
+    const mod =
+      nodeLock.modules[base] ? base
+      : specMod && nodeLock.modules[specMod] ? specMod
+      : nodeLock.modules[unhyphenated] ? unhyphenated
+      : base;
+    const moduleLock = nodeLock.modules?.[mod] || {};
 
     for (const exp of manifest.exports) {
       if (exp.kind === 'type' || exp.callPath === 'sync' || exp.kind === 'const') continue;
       const exportName = `\`${exp.name}\``;
       const lockKey = `${lockPrefix}${exp.name}`;
-      const lockEntry = moduleLock[lockKey];
+      let lockEntry = moduleLock[lockKey];
+      if (!lockEntry && moduleLock) {
+        const found = Object.entries(moduleLock).find(([k]) => {
+          const p = k.split('.');
+          return p[p.length - 1] === exp.name;
+        });
+        if (found) lockEntry = found[1];
+      }
 
       const majorCells = TRACKED_MAJORS.map((m) => {
         if (!lockEntry) return '-';

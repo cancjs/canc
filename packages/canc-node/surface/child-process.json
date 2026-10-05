@@ -1,0 +1,119 @@
+{
+  "subpath": "child-process",
+  "nodeSpecifier": "node:child_process",
+  "status": "supported",
+  "exports": [
+    {
+      "name": "exec",
+      "kind": "fn",
+      "cancelCategory": "B",
+      "callPath": "callback",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v15.4.0",
+        "probed": "reject:AbortError",
+        "sinceByMajor": {
+          "18": "v15.4.0",
+          "20": "v15.4.0",
+          "22": "v15.4.0",
+          "24": "v15.4.0",
+          "26": "v15.4.0"
+        }
+      },
+      "wrapper": "promisify-callback",
+      "teardown": "kill with killSignal on cancel, then wait for exit",
+      "failures": ["ProcessSpawnError", "ProcessExitError"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "exec carries [util.promisify.custom]; returns node's ChildProcess with a lazy promise property; a non-zero exit rejects with node's own error"
+    },
+    {
+      "name": "execFile",
+      "kind": "fn",
+      "cancelCategory": "B",
+      "callPath": "callback",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v15.4.0",
+        "probed": "reject:AbortError",
+        "sinceByMajor": {
+          "18": "v15.4.0",
+          "20": "v15.4.0",
+          "22": "v15.4.0",
+          "24": "v15.4.0",
+          "26": "v15.4.0"
+        }
+      },
+      "wrapper": "promisify-callback",
+      "teardown": "kill with killSignal on cancel, then wait for exit",
+      "failures": ["ProcessSpawnError", "ProcessExitError"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "execFile carries [util.promisify.custom]; returns node's ChildProcess with a lazy promise property; a non-zero exit rejects with node's own error"
+    },
+    {
+      "name": "spawn",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "callPath": "callback",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v15.4.0",
+        "probed": null,
+        "sinceByMajor": {
+          "18": "v15.4.0",
+          "20": "v15.4.0",
+          "22": "v15.4.0",
+          "24": "v15.4.0",
+          "26": "v15.4.0"
+        }
+      },
+      "wrapper": "constructor-teardown",
+      "teardown": "kill with killSignal on cancel, then wait for exit",
+      "failures": ["ProcessSpawnError", "ProcessExitError"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "partial"
+      },
+      "notes": "no promise form in node; returns node's ChildProcess with a lazy promise property; a non-zero exit rejects with ProcessExitError"
+    },
+    {
+      "name": "fork",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "callPath": "callback",
+      "nodeSignal": {
+        "documented": true,
+        "since": "v15.4.0",
+        "probed": null,
+        "sinceByMajor": {
+          "18": "v15.4.0",
+          "20": "v15.4.0",
+          "22": "v15.4.0",
+          "24": "v15.4.0",
+          "26": "v15.4.0"
+        }
+      },
+      "wrapper": "constructor-teardown",
+      "teardown": "kill with killSignal on cancel, then wait for exit",
+      "failures": ["ProcessSpawnError", "ProcessExitError"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "partial"
+      },
+      "notes": "no promise form in node; returns node's ChildProcess with a lazy promise property; a non-zero exit rejects with ProcessExitError"
+    }
+  ]
+}
