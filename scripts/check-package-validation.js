@@ -17,6 +17,7 @@ const path = require('path');
 const semver = require('semver');
 const { execSync } = require('child_process');
 const { pathToFileURL } = require('url');
+const getReleasePlan = require('@changesets/get-release-plan').default;
 
 const ROOT = path.resolve(__dirname, '..');
 const PACKAGES_DIR = path.join(ROOT, 'packages');
@@ -308,7 +309,7 @@ function localSurface(pkgDir) {
 
 // A package may only import names the release at its own declared peer floor actually ships
 // Otherwise the install resolves quietly against that floor and the call fails at runtime
-function collectPeerFloorViolations(pkgDir, manifest, workspace) {
+function collectPeerFloorViolations(pkgDir, manifest, workspace, plannedVersions) {
   const ranges = { ...(manifest.peerDependencies || {}), ...(manifest.dependencies || {}) };
   const imports = collectPeerImports(pkgDir);
   const problems = [];
@@ -319,10 +320,9 @@ function collectPeerFloorViolations(pkgDir, manifest, workspace) {
     const peerDir = workspace.get(peer);
     if (peerDir) {
       const peerVer = JSON.parse(fs.readFileSync(path.join(peerDir, 'package.json'), 'utf8')).version;
-      if (peerVer !== '1.0.0' || semver.prerelease(peerVer)) {
-        if (!semver.satisfies(peerVer, range)) {
-          problems.push(`peer ${peer}@${range} is not satisfied by workspace version ${peerVer}`);
-        }
+      const targetVer = (plannedVersions && plannedVersions.get(peer)) || peerVer;
+      if (!semver.satisfies(targetVer, range)) {
+        problems.push(`peer ${peer}@${range} is not satisfied by planned version ${targetVer}`);
       }
     }
   }
@@ -339,7 +339,7 @@ function collectPeerFloorViolations(pkgDir, manifest, workspace) {
     let valid = true;
     for (const clause of clauses) {
       const declared = /^>=\s*(\S+)$/.exec(clause);
-      if (!declared) {
+      if (!declared || !semver.valid(declared[1])) {
         valid = false;
         break;
       }
@@ -381,7 +381,7 @@ function collectPeerFloorViolations(pkgDir, manifest, workspace) {
   return problems;
 }
 
-async function checkPackage(pkgName, workspace) {
+async function checkPackage(pkgName, workspace, plannedVersions) {
   const pkgDir = path.join(PACKAGES_DIR, pkgName);
   const manifest = JSON.parse(fs.readFileSync(path.join(pkgDir, 'package.json'), 'utf8'));
   const packedFiles = packFileList(pkgDir);
@@ -522,7 +522,7 @@ async function checkPackage(pkgName, workspace) {
   }
 
   problems.push(...(await collectDefaultExportShadowing(pkgDir, manifest)));
-  problems.push(...collectPeerFloorViolations(pkgDir, manifest, workspace));
+  problems.push(...collectPeerFloorViolations(pkgDir, manifest, workspace, plannedVersions));
 
   try {
     const publintOutput = execSync(`npx publint "${pkgDir}"`, { encoding: 'utf8' });
@@ -603,12 +603,14 @@ async function checkPackage(pkgName, workspace) {
 }
 
 async function main() {
+  const releasePlan = await getReleasePlan(ROOT);
+  const plannedVersions = new Map(releasePlan.releases.map((r) => [r.name, r.newVersion]));
   const packages = listPackages();
   const workspace = workspacePackages();
   let failed = false;
 
   for (const pkgName of packages) {
-    const { pkgName: name, problems, fileCount } = await checkPackage(pkgName, workspace);
+    const { pkgName: name, problems, fileCount } = await checkPackage(pkgName, workspace, plannedVersions);
     if (problems.length === 0) {
       console.log(`PASS ${name} (${fileCount} files packed)`);
     } else {
