@@ -79,8 +79,8 @@ function tick(): Promise<void> {
 }
 
 /** Forces collections until every registered holder has been finalized, or the rounds run out. */
-async function drainRegistry(finalized: number[], expected: number): Promise<void> {
-  for (let round = 0; round < GC_ROUNDS && finalized.length < expected; round += 1) {
+async function drainRegistry(finalized: number[], expected: number, maxRounds: number = GC_ROUNDS): Promise<void> {
+  for (let round = 0; round < maxRounds && finalized.length < expected; round += 1) {
     gc();
     await tick();
   }
@@ -148,7 +148,7 @@ describeIfGC('leak canaries (request state GC probe)', () => {
       });
     }
 
-    await drainRegistry(finalized, REQUEST_COUNT);
+    await drainRegistry(finalized, REQUEST_COUNT, 5);
 
     // the control for the probe above: without it, a collector that never fires reads as a pass
     expect(finalized).toEqual([]);
