@@ -140,14 +140,14 @@ describe('@cancjs/node/zlib', () => {
     },
   );
 
-  it('compressGzip throws NotImplementedError naming 24 when node has no iterable codec family', () => {
+  it('compressGzip throws NotImplementedError naming 24 when node has no iterable codec family', async () => {
     if (hasRealCompressGzip) {
       return;
     }
 
     let error: unknown;
     try {
-      zlibExports.compressGzip([Buffer.from('x')]);
+      await zlibExports.compressGzip([Buffer.from('x')]);
     } catch (err) {
       error = err;
     }
@@ -189,14 +189,14 @@ describe('@cancjs/node/zlib', () => {
     },
   );
 
-  it('zipFiles throws NotImplementedError naming 26 when node has no zip archive family', () => {
+  it('zipFiles throws NotImplementedError naming 26 when node has no zip archive family', async () => {
     if (hasRealZipFiles) {
       return;
     }
 
     let error: unknown;
     try {
-      zlibExports.zipFiles(['a.txt'], 'out.zip');
+      await zlibExports.zipFiles(['a.txt'], 'out.zip');
     } catch (err) {
       error = err;
     }

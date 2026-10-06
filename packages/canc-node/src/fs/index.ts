@@ -174,7 +174,8 @@ export const glob = gatedWrapped(
   features.hasGlob,
   'glob',
   '22',
-  passthrough(fsp.glob),
+  () => passthrough(fsp.glob),
+  'sync',
 ) as unknown as TSignatures<TGlobFn>;
 export const lchmod = promisifyWrapped(viaFs('lchmod'), 2) as TCancelable<TFsPromises['lchmod']>;
 export const lchown = promisifyWrapped(viaFs('lchown'), 3) as TCancelable<TFsPromises['lchown']>;
@@ -189,7 +190,8 @@ export const mkdtempDisposable = gatedWrapped(
   features.hasMkdtempDisposable,
   'mkdtempDisposable',
   '24.4.0',
-  adopted(fsp.mkdtempDisposable, 1),
+  () => adopted(fsp.mkdtempDisposable, 1),
+  'promise',
 ) as unknown as TCancelable<TMkdtempDisposableFn>;
 export const open = teardownOpen('open', decorate) as TCancelable<TFsPromises['open']>;
 export const opendir = teardownOpen('opendir') as TCancelable<TFsPromises['opendir']>;
@@ -203,7 +205,13 @@ export const rename = promisifyWrapped(viaFs('rename'), 2) as TCancelable<TFsPro
 export const rm = adopted(fsp.rm, 1) as TCancelable<TFsPromises['rm']>;
 export const rmdir = adopted(fsp.rmdir, 1) as TCancelable<TFsPromises['rmdir']>;
 export const stat = promisifySignalWrapped(viaFs('stat'), entries.get('stat'), 1) as TCancelable<TFsPromises['stat']>;
-export const statfs = adopted(fsp.statfs, 1) as TCancelable<TFsPromises['statfs']>;
+export const statfs = gatedWrapped(
+  features.hasStatfs,
+  'statfs',
+  '18.15.0',
+  () => adopted(fsp.statfs, 1),
+  'promise',
+) as TCancelable<TFsPromises['statfs']>;
 export const symlink = adopted(fsp.symlink, 2) as TCancelable<TFsPromises['symlink']>;
 export const truncate = adopted(fsp.truncate, 1) as TCancelable<TFsPromises['truncate']>;
 export const unlink = adopted(fsp.unlink, 1) as TCancelable<TFsPromises['unlink']>;

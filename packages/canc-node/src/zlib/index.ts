@@ -115,7 +115,8 @@ export const zstdCompress = gatedWrapped(
   has('zstdCompress'),
   'zstdCompress',
   '22',
-  promisifyWrapped(zlibCb.zstdCompress),
+  () => promisifyWrapped(zlibCb.zstdCompress),
+  'promise',
 ) as TZstdBufferFn;
 
 /**
@@ -129,7 +130,8 @@ export const zstdDecompress = gatedWrapped(
   has('zstdDecompress'),
   'zstdDecompress',
   '22',
-  promisifyWrapped(zlibCb.zstdDecompress),
+  () => promisifyWrapped(zlibCb.zstdDecompress),
+  'promise',
 ) as TZstdBufferFn;
 
 /**
@@ -142,7 +144,8 @@ export const crc32 = gatedWrapped(
   has('crc32'),
   'crc32',
   '22',
-  zlibCb.crc32 as (data: unknown, value?: number) => number,
+  () => zlibCb.crc32 as (data: unknown, value?: number) => number,
+  'sync',
 ) as (data: string | NodeJS.ArrayBufferView, value?: number) => number;
 
 /**
@@ -155,7 +158,8 @@ export const zstdCompressSync = gatedWrapped(
   has('zstdCompressSync'),
   'zstdCompressSync',
   '22',
-  zlibCb.zstdCompressSync as (data: unknown, options?: TZstdOptions) => Buffer,
+  () => zlibCb.zstdCompressSync as (data: unknown, options?: TZstdOptions) => Buffer,
+  'sync',
 ) as (data: unknown, options?: TZstdOptions) => Buffer;
 
 /**
@@ -168,7 +172,8 @@ export const zstdDecompressSync = gatedWrapped(
   has('zstdDecompressSync'),
   'zstdDecompressSync',
   '22',
-  zlibCb.zstdDecompressSync as (data: unknown, options?: TZstdOptions) => Buffer,
+  () => zlibCb.zstdDecompressSync as (data: unknown, options?: TZstdOptions) => Buffer,
+  'sync',
 ) as (data: unknown, options?: TZstdOptions) => Buffer;
 
 /**
@@ -182,7 +187,8 @@ export const createZstdCompress = gatedWrapped(
   has('createZstdCompress'),
   'createZstdCompress',
   '22',
-  zlibCb.createZstdCompress as (options?: TZstdOptions) => Transform,
+  () => zlibCb.createZstdCompress as (options?: TZstdOptions) => Transform,
+  'sync',
 ) as (options?: TZstdOptions) => Transform;
 
 /**
@@ -196,7 +202,8 @@ export const createZstdDecompress = gatedWrapped(
   has('createZstdDecompress'),
   'createZstdDecompress',
   '22',
-  zlibCb.createZstdDecompress as (options?: TZstdOptions) => Transform,
+  () => zlibCb.createZstdDecompress as (options?: TZstdOptions) => Transform,
+  'sync',
 ) as (options?: TZstdOptions) => Transform;
 
 /**
@@ -207,7 +214,7 @@ export const ZstdCompress = gatedClassWrapped(
   has('ZstdCompress'),
   'ZstdCompress',
   '22',
-  zlibCb.ZstdCompress as unknown as new (options?: TZstdOptions) => Transform,
+  () => zlibCb.ZstdCompress as unknown as new (options?: TZstdOptions) => Transform,
 );
 
 /**
@@ -218,7 +225,7 @@ export const ZstdDecompress = gatedClassWrapped(
   has('ZstdDecompress'),
   'ZstdDecompress',
   '22',
-  zlibCb.ZstdDecompress as unknown as new (options?: TZstdOptions) => Transform,
+  () => zlibCb.ZstdDecompress as unknown as new (options?: TZstdOptions) => Transform,
 );
 
 /**
@@ -233,7 +240,8 @@ export const compressGzip = gatedWrapped(
   has('compressGzip'),
   'compressGzip',
   '24',
-  iterableCodecWrapped<Buffer>(zlibCb.compressGzip),
+  () => iterableCodecWrapped<Buffer>(zlibCb.compressGzip),
+  'promise',
 ) as TIterableCodecFn;
 
 /**
@@ -248,7 +256,8 @@ export const decompressGzip = gatedWrapped(
   has('decompressGzip'),
   'decompressGzip',
   '24',
-  iterableCodecWrapped<Buffer>(zlibCb.decompressGzip),
+  () => iterableCodecWrapped<Buffer>(zlibCb.decompressGzip),
+  'promise',
 ) as TIterableCodecFn;
 
 /**
@@ -263,7 +272,8 @@ export const compressDeflate = gatedWrapped(
   has('compressDeflate'),
   'compressDeflate',
   '24',
-  iterableCodecWrapped<Buffer>(zlibCb.compressDeflate),
+  () => iterableCodecWrapped<Buffer>(zlibCb.compressDeflate),
+  'promise',
 ) as TIterableCodecFn;
 
 /**
@@ -278,7 +288,8 @@ export const decompressDeflate = gatedWrapped(
   has('decompressDeflate'),
   'decompressDeflate',
   '24',
-  iterableCodecWrapped<Buffer>(zlibCb.decompressDeflate),
+  () => iterableCodecWrapped<Buffer>(zlibCb.decompressDeflate),
+  'promise',
 ) as TIterableCodecFn;
 
 /**
@@ -293,7 +304,8 @@ export const compressBrotli = gatedWrapped(
   has('compressBrotli'),
   'compressBrotli',
   '24',
-  iterableCodecWrapped<Buffer>(zlibCb.compressBrotli),
+  () => iterableCodecWrapped<Buffer>(zlibCb.compressBrotli),
+  'promise',
 ) as TIterableCodecFn;
 
 /**
@@ -308,7 +320,8 @@ export const decompressBrotli = gatedWrapped(
   has('decompressBrotli'),
   'decompressBrotli',
   '24',
-  iterableCodecWrapped<Buffer>(zlibCb.decompressBrotli),
+  () => iterableCodecWrapped<Buffer>(zlibCb.decompressBrotli),
+  'promise',
 ) as TIterableCodecFn;
 
 /**
@@ -323,7 +336,8 @@ export const compressZstd = gatedWrapped(
   has('compressZstd'),
   'compressZstd',
   '24',
-  iterableCodecWrapped<Buffer>(zlibCb.compressZstd),
+  () => iterableCodecWrapped<Buffer>(zlibCb.compressZstd),
+  'promise',
 ) as TIterableCodecFn;
 
 /**
@@ -338,7 +352,8 @@ export const decompressZstd = gatedWrapped(
   has('decompressZstd'),
   'decompressZstd',
   '24',
-  iterableCodecWrapped<Buffer>(zlibCb.decompressZstd),
+  () => iterableCodecWrapped<Buffer>(zlibCb.decompressZstd),
+  'promise',
 ) as TIterableCodecFn;
 
 /**
@@ -351,7 +366,8 @@ export const compressGzipSync = gatedWrapped(
   has('compressGzipSync'),
   'compressGzipSync',
   '24',
-  zlibCb.compressGzipSync as (source: unknown, options?: unknown) => Buffer,
+  () => zlibCb.compressGzipSync as (source: unknown, options?: unknown) => Buffer,
+  'sync',
 ) as (source: Iterable<unknown>, options?: unknown) => Buffer;
 
 /**
@@ -364,7 +380,8 @@ export const decompressGzipSync = gatedWrapped(
   has('decompressGzipSync'),
   'decompressGzipSync',
   '24',
-  zlibCb.decompressGzipSync as (source: unknown, options?: unknown) => Buffer,
+  () => zlibCb.decompressGzipSync as (source: unknown, options?: unknown) => Buffer,
+  'sync',
 ) as (source: Iterable<unknown>, options?: unknown) => Buffer;
 
 /**
@@ -377,7 +394,8 @@ export const compressDeflateSync = gatedWrapped(
   has('compressDeflateSync'),
   'compressDeflateSync',
   '24',
-  zlibCb.compressDeflateSync as (source: unknown, options?: unknown) => Buffer,
+  () => zlibCb.compressDeflateSync as (source: unknown, options?: unknown) => Buffer,
+  'sync',
 ) as (source: Iterable<unknown>, options?: unknown) => Buffer;
 
 /**
@@ -390,7 +408,8 @@ export const decompressDeflateSync = gatedWrapped(
   has('decompressDeflateSync'),
   'decompressDeflateSync',
   '24',
-  zlibCb.decompressDeflateSync as (source: unknown, options?: unknown) => Buffer,
+  () => zlibCb.decompressDeflateSync as (source: unknown, options?: unknown) => Buffer,
+  'sync',
 ) as (source: Iterable<unknown>, options?: unknown) => Buffer;
 
 /**
@@ -403,7 +422,8 @@ export const compressBrotliSync = gatedWrapped(
   has('compressBrotliSync'),
   'compressBrotliSync',
   '24',
-  zlibCb.compressBrotliSync as (source: unknown, options?: unknown) => Buffer,
+  () => zlibCb.compressBrotliSync as (source: unknown, options?: unknown) => Buffer,
+  'sync',
 ) as (source: Iterable<unknown>, options?: unknown) => Buffer;
 
 /**
@@ -416,7 +436,8 @@ export const decompressBrotliSync = gatedWrapped(
   has('decompressBrotliSync'),
   'decompressBrotliSync',
   '24',
-  zlibCb.decompressBrotliSync as (source: unknown, options?: unknown) => Buffer,
+  () => zlibCb.decompressBrotliSync as (source: unknown, options?: unknown) => Buffer,
+  'sync',
 ) as (source: Iterable<unknown>, options?: unknown) => Buffer;
 
 /**
@@ -429,7 +450,8 @@ export const compressZstdSync = gatedWrapped(
   has('compressZstdSync'),
   'compressZstdSync',
   '24',
-  zlibCb.compressZstdSync as (source: unknown, options?: unknown) => Buffer,
+  () => zlibCb.compressZstdSync as (source: unknown, options?: unknown) => Buffer,
+  'sync',
 ) as (source: Iterable<unknown>, options?: unknown) => Buffer;
 
 /**
@@ -442,7 +464,8 @@ export const decompressZstdSync = gatedWrapped(
   has('decompressZstdSync'),
   'decompressZstdSync',
   '24',
-  zlibCb.decompressZstdSync as (source: unknown, options?: unknown) => Buffer,
+  () => zlibCb.decompressZstdSync as (source: unknown, options?: unknown) => Buffer,
+  'sync',
 ) as (source: Iterable<unknown>, options?: unknown) => Buffer;
 
 /**
@@ -453,7 +476,7 @@ export const ZipBuffer = gatedClassWrapped(
   has('ZipBuffer'),
   'ZipBuffer',
   '26',
-  zlibCb.ZipBuffer as unknown as new (...args: unknown[]) => object,
+  () => zlibCb.ZipBuffer as unknown as new (...args: unknown[]) => object,
 );
 
 /** The zip archive builder's write surface `zipFiles` depends on, named from the surface manifest's
@@ -472,7 +495,8 @@ export const createZipArchive = gatedWrapped(
   has('createZipArchive'),
   'createZipArchive',
   '26',
-  zlibCb.createZipArchive as (target: string, options?: TZipFilesOptions) => IZipArchiveWriter,
+  () => zlibCb.createZipArchive as (target: string, options?: TZipFilesOptions) => IZipArchiveWriter,
+  'sync',
 ) as (target: string, options?: TZipFilesOptions) => IZipArchiveWriter;
 
 /**
@@ -483,7 +507,8 @@ export const createZipArchiveSync = gatedWrapped(
   has('createZipArchiveSync'),
   'createZipArchiveSync',
   '26',
-  zlibCb.createZipArchiveSync as (target: string, options?: TZipFilesOptions) => IZipArchiveWriter,
+  () => zlibCb.createZipArchiveSync as (target: string, options?: TZipFilesOptions) => IZipArchiveWriter,
+  'sync',
 ) as (target: string, options?: TZipFilesOptions) => IZipArchiveWriter;
 
 /**
@@ -495,7 +520,8 @@ export const getMaxZipContentSize = gatedWrapped(
   has('getMaxZipContentSize'),
   'getMaxZipContentSize',
   '26',
-  zlibCb.getMaxZipContentSize as () => number,
+  () => zlibCb.getMaxZipContentSize as () => number,
+  'sync',
 ) as () => number;
 
 /**
@@ -506,7 +532,8 @@ export const setMaxZipContentSize = gatedWrapped(
   has('setMaxZipContentSize'),
   'setMaxZipContentSize',
   '26',
-  zlibCb.setMaxZipContentSize as (size: number) => void,
+  () => zlibCb.setMaxZipContentSize as (size: number) => void,
+  'sync',
 ) as (size: number) => void;
 
 function zipFilesImpl(files: readonly string[], target: string, options?: TZipFilesOptions): CancelablePromise<void> {
@@ -531,7 +558,13 @@ function zipFilesImpl(files: readonly string[], target: string, options?: TZipFi
  * Canceling checkpoints at a file boundary: no further entry is opened after that point, the entries
  * already written stay in the archive, and none of them is rolled back.
  */
-export const zipFiles = gatedWrapped(has('createZipArchive'), 'zipFiles', '26', zipFilesImpl) as TZipFilesFn;
+export const zipFiles = gatedWrapped(
+  has('createZipArchive'),
+  'zipFiles',
+  '26',
+  () => zipFilesImpl,
+  'promise',
+) as TZipFilesFn;
 
 export type { TIterableCodecFn, TZipFilesFn, TZipFilesOptions, TZstdOptions } from './types';
 

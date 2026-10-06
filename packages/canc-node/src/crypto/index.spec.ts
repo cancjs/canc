@@ -96,7 +96,7 @@ describe('@cancjs/node/crypto', () => {
     if (features.nodeMajor < 24) {
       let error: unknown;
       try {
-        cryptoExports.argon2('argon2id', ARGON2_PARAMS);
+        await cryptoExports.argon2('argon2id', ARGON2_PARAMS);
       } catch (err) {
         error = err;
       }
@@ -158,7 +158,7 @@ describe('@cancjs/node/crypto', () => {
     if (features.nodeMajor < 24) {
       let error: unknown;
       try {
-        cryptoExports.encapsulate({} as never);
+        await cryptoExports.encapsulate({} as never);
       } catch (err) {
         error = err;
       }

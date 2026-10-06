@@ -69,7 +69,13 @@ export const lookupService = adopted(viaDns('lookupService')) as TLookupServiceF
 // present rather than the running major, so a runtime implementing it without node's version
 // string still gets it
 const hasResolveTlsa = typeof dnsAny.resolveTlsa === 'function';
-export const resolveTlsa = gated(hasResolveTlsa, 'resolveTlsa', '22', adopted(viaDns('resolveTlsa')) as TResolveTlsaFn);
+export const resolveTlsa = gated(
+  hasResolveTlsa,
+  'resolveTlsa',
+  '22',
+  () => adopted(viaDns('resolveTlsa')) as TResolveTlsaFn,
+  'promise',
+) as TResolveTlsaFn;
 
 // synchronous, and (unlike the resolve family) not repointed by setServers, but read live all the
 // same so the two groups do not silently diverge if that ever changes

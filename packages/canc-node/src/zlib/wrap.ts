@@ -14,24 +14,62 @@ export { gated as gatedWrapped };
  * structurally match, so the gated stream classes (`ZstdCompress`, `ZipBuffer`, ...) route through
  * this instead of that one.
  */
-export function gatedClassWrapped<TCtor extends new (...args: any[]) => any>(
+export function gatedClassWrapped<TCtor extends abstract new (...args: any[]) => any>(
   available: boolean,
   feature: string,
   required: string,
-  impl: TCtor,
+  factory: () => TCtor,
 ): TCtor {
-  if (available) {
-    return impl;
+  if (!available) {
+    return class {
+      constructor(..._args: any[]) {
+        throw new NotImplementedError(`${feature} requires Node >= ${required}`, {
+          feature,
+          required,
+        });
+      }
+    } as unknown as TCtor;
   }
 
-  return class {
-    constructor(..._args: any[]) {
-      throw new NotImplementedError(`${feature} requires Node >= ${required}`, {
-        feature,
-        required,
-      });
-    }
-  } as unknown as TCtor;
+  let cached: TCtor | undefined;
+  return new Proxy(function () {} as unknown as TCtor, {
+    construct(_target, args, newTarget) {
+      if (cached === undefined) cached = factory();
+      return Reflect.construct(cached, args, newTarget === _target ? cached : newTarget);
+    },
+    get(_target, prop, receiver) {
+      if (cached === undefined) cached = factory();
+      return Reflect.get(cached, prop, receiver === _target ? cached : receiver);
+    },
+    set(_target, prop, value, receiver) {
+      if (cached === undefined) cached = factory();
+      return Reflect.set(cached, prop, value, receiver === _target ? cached : receiver);
+    },
+    apply(_target, thisArg, args) {
+      if (cached === undefined) cached = factory();
+      return Reflect.apply(cached as unknown as (...args: unknown[]) => unknown, thisArg, args);
+    },
+    getPrototypeOf(_target) {
+      if (cached === undefined) cached = factory();
+      return Reflect.getPrototypeOf(cached);
+    },
+    setPrototypeOf(_target, proto) {
+      if (cached === undefined) cached = factory();
+      return Reflect.setPrototypeOf(cached, proto);
+    },
+    ownKeys(_target) {
+      if (cached === undefined) cached = factory();
+      return Reflect.ownKeys(cached);
+    },
+    getOwnPropertyDescriptor(_target, prop) {
+      if (cached === undefined) cached = factory();
+      return Reflect.getOwnPropertyDescriptor(cached, prop);
+    },
+    has(_target, prop) {
+      if (cached === undefined) cached = factory();
+      return Reflect.has(cached, prop);
+    },
+  });
 }
 
 /**

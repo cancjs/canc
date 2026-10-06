@@ -153,24 +153,33 @@ describeLocks('requestLock', () => {
 });
 
 describe('requestLock gate', () => {
-  it('throws NotImplementedError naming node 24 where there is no lock manager', () => {
-    jest.isolateModules(() => {
-      jest.doMock('../features', () => ({
-        features: { ...jest.requireActual('../features').features, hasWorkerLocks: false },
-      }));
+  it('rejects NotImplementedError naming node 24 where there is no lock manager', async () => {
+    let error: unknown;
+    await new Promise<void>((resolve, reject) => {
+      jest.isolateModules(() => {
+        (async () => {
+          try {
+            jest.doMock('../features', () => ({
+              features: { ...jest.requireActual('../features').features, hasWorkerLocks: false },
+            }));
 
-      const gatedLocks = require('./locks');
+            const gatedLocks = require('./locks');
 
-      let error: unknown;
-      try {
-        gatedLocks.requestLock('any-name', () => undefined);
-      } catch (err) {
-        error = err;
-      }
+            try {
+              await gatedLocks.requestLock('any-name', () => undefined);
+            } catch (err) {
+              error = err;
+            }
 
-      expect(isNotImplementedError(error)).toBe(true);
-      expect((error as { required?: string }).required).toBe('24');
-      expect((error as { feature?: string }).feature).toBe('requestLock');
+            expect(isNotImplementedError(error)).toBe(true);
+            expect((error as { required?: string }).required).toBe('24');
+            expect((error as { feature?: string }).feature).toBe('requestLock');
+            resolve();
+          } catch (e) {
+            reject(e);
+          }
+        })();
+      });
     });
   });
 });

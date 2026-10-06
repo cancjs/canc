@@ -322,7 +322,7 @@ describe('wrap', () => {
 
   describe('gatedWrapped', () => {
     it('throws NotImplementedError naming the feature and version when false', () => {
-      const wrapped = gatedWrapped(false, 'testFeature', 'v99.0.0', () => {});
+      const wrapped = gatedWrapped(false, 'testFeature', 'v99.0.0', () => () => {});
       let err: any;
       try {
         wrapped();

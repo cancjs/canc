@@ -838,7 +838,7 @@ For multi-step operations (`copy`, `move` across devices, `emptyDir`, `walk`), c
 
 ### Error classes
 
-- `NotImplementedError`: thrown when a version-gated export is invoked on an older runtime
+- `NotImplementedError`: thrown or rejected when a version-gated export is invoked on an older runtime. Synchronous functions throw; promise-returning functions return a rejected promise.
 - `ProcessExitError`: thrown when a child process exits with a non-zero exit code or is terminated by a signal
 - `ProcessSpawnError`: thrown when a child process fails to spawn
 - `JsonParseError`: thrown when parsing JSON input fails
