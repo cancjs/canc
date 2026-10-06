@@ -1,10 +1,5 @@
-// Consumer tarball install check:
-// Verifies that a consumer outside the monorepo can install all 14 published workspace
-// packages together without npm ERESOLVE conflicts and with exactly ONE deduplicated
-// copy of @cancjs/promise at the expected packed version.
-// Also verifies that each of the 14 packages can be loaded via both ESM import() and CJS require().
-//
-// Usage: node scripts/check-beta-install.js [--build]
+// Asserts a consumer outside the repo can install every published tarball
+// without peer resolution conflicts and loads every package.
 
 const fs = require('fs');
 const os = require('os');
@@ -12,23 +7,51 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
+const isWin = process.platform === 'win32';
+const npmCmd = isWin ? 'npm.cmd' : 'npm';
 
-const PACKAGES = [
-  { name: '@cancjs/promise', relDir: 'packages/canc-promise' },
-  { name: '@cancjs/toolbox', relDir: 'packages/canc-toolbox' },
-  { name: '@cancjs/toolbox-native', relDir: 'packages/canc-toolbox-native' },
-  { name: '@cancjs/coroutine', relDir: 'packages/canc-coroutine' },
-  { name: '@cancjs/decorators', relDir: 'packages/canc-decorators' },
-  { name: '@cancjs/fetch', relDir: 'packages/canc-fetch' },
-  { name: '@cancjs/axios', relDir: 'packages/canc-axios' },
-  { name: '@cancjs/node', relDir: 'packages/canc-node' },
-  { name: '@cancjs/unhandled-rejection', relDir: 'packages/canc-unhandled-rejection' },
-  { name: '@cancjs/server-node', relDir: 'packages/canc-server/canc-server-node' },
-  { name: '@cancjs/server-express', relDir: 'packages/canc-server/canc-server-express' },
-  { name: '@cancjs/server-fastify', relDir: 'packages/canc-server/canc-server-fastify' },
-  { name: '@cancjs/server-hono', relDir: 'packages/canc-server/canc-server-hono' },
-  { name: '@cancjs/server-koa', relDir: 'packages/canc-server/canc-server-koa' },
-];
+function getPublishablePackages() {
+  const rootPkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+  const packages = [];
+
+  for (const pattern of rootPkg.workspaces || []) {
+    if (pattern.endsWith('/*')) {
+      const parentDir = path.join(ROOT, pattern.slice(0, -2));
+      if (!fs.existsSync(parentDir)) continue;
+      for (const entry of fs.readdirSync(parentDir, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        const dir = path.join(parentDir, entry.name);
+        const manifestPath = path.join(dir, 'package.json');
+        if (!fs.existsSync(manifestPath)) continue;
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+        if (manifest.private !== true) {
+          const relDir = path.relative(ROOT, dir).split(path.sep).join('/');
+          packages.push({ name: manifest.name, relDir });
+        }
+      }
+    } else {
+      const dir = path.join(ROOT, pattern);
+      const manifestPath = path.join(dir, 'package.json');
+      if (fs.existsSync(manifestPath)) {
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+        if (manifest.private !== true) {
+          const relDir = path.relative(ROOT, dir).split(path.sep).join('/');
+          packages.push({ name: manifest.name, relDir });
+        }
+      }
+    }
+  }
+
+  packages.sort((a, b) => a.name.localeCompare(b.name));
+
+  if (packages.length !== 14) {
+    throw new Error(`Expected exactly 14 publishable packages, found ${packages.length}`);
+  }
+
+  return packages;
+}
+
+const PACKAGES = getPublishablePackages();
 
 let tempDir = null;
 
@@ -52,20 +75,24 @@ process.on('SIGTERM', () => {
   process.exit(1);
 });
 
-function ensureBuild(forceBuild) {
-  const missingDist = PACKAGES.some((pkg) => !fs.existsSync(path.join(ROOT, pkg.relDir, 'dist')));
-  if (forceBuild || missingDist) {
-    console.log('[check-beta-install] Running npm run build across workspace...');
-    const buildRes = spawnSync('npm', ['run', 'build'], {
-      cwd: ROOT,
-      stdio: 'inherit',
-      shell: true,
-    });
-    if (buildRes.status !== 0) {
-      throw new Error(`npm run build failed with exit code ${buildRes.status}`);
+function ensureBuild() {
+  if (process.argv.includes('--no-build')) {
+    console.log('[check-beta-install] Skipping build (--no-build specified).');
+    const missingDist = PACKAGES.some((pkg) => !fs.existsSync(path.join(ROOT, pkg.relDir, 'dist')));
+    if (missingDist) {
+      throw new Error('Build artifacts missing for some packages but --no-build was passed');
     }
-  } else {
-    console.log('[check-beta-install] Build artifacts present for all packages.');
+    return;
+  }
+
+  console.log('[check-beta-install] Running npm run build across workspace...');
+  const buildRes = spawnSync(npmCmd, ['run', 'build'], {
+    cwd: ROOT,
+    stdio: 'inherit',
+    shell: isWin,
+  });
+  if (buildRes.status !== 0) {
+    throw new Error(`npm run build failed with exit code ${buildRes.status}`);
   }
 }
 
@@ -94,10 +121,10 @@ function packPackages(destDir) {
 
   for (const pkg of PACKAGES) {
     const pkgDir = path.join(ROOT, pkg.relDir);
-    const packRes = spawnSync('npm', ['pack', '--json', '--pack-destination', destDir], {
+    const packRes = spawnSync(npmCmd, ['pack', '--json', '--pack-destination', destDir], {
       cwd: pkgDir,
       encoding: 'utf8',
-      shell: true,
+      shell: isWin,
     });
 
     if (packRes.status !== 0) {
@@ -120,10 +147,10 @@ function packPackages(destDir) {
 }
 
 function verifyPromiseDeduped(tempDirectory, expectedVersion) {
-  const lsRes = spawnSync('npm', ['ls', '@cancjs/promise', '--json'], {
+  const lsRes = spawnSync(npmCmd, ['ls', '@cancjs/promise', '--json'], {
     cwd: tempDirectory,
     encoding: 'utf8',
-    shell: true,
+    shell: isWin,
   });
 
   if (lsRes.status !== 0) {
@@ -132,7 +159,6 @@ function verifyPromiseDeduped(tempDirectory, expectedVersion) {
 
   const tree = JSON.parse(lsRes.stdout);
 
-  // 1. Root dependency must have @cancjs/promise at expected version
   const rootPromise = tree.dependencies && tree.dependencies['@cancjs/promise'];
   if (!rootPromise) {
     throw new Error('Root project dependencies does not contain @cancjs/promise');
@@ -143,7 +169,6 @@ function verifyPromiseDeduped(tempDirectory, expectedVersion) {
     );
   }
 
-  // 2. Walk entire dependency tree to assert no duplicate or un-deduped copies
   function checkNode(node, currentPath) {
     if (!node || typeof node !== 'object') return;
     if (node.dependencies) {
@@ -155,7 +180,6 @@ function verifyPromiseDeduped(tempDirectory, expectedVersion) {
               `Duplicate copy of @cancjs/promise found at ${nextPath} with version ${depInfo.version} (expected ${expectedVersion})`,
             );
           }
-          // If nested under another dependency, it must be deduped (no distinct resolved path)
           if (currentPath && depInfo.resolved && depInfo.resolved !== rootPromise.resolved) {
             throw new Error(
               `Non-deduped nested copy of @cancjs/promise found at ${nextPath} with resolved ${depInfo.resolved}`,
@@ -169,7 +193,6 @@ function verifyPromiseDeduped(tempDirectory, expectedVersion) {
 
   checkNode(tree, '');
 
-  // 3. Physical filesystem check: find all @cancjs/promise directories in node_modules
   const promiseDirs = [];
   function findDirectories(dir) {
     const nm = path.join(dir, 'node_modules');
@@ -238,7 +261,6 @@ console.log('[check-beta-install] All ' + packages.length + ' packages loaded su
   const runRes = spawnSync('node', ['verify-loader.mjs'], {
     cwd: tempDirectory,
     stdio: 'inherit',
-    shell: true,
   });
 
   if (runRes.status !== 0) {
@@ -247,10 +269,8 @@ console.log('[check-beta-install] All ' + packages.length + ' packages loaded su
 }
 
 function main() {
-  const forceBuild = process.argv.includes('--build') || process.argv.includes('--rebuild');
-
   try {
-    ensureBuild(forceBuild);
+    ensureBuild();
 
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'canc-beta-consumer-'));
     console.log(`[check-beta-install] Created consumer directory: ${tempDir}`);
@@ -266,10 +286,10 @@ function main() {
     fs.writeFileSync(path.join(tempDir, 'package.json'), JSON.stringify(consumerManifest, null, 2), 'utf8');
 
     console.log(`[check-beta-install] Running npm install for all 14 tarballs...`);
-    const installRes = spawnSync('npm', ['install', ...tgzPaths], {
+    const installRes = spawnSync(npmCmd, ['install', ...tgzPaths], {
       cwd: tempDir,
       stdio: 'inherit',
-      shell: true,
+      shell: isWin,
     });
 
     if (installRes.status !== 0) {
@@ -280,10 +300,9 @@ function main() {
     verifyModuleLoading(tempDir);
 
     console.log('[check-beta-install] All checks passed successfully.');
-    process.exit(0);
   } catch (err) {
     console.error(`[check-beta-install] FAIL: ${err.message}`);
-    process.exit(1);
+    process.exitCode = 1;
   } finally {
     cleanup();
   }
