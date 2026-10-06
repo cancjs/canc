@@ -765,6 +765,8 @@ The `@cancjs/node` package provides cancelable promise-based wrappers and extend
 
 `FileHandle.prototype.writeFile` accepts a cancellation signal and calls `iterator.return()` on Node 22+ (native `signal` support added in Node 22.0.0); on Node 18/20, native `writeFile` does not take a cancellation signal.
 
+Known issue on Node 18: Invoking both `readLines()` and `readableWebStream()` on the same `FileHandle` before closing triggers a native Node.js abort (`Assertion '!closing_' failed`). Use separate handles when consuming both stream interfaces on Node 18.
+
 ### Cancellation and partial state
 
 For multi-step operations (`copy`, `move` across devices, `emptyDir`, `walk`), cancellation checkpoints occur between entries. When canceled mid-operation:

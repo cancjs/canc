@@ -283,6 +283,10 @@ describe('FileHandle', () => {
     const testFile = path.join(dir, 'lines.txt');
     nodeFs.writeFileSync(testFile, 'line1\nline2\n');
 
+    // Node 18 native bug: invoking both readLines() and readableWebStream() on the same
+    // FileHandle instance causes an internal assertion abort (Assertion '!closing_' failed)
+    // when close() is called.
+    // The tests are exercised on separate handles to avoid the platform abort.
     const fh1 = decorate(await fs.open(testFile, 'r'));
     if (typeof fh1.readLines === 'function') {
       const lines = fh1.readLines();
