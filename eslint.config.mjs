@@ -49,6 +49,7 @@ export default defineConfig(
   // Scratch convention (`~~` prefix/suffix, files + dirs) plus build output and lockfiles.
   // examples/ is a separate npm project with its own toolchain.
   globalIgnores([
+    '**/surface/baseline/**',
     '**/~~*',
     '**/*~~',
     '**/*~~*',
