@@ -34,6 +34,7 @@ jobs:
         if: vars.CANC_PUBLISH_ENABLED == 'true'
         uses: changesets/action@v1
         with:
+          version: npm run release:version
           publish: npx changeset publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
