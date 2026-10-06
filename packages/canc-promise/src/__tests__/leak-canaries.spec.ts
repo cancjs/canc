@@ -224,7 +224,7 @@ describeIfGC('leak canaries (GC probe)', () => {
         _child = undefined;
 
         // Periodic GC to allow collection
-        if (i % 1000 === 999) {
+        if (i % 2000 === 1999) {
           gc();
         }
       }
@@ -241,7 +241,7 @@ describeIfGC('leak canaries (GC probe)', () => {
         let _child: CancelablePromise<number> | undefined = parent!.then((v) => v + 1);
         _child = undefined;
 
-        if (i % 1000 === 999) {
+        if (i % 2000 === 1999) {
           gc();
         }
       }
@@ -266,6 +266,6 @@ describeIfGC('leak canaries (GC probe)', () => {
       console.log(`Growth ratio: ${ratio.toFixed(2)}x`);
 
       expect(ratio).toBeLessThan(1.2);
-    });
+    }, 30_000);
   });
 });

@@ -29,6 +29,10 @@ module.exports = {
     ...mergeTsJestConfig({ tsconfig: '<rootDir>/../../tsconfig.json' }),
   },
   displayName: packageJson.name,
+  testPathIgnorePatterns:
+    process.env.npm_lifecycle_event === 'test:canary' || process.argv.some((arg) => arg.includes('leak-canaries')) ?
+      ['/node_modules/', '/~~', '~~/']
+    : ['/node_modules/', '/~~', '~~/', '<rootDir>/src/__tests__/leak-canaries\\.spec\\.ts'],
   // coroutine.ts coverage moved to @cancjs/coroutine jest config
   // Global entry required by ts-jest coverage instrumentation even w/ only per-file thresholds.
   coverageThreshold: {
