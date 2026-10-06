@@ -28,10 +28,12 @@ const members = manifest.exports as readonly IMemberEntry[];
 
 let protoCache = new WeakMap<object, object>();
 let cancProtos = new WeakSet<object>();
+let closePromises = new WeakMap<object, CancelablePromise<void>>();
 
 export function __resetCancProtoForTest() {
   protoCache = new WeakMap();
   cancProtos = new WeakSet();
+  closePromises = new WeakMap();
 }
 
 export function decorate<T extends nodeFsPromises.FileHandle = nodeFsPromises.FileHandle>(
@@ -73,7 +75,6 @@ function buildProto(nativeProto: Record<string, unknown>) {
 
   for (const entry of members) {
     if (entry.kind !== 'fn' || entry.callPath === 'sync') continue;
-    if (entry.name === 'close') continue;
 
     const isAsyncDispose = entry.name === '[Symbol.asyncDispose]';
     const asyncDisposeSymbol = (Symbol as { asyncDispose?: symbol }).asyncDispose;
@@ -83,7 +84,7 @@ function buildProto(nativeProto: Record<string, unknown>) {
 
     if (typeof nativeFn !== 'function') {
       const minMajor = entry.minMajor ?? 18;
-      if (minMajor <= features.nodeMajor && entry.gate === null) {
+      if (entry.name !== 'close' && minMajor <= features.nodeMajor && entry.gate === null) {
         skipped.push(entry.name);
       }
       continue;
@@ -115,12 +116,25 @@ function wrap(name: string, nativeFn: TNodeFn, known?: IMemberEntry): TNodeFn {
   if (name === 'close') {
     // close IS the teardown, so it is shielded: a canceled close would leave the descriptor open
     return function closeShielded(this: unknown, ...args: unknown[]) {
-      return new CancelablePromise(
-        (resolve) => {
-          resolve(nativeFn.apply(this, args) as PromiseLike<unknown>);
+      if (this && typeof this === 'object') {
+        const existing = closePromises.get(this);
+        if (existing) return existing;
+      }
+      const promise = new CancelablePromise<void>(
+        (resolve, reject) => {
+          try {
+            const res = nativeFn.apply(this, args);
+            Promise.resolve(res).then(resolve as () => void, reject);
+          } catch (err) {
+            reject(err);
+          }
         },
         { shield: true },
       );
+      if (this && typeof this === 'object') {
+        closePromises.set(this, promise);
+      }
+      return promise;
     };
   }
 

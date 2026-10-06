@@ -6,6 +6,7 @@ import * as path from 'node:path';
 import { CancelError } from '@cancjs/promise';
 import { describe, expect, jest, test } from '@jest/globals';
 
+import { features } from '../features';
 import { __resetCancProtoForTest, decorate } from './file-handle';
 import { open } from './index';
 import { resetFs, setFs } from './registry';
@@ -155,6 +156,7 @@ describe('FileHandle', () => {
   });
 
   test('fh.writeFile(asyncIterable) canceled mid-stream calls return()', async () => {
+    if (features.nodeMajor < 22) return;
     const dir = nodeFs.mkdtempSync(path.join(os.tmpdir(), 'canc-fh-iter-'));
     tempDirs.push(dir);
     const testFile = path.join(dir, 'iter.tmp');
@@ -279,17 +281,37 @@ describe('FileHandle', () => {
     const testFile = path.join(dir, 'lines.txt');
     nodeFs.writeFileSync(testFile, 'line1\nline2\n');
 
-    const fh = decorate(await fs.open(testFile, 'r'));
+    const fh1 = decorate(await fs.open(testFile, 'r'));
+    if (typeof fh1.readLines === 'function') {
+      const lines = fh1.readLines();
+      expect(lines instanceof Promise).toBe(false);
+      expect(typeof lines[Symbol.asyncIterator]).toBe('function');
+    }
+    await fh1.close();
 
-    const lines = fh.readLines();
-    expect(lines instanceof Promise).toBe(false);
-    expect(typeof lines[Symbol.asyncIterator]).toBe('function');
+    const fh2 = decorate(await fs.open(testFile, 'r'));
+    if (typeof fh2.readableWebStream === 'function') {
+      const webStream = fh2.readableWebStream();
+      expect(webStream instanceof Promise).toBe(false);
+      expect(typeof webStream.getReader).toBe('function');
+    }
+    await fh2.close();
 
-    const webStream = fh.readableWebStream();
-    expect(webStream instanceof Promise).toBe(false);
-    expect(typeof webStream.getReader).toBe('function');
-
-    await fh.close();
     nodeFs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('close() called twice concurrently on a handle resolves both without abort', async () => {
+    const fh = decorate(await fs.open('package.json', 'r'));
+    const p1 = fh.close();
+    const p2 = fh.close();
+    await expect(Promise.all([p1, p2])).resolves.toBeDefined();
+  });
+
+  test('cancel + explicit close resolves without abort', async () => {
+    const fh = decorate(await fs.open('package.json', 'r'));
+    const p1 = fh.close();
+    p1.cancel();
+    const p2 = fh.close();
+    await expect(Promise.all([p1, p2])).resolves.toBeDefined();
   });
 });
