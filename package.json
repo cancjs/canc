@@ -10,7 +10,7 @@
   },
   "scripts": {
     "prepare": "lefthook install",
-    "build": "cross-env NODE_OPTIONS=--no-deprecation lerna run build --stream",
+    "build": "cross-env NODE_OPTIONS=\"--no-deprecation --experimental-global-webcrypto\" lerna run build --stream",
     "test": "cross-env NODE_OPTIONS=--no-deprecation lerna run test --stream",
     "lint": "run-p -c lint:workspaces lint:root",
     "lint:workspaces": "cross-env NODE_OPTIONS=--no-deprecation lerna run lint --stream --no-bail",
