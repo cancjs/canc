@@ -1,3 +1,5 @@
+import nodeStream from 'node:stream';
+
 import { isCancelError } from '@cancjs/promise';
 
 import * as streamExports from './index';
@@ -57,7 +59,7 @@ describe('@cancjs/node/stream module exports', () => {
     expect(typeof Transform).toBe('function');
     expect(typeof PassThrough).toBe('function');
     expect(typeof addAbortSignal).toBe('function');
-    if (typeof duplexPair !== 'undefined') {
+    if (typeof (nodeStream as unknown as Record<string, unknown>).duplexPair === 'function') {
       expect(typeof duplexPair).toBe('function');
     } else {
       expect(duplexPair).toBeUndefined();

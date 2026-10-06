@@ -802,18 +802,11 @@ describe('fs-extra', () => {
       await fs.writeFile(replaceFileTarget, 'initial smoke data');
 
       const pReplace = replaceFile(replaceFileTarget, 'new smoke data');
-      pReplace.cancel();
+      await pReplace.cancel();
       await expect(pReplace).rejects.toThrow(CancelError);
 
-      let leftoverTemp: string[] = [];
-      for (let i = 0; i < 15; i++) {
-        const entries = await fs.readdir(smokeDest, { recursive: true });
-        leftoverTemp = entries.filter((name) => name.includes('.tmp-') || name.startsWith('.'));
-        if (leftoverTemp.length === 0) {
-          break;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 20));
-      }
+      const entries = await fs.readdir(smokeDest, { recursive: true });
+      const leftoverTemp = entries.filter((name) => name.includes('.tmp-') || name.startsWith('.'));
       expect(leftoverTemp).toEqual([]);
     });
   });

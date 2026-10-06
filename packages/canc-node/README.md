@@ -761,6 +761,10 @@ The `@cancjs/node` package provides cancelable promise-based wrappers and extend
 - `@cancjs/node/fs/extra`: extended file system helpers with per-entry cancellation checkpoints.
 - `@cancjs/node/fs/register-graceful`: side-effect import registering `graceful-fs` with automatic retry on handle operations.
 
+### FileHandle
+
+`FileHandle.prototype.writeFile` accepts a cancellation signal and calls `iterator.return()` on Node 22+ (native `signal` support added in Node 22.0.0); on Node 18/20, native `writeFile` does not take a cancellation signal.
+
 ### Cancellation and partial state
 
 For multi-step operations (`copy`, `move` across devices, `emptyDir`, `walk`), cancellation checkpoints occur between entries. When canceled mid-operation:
