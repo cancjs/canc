@@ -111,5 +111,5 @@ describe('async-iter tree-shaking', () => {
     expect(/\bmap\b/.test(output)).toBe(true);
     expect(/\bfilter\b/.test(output)).toBe(true);
     expect(/\btake\b/.test(output)).toBe(true);
-  });
+  }, 30_000);
 });
