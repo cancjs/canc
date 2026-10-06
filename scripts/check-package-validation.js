@@ -14,6 +14,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const semver = require('semver');
 const { execSync } = require('child_process');
 const { pathToFileURL } = require('url');
 
@@ -312,6 +313,20 @@ function collectPeerFloorViolations(pkgDir, manifest, workspace) {
   const imports = collectPeerImports(pkgDir);
   const problems = [];
 
+  for (const peer of Object.keys(ranges)) {
+    if (!peer.startsWith('@cancjs/')) continue;
+    const range = ranges[peer];
+    const peerDir = workspace.get(peer);
+    if (peerDir) {
+      const peerVer = JSON.parse(fs.readFileSync(path.join(peerDir, 'package.json'), 'utf8')).version;
+      if (peerVer !== '1.0.0' || semver.prerelease(peerVer)) {
+        if (!semver.satisfies(peerVer, range)) {
+          problems.push(`peer ${peer}@${range} is not satisfied by workspace version ${peerVer}`);
+        }
+      }
+    }
+  }
+
   for (const [peer, names] of imports) {
     const range = ranges[peer];
     if (!range) {
@@ -319,14 +334,25 @@ function collectPeerFloorViolations(pkgDir, manifest, workspace) {
       continue;
     }
 
-    const declared = /^>=\s*(\S+)$/.exec(range);
-    if (!declared) {
+    const clauses = range.split('||').map((c) => c.trim());
+    const parsedClauses = [];
+    let valid = true;
+    for (const clause of clauses) {
+      const declared = /^>=\s*(\S+)$/.exec(clause);
+      if (!declared) {
+        valid = false;
+        break;
+      }
+      parsedClauses.push({ raw: declared[1], ver: parseVersion(declared[1]) });
+    }
+    if (!valid || parsedClauses.length === 0) {
       problems.push(`peer range for ${peer} is "${range}", expected a floor of the form ">=x.y.z"`);
       continue;
     }
 
-    const floor = declared[1];
-    const parsedFloor = parseVersion(floor);
+    parsedClauses.sort((a, b) => semver.compare(a.raw, b.raw));
+    const floor = parsedClauses[0].raw;
+    const parsedFloor = parsedClauses[0].ver;
     let surface = null;
 
     const published = PEER_FLOOR_SURFACES[peer] && PEER_FLOOR_SURFACES[peer][floor];
