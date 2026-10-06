@@ -10,11 +10,10 @@ import {
   unregister,
 } from './index';
 
-// Node 21+ exposes a real global `navigator` (WinterCG), and register() now reads it as the
-// primary signal. Every case below except the userAgent-specific ones is written against the
-// pre-21 shape (no navigator at all), so it is neutralized here regardless of which Node version
-// actually runs the suite; `navigator` is a configurable accessor property on Node, so it can be
-// stubbed and the original descriptor restored exactly.
+// Node 21+ exposes a global `navigator` (WinterCG), while Node 18 lacks it natively.
+// Under Jest's VM context, `navigator` must be explicitly deleted before re-defining with
+// `configurable: true, writable: true` so subsequent stubs can be applied and the original
+// descriptor can be restored cleanly across all Node versions.
 function stubNavigator(userAgent: string | undefined): void {
   delete (globalThis as any).navigator;
   if (userAgent !== undefined) {
