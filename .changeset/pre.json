@@ -1,0 +1,24 @@
+{
+  "mode": "pre",
+  "tag": "beta",
+  "initialVersions": {
+    "@cancjs/benchmarks": "0.0.0",
+    "@cancjs/axios": "1.0.0",
+    "@cancjs/coroutine": "1.0.0",
+    "@cancjs/decorators": "1.0.0",
+    "@cancjs/fetch": "1.0.0",
+    "@cancjs/node": "1.0.0",
+    "@cancjs/promise": "1.0.0",
+    "@cancjs/server-express": "1.0.0",
+    "@cancjs/server-fastify": "1.0.0",
+    "@cancjs/server-hono": "1.0.0",
+    "@cancjs/server-koa": "1.0.0",
+    "@cancjs/server-node": "1.0.0",
+    "@cancjs/toolbox": "1.0.0",
+    "@cancjs/toolbox-native": "1.0.0",
+    "@cancjs/unhandled-rejection": "1.0.0",
+    "@cancjs/tests-dist": "0.0.0",
+    "@cancjs/tests-types": "0.0.0"
+  },
+  "changesets": []
+}
