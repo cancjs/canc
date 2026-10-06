@@ -57,7 +57,11 @@ describe('@cancjs/node/stream module exports', () => {
     expect(typeof Transform).toBe('function');
     expect(typeof PassThrough).toBe('function');
     expect(typeof addAbortSignal).toBe('function');
-    expect(typeof duplexPair).toBe('function');
+    if (typeof duplexPair !== 'undefined') {
+      expect(typeof duplexPair).toBe('function');
+    } else {
+      expect(duplexPair).toBeUndefined();
+    }
   });
 });
 

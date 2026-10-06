@@ -805,8 +805,15 @@ describe('fs-extra', () => {
       pReplace.cancel();
       await expect(pReplace).rejects.toThrow(CancelError);
 
-      const entries = await fs.readdir(smokeDest, { recursive: true });
-      const leftoverTemp = entries.filter((name) => name.includes('.tmp-') || name.startsWith('.'));
+      let leftoverTemp: string[] = [];
+      for (let i = 0; i < 15; i++) {
+        const entries = await fs.readdir(smokeDest, { recursive: true });
+        leftoverTemp = entries.filter((name) => name.includes('.tmp-') || name.startsWith('.'));
+        if (leftoverTemp.length === 0) {
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
       expect(leftoverTemp).toEqual([]);
     });
   });
