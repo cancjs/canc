@@ -1,0 +1,34 @@
+{
+  "$comment": "Authoritative registry of Symbol.for brand keys and _cancErrorBrand literals across @cancjs/* packages. Published keys never change. Pending keys are new in 1.1.",
+  "published": [
+    "@cancjs/coroutine:BreakError",
+    "@cancjs/coroutine:awaited",
+    "@cancjs/coroutine:coroutine",
+    "@cancjs/coroutine:returnUnwind",
+    "@cancjs/promise:AbortError",
+    "@cancjs/promise:AggregateError",
+    "@cancjs/promise:CancelError",
+    "@cancjs/promise:CancelSignal",
+    "@cancjs/promise:CancelablePromise",
+    "@cancjs/promise:TimeoutError",
+    "@cancjs/toolbox:LazyPromise",
+    "@cancjs/toolbox:Timer"
+  ],
+  "pending": [
+    "@cancjs/coroutine:IterationError",
+    "@cancjs/coroutine:currentLoop",
+    "@cancjs/coroutine:registerCleanup",
+    "@cancjs/node:JsonParseError",
+    "@cancjs/node:NotImplementedError",
+    "@cancjs/node:ProcessExitError",
+    "@cancjs/node:ProcessSpawnError",
+    "@cancjs/promise:failure",
+    "@cancjs/server-node:LiveRequests",
+    "@cancjs/server-node:RequestCancelState",
+    "@cancjs/server-node:Shutdown",
+    "@cancjs/toolbox:PipeOp",
+    "@cancjs/toolbox:Pipeable",
+    "@cancjs/toolbox:SupersededError",
+    "@cancjs/toolbox:TermOp"
+  ]
+}
