@@ -588,7 +588,11 @@ async function checkPackage(pkgName, workspace, plannedVersions) {
       if (symbol) {
         for (const exp of checker.getExportsOfModule(symbol)) {
           const name = exp.getName();
-          const isInternal = name.startsWith('_') || exp.getJsDocTags(checker).some((t) => t.name === 'internal');
+          const target = exp.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(exp) : exp;
+          const isInternal =
+            name.startsWith('_') ||
+            exp.getJsDocTags(checker).some((t) => t.name === 'internal') ||
+            (target !== exp && target.getJsDocTags(checker).some((t) => t.name === 'internal'));
           if (isInternal) {
             if (!allowlist[manifest.name]?.[name]) {
               problems.push(`unallowlisted internal export "${name}" found in public entry of ${manifest.name}`);

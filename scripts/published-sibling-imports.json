@@ -1,5 +1,5 @@
 {
-  "$comment": "Measured by extracting published @cancjs/*@1.0.0 release tarballs into a temporary directory and scanning dist for @cancjs/* import specifiers. Validates that workspace peers export every name that published siblings import from them.",
+  "$comment": "Measured with: npm pack @cancjs/<pkg>@1.0.0 into a temp dir and scanning dist/ for @cancjs/* imports. Every name recorded here must stay exported by the named peer.",
   "imports": {
     "@cancjs/axios@1.0.0": {
       "@cancjs/promise": [
