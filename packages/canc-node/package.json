@@ -220,7 +220,7 @@
     "surface:lock": "node ../../scripts/node/api-lock.mjs",
     "surface:project": "node ../../scripts/node/generate-surface-projections.mjs"
   },
-  "files": ["dist"],
+  "files": ["dist", "LICENSES"],
   "keywords": ["node", "fs", "cancel", "cancelable", "cancellation", "canc"],
   "dependencies": {
     "@types/node": ">=18"
