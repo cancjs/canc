@@ -67,8 +67,8 @@
     "fastify-plugin": "6.0.0"
   },
   "peerDependencies": {
-    "@cancjs/coroutine": ">=1.0.0",
-    "@cancjs/promise": ">=1.1.0",
+    "@cancjs/coroutine": ">=1.0.0 || >=1.1.0-0",
+    "@cancjs/promise": ">=1.1.0-0",
     "fastify": ">=5",
     "fastify-plugin": ">=5"
   },

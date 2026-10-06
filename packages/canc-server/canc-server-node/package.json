@@ -68,8 +68,8 @@
     "@cancjs/promise": "*"
   },
   "peerDependencies": {
-    "@cancjs/coroutine": ">=1.0.0",
-    "@cancjs/promise": ">=1.1.0"
+    "@cancjs/coroutine": ">=1.0.0 || >=1.1.0-0",
+    "@cancjs/promise": ">=1.1.0-0"
   },
   "typesVersions": {
     "<4.7": {
