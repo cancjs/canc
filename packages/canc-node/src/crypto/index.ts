@@ -62,7 +62,7 @@ export const argon2 = gatedWrapped(
   hasArgon2,
   'argon2',
   '24',
-  () => promisifyWrapped(cryptoCb.argon2),
+  () => promisifyWrapped(cryptoCb.argon2, { displayName: 'argon2' }),
   'promise',
 ) as TArgon2Fn;
 

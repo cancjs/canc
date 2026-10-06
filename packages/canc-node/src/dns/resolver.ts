@@ -113,7 +113,7 @@ for (const name of QUERY_METHODS) {
 const hasResolveTlsa = typeof (NodeResolver.prototype as unknown as Record<string, unknown>).resolveTlsa === 'function';
 
 // wrapping an absent method is safe: gated hands back the throwing stub, which never applies it
-proto.resolveTlsa = gated(hasResolveTlsa, 'resolveTlsa', '22', () => stoppable('resolveTlsa') as any, 'promise') as any;
+proto.resolveTlsa = gated(hasResolveTlsa, 'resolveTlsa', '22', () => stoppable('resolveTlsa'), 'promise');
 
 export const Resolver = CancelableResolver as unknown as ICancelableResolverCtor;
 export type Resolver = ICancelableResolver;

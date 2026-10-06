@@ -4,7 +4,7 @@ import { isNotImplementedError, NotImplementedError } from './errors/classes';
 import { gated } from './gate';
 
 describe('gated', () => {
-  it('returns cached function on first invocation when available, calling factory lazily', () => {
+  it('returns factory result eagerly when available', () => {
     let callCount = 0;
     const fn = (a: number, b: number): number => a + b;
     const factory = () => {
@@ -14,10 +14,9 @@ describe('gated', () => {
 
     const result = gated(true, 'x', 'v22', factory);
 
-    expect(callCount).toBe(0);
-    expect(result(2, 3)).toBe(5);
     expect(callCount).toBe(1);
-    expect(result(3, 4)).toBe(7);
+    expect(result).toBe(fn);
+    expect(result(2, 3)).toBe(5);
     expect(callCount).toBe(1);
   });
 

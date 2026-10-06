@@ -16,13 +16,7 @@ export function gated<TFn extends (...args: any[]) => any>(
   kind: TGatedKind = 'sync',
 ): TFn {
   if (available) {
-    let cached: TFn | undefined;
-    return function (this: unknown, ...args: any[]) {
-      if (cached === undefined) {
-        cached = factory();
-      }
-      return cached.apply(this, args);
-    } as unknown as TFn;
+    return factory();
   }
 
   if (kind === 'promise') {

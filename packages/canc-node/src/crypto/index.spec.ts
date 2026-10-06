@@ -92,7 +92,7 @@ describe('@cancjs/node/crypto', () => {
     expect(fired[0]).toEqual([null, 42]);
   });
 
-  it('argon2 is gated on node 24+, throws NotImplementedError naming the version below that', async () => {
+  it('argon2 is gated on node 24+, rejects NotImplementedError naming the version below that', async () => {
     if (features.nodeMajor < 24) {
       let error: unknown;
       try {

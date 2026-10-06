@@ -2,7 +2,9 @@ import nodeZlib from 'node:zlib';
 
 import { CancelablePromise, isCancelError } from '@cancjs/promise';
 
+import { argon2 } from '../crypto';
 import { isNotImplementedError } from '../errors/classes';
+import { features } from '../features';
 import * as zlibExports from './index';
 import { checkpointWalkWrapped, iterableCodecWrapped } from './wrap';
 
@@ -140,7 +142,7 @@ describe('@cancjs/node/zlib', () => {
     },
   );
 
-  it('compressGzip throws NotImplementedError naming 24 when node has no iterable codec family', async () => {
+  it('compressGzip rejects NotImplementedError naming 24 when node has no iterable codec family', async () => {
     if (hasRealCompressGzip) {
       return;
     }
@@ -189,7 +191,7 @@ describe('@cancjs/node/zlib', () => {
     },
   );
 
-  it('zipFiles throws NotImplementedError naming 26 when node has no zip archive family', async () => {
+  it('zipFiles rejects NotImplementedError naming 26 when node has no zip archive family', async () => {
     if (hasRealZipFiles) {
       return;
     }
@@ -236,6 +238,20 @@ describe('@cancjs/node/zlib', () => {
     expect(compressed).not.toBeInstanceOf(CancelablePromise);
     const decompressed = zlibExports.gunzipSync(compressed);
     expect(decompressed.equals(original)).toBe(true);
+  });
+
+  it('gated exports are reflectable and retain names when available on Node 22/24', () => {
+    const { ZstdCompress, crc32 } = zlibExports;
+    if (typeof (nodeZlib as unknown as Record<string, unknown>).ZstdCompress === 'function') {
+      expect(() => Object.getOwnPropertyDescriptors(ZstdCompress)).not.toThrow();
+      expect(ZstdCompress.name).toBe('ZstdCompress');
+    }
+    if (typeof (nodeZlib as unknown as Record<string, unknown>).crc32 === 'function') {
+      expect(crc32.name).toBe('crc32');
+    }
+    if (features.nodeMajor >= 24) {
+      expect(argon2.name).toBe('argon2');
+    }
   });
 
   it('type fixture: gzip resolves exactly Buffer, not unknown', () => {
