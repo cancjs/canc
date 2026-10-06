@@ -16,10 +16,14 @@ import {
 // actually runs the suite; `navigator` is a configurable accessor property on Node, so it can be
 // stubbed and the original descriptor restored exactly.
 function stubNavigator(userAgent: string | undefined): void {
-  Object.defineProperty(globalThis, 'navigator', {
-    configurable: true,
-    value: userAgent === undefined ? undefined : { userAgent },
-  });
+  delete (globalThis as any).navigator;
+  if (userAgent !== undefined) {
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      writable: true,
+      value: { userAgent },
+    });
+  }
 }
 
 describe('environment detection', () => {
@@ -36,10 +40,9 @@ describe('environment detection', () => {
   afterEach(() => {
     warnSpy.mockRestore();
     unregister();
+    delete (globalThis as any).navigator;
     if (originalNavigatorDescriptor) {
       Object.defineProperty(globalThis, 'navigator', originalNavigatorDescriptor);
-    } else {
-      delete (globalThis as any).navigator;
     }
   });
 
