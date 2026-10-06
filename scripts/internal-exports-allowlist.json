@@ -1,0 +1,15 @@
+{
+  "$comment": "Allowlist of _-prefixed or @internal-tagged names reachable from public entry declaration files. Every name must have a reason string. New additions without an allowlist entry fail validation.",
+  "allowlist": {
+    "@cancjs/promise": {
+      "_AbortError": "Preserved for backwards compatibility with published @cancjs/toolbox@1.0.0",
+      "_TimeoutError": "Preserved for backwards compatibility with published @cancjs/toolbox@1.0.0",
+      "_createCatchError": "Preserved for backwards compatibility with published @cancjs/toolbox@1.0.0",
+      "_createSuppressError": "Preserved for backwards compatibility with published @cancjs/toolbox@1.0.0",
+      "_isAbortError": "Preserved for backwards compatibility with published @cancjs/toolbox@1.0.0 and @cancjs/unhandled-rejection@1.0.0",
+      "_isAbortLike": "Preserved for backwards compatibility with published @cancjs/toolbox@1.0.0",
+      "_isTimeoutError": "Preserved for backwards compatibility with published @cancjs/toolbox@1.0.0 and @cancjs/unhandled-rejection@1.0.0",
+      "_isTimeoutLike": "Preserved for backwards compatibility with published @cancjs/toolbox@1.0.0"
+    }
+  }
+}

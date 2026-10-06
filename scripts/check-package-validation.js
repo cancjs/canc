@@ -542,6 +542,63 @@ async function checkPackage(pkgName, workspace) {
     problems.push(`attw execution failed:\n${err.stdout || err.message}`);
   }
 
+  const publishedImports = JSON.parse(
+    fs.readFileSync(path.join(__dirname, 'published-sibling-imports.json'), 'utf8'),
+  ).imports;
+  const allowlist = JSON.parse(
+    fs.readFileSync(path.join(__dirname, 'internal-exports-allowlist.json'), 'utf8'),
+  ).allowlist;
+
+  const pkgSurface = localSurface(pkgDir) || new Set();
+
+  for (const importer of Object.keys(publishedImports)) {
+    const importedFromPkg = publishedImports[importer][manifest.name];
+    if (importedFromPkg) {
+      for (const name of importedFromPkg) {
+        if (!pkgSurface.has(name)) {
+          problems.push(
+            `published sibling ${importer} imports "${name}" from ${manifest.name}, but ${manifest.name} does not export it`,
+          );
+        }
+      }
+    }
+  }
+
+  const publicEntries = new Set();
+  if (manifest.types) {
+    publicEntries.add(path.join(pkgDir, normalize(manifest.types)));
+  }
+  if (manifest.exports) {
+    for (const p of collectExportsPaths(manifest.exports)) {
+      const pNorm = normalize(p);
+      if (pNorm.endsWith('.d.ts') || pNorm.endsWith('.d.mts') || pNorm.endsWith('.d.cts')) {
+        publicEntries.add(path.join(pkgDir, pNorm));
+      }
+    }
+  }
+
+  if (publicEntries.size > 0) {
+    const ts = require('typescript');
+    const program = ts.createProgram([...publicEntries], { skipLibCheck: true, target: ts.ScriptTarget.ES2018 });
+    const checker = program.getTypeChecker();
+    for (const entry of publicEntries) {
+      if (!fs.existsSync(entry)) continue;
+      const source = program.getSourceFile(entry);
+      const symbol = source && checker.getSymbolAtLocation(source);
+      if (symbol) {
+        for (const exp of checker.getExportsOfModule(symbol)) {
+          const name = exp.getName();
+          const isInternal = name.startsWith('_') || exp.getJsDocTags(checker).some((t) => t.name === 'internal');
+          if (isInternal) {
+            if (!allowlist[manifest.name]?.[name]) {
+              problems.push(`unallowlisted internal export "${name}" found in public entry of ${manifest.name}`);
+            }
+          }
+        }
+      }
+    }
+  }
+
   return { pkgName: manifest.name, problems, fileCount: packedFiles.size };
 }
 

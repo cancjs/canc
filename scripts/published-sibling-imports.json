@@ -1,0 +1,63 @@
+{
+  "$comment": "Measured by extracting published @cancjs/*@1.0.0 release tarballs into a temporary directory and scanning dist for @cancjs/* import specifiers. Validates that workspace peers export every name that published siblings import from them.",
+  "imports": {
+    "@cancjs/axios@1.0.0": {
+      "@cancjs/promise": [
+        "CancelError",
+        "CancelablePromise",
+        "ICancelablePromiseOptions",
+        "IPromiseImplOptions",
+        "isCancelError"
+      ],
+      "@cancjs/toolbox": ["IToolboxOptions", "cancelify"]
+    },
+    "@cancjs/coroutine@1.0.0": {
+      "@cancjs/promise": [
+        "CancelError",
+        "CancelablePromise",
+        "ICancelablePromiseOptions",
+        "isCancelError"
+      ]
+    },
+    "@cancjs/decorators@1.0.0": {
+      "@cancjs/coroutine": ["async"]
+    },
+    "@cancjs/fetch@1.0.0": {
+      "@cancjs/promise": [
+        "CancelError",
+        "CancelablePromise",
+        "IExecutorContext",
+        "createCancelSignal",
+        "isCancelSignal"
+      ]
+    },
+    "@cancjs/promise@1.0.0": {},
+    "@cancjs/toolbox@1.0.0": {
+      "@cancjs/promise": [
+        "CancelError",
+        "CancelablePromise",
+        "ICancelablePromiseOptions",
+        "ICatchErrorFn",
+        "IPromiseImplOptions",
+        "ISuppressErrorFn",
+        "TErrorConstructor",
+        "TErrorMatcher",
+        "TErrorPredicate",
+        "_AbortError",
+        "_TimeoutError",
+        "_createCatchError",
+        "_createSuppressError",
+        "_isAbortError",
+        "_isAbortLike",
+        "_isTimeoutError",
+        "_isTimeoutLike",
+        "isCancelError",
+        "resolvePromiseImpl"
+      ]
+    },
+    "@cancjs/toolbox-native@1.0.0": {},
+    "@cancjs/unhandled-rejection@1.0.0": {
+      "@cancjs/promise": ["_isAbortError", "_isTimeoutError", "isCancelError"]
+    }
+  }
+}
