@@ -11,7 +11,7 @@
   "scripts": {
     "prepare": "lefthook install",
     "build": "cross-env NODE_OPTIONS=\"--no-deprecation --experimental-global-webcrypto\" lerna run build --stream",
-    "test": "cross-env NODE_OPTIONS=--no-deprecation lerna run test --stream",
+    "test": "cross-env NODE_OPTIONS=--no-deprecation lerna run test --stream --no-bail",
     "lint": "run-p -c lint:workspaces lint:root",
     "lint:workspaces": "cross-env NODE_OPTIONS=--no-deprecation lerna run lint --stream --no-bail",
     "lint:root": "eslint *.{js,mjs,json,md} scripts docs packages/_util packages/_toolbox packages/_server packages/canc-server/*.{ts,js,mjs,json} tests-dist",
