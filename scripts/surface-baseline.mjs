@@ -1,4 +1,7 @@
 // Runs by CI, cron, or hand, over the built declarations rather than over src.
+// Resolution relies on node_modules/@cancjs/* symlinks of the checkout it runs in;
+// always run in the tree that built dist.
+// Known limits: JSDoc/@deprecated and non-exported helper type shapes are not recorded.
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
@@ -21,22 +24,32 @@ const ROOT = join(HERE, '..');
 
 const ROOT_POSIX = toPosix(ROOT);
 
-const PUBLISHABLE_PACKAGES = [
-  '@cancjs/promise',
-  '@cancjs/toolbox',
-  '@cancjs/toolbox-native',
-  '@cancjs/coroutine',
-  '@cancjs/decorators',
-  '@cancjs/fetch',
-  '@cancjs/axios',
-  '@cancjs/node',
-  '@cancjs/unhandled-rejection',
-  '@cancjs/server-node',
-  '@cancjs/server-express',
-  '@cancjs/server-fastify',
-  '@cancjs/server-hono',
-  '@cancjs/server-koa',
-];
+function findPublishablePackages() {
+  const rootPkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
+  const patterns = (rootPkg.workspaces || []).filter((w) => w.startsWith('packages/'));
+  const found = [];
+  for (const pattern of patterns) {
+    const baseDir = join(ROOT, pattern.replace(/\/\*$/, ''));
+    if (!existsSync(baseDir)) continue;
+    for (const entry of readdirSync(baseDir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const manifestPath = join(baseDir, entry.name, 'package.json');
+      if (existsSync(manifestPath)) {
+        const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+        if (manifest.private !== true && Boolean(manifest.exports)) {
+          found.push(manifest.name);
+        }
+      }
+    }
+  }
+  found.sort();
+  if (found.length !== 14) {
+    throw new Error(`Expected 14 publishable packages, found ${found.length}: ${found.join(', ')}`);
+  }
+  return found;
+}
+
+const PUBLISHABLE_PACKAGES = findPublishablePackages();
 
 // Resolution has to answer the way a consumer's does, so the program is configured off the shipped
 // package rather than off the repo tsconfig: no `paths` aliases, so `@cancjs/promise` resolves
@@ -141,6 +154,37 @@ function typeParametersOf(symbol) {
 }
 
 function createRenderer(checker, pkgPosix) {
+  const primitiveMask =
+    ts.TypeFlags.String |
+    ts.TypeFlags.Number |
+    ts.TypeFlags.Boolean |
+    ts.TypeFlags.Enum |
+    ts.TypeFlags.BigInt |
+    ts.TypeFlags.StringLiteral |
+    ts.TypeFlags.NumberLiteral |
+    ts.TypeFlags.BooleanLiteral |
+    ts.TypeFlags.EnumLiteral |
+    ts.TypeFlags.BigIntLiteral |
+    ts.TypeFlags.ESSymbol |
+    ts.TypeFlags.UniqueESSymbol |
+    ts.TypeFlags.Void |
+    ts.TypeFlags.Undefined |
+    ts.TypeFlags.Null |
+    ts.TypeFlags.Never |
+    ts.TypeFlags.Any |
+    ts.TypeFlags.Unknown |
+    ts.TypeFlags.TemplateLiteral |
+    ts.TypeFlags.StringMapping;
+
+  function isUnionOrPrimitive(type) {
+    if (type.isUnion && type.isUnion()) return true;
+    if ((type.flags & primitiveMask) !== 0) return true;
+    if (type.isIntersection && type.isIntersection()) {
+      if (type.types.every((t) => (t.flags & primitiveMask) !== 0)) return true;
+    }
+    return false;
+  }
+
   const signatureLine = (signature, kind) =>
     normalize(checker.signatureToString(signature, undefined, TYPE_FLAGS, kind));
 
@@ -236,10 +280,24 @@ function createRenderer(checker, pkgPosix) {
     }
 
     if (kind === 'interface' || kind === 'type' || kind === 'enum') {
-      return { kind, lines: structural(checker.getDeclaredTypeOfSymbol(symbol), decl) };
+      const type = checker.getDeclaredTypeOfSymbol(symbol);
+      if (isUnionOrPrimitive(type)) {
+        return {
+          kind,
+          lines: [normalize(checker.typeToString(type, decl, TYPE_FLAGS | ts.TypeFormatFlags.InTypeAlias))],
+        };
+      }
+      return { kind, lines: structural(type, decl) };
     }
 
-    return { kind, lines: structural(checker.getTypeOfSymbolAtLocation(symbol, decl), decl) };
+    const type = checker.getTypeOfSymbolAtLocation(symbol, decl);
+    if (isUnionOrPrimitive(type)) {
+      return {
+        kind,
+        lines: [normalize(checker.typeToString(type, decl, TYPE_FLAGS | ts.TypeFormatFlags.InTypeAlias))],
+      };
+    }
+    return { kind, lines: structural(type, decl) };
   };
 }
 
