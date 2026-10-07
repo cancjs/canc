@@ -2,9 +2,7 @@ import nodeZlib from 'node:zlib';
 
 import { CancelablePromise, isCancelError } from '@cancjs/promise';
 
-import { argon2 } from '../crypto';
 import { isNotImplementedError } from '../errors/classes';
-import { features } from '../features';
 import * as zlibExports from './index';
 import { checkpointWalkWrapped, iterableCodecWrapped } from './wrap';
 
@@ -248,9 +246,6 @@ describe('@cancjs/node/zlib', () => {
     }
     if (typeof (nodeZlib as unknown as Record<string, unknown>).crc32 === 'function') {
       expect(crc32.name).toBe('crc32');
-    }
-    if (features.nodeMajor >= 24) {
-      expect(argon2.name).toBe('argon2');
     }
   });
 

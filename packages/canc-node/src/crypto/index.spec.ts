@@ -105,6 +105,10 @@ describe('@cancjs/node/crypto', () => {
       return;
     }
 
+    if (features.nodeMajor >= 24) {
+      expect(cryptoExports.argon2.name).toBe('promisify: argon2');
+    }
+
     const derived = await cryptoExports.argon2('argon2id', ARGON2_PARAMS);
     expect(derived).toBeInstanceOf(Buffer);
     expect(derived.length).toBe(32);
