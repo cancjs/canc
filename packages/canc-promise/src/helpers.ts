@@ -27,6 +27,7 @@ export const isCancelError = (error: any): error is CancelError =>
 
 // Guards, not bare predicates: the underlying test is brand-or-name, so a match proves the kind,
 // and a matcher list built from one subtracts that kind from a declared failure set
+
 // kept exported for published sibling packages, removal only in a major
 /** @internal */
 export const _isAbortLike = isAbortLike(isCancelError) as (error: any) => error is AbortError;
