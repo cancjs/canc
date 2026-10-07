@@ -8,6 +8,7 @@ Generated. Do not edit by hand.
 ## `AbortError` (type)
 
 ```text
+_cancErrorBrand: any
 message: string
 name: string
 ```
@@ -55,7 +56,14 @@ timedOut: boolean
 ## `CancelSignal` (type)
 
 ```text
+addEventListener: (type: string, listener: EventListener | EventListenerObject, options?: AddEventListenerOptions | boolean) => void
+dispatchEvent: (event: Event) => boolean
+onabort: ((this: AbortSignal, ev: Event) => any) | null
 readonly [CANCEL_SIGNAL_BRAND]: true
+readonly aborted: boolean
+readonly reason: any
+removeEventListener: (type: string, listener: EventListener | EventListenerObject, options?: EventListenerOptions | boolean) => void
+throwIfAborted: () => void
 ```
 
 ## `CancelablePromise<TResult, TFailure = never>` (class)
@@ -348,6 +356,7 @@ string | TErrorPredicate | TErrorConstructor
 ## `TimeoutError` (type)
 
 ```text
+_cancErrorBrand: any
 message: string
 name: string
 ```
@@ -633,6 +642,7 @@ then: { <TResult1 extends PromiseLike<unknown>, TResult2 extends PromiseLike<unk
 ## `_AbortError` (type)
 
 ```text
+_cancErrorBrand: any
 message: string
 name: string
 ```
@@ -640,6 +650,7 @@ name: string
 ## `_TimeoutError` (type)
 
 ```text
+_cancErrorBrand: any
 message: string
 name: string
 ```
