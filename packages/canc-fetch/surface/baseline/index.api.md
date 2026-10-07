@@ -15,12 +15,7 @@ fetch?: Fetch | undefined
 ## `ICancelableFetchLaterConfig` (type)
 
 ```text
-AbortController?: AbortControllerCtor | undefined
-clearTimeout?: ((handle: any) => void) | undefined
-fetch?: Fetch | undefined
-fetchLater?: FetchLater | undefined
-pollInterval?: number | undefined
-setTimeout?: ((handler: () => void, ms?: number) => any) | undefined
+ICancelableFetchConfig & (TTimersOverride & { fetchLater?: FetchLater; pollInterval?: number; })
 ```
 
 ## `IFetchLaterResultLike` (interface)
