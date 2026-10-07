@@ -589,6 +589,7 @@ async function checkPackage(pkgName, workspace, plannedVersions) {
     const ts = require('typescript');
     const program = ts.createProgram([...publicEntries], { skipLibCheck: true, target: ts.ScriptTarget.ES2018 });
     const checker = program.getTypeChecker();
+    const seenInternal = new Set();
     for (const entry of publicEntries) {
       if (!fs.existsSync(entry)) continue;
       const source = program.getSourceFile(entry);
@@ -603,7 +604,10 @@ async function checkPackage(pkgName, workspace, plannedVersions) {
             (target !== exp && target.getJsDocTags(checker).some((t) => t.name === 'internal'));
           if (isInternal) {
             if (!allowlist[manifest.name]?.[name]) {
-              problems.push(`unallowlisted internal export "${name}" found in public entry of ${manifest.name}`);
+              if (!seenInternal.has(name)) {
+                seenInternal.add(name);
+                problems.push(`unallowlisted internal export "${name}" found in public entry of ${manifest.name}`);
+              }
             }
           }
         }

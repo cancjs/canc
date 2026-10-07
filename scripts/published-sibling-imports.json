@@ -1,5 +1,5 @@
 {
-  "$comment": "Measured with: npm pack @cancjs/<pkg>@1.0.0 into a temp dir and scanning dist/ for @cancjs/* imports. Every name recorded here must stay exported by the named peer.",
+  "$comment": "Measured with: tmp=$(mktemp -d); for p in axios coroutine decorators fetch node toolbox unhandled-rejection server-{express,fastify,hono,koa,node}; do npm pack @cancjs/$p@1.0.0 --pack-destination $tmp >/dev/null; done; for t in $tmp/*.tgz; do tar -xzf $t -C $tmp; grep -rhoE \"@cancjs/[a-z-]+\" $tmp/package/dist/ | sort -u; rm -rf $tmp/package; done; rm -rf $tmp",
   "imports": {
     "@cancjs/axios@1.0.0": {
       "@cancjs/promise": [
