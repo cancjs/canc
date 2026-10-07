@@ -100,6 +100,7 @@ describe('async-iter tree-shaking', () => {
     expect(result).toEqual([4, 6]);
   });
 
+  // in-process bundle takes ~0.3 s alone, measured up to 6 s under parallel CPU load
   it('bundles only imported operators and leaves unused flatMap out of the bundle', async () => {
     const output = await bundleAsyncIter(`
       import { filter, map, take } from './index';
