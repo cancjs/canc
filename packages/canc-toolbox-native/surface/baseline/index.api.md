@@ -8,6 +8,7 @@ Generated. Do not edit by hand.
 ## `AbortError` (type)
 
 ```text
+_cancErrorBrand: any
 message: string
 name: string
 ```
@@ -22,7 +23,11 @@ name: string
 ## `IDebounceOptions` (type)
 
 ```text
-TCallDeps & { leading?: boolean; trailing?: boolean; maxWait?: number; lazy?: never; }
+TTimersOverride & { AbortController?: TAbortControllerCtor; TimeoutError?: typeof TimeoutError; }
+lazy?: undefined
+leading?: boolean | undefined
+maxWait?: number | undefined
+trailing?: boolean | undefined
 ```
 
 ## `IDebounced<Args extends unknown[], R, K extends IPromiseKind = IPromiseLikeKind, F = never>` (interface)
@@ -75,7 +80,10 @@ stopOnError?: boolean | undefined
 ## `IThrottleOptions` (type)
 
 ```text
-TCallDeps & { leading?: boolean; trailing?: boolean; lazy?: never; }
+TTimersOverride & { AbortController?: TAbortControllerCtor; TimeoutError?: typeof TimeoutError; }
+lazy?: undefined
+leading?: boolean | undefined
+trailing?: boolean | undefined
 ```
 
 ## `IThrottled<Args extends unknown[], R, K extends IPromiseKind = IPromiseLikeKind, F = never>` (type)
@@ -125,6 +133,7 @@ then: <TResult1 = T, TResult2 = never>(onFulfilled?: ((value: T) => TResult1 | P
 ## `SupersededError` (type)
 
 ```text
+_cancErrorBrand: any
 message: string
 name: string
 ```
@@ -180,6 +189,7 @@ T | TPromiseOf<K, T, F> | PromiseLike<T> | (() => T | TPromiseOf<K, T, F> | Prom
 ## `TimeoutError` (type)
 
 ```text
+_cancErrorBrand: any
 message: string
 name: string
 ```

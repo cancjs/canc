@@ -61,7 +61,11 @@ displayName?: string | undefined
 ## `IDebounceOptions` (type)
 
 ```text
-TCallDeps & { leading?: boolean; trailing?: boolean; maxWait?: number; lazy?: never; }
+TTimersOverride & { AbortController?: TAbortControllerCtor; TimeoutError?: typeof TimeoutError; }
+lazy?: undefined
+leading?: boolean | undefined
+maxWait?: number | undefined
+trailing?: boolean | undefined
 ```
 
 ## `IDebounced<Args extends unknown[], R, K extends IPromiseKind = IPromiseLikeKind, F = never>` (interface)
@@ -158,7 +162,19 @@ transformArgs?: ((args: any[], getSignal: TGetSignal) => any[]) | undefined
 ## `IRetryOptions<K extends IPromiseKind = IPromiseLikeKind>` (type)
 
 ```text
-K["options"] & (TCallDeps & { retries?: number; initialDelay?: number; maxDelay?: number; factor?: number; jitter?: boolean | number; shouldRetry?: (reason: any, ctx: IRetryContext) => boolean | PromiseLike<boolean>; delay?: (ctx: IRetryContext & { computedDelay: number; }) => number | undefined; onRetry?: (reason: any, attempt: number, delay: number) => void; lazy?: boolean; minTimeout?: number; maxTimeout?: number; })
+K["options"]
+TTimersOverride & { AbortController?: TAbortControllerCtor; TimeoutError?: typeof TimeoutError; }
+delay?: ((ctx: IRetryContext & { computedDelay: number; }) => number | undefined) | undefined
+factor?: number | undefined
+initialDelay?: number | undefined
+jitter?: number | boolean | undefined
+lazy?: boolean | undefined
+maxDelay?: number | undefined
+maxTimeout?: number | undefined
+minTimeout?: number | undefined
+onRetry?: ((reason: any, attempt: number, delay: number) => void) | undefined
+retries?: number | undefined
+shouldRetry?: ((reason: any, ctx: IRetryContext) => boolean | PromiseLike<boolean>) | undefined
 ```
 
 ## `ISuppressErrorFn<M extends readonly TErrorMatcher[] = readonly TErrorMatcher[]>` (interface)
@@ -172,7 +188,10 @@ K["options"] & (TCallDeps & { retries?: number; initialDelay?: number; maxDelay?
 ## `IThrottleOptions` (type)
 
 ```text
-TCallDeps & { leading?: boolean; trailing?: boolean; lazy?: never; }
+TTimersOverride & { AbortController?: TAbortControllerCtor; TimeoutError?: typeof TimeoutError; }
+lazy?: undefined
+leading?: boolean | undefined
+trailing?: boolean | undefined
 ```
 
 ## `IThrottled<Args extends unknown[], R, K extends IPromiseKind = IPromiseLikeKind, F = never>` (type)
@@ -194,7 +213,10 @@ lazy?: boolean | undefined
 ## `IWaitForOptions` (type)
 
 ```text
-TCallDeps & { [key: string]: unknown; interval?: number; timeout?: number; lazy?: boolean; }
+TTimersOverride & { AbortController?: TAbortControllerCtor; TimeoutError?: typeof TimeoutError; }
+interval?: number | undefined
+lazy?: boolean | undefined
+timeout?: number | undefined
 ```
 
 ## `LazyPromise<T = any>` (class)
@@ -241,6 +263,7 @@ then: <TResult1 = T, TResult2 = never>(onFulfilled?: ((value: T) => TResult1 | P
 ## `SupersededError` (type)
 
 ```text
+_cancErrorBrand: any
 message: string
 name: string
 ```
