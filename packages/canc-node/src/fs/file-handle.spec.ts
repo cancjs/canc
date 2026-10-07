@@ -283,10 +283,7 @@ describe('FileHandle', () => {
     const testFile = path.join(dir, 'lines.txt');
     nodeFs.writeFileSync(testFile, 'line1\nline2\n');
 
-    // Node 18 native bug: invoking both readLines() and readableWebStream() on the same
-    // FileHandle instance causes an internal assertion abort (Assertion '!closing_' failed)
-    // when close() is called.
-    // The tests are exercised on separate handles to avoid the platform abort.
+    // node 18/20 abort on close after readLines + readableWebStream on one handle
     const fh1 = decorate(await fs.open(testFile, 'r'));
     if (typeof fh1.readLines === 'function') {
       const lines = fh1.readLines();
@@ -320,4 +317,20 @@ describe('FileHandle', () => {
     const p2 = fh.close();
     await expect(Promise.all([p1, p2])).resolves.toBeDefined();
   });
+
+  if (typeof (Symbol as { asyncDispose?: symbol }).asyncDispose === 'symbol') {
+    test('await using with explicit close resolves without aborting', async () => {
+      const dir = nodeFs.mkdtempSync(path.join(os.tmpdir(), 'canc-fh-using-'));
+      tempDirs.push(dir);
+      const testFile = path.join(dir, 'test.txt');
+      nodeFs.writeFileSync(testFile, 'hello');
+      let closedExplicitly = false;
+      {
+        await using fh = decorate(await fs.open(testFile, 'r'));
+        await fh.close();
+        closedExplicitly = true;
+      }
+      expect(closedExplicitly).toBe(true);
+    });
+  }
 });
