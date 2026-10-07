@@ -43,6 +43,7 @@ displayName?: string | undefined
 ## `IterationError` (type)
 
 ```text
+_cancErrorBrand: any
 message: string
 name: string
 ```
@@ -50,7 +51,13 @@ name: string
 ## `TCoroutineOptions` (type)
 
 ```text
+asyncCancel?: boolean | undefined
+bubble?: boolean | undefined
 displayName?: string | undefined
+forceCancelable?: boolean | undefined
+shield?: boolean | undefined
+signal?: IAbortSignal | Array<IAbortSignal> | undefined
+strict?: boolean | undefined
 ```
 
 ## `TEachSource<T>` (type)
