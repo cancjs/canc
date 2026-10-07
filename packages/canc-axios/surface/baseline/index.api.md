@@ -124,6 +124,13 @@ wrap: (instance: IAxiosInstanceLike, options?: ICancelableAxiosOptions) => ICanc
 
 ```text
 AbortController?: AbortControllerCtor | undefined
+asyncCancel?: boolean | undefined
+bubble?: boolean | undefined
+forceCancelable?: boolean | undefined
+lazy?: boolean | undefined
+shield?: boolean | undefined
+signal?: IAbortSignal | Array<IAbortSignal> | undefined
+strict?: boolean | undefined
 ```
 
 ## `ICancelableInterceptorManager<V>` (interface)
