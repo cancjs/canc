@@ -20,12 +20,18 @@ const ICANC_ERROR_CONSTRUCTOR_PATTERN =
 
 const BRAND_KEY_SHAPE = /^@cancjs\/[a-z-]+:[A-Za-z]+$/;
 
-// In _util/errors, internal prototype symbol constants (e.g. ABORT_ERROR_BRAND)
-// wire error identity for guards, but the error classes themselves are branded via createErrorClass.
-// Stripping these definitions avoids shadowing createErrorClass brand arguments.
-// Note: CancelError's Symbol.for lives in canc-promise/src/cancel-error.ts.
-const INTERNAL_ERROR_SYMBOL_PATTERN =
-  /(?:export\s+)?(?:const|var|let)\s+(?:ABORT|TIMEOUT|SUPERSEDED|ITERATION)_ERROR_BRAND\s*=\s*Symbol(?:\.for|\['for'\]|\["for"\])\(\s*['"]@cancjs\/[^'"]+['"]\s*\);?/g;
+// Prototype brand constants paired against createErrorClass brand arguments
+const BRAND_CONSTANT_PATTERN =
+  /(?:export\s+)?const\s+([A-Z_]+_ERROR_BRAND)\s*=\s*Symbol(?:\.for|\['for'\]|\["for"\])\(\s*['"](@cancjs\/[^'"]+)['"]\s*\)/g;
+
+const BRAND_CONSTANT_TO_CLASS_NAME = {
+  ABORT_ERROR_BRAND: 'AbortError',
+  TIMEOUT_ERROR_BRAND: 'TimeoutError',
+  SUPERSEDED_ERROR_BRAND: 'SupersededError',
+  ITERATION_ERROR_BRAND: 'IterationError',
+};
+
+const CREATE_ERROR_CLASS_CALL_PATTERN = /createErrorClass\(\s*['"]([^'"]+)['"]\s*,\s*['"]([^'"]+)['"]/g;
 
 const HOME_PACKAGE_DIRS = {
   '@cancjs/coroutine': 'canc-coroutine',
@@ -116,27 +122,26 @@ function isSourceTargetFile(filePath) {
 
 function extractKeysFromText(text) {
   const code = text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
-  const sanitized = code.replace(INTERNAL_ERROR_SYMBOL_PATTERN, '');
   const found = new Set();
   let match;
 
   SYMBOL_BRAND_PATTERN.lastIndex = 0;
-  while ((match = SYMBOL_BRAND_PATTERN.exec(sanitized)) !== null) {
+  while ((match = SYMBOL_BRAND_PATTERN.exec(code)) !== null) {
     found.add(match[1]);
   }
 
   ERROR_BRAND_LITERAL_PATTERN.lastIndex = 0;
-  while ((match = ERROR_BRAND_LITERAL_PATTERN.exec(sanitized)) !== null) {
+  while ((match = ERROR_BRAND_LITERAL_PATTERN.exec(code)) !== null) {
     found.add(match[1]);
   }
 
   CREATE_ERROR_CLASS_PATTERN.lastIndex = 0;
-  while ((match = CREATE_ERROR_CLASS_PATTERN.exec(sanitized)) !== null) {
+  while ((match = CREATE_ERROR_CLASS_PATTERN.exec(code)) !== null) {
     found.add(match[1]);
   }
 
   ICANC_ERROR_CONSTRUCTOR_PATTERN.lastIndex = 0;
-  while ((match = ICANC_ERROR_CONSTRUCTOR_PATTERN.exec(sanitized)) !== null) {
+  while ((match = ICANC_ERROR_CONSTRUCTOR_PATTERN.exec(code)) !== null) {
     found.add(match[1]);
   }
 
@@ -216,12 +221,29 @@ function checkBrandKeys() {
     }
   }
 
-  // Check source declaration locations for prefix mismatches, unknown keys, and home declarations
+  // Validate source declaration locations, unknown keys, and home declarations
   const allSourceFiles = listFilesRecursive(PACKAGES_DIR).filter(isSourceTargetFile);
   const homeSourceKeys = new Set();
+  const brandConstants = new Map();
+  const errorClasses = new Map();
+
   for (const file of allSourceFiles) {
     const relFromRoot = path.relative(ROOT, file);
     const content = fs.readFileSync(file, 'utf8');
+    const code = content.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+
+    BRAND_CONSTANT_PATTERN.lastIndex = 0;
+    let constMatch;
+    while ((constMatch = BRAND_CONSTANT_PATTERN.exec(code)) !== null) {
+      brandConstants.set(constMatch[1], constMatch[2]);
+    }
+
+    CREATE_ERROR_CLASS_CALL_PATTERN.lastIndex = 0;
+    let classMatch;
+    while ((classMatch = CREATE_ERROR_CLASS_CALL_PATTERN.exec(code)) !== null) {
+      errorClasses.set(classMatch[1], classMatch[2]);
+    }
+
     for (const rawKey of extractKeysFromText(content)) {
       if (!BRAND_KEY_SHAPE.test(rawKey)) {
         if (Object.prototype.hasOwnProperty.call(quarantined, rawKey)) {
@@ -253,6 +275,17 @@ function checkBrandKeys() {
     }
   }
 
+  for (const [constName, brandFromConst] of brandConstants) {
+    const className = BRAND_CONSTANT_TO_CLASS_NAME[constName];
+    if (!className) continue;
+    const brandFromClass = errorClasses.get(className);
+    if (brandFromConst !== brandFromClass) {
+      problems.push(
+        `brand constant ${constName} ("${brandFromConst}") does not match createErrorClass brand ("${brandFromClass}")`,
+      );
+    }
+  }
+
   for (const key of publishedSet) {
     if (!homeSourceKeys.has(key)) {
       problems.push(`missing published brand key: ${key}`);
@@ -268,7 +301,7 @@ function checkBrandKeys() {
     }
   }
 
-  // Stale pending check (F9)
+  // Stale pending brand keys check
   for (const key of pendingSet) {
     if (!collectedKeys.has(key)) {
       warnings.push(`WARN pending brand key collected nowhere: ${key}`);
