@@ -62,7 +62,7 @@ AsyncIterable<T> | Iterable<T | Promise<T>>
 ## `TForAwaitCallback<T>` (type)
 
 ```text
-(value: T, index: number): false | void | Generator<unknown, false | void, any> | CancelablePromise<false | void, never>
+((value: T, index: number) => void | false) | ((value: T, index: number) => Generator<unknown, void | false, any>) | ((value: T, index: number) => CancelablePromise<void | false>)
 ```
 
 ## `TGeneratorLike<PYield = unknown, PReturn = any, PNext = unknown>` (type)
