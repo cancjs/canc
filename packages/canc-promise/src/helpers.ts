@@ -49,14 +49,11 @@ export { AbortError, AggregateError, isAbortError, isAggregateError, isTimeoutEr
  * @deprecated Use `AbortError`, `isAbortError`, `TimeoutError` and `isTimeoutError`. These are the
  * names the same four bindings carried in 1.0.0, kept as aliases.
  */
+// kept exported for published sibling packages, removal only in a major
 export {
-  // kept exported for published sibling packages, removal only in a major
   AbortError as _AbortError,
-  // kept exported for published sibling packages, removal only in a major
   isAbortError as _isAbortError,
-  // kept exported for published sibling packages, removal only in a major
   isTimeoutError as _isTimeoutError,
-  // kept exported for published sibling packages, removal only in a major
   TimeoutError as _TimeoutError,
 };
 
