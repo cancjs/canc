@@ -19,7 +19,6 @@ module.exports = (packageJson) => ({
   // Socket tests bind real ports and wait on real 'close'/'end' events; the 5s jest default is
   // tight next to unit specs elsewhere in the monorepo.
   testTimeout: 15000,
-  // Real sockets on ephemeral ports contend across workers under lerna's parallel run; capped so
-  // suites don't flake the way the promise GC leak canary already does.
+  // real sockets on ephemeral ports contend across workers, so tighter than the shared cap
   maxWorkers: 2,
 });
