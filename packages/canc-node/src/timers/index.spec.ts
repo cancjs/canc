@@ -1,5 +1,5 @@
 import { CancelablePromise, CancelError, isCancelError } from '@cancjs/promise';
-import { execFileSync } from 'child_process';
+import { spawn } from 'child_process';
 import * as path from 'path';
 
 import * as timersExports from './index';
@@ -163,83 +163,151 @@ Module._resolveFilename = function (request, ...rest) {
 };
 `;
 
+const READY_MARKER = '<<READY>>\n';
 const ELAPSED_MARKER = '<<elapsed>>';
 
 /**
- * Runs a program in a real subprocess and reports how long the CHILD itself was alive.
+ * Runs a program in a real subprocess and reports how long the child execution took.
  *
- * The child times itself rather than this side timing `execFileSync`, which folded node startup and
- * process-spawn cost into the figure. Only the lower-bound check reads the elapsed time now; the
- * upper bounds were removed because even the child's own lifetime tracks machine load once enough
- * suites run in parallel. A timer that was never cleared outlives the spawn timeout below, and
- * `execFileSync` throws on it, which is a sharper signal than any millisecond threshold.
+ * Decouples startup delay from execution timeout by writing a ready marker after module loading
+ * finishes. Allows a generous budget for initial loading under parallel load, then bounds the
+ * execution window so uncleared timers fail promptly.
  */
-function runChild(program: string, timeoutMs: number): { stdout: string; elapsedMs: number } {
-  const timer = [
-    'const __start = Date.now();',
-    `process.on('exit', function () { process.stdout.write('${ELAPSED_MARKER}' + (Date.now() - __start)); });`,
-  ].join('\n');
+function runChild(program: string, timeoutMs: number): Promise<{ stdout: string; elapsedMs: number }> {
+  return new Promise((resolve, reject) => {
+    const timer = [
+      `require(${JSON.stringify(timersEntry)});`,
+      "process.stdout.write('<<READY>>\\n');",
+      'const __start = Date.now();',
+      `process.on('exit', function () { process.stdout.write('${ELAPSED_MARKER}' + (Date.now() - __start)); });`,
+    ].join('\n');
 
-  const raw = execFileSync(process.execPath, ['-e', `${hook}\n${timer}\n${program}`], {
-    cwd: __dirname,
-    encoding: 'utf8',
-    timeout: timeoutMs,
+    const fullScript = `${hook}\n${timer}\n${program}`;
+
+    const child = spawn(process.execPath, ['-e', fullScript], {
+      cwd: __dirname,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    let stdout = '';
+    let stderr = '';
+    let isReady = false;
+    let settled = false;
+    let executionTimer: ReturnType<typeof global.setTimeout> | undefined;
+
+    const startupTimer = global.setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      child.kill();
+      reject(new Error(`child startup timed out after 30s; stderr: ${stderr}`));
+    }, 30000);
+
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+
+    child.stdout.on('data', (chunk: string) => {
+      stdout += chunk;
+      if (!isReady && stdout.includes(READY_MARKER)) {
+        isReady = true;
+        global.clearTimeout(startupTimer);
+        executionTimer = global.setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          child.kill();
+          reject(new Error(`child execution timed out after ${timeoutMs}ms; stderr: ${stderr}`));
+        }, timeoutMs);
+      }
+    });
+
+    child.stderr.on('data', (chunk: string) => {
+      stderr += chunk;
+    });
+
+    child.on('error', (err) => {
+      global.clearTimeout(startupTimer);
+      if (executionTimer) global.clearTimeout(executionTimer);
+      if (settled) return;
+      settled = true;
+      reject(err);
+    });
+
+    child.on('close', (code, signal) => {
+      global.clearTimeout(startupTimer);
+      if (executionTimer) global.clearTimeout(executionTimer);
+      if (settled) return;
+      settled = true;
+
+      if (signal) {
+        reject(new Error(`child killed by signal: ${signal}; stderr: ${stderr}`));
+        return;
+      }
+
+      if (code !== 0) {
+        reject(new Error(`child exited with code ${code}; stderr: ${stderr}\nstdout: ${stdout}`));
+        return;
+      }
+
+      const readyIdx = stdout.indexOf(READY_MARKER);
+      const cleanStdout = readyIdx !== -1 ? stdout.slice(readyIdx + READY_MARKER.length) : stdout;
+
+      const at = cleanStdout.lastIndexOf(ELAPSED_MARKER);
+      if (at === -1) {
+        reject(new Error(`child did not report its elapsed time: ${cleanStdout}`));
+        return;
+      }
+
+      resolve({
+        stdout: cleanStdout.slice(0, at),
+        elapsedMs: Number(cleanStdout.slice(at + ELAPSED_MARKER.length)),
+      });
+    });
   });
-
-  const at = raw.lastIndexOf(ELAPSED_MARKER);
-  if (at === -1) {
-    throw new Error(`child did not report its elapsed time: ${raw}`);
-  }
-
-  return { stdout: raw.slice(0, at), elapsedMs: Number(raw.slice(at + ELAPSED_MARKER.length)) };
 }
 
 describe('setTimeout canceled: the process is not held open (real subprocess)', () => {
-  jest.setTimeout(15000);
+  jest.setTimeout(45000);
 
-  it('a 10s timer canceled at 10ms lets the process exit almost immediately, proving the timer was cleared', () => {
+  it('a 10s timer canceled at 10ms lets the process exit almost immediately, proving the timer was cleared', async () => {
     const program = `
 const timers = require(${JSON.stringify(timersEntry)});
 const p = timers.setTimeout(10000);
-global.setTimeout(function () { p.cancel('stop'); }, 10);
+setImmediate(function () { p.cancel('stop'); });
 p.then(
  function () { process.stdout.write('resolved'); },
  function (err) { process.stdout.write('rejected:' + (err && err.name)); }
 );
 `;
 
-    const { stdout } = runChild(program, 8000);
+    const { stdout } = await runChild(program, 8000);
 
     expect(stdout).toBe('rejected:CancelError');
-    // an uncleared 10s timer would hold the loop open past runChild's 8s spawn timeout, which
-    // throws rather than returning, so reaching this line is itself the proof
-    // no wall-clock upper bound here: it measured machine load as much as the timer
+    // uncleared 10s timer would hold the loop open past the 8s execution window
   });
 });
 
 describe('ref: false does not hold the event loop open (real subprocess)', () => {
-  jest.setTimeout(15000);
+  jest.setTimeout(45000);
 
-  it('a 10s timer started with ref: false lets the process exit immediately, never firing', () => {
+  it('a 10s timer started with ref: false lets the process exit immediately, never firing', async () => {
     const program = `
 const timers = require(${JSON.stringify(timersEntry)});
 timers.setTimeout(10000, undefined, { ref: false });
 process.stdout.write('SCRIPT_END');
 `;
 
-    const { stdout } = runChild(program, 8000);
+    const { stdout } = await runChild(program, 8000);
 
     expect(stdout).toBe('SCRIPT_END');
   });
 
-  it('control: the same 10s timer WITHOUT ref: false holds the process open for the full delay', () => {
+  it('control: the same 10s timer WITHOUT ref: false holds the process open for the full delay', async () => {
     const program = `
 const timers = require(${JSON.stringify(timersEntry)});
 timers.setTimeout(300);
 process.stdout.write('SCRIPT_END');
 `;
 
-    const { stdout, elapsedMs } = runChild(program, 8000);
+    const { stdout, elapsedMs } = await runChild(program, 8000);
 
     expect(stdout).toBe('SCRIPT_END');
     // no ref: false and nothing canceled it, so the process waits out the full 300ms timer
@@ -248,9 +316,9 @@ process.stdout.write('SCRIPT_END');
 });
 
 describe('setInterval canceled: the underlying timer is cleared (real subprocess)', () => {
-  jest.setTimeout(15000);
+  jest.setTimeout(45000);
 
-  it('an interval canceled after one tick lets the process exit quickly rather than ticking indefinitely', () => {
+  it('an interval canceled after one tick lets the process exit quickly rather than ticking indefinitely', async () => {
     const program = `
 const timers = require(${JSON.stringify(timersEntry)});
 async function main() {
@@ -262,7 +330,7 @@ async function main() {
 main();
 `;
 
-    const { stdout } = runChild(program, 8000);
+    const { stdout } = await runChild(program, 8000);
 
     expect(stdout).toBe('DONE');
   });
