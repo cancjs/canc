@@ -77,5 +77,7 @@ const babelStage3Project = {
 };
 
 module.exports = {
+  // a global option, so the projects below cannot carry it themselves
+  maxWorkers: baseConfig.maxWorkers,
   projects: [stage3Project, legacyProject, babelLegacyProject, smokeProject, babelStage3Project],
 };
