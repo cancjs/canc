@@ -1,6 +1,7 @@
 // Validates that published and pending brand keys conform to registry.
 // Published brand keys and _cancErrorBrand literals must never change.
 // Every brand key must carry the prefix of the package that first ships it.
+// Note: CancelError's Symbol.for lives in canc-promise/src/cancel-error.ts.
 //
 // Usage: node scripts/check-brand-keys.js
 
@@ -13,6 +14,18 @@ const REGISTRY_PATH = path.join(__dirname, 'brand-keys.json');
 
 const SYMBOL_BRAND_PATTERN = /Symbol(?:\.for|\['for'\]|\["for"\])\(\s*['"](@cancjs\/[^'"]+)['"]\s*\)/g;
 const ERROR_BRAND_LITERAL_PATTERN = /_cancErrorBrand['"]?\s*[:=]\s*['"](@cancjs\/[^'"]+)['"]/g;
+const CREATE_ERROR_CLASS_PATTERN = /createErrorClass\(\s*['"][^'"]+['"]\s*,\s*['"]([^'"]*)['"]/g;
+const ICANC_ERROR_CONSTRUCTOR_PATTERN =
+  /(?:[a-zA-Z0-9_$.]+|\([^)]+\)\.)?ICancErrorConstructor<\s*['"][^'"]+['"]\s*,\s*['"]([^'"]*)['"]/g;
+
+const BRAND_KEY_SHAPE = /^@cancjs\/[a-z-]+:[A-Za-z]+$/;
+
+// In _util/errors, internal prototype symbol constants (e.g. ABORT_ERROR_BRAND)
+// wire error identity for guards, but the error classes themselves are branded via createErrorClass.
+// Stripping these definitions avoids shadowing createErrorClass brand arguments.
+// Note: CancelError's Symbol.for lives in canc-promise/src/cancel-error.ts.
+const INTERNAL_ERROR_SYMBOL_PATTERN =
+  /(?:export\s+)?(?:const|var|let)\s+(?:ABORT|TIMEOUT|SUPERSEDED|ITERATION)_ERROR_BRAND\s*=\s*Symbol(?:\.for|\['for'\]|\["for"\])\(\s*['"]@cancjs\/[^'"]+['"]\s*\);?/g;
 
 const HOME_PACKAGE_DIRS = {
   '@cancjs/coroutine': 'canc-coroutine',
@@ -33,6 +46,19 @@ const ALLOWED_SOURCE_DECLARATIONS = {
     /^packages[\\/]canc-toolbox[\\/]/,
     /^packages[\\/]canc-toolbox-native[\\/]/,
     /^packages[\\/]_toolbox[\\/]/,
+    /^packages[\\/]_util[\\/]/,
+  ],
+  '@cancjs/node': [/^packages[\\/]canc-node[\\/]/],
+  '@cancjs/server-node': [/^packages[\\/]canc-server[\\/]canc-server-node[\\/]/, /^packages[\\/]_server[\\/]/],
+};
+
+const HOME_SOURCE_PATTERNS = {
+  '@cancjs/coroutine': [/^packages[\\/]canc-coroutine[\\/]/, /^packages[\\/]_util[\\/]/],
+  '@cancjs/promise': [/^packages[\\/]canc-promise[\\/]/, /^packages[\\/]_util[\\/]/],
+  '@cancjs/toolbox': [
+    /^packages[\\/]canc-toolbox[\\/]/,
+    /^packages[\\/]canc-toolbox-native[\\/]/,
+    /^packages[\\/]_toolbox[\\/](?!guards\.ts$)/,
     /^packages[\\/]_util[\\/]/,
   ],
   '@cancjs/node': [/^packages[\\/]canc-node[\\/]/],
@@ -89,16 +115,28 @@ function isSourceTargetFile(filePath) {
 }
 
 function extractKeysFromText(text) {
+  const code = text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+  const sanitized = code.replace(INTERNAL_ERROR_SYMBOL_PATTERN, '');
   const found = new Set();
   let match;
 
   SYMBOL_BRAND_PATTERN.lastIndex = 0;
-  while ((match = SYMBOL_BRAND_PATTERN.exec(text)) !== null) {
+  while ((match = SYMBOL_BRAND_PATTERN.exec(sanitized)) !== null) {
     found.add(match[1]);
   }
 
   ERROR_BRAND_LITERAL_PATTERN.lastIndex = 0;
-  while ((match = ERROR_BRAND_LITERAL_PATTERN.exec(text)) !== null) {
+  while ((match = ERROR_BRAND_LITERAL_PATTERN.exec(sanitized)) !== null) {
+    found.add(match[1]);
+  }
+
+  CREATE_ERROR_CLASS_PATTERN.lastIndex = 0;
+  while ((match = CREATE_ERROR_CLASS_PATTERN.exec(sanitized)) !== null) {
+    found.add(match[1]);
+  }
+
+  ICANC_ERROR_CONSTRUCTOR_PATTERN.lastIndex = 0;
+  while ((match = ICANC_ERROR_CONSTRUCTOR_PATTERN.exec(sanitized)) !== null) {
     found.add(match[1]);
   }
 
@@ -110,10 +148,15 @@ function checkBrandKeys() {
   const publishedSet = new Set(registry.published || []);
   const pendingSet = new Set(registry.pending || []);
   const allExpectedKeys = new Set([...publishedSet, ...pendingSet]);
+  const quarantined = registry.quarantined || {};
 
   const packageNames = listPackages();
   const collectedKeys = new Set();
   const keysByPackage = new Map();
+  const collectedQuarantined = new Set();
+
+  const problems = [];
+  const warnings = [];
 
   for (const pkgName of packageNames) {
     const distDir = path.join(PACKAGES_DIR, pkgName, 'dist');
@@ -123,15 +166,21 @@ function checkBrandKeys() {
     const files = listFilesRecursive(distDir).filter(isDistTargetFile);
     for (const file of files) {
       const content = fs.readFileSync(file, 'utf8');
-      for (const key of extractKeysFromText(content)) {
-        collectedKeys.add(key);
-        pkgKeys.add(key);
+      for (const rawKey of extractKeysFromText(content)) {
+        if (!BRAND_KEY_SHAPE.test(rawKey)) {
+          if (Object.prototype.hasOwnProperty.call(quarantined, rawKey)) {
+            collectedQuarantined.add(rawKey);
+          } else {
+            problems.push(`brand is not a key: "${rawKey}" (expected format @cancjs/<pkg>:<Name>)`);
+          }
+        } else {
+          collectedKeys.add(rawKey);
+          pkgKeys.add(rawKey);
+        }
       }
     }
     keysByPackage.set(pkgName, pkgKeys);
   }
-
-  const problems = [];
 
   // 1. Every published key must be present in its home package and collected set
   for (const key of publishedSet) {
@@ -167,33 +216,72 @@ function checkBrandKeys() {
     }
   }
 
-  // Check source declaration locations for prefix mismatches and unknown keys
+  // Check source declaration locations for prefix mismatches, unknown keys, and home declarations
   const allSourceFiles = listFilesRecursive(PACKAGES_DIR).filter(isSourceTargetFile);
+  const homeSourceKeys = new Set();
   for (const file of allSourceFiles) {
     const relFromRoot = path.relative(ROOT, file);
     const content = fs.readFileSync(file, 'utf8');
-    for (const key of extractKeysFromText(content)) {
-      if (!allExpectedKeys.has(key)) {
-        problems.push(`unknown brand key: ${key}`);
+    for (const rawKey of extractKeysFromText(content)) {
+      if (!BRAND_KEY_SHAPE.test(rawKey)) {
+        if (Object.prototype.hasOwnProperty.call(quarantined, rawKey)) {
+          collectedQuarantined.add(rawKey);
+        } else {
+          problems.push(`brand is not a key: "${rawKey}" (expected format @cancjs/<pkg>:<Name>)`);
+        }
+        continue;
       }
-      const prefix = key.split(':')[0];
+
+      if (!allExpectedKeys.has(rawKey)) {
+        problems.push(`unknown brand key: ${rawKey}`);
+      }
+      const prefix = rawKey.split(':')[0];
       const allowedPatterns = ALLOWED_SOURCE_DECLARATIONS[prefix];
       if (!allowedPatterns) {
-        problems.push(`prefix mismatch: brand key "${key}" declared in "${relFromRoot}" has unknown prefix`);
+        problems.push(`prefix mismatch: brand key "${rawKey}" declared in "${relFromRoot}" has unknown prefix`);
         continue;
       }
       const isAllowed = allowedPatterns.some((pattern) => pattern.test(relFromRoot));
       if (!isAllowed) {
-        problems.push(`prefix mismatch: brand key "${key}" declared in mismatched location "${relFromRoot}"`);
+        problems.push(`prefix mismatch: brand key "${rawKey}" declared in mismatched location "${relFromRoot}"`);
+      }
+
+      const homePatterns = HOME_SOURCE_PATTERNS[prefix];
+      if (homePatterns && homePatterns.some((pattern) => pattern.test(relFromRoot))) {
+        homeSourceKeys.add(rawKey);
       }
     }
   }
 
+  for (const key of publishedSet) {
+    if (!homeSourceKeys.has(key)) {
+      problems.push(`missing published brand key: ${key}`);
+    }
+  }
+
+  // Quarantined brand warnings (in registry order)
+  for (const [brand, reason] of Object.entries(quarantined)) {
+    if (collectedQuarantined.has(brand)) {
+      warnings.push(`WARN quarantined brand: "${brand}" (${reason})`);
+    } else {
+      warnings.push(`WARN stale quarantine: "${brand}" is no longer collected`);
+    }
+  }
+
+  // Stale pending check (F9)
+  for (const key of pendingSet) {
+    if (!collectedKeys.has(key)) {
+      warnings.push(`WARN pending brand key collected nowhere: ${key}`);
+    }
+  }
+
   const uniqueProblems = [...new Set(problems)];
+  const uniqueWarnings = [...new Set(warnings)];
 
   return {
     passed: uniqueProblems.length === 0,
     problems: uniqueProblems,
+    warnings: uniqueWarnings,
     keyCount: collectedKeys.size,
     publishedCount: publishedSet.size,
     pendingCount: pendingSet.size,
@@ -203,6 +291,9 @@ function checkBrandKeys() {
 
 function main() {
   const result = checkBrandKeys();
+  for (const warning of result.warnings) {
+    console.log(warning);
+  }
   if (result.passed) {
     console.log(
       `PASS brand keys: ${result.keyCount} keys verified (${result.publishedCount} published, ${result.pendingCount} pending)`,

@@ -30,5 +30,11 @@
     "@cancjs/toolbox:Pipeable",
     "@cancjs/toolbox:SupersededError",
     "@cancjs/toolbox:TermOp"
-  ]
+  ],
+  "quarantined": {
+    "The requested feature is not implemented": "NotImplementedError: removed when node error classes are keyed by brand",
+    "Process exited with a non-zero exit code": "ProcessExitError: removed when node error classes are keyed by brand",
+    "Process could not be spawned": "ProcessSpawnError: removed when node error classes are keyed by brand",
+    "Failed to parse JSON": "JsonParseError: removed when node error classes are keyed by brand"
+  }
 }
