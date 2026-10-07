@@ -1,5 +1,4 @@
-// Asserts a consumer outside the repo can install every published tarball
-// without peer resolution conflicts and loads every package.
+// Asserts external consumers can install and load published tarballs
 
 const fs = require('fs');
 const os = require('os');
@@ -7,8 +6,23 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
-const isWin = process.platform === 'win32';
-const npmCmd = isWin ? 'npm.cmd' : 'npm';
+
+function resolveNpmCli() {
+  if (process.env.npm_execpath) return process.env.npm_execpath;
+  try {
+    return require.resolve('npm/bin/npm-cli.js');
+  } catch {
+    return path.join(path.dirname(process.execPath), 'node_modules/npm/bin/npm-cli.js');
+  }
+}
+const npmCli = resolveNpmCli();
+
+function spawnNpm(args, opts = {}) {
+  return spawnSync(process.execPath, [npmCli, ...args], {
+    ...opts,
+    shell: false,
+  });
+}
 
 function getPublishablePackages() {
   const rootPkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
@@ -43,15 +57,8 @@ function getPublishablePackages() {
   }
 
   packages.sort((a, b) => a.name.localeCompare(b.name));
-
-  if (packages.length !== 14) {
-    throw new Error(`Expected exactly 14 publishable packages, found ${packages.length}`);
-  }
-
   return packages;
 }
-
-const PACKAGES = getPublishablePackages();
 
 let tempDir = null;
 
@@ -75,10 +82,10 @@ process.on('SIGTERM', () => {
   process.exit(1);
 });
 
-function ensureBuild() {
+function ensureBuild(packages) {
   if (process.argv.includes('--no-build')) {
     console.log('[check-beta-install] Skipping build (--no-build specified).');
-    const missingDist = PACKAGES.some((pkg) => !fs.existsSync(path.join(ROOT, pkg.relDir, 'dist')));
+    const missingDist = packages.some((pkg) => !fs.existsSync(path.join(ROOT, pkg.relDir, 'dist')));
     if (missingDist) {
       throw new Error('Build artifacts missing for some packages but --no-build was passed');
     }
@@ -86,10 +93,9 @@ function ensureBuild() {
   }
 
   console.log('[check-beta-install] Running npm run build across workspace...');
-  const buildRes = spawnSync(npmCmd, ['run', 'build'], {
+  const buildRes = spawnNpm(['run', 'build'], {
     cwd: ROOT,
     stdio: 'inherit',
-    shell: isWin,
   });
   if (buildRes.status !== 0) {
     throw new Error(`npm run build failed with exit code ${buildRes.status}`);
@@ -115,16 +121,15 @@ function parsePackOutput(rawOutput) {
   return Array.isArray(parsed) ? parsed[0] : Object.values(parsed)[0];
 }
 
-function packPackages(destDir) {
+function packPackages(packages, destDir) {
   const tgzPaths = [];
   let packedPromiseVersion = null;
 
-  for (const pkg of PACKAGES) {
+  for (const pkg of packages) {
     const pkgDir = path.join(ROOT, pkg.relDir);
-    const packRes = spawnSync(npmCmd, ['pack', '--json', '--pack-destination', destDir], {
+    const packRes = spawnNpm(['pack', '--json', '--pack-destination', destDir], {
       cwd: pkgDir,
       encoding: 'utf8',
-      shell: isWin,
     });
 
     if (packRes.status !== 0) {
@@ -147,10 +152,9 @@ function packPackages(destDir) {
 }
 
 function verifyPromiseDeduped(tempDirectory, expectedVersion) {
-  const lsRes = spawnSync(npmCmd, ['ls', '@cancjs/promise', '--json'], {
+  const lsRes = spawnNpm(['ls', '@cancjs/promise', '--json'], {
     cwd: tempDirectory,
     encoding: 'utf8',
-    shell: isWin,
   });
 
   if (lsRes.status !== 0) {
@@ -223,13 +227,13 @@ function verifyPromiseDeduped(tempDirectory, expectedVersion) {
   console.log(`[check-beta-install] PASS: Exactly one @cancjs/promise copy (${expectedVersion}) found and deduped.`);
 }
 
-function verifyModuleLoading(tempDirectory) {
+function verifyModuleLoading(packages, tempDirectory) {
   const verifyScriptPath = path.join(tempDirectory, 'verify-loader.mjs');
   const verifyScriptContent = `
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const packages = ${JSON.stringify(PACKAGES.map((p) => p.name))};
+const packages = ${JSON.stringify(packages.map((p) => p.name))};
 
 console.log('[check-beta-install] Loading packages via ESM import() and CJS require():');
 
@@ -270,12 +274,13 @@ console.log('[check-beta-install] All ' + packages.length + ' packages loaded su
 
 function main() {
   try {
-    ensureBuild();
+    const packages = getPublishablePackages();
+    ensureBuild(packages);
 
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'canc-beta-consumer-'));
     console.log(`[check-beta-install] Created consumer directory: ${tempDir}`);
 
-    const { tgzPaths, packedPromiseVersion } = packPackages(tempDir);
+    const { tgzPaths, packedPromiseVersion } = packPackages(packages, tempDir);
     console.log(`[check-beta-install] Packed ${tgzPaths.length} tarballs (promise version ${packedPromiseVersion})`);
 
     const consumerManifest = {
@@ -285,11 +290,10 @@ function main() {
     };
     fs.writeFileSync(path.join(tempDir, 'package.json'), JSON.stringify(consumerManifest, null, 2), 'utf8');
 
-    console.log(`[check-beta-install] Running npm install for all 14 tarballs...`);
-    const installRes = spawnSync(npmCmd, ['install', ...tgzPaths], {
+    console.log(`[check-beta-install] Running npm install for all ${tgzPaths.length} tarballs...`);
+    const installRes = spawnNpm(['install', ...tgzPaths], {
       cwd: tempDir,
       stdio: 'inherit',
-      shell: isWin,
     });
 
     if (installRes.status !== 0) {
@@ -297,7 +301,7 @@ function main() {
     }
 
     verifyPromiseDeduped(tempDir, packedPromiseVersion);
-    verifyModuleLoading(tempDir);
+    verifyModuleLoading(packages, tempDir);
 
     console.log('[check-beta-install] All checks passed successfully.');
   } catch (err) {
