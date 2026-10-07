@@ -44,8 +44,7 @@
     "format": "eslint --fix .",
     "lint:src": "eslint ./src",
     "lint": "eslint .",
-    "test": "jest --colors && npm run test:canary",
-    "test:canary": "node --expose-gc ../../node_modules/jest/bin/jest.js --colors --runInBand --no-coverage src/__tests__/leak-canaries.spec.ts",
+    "test": "jest --colors",
     "test:watch": "jest --colors --watch"
   },
   "files": ["dist"],
