@@ -22,14 +22,7 @@ name: string
 ## `IDebounceOptions` (type)
 
 ```text
-AbortController?: TAbortControllerCtor | undefined
-TimeoutError?: ICancErrorConstructor<"TimeoutError", "@cancjs/promise:TimeoutError"> | undefined
-clearTimeout?: ((handle: any) => void) | undefined
-lazy?: undefined
-leading?: boolean | undefined
-maxWait?: number | undefined
-setTimeout?: ((handler: () => void, ms?: number) => any) | undefined
-trailing?: boolean | undefined
+TCallDeps & { leading?: boolean; trailing?: boolean; maxWait?: number; lazy?: never; }
 ```
 
 ## `IDebounced<Args extends unknown[], R, K extends IPromiseKind = IPromiseLikeKind, F = never>` (interface)
@@ -82,13 +75,7 @@ stopOnError?: boolean | undefined
 ## `IThrottleOptions` (type)
 
 ```text
-AbortController?: TAbortControllerCtor | undefined
-TimeoutError?: ICancErrorConstructor<"TimeoutError", "@cancjs/promise:TimeoutError"> | undefined
-clearTimeout?: ((handle: any) => void) | undefined
-lazy?: undefined
-leading?: boolean | undefined
-setTimeout?: ((handler: () => void, ms?: number) => any) | undefined
-trailing?: boolean | undefined
+TCallDeps & { leading?: boolean; trailing?: boolean; lazy?: never; }
 ```
 
 ## `IThrottled<Args extends unknown[], R, K extends IPromiseKind = IPromiseLikeKind, F = never>` (type)
@@ -145,9 +132,7 @@ name: string
 ## `TDuration` (type)
 
 ```text
-toLocaleString: { (locales?: string | string[], options?: Intl.NumberFormatOptions): string; (locales?: Intl.LocalesArgument, options?: Intl.NumberFormatOptions): string; } | { (): string; (locales: string | string[], options?: Intl.NumberFormatOptions & Intl.DateTimeFormatOptions): string; }
-toString: ((radix?: number) => string) | (() => string)
-valueOf: (() => number) | (() => Object)
+number | [min: number, max: number]
 ```
 
 ## `TErrorConstructor` (type)
@@ -159,9 +144,7 @@ new (...args: Array<any>): any
 ## `TErrorMatcher` (type)
 
 ```text
-readonly length: number
-toString: (() => string) | (() => string)
-valueOf: (() => Object) | (() => string)
+string | TErrorConstructor | TErrorPredicate
 ```
 
 ## `TErrorPredicate` (type)

@@ -61,14 +61,7 @@ displayName?: string | undefined
 ## `IDebounceOptions` (type)
 
 ```text
-AbortController?: TAbortControllerCtor | undefined
-TimeoutError?: ICancErrorConstructor<"TimeoutError", "@cancjs/promise:TimeoutError"> | undefined
-clearTimeout?: ((handle: any) => void) | undefined
-lazy?: undefined
-leading?: boolean | undefined
-maxWait?: number | undefined
-setTimeout?: ((handler: () => void, ms?: number) => any) | undefined
-trailing?: boolean | undefined
+TCallDeps & { leading?: boolean; trailing?: boolean; maxWait?: number; lazy?: never; }
 ```
 
 ## `IDebounced<Args extends unknown[], R, K extends IPromiseKind = IPromiseLikeKind, F = never>` (interface)
@@ -165,21 +158,7 @@ transformArgs?: ((args: any[], getSignal: TGetSignal) => any[]) | undefined
 ## `IRetryOptions<K extends IPromiseKind = IPromiseLikeKind>` (type)
 
 ```text
-AbortController?: TAbortControllerCtor | undefined
-TimeoutError?: ICancErrorConstructor<"TimeoutError", "@cancjs/promise:TimeoutError"> | undefined
-clearTimeout?: ((handle: any) => void) | undefined
-delay?: ((ctx: IRetryContext & { computedDelay: number; }) => number | undefined) | undefined
-factor?: number | undefined
-initialDelay?: number | undefined
-jitter?: number | boolean | undefined
-lazy?: boolean | undefined
-maxDelay?: number | undefined
-maxTimeout?: number | undefined
-minTimeout?: number | undefined
-onRetry?: ((reason: any, attempt: number, delay: number) => void) | undefined
-retries?: number | undefined
-setTimeout?: ((handler: () => void, ms?: number) => any) | undefined
-shouldRetry?: ((reason: any, ctx: IRetryContext) => boolean | PromiseLike<boolean>) | undefined
+K["options"] & (TCallDeps & { retries?: number; initialDelay?: number; maxDelay?: number; factor?: number; jitter?: boolean | number; shouldRetry?: (reason: any, ctx: IRetryContext) => boolean | PromiseLike<boolean>; delay?: (ctx: IRetryContext & { computedDelay: number; }) => number | undefined; onRetry?: (reason: any, attempt: number, delay: number) => void; lazy?: boolean; minTimeout?: number; maxTimeout?: number; })
 ```
 
 ## `ISuppressErrorFn<M extends readonly TErrorMatcher[] = readonly TErrorMatcher[]>` (interface)
@@ -193,13 +172,7 @@ shouldRetry?: ((reason: any, ctx: IRetryContext) => boolean | PromiseLike<boolea
 ## `IThrottleOptions` (type)
 
 ```text
-AbortController?: TAbortControllerCtor | undefined
-TimeoutError?: ICancErrorConstructor<"TimeoutError", "@cancjs/promise:TimeoutError"> | undefined
-clearTimeout?: ((handle: any) => void) | undefined
-lazy?: undefined
-leading?: boolean | undefined
-setTimeout?: ((handler: () => void, ms?: number) => any) | undefined
-trailing?: boolean | undefined
+TCallDeps & { leading?: boolean; trailing?: boolean; lazy?: never; }
 ```
 
 ## `IThrottled<Args extends unknown[], R, K extends IPromiseKind = IPromiseLikeKind, F = never>` (type)
@@ -221,13 +194,7 @@ lazy?: boolean | undefined
 ## `IWaitForOptions` (type)
 
 ```text
-AbortController?: TAbortControllerCtor | undefined
-TimeoutError?: ICancErrorConstructor<"TimeoutError", "@cancjs/promise:TimeoutError"> | undefined
-clearTimeout?: ((handle: any) => void) | undefined
-interval?: number | undefined
-lazy?: boolean | undefined
-setTimeout?: ((handler: () => void, ms?: number) => any) | undefined
-timeout?: number | undefined
+TCallDeps & { [key: string]: unknown; interval?: number; timeout?: number; lazy?: boolean; }
 ```
 
 ## `LazyPromise<T = any>` (class)
@@ -293,9 +260,7 @@ name: string
 ## `TDuration` (type)
 
 ```text
-toLocaleString: { (locales?: string | string[], options?: Intl.NumberFormatOptions): string; (locales?: Intl.LocalesArgument, options?: Intl.NumberFormatOptions): string; } | { (): string; (locales: string | string[], options?: Intl.NumberFormatOptions & Intl.DateTimeFormatOptions): string; }
-toString: ((radix?: number) => string) | (() => string)
-valueOf: (() => number) | (() => Object)
+number | [min: number, max: number]
 ```
 
 ## `TEagerToolboxOptions` (type)
@@ -318,9 +283,7 @@ new (...args: Array<any>): any
 ## `TErrorMatcher` (type)
 
 ```text
-readonly length: number
-toString: (() => string) | (() => string)
-valueOf: (() => Object) | (() => string)
+string | TErrorConstructor | TErrorPredicate
 ```
 
 ## `TErrorPredicate` (type)
