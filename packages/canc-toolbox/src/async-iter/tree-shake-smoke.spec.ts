@@ -100,7 +100,7 @@ describe('async-iter tree-shaking', () => {
     expect(result).toEqual([4, 6]);
   });
 
-  // in-process rollup: ~0.3 s alone, ~1.3 s file time in a full local run, up to 10 s on CI
+  // in-process rollup: ~0.3 s alone, 1-2.5 s file time in a full local run, up to 10 s on CI
   it('bundles only imported operators and leaves unused flatMap out of the bundle', async () => {
     const output = await bundleAsyncIter(`
       import { filter, map, take } from './index';
