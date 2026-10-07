@@ -190,7 +190,10 @@ function createRenderer(checker, pkgPosix) {
 
   const propertyLine = (property, prefix = '') => {
     const decl = property.declarations?.[0];
-    const type = decl ? checker.getTypeOfSymbolAtLocation(property, decl) : checker.getDeclaredTypeOfSymbol(property);
+    const type =
+      decl && ts.isMappedTypeNode(decl) ? checker.getTypeOfSymbol(property)
+      : decl ? checker.getTypeOfSymbolAtLocation(property, decl)
+      : checker.getDeclaredTypeOfSymbol(property);
     const optional = property.flags & ts.SymbolFlags.Optional ? '?' : '';
     const declNode = decl ?? property.valueDeclaration;
     const readonly = declNode ? (ts.getCombinedModifierFlags(declNode) & ts.ModifierFlags.Readonly) !== 0 : false;
@@ -217,6 +220,9 @@ function createRenderer(checker, pkgPosix) {
     const seen = new Set();
     return lines.filter((line) => (seen.has(line) ? false : (seen.add(line), true)));
   };
+
+  const isSignature = (line) => /^(?:new\s*[(<]|[(<])/.test(line);
+  const isProperty = (line) => !isSignature(line) && /:\s/.test(line);
 
   const structural = (type, context) => {
     const heritage = heritageLines(context);
@@ -279,8 +285,46 @@ function createRenderer(checker, pkgPosix) {
       return { kind, lines: [...heritage, ...body] };
     }
 
-    if (kind === 'interface' || kind === 'type' || kind === 'enum') {
+    if (kind === 'enum') {
+      const lines = [];
+      if (symbol.exports) {
+        for (const m of symbol.exports.values()) {
+          const declNode = m.valueDeclaration || m.declarations?.[0];
+          const val = declNode ? checker.getConstantValue(declNode) : undefined;
+          if (val !== undefined) {
+            lines.push(`${m.getName()} = ${typeof val === 'string' ? JSON.stringify(val) : val}`);
+          } else {
+            lines.push(`${m.getName()}`);
+          }
+        }
+      }
+      return { kind, lines: lines.sort() };
+    }
+
+    if (kind === 'interface' || kind === 'type') {
       const type = checker.getDeclaredTypeOfSymbol(symbol);
+      const isInter = type.isIntersection && type.isIntersection();
+      const isInterNode = decl && ts.isTypeAliasDeclaration(decl) && ts.isIntersectionTypeNode(decl.type);
+      if (isInter || isInterNode) {
+        const constituents = isInter ? type.types : decl.type.types.map((n) => checker.getTypeFromTypeNode(n));
+        const sigLines = [];
+        const propLines = [];
+        for (const c of constituents) {
+          if (isUnionOrPrimitive(c)) {
+            sigLines.push(normalize(checker.typeToString(c, decl, TYPE_FLAGS | ts.TypeFormatFlags.InTypeAlias)));
+          } else {
+            const lines = structural(c, decl);
+            for (const line of lines) {
+              if (isProperty(line)) {
+                propLines.push(line);
+              } else {
+                sigLines.push(line);
+              }
+            }
+          }
+        }
+        return { kind, lines: [...dedupe(sigLines), ...dedupe(propLines).sort()] };
+      }
       if (isUnionOrPrimitive(type)) {
         return {
           kind,
