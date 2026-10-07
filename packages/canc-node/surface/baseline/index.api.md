@@ -357,11 +357,7 @@ command?: string | undefined
 ## `JSON_PARSE_ERROR_BRAND` (const)
 
 ```text
-[toPrimitive]: (hint: string) => symbol
-readonly [toStringTag]: string
-readonly description: string | undefined
-toString: () => string
-valueOf: () => symbol
+typeof JSON_PARSE_ERROR_BRAND
 ```
 
 ## `JsonParseError` (class)
@@ -379,11 +375,7 @@ readonly path?: string | undefined
 ## `NOT_IMPLEMENTED_ERROR_BRAND` (const)
 
 ```text
-[toPrimitive]: (hint: string) => symbol
-readonly [toStringTag]: string
-readonly description: string | undefined
-toString: () => string
-valueOf: () => symbol
+typeof NOT_IMPLEMENTED_ERROR_BRAND
 ```
 
 ## `NodeErrnoError<TCode extends string = string>` (interface)
@@ -412,21 +404,13 @@ readonly required?: string | undefined
 ## `PROCESS_EXIT_ERROR_BRAND` (const)
 
 ```text
-[toPrimitive]: (hint: string) => symbol
-readonly [toStringTag]: string
-readonly description: string | undefined
-toString: () => string
-valueOf: () => symbol
+typeof PROCESS_EXIT_ERROR_BRAND
 ```
 
 ## `PROCESS_SPAWN_ERROR_BRAND` (const)
 
 ```text
-[toPrimitive]: (hint: string) => symbol
-readonly [toStringTag]: string
-readonly description: string | undefined
-toString: () => string
-valueOf: () => symbol
+typeof PROCESS_SPAWN_ERROR_BRAND
 ```
 
 ## `ProcessExitError` (class)

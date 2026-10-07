@@ -28,64 +28,13 @@ passphrase?: string | undefined
 ## `BinaryLike` (type)
 
 ```text
-toLocaleString: (() => string) | { (): string; (locales: string | string[], options?: Intl.NumberFormatOptions): string; } | { (): string; (locales: string | string[], options?: Intl.NumberFormatOptions): string; } | { (): string; (locales: string | string[], options?: Intl.NumberFormatOptions): string; } | { (): string; (locales: string | string[], options?: Intl.NumberFormatOptions): string; } | { (): string; (locales: string | string[], options?: Intl.NumberFormatOptions): string; } | { (): string; (locales: string | string[], options?: Intl.NumberFormatOptions): string; } | { (): string; (locales: string | string[], options?: Intl.NumberFormatOptions): string; } | ((locales?: string | string[], options?: Intl.NumberFormatOptions) => string) | ((locales?: string | string[], options?: Intl.NumberFormatOptions) => string) | { (): string; (locales: string | string[], options?: Intl.NumberFormatOptions): string; } | { (): string; (locales: string | string[], options?: Intl.NumberFormatOptions): string; }
-toString: (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | (() => string)
-valueOf: (() => string) | (() => Uint8Array<ArrayBufferLike>) | (() => Uint8ClampedArray<ArrayBufferLike>) | (() => Uint16Array<ArrayBufferLike>) | (() => Uint32Array<ArrayBufferLike>) | (() => Int8Array<ArrayBufferLike>) | (() => Int16Array<ArrayBufferLike>) | (() => Int32Array<ArrayBufferLike>) | (() => BigUint64Array<ArrayBufferLike>) | (() => BigInt64Array<ArrayBufferLike>) | (() => Float32Array<ArrayBufferLike>) | (() => Float64Array<ArrayBufferLike>) | (() => Object)
+string | NodeJS.ArrayBufferView<ArrayBufferLike>
 ```
 
 ## `BinaryToTextEncoding` (type)
 
 ```text
-[iterator]: () => StringIterator<string>
-anchor: (name: string) => string
-at: (index: number) => string | undefined
-big: () => string
-blink: () => string
-bold: () => string
-charAt: (pos: number) => string
-charCodeAt: (index: number) => number
-codePointAt: (pos: number) => number | undefined
-concat: (...strings: string[]) => string
-endsWith: (searchString: string, endPosition?: number) => boolean
-fixed: () => string
-fontcolor: (color: string) => string
-fontsize: { (size: number): string; (size: string): string; }
-includes: (searchString: string, position?: number) => boolean
-indexOf: (searchString: string, position?: number) => number
-italics: () => string
-lastIndexOf: (searchString: string, position?: number) => number
-readonly length: number
-link: (url: string) => string
-localeCompare: { (that: string): number; (that: string, locales?: string | string[], options?: Intl.CollatorOptions): number; (that: string, locales?: Intl.LocalesArgument, options?: Intl.CollatorOptions): number; }
-match: { (regexp: string | RegExp): RegExpMatchArray | null; (matcher: { [Symbol.match](string: string): RegExpMatchArray | null; }): RegExpMatchArray | null; }
-matchAll: (regexp: RegExp) => RegExpStringIterator<RegExpExecArray>
-normalize: { (form: "NFC" | "NFD" | "NFKC" | "NFKD"): string; (form?: string): string; }
-padEnd: (maxLength: number, fillString?: string) => string
-padStart: (maxLength: number, fillString?: string) => string
-repeat: (count: number) => string
-replace: { (searchValue: string | RegExp, replaceValue: string): string; (searchValue: string | RegExp, replacer: (substring: string, ...args: any[]) => string): string; (searchValue: { [Symbol.replace](string: string, replaceValue: string): string; }, replaceValue: string): string; (searchValue: { [Symbol.replace](string: string, replacer: (substring: string, ...args: any[]) => string): string; }, replacer: (substring: string, ...args: any[]) => string): string; }
-replaceAll: { (searchValue: string | RegExp, replaceValue: string): string; (searchValue: string | RegExp, replacer: (substring: string, ...args: any[]) => string): string; }
-search: { (regexp: string | RegExp): number; (searcher: { [Symbol.search](string: string): number; }): number; }
-slice: (start?: number, end?: number) => string
-small: () => string
-split: { (separator: string | RegExp, limit?: number): string[]; (splitter: { [Symbol.split](string: string, limit?: number): string[]; }, limit?: number): string[]; }
-startsWith: (searchString: string, position?: number) => boolean
-strike: () => string
-sub: () => string
-substr: (from: number, length?: number) => string
-substring: (start: number, end?: number) => string
-sup: () => string
-toLocaleLowerCase: { (locales?: string | string[]): string; (locales?: Intl.LocalesArgument): string; }
-toLocaleUpperCase: { (locales?: string | string[]): string; (locales?: Intl.LocalesArgument): string; }
-toLowerCase: () => string
-toString: () => string
-toUpperCase: () => string
-trim: () => string
-trimEnd: () => string
-trimLeft: () => string
-trimRight: () => string
-trimStart: () => string
-valueOf: () => string
+"base64" | "base64url" | "binary" | "hex"
 ```
 
 ## `Certificate` (class)
@@ -97,56 +46,7 @@ new (): Certificate
 ## `CharacterEncoding` (type)
 
 ```text
-[iterator]: () => StringIterator<string>
-anchor: (name: string) => string
-at: (index: number) => string | undefined
-big: () => string
-blink: () => string
-bold: () => string
-charAt: (pos: number) => string
-charCodeAt: (index: number) => number
-codePointAt: (pos: number) => number | undefined
-concat: (...strings: string[]) => string
-endsWith: (searchString: string, endPosition?: number) => boolean
-fixed: () => string
-fontcolor: (color: string) => string
-fontsize: { (size: number): string; (size: string): string; }
-includes: (searchString: string, position?: number) => boolean
-indexOf: (searchString: string, position?: number) => number
-italics: () => string
-lastIndexOf: (searchString: string, position?: number) => number
-readonly length: number
-link: (url: string) => string
-localeCompare: { (that: string): number; (that: string, locales?: string | string[], options?: Intl.CollatorOptions): number; (that: string, locales?: Intl.LocalesArgument, options?: Intl.CollatorOptions): number; }
-match: { (regexp: string | RegExp): RegExpMatchArray | null; (matcher: { [Symbol.match](string: string): RegExpMatchArray | null; }): RegExpMatchArray | null; }
-matchAll: (regexp: RegExp) => RegExpStringIterator<RegExpExecArray>
-normalize: { (form: "NFC" | "NFD" | "NFKC" | "NFKD"): string; (form?: string): string; }
-padEnd: (maxLength: number, fillString?: string) => string
-padStart: (maxLength: number, fillString?: string) => string
-repeat: (count: number) => string
-replace: { (searchValue: string | RegExp, replaceValue: string): string; (searchValue: string | RegExp, replacer: (substring: string, ...args: any[]) => string): string; (searchValue: { [Symbol.replace](string: string, replaceValue: string): string; }, replaceValue: string): string; (searchValue: { [Symbol.replace](string: string, replacer: (substring: string, ...args: any[]) => string): string; }, replacer: (substring: string, ...args: any[]) => string): string; }
-replaceAll: { (searchValue: string | RegExp, replaceValue: string): string; (searchValue: string | RegExp, replacer: (substring: string, ...args: any[]) => string): string; }
-search: { (regexp: string | RegExp): number; (searcher: { [Symbol.search](string: string): number; }): number; }
-slice: (start?: number, end?: number) => string
-small: () => string
-split: { (separator: string | RegExp, limit?: number): string[]; (splitter: { [Symbol.split](string: string, limit?: number): string[]; }, limit?: number): string[]; }
-startsWith: (searchString: string, position?: number) => boolean
-strike: () => string
-sub: () => string
-substr: (from: number, length?: number) => string
-substring: (start: number, end?: number) => string
-sup: () => string
-toLocaleLowerCase: { (locales?: string | string[]): string; (locales?: Intl.LocalesArgument): string; }
-toLocaleUpperCase: { (locales?: string | string[]): string; (locales?: Intl.LocalesArgument): string; }
-toLowerCase: () => string
-toString: () => string
-toUpperCase: () => string
-trim: () => string
-trimEnd: () => string
-trimLeft: () => string
-trimRight: () => string
-trimStart: () => string
-valueOf: () => string
+"utf8" | "utf-8" | "utf16le" | "utf-16le" | "latin1"
 ```
 
 ## `CheckPrimeOptions` (interface)
@@ -177,56 +77,7 @@ extends stream.TransformOptions
 ## `CipherCCMTypes` (type)
 
 ```text
-[iterator]: () => StringIterator<string>
-anchor: (name: string) => string
-at: (index: number) => string | undefined
-big: () => string
-blink: () => string
-bold: () => string
-charAt: (pos: number) => string
-charCodeAt: (index: number) => number
-codePointAt: (pos: number) => number | undefined
-concat: (...strings: string[]) => string
-endsWith: (searchString: string, endPosition?: number) => boolean
-fixed: () => string
-fontcolor: (color: string) => string
-fontsize: { (size: number): string; (size: string): string; }
-includes: (searchString: string, position?: number) => boolean
-indexOf: (searchString: string, position?: number) => number
-italics: () => string
-lastIndexOf: (searchString: string, position?: number) => number
-readonly length: number
-link: (url: string) => string
-localeCompare: { (that: string): number; (that: string, locales?: string | string[], options?: Intl.CollatorOptions): number; (that: string, locales?: Intl.LocalesArgument, options?: Intl.CollatorOptions): number; }
-match: { (regexp: string | RegExp): RegExpMatchArray | null; (matcher: { [Symbol.match](string: string): RegExpMatchArray | null; }): RegExpMatchArray | null; }
-matchAll: (regexp: RegExp) => RegExpStringIterator<RegExpExecArray>
-normalize: { (form: "NFC" | "NFD" | "NFKC" | "NFKD"): string; (form?: string): string; }
-padEnd: (maxLength: number, fillString?: string) => string
-padStart: (maxLength: number, fillString?: string) => string
-repeat: (count: number) => string
-replace: { (searchValue: string | RegExp, replaceValue: string): string; (searchValue: string | RegExp, replacer: (substring: string, ...args: any[]) => string): string; (searchValue: { [Symbol.replace](string: string, replaceValue: string): string; }, replaceValue: string): string; (searchValue: { [Symbol.replace](string: string, replacer: (substring: string, ...args: any[]) => string): string; }, replacer: (substring: string, ...args: any[]) => string): string; }
-replaceAll: { (searchValue: string | RegExp, replaceValue: string): string; (searchValue: string | RegExp, replacer: (substring: string, ...args: any[]) => string): string; }
-search: { (regexp: string | RegExp): number; (searcher: { [Symbol.search](string: string): number; }): number; }
-slice: (start?: number, end?: number) => string
-small: () => string
-split: { (separator: string | RegExp, limit?: number): string[]; (splitter: { [Symbol.split](string: string, limit?: number): string[]; }, limit?: number): string[]; }
-startsWith: (searchString: string, position?: number) => boolean
-strike: () => string
-sub: () => string
-substr: (from: number, length?: number) => string
-substring: (start: number, end?: number) => string
-sup: () => string
-toLocaleLowerCase: { (locales?: string | string[]): string; (locales?: Intl.LocalesArgument): string; }
-toLocaleUpperCase: { (locales?: string | string[]): string; (locales?: Intl.LocalesArgument): string; }
-toLowerCase: () => string
-toString: () => string
-toUpperCase: () => string
-trim: () => string
-trimEnd: () => string
-trimLeft: () => string
-trimRight: () => string
-trimStart: () => string
-valueOf: () => string
+"aes-128-ccm" | "aes-192-ccm" | "aes-256-ccm"
 ```
 
 ## `CipherChaCha20Poly1305` (interface)
@@ -244,56 +95,7 @@ extends stream.TransformOptions
 ## `CipherChaCha20Poly1305Types` (type)
 
 ```text
-[iterator]: () => StringIterator<string>
-anchor: (name: string) => string
-at: (index: number) => string | undefined
-big: () => string
-blink: () => string
-bold: () => string
-charAt: (pos: number) => string
-charCodeAt: (index: number) => number
-codePointAt: (pos: number) => number | undefined
-concat: (...strings: string[]) => string
-endsWith: (searchString: string, endPosition?: number) => boolean
-fixed: () => string
-fontcolor: (color: string) => string
-fontsize: { (size: number): string; (size: string): string; }
-includes: (searchString: string, position?: number) => boolean
-indexOf: (searchString: string, position?: number) => number
-italics: () => string
-lastIndexOf: (searchString: string, position?: number) => number
-readonly length: number
-link: (url: string) => string
-localeCompare: { (that: string): number; (that: string, locales?: string | string[], options?: Intl.CollatorOptions): number; (that: string, locales?: Intl.LocalesArgument, options?: Intl.CollatorOptions): number; }
-match: { (regexp: string | RegExp): RegExpMatchArray | null; (matcher: { [Symbol.match](string: string): RegExpMatchArray | null; }): RegExpMatchArray | null; }
-matchAll: (regexp: RegExp) => RegExpStringIterator<RegExpExecArray>
-normalize: { (form: "NFC" | "NFD" | "NFKC" | "NFKD"): string; (form?: string): string; }
-padEnd: (maxLength: number, fillString?: string) => string
-padStart: (maxLength: number, fillString?: string) => string
-repeat: (count: number) => string
-replace: { (searchValue: string | RegExp, replaceValue: string): string; (searchValue: string | RegExp, replacer: (substring: string, ...args: any[]) => string): string; (searchValue: { [Symbol.replace](string: string, replaceValue: string): string; }, replaceValue: string): string; (searchValue: { [Symbol.replace](string: string, replacer: (substring: string, ...args: any[]) => string): string; }, replacer: (substring: string, ...args: any[]) => string): string; }
-replaceAll: { (searchValue: string | RegExp, replaceValue: string): string; (searchValue: string | RegExp, replacer: (substring: string, ...args: any[]) => string): string; }
-search: { (regexp: string | RegExp): number; (searcher: { [Symbol.search](string: string): number; }): number; }
-slice: (start?: number, end?: number) => string
-small: () => string
-split: { (separator: string | RegExp, limit?: number): string[]; (splitter: { [Symbol.split](string: string, limit?: number): string[]; }, limit?: number): string[]; }
-startsWith: (searchString: string, position?: number) => boolean
-strike: () => string
-sub: () => string
-substr: (from: number, length?: number) => string
-substring: (start: number, end?: number) => string
-sup: () => string
-toLocaleLowerCase: { (locales?: string | string[]): string; (locales?: Intl.LocalesArgument): string; }
-toLocaleUpperCase: { (locales?: string | string[]): string; (locales?: Intl.LocalesArgument): string; }
-toLowerCase: () => string
-toString: () => string
-toUpperCase: () => string
-trim: () => string
-trimEnd: () => string
-trimLeft: () => string
-trimRight: () => string
-trimStart: () => string
-valueOf: () => string
+"chacha20-poly1305"
 ```
 
 ## `CipherGCM` (interface)
@@ -311,56 +113,7 @@ extends stream.TransformOptions
 ## `CipherGCMTypes` (type)
 
 ```text
-[iterator]: () => StringIterator<string>
-anchor: (name: string) => string
-at: (index: number) => string | undefined
-big: () => string
-blink: () => string
-bold: () => string
-charAt: (pos: number) => string
-charCodeAt: (index: number) => number
-codePointAt: (pos: number) => number | undefined
-concat: (...strings: string[]) => string
-endsWith: (searchString: string, endPosition?: number) => boolean
-fixed: () => string
-fontcolor: (color: string) => string
-fontsize: { (size: number): string; (size: string): string; }
-includes: (searchString: string, position?: number) => boolean
-indexOf: (searchString: string, position?: number) => number
-italics: () => string
-lastIndexOf: (searchString: string, position?: number) => number
-readonly length: number
-link: (url: string) => string
-localeCompare: { (that: string): number; (that: string, locales?: string | string[], options?: Intl.CollatorOptions): number; (that: string, locales?: Intl.LocalesArgument, options?: Intl.CollatorOptions): number; }
-match: { (regexp: string | RegExp): RegExpMatchArray | null; (matcher: { [Symbol.match](string: string): RegExpMatchArray | null; }): RegExpMatchArray | null; }
-matchAll: (regexp: RegExp) => RegExpStringIterator<RegExpExecArray>
-normalize: { (form: "NFC" | "NFD" | "NFKC" | "NFKD"): string; (form?: string): string; }
-padEnd: (maxLength: number, fillString?: string) => string
-padStart: (maxLength: number, fillString?: string) => string
-repeat: (count: number) => string
-replace: { (searchValue: string | RegExp, replaceValue: string): string; (searchValue: string | RegExp, replacer: (substring: string, ...args: any[]) => string): string; (searchValue: { [Symbol.replace](string: string, replaceValue: string): string; }, replaceValue: string): string; (searchValue: { [Symbol.replace](string: string, replacer: (substring: string, ...args: any[]) => string): string; }, replacer: (substring: string, ...args: any[]) => string): string; }
-replaceAll: { (searchValue: string | RegExp, replaceValue: string): string; (searchValue: string | RegExp, replacer: (substring: string, ...args: any[]) => string): string; }
-search: { (regexp: string | RegExp): number; (searcher: { [Symbol.search](string: string): number; }): number; }
-slice: (start?: number, end?: number) => string
-small: () => string
-split: { (separator: string | RegExp, limit?: number): string[]; (splitter: { [Symbol.split](string: string, limit?: number): string[]; }, limit?: number): string[]; }
-startsWith: (searchString: string, position?: number) => boolean
-strike: () => string
-sub: () => string
-substr: (from: number, length?: number) => string
-substring: (start: number, end?: number) => string
-sup: () => string
-toLocaleLowerCase: { (locales?: string | string[]): string; (locales?: Intl.LocalesArgument): string; }
-toLocaleUpperCase: { (locales?: string | string[]): string; (locales?: Intl.LocalesArgument): string; }
-toLowerCase: () => string
-toString: () => string
-toUpperCase: () => string
-trim: () => string
-trimEnd: () => string
-trimLeft: () => string
-trimRight: () => string
-trimStart: () => string
-valueOf: () => string
+"aes-128-gcm" | "aes-192-gcm" | "aes-256-gcm"
 ```
 
 ## `CipherInfo` (interface)
@@ -384,64 +137,13 @@ keyLength?: number | undefined
 ## `CipherKey` (type)
 
 ```text
-toLocaleString: (() => string) | { (): string; (locales: string | string[], options?: Intl.NumberFormatOptions): string; } | { (): string; (locales: string | string[], options?: Intl.NumberFormatOptions): string; } | { (): string; (locales: string | string[], options?: Intl.NumberFormatOptions): string; } | { (): string; (locales: string | string[], options?: Intl.NumberFormatOptions): string; } | { (): string; (locales: string | string[], options?: Intl.NumberFormatOptions): string; } | { (): string; (locales: string | string[], options?: Intl.NumberFormatOptions): string; } | { (): string; (locales: string | string[], options?: Intl.NumberFormatOptions): string; } | ((locales?: string | string[], options?: Intl.NumberFormatOptions) => string) | ((locales?: string | string[], options?: Intl.NumberFormatOptions) => string) | { (): string; (locales: string | string[], options?: Intl.NumberFormatOptions): string; } | { (): string; (locales: string | string[], options?: Intl.NumberFormatOptions): string; }
-toString: (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | (() => string)
-valueOf: (() => string) | (() => Uint8Array<ArrayBufferLike>) | (() => Uint8ClampedArray<ArrayBufferLike>) | (() => Uint16Array<ArrayBufferLike>) | (() => Uint32Array<ArrayBufferLike>) | (() => Int8Array<ArrayBufferLike>) | (() => Int16Array<ArrayBufferLike>) | (() => Int32Array<ArrayBufferLike>) | (() => BigUint64Array<ArrayBufferLike>) | (() => BigInt64Array<ArrayBufferLike>) | (() => Float32Array<ArrayBufferLike>) | (() => Float64Array<ArrayBufferLike>) | (() => Object)
+BinaryLike | KeyObject
 ```
 
 ## `CipherMode` (type)
 
 ```text
-[iterator]: () => StringIterator<string>
-anchor: (name: string) => string
-at: (index: number) => string | undefined
-big: () => string
-blink: () => string
-bold: () => string
-charAt: (pos: number) => string
-charCodeAt: (index: number) => number
-codePointAt: (pos: number) => number | undefined
-concat: (...strings: string[]) => string
-endsWith: (searchString: string, endPosition?: number) => boolean
-fixed: () => string
-fontcolor: (color: string) => string
-fontsize: { (size: number): string; (size: string): string; }
-includes: (searchString: string, position?: number) => boolean
-indexOf: (searchString: string, position?: number) => number
-italics: () => string
-lastIndexOf: (searchString: string, position?: number) => number
-readonly length: number
-link: (url: string) => string
-localeCompare: { (that: string): number; (that: string, locales?: string | string[], options?: Intl.CollatorOptions): number; (that: string, locales?: Intl.LocalesArgument, options?: Intl.CollatorOptions): number; }
-match: { (regexp: string | RegExp): RegExpMatchArray | null; (matcher: { [Symbol.match](string: string): RegExpMatchArray | null; }): RegExpMatchArray | null; }
-matchAll: (regexp: RegExp) => RegExpStringIterator<RegExpExecArray>
-normalize: { (form: "NFC" | "NFD" | "NFKC" | "NFKD"): string; (form?: string): string; }
-padEnd: (maxLength: number, fillString?: string) => string
-padStart: (maxLength: number, fillString?: string) => string
-repeat: (count: number) => string
-replace: { (searchValue: string | RegExp, replaceValue: string): string; (searchValue: string | RegExp, replacer: (substring: string, ...args: any[]) => string): string; (searchValue: { [Symbol.replace](string: string, replaceValue: string): string; }, replaceValue: string): string; (searchValue: { [Symbol.replace](string: string, replacer: (substring: string, ...args: any[]) => string): string; }, replacer: (substring: string, ...args: any[]) => string): string; }
-replaceAll: { (searchValue: string | RegExp, replaceValue: string): string; (searchValue: string | RegExp, replacer: (substring: string, ...args: any[]) => string): string; }
-search: { (regexp: string | RegExp): number; (searcher: { [Symbol.search](string: string): number; }): number; }
-slice: (start?: number, end?: number) => string
-small: () => string
-split: { (separator: string | RegExp, limit?: number): string[]; (splitter: { [Symbol.split](string: string, limit?: number): string[]; }, limit?: number): string[]; }
-startsWith: (searchString: string, position?: number) => boolean
-strike: () => string
-sub: () => string
-substr: (from: number, length?: number) => string
-substring: (start: number, end?: number) => string
-sup: () => string
-toLocaleLowerCase: { (locales?: string | string[]): string; (locales?: Intl.LocalesArgument): string; }
-toLocaleUpperCase: { (locales?: string | string[]): string; (locales?: Intl.LocalesArgument): string; }
-toLowerCase: () => string
-toString: () => string
-toUpperCase: () => string
-trim: () => string
-trimEnd: () => string
-trimLeft: () => string
-trimRight: () => string
-trimStart: () => string
-valueOf: () => string
+"cbc" | "ccm" | "cfb" | "ctr" | "ecb" | "gcm" | "ocb" | "ofb" | "stream" | "wrap" | "xts"
 ```
 
 ## `CipherOCB` (interface)
@@ -459,111 +161,13 @@ extends stream.TransformOptions
 ## `CipherOCBTypes` (type)
 
 ```text
-[iterator]: () => StringIterator<string>
-anchor: (name: string) => string
-at: (index: number) => string | undefined
-big: () => string
-blink: () => string
-bold: () => string
-charAt: (pos: number) => string
-charCodeAt: (index: number) => number
-codePointAt: (pos: number) => number | undefined
-concat: (...strings: string[]) => string
-endsWith: (searchString: string, endPosition?: number) => boolean
-fixed: () => string
-fontcolor: (color: string) => string
-fontsize: { (size: number): string; (size: string): string; }
-includes: (searchString: string, position?: number) => boolean
-indexOf: (searchString: string, position?: number) => number
-italics: () => string
-lastIndexOf: (searchString: string, position?: number) => number
-readonly length: number
-link: (url: string) => string
-localeCompare: { (that: string): number; (that: string, locales?: string | string[], options?: Intl.CollatorOptions): number; (that: string, locales?: Intl.LocalesArgument, options?: Intl.CollatorOptions): number; }
-match: { (regexp: string | RegExp): RegExpMatchArray | null; (matcher: { [Symbol.match](string: string): RegExpMatchArray | null; }): RegExpMatchArray | null; }
-matchAll: (regexp: RegExp) => RegExpStringIterator<RegExpExecArray>
-normalize: { (form: "NFC" | "NFD" | "NFKC" | "NFKD"): string; (form?: string): string; }
-padEnd: (maxLength: number, fillString?: string) => string
-padStart: (maxLength: number, fillString?: string) => string
-repeat: (count: number) => string
-replace: { (searchValue: string | RegExp, replaceValue: string): string; (searchValue: string | RegExp, replacer: (substring: string, ...args: any[]) => string): string; (searchValue: { [Symbol.replace](string: string, replaceValue: string): string; }, replaceValue: string): string; (searchValue: { [Symbol.replace](string: string, replacer: (substring: string, ...args: any[]) => string): string; }, replacer: (substring: string, ...args: any[]) => string): string; }
-replaceAll: { (searchValue: string | RegExp, replaceValue: string): string; (searchValue: string | RegExp, replacer: (substring: string, ...args: any[]) => string): string; }
-search: { (regexp: string | RegExp): number; (searcher: { [Symbol.search](string: string): number; }): number; }
-slice: (start?: number, end?: number) => string
-small: () => string
-split: { (separator: string | RegExp, limit?: number): string[]; (splitter: { [Symbol.split](string: string, limit?: number): string[]; }, limit?: number): string[]; }
-startsWith: (searchString: string, position?: number) => boolean
-strike: () => string
-sub: () => string
-substr: (from: number, length?: number) => string
-substring: (start: number, end?: number) => string
-sup: () => string
-toLocaleLowerCase: { (locales?: string | string[]): string; (locales?: Intl.LocalesArgument): string; }
-toLocaleUpperCase: { (locales?: string | string[]): string; (locales?: Intl.LocalesArgument): string; }
-toLowerCase: () => string
-toString: () => string
-toUpperCase: () => string
-trim: () => string
-trimEnd: () => string
-trimLeft: () => string
-trimRight: () => string
-trimStart: () => string
-valueOf: () => string
+"aes-128-ocb" | "aes-192-ocb" | "aes-256-ocb"
 ```
 
 ## `DSAEncoding` (type)
 
 ```text
-[iterator]: () => StringIterator<string>
-anchor: (name: string) => string
-at: (index: number) => string | undefined
-big: () => string
-blink: () => string
-bold: () => string
-charAt: (pos: number) => string
-charCodeAt: (index: number) => number
-codePointAt: (pos: number) => number | undefined
-concat: (...strings: string[]) => string
-endsWith: (searchString: string, endPosition?: number) => boolean
-fixed: () => string
-fontcolor: (color: string) => string
-fontsize: { (size: number): string; (size: string): string; }
-includes: (searchString: string, position?: number) => boolean
-indexOf: (searchString: string, position?: number) => number
-italics: () => string
-lastIndexOf: (searchString: string, position?: number) => number
-readonly length: number
-link: (url: string) => string
-localeCompare: { (that: string): number; (that: string, locales?: string | string[], options?: Intl.CollatorOptions): number; (that: string, locales?: Intl.LocalesArgument, options?: Intl.CollatorOptions): number; }
-match: { (regexp: string | RegExp): RegExpMatchArray | null; (matcher: { [Symbol.match](string: string): RegExpMatchArray | null; }): RegExpMatchArray | null; }
-matchAll: (regexp: RegExp) => RegExpStringIterator<RegExpExecArray>
-normalize: { (form: "NFC" | "NFD" | "NFKC" | "NFKD"): string; (form?: string): string; }
-padEnd: (maxLength: number, fillString?: string) => string
-padStart: (maxLength: number, fillString?: string) => string
-repeat: (count: number) => string
-replace: { (searchValue: string | RegExp, replaceValue: string): string; (searchValue: string | RegExp, replacer: (substring: string, ...args: any[]) => string): string; (searchValue: { [Symbol.replace](string: string, replaceValue: string): string; }, replaceValue: string): string; (searchValue: { [Symbol.replace](string: string, replacer: (substring: string, ...args: any[]) => string): string; }, replacer: (substring: string, ...args: any[]) => string): string; }
-replaceAll: { (searchValue: string | RegExp, replaceValue: string): string; (searchValue: string | RegExp, replacer: (substring: string, ...args: any[]) => string): string; }
-search: { (regexp: string | RegExp): number; (searcher: { [Symbol.search](string: string): number; }): number; }
-slice: (start?: number, end?: number) => string
-small: () => string
-split: { (separator: string | RegExp, limit?: number): string[]; (splitter: { [Symbol.split](string: string, limit?: number): string[]; }, limit?: number): string[]; }
-startsWith: (searchString: string, position?: number) => boolean
-strike: () => string
-sub: () => string
-substr: (from: number, length?: number) => string
-substring: (start: number, end?: number) => string
-sup: () => string
-toLocaleLowerCase: { (locales?: string | string[]): string; (locales?: Intl.LocalesArgument): string; }
-toLocaleUpperCase: { (locales?: string | string[]): string; (locales?: Intl.LocalesArgument): string; }
-toLowerCase: () => string
-toString: () => string
-toUpperCase: () => string
-trim: () => string
-trimEnd: () => string
-trimLeft: () => string
-trimRight: () => string
-trimStart: () => string
-valueOf: () => string
+"der" | "ieee-p1363"
 ```
 
 ## `DSAKeyPairKeyObjectOptions` (interface)
@@ -647,56 +251,7 @@ new (): ECDH
 ## `ECDHKeyFormat` (type)
 
 ```text
-[iterator]: () => StringIterator<string>
-anchor: (name: string) => string
-at: (index: number) => string | undefined
-big: () => string
-blink: () => string
-bold: () => string
-charAt: (pos: number) => string
-charCodeAt: (index: number) => number
-codePointAt: (pos: number) => number | undefined
-concat: (...strings: string[]) => string
-endsWith: (searchString: string, endPosition?: number) => boolean
-fixed: () => string
-fontcolor: (color: string) => string
-fontsize: { (size: number): string; (size: string): string; }
-includes: (searchString: string, position?: number) => boolean
-indexOf: (searchString: string, position?: number) => number
-italics: () => string
-lastIndexOf: (searchString: string, position?: number) => number
-readonly length: number
-link: (url: string) => string
-localeCompare: { (that: string): number; (that: string, locales?: string | string[], options?: Intl.CollatorOptions): number; (that: string, locales?: Intl.LocalesArgument, options?: Intl.CollatorOptions): number; }
-match: { (regexp: string | RegExp): RegExpMatchArray | null; (matcher: { [Symbol.match](string: string): RegExpMatchArray | null; }): RegExpMatchArray | null; }
-matchAll: (regexp: RegExp) => RegExpStringIterator<RegExpExecArray>
-normalize: { (form: "NFC" | "NFD" | "NFKC" | "NFKD"): string; (form?: string): string; }
-padEnd: (maxLength: number, fillString?: string) => string
-padStart: (maxLength: number, fillString?: string) => string
-repeat: (count: number) => string
-replace: { (searchValue: string | RegExp, replaceValue: string): string; (searchValue: string | RegExp, replacer: (substring: string, ...args: any[]) => string): string; (searchValue: { [Symbol.replace](string: string, replaceValue: string): string; }, replaceValue: string): string; (searchValue: { [Symbol.replace](string: string, replacer: (substring: string, ...args: any[]) => string): string; }, replacer: (substring: string, ...args: any[]) => string): string; }
-replaceAll: { (searchValue: string | RegExp, replaceValue: string): string; (searchValue: string | RegExp, replacer: (substring: string, ...args: any[]) => string): string; }
-search: { (regexp: string | RegExp): number; (searcher: { [Symbol.search](string: string): number; }): number; }
-slice: (start?: number, end?: number) => string
-small: () => string
-split: { (separator: string | RegExp, limit?: number): string[]; (splitter: { [Symbol.split](string: string, limit?: number): string[]; }, limit?: number): string[]; }
-startsWith: (searchString: string, position?: number) => boolean
-strike: () => string
-sub: () => string
-substr: (from: number, length?: number) => string
-substring: (start: number, end?: number) => string
-sup: () => string
-toLocaleLowerCase: { (locales?: string | string[]): string; (locales?: Intl.LocalesArgument): string; }
-toLocaleUpperCase: { (locales?: string | string[]): string; (locales?: Intl.LocalesArgument): string; }
-toLowerCase: () => string
-toString: () => string
-toUpperCase: () => string
-trim: () => string
-trimEnd: () => string
-trimLeft: () => string
-trimRight: () => string
-trimStart: () => string
-valueOf: () => string
+"compressed" | "uncompressed" | "hybrid"
 ```
 
 ## `ECKeyPairKeyObjectOptions` (interface)
@@ -741,56 +296,7 @@ publicKeyEncoding: { type: "spki"; format: PubF; }
 ## `Encoding` (type)
 
 ```text
-[iterator]: () => StringIterator<string>
-anchor: (name: string) => string
-at: (index: number) => string | undefined
-big: () => string
-blink: () => string
-bold: () => string
-charAt: (pos: number) => string
-charCodeAt: (index: number) => number
-codePointAt: (pos: number) => number | undefined
-concat: (...strings: string[]) => string
-endsWith: (searchString: string, endPosition?: number) => boolean
-fixed: () => string
-fontcolor: (color: string) => string
-fontsize: { (size: number): string; (size: string): string; }
-includes: (searchString: string, position?: number) => boolean
-indexOf: (searchString: string, position?: number) => number
-italics: () => string
-lastIndexOf: (searchString: string, position?: number) => number
-readonly length: number
-link: (url: string) => string
-localeCompare: { (that: string): number; (that: string, locales?: string | string[], options?: Intl.CollatorOptions): number; (that: string, locales?: Intl.LocalesArgument, options?: Intl.CollatorOptions): number; }
-match: { (regexp: string | RegExp): RegExpMatchArray | null; (matcher: { [Symbol.match](string: string): RegExpMatchArray | null; }): RegExpMatchArray | null; }
-matchAll: (regexp: RegExp) => RegExpStringIterator<RegExpExecArray>
-normalize: { (form: "NFC" | "NFD" | "NFKC" | "NFKD"): string; (form?: string): string; }
-padEnd: (maxLength: number, fillString?: string) => string
-padStart: (maxLength: number, fillString?: string) => string
-repeat: (count: number) => string
-replace: { (searchValue: string | RegExp, replaceValue: string): string; (searchValue: string | RegExp, replacer: (substring: string, ...args: any[]) => string): string; (searchValue: { [Symbol.replace](string: string, replaceValue: string): string; }, replaceValue: string): string; (searchValue: { [Symbol.replace](string: string, replacer: (substring: string, ...args: any[]) => string): string; }, replacer: (substring: string, ...args: any[]) => string): string; }
-replaceAll: { (searchValue: string | RegExp, replaceValue: string): string; (searchValue: string | RegExp, replacer: (substring: string, ...args: any[]) => string): string; }
-search: { (regexp: string | RegExp): number; (searcher: { [Symbol.search](string: string): number; }): number; }
-slice: (start?: number, end?: number) => string
-small: () => string
-split: { (separator: string | RegExp, limit?: number): string[]; (splitter: { [Symbol.split](string: string, limit?: number): string[]; }, limit?: number): string[]; }
-startsWith: (searchString: string, position?: number) => boolean
-strike: () => string
-sub: () => string
-substr: (from: number, length?: number) => string
-substring: (start: number, end?: number) => string
-sup: () => string
-toLocaleLowerCase: { (locales?: string | string[]): string; (locales?: Intl.LocalesArgument): string; }
-toLocaleUpperCase: { (locales?: string | string[]): string; (locales?: Intl.LocalesArgument): string; }
-toLowerCase: () => string
-toString: () => string
-toUpperCase: () => string
-trim: () => string
-trimEnd: () => string
-trimLeft: () => string
-trimRight: () => string
-trimStart: () => string
-valueOf: () => string
+"ascii" | "utf8" | "utf-8" | "utf16le" | "utf-16le" | "ucs2" | "ucs-2" | "base64" | "base64url" | "latin1" | "binary" | "hex"
 ```
 
 ## `GeneratePrimeOptions` (interface)
@@ -898,63 +404,13 @@ type: "pkcs1" | "spki" | "pkcs8" | "sec1"
 ## `KeyFormat` (type)
 
 ```text
-[iterator]: () => StringIterator<string>
-anchor: (name: string) => string
-at: (index: number) => string | undefined
-big: () => string
-blink: () => string
-bold: () => string
-charAt: (pos: number) => string
-charCodeAt: (index: number) => number
-codePointAt: (pos: number) => number | undefined
-concat: (...strings: string[]) => string
-endsWith: (searchString: string, endPosition?: number) => boolean
-fixed: () => string
-fontcolor: (color: string) => string
-fontsize: { (size: number): string; (size: string): string; }
-includes: (searchString: string, position?: number) => boolean
-indexOf: (searchString: string, position?: number) => number
-italics: () => string
-lastIndexOf: (searchString: string, position?: number) => number
-readonly length: number
-link: (url: string) => string
-localeCompare: { (that: string): number; (that: string, locales?: string | string[], options?: Intl.CollatorOptions): number; (that: string, locales?: Intl.LocalesArgument, options?: Intl.CollatorOptions): number; }
-match: { (regexp: string | RegExp): RegExpMatchArray | null; (matcher: { [Symbol.match](string: string): RegExpMatchArray | null; }): RegExpMatchArray | null; }
-matchAll: (regexp: RegExp) => RegExpStringIterator<RegExpExecArray>
-normalize: { (form: "NFC" | "NFD" | "NFKC" | "NFKD"): string; (form?: string): string; }
-padEnd: (maxLength: number, fillString?: string) => string
-padStart: (maxLength: number, fillString?: string) => string
-repeat: (count: number) => string
-replace: { (searchValue: string | RegExp, replaceValue: string): string; (searchValue: string | RegExp, replacer: (substring: string, ...args: any[]) => string): string; (searchValue: { [Symbol.replace](string: string, replaceValue: string): string; }, replaceValue: string): string; (searchValue: { [Symbol.replace](string: string, replacer: (substring: string, ...args: any[]) => string): string; }, replacer: (substring: string, ...args: any[]) => string): string; }
-replaceAll: { (searchValue: string | RegExp, replaceValue: string): string; (searchValue: string | RegExp, replacer: (substring: string, ...args: any[]) => string): string; }
-search: { (regexp: string | RegExp): number; (searcher: { [Symbol.search](string: string): number; }): number; }
-slice: (start?: number, end?: number) => string
-small: () => string
-split: { (separator: string | RegExp, limit?: number): string[]; (splitter: { [Symbol.split](string: string, limit?: number): string[]; }, limit?: number): string[]; }
-startsWith: (searchString: string, position?: number) => boolean
-strike: () => string
-sub: () => string
-substr: (from: number, length?: number) => string
-substring: (start: number, end?: number) => string
-sup: () => string
-toLocaleLowerCase: { (locales?: string | string[]): string; (locales?: Intl.LocalesArgument): string; }
-toLocaleUpperCase: { (locales?: string | string[]): string; (locales?: Intl.LocalesArgument): string; }
-toLowerCase: () => string
-toString: () => string
-toUpperCase: () => string
-trim: () => string
-trimEnd: () => string
-trimLeft: () => string
-trimRight: () => string
-trimStart: () => string
-valueOf: () => string
+"pem" | "der" | "jwk"
 ```
 
 ## `KeyLike` (type)
 
 ```text
-toString: (() => string) | (() => string) | ((encoding?: BufferEncoding, start?: number, end?: number) => string)
-valueOf: (() => string) | (() => Object) | (() => Buffer<ArrayBufferLike>)
+string | KeyObject | Buffer<ArrayBufferLike>
 ```
 
 ## `KeyObject` (class)
@@ -966,56 +422,7 @@ new (): KeyObject
 ## `KeyObjectType` (type)
 
 ```text
-[iterator]: () => StringIterator<string>
-anchor: (name: string) => string
-at: (index: number) => string | undefined
-big: () => string
-blink: () => string
-bold: () => string
-charAt: (pos: number) => string
-charCodeAt: (index: number) => number
-codePointAt: (pos: number) => number | undefined
-concat: (...strings: string[]) => string
-endsWith: (searchString: string, endPosition?: number) => boolean
-fixed: () => string
-fontcolor: (color: string) => string
-fontsize: { (size: number): string; (size: string): string; }
-includes: (searchString: string, position?: number) => boolean
-indexOf: (searchString: string, position?: number) => number
-italics: () => string
-lastIndexOf: (searchString: string, position?: number) => number
-readonly length: number
-link: (url: string) => string
-localeCompare: { (that: string): number; (that: string, locales?: string | string[], options?: Intl.CollatorOptions): number; (that: string, locales?: Intl.LocalesArgument, options?: Intl.CollatorOptions): number; }
-match: { (regexp: string | RegExp): RegExpMatchArray | null; (matcher: { [Symbol.match](string: string): RegExpMatchArray | null; }): RegExpMatchArray | null; }
-matchAll: (regexp: RegExp) => RegExpStringIterator<RegExpExecArray>
-normalize: { (form: "NFC" | "NFD" | "NFKC" | "NFKD"): string; (form?: string): string; }
-padEnd: (maxLength: number, fillString?: string) => string
-padStart: (maxLength: number, fillString?: string) => string
-repeat: (count: number) => string
-replace: { (searchValue: string | RegExp, replaceValue: string): string; (searchValue: string | RegExp, replacer: (substring: string, ...args: any[]) => string): string; (searchValue: { [Symbol.replace](string: string, replaceValue: string): string; }, replaceValue: string): string; (searchValue: { [Symbol.replace](string: string, replacer: (substring: string, ...args: any[]) => string): string; }, replacer: (substring: string, ...args: any[]) => string): string; }
-replaceAll: { (searchValue: string | RegExp, replaceValue: string): string; (searchValue: string | RegExp, replacer: (substring: string, ...args: any[]) => string): string; }
-search: { (regexp: string | RegExp): number; (searcher: { [Symbol.search](string: string): number; }): number; }
-slice: (start?: number, end?: number) => string
-small: () => string
-split: { (separator: string | RegExp, limit?: number): string[]; (splitter: { [Symbol.split](string: string, limit?: number): string[]; }, limit?: number): string[]; }
-startsWith: (searchString: string, position?: number) => boolean
-strike: () => string
-sub: () => string
-substr: (from: number, length?: number) => string
-substring: (start: number, end?: number) => string
-sup: () => string
-toLocaleLowerCase: { (locales?: string | string[]): string; (locales?: Intl.LocalesArgument): string; }
-toLocaleUpperCase: { (locales?: string | string[]): string; (locales?: Intl.LocalesArgument): string; }
-toLowerCase: () => string
-toString: () => string
-toUpperCase: () => string
-trim: () => string
-trimEnd: () => string
-trimLeft: () => string
-trimRight: () => string
-trimStart: () => string
-valueOf: () => string
+"secret" | "public" | "private"
 ```
 
 ## `KeyPairKeyObjectResult` (interface)
@@ -1035,120 +442,19 @@ publicKey: T1
 ## `KeyType` (type)
 
 ```text
-[iterator]: () => StringIterator<string>
-anchor: (name: string) => string
-at: (index: number) => string | undefined
-big: () => string
-blink: () => string
-bold: () => string
-charAt: (pos: number) => string
-charCodeAt: (index: number) => number
-codePointAt: (pos: number) => number | undefined
-concat: (...strings: string[]) => string
-endsWith: (searchString: string, endPosition?: number) => boolean
-fixed: () => string
-fontcolor: (color: string) => string
-fontsize: { (size: number): string; (size: string): string; }
-includes: (searchString: string, position?: number) => boolean
-indexOf: (searchString: string, position?: number) => number
-italics: () => string
-lastIndexOf: (searchString: string, position?: number) => number
-readonly length: number
-link: (url: string) => string
-localeCompare: { (that: string): number; (that: string, locales?: string | string[], options?: Intl.CollatorOptions): number; (that: string, locales?: Intl.LocalesArgument, options?: Intl.CollatorOptions): number; }
-match: { (regexp: string | RegExp): RegExpMatchArray | null; (matcher: { [Symbol.match](string: string): RegExpMatchArray | null; }): RegExpMatchArray | null; }
-matchAll: (regexp: RegExp) => RegExpStringIterator<RegExpExecArray>
-normalize: { (form: "NFC" | "NFD" | "NFKC" | "NFKD"): string; (form?: string): string; }
-padEnd: (maxLength: number, fillString?: string) => string
-padStart: (maxLength: number, fillString?: string) => string
-repeat: (count: number) => string
-replace: { (searchValue: string | RegExp, replaceValue: string): string; (searchValue: string | RegExp, replacer: (substring: string, ...args: any[]) => string): string; (searchValue: { [Symbol.replace](string: string, replaceValue: string): string; }, replaceValue: string): string; (searchValue: { [Symbol.replace](string: string, replacer: (substring: string, ...args: any[]) => string): string; }, replacer: (substring: string, ...args: any[]) => string): string; }
-replaceAll: { (searchValue: string | RegExp, replaceValue: string): string; (searchValue: string | RegExp, replacer: (substring: string, ...args: any[]) => string): string; }
-search: { (regexp: string | RegExp): number; (searcher: { [Symbol.search](string: string): number; }): number; }
-slice: (start?: number, end?: number) => string
-small: () => string
-split: { (separator: string | RegExp, limit?: number): string[]; (splitter: { [Symbol.split](string: string, limit?: number): string[]; }, limit?: number): string[]; }
-startsWith: (searchString: string, position?: number) => boolean
-strike: () => string
-sub: () => string
-substr: (from: number, length?: number) => string
-substring: (start: number, end?: number) => string
-sup: () => string
-toLocaleLowerCase: { (locales?: string | string[]): string; (locales?: Intl.LocalesArgument): string; }
-toLocaleUpperCase: { (locales?: string | string[]): string; (locales?: Intl.LocalesArgument): string; }
-toLowerCase: () => string
-toString: () => string
-toUpperCase: () => string
-trim: () => string
-trimEnd: () => string
-trimLeft: () => string
-trimRight: () => string
-trimStart: () => string
-valueOf: () => string
+"rsa" | "rsa-pss" | "dsa" | "ec" | "ed25519" | "ed448" | "x25519" | "x448"
 ```
 
 ## `LargeNumberLike` (type)
 
 ```text
-readonly [toStringTag]: string
-toLocaleString: (() => string) | { (): string; (locales: string | string[], options?: Intl.NumberFormatOptions): string; } | { (): string; (locales: string | string[], options?: Intl.NumberFormatOptions): string; } | { (): string; (locales: string | string[], options?: Intl.NumberFormatOptions): string; } | { (): string; (locales: string | string[], options?: Intl.NumberFormatOptions): string; } | { (): string; (locales: string | string[], options?: Intl.NumberFormatOptions): string; } | { (): string; (locales: string | string[], options?: Intl.NumberFormatOptions): string; } | { (): string; (locales: string | string[], options?: Intl.NumberFormatOptions): string; } | ((locales?: string | string[], options?: Intl.NumberFormatOptions) => string) | ((locales?: string | string[], options?: Intl.NumberFormatOptions) => string) | { (): string; (locales: string | string[], options?: Intl.NumberFormatOptions): string; } | { (): string; (locales: string | string[], options?: Intl.NumberFormatOptions): string; } | ((locales?: Intl.LocalesArgument, options?: BigIntToLocaleStringOptions) => string)
-toString: (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | ((radix?: number) => string)
-valueOf: (() => Uint8Array<ArrayBufferLike>) | (() => Uint8ClampedArray<ArrayBufferLike>) | (() => Uint16Array<ArrayBufferLike>) | (() => Uint32Array<ArrayBufferLike>) | (() => Int8Array<ArrayBufferLike>) | (() => Int16Array<ArrayBufferLike>) | (() => Int32Array<ArrayBufferLike>) | (() => BigUint64Array<ArrayBufferLike>) | (() => BigInt64Array<ArrayBufferLike>) | (() => Float32Array<ArrayBufferLike>) | (() => Float64Array<ArrayBufferLike>) | (() => Object) | (() => bigint)
+bigint | ArrayBuffer | SharedArrayBuffer | NodeJS.ArrayBufferView<ArrayBufferLike>
 ```
 
 ## `LegacyCharacterEncoding` (type)
 
 ```text
-[iterator]: () => StringIterator<string>
-anchor: (name: string) => string
-at: (index: number) => string | undefined
-big: () => string
-blink: () => string
-bold: () => string
-charAt: (pos: number) => string
-charCodeAt: (index: number) => number
-codePointAt: (pos: number) => number | undefined
-concat: (...strings: string[]) => string
-endsWith: (searchString: string, endPosition?: number) => boolean
-fixed: () => string
-fontcolor: (color: string) => string
-fontsize: { (size: number): string; (size: string): string; }
-includes: (searchString: string, position?: number) => boolean
-indexOf: (searchString: string, position?: number) => number
-italics: () => string
-lastIndexOf: (searchString: string, position?: number) => number
-readonly length: number
-link: (url: string) => string
-localeCompare: { (that: string): number; (that: string, locales?: string | string[], options?: Intl.CollatorOptions): number; (that: string, locales?: Intl.LocalesArgument, options?: Intl.CollatorOptions): number; }
-match: { (regexp: string | RegExp): RegExpMatchArray | null; (matcher: { [Symbol.match](string: string): RegExpMatchArray | null; }): RegExpMatchArray | null; }
-matchAll: (regexp: RegExp) => RegExpStringIterator<RegExpExecArray>
-normalize: { (form: "NFC" | "NFD" | "NFKC" | "NFKD"): string; (form?: string): string; }
-padEnd: (maxLength: number, fillString?: string) => string
-padStart: (maxLength: number, fillString?: string) => string
-repeat: (count: number) => string
-replace: { (searchValue: string | RegExp, replaceValue: string): string; (searchValue: string | RegExp, replacer: (substring: string, ...args: any[]) => string): string; (searchValue: { [Symbol.replace](string: string, replaceValue: string): string; }, replaceValue: string): string; (searchValue: { [Symbol.replace](string: string, replacer: (substring: string, ...args: any[]) => string): string; }, replacer: (substring: string, ...args: any[]) => string): string; }
-replaceAll: { (searchValue: string | RegExp, replaceValue: string): string; (searchValue: string | RegExp, replacer: (substring: string, ...args: any[]) => string): string; }
-search: { (regexp: string | RegExp): number; (searcher: { [Symbol.search](string: string): number; }): number; }
-slice: (start?: number, end?: number) => string
-small: () => string
-split: { (separator: string | RegExp, limit?: number): string[]; (splitter: { [Symbol.split](string: string, limit?: number): string[]; }, limit?: number): string[]; }
-startsWith: (searchString: string, position?: number) => boolean
-strike: () => string
-sub: () => string
-substr: (from: number, length?: number) => string
-substring: (start: number, end?: number) => string
-sup: () => string
-toLocaleLowerCase: { (locales?: string | string[]): string; (locales?: Intl.LocalesArgument): string; }
-toLocaleUpperCase: { (locales?: string | string[]): string; (locales?: Intl.LocalesArgument): string; }
-toLowerCase: () => string
-toString: () => string
-toUpperCase: () => string
-trim: () => string
-trimEnd: () => string
-trimLeft: () => string
-trimRight: () => string
-trimStart: () => string
-valueOf: () => string
+"ascii" | "ucs2" | "ucs-2" | "binary"
 ```
 
 ## `PrivateKeyInput` (interface)
@@ -1288,64 +594,13 @@ saltLength?: number | undefined
 ## `TKeyLike` (type)
 
 ```text
-toLocaleString: (() => string) | { (): string; (locales: string | string[], options?: Intl.NumberFormatOptions): string; } | { (): string; (locales: string | string[], options?: Intl.NumberFormatOptions): string; } | { (): string; (locales: string | string[], options?: Intl.NumberFormatOptions): string; } | { (): string; (locales: string | string[], options?: Intl.NumberFormatOptions): string; } | { (): string; (locales: string | string[], options?: Intl.NumberFormatOptions): string; } | { (): string; (locales: string | string[], options?: Intl.NumberFormatOptions): string; } | { (): string; (locales: string | string[], options?: Intl.NumberFormatOptions): string; } | ((locales?: string | string[], options?: Intl.NumberFormatOptions) => string) | ((locales?: string | string[], options?: Intl.NumberFormatOptions) => string) | { (): string; (locales: string | string[], options?: Intl.NumberFormatOptions): string; } | { (): string; (locales: string | string[], options?: Intl.NumberFormatOptions): string; }
-toString: (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | (() => string)
-valueOf: (() => string) | (() => Uint8Array<ArrayBufferLike>) | (() => Uint8ClampedArray<ArrayBufferLike>) | (() => Uint16Array<ArrayBufferLike>) | (() => Uint32Array<ArrayBufferLike>) | (() => Int8Array<ArrayBufferLike>) | (() => Int16Array<ArrayBufferLike>) | (() => Int32Array<ArrayBufferLike>) | (() => BigUint64Array<ArrayBufferLike>) | (() => BigInt64Array<ArrayBufferLike>) | (() => Float32Array<ArrayBufferLike>) | (() => Float64Array<ArrayBufferLike>) | (() => Object)
+string | NodeJS.ArrayBufferView<ArrayBufferLike> | KeyObject | webcrypto.CryptoKey
 ```
 
 ## `UUID` (type)
 
 ```text
-[iterator]: () => StringIterator<string>
-anchor: (name: string) => string
-at: (index: number) => string | undefined
-big: () => string
-blink: () => string
-bold: () => string
-charAt: (pos: number) => string
-charCodeAt: (index: number) => number
-codePointAt: (pos: number) => number | undefined
-concat: (...strings: string[]) => string
-endsWith: (searchString: string, endPosition?: number) => boolean
-fixed: () => string
-fontcolor: (color: string) => string
-fontsize: { (size: number): string; (size: string): string; }
-includes: (searchString: string, position?: number) => boolean
-indexOf: (searchString: string, position?: number) => number
-italics: () => string
-lastIndexOf: (searchString: string, position?: number) => number
-readonly length: number
-link: (url: string) => string
-localeCompare: { (that: string): number; (that: string, locales?: string | string[], options?: Intl.CollatorOptions): number; (that: string, locales?: Intl.LocalesArgument, options?: Intl.CollatorOptions): number; }
-match: { (regexp: string | RegExp): RegExpMatchArray | null; (matcher: { [Symbol.match](string: string): RegExpMatchArray | null; }): RegExpMatchArray | null; }
-matchAll: (regexp: RegExp) => RegExpStringIterator<RegExpExecArray>
-normalize: { (form: "NFC" | "NFD" | "NFKC" | "NFKD"): string; (form?: string): string; }
-padEnd: (maxLength: number, fillString?: string) => string
-padStart: (maxLength: number, fillString?: string) => string
-repeat: (count: number) => string
-replace: { (searchValue: string | RegExp, replaceValue: string): string; (searchValue: string | RegExp, replacer: (substring: string, ...args: any[]) => string): string; (searchValue: { [Symbol.replace](string: string, replaceValue: string): string; }, replaceValue: string): string; (searchValue: { [Symbol.replace](string: string, replacer: (substring: string, ...args: any[]) => string): string; }, replacer: (substring: string, ...args: any[]) => string): string; }
-replaceAll: { (searchValue: string | RegExp, replaceValue: string): string; (searchValue: string | RegExp, replacer: (substring: string, ...args: any[]) => string): string; }
-search: { (regexp: string | RegExp): number; (searcher: { [Symbol.search](string: string): number; }): number; }
-slice: (start?: number, end?: number) => string
-small: () => string
-split: { (separator: string | RegExp, limit?: number): string[]; (splitter: { [Symbol.split](string: string, limit?: number): string[]; }, limit?: number): string[]; }
-startsWith: (searchString: string, position?: number) => boolean
-strike: () => string
-sub: () => string
-substr: (from: number, length?: number) => string
-substring: (start: number, end?: number) => string
-sup: () => string
-toLocaleLowerCase: { (locales?: string | string[]): string; (locales?: Intl.LocalesArgument): string; }
-toLocaleUpperCase: { (locales?: string | string[]): string; (locales?: Intl.LocalesArgument): string; }
-toLowerCase: () => string
-toString: () => string
-toUpperCase: () => string
-trim: () => string
-trimEnd: () => string
-trimLeft: () => string
-trimRight: () => string
-trimStart: () => string
-valueOf: () => string
+`${string}-${string}-${string}-${string}-${string}`
 ```
 
 ## `Verify` (class)
@@ -1618,7 +873,7 @@ defaultCoreCipherList: string
 ## `fips` (const)
 
 ```text
-valueOf: () => boolean
+boolean
 ```
 
 ## `generateKey` (const)
@@ -1788,7 +1043,7 @@ valueOf: () => boolean
 ```text
 (algorithm: string, data: BinaryLike, outputEncoding?: BinaryToTextEncoding | undefined): string
 (algorithm: string, data: BinaryLike, outputEncoding: "buffer"): NonSharedBuffer
-(algorithm: string, data: BinaryLike, outputEncoding?: "buffer" | BinaryToTextEncoding | undefined): string | NonSharedBuffer
+(algorithm: string, data: BinaryLike, outputEncoding?: BinaryToTextEncoding | "buffer" | undefined): string | NonSharedBuffer
 ```
 
 ## `hkdf` (const)

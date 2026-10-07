@@ -80,8 +80,7 @@ new (options?: ZlibOptions | undefined): InflateRaw
 ## `InputType` (type)
 
 ```text
-toString: (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | (() => string) | (() => string)
-valueOf: (() => string) | (() => Uint8Array<ArrayBufferLike>) | (() => Uint8ClampedArray<ArrayBufferLike>) | (() => Uint16Array<ArrayBufferLike>) | (() => Uint32Array<ArrayBufferLike>) | (() => Int8Array<ArrayBufferLike>) | (() => Int16Array<ArrayBufferLike>) | (() => Int32Array<ArrayBufferLike>) | (() => BigUint64Array<ArrayBufferLike>) | (() => BigInt64Array<ArrayBufferLike>) | (() => Float32Array<ArrayBufferLike>) | (() => Float64Array<ArrayBufferLike>) | (() => Object)
+string | ArrayBuffer | NodeJS.ArrayBufferView<ArrayBufferLike>
 ```
 
 ## `TIterableCodecFn` (type)
@@ -118,331 +117,181 @@ new (options?: ZlibOptions | undefined): Unzip
 ## `Z_ASCII` (const)
 
 ```text
-toExponential: (fractionDigits?: number) => string
-toFixed: (fractionDigits?: number) => string
-toLocaleString: { (locales?: string | string[], options?: Intl.NumberFormatOptions): string; (locales?: Intl.LocalesArgument, options?: Intl.NumberFormatOptions): string; }
-toPrecision: (precision?: number) => string
-toString: (radix?: number) => string
-valueOf: () => number
+number
 ```
 
 ## `Z_BEST_COMPRESSION` (const)
 
 ```text
-toExponential: (fractionDigits?: number) => string
-toFixed: (fractionDigits?: number) => string
-toLocaleString: { (locales?: string | string[], options?: Intl.NumberFormatOptions): string; (locales?: Intl.LocalesArgument, options?: Intl.NumberFormatOptions): string; }
-toPrecision: (precision?: number) => string
-toString: (radix?: number) => string
-valueOf: () => number
+number
 ```
 
 ## `Z_BEST_SPEED` (const)
 
 ```text
-toExponential: (fractionDigits?: number) => string
-toFixed: (fractionDigits?: number) => string
-toLocaleString: { (locales?: string | string[], options?: Intl.NumberFormatOptions): string; (locales?: Intl.LocalesArgument, options?: Intl.NumberFormatOptions): string; }
-toPrecision: (precision?: number) => string
-toString: (radix?: number) => string
-valueOf: () => number
+number
 ```
 
 ## `Z_BINARY` (const)
 
 ```text
-toExponential: (fractionDigits?: number) => string
-toFixed: (fractionDigits?: number) => string
-toLocaleString: { (locales?: string | string[], options?: Intl.NumberFormatOptions): string; (locales?: Intl.LocalesArgument, options?: Intl.NumberFormatOptions): string; }
-toPrecision: (precision?: number) => string
-toString: (radix?: number) => string
-valueOf: () => number
+number
 ```
 
 ## `Z_BLOCK` (const)
 
 ```text
-toExponential: (fractionDigits?: number) => string
-toFixed: (fractionDigits?: number) => string
-toLocaleString: { (locales?: string | string[], options?: Intl.NumberFormatOptions): string; (locales?: Intl.LocalesArgument, options?: Intl.NumberFormatOptions): string; }
-toPrecision: (precision?: number) => string
-toString: (radix?: number) => string
-valueOf: () => number
+number
 ```
 
 ## `Z_BUF_ERROR` (const)
 
 ```text
-toExponential: (fractionDigits?: number) => string
-toFixed: (fractionDigits?: number) => string
-toLocaleString: { (locales?: string | string[], options?: Intl.NumberFormatOptions): string; (locales?: Intl.LocalesArgument, options?: Intl.NumberFormatOptions): string; }
-toPrecision: (precision?: number) => string
-toString: (radix?: number) => string
-valueOf: () => number
+number
 ```
 
 ## `Z_DATA_ERROR` (const)
 
 ```text
-toExponential: (fractionDigits?: number) => string
-toFixed: (fractionDigits?: number) => string
-toLocaleString: { (locales?: string | string[], options?: Intl.NumberFormatOptions): string; (locales?: Intl.LocalesArgument, options?: Intl.NumberFormatOptions): string; }
-toPrecision: (precision?: number) => string
-toString: (radix?: number) => string
-valueOf: () => number
+number
 ```
 
 ## `Z_DEFAULT_COMPRESSION` (const)
 
 ```text
-toExponential: (fractionDigits?: number) => string
-toFixed: (fractionDigits?: number) => string
-toLocaleString: { (locales?: string | string[], options?: Intl.NumberFormatOptions): string; (locales?: Intl.LocalesArgument, options?: Intl.NumberFormatOptions): string; }
-toPrecision: (precision?: number) => string
-toString: (radix?: number) => string
-valueOf: () => number
+number
 ```
 
 ## `Z_DEFAULT_STRATEGY` (const)
 
 ```text
-toExponential: (fractionDigits?: number) => string
-toFixed: (fractionDigits?: number) => string
-toLocaleString: { (locales?: string | string[], options?: Intl.NumberFormatOptions): string; (locales?: Intl.LocalesArgument, options?: Intl.NumberFormatOptions): string; }
-toPrecision: (precision?: number) => string
-toString: (radix?: number) => string
-valueOf: () => number
+number
 ```
 
 ## `Z_DEFLATED` (const)
 
 ```text
-toExponential: (fractionDigits?: number) => string
-toFixed: (fractionDigits?: number) => string
-toLocaleString: { (locales?: string | string[], options?: Intl.NumberFormatOptions): string; (locales?: Intl.LocalesArgument, options?: Intl.NumberFormatOptions): string; }
-toPrecision: (precision?: number) => string
-toString: (radix?: number) => string
-valueOf: () => number
+number
 ```
 
 ## `Z_ERRNO` (const)
 
 ```text
-toExponential: (fractionDigits?: number) => string
-toFixed: (fractionDigits?: number) => string
-toLocaleString: { (locales?: string | string[], options?: Intl.NumberFormatOptions): string; (locales?: Intl.LocalesArgument, options?: Intl.NumberFormatOptions): string; }
-toPrecision: (precision?: number) => string
-toString: (radix?: number) => string
-valueOf: () => number
+number
 ```
 
 ## `Z_FILTERED` (const)
 
 ```text
-toExponential: (fractionDigits?: number) => string
-toFixed: (fractionDigits?: number) => string
-toLocaleString: { (locales?: string | string[], options?: Intl.NumberFormatOptions): string; (locales?: Intl.LocalesArgument, options?: Intl.NumberFormatOptions): string; }
-toPrecision: (precision?: number) => string
-toString: (radix?: number) => string
-valueOf: () => number
+number
 ```
 
 ## `Z_FINISH` (const)
 
 ```text
-toExponential: (fractionDigits?: number) => string
-toFixed: (fractionDigits?: number) => string
-toLocaleString: { (locales?: string | string[], options?: Intl.NumberFormatOptions): string; (locales?: Intl.LocalesArgument, options?: Intl.NumberFormatOptions): string; }
-toPrecision: (precision?: number) => string
-toString: (radix?: number) => string
-valueOf: () => number
+number
 ```
 
 ## `Z_FIXED` (const)
 
 ```text
-toExponential: (fractionDigits?: number) => string
-toFixed: (fractionDigits?: number) => string
-toLocaleString: { (locales?: string | string[], options?: Intl.NumberFormatOptions): string; (locales?: Intl.LocalesArgument, options?: Intl.NumberFormatOptions): string; }
-toPrecision: (precision?: number) => string
-toString: (radix?: number) => string
-valueOf: () => number
+number
 ```
 
 ## `Z_FULL_FLUSH` (const)
 
 ```text
-toExponential: (fractionDigits?: number) => string
-toFixed: (fractionDigits?: number) => string
-toLocaleString: { (locales?: string | string[], options?: Intl.NumberFormatOptions): string; (locales?: Intl.LocalesArgument, options?: Intl.NumberFormatOptions): string; }
-toPrecision: (precision?: number) => string
-toString: (radix?: number) => string
-valueOf: () => number
+number
 ```
 
 ## `Z_HUFFMAN_ONLY` (const)
 
 ```text
-toExponential: (fractionDigits?: number) => string
-toFixed: (fractionDigits?: number) => string
-toLocaleString: { (locales?: string | string[], options?: Intl.NumberFormatOptions): string; (locales?: Intl.LocalesArgument, options?: Intl.NumberFormatOptions): string; }
-toPrecision: (precision?: number) => string
-toString: (radix?: number) => string
-valueOf: () => number
+number
 ```
 
 ## `Z_MEM_ERROR` (const)
 
 ```text
-toExponential: (fractionDigits?: number) => string
-toFixed: (fractionDigits?: number) => string
-toLocaleString: { (locales?: string | string[], options?: Intl.NumberFormatOptions): string; (locales?: Intl.LocalesArgument, options?: Intl.NumberFormatOptions): string; }
-toPrecision: (precision?: number) => string
-toString: (radix?: number) => string
-valueOf: () => number
+number
 ```
 
 ## `Z_NEED_DICT` (const)
 
 ```text
-toExponential: (fractionDigits?: number) => string
-toFixed: (fractionDigits?: number) => string
-toLocaleString: { (locales?: string | string[], options?: Intl.NumberFormatOptions): string; (locales?: Intl.LocalesArgument, options?: Intl.NumberFormatOptions): string; }
-toPrecision: (precision?: number) => string
-toString: (radix?: number) => string
-valueOf: () => number
+number
 ```
 
 ## `Z_NO_COMPRESSION` (const)
 
 ```text
-toExponential: (fractionDigits?: number) => string
-toFixed: (fractionDigits?: number) => string
-toLocaleString: { (locales?: string | string[], options?: Intl.NumberFormatOptions): string; (locales?: Intl.LocalesArgument, options?: Intl.NumberFormatOptions): string; }
-toPrecision: (precision?: number) => string
-toString: (radix?: number) => string
-valueOf: () => number
+number
 ```
 
 ## `Z_NO_FLUSH` (const)
 
 ```text
-toExponential: (fractionDigits?: number) => string
-toFixed: (fractionDigits?: number) => string
-toLocaleString: { (locales?: string | string[], options?: Intl.NumberFormatOptions): string; (locales?: Intl.LocalesArgument, options?: Intl.NumberFormatOptions): string; }
-toPrecision: (precision?: number) => string
-toString: (radix?: number) => string
-valueOf: () => number
+number
 ```
 
 ## `Z_OK` (const)
 
 ```text
-toExponential: (fractionDigits?: number) => string
-toFixed: (fractionDigits?: number) => string
-toLocaleString: { (locales?: string | string[], options?: Intl.NumberFormatOptions): string; (locales?: Intl.LocalesArgument, options?: Intl.NumberFormatOptions): string; }
-toPrecision: (precision?: number) => string
-toString: (radix?: number) => string
-valueOf: () => number
+number
 ```
 
 ## `Z_PARTIAL_FLUSH` (const)
 
 ```text
-toExponential: (fractionDigits?: number) => string
-toFixed: (fractionDigits?: number) => string
-toLocaleString: { (locales?: string | string[], options?: Intl.NumberFormatOptions): string; (locales?: Intl.LocalesArgument, options?: Intl.NumberFormatOptions): string; }
-toPrecision: (precision?: number) => string
-toString: (radix?: number) => string
-valueOf: () => number
+number
 ```
 
 ## `Z_RLE` (const)
 
 ```text
-toExponential: (fractionDigits?: number) => string
-toFixed: (fractionDigits?: number) => string
-toLocaleString: { (locales?: string | string[], options?: Intl.NumberFormatOptions): string; (locales?: Intl.LocalesArgument, options?: Intl.NumberFormatOptions): string; }
-toPrecision: (precision?: number) => string
-toString: (radix?: number) => string
-valueOf: () => number
+number
 ```
 
 ## `Z_STREAM_END` (const)
 
 ```text
-toExponential: (fractionDigits?: number) => string
-toFixed: (fractionDigits?: number) => string
-toLocaleString: { (locales?: string | string[], options?: Intl.NumberFormatOptions): string; (locales?: Intl.LocalesArgument, options?: Intl.NumberFormatOptions): string; }
-toPrecision: (precision?: number) => string
-toString: (radix?: number) => string
-valueOf: () => number
+number
 ```
 
 ## `Z_STREAM_ERROR` (const)
 
 ```text
-toExponential: (fractionDigits?: number) => string
-toFixed: (fractionDigits?: number) => string
-toLocaleString: { (locales?: string | string[], options?: Intl.NumberFormatOptions): string; (locales?: Intl.LocalesArgument, options?: Intl.NumberFormatOptions): string; }
-toPrecision: (precision?: number) => string
-toString: (radix?: number) => string
-valueOf: () => number
+number
 ```
 
 ## `Z_SYNC_FLUSH` (const)
 
 ```text
-toExponential: (fractionDigits?: number) => string
-toFixed: (fractionDigits?: number) => string
-toLocaleString: { (locales?: string | string[], options?: Intl.NumberFormatOptions): string; (locales?: Intl.LocalesArgument, options?: Intl.NumberFormatOptions): string; }
-toPrecision: (precision?: number) => string
-toString: (radix?: number) => string
-valueOf: () => number
+number
 ```
 
 ## `Z_TEXT` (const)
 
 ```text
-toExponential: (fractionDigits?: number) => string
-toFixed: (fractionDigits?: number) => string
-toLocaleString: { (locales?: string | string[], options?: Intl.NumberFormatOptions): string; (locales?: Intl.LocalesArgument, options?: Intl.NumberFormatOptions): string; }
-toPrecision: (precision?: number) => string
-toString: (radix?: number) => string
-valueOf: () => number
+number
 ```
 
 ## `Z_TREES` (const)
 
 ```text
-toExponential: (fractionDigits?: number) => string
-toFixed: (fractionDigits?: number) => string
-toLocaleString: { (locales?: string | string[], options?: Intl.NumberFormatOptions): string; (locales?: Intl.LocalesArgument, options?: Intl.NumberFormatOptions): string; }
-toPrecision: (precision?: number) => string
-toString: (radix?: number) => string
-valueOf: () => number
+number
 ```
 
 ## `Z_UNKNOWN` (const)
 
 ```text
-toExponential: (fractionDigits?: number) => string
-toFixed: (fractionDigits?: number) => string
-toLocaleString: { (locales?: string | string[], options?: Intl.NumberFormatOptions): string; (locales?: Intl.LocalesArgument, options?: Intl.NumberFormatOptions): string; }
-toPrecision: (precision?: number) => string
-toString: (radix?: number) => string
-valueOf: () => number
+number
 ```
 
 ## `Z_VERSION_ERROR` (const)
 
 ```text
-toExponential: (fractionDigits?: number) => string
-toFixed: (fractionDigits?: number) => string
-toLocaleString: { (locales?: string | string[], options?: Intl.NumberFormatOptions): string; (locales?: Intl.LocalesArgument, options?: Intl.NumberFormatOptions): string; }
-toPrecision: (precision?: number) => string
-toString: (radix?: number) => string
-valueOf: () => number
+number
 ```
 
 ## `ZipBuffer` (const)
