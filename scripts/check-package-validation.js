@@ -313,6 +313,7 @@ function collectPeerFloorViolations(pkgDir, manifest, workspace, plannedVersions
   const ranges = { ...(manifest.peerDependencies || {}), ...(manifest.dependencies || {}) };
   const imports = collectPeerImports(pkgDir);
   const problems = [];
+  const checkedPeers = [];
 
   for (const peer of Object.keys(ranges)) {
     if (!peer.startsWith('@cancjs/')) continue;
@@ -321,6 +322,7 @@ function collectPeerFloorViolations(pkgDir, manifest, workspace, plannedVersions
     if (peerDir) {
       const peerVer = JSON.parse(fs.readFileSync(path.join(peerDir, 'package.json'), 'utf8')).version;
       const targetVer = (plannedVersions && plannedVersions.get(peer)) || peerVer;
+      checkedPeers.push({ peer, range, targetVer });
       if (!semver.satisfies(targetVer, range)) {
         problems.push(`peer ${peer}@${range} is not satisfied by planned version ${targetVer}`);
       }
@@ -378,7 +380,7 @@ function collectPeerFloorViolations(pkgDir, manifest, workspace, plannedVersions
     }
   }
 
-  return problems;
+  return { problems, checkedPeers };
 }
 
 async function checkPackage(pkgName, workspace, plannedVersions) {
@@ -522,7 +524,13 @@ async function checkPackage(pkgName, workspace, plannedVersions) {
   }
 
   problems.push(...(await collectDefaultExportShadowing(pkgDir, manifest)));
-  problems.push(...collectPeerFloorViolations(pkgDir, manifest, workspace, plannedVersions));
+  const { problems: peerProblems, checkedPeers } = collectPeerFloorViolations(
+    pkgDir,
+    manifest,
+    workspace,
+    plannedVersions,
+  );
+  problems.push(...peerProblems);
 
   try {
     const publintOutput = execSync(`npx publint "${pkgDir}"`, { encoding: 'utf8' });
@@ -603,7 +611,7 @@ async function checkPackage(pkgName, workspace, plannedVersions) {
     }
   }
 
-  return { pkgName: manifest.name, problems, fileCount: packedFiles.size };
+  return { pkgName: manifest.name, problems, fileCount: packedFiles.size, checkedPeers };
 }
 
 async function main() {
@@ -613,10 +621,25 @@ async function main() {
   const workspace = workspacePackages();
   let failed = false;
 
+  for (const rel of releasePlan.releases) {
+    if (rel.type === 'major') {
+      console.error(`FAIL: Planned release for ${rel.name} is a major version (${rel.newVersion})`);
+      failed = true;
+    }
+  }
+
   for (const pkgName of packages) {
-    const { pkgName: name, problems, fileCount } = await checkPackage(pkgName, workspace, plannedVersions);
+    const {
+      pkgName: name,
+      problems,
+      fileCount,
+      checkedPeers,
+    } = await checkPackage(pkgName, workspace, plannedVersions);
     if (problems.length === 0) {
       console.log(`PASS ${name} (${fileCount} files packed)`);
+      for (const cp of checkedPeers) {
+        console.log(`  ok ${name} peer ${cp.peer} ${cp.range} <- ${cp.targetVer} (planned)`);
+      }
     } else {
       failed = true;
       console.error(`FAIL ${name}`);
