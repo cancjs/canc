@@ -10,10 +10,8 @@ import {
   unregister,
 } from './index';
 
-// Node 21+ exposes a global `navigator` (WinterCG), while Node 18 lacks it natively.
-// Under Jest's VM context, `navigator` must be explicitly deleted before re-defining with
-// `configurable: true, writable: true` so subsequent stubs can be applied and the original
-// descriptor can be restored cleanly across all Node versions.
+// register() reads navigator first, and these cases test non-navigator fallbacks;
+// delete before redefine avoids the Jest VM context ignoring navigator redefinitions on Node 18.
 function stubNavigator(userAgent: string | undefined): void {
   delete (globalThis as any).navigator;
   if (userAgent !== undefined) {
