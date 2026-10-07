@@ -46,7 +46,8 @@ module.exports = {
   modulePathIgnorePatterns: ['/~~', '~~/'],
   roots: ['<rootDir>/src'],
   testEnvironment: 'node',
-  testPathIgnorePatterns: ['/node_modules/', '/~~', '~~/'],
+  // GC canaries run serially with --expose-gc, in `npm run test:canary` only
+  testPathIgnorePatterns: ['/node_modules/', '/~~', '~~/', '/leak-canaries\\.spec\\.ts$'],
   transform: {
     '^.+\\.tsx?$': [
       'ts-jest',
