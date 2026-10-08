@@ -31,7 +31,7 @@ readonly activated: boolean
 ## `TCancelableFetchFailure` (type)
 
 ```text
-_cancErrorBrand: any
+_cancErrorBrand: "@cancjs/promise:TimeoutError"
 cause?: unknown
 message: string
 name: string
@@ -91,8 +91,8 @@ then: { <TResult1 extends PromiseLike<unknown>, TResult2 extends PromiseLike<unk
 ## `TDeferredRequestInit` (type)
 
 ```text
-activateAfter?: number | undefined
 { [x: string]: any; }
+activateAfter?: number | undefined
 ```
 
 ## `cancelableFetch` (const)
