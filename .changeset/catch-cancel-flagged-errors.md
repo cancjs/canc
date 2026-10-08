@@ -2,7 +2,7 @@
 "@cancjs/promise": minor
 ---
 
-(promise) Carry the flagged error types on the `catchCancel` result.
+Carry the flagged error types on the `catchCancel` result.
 
 `catchCancel(promise, { abort: true })` resolves with the abort error it caught, and
 `{ timeout: true }` resolves with the timeout error, but the declared result type only listed
