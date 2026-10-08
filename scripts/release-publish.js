@@ -87,6 +87,7 @@ async function determinePublishTag() {
     return {
       tag,
       explicit: false,
+      installCheck: true,
       reason: `beta lane (pre.json tag: ${tag})`,
     };
   }
@@ -157,7 +158,7 @@ async function determinePublishTag() {
 
 async function main() {
   const isDryRun = process.argv.includes('--dry-run');
-  const { tag, explicit, reason } = await determinePublishTag();
+  const { tag, explicit, installCheck, reason } = await determinePublishTag();
   const args = [require.resolve('@changesets/cli/bin.js'), 'publish'];
   if (explicit) args.push('--tag', tag);
 
@@ -166,10 +167,26 @@ async function main() {
   if (isDryRun || process.argv.includes('--print-command')) {
     const cmdStr = args.slice(1).join(' ');
     console.log(`[release-publish] Command: changeset ${cmdStr}`);
+    if (installCheck) {
+      console.log('[release-publish] Would run install check: check-beta-install.js --no-build');
+    }
   }
 
   if (isDryRun) {
     return;
+  }
+
+  if (installCheck) {
+    // versioned tree only exists here, build already ran earlier in the job
+    console.log('[release-publish] Running prerelease install check...');
+    try {
+      execFileSync(process.execPath, [path.join(__dirname, 'check-beta-install.js'), '--no-build'], {
+        stdio: 'inherit',
+        cwd: ROOT,
+      });
+    } catch {
+      throw new Error('prerelease install check failed, nothing was published');
+    }
   }
 
   console.log(`[release-publish] Publishing with tag "${tag}"...`);
