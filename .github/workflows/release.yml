@@ -5,6 +5,15 @@ on:
     branches:
       - master
   workflow_dispatch:
+    inputs:
+      allow_minor:
+        description: Allow minor bumps in the patch lane
+        type: boolean
+        default: false
+      allow_major:
+        description: Allow major bumps outside the major lane
+        type: boolean
+        default: false
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
@@ -17,6 +26,9 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
+    env:
+      CANC_RELEASE_ALLOW_MINOR: ${{ inputs.allow_minor && 'true' || vars.CANC_RELEASE_ALLOW_MINOR }}
+      CANC_RELEASE_ALLOW_MAJOR: ${{ inputs.allow_major && 'true' || vars.CANC_RELEASE_ALLOW_MAJOR }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
