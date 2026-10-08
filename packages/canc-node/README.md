@@ -763,8 +763,6 @@ The `@cancjs/node` package provides cancelable promise-based wrappers and extend
 
 ### FileHandle
 
-canc forwards cancellation to `FileHandle.writeFile` only on Node 22+.
-
 Known issue on Node 18 and 20: Invoking both `readLines()` and `readableWebStream()` on the same `FileHandle` before closing triggers a native Node.js abort (`Assertion '!closing_' failed`). Use separate handles when consuming both stream interfaces on Node 18 and 20.
 
 ### Cancellation and partial state

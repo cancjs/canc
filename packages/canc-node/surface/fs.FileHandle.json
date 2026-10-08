@@ -486,13 +486,9 @@
       "cancelCategory": "A",
       "nodeSignal": {
         "documented": true,
-        "since": "v22.0.0",
+        "since": "v15.2.0",
         "probed": "reject:AbortError",
-        "sinceByMajor": {
-          "22": "v22.0.0",
-          "24": "v22.0.0",
-          "26": "v22.0.0"
-        }
+        "sinceByMajor": null
       },
       "wrapper": "cancelify-signal",
       "failures": ["EBADF"],

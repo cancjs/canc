@@ -250,7 +250,7 @@ Legend: `S` = Documented signal option, `y` = Present without signal, `-` = Abse
 | `truncate`              | y   | y   | y   | y   | y   | -            | v10.0.0  |
 | `utimes`                | y   | y   | y   | y   | y   | -            | v10.0.0  |
 | `write`                 | y   | y   | y   | y   | y   | -            | v10.0.0  |
-| `writeFile`             | y   | y   | S   | S   | S   | v22.0.0      | v10.0.0  |
+| `writeFile`             | y   | y   | S   | S   | S   | v15.2.0      | v10.0.0  |
 | `writer`                | -   | -   | -   | y   | y   | -            | v25.9.0  |
 | `writev`                | y   | y   | y   | y   | y   | -            | v12.9.0  |
 

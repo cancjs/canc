@@ -6,7 +6,6 @@ import * as path from 'node:path';
 import { CancelError } from '@cancjs/promise';
 import { describe, expect, jest, test } from '@jest/globals';
 
-import { features } from '../features';
 import { __resetCancProtoForTest, decorate } from './file-handle';
 import { open } from './index';
 import { resetFs, setFs } from './registry';
@@ -155,51 +154,48 @@ describe('FileHandle', () => {
     }
   });
 
-  (features.nodeMajor >= 22 ? test : test.skip)(
-    'fh.writeFile(asyncIterable) canceled mid-stream calls return()',
-    async () => {
-      const dir = nodeFs.mkdtempSync(path.join(os.tmpdir(), 'canc-fh-iter-'));
-      tempDirs.push(dir);
-      const testFile = path.join(dir, 'iter.tmp');
-      const fh = decorate(await fs.open(testFile, 'w'));
+  test('fh.writeFile(asyncIterable) canceled mid-stream calls return()', async () => {
+    const dir = nodeFs.mkdtempSync(path.join(os.tmpdir(), 'canc-fh-iter-'));
+    tempDirs.push(dir);
+    const testFile = path.join(dir, 'iter.tmp');
+    const fh = decorate(await fs.open(testFile, 'w'));
 
-      let started = false;
-      let returned = false;
-      let unblockNext: (() => void) | undefined;
-      const asyncIterable: AsyncIterable<string> = {
-        async *[Symbol.asyncIterator]() {
-          try {
-            started = true;
-            yield 'chunk 1\n';
-            await new Promise<void>((r) => {
-              unblockNext = r;
-            });
-            yield 'chunk 2\n';
-          } finally {
-            returned = true;
-          }
-        },
-      };
-
-      try {
-        const p = fh.writeFile(asyncIterable as unknown as Uint8Array, {});
-
-        // wait until the iterator starts before canceling
-        while (!started) {
-          await new Promise((r) => setImmediate(r));
+    let started = false;
+    let returned = false;
+    let unblockNext: (() => void) | undefined;
+    const asyncIterable: AsyncIterable<string> = {
+      async *[Symbol.asyncIterator]() {
+        try {
+          started = true;
+          yield 'chunk 1\n';
+          await new Promise<void>((r) => {
+            unblockNext = r;
+          });
+          yield 'chunk 2\n';
+        } finally {
+          returned = true;
         }
-        p.cancel();
-        await expect(p).rejects.toThrow(CancelError);
-        for (let i = 0; i < 5; i++) {
-          await new Promise((r) => setImmediate(r));
-        }
-        expect(returned).toBe(true);
-      } finally {
-        unblockNext?.();
-        await fh.close().catch(() => {});
+      },
+    };
+
+    try {
+      const p = fh.writeFile(asyncIterable as unknown as Uint8Array, {});
+
+      // wait until the iterator starts before canceling
+      while (!started) {
+        await new Promise((r) => setImmediate(r));
       }
-    },
-  );
+      p.cancel();
+      await expect(p).rejects.toThrow(CancelError);
+      for (let i = 0; i < 5; i++) {
+        await new Promise((r) => setImmediate(r));
+      }
+      expect(returned).toBe(true);
+    } finally {
+      unblockNext?.();
+      await fh.close().catch(() => {});
+    }
+  });
 
   test('close cannot be canceled, fd is still closed', async () => {
     const fh = decorate(await fs.open('package.json', 'r'));
