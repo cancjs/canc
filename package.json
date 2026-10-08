@@ -32,8 +32,10 @@
     "format:workspaces": "cross-env NODE_OPTIONS=--no-deprecation lerna run format --stream --concurrency 2 --no-bail",
     "format:root": "eslint --fix *.{js,mjs,json,md} scripts docs packages/_util packages/_toolbox packages/_server packages/canc-server/*.{ts,js,mjs,json} tests-dist",
     "check:node-surface": "node scripts/node/check-node-surface.mjs",
+    "check:brand-keys": "node scripts/check-brand-keys.js",
     "check:beta-install": "node scripts/check-beta-install.js",
-    "surface:baseline": "node scripts/node/surface-baseline.mjs"
+    "surface:baseline": "node scripts/surface-baseline.mjs",
+    "surface:check": "node scripts/surface-baseline.mjs --check"
   },
   "workspaces": [
     "packages/*",

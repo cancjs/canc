@@ -190,12 +190,12 @@ export function ensureSymlinkSync(srcPath: string, dstPath: string, type?: TSyml
   }
 }
 
-/** @deprecated Use ensureDir instead */
+/** Alias of ensureDir, kept for fs-extra parity. */
 export const mkdirp = ensureDir;
-/** @deprecated Use ensureDir instead */
+/** Alias of ensureDir, kept for fs-extra parity. */
 export const mkdirs = ensureDir;
 
-/** @deprecated Use ensureDirSync instead */
+/** Alias of ensureDirSync, kept for fs-extra parity. */
 export const mkdirpSync = ensureDirSync;
-/** @deprecated Use ensureDirSync instead */
+/** Alias of ensureDirSync, kept for fs-extra parity. */
 export const mkdirsSync = ensureDirSync;

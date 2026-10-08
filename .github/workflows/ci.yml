@@ -148,4 +148,5 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: node scripts/check-package-validation.js
+      - run: npm run surface:check
 

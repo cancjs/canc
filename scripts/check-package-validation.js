@@ -651,6 +651,16 @@ async function main() {
     }
   }
 
+  const { checkBrandKeys } = require('./check-brand-keys');
+  const brandResult = checkBrandKeys();
+  if (brandResult.passed) {
+    console.log(`PASS brand keys (${brandResult.keyCount} keys verified)`);
+  } else {
+    failed = true;
+    console.error(`FAIL brand keys (${brandResult.problems.length} problems)`);
+    for (const problem of brandResult.problems) console.error(`  - ${problem}`);
+  }
+
   process.exit(failed ? 1 : 0);
 }
 

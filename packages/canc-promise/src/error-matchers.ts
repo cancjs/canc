@@ -103,6 +103,7 @@ export function createCatchError<M extends readonly TErrorMatcher[]>(...matchers
  * @deprecated Use `createCatchError` and `createSuppressError`. These are the names the same two
  * factories carried in 1.0.0, kept as aliases.
  */
+// kept exported for published sibling packages, removal only in a major
 export { createCatchError as _createCatchError, createSuppressError as _createSuppressError };
 
 /**
