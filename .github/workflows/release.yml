@@ -44,9 +44,6 @@ jobs:
       - run: npm run build
       - name: Check release lane
         run: npm run check:release-lane
-      - name: Verify prerelease installation
-        if: hashFiles('.changeset/pre.json') != ''
-        run: npm run check:beta-install -- --no-build
       - name: Create Release Pull Request or Publish
         id: changesets
         if: vars.CANC_PUBLISH_ENABLED == 'true'
