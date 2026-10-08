@@ -8,7 +8,7 @@ Generated. Do not edit by hand.
 ## `AbortError` (type)
 
 ```text
-_cancErrorBrand: any
+_cancErrorBrand: "@cancjs/promise:AbortError"
 cause?: unknown
 message: string
 name: string
@@ -263,7 +263,7 @@ then: <TResult1 = T, TResult2 = never>(onFulfilled?: ((value: T) => TResult1 | P
 ## `SupersededError` (type)
 
 ```text
-_cancErrorBrand: any
+_cancErrorBrand: "@cancjs/toolbox:SupersededError"
 message: string
 name: string
 ```
@@ -354,7 +354,7 @@ T | TPromiseOf<K, T, F> | PromiseLike<T> | (() => T | TPromiseOf<K, T, F> | Prom
 ## `TimeoutError` (type)
 
 ```text
-_cancErrorBrand: any
+_cancErrorBrand: "@cancjs/promise:TimeoutError"
 cause?: unknown
 message: string
 name: string
