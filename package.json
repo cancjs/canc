@@ -17,8 +17,9 @@
     "lint:workspaces": "cross-env NODE_OPTIONS=--no-deprecation lerna run lint --stream --concurrency 2 --no-bail",
     "lint:root": "eslint *.{js,mjs,json,md} scripts docs packages/_util packages/_toolbox packages/_server packages/canc-server/*.{ts,js,mjs,json} tests-dist",
     "changeset": "changeset",
-    "release:version": "changeset version",
-    "release:publish": "changeset publish",
+    "release:version": "node scripts/release-version.js",
+    "check:release-lane": "node scripts/check-release-lane.js",
+    "release:publish": "node scripts/release-publish.js",
     "bench": "npm run bench --workspace=@cancjs/benchmarks",
     "bench:report": "npm run bench:report --workspace=@cancjs/benchmarks",
     "bench:browser": "npm run bench:browser --workspace=@cancjs/benchmarks",
@@ -31,6 +32,7 @@
     "format:workspaces": "cross-env NODE_OPTIONS=--no-deprecation lerna run format --stream --concurrency 2 --no-bail",
     "format:root": "eslint --fix *.{js,mjs,json,md} scripts docs packages/_util packages/_toolbox packages/_server packages/canc-server/*.{ts,js,mjs,json} tests-dist",
     "check:node-surface": "node scripts/node/check-node-surface.mjs",
+    "check:beta-install": "node scripts/check-beta-install.js",
     "surface:baseline": "node scripts/node/surface-baseline.mjs"
   },
   "workspaces": [
@@ -42,8 +44,8 @@
   ],
   "devDependencies": {
     "@arethetypeswrong/cli": "~0.18.5",
-    "@changesets/changelog-github": "~0.7.0",
     "@changesets/cli": "~2.31.1",
+    "@changesets/get-release-plan": "~4.0.16",
     "@eslint/js": "~10.0.1",
     "@eslint/json": "~2.0.1",
     "@eslint/markdown": "~8.0.3",
@@ -78,6 +80,7 @@
     "rollup-plugin-filesize": "~10.0.0",
     "rollup-plugin-node-externals": "~7.1.2",
     "rollup-plugin-progress": "~1.1.2",
+    "semver": "~7.8.5",
     "ts-jest": "~29.4.11",
     "tslib": "~2.8.1",
     "typescript": "~5.9.3",

@@ -1,6 +1,6 @@
 {
   "$schema": "https://unpkg.com/@changesets/config@3.1.4/schema.json",
-  "changelog": ["@changesets/changelog-github", { "repo": "cancjs/canc" }],
+  "changelog": ["../scripts/changelog.js", {}],
   "commit": false,
   "access": "public",
   "baseBranch": "master",
@@ -22,7 +22,7 @@
       "@cancjs/node"
     ]
   ],
-  "ignore": ["@cancjs/benchmarks", "@cancjs/tests-types"],
+  "ignore": ["@cancjs/benchmarks", "@cancjs/tests-types", "@cancjs/tests-dist"],
   "___experimentalUnsafeOptions_WILL_CHANGE_IN_PATCH": {
     "onlyUpdatePeerDependentsWhenOutOfRange": true
   }

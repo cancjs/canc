@@ -14,8 +14,10 @@
 
 const fs = require('fs');
 const path = require('path');
+const semver = require('semver');
 const { execSync } = require('child_process');
 const { pathToFileURL } = require('url');
+const getReleasePlan = require('@changesets/get-release-plan').default;
 
 const ROOT = path.resolve(__dirname, '..');
 const PACKAGES_DIR = path.join(ROOT, 'packages');
@@ -307,10 +309,25 @@ function localSurface(pkgDir) {
 
 // A package may only import names the release at its own declared peer floor actually ships
 // Otherwise the install resolves quietly against that floor and the call fails at runtime
-function collectPeerFloorViolations(pkgDir, manifest, workspace) {
+function collectPeerFloorViolations(pkgDir, manifest, workspace, plannedVersions) {
   const ranges = { ...(manifest.peerDependencies || {}), ...(manifest.dependencies || {}) };
   const imports = collectPeerImports(pkgDir);
   const problems = [];
+  const checkedPeers = [];
+
+  for (const peer of Object.keys(ranges)) {
+    if (!peer.startsWith('@cancjs/')) continue;
+    const range = ranges[peer];
+    const peerDir = workspace.get(peer);
+    if (peerDir) {
+      const peerVer = JSON.parse(fs.readFileSync(path.join(peerDir, 'package.json'), 'utf8')).version;
+      const targetVer = (plannedVersions && plannedVersions.get(peer)) || peerVer;
+      checkedPeers.push({ peer, range, targetVer });
+      if (!semver.satisfies(targetVer, range)) {
+        problems.push(`peer ${peer}@${range} is not satisfied by planned version ${targetVer}`);
+      }
+    }
+  }
 
   for (const [peer, names] of imports) {
     const range = ranges[peer];
@@ -319,14 +336,25 @@ function collectPeerFloorViolations(pkgDir, manifest, workspace) {
       continue;
     }
 
-    const declared = /^>=\s*(\S+)$/.exec(range);
-    if (!declared) {
+    const clauses = range.split('||').map((c) => c.trim());
+    const parsedClauses = [];
+    let valid = true;
+    for (const clause of clauses) {
+      const declared = /^>=\s*(\S+)$/.exec(clause);
+      if (!declared || !semver.valid(declared[1])) {
+        valid = false;
+        break;
+      }
+      parsedClauses.push({ raw: declared[1], ver: parseVersion(declared[1]) });
+    }
+    if (!valid || parsedClauses.length === 0) {
       problems.push(`peer range for ${peer} is "${range}", expected a floor of the form ">=x.y.z"`);
       continue;
     }
 
-    const floor = declared[1];
-    const parsedFloor = parseVersion(floor);
+    parsedClauses.sort((a, b) => semver.compare(a.raw, b.raw));
+    const floor = parsedClauses[0].raw;
+    const parsedFloor = parsedClauses[0].ver;
     let surface = null;
 
     const published = PEER_FLOOR_SURFACES[peer] && PEER_FLOOR_SURFACES[peer][floor];
@@ -352,10 +380,10 @@ function collectPeerFloorViolations(pkgDir, manifest, workspace) {
     }
   }
 
-  return problems;
+  return { problems, checkedPeers };
 }
 
-async function checkPackage(pkgName, workspace) {
+async function checkPackage(pkgName, workspace, plannedVersions) {
   const pkgDir = path.join(PACKAGES_DIR, pkgName);
   const manifest = JSON.parse(fs.readFileSync(path.join(pkgDir, 'package.json'), 'utf8'));
   const packedFiles = packFileList(pkgDir);
@@ -496,7 +524,13 @@ async function checkPackage(pkgName, workspace) {
   }
 
   problems.push(...(await collectDefaultExportShadowing(pkgDir, manifest)));
-  problems.push(...collectPeerFloorViolations(pkgDir, manifest, workspace));
+  const { problems: peerProblems, checkedPeers } = collectPeerFloorViolations(
+    pkgDir,
+    manifest,
+    workspace,
+    plannedVersions,
+  );
+  problems.push(...peerProblems);
 
   try {
     const publintOutput = execSync(`npx publint "${pkgDir}"`, { encoding: 'utf8' });
@@ -516,18 +550,100 @@ async function checkPackage(pkgName, workspace) {
     problems.push(`attw execution failed:\n${err.stdout || err.message}`);
   }
 
-  return { pkgName: manifest.name, problems, fileCount: packedFiles.size };
+  const publishedImports = JSON.parse(
+    fs.readFileSync(path.join(__dirname, 'published-sibling-imports.json'), 'utf8'),
+  ).imports;
+  const allowlist = JSON.parse(
+    fs.readFileSync(path.join(__dirname, 'internal-exports-allowlist.json'), 'utf8'),
+  ).allowlist;
+
+  const pkgSurface = localSurface(pkgDir) || new Set();
+
+  for (const importer of Object.keys(publishedImports)) {
+    const importedFromPkg = publishedImports[importer][manifest.name];
+    if (importedFromPkg) {
+      for (const name of importedFromPkg) {
+        if (!pkgSurface.has(name)) {
+          problems.push(
+            `published sibling ${importer} imports "${name}" from ${manifest.name}, but ${manifest.name} does not export it`,
+          );
+        }
+      }
+    }
+  }
+
+  const publicEntries = new Set();
+  if (manifest.types) {
+    publicEntries.add(path.join(pkgDir, normalize(manifest.types)));
+  }
+  if (manifest.exports) {
+    for (const p of collectExportsPaths(manifest.exports)) {
+      const pNorm = normalize(p);
+      if (pNorm.endsWith('.d.ts') || pNorm.endsWith('.d.mts') || pNorm.endsWith('.d.cts')) {
+        publicEntries.add(path.join(pkgDir, pNorm));
+      }
+    }
+  }
+
+  if (publicEntries.size > 0) {
+    const ts = require('typescript');
+    const program = ts.createProgram([...publicEntries], { skipLibCheck: true, target: ts.ScriptTarget.ES2018 });
+    const checker = program.getTypeChecker();
+    const seenInternal = new Set();
+    for (const entry of publicEntries) {
+      if (!fs.existsSync(entry)) continue;
+      const source = program.getSourceFile(entry);
+      const symbol = source && checker.getSymbolAtLocation(source);
+      if (symbol) {
+        for (const exp of checker.getExportsOfModule(symbol)) {
+          const name = exp.getName();
+          const target = exp.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(exp) : exp;
+          const isInternal =
+            name.startsWith('_') ||
+            exp.getJsDocTags(checker).some((t) => t.name === 'internal') ||
+            (target !== exp && target.getJsDocTags(checker).some((t) => t.name === 'internal'));
+          if (isInternal) {
+            if (!allowlist[manifest.name]?.[name]) {
+              if (!seenInternal.has(name)) {
+                seenInternal.add(name);
+                problems.push(`unallowlisted internal export "${name}" found in public entry of ${manifest.name}`);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return { pkgName: manifest.name, problems, fileCount: packedFiles.size, checkedPeers };
 }
 
 async function main() {
+  const releasePlan = await getReleasePlan(ROOT);
+  const plannedVersions = new Map(releasePlan.releases.map((r) => [r.name, r.newVersion]));
   const packages = listPackages();
   const workspace = workspacePackages();
   let failed = false;
 
+  for (const rel of releasePlan.releases) {
+    if (rel.type === 'major') {
+      console.error(`FAIL: Planned release for ${rel.name} is a major version (${rel.newVersion})`);
+      failed = true;
+    }
+  }
+
   for (const pkgName of packages) {
-    const { pkgName: name, problems, fileCount } = await checkPackage(pkgName, workspace);
+    const {
+      pkgName: name,
+      problems,
+      fileCount,
+      checkedPeers,
+    } = await checkPackage(pkgName, workspace, plannedVersions);
     if (problems.length === 0) {
       console.log(`PASS ${name} (${fileCount} files packed)`);
+      for (const cp of checkedPeers) {
+        console.log(`  ok ${name} peer ${cp.peer} ${cp.range} <- ${cp.targetVer} (planned)`);
+      }
     } else {
       failed = true;
       console.error(`FAIL ${name}`);

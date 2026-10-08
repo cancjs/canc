@@ -5,6 +5,15 @@ on:
     branches:
       - master
   workflow_dispatch:
+    inputs:
+      allow_minor:
+        description: Allow minor bumps in the patch lane
+        type: boolean
+        default: false
+      allow_major:
+        description: Allow major bumps outside the major lane
+        type: boolean
+        default: false
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
@@ -17,6 +26,9 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
+    env:
+      CANC_RELEASE_ALLOW_MINOR: ${{ inputs.allow_minor && 'true' || vars.CANC_RELEASE_ALLOW_MINOR }}
+      CANC_RELEASE_ALLOW_MAJOR: ${{ inputs.allow_major && 'true' || vars.CANC_RELEASE_ALLOW_MAJOR }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -26,14 +38,25 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       - name: Upgrade npm
         run: |
-          npm install -g npm@latest
+          npm install -g npm@11
           npm --version
       - run: npm ci
       - run: npm run build
+      - name: Check release lane
+        run: npm run check:release-lane
       - name: Create Release Pull Request or Publish
+        id: changesets
         if: vars.CANC_PUBLISH_ENABLED == 'true'
         uses: changesets/action@v1
         with:
-          publish: npx changeset publish
+          version: npm run release:version
+          publish: npm run release:publish
+          createGithubReleases: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Draft release notes
+        if: steps.changesets.outputs.published == 'true'
+        run: node scripts/release-github.js
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUBLISHED_PACKAGES: ${{ steps.changesets.outputs.publishedPackages }}
