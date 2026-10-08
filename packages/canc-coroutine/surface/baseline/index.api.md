@@ -43,7 +43,7 @@ displayName?: string | undefined
 ## `IterationError` (type)
 
 ```text
-_cancErrorBrand: any
+_cancErrorBrand: "@cancjs/coroutine:IterationError"
 message: string
 name: string
 ```
