@@ -66,7 +66,7 @@ function extractChangelogSection(pkgName, version) {
   const afterHeading = content.slice(idx + heading.length);
   const lines = [];
   for (const line of afterHeading.split('\n')) {
-    if (line.startsWith('## ') && lines.length > 0) {
+    if (line.startsWith('## ')) {
       break;
     }
     if (lines.length === 0 && line.trim() === '') {
