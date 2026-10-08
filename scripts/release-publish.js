@@ -189,6 +189,11 @@ async function main() {
     }
   }
 
+  // a logged-in dev machine would publish for real, only the Release workflow may
+  if (process.env.GITHUB_ACTIONS !== 'true' && process.env.CANC_ALLOW_LOCAL_PUBLISH !== '1') {
+    throw new Error('refusing to publish outside the Release workflow (set CANC_ALLOW_LOCAL_PUBLISH=1 to override)');
+  }
+
   console.log(`[release-publish] Publishing with tag "${tag}"...`);
   execFileSync(process.execPath, args, { stdio: 'inherit', cwd: ROOT });
 }
