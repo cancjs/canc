@@ -1,7 +1,7 @@
 // Validates that published and pending brand keys conform to registry.
 // Published brand keys and _cancErrorBrand literals must never change.
 // Every brand key must carry the prefix of the package that first ships it.
-// Note: CancelError's Symbol.for lives in canc-promise/src/cancel-error.ts.
+// Each *_ERROR_BRAND constant is paired with its key and class in brand-keys.json.
 //
 // Usage: node scripts/check-brand-keys.js
 
@@ -20,27 +20,8 @@ const ICANC_ERROR_CONSTRUCTOR_PATTERN =
 
 const BRAND_KEY_SHAPE = /^@cancjs\/[a-z-]+:[A-Za-z]+$/;
 
-// Prototype brand constants paired against createErrorClass brand arguments
 const BRAND_CONSTANT_PATTERN =
   /(?:export\s+)?const\s+([A-Z_]+_ERROR_BRAND)\s*=\s*Symbol(?:\.for|\['for'\]|\["for"\])\(\s*['"](@cancjs\/[^'"]+)['"]\s*\)/g;
-
-const BRAND_CONSTANT_TO_CLASS_NAME = {
-  ABORT_ERROR_BRAND: 'AbortError',
-  TIMEOUT_ERROR_BRAND: 'TimeoutError',
-  SUPERSEDED_ERROR_BRAND: 'SupersededError',
-  ITERATION_ERROR_BRAND: 'IterationError',
-};
-
-// Brand constants that do not use createErrorClass
-const BRAND_CONSTANT_EXEMPTIONS = new Set([
-  'AGGREGATE_ERROR_BRAND',
-  'BREAK_ERROR_BRAND',
-  'CANCEL_ERROR_BRAND',
-  'JSON_PARSE_ERROR_BRAND',
-  'NOT_IMPLEMENTED_ERROR_BRAND',
-  'PROCESS_EXIT_ERROR_BRAND',
-  'PROCESS_SPAWN_ERROR_BRAND',
-]);
 
 const CREATE_ERROR_CLASS_CALL_PATTERN = /createErrorClass\(\s*['"]([^'"]+)['"]\s*,\s*['"]([^'"]+)['"]/g;
 
@@ -165,6 +146,7 @@ function checkBrandKeys() {
   const pendingSet = new Set(registry.pending || []);
   const allExpectedKeys = new Set([...publishedSet, ...pendingSet]);
   const quarantined = registry.quarantined || {};
+  const expectedConstants = registry.constants || {};
 
   const packageNames = listPackages();
   const collectedKeys = new Set();
@@ -173,6 +155,19 @@ function checkBrandKeys() {
 
   const problems = [];
   const warnings = [];
+
+  for (const [constName, entry] of Object.entries(expectedConstants)) {
+    const hasCls = typeof entry.cls === 'string' && entry.cls !== '';
+    const hasWhy = typeof entry.why === 'string' && entry.why.trim() !== '';
+    if (typeof entry.key !== 'string' || !BRAND_KEY_SHAPE.test(entry.key)) {
+      problems.push(`brand constant ${constName}: mapping needs a key-shaped "key"`);
+    } else if (!allExpectedKeys.has(entry.key)) {
+      problems.push(`brand constant ${constName}: mapped key "${entry.key}" is not in the registry`);
+    }
+    if (!hasCls && !hasWhy) {
+      problems.push(`brand constant ${constName}: mapping needs a class or a non-empty "why"`);
+    }
+  }
 
   for (const pkgName of packageNames) {
     const distDir = path.join(PACKAGES_DIR, pkgName, 'dist');
@@ -246,7 +241,8 @@ function checkBrandKeys() {
     BRAND_CONSTANT_PATTERN.lastIndex = 0;
     let constMatch;
     while ((constMatch = BRAND_CONSTANT_PATTERN.exec(code)) !== null) {
-      brandConstants.set(constMatch[1], constMatch[2]);
+      if (!brandConstants.has(constMatch[1])) brandConstants.set(constMatch[1], []);
+      brandConstants.get(constMatch[1]).push({ value: constMatch[2], file: relFromRoot });
     }
 
     CREATE_ERROR_CLASS_CALL_PATTERN.lastIndex = 0;
@@ -292,24 +288,38 @@ function checkBrandKeys() {
     }
   }
 
-  for (const [constName, brandFromConst] of brandConstants) {
-    const className = BRAND_CONSTANT_TO_CLASS_NAME[constName];
-    if (!className) {
-      if (BRAND_CONSTANT_EXEMPTIONS.has(constName)) {
-        continue;
+  for (const [constName, declarations] of brandConstants) {
+    const entry = expectedConstants[constName];
+    if (!entry) {
+      problems.push(`brand constant ${constName} is unmapped: add it to "constants" in brand-keys.json`);
+      continue;
+    }
+    for (const { value, file } of declarations) {
+      if (value !== entry.key) {
+        problems.push(`brand constant ${constName} in ${file} is "${value}", expected "${entry.key}"`);
       }
-      problems.push(`brand constant ${constName} is unmapped: must map to createErrorClass name or add to exemptions`);
-      continue;
     }
-    const brandFromClass = errorClasses.get(className);
-    if (!brandFromClass) {
-      problems.push(`brand constant ${constName} maps to class "${className}", but no matching createErrorClass found`);
+    if (!entry.cls) continue;
+
+    const classBrand = errorClasses.get(entry.cls);
+    if (classBrand === undefined) {
+      problems.push(`brand constant ${constName} maps to class "${entry.cls}", but no matching createErrorClass found`);
+    } else if (classBrand === entry.key) {
       continue;
-    }
-    if (brandFromConst !== brandFromClass) {
-      problems.push(
-        `brand constant ${constName} ("${brandFromConst}") does not match createErrorClass brand ("${brandFromClass}")`,
+    } else if (entry.quarantined && !BRAND_KEY_SHAPE.test(classBrand)) {
+      warnings.push(
+        `WARN quarantined pairing: ${constName} class "${entry.cls}" brand argument is "${classBrand}", key lives only in the constant`,
       );
+    } else {
+      problems.push(
+        `brand constant ${constName} ("${entry.key}") does not match createErrorClass brand ("${classBrand}")`,
+      );
+    }
+  }
+
+  for (const constName of Object.keys(expectedConstants)) {
+    if (!brandConstants.has(constName)) {
+      problems.push(`stale mapping: ${constName} is no longer declared in source`);
     }
   }
 

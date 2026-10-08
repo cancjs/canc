@@ -36,5 +36,58 @@
     "Process exited with a non-zero exit code": "ProcessExitError: removed when node error classes are keyed by brand",
     "Process could not be spawned": "ProcessSpawnError: removed when node error classes are keyed by brand",
     "Failed to parse JSON": "JsonParseError: removed when node error classes are keyed by brand"
+  },
+  "constants": {
+    "ABORT_ERROR_BRAND": {
+      "key": "@cancjs/promise:AbortError",
+      "cls": "AbortError"
+    },
+    "TIMEOUT_ERROR_BRAND": {
+      "key": "@cancjs/promise:TimeoutError",
+      "cls": "TimeoutError"
+    },
+    "SUPERSEDED_ERROR_BRAND": {
+      "key": "@cancjs/toolbox:SupersededError",
+      "cls": "SupersededError"
+    },
+    "ITERATION_ERROR_BRAND": {
+      "key": "@cancjs/coroutine:IterationError",
+      "cls": "IterationError"
+    },
+    "CANCEL_ERROR_BRAND": {
+      "key": "@cancjs/promise:CancelError",
+      "cls": null,
+      "why": "hand-written class, brand set by defineProperty on its prototype"
+    },
+    "BREAK_ERROR_BRAND": {
+      "key": "@cancjs/coroutine:BreakError",
+      "cls": null,
+      "why": "hand-written class, brand set by defineProperty on its prototype"
+    },
+    "AGGREGATE_ERROR_BRAND": {
+      "key": "@cancjs/promise:AggregateError",
+      "cls": null,
+      "why": "shim class not built by createErrorClass, brand set by brandPrototype"
+    },
+    "NOT_IMPLEMENTED_ERROR_BRAND": {
+      "key": "@cancjs/node:NotImplementedError",
+      "cls": "NotImplementedError",
+      "quarantined": true
+    },
+    "PROCESS_EXIT_ERROR_BRAND": {
+      "key": "@cancjs/node:ProcessExitError",
+      "cls": "ProcessExitError",
+      "quarantined": true
+    },
+    "PROCESS_SPAWN_ERROR_BRAND": {
+      "key": "@cancjs/node:ProcessSpawnError",
+      "cls": "ProcessSpawnError",
+      "quarantined": true
+    },
+    "JSON_PARSE_ERROR_BRAND": {
+      "key": "@cancjs/node:JsonParseError",
+      "cls": "JsonParseError",
+      "quarantined": true
+    }
   }
 }
