@@ -31,6 +31,17 @@ const BRAND_CONSTANT_TO_CLASS_NAME = {
   ITERATION_ERROR_BRAND: 'IterationError',
 };
 
+// Brand constants that do not use createErrorClass
+const BRAND_CONSTANT_EXEMPTIONS = new Set([
+  'AGGREGATE_ERROR_BRAND',
+  'BREAK_ERROR_BRAND',
+  'CANCEL_ERROR_BRAND',
+  'JSON_PARSE_ERROR_BRAND',
+  'NOT_IMPLEMENTED_ERROR_BRAND',
+  'PROCESS_EXIT_ERROR_BRAND',
+  'PROCESS_SPAWN_ERROR_BRAND',
+]);
+
 const CREATE_ERROR_CLASS_CALL_PATTERN = /createErrorClass\(\s*['"]([^'"]+)['"]\s*,\s*['"]([^'"]+)['"]/g;
 
 const HOME_PACKAGE_DIRS = {
@@ -241,7 +252,13 @@ function checkBrandKeys() {
     CREATE_ERROR_CLASS_CALL_PATTERN.lastIndex = 0;
     let classMatch;
     while ((classMatch = CREATE_ERROR_CLASS_CALL_PATTERN.exec(code)) !== null) {
-      errorClasses.set(classMatch[1], classMatch[2]);
+      const [, className, classBrand] = classMatch;
+      if (errorClasses.has(className) && errorClasses.get(className) !== classBrand) {
+        problems.push(
+          `conflicting createErrorClass brand for "${className}": "${errorClasses.get(className)}" vs "${classBrand}"`,
+        );
+      }
+      errorClasses.set(className, classBrand);
     }
 
     for (const rawKey of extractKeysFromText(content)) {
@@ -277,8 +294,18 @@ function checkBrandKeys() {
 
   for (const [constName, brandFromConst] of brandConstants) {
     const className = BRAND_CONSTANT_TO_CLASS_NAME[constName];
-    if (!className) continue;
+    if (!className) {
+      if (BRAND_CONSTANT_EXEMPTIONS.has(constName)) {
+        continue;
+      }
+      problems.push(`brand constant ${constName} is unmapped: must map to createErrorClass name or add to exemptions`);
+      continue;
+    }
     const brandFromClass = errorClasses.get(className);
+    if (!brandFromClass) {
+      problems.push(`brand constant ${constName} maps to class "${className}", but no matching createErrorClass found`);
+      continue;
+    }
     if (brandFromConst !== brandFromClass) {
       problems.push(
         `brand constant ${constName} ("${brandFromConst}") does not match createErrorClass brand ("${brandFromClass}")`,
