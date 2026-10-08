@@ -77,6 +77,17 @@ const isPreMode = fs.existsSync(preJsonPath) && JSON.parse(fs.readFileSync(preJs
 
 const changelogsBefore = new Set(findChangelogs());
 
+// changesets/action reads every versioned package's CHANGELOG.md for the release pull request body
+const publicDirs = JSON.parse(execSync('npm query .workspace --json', { cwd: ROOT, encoding: 'utf8' }))
+  .filter((ws) => !ws.private)
+  .map((ws) => path.resolve(ROOT, ws.location));
+const missingChangelogs = publicDirs.filter((dir) => !fs.existsSync(path.join(dir, 'CHANGELOG.md')));
+if (missingChangelogs.length > 0) {
+  throw new Error(
+    `CHANGELOG.md missing in ${missingChangelogs.map((d) => path.relative(ROOT, d)).join(', ')}; add one with a "# <package name>" heading`,
+  );
+}
+
 run('node scripts/check-release-lane.js');
 const privates = getPrivateWorkspaces();
 run('npx changeset version');
