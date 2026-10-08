@@ -18,6 +18,7 @@
     "lint:root": "eslint *.{js,mjs,json,md} scripts docs packages/_util packages/_toolbox packages/_server packages/canc-server/*.{ts,js,mjs,json} tests-dist",
     "changeset": "changeset",
     "release:version": "node scripts/release-version.js",
+    "check:release-lane": "node scripts/check-release-lane.js",
     "release:publish": "changeset publish",
     "bench": "npm run bench --workspace=@cancjs/benchmarks",
     "bench:report": "npm run bench:report --workspace=@cancjs/benchmarks",

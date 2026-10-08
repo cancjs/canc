@@ -5,6 +5,7 @@ function run(cmd) {
   execSync(cmd, { stdio: 'inherit' });
 }
 
+run('node scripts/check-release-lane.js');
 run('npx changeset version');
 run('npm install --package-lock-only');
 run('npx prettier --write "packages/*/package.json" "packages/canc-server/*/package.json" package.json');
