@@ -58,7 +58,13 @@ export const scrypt = promisifyWrapped(cryptoCb.scrypt) as IScryptFn;
  * Canceling stops the wait, not the work: the call keeps running on node's threadpool and the slot
  * it holds there stays occupied until it finishes.
  */
-export const argon2 = gatedWrapped(hasArgon2, 'argon2', '24', promisifyWrapped(cryptoCb.argon2)) as TArgon2Fn;
+export const argon2 = gatedWrapped(
+  hasArgon2,
+  'argon2',
+  '24',
+  () => promisifyWrapped(cryptoCb.argon2),
+  'promise',
+) as TArgon2Fn;
 
 /**
  * Generates a new asymmetric key pair.
@@ -142,7 +148,8 @@ export const encapsulate = gatedWrapped(
   hasEncapsulate,
   'encapsulate',
   '24',
-  promisifyWrapped(cryptoCb.encapsulate),
+  () => promisifyWrapped(cryptoCb.encapsulate),
+  'promise',
 ) as TEncapsulateFn;
 
 /**
@@ -157,7 +164,8 @@ export const decapsulate = gatedWrapped(
   hasDecapsulate,
   'decapsulate',
   '24',
-  promisifyWrapped(cryptoCb.decapsulate),
+  () => promisifyWrapped(cryptoCb.decapsulate),
+  'promise',
 ) as TDecapsulateFn;
 
 export type { IArgon2Params, IEncapsulateResult, TKeyLike } from './types';

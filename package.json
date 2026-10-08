@@ -10,10 +10,11 @@
   },
   "scripts": {
     "prepare": "lefthook install",
-    "build": "cross-env NODE_OPTIONS=--no-deprecation lerna run build --stream",
-    "test": "cross-env NODE_OPTIONS=--no-deprecation lerna run test --stream",
+    "build": "cross-env NODE_OPTIONS=\"--no-deprecation --experimental-global-webcrypto\" lerna run build --stream --concurrency 2",
+    "test": "cross-env NODE_OPTIONS=--no-deprecation lerna run test --stream --concurrency 2 --no-bail",
+    "test:canary": "cross-env NODE_OPTIONS=--no-deprecation node --expose-gc node_modules/jest/bin/jest.js -c jest.config.canary.js --runInBand --no-coverage --testPathPatterns leak-canaries --testPathIgnorePatterns node_modules ~~",
     "lint": "run-p -c lint:workspaces lint:root",
-    "lint:workspaces": "cross-env NODE_OPTIONS=--no-deprecation lerna run lint --stream --no-bail",
+    "lint:workspaces": "cross-env NODE_OPTIONS=--no-deprecation lerna run lint --stream --concurrency 2 --no-bail",
     "lint:root": "eslint *.{js,mjs,json,md} scripts docs packages/_util packages/_toolbox packages/_server packages/canc-server/*.{ts,js,mjs,json} tests-dist",
     "changeset": "changeset",
     "release:version": "changeset version",
@@ -27,7 +28,7 @@
     "examples:format": "npm --prefix examples run examples:format",
     "test:dist": "npm run test -w @cancjs/tests-dist",
     "format": "run-p -c format:workspaces format:root",
-    "format:workspaces": "cross-env NODE_OPTIONS=--no-deprecation lerna run format --stream --no-bail",
+    "format:workspaces": "cross-env NODE_OPTIONS=--no-deprecation lerna run format --stream --concurrency 2 --no-bail",
     "format:root": "eslint --fix *.{js,mjs,json,md} scripts docs packages/_util packages/_toolbox packages/_server packages/canc-server/*.{ts,js,mjs,json} tests-dist",
     "check:node-surface": "node scripts/node/check-node-surface.mjs",
     "surface:baseline": "node scripts/node/surface-baseline.mjs"

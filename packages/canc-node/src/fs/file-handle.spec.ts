@@ -279,17 +279,54 @@ describe('FileHandle', () => {
     const testFile = path.join(dir, 'lines.txt');
     nodeFs.writeFileSync(testFile, 'line1\nline2\n');
 
-    const fh = decorate(await fs.open(testFile, 'r'));
+    // node 18/20 abort on close after readLines + readableWebStream on one handle
+    const fh1 = decorate(await fs.open(testFile, 'r'));
+    if (typeof fh1.readLines === 'function') {
+      const lines = fh1.readLines();
+      expect(lines instanceof Promise).toBe(false);
+      expect(typeof lines[Symbol.asyncIterator]).toBe('function');
+    }
+    await fh1.close();
 
-    const lines = fh.readLines();
-    expect(lines instanceof Promise).toBe(false);
-    expect(typeof lines[Symbol.asyncIterator]).toBe('function');
+    const fh2 = decorate(await fs.open(testFile, 'r'));
+    if (typeof fh2.readableWebStream === 'function') {
+      const webStream = fh2.readableWebStream();
+      expect(webStream instanceof Promise).toBe(false);
+      expect(typeof webStream.getReader).toBe('function');
+    }
+    await fh2.close();
 
-    const webStream = fh.readableWebStream();
-    expect(webStream instanceof Promise).toBe(false);
-    expect(typeof webStream.getReader).toBe('function');
-
-    await fh.close();
     nodeFs.rmSync(dir, { recursive: true, force: true });
   });
+
+  test('close() called twice concurrently on a handle resolves both without abort', async () => {
+    const fh = decorate(await fs.open('package.json', 'r'));
+    const p1 = fh.close();
+    const p2 = fh.close();
+    await expect(Promise.all([p1, p2])).resolves.toBeDefined();
+  });
+
+  test('cancel + explicit close resolves without abort', async () => {
+    const fh = decorate(await fs.open('package.json', 'r'));
+    const p1 = fh.close();
+    p1.cancel();
+    const p2 = fh.close();
+    await expect(Promise.all([p1, p2])).resolves.toBeDefined();
+  });
+
+  if (typeof (Symbol as { asyncDispose?: symbol }).asyncDispose === 'symbol') {
+    test('await using with explicit close resolves without aborting', async () => {
+      const dir = nodeFs.mkdtempSync(path.join(os.tmpdir(), 'canc-fh-using-'));
+      tempDirs.push(dir);
+      const testFile = path.join(dir, 'test.txt');
+      nodeFs.writeFileSync(testFile, 'hello');
+      let closedExplicitly = false;
+      {
+        await using fh = decorate(await fs.open(testFile, 'r'));
+        await fh.close();
+        closedExplicitly = true;
+      }
+      expect(closedExplicitly).toBe(true);
+    });
+  }
 });

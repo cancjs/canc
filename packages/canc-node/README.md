@@ -761,6 +761,10 @@ The `@cancjs/node` package provides cancelable promise-based wrappers and extend
 - `@cancjs/node/fs/extra`: extended file system helpers with per-entry cancellation checkpoints.
 - `@cancjs/node/fs/register-graceful`: side-effect import registering `graceful-fs` with automatic retry on handle operations.
 
+### FileHandle
+
+Known issue on Node 18 and 20: Invoking both `readLines()` and `readableWebStream()` on the same `FileHandle` before closing triggers a native Node.js abort (`Assertion '!closing_' failed`). Use separate handles when consuming both stream interfaces on Node 18 and 20.
+
 ### Cancellation and partial state
 
 For multi-step operations (`copy`, `move` across devices, `emptyDir`, `walk`), cancellation checkpoints occur between entries. When canceled mid-operation:
@@ -838,7 +842,7 @@ For multi-step operations (`copy`, `move` across devices, `emptyDir`, `walk`), c
 
 ### Error classes
 
-- `NotImplementedError`: thrown when a version-gated export is invoked on an older runtime
+- `NotImplementedError`: thrown or rejected when a version-gated export is invoked on an older runtime. Synchronous functions throw; promise-returning functions return a rejected promise.
 - `ProcessExitError`: thrown when a child process exits with a non-zero exit code or is terminated by a signal
 - `ProcessSpawnError`: thrown when a child process fails to spawn
 - `JsonParseError`: thrown when parsing JSON input fails

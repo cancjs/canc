@@ -192,12 +192,12 @@ describe('destroyOnCancel', () => {
 });
 
 describe('bytes', () => {
-  it('throws NotImplementedError where the runtime does not carry it', () => {
+  it('rejects NotImplementedError where the runtime does not carry it', async () => {
     const source = Readable.from(['hi']);
     let thrown: unknown;
 
     try {
-      loadConsumers(false).bytes(source);
+      await loadConsumers(false).bytes(source);
     } catch (error) {
       thrown = error;
     }
@@ -221,7 +221,7 @@ describe('bytes', () => {
     const absent = Readable.from(['hi']);
 
     if (!features.hasConsumersBytes) {
-      expect(() => bytes(absent)).toThrow(NotImplementedError);
+      await expect(bytes(absent)).rejects.toThrow(NotImplementedError);
       absent.destroy();
       return;
     }

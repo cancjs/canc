@@ -145,8 +145,12 @@ function sleep(ms: number): Promise<void> {
 
 describe('surface/dns.json module-level export parity', () => {
   it('every manifest export is an own key of node:dns/promises', () => {
-    const dnsJson = require('../../surface/dns.json') as { exports: Array<{ name: string }> };
-    const manifestNames = dnsJson.exports.map((e) => e.name);
+    const dnsJson = require('../../surface/dns.json') as {
+      exports: Array<{ name: string; minMajor?: number | null }>;
+    };
+    const manifestNames = dnsJson.exports
+      .filter((e) => !e.minMajor || features.nodeMajor >= e.minMajor)
+      .map((e) => e.name);
     const realNames = new Set(Object.keys(nodeDnsPromises));
 
     const notOnNode = manifestNames.filter((name) => !realNames.has(name));
@@ -231,7 +235,7 @@ describe('@cancjs/node/dns module-level exports', () => {
     if (features.nodeMajor < 22) {
       let error: unknown;
       try {
-        dnsExports.resolveTlsa('example.test');
+        await dnsExports.resolveTlsa('example.test');
       } catch (err) {
         error = err;
       }

@@ -92,17 +92,21 @@ describe('@cancjs/node/crypto', () => {
     expect(fired[0]).toEqual([null, 42]);
   });
 
-  it('argon2 is gated on node 24+, throws NotImplementedError naming the version below that', async () => {
+  it('argon2 is gated on node 24+, rejects NotImplementedError naming the version below that', async () => {
     if (features.nodeMajor < 24) {
       let error: unknown;
       try {
-        cryptoExports.argon2('argon2id', ARGON2_PARAMS);
+        await cryptoExports.argon2('argon2id', ARGON2_PARAMS);
       } catch (err) {
         error = err;
       }
       expect(isNotImplementedError(error)).toBe(true);
       expect((error as { required?: string }).required).toBe('24');
       return;
+    }
+
+    if (features.nodeMajor >= 24) {
+      expect(cryptoExports.argon2.name).toBe('promisify: argon2');
     }
 
     const derived = await cryptoExports.argon2('argon2id', ARGON2_PARAMS);
@@ -158,7 +162,7 @@ describe('@cancjs/node/crypto', () => {
     if (features.nodeMajor < 24) {
       let error: unknown;
       try {
-        cryptoExports.encapsulate({} as never);
+        await cryptoExports.encapsulate({} as never);
       } catch (err) {
         error = err;
       }

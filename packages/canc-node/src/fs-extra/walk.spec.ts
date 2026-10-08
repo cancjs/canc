@@ -236,20 +236,24 @@ describe('walk and walkSync', () => {
       if (isWindows) {
         return;
       }
-      const cycleRoot = join(root, 'cycle-test');
-      await fs.mkdir(cycleRoot, { recursive: true });
-      const dir1 = join(cycleRoot, 'dir1');
-      await fs.mkdir(dir1, { recursive: true });
-      // Create symlink dir1/loop -> cycleRoot
-      await fs.symlink(cycleRoot, join(dir1, 'loop'));
+      const cycleRoot = join(tmpdir(), 'walk-cycle-test-' + Math.random().toString(36).slice(2));
+      try {
+        await fs.mkdir(cycleRoot, { recursive: true });
+        const dir1 = join(cycleRoot, 'dir1');
+        await fs.mkdir(dir1, { recursive: true });
+        // Create symlink dir1/loop -> cycleRoot
+        await fs.symlink(cycleRoot, join(dir1, 'loop'));
 
-      const entries: string[] = [];
-      for await (const entry of walk(cycleRoot, { followSymlinks: true })) {
-        entries.push(entry.path);
+        const entries: string[] = [];
+        for await (const entry of walk(cycleRoot, { followSymlinks: true })) {
+          entries.push(entry.path);
+        }
+        // Must terminate and not infinite loop
+        expect(entries.length).toBeGreaterThan(0);
+        expect(entries.length).toBeLessThan(20);
+      } finally {
+        await cleanDir(cycleRoot);
       }
-      // Must terminate and not infinite loop
-      expect(entries.length).toBeGreaterThan(0);
-      expect(entries.length).toBeLessThan(20);
     },
   );
 

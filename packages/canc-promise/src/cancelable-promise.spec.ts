@@ -143,8 +143,8 @@ describe('Native Promise capture', () => {
   });
 
   it('fulfills with .race()', () => {
-    const value1 = new NativePromise((resolve) => setTimeout(() => resolve(1), 10));
-    const value2 = new CancelablePromise((resolve) => setTimeout(() => resolve(2), 20));
+    const value1 = NativePromise.resolve(1);
+    const value2 = new CancelablePromise<number>(() => {});
 
     const cancelablePromise = CancelablePromise.race([value1, value2]);
 
@@ -154,8 +154,8 @@ describe('Native Promise capture', () => {
   });
 
   it('rejects with .race()', () => {
-    const value1 = new NativePromise((resolve) => setTimeout(() => resolve(1), 20));
-    const value2 = new CancelablePromise((_resolve, reject) => setTimeout(() => reject(2), 10));
+    const value1 = new NativePromise<number>(() => {});
+    const value2 = CancelablePromise.reject(2);
 
     const cancelablePromise = CancelablePromise.race([value1, value2]);
 

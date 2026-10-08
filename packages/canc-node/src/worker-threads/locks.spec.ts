@@ -153,17 +153,17 @@ describeLocks('requestLock', () => {
 });
 
 describe('requestLock gate', () => {
-  it('throws NotImplementedError naming node 24 where there is no lock manager', () => {
-    jest.isolateModules(() => {
+  it('rejects NotImplementedError naming node 24 where there is no lock manager', async () => {
+    let error: unknown;
+    await jest.isolateModulesAsync(async () => {
       jest.doMock('../features', () => ({
         features: { ...jest.requireActual('../features').features, hasWorkerLocks: false },
       }));
 
       const gatedLocks = require('./locks');
 
-      let error: unknown;
       try {
-        gatedLocks.requestLock('any-name', () => undefined);
+        await gatedLocks.requestLock('any-name', () => undefined);
       } catch (err) {
         error = err;
       }

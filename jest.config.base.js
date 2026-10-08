@@ -29,6 +29,8 @@ module.exports = {
   coverageDirectory: 'coverage',
   coveragePathIgnorePatterns: ['/node_modules/', '/~~', '~~$'],
   globals: {},
+  // lerna runs two packages at once, so two jest runs together stay near the core count
+  maxWorkers: '50%',
 
   // `<rootDir>` here is per-package (see rootDir note above, same hazard as
   // collectCoverageFrom). A package that imports a sibling @cancjs/* package by name (e.g.
@@ -46,7 +48,8 @@ module.exports = {
   modulePathIgnorePatterns: ['/~~', '~~/'],
   roots: ['<rootDir>/src'],
   testEnvironment: 'node',
-  testPathIgnorePatterns: ['/node_modules/', '/~~', '~~/'],
+  // GC canaries run serially with --expose-gc, in `npm run test:canary` only
+  testPathIgnorePatterns: ['/node_modules/', '/~~', '~~/', '/leak-canaries\\.spec\\.ts$'],
   transform: {
     '^.+\\.tsx?$': [
       'ts-jest',

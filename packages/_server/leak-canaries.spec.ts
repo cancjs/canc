@@ -144,14 +144,17 @@ describeIfGC('leak canaries (request state GC probe)', () => {
     for (let id = 0; id < REQUEST_COUNT; id += 1) {
       await completeOneRequest(server, id, (state, registered) => {
         registry.register(state, registered);
-        retained.push(state);
+
+        if (registered % 2 === 1) {
+          retained.push(state);
+        }
       });
     }
 
-    await drainRegistry(finalized, REQUEST_COUNT);
+    await drainRegistry(finalized, REQUEST_COUNT - retained.length);
 
-    // the control for the probe above: without it, a collector that never fires reads as a pass
-    expect(finalized).toEqual([]);
-    expect(retained).toHaveLength(REQUEST_COUNT);
+    // released ids catch a dead collector, retained ids an over-reporting probe
+    expect(finalized.sort()).toEqual([0, 2, 4]);
+    expect(retained).toHaveLength(2);
   });
 });

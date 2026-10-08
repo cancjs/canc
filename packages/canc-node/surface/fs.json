@@ -601,7 +601,7 @@
         "probed": "resolve",
         "sinceByMajor": null
       },
-      "wrapper": "promisify-custom",
+      "wrapper": "gated",
       "failures": ["ENOENT", "EACCES"],
       "minMajor": 18,
       "gate": "feature-detect",

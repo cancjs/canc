@@ -140,14 +140,14 @@ describe('@cancjs/node/zlib', () => {
     },
   );
 
-  it('compressGzip throws NotImplementedError naming 24 when node has no iterable codec family', () => {
+  it('compressGzip rejects NotImplementedError naming 24 when node has no iterable codec family', async () => {
     if (hasRealCompressGzip) {
       return;
     }
 
     let error: unknown;
     try {
-      zlibExports.compressGzip([Buffer.from('x')]);
+      await zlibExports.compressGzip([Buffer.from('x')]);
     } catch (err) {
       error = err;
     }
@@ -189,14 +189,14 @@ describe('@cancjs/node/zlib', () => {
     },
   );
 
-  it('zipFiles throws NotImplementedError naming 26 when node has no zip archive family', () => {
+  it('zipFiles rejects NotImplementedError naming 26 when node has no zip archive family', async () => {
     if (hasRealZipFiles) {
       return;
     }
 
     let error: unknown;
     try {
-      zlibExports.zipFiles(['a.txt'], 'out.zip');
+      await zlibExports.zipFiles(['a.txt'], 'out.zip');
     } catch (err) {
       error = err;
     }
@@ -236,6 +236,17 @@ describe('@cancjs/node/zlib', () => {
     expect(compressed).not.toBeInstanceOf(CancelablePromise);
     const decompressed = zlibExports.gunzipSync(compressed);
     expect(decompressed.equals(original)).toBe(true);
+  });
+
+  it('gated exports are reflectable and retain names when available on Node 22/24', () => {
+    const { ZstdCompress, crc32 } = zlibExports;
+    if (typeof (nodeZlib as unknown as Record<string, unknown>).ZstdCompress === 'function') {
+      expect(() => Object.getOwnPropertyDescriptors(ZstdCompress)).not.toThrow();
+      expect(ZstdCompress.name).toBe('ZstdCompress');
+    }
+    if (typeof (nodeZlib as unknown as Record<string, unknown>).crc32 === 'function') {
+      expect(crc32.name).toBe('crc32');
+    }
   });
 
   it('type fixture: gzip resolves exactly Buffer, not unknown', () => {

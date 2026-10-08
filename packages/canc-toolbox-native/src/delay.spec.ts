@@ -103,17 +103,26 @@ describe('delay', () => {
   });
 
   it('resolves within a [min, max] range, and rolls more than one distinct value', async () => {
-    jest.useRealTimers();
+    jest.useFakeTimers();
+    const setTimeoutSpy = jest.spyOn(globalThis, 'setTimeout');
     const seen = new Set<number>();
 
     for (let i = 0; i < 20; i++) {
-      const start = Date.now();
-      await delay([1, 10]);
-      seen.add(Date.now() - start);
+      const p = delay([1, 10]);
+      jest.runAllTimers();
+      await p;
+    }
+
+    for (const call of setTimeoutSpy.mock.calls) {
+      const ms = call[1]!;
+      seen.add(ms);
+      expect(ms).toBeGreaterThanOrEqual(1);
+      expect(ms).toBeLessThan(10);
     }
 
     expect(seen.size).toBeGreaterThan(1);
-  }, 10_000);
+    setTimeoutSpy.mockRestore();
+  });
 
   it('throws RangeError synchronously for min > max', () => {
     expect(() => delay([200, 100])).toThrow(RangeError);

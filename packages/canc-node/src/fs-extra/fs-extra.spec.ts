@@ -802,7 +802,7 @@ describe('fs-extra', () => {
       await fs.writeFile(replaceFileTarget, 'initial smoke data');
 
       const pReplace = replaceFile(replaceFileTarget, 'new smoke data');
-      pReplace.cancel();
+      await pReplace.cancel();
       await expect(pReplace).rejects.toThrow(CancelError);
 
       const entries = await fs.readdir(smokeDest, { recursive: true });

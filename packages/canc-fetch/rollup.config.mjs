@@ -1,3 +1,3 @@
-import { createMultiConfigs } from '../../rollup.config.base.js';
+import { createMultiConfigs } from '../../rollup.config.base.mjs';
 
 export default createMultiConfigs([{ input: 'src/index.ts', base: 'index', name: 'canc_fetch', exportDefault: true }]);

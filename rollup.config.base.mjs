@@ -412,5 +412,3 @@ export const createMultiConfigs = (entries, options = { name: 'LibraryName' }) =
   entries.flatMap((entry, index) =>
     createEntryConfigs(entry, { ...options, ...entry, name: entry.name || options.name }, index === 0, options.formats),
   );
-
-export default null;

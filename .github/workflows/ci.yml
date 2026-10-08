@@ -21,6 +21,7 @@ jobs:
   test:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
         node-version: ['18.x', '22.x', '24.x']
@@ -33,9 +34,26 @@ jobs:
       - run: npm ci
       - run: npm test
 
+  canary:
+    # GC leak canaries read heap and finalizer timing, so they get one serial process of their own
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ['18.x', '22.x']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run test:canary
+
   build:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
         node-version: ['18.x', '22.x', '24.x']
@@ -88,7 +106,6 @@ jobs:
     # The runner packs each package, installs the tarball + a pinned tsc into each
     # isolated fixture, then runs `tsc --noEmit`. The two newest lanes also compile
     # the type-level assertion suite. See tests-types/matrix.config.json.
-    needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -107,7 +124,6 @@ jobs:
   dist-tests:
     # Interop checks that require() the built dist/index.cjs of several packages, so they need a
     # build first. Kept out of the default `test` job so that lane stays source-only.
-    needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -121,7 +137,6 @@ jobs:
 
   package-validation:
     # Asserts packed tarball files, publint, and attw (arethetypeswrong) per package
-    needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

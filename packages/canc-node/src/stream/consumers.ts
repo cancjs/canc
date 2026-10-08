@@ -125,5 +125,9 @@ export const bytes = gated(
   features.hasConsumersBytes,
   'consumers.bytes',
   BYTES_REQUIRED,
-  consumerWrapped((stream: TConsumerSource) => (rawBytes as (source: TConsumerSource) => Promise<Uint8Array>)(stream)),
+  () =>
+    consumerWrapped((stream: TConsumerSource) =>
+      (rawBytes as (source: TConsumerSource) => Promise<Uint8Array>)(stream),
+    ),
+  'promise',
 );

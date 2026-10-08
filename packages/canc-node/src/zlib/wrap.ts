@@ -14,16 +14,15 @@ export { gated as gatedWrapped };
  * structurally match, so the gated stream classes (`ZstdCompress`, `ZipBuffer`, ...) route through
  * this instead of that one.
  */
-export function gatedClassWrapped<TCtor extends new (...args: any[]) => any>(
+export function gatedClassWrapped<TCtor extends abstract new (...args: any[]) => any>(
   available: boolean,
   feature: string,
   required: string,
-  impl: TCtor,
+  factory: () => TCtor,
 ): TCtor {
   if (available) {
-    return impl;
+    return factory();
   }
-
   return class {
     constructor(..._args: any[]) {
       throw new NotImplementedError(`${feature} requires Node >= ${required}`, {

@@ -104,5 +104,6 @@ export const requestLock: IRequestLockFn = gated(
   features.hasWorkerLocks,
   'requestLock',
   '24',
-  requestLockImpl as IRequestLockFn,
+  () => requestLockImpl as IRequestLockFn,
+  'promise',
 );
