@@ -18,10 +18,7 @@ function resolveNpmCli() {
 const npmCli = resolveNpmCli();
 
 function spawnNpm(args, opts = {}) {
-  return spawnSync(process.execPath, [npmCli, ...args], {
-    ...opts,
-    shell: false,
-  });
+  return spawnSync(process.execPath, [npmCli, ...args], opts);
 }
 
 function getPublishablePackages() {
@@ -262,7 +259,7 @@ console.log('[check-beta-install] All ' + packages.length + ' packages loaded su
 
   fs.writeFileSync(verifyScriptPath, verifyScriptContent, 'utf8');
 
-  const runRes = spawnSync('node', ['verify-loader.mjs'], {
+  const runRes = spawnSync(process.execPath, [verifyScriptPath], {
     cwd: tempDirectory,
     stdio: 'inherit',
   });
