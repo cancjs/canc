@@ -9,6 +9,7 @@ const { execSync } = require('child_process');
 const ROOT = path.resolve(__dirname, '..');
 
 function run(cmd) {
+  console.log(`[release-version] ${cmd}`);
   execSync(cmd, { stdio: 'inherit', cwd: ROOT });
 }
 
@@ -59,6 +60,9 @@ if (isPreMode) {
 }
 
 run('npm install --package-lock-only');
-run('npx prettier --write "packages/*/package.json" "packages/canc-server/*/package.json" package.json');
+// the repo eslint parses manifests differently from the prettier CLI
+const MANIFESTS = '"packages/*/package.json" "packages/canc-server/*/package.json" package.json';
+run(`npx eslint --fix ${MANIFESTS}`);
+run(`npx eslint ${MANIFESTS}`);
 run('npm run lint:root');
 run('node scripts/check-package-validation.js');
