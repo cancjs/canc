@@ -202,6 +202,10 @@ describe('@cancjs/node/fs module exports', () => {
 
     const realPromises = nodeFs.promises;
     const closeSpy = jest.fn();
+    let markClosed: (() => void) | undefined;
+    const closed = new Promise<void>((r) => {
+      markClosed = r;
+    });
     let proceedOpen: (() => void) | undefined;
     let openCalled: (() => void) | undefined;
     let openPromise: Promise<unknown> | undefined;
@@ -222,7 +226,8 @@ describe('@cancjs/node/fs module exports', () => {
             const origClose = fh.close.bind(fh);
             fh.close = async () => {
               closeSpy();
-              return origClose();
+              await origClose();
+              markClosed?.();
             };
             return fh;
           })();
@@ -242,9 +247,8 @@ describe('@cancjs/node/fs module exports', () => {
 
       proceedOpen?.();
       await openPromise;
-      for (let i = 0; i < 5; i++) {
-        await new Promise((r) => setImmediate(r));
-      }
+      // windows refuses to remove the dir while the handle is still closing
+      await closed;
       expect(closeSpy).toHaveBeenCalledTimes(1);
     } finally {
       nodeFs.rmSync(dir, { recursive: true, force: true });
