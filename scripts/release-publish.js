@@ -4,7 +4,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { execSync, execFileSync } = require('child_process');
 const semver = require('semver');
 const getReleasePlan = require('@changesets/get-release-plan').default;
 
@@ -59,11 +59,13 @@ async function determinePublishTag() {
       const maintenanceTag = `v${semver.major(mockVersion)}.${semver.minor(mockVersion)}`;
       return {
         tag: maintenanceTag,
+        explicit: true,
         reason: `maintenance line: version ${mockVersion} < registry latest ${mockLatest}`,
       };
     }
     return {
       tag: 'latest',
+      explicit: true,
       reason: `stable release: version ${mockVersion} >= registry latest ${mockLatest}`,
     };
   }
@@ -73,7 +75,8 @@ async function determinePublishTag() {
     const preJson = JSON.parse(fs.readFileSync(preJsonPath, 'utf8'));
     if (preJson.mode === 'pre') {
       const tag = preJson.tag || 'beta';
-      return { tag, reason: `beta lane (pre.json tag: ${tag})` };
+      // changesets refuses an explicit tag in pre mode and applies pre.json's own
+      return { tag, explicit: false, reason: `beta lane (pre.json tag: ${tag})` };
     }
   }
 
@@ -100,28 +103,36 @@ async function determinePublishTag() {
     const maintenanceTag = `v${semver.major(version)}.${semver.minor(version)}`;
     return {
       tag: maintenanceTag,
+      explicit: true,
       reason: `maintenance line: version ${version} < registry latest ${registryLatest}`,
     };
   }
 
   return {
     tag: 'latest',
+    explicit: true,
     reason: `stable release: version ${version} >= registry latest ${registryLatest}`,
   };
 }
 
 async function main() {
   const isDryRun = process.argv.includes('--dry-run');
-  const { tag, reason } = await determinePublishTag();
+  const { tag, explicit, reason } = await determinePublishTag();
+  const args = [require.resolve('@changesets/cli/bin.js'), 'publish'];
+  if (explicit) args.push('--tag', tag);
 
   console.log(`[release-publish] Tag decision: "${tag}" (${reason})`);
+
+  if (isDryRun || process.argv.includes('--print-command')) {
+    console.log(`[release-publish] Command: changeset ${args.slice(1).join(' ')}`);
+  }
 
   if (isDryRun) {
     return;
   }
 
   console.log(`[release-publish] Publishing with tag "${tag}"...`);
-  execSync(`npx changeset publish --tag ${tag}`, { stdio: 'inherit', cwd: ROOT });
+  execFileSync(process.execPath, args, { stdio: 'inherit', cwd: ROOT });
 }
 
 if (require.main === module) {
