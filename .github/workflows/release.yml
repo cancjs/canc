@@ -27,6 +27,8 @@ jobs:
     name: Release
     runs-on: ubuntu-latest
     env:
+      # version commits come from the bot, the commit hooks only fit hand-written ones
+      LEFTHOOK: 0
       CANC_RELEASE_ALLOW_MINOR: ${{ inputs.allow_minor && 'true' || vars.CANC_RELEASE_ALLOW_MINOR }}
       CANC_RELEASE_ALLOW_MAJOR: ${{ inputs.allow_major && 'true' || vars.CANC_RELEASE_ALLOW_MAJOR }}
     steps:
