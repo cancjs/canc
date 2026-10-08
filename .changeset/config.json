@@ -22,7 +22,7 @@
       "@cancjs/node"
     ]
   ],
-  "ignore": ["@cancjs/benchmarks", "@cancjs/tests-types"],
+  "ignore": ["@cancjs/benchmarks", "@cancjs/tests-types", "@cancjs/tests-dist"],
   "___experimentalUnsafeOptions_WILL_CHANGE_IN_PATCH": {
     "onlyUpdatePeerDependentsWhenOutOfRange": true
   }

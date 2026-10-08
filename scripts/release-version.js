@@ -32,13 +32,64 @@ function findChangelogs() {
   return changelogs;
 }
 
+function getPrivateWorkspaces() {
+  const privates = [];
+  const rootPkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+  for (const pattern of rootPkg.workspaces || []) {
+    if (pattern.endsWith('/*')) {
+      const parentDir = path.join(ROOT, pattern.slice(0, -2));
+      if (!fs.existsSync(parentDir)) continue;
+      for (const entry of fs.readdirSync(parentDir, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        const dir = path.join(parentDir, entry.name);
+        const manifestPath = path.join(dir, 'package.json');
+        if (fs.existsSync(manifestPath)) {
+          const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+          if (manifest.private === true) {
+            privates.push({
+              dir,
+              manifestPath,
+              originalText: fs.readFileSync(manifestPath, 'utf8'),
+            });
+          }
+        }
+      }
+    } else {
+      const dir = path.join(ROOT, pattern);
+      const manifestPath = path.join(dir, 'package.json');
+      if (fs.existsSync(manifestPath)) {
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+        if (manifest.private === true) {
+          privates.push({
+            dir,
+            manifestPath,
+            originalText: fs.readFileSync(manifestPath, 'utf8'),
+          });
+        }
+      }
+    }
+  }
+  return privates;
+}
+
 const preJsonPath = path.join(ROOT, '.changeset/pre.json');
 const isPreMode = fs.existsSync(preJsonPath) && JSON.parse(fs.readFileSync(preJsonPath, 'utf8')).mode === 'pre';
 
 const changelogsBefore = new Set(findChangelogs());
 
 run('node scripts/check-release-lane.js');
+const privates = getPrivateWorkspaces();
 run('npx changeset version');
+
+for (const entry of privates) {
+  if (fs.readFileSync(entry.manifestPath, 'utf8') !== entry.originalText) {
+    fs.writeFileSync(entry.manifestPath, entry.originalText, 'utf8');
+  }
+  const changelogPath = path.join(entry.dir, 'CHANGELOG.md');
+  if (fs.existsSync(changelogPath)) {
+    fs.rmSync(changelogPath, { force: true });
+  }
+}
 
 if (isPreMode) {
   run('git checkout -- "*CHANGELOG.md"');

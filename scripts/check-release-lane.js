@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const semver = require('semver');
 const getReleasePlan = require('@changesets/get-release-plan').default;
+const { getPackages } = require('@manypkg/get-packages');
 
 const ROOT = path.resolve(__dirname, '..');
 
@@ -29,7 +30,19 @@ async function checkReleaseLane() {
   }
 
   const plan = await getReleasePlan(ROOT);
-  const releases = plan.releases.filter((r) => r.type !== 'none');
+  if (!plan.workspacePackages) {
+    const pkgs = await getPackages(ROOT);
+    plan.workspacePackages = pkgs.packages.map((p) => ({
+      name: p.packageJson.name,
+      packageJson: p.packageJson,
+      dir: p.dir,
+    }));
+  }
+  const releases = plan.releases.filter((r) => {
+    if (r.type === 'none') return false;
+    const pkg = plan.workspacePackages.find((wp) => wp.name === r.name);
+    return !pkg || !pkg.packageJson.private;
+  });
   const allowMajor = process.env.CANC_RELEASE_ALLOW_MAJOR === 'true';
   const allowMinor = process.env.CANC_RELEASE_ALLOW_MINOR === 'true';
 
