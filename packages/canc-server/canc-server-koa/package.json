@@ -1,6 +1,6 @@
 {
   "name": "@cancjs/server-koa",
-  "version": "1.0.0",
+  "version": "1.1.0-beta.0",
   "description": "Koa middleware that cancels in-flight work when the client disconnects or a deadline passes.",
   "license": "MIT",
   "repository": {
@@ -64,8 +64,8 @@
     "@types/node": ">=18"
   },
   "devDependencies": {
-    "@cancjs/coroutine": "*",
-    "@cancjs/promise": "*",
+    "@cancjs/coroutine": "1.1.0-beta.0",
+    "@cancjs/promise": "1.1.0-beta.0",
     "@types/koa": "3.0.3",
     "koa": "3.2.1"
   },

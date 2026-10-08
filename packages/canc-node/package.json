@@ -1,6 +1,6 @@
 {
   "name": "@cancjs/node",
-  "version": "1.0.0",
+  "version": "1.1.0-beta.0",
   "description": "Node built-in modules with cancelable promises and typed failures.",
   "license": "MIT",
   "repository": {
@@ -226,7 +226,7 @@
     "@types/node": ">=18"
   },
   "devDependencies": {
-    "@cancjs/promise": "*"
+    "@cancjs/promise": "1.1.0-beta.0"
   },
   "peerDependencies": {
     "@cancjs/promise": ">=1.0.0 || >=1.1.0-0",

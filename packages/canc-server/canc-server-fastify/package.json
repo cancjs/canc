@@ -1,6 +1,6 @@
 {
   "name": "@cancjs/server-fastify",
-  "version": "1.0.0",
+  "version": "1.1.0-beta.0",
   "description": "Cancel Fastify route handlers when the client disconnects or a deadline passes.",
   "license": "MIT",
   "repository": {
@@ -61,8 +61,8 @@
     "canc"
   ],
   "devDependencies": {
-    "@cancjs/coroutine": "*",
-    "@cancjs/promise": "*",
+    "@cancjs/coroutine": "1.1.0-beta.0",
+    "@cancjs/promise": "1.1.0-beta.0",
     "fastify": "5.10.0",
     "fastify-plugin": "6.0.0"
   },
