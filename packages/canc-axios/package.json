@@ -1,6 +1,6 @@
 {
   "name": "@cancjs/axios",
-  "version": "1.0.0",
+  "version": "1.1.0-beta.0",
   "description": "Cancelable promise adapter for axios.",
   "license": "MIT",
   "repository": {
@@ -50,8 +50,8 @@
   "files": ["dist"],
   "keywords": ["axios", "cancel", "cancelable", "abort", "promise"],
   "devDependencies": {
-    "@cancjs/promise": "*",
-    "@cancjs/toolbox": "*",
+    "@cancjs/promise": "1.1.0-beta.0",
+    "@cancjs/toolbox": "1.1.0-beta.0",
     "axios": "1.16.0",
     "axios-legacy": "npm:axios@0.22.0"
   },
