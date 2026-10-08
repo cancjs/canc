@@ -153,7 +153,7 @@ function typeParametersOf(symbol) {
   return '';
 }
 
-function createRenderer(checker, pkgPosix) {
+function createRenderer(program, checker, pkgPosix) {
   const primitiveMask =
     ts.TypeFlags.String |
     ts.TypeFlags.Number |
@@ -185,15 +185,30 @@ function createRenderer(checker, pkgPosix) {
     return false;
   }
 
+  // A constituent declared only in platform typings (default lib, @types/node) prints by name, so a
+  // TypeScript or @types/node upgrade that reshapes AbortSignal does not move the baseline
+  const isLibType = (type) => {
+    const declarations = (type.aliasSymbol ?? type.symbol)?.declarations;
+    return (
+      !!declarations &&
+      declarations.length > 0 &&
+      declarations.every((d) => {
+        const file = d.getSourceFile();
+        return (
+          program.isSourceFileDefaultLibrary(file) || toPosix(file.fileName).includes('/node_modules/@types/node/')
+        );
+      })
+    );
+  };
+
   const signatureLine = (signature, kind) =>
     normalize(checker.signatureToString(signature, undefined, TYPE_FLAGS, kind));
 
   const propertyLine = (property, prefix = '') => {
     const decl = property.declarations?.[0];
-    const type =
-      decl && ts.isMappedTypeNode(decl) ? checker.getTypeOfSymbol(property)
-      : decl ? checker.getTypeOfSymbolAtLocation(property, decl)
-      : checker.getDeclaredTypeOfSymbol(property);
+    // Mapped type members are synthesized symbols with no declaration, and the declared type of
+    // one is `any`, so those go through getTypeOfSymbol
+    const type = decl ? checker.getTypeOfSymbolAtLocation(property, decl) : checker.getTypeOfSymbol(property);
     const optional = property.flags & ts.SymbolFlags.Optional ? '?' : '';
     const declNode = decl ?? property.valueDeclaration;
     const readonly = declNode ? (ts.getCombinedModifierFlags(declNode) & ts.ModifierFlags.Readonly) !== 0 : false;
@@ -310,7 +325,7 @@ function createRenderer(checker, pkgPosix) {
         const sigLines = [];
         const propLines = [];
         for (const c of constituents) {
-          if (isUnionOrPrimitive(c)) {
+          if (isUnionOrPrimitive(c) || isLibType(c)) {
             sigLines.push(normalize(checker.typeToString(c, decl, TYPE_FLAGS | ts.TypeFormatFlags.InTypeAlias)));
           } else {
             const lines = structural(c, decl);
@@ -382,7 +397,7 @@ function renderBaseline(subpath, dtsRelative, program, checker, pkgName, pkgDir,
 
   const moduleSymbol = checker.getSymbolAtLocation(sourceFile);
   const exports = moduleSymbol ? checker.getExportsOfModule(moduleSymbol) : [];
-  const render = createRenderer(checker, pkgPosix);
+  const render = createRenderer(program, checker, pkgPosix);
 
   const publicExports = [];
   const internalExports = [];
