@@ -1,6 +1,6 @@
 {
   "$schema": "https://unpkg.com/@changesets/config@3.1.4/schema.json",
-  "changelog": ["@changesets/changelog-github", { "repo": "cancjs/canc" }],
+  "changelog": ["../scripts/changelog.js", {}],
   "commit": false,
   "access": "public",
   "baseBranch": "master",
