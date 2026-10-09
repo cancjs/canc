@@ -595,6 +595,11 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
    * @param [options]
    * @returns A new Promise.
    */
+  // with one T a canc member subtype-reduces into a native one, failure lost
+  static race<T extends readonly unknown[] | []>(
+    values: T,
+    options?: ICancelablePromiseOptions,
+  ): CancelablePromise<Awaited<T[number]>, FailureOf<T[number]>>;
   static race<T>(
     values: readonly T[],
     options?: ICancelablePromiseOptions,
