@@ -14,8 +14,8 @@ function typeAssertions(rl: readlineExports.Interface): unknown[] {
   const answerWithSignal = rl.question('> ', { signal: new AbortController().signal });
 
   type _Assertions = [
-    Expect<Equal<typeof answer, CancelablePromise<string>>>,
-    Expect<Equal<typeof answerWithSignal, CancelablePromise<string>>>,
+    Expect<Equal<typeof answer, CancelablePromise<string, never>>>,
+    Expect<Equal<typeof answerWithSignal, CancelablePromise<string, never>>>,
   ];
 
   return [answer, answerWithSignal];

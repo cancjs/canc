@@ -28,9 +28,9 @@ function typeAssertions(): unknown[] {
   const mailServers = resolver.resolveMx('x');
 
   type _Assertions = [
-    Expect<Equal<typeof addresses, CancelablePromise<string[]>>>,
-    Expect<Equal<typeof withTtl, CancelablePromise<import('node:dns').RecordWithTtl[]>>>,
-    Expect<Equal<typeof mailServers, CancelablePromise<import('node:dns').MxRecord[]>>>,
+    Expect<Equal<typeof addresses, CancelablePromise<string[], never>>>,
+    Expect<Equal<typeof withTtl, CancelablePromise<import('node:dns').RecordWithTtl[], never>>>,
+    Expect<Equal<typeof mailServers, CancelablePromise<import('node:dns').MxRecord[], never>>>,
   ];
 
   return [addresses, withTtl, mailServers];

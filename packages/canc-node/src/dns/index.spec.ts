@@ -20,9 +20,9 @@ function typeAssertions(): unknown[] {
   const resolveMxRecords = dnsExports.resolveMx('x');
 
   type _Assertions = [
-    Expect<Equal<typeof resolve4Plain, CancelablePromise<string[]>>>,
-    Expect<Equal<typeof resolve4Ttl, CancelablePromise<RecordWithTtl[]>>>,
-    Expect<Equal<typeof resolveMxRecords, CancelablePromise<MxRecord[]>>>,
+    Expect<Equal<typeof resolve4Plain, CancelablePromise<string[], never>>>,
+    Expect<Equal<typeof resolve4Ttl, CancelablePromise<RecordWithTtl[], never>>>,
+    Expect<Equal<typeof resolveMxRecords, CancelablePromise<MxRecord[], never>>>,
   ];
 
   return [resolve4Plain, resolve4Ttl, resolveMxRecords];

@@ -40,7 +40,7 @@ export function gatedClassWrapped<TCtor extends abstract new (...args: any[]) =>
 export type TNodeFn = (...args: unknown[]) => unknown;
 
 /** One node call signature, with a cancelable promise in place of the plain one it returned. */
-type TCancelableReturn<R> = [R] extends [Promise<infer TValue>] ? CancelablePromise<TValue> : R;
+type TCancelableReturn<R> = [R] extends [Promise<infer TValue>] ? CancelablePromise<TValue, never> : R;
 
 /**
  * Return rewrites the signature ladder below can apply, selected by name because a type alias
@@ -137,7 +137,7 @@ export type TSignatures<TFn> = TNodeSignatures<TFn, 'same'>;
 
 /** Promise flavor bound into the inlined toolbox algorithms, so every product is cancelable. */
 interface ICancelableKind extends IPromiseKind {
-  promise: CancelablePromise<this['value']>;
+  promise: CancelablePromise<this['value'], never>;
   options: object;
 }
 
@@ -182,13 +182,13 @@ function sourceIterator<T>(source: AsyncIterable<T> | Iterable<T>): TSourceItera
  */
 export function iterableCodecWrapped<R = unknown>(
   nodeFn: TNodeFn,
-): (source: AsyncIterable<unknown> | Iterable<unknown>, ...rest: unknown[]) => CancelablePromise<R> {
+): (source: AsyncIterable<unknown> | Iterable<unknown>, ...rest: unknown[]) => CancelablePromise<R, never> {
   return function iterableCodecCall(
     this: unknown,
     source: AsyncIterable<unknown> | Iterable<unknown>,
     ...rest: unknown[]
-  ): CancelablePromise<R> {
-    return new CancelablePromise<R>((resolve, _reject, { handleCancel }) => {
+  ): CancelablePromise<R, never> {
+    return new CancelablePromise<R, never>((resolve, _reject, { handleCancel }) => {
       const iterator = sourceIterator(source);
       let stopped = false;
 
@@ -227,9 +227,9 @@ export function iterableCodecWrapped<R = unknown>(
  */
 export function checkpointWalkWrapped<TItem, R = unknown>(
   step: (item: TItem, index: number) => R | PromiseLike<R>,
-): (items: readonly TItem[]) => CancelablePromise<R[]> {
-  return function checkpointWalkCall(items: readonly TItem[]): CancelablePromise<R[]> {
-    return new CancelablePromise<R[]>((resolve, _reject, { handleCancel }) => {
+): (items: readonly TItem[]) => CancelablePromise<R[], never> {
+  return function checkpointWalkCall(items: readonly TItem[]): CancelablePromise<R[], never> {
+    return new CancelablePromise<R[], never>((resolve, _reject, { handleCancel }) => {
       let stopped = false;
       handleCancel(() => {
         stopped = true;

@@ -62,15 +62,15 @@ function formatJson(object: unknown, options?: IWriteJsonOptions | BufferEncodin
 export function readJson<T = any>(
   file: string,
   options: IReadJsonOptions & { throws: false },
-): CancelablePromise<T | null>;
+): CancelablePromise<T | null, never>;
 export function readJson<T = any>(
   file: string,
   options?: IReadJsonOptions | BufferEncoding | null,
-): CancelablePromise<T>;
+): CancelablePromise<T, never>;
 export function readJson<T = any>(
   file: string,
   options?: IReadJsonOptions | BufferEncoding | null,
-): CancelablePromise<T | null> {
+): CancelablePromise<T | null, never> {
   return new CancelablePromise((resolve, reject, { handleCancel }) => {
     const opts = typeof options === 'string' ? { encoding: options } : (options ?? {});
     const encoding = opts.encoding === undefined ? 'utf8' : opts.encoding;
@@ -123,7 +123,7 @@ export function writeJson(
   file: string,
   object: unknown,
   options?: IWriteJsonOptions | BufferEncoding | null,
-): CancelablePromise<void> {
+): CancelablePromise<void, never> {
   return new CancelablePromise((resolve, reject, { handleCancel }) => {
     let str: string;
     try {
@@ -168,7 +168,7 @@ export function outputJson(
   file: string,
   data: unknown,
   options?: IOutputJsonOptions | BufferEncoding | null,
-): CancelablePromise<void> {
+): CancelablePromise<void, never> {
   return new CancelablePromise((resolve, reject, { handleCancel }) => {
     let str: string;
     try {

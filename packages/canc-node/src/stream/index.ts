@@ -35,7 +35,7 @@ const entries = new Map<string, IManifestEntry>(
 );
 
 /** One node call signature, with a cancelable promise in place of the plain one it returned. */
-type TCancelableReturn<R> = [R] extends [Promise<infer TValue>] ? CancelablePromise<TValue> : R;
+type TCancelableReturn<R> = [R] extends [Promise<infer TValue>] ? CancelablePromise<TValue, never> : R;
 
 /**
  * Node's overloaded signatures for `TFn`, each return rewritten to a cancelable promise.
@@ -255,19 +255,19 @@ function signalWrapped(
   nodeFn: TNodeFn,
   entry: IManifestEntry | undefined,
   optionsIndex = 0,
-): (...args: unknown[]) => CancelablePromise<unknown> {
+): (...args: unknown[]) => CancelablePromise<unknown, never> {
   const forwards = acceptsSignal(entry);
 
-  return function signalWrappedCall(this: unknown, ...args: unknown[]): CancelablePromise<unknown> {
+  return function signalWrappedCall(this: unknown, ...args: unknown[]): CancelablePromise<unknown, never> {
     if (!forwards) {
-      return new CancelablePromise<unknown>((resolve) => {
+      return new CancelablePromise<unknown, never>((resolve) => {
         resolve(nodeFn.apply(this, args));
       });
     }
 
     const call = takeCallerSignal(args, optionsIndex);
 
-    return new CancelablePromise<unknown>(
+    return new CancelablePromise<unknown, never>(
       (resolve, _reject, { getSignal }) => {
         resolve(nodeFn.apply(this, withSignalAt(call.args, optionsIndex, getSignal())));
       },
@@ -317,19 +317,19 @@ function takeCallerSignalFromPipeline(args: unknown[]): ICallerSignalCall {
 function pipelineSignalWrapped(
   nodeFn: TNodeFn,
   entry: IManifestEntry | undefined,
-): (...args: unknown[]) => CancelablePromise<unknown> {
+): (...args: unknown[]) => CancelablePromise<unknown, never> {
   const forwards = acceptsSignal(entry);
 
-  return function pipelineWrappedCall(this: unknown, ...args: unknown[]): CancelablePromise<unknown> {
+  return function pipelineWrappedCall(this: unknown, ...args: unknown[]): CancelablePromise<unknown, never> {
     if (!forwards) {
-      return new CancelablePromise<unknown>((resolve) => {
+      return new CancelablePromise<unknown, never>((resolve) => {
         resolve(nodeFn.apply(this, args));
       });
     }
 
     const call = takeCallerSignalFromPipeline(args);
 
-    return new CancelablePromise<unknown>(
+    return new CancelablePromise<unknown, never>(
       (resolve, _reject, { getSignal }) => {
         resolve(nodeFn.apply(this, withPipelineSignal(call.args, getSignal())));
       },

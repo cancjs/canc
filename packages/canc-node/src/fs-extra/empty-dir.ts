@@ -42,7 +42,7 @@ async function emptyDirTree(dir: string, signal: IAbortSignalLike, active: IActi
  *
  * @param dir - Directory path to empty
  */
-export function emptyDir(dir: string): CancelablePromise<void> {
+export function emptyDir(dir: string): CancelablePromise<void, never> {
   return new CancelablePromise((resolve, _reject, { getSignal, handleCancel }) => {
     const signal = getSignal();
     const active: IActiveCall = { current: null };

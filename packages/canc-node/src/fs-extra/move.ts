@@ -33,7 +33,7 @@ function statOptionsWithSignal(signal: IAbortSignalLike) {
 }
 
 interface ICancelableKind extends IPromiseKind {
-  promise: CancelablePromise<this['value']>;
+  promise: CancelablePromise<this['value'], never>;
   options: object;
 }
 
@@ -69,7 +69,7 @@ function isTransient(err: unknown): boolean {
   return isBusy(err) || isTooManyFilesError(err);
 }
 
-function renameWithRetry(src: string, dest: string): CancelablePromise<void> {
+function renameWithRetry(src: string, dest: string): CancelablePromise<void, never> {
   const attempts = retry(
     () =>
       rename(src, dest).then(
@@ -112,7 +112,7 @@ async function moveAcrossDevice(
  * @param dest - Destination path.
  * @param options - Options for the move operation.
  */
-export function move(src: string, dest: string, options?: IMoveOptions): CancelablePromise<void> {
+export function move(src: string, dest: string, options?: IMoveOptions): CancelablePromise<void, never> {
   return new CancelablePromise((resolve, reject, { getSignal, handleCancel }) => {
     const signal = getSignal();
     const active: IActiveCall = { current: null };

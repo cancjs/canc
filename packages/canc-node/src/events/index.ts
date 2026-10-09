@@ -36,7 +36,7 @@ export interface IOnOptions extends IOnceOptions {
  * iterator protocol's own `return()`, which is what makes node drop every listener it added.
  */
 export interface ICancelableEventIterator extends AsyncIterableIterator<any[]> {
-  next(): CancelablePromise<IteratorResult<any[], undefined>>;
+  next(): CancelablePromise<IteratorResult<any[], undefined>, never>;
   return(value?: undefined): Promise<IteratorResult<any[], undefined>>;
   throw(error?: unknown): Promise<IteratorResult<any[], undefined>>;
   [Symbol.asyncIterator](): ICancelableEventIterator;
@@ -61,18 +61,18 @@ export function once(
   emitter: NodeJS.EventEmitter,
   eventName: string | symbol,
   options?: IOnceOptions,
-): CancelablePromise<any[]>;
-export function once(emitter: EventTarget, eventName: string, options?: IOnceOptions): CancelablePromise<any[]>;
+): CancelablePromise<any[], never>;
+export function once(emitter: EventTarget, eventName: string, options?: IOnceOptions): CancelablePromise<any[], never>;
 export function once(
   emitter: NodeJS.EventEmitter | EventTarget,
   eventName: string | symbol,
   options?: IOnceOptions,
-): CancelablePromise<any[]> {
+): CancelablePromise<any[], never> {
   // the caller's signal drives the promise instead of riding along in the options bag, so an abort
   // and a cancel settle the same way and node is left with exactly one signal to watch
   const { signal: callerSignal, ...rest } = options ?? {};
 
-  return new CancelablePromise<any[]>(
+  return new CancelablePromise<any[], never>(
     (resolve, _reject, { getSignal }) => {
       // node drops its listener on abort as well as on settle, so this adds no listener of its own
       resolve(
@@ -117,8 +117,8 @@ export function on(
   ) as unknown as Required<ICancelableEventIterator> & { next(): Promise<IteratorResult<any[], undefined>> };
 
   const iterator: ICancelableEventIterator = {
-    next(): CancelablePromise<IteratorResult<any[], undefined>> {
-      return new CancelablePromise<IteratorResult<any[], undefined>>((resolve, _reject, { handleCancel }) => {
+    next(): CancelablePromise<IteratorResult<any[], undefined>, never> {
+      return new CancelablePromise<IteratorResult<any[], undefined>, never>((resolve, _reject, { handleCancel }) => {
         // registered before the pull, so a cancel arriving while it is in flight still ends it
         handleCancel(() => source.return(undefined));
         resolve(source.next());

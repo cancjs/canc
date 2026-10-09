@@ -50,13 +50,13 @@ export function createSink<T>(): ISettlementSink<T> {
  * @param worker The worker node returned.
  * @param create Factory building the promise on first access.
  */
-export function defineWorkerPromise<T>(worker: NodeWorker, create: () => CancelablePromise<T>): void {
-  let memo: CancelablePromise<T> | undefined;
+export function defineWorkerPromise<T>(worker: NodeWorker, create: () => CancelablePromise<T, never>): void {
+  let memo: CancelablePromise<T, never> | undefined;
 
   Object.defineProperty(worker, 'promise', {
     configurable: true,
     enumerable: false,
-    get(): CancelablePromise<T> {
+    get(): CancelablePromise<T, never> {
       if (!memo) {
         memo = create();
       }

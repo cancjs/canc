@@ -50,7 +50,7 @@ export type TCancelableFileHandle<THandle = nodeFsPromises.FileHandle> = {
 /** One node call signature, with a cancelable promise in place of the plain one it returned. */
 type TCancelableReturn<R> =
   [R] extends [Promise<infer TValue>] ?
-    CancelablePromise<TValue extends nodeFsPromises.FileHandle ? TCancelableFileHandle<TValue> : TValue>
+    CancelablePromise<TValue extends nodeFsPromises.FileHandle ? TCancelableFileHandle<TValue> : TValue, never>
   : R;
 
 /**
@@ -156,7 +156,7 @@ export type TSignatures<TFn> = TNodeSignatures<TFn, 'same'>;
 
 /** Promise flavor bound into the inlined toolbox algorithms, so every product is cancelable. */
 interface ICancelableKind extends IPromiseKind {
-  promise: CancelablePromise<this['value']>;
+  promise: CancelablePromise<this['value'], never>;
   options: object;
 }
 
@@ -311,14 +311,14 @@ export function signalWrapped<R = unknown>(
   nodeFn: TNodeFn,
   entry: IManifestEntry | undefined,
   optionsIndex = 0,
-): (...args: unknown[]) => CancelablePromise<R> {
+): (...args: unknown[]) => CancelablePromise<R, never> {
   const forwards = acceptsSignal(entry);
 
-  return function signalWrappedCall(this: unknown, ...args: unknown[]): CancelablePromise<R> {
+  return function signalWrappedCall(this: unknown, ...args: unknown[]): CancelablePromise<R, never> {
     const call = takeCallerSignal(args, optionsIndex);
 
     if (!forwards) {
-      return new CancelablePromise<R>(
+      return new CancelablePromise<R, never>(
         (resolve) => {
           resolve(nodeFn.apply(this, call.args) as R | PromiseLike<R>);
         },
@@ -326,7 +326,7 @@ export function signalWrapped<R = unknown>(
       );
     }
 
-    return new CancelablePromise<R>(
+    return new CancelablePromise<R, never>(
       (resolve, _reject, { getSignal }) => {
         // the signal is minted before the call, so a cancel racing the call still aborts it
         resolve(nodeFn.apply(this, withSignalAt(call.args, optionsIndex, getSignal())) as R | PromiseLike<R>);
@@ -346,15 +346,15 @@ export function signalWrapped<R = unknown>(
 export function promisifyWrapped<R = unknown>(
   nodeFn: TNodeFn,
   optionsIndex = 0,
-): (...args: unknown[]) => CancelablePromise<R> {
+): (...args: unknown[]) => CancelablePromise<R, never> {
   const plain = promisify(nodeFn);
 
-  return function promisifyWrappedCall(this: unknown, ...args: unknown[]): CancelablePromise<R> {
+  return function promisifyWrappedCall(this: unknown, ...args: unknown[]): CancelablePromise<R, never> {
     const call = takeCallerSignal(args, optionsIndex);
 
     const bound = call.callerSignal ? promisify(nodeFn, { signal: call.callerSignal }) : plain;
 
-    return bound.apply(this, call.args) as CancelablePromise<R>;
+    return bound.apply(this, call.args) as CancelablePromise<R, never>;
   };
 }
 
@@ -370,7 +370,7 @@ export function promisifySignalWrapped<R = unknown>(
   nodeFn: TNodeFn,
   entry: IManifestEntry | undefined,
   optionsIndex = 0,
-): (...args: unknown[]) => CancelablePromise<R> {
+): (...args: unknown[]) => CancelablePromise<R, never> {
   const forwards = acceptsSignal(entry);
   const transformArgs =
     forwards ?
@@ -379,7 +379,7 @@ export function promisifySignalWrapped<R = unknown>(
 
   const plain = promisify(nodeFn, transformArgs ? { transformArgs } : undefined);
 
-  return function promisifySignalWrappedCall(this: unknown, ...args: unknown[]): CancelablePromise<R> {
+  return function promisifySignalWrappedCall(this: unknown, ...args: unknown[]): CancelablePromise<R, never> {
     const call = takeCallerSignal(args, optionsIndex);
 
     // promisify reads its options once, at wrap time, so a per-call signal needs its own binding
@@ -388,7 +388,7 @@ export function promisifySignalWrapped<R = unknown>(
         promisify(nodeFn, transformArgs ? { transformArgs, signal: call.callerSignal } : { signal: call.callerSignal })
       : plain;
 
-    return bound.apply(this, call.args) as CancelablePromise<R>;
+    return bound.apply(this, call.args) as CancelablePromise<R, never>;
   };
 }
 
@@ -401,9 +401,9 @@ export function promisifySignalWrapped<R = unknown>(
 export function teardownWrapped<R = unknown>(
   nodeFn: TNodeFn,
   teardown: (value: R, args: unknown[]) => void,
-): (...args: unknown[]) => CancelablePromise<R> {
-  return function teardownWrappedCall(this: unknown, ...args: unknown[]): CancelablePromise<R> {
-    return new CancelablePromise<R>((resolve, _reject, { handleCancel }) => {
+): (...args: unknown[]) => CancelablePromise<R, never> {
+  return function teardownWrappedCall(this: unknown, ...args: unknown[]): CancelablePromise<R, never> {
+    return new CancelablePromise<R, never>((resolve, _reject, { handleCancel }) => {
       const started = nodeFn.apply(this, args) as R | PromiseLike<R>;
       if (isCancelable(started)) {
         // shield cancelable inner so teardown can run once the underlying work resolves
@@ -436,10 +436,13 @@ export function teardownWrapped<R = unknown>(
  * @param nodeFn - Underlying node function, called with the receiver of the returned wrapper.
  * @param optionsIndex - Argument position node reads options from.
  */
-export function adopted<R = unknown>(nodeFn: TNodeFn, optionsIndex = 0): (...args: unknown[]) => CancelablePromise<R> {
-  return function adoptedCall(this: unknown, ...args: unknown[]): CancelablePromise<R> {
+export function adopted<R = unknown>(
+  nodeFn: TNodeFn,
+  optionsIndex = 0,
+): (...args: unknown[]) => CancelablePromise<R, never> {
+  return function adoptedCall(this: unknown, ...args: unknown[]): CancelablePromise<R, never> {
     const call = takeCallerSignal(args, optionsIndex);
-    return new CancelablePromise<R>(
+    return new CancelablePromise<R, never>(
       (resolve) => {
         resolve(nodeFn.apply(this, call.args) as R | PromiseLike<R>);
       },

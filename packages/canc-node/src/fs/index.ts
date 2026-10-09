@@ -91,10 +91,10 @@ function closeQuietly(value: unknown): void {
 function teardownOpen<R>(
   name: 'open' | 'opendir',
   transform?: (value: unknown) => R,
-): (...args: unknown[]) => CancelablePromise<R> {
-  return function teardownOpenCall(...args: unknown[]): CancelablePromise<R> {
+): (...args: unknown[]) => CancelablePromise<R, never> {
+  return function teardownOpenCall(...args: unknown[]): CancelablePromise<R, never> {
     let canceled = false;
-    return new CancelablePromise<R>((resolve, _reject, { handleCancel }) => {
+    return new CancelablePromise<R, never>((resolve, _reject, { handleCancel }) => {
       handleCancel(() => {
         canceled = true;
       });
@@ -114,7 +114,7 @@ function teardownOpen<R>(
         return raw;
       });
 
-      const chain = transform ? started.then(transform) : (started as CancelablePromise<R>);
+      const chain = transform ? started.then(transform) : (started as CancelablePromise<R, never>);
       resolve(chain);
     });
   };

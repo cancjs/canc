@@ -30,18 +30,18 @@ export interface ICancelableResolver {
   resolve: IResolveFn;
   resolve4: IResolve4Fn;
   resolve6: IResolve6Fn;
-  resolveAny(hostname: string): CancelablePromise<AnyRecord[]>;
-  resolveCaa(hostname: string): CancelablePromise<CaaRecord[]>;
-  resolveCname(hostname: string): CancelablePromise<string[]>;
-  resolveMx(hostname: string): CancelablePromise<MxRecord[]>;
-  resolveNaptr(hostname: string): CancelablePromise<NaptrRecord[]>;
-  resolveNs(hostname: string): CancelablePromise<string[]>;
-  resolvePtr(hostname: string): CancelablePromise<string[]>;
-  resolveSoa(hostname: string): CancelablePromise<SoaRecord>;
-  resolveSrv(hostname: string): CancelablePromise<SrvRecord[]>;
+  resolveAny(hostname: string): CancelablePromise<AnyRecord[], never>;
+  resolveCaa(hostname: string): CancelablePromise<CaaRecord[], never>;
+  resolveCname(hostname: string): CancelablePromise<string[], never>;
+  resolveMx(hostname: string): CancelablePromise<MxRecord[], never>;
+  resolveNaptr(hostname: string): CancelablePromise<NaptrRecord[], never>;
+  resolveNs(hostname: string): CancelablePromise<string[], never>;
+  resolvePtr(hostname: string): CancelablePromise<string[], never>;
+  resolveSoa(hostname: string): CancelablePromise<SoaRecord, never>;
+  resolveSrv(hostname: string): CancelablePromise<SrvRecord[], never>;
   resolveTlsa: TResolveTlsaFn;
-  resolveTxt(hostname: string): CancelablePromise<string[][]>;
-  reverse(ip: string): CancelablePromise<string[]>;
+  resolveTxt(hostname: string): CancelablePromise<string[][], never>;
+  reverse(ip: string): CancelablePromise<string[], never>;
 }
 
 /** Constructor side of {@link ICancelableResolver}, mirroring node's own `Resolver`. */
@@ -71,10 +71,10 @@ proto.constructor = CancelableResolver;
  *
  * @param name - Method on node's `Resolver.prototype`, called with our instance as its receiver.
  */
-function stoppable(name: string): (this: ICancelableResolver, ...args: unknown[]) => CancelablePromise<unknown> {
+function stoppable(name: string): (this: ICancelableResolver, ...args: unknown[]) => CancelablePromise<unknown, never> {
   const nodeMethod = (NodeResolver.prototype as unknown as Record<string, TNodeFn>)[name];
 
-  return function stoppableCall(this: ICancelableResolver, ...args: unknown[]): CancelablePromise<unknown> {
+  return function stoppableCall(this: ICancelableResolver, ...args: unknown[]): CancelablePromise<unknown, never> {
     return new CancelablePromise((resolve, _reject, { handleCancel }) => {
       // node's cancel is per resolver, not per query, so this rejects the resolver's other queries
       // too; deferring it until they finish would leave this one running, which is worse

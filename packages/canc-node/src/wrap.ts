@@ -15,9 +15,9 @@ export type TNodeFn = (...args: unknown[]) => unknown;
  *
  * @param nodeFn - Underlying node function, called with the receiver of the returned wrapper.
  */
-export function adopted<R = unknown>(nodeFn: TNodeFn): (...args: unknown[]) => CancelablePromise<R> {
-  return function adoptedCall(this: unknown, ...args: unknown[]): CancelablePromise<R> {
-    return new CancelablePromise<R>((resolve) => {
+export function adopted<R = unknown>(nodeFn: TNodeFn): (...args: unknown[]) => CancelablePromise<R, never> {
+  return function adoptedCall(this: unknown, ...args: unknown[]): CancelablePromise<R, never> {
+    return new CancelablePromise<R, never>((resolve) => {
       resolve(nodeFn.apply(this, args) as R | PromiseLike<R>);
     });
   };

@@ -23,7 +23,11 @@ export type IOutputFileSyncOptions = TWriteFileSyncParams[2];
  * @param data - File contents.
  * @param options - Encoding, mode and flag, or the encoding shorthand.
  */
-export function outputFile(path: string, data: TWriteData, options?: IOutputFileOptions): CancelablePromise<void> {
+export function outputFile(
+  path: string,
+  data: TWriteData,
+  options?: IOutputFileOptions,
+): CancelablePromise<void, never> {
   return new CancelablePromise((resolve, reject, { handleCancel }) => {
     let activePromise: CancelablePromise<unknown> | null = null;
     handleCancel((reason) => {

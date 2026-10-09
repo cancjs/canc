@@ -55,9 +55,9 @@ function classify(err: unknown): IFatal {
 export function retryOpen<T>(
   operation: (attempt: number) => PromiseLike<T> | T,
   options?: IRetryOptions,
-): CancelablePromise<T> {
+): CancelablePromise<T, never> {
   if (!getFsOptions().retryOpen) {
-    return new CancelablePromise<T>((resolve, _reject, { handleCancel }) => {
+    return new CancelablePromise<T, never>((resolve, _reject, { handleCancel }) => {
       const started = operation(1);
       if (isCancelable(started)) {
         handleCancel((reason) => started.cancel(reason));
@@ -90,7 +90,7 @@ export function retryOpen<T>(
     }
 
     return result;
-  }) as CancelablePromise<T>;
+  }) as CancelablePromise<T, never>;
 }
 
 /**
@@ -102,8 +102,8 @@ export function retryOpen<T>(
 export function withRetryOpen<T, A extends unknown[]>(
   fn: (...args: A) => PromiseLike<T> | T,
   options?: IRetryOptions,
-): (...args: A) => CancelablePromise<T> {
-  return function (...args: A): CancelablePromise<T> {
+): (...args: A) => CancelablePromise<T, never> {
+  return function (...args: A): CancelablePromise<T, never> {
     return retryOpen(() => fn(...args), options);
   };
 }

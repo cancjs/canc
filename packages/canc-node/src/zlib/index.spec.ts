@@ -14,7 +14,7 @@ type Expect<T extends true> = T;
 function typeAssertions(): unknown[] {
   const derived = zlibExports.gzip('payload');
 
-  type _Assertions = [Expect<Equal<typeof derived, CancelablePromise<Buffer>>>];
+  type _Assertions = [Expect<Equal<typeof derived, CancelablePromise<Buffer, never>>>];
 
   return [derived];
 }

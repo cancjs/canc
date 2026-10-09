@@ -73,7 +73,11 @@ function unlinkWithRetry(path: string, attempts = UNLINK_ATTEMPTS): Promise<void
  * - Does not support append mode.
  * - Does not call fsync, so guarantees hold against concurrent readers and not against a system crash.
  */
-export function replaceFile(path: string, data: TWriteData, options?: IReplaceFileOptions): CancelablePromise<void> {
+export function replaceFile(
+  path: string,
+  data: TWriteData,
+  options?: IReplaceFileOptions,
+): CancelablePromise<void, never> {
   return new CancelablePromise((resolve, reject, { handleCancel }) => {
     const dir = dirname(path);
     const base = basename(path);

@@ -536,7 +536,11 @@ export const setMaxZipContentSize = gatedWrapped(
   'sync',
 ) as (size: number) => void;
 
-function zipFilesImpl(files: readonly string[], target: string, options?: TZipFilesOptions): CancelablePromise<void> {
+function zipFilesImpl(
+  files: readonly string[],
+  target: string,
+  options?: TZipFilesOptions,
+): CancelablePromise<void, never> {
   const archive = (zlibCb.createZipArchive as (targetPath: string, opts?: TZipFilesOptions) => IZipArchiveWriter)(
     target,
     options,
