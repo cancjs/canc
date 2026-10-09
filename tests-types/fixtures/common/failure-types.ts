@@ -50,9 +50,9 @@ type _brandedReadsBrand = Assert<Eq<FailureOf<typeof branded>, MatrixError>>;
 // A value with no brand has no declared failure.
 type _unbrandedHasNoFailure = Assert<Eq<FailureOf<number>, never>>;
 
-// TReason widens to unknown only when nothing is declared.
+// TReason is `any` when nothing is declared, as on a native promise
 type _reasonOfDeclared = Assert<Eq<TReason<MatrixError>, MatrixError>>;
-type _reasonOfUndeclared = Assert<Eq<TReason<never>, unknown>>;
+type _reasonOfUndeclared = Assert<Eq<TReason<never>, any>>;
 
 // ============================================================ declared promise
 const declared = CancelablePromise.reject<number, MatrixError>(new MatrixError('test'));
