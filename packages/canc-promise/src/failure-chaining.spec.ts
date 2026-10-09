@@ -142,12 +142,13 @@ describe('failure chaining and statics', () => {
     const pTyped = CancelablePromise.resolve(1) as any as CancelablePromise<number, FooError>;
     const pTypedBoth = CancelablePromise.resolve(1) as any as CancelablePromise<number, FooError | BarError>;
 
+    // @ts-expect-error An undeclared promise does not fit a declared failure slot
     const assign1: CancelablePromise<number, FooError> = pUntyped;
     // @ts-expect-error Narrowing failure set
     const assign2: CancelablePromise<number, never> = pTyped;
 
     pUntyped.catch((_e) => {
-      const c: Eq<typeof _e, unknown> = true;
+      const c: Eq<typeof _e, any> = true;
       void c;
       return 0;
     });
