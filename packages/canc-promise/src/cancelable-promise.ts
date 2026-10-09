@@ -207,7 +207,7 @@ export interface ICancelablePromiseWithResolvers<TResult, TFailure = unknown> {
   // This one is the producer handle handed to
   // library code (coroutine drivers, adapters), which forwards whatever a foreign body threw.
   reject: (reason?: any) => void;
-  cancel: (reason?: any) => void | CancelablePromise<ISettledResult<unknown>[]>;
+  cancel: (reason?: any) => void | CancelablePromise<ISettledResult<unknown>[], never>;
 }
 
 function noop() {
@@ -1480,7 +1480,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
    * On an already-settled/canceled promise this is a silent no-op unless `strict`, which throws.
    * @param reason The cancellation reason.
    */
-  cancel(reason?: any, _disposing?: boolean): void | CancelablePromise<ISettledResult<unknown>[]> {
+  cancel(reason?: any, _disposing?: boolean): void | CancelablePromise<ISettledResult<unknown>[], never> {
     // Cascade: this cancel was triggered by an active cancel wave (bubble or cascade from
     // another cancel()).
     // Thread the existing collector instead of allocating a new one.
@@ -1564,7 +1564,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
    * @returns The handler-settlement promise in asyncCancel mode (so `[Symbol.asyncDispose]` and
    * `await using` can await cleanup); otherwise undefined.
    */
-  protected _dispose(): void | CancelablePromise<ISettledResult<unknown>[]> {
+  protected _dispose(): void | CancelablePromise<ISettledResult<unknown>[], never> {
     // Route through the instance's (possibly overridden) cancel so subclasses like the coroutine
     // finally-drain govern disposal too. `_disposing` suppresses the strict throw and marks the
     // CancelError as disposed; shielded / already-settled promises no-op inside cancel().
