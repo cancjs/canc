@@ -166,6 +166,26 @@ interface IAbortSignal {
   removeEventListener(type: 'abort', listener: any, options?: unknown): void;
 }
 
+/** Outcome of a fulfilled input in `allSettled`. Same shape as the ES2020 lib type of the same role. */
+export interface ISettledFulfilled<T> {
+  status: 'fulfilled';
+  value: T;
+}
+
+/** Outcome of a rejected input in `allSettled`. Same shape as the ES2020 lib type of the same role. */
+export interface ISettledRejected {
+  status: 'rejected';
+  reason: any;
+}
+
+/**
+ * Outcome of one input in `allSettled`.
+ *
+ * Declared here so the emitted types do not depend on the ES2020 lib, which a consumer targeting
+ * an older `lib` does not have. It has the same shape as the lib type of the same role.
+ */
+export type ISettledResult<T> = ISettledFulfilled<T> | ISettledRejected;
+
 export interface ICancelable<TResult = any> extends PromiseLike<TResult> {
   cancel(reason?: any): any;
 }
@@ -177,7 +197,7 @@ export interface ICancelablePromiseWithResolvers<TResult, TFailure = never> {
   // This one is the producer handle handed to
   // library code (coroutine drivers, adapters), which forwards whatever a foreign body threw.
   reject: (reason?: any) => void;
-  cancel: (reason?: any) => void | CancelablePromise<PromiseSettledResult<unknown>[]>;
+  cancel: (reason?: any) => void | CancelablePromise<ISettledResult<unknown>[]>;
 }
 
 function noop() {
@@ -434,19 +454,19 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
     options?: ICancelablePromiseOptions,
   ): CancelablePromise<
     {
-      -readonly [P in keyof T]: PromiseSettledResult<Awaited<T[P]>>;
+      -readonly [P in keyof T]: ISettledResult<Awaited<T[P]>>;
     },
     never
   >;
   static allSettled<T>(
     values: Iterable<T>,
     options?: ICancelablePromiseOptions,
-  ): CancelablePromise<PromiseSettledResult<Awaited<T>>[], never>;
+  ): CancelablePromise<ISettledResult<Awaited<T>>[], never>;
 
   static allSettled<T>(
     values: Iterable<T>,
     options?: ICancelablePromiseOptions,
-  ): CancelablePromise<PromiseSettledResult<any>[] | { [P in keyof any]: PromiseSettledResult<any> }, never> {
+  ): CancelablePromise<ISettledResult<any>[] | { [P in keyof any]: ISettledResult<any> }, never> {
     // Options are identical for every item, so normalize once instead of per iteration.
     // The spread stays outside any try so an iterable that throws while iterating surfaces
     // synchronously (documented behavior), not as a rejected aggregate.
@@ -461,7 +481,7 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
           this._adopt(promiseOrValue, normalizedOptions).then(
             (value) => ({ status: 'fulfilled', value }),
             (reason: unknown) => ({ status: 'rejected', reason }),
-          ) as CancelablePromise<PromiseSettledResult<any>>,
+          ) as CancelablePromise<ISettledResult<any>>,
       ),
       options,
     );
@@ -1433,7 +1453,7 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
    * On an already-settled/canceled promise this is a silent no-op unless `strict`, which throws.
    * @param reason The cancellation reason.
    */
-  cancel(reason?: any, _disposing?: boolean): void | CancelablePromise<PromiseSettledResult<unknown>[]> {
+  cancel(reason?: any, _disposing?: boolean): void | CancelablePromise<ISettledResult<unknown>[]> {
     // Cascade: this cancel was triggered by an active cancel wave (bubble or cascade from
     // another cancel()).
     // Thread the existing collector instead of allocating a new one.
@@ -1517,7 +1537,7 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
    * @returns The handler-settlement promise in asyncCancel mode (so `[Symbol.asyncDispose]` and
    * `await using` can await cleanup); otherwise undefined.
    */
-  protected _dispose(): void | CancelablePromise<PromiseSettledResult<unknown>[]> {
+  protected _dispose(): void | CancelablePromise<ISettledResult<unknown>[]> {
     // Route through the instance's (possibly overridden) cancel so subclasses like the coroutine
     // finally-drain govern disposal too. `_disposing` suppresses the strict throw and marks the
     // CancelError as disposed; shielded / already-settled promises no-op inside cancel().
