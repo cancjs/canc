@@ -386,11 +386,11 @@ describe('fromAbortSignal: awaitable abort event', () => {
     expect(fake.removeCalls).toBe(1);
   });
 
-  it('type: the return is exactly CancelablePromise<void>, nothing wider', () => {
+  it('type: the return is exactly CancelablePromise<void, never>, nothing wider', () => {
     // A wrong return type makes the annotation below a compile error.
     type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
     type TReturnIsVoidCancelable =
-      Equal<ReturnType<typeof fromAbortSignal>, CancelablePromise<void>> extends true ? true : never;
+      Equal<ReturnType<typeof fromAbortSignal>, CancelablePromise<void, never>> extends true ? true : never;
     const check: TReturnIsVoidCancelable = true;
     expect(check).toBe(true);
   });

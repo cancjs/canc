@@ -41,7 +41,7 @@ export const minDelay = tb.minDelayFactory(deps) as <T, F = never>(
 export const fromAbortSignal = tb.fromAbortSignalFactory(deps) as (
   signal: tb.IAbortSignalLike,
   options?: TEagerToolboxOptions,
-) => CancelablePromise<void>;
+) => CancelablePromise<void, never>;
 export const retry = tb.retryFactory(deps);
 export const limit = tb.limitFactory(deps);
 export const map = tb.mapFactory(deps);
@@ -53,7 +53,7 @@ export const promisifyAll = tb.promisifyAllFactory(deps);
  */
 export interface ICancelableDeferred<T> extends tb.IDeferred<T, ICancelableKind> {
   promise: CancelablePromise<T, never>;
-  cancel: (reason?: any) => void | CancelablePromise<ISettledResult<unknown>[]>;
+  cancel: (reason?: any) => void | CancelablePromise<ISettledResult<unknown>[], never>;
 }
 
 /**
