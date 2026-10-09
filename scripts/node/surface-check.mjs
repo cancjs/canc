@@ -198,7 +198,16 @@ for (const [mod, lockExports] of Object.entries(nodeLock.modules)) {
       if (majors.length >= 2) {
         const newestKeys = lockVal.optionKeys[majors[0]] || [];
         const prevKeys = lockVal.optionKeys[majors[1]] || [];
-        if (newestKeys.join(',') !== prevKeys.join(',')) {
+        const signalAdded = newestKeys.includes('signal') && !prevKeys.includes('signal');
+        // a new signal key is only safe once the wrapper forwards it for the newest major
+        const forwarded = Boolean(mentry.nodeSignal?.sinceByMajor?.[majors[0]]);
+        if (signalAdded && !forwarded) {
+          fail(
+            `Check E failed: ${mod} ${lockKey} gained a signal option in major ${majors[0]} but manifest nodeSignal.sinceByMajor has no entry for it`,
+          );
+        }
+        const comparedKeys = signalAdded ? newestKeys.filter((key) => key !== 'signal') : newestKeys;
+        if (comparedKeys.join(',') !== prevKeys.join(',')) {
           warn(
             `Check E warning: ${mod} ${lockKey} optionKeys changed from ${prevKeys.join(',')} to ${newestKeys.join(',')}`,
           );
