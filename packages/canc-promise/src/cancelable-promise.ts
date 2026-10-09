@@ -92,8 +92,12 @@ export function withFailure<TFailure>() {
  */
 export type TReason<TFailure> =
   [TFailure] extends [never] ? any
-  : unknown extends TFailure ? any
-  : TFailure;
+  : // TFailure right of `extends` is invariant on TS 4.2, test a copy
+  [TFailure] extends [infer F] ?
+    unknown extends F ?
+      any
+    : F
+  : never;
 
 export type TPromiseExecutor<TResult> = (
   resolve: (value?: TResult | PromiseLike<TResult>) => void,
@@ -114,7 +118,8 @@ export interface IExecutorContext<TResult = any, TFailure = unknown> {
 
 export type TCancelablePromiseExecutor<TResult, TFailure = unknown> = (
   resolve: (value?: TResult | PromiseLike<TResult>) => void,
-  reject: (reason?: TReason<TFailure> | CancelError) => void,
+  // bare TFailure keeps a generic failure assignable, TReason hides it behind infer
+  reject: (reason?: TFailure | TReason<TFailure> | CancelError) => void,
   ctx: IExecutorContext<TResult, TFailure>,
 ) => void;
 export type TCancelReason = string | object | CancelError;
