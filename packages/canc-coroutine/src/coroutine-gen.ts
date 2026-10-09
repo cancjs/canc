@@ -7,6 +7,7 @@ import {
   FailureOf,
   ICancelablePromiseOptions,
   isCancelError,
+  ISettledResult,
 } from '@cancjs/promise';
 
 import { isFunction, isGenerator, isObject, isThenable, setFnName } from '../../_util';
@@ -58,7 +59,7 @@ const awaited = <T = any>(value: T | TAwaited<T>): TAwaited<T> => ({
 });
 
 type TGenAwaitedTuple<T extends readonly unknown[]> = { -readonly [K in keyof T]: Awaited<T[K]> };
-type TGenSettledTuple<T extends readonly unknown[]> = { -readonly [K in keyof T]: PromiseSettledResult<Awaited<T[K]>> };
+type TGenSettledTuple<T extends readonly unknown[]> = { -readonly [K in keyof T]: ISettledResult<Awaited<T[K]>> };
 
 type ICancGenAwaitAll = <T extends readonly unknown[] | []>(
   values: readonly [...T],

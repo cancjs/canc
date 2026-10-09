@@ -6,6 +6,7 @@ import {
   FailureOf,
   ICancelablePromiseOptions,
   isCancelError,
+  ISettledResult,
 } from '@cancjs/promise';
 
 import {
@@ -620,7 +621,7 @@ type cancAwait = <T>(value: T) => T;
  * infers `[number, string]`, not `unknown[]`.
  */
 type TAwaitedTuple<T extends readonly unknown[]> = { -readonly [K in keyof T]: Awaited<T[K]> };
-type TSettledTuple<T extends readonly unknown[]> = { -readonly [K in keyof T]: PromiseSettledResult<Awaited<T[K]>> };
+type TSettledTuple<T extends readonly unknown[]> = { -readonly [K in keyof T]: ISettledResult<Awaited<T[K]>> };
 
 type ICancAwaitAll = <T extends readonly unknown[] | []>(
   values: readonly [...T],
