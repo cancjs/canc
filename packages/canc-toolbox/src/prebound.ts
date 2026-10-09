@@ -1,4 +1,4 @@
-import { CancelablePromise } from '@cancjs/promise';
+import { CancelablePromise, ISettledResult } from '@cancjs/promise';
 
 import * as tb from '../../_toolbox';
 import { deps, ICancelableKind } from './deps';
@@ -53,7 +53,7 @@ export const promisifyAll = tb.promisifyAllFactory(deps);
  */
 export interface ICancelableDeferred<T> extends tb.IDeferred<T, ICancelableKind> {
   promise: CancelablePromise<T>;
-  cancel: (reason?: any) => void | CancelablePromise<PromiseSettledResult<unknown>[]>;
+  cancel: (reason?: any) => void | CancelablePromise<ISettledResult<unknown>[]>;
 }
 
 /**
