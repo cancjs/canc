@@ -52,7 +52,7 @@ export const promisifyAll = tb.promisifyAllFactory(deps);
  * A deferred whose promise is a CancelablePromise, so the holder can cancel it directly.
  */
 export interface ICancelableDeferred<T> extends tb.IDeferred<T, ICancelableKind> {
-  promise: CancelablePromise<T>;
+  promise: CancelablePromise<T, never>;
   cancel: (reason?: any) => void | CancelablePromise<ISettledResult<unknown>[]>;
 }
 

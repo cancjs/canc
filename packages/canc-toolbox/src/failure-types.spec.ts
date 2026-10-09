@@ -60,7 +60,7 @@ function _declaredFailures(): void {
 
   // Both wrap work and neither carries its declared set, which is why the docs say so.
   const _cancelified = cancelify((_ctx, id: string) => callWork(id));
-  const _cancelifyDropsWorkFailure: Eq<ReturnType<typeof _cancelified>, CancelablePromise<number, never>> = true;
+  const _cancelifyDropsWorkFailure: Eq<ReturnType<typeof _cancelified>, CancelablePromise<number>> = true;
 
   const _lazied = lazy<number>((resolve) => resolve(callWork('x')));
   const _lazyDeclaresNothing: Eq<FailureOf<typeof _lazied>, never> = true;
