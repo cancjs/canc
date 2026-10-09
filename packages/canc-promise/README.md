@@ -258,11 +258,51 @@ Error matcher factories (`createSuppressError`, `createCatchError`, `createIsErr
 
 Declared failures can be specified or extracted using three type forms:
 
-- `CancelablePromise<TResult, TFailure>`: main class signature. `TFailure` defaults to `never`.
+- `CancelablePromise<TResult, TFailure>`: main class signature. `TFailure` defaults to `unknown`, which means the failure set is undeclared (see "Undeclared and empty failure sets" below).
 - `FailureOf<T>`: extracts the declared failure set from a promise type. For example, `FailureOf<CancelablePromise<string, HttpError>>` evaluates to `HttpError`.
 - `Failing<TFailure>`: structural interface carrying the phantom symbol key (`FAILURE`) for types that declare failures.
 
 `WithFailure<TPromise, TFailure>` declares an additional failure on a promise type without restating the existing promise type (`const declared: WithFailure<typeof promise, HttpError> = promise`). Because `WithFailure` only adds, an annotation that narrows an already-declared failure set does not compile. `withFailure<TFailure>()(promise)` is the unchecked counterpart for the direction the annotation refuses: narrowing or replacing an already-declared set. It asserts and verifies nothing, is a no-op at runtime, and exists so that direction stays a visible, greppable call instead of a cast. Do not reach for `withFailure` when only adding a failure; use the `WithFailure` annotation instead.
+
+#### Undeclared and empty failure sets
+
+Two different states both look like "no failure type", and they mean different things.
+
+A promise is undeclared when nobody stated what it rejects with. This is the default: `CancelablePromise<User>` with one type argument has `TFailure = unknown`, and `FailureOf` reads `unknown`. Code written for 1.0 and code that ignores failure typing keeps compiling as it did.
+
+A promise declares nothing when it is known not to reject with an expected failure. That is `never`, either written (`CancelablePromise<User, never>`) or computed. A handled rejection (`catch(() => 0)`, `then(onFulfilled, onRejected)`), `resolve`, `allSettled`, and `reject` with an untyped reason all produce it.
+
+How the two behave:
+
+- Mixing: a union with an undeclared member reads `unknown`. `race([undeclared, declared])` and `all([undeclared, declared])` are `unknown`. Mixes of declared promises keep the union, such as `HttpError | ValidationError`.
+- Assignability: a declared or empty promise fits a one-argument slot. An undeclared promise does not fit a declared slot, `never` included. This is an error on purpose, because the promise never claimed anything about its failures.
+- Subtraction: removing a kind from an undeclared set leaves it undeclared. `catchErrors(undeclared, HttpError)` and `catchCancel(undeclared)` stay `unknown`.
+- Reason type: for both states the callback parameter of `catch`, the second callback of `then`, and the `reject` parameter of the executor are `any`. This is deliberately loose and matches native promises, so `e.message` compiles. Only a declared failure set narrows the reason to `TFailure`.
+- Hover text: a promise you wrote with one type argument displays as `CancelablePromise<number>`. An inferred type or an error message may print `CancelablePromise<number, unknown>`, which is the same type.
+
+To declare a failure, give the second type argument. Inside the executor, `reject` then accepts `HttpError` or a `CancelError`:
+
+```ts
+function loadUser(id: string): CancelablePromise<User, HttpError> {
+  return new CancelablePromise((resolve, reject) => {
+    // resolve(user) or reject(new HttpError(...))
+  });
+}
+```
+
+`WithFailure` only adds to a declared set. On an undeclared promise it stays `unknown`, so it does not declare anything there.
+
+To pass a one-argument promise into an API that declares a failure set, assert the set with `withFailure`:
+
+```ts
+declare const legacy: CancelablePromise<User>;
+declare function render(user: CancelablePromise<User, HttpError>): void;
+
+render(legacy); // error: an undeclared promise does not fit a declared slot
+render(withFailure<HttpError>()(legacy));
+```
+
+`withFailure` checks nothing and does nothing at runtime. It records your claim that the promise rejects with `HttpError` and nothing else expected, so use it only where you know that holds.
 
 #### Error helper families
 
@@ -276,7 +316,7 @@ Error matching and suppression helpers are available in three families:
 
 #### Error callback parameter typing
 
-The `onRejected` callback parameter in `.then(onFulfilled, onRejected)` and `.catch(onRejected)` receives `TReason<TFailure>`. When no failure type is declared (`TFailure` is `never`), the parameter is typed as `unknown` instead of `any`. When a failure type is declared, the parameter is typed as `TFailure`.
+The `onRejected` callback parameter in `.then(onFulfilled, onRejected)` and `.catch(onRejected)` receives `TReason<TFailure>`. When the failure set is undeclared (`unknown`) or declares nothing (`never`), the parameter is typed as `any`, the same as on a native promise. When a failure type is declared, the parameter is typed as `TFailure`.
 
 #### Handling caught errors in try/catch
 
