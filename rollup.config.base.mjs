@@ -331,13 +331,37 @@ const createEsmConfig = (entry) => {
   return config;
 };
 
+// UMD global of a non-canc external, keyed by module id
+const THIRD_PARTY_UMD_GLOBALS = { axios: 'axios' };
+
+// @cancjs/<pkg>[/<sub>] maps to canc_<pkg>[_<sub>], the names the package configs declare.
+// Anything unmapped returns undefined so MISSING_GLOBAL_NAME fires and onwarn fails the build
+const umdGlobalName = (id) => {
+  const match = /^@cancjs\/([^/]+)(?:\/(.+))?$/.exec(id);
+
+  if (match) {
+    return `canc_${[match[1], match[2]].filter(Boolean).join('_').replace(/[-/]/g, '_')}`;
+  }
+
+  return Object.prototype.hasOwnProperty.call(THIRD_PARTY_UMD_GLOBALS, id) ? THIRD_PARTY_UMD_GLOBALS[id] : undefined;
+};
+
+const failOnMissingGlobal = (warning, warn) => {
+  if (warning.code === 'MISSING_GLOBAL_NAME') {
+    throw new Error(`No UMD global mapping: ${warning.message}`);
+  }
+  warn(warning);
+};
+
 const createUmdConfig = (entry, options = {}) => {
   const config = createCommonConfig(false, entry);
 
+  config.onwarn = failOnMissingGlobal;
   config.output = {
     file: `dist/${entry.base}.umd.js`,
     format: 'umd',
     name: options.name,
+    globals: umdGlobalName,
     exports: 'named',
     sourcemap: true,
   };
@@ -352,10 +376,12 @@ const createUmdConfig = (entry, options = {}) => {
 const createUmdMinConfig = (entry, options = {}) => {
   const config = createCommonConfig(false, entry);
 
+  config.onwarn = failOnMissingGlobal;
   config.output = {
     file: `dist/${entry.base}.umd.min.js`,
     format: 'umd',
     name: options.name,
+    globals: umdGlobalName,
     exports: 'named',
     sourcemap: true,
   };
