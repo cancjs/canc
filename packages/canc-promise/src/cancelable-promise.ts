@@ -1338,19 +1338,15 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
   catch<R extends PromiseLike<unknown>>(
     onRejected: (reason: TReason<TFailure>) => R,
   ): CancelablePromise<Awaited<TResult | R>, FailureOf<R>>;
+  catch<R = never>(onRejected: (reason: TReason<TFailure>) => R): CancelablePromise<Awaited<TResult | R>, FailureOf<R>>;
   catch<R = never>(
     onRejected?: ((reason: TReason<TFailure>) => R) | null,
-  ): CancelablePromise<Awaited<TResult | R>, FailureOf<R>>;
+  ): CancelablePromise<Awaited<TResult | R>, FailureOf<R> | TFailure>;
   catch<R = never>(
     onRejected?: ((reason: TReason<TFailure>) => R) | null,
-  ): CancelablePromise<Awaited<TResult | R>, FailureOf<R>> {
-    // `then`'s general overload widens the failure union with FailureOf<TResult> and the
-    // TResult2-extends-never fallback branch; both are provably empty here (onRejected fully
-    // replaces the rejection channel), but the compiler cannot collapse a conditional type over
-    // still-generic R/TResult to prove it.
-    // Narrowing to catch's own declared signature is a
-    // genuine boundary cast, not an unthreaded one.
-    return this.then(null, onRejected) as unknown as CancelablePromise<Awaited<TResult | R>, FailureOf<R>>;
+  ): CancelablePromise<Awaited<TResult | R>, FailureOf<R> | TFailure> {
+    // conditional types over still-generic R/TResult do not collapse to catch's own signature
+    return this.then(null, onRejected) as unknown as CancelablePromise<Awaited<TResult | R>, FailureOf<R> | TFailure>;
   }
 
   /**

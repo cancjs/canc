@@ -52,6 +52,32 @@ describe('failure chaining and statics', () => {
     void [ca, cb, cc, cce, ccl, cd, ce, cf, chain];
   });
 
+  it('keeps the declared failure on catch without a handler', async () => {
+    const _none = pFoo.catch();
+    const cNone: Eq<typeof _none, CancelablePromise<number, FooError>> = true;
+
+    const _null = pFoo.catch(null);
+    const cNull: Eq<typeof _null, CancelablePromise<number, FooError>> = true;
+
+    const _undef = pFoo.catch(undefined);
+    const cUndef: Eq<typeof _undef, CancelablePromise<number, FooError>> = true;
+
+    const maybeHandler = (() => 0) as ((reason: FooError) => number) | undefined;
+    const _maybe = pFoo.catch(maybeHandler);
+    const cMaybe: Eq<typeof _maybe, CancelablePromise<number, FooError>> = true;
+
+    const maybeFailing = (() => failsBar(1)) as ((reason: FooError) => CancelablePromise<string, BarError>) | null;
+    const _maybeFailing = pFoo.catch(maybeFailing);
+    const cMaybeFailing: Eq<typeof _maybeFailing, CancelablePromise<number | string, FooError | BarError>> = true;
+
+    void [cNone, cNull, cUndef, cMaybe, cMaybeFailing];
+
+    const fooError = new FooError();
+    const rejected = CancelablePromise.reject(fooError) as CancelablePromise<number, FooError>;
+
+    await expect(rejected.catch()).rejects.toBe(fooError);
+  });
+
   it('types static combinators and helpers correctly', () => {
     // p10-statics.ts
     const _r1 = CancelablePromise.resolve(pFoo);
