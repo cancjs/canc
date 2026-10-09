@@ -125,6 +125,17 @@ type _coFG = Assert<Eq<FailureOf<ReturnType<typeof coFG>>, FooError | BarError>>
 type _thenFG = Assert<Eq<FailureOf<typeof thenFG>, FooError | BarError>>;
 type _raceFN = Assert<Eq<FailureOf<typeof raceFN>, FooError>>;
 
+// a native promise member does not absorb the canc members
+const raceFP = CancelablePromise.race([f, Promise.resolve(3)]);
+const raceUP = CancelablePromise.race([u, Promise.resolve(3)]);
+const raceFV = CancelablePromise.race([f, 'v']);
+declare const fooList: CancelablePromise<number, FooError>[];
+const raceArrF = CancelablePromise.race(fooList);
+type _raceFP = Assert<Eq<typeof raceFP, CancelablePromise<number, FooError>>>;
+type _raceUP = Assert<Eq<typeof raceUP, CancelablePromise<number, unknown>>>;
+type _raceFV = Assert<Eq<typeof raceFV, CancelablePromise<number | string, FooError>>>;
+type _raceArrF = Assert<Eq<typeof raceArrF, CancelablePromise<number, FooError>>>;
+
 // subtracting from an undeclared failure leaves it undeclared
 const catchErrorsU = catchErrors(u, FooError);
 const catchErrorsF = catchErrors(f, FooError);
