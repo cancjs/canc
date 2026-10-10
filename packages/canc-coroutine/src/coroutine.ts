@@ -3,7 +3,6 @@ import {
   CancelablePromise,
   CancelError,
   Failing,
-  FailureOf,
   ICancelablePromiseOptions,
   isCancelError,
   ISettledResult,
@@ -19,6 +18,7 @@ import {
   IterationError,
   setFnName,
 } from '../../_util';
+import type { CoFailureOf } from './step-failure';
 
 export type TGeneratorLike<PYield = unknown, PReturn = any, PNext = unknown> = Omit<
   Generator<PYield, PReturn, PNext>,
@@ -164,7 +164,7 @@ export function cancAsync<
   TArgs extends any[] = Parameters<TFn>,
   TReturn = TCoroutineReturn<TFn>,
   TThis = any,
-  TFailure = FailureOf<TCoroutineYield<TFn>>,
+  TFailure = CoFailureOf<TCoroutineYield<TFn>>,
 >(genFn: TFn, ctx?: TThis, options?: TCoroutineOptions) {
   if (!isFunction(genFn)) {
     throw new TypeError('Argument is not a function');
@@ -626,12 +626,12 @@ type TSettledTuple<T extends readonly unknown[]> = { -readonly [K in keyof T]: I
 type ICancAwaitAll = <T extends readonly unknown[] | []>(
   values: readonly [...T],
   options?: ICancelablePromiseOptions,
-) => Generator<CancelablePromise<TAwaitedTuple<T>, FailureOf<T[number]>>, TAwaitedTuple<T>, TAwaitedTuple<T>>;
+) => Generator<CancelablePromise<TAwaitedTuple<T>, CoFailureOf<T[number]>>, TAwaitedTuple<T>, TAwaitedTuple<T>>;
 
 type ICancAwaitRace = <T extends readonly unknown[] | []>(
   values: readonly [...T],
   options?: ICancelablePromiseOptions,
-) => Generator<CancelablePromise<Awaited<T[number]>, FailureOf<T[number]>>, Awaited<T[number]>, Awaited<T[number]>>;
+) => Generator<CancelablePromise<Awaited<T[number]>, CoFailureOf<T[number]>>, Awaited<T[number]>, Awaited<T[number]>>;
 
 type ICancAwaitAny = <T extends readonly unknown[] | []>(
   values: readonly [...T],
@@ -649,7 +649,7 @@ type ICancAwaitAllSettled = <T extends readonly unknown[] | []>(
 type ICancAwaitTry = <T, TArgs extends any[]>(
   fn: (...args: TArgs) => T | PromiseLike<T>,
   ...args: TArgs
-) => Generator<CancelablePromise<Awaited<T>, FailureOf<T>>, Awaited<T>, Awaited<T>>;
+) => Generator<CancelablePromise<Awaited<T>, CoFailureOf<T>>, Awaited<T>, Awaited<T>>;
 
 export type TEachSource<T> = AsyncIterable<T> | Iterable<T | Promise<T>>;
 

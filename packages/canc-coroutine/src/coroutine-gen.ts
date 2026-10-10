@@ -4,7 +4,6 @@ import {
   CancelError,
   Failing,
   FAILURE,
-  FailureOf,
   ICancelablePromiseOptions,
   isCancelError,
   ISettledResult,
@@ -20,6 +19,7 @@ import {
   TForAwaitCallback,
   TGeneratorLike,
 } from './coroutine';
+import type { CoFailureOf } from './step-failure';
 
 export type TYieldTransformFn<T = any> = (value: any, awaited: <U>(v: U) => TAwaited<U>) => T;
 
@@ -64,12 +64,16 @@ type TGenSettledTuple<T extends readonly unknown[]> = { -readonly [K in keyof T]
 type ICancGenAwaitAll = <T extends readonly unknown[] | []>(
   values: readonly [...T],
   options?: ICancelablePromiseOptions,
-) => Generator<TAwaited<TGenAwaitedTuple<T>> & Failing<FailureOf<T[number]>>, TGenAwaitedTuple<T>, TGenAwaitedTuple<T>>;
+) => Generator<
+  TAwaited<TGenAwaitedTuple<T>> & Failing<CoFailureOf<T[number]>>,
+  TGenAwaitedTuple<T>,
+  TGenAwaitedTuple<T>
+>;
 
 type ICancGenAwaitRace = <T extends readonly unknown[] | []>(
   values: readonly [...T],
   options?: ICancelablePromiseOptions,
-) => Generator<TAwaited<Awaited<T[number]>> & Failing<FailureOf<T[number]>>, Awaited<T[number]>, Awaited<T[number]>>;
+) => Generator<TAwaited<Awaited<T[number]>> & Failing<CoFailureOf<T[number]>>, Awaited<T[number]>, Awaited<T[number]>>;
 
 type ICancGenAwaitAny = <T extends readonly unknown[] | []>(
   values: readonly [...T],
@@ -84,7 +88,7 @@ type ICancGenAwaitAllSettled = <T extends readonly unknown[] | []>(
 type ICancGenAwaitTry = <T, TArgs extends any[]>(
   fn: (...args: TArgs) => T | PromiseLike<T>,
   ...args: TArgs
-) => Generator<TAwaited<Awaited<T>> & Failing<FailureOf<T>>, Awaited<T>, Awaited<T>>;
+) => Generator<TAwaited<Awaited<T>> & Failing<CoFailureOf<T>>, Awaited<T>, Awaited<T>>;
 
 /**
  * Internal await inside a `cancGenAsync` body: suspend on `value`, resume with its resolution, typed
@@ -96,7 +100,7 @@ type ICancGenAwaitTry = <T, TArgs extends any[]>(
  * const n = yield* cancGenAwait(Promise.resolve(1)); // n: number, no cast
  */
 export interface ICancGenAwait {
-  <T>(value: T): Generator<TAwaited<Awaited<T>> & Failing<FailureOf<T>>, Awaited<T>, any>;
+  <T>(value: T): Generator<TAwaited<Awaited<T>> & Failing<CoFailureOf<T>>, Awaited<T>, any>;
   all: ICancGenAwaitAll;
   race: ICancGenAwaitRace;
   any: ICancGenAwaitAny;
@@ -176,7 +180,7 @@ export function cancGenAsync<TYield, TReturn, TArgs extends any[], TThis = any>(
 ): (
   this: TThis,
   ...args: TArgs
-) => ICancAsyncGenerator<Exclude<TYield, TAwaited<any>>, TReturn, any, FailureOf<TYield>>;
+) => ICancAsyncGenerator<Exclude<TYield, TAwaited<any>>, TReturn, any, CoFailureOf<TYield>>;
 export function cancGenAsync(
   genFn: IGeneratorLikeFn,
   options?: TCancelableCoroutineGenOptions,

@@ -1,4 +1,4 @@
-import { CancelablePromise, FailureOf } from '@cancjs/promise';
+import { CancelablePromise, FailureOf, Unlisted } from '@cancjs/promise';
 
 import { Eq } from '../../../tests-types/fixtures/common/assert-type';
 import { AsyncResult, BreakError, cancAsync, cancAwait, cancForAwait, cancThrow } from './coroutine';
@@ -84,6 +84,29 @@ const fn9 = cancAsync(function* () {
   return n;
 });
 const c9: Eq<ReturnType<typeof fn9>, CancelablePromise<number, FooError | BarError>> = true;
+
+// awaited steps: declared failures only
+declare const nat: Promise<number>;
+declare const oneArg: CancelablePromise<number>;
+declare const openSet: CancelablePromise<number, FooError | Unlisted>;
+
+const nativeOnly = cancAsync(function* () {
+  const n = yield* cancAwait(nat);
+  return n;
+});
+const cNativeOnly: Eq<ReturnType<typeof nativeOnly>, CancelablePromise<number, never>> = true;
+
+const oneArgStep = cancAsync(function* () {
+  const n = yield* cancAwait(oneArg);
+  return n;
+});
+const cOneArgStep: Eq<ReturnType<typeof oneArgStep>, CancelablePromise<number, unknown>> = true;
+
+const openSetStep = cancAsync(function* () {
+  const n = yield* cancAwait(openSet);
+  return n;
+});
+const cOpenSetStep: Eq<ReturnType<typeof openSetStep>, CancelablePromise<number, FooError>> = true;
 
 // AsyncResult strict body
 
@@ -184,6 +207,12 @@ void [
   fn7,
   c8,
   c9,
+  nativeOnly,
+  oneArgStep,
+  openSetStep,
+  cNativeOnly,
+  cOneArgStep,
+  cOpenSetStep,
   c_s1,
   cf,
   s2,
