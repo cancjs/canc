@@ -105,6 +105,41 @@ function normalize(text) {
     .trim();
 }
 
+// Union and intersection member order follows type creation order inside one program, so two
+// programs over the same declarations can print the same type with its members swapped
+function sortCombinedMembers(source) {
+  const file = ts.createSourceFile('members.ts', source, ts.ScriptTarget.ES2022, false, ts.ScriptKind.TS);
+  const rewrite = (node) => {
+    if (ts.isUnionTypeNode(node) || ts.isIntersectionTypeNode(node)) {
+      const members = node.types.map(rewrite);
+      return members.sort().join(ts.isUnionTypeNode(node) ? ' | ' : ' & ');
+    }
+    let out = '';
+    let pos = node.getStart(file);
+    ts.forEachChild(node, (child) => {
+      out += source.slice(pos, child.getStart(file)) + rewrite(child);
+      pos = child.end;
+    });
+    return out + source.slice(pos, node.end);
+  };
+  const statement = file.statements[0];
+  return statement ?
+      source.slice(0, statement.getStart(file)) + rewrite(statement) + source.slice(statement.end)
+    : source;
+}
+
+function normalizeType(text) {
+  const clean = normalize(text);
+  const prefix = 'type T = ';
+  return sortCombinedMembers(`${prefix}${clean}`).slice(prefix.length);
+}
+
+function normalizeSignature(text) {
+  const clean = normalize(text);
+  const prefix = 'type T = { ';
+  return sortCombinedMembers(`${prefix}${clean} }`).slice(prefix.length, -2);
+}
+
 function kindOf(symbol) {
   const f = symbol.flags;
   if (f & ts.SymbolFlags.Class) return 'class';
@@ -218,7 +253,7 @@ function createRenderer(program, checker, pkgPosix) {
 
   const signatureLine = (signature, kind) =>
     withDeprecation(
-      normalize(checker.signatureToString(signature, undefined, TYPE_FLAGS, kind)),
+      normalizeSignature(checker.signatureToString(signature, undefined, TYPE_FLAGS, kind)),
       hasDeprecatedTag(signature.getJsDocTags()),
     );
 
@@ -232,7 +267,7 @@ function createRenderer(program, checker, pkgPosix) {
     const readonly = declNode ? (ts.getCombinedModifierFlags(declNode) & ts.ModifierFlags.Readonly) !== 0 : false;
     const head = `${prefix}${readonly ? 'readonly ' : ''}${memberName(property)}${optional}`;
     return withDeprecation(
-      `${head}: ${normalize(checker.typeToString(type, decl, TYPE_FLAGS))}`,
+      `${head}: ${normalizeType(checker.typeToString(type, decl, TYPE_FLAGS))}`,
       isDeprecated(property),
     );
   };
@@ -288,7 +323,7 @@ function createRenderer(program, checker, pkgPosix) {
     // only a type with nothing to show even unfiltered reaches the typeToString fallback below.
     if (heritage.length === 0 && body.length === 0) body = collect(false);
     if (heritage.length === 0 && body.length === 0) {
-      body.push(normalize(checker.typeToString(type, context, TYPE_FLAGS | ts.TypeFormatFlags.InTypeAlias)));
+      body.push(normalizeType(checker.typeToString(type, context, TYPE_FLAGS | ts.TypeFormatFlags.InTypeAlias)));
     }
     return [...heritage, ...body];
   };
@@ -352,7 +387,7 @@ function createRenderer(program, checker, pkgPosix) {
         const propLines = [];
         for (const c of constituents) {
           if (isUnionOrPrimitive(c) || isLibType(c)) {
-            sigLines.push(normalize(checker.typeToString(c, decl, TYPE_FLAGS | ts.TypeFormatFlags.InTypeAlias)));
+            sigLines.push(normalizeType(checker.typeToString(c, decl, TYPE_FLAGS | ts.TypeFormatFlags.InTypeAlias)));
           } else {
             const lines = structural(c, decl);
             for (const line of lines) {
@@ -369,7 +404,7 @@ function createRenderer(program, checker, pkgPosix) {
       if (isUnionOrPrimitive(type)) {
         return {
           kind,
-          lines: [normalize(checker.typeToString(type, decl, TYPE_FLAGS | ts.TypeFormatFlags.InTypeAlias))],
+          lines: [normalizeType(checker.typeToString(type, decl, TYPE_FLAGS | ts.TypeFormatFlags.InTypeAlias))],
         };
       }
       return { kind, lines: structural(type, decl) };
@@ -379,7 +414,7 @@ function createRenderer(program, checker, pkgPosix) {
     if (isUnionOrPrimitive(type)) {
       return {
         kind,
-        lines: [normalize(checker.typeToString(type, decl, TYPE_FLAGS | ts.TypeFormatFlags.InTypeAlias))],
+        lines: [normalizeType(checker.typeToString(type, decl, TYPE_FLAGS | ts.TypeFormatFlags.InTypeAlias))],
       };
     }
     return { kind, lines: structural(type, decl) };
