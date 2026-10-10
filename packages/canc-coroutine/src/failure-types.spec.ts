@@ -108,6 +108,47 @@ const openSetStep = cancAsync(function* () {
 });
 const cOpenSetStep: Eq<ReturnType<typeof openSetStep>, CancelablePromise<number, FooError>> = true;
 
+// a declared step keeps its failure next to a native step of the same value type
+const declaredThenNative = cancAsync(function* () {
+  const n = yield* cancAwait(pFoo);
+  const m = yield* cancAwait(nat);
+  return n + m;
+});
+const cDeclaredThenNative: Eq<ReturnType<typeof declaredThenNative>, CancelablePromise<number, FooError>> = true;
+
+const nativeDeclaredThrow = cancAsync(function* () {
+  const m = yield* cancAwait(nat);
+  const n = yield* cancAwait(pFoo);
+  if (n) {
+    yield* cancThrow(new BarError());
+  }
+  return n + m;
+});
+const cNativeDeclaredThrow: Eq<FailureOf<ReturnType<typeof nativeDeclaredThrow>>, FooError | BarError> = true;
+
+const nestedDeclaredThenNative = cancAsync(function* () {
+  const n = yield* cancAwait(declaredThenNative());
+  return n;
+});
+const cNestedDeclaredThenNative: Eq<FailureOf<ReturnType<typeof nestedDeclaredThenNative>>, FooError> = true;
+
+const annotatedNativeStep = cancAsync(function* (): AsyncResult<number, FooError> {
+  const m = yield* cancAwait(nat);
+  return m;
+});
+const cAnnotatedNativeStep: Eq<ReturnType<typeof annotatedNativeStep>, CancelablePromise<number, FooError>> = true;
+
+// a loop handle step adds nothing and hides nothing
+const handleThenDeclared = cancAsync(function* () {
+  const loop = yield* cancForAwait([1, 2]);
+  for (const item of loop) {
+    void item;
+    yield* loop.next();
+  }
+  return yield* cancAwait(pFoo);
+});
+const cHandleThenDeclared: Eq<FailureOf<ReturnType<typeof handleThenDeclared>>, FooError> = true;
+
 // AsyncResult strict body
 
 // 1. strict body + bare yield of primitives
@@ -213,6 +254,15 @@ void [
   cNativeOnly,
   cOneArgStep,
   cOpenSetStep,
+  cDeclaredThenNative,
+  cNativeDeclaredThrow,
+  cNestedDeclaredThenNative,
+  cAnnotatedNativeStep,
+  cHandleThenDeclared,
+  nativeDeclaredThrow,
+  nestedDeclaredThenNative,
+  annotatedNativeStep,
+  handleThenDeclared,
   c_s1,
   cf,
   s2,

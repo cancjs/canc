@@ -670,9 +670,9 @@ export interface ICancForAwaitLoop<T> {
   /** Iterator over the already-fetched item. Never suspends, so the loop body runs in one frame. */
   [Symbol.iterator](): Iterator<T>;
   /** Pulls the next item at a coroutine cancellation point. Delegate it with `yield*`. */
-  next(): Generator<unknown, void, any>;
+  next(): Generator<Failing<never>, void, any>;
   /** Ends the iteration and finishes source cleanup at this point. Delegate it with `yield*`. */
-  return(): Generator<unknown, void, any>;
+  return(): Generator<Failing<never>, void, any>;
 }
 
 /**
@@ -688,16 +688,16 @@ export interface ICancForAwaitLoop<T> {
  * `break` and `continue`. See `ICancForAwaitLoop`.
  */
 interface ICancForAwait {
-  <T>(source: TEachSource<T>): Generator<unknown, ICancForAwaitLoop<T>, any>;
+  <T>(source: TEachSource<T>): Generator<Failing<never>, ICancForAwaitLoop<T>, any>;
   <T>(source: TEachSource<T>, cb: TForAwaitCallback<T>): Generator<Failing<BreakError>, void, any>;
   /** Collects elements into an array. */
   toArray<T>(source: TEachSource<T>): Generator<Failing<BreakError>, T[], any>;
   /** Advances the innermost open forAwait loop. Delegate it with `yield*`. */
-  next(): Generator<unknown, void, any>;
+  next(): Generator<Failing<never>, void, any>;
 }
 
 interface ICancAwait {
-  <T>(value: T): Generator<T, Awaited<T>, any>;
+  <T>(value: T): Generator<Failing<CoFailureOf<T>>, Awaited<T>, any>;
   all: ICancAwaitAll;
   race: ICancAwaitRace;
   any: ICancAwaitAny;
