@@ -16,7 +16,7 @@ name: string
 ## `ICatchErrorFn` (type)
 
 ```text
-<T>(promise: PromiseLike<T>): Promise<T | Error>
+<T>(promise: PromiseLike<T>): Promise<Error | T>
 <TError>(error: TError): TError
 ```
 
@@ -42,7 +42,7 @@ readonly isPending: boolean
 ## `ILazyPromiseOptions` (type)
 
 ```text
-signal?: IAbortSignalLike | Array<IAbortSignalLike> | undefined
+signal?: Array<IAbortSignalLike> | IAbortSignalLike | undefined
 ```
 
 ## `ILazyWithResolvers<T, TPromise extends PromiseLike<T> = LazyBase<T>>` (interface)
@@ -50,13 +50,13 @@ signal?: IAbortSignalLike | Array<IAbortSignalLike> | undefined
 ```text
 promise: TPromise
 reject: (reason?: any) => void
-resolve: (value?: T | PromiseLike<T>) => void
+resolve: (value?: PromiseLike<T> | T) => void
 ```
 
 ## `ILimited<K extends IPromiseKind = IPromiseLikeKind>` (interface)
 
 ```text
-<T, Args extends unknown[]>(fn: (...args: Args) => T | PromiseLike<T>, ...args: Args): TPromiseOf<K, T>
+<T, Args extends unknown[]>(fn: (...args: Args) => PromiseLike<T> | T, ...args: Args): TPromiseOf<K, T>
 readonly active: number
 cancel: (reason?: any) => void
 concurrency: number
@@ -73,7 +73,7 @@ stopOnError?: boolean | undefined
 ## `ISuppressErrorFn` (type)
 
 ```text
-<T>(promise: PromiseLike<T>): Promise<void | T>
+<T>(promise: PromiseLike<T>): Promise<T | void>
 <TError>(error: TError): void
 ```
 
@@ -102,13 +102,13 @@ extends LazyBase<T>
 new <T = any>(executor: TLazyExecutor<T>, options?: object | undefined): LazyPromise<T>
 static _new: <V>(executor: TLazyExecutor<V>, options?: object) => LazyBase<V>
 static _optionsChanged: (instance: LazyBase<any>, options?: object) => boolean
-static all: <V>(values: Iterable<V | PromiseLike<V>>, options?: ILazyPromiseOptions) => LazyPromise<V[]>
-static allSettled: <V>(values: Iterable<V | PromiseLike<V>>, options?: ILazyPromiseOptions) => LazyPromise<PromiseSettledResult<Awaited<V>>[]>
-static any: <V>(values: Iterable<V | PromiseLike<V>>, options?: ILazyPromiseOptions) => LazyPromise<V>
-static race: <V>(values: Iterable<V | PromiseLike<V>>, options?: ILazyPromiseOptions) => LazyPromise<V>
+static all: <V>(values: Iterable<PromiseLike<V> | V>, options?: ILazyPromiseOptions) => LazyPromise<V[]>
+static allSettled: <V>(values: Iterable<PromiseLike<V> | V>, options?: ILazyPromiseOptions) => LazyPromise<PromiseSettledResult<Awaited<V>>[]>
+static any: <V>(values: Iterable<PromiseLike<V> | V>, options?: ILazyPromiseOptions) => LazyPromise<V>
+static race: <V>(values: Iterable<PromiseLike<V> | V>, options?: ILazyPromiseOptions) => LazyPromise<V>
 static reject: <V = never>(reason?: any, options?: ILazyPromiseOptions) => LazyPromise<V>
-static resolve: <V>(value?: V | PromiseLike<V>, options?: ILazyPromiseOptions) => LazyPromise<V>
-static try: <V, TArgs extends any[]>(fn: (...args: TArgs) => V | PromiseLike<V>, ...args: TArgs) => LazyPromise<V>
+static resolve: <V>(value?: PromiseLike<V> | V, options?: ILazyPromiseOptions) => LazyPromise<V>
+static try: <V, TArgs extends any[]>(fn: (...args: TArgs) => PromiseLike<V> | V, ...args: TArgs) => LazyPromise<V>
 static withResolvers: <V>(options?: ILazyPromiseOptions) => ILazyWithResolvers<V, LazyPromise<V>>
 readonly [LAZY_PROMISE_BRAND]: true
 _afterSubscribe: () => void
@@ -123,11 +123,11 @@ _runTeardowns: (reason?: any) => void
 _start: () => PromiseLike<T>
 _state: TLazyState
 _teardowns: Array<TLazyOnCancel>
-catch: <TResult = never>(onRejected?: ((reason: any) => TResult | PromiseLike<TResult>) | null | undefined) => PromiseLike<T | TResult>
+catch: <TResult = never>(onRejected?: ((reason: any) => PromiseLike<TResult> | TResult) | null | undefined) => PromiseLike<T | TResult>
 execute: () => void
 finally: (onFinally?: (() => void) | null) => PromiseLike<T>
 started: boolean
-then: <TResult1 = T, TResult2 = never>(onFulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | null | undefined, onRejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null | undefined) => PromiseLike<TResult1 | TResult2>
+then: <TResult1 = T, TResult2 = never>(onFulfilled?: ((value: T) => PromiseLike<TResult1> | TResult1) | null | undefined, onRejected?: ((reason: any) => PromiseLike<TResult2> | TResult2) | null | undefined) => PromiseLike<TResult1 | TResult2>
 ```
 
 ## `SupersededError` (type)
@@ -141,7 +141,7 @@ name: string
 ## `TDuration` (type)
 
 ```text
-number | [min: number, max: number]
+[min: number, max: number] | number
 ```
 
 ## `TErrorConstructor` (type)
@@ -153,7 +153,7 @@ new (...args: Array<any>): any
 ## `TErrorMatcher` (type)
 
 ```text
-string | TErrorConstructor | TErrorPredicate
+TErrorConstructor | TErrorPredicate | string
 ```
 
 ## `TErrorPredicate` (type)
@@ -165,7 +165,7 @@ string | TErrorConstructor | TErrorPredicate
 ## `TLazyExecutor<T>` (type)
 
 ```text
-(resolve: (value?: T | PromiseLike<T> | undefined) => void, reject: (reason?: any) => void, handleCancel: (onCancel: TLazyOnCancel) => void): void | TLazyOnCancel
+(resolve: (value?: PromiseLike<T> | T | undefined) => void, reject: (reason?: any) => void, handleCancel: (onCancel: TLazyOnCancel) => void): TLazyOnCancel | void
 ```
 
 ## `TLazyOnCancel` (type)
@@ -177,13 +177,13 @@ string | TErrorConstructor | TErrorPredicate
 ## `TMapper<T, R>` (type)
 
 ```text
-(item: T, index: number): R | PromiseLike<R>
+(item: T, index: number): PromiseLike<R> | R
 ```
 
 ## `TTimedInput<T, K extends IPromiseKind = IPromiseLikeKind, F = never>` (type)
 
 ```text
-T | TPromiseOf<K, T, F> | PromiseLike<T> | (() => T | TPromiseOf<K, T, F> | PromiseLike<T>)
+(() => PromiseLike<T> | T | TPromiseOf<K, T, F>) | PromiseLike<T> | T | TPromiseOf<K, T, F>
 ```
 
 ## `TimeoutError` (type)
@@ -197,14 +197,14 @@ name: string
 ## `catchAbort` (const)
 
 ```text
-<T>(promise: PromiseLike<T>): Promise<T | Error>
+<T>(promise: PromiseLike<T>): Promise<Error | T>
 <TError>(error: TError): TError
 ```
 
 ## `catchTimeout` (const)
 
 ```text
-<T>(promise: PromiseLike<T>): Promise<T | Error>
+<T>(promise: PromiseLike<T>): Promise<Error | T>
 <TError>(error: TError): TError
 ```
 
@@ -217,7 +217,7 @@ name: string
 ## `createLazyPromise<T = any>` (function)
 
 ```text
-<T = any>(value: T | PromiseLike<T> | (() => T | PromiseLike<T>), options?: IAbortSignalOptions | undefined): LazyPromise<T>
+<T = any>(value: (() => PromiseLike<T> | T) | PromiseLike<T> | T, options?: IAbortSignalOptions | undefined): LazyPromise<T>
 ```
 
 ## `createSuppressError` (const)
@@ -229,7 +229,7 @@ name: string
 ## `debounce` (const)
 
 ```text
-<Args extends unknown[], R, F = never>(fn: (...args: Args) => R | PromiseLike<R>, ms: number, options?: IDebounceOptions | undefined): IDebounced<Args, R, IPromiseLikeKind, F>
+<Args extends unknown[], R, F = never>(fn: (...args: Args) => PromiseLike<R> | R, ms: number, options?: IDebounceOptions | undefined): IDebounced<Args, R, IPromiseLikeKind, F>
 ```
 
 ## `defer` (const)
@@ -314,27 +314,27 @@ name: string
 ## `retry` (const)
 
 ```text
-<T, F = never>(input: (attempt: number) => T | Promise<T> | PromiseLike<T>, options?: IRetryOptions<INativeKind> | undefined): Promise<T>
+<T, F = never>(input: (attempt: number) => Promise<T> | PromiseLike<T> | T, options?: IRetryOptions<INativeKind> | undefined): Promise<T>
 ```
 
 ## `suppressAbort` (const)
 
 ```text
-<T>(promise: PromiseLike<T>): Promise<void | T>
+<T>(promise: PromiseLike<T>): Promise<T | void>
 <TError>(error: TError): void
 ```
 
 ## `suppressTimeout` (const)
 
 ```text
-<T>(promise: PromiseLike<T>): Promise<void | T>
+<T>(promise: PromiseLike<T>): Promise<T | void>
 <TError>(error: TError): void
 ```
 
 ## `throttle` (const)
 
 ```text
-<Args extends unknown[], R, F = never>(fn: (...args: Args) => R | PromiseLike<R>, ms: number, options?: IThrottleOptions | undefined): IThrottled<Args, R, IPromiseLikeKind, F>
+<Args extends unknown[], R, F = never>(fn: (...args: Args) => PromiseLike<R> | R, ms: number, options?: IThrottleOptions | undefined): IThrottled<Args, R, IPromiseLikeKind, F>
 ```
 
 ## `timeout` (const)
