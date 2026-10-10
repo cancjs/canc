@@ -76,8 +76,8 @@ catch: { <R extends PromiseLike<unknown>>(onRejected: (reason: ICancError & { re
 finally: (onFinally?: (() => void | PromiseLike<unknown>) | null) => CancelablePromise<IFetchLaterResultLike, ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }>
 forceCancelable: boolean
 handleCancel: (onCancel: TOnCancel, options?: IHandleCancelOptions) => CancelablePromise<IFetchLaterResultLike, ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }>
-isCancelable: boolean
-isCanceled: boolean
+isCancelable: boolean // @deprecated
+isCanceled: boolean // @deprecated
 options: Required<ICancelablePromiseFlagOptions>
 readonly [CANCEL_PROMISE_BRAND]: true
 readonly [FAILURE]?: (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | undefined
