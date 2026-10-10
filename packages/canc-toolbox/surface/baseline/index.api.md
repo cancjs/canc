@@ -19,10 +19,10 @@ stack?: string | undefined
 
 ```text
 extends tb.IDeferred<T, ICancelableKind>
-cancel: (reason?: any) => void | CancelablePromise<PromiseSettledResult<unknown>[]>
+cancel: (reason?: any) => CancelablePromise<PromiseSettledResult<unknown>[]> | void
 promise: CancelablePromise<T, never>
 reject: (reason?: any) => void
-resolve: (value: T | PromiseLike<T>) => void
+resolve: (value: PromiseLike<T> | T) => void
 ```
 
 ## `ICancelableLazyWithResolvers<T>` (interface)
@@ -32,7 +32,7 @@ extends ILazyWithResolvers<T, LazyPromise<T>>
 cancel: TLazyOnCancel
 promise: LazyPromise<T>
 reject: (reason?: any) => void
-resolve: (value?: T | PromiseLike<T> | undefined) => void
+resolve: (value?: PromiseLike<T> | T | undefined) => void
 ```
 
 ## `ICancelifyContext` (interface)
@@ -53,8 +53,8 @@ displayName?: string | undefined
 ## `ICatchErrorFn<M extends readonly TErrorMatcher[] = readonly TErrorMatcher[]>` (interface)
 
 ```text
-<TResult, TFailure>(promise: CancelablePromise<TResult, TFailure>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<TResult | MatchedError<M[number]>, Exclude<TFailure, SubtractedError<M[number]>>>
-<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<TResult | MatchedError<M[number]>, never>
+<TResult, TFailure>(promise: CancelablePromise<TResult, TFailure>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<MatchedError<M[number]> | TResult, Exclude<TFailure, SubtractedError<M[number]>>>
+<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<MatchedError<M[number]> | TResult, never>
 <TError>(error: TError, options?: ICancelablePromiseOptions | undefined): [Extract<TError, MatchedError<M[number]>>] extends [never] ? MatchedError<M[number]> : Extract<TError, MatchedError<M[number]>>
 ```
 
@@ -82,7 +82,7 @@ readonly isPending: boolean
 ```text
 promise: TPromiseOf<K, T, F>
 reject: (reason?: any) => void
-resolve: (value: T | PromiseLike<T>) => void
+resolve: (value: PromiseLike<T> | T) => void
 ```
 
 ## `IExecutorCtx` (interface)
@@ -104,13 +104,13 @@ resettable?: boolean | undefined
 ```text
 promise: TPromise
 reject: (reason?: any) => void
-resolve: (value?: T | PromiseLike<T>) => void
+resolve: (value?: PromiseLike<T> | T) => void
 ```
 
 ## `ILimited<K extends IPromiseKind = IPromiseLikeKind>` (interface)
 
 ```text
-<T, Args extends unknown[]>(fn: (...args: Args) => T | PromiseLike<T>, ...args: Args): TPromiseOf<K, T>
+<T, Args extends unknown[]>(fn: (...args: Args) => PromiseLike<T> | T, ...args: Args): TPromiseOf<K, T>
 readonly active: number
 cancel: (reason?: any) => void
 concurrency: number
@@ -132,14 +132,14 @@ AbortController?: TAbortControllerCtor | undefined
 custom?: boolean | undefined
 displayName?: string | undefined
 errorFirst?: boolean | undefined
-exclude?: Array<string | RegExp> | undefined
+exclude?: Array<RegExp | string> | undefined
 excludeMain?: boolean | undefined
 handleCancel?: ((handle: any, args: any[], getSignal: TGetSignal, reason?: any) => void) | undefined
-include?: Array<string | RegExp> | undefined
+include?: Array<RegExp | string> | undefined
 lazy?: boolean | undefined
 mode?: "clone" | "merge" | "overwrite" | undefined
-multiArgs?: boolean | Array<string> | undefined
-signal?: IAbortSignalLike | Array<IAbortSignalLike> | undefined
+multiArgs?: Array<string> | boolean | undefined
+signal?: Array<IAbortSignalLike> | IAbortSignalLike | undefined
 suffix?: string | undefined
 transformArgs?: ((args: any[], getSignal: TGetSignal) => any[]) | undefined
 transformName?: ((name: string) => string) | undefined
@@ -154,8 +154,8 @@ displayName?: string | undefined
 errorFirst?: boolean | undefined
 handleCancel?: ((handle: any, args: any[], getSignal: TGetSignal, reason?: any) => void) | undefined
 lazy?: boolean | undefined
-multiArgs?: boolean | Array<string> | undefined
-signal?: IAbortSignalLike | Array<IAbortSignalLike> | undefined
+multiArgs?: Array<string> | boolean | undefined
+signal?: Array<IAbortSignalLike> | IAbortSignalLike | undefined
 transformArgs?: ((args: any[], getSignal: TGetSignal) => any[]) | undefined
 ```
 
@@ -167,21 +167,21 @@ TTimersOverride & { AbortController?: TAbortControllerCtor; TimeoutError?: typeo
 delay?: ((ctx: IRetryContext & { computedDelay: number; }) => number | undefined) | undefined
 factor?: number | undefined
 initialDelay?: number | undefined
-jitter?: number | boolean | undefined
+jitter?: boolean | number | undefined
 lazy?: boolean | undefined
 maxDelay?: number | undefined
 maxTimeout?: number | undefined // @deprecated
 minTimeout?: number | undefined // @deprecated
 onRetry?: ((reason: any, attempt: number, delay: number) => void) | undefined
 retries?: number | undefined
-shouldRetry?: ((reason: any, ctx: IRetryContext) => boolean | PromiseLike<boolean>) | undefined
+shouldRetry?: ((reason: any, ctx: IRetryContext) => PromiseLike<boolean> | boolean) | undefined
 ```
 
 ## `ISuppressErrorFn<M extends readonly TErrorMatcher[] = readonly TErrorMatcher[]>` (interface)
 
 ```text
-<TResult, TFailure>(promise: CancelablePromise<TResult, TFailure>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<void | TResult, Exclude<TFailure, SubtractedError<M[number]>>>
-<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<void | TResult, never>
+<TResult, TFailure>(promise: CancelablePromise<TResult, TFailure>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<TResult | void, Exclude<TFailure, SubtractedError<M[number]>>>
+<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<TResult | void, never>
 <TError>(error: TError, options?: ICancelablePromiseOptions | undefined): void
 ```
 
@@ -226,13 +226,13 @@ extends LazyBase<T>
 new <T = any>(executor: TLazyExecutor<T>, options?: ILazyPromiseOptions | undefined): LazyPromise<T>
 static _new: <V>(executor: TLazyExecutor<V>, options?: object) => LazyBase<V>
 static _optionsChanged: (instance: LazyBase<any>, options?: object) => boolean
-static all: <V>(values: Iterable<V | PromiseLike<V>>, options?: ILazyPromiseOptions) => LazyPromise<V[]>
-static allSettled: <V>(values: Iterable<V | PromiseLike<V>>, options?: ILazyPromiseOptions) => LazyPromise<PromiseSettledResult<Awaited<V>>[]>
-static any: <V>(values: Iterable<V | PromiseLike<V>>, options?: ILazyPromiseOptions) => LazyPromise<V>
-static race: <V>(values: Iterable<V | PromiseLike<V>>, options?: ILazyPromiseOptions) => LazyPromise<V>
+static all: <V>(values: Iterable<PromiseLike<V> | V>, options?: ILazyPromiseOptions) => LazyPromise<V[]>
+static allSettled: <V>(values: Iterable<PromiseLike<V> | V>, options?: ILazyPromiseOptions) => LazyPromise<PromiseSettledResult<Awaited<V>>[]>
+static any: <V>(values: Iterable<PromiseLike<V> | V>, options?: ILazyPromiseOptions) => LazyPromise<V>
+static race: <V>(values: Iterable<PromiseLike<V> | V>, options?: ILazyPromiseOptions) => LazyPromise<V>
 static reject: <V = never>(reason?: any, options?: ILazyPromiseOptions) => LazyPromise<V>
-static resolve: <V>(value?: V | PromiseLike<V>, options?: ILazyPromiseOptions) => LazyPromise<V>
-static try: <V, TArgs extends any[]>(fn: (...args: TArgs) => V | PromiseLike<V>, ...args: TArgs) => LazyPromise<V>
+static resolve: <V>(value?: PromiseLike<V> | V, options?: ILazyPromiseOptions) => LazyPromise<V>
+static try: <V, TArgs extends any[]>(fn: (...args: TArgs) => PromiseLike<V> | V, ...args: TArgs) => LazyPromise<V>
 static withResolvers: <V>(options?: ILazyPromiseOptions) => ICancelableLazyWithResolvers<V>
 readonly [LAZY_PROMISE_BRAND]: true
 _afterSubscribe: () => void
@@ -253,11 +253,11 @@ _start: () => PromiseLike<T>
 _state: TLazyState
 _teardowns: Array<TLazyOnCancel>
 cancel: (reason?: any) => void
-catch: <TResult = never>(onRejected?: ((reason: any) => TResult | PromiseLike<TResult>) | null | undefined) => PromiseLike<T | TResult>
+catch: <TResult = never>(onRejected?: ((reason: any) => PromiseLike<TResult> | TResult) | null | undefined) => PromiseLike<T | TResult>
 execute: () => void
 finally: (onFinally?: (() => void) | null) => PromiseLike<T>
 started: boolean
-then: <TResult1 = T, TResult2 = never>(onFulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | null | undefined, onRejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null | undefined) => PromiseLike<TResult1 | TResult2>
+then: <TResult1 = T, TResult2 = never>(onFulfilled?: ((value: T) => PromiseLike<TResult1> | TResult1) | null | undefined, onRejected?: ((reason: any) => PromiseLike<TResult2> | TResult2) | null | undefined) => PromiseLike<TResult1 | TResult2>
 ```
 
 ## `SupersededError` (type)
@@ -277,13 +277,13 @@ name: string
 ## `TCancelifyFn<A extends any[], R>` (type)
 
 ```text
-(ctx: ICancelifyContext, ...args: A): R | PromiseLike<R>
+(ctx: ICancelifyContext, ...args: A): PromiseLike<R> | R
 ```
 
 ## `TDuration` (type)
 
 ```text
-number | [min: number, max: number]
+[min: number, max: number] | number
 ```
 
 ## `TEagerToolboxOptions` (type)
@@ -293,7 +293,7 @@ asyncCancel?: boolean | undefined
 bubble?: boolean | undefined
 forceCancelable?: boolean | undefined
 shield?: boolean | undefined
-signal?: IAbortSignal | Array<IAbortSignal> | undefined
+signal?: Array<IAbortSignal> | IAbortSignal | undefined
 strict?: boolean | undefined
 ```
 
@@ -306,7 +306,7 @@ new (...args: Array<any>): any
 ## `TErrorMatcher` (type)
 
 ```text
-string | TErrorConstructor | TErrorPredicate
+TErrorConstructor | TErrorPredicate | string
 ```
 
 ## `TErrorPredicate` (type)
@@ -324,7 +324,7 @@ string | TErrorConstructor | TErrorPredicate
 ## `TLazyExecutor<T>` (type)
 
 ```text
-(resolve: (value?: T | PromiseLike<T> | undefined) => void, reject: (reason?: any) => void, handleCancel: (onCancel: TLazyOnCancel) => void): void | TLazyOnCancel
+(resolve: (value?: PromiseLike<T> | T | undefined) => void, reject: (reason?: any) => void, handleCancel: (onCancel: TLazyOnCancel) => void): TLazyOnCancel | void
 ```
 
 ## `TLazyOnCancel` (type)
@@ -336,19 +336,19 @@ string | TErrorConstructor | TErrorPredicate
 ## `TMapper<T, R>` (type)
 
 ```text
-(item: T, index: number): R | PromiseLike<R>
+(item: T, index: number): PromiseLike<R> | R
 ```
 
 ## `TTimedInput<T, K extends IPromiseKind = IPromiseLikeKind, F = never>` (type)
 
 ```text
-T | TPromiseOf<K, T, F> | PromiseLike<T> | (() => T | TPromiseOf<K, T, F> | PromiseLike<T>)
+(() => PromiseLike<T> | T | TPromiseOf<K, T, F>) | PromiseLike<T> | T | TPromiseOf<K, T, F>
 ```
 
 ## `TToolboxExecutor<T>` (type)
 
 ```text
-(resolve: (value: T | PromiseLike<T>) => void, reject: (reason?: any) => void, ctx?: IExecutorCtx | undefined): void
+(resolve: (value: PromiseLike<T> | T) => void, reject: (reason?: any) => void, ctx?: IExecutorCtx | undefined): void
 ```
 
 ## `TimeoutError` (type)
@@ -378,8 +378,8 @@ stack?: string | undefined
 ## `catchTimeout` (const)
 
 ```text
-<TResult, TFailure>(promise: CancelablePromise<TResult, TFailure>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<TResult | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }), Exclude<TFailure, ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }>>
-<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<TResult | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }), never>
+<TResult, TFailure>(promise: CancelablePromise<TResult, TFailure>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<(ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | TResult, Exclude<TFailure, ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }>>
+<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<(ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | TResult, never>
 <TError>(error: TError, options?: ICancelablePromiseOptions | undefined): [Extract<TError, ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }>] extends [never] ? ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; } : Extract<TError, ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }>
 ```
 
@@ -398,7 +398,7 @@ stack?: string | undefined
 ## `createLazyPromise<T = any>` (function)
 
 ```text
-<T = any>(value: T | PromiseLike<T> | (() => T | PromiseLike<T>), options?: ILazyPromiseOptions | undefined): LazyPromise<T>
+<T = any>(value: (() => PromiseLike<T> | T) | PromiseLike<T> | T, options?: ILazyPromiseOptions | undefined): LazyPromise<T>
 ```
 
 ## `createSuppressError<M extends readonly TErrorMatcher[]>` (function)
@@ -410,7 +410,7 @@ stack?: string | undefined
 ## `debounce` (const)
 
 ```text
-<Args extends unknown[], R, F = never>(fn: (...args: Args) => R | CancelablePromise<R, F> | PromiseLike<R>, ms: number, options?: IDebounceOptions | undefined): IDebounced<Args, R, ICancelableKind, F>
+<Args extends unknown[], R, F = never>(fn: (...args: Args) => CancelablePromise<R, F> | PromiseLike<R> | R, ms: number, options?: IDebounceOptions | undefined): IDebounced<Args, R, ICancelableKind, F>
 ```
 
 ## `defer` (const)
@@ -495,36 +495,36 @@ stack?: string | undefined
 ## `retry` (const)
 
 ```text
-<T, F = never>(input: (attempt: number) => T | CancelablePromise<T, F> | PromiseLike<T>, options?: IRetryOptions<ICancelableKind> | undefined): CancelablePromise<T, F>
+<T, F = never>(input: (attempt: number) => CancelablePromise<T, F> | PromiseLike<T> | T, options?: IRetryOptions<ICancelableKind> | undefined): CancelablePromise<T, F>
 ```
 
 ## `suppressAbort` (const)
 
 ```text
-<TResult, TFailure>(promise: CancelablePromise<TResult, TFailure>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<void | TResult, Exclude<TFailure, ICancError & { readonly _cancErrorBrand: "@cancjs/promise:AbortError"; }>>
-<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<void | TResult, never>
+<TResult, TFailure>(promise: CancelablePromise<TResult, TFailure>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<TResult | void, Exclude<TFailure, ICancError & { readonly _cancErrorBrand: "@cancjs/promise:AbortError"; }>>
+<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<TResult | void, never>
 <TError>(error: TError, options?: ICancelablePromiseOptions | undefined): void
 ```
 
 ## `suppressTimeout` (const)
 
 ```text
-<TResult, TFailure>(promise: CancelablePromise<TResult, TFailure>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<void | TResult, Exclude<TFailure, ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }>>
-<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<void | TResult, never>
+<TResult, TFailure>(promise: CancelablePromise<TResult, TFailure>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<TResult | void, Exclude<TFailure, ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }>>
+<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<TResult | void, never>
 <TError>(error: TError, options?: ICancelablePromiseOptions | undefined): void
 ```
 
 ## `throttle` (const)
 
 ```text
-<Args extends unknown[], R, F = never>(fn: (...args: Args) => R | CancelablePromise<R, F> | PromiseLike<R>, ms: number, options?: IThrottleOptions | undefined): IThrottled<Args, R, ICancelableKind, F>
+<Args extends unknown[], R, F = never>(fn: (...args: Args) => CancelablePromise<R, F> | PromiseLike<R> | R, ms: number, options?: IThrottleOptions | undefined): IThrottled<Args, R, ICancelableKind, F>
 ```
 
 ## `timeout` (const)
 
 ```text
 (ms: TDuration, options?: (IToolboxOptions & TCallDeps) | undefined): CancelablePromise<never, ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }>
-<T, F = never>(input: TTimedInput<T>, ms?: TDuration | undefined, options?: (IToolboxOptions & TCallDeps) | undefined): CancelablePromise<T, F | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; })>
+<T, F = never>(input: TTimedInput<T>, ms?: TDuration | undefined, options?: (IToolboxOptions & TCallDeps) | undefined): CancelablePromise<T, (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | F>
 ```
 
 ## `toAbortSignal` (function)
@@ -542,5 +542,5 @@ stack?: string | undefined
 ## `withSignal<T>` (function)
 
 ```text
-<T>(signal: AbortSignal | undefined, promiseOrFn: T | ((signal?: AbortSignal | undefined) => T | PromiseLike<T>) | PromiseLike<T>): Promise<T>
+<T>(signal: AbortSignal | undefined, promiseOrFn: ((signal?: AbortSignal | undefined) => PromiseLike<T> | T) | PromiseLike<T> | T): Promise<T>
 ```
