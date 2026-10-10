@@ -1,7 +1,7 @@
 // Runs by CI, cron, or hand, over the built declarations rather than over src.
 // Resolution relies on node_modules/@cancjs/* symlinks of the checkout it runs in;
 // always run in the tree that built dist.
-// Known limits: JSDoc/@deprecated and non-exported helper type shapes are not recorded.
+// Known limit: non-exported helper type shapes are not recorded.
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
@@ -144,6 +144,21 @@ function heritageLines(decl) {
   return clauses.map((clause) => normalize(clause.getText()));
 }
 
+const DEPRECATED_MARK = '// @deprecated';
+
+function hasDeprecatedTag(tags) {
+  return !!tags && tags.some((t) => t.name === 'deprecated');
+}
+
+function isDeprecated(symbol) {
+  return hasDeprecatedTag(symbol.getJsDocTags());
+}
+
+// A suffix, never a prefix: member lines are classified and sorted by their first characters
+function withDeprecation(line, deprecated) {
+  return deprecated ? `${line} ${DEPRECATED_MARK}` : line;
+}
+
 function typeParametersOf(symbol) {
   for (const decl of symbol.declarations || []) {
     if (decl.typeParameters && decl.typeParameters.length > 0) {
@@ -202,7 +217,10 @@ function createRenderer(program, checker, pkgPosix) {
   };
 
   const signatureLine = (signature, kind) =>
-    normalize(checker.signatureToString(signature, undefined, TYPE_FLAGS, kind));
+    withDeprecation(
+      normalize(checker.signatureToString(signature, undefined, TYPE_FLAGS, kind)),
+      hasDeprecatedTag(signature.getJsDocTags()),
+    );
 
   const propertyLine = (property, prefix = '') => {
     const decl = property.declarations?.[0];
@@ -213,7 +231,10 @@ function createRenderer(program, checker, pkgPosix) {
     const declNode = decl ?? property.valueDeclaration;
     const readonly = declNode ? (ts.getCombinedModifierFlags(declNode) & ts.ModifierFlags.Readonly) !== 0 : false;
     const head = `${prefix}${readonly ? 'readonly ' : ''}${memberName(property)}${optional}`;
-    return `${head}: ${normalize(checker.typeToString(type, decl, TYPE_FLAGS))}`;
+    return withDeprecation(
+      `${head}: ${normalize(checker.typeToString(type, decl, TYPE_FLAGS))}`,
+      isDeprecated(property),
+    );
   };
 
   // `filterOwn` defaults on (the normal path); the false-cased call is the unfiltered safety net
@@ -307,9 +328,14 @@ function createRenderer(program, checker, pkgPosix) {
           const declNode = m.valueDeclaration || m.declarations?.[0];
           const val = declNode ? checker.getConstantValue(declNode) : undefined;
           if (val !== undefined) {
-            lines.push(`${m.getName()} = ${typeof val === 'string' ? JSON.stringify(val) : val}`);
+            lines.push(
+              withDeprecation(
+                `${m.getName()} = ${typeof val === 'string' ? JSON.stringify(val) : val}`,
+                isDeprecated(m),
+              ),
+            );
           } else {
-            lines.push(`${m.getName()}`);
+            lines.push(withDeprecation(m.getName(), isDeprecated(m)));
           }
         }
       }
@@ -406,7 +432,13 @@ function renderBaseline(subpath, dtsRelative, program, checker, pkgName, pkgDir,
     const target = exported.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(exported) : exported;
     const internal = isInternal(exported) || isInternal(target);
     const { kind, lines } = render(target);
-    const entry = { name: exported.getName(), kind, params: typeParametersOf(target), lines };
+    const deprecated = isDeprecated(exported) || isDeprecated(target);
+    const entry = {
+      name: exported.getName(),
+      kind,
+      params: typeParametersOf(target),
+      lines: deprecated ? [DEPRECATED_MARK, ...lines] : lines,
+    };
     if (internal) internalExports.push(entry);
     else publicExports.push(entry);
   }
