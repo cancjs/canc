@@ -181,20 +181,27 @@ declare function takeAbort(p: CancelablePromise<number, AbortError>): void;
 declare function takeBar(p: CancelablePromise<number, BarError>): void;
 declare const timedOut: CancelablePromise<number, TimeoutError>;
 
+// prettier-ignore
 // @ts-expect-error undeclared into a declared slot
 takeFoo(u);
+// prettier-ignore
 // @ts-expect-error undeclared into a declares-nothing slot
 takeNever(u);
+// prettier-ignore
 // @ts-expect-error undeclared into a declared annotation
 export const undeclaredIntoFoo: CancelablePromise<number, FooError> = u;
+// prettier-ignore
 // @ts-expect-error mix with an undeclared member into a declared slot
 takeFoo(raceUF);
 
 // declared mismatches still error
+// prettier-ignore
 // @ts-expect-error branded mismatch
 takeAbort(timedOut);
+// prettier-ignore
 // @ts-expect-error name mismatch
 takeBar(f);
+// prettier-ignore
 // @ts-expect-error declared executor rejects outside its set
 export const outsideSet = new CancelablePromise<number, FooError>((_r, rej) => rej(new BarError()));
 
