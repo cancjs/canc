@@ -44,7 +44,7 @@ stack?: string | undefined
 _abortListeners?: Map<IAbortSignal, any> | undefined
 _abortSignals?: Array<IAbortSignal> | undefined
 _addChainRef: (bubbleOnComplete?: boolean) => (() => void) | undefined
-_boundCancel?: ((reason?: any, _disposing?: boolean) => void | CancelablePromise<PromiseSettledResult<unknown>[]>) | undefined
+_boundCancel?: ((reason?: any, _disposing?: boolean) => CancelablePromise<PromiseSettledResult<unknown>[]> | void) | undefined
 _cancel: (reason?: any, disposing?: boolean, collector?: any[]) => void
 _cancelHandlers?: Array<TOnCancel> | undefined
 _canceledReason: any
@@ -53,9 +53,9 @@ _chainInput: (resultPromise: CancelablePromise<any, any>, bubbleOnComplete?: boo
 _chainsCount: number
 _collector?: Array<any> | undefined
 _completedChainsCount: number
-_dispose: () => void | CancelablePromise<PromiseSettledResult<unknown>[]>
+_dispose: () => CancelablePromise<PromiseSettledResult<unknown>[]> | void
 _flags: number
-_getBoundCancel: () => (reason?: any, _disposing?: boolean) => void | CancelablePromise<PromiseSettledResult<unknown>[]>
+_getBoundCancel: () => (reason?: any, _disposing?: boolean) => CancelablePromise<PromiseSettledResult<unknown>[]> | void
 _internalState: TCancelablePromiseStates
 _isCanceledReasonSet: boolean
 _pendingSyncCancel: boolean
@@ -66,14 +66,14 @@ _runCancellation: (reason?: any, collector?: any[]) => void
 _runSettlementEffects: () => void
 _setFlag: any
 _subscribe: (onFulfilled?: ((value: IFetchLaterResultLike) => any) | null | undefined, onRejected?: ((reason: any) => any) | null) => void
-_then: <TResult1 = IFetchLaterResultLike, TResult2 = never>(onFulfilled?: ((value: IFetchLaterResultLike) => TResult1) | null | undefined, onRejected?: ((reason: ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) => TResult2) | null | undefined) => CancelablePromise<Awaited<TResult1> | Awaited<TResult2>, FailureOf<TResult1> | FailureOf<TResult2> | ([TResult2] extends [never] ? ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; } : never)>
+_then: <TResult1 = IFetchLaterResultLike, TResult2 = never>(onFulfilled?: ((value: IFetchLaterResultLike) => TResult1) | null | undefined, onRejected?: ((reason: ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) => TResult2) | null | undefined) => CancelablePromise<Awaited<TResult1> | Awaited<TResult2>, ([TResult2] extends [never] ? ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; } : never) | FailureOf<TResult1> | FailureOf<TResult2>>
 asyncCancel: boolean
 bubble: boolean
-cancel: (reason?: any, _disposing?: boolean) => void | CancelablePromise<PromiseSettledResult<unknown>[]>
+cancel: (reason?: any, _disposing?: boolean) => CancelablePromise<PromiseSettledResult<unknown>[]> | void
 cancelable: boolean
 canceled: boolean
-catch: { <R extends PromiseLike<unknown>>(onRejected: (reason: ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) => R): CancelablePromise<IFetchLaterResultLike | Awaited<R>, FailureOf<R>>; <R = never>(onRejected?: ((reason: ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) => R) | null | undefined): CancelablePromise<IFetchLaterResultLike | Awaited<R>, FailureOf<R>>; }
-finally: (onFinally?: (() => void | PromiseLike<unknown>) | null) => CancelablePromise<IFetchLaterResultLike, ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }>
+catch: { <R extends PromiseLike<unknown>>(onRejected: (reason: ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) => R): CancelablePromise<Awaited<R> | IFetchLaterResultLike, FailureOf<R>>; <R = never>(onRejected?: ((reason: ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) => R) | null | undefined): CancelablePromise<Awaited<R> | IFetchLaterResultLike, FailureOf<R>>; }
+finally: (onFinally?: (() => PromiseLike<unknown> | void) | null) => CancelablePromise<IFetchLaterResultLike, ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }>
 forceCancelable: boolean
 handleCancel: (onCancel: TOnCancel, options?: IHandleCancelOptions) => CancelablePromise<IFetchLaterResultLike, ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }>
 isCancelable: boolean // @deprecated
@@ -85,7 +85,7 @@ readonly [toStringTag]: string
 readonly activated: boolean | null
 shield: boolean
 strict: boolean
-then: { <TResult1 extends PromiseLike<unknown>, TResult2 extends PromiseLike<unknown>>(onFulfilled: (value: IFetchLaterResultLike) => TResult1, onRejected: (reason: ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) => TResult2): CancelablePromise<Awaited<TResult1> | Awaited<TResult2>, FailureOf<TResult1> | FailureOf<TResult2>>; <TResult1 extends PromiseLike<unknown>, TResult2 = never>(onFulfilled: (value: IFetchLaterResultLike) => TResult1, onRejected?: ((reason: ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) => TResult2) | null | undefined): CancelablePromise<Awaited<TResult1> | Awaited<TResult2>, FailureOf<TResult1> | FailureOf<TResult2> | ([TResult2] extends [never] ? ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; } : never)>; <TResult1 = IFetchLaterResultLike, TResult2 extends PromiseLike<unknown> = never>(onFulfilled: ((value: IFetchLaterResultLike) => TResult1) | null | undefined, onRejected: (reason: ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) => TResult2): CancelablePromise<Awaited<TResult1> | Awaited<TResult2>, FailureOf<TResult1> | FailureOf<TResult2>>; <TResult1 = IFetchLaterResultLike, TResult2 = never>(onFulfilled?: ((value: IFetchLaterResultLike) => TResult1) | null | undefined, onRejected?: ((reason: ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) => TResult2) | null | undefined): CancelablePromise<Awaited<TResult1> | Awaited<TResult2>, FailureOf<TResult1> | FailureOf<TResult2> | ([TResult2] extends [never] ? ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; } : never)>; }
+then: { <TResult1 extends PromiseLike<unknown>, TResult2 extends PromiseLike<unknown>>(onFulfilled: (value: IFetchLaterResultLike) => TResult1, onRejected: (reason: ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) => TResult2): CancelablePromise<Awaited<TResult1> | Awaited<TResult2>, FailureOf<TResult1> | FailureOf<TResult2>>; <TResult1 extends PromiseLike<unknown>, TResult2 = never>(onFulfilled: (value: IFetchLaterResultLike) => TResult1, onRejected?: ((reason: ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) => TResult2) | null | undefined): CancelablePromise<Awaited<TResult1> | Awaited<TResult2>, ([TResult2] extends [never] ? ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; } : never) | FailureOf<TResult1> | FailureOf<TResult2>>; <TResult1 = IFetchLaterResultLike, TResult2 extends PromiseLike<unknown> = never>(onFulfilled: ((value: IFetchLaterResultLike) => TResult1) | null | undefined, onRejected: (reason: ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) => TResult2): CancelablePromise<Awaited<TResult1> | Awaited<TResult2>, FailureOf<TResult1> | FailureOf<TResult2>>; <TResult1 = IFetchLaterResultLike, TResult2 = never>(onFulfilled?: ((value: IFetchLaterResultLike) => TResult1) | null | undefined, onRejected?: ((reason: ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) => TResult2) | null | undefined): CancelablePromise<Awaited<TResult1> | Awaited<TResult2>, ([TResult2] extends [never] ? ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; } : never) | FailureOf<TResult1> | FailureOf<TResult2>>; }
 ```
 
 ## `TDeferredRequestInit` (type)
