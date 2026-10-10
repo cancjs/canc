@@ -390,6 +390,8 @@ function createRenderer(program, checker, pkgPosix) {
 export function readEntryPoints(pkgJson) {
   const entries = [];
   for (const [subpath, condition] of Object.entries(pkgJson.exports || {})) {
+    // string subpaths such as the manifest have no declarations to record
+    if (subpath === './package.json' || typeof condition === 'string') continue;
     // The plain `types` key, never the `types@<4.7` sibling: the downlevel copy exists for a
     // resolver this script does not emulate, and both keys in one baseline would double every line.
     const dts = condition?.require?.types || condition?.import?.types;
