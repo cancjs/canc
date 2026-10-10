@@ -2,6 +2,7 @@ import { CancelError, ICancelablePromiseOptions, IPromiseImplOptions, resolvePro
 
 import { TPromiseCtor } from '../construct';
 import { isCancelErrorLike, isFunction } from '../guards';
+import { ISettledResult } from '../settled-result';
 import { ILazyWithResolvers, LazyBase, TLazyExecutor, TLazyOnCancel } from './lazy-base';
 
 export type { TLazyExecutor, TLazyOnCancel } from './lazy-base';
@@ -43,7 +44,7 @@ export class LazyPromise<T = any> extends LazyBase<T> {
   declare static allSettled: <V>(
     values: Iterable<V | PromiseLike<V>>,
     options?: ILazyPromiseOptions,
-  ) => LazyPromise<PromiseSettledResult<Awaited<V>>[]>;
+  ) => LazyPromise<ISettledResult<Awaited<V>>[]>;
   declare static any: <V>(values: Iterable<V | PromiseLike<V>>, options?: ILazyPromiseOptions) => LazyPromise<V>;
   declare static race: <V>(values: Iterable<V | PromiseLike<V>>, options?: ILazyPromiseOptions) => LazyPromise<V>;
 

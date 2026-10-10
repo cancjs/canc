@@ -1,5 +1,6 @@
 import { TPromiseCtor } from '../construct';
 import { isCancelableLike, isFunction } from '../guards';
+import { ISettledResult } from '../settled-result';
 
 /**
  * A cleanup callback registered by the executor, run when the lazy is torn down. Supplied to the
@@ -202,13 +203,10 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
   }
 
   /** A lazy promise for the implementation's `allSettled`. Cold until subscribed, like `all`. */
-  static allSettled<V>(
-    values: Iterable<V | PromiseLike<V>>,
-    options?: object,
-  ): LazyBase<PromiseSettledResult<Awaited<V>>[]> {
-    const aggregate: LazyBase<PromiseSettledResult<Awaited<V>>[]> = this._new<PromiseSettledResult<Awaited<V>>[]>(
+  static allSettled<V>(values: Iterable<V | PromiseLike<V>>, options?: object): LazyBase<ISettledResult<Awaited<V>>[]> {
+    const aggregate: LazyBase<ISettledResult<Awaited<V>>[]> = this._new<ISettledResult<Awaited<V>>[]>(
       (resolve) =>
-        resolve(aggregate._resolveImplStatics().allSettled(values) as PromiseLike<PromiseSettledResult<Awaited<V>>[]>),
+        resolve(aggregate._resolveImplStatics().allSettled(values) as PromiseLike<ISettledResult<Awaited<V>>[]>),
       options,
     );
 
