@@ -16,8 +16,9 @@ function createScope(pkgs: string[], variant: string, preamble = ''): vm.Context
 
   vm.runInContext(preamble, scope);
 
-  for (const pkg of pkgs) {
-    const file = path.join(packagesDir, `canc-${pkg}/dist/index.${variant}`);
+  for (const entry of pkgs) {
+    const [pkg, base = 'index'] = entry.split('/');
+    const file = path.join(packagesDir, `canc-${pkg}/dist/${base}.${variant}`);
 
     vm.runInContext(fs.readFileSync(file, 'utf8'), scope, { filename: file });
   }
@@ -188,5 +189,88 @@ describe.each(VARIANTS)('umd builds loaded together (%s)', (variant) => {
         })()`,
       ),
     ).resolves.toBe(true);
+  });
+});
+
+interface IEntryCase {
+  entry: string;
+  prerequisites: string[];
+  global: string;
+  call: string;
+  expected: unknown;
+}
+
+const ENTRY_CASES: IEntryCase[] = [
+  {
+    entry: 'coroutine/gen',
+    prerequisites: ['promise'],
+    global: 'canc_coroutine_gen',
+    call: 'canc_coroutine_gen.async(function* () { yield 1; return 3; })().next().then(JSON.stringify)',
+    expected: '{"value":1,"done":false}',
+  },
+  {
+    entry: 'decorators/legacy',
+    prerequisites: ['promise', 'coroutine'],
+    global: 'canc_decorators_legacy',
+    call: `(function () {
+      var descriptor = { value: function* (n) { return (yield n) + 1; } };
+      var wrapped = canc_decorators_legacy.AsyncMethod({}, 'inc', descriptor) || descriptor;
+      return wrapped.value.call({}, 41);
+    })()`,
+    expected: 42,
+  },
+  {
+    entry: 'decorators/babel-legacy',
+    prerequisites: ['promise', 'coroutine'],
+    global: 'canc_decorators_babel_legacy',
+    call: `(function () {
+      var descriptor = { value: function* (n) { return (yield n) + 1; } };
+      var wrapped = canc_decorators_babel_legacy.AsyncMethod({}, 'inc', descriptor) || descriptor;
+      return wrapped.value.call({}, 41);
+    })()`,
+    expected: 42,
+  },
+  {
+    entry: 'toolbox/async-iter',
+    prerequisites: ['promise'],
+    global: 'canc_toolbox_async_iter',
+    call: `canc_toolbox_async_iter.pipe(
+      canc_toolbox_async_iter.from([1, 2, 3]),
+      canc_toolbox_async_iter.toArray(),
+    ).then(JSON.stringify)`,
+    expected: '[1,2,3]',
+  },
+  {
+    entry: 'toolbox-native',
+    prerequisites: [],
+    global: 'canc_toolbox_native',
+    call: 'canc_toolbox_native.delay("ok", 1)',
+    expected: 'ok',
+  },
+];
+
+describe.each(VARIANTS)('umd entry points beyond the main bundles (%s)', (variant) => {
+  it.each(ENTRY_CASES)(
+    'loads $entry and runs a real call',
+    async ({ entry, prerequisites, global, call, expected }) => {
+      const scope = createScope([...prerequisites, entry], variant);
+
+      const ownKeys = vm.runInContext(`typeof ${global} === 'object' ? Object.keys(${global}).length : -1`, scope);
+
+      expect({ [global]: ownKeys > 0 }).toEqual({ [global]: true });
+      await expect(run(scope, call)).resolves.toBe(expected);
+    },
+  );
+
+  it('loads unhandled-rejection/register and installs a browser listener', () => {
+    const scope = createScope(
+      ['promise', 'unhandled-rejection/register'],
+      variant,
+      `globalThis.addedTypes = [];
+       globalThis.addEventListener = function (type) { addedTypes.push(type); };
+       globalThis.removeEventListener = function () {};`,
+    );
+
+    expect(vm.runInContext('addedTypes.join(",")', scope)).toContain('unhandledrejection');
   });
 });
