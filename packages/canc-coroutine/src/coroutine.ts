@@ -18,7 +18,7 @@ import {
   IterationError,
   setFnName,
 } from '../../_util';
-import type { CoFailureOf } from './step-failure';
+import type { CoBodyFailureOf, CoFailureOf } from './step-failure';
 
 export type TGeneratorLike<PYield = unknown, PReturn = any, PNext = unknown> = Omit<
   Generator<PYield, PReturn, PNext>,
@@ -164,7 +164,7 @@ export function cancAsync<
   TArgs extends any[] = Parameters<TFn>,
   TReturn = TCoroutineReturn<TFn>,
   TThis = any,
-  TFailure = CoFailureOf<TCoroutineYield<TFn>>,
+  TFailure = CoBodyFailureOf<TCoroutineYield<TFn>>,
 >(genFn: TFn, ctx?: TThis, options?: TCoroutineOptions) {
   if (!isFunction(genFn)) {
     throw new TypeError('Argument is not a function');

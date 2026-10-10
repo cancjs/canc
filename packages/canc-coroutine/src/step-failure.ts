@@ -8,3 +8,9 @@ export type CoFailureOf<T> =
       never
     : Exclude<F, Unlisted>
   : never;
+
+// a one argument AsyncResult body yields unknown: failure undeclared, not empty
+export type CoBodyFailureOf<TYield> =
+  0 extends 1 & TYield ? never
+  : unknown extends TYield ? unknown
+  : CoFailureOf<TYield>;

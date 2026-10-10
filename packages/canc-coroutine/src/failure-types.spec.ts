@@ -149,6 +149,20 @@ const handleThenDeclared = cancAsync(function* () {
 });
 const cHandleThenDeclared: Eq<FailureOf<ReturnType<typeof handleThenDeclared>>, FooError> = true;
 
+// a one argument body annotation declares nothing
+const annotatedOneArg = cancAsync(function* (): AsyncResult<number> {
+  const x = (yield nat) as number;
+  return x;
+});
+const cAnnotatedOneArg: Eq<ReturnType<typeof annotatedOneArg>, CancelablePromise<number, unknown>> = true;
+
+declare const untyped: any;
+const bareAnyYield = cancAsync(function* () {
+  yield untyped;
+  return 1;
+});
+const cBareAnyYield: Eq<ReturnType<typeof bareAnyYield>, CancelablePromise<number, never>> = true;
+
 // AsyncResult strict body
 
 // 1. strict body + bare yield of primitives
@@ -197,14 +211,14 @@ const s5ok = cancAsync(function* (): AsyncResult<number, FooError | BreakError> 
   return 1;
 });
 
-// 6. 1-arg back-compat unchanged
+// 6. 1-arg annotation: same bodies compile, failure stays undeclared
 const s6 = cancAsync(function* (): AsyncResult<number> {
   const raw = yield 42;
   const o = yield { a: 1 };
   const n = yield* cancAwait(pFoo);
   return n + (raw as number) + (o ? 0 : 1);
 });
-const c6: Eq<ReturnType<typeof s6>, CancelablePromise<number, never>> = true;
+const c6: Eq<ReturnType<typeof s6>, CancelablePromise<number, unknown>> = true;
 
 // AsyncGenResult flavor
 
@@ -263,6 +277,9 @@ void [
   nestedDeclaredThenNative,
   annotatedNativeStep,
   handleThenDeclared,
+  annotatedOneArg,
+  cAnnotatedOneArg,
+  cBareAnyYield,
   c_s1,
   cf,
   s2,
