@@ -92,7 +92,7 @@ CancelToken: CancelTokenStatic
 CanceledError?: any
 HttpStatusCode?: any
 readonly VERSION: string
-all: <T>(values: (T | PromiseLike<T>)[]) => CancelablePromise<T[], FailureOf<T>>
+all: <T>(values: (PromiseLike<T> | T)[]) => CancelablePromise<T[], FailureOf<T>>
 readonly axios: IAxiosInstanceLike
 create: (config?: AxiosRequestConfig) => ICancelableAxiosInstance
 defaults: Omit<AxiosDefaults<any>, "headers"> & { headers: HeadersDefaults & { [key: string]: AxiosHeaderValue; }; }
@@ -129,7 +129,7 @@ bubble?: boolean | undefined
 forceCancelable?: boolean | undefined
 lazy?: boolean | undefined
 shield?: boolean | undefined
-signal?: IAbortSignal | Array<IAbortSignal> | undefined
+signal?: Array<IAbortSignal> | IAbortSignal | undefined
 strict?: boolean | undefined
 ```
 
@@ -139,7 +139,7 @@ strict?: boolean | undefined
 clear: () => void
 eject: (id: number) => void
 readonly handlers: Array<any>
-use: (onFulfilled?: ((value: V, ctx: ICancelableAxiosContext) => V | Promise<V>) | null, onRejected?: ((error: any, ctx: ICancelableAxiosContext) => any) | null, options?: IInterceptorOptions) => number
+use: (onFulfilled?: ((value: V, ctx: ICancelableAxiosContext) => Promise<V> | V) | null, onRejected?: ((error: any, ctx: ICancelableAxiosContext) => any) | null, options?: IInterceptorOptions) => number
 ```
 
 ## `IInterceptorOptions` (interface)
@@ -162,7 +162,7 @@ CancelToken: CancelTokenStatic
 CanceledError?: any
 HttpStatusCode?: any
 readonly VERSION: string
-all: <T>(values: (T | PromiseLike<T>)[]) => CancelablePromise<T[], FailureOf<T>>
+all: <T>(values: (PromiseLike<T> | T)[]) => CancelablePromise<T[], FailureOf<T>>
 readonly axios: IAxiosInstanceLike
 create: (config?: AxiosRequestConfig) => ICancelableAxiosInstance
 defaults: Omit<AxiosDefaults<any>, "headers"> & { headers: HeadersDefaults & { [key: string]: AxiosHeaderValue; }; }
@@ -203,7 +203,7 @@ CancelToken: CancelTokenStatic
 CanceledError?: any
 HttpStatusCode?: any
 readonly VERSION: string
-all: <T>(values: (T | PromiseLike<T>)[]) => CancelablePromise<T[], FailureOf<T>>
+all: <T>(values: (PromiseLike<T> | T)[]) => CancelablePromise<T[], FailureOf<T>>
 readonly axios: IAxiosInstanceLike
 create: (config?: AxiosRequestConfig) => ICancelableAxiosInstance
 defaults: Omit<AxiosDefaults<any>, "headers"> & { headers: HeadersDefaults & { [key: string]: AxiosHeaderValue; }; }
