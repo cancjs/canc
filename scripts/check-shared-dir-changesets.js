@@ -9,6 +9,8 @@
 // Importers are derived from the source (relative import/require/export-from graph), never from a
 // hardcoded list, so a new consumer is covered automatically.
 //
+// The diff is base...HEAD, so only committed changes count; uncommitted edits are invisible.
+//
 // Usage: node scripts/check-shared-dir-changesets.js [--base <ref>]
 //   --base <ref>   diff base (defaults to origin/$GITHUB_BASE_REF in a PR run, else origin/master)
 
@@ -152,20 +154,27 @@ function changedFiles(base, { filter = '', pathspec = '' } = {}) {
   throw new Error(`could not diff against base "${base}"`);
 }
 
-function resolveBase(explicitBase) {
-  if (explicitBase) return explicitBase;
-  const baseRef = process.env.GITHUB_BASE_REF;
-  if (baseRef) {
-    for (const candidate of [`origin/${baseRef}`, baseRef]) {
-      try {
-        execSync(`git rev-parse --verify ${candidate}`, { cwd: ROOT, stdio: 'ignore' });
-        return candidate;
-      } catch {
-        continue;
-      }
-    }
+function refExists(ref) {
+  try {
+    execSync(`git rev-parse --verify ${ref}`, { cwd: ROOT, stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
   }
-  return 'origin/master';
+}
+
+function resolveBase(explicitBase) {
+  const requested = explicitBase || process.env.GITHUB_BASE_REF;
+  if (!requested) {
+    if (refExists('origin/master')) return 'origin/master';
+    console.error('FAIL base ref not found: origin/master (no --base and no GITHUB_BASE_REF given)');
+    process.exit(1);
+  }
+  for (const candidate of [`origin/${requested}`, requested]) {
+    if (refExists(candidate)) return candidate;
+  }
+  console.error(`FAIL base ref not found: ${requested} (tried origin/${requested}, ${requested})`);
+  process.exit(1);
 }
 
 function isSpecOnlyPath(file) {
