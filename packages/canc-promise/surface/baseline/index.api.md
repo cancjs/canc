@@ -48,7 +48,7 @@ aborted: boolean
 bubbled: boolean
 cause?: any
 disposed: boolean
-isBubbled: boolean
+isBubbled: boolean // @deprecated
 name: string
 timedOut: boolean
 ```
@@ -119,8 +119,8 @@ catch: { <R extends PromiseLike<unknown>>(onRejected: (reason: TReason<TFailure>
 finally: (onFinally?: (() => void | PromiseLike<unknown>) | null) => CancelablePromise<TResult, TFailure>
 forceCancelable: boolean
 handleCancel: (onCancel: TOnCancel, options?: IHandleCancelOptions) => CancelablePromise<TResult, TFailure>
-isCancelable: boolean
-isCanceled: boolean
+isCancelable: boolean // @deprecated
+isCanceled: boolean // @deprecated
 options: Required<ICancelablePromiseFlagOptions>
 shield: boolean
 strict: boolean
@@ -396,8 +396,8 @@ catch: { <R extends PromiseLike<unknown>>(onRejected: (reason: TReason<TFailure 
 finally: (onFinally?: (() => void | PromiseLike<unknown>) | null) => CancelablePromise<Awaited<TPromise>, TFailure | FailureOf<TPromise>>
 forceCancelable: boolean
 handleCancel: (onCancel: TOnCancel, options?: IHandleCancelOptions) => CancelablePromise<Awaited<TPromise>, TFailure | FailureOf<TPromise>>
-isCancelable: boolean
-isCanceled: boolean
+isCancelable: boolean // @deprecated
+isCanceled: boolean // @deprecated
 options: Required<ICancelablePromiseFlagOptions>
 shield: boolean
 strict: boolean
@@ -519,8 +519,8 @@ catch: { <R extends PromiseLike<unknown>>(onRejected: (reason: TReason<TFailure>
 finally: (onFinally?: (() => void | PromiseLike<unknown>) | null) => CancelablePromise<TResult, TFailure>
 forceCancelable: boolean
 handleCancel: (onCancel: TOnCancel, options?: IHandleCancelOptions) => CancelablePromise<TResult, TFailure>
-isCancelable: boolean
-isCanceled: boolean
+isCancelable: boolean // @deprecated
+isCanceled: boolean // @deprecated
 options: Required<ICancelablePromiseFlagOptions>
 shield: boolean
 strict: boolean
