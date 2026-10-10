@@ -66,7 +66,7 @@ const coH3 = cancAsync(function* () {
 });
 type _coA = Assert<Eq<FailureOf<ReturnType<typeof coA>>, never>>;
 type _coB = Assert<Eq<FailureOf<ReturnType<typeof coB>>, FooError>>;
-type _coD = Assert<Eq<FailureOf<ReturnType<typeof coD>>, never>>;
+type _coD = Assert<Eq<FailureOf<ReturnType<typeof coD>>, FooError>>;
 type _coD3 = Assert<Eq<FailureOf<ReturnType<typeof coD3>>, FooError>>;
 type _coH = Assert<Eq<FailureOf<ReturnType<typeof coH>>, FooError | BarError>>;
 type _coH3 = Assert<Eq<FailureOf<ReturnType<typeof coH3>>, BarError>>;

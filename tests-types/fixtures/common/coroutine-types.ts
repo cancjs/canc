@@ -39,7 +39,7 @@ import {
   forAwait as cancGenForAwait,
   throw as cancGenThrow,
 } from '@cancjs/coroutine/gen';
-import type { FailureOf } from '@cancjs/promise';
+import type { Failing, FailureOf } from '@cancjs/promise';
 import CancelablePromise from '@cancjs/promise';
 
 import type { Equal, Expect, ExpectExtends, IsAny, Not } from './assert-type';
@@ -78,9 +78,13 @@ type _coResult = Expect<Equal<typeof coResult, CancelablePromise<number, never>>
 // ...and definitely not silently `any`
 type _coNotAny = Expect<Not<IsAny<typeof coResult>>>;
 
-// cancAwait itself is a generator delegate: Generator<T, Awaited<T>, any>.
+// cancAwait yields a failure carrier, not the awaited value: a native step declares nothing
 const gen = cancAwait(Promise.resolve(42));
-type _cancAwaitYield = Expect<Equal<ReturnType<(typeof gen)['next']>, IteratorResult<Promise<number>, number>>>;
+type _cancAwaitYield = Expect<Equal<ReturnType<(typeof gen)['next']>, IteratorResult<Failing<never>, number>>>;
+const declaredGen = cancAwait(null as unknown as CancelablePromise<number, MatrixFooError>);
+type _cancAwaitDeclaredYield = Expect<
+  Equal<ReturnType<(typeof declaredGen)['next']>, IteratorResult<Failing<MatrixFooError>, number>>
+>;
 
 // @ts-expect-error cancAsync's first arg must be a generator function, not a plain value
 cancAsync(123);
@@ -282,10 +286,10 @@ const forAwaitSugarCo = cancAsync(function* () {
 });
 type _forAwaitSugarResult = Expect<Equal<ReturnType<typeof forAwaitSugarCo>, CancelablePromise<string, never>>>;
 
-// cancForAwait.next() returns Generator<unknown, void, any>
+// cancForAwait.next() yields a carrier declaring nothing, so it fits any failure set
 const sugarNextGen = cancForAwait.next();
 type _sugarNextGenYield = typeof sugarNextGen extends Generator<infer Y, infer R, any> ? [Y, R] : never;
-type _sugarNextGenCheck = Expect<Equal<_sugarNextGenYield, [unknown, void]>>;
+type _sugarNextGenCheck = Expect<Equal<_sugarNextGenYield, [Failing<never>, void]>>;
 
 // ============================================================ cancGenAsync: typed internal await (no cast tax)
 // Annotated: AsyncGenResult pins the emit (E) and return (R) types explicitly.
