@@ -429,9 +429,12 @@ export function readEntryPoints(pkgJson) {
     if (subpath === './package.json' || typeof condition === 'string') continue;
     // The plain `types` key, never the `types@<4.7` sibling: the downlevel copy exists for a
     // resolver this script does not emulate, and both keys in one baseline would double every line.
-    const dts = condition?.require?.types || condition?.import?.types;
+    const requireTypes = condition?.require?.types;
+    const importTypes = condition?.import?.types;
+    const dts = requireTypes || importTypes;
     if (!dts) throw new Error(`No types condition for subpath ${subpath}`);
-    entries.push({ subpath, dts: dts.replace(/^\.\//, '') });
+    const esm = requireTypes && importTypes && importTypes !== requireTypes ? importTypes : null;
+    entries.push({ subpath, dts: dts.replace(/^\.\//, ''), esm: esm && esm.replace(/^\.\//, '') });
   }
   entries.sort((a, b) =>
     a.subpath < b.subpath ? -1
@@ -515,6 +518,20 @@ function renderBaseline(subpath, dtsRelative, program, checker, pkgName, pkgDir,
   return `${out.join('\n').replace(/\n+$/, '')}\n`;
 }
 
+// The Declarations line names the file, so it is the one line allowed to differ between views
+function assertViewsMatch(pkgName, entry, cjsText, esmText) {
+  const body = (text) => text.split('\n').filter((line) => !line.startsWith('- Declarations: '));
+  const cjsLines = body(cjsText);
+  const esmLines = body(esmText);
+  if (cjsLines.join('\n') === esmLines.join('\n')) return;
+  const at = cjsLines.findIndex((line, i) => line !== esmLines[i]);
+  const first = at === -1 ? Math.min(cjsLines.length, esmLines.length) : at;
+  throw new Error(
+    `Declaration views differ for ${pkgName} ${entry.subpath}: ${entry.dts} vs ${entry.esm}\n` +
+      `- ${cjsLines[first] ?? '(end)'}\n+ ${esmLines[first] ?? '(end)'}`,
+  );
+}
+
 export async function generateBaselines(pkgName, pkgDir, pkgPosix) {
   const pkgJsonPath = join(pkgDir, 'package.json');
   const pkgJson = JSON.parse(readFileSync(pkgJsonPath, 'utf8'));
@@ -527,13 +544,20 @@ export async function generateBaselines(pkgName, pkgDir, pkgPosix) {
     );
   }
 
-  const rootNames = entryPoints.map((e) => join(pkgDir, e.dts));
+  const rootNames = entryPoints.flatMap((e) => [join(pkgDir, e.dts), ...(e.esm ? [join(pkgDir, e.esm)] : [])]);
   const program = ts.createProgram(rootNames, COMPILER_OPTIONS);
   const checker = program.getTypeChecker();
 
   const files = new Map();
   for (const entry of entryPoints) {
     const rendered = renderBaseline(entry.subpath, entry.dts, program, checker, pkgName, pkgDir, pkgPosix);
+    if (entry.esm)
+      assertViewsMatch(
+        pkgName,
+        entry,
+        rendered,
+        renderBaseline(entry.subpath, entry.esm, program, checker, pkgName, pkgDir, pkgPosix),
+      );
     files.set(baselineFileName(entry.subpath), await prettier.format(rendered, PRETTIER_MARKDOWN));
   }
   return files;
