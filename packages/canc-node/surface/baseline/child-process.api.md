@@ -103,8 +103,8 @@ child: IExecChildProcess<T>
 finally: (onFinally?: (() => void | PromiseLike<unknown>) | null) => CancelablePromise<IExecResult<T>, never>
 forceCancelable: boolean
 handleCancel: (onCancel: TOnCancel, options?: IHandleCancelOptions) => CancelablePromise<IExecResult<T>, never>
-isCancelable: boolean
-isCanceled: boolean
+isCancelable: boolean // @deprecated
+isCanceled: boolean // @deprecated
 options: Required<ICancelablePromiseFlagOptions>
 readonly [CANCEL_PROMISE_BRAND]: true
 readonly [FAILURE]?: undefined

@@ -336,6 +336,7 @@ extends stream.TransformOptions
 ## `Hmac` (class)
 
 ```text
+// @deprecated
 extends stream.Transform
 new (): Hmac
 ```
@@ -750,11 +751,12 @@ defaultCoreCipherList: string
 ## `createCipher` (function)
 
 ```text
-(algorithm: CipherCCMTypes, password: BinaryLike, options: CipherCCMOptions): CipherCCM
-(algorithm: CipherGCMTypes, password: BinaryLike, options?: CipherGCMOptions | undefined): CipherGCM
-(algorithm: CipherOCBTypes, password: BinaryLike, options: CipherOCBOptions): CipherOCB
-(algorithm: "chacha20-poly1305", password: BinaryLike, options?: CipherChaCha20Poly1305Options | undefined): CipherChaCha20Poly1305
-(algorithm: string, password: BinaryLike, options?: TransformOptions<Transform> | undefined): Cipher
+// @deprecated
+(algorithm: CipherCCMTypes, password: BinaryLike, options: CipherCCMOptions): CipherCCM // @deprecated
+(algorithm: CipherGCMTypes, password: BinaryLike, options?: CipherGCMOptions | undefined): CipherGCM // @deprecated
+(algorithm: CipherOCBTypes, password: BinaryLike, options: CipherOCBOptions): CipherOCB // @deprecated
+(algorithm: "chacha20-poly1305", password: BinaryLike, options?: CipherChaCha20Poly1305Options | undefined): CipherChaCha20Poly1305 // @deprecated
+(algorithm: string, password: BinaryLike, options?: TransformOptions<Transform> | undefined): Cipher // @deprecated
 ```
 
 ## `createCipheriv` (function)
@@ -770,11 +772,12 @@ defaultCoreCipherList: string
 ## `createDecipher` (function)
 
 ```text
-(algorithm: CipherCCMTypes, password: BinaryLike, options: CipherCCMOptions): DecipherCCM
-(algorithm: CipherGCMTypes, password: BinaryLike, options?: CipherGCMOptions | undefined): DecipherGCM
-(algorithm: CipherOCBTypes, password: BinaryLike, options: CipherOCBOptions): DecipherOCB
-(algorithm: "chacha20-poly1305", password: BinaryLike, options?: CipherChaCha20Poly1305Options | undefined): DecipherChaCha20Poly1305
-(algorithm: string, password: BinaryLike, options?: TransformOptions<Transform> | undefined): Decipher
+// @deprecated
+(algorithm: CipherCCMTypes, password: BinaryLike, options: CipherCCMOptions): DecipherCCM // @deprecated
+(algorithm: CipherGCMTypes, password: BinaryLike, options?: CipherGCMOptions | undefined): DecipherGCM // @deprecated
+(algorithm: CipherOCBTypes, password: BinaryLike, options: CipherOCBOptions): DecipherOCB // @deprecated
+(algorithm: "chacha20-poly1305", password: BinaryLike, options?: CipherChaCha20Poly1305Options | undefined): DecipherChaCha20Poly1305 // @deprecated
+(algorithm: string, password: BinaryLike, options?: TransformOptions<Transform> | undefined): Decipher // @deprecated
 ```
 
 ## `createDecipheriv` (function)
@@ -873,6 +876,7 @@ defaultCoreCipherList: string
 ## `fips` (const)
 
 ```text
+// @deprecated
 boolean
 ```
 

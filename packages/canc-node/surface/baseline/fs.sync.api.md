@@ -167,7 +167,7 @@ X_OK: number
 ## `lchmodSync` (const)
 
 ```text
-(path: PathLike, mode: Mode): void
+(path: PathLike, mode: Mode): void // @deprecated
 ```
 
 ## `lchownSync` (const)
