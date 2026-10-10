@@ -62,6 +62,6 @@ extends Abortable
 ## `send` (function)
 
 ```text
-(socket: Socket, msg: string | Uint8Array<ArrayBufferLike>, offset: number, length: number, port: number, addr?: string | undefined): CancelablePromise<number, never>
-(socket: Socket, msg: string | Uint8Array<ArrayBufferLike>, port: number, addr?: string | undefined): CancelablePromise<number, never>
+(socket: Socket, msg: Uint8Array<ArrayBufferLike> | string, offset: number, length: number, port: number, addr?: string | undefined): CancelablePromise<number, never>
+(socket: Socket, msg: Uint8Array<ArrayBufferLike> | string, port: number, addr?: string | undefined): CancelablePromise<number, never>
 ```

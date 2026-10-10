@@ -340,10 +340,10 @@ required?: string | undefined
 ```text
 cause?: unknown
 command?: string | undefined
-exitCode?: number | null | undefined
-signal?: string | null | undefined
-stderr?: string | Buffer<ArrayBufferLike> | undefined
-stdout?: string | Buffer<ArrayBufferLike> | undefined
+exitCode?: null | number | undefined
+signal?: null | string | undefined
+stderr?: Buffer<ArrayBufferLike> | string | undefined
+stdout?: Buffer<ArrayBufferLike> | string | undefined
 ```
 
 ## `IProcessSpawnErrorOptions` (interface)
@@ -421,12 +421,12 @@ new (message?: string | undefined, options?: IProcessExitErrorOptions | undefine
 static readonly name: "ProcessExitError"
 readonly cause?: unknown
 readonly command?: string | undefined
-readonly exitCode?: number | null | undefined
+readonly exitCode?: null | number | undefined
 message: string
 name: string
-readonly signal?: string | null | undefined
-readonly stderr?: string | Buffer<ArrayBufferLike> | undefined
-readonly stdout?: string | Buffer<ArrayBufferLike> | undefined
+readonly signal?: null | string | undefined
+readonly stderr?: Buffer<ArrayBufferLike> | string | undefined
+readonly stdout?: Buffer<ArrayBufferLike> | string | undefined
 ```
 
 ## `ProcessSpawnError` (class)
@@ -460,7 +460,7 @@ nodeVersion: string
 ## `isBusyError` (const)
 
 ```text
-(error: unknown): error is EBUSY | EAGAIN
+(error: unknown): error is EAGAIN | EBUSY
 ```
 
 ## `isCrossDeviceError` (const)
@@ -496,7 +496,7 @@ nodeVersion: string
 ## `isNoSpaceError` (const)
 
 ```text
-(error: unknown): error is ENOSPC | EDQUOT
+(error: unknown): error is EDQUOT | ENOSPC
 ```
 
 ## `isNotDirError` (const)

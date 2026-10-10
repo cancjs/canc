@@ -9,7 +9,7 @@ Generated. Do not edit by hand.
 
 ```text
 errorOnExist?: boolean | undefined
-filter?: ((src: string, dest: string) => boolean | Promise<boolean>) | undefined
+filter?: ((src: string, dest: string) => Promise<boolean> | boolean) | undefined
 onProgress?: ((progress: { src: string; dest: string; }) => void) | undefined
 overwrite?: boolean | undefined
 ```
@@ -23,7 +23,7 @@ overwrite?: boolean | undefined
 ## `IOutputFileOptions` (type)
 
 ```text
-BufferEncoding | (ObjectEncodingOptions & { mode?: Mode | undefined; flag?: OpenMode | undefined; flush?: boolean | undefined; } & EventEmitter.Abortable) | null | undefined
+(EventEmitter.Abortable & ObjectEncodingOptions & { mode?: Mode | undefined; flag?: OpenMode | undefined; flush?: boolean | undefined; }) | BufferEncoding | null | undefined
 ```
 
 ## `IOutputFileSyncOptions` (type)
@@ -38,9 +38,9 @@ WriteFileOptions | undefined
 EOL?: string | undefined
 encoding?: BufferEncoding | null | undefined
 flag?: string | undefined
-mode?: string | number | undefined
-replacer?: ((this: unknown, key: string, value: unknown) => unknown) | Array<string | number> | null | undefined
-spaces?: string | number | null | undefined
+mode?: number | string | undefined
+replacer?: ((this: unknown, key: string, value: unknown) => unknown) | Array<number | string> | null | undefined
+spaces?: null | number | string | undefined
 ```
 
 ## `IReadJsonOptions` (interface)
@@ -55,7 +55,7 @@ throws?: boolean | undefined
 ## `IReplaceFileOptions` (type)
 
 ```text
-BufferEncoding | (ObjectEncodingOptions & { mode?: Mode | undefined; flag?: OpenMode | undefined; flush?: boolean | undefined; } & EventEmitter.Abortable) | null | undefined
+(EventEmitter.Abortable & ObjectEncodingOptions & { mode?: Mode | undefined; flag?: OpenMode | undefined; flush?: boolean | undefined; }) | BufferEncoding | null | undefined
 ```
 
 ## `IReplaceFileSyncOptions` (type)
@@ -77,7 +77,7 @@ stats?: Stats | undefined
 
 ```text
 depth?: number | undefined
-filter?: ((entry: IWalkEntry) => boolean | Promise<boolean>) | undefined
+filter?: ((entry: IWalkEntry) => Promise<boolean> | boolean) | undefined
 followSymlinks?: boolean | undefined
 onError?: TWalkOnError | undefined
 order?: TWalkOrder | undefined
@@ -102,21 +102,21 @@ stats?: boolean | undefined
 EOL?: string | undefined
 encoding?: BufferEncoding | null | undefined
 flag?: string | undefined
-mode?: string | number | undefined
-replacer?: ((this: unknown, key: string, value: unknown) => unknown) | Array<string | number> | null | undefined
-spaces?: string | number | null | undefined
+mode?: number | string | undefined
+replacer?: ((this: unknown, key: string, value: unknown) => unknown) | Array<number | string> | null | undefined
+spaces?: null | number | string | undefined
 ```
 
 ## `TWalkOnError` (type)
 
 ```text
-"throw" | "skip" | "yield"
+"skip" | "throw" | "yield"
 ```
 
 ## `TWalkOrder` (type)
 
 ```text
-"breadth-first" | "depth-first" | "children-first"
+"breadth-first" | "children-first" | "depth-first"
 ```
 
 ## `copy` (function)
@@ -224,13 +224,13 @@ spaces?: string | number | null | undefined
 ## `outputFile` (function)
 
 ```text
-(path: string, data: string | Stream | ArrayBufferView<ArrayBufferLike> | Iterable<string | ArrayBufferView<ArrayBufferLike>> | AsyncIterable<string | ArrayBufferView<ArrayBufferLike>>, options?: BufferEncoding | (ObjectEncodingOptions & { mode?: Mode | undefined; flag?: OpenMode | undefined; flush?: boolean | undefined; } & Abortable) | null | undefined): CancelablePromise<void, never>
+(path: string, data: ArrayBufferView<ArrayBufferLike> | AsyncIterable<ArrayBufferView<ArrayBufferLike> | string> | Iterable<ArrayBufferView<ArrayBufferLike> | string> | Stream | string, options?: (Abortable & ObjectEncodingOptions & { mode?: Mode | undefined; flag?: OpenMode | undefined; flush?: boolean | undefined; }) | BufferEncoding | null | undefined): CancelablePromise<void, never>
 ```
 
 ## `outputFileSync` (function)
 
 ```text
-(path: string, data: string | ArrayBufferView<ArrayBufferLike>, options?: WriteFileOptions | undefined): void
+(path: string, data: ArrayBufferView<ArrayBufferLike> | string, options?: WriteFileOptions | undefined): void
 ```
 
 ## `outputJson` (function)
@@ -268,13 +268,13 @@ spaces?: string | number | null | undefined
 ## `replaceFile` (function)
 
 ```text
-(path: string, data: string | Stream | ArrayBufferView<ArrayBufferLike> | Iterable<string | ArrayBufferView<ArrayBufferLike>> | AsyncIterable<string | ArrayBufferView<ArrayBufferLike>>, options?: BufferEncoding | (ObjectEncodingOptions & { mode?: Mode | undefined; flag?: OpenMode | undefined; flush?: boolean | undefined; } & Abortable) | null | undefined): CancelablePromise<void, never>
+(path: string, data: ArrayBufferView<ArrayBufferLike> | AsyncIterable<ArrayBufferView<ArrayBufferLike> | string> | Iterable<ArrayBufferView<ArrayBufferLike> | string> | Stream | string, options?: (Abortable & ObjectEncodingOptions & { mode?: Mode | undefined; flag?: OpenMode | undefined; flush?: boolean | undefined; }) | BufferEncoding | null | undefined): CancelablePromise<void, never>
 ```
 
 ## `replaceFileSync` (function)
 
 ```text
-(path: string, data: string | ArrayBufferView<ArrayBufferLike>, options?: WriteFileOptions | undefined): void
+(path: string, data: ArrayBufferView<ArrayBufferLike> | string, options?: WriteFileOptions | undefined): void
 ```
 
 ## `walk` (function)

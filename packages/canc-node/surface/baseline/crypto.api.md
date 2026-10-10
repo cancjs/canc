@@ -28,7 +28,7 @@ passphrase?: string | undefined
 ## `BinaryLike` (type)
 
 ```text
-string | NodeJS.ArrayBufferView<ArrayBufferLike>
+NodeJS.ArrayBufferView<ArrayBufferLike> | string
 ```
 
 ## `BinaryToTextEncoding` (type)
@@ -46,7 +46,7 @@ new (): Certificate
 ## `CharacterEncoding` (type)
 
 ```text
-"utf8" | "utf-8" | "utf16le" | "utf-16le" | "latin1"
+"latin1" | "utf-16le" | "utf-8" | "utf16le" | "utf8"
 ```
 
 ## `CheckPrimeOptions` (interface)
@@ -251,7 +251,7 @@ new (): ECDH
 ## `ECDHKeyFormat` (type)
 
 ```text
-"compressed" | "uncompressed" | "hybrid"
+"compressed" | "hybrid" | "uncompressed"
 ```
 
 ## `ECKeyPairKeyObjectOptions` (interface)
@@ -296,7 +296,7 @@ publicKeyEncoding: { type: "spki"; format: PubF; }
 ## `Encoding` (type)
 
 ```text
-"ascii" | "utf8" | "utf-8" | "utf16le" | "utf-16le" | "ucs2" | "ucs-2" | "base64" | "base64url" | "latin1" | "binary" | "hex"
+"ascii" | "base64" | "base64url" | "binary" | "hex" | "latin1" | "ucs-2" | "ucs2" | "utf-16le" | "utf-8" | "utf16le" | "utf8"
 ```
 
 ## `GeneratePrimeOptions` (interface)
@@ -398,20 +398,20 @@ format: "jwk"
 ```text
 cipher?: string | undefined
 format: T
-passphrase?: string | Buffer<ArrayBufferLike> | undefined
-type: "pkcs1" | "spki" | "pkcs8" | "sec1"
+passphrase?: Buffer<ArrayBufferLike> | string | undefined
+type: "pkcs1" | "pkcs8" | "sec1" | "spki"
 ```
 
 ## `KeyFormat` (type)
 
 ```text
-"pem" | "der" | "jwk"
+"der" | "jwk" | "pem"
 ```
 
 ## `KeyLike` (type)
 
 ```text
-string | KeyObject | Buffer<ArrayBufferLike>
+Buffer<ArrayBufferLike> | KeyObject | string
 ```
 
 ## `KeyObject` (class)
@@ -423,7 +423,7 @@ new (): KeyObject
 ## `KeyObjectType` (type)
 
 ```text
-"secret" | "public" | "private"
+"private" | "public" | "secret"
 ```
 
 ## `KeyPairKeyObjectResult` (interface)
@@ -443,19 +443,19 @@ publicKey: T1
 ## `KeyType` (type)
 
 ```text
-"rsa" | "rsa-pss" | "dsa" | "ec" | "ed25519" | "ed448" | "x25519" | "x448"
+"dsa" | "ec" | "ed25519" | "ed448" | "rsa" | "rsa-pss" | "x25519" | "x448"
 ```
 
 ## `LargeNumberLike` (type)
 
 ```text
-bigint | ArrayBuffer | SharedArrayBuffer | NodeJS.ArrayBufferView<ArrayBufferLike>
+ArrayBuffer | NodeJS.ArrayBufferView<ArrayBufferLike> | SharedArrayBuffer | bigint
 ```
 
 ## `LegacyCharacterEncoding` (type)
 
 ```text
-"ascii" | "ucs2" | "ucs-2" | "binary"
+"ascii" | "binary" | "ucs-2" | "ucs2"
 ```
 
 ## `PrivateKeyInput` (interface)
@@ -463,8 +463,8 @@ bigint | ArrayBuffer | SharedArrayBuffer | NodeJS.ArrayBufferView<ArrayBufferLik
 ```text
 encoding?: string | undefined
 format?: KeyFormat | undefined
-key: string | Buffer<ArrayBufferLike>
-passphrase?: string | Buffer<ArrayBufferLike> | undefined
+key: Buffer<ArrayBufferLike> | string
+passphrase?: Buffer<ArrayBufferLike> | string | undefined
 type?: "pkcs1" | "pkcs8" | "sec1" | undefined
 ```
 
@@ -473,7 +473,7 @@ type?: "pkcs1" | "pkcs8" | "sec1" | undefined
 ```text
 encoding?: string | undefined
 format?: KeyFormat | undefined
-key: string | Buffer<ArrayBufferLike>
+key: Buffer<ArrayBufferLike> | string
 type?: "pkcs1" | "spki" | undefined
 ```
 
@@ -595,7 +595,7 @@ saltLength?: number | undefined
 ## `TKeyLike` (type)
 
 ```text
-string | NodeJS.ArrayBufferView<ArrayBufferLike> | KeyObject | webcrypto.CryptoKey
+KeyObject | NodeJS.ArrayBufferView<ArrayBufferLike> | string | webcrypto.CryptoKey
 ```
 
 ## `UUID` (type)
@@ -667,7 +667,7 @@ new (buffer: BinaryLike): X509Certificate
 multiLabelWildcards?: boolean | undefined
 partialWildcards?: boolean | undefined
 singleLabelSubdomains?: boolean | undefined
-subject?: "default" | "always" | "never" | undefined
+subject?: "always" | "default" | "never" | undefined
 wildcards?: boolean | undefined
 ```
 
@@ -794,9 +794,9 @@ defaultCoreCipherList: string
 
 ```text
 (primeLength: number, generator?: number | undefined): DiffieHellman
-(prime: ArrayBuffer | ArrayBufferView<ArrayBufferLike>, generator?: number | ArrayBuffer | ArrayBufferView<ArrayBufferLike> | undefined): DiffieHellman
+(prime: ArrayBuffer | ArrayBufferView<ArrayBufferLike>, generator?: ArrayBuffer | ArrayBufferView<ArrayBufferLike> | number | undefined): DiffieHellman
 (prime: ArrayBuffer | ArrayBufferView<ArrayBufferLike>, generator: string, generatorEncoding: BinaryToTextEncoding): DiffieHellman
-(prime: string, primeEncoding: BinaryToTextEncoding, generator?: number | ArrayBuffer | ArrayBufferView<ArrayBufferLike> | undefined): DiffieHellman
+(prime: string, primeEncoding: BinaryToTextEncoding, generator?: ArrayBuffer | ArrayBufferView<ArrayBufferLike> | number | undefined): DiffieHellman
 (prime: string, primeEncoding: BinaryToTextEncoding, generator: string, generatorEncoding: BinaryToTextEncoding): DiffieHellman
 ```
 
@@ -827,13 +827,13 @@ defaultCoreCipherList: string
 ## `createPrivateKey` (function)
 
 ```text
-(key: string | Buffer<ArrayBufferLike> | PrivateKeyInput | JsonWebKeyInput): KeyObject
+(key: Buffer<ArrayBufferLike> | JsonWebKeyInput | PrivateKeyInput | string): KeyObject
 ```
 
 ## `createPublicKey` (function)
 
 ```text
-(key: string | Buffer<ArrayBufferLike> | KeyObject | JsonWebKeyInput | PublicKeyInput): KeyObject
+(key: Buffer<ArrayBufferLike> | JsonWebKeyInput | KeyObject | PublicKeyInput | string): KeyObject
 ```
 
 ## `createSecretKey` (function)
@@ -883,7 +883,7 @@ boolean
 ## `generateKey` (const)
 
 ```text
-(type: "hmac" | "aes", options: { length: number; }): CancelablePromise<KeyObject, never>
+(type: "aes" | "hmac", options: { length: number; }): CancelablePromise<KeyObject, never>
 ```
 
 ## `generateKeyPair` (const)
@@ -979,7 +979,7 @@ boolean
 ## `generateKeySync` (function)
 
 ```text
-(type: "hmac" | "aes", options: { length: number; }): KeyObject
+(type: "aes" | "hmac", options: { length: number; }): KeyObject
 ```
 
 ## `generatePrime` (const)
@@ -988,7 +988,7 @@ boolean
 (size: number): CancelablePromise<ArrayBuffer, never>
 (size: number, options: GeneratePrimeOptionsBigInt): CancelablePromise<bigint, never>
 (size: number, options: GeneratePrimeOptionsArrayBuffer): CancelablePromise<ArrayBuffer, never>
-(size: number, options: GeneratePrimeOptions): CancelablePromise<bigint | ArrayBuffer, never>
+(size: number, options: GeneratePrimeOptions): CancelablePromise<ArrayBuffer | bigint, never>
 ```
 
 ## `generatePrimeSync` (function)
@@ -997,13 +997,13 @@ boolean
 (size: number): ArrayBuffer
 (size: number, options: GeneratePrimeOptionsBigInt): bigint
 (size: number, options: GeneratePrimeOptionsArrayBuffer): ArrayBuffer
-(size: number, options: GeneratePrimeOptions): bigint | ArrayBuffer
+(size: number, options: GeneratePrimeOptions): ArrayBuffer | bigint
 ```
 
 ## `getCipherInfo` (function)
 
 ```text
-(nameOrNid: string | number, options?: CipherInfoOptions | undefined): CipherInfo | undefined
+(nameOrNid: number | string, options?: CipherInfoOptions | undefined): CipherInfo | undefined
 ```
 
 ## `getCiphers` (function)
@@ -1047,7 +1047,7 @@ boolean
 ```text
 (algorithm: string, data: BinaryLike, outputEncoding?: BinaryToTextEncoding | undefined): string
 (algorithm: string, data: BinaryLike, outputEncoding: "buffer"): NonSharedBuffer
-(algorithm: string, data: BinaryLike, outputEncoding?: BinaryToTextEncoding | "buffer" | undefined): string | NonSharedBuffer
+(algorithm: string, data: BinaryLike, outputEncoding?: "buffer" | BinaryToTextEncoding | undefined): NonSharedBuffer | string
 ```
 
 ## `hkdf` (const)
@@ -1077,13 +1077,13 @@ boolean
 ## `privateDecrypt` (function)
 
 ```text
-(privateKey: RsaPrivateKey | KeyLike, buffer: ArrayBufferView<ArrayBufferLike>): NonSharedBuffer
+(privateKey: KeyLike | RsaPrivateKey, buffer: ArrayBufferView<ArrayBufferLike>): NonSharedBuffer
 ```
 
 ## `privateEncrypt` (function)
 
 ```text
-(privateKey: RsaPrivateKey | KeyLike, buffer: ArrayBufferView<ArrayBufferLike>): NonSharedBuffer
+(privateKey: KeyLike | RsaPrivateKey, buffer: ArrayBufferView<ArrayBufferLike>): NonSharedBuffer
 ```
 
 ## `pseudoRandomBytes` (function)
@@ -1096,13 +1096,13 @@ boolean
 ## `publicDecrypt` (function)
 
 ```text
-(key: RsaPublicKey | RsaPrivateKey | KeyLike, buffer: ArrayBufferView<ArrayBufferLike>): NonSharedBuffer
+(key: KeyLike | RsaPrivateKey | RsaPublicKey, buffer: ArrayBufferView<ArrayBufferLike>): NonSharedBuffer
 ```
 
 ## `publicEncrypt` (function)
 
 ```text
-(key: RsaPublicKey | RsaPrivateKey | KeyLike, buffer: ArrayBufferView<ArrayBufferLike>): NonSharedBuffer
+(key: KeyLike | RsaPrivateKey | RsaPublicKey, buffer: ArrayBufferView<ArrayBufferLike>): NonSharedBuffer
 ```
 
 ## `randomBytes` (const)
@@ -1174,25 +1174,25 @@ boolean
 ## `sign` (function)
 
 ```text
-(algorithm: string | null | undefined, data: ArrayBufferView<ArrayBufferLike>, key: KeyLike | SignKeyObjectInput | SignPrivateKeyInput | SignJsonWebKeyInput): NonSharedBuffer
-(algorithm: string | null | undefined, data: ArrayBufferView<ArrayBufferLike>, key: KeyLike | SignKeyObjectInput | SignPrivateKeyInput | SignJsonWebKeyInput, callback: (error: Error | null, data: NonSharedBuffer) => void): void
+(algorithm: null | string | undefined, data: ArrayBufferView<ArrayBufferLike>, key: KeyLike | SignJsonWebKeyInput | SignKeyObjectInput | SignPrivateKeyInput): NonSharedBuffer
+(algorithm: null | string | undefined, data: ArrayBufferView<ArrayBufferLike>, key: KeyLike | SignJsonWebKeyInput | SignKeyObjectInput | SignPrivateKeyInput, callback: (error: Error | null, data: NonSharedBuffer) => void): void
 ```
 
 ## `subtle` (const)
 
 ```text
-decrypt: (algorithm: AlgorithmIdentifier | RsaOaepParams | AesCtrParams | AesCbcParams | AesGcmParams, key: CryptoKey, data: BufferSource) => Promise<ArrayBuffer>
-deriveBits: { (algorithm: EcdhKeyDeriveParams, baseKey: CryptoKey, length: number | null): Promise<ArrayBuffer>; (algorithm: AlgorithmIdentifier | HkdfParams | Pbkdf2Params, baseKey: CryptoKey, length: number): Promise<ArrayBuffer>; }
-deriveKey: (algorithm: AlgorithmIdentifier | EcdhKeyDeriveParams | HkdfParams | Pbkdf2Params, baseKey: CryptoKey, derivedKeyAlgorithm: AlgorithmIdentifier | AesDerivedKeyParams | HmacImportParams | HkdfParams | Pbkdf2Params, extractable: boolean, keyUsages: readonly KeyUsage[]) => Promise<CryptoKey>
+decrypt: (algorithm: AesCbcParams | AesCtrParams | AesGcmParams | AlgorithmIdentifier | RsaOaepParams, key: CryptoKey, data: BufferSource) => Promise<ArrayBuffer>
+deriveBits: { (algorithm: EcdhKeyDeriveParams, baseKey: CryptoKey, length: null | number): Promise<ArrayBuffer>; (algorithm: AlgorithmIdentifier | HkdfParams | Pbkdf2Params, baseKey: CryptoKey, length: number): Promise<ArrayBuffer>; }
+deriveKey: (algorithm: AlgorithmIdentifier | EcdhKeyDeriveParams | HkdfParams | Pbkdf2Params, baseKey: CryptoKey, derivedKeyAlgorithm: AesDerivedKeyParams | AlgorithmIdentifier | HkdfParams | HmacImportParams | Pbkdf2Params, extractable: boolean, keyUsages: readonly KeyUsage[]) => Promise<CryptoKey>
 digest: (algorithm: AlgorithmIdentifier, data: BufferSource) => Promise<ArrayBuffer>
-encrypt: (algorithm: AlgorithmIdentifier | RsaOaepParams | AesCtrParams | AesCbcParams | AesGcmParams, key: CryptoKey, data: BufferSource) => Promise<ArrayBuffer>
+encrypt: (algorithm: AesCbcParams | AesCtrParams | AesGcmParams | AlgorithmIdentifier | RsaOaepParams, key: CryptoKey, data: BufferSource) => Promise<ArrayBuffer>
 exportKey: { (format: "jwk", key: CryptoKey): Promise<JsonWebKey>; (format: Exclude<KeyFormat, "jwk">, key: CryptoKey): Promise<ArrayBuffer>; }
-generateKey: { (algorithm: RsaHashedKeyGenParams | EcKeyGenParams, extractable: boolean, keyUsages: readonly KeyUsage[]): Promise<CryptoKeyPair>; (algorithm: AesKeyGenParams | HmacKeyGenParams | Pbkdf2Params, extractable: boolean, keyUsages: readonly KeyUsage[]): Promise<CryptoKey>; (algorithm: AlgorithmIdentifier, extractable: boolean, keyUsages: KeyUsage[]): Promise<CryptoKeyPair | CryptoKey>; }
-importKey: { (format: "jwk", keyData: JsonWebKey, algorithm: AlgorithmIdentifier | RsaHashedImportParams | EcKeyImportParams | HmacImportParams | AesKeyAlgorithm, extractable: boolean, keyUsages: readonly KeyUsage[]): Promise<CryptoKey>; (format: Exclude<KeyFormat, "jwk">, keyData: BufferSource, algorithm: AlgorithmIdentifier | RsaHashedImportParams | EcKeyImportParams | HmacImportParams | AesKeyAlgorithm, extractable: boolean, keyUsages: KeyUsage[]): Promise<CryptoKey>; }
-sign: (algorithm: AlgorithmIdentifier | RsaPssParams | EcdsaParams | Ed448Params, key: CryptoKey, data: BufferSource) => Promise<ArrayBuffer>
-unwrapKey: (format: KeyFormat, wrappedKey: BufferSource, unwrappingKey: CryptoKey, unwrapAlgorithm: AlgorithmIdentifier | RsaOaepParams | AesCtrParams | AesCbcParams | AesGcmParams, unwrappedKeyAlgorithm: AlgorithmIdentifier | RsaHashedImportParams | EcKeyImportParams | HmacImportParams | AesKeyAlgorithm, extractable: boolean, keyUsages: KeyUsage[]) => Promise<CryptoKey>
-verify: (algorithm: AlgorithmIdentifier | RsaPssParams | EcdsaParams | Ed448Params, key: CryptoKey, signature: BufferSource, data: BufferSource) => Promise<boolean>
-wrapKey: (format: KeyFormat, key: CryptoKey, wrappingKey: CryptoKey, wrapAlgorithm: AlgorithmIdentifier | RsaOaepParams | AesCtrParams | AesCbcParams | AesGcmParams) => Promise<ArrayBuffer>
+generateKey: { (algorithm: EcKeyGenParams | RsaHashedKeyGenParams, extractable: boolean, keyUsages: readonly KeyUsage[]): Promise<CryptoKeyPair>; (algorithm: AesKeyGenParams | HmacKeyGenParams | Pbkdf2Params, extractable: boolean, keyUsages: readonly KeyUsage[]): Promise<CryptoKey>; (algorithm: AlgorithmIdentifier, extractable: boolean, keyUsages: KeyUsage[]): Promise<CryptoKey | CryptoKeyPair>; }
+importKey: { (format: "jwk", keyData: JsonWebKey, algorithm: AesKeyAlgorithm | AlgorithmIdentifier | EcKeyImportParams | HmacImportParams | RsaHashedImportParams, extractable: boolean, keyUsages: readonly KeyUsage[]): Promise<CryptoKey>; (format: Exclude<KeyFormat, "jwk">, keyData: BufferSource, algorithm: AesKeyAlgorithm | AlgorithmIdentifier | EcKeyImportParams | HmacImportParams | RsaHashedImportParams, extractable: boolean, keyUsages: KeyUsage[]): Promise<CryptoKey>; }
+sign: (algorithm: AlgorithmIdentifier | EcdsaParams | Ed448Params | RsaPssParams, key: CryptoKey, data: BufferSource) => Promise<ArrayBuffer>
+unwrapKey: (format: KeyFormat, wrappedKey: BufferSource, unwrappingKey: CryptoKey, unwrapAlgorithm: AesCbcParams | AesCtrParams | AesGcmParams | AlgorithmIdentifier | RsaOaepParams, unwrappedKeyAlgorithm: AesKeyAlgorithm | AlgorithmIdentifier | EcKeyImportParams | HmacImportParams | RsaHashedImportParams, extractable: boolean, keyUsages: KeyUsage[]) => Promise<CryptoKey>
+verify: (algorithm: AlgorithmIdentifier | EcdsaParams | Ed448Params | RsaPssParams, key: CryptoKey, signature: BufferSource, data: BufferSource) => Promise<boolean>
+wrapKey: (format: KeyFormat, key: CryptoKey, wrappingKey: CryptoKey, wrapAlgorithm: AesCbcParams | AesCtrParams | AesGcmParams | AlgorithmIdentifier | RsaOaepParams) => Promise<ArrayBuffer>
 ```
 
 ## `timingSafeEqual` (function)
@@ -1204,8 +1204,8 @@ wrapKey: (format: KeyFormat, key: CryptoKey, wrappingKey: CryptoKey, wrapAlgorit
 ## `verify` (function)
 
 ```text
-(algorithm: string | null | undefined, data: ArrayBufferView<ArrayBufferLike>, key: KeyLike | VerifyKeyObjectInput | VerifyPublicKeyInput | VerifyJsonWebKeyInput, signature: ArrayBufferView<ArrayBufferLike>): boolean
-(algorithm: string | null | undefined, data: ArrayBufferView<ArrayBufferLike>, key: KeyLike | VerifyKeyObjectInput | VerifyPublicKeyInput | VerifyJsonWebKeyInput, signature: ArrayBufferView<ArrayBufferLike>, callback: (error: Error | null, result: boolean) => void): void
+(algorithm: null | string | undefined, data: ArrayBufferView<ArrayBufferLike>, key: KeyLike | VerifyJsonWebKeyInput | VerifyKeyObjectInput | VerifyPublicKeyInput, signature: ArrayBufferView<ArrayBufferLike>): boolean
+(algorithm: null | string | undefined, data: ArrayBufferView<ArrayBufferLike>, key: KeyLike | VerifyJsonWebKeyInput | VerifyKeyObjectInput | VerifyPublicKeyInput, signature: ArrayBufferView<ArrayBufferLike>, callback: (error: Error | null, result: boolean) => void): void
 ```
 
 ## `webcrypto` (namespace)

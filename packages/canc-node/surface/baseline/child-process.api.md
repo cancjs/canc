@@ -54,7 +54,7 @@ readonly promise: CancelablePromise<IProcessResult, never>
 ## `IProcessResult` (interface)
 
 ```text
-exitCode: number | null
+exitCode: null | number
 signal: NodeJS.Signals | null
 ```
 
@@ -70,7 +70,7 @@ extends CommonSpawnOptions
 _abortListeners?: Map<IAbortSignal, any> | undefined
 _abortSignals?: Array<IAbortSignal> | undefined
 _addChainRef: (bubbleOnComplete?: boolean) => (() => void) | undefined
-_boundCancel?: ((reason?: any, _disposing?: boolean) => void | CancelablePromise<PromiseSettledResult<unknown>[]>) | undefined
+_boundCancel?: ((reason?: any, _disposing?: boolean) => CancelablePromise<PromiseSettledResult<unknown>[]> | void) | undefined
 _cancel: (reason?: any, disposing?: boolean, collector?: any[]) => void
 _cancelHandlers?: Array<TOnCancel> | undefined
 _canceledReason: any
@@ -79,9 +79,9 @@ _chainInput: (resultPromise: CancelablePromise<any, any>, bubbleOnComplete?: boo
 _chainsCount: number
 _collector?: Array<any> | undefined
 _completedChainsCount: number
-_dispose: () => void | CancelablePromise<PromiseSettledResult<unknown>[]>
+_dispose: () => CancelablePromise<PromiseSettledResult<unknown>[]> | void
 _flags: number
-_getBoundCancel: () => (reason?: any, _disposing?: boolean) => void | CancelablePromise<PromiseSettledResult<unknown>[]>
+_getBoundCancel: () => (reason?: any, _disposing?: boolean) => CancelablePromise<PromiseSettledResult<unknown>[]> | void
 _internalState: TCancelablePromiseStates
 _isCanceledReasonSet: boolean
 _pendingSyncCancel: boolean
@@ -92,15 +92,15 @@ _runCancellation: (reason?: any, collector?: any[]) => void
 _runSettlementEffects: () => void
 _setFlag: any
 _subscribe: (onFulfilled?: ((value: IExecResult<T>) => any) | null | undefined, onRejected?: ((reason: any) => any) | null) => void
-_then: <TResult1 = IExecResult<T>, TResult2 = never>(onFulfilled?: ((value: IExecResult<T>) => TResult1) | null | undefined, onRejected?: ((reason: unknown) => TResult2) | null | undefined) => CancelablePromise<Awaited<TResult1> | Awaited<TResult2>, FailureOf<TResult1> | FailureOf<TResult2> | ([TResult2] extends [never] ? never : never)>
+_then: <TResult1 = IExecResult<T>, TResult2 = never>(onFulfilled?: ((value: IExecResult<T>) => TResult1) | null | undefined, onRejected?: ((reason: unknown) => TResult2) | null | undefined) => CancelablePromise<Awaited<TResult1> | Awaited<TResult2>, ([TResult2] extends [never] ? never : never) | FailureOf<TResult1> | FailureOf<TResult2>>
 asyncCancel: boolean
 bubble: boolean
-cancel: (reason?: any, _disposing?: boolean) => void | CancelablePromise<PromiseSettledResult<unknown>[]>
+cancel: (reason?: any, _disposing?: boolean) => CancelablePromise<PromiseSettledResult<unknown>[]> | void
 cancelable: boolean
 canceled: boolean
-catch: { <R extends PromiseLike<unknown>>(onRejected: (reason: unknown) => R): CancelablePromise<IExecResult<T> | Awaited<R>, FailureOf<R>>; <R = never>(onRejected?: ((reason: unknown) => R) | null | undefined): CancelablePromise<IExecResult<T> | Awaited<R>, FailureOf<R>>; }
+catch: { <R extends PromiseLike<unknown>>(onRejected: (reason: unknown) => R): CancelablePromise<Awaited<R> | IExecResult<T>, FailureOf<R>>; <R = never>(onRejected?: ((reason: unknown) => R) | null | undefined): CancelablePromise<Awaited<R> | IExecResult<T>, FailureOf<R>>; }
 child: IExecChildProcess<T>
-finally: (onFinally?: (() => void | PromiseLike<unknown>) | null) => CancelablePromise<IExecResult<T>, never>
+finally: (onFinally?: (() => PromiseLike<unknown> | void) | null) => CancelablePromise<IExecResult<T>, never>
 forceCancelable: boolean
 handleCancel: (onCancel: TOnCancel, options?: IHandleCancelOptions) => CancelablePromise<IExecResult<T>, never>
 isCancelable: boolean // @deprecated
@@ -111,7 +111,7 @@ readonly [FAILURE]?: undefined
 readonly [toStringTag]: string
 shield: boolean
 strict: boolean
-then: { <TResult1 extends PromiseLike<unknown>, TResult2 extends PromiseLike<unknown>>(onFulfilled: (value: IExecResult<T>) => TResult1, onRejected: (reason: unknown) => TResult2): CancelablePromise<Awaited<TResult1> | Awaited<TResult2>, FailureOf<TResult1> | FailureOf<TResult2>>; <TResult1 extends PromiseLike<unknown>, TResult2 = never>(onFulfilled: (value: IExecResult<T>) => TResult1, onRejected?: ((reason: unknown) => TResult2) | null | undefined): CancelablePromise<Awaited<TResult1> | Awaited<TResult2>, FailureOf<TResult1> | FailureOf<TResult2> | ([TResult2] extends [never] ? never : never)>; <TResult1 = IExecResult<T>, TResult2 extends PromiseLike<unknown> = never>(onFulfilled: ((value: IExecResult<T>) => TResult1) | null | undefined, onRejected: (reason: unknown) => TResult2): CancelablePromise<Awaited<TResult1> | Awaited<TResult2>, FailureOf<TResult1> | FailureOf<TResult2>>; <TResult1 = IExecResult<T>, TResult2 = never>(onFulfilled?: ((value: IExecResult<T>) => TResult1) | null | undefined, onRejected?: ((reason: unknown) => TResult2) | null | undefined): CancelablePromise<Awaited<TResult1> | Awaited<TResult2>, FailureOf<TResult1> | FailureOf<TResult2> | ([TResult2] extends [never] ? never : never)>; }
+then: { <TResult1 extends PromiseLike<unknown>, TResult2 extends PromiseLike<unknown>>(onFulfilled: (value: IExecResult<T>) => TResult1, onRejected: (reason: unknown) => TResult2): CancelablePromise<Awaited<TResult1> | Awaited<TResult2>, FailureOf<TResult1> | FailureOf<TResult2>>; <TResult1 extends PromiseLike<unknown>, TResult2 = never>(onFulfilled: (value: IExecResult<T>) => TResult1, onRejected?: ((reason: unknown) => TResult2) | null | undefined): CancelablePromise<Awaited<TResult1> | Awaited<TResult2>, ([TResult2] extends [never] ? never : never) | FailureOf<TResult1> | FailureOf<TResult2>>; <TResult1 = IExecResult<T>, TResult2 extends PromiseLike<unknown> = never>(onFulfilled: ((value: IExecResult<T>) => TResult1) | null | undefined, onRejected: (reason: unknown) => TResult2): CancelablePromise<Awaited<TResult1> | Awaited<TResult2>, FailureOf<TResult1> | FailureOf<TResult2>>; <TResult1 = IExecResult<T>, TResult2 = never>(onFulfilled?: ((value: IExecResult<T>) => TResult1) | null | undefined, onRejected?: ((reason: unknown) => TResult2) | null | undefined): CancelablePromise<Awaited<TResult1> | Awaited<TResult2>, ([TResult2] extends [never] ? never : never) | FailureOf<TResult1> | FailureOf<TResult2>>; }
 ```
 
 ## `exec` (function)
@@ -120,7 +120,7 @@ then: { <TResult1 extends PromiseLike<unknown>, TResult2 extends PromiseLike<unk
 (command: string, callback?: TExecCallback<string> | undefined): IExecChildProcess<string>
 (command: string, options: ExecOptionsWithBufferEncoding, callback?: TExecCallback<Buffer<ArrayBufferLike>> | undefined): IExecChildProcess<Buffer<ArrayBufferLike>>
 (command: string, options: ExecOptions | ExecOptionsWithStringEncoding, callback?: TExecCallback<string> | undefined): IExecChildProcess<string>
-__promisify__: (command: string, options?: TExecOptions) => TExecPromise<string | Buffer>
+__promisify__: (command: string, options?: TExecOptions) => TExecPromise<Buffer | string>
 ```
 
 ## `execFile` (function)
@@ -132,7 +132,7 @@ __promisify__: (command: string, options?: TExecOptions) => TExecPromise<string 
 (file: string, options: ExecFileOptions | ExecFileOptionsWithStringEncoding, callback?: TExecFileCallback<string> | undefined): IExecChildProcess<string>
 (file: string, args: ReadonlyArray<string> | null | undefined, options: ExecFileOptionsWithBufferEncoding, callback?: TExecFileCallback<Buffer<ArrayBufferLike>> | undefined): IExecChildProcess<Buffer<ArrayBufferLike>>
 (file: string, args: ReadonlyArray<string> | null | undefined, options: ExecFileOptions | ExecFileOptionsWithStringEncoding, callback?: TExecFileCallback<string> | undefined): IExecChildProcess<string>
-__promisify__: (file: string, args?: readonly string[] | null, options?: TExecFileOptions) => TExecPromise<string | Buffer>
+__promisify__: (file: string, args?: null | readonly string[], options?: TExecFileOptions) => TExecPromise<Buffer | string>
 ```
 
 ## `fork` (function)

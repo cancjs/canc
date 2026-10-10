@@ -26,7 +26,7 @@ chunkSize?: number | undefined
 finishFlush?: number | undefined
 flush?: number | undefined
 maxOutputLength?: number | undefined
-params?: { [key: number]: number | boolean; } | undefined
+params?: undefined | { [key: number]: boolean | number; }
 ```
 
 ## `CompressCallback` (type)
@@ -80,7 +80,7 @@ new (options?: ZlibOptions | undefined): InflateRaw
 ## `InputType` (type)
 
 ```text
-string | ArrayBuffer | NodeJS.ArrayBufferView<ArrayBufferLike>
+ArrayBuffer | NodeJS.ArrayBufferView<ArrayBufferLike> | string
 ```
 
 ## `TIterableCodecFn` (type)
@@ -337,7 +337,7 @@ readonly bytesRead: number // @deprecated
 readonly bytesWritten: number
 close: (callback?: () => void) => void
 flush: { (kind?: number, callback?: () => void): void; (callback?: () => void): void; }
-shell?: string | boolean | undefined
+shell?: boolean | string | undefined
 ```
 
 ## `ZlibOptions` (interface)
@@ -567,7 +567,7 @@ Z_VERSION_ERROR: number
 ## `crc32` (const)
 
 ```text
-(data: string | ArrayBufferView<ArrayBufferLike>, value?: number | undefined): number
+(data: ArrayBufferView<ArrayBufferLike> | string, value?: number | undefined): number
 ```
 
 ## `createBrotliCompress` (function)

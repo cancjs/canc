@@ -27,7 +27,7 @@ extends Omit<_ReadLineOptions, "completer">
 ## `Readline` (class)
 
 ```text
-new (stream: WritableStream, options?: { autoCommit?: boolean | undefined; } | undefined): Readline
+new (stream: WritableStream, options?: undefined | { autoCommit?: boolean | undefined; }): Readline
 ```
 
 ## `createInterface` (function)

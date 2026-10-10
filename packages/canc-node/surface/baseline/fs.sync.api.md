@@ -14,7 +14,7 @@ new (): Dir
 ## `Dirent` (const)
 
 ```text
-new <Name extends string | Buffer = string>(): Dirent<Name>
+new <Name extends Buffer | string = string>(): Dirent<Name>
 ```
 
 ## `Stats` (const)
@@ -32,7 +32,7 @@ new (): Stats
 ## `appendFileSync` (const)
 
 ```text
-(path: PathOrFileDescriptor, data: string | Uint8Array<ArrayBufferLike>, options?: WriteFileOptions | undefined): void
+(path: PathOrFileDescriptor, data: Uint8Array<ArrayBufferLike> | string, options?: WriteFileOptions | undefined): void
 ```
 
 ## `chmodSync` (const)
@@ -111,7 +111,7 @@ X_OK: number
 ## `cpSync` (const)
 
 ```text
-(source: string | URL, destination: string | URL, opts?: CopySyncOptions | undefined): void
+(source: URL | string, destination: URL | string, opts?: CopySyncOptions | undefined): void
 ```
 
 ## `existsSync` (const)
@@ -143,7 +143,7 @@ X_OK: number
 ```text
 (fd: number, options?: (StatOptions & { bigint?: false | undefined; }) | undefined): Stats
 (fd: number, options: StatOptions & { bigint: true; }): BigIntStats
-(fd: number, options?: StatOptions | undefined): Stats | BigIntStats
+(fd: number, options?: StatOptions | undefined): BigIntStats | Stats
 ```
 
 ## `fsyncSync` (const)
@@ -190,8 +190,8 @@ X_OK: number
 (path: PathLike, options: StatSyncOptions & { bigint: true; throwIfNoEntry: false; }): BigIntStats | undefined
 (path: PathLike, options?: (StatSyncOptions & { bigint?: false | undefined; }) | undefined): Stats
 (path: PathLike, options: StatSyncOptions & { bigint: true; }): BigIntStats
-(path: PathLike, options: StatSyncOptions & { bigint: boolean; throwIfNoEntry?: false | undefined; }): Stats | BigIntStats
-(path: PathLike, options?: StatSyncOptions | undefined): Stats | BigIntStats | undefined
+(path: PathLike, options: StatSyncOptions & { bigint: boolean; throwIfNoEntry?: false | undefined; }): BigIntStats | Stats
+(path: PathLike, options?: StatSyncOptions | undefined): BigIntStats | Stats | undefined
 ```
 
 ## `lutimesSync` (const)
@@ -204,8 +204,8 @@ X_OK: number
 
 ```text
 (path: PathLike, options: MakeDirectoryOptions & { recursive: true; }): string | undefined
-(path: PathLike, options?: Mode | (MakeDirectoryOptions & { recursive?: false | undefined; }) | null | undefined): void
-(path: PathLike, options?: Mode | MakeDirectoryOptions | null | undefined): string | undefined
+(path: PathLike, options?: (MakeDirectoryOptions & { recursive?: false | undefined; }) | Mode | null | undefined): void
+(path: PathLike, options?: MakeDirectoryOptions | Mode | null | undefined): string | undefined
 ```
 
 ## `mkdtempSync` (const)
@@ -213,7 +213,7 @@ X_OK: number
 ```text
 (prefix: string, options?: EncodingOption): string
 (prefix: string, options: BufferEncodingOption): NonSharedBuffer
-(prefix: string, options?: EncodingOption): string | NonSharedBuffer
+(prefix: string, options?: EncodingOption): NonSharedBuffer | string
 ```
 
 ## `openSync` (const)
@@ -231,9 +231,9 @@ X_OK: number
 ## `readFileSync` (const)
 
 ```text
-(path: PathOrFileDescriptor, options?: { encoding?: null | undefined; flag?: string | undefined; } | null | undefined): NonSharedBuffer
+(path: PathOrFileDescriptor, options?: null | undefined | { encoding?: null | undefined; flag?: string | undefined; }): NonSharedBuffer
 (path: PathOrFileDescriptor, options: BufferEncoding | { encoding: BufferEncoding; flag?: string | undefined; }): string
-(path: PathOrFileDescriptor, options?: BufferEncoding | (ObjectEncodingOptions & { flag?: string | undefined; }) | null | undefined): string | NonSharedBuffer
+(path: PathOrFileDescriptor, options?: (ObjectEncodingOptions & { flag?: string | undefined; }) | BufferEncoding | null | undefined): NonSharedBuffer | string
 ```
 
 ## `readSync` (const)
@@ -246,9 +246,9 @@ X_OK: number
 ## `readdirSync` (const)
 
 ```text
-(path: PathLike, options?: BufferEncoding | { encoding: BufferEncoding | null; withFileTypes?: false | undefined; recursive?: boolean | undefined; } | null | undefined): Array<string>
+(path: PathLike, options?: BufferEncoding | null | undefined | { encoding: BufferEncoding | null; withFileTypes?: false | undefined; recursive?: boolean | undefined; }): Array<string>
 (path: PathLike, options: "buffer" | { encoding: "buffer"; withFileTypes?: false | undefined; recursive?: boolean | undefined; }): Array<NonSharedBuffer>
-(path: PathLike, options?: BufferEncoding | (ObjectEncodingOptions & { withFileTypes?: false | undefined; recursive?: boolean | undefined; }) | null | undefined): Array<string> | Array<NonSharedBuffer>
+(path: PathLike, options?: (ObjectEncodingOptions & { withFileTypes?: false | undefined; recursive?: boolean | undefined; }) | BufferEncoding | null | undefined): Array<NonSharedBuffer> | Array<string>
 (path: PathLike, options: ObjectEncodingOptions & { withFileTypes: true; recursive?: boolean | undefined; }): Array<Dirent<string>>
 (path: PathLike, options: { encoding: "buffer"; withFileTypes: true; recursive?: boolean | undefined; }): Array<Dirent<NonSharedBuffer>>
 ```
@@ -258,7 +258,7 @@ X_OK: number
 ```text
 (path: PathLike, options?: EncodingOption): string
 (path: PathLike, options: BufferEncodingOption): NonSharedBuffer
-(path: PathLike, options?: EncodingOption): string | NonSharedBuffer
+(path: PathLike, options?: EncodingOption): NonSharedBuffer | string
 ```
 
 ## `readvSync` (const)
@@ -272,7 +272,7 @@ X_OK: number
 ```text
 (path: PathLike, options?: EncodingOption): string
 (path: PathLike, options: BufferEncodingOption): NonSharedBuffer
-(path: PathLike, options?: EncodingOption): string | NonSharedBuffer
+(path: PathLike, options?: EncodingOption): NonSharedBuffer | string
 ```
 
 ## `renameSync` (const)
@@ -301,8 +301,8 @@ X_OK: number
 (path: PathLike, options: StatSyncOptions & { bigint: true; throwIfNoEntry: false; }): BigIntStats | undefined
 (path: PathLike, options?: (StatSyncOptions & { bigint?: false | undefined; }) | undefined): Stats
 (path: PathLike, options: StatSyncOptions & { bigint: true; }): BigIntStats
-(path: PathLike, options: StatSyncOptions & { bigint: boolean; throwIfNoEntry?: false | undefined; }): Stats | BigIntStats
-(path: PathLike, options?: StatSyncOptions | undefined): Stats | BigIntStats | undefined
+(path: PathLike, options: StatSyncOptions & { bigint: boolean; throwIfNoEntry?: false | undefined; }): BigIntStats | Stats
+(path: PathLike, options?: StatSyncOptions | undefined): BigIntStats | Stats | undefined
 ```
 
 ## `statfsSync` (const)
@@ -310,7 +310,7 @@ X_OK: number
 ```text
 (path: PathLike, options?: (StatFsOptions & { bigint?: false | undefined; }) | undefined): StatsFs
 (path: PathLike, options: StatFsOptions & { bigint: true; }): BigIntStatsFs
-(path: PathLike, options?: StatFsOptions | undefined): StatsFs | BigIntStatsFs
+(path: PathLike, options?: StatFsOptions | undefined): BigIntStatsFs | StatsFs
 ```
 
 ## `symlinkSync` (const)
@@ -340,14 +340,14 @@ X_OK: number
 ## `writeFileSync` (const)
 
 ```text
-(file: PathOrFileDescriptor, data: string | ArrayBufferView<ArrayBufferLike>, options?: WriteFileOptions | undefined): void
+(file: PathOrFileDescriptor, data: ArrayBufferView<ArrayBufferLike> | string, options?: WriteFileOptions | undefined): void
 ```
 
 ## `writeSync` (const)
 
 ```text
-(fd: number, buffer: ArrayBufferView<ArrayBufferLike>, offset?: number | null | undefined, length?: number | null | undefined, position?: number | null | undefined): number
-(fd: number, string: string, position?: number | null | undefined, encoding?: BufferEncoding | null | undefined): number
+(fd: number, buffer: ArrayBufferView<ArrayBufferLike>, offset?: null | number | undefined, length?: null | number | undefined, position?: null | number | undefined): number
+(fd: number, string: string, position?: null | number | undefined, encoding?: BufferEncoding | null | undefined): number
 ```
 
 ## `writevSync` (const)
