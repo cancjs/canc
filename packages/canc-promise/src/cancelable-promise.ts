@@ -1,3 +1,4 @@
+import type { Unlisted } from '../../_util';
 import { AggregateError, createAggregateError, isFunction, isObject, isThenable } from '../../_util';
 import { CancelError } from './cancel-error';
 import { isCancelError, isCancPromise } from './helpers';
@@ -87,17 +88,19 @@ export function withFailure<TFailure>() {
  * The reason a rejection handler receives.
  *
  * It is the declared failure when the promise declares one. When the failure is undeclared
- * (`unknown`) or the promise declares nothing (`never`), the reason is `any`, the same as a
- * native promise's reason.
+ * (`unknown`), the promise declares nothing (`never`), or the set is open (it includes
+ * {@link Unlisted}), the reason is `any`, the same as a native promise's reason.
  */
 export type TReason<TFailure> =
   [TFailure] extends [never] ? any
-  : // TFailure right of `extends` is invariant on TS 4.2, test a copy
-  [TFailure] extends [infer F] ?
-    unknown extends F ?
-      any
-    : F
-  : never;
+  : [Extract<TFailure, Unlisted>] extends [never] ?
+    // TFailure right of `extends` is invariant on TS 4.2, test a copy
+    [TFailure] extends [infer F] ?
+      unknown extends F ?
+        any
+      : F
+    : never
+  : any;
 
 export type TPromiseExecutor<TResult> = (
   resolve: (value?: TResult | PromiseLike<TResult>) => void,

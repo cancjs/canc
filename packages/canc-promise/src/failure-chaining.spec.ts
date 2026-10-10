@@ -1,6 +1,7 @@
 import { Eq } from '../../../tests-types/fixtures/common/assert-type';
 import { CancelError } from './cancel-error';
 import { CancelablePromise, FailureOf } from './cancelable-promise';
+import type { Unlisted } from './index';
 
 describe('failure chaining and statics', () => {
   class FooError extends Error {
@@ -252,6 +253,38 @@ describe('failure chaining and statics', () => {
     rRethrow.catch(() => {});
 
     void [cFoo, cUnknown, cRethrow];
+  });
+
+  it('reads an open failure set as an untyped reason', () => {
+    type IsAnyReason<T> = 0 extends 1 & T ? true : false;
+
+    const open = CancelablePromise.resolve(1) as any as CancelablePromise<number, FooError | Unlisted>;
+    open.catch((_e) => {
+      const c: Eq<IsAnyReason<typeof _e>, true> = true;
+      void c;
+      return 0;
+    });
+    const cOpenSet: Eq<FailureOf<typeof open>, FooError | Unlisted> = true;
+
+    const closed = CancelablePromise.resolve(1) as any as CancelablePromise<number, FooError>;
+    closed.catch((_e) => {
+      const c: Eq<typeof _e, FooError> = true;
+      void c;
+      return 0;
+    });
+
+    // a second structural copy of the marker, as a duplicated package install would carry
+    interface UnlistedCopy {
+      readonly _cancUnlisted: true;
+    }
+    const openCopy = CancelablePromise.resolve(1) as any as CancelablePromise<number, FooError | UnlistedCopy>;
+    openCopy.catch((_e) => {
+      const c: Eq<IsAnyReason<typeof _e>, true> = true;
+      void c;
+      return 0;
+    });
+
+    void cOpenSet;
   });
 
   it('leaves the resolvers reject open for internal producers', () => {
