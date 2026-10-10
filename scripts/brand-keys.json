@@ -37,6 +37,12 @@
     "Process could not be spawned": "ProcessSpawnError: removed when node error classes are keyed by brand",
     "Failed to parse JSON": "JsonParseError: removed when node error classes are keyed by brand"
   },
+  "markers": {
+    "_cancUnlisted": {
+      "literal": "true",
+      "state": "pending"
+    }
+  },
   "constants": {
     "ABORT_ERROR_BRAND": {
       "key": "@cancjs/promise:AbortError",
