@@ -35,7 +35,8 @@
     "check:brand-keys": "node scripts/check-brand-keys.js",
     "check:beta-install": "node scripts/check-beta-install.js",
     "surface:baseline": "node scripts/surface-baseline.mjs",
-    "surface:check": "node scripts/surface-baseline.mjs --check"
+    "surface:check": "node scripts/surface-baseline.mjs --check",
+    "surface:removals": "node scripts/check-surface-removals.mjs"
   },
   "workspaces": [
     "packages/*",
