@@ -8,10 +8,10 @@ Generated. Do not edit by hand.
 ## `AsyncResult<TResult = void, TFailure = unknown>` (type)
 
 ```text
-[iterator]: () => Generator<unknown extends TFailure ? unknown : TPrimitiveYield | Failing<TFailure>, TResult, any>
-next: (...[value]: [] | [any]) => IteratorResult<unknown extends TFailure ? unknown : TPrimitiveYield | Failing<TFailure>, TResult>
-return: (value: TResult) => IteratorResult<unknown extends TFailure ? unknown : TPrimitiveYield | Failing<TFailure>, TResult>
-throw: (e: any) => IteratorResult<unknown extends TFailure ? unknown : TPrimitiveYield | Failing<TFailure>, TResult>
+[iterator]: () => Generator<unknown extends TFailure ? unknown : Failing<TFailure> | TPrimitiveYield, TResult, any>
+next: (...[value]: [] | [any]) => IteratorResult<unknown extends TFailure ? unknown : Failing<TFailure> | TPrimitiveYield, TResult>
+return: (value: TResult) => IteratorResult<unknown extends TFailure ? unknown : Failing<TFailure> | TPrimitiveYield, TResult>
+throw: (e: any) => IteratorResult<unknown extends TFailure ? unknown : Failing<TFailure> | TPrimitiveYield, TResult>
 ```
 
 ## `BreakError` (class)
@@ -56,26 +56,26 @@ bubble?: boolean | undefined
 displayName?: string | undefined
 forceCancelable?: boolean | undefined
 shield?: boolean | undefined
-signal?: IAbortSignal | Array<IAbortSignal> | undefined
+signal?: Array<IAbortSignal> | IAbortSignal | undefined
 strict?: boolean | undefined
 ```
 
 ## `TEachSource<T>` (type)
 
 ```text
-AsyncIterable<T> | Iterable<T | Promise<T>>
+AsyncIterable<T> | Iterable<Promise<T> | T>
 ```
 
 ## `TForAwaitCallback<T>` (type)
 
 ```text
-((value: T, index: number) => void | false) | ((value: T, index: number) => Generator<unknown, void | false, any>) | ((value: T, index: number) => CancelablePromise<void | false>)
+((value: T, index: number) => CancelablePromise<false | void>) | ((value: T, index: number) => Generator<unknown, false | void, any>) | ((value: T, index: number) => false | void)
 ```
 
 ## `TGeneratorLike<PYield = unknown, PReturn = any, PNext = unknown>` (type)
 
 ```text
-next: (...[value]: [] | [PNext]) => IteratorResult<PYield, PReturn>
+next: (...[value]: [PNext] | []) => IteratorResult<PYield, PReturn>
 return: (value: PReturn) => IteratorResult<PYield, PReturn>
 throw: (e: any) => IteratorResult<PYield, PReturn>
 ```
