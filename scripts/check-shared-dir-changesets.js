@@ -145,7 +145,10 @@ function changedFiles(base, { filter = '', pathspec = '' } = {}) {
   const pathArg = pathspec ? ` -- ${pathspec}` : '';
   for (const range of [`${base}...HEAD`, `${base} HEAD`]) {
     try {
-      const out = execSync(`git diff --name-only${filterArg} ${range}${pathArg}`, { cwd: ROOT, encoding: 'utf8' });
+      const out = execSync(`git diff --name-only --no-renames${filterArg} ${range}${pathArg}`, {
+        cwd: ROOT,
+        encoding: 'utf8',
+      });
       return out.split('\n').filter(Boolean);
     } catch {
       continue;
