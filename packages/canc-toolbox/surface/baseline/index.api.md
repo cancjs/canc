@@ -170,8 +170,8 @@ initialDelay?: number | undefined
 jitter?: number | boolean | undefined
 lazy?: boolean | undefined
 maxDelay?: number | undefined
-maxTimeout?: number | undefined
-minTimeout?: number | undefined
+maxTimeout?: number | undefined // @deprecated
+minTimeout?: number | undefined // @deprecated
 onRetry?: ((reason: any, attempt: number, delay: number) => void) | undefined
 retries?: number | undefined
 shouldRetry?: ((reason: any, ctx: IRetryContext) => boolean | PromiseLike<boolean>) | undefined
