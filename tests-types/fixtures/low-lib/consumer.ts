@@ -1,5 +1,11 @@
 import { cancAsync } from '@cancjs/coroutine';
 import { CancelablePromise, ISettledResult } from '@cancjs/promise';
+import type {} from '@cancjs/toolbox';
+import type {} from '@cancjs/toolbox-native';
+import type {} from '@cancjs/fetch';
+import type {} from '@cancjs/axios';
+import type {} from '@cancjs/decorators';
+import type {} from '@cancjs/unhandled-rejection';
 
 const settled: CancelablePromise<ISettledResult<number>[]> = CancelablePromise.allSettled([
   CancelablePromise.resolve(1),
