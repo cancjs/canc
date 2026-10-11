@@ -7,7 +7,7 @@
  * member reads `unknown`, declared-only mixes keep their union, and an undeclared promise does not
  * fit a declared slot.
  */
-import type { FailureOf } from '@cancjs/promise';
+import type { FailureOf, Unlisted } from '@cancjs/promise';
 import CancelablePromise, { AbortError, catchCancel, catchErrors, TimeoutError } from '@cancjs/promise';
 import { async as cancAsync, await as cancAwait } from '@cancjs/coroutine';
 
@@ -131,7 +131,7 @@ const raceUP = CancelablePromise.race([u, Promise.resolve(3)]);
 const raceFV = CancelablePromise.race([f, 'v']);
 declare const fooList: CancelablePromise<number, FooError>[];
 const raceArrF = CancelablePromise.race(fooList);
-type _raceFP = Assert<Eq<typeof raceFP, CancelablePromise<number, FooError>>>;
+type _raceFP = Assert<Eq<typeof raceFP, CancelablePromise<number, FooError | Unlisted>>>;
 type _raceUP = Assert<Eq<typeof raceUP, CancelablePromise<number, unknown>>>;
 type _raceFV = Assert<Eq<typeof raceFV, CancelablePromise<number | string, FooError>>>;
 type _raceArrF = Assert<Eq<typeof raceArrF, CancelablePromise<number, FooError>>>;

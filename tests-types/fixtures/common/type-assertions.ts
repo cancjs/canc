@@ -20,6 +20,7 @@ import type {
   ICancelablePromiseWithResolvers,
   ICatchErrorFn,
   ISuppressErrorFn,
+  Unlisted,
 } from '@cancjs/promise';
 import CancelablePromise, {
   AbortError,
@@ -100,10 +101,10 @@ p.finally((value: number) => value);
 // ============================================================ combinator tuples
 // all() heterogeneous tuple inference across the fixed-arity overloads.
 const all2 = CancelablePromise.all([Promise.resolve(1), Promise.resolve('a')]);
-type _all2 = Expect<Equal<typeof all2, CancelablePromise<[number, string], never>>>;
+type _all2 = Expect<Equal<typeof all2, CancelablePromise<[number, string], Unlisted>>>;
 
 const all3 = CancelablePromise.all([Promise.resolve(1), Promise.resolve('a'), Promise.resolve(true)]);
-type _all3 = Expect<Equal<typeof all3, CancelablePromise<[number, string, boolean], never>>>;
+type _all3 = Expect<Equal<typeof all3, CancelablePromise<[number, string, boolean], Unlisted>>>;
 
 // 10-arity is the last fixed overload before the variadic fallback, spot-check it.
 const all10 = CancelablePromise.all([
@@ -121,16 +122,16 @@ const all10 = CancelablePromise.all([
 type _all10 = Expect<
   Equal<
     typeof all10,
-    CancelablePromise<[number, string, boolean, number, string, number, string, number, string, number], never>
+    CancelablePromise<[number, string, boolean, number, string, number, string, number, string, number], Unlisted>
   >
 >;
 
 // homogeneous array (not a tuple literal): element array, not a tuple
 const allArr = CancelablePromise.all([Promise.resolve(1), Promise.resolve(2)] as Promise<number>[]);
-type _allArr = Expect<Equal<typeof allArr, CancelablePromise<number[], never>>>;
+type _allArr = Expect<Equal<typeof allArr, CancelablePromise<number[], Unlisted>>>;
 
 const race = CancelablePromise.race([Promise.resolve(1), Promise.resolve(2)]);
-type _race = Expect<Equal<typeof race, CancelablePromise<number, never>>>;
+type _race = Expect<Equal<typeof race, CancelablePromise<number, Unlisted>>>;
 
 const any = CancelablePromise.any([Promise.resolve(1), Promise.resolve('a')] as const);
 type _any = Expect<Equal<typeof any, CancelablePromise<number | string, AggregateError>>>;
@@ -140,7 +141,7 @@ CancelablePromise.all(123);
 
 // ============================================================ Awaited unwrapping
 const resNested = CancelablePromise.resolve(Promise.resolve(5));
-type _resAwait = Expect<Equal<typeof resNested, CancelablePromise<number, never>>>;
+type _resAwait = Expect<Equal<typeof resNested, CancelablePromise<number, Unlisted>>>;
 
 const allSettled = CancelablePromise.allSettled([Promise.resolve(1), Promise.resolve('a')] as const);
 type _allSettled = Expect<
@@ -182,7 +183,7 @@ const sc = suppressCancel(Promise.resolve(7));
 type _suppressCancel = Expect<Equal<typeof sc, CancelablePromise<number | void, never>>>;
 
 const mc = makeCancelable(Promise.resolve(7));
-type _makeCancelable = Expect<Equal<typeof mc, CancelablePromise<number>>>;
+type _makeCancelable = Expect<Equal<typeof mc, CancelablePromise<number, Unlisted>>>;
 
 // @ts-expect-error catchCancel over a value narrows to CancelError | never, not a promise-of-value
 const _bad: CancelablePromise<number> = catchCancel(new CancelError());

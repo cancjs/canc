@@ -5,7 +5,7 @@
  * pins the failure type a coroutine infers from the promises it awaits and the errors it throws,
  * next to the raw promise combinators that feed it. Expected values record the current behavior.
  */
-import type { FailureOf } from '@cancjs/promise';
+import type { FailureOf, Unlisted } from '@cancjs/promise';
 import CancelablePromise from '@cancjs/promise';
 import { async as cancAsync, await as cancAwait, cancThrow } from '@cancjs/coroutine';
 
@@ -33,7 +33,7 @@ const raceMix = CancelablePromise.race([declared, nativeNumber]);
 type _rejected = Assert<Eq<FailureOf<typeof rejected>, Error>>;
 type _anyMixIsError = Assert<Eq<FailureOf<typeof anyMix> extends Error ? true : false, true>>;
 type _anyMixIsNotPlainError = Assert<Eq<Eq<FailureOf<typeof anyMix>, Error>, false>>;
-type _raceMix = Assert<Eq<FailureOf<typeof raceMix>, FooError>>;
+type _raceMix = Assert<Eq<FailureOf<typeof raceMix>, FooError | Unlisted>>;
 
 // coroutines
 const coA = cancAsync(function* () {
