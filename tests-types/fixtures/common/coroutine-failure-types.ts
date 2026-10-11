@@ -6,8 +6,10 @@
  * next to the raw promise combinators that feed it. Expected values record the current behavior.
  */
 import type { FailureOf, Unlisted } from '@cancjs/promise';
-import CancelablePromise from '@cancjs/promise';
+import CancelablePromise, { isErrorOf, isTimeoutError, TimeoutError } from '@cancjs/promise';
 import { async as cancAsync, await as cancAwait, cancThrow } from '@cancjs/coroutine';
+import cancelableFetch from '@cancjs/fetch';
+import { timeout } from '@cancjs/toolbox';
 
 import type { Assert, Eq } from './assert-type';
 
@@ -82,3 +84,40 @@ takeNever(coB());
 // prettier-ignore
 // @ts-expect-error thrown failure into a slot declaring another
 takeFoo(coH3());
+
+// coroutine README examples: awaiting open-set library calls
+class NotFoundError extends Error {
+  readonly notFound = 1 as const;
+}
+
+declare const dbQuery: (id: string) => Promise<{ name: string } | null>;
+
+const loadUser = cancAsync(function* (id: string) {
+  const res = yield* cancAwait(cancelableFetch(`/users/${id}`));
+  const body = yield* cancAwait(res.json() as Promise<{ id: string }>);
+  const row = yield* cancAwait(timeout(dbQuery(body.id), 500));
+  if (!row) {
+    return yield* cancThrow(new NotFoundError());
+  }
+  return row.name;
+});
+type _loadUser = Assert<Eq<ReturnType<typeof loadUser>, CancelablePromise<string, TimeoutError | NotFoundError>>>;
+
+// closed result set: guards exhaust it and the last branch reads never
+export const loadUserReason = loadUser('1').catch((e) => {
+  if (isTimeoutError(e)) return 'slow';
+  if (isErrorOf(e, NotFoundError)) return 'missing';
+  const last: Eq<typeof e, never> = true;
+  void last;
+  throw e;
+});
+
+// a one-argument outer annotation keeps the 1.0 reason
+const loadAny: () => CancelablePromise<number> = cancAsync(function* () {
+  return yield* cancAwait(timeout(nativeNumber, 10));
+});
+export const loadAnyReason = loadAny().catch((e) => e.response);
+loadAny().catch((e) => {
+  const c: Eq<typeof e, any> = true;
+  return c;
+});
