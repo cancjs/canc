@@ -120,4 +120,3 @@ export const isBabelLegacyDescriptor = (descriptor: any): boolean =>
 export * from './error-matchers';
 export * from './errors';
 export * from './fn-meta';
-// rehearsal marker
