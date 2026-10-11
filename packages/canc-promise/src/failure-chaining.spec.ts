@@ -80,6 +80,49 @@ describe('failure chaining and statics', () => {
     await expect(rejected.catch()).rejects.toBe(fooError);
   });
 
+  it('keeps the declared failure on then without a rejection handler', async () => {
+    const maybeHandler = (() => 0) as ((reason: FooError) => number) | undefined;
+
+    const _nullMaybe = pFoo.then(null, maybeHandler);
+    const cNullMaybe: Eq<FailureOf<typeof _nullMaybe>, FooError> = true;
+
+    const _maybe = pFoo.then((n) => n + 1, maybeHandler);
+    const cMaybe: Eq<FailureOf<typeof _maybe>, FooError> = true;
+
+    const _omitted = pFoo.then((n) => n + 1);
+    const cOmitted: Eq<FailureOf<typeof _omitted>, FooError> = true;
+
+    const _null = pFoo.then((n) => n + 1, null);
+    const cNull: Eq<FailureOf<typeof _null>, FooError> = true;
+
+    const _undef = pFoo.then((n) => n + 1, undefined);
+    const cUndef: Eq<FailureOf<typeof _undef>, FooError> = true;
+
+    const _handled = pFoo.then(
+      (n) => n + 1,
+      () => 0,
+    );
+    const cHandled: Eq<FailureOf<typeof _handled>, never> = true;
+
+    const maybeFailing = (() => failsBar(1)) as ((reason: FooError) => CancelablePromise<string, BarError>) | null;
+    const _maybeFailing = pFoo.then((n) => failsBar(n), maybeFailing);
+    const cMaybeFailing: Eq<typeof _maybeFailing, CancelablePromise<string, FooError | BarError>> = true;
+
+    const _nullMaybeFailing = pFoo.then(null, maybeFailing);
+    const cNullMaybeFailing: Eq<
+      typeof _nullMaybeFailing,
+      CancelablePromise<number | string, FooError | BarError>
+    > = true;
+
+    void [cNullMaybe, cMaybe, cOmitted, cNull, cUndef, cHandled, cMaybeFailing, cNullMaybeFailing];
+
+    const fooError = new FooError();
+    const rejected = CancelablePromise.reject(fooError) as CancelablePromise<number, FooError>;
+    const absent = undefined as ((reason: FooError) => number) | undefined;
+
+    await expect(rejected.then((n) => n + 1, absent)).rejects.toBe(fooError);
+  });
+
   it('types static combinators and helpers correctly', () => {
     // p10-statics.ts
     const _r1 = CancelablePromise.resolve(pFoo);
