@@ -17,7 +17,7 @@ new <T extends EventMap<T> = DefaultEventMap>(options?: EventEmitterOptions | un
 ```text
 extends AsyncIterableIterator<any[]>
 [asyncIterator]: () => ICancelableEventIterator
-next: () => CancelablePromise<IteratorResult<any[], undefined>>
+next: () => CancelablePromise<IteratorResult<any[], undefined>, never>
 return: (value?: undefined) => Promise<IteratorResult<any[], undefined>>
 throw: (error?: unknown) => Promise<IteratorResult<any[], undefined>>
 ```
