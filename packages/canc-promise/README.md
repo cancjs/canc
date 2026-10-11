@@ -274,10 +274,10 @@ A promise declares nothing when it is known not to reject with an expected failu
 
 How the two behave:
 
-- Mixing: a union with an undeclared member reads `unknown`. `race([undeclared, declared])` and `all([undeclared, declared])` are `unknown`. Mixes of declared promises keep the union, such as `HttpError | ValidationError`.
+- Mixing: a union with an undeclared member reads `unknown`. `race([undeclared, declared])` and `all([undeclared, declared])` are `unknown`, and so is `race([undeclared, native])`. Mixes of declared promises keep the union, such as `HttpError | ValidationError`. A native promise or foreign thenable member adds `Unlisted` to the union instead (see "Open failure sets" below).
 - Assignability: a declared or empty promise fits a one-argument slot. An undeclared promise does not fit a declared slot, `never` included. This is an error on purpose, because the promise never claimed anything about its failures.
 - Subtraction: removing a kind from an undeclared set leaves it undeclared. `catchErrors(undeclared, HttpError)` and `catchCancel(undeclared)` stay `unknown`.
-- Reason type: for both states the callback parameter of `catch`, the second callback of `then`, and the `reject` parameter of the executor are `any`. This is deliberately loose and matches native promises, so `e.message` compiles. Only a declared failure set narrows the reason to `TFailure`.
+- Reason type: for both states the callback parameter of `catch`, the second callback of `then`, and the `reject` parameter of the executor are `any`. This is deliberately loose and matches native promises, so `e.message` compiles. Only a closed declared failure set narrows the reason to `TFailure`.
 - Hover text: a promise you wrote with one type argument displays as `CancelablePromise<number>`. An inferred type or an error message may print `CancelablePromise<number, unknown>`, which is the same type.
 
 To declare a failure, give the second type argument. Inside the executor, `reject` then accepts `HttpError` or a `CancelError`:
@@ -304,6 +304,32 @@ render(withFailure<HttpError>()(legacy));
 
 `withFailure` checks nothing and does nothing at runtime. It records your claim that the promise rejects with `HttpError` and nothing else expected, so use it only where you know that holds.
 
+#### Open failure sets
+
+A failure set is open when it includes `Unlisted`. `CancelablePromise<User, HttpError | Unlisted>` says the promise may reject with `HttpError`, and may also reject with something not listed. `Unlisted` is a type only and adds nothing at runtime.
+
+Library authors write `X | Unlisted` when they know one failure a call produces but cannot promise it is the only one. A timeout helper is the typical case: it rejects with `TimeoutError`, and with whatever the work it waits on rejects with.
+
+A native promise and a foreign thenable are open as well, since nothing states what they reject with. `FailureOf<Promise<number>>` is `Unlisted`, and `makeCancelable(native)` returns `CancelablePromise<T, Unlisted>`. A cancelable promise passed to `makeCancelable` keeps its own set.
+
+```ts
+declare const declared: CancelablePromise<number, HttpError>;
+declare const native: Promise<number>;
+
+const raced = CancelablePromise.race([declared, native]);
+// CancelablePromise<number, HttpError | Unlisted>
+
+raced.catch((e) => e.message); // e is any, as on a native promise
+```
+
+How an open set behaves:
+
+- Reason type: the parameter of `catch` and of the second `then` callback is `any`, the same as on a native promise. The listed members stay visible through `FailureOf`.
+- Mixing: `race`, `all` and `then` add `Unlisted` for each native or foreign member, or for a callback that returns one. `CancelablePromise.any` rejects with `AggregateError | Unlisted`.
+- Subtraction: `catchErrors(timeout(native, 10), TimeoutError)` removes `TimeoutError` and leaves `Unlisted`.
+- Handlers: a callback that returns `any` declares nothing, because `FailureOf<any>` is `never`. A cast to `any` does not widen the chain.
+- Coroutines: a coroutine step lists only what the awaited promise declares and drops `Unlisted`. See [Failures of awaited library calls](https://github.com/cancjs/canc/tree/master/packages/canc-coroutine#failures-of-awaited-library-calls).
+
 #### Error helper families
 
 Error matching and suppression helpers are available in three families:
@@ -316,7 +342,7 @@ Error matching and suppression helpers are available in three families:
 
 #### Error callback parameter typing
 
-The `onRejected` callback parameter in `.then(onFulfilled, onRejected)` and `.catch(onRejected)` receives `TReason<TFailure>`. When the failure set is undeclared (`unknown`) or declares nothing (`never`), the parameter is typed as `any`, the same as on a native promise. When a failure type is declared, the parameter is typed as `TFailure`.
+The `onRejected` callback parameter in `.then(onFulfilled, onRejected)` and `.catch(onRejected)` receives `TReason<TFailure>`. When the failure set is undeclared (`unknown`), declares nothing (`never`) or is open (includes `Unlisted`), the parameter is typed as `any`, the same as on a native promise. When a failure type is declared, the parameter is typed as `TFailure`.
 
 #### Handling caught errors in try/catch
 
@@ -367,7 +393,7 @@ Object.defineProperty(CustomA.prototype, CUSTOM_A_BRAND, { value: true });
 A `then` / `catch` / `finally` callback declares a failure through its RETURN type. Throwing does not:
 
 ```ts
-p.then((v) => (bad ? CancelablePromise.reject(new FooError()) : v));
+p.then((v) => (bad ? CancelablePromise.reject<never, FooError>(new FooError()) : v));
 // declares FooError
 
 p.then((v) => {
@@ -377,7 +403,19 @@ p.then((v) => {
 // declares nothing (the callback's return type is number, and a throw is not a return)
 ```
 
-Return `CancelablePromise.reject(reason)` instead of throwing whenever a callback should declare a failure. It threads through ordinary `then` propagation the same way a callback returning any other `CancelablePromise` does.
+Return `CancelablePromise.reject<never, FooError>(reason)` instead of throwing whenever a callback should declare a failure. It threads through ordinary `then` propagation the same way a callback returning any other `CancelablePromise` does.
+
+`reject` declares a failure only when you name one. The reason argument never infers it, as on a native promise, so `CancelablePromise.reject(new FooError())` declares nothing and its `catch` reason is `any`. A type annotation on the receiving side names the failure too:
+
+```ts
+const none = CancelablePromise.reject(new FooError());
+// CancelablePromise<never, never>
+
+const named = CancelablePromise.reject<never, FooError>(new FooError());
+// CancelablePromise<never, FooError>
+
+const annotated: CancelablePromise<number, FooError> = CancelablePromise.reject(new FooError());
+```
 
 #### Plain limits
 
