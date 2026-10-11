@@ -113,6 +113,12 @@ activateAfter?: number | undefined
 (input: any, init?: TDeferredRequestInit | undefined): TCancelableFetchLaterPromise
 ```
 
+## `cancelableFetchLaterFactory` (const)
+
+```text
+(config?: ICancelableFetchLaterConfig | undefined): (input: any, init?: TDeferredRequestInit | undefined) => TCancelableFetchLaterPromise
+```
+
 ## `default` (const)
 
 ```text
