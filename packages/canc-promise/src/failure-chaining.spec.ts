@@ -221,7 +221,7 @@ describe('failure chaining and statics', () => {
     // The idiom: return a rejected promise instead of throwing.
     // This is the chain-side twin of
     // canc.throw inside a coroutine body, and it threads through ordinary then propagation.
-    const rejected = p.then((v) => (bad ? CancelablePromise.reject(new FooError()) : v));
+    const rejected = p.then((v) => (bad ? CancelablePromise.reject<never, FooError>(new FooError()) : v));
     const cRejected: Eq<FailureOf<typeof rejected>, FooError> = true;
 
     thrown.catch(() => {});
@@ -230,13 +230,33 @@ describe('failure chaining and statics', () => {
     void [cThrown, cRejected];
   });
 
-  it('treats an unknown rejection reason as no declared failure', () => {
-    // An undeclared reason contributes nothing to the declared set: reject(new FooError()) is
-    // unaffected, reject(unknown) collapses to never, and a selective-rethrow on an undeclared
-    // promise no longer poisons the union with unknown.
+  it('declares a rejection failure only when it is named', () => {
+    // a reason argument never infers the failure, as on a native promise
     const rFoo = CancelablePromise.reject(new FooError());
-    const cFoo: Eq<FailureOf<typeof rFoo>, FooError> = true;
-    rFoo.catch(() => {});
+    const cFoo: Eq<FailureOf<typeof rFoo>, never> = true;
+    rFoo.catch((_e) => {
+      const c: Eq<typeof _e, any> = true;
+      void c;
+      return 0;
+    });
+
+    const rNamed = CancelablePromise.reject<never, FooError>(new FooError());
+    const cNamed: Eq<typeof rNamed, CancelablePromise<never, FooError>> = true;
+    rNamed.catch(() => {});
+
+    const rResultOnly = CancelablePromise.reject<number>(new FooError());
+    const cResultOnly: Eq<typeof rResultOnly, CancelablePromise<number, never>> = true;
+    rResultOnly.catch(() => {});
+
+    const rContextual: CancelablePromise<number, FooError> = CancelablePromise.reject(new FooError());
+    rContextual.catch(() => {});
+
+    void [cFoo, cNamed, cResultOnly];
+  });
+
+  it('treats an unknown rejection reason as no declared failure', () => {
+    // reject(unknown) declares nothing, and a selective rethrow on an undeclared promise
+    // does not poison the union with unknown
 
     const unknownBinding = 1 as unknown;
     const rUnknown = CancelablePromise.reject(unknownBinding);
@@ -248,12 +268,12 @@ describe('failure chaining and statics', () => {
     }
     const pUndeclared = CancelablePromise.resolve(1) as any as CancelablePromise<number>;
     const rRethrow = pUndeclared.catch((f) =>
-      isErrorOf(f, FooError) ? CancelablePromise.reject(new BarError()) : CancelablePromise.reject(f),
+      isErrorOf(f, FooError) ? CancelablePromise.reject<never, BarError>(new BarError()) : CancelablePromise.reject(f),
     );
     const cRethrow: Eq<FailureOf<typeof rRethrow>, BarError> = true;
     rRethrow.catch(() => {});
 
-    void [cFoo, cUnknown, cRethrow];
+    void [cUnknown, cRethrow];
   });
 
   it('reads an open failure set as an untyped reason', () => {

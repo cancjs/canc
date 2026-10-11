@@ -652,17 +652,9 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
    * @param [options]
    * @returns A new rejected Promise.
    */
-  // An untyped reason (TFailure left at `unknown` or inferred as `any`, e.g. `reject<number>(err)`
-  // or rethrowing an undeclared `catch` parameter) declares nothing, so the public overload
-  // collapses it to `never`, while a typed reason or an explicit TFailure declares one.
-  // The implementation signature stays unguarded because the runtime construction below is typed
-  // TResult/TFailure exactly, not the narrowed conditional.
-  static reject<TResult = never, TFailure = unknown>(
-    reason?: TFailure,
-    options?: ICancelablePromiseOptions,
-  ): CancelablePromise<TResult, unknown extends TFailure ? never : TFailure>;
-  static reject<TResult = never, TFailure = unknown>(
-    reason?: TFailure,
+  // the reason never infers TFailure, as on a native promise; name it or let context supply it
+  static reject<TResult = never, TFailure = never>(
+    reason?: any,
     options?: ICancelablePromiseOptions,
   ): CancelablePromise<TResult, TFailure> {
     return new this<TResult, TFailure>((_resolve, reject) => {
