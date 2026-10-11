@@ -266,9 +266,10 @@ In addition, async iterables can be consumed and produced with `canc.forAwait` a
 A helper that takes the work as an argument reads the declared failure set off that argument, so the set survives the wrapper with no type argument at the call site.
 
 - `retry`, `minDelay`, `debounce`, `throttle` and `delay(input, ms)` take the failure set from the work they wrap.
-- `timeout` and `waitFor` declare `TimeoutError`. `timeout` declares it in place of the input's set, not on top of it, so `timeout(input, ms)` declares `TimeoutError` alone.
+- `timeout` and `waitFor` declare `TimeoutError` inside an open set (`TimeoutError | Unlisted`), because the work they wait on can reject with something else. A `catch` reason on their result is `any`, and a coroutine step over them contributes `TimeoutError`. `timeout` declares it in place of the input's set, not on top of it, so `timeout(input, ms)` lists `TimeoutError` alone.
 - `delay(ms)`, `defer` and `promisify` declare a `never` failure set. None of them wraps a promise to read one from.
-- `cancelify` and the `LazyPromise` family declare a `never` failure set even though they do wrap work. Neither carries the wrapped set yet.
+- `cancelify` and the terminal operations of the async iterator helpers (`toArray`, `reduce`, `find` and the rest) leave the failure set undeclared (`unknown`), because the function or the source you pass decides what they reject with. Neither carries a wrapped set yet.
+- The `LazyPromise` family declares no failure set, so promise combinators read it as open (`Unlisted`).
 
 Cancellation (rejection with a `CancelError`) is part of the cancellation control flow rather than an application failure set. See [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) for details on declared failures and error matching.
 
