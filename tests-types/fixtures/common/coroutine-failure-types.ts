@@ -31,7 +31,8 @@ const rejected = CancelablePromise.reject(new Error('x'));
 const anyMix = CancelablePromise.any([undeclared, nativeNumber]);
 const raceMix = CancelablePromise.race([declared, nativeNumber]);
 type _rejected = Assert<Eq<FailureOf<typeof rejected>, never>>;
-type _anyMixIsError = Assert<Eq<FailureOf<typeof anyMix> extends Error ? true : false, true>>;
+type _anyMixIsError = Assert<Eq<Exclude<FailureOf<typeof anyMix>, Unlisted> extends Error ? true : false, true>>;
+type _anyMixIsOpen = Assert<Eq<Extract<FailureOf<typeof anyMix>, Unlisted>, Unlisted>>;
 type _anyMixIsNotPlainError = Assert<Eq<Eq<FailureOf<typeof anyMix>, Error>, false>>;
 type _raceMix = Assert<Eq<FailureOf<typeof raceMix>, FooError | Unlisted>>;
 

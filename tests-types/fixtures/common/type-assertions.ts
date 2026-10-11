@@ -134,7 +134,7 @@ const race = CancelablePromise.race([Promise.resolve(1), Promise.resolve(2)]);
 type _race = Expect<Equal<typeof race, CancelablePromise<number, Unlisted>>>;
 
 const any = CancelablePromise.any([Promise.resolve(1), Promise.resolve('a')] as const);
-type _any = Expect<Equal<typeof any, CancelablePromise<number | string, AggregateError>>>;
+type _any = Expect<Equal<typeof any, CancelablePromise<number | string, AggregateError | Unlisted>>>;
 
 // @ts-expect-error all() requires an iterable, not a bare value
 CancelablePromise.all(123);

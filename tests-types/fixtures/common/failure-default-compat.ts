@@ -186,6 +186,20 @@ u.then(undefined, (e) => {
   return c;
 });
 
+// the any combinator rejects with a lib error inside an open set, so the reason stays untyped
+interface AggregateErrorShape extends Error {
+  errors: any[];
+}
+declare const nativeNumber: Promise<number>;
+export const anyReason = CancelablePromise.any([u, nativeNumber]).catch((e) => e.code);
+const anyFF = CancelablePromise.any([f, f]);
+const coAnyFN = cancAsync(function* () {
+  const x = yield* cancAwait.any([f, nativeNumber]);
+  return x;
+});
+type _anyFF = Assert<Eq<FailureOf<typeof anyFF>, AggregateErrorShape | Unlisted>>;
+type _coAnyFN = Assert<Eq<FailureOf<ReturnType<typeof coAnyFN>>, AggregateErrorShape>>;
+
 const withResolversU = CancelablePromise.withResolvers<string>();
 type _withResolversU = Assert<Eq<FailureOf<typeof withResolversU.promise>, unknown>>;
 
