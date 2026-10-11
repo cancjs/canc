@@ -128,14 +128,20 @@ describe('failure chaining and statics', () => {
     > = true;
 
     const _rAny = CancelablePromise.any([pFoo, pBar]);
-    const cAny: Eq<typeof _rAny, CancelablePromise<number | string, AggregateError>> = true;
+    const cAny: Eq<typeof _rAny, CancelablePromise<number | string, AggregateError | Unlisted>> = true;
+
+    const _rAnyFF = CancelablePromise.any([pFoo, pFoo]);
+    const cAnyFF: Eq<FailureOf<typeof _rAnyFF>, AggregateError | Unlisted> = true;
+
+    // the reason is untyped, as on a native promise
+    const anyReason = () => CancelablePromise.any([pFoo, plainBool]).catch((e) => e.code);
 
     const _rWR = CancelablePromise.withResolvers<number, FooError>();
     const cWR: Eq<typeof _rWR.promise, CancelablePromise<number, FooError>> = true;
 
     const v1: Promise<[number, string, boolean]> = CancelablePromise.all([pFoo, pBar, plainBool]);
 
-    void [c1, c2, c3, cNoArg, c4, c5, cAll2, cAll3, cAll5, cAllIter, cRace, cSettled, cAny, cWR, v1];
+    void [c1, c2, c3, cNoArg, c4, c5, cAll2, cAll3, cAll5, cAllIter, cRace, cSettled, cAny, cAnyFF, anyReason, cWR, v1];
   });
 
   it('types defaults and reason types correctly', () => {

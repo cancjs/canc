@@ -518,22 +518,22 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
   static any<T extends readonly unknown[] | []>(
     values: T,
     options?: ICancelablePromiseOptions,
-  ): CancelablePromise<Awaited<T[number]>, AggregateError>;
+  ): CancelablePromise<Awaited<T[number]>, AggregateError | Unlisted>;
   static any<T>(
     values: Iterable<T | PromiseLike<T>>,
     options?: ICancelablePromiseOptions,
-  ): CancelablePromise<Awaited<T>, AggregateError>;
+  ): CancelablePromise<Awaited<T>, AggregateError | Unlisted>;
 
   static any<T>(
     values: Iterable<T | PromiseLike<T>>,
     options?: ICancelablePromiseOptions,
-  ): CancelablePromise<Awaited<T>, AggregateError> {
+  ): CancelablePromise<Awaited<T>, AggregateError | Unlisted> {
     // Deferred-construction pattern: see all() above.
     const {
       promise: resultPromise,
       resolve: resolveResult,
       reject: rejectResult,
-    } = this.withResolvers<Awaited<T>, AggregateError>(options);
+    } = this.withResolvers<Awaited<T>, AggregateError | Unlisted>(options);
 
     // Indexed by input position (spec order), not settlement order
     const errors: unknown[] = [];
