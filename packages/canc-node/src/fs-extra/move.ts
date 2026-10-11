@@ -69,7 +69,7 @@ function isTransient(err: unknown): boolean {
   return isBusy(err) || isTooManyFilesError(err);
 }
 
-function renameWithRetry(src: string, dest: string): CancelablePromise<void, never> {
+function renameWithRetry(src: string, dest: string): CancelablePromise<void, unknown> {
   const attempts = retry(
     () =>
       rename(src, dest).then(
