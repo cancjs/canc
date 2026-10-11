@@ -1,6 +1,6 @@
 ---
-"@cancjs/toolbox": patch
-"@cancjs/toolbox-native": patch
+"@cancjs/toolbox": minor
+"@cancjs/toolbox-native": minor
 ---
 
 Mark the failure of `timeout` and `waitFor` as an open set.
