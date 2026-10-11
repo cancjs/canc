@@ -4,6 +4,7 @@
     "canc-promise",
     "canc-coroutine",
     "canc-decorators",
+    "canc-fetch",
     "canc-toolbox",
     "canc-toolbox-native",
     "canc-server/canc-server-express",

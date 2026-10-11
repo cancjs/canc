@@ -10,6 +10,8 @@
 import type { FailureOf, Unlisted } from '@cancjs/promise';
 import CancelablePromise, { AbortError, catchCancel, catchErrors, TimeoutError } from '@cancjs/promise';
 import { async as cancAsync, await as cancAwait } from '@cancjs/coroutine';
+import cancelableFetch from '@cancjs/fetch';
+import { delay, minDelay, timeout, waitFor } from '@cancjs/toolbox';
 
 import type { Assert, Eq } from './assert-type';
 
@@ -199,6 +201,39 @@ const coAnyFN = cancAsync(function* () {
 });
 type _anyFF = Assert<Eq<FailureOf<typeof anyFF>, AggregateErrorShape | Unlisted>>;
 type _coAnyFN = Assert<Eq<FailureOf<ReturnType<typeof coAnyFN>>, AggregateErrorShape>>;
+
+// timers and fetch reject with a library error inside an open set, so 1.0 reason bodies compile
+export const timeoutReason = timeout(u, 10).catch((e) => e.response);
+export const timeoutNativeReason = timeout(nativeNumber, 10).catch((e) => e.response);
+export const bareTimeoutReason = timeout(10).catch((e) => e.code);
+export const waitForReason = waitFor(() => true).catch((e) => e.code);
+export const fetchReason = cancelableFetch('x').catch((e) => e.code);
+const timeoutN = timeout(nativeNumber, 10);
+const waitForN = waitFor(() => true);
+const fetchN = cancelableFetch('x');
+const timeoutCaught = catchErrors(timeout(nativeNumber, 10), TimeoutError);
+type _timeoutN = Assert<Eq<FailureOf<typeof timeoutN>, TimeoutError | Unlisted>>;
+type _waitForN = Assert<Eq<FailureOf<typeof waitForN>, TimeoutError | Unlisted>>;
+type _fetchN = Assert<Eq<FailureOf<typeof fetchN>, TimeoutError | Unlisted>>;
+type _timeoutCaught = Assert<Eq<FailureOf<typeof timeoutCaught>, Unlisted>>;
+
+// pass-through helpers keep a declared failure closed
+const minDelayF = minDelay(f, 10);
+const delayF = delay(f, 10);
+type _minDelayF = Assert<Eq<FailureOf<typeof minDelayF>, FooError>>;
+type _delayF = Assert<Eq<FailureOf<typeof delayF>, FooError>>;
+
+// a coroutine step declares the library error only
+const coTimeoutN = cancAsync(function* () {
+  const x = yield* cancAwait(timeout(nativeNumber, 10));
+  return x;
+});
+const coFetch = cancAsync(function* () {
+  const res = yield* cancAwait(cancelableFetch('x'));
+  return res;
+});
+type _coTimeoutN = Assert<Eq<FailureOf<ReturnType<typeof coTimeoutN>>, TimeoutError>>;
+type _coFetch = Assert<Eq<FailureOf<ReturnType<typeof coFetch>>, TimeoutError>>;
 
 const withResolversU = CancelablePromise.withResolvers<string>();
 type _withResolversU = Assert<Eq<FailureOf<typeof withResolversU.promise>, unknown>>;
