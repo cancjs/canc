@@ -1,4 +1,4 @@
-import { CancelablePromise, FailureOf, TimeoutError } from '@cancjs/promise';
+import { CancelablePromise, FailureOf, TimeoutError, Unlisted } from '@cancjs/promise';
 
 import { Eq } from '../../../tests-types/fixtures/common/assert-type';
 import { isTimeoutError } from '../../_util';
@@ -63,7 +63,7 @@ function _declaredFailures(): void {
   const _cancelifyDropsWorkFailure: Eq<ReturnType<typeof _cancelified>, CancelablePromise<number>> = true;
 
   const _lazied = lazy<number>((resolve) => resolve(callWork('x')));
-  const _lazyDeclaresNothing: Eq<FailureOf<typeof _lazied>, never> = true;
+  const _lazyIsOpen: Eq<FailureOf<typeof _lazied>, Unlisted> = true;
 
   // The two helpers that declare a failure of their own.
   const _timedOut = timeout(100);
@@ -86,7 +86,7 @@ function _declaredFailures(): void {
     _deferDeclaresNothing,
     _promisifyDeclaresNothing,
     _cancelifyDropsWorkFailure,
-    _lazyDeclaresNothing,
+    _lazyIsOpen,
     _timeoutDeclaresTimeout,
     _waitForDeclaresTimeout,
     _timeoutDropsInputFailure,
