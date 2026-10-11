@@ -1,3 +1,4 @@
+import type { Unlisted } from '../_util';
 import { TimeoutError } from '../_util';
 import { IExecutorCtx } from './construct';
 import { constructTimed } from './construct-timed';
@@ -23,7 +24,10 @@ export function waitForFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: 
    * timer. The condition may be sync or async; an async condition is awaited before the next poll is
    * scheduled, so slow conditions never overlap.
    */
-  return function waitFor(condition: () => unknown, options?: IWaitForOptions): TPromiseOf<K, void, TimeoutError> {
+  return function waitFor(
+    condition: () => unknown,
+    options?: IWaitForOptions,
+  ): TPromiseOf<K, void, TimeoutError | Unlisted> {
     const interval = options?.interval ?? 20;
     const limit = options?.timeout ?? Infinity;
     const timers = resolveTimers(options, deps);

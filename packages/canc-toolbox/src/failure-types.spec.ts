@@ -67,14 +67,14 @@ function _declaredFailures(): void {
 
   // The two helpers that declare a failure of their own.
   const _timedOut = timeout(100);
-  const _timeoutDeclaresTimeout: Eq<typeof _timedOut, CancelablePromise<never, TimeoutError>> = true;
+  const _timeoutDeclaresTimeout: Eq<typeof _timedOut, CancelablePromise<never, TimeoutError | Unlisted>> = true;
 
   const _waited = waitFor(() => true);
-  const _waitForDeclaresTimeout: Eq<typeof _waited, CancelablePromise<void, TimeoutError>> = true;
+  const _waitForDeclaresTimeout: Eq<typeof _waited, CancelablePromise<void, TimeoutError | Unlisted>> = true;
 
   // `timeout` adds its own failure and does not carry the input's, which is what the docs say.
   const _bounded = timeout(work, 100);
-  const _timeoutDropsInputFailure: Eq<typeof _bounded, CancelablePromise<number, TimeoutError>> = true;
+  const _timeoutDropsInputFailure: Eq<typeof _bounded, CancelablePromise<number, TimeoutError | Unlisted>> = true;
 
   void [
     _retryTakesFailureFromWork,
@@ -135,10 +135,10 @@ describe('failure type specs', () => {
     const _deferDeclaresNothing: Eq<typeof deferred.promise, CancelablePromise<void, never>> = true;
 
     const timedOut = timeout(0);
-    const _timeoutDeclaresTimeout: Eq<typeof timedOut, CancelablePromise<never, TimeoutError>> = true;
+    const _timeoutDeclaresTimeout: Eq<typeof timedOut, CancelablePromise<never, TimeoutError | Unlisted>> = true;
 
     const waited = waitFor(() => true);
-    const _waitForDeclaresTimeout: Eq<typeof waited, CancelablePromise<void, TimeoutError>> = true;
+    const _waitForDeclaresTimeout: Eq<typeof waited, CancelablePromise<void, TimeoutError | Unlisted>> = true;
 
     deferred.resolve();
 
