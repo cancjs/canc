@@ -30,7 +30,7 @@ declare const declared: CancelablePromise<number, FooError>;
 const rejected = CancelablePromise.reject(new Error('x'));
 const anyMix = CancelablePromise.any([undeclared, nativeNumber]);
 const raceMix = CancelablePromise.race([declared, nativeNumber]);
-type _rejected = Assert<Eq<FailureOf<typeof rejected>, Error>>;
+type _rejected = Assert<Eq<FailureOf<typeof rejected>, never>>;
 type _anyMixIsError = Assert<Eq<FailureOf<typeof anyMix> extends Error ? true : false, true>>;
 type _anyMixIsNotPlainError = Assert<Eq<Eq<FailureOf<typeof anyMix>, Error>, false>>;
 type _raceMix = Assert<Eq<FailureOf<typeof raceMix>, FooError | Unlisted>>;

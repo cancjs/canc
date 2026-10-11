@@ -46,6 +46,21 @@ export const allAnnotated: CancelablePromise<number[]> = CancelablePromise.all([
 export const rejectResultArg = CancelablePromise.reject<number>(new Error('x'));
 type _rejectResultArg = Assert<Eq<typeof rejectResultArg, CancelablePromise<number, never>>>;
 
+// a rejection reason is not read as a declared failure, naming one is explicit
+export const rejectReason = CancelablePromise.reject(new Error('x')).catch((e) => e.code);
+const rejectError = CancelablePromise.reject(new Error('x'));
+const rejectNamed = CancelablePromise.reject<never, FooError>(new FooError());
+export const rejectContextual: CancelablePromise<number, FooError> = CancelablePromise.reject(new FooError());
+type _rejectError = Assert<Eq<FailureOf<typeof rejectError>, never>>;
+type _rejectNamed = Assert<Eq<FailureOf<typeof rejectNamed>, FooError>>;
+
+const coRejectError = cancAsync(function* () {
+  yield CancelablePromise.reject(new Error('x'));
+  return 1;
+});
+export const coRejectReason = coRejectError().catch((e) => e.code);
+type _coRejectError = Assert<Eq<FailureOf<ReturnType<typeof coRejectError>>, never>>;
+
 export const coroutineReject: () => CancelablePromise<number> = cancAsync(function* () {
   const v: number = yield CancelablePromise.reject(new TypeError('x'));
   return v;
