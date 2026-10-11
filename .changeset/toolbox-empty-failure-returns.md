@@ -2,8 +2,10 @@
 "@cancjs/toolbox": minor
 ---
 
-Declare empty failure sets on the prebound `fromAbortSignal` and deferred `cancel()` results.
+Declare failure sets on the prebound `fromAbortSignal`, deferred `cancel()`, `cancelify` and async iterable terminal results.
 
 `fromAbortSignal` returns a promise that never rejects, and the settlement promise from a deferred
-`cancel()` cannot reject either. Both now carry the failure type `never` instead of reading as
-undeclared.
+`cancel()` cannot reject either. Both carry the failure type `never`. The promises returned by
+`cancelify` and by the async iterable terminal operations, including the `pipe` overloads that end
+in one, carry `unknown`, because the wrapped function or the source iterable decides what they
+reject with.

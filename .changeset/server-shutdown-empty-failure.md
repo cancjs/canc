@@ -1,12 +1,13 @@
 ---
-"@cancjs/server-node": minor
-"@cancjs/server-express": minor
-"@cancjs/server-fastify": minor
-"@cancjs/server-hono": minor
-"@cancjs/server-koa": minor
+"@cancjs/server-node": patch
+"@cancjs/server-express": patch
+"@cancjs/server-fastify": patch
+"@cancjs/server-hono": patch
+"@cancjs/server-koa": patch
 ---
 
-Declare an empty failure set on the shutdown promise.
+Type the internal shutdown state as an empty failure set.
 
-`shutdownServer` resolves with a result instead of rejecting, so its promise is now typed
-`CancelablePromise<IShutdownResult, never>`. Code that read it as undeclared keeps compiling.
+The shutdown promise kept by the shared server code resolves with a result and never rejects, so it
+is now typed `CancelablePromise<IShutdownResult, never>` internally. No public type changes:
+`shutdownServer` still returns `Promise<IShutdownResult>`.

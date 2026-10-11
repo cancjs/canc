@@ -16,3 +16,10 @@ type.
 Mixing an undeclared promise with declared ones (`all`, `race`, `then`, coroutines) gives an
 undeclared result. An undeclared promise is not assignable to a declared failure type; use
 `withFailure` or an explicit annotation to declare it.
+
+`isCancPromise` now narrows to `CancelablePromise<any, unknown>`, so a value that is already a
+cancelable promise with a declared failure keeps its type through the guard.
+
+A failure type that is itself generic stays assignable between `CancelablePromise` instances on
+older supported TypeScript versions, and the executor `reject` accepts a value of the declared
+failure type.
