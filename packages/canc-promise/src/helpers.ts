@@ -1,3 +1,4 @@
+import type { Unlisted } from '../../_util';
 import {
   AbortError,
   AggregateError,
@@ -169,6 +170,14 @@ export function suppressCancel<TResult, TError, O extends ICatchSuppressOptions 
 // Renamed from forceCancelable: that name collided with the unrelated `forceCancelable` option
 // on ICancelablePromiseFlagOptions (this function wraps a promise into a cancelable one; the
 // option keeps a promise cancelable when a native promise is adopted through resolve()).
+export function makeCancelable<T, TFailure>(
+  promise: CancelablePromise<T, TFailure>,
+  options?: ICancelableHelperOptions,
+): CancelablePromise<T, TFailure>;
+export function makeCancelable<T>(
+  promise: PromiseLike<T>,
+  options?: ICancelableHelperOptions,
+): CancelablePromise<T, Unlisted>;
 export function makeCancelable<T>(promise: PromiseLike<T>, options?: ICancelableHelperOptions): CancelablePromise<T> {
   const This = options?.CancelablePromise || CancelablePromise;
 

@@ -9,6 +9,7 @@ import {
   WithFailure,
   withFailure,
 } from './cancelable-promise';
+import type { Unlisted } from './index';
 
 class FooError extends Error {
   name = 'FooError';
@@ -25,11 +26,9 @@ describe('Failure vocabulary', () => {
   });
 
   it('types behave as expected', () => {
-    // regression pins: a bare value / plain promise never carries the phantom property, so
-    // FailureOf must collapse to never, not unknown (cancAsync maps this over an entire
-    // coroutine yield union; see the asymmetry comment beside FailureOf/ResultOf).
+    // a bare value declares nothing; a plain promise may reject with anything
     const _check1: Assert<Eq<FailureOf<number>, never>> = true;
-    const _check2: Assert<Eq<FailureOf<Promise<string>>, never>> = true;
+    const _check2: Assert<Eq<FailureOf<Promise<string>>, Unlisted>> = true;
     const _check3: Assert<Eq<FailureOf<Failing<FooError>>, FooError>> = true;
     const _check4: Assert<Eq<TReason<never>, any>> = true;
     const _check5: Assert<Eq<TReason<FooError>, FooError>> = true;
