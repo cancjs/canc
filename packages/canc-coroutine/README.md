@@ -333,6 +333,68 @@ const safeLoad = canc.async(function* (id: string) {
 
 If an error is uncaught inside the coroutine, the returned promise rejects with that error. Callers can handle rejections using `@cancjs/promise` error utilities or global rejection handlers.
 
+#### Failures of awaited library calls
+
+A step contributes only the failures its promise declares. Library calls that cannot promise their list is complete write an open set, `X | Unlisted`. Inside a coroutine the step contributes `X` and the `Unlisted` marker is dropped, so the result of the coroutine lists declared failures only. That makes it a closed set, and the reason in a `catch` on the result narrows to it, unlike the `any` reason of a raw promise with an open set.
+
+What each step contributes:
+
+- `CancelablePromise<T, Foo>`: `Foo`
+- `CancelablePromise<T, Foo | Unlisted>`: `Foo`
+- `CancelablePromise<T, never>` and `CancelablePromise.resolve(1)`: nothing
+- a one-argument `CancelablePromise<T>`: `unknown`, so the result is undeclared and its `catch` reason is `any`
+- a native promise, a foreign thenable, a plain value or `any`: nothing
+- `canc.throw(e)`: the type of `e`. A plain `throw` in the body is not tracked
+- `canc.await.race` and `canc.await.all`: the union of their members. `canc.await.any` contributes `AggregateError`, and `canc.await.allSettled` nothing
+
+```ts
+const loadUser = canc.async(function* (id: string) {
+  const res = yield* canc.await(cancelableFetch(`/users/${id}`)); // TimeoutError | Unlisted, contributes TimeoutError
+  const body = yield* canc.await(res.json() as Promise<{ id: string }>); // native, contributes nothing
+  const row = yield* canc.await(timeout(db.query(body.id), 500)); // TimeoutError | Unlisted, contributes TimeoutError
+  if (!row) {
+    return yield* canc.throw(new NotFoundError(body.id));
+  }
+  return row.name;
+});
+// (id: string) => CancelablePromise<string, TimeoutError | NotFoundError>
+```
+
+The set lists declared failures only, and the promise can still reject with something unlisted at runtime, such as a network `TypeError` from `fetch` or a `SyntaxError` from `json()`. After the guards exhaust the set, the reason in the last branch is `never`. End the handler with a fallback that does not read the value, such as a rethrow, or use `catchErrors`:
+
+```ts
+loadUser('1').catch((e) => {
+  if (isTimeoutError(e)) return 'slow';
+  if (isErrorOf(e, NotFoundError)) return 'missing';
+  throw e; // e is never here, the runtime may still reject with a TypeError or SyntaxError
+});
+```
+
+Reading a property of the reason in that last branch is a compile error, for example `Property 'message' does not exist on type 'never'`.
+
+Narrowing the reason can break code that compiled against 1.0, where a coroutine result always had a `catch` reason of `any`. Each of these steps now declares a failure, so `e.code` or `e.response` on the reason stops compiling:
+
+- `canc.await.any([...])` or `canc.await(CancelablePromise.any([...]))`: the reason is `AggregateError`
+- `canc.await(timeout(promise, ms))`, over a native, declared or one-argument input: the reason is `TimeoutError`
+- `canc.await(cancelableFetch(url))`: the reason is `TimeoutError`
+- a step on any promise that declares a type, such as `CancelablePromise<T, Foo>`: the reason is that set
+
+Native steps, one-argument steps, `canc.await.race` and `canc.await.all` with native members, and a `try`/`catch` around a step are unaffected.
+
+To keep the old loose reason for a coroutine, annotate the outer function with a one-argument promise. A declared result fits a one-argument slot, and the annotation wins:
+
+```ts
+const loadAny: () => CancelablePromise<number> = canc.async(function* () {
+  return yield* canc.await(timeout(nativeP, 10));
+});
+
+loadAny().catch((e) => e.response); // e is any
+```
+
+Annotating the body as `AsyncResult<number>` with no failure type gives the same result, and so does typing the handler parameter at one call site, as in `.catch((e: any) => e.code)`. To use the narrowed reason instead, handle it with guards and a rethrowing fallback as above.
+
+Write `yield* canc.await(promise)` rather than a bare `yield promise`. A bare yield of a promise cannot carry its failure, and TypeScript can merge it with a native step of the same value type and lose the declared failure.
+
 ### Awaiting several things at once
 
 `canc.await.all`, `.race`, `.any`, `.allSettled` and `.try` fold a combinator into a single step.
