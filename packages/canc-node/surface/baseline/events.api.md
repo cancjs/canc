@@ -17,7 +17,7 @@ new <T extends EventMap<T> = DefaultEventMap>(options?: EventEmitterOptions | un
 ```text
 extends AsyncIterableIterator<any[]>
 [asyncIterator]: () => ICancelableEventIterator
-next: () => CancelablePromise<IteratorResult<any[], undefined>, never>
+next: () => CancelablePromise<IteratorResult<any[], undefined>, Unlisted>
 return: (value?: undefined) => Promise<IteratorResult<any[], undefined>>
 throw: (error?: unknown) => Promise<IteratorResult<any[], undefined>>
 ```
@@ -60,6 +60,6 @@ signal?: AbortSignal | undefined
 ## `once` (function)
 
 ```text
-(emitter: EventEmitter<DefaultEventMap>, eventName: string | symbol, options?: IOnceOptions | undefined): CancelablePromise<Array<any>, never>
-(emitter: EventTarget, eventName: string, options?: IOnceOptions | undefined): CancelablePromise<Array<any>, never>
+(emitter: EventEmitter<DefaultEventMap>, eventName: string | symbol, options?: IOnceOptions | undefined): CancelablePromise<Array<any>, Unlisted>
+(emitter: EventTarget, eventName: string, options?: IOnceOptions | undefined): CancelablePromise<Array<any>, Unlisted>
 ```

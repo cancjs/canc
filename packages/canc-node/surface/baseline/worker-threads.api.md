@@ -53,7 +53,7 @@ new (filename: URL | string, options?: WorkerOptions | undefined): IWorkerWithPr
 
 ```text
 extends NodeWorker
-readonly promise: CancelablePromise<number, never>
+readonly promise: CancelablePromise<number, unknown>
 ```
 
 ## `MessageChannel` (class)
