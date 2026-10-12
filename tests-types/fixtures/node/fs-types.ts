@@ -12,7 +12,7 @@
  *
  * Runtime-dead: nothing in here executes. The calls exist to make the compiler resolve overloads.
  */
-import CancelablePromise from '@cancjs/promise';
+import CancelablePromise, { Unlisted } from '@cancjs/promise';
 import * as nodeFs from 'node:fs';
 import * as nodeFsp from 'node:fs/promises';
 
@@ -25,7 +25,7 @@ import { Equal, Expect, IsAny, IsUnknown, Not } from '../common/assert-type';
 // Our answer for a call, against node's answer for the same call, with cancelability added.
 type SameAsNode<TOurs, TNode> = Equal<
   TOurs,
-  TNode extends Promise<infer TValue> ? CancelablePromise<TValue, never> : never
+  TNode extends Promise<infer TValue> ? CancelablePromise<TValue, Unlisted> : never
 >;
 
 type ResolvedBy<T> = T extends PromiseLike<infer TValue> ? TValue : never;
@@ -37,8 +37,8 @@ export function overloadsSurvive(path: string, handle: nodeFsp.FileHandle) {
   const asBuffer = fs.readFile(path);
   const asBufferViaOptions = fs.readFile(path, { encoding: null });
 
-  type A1 = Expect<Equal<typeof asText, CancelablePromise<string, never>>>;
-  type A2 = Expect<Equal<typeof asTextViaOptions, CancelablePromise<string, never>>>;
+  type A1 = Expect<Equal<typeof asText, CancelablePromise<string, Unlisted>>>;
+  type A2 = Expect<Equal<typeof asTextViaOptions, CancelablePromise<string, Unlisted>>>;
   // node renames its own buffer type between major typings, so the claim is made against the
   // answer node gives for the same call rather than against a spelled-out name
   const nodeBuffer = nodeFsp.readFile(path);
@@ -54,7 +54,7 @@ export function overloadsSurvive(path: string, handle: nodeFsp.FileHandle) {
 
   const nodeBuffers = nodeFsp.readdir(path, 'buffer');
 
-  type A5 = Expect<Equal<typeof names, CancelablePromise<string[], never>>>;
+  type A5 = Expect<Equal<typeof names, CancelablePromise<string[], Unlisted>>>;
   type A6 = Expect<SameAsNode<typeof buffers, typeof nodeBuffers>>;
   type A7 = Expect<Equal<ResolvedBy<typeof dirents>, nodeFs.Dirent[]>>;
 
@@ -64,19 +64,19 @@ export function overloadsSurvive(path: string, handle: nodeFsp.FileHandle) {
   const stats = fs.stat(path);
   const bigStats = fs.stat(path, { bigint: true });
 
-  type A8 = Expect<Equal<typeof written, CancelablePromise<void, never>>>;
-  type A9 = Expect<Equal<typeof writtenWithOptions, CancelablePromise<void, never>>>;
-  type A10 = Expect<Equal<typeof stats, CancelablePromise<nodeFs.Stats, never>>>;
-  type A11 = Expect<Equal<typeof bigStats, CancelablePromise<nodeFs.BigIntStats, never>>>;
+  type A8 = Expect<Equal<typeof written, CancelablePromise<void, Unlisted>>>;
+  type A9 = Expect<Equal<typeof writtenWithOptions, CancelablePromise<void, Unlisted>>>;
+  type A10 = Expect<Equal<typeof stats, CancelablePromise<nodeFs.Stats, Unlisted>>>;
+  type A11 = Expect<Equal<typeof bigStats, CancelablePromise<nodeFs.BigIntStats, Unlisted>>>;
 
   // a handle, a boolean and a void call, none of them promise-shaped in the same way
   const opened = fs.open(path, 'r');
   const found = fs.exists(path);
   const reachable = fs.access(path);
 
-  type A12 = Expect<Equal<typeof opened, CancelablePromise<fs.TCancelableFileHandle, never>>>;
+  type A12 = Expect<Equal<typeof opened, CancelablePromise<fs.TCancelableFileHandle, Unlisted>>>;
   type A13 = Expect<Equal<typeof found, CancelablePromise<boolean, never>>>;
-  type A14 = Expect<Equal<typeof reachable, CancelablePromise<void, never>>>;
+  type A14 = Expect<Equal<typeof reachable, CancelablePromise<void, Unlisted>>>;
 
   return [
     asText,
@@ -290,7 +290,7 @@ export function ladderStillCoversTheWidestRealMember(path: string) {
 
   const nodeBuffers = nodeFsp.readdir(path, 'buffer');
 
-  type NamesResult = Expect<Equal<typeof names, CancelablePromise<string[], never>>>;
+  type NamesResult = Expect<Equal<typeof names, CancelablePromise<string[], Unlisted>>>;
   type R2 = Expect<SameAsNode<typeof buffers, typeof nodeBuffers>>;
   type R3 = Expect<Equal<ResolvedBy<typeof dirents>, nodeFs.Dirent[]>>;
 
