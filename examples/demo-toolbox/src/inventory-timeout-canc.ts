@@ -1,4 +1,4 @@
-import type CancelablePromise from '@cancjs/promise';
+import type { CancelablePromise, Unlisted } from '@cancjs/promise';
 import { timeout, TimeoutError } from '@cancjs/toolbox';
 import type { MockApiBundle } from '@shared/mock-api';
 
@@ -13,6 +13,6 @@ type InventoryApi = MockApiBundle['inventory'];
 export function fetchInventoryWithTimeout(
   inventoryApi: InventoryApi,
   productId: string,
-): CancelablePromise<number, TimeoutError> {
+): CancelablePromise<number, TimeoutError | Unlisted> {
   return timeout(inventoryApi.check(productId), 500);
 }
