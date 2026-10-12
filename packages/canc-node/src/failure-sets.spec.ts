@@ -46,6 +46,13 @@ function _failureSets(): void {
   const _dgramSendIsOpen: Eq<FailureOf<typeof sent>, Unlisted> = true;
   const _onceIsOpen: Eq<FailureOf<ReturnType<typeof events.once>>, Unlisted> = true;
   const _questionIsOpen: Eq<FailureOf<ReturnType<readline.Interface['question']>>, Unlisted> = true;
+  const moved = fsExtra.move(path, path);
+  const _moveIsOpen: Eq<FailureOf<typeof moved>, Unlisted> = true;
+  const movedCode = moved.catch((e) => {
+    const _moveReasonIsAny: Eq<IsAny<typeof e>, true> = true;
+    void _moveReasonIsAny;
+    return e.code as string;
+  });
   const _textIsOpen: Eq<FailureOf<ReturnType<typeof stream.text>>, Unlisted> = true;
   const _toArrayIsOpen: Eq<FailureOf<ReturnType<typeof stream.toArray>>, Unlisted> = true;
   const finished = stream.finished(readable);
@@ -113,6 +120,9 @@ function _failureSets(): void {
     _dgramSendIsOpen,
     _onceIsOpen,
     _questionIsOpen,
+    moved,
+    _moveIsOpen,
+    movedCode,
     _textIsOpen,
     _toArrayIsOpen,
     _finishedIsOpen,
