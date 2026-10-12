@@ -1,6 +1,5 @@
 // cache-vs-pipeline race where loser cancels down whole tree
 
-import type { BreakError } from '@cancjs/coroutine';
 import { CancelablePromise } from '@cancjs/promise';
 import type { ChatApi, RagApi } from '@shared/mock-api';
 
@@ -11,7 +10,7 @@ export function answerWithCache(
   ragApi: RagApi,
   chatApi: ChatApi,
   query: string,
-): CancelablePromise<RagAnswer, BreakError> {
+): CancelablePromise<RagAnswer, unknown> {
   return CancelablePromise.race([lookupCache(query), ragPipeline(ragApi, chatApi, query)]);
 }
 
