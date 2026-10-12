@@ -14,6 +14,6 @@ Calls that reject only when canceled return `CancelablePromise<T, never>`: `setT
 `setImmediate`, `scheduler.wait`, `exists` and `pathExists`.
 
 Calls where your own code decides the rejection return `CancelablePromise<T, unknown>`: the stream
-visitors (`every`, `find`, `forEach`, `reduce`, `some`), `pipeline`, `copy` (its `filter` and
-`onProgress` callbacks), `writeJson` and `outputJson` (their `replacer`), `requestLock`, `runTask`
+visitors (`every`, `find`, `forEach`, `reduce`, `some`), `pipeline`, fs `cp` (its `filter`),
+fs-extra `copy` (its `filter` and `onProgress` callbacks), `writeJson` and `outputJson` (their `replacer`), `requestLock`, `runTask`
 and the `Worker` `promise`.
