@@ -1,6 +1,6 @@
 import { dirname } from 'node:path';
 
-import { CancelablePromise } from '@cancjs/promise';
+import { CancelablePromise, Unlisted } from '@cancjs/promise';
 
 import { writeFile } from '../fs';
 import { writeFileSync } from '../fs/sync';
@@ -27,7 +27,7 @@ export function outputFile(
   path: string,
   data: TWriteData,
   options?: IOutputFileOptions,
-): CancelablePromise<void, never> {
+): CancelablePromise<void, Unlisted> {
   return new CancelablePromise((resolve, reject, { handleCancel }) => {
     let activePromise: CancelablePromise<unknown> | null = null;
     handleCancel((reason) => {

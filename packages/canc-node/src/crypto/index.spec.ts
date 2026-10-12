@@ -1,6 +1,6 @@
 import type { KeyObject } from 'node:crypto';
 
-import { CancelablePromise, isCancelError } from '@cancjs/promise';
+import { CancelablePromise, isCancelError, Unlisted } from '@cancjs/promise';
 
 import { isNotImplementedError } from '../errors/classes';
 import { features } from '../features';
@@ -15,7 +15,7 @@ type Expect<T extends true> = T;
 function typeAssertions(): unknown[] {
   const derived = cryptoExports.pbkdf2('password', 'salt', 1, 20, 'sha1');
 
-  type _Assertions = [Expect<Equal<typeof derived, CancelablePromise<Buffer, never>>>];
+  type _Assertions = [Expect<Equal<typeof derived, CancelablePromise<Buffer, Unlisted>>>];
 
   return [derived];
 }

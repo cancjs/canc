@@ -10,7 +10,7 @@ import type {
   SrvRecord,
 } from 'node:dns';
 
-import type { CancelablePromise } from '@cancjs/promise';
+import type { CancelablePromise, Unlisted } from '@cancjs/promise';
 
 /**
  * One certificate association record from a TLSA query.
@@ -30,34 +30,34 @@ export interface ITlsaRecord {
 // one function's ladder with CancelablePromise in place of Promise, shared by the module-level
 // export and the Resolver method node publishes identically
 export interface IResolveFn {
-  (hostname: string): CancelablePromise<string[], never>;
-  (hostname: string, rrtype: 'A' | 'AAAA' | 'CNAME' | 'NS' | 'PTR'): CancelablePromise<string[], never>;
-  (hostname: string, rrtype: 'ANY'): CancelablePromise<AnyRecord[], never>;
-  (hostname: string, rrtype: 'CAA'): CancelablePromise<CaaRecord[], never>;
-  (hostname: string, rrtype: 'MX'): CancelablePromise<MxRecord[], never>;
-  (hostname: string, rrtype: 'NAPTR'): CancelablePromise<NaptrRecord[], never>;
-  (hostname: string, rrtype: 'SOA'): CancelablePromise<SoaRecord, never>;
-  (hostname: string, rrtype: 'SRV'): CancelablePromise<SrvRecord[], never>;
-  (hostname: string, rrtype: 'TXT'): CancelablePromise<string[][], never>;
+  (hostname: string): CancelablePromise<string[], Unlisted>;
+  (hostname: string, rrtype: 'A' | 'AAAA' | 'CNAME' | 'NS' | 'PTR'): CancelablePromise<string[], Unlisted>;
+  (hostname: string, rrtype: 'ANY'): CancelablePromise<AnyRecord[], Unlisted>;
+  (hostname: string, rrtype: 'CAA'): CancelablePromise<CaaRecord[], Unlisted>;
+  (hostname: string, rrtype: 'MX'): CancelablePromise<MxRecord[], Unlisted>;
+  (hostname: string, rrtype: 'NAPTR'): CancelablePromise<NaptrRecord[], Unlisted>;
+  (hostname: string, rrtype: 'SOA'): CancelablePromise<SoaRecord, Unlisted>;
+  (hostname: string, rrtype: 'SRV'): CancelablePromise<SrvRecord[], Unlisted>;
+  (hostname: string, rrtype: 'TXT'): CancelablePromise<string[][], Unlisted>;
   (
     hostname: string,
     rrtype: string,
   ): CancelablePromise<
     string[] | CaaRecord[] | MxRecord[] | NaptrRecord[] | SoaRecord | SrvRecord[] | string[][] | AnyRecord[],
-    never
+    Unlisted
   >;
 }
 
 export interface IResolve4Fn {
-  (hostname: string): CancelablePromise<string[], never>;
-  (hostname: string, options: ResolveWithTtlOptions): CancelablePromise<RecordWithTtl[], never>;
-  (hostname: string, options: ResolveOptions): CancelablePromise<string[] | RecordWithTtl[], never>;
+  (hostname: string): CancelablePromise<string[], Unlisted>;
+  (hostname: string, options: ResolveWithTtlOptions): CancelablePromise<RecordWithTtl[], Unlisted>;
+  (hostname: string, options: ResolveOptions): CancelablePromise<string[] | RecordWithTtl[], Unlisted>;
 }
 
 export interface IResolve6Fn {
-  (hostname: string): CancelablePromise<string[], never>;
-  (hostname: string, options: ResolveWithTtlOptions): CancelablePromise<RecordWithTtl[], never>;
-  (hostname: string, options: ResolveOptions): CancelablePromise<string[] | RecordWithTtl[], never>;
+  (hostname: string): CancelablePromise<string[], Unlisted>;
+  (hostname: string, options: ResolveWithTtlOptions): CancelablePromise<RecordWithTtl[], Unlisted>;
+  (hostname: string, options: ResolveOptions): CancelablePromise<string[] | RecordWithTtl[], Unlisted>;
 }
 
-export type TResolveTlsaFn = (hostname: string) => CancelablePromise<ITlsaRecord[], never>;
+export type TResolveTlsaFn = (hostname: string) => CancelablePromise<ITlsaRecord[], Unlisted>;

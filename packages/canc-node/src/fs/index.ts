@@ -1,7 +1,7 @@
 import nodeFs from 'node:fs';
 import nodeFsPromises from 'node:fs/promises';
 
-import { CancelablePromise } from '@cancjs/promise';
+import { CancelablePromise, Unlisted } from '@cancjs/promise';
 
 import { isThenable } from '../../../_util';
 import fsJson from '../../surface/projected/fs.json';
@@ -91,10 +91,10 @@ function closeQuietly(value: unknown): void {
 function teardownOpen<R>(
   name: 'open' | 'opendir',
   transform?: (value: unknown) => R,
-): (...args: unknown[]) => CancelablePromise<R, never> {
-  return function teardownOpenCall(...args: unknown[]): CancelablePromise<R, never> {
+): (...args: unknown[]) => CancelablePromise<R, Unlisted> {
+  return function teardownOpenCall(...args: unknown[]): CancelablePromise<R, Unlisted> {
     let canceled = false;
-    return new CancelablePromise<R, never>((resolve, _reject, { handleCancel }) => {
+    return new CancelablePromise<R, Unlisted>((resolve, _reject, { handleCancel }) => {
       handleCancel(() => {
         canceled = true;
       });
@@ -114,7 +114,7 @@ function teardownOpen<R>(
         return raw;
       });
 
-      const chain = transform ? started.then(transform) : (started as CancelablePromise<R, never>);
+      const chain = transform ? started.then(transform) : (started as CancelablePromise<R, Unlisted>);
       resolve(chain);
     });
   };
@@ -226,4 +226,6 @@ export const Dirent = nodeFs.Dirent;
 export const Stats = nodeFs.Stats;
 export type { BigIntStats, StatsFs as StatFs } from 'node:fs';
 export type { TCancelableFileHandle };
-export const exists = promisifyWrapped(viaFs('exists'), 1) as TCancelable<typeof nodeFs.exists.__promisify__>;
+export const exists = promisifyWrapped(viaFs('exists'), 1) as (
+  path: nodeFs.PathLike,
+) => CancelablePromise<boolean, never>;

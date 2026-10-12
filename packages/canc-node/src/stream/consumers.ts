@@ -1,6 +1,6 @@
 import * as nodeConsumers from 'node:stream/consumers';
 
-import { CancelablePromise } from '@cancjs/promise';
+import { CancelablePromise, Unlisted } from '@cancjs/promise';
 
 import { features } from '../features';
 import { gated } from '../gate';
@@ -54,11 +54,14 @@ function destroySource(stream: TConsumerSource): void {
  */
 function consumerWrapped<TValue>(
   consume: (stream: TConsumerSource) => Promise<TValue>,
-): (stream: TConsumerSource, options?: IConsumerOptions) => CancelablePromise<TValue, never> {
-  return function consumerCall(stream: TConsumerSource, options?: IConsumerOptions): CancelablePromise<TValue, never> {
+): (stream: TConsumerSource, options?: IConsumerOptions) => CancelablePromise<TValue, Unlisted> {
+  return function consumerCall(
+    stream: TConsumerSource,
+    options?: IConsumerOptions,
+  ): CancelablePromise<TValue, Unlisted> {
     const destroyOnCancel = options?.destroyOnCancel !== false;
 
-    return new CancelablePromise<TValue, never>((resolve, _reject, { handleCancel }) => {
+    return new CancelablePromise<TValue, Unlisted>((resolve, _reject, { handleCancel }) => {
       handleCancel(() => {
         if (destroyOnCancel) {
           destroySource(stream);

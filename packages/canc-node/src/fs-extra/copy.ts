@@ -247,7 +247,7 @@ export function copyTreeSync(src: string, dest: string, options?: ICopyOptions):
  * @param dest - Destination path
  * @param options - Copy options
  */
-export function copy(src: string, dest: string, options?: ICopyOptions): CancelablePromise<void, never> {
+export function copy(src: string, dest: string, options?: ICopyOptions): CancelablePromise<void, unknown> {
   return new CancelablePromise((resolve, _reject, { getSignal, handleCancel }) => {
     const signal = getSignal();
     const active: IActiveCall = { current: null };

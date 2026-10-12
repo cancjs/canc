@@ -1,12 +1,12 @@
 import { dirname } from 'node:path';
 
-import { CancelablePromise } from '@cancjs/promise';
+import { CancelablePromise, Unlisted } from '@cancjs/promise';
 
 import { EISDIR, isExistsError, isNotFoundError } from '../errors/errno';
 import { link, lstat, mkdir, stat, symlink, writeFile } from '../fs';
 import { linkSync, lstatSync, mkdirSync, statSync, symlinkSync, writeFileSync } from '../fs/sync';
 
-export function ensureDir(path: string): CancelablePromise<void, never> {
+export function ensureDir(path: string): CancelablePromise<void, Unlisted> {
   return new CancelablePromise((resolve, reject, { handleCancel }) => {
     const p = mkdir(path, { recursive: true });
     handleCancel((reason) => {
@@ -41,7 +41,7 @@ export function ensureDirSync(path: string): void {
   }
 }
 
-export function ensureFile(path: string): CancelablePromise<void, never> {
+export function ensureFile(path: string): CancelablePromise<void, Unlisted> {
   return new CancelablePromise((resolve, reject, { handleCancel }) => {
     let activePromise: CancelablePromise<unknown> | null = null;
     handleCancel((reason) => {
@@ -99,7 +99,7 @@ export function ensureFileSync(path: string): void {
   }
 }
 
-export function ensureLink(srcPath: string, dstPath: string): CancelablePromise<void, never> {
+export function ensureLink(srcPath: string, dstPath: string): CancelablePromise<void, Unlisted> {
   return new CancelablePromise((resolve, reject, { handleCancel }) => {
     let activePromise: CancelablePromise<unknown> | null = null;
     handleCancel((reason) => {
@@ -143,7 +143,7 @@ export function ensureLinkSync(srcPath: string, dstPath: string): void {
   }
 }
 
-export function ensureSymlink(srcPath: string, dstPath: string, type?: string): CancelablePromise<void, never> {
+export function ensureSymlink(srcPath: string, dstPath: string, type?: string): CancelablePromise<void, Unlisted> {
   return new CancelablePromise((resolve, reject, { handleCancel }) => {
     let activePromise: CancelablePromise<unknown> | null = null;
     handleCancel((reason) => {

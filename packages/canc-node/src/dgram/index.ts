@@ -1,6 +1,6 @@
 import { createSocket as nodeCreateSocket, Socket as DgramSocket, SocketType } from 'node:dgram';
 
-import { CancelablePromise } from '@cancjs/promise';
+import { CancelablePromise, Unlisted } from '@cancjs/promise';
 
 export type { Socket as DgramSocket, RemoteInfo, SocketOptions, SocketType } from 'node:dgram';
 export { createSocket as nodeCreateSocket } from 'node:dgram';
@@ -39,13 +39,13 @@ export function send(
   length: number,
   port: number,
   addr?: string,
-): CancelablePromise<number, never>;
+): CancelablePromise<number, Unlisted>;
 export function send(
   socket: DgramSocket,
   msg: string | Uint8Array,
   port: number,
   addr?: string,
-): CancelablePromise<number, never>;
+): CancelablePromise<number, Unlisted>;
 export function send(
   socket: DgramSocket,
   msg: string | Uint8Array,
@@ -53,7 +53,7 @@ export function send(
   lengthOrAddr?: number | string,
   port?: number,
   addr?: string,
-): CancelablePromise<number, never> {
+): CancelablePromise<number, Unlisted> {
   // Overload resolution: disambiguate offset vs port based on arg count and types
   let resolvedOffset: number;
   let resolvedLength: number;
@@ -74,7 +74,7 @@ export function send(
     resolvedAddr = lengthOrAddr as string | undefined;
   }
 
-  return new CancelablePromise<number, never>((resolve, reject, { getSignal }) => {
+  return new CancelablePromise<number, Unlisted>((resolve, reject, { getSignal }) => {
     const signal = getSignal();
 
     // For send, cancel rejects the promise. Once queued to the kernel,
@@ -111,8 +111,8 @@ export function send(
  * @param addr Local address.
  * @returns A cancelable promise resolving when the socket is bound.
  */
-export function bind(socket: DgramSocket, port?: number, addr?: string): CancelablePromise<void, never> {
-  return new CancelablePromise<void, never>((resolve, reject, { getSignal }) => {
+export function bind(socket: DgramSocket, port?: number, addr?: string): CancelablePromise<void, Unlisted> {
+  return new CancelablePromise<void, Unlisted>((resolve, reject, { getSignal }) => {
     const signal = getSignal();
     let completed = false;
 
@@ -156,8 +156,8 @@ export function bind(socket: DgramSocket, port?: number, addr?: string): Cancela
  * @param addr Remote address.
  * @returns A cancelable promise resolving when the socket is connected.
  */
-export function connect(socket: DgramSocket, port: number, addr?: string): CancelablePromise<void, never> {
-  return new CancelablePromise<void, never>((resolve, reject, { getSignal }) => {
+export function connect(socket: DgramSocket, port: number, addr?: string): CancelablePromise<void, Unlisted> {
+  return new CancelablePromise<void, Unlisted>((resolve, reject, { getSignal }) => {
     const signal = getSignal();
     let completed = false;
 

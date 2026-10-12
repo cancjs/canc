@@ -1,6 +1,6 @@
 import { dirname } from 'node:path';
 
-import { CancelablePromise } from '@cancjs/promise';
+import { CancelablePromise, Unlisted } from '@cancjs/promise';
 
 import { JsonParseError } from '../errors/classes';
 import { readFile, writeFile } from '../fs';
@@ -62,15 +62,15 @@ function formatJson(object: unknown, options?: IWriteJsonOptions | BufferEncodin
 export function readJson<T = any>(
   file: string,
   options: IReadJsonOptions & { throws: false },
-): CancelablePromise<T | null, never>;
+): CancelablePromise<T | null, Unlisted>;
 export function readJson<T = any>(
   file: string,
   options?: IReadJsonOptions | BufferEncoding | null,
-): CancelablePromise<T, never>;
+): CancelablePromise<T, Unlisted>;
 export function readJson<T = any>(
   file: string,
   options?: IReadJsonOptions | BufferEncoding | null,
-): CancelablePromise<T | null, never> {
+): CancelablePromise<T | null, Unlisted> {
   return new CancelablePromise((resolve, reject, { handleCancel }) => {
     const opts = typeof options === 'string' ? { encoding: options } : (options ?? {});
     const encoding = opts.encoding === undefined ? 'utf8' : opts.encoding;
@@ -123,7 +123,7 @@ export function writeJson(
   file: string,
   object: unknown,
   options?: IWriteJsonOptions | BufferEncoding | null,
-): CancelablePromise<void, never> {
+): CancelablePromise<void, unknown> {
   return new CancelablePromise((resolve, reject, { handleCancel }) => {
     let str: string;
     try {
@@ -168,7 +168,7 @@ export function outputJson(
   file: string,
   data: unknown,
   options?: IOutputJsonOptions | BufferEncoding | null,
-): CancelablePromise<void, never> {
+): CancelablePromise<void, unknown> {
   return new CancelablePromise((resolve, reject, { handleCancel }) => {
     let str: string;
     try {

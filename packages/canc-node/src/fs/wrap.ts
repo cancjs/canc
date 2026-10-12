@@ -1,6 +1,6 @@
 import type * as nodeFsPromises from 'node:fs/promises';
 
-import { CancelablePromise } from '@cancjs/promise';
+import { CancelablePromise, Unlisted } from '@cancjs/promise';
 
 import { IPromiseKind, IToolboxDeps, TPromiseCtor } from '../../../_toolbox';
 import { promisifyFactory } from '../../../_toolbox/promisify';
@@ -50,7 +50,7 @@ export type TCancelableFileHandle<THandle = nodeFsPromises.FileHandle> = {
 /** One node call signature, with a cancelable promise in place of the plain one it returned. */
 type TCancelableReturn<R> =
   [R] extends [Promise<infer TValue>] ?
-    CancelablePromise<TValue extends nodeFsPromises.FileHandle ? TCancelableFileHandle<TValue> : TValue, never>
+    CancelablePromise<TValue extends nodeFsPromises.FileHandle ? TCancelableFileHandle<TValue> : TValue, Unlisted>
   : R;
 
 /**
@@ -156,7 +156,7 @@ export type TSignatures<TFn> = TNodeSignatures<TFn, 'same'>;
 
 /** Promise flavor bound into the inlined toolbox algorithms, so every product is cancelable. */
 interface ICancelableKind extends IPromiseKind {
-  promise: CancelablePromise<this['value'], never>;
+  promise: CancelablePromise<this['value'], Unlisted>;
   options: object;
 }
 
@@ -311,14 +311,14 @@ export function signalWrapped<R = unknown>(
   nodeFn: TNodeFn,
   entry: IManifestEntry | undefined,
   optionsIndex = 0,
-): (...args: unknown[]) => CancelablePromise<R, never> {
+): (...args: unknown[]) => CancelablePromise<R, Unlisted> {
   const forwards = acceptsSignal(entry);
 
-  return function signalWrappedCall(this: unknown, ...args: unknown[]): CancelablePromise<R, never> {
+  return function signalWrappedCall(this: unknown, ...args: unknown[]): CancelablePromise<R, Unlisted> {
     const call = takeCallerSignal(args, optionsIndex);
 
     if (!forwards) {
-      return new CancelablePromise<R, never>(
+      return new CancelablePromise<R, Unlisted>(
         (resolve) => {
           resolve(nodeFn.apply(this, call.args) as R | PromiseLike<R>);
         },
@@ -326,7 +326,7 @@ export function signalWrapped<R = unknown>(
       );
     }
 
-    return new CancelablePromise<R, never>(
+    return new CancelablePromise<R, Unlisted>(
       (resolve, _reject, { getSignal }) => {
         // the signal is minted before the call, so a cancel racing the call still aborts it
         resolve(nodeFn.apply(this, withSignalAt(call.args, optionsIndex, getSignal())) as R | PromiseLike<R>);
@@ -346,15 +346,15 @@ export function signalWrapped<R = unknown>(
 export function promisifyWrapped<R = unknown>(
   nodeFn: TNodeFn,
   optionsIndex = 0,
-): (...args: unknown[]) => CancelablePromise<R, never> {
+): (...args: unknown[]) => CancelablePromise<R, Unlisted> {
   const plain = promisify(nodeFn);
 
-  return function promisifyWrappedCall(this: unknown, ...args: unknown[]): CancelablePromise<R, never> {
+  return function promisifyWrappedCall(this: unknown, ...args: unknown[]): CancelablePromise<R, Unlisted> {
     const call = takeCallerSignal(args, optionsIndex);
 
     const bound = call.callerSignal ? promisify(nodeFn, { signal: call.callerSignal }) : plain;
 
-    return bound.apply(this, call.args) as CancelablePromise<R, never>;
+    return bound.apply(this, call.args) as CancelablePromise<R, Unlisted>;
   };
 }
 
@@ -370,7 +370,7 @@ export function promisifySignalWrapped<R = unknown>(
   nodeFn: TNodeFn,
   entry: IManifestEntry | undefined,
   optionsIndex = 0,
-): (...args: unknown[]) => CancelablePromise<R, never> {
+): (...args: unknown[]) => CancelablePromise<R, Unlisted> {
   const forwards = acceptsSignal(entry);
   const transformArgs =
     forwards ?
@@ -379,7 +379,7 @@ export function promisifySignalWrapped<R = unknown>(
 
   const plain = promisify(nodeFn, transformArgs ? { transformArgs } : undefined);
 
-  return function promisifySignalWrappedCall(this: unknown, ...args: unknown[]): CancelablePromise<R, never> {
+  return function promisifySignalWrappedCall(this: unknown, ...args: unknown[]): CancelablePromise<R, Unlisted> {
     const call = takeCallerSignal(args, optionsIndex);
 
     // promisify reads its options once, at wrap time, so a per-call signal needs its own binding
@@ -388,7 +388,7 @@ export function promisifySignalWrapped<R = unknown>(
         promisify(nodeFn, transformArgs ? { transformArgs, signal: call.callerSignal } : { signal: call.callerSignal })
       : plain;
 
-    return bound.apply(this, call.args) as CancelablePromise<R, never>;
+    return bound.apply(this, call.args) as CancelablePromise<R, Unlisted>;
   };
 }
 
@@ -401,9 +401,9 @@ export function promisifySignalWrapped<R = unknown>(
 export function teardownWrapped<R = unknown>(
   nodeFn: TNodeFn,
   teardown: (value: R, args: unknown[]) => void,
-): (...args: unknown[]) => CancelablePromise<R, never> {
-  return function teardownWrappedCall(this: unknown, ...args: unknown[]): CancelablePromise<R, never> {
-    return new CancelablePromise<R, never>((resolve, _reject, { handleCancel }) => {
+): (...args: unknown[]) => CancelablePromise<R, Unlisted> {
+  return function teardownWrappedCall(this: unknown, ...args: unknown[]): CancelablePromise<R, Unlisted> {
+    return new CancelablePromise<R, Unlisted>((resolve, _reject, { handleCancel }) => {
       const started = nodeFn.apply(this, args) as R | PromiseLike<R>;
       if (isCancelable(started)) {
         // shield cancelable inner so teardown can run once the underlying work resolves
@@ -439,10 +439,10 @@ export function teardownWrapped<R = unknown>(
 export function adopted<R = unknown>(
   nodeFn: TNodeFn,
   optionsIndex = 0,
-): (...args: unknown[]) => CancelablePromise<R, never> {
-  return function adoptedCall(this: unknown, ...args: unknown[]): CancelablePromise<R, never> {
+): (...args: unknown[]) => CancelablePromise<R, Unlisted> {
+  return function adoptedCall(this: unknown, ...args: unknown[]): CancelablePromise<R, Unlisted> {
     const call = takeCallerSignal(args, optionsIndex);
-    return new CancelablePromise<R, never>(
+    return new CancelablePromise<R, Unlisted>(
       (resolve) => {
         resolve(nodeFn.apply(this, call.args) as R | PromiseLike<R>);
       },

@@ -1,6 +1,6 @@
 import { ChildProcess, fork as nodeFork, ForkOptions, spawn as nodeSpawn, SpawnOptions } from 'node:child_process';
 
-import { CancelablePromise } from '@cancjs/promise';
+import { CancelablePromise, Unlisted } from '@cancjs/promise';
 
 import { ProcessExitError } from '../errors/classes';
 import { mapChildProcessError } from './map-error';
@@ -56,7 +56,7 @@ export interface IProcessChildProcess extends ChildProcess {
    * Canceling it sends `killSignal` and waits for the child to exit, and rejects with
    * `CancelError` rather than `ProcessExitError` for a kill this call initiated.
    */
-  readonly promise: CancelablePromise<IProcessResult, never>;
+  readonly promise: CancelablePromise<IProcessResult, Unlisted>;
 }
 
 // node's close event sets exactly one of code and signal; a clean exit is the only case that resolves
@@ -83,8 +83,8 @@ function createProcessPromise(
   sink: ISettlementSink<TProcessSettlement>,
   command: string,
   killSignal?: NodeJS.Signals | number,
-): CancelablePromise<IProcessResult, never> {
-  return new CancelablePromise<IProcessResult, never>((resolve, reject, ctx) => {
+): CancelablePromise<IProcessResult, Unlisted> {
+  return new CancelablePromise<IProcessResult, Unlisted>((resolve, reject, ctx) => {
     ctx.handleCancel(() => killAndWaitForExit(child, killSignal));
 
     // presence marker, not a handler: the recorder's crash-on-unhandled check only sees real

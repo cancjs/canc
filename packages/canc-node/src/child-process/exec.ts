@@ -12,7 +12,7 @@ import {
   ExecOptionsWithStringEncoding,
 } from 'node:child_process';
 
-import { CancelablePromise } from '@cancjs/promise';
+import { CancelablePromise, Unlisted } from '@cancjs/promise';
 
 import { mapChildProcessError } from './map-error';
 import { createSink, defineProcessPromise, ISettlementSink, killAndWaitForExit } from './promise';
@@ -29,10 +29,10 @@ export interface IExecChildProcess<T extends string | Buffer = string> extends C
    * A cancelable promise of the buffered result, created on first access and reused after that.
    * Canceling it sends `killSignal` and waits for the child to exit.
    */
-  readonly promise: CancelablePromise<IExecResult<T>, never>;
+  readonly promise: CancelablePromise<IExecResult<T>, Unlisted>;
 }
 
-export type TExecPromise<T extends string | Buffer = string> = CancelablePromise<IExecResult<T>, never> & {
+export type TExecPromise<T extends string | Buffer = string> = CancelablePromise<IExecResult<T>, Unlisted> & {
   child: IExecChildProcess<T>;
 };
 
@@ -55,8 +55,8 @@ function createExecPromise(
   sink: ISettlementSink<ISettlement>,
   command: string,
   killSignal?: NodeJS.Signals | number,
-): CancelablePromise<IExecResult<string | Buffer>, never> {
-  return new CancelablePromise<IExecResult<string | Buffer>, never>((resolve, reject, ctx) => {
+): CancelablePromise<IExecResult<string | Buffer>, Unlisted> {
+  return new CancelablePromise<IExecResult<string | Buffer>, Unlisted>((resolve, reject, ctx) => {
     ctx.handleCancel(() => killAndWaitForExit(child, killSignal));
 
     sink.subscribe((settlement) => {

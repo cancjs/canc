@@ -1,6 +1,6 @@
 import { ChildProcess } from 'node:child_process';
 
-import { CancelablePromise } from '@cancjs/promise';
+import { CancelablePromise, Unlisted } from '@cancjs/promise';
 
 // upper bound on how long a canceled call waits for the child, so cancel can never hang
 const EXIT_WAIT_MS = 5000;
@@ -95,13 +95,13 @@ export function createSink<T>(): ISettlementSink<T> {
  * @param child The child process node returned.
  * @param create Factory building the promise on first access.
  */
-export function defineProcessPromise<T>(child: ChildProcess, create: () => CancelablePromise<T, never>): void {
-  let memo: CancelablePromise<T, never> | undefined;
+export function defineProcessPromise<T>(child: ChildProcess, create: () => CancelablePromise<T, Unlisted>): void {
+  let memo: CancelablePromise<T, Unlisted> | undefined;
 
   Object.defineProperty(child, 'promise', {
     configurable: true,
     enumerable: false,
-    get(): CancelablePromise<T, never> {
+    get(): CancelablePromise<T, Unlisted> {
       if (!memo) {
         memo = create();
       }

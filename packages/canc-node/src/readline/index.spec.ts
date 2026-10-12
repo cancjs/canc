@@ -1,6 +1,6 @@
 import { Readable, Writable } from 'node:stream';
 
-import { CancelablePromise, isCancelError } from '@cancjs/promise';
+import { CancelablePromise, isCancelError, Unlisted } from '@cancjs/promise';
 
 import * as readlineExports from './index';
 
@@ -14,8 +14,8 @@ function typeAssertions(rl: readlineExports.Interface): unknown[] {
   const answerWithSignal = rl.question('> ', { signal: new AbortController().signal });
 
   type _Assertions = [
-    Expect<Equal<typeof answer, CancelablePromise<string, never>>>,
-    Expect<Equal<typeof answerWithSignal, CancelablePromise<string, never>>>,
+    Expect<Equal<typeof answer, CancelablePromise<string, Unlisted>>>,
+    Expect<Equal<typeof answerWithSignal, CancelablePromise<string, Unlisted>>>,
   ];
 
   return [answer, answerWithSignal];

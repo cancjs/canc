@@ -1,6 +1,6 @@
 import { basename, dirname, join } from 'node:path';
 
-import { CancelablePromise } from '@cancjs/promise';
+import { CancelablePromise, Unlisted } from '@cancjs/promise';
 
 import { isErrno, isNotFoundError } from '../errors/errno';
 import { chmod, chown, rename, stat, unlink, writeFile } from '../fs';
@@ -77,7 +77,7 @@ export function replaceFile(
   path: string,
   data: TWriteData,
   options?: IReplaceFileOptions,
-): CancelablePromise<void, never> {
+): CancelablePromise<void, Unlisted> {
   return new CancelablePromise((resolve, reject, { handleCancel }) => {
     const dir = dirname(path);
     const base = basename(path);

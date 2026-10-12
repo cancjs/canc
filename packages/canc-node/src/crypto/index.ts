@@ -1,7 +1,7 @@
 import type { BinaryLike, KeyObject } from 'node:crypto';
 import nodeCrypto from 'node:crypto';
 
-import { CancelablePromise } from '@cancjs/promise';
+import { CancelablePromise, Unlisted } from '@cancjs/promise';
 
 import { IGenerateKeyPairFn } from './key-pair';
 import {
@@ -38,7 +38,7 @@ export const pbkdf2 = promisifyWrapped(cryptoCb.pbkdf2) as (
   iterations: number,
   keylen: number,
   digest: string,
-) => CancelablePromise<Buffer, never>;
+) => CancelablePromise<Buffer, Unlisted>;
 
 /**
  * Derives a key from a password using scrypt.
@@ -88,7 +88,7 @@ export const generateKeyPair = promisifyWrapped(cryptoCb.generateKeyPair, {
 export const generateKey = promisifyWrapped(cryptoCb.generateKey) as (
   type: 'hmac' | 'aes',
   options: { length: number },
-) => CancelablePromise<KeyObject, never>;
+) => CancelablePromise<KeyObject, Unlisted>;
 
 /**
  * Generates a pseudorandom prime of the given bit size.
@@ -118,7 +118,7 @@ export const hkdf = promisifyWrapped(cryptoCb.hkdf) as (
   salt: BinaryLike,
   info: BinaryLike,
   keylen: number,
-) => CancelablePromise<ArrayBuffer, never>;
+) => CancelablePromise<ArrayBuffer, Unlisted>;
 
 /**
  * Generates cryptographically strong pseudorandom data.
@@ -126,7 +126,9 @@ export const hkdf = promisifyWrapped(cryptoCb.hkdf) as (
  * Canceling stops the wait, not the work: the call keeps running on node's threadpool and the slot
  * it holds there stays occupied until it finishes.
  */
-export const randomBytes = promisifyWrapped(cryptoCb.randomBytes) as (size: number) => CancelablePromise<Buffer, never>;
+export const randomBytes = promisifyWrapped(cryptoCb.randomBytes) as (
+  size: number,
+) => CancelablePromise<Buffer, Unlisted>;
 
 /**
  * Fills a typed array or `DataView` with cryptographically strong pseudorandom data.

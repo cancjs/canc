@@ -1,7 +1,7 @@
 import { addAbortSignal, Duplex, duplexPair, PassThrough, Readable, Transform, Writable } from 'node:stream';
 import * as nodeStreamPromises from 'node:stream/promises';
 
-import { CancelablePromise } from '@cancjs/promise';
+import { CancelablePromise, Unlisted } from '@cancjs/promise';
 
 import streamJson from '../../surface/projected/stream.json';
 
@@ -35,7 +35,7 @@ const entries = new Map<string, IManifestEntry>(
 );
 
 /** One node call signature, with a cancelable promise in place of the plain one it returned. */
-type TCancelableReturn<R> = [R] extends [Promise<infer TValue>] ? CancelablePromise<TValue, never> : R;
+type TCancelableReturn<R, TFailure> = [R] extends [Promise<infer TValue>] ? CancelablePromise<TValue, TFailure> : R;
 
 /**
  * Node's overloaded signatures for `TFn`, each return rewritten to a cancelable promise.
@@ -45,93 +45,93 @@ type TCancelableReturn<R> = [R] extends [Promise<infer TValue>] ? CancelableProm
  * overload separate; `pipeline` publishes seven.
  */
 // seven rungs covers pipeline, the widest signature this module wraps
-type TCancelable<TFn> =
+type TCancelable<TFn, TFailure = Unlisted> =
   TFn extends (
     {
-      (...args: infer A1): infer R1;
-      (...args: infer A2): infer R2;
-      (...args: infer A3): infer R3;
-      (...args: infer A4): infer R4;
-      (...args: infer A5): infer R5;
-      (...args: infer A6): infer R6;
-      (...args: infer A7): infer R7;
+      (...args: infer A1): infer TRet1;
+      (...args: infer A2): infer TRet2;
+      (...args: infer A3): infer TRet3;
+      (...args: infer A4): infer TRet4;
+      (...args: infer A5): infer TRet5;
+      (...args: infer A6): infer TRet6;
+      (...args: infer A7): infer TRet7;
     }
   ) ?
     {
-      (...args: A1): TCancelableReturn<R1>;
-      (...args: A2): TCancelableReturn<R2>;
-      (...args: A3): TCancelableReturn<R3>;
-      (...args: A4): TCancelableReturn<R4>;
-      (...args: A5): TCancelableReturn<R5>;
-      (...args: A6): TCancelableReturn<R6>;
-      (...args: A7): TCancelableReturn<R7>;
+      (...args: A1): TCancelableReturn<TRet1, TFailure>;
+      (...args: A2): TCancelableReturn<TRet2, TFailure>;
+      (...args: A3): TCancelableReturn<TRet3, TFailure>;
+      (...args: A4): TCancelableReturn<TRet4, TFailure>;
+      (...args: A5): TCancelableReturn<TRet5, TFailure>;
+      (...args: A6): TCancelableReturn<TRet6, TFailure>;
+      (...args: A7): TCancelableReturn<TRet7, TFailure>;
     }
   : TFn extends (
     {
-      (...args: infer A1): infer R1;
-      (...args: infer A2): infer R2;
-      (...args: infer A3): infer R3;
-      (...args: infer A4): infer R4;
-      (...args: infer A5): infer R5;
-      (...args: infer A6): infer R6;
+      (...args: infer A1): infer TRet1;
+      (...args: infer A2): infer TRet2;
+      (...args: infer A3): infer TRet3;
+      (...args: infer A4): infer TRet4;
+      (...args: infer A5): infer TRet5;
+      (...args: infer A6): infer TRet6;
     }
   ) ?
     {
-      (...args: A1): TCancelableReturn<R1>;
-      (...args: A2): TCancelableReturn<R2>;
-      (...args: A3): TCancelableReturn<R3>;
-      (...args: A4): TCancelableReturn<R4>;
-      (...args: A5): TCancelableReturn<R5>;
-      (...args: A6): TCancelableReturn<R6>;
+      (...args: A1): TCancelableReturn<TRet1, TFailure>;
+      (...args: A2): TCancelableReturn<TRet2, TFailure>;
+      (...args: A3): TCancelableReturn<TRet3, TFailure>;
+      (...args: A4): TCancelableReturn<TRet4, TFailure>;
+      (...args: A5): TCancelableReturn<TRet5, TFailure>;
+      (...args: A6): TCancelableReturn<TRet6, TFailure>;
     }
   : TFn extends (
     {
-      (...args: infer A1): infer R1;
-      (...args: infer A2): infer R2;
-      (...args: infer A3): infer R3;
-      (...args: infer A4): infer R4;
-      (...args: infer A5): infer R5;
+      (...args: infer A1): infer TRet1;
+      (...args: infer A2): infer TRet2;
+      (...args: infer A3): infer TRet3;
+      (...args: infer A4): infer TRet4;
+      (...args: infer A5): infer TRet5;
     }
   ) ?
     {
-      (...args: A1): TCancelableReturn<R1>;
-      (...args: A2): TCancelableReturn<R2>;
-      (...args: A3): TCancelableReturn<R3>;
-      (...args: A4): TCancelableReturn<R4>;
-      (...args: A5): TCancelableReturn<R5>;
+      (...args: A1): TCancelableReturn<TRet1, TFailure>;
+      (...args: A2): TCancelableReturn<TRet2, TFailure>;
+      (...args: A3): TCancelableReturn<TRet3, TFailure>;
+      (...args: A4): TCancelableReturn<TRet4, TFailure>;
+      (...args: A5): TCancelableReturn<TRet5, TFailure>;
     }
   : TFn extends (
     {
-      (...args: infer A1): infer R1;
-      (...args: infer A2): infer R2;
-      (...args: infer A3): infer R3;
-      (...args: infer A4): infer R4;
+      (...args: infer A1): infer TRet1;
+      (...args: infer A2): infer TRet2;
+      (...args: infer A3): infer TRet3;
+      (...args: infer A4): infer TRet4;
     }
   ) ?
     {
-      (...args: A1): TCancelableReturn<R1>;
-      (...args: A2): TCancelableReturn<R2>;
-      (...args: A3): TCancelableReturn<R3>;
-      (...args: A4): TCancelableReturn<R4>;
+      (...args: A1): TCancelableReturn<TRet1, TFailure>;
+      (...args: A2): TCancelableReturn<TRet2, TFailure>;
+      (...args: A3): TCancelableReturn<TRet3, TFailure>;
+      (...args: A4): TCancelableReturn<TRet4, TFailure>;
     }
   : TFn extends (
     {
-      (...args: infer A1): infer R1;
-      (...args: infer A2): infer R2;
-      (...args: infer A3): infer R3;
+      (...args: infer A1): infer TRet1;
+      (...args: infer A2): infer TRet2;
+      (...args: infer A3): infer TRet3;
     }
   ) ?
     {
-      (...args: A1): TCancelableReturn<R1>;
-      (...args: A2): TCancelableReturn<R2>;
-      (...args: A3): TCancelableReturn<R3>;
+      (...args: A1): TCancelableReturn<TRet1, TFailure>;
+      (...args: A2): TCancelableReturn<TRet2, TFailure>;
+      (...args: A3): TCancelableReturn<TRet3, TFailure>;
     }
-  : TFn extends { (...args: infer A1): infer R1; (...args: infer A2): infer R2 } ?
+  : TFn extends { (...args: infer A1): infer TRet1; (...args: infer A2): infer TRet2 } ?
     {
-      (...args: A1): TCancelableReturn<R1>;
-      (...args: A2): TCancelableReturn<R2>;
+      (...args: A1): TCancelableReturn<TRet1, TFailure>;
+      (...args: A2): TCancelableReturn<TRet2, TFailure>;
     }
-  : TFn extends (...args: infer A) => infer R ? (...args: A) => TCancelableReturn<R>
+  : TFn extends (...args: infer A) => infer R ? (...args: A) => TCancelableReturn<R, TFailure>
   : never;
 
 /** Major, minor and patch of a node version, `v` prefix optional, missing or unparsable parts zero. */
@@ -255,19 +255,19 @@ function signalWrapped(
   nodeFn: TNodeFn,
   entry: IManifestEntry | undefined,
   optionsIndex = 0,
-): (...args: unknown[]) => CancelablePromise<unknown, never> {
+): (...args: unknown[]) => CancelablePromise<unknown, Unlisted> {
   const forwards = acceptsSignal(entry);
 
-  return function signalWrappedCall(this: unknown, ...args: unknown[]): CancelablePromise<unknown, never> {
+  return function signalWrappedCall(this: unknown, ...args: unknown[]): CancelablePromise<unknown, Unlisted> {
     if (!forwards) {
-      return new CancelablePromise<unknown, never>((resolve) => {
+      return new CancelablePromise<unknown, Unlisted>((resolve) => {
         resolve(nodeFn.apply(this, args));
       });
     }
 
     const call = takeCallerSignal(args, optionsIndex);
 
-    return new CancelablePromise<unknown, never>(
+    return new CancelablePromise<unknown, Unlisted>(
       (resolve, _reject, { getSignal }) => {
         resolve(nodeFn.apply(this, withSignalAt(call.args, optionsIndex, getSignal())));
       },
@@ -317,19 +317,19 @@ function takeCallerSignalFromPipeline(args: unknown[]): ICallerSignalCall {
 function pipelineSignalWrapped(
   nodeFn: TNodeFn,
   entry: IManifestEntry | undefined,
-): (...args: unknown[]) => CancelablePromise<unknown, never> {
+): (...args: unknown[]) => CancelablePromise<unknown, unknown> {
   const forwards = acceptsSignal(entry);
 
-  return function pipelineWrappedCall(this: unknown, ...args: unknown[]): CancelablePromise<unknown, never> {
+  return function pipelineWrappedCall(this: unknown, ...args: unknown[]): CancelablePromise<unknown, unknown> {
     if (!forwards) {
-      return new CancelablePromise<unknown, never>((resolve) => {
+      return new CancelablePromise<unknown, unknown>((resolve) => {
         resolve(nodeFn.apply(this, args));
       });
     }
 
     const call = takeCallerSignalFromPipeline(args);
 
-    return new CancelablePromise<unknown, never>(
+    return new CancelablePromise<unknown, unknown>(
       (resolve, _reject, { getSignal }) => {
         resolve(nodeFn.apply(this, withPipelineSignal(call.args, getSignal())));
       },
@@ -348,7 +348,8 @@ const rawFinished = nodeStreamPromises.finished as unknown as TNodeFn;
  * error) rejects that error unchanged, never `CancelError`.
  */
 export const pipeline = pipelineSignalWrapped(rawPipeline, entries.get('pipeline')) as TCancelable<
-  typeof nodeStreamPromises.pipeline
+  typeof nodeStreamPromises.pipeline,
+  unknown
 >;
 
 /**

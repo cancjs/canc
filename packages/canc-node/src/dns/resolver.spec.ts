@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
 
-import { CancelablePromise, isCancelError } from '@cancjs/promise';
+import { CancelablePromise, isCancelError, Unlisted } from '@cancjs/promise';
 import ts from 'typescript';
 
 import { ICancelableResolver, ICancelableResolverCtor, Resolver } from './resolver';
@@ -28,9 +28,9 @@ function typeAssertions(): unknown[] {
   const mailServers = resolver.resolveMx('x');
 
   type _Assertions = [
-    Expect<Equal<typeof addresses, CancelablePromise<string[], never>>>,
-    Expect<Equal<typeof withTtl, CancelablePromise<import('node:dns').RecordWithTtl[], never>>>,
-    Expect<Equal<typeof mailServers, CancelablePromise<import('node:dns').MxRecord[], never>>>,
+    Expect<Equal<typeof addresses, CancelablePromise<string[], Unlisted>>>,
+    Expect<Equal<typeof withTtl, CancelablePromise<import('node:dns').RecordWithTtl[], Unlisted>>>,
+    Expect<Equal<typeof mailServers, CancelablePromise<import('node:dns').MxRecord[], Unlisted>>>,
   ];
 
   return [addresses, withTtl, mailServers];

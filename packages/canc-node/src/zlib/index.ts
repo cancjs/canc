@@ -1,7 +1,7 @@
 import type { Transform } from 'node:stream';
 import nodeZlib from 'node:zlib';
 
-import { CancelablePromise } from '@cancjs/promise';
+import { CancelablePromise, Unlisted } from '@cancjs/promise';
 
 import {
   TBrotliBufferFn,
@@ -540,7 +540,7 @@ function zipFilesImpl(
   files: readonly string[],
   target: string,
   options?: TZipFilesOptions,
-): CancelablePromise<void, never> {
+): CancelablePromise<void, Unlisted> {
   const archive = (zlibCb.createZipArchive as (targetPath: string, opts?: TZipFilesOptions) => IZipArchiveWriter)(
     target,
     options,
