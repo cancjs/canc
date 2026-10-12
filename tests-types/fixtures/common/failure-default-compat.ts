@@ -56,6 +56,12 @@ export const rejectContextual: CancelablePromise<number, FooError> = CancelableP
 type _rejectError = Assert<Eq<FailureOf<typeof rejectError>, never>>;
 type _rejectNamed = Assert<Eq<FailureOf<typeof rejectNamed>, FooError>>;
 
+// a named failure checks the reason
+// @ts-expect-error reason outside the named failure
+export const rejectNamedOther = CancelablePromise.reject<never, FooError>(new BarError());
+// @ts-expect-error reason outside the contextual failure
+export const rejectContextualOther: CancelablePromise<number, FooError> = CancelablePromise.reject(new BarError());
+
 const coRejectError = cancAsync(function* () {
   yield CancelablePromise.reject(new Error('x'));
   return 1;
