@@ -157,11 +157,11 @@ const annotatedOneArg = cancAsync(function* (): AsyncResult<number> {
 const cAnnotatedOneArg: Eq<ReturnType<typeof annotatedOneArg>, CancelablePromise<number, unknown>> = true;
 
 declare const untyped: any;
-const bareAnyYield = cancAsync(function* () {
+const _bareAnyYield = cancAsync(function* () {
   yield untyped;
   return 1;
 });
-const cBareAnyYield: Eq<ReturnType<typeof bareAnyYield>, CancelablePromise<number, never>> = true;
+const cBareAnyYield: Eq<ReturnType<typeof _bareAnyYield>, CancelablePromise<number, never>> = true;
 
 // AsyncResult strict body
 
