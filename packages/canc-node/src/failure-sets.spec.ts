@@ -75,6 +75,7 @@ function _failureSets(): void {
   const _findIsUndeclared: Eq<FailureOf<ReturnType<typeof stream.find>>, unknown> = true;
   const _forEachIsUndeclared: Eq<FailureOf<ReturnType<typeof stream.forEach>>, unknown> = true;
   const _reduceIsUndeclared: Eq<FailureOf<ReturnType<typeof stream.reduce>>, unknown> = true;
+  const _cpIsUndeclared: Eq<FailureOf<ReturnType<typeof fs.cp>>, unknown> = true;
   const _copyIsUndeclared: Eq<FailureOf<ReturnType<typeof fsExtra.copy>>, unknown> = true;
   const _writeJsonIsUndeclared: Eq<FailureOf<ReturnType<typeof fsExtra.writeJson>>, unknown> = true;
   const piped = stream.pipeline(readable, async function* (source: AsyncIterable<unknown>) {
@@ -128,6 +129,7 @@ function _failureSets(): void {
     _findIsUndeclared,
     _forEachIsUndeclared,
     _reduceIsUndeclared,
+    _cpIsUndeclared,
     _copyIsUndeclared,
     _writeJsonIsUndeclared,
     _pipelineIsUndeclared,

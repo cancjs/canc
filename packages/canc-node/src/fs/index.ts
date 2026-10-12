@@ -169,7 +169,7 @@ export const constants = nodeFsPromises.constants;
 // exactly as an interrupted node copy does. Unlinking dest would delete a file the caller named as a
 // target, not as something to remove, and it was theirs before the copy started
 export const copyFile = promisifyWrapped(viaFs('copyFile'), 2) as TCancelable<TFsPromises['copyFile']>;
-export const cp = adopted(fsp.cp, 2) as TCancelable<TFsPromises['cp']>;
+export const cp = adopted(fsp.cp, 2) as (...args: Parameters<TFsPromises['cp']>) => CancelablePromise<void, unknown>;
 export const glob = gatedWrapped(
   features.hasGlob,
   'glob',
