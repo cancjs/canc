@@ -97,6 +97,8 @@ export type TReason<TFailure> =
     : never
   : any;
 
+type TNoInfer<T> = [T][T extends any ? 0 : never];
+
 export type TPromiseExecutor<TResult> = (
   resolve: (value?: TResult | PromiseLike<TResult>) => void,
   reject: (reason?: any) => void,
@@ -652,9 +654,9 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
    * @param [options]
    * @returns A new rejected Promise.
    */
-  // the reason never infers TFailure, as on a native promise; name it or let context supply it
+  // the reason never infers TFailure, as on a native promise; a supplied one checks it
   static reject<TResult = never, TFailure = never>(
-    reason?: any,
+    reason?: [TFailure] extends [never] ? any : TNoInfer<TFailure>,
     options?: ICancelablePromiseOptions,
   ): CancelablePromise<TResult, TFailure> {
     return new this<TResult, TFailure>((_resolve, reject) => {

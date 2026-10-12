@@ -300,6 +300,14 @@ describe('failure chaining and statics', () => {
     const rContextual: CancelablePromise<number, FooError> = CancelablePromise.reject(new FooError());
     rContextual.catch(() => {});
 
+    // @ts-expect-error A named failure checks the reason
+    const rNamedOther = CancelablePromise.reject<never, FooError>(new BarError());
+    rNamedOther.catch(() => {});
+
+    // @ts-expect-error A contextual failure checks the reason
+    const rContextualOther: CancelablePromise<number, FooError> = CancelablePromise.reject(new BarError());
+    rContextualOther.catch(() => {});
+
     void [cFoo, cNamed, cResultOnly];
   });
 
