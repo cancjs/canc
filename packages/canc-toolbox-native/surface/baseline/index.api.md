@@ -103,7 +103,7 @@ new <T = any>(executor: TLazyExecutor<T>, options?: object | undefined): LazyPro
 static _new: <V>(executor: TLazyExecutor<V>, options?: object) => LazyBase<V>
 static _optionsChanged: (instance: LazyBase<any>, options?: object) => boolean
 static all: <V>(values: Iterable<PromiseLike<V> | V>, options?: ILazyPromiseOptions) => LazyPromise<V[]>
-static allSettled: <V>(values: Iterable<PromiseLike<V> | V>, options?: ILazyPromiseOptions) => LazyPromise<PromiseSettledResult<Awaited<V>>[]>
+static allSettled: <V>(values: Iterable<PromiseLike<V> | V>, options?: ILazyPromiseOptions) => LazyPromise<ISettledResult<Awaited<V>>[]>
 static any: <V>(values: Iterable<PromiseLike<V> | V>, options?: ILazyPromiseOptions) => LazyPromise<V>
 static race: <V>(values: Iterable<PromiseLike<V> | V>, options?: ILazyPromiseOptions) => LazyPromise<V>
 static reject: <V = never>(reason?: any, options?: ILazyPromiseOptions) => LazyPromise<V>
