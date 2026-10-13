@@ -27,6 +27,8 @@ function trackingImpl(log: string[], tag: string): PromiseConstructor {
     return new Promise(executor);
   } as unknown as PromiseConstructor;
 
+  // registration only accepts a class whose prototype has then and cancel
+  (Impl as { prototype: unknown }).prototype = CancelablePromise.prototype;
   Impl.reject = Promise.reject.bind(Promise);
   Impl.resolve = Promise.resolve.bind(Promise) as PromiseConstructor['resolve'];
 
