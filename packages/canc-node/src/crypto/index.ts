@@ -1,8 +1,9 @@
 import type { BinaryLike, KeyObject } from 'node:crypto';
 import nodeCrypto from 'node:crypto';
 
-import { CancelablePromise, Unlisted } from '@cancjs/promise';
+import { CancelablePromise } from '@cancjs/promise';
 
+import type { Unlisted } from '../../../_util';
 import { IGenerateKeyPairFn } from './key-pair';
 import {
   ICheckPrimeFn,

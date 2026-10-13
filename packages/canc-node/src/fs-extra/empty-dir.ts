@@ -1,7 +1,8 @@
 import { join } from 'node:path';
 
-import { CancelablePromise, Unlisted } from '@cancjs/promise';
+import { CancelablePromise } from '@cancjs/promise';
 
+import type { Unlisted } from '../../../_util';
 import { readdir, rm } from '../fs';
 import { readdirSync, rmSync } from '../fs/sync';
 import { ensureDir, ensureDirSync } from './ensure';

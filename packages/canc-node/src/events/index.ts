@@ -1,7 +1,8 @@
 import nodeEvents from 'node:events';
 
-import { CancelablePromise, Unlisted } from '@cancjs/promise';
+import { CancelablePromise } from '@cancjs/promise';
 
+import type { Unlisted } from '../../../_util';
 import { features } from '../features';
 
 /**

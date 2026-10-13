@@ -1,7 +1,8 @@
 import { ChildProcess, fork as nodeFork, ForkOptions, spawn as nodeSpawn, SpawnOptions } from 'node:child_process';
 
-import { CancelablePromise, Unlisted } from '@cancjs/promise';
+import { CancelablePromise } from '@cancjs/promise';
 
+import type { Unlisted } from '../../../_util';
 import { ProcessExitError } from '../errors/classes';
 import { mapChildProcessError } from './map-error';
 import { createSink, defineProcessPromise, ISettlementSink, killAndWaitForExit } from './promise';

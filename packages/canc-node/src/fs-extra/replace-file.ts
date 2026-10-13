@@ -1,7 +1,8 @@
 import { basename, dirname, join } from 'node:path';
 
-import { CancelablePromise, Unlisted } from '@cancjs/promise';
+import { CancelablePromise } from '@cancjs/promise';
 
+import type { Unlisted } from '../../../_util';
 import { isErrno, isNotFoundError } from '../errors/errno';
 import { chmod, chown, rename, stat, unlink, writeFile } from '../fs';
 import { chmodSync, chownSync, renameSync, statSync, unlinkSync, writeFileSync } from '../fs/sync';

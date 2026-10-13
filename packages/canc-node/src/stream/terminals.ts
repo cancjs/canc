@@ -1,7 +1,8 @@
 import type { Readable } from 'node:stream';
 
-import { CancelablePromise, Unlisted } from '@cancjs/promise';
+import { CancelablePromise } from '@cancjs/promise';
 
+import type { Unlisted } from '../../../_util';
 import readableJson from '../../surface/projected/stream.Readable.json';
 
 // local copy of the signal-forwarding combinator also at packages/canc-node/src/stream/index.ts

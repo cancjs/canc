@@ -1,6 +1,7 @@
-import { CancelablePromise, Unlisted } from '@cancjs/promise';
+import { CancelablePromise } from '@cancjs/promise';
 
 import { IRetryOptions, retryFactory } from '../../../_toolbox';
+import type { Unlisted } from '../../../_util';
 import { isCancelable, isThenable } from '../../../_util';
 import { getFsOptions } from './registry';
 import { toolboxDeps } from './wrap';

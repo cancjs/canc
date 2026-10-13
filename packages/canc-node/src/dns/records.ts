@@ -10,7 +10,9 @@ import type {
   SrvRecord,
 } from 'node:dns';
 
-import type { CancelablePromise, Unlisted } from '@cancjs/promise';
+import type { CancelablePromise } from '@cancjs/promise';
+
+import type { Unlisted } from '../../../_util';
 
 /**
  * One certificate association record from a TLSA query.

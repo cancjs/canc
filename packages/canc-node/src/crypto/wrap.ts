@@ -1,7 +1,8 @@
-import { CancelablePromise, Unlisted } from '@cancjs/promise';
+import { CancelablePromise } from '@cancjs/promise';
 
 import { IPromiseKind, IToolboxDeps, TPromiseCtor } from '../../../_toolbox';
 import { promisifyFactory } from '../../../_toolbox/promisify';
+import type { Unlisted } from '../../../_util';
 
 export { gated as gatedWrapped } from '../gate';
 

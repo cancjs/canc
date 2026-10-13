@@ -1,8 +1,9 @@
 import type { AnyRecord, CaaRecord, MxRecord, NaptrRecord, ResolverOptions, SoaRecord, SrvRecord } from 'node:dns';
 import nodeDnsPromises from 'node:dns/promises';
 
-import { CancelablePromise, Unlisted } from '@cancjs/promise';
+import { CancelablePromise } from '@cancjs/promise';
 
+import type { Unlisted } from '../../../_util';
 import { gated } from '../gate';
 import type { TNodeFn } from '../wrap';
 import type { IResolve4Fn, IResolve6Fn, IResolveFn, TResolveTlsaFn } from './records';

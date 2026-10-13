@@ -1,6 +1,8 @@
 import type { BrotliOptions, InputType, ZlibOptions } from 'node:zlib';
 
-import type { CancelablePromise, Unlisted } from '@cancjs/promise';
+import type { CancelablePromise } from '@cancjs/promise';
+
+import type { Unlisted } from '../../../_util';
 
 /** Shape shared by every buffer-tier codec: raw input in, one `Buffer` out, options optional. */
 export type TZlibBufferFn = (data: InputType, options?: ZlibOptions) => CancelablePromise<Buffer, Unlisted>;

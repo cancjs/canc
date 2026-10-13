@@ -1,7 +1,8 @@
 import * as nodeConsumers from 'node:stream/consumers';
 
-import { CancelablePromise, Unlisted } from '@cancjs/promise';
+import { CancelablePromise } from '@cancjs/promise';
 
+import type { Unlisted } from '../../../_util';
 import { features } from '../features';
 import { gated } from '../gate';
 

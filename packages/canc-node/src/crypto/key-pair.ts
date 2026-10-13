@@ -18,7 +18,9 @@ import type {
   X25519KeyPairOptions,
 } from 'node:crypto';
 
-import type { CancelablePromise, Unlisted } from '@cancjs/promise';
+import type { CancelablePromise } from '@cancjs/promise';
+
+import type { Unlisted } from '../../../_util';
 
 /**
  * `generateKeyPair`'s signature, hand-built rather than run through the `TCancelable` ladder in

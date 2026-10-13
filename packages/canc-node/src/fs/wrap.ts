@@ -1,9 +1,10 @@
 import type * as nodeFsPromises from 'node:fs/promises';
 
-import { CancelablePromise, Unlisted } from '@cancjs/promise';
+import { CancelablePromise } from '@cancjs/promise';
 
 import { IPromiseKind, IToolboxDeps, TPromiseCtor } from '../../../_toolbox';
 import { promisifyFactory } from '../../../_toolbox/promisify';
+import type { Unlisted } from '../../../_util';
 import { isCancelable } from '../../../_util';
 import { features } from '../features';
 

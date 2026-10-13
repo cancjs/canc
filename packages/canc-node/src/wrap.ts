@@ -1,4 +1,6 @@
-import { CancelablePromise, Unlisted } from '@cancjs/promise';
+import { CancelablePromise } from '@cancjs/promise';
+
+import type { Unlisted } from '../../_util';
 
 // fs module still has its own copy of this file's contents, a later change re-points it here
 // instead of keeping the duplicate.

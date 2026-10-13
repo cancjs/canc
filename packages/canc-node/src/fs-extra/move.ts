@@ -1,8 +1,9 @@
 import { dirname } from 'node:path';
 
-import { CancelablePromise, Unlisted } from '@cancjs/promise';
+import { CancelablePromise } from '@cancjs/promise';
 
 import { IPromiseKind, IToolboxDeps, retryFactory, TPromiseCtor } from '../../../_toolbox';
+import type { Unlisted } from '../../../_util';
 import { EEXIST, isCrossDeviceError, isErrno, isNotFoundError, isTooManyFilesError } from '../errors/errno';
 import { lstat, rename, rm } from '../fs';
 import { lstatSync, renameSync, rmSync } from '../fs/sync';

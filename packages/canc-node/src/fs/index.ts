@@ -1,8 +1,9 @@
 import nodeFs from 'node:fs';
 import nodeFsPromises from 'node:fs/promises';
 
-import { CancelablePromise, Unlisted } from '@cancjs/promise';
+import { CancelablePromise } from '@cancjs/promise';
 
+import type { Unlisted } from '../../../_util';
 import { isThenable } from '../../../_util';
 import fsJson from '../../surface/projected/fs.json';
 import { features } from '../features';

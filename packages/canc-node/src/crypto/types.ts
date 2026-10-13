@@ -10,7 +10,9 @@ import type {
   webcrypto,
 } from 'node:crypto';
 
-import type { CancelablePromise, Unlisted } from '@cancjs/promise';
+import type { CancelablePromise } from '@cancjs/promise';
+
+import type { Unlisted } from '../../../_util';
 
 /** `scrypt`'s two call shapes, options bag optional in node's own overloads. */
 export interface IScryptFn {

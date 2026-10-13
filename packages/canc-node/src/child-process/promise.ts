@@ -1,6 +1,8 @@
 import { ChildProcess } from 'node:child_process';
 
-import { CancelablePromise, Unlisted } from '@cancjs/promise';
+import { CancelablePromise } from '@cancjs/promise';
+
+import type { Unlisted } from '../../../_util';
 
 // upper bound on how long a canceled call waits for the child, so cancel can never hang
 const EXIT_WAIT_MS = 5000;

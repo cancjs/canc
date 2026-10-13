@@ -1,7 +1,8 @@
 import { dirname } from 'node:path';
 
-import { CancelablePromise, Unlisted } from '@cancjs/promise';
+import { CancelablePromise } from '@cancjs/promise';
 
+import type { Unlisted } from '../../../_util';
 import { JsonParseError } from '../errors/classes';
 import { readFile, writeFile } from '../fs';
 import { mkdirSync, readFileSync, writeFileSync } from '../fs/sync';

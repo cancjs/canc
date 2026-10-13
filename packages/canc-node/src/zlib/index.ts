@@ -1,8 +1,9 @@
 import type { Transform } from 'node:stream';
 import nodeZlib from 'node:zlib';
 
-import { CancelablePromise, Unlisted } from '@cancjs/promise';
+import { CancelablePromise } from '@cancjs/promise';
 
+import type { Unlisted } from '../../../_util';
 import {
   TBrotliBufferFn,
   TIterableCodecFn,
