@@ -153,8 +153,19 @@ function writeFixture(version, tarballs) {
   );
 
   copyCommonSources(dir);
+  if (version.fixtures) {
+    for (const fixture of version.fixtures) {
+      const src = path.join(fixturesDir, fixture);
+      const dest = path.join(dir, fixture);
+      fs.mkdirSync(path.dirname(dest), { recursive: true });
+      fs.copyFileSync(src, dest);
+    }
+  }
 
   const files = (config.commonFixtures || ['../common/api-smoke.ts']).map(localSource);
+  if (version.fixtures) {
+    for (const fixture of version.fixtures) files.push(`./${fixture.split(path.sep).join('/')}`);
+  }
   if (version.typeAssertions) {
     files.push(localSource('type-assertions.ts'));
     files.push(localSource('coroutine-types.ts'));
