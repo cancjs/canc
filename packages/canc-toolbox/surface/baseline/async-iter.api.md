@@ -122,7 +122,7 @@ TCallbackValue<R> extends AsyncIterable<infer E> ? E : TCallbackValue<R> extends
 
 ```text
 <T>(source: AsyncIterable<T>, opts?: object | undefined): ICancelablePipeable<T>
-<T>(source: Iterable<T | PromiseLike<T>>, opts?: object | undefined): ICancelablePipeable<T>
+<T>(source: Iterable<PromiseLike<T> | T>, opts?: object | undefined): ICancelablePipeable<T>
 <T>(source: PromiseLike<T>, opts?: object | undefined): ICancelablePipeable<T>
 ```
 

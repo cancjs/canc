@@ -1,7 +1,7 @@
 // Runs by CI, cron, or hand, over the built declarations rather than over src.
 // Resolution relies on node_modules/@cancjs/* symlinks of the checkout it runs in;
 // always run in the tree that built dist.
-// Known limits: JSDoc/@deprecated and non-exported helper type shapes are not recorded.
+// Known limit: non-exported helper type shapes are not recorded.
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
@@ -105,6 +105,41 @@ function normalize(text) {
     .trim();
 }
 
+// Union and intersection member order follows type creation order inside one program, so two
+// programs over the same declarations can print the same type with its members swapped
+function sortCombinedMembers(source) {
+  const file = ts.createSourceFile('members.ts', source, ts.ScriptTarget.ES2022, false, ts.ScriptKind.TS);
+  const rewrite = (node) => {
+    if (ts.isUnionTypeNode(node) || ts.isIntersectionTypeNode(node)) {
+      const members = node.types.map(rewrite);
+      return members.sort().join(ts.isUnionTypeNode(node) ? ' | ' : ' & ');
+    }
+    let out = '';
+    let pos = node.getStart(file);
+    ts.forEachChild(node, (child) => {
+      out += source.slice(pos, child.getStart(file)) + rewrite(child);
+      pos = child.end;
+    });
+    return out + source.slice(pos, node.end);
+  };
+  const statement = file.statements[0];
+  return statement ?
+      source.slice(0, statement.getStart(file)) + rewrite(statement) + source.slice(statement.end)
+    : source;
+}
+
+function normalizeType(text) {
+  const clean = normalize(text);
+  const prefix = 'type T = ';
+  return sortCombinedMembers(`${prefix}${clean}`).slice(prefix.length);
+}
+
+function normalizeSignature(text) {
+  const clean = normalize(text);
+  const prefix = 'type T = { ';
+  return sortCombinedMembers(`${prefix}${clean} }`).slice(prefix.length, -2);
+}
+
 function kindOf(symbol) {
   const f = symbol.flags;
   if (f & ts.SymbolFlags.Class) return 'class';
@@ -142,6 +177,21 @@ function heritageLines(decl) {
     decl && (ts.isInterfaceDeclaration(decl) || ts.isClassDeclaration(decl)) ? decl.heritageClauses : undefined;
   if (!clauses) return [];
   return clauses.map((clause) => normalize(clause.getText()));
+}
+
+const DEPRECATED_MARK = '// @deprecated';
+
+function hasDeprecatedTag(tags) {
+  return !!tags && tags.some((t) => t.name === 'deprecated');
+}
+
+function isDeprecated(symbol) {
+  return hasDeprecatedTag(symbol.getJsDocTags());
+}
+
+// A suffix, never a prefix: member lines are classified and sorted by their first characters
+function withDeprecation(line, deprecated) {
+  return deprecated ? `${line} ${DEPRECATED_MARK}` : line;
 }
 
 function typeParametersOf(symbol) {
@@ -202,7 +252,10 @@ function createRenderer(program, checker, pkgPosix) {
   };
 
   const signatureLine = (signature, kind) =>
-    normalize(checker.signatureToString(signature, undefined, TYPE_FLAGS, kind));
+    withDeprecation(
+      normalizeSignature(checker.signatureToString(signature, undefined, TYPE_FLAGS, kind)),
+      hasDeprecatedTag(signature.getJsDocTags()),
+    );
 
   const propertyLine = (property, prefix = '') => {
     const decl = property.declarations?.[0];
@@ -213,7 +266,10 @@ function createRenderer(program, checker, pkgPosix) {
     const declNode = decl ?? property.valueDeclaration;
     const readonly = declNode ? (ts.getCombinedModifierFlags(declNode) & ts.ModifierFlags.Readonly) !== 0 : false;
     const head = `${prefix}${readonly ? 'readonly ' : ''}${memberName(property)}${optional}`;
-    return `${head}: ${normalize(checker.typeToString(type, decl, TYPE_FLAGS))}`;
+    return withDeprecation(
+      `${head}: ${normalizeType(checker.typeToString(type, decl, TYPE_FLAGS))}`,
+      isDeprecated(property),
+    );
   };
 
   // `filterOwn` defaults on (the normal path); the false-cased call is the unfiltered safety net
@@ -267,7 +323,7 @@ function createRenderer(program, checker, pkgPosix) {
     // only a type with nothing to show even unfiltered reaches the typeToString fallback below.
     if (heritage.length === 0 && body.length === 0) body = collect(false);
     if (heritage.length === 0 && body.length === 0) {
-      body.push(normalize(checker.typeToString(type, context, TYPE_FLAGS | ts.TypeFormatFlags.InTypeAlias)));
+      body.push(normalizeType(checker.typeToString(type, context, TYPE_FLAGS | ts.TypeFormatFlags.InTypeAlias)));
     }
     return [...heritage, ...body];
   };
@@ -307,9 +363,14 @@ function createRenderer(program, checker, pkgPosix) {
           const declNode = m.valueDeclaration || m.declarations?.[0];
           const val = declNode ? checker.getConstantValue(declNode) : undefined;
           if (val !== undefined) {
-            lines.push(`${m.getName()} = ${typeof val === 'string' ? JSON.stringify(val) : val}`);
+            lines.push(
+              withDeprecation(
+                `${m.getName()} = ${typeof val === 'string' ? JSON.stringify(val) : val}`,
+                isDeprecated(m),
+              ),
+            );
           } else {
-            lines.push(`${m.getName()}`);
+            lines.push(withDeprecation(m.getName(), isDeprecated(m)));
           }
         }
       }
@@ -326,7 +387,7 @@ function createRenderer(program, checker, pkgPosix) {
         const propLines = [];
         for (const c of constituents) {
           if (isUnionOrPrimitive(c) || isLibType(c)) {
-            sigLines.push(normalize(checker.typeToString(c, decl, TYPE_FLAGS | ts.TypeFormatFlags.InTypeAlias)));
+            sigLines.push(normalizeType(checker.typeToString(c, decl, TYPE_FLAGS | ts.TypeFormatFlags.InTypeAlias)));
           } else {
             const lines = structural(c, decl);
             for (const line of lines) {
@@ -343,7 +404,7 @@ function createRenderer(program, checker, pkgPosix) {
       if (isUnionOrPrimitive(type)) {
         return {
           kind,
-          lines: [normalize(checker.typeToString(type, decl, TYPE_FLAGS | ts.TypeFormatFlags.InTypeAlias))],
+          lines: [normalizeType(checker.typeToString(type, decl, TYPE_FLAGS | ts.TypeFormatFlags.InTypeAlias))],
         };
       }
       return { kind, lines: structural(type, decl) };
@@ -353,7 +414,7 @@ function createRenderer(program, checker, pkgPosix) {
     if (isUnionOrPrimitive(type)) {
       return {
         kind,
-        lines: [normalize(checker.typeToString(type, decl, TYPE_FLAGS | ts.TypeFormatFlags.InTypeAlias))],
+        lines: [normalizeType(checker.typeToString(type, decl, TYPE_FLAGS | ts.TypeFormatFlags.InTypeAlias))],
       };
     }
     return { kind, lines: structural(type, decl) };
@@ -364,11 +425,16 @@ function createRenderer(program, checker, pkgPosix) {
 export function readEntryPoints(pkgJson) {
   const entries = [];
   for (const [subpath, condition] of Object.entries(pkgJson.exports || {})) {
+    // string subpaths such as the manifest have no declarations to record
+    if (subpath === './package.json' || typeof condition === 'string') continue;
     // The plain `types` key, never the `types@<4.7` sibling: the downlevel copy exists for a
     // resolver this script does not emulate, and both keys in one baseline would double every line.
-    const dts = condition?.require?.types || condition?.import?.types;
+    const requireTypes = condition?.require?.types;
+    const importTypes = condition?.import?.types;
+    const dts = requireTypes || importTypes;
     if (!dts) throw new Error(`No types condition for subpath ${subpath}`);
-    entries.push({ subpath, dts: dts.replace(/^\.\//, '') });
+    const esm = requireTypes && importTypes && importTypes !== requireTypes ? importTypes : null;
+    entries.push({ subpath, dts: dts.replace(/^\.\//, ''), esm: esm && esm.replace(/^\.\//, '') });
   }
   entries.sort((a, b) =>
     a.subpath < b.subpath ? -1
@@ -406,7 +472,13 @@ function renderBaseline(subpath, dtsRelative, program, checker, pkgName, pkgDir,
     const target = exported.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(exported) : exported;
     const internal = isInternal(exported) || isInternal(target);
     const { kind, lines } = render(target);
-    const entry = { name: exported.getName(), kind, params: typeParametersOf(target), lines };
+    const deprecated = isDeprecated(exported) || isDeprecated(target);
+    const entry = {
+      name: exported.getName(),
+      kind,
+      params: typeParametersOf(target),
+      lines: deprecated ? [DEPRECATED_MARK, ...lines] : lines,
+    };
     if (internal) internalExports.push(entry);
     else publicExports.push(entry);
   }
@@ -446,6 +518,20 @@ function renderBaseline(subpath, dtsRelative, program, checker, pkgName, pkgDir,
   return `${out.join('\n').replace(/\n+$/, '')}\n`;
 }
 
+// The Declarations line names the file, so it is the one line allowed to differ between views
+function assertViewsMatch(pkgName, entry, cjsText, esmText) {
+  const body = (text) => text.split('\n').filter((line) => !line.startsWith('- Declarations: '));
+  const cjsLines = body(cjsText);
+  const esmLines = body(esmText);
+  if (cjsLines.join('\n') === esmLines.join('\n')) return;
+  const at = cjsLines.findIndex((line, i) => line !== esmLines[i]);
+  const first = at === -1 ? Math.min(cjsLines.length, esmLines.length) : at;
+  throw new Error(
+    `Declaration views differ for ${pkgName} ${entry.subpath}: ${entry.dts} vs ${entry.esm}\n` +
+      `- ${cjsLines[first] ?? '(end)'}\n+ ${esmLines[first] ?? '(end)'}`,
+  );
+}
+
 export async function generateBaselines(pkgName, pkgDir, pkgPosix) {
   const pkgJsonPath = join(pkgDir, 'package.json');
   const pkgJson = JSON.parse(readFileSync(pkgJsonPath, 'utf8'));
@@ -458,13 +544,20 @@ export async function generateBaselines(pkgName, pkgDir, pkgPosix) {
     );
   }
 
-  const rootNames = entryPoints.map((e) => join(pkgDir, e.dts));
+  const rootNames = entryPoints.flatMap((e) => [join(pkgDir, e.dts), ...(e.esm ? [join(pkgDir, e.esm)] : [])]);
   const program = ts.createProgram(rootNames, COMPILER_OPTIONS);
   const checker = program.getTypeChecker();
 
   const files = new Map();
   for (const entry of entryPoints) {
     const rendered = renderBaseline(entry.subpath, entry.dts, program, checker, pkgName, pkgDir, pkgPosix);
+    if (entry.esm)
+      assertViewsMatch(
+        pkgName,
+        entry,
+        rendered,
+        renderBaseline(entry.subpath, entry.esm, program, checker, pkgName, pkgDir, pkgPosix),
+      );
     files.set(baselineFileName(entry.subpath), await prettier.format(rendered, PRETTIER_MARKDOWN));
   }
   return files;

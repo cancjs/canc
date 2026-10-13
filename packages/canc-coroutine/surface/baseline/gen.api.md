@@ -8,10 +8,10 @@ Generated. Do not edit by hand.
 ## `AsyncGenResult<TEmit, TReturn = void, TFailure = unknown>` (type)
 
 ```text
-[iterator]: () => Generator<TEmit | (unknown extends TFailure ? TAwaited<any> : TAwaited<any> & Failing<TFailure>), TReturn, any>
-next: (...[value]: [] | [any]) => IteratorResult<TEmit | (unknown extends TFailure ? TAwaited<any> : TAwaited<any> & Failing<TFailure>), TReturn>
-return: (value: TReturn) => IteratorResult<TEmit | (unknown extends TFailure ? TAwaited<any> : TAwaited<any> & Failing<TFailure>), TReturn>
-throw: (e: any) => IteratorResult<TEmit | (unknown extends TFailure ? TAwaited<any> : TAwaited<any> & Failing<TFailure>), TReturn>
+[iterator]: () => Generator<(unknown extends TFailure ? TAwaited<any> : Failing<TFailure> & TAwaited<any>) | TEmit, TReturn, any>
+next: (...[value]: [] | [any]) => IteratorResult<(unknown extends TFailure ? TAwaited<any> : Failing<TFailure> & TAwaited<any>) | TEmit, TReturn>
+return: (value: TReturn) => IteratorResult<(unknown extends TFailure ? TAwaited<any> : Failing<TFailure> & TAwaited<any>) | TEmit, TReturn>
+throw: (e: any) => IteratorResult<(unknown extends TFailure ? TAwaited<any> : Failing<TFailure> & TAwaited<any>) | TEmit, TReturn>
 ```
 
 ## `ICancAsyncGenerator<T, TReturn = any, TNext = any, TFailure = never>` (interface)
@@ -31,7 +31,7 @@ readonly [FAILURE]?: TFailure | undefined
 ## `await` (const)
 
 ```text
-<T>(value: T): Generator<TAwaited<Awaited<T>> & Failing<FailureOf<T>>, Awaited<T>, any>
+<T>(value: T): Generator<Failing<FailureOf<T>> & TAwaited<Awaited<T>>, Awaited<T>, any>
 all: ICancGenAwaitAll
 allSettled: ICancGenAwaitAllSettled
 any: ICancGenAwaitAny
@@ -49,7 +49,7 @@ try: ICancGenAwaitTry
 ## `cancGenAwait` (const)
 
 ```text
-<T>(value: T): Generator<TAwaited<Awaited<T>> & Failing<FailureOf<T>>, Awaited<T>, any>
+<T>(value: T): Generator<Failing<FailureOf<T>> & TAwaited<Awaited<T>>, Awaited<T>, any>
 all: ICancGenAwaitAll
 allSettled: ICancGenAwaitAllSettled
 any: ICancGenAwaitAny
@@ -60,37 +60,37 @@ try: ICancGenAwaitTry
 ## `cancGenDelegate<T>` (function)
 
 ```text
-<T>(source: TEachSource<T>): Generator<T | (TAwaited<any> & Failing<BreakError>), void, any>
+<T>(source: TEachSource<T>): Generator<(Failing<BreakError> & TAwaited<any>) | T, void, any>
 ```
 
 ## `cancGenForAwait` (const)
 
 ```text
-<T>(source: TEachSource<T>, cb: TForAwaitCallback<T>): Generator<TAwaited<any> & Failing<BreakError>, void, any>
-toArray: <T>(source: TEachSource<T>) => Generator<TAwaited<any> & Failing<BreakError>, T[], any>
+<T>(source: TEachSource<T>, cb: TForAwaitCallback<T>): Generator<Failing<BreakError> & TAwaited<any>, void, any>
+toArray: <T>(source: TEachSource<T>) => Generator<Failing<BreakError> & TAwaited<any>, T[], any>
 ```
 
 ## `cancGenThrow<TFailure>` (function)
 
 ```text
-<TFailure>(error: TFailure): Generator<TAwaited<never> & Failing<TFailure>, never, any>
+<TFailure>(error: TFailure): Generator<Failing<TFailure> & TAwaited<never>, never, any>
 ```
 
 ## `delegate<T>` (function)
 
 ```text
-<T>(source: TEachSource<T>): Generator<T | (TAwaited<any> & Failing<BreakError>), void, any>
+<T>(source: TEachSource<T>): Generator<(Failing<BreakError> & TAwaited<any>) | T, void, any>
 ```
 
 ## `forAwait` (const)
 
 ```text
-<T>(source: TEachSource<T>, cb: TForAwaitCallback<T>): Generator<TAwaited<any> & Failing<BreakError>, void, any>
-toArray: <T>(source: TEachSource<T>) => Generator<TAwaited<any> & Failing<BreakError>, T[], any>
+<T>(source: TEachSource<T>, cb: TForAwaitCallback<T>): Generator<Failing<BreakError> & TAwaited<any>, void, any>
+toArray: <T>(source: TEachSource<T>) => Generator<Failing<BreakError> & TAwaited<any>, T[], any>
 ```
 
 ## `throw<TFailure>` (function)
 
 ```text
-<TFailure>(error: TFailure): Generator<TAwaited<never> & Failing<TFailure>, never, any>
+<TFailure>(error: TFailure): Generator<Failing<TFailure> & TAwaited<never>, never, any>
 ```

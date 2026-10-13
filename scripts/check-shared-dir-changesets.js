@@ -9,6 +9,8 @@
 // Importers are derived from the source (relative import/require/export-from graph), never from a
 // hardcoded list, so a new consumer is covered automatically.
 //
+// The diff is base...HEAD, so only committed changes count; uncommitted edits are invisible.
+//
 // Usage: node scripts/check-shared-dir-changesets.js [--base <ref>]
 //   --base <ref>   diff base (defaults to origin/$GITHUB_BASE_REF in a PR run, else origin/master)
 
@@ -18,11 +20,11 @@ const { execSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
 const PACKAGES_DIR = path.join(ROOT, 'packages');
-const CHANGESET_DIR = path.join(ROOT, '.changeset');
 
 const CODE_EXT_RE = /\.(ts|tsx|js|jsx|mjs|cjs)$/;
 const SKIP_DIR_RE = /^(dist|node_modules|coverage)$/;
 const SPEC_RE = /\.(spec|test)\.[jt]sx?$/;
+const TESTS_DIR_RE = /(^|\/)__tests__\//;
 const IMPORT_RE = /(?:from|require\()\s*['"]([^'"]+)['"]/g;
 
 function parseArgs(argv) {
@@ -138,10 +140,15 @@ function findImporters(sharedDirName, real) {
   return importers;
 }
 
-function changedFiles(base) {
+function changedFiles(base, { filter = '', pathspec = '' } = {}) {
+  const filterArg = filter ? ` --diff-filter=${filter}` : '';
+  const pathArg = pathspec ? ` -- ${pathspec}` : '';
   for (const range of [`${base}...HEAD`, `${base} HEAD`]) {
     try {
-      const out = execSync(`git diff --name-only ${range}`, { cwd: ROOT, encoding: 'utf8' });
+      const out = execSync(`git diff --name-only --no-renames${filterArg} ${range}${pathArg}`, {
+        cwd: ROOT,
+        encoding: 'utf8',
+      });
       return out.split('\n').filter(Boolean);
     } catch {
       continue;
@@ -150,25 +157,37 @@ function changedFiles(base) {
   throw new Error(`could not diff against base "${base}"`);
 }
 
-function resolveBase(explicitBase) {
-  if (explicitBase) return explicitBase;
-  const baseRef = process.env.GITHUB_BASE_REF;
-  if (baseRef) {
-    for (const candidate of [`origin/${baseRef}`, baseRef]) {
-      try {
-        execSync(`git rev-parse --verify ${candidate}`, { cwd: ROOT, stdio: 'ignore' });
-        return candidate;
-      } catch {
-        continue;
-      }
-    }
+function refExists(ref) {
+  try {
+    execSync(`git rev-parse --verify ${ref}`, { cwd: ROOT, stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
   }
-  return 'origin/master';
+}
+
+function resolveBase(explicitBase) {
+  const requested = explicitBase || process.env.GITHUB_BASE_REF;
+  if (!requested) {
+    if (refExists('origin/master')) return 'origin/master';
+    console.error('FAIL base ref not found: origin/master (no --base and no GITHUB_BASE_REF given)');
+    process.exit(1);
+  }
+  for (const candidate of [`origin/${requested}`, requested]) {
+    if (refExists(candidate)) return candidate;
+  }
+  console.error(`FAIL base ref not found: ${requested} (tried origin/${requested}, ${requested})`);
+  process.exit(1);
+}
+
+function isSpecOnlyPath(file) {
+  return SPEC_RE.test(file) || TESTS_DIR_RE.test(file);
 }
 
 function changedSharedDirs(files, shared) {
   const touched = new Set();
   for (const file of files) {
+    if (isSpecOnlyPath(file)) continue;
     for (const dirName of shared) {
       if (file.startsWith(`packages/${dirName}/`)) touched.add(dirName);
     }
@@ -176,12 +195,13 @@ function changedSharedDirs(files, shared) {
   return [...touched];
 }
 
-function changesetCoveredPackages() {
+// only changesets added or modified on this branch count, not ones already at the base
+function changesetCoveredPackages(base) {
   const covered = new Set();
-  if (!fs.existsSync(CHANGESET_DIR)) return covered;
-  for (const name of fs.readdirSync(CHANGESET_DIR)) {
-    if (!name.endsWith('.md') || name === 'README.md') continue;
-    const content = fs.readFileSync(path.join(CHANGESET_DIR, name), 'utf8');
+  for (const rel of changedFiles(base, { filter: 'AM', pathspec: '.changeset/' })) {
+    const name = path.basename(rel);
+    if (path.dirname(rel) !== '.changeset' || !name.endsWith('.md') || name === 'README.md') continue;
+    const content = fs.readFileSync(path.join(ROOT, rel), 'utf8');
     const frontmatter = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
     if (!frontmatter) continue;
     for (const line of frontmatter[1].split('\n')) {
@@ -207,7 +227,7 @@ function main() {
     process.exit(0);
   }
 
-  const covered = changesetCoveredPackages();
+  const covered = changesetCoveredPackages(base);
   let missingAny = false;
 
   for (const dirName of touchedDirs) {

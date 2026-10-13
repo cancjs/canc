@@ -26,7 +26,7 @@ chunkSize?: number | undefined
 finishFlush?: number | undefined
 flush?: number | undefined
 maxOutputLength?: number | undefined
-params?: { [key: number]: number | boolean; } | undefined
+params?: undefined | { [key: number]: boolean | number; }
 ```
 
 ## `CompressCallback` (type)
@@ -80,7 +80,7 @@ new (options?: ZlibOptions | undefined): InflateRaw
 ## `InputType` (type)
 
 ```text
-string | ArrayBuffer | NodeJS.ArrayBufferView<ArrayBufferLike>
+ArrayBuffer | NodeJS.ArrayBufferView<ArrayBufferLike> | string
 ```
 
 ## `TIterableCodecFn` (type)
@@ -117,180 +117,210 @@ new (options?: ZlibOptions | undefined): Unzip
 ## `Z_ASCII` (const)
 
 ```text
+// @deprecated
 number
 ```
 
 ## `Z_BEST_COMPRESSION` (const)
 
 ```text
+// @deprecated
 number
 ```
 
 ## `Z_BEST_SPEED` (const)
 
 ```text
+// @deprecated
 number
 ```
 
 ## `Z_BINARY` (const)
 
 ```text
+// @deprecated
 number
 ```
 
 ## `Z_BLOCK` (const)
 
 ```text
+// @deprecated
 number
 ```
 
 ## `Z_BUF_ERROR` (const)
 
 ```text
+// @deprecated
 number
 ```
 
 ## `Z_DATA_ERROR` (const)
 
 ```text
+// @deprecated
 number
 ```
 
 ## `Z_DEFAULT_COMPRESSION` (const)
 
 ```text
+// @deprecated
 number
 ```
 
 ## `Z_DEFAULT_STRATEGY` (const)
 
 ```text
+// @deprecated
 number
 ```
 
 ## `Z_DEFLATED` (const)
 
 ```text
+// @deprecated
 number
 ```
 
 ## `Z_ERRNO` (const)
 
 ```text
+// @deprecated
 number
 ```
 
 ## `Z_FILTERED` (const)
 
 ```text
+// @deprecated
 number
 ```
 
 ## `Z_FINISH` (const)
 
 ```text
+// @deprecated
 number
 ```
 
 ## `Z_FIXED` (const)
 
 ```text
+// @deprecated
 number
 ```
 
 ## `Z_FULL_FLUSH` (const)
 
 ```text
+// @deprecated
 number
 ```
 
 ## `Z_HUFFMAN_ONLY` (const)
 
 ```text
+// @deprecated
 number
 ```
 
 ## `Z_MEM_ERROR` (const)
 
 ```text
+// @deprecated
 number
 ```
 
 ## `Z_NEED_DICT` (const)
 
 ```text
+// @deprecated
 number
 ```
 
 ## `Z_NO_COMPRESSION` (const)
 
 ```text
+// @deprecated
 number
 ```
 
 ## `Z_NO_FLUSH` (const)
 
 ```text
+// @deprecated
 number
 ```
 
 ## `Z_OK` (const)
 
 ```text
+// @deprecated
 number
 ```
 
 ## `Z_PARTIAL_FLUSH` (const)
 
 ```text
+// @deprecated
 number
 ```
 
 ## `Z_RLE` (const)
 
 ```text
+// @deprecated
 number
 ```
 
 ## `Z_STREAM_END` (const)
 
 ```text
+// @deprecated
 number
 ```
 
 ## `Z_STREAM_ERROR` (const)
 
 ```text
+// @deprecated
 number
 ```
 
 ## `Z_SYNC_FLUSH` (const)
 
 ```text
+// @deprecated
 number
 ```
 
 ## `Z_TEXT` (const)
 
 ```text
+// @deprecated
 number
 ```
 
 ## `Z_TREES` (const)
 
 ```text
+// @deprecated
 number
 ```
 
 ## `Z_UNKNOWN` (const)
 
 ```text
+// @deprecated
 number
 ```
 
 ## `Z_VERSION_ERROR` (const)
 
 ```text
+// @deprecated
 number
 ```
 
@@ -303,11 +333,11 @@ new (...args: Array<unknown>): object
 ## `Zlib` (interface)
 
 ```text
-readonly bytesRead: number
+readonly bytesRead: number // @deprecated
 readonly bytesWritten: number
 close: (callback?: () => void) => void
 flush: { (kind?: number, callback?: () => void): void; (callback?: () => void): void; }
-shell?: string | boolean | undefined
+shell?: boolean | string | undefined
 ```
 
 ## `ZlibOptions` (interface)
@@ -537,7 +567,7 @@ Z_VERSION_ERROR: number
 ## `crc32` (const)
 
 ```text
-(data: string | ArrayBufferView<ArrayBufferLike>, value?: number | undefined): number
+(data: ArrayBufferView<ArrayBufferLike> | string, value?: number | undefined): number
 ```
 
 ## `createBrotliCompress` (function)

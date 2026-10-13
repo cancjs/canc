@@ -72,7 +72,7 @@ timedOut: boolean
 ## `THonoHandler<E extends Env = any, P extends string = any, I extends Input = TBlankInput>` (type)
 
 ```text
-(c: Context<E, P, I>, next: Next): THonoResponse | Promise<THonoResponse>
+(c: Context<E, P, I>, next: Next): Promise<THonoResponse> | THonoResponse
 ```
 
 ## `TTimeoutOption` (type)

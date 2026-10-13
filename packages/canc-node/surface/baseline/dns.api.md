@@ -200,7 +200,7 @@ setServers: (servers: readonly string[]) => void
 (hostname: string, family: number): CancelablePromise<LookupAddress, never>
 (hostname: string, options: LookupOneOptions): CancelablePromise<LookupAddress, never>
 (hostname: string, options: LookupAllOptions): CancelablePromise<Array<LookupAddress>, never>
-(hostname: string, options: LookupOptions): CancelablePromise<LookupAddress | Array<LookupAddress>, never>
+(hostname: string, options: LookupOptions): CancelablePromise<Array<LookupAddress> | LookupAddress, never>
 (hostname: string): CancelablePromise<LookupAddress, never>
 ```
 
@@ -222,7 +222,7 @@ setServers: (servers: readonly string[]) => void
 (hostname: string, rrtype: "SOA"): CancelablePromise<SoaRecord, never>
 (hostname: string, rrtype: "SRV"): CancelablePromise<Array<SrvRecord>, never>
 (hostname: string, rrtype: "TXT"): CancelablePromise<Array<Array<string>>, never>
-(hostname: string, rrtype: string): CancelablePromise<Array<string> | SoaRecord | Array<AnyRecord> | Array<CaaRecord> | Array<MxRecord> | Array<NaptrRecord> | Array<SrvRecord> | Array<Array<string>>, never>
+(hostname: string, rrtype: string): CancelablePromise<Array<AnyRecord> | Array<Array<string>> | Array<CaaRecord> | Array<MxRecord> | Array<NaptrRecord> | Array<SrvRecord> | Array<string> | SoaRecord, never>
 ```
 
 ## `resolve4` (const)
@@ -230,7 +230,7 @@ setServers: (servers: readonly string[]) => void
 ```text
 (hostname: string): CancelablePromise<Array<string>, never>
 (hostname: string, options: ResolveWithTtlOptions): CancelablePromise<Array<RecordWithTtl>, never>
-(hostname: string, options: ResolveOptions): CancelablePromise<Array<string> | Array<RecordWithTtl>, never>
+(hostname: string, options: ResolveOptions): CancelablePromise<Array<RecordWithTtl> | Array<string>, never>
 ```
 
 ## `resolve6` (const)
@@ -238,7 +238,7 @@ setServers: (servers: readonly string[]) => void
 ```text
 (hostname: string): CancelablePromise<Array<string>, never>
 (hostname: string, options: ResolveWithTtlOptions): CancelablePromise<Array<RecordWithTtl>, never>
-(hostname: string, options: ResolveOptions): CancelablePromise<Array<string> | Array<RecordWithTtl>, never>
+(hostname: string, options: ResolveOptions): CancelablePromise<Array<RecordWithTtl> | Array<string>, never>
 ```
 
 ## `resolveAny` (const)
@@ -316,7 +316,7 @@ setServers: (servers: readonly string[]) => void
 ## `setDefaultResultOrder` (const)
 
 ```text
-(order: "ipv4first" | "verbatim" | "ipv6first"): void
+(order: "ipv4first" | "ipv6first" | "verbatim"): void
 ```
 
 ## `setServers` (const)

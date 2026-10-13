@@ -46,7 +46,7 @@ terminate?: TTerminateMode | undefined
 ## `IWorkerConstructor` (interface)
 
 ```text
-new (filename: string | URL, options?: WorkerOptions | undefined): IWorkerWithPromise
+new (filename: URL | string, options?: WorkerOptions | undefined): IWorkerWithPromise
 ```
 
 ## `IWorkerWithPromise` (interface)
@@ -78,7 +78,7 @@ new (): MessagePort
 ## `TLockBody<T>` (type)
 
 ```text
-(lock: ILock | null): T | PromiseLike<T>
+(lock: ILock | null): PromiseLike<T> | T
 ```
 
 ## `TLockMode` (type)
@@ -96,7 +96,7 @@ new (): MessagePort
 ## `Worker` (const)
 
 ```text
-new (filename: string | URL, options?: WorkerOptions | undefined): IWorkerWithPromise
+new (filename: URL | string, options?: WorkerOptions | undefined): IWorkerWithPromise
 ```
 
 ## `isMainThread` (const)
@@ -121,7 +121,7 @@ MessagePort | null
 ## `runTask<TResult = unknown>` (function)
 
 ```text
-<TResult = unknown>(script: string | URL, workerData?: unknown, options?: IRunTaskOptions | undefined): CancelablePromise<TResult, never>
+<TResult = unknown>(script: URL | string, workerData?: unknown, options?: IRunTaskOptions | undefined): CancelablePromise<TResult, never>
 ```
 
 ## `threadId` (const)
