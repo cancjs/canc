@@ -19,7 +19,7 @@ stack?: string | undefined
 
 ```text
 extends tb.IDeferred<T, ICancelableKind>
-cancel: (reason?: any) => CancelablePromise<PromiseSettledResult<unknown>[]> | void
+cancel: (reason?: any) => CancelablePromise<ISettledResult<unknown>[], never> | void
 promise: CancelablePromise<T, never>
 reject: (reason?: any) => void
 resolve: (value: PromiseLike<T> | T) => void
@@ -227,7 +227,7 @@ new <T = any>(executor: TLazyExecutor<T>, options?: ILazyPromiseOptions | undefi
 static _new: <V>(executor: TLazyExecutor<V>, options?: object) => LazyBase<V>
 static _optionsChanged: (instance: LazyBase<any>, options?: object) => boolean
 static all: <V>(values: Iterable<PromiseLike<V> | V>, options?: ILazyPromiseOptions) => LazyPromise<V[]>
-static allSettled: <V>(values: Iterable<PromiseLike<V> | V>, options?: ILazyPromiseOptions) => LazyPromise<PromiseSettledResult<Awaited<V>>[]>
+static allSettled: <V>(values: Iterable<PromiseLike<V> | V>, options?: ILazyPromiseOptions) => LazyPromise<ISettledResult<Awaited<V>>[]>
 static any: <V>(values: Iterable<PromiseLike<V> | V>, options?: ILazyPromiseOptions) => LazyPromise<V>
 static race: <V>(values: Iterable<PromiseLike<V> | V>, options?: ILazyPromiseOptions) => LazyPromise<V>
 static reject: <V = never>(reason?: any, options?: ILazyPromiseOptions) => LazyPromise<V>
@@ -364,7 +364,7 @@ stack?: string | undefined
 ## `cancelify<A extends any[], R>` (function)
 
 ```text
-<A extends any[], R>(fn: TCancelifyFn<A, R>, options?: ICancelifyOptions | undefined): (...callArgs: A) => CancelablePromise<R, never>
+<A extends any[], R>(fn: TCancelifyFn<A, R>, options?: ICancelifyOptions | undefined): (...callArgs: A) => CancelablePromise<R, unknown>
 ```
 
 ## `catchAbort` (const)
@@ -523,8 +523,8 @@ stack?: string | undefined
 ## `timeout` (const)
 
 ```text
-(ms: TDuration, options?: (IToolboxOptions & TCallDeps) | undefined): CancelablePromise<never, ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }>
-<T, F = never>(input: TTimedInput<T>, ms?: TDuration | undefined, options?: (IToolboxOptions & TCallDeps) | undefined): CancelablePromise<T, (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | F>
+(ms: TDuration, options?: (IToolboxOptions & TCallDeps) | undefined): CancelablePromise<never, (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | Unlisted>
+<T, F = never>(input: TTimedInput<T>, ms?: TDuration | undefined, options?: (IToolboxOptions & TCallDeps) | undefined): CancelablePromise<T, (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | F | Unlisted>
 ```
 
 ## `toAbortSignal` (function)
@@ -536,7 +536,7 @@ stack?: string | undefined
 ## `waitFor` (const)
 
 ```text
-(condition: () => unknown, options?: IWaitForOptions | undefined): CancelablePromise<void, ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }>
+(condition: () => unknown, options?: IWaitForOptions | undefined): CancelablePromise<void, (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | Unlisted>
 ```
 
 ## `withSignal<T>` (function)
