@@ -1,10 +1,13 @@
-import { addAbortSignal, Duplex, duplexPair, PassThrough, Readable, Transform, Writable } from 'node:stream';
+import * as nodeStream from 'node:stream';
+import { addAbortSignal, Duplex, PassThrough, Readable, Transform, Writable } from 'node:stream';
 import * as nodeStreamPromises from 'node:stream/promises';
 
 import { CancelablePromise } from '@cancjs/promise';
 
 import type { Unlisted } from '../../../_util';
 import streamJson from '../../surface/projected/stream.json';
+
+const duplexPair = (nodeStream as { duplexPair?: typeof nodeStream.duplexPair }).duplexPair;
 
 export { addAbortSignal, Duplex, duplexPair, PassThrough, Readable, Transform, Writable };
 
