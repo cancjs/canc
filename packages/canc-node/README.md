@@ -15,7 +15,7 @@ Node built-in modules with cancelable promises and typed failures.
 
 `@cancjs/node` provides cancelable promise wrappers and typed failure channels for Node.js built-in modules. To migrate, replace built-in imports like `node:fs/promises` or `node:child_process` with `@cancjs/node/<module>` (such as `@cancjs/node/fs` or `@cancjs/node/child-process`). All wrapped functions return `CancelablePromise` instances and propagate cancellations cleanly.
 
-The package ships the `fs`, `fs/sync`, and `fs/register-graceful` subpaths. Additional module wrappers are under active development and scheduled for upcoming releases. The root entry `@cancjs/node` provides shared error classes, errno predicates, and runtime feature detection used across all subpaths.
+The package ships the `fs`, `fs/sync`, `fs/register-graceful`, `fs/extra`, `child-process`, `timers`, `stream`, `events`, `dns`, `readline`, `crypto`, `zlib`, `worker-threads`, and `dgram` subpaths. The root entry `@cancjs/node` provides shared error classes, errno predicates, and runtime feature detection used across all subpaths.
 
 ## Features
 
@@ -556,11 +556,12 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 
 ### Shipped subpaths
 
-The package currently ships thirteen subpaths:
+The package currently ships fourteen subpaths:
 
 - `fs`: file system operations with cancelable promises
 - `fs/sync`: synchronous file system utilities
 - `fs/register-graceful`: automatic graceful-fs integration hook
+- `fs/extra`: higher-level file system utilities
 - `child-process`: external commands and spawned processes with cancellation support
 - `timers`: cancelable timer promises
 - `stream`: stream consumers, pipeline helpers and readable terminals
@@ -594,8 +595,9 @@ When `retryOpen: true` is configured in `ISetFsOptions`, calls to `open` and `op
 
 To configure `graceful-fs` with descriptor retry automatically, import the side-effect subpath:
 
-````ts
+```ts
 import "@cancjs/node/fs/register-graceful";
+```
 
 ### child-process
 
@@ -612,7 +614,7 @@ console.log("Process PID:", child.pid);
 
 // the promise is ours
 const result = await child.promise;
-````
+```
 
 The `promise` property is built on first access and reused after that. The promise can be taken at any time; the terminal outcome is recorded when it happens and replayed to a late reader (`exec` and `execFile` have always behaved this way through node's callback). Nothing else about the child is wrapped, so the callback form, the streams, async iteration over `child.stdout` and the option bag all keep node's behavior. Because listeners are attached eagerly to record terminal events, `child.listenerCount` differs from plain node.
 
@@ -746,7 +748,6 @@ A `Worker` has exactly one terminal event, `exit`, so it carries a lazy `promise
 
 Wrapped built-in modules are arriving in upcoming releases. Planned subpaths include:
 
-- `fs/extra`: extended file system helper routines
 - `net`: networking helpers
 - `tls`: TLS socket utilities
 - `http`: HTTP, HTTPS, and HTTP/2 clients and servers
