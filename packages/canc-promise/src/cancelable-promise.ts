@@ -239,6 +239,22 @@ function rejectCanceled(settle: (reason?: any) => void, error: unknown): void {
   }
 }
 
+// no consumer left: stop cancelable work, keep a late rejection from going unhandled
+function reclaimOrphanedResult(value: unknown, reason: unknown): void {
+  if (isCancPromise(value)) {
+    try {
+      void value.cancel(reason);
+    } catch (_e) {
+      // strict refuses a shielded or settled promise, the handler below still applies
+    }
+    // native `then` skips the consumer count the public `then` would add
+    void NativePromise.prototype.then.call(value, undefined, noop);
+  } else if (isObject(value) || isFunction(value)) {
+    // a throwing `then` getter becomes a rejection, absorbed by the same handler
+    void NativePromise.resolve(value).then(undefined, noop);
+  }
+}
+
 const states = {
   PENDING: 'PENDING',
   FORCE_PENDING: 'FORCE_PENDING',
@@ -1118,6 +1134,9 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
               // native already adopted and ignores this; other states drop it so a
               // pre-aborted promise cannot fulfill before its deferred rejection lands
               resolve_(value);
+            } else if (instance._internalState === states.CANCELED) {
+              // a canceled child still runs its callback, nobody reads what it returns
+              reclaimOrphanedResult(value, instance._canceledReason);
             }
           }
 
