@@ -113,6 +113,24 @@ describe('setPromiseImpl validation', () => {
     expect(() => setPromiseImpl((() => undefined) as unknown as PromiseConstructor)).toThrow(TypeError);
   });
 
+  it('rejects a class whose prototype has then but no cancel', () => {
+    class ThenOnly {
+      then(): void {}
+    }
+
+    expect(() => setPromiseImpl(ThenOnly as unknown as PromiseConstructor)).toThrow(TypeError);
+    expect(getPromiseImpl()).toBe(CancelablePromise);
+  });
+
+  it('rejects a class whose prototype has cancel but no then', () => {
+    class CancelOnly {
+      cancel(): void {}
+    }
+
+    expect(() => setPromiseImpl(CancelOnly as unknown as PromiseConstructor)).toThrow(TypeError);
+    expect(getPromiseImpl()).toBe(CancelablePromise);
+  });
+
   it('accepts the real implementation', () => {
     setPromiseImpl(CancelablePromise as unknown as PromiseConstructor);
 

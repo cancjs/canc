@@ -2,7 +2,7 @@ import { getEventListeners } from 'node:events';
 
 import { isThenable } from '../../_util';
 import { CancelError } from './cancel-error';
-import { CancelablePromise } from './cancelable-promise';
+import { CANCEL_PROMISE_BRAND, CancelablePromise } from './cancelable-promise';
 
 function preAbortedSignal(): AbortSignal {
   const controller = new AbortController();
@@ -399,6 +399,23 @@ describe('resolve with a foreign thenable', () => {
     expect(isThenable(callable)).toBe(true);
     const promise = new CancelablePromise<string>((resolve) => resolve(callable as unknown as PromiseLike<string>));
     await expect(promise).resolves.toBe('from callable');
+  });
+
+  it('adopts a callable cancelable thenable, staying pending and cancelable while it waits', async () => {
+    const then = jest.fn(() => undefined);
+    const callable = Object.assign(() => undefined, { [CANCEL_PROMISE_BRAND]: true, then, cancel: jest.fn() });
+    const promise = handled(
+      new CancelablePromise<string>((resolve) => resolve(callable as unknown as PromiseLike<string>)),
+    );
+
+    expect(then).not.toHaveBeenCalled();
+    await drainMicrotasks();
+    expect(then).toHaveBeenCalledTimes(1);
+
+    void promise.cancel('stop');
+    await drainMicrotasks();
+
+    expect(promise.canceled).toBe(true);
   });
 
   it('adopts a thenable yielding a thenable that rejects with a CancelError, canceled without unhandled rejection', async () => {
