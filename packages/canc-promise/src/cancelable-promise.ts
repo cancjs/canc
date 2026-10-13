@@ -239,16 +239,31 @@ function rejectCanceled(settle: (reason?: any) => void, error: unknown): void {
   }
 }
 
-// no consumer left: stop cancelable work, keep a late rejection from going unhandled
+// a canceled child gives up what its callback returned and keeps a late rejection handled
 function reclaimOrphanedResult(value: unknown, reason: unknown): void {
   if (isCancPromise(value)) {
+    const linked = value as unknown as {
+      _chain?: (child: CancelablePromise<void>) => void;
+      _subscribe?: (onFulfilled: undefined, onRejected: () => void) => void;
+    };
     try {
-      void value.cancel(reason);
+      if (typeof linked._chain === 'function' && typeof linked._subscribe === 'function') {
+        // skips the consumer count the public `then` would add
+        linked._subscribe(undefined, noop);
+        // release one counted ref; the source stops only when no other consumer is left
+        const standIn = new CancelablePromise<void>(noop);
+        linked._chain(standIn);
+        void standIn.cancel(reason);
+      } else {
+        // a copy without `_chain` is reached through its `then` view, never canceled directly
+        const view = value.then(noop, noop) as unknown as { cancel?: unknown };
+        if (view && typeof view.cancel === 'function') {
+          void (view.cancel as (reason?: unknown) => unknown)(reason);
+        }
+      }
     } catch (_e) {
-      // strict refuses a shielded or settled promise, the handler below still applies
+      // strict refuses to cancel a shielded promise, nobody is left to report it to
     }
-    // native `then` skips the consumer count the public `then` would add
-    void NativePromise.prototype.then.call(value, undefined, noop);
   } else if (isObject(value) || isFunction(value)) {
     // a throwing `then` getter becomes a rejection, absorbed by the same handler
     void NativePromise.resolve(value).then(undefined, noop);
