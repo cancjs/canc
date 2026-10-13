@@ -4,6 +4,7 @@
 {
   "extends": "../../tsconfig",
   "compilerOptions": {
+    "target": "es2022",
     "lib": ["es2022"]
   },
   "include": ["src"]
