@@ -17,10 +17,10 @@ interface IReflectMetadataApi {
 }
 
 /**
- * Whether value is an object exposing a callable `then` method.
+ * Whether value is an object or a function exposing a callable `then` method.
  */
 export const isThenable = (obj: any): obj is PromiseLike<any> =>
-  isObject(obj) && isFunction((obj as Record<PropertyKey, unknown>).then);
+  (isObject(obj) || isFunction(obj)) && isFunction((obj as Record<PropertyKey, unknown>).then);
 
 /**
  * Whether value conforms to the Generator interface.
