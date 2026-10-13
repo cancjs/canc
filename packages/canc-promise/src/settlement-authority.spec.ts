@@ -15,6 +15,16 @@ function handled<T>(promise: CancelablePromise<T>): CancelablePromise<T> {
   return promise;
 }
 
+function pendingNative<T>(): { promise: Promise<T>; resolve: (value: T) => void; reject: (reason: unknown) => void } {
+  let resolve!: (value: T) => void;
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
 describe('executor throw', () => {
   it('leaves the promise rejected and no longer cancelable', async () => {
     const error = new Error('boom');
@@ -151,5 +161,130 @@ describe('settlers after adopting with forceCancelable off', () => {
     );
 
     await expect(promise).resolves.toBe(1);
+  });
+});
+
+describe('resolve with a pending thenable', () => {
+  it('ignores later resolve and reject calls in the executor, the thenable value wins', async () => {
+    const source = pendingNative<number>();
+    const promise = new CancelablePromise<number>((resolve, reject) => {
+      resolve(source.promise);
+      resolve(1);
+      reject(new Error('late'));
+    });
+
+    source.resolve(2);
+
+    await expect(promise).resolves.toBe(2);
+  });
+
+  it('ignores later withResolvers settlers, the thenable value wins', async () => {
+    const source = pendingNative<number>();
+    const { promise, resolve, reject } = CancelablePromise.withResolvers<number>();
+
+    resolve(source.promise);
+    resolve(1);
+    reject(new Error('late'));
+    source.resolve(2);
+
+    await expect(promise).resolves.toBe(2);
+  });
+
+  it('stays pending and cancelable after a later reject', async () => {
+    const source = pendingNative<number>();
+    const { promise, resolve, reject } = CancelablePromise.withResolvers<number>();
+    handled(promise);
+
+    resolve(source.promise);
+    reject(new Error('late'));
+
+    expect(promise.cancelable).toBe(true);
+    source.resolve(2);
+    await expect(promise).resolves.toBe(2);
+  });
+
+  it('takes the rejection of the thenable over a later resolve', async () => {
+    const source = pendingNative<number>();
+    const error = new Error('adopted');
+    const promise = handled(
+      new CancelablePromise<number>((resolve) => {
+        resolve(source.promise);
+        resolve(1);
+      }),
+    );
+
+    source.reject(error);
+
+    await expect(promise).rejects.toBe(error);
+  });
+
+  it('ignores later settlers while adopting a cancelable, its value wins', async () => {
+    const source = CancelablePromise.withResolvers<number>();
+    const promise = new CancelablePromise<number>((resolve, reject) => {
+      resolve(source.promise);
+      resolve(1);
+      reject(new Error('late'));
+    });
+
+    source.resolve(2);
+
+    await expect(promise).resolves.toBe(2);
+  });
+
+  it('links a cancelable passed twice only once', () => {
+    const source = CancelablePromise.withResolvers<number>();
+    const promise = new CancelablePromise<number>((resolve) => {
+      resolve(source.promise);
+      resolve(source.promise);
+    });
+
+    expect(promise.cancelable).toBe(true);
+    expect((source.promise as any)._chainsCount).toBe(1);
+  });
+
+  it('can still be canceled while adopting', async () => {
+    const source = pendingNative<number>();
+    const onCancel = jest.fn();
+    const promise = handled(
+      new CancelablePromise<number>((resolve, _reject, { handleCancel }) => {
+        handleCancel(onCancel);
+        resolve(source.promise);
+      }),
+    );
+
+    void promise.cancel('stop');
+    source.resolve(2);
+
+    expect(promise.canceled).toBe(true);
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    await expect(promise).rejects.toBeInstanceOf(CancelError);
+  });
+
+  it('can still be canceled after a dropped reject', async () => {
+    const source = pendingNative<number>();
+    const { promise, resolve, reject, cancel } = CancelablePromise.withResolvers<number>();
+    handled(promise);
+
+    resolve(source.promise);
+    reject(new Error('late'));
+    void cancel('stop');
+
+    expect(promise.canceled).toBe(true);
+    await expect(promise).rejects.toBeInstanceOf(CancelError);
+  });
+
+  it('still rejects when the then of the thenable throws', async () => {
+    const error = new Error('then threw');
+    const promise = handled(
+      new CancelablePromise<number>((resolve) => {
+        resolve({
+          then() {
+            throw error;
+          },
+        });
+      }),
+    );
+
+    await expect(promise).rejects.toBe(error);
   });
 });

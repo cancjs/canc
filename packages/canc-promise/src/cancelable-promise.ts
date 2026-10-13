@@ -989,9 +989,16 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
       NativePromise,
       [
         ((resolve_, reject_) => {
+          // first resolve wins as natively, cancel() still works while adopting
+          let adopting = false;
+
           function resolve(value?: TResult | PromiseLike<TResult>): void {
             // Prevent cancellation in case of early state changes
             if (instance._internalState === states.PENDING) {
+              if (adopting) {
+                return;
+              }
+
               if (isThenable(value)) {
                 if (value === (instance as unknown)) {
                   // Self-resolution (e.g. `p.then(() => p)`).
@@ -1040,6 +1047,11 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
                     resolve_(value_);
                   };
 
+                  const onAdoptRejected = (reason: unknown): void => {
+                    adopting = false;
+                    reject(reason);
+                  };
+
                   // Subscribe to the adopted value's settlement.
                   // For a cancelable value use
                   // the non-counting internal subscription: `_chain` above already raised its
@@ -1047,10 +1059,13 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
                   // `.then()` as well would add a phantom consumer that never completes and would
                   // keep the adopted promise alive forever.
                   if (adopted) {
-                    adopted._subscribe(onAdopt, reject);
+                    adopted._subscribe(onAdopt, onAdoptRejected);
                   } else {
-                    value.then(onAdopt, reject);
+                    value.then(onAdopt, onAdoptRejected);
                   }
+
+                  // set last: a then() that throws must leave reject usable
+                  adopting = true;
                 } else {
                   instance._internalState = states.FORCE_PENDING;
                   instance._runSettlementEffects();
@@ -1075,6 +1090,10 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
               if (state === states.FORCE_PENDING || (state === states.CANCELED && _rejectingCanceled)) {
                 reject_(reason);
               }
+              return;
+            }
+
+            if (adopting) {
               return;
             }
 
