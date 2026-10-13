@@ -30,6 +30,75 @@ export const isGenerator = (value: any): value is Generator => {
   return isObject(value) && isFunction(candidate.next) && isFunction(candidate[Symbol.iterator]);
 };
 
+function describeNonGenerator(value: unknown): string {
+  if (value === null) {
+    return 'null';
+  }
+  if (value === undefined) {
+    return 'undefined';
+  }
+  if (typeof value === 'function') {
+    return 'a function';
+  }
+  if (typeof value !== 'object') {
+    return typeof value;
+  }
+  if (isThenable(value)) {
+    return 'a promise';
+  }
+  return 'a non-generator object';
+}
+
+/**
+ * Asserts that a value returned by a function expected to produce a generator conforms to the
+ * synchronous generator protocol.
+ *
+ * Throws a TypeError if the value is an async generator, is not generator-shaped, or lacks a
+ * callable return method.
+ */
+export function assertGeneratorResult(
+  value: unknown,
+  context: string,
+): asserts value is Generator<unknown, any, unknown> {
+  if (!isObject(value)) {
+    throw new TypeError(`${context}: expected a generator, received ${describeNonGenerator(value)}`);
+  }
+
+  if (
+    typeof Symbol !== 'undefined' &&
+    typeof Symbol.asyncIterator === 'symbol' &&
+    Symbol.asyncIterator in (value as object)
+  ) {
+    throw new TypeError(`${context}: expected a synchronous generator, received an async generator`);
+  }
+
+  const candidate = value as Record<PropertyKey, unknown>;
+  if (!isFunction(candidate.next)) {
+    throw new TypeError(`${context}: expected a generator, received ${describeNonGenerator(value)}`);
+  }
+
+  if (!isFunction(candidate.return)) {
+    throw new TypeError(
+      `${context}: expected a generator with a callable return method, received a generator-like without return`,
+    );
+  }
+}
+
+/**
+ * Asserts that an iterator step value is a valid step result object and not a thenable.
+ *
+ * Throws a TypeError if the value is not an object or is thenable.
+ */
+export function assertStepResult(step: unknown, context: string): asserts step is IteratorResult<unknown, unknown> {
+  if (!isObject(step) || isThenable(step)) {
+    throw new TypeError(
+      isThenable(step) ?
+        `${context}: expected an iterator step result object, received a promise`
+      : `${context}: expected an iterator step result object, received a non-object`,
+    );
+  }
+}
+
 /**
  * Whether value is thenable and exposes a callable `cancel` method.
  */
