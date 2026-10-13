@@ -2,6 +2,7 @@ import { basename, dirname, join } from 'node:path';
 
 import { CancelablePromise } from '@cancjs/promise';
 
+import type { Unlisted } from '../../../_util';
 import { isErrno, isNotFoundError } from '../errors/errno';
 import { chmod, chown, rename, stat, unlink, writeFile } from '../fs';
 import { chmodSync, chownSync, renameSync, statSync, unlinkSync, writeFileSync } from '../fs/sync';
@@ -73,7 +74,11 @@ function unlinkWithRetry(path: string, attempts = UNLINK_ATTEMPTS): Promise<void
  * - Does not support append mode.
  * - Does not call fsync, so guarantees hold against concurrent readers and not against a system crash.
  */
-export function replaceFile(path: string, data: TWriteData, options?: IReplaceFileOptions): CancelablePromise<void> {
+export function replaceFile(
+  path: string,
+  data: TWriteData,
+  options?: IReplaceFileOptions,
+): CancelablePromise<void, Unlisted> {
   return new CancelablePromise((resolve, reject, { handleCancel }) => {
     const dir = dirname(path);
     const base = basename(path);

@@ -2,6 +2,7 @@ import { dirname } from 'node:path';
 
 import { CancelablePromise } from '@cancjs/promise';
 
+import type { Unlisted } from '../../../_util';
 import { writeFile } from '../fs';
 import { writeFileSync } from '../fs/sync';
 import { ensureDir, ensureDirSync } from './ensure';
@@ -23,7 +24,11 @@ export type IOutputFileSyncOptions = TWriteFileSyncParams[2];
  * @param data - File contents.
  * @param options - Encoding, mode and flag, or the encoding shorthand.
  */
-export function outputFile(path: string, data: TWriteData, options?: IOutputFileOptions): CancelablePromise<void> {
+export function outputFile(
+  path: string,
+  data: TWriteData,
+  options?: IOutputFileOptions,
+): CancelablePromise<void, Unlisted> {
   return new CancelablePromise((resolve, reject, { handleCancel }) => {
     let activePromise: CancelablePromise<unknown> | null = null;
     handleCancel((reason) => {

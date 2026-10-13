@@ -14,6 +14,7 @@ import nodeDnsPromises from 'node:dns/promises';
 
 import { CancelablePromise } from '@cancjs/promise';
 
+import type { Unlisted } from '../../../_util';
 import { gated } from '../gate';
 import { adopted, TNodeFn } from '../wrap';
 import type { IResolve4Fn, IResolve6Fn, IResolveFn, TResolveTlsaFn } from './records';
@@ -22,14 +23,17 @@ export type { ITlsaRecord } from './records';
 export { Resolver } from './resolver';
 
 interface ILookupFn {
-  (hostname: string, family: number): CancelablePromise<LookupAddress>;
-  (hostname: string, options: LookupOneOptions): CancelablePromise<LookupAddress>;
-  (hostname: string, options: LookupAllOptions): CancelablePromise<LookupAddress[]>;
-  (hostname: string, options: LookupOptions): CancelablePromise<LookupAddress | LookupAddress[]>;
-  (hostname: string): CancelablePromise<LookupAddress>;
+  (hostname: string, family: number): CancelablePromise<LookupAddress, Unlisted>;
+  (hostname: string, options: LookupOneOptions): CancelablePromise<LookupAddress, Unlisted>;
+  (hostname: string, options: LookupAllOptions): CancelablePromise<LookupAddress[], Unlisted>;
+  (hostname: string, options: LookupOptions): CancelablePromise<LookupAddress | LookupAddress[], Unlisted>;
+  (hostname: string): CancelablePromise<LookupAddress, Unlisted>;
 }
 
-type TLookupServiceFn = (address: string, port: number) => CancelablePromise<{ hostname: string; service: string }>;
+type TLookupServiceFn = (
+  address: string,
+  port: number,
+) => CancelablePromise<{ hostname: string; service: string }, Unlisted>;
 
 // there is no signal anywhere in node:dns; `adopted` stops the waiting on cancel, and the query
 // itself runs to completion against node's own internal resolver, same guarantee node gives a call
@@ -51,17 +55,29 @@ function viaDns(name: string): TNodeFn {
 export const resolve = adopted(viaDns('resolve')) as IResolveFn;
 export const resolve4 = adopted(viaDns('resolve4')) as IResolve4Fn;
 export const resolve6 = adopted(viaDns('resolve6')) as IResolve6Fn;
-export const resolveAny = adopted(viaDns('resolveAny')) as (hostname: string) => CancelablePromise<AnyRecord[]>;
-export const resolveCaa = adopted(viaDns('resolveCaa')) as (hostname: string) => CancelablePromise<CaaRecord[]>;
-export const resolveCname = adopted(viaDns('resolveCname')) as (hostname: string) => CancelablePromise<string[]>;
-export const resolveMx = adopted(viaDns('resolveMx')) as (hostname: string) => CancelablePromise<MxRecord[]>;
-export const resolveNaptr = adopted(viaDns('resolveNaptr')) as (hostname: string) => CancelablePromise<NaptrRecord[]>;
-export const resolveNs = adopted(viaDns('resolveNs')) as (hostname: string) => CancelablePromise<string[]>;
-export const resolvePtr = adopted(viaDns('resolvePtr')) as (hostname: string) => CancelablePromise<string[]>;
-export const resolveSoa = adopted(viaDns('resolveSoa')) as (hostname: string) => CancelablePromise<SoaRecord>;
-export const resolveSrv = adopted(viaDns('resolveSrv')) as (hostname: string) => CancelablePromise<SrvRecord[]>;
-export const resolveTxt = adopted(viaDns('resolveTxt')) as (hostname: string) => CancelablePromise<string[][]>;
-export const reverse = adopted(viaDns('reverse')) as (ip: string) => CancelablePromise<string[]>;
+export const resolveAny = adopted(viaDns('resolveAny')) as (
+  hostname: string,
+) => CancelablePromise<AnyRecord[], Unlisted>;
+export const resolveCaa = adopted(viaDns('resolveCaa')) as (
+  hostname: string,
+) => CancelablePromise<CaaRecord[], Unlisted>;
+export const resolveCname = adopted(viaDns('resolveCname')) as (
+  hostname: string,
+) => CancelablePromise<string[], Unlisted>;
+export const resolveMx = adopted(viaDns('resolveMx')) as (hostname: string) => CancelablePromise<MxRecord[], Unlisted>;
+export const resolveNaptr = adopted(viaDns('resolveNaptr')) as (
+  hostname: string,
+) => CancelablePromise<NaptrRecord[], Unlisted>;
+export const resolveNs = adopted(viaDns('resolveNs')) as (hostname: string) => CancelablePromise<string[], Unlisted>;
+export const resolvePtr = adopted(viaDns('resolvePtr')) as (hostname: string) => CancelablePromise<string[], Unlisted>;
+export const resolveSoa = adopted(viaDns('resolveSoa')) as (hostname: string) => CancelablePromise<SoaRecord, Unlisted>;
+export const resolveSrv = adopted(viaDns('resolveSrv')) as (
+  hostname: string,
+) => CancelablePromise<SrvRecord[], Unlisted>;
+export const resolveTxt = adopted(viaDns('resolveTxt')) as (
+  hostname: string,
+) => CancelablePromise<string[][], Unlisted>;
+export const reverse = adopted(viaDns('reverse')) as (ip: string) => CancelablePromise<string[], Unlisted>;
 export const lookup = adopted(viaDns('lookup')) as ILookupFn;
 export const lookupService = adopted(viaDns('lookupService')) as TLookupServiceFn;
 

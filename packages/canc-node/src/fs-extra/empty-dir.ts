@@ -2,6 +2,7 @@ import { join } from 'node:path';
 
 import { CancelablePromise } from '@cancjs/promise';
 
+import type { Unlisted } from '../../../_util';
 import { readdir, rm } from '../fs';
 import { readdirSync, rmSync } from '../fs/sync';
 import { ensureDir, ensureDirSync } from './ensure';
@@ -42,7 +43,7 @@ async function emptyDirTree(dir: string, signal: IAbortSignalLike, active: IActi
  *
  * @param dir - Directory path to empty
  */
-export function emptyDir(dir: string): CancelablePromise<void> {
+export function emptyDir(dir: string): CancelablePromise<void, Unlisted> {
   return new CancelablePromise((resolve, _reject, { getSignal, handleCancel }) => {
     const signal = getSignal();
     const active: IActiveCall = { current: null };

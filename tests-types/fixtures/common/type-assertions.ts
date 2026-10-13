@@ -20,6 +20,7 @@ import type {
   ICancelablePromiseWithResolvers,
   ICatchErrorFn,
   ISuppressErrorFn,
+  Unlisted,
 } from '@cancjs/promise';
 import CancelablePromise, {
   AbortError,
@@ -86,10 +87,10 @@ const then3 = p.then(
   (n) => `${n}`,
   () => 0,
 );
-type _then3 = Expect<Equal<typeof then3, CancelablePromise<string | number>>>;
+type _then3 = Expect<Equal<typeof then3, CancelablePromise<string | number, never>>>;
 
 const caught = p.catch(() => 'fallback');
-type _catch1 = Expect<Equal<typeof caught, CancelablePromise<number | string>>>;
+type _catch1 = Expect<Equal<typeof caught, CancelablePromise<number | string, never>>>;
 
 const finalled = p.finally(() => {});
 type _finally1 = Expect<Equal<typeof finalled, CancelablePromise<number>>>;
@@ -100,10 +101,10 @@ p.finally((value: number) => value);
 // ============================================================ combinator tuples
 // all() heterogeneous tuple inference across the fixed-arity overloads.
 const all2 = CancelablePromise.all([Promise.resolve(1), Promise.resolve('a')]);
-type _all2 = Expect<Equal<typeof all2, CancelablePromise<[number, string]>>>;
+type _all2 = Expect<Equal<typeof all2, CancelablePromise<[number, string], Unlisted>>>;
 
 const all3 = CancelablePromise.all([Promise.resolve(1), Promise.resolve('a'), Promise.resolve(true)]);
-type _all3 = Expect<Equal<typeof all3, CancelablePromise<[number, string, boolean]>>>;
+type _all3 = Expect<Equal<typeof all3, CancelablePromise<[number, string, boolean], Unlisted>>>;
 
 // 10-arity is the last fixed overload before the variadic fallback, spot-check it.
 const all10 = CancelablePromise.all([
@@ -121,30 +122,30 @@ const all10 = CancelablePromise.all([
 type _all10 = Expect<
   Equal<
     typeof all10,
-    CancelablePromise<[number, string, boolean, number, string, number, string, number, string, number]>
+    CancelablePromise<[number, string, boolean, number, string, number, string, number, string, number], Unlisted>
   >
 >;
 
 // homogeneous array (not a tuple literal): element array, not a tuple
 const allArr = CancelablePromise.all([Promise.resolve(1), Promise.resolve(2)] as Promise<number>[]);
-type _allArr = Expect<Equal<typeof allArr, CancelablePromise<number[]>>>;
+type _allArr = Expect<Equal<typeof allArr, CancelablePromise<number[], Unlisted>>>;
 
 const race = CancelablePromise.race([Promise.resolve(1), Promise.resolve(2)]);
-type _race = Expect<Equal<typeof race, CancelablePromise<number>>>;
+type _race = Expect<Equal<typeof race, CancelablePromise<number, Unlisted>>>;
 
 const any = CancelablePromise.any([Promise.resolve(1), Promise.resolve('a')] as const);
-type _any = Expect<Equal<typeof any, CancelablePromise<number | string, AggregateError>>>;
+type _any = Expect<Equal<typeof any, CancelablePromise<number | string, AggregateError | Unlisted>>>;
 
 // @ts-expect-error all() requires an iterable, not a bare value
 CancelablePromise.all(123);
 
 // ============================================================ Awaited unwrapping
 const resNested = CancelablePromise.resolve(Promise.resolve(5));
-type _resAwait = Expect<Equal<typeof resNested, CancelablePromise<number>>>;
+type _resAwait = Expect<Equal<typeof resNested, CancelablePromise<number, Unlisted>>>;
 
 const allSettled = CancelablePromise.allSettled([Promise.resolve(1), Promise.resolve('a')] as const);
 type _allSettled = Expect<
-  Equal<typeof allSettled, CancelablePromise<[PromiseSettledResult<number>, PromiseSettledResult<string>]>>
+  Equal<typeof allSettled, CancelablePromise<[PromiseSettledResult<number>, PromiseSettledResult<string>], never>>
 >;
 
 // ============================================================ withResolvers
@@ -161,44 +162,46 @@ wr.resolve(123);
 
 // ============================================================ helpers
 const cc = catchCancel(Promise.resolve(7));
-type _catchCancel = Expect<Equal<typeof cc, CancelablePromise<number | CancelError>>>;
+type _catchCancel = Expect<Equal<typeof cc, CancelablePromise<number | CancelError, never>>>;
 
 // Each flag option adds its error kind to the resolution side, because a caught error is the
 // value the returned promise resolves with
 const ccOpt = catchCancel(Promise.resolve(7), { bubble: false, abort: true });
-type _catchCancelOpt = Expect<Equal<typeof ccOpt, CancelablePromise<number | CancelError | AbortError>>>;
+type _catchCancelOpt = Expect<Equal<typeof ccOpt, CancelablePromise<number | CancelError | AbortError, never>>>;
 
 const ccTimeout = catchCancel(Promise.resolve(7), { timeout: true });
-type _catchCancelTimeout = Expect<Equal<typeof ccTimeout, CancelablePromise<number | CancelError | TimeoutError>>>;
+type _catchCancelTimeout = Expect<
+  Equal<typeof ccTimeout, CancelablePromise<number | CancelError | TimeoutError, never>>
+>;
 
 const ccBothFlags = catchCancel(Promise.resolve(7), { abort: true, timeout: true });
 type _catchCancelBothFlags = Expect<
-  Equal<typeof ccBothFlags, CancelablePromise<number | CancelError | AbortError | TimeoutError>>
+  Equal<typeof ccBothFlags, CancelablePromise<number | CancelError | AbortError | TimeoutError, never>>
 >;
 
 const sc = suppressCancel(Promise.resolve(7));
-type _suppressCancel = Expect<Equal<typeof sc, CancelablePromise<number | void>>>;
+type _suppressCancel = Expect<Equal<typeof sc, CancelablePromise<number | void, never>>>;
 
 const mc = makeCancelable(Promise.resolve(7));
-type _makeCancelable = Expect<Equal<typeof mc, CancelablePromise<number>>>;
+type _makeCancelable = Expect<Equal<typeof mc, CancelablePromise<number, Unlisted>>>;
 
 // @ts-expect-error catchCancel over a value narrows to CancelError | never, not a promise-of-value
 const _bad: CancelablePromise<number> = catchCancel(new CancelError());
 
 const ca = catchAbort(Promise.resolve(7));
-type _catchAbort = Expect<Equal<typeof ca, CancelablePromise<number | AbortError>>>;
+type _catchAbort = Expect<Equal<typeof ca, CancelablePromise<number | AbortError, never>>>;
 
 const sa = suppressAbort(Promise.resolve(7));
-type _suppressAbort = Expect<Equal<typeof sa, CancelablePromise<number | void>>>;
+type _suppressAbort = Expect<Equal<typeof sa, CancelablePromise<number | void, never>>>;
 
 const tas = toAbortSignal(Promise.resolve(7));
 type _toAbortSignal = Expect<Equal<typeof tas, AbortSignal>>;
 
 const ct = catchTimeout(Promise.resolve(7));
-type _catchTimeout = Expect<Equal<typeof ct, CancelablePromise<number | TimeoutError>>>;
+type _catchTimeout = Expect<Equal<typeof ct, CancelablePromise<number | TimeoutError, never>>>;
 
 const st = suppressTimeout(Promise.resolve(7));
-type _suppressTimeout = Expect<Equal<typeof st, CancelablePromise<number | void>>>;
+type _suppressTimeout = Expect<Equal<typeof st, CancelablePromise<number | void, never>>>;
 
 const cce = createCatchError(ToolboxAbortError);
 type _createCatchError = Expect<Equal<typeof cce, ICatchErrorFn<[typeof ToolboxAbortError]>>>;

@@ -65,10 +65,7 @@ function* _cancAwaitCheck() {
 }
 
 type TYieldCheck = ReturnType<typeof _cancAwaitCheck> extends Generator<infer Y, any, any> ? Y : never;
-const _yieldCheck: Eq<
-  Extract<TYieldCheck, CancelablePromise<number, FooError>>,
-  CancelablePromise<number, FooError>
-> = true;
+const _yieldCheck: Eq<TYieldCheck, Failing<FooError | BarError>> = true;
 
 const forAwaitInferFn = cancAsync(function* () {
   yield* cancForAwait([1, 2], () => {});
@@ -122,8 +119,7 @@ function* forAwaitSugarAnnotated(): AsyncResult<number> {
 function* forAwaitSugarAnnotatedFailureSet(loop: ICancForAwaitLoop<number>): AsyncResult<number, FooError> {
   for (const item of loop) {
     void item;
-    // Advance yields unknown, which narrowed failure set rejects, so body uses stored handle
-    // @ts-expect-error TS2322
+    // advance declares no failure, so a narrowed failure set accepts it
     yield* cancForAwait.next();
   }
   return 42;

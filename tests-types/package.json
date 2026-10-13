@@ -15,6 +15,7 @@
     "matrix:7": "node ./scripts/run-matrix.mjs --only 7",
     "matrix:decorators": "node ./scripts/run-matrix.mjs --only 5.0,5.4,5.9,7",
     "types:node": "tsc --noEmit --project ./fixtures/node/tsconfig.json",
+    "types:low-lib": "tsc --noEmit --project ./fixtures/low-lib/tsconfig.json",
     "lint": "eslint .",
     "format": "eslint --fix ."
   }

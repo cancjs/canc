@@ -1,4 +1,4 @@
-import { CancelablePromise } from '@cancjs/promise';
+import { CancelablePromise, ISettledResult } from '@cancjs/promise';
 
 import * as tb from '../../_toolbox';
 import { deps, ICancelableKind } from './deps';
@@ -41,7 +41,7 @@ export const minDelay = tb.minDelayFactory(deps) as <T, F = never>(
 export const fromAbortSignal = tb.fromAbortSignalFactory(deps) as (
   signal: tb.IAbortSignalLike,
   options?: TEagerToolboxOptions,
-) => CancelablePromise<void>;
+) => CancelablePromise<void, never>;
 export const retry = tb.retryFactory(deps);
 export const limit = tb.limitFactory(deps);
 export const map = tb.mapFactory(deps);
@@ -52,8 +52,8 @@ export const promisifyAll = tb.promisifyAllFactory(deps);
  * A deferred whose promise is a CancelablePromise, so the holder can cancel it directly.
  */
 export interface ICancelableDeferred<T> extends tb.IDeferred<T, ICancelableKind> {
-  promise: CancelablePromise<T>;
-  cancel: (reason?: any) => void | CancelablePromise<PromiseSettledResult<unknown>[]>;
+  promise: CancelablePromise<T, never>;
+  cancel: (reason?: any) => void | CancelablePromise<ISettledResult<unknown>[], never>;
 }
 
 /**

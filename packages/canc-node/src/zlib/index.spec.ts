@@ -1,6 +1,6 @@
 import nodeZlib from 'node:zlib';
 
-import { CancelablePromise, isCancelError } from '@cancjs/promise';
+import { CancelablePromise, isCancelError, Unlisted } from '@cancjs/promise';
 
 import { isNotImplementedError } from '../errors/classes';
 import * as zlibExports from './index';
@@ -14,7 +14,7 @@ type Expect<T extends true> = T;
 function typeAssertions(): unknown[] {
   const derived = zlibExports.gzip('payload');
 
-  type _Assertions = [Expect<Equal<typeof derived, CancelablePromise<Buffer>>>];
+  type _Assertions = [Expect<Equal<typeof derived, CancelablePromise<Buffer, Unlisted>>>];
 
   return [derived];
 }

@@ -91,17 +91,17 @@ export function untrackRequest(req: IRequestLike, state: IRequestCancelState): v
 }
 
 /** Reads the shutdown already running for a server, if any. */
-export function getShutdownState(server: IServerLike): CancelablePromise<IShutdownResult> | undefined {
-  return (server as TKeyed)[SHUTDOWN_STATE] as CancelablePromise<IShutdownResult> | undefined;
+export function getShutdownState(server: IServerLike): CancelablePromise<IShutdownResult, never> | undefined {
+  return (server as TKeyed)[SHUTDOWN_STATE] as CancelablePromise<IShutdownResult, never> | undefined;
 }
 
 /** Caches the shutdown running for a server. */
-export function setShutdownState(server: IServerLike, shutdown: CancelablePromise<IShutdownResult>): void {
+export function setShutdownState(server: IServerLike, shutdown: CancelablePromise<IShutdownResult, never>): void {
   define(server, SHUTDOWN_STATE, shutdown);
 }
 
 /** Clears the shutdown running for a server. */
-export function clearShutdownState(server: IServerLike, expected?: CancelablePromise<IShutdownResult>): void {
+export function clearShutdownState(server: IServerLike, expected?: CancelablePromise<IShutdownResult, never>): void {
   if (expected === undefined || getShutdownState(server) === expected) {
     delete (server as TKeyed)[SHUTDOWN_STATE];
   }

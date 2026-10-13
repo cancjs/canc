@@ -5,6 +5,7 @@ import {
   IExecutorContext,
   isCancelSignal,
   TimeoutError,
+  Unlisted,
 } from '@cancjs/promise';
 
 import { resolveTimers, startTimer, stopTimer, TTimersOverride } from '../../_toolbox/timers';
@@ -168,12 +169,13 @@ export const setupCancellation = (
 };
 
 /**
- * Failures that a cancelable fetch or fetchLater request can reject with.
+ * Failures that a cancelable fetch or fetchLater request can reject with. The set is open: a
+ * network failure rejects with the platform error, which is not listed here.
  * Note: a request canceled via canc .cancel() rejects with a CancelError whose cause is an
  * AbortError, NOT a bare AbortError. Cancellation is not a failure, so that path does not
  * contribute to the declared failure set.
  */
-export type TCancelableFetchFailure = TimeoutError;
+export type TCancelableFetchFailure = TimeoutError | Unlisted;
 
 export const cancelableFetchFactory = (config: ICancelableFetchConfig = {}) => {
   return function cancelableFetch(input: any, init?: any): CancelablePromise<any, TCancelableFetchFailure> {

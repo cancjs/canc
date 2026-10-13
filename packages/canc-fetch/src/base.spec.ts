@@ -8,6 +8,7 @@ import {
   isCancelError,
   isTimeoutError,
   TimeoutError,
+  Unlisted,
 } from '@cancjs/promise';
 
 import {
@@ -897,4 +898,4 @@ type Eq<A, B> =
       true
     : false
   : false;
-const _checkFetchFailure: Eq<FailureOf<ReturnType<typeof cancelableFetch>>, TimeoutError> = true;
+const _checkFetchFailure: Eq<FailureOf<ReturnType<typeof cancelableFetch>>, TimeoutError | Unlisted> = true;

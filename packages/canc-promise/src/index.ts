@@ -1,3 +1,4 @@
+export type { Unlisted } from '../../_util';
 export * from './cancel-error';
 export * from './cancelable-promise';
 export { CancelablePromise as default } from './cancelable-promise';

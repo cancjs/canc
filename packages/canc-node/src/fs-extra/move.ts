@@ -3,6 +3,7 @@ import { dirname } from 'node:path';
 import { CancelablePromise } from '@cancjs/promise';
 
 import { IPromiseKind, IToolboxDeps, retryFactory, TPromiseCtor } from '../../../_toolbox';
+import type { Unlisted } from '../../../_util';
 import { EEXIST, isCrossDeviceError, isErrno, isNotFoundError, isTooManyFilesError } from '../errors/errno';
 import { lstat, rename, rm } from '../fs';
 import { lstatSync, renameSync, rmSync } from '../fs/sync';
@@ -33,7 +34,7 @@ function statOptionsWithSignal(signal: IAbortSignalLike) {
 }
 
 interface ICancelableKind extends IPromiseKind {
-  promise: CancelablePromise<this['value']>;
+  promise: CancelablePromise<this['value'], Unlisted>;
   options: object;
 }
 
@@ -69,7 +70,7 @@ function isTransient(err: unknown): boolean {
   return isBusy(err) || isTooManyFilesError(err);
 }
 
-function renameWithRetry(src: string, dest: string): CancelablePromise<void> {
+function renameWithRetry(src: string, dest: string): CancelablePromise<void, Unlisted> {
   const attempts = retry(
     () =>
       rename(src, dest).then(
@@ -86,7 +87,7 @@ function renameWithRetry(src: string, dest: string): CancelablePromise<void> {
 
   return attempts.then((result) => {
     if (isPermanentFailure(result)) {
-      return CancelablePromise.reject<void, unknown>(result.permanent);
+      return CancelablePromise.reject<void>(result.permanent);
     }
     return undefined;
   });
@@ -112,7 +113,7 @@ async function moveAcrossDevice(
  * @param dest - Destination path.
  * @param options - Options for the move operation.
  */
-export function move(src: string, dest: string, options?: IMoveOptions): CancelablePromise<void> {
+export function move(src: string, dest: string, options?: IMoveOptions): CancelablePromise<void, Unlisted> {
   return new CancelablePromise((resolve, reject, { getSignal, handleCancel }) => {
     const signal = getSignal();
     const active: IActiveCall = { current: null };

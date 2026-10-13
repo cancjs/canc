@@ -3,6 +3,7 @@ import nodeZlib from 'node:zlib';
 
 import { CancelablePromise } from '@cancjs/promise';
 
+import type { Unlisted } from '../../../_util';
 import {
   TBrotliBufferFn,
   TIterableCodecFn,
@@ -536,7 +537,11 @@ export const setMaxZipContentSize = gatedWrapped(
   'sync',
 ) as (size: number) => void;
 
-function zipFilesImpl(files: readonly string[], target: string, options?: TZipFilesOptions): CancelablePromise<void> {
+function zipFilesImpl(
+  files: readonly string[],
+  target: string,
+  options?: TZipFilesOptions,
+): CancelablePromise<void, Unlisted> {
   const archive = (zlibCb.createZipArchive as (targetPath: string, opts?: TZipFilesOptions) => IZipArchiveWriter)(
     target,
     options,

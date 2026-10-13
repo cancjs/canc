@@ -2,6 +2,8 @@
 // Published brand keys and _cancErrorBrand literals must never change.
 // Every brand key must carry the prefix of the package that first ships it.
 // Each *_ERROR_BRAND constant is paired with its key and class in brand-keys.json.
+// Marker members (readonly _canc<Name>: <literal> on an interface in _util source and built
+// types) are pinned by name and literal, since the member name is type identity across copies.
 //
 // Usage: node scripts/check-brand-keys.js
 
@@ -17,6 +19,10 @@ const ERROR_BRAND_LITERAL_PATTERN = /_cancErrorBrand['"]?\s*[:=]\s*['"](@cancjs\
 const CREATE_ERROR_CLASS_PATTERN = /createErrorClass\(\s*['"][^'"]+['"]\s*,\s*['"]([^'"]*)['"]/g;
 const ICANC_ERROR_CONSTRUCTOR_PATTERN =
   /(?:[a-zA-Z0-9_$.]+|\([^)]+\)\.)?ICancErrorConstructor<\s*['"][^'"]+['"]\s*,\s*['"]([^'"]*)['"]/g;
+
+const INTERFACE_BODY_PATTERN = /\binterface\s+[A-Za-z0-9_$]+[^{]*\{([^}]*)\}/g;
+const MARKER_MEMBER_PATTERN = /\breadonly\s+(_canc[A-Z][A-Za-z0-9]*)\s*:\s*([^;\n}]+)/g;
+const NOT_A_MARKER = new Set(['_cancErrorBrand']);
 
 const BRAND_KEY_SHAPE = /^@cancjs\/[a-z-]+:[A-Za-z]+$/;
 
@@ -138,6 +144,71 @@ function extractKeysFromText(text) {
   }
 
   return found;
+}
+
+function extractMarkersFromText(text) {
+  const code = text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+  const found = new Map();
+  let body;
+  INTERFACE_BODY_PATTERN.lastIndex = 0;
+  while ((body = INTERFACE_BODY_PATTERN.exec(code)) !== null) {
+    let member;
+    MARKER_MEMBER_PATTERN.lastIndex = 0;
+    while ((member = MARKER_MEMBER_PATTERN.exec(body[1])) !== null) {
+      if (!NOT_A_MARKER.has(member[1])) found.set(member[1], member[2].trim());
+    }
+  }
+  return found;
+}
+
+function checkMarkers(registry, packageNames, problems) {
+  const expected = registry.markers || {};
+  const sources = new Map();
+  const builds = new Map();
+
+  const collect = (files, into) => {
+    for (const file of files) {
+      const relFromRoot = path.relative(ROOT, file);
+      for (const [name, literal] of extractMarkersFromText(fs.readFileSync(file, 'utf8'))) {
+        if (!into.has(name)) into.set(name, new Map());
+        into.get(name).set(relFromRoot, literal);
+      }
+    }
+  };
+
+  collect(listFilesRecursive(path.join(PACKAGES_DIR, '_util')).filter(isSourceTargetFile), sources);
+  for (const pkgName of packageNames) {
+    const typesDir = path.join(PACKAGES_DIR, pkgName, 'dist', 'types');
+    collect(
+      listFilesRecursive(typesDir).filter((file) => /\.d\.(ts|mts|cts)$/.test(file)),
+      builds,
+    );
+  }
+
+  for (const [where, found] of [
+    ['source', sources],
+    ['built types', builds],
+  ]) {
+    for (const [name, locations] of found) {
+      const entry = expected[name];
+      if (!entry) {
+        problems.push(`unknown marker member: ${name} in ${where} (${[...locations.keys()][0]})`);
+        continue;
+      }
+      for (const [file, literal] of locations) {
+        if (literal !== entry.literal) {
+          problems.push(`marker member ${name} in ${file} is "${literal}", expected "${entry.literal}"`);
+        }
+      }
+    }
+    for (const [name, entry] of Object.entries(expected)) {
+      if (!found.has(name)) {
+        const kind = entry.state === 'published' ? 'published' : 'pending';
+        problems.push(`missing ${kind} marker member: ${name} not found in ${where}`);
+      }
+    }
+  }
+  return Object.keys(expected).length;
 }
 
 function checkBrandKeys() {
@@ -345,6 +416,8 @@ function checkBrandKeys() {
     }
   }
 
+  const markerCount = checkMarkers(registry, packageNames, problems);
+
   const uniqueProblems = [...new Set(problems)];
   const uniqueWarnings = [...new Set(warnings)];
 
@@ -355,6 +428,7 @@ function checkBrandKeys() {
     keyCount: collectedKeys.size,
     publishedCount: publishedSet.size,
     pendingCount: pendingSet.size,
+    markerCount,
     collectedKeys: [...collectedKeys].sort(),
   };
 }
@@ -366,7 +440,7 @@ function main() {
   }
   if (result.passed) {
     console.log(
-      `PASS brand keys: ${result.keyCount} keys verified (${result.publishedCount} published, ${result.pendingCount} pending)`,
+      `PASS brand keys: ${result.keyCount} keys verified (${result.publishedCount} published, ${result.pendingCount} pending, markers: ${result.markerCount})`,
     );
     process.exit(0);
   } else {

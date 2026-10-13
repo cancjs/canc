@@ -140,16 +140,16 @@ const waitEntry = entries.get('wait');
  * `@cancjs/toolbox` is the idiomatic choice; reach for this one when porting code that already
  * calls `node:timers/promises` directly, or when `ref: false` is needed.
  */
-export function setTimeout<T = void>(delay?: number, value?: T, options?: ITimersOptions): CancelablePromise<T> {
+export function setTimeout<T = void>(delay?: number, value?: T, options?: ITimersOptions): CancelablePromise<T, never> {
   if (!acceptsSignal(setTimeoutEntry)) {
-    return new CancelablePromise<T>((resolve) => {
+    return new CancelablePromise<T, never>((resolve) => {
       resolve(nodeTimersPromises.setTimeout<T>(delay, value, options));
     });
   }
 
   const call = takeCallerSignal(options as Record<string, unknown> | undefined);
 
-  return new CancelablePromise<T>(
+  return new CancelablePromise<T, never>(
     (resolve, _reject, { getSignal }) => {
       resolve(nodeTimersPromises.setTimeout<T>(delay, value, withSignal(call.options, getSignal()) as ITimersOptions));
     },
@@ -161,16 +161,16 @@ export function setTimeout<T = void>(delay?: number, value?: T, options?: ITimer
  * Cancelable `setImmediate`. Category C (trivial): canceling clears the queued immediate.
  * Same drop-in-symmetry reasoning as {@link setTimeout}.
  */
-export function setImmediate<T = void>(value?: T, options?: ITimersOptions): CancelablePromise<T> {
+export function setImmediate<T = void>(value?: T, options?: ITimersOptions): CancelablePromise<T, never> {
   if (!acceptsSignal(setImmediateEntry)) {
-    return new CancelablePromise<T>((resolve) => {
+    return new CancelablePromise<T, never>((resolve) => {
       resolve(nodeTimersPromises.setImmediate<T>(value, options));
     });
   }
 
   const call = takeCallerSignal(options as Record<string, unknown> | undefined);
 
-  return new CancelablePromise<T>(
+  return new CancelablePromise<T, never>(
     (resolve, _reject, { getSignal }) => {
       resolve(nodeTimersPromises.setImmediate<T>(value, withSignal(call.options, getSignal()) as ITimersOptions));
     },
@@ -218,16 +218,16 @@ export function setInterval<T = number>(
  * `scheduler.wait`. Category C (trivial), same shape as {@link setTimeout} minus a `value` and
  * minus `ref` (node's own type does not offer it for this call).
  */
-function schedulerWait(delay: number, options?: ISchedulerWaitOptions): CancelablePromise<void> {
+function schedulerWait(delay: number, options?: ISchedulerWaitOptions): CancelablePromise<void, never> {
   if (!acceptsSignal(waitEntry)) {
-    return new CancelablePromise<void>((resolve) => {
+    return new CancelablePromise<void, never>((resolve) => {
       resolve(nodeTimersPromises.scheduler.wait(delay, options));
     });
   }
 
   const call = takeCallerSignal(options as Record<string, unknown> | undefined);
 
-  return new CancelablePromise<void>(
+  return new CancelablePromise<void, never>(
     (resolve, _reject, { getSignal }) => {
       resolve(nodeTimersPromises.scheduler.wait(delay, withSignal(call.options, getSignal()) as ISchedulerWaitOptions));
     },

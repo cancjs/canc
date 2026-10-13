@@ -15,7 +15,7 @@ Generated. Do not edit by hand.
 
 ```text
 extends Omit<NodeInterface, 'question'>
-question: { (query: string): CancelablePromise<string, never>; (query: string): CancelablePromise<string, never>; (query: string): CancelablePromise<string, never>; (query: string): CancelablePromise<string, never>; (query: string): CancelablePromise<string, never>; (query: string, options: EventEmitter.Abortable): CancelablePromise<string, never>; }
+question: { (query: string): CancelablePromise<string, Unlisted>; (query: string): CancelablePromise<string, Unlisted>; (query: string): CancelablePromise<string, Unlisted>; (query: string): CancelablePromise<string, Unlisted>; (query: string): CancelablePromise<string, Unlisted>; (query: string, options: EventEmitter.Abortable): CancelablePromise<string, Unlisted>; }
 ```
 
 ## `ReadLineOptions` (interface)

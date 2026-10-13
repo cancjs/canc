@@ -1,3 +1,4 @@
+import type { Unlisted } from '../../_util';
 import { AggregateError, createAggregateError, isFunction, isObject, isThenable } from '../../_util';
 import { CancelError } from './cancel-error';
 import { isCancelError, isCancPromise } from './helpers';
@@ -22,21 +23,16 @@ export interface Failing<TFailure> {
   readonly [FAILURE]?: TFailure;
 }
 
-// ResultOf and FailureOf fall back differently on purpose.
-// ResultOf<T> is a bare `Awaited<T>`, so a
-// non-promise or a plain-value yield in a coroutine body still reports its own type (never
-// `unknown`), as there is nothing to widen away from.
-// FailureOf<T> must instead collapse to `never`
-// for the same inputs: cancAsync maps FailureOf over the coroutine's ENTIRE yield union, so a bare
-// `yield 42` or a native `await somePromise` (neither carries the phantom [FAILURE] property) would
-// poison the whole declared-failure set if it produced anything but `never`.
-// Do not "fix" this
-// asymmetry to match; both directions are pinned by regression assertions.
+// a plain value has a result but declares no failure, hence the never fallback
+// a native or foreign thenable may reject with anything, so it reads as open
+// `any` declares nothing, so a handler returning `any` keeps the chain's own set
 export type FailureOf<T> =
-  T extends { readonly [FAILURE]?: infer F } ?
+  0 extends 1 & T ? never
+  : T extends { readonly [FAILURE]?: infer F } ?
     [F] extends [undefined] ?
       never
     : F
+  : T extends PromiseLike<unknown> ? Unlisted
   : never;
 
 /** The value a canc promise resolves to. Pairs with {@link FailureOf}; the two mirror the
@@ -83,7 +79,25 @@ export function withFailure<TFailure>() {
   };
 }
 
-export type TReason<TFailure> = [TFailure] extends [never] ? unknown : TFailure;
+/**
+ * The reason a rejection handler receives.
+ *
+ * It is the declared failure when the promise declares one. When the failure is undeclared
+ * (`unknown`), the promise declares nothing (`never`), or the set is open (it includes
+ * {@link Unlisted}), the reason is `any`, the same as a native promise's reason.
+ */
+export type TReason<TFailure> =
+  [TFailure] extends [never] ? any
+  : [Extract<TFailure, Unlisted>] extends [never] ?
+    // TFailure right of `extends` is invariant on TS 4.2, test a copy
+    [TFailure] extends [infer F] ?
+      unknown extends F ?
+        any
+      : F
+    : never
+  : any;
+
+type TNoInfer<T> = [T][T extends any ? 0 : never];
 
 export type TPromiseExecutor<TResult> = (
   resolve: (value?: TResult | PromiseLike<TResult>) => void,
@@ -95,16 +109,17 @@ export type TPromiseExecutor<TResult> = (
  * promise when the context is built, so `this: void` is accurate and destructuring them off the
  * context (the documented idiom) stays safe.
  */
-export interface IExecutorContext<TResult = any, TFailure = never> {
+export interface IExecutorContext<TResult = any, TFailure = unknown> {
   /** Register a cleanup handler that runs when the promise is canceled. */
   handleCancel(this: void, onCancel: TOnCancel): CancelablePromise<TResult, TFailure>;
   /** Get an AbortSignal that aborts when the promise is canceled. Lazily creates an AbortController on first call. */
   getSignal(this: void): IAbortSignal;
 }
 
-export type TCancelablePromiseExecutor<TResult, TFailure = never> = (
+export type TCancelablePromiseExecutor<TResult, TFailure = unknown> = (
   resolve: (value?: TResult | PromiseLike<TResult>) => void,
-  reject: (reason?: TReason<TFailure> | CancelError) => void,
+  // bare TFailure keeps a generic failure assignable, TReason hides it behind infer
+  reject: (reason?: TFailure | TReason<TFailure> | CancelError) => void,
   ctx: IExecutorContext<TResult, TFailure>,
 ) => void;
 export type TCancelReason = string | object | CancelError;
@@ -166,18 +181,38 @@ interface IAbortSignal {
   removeEventListener(type: 'abort', listener: any, options?: unknown): void;
 }
 
+/** Outcome of a fulfilled input in `allSettled`. Same shape as the ES2020 lib type of the same role. */
+export interface ISettledFulfilled<T> {
+  status: 'fulfilled';
+  value: T;
+}
+
+/** Outcome of a rejected input in `allSettled`. Same shape as the ES2020 lib type of the same role. */
+export interface ISettledRejected {
+  status: 'rejected';
+  reason: any;
+}
+
+/**
+ * Outcome of one input in `allSettled`.
+ *
+ * Declared here so the emitted types do not depend on the ES2020 lib, which a consumer targeting
+ * an older `lib` does not have. It has the same shape as the lib type of the same role.
+ */
+export type ISettledResult<T> = ISettledFulfilled<T> | ISettledRejected;
+
 export interface ICancelable<TResult = any> extends PromiseLike<TResult> {
   cancel(reason?: any): any;
 }
 
-export interface ICancelablePromiseWithResolvers<TResult, TFailure = never> {
+export interface ICancelablePromiseWithResolvers<TResult, TFailure = unknown> {
   promise: CancelablePromise<TResult, TFailure>;
   resolve: (value: TResult | PromiseLike<TResult>) => void;
   // Deliberately wide, unlike the executor's reject.
   // This one is the producer handle handed to
   // library code (coroutine drivers, adapters), which forwards whatever a foreign body threw.
   reject: (reason?: any) => void;
-  cancel: (reason?: any) => void | CancelablePromise<PromiseSettledResult<unknown>[]>;
+  cancel: (reason?: any) => void | CancelablePromise<ISettledResult<unknown>[], never>;
 }
 
 function noop() {
@@ -218,7 +253,15 @@ const INTERNAL_CALL_OPTIONS = Object.freeze({ forceCancelable: true }) as Readon
 // Extends PromiseConstructor, as defined in
 // lib.es2015.promise, lib.es2015.iterable, lib.es2015.symbol.wellknown, lib.es2018.promise,
 // lib.es2020.promise, lib.es2021.promise.d.ts, lib.esnext.promise.d.ts
-class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResult>, Promise<TResult> {
+/**
+ * A promise that can be canceled.
+ *
+ * @typeParam TResult The value the promise fulfills with.
+ * @typeParam TFailure What the promise declares it rejects with. Left out, it is `unknown` and the
+ * failure is undeclared, as on a native promise. `never` declares that nothing is expected to
+ * reject it.
+ */
+class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TResult>, Promise<TResult> {
   // declare prevents emitting an own property that would shadow inherited getter
   // useDefineForClassFields:false locked to preserve species resolution
   // If target bumps to es2022 a bare field emits undefined and breaks species
@@ -369,7 +412,7 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
       promise: resultsPromise,
       resolve: resolveResults,
       reject: rejectResults,
-    } = this.withResolvers<TAll[]>(options);
+    } = this.withResolvers<TAll[], FailureOf<TAll>>(options);
 
     try {
       const results: TAll[] = [];
@@ -434,19 +477,19 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
     options?: ICancelablePromiseOptions,
   ): CancelablePromise<
     {
-      -readonly [P in keyof T]: PromiseSettledResult<Awaited<T[P]>>;
+      -readonly [P in keyof T]: ISettledResult<Awaited<T[P]>>;
     },
     never
   >;
   static allSettled<T>(
     values: Iterable<T>,
     options?: ICancelablePromiseOptions,
-  ): CancelablePromise<PromiseSettledResult<Awaited<T>>[], never>;
+  ): CancelablePromise<ISettledResult<Awaited<T>>[], never>;
 
   static allSettled<T>(
     values: Iterable<T>,
     options?: ICancelablePromiseOptions,
-  ): CancelablePromise<PromiseSettledResult<any>[] | { [P in keyof any]: PromiseSettledResult<any> }, never> {
+  ): CancelablePromise<ISettledResult<any>[] | { [P in keyof any]: ISettledResult<any> }, never> {
     // Options are identical for every item, so normalize once instead of per iteration.
     // The spread stays outside any try so an iterable that throws while iterating surfaces
     // synchronously (documented behavior), not as a rejected aggregate.
@@ -461,7 +504,7 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
           this._adopt(promiseOrValue, normalizedOptions).then(
             (value) => ({ status: 'fulfilled', value }),
             (reason: unknown) => ({ status: 'rejected', reason }),
-          ) as CancelablePromise<PromiseSettledResult<any>>,
+          ) as CancelablePromise<ISettledResult<any>, never>,
       ),
       options,
     );
@@ -477,22 +520,22 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
   static any<T extends readonly unknown[] | []>(
     values: T,
     options?: ICancelablePromiseOptions,
-  ): CancelablePromise<Awaited<T[number]>, AggregateError>;
+  ): CancelablePromise<Awaited<T[number]>, AggregateError | Unlisted>;
   static any<T>(
     values: Iterable<T | PromiseLike<T>>,
     options?: ICancelablePromiseOptions,
-  ): CancelablePromise<Awaited<T>, AggregateError>;
+  ): CancelablePromise<Awaited<T>, AggregateError | Unlisted>;
 
   static any<T>(
     values: Iterable<T | PromiseLike<T>>,
     options?: ICancelablePromiseOptions,
-  ): CancelablePromise<Awaited<T>, AggregateError> {
+  ): CancelablePromise<Awaited<T>, AggregateError | Unlisted> {
     // Deferred-construction pattern: see all() above.
     const {
       promise: resultPromise,
       resolve: resolveResult,
       reject: rejectResult,
-    } = this.withResolvers<Awaited<T>>(options);
+    } = this.withResolvers<Awaited<T>, AggregateError | Unlisted>(options);
 
     // Indexed by input position (spec order), not settlement order
     const errors: unknown[] = [];
@@ -557,6 +600,11 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
    * @param [options]
    * @returns A new Promise.
    */
+  // with one T a canc member subtype-reduces into a native one, failure lost
+  static race<T extends readonly unknown[] | []>(
+    values: T,
+    options?: ICancelablePromiseOptions,
+  ): CancelablePromise<Awaited<T[number]>, FailureOf<T[number]>>;
   static race<T>(
     values: readonly T[],
     options?: ICancelablePromiseOptions,
@@ -572,7 +620,11 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
     options?: ICancelablePromiseOptions,
   ): CancelablePromise<T, FailureOf<T>> {
     // Deferred-construction pattern: see all() above.
-    const { promise: resultPromise, resolve: resolveResult, reject: rejectResult } = this.withResolvers<T>(options);
+    const {
+      promise: resultPromise,
+      resolve: resolveResult,
+      reject: rejectResult,
+    } = this.withResolvers<T, FailureOf<T>>(options);
 
     // Options are identical for every item, so normalize once instead of per iteration.
     const normalizedOptions = this._getOptions(options);
@@ -602,17 +654,9 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
    * @param [options]
    * @returns A new rejected Promise.
    */
-  // An undeclared reason (TFailure inferred as `unknown`, e.g. rethrowing a `catch` parameter on
-  // an undeclared promise) contributes nothing to the declared failure set: "unknown failure" and
-  // "no declared failure" are the same statement, so the public overload collapses it to `never`.
-  // The implementation signature stays unguarded because the runtime construction below is typed
-  // TResult/TFailure exactly, not the narrowed conditional.
+  // the reason never infers TFailure, as on a native promise; a supplied one checks it
   static reject<TResult = never, TFailure = never>(
-    reason?: TFailure,
-    options?: ICancelablePromiseOptions,
-  ): CancelablePromise<TResult, unknown extends TFailure ? never : TFailure>;
-  static reject<TResult = never, TFailure = never>(
-    reason?: TFailure,
+    reason?: [TFailure] extends [never] ? any : TNoInfer<TFailure>,
     options?: ICancelablePromiseOptions,
   ): CancelablePromise<TResult, TFailure> {
     return new this<TResult, TFailure>((_resolve, reject) => {
@@ -657,7 +701,7 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
    * @param [options]
    * @returns An object with the properties `promise`, `resolve`, and `reject`.
    */
-  static withResolvers<TResult, TFailure = never>(
+  static withResolvers<TResult, TFailure = unknown>(
     options?: ICancelablePromiseOptions,
   ): ICancelablePromiseWithResolvers<TResult, TFailure> {
     const promise = new this<TResult, TFailure>(noop, options);
@@ -1283,24 +1327,28 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
    * @param onRejected The callback to execute when the Promise is rejected.
    * @returns A Promise for the completion of which ever callback is executed.
    */
-  then<TResult1 extends PromiseLike<unknown>, TResult2 extends PromiseLike<unknown>>(
+  then<TResult1 extends PromiseLike<never>, TResult2 extends PromiseLike<never>>(
     onFulfilled: (value: TResult) => TResult1,
     onRejected: (reason: TReason<TFailure>) => TResult2,
   ): CancelablePromise<Awaited<TResult1 | TResult2>, FailureOf<TResult1> | FailureOf<TResult2>>;
-  then<TResult1 extends PromiseLike<unknown>, TResult2 = never>(
+  then<TResult1 extends PromiseLike<never>, TResult2 = never>(
     onFulfilled: (value: TResult) => TResult1,
-    onRejected?: ((reason: TReason<TFailure>) => TResult2) | null,
+    onRejected: (reason: TReason<TFailure>) => TResult2,
   ): CancelablePromise<
     Awaited<TResult1 | TResult2>,
     FailureOf<TResult1> | FailureOf<TResult2> | ([TResult2] extends [never] ? TFailure : never)
   >;
-  then<TResult1 = TResult, TResult2 extends PromiseLike<unknown> = never>(
+  then<TResult1 extends PromiseLike<never>, TResult2 = never>(
+    onFulfilled: (value: TResult) => TResult1,
+    onRejected?: ((reason: TReason<TFailure>) => TResult2) | null,
+  ): CancelablePromise<Awaited<TResult1 | TResult2>, FailureOf<TResult1> | FailureOf<TResult2> | TFailure>;
+  then<TResult1 = TResult, TResult2 extends PromiseLike<never> = never>(
     onFulfilled: ((value: TResult) => TResult1) | null | undefined,
     onRejected: (reason: TReason<TFailure>) => TResult2,
   ): CancelablePromise<Awaited<TResult1 | TResult2>, FailureOf<TResult1> | FailureOf<TResult2>>;
   then<TResult1 = TResult, TResult2 = never>(
-    onFulfilled?: ((value: TResult) => TResult1) | null,
-    onRejected?: ((reason: TReason<TFailure>) => TResult2) | null,
+    onFulfilled: ((value: TResult) => TResult1) | null | undefined,
+    onRejected: (reason: TReason<TFailure>) => TResult2,
   ): CancelablePromise<
     Awaited<TResult1 | TResult2>,
     FailureOf<TResult1> | FailureOf<TResult2> | ([TResult2] extends [never] ? TFailure : never)
@@ -1308,10 +1356,11 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
   then<TResult1 = TResult, TResult2 = never>(
     onFulfilled?: ((value: TResult) => TResult1) | null,
     onRejected?: ((reason: TReason<TFailure>) => TResult2) | null,
-  ): CancelablePromise<
-    Awaited<TResult1 | TResult2>,
-    FailureOf<TResult1> | FailureOf<TResult2> | ([TResult2] extends [never] ? TFailure : never)
-  > {
+  ): CancelablePromise<Awaited<TResult1 | TResult2>, FailureOf<TResult1> | FailureOf<TResult2> | TFailure>;
+  then<TResult1 = TResult, TResult2 = never>(
+    onFulfilled?: ((value: TResult) => TResult1) | null,
+    onRejected?: ((reason: TReason<TFailure>) => TResult2) | null,
+  ): CancelablePromise<Awaited<TResult1 | TResult2>, FailureOf<TResult1> | FailureOf<TResult2> | TFailure> {
     // `_then` runs native then() through the species machinery, so its result is already a
     // CancelablePromise of the right (possibly subclass) constructor.
     // The derived child inherits
@@ -1335,22 +1384,18 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
    * @param onRejected The callback to execute when the Promise is rejected.
    * @returns A Promise for the completion of the callback.
    */
-  catch<R extends PromiseLike<unknown>>(
+  catch<R extends PromiseLike<never>>(
     onRejected: (reason: TReason<TFailure>) => R,
   ): CancelablePromise<Awaited<TResult | R>, FailureOf<R>>;
+  catch<R = never>(onRejected: (reason: TReason<TFailure>) => R): CancelablePromise<Awaited<TResult | R>, FailureOf<R>>;
   catch<R = never>(
     onRejected?: ((reason: TReason<TFailure>) => R) | null,
-  ): CancelablePromise<Awaited<TResult | R>, FailureOf<R>>;
+  ): CancelablePromise<Awaited<TResult | R>, FailureOf<R> | TFailure>;
   catch<R = never>(
     onRejected?: ((reason: TReason<TFailure>) => R) | null,
-  ): CancelablePromise<Awaited<TResult | R>, FailureOf<R>> {
-    // `then`'s general overload widens the failure union with FailureOf<TResult> and the
-    // TResult2-extends-never fallback branch; both are provably empty here (onRejected fully
-    // replaces the rejection channel), but the compiler cannot collapse a conditional type over
-    // still-generic R/TResult to prove it.
-    // Narrowing to catch's own declared signature is a
-    // genuine boundary cast, not an unthreaded one.
-    return this.then(null, onRejected) as unknown as CancelablePromise<Awaited<TResult | R>, FailureOf<R>>;
+  ): CancelablePromise<Awaited<TResult | R>, FailureOf<R> | TFailure> {
+    // conditional types over still-generic R/TResult do not collapse to catch's own signature
+    return this.then(null, onRejected) as unknown as CancelablePromise<Awaited<TResult | R>, FailureOf<R> | TFailure>;
   }
 
   /**
@@ -1437,7 +1482,7 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
    * On an already-settled/canceled promise this is a silent no-op unless `strict`, which throws.
    * @param reason The cancellation reason.
    */
-  cancel(reason?: any, _disposing?: boolean): void | CancelablePromise<PromiseSettledResult<unknown>[]> {
+  cancel(reason?: any, _disposing?: boolean): void | CancelablePromise<ISettledResult<unknown>[], never> {
     // Cascade: this cancel was triggered by an active cancel wave (bubble or cascade from
     // another cancel()).
     // Thread the existing collector instead of allocating a new one.
@@ -1521,7 +1566,7 @@ class CancelablePromise<TResult, TFailure = never> implements ICancelable<TResul
    * @returns The handler-settlement promise in asyncCancel mode (so `[Symbol.asyncDispose]` and
    * `await using` can await cleanup); otherwise undefined.
    */
-  protected _dispose(): void | CancelablePromise<PromiseSettledResult<unknown>[]> {
+  protected _dispose(): void | CancelablePromise<ISettledResult<unknown>[], never> {
     // Route through the instance's (possibly overridden) cancel so subclasses like the coroutine
     // finally-drain govern disposal too. `_disposing` suppresses the strict throw and marks the
     // CancelError as disposed; shielded / already-settled promises no-op inside cancel().

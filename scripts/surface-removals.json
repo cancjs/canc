@@ -1,1 +1,39 @@
-{ "removals": [] }
+{
+  "removals": [
+    {
+      "package": "@cancjs/fetch",
+      "entry": ".",
+      "name": "TCancelableFetchFailure",
+      "member": "_cancErrorBrand",
+      "reason": "Fetch failure alias widened to the open failure set; brand member removed by design."
+    },
+    {
+      "package": "@cancjs/fetch",
+      "entry": ".",
+      "name": "TCancelableFetchFailure",
+      "member": "cause",
+      "reason": "Fetch failure alias widened to the open failure set; cause member removed by design."
+    },
+    {
+      "package": "@cancjs/fetch",
+      "entry": ".",
+      "name": "TCancelableFetchFailure",
+      "member": "message",
+      "reason": "Fetch failure alias widened to the open failure set; message member removed by design."
+    },
+    {
+      "package": "@cancjs/fetch",
+      "entry": ".",
+      "name": "TCancelableFetchFailure",
+      "member": "name",
+      "reason": "Fetch failure alias widened to the open failure set; name member removed by design."
+    },
+    {
+      "package": "@cancjs/fetch",
+      "entry": ".",
+      "name": "TCancelableFetchFailure",
+      "member": "stack",
+      "reason": "Fetch failure alias widened to the open failure set; stack member removed by design."
+    }
+  ]
+}

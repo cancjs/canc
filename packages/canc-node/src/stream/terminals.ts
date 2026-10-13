@@ -2,6 +2,7 @@ import type { Readable } from 'node:stream';
 
 import { CancelablePromise } from '@cancjs/promise';
 
+import type { Unlisted } from '../../../_util';
 import readableJson from '../../surface/projected/stream.Readable.json';
 
 // local copy of the signal-forwarding combinator also at packages/canc-node/src/stream/index.ts
@@ -161,22 +162,22 @@ export interface IReadableVisitorOptions {
 function terminalWrapped<TResult>(
   methodName: string,
   optionsIndex: number,
-): (stream: Readable, ...args: unknown[]) => CancelablePromise<TResult> {
+): (stream: Readable, ...args: unknown[]) => CancelablePromise<TResult, Unlisted> {
   const entry = entries.get(methodName);
   const forwards = acceptsSignal(entry);
 
-  return function terminalCall(stream: Readable, ...args: unknown[]): CancelablePromise<TResult> {
+  return function terminalCall(stream: Readable, ...args: unknown[]): CancelablePromise<TResult, Unlisted> {
     const nodeFn = (stream as unknown as Record<string, TNodeFn>)[methodName];
 
     if (!forwards) {
-      return new CancelablePromise<TResult>((resolve) => {
+      return new CancelablePromise<TResult, Unlisted>((resolve) => {
         resolve(nodeFn.apply(stream, args) as TResult | PromiseLike<TResult>);
       });
     }
 
     const call = takeCallerSignal(args, optionsIndex);
 
-    return new CancelablePromise<TResult>(
+    return new CancelablePromise<TResult, Unlisted>(
       (resolve, _reject, { getSignal }) => {
         resolve(
           nodeFn.apply(stream, withSignalAt(call.args, optionsIndex, getSignal())) as TResult | PromiseLike<TResult>,
@@ -204,8 +205,8 @@ const forEachCall = terminalWrapped<void>('forEach', 1);
 export function toArray<T = unknown>(
   stream: Readable,
   options?: Pick<IReadableTerminalOptions, 'signal'>,
-): CancelablePromise<T[]> {
-  return toArrayCall(stream, options) as CancelablePromise<T[]>;
+): CancelablePromise<T[], Unlisted> {
+  return toArrayCall(stream, options) as CancelablePromise<T[], Unlisted>;
 }
 
 /**

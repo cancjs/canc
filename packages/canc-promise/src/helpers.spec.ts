@@ -565,10 +565,10 @@ describe('catchCancel / suppressCancel flag option types', () => {
     const _s3 = suppressCancel(p, { abort: false });
     const _checkS3: Eq<typeof _s3, CancelablePromise<number | void, SampleErrors>> = true;
 
-    // 4. a hoisted const bag = { abort: true } subtracts nothing (since abort widens to boolean)
+    // 4. hoisted bag widens abort to boolean: resolution gains AbortError, failure kept
     const bag = { abort: true };
     const _c4 = catchCancel(p, bag);
-    const _check4: Eq<typeof _c4, CancelablePromise<number | CancelError, SampleErrors>> = true;
+    const _check4: Eq<typeof _c4, CancelablePromise<number | CancelError | RealAbortError, SampleErrors>> = true;
 
     const _s4 = suppressCancel(p, bag);
     const _checkS4: Eq<typeof _s4, CancelablePromise<number | void, SampleErrors>> = true;
@@ -592,6 +592,38 @@ describe('catchCancel / suppressCancel flag option types', () => {
     const _s6 = suppressCancel(p);
     const _checkS6: Eq<typeof _s6, CancelablePromise<number | void, SampleErrors>> = true;
 
-    void [_check1, _checkS1, _check2, _checkS2, _check3, _checkS3, _check4, _checkS4, _check5a, _check5b, _checkS6];
+    // 7. widened timeout mirrors case 4
+    const timeoutBag = { timeout: true };
+    const _c7 = catchCancel(p, timeoutBag);
+    const _check7: Eq<typeof _c7, CancelablePromise<number | CancelError | RealTimeoutError, SampleErrors>> = true;
+
+    const _s7 = suppressCancel(p, timeoutBag);
+    const _checkS7: Eq<typeof _s7, CancelablePromise<number | void, SampleErrors>> = true;
+
+    // 8. union bag: one member may catch, so resolution gains AbortError, failure kept
+    const unionBag = {} as { abort: true } | Record<never, never>;
+    const _c8 = catchCancel(p, unionBag);
+    const _check8: Eq<typeof _c8, CancelablePromise<number | CancelError | RealAbortError, SampleErrors>> = true;
+
+    const _s8 = suppressCancel(p, unionBag);
+    const _checkS8: Eq<typeof _s8, CancelablePromise<number | void, SampleErrors>> = true;
+
+    void [
+      _check1,
+      _checkS1,
+      _check2,
+      _checkS2,
+      _check3,
+      _checkS3,
+      _check4,
+      _checkS4,
+      _check5a,
+      _check5b,
+      _checkS6,
+      _check7,
+      _checkS7,
+      _check8,
+      _checkS8,
+    ];
   });
 });

@@ -1,6 +1,6 @@
 import * as canc from '@cancjs/coroutine';
 import { cancelableFetchFactory } from '@cancjs/fetch';
-import { CancelablePromise, catchTimeout, TimeoutError } from '@cancjs/promise';
+import { CancelablePromise, catchTimeout, TimeoutError, type Unlisted } from '@cancjs/promise';
 import { retry, timeout } from '@cancjs/toolbox';
 
 // Minimal, dependency-free type identity check (same trick the shared type-level suites use):
@@ -15,11 +15,11 @@ describe('Cross-package declared failure flow', () => {
     const cancelableFetch = cancelableFetchFactory({ fetch: hangingFetch });
 
     // 2. Fetch call with a 10ms timeout
-    const fetchWithTimeout = (): CancelablePromise<Response, TimeoutError> =>
+    const fetchWithTimeout = (): CancelablePromise<Response, TimeoutError | Unlisted> =>
       timeout(cancelableFetch('https://api.example.com/data'), 10);
 
     // 3. Wrapped by a toolbox retry (3 attempts)
-    const retryFetch = (): CancelablePromise<Response, TimeoutError> =>
+    const retryFetch = (): CancelablePromise<Response, TimeoutError | Unlisted> =>
       retry(fetchWithTimeout, { retries: 2, initialDelay: 1 });
 
     // 4. Consumed by a coroutine
@@ -47,11 +47,11 @@ describe('Cross-package declared failure flow', () => {
     // covariant, so an annotated assignment accepts a narrower real type without noticing a
     // regression; only identity can catch that.
     const hop2 = fetchWithTimeout();
-    const _typeCheckHop2: Eq<typeof hop2, CancelablePromise<Response, TimeoutError>> = true;
+    const _typeCheckHop2: Eq<typeof hop2, CancelablePromise<Response, TimeoutError | Unlisted>> = true;
     hop2.cancel();
 
     const hop3 = retryFetch();
-    const _typeCheckHop3: Eq<typeof hop3, CancelablePromise<Response, TimeoutError>> = true;
+    const _typeCheckHop3: Eq<typeof hop3, CancelablePromise<Response, TimeoutError | Unlisted>> = true;
     hop3.cancel();
 
     expect(_typeCheckHop2).toBe(true);

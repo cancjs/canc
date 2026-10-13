@@ -3,6 +3,7 @@ import nodeFsPromises from 'node:fs/promises';
 
 import { CancelablePromise } from '@cancjs/promise';
 
+import type { Unlisted } from '../../../_util';
 import { isThenable } from '../../../_util';
 import fsJson from '../../surface/projected/fs.json';
 import { features } from '../features';
@@ -91,10 +92,10 @@ function closeQuietly(value: unknown): void {
 function teardownOpen<R>(
   name: 'open' | 'opendir',
   transform?: (value: unknown) => R,
-): (...args: unknown[]) => CancelablePromise<R> {
-  return function teardownOpenCall(...args: unknown[]): CancelablePromise<R> {
+): (...args: unknown[]) => CancelablePromise<R, Unlisted> {
+  return function teardownOpenCall(...args: unknown[]): CancelablePromise<R, Unlisted> {
     let canceled = false;
-    return new CancelablePromise<R>((resolve, _reject, { handleCancel }) => {
+    return new CancelablePromise<R, Unlisted>((resolve, _reject, { handleCancel }) => {
       handleCancel(() => {
         canceled = true;
       });
@@ -114,7 +115,7 @@ function teardownOpen<R>(
         return raw;
       });
 
-      const chain = transform ? started.then(transform) : (started as CancelablePromise<R>);
+      const chain = transform ? started.then(transform) : (started as CancelablePromise<R, Unlisted>);
       resolve(chain);
     });
   };
@@ -169,7 +170,7 @@ export const constants = nodeFsPromises.constants;
 // exactly as an interrupted node copy does. Unlinking dest would delete a file the caller named as a
 // target, not as something to remove, and it was theirs before the copy started
 export const copyFile = promisifyWrapped(viaFs('copyFile'), 2) as TCancelable<TFsPromises['copyFile']>;
-export const cp = adopted(fsp.cp, 2) as TCancelable<TFsPromises['cp']>;
+export const cp = adopted(fsp.cp, 2) as (...args: Parameters<TFsPromises['cp']>) => CancelablePromise<void, unknown>;
 export const glob = gatedWrapped(
   features.hasGlob,
   'glob',
@@ -226,4 +227,6 @@ export const Dirent = nodeFs.Dirent;
 export const Stats = nodeFs.Stats;
 export type { BigIntStats, StatsFs as StatFs } from 'node:fs';
 export type { TCancelableFileHandle };
-export const exists = promisifyWrapped(viaFs('exists'), 1) as TCancelable<typeof nodeFs.exists.__promisify__>;
+export const exists = promisifyWrapped(viaFs('exists'), 1) as (
+  path: nodeFs.PathLike,
+) => CancelablePromise<boolean, never>;

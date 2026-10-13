@@ -20,6 +20,8 @@ import type {
 
 import type { CancelablePromise } from '@cancjs/promise';
 
+import type { Unlisted } from '../../../_util';
+
 /**
  * `generateKeyPair`'s signature, hand-built rather than run through the `TCancelable` ladder in
  * `./wrap.ts`.
@@ -32,104 +34,140 @@ import type { CancelablePromise } from '@cancjs/promise';
  * `util.promisify(generateKeyPair)`) one for one, with `CancelablePromise` in place of `Promise`.
  */
 export interface IGenerateKeyPairFn {
-  (type: 'rsa', options: RSAKeyPairOptions<'pem', 'pem'>): CancelablePromise<{ publicKey: string; privateKey: string }>;
-  (type: 'rsa', options: RSAKeyPairOptions<'pem', 'der'>): CancelablePromise<{ publicKey: string; privateKey: Buffer }>;
-  (type: 'rsa', options: RSAKeyPairOptions<'der', 'pem'>): CancelablePromise<{ publicKey: Buffer; privateKey: string }>;
-  (type: 'rsa', options: RSAKeyPairOptions<'der', 'der'>): CancelablePromise<{ publicKey: Buffer; privateKey: Buffer }>;
-  (type: 'rsa', options: RSAKeyPairKeyObjectOptions): CancelablePromise<KeyPairKeyObjectResult>;
+  (
+    type: 'rsa',
+    options: RSAKeyPairOptions<'pem', 'pem'>,
+  ): CancelablePromise<{ publicKey: string; privateKey: string }, Unlisted>;
+  (
+    type: 'rsa',
+    options: RSAKeyPairOptions<'pem', 'der'>,
+  ): CancelablePromise<{ publicKey: string; privateKey: Buffer }, Unlisted>;
+  (
+    type: 'rsa',
+    options: RSAKeyPairOptions<'der', 'pem'>,
+  ): CancelablePromise<{ publicKey: Buffer; privateKey: string }, Unlisted>;
+  (
+    type: 'rsa',
+    options: RSAKeyPairOptions<'der', 'der'>,
+  ): CancelablePromise<{ publicKey: Buffer; privateKey: Buffer }, Unlisted>;
+  (type: 'rsa', options: RSAKeyPairKeyObjectOptions): CancelablePromise<KeyPairKeyObjectResult, Unlisted>;
   (
     type: 'rsa-pss',
     options: RSAPSSKeyPairOptions<'pem', 'pem'>,
-  ): CancelablePromise<{ publicKey: string; privateKey: string }>;
+  ): CancelablePromise<{ publicKey: string; privateKey: string }, Unlisted>;
   (
     type: 'rsa-pss',
     options: RSAPSSKeyPairOptions<'pem', 'der'>,
-  ): CancelablePromise<{ publicKey: string; privateKey: Buffer }>;
+  ): CancelablePromise<{ publicKey: string; privateKey: Buffer }, Unlisted>;
   (
     type: 'rsa-pss',
     options: RSAPSSKeyPairOptions<'der', 'pem'>,
-  ): CancelablePromise<{ publicKey: Buffer; privateKey: string }>;
+  ): CancelablePromise<{ publicKey: Buffer; privateKey: string }, Unlisted>;
   (
     type: 'rsa-pss',
     options: RSAPSSKeyPairOptions<'der', 'der'>,
-  ): CancelablePromise<{ publicKey: Buffer; privateKey: Buffer }>;
-  (type: 'rsa-pss', options: RSAPSSKeyPairKeyObjectOptions): CancelablePromise<KeyPairKeyObjectResult>;
-  (type: 'dsa', options: DSAKeyPairOptions<'pem', 'pem'>): CancelablePromise<{ publicKey: string; privateKey: string }>;
-  (type: 'dsa', options: DSAKeyPairOptions<'pem', 'der'>): CancelablePromise<{ publicKey: string; privateKey: Buffer }>;
-  (type: 'dsa', options: DSAKeyPairOptions<'der', 'pem'>): CancelablePromise<{ publicKey: Buffer; privateKey: string }>;
-  (type: 'dsa', options: DSAKeyPairOptions<'der', 'der'>): CancelablePromise<{ publicKey: Buffer; privateKey: Buffer }>;
-  (type: 'dsa', options: DSAKeyPairKeyObjectOptions): CancelablePromise<KeyPairKeyObjectResult>;
-  (type: 'ec', options: ECKeyPairOptions<'pem', 'pem'>): CancelablePromise<{ publicKey: string; privateKey: string }>;
-  (type: 'ec', options: ECKeyPairOptions<'pem', 'der'>): CancelablePromise<{ publicKey: string; privateKey: Buffer }>;
-  (type: 'ec', options: ECKeyPairOptions<'der', 'pem'>): CancelablePromise<{ publicKey: Buffer; privateKey: string }>;
-  (type: 'ec', options: ECKeyPairOptions<'der', 'der'>): CancelablePromise<{ publicKey: Buffer; privateKey: Buffer }>;
-  (type: 'ec', options: ECKeyPairKeyObjectOptions): CancelablePromise<KeyPairKeyObjectResult>;
+  ): CancelablePromise<{ publicKey: Buffer; privateKey: Buffer }, Unlisted>;
+  (type: 'rsa-pss', options: RSAPSSKeyPairKeyObjectOptions): CancelablePromise<KeyPairKeyObjectResult, Unlisted>;
+  (
+    type: 'dsa',
+    options: DSAKeyPairOptions<'pem', 'pem'>,
+  ): CancelablePromise<{ publicKey: string; privateKey: string }, Unlisted>;
+  (
+    type: 'dsa',
+    options: DSAKeyPairOptions<'pem', 'der'>,
+  ): CancelablePromise<{ publicKey: string; privateKey: Buffer }, Unlisted>;
+  (
+    type: 'dsa',
+    options: DSAKeyPairOptions<'der', 'pem'>,
+  ): CancelablePromise<{ publicKey: Buffer; privateKey: string }, Unlisted>;
+  (
+    type: 'dsa',
+    options: DSAKeyPairOptions<'der', 'der'>,
+  ): CancelablePromise<{ publicKey: Buffer; privateKey: Buffer }, Unlisted>;
+  (type: 'dsa', options: DSAKeyPairKeyObjectOptions): CancelablePromise<KeyPairKeyObjectResult, Unlisted>;
+  (
+    type: 'ec',
+    options: ECKeyPairOptions<'pem', 'pem'>,
+  ): CancelablePromise<{ publicKey: string; privateKey: string }, Unlisted>;
+  (
+    type: 'ec',
+    options: ECKeyPairOptions<'pem', 'der'>,
+  ): CancelablePromise<{ publicKey: string; privateKey: Buffer }, Unlisted>;
+  (
+    type: 'ec',
+    options: ECKeyPairOptions<'der', 'pem'>,
+  ): CancelablePromise<{ publicKey: Buffer; privateKey: string }, Unlisted>;
+  (
+    type: 'ec',
+    options: ECKeyPairOptions<'der', 'der'>,
+  ): CancelablePromise<{ publicKey: Buffer; privateKey: Buffer }, Unlisted>;
+  (type: 'ec', options: ECKeyPairKeyObjectOptions): CancelablePromise<KeyPairKeyObjectResult, Unlisted>;
   (
     type: 'ed25519',
     options: ED25519KeyPairOptions<'pem', 'pem'>,
-  ): CancelablePromise<{ publicKey: string; privateKey: string }>;
+  ): CancelablePromise<{ publicKey: string; privateKey: string }, Unlisted>;
   (
     type: 'ed25519',
     options: ED25519KeyPairOptions<'pem', 'der'>,
-  ): CancelablePromise<{ publicKey: string; privateKey: Buffer }>;
+  ): CancelablePromise<{ publicKey: string; privateKey: Buffer }, Unlisted>;
   (
     type: 'ed25519',
     options: ED25519KeyPairOptions<'der', 'pem'>,
-  ): CancelablePromise<{ publicKey: Buffer; privateKey: string }>;
+  ): CancelablePromise<{ publicKey: Buffer; privateKey: string }, Unlisted>;
   (
     type: 'ed25519',
     options: ED25519KeyPairOptions<'der', 'der'>,
-  ): CancelablePromise<{ publicKey: Buffer; privateKey: Buffer }>;
-  (type: 'ed25519', options?: ED25519KeyPairKeyObjectOptions): CancelablePromise<KeyPairKeyObjectResult>;
+  ): CancelablePromise<{ publicKey: Buffer; privateKey: Buffer }, Unlisted>;
+  (type: 'ed25519', options?: ED25519KeyPairKeyObjectOptions): CancelablePromise<KeyPairKeyObjectResult, Unlisted>;
   (
     type: 'ed448',
     options: ED448KeyPairOptions<'pem', 'pem'>,
-  ): CancelablePromise<{ publicKey: string; privateKey: string }>;
+  ): CancelablePromise<{ publicKey: string; privateKey: string }, Unlisted>;
   (
     type: 'ed448',
     options: ED448KeyPairOptions<'pem', 'der'>,
-  ): CancelablePromise<{ publicKey: string; privateKey: Buffer }>;
+  ): CancelablePromise<{ publicKey: string; privateKey: Buffer }, Unlisted>;
   (
     type: 'ed448',
     options: ED448KeyPairOptions<'der', 'pem'>,
-  ): CancelablePromise<{ publicKey: Buffer; privateKey: string }>;
+  ): CancelablePromise<{ publicKey: Buffer; privateKey: string }, Unlisted>;
   (
     type: 'ed448',
     options: ED448KeyPairOptions<'der', 'der'>,
-  ): CancelablePromise<{ publicKey: Buffer; privateKey: Buffer }>;
-  (type: 'ed448', options?: ED448KeyPairKeyObjectOptions): CancelablePromise<KeyPairKeyObjectResult>;
+  ): CancelablePromise<{ publicKey: Buffer; privateKey: Buffer }, Unlisted>;
+  (type: 'ed448', options?: ED448KeyPairKeyObjectOptions): CancelablePromise<KeyPairKeyObjectResult, Unlisted>;
   (
     type: 'x25519',
     options: X25519KeyPairOptions<'pem', 'pem'>,
-  ): CancelablePromise<{ publicKey: string; privateKey: string }>;
+  ): CancelablePromise<{ publicKey: string; privateKey: string }, Unlisted>;
   (
     type: 'x25519',
     options: X25519KeyPairOptions<'pem', 'der'>,
-  ): CancelablePromise<{ publicKey: string; privateKey: Buffer }>;
+  ): CancelablePromise<{ publicKey: string; privateKey: Buffer }, Unlisted>;
   (
     type: 'x25519',
     options: X25519KeyPairOptions<'der', 'pem'>,
-  ): CancelablePromise<{ publicKey: Buffer; privateKey: string }>;
+  ): CancelablePromise<{ publicKey: Buffer; privateKey: string }, Unlisted>;
   (
     type: 'x25519',
     options: X25519KeyPairOptions<'der', 'der'>,
-  ): CancelablePromise<{ publicKey: Buffer; privateKey: Buffer }>;
-  (type: 'x25519', options?: X25519KeyPairKeyObjectOptions): CancelablePromise<KeyPairKeyObjectResult>;
+  ): CancelablePromise<{ publicKey: Buffer; privateKey: Buffer }, Unlisted>;
+  (type: 'x25519', options?: X25519KeyPairKeyObjectOptions): CancelablePromise<KeyPairKeyObjectResult, Unlisted>;
   (
     type: 'x448',
     options: X448KeyPairOptions<'pem', 'pem'>,
-  ): CancelablePromise<{ publicKey: string; privateKey: string }>;
+  ): CancelablePromise<{ publicKey: string; privateKey: string }, Unlisted>;
   (
     type: 'x448',
     options: X448KeyPairOptions<'pem', 'der'>,
-  ): CancelablePromise<{ publicKey: string; privateKey: Buffer }>;
+  ): CancelablePromise<{ publicKey: string; privateKey: Buffer }, Unlisted>;
   (
     type: 'x448',
     options: X448KeyPairOptions<'der', 'pem'>,
-  ): CancelablePromise<{ publicKey: Buffer; privateKey: string }>;
+  ): CancelablePromise<{ publicKey: Buffer; privateKey: string }, Unlisted>;
   (
     type: 'x448',
     options: X448KeyPairOptions<'der', 'der'>,
-  ): CancelablePromise<{ publicKey: Buffer; privateKey: Buffer }>;
-  (type: 'x448', options?: X448KeyPairKeyObjectOptions): CancelablePromise<KeyPairKeyObjectResult>;
+  ): CancelablePromise<{ publicKey: Buffer; privateKey: Buffer }, Unlisted>;
+  (type: 'x448', options?: X448KeyPairKeyObjectOptions): CancelablePromise<KeyPairKeyObjectResult, Unlisted>;
 }

@@ -1,4 +1,4 @@
-import { CancelablePromise, FailureOf, TimeoutError } from '@cancjs/promise';
+import { CancelablePromise, FailureOf, TimeoutError, Unlisted } from '@cancjs/promise';
 
 import { Eq } from '../../../tests-types/fixtures/common/assert-type';
 import { isTimeoutError } from '../../_util';
@@ -60,21 +60,21 @@ function _declaredFailures(): void {
 
   // Both wrap work and neither carries its declared set, which is why the docs say so.
   const _cancelified = cancelify((_ctx, id: string) => callWork(id));
-  const _cancelifyDropsWorkFailure: Eq<ReturnType<typeof _cancelified>, CancelablePromise<number, never>> = true;
+  const _cancelifyDropsWorkFailure: Eq<ReturnType<typeof _cancelified>, CancelablePromise<number>> = true;
 
   const _lazied = lazy<number>((resolve) => resolve(callWork('x')));
-  const _lazyDeclaresNothing: Eq<FailureOf<typeof _lazied>, never> = true;
+  const _lazyIsOpen: Eq<FailureOf<typeof _lazied>, Unlisted> = true;
 
   // The two helpers that declare a failure of their own.
   const _timedOut = timeout(100);
-  const _timeoutDeclaresTimeout: Eq<typeof _timedOut, CancelablePromise<never, TimeoutError>> = true;
+  const _timeoutDeclaresTimeout: Eq<typeof _timedOut, CancelablePromise<never, TimeoutError | Unlisted>> = true;
 
   const _waited = waitFor(() => true);
-  const _waitForDeclaresTimeout: Eq<typeof _waited, CancelablePromise<void, TimeoutError>> = true;
+  const _waitForDeclaresTimeout: Eq<typeof _waited, CancelablePromise<void, TimeoutError | Unlisted>> = true;
 
   // `timeout` adds its own failure and does not carry the input's, which is what the docs say.
   const _bounded = timeout(work, 100);
-  const _timeoutDropsInputFailure: Eq<typeof _bounded, CancelablePromise<number, TimeoutError>> = true;
+  const _timeoutDropsInputFailure: Eq<typeof _bounded, CancelablePromise<number, TimeoutError | Unlisted>> = true;
 
   void [
     _retryTakesFailureFromWork,
@@ -86,7 +86,7 @@ function _declaredFailures(): void {
     _deferDeclaresNothing,
     _promisifyDeclaresNothing,
     _cancelifyDropsWorkFailure,
-    _lazyDeclaresNothing,
+    _lazyIsOpen,
     _timeoutDeclaresTimeout,
     _waitForDeclaresTimeout,
     _timeoutDropsInputFailure,
@@ -135,10 +135,10 @@ describe('failure type specs', () => {
     const _deferDeclaresNothing: Eq<typeof deferred.promise, CancelablePromise<void, never>> = true;
 
     const timedOut = timeout(0);
-    const _timeoutDeclaresTimeout: Eq<typeof timedOut, CancelablePromise<never, TimeoutError>> = true;
+    const _timeoutDeclaresTimeout: Eq<typeof timedOut, CancelablePromise<never, TimeoutError | Unlisted>> = true;
 
     const waited = waitFor(() => true);
-    const _waitForDeclaresTimeout: Eq<typeof waited, CancelablePromise<void, TimeoutError>> = true;
+    const _waitForDeclaresTimeout: Eq<typeof waited, CancelablePromise<void, TimeoutError | Unlisted>> = true;
 
     deferred.resolve();
 

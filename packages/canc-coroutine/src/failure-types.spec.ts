@@ -1,4 +1,4 @@
-import { CancelablePromise, FailureOf } from '@cancjs/promise';
+import { CancelablePromise, FailureOf, Unlisted } from '@cancjs/promise';
 
 import { Eq } from '../../../tests-types/fixtures/common/assert-type';
 import { AsyncResult, BreakError, cancAsync, cancAwait, cancForAwait, cancThrow } from './coroutine';
@@ -85,6 +85,84 @@ const fn9 = cancAsync(function* () {
 });
 const c9: Eq<ReturnType<typeof fn9>, CancelablePromise<number, FooError | BarError>> = true;
 
+// awaited steps: declared failures only
+declare const nat: Promise<number>;
+declare const oneArg: CancelablePromise<number>;
+declare const openSet: CancelablePromise<number, FooError | Unlisted>;
+
+const nativeOnly = cancAsync(function* () {
+  const n = yield* cancAwait(nat);
+  return n;
+});
+const cNativeOnly: Eq<ReturnType<typeof nativeOnly>, CancelablePromise<number, never>> = true;
+
+const oneArgStep = cancAsync(function* () {
+  const n = yield* cancAwait(oneArg);
+  return n;
+});
+const cOneArgStep: Eq<ReturnType<typeof oneArgStep>, CancelablePromise<number, unknown>> = true;
+
+const openSetStep = cancAsync(function* () {
+  const n = yield* cancAwait(openSet);
+  return n;
+});
+const cOpenSetStep: Eq<ReturnType<typeof openSetStep>, CancelablePromise<number, FooError>> = true;
+
+// a declared step keeps its failure next to a native step of the same value type
+const declaredThenNative = cancAsync(function* () {
+  const n = yield* cancAwait(pFoo);
+  const m = yield* cancAwait(nat);
+  return n + m;
+});
+const cDeclaredThenNative: Eq<ReturnType<typeof declaredThenNative>, CancelablePromise<number, FooError>> = true;
+
+const nativeDeclaredThrow = cancAsync(function* () {
+  const m = yield* cancAwait(nat);
+  const n = yield* cancAwait(pFoo);
+  if (n) {
+    yield* cancThrow(new BarError());
+  }
+  return n + m;
+});
+const cNativeDeclaredThrow: Eq<FailureOf<ReturnType<typeof nativeDeclaredThrow>>, FooError | BarError> = true;
+
+const nestedDeclaredThenNative = cancAsync(function* () {
+  const n = yield* cancAwait(declaredThenNative());
+  return n;
+});
+const cNestedDeclaredThenNative: Eq<FailureOf<ReturnType<typeof nestedDeclaredThenNative>>, FooError> = true;
+
+const annotatedNativeStep = cancAsync(function* (): AsyncResult<number, FooError> {
+  const m = yield* cancAwait(nat);
+  return m;
+});
+const cAnnotatedNativeStep: Eq<ReturnType<typeof annotatedNativeStep>, CancelablePromise<number, FooError>> = true;
+
+// a loop handle step adds nothing and hides nothing
+const handleThenDeclared = cancAsync(function* () {
+  const loop = yield* cancForAwait([1, 2]);
+  for (const item of loop) {
+    void item;
+    yield* loop.next();
+  }
+  return yield* cancAwait(pFoo);
+});
+const cHandleThenDeclared: Eq<FailureOf<ReturnType<typeof handleThenDeclared>>, FooError> = true;
+
+// a one argument body annotation declares nothing
+const annotatedOneArg = cancAsync(function* (): AsyncResult<number> {
+  const x = (yield nat) as number;
+  return x;
+});
+const cAnnotatedOneArg: Eq<ReturnType<typeof annotatedOneArg>, CancelablePromise<number, unknown>> = true;
+
+declare const untyped: any;
+const _bareAnyYield = cancAsync(function* () {
+  yield untyped;
+  return 1;
+});
+const cBareAnyYield: Eq<ReturnType<typeof _bareAnyYield>, CancelablePromise<number, never>> = true;
+
 // AsyncResult strict body
 
 // 1. strict body + bare yield of primitives
@@ -133,14 +211,14 @@ const s5ok = cancAsync(function* (): AsyncResult<number, FooError | BreakError> 
   return 1;
 });
 
-// 6. 1-arg back-compat unchanged
+// 6. 1-arg annotation: same bodies compile, failure stays undeclared
 const s6 = cancAsync(function* (): AsyncResult<number> {
   const raw = yield 42;
   const o = yield { a: 1 };
   const n = yield* cancAwait(pFoo);
   return n + (raw as number) + (o ? 0 : 1);
 });
-const c6: Eq<ReturnType<typeof s6>, CancelablePromise<number, never>> = true;
+const c6: Eq<ReturnType<typeof s6>, CancelablePromise<number, unknown>> = true;
 
 // AsyncGenResult flavor
 
@@ -184,6 +262,24 @@ void [
   fn7,
   c8,
   c9,
+  nativeOnly,
+  oneArgStep,
+  openSetStep,
+  cNativeOnly,
+  cOneArgStep,
+  cOpenSetStep,
+  cDeclaredThenNative,
+  cNativeDeclaredThrow,
+  cNestedDeclaredThenNative,
+  cAnnotatedNativeStep,
+  cHandleThenDeclared,
+  nativeDeclaredThrow,
+  nestedDeclaredThenNative,
+  annotatedNativeStep,
+  handleThenDeclared,
+  annotatedOneArg,
+  cAnnotatedOneArg,
+  cBareAnyYield,
   c_s1,
   cf,
   s2,

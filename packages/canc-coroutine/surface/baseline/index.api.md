@@ -27,8 +27,8 @@ name: "BreakError"
 
 ```text
 [iterator]: () => Iterator<T>
-next: () => Generator<unknown, void, any>
-return: () => Generator<unknown, void, any>
+next: () => Generator<Failing<never>, void, any>
+return: () => Generator<Failing<never>, void, any>
 ```
 
 ## `IGeneratorLikeFn<TThis = any>` (interface)
@@ -80,10 +80,10 @@ return: (value: PReturn) => IteratorResult<PYield, PReturn>
 throw: (e: any) => IteratorResult<PYield, PReturn>
 ```
 
-## `async<TFn extends IGeneratorLikeFn<TThis>, TArgs extends any[] = Parameters<TFn>, TReturn = TCoroutineReturn<TFn>, TThis = any, TFailure = FailureOf<TCoroutineYield<TFn>>>` (function)
+## `async<TFn extends IGeneratorLikeFn<TThis>, TArgs extends any[] = Parameters<TFn>, TReturn = TCoroutineReturn<TFn>, TThis = any, TFailure = CoBodyFailureOf<TCoroutineYield<TFn>>>` (function)
 
 ```text
-<TFn extends IGeneratorLikeFn<TThis>, TArgs extends any[] = Parameters<TFn>, TReturn = Awaited<ReturnType<TFn> extends Generator<infer _Y, infer R, infer _N> ? R : never>, TThis = any, TFailure = FailureOf<TCoroutineYield<TFn, ReturnType<TFn>>>>(genFn: TFn, ctx?: TThis | undefined, options?: TCoroutineOptions | undefined): (this: any, ...args: TArgs) => CancelablePromise<TReturn, TFailure>
+<TFn extends IGeneratorLikeFn<TThis>, TArgs extends any[] = Parameters<TFn>, TReturn = Awaited<ReturnType<TFn> extends Generator<infer _Y, infer R, infer _N> ? R : never>, TThis = any, TFailure = CoBodyFailureOf<TCoroutineYield<TFn, ReturnType<TFn>>>>(genFn: TFn, ctx?: TThis | undefined, options?: TCoroutineOptions | undefined): (this: any, ...args: TArgs) => CancelablePromise<TReturn, TFailure>
 ```
 
 ## `asyncMethod<T>` (function)
@@ -95,7 +95,7 @@ throw: (e: any) => IteratorResult<PYield, PReturn>
 ## `await` (const)
 
 ```text
-<T>(value: T): Generator<T, Awaited<T>, any>
+<T>(value: T): Generator<Failing<CoFailureOf<T>>, Awaited<T>, any>
 all: ICancAwaitAll
 allSettled: ICancAwaitAllSettled
 any: ICancAwaitAny
@@ -109,16 +109,16 @@ try: ICancAwaitTry
 <T>(instance: T, key: keyof T & string): void
 ```
 
-## `cancAsync<TFn extends IGeneratorLikeFn<TThis>, TArgs extends any[] = Parameters<TFn>, TReturn = TCoroutineReturn<TFn>, TThis = any, TFailure = FailureOf<TCoroutineYield<TFn>>>` (function)
+## `cancAsync<TFn extends IGeneratorLikeFn<TThis>, TArgs extends any[] = Parameters<TFn>, TReturn = TCoroutineReturn<TFn>, TThis = any, TFailure = CoBodyFailureOf<TCoroutineYield<TFn>>>` (function)
 
 ```text
-<TFn extends IGeneratorLikeFn<TThis>, TArgs extends any[] = Parameters<TFn>, TReturn = Awaited<ReturnType<TFn> extends Generator<infer _Y, infer R, infer _N> ? R : never>, TThis = any, TFailure = FailureOf<TCoroutineYield<TFn, ReturnType<TFn>>>>(genFn: TFn, ctx?: TThis | undefined, options?: TCoroutineOptions | undefined): (this: any, ...args: TArgs) => CancelablePromise<TReturn, TFailure>
+<TFn extends IGeneratorLikeFn<TThis>, TArgs extends any[] = Parameters<TFn>, TReturn = Awaited<ReturnType<TFn> extends Generator<infer _Y, infer R, infer _N> ? R : never>, TThis = any, TFailure = CoBodyFailureOf<TCoroutineYield<TFn, ReturnType<TFn>>>>(genFn: TFn, ctx?: TThis | undefined, options?: TCoroutineOptions | undefined): (this: any, ...args: TArgs) => CancelablePromise<TReturn, TFailure>
 ```
 
 ## `cancAwait` (const)
 
 ```text
-<T>(value: T): Generator<T, Awaited<T>, any>
+<T>(value: T): Generator<Failing<CoFailureOf<T>>, Awaited<T>, any>
 all: ICancAwaitAll
 allSettled: ICancAwaitAllSettled
 any: ICancAwaitAny
@@ -129,9 +129,9 @@ try: ICancAwaitTry
 ## `cancForAwait` (const)
 
 ```text
-<T>(source: TEachSource<T>): Generator<unknown, ICancForAwaitLoop<T>, any>
+<T>(source: TEachSource<T>): Generator<Failing<never>, ICancForAwaitLoop<T>, any>
 <T>(source: TEachSource<T>, cb: TForAwaitCallback<T>): Generator<Failing<BreakError>, void, any>
-next: () => Generator<unknown, void, any>
+next: () => Generator<Failing<never>, void, any>
 toArray: <T>(source: TEachSource<T>) => Generator<Failing<BreakError>, T[], any>
 ```
 
@@ -144,9 +144,9 @@ toArray: <T>(source: TEachSource<T>) => Generator<Failing<BreakError>, T[], any>
 ## `forAwait` (const)
 
 ```text
-<T>(source: TEachSource<T>): Generator<unknown, ICancForAwaitLoop<T>, any>
+<T>(source: TEachSource<T>): Generator<Failing<never>, ICancForAwaitLoop<T>, any>
 <T>(source: TEachSource<T>, cb: TForAwaitCallback<T>): Generator<Failing<BreakError>, void, any>
-next: () => Generator<unknown, void, any>
+next: () => Generator<Failing<never>, void, any>
 toArray: <T>(source: TEachSource<T>) => Generator<Failing<BreakError>, T[], any>
 ```
 

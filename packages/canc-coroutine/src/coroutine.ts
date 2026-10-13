@@ -3,9 +3,9 @@ import {
   CancelablePromise,
   CancelError,
   Failing,
-  FailureOf,
   ICancelablePromiseOptions,
   isCancelError,
+  ISettledResult,
 } from '@cancjs/promise';
 
 import {
@@ -18,6 +18,7 @@ import {
   IterationError,
   setFnName,
 } from '../../_util';
+import type { CoBodyFailureOf, CoFailureOf } from './step-failure';
 
 export type TGeneratorLike<PYield = unknown, PReturn = any, PNext = unknown> = Omit<
   Generator<PYield, PReturn, PNext>,
@@ -163,7 +164,7 @@ export function cancAsync<
   TArgs extends any[] = Parameters<TFn>,
   TReturn = TCoroutineReturn<TFn>,
   TThis = any,
-  TFailure = FailureOf<TCoroutineYield<TFn>>,
+  TFailure = CoBodyFailureOf<TCoroutineYield<TFn>>,
 >(genFn: TFn, ctx?: TThis, options?: TCoroutineOptions) {
   if (!isFunction(genFn)) {
     throw new TypeError('Argument is not a function');
@@ -620,17 +621,17 @@ type cancAwait = <T>(value: T) => T;
  * infers `[number, string]`, not `unknown[]`.
  */
 type TAwaitedTuple<T extends readonly unknown[]> = { -readonly [K in keyof T]: Awaited<T[K]> };
-type TSettledTuple<T extends readonly unknown[]> = { -readonly [K in keyof T]: PromiseSettledResult<Awaited<T[K]>> };
+type TSettledTuple<T extends readonly unknown[]> = { -readonly [K in keyof T]: ISettledResult<Awaited<T[K]>> };
 
 type ICancAwaitAll = <T extends readonly unknown[] | []>(
   values: readonly [...T],
   options?: ICancelablePromiseOptions,
-) => Generator<CancelablePromise<TAwaitedTuple<T>, FailureOf<T[number]>>, TAwaitedTuple<T>, TAwaitedTuple<T>>;
+) => Generator<CancelablePromise<TAwaitedTuple<T>, CoFailureOf<T[number]>>, TAwaitedTuple<T>, TAwaitedTuple<T>>;
 
 type ICancAwaitRace = <T extends readonly unknown[] | []>(
   values: readonly [...T],
   options?: ICancelablePromiseOptions,
-) => Generator<CancelablePromise<Awaited<T[number]>, FailureOf<T[number]>>, Awaited<T[number]>, Awaited<T[number]>>;
+) => Generator<CancelablePromise<Awaited<T[number]>, CoFailureOf<T[number]>>, Awaited<T[number]>, Awaited<T[number]>>;
 
 type ICancAwaitAny = <T extends readonly unknown[] | []>(
   values: readonly [...T],
@@ -648,7 +649,7 @@ type ICancAwaitAllSettled = <T extends readonly unknown[] | []>(
 type ICancAwaitTry = <T, TArgs extends any[]>(
   fn: (...args: TArgs) => T | PromiseLike<T>,
   ...args: TArgs
-) => Generator<CancelablePromise<Awaited<T>, FailureOf<T>>, Awaited<T>, Awaited<T>>;
+) => Generator<CancelablePromise<Awaited<T>, CoFailureOf<T>>, Awaited<T>, Awaited<T>>;
 
 export type TEachSource<T> = AsyncIterable<T> | Iterable<T | Promise<T>>;
 
@@ -669,9 +670,9 @@ export interface ICancForAwaitLoop<T> {
   /** Iterator over the already-fetched item. Never suspends, so the loop body runs in one frame. */
   [Symbol.iterator](): Iterator<T>;
   /** Pulls the next item at a coroutine cancellation point. Delegate it with `yield*`. */
-  next(): Generator<unknown, void, any>;
+  next(): Generator<Failing<never>, void, any>;
   /** Ends the iteration and finishes source cleanup at this point. Delegate it with `yield*`. */
-  return(): Generator<unknown, void, any>;
+  return(): Generator<Failing<never>, void, any>;
 }
 
 /**
@@ -687,16 +688,16 @@ export interface ICancForAwaitLoop<T> {
  * `break` and `continue`. See `ICancForAwaitLoop`.
  */
 interface ICancForAwait {
-  <T>(source: TEachSource<T>): Generator<unknown, ICancForAwaitLoop<T>, any>;
+  <T>(source: TEachSource<T>): Generator<Failing<never>, ICancForAwaitLoop<T>, any>;
   <T>(source: TEachSource<T>, cb: TForAwaitCallback<T>): Generator<Failing<BreakError>, void, any>;
   /** Collects elements into an array. */
   toArray<T>(source: TEachSource<T>): Generator<Failing<BreakError>, T[], any>;
   /** Advances the innermost open forAwait loop. Delegate it with `yield*`. */
-  next(): Generator<unknown, void, any>;
+  next(): Generator<Failing<never>, void, any>;
 }
 
 interface ICancAwait {
-  <T>(value: T): Generator<T, Awaited<T>, any>;
+  <T>(value: T): Generator<Failing<CoFailureOf<T>>, Awaited<T>, any>;
   all: ICancAwaitAll;
   race: ICancAwaitRace;
   any: ICancAwaitAny;

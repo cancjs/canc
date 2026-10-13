@@ -36,13 +36,13 @@ extends Abortable
 ## `bind` (function)
 
 ```text
-(socket: Socket, port?: number | undefined, addr?: string | undefined): CancelablePromise<void, never>
+(socket: Socket, port?: number | undefined, addr?: string | undefined): CancelablePromise<void, Unlisted>
 ```
 
 ## `connect` (function)
 
 ```text
-(socket: Socket, port: number, addr?: string | undefined): CancelablePromise<void, never>
+(socket: Socket, port: number, addr?: string | undefined): CancelablePromise<void, Unlisted>
 ```
 
 ## `createSocket` (function)
@@ -62,6 +62,6 @@ extends Abortable
 ## `send` (function)
 
 ```text
-(socket: Socket, msg: Uint8Array<ArrayBufferLike> | string, offset: number, length: number, port: number, addr?: string | undefined): CancelablePromise<number, never>
-(socket: Socket, msg: Uint8Array<ArrayBufferLike> | string, port: number, addr?: string | undefined): CancelablePromise<number, never>
+(socket: Socket, msg: Uint8Array<ArrayBufferLike> | string, offset: number, length: number, port: number, addr?: string | undefined): CancelablePromise<number, Unlisted>
+(socket: Socket, msg: Uint8Array<ArrayBufferLike> | string, port: number, addr?: string | undefined): CancelablePromise<number, Unlisted>
 ```

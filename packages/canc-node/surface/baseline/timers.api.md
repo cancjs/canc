@@ -28,7 +28,7 @@ signal?: AbortSignal | undefined
 ## `scheduler` (const)
 
 ```text
-wait: (delay: number, options?: ISchedulerWaitOptions) => CancelablePromise<void>
+wait: (delay: number, options?: ISchedulerWaitOptions) => CancelablePromise<void, never>
 yield: () => Promise<void>
 ```
 

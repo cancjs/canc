@@ -24,14 +24,14 @@ readonly [FAILURE]?: TFailure | undefined
 ## `async<TYield, TReturn, TArgs extends any[], TThis = any>` (function)
 
 ```text
-<TYield, TReturn, TArgs extends any[], TThis = any>(genFn: (this: TThis, ...args: TArgs) => Generator<TYield, TReturn, any>, options?: TCancelableCoroutineGenOptions | undefined): (this: TThis, ...args: TArgs) => ICancAsyncGenerator<Exclude<TYield, TAwaited<any>>, TReturn, any, FailureOf<TYield>>
+<TYield, TReturn, TArgs extends any[], TThis = any>(genFn: (this: TThis, ...args: TArgs) => Generator<TYield, TReturn, any>, options?: TCancelableCoroutineGenOptions | undefined): (this: TThis, ...args: TArgs) => ICancAsyncGenerator<Exclude<TYield, TAwaited<any>>, TReturn, any, CoFailureOf<TYield>>
 (genFn: IGeneratorLikeFn<any>, options?: TCancelableCoroutineGenOptions | undefined): (...args: Array<any>) => ICancAsyncGenerator<any, any, any, never>
 ```
 
 ## `await` (const)
 
 ```text
-<T>(value: T): Generator<Failing<FailureOf<T>> & TAwaited<Awaited<T>>, Awaited<T>, any>
+<T>(value: T): Generator<Failing<CoFailureOf<T>> & TAwaited<Awaited<T>>, Awaited<T>, any>
 all: ICancGenAwaitAll
 allSettled: ICancGenAwaitAllSettled
 any: ICancGenAwaitAny
@@ -42,14 +42,14 @@ try: ICancGenAwaitTry
 ## `cancGenAsync<TYield, TReturn, TArgs extends any[], TThis = any>` (function)
 
 ```text
-<TYield, TReturn, TArgs extends any[], TThis = any>(genFn: (this: TThis, ...args: TArgs) => Generator<TYield, TReturn, any>, options?: TCancelableCoroutineGenOptions | undefined): (this: TThis, ...args: TArgs) => ICancAsyncGenerator<Exclude<TYield, TAwaited<any>>, TReturn, any, FailureOf<TYield>>
+<TYield, TReturn, TArgs extends any[], TThis = any>(genFn: (this: TThis, ...args: TArgs) => Generator<TYield, TReturn, any>, options?: TCancelableCoroutineGenOptions | undefined): (this: TThis, ...args: TArgs) => ICancAsyncGenerator<Exclude<TYield, TAwaited<any>>, TReturn, any, CoFailureOf<TYield>>
 (genFn: IGeneratorLikeFn<any>, options?: TCancelableCoroutineGenOptions | undefined): (...args: Array<any>) => ICancAsyncGenerator<any, any, any, never>
 ```
 
 ## `cancGenAwait` (const)
 
 ```text
-<T>(value: T): Generator<Failing<FailureOf<T>> & TAwaited<Awaited<T>>, Awaited<T>, any>
+<T>(value: T): Generator<Failing<CoFailureOf<T>> & TAwaited<Awaited<T>>, Awaited<T>, any>
 all: ICancGenAwaitAll
 allSettled: ICancGenAwaitAllSettled
 any: ICancGenAwaitAny

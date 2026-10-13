@@ -1,6 +1,7 @@
 import { CancelablePromise } from '@cancjs/promise';
 
 import { IRetryOptions, retryFactory } from '../../../_toolbox';
+import type { Unlisted } from '../../../_util';
 import { isCancelable, isThenable } from '../../../_util';
 import { getFsOptions } from './registry';
 import { toolboxDeps } from './wrap';
@@ -55,9 +56,9 @@ function classify(err: unknown): IFatal {
 export function retryOpen<T>(
   operation: (attempt: number) => PromiseLike<T> | T,
   options?: IRetryOptions,
-): CancelablePromise<T> {
+): CancelablePromise<T, Unlisted> {
   if (!getFsOptions().retryOpen) {
-    return new CancelablePromise<T>((resolve, _reject, { handleCancel }) => {
+    return new CancelablePromise<T, Unlisted>((resolve, _reject, { handleCancel }) => {
       const started = operation(1);
       if (isCancelable(started)) {
         handleCancel((reason) => started.cancel(reason));
@@ -90,7 +91,7 @@ export function retryOpen<T>(
     }
 
     return result;
-  }) as CancelablePromise<T>;
+  }) as CancelablePromise<T, Unlisted>;
 }
 
 /**
@@ -102,8 +103,8 @@ export function retryOpen<T>(
 export function withRetryOpen<T, A extends unknown[]>(
   fn: (...args: A) => PromiseLike<T> | T,
   options?: IRetryOptions,
-): (...args: A) => CancelablePromise<T> {
-  return function (...args: A): CancelablePromise<T> {
+): (...args: A) => CancelablePromise<T, Unlisted> {
+  return function (...args: A): CancelablePromise<T, Unlisted> {
     return retryOpen(() => fn(...args), options);
   };
 }

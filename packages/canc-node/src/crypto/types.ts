@@ -12,31 +12,33 @@ import type {
 
 import type { CancelablePromise } from '@cancjs/promise';
 
+import type { Unlisted } from '../../../_util';
+
 /** `scrypt`'s two call shapes, options bag optional in node's own overloads. */
 export interface IScryptFn {
-  (password: BinaryLike, salt: BinaryLike, keylen: number): CancelablePromise<Buffer>;
-  (password: BinaryLike, salt: BinaryLike, keylen: number, options: ScryptOptions): CancelablePromise<Buffer>;
+  (password: BinaryLike, salt: BinaryLike, keylen: number): CancelablePromise<Buffer, Unlisted>;
+  (password: BinaryLike, salt: BinaryLike, keylen: number, options: ScryptOptions): CancelablePromise<Buffer, Unlisted>;
 }
 
 /** `generatePrime`'s four call shapes; the result type follows the `bigint` option. */
 export interface IGeneratePrimeFn {
-  (size: number): CancelablePromise<ArrayBuffer>;
-  (size: number, options: GeneratePrimeOptionsBigInt): CancelablePromise<bigint>;
-  (size: number, options: GeneratePrimeOptionsArrayBuffer): CancelablePromise<ArrayBuffer>;
-  (size: number, options: GeneratePrimeOptions): CancelablePromise<ArrayBuffer | bigint>;
+  (size: number): CancelablePromise<ArrayBuffer, Unlisted>;
+  (size: number, options: GeneratePrimeOptionsBigInt): CancelablePromise<bigint, Unlisted>;
+  (size: number, options: GeneratePrimeOptionsArrayBuffer): CancelablePromise<ArrayBuffer, Unlisted>;
+  (size: number, options: GeneratePrimeOptions): CancelablePromise<ArrayBuffer | bigint, Unlisted>;
 }
 
 /** `checkPrime`'s two call shapes. */
 export interface ICheckPrimeFn {
-  (candidate: LargeNumberLike): CancelablePromise<boolean>;
-  (candidate: LargeNumberLike, options: CheckPrimeOptions): CancelablePromise<boolean>;
+  (candidate: LargeNumberLike): CancelablePromise<boolean, Unlisted>;
+  (candidate: LargeNumberLike, options: CheckPrimeOptions): CancelablePromise<boolean, Unlisted>;
 }
 
 /** `randomFill`'s three call shapes, generic over the view node hands back unchanged. */
 export interface IRandomFillFn {
-  <T extends NodeJS.ArrayBufferView>(buffer: T): CancelablePromise<T>;
-  <T extends NodeJS.ArrayBufferView>(buffer: T, offset: number): CancelablePromise<T>;
-  <T extends NodeJS.ArrayBufferView>(buffer: T, offset: number, size: number): CancelablePromise<T>;
+  <T extends NodeJS.ArrayBufferView>(buffer: T): CancelablePromise<T, Unlisted>;
+  <T extends NodeJS.ArrayBufferView>(buffer: T, offset: number): CancelablePromise<T, Unlisted>;
+  <T extends NodeJS.ArrayBufferView>(buffer: T, offset: number, size: number): CancelablePromise<T, Unlisted>;
 }
 
 /**
@@ -74,7 +76,7 @@ export interface IArgon2Params {
 export type TArgon2Fn = (
   algorithm: 'argon2d' | 'argon2i' | 'argon2id',
   params: IArgon2Params,
-) => CancelablePromise<Buffer>;
+) => CancelablePromise<Buffer, Unlisted>;
 
 /** What `encapsulate` resolves: the derived shared secret plus the ciphertext to send the peer. */
 export interface IEncapsulateResult {
@@ -82,6 +84,6 @@ export interface IEncapsulateResult {
   readonly ciphertext: Buffer;
 }
 
-export type TEncapsulateFn = (key: TKeyLike) => CancelablePromise<IEncapsulateResult>;
+export type TEncapsulateFn = (key: TKeyLike) => CancelablePromise<IEncapsulateResult, Unlisted>;
 
-export type TDecapsulateFn = (key: TKeyLike, ciphertext: BinaryLike) => CancelablePromise<Buffer>;
+export type TDecapsulateFn = (key: TKeyLike, ciphertext: BinaryLike) => CancelablePromise<Buffer, Unlisted>;

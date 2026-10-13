@@ -24,12 +24,13 @@ describe('failure variance', () => {
 
     // 3. Assigning from never / default
     const bFromNever: CancelablePromise<number, FooError> = b3;
+    // @ts-expect-error An undeclared promise does not fit a declared failure slot
     const bFromDefault: CancelablePromise<number, FooError> = bDefault;
 
     // 4. Assigning to never / default
     // @ts-expect-error Assigning FooError to never rejected
     const bToNever: CancelablePromise<number, never> = b1;
-    // @ts-expect-error Assigning FooError to default (never) rejected
+    // the default (undeclared) accepts any declared failure, as 1.0 one-argument annotations did
     const bToDefault: CancelablePromise<number> = b1;
 
     // Contravariance counter-example:

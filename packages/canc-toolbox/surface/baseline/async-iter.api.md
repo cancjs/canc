@@ -23,7 +23,7 @@ pipe: { (): ICancelablePipeable<T>; <R>(term: ITermOp<T, R>): CancelablePromise<
 
 ```text
 extends ITermOp<I, R>
-(source: AnyIterable<I>): CancelablePromise<R, never>
+(source: AnyIterable<I>): CancelablePromise<R, unknown>
 (source: AsyncIterable<I>): PromiseLike<R>
 readonly [TERM_OP_BRAND]: true
 ```
@@ -148,25 +148,25 @@ TCallbackValue<R> extends AsyncIterable<infer E> ? E : TCallbackValue<R> extends
 
 ```text
 <A>(source: TPipeSource<A>): ICancelablePipeable<A>
-<A, R>(source: TPipeSource<A>, term: ITermOp<A, R>): CancelablePromise<R, never>
+<A, R>(source: TPipeSource<A>, term: ITermOp<A, R>): CancelablePromise<R, unknown>
 <A, B1>(source: TPipeSource<A>, op1: IPipeOp<A, B1>): ICancelablePipeable<B1>
-<A, B1, R>(source: TPipeSource<A>, op1: IPipeOp<A, B1>, term: ITermOp<B1, R>): CancelablePromise<R, never>
+<A, B1, R>(source: TPipeSource<A>, op1: IPipeOp<A, B1>, term: ITermOp<B1, R>): CancelablePromise<R, unknown>
 <A, B1, B2>(source: TPipeSource<A>, op1: IPipeOp<A, B1>, op2: IPipeOp<B1, B2>): ICancelablePipeable<B2>
-<A, B1, B2, R>(source: TPipeSource<A>, op1: IPipeOp<A, B1>, op2: IPipeOp<B1, B2>, term: ITermOp<B2, R>): CancelablePromise<R, never>
+<A, B1, B2, R>(source: TPipeSource<A>, op1: IPipeOp<A, B1>, op2: IPipeOp<B1, B2>, term: ITermOp<B2, R>): CancelablePromise<R, unknown>
 <A, B1, B2, B3>(source: TPipeSource<A>, op1: IPipeOp<A, B1>, op2: IPipeOp<B1, B2>, op3: IPipeOp<B2, B3>): ICancelablePipeable<B3>
-<A, B1, B2, B3, R>(source: TPipeSource<A>, op1: IPipeOp<A, B1>, op2: IPipeOp<B1, B2>, op3: IPipeOp<B2, B3>, term: ITermOp<B3, R>): CancelablePromise<R, never>
+<A, B1, B2, B3, R>(source: TPipeSource<A>, op1: IPipeOp<A, B1>, op2: IPipeOp<B1, B2>, op3: IPipeOp<B2, B3>, term: ITermOp<B3, R>): CancelablePromise<R, unknown>
 <A, B1, B2, B3, B4>(source: TPipeSource<A>, op1: IPipeOp<A, B1>, op2: IPipeOp<B1, B2>, op3: IPipeOp<B2, B3>, op4: IPipeOp<B3, B4>): ICancelablePipeable<B4>
-<A, B1, B2, B3, B4, R>(source: TPipeSource<A>, op1: IPipeOp<A, B1>, op2: IPipeOp<B1, B2>, op3: IPipeOp<B2, B3>, op4: IPipeOp<B3, B4>, term: ITermOp<B4, R>): CancelablePromise<R, never>
+<A, B1, B2, B3, B4, R>(source: TPipeSource<A>, op1: IPipeOp<A, B1>, op2: IPipeOp<B1, B2>, op3: IPipeOp<B2, B3>, op4: IPipeOp<B3, B4>, term: ITermOp<B4, R>): CancelablePromise<R, unknown>
 <A, B1, B2, B3, B4, B5>(source: TPipeSource<A>, op1: IPipeOp<A, B1>, op2: IPipeOp<B1, B2>, op3: IPipeOp<B2, B3>, op4: IPipeOp<B3, B4>, op5: IPipeOp<B4, B5>): ICancelablePipeable<B5>
-<A, B1, B2, B3, B4, B5, R>(source: TPipeSource<A>, op1: IPipeOp<A, B1>, op2: IPipeOp<B1, B2>, op3: IPipeOp<B2, B3>, op4: IPipeOp<B3, B4>, op5: IPipeOp<B4, B5>, term: ITermOp<B5, R>): CancelablePromise<R, never>
+<A, B1, B2, B3, B4, B5, R>(source: TPipeSource<A>, op1: IPipeOp<A, B1>, op2: IPipeOp<B1, B2>, op3: IPipeOp<B2, B3>, op4: IPipeOp<B3, B4>, op5: IPipeOp<B4, B5>, term: ITermOp<B5, R>): CancelablePromise<R, unknown>
 <A, B1, B2, B3, B4, B5, B6>(source: TPipeSource<A>, op1: IPipeOp<A, B1>, op2: IPipeOp<B1, B2>, op3: IPipeOp<B2, B3>, op4: IPipeOp<B3, B4>, op5: IPipeOp<B4, B5>, op6: IPipeOp<B5, B6>): ICancelablePipeable<B6>
-<A, B1, B2, B3, B4, B5, B6, R>(source: TPipeSource<A>, op1: IPipeOp<A, B1>, op2: IPipeOp<B1, B2>, op3: IPipeOp<B2, B3>, op4: IPipeOp<B3, B4>, op5: IPipeOp<B4, B5>, op6: IPipeOp<B5, B6>, term: ITermOp<B6, R>): CancelablePromise<R, never>
+<A, B1, B2, B3, B4, B5, B6, R>(source: TPipeSource<A>, op1: IPipeOp<A, B1>, op2: IPipeOp<B1, B2>, op3: IPipeOp<B2, B3>, op4: IPipeOp<B3, B4>, op5: IPipeOp<B4, B5>, op6: IPipeOp<B5, B6>, term: ITermOp<B6, R>): CancelablePromise<R, unknown>
 <A, B1, B2, B3, B4, B5, B6, B7>(source: TPipeSource<A>, op1: IPipeOp<A, B1>, op2: IPipeOp<B1, B2>, op3: IPipeOp<B2, B3>, op4: IPipeOp<B3, B4>, op5: IPipeOp<B4, B5>, op6: IPipeOp<B5, B6>, op7: IPipeOp<B6, B7>): ICancelablePipeable<B7>
-<A, B1, B2, B3, B4, B5, B6, B7, R>(source: TPipeSource<A>, op1: IPipeOp<A, B1>, op2: IPipeOp<B1, B2>, op3: IPipeOp<B2, B3>, op4: IPipeOp<B3, B4>, op5: IPipeOp<B4, B5>, op6: IPipeOp<B5, B6>, op7: IPipeOp<B6, B7>, term: ITermOp<B7, R>): CancelablePromise<R, never>
+<A, B1, B2, B3, B4, B5, B6, B7, R>(source: TPipeSource<A>, op1: IPipeOp<A, B1>, op2: IPipeOp<B1, B2>, op3: IPipeOp<B2, B3>, op4: IPipeOp<B3, B4>, op5: IPipeOp<B4, B5>, op6: IPipeOp<B5, B6>, op7: IPipeOp<B6, B7>, term: ITermOp<B7, R>): CancelablePromise<R, unknown>
 <A, B1, B2, B3, B4, B5, B6, B7, B8>(source: TPipeSource<A>, op1: IPipeOp<A, B1>, op2: IPipeOp<B1, B2>, op3: IPipeOp<B2, B3>, op4: IPipeOp<B3, B4>, op5: IPipeOp<B4, B5>, op6: IPipeOp<B5, B6>, op7: IPipeOp<B6, B7>, op8: IPipeOp<B7, B8>): ICancelablePipeable<B8>
-<A, B1, B2, B3, B4, B5, B6, B7, B8, R>(source: TPipeSource<A>, op1: IPipeOp<A, B1>, op2: IPipeOp<B1, B2>, op3: IPipeOp<B2, B3>, op4: IPipeOp<B3, B4>, op5: IPipeOp<B4, B5>, op6: IPipeOp<B5, B6>, op7: IPipeOp<B6, B7>, op8: IPipeOp<B7, B8>, term: ITermOp<B8, R>): CancelablePromise<R, never>
+<A, B1, B2, B3, B4, B5, B6, B7, B8, R>(source: TPipeSource<A>, op1: IPipeOp<A, B1>, op2: IPipeOp<B1, B2>, op3: IPipeOp<B2, B3>, op4: IPipeOp<B3, B4>, op5: IPipeOp<B4, B5>, op6: IPipeOp<B5, B6>, op7: IPipeOp<B6, B7>, op8: IPipeOp<B7, B8>, term: ITermOp<B8, R>): CancelablePromise<R, unknown>
 <A, B1, B2, B3, B4, B5, B6, B7, B8, B9>(source: TPipeSource<A>, op1: IPipeOp<A, B1>, op2: IPipeOp<B1, B2>, op3: IPipeOp<B2, B3>, op4: IPipeOp<B3, B4>, op5: IPipeOp<B4, B5>, op6: IPipeOp<B5, B6>, op7: IPipeOp<B6, B7>, op8: IPipeOp<B7, B8>, op9: IPipeOp<B8, B9>): ICancelablePipeable<B9>
-<A, B1, B2, B3, B4, B5, B6, B7, B8, B9, R>(source: TPipeSource<A>, op1: IPipeOp<A, B1>, op2: IPipeOp<B1, B2>, op3: IPipeOp<B2, B3>, op4: IPipeOp<B3, B4>, op5: IPipeOp<B4, B5>, op6: IPipeOp<B5, B6>, op7: IPipeOp<B6, B7>, op8: IPipeOp<B7, B8>, op9: IPipeOp<B8, B9>, term: ITermOp<B9, R>): CancelablePromise<R, never>
+<A, B1, B2, B3, B4, B5, B6, B7, B8, B9, R>(source: TPipeSource<A>, op1: IPipeOp<A, B1>, op2: IPipeOp<B1, B2>, op3: IPipeOp<B2, B3>, op4: IPipeOp<B3, B4>, op5: IPipeOp<B4, B5>, op6: IPipeOp<B5, B6>, op7: IPipeOp<B6, B7>, op8: IPipeOp<B7, B8>, op9: IPipeOp<B8, B9>, term: ITermOp<B9, R>): CancelablePromise<R, unknown>
 <A, TOps extends readonly unknown[], R>(source: TPipeSource<A>, ops: readonly [...TOps], term: ITermOp<TPipeElementOf<A, TOps>, R>): TCancelableGroupedTerm<A, TOps, R>
 <A, TOps extends readonly unknown[]>(source: TPipeSource<A>, ops: readonly [...TOps]): TCancelableGrouped<A, TOps>
 ```

@@ -2,6 +2,7 @@ import { CancelablePromise } from '@cancjs/promise';
 
 import { IPromiseKind, IToolboxDeps, TPromiseCtor } from '../../../_toolbox';
 import { promisifyFactory } from '../../../_toolbox/promisify';
+import type { Unlisted } from '../../../_util';
 
 export { gated as gatedWrapped } from '../gate';
 
@@ -12,7 +13,7 @@ export { gated as gatedWrapped } from '../gate';
 export type TNodeFn = (...args: unknown[]) => unknown;
 
 /** One node call signature, with a cancelable promise in place of the plain one it returned. */
-type TCancelableReturn<R> = [R] extends [Promise<infer TValue>] ? CancelablePromise<TValue> : R;
+type TCancelableReturn<R> = [R] extends [Promise<infer TValue>] ? CancelablePromise<TValue, Unlisted> : R;
 
 /**
  * Return rewrites the signature ladder below can apply, selected by name because a type alias
@@ -111,7 +112,7 @@ export type TSignatures<TFn> = TNodeSignatures<TFn, 'same'>;
 
 /** Promise flavor bound into the inlined toolbox algorithms, so every product is cancelable. */
 interface ICancelableKind extends IPromiseKind {
-  promise: CancelablePromise<this['value']>;
+  promise: CancelablePromise<this['value'], Unlisted>;
   options: object;
 }
 

@@ -1,6 +1,8 @@
 import { Eq } from '../../../tests-types/fixtures/common/assert-type';
 import { CancelError } from './cancel-error';
 import { CancelablePromise, FailureOf } from './cancelable-promise';
+import { makeCancelable } from './helpers';
+import type { Unlisted } from './index';
 
 describe('failure chaining and statics', () => {
   class FooError extends Error {
@@ -33,7 +35,7 @@ describe('failure chaining and statics', () => {
     const cc: Eq<typeof _c, CancelablePromise<string, FooError | BarError>> = true;
 
     const _cPromise = pFoo.then((n) => Promise.resolve(String(n)));
-    const cce: Eq<typeof _cPromise, CancelablePromise<string, FooError>> = true;
+    const cce: Eq<typeof _cPromise, CancelablePromise<string, FooError | Unlisted>> = true;
 
     const _cLit = pFoo.then(() => 5);
     const ccl: Eq<typeof _cLit, CancelablePromise<number, FooError>> = true;
@@ -52,6 +54,75 @@ describe('failure chaining and statics', () => {
     void [ca, cb, cc, cce, ccl, cd, ce, cf, chain];
   });
 
+  it('keeps the declared failure on catch without a handler', async () => {
+    const _none = pFoo.catch();
+    const cNone: Eq<typeof _none, CancelablePromise<number, FooError>> = true;
+
+    const _null = pFoo.catch(null);
+    const cNull: Eq<typeof _null, CancelablePromise<number, FooError>> = true;
+
+    const _undef = pFoo.catch(undefined);
+    const cUndef: Eq<typeof _undef, CancelablePromise<number, FooError>> = true;
+
+    const maybeHandler = (() => 0) as ((reason: FooError) => number) | undefined;
+    const _maybe = pFoo.catch(maybeHandler);
+    const cMaybe: Eq<typeof _maybe, CancelablePromise<number, FooError>> = true;
+
+    const maybeFailing = (() => failsBar(1)) as ((reason: FooError) => CancelablePromise<string, BarError>) | null;
+    const _maybeFailing = pFoo.catch(maybeFailing);
+    const cMaybeFailing: Eq<typeof _maybeFailing, CancelablePromise<number | string, FooError | BarError>> = true;
+
+    void [cNone, cNull, cUndef, cMaybe, cMaybeFailing];
+
+    const fooError = new FooError();
+    const rejected = CancelablePromise.reject(fooError) as CancelablePromise<number, FooError>;
+
+    await expect(rejected.catch()).rejects.toBe(fooError);
+  });
+
+  it('keeps the declared failure on then without a rejection handler', async () => {
+    const maybeHandler = (() => 0) as ((reason: FooError) => number) | undefined;
+
+    const _nullMaybe = pFoo.then(null, maybeHandler);
+    const cNullMaybe: Eq<FailureOf<typeof _nullMaybe>, FooError> = true;
+
+    const _maybe = pFoo.then((n) => n + 1, maybeHandler);
+    const cMaybe: Eq<FailureOf<typeof _maybe>, FooError> = true;
+
+    const _omitted = pFoo.then((n) => n + 1);
+    const cOmitted: Eq<FailureOf<typeof _omitted>, FooError> = true;
+
+    const _null = pFoo.then((n) => n + 1, null);
+    const cNull: Eq<FailureOf<typeof _null>, FooError> = true;
+
+    const _undef = pFoo.then((n) => n + 1, undefined);
+    const cUndef: Eq<FailureOf<typeof _undef>, FooError> = true;
+
+    const _handled = pFoo.then(
+      (n) => n + 1,
+      () => 0,
+    );
+    const cHandled: Eq<FailureOf<typeof _handled>, never> = true;
+
+    const maybeFailing = (() => failsBar(1)) as ((reason: FooError) => CancelablePromise<string, BarError>) | null;
+    const _maybeFailing = pFoo.then((n) => failsBar(n), maybeFailing);
+    const cMaybeFailing: Eq<typeof _maybeFailing, CancelablePromise<string, FooError | BarError>> = true;
+
+    const _nullMaybeFailing = pFoo.then(null, maybeFailing);
+    const cNullMaybeFailing: Eq<
+      typeof _nullMaybeFailing,
+      CancelablePromise<number | string, FooError | BarError>
+    > = true;
+
+    void [cNullMaybe, cMaybe, cOmitted, cNull, cUndef, cHandled, cMaybeFailing, cNullMaybeFailing];
+
+    const fooError = new FooError();
+    const rejected = CancelablePromise.reject(fooError) as CancelablePromise<number, FooError>;
+    const absent = undefined as ((reason: FooError) => number) | undefined;
+
+    await expect(rejected.then((n) => n + 1, absent)).rejects.toBe(fooError);
+  });
+
   it('types static combinators and helpers correctly', () => {
     // p10-statics.ts
     const _r1 = CancelablePromise.resolve(pFoo);
@@ -61,7 +132,7 @@ describe('failure chaining and statics', () => {
     const c2: Eq<typeof _r2, CancelablePromise<number, never>> = true;
 
     const _r3 = CancelablePromise.resolve(plainBool);
-    const c3: Eq<typeof _r3, CancelablePromise<boolean, never>> = true;
+    const c3: Eq<typeof _r3, CancelablePromise<boolean, Unlisted>> = true;
 
     const _rNoArg = CancelablePromise.resolve();
     const cNoArg: Eq<typeof _rNoArg, CancelablePromise<void, never>> = true;
@@ -77,12 +148,12 @@ describe('failure chaining and statics', () => {
     const cAll2: Eq<typeof _rAll2, CancelablePromise<[number, string], FooError | BarError>> = true;
 
     const _rAll3 = CancelablePromise.all([pFoo, pBar, plainBool]);
-    const cAll3: Eq<typeof _rAll3, CancelablePromise<[number, string, boolean], FooError | BarError>> = true;
+    const cAll3: Eq<typeof _rAll3, CancelablePromise<[number, string, boolean], FooError | BarError | Unlisted>> = true;
 
     const _rAll5 = CancelablePromise.all([pFoo, pBar, pFoo, pBar, plainBool]);
     const cAll5: Eq<
       typeof _rAll5,
-      CancelablePromise<[number, string, number, string, boolean], FooError | BarError>
+      CancelablePromise<[number, string, number, string, boolean], FooError | BarError | Unlisted>
     > = true;
 
     // Iterable fallback (TAll inferred as number via PromiseLike<TAll>, FailureOf<number> = never)
@@ -100,14 +171,20 @@ describe('failure chaining and statics', () => {
     > = true;
 
     const _rAny = CancelablePromise.any([pFoo, pBar]);
-    const cAny: Eq<typeof _rAny, CancelablePromise<number | string, AggregateError>> = true;
+    const cAny: Eq<typeof _rAny, CancelablePromise<number | string, AggregateError | Unlisted>> = true;
+
+    const _rAnyFF = CancelablePromise.any([pFoo, pFoo]);
+    const cAnyFF: Eq<FailureOf<typeof _rAnyFF>, AggregateError | Unlisted> = true;
+
+    // the reason is untyped, as on a native promise
+    const anyReason = () => CancelablePromise.any([pFoo, plainBool]).catch((e) => e.code);
 
     const _rWR = CancelablePromise.withResolvers<number, FooError>();
     const cWR: Eq<typeof _rWR.promise, CancelablePromise<number, FooError>> = true;
 
     const v1: Promise<[number, string, boolean]> = CancelablePromise.all([pFoo, pBar, plainBool]);
 
-    void [c1, c2, c3, cNoArg, c4, c5, cAll2, cAll3, cAll5, cAllIter, cRace, cSettled, cAny, cWR, v1];
+    void [c1, c2, c3, cNoArg, c4, c5, cAll2, cAll3, cAll5, cAllIter, cRace, cSettled, cAny, cAnyFF, anyReason, cWR, v1];
   });
 
   it('types defaults and reason types correctly', () => {
@@ -116,12 +193,13 @@ describe('failure chaining and statics', () => {
     const pTyped = CancelablePromise.resolve(1) as any as CancelablePromise<number, FooError>;
     const pTypedBoth = CancelablePromise.resolve(1) as any as CancelablePromise<number, FooError | BarError>;
 
+    // @ts-expect-error An undeclared promise does not fit a declared failure slot
     const assign1: CancelablePromise<number, FooError> = pUntyped;
     // @ts-expect-error Narrowing failure set
     const assign2: CancelablePromise<number, never> = pTyped;
 
     pUntyped.catch((_e) => {
-      const c: Eq<typeof _e, unknown> = true;
+      const c: Eq<typeof _e, any> = true;
       void c;
       return 0;
     });
@@ -192,7 +270,7 @@ describe('failure chaining and statics', () => {
     // The idiom: return a rejected promise instead of throwing.
     // This is the chain-side twin of
     // canc.throw inside a coroutine body, and it threads through ordinary then propagation.
-    const rejected = p.then((v) => (bad ? CancelablePromise.reject(new FooError()) : v));
+    const rejected = p.then((v) => (bad ? CancelablePromise.reject<never, FooError>(new FooError()) : v));
     const cRejected: Eq<FailureOf<typeof rejected>, FooError> = true;
 
     thrown.catch(() => {});
@@ -201,13 +279,41 @@ describe('failure chaining and statics', () => {
     void [cThrown, cRejected];
   });
 
-  it('treats an unknown rejection reason as no declared failure', () => {
-    // An undeclared reason contributes nothing to the declared set: reject(new FooError()) is
-    // unaffected, reject(unknown) collapses to never, and a selective-rethrow on an undeclared
-    // promise no longer poisons the union with unknown.
+  it('declares a rejection failure only when it is named', () => {
+    // a reason argument never infers the failure, as on a native promise
     const rFoo = CancelablePromise.reject(new FooError());
-    const cFoo: Eq<FailureOf<typeof rFoo>, FooError> = true;
-    rFoo.catch(() => {});
+    const cFoo: Eq<FailureOf<typeof rFoo>, never> = true;
+    rFoo.catch((_e) => {
+      const c: Eq<typeof _e, any> = true;
+      void c;
+      return 0;
+    });
+
+    const rNamed = CancelablePromise.reject<never, FooError>(new FooError());
+    const cNamed: Eq<typeof rNamed, CancelablePromise<never, FooError>> = true;
+    rNamed.catch(() => {});
+
+    const rResultOnly = CancelablePromise.reject<number>(new FooError());
+    const cResultOnly: Eq<typeof rResultOnly, CancelablePromise<number, never>> = true;
+    rResultOnly.catch(() => {});
+
+    const rContextual: CancelablePromise<number, FooError> = CancelablePromise.reject(new FooError());
+    rContextual.catch(() => {});
+
+    // @ts-expect-error A named failure checks the reason
+    const rNamedOther = CancelablePromise.reject<never, FooError>(new BarError());
+    rNamedOther.catch(() => {});
+
+    // @ts-expect-error A contextual failure checks the reason
+    const rContextualOther: CancelablePromise<number, FooError> = CancelablePromise.reject(new BarError());
+    rContextualOther.catch(() => {});
+
+    void [cFoo, cNamed, cResultOnly];
+  });
+
+  it('treats an unknown rejection reason as no declared failure', () => {
+    // reject(unknown) declares nothing, and a selective rethrow on an undeclared promise
+    // does not poison the union with unknown
 
     const unknownBinding = 1 as unknown;
     const rUnknown = CancelablePromise.reject(unknownBinding);
@@ -219,12 +325,105 @@ describe('failure chaining and statics', () => {
     }
     const pUndeclared = CancelablePromise.resolve(1) as any as CancelablePromise<number>;
     const rRethrow = pUndeclared.catch((f) =>
-      isErrorOf(f, FooError) ? CancelablePromise.reject(new BarError()) : CancelablePromise.reject(f),
+      isErrorOf(f, FooError) ? CancelablePromise.reject<never, BarError>(new BarError()) : CancelablePromise.reject(f),
     );
     const cRethrow: Eq<FailureOf<typeof rRethrow>, BarError> = true;
     rRethrow.catch(() => {});
 
-    void [cFoo, cUnknown, cRethrow];
+    void [cUnknown, cRethrow];
+  });
+
+  it('reads an open failure set as an untyped reason', () => {
+    type IsAnyReason<T> = 0 extends 1 & T ? true : false;
+
+    const open = CancelablePromise.resolve(1) as any as CancelablePromise<number, FooError | Unlisted>;
+    open.catch((_e) => {
+      const c: Eq<IsAnyReason<typeof _e>, true> = true;
+      void c;
+      return 0;
+    });
+    const cOpenSet: Eq<FailureOf<typeof open>, FooError | Unlisted> = true;
+
+    const closed = CancelablePromise.resolve(1) as any as CancelablePromise<number, FooError>;
+    closed.catch((_e) => {
+      const c: Eq<typeof _e, FooError> = true;
+      void c;
+      return 0;
+    });
+
+    // a second structural copy of the marker, as a duplicated package install would carry
+    interface UnlistedCopy {
+      readonly _cancUnlisted: true;
+    }
+    const openCopy = CancelablePromise.resolve(1) as any as CancelablePromise<number, FooError | UnlistedCopy>;
+    openCopy.catch((_e) => {
+      const c: Eq<IsAnyReason<typeof _e>, true> = true;
+      void c;
+      return 0;
+    });
+
+    void cOpenSet;
+  });
+
+  it('reads a native promise as an open failure set', () => {
+    type IsAnyReason<T> = 0 extends 1 & T ? true : false;
+    const native = Promise.resolve(1);
+
+    const cNative: Eq<FailureOf<Promise<number>>, Unlisted> = true;
+    const cAny: Eq<FailureOf<any>, never> = true;
+
+    const raceNative = CancelablePromise.race([pFoo, native]);
+    const cRaceNative: Eq<FailureOf<typeof raceNative>, FooError | Unlisted> = true;
+    raceNative.catch((_e) => {
+      const c: Eq<IsAnyReason<typeof _e>, true> = true;
+      void c;
+      return 0;
+    });
+
+    const allNative = CancelablePromise.all([pFoo, native]);
+    const cAllNative: Eq<FailureOf<typeof allNative>, FooError | Unlisted> = true;
+    allNative.catch((_e) => {
+      const c: Eq<IsAnyReason<typeof _e>, true> = true;
+      void c;
+      return 0;
+    });
+
+    const mixedList = [pFoo, native] as (CancelablePromise<number, FooError> | Promise<number>)[];
+    CancelablePromise.race(mixedList).catch((_e) => {
+      const c: Eq<IsAnyReason<typeof _e>, true> = true;
+      void c;
+      return 0;
+    });
+
+    const resolvedNative = CancelablePromise.resolve(native);
+    const cResolvedNative: Eq<FailureOf<typeof resolvedNative>, Unlisted> = true;
+
+    const wrappedNative = makeCancelable(native);
+    const cWrappedNative: Eq<typeof wrappedNative, CancelablePromise<number, Unlisted>> = true;
+    const wrappedFoo = makeCancelable(pFoo);
+    const cWrappedFoo: Eq<typeof wrappedFoo, CancelablePromise<number, FooError>> = true;
+
+    // a handler returning any declares nothing, so an empty set stays empty
+    const pNever = CancelablePromise.resolve(1) as any as CancelablePromise<number, never>;
+    const echoed = pNever.catch((e) => e);
+    const cEchoed: Eq<FailureOf<typeof echoed>, never> = true;
+    const castResult = pFoo.then((v) => v as any);
+    const cCastResult: Eq<FailureOf<typeof castResult>, FooError> = true;
+
+    const raceClosed = CancelablePromise.race([pFoo, CancelablePromise.resolve(1)]);
+    const cRaceClosed: Eq<FailureOf<typeof raceClosed>, FooError> = true;
+
+    raceNative.catch(() => {});
+    allNative.catch(() => {});
+    resolvedNative.catch(() => {});
+    wrappedNative.catch(() => {});
+    wrappedFoo.catch(() => {});
+    echoed.catch(() => {});
+    castResult.catch(() => {});
+    raceClosed.catch(() => {});
+
+    void [cNative, cAny, cRaceNative, cAllNative, cResolvedNative, cWrappedNative, cWrappedFoo, cEchoed];
+    void [cCastResult, cRaceClosed];
   });
 
   it('leaves the resolvers reject open for internal producers', () => {

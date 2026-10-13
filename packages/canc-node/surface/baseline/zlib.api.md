@@ -86,13 +86,13 @@ ArrayBuffer | NodeJS.ArrayBufferView<ArrayBufferLike> | string
 ## `TIterableCodecFn` (type)
 
 ```text
-(source: AsyncIterable<InputType> | Iterable<InputType>, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, never>
+(source: AsyncIterable<InputType> | Iterable<InputType>, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
 ```
 
 ## `TZipFilesFn` (type)
 
 ```text
-(files: ReadonlyArray<string>, target: string, options?: Readonly<Record<string, unknown>> | undefined): CancelablePromise<void, never>
+(files: ReadonlyArray<string>, target: string, options?: Readonly<Record<string, unknown>> | undefined): CancelablePromise<void, Unlisted>
 ```
 
 ## `TZipFilesOptions` (type)
@@ -382,7 +382,7 @@ new (options?: Readonly<Record<string, unknown>> | undefined): Transform
 ## `brotliCompress` (const)
 
 ```text
-(data: InputType, options?: BrotliOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, never>
+(data: InputType, options?: BrotliOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
 ```
 
 ## `brotliCompressSync` (function)
@@ -394,7 +394,7 @@ new (options?: Readonly<Record<string, unknown>> | undefined): Transform
 ## `brotliDecompress` (const)
 
 ```text
-(data: InputType, options?: BrotliOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, never>
+(data: InputType, options?: BrotliOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
 ```
 
 ## `brotliDecompressSync` (function)
@@ -406,7 +406,7 @@ new (options?: Readonly<Record<string, unknown>> | undefined): Transform
 ## `compressBrotli` (const)
 
 ```text
-(source: AsyncIterable<InputType> | Iterable<InputType>, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, never>
+(source: AsyncIterable<InputType> | Iterable<InputType>, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
 ```
 
 ## `compressBrotliSync` (const)
@@ -418,7 +418,7 @@ new (options?: Readonly<Record<string, unknown>> | undefined): Transform
 ## `compressDeflate` (const)
 
 ```text
-(source: AsyncIterable<InputType> | Iterable<InputType>, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, never>
+(source: AsyncIterable<InputType> | Iterable<InputType>, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
 ```
 
 ## `compressDeflateSync` (const)
@@ -430,7 +430,7 @@ new (options?: Readonly<Record<string, unknown>> | undefined): Transform
 ## `compressGzip` (const)
 
 ```text
-(source: AsyncIterable<InputType> | Iterable<InputType>, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, never>
+(source: AsyncIterable<InputType> | Iterable<InputType>, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
 ```
 
 ## `compressGzipSync` (const)
@@ -442,7 +442,7 @@ new (options?: Readonly<Record<string, unknown>> | undefined): Transform
 ## `compressZstd` (const)
 
 ```text
-(source: AsyncIterable<InputType> | Iterable<InputType>, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, never>
+(source: AsyncIterable<InputType> | Iterable<InputType>, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
 ```
 
 ## `compressZstdSync` (const)
@@ -651,7 +651,7 @@ Z_VERSION_ERROR: number
 ## `decompressBrotli` (const)
 
 ```text
-(source: AsyncIterable<InputType> | Iterable<InputType>, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, never>
+(source: AsyncIterable<InputType> | Iterable<InputType>, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
 ```
 
 ## `decompressBrotliSync` (const)
@@ -663,7 +663,7 @@ Z_VERSION_ERROR: number
 ## `decompressDeflate` (const)
 
 ```text
-(source: AsyncIterable<InputType> | Iterable<InputType>, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, never>
+(source: AsyncIterable<InputType> | Iterable<InputType>, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
 ```
 
 ## `decompressDeflateSync` (const)
@@ -675,7 +675,7 @@ Z_VERSION_ERROR: number
 ## `decompressGzip` (const)
 
 ```text
-(source: AsyncIterable<InputType> | Iterable<InputType>, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, never>
+(source: AsyncIterable<InputType> | Iterable<InputType>, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
 ```
 
 ## `decompressGzipSync` (const)
@@ -687,7 +687,7 @@ Z_VERSION_ERROR: number
 ## `decompressZstd` (const)
 
 ```text
-(source: AsyncIterable<InputType> | Iterable<InputType>, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, never>
+(source: AsyncIterable<InputType> | Iterable<InputType>, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
 ```
 
 ## `decompressZstdSync` (const)
@@ -699,13 +699,13 @@ Z_VERSION_ERROR: number
 ## `deflate` (const)
 
 ```text
-(data: InputType, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, never>
+(data: InputType, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
 ```
 
 ## `deflateRaw` (const)
 
 ```text
-(data: InputType, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, never>
+(data: InputType, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
 ```
 
 ## `deflateRawSync` (function)
@@ -729,7 +729,7 @@ Z_VERSION_ERROR: number
 ## `gunzip` (const)
 
 ```text
-(data: InputType, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, never>
+(data: InputType, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
 ```
 
 ## `gunzipSync` (function)
@@ -741,7 +741,7 @@ Z_VERSION_ERROR: number
 ## `gzip` (const)
 
 ```text
-(data: InputType, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, never>
+(data: InputType, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
 ```
 
 ## `gzipSync` (function)
@@ -753,13 +753,13 @@ Z_VERSION_ERROR: number
 ## `inflate` (const)
 
 ```text
-(data: InputType, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, never>
+(data: InputType, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
 ```
 
 ## `inflateRaw` (const)
 
 ```text
-(data: InputType, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, never>
+(data: InputType, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
 ```
 
 ## `inflateRawSync` (function)
@@ -783,7 +783,7 @@ Z_VERSION_ERROR: number
 ## `unzip` (const)
 
 ```text
-(data: InputType, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, never>
+(data: InputType, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
 ```
 
 ## `unzipSync` (function)
@@ -795,13 +795,13 @@ Z_VERSION_ERROR: number
 ## `zipFiles` (const)
 
 ```text
-(files: ReadonlyArray<string>, target: string, options?: Readonly<Record<string, unknown>> | undefined): CancelablePromise<void, never>
+(files: ReadonlyArray<string>, target: string, options?: Readonly<Record<string, unknown>> | undefined): CancelablePromise<void, Unlisted>
 ```
 
 ## `zstdCompress` (const)
 
 ```text
-(data: InputType, options?: Readonly<Record<string, unknown>> | undefined): CancelablePromise<Buffer<ArrayBufferLike>, never>
+(data: InputType, options?: Readonly<Record<string, unknown>> | undefined): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
 ```
 
 ## `zstdCompressSync` (const)
@@ -813,7 +813,7 @@ Z_VERSION_ERROR: number
 ## `zstdDecompress` (const)
 
 ```text
-(data: InputType, options?: Readonly<Record<string, unknown>> | undefined): CancelablePromise<Buffer<ArrayBufferLike>, never>
+(data: InputType, options?: Readonly<Record<string, unknown>> | undefined): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
 ```
 
 ## `zstdDecompressSync` (const)

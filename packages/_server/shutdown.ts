@@ -24,7 +24,7 @@ export const DEFAULT_SHUTDOWN_TIMEOUT = 10_000;
 export function shutdownServer(
   server: IServerLike,
   options: IShutdownOptions = {},
-): CancelablePromise<IShutdownResult> {
+): CancelablePromise<IShutdownResult, never> {
   const running = getShutdownState(server);
   if (running) {
     return running;
@@ -105,11 +105,11 @@ export function shutdownServer(
     handleCancel(() => clearTimeout(timer));
   });
 
-  let shutdown: CancelablePromise<IShutdownResult>;
+  let shutdown: CancelablePromise<IShutdownResult, never>;
   const settle = Impl.race([Impl.allSettled(outcomes), window]);
 
   // eslint-disable-next-line prefer-const -- assigned after construction to avoid TDZ in executor closure
-  shutdown = new Impl<IShutdownResult>((resolve, reject, { handleCancel }) => {
+  shutdown = new Impl<IShutdownResult, never>((resolve, reject, { handleCancel }) => {
     handleCancel(() => {
       settle.cancel(reason);
       clearShutdownState(server, shutdown);

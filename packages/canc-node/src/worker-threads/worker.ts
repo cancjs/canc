@@ -9,7 +9,7 @@ export interface IWorkerWithPromise extends NodeWorker {
    * A cancelable promise of the thread's exit code, created on first access and reused after that.
    * Canceling it terminates the thread and waits for it to stop.
    */
-  readonly promise: CancelablePromise<number>;
+  readonly promise: CancelablePromise<number, unknown>;
 }
 
 export interface IWorkerConstructor {
@@ -54,8 +54,11 @@ function attachWorkerRecorder(worker: NodeWorker): ISettlementSink<TWorkerSettle
   return sink;
 }
 
-function createWorkerPromise(worker: NodeWorker, sink: ISettlementSink<TWorkerSettlement>): CancelablePromise<number> {
-  return new CancelablePromise<number>((resolve, reject, ctx) => {
+function createWorkerPromise(
+  worker: NodeWorker,
+  sink: ISettlementSink<TWorkerSettlement>,
+): CancelablePromise<number, unknown> {
+  return new CancelablePromise<number, unknown>((resolve, reject, ctx) => {
     // terminate is the only stop node has for a thread it did not hand us a protocol for; the
     // graceful ladder belongs to `runTask`, which owns both ends of the conversation
     ctx.handleCancel(() => terminateAndWaitForExit(worker));

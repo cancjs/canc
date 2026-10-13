@@ -2,7 +2,7 @@ import dgram from 'node:dgram';
 import type { MxRecord, RecordWithTtl } from 'node:dns';
 import nodeDnsPromises from 'node:dns/promises';
 
-import { CancelablePromise, isCancelError } from '@cancjs/promise';
+import { CancelablePromise, isCancelError, Unlisted } from '@cancjs/promise';
 
 import { isNotImplementedError } from '../errors/classes';
 import { features } from '../features';
@@ -20,9 +20,9 @@ function typeAssertions(): unknown[] {
   const resolveMxRecords = dnsExports.resolveMx('x');
 
   type _Assertions = [
-    Expect<Equal<typeof resolve4Plain, CancelablePromise<string[]>>>,
-    Expect<Equal<typeof resolve4Ttl, CancelablePromise<RecordWithTtl[]>>>,
-    Expect<Equal<typeof resolveMxRecords, CancelablePromise<MxRecord[]>>>,
+    Expect<Equal<typeof resolve4Plain, CancelablePromise<string[], Unlisted>>>,
+    Expect<Equal<typeof resolve4Ttl, CancelablePromise<RecordWithTtl[], Unlisted>>>,
+    Expect<Equal<typeof resolveMxRecords, CancelablePromise<MxRecord[], Unlisted>>>,
   ];
 
   return [resolve4Plain, resolve4Ttl, resolveMxRecords];
