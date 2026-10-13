@@ -2,7 +2,7 @@
 "@cancjs/promise": minor
 ---
 
-**Breaking:** `race` with a native promise member reports `Unlisted` next to the cancelable members failures, so an annotation on the result needs `| Unlisted` added.
+**Breaking:** `race` with a native promise member reports `Unlisted` next to the members' failures, so an annotation on the result needs `| Unlisted` added.
 
 Keep the declared failure type in `race()` when an input is a native promise.
 
