@@ -1,4 +1,4 @@
-import type { Unlisted } from '../../_util';
+import type { TAnyFn, Unlisted } from '../../_util';
 import { AggregateError, createAggregateError, isFunction, isObject, isThenable } from '../../_util';
 import { CancelError } from './cancel-error';
 import { isCancelError, isCancPromise } from './helpers';
@@ -999,82 +999,120 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
                 return;
               }
 
-              if (isThenable(value)) {
-                if (value === (instance as unknown)) {
-                  // Self-resolution (e.g. `p.then(() => p)`).
-                  // Native Promise resolution
-                  // rejects a promise resolved with itself ("Chaining cycle detected"),
-                  // but the forceCancelable branch below adopts via `value.then(...)`
-                  // instead of `resolve_(value)`, so it would never reach native cycle
-                  // detection and would hang.
-                  // Reject with the same TypeError here and do
-                  // not enter the adoption-cancel branch, so self-cycles keep native
-                  // semantics without linking the promise to itself.
-                  reject(new TypeError('Chaining cycle detected for promise'));
+              if (value === (instance as unknown)) {
+                // Self-resolution (e.g. `p.then(() => p)`).
+                // Native Promise resolution
+                // rejects a promise resolved with itself ("Chaining cycle detected"),
+                // but the forceCancelable branch below adopts via `value.then(...)`
+                // instead of `resolve_(value)`, so it would never reach native cycle
+                // detection and would hang.
+                // Reject with the same TypeError here and do
+                // not enter the adoption-cancel branch, so self-cycles keep native
+                // semantics without linking the promise to itself.
+                reject(new TypeError('Chaining cycle detected for promise'));
+                return;
+              }
+
+              const adopted = isCancPromise(value) ? value : undefined;
+              let foreignThen: TAnyFn | undefined;
+              if (!adopted && (isObject(value) || isFunction(value))) {
+                // read once: a getter may count reads or throw, as native resolution allows
+                let then: unknown;
+                try {
+                  then = (value as { then?: unknown }).then;
+                } catch (error) {
+                  reject(error);
                   return;
                 }
-
-                // Adopting another cancelable: link it into this promise's chain graph as
-                // a counted parent, the same wiring a declared parent gets.
-                // Cancel then
-                // reaches the adopted promise only when every counted consumer is gone and
-                // the value is unconsumed, and its own `bubble: false` / `shield: true`
-                // are honored inside `_chain`/`cancel`.
-                // This runs once per settle (not per
-                // `.then()` call), and plain values / native promises / foreign thenables
-                // never enter it.
-                const adopted = isCancPromise(value) ? value : undefined;
-                if (adopted) {
-                  adopted._chain(instance);
+                if (isFunction(then)) {
+                  foreignThen = then;
                 }
+              }
 
-                // On the internal (then-derived) path the shared stand-in options always
-                // say forceCancelable:true, so read the live flag instead: then() copies the
-                // parent's packed flags onto the child right after construction, and this
-                // wrapper only runs on a later microtask, so the inherited bit is already set.
-                // The public path keeps consulting the normalized options (correct there).
-                const forceCancelable =
-                  isInternalSpeciesConstructionWithoutOptions ?
-                    (instance._flags & FLAG_FORCE_CANCELABLE) !== 0
-                  : normalizedOptions.forceCancelable;
-                if (forceCancelable) {
-                  const onAdopt = (value_: TResult | PromiseLike<TResult>): void => {
-                    if (instance._internalState === states.PENDING) {
-                      instance._internalState = states.FULFILLED;
-                      instance._runSettlementEffects();
-                    }
-
-                    resolve_(value_);
-                  };
-
-                  const onAdoptRejected = (reason: unknown): void => {
-                    adopting = false;
-                    reject(reason);
-                  };
-
-                  // Subscribe to the adopted value's settlement.
-                  // For a cancelable value use
-                  // the non-counting internal subscription: `_chain` above already raised its
-                  // consumer count for THIS promise, so awaiting settlement through the counting
-                  // `.then()` as well would add a phantom consumer that never completes and would
-                  // keep the adopted promise alive forever.
-                  if (adopted) {
-                    adopted._subscribe(onAdopt, onAdoptRejected);
-                  } else {
-                    value.then(onAdopt, onAdoptRejected);
-                  }
-
-                  // set last: a then() that throws must leave reject usable
-                  adopting = true;
-                } else {
-                  instance._internalState = states.FORCE_PENDING;
-                  instance._runSettlementEffects();
-                  resolve_(value);
-                }
-              } else {
+              if (!adopted && !foreignThen) {
                 instance._internalState = states.FULFILLED;
                 instance._runSettlementEffects();
                 resolve_(value);
+                return;
+              }
+
+              // Adopting another cancelable: link it into this promise's chain graph as
+              // a counted parent, the same wiring a declared parent gets.
+              // Cancel then
+              // reaches the adopted promise only when every counted consumer is gone and
+              // the value is unconsumed, and its own `bubble: false` / `shield: true`
+              // are honored inside `_chain`/`cancel`.
+              // This runs once per settle (not per
+              // `.then()` call), and plain values / native promises / foreign thenables
+              // never enter it.
+              if (adopted) {
+                adopted._chain(instance);
+              }
+
+              // On the internal (then-derived) path the shared stand-in options always
+              // say forceCancelable:true, so read the live flag instead: then() copies the
+              // parent's packed flags onto the child right after construction, and this
+              // wrapper only runs on a later microtask, so the inherited bit is already set.
+              // The public path keeps consulting the normalized options (correct there).
+              const forceCancelable =
+                isInternalSpeciesConstructionWithoutOptions ?
+                  (instance._flags & FLAG_FORCE_CANCELABLE) !== 0
+                : normalizedOptions.forceCancelable;
+              if (!forceCancelable) {
+                instance._internalState = states.FORCE_PENDING;
+                instance._runSettlementEffects();
+                if (adopted) {
+                  resolve_(adopted);
+                } else {
+                  // native adoption keeps its job timing, the stand-in spares a second `then` read
+                  const then = foreignThen!;
+                  const foreign = value;
+                  resolve_({
+                    then: (onFulfilled, onRejected) => then.call(foreign, onFulfilled, onRejected),
+                  } as PromiseLike<TResult>);
+                }
+                return;
+              }
+
+              // one-shot pair, like the resolving functions native resolution hands to `then`
+              let adoptionSettled = false;
+              const onAdopt = (value_: TResult | PromiseLike<TResult>): void => {
+                if (!adoptionSettled) {
+                  adoptionSettled = true;
+                  adopting = false;
+                  // a thenable result is adopted in turn, through the same checks
+                  resolve(value_);
+                }
+              };
+              const onAdoptRejected = (reason: unknown): void => {
+                if (!adoptionSettled) {
+                  adoptionSettled = true;
+                  adopting = false;
+                  reject(reason);
+                }
+              };
+
+              adopting = true;
+              if (adopted) {
+                // Subscribe to the adopted value's settlement.
+                // For a cancelable value use
+                // the non-counting internal subscription: `_chain` above already raised its
+                // consumer count for THIS promise, so awaiting settlement through the counting
+                // `.then()` as well would add a phantom consumer that never completes and would
+                // keep the adopted promise alive forever.
+                adopted._subscribe(onAdopt, onAdoptRejected);
+              } else {
+                // foreign `then` runs in its own job, the same tick native resolution uses
+                const then = foreignThen!;
+                const foreign = value;
+                void NativePromise.resolve().then(() => {
+                  try {
+                    then.call(foreign, onAdopt, onAdoptRejected);
+                  } catch (error) {
+                    // ignored once `then` already settled the adoption
+                    onAdoptRejected(error);
+                  }
+                });
               }
             } else if (instance._internalState === states.FORCE_PENDING) {
               // native already adopted and ignores this; other states drop it so a

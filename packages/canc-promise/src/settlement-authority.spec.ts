@@ -1,5 +1,6 @@
 import { getEventListeners } from 'node:events';
 
+import { isThenable } from '../../_util';
 import { CancelError } from './cancel-error';
 import { CancelablePromise } from './cancelable-promise';
 
@@ -286,5 +287,169 @@ describe('resolve with a pending thenable', () => {
     );
 
     await expect(promise).rejects.toBe(error);
+  });
+});
+
+const NativePromise = Promise;
+
+type TForeignThen<T> = (onFulfilled: (value: T) => void, onRejected: (reason: unknown) => void) => void;
+
+// a plain thenable with a loose `then`, as third-party code writes them
+function foreignThenable<T>(then: TForeignThen<T>): PromiseLike<T> {
+  return { then } as unknown as PromiseLike<T>;
+}
+
+async function drainMicrotasks(turns = 10): Promise<void> {
+  for (let turn = 0; turn < turns; turn++) {
+    await NativePromise.resolve();
+  }
+}
+
+// one host turn: an unhandled rejection is reported to jest before the case ends
+function hostTurn(): Promise<void> {
+  return new NativePromise((resolve) => setImmediate(resolve));
+}
+
+function countingThenable<T>(value: T): { thenable: PromiseLike<T>; reads: () => number } {
+  let reads = 0;
+  const thenable = Object.create(null, {
+    then: {
+      get() {
+        reads++;
+        return (onFulfilled: (value: T) => void) => onFulfilled(value);
+      },
+    },
+  }) as PromiseLike<T>;
+  return { thenable, reads: () => reads };
+}
+
+describe('resolve with a foreign thenable', () => {
+  it('reads then exactly once', async () => {
+    const { thenable, reads } = countingThenable(7);
+    const { promise, resolve } = CancelablePromise.withResolvers<number>();
+
+    resolve(thenable);
+
+    await expect(promise).resolves.toBe(7);
+    expect(reads()).toBe(1);
+  });
+
+  it('reads then exactly once with forceCancelable off', async () => {
+    const { thenable, reads } = countingThenable(7);
+    const promise = new CancelablePromise<number>((resolve) => resolve(thenable), { forceCancelable: false });
+
+    await expect(promise).resolves.toBe(7);
+    expect(reads()).toBe(1);
+  });
+
+  it('rejects when then throws, without throwing from resolve', async () => {
+    const error = new Error('then threw');
+    const { promise, resolve } = CancelablePromise.withResolvers<number>();
+    handled(promise);
+    const thenable = foreignThenable<number>(() => {
+      throw error;
+    });
+
+    expect(() => resolve(thenable)).not.toThrow();
+    await expect(promise).rejects.toBe(error);
+    expect(promise.canceled).toBe(false);
+  });
+
+  it('rejects when reading then throws, without throwing from resolve', async () => {
+    const error = new Error('getter threw');
+    const { promise, resolve } = CancelablePromise.withResolvers<number>();
+    handled(promise);
+    const thenable = Object.create(null, {
+      then: {
+        get() {
+          throw error;
+        },
+      },
+    }) as PromiseLike<number>;
+
+    expect(() => resolve(thenable)).not.toThrow();
+    await expect(promise).rejects.toBe(error);
+  });
+
+  it('ignores a throw from then after it already resolved', async () => {
+    const thenable = foreignThenable<number>((onFulfilled) => {
+      onFulfilled(1);
+      throw new Error('late throw');
+    });
+
+    await expect(new CancelablePromise<number>((resolve) => resolve(thenable))).resolves.toBe(1);
+  });
+
+  it('calls then in a later job, not synchronously', async () => {
+    const then = jest.fn<void, Parameters<TForeignThen<number>>>((onFulfilled) => onFulfilled(1));
+    const { promise, resolve } = CancelablePromise.withResolvers<number>();
+
+    resolve(foreignThenable(then));
+
+    expect(then).not.toHaveBeenCalled();
+    await expect(promise).resolves.toBe(1);
+    expect(then).toHaveBeenCalledTimes(1);
+  });
+
+  it('adopts a callable thenable', async () => {
+    const callable = Object.assign(() => undefined, {
+      then: (onFulfilled: (value: string) => void) => onFulfilled('from callable'),
+    });
+
+    expect(isThenable(callable)).toBe(true);
+    const promise = new CancelablePromise<string>((resolve) => resolve(callable as unknown as PromiseLike<string>));
+    await expect(promise).resolves.toBe('from callable');
+  });
+
+  it('adopts a thenable yielding a thenable that rejects with a CancelError, canceled without unhandled rejection', async () => {
+    const inner = foreignThenable<number>((_onFulfilled, onRejected) => onRejected(new CancelError('inner')));
+    const outer = foreignThenable<PromiseLike<number>>((onFulfilled) => onFulfilled(inner));
+    const promise = new CancelablePromise<number>((resolve) => resolve(outer as unknown as PromiseLike<number>));
+
+    await drainMicrotasks();
+    await hostTurn();
+
+    expect(promise.canceled).toBe(true);
+  });
+
+  it('adopts a thenable yielding a canceled cancelable, canceled without unhandled rejection', async () => {
+    const inner = new CancelablePromise<number>(() => undefined);
+    void inner.cancel('inner');
+    const outer = foreignThenable<PromiseLike<number>>((onFulfilled) => onFulfilled(inner));
+    const promise = new CancelablePromise<number>((resolve) => resolve(outer as unknown as PromiseLike<number>));
+
+    await drainMicrotasks();
+    await hostTurn();
+
+    expect(promise.canceled).toBe(true);
+  });
+
+  it('settles in the same job order as a native promise', async () => {
+    const trace = async (Ctor: PromiseConstructor): Promise<string[]> => {
+      const log: string[] = [];
+      let tick = 0;
+      let ticking = true;
+      const step = (): void => {
+        tick++;
+        if (ticking) {
+          void NativePromise.resolve().then(step);
+        }
+      };
+      void NativePromise.resolve().then(step);
+      const thenable = foreignThenable<number>((onFulfilled) => {
+        log.push(`then called @${tick}`);
+        void NativePromise.resolve().then(() => onFulfilled(7));
+      });
+      void new Ctor<number>((resolve) => resolve(thenable)).then((value) => log.push(`adopted ${value} @${tick}`));
+      await drainMicrotasks(20);
+      ticking = false;
+      return log;
+    };
+
+    const native = await trace(NativePromise);
+    const canc = await trace(CancelablePromise as unknown as PromiseConstructor);
+
+    expect(native).toHaveLength(2);
+    expect(canc).toEqual(native);
   });
 });
