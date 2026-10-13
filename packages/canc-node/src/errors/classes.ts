@@ -1,10 +1,6 @@
 import { createErrorClass, wirePrototype } from '../../../_util/errors';
 import { isObject } from '../../../_util/guards';
 
-function brandPrototype(prototype: object, brand: symbol): void {
-  Object.defineProperty(prototype, brand, { value: true });
-}
-
 function initError<T extends Error>(
   instance: T,
   name: string,
@@ -41,7 +37,11 @@ export interface INotImplementedErrorOptions {
 }
 
 const BaseNotImplementedError = wirePrototype(
-  createErrorClass('NotImplementedError', 'The requested feature is not implemented'),
+  createErrorClass(
+    'NotImplementedError',
+    '@cancjs/node:NotImplementedError',
+    'The requested feature is not implemented',
+  ),
   Error,
 );
 
@@ -59,7 +59,6 @@ export class NotImplementedError extends BaseNotImplementedError {
     ]);
   }
 }
-brandPrototype(NotImplementedError.prototype, NOT_IMPLEMENTED_ERROR_BRAND);
 
 export interface IProcessExitErrorOptions {
   exitCode?: number | null;
@@ -71,7 +70,7 @@ export interface IProcessExitErrorOptions {
 }
 
 const BaseProcessExitError = wirePrototype(
-  createErrorClass('ProcessExitError', 'Process exited with a non-zero exit code'),
+  createErrorClass('ProcessExitError', '@cancjs/node:ProcessExitError', 'Process exited with a non-zero exit code'),
   Error,
 );
 
@@ -95,7 +94,6 @@ export class ProcessExitError extends BaseProcessExitError {
     ]);
   }
 }
-brandPrototype(ProcessExitError.prototype, PROCESS_EXIT_ERROR_BRAND);
 
 export interface IProcessSpawnErrorOptions {
   code?: string;
@@ -104,7 +102,7 @@ export interface IProcessSpawnErrorOptions {
 }
 
 const BaseProcessSpawnError = wirePrototype(
-  createErrorClass('ProcessSpawnError', 'Process could not be spawned'),
+  createErrorClass('ProcessSpawnError', '@cancjs/node:ProcessSpawnError', 'Process could not be spawned'),
   Error,
 );
 
@@ -122,14 +120,16 @@ export class ProcessSpawnError extends BaseProcessSpawnError {
     ]);
   }
 }
-brandPrototype(ProcessSpawnError.prototype, PROCESS_SPAWN_ERROR_BRAND);
 
 export interface IJsonParseErrorOptions {
   path?: string;
   cause?: unknown;
 }
 
-const BaseJsonParseError = wirePrototype(createErrorClass('JsonParseError', 'Failed to parse JSON'), Error);
+const BaseJsonParseError = wirePrototype(
+  createErrorClass('JsonParseError', '@cancjs/node:JsonParseError', 'Failed to parse JSON'),
+  Error,
+);
 
 export class JsonParseError extends BaseJsonParseError {
   readonly path?: string;
@@ -140,7 +140,6 @@ export class JsonParseError extends BaseJsonParseError {
     initError(this, 'JsonParseError', 'Failed to parse JSON', message, options, ['path', 'cause']);
   }
 }
-brandPrototype(JsonParseError.prototype, JSON_PARSE_ERROR_BRAND);
 
 export const isNotImplementedError = (error: unknown): error is NotImplementedError =>
   isObject(error) &&
