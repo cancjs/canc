@@ -219,6 +219,8 @@ function isResolvableBareSpecifier(specifier, manifest) {
   const segments = specifier.split('/');
   const pkgName = specifier.startsWith('@') ? segments.slice(0, 2).join('/') : segments[0];
 
+  if (pkgName === manifest.name) return true;
+
   // a builtin resolves at runtime, but a declaration importing one needs `@types/node`
   // nothing installs those types unless this manifest asks for them
   // waving `node:` through is how a package ships `.d.ts` that fails to compile for a consumer
@@ -330,6 +332,7 @@ function collectPeerFloorViolations(pkgDir, manifest, workspace, plannedVersions
   }
 
   for (const [peer, names] of imports) {
+    if (peer === manifest.name || peer.startsWith(`${manifest.name}/`)) continue;
     const range = ranges[peer];
     if (!range) {
       problems.push(`imports from ${peer} but neither depends on it nor declares it as a peer`);
