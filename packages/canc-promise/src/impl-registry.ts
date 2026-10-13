@@ -6,6 +6,9 @@ import { CancelablePromise } from './cancelable-promise';
  * pointed at. Typed as `PromiseConstructor` because most consumers only need the standard
  * static/instance surface. Consumers that require canc-specific behavior narrow to
  * `typeof CancelablePromise` at their own call sites.
+ *
+ * A registered implementation must be a function whose prototype has `then` and `cancel`. The
+ * native `Promise` does not qualify.
  */
 export type PromiseImpl = PromiseConstructor;
 
@@ -32,6 +35,9 @@ let registeredImpl: PromiseImpl | undefined;
  *
  * This is the lowest-precedence injection layer. A per-call `options.impl` or a consumer's class
  * static override both win over it. Register once during app startup.
+ *
+ * The implementation must be a function whose prototype has `then` and `cancel`; anything else,
+ * including the native `Promise`, is rejected with a `TypeError`.
  *
  * Two copies of @cancjs/promise in one dependency tree each carry their own registry, so a
  * registration made through one copy is invisible to the other. See the package README
