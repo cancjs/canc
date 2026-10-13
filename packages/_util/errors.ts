@@ -292,28 +292,43 @@ export function createAggregateError(errors: any[], message?: string): IAggregat
 // cannot be branded. Errors that only canc produces are matched by brand alone.
 
 /**
+ * Safely reads a property from an object, returning undefined if property access throws.
+ */
+export function readProp(obj: any, key: PropertyKey): unknown {
+  if (obj == null) {
+    return undefined;
+  }
+  try {
+    return obj[key];
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Whether value is an AbortError. Matches the `Symbol.for('@cancjs/promise:AbortError')` prototype brand or the `name` property, never `instanceof`.
  */
 export const isAbortError = (error: any): error is AbortError =>
-  isObject(error) && (error[ABORT_ERROR_BRAND] === true || error.name === 'AbortError');
+  isObject(error) && (readProp(error, ABORT_ERROR_BRAND) === true || readProp(error, 'name') === 'AbortError');
 
 /**
  * Whether value is a TimeoutError. Matches the `Symbol.for('@cancjs/promise:TimeoutError')` prototype brand or the `name` property, never `instanceof`.
  */
 export const isTimeoutError = (error: any): error is TimeoutError =>
-  isObject(error) && (error[TIMEOUT_ERROR_BRAND] === true || error.name === 'TimeoutError');
+  isObject(error) && (readProp(error, TIMEOUT_ERROR_BRAND) === true || readProp(error, 'name') === 'TimeoutError');
 
 /**
  * Whether value is a SupersededError. Matches the `Symbol.for('@cancjs/toolbox:SupersededError')` prototype brand or the `name` property, never `instanceof`.
  */
 export const isSupersededError = (error: any): error is SupersededError =>
-  isObject(error) && (error[SUPERSEDED_ERROR_BRAND] === true || error.name === 'SupersededError');
+  isObject(error) &&
+  (readProp(error, SUPERSEDED_ERROR_BRAND) === true || readProp(error, 'name') === 'SupersededError');
 
 /**
  * Whether value is an AggregateError. Matches the `Symbol.for('@cancjs/promise:AggregateError')` prototype brand or the `name` property, never `instanceof`.
  */
 export const isAggregateError = (error: any): error is AggregateError =>
-  isObject(error) && (error[AGGREGATE_ERROR_BRAND] === true || error.name === 'AggregateError');
+  isObject(error) && (readProp(error, AGGREGATE_ERROR_BRAND) === true || readProp(error, 'name') === 'AggregateError');
 
 /**
  * Prototype brand for CancelError instances, registered under `Symbol.for('@cancjs/promise:CancelError')`.
@@ -323,7 +338,7 @@ export const CANCEL_ERROR_BRAND = Symbol.for('@cancjs/promise:CancelError');
 /**
  * Whether value is a CancelError. Matches the `Symbol.for('@cancjs/promise:CancelError')` prototype brand only, never name or `instanceof`.
  */
-export const isCancelError = (error: any): boolean => isObject(error) && error[CANCEL_ERROR_BRAND] === true;
+export const isCancelError = (error: any): boolean => isObject(error) && readProp(error, CANCEL_ERROR_BRAND) === true;
 
 /**
  * Constructor or factory producing a CancelError instance.

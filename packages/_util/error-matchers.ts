@@ -1,3 +1,4 @@
+import { readProp } from './errors';
 import { isFunction, isObject } from './guards';
 
 /**
@@ -57,11 +58,20 @@ function findRegistryBrand(prototype: object): symbol | undefined {
     return undefined;
   }
 
-  const symbols = Object.getOwnPropertySymbols(prototype);
+  let symbols: symbol[];
+  try {
+    symbols = Object.getOwnPropertySymbols(prototype);
+  } catch {
+    return undefined;
+  }
 
   for (const symbol of symbols) {
-    if (Symbol.keyFor(symbol) !== undefined) {
-      return symbol;
+    try {
+      if (Symbol.keyFor(symbol) !== undefined) {
+        return symbol;
+      }
+    } catch {
+      // ignore
     }
   }
 
@@ -70,7 +80,7 @@ function findRegistryBrand(prototype: object): symbol | undefined {
 
 function compileMatcher(matcher: TErrorMatcher): TErrorPredicate {
   if (typeof matcher === 'string') {
-    return (error: any) => isObject(error) && error.name === matcher;
+    return (error: any) => isObject(error) && readProp(error, 'name') === matcher;
   }
 
   if (!isFunction(matcher)) {
@@ -80,31 +90,49 @@ function compileMatcher(matcher: TErrorMatcher): TErrorPredicate {
   // The isFunction guard above narrows to the call signature, which a construct-only type is not
   // assignable to, so the two shapes only meet through unknown.
   const candidate = matcher as unknown as TErrorConstructor;
-  const prototype = candidate.prototype;
+  const prototype = readProp(candidate, 'prototype') as object | undefined;
   // Discovered once, here, so the returned closure never scans again.
-  const brand = isObject(prototype) ? findRegistryBrand(prototype) : undefined;
+  const brand = isObject(prototype) ? findRegistryBrand(prototype!) : undefined;
   // An arrow function has no prototype at all, so a predicate written as an arrow never reaches
   // this test. A `function foo(error) {}` predicate does have one, but it is neither Error-ish nor
   // branded, so it falls through to the predicate branch too. DOMException does not inherit from
   // Error on every supported engine, which is why the brand is part of the condition instead of
   // `prototype instanceof Error` carrying it alone.
-  const isErrorClass =
-    isObject(prototype) && (prototype instanceof Error || prototype === Error.prototype || brand !== undefined);
+  let isErrorProto = false;
+  if (isObject(prototype)) {
+    try {
+      isErrorProto = prototype instanceof Error || prototype === Error.prototype;
+    } catch {
+      // hostile prototype
+    }
+  }
+  const isErrorClass = isObject(prototype) && (isErrorProto || brand !== undefined);
 
   if (!isErrorClass) {
     return matcher as TErrorPredicate;
   }
 
   const ErrorClass = candidate;
-  const name = (ErrorClass as unknown as { name?: unknown }).name;
+  const name = readProp(ErrorClass, 'name');
+  const hasValidName = typeof name === 'string' && name.length > 0;
 
   // Three ways to the same identity, weakest last: the class itself, the brand a second copy of
   // the class shares through the symbol registry, and the name a foreign error of the same kind
   // carries.
-  return (error: any) =>
-    error instanceof ErrorClass ||
-    (brand !== undefined && isObject(error) && error[brand] === true) ||
-    (isObject(error) && error.name === name);
+  return (error: any) => {
+    let isInstance = false;
+    try {
+      isInstance = error instanceof ErrorClass;
+    } catch {
+      // hostile proxy or symbol
+    }
+
+    return (
+      isInstance ||
+      (brand !== undefined && isObject(error) && readProp(error, brand) === true) ||
+      (hasValidName && isObject(error) && readProp(error, 'name') === name)
+    );
+  };
 }
 
 /**
@@ -122,13 +150,24 @@ export function compileErrorMatchers(matchers: TErrorMatcher[], factoryName: str
   const predicates = matchers.map(compileMatcher);
 
   if (predicates.length === 1) {
-    return predicates[0];
+    const single = predicates[0];
+    return (error: any) => {
+      try {
+        return single(error) ? true : false;
+      } catch {
+        return false;
+      }
+    };
   }
 
   return (error: any) => {
     for (const predicate of predicates) {
-      if (predicate(error)) {
-        return true;
+      try {
+        if (predicate(error)) {
+          return true;
+        }
+      } catch {
+        // hostile error or throwing predicate counts as no match
       }
     }
 
