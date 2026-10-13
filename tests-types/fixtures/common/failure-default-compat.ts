@@ -280,3 +280,24 @@ takeFoo(n);
 export const declaredIntoOneArg: CancelablePromise<number> = f;
 export const declaredIntoWider: CancelablePromise<number, FooError | BarError> = f;
 export const mixIntoOneArg: CancelablePromise<number> = raceFG;
+
+// 1.0 coroutine bodies that no longer compile, each step now declares its failure
+declare const nativeP: Promise<number>;
+declare const url: string;
+
+// documented break: the step declares its failure
+// prettier-ignore
+// @ts-expect-error reason is the aggregate error
+export const breakAny = cancAsync(function* () { return yield* cancAwait.any([u, nativeP]); })().catch((e) => e.code);
+// documented break: the step declares its failure
+// prettier-ignore
+// @ts-expect-error reason is the timeout error
+export const breakTimeoutNative = cancAsync(function* () { return yield* cancAwait(timeout(nativeP, 10)); })().catch((e) => e.response);
+// documented break: the step declares its failure
+// prettier-ignore
+// @ts-expect-error reason is the timeout error
+export const breakTimeoutOneArg = cancAsync(function* () { return yield* cancAwait(timeout(u, 10)); })().catch((e) => e.response);
+// documented break: the step declares its failure
+// prettier-ignore
+// @ts-expect-error reason is the timeout error
+export const breakFetch = cancAsync(function* () { const r = yield* cancAwait(cancelableFetch(url)); return r.status; })().catch((e) => e.code);
