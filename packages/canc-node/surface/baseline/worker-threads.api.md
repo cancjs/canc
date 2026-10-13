@@ -31,8 +31,8 @@ steal?: boolean | undefined
 ## `IRequestLockFn` (interface)
 
 ```text
-<T>(name: string, fn: TLockBody<T>): CancelablePromise<T, never>
-<T>(name: string, options: ILockOptions, fn: TLockBody<T>): CancelablePromise<T, never>
+<T>(name: string, fn: TLockBody<T>): CancelablePromise<T, unknown>
+<T>(name: string, options: ILockOptions, fn: TLockBody<T>): CancelablePromise<T, unknown>
 ```
 
 ## `IRunTaskOptions` (interface)
@@ -114,14 +114,14 @@ MessagePort | null
 ## `requestLock` (const)
 
 ```text
-<T>(name: string, fn: TLockBody<T>): CancelablePromise<T, never>
-<T>(name: string, options: ILockOptions, fn: TLockBody<T>): CancelablePromise<T, never>
+<T>(name: string, fn: TLockBody<T>): CancelablePromise<T, unknown>
+<T>(name: string, options: ILockOptions, fn: TLockBody<T>): CancelablePromise<T, unknown>
 ```
 
 ## `runTask<TResult = unknown>` (function)
 
 ```text
-<TResult = unknown>(script: URL | string, workerData?: unknown, options?: IRunTaskOptions | undefined): CancelablePromise<TResult, never>
+<TResult = unknown>(script: URL | string, workerData?: unknown, options?: IRunTaskOptions | undefined): CancelablePromise<TResult, unknown>
 ```
 
 ## `threadId` (const)

@@ -122,13 +122,13 @@ spaces?: null | number | string | undefined
 ## `copy` (function)
 
 ```text
-(src: string, dest: string, options?: ICopyOptions | undefined): CancelablePromise<void, never>
+(src: string, dest: string, options?: ICopyOptions | undefined): CancelablePromise<void, unknown>
 ```
 
 ## `emptyDir` (function)
 
 ```text
-(dir: string): CancelablePromise<void, never>
+(dir: string): CancelablePromise<void, Unlisted>
 ```
 
 ## `emptyDirSync` (function)
@@ -140,7 +140,7 @@ spaces?: null | number | string | undefined
 ## `ensureDir` (function)
 
 ```text
-(path: string): CancelablePromise<void, never>
+(path: string): CancelablePromise<void, Unlisted>
 ```
 
 ## `ensureDirSync` (function)
@@ -152,7 +152,7 @@ spaces?: null | number | string | undefined
 ## `ensureFile` (function)
 
 ```text
-(path: string): CancelablePromise<void, never>
+(path: string): CancelablePromise<void, Unlisted>
 ```
 
 ## `ensureFileSync` (function)
@@ -164,7 +164,7 @@ spaces?: null | number | string | undefined
 ## `ensureLink` (function)
 
 ```text
-(srcPath: string, dstPath: string): CancelablePromise<void, never>
+(srcPath: string, dstPath: string): CancelablePromise<void, Unlisted>
 ```
 
 ## `ensureLinkSync` (function)
@@ -176,7 +176,7 @@ spaces?: null | number | string | undefined
 ## `ensureSymlink` (function)
 
 ```text
-(srcPath: string, dstPath: string, type?: string | undefined): CancelablePromise<void, never>
+(srcPath: string, dstPath: string, type?: string | undefined): CancelablePromise<void, Unlisted>
 ```
 
 ## `ensureSymlinkSync` (function)
@@ -188,7 +188,7 @@ spaces?: null | number | string | undefined
 ## `mkdirp` (const)
 
 ```text
-(path: string): CancelablePromise<void, never>
+(path: string): CancelablePromise<void, Unlisted>
 ```
 
 ## `mkdirpSync` (const)
@@ -200,7 +200,7 @@ spaces?: null | number | string | undefined
 ## `mkdirs` (const)
 
 ```text
-(path: string): CancelablePromise<void, never>
+(path: string): CancelablePromise<void, Unlisted>
 ```
 
 ## `mkdirsSync` (const)
@@ -212,7 +212,7 @@ spaces?: null | number | string | undefined
 ## `move` (function)
 
 ```text
-(src: string, dest: string, options?: IMoveOptions | undefined): CancelablePromise<void, never>
+(src: string, dest: string, options?: IMoveOptions | undefined): CancelablePromise<void, Unlisted>
 ```
 
 ## `moveSync` (function)
@@ -224,7 +224,7 @@ spaces?: null | number | string | undefined
 ## `outputFile` (function)
 
 ```text
-(path: string, data: ArrayBufferView<ArrayBufferLike> | AsyncIterable<ArrayBufferView<ArrayBufferLike> | string> | Iterable<ArrayBufferView<ArrayBufferLike> | string> | Stream | string, options?: (Abortable & ObjectEncodingOptions & { mode?: Mode | undefined; flag?: OpenMode | undefined; flush?: boolean | undefined; }) | BufferEncoding | null | undefined): CancelablePromise<void, never>
+(path: string, data: ArrayBufferView<ArrayBufferLike> | AsyncIterable<ArrayBufferView<ArrayBufferLike> | string> | Iterable<ArrayBufferView<ArrayBufferLike> | string> | Stream | string, options?: (Abortable & ObjectEncodingOptions & { mode?: Mode | undefined; flag?: OpenMode | undefined; flush?: boolean | undefined; }) | BufferEncoding | null | undefined): CancelablePromise<void, Unlisted>
 ```
 
 ## `outputFileSync` (function)
@@ -236,7 +236,7 @@ spaces?: null | number | string | undefined
 ## `outputJson` (function)
 
 ```text
-(file: string, data: unknown, options?: BufferEncoding | IWriteJsonOptions | null | undefined): CancelablePromise<void, never>
+(file: string, data: unknown, options?: BufferEncoding | IWriteJsonOptions | null | undefined): CancelablePromise<void, unknown>
 ```
 
 ## `outputJsonSync` (function)
@@ -254,8 +254,8 @@ spaces?: null | number | string | undefined
 ## `readJson<T = any>` (function)
 
 ```text
-<T = any>(file: string, options: IReadJsonOptions & { throws: false; }): CancelablePromise<T | null, never>
-<T = any>(file: string, options?: BufferEncoding | IReadJsonOptions | null | undefined): CancelablePromise<T, never>
+<T = any>(file: string, options: IReadJsonOptions & { throws: false; }): CancelablePromise<T | null, Unlisted>
+<T = any>(file: string, options?: BufferEncoding | IReadJsonOptions | null | undefined): CancelablePromise<T, Unlisted>
 ```
 
 ## `readJsonSync<T = any>` (function)
@@ -268,7 +268,7 @@ spaces?: null | number | string | undefined
 ## `replaceFile` (function)
 
 ```text
-(path: string, data: ArrayBufferView<ArrayBufferLike> | AsyncIterable<ArrayBufferView<ArrayBufferLike> | string> | Iterable<ArrayBufferView<ArrayBufferLike> | string> | Stream | string, options?: (Abortable & ObjectEncodingOptions & { mode?: Mode | undefined; flag?: OpenMode | undefined; flush?: boolean | undefined; }) | BufferEncoding | null | undefined): CancelablePromise<void, never>
+(path: string, data: ArrayBufferView<ArrayBufferLike> | AsyncIterable<ArrayBufferView<ArrayBufferLike> | string> | Iterable<ArrayBufferView<ArrayBufferLike> | string> | Stream | string, options?: (Abortable & ObjectEncodingOptions & { mode?: Mode | undefined; flag?: OpenMode | undefined; flush?: boolean | undefined; }) | BufferEncoding | null | undefined): CancelablePromise<void, Unlisted>
 ```
 
 ## `replaceFileSync` (function)
@@ -292,7 +292,7 @@ spaces?: null | number | string | undefined
 ## `writeJson` (function)
 
 ```text
-(file: string, object: unknown, options?: BufferEncoding | IWriteJsonOptions | null | undefined): CancelablePromise<void, never>
+(file: string, object: unknown, options?: BufferEncoding | IWriteJsonOptions | null | undefined): CancelablePromise<void, unknown>
 ```
 
 ## `writeJsonSync` (function)
