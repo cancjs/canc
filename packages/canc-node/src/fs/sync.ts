@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 
-import { getFs } from './registry';
+import { getFs } from '@cancjs/node/fs';
+
 import { TNodeFn, TSignatures } from './wrap';
 
 /**

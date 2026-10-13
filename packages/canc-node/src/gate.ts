@@ -1,6 +1,5 @@
+import { NotImplementedError } from '@cancjs/node';
 import { CancelablePromise } from '@cancjs/promise';
-
-import { NotImplementedError } from './errors/classes';
 
 export type TGatedKind = 'sync' | 'promise';
 

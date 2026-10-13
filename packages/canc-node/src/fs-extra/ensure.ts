@@ -1,11 +1,11 @@
 import { dirname } from 'node:path';
 
+import { link, lstat, mkdir, stat, symlink, writeFile } from '@cancjs/node/fs';
+import { linkSync, lstatSync, mkdirSync, statSync, symlinkSync, writeFileSync } from '@cancjs/node/fs/sync';
 import { CancelablePromise } from '@cancjs/promise';
 
 import type { Unlisted } from '../../../_util';
 import { EISDIR, isExistsError, isNotFoundError } from '../errors/errno';
-import { link, lstat, mkdir, stat, symlink, writeFile } from '../fs';
-import { linkSync, lstatSync, mkdirSync, statSync, symlinkSync, writeFileSync } from '../fs/sync';
 
 export function ensureDir(path: string): CancelablePromise<void, Unlisted> {
   return new CancelablePromise((resolve, reject, { handleCancel }) => {

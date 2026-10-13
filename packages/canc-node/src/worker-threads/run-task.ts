@@ -1,8 +1,8 @@
 import { Worker as NodeWorker, WorkerOptions } from 'node:worker_threads';
 
+import { ProcessExitError } from '@cancjs/node';
 import { CancelablePromise } from '@cancjs/promise';
 
-import { ProcessExitError } from '../errors/classes';
 import { terminateAndWaitForExit } from './promise';
 
 /** The message a task worker receives when a graceful cancel asks it to stop. */

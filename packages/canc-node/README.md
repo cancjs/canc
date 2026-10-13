@@ -589,7 +589,6 @@ Custom file system implementations such as `graceful-fs` or mock instances can b
 - `setFs(impl: IFsLike, options?: ISetFsOptions)`: registers an implementation for callback and synchronous operations.
 - `getFs()`: returns the currently registered file system implementation.
 - `resetFs()`: resets the registered file system back to default `node:fs`.
-- `retryOpen(operation, options?)`: retries open and opendir operations on `EMFILE` and `ENFILE` descriptor errors when `retryOpen` is enabled.
 
 When `retryOpen: true` is configured in `ISetFsOptions`, calls to `open` and `opendir` automatically retry with exponential backoff on descriptor exhaustion errors.
 
@@ -846,6 +845,8 @@ For multi-step operations (`copy`, `move` across devices, `emptyDir`, `walk`), c
 - `ProcessExitError`: thrown when a child process exits with a non-zero exit code or is terminated by a signal
 - `ProcessSpawnError`: thrown when a child process fails to spawn
 - `JsonParseError`: thrown when parsing JSON input fails
+
+The `is*` error guards are the cross-package, cross-realm identity truth because they inspect the error brand symbol. Within a single installation, `instanceof` against root error classes works across subpaths.
 
 ### Feature detection
 

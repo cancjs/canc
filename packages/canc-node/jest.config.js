@@ -15,6 +15,15 @@ function mergeTsJestConfig(options) {
 
 module.exports = {
   ...baseConfig,
+  moduleNameMapper: {
+    '^@cancjs/node/fs/register-graceful$': '<rootDir>/src/fs/register-graceful.ts',
+    '^@cancjs/node/fs/sync$': '<rootDir>/src/fs/sync.ts',
+    '^@cancjs/node/fs/extra$': '<rootDir>/src/fs-extra/index.ts',
+    '^@cancjs/node/fs$': '<rootDir>/src/fs/index.ts',
+    '^@cancjs/node/child-process$': '<rootDir>/src/child-process/index.ts',
+    '^@cancjs/node$': '<rootDir>/src/index.ts',
+    ...baseConfig.moduleNameMapper,
+  },
   cacheDirectory: path.join(__dirname, 'node_modules', '.cache', 'jest'),
   testTimeout: 15000,
   /*

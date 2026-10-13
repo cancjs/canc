@@ -28,6 +28,9 @@ describe('@cancjs/node/fs module exports', () => {
     expectedNames.add('Dir');
     expectedNames.add('Stats');
     expectedNames.add('exists');
+    expectedNames.add('setFs');
+    expectedNames.add('getFs');
+    expectedNames.add('resetFs');
 
     const actualNames = new Set(Object.keys(fsExports));
 

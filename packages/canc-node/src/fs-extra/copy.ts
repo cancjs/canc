@@ -1,10 +1,10 @@
 import { dirname, join } from 'node:path';
 
+import { copyFile, lstat, readdir, readlink, symlink, unlink } from '@cancjs/node/fs';
+import { copyFileSync, lstatSync, readdirSync, readlinkSync, symlinkSync, unlinkSync } from '@cancjs/node/fs/sync';
 import { CancelablePromise } from '@cancjs/promise';
 
 import { isExistsError } from '../errors/errno';
-import { copyFile, lstat, readdir, readlink, symlink, unlink } from '../fs';
-import { copyFileSync, lstatSync, readdirSync, readlinkSync, symlinkSync, unlinkSync } from '../fs/sync';
 import { ensureDir, ensureDirSync } from './ensure';
 import { IAbortSignalLike, throwIfAborted } from './utils';
 

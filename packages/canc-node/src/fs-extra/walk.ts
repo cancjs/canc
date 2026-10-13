@@ -1,8 +1,8 @@
 import type { Dir, Dirent, Stats } from 'node:fs';
 import { join } from 'node:path';
 
-import { lstat, opendir, stat } from '../fs';
-import { lstatSync, opendirSync, statSync } from '../fs/sync';
+import { lstat, opendir, stat } from '@cancjs/node/fs';
+import { lstatSync, opendirSync, statSync } from '@cancjs/node/fs/sync';
 
 /**
  * Traversal order for walk operations.

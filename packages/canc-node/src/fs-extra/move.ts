@@ -1,12 +1,12 @@
 import { dirname } from 'node:path';
 
+import { lstat, rename, rm } from '@cancjs/node/fs';
+import { lstatSync, renameSync, rmSync } from '@cancjs/node/fs/sync';
 import { CancelablePromise } from '@cancjs/promise';
 
 import { IPromiseKind, IToolboxDeps, retryFactory, TPromiseCtor } from '../../../_toolbox';
 import type { Unlisted } from '../../../_util';
 import { EEXIST, isCrossDeviceError, isErrno, isNotFoundError, isTooManyFilesError } from '../errors/errno';
-import { lstat, rename, rm } from '../fs';
-import { lstatSync, renameSync, rmSync } from '../fs/sync';
 import { copyTree, copyTreeSync } from './copy';
 import { ensureDir, ensureDirSync } from './ensure';
 import { IAbortSignalLike, throwIfAborted } from './utils';

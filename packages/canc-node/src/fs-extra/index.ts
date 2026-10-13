@@ -1,4 +1,4 @@
-import { exists } from '../fs';
+import { exists } from '@cancjs/node/fs';
 
 export { copy, type ICopyOptions } from './copy';
 export { emptyDir, emptyDirSync } from './empty-dir';
