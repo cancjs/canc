@@ -31,12 +31,7 @@
     "@cancjs/toolbox:SupersededError",
     "@cancjs/toolbox:TermOp"
   ],
-  "quarantined": {
-    "The requested feature is not implemented": "NotImplementedError: removed when node error classes are keyed by brand",
-    "Process exited with a non-zero exit code": "ProcessExitError: removed when node error classes are keyed by brand",
-    "Process could not be spawned": "ProcessSpawnError: removed when node error classes are keyed by brand",
-    "Failed to parse JSON": "JsonParseError: removed when node error classes are keyed by brand"
-  },
+  "quarantined": {},
   "markers": {
     "_cancUnlisted": {
       "literal": "true",
@@ -77,23 +72,19 @@
     },
     "NOT_IMPLEMENTED_ERROR_BRAND": {
       "key": "@cancjs/node:NotImplementedError",
-      "cls": "NotImplementedError",
-      "quarantined": true
+      "cls": "NotImplementedError"
     },
     "PROCESS_EXIT_ERROR_BRAND": {
       "key": "@cancjs/node:ProcessExitError",
-      "cls": "ProcessExitError",
-      "quarantined": true
+      "cls": "ProcessExitError"
     },
     "PROCESS_SPAWN_ERROR_BRAND": {
       "key": "@cancjs/node:ProcessSpawnError",
-      "cls": "ProcessSpawnError",
-      "quarantined": true
+      "cls": "ProcessSpawnError"
     },
     "JSON_PARSE_ERROR_BRAND": {
       "key": "@cancjs/node:JsonParseError",
-      "cls": "JsonParseError",
-      "quarantined": true
+      "cls": "JsonParseError"
     }
   }
 }
