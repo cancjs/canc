@@ -2,6 +2,8 @@
 "@cancjs/promise": minor
 ---
 
+**Breaking:** A one argument `CancelablePromise<T>` is undeclared (`unknown`) instead of `never`, so it no longer fits a declared failure slot such as `CancelablePromise<T, Foo>`. Write `CancelablePromise<T, never>` for a promise that declares nothing, or declare the failure with `withFailure`.
+
 Treat a one argument `CancelablePromise<T>` as a promise whose failure is undeclared.
 
 The default failure type is now `unknown` instead of `never`. Code that compiled against 1.0 with

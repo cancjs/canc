@@ -3,6 +3,8 @@
 "@cancjs/toolbox-native": minor
 ---
 
+**Breaking:** An annotation `CancelablePromise<T, TimeoutError>` on the result of `timeout` or `waitFor` needs `| Unlisted` added.
+
 Mark the failure of `timeout` and `waitFor` as an open set.
 
 `timeout` and `waitFor` now declare `TimeoutError | Unlisted` instead of `TimeoutError`. Their

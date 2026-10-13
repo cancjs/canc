@@ -2,6 +2,8 @@
 "@cancjs/promise": minor
 ---
 
+**Breaking:** An annotation `CancelablePromise<T, AggregateError>` on the result of `CancelablePromise.any` needs `| Unlisted` added.
+
 Mark the failure of `CancelablePromise.any` as an open set.
 
 `CancelablePromise.any` now returns `CancelablePromise<T, AggregateError | Unlisted>` instead of

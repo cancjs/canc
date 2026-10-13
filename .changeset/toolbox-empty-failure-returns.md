@@ -2,6 +2,8 @@
 "@cancjs/toolbox": minor
 ---
 
+**Breaking:** `cancelify` results and the async iterable terminal operations now declare `unknown` instead of `never`, and the `LazyPromise` family declares `Unlisted` instead of `never`. An annotation `CancelablePromise<T, never>` on one of these needs to widen to `unknown` or `Unlisted`.
+
 Declare failure sets on the prebound `fromAbortSignal`, deferred `cancel()`, `cancelify` and async iterable terminal results.
 
 `fromAbortSignal` returns a promise that never rejects, and the settlement promise from a deferred

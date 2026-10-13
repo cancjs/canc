@@ -2,6 +2,8 @@
 "@cancjs/promise": minor
 ---
 
+**Breaking:** Assigning a `then()` result with a possibly missing rejection handler to `CancelablePromise<T, never>` no longer compiles. Declare the failure on the target instead.
+
 Keep the declared failure type on `then()` when the rejection handler may be missing.
 
 A rejection handler typed as `((reason) => R) | undefined` or `| null`, as in `then(onFulfilled, maybeHandler)` or

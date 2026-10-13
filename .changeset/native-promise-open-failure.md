@@ -2,6 +2,8 @@
 "@cancjs/promise": minor
 ---
 
+**Breaking:** A native promise reads as `Unlisted`, so `race`, `all` and `resolve` over a native member, and `makeCancelable` of a native promise, no longer fit a `CancelablePromise<T, never>` slot. Declare `| Unlisted` on the slot.
+
 Read a native promise or a foreign thenable as an open failure set.
 
 `FailureOf` of a promise that declares no failure, such as `Promise<number>`, is now `Unlisted`

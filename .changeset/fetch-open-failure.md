@@ -2,6 +2,8 @@
 "@cancjs/fetch": minor
 ---
 
+**Breaking:** An annotation `CancelablePromise<Response, TimeoutError>` needs `| Unlisted` added. A value typed `TCancelableFetchFailure` needs narrowing (for example `isTimeoutError`) before reading error properties; `catch` reasons are unaffected. The `cause`, `message`, `name` and `stack` members are no longer part of the type.
+
 Mark the failure of `cancelableFetch` and `cancelableFetchLater` as an open set.
 
 `TCancelableFetchFailure` is now `TimeoutError | Unlisted` instead of `TimeoutError`. A network

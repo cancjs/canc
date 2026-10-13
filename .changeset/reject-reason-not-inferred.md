@@ -2,6 +2,8 @@
 "@cancjs/promise": minor
 ---
 
+**Breaking:** `CancelablePromise.reject(error)` no longer infers a failure from `error`. Name the failure, as in `CancelablePromise.reject<never, HttpError>(error)`, or annotate the target slot.
+
 Stop inferring a declared failure from the `CancelablePromise.reject` argument.
 
 `CancelablePromise.reject(new Error('x'))` now declares nothing, so its rejection handler receives

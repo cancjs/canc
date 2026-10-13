@@ -2,6 +2,8 @@
 "@cancjs/promise": minor
 ---
 
+**Breaking:** Assigning a `catch()` result without a handler to `CancelablePromise<T, never>` no longer compiles. Declare the failure on the target, for example `CancelablePromise<T, Foo>`.
+
 Keep the declared failure type on `catch()` called without a handler.
 
 `catch()`, `catch(null)` and `catch(undefined)` pass the rejection through at runtime, but the result

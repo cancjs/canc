@@ -2,6 +2,8 @@
 "@cancjs/node": minor
 ---
 
+**Breaking:** Annotations `CancelablePromise<T, never>` on the wrapped calls that now return `Unlisted` need `| Unlisted` added. The callback-decided calls now return `unknown`, so their annotations widen to `unknown`.
+
 Declare failure sets on the node wrapper return types.
 
 Wrapped calls that pass on a node or platform error now return `CancelablePromise<T, Unlisted>`, an

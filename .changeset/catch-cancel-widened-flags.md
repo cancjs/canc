@@ -2,6 +2,8 @@
 "@cancjs/promise": minor
 ---
 
+**Breaking:** A widened `abort` or `timeout` flag adds `AbortError` or `TimeoutError` to the resolved value type. An annotation or an exhaustive `switch` on the old resolved type needs that member added.
+
 Type widened `catchCancel` flag options on the resolution side.
 
 A flag held in a variable widens to `boolean`, as in `const bag = { abort: true }`. Passing such a
