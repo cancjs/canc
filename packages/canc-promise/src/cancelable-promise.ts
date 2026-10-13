@@ -1082,15 +1082,39 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
               // This runs once per settle (not per
               // `.then()` call), and plain values / native promises / foreign thenables
               // never enter it.
+              let keepView: ((view: unknown) => void) | undefined;
               if (adopted) {
                 adopted._chain(instance);
-              } else if (isCancPromise(value) && typeof value.cancel === 'function') {
-                const branded = value;
-                instance.handleCancel((reason) => {
+              } else if (isCancPromise(value)) {
+                // cancel goes through the `then` view, never the source: the source stops
+                // only when its other consumers allow
+                let view: unknown;
+                let viewKept = false;
+                let canceled = false;
+                let cancelReason: unknown;
+                const cancelView = (): void => {
                   try {
-                    void branded.cancel(reason);
+                    const cancel =
+                      isObject(view) || isFunction(view) ? (view as { cancel?: unknown }).cancel : undefined;
+                    if (isFunction(cancel)) {
+                      void cancel.call(view, cancelReason);
+                    }
                   } catch (_e) {
-                    // strict refuses a shielded or settled promise, this one is canceled anyway
+                    // strict refuses a shielded or settled view, this one is canceled anyway
+                  }
+                };
+                keepView = (view_) => {
+                  view = view_;
+                  viewKept = true;
+                  if (canceled) {
+                    cancelView();
+                  }
+                };
+                instance.handleCancel((reason) => {
+                  canceled = true;
+                  cancelReason = reason;
+                  if (viewKept) {
+                    cancelView();
                   }
                 });
               }
@@ -1113,8 +1137,16 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
                   // native adoption keeps its job timing, the stand-in spares a second `then` read
                   const then = foreignThen!;
                   const foreign = value;
+                  const keep = keepView;
                   resolve_({
-                    then: (onFulfilled, onRejected) => then.call(foreign, onFulfilled, onRejected),
+                    then:
+                      keep ?
+                        (onFulfilled, onRejected) => {
+                          const view = then.call(foreign, onFulfilled, onRejected);
+                          keep(view);
+                          return view;
+                        }
+                      : (onFulfilled, onRejected) => then.call(foreign, onFulfilled, onRejected),
                   } as PromiseLike<TResult>);
                 }
                 return;
@@ -1151,9 +1183,13 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
                 // foreign `then` runs in its own job, the same tick native resolution uses
                 const then = foreignThen!;
                 const foreign = value;
+                const keep = keepView;
                 void NativePromise.resolve().then(() => {
                   try {
-                    then.call(foreign, onAdopt, onAdoptRejected);
+                    const view: unknown = then.call(foreign, onAdopt, onAdoptRejected);
+                    if (keep) {
+                      keep(view);
+                    }
                   } catch (error) {
                     // ignored once `then` already settled the adoption
                     onAdoptRejected(error);

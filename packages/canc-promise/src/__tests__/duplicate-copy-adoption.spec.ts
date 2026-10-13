@@ -127,14 +127,56 @@ describe('adopting a promise from the other copy', () => {
   });
 });
 
+// one host turn: an unhandled rejection is reported to jest before the case ends
+function hostTurn(): Promise<void> {
+  return new NativePromise((resolve) => setImmediate(resolve));
+}
+
+interface ThenView {
+  then: PromiseLike<unknown>['then'];
+  cancel: jest.Mock;
+}
+
 // A copy that carries the brand and the public surface but none of this copy's private entries,
 // as a future release that renamed them would look from here.
 function makeBrandedWithoutPrivates<T>(): {
   foreign: PromiseLike<T> & { cancel: jest.Mock };
+  views: ThenView[];
   resolve: (value: T) => void;
 } {
   let resolve!: (value: T) => void;
   const settled = new NativePromise<T>((resolve_) => {
+    resolve = resolve_;
+  });
+  const views: ThenView[] = [];
+  const foreign = {
+    [Symbol.for('@cancjs/promise:CancelablePromise')]: true,
+    then: <TFulfilled = T, TRejected = never>(
+      onFulfilled?: ((value: T) => TFulfilled | PromiseLike<TFulfilled>) | null,
+      onRejected?: ((reason: unknown) => TRejected | PromiseLike<TRejected>) | null,
+    ) => {
+      const derived = settled.then(onFulfilled, onRejected);
+      const view: ThenView = {
+        then: (a, b) => derived.then(a, b),
+        cancel: jest.fn(),
+      };
+      views.push(view);
+      return view as unknown as PromiseLike<TFulfilled | TRejected>;
+    },
+    cancel: jest.fn(),
+  };
+  return { foreign, views, resolve };
+}
+
+// A brand-only face over a real promise of the other copy: adoption takes the public fallback,
+// while `then` and `cancel` keep the source's real consumer counting.
+function makeBrandOnlyShared<T>(): {
+  source: CancelablePromise<T>;
+  foreign: PromiseLike<T> & { cancel: jest.Mock };
+  resolve: (value: T) => void;
+} {
+  let resolve!: (value: T) => void;
+  const source = new OtherCopy<T>((resolve_) => {
     resolve = resolve_;
   });
   const foreign = {
@@ -142,10 +184,10 @@ function makeBrandedWithoutPrivates<T>(): {
     then: <TFulfilled = T, TRejected = never>(
       onFulfilled?: ((value: T) => TFulfilled | PromiseLike<TFulfilled>) | null,
       onRejected?: ((reason: unknown) => TRejected | PromiseLike<TRejected>) | null,
-    ) => settled.then(onFulfilled, onRejected),
-    cancel: jest.fn(),
+    ) => source.then(onFulfilled, onRejected),
+    cancel: jest.fn((reason?: unknown) => source.cancel(reason)),
   };
-  return { foreign, resolve };
+  return { source, foreign, resolve };
 }
 
 describe('adopting a branded copy without the private entries', () => {
@@ -177,8 +219,19 @@ describe('adopting a branded copy without the private entries', () => {
     expect(await wrapped).toBe(9);
   });
 
-  it('canceling the wrapper calls the public cancel once', async () => {
-    const { foreign } = makeBrandedWithoutPrivates<number>();
+  it('subscribes through the public then once', async () => {
+    const { foreign, views } = makeBrandedWithoutPrivates<number>();
+    const outer = new CancelablePromise<number>((resolve_) => resolve_(foreign));
+    outer.catch(() => undefined);
+
+    await flush();
+    await flush();
+
+    expect(views).toHaveLength(1);
+  });
+
+  it('canceling the wrapper cancels the then view once, never the source', async () => {
+    const { foreign, views } = makeBrandedWithoutPrivates<number>();
     const outer = new CancelablePromise<number>((resolve_) => resolve_(foreign));
     const caught = outer.catch((reason: unknown) => reason);
 
@@ -187,23 +240,114 @@ describe('adopting a branded copy without the private entries', () => {
     outer.cancel('stop');
     await flush();
 
-    expect(foreign.cancel).toHaveBeenCalledTimes(1);
-    expect(foreign.cancel).toHaveBeenCalledWith('stop');
+    expect(views).toHaveLength(1);
+    expect(views[0].cancel).toHaveBeenCalledTimes(1);
+    expect(views[0].cancel).toHaveBeenCalledWith('stop');
+    expect(foreign.cancel).toHaveBeenCalledTimes(0);
     expect(isCancelError(await caught)).toBe(true);
+    await hostTurn();
   });
 
-  it('a throwing public cancel does not break the wrapper cancellation', async () => {
+  it('then() return: canceling the chain cancels the then view, never the source', async () => {
+    const { foreign, views } = makeBrandedWithoutPrivates<number>();
+    const outer = CancelablePromise.resolve().then(() => foreign);
+    const caught = outer.catch((reason: unknown) => reason);
+
+    await flush();
+    await flush();
+    await flush();
+
+    outer.cancel('stop');
+    await flush();
+
+    expect(views).toHaveLength(1);
+    expect(views[0].cancel).toHaveBeenCalledTimes(1);
+    expect(views[0].cancel).toHaveBeenCalledWith('stop');
+    expect(foreign.cancel).toHaveBeenCalledTimes(0);
+    expect(isCancelError(await caught)).toBe(true);
+    await hostTurn();
+  });
+
+  it('forceCancelable false: the then view is kept and the value still flows', async () => {
+    const { foreign, views, resolve } = makeBrandedWithoutPrivates<number>();
+    const outer = new CancelablePromise<number>((resolve_) => resolve_(foreign), { forceCancelable: false });
+
+    resolve(6);
+
+    expect(await outer).toBe(6);
+    expect(views).toHaveLength(1);
+    expect(views[0].cancel).toHaveBeenCalledTimes(0);
+    expect(foreign.cancel).toHaveBeenCalledTimes(0);
+  });
+
+  it('a then view without cancel leaves the source alone', async () => {
     const { foreign } = makeBrandedWithoutPrivates<number>();
-    foreign.cancel.mockImplementation(() => {
-      throw new Error('settled');
-    });
-    const outer = new CancelablePromise<number>((resolve_) => resolve_(foreign));
+    const bare = {
+      [Symbol.for('@cancjs/promise:CancelablePromise')]: true,
+      then: jest.fn(() => undefined),
+      cancel: foreign.cancel,
+    } as unknown as PromiseLike<number>;
+    const outer = new CancelablePromise<number>((resolve_) => resolve_(bare));
     const caught = outer.catch((reason: unknown) => reason);
 
     await flush();
 
     expect(() => outer.cancel()).not.toThrow();
-    expect(foreign.cancel).toHaveBeenCalledTimes(1);
+    expect(bare.then).toHaveBeenCalledTimes(1);
+    expect(foreign.cancel).toHaveBeenCalledTimes(0);
     expect(isCancelError(await caught)).toBe(true);
+    await hostTurn();
+  });
+
+  it('a cancel before the then view exists reaches the view once it does', async () => {
+    const { foreign, views } = makeBrandedWithoutPrivates<number>();
+    const outer = new CancelablePromise<number>((resolve_) => resolve_(foreign));
+    const caught = outer.catch((reason: unknown) => reason);
+
+    outer.cancel('early');
+    await flush();
+    await flush();
+
+    expect(views).toHaveLength(1);
+    expect(views[0].cancel).toHaveBeenCalledTimes(1);
+    expect(views[0].cancel).toHaveBeenCalledWith('early');
+    expect(foreign.cancel).toHaveBeenCalledTimes(0);
+    expect(isCancelError(await caught)).toBe(true);
+    await hostTurn();
+  });
+
+  it('a throwing view cancel does not break the wrapper cancellation', async () => {
+    const { foreign, views } = makeBrandedWithoutPrivates<number>();
+    const outer = new CancelablePromise<number>((resolve_) => resolve_(foreign));
+    const caught = outer.catch((reason: unknown) => reason);
+
+    await flush();
+    views[0].cancel.mockImplementation(() => {
+      throw new Error('settled');
+    });
+
+    expect(() => outer.cancel()).not.toThrow();
+    expect(views[0].cancel).toHaveBeenCalledTimes(1);
+    expect(foreign.cancel).toHaveBeenCalledTimes(0);
+    expect(isCancelError(await caught)).toBe(true);
+    await hostTurn();
+  });
+
+  it('a shared source with a second live consumer keeps its value', async () => {
+    const { source, foreign, resolve } = makeBrandOnlyShared<number>();
+    const other = source.then((value) => value);
+    const outer = new CancelablePromise<number>((resolve_) => resolve_(foreign));
+    const caught = outer.catch((reason: unknown) => reason);
+
+    await flush();
+
+    outer.cancel();
+    resolve(5);
+
+    expect(isCancelError(await caught)).toBe(true);
+    expect(await other).toBe(5);
+    expect(source.canceled).toBe(false);
+    expect(foreign.cancel).toHaveBeenCalledTimes(0);
+    await hostTurn();
   });
 });
