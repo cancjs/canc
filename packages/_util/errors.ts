@@ -314,3 +314,118 @@ export const isSupersededError = (error: any): error is SupersededError =>
  */
 export const isAggregateError = (error: any): error is AggregateError =>
   isObject(error) && (error[AGGREGATE_ERROR_BRAND] === true || error.name === 'AggregateError');
+
+/**
+ * Prototype brand for CancelError instances, registered under `Symbol.for('@cancjs/promise:CancelError')`.
+ */
+export const CANCEL_ERROR_BRAND = Symbol.for('@cancjs/promise:CancelError');
+
+/**
+ * Whether value is a CancelError. Matches the `Symbol.for('@cancjs/promise:CancelError')` prototype brand only, never name or `instanceof`.
+ */
+export const isCancelError = (error: any): boolean => isObject(error) && error[CANCEL_ERROR_BRAND] === true;
+
+/**
+ * Constructor or factory producing a CancelError instance.
+ */
+export type TMakeCancelError<T = any> =
+  | (new (message?: string, options?: { cause?: unknown }) => T)
+  | ((message?: string, options?: { cause?: unknown }) => T);
+
+export interface IToCancelErrorOptions<T = any> {
+  CancelError?: TMakeCancelError<T>;
+}
+
+class DefaultCancelError extends Error {
+  name: string;
+  cause?: unknown;
+  timedOut: boolean;
+  bubbled: boolean;
+  disposed: boolean;
+
+  get aborted(): boolean {
+    return isAbortError(this.cause);
+  }
+
+  get isBubbled(): boolean {
+    return this.bubbled;
+  }
+
+  set isBubbled(value: boolean) {
+    this.bubbled = value;
+  }
+
+  constructor(message?: string, options?: { cause?: unknown }) {
+    super(message);
+    Object.setPrototypeOf(this, new.target.prototype);
+    this.name = 'CancelError';
+    this.timedOut = false;
+    this.bubbled = false;
+    this.disposed = false;
+    if (options?.cause !== undefined) {
+      this.cause = options.cause;
+    }
+  }
+}
+
+brandPrototype(DefaultCancelError.prototype, CANCEL_ERROR_BRAND, '@cancjs/promise:CancelError');
+
+if (typeof Symbol !== 'undefined' && Symbol.toStringTag) {
+  defineQuietly(DefaultCancelError.prototype, Symbol.toStringTag, 'CancelError');
+}
+
+function instantiateCancelError<T>(
+  makeCancelError: TMakeCancelError<T> | undefined,
+  message: string | undefined,
+  cause: unknown,
+): T {
+  const options = cause !== undefined ? { cause } : undefined;
+  if (!makeCancelError) {
+    return new DefaultCancelError(message, options) as unknown as T;
+  }
+  if (typeof Reflect !== 'undefined' && typeof Reflect.construct === 'function') {
+    try {
+      return Reflect.construct(makeCancelError, [message, options]);
+    } catch {
+      return (makeCancelError as (message?: string, options?: { cause?: unknown }) => T)(message, options);
+    }
+  }
+  try {
+    return new (makeCancelError as new (message?: string, options?: { cause?: unknown }) => T)(message, options);
+  } catch {
+    return (makeCancelError as (message?: string, options?: { cause?: unknown }) => T)(message, options);
+  }
+}
+
+/**
+ * Normalizes an arbitrary rejection or abort reason into a CancelError.
+ *
+ * A CancelError passes through unchanged. A TimeoutError (matching by brand or name) produces
+ * a CancelError with timedOut set to true and cause set to the original reason. Any other
+ * reason produces a CancelError with cause set to the reason.
+ */
+export function toCancelError<T extends object = Error>(reason: unknown, makeCancelError?: TMakeCancelError<T>): T {
+  if (isCancelError(reason)) {
+    return reason as T;
+  }
+
+  const isTimeout = isTimeoutError(reason);
+  const message = typeof reason === 'string' ? reason : undefined;
+  const error = instantiateCancelError(makeCancelError, message, reason);
+
+  Object.defineProperty(error, 'timedOut', {
+    value: isTimeout,
+    configurable: true,
+    writable: true,
+    enumerable: true,
+  });
+
+  return error;
+}
+
+/**
+ * Factory creating a toCancelError normalizer bound to a specific CancelError constructor.
+ */
+export function toCancelErrorFactory<T extends object = Error>(deps: IToCancelErrorOptions<T>): (reason: unknown) => T {
+  return (reason: unknown) => toCancelError(reason, deps.CancelError);
+}
