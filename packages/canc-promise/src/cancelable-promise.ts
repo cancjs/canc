@@ -226,6 +226,19 @@ function noop() {
 // Restored after dispatch (stack discipline).
 let _activeCollector: any[] | undefined;
 
+// cancel marks CANCELED before it rejects and the settlers drop a non-PENDING
+// promise, so this flag carries that one rejection through to the native promise
+let _rejectingCanceled = false;
+
+function rejectCanceled(settle: (reason?: any) => void, error: unknown): void {
+  _rejectingCanceled = true;
+  try {
+    settle(error);
+  } finally {
+    _rejectingCanceled = false;
+  }
+}
+
 const states = {
   PENDING: 'PENDING',
   FORCE_PENDING: 'FORCE_PENDING',
@@ -1048,12 +1061,23 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
                 instance._runSettlementEffects();
                 resolve_(value);
               }
-            } else {
+            } else if (instance._internalState === states.FORCE_PENDING) {
+              // native already adopted and ignores this; other states drop it so a
+              // pre-aborted promise cannot fulfill before its deferred rejection lands
               resolve_(value);
             }
           }
 
           function reject(reason?: any): void {
+            const state = instance._internalState;
+            if (state !== states.PENDING) {
+              // FORCE_PENDING passthrough is a native no-op, same as in resolve
+              if (state === states.FORCE_PENDING || (state === states.CANCELED && _rejectingCanceled)) {
+                reject_(reason);
+              }
+              return;
+            }
+
             // Cancellation parity: an external rejection carrying a CancelError
             // transitions the promise to CANCELED exactly like cancel(), and must fire
             // registered cancel handlers + suppress its own unhandled rejection.
@@ -1063,26 +1087,11 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
             // exactly once (no double-fire).
             // It only triggers for genuinely external
             // CancelError rejections (executor reject / handler throw / adopted thenable).
-            let externalCancel = false;
-            let wasSettled = false;
-
-            if (instance._internalState === states.PENDING) {
-              if (isCancelError(reason)) {
-                instance._internalState = states.CANCELED;
-                externalCancel = true;
-              } else {
-                instance._internalState = states.REJECTED;
-              }
-              wasSettled = true;
-            }
+            const externalCancel = isCancelError(reason);
+            instance._internalState = externalCancel ? states.CANCELED : states.REJECTED;
 
             reject_(reason);
-
-            // Run settlement effects (e.g., abort listener cleanup) only once on
-            // PENDING to settled transition.
-            if (wasSettled) {
-              instance._runSettlementEffects();
-            }
+            instance._runSettlementEffects();
 
             if (externalCancel) {
               if (instance === tempThis) {
@@ -1126,7 +1135,12 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
           // settlement wrappers intact for withResolvers and lets settler-release happen
           // naturally at that later settle.
           if (!hasPendingPreAbort) {
-            executor(resolve, reject, getCtx());
+            try {
+              executor(resolve, reject, getCtx());
+            } catch (error) {
+              // a native catch would bypass the wrappers and leave the state PENDING
+              reject(error);
+            }
           }
         }) as TPromiseExecutor<TResult>,
       ],
@@ -1177,7 +1191,8 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
     const { signal } = normalizedOptions;
 
     // pre-aborted signals are handled by deferred handoff so no listeners are wired
-    if (signal && !hasPendingPreAbort) {
+    // sync-settled: cleanup already ran, a listener added now would leak
+    if (signal && !hasPendingPreAbort && instance._internalState === states.PENDING) {
       // Support both single signal and array of signals.
       const signals = Array.isArray(signal) ? signal : [signal];
 
@@ -1213,10 +1228,8 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
       instance._isCanceledReasonSet = true;
       const settle = instance._reject;
       void NativePromise.resolve().then(() => {
-        // `_reject` sees state already CANCELED, so its own PENDING->settled transition is
-        // skipped; drive the native rejection + settlement effects + cancellation cascade
-        // explicitly, mirroring the cancel() path.
-        settle(preAbortError);
+        // same steps as cancel(): native reject, settle effects, cascade
+        rejectCanceled(settle, preAbortError);
         instance._runSettlementEffects();
         instance._runCancellation(preAbortError);
       });
@@ -1527,7 +1540,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
         error.disposed = true;
       }
 
-      this._reject(error);
+      rejectCanceled(this._reject, error);
       this._runSettlementEffects();
 
       // Store collector on instance for async bubbles (.then()-based bubbleOnComplete)
