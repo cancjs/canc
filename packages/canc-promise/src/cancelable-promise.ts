@@ -1272,17 +1272,31 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
       // Support both single signal and array of signals.
       const signals = Array.isArray(signal) ? signal : [signal];
 
-      // register abort listeners for signals; tracking structures allocated lazily
-      const abortSignals: IAbortSignal[] = (instance._abortSignals = []);
-      const abortListeners = (instance._abortListeners = new Map<IAbortSignal, any>());
-      for (const sig of signals) {
-        const onAbort = () => {
-          instance.cancel(sig.reason);
-        };
+      const cancelFromSignal = (reason: unknown): void => {
+        try {
+          instance.cancel(reason);
+        } catch (_e) {
+          // abort dispatch has no caller to catch this, a throw would surface as uncaught
+        }
+      };
 
-        abortSignals.push(sig);
-        abortListeners.set(sig, onAbort);
-        sig.addEventListener('abort', onAbort, { once: true });
+      // the executor may have aborted a signal itself, after the pre-check ran
+      const abortedDuringExecutor = signals.find((s) => s.aborted);
+      if (abortedDuringExecutor) {
+        cancelFromSignal(abortedDuringExecutor.reason);
+      } else {
+        // register abort listeners for signals; tracking structures allocated lazily
+        const abortSignals: IAbortSignal[] = (instance._abortSignals = []);
+        const abortListeners = (instance._abortListeners = new Map<IAbortSignal, any>());
+        for (const sig of signals) {
+          const onAbort = () => {
+            cancelFromSignal(sig.reason);
+          };
+
+          abortSignals.push(sig);
+          abortListeners.set(sig, onAbort);
+          sig.addEventListener('abort', onAbort, { once: true });
+        }
       }
     }
 
