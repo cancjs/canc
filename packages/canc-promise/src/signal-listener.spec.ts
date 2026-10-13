@@ -103,7 +103,7 @@ describe('signal listener cleanup + multi-signal', () => {
   });
 
   // (c) Pre-aborted signal -> already-canceled promise (no sync throw by default)
-  it('(c) pre-aborted signal returns already-canceled promise (no throw)', () => {
+  it('(c) pre-aborted signal returns already-canceled promise (no throw)', async () => {
     const controller = new AbortController();
     controller.abort(new Error('pre-aborted'));
 
@@ -115,7 +115,7 @@ describe('signal listener cleanup + multi-signal', () => {
     );
 
     expect(promise.isCanceled).toBe(true);
-    expect(promise).rejects.toBeInstanceOf(CancelError);
+    await expect(promise).rejects.toBeInstanceOf(CancelError);
   });
 
   // (c) Pre-aborted + strict:true -> throws
@@ -275,5 +275,163 @@ describe('signal listener cleanup + multi-signal', () => {
     expect(addCount - removeCount).toBe(0);
 
     console.log(`Listener count matrix: +${addCount} -${removeCount} = ${addCount - removeCount}`);
+  });
+});
+
+// one host turn: an abort listener throw is reported to jest before the case ends
+function hostTurn(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve));
+}
+
+function trackAbortListeners(signal: AbortSignal): { live: () => number; added: Array<() => void> } {
+  const live = new Set<unknown>();
+  const added: Array<() => void> = [];
+  const origAdd = signal.addEventListener.bind(signal);
+  const origRemove = signal.removeEventListener.bind(signal);
+  jest.spyOn(signal, 'addEventListener').mockImplementation((type, listener, opts) => {
+    if (type === 'abort') {
+      live.add(listener);
+      added.push(listener as () => void);
+    }
+    origAdd(type, listener, opts);
+  });
+  jest.spyOn(signal, 'removeEventListener').mockImplementation((type, listener, opts) => {
+    if (type === 'abort') live.delete(listener);
+    origRemove(type, listener, opts);
+  });
+  return { live: () => live.size, added };
+}
+
+describe('signal wiring after the executor runs', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('leaves no abort listener when the executor resolves synchronously', async () => {
+    const controller = new AbortController();
+    const tracked = trackAbortListeners(controller.signal);
+
+    const promise = new CancelablePromise<string>((resolve) => resolve('sync'), { signal: controller.signal });
+
+    expect(tracked.live()).toBe(0);
+    await expect(promise).resolves.toBe('sync');
+  });
+
+  it('leaves no abort listener when the executor rejects synchronously', async () => {
+    const controller = new AbortController();
+    const tracked = trackAbortListeners(controller.signal);
+
+    const promise = new CancelablePromise<string>((_resolve, reject) => reject(new Error('sync')), {
+      signal: controller.signal,
+    });
+
+    expect(tracked.live()).toBe(0);
+    await expect(promise).rejects.toThrow('sync');
+  });
+
+  it('strict: an abort after a synchronous settle does not throw', async () => {
+    const controller = new AbortController();
+
+    const promise = new CancelablePromise<string>((resolve) => resolve('sync'), {
+      signal: controller.signal,
+      strict: true,
+    });
+
+    expect(() => controller.abort(new Error('late'))).not.toThrow();
+    await hostTurn();
+
+    expect(promise.canceled).toBe(false);
+    await expect(promise).resolves.toBe('sync');
+  });
+
+  it('strict: an abort listener invoked after settle does not throw', async () => {
+    const controller = new AbortController();
+    const tracked = trackAbortListeners(controller.signal);
+    let settle!: (value: string) => void;
+
+    const promise = new CancelablePromise<string>(
+      (resolve) => {
+        settle = resolve;
+      },
+      { signal: controller.signal, strict: true },
+    );
+    expect(tracked.added).toHaveLength(1);
+
+    settle('done');
+    await expect(promise).resolves.toBe('done');
+
+    // a dispatch already in flight can still reach a listener removed by settle
+    expect(() => tracked.added[0]()).not.toThrow();
+    expect(promise.canceled).toBe(false);
+  });
+
+  it('strict: an abort on a shielded pending promise does not throw', async () => {
+    const controller = new AbortController();
+    const tracked = trackAbortListeners(controller.signal);
+
+    const promise = new CancelablePromise<string>(
+      () => {
+        /**/
+      },
+      { signal: controller.signal, strict: true, shield: true },
+    );
+
+    expect(() => tracked.added[0]()).not.toThrow();
+    controller.abort(new Error('shielded'));
+    await hostTurn();
+
+    expect(promise.cancelable).toBe(true);
+  });
+
+  it('cancels when the executor aborts its own signal synchronously', async () => {
+    const controller = new AbortController();
+    const reason = new Error('aborted inside');
+    const tracked = trackAbortListeners(controller.signal);
+
+    const promise = new CancelablePromise<string>(
+      () => {
+        controller.abort(reason);
+      },
+      { signal: controller.signal },
+    );
+
+    expect(promise.canceled).toBe(true);
+    expect(tracked.live()).toBe(0);
+    const error = await promise.catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(CancelError);
+    expect((error as CancelError).cause).toBe(reason);
+  });
+
+  it('strict: an executor aborting its own signal cancels without throwing', async () => {
+    const controller = new AbortController();
+    let promise!: CancelablePromise<string>;
+
+    expect(() => {
+      promise = new CancelablePromise<string>(
+        () => {
+          controller.abort(new Error('aborted inside'));
+        },
+        { signal: controller.signal, strict: true },
+      );
+    }).not.toThrow();
+
+    expect(promise.canceled).toBe(true);
+    await expect(promise).rejects.toBeInstanceOf(CancelError);
+  });
+
+  it('runs cancel handlers registered by an executor that aborts its own signal', async () => {
+    const controller = new AbortController();
+    const onCancel = jest.fn();
+
+    const promise = new CancelablePromise<string>(
+      (_resolve, _reject, { handleCancel }) => {
+        handleCancel(onCancel);
+        controller.abort(new Error('aborted inside'));
+      },
+      { signal: controller.signal },
+    );
+
+    await promise.catch(() => undefined);
+    expect(onCancel).toHaveBeenCalledTimes(1);
   });
 });

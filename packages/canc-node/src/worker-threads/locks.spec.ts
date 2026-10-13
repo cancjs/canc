@@ -108,6 +108,24 @@ describeLocks('requestLock', () => {
     expect(bodyCanceled).toBe(true);
   });
 
+  // expects the steal to reject the holder; fails until the steal path rejects with CancelError
+  it.failing('rejects the holder whose lock is stolen, even while its body still runs', async () => {
+    const name = lockName();
+    let releaseHolder = (): void => undefined;
+
+    const holder = requestLock(name, () => {
+      return new Promise<string>((resolve) => {
+        releaseHolder = () => resolve('held to the end');
+      });
+    });
+    await sleep(50);
+
+    await expect(requestLock(name, { steal: true }, () => 'stolen')).resolves.toBe('stolen');
+
+    releaseHolder();
+    await expect(holder).rejects.toThrow();
+  });
+
   it('hands the body null instead of queueing when ifAvailable meets a held lock', async () => {
     const name = lockName();
     let releaseHolder = (): void => undefined;

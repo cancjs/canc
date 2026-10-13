@@ -4,6 +4,10 @@ import * as path from 'path';
 import { CancelablePromise } from './cancelable-promise';
 import { getPromiseImpl, resolvePromiseImpl, setPromiseImpl } from './impl-registry';
 
+// any canc-shaped class passes registration, a subclass keeps identity checks distinct
+class RegisteredImpl<T> extends CancelablePromise<T> {}
+const Registered = RegisteredImpl as unknown as PromiseConstructor;
+
 describe('impl registry', () => {
   afterEach(() => {
     setPromiseImpl(undefined);
@@ -15,7 +19,7 @@ describe('impl registry', () => {
     });
 
     it('returns CancelablePromise again after a registration is cleared', () => {
-      setPromiseImpl(Promise);
+      setPromiseImpl(Registered);
       setPromiseImpl(undefined);
 
       expect(getPromiseImpl()).toBe(CancelablePromise);
@@ -24,15 +28,15 @@ describe('impl registry', () => {
 
   describe('set/get roundtrip', () => {
     it('returns the registered implementation', () => {
-      setPromiseImpl(Promise);
+      setPromiseImpl(Registered);
 
-      expect(getPromiseImpl()).toBe(Promise);
+      expect(getPromiseImpl()).toBe(Registered);
     });
 
     it('overwrites a previous registration', () => {
-      class OtherPromise extends Promise<unknown> {}
+      class OtherPromise extends CancelablePromise<unknown> {}
 
-      setPromiseImpl(Promise);
+      setPromiseImpl(Registered);
       setPromiseImpl(OtherPromise as unknown as PromiseConstructor);
 
       expect(getPromiseImpl()).toBe(OtherPromise);
@@ -44,7 +48,7 @@ describe('impl registry', () => {
       class OptionsImpl extends Promise<unknown> {}
       class StaticImpl extends Promise<unknown> {}
 
-      setPromiseImpl(Promise);
+      setPromiseImpl(Registered);
 
       const resolved = resolvePromiseImpl(
         { impl: OptionsImpl as unknown as PromiseConstructor },
@@ -57,7 +61,7 @@ describe('impl registry', () => {
     it('prefers static over registry and default', () => {
       class StaticImpl extends Promise<unknown> {}
 
-      setPromiseImpl(Promise);
+      setPromiseImpl(Registered);
 
       const resolved = resolvePromiseImpl(undefined, StaticImpl as unknown as PromiseConstructor);
 
@@ -65,10 +69,10 @@ describe('impl registry', () => {
     });
 
     it('prefers registry over default', () => {
-      setPromiseImpl(Promise);
+      setPromiseImpl(Registered);
 
-      expect(resolvePromiseImpl()).toBe(Promise);
-      expect(resolvePromiseImpl({}, undefined)).toBe(Promise);
+      expect(resolvePromiseImpl()).toBe(Registered);
+      expect(resolvePromiseImpl({}, undefined)).toBe(Registered);
     });
 
     it('falls back to CancelablePromise when nothing is provided', () => {
@@ -87,5 +91,63 @@ describe('impl registry', () => {
 
       expect(mutableTopLevel).toEqual([]);
     });
+  });
+});
+
+describe('setPromiseImpl validation', () => {
+  afterEach(() => {
+    setPromiseImpl(undefined);
+  });
+
+  it('rejects a plain object', () => {
+    expect(() => setPromiseImpl({} as unknown as PromiseConstructor)).toThrow(TypeError);
+    expect(getPromiseImpl()).toBe(CancelablePromise);
+  });
+
+  it('rejects the native Promise, which has no cancel', () => {
+    expect(() => setPromiseImpl(Promise)).toThrow(TypeError);
+    expect(getPromiseImpl()).toBe(CancelablePromise);
+  });
+
+  it('rejects a function without a promise prototype', () => {
+    expect(() => setPromiseImpl((() => undefined) as unknown as PromiseConstructor)).toThrow(TypeError);
+  });
+
+  it('rejects a class whose prototype has then but no cancel', () => {
+    class ThenOnly {
+      then(): void {}
+    }
+
+    expect(() => setPromiseImpl(ThenOnly as unknown as PromiseConstructor)).toThrow(TypeError);
+    expect(getPromiseImpl()).toBe(CancelablePromise);
+  });
+
+  it('rejects a class whose prototype has cancel but no then', () => {
+    class CancelOnly {
+      cancel(): void {}
+    }
+
+    expect(() => setPromiseImpl(CancelOnly as unknown as PromiseConstructor)).toThrow(TypeError);
+    expect(getPromiseImpl()).toBe(CancelablePromise);
+  });
+
+  it('accepts the real implementation', () => {
+    setPromiseImpl(CancelablePromise as unknown as PromiseConstructor);
+
+    expect(getPromiseImpl()).toBe(CancelablePromise);
+  });
+
+  it('accepts a subclass of the real implementation', () => {
+    class Sub<T> extends CancelablePromise<T> {}
+    setPromiseImpl(Sub as unknown as PromiseConstructor);
+
+    expect(getPromiseImpl()).toBe(Sub);
+  });
+
+  it('still clears with undefined', () => {
+    setPromiseImpl(CancelablePromise as unknown as PromiseConstructor);
+    setPromiseImpl(undefined);
+
+    expect(getPromiseImpl()).toBe(CancelablePromise);
   });
 });

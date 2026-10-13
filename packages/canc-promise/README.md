@@ -491,7 +491,8 @@ Consumers resolve the implementation for each call in this order, highest first:
 `options.impl`, then the consumer's own class static, then this registry, then the built-in
 `CancelablePromise`. Per-call and static injection pass the implementation by reference, so they
 always work. The registry is the convenience layer for the common case where one implementation
-applies process-wide.
+applies process-wide. The implementation must be a function whose prototype has `then` and `cancel`;
+otherwise `setPromiseImpl` throws a `TypeError` (the native `Promise` is rejected).
 
 #### Troubleshooting: registration seems to be ignored
 
