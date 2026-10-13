@@ -126,3 +126,84 @@ describe('adopting a promise from the other copy', () => {
     expect(isCancelError(reason)).toBe(true);
   });
 });
+
+// A copy that carries the brand and the public surface but none of this copy's private entries,
+// as a future release that renamed them would look from here.
+function makeBrandedWithoutPrivates<T>(): {
+  foreign: PromiseLike<T> & { cancel: jest.Mock };
+  resolve: (value: T) => void;
+} {
+  let resolve!: (value: T) => void;
+  const settled = new NativePromise<T>((resolve_) => {
+    resolve = resolve_;
+  });
+  const foreign = {
+    [Symbol.for('@cancjs/promise:CancelablePromise')]: true,
+    then: <TFulfilled = T, TRejected = never>(
+      onFulfilled?: ((value: T) => TFulfilled | PromiseLike<TFulfilled>) | null,
+      onRejected?: ((reason: unknown) => TRejected | PromiseLike<TRejected>) | null,
+    ) => settled.then(onFulfilled, onRejected),
+    cancel: jest.fn(),
+  };
+  return { foreign, resolve };
+}
+
+describe('adopting a branded copy without the private entries', () => {
+  it('executor resolve(): the value flows through the public then', async () => {
+    const { foreign, resolve } = makeBrandedWithoutPrivates<number>();
+    const outer = new CancelablePromise<number>((resolve_) => resolve_(foreign));
+
+    resolve(7);
+
+    expect(await outer).toBe(7);
+    expect(foreign.cancel).not.toHaveBeenCalled();
+  });
+
+  it('then() return: the value flows through the public then', async () => {
+    const { foreign, resolve } = makeBrandedWithoutPrivates<number>();
+    const outer = CancelablePromise.resolve().then(() => foreign);
+
+    resolve(8);
+
+    expect(await outer).toBe(8);
+  });
+
+  it('resolve() wraps it and settles with its value', async () => {
+    const { foreign, resolve } = makeBrandedWithoutPrivates<number>();
+    const wrapped = CancelablePromise.resolve(foreign);
+
+    resolve(9);
+
+    expect(await wrapped).toBe(9);
+  });
+
+  it('canceling the wrapper calls the public cancel once', async () => {
+    const { foreign } = makeBrandedWithoutPrivates<number>();
+    const outer = new CancelablePromise<number>((resolve_) => resolve_(foreign));
+    const caught = outer.catch((reason: unknown) => reason);
+
+    await flush();
+
+    outer.cancel('stop');
+    await flush();
+
+    expect(foreign.cancel).toHaveBeenCalledTimes(1);
+    expect(foreign.cancel).toHaveBeenCalledWith('stop');
+    expect(isCancelError(await caught)).toBe(true);
+  });
+
+  it('a throwing public cancel does not break the wrapper cancellation', async () => {
+    const { foreign } = makeBrandedWithoutPrivates<number>();
+    foreign.cancel.mockImplementation(() => {
+      throw new Error('settled');
+    });
+    const outer = new CancelablePromise<number>((resolve_) => resolve_(foreign));
+    const caught = outer.catch((reason: unknown) => reason);
+
+    await flush();
+
+    expect(() => outer.cancel()).not.toThrow();
+    expect(foreign.cancel).toHaveBeenCalledTimes(1);
+    expect(isCancelError(await caught)).toBe(true);
+  });
+});

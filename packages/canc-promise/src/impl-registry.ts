@@ -1,3 +1,4 @@
+import { isCancelable, isFunction } from '../../_util';
 import { CancelablePromise } from './cancelable-promise';
 
 /**
@@ -36,8 +37,13 @@ let registeredImpl: PromiseImpl | undefined;
  * registration made through one copy is invisible to the other. See the package README
  * troubleshooting note. Explicit per-call/static injection is immune to this because it passes the
  * implementation by reference.
+ *
+ * @throws {TypeError} When `impl` is not a constructor whose prototype has `then` and `cancel`.
  */
 export function setPromiseImpl(impl?: PromiseImpl): void {
+  if (impl !== undefined && !(isFunction(impl) && isCancelable(impl.prototype))) {
+    throw new TypeError('setPromiseImpl expects a promise class whose prototype has then and cancel');
+  }
   registeredImpl = impl;
 }
 

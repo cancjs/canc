@@ -934,6 +934,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
   // Bound `cancel`, created lazily only when a detached reference is requested (withResolvers).
   protected _boundCancel?: CancelablePromise<TResult, TFailure>['cancel'];
 
+  // cross-copy contract: fixed meaning, an incompatible change takes a new suffixed name
   // Cleanup collector stored on the instance so async bubbles (bubbleOnComplete .then()) can
   // read it after _activeCollector has been restored.
   protected _collector?: any[];
@@ -1029,7 +1030,12 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
                 return;
               }
 
-              const adopted = isCancPromise(value) ? value : undefined;
+              // another copy's `_chain`/`_subscribe` are called by name, without them it
+              // adopts through the public `then` and `cancel()`
+              const adopted =
+                isCancPromise(value) && typeof value._chain === 'function' && typeof value._subscribe === 'function' ?
+                  value
+                : undefined;
               let foreignThen: TAnyFn | undefined;
               if (!adopted && (isObject(value) || isFunction(value))) {
                 // read once: a getter may count reads or throw, as native resolution allows
@@ -1063,6 +1069,15 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
               // never enter it.
               if (adopted) {
                 adopted._chain(instance);
+              } else if (isCancPromise(value) && typeof value.cancel === 'function') {
+                const branded = value;
+                instance.handleCancel((reason) => {
+                  try {
+                    void branded.cancel(reason);
+                  } catch (_e) {
+                    // strict refuses a shielded or settled promise, this one is canceled anyway
+                  }
+                });
               }
 
               // On the internal (then-derived) path the shared stand-in options always
@@ -1833,6 +1848,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
    * rejection), exactly like the per-item `.then()` it replaces. The throwaway native promise is
    * never returned to a caller nor chained.
    */
+  // cross-copy contract: fixed meaning, an incompatible change takes a new suffixed name
   protected _subscribe(
     onFulfilled?: ((value: TResult) => any) | null,
     onRejected?: ((reason: any) => any) | null,
@@ -1845,6 +1861,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
    * @param childPromise The next promise in the chain
    * @param bubbleOnComplete Makes the cancellation bubble on completion of the child promise, e.g. race()
    */
+  // cross-copy contract: fixed meaning, an incompatible change takes a new suffixed name
   protected _chain(childPromise: CancelablePromise<any, any>, bubbleOnComplete?: boolean): void {
     const onComplete = this._addChainRef(bubbleOnComplete);
     if (!onComplete) {
