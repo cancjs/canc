@@ -10,6 +10,10 @@ import { CancelError, isCancelError } from '@cancjs/promise';
 import { isProcessExitError, isProcessSpawnError } from '../errors/classes';
 import { fork, spawn } from './spawn';
 
+function removeTempDir(dir: string): void {
+  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
+}
+
 const forever = 'setTimeout(() => {}, 60000)';
 
 // a real process crash cannot be observed from inside the runner (it intercepts uncaught
@@ -293,7 +297,7 @@ describe('spawn and fork', () => {
     });
 
     afterEach(() => {
-      rmSync(dir, { force: true, recursive: true });
+      removeTempDir(dir);
     });
 
     it('resolves with the exit code of the forked module', async () => {

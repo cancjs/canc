@@ -9,6 +9,10 @@ import { isNotFoundError } from '../errors/errno';
 import * as fsExports from './index';
 import { IFsLike, resetFs, setFs } from './registry';
 
+function removeTempDir(dir: string): void {
+  nodeFs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
+}
+
 describe('@cancjs/node/fs module exports', () => {
   afterEach(() => {
     resetFs();
@@ -155,7 +159,7 @@ describe('@cancjs/node/fs module exports', () => {
       }
     } finally {
       clearInterval(touch);
-      nodeFs.rmSync(dir, { recursive: true, force: true });
+      removeTempDir(dir);
     }
 
     expect(seen.length).toBeGreaterThanOrEqual(1);
@@ -192,7 +196,7 @@ describe('@cancjs/node/fs module exports', () => {
 
     expect(nodeFs.existsSync(dest)).toBe(true);
 
-    nodeFs.rmSync(dir, { recursive: true, force: true });
+    removeTempDir(dir);
   });
 
   it('closes the descriptor when a pending open is canceled', async () => {
@@ -251,7 +255,7 @@ describe('@cancjs/node/fs module exports', () => {
       await closed;
       expect(closeSpy).toHaveBeenCalledTimes(1);
     } finally {
-      nodeFs.rmSync(dir, { recursive: true, force: true });
+      removeTempDir(dir);
     }
   });
 
@@ -305,7 +309,7 @@ describe('@cancjs/node/fs module exports', () => {
       }
       expect(closeSpy).toHaveBeenCalledTimes(1);
     } finally {
-      nodeFs.rmSync(dir, { recursive: true, force: true });
+      removeTempDir(dir);
     }
   });
 
@@ -323,7 +327,7 @@ describe('@cancjs/node/fs module exports', () => {
       expect(stats.size).toBe(5);
       await fh.close();
     } finally {
-      nodeFs.rmSync(dir, { recursive: true, force: true });
+      removeTempDir(dir);
     }
   });
 

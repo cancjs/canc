@@ -27,6 +27,10 @@ const repoRoot = join(__dirname, '..', '..', '..');
 const scriptPath = join(repoRoot, 'scripts', 'node', 'surface-check.mjs');
 const realSurfaceDir = join(repoRoot, 'packages', 'canc-node', 'surface');
 
+function removeTempDir(dir: string): void {
+  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
+}
+
 function buildFixture(breakSinceByMajor: boolean): string {
   const tempRoot = mkdtempSync(join(tmpdir(), 'surface-check-'));
   const destSurfaceDir = join(tempRoot, 'packages', 'canc-node', 'surface');
@@ -64,7 +68,7 @@ describe('surface-check signal-map fallback', () => {
       expect(result.status).not.toBe(0);
       expect(result.stderr).toMatch(/Check C failed: fs promises_api\.lstat manifest is missing major 26/);
     } finally {
-      rmSync(tempRoot, { recursive: true, force: true });
+      removeTempDir(tempRoot);
     }
   });
 
@@ -74,7 +78,7 @@ describe('surface-check signal-map fallback', () => {
       const result = runCheck(tempRoot);
       expect(result.status).toBe(0);
     } finally {
-      rmSync(tempRoot, { recursive: true, force: true });
+      removeTempDir(tempRoot);
     }
   });
 });
