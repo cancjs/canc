@@ -240,7 +240,20 @@
   "typesVersions": {
     "<4.7": {
       "dist/types/*": ["dist/types-ts4.2/*"],
-      "child-process": ["dist/types-ts4.2/child-process/index.d.ts"]
+      "fs": ["dist/types-ts4.2/fs/index.d.ts"],
+      "fs/sync": ["dist/types-ts4.2/fs/sync.d.ts"],
+      "fs/register-graceful": ["dist/types-ts4.2/fs/register-graceful.d.ts"],
+      "fs/extra": ["dist/types-ts4.2/fs-extra/index.d.ts"],
+      "child-process": ["dist/types-ts4.2/child-process/index.d.ts"],
+      "timers": ["dist/types-ts4.2/timers/index.d.ts"],
+      "stream": ["dist/types-ts4.2/stream/index.d.ts"],
+      "events": ["dist/types-ts4.2/events/index.d.ts"],
+      "dns": ["dist/types-ts4.2/dns/index.d.ts"],
+      "readline": ["dist/types-ts4.2/readline/index.d.ts"],
+      "crypto": ["dist/types-ts4.2/crypto/index.d.ts"],
+      "zlib": ["dist/types-ts4.2/zlib/index.d.ts"],
+      "worker-threads": ["dist/types-ts4.2/worker-threads/index.d.ts"],
+      "dgram": ["dist/types-ts4.2/dgram/index.d.ts"]
     },
     "*": {
       "fs": ["dist/types/fs/index.d.ts"],
