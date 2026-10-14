@@ -881,7 +881,11 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
       // Shielded inputs are skipped: their cancel() is a no-op anyway, but skipping keeps
       // the doctrine explicit, a shielded loser is never canceled by a combinator.
       if (input !== winner && input.cancelable && input.bubble && !input.shield) {
-        input.cancel(new CancelError('Canceled as loser in combinator'));
+        try {
+          input.cancel(new CancelError('Canceled as loser in combinator'));
+        } catch (_e) {
+          // one loser's handler error must not spare the remaining losers
+        }
       }
     }
   }
@@ -1241,7 +1245,11 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
                 instance._pendingSyncCancel = true;
                 instance._pendingSyncCancelReason = reason as unknown;
               } else {
-                instance._runCancellation(reason);
+                try {
+                  instance._runCancellation(reason);
+                } catch (_e) {
+                  // a throw here would escape the native reaction job as uncaught
+                }
               }
             }
           }
@@ -1387,7 +1395,11 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
         // same steps as cancel(): native reject, settle effects, cascade
         rejectCanceled(settle, preAbortError);
         instance._runSettlementEffects();
-        instance._runCancellation(preAbortError);
+        try {
+          instance._runCancellation(preAbortError);
+        } catch (_e) {
+          // no caller to receive a handler error
+        }
       });
     }
 
@@ -1400,7 +1412,11 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
       instance._pendingSyncCancel = false;
       const reason = instance._pendingSyncCancelReason as unknown;
       instance._pendingSyncCancelReason = undefined;
-      instance._runCancellation(reason);
+      try {
+        instance._runCancellation(reason);
+      } catch (_e) {
+        // the executor's reject call already returned, nobody receives a handler error
+      }
     }
 
     return instance;
@@ -1641,7 +1657,9 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
    * just the local handlers. In non-awaitable mode (`asyncCancel:false`) handlers run
    * synchronously and `cancel()` returns `undefined`; a handler that returns a thenable in
    * this mode throws under `strict` (the handler needs async cleanup but the caller opted
-   * out of awaiting it).
+   * out of awaiting it). A throwing handler does not stop the others: all of them run, then this
+   * call rethrows the first error. A cancel reached any other way (abort signal, bubble, a
+   * canceled parent) drops handler errors.
    *
    * Handler timing: registered cancel handlers START synchronously the moment the cancel takes
    * effect, regardless of what triggered it (an explicit `cancel()`, an upstream rejection, or a
@@ -1751,6 +1769,10 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
    * pushed into it instead of building a local allSettled. The initiator wraps the collector in
    * one top-level allSettled that covers the entire transitive cancel cascade. Without a collector,
    * handlers fire-and-forget (bubble/external-cancel paths).
+   *
+   * In non-awaitable mode every handler runs even when one throws; the first error is rethrown
+   * after the last handler. Only a direct `cancel()` call lets it reach a caller, every other
+   * path drops it.
    */
   protected _runCancellation(reason?: any, collector?: any[]): void {
     this._canceledReason = reason;
@@ -1787,23 +1809,31 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
           /**/
         }
       }
-    } else {
-      if (handlers?.length) {
+    } else if (handlers?.length) {
+      const pending = handlers.slice();
+      handlers.length = 0;
+      let failed = false;
+      let firstError: unknown;
+      for (const handler of pending) {
         try {
-          for (const handler of handlers) {
-            const r = handler(reason);
-            if (isThenable(r)) {
-              if (this.strict) {
-                throw new Error(
-                  'Cancel handler returned a thenable in non-awaitable cancel mode. Use asyncCancel:true or make the handler synchronous',
-                );
-              }
-              (r as PromiseLike<unknown>).then(noop, noop);
+          const r = handler(reason);
+          if (isThenable(r)) {
+            if (this.strict) {
+              throw new Error(
+                'Cancel handler returned a thenable in non-awaitable cancel mode. Use asyncCancel:true or make the handler synchronous',
+              );
             }
+            (r as PromiseLike<unknown>).then(noop, noop);
           }
-        } finally {
-          handlers.length = 0;
+        } catch (error) {
+          if (!failed) {
+            failed = true;
+            firstError = error;
+          }
         }
+      }
+      if (failed) {
+        throw firstError;
       }
     }
   }
@@ -1884,7 +1914,11 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
         const error = new CancelError(`Bubbled on ${bubbleOnComplete ? 'settling' : 'cancel'}`);
         error.bubbled = true;
 
-        this.cancel(error);
+        try {
+          this.cancel(error);
+        } catch (_e) {
+          // a parent's handler error never reaches the child's canceler
+        }
       }
     };
   }
