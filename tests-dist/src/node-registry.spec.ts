@@ -90,6 +90,22 @@ describe('node package cross-subpath registry and error identity (CommonJS)', ()
       assert.equal(thrown instanceof ProcessExitError, true);
     `);
   });
+
+  it('zlib error is instanceof the root NotImplementedError', () => {
+    runCjs(`
+      const assert = require('node:assert/strict');
+      const { NotImplementedError } = require('@cancjs/node');
+      const { ZipBuffer } = require('@cancjs/node/zlib');
+      let thrown = null;
+      try {
+        new ZipBuffer();
+      } catch (err) {
+        thrown = err;
+      }
+      assert.ok(thrown);
+      assert.equal(thrown instanceof NotImplementedError, true);
+    `);
+  });
 });
 
 describe('node package cross-subpath registry and error identity (ESM)', () => {
@@ -157,5 +173,42 @@ describe('node package cross-subpath registry and error identity (ESM)', () => {
       assert.ok(thrown);
       assert.equal(thrown instanceof ProcessExitError, true);
     `);
+  });
+
+  it('zlib error is instanceof the root NotImplementedError', () => {
+    runEsm(`
+      import assert from 'node:assert/strict';
+      import { NotImplementedError } from '@cancjs/node';
+      import { ZipBuffer } from '@cancjs/node/zlib';
+
+      let thrown = null;
+      try {
+        new ZipBuffer();
+      } catch (err) {
+        thrown = err;
+      }
+      assert.ok(thrown);
+      assert.equal(thrown instanceof NotImplementedError, true);
+    `);
+  });
+});
+
+describe('node package built bundle error class containment', () => {
+  it('no node error class is created outside the root bundle', () => {
+    const distDir = path.resolve(__dirname, '../../packages/canc-node/dist');
+    const nonRootFiles = fs
+      .readdirSync(distDir)
+      .filter((f) => !f.startsWith('index.') && (f.endsWith('.cjs') || f.endsWith('.mjs')));
+
+    for (const file of nonRootFiles) {
+      const content = fs.readFileSync(path.join(distDir, file), 'utf8');
+      const nodeErrorMatch =
+        /createErrorClass\([^)]*(?:@cancjs\/node:|NotImplementedError|ProcessExitError|ProcessSpawnError|JsonParseError)/.exec(
+          content,
+        );
+      if (nodeErrorMatch) {
+        throw new Error(`Found node error class creation in ${file}: ${nodeErrorMatch[0]}`);
+      }
+    }
   });
 });
