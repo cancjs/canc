@@ -9,7 +9,7 @@ import { CancelablePromise } from '@cancjs/promise';
 import type { Unlisted } from '../../../_util';
 import streamJson from '../../surface/projected/stream.json';
 
-export function duplexPair(options?: DuplexOptions<Duplex>): [Duplex, Duplex] {
+export function duplexPair(options?: DuplexOptions): [Duplex, Duplex] {
   if (typeof (nodeStream as any).duplexPair !== 'function') {
     throw new NotImplementedError('duplexPair requires Node >= 20', { feature: 'duplexPair', required: '20' });
   }
