@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 const semver = require('semver');
+const parseChangesetFile = require('@changesets/parse').default;
 
 const ROOT = path.resolve(__dirname, '..');
 
@@ -52,21 +53,24 @@ function findPackageDir(pkgName) {
   return null;
 }
 
-function extractChangelogSection(pkgName, version) {
-  const dir = findPackageDir(pkgName);
-  if (!dir) return '- Maintenance update.';
-  const changelogPath = path.join(dir, 'CHANGELOG.md');
-  if (!fs.existsSync(changelogPath)) return '- Maintenance update.';
+function extractChangelogSection(pkgName, version, customContent) {
+  let content = customContent;
+  if (content === undefined) {
+    const dir = findPackageDir(pkgName);
+    if (!dir) return `<!-- Owner: no CHANGELOG section for ${pkgName} ${version} -->`;
+    const changelogPath = path.join(dir, 'CHANGELOG.md');
+    if (!fs.existsSync(changelogPath)) return `<!-- Owner: no CHANGELOG section for ${pkgName} ${version} -->`;
+    content = fs.readFileSync(changelogPath, 'utf8');
+  }
 
-  const content = fs.readFileSync(changelogPath, 'utf8');
-  const heading = `## ${version}`;
-  const idx = content.indexOf(heading);
-  if (idx === -1) return '- Maintenance update.';
+  const headingRegex = new RegExp(`^##\\s+${version.replace(/\./g, '\\.')}\\s*$`, 'm');
+  const match = content.match(headingRegex);
+  if (!match) return `<!-- Owner: no CHANGELOG section for ${pkgName} ${version} -->`;
 
-  const afterHeading = content.slice(idx + heading.length);
+  const afterHeading = content.slice(match.index + match[0].length);
   const lines = [];
-  for (const line of afterHeading.split('\n')) {
-    if (line.startsWith('## ')) {
+  for (const line of afterHeading.split(/\r?\n/)) {
+    if (/^##\s+/.test(line)) {
       break;
     }
     if (lines.length === 0 && line.trim() === '') {
@@ -76,10 +80,169 @@ function extractChangelogSection(pkgName, version) {
   }
 
   const result = lines.join('\n').trim();
-  return result.length > 0 ? result : '- Maintenance update.';
+  return result.length > 0 ? result : `<!-- Owner: no CHANGELOG section for ${pkgName} ${version} -->`;
 }
 
-function generateReleaseData(published) {
+function getCurrentLatestMinor(options = {}) {
+  if (options.currentLatestMinor) {
+    return semver.coerce(options.currentLatestMinor);
+  }
+  const flag = getArg('--current-latest-minor');
+  if (flag) {
+    return semver.coerce(flag);
+  }
+  try {
+    const out = execSync('gh release view --json tagName', {
+      cwd: ROOT,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    const parsed = JSON.parse(out);
+    const tag = parsed.tagName || '';
+    const m = tag.match(/(\d+\.\d+\.\d+)/);
+    if (m) {
+      const v = semver.parse(m[1]);
+      if (v) return v;
+    }
+  } catch {
+    // gh release view unavailable
+  }
+  return semver.parse('1.0.0');
+}
+
+function getPreviousBetaTag(currentVersion) {
+  const currentParsed = semver.parse(currentVersion);
+  if (!currentParsed) return null;
+  try {
+    const out = execSync('git tag --list "v*-beta*"', {
+      cwd: ROOT,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    const tags = out
+      .split(/\r?\n/)
+      .map((t) => t.trim())
+      .filter(Boolean);
+    const candidates = [];
+    for (const t of tags) {
+      const vStr = t.startsWith('v') ? t.slice(1) : t;
+      const v = semver.parse(vStr);
+      if (
+        v &&
+        v.prerelease.length > 0 &&
+        v.major === currentParsed.major &&
+        v.minor === currentParsed.minor &&
+        semver.lt(v, currentParsed)
+      ) {
+        candidates.push({ tag: t, ver: v });
+      }
+    }
+    candidates.sort((a, b) => semver.rcompare(a.ver, b.ver));
+    return candidates.length > 0 ? candidates[0].tag : null;
+  } catch {
+    // git tag query unavailable
+  }
+  return null;
+}
+
+function getNewChangesetSummaries(currentVersion, options = {}) {
+  if (options.newChangesetSummaries) {
+    return options.newChangesetSummaries;
+  }
+
+  let currentPre = null;
+  if (options.preJson) {
+    currentPre = options.preJson;
+  } else {
+    const prePath = path.join(ROOT, '.changeset/pre.json');
+    if (fs.existsSync(prePath)) {
+      try {
+        currentPre = JSON.parse(fs.readFileSync(prePath, 'utf8'));
+      } catch {
+        currentPre = null;
+      }
+    }
+  }
+
+  if (!currentPre || !Array.isArray(currentPre.changesets)) {
+    return [];
+  }
+
+  const prevTag = options.previousBetaTag !== undefined ? options.previousBetaTag : getPreviousBetaTag(currentVersion);
+  let previousChangesetIds = new Set();
+
+  if (prevTag) {
+    try {
+      const prevOut = execSync(`git show "${prevTag}:.changeset/pre.json"`, {
+        cwd: ROOT,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      });
+      const parsed = JSON.parse(prevOut);
+      previousChangesetIds = new Set(parsed.changesets || []);
+    } catch {
+      // tag pre.json unreadable
+    }
+  } else if (!currentVersion.endsWith('-beta.0') && !currentVersion.endsWith('.0')) {
+    try {
+      const prevOut = execSync('git show "HEAD^:.changeset/pre.json"', {
+        cwd: ROOT,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      });
+      const parsed = JSON.parse(prevOut);
+      previousChangesetIds = new Set(parsed.changesets || []);
+    } catch {
+      // parent commit pre.json unreadable
+    }
+  } else {
+    return [];
+  }
+
+  const newIds = currentPre.changesets.filter((id) => !previousChangesetIds.has(id));
+  const summaries = [];
+  const csDir = options.changesetDir || path.join(ROOT, '.changeset');
+
+  for (const id of newIds) {
+    let content;
+    const fileOnDisk = path.join(csDir, `${id}.md`);
+    if (fs.existsSync(fileOnDisk)) {
+      content = fs.readFileSync(fileOnDisk, 'utf8');
+    } else {
+      try {
+        content = execSync(`git show "HEAD:.changeset/${id}.md"`, {
+          cwd: ROOT,
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'ignore'],
+        });
+      } catch {
+        content = null;
+      }
+    }
+
+    if (!content) continue;
+
+    let parsed;
+    try {
+      parsed = parseChangesetFile(content);
+    } catch {
+      continue;
+    }
+
+    const firstLine = (parsed.summary || '').trim().split(/\r?\n/)[0].trim();
+    if (!firstLine) continue;
+
+    const cleanLine = firstLine.replace(/^\([a-z0-9_-]+\)\s*/, '');
+    const scopes = (parsed.releases || []).map((r) => r.name.replace(/^@cancjs\//, '')).filter(Boolean);
+    const scopeSuffix = scopes.length > 0 ? ` (${scopes.join(', ')})` : '';
+    const formatted = `- ${cleanLine}${cleanLine.endsWith(scopeSuffix) ? '' : scopeSuffix}`;
+    summaries.push(formatted);
+  }
+
+  return summaries;
+}
+
+function generateReleaseData(published, options = {}) {
   if (!Array.isArray(published) || published.length === 0) {
     throw new Error('Published packages list is empty');
   }
@@ -87,19 +250,39 @@ function generateReleaseData(published) {
   const isPrerelease = published.some((p) => p.version.includes('-'));
   const firstVersion = published[0].version;
   const isUniformVersion = published.every((p) => p.version === firstVersion);
-  const parsedFirst = semver.parse(firstVersion);
-  const isZeroPatch = Boolean(parsedFirst && parsedFirst.patch === 0);
-  const isMinorOrPre = isPrerelease || isZeroPatch;
-  const isMinorTrain = isUniformVersion && published.length > 1 && isMinorOrPre;
+
+  const currentLatest = getCurrentLatestMinor(options);
+  let minorTrainVersion = null;
+  let highestMinor = null;
+  if (!isPrerelease) {
+    for (const p of published) {
+      const v = semver.parse(p.version);
+      if (v && v.prerelease.length === 0 && v.patch === 0) {
+        const isNewer =
+          !currentLatest ||
+          v.major > currentLatest.major ||
+          (v.major === currentLatest.major && v.minor > currentLatest.minor);
+        if (isNewer && (!highestMinor || semver.gt(v, highestMinor))) {
+          highestMinor = v;
+          minorTrainVersion = p.version;
+        }
+      }
+    }
+  }
+  const isMinorTrain = !isPrerelease && Boolean(minorTrainVersion);
 
   let tag;
   let title;
   let isLatest;
 
   if (isMinorTrain) {
+    tag = `v${minorTrainVersion}`;
+    title = `canc ${minorTrainVersion}`;
+    isLatest = true;
+  } else if (isPrerelease && isUniformVersion && published.length > 1) {
     tag = `v${firstVersion}`;
     title = `canc ${firstVersion}`;
-    isLatest = !isPrerelease;
+    isLatest = false;
   } else if (published.length === 1) {
     tag = `${published[0].name}@${published[0].version}`;
     title = `${published[0].name}@${published[0].version}`;
@@ -113,24 +296,33 @@ function generateReleaseData(published) {
   let body;
   if (isPrerelease) {
     const betaPkgs = published.map((p) => `${p.name}@beta`).join(' ');
-    body =
+    let betaBody =
       `Prerelease of the ${firstVersion.split('-')[0]} line. ` +
       `APIs can still change between betas.\n\n` +
       `Install packages from the beta tag together:\n\n` +
-      `    npm install ${betaPkgs}\n\n` +
-      `### Known issues\n\n- Server packages support HTTP/1.1 only.`;
+      `    npm install ${betaPkgs}\n\n`;
+
+    const changes = getNewChangesetSummaries(firstVersion, options);
+    if (changes.length > 0) {
+      betaBody += `Changes since the previous beta:\n\n${changes.join('\n')}\n\n`;
+    }
+
+    betaBody += `### Known issues\n\n- Server packages support HTTP/1.1 only.`;
+    body = betaBody;
   } else if (isMinorTrain) {
     const summaryHint = 'replace with 2-4 sentence release summary';
     const placeholder = `<!-- Owner: ${summaryHint} -->`;
     body = `## Highlights\n\n${placeholder}\n\n`;
     for (const pkg of published) {
-      const section = extractChangelogSection(pkg.name, pkg.version);
+      const custom = options.changelogContents ? options.changelogContents[pkg.name] : undefined;
+      const section = extractChangelogSection(pkg.name, pkg.version, custom);
       body += `## ${pkg.name} ${pkg.version}\n\n${section}\n\n`;
     }
   } else {
     body = '';
     for (const pkg of published) {
-      const section = extractChangelogSection(pkg.name, pkg.version);
+      const custom = options.changelogContents ? options.changelogContents[pkg.name] : undefined;
+      const section = extractChangelogSection(pkg.name, pkg.version, custom);
       body += `## ${pkg.name} ${pkg.version}\n\n${section}\n\n`;
     }
   }
@@ -141,7 +333,21 @@ function generateReleaseData(published) {
 async function main() {
   const isDryRun = process.argv.includes('--dry-run');
   const published = parsePublishedPackages();
-  const data = generateReleaseData(published);
+  const options = {};
+  const clm = getArg('--current-latest-minor');
+  if (clm) options.currentLatestMinor = clm;
+  const pbt = getArg('--previous-beta-tag');
+  if (pbt) options.previousBetaTag = pbt;
+  const pj = getArg('--pre-json');
+  if (pj) {
+    try {
+      options.preJson = fs.existsSync(pj) ? JSON.parse(fs.readFileSync(pj, 'utf8')) : JSON.parse(pj);
+    } catch {
+      // ignore bad JSON
+    }
+  }
+
+  const data = generateReleaseData(published, options);
   const { tag, title, isPrerelease, isLatest, body } = data;
 
   const bodyHead = body.split('\n\n')[0].replace(/\n/g, ' ');
@@ -218,4 +424,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { generateReleaseData };
+module.exports = { generateReleaseData, extractChangelogSection };
