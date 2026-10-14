@@ -36,7 +36,7 @@ module.exports = {
 	},
  */
   transform: {
-    ...mergeTsJestConfig({ tsconfig: '<rootDir>/../../tsconfig.json' }),
+    ...mergeTsJestConfig({ tsconfig: '<rootDir>/tsconfig.json' }),
   },
   displayName: packageJson.name,
 };

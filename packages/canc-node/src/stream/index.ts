@@ -1,3 +1,4 @@
+import type { DuplexOptions } from 'node:stream';
 import * as nodeStream from 'node:stream';
 import { addAbortSignal, Duplex, PassThrough, Readable, Transform, Writable } from 'node:stream';
 import * as nodeStreamPromises from 'node:stream/promises';
@@ -7,9 +8,11 @@ import { CancelablePromise } from '@cancjs/promise';
 import type { Unlisted } from '../../../_util';
 import streamJson from '../../surface/projected/stream.json';
 
-const duplexPair = (nodeStream as { duplexPair?: typeof nodeStream.duplexPair }).duplexPair;
+export function duplexPair(options?: DuplexOptions<Duplex>): [Duplex, Duplex] {
+  return (nodeStream as any).duplexPair(options);
+}
 
-export { addAbortSignal, Duplex, duplexPair, PassThrough, Readable, Transform, Writable };
+export { addAbortSignal, Duplex, PassThrough, Readable, Transform, Writable };
 
 // local copy of the signal-forwarding combinator also at packages/canc-node/src/fs/wrap.ts
 // written before that module reached this branch, same names and behavior, dedupe later

@@ -547,7 +547,7 @@ export async function* walk(dir: string, options?: IWalkOptions): AsyncGenerator
       if (followSymlinks && d.isSymbolicLink()) {
         try {
           targetStat = entryStats ?? (await statFn(entryPath));
-          if (targetStat.isDirectory()) {
+          if (targetStat?.isDirectory()) {
             isDirectory = true;
           }
         } catch (_err) {
@@ -752,7 +752,7 @@ export function* walkSync(dir: string, options?: IWalkSyncOptions): Generator<IW
       if (followSymlinks && d.isSymbolicLink()) {
         try {
           targetStat = entryStats ?? statSyncFn(entryPath);
-          if (targetStat.isDirectory()) {
+          if (targetStat?.isDirectory()) {
             isDirectory = true;
           }
         } catch (_err) {
