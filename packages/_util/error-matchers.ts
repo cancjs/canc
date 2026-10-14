@@ -66,12 +66,8 @@ function findRegistryBrand(prototype: object): symbol | undefined {
   }
 
   for (const symbol of symbols) {
-    try {
-      if (Symbol.keyFor(symbol) !== undefined) {
-        return symbol;
-      }
-    } catch {
-      // ignore
+    if (Symbol.keyFor(symbol) !== undefined) {
+      return symbol;
     }
   }
 
@@ -150,24 +146,13 @@ export function compileErrorMatchers(matchers: TErrorMatcher[], factoryName: str
   const predicates = matchers.map(compileMatcher);
 
   if (predicates.length === 1) {
-    const single = predicates[0];
-    return (error: any) => {
-      try {
-        return single(error) ? true : false;
-      } catch {
-        return false;
-      }
-    };
+    return predicates[0];
   }
 
   return (error: any) => {
     for (const predicate of predicates) {
-      try {
-        if (predicate(error)) {
-          return true;
-        }
-      } catch {
-        // hostile error or throwing predicate counts as no match
+      if (predicate(error)) {
+        return true;
       }
     }
 
