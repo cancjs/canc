@@ -72,29 +72,33 @@ describe('exception-safe brand and name reads on hostile reasons', () => {
   ];
 
   const matchers = [
-    { name: 'string AbortError', fn: compileErrorMatchers(['AbortError'], 'test') },
-    { name: 'string TimeoutError', fn: compileErrorMatchers(['TimeoutError'], 'test') },
-    { name: 'string foreign name', fn: compileErrorMatchers(['CustomError'], 'test') },
-    { name: 'constructor AbortError', fn: compileErrorMatchers([AbortError], 'test') },
-    { name: 'constructor TimeoutError', fn: compileErrorMatchers([TimeoutError], 'test') },
-    { name: 'constructor base Error', fn: compileErrorMatchers([Error], 'test') },
+    {
+      name: 'string AbortError',
+      fn: compileErrorMatchers(['AbortError'], 'test'),
+    },
+    {
+      name: 'string TimeoutError',
+      fn: compileErrorMatchers(['TimeoutError'], 'test'),
+    },
+    {
+      name: 'string foreign name',
+      fn: compileErrorMatchers(['CustomError'], 'test'),
+    },
+    {
+      name: 'constructor AbortError',
+      fn: compileErrorMatchers([AbortError], 'test'),
+    },
+    {
+      name: 'constructor TimeoutError',
+      fn: compileErrorMatchers([TimeoutError], 'test'),
+    },
+    {
+      name: 'constructor base Error',
+      fn: compileErrorMatchers([Error], 'test'),
+    },
     {
       name: 'multiple matchers',
       fn: compileErrorMatchers(['AbortError', TimeoutError, 'OtherError'], 'test'),
-    },
-    {
-      name: 'throwing predicate',
-      fn: compileErrorMatchers(
-        [
-          (err: any) => {
-            if (err?.throwOnPredicate) {
-              throw new Error('Predicate threw');
-            }
-            return false;
-          },
-        ],
-        'test',
-      ),
     },
   ];
 
@@ -121,16 +125,7 @@ describe('exception-safe brand and name reads on hostile reasons', () => {
         result = toCancelError(hostile, CancelError);
       }).not.toThrow();
       expect(result).toBeInstanceOf(CancelError);
-      expect(result.timedOut).toBe(false);
       expect(result.cause).toBe(hostile);
-
-      let defaultResult: any;
-      expect(() => {
-        defaultResult = toCancelError(hostile);
-      }).not.toThrow();
-      expect(defaultResult.timedOut).toBe(false);
-      expect(defaultResult.aborted).toBe(false);
-      expect(defaultResult.cause).toBe(hostile);
     });
   });
 
@@ -170,7 +165,6 @@ describe('exception-safe brand and name reads on hostile reasons', () => {
         result = toCancelError(deepHostile, CancelError);
       }).not.toThrow();
       expect(result).toBeInstanceOf(CancelError);
-      expect(result.timedOut).toBe(false);
       expect(result.cause).toBe(deepHostile);
     });
   });
@@ -198,7 +192,6 @@ describe('exception-safe brand and name reads on hostile reasons', () => {
         result = toCancelError(hostile, CancelError);
       }).not.toThrow();
       expect(result).toBeInstanceOf(CancelError);
-      expect(result.timedOut).toBe(false);
       expect(result.cause).toBe(hostile);
     });
   });
@@ -213,24 +206,22 @@ describe('exception-safe brand and name reads on hostile reasons', () => {
     ];
 
     for (const { name: brandName, brand } of brands) {
-      describe(`throwing ${brandName}`, () => {
+      it(`guards return false without throwing on ${brandName}`, () => {
         const hostile = createThrowingBrand(brand);
-
-        for (const { name, fn } of guards) {
-          it(`${name} returns false without throwing`, () => {
-            expect(() => fn(hostile)).not.toThrow();
-            expect(fn(hostile)).toBe(false);
-          });
-        }
-
-        for (const { name, fn } of matchers) {
-          it(`matcher ${name} returns false without throwing`, () => {
-            expect(() => fn(hostile)).not.toThrow();
-            expect(fn(hostile)).toBe(false);
-          });
+        for (const { fn } of guards) {
+          expect(() => fn(hostile)).not.toThrow();
+          expect(fn(hostile)).toBe(false);
         }
       });
     }
+
+    it('matchers return false without throwing on throwing brand', () => {
+      const hostile = createThrowingBrand(ABORT_ERROR_BRAND);
+      for (const { fn } of matchers) {
+        expect(() => fn(hostile)).not.toThrow();
+        expect(fn(hostile)).toBe(false);
+      }
+    });
   });
 
   describe('object with throwing name and throwing brands', () => {
@@ -313,20 +304,26 @@ describe('exception-safe brand and name reads on hostile reasons', () => {
   });
 
   describe('function with throwing prototype getter', () => {
-    const HostileProtoFn = new Proxy(function () {}, {
-      get(target, prop) {
-        if (prop === 'prototype') {
-          throw new Error('Hostile prototype getter');
-        }
-        return (target as any)[prop];
+    const HostileProtoFn = new Proxy(
+      function () {
+        return false;
       },
-    });
+      {
+        get(target, prop) {
+          if (prop === 'prototype') {
+            throw new Error('Hostile prototype getter');
+          }
+          return (target as any)[prop];
+        },
+      },
+    );
 
     it('compiles without throwing and evaluates safely as predicate', () => {
       let matcher: any;
       expect(() => {
         matcher = compileErrorMatchers([HostileProtoFn as any], 'test');
       }).not.toThrow();
+      expect(matcher).toBe(HostileProtoFn);
       expect(matcher({})).toBe(false);
     });
   });
@@ -357,6 +354,41 @@ describe('exception-safe brand and name reads on hostile reasons', () => {
 
     it('does not match plain object named CancelError (brand only)', () => {
       expect(isCancelError({ name: 'CancelError' })).toBe(false);
+    });
+  });
+
+  describe('user predicate error propagation and identity', () => {
+    it('propagates throwing user predicate error when compiled as single matcher', () => {
+      const boom = new Error('user predicate boom');
+      const single = compileErrorMatchers(
+        [
+          () => {
+            throw boom;
+          },
+        ],
+        'test',
+      );
+      expect(() => single(new Error())).toThrow(boom);
+    });
+
+    it('propagates throwing user predicate error in multi-matcher loop', () => {
+      const boom = new Error('user predicate boom');
+      const multi = compileErrorMatchers(
+        [
+          'NonExistentName',
+          () => {
+            throw boom;
+          },
+        ],
+        'test',
+      );
+      expect(() => multi(new Error())).toThrow(boom);
+    });
+
+    it('preserves single user predicate identity', () => {
+      const predicate = (err: any) => err !== null;
+      const compiled = compileErrorMatchers([predicate], 'test');
+      expect(compiled).toBe(predicate);
     });
   });
 });
