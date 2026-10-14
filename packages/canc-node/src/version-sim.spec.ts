@@ -158,4 +158,72 @@ describe('version simulation', () => {
     expect(isNotImplementedError(fErr)).toBe(true);
     expect(fErr).toMatchObject({ feature: 'glob', required: '22' });
   });
+
+  it('handles duplexPair across version boundaries (20.16 / 22.5 throw; 20.17 / 22.6 native)', async () => {
+    const origNodeVersion = process.versions.node;
+
+    try {
+      // 20.16 -> NotImplementedError with 20.17.0 / 22.6.0
+      await jest.isolateModulesAsync(async () => {
+        Object.defineProperty(process.versions, 'node', { value: '20.16.0', configurable: true });
+        const { duplexPair } = require('./stream/index');
+        let err: unknown;
+        try {
+          duplexPair();
+        } catch (e) {
+          err = e;
+        }
+        expect(isNotImplementedError(err)).toBe(true);
+        expect(err).toMatchObject({ feature: 'duplexPair', required: '20.17.0 / 22.6.0' });
+      });
+
+      // 22.5 -> NotImplementedError with 20.17.0 / 22.6.0
+      await jest.isolateModulesAsync(async () => {
+        Object.defineProperty(process.versions, 'node', { value: '22.5.0', configurable: true });
+        const { duplexPair } = require('./stream/index');
+        let err: unknown;
+        try {
+          duplexPair();
+        } catch (e) {
+          err = e;
+        }
+        expect(isNotImplementedError(err)).toBe(true);
+        expect(err).toMatchObject({ feature: 'duplexPair', required: '20.17.0 / 22.6.0' });
+      });
+
+      // 20.17 -> native function returns duplex pair
+      await jest.isolateModulesAsync(async () => {
+        Object.defineProperty(process.versions, 'node', { value: '20.17.0', configurable: true });
+        jest.doMock('node:stream', () => {
+          const actual = jest.requireActual('node:stream');
+          return {
+            ...actual,
+            duplexPair: actual.duplexPair || (() => [new actual.Duplex(), new actual.Duplex()]),
+          };
+        });
+        const { duplexPair } = require('./stream/index');
+        const pair = duplexPair();
+        expect(Array.isArray(pair)).toBe(true);
+        expect(pair).toHaveLength(2);
+      });
+
+      // 22.6 -> native function returns duplex pair
+      await jest.isolateModulesAsync(async () => {
+        Object.defineProperty(process.versions, 'node', { value: '22.6.0', configurable: true });
+        jest.doMock('node:stream', () => {
+          const actual = jest.requireActual('node:stream');
+          return {
+            ...actual,
+            duplexPair: actual.duplexPair || (() => [new actual.Duplex(), new actual.Duplex()]),
+          };
+        });
+        const { duplexPair } = require('./stream/index');
+        const pair = duplexPair();
+        expect(Array.isArray(pair)).toBe(true);
+        expect(pair).toHaveLength(2);
+      });
+    } finally {
+      Object.defineProperty(process.versions, 'node', { value: origNodeVersion, configurable: true });
+    }
+  });
 });

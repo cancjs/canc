@@ -3,17 +3,22 @@ import * as nodeStream from 'node:stream';
 import { addAbortSignal, Duplex, PassThrough, Readable, Transform, Writable } from 'node:stream';
 import * as nodeStreamPromises from 'node:stream/promises';
 
-import { NotImplementedError } from '@cancjs/node';
 import { CancelablePromise } from '@cancjs/promise';
 
 import type { Unlisted } from '../../../_util';
 import streamJson from '../../surface/projected/stream.json';
+import { gated, hasDuplexPair } from '../gate';
+
+const duplexPairImpl = gated(
+  hasDuplexPair,
+  'duplexPair',
+  '20.17.0 / 22.6.0',
+  () => (nodeStream as unknown as { duplexPair: (options?: DuplexOptions) => [Duplex, Duplex] }).duplexPair,
+  'sync',
+);
 
 export function duplexPair(options?: DuplexOptions): [Duplex, Duplex] {
-  if (typeof (nodeStream as any).duplexPair !== 'function') {
-    throw new NotImplementedError('duplexPair requires Node >= 20', { feature: 'duplexPair', required: '20' });
-  }
-  return (nodeStream as any).duplexPair(options);
+  return duplexPairImpl(options);
 }
 
 export { addAbortSignal, Duplex, PassThrough, Readable, Transform, Writable };

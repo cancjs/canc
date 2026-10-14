@@ -378,39 +378,39 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 
 #### stream
 
-| Export                    | Cancellation   | Node | Deno       | Bun        |
-| ------------------------- | -------------- | ---- | ---------- | ---------- |
-| `pipeline`                | stops the work | 18+  | yes        | yes        |
-| `finished`                | stops the work | 18+  | yes        | yes        |
-| `addAbortSignal`          | -              | 18+  | yes        | yes        |
-| `compose`                 | -              | 18+  | yes        | yes        |
-| `duplexPair`              | -              | 18+  | yes        | yes        |
-| `from`                    | -              | 18+  | unverified | unverified |
-| `fromWeb`                 | -              | 18+  | unverified | unverified |
-| `toWeb`                   | -              | 18+  | unverified | unverified |
-| `getDefaultHighWaterMark` | -              | 18+  | yes        | yes        |
-| `setDefaultHighWaterMark` | -              | 18+  | yes        | yes        |
-| `isDestroyed`             | -              | 18+  | yes        | yes        |
-| `isDisturbed`             | -              | 18+  | yes        | yes        |
-| `isErrored`               | -              | 18+  | yes        | yes        |
-| `isReadable`              | -              | 18+  | yes        | yes        |
-| `isWritable`              | -              | 18+  | yes        | yes        |
-| `push`                    | -              | 18+  | unverified | unverified |
-| `read`                    | -              | 18+  | unverified | unverified |
-| `_construct`              | -              | 18+  | unverified | unverified |
-| `_destroy`                | -              | 18+  | unverified | unverified |
-| `_read`                   | -              | 18+  | unverified | unverified |
-| `_flush`                  | -              | 18+  | unverified | unverified |
-| `_transform`              | -              | 18+  | unverified | unverified |
-| `_final`                  | -              | 18+  | unverified | unverified |
-| `_write`                  | -              | 18+  | unverified | unverified |
-| `_writev`                 | -              | 18+  | unverified | unverified |
-| `text`                    | stops the work | 18+  | unverified | unverified |
-| `json`                    | stops the work | 18+  | unverified | unverified |
-| `buffer`                  | stops the work | 18+  | unverified | unverified |
-| `arrayBuffer`             | stops the work | 18+  | unverified | unverified |
-| `blob`                    | stops the work | 18+  | unverified | unverified |
-| `bytes`                   | stops the work | 24+  | unverified | unverified |
+| Export                    | Cancellation   | Node           | Deno       | Bun        |
+| ------------------------- | -------------- | -------------- | ---------- | ---------- |
+| `pipeline`                | stops the work | 18+            | yes        | yes        |
+| `finished`                | stops the work | 18+            | yes        | yes        |
+| `addAbortSignal`          | -              | 18+            | yes        | yes        |
+| `compose`                 | -              | 18+            | yes        | yes        |
+| `duplexPair`              | -              | 20.17+ / 22.6+ | yes        | yes        |
+| `from`                    | -              | 18+            | unverified | unverified |
+| `fromWeb`                 | -              | 18+            | unverified | unverified |
+| `toWeb`                   | -              | 18+            | unverified | unverified |
+| `getDefaultHighWaterMark` | -              | 18+            | yes        | yes        |
+| `setDefaultHighWaterMark` | -              | 18+            | yes        | yes        |
+| `isDestroyed`             | -              | 18+            | yes        | yes        |
+| `isDisturbed`             | -              | 18+            | yes        | yes        |
+| `isErrored`               | -              | 18+            | yes        | yes        |
+| `isReadable`              | -              | 18+            | yes        | yes        |
+| `isWritable`              | -              | 18+            | yes        | yes        |
+| `push`                    | -              | 18+            | unverified | unverified |
+| `read`                    | -              | 18+            | unverified | unverified |
+| `_construct`              | -              | 18+            | unverified | unverified |
+| `_destroy`                | -              | 18+            | unverified | unverified |
+| `_read`                   | -              | 18+            | unverified | unverified |
+| `_flush`                  | -              | 18+            | unverified | unverified |
+| `_transform`              | -              | 18+            | unverified | unverified |
+| `_final`                  | -              | 18+            | unverified | unverified |
+| `_write`                  | -              | 18+            | unverified | unverified |
+| `_writev`                 | -              | 18+            | unverified | unverified |
+| `text`                    | stops the work | 18+            | unverified | unverified |
+| `json`                    | stops the work | 18+            | unverified | unverified |
+| `buffer`                  | stops the work | 18+            | unverified | unverified |
+| `arrayBuffer`             | stops the work | 18+            | unverified | unverified |
+| `blob`                    | stops the work | 18+            | unverified | unverified |
+| `bytes`                   | stops the work | 24+            | unverified | unverified |
 
 #### stream (stream)
 
@@ -666,7 +666,8 @@ underlying timer. `scheduler.yield` takes no options and is node's own function,
 
 `pipeline` and `finished` wrap `node:stream/promises`, alongside the stream classes,
 `addAbortSignal`, `Readable.from`, `Duplex.from` and `duplexPair`, re-exported structurally so a
-caller does not need a second import to use the wrappers. Canceling `pipeline` destroys every
+caller does not need a second import to use the wrappers. `duplexPair` requires Node 20.17.0 or
+22.6.0 or later; older runtimes throw `NotImplementedError`. Canceling `pipeline` destroys every
 stream in the chain, the same teardown node runs for its own aborted pipeline. Canceling `finished`
 removes the listeners it attached.
 
