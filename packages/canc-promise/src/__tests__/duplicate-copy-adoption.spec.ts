@@ -127,6 +127,85 @@ describe('adopting a promise from the other copy', () => {
   });
 });
 
+// cleanup that outlasts any microtask chain, so an early settle cannot pass by luck
+function makeSlowInner(Impl: typeof CancelablePromise): {
+  promise: CancelablePromise<number>;
+  done: () => boolean;
+} {
+  let done = false;
+  const promise = new Impl<number>((_resolve, _reject, { handleCancel }) => {
+    handleCancel(() =>
+      new NativePromise<void>((resolve) => setImmediate(resolve)).then(() => {
+        done = true;
+      }),
+    );
+  });
+  return { promise, done: () => done };
+}
+
+describe('awaiting a cancel that reaches the other copy', () => {
+  it('executor resolve(): waits for the adopted promise cleanup', async () => {
+    const inner = makeSlowInner(OtherCopy);
+    const outer = new CancelablePromise<number>((resolve) => resolve(inner.promise));
+    outer.catch(() => undefined);
+
+    await flush();
+    await outer.cancel();
+
+    expect(inner.promise.canceled).toBe(true);
+    expect(inner.done()).toBe(true);
+  });
+
+  it('then() return: waits for the adopted promise cleanup', async () => {
+    const inner = makeSlowInner(OtherCopy);
+    const outer = CancelablePromise.resolve().then(() => inner.promise);
+    outer.catch(() => undefined);
+
+    await flush();
+    await flush();
+    await outer.cancel();
+
+    expect(inner.promise.canceled).toBe(true);
+    expect(inner.done()).toBe(true);
+  });
+
+  it('resolve(): waits for the wrapped promise cleanup', async () => {
+    const inner = makeSlowInner(OtherCopy);
+    const outer = CancelablePromise.resolve(inner.promise);
+    outer.catch(() => undefined);
+
+    await flush();
+    await outer.cancel();
+
+    expect(inner.done()).toBe(true);
+  });
+
+  it('a strict sync mode wrapper cancels without a thenable error', async () => {
+    const inner = makeSlowInner(OtherCopy);
+    const outer = new CancelablePromise<number>((resolve) => resolve(inner.promise), {
+      asyncCancel: false,
+      strict: true,
+    });
+    outer.catch(() => undefined);
+
+    await flush();
+
+    expect(outer.cancel()).toBeUndefined();
+    expect(inner.promise.canceled).toBe(true);
+  });
+
+  it('waits in the other direction too, from the other copy to this one', async () => {
+    const inner = makeSlowInner(CancelablePromise);
+    const outer = new OtherCopy<number>((resolve) => resolve(inner.promise));
+    outer.catch(() => undefined);
+
+    await flush();
+    await outer.cancel();
+
+    expect(inner.done()).toBe(true);
+  });
+});
+
 // one host turn: an unhandled rejection is reported to jest before the case ends
 function hostTurn(): Promise<void> {
   return new NativePromise((resolve) => setImmediate(resolve));
@@ -329,6 +408,27 @@ describe('adopting a branded copy without the private entries', () => {
     expect(() => outer.cancel()).not.toThrow();
     expect(views[0].cancel).toHaveBeenCalledTimes(1);
     expect(foreign.cancel).toHaveBeenCalledTimes(0);
+    expect(isCancelError(await caught)).toBe(true);
+    await hostTurn();
+  });
+
+  it('awaiting the wrapper cancel waits for the cleanup the then view started', async () => {
+    let done = false;
+    const { source, foreign } = makeBrandOnlyShared<number>();
+    source.handleCancel(() =>
+      new NativePromise<void>((resolve) => setImmediate(resolve)).then(() => {
+        done = true;
+      }),
+    );
+    const outer = new CancelablePromise<number>((resolve_) => resolve_(foreign));
+    const caught = outer.catch((reason: unknown) => reason);
+
+    await flush();
+    await flush();
+    await outer.cancel();
+
+    expect(source.canceled).toBe(true);
+    expect(done).toBe(true);
     expect(isCancelError(await caught)).toBe(true);
     await hostTurn();
   });

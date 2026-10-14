@@ -185,9 +185,7 @@ export function makeCancelable<T>(promise: PromiseLike<T>, options?: ICancelable
     promise.then(resolve, reject);
 
     if (isCancelable(promise)) {
-      handleCancel((reason?: any) => {
-        promise.cancel(reason);
-      });
+      handleCancel((reason?: any) => promise.cancel(reason));
     }
   }, options);
 }

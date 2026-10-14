@@ -239,6 +239,36 @@ function rejectCanceled(settle: (reason?: any) => void, error: unknown): void {
   }
 }
 
+// settles with every entry of a cleanup collector, including entries a race bubble appends later
+function settleCleanup(
+  This: typeof CancelablePromise,
+  collector: any[],
+): CancelablePromise<ISettledResult<unknown>[], never> {
+  const { promise, resolve } = This.withResolvers<ISettledResult<unknown>[], never>();
+  let settled: ISettledResult<unknown>[] = [];
+  const finish = (): void => {
+    resolve(settled);
+  };
+  const drain = (): void => {
+    void This.allSettled(collector.slice(settled.length)).then((results) => {
+      settled = settled.concat(results);
+      if (collector.length > settled.length) {
+        drain();
+      } else {
+        finish();
+      }
+    }, finish);
+  };
+
+  drain();
+  return promise;
+}
+
+// plain boolean: a narrowing guard would leave the other copy branch typed never
+function isThisCopy(value: unknown): boolean {
+  return value instanceof CancelablePromise;
+}
+
 // a canceled child gives up what its callback returned and keeps a late rejection handled
 function reclaimOrphanedResult(value: unknown, reason: unknown): void {
   if (isCancPromise(value)) {
@@ -1096,30 +1126,35 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
                 let viewKept = false;
                 let canceled = false;
                 let cancelReason: unknown;
-                const cancelView = (): void => {
+                const cancelView = (): void | PromiseLike<unknown> => {
                   try {
                     const cancel =
                       isObject(view) || isFunction(view) ? (view as { cancel?: unknown }).cancel : undefined;
                     if (isFunction(cancel)) {
-                      void cancel.call(view, cancelReason);
+                      const cleanup: unknown = cancel.call(view, cancelReason);
+                      return isThenable(cleanup) ? cleanup : undefined;
                     }
                   } catch (_e) {
                     // strict refuses a shielded or settled view, this one is canceled anyway
                   }
+                  return undefined;
                 };
                 keepView = (view_) => {
                   view = view_;
                   viewKept = true;
                   if (canceled) {
-                    cancelView();
+                    void cancelView();
                   }
                 };
                 instance.handleCancel((reason) => {
                   canceled = true;
                   cancelReason = reason;
                   if (viewKept) {
-                    cancelView();
+                    const cleanup = cancelView();
+                    // sync mode would reject a thenable under strict, nobody awaits it there
+                    return instance.asyncCancel ? cleanup : undefined;
                   }
+                  return undefined;
                 });
               }
 
@@ -1337,6 +1372,10 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
     if (normalizedOptions.strict) flags |= FLAG_STRICT;
     if (normalizedOptions.shield) flags |= FLAG_SHIELD;
     instance._flags = flags;
+    if (tempThis._cancelHandlers) {
+      // a bubble handler chained during the executor reads the cancel mode off the temp this
+      tempThis._flags = flags;
+    }
 
     const { signal } = normalizedOptions;
 
@@ -1650,44 +1689,50 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
    * object becomes the `cause` of a fresh {@link CancelError}; a string/undefined becomes its
    * message. Registered cancel handlers still receive the original `reason`.
    *
-   * Return contract: in awaitable cancel mode (`asyncCancel`, the default) returns a promise
-   * that settles once all cancel handlers in the entire cancellation cascade have settled,
-   * including handlers registered on ancestor promises reached by bubble propagation. An
-   * explicit `await cancel()` therefore postpones until the complete cleanup is done, not
-   * just the local handlers. In non-awaitable mode (`asyncCancel:false`) handlers run
-   * synchronously and `cancel()` returns `undefined`; a handler that returns a thenable in
-   * this mode throws under `strict` (the handler needs async cleanup but the caller opted
-   * out of awaiting it). A throwing handler does not stop the others: all of them run, then this
-   * call rethrows the first error. A cancel reached any other way (abort signal, bubble, a
-   * canceled parent) drops handler errors.
+   * Return contract: in awaitable cancel mode (`asyncCancel`, the default) every call returns a
+   * promise. It settles once all cancel handlers in the entire cancellation cascade have settled,
+   * including handlers registered on ancestor promises reached by bubble propagation and on race
+   * inputs canceled after the race settles. An explicit `await cancel()` therefore postpones until
+   * the complete cleanup is done, not just the local handlers. A second call while that cleanup
+   * runs returns a promise for the same cleanup. A call made while another cancel is running (from
+   * a cancel handler, for example) adds its cleanup to that cancel and returns a promise for its
+   * own part. On a settled or shielded promise the returned promise resolves with an empty list.
+   * In non-awaitable mode (`asyncCancel:false`) handlers run synchronously and `cancel()` returns
+   * `undefined`; a handler that returns a thenable in this mode throws under `strict` (the handler
+   * needs async cleanup but the caller opted out of awaiting it). A throwing handler does not stop
+   * the others: all of them run, then this call rethrows the first error. A cancel reached any
+   * other way (abort signal, bubble, a canceled parent) drops handler errors.
    *
    * Handler timing: registered cancel handlers START synchronously the moment the cancel takes
    * effect, regardless of what triggered it (an explicit `cancel()`, an upstream rejection, or a
    * bubble from settled children). What a handler returns is still awaited asynchronously by the
    * returned settlement promise; only the invocation is synchronous.
    *
-   * On an already-settled/canceled promise this is a silent no-op unless `strict`, which throws.
+   * On an already-settled/canceled promise the cancel itself is a silent no-op unless `strict`,
+   * which throws.
    * @param reason The cancellation reason.
    */
   cancel(reason?: any, _disposing?: boolean): void | CancelablePromise<ISettledResult<unknown>[], never> {
-    // Cascade: this cancel was triggered by an active cancel wave (bubble or cascade from
-    // another cancel()).
-    // Thread the existing collector instead of allocating a new one.
-    if (_activeCollector) {
-      this._cancel(reason, _disposing, _activeCollector);
+    const awaitable = this.asyncCancel;
+    const live = this.cancelable && !this.shield;
+    // a cancel already running collects this one too, so the cascade shares one collector
+    const outer = _activeCollector;
+    const start = outer ? outer.length : 0;
+    const collector = outer || (live && awaitable ? [] : undefined);
+
+    this._cancel(reason, _disposing, collector);
+
+    if (!awaitable) {
       return;
     }
 
-    // Initiator: allocate a collector when asyncCancel so the returned allSettled covers
-    // all transitive teardowns reached by the synchronous cancel cascade.
-    if (this.cancelable && this.asyncCancel && !this.shield) {
-      const collector: any[] = [];
-      this._cancel(reason, _disposing, collector);
-      const This = this.constructor as typeof CancelablePromise;
-      return collector.length ? This.allSettled(collector) : This.resolve([]);
+    const This = this.constructor as typeof CancelablePromise;
+    if (live) {
+      return settleCleanup(This, outer ? outer.slice(start) : collector!);
     }
 
-    this._cancel(reason, _disposing);
+    const running = this.canceled ? this._collector : undefined;
+    return running ? settleCleanup(This, running) : This.resolve([]);
   }
 
   /**
@@ -1723,8 +1768,11 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
 
       const prev = _activeCollector;
       if (collector) _activeCollector = collector;
-      this._runCancellation(reason, collector);
-      _activeCollector = prev;
+      try {
+        this._runCancellation(reason, collector);
+      } finally {
+        _activeCollector = prev;
+      }
     } else if (this.strict && !disposing) {
       throw new Error(`${this.canceled ? 'Canceled' : 'Settled'} promise cannot be canceled`);
     }
@@ -1915,7 +1963,12 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
         error.bubbled = true;
 
         try {
-          this.cancel(error);
+          if (_activeCollector && this.cancel === CancelablePromise.prototype.cancel) {
+            // the running cancel already collects this cleanup, its result would go unread
+            this._cancel(error, undefined, _activeCollector);
+          } else {
+            this.cancel(error);
+          }
         } catch (_e) {
           // a parent's handler error never reaches the child's canceler
         }
@@ -1962,12 +2015,24 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
       const onSettled = () => {
         const prev = _activeCollector;
         _activeCollector = (childPromise as any)._collector;
-        onComplete();
-        _activeCollector = prev;
+        try {
+          onComplete();
+        } finally {
+          _activeCollector = prev;
+        }
       };
       childPromise.then(onSettled, onSettled);
-    } else {
+    } else if (isThisCopy(childPromise)) {
       childPromise.handleCancel(onComplete);
+    } else {
+      // a child of another package copy collects what its handler returns, hand it this cleanup
+      childPromise.handleCancel(() => {
+        onComplete();
+        const running = this.canceled ? this._collector : undefined;
+        return running && childPromise.asyncCancel ?
+            settleCleanup(this.constructor as typeof CancelablePromise, running)
+          : undefined;
+      });
     }
   }
 

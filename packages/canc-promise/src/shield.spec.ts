@@ -20,7 +20,7 @@ function macrotask(): Promise<void> {
 }
 
 describe('shield option', () => {
-  it('1. direct cancel() on shielded pending promise is a silent no-op', () => {
+  it('1. direct cancel() on shielded pending promise is a silent no-op', async () => {
     const promise = new CancelablePromise<number>(
       () => {
         /**/
@@ -31,9 +31,9 @@ describe('shield option', () => {
     expect(promise.isCancelable).toBe(true);
     const result = promise.cancel('stop');
 
-    expect(result).toBeUndefined();
     expect(promise.isCanceled).toBe(false);
     expect(promise.isCancelable).toBe(true);
+    expect(await result).toEqual([]);
   });
 
   it('2. shielded promise still settles with its value after an ignored cancel()', async () => {

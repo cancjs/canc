@@ -61,9 +61,7 @@ export function makeCatch(deps: IErrorMatchDeps) {
         });
 
         if (ctx && isCancelable(errorOrPromise)) {
-          ctx.handleCancel((reason?: any) => {
-            errorOrPromise.cancel(reason);
-          });
+          ctx.handleCancel((reason?: any) => errorOrPromise.cancel(reason));
         }
       }, options);
     } else if (isCaught(errorOrPromise, options)) {
@@ -97,9 +95,7 @@ export function makeSuppress(deps: IErrorMatchDeps) {
         });
 
         if (ctx && isCancelable(errorOrPromise)) {
-          ctx.handleCancel((reason?: any) => {
-            errorOrPromise.cancel(reason);
-          });
+          ctx.handleCancel((reason?: any) => errorOrPromise.cancel(reason));
         }
       }, options);
     } else if (!isCaught(errorOrPromise, options)) {
