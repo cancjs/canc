@@ -183,6 +183,7 @@ declare module 'node:stream' {
   export type Duplex = any;
   export type Transform = any;
   export type PassThrough = any;
+  export type DuplexOptions<T = any> = any;
   export const addAbortSignal: any;
   export const duplexPair: any;
   const _default: any;
