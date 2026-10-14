@@ -195,7 +195,7 @@ async function main() {
     const cmdStr = args.slice(1).join(' ');
     console.log(`[release-publish] Command: changeset ${cmdStr}`);
     if (installCheck) {
-      console.log('[release-publish] Would run install check: check-beta-install.js --no-build');
+      console.log('[release-publish] Would run install check: check-beta-install.js --no-build --registry-rest');
     }
   }
 
@@ -207,7 +207,7 @@ async function main() {
     // versioned tree only exists here, build already ran earlier in the job
     console.log('[release-publish] Running prerelease install check...');
     try {
-      execFileSync(process.execPath, [path.join(__dirname, 'check-beta-install.js'), '--no-build'], {
+      execFileSync(process.execPath, [path.join(__dirname, 'check-beta-install.js'), '--no-build', '--registry-rest'], {
         stdio: 'inherit',
         cwd: ROOT,
       });

@@ -37,7 +37,7 @@ function getPublishablePackages() {
         const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
         if (manifest.private !== true) {
           const relDir = path.relative(ROOT, dir).split(path.sep).join('/');
-          packages.push({ name: manifest.name, relDir });
+          packages.push({ name: manifest.name, relDir, version: manifest.version });
         }
       }
     } else {
@@ -47,7 +47,7 @@ function getPublishablePackages() {
         const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
         if (manifest.private !== true) {
           const relDir = path.relative(ROOT, dir).split(path.sep).join('/');
-          packages.push({ name: manifest.name, relDir });
+          packages.push({ name: manifest.name, relDir, version: manifest.version });
         }
       }
     }
@@ -60,6 +60,9 @@ function getPublishablePackages() {
 let tempDir = null;
 
 function cleanup() {
+  if (process.argv.includes('--keep-temp') || process.env.CANC_KEEP_TEMP === '1') {
+    return;
+  }
   if (tempDir && fs.existsSync(tempDir)) {
     try {
       fs.rmSync(tempDir, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
@@ -165,9 +168,7 @@ function verifyPromiseDeduped(tempDirectory, expectedVersion) {
     throw new Error('Root project dependencies does not contain @cancjs/promise');
   }
   if (rootPromise.version !== expectedVersion) {
-    throw new Error(
-      `Root @cancjs/promise version is ${rootPromise.version}, expected packed version ${expectedVersion}`,
-    );
+    throw new Error(`Root @cancjs/promise version is ${rootPromise.version}, expected version ${expectedVersion}`);
   }
 
   function checkNode(node, currentPath) {
@@ -269,16 +270,106 @@ console.log('[check-beta-install] All ' + packages.length + ' packages loaded su
   }
 }
 
+function queryRegistryVersion(pkg) {
+  const spec = `${pkg.name}@${pkg.version}`;
+  const res = spawnNpm(['view', spec, 'version', '--json'], {
+    timeout: 60000,
+    encoding: 'utf8',
+  });
+
+  if (res.error) {
+    const reason = res.error.message || String(res.error);
+    console.error(`FAIL registry lookup for ${pkg.name}: ${reason}`);
+    cleanup();
+    process.exit(1);
+  }
+
+  const stdout = (res.stdout || '').toString();
+  const stderr = (res.stderr || '').toString();
+
+  if (res.status !== 0) {
+    let isE404 = false;
+    try {
+      const parsed = JSON.parse(stdout);
+      if (parsed && parsed.error && parsed.error.code === 'E404') {
+        isE404 = true;
+      }
+    } catch {
+      // stdout not JSON
+    }
+    if (!isE404) {
+      isE404 = stderr.includes('E404') || stderr.includes('404 Not Found') || stdout.includes('"E404"');
+    }
+
+    if (isE404) {
+      return null;
+    }
+
+    const reason = (stderr || stdout || `exit code ${res.status}`).trim();
+    console.error(`FAIL registry lookup for ${pkg.name}: ${reason}`);
+    cleanup();
+    process.exit(1);
+  }
+
+  let version;
+  try {
+    version = JSON.parse(stdout.trim());
+  } catch (err) {
+    console.error(`FAIL registry lookup for ${pkg.name}: non-JSON output (${err.message})`);
+    cleanup();
+    process.exit(1);
+  }
+
+  if (typeof version !== 'string' || !version) {
+    console.error(`FAIL registry lookup for ${pkg.name}: invalid version in output`);
+    cleanup();
+    process.exit(1);
+  }
+
+  if (version !== pkg.version) {
+    console.error(`FAIL registry lookup for ${pkg.name}: version mismatch (expected ${pkg.version}, got ${version})`);
+    cleanup();
+    process.exit(1);
+  }
+
+  return version;
+}
+
 function main() {
   try {
     const packages = getPublishablePackages();
-    ensureBuild(packages);
+    const useRegistryRest = process.argv.includes('--registry-rest');
+
+    let localPackages = packages;
+    const registryPackages = [];
+
+    if (useRegistryRest) {
+      localPackages = [];
+      for (const pkg of packages) {
+        const regVersion = queryRegistryVersion(pkg);
+        if (regVersion === null) {
+          localPackages.push(pkg);
+        } else {
+          registryPackages.push(pkg);
+        }
+      }
+
+      const localNames = localPackages.map((p) => p.name).join(', ');
+      const localPart = localPackages.length > 0 ? `${localPackages.length} (${localNames})` : '0';
+      console.log(`[check-beta-install] local: ${localPart}, registry: ${registryPackages.length}`);
+    }
+
+    ensureBuild(localPackages);
 
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'canc-beta-consumer-'));
     console.log(`[check-beta-install] Created consumer directory: ${tempDir}`);
 
-    const { tgzPaths, packedPromiseVersion } = packPackages(packages, tempDir);
-    console.log(`[check-beta-install] Packed ${tgzPaths.length} tarballs (promise version ${packedPromiseVersion})`);
+    const { tgzPaths, packedPromiseVersion } = packPackages(localPackages, tempDir);
+    if (!useRegistryRest) {
+      console.log(`[check-beta-install] Packed ${tgzPaths.length} tarballs (promise version ${packedPromiseVersion})`);
+    } else if (localPackages.length > 0) {
+      console.log(`[check-beta-install] Packed ${tgzPaths.length} tarballs`);
+    }
 
     const consumerManifest = {
       name: 'consumer',
@@ -287,8 +378,19 @@ function main() {
     };
     fs.writeFileSync(path.join(tempDir, 'package.json'), JSON.stringify(consumerManifest, null, 2), 'utf8');
 
-    console.log(`[check-beta-install] Running npm install for all ${tgzPaths.length} tarballs...`);
-    const installRes = spawnNpm(['install', ...tgzPaths], {
+    let installTargets;
+    if (!useRegistryRest) {
+      installTargets = tgzPaths;
+      console.log(`[check-beta-install] Running npm install for all ${tgzPaths.length} tarballs...`);
+    } else {
+      const registrySpecs = registryPackages.map((pkg) => `${pkg.name}@${pkg.version}`);
+      installTargets = [...tgzPaths, ...registrySpecs];
+      console.log(
+        `[check-beta-install] Running npm install for ${installTargets.length} packages (${tgzPaths.length} local, ${registrySpecs.length} registry)...`,
+      );
+    }
+
+    const installRes = spawnNpm(['install', ...installTargets], {
       cwd: tempDir,
       stdio: 'inherit',
     });
@@ -297,7 +399,10 @@ function main() {
       throw new Error(`npm install failed with exit code ${installRes.status}`);
     }
 
-    verifyPromiseDeduped(tempDir, packedPromiseVersion);
+    const promisePkg = packages.find((p) => p.name === '@cancjs/promise');
+    const expectedPromiseVersion = packedPromiseVersion || (promisePkg ? promisePkg.version : null);
+
+    verifyPromiseDeduped(tempDir, expectedPromiseVersion);
     verifyModuleLoading(packages, tempDir);
 
     console.log('[check-beta-install] All checks passed successfully.');
