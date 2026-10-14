@@ -341,11 +341,9 @@ export const CANCEL_ERROR_BRAND = Symbol.for('@cancjs/promise:CancelError');
 export const isCancelError = (error: any): boolean => isObject(error) && readProp(error, CANCEL_ERROR_BRAND) === true;
 
 /**
- * Constructor or factory producing a CancelError instance.
+ * Constructor producing a CancelError instance.
  */
-export type TMakeCancelError<T = any> =
-  | (new (message?: string, options?: { cause?: unknown }) => T)
-  | ((message?: string, options?: { cause?: unknown }) => T);
+export type TMakeCancelError<T = any> = new (message?: string, options?: { cause?: unknown }) => T;
 
 export interface IToCancelErrorOptions<T = any> {
   CancelError: TMakeCancelError<T>;
@@ -365,25 +363,16 @@ export function toCancelError<T extends object = Error>(reason: unknown, CancelE
   }
 
   if (isObject(reason)) {
-    try {
-      return new (CancelError as new (message?: string, options?: { cause?: unknown }) => T)(undefined, {
-        cause: reason,
-      });
-    } catch {
-      return (CancelError as (message?: string, options?: { cause?: unknown }) => T)(undefined, { cause: reason });
-    }
+    return new CancelError(undefined, { cause: reason });
   }
 
-  try {
-    return new (CancelError as new (message?: string, options?: { cause?: unknown }) => T)(reason as any);
-  } catch {
-    return (CancelError as (message?: string, options?: { cause?: unknown }) => T)(reason as any);
-  }
+  return new CancelError(reason as any);
 }
 
 /**
  * Factory creating a toCancelError normalizer bound to a specific CancelError constructor.
  */
 export function toCancelErrorFactory<T extends object = Error>(deps: IToCancelErrorOptions<T>): (reason: unknown) => T {
-  return (reason: unknown) => toCancelError(reason, deps.CancelError);
+  const { CancelError } = deps;
+  return (reason: unknown) => toCancelError(reason, CancelError);
 }

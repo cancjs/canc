@@ -55,7 +55,7 @@ function describeNonGenerator(value: unknown): string {
  * synchronous generator protocol.
  *
  * Throws a TypeError if the value is an async generator, is not generator-shaped, or lacks a
- * callable return method.
+ * callable return or throw method.
  */
 export function assertGeneratorResult(
   value: unknown,
