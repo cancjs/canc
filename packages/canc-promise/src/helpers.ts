@@ -82,14 +82,9 @@ export function createCancelSignal(reason?: any) {
   Object.defineProperty(controller.signal, CANCEL_SIGNAL_BRAND, { value: true });
 
   return {
-    // The bound cancel mints a branded CancelError as the signal reason (unless it is already a
-    // CancelError, which passes through).
-    // Aborting this signal therefore reads as a genuine
-    // cancellation: spec-compliant consumers (e.g. fetch, which rejects with signal.reason)
-    // reject with the CancelError directly, and a {signal}-option promise cancels with that exact
-    // error.
-    // Normalization mirrors cancel(): a string/undefined becomes the message, any other
-    // object becomes the cause.
+    // mints the signal reason like cancel() would, so fetch and other consumers rejecting
+    // with signal.reason see a genuine cancellation
+    // a {signal}-option promise rejects with this same error, pre-aborted or not
     cancel: (r: any = reason) =>
       controller.abort(
         isCancelError(r) ? r

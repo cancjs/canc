@@ -112,7 +112,11 @@ export type TPromiseExecutor<TResult> = (
 export interface IExecutorContext<TResult = any, TFailure = unknown> {
   /** Register a cleanup handler that runs when the promise is canceled. */
   handleCancel(this: void, onCancel: TOnCancel): CancelablePromise<TResult, TFailure>;
-  /** Get an AbortSignal that aborts when the promise is canceled. Lazily creates an AbortController on first call. */
+  /**
+   * Get an AbortSignal that aborts when the promise is canceled. Lazily creates an AbortController on first call.
+   * The signal's `reason` is the CancelError the promise rejects with. A first call after the promise was canceled
+   * returns an already aborted signal.
+   */
   getSignal(this: void): IAbortSignal;
 }
 
@@ -181,6 +185,11 @@ interface IAbortSignal {
   removeEventListener(type: 'abort', listener: any, options?: unknown): void;
 }
 
+interface IAbortControllerLike {
+  abort(reason?: unknown): void;
+  readonly signal: IAbortSignal;
+}
+
 /** Outcome of a fulfilled input in `allSettled`. Same shape as the ES2020 lib type of the same role. */
 export interface ISettledFulfilled<T> {
   status: 'fulfilled';
@@ -229,6 +238,15 @@ let _activeCollector: any[] | undefined;
 // cancel marks CANCELED before it rejects and the settlers drop a non-PENDING
 // promise, so this flag carries that one rejection through to the native promise
 let _rejectingCanceled = false;
+
+// one rule for cancel() and both abort paths, the raw reason still goes to the handlers
+function toCancelError(reason: unknown): CancelError {
+  return (
+    isCancelError(reason) ? reason
+    : isObject(reason) ? new CancelError(undefined, { cause: reason })
+    : new CancelError(reason as string | undefined)
+  );
+}
 
 function rejectCanceled(settle: (reason?: any) => void, error: unknown): void {
   _rejectingCanceled = true;
@@ -1057,6 +1075,8 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
         ((resolve_, reject_) => {
           // first resolve wins as natively, cancel() still works while adopting
           let adopting = false;
+          // the CancelError this promise rejected with, what getSignal() aborts with
+          let cancelError: unknown;
 
           function resolve(value?: TResult | PromiseLike<TResult>): void {
             // Prevent cancellation in case of early state changes
@@ -1249,7 +1269,10 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
             const state = instance._internalState;
             if (state !== states.PENDING) {
               // FORCE_PENDING passthrough is a native no-op, same as in resolve
-              if (state === states.FORCE_PENDING || (state === states.CANCELED && _rejectingCanceled)) {
+              if (state === states.FORCE_PENDING) {
+                reject_(reason);
+              } else if (state === states.CANCELED && _rejectingCanceled) {
+                cancelError = reason;
                 reject_(reason);
               }
               return;
@@ -1270,6 +1293,9 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
             // CancelError rejections (executor reject / handler throw / adopted thenable).
             const externalCancel = isCancelError(reason);
             instance._internalState = externalCancel ? states.CANCELED : states.REJECTED;
+            if (externalCancel) {
+              cancelError = reason;
+            }
 
             reject_(reason);
             instance._runSettlementEffects();
@@ -1293,17 +1319,23 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
 
           function getCtx(): IExecutorContext<TResult, TFailure> {
             if (!_ctx) {
-              let _ac: { abort(): void; signal: IAbortSignal } | undefined;
+              let _ac: IAbortControllerLike | undefined;
               _ctx = {
                 handleCancel(onCancel: TOnCancel): CancelablePromise<TResult, TFailure> {
                   return instance.handleCancel(onCancel);
                 },
                 getSignal(): IAbortSignal {
                   if (!_ac) {
-                    _ac = new AbortController() as unknown as { abort(): void; signal: IAbortSignal };
-                    instance.handleCancel(() => _ac!.abort());
+                    const ac = new AbortController() as unknown as IAbortControllerLike;
+                    if (instance.canceled) {
+                      ac.abort(cancelError);
+                    } else {
+                      // a strict throw here leaves no controller, so the next call throws too
+                      instance.handleCancel(() => ac.abort(cancelError));
+                    }
+                    _ac = ac;
                   }
-                  return _ac!.signal;
+                  return _ac.signal;
                 },
               };
             }
@@ -1425,9 +1457,9 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
     // settlement nulls them; the extra microtask only delays the `.catch`/`await` rejection, which
     // the pre-abort specs already tolerate (they assert the reason after a macrotask flush).
     if (hasPendingPreAbort) {
-      const preAbortError = new CancelError(undefined, { cause: pendingPreAbortReason });
+      const preAbortError = toCancelError(pendingPreAbortReason);
       instance._internalState = states.CANCELED;
-      instance._canceledReason = preAbortError;
+      instance._canceledReason = pendingPreAbortReason;
       instance._isCanceledReasonSet = true;
       const settle = instance._reject;
       void NativePromise.resolve().then(() => {
@@ -1435,7 +1467,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
         rejectCanceled(settle, preAbortError);
         instance._runSettlementEffects();
         try {
-          instance._runCancellation(preAbortError);
+          instance._runCancellation(pendingPreAbortReason);
         } catch (_e) {
           // no caller to receive a handler error
         }
@@ -1750,10 +1782,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
     if (this.cancelable) {
       this._internalState = states.CANCELED;
 
-      const error =
-        isCancelError(reason) ? reason
-        : isObject(reason) ? new CancelError(undefined, { cause: reason })
-        : new CancelError(reason);
+      const error = toCancelError(reason);
 
       if (disposing) {
         error.disposed = true;

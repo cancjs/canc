@@ -214,11 +214,14 @@ import { isCancelError, isCancPromise, isAggregateError } from '@cancjs/promise'
 `isCancelError` matches the brand only: a foreign error merely named `CancelError` is never
 treated as one. `isAggregateError` also falls back to `error.name`.
 
-A promise canceled through an `AbortSignal` rejects with a `CancelError` whose `cause` is the
-abort reason, not with a `DOMException`. Check `err.aborted`, or `err.timedOut` when the signal
-came from `AbortSignal.timeout()`, on the `CancelError` when the difference matters. Standalone
-error classes and guards (`AbortError`, `isAbortError`, `TimeoutError`, `isTimeoutError`) are also
-exported directly from `@cancjs/promise`.
+A promise canceled through an `AbortSignal` rejects with a `CancelError`, not with a `DOMException`.
+The abort reason is normalized exactly like a `cancel()` reason, so the usual `DOMException` reason
+becomes the `cause`, and cancel handlers receive the raw abort reason. This holds whether the signal
+was aborted before the promise was created or later. The signal from the executor's `getSignal()`
+aborts with that same `CancelError`, even when first requested after the cancel. Check
+`err.aborted`, or `err.timedOut` when the signal came from `AbortSignal.timeout()`, on the
+`CancelError` when the difference matters. Standalone error classes and guards (`AbortError`,
+`isAbortError`, `TimeoutError`, `isTimeoutError`) are also exported directly from `@cancjs/promise`.
 
 `CancelError` also carries `bubbled` (the cancellation came from the consumer side) and `disposed`
 (it came from leaving a `using` scope).
