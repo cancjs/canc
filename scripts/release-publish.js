@@ -4,7 +4,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync, execFileSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const semver = require('semver');
 const getReleasePlan = require('@changesets/get-release-plan').default;
 
@@ -69,6 +69,18 @@ async function getPublishablePackages(mockVersion) {
   return pkgs;
 }
 
+function resolveNpmCli() {
+  if (process.env.npm_execpath && fs.existsSync(process.env.npm_execpath)) {
+    return process.env.npm_execpath;
+  }
+  try {
+    return require.resolve('npm/bin/npm-cli.js');
+  } catch {
+    return path.join(path.dirname(process.execPath), 'node_modules/npm/bin/npm-cli.js');
+  }
+}
+const npmCli = resolveNpmCli();
+
 async function determinePublishTag() {
   const mockRegistryRaw = getArg('--mock-registry');
   const mockRegistryTag = getArg('--mock-registry-version');
@@ -123,12 +135,27 @@ async function determinePublishTag() {
       registryLatest = mockLatestString;
     } else {
       try {
-        registryLatest = execSync(`npm view ${pkg.name} dist-tags.latest`, {
+        const out = execFileSync(process.execPath, [npmCli, 'view', pkg.name, 'dist-tags.latest', '--json'], {
           encoding: 'utf8',
-          stdio: ['ignore', 'pipe', 'ignore'],
-        }).trim();
-      } catch {
-        registryLatest = '0.0.0';
+          timeout: 60000,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        });
+        const trimmed = (out || '').trim();
+        if (!trimmed) {
+          registryLatest = '0.0.0';
+        } else {
+          const parsed = JSON.parse(trimmed);
+          registryLatest = typeof parsed === 'string' ? parsed.trim() : parsed || '0.0.0';
+        }
+      } catch (err) {
+        const stderr = (err.stderr || '').toString();
+        const stdout = (err.stdout || '').toString();
+        const isE404 = stderr.includes('E404') || stderr.includes('404 Not Found') || stdout.includes('"E404"');
+        if (isE404) {
+          registryLatest = '0.0.0';
+        } else {
+          throw new Error(`npm view failed for ${pkg.name}: ${err.message || err}`, { cause: err });
+        }
       }
     }
 
@@ -140,7 +167,7 @@ async function determinePublishTag() {
     if (isOutdated) {
       const maj = semver.major(targetVersion);
       const min = semver.minor(targetVersion);
-      const tag = `v${maj}.${min}`;
+      const tag = `latest-${maj}.${min}`;
       const reasonLead = `maintenance line: ${pkg.name}`;
       const cmp = `< registry latest ${registryLatest}`;
       const reasonVer = `version ${targetVersion} ${cmp}`;
