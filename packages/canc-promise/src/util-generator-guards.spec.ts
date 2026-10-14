@@ -68,10 +68,34 @@ describe('generator result and step guards', () => {
       expect(() => assertGeneratorResult(gen, 'syncContext')).not.toThrow();
     });
 
-    it('passes custom generator-like with callable next and return', () => {
+    it('rejects generator-like object missing throw method with TypeError naming context', () => {
+      const noThrowGen = {
+        next: () => ({ value: 1, done: false }),
+        return: () => ({ value: undefined, done: true }),
+      };
+
+      expect(() => assertGeneratorResult(noThrowGen, 'noThrowContext')).toThrow(TypeError);
+      expect(() => assertGeneratorResult(noThrowGen, 'noThrowContext')).toThrow('noThrowContext');
+      expect(() => assertGeneratorResult(noThrowGen, 'noThrowContext')).toThrow(/throw/i);
+    });
+
+    it('rejects non-callable throw on generator-like object', () => {
+      const badThrowGen = {
+        next: () => ({ value: 1, done: false }),
+        return: () => ({ value: undefined, done: true }),
+        throw: 123,
+      };
+
+      expect(() => assertGeneratorResult(badThrowGen, 'badThrowContext')).toThrow(TypeError);
+      expect(() => assertGeneratorResult(badThrowGen, 'badThrowContext')).toThrow('badThrowContext');
+      expect(() => assertGeneratorResult(badThrowGen, 'badThrowContext')).toThrow(/throw/i);
+    });
+
+    it('passes custom generator-like with callable next, return, and throw', () => {
       const customGen = {
         next: () => ({ value: 1, done: false }),
         return: () => ({ value: undefined, done: true }),
+        throw: () => ({ value: undefined, done: true }),
       };
 
       expect(() => assertGeneratorResult(customGen, 'customContext')).not.toThrow();
