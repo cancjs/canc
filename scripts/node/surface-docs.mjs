@@ -129,6 +129,9 @@ function renderCancellationBehavior(cancelCategory) {
 }
 
 function renderNodeVersion(exp) {
+  if (exp.name === 'duplexPair') {
+    return '20.17+ / 22.6+';
+  }
   if (exp.minMajor) {
     return `${exp.minMajor}+`;
   }
