@@ -96,8 +96,9 @@ for (const entry of privates) {
   if (fs.readFileSync(entry.manifestPath, 'utf8') !== entry.originalText) {
     fs.writeFileSync(entry.manifestPath, entry.originalText, 'utf8');
   }
+  // Upstream changesets assemble-release-plan exit mode patches private workspaces
   const changelogPath = path.join(entry.dir, 'CHANGELOG.md');
-  if (fs.existsSync(changelogPath)) {
+  if (!changelogsBefore.has(changelogPath) && fs.existsSync(changelogPath)) {
     fs.rmSync(changelogPath, { force: true });
   }
 }
