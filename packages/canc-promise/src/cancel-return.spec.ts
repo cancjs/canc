@@ -404,13 +404,17 @@ describe('cancel() always returns a promise in awaitable mode', () => {
     });
   });
 
-  it('a strict sync mode child bubbling into an awaitable parent does not throw', () => {
+  it('a strict sync mode child bubbling into an awaitable parent does not throw', async () => {
     const parent = pendingWithCleanup();
     const child = quiet(parent.promise.then((value) => value));
     child.asyncCancel = false;
     child.strict = true;
 
     expect(child.cancel()).toBeUndefined();
+    // the bubble lands two microtasks after the child cancel
+    await NativePromise.resolve()
+      .then(() => undefined)
+      .then(() => undefined);
     expect(parent.promise.canceled).toBe(true);
   });
 

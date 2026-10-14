@@ -136,6 +136,13 @@ parent. When every consumer has been canceled and the parent's value is no longe
 parent cancels itself and its own cleanup runs, so the original request does not keep going for
 nobody.
 
+A promise is bubble-canceled once no consumer remains after the current synchronous turn; a
+consumer subscribed anywhere in that turn, canc or native, keeps it alive. So `await source` or
+`Promise.resolve(source)` written next to a canceled `source.then(...)` still gets the value. A
+consumer subscribed in a later turn (after an unrelated `await`) arrives late and gets the
+`CancelError`. The parent's cleanup starts two microtasks after the `cancel()` call, and
+`await child.cancel()` waits for it.
+
 Bubbling is on by default. Turn it off per promise with `bubble: false` when the work has side
 effects that should not be discarded implicitly, for example a write that must complete once
 started.

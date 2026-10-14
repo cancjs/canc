@@ -191,6 +191,8 @@ describe('awaiting a cancel that reaches the other copy', () => {
     await flush();
 
     expect(outer.cancel()).toBeUndefined();
+    // the bubble into the adopted promise lands two microtasks after the cancel
+    await flush().then(flush);
     expect(inner.promise.canceled).toBe(true);
   });
 

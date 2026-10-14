@@ -12,9 +12,10 @@ import { CancelablePromise } from './cancelable-promise';
  * discard-return path deferred handlers to a microtask, so the bubble-cancel
  * cases here failed while the explicit-cancel case passed.
  *
- * Bubble note: attaching a rejection sink (`.catch`) to a bubble-capable parent
- * BEFORE the bubble registers a live never-canceling consumer that blocks the
- * upward bubble. So the parent is silenced only AFTER the bubble has fired.
+ * Bubble note: a bubble reaches the parent two microtasks after the child
+ * cancel, and any canc consumer subscribed before that (a `.catch` sink too)
+ * keeps the parent alive. So the parent is silenced through the native `then`,
+ * which the consumer count does not see.
  */
 
 const NativePromise = Promise;
@@ -27,6 +28,19 @@ function silence(p: CancelablePromise<any>): void {
   p.catch(() => {
     /**/
   });
+}
+
+function silenceUncounted(p: CancelablePromise<any>): void {
+  void NativePromise.prototype.then.call(p, undefined, () => {
+    /**/
+  });
+}
+
+// resolves after the deferred bubble decided, when called right after the child cancel
+function bubbleDecided(): Promise<void> {
+  return NativePromise.resolve()
+    .then(() => undefined)
+    .then(() => undefined);
 }
 
 describe('cancel handler invocation ordering', () => {
@@ -47,7 +61,7 @@ describe('cancel handler invocation ordering', () => {
     expect(order).toEqual(['before-cancel', 'handler', 'after-cancel']);
   });
 
-  it('bubble-cancel: parent handler starts synchronously inside the child cancel() call', () => {
+  it('bubble-cancel: parent handler starts synchronously inside the deferred bubble', async () => {
     const order: string[] = [];
 
     const parent = new CancelablePromise<number>((_resolve, _reject, { handleCancel }) => {
@@ -57,20 +71,30 @@ describe('cancel handler invocation ordering', () => {
     });
     const child = parent.then((v) => v);
     silence(child);
+    silenceUncounted(parent);
 
     order.push('before-child-cancel');
     child.cancel('done');
     order.push('after-child-cancel');
-    silence(parent); // silence the now-bubbled parent, after the bubble fired
+    const decided = bubbleDecided().then(() => {
+      order.push('bubble-decided');
+    });
+    void NativePromise.resolve().then(() => {
+      order.push('first-tick');
+    });
+    await decided;
 
-    // The bubble drives parent.cancel() synchronously inside child.cancel(), so the
-    // parent cancel handler fires between the two markers (option (a)).
-    // Pre-fix it
-    // was deferred to a microtask and landed after 'after-child-cancel'.
-    expect(order).toEqual(['before-child-cancel', 'parent-handler', 'after-child-cancel']);
+    // the bubble waits out the current turn plus one job, then the handler runs synchronously
+    expect(order).toEqual([
+      'before-child-cancel',
+      'after-child-cancel',
+      'first-tick',
+      'parent-handler',
+      'bubble-decided',
+    ]);
   });
 
-  it('explicit-cancel and bubble-cancel agree: both start the handler synchronously (no path split)', () => {
+  it('explicit-cancel and bubble-cancel agree: both start the handler synchronously when the cancel lands', async () => {
     // explicit path
     const explicitOrder: string[] = [];
     const target = new CancelablePromise((_r, _j, { handleCancel }) => {
@@ -85,7 +109,7 @@ describe('cancel handler invocation ordering', () => {
     expect(explicitOrder.indexOf('handler')).toBeGreaterThan(explicitOrder.indexOf('trigger'));
     expect(explicitOrder.indexOf('handler')).toBeLessThan(explicitOrder.indexOf('after'));
 
-    // bubble path
+    // bubble path: the cancel lands on the parent inside the deferred job
     const bubbleOrder: string[] = [];
     const parent = new CancelablePromise<number>((_r, _j, { handleCancel }) => {
       handleCancel(() => {
@@ -94,26 +118,30 @@ describe('cancel handler invocation ordering', () => {
     });
     const child = parent.then((v) => v);
     silence(child);
+    silenceUncounted(parent);
     bubbleOrder.push('trigger');
     child.cancel();
     bubbleOrder.push('after');
-    silence(parent);
-    expect(bubbleOrder.indexOf('handler')).toBeGreaterThan(bubbleOrder.indexOf('trigger'));
-    expect(bubbleOrder.indexOf('handler')).toBeLessThan(bubbleOrder.indexOf('after'));
+    await bubbleDecided();
+    bubbleOrder.push('decided');
+    expect(bubbleOrder).toEqual(['trigger', 'after', 'handler', 'decided']);
   });
 
   it('discard path swallows a throwing handler (no unhandled rejection) and does not throw out of cancel()', async () => {
+    const throwing = jest.fn(() => {
+      throw new Error('boom');
+    });
     const parent = new CancelablePromise<number>((_r, _j, { handleCancel }) => {
-      handleCancel(() => {
-        throw new Error('boom');
-      });
+      handleCancel(throwing);
     });
     const child = parent.then((v) => v);
     silence(child);
+    silenceUncounted(parent);
 
     // Bubble triggers the parent's throwing handler on the discard path.
     expect(() => child.cancel()).not.toThrow();
-    silence(parent);
+    await bubbleDecided();
+    expect(throwing).toHaveBeenCalledTimes(1);
     await macrotask();
   });
 
@@ -181,7 +209,7 @@ describe('cancel handler invocation ordering', () => {
     expect(order.indexOf('child-handler')).toBeLessThan(order.indexOf('child-catch'));
   });
 
-  it('sync mode (asyncCancel:false) bubble-cancel still fires handler synchronously', () => {
+  it('sync mode (asyncCancel:false) bubble-cancel fires the parent handler two microtasks later', async () => {
     const order: string[] = [];
     const parent = new CancelablePromise<number>(
       (_r, _j, { handleCancel }) => {
@@ -193,15 +221,22 @@ describe('cancel handler invocation ordering', () => {
     );
     const child = parent.then((v) => v);
     silence(child);
+    silenceUncounted(parent);
 
     order.push('trigger');
     child.cancel();
     order.push('after');
-    silence(parent);
-    expect(order).toEqual(['trigger', 'handler', 'after']);
+    const decided = bubbleDecided().then(() => {
+      order.push('decided');
+    });
+    void NativePromise.resolve().then(() => {
+      order.push('first-tick');
+    });
+    await decided;
+    expect(order).toEqual(['trigger', 'after', 'first-tick', 'handler', 'decided']);
   });
 
-  it('bubbled reason reaches the parent cancel handler', () => {
+  it('bubbled reason reaches the parent cancel handler', async () => {
     let received: unknown;
     const parent = new CancelablePromise<number>((_r, _j, { handleCancel }) => {
       handleCancel((reason) => {
@@ -210,9 +245,10 @@ describe('cancel handler invocation ordering', () => {
     });
     const child = parent.then((v) => v);
     silence(child);
+    silenceUncounted(parent);
 
     child.cancel();
-    silence(parent);
+    await bubbleDecided();
     expect(received).toBeInstanceOf(CancelError);
     expect((received as CancelError).bubbled).toBe(true);
   });

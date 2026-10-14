@@ -143,11 +143,19 @@ export interface IHandleCancelOptions {
 export type TCancelablePromiseStates = 'PENDING' | 'FORCE_PENDING' | 'FULFILLED' | 'REJECTED' | 'CANCELED';
 
 export interface ICancelablePromiseFlagOptions {
-  /** Awaitable cancel mode: cancel() returns a promise covering all transitive cleanup */
+  /**
+   * Awaitable cancel mode: cancel() returns a promise covering all transitive cleanup. With
+   * `asyncCancel: false` cancel() returns `undefined`, and the cleanup of a parent reached by
+   * bubbling runs two microtasks after cancel() returns.
+   */
   asyncCancel?: boolean;
   /** Keeps the current promise cancelable when native promise is provided through resolve() */
   forceCancelable?: boolean;
-  /** Cancellation propagates to parent promise */
+  /**
+   * Cancellation propagates to parent promise. A promise is bubble-canceled once no consumer
+   * remains after the current synchronous turn; a consumer subscribed anywhere in that turn, canc
+   * or native, keeps it alive.
+   */
   bubble?: boolean;
   /** Throw on cancellation problems */
   strict?: boolean;
@@ -235,6 +243,44 @@ function noop() {
 // Restored after dispatch (stack discipline).
 let _activeCollector: any[] | undefined;
 
+// set while a deferred bubble cancels its parent, the cascade above it runs synchronously
+let _inDeferredBubble = false;
+
+// what a deferred bubble collected, listed in place of its own collector entry
+class DeferredCleanup {
+  constructor(readonly results: ISettledResult<unknown>[]) {}
+}
+
+function flattenCleanup(results: ISettledResult<unknown>[]): ISettledResult<unknown>[] {
+  let flat: ISettledResult<unknown>[] = [];
+  for (const result of results) {
+    if (result.status === 'fulfilled' && result.value instanceof DeferredCleanup) {
+      flat = flat.concat(flattenCleanup(result.value.results));
+    } else {
+      flat.push(result);
+    }
+  }
+  return flat;
+}
+
+function toSettledResult(entry: unknown): Promise<ISettledResult<unknown>> {
+  return NativePromise.resolve(entry).then(
+    (value): ISettledResult<unknown> => ({ status: 'fulfilled', value }),
+    (reason: unknown): ISettledResult<unknown> => ({ status: 'rejected', reason }),
+  );
+}
+
+// native twin of settleCleanup: a deferred bubble adds no allSettled call of its own
+function settleDeferredCleanup(collector: any[]): Promise<DeferredCleanup> {
+  let settled: ISettledResult<unknown>[] = [];
+  const drain = (): Promise<DeferredCleanup> =>
+    NativePromise.all(collector.slice(settled.length).map(toSettledResult)).then((results) => {
+      settled = settled.concat(results);
+      return collector.length > settled.length ? drain() : new DeferredCleanup(settled);
+    });
+  return drain();
+}
+
 // cancel marks CANCELED before it rejects and the settlers drop a non-PENDING
 // promise, so this flag carries that one rejection through to the native promise
 let _rejectingCanceled = false;
@@ -265,7 +311,7 @@ function settleCleanup(
   const { promise, resolve } = This.withResolvers<ISettledResult<unknown>[], never>();
   let settled: ISettledResult<unknown>[] = [];
   const finish = (): void => {
-    resolve(settled);
+    resolve(flattenCleanup(settled));
   };
   const drain = (): void => {
     void This.allSettled(collector.slice(settled.length)).then((results) => {
@@ -1740,6 +1786,11 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
    * bubble from settled children). What a handler returns is still awaited asynchronously by the
    * returned settlement promise; only the invocation is synchronous.
    *
+   * Bubble timing: this promise is canceled at once, but a parent that loses its last consumer is
+   * canceled two microtasks later, after counting its consumers again. A consumer subscribed
+   * anywhere in the current synchronous turn, canc or native (`await`, `Promise.resolve`), keeps
+   * the parent alive. Above that parent the cascade runs synchronously.
+   *
    * On an already-settled/canceled promise the cancel itself is a silent no-op unless `strict`,
    * which throws.
    * @param reason The cancellation reason.
@@ -1973,9 +2024,13 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
    * `handleCancel`, a settle reaction, or a native subscription). Returns `undefined` when this
    * promise does not bubble, so the caller skips wiring entirely.
    *
-   * The completion semantics are identical to the previous inline `_chain` closure: on each
-   * completion increment `_completedChainsCount`, and once every counted ref has completed while
-   * still cancelable, bubble-cancel this promise with a `bubbled` CancelError.
+   * On each completion increment `_completedChainsCount`. Once every counted ref has completed
+   * through a cancel, the bubble is decided two microtasks later: a consumer subscribed in the
+   * meantime (a canc `then`, or a native `await` / `Promise.resolve` that subscribes one job late)
+   * keeps this promise alive. Otherwise it is bubble-canceled with a `bubbled` CancelError, and the
+   * cascade above it runs synchronously inside that job. The deferred job joins the active cleanup
+   * collector, so an awaited `cancel()` of the child also waits for this cleanup. A completion by
+   * settling (`bubbleOnComplete`, race) bubbles at once, as it already runs in a reaction job.
    */
   protected _addChainRef(bubbleOnComplete?: boolean): (() => void) | undefined {
     if (!(this.bubble && this.cancelable)) {
@@ -1987,20 +2042,55 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
     return () => {
       this._completedChainsCount++;
 
-      if (this._completedChainsCount >= this._chainsCount && this.cancelable) {
+      if (this._completedChainsCount < this._chainsCount || !this.cancelable) {
+        return;
+      }
+
+      const bubbleCancel = (collector: any[] | undefined): void => {
         const error = new CancelError(`Bubbled on ${bubbleOnComplete ? 'settling' : 'cancel'}`);
         error.bubbled = true;
 
         try {
-          if (_activeCollector && this.cancel === CancelablePromise.prototype.cancel) {
+          if (collector && this.cancel === CancelablePromise.prototype.cancel) {
             // the running cancel already collects this cleanup, its result would go unread
-            this._cancel(error, undefined, _activeCollector);
+            this._cancel(error, undefined, collector);
           } else {
             this.cancel(error);
           }
         } catch (_e) {
           // a parent's handler error never reaches the child's canceler
         }
+      };
+
+      const collector = _activeCollector;
+      // a settle reaction (race) already runs a job late, only a cancel waits out the turn
+      if (_inDeferredBubble || bubbleOnComplete) {
+        bubbleCancel(collector);
+        return;
+      }
+
+      // two jobs: every native adoption form subscribes within one job of this turn
+      const hop = NativePromise.resolve()
+        .then(noop)
+        .then(() => {
+          if (this._completedChainsCount < this._chainsCount || !this.cancelable) {
+            return new DeferredCleanup([]);
+          }
+          // own collector: entries appended to the caller's one would cost it another round
+          const own = collector ? [] : undefined;
+          const prevCollector = _activeCollector;
+          _activeCollector = own;
+          _inDeferredBubble = true;
+          try {
+            bubbleCancel(own);
+          } finally {
+            _inDeferredBubble = false;
+            _activeCollector = prevCollector;
+          }
+          return own ? settleDeferredCleanup(own) : new DeferredCleanup([]);
+        });
+      if (collector) {
+        collector.push(hop);
       }
     };
   }
@@ -2056,11 +2146,23 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
     } else {
       // a child of another package copy collects what its handler returns, hand it this cleanup
       childPromise.handleCancel(() => {
-        onComplete();
-        const running = this.canceled ? this._collector : undefined;
-        return running && childPromise.asyncCancel ?
-            settleCleanup(this.constructor as typeof CancelablePromise, running)
+        // the other copy's collector is out of reach, the deferred bubble joins a local one
+        const collector: any[] = [];
+        const prev = _activeCollector;
+        _activeCollector = collector;
+        try {
+          onComplete();
+        } finally {
+          _activeCollector = prev;
+        }
+        if (!childPromise.asyncCancel) {
+          return undefined;
+        }
+        const running =
+          collector.length ? collector
+          : this.canceled ? this._collector
           : undefined;
+        return running ? settleCleanup(this.constructor as typeof CancelablePromise, running) : undefined;
       });
     }
   }

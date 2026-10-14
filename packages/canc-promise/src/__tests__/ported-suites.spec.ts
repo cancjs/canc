@@ -859,7 +859,8 @@ describe('ported suites', () => {
       silence(childUp);
 
       childUp.cancel();
-      await parentUp.catch((e) => {
+      // a canc catch here would count as a consumer and keep the parent alive
+      await NativePromise.prototype.then.call(parentUp, undefined, (e: unknown) => {
         upErr = e;
       });
       await drain();
