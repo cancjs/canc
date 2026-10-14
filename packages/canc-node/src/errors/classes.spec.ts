@@ -253,4 +253,55 @@ describe('package error classes and guards', () => {
       }
     });
   });
+
+  describe('brand keys and type identity', () => {
+    const errorClasses = [
+      {
+        cls: NotImplementedError,
+        name: 'NotImplementedError',
+        brand: '@cancjs/node:NotImplementedError',
+        defaultMessage: 'The requested feature is not implemented',
+      },
+      {
+        cls: ProcessExitError,
+        name: 'ProcessExitError',
+        brand: '@cancjs/node:ProcessExitError',
+        defaultMessage: 'Process exited with a non-zero exit code',
+      },
+      {
+        cls: ProcessSpawnError,
+        name: 'ProcessSpawnError',
+        brand: '@cancjs/node:ProcessSpawnError',
+        defaultMessage: 'Process could not be spawned',
+      },
+      {
+        cls: JsonParseError,
+        name: 'JsonParseError',
+        brand: '@cancjs/node:JsonParseError',
+        defaultMessage: 'Failed to parse JSON',
+      },
+    ];
+
+    it.each(errorClasses)(
+      '$name prototype carries brand key, non-enumerably, without default message symbol',
+      ({ cls, brand, defaultMessage }) => {
+        const proto = cls.prototype as unknown as Record<string | symbol, unknown>;
+        const base = Object.getPrototypeOf(proto) as unknown as Record<string | symbol, unknown>;
+        const brandSymbol = Symbol.for(brand);
+        const defaultMsgSymbol = Symbol.for(defaultMessage);
+
+        expect(proto._cancErrorBrand).toBe(brand);
+
+        const descriptor = Object.getOwnPropertyDescriptor(base, '_cancErrorBrand');
+        expect(descriptor).toBeDefined();
+        expect(descriptor!.enumerable).toBe(false);
+
+        expect(proto[brandSymbol]).toBe(true);
+        expect(defaultMsgSymbol in proto).toBe(false);
+
+        const instance = new cls();
+        expect(instance.message).toBe(defaultMessage);
+      },
+    );
+  });
 });

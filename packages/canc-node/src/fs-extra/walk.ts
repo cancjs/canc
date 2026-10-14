@@ -1,8 +1,8 @@
 import type { Dir, Dirent, Stats } from 'node:fs';
 import { join } from 'node:path';
 
-import { lstat, opendir, stat } from '../fs';
-import { lstatSync, opendirSync, statSync } from '../fs/sync';
+import { lstat, opendir, stat } from '@cancjs/node/fs';
+import { lstatSync, opendirSync, statSync } from '@cancjs/node/fs/sync';
 
 /**
  * Traversal order for walk operations.
@@ -547,7 +547,7 @@ export async function* walk(dir: string, options?: IWalkOptions): AsyncGenerator
       if (followSymlinks && d.isSymbolicLink()) {
         try {
           targetStat = entryStats ?? (await statFn(entryPath));
-          if (targetStat.isDirectory()) {
+          if (targetStat?.isDirectory()) {
             isDirectory = true;
           }
         } catch (_err) {
@@ -752,7 +752,7 @@ export function* walkSync(dir: string, options?: IWalkSyncOptions): Generator<IW
       if (followSymlinks && d.isSymbolicLink()) {
         try {
           targetStat = entryStats ?? statSyncFn(entryPath);
-          if (targetStat.isDirectory()) {
+          if (targetStat?.isDirectory()) {
             isDirectory = true;
           }
         } catch (_err) {

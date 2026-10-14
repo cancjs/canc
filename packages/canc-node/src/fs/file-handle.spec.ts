@@ -1,3 +1,4 @@
+import { once } from 'node:events';
 import * as nodeFs from 'node:fs';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
@@ -10,6 +11,10 @@ import { __resetCancProtoForTest, decorate } from './file-handle';
 import { open } from './index';
 import { resetFs, setFs } from './registry';
 
+function removeTempDir(dir: string): void {
+  nodeFs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
+}
+
 describe('FileHandle', () => {
   const tempDirs: string[] = [];
 
@@ -18,11 +23,7 @@ describe('FileHandle', () => {
     while (tempDirs.length > 0) {
       const dir = tempDirs.pop();
       if (dir) {
-        try {
-          nodeFs.rmSync(dir, { recursive: true, force: true });
-        } catch (_err) {
-          // ignore
-        }
+        removeTempDir(dir);
       }
     }
   });
@@ -234,7 +235,7 @@ describe('FileHandle', () => {
 
     await srcFh.close();
     await dstFh.close();
-    nodeFs.rmSync(dir, { recursive: true, force: true });
+    removeTempDir(dir);
   });
 
   test('createReadStream pipes to createWriteStream end to end', async () => {
@@ -250,12 +251,15 @@ describe('FileHandle', () => {
     const rs = srcFh.createReadStream();
     const ws = dstFh.createWriteStream();
 
+    const rsClose = once(rs, 'close');
+    const wsClose = once(ws, 'close');
+
     try {
       rs.pipe(ws);
     } catch (err) {
       await srcFh.close();
       await dstFh.close();
-      nodeFs.rmSync(dir, { recursive: true, force: true });
+      removeTempDir(dir);
       throw err;
     }
 
@@ -268,9 +272,10 @@ describe('FileHandle', () => {
     const copied = nodeFs.readFileSync(dstFile, 'utf8');
     expect(copied).toBe('pipe payload data');
 
+    await Promise.all([rsClose, wsClose]);
     await srcFh.close();
     await dstFh.close();
-    nodeFs.rmSync(dir, { recursive: true, force: true });
+    removeTempDir(dir);
   });
 
   test('readableWebStream and readLines still return node values', async () => {
@@ -296,7 +301,7 @@ describe('FileHandle', () => {
     }
     await fh2.close();
 
-    nodeFs.rmSync(dir, { recursive: true, force: true });
+    removeTempDir(dir);
   });
 
   test('close() called twice concurrently on a handle resolves both without abort', async () => {

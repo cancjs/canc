@@ -1,11 +1,11 @@
 import { basename, dirname, join } from 'node:path';
 
+import { chmod, chown, rename, stat, unlink, writeFile } from '@cancjs/node/fs';
+import { chmodSync, chownSync, renameSync, statSync, unlinkSync, writeFileSync } from '@cancjs/node/fs/sync';
 import { CancelablePromise } from '@cancjs/promise';
 
 import type { Unlisted } from '../../../_util';
 import { isErrno, isNotFoundError } from '../errors/errno';
-import { chmod, chown, rename, stat, unlink, writeFile } from '../fs';
-import { chmodSync, chownSync, renameSync, statSync, unlinkSync, writeFileSync } from '../fs/sync';
 
 type TWriteFileParams = Parameters<typeof writeFile>;
 type TWriteData = TWriteFileParams[1];

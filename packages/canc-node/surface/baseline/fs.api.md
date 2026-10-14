@@ -3,7 +3,7 @@
 Generated. Do not edit by hand.
 
 - Declarations: `packages/canc-node/dist/types/fs/index.d.ts`
-- Exports: 40
+- Exports: 45
 
 ## `BigIntStats` (interface)
 
@@ -21,6 +21,18 @@ new (): Dir
 
 ```text
 new <Name extends Buffer | string = string>(): Dirent<Name>
+```
+
+## `IFsLike` (type)
+
+```text
+(Partial<Omit<IFsSurface, "accessSync">> & Required<Pick<IFsSurface, "accessSync">>) | (Partial<Omit<IFsSurface, "appendFile">> & Required<Pick<IFsSurface, "appendFile">>) | (Partial<Omit<IFsSurface, "appendFileSync">> & Required<Pick<IFsSurface, "appendFileSync">>) | (Partial<Omit<IFsSurface, "chmod">> & Required<Pick<IFsSurface, "chmod">>) | (Partial<Omit<IFsSurface, "chmodSync">> & Required<Pick<IFsSurface, "chmodSync">>) | (Partial<Omit<IFsSurface, "chown">> & Required<Pick<IFsSurface, "chown">>) | (Partial<Omit<IFsSurface, "chownSync">> & Required<Pick<IFsSurface, "chownSync">>) | (Partial<Omit<IFsSurface, "closeSync">> & Required<Pick<IFsSurface, "closeSync">>) | (Partial<Omit<IFsSurface, "copyFile">> & Required<Pick<IFsSurface, "copyFile">>) | (Partial<Omit<IFsSurface, "copyFileSync">> & Required<Pick<IFsSurface, "copyFileSync">>) | (Partial<Omit<IFsSurface, "cpSync">> & Required<Pick<IFsSurface, "cpSync">>) | (Partial<Omit<IFsSurface, "exists">> & Required<Pick<IFsSurface, "exists">>) | (Partial<Omit<IFsSurface, "existsSync">> & Required<Pick<IFsSurface, "existsSync">>) | (Partial<Omit<IFsSurface, "fchmodSync">> & Required<Pick<IFsSurface, "fchmodSync">>) | (Partial<Omit<IFsSurface, "fchownSync">> & Required<Pick<IFsSurface, "fchownSync">>) | (Partial<Omit<IFsSurface, "fdatasyncSync">> & Required<Pick<IFsSurface, "fdatasyncSync">>) | (Partial<Omit<IFsSurface, "fstatSync">> & Required<Pick<IFsSurface, "fstatSync">>) | (Partial<Omit<IFsSurface, "fsyncSync">> & Required<Pick<IFsSurface, "fsyncSync">>) | (Partial<Omit<IFsSurface, "ftruncateSync">> & Required<Pick<IFsSurface, "ftruncateSync">>) | (Partial<Omit<IFsSurface, "futimesSync">> & Required<Pick<IFsSurface, "futimesSync">>) | (Partial<Omit<IFsSurface, "lchmod">> & Required<Pick<IFsSurface, "lchmod">>) | (Partial<Omit<IFsSurface, "lchmodSync">> & Required<Pick<IFsSurface, "lchmodSync">>) | (Partial<Omit<IFsSurface, "lchown">> & Required<Pick<IFsSurface, "lchown">>) | (Partial<Omit<IFsSurface, "lchownSync">> & Required<Pick<IFsSurface, "lchownSync">>) | (Partial<Omit<IFsSurface, "linkSync">> & Required<Pick<IFsSurface, "linkSync">>) | (Partial<Omit<IFsSurface, "lstat">> & Required<Pick<IFsSurface, "lstat">>) | (Partial<Omit<IFsSurface, "lstatSync">> & Required<Pick<IFsSurface, "lstatSync">>) | (Partial<Omit<IFsSurface, "lutimesSync">> & Required<Pick<IFsSurface, "lutimesSync">>) | (Partial<Omit<IFsSurface, "mkdirSync">> & Required<Pick<IFsSurface, "mkdirSync">>) | (Partial<Omit<IFsSurface, "mkdtempSync">> & Required<Pick<IFsSurface, "mkdtempSync">>) | (Partial<Omit<IFsSurface, "openSync">> & Required<Pick<IFsSurface, "openSync">>) | (Partial<Omit<IFsSurface, "opendirSync">> & Required<Pick<IFsSurface, "opendirSync">>) | (Partial<Omit<IFsSurface, "promises">> & Required<Pick<IFsSurface, "promises">>) | (Partial<Omit<IFsSurface, "readFile">> & Required<Pick<IFsSurface, "readFile">>) | (Partial<Omit<IFsSurface, "readFileSync">> & Required<Pick<IFsSurface, "readFileSync">>) | (Partial<Omit<IFsSurface, "readSync">> & Required<Pick<IFsSurface, "readSync">>) | (Partial<Omit<IFsSurface, "readdir">> & Required<Pick<IFsSurface, "readdir">>) | (Partial<Omit<IFsSurface, "readdirSync">> & Required<Pick<IFsSurface, "readdirSync">>) | (Partial<Omit<IFsSurface, "readlinkSync">> & Required<Pick<IFsSurface, "readlinkSync">>) | (Partial<Omit<IFsSurface, "readvSync">> & Required<Pick<IFsSurface, "readvSync">>) | (Partial<Omit<IFsSurface, "realpathSync">> & Required<Pick<IFsSurface, "realpathSync">>) | (Partial<Omit<IFsSurface, "rename">> & Required<Pick<IFsSurface, "rename">>) | (Partial<Omit<IFsSurface, "renameSync">> & Required<Pick<IFsSurface, "renameSync">>) | (Partial<Omit<IFsSurface, "rmSync">> & Required<Pick<IFsSurface, "rmSync">>) | (Partial<Omit<IFsSurface, "rmdirSync">> & Required<Pick<IFsSurface, "rmdirSync">>) | (Partial<Omit<IFsSurface, "stat">> & Required<Pick<IFsSurface, "stat">>) | (Partial<Omit<IFsSurface, "statSync">> & Required<Pick<IFsSurface, "statSync">>) | (Partial<Omit<IFsSurface, "statfsSync">> & Required<Pick<IFsSurface, "statfsSync">>) | (Partial<Omit<IFsSurface, "symlinkSync">> & Required<Pick<IFsSurface, "symlinkSync">>) | (Partial<Omit<IFsSurface, "truncateSync">> & Required<Pick<IFsSurface, "truncateSync">>) | (Partial<Omit<IFsSurface, "unlinkSync">> & Required<Pick<IFsSurface, "unlinkSync">>) | (Partial<Omit<IFsSurface, "utimesSync">> & Required<Pick<IFsSurface, "utimesSync">>) | (Partial<Omit<IFsSurface, "writeFile">> & Required<Pick<IFsSurface, "writeFile">>) | (Partial<Omit<IFsSurface, "writeFileSync">> & Required<Pick<IFsSurface, "writeFileSync">>) | (Partial<Omit<IFsSurface, "writeSync">> & Required<Pick<IFsSurface, "writeSync">>) | (Partial<Omit<IFsSurface, "writevSync">> & Required<Pick<IFsSurface, "writevSync">>)
+```
+
+## `ISetFsOptions` (interface)
+
+```text
+retryOpen?: boolean | undefined
 ```
 
 ## `StatFs` (class)
@@ -131,6 +143,12 @@ X_OK: number
 
 ```text
 (path: PathLike): CancelablePromise<boolean, never>
+```
+
+## `getFs` (function)
+
+```text
+(): IFsLike
 ```
 
 ## `glob` (const)
@@ -245,6 +263,12 @@ X_OK: number
 (oldPath: PathLike, newPath: PathLike): CancelablePromise<void, Unlisted>
 ```
 
+## `resetFs` (function)
+
+```text
+(): void
+```
+
 ## `rm` (const)
 
 ```text
@@ -255,6 +279,12 @@ X_OK: number
 
 ```text
 (path: PathLike, options?: RmDirOptions | undefined): CancelablePromise<void, Unlisted>
+```
+
+## `setFs` (function)
+
+```text
+(impl: IFsLike, options?: ISetFsOptions | undefined): void
 ```
 
 ## `stat` (const)

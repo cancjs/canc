@@ -1,10 +1,10 @@
 import { dirname } from 'node:path';
 
+import { writeFile } from '@cancjs/node/fs';
+import { writeFileSync } from '@cancjs/node/fs/sync';
 import { CancelablePromise } from '@cancjs/promise';
 
 import type { Unlisted } from '../../../_util';
-import { writeFile } from '../fs';
-import { writeFileSync } from '../fs/sync';
 import { ensureDir, ensureDirSync } from './ensure';
 
 type TWriteFileParams = Parameters<typeof writeFile>;

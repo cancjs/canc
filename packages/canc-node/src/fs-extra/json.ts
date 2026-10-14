@@ -1,11 +1,11 @@
 import { dirname } from 'node:path';
 
+import { JsonParseError } from '@cancjs/node';
+import { readFile, writeFile } from '@cancjs/node/fs';
+import { mkdirSync, readFileSync, writeFileSync } from '@cancjs/node/fs/sync';
 import { CancelablePromise } from '@cancjs/promise';
 
 import type { Unlisted } from '../../../_util';
-import { JsonParseError } from '../errors/classes';
-import { readFile, writeFile } from '../fs';
-import { mkdirSync, readFileSync, writeFileSync } from '../fs/sync';
 import { ensureDir } from './ensure';
 
 export interface IReadJsonOptions {

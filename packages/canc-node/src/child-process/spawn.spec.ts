@@ -10,6 +10,10 @@ import { CancelError, isCancelError } from '@cancjs/promise';
 import { isProcessExitError, isProcessSpawnError } from '../errors/classes';
 import { fork, spawn } from './spawn';
 
+function removeTempDir(dir: string): void {
+  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
+}
+
 const forever = 'setTimeout(() => {}, 60000)';
 
 // a real process crash cannot be observed from inside the runner (it intercepts uncaught
@@ -18,6 +22,7 @@ const forever = 'setTimeout(() => {}, 60000)';
 // fly and resolves `@cancjs/promise` to its source, then the snippet runs with `-e`.
 const promiseSrc = resolve(__dirname, '../../../canc-promise/src/index.ts');
 const spawnSrc = resolve(__dirname, './spawn.ts');
+const nodeSrc = resolve(__dirname, '../index.ts');
 
 const childHook = `
   const ts = require(${JSON.stringify(require.resolve('typescript'))});
@@ -43,6 +48,9 @@ const childHook = `
   Module.prototype.require = function (request) {
     if (request === '@cancjs/promise') {
       return origRequire.call(this, ${JSON.stringify(promiseSrc)});
+    }
+    if (request === '@cancjs/node') {
+      return origRequire.call(this, ${JSON.stringify(nodeSrc)});
     }
     return origRequire.call(this, request);
   };
@@ -293,7 +301,7 @@ describe('spawn and fork', () => {
     });
 
     afterEach(() => {
-      rmSync(dir, { force: true, recursive: true });
+      removeTempDir(dir);
     });
 
     it('resolves with the exit code of the forked module', async () => {

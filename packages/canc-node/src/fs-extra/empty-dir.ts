@@ -1,10 +1,10 @@
 import { join } from 'node:path';
 
+import { readdir, rm } from '@cancjs/node/fs';
+import { readdirSync, rmSync } from '@cancjs/node/fs/sync';
 import { CancelablePromise } from '@cancjs/promise';
 
 import type { Unlisted } from '../../../_util';
-import { readdir, rm } from '../fs';
-import { readdirSync, rmSync } from '../fs/sync';
 import { ensureDir, ensureDirSync } from './ensure';
 import { IAbortSignalLike, throwIfAborted } from './utils';
 

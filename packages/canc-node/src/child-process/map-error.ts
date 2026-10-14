@@ -1,5 +1,6 @@
+import { ProcessSpawnError } from '@cancjs/node';
+
 import { isObject } from '../../../_util/guards';
-import { ProcessSpawnError } from '../errors/classes';
 
 interface IChildProcessError {
   code?: string | number | null;

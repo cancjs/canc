@@ -23,4 +23,20 @@ const configs = createMultiConfigs(
   { noUmd: true },
 );
 
+// self-imports stay external so subpaths share a single registry and error instances
+const nodeExternals = ['@cancjs/node', /^@cancjs\/node\/.*/];
+
+for (const config of configs) {
+  if (Array.isArray(config.external)) {
+    config.external = [...config.external, ...nodeExternals];
+  } else if (typeof config.external === 'function') {
+    const orig = config.external;
+    config.external = (id, ...args) => id === '@cancjs/node' || id.startsWith('@cancjs/node/') || orig(id, ...args);
+  } else if (config.external) {
+    config.external = [config.external, ...nodeExternals];
+  } else {
+    config.external = nodeExternals;
+  }
+}
+
 export default configs;

@@ -15,7 +15,7 @@ Node built-in modules with cancelable promises and typed failures.
 
 `@cancjs/node` provides cancelable promise wrappers and typed failure channels for Node.js built-in modules. To migrate, replace built-in imports like `node:fs/promises` or `node:child_process` with `@cancjs/node/<module>` (such as `@cancjs/node/fs` or `@cancjs/node/child-process`). All wrapped functions return `CancelablePromise` instances and propagate cancellations cleanly.
 
-The package ships the `fs`, `fs/sync`, and `fs/register-graceful` subpaths. Additional module wrappers are under active development and scheduled for upcoming releases. The root entry `@cancjs/node` provides shared error classes, errno predicates, and runtime feature detection used across all subpaths.
+The package ships the `fs`, `fs/sync`, `fs/register-graceful`, `fs/extra`, `child-process`, `timers`, `stream`, `events`, `dns`, `readline`, `crypto`, `zlib`, `worker-threads`, and `dgram` subpaths. The root entry `@cancjs/node` provides shared error classes, errno predicates, and runtime feature detection used across all subpaths.
 
 ## Features
 
@@ -378,39 +378,39 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 
 #### stream
 
-| Export                    | Cancellation   | Node | Deno       | Bun        |
-| ------------------------- | -------------- | ---- | ---------- | ---------- |
-| `pipeline`                | stops the work | 18+  | yes        | yes        |
-| `finished`                | stops the work | 18+  | yes        | yes        |
-| `addAbortSignal`          | -              | 18+  | yes        | yes        |
-| `compose`                 | -              | 18+  | yes        | yes        |
-| `duplexPair`              | -              | 18+  | yes        | yes        |
-| `from`                    | -              | 18+  | unverified | unverified |
-| `fromWeb`                 | -              | 18+  | unverified | unverified |
-| `toWeb`                   | -              | 18+  | unverified | unverified |
-| `getDefaultHighWaterMark` | -              | 18+  | yes        | yes        |
-| `setDefaultHighWaterMark` | -              | 18+  | yes        | yes        |
-| `isDestroyed`             | -              | 18+  | yes        | yes        |
-| `isDisturbed`             | -              | 18+  | yes        | yes        |
-| `isErrored`               | -              | 18+  | yes        | yes        |
-| `isReadable`              | -              | 18+  | yes        | yes        |
-| `isWritable`              | -              | 18+  | yes        | yes        |
-| `push`                    | -              | 18+  | unverified | unverified |
-| `read`                    | -              | 18+  | unverified | unverified |
-| `_construct`              | -              | 18+  | unverified | unverified |
-| `_destroy`                | -              | 18+  | unverified | unverified |
-| `_read`                   | -              | 18+  | unverified | unverified |
-| `_flush`                  | -              | 18+  | unverified | unverified |
-| `_transform`              | -              | 18+  | unverified | unverified |
-| `_final`                  | -              | 18+  | unverified | unverified |
-| `_write`                  | -              | 18+  | unverified | unverified |
-| `_writev`                 | -              | 18+  | unverified | unverified |
-| `text`                    | stops the work | 18+  | unverified | unverified |
-| `json`                    | stops the work | 18+  | unverified | unverified |
-| `buffer`                  | stops the work | 18+  | unverified | unverified |
-| `arrayBuffer`             | stops the work | 18+  | unverified | unverified |
-| `blob`                    | stops the work | 18+  | unverified | unverified |
-| `bytes`                   | stops the work | 24+  | unverified | unverified |
+| Export                    | Cancellation   | Node           | Deno       | Bun        |
+| ------------------------- | -------------- | -------------- | ---------- | ---------- |
+| `pipeline`                | stops the work | 18+            | yes        | yes        |
+| `finished`                | stops the work | 18+            | yes        | yes        |
+| `addAbortSignal`          | -              | 18+            | yes        | yes        |
+| `compose`                 | -              | 18+            | yes        | yes        |
+| `duplexPair`              | -              | 20.17+ / 22.6+ | yes        | yes        |
+| `from`                    | -              | 18+            | unverified | unverified |
+| `fromWeb`                 | -              | 18+            | unverified | unverified |
+| `toWeb`                   | -              | 18+            | unverified | unverified |
+| `getDefaultHighWaterMark` | -              | 18+            | yes        | yes        |
+| `setDefaultHighWaterMark` | -              | 18+            | yes        | yes        |
+| `isDestroyed`             | -              | 18+            | yes        | yes        |
+| `isDisturbed`             | -              | 18+            | yes        | yes        |
+| `isErrored`               | -              | 18+            | yes        | yes        |
+| `isReadable`              | -              | 18+            | yes        | yes        |
+| `isWritable`              | -              | 18+            | yes        | yes        |
+| `push`                    | -              | 18+            | unverified | unverified |
+| `read`                    | -              | 18+            | unverified | unverified |
+| `_construct`              | -              | 18+            | unverified | unverified |
+| `_destroy`                | -              | 18+            | unverified | unverified |
+| `_read`                   | -              | 18+            | unverified | unverified |
+| `_flush`                  | -              | 18+            | unverified | unverified |
+| `_transform`              | -              | 18+            | unverified | unverified |
+| `_final`                  | -              | 18+            | unverified | unverified |
+| `_write`                  | -              | 18+            | unverified | unverified |
+| `_writev`                 | -              | 18+            | unverified | unverified |
+| `text`                    | stops the work | 18+            | unverified | unverified |
+| `json`                    | stops the work | 18+            | unverified | unverified |
+| `buffer`                  | stops the work | 18+            | unverified | unverified |
+| `arrayBuffer`             | stops the work | 18+            | unverified | unverified |
+| `blob`                    | stops the work | 18+            | unverified | unverified |
+| `bytes`                   | stops the work | 24+            | unverified | unverified |
 
 #### stream (stream)
 
@@ -556,11 +556,12 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 
 ### Shipped subpaths
 
-The package currently ships thirteen subpaths:
+The package currently ships fourteen subpaths:
 
 - `fs`: file system operations with cancelable promises
 - `fs/sync`: synchronous file system utilities
 - `fs/register-graceful`: automatic graceful-fs integration hook
+- `fs/extra`: higher-level file system utilities
 - `child-process`: external commands and spawned processes with cancellation support
 - `timers`: cancelable timer promises
 - `stream`: stream consumers, pipeline helpers and readable terminals
@@ -589,14 +590,16 @@ Custom file system implementations such as `graceful-fs` or mock instances can b
 - `setFs(impl: IFsLike, options?: ISetFsOptions)`: registers an implementation for callback and synchronous operations.
 - `getFs()`: returns the currently registered file system implementation.
 - `resetFs()`: resets the registered file system back to default `node:fs`.
-- `retryOpen(operation, options?)`: retries open and opendir operations on `EMFILE` and `ENFILE` descriptor errors when `retryOpen` is enabled.
 
 When `retryOpen: true` is configured in `ISetFsOptions`, calls to `open` and `opendir` automatically retry with exponential backoff on descriptor exhaustion errors.
 
 To configure `graceful-fs` with descriptor retry automatically, import the side-effect subpath:
 
-````ts
+```ts
 import "@cancjs/node/fs/register-graceful";
+```
+
+CommonJS and ESM are separate module instances; file system registration holds within the current format.
 
 ### child-process
 
@@ -613,7 +616,7 @@ console.log("Process PID:", child.pid);
 
 // the promise is ours
 const result = await child.promise;
-````
+```
 
 The `promise` property is built on first access and reused after that. The promise can be taken at any time; the terminal outcome is recorded when it happens and replayed to a late reader (`exec` and `execFile` have always behaved this way through node's callback). Nothing else about the child is wrapped, so the callback form, the streams, async iteration over `child.stdout` and the option bag all keep node's behavior. Because listeners are attached eagerly to record terminal events, `child.listenerCount` differs from plain node.
 
@@ -663,7 +666,8 @@ underlying timer. `scheduler.yield` takes no options and is node's own function,
 
 `pipeline` and `finished` wrap `node:stream/promises`, alongside the stream classes,
 `addAbortSignal`, `Readable.from`, `Duplex.from` and `duplexPair`, re-exported structurally so a
-caller does not need a second import to use the wrappers. Canceling `pipeline` destroys every
+caller does not need a second import to use the wrappers. `duplexPair` requires Node 20.17.0 or
+22.6.0 or later; older runtimes throw `NotImplementedError`. Canceling `pipeline` destroys every
 stream in the chain, the same teardown node runs for its own aborted pipeline. Canceling `finished`
 removes the listeners it attached.
 
@@ -747,7 +751,6 @@ A `Worker` has exactly one terminal event, `exit`, so it carries a lazy `promise
 
 Wrapped built-in modules are arriving in upcoming releases. Planned subpaths include:
 
-- `fs/extra`: extended file system helper routines
 - `net`: networking helpers
 - `tls`: TLS socket utilities
 - `http`: HTTP, HTTPS, and HTTP/2 clients and servers
@@ -846,6 +849,8 @@ For multi-step operations (`copy`, `move` across devices, `emptyDir`, `walk`), c
 - `ProcessExitError`: thrown when a child process exits with a non-zero exit code or is terminated by a signal
 - `ProcessSpawnError`: thrown when a child process fails to spawn
 - `JsonParseError`: thrown when parsing JSON input fails
+
+CommonJS and ESM are separate module instances; `instanceof` against root error classes holds within one format, while `is*` error guards are the cross-package, cross-realm, and cross-format identity truth because they inspect the error brand symbol.
 
 ### Feature detection
 

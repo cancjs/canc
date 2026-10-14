@@ -39,7 +39,8 @@
       "id": "4.2",
       "typescript": "4.2.4",
       "moduleResolution": "node",
-      "lib": ["es2020", "dom"]
+      "lib": ["es2020", "dom"],
+      "fixtures": ["node/node-smoke.ts", "node/node-ambient.d.ts"]
     },
     {
       "id": "4.7",

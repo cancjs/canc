@@ -8,7 +8,7 @@ import { isThenable } from '../../../_util';
 import fsJson from '../../surface/projected/fs.json';
 import { features } from '../features';
 import { decorate, TCancelableFileHandle } from './file-handle';
-import { getFs } from './registry';
+import { getFs, IFsLike, ISetFsOptions, resetFs, setFs } from './registry';
 import { retryOpen } from './retry-open';
 import {
   adopted,
@@ -180,12 +180,12 @@ export const glob = gatedWrapped(
 ) as unknown as TSignatures<TGlobFn>;
 export const lchmod = promisifyWrapped(viaFs('lchmod'), 2) as TCancelable<TFsPromises['lchmod']>;
 export const lchown = promisifyWrapped(viaFs('lchown'), 3) as TCancelable<TFsPromises['lchown']>;
-export const link = adopted(fsp.link, 2) as TCancelable<TFsPromises['link']>;
+export const link = adopted(viaFsPromises('link'), 2) as TCancelable<TFsPromises['link']>;
 export const lstat = promisifySignalWrapped(viaFs('lstat'), entries.get('lstat'), 1) as TCancelable<
   TFsPromises['lstat']
 >;
 export const lutimes = adopted(fsp.lutimes, 3) as TCancelable<TFsPromises['lutimes']>;
-export const mkdir = adopted(fsp.mkdir, 1) as TCancelable<TFsPromises['mkdir']>;
+export const mkdir = adopted(viaFsPromises('mkdir'), 1) as TCancelable<TFsPromises['mkdir']>;
 export const mkdtemp = adopted(fsp.mkdtemp, 1) as TCancelable<TFsPromises['mkdtemp']>;
 export const mkdtempDisposable = gatedWrapped(
   features.hasMkdtempDisposable,
@@ -200,10 +200,10 @@ export const readFile = promisifySignalWrapped(viaFs('readFile'), entries.get('r
   TFsPromises['readFile']
 >;
 export const readdir = promisifyWrapped(viaFs('readdir'), 1) as TCancelable<TFsPromises['readdir']>;
-export const readlink = adopted(fsp.readlink, 1) as TCancelable<TFsPromises['readlink']>;
+export const readlink = adopted(viaFsPromises('readlink'), 1) as TCancelable<TFsPromises['readlink']>;
 export const realpath = adopted(fsp.realpath, 1) as TCancelable<TFsPromises['realpath']>;
 export const rename = promisifyWrapped(viaFs('rename'), 2) as TCancelable<TFsPromises['rename']>;
-export const rm = adopted(fsp.rm, 1) as TCancelable<TFsPromises['rm']>;
+export const rm = adopted(viaFsPromises('rm'), 1) as TCancelable<TFsPromises['rm']>;
 export const rmdir = adopted(fsp.rmdir, 1) as TCancelable<TFsPromises['rmdir']>;
 export const stat = promisifySignalWrapped(viaFs('stat'), entries.get('stat'), 1) as TCancelable<TFsPromises['stat']>;
 export const statfs = gatedWrapped(
@@ -213,9 +213,9 @@ export const statfs = gatedWrapped(
   () => adopted(fsp.statfs, 1),
   'promise',
 ) as TCancelable<TFsPromises['statfs']>;
-export const symlink = adopted(fsp.symlink, 2) as TCancelable<TFsPromises['symlink']>;
+export const symlink = adopted(viaFsPromises('symlink'), 2) as TCancelable<TFsPromises['symlink']>;
 export const truncate = adopted(fsp.truncate, 1) as TCancelable<TFsPromises['truncate']>;
-export const unlink = adopted(fsp.unlink, 1) as TCancelable<TFsPromises['unlink']>;
+export const unlink = adopted(viaFsPromises('unlink'), 1) as TCancelable<TFsPromises['unlink']>;
 export const utimes = adopted(fsp.utimes, 3) as TCancelable<TFsPromises['utimes']>;
 export const watch = passthrough(fsp.watch) as unknown as TSignatures<TFsPromises['watch']>;
 export const writeFile = promisifySignalWrapped(viaFs('writeFile'), entries.get('writeFile'), 2) as TCancelable<
@@ -230,3 +230,4 @@ export type { TCancelableFileHandle };
 export const exists = promisifyWrapped(viaFs('exists'), 1) as (
   path: nodeFs.PathLike,
 ) => CancelablePromise<boolean, never>;
+export { getFs, IFsLike, ISetFsOptions, resetFs, setFs };

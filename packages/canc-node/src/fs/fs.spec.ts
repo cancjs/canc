@@ -9,6 +9,10 @@ import { isNotFoundError } from '../errors/errno';
 import * as fsExports from './index';
 import { IFsLike, resetFs, setFs } from './registry';
 
+function removeTempDir(dir: string): void {
+  nodeFs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
+}
+
 describe('@cancjs/node/fs module exports', () => {
   afterEach(() => {
     resetFs();
@@ -24,6 +28,9 @@ describe('@cancjs/node/fs module exports', () => {
     expectedNames.add('Dir');
     expectedNames.add('Stats');
     expectedNames.add('exists');
+    expectedNames.add('setFs');
+    expectedNames.add('getFs');
+    expectedNames.add('resetFs');
 
     const actualNames = new Set(Object.keys(fsExports));
 
@@ -155,7 +162,7 @@ describe('@cancjs/node/fs module exports', () => {
       }
     } finally {
       clearInterval(touch);
-      nodeFs.rmSync(dir, { recursive: true, force: true });
+      removeTempDir(dir);
     }
 
     expect(seen.length).toBeGreaterThanOrEqual(1);
@@ -192,7 +199,7 @@ describe('@cancjs/node/fs module exports', () => {
 
     expect(nodeFs.existsSync(dest)).toBe(true);
 
-    nodeFs.rmSync(dir, { recursive: true, force: true });
+    removeTempDir(dir);
   });
 
   it('closes the descriptor when a pending open is canceled', async () => {
@@ -251,7 +258,7 @@ describe('@cancjs/node/fs module exports', () => {
       await closed;
       expect(closeSpy).toHaveBeenCalledTimes(1);
     } finally {
-      nodeFs.rmSync(dir, { recursive: true, force: true });
+      removeTempDir(dir);
     }
   });
 
@@ -305,7 +312,7 @@ describe('@cancjs/node/fs module exports', () => {
       }
       expect(closeSpy).toHaveBeenCalledTimes(1);
     } finally {
-      nodeFs.rmSync(dir, { recursive: true, force: true });
+      removeTempDir(dir);
     }
   });
 
@@ -323,7 +330,7 @@ describe('@cancjs/node/fs module exports', () => {
       expect(stats.size).toBe(5);
       await fh.close();
     } finally {
-      nodeFs.rmSync(dir, { recursive: true, force: true });
+      removeTempDir(dir);
     }
   });
 
@@ -397,5 +404,56 @@ describe('@cancjs/node/fs module exports', () => {
 
     const fakeExists = await fsExports.exists(__filename);
     expect(fakeExists).toBe(false);
+  });
+
+  it('routes fsp steps (link, readlink, rm, symlink, unlink) through registered fs promises', async () => {
+    const spies: Record<string, boolean> = {
+      link: false,
+      readlink: false,
+      rm: false,
+      symlink: false,
+      unlink: false,
+    };
+
+    const fakeFs = {
+      ...nodeFs,
+      promises: {
+        ...nodeFs.promises,
+        link: async () => {
+          spies.link = true;
+        },
+        readlink: async () => {
+          spies.readlink = true;
+          return 'target';
+        },
+        rm: async () => {
+          spies.rm = true;
+        },
+        symlink: async () => {
+          spies.symlink = true;
+        },
+        unlink: async () => {
+          spies.unlink = true;
+        },
+      },
+    };
+
+    setFs(fakeFs);
+
+    await fsExports.link('a', 'b');
+    expect(spies.link).toBe(true);
+
+    const target = await fsExports.readlink('a');
+    expect(spies.readlink).toBe(true);
+    expect(target).toBe('target');
+
+    await fsExports.rm('a');
+    expect(spies.rm).toBe(true);
+
+    await fsExports.symlink('a', 'b');
+    expect(spies.symlink).toBe(true);
+
+    await fsExports.unlink('a');
+    expect(spies.unlink).toBe(true);
   });
 });
