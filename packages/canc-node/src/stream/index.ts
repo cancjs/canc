@@ -3,12 +3,16 @@ import * as nodeStream from 'node:stream';
 import { addAbortSignal, Duplex, PassThrough, Readable, Transform, Writable } from 'node:stream';
 import * as nodeStreamPromises from 'node:stream/promises';
 
+import { NotImplementedError } from '@cancjs/node';
 import { CancelablePromise } from '@cancjs/promise';
 
 import type { Unlisted } from '../../../_util';
 import streamJson from '../../surface/projected/stream.json';
 
 export function duplexPair(options?: DuplexOptions<Duplex>): [Duplex, Duplex] {
+  if (typeof (nodeStream as any).duplexPair !== 'function') {
+    throw new NotImplementedError('duplexPair requires Node >= 20', { feature: 'duplexPair', required: '20' });
+  }
   return (nodeStream as any).duplexPair(options);
 }
 
