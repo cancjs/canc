@@ -17,7 +17,8 @@
       "@cancjs/node/fs/extra": ["./packages/canc-node/src/fs-extra/index"],
       "@cancjs/node/child-process": [
         "./packages/canc-node/src/child-process/index"
-      ]
+      ],
+      "@cancjs/*": ["./packages/canc-*/src"]
     }
   },
   "include": ["src"]
