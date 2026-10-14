@@ -22,6 +22,7 @@
     "check:release-notes": "node scripts/check-release-notes.js",
     "release:publish": "node scripts/release-publish.js",
     "release:notes-draft": "node scripts/release-notes-draft.js",
+    "release:peers": "node scripts/release-peers.js",
     "bench": "npm run bench --workspace=@cancjs/benchmarks",
     "bench:report": "npm run bench:report --workspace=@cancjs/benchmarks",
     "bench:browser": "npm run bench:browser --workspace=@cancjs/benchmarks",
