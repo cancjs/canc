@@ -1,3 +1,4 @@
+import { readProp } from './errors';
 import { isFunction, isObject, TAnyFn } from './guards';
 
 /**
@@ -67,7 +68,7 @@ export function assertGeneratorResult(
   if (
     typeof Symbol !== 'undefined' &&
     typeof Symbol.asyncIterator === 'symbol' &&
-    Symbol.asyncIterator in (value as object)
+    readProp(value, Symbol.asyncIterator) !== undefined
   ) {
     throw new TypeError(`${context}: expected a synchronous generator, received an async generator`);
   }
@@ -80,6 +81,12 @@ export function assertGeneratorResult(
   if (!isFunction(candidate.return)) {
     throw new TypeError(
       `${context}: expected a generator with a callable return method, received a generator-like without return`,
+    );
+  }
+
+  if (!isFunction(candidate.throw)) {
+    throw new TypeError(
+      `${context}: expected a generator with a callable throw method, received a generator-like without throw`,
     );
   }
 }
