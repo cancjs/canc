@@ -194,20 +194,36 @@ describe('node package cross-subpath registry and error identity (ESM)', () => {
 });
 
 describe('node package built bundle error class containment', () => {
+  function getBundleFiles(dir: string): string[] {
+    const results: string[] = [];
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        results.push(...getBundleFiles(fullPath));
+      } else if (entry.isFile() && (entry.name.endsWith('.cjs') || entry.name.endsWith('.mjs'))) {
+        results.push(fullPath);
+      }
+    }
+    return results;
+  }
+
   it('no node error class is created outside the root bundle', () => {
     const distDir = path.resolve(__dirname, '../../packages/canc-node/dist');
-    const nonRootFiles = fs
-      .readdirSync(distDir)
-      .filter((f) => !f.startsWith('index.') && (f.endsWith('.cjs') || f.endsWith('.mjs')));
+    const bundleFiles = getBundleFiles(distDir);
+    const nonRootFiles = bundleFiles.filter((f) => !path.basename(f).startsWith('index.'));
 
-    for (const file of nonRootFiles) {
-      const content = fs.readFileSync(path.join(distDir, file), 'utf8');
-      const nodeErrorMatch =
-        /createErrorClass\([^)]*(?:@cancjs\/node:|NotImplementedError|ProcessExitError|ProcessSpawnError|JsonParseError)/.exec(
-          content,
-        );
+    expect(nonRootFiles.length).toBeGreaterThan(0);
+
+    const nodeErrorPattern =
+      /createErrorClass\([^)]*(?:@cancjs\/node:|['"](?:NotImplementedError|ProcessExitError|ProcessSpawnError|JsonParseError)['"])/;
+
+    for (const filePath of nonRootFiles) {
+      const content = fs.readFileSync(filePath, 'utf8');
+      const nodeErrorMatch = nodeErrorPattern.exec(content);
       if (nodeErrorMatch) {
-        throw new Error(`Found node error class creation in ${file}: ${nodeErrorMatch[0]}`);
+        const relative = path.relative(distDir, filePath);
+        throw new Error(`Found node error class creation in ${relative}: ${nodeErrorMatch[0]}`);
       }
     }
   });
