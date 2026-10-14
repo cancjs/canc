@@ -14,4 +14,4 @@
 "@cancjs/toolbox-native": patch
 ---
 
-Add shared timeout reason normalizer to standardize timeout error handling across cancellation packages.
+Add internal shared timeout reason normalizer (`toCancelError`, `toCancelErrorFactory`) reproducing core cancellation rules for upcoming adapter fixes.

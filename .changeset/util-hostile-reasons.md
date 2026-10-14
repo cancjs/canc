@@ -14,4 +14,4 @@
 "@cancjs/toolbox-native": patch
 ---
 
-Treat throwing error properties as no match in shared error guards and matchers.
+Protect shared error guards and compiled error matchers against throwing property reads on hostile errors, treating thrown property access errors as non-matching.

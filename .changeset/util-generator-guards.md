@@ -14,4 +14,4 @@
 "@cancjs/toolbox-native": patch
 ---
 
-Add shared generator result and step guard utilities to validate generator-like return values and prevent unexpected execution stalls.
+Add internal shared generator result and step guard helpers (`assertGeneratorResult`, `assertStepResult`) for upcoming generator validation fixes across package drivers.
