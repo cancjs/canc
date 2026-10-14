@@ -211,8 +211,13 @@ describe('node package built bundle error class containment', () => {
   it('no node error class is created outside the root bundle', () => {
     const distDir = path.resolve(__dirname, '../../packages/canc-node/dist');
     const bundleFiles = getBundleFiles(distDir);
-    const nonRootFiles = bundleFiles.filter((f) => !path.basename(f).startsWith('index.'));
+    const nonRootFiles = bundleFiles.filter((f) => {
+      const rel = path.relative(distDir, f).replace(/\\/g, '/');
+      return rel !== 'index.cjs' && rel !== 'index.mjs';
+    });
 
+    const checkedRelFiles = nonRootFiles.map((f) => path.relative(distDir, f).replace(/\\/g, '/'));
+    expect(checkedRelFiles).toContain('fs/index.cjs');
     expect(nonRootFiles.length).toBeGreaterThan(0);
 
     const nodeErrorPattern =
