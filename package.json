@@ -20,6 +20,7 @@
     "release:version": "node scripts/release-version.js",
     "check:release-lane": "node scripts/check-release-lane.js",
     "release:publish": "node scripts/release-publish.js",
+    "release:notes-draft": "node scripts/release-notes-draft.js",
     "bench": "npm run bench --workspace=@cancjs/benchmarks",
     "bench:report": "npm run bench:report --workspace=@cancjs/benchmarks",
     "bench:browser": "npm run bench:browser --workspace=@cancjs/benchmarks",
