@@ -84,15 +84,17 @@ describe('timeout reason normalizer', () => {
       expect(normalized.cause).toBe(foreignTimeout);
     });
 
-    it('normalizes using a non-constructor factory function', () => {
-      const makeCancel = (message?: string, options?: { cause?: unknown }) => new CancelError(message, options);
-      const foreignTimeout = { name: 'TimeoutError' };
+    it('ctor error propagates once', () => {
+      let invocations = 0;
+      class ThrowingCancelError {
+        constructor() {
+          invocations++;
+          throw new Error('ctor boom');
+        }
+      }
 
-      const normalized = toCancelError(foreignTimeout, makeCancel);
-
-      expect(normalized).toBeInstanceOf(CancelError);
-      expect(normalized.timedOut).toBe(true);
-      expect(normalized.cause).toBe(foreignTimeout);
+      expect(() => toCancelError('reason', ThrowingCancelError as any)).toThrow('ctor boom');
+      expect(invocations).toBe(1);
     });
   });
 });

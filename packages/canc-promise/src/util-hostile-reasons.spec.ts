@@ -328,6 +328,50 @@ describe('exception-safe brand and name reads on hostile reasons', () => {
     });
   });
 
+  describe('constructor with prototype having throwing ownKeys', () => {
+    const HostileOwnKeysCtor = function () {
+      return false;
+    };
+    HostileOwnKeysCtor.prototype = new Proxy(
+      {},
+      {
+        ownKeys() {
+          throw new Error('Hostile ownKeys on prototype');
+        },
+      },
+    );
+
+    it('compiles without throwing and evaluates safely', () => {
+      let matcher: any;
+      expect(() => {
+        matcher = compileErrorMatchers([HostileOwnKeysCtor as any], 'test');
+      }).not.toThrow();
+      expect(matcher({})).toBe(false);
+    });
+  });
+
+  describe('constructor with prototype having throwing getPrototypeOf', () => {
+    const HostileGetProtoCtor = function () {
+      return false;
+    };
+    HostileGetProtoCtor.prototype = new Proxy(
+      {},
+      {
+        getPrototypeOf() {
+          throw new Error('Hostile getPrototypeOf on prototype');
+        },
+      },
+    );
+
+    it('compiles without throwing and evaluates safely', () => {
+      let matcher: any;
+      expect(() => {
+        matcher = compileErrorMatchers([HostileGetProtoCtor as any], 'test');
+      }).not.toThrow();
+      expect(matcher({})).toBe(false);
+    });
+  });
+
   describe('genuine errors still match normally', () => {
     it('matches AbortError by guard and matcher', () => {
       const err = new AbortError('aborted');
