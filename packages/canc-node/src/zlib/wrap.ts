@@ -1,9 +1,9 @@
+import { NotImplementedError } from '@cancjs/node';
 import { CancelablePromise } from '@cancjs/promise';
 
 import { IPromiseKind, IToolboxDeps, TPromiseCtor } from '../../../_toolbox';
 import { promisifyFactory } from '../../../_toolbox/promisify';
 import type { Unlisted } from '../../../_util';
-import { NotImplementedError } from '../errors/classes';
 import { gated } from '../gate';
 
 export { gated as gatedWrapped };

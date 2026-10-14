@@ -599,6 +599,8 @@ To configure `graceful-fs` with descriptor retry automatically, import the side-
 import "@cancjs/node/fs/register-graceful";
 ```
 
+CommonJS and ESM are separate module instances; file system registration holds within the current format.
+
 ### child-process
 
 Import from `@cancjs/node/child-process` to run external commands with cancellation support. Every function returns the same `ChildProcess` node returns, with one property added:
@@ -847,7 +849,7 @@ For multi-step operations (`copy`, `move` across devices, `emptyDir`, `walk`), c
 - `ProcessSpawnError`: thrown when a child process fails to spawn
 - `JsonParseError`: thrown when parsing JSON input fails
 
-The `is*` error guards are the cross-package, cross-realm identity truth because they inspect the error brand symbol. Within a single installation, `instanceof` against root error classes works across subpaths.
+CommonJS and ESM are separate module instances; `instanceof` against root error classes holds within one format, while `is*` error guards are the cross-package, cross-realm, and cross-format identity truth because they inspect the error brand symbol.
 
 ### Feature detection
 
