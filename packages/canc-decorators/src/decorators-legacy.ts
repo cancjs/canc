@@ -7,12 +7,12 @@ interface IMethodDecoratorOptions {
   bind?: boolean;
 }
 
-function setProperty(target: any, key: string | symbol, value: any) {
+function setProperty(target: any, key: string | symbol, value: any, enumerable = false) {
   Object.defineProperty(target, key, {
     value,
-    writable: false,
+    writable: true,
     configurable: true,
-    enumerable: false,
+    enumerable,
   });
 }
 
@@ -53,14 +53,17 @@ function definePerInstanceAccessor(
   protoMethod: TAnyFn,
   produce: (self: any) => TAnyFn,
 ) {
+  // a static is bound to the defining class, whichever subclass or alias it is read through
+  const isStatic = isFunction(target);
   const get = function (this: any): TAnyFn {
     if (isPrototypeObject(this)) {
       return protoMethod;
     }
 
-    const value = produce(this);
-    if (resolvesToAccessor(this, propertyKey, get, set)) {
-      setProperty(this, propertyKey, value);
+    const holder = isStatic ? target : this;
+    const value = produce(holder);
+    if (resolvesToAccessor(holder, propertyKey, get, set)) {
+      setProperty(holder, propertyKey, value);
     }
     return value;
   };
@@ -158,7 +161,8 @@ function makeLegacyDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TA
       // proto wrap once, preserving metadata attached to original method
       const protoMethod = copyFunctionMetadata(originalMethod, wrap(originalMethod, undefined));
 
-      if (isBind) {
+      // a static under a stacked bound decorator stays bound whatever the outer decorator is
+      if (isBind || (stackedMethod && isFunction(target))) {
         definePerInstanceAccessor(target, propertyKey, descriptor!, protoMethod, (self) =>
           copyFunctionMetadata(originalMethod, wrap(originalMethod, self)),
         );
@@ -196,7 +200,12 @@ function definePerInstanceFieldAccessor(
         throw new TypeError(`'${String(propertyKey)}' is not a method and cannot be decorated`);
       }
 
-      setProperty(this, propertyKey, copyFunctionMetadata(initialValue, wrap(initialValue, isBind ? this : undefined)));
+      setProperty(
+        this,
+        propertyKey,
+        copyFunctionMetadata(initialValue, wrap(initialValue, isBind ? this : undefined)),
+        true,
+      );
     },
   });
 }

@@ -1247,6 +1247,106 @@ export function runStage3Matrix({
     });
   });
 
+  describe('decorators (ES stage-3): statics and writable members', () => {
+    it('static bound method called detached keeps the defining class', () => {
+      class Base {
+        @BindMethod()
+        static who() {
+          return this;
+        }
+      }
+      class Sub extends Base {}
+
+      const viaSub = Sub.who;
+      const viaBase = Base.who;
+
+      expect(viaSub()).toBe(Base);
+      expect(viaBase()).toBe(Base);
+    });
+
+    it('static bound method keeps the defining class under either stacking order', async () => {
+      class AsyncOuter {
+        @AsyncMethod()
+        @BindMethod()
+        static *who(): Generator<any, any, any> {
+          return yield Promise.resolve(this);
+        }
+      }
+
+      class BindOuter {
+        @BindMethod()
+        @AsyncMethod()
+        static *who(): Generator<any, any, any> {
+          return yield Promise.resolve(this);
+        }
+      }
+
+      const first = AsyncOuter.who;
+      const second = BindOuter.who;
+      const firstCall = first() as any;
+      const secondCall = second() as any;
+
+      expect(typeof firstCall.cancel).toBe('function');
+      expect(typeof secondCall.cancel).toBe('function');
+      expect(await firstCall).toBe(AsyncOuter);
+      expect(await secondCall).toBe(BindOuter);
+    });
+
+    it('static bound method can be replaced on the class', () => {
+      class C {
+        @BindMethod()
+        static who() {
+          return 'real';
+        }
+      }
+
+      touch(C.who);
+      C.who = () => 'stub';
+
+      expect(C.who()).toBe('stub');
+    });
+
+    it('bound method can be replaced on an instance after a read', () => {
+      class C {
+        @BindMethod()
+        m() {
+          return 'real';
+        }
+
+        @AsyncMethod({ bind: true })
+        *load(): Generator<any, any, any> {
+          return yield Promise.resolve('real');
+        }
+      }
+
+      const inst = new C();
+      touch(inst.m);
+      touch(inst.load);
+      inst.m = () => 'stub';
+      const spy = jest.spyOn(inst, 'load').mockReturnValue('spied' as any);
+
+      expect(inst.m()).toBe('stub');
+      expect(inst.load()).toBe('spied');
+      expect(Object.getOwnPropertyDescriptor(inst, 'm')!.writable).toBe(true);
+      spy.mockRestore();
+    });
+
+    it('memoized getter can be replaced on an instance after a read', () => {
+      class C {
+        @BindMethod()
+        get fn() {
+          return () => 'real';
+        }
+      }
+
+      const inst = new C();
+      touch(inst.fn);
+      (inst as any).fn = () => 'stub';
+
+      expect(inst.fn()).toBe('stub');
+    });
+  });
+
   describe.each(legacyFlavors)('decorators ($name, applied as emitted): receivers and overrides', (flavor) => {
     const { Async, Bind, decorate } = flavor;
 
@@ -1479,6 +1579,152 @@ export function runStage3Matrix({
 
       expect(m()).toBe(proxy);
       expect(await load()).toBe(proxy);
+    });
+  });
+
+  describe.each(legacyFlavors)('decorators ($name, applied as emitted): statics and writable members', (flavor) => {
+    const { Async, Bind, decorate } = flavor;
+
+    function makeStatic() {
+      class Base {
+        static who(this: any) {
+          return this;
+        }
+      }
+      decorate([Bind()], Base, 'who');
+      class Sub extends Base {}
+
+      return { Base, Sub };
+    }
+
+    it('static bound method called detached keeps the defining class when read from the subclass first', () => {
+      const { Base, Sub } = makeStatic();
+
+      const viaSub = Sub.who;
+      const viaBase = Base.who;
+
+      expect(viaSub()).toBe(Base);
+      expect(viaBase()).toBe(Base);
+    });
+
+    it('static bound method called detached keeps the defining class when read from the class first', () => {
+      const { Base, Sub } = makeStatic();
+
+      const viaBase = Base.who;
+      const viaSub = Sub.who;
+
+      expect(viaBase()).toBe(Base);
+      expect(viaSub()).toBe(Base);
+    });
+
+    it('static bound method keeps the defining class under either stacking order', async () => {
+      class AsyncOuter {
+        static *who(this: any): Generator<any, any, any> {
+          return yield Promise.resolve(this);
+        }
+      }
+      decorate([Async(), Bind()], AsyncOuter, 'who');
+
+      class BindOuter {
+        static *who(this: any): Generator<any, any, any> {
+          return yield Promise.resolve(this);
+        }
+      }
+      decorate([Bind(), Async()], BindOuter, 'who');
+
+      class Sub extends AsyncOuter {}
+
+      const first = Sub.who;
+      const second = BindOuter.who;
+      const firstCall = first() as any;
+      const secondCall = second() as any;
+
+      expect(typeof firstCall.cancel).toBe('function');
+      expect(typeof secondCall.cancel).toBe('function');
+      expect(await firstCall).toBe(AsyncOuter);
+      expect(await secondCall).toBe(BindOuter);
+    });
+
+    it('static bound method can be replaced on the class', () => {
+      class C {
+        static who() {
+          return 'real';
+        }
+      }
+      decorate([Bind()], C, 'who');
+
+      touch(C.who);
+      C.who = () => 'stub';
+
+      expect(C.who()).toBe('stub');
+    });
+
+    it('bound method can be replaced on an instance after a read', () => {
+      class C {
+        m() {
+          return 'real';
+        }
+      }
+      decorate([Bind()], C.prototype, 'm');
+
+      const inst = new C();
+      touch(inst.m);
+      inst.m = () => 'stub';
+
+      expect(inst.m()).toBe('stub');
+      expect(Object.getOwnPropertyDescriptor(inst, 'm')!.writable).toBe(true);
+    });
+
+    it('memoized getter can be replaced on an instance after a read', () => {
+      class C {
+        get fn() {
+          return () => 'real';
+        }
+      }
+      decorate([Bind()], C.prototype, 'fn');
+
+      const inst = new C();
+      touch(inst.fn);
+      (inst as any).fn = () => 'stub';
+
+      expect(inst.fn()).toBe('stub');
+    });
+  });
+
+  describe('decorators (TS legacy, applied as emitted): field members', () => {
+    function makeBase(init: () => unknown) {
+      class Base {
+        constructor() {
+          (this as any).m = init();
+        }
+      }
+      // a TS field decorator receives no descriptor
+      LegacyBindMethod()(Base.prototype, 'm');
+
+      return Base;
+    }
+
+    it('subclass field override constructs and wins', () => {
+      const Base = makeBase(() => () => 'base');
+      class Sub extends Base {
+        constructor() {
+          super();
+          (this as any).m = () => 'sub';
+        }
+      }
+
+      expect((new Sub() as any).m()).toBe('sub');
+    });
+
+    it('installed field is an enumerable writable own property', () => {
+      const Base = makeBase(() => () => 'base');
+
+      const inst = new Base() as any;
+      const descriptor = Object.getOwnPropertyDescriptor(inst, 'm')!;
+
+      expect(Object.keys(inst)).toContain('m');
+      expect(descriptor.writable).toBe(true);
+      expect(descriptor.enumerable).toBe(true);
     });
   });
 }

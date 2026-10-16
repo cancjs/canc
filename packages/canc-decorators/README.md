@@ -110,6 +110,16 @@ or reflection does, returns the unbound prototype-level function and caches noth
 still bind to themselves. A getter with a paired setter is not memoized, so the setter keeps
 working after the first read.
 
+### Static members and replacing members
+
+A bound static method is always bound to the class that defines it. Reading it through a subclass,
+`Sub.method`, or detaching it first gives the same function, and the order of stacked decorators does not
+change that.
+
+Installed members are plain writable properties, and fields are enumerable. An instance method
+can be replaced after it was read, for example by `jest.spyOn(instance, 'method')` or an assignment,
+and a subclass can assign its own value to a decorated TypeScript legacy field.
+
 ### `super` interaction
 
 The prototype always holds the wrapped function, whatever `bind` says. `super.method()` from a

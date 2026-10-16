@@ -18,7 +18,7 @@ interface IMemberDecorator {
 function setProperty(target: any, key: string | symbol, value: any) {
   Object.defineProperty(target, key, {
     value,
-    writable: false,
+    writable: true,
     configurable: true,
     enumerable: false,
   });
@@ -153,14 +153,18 @@ function makeDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAnyFn) 
         const boundAccessor = makeBoundAccessor(propertyKey, produce);
 
         (context as ClassMethodDecoratorContext).addInitializer(function (this: any) {
-          // an override or an outer decorator owns the slot, binding this one would hide it
-          if (this[propertyKey] !== protoMethod) {
+          if (context.static) {
+            // this is the defining class here, so an outer decorator's result is bound to it too
+            const slot = this[propertyKey];
+            if (isFunction(slot)) {
+              const bound = slot === protoMethod ? produce(this) : copyFunctionMetadata(slot, slot.bind(this));
+              setProperty(this, propertyKey, bound);
+            }
             return;
           }
 
-          if (context.static) {
-            setProperty(this, propertyKey, produce(this));
-          } else {
+          // an override or an outer decorator owns the slot, binding this one would hide it
+          if (this[propertyKey] === protoMethod) {
             Object.defineProperty(this, propertyKey, boundAccessor);
           }
         });

@@ -14,7 +14,7 @@ interface IMethodDecoratorOptions {
 function setProperty(target: any, key: string | symbol, value: any) {
   Object.defineProperty(target, key, {
     value,
-    writable: false,
+    writable: true,
     configurable: true,
     enumerable: false,
   });
@@ -126,19 +126,23 @@ function makeBabelDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAn
     // proto wrap once, preserving metadata attached to original method
     const protoMethod = copyFunctionMetadata(originalMethod, wrap(originalMethod, undefined));
 
-    if (isBind) {
+    // a static under a stacked bound decorator stays bound whatever the outer decorator is
+    if (isBind || (stackedMethod && isFunction(target))) {
       // bind:true: lazy per-instance own-bound property with per-instance isolation and GC
       delete descriptor.value;
       delete descriptor.writable;
 
+      // a static is bound to the defining class, whichever subclass or alias it is read through
+      const isStatic = isFunction(target);
       const get = function (this: any): TAnyFn {
         if (isPrototypeObject(this)) {
           return protoMethod;
         }
 
-        const value = copyFunctionMetadata(originalMethod, wrap(originalMethod, this));
-        if (resolvesToAccessor(this, propertyKey, get, set)) {
-          setProperty(this, propertyKey, value);
+        const holder = isStatic ? target : this;
+        const value = copyFunctionMetadata(originalMethod, wrap(originalMethod, holder));
+        if (resolvesToAccessor(holder, propertyKey, get, set)) {
+          setProperty(holder, propertyKey, value);
         }
         return value;
       };
