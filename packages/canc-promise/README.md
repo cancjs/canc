@@ -151,7 +151,9 @@ started.
 
 `race` and `any` cancel the losers once a winner settles. `all` cancels the remaining inputs on
 the first rejection. `allSettled` cancels nothing, by definition it waits for everything. Inputs
-constructed with `bubble: false` are never canceled by this mechanism.
+constructed with `bubble: false` are never canceled by this mechanism. A `race` loser follows the
+bubble rule above: it is canceled once no consumer remains after the turn in which the race
+settles, so a loser awaited in that turn still gets its value.
 
 Canceling a combinator result does not cascade into its inputs, because an input may be shared
 with another consumer.

@@ -2024,13 +2024,15 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
    * `handleCancel`, a settle reaction, or a native subscription). Returns `undefined` when this
    * promise does not bubble, so the caller skips wiring entirely.
    *
-   * On each completion increment `_completedChainsCount`. Once every counted ref has completed
-   * through a cancel, the bubble is decided two microtasks later: a consumer subscribed in the
-   * meantime (a canc `then`, or a native `await` / `Promise.resolve` that subscribes one job late)
-   * keeps this promise alive. Otherwise it is bubble-canceled with a `bubbled` CancelError, and the
-   * cascade above it runs synchronously inside that job. The deferred job joins the active cleanup
-   * collector, so an awaited `cancel()` of the child also waits for this cleanup. A completion by
-   * settling (`bubbleOnComplete`, race) bubbles at once, as it already runs in a reaction job.
+   * On each completion increment `_completedChainsCount`. Once every counted ref has completed,
+   * through a cancel or, for `bubbleOnComplete` (race), through the child settling, the bubble is
+   * decided two microtasks later: a consumer subscribed in the meantime (a canc `then`, or a native
+   * `await` / `Promise.resolve` that subscribes one job late) keeps this promise alive. A settle
+   * waits one microtask more, since a native `await` of the settled race resumes a job after the
+   * settle reaction that completes the ref. Otherwise
+   * it is bubble-canceled with a `bubbled` CancelError, and the cascade above it runs synchronously
+   * inside that job. The deferred job joins the active cleanup collector, so an awaited `cancel()`
+   * of the child also waits for this cleanup.
    */
   protected _addChainRef(bubbleOnComplete?: boolean): (() => void) | undefined {
     if (!(this.bubble && this.cancelable)) {
@@ -2063,32 +2065,34 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
       };
 
       const collector = _activeCollector;
-      // a settle reaction (race) already runs a job late, only a cancel waits out the turn
-      if (_inDeferredBubble || bubbleOnComplete) {
+      if (_inDeferredBubble) {
         bubbleCancel(collector);
         return;
       }
 
       // two jobs: every native adoption form subscribes within one job of this turn
-      const hop = NativePromise.resolve()
-        .then(noop)
-        .then(() => {
-          if (this._completedChainsCount < this._chainsCount || !this.cancelable) {
-            return new DeferredCleanup([]);
-          }
-          // own collector: entries appended to the caller's one would cost it another round
-          const own = collector ? [] : undefined;
-          const prevCollector = _activeCollector;
-          _activeCollector = own;
-          _inDeferredBubble = true;
-          try {
-            bubbleCancel(own);
-          } finally {
-            _inDeferredBubble = false;
-            _activeCollector = prevCollector;
-          }
-          return own ? settleDeferredCleanup(own) : new DeferredCleanup([]);
-        });
+      let turnEnd = NativePromise.resolve().then(noop);
+      if (bubbleOnComplete) {
+        // a native await of the settled race resumes one job after this reaction
+        turnEnd = turnEnd.then(noop);
+      }
+      const hop = turnEnd.then(() => {
+        if (this._completedChainsCount < this._chainsCount || !this.cancelable) {
+          return new DeferredCleanup([]);
+        }
+        // own collector: entries appended to the caller's one would cost it another round
+        const own = collector ? [] : undefined;
+        const prevCollector = _activeCollector;
+        _activeCollector = own;
+        _inDeferredBubble = true;
+        try {
+          bubbleCancel(own);
+        } finally {
+          _inDeferredBubble = false;
+          _activeCollector = prevCollector;
+        }
+        return own ? settleDeferredCleanup(own) : new DeferredCleanup([]);
+      });
       if (collector) {
         collector.push(hop);
       }

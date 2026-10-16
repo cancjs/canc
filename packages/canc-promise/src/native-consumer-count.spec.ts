@@ -48,6 +48,13 @@ const nativeAwait = new Function('value', 'return (async () => await value)();')
   value: PromiseLike<T>,
 ) => Promise<T>;
 
+// eslint-disable-next-line @typescript-eslint/no-implied-eval -- needs an engine-native async function
+const nativeAwaitInTurn = new Function(
+  'first',
+  'second',
+  'return (async () => { await first; return await second; })();',
+) as <T>(first: PromiseLike<unknown>, second: PromiseLike<T>) => Promise<T>;
+
 describe.each([
   ['awaitable cancel mode', true],
   ['sync cancel mode', false],
@@ -203,6 +210,46 @@ describe.each([
 
       expect(source.promise.canceled).toBe(false);
       await expect(source.promise).resolves.toBe(5);
+    });
+  });
+
+  describe('a race input awaited in the same turn as the race completion', () => {
+    it('race canceled, then a native await on its input keeps the input alive', async () => {
+      const input = pending<number>(options);
+      const race = CancelablePromise.race([input.promise], options);
+
+      void race.cancel();
+      const awaiter = nativeAwait(input.promise);
+      await macrotask();
+
+      expect(input.promise.canceled).toBe(false);
+      input.resolve(6);
+      await expect(awaiter).resolves.toBe(6);
+    });
+
+    it('race settled by the winner, then a native await on the loser keeps the loser alive', async () => {
+      const winner = pending<number>(options);
+      const loser = pending<number>(options);
+      const race = CancelablePromise.race([winner.promise, loser.promise], options);
+      const awaiter = nativeAwaitInTurn(race, loser.promise);
+
+      winner.resolve(1);
+      await macrotask();
+
+      expect(loser.promise.canceled).toBe(false);
+      loser.resolve(2);
+      await expect(awaiter).resolves.toBe(2);
+    });
+
+    it('an unconsumed race loser is canceled once the race settles', async () => {
+      const winner = pending<number>(options);
+      const loser = pending<number>(options);
+      void CancelablePromise.race([winner.promise, loser.promise], options);
+
+      winner.resolve(1);
+      await macrotask();
+
+      expect(loser.promise.canceled).toBe(true);
     });
   });
 });
