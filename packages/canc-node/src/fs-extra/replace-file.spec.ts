@@ -374,4 +374,83 @@ describe('replaceFile', () => {
     const leftovers = (await fs.readdir(root)).filter((name) => name.includes('.tmp-'));
     expect(leftovers).toEqual([]);
   });
+  describe('failure reporting', () => {
+    function stubUnlinkFailure(code: string) {
+      const originalFs = getFs();
+      setFs({
+        ...originalFs,
+        promises: {
+          ...originalFs.promises,
+          unlink: (path: string) =>
+            Promise.reject(Object.assign(new Error(`simulated cleanup failure for ${path}`), { code })),
+        },
+        unlinkSync: () => {
+          throw Object.assign(new Error('simulated sync cleanup failure'), { code });
+        },
+      } as never);
+    }
+
+    it('rejects with the write error when the cleanup fails too', async () => {
+      const target = join(root, 'missing-dir-async', 'f.txt');
+      stubUnlinkFailure('EIO');
+
+      await expect(replaceFile(target, 'new')).rejects.toMatchObject({ code: 'ENOENT' });
+    });
+
+    it('replaceFileSync throws the write error when the cleanup fails too', () => {
+      const target = join(root, 'missing-dir-sync', 'f.txt');
+      stubUnlinkFailure('EIO');
+
+      expect(() => replaceFileSync(target, 'new')).toThrow(expect.objectContaining({ code: 'ENOENT' }));
+    });
+  });
+
+  describe('append flag', () => {
+    it.each(['a', 'a+', 'as', 'ax+'])('rejects flag %s and leaves the target untouched', async (flag) => {
+      const dir = join(root, `append-async-${flag.replace('+', 'p')}`);
+      await fs.mkdir(dir, { recursive: true });
+      const file = join(dir, 'target.txt');
+      await fs.writeFile(file, 'old');
+
+      await expect(replaceFile(file, 'new', { flag })).rejects.toMatchObject({
+        name: 'TypeError',
+        code: 'ERR_INVALID_ARG_VALUE',
+      });
+
+      await expect(fs.readFile(file, 'utf8')).resolves.toBe('old');
+      await expect(fs.readdir(dir)).resolves.toEqual(['target.txt']);
+    });
+
+    it('rejects a numeric flag carrying O_APPEND', async () => {
+      const file = join(root, 'append-numeric.txt');
+      await fs.writeFile(file, 'old');
+      const flag = fsSync.constants.O_WRONLY | fsSync.constants.O_CREAT | fsSync.constants.O_APPEND;
+
+      await expect(replaceFile(file, 'new', { flag })).rejects.toMatchObject({ code: 'ERR_INVALID_ARG_VALUE' });
+      await expect(fs.readFile(file, 'utf8')).resolves.toBe('old');
+    });
+
+    it('replaceFileSync throws on the append flag and leaves the target untouched', () => {
+      const dir = join(root, 'append-sync');
+      fsSync.mkdirSync(dir, { recursive: true });
+      const file = join(dir, 'target.txt');
+      fsSync.writeFileSync(file, 'old');
+
+      expect(() => replaceFileSync(file, 'new', { flag: 'a' })).toThrow(
+        expect.objectContaining({ name: 'TypeError', code: 'ERR_INVALID_ARG_VALUE' }),
+      );
+
+      expect(fsSync.readdirSync(dir)).toEqual(['target.txt']);
+      expect(fsSync.readFileSync(file, 'utf8')).toBe('old');
+    });
+
+    it('still accepts a plain write flag', async () => {
+      const file = join(root, 'plain-flag.txt');
+      await fs.writeFile(file, 'old');
+
+      await replaceFile(file, 'new', { flag: 'w' });
+
+      await expect(fs.readFile(file, 'utf8')).resolves.toBe('new');
+    });
+  });
 });
