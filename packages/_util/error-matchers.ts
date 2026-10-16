@@ -1,10 +1,4 @@
-import {
-  ABORT_ERROR_BRAND,
-  AGGREGATE_ERROR_BRAND,
-  readProp,
-  SUPERSEDED_ERROR_BRAND,
-  TIMEOUT_ERROR_BRAND,
-} from './errors';
+import { ABORT_ERROR_BRAND, AGGREGATE_ERROR_BRAND, readProp, TIMEOUT_ERROR_BRAND } from './errors';
 import { isFunction, isObject } from './guards';
 
 /**
@@ -82,12 +76,7 @@ function findRegistryBrand(prototype: object): symbol | undefined {
 }
 
 // kinds whose guards also accept a bare name, any other branded class matches by brand alone
-const NAME_MATCHED_BRANDS: readonly symbol[] = [
-  ABORT_ERROR_BRAND,
-  TIMEOUT_ERROR_BRAND,
-  AGGREGATE_ERROR_BRAND,
-  SUPERSEDED_ERROR_BRAND,
-];
+const NAME_MATCHED_BRANDS: readonly symbol[] = [ABORT_ERROR_BRAND, TIMEOUT_ERROR_BRAND, AGGREGATE_ERROR_BRAND];
 
 const MAX_PROTOTYPE_DEPTH = 64;
 
