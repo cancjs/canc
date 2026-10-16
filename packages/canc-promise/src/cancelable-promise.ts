@@ -1790,6 +1790,10 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
    * returned by this call never cancels it. A cancel that arrives while the cleanup runs takes
    * effect once the cleanup settles, so the returned promise rejects with a CancelError only after
    * its cleanup is done. A cleanup that rejects wins over that cancel.
+   *
+   * While the cleanup runs, `isCanceled` stays false and the promise `cancel()` returned stays
+   * pending until the cleanup settles. A cleanup that never settles keeps both the returned promise
+   * and the `cancel()` promise pending, so a hung cleanup hangs them.
    * @param onFinally The callback to execute when the Promise is settled (fulfilled or rejected).
    * @returns A Promise for the completion of the callback.
    */

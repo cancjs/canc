@@ -364,6 +364,7 @@ describe('shield option', () => {
       });
       await macrotask();
       expect(cancelDone).toBe(false);
+      expect(f.isCanceled).toBe(false);
 
       cleanup.finish();
       await macrotask();

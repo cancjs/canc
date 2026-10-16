@@ -210,6 +210,8 @@ arriving from canceled children stops there, but a canceled or rejected upstream
 down into a shielded promise. It is per promise and is not inherited by `then`-derived children.
 The cancelable cleanup a `finally` callback returns is always shielded: canceling the `finally`
 promise lets that cleanup finish, then rejects with a `CancelError`.
+While the cleanup runs, `isCanceled` stays `false` and the promise `cancel()` returned waits until the
+cleanup settles. A cleanup that never settles keeps both pending, so a hung cleanup hangs them.
 
 Flags are also exposed as writable properties (`promise.bubble = false`), and the class-wide
 defaults live in `CancelablePromise.defaultOptions`.
