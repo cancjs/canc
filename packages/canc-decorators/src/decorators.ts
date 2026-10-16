@@ -122,7 +122,7 @@ function assertSupportedKind(propertyKey: string | symbol, context: TMethodDecor
  * Shared implementation. `wrap` decides whether the produced function is coroutine-wrapped
  * (`AsyncMethod`) or a plain pass-through (`BindMethod`).
  */
-function makeDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAnyFn) {
+function makeDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAnyFn, isAsync = false) {
   return (value: any, context: TMethodDecoratorContext): any => {
     assertStage3CallShape(context);
     const propertyKey = context.name;
@@ -144,7 +144,7 @@ function makeDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAnyFn) 
           return raw;
         }
 
-        const guarded = guardGeneratorResult(raw, propertyKey);
+        const guarded = isAsync ? guardGeneratorResult(raw, propertyKey) : raw;
         const result = isBind ? copyFunctionMetadata(guarded, guarded.bind(this)) : guarded;
         if (resolvesToAccessor(this, propertyKey, memoizingGetter, undefined)) {
           setProperty(this, propertyKey, result);
@@ -239,7 +239,7 @@ export function AsyncMethod(...args: any[]): any {
 
   const isBind = args[0]?.bind ?? false;
 
-  return makeDecorator(isBind, (fn, ctx) => cancAsync(fn as any, ctx));
+  return makeDecorator(isBind, (fn, ctx) => cancAsync(fn as any, ctx), true);
 }
 
 /** Same call shapes as {@link AsyncMethod}; `bind:true` is the default here instead of `bind:false`. */

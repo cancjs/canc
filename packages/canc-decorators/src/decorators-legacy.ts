@@ -253,7 +253,7 @@ function assertAssignSemanticsField(target: any, propertyKey: string | symbol): 
   }
 }
 
-function makeLegacyDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAnyFn) {
+function makeLegacyDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAnyFn, isAsync = false) {
   return (target: any, propertyKey: string | symbol, descriptor?: PropertyDescriptor) => {
     assertLegacyCallShape(propertyKey);
     assertNotBabelLegacyDescriptor(descriptor);
@@ -291,7 +291,7 @@ function makeLegacyDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TA
           return raw;
         }
 
-        const guarded = guardGeneratorResult(raw, propertyKey);
+        const guarded = isAsync ? guardGeneratorResult(raw, propertyKey) : raw;
         const value = isBind ? copyFunctionMetadata(guarded, guarded.bind(this)) : guarded;
         if (resolvesToAccessor(this, propertyKey, memoizingGetter, undefined)) {
           setProperty(this, propertyKey, value);
@@ -383,7 +383,7 @@ export function LegacyAsyncMethod(
 
   const isBind = (args[0] as IMethodDecoratorOptions | undefined)?.bind ?? false;
 
-  return makeLegacyDecorator(isBind, (fn, ctx) => cancAsync(fn as any, ctx));
+  return makeLegacyDecorator(isBind, (fn, ctx) => cancAsync(fn as any, ctx), true);
 }
 
 /** Same call shapes as {@link LegacyAsyncMethod}; `bind:true` is the default here instead of `bind:false`. */

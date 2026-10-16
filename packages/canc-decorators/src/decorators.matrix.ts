@@ -1731,7 +1731,6 @@ export function runStage3Matrix({
     it.each([
       ['AsyncMethod', () => AsyncMethod()],
       ['AsyncMethod bind:true', () => AsyncMethod({ bind: true })],
-      ['BindMethod', () => BindMethod()],
     ])('%s throws a TypeError naming cancAsync when the returned function is called', (_name, make) => {
       class C {
         @make()
@@ -1746,6 +1745,24 @@ export function runStage3Matrix({
 
       expect(() => method()).toThrow(TypeError);
       expect(() => method()).toThrow(/cancAsync/);
+    });
+
+    it('BindMethod getter returning a function that returns a generator object does not throw', () => {
+      function* source(): Generator<number, number, any> {
+        return yield 1;
+      }
+
+      class C {
+        @BindMethod()
+        get method() {
+          return () => source();
+        }
+      }
+
+      const iterator = new C().method();
+
+      expect(iterator.next()).toEqual({ value: 1, done: false });
+      expect(iterator.next(5)).toEqual({ value: 5, done: true });
     });
 
     it('a getter returning a coroutine still resolves', async () => {
@@ -1785,7 +1802,6 @@ export function runStage3Matrix({
     it.each([
       ['Async', false],
       ['Async bind:true', true],
-      ['Bind', undefined],
     ])('%s getter returning a bare generator function throws a TypeError naming cancAsync', (name, bind) => {
       class C {
         get method() {
@@ -1794,13 +1810,31 @@ export function runStage3Matrix({
           };
         }
       }
-      const decorator = name.startsWith('Bind') ? flavor.Bind() : flavor.Async({ bind: bind! });
+      const decorator = flavor.Async({ bind });
       flavor.decorate([decorator], C.prototype, 'method');
 
       const method = new C().method;
 
       expect(() => method()).toThrow(TypeError);
       expect(() => method()).toThrow(/cancAsync/);
+    });
+
+    it('Bind getter returning a function that returns a generator object does not throw', () => {
+      function* source(): Generator<number, number, any> {
+        return yield 1;
+      }
+
+      class C {
+        get method() {
+          return () => source();
+        }
+      }
+      flavor.decorate([flavor.Bind()], C.prototype, 'method');
+
+      const iterator = new C().method();
+
+      expect(iterator.next()).toEqual({ value: 1, done: false });
+      expect(iterator.next(5)).toEqual({ value: 5, done: true });
     });
 
     it.each([0, 1])('parameter decorator at index %i throws a TypeError at class definition', (index) => {

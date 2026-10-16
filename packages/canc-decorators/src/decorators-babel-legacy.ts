@@ -102,7 +102,7 @@ function assertNotSetterOnly(propertyKey: string | symbol, descriptor?: Property
   }
 }
 
-function makeBabelDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAnyFn) {
+function makeBabelDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAnyFn, isAsync = false) {
   return (target: any, propertyKey: string | symbol, descriptor: IBabelPropertyDescriptor) => {
     assertBabelLegacyCallShape(propertyKey);
     assertNotParameterDecorator(propertyKey, descriptor);
@@ -139,7 +139,7 @@ function makeBabelDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAn
           return raw;
         }
 
-        const guarded = guardGeneratorResult(raw, propertyKey);
+        const guarded = isAsync ? guardGeneratorResult(raw, propertyKey) : raw;
         const value = isBind ? copyFunctionMetadata(guarded, guarded.bind(this)) : guarded;
         if (resolvesToAccessor(this, propertyKey, memoizingGetter, undefined)) {
           setProperty(this, propertyKey, value);
@@ -224,14 +224,14 @@ export function BabelLegacyAsyncMethod(
   ...args: [IMethodDecoratorOptions?] | [any, string | symbol, PropertyDescriptor]
 ) {
   if (args.length > 1) {
-    return (makeBabelDecorator(false, (fn, ctx) => cancAsync(fn as any, ctx)) as any)(
+    return (makeBabelDecorator(false, (fn, ctx) => cancAsync(fn as any, ctx), true) as any)(
       ...(args as [any, string | symbol, PropertyDescriptor]),
     );
   }
 
   const isBind = (args[0] as IMethodDecoratorOptions | undefined)?.bind ?? false;
 
-  return makeBabelDecorator(isBind, (fn, ctx) => cancAsync(fn as any, ctx)) as any;
+  return makeBabelDecorator(isBind, (fn, ctx) => cancAsync(fn as any, ctx), true) as any;
 }
 
 /** Same call shapes as {@link BabelLegacyAsyncMethod}; `bind:true` is the default here instead of `bind:false`. */
