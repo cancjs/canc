@@ -1,17 +1,29 @@
+import * as path from 'path';
+
 import { promiseSrc, registerSrc, runChild, unhandledSrc } from '../test/child-process.helper';
 
 jest.setTimeout(30000);
 
+const SKIP_REGISTER = { CANC_FIXTURE_SKIP_REGISTER: '1' };
+
+function runFixture(name: string, env: Record<string, string> = {}) {
+  const fixture = path.resolve(__dirname, 'fixtures', name);
+  return runChild(`require(${JSON.stringify(fixture)});`, { CANC_FIXTURE_REGISTER_ENTRY: registerSrc, ...env });
+}
+
 describe('@cancjs/unhandled-rejection', () => {
-  it('register() filters CancelError in node child process', () => {
-    const res = runChild(`
-      const { register } = require(${JSON.stringify(unhandledSrc)});
-      const { CancelablePromise } = require(${JSON.stringify(promiseSrc)});
-      register();
-      const p = new CancelablePromise(() => {});
-      p.cancel();
-    `);
-    expect(res.status).toBe(0);
+  describe('CancelError the core does not suppress itself', () => {
+    it('register() keeps a foreign thenable cancel from crashing the process', () => {
+      const res = runFixture('foreign-cancel-register.js');
+      expect(res.status).toBe(0);
+      expect(res.stderr).toBe('');
+    });
+
+    it('the same fixture without register() crashes on the CancelError', () => {
+      const res = runFixture('foreign-cancel-register.js', SKIP_REGISTER);
+      expect(res.status).not.toBe(0);
+      expect(res.stderr).toContain('CancelError');
+    });
   });
 
   it('register() lets real errors through in node child', () => {
@@ -47,20 +59,18 @@ describe('@cancjs/unhandled-rejection', () => {
     expect(res.stdout).toContain('CALLBACK:real failure');
   });
 
-  it('onUnhandledRejection NOT called for CancelError', () => {
-    const res = runChild(`
-      const { register } = require(${JSON.stringify(unhandledSrc)});
-      const { CancelablePromise } = require(${JSON.stringify(promiseSrc)});
-      register({
-        onUnhandledRejection: () => {
-          process.stdout.write('SHOULD_NOT_FIRE');
-        }
-      });
-      const p = new CancelablePromise(() => {});
-      p.cancel();
-    `);
-    expect(res.status).toBe(0);
-    expect(res.stdout).not.toContain('SHOULD_NOT_FIRE');
+  describe('onUnhandledRejection with a foreign thenable cancel', () => {
+    it('is not called and the process exits cleanly', () => {
+      const res = runFixture('foreign-cancel-callback.js');
+      expect(res.status).toBe(0);
+      expect(res.stdout).not.toContain('CALLBACK_FIRED');
+    });
+
+    it('the same fixture without register() crashes on the CancelError', () => {
+      const res = runFixture('foreign-cancel-callback.js', SKIP_REGISTER);
+      expect(res.status).not.toBe(0);
+      expect(res.stderr).toContain('CancelError');
+    });
   });
 
   it('Double register warns', () => {
@@ -126,14 +136,18 @@ describe('@cancjs/unhandled-rejection', () => {
     }
   });
 
-  it('register side-effect entry', () => {
-    const res = runChild(`
-      require(${JSON.stringify(registerSrc)});
-      const { CancelablePromise } = require(${JSON.stringify(promiseSrc)});
-      const p = new CancelablePromise(() => {});
-      p.cancel();
-    `);
-    expect(res.status).toBe(0);
+  describe('register side-effect entry with a foreign thenable cancel', () => {
+    it('keeps the process alive', () => {
+      const res = runFixture('foreign-cancel-side-effect.js');
+      expect(res.status).toBe(0);
+      expect(res.stderr).toBe('');
+    });
+
+    it('the same fixture without the entry crashes on the CancelError', () => {
+      const res = runFixture('foreign-cancel-side-effect.js', SKIP_REGISTER);
+      expect(res.status).not.toBe(0);
+      expect(res.stderr).toContain('CancelError');
+    });
   });
 
   it('register({ abort: true }) also suppresses AbortError', () => {
