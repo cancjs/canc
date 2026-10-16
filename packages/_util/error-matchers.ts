@@ -1,4 +1,4 @@
-import { readProp } from './errors';
+import { ABORT_ERROR_BRAND, AGGREGATE_ERROR_BRAND, readProp, TIMEOUT_ERROR_BRAND } from './errors';
 import { isFunction, isObject } from './guards';
 
 /**
@@ -14,7 +14,8 @@ export type TErrorConstructor = new (...args: any[]) => any;
 
 /**
  * What a matcher factory accepts. A string matches by error name, a constructor matches by
- * instance, brand or name, and any other function is used as a predicate.
+ * instance or brand (and by name too, unless the class is one only canc produces), and any other
+ * function is used as a predicate.
  */
 export type TErrorMatcher = string | TErrorPredicate | TErrorConstructor;
 
@@ -74,6 +75,44 @@ function findRegistryBrand(prototype: object): symbol | undefined {
   return undefined;
 }
 
+// kinds whose guards also accept a bare name, any other branded class matches by brand alone
+const NAME_MATCHED_BRANDS: readonly symbol[] = [ABORT_ERROR_BRAND, TIMEOUT_ERROR_BRAND, AGGREGATE_ERROR_BRAND];
+
+const MAX_PROTOTYPE_DEPTH = 64;
+
+// Error.prototype of any realm: `instanceof Error` only sees this realm's, so a TypeError taken
+// from a vm context or an iframe would otherwise fall through to the predicate branch
+function isErrorRootPrototype(candidate: object): boolean {
+  if (candidate === Error.prototype) {
+    return true;
+  }
+
+  const constructor = readProp(candidate, 'constructor');
+
+  return (
+    typeof constructor === 'function' &&
+    readProp(constructor, 'prototype') === candidate &&
+    readProp(constructor, 'name') === 'Error'
+  );
+}
+
+function hasErrorPrototype(prototype: object): boolean {
+  let current: unknown = prototype;
+
+  try {
+    for (let depth = 0; depth < MAX_PROTOTYPE_DEPTH && isObject(current); depth++) {
+      if (isErrorRootPrototype(current as object)) {
+        return true;
+      }
+      current = Object.getPrototypeOf(current);
+    }
+  } catch {
+    // hostile prototype
+  }
+
+  return false;
+}
+
 function compileMatcher(matcher: TErrorMatcher): TErrorPredicate {
   if (typeof matcher === 'string') {
     return (error: any) => isObject(error) && readProp(error, 'name') === matcher;
@@ -93,16 +132,8 @@ function compileMatcher(matcher: TErrorMatcher): TErrorPredicate {
   // this test. A `function foo(error) {}` predicate does have one, but it is neither Error-ish nor
   // branded, so it falls through to the predicate branch too. DOMException does not inherit from
   // Error on every supported engine, which is why the brand is part of the condition instead of
-  // `prototype instanceof Error` carrying it alone.
-  let isErrorProto = false;
-  if (isObject(prototype)) {
-    try {
-      isErrorProto = prototype instanceof Error || prototype === Error.prototype;
-    } catch {
-      // hostile prototype
-    }
-  }
-  const isErrorClass = isObject(prototype) && (isErrorProto || brand !== undefined);
+  // the Error.prototype walk carrying it alone.
+  const isErrorClass = isObject(prototype) && (brand !== undefined || hasErrorPrototype(prototype!));
 
   if (!isErrorClass) {
     return matcher as TErrorPredicate;
@@ -110,7 +141,8 @@ function compileMatcher(matcher: TErrorMatcher): TErrorPredicate {
 
   const ErrorClass = candidate;
   const name = readProp(ErrorClass, 'name');
-  const hasValidName = typeof name === 'string' && name.length > 0;
+  const matchesByName =
+    typeof name === 'string' && name.length > 0 && (brand === undefined || NAME_MATCHED_BRANDS.includes(brand));
 
   // Three ways to the same identity, weakest last: the class itself, the brand a second copy of
   // the class shares through the symbol registry, and the name a foreign error of the same kind
@@ -126,7 +158,7 @@ function compileMatcher(matcher: TErrorMatcher): TErrorPredicate {
     return (
       isInstance ||
       (brand !== undefined && isObject(error) && readProp(error, brand) === true) ||
-      (hasValidName && isObject(error) && readProp(error, 'name') === name)
+      (matchesByName && isObject(error) && readProp(error, 'name') === name)
     );
   };
 }

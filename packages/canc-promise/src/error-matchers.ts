@@ -9,6 +9,7 @@ import type {
   TErrorPredicate,
 } from '../../_util/error-matchers';
 import { compileErrorMatchers } from '../../_util/error-matchers';
+import type { CancelError } from './cancel-error';
 import type { CancelablePromise, ICancelablePromiseOptions } from './cancelable-promise';
 import { makeCatch, makeSuppress } from './catch-suppress';
 import { _isAbortLike, _isTimeoutLike, isCancelError } from './helpers';
@@ -67,9 +68,9 @@ export interface ICatchErrorFn<M extends readonly TErrorMatcher[] = readonly TEr
  * disabled, so the matcher list passed in is the whole match. Widening the match with `abort`
  * or `timeout` is a per call concern, only available on the non-factory `suppressCancel`.
  *
- * A matcher is an error name, an error constructor (matched by instance, by registry brand, or by
- * name, so a second copy of the class and a foreign error of the same kind both match), or a
- * predicate. Matchers are compiled once, here, not on every call.
+ * A matcher is an error name, an error constructor (matched by instance or registry brand, and by
+ * name too unless only canc produces the class, so a second copy of a shared kind and a foreign
+ * error of that kind both match), or a predicate. Matchers are compiled once, here, not on every call.
  *
  * @example
  * const suppressExpected = createSuppressError(CancelError, isAbortError, 'RetryError');
@@ -172,23 +173,30 @@ export function isErrorOf<M extends readonly TErrorMatcher[]>(error: unknown, ..
  * Catch abort errors only. Matches an abort only, and an ordinary cancellation is rethrown.
  * To swallow a cancellation as well, use `catchCancel(promise, { abort: true })` from `@cancjs/promise`.
  */
-export const catchAbort: ICatchErrorFn<[(error: any) => error is AbortError]> = createCatchError(_isAbortLike);
+export const catchAbort: ICatchErrorFn<
+  [(error: any) => error is AbortError | (CancelError & { readonly aborted: true })]
+> = createCatchError(_isAbortLike);
 
 /**
  * Suppress abort errors only. Matches an abort only, and an ordinary cancellation is rethrown.
  * To swallow a cancellation as well, use `suppressCancel(promise, { abort: true })` from `@cancjs/promise`.
  */
-export const suppressAbort: ISuppressErrorFn<[(error: any) => error is AbortError]> = createSuppressError(_isAbortLike);
+export const suppressAbort: ISuppressErrorFn<
+  [(error: any) => error is AbortError | (CancelError & { readonly aborted: true })]
+> = createSuppressError(_isAbortLike);
 
 /**
  * Catch timeout errors only. Matches a timeout only, and an ordinary cancellation is rethrown.
  * To swallow a cancellation as well, use `catchCancel(promise, { timeout: true })` from `@cancjs/promise`.
  */
-export const catchTimeout: ICatchErrorFn<[(error: any) => error is TimeoutError]> = createCatchError(_isTimeoutLike);
+export const catchTimeout: ICatchErrorFn<
+  [(error: any) => error is TimeoutError | (CancelError & { readonly timedOut: true })]
+> = createCatchError(_isTimeoutLike);
 
 /**
  * Suppress timeout errors only. Matches a timeout only, and an ordinary cancellation is rethrown.
  * To swallow a cancellation as well, use `suppressCancel(promise, { timeout: true })` from `@cancjs/promise`.
  */
-export const suppressTimeout: ISuppressErrorFn<[(error: any) => error is TimeoutError]> =
-  createSuppressError(_isTimeoutLike);
+export const suppressTimeout: ISuppressErrorFn<
+  [(error: any) => error is TimeoutError | (CancelError & { readonly timedOut: true })]
+> = createSuppressError(_isTimeoutLike);

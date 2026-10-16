@@ -318,10 +318,7 @@ describe('brand scheme: a subclass with a rewritten name still matches by brand'
     class Weird extends AbortError {
       constructor() {
         super();
-        // Plain assignment throws here on a DOMException-backed instance: `name` is an inherited
-        // getter-only accessor with no setter. defineProperty shadows it with an own data property,
-        // which is the correct way to rename an instance of this kind regardless of which base the
-        // platform picked.
+        // own data property, same result on a DOMException or Error base
         Object.defineProperty(this, 'name', { value: 'Nope', configurable: true, writable: true });
       }
     }

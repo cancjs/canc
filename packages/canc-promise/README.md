@@ -136,6 +136,14 @@ parent. When every consumer has been canceled and the parent's value is no longe
 parent cancels itself and its own cleanup runs, so the original request does not keep going for
 nobody.
 
+A promise is bubble-canceled once no consumer remains after the current synchronous turn; a
+consumer subscribed anywhere in that turn, canc or native, keeps it alive. So `await source` or
+`Promise.resolve(source)` written next to a canceled `source.then(...)` still gets the value. A
+consumer subscribed in a later turn (after an unrelated `await`) arrives late and gets the
+`CancelError`. The parent's cleanup starts two microtasks after the `cancel()` call, and
+`await child.cancel()` waits for it. A chain of promises with an overridden `cancel` bubbles recursively;
+very deep chains of them can exhaust the stack.
+
 Bubbling is on by default. Turn it off per promise with `bubble: false` when the work has side
 effects that should not be discarded implicitly, for example a write that must complete once
 started.
@@ -144,7 +152,9 @@ started.
 
 `race` and `any` cancel the losers once a winner settles. `all` cancels the remaining inputs on
 the first rejection. `allSettled` cancels nothing, by definition it waits for everything. Inputs
-constructed with `bubble: false` are never canceled by this mechanism.
+constructed with `bubble: false` are never canceled by this mechanism. A `race` loser follows the
+bubble rule above: it is canceled once no consumer remains after the turn in which the race
+settles, so a loser awaited in that turn still gets its value.
 
 Canceling a combinator result does not cascade into its inputs, because an input may be shared
 with another consumer.
@@ -198,6 +208,10 @@ readable through the `options` getter.
 `shield` is an upward and self shield only. A direct `cancel()` becomes a no-op and a bubble
 arriving from canceled children stops there, but a canceled or rejected upstream still propagates
 down into a shielded promise. It is per promise and is not inherited by `then`-derived children.
+The cancelable cleanup a `finally` callback returns is always shielded: canceling the `finally`
+promise lets that cleanup finish, then rejects with a `CancelError`.
+While the cleanup runs, `isCanceled` stays `false` and the promise `cancel()` returned waits until the
+cleanup settles. A cleanup that never settles keeps both pending, so a hung cleanup hangs them.
 
 Flags are also exposed as writable properties (`promise.bubble = false`), and the class-wide
 defaults live in `CancelablePromise.defaultOptions`.
@@ -214,11 +228,14 @@ import { isCancelError, isCancPromise, isAggregateError } from '@cancjs/promise'
 `isCancelError` matches the brand only: a foreign error merely named `CancelError` is never
 treated as one. `isAggregateError` also falls back to `error.name`.
 
-A promise canceled through an `AbortSignal` rejects with a `CancelError` whose `cause` is the
-abort reason, not with a `DOMException`. Check `err.aborted`, or `err.timedOut` when the signal
-came from `AbortSignal.timeout()`, on the `CancelError` when the difference matters. Standalone
-error classes and guards (`AbortError`, `isAbortError`, `TimeoutError`, `isTimeoutError`) are also
-exported directly from `@cancjs/promise`.
+A promise canceled through an `AbortSignal` rejects with a `CancelError`, not with a `DOMException`.
+The abort reason is normalized exactly like a `cancel()` reason, so the usual `DOMException` reason
+becomes the `cause`, and cancel handlers receive the raw abort reason. This holds whether the signal
+was aborted before the promise was created or later. The signal from the executor's `getSignal()`
+aborts with that same `CancelError`, even when first requested after the cancel. Check
+`err.aborted`, or `err.timedOut` when the signal came from `AbortSignal.timeout()`, on the
+`CancelError` when the difference matters. Standalone error classes and guards (`AbortError`,
+`isAbortError`, `TimeoutError`, `isTimeoutError`) are also exported directly from `@cancjs/promise`.
 
 `CancelError` also carries `bubbled` (the cancellation came from the consumer side) and `disposed`
 (it came from leaving a `using` scope).

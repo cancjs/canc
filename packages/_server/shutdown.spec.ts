@@ -254,7 +254,10 @@ describe('graceful shutdown', () => {
 
       const second = shutdownServer(server, { timeout: 100 });
       expect(second).not.toBe(first);
-      await Promise.resolve();
+      // race loser window timer clears a few jobs after the cancel
+      for (let i = 0; i < 20; i++) {
+        await Promise.resolve();
+      }
       expect(jest.getTimerCount()).toBe(1);
 
       jest.advanceTimersByTime(50);

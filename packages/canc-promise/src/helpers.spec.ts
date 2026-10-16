@@ -395,6 +395,37 @@ describe('suppressCancel', () => {
     expect(suppressCancel(cancelError, { timeout: true })).toBe(undefined);
   });
 
+  describe('a CancelError caused by a timeout', () => {
+    const timeoutCanceled = () => CancelablePromise.reject(new CancelError(undefined, { cause: new TimeoutError() }));
+
+    it('keeps rejecting by default', async () => {
+      const result = suppressCancel(timeoutCanceled());
+
+      await expect(result).rejects.toMatchObject({ timedOut: true });
+      await expect(result).rejects.toBeInstanceOf(CancelError);
+    });
+
+    it('keeps rejecting with {abort:true}', async () => {
+      await expect(suppressCancel(timeoutCanceled(), { abort: true })).rejects.toMatchObject({ timedOut: true });
+    });
+
+    it('resolves undefined with {timeout:true}', async () => {
+      await expect(suppressCancel(timeoutCanceled(), { timeout: true })).resolves.toBe(undefined);
+    });
+
+    it('is thrown back by the bare-error form by default', () => {
+      const error = new CancelError(undefined, { cause: new TimeoutError() });
+
+      expect(() => suppressCancel(error)).toThrow(error);
+    });
+
+    it('does not change a plain cancel, still suppressed', async () => {
+      const plain = CancelablePromise.reject(new CancelError());
+
+      await expect(suppressCancel(plain)).resolves.toBe(undefined);
+    });
+  });
+
   // The two options are independent: {abort} must not widen to TimeoutError, and {timeout}
   // must not widen to AbortError.
   it('{abort:true} does not swallow a TimeoutError', () => {

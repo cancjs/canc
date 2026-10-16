@@ -20,7 +20,7 @@ function macrotask(): Promise<void> {
 }
 
 describe('shield option', () => {
-  it('1. direct cancel() on shielded pending promise is a silent no-op', () => {
+  it('1. direct cancel() on shielded pending promise is a silent no-op', async () => {
     const promise = new CancelablePromise<number>(
       () => {
         /**/
@@ -31,9 +31,9 @@ describe('shield option', () => {
     expect(promise.isCancelable).toBe(true);
     const result = promise.cancel('stop');
 
-    expect(result).toBeUndefined();
     expect(promise.isCanceled).toBe(false);
     expect(promise.isCancelable).toBe(true);
+    expect(await result).toEqual([]);
   });
 
   it('2. shielded promise still settles with its value after an ignored cancel()', async () => {
@@ -302,5 +302,157 @@ describe('shield option', () => {
 
     await expect(promise).resolves.toBe(3);
     expect(promise.isCanceled).toBe(false);
+  });
+
+  describe('finally cleanup', () => {
+    function makeCleanup(): { promise: CancelablePromise<void>; finish: () => void; canceled: () => boolean } {
+      let finish = (): void => undefined;
+      let canceled = false;
+      const promise = new CancelablePromise<void>((resolve) => {
+        finish = resolve;
+      });
+      promise.handleCancel(() => {
+        canceled = true;
+      });
+      return { promise, finish: () => finish(), canceled: () => canceled };
+    }
+
+    it('15. canceling the finally child lets the cleanup finish, then rejects', async () => {
+      const cleanup = makeCleanup();
+      let started = false;
+      const f = CancelablePromise.resolve(1).finally(() => {
+        started = true;
+        return cleanup.promise;
+      });
+      let outcome: unknown;
+      let settled = false;
+      NativePromise.prototype.then.call(f, undefined, (error: unknown) => {
+        settled = true;
+        outcome = error;
+      });
+
+      await macrotask();
+      expect(started).toBe(true);
+
+      void f.cancel('stop');
+      await macrotask();
+
+      expect(cleanup.canceled()).toBe(false);
+      expect(cleanup.promise.isCanceled).toBe(false);
+      expect(settled).toBe(false);
+
+      cleanup.finish();
+      await macrotask();
+
+      expect(settled).toBe(true);
+      expect(isCancelError(outcome)).toBe(true);
+      await expect(cleanup.promise).resolves.toBeUndefined();
+    });
+
+    it('16. awaiting cancel() on the finally child waits for the cleanup', async () => {
+      const cleanup = makeCleanup();
+      const f = CancelablePromise.resolve(1).finally(() => cleanup.promise);
+      f.catch(() => {
+        /**/
+      });
+
+      await macrotask();
+
+      let cancelDone = false;
+      void (f.cancel() as PromiseLike<unknown>).then(() => {
+        cancelDone = true;
+      });
+      await macrotask();
+      expect(cancelDone).toBe(false);
+      expect(f.isCanceled).toBe(false);
+
+      cleanup.finish();
+      await macrotask();
+      expect(cancelDone).toBe(true);
+      expect(f.isCanceled).toBe(true);
+    });
+
+    it('17. cleanup started after the finally child was canceled is not canceled', async () => {
+      const cleanup = makeCleanup();
+      let releaseSource = (): void => undefined;
+      const source = new CancelablePromise<number>((resolve) => {
+        releaseSource = () => resolve(1);
+      });
+      const f = source.finally(() => cleanup.promise);
+      f.catch(() => {
+        /**/
+      });
+      // a second consumer keeps the source alive when the finally child goes
+      const kept = source.then((v) => v);
+
+      void f.cancel();
+      releaseSource();
+      await macrotask();
+
+      expect(cleanup.canceled()).toBe(false);
+      expect(cleanup.promise.isCanceled).toBe(false);
+      cleanup.finish();
+      await expect(kept).resolves.toBe(1);
+    });
+
+    it('18. a strict finally child does not throw when canceled during its cleanup', async () => {
+      const cleanup = makeCleanup();
+      const f = new CancelablePromise<number>((resolve) => resolve(1), { strict: true }).finally(() => cleanup.promise);
+      f.catch(() => {
+        /**/
+      });
+
+      await macrotask();
+      expect(() => f.cancel()).not.toThrow();
+      expect(cleanup.canceled()).toBe(false);
+
+      cleanup.finish();
+      await macrotask();
+      expect(f.isCanceled).toBe(true);
+    });
+
+    it('19. a cleanup that rejects wins over a cancel that waited for it', async () => {
+      let failCleanup = (_error: Error): void => undefined;
+      const cleanup = new CancelablePromise<void>((_resolve, reject) => {
+        failCleanup = reject;
+      });
+      const f = CancelablePromise.resolve(1).finally(() => cleanup);
+      let outcome: unknown;
+      NativePromise.prototype.then.call(f, undefined, (error: unknown) => {
+        outcome = error;
+      });
+
+      await macrotask();
+      const cancelResult = f.cancel() as PromiseLike<unknown>;
+      failCleanup(new Error('cleanup failed'));
+
+      await cancelResult;
+      expect((outcome as Error).message).toBe('cleanup failed');
+      expect(f.isCanceled).toBe(false);
+    });
+
+    it('20. repeated and non-awaitable cancels during the cleanup land once', async () => {
+      const cleanup = makeCleanup();
+      let fired = 0;
+      const f = new CancelablePromise<number>((resolve) => resolve(1), { asyncCancel: false }).finally(
+        () => cleanup.promise,
+      );
+      f.handleCancel(() => {
+        fired++;
+      });
+      f.catch(() => {
+        /**/
+      });
+
+      await macrotask();
+      f.cancel('first');
+      f.cancel('second');
+      expect(fired).toBe(0);
+
+      cleanup.finish();
+      await macrotask();
+      expect(fired).toBe(1);
+      expect(f.isCanceled).toBe(true);
+    });
   });
 });
