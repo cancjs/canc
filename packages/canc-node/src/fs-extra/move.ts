@@ -9,7 +9,7 @@ import type { Unlisted } from '../../../_util';
 import { EEXIST, isCrossDeviceError, isErrno, isNotFoundError, isTooManyFilesError } from '../errors/errno';
 import { copyTree, copyTreeSync } from './copy';
 import { ensureDir, ensureDirSync } from './ensure';
-import { IAbortSignalLike, throwIfAborted } from './utils';
+import { checkPaths, checkPathsSync, IAbortSignalLike, throwIfAborted } from './utils';
 
 /**
  * The call presently in flight, so a cancel reaches it directly instead of waiting for
@@ -121,8 +121,8 @@ export function move(src: string, dest: string, options?: IMoveOptions): Cancela
       active.current?.cancel(reason);
     });
 
-    const checkDest =
-      options?.overwrite === false ?
+    const checkDest = checkPaths(src, dest, 'move', signal).then(({ isChangingCase }) =>
+      options?.overwrite === false && !isChangingCase ?
         (active.current = lstat(dest, statOptionsWithSignal(signal))).then(
           () => {
             const err: EEXIST = Object.assign(new Error(`dest already exists: ${dest}`), { code: 'EEXIST' as const });
@@ -135,7 +135,8 @@ export function move(src: string, dest: string, options?: IMoveOptions): Cancela
             throw err;
           },
         )
-      : CancelablePromise.resolve();
+      : undefined,
+    );
 
     const p = checkDest
       .then(() => {
@@ -168,7 +169,8 @@ export function move(src: string, dest: string, options?: IMoveOptions): Cancela
  * @param options - Options for the move operation.
  */
 export function moveSync(src: string, dest: string, options?: IMoveOptions): void {
-  if (options?.overwrite === false) {
+  const { isChangingCase } = checkPathsSync(src, dest, 'move');
+  if (options?.overwrite === false && !isChangingCase) {
     let destExists = false;
     try {
       lstatSync(dest);

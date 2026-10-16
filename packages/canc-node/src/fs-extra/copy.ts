@@ -6,7 +6,7 @@ import { CancelablePromise } from '@cancjs/promise';
 
 import { isExistsError } from '../errors/errno';
 import { ensureDir, ensureDirSync } from './ensure';
-import { IAbortSignalLike, throwIfAborted } from './utils';
+import { checkPaths, checkPathsSync, IAbortSignalLike, throwIfAborted } from './utils';
 
 /**
  * Options for the copy operation.
@@ -91,7 +91,9 @@ export async function copyTree(
       options.onProgress({ src, dest });
     }
 
-    const entries = await (active.current = readdir(src, { withFileTypes: true }));
+    const entries = await (active.current = readdir(src, {
+      withFileTypes: true,
+    }));
     throwIfAborted(signal);
 
     for (const entry of entries) {
@@ -162,9 +164,14 @@ export async function copyTree(
 }
 
 /**
- * Internal synchronous recursive helper.
+ * Internal synchronous helper. Checks the top-level paths once, then recurses without re-checking.
  */
 export function copyTreeSync(src: string, dest: string, options?: ICopyOptions): void {
+  checkPathsSync(src, dest, 'copy');
+  copyEntrySync(src, dest, options);
+}
+
+function copyEntrySync(src: string, dest: string, options?: ICopyOptions): void {
   if (options?.filter) {
     const shouldCopy = options.filter(src, dest);
     if (!shouldCopy) {
@@ -184,7 +191,7 @@ export function copyTreeSync(src: string, dest: string, options?: ICopyOptions):
     const entries = readdirSync(src, { withFileTypes: true });
 
     for (const entry of entries) {
-      copyTreeSync(join(src, entry.name), join(dest, entry.name), options);
+      copyEntrySync(join(src, entry.name), join(dest, entry.name), options);
     }
   } else if (stats.isSymbolicLink()) {
     ensureDirSync(dirname(dest));
@@ -254,6 +261,6 @@ export function copy(src: string, dest: string, options?: ICopyOptions): Cancela
     handleCancel((reason) => {
       active.current?.cancel(reason);
     });
-    resolve(copyTree(src, dest, options, signal, active));
+    resolve(checkPaths(src, dest, 'copy', signal).then(() => copyTree(src, dest, options, signal, active)));
   });
 }

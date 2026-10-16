@@ -1,3 +1,4 @@
+import * as fsSync from 'node:fs';
 import * as fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -7,6 +8,7 @@ import { CancelError } from '@cancjs/promise';
 import { isJsonParseError, JsonParseError } from '../errors/classes';
 import { exists, mkdir, writeFile } from '../fs';
 import { getFs, resetFs, setFs } from '../fs/registry';
+import { copyTreeSync } from './copy';
 import * as extra from './index';
 import {
   copy,
@@ -168,7 +170,9 @@ describe('fs-extra', () => {
     const existingDir = join(root, 'existing-dir-for-eisdir');
     ensureDirSync(existingDir);
 
-    await expect(ensureFile(existingDir)).rejects.toMatchObject({ code: 'EISDIR' });
+    await expect(ensureFile(existingDir)).rejects.toMatchObject({
+      code: 'EISDIR',
+    });
     expect(() => ensureFileSync(existingDir)).toThrow(expect.objectContaining({ code: 'EISDIR' }));
   });
 
@@ -214,7 +218,11 @@ describe('fs-extra', () => {
 
   describe('json', () => {
     it('round trip: writeJson then readJson returns deep-equal object', async () => {
-      const obj = { str: 'hello', num: 42, nested: { arr: [1, 2, 3], bool: true } };
+      const obj = {
+        str: 'hello',
+        num: 42,
+        nested: { arr: [1, 2, 3], bool: true },
+      };
       const testFile = join(root, 'round-trip.json');
       await writeJson(testFile, obj);
       const read = await readJson(testFile);
@@ -761,6 +769,104 @@ describe('fs-extra', () => {
       } finally {
         resetFs();
       }
+    });
+  });
+
+  describe('self and parent path guards', () => {
+    let dir: string;
+
+    beforeEach(async () => {
+      dir = await fs.mkdtemp(join(tmpdir(), 'fs-extra-guard-'));
+    });
+
+    afterEach(async () => {
+      await fs.rm(dir, { recursive: true, force: true });
+    });
+
+    async function makeTree(): Promise<string> {
+      const src = join(dir, 'src');
+      await fs.mkdir(join(src, 'inner'), { recursive: true });
+      await fs.writeFile(join(src, 'inner', 'a.txt'), 'a');
+      return src;
+    }
+
+    it('copy into its own subdirectory rejects with the fs-extra message', async () => {
+      const src = await makeTree();
+      const dest = join(src, 'sub');
+      await expect(copy(src, dest)).rejects.toThrow(`Cannot copy '${src}' to a subdirectory of itself, '${dest}'.`);
+      await expect(fs.stat(dest)).rejects.toThrow();
+    });
+
+    it('copy onto itself rejects', async () => {
+      const src = await makeTree();
+      await expect(copy(src, src)).rejects.toThrow('Source and destination must not be the same.');
+    });
+
+    it('copy of a directory over a file rejects', async () => {
+      const src = await makeTree();
+      const dest = join(dir, 'file.txt');
+      await fs.writeFile(dest, 'x');
+      await expect(copy(src, dest)).rejects.toThrow(
+        `Cannot overwrite non-directory '${dest}' with directory '${src}'.`,
+      );
+    });
+
+    it('copy through a link back into the source rejects', async () => {
+      const src = await makeTree();
+      const link = join(dir, 'link');
+      try {
+        await fs.symlink(src, link, 'junction');
+      } catch (e: any) {
+        if (e.code === 'EPERM') return;
+        throw e;
+      }
+      const dest = join(link, 'deep', 'sub');
+      await expect(copy(src, dest)).rejects.toThrow(`Cannot copy '${src}' to a subdirectory of itself, '${dest}'.`);
+    });
+
+    it('copyTreeSync into its own subdirectory throws fast', () => {
+      const src = join(dir, 'sync-src');
+      fsSync.mkdirSync(join(src, 'inner'), { recursive: true });
+      const dest = join(src, 'sub');
+      const started = Date.now();
+      expect(() => copyTreeSync(src, dest)).toThrow(`Cannot copy '${src}' to a subdirectory of itself, '${dest}'.`);
+      expect(Date.now() - started).toBeLessThan(100);
+    }, 5000);
+
+    it('ensureLink onto an existing different file rejects', async () => {
+      const src = join(dir, 'src.txt');
+      const dest = join(dir, 'dest.txt');
+      await fs.writeFile(src, 'src');
+      await fs.writeFile(dest, 'other');
+      await expect(ensureLink(src, dest)).rejects.toMatchObject({
+        code: 'EEXIST',
+      });
+      expect(() => ensureLinkSync(src, dest)).toThrow(expect.objectContaining({ code: 'EEXIST' }));
+      await expect(fs.readFile(dest, 'utf8')).resolves.toBe('other');
+    });
+
+    it('ensureLink onto the identical link resolves', async () => {
+      const src = join(dir, 'src.txt');
+      const dest = join(dir, 'dest.txt');
+      await fs.writeFile(src, 'src');
+      await ensureLink(src, dest);
+      await expect(ensureLink(src, dest)).resolves.toBeUndefined();
+      expect(() => ensureLinkSync(src, dest)).not.toThrow();
+    });
+
+    it('ensureSymlink onto an existing different path rejects, onto the identical link resolves', async () => {
+      const src = join(dir, 'target');
+      const other = join(dir, 'other');
+      const link = join(dir, 'link');
+      await fs.mkdir(src);
+      await fs.mkdir(other);
+      // junction needs no privilege on win32, ignored elsewhere
+      await ensureSymlink(src, link, 'junction');
+      await expect(ensureSymlink(src, link, 'junction')).resolves.toBeUndefined();
+      expect(() => ensureSymlinkSync(src, link, 'junction')).not.toThrow();
+      await expect(ensureSymlink(other, link, 'junction')).rejects.toMatchObject({ code: 'EEXIST' });
+      expect(() => ensureSymlinkSync(other, link, 'junction')).toThrow(expect.objectContaining({ code: 'EEXIST' }));
+      await expect(ensureSymlink(src, other, 'junction')).rejects.toMatchObject({ code: 'EEXIST' });
     });
   });
 

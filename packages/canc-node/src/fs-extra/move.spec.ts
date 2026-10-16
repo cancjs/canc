@@ -340,4 +340,40 @@ describe('move', () => {
     expect(fsSync.readFileSync(dest, 'utf8')).toBe('nested sync content');
     expect(fsSync.existsSync(src)).toBe(false);
   });
+
+  describe('self and parent path guards', () => {
+    let dir: string;
+
+    beforeEach(async () => {
+      dir = await fs.mkdtemp(join(tmpdir(), 'move-guard-'));
+    });
+
+    afterEach(async () => {
+      await fs.rm(dir, { recursive: true, force: true });
+    });
+
+    it('move into its own subdirectory rejects and leaves no stray directory', async () => {
+      const src = join(dir, 'src');
+      await fs.mkdir(join(src, 'inner'), { recursive: true });
+      const dest = join(src, 'sub');
+      await expect(move(src, dest)).rejects.toThrow(`Cannot move '${src}' to a subdirectory of itself, '${dest}'.`);
+      await expect(fs.stat(dest)).rejects.toThrow();
+      await expect(fs.stat(join(src, 'inner'))).resolves.toBeDefined();
+    });
+
+    it('moveSync into its own subdirectory throws and leaves no stray directory', async () => {
+      const src = join(dir, 'src');
+      await fs.mkdir(join(src, 'inner'), { recursive: true });
+      const dest = join(src, 'sub', 'deeper');
+      expect(() => moveSync(src, dest)).toThrow(`Cannot move '${src}' to a subdirectory of itself, '${dest}'.`);
+      await expect(fs.stat(join(src, 'sub'))).rejects.toThrow();
+    });
+
+    it('move onto itself rejects', async () => {
+      const src = join(dir, 'file.txt');
+      await fs.writeFile(src, 'x');
+      await expect(move(src, src)).rejects.toThrow('Source and destination must not be the same.');
+      expect(() => moveSync(src, src)).toThrow('Source and destination must not be the same.');
+    });
+  });
 });
