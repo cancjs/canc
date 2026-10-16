@@ -167,11 +167,11 @@ describe('errors & catch/suppress pairs (native)', () => {
   });
 
   describe('isSupersededError', () => {
-    it('matches by name as a fallback', async () => {
+    it('does not match a foreign error by name', async () => {
       const toolbox = await import('./index');
       const fakeError = new Error('fake');
       fakeError.name = 'SupersededError';
-      expect(toolbox.isSupersededError(fakeError)).toBe(true);
+      expect(toolbox.isSupersededError(fakeError)).toBe(false);
     });
   });
 });
