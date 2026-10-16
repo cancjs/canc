@@ -5,11 +5,12 @@ import {
   isAbortError,
   isAggregateError,
   isCancelable,
+  isCancelError as isBrandedCancelError,
   isObject,
   isTimeoutError,
   TimeoutError,
 } from '../../_util';
-import { CANCEL_ERROR_BRAND, CancelError } from './cancel-error';
+import { CancelError } from './cancel-error';
 import {
   CANCEL_PROMISE_BRAND,
   CancelablePromise,
@@ -21,20 +22,24 @@ import { isAbortLike, isTimeoutLike, makeCatch, makeSuppress } from './catch-sup
 /**
  * Brand check: a foreign error merely named 'CancelError' is NOT matched, only objects carrying
  * the shared Symbol.for brand set by the CancelError constructor. Cross-realm/cross-copy safe
- * because the brand comes from the global symbol registry.
+ * because the brand comes from the global symbol registry. A value whose property reads throw
+ * answers false.
  */
-export const isCancelError = (error: any): error is CancelError =>
-  isObject(error) && error[CANCEL_ERROR_BRAND] === true;
+export const isCancelError = (error: any): error is CancelError => isBrandedCancelError(error);
 
-// Guards, not bare predicates: the underlying test is brand-or-name, so a match proves the kind,
-// and a matcher list built from one subtracts that kind from a declared failure set
+// Guards, not bare predicates: a match proves the kind (a flagged CancelError included), so a
+// matcher list built from one subtracts that kind from a declared failure set
 
 // kept exported for published sibling packages, removal only in a major
 /** @internal */
-export const _isAbortLike = isAbortLike(isCancelError) as (error: any) => error is AbortError;
+export const _isAbortLike = isAbortLike(isCancelError) as (
+  error: any,
+) => error is AbortError | (CancelError & { readonly aborted: true });
 // kept exported for published sibling packages, removal only in a major
 /** @internal */
-export const _isTimeoutLike = isTimeoutLike(isCancelError) as (error: any) => error is TimeoutError;
+export const _isTimeoutLike = isTimeoutLike(isCancelError) as (
+  error: any,
+) => error is TimeoutError | (CancelError & { readonly timedOut: true });
 
 /**
  * Brand check: same rationale as isCancelError, but for CancelablePromise instances. Duck-types

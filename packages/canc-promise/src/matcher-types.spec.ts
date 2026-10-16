@@ -1,4 +1,5 @@
 import { Assert, Eq } from '../../../tests-types/fixtures/common/assert-type';
+import type { CancelError } from './cancel-error';
 import type {
   ICatchErrorFn,
   ISuppressErrorFn,
@@ -10,10 +11,12 @@ import type {
 import type { AbortError, TimeoutError } from './helpers';
 import type { CancelablePromise } from './index';
 import {
+  CancelablePromise as CancelablePromiseClass,
   catchAbort,
   catchTimeout,
   createCatchError,
   createSuppressError,
+  isCancelError,
   TimeoutError as TimeoutErrorClass,
 } from './index';
 
@@ -36,14 +39,23 @@ const _defaultSuppressShape: ISuppressErrorFn = createSuppressError(TypeError);
 
 // Declared but never called: the parameters exist so the two results below can be inferred from a
 // real call site rather than annotated into existence
-function _builtInMatcherShapes(work: CancelablePromise<number, AbortError | TypeError>, rawError: unknown) {
+function _builtInMatcherShapes(
+  work: CancelablePromise<number, AbortError | CancelError | TypeError>,
+  rawError: unknown,
+) {
   // 6. The built-in abort matcher proves the kind it matches, so it leaves the declared failure set
+  // an aborted CancelError joins the result, a plain CancelError stays a failure
   const caughtAbort = catchAbort(work);
-  type _checkAbortSubtracted = Assert<Eq<typeof caughtAbort, CancelablePromise<number | AbortError, TypeError>>>;
+  type _checkAbortSubtracted = Assert<
+    Eq<
+      typeof caughtAbort,
+      CancelablePromise<number | AbortError | (CancelError & { readonly aborted: true }), CancelError | TypeError>
+    >
+  >;
 
   // 7. A raw error the caller knows nothing about still comes back typed as what the matcher takes
   const caughtTimeout = catchTimeout(rawError);
-  type _checkRawTimeout = Assert<Eq<typeof caughtTimeout, TimeoutError>>;
+  type _checkRawTimeout = Assert<Eq<typeof caughtTimeout, TimeoutError | (CancelError & { readonly timedOut: true })>>;
 
   return [caughtAbort, caughtTimeout] as const;
 }
@@ -88,5 +100,15 @@ describe('matcher type mappings', () => {
     const caught = catchTimeout(new TimeoutErrorClass('too slow') as unknown);
 
     expect(caught.name).toBe('TimeoutError');
+  });
+
+  it('hands a signal driven cancel back as an aborted CancelError', async () => {
+    const controller = new AbortController();
+    const caught = catchAbort(new CancelablePromiseClass<number>(() => {}, { signal: controller.signal }));
+
+    controller.abort();
+    const value = await caught;
+
+    expect(isCancelError(value) && value.aborted).toBe(true);
   });
 });
