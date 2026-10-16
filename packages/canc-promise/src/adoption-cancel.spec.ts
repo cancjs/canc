@@ -68,7 +68,7 @@ describe('adoption cancel propagation', () => {
     expect(inner.promise.canceled).toBe(true);
   });
 
-  it('finally() return: canceling the outer cancels the adopted inner', async () => {
+  it('finally() return: canceling the outer leaves the cleanup running', async () => {
     const inner = makeInner();
     const outer = CancelablePromise.resolve(1).finally(() => inner.promise);
     outer.catch(() => undefined);
@@ -80,8 +80,8 @@ describe('adoption cancel propagation', () => {
     outer.cancel();
     await flush();
 
-    expect(inner.canceled()).toBe(true);
-    expect(inner.promise.canceled).toBe(true);
+    expect(inner.canceled()).toBe(false);
+    expect(inner.promise.canceled).toBe(false);
   });
 
   it('executor resolve(inner): canceling the outer cancels the adopted inner', async () => {

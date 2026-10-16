@@ -237,6 +237,21 @@ function noop() {
   /**/
 }
 
+// a cancel that reaches a finally child while its cleanup runs, applied once the cleanup settles
+interface ICleanupDrain {
+  canceled: boolean;
+  reason?: unknown;
+  disposing?: boolean;
+  collector?: any[];
+  done?: PromiseLike<void>;
+  release?: () => void;
+}
+
+// kept off the class declaration so the emitted types stay unchanged
+interface IDrainHolder {
+  _cleanupDrain?: ICleanupDrain;
+}
+
 // Cleanup-collector threading: the INITIATOR's cancel() allocates a collector array and sets this
 // before dispatching handlers.
 // Synchronous re-entrant cancels (bubble, cascade) read it to push
@@ -1770,10 +1785,10 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
    * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
    * resolved value cannot be modified from the callback.
    *
-   * If `onFinally` returns a CancelablePromise, it is adopted the same way a `then` callback's
-   * returned cancelable is: linked in as a counted parent, so canceling the promise returned by
-   * this call reaches it once every counted consumer is gone. A plain native promise returned
-   * from `onFinally` is not linked this way.
+   * If `onFinally` returns a CancelablePromise, that cleanup is shielded: canceling the promise
+   * returned by this call never cancels it. A cancel that arrives while the cleanup runs takes
+   * effect once the cleanup settles, so the returned promise rejects with a CancelError only after
+   * its cleanup is done. A cleanup that rejects wins over that cancel.
    * @param onFinally The callback to execute when the Promise is settled (fulfilled or rejected).
    * @returns A Promise for the completion of the callback.
    */
@@ -1781,19 +1796,55 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
     if (typeof onFinally === 'function') {
       const This = this.constructor as typeof CancelablePromise;
 
+      const afterCleanup = (settle: () => unknown): unknown => {
+        const cleanup = onFinally();
+        if (!isCancPromise(cleanup)) {
+          return This.resolve(cleanup).then(settle);
+        }
+
+        const drain: ICleanupDrain = { canceled: false };
+        const holder = child as unknown as IDrainHolder;
+        holder._cleanupDrain = drain;
+        return This.resolve(cleanup, { shield: true }).then(
+          () => {
+            holder._cleanupDrain = undefined;
+            if (!drain.canceled) {
+              return settle();
+            }
+            try {
+              child._cancel(drain.reason, drain.disposing, drain.collector);
+            } catch (_e) {
+              // the cancel() call that asked for it has already returned
+            }
+            if (drain.release) {
+              drain.release();
+            }
+            return undefined;
+          },
+          (error: unknown) => {
+            holder._cleanupDrain = undefined;
+            if (drain.release) {
+              drain.release();
+            }
+            throw error;
+          },
+        );
+      };
+
       // Same generic-collapse gap as catch(): `This` is the generic-erased `typeof
       // CancelablePromise`, so the chained `.then()`s can't correlate back to this promise's own
       // TResult/TFailure, and the general `then` overload's FailureOf<TResult1>/TResult2-fallback
       // terms don't provably vanish even though onFinally never changes the settlement value or
       // reason.
       // Narrowing to finally()'s own declared signature is a boundary cast.
-      return this.then(
-        (value: TResult) => This.resolve(onFinally()).then(() => value),
+      const child = this.then(
+        (value: TResult) => afterCleanup(() => value),
         (reason: TReason<TFailure>) =>
-          This.resolve(onFinally()).then(() => {
+          afterCleanup(() => {
             throw reason;
           }),
       ) as unknown as CancelablePromise<TResult, TFailure>;
+      return child;
     } else {
       return this.then(null, null) as unknown as CancelablePromise<TResult, TFailure>;
     }
@@ -1899,6 +1950,28 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
     }
 
     if (this.cancelable) {
+      const drain = (this as unknown as IDrainHolder)._cleanupDrain;
+      if (drain) {
+        // the cleanup onFinally returned runs to the end, the cancel lands after it
+        if (!drain.canceled) {
+          drain.canceled = true;
+          drain.reason = reason;
+          drain.disposing = disposing;
+        }
+        if (collector) {
+          if (!drain.collector) {
+            drain.collector = collector;
+          }
+          collector.push(
+            drain.done ||
+              (drain.done = new NativePromise<void>((resolve) => {
+                drain.release = resolve;
+              })),
+          );
+        }
+        return;
+      }
+
       this._internalState = states.CANCELED;
 
       const error = toCancelError(reason);

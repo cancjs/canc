@@ -208,6 +208,8 @@ readable through the `options` getter.
 `shield` is an upward and self shield only. A direct `cancel()` becomes a no-op and a bubble
 arriving from canceled children stops there, but a canceled or rejected upstream still propagates
 down into a shielded promise. It is per promise and is not inherited by `then`-derived children.
+The cancelable cleanup a `finally` callback returns is always shielded: canceling the `finally`
+promise lets that cleanup finish, then rejects with a `CancelError`.
 
 Flags are also exposed as writable properties (`promise.bubble = false`), and the class-wide
 defaults live in `CancelablePromise.defaultOptions`.
