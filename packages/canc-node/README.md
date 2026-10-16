@@ -602,6 +602,25 @@ import "@cancjs/node/fs/register-graceful";
 
 CommonJS and ESM are separate module instances; file system registration holds within the current format.
 
+### Caller signal
+
+Every subpath follows one rule for an `AbortSignal` passed as `options.signal`. Where this package owns the returned promise, the signal is taken out of node's options and given to the promise, so aborting it is the same as calling `cancel()` and rejects `CancelError`. That covers `fs`, `timers` (`setTimeout`, `setImmediate`, `scheduler.wait`), `events` (`once`, and every pull of an `on` iterator), the `stream` wrappers and terminals, `readline`'s `question`, the `zlib` one-shot and iterable codec functions, `dns`, the `crypto` functions that take an options bag, and `runTask`.
+
+```ts
+import { readFile } from "@cancjs/node/fs";
+import { isCancelError } from "@cancjs/promise";
+
+const controller = new AbortController();
+const data = readFile("package.json", { signal: controller.signal });
+controller.abort();
+
+await data.catch((error) => isCancelError(error)); // true
+```
+
+Where node hands back something the caller holds instead of a promise, the signal reaches node untouched and an abort produces node's own `AbortError`. That is `setInterval`, `fs.watch`, `fs.glob` and the `child-process` functions, whose `ChildProcess` is node's own handle.
+
+For `crypto`, `dns` and the `zlib` one-shots, node has nothing to abort, so the caller's abort stops the wait just like `cancel()` does and the work runs to completion in the background.
+
 ### child-process
 
 Import from `@cancjs/node/child-process` to run external commands with cancellation support. Every function returns the same `ChildProcess` node returns, with one property added:

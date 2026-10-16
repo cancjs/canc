@@ -1,16 +1,12 @@
 import { CancelablePromise } from '@cancjs/promise';
 
 import { IPromiseKind, IToolboxDeps, TPromiseCtor } from '../../../_toolbox';
-import { promisifyFactory } from '../../../_toolbox/promisify';
+import { promisifyFactory, TCallbackFn } from '../../../_toolbox/promisify';
 import type { Unlisted } from '../../../_util';
+import { promisifyLifted, TPromisify } from '../signal';
 
 export { gated as gatedWrapped } from '../gate';
-
-/**
- * A node call at the wrapping boundary. Node overloads each of these per call site, so a wrapper
- * stays variadic and the binding that uses it keeps node's published signature.
- */
-export type TNodeFn = (...args: unknown[]) => unknown;
+export type { TNodeFn } from '../signal';
 
 /** One node call signature, with a cancelable promise in place of the plain one it returned. */
 type TCancelableReturn<R> = [R] extends [Promise<infer TValue>] ? CancelablePromise<TValue, Unlisted> : R;
@@ -122,9 +118,20 @@ export const toolboxDeps: IToolboxDeps<ICancelableKind> = {
   cancelable: true,
 };
 
+const promisify = promisifyFactory(toolboxDeps);
+
 /**
- * Promisify bound to CancelablePromise. Crypto has no signal support to forward (fact base:
- * `signal: 0` across the whole module), so unlike `../fs/wrap.ts` this stays a plain promisify
- * with nothing signal-aware layered on top.
+ * Promisify bound to CancelablePromise, with a caller's `signal` lifted out of the trailing options
+ * bag and onto the promise. Crypto has no signal support of its own to forward (fact base: `signal: 0`
+ * across the whole module), so canceling stops the wait and the caller's abort rejects `CancelError`.
+ * Every call here that takes an options bag takes it last.
+ *
+ * @param nodeFn - Callback-style node function taking an errfirst callback last.
+ * @param options - Promisify options shared by every call.
  */
-export const promisifyWrapped = promisifyFactory(toolboxDeps);
+export function promisifyWrapped<R = unknown>(
+  nodeFn: TCallbackFn,
+  options?: Record<string, unknown>,
+): (...args: unknown[]) => CancelablePromise<R, Unlisted> {
+  return promisifyLifted<R>(promisify as TPromisify, nodeFn, -1, options);
+}

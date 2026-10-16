@@ -6,32 +6,20 @@ import { IPromiseKind, IToolboxDeps, TPromiseCtor } from '../../../_toolbox';
 import { promisifyFactory } from '../../../_toolbox/promisify';
 import type { Unlisted } from '../../../_util';
 import { isCancelable } from '../../../_util';
-import { features } from '../features';
+import {
+  acceptsSignal,
+  IManifestEntry,
+  promisifyLifted,
+  takeCallerSignal,
+  TNodeFn,
+  TPromisify,
+  withCallerSignal,
+  withSignalAt,
+} from '../signal';
 
 export { gated as gatedWrapped } from '../gate';
-
-/** Signal facts the surface manifest records for one export. */
-export interface INodeSignalFacts {
-  readonly documented: boolean;
-  readonly since: string | null;
-  readonly sinceByMajor?: Readonly<Record<string, string>> | null;
-  readonly probed: string | null;
-}
-
-/** The part of a surface manifest export record the wrappers read. */
-export interface IManifestEntry {
-  readonly name: string;
-  readonly nodeSignal: INodeSignalFacts;
-}
-
-/**
- * A node call at the wrapping boundary. Node overloads each of these per call site, so a wrapper
- * stays variadic and the binding that uses it keeps node's published signature.
- */
-export type TNodeFn = (...args: unknown[]) => unknown;
-
-/** A node options bag, or the encoding shorthand node accepts in its place. */
-export type TNodeOptions = string | Readonly<Record<string, unknown>> | null | undefined;
+export type { IManifestEntry, INodeSignalFacts, TNodeFn, TNodeOptions } from '../signal';
+export { acceptsSignal, signalWrapped, withSignal } from '../signal';
 
 /** Handle method names overridden by this package to return cancelable promises. */
 export type TOverriddenHandleKeys =
@@ -170,173 +158,6 @@ export const toolboxDeps: IToolboxDeps<ICancelableKind> = {
 /** Promisify bound to CancelablePromise, for the callback API a custom implementation can patch. */
 const promisify = promisifyFactory(toolboxDeps);
 
-/** Major, minor and patch of a node version, `v` prefix optional, missing or unparsable parts zero. */
-function versionParts(version: string): [number, number, number] {
-  const digits = version.replace(/^v/, '').split('.');
-  return [Number(digits[0]) || 0, Number(digits[1]) || 0, Number(digits[2]) || 0];
-}
-
-/** Whether `version` is `since` or later. */
-function atLeast(version: string, since: string): boolean {
-  const running = versionParts(version);
-  const wanted = versionParts(since);
-
-  for (let i = 0; i < 3; i++) {
-    if (running[i] !== wanted[i]) {
-      return running[i] > wanted[i];
-    }
-  }
-
-  return true;
-}
-
-/**
- * Whether node accepts an AbortSignal for this export on the running version.
- *
- * The answer is per release line rather than per function, because signal support is backported: a
- * member can accept one on 24 and 26 and reject it on 22. It is also per minor, because a backport
- * lands partway through a line: `stat` accepts a signal from 26.8.0 and not from 26.0.0, so
- * comparing majors alone forwards an option that does not exist yet on 26.0 through 26.7. Forwarding
- * stays conditional because a runtime that validates option keys throws on an unknown `signal`, so
- * an unconditional spread is a hard failure there rather than a no-op.
- */
-export function acceptsSignal(entry: IManifestEntry | undefined, version: string = features.nodeVersion): boolean {
-  const facts = entry?.nodeSignal;
-  if (!facts) {
-    return false;
-  }
-
-  const byMajor = facts.sinceByMajor;
-  if (!byMajor) {
-    // no per-line map means support predates the oldest line this package runs on
-    return facts.since !== null;
-  }
-
-  const running = versionParts(version)[0];
-
-  // the newest line the map names that is not newer than this one; a later line inherits its answer
-  let inherited = -Infinity;
-  for (const major of Object.keys(byMajor)) {
-    const listed = Number(major);
-    if (listed <= running && listed > inherited) {
-      inherited = listed;
-    }
-  }
-
-  if (inherited === -Infinity) {
-    return false;
-  }
-
-  return inherited < running || atLeast(version, byMajor[String(inherited)]);
-}
-
-/** A call with the caller's own signal lifted out of the node options bag. */
-interface ICallerSignalCall {
-  /** The arguments with that `signal` key removed, so nothing later overwrites it. */
-  readonly args: unknown[];
-  /** What the caller put there, or undefined when there was nothing. */
-  readonly callerSignal: AbortSignal | undefined;
-}
-
-/** Whether a value is an abort signal, so anything else stays in the options bag untouched. */
-function isAbortSignalLike(value: unknown): value is AbortSignal {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    typeof (value as { addEventListener?: unknown }).addEventListener === 'function'
-  );
-}
-
-/** Merge the signal into a node options argument, honoring the encoding-string shorthand. */
-export function withSignal(options: TNodeOptions, signal: unknown): Record<string, unknown> {
-  if (typeof options === 'string') {
-    return { encoding: options, signal };
-  }
-  if (options) {
-    return { ...options, signal };
-  }
-  return { signal };
-}
-
-/**
- * Place the signal in the argument node reads options from for this call. The position is per
- * function: `readFile(path, options)` and `writeFile(path, data, options)` do not agree, and
- * merging into whatever came last would turn `writeFile(path, 'text')` into an encoding.
- */
-function withSignalAt(args: unknown[], optionsIndex: number, signal: unknown): unknown[] {
-  const callArgs = args.slice();
-  while (callArgs.length < optionsIndex) {
-    callArgs.push(undefined);
-  }
-
-  callArgs[optionsIndex] = withSignal(callArgs[optionsIndex] as TNodeOptions, signal);
-  return callArgs;
-}
-
-/**
- * Take the caller's own signal out of the node options bag, so it can be given to the promise
- * instead.
- *
- * The signal this package sends node is the one cancellation drives, and there is room for exactly
- * one. A caller's signal handed to the promise reaches node all the same, one step further back:
- * their abort cancels the promise, cancelling aborts our signal, and node stops. That is one
- * settlement path and one error, where combining the two signals would give the caller node's
- * AbortError or our CancelError depending on timing.
- */
-function takeCallerSignal(args: unknown[], optionsIndex: number): ICallerSignalCall {
-  const options = args[optionsIndex];
-  if (typeof options !== 'object' || options === null) {
-    return { args, callerSignal: undefined };
-  }
-
-  const callerSignal = (options as Record<string, unknown>).signal;
-  if (!isAbortSignalLike(callerSignal)) {
-    return { args, callerSignal: undefined };
-  }
-
-  const { signal: _signal, ...rest } = options as Record<string, unknown>;
-  const callArgs = args.slice();
-  callArgs[optionsIndex] = rest;
-
-  return { args: callArgs, callerSignal };
-}
-
-/**
- * Wrap a promise-returning node call, forwarding the cancel signal when node accepts one.
- *
- * @param nodeFn - Underlying node function, called with the receiver of the returned wrapper.
- * @param entry - Manifest record stating whether node accepts a signal here.
- * @param optionsIndex - Argument position node reads options from.
- */
-export function signalWrapped<R = unknown>(
-  nodeFn: TNodeFn,
-  entry: IManifestEntry | undefined,
-  optionsIndex = 0,
-): (...args: unknown[]) => CancelablePromise<R, Unlisted> {
-  const forwards = acceptsSignal(entry);
-
-  return function signalWrappedCall(this: unknown, ...args: unknown[]): CancelablePromise<R, Unlisted> {
-    const call = takeCallerSignal(args, optionsIndex);
-
-    if (!forwards) {
-      return new CancelablePromise<R, Unlisted>(
-        (resolve) => {
-          resolve(nodeFn.apply(this, call.args) as R | PromiseLike<R>);
-        },
-        { signal: call.callerSignal },
-      );
-    }
-
-    return new CancelablePromise<R, Unlisted>(
-      (resolve, _reject, { getSignal }) => {
-        // the signal is minted before the call, so a cancel racing the call still aborts it
-        resolve(nodeFn.apply(this, withSignalAt(call.args, optionsIndex, getSignal())) as R | PromiseLike<R>);
-      },
-      { signal: call.callerSignal },
-    );
-  };
-}
-
 /**
  * Promisify a callback-style node call, lifting any caller signal to the promise and leaving
  * the options bag without a signal key for node.
@@ -348,15 +169,7 @@ export function promisifyWrapped<R = unknown>(
   nodeFn: TNodeFn,
   optionsIndex = 0,
 ): (...args: unknown[]) => CancelablePromise<R, Unlisted> {
-  const plain = promisify(nodeFn);
-
-  return function promisifyWrappedCall(this: unknown, ...args: unknown[]): CancelablePromise<R, Unlisted> {
-    const call = takeCallerSignal(args, optionsIndex);
-
-    const bound = call.callerSignal ? promisify(nodeFn, { signal: call.callerSignal }) : plain;
-
-    return bound.apply(this, call.args) as CancelablePromise<R, Unlisted>;
-  };
+  return promisifyLifted<R>(promisify as TPromisify, nodeFn, optionsIndex);
 }
 
 /**
@@ -378,19 +191,12 @@ export function promisifySignalWrapped<R = unknown>(
       (args: unknown[], getSignal: () => unknown): unknown[] => withSignalAt(args, optionsIndex, getSignal())
     : undefined;
 
-  const plain = promisify(nodeFn, transformArgs ? { transformArgs } : undefined);
-
-  return function promisifySignalWrappedCall(this: unknown, ...args: unknown[]): CancelablePromise<R, Unlisted> {
-    const call = takeCallerSignal(args, optionsIndex);
-
-    // promisify reads its options once, at wrap time, so a per-call signal needs its own binding
-    const bound =
-      call.callerSignal ?
-        promisify(nodeFn, transformArgs ? { transformArgs, signal: call.callerSignal } : { signal: call.callerSignal })
-      : plain;
-
-    return bound.apply(this, call.args) as CancelablePromise<R, Unlisted>;
-  };
+  return promisifyLifted<R>(
+    promisify as TPromisify,
+    nodeFn,
+    optionsIndex,
+    transformArgs ? { transformArgs } : undefined,
+  );
 }
 
 /**
@@ -443,12 +249,7 @@ export function adopted<R = unknown>(
 ): (...args: unknown[]) => CancelablePromise<R, Unlisted> {
   return function adoptedCall(this: unknown, ...args: unknown[]): CancelablePromise<R, Unlisted> {
     const call = takeCallerSignal(args, optionsIndex);
-    return new CancelablePromise<R, Unlisted>(
-      (resolve) => {
-        resolve(nodeFn.apply(this, call.args) as R | PromiseLike<R>);
-      },
-      { signal: call.callerSignal },
-    );
+    return withCallerSignal<R>(call.callerSignal, false, () => nodeFn.apply(this, call.args) as R | PromiseLike<R>);
   };
 }
 

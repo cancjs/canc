@@ -40,6 +40,7 @@ steal?: boolean | undefined
 ```text
 extends Omit<WorkerOptions, 'workerData'>
 gracePeriod?: number | undefined
+signal?: AbortSignal | undefined
 terminate?: TTerminateMode | undefined
 ```
 
