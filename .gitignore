@@ -52,6 +52,9 @@ typings/
 # Output of npm pack
 *.tgz
 
+# Release tooling
+release-notes-draft/
+
 # Environment variables
 .env
 .env.test

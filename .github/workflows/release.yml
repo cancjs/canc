@@ -21,6 +21,7 @@ permissions:
   contents: write
   pull-requests: write
   id-token: write
+  actions: read
 
 jobs:
   release:
@@ -32,15 +33,20 @@ jobs:
       CANC_RELEASE_ALLOW_MINOR: ${{ inputs.allow_minor && 'true' || vars.CANC_RELEASE_ALLOW_MINOR }}
       CANC_RELEASE_ALLOW_MAJOR: ${{ inputs.allow_major && 'true' || vars.CANC_RELEASE_ALLOW_MAJOR }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Wait for CI on this commit
+        run: node scripts/release-ci-gate.js
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '22.x'
           cache: 'npm'
           registry-url: 'https://registry.npmjs.org'
       - name: Upgrade npm
+        # trusted publishing requires npm >= 11.5.1
         run: |
-          npm install -g npm@11
+          npm install -g npm@11.21.0
           npm --version
       - run: npm ci
       - run: npm run build
@@ -49,7 +55,7 @@ jobs:
       - name: Create Release Pull Request or Publish
         id: changesets
         if: vars.CANC_PUBLISH_ENABLED == 'true'
-        uses: changesets/action@v1
+        uses: changesets/action@a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d # v1.9.0
         with:
           version: npm run release:version
           publish: npm run release:publish

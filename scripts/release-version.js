@@ -78,13 +78,24 @@ const isPreMode = fs.existsSync(preJsonPath) && JSON.parse(fs.readFileSync(preJs
 const changelogsBefore = new Set(findChangelogs());
 
 // changesets/action reads every versioned package's CHANGELOG.md for the release pull request body
-const publicDirs = JSON.parse(execSync('npm query .workspace --json', { cwd: ROOT, encoding: 'utf8' }))
-  .filter((ws) => !ws.private)
-  .map((ws) => path.resolve(ROOT, ws.location));
-const missingChangelogs = publicDirs.filter((dir) => !fs.existsSync(path.join(dir, 'CHANGELOG.md')));
+const publicWorkspaces = JSON.parse(execSync('npm query .workspace --json', { cwd: ROOT, encoding: 'utf8' })).filter(
+  (ws) => !ws.private,
+);
+for (const ws of publicWorkspaces) {
+  const dir = path.resolve(ROOT, ws.location);
+  const changelogPath = path.join(dir, 'CHANGELOG.md');
+  if (!fs.existsSync(changelogPath) && ws.name) {
+    fs.writeFileSync(changelogPath, `# ${ws.name}\n`, 'utf8');
+    const relDir = path.relative(ROOT, dir).replace(/\\/g, '/');
+    console.log(`[release-version] created CHANGELOG.md stub for ${relDir}`);
+  }
+}
+const missingChangelogs = publicWorkspaces
+  .map((ws) => path.resolve(ROOT, ws.location))
+  .filter((dir) => !fs.existsSync(path.join(dir, 'CHANGELOG.md')));
 if (missingChangelogs.length > 0) {
   throw new Error(
-    `CHANGELOG.md missing in ${missingChangelogs.map((d) => path.relative(ROOT, d)).join(', ')}; add one with a "# <package name>" heading`,
+    `CHANGELOG.md missing in ${missingChangelogs.map((d) => path.relative(ROOT, d).replace(/\\/g, '/')).join(', ')}; add one with a "# <package name>" heading`,
   );
 }
 
@@ -96,8 +107,9 @@ for (const entry of privates) {
   if (fs.readFileSync(entry.manifestPath, 'utf8') !== entry.originalText) {
     fs.writeFileSync(entry.manifestPath, entry.originalText, 'utf8');
   }
+  // Upstream changesets assemble-release-plan exit mode patches private workspaces
   const changelogPath = path.join(entry.dir, 'CHANGELOG.md');
-  if (fs.existsSync(changelogPath)) {
+  if (!changelogsBefore.has(changelogPath) && fs.existsSync(changelogPath)) {
     fs.rmSync(changelogPath, { force: true });
   }
 }

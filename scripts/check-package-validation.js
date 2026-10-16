@@ -386,9 +386,81 @@ function collectPeerFloorViolations(pkgDir, manifest, workspace, plannedVersions
   return { problems, checkedPeers };
 }
 
+const SHARED_IMPORT_RE =
+  /(?:import|export)\s+(?:[\s\S]*?\s+from\s+)?['"]([^'"]+)['"]|import\(\s*['"]([^'"]+)['"]\s*\)/g;
+
+function collectSourceFiles(dir, acc = []) {
+  if (!fs.existsSync(dir)) return acc;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name.includes('~~')) continue;
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name === '__tests__' || entry.name === 'test') continue;
+      collectSourceFiles(full, acc);
+    } else if (
+      entry.name.endsWith('.ts') &&
+      !entry.name.endsWith('.d.ts') &&
+      !entry.name.endsWith('.d.mts') &&
+      !entry.name.endsWith('.d.cts') &&
+      !/\.(spec|test)\.ts$/.test(entry.name)
+    ) {
+      acc.push(full);
+    }
+  }
+  return acc;
+}
+
+function detectImportedSharedDirs(srcFiles) {
+  const shared = new Set();
+  for (const file of srcFiles) {
+    const content = fs.readFileSync(file, 'utf8');
+    let match;
+    SHARED_IMPORT_RE.lastIndex = 0;
+    while ((match = SHARED_IMPORT_RE.exec(content)) !== null) {
+      const spec = (match[1] || match[2]).replace(/\\/g, '/');
+      const found = /(?:^|\/)(_util|_toolbox|_server)(?:$|\/)/.exec(spec);
+      if (found) shared.add(found[1]);
+    }
+  }
+  if (shared.has('_toolbox') || shared.has('_server')) {
+    shared.add('_util');
+  }
+  return shared;
+}
+
+function isDistOlderThanSrc(pkgDir) {
+  const distDir = path.join(pkgDir, 'dist');
+  if (!fs.existsSync(distDir)) return false;
+
+  const distFiles = listFilesRecursive(distDir);
+  if (distFiles.length === 0) return false;
+
+  const pkgSrcFiles = collectSourceFiles(path.join(pkgDir, 'src'));
+  const sharedDirs = detectImportedSharedDirs(pkgSrcFiles);
+  const allSrcFiles = [...pkgSrcFiles];
+  for (const dirName of sharedDirs) {
+    allSrcFiles.push(...collectSourceFiles(path.join(PACKAGES_DIR, dirName)));
+  }
+
+  let newestSrcMtime = 0;
+  for (const file of allSrcFiles) {
+    const mtime = fs.statSync(file).mtimeMs;
+    if (mtime > newestSrcMtime) newestSrcMtime = mtime;
+  }
+
+  let newestDistMtime = 0;
+  for (const file of distFiles) {
+    const mtime = fs.statSync(file).mtimeMs;
+    if (mtime > newestDistMtime) newestDistMtime = mtime;
+  }
+
+  return newestSrcMtime > newestDistMtime;
+}
+
 async function checkPackage(pkgName, workspace, plannedVersions) {
   const pkgDir = path.join(PACKAGES_DIR, pkgName);
   const manifest = JSON.parse(fs.readFileSync(path.join(pkgDir, 'package.json'), 'utf8'));
+  const distIsStale = isDistOlderThanSrc(pkgDir);
   const packedFiles = packFileList(pkgDir);
 
   const referenced = new Set();
@@ -417,6 +489,9 @@ async function checkPackage(pkgName, workspace, plannedVersions) {
     Object.keys(manifest.peerDependencies || {}).some((k) => k.startsWith('@cancjs/'));
 
   const problems = [];
+  if (distIsStale) {
+    problems.push(`dist is older than src for ${manifest.name}: run "npm run build" before this check`);
+  }
   if (missing.length > 0) {
     problems.push(`manifest references paths not present in the tarball: ${missing.join(', ')}`);
   }
@@ -553,63 +628,65 @@ async function checkPackage(pkgName, workspace, plannedVersions) {
     problems.push(`attw execution failed:\n${err.stdout || err.message}`);
   }
 
-  const publishedImports = JSON.parse(
-    fs.readFileSync(path.join(__dirname, 'published-sibling-imports.json'), 'utf8'),
-  ).imports;
-  const allowlist = JSON.parse(
-    fs.readFileSync(path.join(__dirname, 'internal-exports-allowlist.json'), 'utf8'),
-  ).allowlist;
+  if (!distIsStale) {
+    const publishedImports = JSON.parse(
+      fs.readFileSync(path.join(__dirname, 'published-sibling-imports.json'), 'utf8'),
+    ).imports;
+    const allowlist = JSON.parse(
+      fs.readFileSync(path.join(__dirname, 'internal-exports-allowlist.json'), 'utf8'),
+    ).allowlist;
 
-  const pkgSurface = localSurface(pkgDir) || new Set();
+    const pkgSurface = localSurface(pkgDir) || new Set();
 
-  for (const importer of Object.keys(publishedImports)) {
-    const importedFromPkg = publishedImports[importer][manifest.name];
-    if (importedFromPkg) {
-      for (const name of importedFromPkg) {
-        if (!pkgSurface.has(name)) {
-          problems.push(
-            `published sibling ${importer} imports "${name}" from ${manifest.name}, but ${manifest.name} does not export it`,
-          );
+    for (const importer of Object.keys(publishedImports)) {
+      const importedFromPkg = publishedImports[importer][manifest.name];
+      if (importedFromPkg) {
+        for (const name of importedFromPkg) {
+          if (!pkgSurface.has(name)) {
+            problems.push(
+              `published sibling ${importer} imports "${name}" from ${manifest.name}, but ${manifest.name} does not export it`,
+            );
+          }
         }
       }
     }
-  }
 
-  const publicEntries = new Set();
-  if (manifest.types) {
-    publicEntries.add(path.join(pkgDir, normalize(manifest.types)));
-  }
-  if (manifest.exports) {
-    for (const p of collectExportsPaths(manifest.exports)) {
-      const pNorm = normalize(p);
-      if (pNorm.endsWith('.d.ts') || pNorm.endsWith('.d.mts') || pNorm.endsWith('.d.cts')) {
-        publicEntries.add(path.join(pkgDir, pNorm));
+    const publicEntries = new Set();
+    if (manifest.types) {
+      publicEntries.add(path.join(pkgDir, normalize(manifest.types)));
+    }
+    if (manifest.exports) {
+      for (const p of collectExportsPaths(manifest.exports)) {
+        const pNorm = normalize(p);
+        if (pNorm.endsWith('.d.ts') || pNorm.endsWith('.d.mts') || pNorm.endsWith('.d.cts')) {
+          publicEntries.add(path.join(pkgDir, pNorm));
+        }
       }
     }
-  }
 
-  if (publicEntries.size > 0) {
-    const ts = require('typescript');
-    const program = ts.createProgram([...publicEntries], { skipLibCheck: true, target: ts.ScriptTarget.ES2018 });
-    const checker = program.getTypeChecker();
-    const seenInternal = new Set();
-    for (const entry of publicEntries) {
-      if (!fs.existsSync(entry)) continue;
-      const source = program.getSourceFile(entry);
-      const symbol = source && checker.getSymbolAtLocation(source);
-      if (symbol) {
-        for (const exp of checker.getExportsOfModule(symbol)) {
-          const name = exp.getName();
-          const target = exp.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(exp) : exp;
-          const isInternal =
-            name.startsWith('_') ||
-            exp.getJsDocTags(checker).some((t) => t.name === 'internal') ||
-            (target !== exp && target.getJsDocTags(checker).some((t) => t.name === 'internal'));
-          if (isInternal) {
-            if (!allowlist[manifest.name]?.[name]) {
-              if (!seenInternal.has(name)) {
-                seenInternal.add(name);
-                problems.push(`unallowlisted internal export "${name}" found in public entry of ${manifest.name}`);
+    if (publicEntries.size > 0) {
+      const ts = require('typescript');
+      const program = ts.createProgram([...publicEntries], { skipLibCheck: true, target: ts.ScriptTarget.ES2018 });
+      const checker = program.getTypeChecker();
+      const seenInternal = new Set();
+      for (const entry of publicEntries) {
+        if (!fs.existsSync(entry)) continue;
+        const source = program.getSourceFile(entry);
+        const symbol = source && checker.getSymbolAtLocation(source);
+        if (symbol) {
+          for (const exp of checker.getExportsOfModule(symbol)) {
+            const name = exp.getName();
+            const target = exp.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(exp) : exp;
+            const isInternal =
+              name.startsWith('_') ||
+              exp.getJsDocTags(checker).some((t) => t.name === 'internal') ||
+              (target !== exp && target.getJsDocTags(checker).some((t) => t.name === 'internal'));
+            if (isInternal) {
+              if (!allowlist[manifest.name]?.[name]) {
+                if (!seenInternal.has(name)) {
+                  seenInternal.add(name);
+                  problems.push(`unallowlisted internal export "${name}" found in public entry of ${manifest.name}`);
+                }
               }
             }
           }
