@@ -69,7 +69,9 @@ register({
 
 `@cancjs/unhandled-rejection` selects an environment-appropriate strategy during registration. In Node.js, Bun, and Electron main processes, it hooks `process.on('unhandledRejection')`. If the rejection reason is a `CancelError`, the handler returns silently. If the rejection is a real application error, the handler either delegates to your `onUnhandledRejection` callback or re-throws the error to preserve the runtime's default crash behavior.
 
-The re-throw is not identical to the Node.js default. Without an `onUnhandledRejection` callback the handler throws the rejection reason from inside the listener, so the process still crashes, but it crashes with an uncaught exception rather than an `ERR_UNHANDLED_REJECTION` error. It also overrides `--unhandled-rejections=warn`: a process started with that flag would normally log and continue, and with this handler installed it exits. Pass `onUnhandledRejection` if you need to keep the process alive.
+Without an `onUnhandledRejection` callback the handler does not crash the process while other `unhandledRejection` listeners exist. They run as usual and decide the outcome, so an error SDK registered after `register()` still receives every real error. With no other listener the handler rethrows the reason on a later turn of the event loop. The process then exits with an uncaught exception rather than an `ERR_UNHANDLED_REJECTION` error, and an `uncaughtException` handler sees each rejection of a burst separately.
+
+The handler reads `--unhandled-rejections` from the command line and `NODE_OPTIONS`. With `warn`, `warn-with-error-code` or `none` it logs the real error through `console.warn` and never throws, so the flag keeps its meaning. With `strict` Node raises every rejection as an uncaught exception before any listener runs, so `CancelError` cannot be suppressed. `register()` prints one warning saying the package is inert in that mode. Pass `onUnhandledRejection` if you need to keep the process alive regardless of the mode.
 
 In web browsers, Deno, Web Workers, Service Workers, and Cloudflare Workers, it attaches an `unhandledrejection` event listener to `globalThis`. When a `CancelError` is encountered, the listener calls `event.preventDefault()` to prevent default browser console reporting or script termination. Non-cancellation rejections are passed to your custom callback (with `preventDefault()`) or left alone to let default runtime behavior proceed.
 
@@ -138,14 +140,12 @@ register({
 
 ### Integration with error reporting services
 
-When using error tracking SDKs like Sentry, Datadog, or Bugsnag, register `@cancjs/unhandled-rejection` before initializing your SDK. For example, with Sentry:
+When using error tracking SDKs like Sentry, Datadog, or Bugsnag, register `@cancjs/unhandled-rejection` after initializing your SDK, or pass a callback that forwards to it. For example, with Sentry:
 
 ```js
 import { isCancelError } from '@cancjs/promise';
 import { register } from '@cancjs/unhandled-rejection';
 import * as Sentry from '@sentry/node';
-
-register();
 
 Sentry.init({
   dsn: 'https://example@sentry.io/123',
@@ -156,9 +156,11 @@ Sentry.init({
     return event;
   },
 });
+
+register();
 ```
 
-Registering `@cancjs/unhandled-rejection` first prevents Node.js process termination, while adding a `beforeSend` filter prevents `CancelError` events from generating unnecessary telemetry alerts. Identity is a brand on the prototype, so the guard tests brand or name; hand-rolled checks fail on realm crossings or duplicated packages.
+The handler leaves the crash decision to the SDK's own listener, so the SDK should be initialized before the first rejection fires. The `beforeSend` filter prevents `CancelError` events from generating unnecessary telemetry alerts. Identity is a brand on the prototype, so the guard tests brand or name; hand-rolled checks fail on realm crossings or duplicated packages.
 
 ### Integration with existing handlers
 

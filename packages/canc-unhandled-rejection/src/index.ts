@@ -155,21 +155,82 @@ function readRuntimeToken(): string | undefined {
   }
 }
 
+function readFlagValue(tokens: unknown, flag: string): string | undefined {
+  if (!Array.isArray(tokens)) {
+    return undefined;
+  }
+  let found: string | undefined;
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i];
+    if (typeof token !== 'string') {
+      continue;
+    }
+    if (token.slice(0, flag.length + 1) === `${flag}=`) {
+      found = token.slice(flag.length + 1);
+    } else if (token === flag && typeof tokens[i + 1] === 'string') {
+      found = tokens[i + 1];
+    }
+  }
+  return found;
+}
+
+// command line beats NODE_OPTIONS, last occurrence wins, absent flag means node's `throw`
+function readRejectionMode(): string {
+  const flag = '--unhandled-rejections';
+  const nodeOptions = typeof process.env?.NODE_OPTIONS === 'string' ? process.env.NODE_OPTIONS.split(/\s+/) : [];
+  return readFlagValue(process.execArgv, flag) ?? readFlagValue(nodeOptions, flag) ?? 'throw';
+}
+
+function describeReason(reason: unknown): string {
+  try {
+    return String(reason);
+  } catch {
+    return '[unprintable reason]';
+  }
+}
+
+// deferred so a same-tick burst reaches uncaughtException one by one
+function rethrowLater(reason: unknown): void {
+  const defer = typeof setImmediate === 'function' ? setImmediate : (fn: () => void) => setTimeout(fn, 0);
+  defer(() => {
+    throw reason;
+  });
+}
+
 function makeNodeSetup(options?: RegisterOptions): () => (() => void) | null {
   return () => {
     if (!hasNodeProcess()) {
       return null;
     }
     const isSuppressed = buildIsSuppressed(options);
+    const mode = readRejectionMode();
+    if (mode === 'strict' && !options?.onUnhandledRejection) {
+      warnSafe(
+        'Node runs with --unhandled-rejections=strict, which raises every rejection as an uncaught exception before listeners run. Suppression is inert in this mode.',
+        options,
+      );
+    }
     const handler = (reason: unknown, promise?: Promise<unknown>): void => {
       if (isSuppressed(reason)) {
         return;
       }
       if (options?.onUnhandledRejection) {
         options.onUnhandledRejection(reason, promise);
-      } else {
-        throw reason;
+        return;
       }
+      if (mode === 'warn' || mode === 'none' || mode === 'warn-with-error-code') {
+        warnSafe(`Unhandled rejection left to the "${mode}" mode: ${describeReason(reason)}`, options);
+        return;
+      }
+      // strict already raised this as an uncaught exception, rethrowing would report it twice
+      if (mode === 'strict') {
+        return;
+      }
+      // another listener owns the outcome, crashing here would preempt it
+      if (typeof process.listenerCount === 'function' && process.listenerCount('unhandledRejection') > 1) {
+        return;
+      }
+      rethrowLater(reason);
     };
     process.on('unhandledRejection', handler);
     return () => {
