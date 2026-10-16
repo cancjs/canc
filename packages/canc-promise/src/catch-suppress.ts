@@ -29,10 +29,17 @@ function makeIsCaught({ matches, isCancelError, flagsEnabled }: IErrorMatchDeps)
   const abortLike = isAbortLike(isCancelError);
   const timeoutLike = isTimeoutLike(isCancelError);
 
-  return (error: any, options?: ICatchSuppressOptions): boolean =>
-    matches(error) ||
-    Boolean(flagsEnabled && options?.abort && abortLike(error)) ||
-    Boolean(flagsEnabled && options?.timeout && timeoutLike(error));
+  return (error: any, options?: ICatchSuppressOptions): boolean => {
+    if (flagsEnabled && !options?.timeout && isCancelError(error) && timeoutLike(error)) {
+      return false;
+    }
+
+    return (
+      matches(error) ||
+      Boolean(flagsEnabled && options?.abort && abortLike(error)) ||
+      Boolean(flagsEnabled && options?.timeout && timeoutLike(error))
+    );
+  };
 }
 
 // A value whose `then` read throws is a raw error to match, not a thenable to wait on
