@@ -1,11 +1,12 @@
 import { basename, dirname, join } from 'node:path';
 
-import { chmod, chown, rename, stat, unlink, writeFile } from '@cancjs/node/fs';
+import { chmod, chown, stat, unlink, writeFile } from '@cancjs/node/fs';
 import { chmodSync, chownSync, renameSync, statSync, unlinkSync, writeFileSync } from '@cancjs/node/fs/sync';
 import { CancelablePromise } from '@cancjs/promise';
 
 import type { Unlisted } from '../../../_util';
 import { isErrno, isNotFoundError } from '../errors/errno';
+import { renameWithRetry } from './move';
 
 type TWriteFileParams = Parameters<typeof writeFile>;
 type TWriteData = TWriteFileParams[1];
@@ -141,7 +142,7 @@ export function replaceFile(
           );
         })
         .then(() => {
-          const renamePromise = (activePromise = rename(tempPath, path));
+          const renamePromise = (activePromise = renameWithRetry(tempPath, path));
           return renamePromise.then(() => {
             isRenamed = true;
           });

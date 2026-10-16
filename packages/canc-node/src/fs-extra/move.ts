@@ -46,12 +46,15 @@ const deps: IToolboxDeps<ICancelableKind> = {
 const retry = retryFactory(deps);
 
 const isBusy = isErrno('EBUSY');
+const isNotPermitted = isErrno('EPERM');
+const isDenied = isErrno('EACCES');
 
 export interface IMoveOptions {
   /**
-   * Overwrite existing destination file or directory.
+   * Replace an existing destination file or directory. When `false`, an existing destination
+   * rejects with `EEXIST`, as in fs-extra.
    *
-   * @default true
+   * @default false
    */
   overwrite?: boolean;
 }
@@ -65,12 +68,24 @@ function isPermanentFailure(value: unknown): value is IPermanentFailure {
   return typeof value === 'object' && value !== null && 'permanent' in value;
 }
 
-/** Windows reports these while another handle still holds the file, and they clear on their own. */
-function isTransient(err: unknown): boolean {
-  return isBusy(err) || isTooManyFilesError(err);
+// read per call so a platform forced in a test is honored
+function isWindows(): boolean {
+  return process.platform === 'win32';
 }
 
-function renameWithRetry(src: string, dest: string): CancelablePromise<void, Unlisted> {
+/**
+ * Windows reports these while another handle still holds the file, and they clear on their own.
+ * EPERM and EACCES count only on win32, where antivirus and indexers hold files briefly; elsewhere
+ * they are real permission failures.
+ */
+function isTransient(err: unknown): boolean {
+  return isBusy(err) || isTooManyFilesError(err) || (isWindows() && (isNotPermitted(err) || isDenied(err)));
+}
+
+/**
+ * Renames with a bounded retry (roughly 0.6s in total) for transient lock errors.
+ */
+export function renameWithRetry(src: string, dest: string): CancelablePromise<void, Unlisted> {
   const attempts = retry(
     () =>
       rename(src, dest).then(
@@ -82,7 +97,7 @@ function renameWithRetry(src: string, dest: string): CancelablePromise<void, Unl
           return { permanent: err };
         },
       ),
-    { retries: 5, minTimeout: 10, factor: 1.5, maxTimeout: 500 },
+    { retries: 10, initialDelay: 10, factor: 1.5, maxDelay: 100 },
   );
 
   return attempts.then((result) => {
@@ -101,7 +116,7 @@ async function moveAcrossDevice(
   active: IActiveCall,
 ): Promise<void> {
   throwIfAborted(signal);
-  await copyTree(src, dest, { overwrite: options?.overwrite ?? true }, signal, active);
+  await copyTree(src, dest, { overwrite: options?.overwrite ?? false }, signal, active);
   throwIfAborted(signal);
   await (active.current = rm(src, { recursive: true, force: true }));
 }
@@ -122,7 +137,7 @@ export function move(src: string, dest: string, options?: IMoveOptions): Cancela
     });
 
     const checkDest = checkPaths(src, dest, 'move', signal).then(({ isChangingCase }) =>
-      options?.overwrite === false && !isChangingCase ?
+      options?.overwrite !== true && !isChangingCase ?
         (active.current = lstat(dest, statOptionsWithSignal(signal))).then(
           () => {
             const err: EEXIST = Object.assign(new Error(`dest already exists: ${dest}`), { code: 'EEXIST' as const });
@@ -162,7 +177,7 @@ export function move(src: string, dest: string, options?: IMoveOptions): Cancela
 /**
  * Moves a file or directory synchronously, with cross-device fallback using copy and delete.
  *
- * Does not retry on transient EPERM or EBUSY errors.
+ * Does not retry on transient EPERM, EACCES or EBUSY errors.
  *
  * @param src - Source path to move.
  * @param dest - Destination path.
@@ -170,7 +185,7 @@ export function move(src: string, dest: string, options?: IMoveOptions): Cancela
  */
 export function moveSync(src: string, dest: string, options?: IMoveOptions): void {
   const { isChangingCase } = checkPathsSync(src, dest, 'move');
-  if (options?.overwrite === false && !isChangingCase) {
+  if (options?.overwrite !== true && !isChangingCase) {
     let destExists = false;
     try {
       lstatSync(dest);
@@ -192,7 +207,7 @@ export function moveSync(src: string, dest: string, options?: IMoveOptions): voi
     renameSync(src, dest);
   } catch (err: unknown) {
     if (isCrossDeviceError(err)) {
-      copyTreeSync(src, dest, { overwrite: options?.overwrite ?? true });
+      copyTreeSync(src, dest, { overwrite: options?.overwrite ?? false });
       rmSync(src, { recursive: true, force: true });
       return;
     }
