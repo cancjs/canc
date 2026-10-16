@@ -7,6 +7,7 @@ import { CancelablePromise } from '@cancjs/promise';
 
 import type { Unlisted } from '../../../_util';
 import { ensureDir } from './ensure';
+import { replaceFile } from './replace-file';
 
 export interface IReadJsonOptions {
   encoding?: BufferEncoding | null;
@@ -120,6 +121,17 @@ export function readJsonSync<T = any>(file: string, options?: IReadJsonOptions |
   }
 }
 
+type TWriteOptions = Parameters<typeof writeFile>[2];
+
+// replaceFile cannot honor append or exclusive flags, so those keep the direct write
+function writeJsonContent(file: string, content: string, options: TWriteOptions & { flag?: string }) {
+  const flag = options.flag;
+  if (flag === undefined || flag === 'w') {
+    return replaceFile(file, content, options);
+  }
+  return writeFile(file, content, options);
+}
+
 export function writeJson(
   file: string,
   object: unknown,
@@ -141,7 +153,7 @@ export function writeJson(
       mode: opts.mode,
     };
 
-    const p = writeFile(file, str, writeOpts);
+    const p = writeJsonContent(file, str, writeOpts);
     handleCancel((reason) => {
       p.cancel(reason);
     });
@@ -194,7 +206,7 @@ export function outputJson(
     activePromise = ensureDir(dirname(file));
     resolve(
       activePromise.then(() => {
-        activePromise = writeFile(file, str, writeOpts);
+        activePromise = writeJsonContent(file, str, writeOpts);
         return activePromise.then(() => undefined);
       }),
     );

@@ -353,6 +353,83 @@ describe('fs-extra', () => {
     });
   });
 
+  describe('atomic json writes and ensureDir on files', () => {
+    let dir: string;
+
+    beforeEach(async () => {
+      dir = await fs.mkdtemp(join(tmpdir(), 'fs-extra-atomic-'));
+    });
+
+    afterEach(async () => {
+      await fs.rm(dir, { recursive: true, force: true });
+    });
+
+    const largePayload = { rows: Array.from({ length: 400000 }, (_, i) => ({ i, text: 'row-' + i })) };
+
+    it('writeJson canceled after the first tick leaves the existing file bytes intact', async () => {
+      const file = join(dir, 'existing.json');
+      const original = '{"keep":"me"}\n';
+      await fs.writeFile(file, original);
+
+      const pending = writeJson(file, largePayload);
+      await new Promise<void>((done) => setImmediate(done));
+      // cancel() settles once the temp file cleanup is done
+      await pending.cancel();
+      await expect(pending).rejects.toThrow(CancelError);
+
+      expect(await fs.readFile(file, 'utf8')).toBe(original);
+      expect(await fs.readdir(dir)).toEqual(['existing.json']);
+    });
+
+    it('outputJson canceled after the first tick leaves the existing file bytes intact', async () => {
+      const file = join(dir, 'nested', 'existing.json');
+      const original = '{"keep":"me"}\n';
+      await fs.mkdir(join(dir, 'nested'));
+      await fs.writeFile(file, original);
+
+      const pending = outputJson(file, largePayload);
+      // the directory check settles first, so wait until the write has visibly begun
+      for (let tick = 0; tick < 500; tick++) {
+        const [entries, stats] = await Promise.all([fs.readdir(join(dir, 'nested')), fs.stat(file)]);
+        if (entries.length > 1 || stats.size !== original.length) break;
+        await new Promise<void>((done) => setImmediate(done));
+      }
+      // cancel() settles once the temp file cleanup is done
+      await pending.cancel();
+      await expect(pending).rejects.toThrow(CancelError);
+
+      expect(await fs.readFile(file, 'utf8')).toBe(original);
+      expect(await fs.readdir(join(dir, 'nested'))).toEqual(['existing.json']);
+    });
+
+    it('writeJson still replaces the content when not canceled and leaves no temp file', async () => {
+      const file = join(dir, 'replace.json');
+      await fs.writeFile(file, '{"old":true}');
+      await writeJson(file, { fresh: 1 });
+      expect(await readJson(file)).toEqual({ fresh: 1 });
+      expect(await fs.readdir(dir)).toEqual(['replace.json']);
+    });
+
+    it('writeJson with an append flag still appends', async () => {
+      const file = join(dir, 'append.json');
+      await fs.writeFile(file, 'head\n');
+      await writeJson(file, 1, { flag: 'a' });
+      expect(await fs.readFile(file, 'utf8')).toBe('head\n1\n');
+    });
+
+    it('ensureDir on an existing file rejects ENOTDIR', async () => {
+      const file = join(dir, 'plain.txt');
+      await fs.writeFile(file, 'x');
+      await expect(ensureDir(file)).rejects.toMatchObject({ code: 'ENOTDIR' });
+    });
+
+    it('ensureDirSync on an existing file throws ENOTDIR', async () => {
+      const file = join(dir, 'plain-sync.txt');
+      await fs.writeFile(file, 'x');
+      expect(() => ensureDirSync(file)).toThrow(expect.objectContaining({ code: 'ENOTDIR' }));
+    });
+  });
+
   describe('copy and emptyDir', () => {
     it('copies a nested tree, contents byte-identical', async () => {
       const src = join(root, 'copy-src');

@@ -1,4 +1,4 @@
-import type { BigIntStats } from 'node:fs';
+import type { BigIntStats, Stats } from 'node:fs';
 import { dirname, isAbsolute, resolve as resolvePath } from 'node:path';
 
 import { link, lstat, mkdir, stat, symlink, writeFile } from '@cancjs/node/fs';
@@ -6,23 +6,38 @@ import { linkSync, lstatSync, mkdirSync, statSync, symlinkSync, writeFileSync } 
 import { CancelablePromise } from '@cancjs/promise';
 
 import type { Unlisted } from '../../../_util';
-import { EISDIR, isExistsError, isNotFoundError } from '../errors/errno';
+import { EISDIR, ENOTDIR, isExistsError, isNotFoundError } from '../errors/errno';
 import { areIdentical } from './utils';
+
+function notDirError(path: string): ENOTDIR {
+  return Object.assign(new Error(`ENOTDIR: not a directory, mkdir '${path}'`), {
+    code: 'ENOTDIR' as const,
+    syscall: 'mkdir',
+    path,
+  });
+}
 
 export function ensureDir(path: string): CancelablePromise<void, Unlisted> {
   return new CancelablePromise((resolve, reject, { handleCancel }) => {
-    const p = mkdir(path, { recursive: true });
+    let activePromise: CancelablePromise<unknown> = mkdir(path, { recursive: true });
     handleCancel((reason) => {
-      p.cancel(reason);
+      activePromise.cancel(reason);
     });
     resolve(
-      p
+      activePromise
         .then(() => undefined)
         .catch((err: unknown) => {
-          if (isExistsError(err)) {
-            return undefined;
+          if (!isExistsError(err)) {
+            throw err;
           }
-          throw err;
+          // recursive mkdir reports EEXIST for an existing file too
+          activePromise = stat(path);
+          return activePromise.then((stats) => {
+            if (!(stats as Stats).isDirectory()) {
+              throw notDirError(path);
+            }
+            return undefined;
+          });
         }),
     );
   });
@@ -30,6 +45,7 @@ export function ensureDir(path: string): CancelablePromise<void, Unlisted> {
 
 /**
  * Ensures that the directory exists. If the directory structure does not exist, it is created.
+ * Rejects with ENOTDIR when the path is an existing file.
  *
  * @param path - Directory path to ensure.
  */
@@ -37,10 +53,12 @@ export function ensureDirSync(path: string): void {
   try {
     mkdirSync(path, { recursive: true });
   } catch (err: unknown) {
-    if (isExistsError(err)) {
-      return;
+    if (!isExistsError(err)) {
+      throw err;
     }
-    throw err;
+    if (!statSync(path).isDirectory()) {
+      throw notDirError(path);
+    }
   }
 }
 
