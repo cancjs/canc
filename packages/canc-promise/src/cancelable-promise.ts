@@ -246,6 +246,54 @@ let _activeCollector: any[] | undefined;
 // set while a deferred bubble cancels its parent, the cascade above it runs synchronously
 let _inDeferredBubble = false;
 
+// a deferred bubble runs its cascade from a stack, recursion overflows on a deep chain;
+// a parent's frame lands on top, so it still runs before the rest of its child's list
+interface ICancelFrame {
+  promise: CancelablePromise<any, any>;
+  handlers: TOnCancel[];
+  next: number;
+  reason: TCancelReason | undefined;
+  // always set: a deferred bubble runs with a collector of its own
+  collector: any[];
+}
+const _cancelFrames: ICancelFrame[] = [];
+// true while the frame loop calls a handler, a cancel() made inside one runs its list in place
+let _inFrameHandler = false;
+// claimed by the next _runCancellation, which leaves its handlers to the frame loop
+let _queueHandlers = false;
+// promises a deferred bubble canceled, released from its collector once that settles
+let _deferredCanceled: CancelablePromise<any, any>[] | undefined;
+
+function runCancelFrames(): void {
+  for (;;) {
+    const frame = _cancelFrames[_cancelFrames.length - 1];
+    if (!frame) {
+      return;
+    }
+    if (frame.next === frame.handlers.length) {
+      _cancelFrames.pop();
+      continue;
+    }
+    const handler = frame.handlers[frame.next++];
+    const { promise, reason, collector } = frame;
+    _activeCollector = collector;
+    try {
+      if (promise.asyncCancel) {
+        const This = promise.constructor as typeof CancelablePromise;
+        collector.push(new This((resolve) => resolve(handler(reason))));
+      } else {
+        const result = handler(reason);
+        // sync strict refuses a thenable, a bubble has nobody to report that to
+        if (isThenable(result) && !promise.strict) {
+          result.then(noop, noop);
+        }
+      }
+    } catch (_e) {
+      // a parent's handler error never reaches the child's canceler
+    }
+  }
+}
+
 // what a deferred bubble collected, listed in place of its own collector entry
 class DeferredCleanup {
   constructor(readonly results: ISettledResult<unknown>[]) {}
@@ -271,12 +319,16 @@ function toSettledResult(entry: unknown): Promise<ISettledResult<unknown>> {
 }
 
 // native twin of settleCleanup: a deferred bubble adds no allSettled call of its own
-function settleDeferredCleanup(collector: any[]): Promise<DeferredCleanup> {
+function settleDeferredCleanup(collector: any[], onDone: () => void): Promise<DeferredCleanup> {
   let settled: ISettledResult<unknown>[] = [];
   const drain = (): Promise<DeferredCleanup> =>
     NativePromise.all(collector.slice(settled.length).map(toSettledResult)).then((results) => {
       settled = settled.concat(results);
-      return collector.length > settled.length ? drain() : new DeferredCleanup(settled);
+      if (collector.length > settled.length) {
+        return drain();
+      }
+      onDone();
+      return new DeferredCleanup(settled);
     });
   return drain();
 }
@@ -307,10 +359,14 @@ function rejectCanceled(settle: (reason?: any) => void, error: unknown): void {
 function settleCleanup(
   This: typeof CancelablePromise,
   collector: any[],
+  onDone?: () => void,
 ): CancelablePromise<ISettledResult<unknown>[], never> {
   const { promise, resolve } = This.withResolvers<ISettledResult<unknown>[], never>();
   let settled: ISettledResult<unknown>[] = [];
   const finish = (): void => {
+    if (onDone) {
+      onDone();
+    }
     resolve(flattenCleanup(settled));
   };
   const drain = (): void => {
@@ -1168,6 +1224,10 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
 
               if (!adopted && !foreignThen) {
                 instance._internalState = states.FULFILLED;
+                // a settled child would keep its parent alive through the bubble handler
+                if (instance._cancelHandlers) {
+                  instance._cancelHandlers = undefined;
+                }
                 instance._runSettlementEffects();
                 resolve_(value);
                 return;
@@ -1235,6 +1295,9 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
                 : normalizedOptions.forceCancelable;
               if (!forceCancelable) {
                 instance._internalState = states.FORCE_PENDING;
+                if (instance._cancelHandlers) {
+                  instance._cancelHandlers = undefined;
+                }
                 instance._runSettlementEffects();
                 if (adopted) {
                   resolve_(adopted);
@@ -1341,6 +1404,8 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
             instance._internalState = externalCancel ? states.CANCELED : states.REJECTED;
             if (externalCancel) {
               cancelError = reason;
+            } else if (instance._cancelHandlers) {
+              instance._cancelHandlers = undefined;
             }
 
             reject_(reason);
@@ -1811,7 +1876,9 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
 
     const This = this.constructor as typeof CancelablePromise;
     if (live) {
-      return settleCleanup(This, outer ? outer.slice(start) : collector!);
+      return settleCleanup(This, outer ? outer.slice(start) : collector!, () => {
+        this._collector = undefined;
+      });
     }
 
     const running = this.canceled ? this._collector : undefined;
@@ -1906,63 +1973,77 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
     this._canceledReason = reason;
     this._isCanceledReasonSet = true;
 
+    const queue = _queueHandlers;
+    _queueHandlers = false;
+
     this._then(undefined, noop);
 
     const handlers = this._cancelHandlers;
+    if (!handlers || handlers.length === 0) {
+      return;
+    }
 
-    if (this.asyncCancel) {
-      if (!handlers || handlers.length === 0) {
-        return;
-      }
+    if (queue) {
+      _cancelFrames.push({ promise: this, handlers: handlers.slice(), next: 0, reason, collector: collector! });
+      handlers.length = 0;
+      return;
+    }
 
-      if (collector) {
-        const This = this.constructor as typeof CancelablePromise;
-        for (const handler of handlers) {
-          collector.push(new This((resolve) => resolve(handler(reason))));
+    const inFrameHandler = _inFrameHandler;
+    _inFrameHandler = false;
+    try {
+      if (this.asyncCancel) {
+        if (collector) {
+          const This = this.constructor as typeof CancelablePromise;
+          for (const handler of handlers) {
+            collector.push(new This((resolve) => resolve(handler(reason))));
+          }
+          handlers.length = 0;
+          return;
         }
+
+        // Fire-and-forget (no collector): bubble/external-cancel cascade.
+        const pending = handlers.slice();
         handlers.length = 0;
-        return;
-      }
-
-      // Fire-and-forget (no collector): bubble/external-cancel cascade.
-      const pending = handlers.slice();
-      handlers.length = 0;
-      for (const handler of pending) {
-        try {
-          const r = handler(reason);
-          if (isThenable(r)) {
-            (r as PromiseLike<unknown>).then(noop, noop);
-          }
-        } catch (_e) {
-          /**/
-        }
-      }
-    } else if (handlers?.length) {
-      const pending = handlers.slice();
-      handlers.length = 0;
-      let failed = false;
-      let firstError: unknown;
-      for (const handler of pending) {
-        try {
-          const r = handler(reason);
-          if (isThenable(r)) {
-            if (this.strict) {
-              throw new Error(
-                'Cancel handler returned a thenable in non-awaitable cancel mode. Use asyncCancel:true or make the handler synchronous',
-              );
+        for (const handler of pending) {
+          try {
+            const r = handler(reason);
+            if (isThenable(r)) {
+              (r as PromiseLike<unknown>).then(noop, noop);
             }
-            (r as PromiseLike<unknown>).then(noop, noop);
-          }
-        } catch (error) {
-          if (!failed) {
-            failed = true;
-            firstError = error;
+          } catch (_e) {
+            /**/
           }
         }
+      } else {
+        const pending = handlers.slice();
+        handlers.length = 0;
+        let failed = false;
+        let firstError: unknown;
+        for (const handler of pending) {
+          try {
+            const r = handler(reason);
+            if (isThenable(r)) {
+              if (this.strict) {
+                throw new Error(
+                  'Cancel handler returned a thenable in non-awaitable cancel mode. Use asyncCancel:true or make the handler synchronous',
+                );
+              }
+              (r as PromiseLike<unknown>).then(noop, noop);
+            }
+          } catch (error) {
+            if (!failed) {
+              failed = true;
+              firstError = error;
+            }
+          }
+        }
+        if (failed) {
+          throw firstError;
+        }
       }
-      if (failed) {
-        throw firstError;
-      }
+    } finally {
+      _inFrameHandler = inFrameHandler;
     }
   }
 
@@ -2053,7 +2134,8 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
         error.bubbled = true;
 
         try {
-          if (collector && this.cancel === CancelablePromise.prototype.cancel) {
+          if (this.cancel === CancelablePromise.prototype.cancel) {
+            _queueHandlers = _inFrameHandler;
             // the running cancel already collects this cleanup, its result would go unread
             this._cancel(error, undefined, collector);
           } else {
@@ -2061,7 +2143,10 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
           }
         } catch (_e) {
           // a parent's handler error never reaches the child's canceler
+        } finally {
+          _queueHandlers = false;
         }
+        _deferredCanceled!.push(this);
       };
 
       const collector = _activeCollector;
@@ -2081,17 +2166,30 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
           return new DeferredCleanup([]);
         }
         // own collector: entries appended to the caller's one would cost it another round
-        const own = collector ? [] : undefined;
+        const own: any[] = [];
+        const canceled: CancelablePromise<any, any>[] = [];
         const prevCollector = _activeCollector;
         _activeCollector = own;
+        _deferredCanceled = canceled;
         _inDeferredBubble = true;
+        _inFrameHandler = true;
         try {
           bubbleCancel(own);
+          runCancelFrames();
         } finally {
+          _cancelFrames.length = 0;
+          _inFrameHandler = false;
           _inDeferredBubble = false;
+          _deferredCanceled = undefined;
           _activeCollector = prevCollector;
         }
-        return own ? settleDeferredCleanup(own) : new DeferredCleanup([]);
+        return settleDeferredCleanup(own, () => {
+          for (const promise of canceled) {
+            if (promise._collector === own) {
+              promise._collector = undefined;
+            }
+          }
+        });
       });
       if (collector) {
         collector.push(hop);

@@ -268,4 +268,44 @@ describeIfGC('leak canaries (GC probe)', () => {
       expect(ratio).toBeLessThan(1.2);
     });
   });
+
+  describe('(f) settled chain links collectable while the tail is retained', () => {
+    it('10k settled links of a then-chain are collected, only the tail stays', async () => {
+      const links = 10000;
+      let collected = 0;
+      const registry = new FinalizationRegistry<number>(() => {
+        collected++;
+      });
+
+      let resolveHead: (value: number) => void = () => {
+        /* */
+      };
+      let link: CancelablePromise<number> | undefined = new CancelablePromise<number>((resolve) => {
+        resolveHead = resolve;
+      });
+      registry.register(link, -1);
+      for (let i = 0; i < links; i++) {
+        link = link.then((v) => v + 1);
+        registry.register(link, i);
+      }
+      const tail = link;
+      link = undefined;
+
+      resolveHead(0);
+      // the resolver closes over the head
+      resolveHead = () => {
+        /* */
+      };
+      await expect(tail).resolves.toBe(links);
+
+      for (let i = 0; i < 6 && collected < links; i++) {
+        gc();
+        await drain();
+      }
+
+      // head plus every link but the retained tail
+      expect(collected).toBe(links);
+      expect(tail.canceled).toBe(false);
+    });
+  });
 });
