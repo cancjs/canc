@@ -20,6 +20,33 @@ function setProperty(target: any, key: string | symbol, value: any) {
   });
 }
 
+// a generator object has next/throw/return, which no coroutine promise exposes
+function isGeneratorObject(value: any): boolean {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    isFunction(value.next) &&
+    isFunction(value.throw) &&
+    isFunction(value.return)
+  );
+}
+
+// the getter must hand back a coroutine, so a call that yields a generator object is misuse
+function guardGeneratorResult(fn: TAnyFn, propertyKey: string | symbol): TAnyFn {
+  const guarded = function (this: any, ...rest: any[]) {
+    const result = fn.apply(this, rest);
+    if (isGeneratorObject(result)) {
+      throw new TypeError(
+        `'${String(propertyKey)}' getter returned a generator function that was not wrapped. ` +
+          `Return cancAsync(function* () { ... }) from the getter instead.`,
+      );
+    }
+    return result;
+  };
+
+  return copyFunctionMetadata(fn, guarded);
+}
+
 // a class prototype (spyOn, reflection, a subclass prototype) is shared by every instance
 function isPrototypeObject(target: any): boolean {
   return (
@@ -55,9 +82,30 @@ function assertBabelLegacyCallShape(propertyKey: any): void {
   }
 }
 
+// TS emits (target, key, index) for a parameter decorator, which neither flavor can honor
+function assertNotParameterDecorator(propertyKey: any, descriptor: any): void {
+  if (typeof descriptor === 'number') {
+    throw new TypeError(
+      `'${String(propertyKey)}' is a parameter and cannot be decorated. ` +
+        `Apply the decorator to a method, field or getter.`,
+    );
+  }
+}
+
+function assertNotSetterOnly(propertyKey: string | symbol, descriptor?: PropertyDescriptor): void {
+  // eslint-disable-next-line @typescript-eslint/unbound-method -- presence check, never called
+  if (descriptor && !descriptor.get && isFunction(descriptor.set)) {
+    throw new TypeError(
+      `'${String(propertyKey)}' is setter-only and cannot be decorated. ` +
+        `Decorate its getter, or a method or field.`,
+    );
+  }
+}
+
 function makeBabelDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAnyFn) {
   return (target: any, propertyKey: string | symbol, descriptor: IBabelPropertyDescriptor) => {
     assertBabelLegacyCallShape(propertyKey);
+    assertNotParameterDecorator(propertyKey, descriptor);
 
     // eslint-disable-next-line @typescript-eslint/unbound-method -- identity lookup, never called
     const stackedMethod = descriptor?.get ? boundAccessorMethods.get(descriptor.get) : undefined;
@@ -68,6 +116,8 @@ function makeBabelDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAn
       descriptor.value = stackedMethod;
       descriptor.writable = true;
     }
+
+    assertNotSetterOnly(propertyKey, descriptor);
 
     const isField = isFunction(descriptor?.initializer) || descriptor?.initializer === null;
     const isGetter = !!descriptor?.get;
@@ -89,7 +139,8 @@ function makeBabelDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAn
           return raw;
         }
 
-        const value = isBind ? copyFunctionMetadata(raw, raw.bind(this)) : raw;
+        const guarded = guardGeneratorResult(raw, propertyKey);
+        const value = isBind ? copyFunctionMetadata(guarded, guarded.bind(this)) : guarded;
         if (resolvesToAccessor(this, propertyKey, memoizingGetter, undefined)) {
           setProperty(this, propertyKey, value);
         }

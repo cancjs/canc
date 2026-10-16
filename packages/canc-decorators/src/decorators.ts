@@ -24,6 +24,33 @@ function setProperty(target: any, key: string | symbol, value: any) {
   });
 }
 
+// a generator object has next/throw/return, which no coroutine promise exposes
+function isGeneratorObject(value: any): boolean {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    isFunction(value.next) &&
+    isFunction(value.throw) &&
+    isFunction(value.return)
+  );
+}
+
+// the getter must hand back a coroutine, so a call that yields a generator object is misuse
+function guardGeneratorResult(fn: TAnyFn, propertyKey: string | symbol): TAnyFn {
+  const guarded = function (this: any, ...rest: any[]) {
+    const result = fn.apply(this, rest);
+    if (isGeneratorObject(result)) {
+      throw new TypeError(
+        `'${String(propertyKey)}' getter returned a generator function that was not wrapped. ` +
+          `Return cancAsync(function* () { ... }) from the getter instead.`,
+      );
+    }
+    return result;
+  };
+
+  return copyFunctionMetadata(fn, guarded);
+}
+
 // a class prototype (spyOn, reflection, a subclass prototype) is shared by every instance
 function isPrototypeObject(target: any): boolean {
   return (
@@ -117,7 +144,8 @@ function makeDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAnyFn) 
           return raw;
         }
 
-        const result = isBind ? copyFunctionMetadata(raw, raw.bind(this)) : raw;
+        const guarded = guardGeneratorResult(raw, propertyKey);
+        const result = isBind ? copyFunctionMetadata(guarded, guarded.bind(this)) : guarded;
         if (resolvesToAccessor(this, propertyKey, memoizingGetter, undefined)) {
           setProperty(this, propertyKey, result);
         }

@@ -311,6 +311,12 @@ and under the `Legacy` and `BabelLegacy` prefixes from the main entry point.
 Node.js 18 and later, current browsers. The standard entry point needs TypeScript 5.0 or later, or
 Babel with the modern decorators plugin. The legacy entry point needs `experimentalDecorators`,
 and the Babel legacy entry point needs `@babel/plugin-proposal-decorators` in legacy mode.
+The legacy entry point also needs `"useDefineForClassFields": false` for decorated fields, since
+define semantics create the field before the decorator can wrap it; the decorator throws a
+`TypeError` at class definition when it detects this. Detection is best-effort: it reads the constructor
+source, so it misses output that does not show `Object.defineProperty(this, "name"` or a native class
+field, such as a compiled `__publicField` helper or an aliased `defineProperty`. A getter must return a `cancAsync` coroutine,
+not a bare generator function, and parameter decorators and setter-only members are rejected.
 `reflect-metadata` is not required.
 
 Everything else follows

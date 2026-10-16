@@ -1727,4 +1727,99 @@ export function runStage3Matrix({
       expect(descriptor.enumerable).toBe(true);
     });
   });
+  describe('decorators (ES stage-3): getter returning a bare generator function', () => {
+    it.each([
+      ['AsyncMethod', () => AsyncMethod()],
+      ['AsyncMethod bind:true', () => AsyncMethod({ bind: true })],
+      ['BindMethod', () => BindMethod()],
+    ])('%s throws a TypeError naming cancAsync when the returned function is called', (_name, make) => {
+      class C {
+        @make()
+        get method() {
+          return function* (): Generator<any, any, any> {
+            return yield Promise.resolve(1);
+          };
+        }
+      }
+
+      const method = new C().method;
+
+      expect(() => method()).toThrow(TypeError);
+      expect(() => method()).toThrow(/cancAsync/);
+    });
+
+    it('a getter returning a coroutine still resolves', async () => {
+      class C {
+        @AsyncMethod()
+        get method() {
+          return cancAsync(function* (): Generator<any, any, any> {
+            return yield Promise.resolve(4);
+          });
+        }
+      }
+
+      expect(await new C().method()).toBe(4);
+    });
+
+    it('a getter returning a plain function keeps its result', () => {
+      class C {
+        @AsyncMethod()
+        get method() {
+          return () => 7;
+        }
+      }
+
+      expect(new C().method()).toBe(7);
+    });
+  });
+
+  describe('decorators (ES stage-3): setter-only member', () => {
+    it('names the member in the TypeError', () => {
+      const setterContext: any = { kind: 'setter', name: 'value', private: false, static: false };
+
+      expect(() => (AsyncMethod() as any)(function () {}, setterContext)).toThrow(/'value'.*setter/);
+    });
+  });
+
+  describe.each(legacyFlavors)('decorators ($name, applied as emitted): unsupported usage', (flavor) => {
+    it.each([
+      ['Async', false],
+      ['Async bind:true', true],
+      ['Bind', undefined],
+    ])('%s getter returning a bare generator function throws a TypeError naming cancAsync', (name, bind) => {
+      class C {
+        get method() {
+          return function* (): Generator<any, any, any> {
+            return yield Promise.resolve(1);
+          };
+        }
+      }
+      const decorator = name.startsWith('Bind') ? flavor.Bind() : flavor.Async({ bind: bind! });
+      flavor.decorate([decorator], C.prototype, 'method');
+
+      const method = new C().method;
+
+      expect(() => method()).toThrow(TypeError);
+      expect(() => method()).toThrow(/cancAsync/);
+    });
+
+    it.each([0, 1])('parameter decorator at index %i throws a TypeError at class definition', (index) => {
+      class C {
+        method(_first: number, _second: number) {
+          return _first + _second;
+        }
+      }
+
+      expect(() => (flavor.Async() as any)(C.prototype, 'method', index)).toThrow(TypeError);
+      expect(() => (flavor.Bind() as any)(C.prototype, 'method', index)).toThrow(/'method'.*parameter/);
+    });
+
+    it('setter-only member throws a TypeError naming the member', () => {
+      const target = {};
+      Object.defineProperty(target, 'value', { set() {}, configurable: true });
+
+      expect(() => flavor.decorate([flavor.Async()], target, 'value')).toThrow(TypeError);
+      expect(() => flavor.decorate([flavor.Bind()], target, 'value')).toThrow(/'value'.*setter/);
+    });
+  });
 }

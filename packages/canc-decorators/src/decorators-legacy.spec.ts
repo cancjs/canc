@@ -2,6 +2,8 @@ import 'reflect-metadata';
 
 import { async as cancAsync } from '@cancjs/coroutine';
 import { isCancelError } from '@cancjs/promise';
+import ts from 'typescript';
+import vm from 'vm';
 
 import { TAnyFn } from '../../_util';
 import { AsyncMethod } from './decorators';
@@ -888,5 +890,153 @@ describe('decorators (TS legacy): flavor mismatch guard', () => {
     expect(() => {
       BabelLegacyAsyncMethod({}, 'field', descriptor as any);
     }).not.toThrow();
+  });
+});
+
+describe('decorators (TS legacy): unsupported usage', () => {
+  // Compiles a class with the real TypeScript emitter, so the define/assign difference is the genuine one
+  function runEmitted(useDefineForClassFields: boolean, target: ts.ScriptTarget, body: string): unknown {
+    const source = `
+      import { LegacyAsyncMethod, LegacyBindMethod } from './decorators-legacy';
+      ${body}
+    `;
+    const { outputText } = ts.transpileModule(source, {
+      compilerOptions: {
+        experimentalDecorators: true,
+        useDefineForClassFields,
+        target,
+        module: ts.ModuleKind.CommonJS,
+      },
+    });
+    const exports: Record<string, unknown> = {};
+    const load = vm.runInThisContext(`(function (require, exports) {
+${outputText}
+})`) as (...args: unknown[]) => void;
+    load(() => ({ LegacyAsyncMethod, LegacyBindMethod }), exports);
+    return exports.result;
+  }
+
+  const decoratedFieldBody = (decorator: string) => `
+    class C {
+      @${decorator}
+      method = function* () { return yield Promise.resolve(1); };
+    }
+    exports.result = new C();
+  `;
+
+  describe.each([
+    ['ES5', ts.ScriptTarget.ES5],
+    ['ES2022', ts.ScriptTarget.ES2022],
+  ])('field decorator emitted for %s', (_name, target) => {
+    it.each(['LegacyAsyncMethod()', 'LegacyBindMethod()', 'LegacyAsyncMethod({ bind: true })'])(
+      '%s throws a TypeError naming useDefineForClassFields under define semantics',
+      (decorator) => {
+        expect(() => runEmitted(true, target, decoratedFieldBody(decorator))).toThrow(TypeError);
+        expect(() => runEmitted(true, target, decoratedFieldBody(decorator))).toThrow(/useDefineForClassFields/);
+      },
+    );
+
+    it('keeps working under assign semantics', async () => {
+      const inst = runEmitted(false, target, decoratedFieldBody('LegacyAsyncMethod()')) as {
+        method(): Promise<number>;
+      };
+
+      expect(await inst.method()).toBe(1);
+    });
+
+    it('ignores define-call text inside a constructor comment or string', async () => {
+      const inst = runEmitted(
+        false,
+        target,
+        `
+        class C {
+          note = '';
+
+          @LegacyAsyncMethod()
+          method = function* () { return yield Promise.resolve(4); };
+
+          constructor() {
+            // Object.defineProperty(this, "method", { value: 1 })
+            /* Object.defineProperty(this, 'method', { value: 2 }) */
+            this.note = 'Object.defineProperty(this, "method", { value: 3 })';
+          }
+        }
+        exports.result = new C();
+      `,
+      ) as { method(): Promise<number> };
+
+      expect(await inst.method()).toBe(4);
+    });
+
+    it('does not mistake a same-named local or parameter for a field', async () => {
+      const inst = runEmitted(
+        false,
+        target,
+        `
+        class C {
+          @LegacyAsyncMethod()
+          method = function* () { return yield Promise.resolve(2); };
+
+          other(
+            method = 1,
+          ) {
+            let local = method;
+            return local;
+          }
+        }
+        exports.result = new C();
+      `,
+      ) as { method(): Promise<number> };
+
+      expect(await inst.method()).toBe(2);
+    });
+  });
+
+  it('a decorated method and getter are unaffected by define semantics', async () => {
+    const inst = runEmitted(
+      true,
+      ts.ScriptTarget.ES2022,
+      `
+      class C {
+        @LegacyAsyncMethod()
+        *method() { return yield Promise.resolve(3); }
+      }
+      exports.result = new C();
+    `,
+    ) as { method(): Promise<number> };
+
+    expect(await inst.method()).toBe(3);
+  });
+
+  it('parameter decorator use throws a TypeError at class definition', () => {
+    expect(() => {
+      class C {
+        method(@LegacyAsyncMethod() _first: number, _second: number) {
+          return _first + _second;
+        }
+      }
+      return C;
+    }).toThrow(TypeError);
+
+    expect(() => {
+      class C {
+        method(_first: number, @LegacyAsyncMethod() _second: number) {
+          return _first + _second;
+        }
+      }
+      return C;
+    }).toThrow(/'method'.*parameter/);
+  });
+
+  it('setter-only member throws a TypeError naming the member', () => {
+    expect(() => {
+      class C {
+        @LegacyAsyncMethod()
+        set value(_v: number) {
+          // setter only
+        }
+      }
+      return C;
+    }).toThrow(/'value'.*setter/);
   });
 });

@@ -16,6 +16,33 @@ function setProperty(target: any, key: string | symbol, value: any, enumerable =
   });
 }
 
+// a generator object has next/throw/return, which no coroutine promise exposes
+function isGeneratorObject(value: any): boolean {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    isFunction(value.next) &&
+    isFunction(value.throw) &&
+    isFunction(value.return)
+  );
+}
+
+// the getter must hand back a coroutine, so a call that yields a generator object is misuse
+function guardGeneratorResult(fn: TAnyFn, propertyKey: string | symbol): TAnyFn {
+  const guarded = function (this: any, ...rest: any[]) {
+    const result = fn.apply(this, rest);
+    if (isGeneratorObject(result)) {
+      throw new TypeError(
+        `'${String(propertyKey)}' getter returned a generator function that was not wrapped. ` +
+          `Return cancAsync(function* () { ... }) from the getter instead.`,
+      );
+    }
+    return result;
+  };
+
+  return copyFunctionMetadata(fn, guarded);
+}
+
 // a class prototype (spyOn, reflection, a subclass prototype) is shared by every instance
 function isPrototypeObject(target: any): boolean {
   return (
@@ -104,10 +131,133 @@ function assertNotBabelLegacyDescriptor(descriptor: any): void {
   }
 }
 
+// TS emits (target, key, index) for a parameter decorator, which neither flavor can honor
+function assertNotParameterDecorator(propertyKey: any, descriptor: any): void {
+  if (typeof descriptor === 'number') {
+    throw new TypeError(
+      `'${String(propertyKey)}' is a parameter and cannot be decorated. ` +
+        `Apply the decorator to a method, field or getter.`,
+    );
+  }
+}
+
+function assertNotSetterOnly(propertyKey: string | symbol, descriptor?: PropertyDescriptor): void {
+  // eslint-disable-next-line @typescript-eslint/unbound-method -- presence check, never called
+  if (descriptor && !descriptor.get && isFunction(descriptor.set)) {
+    throw new TypeError(
+      `'${String(propertyKey)}' is setter-only and cannot be decorated. ` +
+        `Decorate its getter, or a method or field.`,
+    );
+  }
+}
+
+function escapeForPattern(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// index of the last character of a comment or string literal starting at i, else i
+function skipCommentOrString(source: string, i: number): number {
+  const ch = source[i];
+
+  if (ch === '/' && source[i + 1] === '/') {
+    const end = source.indexOf('\n', i);
+    return end === -1 ? source.length : end;
+  }
+
+  if (ch === '/' && source[i + 1] === '*') {
+    const end = source.indexOf('*/', i + 2);
+    return end === -1 ? source.length : end + 1;
+  }
+
+  if (ch === '"' || ch === "'" || ch === '`') {
+    for (i++; i < source.length && source[i] !== ch; i++) {
+      if (source[i] === '\\') {
+        i++;
+      }
+    }
+  }
+
+  return i;
+}
+
+// matches only at code positions, so a comment or string holding the call text does not count
+function definesOwnProperty(source: string, key: string): boolean {
+  const call = new RegExp('^defineProperty\\(this,\\s*(["\'])' + escapeForPattern(key) + '\\1');
+
+  for (let i = 0; i < source.length; i++) {
+    const skipped = skipCommentOrString(source, i);
+    if (skipped !== i) {
+      i = skipped;
+    } else if (source[i] === 'd' && call.test(source.slice(i, i + key.length + 64))) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// a native class field starts a member at brace depth 1, outside any parameter list
+function declaresNativeField(source: string, key: string): boolean {
+  const field = new RegExp('^\\s*' + escapeForPattern(key) + '\\s*=(?![=>])');
+  let braces = 0;
+  let parens = 0;
+  let atMemberStart = false;
+
+  for (let i = 0; i < source.length; i++) {
+    const ch = source[i];
+
+    if (atMemberStart) {
+      atMemberStart = false;
+      if (field.test(source.slice(i, i + key.length + 64))) {
+        return true;
+      }
+    }
+
+    const skipped = skipCommentOrString(source, i);
+    if (skipped !== i) {
+      i = skipped;
+    } else if (ch === '{') {
+      braces++;
+      atMemberStart = braces === 1;
+    } else if (ch === '}') {
+      braces--;
+      atMemberStart = braces === 1;
+    } else if (ch === '(') {
+      parens++;
+    } else if (ch === ')') {
+      parens--;
+    } else if (ch === ';') {
+      atMemberStart = braces === 1 && parens === 0;
+    }
+  }
+
+  return false;
+}
+
+// Under define semantics the instance owns the field before the prototype accessor can see it.
+// The constructor source shows it: TS emits Object.defineProperty(this, "key") below ES2022
+// and a native class field from ES2022, while assign semantics emit this.key = ...
+function assertAssignSemanticsField(target: any, propertyKey: string | symbol): void {
+  const ctor = isFunction(target) || typeof propertyKey !== 'string' ? undefined : target?.constructor;
+  if (!isFunction(ctor)) {
+    return;
+  }
+
+  const key = propertyKey as string;
+  const source = Function.prototype.toString.call(ctor);
+  if (definesOwnProperty(source, key) || (/^\s*class\b/.test(source) && declaresNativeField(source, key))) {
+    throw new TypeError(
+      `'${key}' is a field declared with define semantics, so the decorator would never run. ` +
+        `Set 'useDefineForClassFields' to false in tsconfig, or declare the member as a method or getter.`,
+    );
+  }
+}
+
 function makeLegacyDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAnyFn) {
   return (target: any, propertyKey: string | symbol, descriptor?: PropertyDescriptor) => {
     assertLegacyCallShape(propertyKey);
     assertNotBabelLegacyDescriptor(descriptor);
+    assertNotParameterDecorator(propertyKey, descriptor);
 
     // eslint-disable-next-line @typescript-eslint/unbound-method -- identity lookup, never called
     const stackedMethod = descriptor?.get ? boundAccessorMethods.get(descriptor.get) : undefined;
@@ -118,6 +268,8 @@ function makeLegacyDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TA
       descriptor!.value = stackedMethod;
       descriptor!.writable = true;
     }
+
+    assertNotSetterOnly(propertyKey, descriptor);
 
     const isProtoMethod = !!descriptor && !descriptor.get;
     const isGetter = !!descriptor && !!descriptor.get;
@@ -139,7 +291,8 @@ function makeLegacyDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TA
           return raw;
         }
 
-        const value = isBind ? copyFunctionMetadata(raw, raw.bind(this)) : raw;
+        const guarded = guardGeneratorResult(raw, propertyKey);
+        const value = isBind ? copyFunctionMetadata(guarded, guarded.bind(this)) : guarded;
         if (resolvesToAccessor(this, propertyKey, memoizingGetter, undefined)) {
           setProperty(this, propertyKey, value);
         }
@@ -172,6 +325,8 @@ function makeLegacyDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TA
 
       return;
     }
+
+    assertAssignSemanticsField(target, propertyKey);
 
     // Field initial value is assigned via [[Set]] in constructor and captured by setter
     definePerInstanceFieldAccessor(target, propertyKey, isBind, wrap);
