@@ -1,3 +1,5 @@
+import './cancelable-promise';
+
 import { Assert, Eq } from '../../../tests-types/fixtures/common/assert-type';
 import {
   ABORT_ERROR_BRAND,
@@ -9,12 +11,14 @@ import {
   ICancErrorConstructor,
   isAbortError,
   isAggregateError,
+  isSupersededError,
   isTimeoutError,
   IterationError,
   SupersededError,
   TIMEOUT_ERROR_BRAND,
   TimeoutError,
 } from '../../_util';
+import { createIsError } from './error-matchers';
 
 const platformDomException = (globalThis as unknown as { DOMException?: new (...args: any[]) => object }).DOMException;
 
@@ -256,3 +260,42 @@ const _checkWidenedConstructor: ICancErrorConstructor = AbortError;
 // allowing arbitrary properties
 // eslint-disable-next-line @typescript-eslint/no-unused-expressions
 new (AbortError as ICancErrorConstructor)().anythingAtAll;
+
+describe('superseded error identity', () => {
+  const matchesSuperseded = createIsError(SupersededError);
+
+  function foreignCopySupersededError(): object {
+    const error = Object.create(null) as Record<PropertyKey, unknown>;
+    error[Symbol.for('@cancjs/toolbox:SupersededError')] = true;
+    return error;
+  }
+
+  it('rejects a plain object that only carries the name', () => {
+    const impostor = { name: 'SupersededError' };
+
+    expect(isSupersededError(impostor)).toBe(false);
+    expect(matchesSuperseded(impostor)).toBe(false);
+  });
+
+  it('rejects a foreign error renamed to SupersededError', () => {
+    const impostor = Object.assign(new Error('x'), { name: 'SupersededError' });
+
+    expect(isSupersededError(impostor)).toBe(false);
+    expect(matchesSuperseded(impostor)).toBe(false);
+  });
+
+  it('accepts a branded instance', () => {
+    const error = new SupersededError();
+
+    expect(isSupersededError(error)).toBe(true);
+    expect(matchesSuperseded(error)).toBe(true);
+  });
+
+  it('accepts an instance from another package copy through the shared brand', () => {
+    const copy = foreignCopySupersededError();
+
+    expect(copy instanceof SupersededError).toBe(false);
+    expect(isSupersededError(copy)).toBe(true);
+    expect(matchesSuperseded(copy)).toBe(true);
+  });
+});
