@@ -68,9 +68,9 @@ export interface ICatchErrorFn<M extends readonly TErrorMatcher[] = readonly TEr
  * disabled, so the matcher list passed in is the whole match. Widening the match with `abort`
  * or `timeout` is a per call concern, only available on the non-factory `suppressCancel`.
  *
- * A matcher is an error name, an error constructor (matched by instance, by registry brand, or by
- * name, so a second copy of the class and a foreign error of the same kind both match), or a
- * predicate. Matchers are compiled once, here, not on every call.
+ * A matcher is an error name, an error constructor (matched by instance or registry brand, and by
+ * name too unless only canc produces the class, so a second copy of a shared kind and a foreign
+ * error of that kind both match), or a predicate. Matchers are compiled once, here, not on every call.
  *
  * @example
  * const suppressExpected = createSuppressError(CancelError, isAbortError, 'RetryError');
