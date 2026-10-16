@@ -382,6 +382,8 @@ describe('fromAbortSignal: awaitable abort event', () => {
     const fake = spySignal();
     const winner = await CancelablePromise.race([CancelablePromise.resolve('fast'), fromAbortSignal(fake)]);
     expect(winner).toBe('fast');
+    // the loser is canceled only after the turn in which the race settles
+    await drain();
     expect(fake.addCalls).toBe(1);
     expect(fake.removeCalls).toBe(1);
   });
