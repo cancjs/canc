@@ -1,6 +1,7 @@
 import type { TAnyFn, Unlisted } from '../../_util';
 import { AggregateError, createAggregateError, isFunction, isObject, isThenable } from '../../_util';
 import { CancelError } from './cancel-error';
+import { thenSkipsChildExecutor, thenWithOwnChild } from './engine';
 import { isCancelError, isCancPromise } from './helpers';
 
 /**
@@ -2157,6 +2158,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
     Awaited<TResult1 | TResult2>,
     FailureOf<TResult1> | FailureOf<TResult2> | ([TResult2] extends [never] ? TFailure : never)
   > {
+    if (OWN_THEN_CHILD) return thenWithOwnChild(this, onFulfilled, onRejected);
     const This = this.constructor as typeof CancelablePromise;
     // Calls CancelablePromise constructor internally
     try {
@@ -2375,6 +2377,9 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
 // Tests enforce zero global Promise access after this capture
 // Changing this breaks deterministic execution when zone.js patches globals
 const NativePromise = Promise;
+
+// a then with a shared noop executor (zone.js, es6-promise) bypasses the child's wrappers
+const OWN_THEN_CHILD = thenSkipsChildExecutor(NativePromise);
 
 // Wire into Promise prototype chain without class extends or super
 // Object.setPrototypeOf reproduces the two links extends would have wired
