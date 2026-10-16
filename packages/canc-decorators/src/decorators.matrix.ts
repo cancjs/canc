@@ -4,6 +4,8 @@ import { async as cancAsync } from '@cancjs/coroutine';
 import { isCancelError } from '@cancjs/promise';
 
 import { TAnyFn } from '../../_util';
+import { BabelLegacyAsyncMethod as BabelLegacyAsync, BabelLegacyBindMethod } from './decorators-babel-legacy';
+import { LegacyAsyncMethod as LegacyAsync, LegacyBindMethod } from './decorators-legacy';
 
 /**
  * ES / TC39 stage-3 decorators matrix shared across TS and Babel test lanes.
@@ -30,6 +32,53 @@ async function forceCollect(done: () => boolean, cycles = 25, gap = 20): Promise
 function touch(_value: unknown): void {
   // intentionally empty
 }
+
+type TLegacyDecorator = (target: object, key: string, descriptor?: PropertyDescriptor) => any;
+
+// same steps as the TypeScript __decorate helper for a member that has a descriptor
+function tsLegacyDecorate(decorators: TLegacyDecorator[], target: object, key: string): void {
+  let descriptor = Object.getOwnPropertyDescriptor(target, key);
+  for (let i = decorators.length - 1; i >= 0; i--) {
+    descriptor = decorators[i](target, key, descriptor) || descriptor;
+  }
+  Object.defineProperty(target, key, descriptor!);
+}
+
+// same steps as babel's _applyDecoratedDescriptor for a method or accessor
+function babelLegacyDecorate(decorators: TLegacyDecorator[], target: object, key: string): void {
+  const own = Object.getOwnPropertyDescriptor(target, key)!;
+  const initial: PropertyDescriptor = { ...own, enumerable: !!own.enumerable, configurable: !!own.configurable };
+  if ('value' in initial) {
+    initial.writable = true;
+  }
+  const descriptor = decorators
+    .slice()
+    .reverse()
+    .reduce<PropertyDescriptor>((current, decorator) => decorator(target, key, current) || current, initial);
+  Object.defineProperty(target, key, descriptor);
+}
+
+interface ILegacyFlavor {
+  name: string;
+  Async: (options?: { bind?: boolean }) => TLegacyDecorator;
+  Bind: (options?: { bind?: boolean }) => TLegacyDecorator;
+  decorate: (decorators: TLegacyDecorator[], target: object, key: string) => void;
+}
+
+const legacyFlavors: ILegacyFlavor[] = [
+  {
+    name: 'TS legacy',
+    Async: (options) => LegacyAsync(options),
+    Bind: (options) => LegacyBindMethod(options),
+    decorate: tsLegacyDecorate,
+  },
+  {
+    name: 'babel legacy',
+    Async: (options) => BabelLegacyAsync(options),
+    Bind: (options) => BabelLegacyBindMethod(options),
+    decorate: babelLegacyDecorate,
+  },
+];
 
 // AsyncMethod/BindMethod are stage-3 (value, context); LegacyAsyncMethod/BabelLegacyAsyncMethod are
 // invoked here only with manufactured wrong-shaped args (flavor mismatch guard tests), so all four
@@ -950,6 +999,486 @@ export function runStage3Matrix({
       } catch {
         // canceled on purpose to avoid an unhandled rejection.
       }
+    });
+  });
+
+  describe('decorators (ES stage-3): receivers and overrides', () => {
+    it('undecorated subclass override of a bound method runs', async () => {
+      class Base {
+        @BindMethod()
+        name() {
+          return 'base';
+        }
+
+        @AsyncMethod({ bind: true })
+        *load(): Generator<any, any, any> {
+          return yield Promise.resolve('base');
+        }
+      }
+
+      class Derived extends Base {
+        name() {
+          return 'derived';
+        }
+
+        load(): any {
+          return 'derived';
+        }
+      }
+
+      const inst = new Derived();
+
+      expect(inst.name()).toBe('derived');
+      expect(inst.load()).toBe('derived');
+    });
+
+    it('super call through a bound method keeps the override on later calls', async () => {
+      class Base {
+        @BindMethod()
+        name() {
+          return 'base';
+        }
+
+        @AsyncMethod({ bind: true })
+        *load(): Generator<any, any, any> {
+          return yield Promise.resolve('base');
+        }
+      }
+
+      class Derived extends Base {
+        name() {
+          return 'derived+' + super.name();
+        }
+
+        @AsyncMethod({ bind: true })
+        *load(): Generator<any, any, any> {
+          const base = yield super.load();
+          return 'derived+' + base;
+        }
+      }
+
+      const inst = new Derived();
+
+      expect(inst.name()).toBe('derived+base');
+      expect(inst.name()).toBe('derived+base');
+      expect(await inst.load()).toBe('derived+base');
+      expect(await inst.load()).toBe('derived+base');
+    });
+
+    it('super read of a memoized getter keeps the override on later reads', () => {
+      class Base {
+        @BindMethod()
+        get fn() {
+          return () => 'base';
+        }
+      }
+
+      class Derived extends Base {
+        // same lookup as super.fn, which es5 emit cannot express for an accessor
+        get fn() {
+          const base: () => string = Reflect.get(Base.prototype, 'fn', this);
+          return () => 'derived+' + base();
+        }
+      }
+
+      const inst = new Derived();
+
+      expect(inst.fn()).toBe('derived+base');
+      expect(inst.fn()).toBe('derived+base');
+    });
+
+    it('reading a getter through the prototype leaves instances bound to themselves', async () => {
+      class C {
+        id: number;
+
+        constructor(id: number) {
+          this.id = id;
+        }
+
+        @BindMethod()
+        get fn() {
+          return function (this: any) {
+            return this.id;
+          };
+        }
+
+        @AsyncMethod()
+        get run() {
+          return cancAsync(function* (this: any): Generator<any, any, any> {
+            return yield Promise.resolve(this.id);
+          }, this);
+        }
+      }
+
+      class Sub extends C {}
+
+      touch(C.prototype.fn);
+      touch(C.prototype.run);
+      touch(Sub.prototype.fn);
+
+      const fn = new C(4).fn;
+      const subFn = new Sub(5).fn;
+
+      expect(fn()).toBe(4);
+      expect(subFn()).toBe(5);
+      expect(await new C(6).run()).toBe(6);
+    });
+
+    it('jest.spyOn on the prototype of a bound method works and restores', () => {
+      class C {
+        id: number;
+
+        constructor(id: number) {
+          this.id = id;
+        }
+
+        @BindMethod()
+        m() {
+          return this.id;
+        }
+      }
+
+      const spy = jest.spyOn(C.prototype, 'm');
+      let calledThroughSpy: number;
+      try {
+        calledThroughSpy = new C(7).m();
+        expect(spy).toHaveBeenCalledTimes(1);
+      } finally {
+        spy.mockRestore();
+      }
+
+      const detached = new C(8).m;
+      expect(calledThroughSpy).toBe(7);
+      expect(detached()).toBe(8);
+    });
+
+    it('both stacking orders of AsyncMethod and BindMethod produce a cancelable method', async () => {
+      class AsyncOuter {
+        @AsyncMethod()
+        @BindMethod()
+        *m(): Generator<any, any, any> {
+          return yield Promise.resolve(1);
+        }
+      }
+
+      class BindOuter {
+        @BindMethod()
+        @AsyncMethod()
+        *m(): Generator<any, any, any> {
+          return yield Promise.resolve(2);
+        }
+      }
+
+      const first = new AsyncOuter().m() as any;
+      const second = new BindOuter().m() as any;
+
+      expect(typeof first.cancel).toBe('function');
+      expect(typeof second.cancel).toBe('function');
+      expect(await first).toBe(1);
+      expect(await second).toBe(2);
+    });
+
+    it('bound method reached without the constructor is still wrapped', async () => {
+      class C {
+        @AsyncMethod({ bind: true })
+        *m(): Generator<any, any, any> {
+          return yield Promise.resolve(this);
+        }
+      }
+
+      const hydrated = Object.create(C.prototype) as C;
+      const viaCreate = hydrated.m() as any;
+      const inst = new C();
+      const viaProto = C.prototype.m.call(inst) as any;
+
+      expect(typeof viaCreate.cancel).toBe('function');
+      expect(typeof viaProto.cancel).toBe('function');
+      expect(await viaCreate).toBe(hydrated);
+      expect(await viaProto).toBe(inst);
+    });
+
+    it('setter paired with a memoized getter keeps working after a read', () => {
+      class C {
+        value: number;
+
+        constructor() {
+          this.value = 1;
+        }
+
+        @BindMethod()
+        get fn() {
+          const value = this.value;
+          return () => value;
+        }
+
+        set fn(next: () => number) {
+          this.value = next();
+        }
+      }
+
+      const inst = new C();
+
+      expect(inst.fn()).toBe(1);
+
+      inst.fn = () => 2;
+
+      expect(inst.fn()).toBe(2);
+    });
+
+    it('bound method read through a Proxy is bound to the proxy', async () => {
+      class C {
+        @BindMethod()
+        m() {
+          return this;
+        }
+
+        @AsyncMethod({ bind: true })
+        *load(): Generator<any, any, any> {
+          return yield Promise.resolve(this);
+        }
+      }
+
+      const proxy = new Proxy(new C(), {});
+      const m = proxy.m;
+      const load = proxy.load;
+
+      expect(m()).toBe(proxy);
+      expect(await load()).toBe(proxy);
+    });
+  });
+
+  describe.each(legacyFlavors)('decorators ($name, applied as emitted): receivers and overrides', (flavor) => {
+    const { Async, Bind, decorate } = flavor;
+
+    it('undecorated subclass override of a bound method runs', () => {
+      class Base {
+        name() {
+          return 'base';
+        }
+      }
+      decorate([Bind()], Base.prototype, 'name');
+
+      class Derived extends Base {
+        name() {
+          return 'derived';
+        }
+      }
+
+      expect(new Derived().name()).toBe('derived');
+    });
+
+    it('super call through a bound method keeps the override on later calls', async () => {
+      class Base {
+        name() {
+          return 'base';
+        }
+
+        *load(): Generator<any, any, any> {
+          return yield Promise.resolve('base');
+        }
+      }
+      decorate([Bind()], Base.prototype, 'name');
+      decorate([Async({ bind: true })], Base.prototype, 'load');
+
+      class Derived extends Base {
+        name() {
+          return 'derived+' + super.name();
+        }
+
+        *load(): Generator<any, any, any> {
+          const base = yield super.load();
+          return 'derived+' + base;
+        }
+      }
+      decorate([Async({ bind: true })], Derived.prototype, 'load');
+
+      const inst = new Derived();
+
+      expect(inst.name()).toBe('derived+base');
+      expect(inst.name()).toBe('derived+base');
+      expect(await inst.load()).toBe('derived+base');
+      expect(await inst.load()).toBe('derived+base');
+    });
+
+    it('super read of a memoized getter keeps the override on later reads', () => {
+      class Base {
+        get fn() {
+          return () => 'base';
+        }
+      }
+      decorate([Bind()], Base.prototype, 'fn');
+
+      class Derived extends Base {
+        // same lookup as super.fn, which es5 emit cannot express for an accessor
+        get fn() {
+          const base: () => string = Reflect.get(Base.prototype, 'fn', this);
+          return () => 'derived+' + base();
+        }
+      }
+
+      const inst = new Derived();
+
+      expect(inst.fn()).toBe('derived+base');
+      expect(inst.fn()).toBe('derived+base');
+    });
+
+    it('reading through the prototype leaves instances bound to themselves', () => {
+      class C {
+        id: number;
+
+        constructor(id: number) {
+          this.id = id;
+        }
+
+        m() {
+          return this.id;
+        }
+
+        get fn() {
+          return function (this: any) {
+            return this.id;
+          };
+        }
+      }
+      decorate([Bind()], C.prototype, 'm');
+      decorate([Bind()], C.prototype, 'fn');
+
+      class Sub extends C {}
+
+      touch(C.prototype.m);
+      touch(C.prototype.fn);
+      touch(Sub.prototype.m);
+      touch(Sub.prototype.fn);
+
+      const m = new C(4).m;
+      const fn = new C(5).fn;
+      const subM = new Sub(6).m;
+      const subFn = new Sub(7).fn;
+
+      expect(m()).toBe(4);
+      expect(fn()).toBe(5);
+      expect(subM()).toBe(6);
+      expect(subFn()).toBe(7);
+    });
+
+    it('jest.spyOn on the prototype of a bound method works and restores', () => {
+      class C {
+        id: number;
+
+        constructor(id: number) {
+          this.id = id;
+        }
+
+        m() {
+          return this.id;
+        }
+      }
+      decorate([Bind()], C.prototype, 'm');
+
+      const spy = jest.spyOn(C.prototype, 'm');
+      let calledThroughSpy: number;
+      try {
+        calledThroughSpy = new C(7).m();
+        expect(spy).toHaveBeenCalledTimes(1);
+      } finally {
+        spy.mockRestore();
+      }
+
+      const detached = new C(8).m;
+      expect(calledThroughSpy).toBe(7);
+      expect(detached()).toBe(8);
+    });
+
+    it('both stacking orders of AsyncMethod and BindMethod produce a cancelable method', async () => {
+      class AsyncOuter {
+        *m(): Generator<any, any, any> {
+          return yield Promise.resolve(1);
+        }
+      }
+      decorate([Async(), Bind()], AsyncOuter.prototype, 'm');
+
+      class BindOuter {
+        *m(): Generator<any, any, any> {
+          return yield Promise.resolve(2);
+        }
+      }
+      decorate([Bind(), Async()], BindOuter.prototype, 'm');
+
+      const first = new AsyncOuter().m() as any;
+      const second = new BindOuter().m() as any;
+
+      expect(typeof first.cancel).toBe('function');
+      expect(typeof second.cancel).toBe('function');
+      expect(await first).toBe(1);
+      expect(await second).toBe(2);
+    });
+
+    it('bound method reached without the constructor is still wrapped', async () => {
+      class C {
+        *m(): Generator<any, any, any> {
+          return yield Promise.resolve(this);
+        }
+      }
+      decorate([Async({ bind: true })], C.prototype, 'm');
+
+      const hydrated = Object.create(C.prototype) as C;
+      const viaCreate = hydrated.m() as any;
+      const inst = new C();
+      const viaProto = C.prototype.m.call(inst) as any;
+
+      expect(typeof viaCreate.cancel).toBe('function');
+      expect(typeof viaProto.cancel).toBe('function');
+      expect(await viaCreate).toBe(hydrated);
+      expect(await viaProto).toBe(inst);
+    });
+
+    it('setter paired with a memoized getter keeps working after a read', () => {
+      class C {
+        value: number;
+
+        constructor() {
+          this.value = 1;
+        }
+
+        get fn() {
+          const value = this.value;
+          return () => value;
+        }
+
+        set fn(next: () => number) {
+          this.value = next();
+        }
+      }
+      decorate([Bind()], C.prototype, 'fn');
+
+      const inst = new C();
+
+      expect(inst.fn()).toBe(1);
+
+      inst.fn = () => 2;
+
+      expect(inst.fn()).toBe(2);
+    });
+
+    it('bound method read through a Proxy is bound to the proxy', async () => {
+      class C {
+        m() {
+          return this;
+        }
+
+        *load(): Generator<any, any, any> {
+          return yield Promise.resolve(this);
+        }
+      }
+      decorate([Bind()], C.prototype, 'm');
+      decorate([Async({ bind: true })], C.prototype, 'load');
+
+      const proxy = new Proxy(new C(), {});
+      const m = proxy.m;
+      const load = proxy.load;
+
+      expect(m()).toBe(proxy);
+      expect(await load()).toBe(proxy);
     });
   });
 }

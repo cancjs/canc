@@ -16,26 +16,65 @@ function setProperty(target: any, key: string | symbol, value: any) {
   });
 }
 
+// a class prototype (spyOn, reflection, a subclass prototype) is shared by every instance
+function isPrototypeObject(target: any): boolean {
+  return (
+    Object.prototype.hasOwnProperty.call(target, 'constructor') &&
+    isFunction(target.constructor) &&
+    target.constructor.prototype === target
+  );
+}
+
+// memo only while receiver[key] still lands here, so overrides and paired setters survive
+function resolvesToAccessor(receiver: any, key: string | symbol, get: TAnyFn, set: TAnyFn | undefined): boolean {
+  for (let current = receiver; current !== null && current !== undefined; current = Object.getPrototypeOf(current)) {
+    const descriptor = Object.getOwnPropertyDescriptor(current, key);
+    if (descriptor) {
+      return descriptor.get === get && descriptor.set === set;
+    }
+  }
+  return false;
+}
+
+// bound accessor getter to its prototype-level method, read by a decorator stacked on top
+const boundAccessorMethods = new WeakMap<TAnyFn, TAnyFn>();
+
 /**
- * Install a lazy, per-instance accessor on the PROTOTYPE. On first read from any instance it
+ * Install a lazy, per-instance accessor on the PROTOTYPE. On first read from an instance it
  * computes `produce(this)` and defines it as an own, immutable property on that instance, which
  * then shadows this prototype accessor for that instance only. No shared cross-instance state,
- * and once an instance is discarded nothing pins it (contrast: prototype Map).
+ * and once an instance is discarded nothing pins it (contrast: prototype Map). A read through a
+ * prototype returns `protoMethod` and caches nothing.
  */
-function definePerInstanceAccessor(target: any, propertyKey: string | symbol, produce: (self: any) => TAnyFn) {
-  Object.defineProperty(target, propertyKey, {
-    configurable: true,
-    enumerable: false,
-    get(this: any) {
-      const value = produce(this);
+function definePerInstanceAccessor(
+  target: any,
+  propertyKey: string | symbol,
+  descriptor: PropertyDescriptor,
+  protoMethod: TAnyFn,
+  produce: (self: any) => TAnyFn,
+) {
+  const get = function (this: any): TAnyFn {
+    if (isPrototypeObject(this)) {
+      return protoMethod;
+    }
+
+    const value = produce(this);
+    if (resolvesToAccessor(this, propertyKey, get, set)) {
       setProperty(this, propertyKey, value);
-      return value;
-    },
-    set(this: any, value: any) {
-      // Allow subclasses / manual assignment to override, matching a normal own field.
-      setProperty(this, propertyKey, value);
-    },
-  });
+    }
+    return value;
+  };
+  const set = function (this: any, value: any): void {
+    // Allow subclasses / manual assignment to override, matching a normal own field.
+    setProperty(this, propertyKey, value);
+  };
+  boundAccessorMethods.set(get, protoMethod);
+
+  delete descriptor.value;
+  delete descriptor.writable;
+  descriptor.get = get;
+  descriptor.set = set;
+  Object.defineProperty(target, propertyKey, { get, set, configurable: true, enumerable: false });
 }
 
 // Stage-3 decorators invoke as (value, context) where second argument is always a context object
@@ -67,6 +106,16 @@ function makeLegacyDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TA
     assertLegacyCallShape(propertyKey);
     assertNotBabelLegacyDescriptor(descriptor);
 
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- identity lookup, never called
+    const stackedMethod = descriptor?.get ? boundAccessorMethods.get(descriptor.get) : undefined;
+    if (stackedMethod) {
+      // a bound decorator below already ran: decorate its prototype-level method, as stage-3 does
+      delete descriptor!.get;
+      delete descriptor!.set;
+      descriptor!.value = stackedMethod;
+      descriptor!.writable = true;
+    }
+
     const isProtoMethod = !!descriptor && !descriptor.get;
     const isGetter = !!descriptor && !!descriptor.get;
 
@@ -76,19 +125,25 @@ function makeLegacyDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TA
       // eslint-disable-next-line @typescript-eslint/unbound-method -- called with .call(this) below
       const originalGetter = descriptor!.get!;
 
-      descriptor!.get = function (this: any) {
+      const memoizingGetter = function (this: any) {
         const raw = originalGetter.call(this);
 
         if (!isFunction(raw)) {
           throw new TypeError(`'${String(propertyKey)}' getter result is not a function`);
         }
 
+        if (isPrototypeObject(this)) {
+          return raw;
+        }
+
         const value = isBind ? copyFunctionMetadata(raw, raw.bind(this)) : raw;
-        // Memoize per instance (own-property shadows this accessor for this instance only).
-        setProperty(this, propertyKey, value);
+        if (resolvesToAccessor(this, propertyKey, memoizingGetter, undefined)) {
+          setProperty(this, propertyKey, value);
+        }
 
         return value;
       };
+      descriptor!.get = memoizingGetter;
 
       return;
     }
@@ -100,16 +155,15 @@ function makeLegacyDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TA
         throw new TypeError(`'${String(propertyKey)}' is not a method and cannot be decorated`);
       }
 
+      // proto wrap once, preserving metadata attached to original method
+      const protoMethod = copyFunctionMetadata(originalMethod, wrap(originalMethod, undefined));
+
       if (isBind) {
-        // bind:true: lazy per-instance own-bound property
-        delete descriptor!.value;
-        delete (descriptor as any).writable;
-        definePerInstanceAccessor(target, propertyKey, (self) =>
+        definePerInstanceAccessor(target, propertyKey, descriptor!, protoMethod, (self) =>
           copyFunctionMetadata(originalMethod, wrap(originalMethod, self)),
         );
       } else {
-        // bind:false: proto wrap once, preserving metadata attached to original method
-        descriptor!.value = copyFunctionMetadata(originalMethod, wrap(originalMethod, undefined));
+        descriptor!.value = protoMethod;
       }
 
       return;

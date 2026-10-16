@@ -20,6 +20,29 @@ function setProperty(target: any, key: string | symbol, value: any) {
   });
 }
 
+// a class prototype (spyOn, reflection, a subclass prototype) is shared by every instance
+function isPrototypeObject(target: any): boolean {
+  return (
+    Object.prototype.hasOwnProperty.call(target, 'constructor') &&
+    isFunction(target.constructor) &&
+    target.constructor.prototype === target
+  );
+}
+
+// memo only while receiver[key] still lands here, so overrides and paired setters survive
+function resolvesToAccessor(receiver: any, key: string | symbol, get: TAnyFn, set: TAnyFn | undefined): boolean {
+  for (let current = receiver; current !== null && current !== undefined; current = Object.getPrototypeOf(current)) {
+    const descriptor = Object.getOwnPropertyDescriptor(current, key);
+    if (descriptor) {
+      return descriptor.get === get && descriptor.set === set;
+    }
+  }
+  return false;
+}
+
+// bound accessor getter to its prototype-level method, read by a decorator stacked on top
+const boundAccessorMethods = new WeakMap<TAnyFn, TAnyFn>();
+
 // Stage-3 decorators invoke as (value, context) where second argument is always a context object
 // A babel-legacy decorator receiving that shape was applied under stage-3 compiler output
 function assertBabelLegacyCallShape(propertyKey: any): void {
@@ -36,6 +59,16 @@ function makeBabelDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAn
   return (target: any, propertyKey: string | symbol, descriptor: IBabelPropertyDescriptor) => {
     assertBabelLegacyCallShape(propertyKey);
 
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- identity lookup, never called
+    const stackedMethod = descriptor?.get ? boundAccessorMethods.get(descriptor.get) : undefined;
+    if (stackedMethod) {
+      // a bound decorator below already ran: decorate its prototype-level method, as stage-3 does
+      delete descriptor.get;
+      delete descriptor.set;
+      descriptor.value = stackedMethod;
+      descriptor.writable = true;
+    }
+
     const isField = isFunction(descriptor?.initializer) || descriptor?.initializer === null;
     const isGetter = !!descriptor?.get;
 
@@ -45,18 +78,25 @@ function makeBabelDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAn
       // eslint-disable-next-line @typescript-eslint/unbound-method -- called with .call(this) below
       const originalGetter = descriptor.get!;
 
-      descriptor.get = function (this: any) {
+      const memoizingGetter = function (this: any) {
         const raw = originalGetter.call(this);
 
         if (!isFunction(raw)) {
           throw new TypeError(`'${String(propertyKey)}' getter result is not a function`);
         }
 
+        if (isPrototypeObject(this)) {
+          return raw;
+        }
+
         const value = isBind ? copyFunctionMetadata(raw, raw.bind(this)) : raw;
-        setProperty(this, propertyKey, value);
+        if (resolvesToAccessor(this, propertyKey, memoizingGetter, undefined)) {
+          setProperty(this, propertyKey, value);
+        }
 
         return value;
       };
+      descriptor.get = memoizingGetter;
 
       return descriptor;
     }
@@ -83,22 +123,34 @@ function makeBabelDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAn
       throw new TypeError(`'${String(propertyKey)}' is not a method and cannot be decorated`);
     }
 
+    // proto wrap once, preserving metadata attached to original method
+    const protoMethod = copyFunctionMetadata(originalMethod, wrap(originalMethod, undefined));
+
     if (isBind) {
       // bind:true: lazy per-instance own-bound property with per-instance isolation and GC
       delete descriptor.value;
       delete descriptor.writable;
 
-      descriptor.get = function (this: any) {
+      const get = function (this: any): TAnyFn {
+        if (isPrototypeObject(this)) {
+          return protoMethod;
+        }
+
         const value = copyFunctionMetadata(originalMethod, wrap(originalMethod, this));
-        setProperty(this, propertyKey, value);
+        if (resolvesToAccessor(this, propertyKey, get, set)) {
+          setProperty(this, propertyKey, value);
+        }
         return value;
       };
-      descriptor.set = function (this: any, value: any) {
+      const set = function (this: any, value: any): void {
         setProperty(this, propertyKey, value);
       };
+      boundAccessorMethods.set(get, protoMethod);
+
+      descriptor.get = get;
+      descriptor.set = set;
     } else {
-      // bind:false: proto wrap once, preserving metadata attached to original method
-      descriptor.value = copyFunctionMetadata(originalMethod, wrap(originalMethod, undefined));
+      descriptor.value = protoMethod;
     }
 
     return descriptor;

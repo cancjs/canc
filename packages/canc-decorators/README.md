@@ -90,10 +90,10 @@ class IssueClient {
 The decorator replaces the member with the result of `cancAsync(fn, ctx)`. Where that replacement
 lands is the one decision to make, and the `bind` option makes it:
 
-| Placement       | `bind`                                  | Mechanism                                                                                                                            | `this` binding                       | Memory                                       |
-| --------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------ | -------------------------------------------- |
-| Prototype level | `false`, the default for `@AsyncMethod` | the decorator returns the wrapped function, replacing the method on the prototype once                                               | late bound, flows from the call site | one wrapped function shared by all instances |
-| Per instance    | `true`, the default for `@BindMethod`   | an initializer (standard) or a self-replacing own-property accessor (legacy dialects) installs a bound own property on each instance | early bound, fixed to the instance   | one wrapped function per instance            |
+| Placement       | `bind`                                  | Mechanism                                                                                        | `this` binding                       | Memory                                       |
+| --------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------ | -------------------------------------------- |
+| Prototype level | `false`, the default for `@AsyncMethod` | the decorator returns the wrapped function, replacing the method on the prototype once           | late bound, flows from the call site | one wrapped function shared by all instances |
+| Per instance    | `true`, the default for `@BindMethod`   | a self-replacing accessor binds on first read and installs a bound own property on each instance | early bound, fixed to the instance   | one wrapped function per instance            |
 
 Default to prototype level. Pay for per-instance binding only when the method is detached from its
 instance and passed around as a bare reference, as in `setTimeout(client.loadIssue)` or a callback
@@ -104,19 +104,40 @@ getter's produced function must not be cached on the prototype, that was the ori
 cross-instance corruption bug, and a class field's initial value is per-instance to begin with.
 The `bind` option only decides whether the produced function is bound to its context.
 
+The function is bound to the receiver of the first read. Reading through a `Proxy` gives a
+function bound to the proxy. Reading through a class prototype, as `jest.spyOn(C.prototype, 'm')`
+or reflection does, returns the unbound prototype-level function and caches nothing, so instances
+still bind to themselves. A getter with a paired setter is not memoized, so the setter keeps
+working after the first read.
+
 ### `super` interaction
 
-Prototype-level methods sit on the prototype like any other method, so `super.method()` from a
-subclass calls the wrapped parent implementation through normal prototype lookup.
+The prototype always holds the wrapped function, whatever `bind` says. `super.method()` from a
+subclass calls the wrapped parent implementation through normal prototype lookup, with the
+subclass instance as `this`. The same holds for `C.prototype.method.call(obj)` and for objects
+made with `Object.create(C.prototype)` that never ran the constructor.
 
-Per-instance methods are own properties on the instance and do not participate in `super` lookup.
-`super.method()` in a subclass still resolves to the parent prototype's method, unbound unless the
-parent's own initializer has already run for that instance. When a hierarchy relies on `super`
-reaching the cancelable behavior, keep those levels at prototype placement and reserve
-`bind: true` for leaf classes.
+A per-instance binding is installed only while the decorated member is the one the instance
+resolves. When a subclass overrides it, the override wins, and a `super` call into the parent
+never caches the parent's function on the instance.
 
 A subclass that overrides a decorated member needs its own decorator. Decoration does not
 propagate to overrides, standard method-resolution rules apply.
+
+### Stacking order
+
+`@AsyncMethod({ bind: true })` is the way to get a method that is both cancelable and bound.
+When the two decorators are stacked instead, put `@BindMethod()` on top:
+
+```ts
+@BindMethod()
+@AsyncMethod()
+*loadIssue(issueId) {}
+```
+
+Decorators apply bottom up, so `@BindMethod()` then binds the cancelable function. The reverse
+order still produces a cancelable method, but the inner binding is dropped and `this` comes from
+the call site.
 
 ### Memory
 
@@ -155,15 +176,15 @@ Both decorators can be applied bare or called with options:
 Each dialect wires methods, getters, and class fields according to the compiler runtime:
 
 - **Standard decorators (stage-3)**: Invoked as `(value, context)`. Method decorators return the
-  wrapped function for `bind: false`, or use `context.addInitializer` to install an own-bound
-  property per instance for `bind: true`. Field decorators receive `value === undefined` and return
+  wrapped function. For `bind: true` they also use `context.addInitializer` to install a lazy
+  own accessor per instance that binds on first read. Field decorators receive `value === undefined` and return
   an `(initialValue) => wrapped` transformer. Getter decorators return an accessor that evaluates the
   getter lazily, optionally binds to `this`, and memoizes the result on the instance.
 - **TypeScript legacy (`experimentalDecorators: true`)**: Invoked as
   `(target, propertyKey, descriptor)` for methods and getters, and `(target, propertyKey)` without
   a descriptor for fields. For prototype methods, `bind: false` rewrites `descriptor.value` once;
   `bind: true` installs a lazy prototype accessor that replaces itself with an own-bound property on
-  first access. For class fields, the decorator installs a lazy accessor whose setter captures the
+  first access from an instance. For class fields, the decorator installs a lazy accessor whose setter captures the
   field initial value when assigned in the constructor, then defines a wrapped own property.
 - **Babel legacy (`@babel/plugin-proposal-decorators` with `legacy: true`)**: Methods and getters
   mirror TypeScript legacy. Class fields receive a property descriptor with an `initializer`
