@@ -189,7 +189,9 @@ type _makeCancelable = Expect<Equal<typeof mc, CancelablePromise<number, Unliste
 const _bad: CancelablePromise<number> = catchCancel(new CancelError());
 
 const ca = catchAbort(Promise.resolve(7));
-type _catchAbort = Expect<Equal<typeof ca, CancelablePromise<number | AbortError, never>>>;
+type _catchAbort = Expect<
+  Equal<typeof ca, CancelablePromise<number | AbortError | (CancelError & { readonly aborted: true }), never>>
+>;
 
 const sa = suppressAbort(Promise.resolve(7));
 type _suppressAbort = Expect<Equal<typeof sa, CancelablePromise<number | void, never>>>;
@@ -198,7 +200,9 @@ const tas = toAbortSignal(Promise.resolve(7));
 type _toAbortSignal = Expect<Equal<typeof tas, AbortSignal>>;
 
 const ct = catchTimeout(Promise.resolve(7));
-type _catchTimeout = Expect<Equal<typeof ct, CancelablePromise<number | TimeoutError, never>>>;
+type _catchTimeout = Expect<
+  Equal<typeof ct, CancelablePromise<number | TimeoutError | (CancelError & { readonly timedOut: true }), never>>
+>;
 
 const st = suppressTimeout(Promise.resolve(7));
 type _suppressTimeout = Expect<Equal<typeof st, CancelablePromise<number | void, never>>>;
