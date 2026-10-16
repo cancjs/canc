@@ -154,7 +154,8 @@ export interface ICancelablePromiseFlagOptions {
   /**
    * Cancellation propagates to parent promise. A promise is bubble-canceled once no consumer
    * remains after the current synchronous turn; a consumer subscribed anywhere in that turn, canc
-   * or native, keeps it alive.
+   * or native, keeps it alive. A chain of promises with an overridden `cancel` bubbles recursively; very deep
+   * chains of them can exhaust the stack.
    */
   bubble?: boolean;
   /** Throw on cancellation problems */

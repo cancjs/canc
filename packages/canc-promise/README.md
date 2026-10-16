@@ -141,7 +141,8 @@ consumer subscribed anywhere in that turn, canc or native, keeps it alive. So `a
 `Promise.resolve(source)` written next to a canceled `source.then(...)` still gets the value. A
 consumer subscribed in a later turn (after an unrelated `await`) arrives late and gets the
 `CancelError`. The parent's cleanup starts two microtasks after the `cancel()` call, and
-`await child.cancel()` waits for it.
+`await child.cancel()` waits for it. A chain of promises with an overridden `cancel` bubbles recursively;
+very deep chains of them can exhaust the stack.
 
 Bubbling is on by default. Turn it off per promise with `bubble: false` when the work has side
 effects that should not be discarded implicitly, for example a write that must complete once
