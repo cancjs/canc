@@ -55,6 +55,11 @@ function defineQuietly(target: object, key: PropertyKey, value: unknown): void {
   }
 }
 
+// Non-enumerable like the accessor it shadows, but writable
+function defineWritable(target: object, key: PropertyKey, value: unknown): void {
+  Object.defineProperty(target, key, { value, configurable: true, writable: true });
+}
+
 // `class X extends DOMException` compiles down to `DOMException.call(this, ...)` under the es5
 // target, and that throws "Illegal constructor". Reflect.construct is the portable way to get a
 // DOMException-backed instance whose prototype chain still points at the subclass.
@@ -75,6 +80,10 @@ function createDomExceptionClass<TName extends string, TBrand extends string>(
       if (Object.getPrototypeOf(instance) !== target.prototype) {
         Object.setPrototypeOf(instance, target.prototype);
       }
+
+      // DOMException exposes both as getter-only accessors, so plain assignment would throw
+      defineWritable(instance, 'name', instance.name);
+      defineWritable(instance, 'message', instance.message);
 
       return instance;
     }
