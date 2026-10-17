@@ -7,7 +7,7 @@ import { CancelablePromise } from '@cancjs/promise';
 import { IPromiseKind, IToolboxDeps, retryFactory, TPromiseCtor } from '../../../_toolbox';
 import type { Unlisted } from '../../../_util';
 import { EEXIST, isCrossDeviceError, isErrno, isNotFoundError, isTooManyFilesError } from '../errors/errno';
-import { copyTree, copyTreeSync } from './copy';
+import { copySync, copyTree } from './copy';
 import { ensureDir, ensureDirSync } from './ensure';
 import { checkPaths, checkPathsSync, IAbortSignalLike, throwIfAborted } from './utils';
 
@@ -207,7 +207,7 @@ export function moveSync(src: string, dest: string, options?: IMoveOptions): voi
     renameSync(src, dest);
   } catch (err: unknown) {
     if (isCrossDeviceError(err)) {
-      copyTreeSync(src, dest, { overwrite: options?.overwrite ?? false });
+      copySync(src, dest, { overwrite: options?.overwrite ?? false });
       rmSync(src, { recursive: true, force: true });
       return;
     }

@@ -8,7 +8,7 @@ import { CancelError } from '@cancjs/promise';
 import { isJsonParseError, JsonParseError } from '../errors/classes';
 import { exists, mkdir, writeFile } from '../fs';
 import { getFs, resetFs, setFs } from '../fs/registry';
-import { copyTreeSync } from './copy';
+import { copySync } from './copy';
 import * as extra from './index';
 import {
   copy,
@@ -849,6 +849,132 @@ describe('fs-extra', () => {
     });
   });
 
+  describe('copySync', () => {
+    let dir: string;
+
+    beforeEach(() => {
+      dir = fsSync.mkdtempSync(join(tmpdir(), 'fs-extra-copysync-'));
+    });
+
+    afterEach(() => {
+      fsSync.rmSync(dir, { recursive: true, force: true });
+    });
+
+    function makeTree(): string {
+      const src = join(dir, 'src');
+      fsSync.mkdirSync(join(src, 'sub'), { recursive: true });
+      fsSync.writeFileSync(join(src, 'top.txt'), 'top');
+      fsSync.writeFileSync(join(src, 'sub', 'deep.txt'), 'deep');
+      return src;
+    }
+
+    function seedExisting(): string {
+      const dest = join(dir, 'dest');
+      fsSync.mkdirSync(dest);
+      fsSync.writeFileSync(join(dest, 'top.txt'), 'old');
+      return dest;
+    }
+
+    it('is exported from the fs-extra barrel', () => {
+      expect(typeof extra.copySync).toBe('function');
+    });
+
+    it('copies a single file and creates missing parents', () => {
+      const src = join(dir, 'one.txt');
+      fsSync.writeFileSync(src, 'one');
+      const dest = join(dir, 'x', 'y', 'one.txt');
+      copySync(src, dest);
+      expect(fsSync.readFileSync(dest, 'utf8')).toBe('one');
+    });
+
+    it('copies a nested directory tree', () => {
+      const src = makeTree();
+      const dest = join(dir, 'dest');
+      copySync(src, dest);
+      expect(fsSync.readFileSync(join(dest, 'top.txt'), 'utf8')).toBe('top');
+      expect(fsSync.readFileSync(join(dest, 'sub', 'deep.txt'), 'utf8')).toBe('deep');
+    });
+
+    it('filter excludes entries and receives src and dest', () => {
+      const src = makeTree();
+      const dest = join(dir, 'dest');
+      const seen: Array<[string, string]> = [];
+      copySync(src, dest, {
+        filter: (s, d) => {
+          seen.push([s, d]);
+          return !s.endsWith('sub');
+        },
+      });
+      expect(fsSync.existsSync(join(dest, 'top.txt'))).toBe(true);
+      expect(fsSync.existsSync(join(dest, 'sub'))).toBe(false);
+      expect(seen).toContainEqual([join(src, 'top.txt'), join(dest, 'top.txt')]);
+    });
+
+    it('a filter returning a promise throws TypeError', () => {
+      const src = makeTree();
+      expect(() =>
+        copySync(src, join(dir, 'dest'), {
+          // @ts-expect-error async filter is rejected by the sync typings
+          filter: async () => true,
+        }),
+      ).toThrow(TypeError);
+    });
+
+    it('overwrites an existing file by default', () => {
+      const src = makeTree();
+      const dest = seedExisting();
+      copySync(src, dest);
+      expect(fsSync.readFileSync(join(dest, 'top.txt'), 'utf8')).toBe('top');
+    });
+
+    it('overwrite false keeps an existing file and still copies the rest', () => {
+      const src = makeTree();
+      const dest = seedExisting();
+      copySync(src, dest, { overwrite: false });
+      expect(fsSync.readFileSync(join(dest, 'top.txt'), 'utf8')).toBe('old');
+      expect(fsSync.readFileSync(join(dest, 'sub', 'deep.txt'), 'utf8')).toBe('deep');
+    });
+
+    it('overwrite false with errorOnExist throws EEXIST', () => {
+      const src = makeTree();
+      const dest = seedExisting();
+      expect(() => copySync(src, dest, { overwrite: false, errorOnExist: true })).toThrow(
+        expect.objectContaining({ code: 'EEXIST' }),
+      );
+      expect(fsSync.readFileSync(join(dest, 'top.txt'), 'utf8')).toBe('old');
+    });
+
+    it('onProgress fires once per copied entry', () => {
+      const src = makeTree();
+      const progress: string[] = [];
+      copySync(src, join(dir, 'dest'), {
+        onProgress: (p) => progress.push(p.src),
+      });
+      expect(progress.sort()).toEqual(
+        [src, join(src, 'sub'), join(src, 'sub', 'deep.txt'), join(src, 'top.txt')].sort(),
+      );
+    });
+
+    it('onto itself throws the same-path error', () => {
+      const src = makeTree();
+      expect(() => copySync(src, src)).toThrow('Source and destination must not be the same.');
+    });
+
+    it('into its own subdirectory throws and creates nothing', () => {
+      const src = makeTree();
+      const dest = join(src, 'nested');
+      expect(() => copySync(src, dest)).toThrow(`Cannot copy '${src}' to a subdirectory of itself, '${dest}'.`);
+      expect(fsSync.existsSync(dest)).toBe(false);
+    });
+
+    it('a directory over an existing file throws', () => {
+      const src = makeTree();
+      const dest = join(dir, 'file.txt');
+      fsSync.writeFileSync(dest, 'x');
+      expect(() => copySync(src, dest)).toThrow(`Cannot overwrite non-directory '${dest}' with directory '${src}'.`);
+    });
+  });
+
   describe('self and parent path guards', () => {
     let dir: string;
 
@@ -901,12 +1027,12 @@ describe('fs-extra', () => {
       await expect(copy(src, dest)).rejects.toThrow(`Cannot copy '${src}' to a subdirectory of itself, '${dest}'.`);
     });
 
-    it('copyTreeSync into its own subdirectory throws fast', () => {
+    it('copySync into its own subdirectory throws fast', () => {
       const src = join(dir, 'sync-src');
       fsSync.mkdirSync(join(src, 'inner'), { recursive: true });
       const dest = join(src, 'sub');
       const started = Date.now();
-      expect(() => copyTreeSync(src, dest)).toThrow(`Cannot copy '${src}' to a subdirectory of itself, '${dest}'.`);
+      expect(() => copySync(src, dest)).toThrow(`Cannot copy '${src}' to a subdirectory of itself, '${dest}'.`);
       expect(Date.now() - started).toBeLessThan(100);
     }, 5000);
 

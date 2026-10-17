@@ -164,17 +164,37 @@ export async function copyTree(
 }
 
 /**
- * Internal synchronous helper. Checks the top-level paths once, then recurses without re-checking.
+ * Options for the synchronous copy operation.
  */
-export function copyTreeSync(src: string, dest: string, options?: ICopyOptions): void {
+export interface ICopySyncOptions extends Omit<ICopyOptions, 'filter'> {
+  /**
+   * Synchronous filter for copied files and directories.
+   * Return true to include, false to exclude. A returned promise is rejected with a TypeError.
+   * Applied to source entry only.
+   */
+  filter?: (src: string, dest: string) => boolean;
+}
+
+/**
+ * Synchronously copy a file or directory tree from src to dest. Checks the top-level paths once, then recurses
+ * without re-checking.
+ *
+ * @param src - Source path
+ * @param dest - Destination path
+ * @param options - Copy options
+ */
+export function copySync(src: string, dest: string, options?: ICopySyncOptions): void {
   checkPathsSync(src, dest, 'copy');
   copyEntrySync(src, dest, options);
 }
 
-function copyEntrySync(src: string, dest: string, options?: ICopyOptions): void {
+function copyEntrySync(src: string, dest: string, options?: ICopySyncOptions): void {
   if (options?.filter) {
-    const shouldCopy = options.filter(src, dest);
-    if (!shouldCopy) {
+    const verdict: unknown = options.filter(src, dest);
+    if (typeof verdict === 'object' && verdict !== null && typeof (verdict as { then?: unknown }).then === 'function') {
+      throw new TypeError('copySync: filter option cannot return a Promise or thenable');
+    }
+    if (!verdict) {
       return;
     }
   }

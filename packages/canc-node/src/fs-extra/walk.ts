@@ -7,7 +7,8 @@ import { lstatSync, opendirSync, statSync } from '@cancjs/node/fs/sync';
 /**
  * Traversal order for walk operations.
  * - 'breadth-first': yield entries level by level (default).
- * - 'depth-first': yield parent directories before their children (pre-order).
+ * - 'depth-first': pre-order. Each directory is yielded, then its whole subtree, before its next sibling
+ *   (the order klaw produces). Siblings follow the order the file system lists them.
  * - 'children-first': yield children before their parent directory (post-order).
  */
 export type TWalkOrder = 'breadth-first' | 'depth-first' | 'children-first';
@@ -111,7 +112,7 @@ function getDevInoKey(statObj: Stats): string {
   return String(statObj.dev) + ':' + String(statObj.ino);
 }
 
-async function* walkChildrenFirst(
+async function* walkNested(
   dirPath: string,
   currentDepth: number,
   depthLimit: number,
@@ -123,6 +124,7 @@ async function* walkChildrenFirst(
   opendirFn: TOpendir,
   statFn: TStat,
   lstatFn: TStat,
+  preOrder: boolean,
 ): AsyncGenerator<IWalkEntry, void, unknown> {
   let dirStream: Dir;
   try {
@@ -196,6 +198,7 @@ async function* walkChildrenFirst(
       }
     }
 
+    let descendVisited: Set<string> | undefined;
     if (isDirectory && currentDepth < depthLimit) {
       let isCycle = false;
       const nextVisited = new Set(visitedDevIno);
@@ -215,20 +218,25 @@ async function* walkChildrenFirst(
       }
 
       if (!isCycle) {
-        yield* walkChildrenFirst(
-          entryPath,
-          currentDepth + 1,
-          depthLimit,
-          followSymlinks,
-          onError,
-          needStats,
-          filter,
-          nextVisited,
-          opendirFn,
-          statFn,
-          lstatFn,
-        );
+        descendVisited = nextVisited;
       }
+    }
+
+    if (!preOrder && descendVisited) {
+      yield* walkNested(
+        entryPath,
+        currentDepth + 1,
+        depthLimit,
+        followSymlinks,
+        onError,
+        needStats,
+        filter,
+        descendVisited,
+        opendirFn,
+        statFn,
+        lstatFn,
+        preOrder,
+      );
     }
 
     let entryStats: Stats | undefined;
@@ -251,6 +259,23 @@ async function* walkChildrenFirst(
       dirent: d,
       stats: entryStats,
     };
+
+    if (preOrder && descendVisited) {
+      yield* walkNested(
+        entryPath,
+        currentDepth + 1,
+        depthLimit,
+        followSymlinks,
+        onError,
+        needStats,
+        filter,
+        descendVisited,
+        opendirFn,
+        statFn,
+        lstatFn,
+        preOrder,
+      );
+    }
   }
 
   if (hasDrainError && onError === 'yield') {
@@ -258,7 +283,7 @@ async function* walkChildrenFirst(
   }
 }
 
-function* walkSyncChildrenFirst(
+function* walkSyncNested(
   dirPath: string,
   currentDepth: number,
   depthLimit: number,
@@ -270,6 +295,7 @@ function* walkSyncChildrenFirst(
   opendirSyncFn: TOpendirSync,
   statSyncFn: TStatSync,
   lstatSyncFn: TStatSync,
+  preOrder: boolean,
 ): Generator<IWalkEntry, void, unknown> {
   let dirHandle: Dir;
   try {
@@ -345,6 +371,7 @@ function* walkSyncChildrenFirst(
       }
     }
 
+    let descendVisited: Set<string> | undefined;
     if (isDirectory && currentDepth < depthLimit) {
       let isCycle = false;
       const nextVisited = new Set(visitedDevIno);
@@ -364,20 +391,25 @@ function* walkSyncChildrenFirst(
       }
 
       if (!isCycle) {
-        yield* walkSyncChildrenFirst(
-          entryPath,
-          currentDepth + 1,
-          depthLimit,
-          followSymlinks,
-          onError,
-          needStats,
-          filter,
-          nextVisited,
-          opendirSyncFn,
-          statSyncFn,
-          lstatSyncFn,
-        );
+        descendVisited = nextVisited;
       }
+    }
+
+    if (!preOrder && descendVisited) {
+      yield* walkSyncNested(
+        entryPath,
+        currentDepth + 1,
+        depthLimit,
+        followSymlinks,
+        onError,
+        needStats,
+        filter,
+        descendVisited,
+        opendirSyncFn,
+        statSyncFn,
+        lstatSyncFn,
+        preOrder,
+      );
     }
 
     let entryStats: Stats | undefined;
@@ -400,6 +432,23 @@ function* walkSyncChildrenFirst(
       dirent: d,
       stats: entryStats,
     };
+
+    if (preOrder && descendVisited) {
+      yield* walkSyncNested(
+        entryPath,
+        currentDepth + 1,
+        depthLimit,
+        followSymlinks,
+        onError,
+        needStats,
+        filter,
+        descendVisited,
+        opendirSyncFn,
+        statSyncFn,
+        lstatSyncFn,
+        preOrder,
+      );
+    }
   }
 
   if (hasDrainError && onError === 'yield') {
@@ -442,8 +491,8 @@ export async function* walk(dir: string, options?: IWalkOptions): AsyncGenerator
     }
   }
 
-  if (order === 'children-first') {
-    yield* walkChildrenFirst(
+  if (order === 'children-first' || order === 'depth-first') {
+    yield* walkNested(
       dir,
       0,
       depthLimit,
@@ -455,6 +504,7 @@ export async function* walk(dir: string, options?: IWalkOptions): AsyncGenerator
       opendirFn,
       statFn,
       lstatFn,
+      order === 'depth-first',
     );
     return;
   }
@@ -462,7 +512,7 @@ export async function* walk(dir: string, options?: IWalkOptions): AsyncGenerator
   const queue: IQueueItem[] = [{ dirPath: dir, currentDepth: 0, visitedDevIno: initialVisited }];
 
   while (queue.length > 0) {
-    const item = order === 'breadth-first' ? queue.shift()! : queue.pop()!;
+    const item = queue.shift()!;
     const { dirPath, currentDepth, visitedDevIno } = item;
 
     let dirStream: Dir;
@@ -597,15 +647,8 @@ export async function* walk(dir: string, options?: IWalkOptions): AsyncGenerator
       yield { path: dirPath, error: drainError };
     }
 
-    if (order === 'breadth-first') {
-      for (const nextItem of nextQueueItems) {
-        queue.push(nextItem);
-      }
-    } else {
-      // a stack pops in reverse, so the children go on back to front to keep the on-disk order
-      for (let i = nextQueueItems.length - 1; i >= 0; i--) {
-        queue.push(nextQueueItems[i]);
-      }
+    for (const nextItem of nextQueueItems) {
+      queue.push(nextItem);
     }
   }
 }
@@ -645,8 +688,8 @@ export function* walkSync(dir: string, options?: IWalkSyncOptions): Generator<IW
     }
   }
 
-  if (order === 'children-first') {
-    yield* walkSyncChildrenFirst(
+  if (order === 'children-first' || order === 'depth-first') {
+    yield* walkSyncNested(
       dir,
       0,
       depthLimit,
@@ -658,6 +701,7 @@ export function* walkSync(dir: string, options?: IWalkSyncOptions): Generator<IW
       opendirSyncFn,
       statSyncFn,
       lstatSyncFn,
+      order === 'depth-first',
     );
     return;
   }
@@ -665,7 +709,7 @@ export function* walkSync(dir: string, options?: IWalkSyncOptions): Generator<IW
   const queue: IQueueItem[] = [{ dirPath: dir, currentDepth: 0, visitedDevIno: initialVisited }];
 
   while (queue.length > 0) {
-    const item = order === 'breadth-first' ? queue.shift()! : queue.pop()!;
+    const item = queue.shift()!;
     const { dirPath, currentDepth, visitedDevIno } = item;
 
     let dirHandle: Dir;
@@ -802,15 +846,8 @@ export function* walkSync(dir: string, options?: IWalkSyncOptions): Generator<IW
       yield { path: dirPath, error: drainError };
     }
 
-    if (order === 'breadth-first') {
-      for (const nextItem of nextQueueItems) {
-        queue.push(nextItem);
-      }
-    } else {
-      // a stack pops in reverse, so the children go on back to front to keep the on-disk order
-      for (let i = nextQueueItems.length - 1; i >= 0; i--) {
-        queue.push(nextQueueItems[i]);
-      }
+    for (const nextItem of nextQueueItems) {
+      queue.push(nextItem);
     }
   }
 }

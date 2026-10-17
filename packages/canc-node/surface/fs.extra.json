@@ -26,6 +26,27 @@
       "notes": "cancelable recursive copy with progress reporting and filter predicate"
     },
     {
+      "name": "copySync",
+      "kind": "fn",
+      "cancelCategory": null,
+      "callPath": null,
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "failures": ["ENOENT", "EACCES", "EEXIST", "ENOSPC", "EXDEV"],
+      "minMajor": null,
+      "gate": null,
+      "runtime": {
+        "deno": "ok",
+        "bun": "ok"
+      },
+      "notes": "synchronously copies a file or directory tree with filter and overwrite options"
+    },
+    {
       "name": "emptyDir",
       "kind": "fn",
       "cancelCategory": "A",

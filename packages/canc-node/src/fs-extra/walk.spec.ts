@@ -1,7 +1,7 @@
 import type { Dir } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 
 import { getFs, resetFs, setFs } from '../fs/registry';
 import { IWalkEntry, walk, walkSync } from './walk';
@@ -126,6 +126,69 @@ describe('walk and walkSync', () => {
     expect(cfIdxFileSubA).toBeLessThan(cfIdxSubA);
     expect(cfIdxSubA).toBeLessThan(cfIdxA);
     expect(cfIdxFileA).toBeLessThan(cfIdxA);
+  });
+
+  describe('depth-first is pre-order', () => {
+    // sibling order follows the file system, so assert subtree contiguity only
+    function expectPreOrder(paths: string[], dirs: string[]) {
+      for (const d of dirs) {
+        const at = paths.indexOf(d);
+        expect(at).toBeGreaterThanOrEqual(0);
+        const subtree = paths.filter((p) => p.startsWith(d + sep));
+        expect(paths.slice(at + 1, at + 1 + subtree.length).sort()).toEqual(subtree.sort());
+      }
+    }
+
+    const dirs = [join(root, 'a'), join(root, 'a', 'subA'), join(root, 'b')];
+
+    it('walk yields each directory followed directly by its whole subtree', async () => {
+      const paths: string[] = [];
+      for await (const entry of walk(root, { order: 'depth-first' })) {
+        paths.push(entry.path);
+      }
+      expect(paths).toHaveLength(7);
+      expectPreOrder(paths, dirs);
+    });
+
+    it('walkSync yields the same pre-order sequence as walk', async () => {
+      const asyncPaths: string[] = [];
+      for await (const entry of walk(root, { order: 'depth-first' })) {
+        asyncPaths.push(entry.path);
+      }
+      const syncPaths = [...walkSync(root, { order: 'depth-first' })].map((entry) => entry.path);
+      expect(syncPaths).toHaveLength(7);
+      expectPreOrder(syncPaths, dirs);
+      expect(syncPaths).toEqual(asyncPaths);
+    });
+
+    it('a chain of single-child directories gives the exact klaw list', async () => {
+      const chain = await fs.mkdtemp(join(tmpdir(), 'walk-chain-'));
+      try {
+        await fs.mkdir(join(chain, 'd1', 'd2'), { recursive: true });
+        await fs.writeFile(join(chain, 'd1', 'd2', 'leaf.txt'), 'x');
+        const expected = [join(chain, 'd1'), join(chain, 'd1', 'd2'), join(chain, 'd1', 'd2', 'leaf.txt')];
+        const asyncPaths: string[] = [];
+        for await (const entry of walk(chain, { order: 'depth-first' })) {
+          asyncPaths.push(entry.path);
+        }
+        expect(asyncPaths).toEqual(expected);
+        expect([...walkSync(chain, { order: 'depth-first' })].map((entry) => entry.path)).toEqual(expected);
+      } finally {
+        await fs.rm(chain, { recursive: true, force: true });
+      }
+    });
+
+    it('depth limit and filter prune the subtree in pre-order too', () => {
+      const limited = [...walkSync(root, { order: 'depth-first', depth: 0 })].map((entry) => entry.path);
+      expect(limited.sort()).toEqual([join(root, 'a'), join(root, 'b'), join(root, 'file1.txt')].sort());
+      const pruned = [
+        ...walkSync(root, {
+          order: 'depth-first',
+          filter: (e) => e.dirent?.name !== 'a',
+        }),
+      ].map((entry) => entry.path);
+      expect(pruned.sort()).toEqual([join(root, 'b'), join(root, 'b', 'fileB.txt'), join(root, 'file1.txt')].sort());
+    });
   });
 
   it('filter pruning: pruned directory was never opened via injected fs', async () => {
