@@ -79,7 +79,7 @@ new (): MessagePort
 ## `TLockBody<T>` (type)
 
 ```text
-(lock: ILock | null): PromiseLike<T> | T
+(lock: ILock | null, signal: AbortSignal): PromiseLike<T> | T
 ```
 
 ## `TLockMode` (type)

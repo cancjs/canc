@@ -761,7 +761,9 @@ A `Worker` has exactly one terminal event, `exit`, so it carries a lazy `promise
 
 `terminate()` stops a thread at whatever point it happens to be at. There is no `finally`, no flush, no unload hook: a thread mid-write when terminated leaves that write unfinished. `runTask` therefore posts a stop message and gives the worker `gracePeriod` (5000ms by default) to exit on its own before falling back to `terminate()`, so a cooperating worker gets to clean up first. Pass `{ terminate: 'immediate' }` for a worker that does not cooperate, which skips the grace period and terminates right away.
 
-`requestLock` wraps `worker_threads.locks.request` (Node 24.5.0+). Canceling while waiting for the lock aborts the acquisition; canceling while holding it cancels the running body and then releases the lock, and the release itself cannot be interrupted by the same cancel.
+`requestLock` wraps `worker_threads.locks.request` (Node 24.5.0+). The body receives the lock and an `AbortSignal`. Canceling while waiting for the lock aborts the acquisition. Canceling while holding it rejects the promise with `CancelError` right away and aborts the body's signal (and cancels the body's result when that is a `CancelablePromise`), but the lock is released only when the body's own result settles. A body that ignores the signal therefore never overlaps the next holder; it just keeps the lock until it finishes.
+
+A holder whose lock is taken by a `steal: true` request rejects with `CancelError`, with node's `AbortError` as its `cause`, and its body's signal aborts the same way.
 
 ### dgram
 
