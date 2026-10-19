@@ -767,7 +767,7 @@ A holder whose lock is taken by a `steal: true` request rejects with `CancelErro
 
 ### dgram
 
-`send` resolves once the datagram is handed to the kernel. **A sent datagram cannot be recalled**, so canceling after that point is a no-op; canceling before the underlying `socket.send` call runs prevents it from being sent at all. `bind` and `connect` are cancelable up to the point they complete: canceling either closes the socket, which frees the port. `dgram.Socket` has no `promise` property, because it has two terminal events (`listening` and `close`) rather than one.
+`send` resolves once the datagram is handed to the kernel. **A sent datagram cannot be recalled**: canceling stops waiting for that result, but a datagram already passed to `socket.send` is still delivered. A string message is sent as its UTF-8 bytes. `bind` and `connect` are cancelable up to the point they complete: canceling either closes the socket, which frees the port. A failed `connect`, such as an unresolvable host, rejects with node's error and leaves the socket unconnected. `dgram.Socket` has no `promise` property, because it has two terminal events (`listening` and `close`) rather than one.
 
 ### Planned subpaths
 

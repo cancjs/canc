@@ -30,7 +30,7 @@ describe('dgram', () => {
       }
     });
 
-    it('cancel before syscall prevents send', async () => {
+    it('sizes a string by its UTF-8 bytes, so a multibyte message arrives intact', async () => {
       const receiver = nodeCreateSocket('udp4');
       const sender = nodeCreateSocket('udp4');
 
@@ -41,26 +41,47 @@ describe('dgram', () => {
           receiver.bind(0);
         });
 
-        const receiverAddr = receiver.address();
-        const receiverPort = receiverAddr.port;
+        const received = new Promise<Buffer>((resolve) => {
+          receiver.once('message', (msg) => resolve(msg));
+        });
 
-        const msg = Buffer.from('test message');
-        const promise = send(sender, msg, receiverPort, 'localhost');
+        const text = 'Привет';
+        const bytes = await send(sender, text, receiver.address().port, 'localhost');
 
-        // Cancel immediately
-        promise.cancel();
-
-        // The promise should reject with CancelError
-        const err = await promise.catch((e) => e);
-        expect(isCancelError(err)).toBe(true);
+        expect(bytes).toBe(Buffer.byteLength(text));
+        expect((await received).equals(Buffer.from(text, 'utf8'))).toBe(true);
       } finally {
         sender.close();
         receiver.close();
       }
     });
 
-    it('has JSDoc stating sent datagram cannot be recalled', () => {
-      expect(typeof send).toBe('function');
+    it('cancel() after send() stops waiting, but the datagram is still delivered', async () => {
+      const receiver = nodeCreateSocket('udp4');
+      const sender = nodeCreateSocket('udp4');
+
+      try {
+        await new Promise<void>((resolve, reject) => {
+          receiver.on('listening', resolve);
+          receiver.on('error', reject);
+          receiver.bind(0);
+        });
+
+        const received = new Promise<Buffer>((resolve) => {
+          receiver.once('message', (msg) => resolve(msg));
+        });
+
+        const msg = Buffer.from('cancel-me');
+        const promise = send(sender, msg, receiver.address().port, 'localhost');
+        promise.cancel();
+
+        const err = await promise.catch((e) => e);
+        expect(isCancelError(err)).toBe(true);
+        expect((await received).equals(msg)).toBe(true);
+      } finally {
+        sender.close();
+        receiver.close();
+      }
     });
   });
 
@@ -123,6 +144,22 @@ describe('dgram', () => {
       }
     });
 
+    it('leaves no error listener behind once bound, so a later socket error reaches the caller', async () => {
+      const socket = createSocket('udp4');
+      try {
+        await bind(socket, 0);
+        expect(socket.listenerCount('error')).toBe(0);
+
+        const seen = new Promise<Error>((resolve) => socket.once('error', resolve));
+        const later = new Error('later socket failure');
+        socket.emit('error', later);
+
+        expect(await seen).toBe(later);
+      } finally {
+        socket.close();
+      }
+    });
+
     it('cancel before bind completes closes socket', async () => {
       const socket = createSocket('udp4');
       const promise = bind(socket, 0);
@@ -153,6 +190,16 @@ describe('dgram', () => {
       } finally {
         client.close();
         listener.close();
+      }
+    });
+
+    it('rejects with the lookup error for an unresolvable host and leaves the socket unconnected', async () => {
+      const client = createSocket('udp4');
+      try {
+        await expect(connect(client, 53, 'no-such-host.invalid')).rejects.toMatchObject({ code: 'ENOTFOUND' });
+        expect(() => client.remoteAddress()).toThrow();
+      } finally {
+        client.close();
       }
     });
 
@@ -200,7 +247,7 @@ describe('dgram', () => {
   });
 
   describe('Socket class', () => {
-    it('does not have a promise property (class 2 rule)', () => {
+    it('has no promise property (it has two terminal events, listening and close)', () => {
       const socket = nodeCreateSocket('udp4');
       try {
         expect((socket as any).promise).toBeUndefined();

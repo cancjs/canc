@@ -48,8 +48,8 @@ extends Abortable
 ## `createSocket` (function)
 
 ```text
-(type: SocketType, callback?: ((msg: Buffer<ArrayBufferLike>, rinfo: any) => void) | undefined): Socket
-(options: any, callback?: ((msg: Buffer<ArrayBufferLike>, rinfo: any) => void) | undefined): Socket
+(type: SocketType, callback?: ((msg: Buffer<ArrayBufferLike>, rinfo: RemoteInfo) => void) | undefined): Socket
+(options: SocketOptions, callback?: ((msg: Buffer<ArrayBufferLike>, rinfo: RemoteInfo) => void) | undefined): Socket
 ```
 
 ## `nodeCreateSocket` (function)
