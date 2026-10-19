@@ -13,11 +13,11 @@ Class method decorators for cancelable coroutines.
 
 ## Introduction
 
-`@AsyncMethod` and `@BindMethod` wrap a class member with `cancAsync` from
+`@AsyncMethod` wraps a class member with `cancAsync` from
 [`@cancjs/coroutine`](https://github.com/cancjs/canc/tree/master/packages/canc-coroutine), so
 calling the member returns a
 [`CancelablePromise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) instead
-of a generator.
+of a generator. `@BindMethod` binds the member to its instance and does not wrap it with `cancAsync`.
 
 The same two decorators ship in three dialects, one per decorator syntax a toolchain can speak:
 the standard decorators, the TypeScript legacy ones, and the Babel legacy ones. The behavior is
@@ -233,12 +233,6 @@ Getter style sidesteps it. A getter's return type is inferred from its body, so 
 `cancAsync(...)` flows through to the property and the call site gets
 `CancelablePromise<T>` with no cast.
 
-One boundary can still need a cast. A generator body's inferred value type does not always match
-a separate interface that declares plain `Promise`-returning methods. When a decorated class has
-to satisfy such an interface, the assignment needs a cast at class level, even though every call
-runs the real coroutine and returns the right value at runtime. Calling `cancAsync` by hand with
-no decorator hits exactly the same boundary.
-
 ### Getter semantics
 
 A decorated getter is expected to return an already built coroutine, the result of
@@ -293,9 +287,16 @@ class IssueClient {
 | Subclass overrides with its own decorator              | An independent wrap, see the `super` notes above                                                                                                   |
 | Same member decorated at several levels through mixins | Last applied wins, standard prototype semantics                                                                                                    |
 
+### Async generator methods
+
+Async generator methods (`async *m()`) are not supported under `@AsyncMethod`. Once the coroutine
+guard ships, calling one rejects with an error instead of hanging. Under `@BindMethod` the method is
+a plain bound async generator method. For a cancelable async generator use `cancGenAsync` from
+`@cancjs/coroutine/gen`.
+
 ### Declared failures
 
-Decorated coroutine methods preserve the declared failure types of the underlying generator function. Using getter style with `cancAsync` exposes the exact `CancelablePromise<T, F>` return type to callers, preserving type safety for failure handling across decorated class members. See [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) for details on declared failures.
+Decorated coroutine methods preserve the declared failure types of the underlying generator function. Using getter style with `cancAsync` exposes the exact `CancelablePromise<T, F>` return type to callers, preserving type safety for failure handling across decorated class members. The failure parameter in `CancelablePromise<T, F>` needs `@cancjs/promise` and `@cancjs/coroutine` 1.1 or later for its types. Older versions still run, but the failure type is not available. See [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) for details on declared failures.
 
 ## API
 
