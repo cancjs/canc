@@ -36,6 +36,19 @@ describe('Worker', () => {
     expect(typeof worker.threadId).toBe('number');
   });
 
+  it('keeps a subclass on the instance, so class X extends Worker instances are X', () => {
+    class Sub extends Worker {
+      readonly tag = 'sub';
+    }
+
+    const worker = track(new Sub(forever, { eval: true }) as unknown as NodeWorker & { tag: string });
+
+    expect(worker).toBeInstanceOf(Sub);
+    expect(worker).toBeInstanceOf(NodeWorker);
+    expect(worker.tag).toBe('sub');
+    expect(typeof (worker as unknown as { promise: unknown }).promise).toBe('object');
+  });
+
   it('creates the promise only when it is asked for, and only once', () => {
     const worker = track(new Worker(forever, { eval: true }));
 

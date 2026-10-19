@@ -14,9 +14,10 @@ const NodeResolver = nodeDnsPromises.Resolver;
 /**
  * A DNS resolver whose queries return cancelable promises.
  *
- * Canceling a query calls node's `cancel`, which stops every query outstanding on the resolver
- * rather than the one being canceled, so sibling queries reject as well. Node has no per-query
- * cancel, and one resolver per query is the only way to isolate them.
+ * Each query runs on a private node resolver that shares this one's servers and local address.
+ * Node's `cancel` is per resolver, so this is the only way to stop one query without rejecting its
+ * siblings: canceling a query leaves every other query on this resolver running. Calling `cancel()`
+ * on the resolver itself still stops all of its outstanding queries.
  */
 export interface ICancelableResolver {
   /** Cancel every outstanding query on this resolver. */
@@ -62,10 +63,53 @@ function CancelableResolver(this: unknown, options?: ResolverOptions): unknown {
   return Reflect.construct(NodeResolver, [options], new.target ?? CancelableResolver);
 }
 
+type TNodeResolver = InstanceType<typeof NodeResolver>;
+
+/** Local address each owner was given, kept because node offers no getter to read it back. */
+const localAddresses = new WeakMap<object, [string | undefined, string | undefined]>();
+
+/** Private resolvers each owner has in flight, so the owner's own `cancel()` still reaches them. */
+const inFlight = new WeakMap<object, Set<TNodeResolver>>();
+
+function inFlightFor(owner: object): Set<TNodeResolver> {
+  let queries = inFlight.get(owner);
+  if (!queries) {
+    queries = new Set<TNodeResolver>();
+    inFlight.set(owner, queries);
+  }
+  return queries;
+}
+
+/** A fresh node resolver answering the way `owner` is configured to. */
+function privateResolverFor(owner: ICancelableResolver): TNodeResolver {
+  const query = new NodeResolver();
+  query.setServers(owner.getServers());
+
+  const local = localAddresses.get(owner);
+  if (local) {
+    query.setLocalAddress(local[0], local[1]);
+  }
+  return query;
+}
+
 const proto = Object.create(NodeResolver.prototype) as Record<string, unknown>;
 
 CancelableResolver.prototype = proto;
 proto.constructor = CancelableResolver;
+
+proto.cancel = function cancelAll(this: ICancelableResolver): void {
+  const queries = inFlightFor(this);
+  for (const query of [...queries]) {
+    query.cancel();
+  }
+  queries.clear();
+  NodeResolver.prototype.cancel.call(this);
+};
+
+proto.setLocalAddress = function setLocalAddress(this: ICancelableResolver, ipv4?: string, ipv6?: string): void {
+  localAddresses.set(this, [ipv4, ipv6]);
+  NodeResolver.prototype.setLocalAddress.call(this, ipv4, ipv6);
+};
 
 /**
  * Wrap one inherited query method so it answers with a cancelable promise.
@@ -79,13 +123,23 @@ function stoppable(
 
   return function stoppableCall(this: ICancelableResolver, ...args: unknown[]): CancelablePromise<unknown, Unlisted> {
     return new CancelablePromise((resolve, _reject, { handleCancel }) => {
-      // node's cancel is per resolver, not per query, so this rejects the resolver's other queries
-      // too; deferring it until they finish would leave this one running, which is worse
+      // one private resolver per query, so canceling this one stops only its own retries
+      const query = privateResolverFor(this);
+      const queries = inFlightFor(this);
+      queries.add(query);
+
+      const finished = () => {
+        queries.delete(query);
+      };
+
       handleCancel(() => {
-        this.cancel();
+        finished();
+        query.cancel();
       });
 
-      resolve(nodeMethod.apply(this, args));
+      const answer = (nodeMethod as unknown as (...a: unknown[]) => Promise<unknown>).apply(query, args);
+      answer.then(finished, finished);
+      resolve(answer);
     });
   };
 }

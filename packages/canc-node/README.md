@@ -650,9 +650,9 @@ One failure that node reports ambiguously gets a typed error: `ProcessSpawnError
 
 #### Cancellation
 
-Canceling sends `killSignal`, defaulting to `SIGTERM`, which is what node's own `signal` option sends on abort. Awaiting `cancel()` waits for the child to exit, under an upper bound of 5 seconds (5000ms) so that a cancel cannot hang. There is no escalation and no process tree handling. A child that ignores `SIGTERM` keeps running, and the caller decides what to do about it.
+Canceling sends `killSignal`, defaulting to `SIGTERM`, which is what node's own `signal` option sends on abort. Awaiting `cancel()` waits for the child to close (exit, and its stdio streams to end), under an upper bound of 5 seconds (5000ms) so that a cancel cannot hang. There is no escalation and no process tree handling. A child that ignores `SIGTERM` keeps running, and the caller decides what to do about it.
 
-For `exec`, `execFile` when given a shell option, and `spawn` with `{ shell: true }`, the promise rejecting does not mean the command stopped. The process being signaled is the shell the function inserted, not the command. `spawn` and `fork` without a shell are unaffected. A caller who needs the command itself stopped should run without a shell, or have the command handle its own termination.
+For `exec`, `execFile` when given a shell option, and `spawn` with `{ shell: true }`, the promise rejecting does not mean the command stopped. The process being signaled is the shell the function inserted, not the command. `spawn` and `fork` without a shell are unaffected. A caller who needs the command itself stopped should run without a shell, or have the command handle its own termination. Because the command may keep the output pipes open after the shell dies, cancel destroys the child's stdio streams right after the kill, so the parent's event loop is released.
 
 ```ts
 const child = spawn("npm", ["test"]);
@@ -728,7 +728,7 @@ emitter.emit("ready", 41);
 
 Canceling a module-level lookup such as `resolve4` only stops waiting for the result. Node gives no way to interrupt the query itself, so it keeps running in the background and the answer is discarded when it arrives.
 
-A `Resolver` instance is different: canceling one of its queries is real, but the underlying cancel is scoped to the whole resolver, not the single query. It stops every query currently in flight on that resolver, not just the one that was canceled.
+A `Resolver` instance is different: canceling one of its queries is real, and it stops only that query. Each query runs on its own node resolver that shares the instance's servers and local address, so its siblings keep running. Calling `cancel()` on the `Resolver` instance itself stops every query currently in flight on it.
 
 `resolveTlsa` needs Node 22 or later and is not available on Deno or Bun.
 

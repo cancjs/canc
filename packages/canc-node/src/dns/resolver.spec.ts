@@ -197,7 +197,7 @@ describe('@cancjs/node/dns Resolver', () => {
     }
   });
 
-  it('rejects the sibling queries too, because node cancels per resolver', async () => {
+  it('keeps a sibling query running when one is canceled, because each query has its own resolver', async () => {
     const server = await startBlackHole();
     const resolver = new Resolver(BLACK_HOLE_OPTIONS);
     pointAt(resolver, server.port);
@@ -214,13 +214,39 @@ describe('@cancjs/node/dns Resolver', () => {
 
       expect(isCancelError(await within(firstSettled, 5000))).toBe(true);
 
-      // not a bug being asserted: node has no per-query cancel, and this is what callers will see
-      const siblingError = (await within(secondSettled, 5000)) as NodeJS.ErrnoException;
-      expect(siblingError).not.toBe(STILL_PENDING);
-      expect(isCancelError(siblingError)).toBe(false);
-      expect(siblingError.code).toBe('ECANCELLED');
+      // the sibling keeps retrying: wait for more traffic, then confirm it has not settled
+      const seenAtCancel = server.count();
+      await waitFor(() => server.count() >= seenAtCancel + 2, 'the sibling to keep retrying');
+      expect(await within(secondSettled, 200)).toBe(STILL_PENDING);
     } finally {
       resolver.cancel();
+      await Promise.all([firstSettled, secondSettled]);
+      await server.close();
+    }
+  });
+
+  it('stops every outstanding query when the resolver itself is canceled', async () => {
+    const server = await startBlackHole();
+    const resolver = new Resolver(BLACK_HOLE_OPTIONS);
+    pointAt(resolver, server.port);
+
+    const first = resolver.resolve4('first.example.test');
+    const second = resolver.resolve4('second.example.test');
+    const firstSettled = settle(first);
+    const secondSettled = settle(second);
+
+    try {
+      await waitFor(() => server.count() >= 2, 'both queries to be sent');
+
+      resolver.cancel();
+
+      const firstError = (await within(firstSettled, 5000)) as NodeJS.ErrnoException;
+      const secondError = (await within(secondSettled, 5000)) as NodeJS.ErrnoException;
+      expect(firstError).not.toBe(STILL_PENDING);
+      expect(secondError).not.toBe(STILL_PENDING);
+      expect(firstError.code).toBe('ECANCELLED');
+      expect(secondError.code).toBe('ECANCELLED');
+    } finally {
       await Promise.all([firstSettled, secondSettled]);
       await server.close();
     }

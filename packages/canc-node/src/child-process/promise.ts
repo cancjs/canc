@@ -8,11 +8,16 @@ import type { Unlisted } from '../../../_util';
 const EXIT_WAIT_MS = 5000;
 
 /**
- * Sends the termination signal node would send on abort and waits for the child to exit.
+ * Sends the termination signal node would send on abort and waits for the child to close.
+ *
+ * Waits for `close` rather than `exit`: `close` also waits for the stdio streams, so it is the event
+ * after which the child is fully gone. The stdio streams are destroyed right after the kill, because
+ * on Windows `exec` runs the command under `cmd.exe`, which dies while the command it started keeps
+ * the pipes open. Without this, `close` never fires and the parent's event loop stays pinned.
  *
  * @param child The child process to terminate.
  * @param killSignal The signal to send, defaulting to `SIGTERM`.
- * @returns A promise settling once the child has exited, or once the wait times out.
+ * @returns A promise settling once the child has closed, or once the wait times out.
  */
 export function killAndWaitForExit(child: ChildProcess, killSignal?: NodeJS.Signals | number): Promise<void> {
   if (child.exitCode !== null || child.signalCode !== null) {
@@ -21,13 +26,13 @@ export function killAndWaitForExit(child: ChildProcess, killSignal?: NodeJS.Sign
 
   // nothing here is cancelable, so a vanilla promise is the right primitive
   return new Promise<void>((resolve) => {
-    const onExit = () => {
+    const onClose = () => {
       clearTimeout(timer);
       resolve();
     };
 
     const timer = setTimeout(() => {
-      child.removeListener('exit', onExit);
+      child.removeListener('close', onClose);
       resolve();
     }, EXIT_WAIT_MS);
 
@@ -35,16 +40,21 @@ export function killAndWaitForExit(child: ChildProcess, killSignal?: NodeJS.Sign
       timer.unref();
     }
 
-    child.once('exit', onExit);
+    child.once('close', onClose);
 
     try {
       child.kill(killSignal ?? 'SIGTERM');
     } catch {
       // a child that is already gone is in the state the caller asked for
-      child.removeListener('exit', onExit);
+      child.removeListener('close', onClose);
       clearTimeout(timer);
       resolve();
+      return;
     }
+
+    child.stdin?.destroy();
+    child.stdout?.destroy();
+    child.stderr?.destroy();
   });
 }
 

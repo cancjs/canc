@@ -201,7 +201,7 @@ describe('@cancjs/node/zlib', () => {
       error = err;
     }
     expect(isNotImplementedError(error)).toBe(true);
-    expect((error as { required?: string }).required).toBe('26');
+    expect((error as { required?: string }).required).toBe('26.8.0');
   });
 
   it('crc32 computes a checksum on 22+, throws NotImplementedError naming 22 below that', () => {

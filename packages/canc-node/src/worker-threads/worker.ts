@@ -79,9 +79,10 @@ function createWorkerPromise(
 }
 
 // node's Worker is an ES class and this package emits ES5, where `extends` becomes a
-// `_super.call(this)` an ES class rejects, so the real worker is constructed and returned instead
+// `_super.call(this)` an ES class rejects, so the real worker is constructed and returned instead.
+// `Reflect.construct` with `new.target` keeps a caller's subclass on the instance's prototype chain.
 function CancelableWorker(filename: string | URL, options?: WorkerOptions): IWorkerWithPromise {
-  const worker = new NodeWorker(filename, options);
+  const worker = Reflect.construct(NodeWorker, [filename, options], new.target ?? CancelableWorker) as NodeWorker;
   const sink = attachWorkerRecorder(worker);
   defineWorkerPromise(worker, () => createWorkerPromise(worker, sink));
 

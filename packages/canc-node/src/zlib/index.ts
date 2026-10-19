@@ -115,7 +115,7 @@ export const unzip = promisifyWrapped(zlibCb.unzip) as TZlibBufferFn;
 export const zstdCompress = gatedWrapped(
   has('zstdCompress'),
   'zstdCompress',
-  '22',
+  '22.15.0',
   () => promisifyWrapped(zlibCb.zstdCompress),
   'promise',
 ) as TZstdBufferFn;
@@ -130,7 +130,7 @@ export const zstdCompress = gatedWrapped(
 export const zstdDecompress = gatedWrapped(
   has('zstdDecompress'),
   'zstdDecompress',
-  '22',
+  '22.15.0',
   () => promisifyWrapped(zlibCb.zstdDecompress),
   'promise',
 ) as TZstdBufferFn;
@@ -158,7 +158,7 @@ export const crc32 = gatedWrapped(
 export const zstdCompressSync = gatedWrapped(
   has('zstdCompressSync'),
   'zstdCompressSync',
-  '22',
+  '22.15.0',
   () => zlibCb.zstdCompressSync as (data: unknown, options?: TZstdOptions) => Buffer,
   'sync',
 ) as (data: unknown, options?: TZstdOptions) => Buffer;
@@ -172,7 +172,7 @@ export const zstdCompressSync = gatedWrapped(
 export const zstdDecompressSync = gatedWrapped(
   has('zstdDecompressSync'),
   'zstdDecompressSync',
-  '22',
+  '22.15.0',
   () => zlibCb.zstdDecompressSync as (data: unknown, options?: TZstdOptions) => Buffer,
   'sync',
 ) as (data: unknown, options?: TZstdOptions) => Buffer;
@@ -187,7 +187,7 @@ export const zstdDecompressSync = gatedWrapped(
 export const createZstdCompress = gatedWrapped(
   has('createZstdCompress'),
   'createZstdCompress',
-  '22',
+  '22.15.0',
   () => zlibCb.createZstdCompress as (options?: TZstdOptions) => Transform,
   'sync',
 ) as (options?: TZstdOptions) => Transform;
@@ -202,7 +202,7 @@ export const createZstdCompress = gatedWrapped(
 export const createZstdDecompress = gatedWrapped(
   has('createZstdDecompress'),
   'createZstdDecompress',
-  '22',
+  '22.15.0',
   () => zlibCb.createZstdDecompress as (options?: TZstdOptions) => Transform,
   'sync',
 ) as (options?: TZstdOptions) => Transform;
@@ -214,7 +214,7 @@ export const createZstdDecompress = gatedWrapped(
 export const ZstdCompress = gatedClassWrapped(
   has('ZstdCompress'),
   'ZstdCompress',
-  '22',
+  '22.15.0',
   () => zlibCb.ZstdCompress as unknown as new (options?: TZstdOptions) => Transform,
 );
 
@@ -225,7 +225,7 @@ export const ZstdCompress = gatedClassWrapped(
 export const ZstdDecompress = gatedClassWrapped(
   has('ZstdDecompress'),
   'ZstdDecompress',
-  '22',
+  '22.15.0',
   () => zlibCb.ZstdDecompress as unknown as new (options?: TZstdOptions) => Transform,
 );
 
@@ -566,7 +566,7 @@ function zipFilesImpl(
 export const zipFiles = gatedWrapped(
   has('createZipArchive'),
   'zipFiles',
-  '26',
+  '26.8.0',
   () => zipFilesImpl,
   'promise',
 ) as TZipFilesFn;

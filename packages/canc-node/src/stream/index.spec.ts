@@ -1,3 +1,5 @@
+import { ReadableStream, WritableStream } from 'node:stream/web';
+
 import { isCancelError } from '@cancjs/promise';
 
 import * as streamExports from './index';
@@ -83,6 +85,27 @@ describe('pipeline', () => {
     expect(isCancelError(caught)).toBe(true);
     expect(source.destroyed).toBe(true);
     expect(destination.destroyed).toBe(true);
+  });
+
+  it('takes a web WritableStream in last position as the destination, not as options', async () => {
+    const chunks: Buffer[] = [];
+    const destination = new WritableStream({
+      write(chunk) {
+        chunks.push(Buffer.from(chunk));
+      },
+    });
+    const source = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('web'));
+        controller.enqueue(new TextEncoder().encode('destination'));
+        controller.close();
+      },
+    });
+
+    // node types its pipeline overloads against the DOM-era WritableStream; the runtime takes these web streams as-is
+    await pipeline(source as never, destination as never);
+
+    expect(Buffer.concat(chunks).toString()).toBe('webdestination');
   });
 
   it('destroys every stream in a longer chain, not just the source', async () => {

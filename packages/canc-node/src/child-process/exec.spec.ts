@@ -140,6 +140,24 @@ describe('exec and execFile', () => {
       await expect(promise).rejects.toThrow(CancelError);
     });
 
+    it('resolves the cancel only after close, with the stdio streams destroyed', async () => {
+      const child = track(exec(`${nodeBin} -e "setTimeout(() => {}, 60000)"`));
+      const promise = child.promise;
+
+      let closed = false;
+      child.on('close', () => {
+        closed = true;
+      });
+
+      await once(child, 'spawn');
+      await promise.cancel();
+
+      expect(closed).toBe(true);
+      expect(child.stdout?.destroyed).toBe(true);
+      expect(child.stderr?.destroyed).toBe(true);
+      await expect(promise).rejects.toThrow(CancelError);
+    });
+
     it('leaves the shell command running when the promise is canceled', async () => {
       const cmdStr = JSON.stringify('process.stdout.write(process.pid.toString()); setInterval(() => {}, 60000);');
       const child = track(exec(`${nodeBin} -e ${cmdStr}`));
