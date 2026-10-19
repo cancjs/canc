@@ -84,7 +84,7 @@ describe('@cancjs/node/zlib', () => {
         error = err;
       }
       expect(isNotImplementedError(error)).toBe(true);
-      expect((error as { required?: string }).required).toBe('22');
+      expect((error as { required?: string }).required).toBe('22.15.0');
       return;
     }
 
