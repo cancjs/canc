@@ -20,6 +20,8 @@ export interface IRunTaskOptions extends Omit<WorkerOptions, 'workerData'> {
    * only if the grace period runs out; `immediate` terminates straight away.
    */
   terminate?: TTerminateMode;
+  /** A signal of the caller's own. Its abort cancels the task, same as calling `cancel()`. */
+  signal?: AbortSignal;
 }
 
 // the graceful ladder survives here, where the drop-in child process layer deliberately has none:
@@ -70,45 +72,49 @@ function stopWorker(worker: NodeWorker, mode: TTerminateMode, gracePeriod: numbe
  *
  * Canceling posts `STOP_MESSAGE` to the worker and gives it `gracePeriod` milliseconds to exit on
  * its own before the thread is terminated. A worker that does not read its messages never sees that,
- * so pass `{ terminate: 'immediate' }` for one that cannot cooperate.
+ * so pass `{ terminate: 'immediate' }` for one that cannot cooperate. Aborting `options.signal`
+ * is the same as canceling and rejects `CancelError`.
  *
  * @param script Module path, URL, or source code when `eval` is set.
  * @param workerData Value cloned into the worker.
- * @param options Node's worker options, plus `gracePeriod` and `terminate`.
+ * @param options Node's worker options, plus `gracePeriod`, `terminate` and `signal`.
  */
 export function runTask<TResult = unknown>(
   script: string | URL,
   workerData?: unknown,
   options?: IRunTaskOptions,
 ): CancelablePromise<TResult> {
-  const { gracePeriod = DEFAULT_GRACE_PERIOD, terminate = 'graceful', ...workerOptions } = options ?? {};
+  const { gracePeriod = DEFAULT_GRACE_PERIOD, terminate = 'graceful', signal, ...workerOptions } = options ?? {};
 
-  return new CancelablePromise<TResult>((resolve, reject, { handleCancel }) => {
-    const worker = new NodeWorker(script, { ...workerOptions, workerData });
-    let exited = false;
-    let hasResult = false;
+  return new CancelablePromise<TResult>(
+    (resolve, reject, { handleCancel }) => {
+      const worker = new NodeWorker(script, { ...workerOptions, workerData });
+      let exited = false;
+      let hasResult = false;
 
-    // registered before anything can settle, so a cancel racing the thread start still stops it
-    handleCancel(() => stopWorker(worker, terminate, gracePeriod, exited));
+      // registered before anything can settle, so a cancel racing the thread start still stops it
+      handleCancel(() => stopWorker(worker, terminate, gracePeriod, exited));
 
-    worker.once('message', (result: TResult) => {
-      hasResult = true;
-      resolve(result);
-    });
+      worker.once('message', (result: TResult) => {
+        hasResult = true;
+        resolve(result);
+      });
 
-    worker.on('error', reject);
+      worker.on('error', reject);
 
-    worker.once('exit', (code: number) => {
-      exited = true;
-      if (hasResult) {
-        return;
-      }
-      reject(
-        new ProcessExitError(`Worker exited with code ${code} before posting a result`, {
-          exitCode: code,
-          command: String(script),
-        }),
-      );
-    });
-  });
+      worker.once('exit', (code: number) => {
+        exited = true;
+        if (hasResult) {
+          return;
+        }
+        reject(
+          new ProcessExitError(`Worker exited with code ${code} before posting a result`, {
+            exitCode: code,
+            command: String(script),
+          }),
+        );
+      });
+    },
+    { signal },
+  );
 }

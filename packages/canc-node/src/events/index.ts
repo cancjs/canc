@@ -4,6 +4,7 @@ import { CancelablePromise } from '@cancjs/promise';
 
 import type { Unlisted } from '../../../_util';
 import { features } from '../features';
+import { liftCallerSignal, withCallerSignal } from '../signal';
 
 /**
  * Node's EventEmitter, unchanged. It is the argument type of {@link once} and {@link on}, so it is
@@ -73,21 +74,14 @@ export function once(
   eventName: string | symbol,
   options?: IOnceOptions,
 ): CancelablePromise<any[], Unlisted> {
-  // the caller's signal drives the promise instead of riding along in the options bag, so an abort
-  // and a cancel settle the same way and node is left with exactly one signal to watch
-  const { signal: callerSignal, ...rest } = options ?? {};
+  const call = liftCallerSignal(options);
 
-  return new CancelablePromise<any[], Unlisted>(
-    (resolve, _reject, { getSignal }) => {
-      // node drops its listener on abort as well as on settle, so this adds no listener of its own
-      resolve(
-        nodeEvents.once(emitter as NodeJS.EventEmitter, eventName, {
-          ...rest,
-          signal: getSignal() as unknown as AbortSignal,
-        }),
-      );
-    },
-    { signal: callerSignal },
+  // node drops its listener on abort as well as on settle, so this adds no listener of its own
+  return withCallerSignal<any[]>(call.callerSignal, true, (signal) =>
+    nodeEvents.once(emitter as NodeJS.EventEmitter, eventName, {
+      ...call.options,
+      signal,
+    }),
   );
 }
 
@@ -113,26 +107,44 @@ export function on(
   eventName: string | symbol,
   options?: IOnOptions,
 ): ICancelableEventIterator {
+  const call = liftCallerSignal(options);
+  const callerSignal = call.callerSignal;
+
   // node hands back an async generator, so return and throw are always there, unlike the optional
   // members the async iterator type declares
   const source = nodeEvents.on(
     emitter as NodeJS.EventEmitter,
     eventName,
-    options,
+    call.options,
   ) as unknown as Required<ICancelableEventIterator> & { next(): Promise<IteratorResult<any[], undefined>> };
+
+  // the caller's abort ends the iteration even with no pull pending, the way node's own signal does
+  const stopListening = callerSignal ? onAbort(callerSignal, () => void source.return(undefined)) : noop;
 
   const iterator: ICancelableEventIterator = {
     next(): CancelablePromise<IteratorResult<any[], undefined>, Unlisted> {
-      return new CancelablePromise<IteratorResult<any[], undefined>, Unlisted>((resolve, _reject, { handleCancel }) => {
-        // registered before the pull, so a cancel arriving while it is in flight still ends it
-        handleCancel(() => source.return(undefined));
-        resolve(source.next());
-      });
+      return new CancelablePromise<IteratorResult<any[], undefined>, Unlisted>(
+        (resolve, _reject, { handleCancel }) => {
+          // registered before the pull, so a cancel arriving while it is in flight still ends it
+          handleCancel(() => source.return(undefined));
+          resolve(
+            source.next().then((result) => {
+              if (result.done) {
+                stopListening();
+              }
+              return result;
+            }),
+          );
+        },
+        { signal: callerSignal },
+      );
     },
     return(value?: undefined): Promise<IteratorResult<any[], undefined>> {
+      stopListening();
       return source.return(value);
     },
     throw(error?: unknown): Promise<IteratorResult<any[], undefined>> {
+      stopListening();
       return source.throw(error);
     },
     [Symbol.asyncIterator](): ICancelableEventIterator {
@@ -146,6 +158,22 @@ export function on(
 // paired with the removal below, where the two names have to agree
 const ABORT_EVENT = 'abort';
 
+function noop(): void {}
+
+/** Call `listener` once when `signal` aborts, or on a microtask if it already has; returns the undo. */
+function onAbort(signal: AbortSignal, listener: () => void): () => void {
+  if (signal.aborted) {
+    queueMicrotask(listener);
+    return noop;
+  }
+
+  signal.addEventListener(ABORT_EVENT, listener, { once: true });
+
+  return (): void => {
+    signal.removeEventListener(ABORT_EVENT, listener);
+  };
+}
+
 // resolved once: the runtimes the fallback below exists for also predate Symbol.dispose
 const DISPOSE: symbol = (Symbol as { dispose?: symbol }).dispose ?? Symbol.for('Symbol.dispose');
 
@@ -156,8 +184,7 @@ export type TAddAbortListener = (signal: AbortSignal, listener: (event: Event) =
  * What node's `addAbortListener` does, for the versions that predate it.
  *
  * Registering a listener on the caller's signal is this function's entire contract, and the
- * returned disposable is what takes it off again. That makes it the one place in this module where
- * a listener is added by hand, and it is not the leaking kind: nothing here outlives the disposable.
+ * returned disposable is what takes it off again, so nothing here outlives the disposable.
  */
 function addAbortListenerFallback(signal: AbortSignal, listener: (event: Event) => void): Disposable {
   if (signal.aborted) {

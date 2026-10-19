@@ -3,119 +3,11 @@ import * as nodeTimersPromises from 'node:timers/promises';
 import { CancelablePromise } from '@cancjs/promise';
 
 import timersJson from '../../surface/projected/timers.json';
-
-// local copy of the signal-forwarding combinator also at packages/canc-node/src/stream/index.ts
-// and packages/canc-node/src/fs/wrap.ts (once that module reaches this branch); same names and
-// behavior, dedupe later
-
-/** Signal facts the surface manifest records for one export. */
-interface INodeSignalFacts {
-  readonly documented: boolean;
-  readonly since: string | null;
-  readonly sinceByMajor?: Readonly<Record<string, string>> | null;
-  readonly probed: string | null;
-}
-
-/** The part of a surface manifest export record the wrapper reads. */
-interface IManifestEntry {
-  readonly name: string;
-  readonly nodeSignal: INodeSignalFacts;
-}
+import { acceptsSignal, IManifestEntry, liftCallerSignal, withCallerSignal, withSignal } from '../signal';
 
 const entries = new Map<string, IManifestEntry>(
   timersJson.exports.map((entry) => [entry.name, entry as IManifestEntry]),
 );
-
-/** Major, minor and patch of a node version, `v` prefix optional, missing or unparsable parts zero. */
-function versionParts(version: string): [number, number, number] {
-  const digits = version.replace(/^v/, '').split('.');
-  return [Number(digits[0]) || 0, Number(digits[1]) || 0, Number(digits[2]) || 0];
-}
-
-/** Whether `version` is `since` or later. */
-function atLeast(version: string, since: string): boolean {
-  const running = versionParts(version);
-  const wanted = versionParts(since);
-
-  for (let i = 0; i < 3; i++) {
-    if (running[i] !== wanted[i]) {
-      return running[i] > wanted[i];
-    }
-  }
-
-  return true;
-}
-
-/** Whether node accepts an AbortSignal for this export on the running version. */
-function acceptsSignal(entry: IManifestEntry | undefined, version: string = process.versions.node): boolean {
-  const facts = entry?.nodeSignal;
-  if (!facts) {
-    return false;
-  }
-
-  const byMajor = facts.sinceByMajor;
-  if (!byMajor) {
-    // no per-line map means support predates the oldest line this package runs on
-    return facts.since !== null;
-  }
-
-  const running = versionParts(version)[0];
-
-  let inherited = -Infinity;
-  for (const major of Object.keys(byMajor)) {
-    const listed = Number(major);
-    if (listed <= running && listed > inherited) {
-      inherited = listed;
-    }
-  }
-
-  if (inherited === -Infinity) {
-    return false;
-  }
-
-  return inherited < running || atLeast(version, byMajor[String(inherited)]);
-}
-
-/** Whether a value is an abort signal, so anything else stays in the options bag untouched. */
-function isAbortSignalLike(value: unknown): value is AbortSignal {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    typeof (value as { addEventListener?: unknown }).addEventListener === 'function'
-  );
-}
-
-/** Merge the signal into a node options bag. */
-function withSignal(options: Record<string, unknown> | undefined, signal: unknown): Record<string, unknown> {
-  return options ? { ...options, signal } : { signal };
-}
-
-/** A call with the caller's own signal lifted out of the node options bag. */
-interface ICallerSignalCall {
-  readonly options: Record<string, unknown> | undefined;
-  readonly callerSignal: AbortSignal | undefined;
-}
-
-/**
- * Take the caller's own signal out of a node options bag, so it can be given to the promise
- * instead. The caller's abort still reaches node, one step removed: it cancels the promise,
- * cancelling aborts our own signal, node stops.
- */
-function takeCallerSignal(options: Record<string, unknown> | undefined): ICallerSignalCall {
-  if (!options) {
-    return { options, callerSignal: undefined };
-  }
-
-  const callerSignal = options.signal;
-  if (!isAbortSignalLike(callerSignal)) {
-    return { options, callerSignal: undefined };
-  }
-
-  const rest = { ...options };
-  delete rest.signal;
-
-  return { options: rest, callerSignal };
-}
 
 /** Node's timer options: `{ ref, signal }`. */
 export interface ITimersOptions {
@@ -141,19 +33,14 @@ const waitEntry = entries.get('wait');
  * calls `node:timers/promises` directly, or when `ref: false` is needed.
  */
 export function setTimeout<T = void>(delay?: number, value?: T, options?: ITimersOptions): CancelablePromise<T, never> {
-  if (!acceptsSignal(setTimeoutEntry)) {
-    return new CancelablePromise<T, never>((resolve) => {
-      resolve(nodeTimersPromises.setTimeout<T>(delay, value, options));
-    });
-  }
+  const call = liftCallerSignal(options);
 
-  const call = takeCallerSignal(options as Record<string, unknown> | undefined);
-
-  return new CancelablePromise<T, never>(
-    (resolve, _reject, { getSignal }) => {
-      resolve(nodeTimersPromises.setTimeout<T>(delay, value, withSignal(call.options, getSignal()) as ITimersOptions));
-    },
-    { signal: call.callerSignal },
+  return withCallerSignal<T, never>(call.callerSignal, acceptsSignal(setTimeoutEntry), (signal) =>
+    nodeTimersPromises.setTimeout<T>(
+      delay,
+      value,
+      signal ? (withSignal(call.options, signal) as ITimersOptions) : call.options,
+    ),
   );
 }
 
@@ -162,19 +49,13 @@ export function setTimeout<T = void>(delay?: number, value?: T, options?: ITimer
  * Same drop-in-symmetry reasoning as {@link setTimeout}.
  */
 export function setImmediate<T = void>(value?: T, options?: ITimersOptions): CancelablePromise<T, never> {
-  if (!acceptsSignal(setImmediateEntry)) {
-    return new CancelablePromise<T, never>((resolve) => {
-      resolve(nodeTimersPromises.setImmediate<T>(value, options));
-    });
-  }
+  const call = liftCallerSignal(options);
 
-  const call = takeCallerSignal(options as Record<string, unknown> | undefined);
-
-  return new CancelablePromise<T, never>(
-    (resolve, _reject, { getSignal }) => {
-      resolve(nodeTimersPromises.setImmediate<T>(value, withSignal(call.options, getSignal()) as ITimersOptions));
-    },
-    { signal: call.callerSignal },
+  return withCallerSignal<T, never>(call.callerSignal, acceptsSignal(setImmediateEntry), (signal) =>
+    nodeTimersPromises.setImmediate<T>(
+      value,
+      signal ? (withSignal(call.options, signal) as ITimersOptions) : call.options,
+    ),
   );
 }
 
@@ -219,19 +100,13 @@ export function setInterval<T = number>(
  * minus `ref` (node's own type does not offer it for this call).
  */
 function schedulerWait(delay: number, options?: ISchedulerWaitOptions): CancelablePromise<void, never> {
-  if (!acceptsSignal(waitEntry)) {
-    return new CancelablePromise<void, never>((resolve) => {
-      resolve(nodeTimersPromises.scheduler.wait(delay, options));
-    });
-  }
+  const call = liftCallerSignal(options);
 
-  const call = takeCallerSignal(options as Record<string, unknown> | undefined);
-
-  return new CancelablePromise<void, never>(
-    (resolve, _reject, { getSignal }) => {
-      resolve(nodeTimersPromises.scheduler.wait(delay, withSignal(call.options, getSignal()) as ISchedulerWaitOptions));
-    },
-    { signal: call.callerSignal },
+  return withCallerSignal<void, never>(call.callerSignal, acceptsSignal(waitEntry), (signal) =>
+    nodeTimersPromises.scheduler.wait(
+      delay,
+      signal ? (withSignal(call.options, signal) as ISchedulerWaitOptions) : call.options,
+    ),
   );
 }
 

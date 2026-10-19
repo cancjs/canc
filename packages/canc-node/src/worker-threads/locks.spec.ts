@@ -1,4 +1,4 @@
-import { CancelablePromise, CancelError } from '@cancjs/promise';
+import { CancelablePromise, CancelError, isCancelError } from '@cancjs/promise';
 
 import { isNotImplementedError } from '../errors/classes';
 import { features } from '../features';
@@ -16,9 +16,19 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-const describeLocks = features.hasWorkerLocks ? describe : describe.skip;
+function turns(count: number): Promise<void> {
+  let drained: Promise<void> = Promise.resolve();
+  for (let i = 0; i < count; i++) {
+    drained = drained.then(() => new Promise<void>((resolve) => setImmediate(resolve)));
+  }
+  return drained;
+}
 
-describeLocks('requestLock', () => {
+const describeLocks = features.hasWorkerLocks ? describe : describe.skip;
+const locksTitle =
+  features.hasWorkerLocks ? 'requestLock' : 'requestLock (skipped: worker_threads.locks needs node 24.5 or later)';
+
+describeLocks(locksTitle, () => {
   it('resolves what the body returns, with the lock it was granted', async () => {
     const name = lockName();
 
@@ -108,22 +118,81 @@ describeLocks('requestLock', () => {
     expect(bodyCanceled).toBe(true);
   });
 
-  // expects the steal to reject the holder; fails until the steal path rejects with CancelError
-  it.failing('rejects the holder whose lock is stolen, even while its body still runs', async () => {
+  it('keeps the lock held after a cancel until the body really finishes', async () => {
+    const name = lockName();
+    const order: string[] = [];
+    let finishHolder = (): void => undefined;
+    let holderSignal: AbortSignal | undefined;
+    let markEntered = (): void => undefined;
+    const entered = new Promise<void>((resolve) => {
+      markEntered = resolve;
+    });
+
+    const holder = requestLock(name, async (_lock, signal) => {
+      order.push('A start');
+      holderSignal = signal;
+      markEntered();
+      // ignores its signal, standing in for work that cannot stop on the spot
+      await new Promise<void>((resolve) => {
+        finishHolder = resolve;
+      });
+      order.push('A end');
+    });
+    await entered;
+
+    const next = requestLock(name, () => {
+      order.push('B acquired');
+    });
+
+    holder.cancel();
+    const error = await holder.then(
+      () => undefined,
+      (err: unknown) => err,
+    );
+    order.push('A rejected');
+
+    expect(isCancelError(error)).toBe(true);
+    expect(holderSignal?.aborted).toBe(true);
+
+    // a lock released on cancel would have let B in by now
+    await turns(5);
+    expect(order).toEqual(['A start', 'A rejected']);
+
+    finishHolder();
+    await next;
+
+    expect(order).toEqual(['A start', 'A rejected', 'A end', 'B acquired']);
+  });
+
+  it('rejects the holder whose lock is stolen, even while its body still runs', async () => {
     const name = lockName();
     let releaseHolder = (): void => undefined;
+    let holderSignal: AbortSignal | undefined;
+    let markEntered = (): void => undefined;
+    const entered = new Promise<void>((resolve) => {
+      markEntered = resolve;
+    });
 
-    const holder = requestLock(name, () => {
+    const holder = requestLock(name, (_lock, signal) => {
+      holderSignal = signal;
+      markEntered();
       return new Promise<string>((resolve) => {
         releaseHolder = () => resolve('held to the end');
       });
     });
-    await sleep(50);
+    await entered;
 
     await expect(requestLock(name, { steal: true }, () => 'stolen')).resolves.toBe('stolen');
 
+    const error = await holder.then(
+      () => undefined,
+      (err: unknown) => err,
+    );
     releaseHolder();
-    await expect(holder).rejects.toThrow();
+
+    expect(isCancelError(error)).toBe(true);
+    expect((error as { cause?: { name?: unknown } }).cause?.name).toBe('AbortError');
+    expect(holderSignal?.aborted).toBe(true);
   });
 
   it('hands the body null instead of queueing when ifAvailable meets a held lock', async () => {

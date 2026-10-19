@@ -40,6 +40,7 @@ steal?: boolean | undefined
 ```text
 extends Omit<WorkerOptions, 'workerData'>
 gracePeriod?: number | undefined
+signal?: AbortSignal | undefined
 terminate?: TTerminateMode | undefined
 ```
 
@@ -78,7 +79,7 @@ new (): MessagePort
 ## `TLockBody<T>` (type)
 
 ```text
-(lock: ILock | null): PromiseLike<T> | T
+(lock: ILock | null, signal: AbortSignal): PromiseLike<T> | T
 ```
 
 ## `TLockMode` (type)

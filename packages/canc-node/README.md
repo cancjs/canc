@@ -602,6 +602,25 @@ import "@cancjs/node/fs/register-graceful";
 
 CommonJS and ESM are separate module instances; file system registration holds within the current format.
 
+### Caller signal
+
+Every subpath follows one rule for an `AbortSignal` passed as `options.signal`. Where this package owns the returned promise, the signal is taken out of node's options and given to the promise, so aborting it is the same as calling `cancel()` and rejects `CancelError`. That covers `fs`, `timers` (`setTimeout`, `setImmediate`, `scheduler.wait`), `events` (`once`, and every pull of an `on` iterator), the `stream` wrappers and terminals, `readline`'s `question`, the `zlib` one-shot and iterable codec functions, `dns`, the `crypto` functions that take an options bag, and `runTask`.
+
+```ts
+import { readFile } from "@cancjs/node/fs";
+import { isCancelError } from "@cancjs/promise";
+
+const controller = new AbortController();
+const data = readFile("package.json", { signal: controller.signal });
+controller.abort();
+
+await data.catch((error) => isCancelError(error)); // true
+```
+
+Where node hands back something the caller holds instead of a promise, the signal reaches node untouched and an abort produces node's own `AbortError`. That is `setInterval`, `fs.watch`, `fs.glob` and the `child-process` functions, whose `ChildProcess` is node's own handle.
+
+For `crypto`, `dns` and the `zlib` one-shots, node has nothing to abort, so the caller's abort stops the wait just like `cancel()` does and the work runs to completion in the background.
+
 ### child-process
 
 Import from `@cancjs/node/child-process` to run external commands with cancellation support. Every function returns the same `ChildProcess` node returns, with one property added:
@@ -742,7 +761,9 @@ A `Worker` has exactly one terminal event, `exit`, so it carries a lazy `promise
 
 `terminate()` stops a thread at whatever point it happens to be at. There is no `finally`, no flush, no unload hook: a thread mid-write when terminated leaves that write unfinished. `runTask` therefore posts a stop message and gives the worker `gracePeriod` (5000ms by default) to exit on its own before falling back to `terminate()`, so a cooperating worker gets to clean up first. Pass `{ terminate: 'immediate' }` for a worker that does not cooperate, which skips the grace period and terminates right away.
 
-`requestLock` wraps `worker_threads.locks.request` (Node 24.5.0+). Canceling while waiting for the lock aborts the acquisition; canceling while holding it cancels the running body and then releases the lock, and the release itself cannot be interrupted by the same cancel.
+`requestLock` wraps `worker_threads.locks.request` (Node 24.5.0+). The body receives the lock and an `AbortSignal`. Canceling while waiting for the lock aborts the acquisition. Canceling while holding it rejects the promise with `CancelError` right away and aborts the body's signal (and cancels the body's result when that is a `CancelablePromise`), but the lock is released only when the body's own result settles. A body that ignores the signal therefore never overlaps the next holder; it just keeps the lock until it finishes.
+
+A holder whose lock is taken by a `steal: true` request rejects with `CancelError`, with node's `AbortError` as its `cause`, and its body's signal aborts the same way.
 
 ### dgram
 

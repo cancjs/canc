@@ -4,136 +4,11 @@ import { CancelablePromise } from '@cancjs/promise';
 
 import type { Unlisted } from '../../../_util';
 import readableJson from '../../surface/projected/stream.Readable.json';
-
-// local copy of the signal-forwarding combinator also at packages/canc-node/src/stream/index.ts
-// and packages/canc-node/src/timers/index.ts; same names and behavior, dedupe later
-
-/** Signal facts the surface manifest records for one export. */
-interface INodeSignalFacts {
-  readonly documented: boolean;
-  readonly since: string | null;
-  readonly sinceByMajor?: Readonly<Record<string, string>> | null;
-  readonly probed: string | null;
-}
-
-/** The part of a surface manifest export record the wrapper reads. */
-interface IManifestEntry {
-  readonly name: string;
-  readonly nodeSignal: INodeSignalFacts;
-}
-
-/** A node call at the wrapping boundary, variadic so a binding can keep node's own signature. */
-type TNodeFn = (...args: unknown[]) => unknown;
+import { acceptsSignal, IManifestEntry, takeCallerSignal, TNodeFn, withCallerSignal, withSignalAt } from '../signal';
 
 const entries = new Map<string, IManifestEntry>(
   (readableJson.exports as IManifestEntry[]).map((entry) => [entry.name, entry]),
 );
-
-/** Major, minor and patch of a node version, `v` prefix optional, missing or unparsable parts zero. */
-function versionParts(version: string): [number, number, number] {
-  const digits = version.replace(/^v/, '').split('.');
-  return [Number(digits[0]) || 0, Number(digits[1]) || 0, Number(digits[2]) || 0];
-}
-
-/** Whether `version` is `since` or later. */
-function atLeast(version: string, since: string): boolean {
-  const running = versionParts(version);
-  const wanted = versionParts(since);
-
-  for (let i = 0; i < 3; i++) {
-    if (running[i] !== wanted[i]) {
-      return running[i] > wanted[i];
-    }
-  }
-
-  return true;
-}
-
-/** Whether node accepts an AbortSignal for this export on the running version. */
-function acceptsSignal(entry: IManifestEntry | undefined, version: string = process.versions.node): boolean {
-  const facts = entry?.nodeSignal;
-  if (!facts) {
-    return false;
-  }
-
-  const byMajor = facts.sinceByMajor;
-  if (!byMajor) {
-    // no per-line map means support predates the oldest line this package runs on
-    return facts.since !== null;
-  }
-
-  const running = versionParts(version)[0];
-
-  let inherited = -Infinity;
-  for (const major of Object.keys(byMajor)) {
-    const listed = Number(major);
-    if (listed <= running && listed > inherited) {
-      inherited = listed;
-    }
-  }
-
-  if (inherited === -Infinity) {
-    return false;
-  }
-
-  return inherited < running || atLeast(version, byMajor[String(inherited)]);
-}
-
-/** Whether a value is an abort signal, so anything else stays in the options bag untouched. */
-function isAbortSignalLike(value: unknown): value is AbortSignal {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    typeof (value as { addEventListener?: unknown }).addEventListener === 'function'
-  );
-}
-
-/** Merge the signal into a node options argument. */
-function withSignal(options: Record<string, unknown> | undefined, signal: unknown): Record<string, unknown> {
-  return options ? { ...options, signal } : { signal };
-}
-
-/** Place the signal in the argument node reads options from, padding shorter call sites. */
-function withSignalAt(args: unknown[], optionsIndex: number, signal: unknown): unknown[] {
-  const callArgs = args.slice();
-  while (callArgs.length < optionsIndex) {
-    callArgs.push(undefined);
-  }
-
-  callArgs[optionsIndex] = withSignal(callArgs[optionsIndex] as Record<string, unknown> | undefined, signal);
-  return callArgs;
-}
-
-/** A call with the caller's own signal lifted out of the node options bag. */
-interface ICallerSignalCall {
-  readonly args: unknown[];
-  readonly callerSignal: AbortSignal | undefined;
-}
-
-/**
- * Take the caller's own signal out of the node options bag, so it can be given to the promise
- * instead. The caller's abort still reaches node, one step removed: it cancels the promise,
- * cancelling aborts our own signal, node stops.
- */
-function takeCallerSignal(args: unknown[], optionsIndex: number): ICallerSignalCall {
-  const options = args[optionsIndex] as Record<string, unknown> | undefined;
-  if (!options || typeof options !== 'object') {
-    return { args, callerSignal: undefined };
-  }
-
-  const callerSignal = options.signal;
-  if (!isAbortSignalLike(callerSignal)) {
-    return { args, callerSignal: undefined };
-  }
-
-  const rest = { ...options };
-  delete rest.signal;
-
-  const callArgs = args.slice();
-  callArgs[optionsIndex] = rest;
-
-  return { args: callArgs, callerSignal };
-}
 
 /**
  * Node's per-call options for the terminals below: `signal` is honored everywhere, `concurrency`
@@ -169,21 +44,14 @@ function terminalWrapped<TResult>(
   return function terminalCall(stream: Readable, ...args: unknown[]): CancelablePromise<TResult, Unlisted> {
     const nodeFn = (stream as unknown as Record<string, TNodeFn>)[methodName];
 
-    if (!forwards) {
-      return new CancelablePromise<TResult, Unlisted>((resolve) => {
-        resolve(nodeFn.apply(stream, args) as TResult | PromiseLike<TResult>);
-      });
-    }
-
     const call = takeCallerSignal(args, optionsIndex);
 
-    return new CancelablePromise<TResult, Unlisted>(
-      (resolve, _reject, { getSignal }) => {
-        resolve(
-          nodeFn.apply(stream, withSignalAt(call.args, optionsIndex, getSignal())) as TResult | PromiseLike<TResult>,
-        );
-      },
-      { signal: call.callerSignal },
+    return withCallerSignal<TResult>(
+      call.callerSignal,
+      forwards,
+      (signal) =>
+        nodeFn.apply(stream, signal ? withSignalAt(call.args, optionsIndex, signal) : call.args) as
+          TResult | PromiseLike<TResult>,
     );
   };
 }
@@ -298,19 +166,13 @@ export function reduce<T = unknown, TAcc = T>(
     });
   }
 
-  if (!reduceForwardsSignal) {
-    return new CancelablePromise<TAcc>((resolve) => {
-      resolve(nodeFn.call(stream, fn, initial, options) as TAcc | PromiseLike<TAcc>);
-    });
-  }
-
   const call = takeCallerSignal([fn, initial, options], 2);
 
-  return new CancelablePromise<TAcc>(
-    (resolve, _reject, { getSignal }) => {
-      resolve(nodeFn.apply(stream, withSignalAt(call.args, 2, getSignal())) as TAcc | PromiseLike<TAcc>);
-    },
-    { signal: call.callerSignal },
+  return withCallerSignal<TAcc, unknown>(
+    call.callerSignal,
+    reduceForwardsSignal,
+    (signal) =>
+      nodeFn.apply(stream, signal ? withSignalAt(call.args, 2, signal) : call.args) as TAcc | PromiseLike<TAcc>,
   );
 }
 

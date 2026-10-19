@@ -2,9 +2,10 @@ import { NotImplementedError } from '@cancjs/node';
 import { CancelablePromise } from '@cancjs/promise';
 
 import { IPromiseKind, IToolboxDeps, TPromiseCtor } from '../../../_toolbox';
-import { promisifyFactory } from '../../../_toolbox/promisify';
+import { promisifyFactory, TCallbackFn } from '../../../_toolbox/promisify';
 import type { Unlisted } from '../../../_util';
 import { gated } from '../gate';
+import { promisifyLifted, takeCallerSignal, TNodeFn, TPromisify } from '../signal';
 
 export { gated as gatedWrapped };
 
@@ -34,11 +35,7 @@ export function gatedClassWrapped<TCtor extends abstract new (...args: any[]) =>
   } as unknown as TCtor;
 }
 
-/**
- * A node call at the wrapping boundary. Node overloads each of these per call site, so a wrapper
- * stays variadic and the binding that uses it keeps node's published signature.
- */
-export type TNodeFn = (...args: unknown[]) => unknown;
+export type { TNodeFn } from '../signal';
 
 /** One node call signature, with a cancelable promise in place of the plain one it returned. */
 type TCancelableReturn<R> = [R] extends [Promise<infer TValue>] ? CancelablePromise<TValue, Unlisted> : R;
@@ -148,12 +145,23 @@ export const toolboxDeps: IToolboxDeps<ICancelableKind> = {
   cancelable: true,
 };
 
+const promisify = promisifyFactory(toolboxDeps);
+
+/** The one-shot calls read their options right after the input buffer. */
+const OPTIONS_INDEX = 1;
+
 /**
- * Promisify bound to CancelablePromise. zlib has no signal support to forward (fact base: `signal: 0`
- * across the whole module, same as `../crypto`), so this stays a plain promisify with nothing
- * signal-aware layered on top.
+ * Promisify bound to CancelablePromise, with a caller's `signal` lifted out of node's options and onto
+ * the promise. zlib has no signal support of its own to forward (fact base: `signal: 0` across the
+ * whole module), so canceling stops the wait and the caller's abort rejects `CancelError`.
+ *
+ * @param nodeFn - Callback-style node function taking an errfirst callback last.
  */
-export const promisifyWrapped = promisifyFactory(toolboxDeps);
+export function promisifyWrapped<R = unknown>(
+  nodeFn: TCallbackFn,
+): (...args: unknown[]) => CancelablePromise<R, Unlisted> {
+  return promisifyLifted<R>(promisify as TPromisify, nodeFn, OPTIONS_INDEX);
+}
 
 /** An async or sync iterator: the common surface both node and the guard below walk. */
 type TSourceIterator<T> = AsyncIterator<T> | Iterator<T>;
@@ -189,32 +197,37 @@ export function iterableCodecWrapped<R = unknown>(
     source: AsyncIterable<unknown> | Iterable<unknown>,
     ...rest: unknown[]
   ): CancelablePromise<R, Unlisted> {
-    return new CancelablePromise<R, Unlisted>((resolve, _reject, { handleCancel }) => {
-      const iterator = sourceIterator(source);
-      let stopped = false;
+    const call = takeCallerSignal(rest, 0);
 
-      const guarded: AsyncIterable<unknown> = {
-        [Symbol.asyncIterator]() {
-          return {
-            next: async () => {
-              if (stopped) {
-                return { done: true, value: undefined };
-              }
-              return iterator.next();
-            },
-          };
-        },
-      };
+    return new CancelablePromise<R, Unlisted>(
+      (resolve, _reject, { handleCancel }) => {
+        const iterator = sourceIterator(source);
+        let stopped = false;
 
-      // registered before the call starts, per the register-before-work rule (`../fs/wrap.ts`):
-      // a cancel racing the very first pull still reaches the source's own return()
-      handleCancel(() => {
-        stopped = true;
-        void iterator.return?.(undefined);
-      });
+        const guarded: AsyncIterable<unknown> = {
+          [Symbol.asyncIterator]() {
+            return {
+              next: async () => {
+                if (stopped) {
+                  return { done: true, value: undefined };
+                }
+                return iterator.next();
+              },
+            };
+          },
+        };
 
-      resolve(nodeFn.call(this, guarded, ...rest) as R | PromiseLike<R>);
-    });
+        // registered before the call starts, per the register-before-work rule (`../fs/wrap.ts`):
+        // a cancel racing the very first pull still reaches the source's own return()
+        handleCancel(() => {
+          stopped = true;
+          void iterator.return?.(undefined);
+        });
+
+        resolve(nodeFn.call(this, guarded, ...call.args) as R | PromiseLike<R>);
+      },
+      { signal: call.callerSignal },
+    );
   };
 }
 
