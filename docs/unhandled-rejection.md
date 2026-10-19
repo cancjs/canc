@@ -55,6 +55,8 @@ Cloudflare Workers are recognized by the `Cloudflare-Workers` navigator token wh
 
 **Other edge runtimes.** Runtimes without a recognized userAgent token and no explicitly exported registrar fall through to the global/`process.versions` chain. If they have a global `addEventListener`, they register as `browser`. This preserves behavior for unknown JavaScript environments.
 
+**Hermes / React Native: unsupported.** Hermes is not a supported runtime. `register()` does not detect it, and no handler is tested against it.
+
 ### Bun Test Strict Rejections
 
 `bun test` treats any unhandled rejection as an immediate test failure. Importing `@cancjs/unhandled-rejection/register` in your test setup file prevents canceled test operations from failing the test suite.
@@ -120,16 +122,6 @@ register({
     server.close(() => process.exit(1));
   }
 });
-```
-
-### Jest Test Setup
-
-To install global suppression across Jest test suites, add `@cancjs/unhandled-rejection/register` to `setupFiles` in your `jest.config.js`:
-
-```js
-module.exports = {
-  setupFiles: ['@cancjs/unhandled-rejection/register']
-};
 ```
 
 ## Framework Error Boundaries
