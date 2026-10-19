@@ -16,6 +16,34 @@ function fsCall(fn: unknown, name: string): TFsCall {
   return fn as TFsCall;
 }
 
+/**
+ * Real fs calls run on real time, so yield to them and advance the fake clock only while a retry
+ * timer is pending. Returns the fake milliseconds spent, which is the retry wait.
+ */
+async function settleWithFakeClock<T>(promise: PromiseLike<T>, stepMs = 25): Promise<number> {
+  let settled = false;
+  void promise.then(
+    () => (settled = true),
+    () => (settled = true),
+  );
+  let spent = 0;
+  while (!settled) {
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    if (!settled && jest.getTimerCount() > 0) {
+      await jest.advanceTimersByTimeAsync(stepMs);
+      spent += stepMs;
+    }
+  }
+  return spent;
+}
+
+/** Overrides process.platform for one test; call the returned function to restore it. */
+function forcePlatform(platform: NodeJS.Platform): () => void {
+  const original = Object.getOwnPropertyDescriptor(process, 'platform')!;
+  Object.defineProperty(process, 'platform', { ...original, value: platform });
+  return () => Object.defineProperty(process, 'platform', original);
+}
+
 async function cleanDir(dirPath: string) {
   try {
     const entries = await fs.readdir(dirPath, { withFileTypes: true });
@@ -48,6 +76,92 @@ describe('replaceFile', () => {
 
   afterEach(() => {
     resetFs();
+  });
+
+  describe('locked rename retry', () => {
+    let restorePlatform: (() => void) | undefined;
+
+    beforeEach(() => {
+      jest.useFakeTimers({
+        doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'],
+      });
+    });
+
+    afterEach(() => {
+      restorePlatform?.();
+      restorePlatform = undefined;
+      jest.useRealTimers();
+    });
+
+    function stubRename(failures: number, code: string) {
+      const state = { attempts: 0 };
+      const originalFs = getFs();
+      const originalRename = fsCall(originalFs.rename, 'rename');
+      setFs({
+        ...originalFs,
+        rename: (oldPath: string, newPath: string, cb: (err?: unknown) => void) => {
+          state.attempts++;
+          if (state.attempts <= failures) {
+            cb(Object.assign(new Error(code), { code }));
+            return;
+          }
+          originalRename(oldPath, newPath, cb);
+        },
+      });
+      return state;
+    }
+
+    it('retries EPERM on win32 until the rename succeeds', async () => {
+      const file = join(root, 'locked-replace.txt');
+      await fs.writeFile(file, 'old');
+      restorePlatform = forcePlatform('win32');
+      const state = stubRename(2, 'EPERM');
+
+      const p = replaceFile(file, 'new');
+      await settleWithFakeClock(p);
+      await p;
+
+      expect(state.attempts).toBe(3);
+      await expect(fs.readFile(file, 'utf8')).resolves.toBe('new');
+    });
+
+    it('rejects within the budget and removes the temp file when the rename stays locked', async () => {
+      const dir = join(root, 'locked-replace-forever');
+      await fs.mkdir(dir, { recursive: true });
+      const file = join(dir, 'target.txt');
+      await fs.writeFile(file, 'old');
+      restorePlatform = forcePlatform('win32');
+      const state = stubRename(30, 'EPERM');
+
+      const settled = replaceFile(file, 'new').then(
+        () => 'resolved',
+        (err: any) => err.code,
+      );
+      const spent = await settleWithFakeClock(settled);
+
+      await expect(settled).resolves.toBe('EPERM');
+      expect(spent).toBeLessThanOrEqual(1000);
+      expect(state.attempts).toBeGreaterThan(2);
+      expect(state.attempts).toBeLessThan(30);
+      await expect(fs.readFile(file, 'utf8')).resolves.toBe('old');
+      await expect(fs.readdir(dir)).resolves.toEqual(['target.txt']);
+    });
+
+    it('does not retry EPERM off win32', async () => {
+      const file = join(root, 'locked-replace-linux.txt');
+      await fs.writeFile(file, 'old');
+      restorePlatform = forcePlatform('linux');
+      const state = stubRename(2, 'EPERM');
+
+      const settled = replaceFile(file, 'new').then(
+        () => 'resolved',
+        (err: any) => err.code,
+      );
+      await settleWithFakeClock(settled);
+
+      await expect(settled).resolves.toBe('EPERM');
+      expect(state.attempts).toBe(1);
+    });
   });
 
   it('writes content when target does not exist', async () => {
@@ -259,5 +373,84 @@ describe('replaceFile', () => {
 
     const leftovers = (await fs.readdir(root)).filter((name) => name.includes('.tmp-'));
     expect(leftovers).toEqual([]);
+  });
+  describe('failure reporting', () => {
+    function stubUnlinkFailure(code: string) {
+      const originalFs = getFs();
+      setFs({
+        ...originalFs,
+        promises: {
+          ...originalFs.promises,
+          unlink: (path: string) =>
+            Promise.reject(Object.assign(new Error(`simulated cleanup failure for ${path}`), { code })),
+        },
+        unlinkSync: () => {
+          throw Object.assign(new Error('simulated sync cleanup failure'), { code });
+        },
+      } as never);
+    }
+
+    it('rejects with the write error when the cleanup fails too', async () => {
+      const target = join(root, 'missing-dir-async', 'f.txt');
+      stubUnlinkFailure('EIO');
+
+      await expect(replaceFile(target, 'new')).rejects.toMatchObject({ code: 'ENOENT' });
+    });
+
+    it('replaceFileSync throws the write error when the cleanup fails too', () => {
+      const target = join(root, 'missing-dir-sync', 'f.txt');
+      stubUnlinkFailure('EIO');
+
+      expect(() => replaceFileSync(target, 'new')).toThrow(expect.objectContaining({ code: 'ENOENT' }));
+    });
+  });
+
+  describe('append flag', () => {
+    it.each(['a', 'a+', 'as', 'ax+'])('rejects flag %s and leaves the target untouched', async (flag) => {
+      const dir = join(root, `append-async-${flag.replace('+', 'p')}`);
+      await fs.mkdir(dir, { recursive: true });
+      const file = join(dir, 'target.txt');
+      await fs.writeFile(file, 'old');
+
+      await expect(replaceFile(file, 'new', { flag })).rejects.toMatchObject({
+        name: 'TypeError',
+        code: 'ERR_INVALID_ARG_VALUE',
+      });
+
+      await expect(fs.readFile(file, 'utf8')).resolves.toBe('old');
+      await expect(fs.readdir(dir)).resolves.toEqual(['target.txt']);
+    });
+
+    it('rejects a numeric flag carrying O_APPEND', async () => {
+      const file = join(root, 'append-numeric.txt');
+      await fs.writeFile(file, 'old');
+      const flag = fsSync.constants.O_WRONLY | fsSync.constants.O_CREAT | fsSync.constants.O_APPEND;
+
+      await expect(replaceFile(file, 'new', { flag })).rejects.toMatchObject({ code: 'ERR_INVALID_ARG_VALUE' });
+      await expect(fs.readFile(file, 'utf8')).resolves.toBe('old');
+    });
+
+    it('replaceFileSync throws on the append flag and leaves the target untouched', () => {
+      const dir = join(root, 'append-sync');
+      fsSync.mkdirSync(dir, { recursive: true });
+      const file = join(dir, 'target.txt');
+      fsSync.writeFileSync(file, 'old');
+
+      expect(() => replaceFileSync(file, 'new', { flag: 'a' })).toThrow(
+        expect.objectContaining({ name: 'TypeError', code: 'ERR_INVALID_ARG_VALUE' }),
+      );
+
+      expect(fsSync.readdirSync(dir)).toEqual(['target.txt']);
+      expect(fsSync.readFileSync(file, 'utf8')).toBe('old');
+    });
+
+    it('still accepts a plain write flag', async () => {
+      const file = join(root, 'plain-flag.txt');
+      await fs.writeFile(file, 'old');
+
+      await replaceFile(file, 'new', { flag: 'w' });
+
+      await expect(fs.readFile(file, 'utf8')).resolves.toBe('new');
+    });
   });
 });

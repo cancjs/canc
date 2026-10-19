@@ -1,11 +1,13 @@
+import { constants } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 
-import { chmod, chown, rename, stat, unlink, writeFile } from '@cancjs/node/fs';
+import { chmod, chown, stat, unlink, writeFile } from '@cancjs/node/fs';
 import { chmodSync, chownSync, renameSync, statSync, unlinkSync, writeFileSync } from '@cancjs/node/fs/sync';
 import { CancelablePromise } from '@cancjs/promise';
 
 import type { Unlisted } from '../../../_util';
 import { isErrno, isNotFoundError } from '../errors/errno';
+import { renameWithRetry } from './move';
 
 type TWriteFileParams = Parameters<typeof writeFile>;
 type TWriteData = TWriteFileParams[1];
@@ -25,6 +27,19 @@ const isBusy = isErrno('EBUSY');
 // 40ms is routinely shorter than the Windows antivirus and indexer holds this retry exists for
 const UNLINK_ATTEMPTS = 12;
 const UNLINK_RETRY_MS = 40;
+
+/** Append cannot be atomic through a temp file: the existing content would be dropped, so it is refused. */
+function assertNoAppendFlag(options: unknown, name: string): void {
+  const flag = typeof options === 'object' && options !== null ? (options as { flag?: unknown }).flag : undefined;
+  const isAppend =
+    typeof flag === 'string' ? flag.startsWith('a') : typeof flag === 'number' && (flag & constants.O_APPEND) !== 0;
+
+  if (isAppend) {
+    throw Object.assign(new TypeError(`${name} does not support the append flag "${String(flag)}"`), {
+      code: 'ERR_INVALID_ARG_VALUE',
+    });
+  }
+}
 
 /** How chmod and chown fail where the file system does not carry the metadata. Not fatal. */
 function isMetadataUnsupported(err: unknown): boolean {
@@ -71,7 +86,7 @@ function unlinkWithRetry(path: string, attempts = UNLINK_ATTEMPTS): Promise<void
  * Limitations:
  * - Does not write through symlinks (replaces the symlink itself).
  * - Does not support special files (FIFOs, device nodes).
- * - Does not support append mode.
+ * - Rejects the append flags (`a`, `a+`, and so on) with a `TypeError`, since an append cannot be atomic.
  * - Does not call fsync, so guarantees hold against concurrent readers and not against a system crash.
  */
 export function replaceFile(
@@ -80,6 +95,8 @@ export function replaceFile(
   options?: IReplaceFileOptions,
 ): CancelablePromise<void, Unlisted> {
   return new CancelablePromise((resolve, reject, { handleCancel }) => {
+    assertNoAppendFlag(options, 'replaceFile');
+
     const dir = dirname(path);
     const base = basename(path);
     const tempPath = join(
@@ -141,7 +158,7 @@ export function replaceFile(
           );
         })
         .then(() => {
-          const renamePromise = (activePromise = rename(tempPath, path));
+          const renamePromise = (activePromise = renameWithRetry(tempPath, path));
           return renamePromise.then(() => {
             isRenamed = true;
           });
@@ -151,10 +168,15 @@ export function replaceFile(
             throw err;
           }
 
-          // chained so the rejection waits for the temp file to go, same as the cancel path
-          return unlinkWithRetry(tempPath).then(() => {
-            throw err;
-          });
+          // the write error wins over a failed cleanup, same as the sync twin
+          return unlinkWithRetry(tempPath).then(
+            () => {
+              throw err;
+            },
+            () => {
+              throw err;
+            },
+          );
         }),
     );
   });
@@ -168,7 +190,7 @@ export function replaceFile(
  * Limitations:
  * - Does not write through symlinks (replaces the symlink itself).
  * - Does not support special files (FIFOs, device nodes).
- * - Does not support append mode.
+ * - Rejects the append flags (`a`, `a+`, and so on) with a `TypeError`, since an append cannot be atomic.
  * - Does not call fsync, so guarantees hold against concurrent readers and not against a system crash.
  *
  * @param path - Target file path to replace.
@@ -176,6 +198,8 @@ export function replaceFile(
  * @param options - Write options.
  */
 export function replaceFileSync(path: string, data: TWriteFileSyncData, options?: IReplaceFileSyncOptions): void {
+  assertNoAppendFlag(options, 'replaceFileSync');
+
   const dir = dirname(path);
   const base = basename(path);
   const tempPath = join(

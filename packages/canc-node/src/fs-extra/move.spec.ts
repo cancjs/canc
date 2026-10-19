@@ -16,6 +16,34 @@ function fsCall(fn: unknown, name: string): TFsCall {
   return fn as TFsCall;
 }
 
+/**
+ * Real fs calls run on real time, so yield to them and advance the fake clock only while a retry
+ * timer is pending. Returns the fake milliseconds spent, which is the retry wait.
+ */
+async function settleWithFakeClock<T>(promise: PromiseLike<T>, stepMs = 25): Promise<number> {
+  let settled = false;
+  void promise.then(
+    () => (settled = true),
+    () => (settled = true),
+  );
+  let spent = 0;
+  while (!settled) {
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    if (!settled && jest.getTimerCount() > 0) {
+      await jest.advanceTimersByTimeAsync(stepMs);
+      spent += stepMs;
+    }
+  }
+  return spent;
+}
+
+/** Overrides process.platform for one test; call the returned function to restore it. */
+function forcePlatform(platform: NodeJS.Platform): () => void {
+  const original = Object.getOwnPropertyDescriptor(process, 'platform')!;
+  Object.defineProperty(process, 'platform', { ...original, value: platform });
+  return () => Object.defineProperty(process, 'platform', original);
+}
+
 async function cleanDir(dirPath: string) {
   try {
     const entries = await fs.readdir(dirPath, { withFileTypes: true });
@@ -210,12 +238,13 @@ describe('move', () => {
     await expect(fs.readFile(dest, 'utf8')).resolves.toBe('retry content');
   });
 
-  it('surfaces EPERM that never clears without retrying', async () => {
+  it('surfaces EPERM that never clears without retrying off Windows', async () => {
     const src = join(root, 'eperm-src.txt');
     const dest = join(root, 'eperm-dest.txt');
     await fs.writeFile(src, 'eperm content');
 
     let renameAttempts = 0;
+    const restorePlatform = forcePlatform('linux');
     const originalFs = getFs();
     setFs({
       ...originalFs,
@@ -227,8 +256,141 @@ describe('move', () => {
       },
     });
 
-    await expect(move(src, dest)).rejects.toThrow();
+    try {
+      await expect(move(src, dest)).rejects.toThrow();
+    } finally {
+      restorePlatform();
+    }
     expect(renameAttempts).toBe(1);
+  });
+
+  it('rejects EEXIST by default when the destination exists', async () => {
+    const src = join(root, 'default-src.txt');
+    const dest = join(root, 'default-dest.txt');
+    await fs.writeFile(src, 'src content');
+    await fs.writeFile(dest, 'dest content');
+
+    await expect(move(src, dest)).rejects.toMatchObject({ code: 'EEXIST' });
+    await expect(fs.readFile(src, 'utf8')).resolves.toBe('src content');
+    await expect(fs.readFile(dest, 'utf8')).resolves.toBe('dest content');
+  });
+
+  it('replaces an existing destination with overwrite: true', async () => {
+    const src = join(root, 'replace-src.txt');
+    const dest = join(root, 'replace-dest.txt');
+    await fs.writeFile(src, 'src content');
+    await fs.writeFile(dest, 'dest content');
+
+    await move(src, dest, { overwrite: true });
+    await expect(fs.readFile(dest, 'utf8')).resolves.toBe('src content');
+    await expect(fs.stat(src)).rejects.toThrow();
+  });
+
+  it('moveSync rejects EEXIST by default when the destination exists', () => {
+    const src = join(root, 'sync-default-src.txt');
+    const dest = join(root, 'sync-default-dest.txt');
+    fsSync.writeFileSync(src, 'src content');
+    fsSync.writeFileSync(dest, 'dest content');
+
+    expect(() => moveSync(src, dest)).toThrow(expect.objectContaining({ code: 'EEXIST' }));
+    expect(fsSync.readFileSync(dest, 'utf8')).toBe('dest content');
+  });
+
+  it('moveSync replaces an existing destination with overwrite: true', () => {
+    const src = join(root, 'sync-replace-src.txt');
+    const dest = join(root, 'sync-replace-dest.txt');
+    fsSync.writeFileSync(src, 'src content');
+    fsSync.writeFileSync(dest, 'dest content');
+
+    moveSync(src, dest, { overwrite: true });
+    expect(fsSync.readFileSync(dest, 'utf8')).toBe('src content');
+    expect(fsSync.existsSync(src)).toBe(false);
+  });
+
+  describe('locked rename retry', () => {
+    let restorePlatform: (() => void) | undefined;
+
+    beforeEach(() => {
+      jest.useFakeTimers({
+        doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'],
+      });
+    });
+
+    afterEach(() => {
+      restorePlatform?.();
+      restorePlatform = undefined;
+      jest.useRealTimers();
+    });
+
+    function stubRename(failures: number, code: string) {
+      const state = { attempts: 0 };
+      const originalFs = getFs();
+      const originalRename = fsCall(originalFs.rename, 'rename');
+      setFs({
+        ...originalFs,
+        rename: (oldPath: string, newPath: string, cb: (err?: unknown) => void) => {
+          state.attempts++;
+          if (state.attempts <= failures) {
+            cb(Object.assign(new Error(code), { code }));
+            return;
+          }
+          originalRename(oldPath, newPath, cb);
+        },
+      });
+      return state;
+    }
+
+    it.each(['EPERM', 'EACCES'])('retries %s on win32 until the rename succeeds', async (code) => {
+      const src = join(root, `locked-${code}-src.txt`);
+      const dest = join(root, `locked-${code}-dest.txt`);
+      await fs.writeFile(src, 'locked content');
+      restorePlatform = forcePlatform('win32');
+      const state = stubRename(2, code);
+
+      const p = move(src, dest);
+      await settleWithFakeClock(p);
+      await p;
+
+      expect(state.attempts).toBe(3);
+      await expect(fs.readFile(dest, 'utf8')).resolves.toBe('locked content');
+    });
+
+    it('rejects within the budget when the rename stays locked on win32', async () => {
+      const src = join(root, 'locked-forever-src.txt');
+      const dest = join(root, 'locked-forever-dest.txt');
+      await fs.writeFile(src, 'locked content');
+      restorePlatform = forcePlatform('win32');
+      const state = stubRename(30, 'EPERM');
+
+      const settled = move(src, dest).then(
+        () => 'resolved',
+        (err: any) => err.code,
+      );
+      const spent = await settleWithFakeClock(settled);
+
+      await expect(settled).resolves.toBe('EPERM');
+      expect(spent).toBeLessThanOrEqual(1000);
+      expect(state.attempts).toBeGreaterThan(2);
+      expect(state.attempts).toBeLessThan(30);
+      await expect(fs.readFile(src, 'utf8')).resolves.toBe('locked content');
+    });
+
+    it('does not retry EPERM off win32', async () => {
+      const src = join(root, 'locked-linux-src.txt');
+      const dest = join(root, 'locked-linux-dest.txt');
+      await fs.writeFile(src, 'locked content');
+      restorePlatform = forcePlatform('linux');
+      const state = stubRename(2, 'EPERM');
+
+      const settled = move(src, dest).then(
+        () => 'resolved',
+        (err: any) => err.code,
+      );
+      await settleWithFakeClock(settled);
+
+      await expect(settled).resolves.toBe('EPERM');
+      expect(state.attempts).toBe(1);
+    });
   });
 
   it('moveSync on same device uses renameSync and does not call copyFileSync', () => {
@@ -339,5 +501,41 @@ describe('move', () => {
     moveSync(src, dest);
     expect(fsSync.readFileSync(dest, 'utf8')).toBe('nested sync content');
     expect(fsSync.existsSync(src)).toBe(false);
+  });
+
+  describe('self and parent path guards', () => {
+    let dir: string;
+
+    beforeEach(async () => {
+      dir = await fs.mkdtemp(join(tmpdir(), 'move-guard-'));
+    });
+
+    afterEach(async () => {
+      await fs.rm(dir, { recursive: true, force: true });
+    });
+
+    it('move into its own subdirectory rejects and leaves no stray directory', async () => {
+      const src = join(dir, 'src');
+      await fs.mkdir(join(src, 'inner'), { recursive: true });
+      const dest = join(src, 'sub');
+      await expect(move(src, dest)).rejects.toThrow(`Cannot move '${src}' to a subdirectory of itself, '${dest}'.`);
+      await expect(fs.stat(dest)).rejects.toThrow();
+      await expect(fs.stat(join(src, 'inner'))).resolves.toBeDefined();
+    });
+
+    it('moveSync into its own subdirectory throws and leaves no stray directory', async () => {
+      const src = join(dir, 'src');
+      await fs.mkdir(join(src, 'inner'), { recursive: true });
+      const dest = join(src, 'sub', 'deeper');
+      expect(() => moveSync(src, dest)).toThrow(`Cannot move '${src}' to a subdirectory of itself, '${dest}'.`);
+      await expect(fs.stat(join(src, 'sub'))).rejects.toThrow();
+    });
+
+    it('move onto itself rejects', async () => {
+      const src = join(dir, 'file.txt');
+      await fs.writeFile(src, 'x');
+      await expect(move(src, src)).rejects.toThrow('Source and destination must not be the same.');
+      expect(() => moveSync(src, src)).toThrow('Source and destination must not be the same.');
+    });
   });
 });

@@ -1,3 +1,4 @@
+import * as fsSync from 'node:fs';
 import * as fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -7,6 +8,7 @@ import { CancelError } from '@cancjs/promise';
 import { isJsonParseError, JsonParseError } from '../errors/classes';
 import { exists, mkdir, writeFile } from '../fs';
 import { getFs, resetFs, setFs } from '../fs/registry';
+import { copySync } from './copy';
 import * as extra from './index';
 import {
   copy,
@@ -168,7 +170,9 @@ describe('fs-extra', () => {
     const existingDir = join(root, 'existing-dir-for-eisdir');
     ensureDirSync(existingDir);
 
-    await expect(ensureFile(existingDir)).rejects.toMatchObject({ code: 'EISDIR' });
+    await expect(ensureFile(existingDir)).rejects.toMatchObject({
+      code: 'EISDIR',
+    });
     expect(() => ensureFileSync(existingDir)).toThrow(expect.objectContaining({ code: 'EISDIR' }));
   });
 
@@ -214,7 +218,11 @@ describe('fs-extra', () => {
 
   describe('json', () => {
     it('round trip: writeJson then readJson returns deep-equal object', async () => {
-      const obj = { str: 'hello', num: 42, nested: { arr: [1, 2, 3], bool: true } };
+      const obj = {
+        str: 'hello',
+        num: 42,
+        nested: { arr: [1, 2, 3], bool: true },
+      };
       const testFile = join(root, 'round-trip.json');
       await writeJson(testFile, obj);
       const read = await readJson(testFile);
@@ -342,6 +350,189 @@ describe('fs-extra', () => {
       const pWrite = writeJson(cancelFile, { data: 'test2' });
       pWrite.cancel();
       await expect(pWrite).rejects.toThrow(CancelError);
+    });
+  });
+
+  describe('atomic json writes and ensureDir on files', () => {
+    let dir: string;
+
+    beforeEach(async () => {
+      dir = await fs.mkdtemp(join(tmpdir(), 'fs-extra-atomic-'));
+    });
+
+    afterEach(async () => {
+      await fs.rm(dir, { recursive: true, force: true });
+    });
+
+    const largePayload = { rows: Array.from({ length: 400000 }, (_, i) => ({ i, text: 'row-' + i })) };
+
+    it('writeJson canceled after the first tick leaves the existing file bytes intact', async () => {
+      const file = join(dir, 'existing.json');
+      const original = '{"keep":"me"}\n';
+      await fs.writeFile(file, original);
+
+      const pending = writeJson(file, largePayload);
+      await new Promise<void>((done) => setImmediate(done));
+      // cancel() settles once the temp file cleanup is done
+      await pending.cancel();
+      await expect(pending).rejects.toThrow(CancelError);
+
+      expect(await fs.readFile(file, 'utf8')).toBe(original);
+      expect(await fs.readdir(dir)).toEqual(['existing.json']);
+    });
+
+    it('outputJson canceled after the first tick leaves the existing file bytes intact', async () => {
+      const file = join(dir, 'nested', 'existing.json');
+      const original = '{"keep":"me"}\n';
+      await fs.mkdir(join(dir, 'nested'));
+      await fs.writeFile(file, original);
+
+      const pending = outputJson(file, largePayload);
+      // the directory check settles first, so wait until the write has visibly begun
+      for (let tick = 0; tick < 500; tick++) {
+        const [entries, stats] = await Promise.all([fs.readdir(join(dir, 'nested')), fs.stat(file)]);
+        if (entries.length > 1 || stats.size !== original.length) break;
+        await new Promise<void>((done) => setImmediate(done));
+      }
+      // cancel() settles once the temp file cleanup is done
+      await pending.cancel();
+      await expect(pending).rejects.toThrow(CancelError);
+
+      expect(await fs.readFile(file, 'utf8')).toBe(original);
+      expect(await fs.readdir(join(dir, 'nested'))).toEqual(['existing.json']);
+    });
+
+    it('writeJson still replaces the content when not canceled and leaves no temp file', async () => {
+      const file = join(dir, 'replace.json');
+      await fs.writeFile(file, '{"old":true}');
+      await writeJson(file, { fresh: 1 });
+      expect(await readJson(file)).toEqual({ fresh: 1 });
+      expect(await fs.readdir(dir)).toEqual(['replace.json']);
+    });
+
+    it('writeJson with an append flag still appends', async () => {
+      const file = join(dir, 'append.json');
+      await fs.writeFile(file, 'head\n');
+      await writeJson(file, 1, { flag: 'a' });
+      expect(await fs.readFile(file, 'utf8')).toBe('head\n1\n');
+    });
+
+    describe('through a symlink', () => {
+      async function makeLink(target: string, link: string): Promise<boolean> {
+        try {
+          await fs.symlink(target, link, 'file');
+          return true;
+        } catch (e: any) {
+          // unprivileged win32 cannot create file symlinks
+          if (e.code === 'EPERM') return false;
+          throw e;
+        }
+      }
+
+      it('writeJson keeps the link and writes the target', async () => {
+        const target = join(dir, 'target.json');
+        const link = join(dir, 'link.json');
+        await fs.writeFile(target, '{"old":true}');
+        if (!(await makeLink(target, link))) return;
+
+        await writeJson(link, { fresh: 1 });
+
+        expect((await fs.lstat(link)).isSymbolicLink()).toBe(true);
+        expect(await readJson(target)).toEqual({ fresh: 1 });
+        expect(await fs.readdir(dir)).toEqual(['link.json', 'target.json']);
+      });
+
+      it('outputJson keeps the link and writes the target', async () => {
+        const target = join(dir, 'target.json');
+        const link = join(dir, 'link.json');
+        await fs.writeFile(target, '{"old":true}');
+        if (!(await makeLink(target, link))) return;
+
+        await outputJson(link, { fresh: 2 });
+
+        expect((await fs.lstat(link)).isSymbolicLink()).toBe(true);
+        expect(await readJson(target)).toEqual({ fresh: 2 });
+      });
+
+      it('writeJson canceled mid-write keeps the link and the target bytes', async () => {
+        const target = join(dir, 'target.json');
+        const link = join(dir, 'link.json');
+        const original = '{"keep":"me"}\n';
+        await fs.writeFile(target, original);
+        if (!(await makeLink(target, link))) return;
+
+        const pending = writeJson(link, largePayload);
+        await new Promise<void>((done) => setImmediate(done));
+        await pending.cancel();
+        await expect(pending).rejects.toThrow(CancelError);
+
+        expect((await fs.lstat(link)).isSymbolicLink()).toBe(true);
+        expect(await fs.readFile(target, 'utf8')).toBe(original);
+        expect(await fs.readdir(dir)).toEqual(['link.json', 'target.json']);
+      });
+
+      it('writeJson on a dangling link keeps the link and creates the target', async () => {
+        const target = join(dir, 'missing.json');
+        const link = join(dir, 'dangling.json');
+        if (!(await makeLink(target, link))) return;
+
+        await writeJson(link, { fresh: 3 });
+
+        expect((await fs.lstat(link)).isSymbolicLink()).toBe(true);
+        expect(await readJson(target)).toEqual({ fresh: 3 });
+      });
+
+      it('writeJson on a link loop rejects ELOOP and leaves the links in place', async () => {
+        const a = join(dir, 'loop-a.json');
+        const b = join(dir, 'loop-b.json');
+        if (!(await makeLink(b, a))) return;
+        await fs.symlink(a, b, 'file');
+
+        await expect(writeJson(a, { fresh: 5 })).rejects.toMatchObject({ code: 'ELOOP' });
+
+        expect((await fs.lstat(a)).isSymbolicLink()).toBe(true);
+        expect((await fs.lstat(b)).isSymbolicLink()).toBe(true);
+      });
+
+      it('writeJson on a 41-link dangling chain rejects ELOOP and leaves every link in place', async () => {
+        const links = Array.from({ length: 41 }, (_, i) => join(dir, `chain-${i}.json`));
+        const missing = join(dir, 'chain-missing.json');
+        for (let i = 0; i < links.length; i++) {
+          const next = i + 1 < links.length ? links[i + 1] : missing;
+          if (i === 0 && !(await makeLink(next, links[i]))) return;
+          if (i > 0) await fs.symlink(next, links[i], 'file');
+        }
+
+        await expect(writeJson(links[0], { fresh: 6 })).rejects.toMatchObject({ code: 'ELOOP' });
+
+        for (const link of links) {
+          expect((await fs.lstat(link)).isSymbolicLink()).toBe(true);
+        }
+        await expect(fs.lstat(missing)).rejects.toMatchObject({ code: 'ENOENT' });
+      });
+
+      it('writeJsonSync on a dangling link keeps the link and creates the target', async () => {
+        const target = join(dir, 'missing-sync.json');
+        const link = join(dir, 'dangling-sync.json');
+        if (!(await makeLink(target, link))) return;
+
+        writeJsonSync(link, { fresh: 4 });
+
+        expect((await fs.lstat(link)).isSymbolicLink()).toBe(true);
+        expect(await readJson(target)).toEqual({ fresh: 4 });
+      });
+    });
+
+    it('ensureDir on an existing file rejects ENOTDIR', async () => {
+      const file = join(dir, 'plain.txt');
+      await fs.writeFile(file, 'x');
+      await expect(ensureDir(file)).rejects.toMatchObject({ code: 'ENOTDIR' });
+    });
+
+    it('ensureDirSync on an existing file throws ENOTDIR', async () => {
+      const file = join(dir, 'plain-sync.txt');
+      await fs.writeFile(file, 'x');
+      expect(() => ensureDirSync(file)).toThrow(expect.objectContaining({ code: 'ENOTDIR' }));
     });
   });
 
@@ -761,6 +952,228 @@ describe('fs-extra', () => {
       } finally {
         resetFs();
       }
+    });
+  });
+
+  describe('copySync', () => {
+    let dir: string;
+
+    beforeEach(() => {
+      dir = fsSync.mkdtempSync(join(tmpdir(), 'fs-extra-copysync-'));
+    });
+
+    afterEach(() => {
+      fsSync.rmSync(dir, { recursive: true, force: true });
+    });
+
+    function makeTree(): string {
+      const src = join(dir, 'src');
+      fsSync.mkdirSync(join(src, 'sub'), { recursive: true });
+      fsSync.writeFileSync(join(src, 'top.txt'), 'top');
+      fsSync.writeFileSync(join(src, 'sub', 'deep.txt'), 'deep');
+      return src;
+    }
+
+    function seedExisting(): string {
+      const dest = join(dir, 'dest');
+      fsSync.mkdirSync(dest);
+      fsSync.writeFileSync(join(dest, 'top.txt'), 'old');
+      return dest;
+    }
+
+    it('is exported from the fs-extra barrel', () => {
+      expect(typeof extra.copySync).toBe('function');
+    });
+
+    it('copies a single file and creates missing parents', () => {
+      const src = join(dir, 'one.txt');
+      fsSync.writeFileSync(src, 'one');
+      const dest = join(dir, 'x', 'y', 'one.txt');
+      copySync(src, dest);
+      expect(fsSync.readFileSync(dest, 'utf8')).toBe('one');
+    });
+
+    it('copies a nested directory tree', () => {
+      const src = makeTree();
+      const dest = join(dir, 'dest');
+      copySync(src, dest);
+      expect(fsSync.readFileSync(join(dest, 'top.txt'), 'utf8')).toBe('top');
+      expect(fsSync.readFileSync(join(dest, 'sub', 'deep.txt'), 'utf8')).toBe('deep');
+    });
+
+    it('filter excludes entries and receives src and dest', () => {
+      const src = makeTree();
+      const dest = join(dir, 'dest');
+      const seen: Array<[string, string]> = [];
+      copySync(src, dest, {
+        filter: (s, d) => {
+          seen.push([s, d]);
+          return !s.endsWith('sub');
+        },
+      });
+      expect(fsSync.existsSync(join(dest, 'top.txt'))).toBe(true);
+      expect(fsSync.existsSync(join(dest, 'sub'))).toBe(false);
+      expect(seen).toContainEqual([join(src, 'top.txt'), join(dest, 'top.txt')]);
+    });
+
+    it('a filter returning a promise throws TypeError', () => {
+      const src = makeTree();
+      expect(() =>
+        copySync(src, join(dir, 'dest'), {
+          // @ts-expect-error async filter is rejected by the sync typings
+          filter: async () => true,
+        }),
+      ).toThrow(TypeError);
+    });
+
+    it('overwrites an existing file by default', () => {
+      const src = makeTree();
+      const dest = seedExisting();
+      copySync(src, dest);
+      expect(fsSync.readFileSync(join(dest, 'top.txt'), 'utf8')).toBe('top');
+    });
+
+    it('overwrite false keeps an existing file and still copies the rest', () => {
+      const src = makeTree();
+      const dest = seedExisting();
+      copySync(src, dest, { overwrite: false });
+      expect(fsSync.readFileSync(join(dest, 'top.txt'), 'utf8')).toBe('old');
+      expect(fsSync.readFileSync(join(dest, 'sub', 'deep.txt'), 'utf8')).toBe('deep');
+    });
+
+    it('overwrite false with errorOnExist throws EEXIST', () => {
+      const src = makeTree();
+      const dest = seedExisting();
+      expect(() => copySync(src, dest, { overwrite: false, errorOnExist: true })).toThrow(
+        expect.objectContaining({ code: 'EEXIST' }),
+      );
+      expect(fsSync.readFileSync(join(dest, 'top.txt'), 'utf8')).toBe('old');
+    });
+
+    it('onProgress fires once per copied entry', () => {
+      const src = makeTree();
+      const progress: string[] = [];
+      copySync(src, join(dir, 'dest'), {
+        onProgress: (p) => progress.push(p.src),
+      });
+      expect(progress.sort()).toEqual(
+        [src, join(src, 'sub'), join(src, 'sub', 'deep.txt'), join(src, 'top.txt')].sort(),
+      );
+    });
+
+    it('onto itself throws the same-path error', () => {
+      const src = makeTree();
+      expect(() => copySync(src, src)).toThrow('Source and destination must not be the same.');
+    });
+
+    it('into its own subdirectory throws and creates nothing', () => {
+      const src = makeTree();
+      const dest = join(src, 'nested');
+      expect(() => copySync(src, dest)).toThrow(`Cannot copy '${src}' to a subdirectory of itself, '${dest}'.`);
+      expect(fsSync.existsSync(dest)).toBe(false);
+    });
+
+    it('a directory over an existing file throws', () => {
+      const src = makeTree();
+      const dest = join(dir, 'file.txt');
+      fsSync.writeFileSync(dest, 'x');
+      expect(() => copySync(src, dest)).toThrow(`Cannot overwrite non-directory '${dest}' with directory '${src}'.`);
+    });
+  });
+
+  describe('self and parent path guards', () => {
+    let dir: string;
+
+    beforeEach(async () => {
+      dir = await fs.mkdtemp(join(tmpdir(), 'fs-extra-guard-'));
+    });
+
+    afterEach(async () => {
+      await fs.rm(dir, { recursive: true, force: true });
+    });
+
+    async function makeTree(): Promise<string> {
+      const src = join(dir, 'src');
+      await fs.mkdir(join(src, 'inner'), { recursive: true });
+      await fs.writeFile(join(src, 'inner', 'a.txt'), 'a');
+      return src;
+    }
+
+    it('copy into its own subdirectory rejects with the fs-extra message', async () => {
+      const src = await makeTree();
+      const dest = join(src, 'sub');
+      await expect(copy(src, dest)).rejects.toThrow(`Cannot copy '${src}' to a subdirectory of itself, '${dest}'.`);
+      await expect(fs.stat(dest)).rejects.toThrow();
+    });
+
+    it('copy onto itself rejects', async () => {
+      const src = await makeTree();
+      await expect(copy(src, src)).rejects.toThrow('Source and destination must not be the same.');
+    });
+
+    it('copy of a directory over a file rejects', async () => {
+      const src = await makeTree();
+      const dest = join(dir, 'file.txt');
+      await fs.writeFile(dest, 'x');
+      await expect(copy(src, dest)).rejects.toThrow(
+        `Cannot overwrite non-directory '${dest}' with directory '${src}'.`,
+      );
+    });
+
+    it('copy through a link back into the source rejects', async () => {
+      const src = await makeTree();
+      const link = join(dir, 'link');
+      try {
+        await fs.symlink(src, link, 'junction');
+      } catch (e: any) {
+        if (e.code === 'EPERM') return;
+        throw e;
+      }
+      const dest = join(link, 'deep', 'sub');
+      await expect(copy(src, dest)).rejects.toThrow(`Cannot copy '${src}' to a subdirectory of itself, '${dest}'.`);
+    });
+
+    it('copySync into its own subdirectory throws', () => {
+      const src = join(dir, 'sync-src');
+      fsSync.mkdirSync(join(src, 'inner'), { recursive: true });
+      const dest = join(src, 'sub');
+      expect(() => copySync(src, dest)).toThrow(`Cannot copy '${src}' to a subdirectory of itself, '${dest}'.`);
+    }, 5000);
+
+    it('ensureLink onto an existing different file rejects', async () => {
+      const src = join(dir, 'src.txt');
+      const dest = join(dir, 'dest.txt');
+      await fs.writeFile(src, 'src');
+      await fs.writeFile(dest, 'other');
+      await expect(ensureLink(src, dest)).rejects.toMatchObject({
+        code: 'EEXIST',
+      });
+      expect(() => ensureLinkSync(src, dest)).toThrow(expect.objectContaining({ code: 'EEXIST' }));
+      await expect(fs.readFile(dest, 'utf8')).resolves.toBe('other');
+    });
+
+    it('ensureLink onto the identical link resolves', async () => {
+      const src = join(dir, 'src.txt');
+      const dest = join(dir, 'dest.txt');
+      await fs.writeFile(src, 'src');
+      await ensureLink(src, dest);
+      await expect(ensureLink(src, dest)).resolves.toBeUndefined();
+      expect(() => ensureLinkSync(src, dest)).not.toThrow();
+    });
+
+    it('ensureSymlink onto an existing different path rejects, onto the identical link resolves', async () => {
+      const src = join(dir, 'target');
+      const other = join(dir, 'other');
+      const link = join(dir, 'link');
+      await fs.mkdir(src);
+      await fs.mkdir(other);
+      // junction needs no privilege on win32, ignored elsewhere
+      await ensureSymlink(src, link, 'junction');
+      await expect(ensureSymlink(src, link, 'junction')).resolves.toBeUndefined();
+      expect(() => ensureSymlinkSync(src, link, 'junction')).not.toThrow();
+      await expect(ensureSymlink(other, link, 'junction')).rejects.toMatchObject({ code: 'EEXIST' });
+      expect(() => ensureSymlinkSync(other, link, 'junction')).toThrow(expect.objectContaining({ code: 'EEXIST' }));
+      await expect(ensureSymlink(src, other, 'junction')).rejects.toMatchObject({ code: 'EEXIST' });
     });
   });
 

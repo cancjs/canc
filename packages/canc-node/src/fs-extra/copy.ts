@@ -6,7 +6,7 @@ import { CancelablePromise } from '@cancjs/promise';
 
 import { isExistsError } from '../errors/errno';
 import { ensureDir, ensureDirSync } from './ensure';
-import { IAbortSignalLike, throwIfAborted } from './utils';
+import { checkPaths, checkPathsSync, IAbortSignalLike, throwIfAborted } from './utils';
 
 /**
  * Options for the copy operation.
@@ -91,7 +91,9 @@ export async function copyTree(
       options.onProgress({ src, dest });
     }
 
-    const entries = await (active.current = readdir(src, { withFileTypes: true }));
+    const entries = await (active.current = readdir(src, {
+      withFileTypes: true,
+    }));
     throwIfAborted(signal);
 
     for (const entry of entries) {
@@ -162,12 +164,37 @@ export async function copyTree(
 }
 
 /**
- * Internal synchronous recursive helper.
+ * Options for the synchronous copy operation.
  */
-export function copyTreeSync(src: string, dest: string, options?: ICopyOptions): void {
+export interface ICopySyncOptions extends Omit<ICopyOptions, 'filter'> {
+  /**
+   * Synchronous filter for copied files and directories.
+   * Return true to include, false to exclude. A returned promise is rejected with a TypeError.
+   * Applied to source entry only.
+   */
+  filter?: (src: string, dest: string) => boolean;
+}
+
+/**
+ * Synchronously copy a file or directory tree from src to dest. Checks the top-level paths once, then recurses
+ * without re-checking.
+ *
+ * @param src - Source path
+ * @param dest - Destination path
+ * @param options - Copy options
+ */
+export function copySync(src: string, dest: string, options?: ICopySyncOptions): void {
+  checkPathsSync(src, dest, 'copy');
+  copyEntrySync(src, dest, options);
+}
+
+function copyEntrySync(src: string, dest: string, options?: ICopySyncOptions): void {
   if (options?.filter) {
-    const shouldCopy = options.filter(src, dest);
-    if (!shouldCopy) {
+    const verdict: unknown = options.filter(src, dest);
+    if (typeof verdict === 'object' && verdict !== null && typeof (verdict as { then?: unknown }).then === 'function') {
+      throw new TypeError('copySync: filter option cannot return a Promise or thenable');
+    }
+    if (!verdict) {
       return;
     }
   }
@@ -184,7 +211,7 @@ export function copyTreeSync(src: string, dest: string, options?: ICopyOptions):
     const entries = readdirSync(src, { withFileTypes: true });
 
     for (const entry of entries) {
-      copyTreeSync(join(src, entry.name), join(dest, entry.name), options);
+      copyEntrySync(join(src, entry.name), join(dest, entry.name), options);
     }
   } else if (stats.isSymbolicLink()) {
     ensureDirSync(dirname(dest));
@@ -254,6 +281,6 @@ export function copy(src: string, dest: string, options?: ICopyOptions): Cancela
     handleCancel((reason) => {
       active.current?.cancel(reason);
     });
-    resolve(copyTree(src, dest, options, signal, active));
+    resolve(checkPaths(src, dest, 'copy', signal).then(() => copyTree(src, dest, options, signal, active)));
   });
 }

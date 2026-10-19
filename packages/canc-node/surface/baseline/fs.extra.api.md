@@ -3,13 +3,23 @@
 Generated. Do not edit by hand.
 
 - Declarations: `packages/canc-node/dist/types/fs-extra/index.d.ts`
-- Exports: 44
+- Exports: 46
 
 ## `ICopyOptions` (interface)
 
 ```text
 errorOnExist?: boolean | undefined
 filter?: ((src: string, dest: string) => Promise<boolean> | boolean) | undefined
+onProgress?: ((progress: { src: string; dest: string; }) => void) | undefined
+overwrite?: boolean | undefined
+```
+
+## `ICopySyncOptions` (interface)
+
+```text
+extends Omit<ICopyOptions, 'filter'>
+errorOnExist?: boolean | undefined
+filter?: ((src: string, dest: string) => boolean) | undefined
 onProgress?: ((progress: { src: string; dest: string; }) => void) | undefined
 overwrite?: boolean | undefined
 ```
@@ -123,6 +133,12 @@ spaces?: null | number | string | undefined
 
 ```text
 (src: string, dest: string, options?: ICopyOptions | undefined): CancelablePromise<void, unknown>
+```
+
+## `copySync` (function)
+
+```text
+(src: string, dest: string, options?: ICopySyncOptions | undefined): void
 ```
 
 ## `emptyDir` (function)
