@@ -397,13 +397,19 @@ if (existsSync(fileHandlePath)) {
 
   const EXPECTED_HANDLE_WRAPPERS = {
     appendFile: 'cancelify-signal',
+    chmod: 'promisify-custom',
+    chown: 'promisify-custom',
     close: 'passthrough',
+    datasync: 'promisify-custom',
     read: 'promisify-custom',
     readFile: 'cancelify-signal',
     readv: 'promisify-custom',
     stat: 'gated',
     write: 'promisify-custom',
     writeFile: 'cancelify-signal',
+    sync: 'promisify-custom',
+    truncate: 'promisify-custom',
+    utimes: 'promisify-custom',
     writev: 'promisify-custom',
   };
 
