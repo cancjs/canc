@@ -162,10 +162,20 @@ describe('walk and walkSync', () => {
       expect(syncPaths).toEqual(asyncPaths);
     });
 
-    // expectation comes from readdir so no OS listing order is hard-coded
+    // expectation comes from opendir, the same stream walk reads: readdirSync sorts on
+    // Unix (libuv scandir) so it would not match the raw order walk yields there
     function expectedPreOrder(dir: string): string[] {
       const out: string[] = [];
-      for (const entry of fsSync.readdirSync(dir, { withFileTypes: true })) {
+      const handle = fsSync.opendirSync(dir);
+      const entries: fsSync.Dirent[] = [];
+      try {
+        for (let entry = handle.readSync(); entry !== null; entry = handle.readSync()) {
+          entries.push(entry);
+        }
+      } finally {
+        handle.closeSync();
+      }
+      for (const entry of entries) {
         const full = join(dir, entry.name);
         out.push(full);
         if (entry.isDirectory()) out.push(...expectedPreOrder(full));
@@ -197,7 +207,7 @@ describe('walk and walkSync', () => {
         await fs.rm(wide, { recursive: true, force: true });
       });
 
-      it('walk lists siblings in readdir order, each followed by its subtree', async () => {
+      it('walk lists siblings in directory stream order, each followed by its subtree', async () => {
         const paths: string[] = [];
         for await (const entry of walk(wide, { order: 'depth-first' })) {
           paths.push(entry.path);
@@ -205,7 +215,7 @@ describe('walk and walkSync', () => {
         expect(paths).toEqual(expectedPreOrder(wide));
       });
 
-      it('walkSync lists siblings in readdir order, each followed by its subtree', () => {
+      it('walkSync lists siblings in directory stream order, each followed by its subtree', () => {
         const paths = [...walkSync(wide, { order: 'depth-first' })].map((entry) => entry.path);
         expect(paths).toEqual(expectedPreOrder(wide));
       });
