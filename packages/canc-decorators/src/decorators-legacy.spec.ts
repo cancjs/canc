@@ -496,6 +496,157 @@ describe('decorators (TS legacy): LegacyBindMethod', () => {
   });
 });
 
+describe('decorators (TS legacy): prototype reads and overrides', () => {
+  describe('LegacyBindMethod()', () => {
+    class Base {
+      id: number;
+
+      constructor(id: number) {
+        this.id = id;
+      }
+
+      @LegacyBindMethod()
+      method() {
+        return `base:${this.id}`;
+      }
+    }
+
+    it('an undecorated subclass override runs', () => {
+      class Sub extends Base {
+        method() {
+          return `sub:${this.id}`;
+        }
+      }
+
+      expect(new Sub(1).method()).toBe('sub:1');
+    });
+
+    it('super.method() then this.method() hits the override', () => {
+      class Sub extends Base {
+        method() {
+          return `sub:${this.id}`;
+        }
+
+        callBoth() {
+          return [super.method(), this.method()];
+        }
+      }
+
+      const inst = new Sub(2);
+
+      expect(inst.callBoth()).toEqual(['base:2', 'sub:2']);
+      expect(inst.method()).toBe('sub:2');
+    });
+
+    it('reading Base.prototype.method leaves instances bound', () => {
+      const before = new Base(3);
+      const fromPrototype = Base.prototype.method;
+      const after = new Base(4);
+
+      expect(typeof fromPrototype).toBe('function');
+
+      const detachedBefore = before.method;
+      const detachedAfter = after.method;
+
+      expect(detachedBefore()).toBe('base:3');
+      expect(detachedAfter()).toBe('base:4');
+    });
+
+    it('jest.spyOn(Base.prototype, method) intercepts calls and restores binding', () => {
+      const spy = jest.spyOn(Base.prototype, 'method');
+
+      try {
+        expect(new Base(5).method()).toBe('base:5');
+        expect(spy).toHaveBeenCalledTimes(1);
+      } finally {
+        spy.mockRestore();
+      }
+
+      const detached = new Base(6).method;
+
+      expect(jest.isMockFunction(detached)).toBe(false);
+      expect(detached()).toBe('base:6');
+    });
+  });
+
+  describe('LegacyAsyncMethod({ bind: true })', () => {
+    class Base {
+      id: number;
+
+      constructor(id: number) {
+        this.id = id;
+      }
+
+      @LegacyAsyncMethod({ bind: true })
+      *method(): Generator<any, any, any> {
+        return yield Promise.resolve(`base:${this.id}`);
+      }
+    }
+
+    it('an undecorated subclass override runs', async () => {
+      class Sub extends Base {
+        // undecorated, so it returns a plain promise rather than a generator
+        method(): any {
+          return Promise.resolve(`sub:${this.id}`);
+        }
+      }
+
+      expect(await new Sub(1).method()).toBe('sub:1');
+    });
+
+    it('super.method() then this.method() hits the override', async () => {
+      class Sub extends Base {
+        // undecorated, so it returns a plain promise rather than a generator
+        method(): any {
+          return Promise.resolve(`sub:${this.id}`);
+        }
+
+        callBoth() {
+          return Promise.all([super.method(), this.method()]);
+        }
+      }
+
+      const inst = new Sub(2);
+
+      expect(await inst.callBoth()).toEqual(['base:2', 'sub:2']);
+      expect(await inst.method()).toBe('sub:2');
+    });
+
+    it('reading Base.prototype.method leaves instances bound', async () => {
+      const before = new Base(3);
+      const fromPrototype = Base.prototype.method;
+      const after = new Base(4);
+
+      expect(typeof fromPrototype).toBe('function');
+
+      const detachedBefore = before.method;
+      const detachedAfter = after.method;
+
+      expect(await detachedBefore()).toBe('base:3');
+      expect(await detachedAfter()).toBe('base:4');
+    });
+
+    it('jest.spyOn(Base.prototype, method) intercepts calls and restores binding', async () => {
+      const spy = jest.spyOn(Base.prototype, 'method');
+
+      try {
+        const pending = new Base(5).method();
+
+        expect(typeof (pending as any).cancel).toBe('function');
+        expect(await pending).toBe('base:5');
+        expect(spy).toHaveBeenCalledTimes(1);
+      } finally {
+        spy.mockRestore();
+      }
+
+      const detached = new Base(6).method;
+
+      expect(jest.isMockFunction(detached)).toBe(false);
+      expect(await detached()).toBe('base:6');
+    });
+  });
+});
+
 describe('decorators (TS legacy): error handling', () => {
   it('LegacyAsyncMethod rejects non-method field', () => {
     expect(() => {
