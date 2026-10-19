@@ -158,13 +158,17 @@ export interface ICancelablePromiseFlagOptions {
    * bubbling runs two microtasks after cancel() returns.
    */
   asyncCancel?: boolean;
-  /** Keeps the current promise cancelable when native promise is provided through resolve() */
+  /**
+   * Keeps the current promise cancelable when native promise is provided through resolve(). A `.then()` child
+   * inherits the value when it is created; a later write applies only to promises created after it.
+   */
   forceCancelable?: boolean;
   /**
    * Cancellation propagates to parent promise. A promise is bubble-canceled once no consumer
    * remains after the current synchronous turn; a consumer subscribed anywhere in that turn, canc
    * or native, keeps it alive. A chain of promises with an overridden `cancel` bubbles recursively; very deep
-   * chains of them can exhaust the stack.
+   * chains of them can exhaust the stack. A `.then()` child is counted with the value at its creation; a later
+   * write applies only to children created after it.
    */
   bubble?: boolean;
   /** Throw on cancellation problems */
@@ -462,6 +466,9 @@ const FLAG_FORCE_CANCELABLE = 2;
 const FLAG_BUBBLE = 4;
 const FLAG_STRICT = 8;
 const FLAG_SHIELD = 16;
+
+// Parent forceCancelable copied by `_then` for the species child.
+let _thenChildForceCancelable = true;
 
 // Shared options for internal species construction to avoid allocation
 // Frozen to prevent future mutation from poisoning every derived promise
@@ -1185,6 +1192,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
     let hasPendingPreAbort = false;
 
     const isInternalSpeciesConstructionWithoutOptions = This._pendingInternalCall;
+    const internalForceCancelable = _thenChildForceCancelable;
 
     // Only normalize options on the public path.
     // On the internal path `normalizedOptions` is a
@@ -1330,15 +1338,11 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
                 });
               }
 
-              // On the internal (then-derived) path the shared stand-in options always
-              // say forceCancelable:true, so read the live flag instead: then() copies the
-              // parent's packed flags onto the child right after construction, and this
-              // wrapper only runs on a later microtask, so the inherited bit is already set.
-              // The public path keeps consulting the normalized options (correct there).
+              // Internal path: stand-in options say true, use the captured value.
               const forceCancelable =
-                isInternalSpeciesConstructionWithoutOptions ?
-                  (instance._flags & FLAG_FORCE_CANCELABLE) !== 0
-                : normalizedOptions.forceCancelable;
+                isInternalSpeciesConstructionWithoutOptions ? internalForceCancelable : (
+                  normalizedOptions.forceCancelable
+                );
               if (!forceCancelable) {
                 instance._internalState = states.FORCE_PENDING;
                 if (instance._cancelHandlers) {
@@ -2193,6 +2197,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
     const This = this.constructor as typeof CancelablePromise;
     // Calls CancelablePromise constructor internally
     try {
+      _thenChildForceCancelable = (this._flags & FLAG_FORCE_CANCELABLE) !== 0;
       This._pendingInternalCall = true;
       // Cast return from native prototype.then which returns a CancelablePromise at runtime
       // via species construction but is typed as plain Promise by standard lib
