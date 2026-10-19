@@ -417,6 +417,83 @@ describe('fs-extra', () => {
       expect(await fs.readFile(file, 'utf8')).toBe('head\n1\n');
     });
 
+    describe('through a symlink', () => {
+      async function makeLink(target: string, link: string): Promise<boolean> {
+        try {
+          await fs.symlink(target, link, 'file');
+          return true;
+        } catch (e: any) {
+          // unprivileged win32 cannot create file symlinks
+          if (e.code === 'EPERM') return false;
+          throw e;
+        }
+      }
+
+      it('writeJson keeps the link and writes the target', async () => {
+        const target = join(dir, 'target.json');
+        const link = join(dir, 'link.json');
+        await fs.writeFile(target, '{"old":true}');
+        if (!(await makeLink(target, link))) return;
+
+        await writeJson(link, { fresh: 1 });
+
+        expect((await fs.lstat(link)).isSymbolicLink()).toBe(true);
+        expect(await readJson(target)).toEqual({ fresh: 1 });
+        expect(await fs.readdir(dir)).toEqual(['link.json', 'target.json']);
+      });
+
+      it('outputJson keeps the link and writes the target', async () => {
+        const target = join(dir, 'target.json');
+        const link = join(dir, 'link.json');
+        await fs.writeFile(target, '{"old":true}');
+        if (!(await makeLink(target, link))) return;
+
+        await outputJson(link, { fresh: 2 });
+
+        expect((await fs.lstat(link)).isSymbolicLink()).toBe(true);
+        expect(await readJson(target)).toEqual({ fresh: 2 });
+      });
+
+      it('writeJson canceled mid-write keeps the link and the target bytes', async () => {
+        const target = join(dir, 'target.json');
+        const link = join(dir, 'link.json');
+        const original = '{"keep":"me"}\n';
+        await fs.writeFile(target, original);
+        if (!(await makeLink(target, link))) return;
+
+        const pending = writeJson(link, largePayload);
+        await new Promise<void>((done) => setImmediate(done));
+        await pending.cancel();
+        await expect(pending).rejects.toThrow(CancelError);
+
+        expect((await fs.lstat(link)).isSymbolicLink()).toBe(true);
+        expect(await fs.readFile(target, 'utf8')).toBe(original);
+        expect(await fs.readdir(dir)).toEqual(['link.json', 'target.json']);
+      });
+
+      it('writeJson on a dangling link keeps the link and creates the target', async () => {
+        const target = join(dir, 'missing.json');
+        const link = join(dir, 'dangling.json');
+        if (!(await makeLink(target, link))) return;
+
+        await writeJson(link, { fresh: 3 });
+
+        expect((await fs.lstat(link)).isSymbolicLink()).toBe(true);
+        expect(await readJson(target)).toEqual({ fresh: 3 });
+      });
+
+      it('writeJsonSync on a dangling link keeps the link and creates the target', async () => {
+        const target = join(dir, 'missing-sync.json');
+        const link = join(dir, 'dangling-sync.json');
+        if (!(await makeLink(target, link))) return;
+
+        writeJsonSync(link, { fresh: 4 });
+
+        expect((await fs.lstat(link)).isSymbolicLink()).toBe(true);
+        expect(await readJson(target)).toEqual({ fresh: 4 });
+      });
+    });
+
     it('ensureDir on an existing file rejects ENOTDIR', async () => {
       const file = join(dir, 'plain.txt');
       await fs.writeFile(file, 'x');

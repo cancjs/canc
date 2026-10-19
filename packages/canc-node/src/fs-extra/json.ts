@@ -1,7 +1,7 @@
-import { dirname } from 'node:path';
+import { dirname, resolve as resolvePath } from 'node:path';
 
 import { JsonParseError } from '@cancjs/node';
-import { readFile, writeFile } from '@cancjs/node/fs';
+import { lstat, readFile, readlink, realpath, writeFile } from '@cancjs/node/fs';
 import { mkdirSync, readFileSync, writeFileSync } from '@cancjs/node/fs/sync';
 import { CancelablePromise } from '@cancjs/promise';
 
@@ -123,13 +123,61 @@ export function readJsonSync<T = any>(file: string, options?: IReadJsonOptions |
 
 type TWriteOptions = Parameters<typeof writeFile>[2];
 
+const MAX_LINK_HOPS = 40;
+
+// realpath rejects dangling links: follow readlink by hand, keep a plain missing path as given
+function resolveWriteTarget(
+  file: string,
+  hops: number,
+  track: (pending: CancelablePromise<unknown, unknown>) => void,
+): CancelablePromise<string, unknown> {
+  return new CancelablePromise<string, unknown>((resolve) => {
+    const real = realpath(file);
+    track(real);
+    resolve(
+      real.then(
+        (resolved) => resolved as string,
+        () => {
+          const stat = lstat(file);
+          track(stat);
+          return stat.then(
+            (info) => {
+              if (!info.isSymbolicLink() || hops === 0) return file;
+              const link = readlink(file);
+              track(link);
+              return link.then((target) =>
+                resolveWriteTarget(resolvePath(dirname(file), String(target)), hops - 1, track),
+              );
+            },
+            () => file,
+          );
+        },
+      ),
+    );
+  });
+}
+
 // replaceFile cannot honor append or exclusive flags, so those keep the direct write
 function writeJsonContent(file: string, content: string, options: TWriteOptions & { flag?: string }) {
   const flag = options.flag;
-  if (flag === undefined || flag === 'w') {
-    return replaceFile(file, content, options);
+  if (flag !== undefined && flag !== 'w') {
+    return writeFile(file, content, options);
   }
-  return writeFile(file, content, options);
+  // resolve links first so the rename replaces the target, not the link itself
+  return new CancelablePromise<void, unknown>((resolve, _reject, { handleCancel }) => {
+    let active: CancelablePromise<unknown, unknown> | undefined;
+    handleCancel((reason) => {
+      active?.cancel(reason);
+    });
+    resolve(
+      resolveWriteTarget(file, MAX_LINK_HOPS, (pending) => {
+        active = pending;
+      }).then((target) => {
+        active = replaceFile(target, content, options);
+        return active.then(() => undefined);
+      }),
+    );
+  });
 }
 
 export function writeJson(
