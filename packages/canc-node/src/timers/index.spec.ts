@@ -110,6 +110,17 @@ describe('setInterval', () => {
     expect(again.done).toBe(true);
   });
 
+  it('cancel() while a next() is pending resolves it done without waiting out the interval', async () => {
+    const iterator = setInterval(60_000, 'tick');
+    const pending = iterator.next();
+
+    const started = Date.now();
+    iterator.cancel();
+
+    expect(await pending).toEqual({ value: undefined, done: true });
+    expect(Date.now() - started).toBeLessThan(1000);
+  });
+
   it('breaking a for-await loop ends the iteration the same way cancel() does', async () => {
     let count = 0;
     for await (const _tick of setInterval(5, 'tick')) {

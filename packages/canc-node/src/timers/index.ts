@@ -22,6 +22,11 @@ export interface ISchedulerWaitOptions {
   signal?: AbortSignal;
 }
 
+// name check only: node's AbortError comes from another realm, so `instanceof Error` misses it
+function isAbortName(error: unknown): boolean {
+  return (error as { name?: unknown } | null)?.name === 'AbortError';
+}
+
 const setTimeoutEntry = entries.get('setTimeout');
 const setImmediateEntry = entries.get('setImmediate');
 const waitEntry = entries.get('wait');
@@ -86,13 +91,47 @@ export function setInterval<T = number>(
   value?: T,
   options?: ITimersOptions,
 ): ICancelableIntervalIterator<T> {
-  const source = nodeTimersPromises.setInterval<T>(delay, value, options) as unknown as AsyncIterableIterator<T>;
+  const cancelation = new AbortController();
+  const signal = options?.signal ? AbortSignal.any([options.signal, cancelation.signal]) : cancelation.signal;
+  const source = nodeTimersPromises.setInterval<T>(delay, value, { ...options, signal }) as unknown as AsyncIterator<T>;
+  let canceled = false;
 
-  return Object.assign(source, {
-    cancel(): void {
-      void source.return?.(undefined as unknown as T);
+  async function stop(): Promise<IteratorResult<T>> {
+    canceled = true;
+    cancelation.abort();
+    try {
+      await source.return?.(undefined as unknown as T);
+    } catch (error) {
+      // the abort above already cleared the timer; node reports that as AbortError, which is not a failure here
+      if (!isAbortName(error)) {
+        throw error;
+      }
+    }
+    return { value: undefined, done: true };
+  }
+
+  const iterator: ICancelableIntervalIterator<T> = {
+    async next(): Promise<IteratorResult<T>> {
+      try {
+        return await source.next();
+      } catch (error) {
+        // node rejects a pending pull with AbortError when the signal fires; cancel() reads that as done
+        if (canceled && isAbortName(error)) {
+          return { value: undefined, done: true };
+        }
+        throw error;
+      }
     },
-  });
+    return: stop,
+    [Symbol.asyncIterator](): ICancelableIntervalIterator<T> {
+      return iterator;
+    },
+    cancel(): void {
+      void stop();
+    },
+  };
+
+  return iterator;
 }
 
 /**
