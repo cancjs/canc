@@ -143,6 +143,59 @@ describe('@cancjs/unhandled-rejection', () => {
     expect(res.stdout).toContain('CALLBACK:real failure');
   });
 
+  describe('aggregate of rejections', () => {
+    const setup = `
+      const { CancelablePromise, CancelError } = require(${JSON.stringify(promiseSrc)});
+      const { register } = require(${JSON.stringify(unhandledSrc)});
+    `;
+
+    it('an any() whose members were all canceled is suppressed', () => {
+      const res = runChild(`
+        ${setup}
+        register();
+        const a = new CancelablePromise(() => {});
+        const b = new CancelablePromise(() => {});
+        CancelablePromise.any([a, b]);
+        a.cancel();
+        b.cancel();
+      `);
+      expect(res.stderr).toBe('');
+      expect(res.status).toBe(0);
+    });
+
+    it('an any() holding one real error is reported', () => {
+      const res = runChild(`
+        ${setup}
+        register({ onUnhandledRejection: (reason) => process.stdout.write('CALLBACK:' + reason.name) });
+        const a = new CancelablePromise(() => {});
+        const b = new CancelablePromise((_, reject) => reject(new Error('real failure')));
+        CancelablePromise.any([a, b]);
+        a.cancel();
+      `);
+      expect(res.stdout).toContain('CALLBACK:AggregateError');
+    });
+  });
+
+  describe('hostile rejection reasons', () => {
+    const cases: Array<[string, string]> = [
+      ['a Proxy that throws on every trap', `new Proxy({}, new Proxy({}, { get() { throw new Error('trap'); } }))`],
+      [
+        'an object whose name getter throws',
+        `Object.defineProperty({}, 'name', { get() { throw new Error('name'); } })`,
+      ],
+    ];
+
+    it.each(cases)('reaches the callback for %s', (_label, reason) => {
+      const res = runChild(`
+        const { register } = require(${JSON.stringify(unhandledSrc)});
+        register({ abort: true, timeout: true, onUnhandledRejection: () => process.stdout.write('CALLBACK') });
+        Promise.reject(${reason});
+      `);
+      expect(res.stdout).toBe('CALLBACK');
+      expect(res.status).toBe(0);
+    });
+  });
+
   describe('onUnhandledRejection with a foreign thenable cancel', () => {
     it('is not called and the process exits cleanly', () => {
       const res = runFixture('foreign-cancel-callback.js');

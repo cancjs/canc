@@ -75,10 +75,25 @@ function getRegistrations(): Registration[] {
 const registrations: Registration[] = getRegistrations();
 
 function buildIsSuppressed(options?: RegisterOptions): (error: unknown) => boolean {
-  return (error: unknown): boolean =>
+  const isSuppressedLeaf = (error: unknown): boolean =>
     isCancelError(error) ||
     Boolean(options?.abort && isAbortError(error)) ||
     Boolean(options?.timeout && isTimeoutError(error));
+
+  // one level only: an any() over canceled members rejects with an aggregate of their CancelErrors
+  const isSuppressedAggregate = (error: unknown): boolean => {
+    try {
+      const members = (error as { errors?: unknown } | null | undefined)?.errors;
+      if (!Array.isArray(members) || members.length === 0) {
+        return false;
+      }
+      return members.every(isSuppressedLeaf);
+    } catch {
+      return false;
+    }
+  };
+
+  return (error: unknown): boolean => isSuppressedLeaf(error) || isSuppressedAggregate(error);
 }
 
 function tryRegister(
