@@ -139,7 +139,9 @@ describe('@cancjs/node/fs module exports', () => {
   });
 
   it('watch returns the async iterable node returns, and a signal ends the loop', async () => {
-    const dir = nodeFs.mkdtempSync(path.join(os.tmpdir(), 'canc-watch-'));
+    // realpath: on Windows os.tmpdir() can be an 8.3 short path, while watch events carry the long
+    // name, and libuv asserts on that mismatch and aborts the whole worker
+    const dir = nodeFs.mkdtempSync(path.join(nodeFs.realpathSync.native(os.tmpdir()), 'canc-watch-'));
     const target = path.join(dir, 'touched.txt');
     const controller = new AbortController();
 
