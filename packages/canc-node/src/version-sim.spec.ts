@@ -137,7 +137,7 @@ describe('version simulation', () => {
       zErr = e;
     }
     expect(isNotImplementedError(zErr)).toBe(true);
-    expect(zErr).toMatchObject({ feature: 'zstdCompress', required: '22' });
+    expect(zErr).toMatchObject({ feature: 'zstdCompress', required: '22.15.0' });
 
     // Sync-kind functions throw NotImplementedError having feature and required properties
     let cErr: unknown;
