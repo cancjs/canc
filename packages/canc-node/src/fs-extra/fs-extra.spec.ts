@@ -482,6 +482,18 @@ describe('fs-extra', () => {
         expect(await readJson(target)).toEqual({ fresh: 3 });
       });
 
+      it('writeJson on a link loop rejects ELOOP and leaves the links in place', async () => {
+        const a = join(dir, 'loop-a.json');
+        const b = join(dir, 'loop-b.json');
+        if (!(await makeLink(b, a))) return;
+        await fs.symlink(a, b, 'file');
+
+        await expect(writeJson(a, { fresh: 5 })).rejects.toMatchObject({ code: 'ELOOP' });
+
+        expect((await fs.lstat(a)).isSymbolicLink()).toBe(true);
+        expect((await fs.lstat(b)).isSymbolicLink()).toBe(true);
+      });
+
       it('writeJsonSync on a dangling link keeps the link and creates the target', async () => {
         const target = join(dir, 'missing-sync.json');
         const link = join(dir, 'dangling-sync.json');

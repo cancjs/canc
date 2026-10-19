@@ -142,7 +142,8 @@ function resolveWriteTarget(
           track(stat);
           return stat.then(
             (info) => {
-              if (!info.isSymbolicLink() || hops === 0) return file;
+              if (!info.isSymbolicLink()) return file;
+              if (hops === 0) throw Object.assign(new Error(`too many symbolic links: ${file}`), { code: 'ELOOP' });
               const link = readlink(file);
               track(link);
               return link.then((target) =>
