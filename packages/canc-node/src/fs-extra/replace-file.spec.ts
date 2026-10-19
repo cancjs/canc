@@ -249,7 +249,7 @@ describe('replaceFile', () => {
     try {
       const p = replaceFile(file, 'x'.repeat(10000));
       await writeStarted;
-      p.cancel();
+      await p.cancel();
       await expect(p).rejects.toThrow(CancelError);
 
       const files = await fs.readdir(dir);
@@ -374,6 +374,53 @@ describe('replaceFile', () => {
     const leftovers = (await fs.readdir(root)).filter((name) => name.includes('.tmp-'));
     expect(leftovers).toEqual([]);
   });
+  it('a canceled write that lands after the cleanup retries give up still leaves no temp file behind', async () => {
+    const dir = join(root, 'cancel-late-write');
+    await fs.mkdir(dir, { recursive: true });
+    const file = join(dir, 'target.txt');
+    await fs.writeFile(file, 'initial content');
+
+    // the platform write creates the temp file only after 1.5s, far past the ~0.5s unlink retry budget,
+    // so a cleanup that gives up early leaves the file the write creates behind
+    let writeLandedResolve!: () => void;
+    const writeLanded = new Promise<void>((resolve) => {
+      writeLandedResolve = resolve;
+    });
+
+    const originalFs = getFs();
+    const realWriteFile = fsCall((originalFs as unknown as Record<string, unknown>).writeFile, 'writeFile');
+    setFs({
+      ...originalFs,
+      writeFile: (...args: unknown[]) => {
+        const callback = args[args.length - 1] as (err: unknown) => void;
+        const [target, data, options] = args.slice(0, -1);
+        // the signal is dropped: node would otherwise abort the late write that the cancel already reached
+        const lateOptions =
+          typeof options === 'object' && options !== null ? { ...options, signal: undefined } : options;
+        setTimeout(() => {
+          realWriteFile(target, data, lateOptions, (err: unknown) => {
+            writeLandedResolve();
+            callback(err);
+          });
+        }, 1500);
+      },
+    } as never);
+
+    try {
+      const p = replaceFile(file, 'x'.repeat(10000));
+      // awaiting cancel() covers the cleanup, which waits for the late write to land
+      await p.cancel();
+
+      await expect(p).rejects.toThrow(CancelError);
+      await writeLanded;
+      const leftovers = (await fs.readdir(dir)).filter((name) => name.includes('.tmp-'));
+      expect(leftovers).toEqual([]);
+      expect(await fs.readFile(file, 'utf8')).toBe('initial content');
+    } finally {
+      resetFs();
+    }
+  });
+
   describe('failure reporting', () => {
     function stubUnlinkFailure(code: string) {
       const originalFs = getFs();

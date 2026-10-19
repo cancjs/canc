@@ -49,10 +49,9 @@ function isMetadataUnsupported(err: unknown): boolean {
 /**
  * Retry unlink on transient lock errors during cleanup.
  *
- * ENOENT counts as transient rather than as success: the cleanup can run before the write it is
- * undoing has reached the disk, and treating "not there yet" as done leaves the file behind once
- * the write lands. Everything else that is not a known-transient errno is rethrown, because a
- * swallowed failure leaves a temp file while the promise settles clean and tells nobody.
+ * ENOENT is retried with the other transient errors, and only a final ENOENT counts as success.
+ * Everything else that is not a known-transient errno is rethrown, because a swallowed failure
+ * leaves a temp file while the promise settles clean and tells nobody.
  */
 function unlinkWithRetry(path: string, attempts = UNLINK_ATTEMPTS): Promise<void> {
   return unlink(path).catch((err: unknown) => {
@@ -104,38 +103,44 @@ export function replaceFile(
       `.${base}.tmp-${process.pid}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`,
     );
 
-    let activePromise: CancelablePromise<unknown> | null = null;
+    let isCanceled = false;
     let isRenamed = false;
+    let isRenameStarted = false;
+
+    // the write is not canceled: canceling the wrapper does not stop a write already handed to the
+    // platform, so the temp file can only be removed once the write has actually settled. The
+    // cancelation waits for that, which also keeps a late write from outliving the cleanup
+    const writePromise = writeFile(tempPath, data, options);
+    const writeSettled = writePromise.then(
+      () => undefined,
+      () => undefined,
+    );
 
     // returned, not dropped: a returned thenable is awaited before the cancelation settles
-    // canceling the wrapper does not un-schedule a write already handed to the platform, and
-    // awaiting the wrapper proves nothing about the fs callback, so the late write is handled by
-    // unlinkWithRetry treating ENOENT as "not yet" rather than as done
-    handleCancel((reason) => {
-      const inFlight = activePromise;
-      activePromise = null;
-      inFlight?.cancel(reason);
+    handleCancel(() => {
+      isCanceled = true;
 
-      if (isRenamed) {
+      // a rename already started cannot be undone, so the chain owns whatever it leaves behind
+      if (isRenameStarted) {
         return undefined;
       }
 
-      return unlinkWithRetry(tempPath);
+      return writeSettled.then(() => unlinkWithRetry(tempPath));
     });
 
-    const writePromise = (activePromise = writeFile(tempPath, data, options));
     resolve(
       writePromise
         .then(() => {
-          const statPromise = (activePromise = stat(path));
-          return statPromise.then(
+          if (isCanceled) {
+            throw new Error('replaceFile canceled before the rename');
+          }
+
+          return stat(path).then(
             (st) => {
-              const chmodPromise = (activePromise = chmod(tempPath, st.mode));
-              return chmodPromise
+              return chmod(tempPath, st.mode)
                 .then(() => {
                   if (typeof st.uid === 'number' && typeof st.gid === 'number') {
-                    const chownPromise = (activePromise = chown(tempPath, st.uid, st.gid));
-                    return chownPromise.then(undefined, (err: unknown) => {
+                    return chown(tempPath, st.uid, st.gid).then(undefined, (err: unknown) => {
                       if (!isMetadataUnsupported(err)) {
                         throw err;
                       }
@@ -158,13 +163,22 @@ export function replaceFile(
           );
         })
         .then(() => {
-          const renamePromise = (activePromise = renameWithRetry(tempPath, path));
-          return renamePromise.then(() => {
+          if (isCanceled) {
+            throw new Error('replaceFile canceled before the rename');
+          }
+
+          isRenameStarted = true;
+          return renameWithRetry(tempPath, path).then(() => {
             isRenamed = true;
           });
         })
         .then(undefined, (err: unknown) => {
           if (isRenamed) {
+            throw err;
+          }
+
+          // after a cancelation with no rename started, the handler removes the temp file once the write settles
+          if (isCanceled && !isRenameStarted) {
             throw err;
           }
 
