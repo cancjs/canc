@@ -29,7 +29,8 @@
     "@cancjs/toolbox:PipeOp",
     "@cancjs/toolbox:Pipeable",
     "@cancjs/toolbox:SupersededError",
-    "@cancjs/toolbox:TermOp"
+    "@cancjs/toolbox:TermOp",
+    "@cancjs/unhandled-rejection:registry"
   ],
   "quarantined": {},
   "markers": {

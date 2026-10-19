@@ -61,13 +61,39 @@ interface Registration {
   remove: () => void;
 }
 
-const registrations: Registration[] = [];
+const REGISTRY_KEY = Symbol.for('@cancjs/unhandled-rejection:registry');
+
+// one list per process so every build and entry point shares it
+function getRegistrations(): Registration[] {
+  if (typeof globalThis === 'undefined') {
+    return [];
+  }
+  const host = globalThis as { [REGISTRY_KEY]?: Registration[] };
+  return host[REGISTRY_KEY] || (host[REGISTRY_KEY] = []);
+}
+
+const registrations: Registration[] = getRegistrations();
 
 function buildIsSuppressed(options?: RegisterOptions): (error: unknown) => boolean {
-  return (error: unknown): boolean =>
+  const isSuppressedLeaf = (error: unknown): boolean =>
     isCancelError(error) ||
     Boolean(options?.abort && isAbortError(error)) ||
     Boolean(options?.timeout && isTimeoutError(error));
+
+  // one level only: an any() over canceled members rejects with an aggregate of their CancelErrors
+  const isSuppressedAggregate = (error: unknown): boolean => {
+    try {
+      const members = (error as { errors?: unknown } | null | undefined)?.errors;
+      if (!Array.isArray(members) || members.length === 0) {
+        return false;
+      }
+      return members.every(isSuppressedLeaf);
+    } catch {
+      return false;
+    }
+  };
+
+  return (error: unknown): boolean => isSuppressedLeaf(error) || isSuppressedAggregate(error);
 }
 
 function tryRegister(
@@ -78,11 +104,12 @@ function tryRegister(
 ): void {
   const existingSameType = registrations.find((r) => r.type === type);
   if (existingSameType) {
-    warnSafe(`Handler already registered for type "${type}". Skipping registration.`, options);
-    return;
+    warnSafe(`Handler already registered for type "${type}". Replacing it with the new options.`, options);
+    existingSameType.remove();
+    registrations.splice(registrations.indexOf(existingSameType), 1);
   }
 
-  if (registrations.length > 0 && !expectSiblings) {
+  if (!existingSameType && registrations.length > 0 && !expectSiblings) {
     const existingTypes = registrations.map((r) => r.type).join(', ');
     warnSafe(`Handler already registered (${existingTypes}), registering ${type} alongside.`, options);
   }
@@ -155,21 +182,86 @@ function readRuntimeToken(): string | undefined {
   }
 }
 
+function readFlagValue(tokens: unknown, flag: string): string | undefined {
+  if (!Array.isArray(tokens)) {
+    return undefined;
+  }
+  let found: string | undefined;
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i];
+    if (typeof token !== 'string') {
+      continue;
+    }
+    if (token.slice(0, flag.length + 1) === `${flag}=`) {
+      found = token.slice(flag.length + 1);
+    } else if (token === flag && typeof tokens[i + 1] === 'string') {
+      found = tokens[i + 1];
+    }
+  }
+  return found;
+}
+
+// command line beats NODE_OPTIONS, last occurrence wins, absent flag means node's `throw`
+function readRejectionMode(): string {
+  const flag = '--unhandled-rejections';
+  const nodeOptions = typeof process.env?.NODE_OPTIONS === 'string' ? process.env.NODE_OPTIONS.split(/\s+/) : [];
+  return readFlagValue(process.execArgv, flag) ?? readFlagValue(nodeOptions, flag) ?? 'throw';
+}
+
+function describeReason(reason: unknown): string {
+  try {
+    return String(reason);
+  } catch {
+    return '[unprintable reason]';
+  }
+}
+
+// deferred so a same-tick burst reaches uncaughtException one by one
+function rethrowLater(reason: unknown): void {
+  const defer = typeof setImmediate === 'function' ? setImmediate : (fn: () => void) => setTimeout(fn, 0);
+  defer(() => {
+    throw reason;
+  });
+}
+
 function makeNodeSetup(options?: RegisterOptions): () => (() => void) | null {
   return () => {
     if (!hasNodeProcess()) {
       return null;
     }
     const isSuppressed = buildIsSuppressed(options);
+    const mode = readRejectionMode();
+    if (mode === 'strict' && !options?.onUnhandledRejection) {
+      warnSafe(
+        'Node runs with --unhandled-rejections=strict, which raises every rejection as an uncaught exception before listeners run. Suppression is inert in this mode.',
+        options,
+      );
+    }
     const handler = (reason: unknown, promise?: Promise<unknown>): void => {
       if (isSuppressed(reason)) {
         return;
       }
       if (options?.onUnhandledRejection) {
         options.onUnhandledRejection(reason, promise);
-      } else {
-        throw reason;
+        return;
       }
+      if (mode === 'warn' || mode === 'none' || mode === 'warn-with-error-code') {
+        warnSafe(`Unhandled rejection left to the "${mode}" mode: ${describeReason(reason)}`, options);
+        // any listener disables node's own handling, exit code included, so this mode restores it
+        if (mode === 'warn-with-error-code') {
+          process.exitCode = 1;
+        }
+        return;
+      }
+      // strict already raised this as an uncaught exception, rethrowing would report it twice
+      if (mode === 'strict') {
+        return;
+      }
+      // another listener owns the outcome, crashing here would preempt it
+      if (typeof process.listenerCount === 'function' && process.listenerCount('unhandledRejection') > 1) {
+        return;
+      }
+      rethrowLater(reason);
     };
     process.on('unhandledRejection', handler);
     return () => {
@@ -265,8 +357,9 @@ export function registerEdgeRuntime(options?: RegisterOptions): void {
  * duck-typing globals and `process.versions`. Warns and does nothing if no target is recognized.
  *
  * Suppresses `CancelError` rejections while letting real rejections pass to `onUnhandledRejection`
- * or default runtime handling. Registration is idempotent per runtime target; multiple calls for
- * the same target skip duplicate installation. Installed handlers can be removed with {@link unregister}.
+ * or default runtime handling. Registrations are shared by every copy of this package in the process.
+ * A second call for the same target replaces the earlier handler and options and logs a warning.
+ * Installed handlers can be removed with {@link unregister}.
  */
 export function register(options?: RegisterOptions): void {
   if (isElectronRuntime()) {
