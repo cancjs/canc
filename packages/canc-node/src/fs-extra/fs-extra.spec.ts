@@ -494,6 +494,23 @@ describe('fs-extra', () => {
         expect((await fs.lstat(b)).isSymbolicLink()).toBe(true);
       });
 
+      it('writeJson on a 41-link dangling chain rejects ELOOP and leaves every link in place', async () => {
+        const links = Array.from({ length: 41 }, (_, i) => join(dir, `chain-${i}.json`));
+        const missing = join(dir, 'chain-missing.json');
+        for (let i = 0; i < links.length; i++) {
+          const next = i + 1 < links.length ? links[i + 1] : missing;
+          if (i === 0 && !(await makeLink(next, links[i]))) return;
+          if (i > 0) await fs.symlink(next, links[i], 'file');
+        }
+
+        await expect(writeJson(links[0], { fresh: 6 })).rejects.toMatchObject({ code: 'ELOOP' });
+
+        for (const link of links) {
+          expect((await fs.lstat(link)).isSymbolicLink()).toBe(true);
+        }
+        await expect(fs.lstat(missing)).rejects.toMatchObject({ code: 'ENOENT' });
+      });
+
       it('writeJsonSync on a dangling link keeps the link and creates the target', async () => {
         const target = join(dir, 'missing-sync.json');
         const link = join(dir, 'dangling-sync.json');
