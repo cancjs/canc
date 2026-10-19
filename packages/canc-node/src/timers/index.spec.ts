@@ -5,6 +5,9 @@ import * as path from 'path';
 import * as timersExports from './index';
 import { scheduler, setImmediate, setInterval, setTimeout } from './index';
 
+// hang guard only: the subprocess specs settle on the child's close event, never on this budget
+jest.setTimeout(60000);
+
 describe('@cancjs/node/timers module exports', () => {
   it('exports exactly the full timers/promises mirror: setTimeout, setImmediate, setInterval, scheduler', () => {
     const expected = new Set(['setTimeout', 'setImmediate', 'setInterval', 'scheduler']);
@@ -180,11 +183,12 @@ const ELAPSED_MARKER = '<<elapsed>>';
 /**
  * Runs a program in a real subprocess and reports how long the child execution took.
  *
- * Decouples startup delay from execution timeout by writing a ready marker after module loading
- * finishes. Allows a generous budget for initial loading under parallel load, then bounds the
- * execution window so uncleared timers fail promptly.
+ * No wall-clock budget: the promise settles on the child's `close` or `error` event only. The child
+ * writes a ready marker after module loading so its stdout can be split from the loader's, and the
+ * program reports facts about its own event loop (such as the live `Timeout` count) instead of the
+ * parent timing it out.
  */
-function runChild(program: string, timeoutMs: number): Promise<{ stdout: string; elapsedMs: number }> {
+function runChild(program: string): Promise<{ stdout: string; elapsedMs: number }> {
   return new Promise((resolve, reject) => {
     const timer = [
       `require(${JSON.stringify(timersEntry)});`,
@@ -202,32 +206,12 @@ function runChild(program: string, timeoutMs: number): Promise<{ stdout: string;
 
     let stdout = '';
     let stderr = '';
-    let isReady = false;
-    let settled = false;
-    let executionTimer: ReturnType<typeof global.setTimeout> | undefined;
-
-    const startupTimer = global.setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      child.kill();
-      reject(new Error(`child startup timed out after 30s; stderr: ${stderr}`));
-    }, 30000);
 
     child.stdout.setEncoding('utf8');
     child.stderr.setEncoding('utf8');
 
     child.stdout.on('data', (chunk: string) => {
       stdout += chunk;
-      if (!isReady && stdout.includes(READY_MARKER)) {
-        isReady = true;
-        global.clearTimeout(startupTimer);
-        executionTimer = global.setTimeout(() => {
-          if (settled) return;
-          settled = true;
-          child.kill();
-          reject(new Error(`child execution timed out after ${timeoutMs}ms; stderr: ${stderr}`));
-        }, timeoutMs);
-      }
     });
 
     child.stderr.on('data', (chunk: string) => {
@@ -235,19 +219,10 @@ function runChild(program: string, timeoutMs: number): Promise<{ stdout: string;
     });
 
     child.on('error', (err) => {
-      global.clearTimeout(startupTimer);
-      if (executionTimer) global.clearTimeout(executionTimer);
-      if (settled) return;
-      settled = true;
       reject(err);
     });
 
     child.on('close', (code, signal) => {
-      global.clearTimeout(startupTimer);
-      if (executionTimer) global.clearTimeout(executionTimer);
-      if (settled) return;
-      settled = true;
-
       if (signal) {
         reject(new Error(`child killed by signal: ${signal}; stderr: ${stderr}`));
         return;
@@ -275,74 +250,82 @@ function runChild(program: string, timeoutMs: number): Promise<{ stdout: string;
   });
 }
 
-describe('setTimeout canceled: the process is not held open (real subprocess)', () => {
-  jest.setTimeout(45000);
+// reported from the child after its cancel or ref decision, read in a setImmediate so the clear has run;
+// only 'Timeout' entries count, since stdio pipe handles add their own entries to the active list
+const ACTIVE_PROBE = `
+function activeTimeouts() {
+  return process.getActiveResourcesInfo().filter(function (name) { return name === 'Timeout'; }).length;
+}
+`;
 
-  it('a 10s timer canceled at 10ms lets the process exit almost immediately, proving the timer was cleared', async () => {
+describe('setTimeout canceled: the timer is cleared (real subprocess)', () => {
+  it('a 10s timer canceled before it fires leaves no active Timeout behind', async () => {
     const program = `
 const timers = require(${JSON.stringify(timersEntry)});
+${ACTIVE_PROBE}
 const p = timers.setTimeout(10000);
-setImmediate(function () { p.cancel('stop'); });
+setImmediate(function () {
+  p.cancel('stop');
+  setImmediate(function () { process.stdout.write('\\nACTIVE:' + activeTimeouts()); });
+});
 p.then(
  function () { process.stdout.write('resolved'); },
  function (err) { process.stdout.write('rejected:' + (err && err.name)); }
 );
 `;
 
-    const { stdout } = await runChild(program, 8000);
+    const { stdout } = await runChild(program);
 
-    expect(stdout).toBe('rejected:CancelError');
-    // uncleared 10s timer would hold the loop open past the 8s execution window
+    expect(stdout).toBe('rejected:CancelError\nACTIVE:0');
   });
 });
 
 describe('ref: false does not hold the event loop open (real subprocess)', () => {
-  jest.setTimeout(45000);
-
-  it('a 10s timer started with ref: false lets the process exit immediately, never firing', async () => {
+  it('a 10s timer started with ref: false is not listed as an active Timeout', async () => {
     const program = `
 const timers = require(${JSON.stringify(timersEntry)});
+${ACTIVE_PROBE}
 timers.setTimeout(10000, undefined, { ref: false });
-process.stdout.write('SCRIPT_END');
+setImmediate(function () { process.stdout.write('ACTIVE:' + activeTimeouts()); });
 `;
 
-    const { stdout } = await runChild(program, 8000);
+    const { stdout } = await runChild(program);
 
-    expect(stdout).toBe('SCRIPT_END');
+    expect(stdout).toBe('ACTIVE:0');
   });
 
-  it('control: the same 10s timer WITHOUT ref: false holds the process open for the full delay', async () => {
+  it('control: the same 10s timer WITHOUT ref: false is listed as one active Timeout and holds the process open', async () => {
     const program = `
 const timers = require(${JSON.stringify(timersEntry)});
+${ACTIVE_PROBE}
 timers.setTimeout(300);
-process.stdout.write('SCRIPT_END');
+setImmediate(function () { process.stdout.write('ACTIVE:' + activeTimeouts()); });
 `;
 
-    const { stdout, elapsedMs } = await runChild(program, 8000);
+    const { stdout, elapsedMs } = await runChild(program);
 
-    expect(stdout).toBe('SCRIPT_END');
-    // no ref: false and nothing canceled it, so the process waits out the full 300ms timer
+    expect(stdout).toBe('ACTIVE:1');
+    // nothing canceled it, so the process waits out the full 300ms timer
     expect(elapsedMs).toBeGreaterThanOrEqual(250);
   });
 });
 
 describe('setInterval canceled: the underlying timer is cleared (real subprocess)', () => {
-  jest.setTimeout(45000);
-
-  it('an interval canceled after one tick lets the process exit quickly rather than ticking indefinitely', async () => {
+  it('an interval canceled after one tick leaves no active Timeout behind', async () => {
     const program = `
 const timers = require(${JSON.stringify(timersEntry)});
+${ACTIVE_PROBE}
 async function main() {
  const it = timers.setInterval(20, 'tick');
  await it.next();
  it.cancel();
- process.stdout.write('DONE');
+ setImmediate(function () { process.stdout.write('ACTIVE:' + activeTimeouts()); });
 }
 main();
 `;
 
-    const { stdout } = await runChild(program, 8000);
+    const { stdout } = await runChild(program);
 
-    expect(stdout).toBe('DONE');
+    expect(stdout).toBe('ACTIVE:0');
   });
 });
