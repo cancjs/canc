@@ -4,7 +4,7 @@ import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
-import { CancelError } from '@cancjs/promise';
+import { CancelablePromise, CancelError } from '@cancjs/promise';
 import { describe, expect, jest, test } from '@jest/globals';
 
 import { __resetCancProtoForTest, decorate } from './file-handle';
@@ -334,4 +334,89 @@ describe('FileHandle', () => {
       expect(closedExplicitly).toBe(true);
     });
   }
+});
+
+describe('FileHandle adopted methods', () => {
+  const tempDirs: string[] = [];
+
+  afterEach(() => {
+    resetFs();
+    while (tempDirs.length > 0) {
+      const dir = tempDirs.pop();
+      if (dir) {
+        removeTempDir(dir);
+      }
+    }
+  });
+
+  test.each(['chmod', 'chown', 'datasync', 'sync', 'truncate', 'utimes'] as const)(
+    '%s returns a cancelable promise, not a plain promise',
+    async (name) => {
+      const dir = nodeFs.mkdtempSync(path.join(os.tmpdir(), 'canc-fh-adopted-'));
+      tempDirs.push(dir);
+      const testFile = path.join(dir, 'test.txt');
+      nodeFs.writeFileSync(testFile, 'hello');
+      const fh = await open(testFile, 'r+');
+      try {
+        const call = (fh as unknown as Record<string, (...args: unknown[]) => unknown>)[name];
+        const args: unknown[] =
+          name === 'chmod' ? [0o644]
+          : name === 'chown' ? [0, 0]
+          : name === 'truncate' ? [2]
+          : name === 'utimes' ? [new Date(), new Date()]
+          : [];
+        const promise = call.apply(fh, args) as CancelablePromise<unknown, unknown>;
+
+        expect(promise).toBeInstanceOf(CancelablePromise);
+        promise.cancel();
+        await promise.catch(() => {});
+      } finally {
+        await fh.close();
+      }
+    },
+  );
+});
+
+describe('open canceled while pending', () => {
+  const tempDirs: string[] = [];
+
+  afterEach(() => {
+    resetFs();
+    while (tempDirs.length > 0) {
+      const dir = tempDirs.pop();
+      if (dir) {
+        removeTempDir(dir);
+      }
+    }
+  });
+
+  async function flushMicrotasks(count: number): Promise<void> {
+    for (let i = 0; i < count; i++) {
+      await Promise.resolve();
+    }
+  }
+
+  test.each([1, 2, 5])('cancel after %i microtask(s) closes the handle once it arrives', async (ticks) => {
+    const closed = jest.fn(async () => {});
+    const handle = { close: closed };
+    setFs(
+      {
+        promises: {
+          open: jest.fn(async () => {
+            await flushMicrotasks(8);
+            return handle;
+          }),
+        },
+      },
+      { retryOpen: true },
+    );
+
+    const pending = open('package.json', 'r');
+    await flushMicrotasks(ticks);
+    pending.cancel();
+
+    await expect(pending).rejects.toBeInstanceOf(CancelError);
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(closed).toHaveBeenCalledTimes(1);
+  });
 });

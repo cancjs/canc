@@ -37,7 +37,7 @@
     {
       "name": "chmod",
       "kind": "fn",
-      "wrapper": "passthrough",
+      "wrapper": "promisify-custom",
       "adopted": true,
       "minMajor": 18,
       "gate": null,
@@ -52,7 +52,7 @@
     {
       "name": "chown",
       "kind": "fn",
-      "wrapper": "passthrough",
+      "wrapper": "promisify-custom",
       "adopted": true,
       "minMajor": 18,
       "gate": null,
@@ -117,7 +117,7 @@
     {
       "name": "datasync",
       "kind": "fn",
-      "wrapper": "passthrough",
+      "wrapper": "promisify-custom",
       "adopted": true,
       "minMajor": 18,
       "gate": null,
@@ -273,7 +273,7 @@
     {
       "name": "sync",
       "kind": "fn",
-      "wrapper": "passthrough",
+      "wrapper": "promisify-custom",
       "adopted": true,
       "minMajor": 18,
       "gate": null,
@@ -288,7 +288,7 @@
     {
       "name": "truncate",
       "kind": "fn",
-      "wrapper": "passthrough",
+      "wrapper": "promisify-custom",
       "adopted": true,
       "minMajor": 18,
       "gate": null,
@@ -318,7 +318,7 @@
     {
       "name": "utimes",
       "kind": "fn",
-      "wrapper": "passthrough",
+      "wrapper": "promisify-custom",
       "adopted": true,
       "minMajor": 18,
       "gate": null,

@@ -59,7 +59,7 @@
         "probed": null,
         "sinceByMajor": null
       },
-      "wrapper": "passthrough",
+      "wrapper": "promisify-custom",
       "failures": ["EBADF", "EPERM"],
       "minMajor": 18,
       "gate": null,
@@ -80,7 +80,7 @@
         "probed": null,
         "sinceByMajor": null
       },
-      "wrapper": "passthrough",
+      "wrapper": "promisify-custom",
       "failures": ["EBADF", "EPERM"],
       "minMajor": 18,
       "gate": null,
@@ -169,7 +169,7 @@
         "probed": null,
         "sinceByMajor": null
       },
-      "wrapper": "passthrough",
+      "wrapper": "promisify-custom",
       "failures": ["EBADF", "EPERM"],
       "minMajor": 18,
       "gate": null,
@@ -385,7 +385,7 @@
         "probed": null,
         "sinceByMajor": null
       },
-      "wrapper": "passthrough",
+      "wrapper": "promisify-custom",
       "failures": ["EBADF", "EPERM"],
       "minMajor": 18,
       "gate": null,
@@ -406,7 +406,7 @@
         "probed": null,
         "sinceByMajor": null
       },
-      "wrapper": "passthrough",
+      "wrapper": "promisify-custom",
       "failures": ["EBADF", "EPERM"],
       "minMajor": 18,
       "gate": null,
@@ -448,7 +448,7 @@
         "probed": null,
         "sinceByMajor": null
       },
-      "wrapper": "passthrough",
+      "wrapper": "promisify-custom",
       "failures": ["EBADF", "EPERM"],
       "minMajor": 18,
       "gate": null,
