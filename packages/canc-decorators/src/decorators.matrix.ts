@@ -2,6 +2,8 @@ import 'reflect-metadata';
 
 import { async as cancAsync } from '@cancjs/coroutine';
 import { isCancelError } from '@cancjs/promise';
+import v8 from 'v8';
+import vm from 'vm';
 
 import { TAnyFn } from '../../_util';
 import { BabelLegacyAsyncMethod as BabelLegacyAsync, BabelLegacyBindMethod } from './decorators-babel-legacy';
@@ -13,10 +15,45 @@ import { LegacyAsyncMethod as LegacyAsync, LegacyBindMethod } from './decorators
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-function gc() {
-  if (global.gc) {
-    global.gc();
+/**
+ * Returns a function that forces a full collection, or `undefined` when none can be obtained.
+ *
+ * Uses `global.gc` when node runs with `--expose-gc`, otherwise flips the flag on just long enough
+ * to pull `gc` out of a throwaway vm context.
+ */
+export function acquireGC(): (() => void) | undefined {
+  if (typeof global.gc === 'function') {
+    const globalGC = global.gc;
+    return () => globalGC();
   }
+
+  try {
+    v8.setFlagsFromString('--expose-gc');
+    const vmGC = vm.runInNewContext('gc');
+    v8.setFlagsFromString('--no-expose-gc');
+    if (typeof vmGC === 'function') {
+      return () => vmGC();
+    }
+  } catch {
+    // fall through to unavailable
+  }
+
+  return undefined;
+}
+
+const realGC = acquireGC();
+
+export const gcAvailable = realGC !== undefined;
+
+if (!gcAvailable) {
+  console.warn('decorators GC assertions skipped: no gc available (run node with --expose-gc)');
+}
+
+export function gc(): void {
+  if (!realGC) {
+    throw new Error('gc() called but no gc is available');
+  }
+  realGC();
 }
 
 // FinalizationRegistry callbacks are best-effort: one collection is rarely enough to run them.
@@ -320,12 +357,7 @@ export function runStage3Matrix({
     });
 
     describe('GC assertion', () => {
-      it('instance1 released while instance2 active, instance1 collects', async () => {
-        if (!global.gc) {
-          expect(global.gc).toBeUndefined();
-          return;
-        }
-
+      (gcAvailable ? it : it.skip)('instance1 released while instance2 active, instance1 collects', async () => {
         const finalized: boolean[] = [];
         // Registry must outlive inst1, otherwise it is collected alongside inst1 and its callback
         // never runs.
@@ -506,12 +538,7 @@ export function runStage3Matrix({
     });
 
     describe('GC assertion', () => {
-      it('instance1 released while instance2 active, instance1 collects', async () => {
-        if (!global.gc) {
-          expect(global.gc).toBeUndefined();
-          return;
-        }
-
+      (gcAvailable ? it : it.skip)('instance1 released while instance2 active, instance1 collects', async () => {
         const finalized: boolean[] = [];
         // Registry must outlive inst1, otherwise it is collected alongside inst1 and its callback
         // never runs.

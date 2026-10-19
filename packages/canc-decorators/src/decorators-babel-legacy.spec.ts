@@ -5,6 +5,7 @@ import { isCancelError } from '@cancjs/promise';
 
 import { TAnyFn } from '../../_util';
 import { AsyncMethod } from './decorators';
+import { gc, gcAvailable } from './decorators.matrix';
 import { BabelLegacyAsyncMethod, BabelLegacyBindMethod } from './decorators-babel-legacy';
 
 /**
@@ -19,12 +20,6 @@ import { BabelLegacyAsyncMethod, BabelLegacyBindMethod } from './decorators-babe
  */
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-function gc() {
-  if (global.gc) {
-    global.gc();
-  }
-}
 
 // FinalizationRegistry callbacks are best-effort: one collection is rarely enough to run them.
 // Drive several GC cycles across macrotask turns until the predicate holds or the cap is reached.
@@ -302,12 +297,7 @@ describe('decorators (babel-legacy): BabelLegacyAsyncMethod', () => {
   });
 
   describe('GC assertion', () => {
-    it('instance1 released while instance2 active, instance1 collects', async () => {
-      if (!global.gc) {
-        expect(global.gc).toBeUndefined();
-        return;
-      }
-
+    (gcAvailable ? it : it.skip)('instance1 released while instance2 active, instance1 collects', async () => {
       const finalized: boolean[] = [];
       // Registry must outlive inst1, otherwise it is collected alongside inst1 and its callback
       // never runs.
@@ -523,12 +513,7 @@ describe('decorators (babel-legacy): BabelLegacyBindMethod', () => {
   });
 
   describe('GC assertion', () => {
-    it('instance1 released while instance2 active, instance1 collects', async () => {
-      if (!global.gc) {
-        expect(global.gc).toBeUndefined();
-        return;
-      }
-
+    (gcAvailable ? it : it.skip)('instance1 released while instance2 active, instance1 collects', async () => {
       const finalized: boolean[] = [];
       // Registry must outlive inst1, otherwise it is collected alongside inst1 and its callback
       // never runs.
