@@ -3,6 +3,7 @@ import { Worker as NodeWorker, WorkerOptions } from 'node:worker_threads';
 import { ProcessExitError } from '@cancjs/node';
 import { CancelablePromise } from '@cancjs/promise';
 
+import { reviveWorkerError } from './error-revive';
 import { terminateAndWaitForExit } from './promise';
 
 /** The message a task worker receives when a graceful cancel asks it to stop. */
@@ -100,7 +101,7 @@ export function runTask<TResult = unknown>(
         resolve(result);
       });
 
-      worker.on('error', reject);
+      worker.on('error', (error: unknown) => reject(reviveWorkerError(error)));
 
       worker.once('exit', (code: number) => {
         exited = true;

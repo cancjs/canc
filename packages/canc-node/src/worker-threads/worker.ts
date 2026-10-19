@@ -2,6 +2,7 @@ import { Worker as NodeWorker, WorkerOptions } from 'node:worker_threads';
 
 import { CancelablePromise } from '@cancjs/promise';
 
+import { reviveWorkerError } from './error-revive';
 import { createSink, defineWorkerPromise, ISettlementSink, terminateAndWaitForExit } from './promise';
 
 export interface IWorkerWithPromise extends NodeWorker {
@@ -70,7 +71,7 @@ function createWorkerPromise(
 
     sink.subscribe((settlement) => {
       if (settlement.kind === 'error') {
-        reject(settlement.error);
+        reject(reviveWorkerError(settlement.error));
         return;
       }
       resolve(settlement.code);
