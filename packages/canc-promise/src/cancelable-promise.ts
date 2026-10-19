@@ -117,6 +117,7 @@ export interface IExecutorContext<TResult = any, TFailure = unknown> {
    * Get an AbortSignal that aborts when the promise is canceled. Lazily creates an AbortController on first call.
    * The signal's `reason` is the CancelError the promise rejects with. A first call after the promise was canceled
    * returns an already aborted signal.
+   * @deprecated Use `signal`.
    */
   getSignal(this: void): IAbortSignal;
   /**
@@ -1648,30 +1649,35 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
   get asyncCancel(): boolean {
     return (this._flags & FLAG_ASYNC_CANCEL) !== 0;
   }
+  /** @deprecated Pass the option at construction. */
   set asyncCancel(v: boolean) {
     this._setFlag(FLAG_ASYNC_CANCEL, v);
   }
   get forceCancelable(): boolean {
     return (this._flags & FLAG_FORCE_CANCELABLE) !== 0;
   }
+  /** @deprecated Pass the option at construction. */
   set forceCancelable(v: boolean) {
     this._setFlag(FLAG_FORCE_CANCELABLE, v);
   }
   get bubble(): boolean {
     return (this._flags & FLAG_BUBBLE) !== 0;
   }
+  /** @deprecated Pass the option at construction. */
   set bubble(v: boolean) {
     this._setFlag(FLAG_BUBBLE, v);
   }
   get strict(): boolean {
     return (this._flags & FLAG_STRICT) !== 0;
   }
+  /** @deprecated Pass the option at construction. */
   set strict(v: boolean) {
     this._setFlag(FLAG_STRICT, v);
   }
   get shield(): boolean {
     return (this._flags & FLAG_SHIELD) !== 0;
   }
+  /** @deprecated Pass the option at construction. */
   set shield(v: boolean) {
     this._setFlag(FLAG_SHIELD, v);
   }
