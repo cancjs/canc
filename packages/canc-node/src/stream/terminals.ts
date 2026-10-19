@@ -21,6 +21,8 @@ export interface IReadableTerminalOptions {
   concurrency?: number;
   /** Aborting destroys the source and rejects the returned promise, same as calling `cancel()`. */
   signal?: AbortSignal;
+  /** Set false to leave the source open when the returned promise is canceled. Default true. */
+  destroyOnCancel?: boolean;
 }
 
 /** The `{ signal }` companion node passes to a terminal's own visitor function on each call. */
@@ -34,6 +36,30 @@ export interface IReadableVisitorOptions {
  * patched onto `Readable.prototype`, so this stays a free function: `toArray(stream)`, never
  * `stream.toArray()`.
  */
+function destroyOnCancelOption(options: unknown): boolean {
+  return (options as Pick<IReadableTerminalOptions, 'destroyOnCancel'> | undefined)?.destroyOnCancel !== false;
+}
+
+/**
+ * Cancels `promise` when the returned one is canceled, and destroys `stream` unless the caller opted
+ * out. Node's own terminals reject on abort but leave the source open, so the wrapper owns the destroy.
+ */
+function destroyingOnCancel<TResult>(
+  stream: Readable,
+  promise: CancelablePromise<TResult, Unlisted>,
+  destroy: boolean,
+): CancelablePromise<TResult, Unlisted> {
+  return new CancelablePromise<TResult, Unlisted>((resolve, reject, { handleCancel }) => {
+    handleCancel(() => {
+      if (destroy) {
+        stream.destroy();
+      }
+      promise.cancel();
+    });
+    promise.then(resolve, reject);
+  });
+}
+
 function terminalWrapped<TResult>(
   methodName: string,
   optionsIndex: number,
@@ -46,13 +72,15 @@ function terminalWrapped<TResult>(
 
     const call = takeCallerSignal(args, optionsIndex);
 
-    return withCallerSignal<TResult>(
+    const promise = withCallerSignal<TResult, Unlisted>(
       call.callerSignal,
       forwards,
       (signal) =>
         nodeFn.apply(stream, signal ? withSignalAt(call.args, optionsIndex, signal) : call.args) as
           TResult | PromiseLike<TResult>,
     );
+
+    return destroyingOnCancel(stream, promise, destroyOnCancelOption(args[optionsIndex]));
   };
 }
 
@@ -72,7 +100,7 @@ const forEachCall = terminalWrapped<void>('forEach', 1);
  */
 export function toArray<T = unknown>(
   stream: Readable,
-  options?: Pick<IReadableTerminalOptions, 'signal'>,
+  options?: Pick<IReadableTerminalOptions, 'signal' | 'destroyOnCancel'>,
 ): CancelablePromise<T[], Unlisted> {
   return toArrayCall(stream, options) as CancelablePromise<T[], Unlisted>;
 }
@@ -152,7 +180,7 @@ export function reduce<T = unknown, TAcc = T>(
   stream: Readable,
   fn: (previous: TAcc, data: T, options: IReadableVisitorOptions) => TAcc | Promise<TAcc>,
   initial?: TAcc,
-  options?: Pick<IReadableTerminalOptions, 'signal'>,
+  options?: Pick<IReadableTerminalOptions, 'signal' | 'destroyOnCancel'>,
 ): CancelablePromise<TAcc> {
   const hasInitial = arguments.length > 2;
   const nodeFn = (stream as unknown as Record<string, TNodeFn>).reduce;
@@ -168,12 +196,14 @@ export function reduce<T = unknown, TAcc = T>(
 
   const call = takeCallerSignal([fn, initial, options], 2);
 
-  return withCallerSignal<TAcc, unknown>(
+  const promise = withCallerSignal<TAcc, Unlisted>(
     call.callerSignal,
     reduceForwardsSignal,
     (signal) =>
       nodeFn.apply(stream, signal ? withSignalAt(call.args, 2, signal) : call.args) as TAcc | PromiseLike<TAcc>,
   );
+
+  return destroyingOnCancel(stream, promise, destroyOnCancelOption(options));
 }
 
 // map, filter, take, drop and flatMap are deliberately absent: they return a lazily consumed

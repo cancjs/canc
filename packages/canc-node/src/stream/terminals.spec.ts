@@ -208,3 +208,68 @@ describe('some, every, find, forEach', () => {
     expect(pulls()).toBe(pullsOnceStopped);
   });
 });
+
+describe('cancel destroys the source stream', () => {
+  function idleStream(): Readable {
+    return new Readable({
+      objectMode: true,
+      read() {
+        /* never pushes */
+      },
+    });
+  }
+
+  async function expectCancelRejection(p: PromiseLike<unknown>): Promise<void> {
+    const caught: unknown = await p.then(
+      () => undefined,
+      (error: unknown) => error,
+    );
+    expect(isCancelError(caught)).toBe(true);
+  }
+
+  it('toArray cancel destroys an idle source by default', async () => {
+    const stream = idleStream();
+    const p = toArray(stream);
+
+    await tick();
+    p.cancel();
+
+    await expectCancelRejection(p);
+    expect(stream.destroyed).toBe(true);
+    expect(stream.listenerCount('data')).toBe(0);
+  });
+
+  it('every terminal destroys an idle source on cancel', async () => {
+    const calls = [
+      (s: Readable) => some(s, () => false),
+      (s: Readable) => every(s, () => true),
+      (s: Readable) => find(s, () => false),
+      (s: Readable) => forEach(s, () => undefined),
+      (s: Readable) => reduce(s, (acc: number) => acc, 0),
+    ];
+
+    for (const call of calls) {
+      const stream = idleStream();
+      const p = call(stream);
+
+      await tick();
+      p.cancel();
+
+      await expectCancelRejection(p);
+      expect(stream.destroyed).toBe(true);
+    }
+  });
+
+  it('keeps the source alive when destroyOnCancel is false', async () => {
+    const stream = idleStream();
+    const p = toArray(stream, { destroyOnCancel: false });
+
+    await tick();
+    p.cancel();
+
+    await expectCancelRejection(p);
+    expect(stream.destroyed).toBe(false);
+
+    stream.destroy();
+  });
+});
