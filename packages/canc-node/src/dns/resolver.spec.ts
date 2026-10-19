@@ -252,6 +252,25 @@ describe('@cancjs/node/dns Resolver', () => {
     }
   });
 
+  it('applies the constructor timeout and tries to every query, not only the owner', async () => {
+    // a silent server never answers; with timeout 100 and tries 1 node gives up in about 100 ms, so a
+    // private resolver that dropped the options would still be waiting after the one-second bound
+    const blackHole = await startBlackHole();
+    const resolver = new Resolver({ timeout: 100, tries: 1 });
+    pointAt(resolver, blackHole.port);
+
+    try {
+      const started = Date.now();
+      const error = (await within(settle(resolver.resolve4('silent.example.test')), 1000)) as { code?: string };
+
+      expect(error.code).toBe('ETIMEOUT');
+      expect(Date.now() - started).toBeLessThan(1000);
+    } finally {
+      resolver.cancel();
+      await blackHole.close();
+    }
+  });
+
   it('constructs from the es5 downlevel emit without the class constructor error', () => {
     const source = fs.readFileSync(path.join(__dirname, 'resolver.ts'), 'utf8');
     const emitted = ts.transpileModule(source, {
