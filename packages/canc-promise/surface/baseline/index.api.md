@@ -229,6 +229,7 @@ timeout?: boolean | undefined
 ```text
 getSignal: (this: void) => IAbortSignal
 handleCancel: (this: void, onCancel: TOnCancel) => CancelablePromise<TResult, TFailure>
+readonly signal: IAbortSignal
 ```
 
 ## `IHandleCancelOptions` (interface)

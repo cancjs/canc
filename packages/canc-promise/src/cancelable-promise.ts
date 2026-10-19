@@ -106,7 +106,7 @@ export type TPromiseExecutor<TResult> = (
 ) => void;
 
 /**
- * Context object passed as the executor's third argument. Both members are closures bound to the
+ * Context object passed as the executor's third argument. Both methods are closures bound to the
  * promise when the context is built, so `this: void` is accurate and destructuring them off the
  * context (the documented idiom) stays safe.
  */
@@ -119,6 +119,13 @@ export interface IExecutorContext<TResult = any, TFailure = unknown> {
    * returns an already aborted signal.
    */
   getSignal(this: void): IAbortSignal;
+  /**
+   * The AbortSignal returned by `getSignal()`. Reading it creates the AbortController on first access, exactly as
+   * the first `getSignal()` call does. The property is an inherited non-enumerable getter, so `Object.keys`, spread
+   * and `JSON.stringify` neither copy it nor create the controller. Destructuring it in the executor
+   * (`(resolve, reject, { signal }) => ...`) reads it once.
+   */
+  readonly signal: IAbortSignal;
 }
 
 export type TCancelablePromiseExecutor<TResult, TFailure = unknown> = (
@@ -460,6 +467,27 @@ const FLAG_SHIELD = 16;
 const INTERNAL_CALL_OPTIONS = Object.freeze({ forceCancelable: true }) as Readonly<
   ReturnType<(typeof CancelablePromise)['_getOptions']>
 >;
+
+// a plain constructor so every context shares one map and inherits the signal getter
+const ExecutorContext = function ExecutorContext(
+  this: IExecutorContext,
+  handleCancel: IExecutorContext['handleCancel'],
+  getSignal: IExecutorContext['getSignal'],
+) {
+  this.handleCancel = handleCancel;
+  this.getSignal = getSignal;
+} as unknown as new <TResult, TFailure>(
+  handleCancel: IExecutorContext<TResult, TFailure>['handleCancel'],
+  getSignal: IExecutorContext<TResult, TFailure>['getSignal'],
+) => IExecutorContext<TResult, TFailure>;
+
+// one shared getter: a per-context getter closure turns every context into a dictionary
+Object.defineProperty(ExecutorContext.prototype, 'signal', {
+  configurable: true,
+  get: function (this: IExecutorContext): IAbortSignal {
+    return this.getSignal();
+  },
+});
 
 // Extends PromiseConstructor, as defined in
 // lib.es2015.promise, lib.es2015.iterable, lib.es2015.symbol.wellknown, lib.es2018.promise,
@@ -1443,31 +1471,24 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
             }
           }
 
-          let _ctx: IExecutorContext<TResult, TFailure> | undefined;
+          let _ac: IAbortControllerLike | undefined;
 
-          function getCtx(): IExecutorContext<TResult, TFailure> {
-            if (!_ctx) {
-              let _ac: IAbortControllerLike | undefined;
-              _ctx = {
-                handleCancel(onCancel: TOnCancel): CancelablePromise<TResult, TFailure> {
-                  return instance.handleCancel(onCancel);
-                },
-                getSignal(): IAbortSignal {
-                  if (!_ac) {
-                    const ac = new AbortController() as unknown as IAbortControllerLike;
-                    if (instance.canceled) {
-                      ac.abort(cancelError);
-                    } else {
-                      // a strict throw here leaves no controller, so the next call throws too
-                      instance.handleCancel(() => ac.abort(cancelError));
-                    }
-                    _ac = ac;
-                  }
-                  return _ac.signal;
-                },
-              };
+          function handleCancel(onCancel: TOnCancel): CancelablePromise<TResult, TFailure> {
+            return instance.handleCancel(onCancel);
+          }
+
+          function getSignal(): IAbortSignal {
+            if (!_ac) {
+              const ac = new AbortController() as unknown as IAbortControllerLike;
+              if (instance.canceled) {
+                ac.abort(cancelError);
+              } else {
+                // a strict throw here leaves no controller, so the next call throws too
+                instance.handleCancel(() => ac.abort(cancelError));
+              }
+              _ac = ac;
             }
-            return _ctx;
+            return _ac.signal;
           }
 
           this._resolve = resolve;
@@ -1481,7 +1502,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
           // naturally at that later settle.
           if (!hasPendingPreAbort) {
             try {
-              executor(resolve, reject, getCtx());
+              executor(resolve, reject, new ExecutorContext<TResult, TFailure>(handleCancel, getSignal));
             } catch (error) {
               // a native catch would bypass the wrappers and leave the state PENDING
               reject(error);
