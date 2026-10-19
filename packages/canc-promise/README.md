@@ -492,6 +492,8 @@ from the toolbox.
 
 ### Pluggable implementation
 
+> **Deprecated.** The registry is kept through 1.x for published siblings and removed in the next major. Use `CancelablePromise` directly, or pass `impl` per call.
+
 Ecosystem packages (toolbox, coroutine) pick which promise implementation to build on through a
 small registry exported here. Register one implementation at app startup and every consumer that
 has no more specific override uses it:
@@ -578,7 +580,8 @@ to match an abort and `{ timeout: true }` to match a timeout.
 
 ### Implementation registry
 
-`setPromiseImpl(impl?)`, `getPromiseImpl()`, `resolvePromiseImpl(options?, staticImpl?)`.
+`setPromiseImpl(impl?)`, `getPromiseImpl()`, `resolvePromiseImpl(options?, staticImpl?)` are deprecated; see
+[Pluggable implementation](#pluggable-implementation).
 
 ## Compatibility
 

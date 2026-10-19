@@ -241,6 +241,7 @@ immediate?: boolean | undefined
 ## `IPromiseImplOptions` (interface)
 
 ```text
+// @deprecated
 impl?: PromiseConstructor | undefined
 ```
 
@@ -287,6 +288,7 @@ M[number] extends TErrorConstructor ? InstanceType<M[number]> : M[number] extend
 ## `PromiseImpl` (type)
 
 ```text
+// @deprecated
 new <T>(executor: (resolve: (value: PromiseLike<T> | T) => void, reject: (reason?: any) => void) => void): Promise<T>
 ```
 
@@ -557,7 +559,8 @@ then: { <TResult1 extends PromiseLike<never>, TResult2 extends PromiseLike<never
 ## `getPromiseImpl` (function)
 
 ```text
-(): PromiseConstructor
+// @deprecated
+(): PromiseConstructor // @deprecated
 ```
 
 ## `isAbortError` (const)
@@ -612,13 +615,15 @@ then: { <TResult1 extends PromiseLike<never>, TResult2 extends PromiseLike<never
 ## `resolvePromiseImpl` (function)
 
 ```text
-(options?: IPromiseImplOptions | undefined, staticImpl?: PromiseConstructor | undefined): PromiseConstructor
+// @deprecated
+(options?: IPromiseImplOptions | undefined, staticImpl?: PromiseConstructor | undefined): PromiseConstructor // @deprecated
 ```
 
 ## `setPromiseImpl` (function)
 
 ```text
-(impl?: PromiseConstructor | undefined): void
+// @deprecated
+(impl?: PromiseConstructor | undefined): void // @deprecated
 ```
 
 ## `suppressAbort` (const)
