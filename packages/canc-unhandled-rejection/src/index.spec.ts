@@ -55,6 +55,8 @@ describe('@cancjs/unhandled-rejection', () => {
       ['throw', 'error', 1, /real failure/],
       ['warn', 'cancel', 0, null],
       ['warn', 'error', 0, /real failure/],
+      ['warn-with-error-code', 'cancel', 0, null],
+      ['warn-with-error-code', 'error', 1, /\[@cancjs\/unhandled-rejection\].*real failure/],
       ['none', 'cancel', 0, null],
       ['none', 'error', 0, /\[@cancjs\/unhandled-rejection\].*real failure/],
       ['strict', 'cancel', 1, /CancelError/],

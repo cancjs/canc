@@ -232,6 +232,10 @@ function makeNodeSetup(options?: RegisterOptions): () => (() => void) | null {
       }
       if (mode === 'warn' || mode === 'none' || mode === 'warn-with-error-code') {
         warnSafe(`Unhandled rejection left to the "${mode}" mode: ${describeReason(reason)}`, options);
+        // any listener disables node's own handling, exit code included, so this mode restores it
+        if (mode === 'warn-with-error-code') {
+          process.exitCode = 1;
+        }
         return;
       }
       // strict already raised this as an uncaught exception, rethrowing would report it twice
