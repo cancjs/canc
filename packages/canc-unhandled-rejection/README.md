@@ -162,7 +162,7 @@ Sentry.init({
 register();
 ```
 
-The handler leaves the crash decision to the SDK's own listener, so the SDK should be initialized before the first rejection fires. The `beforeSend` filter prevents `CancelError` events from generating unnecessary telemetry alerts. Identity is a brand on the prototype, so the guard tests brand or name; hand-rolled checks fail on realm crossings or duplicated packages.
+The handler leaves the crash decision to the SDK's own listener, so the SDK should be initialized before the first rejection fires. The `beforeSend` filter prevents `CancelError` events from generating unnecessary telemetry alerts. Identity is a brand on the prototype, so `isCancelError` tests the brand alone; hand-rolled checks fail on realm crossings or duplicated packages.
 
 ### Integration with existing handlers
 
@@ -350,7 +350,7 @@ All listed environments are supported. Standard runtimes are autodetected automa
 
 ## Compatibility
 
-Node.js 18 and later, Deno 1.0 and later, Bun 1.0 and later, modern browsers, TypeScript 4.2 and later. Requires `@cancjs/promise >=1.0.0` as a peer dependency. Everything else follows [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise#compatibility).
+Node.js 18 and later, Deno 1.0 and later, Bun 1.0 and later, modern browsers, TypeScript 4.2 and later. Requires `@cancjs/promise >=1.1.0-0` as a peer dependency. Everything else follows [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise#compatibility).
 
 ## Documentation
 
