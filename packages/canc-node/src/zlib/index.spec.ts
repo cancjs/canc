@@ -4,7 +4,7 @@ import { CancelablePromise, isCancelError, Unlisted } from '@cancjs/promise';
 
 import { isNotImplementedError } from '../errors/classes';
 import * as zlibExports from './index';
-import { checkpointWalkWrapped, iterableCodecWrapped } from './wrap';
+import { iterableCodecWrapped } from './wrap';
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 type Expect<T extends true> = T;
@@ -154,40 +154,6 @@ describe('@cancjs/node/zlib', () => {
     expect(isNotImplementedError(error)).toBe(true);
     expect((error as { required?: string }).required).toBe('24');
   });
-
-  it(
-    'zipFiles: the checkpoint walk stops at a file boundary on cancel, leaving a partial archive ' + 'with no rollback',
-    async () => {
-      // synthetic in place of node's real zip archive writer (not shipped on any tracked runtime
-      // yet, see ./types.ts): this exercises checkpointWalkWrapped, the exact mechanism ./index.ts's
-      // zipFiles export is built from
-      const written: string[] = [];
-      const files = ['a.txt', 'b.txt', 'c.txt', 'd.txt', 'e.txt'];
-
-      // cancel fires from inside the second file's own step, deterministically, rather than racing
-      // the walk on a timer: `promise` is assigned before the walk's microtask continuation reaches
-      // index 1, since index 0 runs synchronously inside the `checkpointWalkWrapped(...)(files)` call
-      // below and everything after that is a later microtask turn
-      // eslint-disable-next-line prefer-const -- step's closure below captures promise before it exists
-      let promise!: CancelablePromise<void[]>;
-      const walk = checkpointWalkWrapped<string, void>((file, index) => {
-        written.push(file);
-        if (index === 1) {
-          promise.cancel('stop mid-list');
-        }
-      });
-
-      promise = walk(files);
-
-      const reason = await promise.catch((err: unknown) => err);
-      expect(isCancelError(reason)).toBe(true);
-
-      // partial, no rollback: whatever was already written before the checkpoint noticed cancel stays
-      expect(written.length).toBeGreaterThan(0);
-      expect(written.length).toBeLessThan(files.length);
-      expect(files.slice(0, written.length)).toEqual(written);
-    },
-  );
 
   it('zipFiles rejects NotImplementedError naming 26 when node has no zip archive family', async () => {
     if (hasRealZipFiles) {

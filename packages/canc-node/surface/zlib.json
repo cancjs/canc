@@ -1310,7 +1310,7 @@
         "probed": null
       },
       "wrapper": "gated",
-      "teardown": "checkpoint per file; stops before opening the next entry, leaves a partial archive, no rollback",
+      "teardown": "stop wait only; the native archive build keeps running until it finishes",
       "failures": ["ENOENT", "EACCES"],
       "minMajor": 26,
       "gate": "throw",
@@ -1318,7 +1318,7 @@
         "deno": "unverified",
         "bun": "unverified"
       },
-      "notes": "walks a file list and writes each into an archive; throws NotImplementedError below 26",
+      "notes": "node zipFiles promisified; throws NotImplementedError below 26; the per-file walker moved to zlib/extra",
       "callPath": "promises"
     },
     {

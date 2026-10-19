@@ -1,9 +1,6 @@
 import type { Transform } from 'node:stream';
 import nodeZlib from 'node:zlib';
 
-import { CancelablePromise } from '@cancjs/promise';
-
-import type { Unlisted } from '../../../_util';
 import {
   TBrotliBufferFn,
   TIterableCodecFn,
@@ -13,14 +10,7 @@ import {
   TZstdBufferFn,
   TZstdOptions,
 } from './types';
-import {
-  checkpointWalkWrapped,
-  gatedClassWrapped,
-  gatedWrapped,
-  iterableCodecWrapped,
-  promisifyWrapped,
-  TNodeFn,
-} from './wrap';
+import { gatedClassWrapped, gatedWrapped, iterableCodecWrapped, promisifyWrapped, TNodeFn } from './wrap';
 
 // node's callback surface is read through one untyped view so each binding below can re-impose its
 // own published shape on the way out, same boundary cast as ../crypto/index.ts
@@ -537,37 +527,20 @@ export const setMaxZipContentSize = gatedWrapped(
   'sync',
 ) as (size: number) => void;
 
-function zipFilesImpl(
-  files: readonly string[],
-  target: string,
-  options?: TZipFilesOptions,
-): CancelablePromise<void, Unlisted> {
-  const archive = (zlibCb.createZipArchive as (targetPath: string, opts?: TZipFilesOptions) => IZipArchiveWriter)(
-    target,
-    options,
-  );
-
-  const walk = checkpointWalkWrapped<string, void>((file) => {
-    archive.addEntry(file);
-  });
-
-  return walk(files).then(() => {
-    archive.close();
-  });
-}
-
 /**
- * Writes `files` into a zip archive at `target`, one at a time. Requires Node 26 or later; throws
+ * Writes `files` into a zip archive at `target`. Requires Node 26 or later; throws
  * `NotImplementedError` below that, driven by feature detection rather than a version parse.
  *
- * Canceling checkpoints at a file boundary: no further entry is opened after that point, the entries
- * already written stay in the archive, and none of them is rolled back.
+ * This is node's own `zipFiles`, promisified. Canceling stops the wait, not the work: the call keeps
+ * running on node's threadpool and the slot it holds there stays occupied until it finishes. The
+ * per-file walker this package used to ship under this name lives at `/zlib/extra` as
+ * `zipFilesCheckpointed`.
  */
 export const zipFiles = gatedWrapped(
-  has('createZipArchive'),
+  has('zipFiles'),
   'zipFiles',
   '26.8.0',
-  () => zipFilesImpl,
+  () => promisifyWrapped(zlibCb.zipFiles as TNodeFn),
   'promise',
 ) as TZipFilesFn;
 

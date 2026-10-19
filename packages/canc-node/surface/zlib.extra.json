@@ -1,0 +1,29 @@
+{
+  "subpath": "zlib/extra",
+  "nodeSpecifier": null,
+  "status": "supported",
+  "exports": [
+    {
+      "name": "zipFilesCheckpointed",
+      "kind": "fn",
+      "cancelCategory": "A",
+      "callPath": "promises",
+      "nodeSignal": {
+        "documented": false,
+        "since": null,
+        "probed": null,
+        "sinceByMajor": null
+      },
+      "wrapper": "reimplemented",
+      "teardown": "checkpoint per file; stops before opening the next entry, closes the archive, leaves a partial archive, no rollback",
+      "failures": ["ENOENT", "EACCES"],
+      "minMajor": 26,
+      "gate": "throw",
+      "runtime": {
+        "deno": "unverified",
+        "bun": "unverified"
+      },
+      "notes": "per-file walker over node's archive builder; throws NotImplementedError below 26"
+    }
+  ]
+}

@@ -2,9 +2,9 @@ import path from 'node:path';
 
 import ts from 'typescript';
 
-// the two tiers get two different sentences (a third, for zipFiles, is asserted separately below):
-// a uniform "supports cancellation" line would be false for the buffer tier and an undersell for
-// the iterable one, so this file checks each tier's own wording rather than one shared string
+// the two tiers get two different sentences: a uniform "supports cancellation" line would be false
+// for the buffer tier and an undersell for the iterable one, so this file checks each tier's own
+// wording rather than one shared string
 const BUFFER_TIER_CAVEAT =
   'Canceling stops the wait, not the work: the call keeps running on node' +
   "'s threadpool and the slot it holds there stays occupied until it finishes.";
@@ -12,10 +12,6 @@ const BUFFER_TIER_CAVEAT =
 const ITERABLE_TIER_CAVEAT =
   'Canceling genuinely stops the work: it stops pulling from the source between chunks and calls ' +
   "the source iterator's own return(), so nothing more reaches the codec after that point.";
-
-const ZIP_TIER_CAVEAT =
-  'Canceling checkpoints at a file boundary: no further entry is opened after that point, the ' +
-  'entries already written stay in the archive, and none of them is rolled back.';
 
 // buffer tier: promisify-callback over a single call, cancel is short-circuit only
 const BUFFER_TIER_NAMES = [
@@ -152,10 +148,9 @@ describe('@cancjs/node/zlib emitted declarations', () => {
     expect(normalizeDoc(doc)).toContain(ITERABLE_TIER_CAVEAT);
   });
 
-  it('zip tier: zipFiles carries its own third sentence, distinct from the other two', () => {
+  it('zip tier: zipFiles is promisify-callback over one native call, so it carries the buffer-tier sentence', () => {
     const doc = normalizeDoc(jsDocBefore(dts, 'zipFiles'));
-    expect(doc).toContain(ZIP_TIER_CAVEAT);
-    expect(doc).not.toContain(BUFFER_TIER_CAVEAT);
+    expect(doc).toContain(BUFFER_TIER_CAVEAT);
     expect(doc).not.toContain(ITERABLE_TIER_CAVEAT);
   });
 

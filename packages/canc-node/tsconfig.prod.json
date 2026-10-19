@@ -13,6 +13,7 @@
         "./packages/canc-node/src/fs/register-graceful"
       ],
       "@cancjs/node/fs/extra": ["./packages/canc-node/src/fs-extra/index"],
+      "@cancjs/node/zlib/extra": ["./packages/canc-node/src/zlib/extra"],
       "@cancjs/node/child-process": [
         "./packages/canc-node/src/child-process/index"
       ]
