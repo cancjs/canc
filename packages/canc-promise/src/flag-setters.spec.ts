@@ -124,6 +124,37 @@ describe('flag setters apply to later chain edges only', () => {
     expect(parent.canceled).toBe(true);
   });
 
+  it('balances the chain count in both toggle directions', async () => {
+    // false -> true: the earlier edge is uncounted, so canceling the counted one must not cancel it
+    const falseToTrue = new CancelablePromise<void>(() => {
+      /**/
+    });
+    falseToTrue.bubble = false;
+    const liveEarlier = falseToTrue.then(() => undefined);
+    falseToTrue.bubble = true;
+    const countedLater = falseToTrue.then(() => undefined);
+
+    countedLater.cancel();
+    await settle();
+
+    expect(liveEarlier.canceled).toBe(false);
+    expect(falseToTrue.canceled).toBe(false);
+
+    // true -> false: the counted edge cancels, and the later uncounted edge keeps the parent alive
+    const trueToFalse = new CancelablePromise<void>(() => {
+      /**/
+    });
+    const countedEarlier = trueToFalse.then(() => undefined);
+    trueToFalse.bubble = false;
+    const liveLater = trueToFalse.then(() => undefined);
+
+    countedEarlier.cancel();
+    await settle();
+
+    expect(trueToFalse.canceled).toBe(false);
+    expect(liveLater.canceled).toBe(false);
+  });
+
   it('never bubbles from a promise created with bubble false', async () => {
     const parent = new CancelablePromise<void>(
       () => {
