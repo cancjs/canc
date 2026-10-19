@@ -1,4 +1,5 @@
 import type { Dir } from 'node:fs';
+import * as fsSync from 'node:fs';
 import * as fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, sep } from 'node:path';
@@ -161,7 +162,56 @@ describe('walk and walkSync', () => {
       expect(syncPaths).toEqual(asyncPaths);
     });
 
-    it('a chain of single-child directories gives the exact klaw list', async () => {
+    // expectation comes from readdir so no OS listing order is hard-coded
+    function expectedPreOrder(dir: string): string[] {
+      const out: string[] = [];
+      for (const entry of fsSync.readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, entry.name);
+        out.push(full);
+        if (entry.isDirectory()) out.push(...expectedPreOrder(full));
+      }
+      return out;
+    }
+
+    describe('sibling order', () => {
+      let wide: string;
+
+      beforeAll(async () => {
+        wide = await fs.mkdtemp(join(tmpdir(), 'walk-wide-'));
+        // names are created out of alphabetical order on purpose
+        for (const name of ['m.txt', 'c', 'z', 'a.txt']) {
+          if (name.endsWith('.txt')) await fs.writeFile(join(wide, name), name);
+          else await fs.mkdir(join(wide, name));
+        }
+        for (const dir of ['c', 'z']) {
+          for (const name of ['y.txt', 'k', 'b.txt', 'q']) {
+            if (name.endsWith('.txt')) await fs.writeFile(join(wide, dir, name), name);
+            else await fs.mkdir(join(wide, dir, name));
+          }
+          await fs.writeFile(join(wide, dir, 'q', 'leaf.txt'), 'x');
+          await fs.writeFile(join(wide, dir, 'k', 'leaf.txt'), 'x');
+        }
+      });
+
+      afterAll(async () => {
+        await fs.rm(wide, { recursive: true, force: true });
+      });
+
+      it('walk lists siblings in readdir order, each followed by its subtree', async () => {
+        const paths: string[] = [];
+        for await (const entry of walk(wide, { order: 'depth-first' })) {
+          paths.push(entry.path);
+        }
+        expect(paths).toEqual(expectedPreOrder(wide));
+      });
+
+      it('walkSync lists siblings in readdir order, each followed by its subtree', () => {
+        const paths = [...walkSync(wide, { order: 'depth-first' })].map((entry) => entry.path);
+        expect(paths).toEqual(expectedPreOrder(wide));
+      });
+    });
+
+    it('a chain of single-child directories yields parent then child', async () => {
       const chain = await fs.mkdtemp(join(tmpdir(), 'walk-chain-'));
       try {
         await fs.mkdir(join(chain, 'd1', 'd2'), { recursive: true });

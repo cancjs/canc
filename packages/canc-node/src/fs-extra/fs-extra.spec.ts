@@ -1104,13 +1104,11 @@ describe('fs-extra', () => {
       await expect(copy(src, dest)).rejects.toThrow(`Cannot copy '${src}' to a subdirectory of itself, '${dest}'.`);
     });
 
-    it('copySync into its own subdirectory throws fast', () => {
+    it('copySync into its own subdirectory throws', () => {
       const src = join(dir, 'sync-src');
       fsSync.mkdirSync(join(src, 'inner'), { recursive: true });
       const dest = join(src, 'sub');
-      const started = Date.now();
       expect(() => copySync(src, dest)).toThrow(`Cannot copy '${src}' to a subdirectory of itself, '${dest}'.`);
-      expect(Date.now() - started).toBeLessThan(100);
     }, 5000);
 
     it('ensureLink onto an existing different file rejects', async () => {

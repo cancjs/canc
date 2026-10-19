@@ -7,8 +7,8 @@ import { lstatSync, opendirSync, statSync } from '@cancjs/node/fs/sync';
 /**
  * Traversal order for walk operations.
  * - 'breadth-first': yield entries level by level (default).
- * - 'depth-first': pre-order. Each directory is yielded, then its whole subtree, before its next sibling
- *   (the order klaw produces). Siblings follow the order the file system lists them.
+ * - 'depth-first': pre-order. Each directory is yielded, then its whole subtree, before its next sibling.
+ *   Siblings follow the order the file system lists them.
  * - 'children-first': yield children before their parent directory (post-order).
  */
 export type TWalkOrder = 'breadth-first' | 'depth-first' | 'children-first';
