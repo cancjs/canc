@@ -120,7 +120,9 @@ function renderCancellationBehavior(cancelCategory) {
     return 'stops the work';
   }
   if (cancelCategory === 'B') {
-    return 'stops waiting only';
+    // a direct call canceled after it starts still performs the operation; only a cancel that lands
+    // before the call is issued skips it
+    return 'stops waiting only (skipped if already canceled)';
   }
   if (cancelCategory === 'D') {
     return 'before it starts';
