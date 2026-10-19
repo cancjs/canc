@@ -37,6 +37,7 @@ const HOME_PACKAGE_DIRS = {
   '@cancjs/toolbox': 'canc-toolbox',
   '@cancjs/node': 'canc-node',
   '@cancjs/server-node': path.join('canc-server', 'canc-server-node'),
+  '@cancjs/unhandled-rejection': 'canc-unhandled-rejection',
 };
 
 const ALLOWED_SOURCE_DECLARATIONS = {
@@ -54,6 +55,7 @@ const ALLOWED_SOURCE_DECLARATIONS = {
   ],
   '@cancjs/node': [/^packages[\\/]canc-node[\\/]/],
   '@cancjs/server-node': [/^packages[\\/]canc-server[\\/]canc-server-node[\\/]/, /^packages[\\/]_server[\\/]/],
+  '@cancjs/unhandled-rejection': [/^packages[\\/]canc-unhandled-rejection[\\/]/],
 };
 
 const HOME_SOURCE_PATTERNS = {
@@ -67,6 +69,7 @@ const HOME_SOURCE_PATTERNS = {
   ],
   '@cancjs/node': [/^packages[\\/]canc-node[\\/]/],
   '@cancjs/server-node': [/^packages[\\/]canc-server[\\/]canc-server-node[\\/]/, /^packages[\\/]_server[\\/]/],
+  '@cancjs/unhandled-rejection': [/^packages[\\/]canc-unhandled-rejection[\\/]/],
 };
 
 function listPackages() {
