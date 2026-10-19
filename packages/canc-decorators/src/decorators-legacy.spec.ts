@@ -2,9 +2,12 @@ import 'reflect-metadata';
 
 import { async as cancAsync } from '@cancjs/coroutine';
 import { isCancelError } from '@cancjs/promise';
+import ts from 'typescript';
+import vm from 'vm';
 
 import { TAnyFn } from '../../_util';
 import { AsyncMethod } from './decorators';
+import { gc, gcAvailable } from './decorators.matrix';
 import { BabelLegacyAsyncMethod } from './decorators-babel-legacy';
 import { LegacyAsyncMethod, LegacyBindMethod } from './decorators-legacy';
 
@@ -16,12 +19,6 @@ import { LegacyAsyncMethod, LegacyBindMethod } from './decorators-legacy';
  */
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-function gc() {
-  if (global.gc) {
-    global.gc();
-  }
-}
 
 // FinalizationRegistry callbacks are best-effort: one collection is rarely enough to run them.
 // Drive several GC cycles across macrotask turns until the predicate holds or the cap is reached.
@@ -256,12 +253,7 @@ describe('decorators (TS legacy): LegacyAsyncMethod', () => {
   });
 
   describe('GC assertion', () => {
-    it('instance1 released while instance2 active, instance1 collects', async () => {
-      if (!global.gc) {
-        expect(global.gc).toBeUndefined();
-        return;
-      }
-
+    (gcAvailable ? it : it.skip)('instance1 released while instance2 active, instance1 collects', async () => {
       const finalized: boolean[] = [];
 
       class GcA {
@@ -446,12 +438,7 @@ describe('decorators (TS legacy): LegacyBindMethod', () => {
   });
 
   describe('GC assertion', () => {
-    it('instance1 released while instance2 active, instance1 collects', async () => {
-      if (!global.gc) {
-        expect(global.gc).toBeUndefined();
-        return;
-      }
-
+    (gcAvailable ? it : it.skip)('instance1 released while instance2 active, instance1 collects', async () => {
       const finalized: boolean[] = [];
 
       class GcA {
@@ -490,6 +477,157 @@ describe('decorators (TS legacy): LegacyBindMethod', () => {
 
       expect(finalized.length).toBeGreaterThan(0);
       expect(finalized[0]).toBe(true);
+    });
+  });
+});
+
+describe('decorators (TS legacy): prototype reads and overrides', () => {
+  describe('LegacyBindMethod()', () => {
+    class Base {
+      id: number;
+
+      constructor(id: number) {
+        this.id = id;
+      }
+
+      @LegacyBindMethod()
+      method() {
+        return `base:${this.id}`;
+      }
+    }
+
+    it('an undecorated subclass override runs', () => {
+      class Sub extends Base {
+        method() {
+          return `sub:${this.id}`;
+        }
+      }
+
+      expect(new Sub(1).method()).toBe('sub:1');
+    });
+
+    it('super.method() then this.method() hits the override', () => {
+      class Sub extends Base {
+        method() {
+          return `sub:${this.id}`;
+        }
+
+        callBoth() {
+          return [super.method(), this.method()];
+        }
+      }
+
+      const inst = new Sub(2);
+
+      expect(inst.callBoth()).toEqual(['base:2', 'sub:2']);
+      expect(inst.method()).toBe('sub:2');
+    });
+
+    it('reading Base.prototype.method leaves instances bound', () => {
+      const before = new Base(3);
+      const fromPrototype = Base.prototype.method;
+      const after = new Base(4);
+
+      expect(typeof fromPrototype).toBe('function');
+
+      const detachedBefore = before.method;
+      const detachedAfter = after.method;
+
+      expect(detachedBefore()).toBe('base:3');
+      expect(detachedAfter()).toBe('base:4');
+    });
+
+    it('jest.spyOn(Base.prototype, method) intercepts calls and restores binding', () => {
+      const spy = jest.spyOn(Base.prototype, 'method');
+
+      try {
+        expect(new Base(5).method()).toBe('base:5');
+        expect(spy).toHaveBeenCalledTimes(1);
+      } finally {
+        spy.mockRestore();
+      }
+
+      const detached = new Base(6).method;
+
+      expect(jest.isMockFunction(detached)).toBe(false);
+      expect(detached()).toBe('base:6');
+    });
+  });
+
+  describe('LegacyAsyncMethod({ bind: true })', () => {
+    class Base {
+      id: number;
+
+      constructor(id: number) {
+        this.id = id;
+      }
+
+      @LegacyAsyncMethod({ bind: true })
+      *method(): Generator<any, any, any> {
+        return yield Promise.resolve(`base:${this.id}`);
+      }
+    }
+
+    it('an undecorated subclass override runs', async () => {
+      class Sub extends Base {
+        // undecorated, so it returns a plain promise rather than a generator
+        method(): any {
+          return Promise.resolve(`sub:${this.id}`);
+        }
+      }
+
+      expect(await new Sub(1).method()).toBe('sub:1');
+    });
+
+    it('super.method() then this.method() hits the override', async () => {
+      class Sub extends Base {
+        // undecorated, so it returns a plain promise rather than a generator
+        method(): any {
+          return Promise.resolve(`sub:${this.id}`);
+        }
+
+        callBoth() {
+          return Promise.all([super.method(), this.method()]);
+        }
+      }
+
+      const inst = new Sub(2);
+
+      expect(await inst.callBoth()).toEqual(['base:2', 'sub:2']);
+      expect(await inst.method()).toBe('sub:2');
+    });
+
+    it('reading Base.prototype.method leaves instances bound', async () => {
+      const before = new Base(3);
+      const fromPrototype = Base.prototype.method;
+      const after = new Base(4);
+
+      expect(typeof fromPrototype).toBe('function');
+
+      const detachedBefore = before.method;
+      const detachedAfter = after.method;
+
+      expect(await detachedBefore()).toBe('base:3');
+      expect(await detachedAfter()).toBe('base:4');
+    });
+
+    it('jest.spyOn(Base.prototype, method) intercepts calls and restores binding', async () => {
+      const spy = jest.spyOn(Base.prototype, 'method');
+
+      try {
+        const pending = new Base(5).method();
+
+        expect(typeof (pending as any).cancel).toBe('function');
+        expect(await pending).toBe('base:5');
+        expect(spy).toHaveBeenCalledTimes(1);
+      } finally {
+        spy.mockRestore();
+      }
+
+      const detached = new Base(6).method;
+
+      expect(jest.isMockFunction(detached)).toBe(false);
+      expect(await detached()).toBe('base:6');
     });
   });
 });
@@ -888,5 +1026,153 @@ describe('decorators (TS legacy): flavor mismatch guard', () => {
     expect(() => {
       BabelLegacyAsyncMethod({}, 'field', descriptor as any);
     }).not.toThrow();
+  });
+});
+
+describe('decorators (TS legacy): unsupported usage', () => {
+  // Compiles a class with the real TypeScript emitter, so the define/assign difference is the genuine one
+  function runEmitted(useDefineForClassFields: boolean, target: ts.ScriptTarget, body: string): unknown {
+    const source = `
+      import { LegacyAsyncMethod, LegacyBindMethod } from './decorators-legacy';
+      ${body}
+    `;
+    const { outputText } = ts.transpileModule(source, {
+      compilerOptions: {
+        experimentalDecorators: true,
+        useDefineForClassFields,
+        target,
+        module: ts.ModuleKind.CommonJS,
+      },
+    });
+    const exports: Record<string, unknown> = {};
+    const load = vm.runInThisContext(`(function (require, exports) {
+${outputText}
+})`) as (...args: unknown[]) => void;
+    load(() => ({ LegacyAsyncMethod, LegacyBindMethod }), exports);
+    return exports.result;
+  }
+
+  const decoratedFieldBody = (decorator: string) => `
+    class C {
+      @${decorator}
+      method = function* () { return yield Promise.resolve(1); };
+    }
+    exports.result = new C();
+  `;
+
+  describe.each([
+    ['ES5', ts.ScriptTarget.ES5],
+    ['ES2022', ts.ScriptTarget.ES2022],
+  ])('field decorator emitted for %s', (_name, target) => {
+    it.each(['LegacyAsyncMethod()', 'LegacyBindMethod()', 'LegacyAsyncMethod({ bind: true })'])(
+      '%s throws a TypeError naming useDefineForClassFields under define semantics',
+      (decorator) => {
+        expect(() => runEmitted(true, target, decoratedFieldBody(decorator))).toThrow(TypeError);
+        expect(() => runEmitted(true, target, decoratedFieldBody(decorator))).toThrow(/useDefineForClassFields/);
+      },
+    );
+
+    it('keeps working under assign semantics', async () => {
+      const inst = runEmitted(false, target, decoratedFieldBody('LegacyAsyncMethod()')) as {
+        method(): Promise<number>;
+      };
+
+      expect(await inst.method()).toBe(1);
+    });
+
+    it('ignores define-call text inside a constructor comment or string', async () => {
+      const inst = runEmitted(
+        false,
+        target,
+        `
+        class C {
+          note = '';
+
+          @LegacyAsyncMethod()
+          method = function* () { return yield Promise.resolve(4); };
+
+          constructor() {
+            // Object.defineProperty(this, "method", { value: 1 })
+            /* Object.defineProperty(this, 'method', { value: 2 }) */
+            this.note = 'Object.defineProperty(this, "method", { value: 3 })';
+          }
+        }
+        exports.result = new C();
+      `,
+      ) as { method(): Promise<number> };
+
+      expect(await inst.method()).toBe(4);
+    });
+
+    it('does not mistake a same-named local or parameter for a field', async () => {
+      const inst = runEmitted(
+        false,
+        target,
+        `
+        class C {
+          @LegacyAsyncMethod()
+          method = function* () { return yield Promise.resolve(2); };
+
+          other(
+            method = 1,
+          ) {
+            let local = method;
+            return local;
+          }
+        }
+        exports.result = new C();
+      `,
+      ) as { method(): Promise<number> };
+
+      expect(await inst.method()).toBe(2);
+    });
+  });
+
+  it('a decorated method and getter are unaffected by define semantics', async () => {
+    const inst = runEmitted(
+      true,
+      ts.ScriptTarget.ES2022,
+      `
+      class C {
+        @LegacyAsyncMethod()
+        *method() { return yield Promise.resolve(3); }
+      }
+      exports.result = new C();
+    `,
+    ) as { method(): Promise<number> };
+
+    expect(await inst.method()).toBe(3);
+  });
+
+  it('parameter decorator use throws a TypeError at class definition', () => {
+    expect(() => {
+      class C {
+        method(@LegacyAsyncMethod() _first: number, _second: number) {
+          return _first + _second;
+        }
+      }
+      return C;
+    }).toThrow(TypeError);
+
+    expect(() => {
+      class C {
+        method(_first: number, @LegacyAsyncMethod() _second: number) {
+          return _first + _second;
+        }
+      }
+      return C;
+    }).toThrow(/'method'.*parameter/);
+  });
+
+  it('setter-only member throws a TypeError naming the member', () => {
+    expect(() => {
+      class C {
+        @LegacyAsyncMethod()
+        set value(_v: number) {
+          // setter only
+        }
+      }
+      return C;
+    }).toThrow(/'value'.*setter/);
   });
 });

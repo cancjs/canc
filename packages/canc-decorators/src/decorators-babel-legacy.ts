@@ -14,11 +14,61 @@ interface IMethodDecoratorOptions {
 function setProperty(target: any, key: string | symbol, value: any) {
   Object.defineProperty(target, key, {
     value,
-    writable: false,
+    writable: true,
     configurable: true,
     enumerable: false,
   });
 }
+
+// a generator object has next/throw/return, which no coroutine promise exposes
+function isGeneratorObject(value: any): boolean {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    isFunction(value.next) &&
+    isFunction(value.throw) &&
+    isFunction(value.return)
+  );
+}
+
+// the getter must hand back a coroutine, so a call that yields a generator object is misuse
+function guardGeneratorResult(fn: TAnyFn, propertyKey: string | symbol): TAnyFn {
+  const guarded = function (this: any, ...rest: any[]) {
+    const result = fn.apply(this, rest);
+    if (isGeneratorObject(result)) {
+      throw new TypeError(
+        `'${String(propertyKey)}' getter returned a generator function that was not wrapped. ` +
+          `Return cancAsync(function* () { ... }) from the getter instead.`,
+      );
+    }
+    return result;
+  };
+
+  return copyFunctionMetadata(fn, guarded);
+}
+
+// a class prototype (spyOn, reflection, a subclass prototype) is shared by every instance
+function isPrototypeObject(target: any): boolean {
+  return (
+    Object.prototype.hasOwnProperty.call(target, 'constructor') &&
+    isFunction(target.constructor) &&
+    target.constructor.prototype === target
+  );
+}
+
+// memo only while receiver[key] still lands here, so overrides and paired setters survive
+function resolvesToAccessor(receiver: any, key: string | symbol, get: TAnyFn, set: TAnyFn | undefined): boolean {
+  for (let current = receiver; current !== null && current !== undefined; current = Object.getPrototypeOf(current)) {
+    const descriptor = Object.getOwnPropertyDescriptor(current, key);
+    if (descriptor) {
+      return descriptor.get === get && descriptor.set === set;
+    }
+  }
+  return false;
+}
+
+// bound accessor getter to its prototype-level method, read by a decorator stacked on top
+const boundAccessorMethods = new WeakMap<TAnyFn, TAnyFn>();
 
 // Stage-3 decorators invoke as (value, context) where second argument is always a context object
 // A babel-legacy decorator receiving that shape was applied under stage-3 compiler output
@@ -32,9 +82,42 @@ function assertBabelLegacyCallShape(propertyKey: any): void {
   }
 }
 
-function makeBabelDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAnyFn) {
+// TS emits (target, key, index) for a parameter decorator, which neither flavor can honor
+function assertNotParameterDecorator(propertyKey: any, descriptor: any): void {
+  if (typeof descriptor === 'number') {
+    throw new TypeError(
+      `'${String(propertyKey)}' is a parameter and cannot be decorated. ` +
+        `Apply the decorator to a method, field or getter.`,
+    );
+  }
+}
+
+function assertNotSetterOnly(propertyKey: string | symbol, descriptor?: PropertyDescriptor): void {
+  // eslint-disable-next-line @typescript-eslint/unbound-method -- presence check, never called
+  if (descriptor && !descriptor.get && isFunction(descriptor.set)) {
+    throw new TypeError(
+      `'${String(propertyKey)}' is setter-only and cannot be decorated. ` +
+        `Decorate its getter, or a method or field.`,
+    );
+  }
+}
+
+function makeBabelDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAnyFn, isAsync = false) {
   return (target: any, propertyKey: string | symbol, descriptor: IBabelPropertyDescriptor) => {
     assertBabelLegacyCallShape(propertyKey);
+    assertNotParameterDecorator(propertyKey, descriptor);
+
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- identity lookup, never called
+    const stackedMethod = descriptor?.get ? boundAccessorMethods.get(descriptor.get) : undefined;
+    if (stackedMethod) {
+      // a bound decorator below already ran: decorate its prototype-level method, as stage-3 does
+      delete descriptor.get;
+      delete descriptor.set;
+      descriptor.value = stackedMethod;
+      descriptor.writable = true;
+    }
+
+    assertNotSetterOnly(propertyKey, descriptor);
 
     const isField = isFunction(descriptor?.initializer) || descriptor?.initializer === null;
     const isGetter = !!descriptor?.get;
@@ -45,18 +128,26 @@ function makeBabelDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAn
       // eslint-disable-next-line @typescript-eslint/unbound-method -- called with .call(this) below
       const originalGetter = descriptor.get!;
 
-      descriptor.get = function (this: any) {
+      const memoizingGetter = function (this: any) {
         const raw = originalGetter.call(this);
 
         if (!isFunction(raw)) {
           throw new TypeError(`'${String(propertyKey)}' getter result is not a function`);
         }
 
-        const value = isBind ? copyFunctionMetadata(raw, raw.bind(this)) : raw;
-        setProperty(this, propertyKey, value);
+        if (isPrototypeObject(this)) {
+          return raw;
+        }
+
+        const guarded = isAsync ? guardGeneratorResult(raw, propertyKey) : raw;
+        const value = isBind ? copyFunctionMetadata(guarded, guarded.bind(this)) : guarded;
+        if (resolvesToAccessor(this, propertyKey, memoizingGetter, undefined)) {
+          setProperty(this, propertyKey, value);
+        }
 
         return value;
       };
+      descriptor.get = memoizingGetter;
 
       return descriptor;
     }
@@ -83,22 +174,38 @@ function makeBabelDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAn
       throw new TypeError(`'${String(propertyKey)}' is not a method and cannot be decorated`);
     }
 
-    if (isBind) {
+    // proto wrap once, preserving metadata attached to original method
+    const protoMethod = copyFunctionMetadata(originalMethod, wrap(originalMethod, undefined));
+
+    // a static under a stacked bound decorator stays bound whatever the outer decorator is
+    if (isBind || (stackedMethod && isFunction(target))) {
       // bind:true: lazy per-instance own-bound property with per-instance isolation and GC
       delete descriptor.value;
       delete descriptor.writable;
 
-      descriptor.get = function (this: any) {
-        const value = copyFunctionMetadata(originalMethod, wrap(originalMethod, this));
-        setProperty(this, propertyKey, value);
+      // a static is bound to the defining class, whichever subclass or alias it is read through
+      const isStatic = isFunction(target);
+      const get = function (this: any): TAnyFn {
+        if (isPrototypeObject(this)) {
+          return protoMethod;
+        }
+
+        const holder = isStatic ? target : this;
+        const value = copyFunctionMetadata(originalMethod, wrap(originalMethod, holder));
+        if (resolvesToAccessor(holder, propertyKey, get, set)) {
+          setProperty(holder, propertyKey, value);
+        }
         return value;
       };
-      descriptor.set = function (this: any, value: any) {
+      const set = function (this: any, value: any): void {
         setProperty(this, propertyKey, value);
       };
+      boundAccessorMethods.set(get, protoMethod);
+
+      descriptor.get = get;
+      descriptor.set = set;
     } else {
-      // bind:false: proto wrap once, preserving metadata attached to original method
-      descriptor.value = copyFunctionMetadata(originalMethod, wrap(originalMethod, undefined));
+      descriptor.value = protoMethod;
     }
 
     return descriptor;
@@ -117,14 +224,14 @@ export function BabelLegacyAsyncMethod(
   ...args: [IMethodDecoratorOptions?] | [any, string | symbol, PropertyDescriptor]
 ) {
   if (args.length > 1) {
-    return (makeBabelDecorator(false, (fn, ctx) => cancAsync(fn as any, ctx)) as any)(
+    return (makeBabelDecorator(false, (fn, ctx) => cancAsync(fn as any, ctx), true) as any)(
       ...(args as [any, string | symbol, PropertyDescriptor]),
     );
   }
 
   const isBind = (args[0] as IMethodDecoratorOptions | undefined)?.bind ?? false;
 
-  return makeBabelDecorator(isBind, (fn, ctx) => cancAsync(fn as any, ctx)) as any;
+  return makeBabelDecorator(isBind, (fn, ctx) => cancAsync(fn as any, ctx), true) as any;
 }
 
 /** Same call shapes as {@link BabelLegacyAsyncMethod}; `bind:true` is the default here instead of `bind:false`. */

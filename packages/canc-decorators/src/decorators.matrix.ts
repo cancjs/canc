@@ -2,8 +2,12 @@ import 'reflect-metadata';
 
 import { async as cancAsync } from '@cancjs/coroutine';
 import { isCancelError } from '@cancjs/promise';
+import v8 from 'v8';
+import vm from 'vm';
 
 import { TAnyFn } from '../../_util';
+import { BabelLegacyAsyncMethod as BabelLegacyAsync, BabelLegacyBindMethod } from './decorators-babel-legacy';
+import { LegacyAsyncMethod as LegacyAsync, LegacyBindMethod } from './decorators-legacy';
 
 /**
  * ES / TC39 stage-3 decorators matrix shared across TS and Babel test lanes.
@@ -11,10 +15,45 @@ import { TAnyFn } from '../../_util';
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-function gc() {
-  if (global.gc) {
-    global.gc();
+/**
+ * Returns a function that forces a full collection, or `undefined` when none can be obtained.
+ *
+ * Uses `global.gc` when node runs with `--expose-gc`, otherwise flips the flag on just long enough
+ * to pull `gc` out of a throwaway vm context.
+ */
+export function acquireGC(): (() => void) | undefined {
+  if (typeof global.gc === 'function') {
+    const globalGC = global.gc;
+    return () => globalGC();
   }
+
+  try {
+    v8.setFlagsFromString('--expose-gc');
+    const vmGC = vm.runInNewContext('gc');
+    v8.setFlagsFromString('--no-expose-gc');
+    if (typeof vmGC === 'function') {
+      return () => vmGC();
+    }
+  } catch {
+    // fall through to unavailable
+  }
+
+  return undefined;
+}
+
+const realGC = acquireGC();
+
+export const gcAvailable = realGC !== undefined;
+
+if (!gcAvailable) {
+  console.warn('decorators GC assertions skipped: no gc available (run node with --expose-gc)');
+}
+
+export function gc(): void {
+  if (!realGC) {
+    throw new Error('gc() called but no gc is available');
+  }
+  realGC();
 }
 
 // FinalizationRegistry callbacks are best-effort: one collection is rarely enough to run them.
@@ -30,6 +69,53 @@ async function forceCollect(done: () => boolean, cycles = 25, gap = 20): Promise
 function touch(_value: unknown): void {
   // intentionally empty
 }
+
+type TLegacyDecorator = (target: object, key: string, descriptor?: PropertyDescriptor) => any;
+
+// same steps as the TypeScript __decorate helper for a member that has a descriptor
+function tsLegacyDecorate(decorators: TLegacyDecorator[], target: object, key: string): void {
+  let descriptor = Object.getOwnPropertyDescriptor(target, key);
+  for (let i = decorators.length - 1; i >= 0; i--) {
+    descriptor = decorators[i](target, key, descriptor) || descriptor;
+  }
+  Object.defineProperty(target, key, descriptor!);
+}
+
+// same steps as babel's _applyDecoratedDescriptor for a method or accessor
+function babelLegacyDecorate(decorators: TLegacyDecorator[], target: object, key: string): void {
+  const own = Object.getOwnPropertyDescriptor(target, key)!;
+  const initial: PropertyDescriptor = { ...own, enumerable: !!own.enumerable, configurable: !!own.configurable };
+  if ('value' in initial) {
+    initial.writable = true;
+  }
+  const descriptor = decorators
+    .slice()
+    .reverse()
+    .reduce<PropertyDescriptor>((current, decorator) => decorator(target, key, current) || current, initial);
+  Object.defineProperty(target, key, descriptor);
+}
+
+interface ILegacyFlavor {
+  name: string;
+  Async: (options?: { bind?: boolean }) => TLegacyDecorator;
+  Bind: (options?: { bind?: boolean }) => TLegacyDecorator;
+  decorate: (decorators: TLegacyDecorator[], target: object, key: string) => void;
+}
+
+const legacyFlavors: ILegacyFlavor[] = [
+  {
+    name: 'TS legacy',
+    Async: (options) => LegacyAsync(options),
+    Bind: (options) => LegacyBindMethod(options),
+    decorate: tsLegacyDecorate,
+  },
+  {
+    name: 'babel legacy',
+    Async: (options) => BabelLegacyAsync(options),
+    Bind: (options) => BabelLegacyBindMethod(options),
+    decorate: babelLegacyDecorate,
+  },
+];
 
 // AsyncMethod/BindMethod are stage-3 (value, context); LegacyAsyncMethod/BabelLegacyAsyncMethod are
 // invoked here only with manufactured wrong-shaped args (flavor mismatch guard tests), so all four
@@ -271,12 +357,7 @@ export function runStage3Matrix({
     });
 
     describe('GC assertion', () => {
-      it('instance1 released while instance2 active, instance1 collects', async () => {
-        if (!global.gc) {
-          expect(global.gc).toBeUndefined();
-          return;
-        }
-
+      (gcAvailable ? it : it.skip)('instance1 released while instance2 active, instance1 collects', async () => {
         const finalized: boolean[] = [];
         // Registry must outlive inst1, otherwise it is collected alongside inst1 and its callback
         // never runs.
@@ -457,12 +538,7 @@ export function runStage3Matrix({
     });
 
     describe('GC assertion', () => {
-      it('instance1 released while instance2 active, instance1 collects', async () => {
-        if (!global.gc) {
-          expect(global.gc).toBeUndefined();
-          return;
-        }
-
+      (gcAvailable ? it : it.skip)('instance1 released while instance2 active, instance1 collects', async () => {
         const finalized: boolean[] = [];
         // Registry must outlive inst1, otherwise it is collected alongside inst1 and its callback
         // never runs.
@@ -950,6 +1026,861 @@ export function runStage3Matrix({
       } catch {
         // canceled on purpose to avoid an unhandled rejection.
       }
+    });
+  });
+
+  describe('decorators (ES stage-3): receivers and overrides', () => {
+    it('undecorated subclass override of a bound method runs', async () => {
+      class Base {
+        @BindMethod()
+        name() {
+          return 'base';
+        }
+
+        @AsyncMethod({ bind: true })
+        *load(): Generator<any, any, any> {
+          return yield Promise.resolve('base');
+        }
+      }
+
+      class Derived extends Base {
+        name() {
+          return 'derived';
+        }
+
+        load(): any {
+          return 'derived';
+        }
+      }
+
+      const inst = new Derived();
+
+      expect(inst.name()).toBe('derived');
+      expect(inst.load()).toBe('derived');
+    });
+
+    it('super call through a bound method keeps the override on later calls', async () => {
+      class Base {
+        @BindMethod()
+        name() {
+          return 'base';
+        }
+
+        @AsyncMethod({ bind: true })
+        *load(): Generator<any, any, any> {
+          return yield Promise.resolve('base');
+        }
+      }
+
+      class Derived extends Base {
+        name() {
+          return 'derived+' + super.name();
+        }
+
+        @AsyncMethod({ bind: true })
+        *load(): Generator<any, any, any> {
+          const base = yield super.load();
+          return 'derived+' + base;
+        }
+      }
+
+      const inst = new Derived();
+
+      expect(inst.name()).toBe('derived+base');
+      expect(inst.name()).toBe('derived+base');
+      expect(await inst.load()).toBe('derived+base');
+      expect(await inst.load()).toBe('derived+base');
+    });
+
+    it('super read of a memoized getter keeps the override on later reads', () => {
+      class Base {
+        @BindMethod()
+        get fn() {
+          return () => 'base';
+        }
+      }
+
+      class Derived extends Base {
+        // same lookup as super.fn, which es5 emit cannot express for an accessor
+        get fn() {
+          const base: () => string = Reflect.get(Base.prototype, 'fn', this);
+          return () => 'derived+' + base();
+        }
+      }
+
+      const inst = new Derived();
+
+      expect(inst.fn()).toBe('derived+base');
+      expect(inst.fn()).toBe('derived+base');
+    });
+
+    it('reading a getter through the prototype leaves instances bound to themselves', async () => {
+      class C {
+        id: number;
+
+        constructor(id: number) {
+          this.id = id;
+        }
+
+        @BindMethod()
+        get fn() {
+          return function (this: any) {
+            return this.id;
+          };
+        }
+
+        @AsyncMethod()
+        get run() {
+          return cancAsync(function* (this: any): Generator<any, any, any> {
+            return yield Promise.resolve(this.id);
+          }, this);
+        }
+      }
+
+      class Sub extends C {}
+
+      touch(C.prototype.fn);
+      touch(C.prototype.run);
+      touch(Sub.prototype.fn);
+
+      const fn = new C(4).fn;
+      const subFn = new Sub(5).fn;
+
+      expect(fn()).toBe(4);
+      expect(subFn()).toBe(5);
+      expect(await new C(6).run()).toBe(6);
+    });
+
+    it('jest.spyOn on the prototype of a bound method works and restores', () => {
+      class C {
+        id: number;
+
+        constructor(id: number) {
+          this.id = id;
+        }
+
+        @BindMethod()
+        m() {
+          return this.id;
+        }
+      }
+
+      const spy = jest.spyOn(C.prototype, 'm');
+      let calledThroughSpy: number;
+      try {
+        calledThroughSpy = new C(7).m();
+        expect(spy).toHaveBeenCalledTimes(1);
+      } finally {
+        spy.mockRestore();
+      }
+
+      const detached = new C(8).m;
+      expect(calledThroughSpy).toBe(7);
+      expect(detached()).toBe(8);
+    });
+
+    it('both stacking orders of AsyncMethod and BindMethod produce a cancelable method', async () => {
+      class AsyncOuter {
+        @AsyncMethod()
+        @BindMethod()
+        *m(): Generator<any, any, any> {
+          return yield Promise.resolve(1);
+        }
+      }
+
+      class BindOuter {
+        @BindMethod()
+        @AsyncMethod()
+        *m(): Generator<any, any, any> {
+          return yield Promise.resolve(2);
+        }
+      }
+
+      const first = new AsyncOuter().m() as any;
+      const second = new BindOuter().m() as any;
+
+      expect(typeof first.cancel).toBe('function');
+      expect(typeof second.cancel).toBe('function');
+      expect(await first).toBe(1);
+      expect(await second).toBe(2);
+    });
+
+    it('bound method reached without the constructor is still wrapped', async () => {
+      class C {
+        @AsyncMethod({ bind: true })
+        *m(): Generator<any, any, any> {
+          return yield Promise.resolve(this);
+        }
+      }
+
+      const hydrated = Object.create(C.prototype) as C;
+      const viaCreate = hydrated.m() as any;
+      const inst = new C();
+      const viaProto = C.prototype.m.call(inst) as any;
+
+      expect(typeof viaCreate.cancel).toBe('function');
+      expect(typeof viaProto.cancel).toBe('function');
+      expect(await viaCreate).toBe(hydrated);
+      expect(await viaProto).toBe(inst);
+    });
+
+    it('setter paired with a memoized getter keeps working after a read', () => {
+      class C {
+        value: number;
+
+        constructor() {
+          this.value = 1;
+        }
+
+        @BindMethod()
+        get fn() {
+          const value = this.value;
+          return () => value;
+        }
+
+        set fn(next: () => number) {
+          this.value = next();
+        }
+      }
+
+      const inst = new C();
+
+      expect(inst.fn()).toBe(1);
+
+      inst.fn = () => 2;
+
+      expect(inst.fn()).toBe(2);
+    });
+
+    it('bound method read through a Proxy is bound to the proxy', async () => {
+      class C {
+        @BindMethod()
+        m() {
+          return this;
+        }
+
+        @AsyncMethod({ bind: true })
+        *load(): Generator<any, any, any> {
+          return yield Promise.resolve(this);
+        }
+      }
+
+      const proxy = new Proxy(new C(), {});
+      const m = proxy.m;
+      const load = proxy.load;
+
+      expect(m()).toBe(proxy);
+      expect(await load()).toBe(proxy);
+    });
+  });
+
+  describe('decorators (ES stage-3): statics and writable members', () => {
+    it('static bound method called detached keeps the defining class', () => {
+      class Base {
+        @BindMethod()
+        static who() {
+          return this;
+        }
+      }
+      class Sub extends Base {}
+
+      const viaSub = Sub.who;
+      const viaBase = Base.who;
+
+      expect(viaSub()).toBe(Base);
+      expect(viaBase()).toBe(Base);
+    });
+
+    it('static bound method keeps the defining class under either stacking order', async () => {
+      class AsyncOuter {
+        @AsyncMethod()
+        @BindMethod()
+        static *who(): Generator<any, any, any> {
+          return yield Promise.resolve(this);
+        }
+      }
+
+      class BindOuter {
+        @BindMethod()
+        @AsyncMethod()
+        static *who(): Generator<any, any, any> {
+          return yield Promise.resolve(this);
+        }
+      }
+
+      const first = AsyncOuter.who;
+      const second = BindOuter.who;
+      const firstCall = first() as any;
+      const secondCall = second() as any;
+
+      expect(typeof firstCall.cancel).toBe('function');
+      expect(typeof secondCall.cancel).toBe('function');
+      expect(await firstCall).toBe(AsyncOuter);
+      expect(await secondCall).toBe(BindOuter);
+    });
+
+    it('static bound method can be replaced on the class', () => {
+      class C {
+        @BindMethod()
+        static who() {
+          return 'real';
+        }
+      }
+
+      touch(C.who);
+      C.who = () => 'stub';
+
+      expect(C.who()).toBe('stub');
+    });
+
+    it('bound method can be replaced on an instance after a read', () => {
+      class C {
+        @BindMethod()
+        m() {
+          return 'real';
+        }
+
+        @AsyncMethod({ bind: true })
+        *load(): Generator<any, any, any> {
+          return yield Promise.resolve('real');
+        }
+      }
+
+      const inst = new C();
+      touch(inst.m);
+      touch(inst.load);
+      inst.m = () => 'stub';
+      const spy = jest.spyOn(inst, 'load').mockReturnValue('spied' as any);
+
+      expect(inst.m()).toBe('stub');
+      expect(inst.load()).toBe('spied');
+      expect(Object.getOwnPropertyDescriptor(inst, 'm')!.writable).toBe(true);
+      spy.mockRestore();
+    });
+
+    it('memoized getter can be replaced on an instance after a read', () => {
+      class C {
+        @BindMethod()
+        get fn() {
+          return () => 'real';
+        }
+      }
+
+      const inst = new C();
+      touch(inst.fn);
+      (inst as any).fn = () => 'stub';
+
+      expect(inst.fn()).toBe('stub');
+    });
+  });
+
+  describe.each(legacyFlavors)('decorators ($name, applied as emitted): receivers and overrides', (flavor) => {
+    const { Async, Bind, decorate } = flavor;
+
+    it('undecorated subclass override of a bound method runs', () => {
+      class Base {
+        name() {
+          return 'base';
+        }
+      }
+      decorate([Bind()], Base.prototype, 'name');
+
+      class Derived extends Base {
+        name() {
+          return 'derived';
+        }
+      }
+
+      expect(new Derived().name()).toBe('derived');
+    });
+
+    it('super call through a bound method keeps the override on later calls', async () => {
+      class Base {
+        name() {
+          return 'base';
+        }
+
+        *load(): Generator<any, any, any> {
+          return yield Promise.resolve('base');
+        }
+      }
+      decorate([Bind()], Base.prototype, 'name');
+      decorate([Async({ bind: true })], Base.prototype, 'load');
+
+      class Derived extends Base {
+        name() {
+          return 'derived+' + super.name();
+        }
+
+        *load(): Generator<any, any, any> {
+          const base = yield super.load();
+          return 'derived+' + base;
+        }
+      }
+      decorate([Async({ bind: true })], Derived.prototype, 'load');
+
+      const inst = new Derived();
+
+      expect(inst.name()).toBe('derived+base');
+      expect(inst.name()).toBe('derived+base');
+      expect(await inst.load()).toBe('derived+base');
+      expect(await inst.load()).toBe('derived+base');
+    });
+
+    it('super read of a memoized getter keeps the override on later reads', () => {
+      class Base {
+        get fn() {
+          return () => 'base';
+        }
+      }
+      decorate([Bind()], Base.prototype, 'fn');
+
+      class Derived extends Base {
+        // same lookup as super.fn, which es5 emit cannot express for an accessor
+        get fn() {
+          const base: () => string = Reflect.get(Base.prototype, 'fn', this);
+          return () => 'derived+' + base();
+        }
+      }
+
+      const inst = new Derived();
+
+      expect(inst.fn()).toBe('derived+base');
+      expect(inst.fn()).toBe('derived+base');
+    });
+
+    it('reading through the prototype leaves instances bound to themselves', () => {
+      class C {
+        id: number;
+
+        constructor(id: number) {
+          this.id = id;
+        }
+
+        m() {
+          return this.id;
+        }
+
+        get fn() {
+          return function (this: any) {
+            return this.id;
+          };
+        }
+      }
+      decorate([Bind()], C.prototype, 'm');
+      decorate([Bind()], C.prototype, 'fn');
+
+      class Sub extends C {}
+
+      touch(C.prototype.m);
+      touch(C.prototype.fn);
+      touch(Sub.prototype.m);
+      touch(Sub.prototype.fn);
+
+      const m = new C(4).m;
+      const fn = new C(5).fn;
+      const subM = new Sub(6).m;
+      const subFn = new Sub(7).fn;
+
+      expect(m()).toBe(4);
+      expect(fn()).toBe(5);
+      expect(subM()).toBe(6);
+      expect(subFn()).toBe(7);
+    });
+
+    it('jest.spyOn on the prototype of a bound method works and restores', () => {
+      class C {
+        id: number;
+
+        constructor(id: number) {
+          this.id = id;
+        }
+
+        m() {
+          return this.id;
+        }
+      }
+      decorate([Bind()], C.prototype, 'm');
+
+      const spy = jest.spyOn(C.prototype, 'm');
+      let calledThroughSpy: number;
+      try {
+        calledThroughSpy = new C(7).m();
+        expect(spy).toHaveBeenCalledTimes(1);
+      } finally {
+        spy.mockRestore();
+      }
+
+      const detached = new C(8).m;
+      expect(calledThroughSpy).toBe(7);
+      expect(detached()).toBe(8);
+    });
+
+    it('both stacking orders of AsyncMethod and BindMethod produce a cancelable method', async () => {
+      class AsyncOuter {
+        *m(): Generator<any, any, any> {
+          return yield Promise.resolve(1);
+        }
+      }
+      decorate([Async(), Bind()], AsyncOuter.prototype, 'm');
+
+      class BindOuter {
+        *m(): Generator<any, any, any> {
+          return yield Promise.resolve(2);
+        }
+      }
+      decorate([Bind(), Async()], BindOuter.prototype, 'm');
+
+      const first = new AsyncOuter().m() as any;
+      const second = new BindOuter().m() as any;
+
+      expect(typeof first.cancel).toBe('function');
+      expect(typeof second.cancel).toBe('function');
+      expect(await first).toBe(1);
+      expect(await second).toBe(2);
+    });
+
+    it('bound method reached without the constructor is still wrapped', async () => {
+      class C {
+        *m(): Generator<any, any, any> {
+          return yield Promise.resolve(this);
+        }
+      }
+      decorate([Async({ bind: true })], C.prototype, 'm');
+
+      const hydrated = Object.create(C.prototype) as C;
+      const viaCreate = hydrated.m() as any;
+      const inst = new C();
+      const viaProto = C.prototype.m.call(inst) as any;
+
+      expect(typeof viaCreate.cancel).toBe('function');
+      expect(typeof viaProto.cancel).toBe('function');
+      expect(await viaCreate).toBe(hydrated);
+      expect(await viaProto).toBe(inst);
+    });
+
+    it('setter paired with a memoized getter keeps working after a read', () => {
+      class C {
+        value: number;
+
+        constructor() {
+          this.value = 1;
+        }
+
+        get fn() {
+          const value = this.value;
+          return () => value;
+        }
+
+        set fn(next: () => number) {
+          this.value = next();
+        }
+      }
+      decorate([Bind()], C.prototype, 'fn');
+
+      const inst = new C();
+
+      expect(inst.fn()).toBe(1);
+
+      inst.fn = () => 2;
+
+      expect(inst.fn()).toBe(2);
+    });
+
+    it('bound method read through a Proxy is bound to the proxy', async () => {
+      class C {
+        m() {
+          return this;
+        }
+
+        *load(): Generator<any, any, any> {
+          return yield Promise.resolve(this);
+        }
+      }
+      decorate([Bind()], C.prototype, 'm');
+      decorate([Async({ bind: true })], C.prototype, 'load');
+
+      const proxy = new Proxy(new C(), {});
+      const m = proxy.m;
+      const load = proxy.load;
+
+      expect(m()).toBe(proxy);
+      expect(await load()).toBe(proxy);
+    });
+  });
+
+  describe.each(legacyFlavors)('decorators ($name, applied as emitted): statics and writable members', (flavor) => {
+    const { Async, Bind, decorate } = flavor;
+
+    function makeStatic() {
+      class Base {
+        static who(this: any) {
+          return this;
+        }
+      }
+      decorate([Bind()], Base, 'who');
+      class Sub extends Base {}
+
+      return { Base, Sub };
+    }
+
+    it('static bound method called detached keeps the defining class when read from the subclass first', () => {
+      const { Base, Sub } = makeStatic();
+
+      const viaSub = Sub.who;
+      const viaBase = Base.who;
+
+      expect(viaSub()).toBe(Base);
+      expect(viaBase()).toBe(Base);
+    });
+
+    it('static bound method called detached keeps the defining class when read from the class first', () => {
+      const { Base, Sub } = makeStatic();
+
+      const viaBase = Base.who;
+      const viaSub = Sub.who;
+
+      expect(viaBase()).toBe(Base);
+      expect(viaSub()).toBe(Base);
+    });
+
+    it('static bound method keeps the defining class under either stacking order', async () => {
+      class AsyncOuter {
+        static *who(this: any): Generator<any, any, any> {
+          return yield Promise.resolve(this);
+        }
+      }
+      decorate([Async(), Bind()], AsyncOuter, 'who');
+
+      class BindOuter {
+        static *who(this: any): Generator<any, any, any> {
+          return yield Promise.resolve(this);
+        }
+      }
+      decorate([Bind(), Async()], BindOuter, 'who');
+
+      class Sub extends AsyncOuter {}
+
+      const first = Sub.who;
+      const second = BindOuter.who;
+      const firstCall = first() as any;
+      const secondCall = second() as any;
+
+      expect(typeof firstCall.cancel).toBe('function');
+      expect(typeof secondCall.cancel).toBe('function');
+      expect(await firstCall).toBe(AsyncOuter);
+      expect(await secondCall).toBe(BindOuter);
+    });
+
+    it('static bound method can be replaced on the class', () => {
+      class C {
+        static who() {
+          return 'real';
+        }
+      }
+      decorate([Bind()], C, 'who');
+
+      touch(C.who);
+      C.who = () => 'stub';
+
+      expect(C.who()).toBe('stub');
+    });
+
+    it('bound method can be replaced on an instance after a read', () => {
+      class C {
+        m() {
+          return 'real';
+        }
+      }
+      decorate([Bind()], C.prototype, 'm');
+
+      const inst = new C();
+      touch(inst.m);
+      inst.m = () => 'stub';
+
+      expect(inst.m()).toBe('stub');
+      expect(Object.getOwnPropertyDescriptor(inst, 'm')!.writable).toBe(true);
+    });
+
+    it('memoized getter can be replaced on an instance after a read', () => {
+      class C {
+        get fn() {
+          return () => 'real';
+        }
+      }
+      decorate([Bind()], C.prototype, 'fn');
+
+      const inst = new C();
+      touch(inst.fn);
+      (inst as any).fn = () => 'stub';
+
+      expect(inst.fn()).toBe('stub');
+    });
+  });
+
+  describe('decorators (TS legacy, applied as emitted): field members', () => {
+    function makeBase(init: () => unknown) {
+      class Base {
+        constructor() {
+          (this as any).m = init();
+        }
+      }
+      // a TS field decorator receives no descriptor
+      LegacyBindMethod()(Base.prototype, 'm');
+
+      return Base;
+    }
+
+    it('subclass field override constructs and wins', () => {
+      const Base = makeBase(() => () => 'base');
+      class Sub extends Base {
+        constructor() {
+          super();
+          (this as any).m = () => 'sub';
+        }
+      }
+
+      expect((new Sub() as any).m()).toBe('sub');
+    });
+
+    it('installed field is an enumerable writable own property', () => {
+      const Base = makeBase(() => () => 'base');
+
+      const inst = new Base() as any;
+      const descriptor = Object.getOwnPropertyDescriptor(inst, 'm')!;
+
+      expect(Object.keys(inst)).toContain('m');
+      expect(descriptor.writable).toBe(true);
+      expect(descriptor.enumerable).toBe(true);
+    });
+  });
+  describe('decorators (ES stage-3): getter returning a bare generator function', () => {
+    it.each([
+      ['AsyncMethod', () => AsyncMethod()],
+      ['AsyncMethod bind:true', () => AsyncMethod({ bind: true })],
+    ])('%s throws a TypeError naming cancAsync when the returned function is called', (_name, make) => {
+      class C {
+        @make()
+        get method() {
+          return function* (): Generator<any, any, any> {
+            return yield Promise.resolve(1);
+          };
+        }
+      }
+
+      const method = new C().method;
+
+      expect(() => method()).toThrow(TypeError);
+      expect(() => method()).toThrow(/cancAsync/);
+    });
+
+    it('BindMethod getter returning a function that returns a generator object does not throw', () => {
+      function* source(): Generator<number, number, any> {
+        return yield 1;
+      }
+
+      class C {
+        @BindMethod()
+        get method() {
+          return () => source();
+        }
+      }
+
+      const iterator = new C().method();
+
+      expect(iterator.next()).toEqual({ value: 1, done: false });
+      expect(iterator.next(5)).toEqual({ value: 5, done: true });
+    });
+
+    it('a getter returning a coroutine still resolves', async () => {
+      class C {
+        @AsyncMethod()
+        get method() {
+          return cancAsync(function* (): Generator<any, any, any> {
+            return yield Promise.resolve(4);
+          });
+        }
+      }
+
+      expect(await new C().method()).toBe(4);
+    });
+
+    it('a getter returning a plain function keeps its result', () => {
+      class C {
+        @AsyncMethod()
+        get method() {
+          return () => 7;
+        }
+      }
+
+      expect(new C().method()).toBe(7);
+    });
+  });
+
+  describe('decorators (ES stage-3): setter-only member', () => {
+    it('names the member in the TypeError', () => {
+      const setterContext: any = { kind: 'setter', name: 'value', private: false, static: false };
+
+      expect(() => (AsyncMethod() as any)(function () {}, setterContext)).toThrow(/'value'.*setter/);
+    });
+  });
+
+  describe.each(legacyFlavors)('decorators ($name, applied as emitted): unsupported usage', (flavor) => {
+    it.each([
+      ['Async', false],
+      ['Async bind:true', true],
+    ])('%s getter returning a bare generator function throws a TypeError naming cancAsync', (name, bind) => {
+      class C {
+        get method() {
+          return function* (): Generator<any, any, any> {
+            return yield Promise.resolve(1);
+          };
+        }
+      }
+      const decorator = flavor.Async({ bind });
+      flavor.decorate([decorator], C.prototype, 'method');
+
+      const method = new C().method;
+
+      expect(() => method()).toThrow(TypeError);
+      expect(() => method()).toThrow(/cancAsync/);
+    });
+
+    it('Bind getter returning a function that returns a generator object does not throw', () => {
+      function* source(): Generator<number, number, any> {
+        return yield 1;
+      }
+
+      class C {
+        get method() {
+          return () => source();
+        }
+      }
+      flavor.decorate([flavor.Bind()], C.prototype, 'method');
+
+      const iterator = new C().method();
+
+      expect(iterator.next()).toEqual({ value: 1, done: false });
+      expect(iterator.next(5)).toEqual({ value: 5, done: true });
+    });
+
+    it.each([0, 1])('parameter decorator at index %i throws a TypeError at class definition', (index) => {
+      class C {
+        method(_first: number, _second: number) {
+          return _first + _second;
+        }
+      }
+
+      expect(() => (flavor.Async() as any)(C.prototype, 'method', index)).toThrow(TypeError);
+      expect(() => (flavor.Bind() as any)(C.prototype, 'method', index)).toThrow(/'method'.*parameter/);
+    });
+
+    it('setter-only member throws a TypeError naming the member', () => {
+      const target = {};
+      Object.defineProperty(target, 'value', { set() {}, configurable: true });
+
+      expect(() => flavor.decorate([flavor.Async()], target, 'value')).toThrow(TypeError);
+      expect(() => flavor.decorate([flavor.Bind()], target, 'value')).toThrow(/'value'.*setter/);
     });
   });
 }

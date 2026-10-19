@@ -18,10 +18,73 @@ interface IMemberDecorator {
 function setProperty(target: any, key: string | symbol, value: any) {
   Object.defineProperty(target, key, {
     value,
-    writable: false,
+    writable: true,
     configurable: true,
     enumerable: false,
   });
+}
+
+// a generator object has next/throw/return, which no coroutine promise exposes
+function isGeneratorObject(value: any): boolean {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    isFunction(value.next) &&
+    isFunction(value.throw) &&
+    isFunction(value.return)
+  );
+}
+
+// the getter must hand back a coroutine, so a call that yields a generator object is misuse
+function guardGeneratorResult(fn: TAnyFn, propertyKey: string | symbol): TAnyFn {
+  const guarded = function (this: any, ...rest: any[]) {
+    const result = fn.apply(this, rest);
+    if (isGeneratorObject(result)) {
+      throw new TypeError(
+        `'${String(propertyKey)}' getter returned a generator function that was not wrapped. ` +
+          `Return cancAsync(function* () { ... }) from the getter instead.`,
+      );
+    }
+    return result;
+  };
+
+  return copyFunctionMetadata(fn, guarded);
+}
+
+// a class prototype (spyOn, reflection, a subclass prototype) is shared by every instance
+function isPrototypeObject(target: any): boolean {
+  return (
+    Object.prototype.hasOwnProperty.call(target, 'constructor') &&
+    isFunction(target.constructor) &&
+    target.constructor.prototype === target
+  );
+}
+
+// memo only while receiver[key] still lands here, so overrides and paired setters survive
+function resolvesToAccessor(receiver: any, key: string | symbol, get: TAnyFn, set: TAnyFn | undefined): boolean {
+  for (let current = receiver; current !== null && current !== undefined; current = Object.getPrototypeOf(current)) {
+    const descriptor = Object.getOwnPropertyDescriptor(current, key);
+    if (descriptor) {
+      return descriptor.get === get && descriptor.set === set;
+    }
+  }
+  return false;
+}
+
+// binds on first read rather than at construction, so a Proxy receiver gets a proxy-bound function
+function makeBoundAccessor(key: string | symbol, produce: (self: any) => TAnyFn): PropertyDescriptor {
+  const get = function (this: any): TAnyFn {
+    const value = produce(this);
+    if (resolvesToAccessor(this, key, get, set)) {
+      setProperty(this, key, value);
+    }
+    return value;
+  };
+  const set = function (this: any, value: any): void {
+    setProperty(this, key, value);
+  };
+
+  return { get, set, configurable: true, enumerable: false };
 }
 
 function assertDecoratable(propertyKey: string | symbol, context: TMethodDecoratorContext) {
@@ -59,7 +122,7 @@ function assertSupportedKind(propertyKey: string | symbol, context: TMethodDecor
  * Shared implementation. `wrap` decides whether the produced function is coroutine-wrapped
  * (`AsyncMethod`) or a plain pass-through (`BindMethod`).
  */
-function makeDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAnyFn) {
+function makeDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAnyFn, isAsync = false) {
   return (value: any, context: TMethodDecoratorContext): any => {
     assertStage3CallShape(context);
     const propertyKey = context.name;
@@ -70,18 +133,27 @@ function makeDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAnyFn) 
       // User returns ready coroutine from getter, so decorator only memoizes per instance
       const originalGetter = value as () => unknown;
 
-      return function (this: any) {
+      const memoizingGetter = function (this: any) {
         const raw = originalGetter.call(this);
 
         if (!isFunction(raw)) {
           throw new TypeError(`'${String(propertyKey)}' getter result is not a function`);
         }
 
-        const result = isBind ? copyFunctionMetadata(raw, raw.bind(this)) : raw;
-        setProperty(this, propertyKey, result);
+        if (isPrototypeObject(this)) {
+          return raw;
+        }
+
+        const guarded = isAsync ? guardGeneratorResult(raw, propertyKey) : raw;
+        const result = isBind ? copyFunctionMetadata(guarded, guarded.bind(this)) : guarded;
+        if (resolvesToAccessor(this, propertyKey, memoizingGetter, undefined)) {
+          setProperty(this, propertyKey, result);
+        }
 
         return result;
       };
+
+      return memoizingGetter;
     }
 
     if (context.kind === 'field') {
@@ -100,20 +172,33 @@ function makeDecorator(isBind: boolean, wrap: (fn: TAnyFn, ctx: any) => TAnyFn) 
         throw new TypeError(`'${String(propertyKey)}' is not a method and cannot be decorated`);
       }
 
+      const originalMethod = value as TAnyFn;
+      // prototype slot is wrapped for every placement, so Object.create and super calls see it
+      const protoMethod = copyFunctionMetadata(originalMethod, wrap(originalMethod, undefined));
+
       if (isBind) {
-        // bind:true: per-instance own-bound property, prototype method left intact
-        const originalMethod = value as TAnyFn;
+        const produce = (self: any) => copyFunctionMetadata(originalMethod, wrap(originalMethod, self));
+        const boundAccessor = makeBoundAccessor(propertyKey, produce);
 
         (context as ClassMethodDecoratorContext).addInitializer(function (this: any) {
-          setProperty(this, propertyKey, copyFunctionMetadata(originalMethod, wrap(originalMethod, this)));
-        });
+          if (context.static) {
+            // this is the defining class here, so an outer decorator's result is bound to it too
+            const slot = this[propertyKey];
+            if (isFunction(slot)) {
+              const bound = slot === protoMethod ? produce(this) : copyFunctionMetadata(slot, slot.bind(this));
+              setProperty(this, propertyKey, bound);
+            }
+            return;
+          }
 
-        return value;
+          // an override or an outer decorator owns the slot, binding this one would hide it
+          if (this[propertyKey] === protoMethod) {
+            Object.defineProperty(this, propertyKey, boundAccessor);
+          }
+        });
       }
 
-      // bind:false: proto-level wrap returning wrapped fn; this flows through at call time
-      const originalMethod = value as TAnyFn;
-      return copyFunctionMetadata(originalMethod, wrap(originalMethod, undefined));
+      return protoMethod;
     }
 
     // Unreachable: assertSupportedKind above throws for any kind outside SUPPORTED_KINDS.
@@ -154,7 +239,7 @@ export function AsyncMethod(...args: any[]): any {
 
   const isBind = args[0]?.bind ?? false;
 
-  return makeDecorator(isBind, (fn, ctx) => cancAsync(fn as any, ctx));
+  return makeDecorator(isBind, (fn, ctx) => cancAsync(fn as any, ctx), true);
 }
 
 /** Same call shapes as {@link AsyncMethod}; `bind:true` is the default here instead of `bind:false`. */

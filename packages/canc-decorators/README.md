@@ -13,11 +13,11 @@ Class method decorators for cancelable coroutines.
 
 ## Introduction
 
-`@AsyncMethod` and `@BindMethod` wrap a class member with `cancAsync` from
+`@AsyncMethod` wraps a class member with `cancAsync` from
 [`@cancjs/coroutine`](https://github.com/cancjs/canc/tree/master/packages/canc-coroutine), so
 calling the member returns a
 [`CancelablePromise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) instead
-of a generator.
+of a generator. `@BindMethod` binds the member to its instance and does not wrap it with `cancAsync`.
 
 The same two decorators ship in three dialects, one per decorator syntax a toolchain can speak:
 the standard decorators, the TypeScript legacy ones, and the Babel legacy ones. The behavior is
@@ -90,10 +90,10 @@ class IssueClient {
 The decorator replaces the member with the result of `cancAsync(fn, ctx)`. Where that replacement
 lands is the one decision to make, and the `bind` option makes it:
 
-| Placement       | `bind`                                  | Mechanism                                                                                                                            | `this` binding                       | Memory                                       |
-| --------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------ | -------------------------------------------- |
-| Prototype level | `false`, the default for `@AsyncMethod` | the decorator returns the wrapped function, replacing the method on the prototype once                                               | late bound, flows from the call site | one wrapped function shared by all instances |
-| Per instance    | `true`, the default for `@BindMethod`   | an initializer (standard) or a self-replacing own-property accessor (legacy dialects) installs a bound own property on each instance | early bound, fixed to the instance   | one wrapped function per instance            |
+| Placement       | `bind`                                  | Mechanism                                                                                        | `this` binding                       | Memory                                       |
+| --------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------ | -------------------------------------------- |
+| Prototype level | `false`, the default for `@AsyncMethod` | the decorator returns the wrapped function, replacing the method on the prototype once           | late bound, flows from the call site | one wrapped function shared by all instances |
+| Per instance    | `true`, the default for `@BindMethod`   | a self-replacing accessor binds on first read and installs a bound own property on each instance | early bound, fixed to the instance   | one wrapped function per instance            |
 
 Default to prototype level. Pay for per-instance binding only when the method is detached from its
 instance and passed around as a bare reference, as in `setTimeout(client.loadIssue)` or a callback
@@ -104,19 +104,50 @@ getter's produced function must not be cached on the prototype, that was the ori
 cross-instance corruption bug, and a class field's initial value is per-instance to begin with.
 The `bind` option only decides whether the produced function is bound to its context.
 
+The function is bound to the receiver of the first read. Reading through a `Proxy` gives a
+function bound to the proxy. Reading through a class prototype, as `jest.spyOn(C.prototype, 'm')`
+or reflection does, returns the unbound prototype-level function and caches nothing, so instances
+still bind to themselves. A getter with a paired setter is not memoized, so the setter keeps
+working after the first read.
+
+### Static members and replacing members
+
+A bound static method is always bound to the class that defines it. Reading it through a subclass,
+`Sub.method`, or detaching it first gives the same function, and the order of stacked decorators does not
+change that.
+
+Installed members are plain writable properties, and fields are enumerable. An instance method
+can be replaced after it was read, for example by `jest.spyOn(instance, 'method')` or an assignment,
+and a subclass can assign its own value to a decorated TypeScript legacy field.
+
 ### `super` interaction
 
-Prototype-level methods sit on the prototype like any other method, so `super.method()` from a
-subclass calls the wrapped parent implementation through normal prototype lookup.
+The prototype always holds the wrapped function, whatever `bind` says. `super.method()` from a
+subclass calls the wrapped parent implementation through normal prototype lookup, with the
+subclass instance as `this`. The same holds for `C.prototype.method.call(obj)` and for objects
+made with `Object.create(C.prototype)` that never ran the constructor.
 
-Per-instance methods are own properties on the instance and do not participate in `super` lookup.
-`super.method()` in a subclass still resolves to the parent prototype's method, unbound unless the
-parent's own initializer has already run for that instance. When a hierarchy relies on `super`
-reaching the cancelable behavior, keep those levels at prototype placement and reserve
-`bind: true` for leaf classes.
+A per-instance binding is installed only while the decorated member is the one the instance
+resolves. When a subclass overrides it, the override wins, and a `super` call into the parent
+never caches the parent's function on the instance.
 
 A subclass that overrides a decorated member needs its own decorator. Decoration does not
 propagate to overrides, standard method-resolution rules apply.
+
+### Stacking order
+
+`@AsyncMethod({ bind: true })` is the way to get a method that is both cancelable and bound.
+When the two decorators are stacked instead, put `@BindMethod()` on top:
+
+```ts
+@BindMethod()
+@AsyncMethod()
+*loadIssue(issueId) {}
+```
+
+Decorators apply bottom up, so `@BindMethod()` then binds the cancelable function. The reverse
+order still produces a cancelable method, but the inner binding is dropped and `this` comes from
+the call site.
 
 ### Memory
 
@@ -155,15 +186,15 @@ Both decorators can be applied bare or called with options:
 Each dialect wires methods, getters, and class fields according to the compiler runtime:
 
 - **Standard decorators (stage-3)**: Invoked as `(value, context)`. Method decorators return the
-  wrapped function for `bind: false`, or use `context.addInitializer` to install an own-bound
-  property per instance for `bind: true`. Field decorators receive `value === undefined` and return
+  wrapped function. For `bind: true` they also use `context.addInitializer` to install a lazy
+  own accessor per instance that binds on first read. Field decorators receive `value === undefined` and return
   an `(initialValue) => wrapped` transformer. Getter decorators return an accessor that evaluates the
   getter lazily, optionally binds to `this`, and memoizes the result on the instance.
 - **TypeScript legacy (`experimentalDecorators: true`)**: Invoked as
   `(target, propertyKey, descriptor)` for methods and getters, and `(target, propertyKey)` without
   a descriptor for fields. For prototype methods, `bind: false` rewrites `descriptor.value` once;
   `bind: true` installs a lazy prototype accessor that replaces itself with an own-bound property on
-  first access. For class fields, the decorator installs a lazy accessor whose setter captures the
+  first access from an instance. For class fields, the decorator installs a lazy accessor whose setter captures the
   field initial value when assigned in the constructor, then defines a wrapped own property.
 - **Babel legacy (`@babel/plugin-proposal-decorators` with `legacy: true`)**: Methods and getters
   mirror TypeScript legacy. Class fields receive a property descriptor with an `initializer`
@@ -201,12 +232,6 @@ JavaScript, where there is no static type to be wrong, and avoid it in TypeScrip
 Getter style sidesteps it. A getter's return type is inferred from its body, so the type of
 `cancAsync(...)` flows through to the property and the call site gets
 `CancelablePromise<T>` with no cast.
-
-One boundary can still need a cast. A generator body's inferred value type does not always match
-a separate interface that declares plain `Promise`-returning methods. When a decorated class has
-to satisfy such an interface, the assignment needs a cast at class level, even though every call
-runs the real coroutine and returns the right value at runtime. Calling `cancAsync` by hand with
-no decorator hits exactly the same boundary.
 
 ### Getter semantics
 
@@ -262,9 +287,16 @@ class IssueClient {
 | Subclass overrides with its own decorator              | An independent wrap, see the `super` notes above                                                                                                   |
 | Same member decorated at several levels through mixins | Last applied wins, standard prototype semantics                                                                                                    |
 
+### Async generator methods
+
+Async generator methods (`async *m()`) are not supported under `@AsyncMethod`. Once the coroutine
+guard ships, calling one rejects with an error instead of hanging. Under `@BindMethod` the method is
+a plain bound async generator method. For a cancelable async generator use `cancGenAsync` from
+`@cancjs/coroutine/gen`.
+
 ### Declared failures
 
-Decorated coroutine methods preserve the declared failure types of the underlying generator function. Using getter style with `cancAsync` exposes the exact `CancelablePromise<T, F>` return type to callers, preserving type safety for failure handling across decorated class members. See [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) for details on declared failures.
+Decorated coroutine methods preserve the declared failure types of the underlying generator function. Using getter style with `cancAsync` exposes the exact `CancelablePromise<T, F>` return type to callers, preserving type safety for failure handling across decorated class members. The failure parameter in `CancelablePromise<T, F>` needs `@cancjs/promise` and `@cancjs/coroutine` 1.1 or later for its types. Older versions still run, but the failure type is not available. See [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) for details on declared failures.
 
 ## API
 
@@ -280,6 +312,12 @@ and under the `Legacy` and `BabelLegacy` prefixes from the main entry point.
 Node.js 18 and later, current browsers. The standard entry point needs TypeScript 5.0 or later, or
 Babel with the modern decorators plugin. The legacy entry point needs `experimentalDecorators`,
 and the Babel legacy entry point needs `@babel/plugin-proposal-decorators` in legacy mode.
+The legacy entry point also needs `"useDefineForClassFields": false` for decorated fields, since
+define semantics create the field before the decorator can wrap it; the decorator throws a
+`TypeError` at class definition when it detects this. Detection is best-effort: it reads the constructor
+source, so it misses output that does not show `Object.defineProperty(this, "name"` or a native class
+field, such as a compiled `__publicField` helper or an aliased `defineProperty`. A getter must return a `cancAsync` coroutine,
+not a bare generator function, and parameter decorators and setter-only members are rejected.
 `reflect-metadata` is not required.
 
 Everything else follows
