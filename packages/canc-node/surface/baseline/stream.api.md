@@ -23,6 +23,7 @@ destroyOnCancel?: boolean | undefined
 
 ```text
 concurrency?: number | undefined
+destroyOnCancel?: boolean | undefined
 signal?: AbortSignal | undefined
 ```
 
@@ -143,7 +144,7 @@ new (opts?: WritableOptions<Writable> | undefined): Writable
 ## `reduce<T = unknown, TAcc = T>` (function)
 
 ```text
-<T = unknown, TAcc = T>(stream: Readable, fn: (previous: TAcc, data: T, options: IReadableVisitorOptions) => Promise<TAcc> | TAcc, initial?: TAcc | undefined, options?: Pick<IReadableTerminalOptions, "signal"> | undefined): CancelablePromise<TAcc, unknown>
+<T = unknown, TAcc = T>(stream: Readable, fn: (previous: TAcc, data: T, options: IReadableVisitorOptions) => Promise<TAcc> | TAcc, initial?: TAcc | undefined, options?: Pick<IReadableTerminalOptions, "destroyOnCancel" | "signal"> | undefined): CancelablePromise<TAcc, unknown>
 ```
 
 ## `some<T = unknown>` (function)
@@ -161,5 +162,5 @@ new (opts?: WritableOptions<Writable> | undefined): Writable
 ## `toArray<T = unknown>` (function)
 
 ```text
-<T = unknown>(stream: Readable, options?: Pick<IReadableTerminalOptions, "signal"> | undefined): CancelablePromise<Array<T>, Unlisted>
+<T = unknown>(stream: Readable, options?: Pick<IReadableTerminalOptions, "destroyOnCancel" | "signal"> | undefined): CancelablePromise<Array<T>, Unlisted>
 ```
