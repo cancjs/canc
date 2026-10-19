@@ -50,23 +50,127 @@ describe('flag setters apply to later chain edges only', () => {
     expect(parent.canceled).toBe(false);
   });
 
-  it('balances the chain count in both toggle directions', async () => {
+  it('keeps a live consumer chained while bubble was off when bubble is turned on', async () => {
+    const parent = new CancelablePromise<void>(
+      () => {
+        /**/
+      },
+      { bubble: false },
+    );
+    const consumer = parent.then(() => undefined);
+    parent.bubble = true;
+    const later = parent.then(() => undefined);
+
+    later.cancel();
+    await settle();
+
+    expect(parent.canceled).toBe(false);
+    expect(consumer.canceled).toBe(false);
+  });
+
+  it('keeps a live consumer chained after bubble is turned off when an earlier one cancels', async () => {
+    const parent = new CancelablePromise<void>(() => {
+      /**/
+    });
+    const earlier = parent.then(() => undefined);
+    parent.bubble = false;
+    const consumer = parent.then(() => undefined);
+
+    earlier.cancel();
+    await settle();
+
+    expect(parent.canceled).toBe(false);
+    expect(consumer.canceled).toBe(false);
+  });
+
+  it('keeps the parent and a live middle consumer when the edges around it cancel', async () => {
+    let resolveParent!: () => void;
+    const parent = new CancelablePromise<void>((resolve) => {
+      resolveParent = resolve;
+    });
+    const first = parent.then(() => undefined);
+    parent.bubble = false;
+    const second = parent.then(() => 'second');
+    parent.bubble = true;
+    const third = parent.then(() => undefined);
+
+    first.cancel();
+    third.cancel();
+    await settle();
+
+    expect(parent.canceled).toBe(false);
+    expect(second.canceled).toBe(false);
+    resolveParent();
+    await expect(second).resolves.toBe('second');
+  });
+
+  it('bubbles once every edge is canceled and the last one was created while bubble was on', async () => {
     const parent = new CancelablePromise<void>(() => {
       /**/
     });
     const first = parent.then(() => undefined);
     parent.bubble = false;
-    parent.then(() => undefined);
+    const second = parent.then(() => undefined);
     parent.bubble = true;
     const third = parent.then(() => undefined);
 
     first.cancel();
+    second.cancel();
     await settle();
     expect(parent.canceled).toBe(false);
 
     third.cancel();
     await settle();
     expect(parent.canceled).toBe(true);
+  });
+
+  it('never bubbles from a promise created with bubble false', async () => {
+    const parent = new CancelablePromise<void>(
+      () => {
+        /**/
+      },
+      { bubble: false },
+    );
+    const children = [parent.then(), parent.then(), parent.then()];
+
+    for (const child of children) {
+      void child.cancel();
+    }
+    await settle();
+
+    expect(parent.canceled).toBe(false);
+    expect(parent.cancelable).toBe(true);
+  });
+
+  it('bubbles from a promise created with bubble true once every child is canceled', async () => {
+    const parent = new CancelablePromise<void>(() => {
+      /**/
+    });
+    const children = [parent.then(), parent.then()];
+
+    for (const child of children) {
+      void child.cancel();
+    }
+    await settle();
+
+    expect(parent.canceled).toBe(true);
+  });
+
+  it('does not cancel a race input created with bubble false when the result is canceled', async () => {
+    const input = new CancelablePromise<void>(
+      () => {
+        /**/
+      },
+      { bubble: false },
+    );
+    const result = CancelablePromise.race([input]);
+
+    result.cancel();
+    await settle();
+
+    expect(result.canceled).toBe(true);
+    expect(input.canceled).toBe(false);
+    expect(input.cancelable).toBe(true);
   });
 
   it('ignores a forceCancelable write made after a new promise is created', async () => {

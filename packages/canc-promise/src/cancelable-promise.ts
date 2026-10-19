@@ -2214,11 +2214,13 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
   }
 
   /**
-   * Bubble-count core shared by `_chain` and `_chainInput`. When this promise participates in
-   * bubbling (`bubble && cancelable`), raise its chain count by one and return the matching
-   * `onComplete` completion callback; the caller decides how that completion is wired (a child's
-   * `handleCancel`, a settle reaction, or a native subscription). Returns `undefined` when this
-   * promise does not bubble, so the caller skips wiring entirely.
+   * Bubble-count core shared by `_chain` and `_chainInput`. While this promise is cancelable, raise
+   * its chain count by one and return the matching `onComplete` completion callback; the caller
+   * decides how that completion is wired (a child's `handleCancel`, a settle reaction, or a native
+   * subscription). Returns `undefined` once this promise is no longer cancelable, so the caller
+   * skips wiring entirely. Every edge is counted, whatever `bubble` is. The value of `bubble` when
+   * the edge is created decides whether its completion may bubble: an edge created with `bubble`
+   * off never triggers the bubble, and while it is open it keeps the other edges from triggering it.
    *
    * On each completion increment `_completedChainsCount`. Once every counted ref has completed,
    * through a cancel or, for `bubbleOnComplete` (race), through the child settling, the bubble is
@@ -2231,16 +2233,18 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
    * of the child also waits for this cleanup.
    */
   protected _addChainRef(bubbleOnComplete?: boolean): (() => void) | undefined {
-    if (!(this.bubble && this.cancelable)) {
+    if (!this.cancelable) {
       return undefined;
     }
 
+    // an edge created with bubble off never bubbles, but its open ref holds the others back
+    const bubbles = this.bubble;
     this._chainsCount++;
 
     return () => {
       this._completedChainsCount++;
 
-      if (this._completedChainsCount < this._chainsCount || !this.cancelable) {
+      if (!bubbles || this._completedChainsCount < this._chainsCount || !this.cancelable) {
         return;
       }
 

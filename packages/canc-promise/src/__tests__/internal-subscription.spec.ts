@@ -116,7 +116,7 @@ describe('internal subscription primitives', () => {
       expect(asInternal(input)._completedChainsCount).toBe(0);
     });
 
-    it('respects bubble:false input (no accounting, count stays 0)', () => {
+    it('counts a bubble:false input the same, and canceling the result leaves it pending', async () => {
       const input = new CancelablePromise<any>(
         () => {
           /**/
@@ -129,7 +129,10 @@ describe('internal subscription primitives', () => {
 
       asInternal(input)._chainInput(result);
 
-      expect(asInternal(input)._chainsCount).toBe(0);
+      expect(asInternal(input)._chainsCount).toBe(2);
+      await result.cancel();
+      await macrotask();
+      expect(input.canceled).toBe(false);
     });
 
     it('a hand-built mini-combinator on the primitives passes oracle-1 verbatim', async () => {
