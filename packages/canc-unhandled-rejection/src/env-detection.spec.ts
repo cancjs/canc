@@ -204,7 +204,8 @@ describe('environment detection', () => {
         register();
         registerDeno();
 
-        expect(addSpy).toHaveBeenCalledTimes(1);
+        expect(addSpy).toHaveBeenCalledTimes(2);
+        expect(removeSpy).toHaveBeenCalledTimes(1);
         expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('already registered for type "deno"'));
       } finally {
         (process.versions as any).node = nodeVersion;

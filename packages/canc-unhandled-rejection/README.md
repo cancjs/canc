@@ -73,6 +73,8 @@ Without an `onUnhandledRejection` callback the handler does not crash the proces
 
 The handler reads `--unhandled-rejections` from the command line and `NODE_OPTIONS`. With `warn`, `warn-with-error-code` or `none` it logs the real error through `console.warn` and never throws, so the flag keeps its meaning. With `strict` Node raises every rejection as an uncaught exception before any listener runs, so `CancelError` cannot be suppressed. `register()` prints one warning saying the package is inert in that mode. Pass `onUnhandledRejection` if you need to keep the process alive regardless of the mode.
 
+Registrations live in one list per process, kept on `globalThis` under `Symbol.for('@cancjs/unhandled-rejection:registry')`. The side-effect import, `register()`, the CommonJS build and the ESM build all share it, so `unregister()` removes every handler whichever entry installed it. Calling `register()` again for the same target replaces the earlier handler and its options with the new ones, and prints one warning. A side-effect import followed by `register({ onUnhandledRejection })` therefore ends with a single listener that calls your callback.
+
 In web browsers, Deno, Web Workers, Service Workers, and Cloudflare Workers, it attaches an `unhandledrejection` event listener to `globalThis`. When a `CancelError` is encountered, the listener calls `event.preventDefault()` to prevent default browser console reporting or script termination. Non-cancellation rejections are passed to your custom callback (with `preventDefault()`) or left alone to let default runtime behavior proceed.
 
 ## Description

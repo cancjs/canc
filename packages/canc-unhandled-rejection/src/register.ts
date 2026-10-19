@@ -1,3 +1,3 @@
-import { register } from './index';
+import { register } from '@cancjs/unhandled-rejection';
 
 register();

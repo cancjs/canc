@@ -56,7 +56,7 @@ describe('@cancjs/unhandled-rejection', () => {
       ['warn', 'cancel', 0, null],
       ['warn', 'error', 0, /real failure/],
       ['none', 'cancel', 0, null],
-      ['none', 'error', 0, /[@cancjs/unhandled-rejection].*real failure/],
+      ['none', 'error', 0, /\[@cancjs\/unhandled-rejection\].*real failure/],
       ['strict', 'cancel', 1, /CancelError/],
       ['strict', 'error', 1, /real failure/],
     ];
@@ -167,6 +167,57 @@ describe('@cancjs/unhandled-rejection', () => {
       warnSpy.mockRestore();
       unregister();
     }
+  });
+
+  describe('one registry per process', () => {
+    it('keeps registrations on a global symbol key', () => {
+      const { registerNode, unregister } = require('./index');
+      const registry = () => (globalThis as any)[Symbol.for('@cancjs/unhandled-rejection:registry')];
+      try {
+        registerNode();
+        expect(registry()).toHaveLength(1);
+      } finally {
+        unregister();
+      }
+      expect(registry()).toHaveLength(0);
+    });
+
+    it('the side-effect entry plus register with a callback leaves one listener that calls the callback', () => {
+      const res = runChild(`
+        require(${JSON.stringify(registerSrc)});
+        const { register, unregister } = require(${JSON.stringify(unhandledSrc)});
+        register({ onUnhandledRejection: (reason) => process.stdout.write('CALLBACK:' + reason.message) });
+        process.stdout.write('LISTENERS:' + process.listenerCount('unhandledRejection') + ';');
+        Promise.reject(new Error('real failure'));
+      `);
+      expect(res.stdout).toBe('LISTENERS:1;CALLBACK:real failure');
+      expect(res.status).toBe(0);
+    });
+
+    it('registering again warns once and the new callback wins', () => {
+      const res = runChild(`
+        const { register } = require(${JSON.stringify(unhandledSrc)});
+        register({ onUnhandledRejection: () => process.stdout.write('FIRST') });
+        register({ onUnhandledRejection: (reason) => process.stdout.write('SECOND:' + reason.message) });
+        process.stdout.write('LISTENERS:' + process.listenerCount('unhandledRejection') + ';');
+        Promise.reject(new Error('real failure'));
+      `);
+      expect(res.stdout).toBe('LISTENERS:1;SECOND:real failure');
+      expect(res.stderr.split('already registered').length - 1).toBe(1);
+      expect(res.status).toBe(0);
+    });
+
+    it('registering again with different suppression options applies them', () => {
+      const res = runChild(`
+        const { register } = require(${JSON.stringify(unhandledSrc)});
+        register();
+        register({ abort: true });
+        const err = new Error('aborted');
+        err.name = 'AbortError';
+        Promise.reject(err);
+      `);
+      expect(res.status).toBe(0);
+    });
   });
 
   it('setWarn(false) suppresses warnings', () => {

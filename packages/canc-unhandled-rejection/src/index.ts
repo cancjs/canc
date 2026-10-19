@@ -61,7 +61,18 @@ interface Registration {
   remove: () => void;
 }
 
-const registrations: Registration[] = [];
+const REGISTRY_KEY = Symbol.for('@cancjs/unhandled-rejection:registry');
+
+// one list per process so every build and entry point shares it
+function getRegistrations(): Registration[] {
+  if (typeof globalThis === 'undefined') {
+    return [];
+  }
+  const host = globalThis as { [REGISTRY_KEY]?: Registration[] };
+  return host[REGISTRY_KEY] || (host[REGISTRY_KEY] = []);
+}
+
+const registrations: Registration[] = getRegistrations();
 
 function buildIsSuppressed(options?: RegisterOptions): (error: unknown) => boolean {
   return (error: unknown): boolean =>
@@ -78,11 +89,12 @@ function tryRegister(
 ): void {
   const existingSameType = registrations.find((r) => r.type === type);
   if (existingSameType) {
-    warnSafe(`Handler already registered for type "${type}". Skipping registration.`, options);
-    return;
+    warnSafe(`Handler already registered for type "${type}". Replacing it with the new options.`, options);
+    existingSameType.remove();
+    registrations.splice(registrations.indexOf(existingSameType), 1);
   }
 
-  if (registrations.length > 0 && !expectSiblings) {
+  if (!existingSameType && registrations.length > 0 && !expectSiblings) {
     const existingTypes = registrations.map((r) => r.type).join(', ');
     warnSafe(`Handler already registered (${existingTypes}), registering ${type} alongside.`, options);
   }
@@ -326,8 +338,9 @@ export function registerEdgeRuntime(options?: RegisterOptions): void {
  * duck-typing globals and `process.versions`. Warns and does nothing if no target is recognized.
  *
  * Suppresses `CancelError` rejections while letting real rejections pass to `onUnhandledRejection`
- * or default runtime handling. Registration is idempotent per runtime target; multiple calls for
- * the same target skip duplicate installation. Installed handlers can be removed with {@link unregister}.
+ * or default runtime handling. Registrations are shared by every copy of this package in the process.
+ * A second call for the same target replaces the earlier handler and options and logs a warning.
+ * Installed handlers can be removed with {@link unregister}.
  */
 export function register(options?: RegisterOptions): void {
   if (isElectronRuntime()) {
