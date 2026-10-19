@@ -467,7 +467,7 @@ const FLAG_BUBBLE = 4;
 const FLAG_STRICT = 8;
 const FLAG_SHIELD = 16;
 
-// Parent forceCancelable copied by `_then` for the species child.
+// parent forceCancelable set by `_then` for the child it constructs, on every engine path
 let _thenChildForceCancelable = true;
 
 // Shared options for internal species construction to avoid allocation
@@ -2193,11 +2193,13 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
     Awaited<TResult1 | TResult2>,
     FailureOf<TResult1> | FailureOf<TResult2> | ([TResult2] extends [never] ? TFailure : never)
   > {
-    if (OWN_THEN_CHILD) return thenWithOwnChild(this, onFulfilled, onRejected);
     const This = this.constructor as typeof CancelablePromise;
+    // a then called from a subclass constructor or species getter must not leak into this child
+    const outerForceCancelable = _thenChildForceCancelable;
+    _thenChildForceCancelable = (this._flags & FLAG_FORCE_CANCELABLE) !== 0;
     // Calls CancelablePromise constructor internally
     try {
-      _thenChildForceCancelable = (this._flags & FLAG_FORCE_CANCELABLE) !== 0;
+      if (OWN_THEN_CHILD) return thenWithOwnChild(this, onFulfilled, onRejected);
       This._pendingInternalCall = true;
       // Cast return from native prototype.then which returns a CancelablePromise at runtime
       // via species construction but is typed as plain Promise by standard lib
@@ -2207,6 +2209,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
       >;
     } finally {
       This._pendingInternalCall = false;
+      _thenChildForceCancelable = outerForceCancelable;
     }
   }
 

@@ -101,4 +101,20 @@ describe('flag setters apply to later chain edges only', () => {
 
     expect(child.cancelable).toBe(false);
   });
+
+  it('keeps the parent forceCancelable when a species getter calls then on another promise', async () => {
+    const helper = new CancelablePromise<number>((resolve) => resolve(1));
+    class Sub<T> extends CancelablePromise<T> {
+      static get [Symbol.species]() {
+        void helper.then(() => undefined);
+        return Sub;
+      }
+    }
+    const parent = new Sub<number>((resolve) => resolve(1), { forceCancelable: false });
+    const child = parent.then(() => new Promise<number>(() => undefined));
+
+    await settle();
+
+    expect(child.cancelable).toBe(false);
+  });
 });
