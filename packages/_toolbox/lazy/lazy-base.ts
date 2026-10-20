@@ -1,5 +1,5 @@
 import { TPromiseCtor } from '../construct';
-import { isCancelableLike, isFunction } from '../guards';
+import { isCancelableLike, isFunction, isThenableLike } from '../guards';
 import { ISettledResult } from '../settled-result';
 
 /**
@@ -244,6 +244,8 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
   protected _state: TLazyState = 'UNSTARTED';
   protected _inner?: TInnerPromise<T>;
   protected _teardowns: TLazyOnCancel[] = [];
+  // identity of the current run, so a settle from a run dropped by a reset changes nothing
+  protected _run?: object;
 
   constructor(executor: TLazyExecutor<T>, options?: object) {
     if (!isFunction(executor)) {
@@ -290,6 +292,14 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
 
     this._state = 'RUNNING';
 
+    const run = {};
+    this._run = run;
+    const markSettled = () => {
+      if (this._run === run) {
+        this._state = 'SETTLED';
+      }
+    };
+
     const Impl = this._resolveImpl();
     const handleCancel = (onCancel: TLazyOnCancel) => {
       if (isFunction(onCancel)) {
@@ -300,11 +310,19 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
     // Cancelable impls carry three arg executor with ctx while plain PromiseConstructor ignores
     // the third arg so teardown wiring falls back to the executor return value only
     const inner = new Impl((resolve: (value?: any) => void, reject: (reason?: any) => void, ctx) => {
-      const returned = this._executor(
-        resolve as (value?: T | PromiseLike<T>) => void,
-        reject,
-        ctx ? ctx.handleCancel : handleCancel,
-      );
+      // settled the moment the executor settles, a cancel in the same turn must not tear down a result
+      const settleResolve = (value?: T | PromiseLike<T>) => {
+        if (!isThenableLike(value)) {
+          markSettled();
+        }
+
+        resolve(value);
+      };
+      const settleReject = (reason?: any) => {
+        markSettled();
+        reject(reason);
+      };
+      const returned = this._executor(settleResolve, settleReject, ctx ? ctx.handleCancel : handleCancel);
 
       if (isFunction(returned)) {
         this._teardowns.push(returned);
@@ -313,9 +331,6 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
 
     this._inner = inner;
 
-    const markSettled = () => {
-      this._state = 'SETTLED';
-    };
     const subscribe = (inner as TInnerPromise<T> & { _subscribe?: unknown })._subscribe;
 
     // a counted then would hold the work alive after every consumer canceled
@@ -328,12 +343,26 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
     return inner;
   }
 
+  // Every teardown runs even when one throws, the first error is rethrown once all are done
   protected _runTeardowns(reason?: any): void {
     const teardowns = this._teardowns;
     this._teardowns = [];
+    let failed = false;
+    let firstError: unknown;
 
     for (const teardown of teardowns) {
-      teardown(reason);
+      try {
+        teardown(reason);
+      } catch (error) {
+        if (!failed) {
+          failed = true;
+          firstError = error;
+        }
+      }
+    }
+
+    if (failed) {
+      throw firstError;
     }
   }
 
@@ -393,14 +422,29 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
     return this.then(null, onRejected);
   }
 
-  finally(onFinally?: (() => void) | null): PromiseLike<T> {
+  /**
+   * Run `onFinally` once the lazy settles, then settle the same way. A thenable returned by
+   * `onFinally` is awaited, and its rejection replaces the outcome, as with a native `finally`.
+   */
+  finally(onFinally?: (() => void | PromiseLike<unknown>) | null): PromiseLike<T> {
+    if (!isFunction(onFinally)) {
+      return this.then();
+    }
+
     return this.then(
       (value) => {
-        if (isFunction(onFinally)) onFinally();
-        return value;
+        const result: unknown = onFinally();
+        return isThenableLike(result) ? result.then(() => value) : value;
       },
       (reason) => {
-        if (isFunction(onFinally)) onFinally();
+        const result: unknown = onFinally();
+
+        if (isThenableLike(result)) {
+          return result.then(() => {
+            throw reason;
+          });
+        }
+
         throw reason;
       },
     );

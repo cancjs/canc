@@ -120,13 +120,14 @@ _isStartable: () => boolean
 _options?: IAbortSignalOptions | undefined
 _resolveImpl: () => TPromiseCtor
 _resolveImplStatics: () => ILazyImplStatics
+_run?: object | undefined
 _runTeardowns: (reason?: any) => void
 _start: () => PromiseLike<T>
 _state: TLazyState
 _teardowns: Array<TLazyOnCancel>
 catch: <TResult = never>(onRejected?: ((reason: any) => PromiseLike<TResult> | TResult) | null | undefined) => PromiseLike<T | TResult>
 execute: () => void
-finally: (onFinally?: (() => void) | null) => PromiseLike<T>
+finally: (onFinally?: (() => PromiseLike<unknown> | void) | null) => PromiseLike<T>
 started: boolean
 then: <TResult1 = T, TResult2 = never>(onFulfilled?: ((value: T) => PromiseLike<TResult1> | TResult1) | null | undefined, onRejected?: ((reason: any) => PromiseLike<TResult2> | TResult2) | null | undefined) => PromiseLike<TResult1 | TResult2>
 ```

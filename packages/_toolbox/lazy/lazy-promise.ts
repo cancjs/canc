@@ -4,7 +4,7 @@ import { CancelError, FAILURE, resolvePromiseImpl } from '@cancjs/promise';
 import { toCancelError } from '../../_util';
 import { IAbortSignalLike } from '../abort-signal';
 import { TPromiseCtor } from '../construct';
-import { isFunction } from '../guards';
+import { isFunction, isThenableLike } from '../guards';
 import { ISettledResult } from '../settled-result';
 import { ILazyWithResolvers, LazyBase, TInnerPromise, TLazyExecutor, TLazyOnCancel } from './lazy-base';
 
@@ -17,8 +17,10 @@ export interface ICancelableLazyWithResolvers<T> extends ILazyWithResolvers<T, L
 
 export interface ILazyPromiseOptions extends ICancelablePromiseOptions, IPromiseImplOptions {
   /**
-   * When true, if every consumer cancels before the lazy promise settles, its teardown runs and it
-   * returns to the unstarted state, so a later `then`/`await` re-runs the executor from scratch.
+   * When true, a cancel before the lazy promise settles runs its teardown and returns it to the
+   * unstarted state, so a later `then`/`await` re-runs the executor from scratch. A consumer leaves
+   * by canceling the promise its own `then` returned; once every consumer has left, the lazy
+   * promise is canceled the same way.
    * Default false: a lazy promise executes at most once and caches its settlement (a canceled lazy
    * stays canceled).
    */
@@ -59,10 +61,11 @@ export class LazyPromise<T = any, F = unknown> extends LazyBase<T> {
   protected _canceledBeforeStart = false;
   protected _cancelError?: CancelError;
   protected _resettable: boolean;
-  // Live consumer tally for resettable lazy where each then subscribing before settlement
-  // increments and a per consumer cancel decrements triggering teardown and reset on zero
+  // consumers of the current run of a resettable lazy that have not left yet
   protected _consumers = 0;
   protected _unwatchSignals?: () => void;
+  // a cancel called by the executor itself, applied once the work promise exists
+  protected _pendingCancel?: { reason: any };
 
   constructor(executor: TLazyExecutor<T>, options?: ILazyPromiseOptions) {
     super(executor, options);
@@ -88,7 +91,9 @@ export class LazyPromise<T = any, F = unknown> extends LazyBase<T> {
     }
 
     const listeners = signals.map((each) => {
-      const listener = () => this.cancel(each.reason);
+      const listener = () => {
+        void this.cancel(each.reason);
+      };
       each.addEventListener('abort', listener, { once: true });
       return listener;
     });
@@ -105,7 +110,15 @@ export class LazyPromise<T = any, F = unknown> extends LazyBase<T> {
       this._unwatchSignals();
     }
 
-    return super._start();
+    const inner = super._start();
+    const pending = this._pendingCancel;
+
+    if (pending) {
+      this._pendingCancel = undefined;
+      void this.cancel(pending.reason);
+    }
+
+    return inner;
   }
 
   /**
@@ -133,17 +146,40 @@ export class LazyPromise<T = any, F = unknown> extends LazyBase<T> {
     return !this._canceledBeforeStart;
   }
 
-  protected _afterSubscribe(): void {
-    if (this._resettable && this._state === 'RUNNING') {
-      this._consumers++;
-    }
-  }
-
   then<TResult1 = T, TResult2 = never>(
     onFulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | null,
     onRejected?: ((reason: TReason<F>) => TResult2 | PromiseLike<TResult2>) | null,
   ): PromiseLike<TResult1 | TResult2> {
-    return super.then(onFulfilled, onRejected);
+    const derived = super.then(onFulfilled, onRejected);
+
+    if (this._resettable) {
+      this._trackConsumer(derived);
+    }
+
+    return derived;
+  }
+
+  // A consumer leaves by canceling its own derived promise, the last one out cancels the lazy
+  protected _trackConsumer(derived: PromiseLike<unknown>): void {
+    const inner = this._inner;
+    const handleCancel = (derived as { handleCancel?: (onCancel: TLazyOnCancel) => unknown }).handleCancel;
+
+    if (this._state !== 'RUNNING' || !inner || !isFunction(handleCancel)) {
+      return;
+    }
+
+    this._consumers++;
+    handleCancel.call(derived, (reason?: any) => {
+      if (this._inner !== inner || this._state !== 'RUNNING') {
+        return;
+      }
+
+      this._consumers--;
+
+      if (this._consumers === 0) {
+        void this.cancel(reason);
+      }
+    });
   }
 
   catch<TResult = never>(
@@ -154,11 +190,16 @@ export class LazyPromise<T = any, F = unknown> extends LazyBase<T> {
 
   /**
    * Cancel the lazy promise. Before the first subscription this skips the executor entirely (it
-   * never runs). While running it cancels the underlying promise and runs any registered teardown.
-   * On a resettable lazy this is a full per-consumer cancel and, once the last consumer is gone,
-   * resets to the unstarted state.
+   * never runs). While running it runs any registered teardown and cancels the underlying promise,
+   * and a resettable lazy returns to the unstarted state. A cancel called by the executor itself
+   * takes effect as soon as the executor returns.
+   *
+   * Every teardown runs even when one throws. When the underlying promise has an awaitable cancel,
+   * the returned promise resolves with its cleanup results, preceded by one result per teardown, so
+   * a throwing teardown shows up there as a rejected entry. Otherwise the first teardown error is
+   * rethrown once the underlying promise is canceled.
    */
-  cancel(reason?: any): void {
+  cancel(reason?: any): void | PromiseLike<ISettledResult<unknown>[]> {
     if (this._state === 'SETTLED') {
       return;
     }
@@ -177,8 +218,13 @@ export class LazyPromise<T = any, F = unknown> extends LazyBase<T> {
 
     const inner = this._inner as (TInnerPromise<T> & { shield?: boolean }) | undefined;
 
+    if (!inner) {
+      this._pendingCancel = { reason };
+      return;
+    }
+
     // a shielded work promise decides alone, strict throws there and nothing is torn down
-    if (inner?.shield) {
+    if (inner.shield) {
       if (isFunction(inner.cancel)) {
         inner.cancel(reason);
       }
@@ -186,24 +232,46 @@ export class LazyPromise<T = any, F = unknown> extends LazyBase<T> {
       return;
     }
 
-    // RUNNING
-    if (this._resettable && this._consumers > 0) {
-      this._consumers--;
+    const teardowns = this._teardowns;
+    this._teardowns = [];
 
-      if (this._consumers > 0) {
-        // Other live consumers still want the result; keep executing.
-        return;
-      }
-    }
-
-    this._runTeardowns(reason);
-
-    if (inner && isFunction(inner.cancel)) {
-      inner.cancel(reason);
-    }
-
+    // before the work is canceled, so leaving consumers see a run that is already gone
     if (this._resettable) {
       this._reset();
+    }
+
+    const statics = this._resolveImplStatics();
+    let failed = false;
+    let firstError: unknown;
+    const outcomes = teardowns.map((teardown): unknown => {
+      try {
+        return teardown(reason);
+      } catch (error) {
+        if (!failed) {
+          failed = true;
+          firstError = error;
+        }
+
+        return statics.reject(error);
+      }
+    });
+    const cleanup: unknown = isFunction(inner.cancel) ? inner.cancel(reason) : undefined;
+
+    if (isThenableLike<ISettledResult<unknown>[]>(cleanup)) {
+      return cleanup.then((results) =>
+        statics.allSettled(outcomes).then((own: ISettledResult<unknown>[]) => own.concat(results)),
+      );
+    }
+
+    // no awaitable cancel to carry the error, thrown like a throwing cancel handler's
+    outcomes.forEach((outcome) => {
+      if (isThenableLike(outcome)) {
+        outcome.then(undefined, () => undefined);
+      }
+    });
+
+    if (failed) {
+      throw firstError;
     }
   }
 
@@ -211,6 +279,8 @@ export class LazyPromise<T = any, F = unknown> extends LazyBase<T> {
   protected _reset(): void {
     this._state = 'UNSTARTED';
     this._inner = undefined;
+    this._run = undefined;
+    this._pendingCancel = undefined;
     this._teardowns = [];
     this._consumers = 0;
     this._canceledBeforeStart = false;

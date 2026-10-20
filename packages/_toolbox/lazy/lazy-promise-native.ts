@@ -2,7 +2,7 @@ import { IAbortSignalOptions, withAbortSignal } from '../abort-signal';
 import { IExecutorCtx, TPromiseCtor } from '../construct';
 import { isFunction } from '../guards';
 import { ISettledResult } from '../settled-result';
-import { ILazyWithResolvers, LazyBase, TLazyExecutor } from './lazy-base';
+import { ILazyImplStatics, ILazyWithResolvers, LazyBase, TLazyExecutor } from './lazy-base';
 
 export type { TLazyExecutor, TLazyOnCancel } from './lazy-base';
 
@@ -84,6 +84,11 @@ export class LazyPromise<T = any> extends LazyBase<T> {
     ).resolve;
 
     return AbortAwareLazyCtor as unknown as TPromiseCtor;
+  }
+
+  // The aggregate itself is built with the signal, the combinator inside it needs none
+  protected _resolveImplStatics(): ILazyImplStatics {
+    return NativePromise as unknown as ILazyImplStatics;
   }
 }
 

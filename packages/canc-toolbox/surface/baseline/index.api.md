@@ -246,20 +246,23 @@ _inner?: TInnerPromise<T> | undefined
 _innerOptions: () => object | undefined
 _isStartable: () => boolean
 _options?: ILazyPromiseOptions | undefined
+_pendingCancel?: undefined | { reason: any; }
 _reset: () => void
 _resettable: boolean
 _resolveImpl: () => TPromiseCtor
 _resolveImplStatics: () => ILazyImplStatics
+_run?: object | undefined
 _runTeardowns: (reason?: any) => void
 _start: () => PromiseLike<T>
 _state: TLazyState
 _teardowns: Array<TLazyOnCancel>
+_trackConsumer: (derived: PromiseLike<unknown>) => void
 _unwatchSignals?: (() => void) | undefined
 _watchSignals: () => void
-cancel: (reason?: any) => void
+cancel: (reason?: any) => PromiseLike<ISettledResult<unknown>[]> | void
 catch: <TResult = never>(onRejected?: ((reason: TReason<F>) => PromiseLike<TResult> | TResult) | null) => PromiseLike<T | TResult>
 execute: () => void
-finally: (onFinally?: (() => void) | null) => PromiseLike<T>
+finally: (onFinally?: (() => PromiseLike<unknown> | void) | null) => PromiseLike<T>
 started: boolean
 then: <TResult1 = T, TResult2 = never>(onFulfilled?: ((value: T) => PromiseLike<TResult1> | TResult1) | null, onRejected?: ((reason: TReason<F>) => PromiseLike<TResult2> | TResult2) | null) => PromiseLike<TResult1 | TResult2>
 ```
