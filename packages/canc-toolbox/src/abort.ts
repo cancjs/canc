@@ -5,6 +5,8 @@ import { createCancelSignal, isCancPromise } from '@cancjs/promise';
 // reading the live global on every call.
 const NativePromise = Promise;
 
+const ignore = (): void => undefined;
+
 /**
  * A plain AbortController convenience: mints a raw controller and returns its signal plus a bound
  * `abort`. No CancelError wiring, this is the native-shaped helper. For a signal that cancels a
@@ -58,30 +60,39 @@ export function toAbortSignal(promise: PromiseLike<unknown>): AbortSignal {
  * signal so it can wire native cancellation, then its result is raced. When `signal` is `undefined`
  * the value passes through unraced (optional-cancellation signatures: callers thread an optional
  * signal without branching). Aborting rejects with the signal's abort reason (a DOMException
- * AbortError); an already-aborted signal rejects immediately.
+ * AbortError); an already-aborted signal rejects immediately and never calls a function input.
  */
 export function withSignal<T>(
   signal: AbortSignal | undefined,
   promiseOrFn: ((signal?: AbortSignal) => T | PromiseLike<T>) | T | PromiseLike<T>,
 ): Promise<T> {
+  // No signal: pass the value straight through so optional-cancellation call sites need no branch.
+  if (signal === undefined) {
+    return NativePromise.resolve(
+      typeof promiseOrFn === 'function' ?
+        (promiseOrFn as (signal?: AbortSignal) => T | PromiseLike<T>)(signal)
+      : promiseOrFn,
+    );
+  }
+
+  // The work is already canceled, so a function never runs and a promise given instead has nobody
+  // left to hear its outcome
+  if (signal.aborted) {
+    if (typeof promiseOrFn !== 'function') {
+      NativePromise.resolve(promiseOrFn).then(undefined, ignore);
+    }
+
+    return NativePromise.reject(signal.reason as Error);
+  }
+
   const source: T | PromiseLike<T> =
     typeof promiseOrFn === 'function' ?
       (promiseOrFn as (signal?: AbortSignal) => T | PromiseLike<T>)(signal)
     : promiseOrFn;
 
-  // No signal: pass the value straight through so optional-cancellation call sites need no branch.
-  if (signal === undefined) {
-    return NativePromise.resolve(source);
-  }
-
   return new NativePromise<T>((resolve, reject) => {
     // A signal's abort reason is a DOMException AbortError (an Error) at runtime.
     const abortReason = () => signal.reason as Error;
-
-    if (signal.aborted) {
-      reject(abortReason());
-      return;
-    }
 
     const onAbort = () => reject(abortReason());
     signal.addEventListener('abort', onAbort, { once: true });

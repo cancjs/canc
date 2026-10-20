@@ -111,11 +111,16 @@ export function withAbortSignal(Ctor: TPromiseCtor): TPromiseCtor {
         listeners.push([signal, listener]);
       }
 
-      executor(
-        (value) => settleOnce(() => resolve(value)),
-        (reason?: unknown) => settleOnce(() => reject(reason)),
-        ctx,
-      );
+      try {
+        executor(
+          (value) => settleOnce(() => resolve(value)),
+          (reason?: unknown) => settleOnce(() => reject(reason)),
+          ctx,
+        );
+      } catch (error) {
+        // a throw must still detach the listeners, or a reused signal collects one per call
+        settleOnce(() => reject(error));
+      }
     }, options);
   }
 
