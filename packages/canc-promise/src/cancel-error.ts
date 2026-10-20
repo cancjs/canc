@@ -12,6 +12,9 @@ export interface ICancelErrorOptions {
  */
 export const CANCEL_ERROR_BRAND = Symbol.for('@cancjs/promise:CancelError');
 
+/** Brand key as the string the reviver reads back across a worker boundary, same value as the symbol's key. */
+const CANCEL_ERROR_KEY = '@cancjs/promise:CancelError';
+
 export class CancelError extends Error {
   readonly [Symbol.toStringTag]!: string;
   declare readonly [CANCEL_ERROR_BRAND]: true;
@@ -41,6 +44,8 @@ export class CancelError extends Error {
 
     // Init instance properties after prototype swap
     this.name = 'CancelError';
+    // the string marker a worker's structured clone keeps, see `_util/errors.ts`
+    Object.defineProperty(this, '_cancErrorBrand', { value: CANCEL_ERROR_KEY, configurable: true });
     this.bubbled = false;
     this.disposed = false;
     if (options?.cause !== undefined) {
@@ -64,3 +69,4 @@ export class CancelError extends Error {
 // serialization could trip over.
 // Non-enumerable and non-writable by defineProperty default.
 Object.defineProperty(CancelError.prototype, CANCEL_ERROR_BRAND, { value: true });
+Object.defineProperty(CancelError.prototype, '_cancErrorBrand', { value: CANCEL_ERROR_KEY });
