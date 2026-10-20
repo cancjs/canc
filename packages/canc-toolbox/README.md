@@ -271,6 +271,10 @@ const fastest = LazyPromise.race([LazyPromise.try(fetchFromA), LazyPromise.try(f
 await fastest; // both start here, the slower one is canceled
 ```
 
+Canceling a loser stops its work only if its source returns a cancelable promise, for example
+`fetchFromB` returning a `CancelablePromise`. A plain promise has nothing to cancel, so its work
+runs to the end and the result is ignored.
+
 `toAbortSignal(lazy)` does not start the work either. The signal aborts when the lazy is canceled.
 
 `lazy.execute()` starts the work without subscribing to it, which matters for prefetch-then-await:
