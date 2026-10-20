@@ -86,7 +86,7 @@ export class LazyPromise<T = any> extends LazyBase<T> {
     return AbortAwareLazyCtor as unknown as TPromiseCtor;
   }
 
-  // The aggregate itself is built with the signal, the combinator inside it needs none
+  // signal lives on the aggregate lazy, not on the inner combinator
   protected _resolveImplStatics(): ILazyImplStatics {
     return NativePromise as unknown as ILazyImplStatics;
   }

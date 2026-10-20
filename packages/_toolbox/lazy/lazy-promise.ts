@@ -159,7 +159,7 @@ export class LazyPromise<T = any, F = unknown> extends LazyBase<T> {
     return derived;
   }
 
-  // A consumer leaves by canceling its own derived promise, the last one out cancels the lazy
+  // last derived promise canceled cancels the lazy
   protected _trackConsumer(derived: PromiseLike<unknown>): void {
     const inner = this._inner;
     const handleCancel = (derived as { handleCancel?: (onCancel: TLazyOnCancel) => unknown }).handleCancel;
@@ -235,7 +235,7 @@ export class LazyPromise<T = any, F = unknown> extends LazyBase<T> {
     const teardowns = this._teardowns;
     this._teardowns = [];
 
-    // before the work is canceled, so leaving consumers see a run that is already gone
+    // reset first so leaving consumers see a run already gone
     if (this._resettable) {
       this._reset();
     }

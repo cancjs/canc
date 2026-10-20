@@ -236,7 +236,6 @@ static try: <V, TArgs extends any[]>(fn: (...args: TArgs) => V, ...args: TArgs) 
 static withResolvers: <V>(options?: ILazyPromiseOptions) => ICancelableLazyWithResolvers<V>
 readonly [FAILURE]?: F | undefined
 readonly [LAZY_PROMISE_BRAND]: true
-_afterSubscribe: () => void
 _beforeSubscribe: () => PromiseLike<T> | undefined
 _cancelError?: CancelError | undefined
 _canceledBeforeStart: boolean

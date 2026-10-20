@@ -111,7 +111,6 @@ static resolve: <V>(value?: PromiseLike<V> | V, options?: ILazyPromiseOptions) =
 static try: <V, TArgs extends any[]>(fn: (...args: TArgs) => PromiseLike<V> | V, ...args: TArgs) => LazyPromise<V>
 static withResolvers: <V>(options?: ILazyPromiseOptions) => ILazyWithResolvers<V, LazyPromise<V>>
 readonly [LAZY_PROMISE_BRAND]: true
-_afterSubscribe: () => void
 _beforeSubscribe: () => PromiseLike<T> | undefined
 _executor: TLazyExecutor<T>
 _inner?: TInnerPromise<T> | undefined

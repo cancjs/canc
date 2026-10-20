@@ -244,7 +244,7 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
   protected _state: TLazyState = 'UNSTARTED';
   protected _inner?: TInnerPromise<T>;
   protected _teardowns: TLazyOnCancel[] = [];
-  // identity of the current run, so a settle from a run dropped by a reset changes nothing
+  // a settle from a run dropped by a reset must not mark the new run settled
   protected _run?: object;
 
   constructor(executor: TLazyExecutor<T>, options?: object) {
@@ -310,7 +310,7 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
     // Cancelable impls carry three arg executor with ctx while plain PromiseConstructor ignores
     // the third arg so teardown wiring falls back to the executor return value only
     const inner = new Impl((resolve: (value?: any) => void, reject: (reason?: any) => void, ctx) => {
-      // settled the moment the executor settles, a cancel in the same turn must not tear down a result
+      // marked on the settle call itself so a same-turn cancel keeps the result
       const settleResolve = (value?: T | PromiseLike<T>) => {
         if (!isThenableLike(value)) {
           markSettled();
@@ -343,7 +343,7 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
     return inner;
   }
 
-  // Every teardown runs even when one throws, the first error is rethrown once all are done
+  // one throwing teardown must not skip the rest
   protected _runTeardowns(reason?: any): void {
     const teardowns = this._teardowns;
     this._teardowns = [];
@@ -376,10 +376,7 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
       return shortCircuit.then(onFulfilled, onRejected);
     }
 
-    const inner = this._start();
-    this._afterSubscribe();
-
-    return inner.then(onFulfilled, onRejected);
+    return this._start().then(onFulfilled, onRejected);
   }
 
   // Subclass hook run at top of every then before starting where returning a PromiseLike short
@@ -387,9 +384,6 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
   protected _beforeSubscribe(): PromiseLike<T> | undefined {
     return undefined;
   }
-
-  // Subclass hook run after start on a live subscription for things like consumer counting
-  protected _afterSubscribe(): void {}
 
   // Subclass hook whether executor may still be started so a flavor canceled before it starts
   // reports false and execute stays a no-op instead of building unsubscribed rejection
