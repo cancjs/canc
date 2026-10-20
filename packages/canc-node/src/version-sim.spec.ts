@@ -98,7 +98,7 @@ describe('version simulation', () => {
         // no locks
       }));
 
-      // we must also mock the internal features to pretend we are on an old node
+      // the internal features are mocked too, so the sim sees an old node
       jest.doMock('./features', () => ({
         features: {
           hasGlob: false,
