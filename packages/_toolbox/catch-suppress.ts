@@ -70,10 +70,14 @@ export function createCatchErrorFactory<K extends IPromiseKind = IPromiseLikeKin
       if (isThenableLike(errorOrPromise)) {
         return construct<any, K>(deps.Impl, (resolve, reject, ctx?: IExecutorCtx) => {
           deps.Impl.resolve(errorOrPromise).then(resolve, (reason: any) => {
-            if (isCaught(reason)) {
-              resolve(reason);
-            } else {
-              reject(reason);
+            try {
+              if (isCaught(reason)) {
+                resolve(reason);
+              } else {
+                reject(reason);
+              }
+            } catch (predicateError) {
+              reject(predicateError);
             }
           });
 
@@ -103,10 +107,14 @@ export function createSuppressErrorFactory<K extends IPromiseKind = IPromiseLike
       if (isThenableLike(errorOrPromise)) {
         return construct<any, K>(deps.Impl, (resolve, reject, ctx?: IExecutorCtx) => {
           deps.Impl.resolve(errorOrPromise).then(resolve, (reason: any) => {
-            if (isCaught(reason)) {
-              resolve(undefined);
-            } else {
-              reject(reason);
+            try {
+              if (isCaught(reason)) {
+                resolve(undefined);
+              } else {
+                reject(reason);
+              }
+            } catch (predicateError) {
+              reject(predicateError);
             }
           });
 

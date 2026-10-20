@@ -2,10 +2,23 @@ import { IExecutorCtx } from './construct';
 import { constructTimed } from './construct-timed';
 import { IToolboxDeps, TCallDeps } from './deps';
 import { parseTimedArgs, resolveDuration, TDuration } from './duration';
-import { isCancelableLike, isThunk } from './guards';
+import { isCancelableLike, isThenableLike, isThunk } from './guards';
 import { TTimedInput } from './input';
 import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
 import { resolveTimers, startTimer, stopTimer } from './timers';
+
+const ignore = (): void => undefined;
+
+// the input is only adopted when the timer fires, so its rejection needs a handler from the start
+function markHandled(input: unknown): void {
+  if (!isThenableLike(input)) return;
+
+  try {
+    input.then(undefined, ignore);
+  } catch {
+    // adopting the input later surfaces the same throw as a rejection
+  }
+}
 
 /** Bind `delay` to one promise implementation and set of timers. */
 export function delayFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IToolboxDeps<K>) {
@@ -37,6 +50,10 @@ export function delayFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
     const timers = resolveTimers(options, deps);
     // A cancelable value/promise supplied eagerly (not via a thunk - nothing is in flight for a
     // thunk until it runs) is canceled if the returned promise is canceled first.
+    if (hasInput && !isThunk(input)) {
+      markHandled(input);
+    }
+
     const eagerCancelable = hasInput && !isThunk(input) && isCancelableLike(input) ? input : undefined;
 
     return constructTimed<T, K, F>(
