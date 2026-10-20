@@ -6,7 +6,7 @@ import type { TZipFilesOptions } from './types';
 import { checkpointWalkWrapped } from './wrap';
 
 /**
- * Writes `files` into a zip archive at `target`, one entry at a time. Requires Node 26 or later for
+ * Writes `files` into a zip archive at `target`, one entry at a time. Requires Node 26.8 or later for
  * the archive builder; below that the returned promise rejects with `NotImplementedError`.
  *
  * Not a node API: a per-file helper beside `/zlib`'s `zipFiles`, which mirrors node's own. Canceling checkpoints at a file boundary: no further entry is added, the entries already written

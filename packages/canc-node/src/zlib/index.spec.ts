@@ -23,7 +23,12 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-const hasRealCompressGzip = typeof (nodeZlib as unknown as Record<string, unknown>).compressGzip === 'function';
+const iterZlibSpec = (
+  process as unknown as {
+    getBuiltinModule?: (id: string) => Record<string, unknown> | undefined;
+  }
+).getBuiltinModule?.('node:zlib/iter');
+const hasRealCompressGzip = typeof iterZlibSpec?.compressGzip === 'function';
 const hasRealZipFiles = typeof (nodeZlib as unknown as Record<string, unknown>).createZipArchive === 'function';
 
 describe('@cancjs/node/zlib', () => {
@@ -204,7 +209,7 @@ describe('@cancjs/node/zlib', () => {
     expect(unhandled).toBeUndefined();
   });
 
-  it('compressGzip rejects NotImplementedError naming 24 when node has no iterable codec family', async () => {
+  it('compressGzip rejects NotImplementedError naming 25.9 when node has no iterable codec module', async () => {
     if (hasRealCompressGzip) {
       return;
     }
@@ -216,7 +221,7 @@ describe('@cancjs/node/zlib', () => {
       error = err;
     }
     expect(isNotImplementedError(error)).toBe(true);
-    expect((error as { required?: string }).required).toBe('24');
+    expect((error as { required?: string }).required).toBe('25.9.0 (or --experimental-stream-iter)');
   });
 
   it('zipFiles rejects NotImplementedError naming 26 when node has no zip archive family', async () => {
@@ -234,7 +239,7 @@ describe('@cancjs/node/zlib', () => {
     expect((error as { required?: string }).required).toBe('26.8.0');
   });
 
-  it('crc32 computes a checksum on 22+, throws NotImplementedError naming 22 below that', () => {
+  it('crc32 computes a checksum on 20.15+, throws NotImplementedError naming 20.15 below that', () => {
     if (typeof (nodeZlib as unknown as Record<string, unknown>).crc32 !== 'function') {
       let error: unknown;
       try {
@@ -243,7 +248,7 @@ describe('@cancjs/node/zlib', () => {
         error = err;
       }
       expect(isNotImplementedError(error)).toBe(true);
-      expect((error as { required?: string }).required).toBe('22');
+      expect((error as { required?: string }).required).toBe('20.15.0');
       return;
     }
 
@@ -268,7 +273,7 @@ describe('@cancjs/node/zlib', () => {
     expect(decompressed.equals(original)).toBe(true);
   });
 
-  it('gated exports are reflectable and retain names when available on Node 22/24', () => {
+  it('gated exports are reflectable and retain names when available on Node 22.15+/24', () => {
     const { ZstdCompress, crc32 } = zlibExports;
     if (typeof (nodeZlib as unknown as Record<string, unknown>).ZstdCompress === 'function') {
       expect(() => Object.getOwnPropertyDescriptors(ZstdCompress)).not.toThrow();

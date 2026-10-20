@@ -532,14 +532,14 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 | ------------------- | ------------------------------------------------ | ---- | ---------- | ---------- |
 | `brotliCompress`    | stops waiting only (skipped if already canceled) | 18+  | yes        | yes        |
 | `brotliDecompress`  | stops waiting only (skipped if already canceled) | 18+  | yes        | yes        |
-| `compressBrotli`    | stops the work                                   | 24+  | unverified | unverified |
-| `compressDeflate`   | stops the work                                   | 24+  | unverified | unverified |
-| `compressGzip`      | stops the work                                   | 24+  | unverified | unverified |
-| `compressZstd`      | stops the work                                   | 24+  | unverified | unverified |
-| `decompressBrotli`  | stops the work                                   | 24+  | unverified | unverified |
-| `decompressDeflate` | stops the work                                   | 24+  | unverified | unverified |
-| `decompressGzip`    | stops the work                                   | 24+  | unverified | unverified |
-| `decompressZstd`    | stops the work                                   | 24+  | unverified | unverified |
+| `compressBrotli`    | stops the work                                   | 25+  | unverified | unverified |
+| `compressDeflate`   | stops the work                                   | 25+  | unverified | unverified |
+| `compressGzip`      | stops the work                                   | 25+  | unverified | unverified |
+| `compressZstd`      | stops the work                                   | 25+  | unverified | unverified |
+| `decompressBrotli`  | stops the work                                   | 25+  | unverified | unverified |
+| `decompressDeflate` | stops the work                                   | 25+  | unverified | unverified |
+| `decompressGzip`    | stops the work                                   | 25+  | unverified | unverified |
+| `decompressZstd`    | stops the work                                   | 25+  | unverified | unverified |
 | `deflate`           | stops waiting only (skipped if already canceled) | 18+  | yes        | yes        |
 | `deflateRaw`        | stops waiting only (skipped if already canceled) | 18+  | yes        | yes        |
 | `gunzip`            | stops waiting only (skipped if already canceled) | 18+  | yes        | yes        |
