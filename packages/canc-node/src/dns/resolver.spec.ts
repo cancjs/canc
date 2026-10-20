@@ -253,8 +253,8 @@ describe('@cancjs/node/dns Resolver', () => {
   });
 
   it('applies the constructor timeout and tries to every query, not only the owner', async () => {
-    // a silent server never answers; with timeout 100 and tries 1 node gives up in about 100 ms, so a
-    // private resolver that dropped the options would still be waiting after the one-second bound
+    // silent server, timeout 100, tries 1: node gives up near 100 ms, so a resolver that dropped
+    // the options would still be waiting at the one-second bound
     const blackHole = await startBlackHole();
     const resolver = new Resolver({ timeout: 100, tries: 1 });
     pointAt(resolver, blackHole.port);

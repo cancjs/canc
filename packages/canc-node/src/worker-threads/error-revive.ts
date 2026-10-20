@@ -40,7 +40,7 @@ function reviveOne(error: object, depth: number): unknown {
     Object.defineProperty(revived, key, Object.getOwnPropertyDescriptor(error, key)!);
   }
 
-  // a canc error can wrap another one (`cause`), and node's clone keeps the nested value as a plain error
+  // nested canc error in `cause`: node's clone flattens it to a plain error
   if (depth < MAX_CAUSE_DEPTH && typeof revived.cause === 'object' && revived.cause !== null) {
     Object.defineProperty(revived, 'cause', {
       value: reviveDepth((revived as { cause: unknown }).cause, depth + 1),

@@ -188,8 +188,8 @@ describe('@cancjs/node/fs module exports', () => {
     nodeFs.writeFileSync(src, 'from the source');
     nodeFs.writeFileSync(dest, 'the file that was already there');
 
-    // a real copy that reports back in the same tick, which puts the cancel in the window where the
-    // copy is done and the promise has not adopted it yet. Nothing here waits on a clock
+    // real copy reporting back in the same tick: cancel lands after the copy is done but before
+    // the promise adopts it, with no clock involved
     const fakeFs = {
       ...nodeFs,
       copyFile: (...args: any[]) => {
