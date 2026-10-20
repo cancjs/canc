@@ -467,6 +467,77 @@ describe.each([
   });
 });
 
+describe.each([
+  ['an es5 polyfill with a noop then executor', createNoopStylePromise],
+  ['a zone.js shaped Promise', createZoneShapedPromise],
+  ['the native Promise', () => NativePromise],
+])('forceCancelable of then children over %s', (_name, createPromise) => {
+  let Core: typeof CancelablePromise;
+
+  // drains the polyfill microtasks, so a child has adopted what its callback returned
+  const drain = (): Promise<void> => new NativePromise<void>((resolve) => setTimeout(resolve, 0));
+  const pending = (): Promise<never> => new NativePromise<never>(() => undefined);
+
+  beforeEach(() => {
+    Core = loadCoreOver(createPromise());
+  });
+
+  it('a then child inherits forceCancelable false from the constructor option', async () => {
+    const parent = new Core<number>((resolve) => resolve(1), { forceCancelable: false });
+    const child = parent.then(pending);
+    await drain();
+
+    expect(child.cancelable).toBe(false);
+  });
+
+  it('a then child inherits forceCancelable false written on the parent before the child', async () => {
+    const parent = new Core<number>((resolve) => resolve(1));
+    parent.forceCancelable = false;
+    const child = parent.then(pending);
+    await drain();
+
+    expect(child.cancelable).toBe(false);
+  });
+
+  it('a catch child inherits forceCancelable false', async () => {
+    const parent = new Core<number>((_resolve, reject) => reject(new Error('boom')), { forceCancelable: false });
+    const child = parent.catch(pending);
+    await drain();
+
+    expect(child.cancelable).toBe(false);
+  });
+
+  it('a grandchild inherits forceCancelable false', async () => {
+    const parent = new Core<number>((resolve) => resolve(1), { forceCancelable: false });
+    const grandchild = parent.then((value) => value).then(pending);
+    await drain();
+
+    expect(grandchild.cancelable).toBe(false);
+  });
+
+  it('a then child keeps forceCancelable true by default', async () => {
+    const child = new Core<number>((resolve) => resolve(1)).then(pending);
+    await drain();
+
+    expect(child.cancelable).toBe(true);
+  });
+
+  it('a then call inside a subclass constructor does not change the outer child', async () => {
+    const helper = new Core<number>((resolve) => resolve(1));
+    class Sub<T> extends Core<T> {
+      constructor(...args: ConstructorParameters<typeof Core<T>>) {
+        void helper.then(() => undefined);
+        super(...args);
+      }
+    }
+    const parent = new Sub<number>((resolve) => resolve(1), { forceCancelable: false });
+    const child = parent.then(pending);
+    await drain();
+
+    expect(child.cancelable).toBe(false);
+  });
+});
+
 describe('then children over the native Promise', () => {
   it('builds the child through the native then', async () => {
     const Core = loadCoreOver(NativePromise);

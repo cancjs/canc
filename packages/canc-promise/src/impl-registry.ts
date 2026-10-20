@@ -9,12 +9,14 @@ import { CancelablePromise } from './cancelable-promise';
  *
  * A registered implementation must be a function whose prototype has `then` and `cancel`. The
  * native `Promise` does not qualify.
+ * @deprecated Use CancelablePromise directly. Removed in the next major.
  */
 export type PromiseImpl = PromiseConstructor;
 
 /**
  * Options carrying an explicit per-call implementation override, mixed into a consumer's own
  * options object.
+ * @deprecated Use CancelablePromise directly. Removed in the next major.
  */
 export interface IPromiseImplOptions {
   impl?: PromiseImpl;
@@ -45,6 +47,7 @@ let registeredImpl: PromiseImpl | undefined;
  * implementation by reference.
  *
  * @throws {TypeError} When `impl` is not a constructor whose prototype has `then` and `cancel`.
+ * @deprecated Use CancelablePromise directly. Removed in the next major.
  */
 export function setPromiseImpl(impl?: PromiseImpl): void {
   if (impl !== undefined && !(isFunction(impl) && isCancelable(impl.prototype))) {
@@ -56,6 +59,7 @@ export function setPromiseImpl(impl?: PromiseImpl): void {
 /**
  * The currently registered implementation, or the built-in CancelablePromise when none is
  * registered.
+ * @deprecated Use CancelablePromise directly. Removed in the next major.
  */
 export function getPromiseImpl(): PromiseImpl {
   return registeredImpl || (CancelablePromise as unknown as PromiseImpl);
@@ -66,6 +70,7 @@ export function getPromiseImpl(): PromiseImpl {
  * per-call `options.impl` first, then a consumer's class static, then the registry, then the
  * built-in CancelablePromise. Consumers pass their own resolved static (or `undefined`) as the
  * second argument.
+ * @deprecated Use CancelablePromise directly. Removed in the next major.
  */
 export function resolvePromiseImpl(options?: IPromiseImplOptions, staticImpl?: PromiseImpl): PromiseImpl {
   return options?.impl || staticImpl || getPromiseImpl();

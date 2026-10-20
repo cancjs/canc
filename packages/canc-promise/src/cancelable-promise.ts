@@ -106,7 +106,7 @@ export type TPromiseExecutor<TResult> = (
 ) => void;
 
 /**
- * Context object passed as the executor's third argument. Both members are closures bound to the
+ * Context object passed as the executor's third argument. Both methods are closures bound to the
  * promise when the context is built, so `this: void` is accurate and destructuring them off the
  * context (the documented idiom) stays safe.
  */
@@ -117,8 +117,16 @@ export interface IExecutorContext<TResult = any, TFailure = unknown> {
    * Get an AbortSignal that aborts when the promise is canceled. Lazily creates an AbortController on first call.
    * The signal's `reason` is the CancelError the promise rejects with. A first call after the promise was canceled
    * returns an already aborted signal.
+   * @deprecated Use `signal`.
    */
   getSignal(this: void): IAbortSignal;
+  /**
+   * The AbortSignal returned by `getSignal()`. Reading it creates the AbortController on first access, exactly as
+   * the first `getSignal()` call does. The property is an inherited non-enumerable getter, so `Object.keys`, spread
+   * and `JSON.stringify` neither copy it nor create the controller. Destructuring it in the executor
+   * (`(resolve, reject, { signal }) => ...`) reads it once.
+   */
+  readonly signal: IAbortSignal;
 }
 
 export type TCancelablePromiseExecutor<TResult, TFailure = unknown> = (
@@ -150,13 +158,17 @@ export interface ICancelablePromiseFlagOptions {
    * bubbling runs two microtasks after cancel() returns.
    */
   asyncCancel?: boolean;
-  /** Keeps the current promise cancelable when native promise is provided through resolve() */
+  /**
+   * Keeps the current promise cancelable when native promise is provided through resolve(). A `.then()` child
+   * inherits the value when it is created; a later write applies only to promises created after it.
+   */
   forceCancelable?: boolean;
   /**
    * Cancellation propagates to parent promise. A promise is bubble-canceled once no consumer
    * remains after the current synchronous turn; a consumer subscribed anywhere in that turn, canc
    * or native, keeps it alive. A chain of promises with an overridden `cancel` bubbles recursively; very deep
-   * chains of them can exhaust the stack.
+   * chains of them can exhaust the stack. A `.then()` child inherits the `bubble` value at its creation and is
+   * counted with it; a later write applies only to children created after it.
    */
   bubble?: boolean;
   /** Throw on cancellation problems */
@@ -455,11 +467,35 @@ const FLAG_BUBBLE = 4;
 const FLAG_STRICT = 8;
 const FLAG_SHIELD = 16;
 
+// parent forceCancelable set by `_then` for the child it constructs, on every engine path
+let _thenChildForceCancelable = true;
+
 // Shared options for internal species construction to avoid allocation
 // Frozen to prevent future mutation from poisoning every derived promise
 const INTERNAL_CALL_OPTIONS = Object.freeze({ forceCancelable: true }) as Readonly<
   ReturnType<(typeof CancelablePromise)['_getOptions']>
 >;
+
+// a plain constructor so every context shares one map and inherits the signal getter
+const ExecutorContext = function ExecutorContext(
+  this: IExecutorContext,
+  handleCancel: IExecutorContext['handleCancel'],
+  getSignal: IExecutorContext['getSignal'],
+) {
+  this.handleCancel = handleCancel;
+  this.getSignal = getSignal;
+} as unknown as new <TResult, TFailure>(
+  handleCancel: IExecutorContext<TResult, TFailure>['handleCancel'],
+  getSignal: IExecutorContext<TResult, TFailure>['getSignal'],
+) => IExecutorContext<TResult, TFailure>;
+
+// one shared getter: a per-context getter closure turns every context into a dictionary
+Object.defineProperty(ExecutorContext.prototype, 'signal', {
+  configurable: true,
+  get: function (this: IExecutorContext): IAbortSignal {
+    return this.getSignal();
+  },
+});
 
 // Extends PromiseConstructor, as defined in
 // lib.es2015.promise, lib.es2015.iterable, lib.es2015.symbol.wellknown, lib.es2018.promise,
@@ -1156,6 +1192,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
     let hasPendingPreAbort = false;
 
     const isInternalSpeciesConstructionWithoutOptions = This._pendingInternalCall;
+    const internalForceCancelable = _thenChildForceCancelable;
 
     // Only normalize options on the public path.
     // On the internal path `normalizedOptions` is a
@@ -1301,15 +1338,11 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
                 });
               }
 
-              // On the internal (then-derived) path the shared stand-in options always
-              // say forceCancelable:true, so read the live flag instead: then() copies the
-              // parent's packed flags onto the child right after construction, and this
-              // wrapper only runs on a later microtask, so the inherited bit is already set.
-              // The public path keeps consulting the normalized options (correct there).
+              // Internal path: stand-in options say true, use the captured value.
               const forceCancelable =
-                isInternalSpeciesConstructionWithoutOptions ?
-                  (instance._flags & FLAG_FORCE_CANCELABLE) !== 0
-                : normalizedOptions.forceCancelable;
+                isInternalSpeciesConstructionWithoutOptions ? internalForceCancelable : (
+                  normalizedOptions.forceCancelable
+                );
               if (!forceCancelable) {
                 instance._internalState = states.FORCE_PENDING;
                 if (instance._cancelHandlers) {
@@ -1443,31 +1476,24 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
             }
           }
 
-          let _ctx: IExecutorContext<TResult, TFailure> | undefined;
+          let _ac: IAbortControllerLike | undefined;
 
-          function getCtx(): IExecutorContext<TResult, TFailure> {
-            if (!_ctx) {
-              let _ac: IAbortControllerLike | undefined;
-              _ctx = {
-                handleCancel(onCancel: TOnCancel): CancelablePromise<TResult, TFailure> {
-                  return instance.handleCancel(onCancel);
-                },
-                getSignal(): IAbortSignal {
-                  if (!_ac) {
-                    const ac = new AbortController() as unknown as IAbortControllerLike;
-                    if (instance.canceled) {
-                      ac.abort(cancelError);
-                    } else {
-                      // a strict throw here leaves no controller, so the next call throws too
-                      instance.handleCancel(() => ac.abort(cancelError));
-                    }
-                    _ac = ac;
-                  }
-                  return _ac.signal;
-                },
-              };
+          function handleCancel(onCancel: TOnCancel): CancelablePromise<TResult, TFailure> {
+            return instance.handleCancel(onCancel);
+          }
+
+          function getSignal(): IAbortSignal {
+            if (!_ac) {
+              const ac = new AbortController() as unknown as IAbortControllerLike;
+              if (instance.canceled) {
+                ac.abort(cancelError);
+              } else {
+                // a strict throw here leaves no controller, so the next call throws too
+                instance.handleCancel(() => ac.abort(cancelError));
+              }
+              _ac = ac;
             }
-            return _ctx;
+            return _ac.signal;
           }
 
           this._resolve = resolve;
@@ -1481,7 +1507,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
           // naturally at that later settle.
           if (!hasPendingPreAbort) {
             try {
-              executor(resolve, reject, getCtx());
+              executor(resolve, reject, new ExecutorContext<TResult, TFailure>(handleCancel, getSignal));
             } catch (error) {
               // a native catch would bypass the wrappers and leave the state PENDING
               reject(error);
@@ -1627,30 +1653,35 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
   get asyncCancel(): boolean {
     return (this._flags & FLAG_ASYNC_CANCEL) !== 0;
   }
+  /** @deprecated Pass the option at construction. */
   set asyncCancel(v: boolean) {
     this._setFlag(FLAG_ASYNC_CANCEL, v);
   }
   get forceCancelable(): boolean {
     return (this._flags & FLAG_FORCE_CANCELABLE) !== 0;
   }
+  /** @deprecated Pass the option at construction. */
   set forceCancelable(v: boolean) {
     this._setFlag(FLAG_FORCE_CANCELABLE, v);
   }
   get bubble(): boolean {
     return (this._flags & FLAG_BUBBLE) !== 0;
   }
+  /** @deprecated Pass the option at construction. */
   set bubble(v: boolean) {
     this._setFlag(FLAG_BUBBLE, v);
   }
   get strict(): boolean {
     return (this._flags & FLAG_STRICT) !== 0;
   }
+  /** @deprecated Pass the option at construction. */
   set strict(v: boolean) {
     this._setFlag(FLAG_STRICT, v);
   }
   get shield(): boolean {
     return (this._flags & FLAG_SHIELD) !== 0;
   }
+  /** @deprecated Pass the option at construction. */
   set shield(v: boolean) {
     this._setFlag(FLAG_SHIELD, v);
   }
@@ -2162,10 +2193,13 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
     Awaited<TResult1 | TResult2>,
     FailureOf<TResult1> | FailureOf<TResult2> | ([TResult2] extends [never] ? TFailure : never)
   > {
-    if (OWN_THEN_CHILD) return thenWithOwnChild(this, onFulfilled, onRejected);
     const This = this.constructor as typeof CancelablePromise;
+    // a then called from a subclass constructor or species getter must not leak into this child
+    const outerForceCancelable = _thenChildForceCancelable;
+    _thenChildForceCancelable = (this._flags & FLAG_FORCE_CANCELABLE) !== 0;
     // Calls CancelablePromise constructor internally
     try {
+      if (OWN_THEN_CHILD) return thenWithOwnChild(this, onFulfilled, onRejected);
       This._pendingInternalCall = true;
       // Cast return from native prototype.then which returns a CancelablePromise at runtime
       // via species construction but is typed as plain Promise by standard lib
@@ -2175,15 +2209,18 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
       >;
     } finally {
       This._pendingInternalCall = false;
+      _thenChildForceCancelable = outerForceCancelable;
     }
   }
 
   /**
-   * Bubble-count core shared by `_chain` and `_chainInput`. When this promise participates in
-   * bubbling (`bubble && cancelable`), raise its chain count by one and return the matching
-   * `onComplete` completion callback; the caller decides how that completion is wired (a child's
-   * `handleCancel`, a settle reaction, or a native subscription). Returns `undefined` when this
-   * promise does not bubble, so the caller skips wiring entirely.
+   * Bubble-count core shared by `_chain` and `_chainInput`. While this promise is cancelable, raise
+   * its chain count by one and return the matching `onComplete` completion callback; the caller
+   * decides how that completion is wired (a child's `handleCancel`, a settle reaction, or a native
+   * subscription). Returns `undefined` once this promise is no longer cancelable, so the caller
+   * skips wiring entirely. Every edge is counted, whatever `bubble` is. The value of `bubble` when
+   * the edge is created decides whether its completion may bubble: an edge created with `bubble`
+   * off never triggers the bubble, and while it is open it keeps the other edges from triggering it.
    *
    * On each completion increment `_completedChainsCount`. Once every counted ref has completed,
    * through a cancel or, for `bubbleOnComplete` (race), through the child settling, the bubble is
@@ -2196,16 +2233,18 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
    * of the child also waits for this cleanup.
    */
   protected _addChainRef(bubbleOnComplete?: boolean): (() => void) | undefined {
-    if (!(this.bubble && this.cancelable)) {
+    if (!this.cancelable) {
       return undefined;
     }
 
+    // an edge created with bubble off never bubbles, but its open ref holds the others back
+    const bubbles = this.bubble;
     this._chainsCount++;
 
     return () => {
       this._completedChainsCount++;
 
-      if (this._completedChainsCount < this._chainsCount || !this.cancelable) {
+      if (!bubbles || this._completedChainsCount < this._chainsCount || !this.cancelable) {
         return;
       }
 

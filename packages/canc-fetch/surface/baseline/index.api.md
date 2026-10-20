@@ -63,14 +63,14 @@ _runSettlementEffects: () => void
 _setFlag: any
 _subscribe: (onFulfilled?: ((value: IFetchLaterResultLike) => any) | null | undefined, onRejected?: ((reason: any) => any) | null) => void
 _then: <TResult1 = IFetchLaterResultLike, TResult2 = never>(onFulfilled?: ((value: IFetchLaterResultLike) => TResult1) | null | undefined, onRejected?: ((reason: any) => TResult2) | null | undefined) => CancelablePromise<Awaited<TResult1> | Awaited<TResult2>, ([TResult2] extends [never] ? TCancelableFetchFailure : never) | FailureOf<TResult1> | FailureOf<TResult2>>
-asyncCancel: boolean
-bubble: boolean
+asyncCancel: boolean // @deprecated
+bubble: boolean // @deprecated
 cancel: (reason?: any, _disposing?: boolean) => CancelablePromise<ISettledResult<unknown>[], never> | void
 cancelable: boolean
 canceled: boolean
 catch: { <R extends PromiseLike<never>>(onRejected: (reason: any) => R): CancelablePromise<Awaited<R> | IFetchLaterResultLike, FailureOf<R>>; <R = never>(onRejected: (reason: any) => R): CancelablePromise<Awaited<R> | IFetchLaterResultLike, FailureOf<R>>; <R = never>(onRejected?: ((reason: any) => R) | null | undefined): CancelablePromise<Awaited<R> | IFetchLaterResultLike, FailureOf<R> | TCancelableFetchFailure>; }
 finally: (onFinally?: (() => PromiseLike<unknown> | void) | null) => CancelablePromise<IFetchLaterResultLike, TCancelableFetchFailure>
-forceCancelable: boolean
+forceCancelable: boolean // @deprecated
 handleCancel: (onCancel: TOnCancel, options?: IHandleCancelOptions) => CancelablePromise<IFetchLaterResultLike, TCancelableFetchFailure>
 isCancelable: boolean // @deprecated
 isCanceled: boolean // @deprecated
@@ -79,8 +79,8 @@ readonly [CANCEL_PROMISE_BRAND]: true
 readonly [FAILURE]?: TCancelableFetchFailure | undefined
 readonly [toStringTag]: string
 readonly activated: boolean | null
-shield: boolean
-strict: boolean
+shield: boolean // @deprecated
+strict: boolean // @deprecated
 then: { <TResult1 extends PromiseLike<never>, TResult2 extends PromiseLike<never>>(onFulfilled: (value: IFetchLaterResultLike) => TResult1, onRejected: (reason: any) => TResult2): CancelablePromise<Awaited<TResult1> | Awaited<TResult2>, FailureOf<TResult1> | FailureOf<TResult2>>; <TResult1 extends PromiseLike<never>, TResult2 = never>(onFulfilled: (value: IFetchLaterResultLike) => TResult1, onRejected: (reason: any) => TResult2): CancelablePromise<Awaited<TResult1> | Awaited<TResult2>, ([TResult2] extends [never] ? TCancelableFetchFailure : never) | FailureOf<TResult1> | FailureOf<TResult2>>; <TResult1 extends PromiseLike<never>, TResult2 = never>(onFulfilled: (value: IFetchLaterResultLike) => TResult1, onRejected?: ((reason: any) => TResult2) | null | undefined): CancelablePromise<Awaited<TResult1> | Awaited<TResult2>, FailureOf<TResult1> | FailureOf<TResult2> | TCancelableFetchFailure>; <TResult1 = IFetchLaterResultLike, TResult2 extends PromiseLike<never> = never>(onFulfilled: ((value: IFetchLaterResultLike) => TResult1) | null | undefined, onRejected: (reason: any) => TResult2): CancelablePromise<Awaited<TResult1> | Awaited<TResult2>, FailureOf<TResult1> | FailureOf<TResult2>>; <TResult1 = IFetchLaterResultLike, TResult2 = never>(onFulfilled: ((value: IFetchLaterResultLike) => TResult1) | null | undefined, onRejected: (reason: any) => TResult2): CancelablePromise<Awaited<TResult1> | Awaited<TResult2>, ([TResult2] extends [never] ? TCancelableFetchFailure : never) | FailureOf<TResult1> | FailureOf<TResult2>>; <TResult1 = IFetchLaterResultLike, TResult2 = never>(onFulfilled?: ((value: IFetchLaterResultLike) => TResult1) | null | undefined, onRejected?: ((reason: any) => TResult2) | null | undefined): CancelablePromise<Awaited<TResult1> | Awaited<TResult2>, FailureOf<TResult1> | FailureOf<TResult2> | TCancelableFetchFailure>; }
 ```
 

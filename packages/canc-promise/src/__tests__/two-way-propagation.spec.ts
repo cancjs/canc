@@ -418,8 +418,8 @@ describe('two-way propagation matrix', () => {
       const child = parent.then((v) => v);
       silence(child);
 
-      // With bubble:false the parent never registers the child in its chain.
-      expect((parent as any)._chainsCount).toBe(0);
+      // counted like any child, but an edge created with bubble:false never bubbles
+      expect((parent as any)._chainsCount).toBe(1);
 
       child.cancel();
       await macrotask();

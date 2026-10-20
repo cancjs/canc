@@ -213,8 +213,8 @@ promise lets that cleanup finish, then rejects with a `CancelError`.
 While the cleanup runs, `isCanceled` stays `false` and the promise `cancel()` returned waits until the
 cleanup settles. A cleanup that never settles keeps both pending, so a hung cleanup hangs them.
 
-Flags are also exposed as writable properties (`promise.bubble = false`), and the class-wide
-defaults live in `CancelablePromise.defaultOptions`.
+Flags are also exposed as properties (`promise.bubble = false`), but the setters are deprecated: pass the option
+at construction instead. The class-wide defaults live in `CancelablePromise.defaultOptions`.
 
 ### Detecting cancellation
 
@@ -231,7 +231,7 @@ treated as one. `isAggregateError` also falls back to `error.name`.
 A promise canceled through an `AbortSignal` rejects with a `CancelError`, not with a `DOMException`.
 The abort reason is normalized exactly like a `cancel()` reason, so the usual `DOMException` reason
 becomes the `cause`, and cancel handlers receive the raw abort reason. This holds whether the signal
-was aborted before the promise was created or later. The signal from the executor's `getSignal()`
+was aborted before the promise was created or later. The signal from the executor's `signal`
 aborts with that same `CancelError`, even when first requested after the cancel. Check
 `err.aborted`, or `err.timedOut` when the signal came from `AbortSignal.timeout()`, on the
 `CancelError` when the difference matters. Standalone error classes and guards (`AbortError`,
@@ -492,6 +492,8 @@ from the toolbox.
 
 ### Pluggable implementation
 
+> **Deprecated.** The registry is kept through 1.x for published siblings and removed in the next major. Use `CancelablePromise` directly, or pass `impl` per call.
+
 Ecosystem packages (toolbox, coroutine) pick which promise implementation to build on through a
 small registry exported here. Register one implementation at app startup and every consumer that
 has no more specific override uses it:
@@ -578,7 +580,8 @@ to match an abort and `{ timeout: true }` to match a timeout.
 
 ### Implementation registry
 
-`setPromiseImpl(impl?)`, `getPromiseImpl()`, `resolvePromiseImpl(options?, staticImpl?)`.
+`setPromiseImpl(impl?)`, `getPromiseImpl()`, `resolvePromiseImpl(options?, staticImpl?)` are deprecated; see
+[Pluggable implementation](#pluggable-implementation).
 
 ## Compatibility
 
