@@ -54,3 +54,51 @@ describe('getSignal() first called after cancel', () => {
     expect(isCancelError(signal.reason)).toBe(true);
   });
 });
+
+describe('signal accessor', () => {
+  it('is a non-enumerable getter on the holder and on the getSignal function', () => {
+    let built = 0;
+    const Ctor = class {
+      signal = { aborted: false };
+      constructor() {
+        built++;
+      }
+      abort() {
+        this.signal.aborted = true;
+      }
+    };
+    const holder = makeCancelSignal(() => undefined, Ctor);
+
+    expect(Object.keys(holder)).not.toContain('signal');
+    expect('signal' in { ...holder }).toBe(false);
+    expect(Object.keys(holder.getSignal)).not.toContain('signal');
+    JSON.stringify(holder);
+    expect(built).toBe(0);
+
+    expect(holder.signal).toBe(holder.getSignal());
+    expect(holder.getSignal.signal).toBe(holder.signal);
+    expect(built).toBe(1);
+  });
+
+  it('a lazy promisify transformArgs can destructure signal off getSignal', async () => {
+    let injected: any;
+    const inbound = new AbortController();
+    const fn = promisify((_opts: unknown, _cb: (err: unknown) => void) => undefined, {
+      lazy: true,
+      signal: inbound.signal,
+      transformArgs: (args, { signal }) => {
+        injected = signal;
+        return [{ signal }];
+      },
+    });
+
+    const settled = fn().then(
+      () => 'fulfilled',
+      () => 'rejected',
+    );
+    await Promise.resolve();
+    inbound.abort(new CancelError('stop'));
+    await settled;
+    expect(injected.aborted).toBe(true);
+  });
+});

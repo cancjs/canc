@@ -1,6 +1,6 @@
 import { setFnName } from '../_util';
 import { IAbortSignalLike } from './abort-signal';
-import { makeCancelSignal, TGetSignal } from './cancel-signal';
+import { createCancelSignalSource, NO_SIGNAL, TGetSignal } from './cancel-signal';
 import { IExecutorCtx } from './construct';
 import { constructTimed } from './construct-timed';
 import { ILazyOn, IToolboxDeps, TAbortControllerCtor, TLazyOf } from './deps';
@@ -26,6 +26,7 @@ export interface IPromisifyOptions {
    * Invoke-time hook: normalize the call args and/or place the outbound cancel signal for
    * signal-aware callback APIs. `getSignal()` materializes the signal on first call (undefined
    * when `Impl` is not cancelable-shaped); a hook that never calls it allocates no controller.
+   * `getSignal.signal` reads the same signal, so `(args, { signal }) => ...` works too.
    */
   transformArgs?: (args: any[], getSignal: TGetSignal) => any[];
   /**
@@ -121,8 +122,10 @@ export function promisifyFactory<K extends IPromiseKind = IPromiseLikeKind>(deps
         }
 
         const handleCancel = ctx?.handleCancel;
-        const holder = makeCancelSignal(handleCancel, AbortControllerCtor);
-        const getSignal = holder.getSignal;
+        // no hook means nobody can ever ask for the signal
+        const source =
+          handleCancel && (transformArgs || onCancelHook) ? createCancelSignalSource(AbortControllerCtor) : undefined;
+        const getSignal = source ? source.getSignal : NO_SIGNAL;
 
         let args = callArgs;
         if (transformArgs) {
@@ -145,6 +148,9 @@ export function promisifyFactory<K extends IPromiseKind = IPromiseLikeKind>(deps
         if (handleCancel) {
           (handleCancel as unknown as (onCancel: (reason?: any) => void) => void)((reason?: any) => {
             settled = true;
+            if (source) {
+              source.onCancel(reason);
+            }
             if (onCancelHook) {
               onCancelHook(handle, args, getSignal, reason);
             }

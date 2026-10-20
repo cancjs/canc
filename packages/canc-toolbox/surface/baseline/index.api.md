@@ -38,8 +38,9 @@ resolve: (value?: PromiseLike<T> | T | undefined) => void
 ## `ICancelifyContext` (interface)
 
 ```text
-getSignal: TGetSignal
+getSignal: () => any // @deprecated
 handleCancel: THandleCancel
+readonly signal: any
 ```
 
 ## `ICancelifyOptions` (interface)

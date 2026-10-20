@@ -66,8 +66,8 @@ Wrapping an API that takes a signal is a one-liner, and callers never see the si
 ```js
 import { cancelify } from '@cancjs/toolbox';
 
-const searchFlights = cancelify(({ getSignal }, query) =>
-  flightApi.search(query, getSignal()),
+const searchFlights = cancelify(({ signal }, query) =>
+  flightApi.search(query, signal),
 );
 
 const search = searchFlights('LIS');
@@ -93,9 +93,11 @@ directly, which assumes the helper is its only holder. `limit`, `map`, `debounce
 missed `timeout` deadline forward a reason to it. Canceling the result of `timeout`, `delay`,
 `minDelay`, `retry` or a debounced call calls its `cancel()` without one.
 
-`cancelify` works from the other end. It hands the wrapped function a lazy signal thunk. The
-controller is created on the first `getSignal()` call and aborted when the returned promise is
-canceled, so a function that never asks for a signal allocates nothing.
+`cancelify` works from the other end. It hands the wrapped function a context whose `signal` is
+created lazily. The controller is created on the first read of `signal` and aborted when the
+returned promise is canceled, so a function that never asks for a signal allocates nothing. A
+first read after the promise was canceled gets an already aborted signal. `getSignal()` on the
+same context still works and returns the same signal, but is deprecated in favor of `signal`.
 
 ## Description
 
@@ -106,17 +108,21 @@ the application code free of the mechanism:
 
 ```js
 const orderApi = {
-  list: cancelify(({ getSignal }, filter) =>
-    rawOrderApi.list(filter, { signal: getSignal() })
+  list: cancelify(({ signal }, filter) =>
+    rawOrderApi.list(filter, { signal })
   ),
-  get: cancelify(({ getSignal }, id) =>
-    rawOrderApi.get(id, { signal: getSignal() })
+  get: cancelify(({ signal }, id) =>
+    rawOrderApi.get(id, { signal })
   ),
 };
 ```
 
-`getSignal()` can be placed anywhere the underlying call wants it, not only in a trailing options
+`signal` can be placed anywhere the underlying call wants it, not only in a trailing options
 object.
+
+`promisify` keeps passing `getSignal` positionally to its `transformArgs` and `handleCancel`
+hooks, and that form is not deprecated. The function carries the same `signal` property, so
+`transformArgs: (args, { signal }) => [...args, { signal }]` works as well.
 
 For callback-style APIs use `promisify`, which covers error-first and value-first callbacks,
 multiple callback values, and the `nodejs.util.promisify.custom` hook. `promisifyAll` applies it

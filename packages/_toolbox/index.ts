@@ -1,5 +1,12 @@
 export { fromAbortSignalFactory, IAbortSignalLike, IAbortSignalOptions, withAbortSignal } from './abort-signal';
-export { makeCancelSignal, TGetSignal } from './cancel-signal';
+export {
+  createCancelSignalSource,
+  ICancelSignalHolder,
+  ICancelSignalSource,
+  makeCancelSignal,
+  NO_SIGNAL,
+  TGetSignal,
+} from './cancel-signal';
 export {
   createCatchErrorFactory,
   createSuppressErrorFactory,

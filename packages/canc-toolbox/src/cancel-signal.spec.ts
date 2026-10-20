@@ -194,3 +194,105 @@ describe('getSignal() first called after cancel', () => {
     expect(hookAborted).toBe(true);
   });
 });
+
+describe('signal accessor', () => {
+  it('is a non-enumerable getter on the cancelify context; spread and JSON never build a controller', async () => {
+    const { ctor } = makeSpyControllerCtor();
+    let checked = false;
+    const wrapped = cancelify(
+      (ctx) => {
+        expect(Object.keys(ctx)).not.toContain('signal');
+        expect(Object.getOwnPropertyDescriptor(ctx, 'signal')).toBeUndefined();
+        const copy = { ...ctx };
+        JSON.stringify(ctx);
+        expect('signal' in copy).toBe(false);
+        expect(ctor).not.toHaveBeenCalled();
+
+        expect(ctx.signal).toBe(ctx.getSignal());
+        expect(ctor).toHaveBeenCalledTimes(1);
+        checked = true;
+        return 1;
+      },
+      { AbortController: ctor },
+    );
+
+    await wrapped();
+    expect(checked).toBe(true);
+  });
+
+  it('cancelify contexts share one inherited getter', async () => {
+    const contexts: object[] = [];
+    const wrapped = cancelify((ctx) => {
+      contexts.push(ctx);
+      return 1;
+    });
+
+    await wrapped();
+    await wrapped();
+    const [a, b] = contexts;
+    expect(Object.getPrototypeOf(a)).toBe(Object.getPrototypeOf(b));
+    expect(Object.getOwnPropertyDescriptor(Object.getPrototypeOf(a), 'signal')!.get).toBeInstanceOf(Function);
+  });
+
+  it('cancelify destructured signal aborts on cancel with a CancelError', async () => {
+    let signal: any;
+    const wrapped = cancelify(({ signal: s }) => {
+      signal = s;
+      return new Promise<never>(() => {});
+    });
+
+    const promise = wrapped();
+    promise.cancel();
+    await promise.catch(() => undefined);
+    expect(signal.aborted).toBe(true);
+    expect(isCancelError(signal.reason)).toBe(true);
+  });
+
+  it('is a non-enumerable getter on the holder returning getSignal()', () => {
+    const { ctor } = makeSpyControllerCtor();
+    const holder = makeCancelSignal((() => undefined) as any, ctor, toCancelError);
+
+    expect(Object.keys(holder)).not.toContain('signal');
+    expect('signal' in { ...holder }).toBe(false);
+    JSON.stringify(holder);
+    expect(ctor).not.toHaveBeenCalled();
+
+    expect(holder.signal).toBe(holder.getSignal());
+    expect(ctor).toHaveBeenCalledTimes(1);
+  });
+
+  it('is readable off the getSignal function itself, sharing one getter', () => {
+    const { ctor } = makeSpyControllerCtor();
+    const first = makeCancelSignal((() => undefined) as any, ctor).getSignal;
+    const second = makeCancelSignal((() => undefined) as any, ctor).getSignal;
+
+    expect(Object.keys(first)).not.toContain('signal');
+    expect(ctor).not.toHaveBeenCalled();
+    expect(first.signal).toBe(first());
+    expect(ctor).toHaveBeenCalledTimes(1);
+    expect(Object.getOwnPropertyDescriptor(first, 'signal')!.get).toBe(
+      Object.getOwnPropertyDescriptor(second, 'signal')!.get,
+    );
+  });
+
+  it('reads undefined on the holder and the function when there is no handleCancel', () => {
+    const holder = makeCancelSignal(undefined);
+    expect(holder.signal).toBeUndefined();
+    expect(holder.getSignal.signal).toBeUndefined();
+  });
+
+  it('promisify hooks can destructure signal off the positional getSignal', async () => {
+    let injected: any;
+    const fn = promisify((_opts: unknown, _cb: (err: unknown) => void) => undefined, {
+      transformArgs: (args, { signal }) => {
+        injected = signal;
+        return [{ signal }];
+      },
+    });
+
+    const promise = fn() as CancelablePromise<unknown>;
+    promise.cancel();
+    await promise.catch(() => undefined);
+    expect(injected.aborted).toBe(true);
+  });
+});
