@@ -21,7 +21,12 @@ export interface IReadableTerminalOptions {
   concurrency?: number;
   /** Aborting destroys the source and rejects the returned promise, same as calling `cancel()`. */
   signal?: AbortSignal;
-  /** Set false to leave the source open when the returned promise is canceled. Default true. */
+  /**
+   * Set false to leave the source open when the returned promise is canceled. Default true.
+   *
+   * With `false` the source is not destroyed and stays readable, but the read already in flight is
+   * abandoned: chunks it has taken are not handed back, so a later read does not see them.
+   */
   destroyOnCancel?: boolean;
 }
 

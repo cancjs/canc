@@ -25,6 +25,12 @@ const cooperatingTask = `
   setInterval(() => {}, 1000);
 `;
 
+const resultThenIdleTask = `
+  const { parentPort } = require('node:worker_threads');
+  parentPort.postMessage(42);
+  setInterval(() => {}, 1000);
+`;
+
 const deafTask = `
   setInterval(() => {}, 1000);
 `;
@@ -75,6 +81,14 @@ describe('runTask', () => {
   it('rejects the error the worker threw', async () => {
     await expect(runTask(throwingTask, undefined, { eval: true })).rejects.toThrow('task blew up');
   });
+
+  it('terminates the worker once the result is in, even when it keeps running', async () => {
+    // posts its answer and then keeps the thread busy, so only runTask can let the process go
+    const promise = runTask<number>(resultThenIdleTask, undefined, { eval: true });
+
+    await expect(promise).resolves.toBe(42);
+    expect(terminateSpy).toHaveBeenCalledTimes(1);
+  }, 15000);
 
   it('cancels gracefully: the worker reads the stop message and exits without being terminated', async () => {
     const flag = sharedFlag();

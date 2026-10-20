@@ -140,6 +140,70 @@ describe('@cancjs/node/zlib', () => {
     },
   );
 
+  it('a consumer that stops early calls the source return(), so the upstream finally runs', async () => {
+    let sourceReturned = false;
+
+    const source = (async function* () {
+      try {
+        yield 1;
+        yield 2;
+      } finally {
+        sourceReturned = true;
+      }
+    })();
+
+    // node's own consumer breaks out of the loop after the first chunk, which must reach the source
+    const fakeNodeCompress: (guarded: AsyncIterable<unknown>) => Promise<Buffer> = async (guarded) => {
+      for await (const _chunk of guarded) {
+        break;
+      }
+      return Buffer.alloc(0);
+    };
+
+    const wrapped = iterableCodecWrapped<Buffer>(fakeNodeCompress as (...args: unknown[]) => unknown);
+    await wrapped(source);
+
+    expect(sourceReturned).toBe(true);
+  });
+
+  it('a source whose return() rejects on cancel does not surface an unhandledRejection', async () => {
+    let unhandled: unknown;
+    const onUnhandled = (err: unknown): void => {
+      unhandled = err;
+    };
+
+    const source: AsyncIterable<number> = {
+      [Symbol.asyncIterator]() {
+        return {
+          next: () => new Promise<IteratorResult<number>>(() => undefined),
+          return: () => Promise.reject(new Error('source return failed')),
+        };
+      },
+    };
+
+    const fakeNodeCompress: (guarded: AsyncIterable<unknown>) => Promise<Buffer> = async (guarded) => {
+      for await (const _chunk of guarded) {
+        // never reached: the source never yields
+      }
+      return Buffer.alloc(0);
+    };
+
+    const wrapped = iterableCodecWrapped<Buffer>(fakeNodeCompress as (...args: unknown[]) => unknown);
+    const promise = wrapped(source);
+
+    process.on('unhandledRejection', onUnhandled);
+    try {
+      promise.cancel('stop');
+      const reason = await promise.catch((err: unknown) => err);
+      expect(isCancelError(reason)).toBe(true);
+      await sleep(50);
+    } finally {
+      process.off('unhandledRejection', onUnhandled);
+    }
+
+    expect(unhandled).toBeUndefined();
+  });
+
   it('compressGzip rejects NotImplementedError naming 24 when node has no iterable codec family', async () => {
     if (hasRealCompressGzip) {
       return;

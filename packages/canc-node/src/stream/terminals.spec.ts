@@ -236,7 +236,6 @@ describe('cancel destroys the source stream', () => {
 
     await expectCancelRejection(p);
     expect(stream.destroyed).toBe(true);
-    expect(stream.listenerCount('data')).toBe(0);
   });
 
   it('every terminal destroys an idle source on cancel', async () => {

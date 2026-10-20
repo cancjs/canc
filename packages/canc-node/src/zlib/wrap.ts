@@ -204,6 +204,7 @@ export function iterableCodecWrapped<R = unknown>(
         const iterator = sourceIterator(source);
         let stopped = false;
 
+        // node stopping early (a consumer's break or throw) must reach the source the same way cancel does
         const guarded: AsyncIterable<unknown> = {
           [Symbol.asyncIterator]() {
             return {
@@ -213,15 +214,29 @@ export function iterableCodecWrapped<R = unknown>(
                 }
                 return iterator.next();
               },
+              return: async (value?: unknown) => {
+                stopped = true;
+                return iterator.return ? iterator.return(value) : { done: true, value };
+              },
+              throw: async (error?: unknown) => {
+                stopped = true;
+                if (iterator.throw) {
+                  return iterator.throw(error);
+                }
+                throw error;
+              },
             };
           },
         };
 
         // registered before the call starts, per the register-before-work rule (`../fs/wrap.ts`):
-        // a cancel racing the very first pull still reaches the source's own return()
+        // a cancel racing the very first pull still reaches the source's own return(). The caller
+        // already got its CancelError, so a source whose return() rejects is swallowed here instead
+        // of surfacing as an unhandled rejection
         handleCancel(() => {
           stopped = true;
-          void iterator.return?.(undefined);
+          const finish = async (): Promise<unknown> => iterator.return?.(undefined);
+          finish().catch(() => undefined);
         });
 
         resolve(nodeFn.call(this, guarded, ...call.args) as R | PromiseLike<R>);
