@@ -277,3 +277,14 @@ describe('{ lazy: true } (cancelable)', () => {
     });
   });
 });
+
+describe('{ lazy: true } without a lazy class in deps', () => {
+  it('throws a TypeError instead of building an eager promise', () => {
+    const spies = spyDeps();
+    const deps = { ...spies.deps, Lazy: undefined };
+    const delay = delayFactory(deps);
+
+    expect(() => delay(10, { lazy: true })).toThrow(new TypeError('The lazy option needs a lazy promise class'));
+    expect(spies.setTimeout).not.toHaveBeenCalled();
+  });
+});
