@@ -229,3 +229,26 @@ describe('helpers cancel a duck cancelable they are the sole holder of', () => {
     });
   });
 });
+
+describe('delay cancels a non thenable duck cancelable it is the sole holder of', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('cancels the duck input once when the delay is stopped', async () => {
+    const cancel = jest.fn();
+    const input = { cancel };
+    const result = delay(input as any, 1000);
+    result.catch(() => undefined);
+
+    await flushMicrotasks();
+    result.cancel();
+    await flushMicrotasks();
+
+    expect(cancel).toHaveBeenCalledTimes(1);
+  });
+});

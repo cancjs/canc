@@ -160,3 +160,26 @@ describe('native helpers cancel a duck cancelable they are the sole holder of', 
     });
   });
 });
+
+describe('native delay cancels a non thenable duck cancelable it is the sole holder of', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('cancels the duck input once when the delay is stopped', async () => {
+    const cancel = jest.fn();
+    const input = { cancel };
+    const controller = new AbortController();
+    delay(input as any, 1000, { signal: controller.signal }).catch(() => undefined);
+
+    await flushMicrotasks();
+    controller.abort();
+    await flushMicrotasks();
+
+    expect(cancel).toHaveBeenCalledTimes(1);
+  });
+});
