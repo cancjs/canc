@@ -455,8 +455,13 @@ function createReleaser(): IReleaser {
 
 function releaseOnCancel(result: CancelablePromise<any, any>): IReleaser {
   const releaseInputs = createReleaser();
-  // one handler per combinator, the release itself guards against a second run
-  result.handleCancel(() => releaseInputs());
+  if (result.canceled) {
+    // born canceled by a pre-aborted signal: each input is released as it is added
+    releaseInputs();
+  } else {
+    // one handler per combinator, the release itself guards against a second run
+    result.handleCancel(() => releaseInputs());
+  }
   return releaseInputs;
 }
 
@@ -526,6 +531,9 @@ let _thenChildForceCancelable = true;
 const INTERNAL_CALL_OPTIONS = Object.freeze({ forceCancelable: true }) as Readonly<
   ReturnType<(typeof CancelablePromise)['_getOptions']>
 >;
+
+// combinator inputs are adopted with default flags whatever the result's options
+const INPUT_OPTIONS: ICancelablePromiseOptions = Object.freeze({});
 
 // a plain constructor so every context shares one map and inherits the signal getter
 const ExecutorContext = function ExecutorContext(
@@ -716,12 +724,10 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
       const results: TAll[] = [];
       const releaseInputs = releaseOnCancel(resultsPromise);
       let count = 0;
-      // Options are identical for every item, so normalize once instead of per iteration.
-      const normalizedOptions = this._getOptions(options);
 
       for (const promiseOrValue of values) {
         const index = count++;
-        const promise = this._adopt(promiseOrValue, normalizedOptions);
+        const promise = this._adopt(promiseOrValue, INPUT_OPTIONS);
 
         // a pure reaction sink, the one counted ref below is the only consumer it adds
         promise._subscribe(
@@ -777,18 +783,15 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
     values: Iterable<T>,
     options?: ICancelablePromiseOptions,
   ): CancelablePromise<ISettledResult<any>[] | { [P in keyof any]: ISettledResult<any> }, never> {
-    // Options are identical for every item, so normalize once instead of per iteration.
     // The spread stays outside any try so an iterable that throws while iterating surfaces
     // synchronously (documented behavior), not as a rejected aggregate.
-    const normalizedOptions = this._getOptions(options);
-
     return this.all(
       [...values].map(
         (promiseOrValue) =>
           // `_adopt` reuses a same-constructor canc input as-is and only wraps raw values /
           // foreign thenables, dropping the former unconditional resolve() wrap that ran a full
           // construction per item on top of the one all() performs on the mapped result.
-          this._adopt(promiseOrValue, normalizedOptions).then(
+          this._adopt(promiseOrValue, INPUT_OPTIONS).then(
             (value) => ({ status: 'fulfilled', value }),
             (reason: unknown) => ({ status: 'rejected', reason }),
           ) as CancelablePromise<ISettledResult<any>, never>,
@@ -830,13 +833,10 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
     let count = 0;
     let rejectedCount = 0;
 
-    // Options are identical for every item, so normalize once instead of per iteration.
-    const normalizedOptions = this._getOptions(options);
-
     try {
       for (const promiseOrValue of values) {
         const index = count++;
-        const promise = this._adopt(promiseOrValue, normalizedOptions);
+        const promise = this._adopt(promiseOrValue, INPUT_OPTIONS);
 
         promise._subscribe(
           (value) => {
@@ -902,8 +902,6 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
       reject: rejectResult,
     } = this.withResolvers<T, FailureOf<T>>(options);
 
-    // Options are identical for every item, so normalize once instead of per iteration.
-    const normalizedOptions = this._getOptions(options);
     const releaseInputs = createReleaser();
     // a settled race, canceled or not, needs none of its inputs
     const releaseOnSettle = (): void => {
@@ -919,7 +917,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
 
     try {
       for (const promiseOrValue of values) {
-        const promise = this._adopt<T>(promiseOrValue, normalizedOptions);
+        const promise = this._adopt<T>(promiseOrValue, INPUT_OPTIONS);
         promise._subscribe(resolveResult, rejectResult);
 
         releaseInputs.add(promise._retainRef(true));
@@ -970,12 +968,19 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
       return value as unknown as CancelablePromise<Awaited<V>, FailureOf<V>>;
     } else {
       // Wrap other promise instances or reconfigure same instances
-      return new this<Awaited<V>, FailureOf<V>>((resolve) => {
+      let adopted = false;
+      const wrapper = new this<Awaited<V>, FailureOf<V>>((resolve) => {
+        adopted = true;
         // Native Promise.resolve() semantics: coercing V to Awaited<V> here is the same
         // unification lib.es5's own overloaded Promise.resolve signatures encode by hand;
         // there is no single-signature way to prove it generically.
         resolve(value as unknown as Awaited<V> | PromiseLike<Awaited<V>>);
       }, options);
+      if (!adopted && isCancPromise(value)) {
+        // pre-abort skipped the executor, release the source as a live abort would
+        reclaimOrphanedResult(value, wrapper._canceledReason);
+      }
+      return wrapper;
     }
   }
 
@@ -1059,8 +1064,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
    * with the fast path inlined: an already-same-constructor CancelablePromise whose options are
    * unchanged is returned as-is (fast instanceof + constructor check), skipping the extra static
    * dispatch. Any other input (raw value, native thenable, reconfigured canc promise) falls back to
-   * a direct construction. `normalizedOptions` must already be normalized (hoisted once per
-   * combinator call, not per item).
+   * a direct construction. Combinators pass `INPUT_OPTIONS`: their own options apply to the result only.
    */
   protected static _adopt<T>(
     value: T | PromiseLike<T>,

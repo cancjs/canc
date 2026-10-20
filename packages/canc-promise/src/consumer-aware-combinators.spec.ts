@@ -1,4 +1,6 @@
-import { CancelablePromise } from './cancelable-promise';
+import { getEventListeners } from 'events';
+
+import { CancelablePromise, ICancelablePromiseOptions } from './cancelable-promise';
 
 const NativePromise = Promise;
 
@@ -279,5 +281,102 @@ describe('combinator inputs follow consumer counting', () => {
       expect(derived.isCanceled).toBe(false);
       expect(root.isCanceled).toBe(false);
     });
+  });
+});
+
+type Wrap = Kind | 'resolve';
+
+function combineWith(
+  kind: Wrap,
+  inputs: CancelablePromise<any, any>[],
+  options: ICancelablePromiseOptions,
+): CancelablePromise<any, any> {
+  switch (kind) {
+    case 'all':
+      return CancelablePromise.all(inputs, options);
+    case 'allSettled':
+      return CancelablePromise.allSettled(inputs, options);
+    case 'any':
+      return CancelablePromise.any(inputs, options);
+    case 'race':
+      return CancelablePromise.race(inputs, options);
+    default:
+      return CancelablePromise.resolve(inputs[0], options);
+  }
+}
+
+function abortListenerCount(signal: AbortSignal): number {
+  return getEventListeners(signal, 'abort').length;
+}
+
+describe('combinator options apply to the result only', () => {
+  describe.each(kinds)('%s() with a signal', (kind) => {
+    it('wires one abort listener whatever the number of inputs', () => {
+      const controller = new AbortController();
+      const inputs = [pending<string>(), pending<string>(), pending<string>()].map((input) => input.promise);
+      const result = combineWith(kind, inputs, { signal: controller.signal });
+      swallow(result);
+
+      expect(abortListenerCount(controller.signal)).toBe(1);
+      void result.cancel();
+    });
+  });
+
+  const wraps: Wrap[] = [...kinds, 'resolve'];
+
+  describe.each(wraps)('%s() aborted by its signal', (kind) => {
+    describe.each(['pre-aborted', 'live abort'])('%s', (mode) => {
+      function abortedResult(inputs: CancelablePromise<any, any>[]): CancelablePromise<any, any> {
+        const controller = new AbortController();
+        if (mode === 'pre-aborted') {
+          controller.abort();
+        }
+        const result = combineWith(kind, inputs, { signal: controller.signal });
+        swallow(result);
+        if (mode === 'live abort') {
+          controller.abort();
+        }
+        return result;
+      }
+
+      it('cancels the result and an input it holds alone', async () => {
+        const target = pending<string>();
+        const result = abortedResult([target.promise]);
+        await settleAll();
+
+        expect(result.isCanceled).toBe(true);
+        expect(target.promise.isCanceled).toBe(true);
+      });
+
+      it('keeps a shared input alive and hands its value to the other consumer', async () => {
+        const target = pending<string>();
+        const consumer = target.promise.then((value) => value);
+        const result = abortedResult([target.promise]);
+        await settleAll();
+
+        expect(result.isCanceled).toBe(true);
+        expect(target.promise.isCanceled).toBe(false);
+        target.resolve('shared value');
+        await expect(consumer).resolves.toBe('shared value');
+      });
+    });
+  });
+
+  // allSettled has no losers
+  describe.each(['all', 'any', 'race'] as const)('%s() result flags', (kind) => {
+    it.each([{ shield: true }, { bubble: false }, { forceCancelable: false }])(
+      'still releases a loser it holds alone with %p',
+      async (options) => {
+        const target = pending<string>();
+        const other = pending<string>();
+        const result = combineWith(kind, [target.promise, other.promise], options);
+        swallow(result);
+
+        settleOther(kind, other);
+        await settleAll();
+
+        expect(target.promise.isCanceled).toBe(true);
+      },
+    );
   });
 });
