@@ -1,3 +1,4 @@
+import type { Readable } from 'node:stream';
 import type { BrotliOptions, InputType, ZlibOptions } from 'node:zlib';
 
 import type { CancelablePromise } from '@cancjs/promise';
@@ -36,11 +37,7 @@ export type TIterableCodecFn = (
 export type TZipFilesOptions = Readonly<Record<string, unknown>>;
 
 /**
- * Walks `files`, writing each into the archive at `target`. Checkpointed per file: a cancel stops
- * before the next entry opens and leaves whatever was already written, with no rollback.
+ * Node's `zipFiles` shape: `[sourcePath, entryName]` pairs in, a `Readable` of archive bytes out.
+ * Synchronous; there is no promise, so cancel is destroying the returned stream.
  */
-export type TZipFilesFn = (
-  files: readonly string[],
-  target: string,
-  options?: TZipFilesOptions,
-) => CancelablePromise<void, Unlisted>;
+export type TZipFilesFn = (files: Iterable<readonly [string, string]>, options?: TZipFilesOptions) => Readable;

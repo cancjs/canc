@@ -148,9 +148,10 @@ describe('@cancjs/node/zlib emitted declarations', () => {
     expect(normalizeDoc(doc)).toContain(ITERABLE_TIER_CAVEAT);
   });
 
-  it('zip tier: zipFiles is promisify-callback over one native call, so it carries the buffer-tier sentence', () => {
+  it("zip tier: zipFiles is node's synchronous call, so its JSDoc says cancel is destroying the stream", () => {
     const doc = normalizeDoc(jsDocBefore(dts, 'zipFiles'));
-    expect(doc).toContain(BUFFER_TIER_CAVEAT);
+    expect(doc).toContain('destroying the returned stream');
+    expect(doc).not.toContain(BUFFER_TIER_CAVEAT);
     expect(doc).not.toContain(ITERABLE_TIER_CAVEAT);
   });
 

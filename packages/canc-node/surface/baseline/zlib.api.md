@@ -92,7 +92,7 @@ ArrayBuffer | NodeJS.ArrayBufferView<ArrayBufferLike> | string
 ## `TZipFilesFn` (type)
 
 ```text
-(files: ReadonlyArray<string>, target: string, options?: Readonly<Record<string, unknown>> | undefined): CancelablePromise<void, Unlisted>
+(files: Iterable<readonly [string, string]>, options?: Readonly<Record<string, unknown>> | undefined): Readable
 ```
 
 ## `TZipFilesOptions` (type)
@@ -795,7 +795,7 @@ Z_VERSION_ERROR: number
 ## `zipFiles` (const)
 
 ```text
-(files: ReadonlyArray<string>, target: string, options?: Readonly<Record<string, unknown>> | undefined): CancelablePromise<void, Unlisted>
+(files: Iterable<readonly [string, string]>, options?: Readonly<Record<string, unknown>> | undefined): Readable
 ```
 
 ## `zstdCompress` (const)

@@ -240,7 +240,7 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": "transform stream class, re-exported unchanged; destroy() genuinely stops it, unlike the one-shot buffer form of the same codec; throws NotImplementedError below 20.15.0",
+      "notes": "transform stream class, re-exported unchanged; destroy() genuinely stops it, unlike the one-shot buffer form of the same codec; throws NotImplementedError below 22.15.0",
       "callPath": "sync"
     },
     {
@@ -260,7 +260,7 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": "transform stream class, re-exported unchanged; destroy() genuinely stops it, unlike the one-shot buffer form of the same codec; throws NotImplementedError below 20.15.0",
+      "notes": "transform stream class, re-exported unchanged; destroy() genuinely stops it, unlike the one-shot buffer form of the same codec; throws NotImplementedError below 22.15.0",
       "callPath": "sync"
     },
     {
@@ -786,7 +786,7 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": "stream factory, synchronous construction, re-exported unchanged; throws NotImplementedError below 20.15.0",
+      "notes": "stream factory, synchronous construction, re-exported unchanged; throws NotImplementedError below 22.15.0",
       "callPath": "sync"
     },
     {
@@ -806,7 +806,7 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": "stream factory, synchronous construction, re-exported unchanged; throws NotImplementedError below 20.15.0",
+      "notes": "stream factory, synchronous construction, re-exported unchanged; throws NotImplementedError below 22.15.0",
       "callPath": "sync"
     },
     {
@@ -1303,14 +1303,13 @@
     {
       "name": "zipFiles",
       "kind": "fn",
-      "cancelCategory": "B",
+      "cancelCategory": null,
       "nodeSignal": {
         "documented": false,
         "since": null,
         "probed": null
       },
       "wrapper": "gated",
-      "teardown": "stop wait only; the native archive build keeps running until it finishes",
       "failures": ["ENOENT", "EACCES"],
       "minMajor": 26,
       "gate": "throw",
@@ -1318,8 +1317,8 @@
         "deno": "unverified",
         "bun": "unverified"
       },
-      "notes": "node zipFiles promisified; throws NotImplementedError below 26; the per-file walker moved to zlib/extra",
-      "callPath": "promises"
+      "notes": "node's sync zipFiles, returns its Readable; cancel = destroy the stream; throws NotImplementedError below 26.8.0; the per-file walker moved to zlib/extra",
+      "callPath": "sync"
     },
     {
       "name": "zstdCompress",
@@ -1339,7 +1338,7 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": "one-shot buffer compression on the threadpool; cancel stops waiting only, the codec keeps running and does not free the pool slot; throws NotImplementedError below 20.15.0",
+      "notes": "one-shot buffer compression on the threadpool; cancel stops waiting only, the codec keeps running and does not free the pool slot; throws NotImplementedError below 22.15.0",
       "callPath": "callback"
     },
     {
@@ -1359,7 +1358,7 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": "synchronous buffer codec, re-exported unchanged; no promise to cancel; throws NotImplementedError below 20.15.0",
+      "notes": "synchronous buffer codec, re-exported unchanged; no promise to cancel; throws NotImplementedError below 22.15.0",
       "callPath": "sync"
     },
     {
@@ -1380,7 +1379,7 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": "one-shot buffer decompression on the threadpool; cancel stops waiting only, the codec keeps running and does not free the pool slot; throws NotImplementedError below 20.15.0",
+      "notes": "one-shot buffer decompression on the threadpool; cancel stops waiting only, the codec keeps running and does not free the pool slot; throws NotImplementedError below 22.15.0",
       "callPath": "callback"
     },
     {
@@ -1400,7 +1399,7 @@
         "deno": "ok",
         "bun": "ok"
       },
-      "notes": "synchronous buffer codec, re-exported unchanged; no promise to cancel; throws NotImplementedError below 20.15.0",
+      "notes": "synchronous buffer codec, re-exported unchanged; no promise to cancel; throws NotImplementedError below 22.15.0",
       "callPath": "sync"
     }
   ]

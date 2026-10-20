@@ -224,14 +224,14 @@ describe('@cancjs/node/zlib', () => {
     expect((error as { required?: string }).required).toBe('25.9.0 (or --experimental-stream-iter)');
   });
 
-  it('zipFiles rejects NotImplementedError naming 26 when node has no zip archive family', async () => {
+  it('zipFiles throws NotImplementedError naming 26.8.0 synchronously when node has no zipFiles', () => {
     if (hasRealZipFiles) {
       return;
     }
 
     let error: unknown;
     try {
-      await zlibExports.zipFiles(['a.txt'], 'out.zip');
+      zlibExports.zipFiles([['a.txt', 'a.txt']]);
     } catch (err) {
       error = err;
     }

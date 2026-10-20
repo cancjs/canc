@@ -539,20 +539,19 @@ export const setMaxZipContentSize = gatedWrapped(
 ) as (size: number) => void;
 
 /**
- * Writes `files` into a zip archive at `target`. Requires Node 26.8 or later; throws
+ * Builds a zip archive from `[sourcePath, entryName]` pairs and returns node's own `Readable` of its
+ * bytes, same signature and return as node's `zipFiles`. Requires Node 26.8 or later; throws
  * `NotImplementedError` below that, driven by feature detection rather than a version parse.
  *
- * This is node's own `zipFiles`, promisified. Canceling stops the wait, not the work: the call keeps
- * running on node's threadpool and the slot it holds there stays occupied until it finishes. The
- * per-file walker this package used to ship under this name lives at `/zlib/extra` as
- * `zipFilesCheckpointed`.
+ * There is no promise to cancel: destroying the returned stream is the cancel. The per-file walker this package used to ship under
+ * this name lives at `/zlib/extra` as `zipFilesCheckpointed`.
  */
 export const zipFiles = gatedWrapped(
   has('zipFiles'),
   'zipFiles',
   '26.8.0',
-  () => promisifyWrapped(zlibCb.zipFiles as TNodeFn),
-  'promise',
+  () => zlibCb.zipFiles as TZipFilesFn,
+  'sync',
 ) as TZipFilesFn;
 
 export type { TIterableCodecFn, TZipFilesFn, TZipFilesOptions, TZstdOptions } from './types';

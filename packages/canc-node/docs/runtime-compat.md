@@ -470,7 +470,6 @@ Legend: `S` = Documented signal option, `y` = Present without signal, `-` = Abse
 | `inflate`           | y   | y   | y   | y   | y   | -            | v0.6.0  |
 | `inflateRaw`        | y   | y   | y   | y   | y   | -            | v0.6.0  |
 | `unzip`             | y   | y   | y   | y   | y   | -            | v0.6.0  |
-| `zipFiles`          | -   | -   | -   | -   | y   | -            | v26.8.0 |
 | `zstdCompress`      | -   | -   | y   | y   | y   | -            | v23.8.0 |
 | `zstdDecompress`    | -   | -   | y   | y   | y   | -            | v23.8.0 |
 
