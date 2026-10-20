@@ -380,8 +380,12 @@ describe('replaceFile', () => {
     const file = join(dir, 'target.txt');
     await fs.writeFile(file, 'initial content');
 
-    // the platform write creates the temp file only after 1.5s, far past the ~0.5s unlink retry budget,
-    // so a cleanup that gives up early leaves the file the write creates behind
+    // the platform write is held until the test releases it, so the temp file appears only after the
+    // cancel is already underway; a cleanup that gives up early leaves the file the write creates behind
+    let releaseWrite!: () => void;
+    const writeReleased = new Promise<void>((resolve) => {
+      releaseWrite = resolve;
+    });
     let writeLandedResolve!: () => void;
     const writeLanded = new Promise<void>((resolve) => {
       writeLandedResolve = resolve;
@@ -397,19 +401,21 @@ describe('replaceFile', () => {
         // the signal is dropped: node would otherwise abort the late write that the cancel already reached
         const lateOptions =
           typeof options === 'object' && options !== null ? { ...options, signal: undefined } : options;
-        setTimeout(() => {
+        void writeReleased.then(() => {
           realWriteFile(target, data, lateOptions, (err: unknown) => {
             writeLandedResolve();
             callback(err);
           });
-        }, 1500);
+        });
       },
     } as never);
 
     try {
       const p = replaceFile(file, 'x'.repeat(10000));
-      // awaiting cancel() covers the cleanup, which waits for the late write to land
-      await p.cancel();
+      // cancel() covers the cleanup, which waits for the held write to land, so release it without awaiting first
+      const cancelled = p.cancel();
+      releaseWrite();
+      await cancelled;
 
       await expect(p).rejects.toThrow(CancelError);
       await writeLanded;

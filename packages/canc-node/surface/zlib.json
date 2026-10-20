@@ -1303,7 +1303,7 @@
     {
       "name": "zipFiles",
       "kind": "fn",
-      "cancelCategory": "A",
+      "cancelCategory": "B",
       "nodeSignal": {
         "documented": false,
         "since": null,

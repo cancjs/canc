@@ -547,7 +547,7 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 | `inflate`           | stops waiting only (skipped if already canceled) | 18+  | yes        | yes        |
 | `inflateRaw`        | stops waiting only (skipped if already canceled) | 18+  | yes        | yes        |
 | `unzip`             | stops waiting only (skipped if already canceled) | 18+  | yes        | yes        |
-| `zipFiles`          | stops the work                                   | 26+  | unverified | unverified |
+| `zipFiles`          | stops waiting only (skipped if already canceled) | 26+  | unverified | unverified |
 | `zstdCompress`      | stops waiting only (skipped if already canceled) | 22+  | yes        | yes        |
 | `zstdDecompress`    | stops waiting only (skipped if already canceled) | 22+  | yes        | yes        |
 
