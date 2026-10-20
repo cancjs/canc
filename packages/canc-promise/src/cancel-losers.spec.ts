@@ -104,6 +104,8 @@ describe('cancel-losers doctrine', () => {
 
     const result = CancelablePromise.any([p1, p2]);
     await result;
+    // the released loser stops once its consumer count is rechecked
+    await macrotask();
 
     expect(p1).toEqual(expect.objectContaining({ isCanceled: false })); // winner, settled
     expect(p2.isCanceled).toBe(true); // loser, canceled

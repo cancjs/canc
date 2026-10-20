@@ -398,7 +398,7 @@ describe('adoption cancel propagation', () => {
     expect(result).toEqual([{ status: 'fulfilled', value: 5 }]);
   });
 
-  it('allSettled: a still-pending cancelable item is NOT canceled by canceling the result (doctrine unchanged by adoption fix)', async () => {
+  it('allSettled: canceling the result cancels a still-pending item it holds alone', async () => {
     let itemCanceled = false;
     const item = new CancelablePromise<number>((_resolve, _reject, { handleCancel }) => {
       handleCancel(() => {
@@ -413,9 +413,12 @@ describe('adoption cancel propagation', () => {
     await flush();
 
     result.cancel();
-    await flush();
+    // two deferred bubble hops: result to the mapped item, mapped item to the source
+    for (let turn = 0; turn < 10; turn++) {
+      await flush();
+    }
 
-    expect(itemCanceled).toBe(false);
-    expect(item.isCanceled).toBe(false);
+    expect(itemCanceled).toBe(true);
+    expect(item.isCanceled).toBe(true);
   });
 });
