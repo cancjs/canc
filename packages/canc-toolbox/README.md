@@ -89,7 +89,8 @@ canceled when the helper was its last consumer, and keeps running for the others
 same rule `then` follows. A `.catch` attached to the input counts as a consumer too. A released
 input receives a bubbled `CancelError`, not the reason passed to the helper's `cancel()` or the
 `TimeoutError` of a missed deadline. Any other cancelable input cannot be counted, so it is canceled
-directly with that reason, which assumes the helper is its only holder.
+directly, which assumes the helper is its only holder. Only `timeout` and `debounce` forward a reason
+to it; `delay`, `minDelay` and `retry` call `cancel()` without one.
 
 `cancelify` works from the other end. It hands the wrapped function a lazy signal thunk. The
 controller is created on the first `getSignal()` call and aborted when the returned promise is
