@@ -1,4 +1,5 @@
-import { AbortError, createAggregateError } from '../_util';
+import type { Unlisted } from '../_util';
+import { AbortError, AggregateError, createAggregateError } from '../_util';
 import { construct, IExecutorCtx } from './construct';
 import { IToolboxDeps } from './deps';
 import { isThenableLike } from './guards';
@@ -22,8 +23,14 @@ export interface IMapOptions {
   stopOnError?: boolean;
 }
 
-/** The per-item callback. It may return a value, a promise, or a cancelable. */
-export type TMapper<T, R> = (item: T, index: number) => R | PromiseLike<R>;
+/**
+ * The per-item callback. It may return a value, a promise, or a cancelable. A promise of the bound
+ * implementation `K` lends its failure set `F` to the result.
+ */
+export type TMapper<T, R, K extends IPromiseKind = IPromiseLikeKind, F = never> = (
+  item: T,
+  index: number,
+) => TPromiseOf<K, R, F> | R | PromiseLike<R>;
 
 /** One item's failure, kept with its index so the aggregate reads in input order. */
 interface IFailure {
@@ -69,12 +76,18 @@ export function mapFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IToo
    * promise a mapper returned is canceled only when `map` was its last consumer. A plain
    * Promise implementation has no cancel surface: the returned promise cannot be canceled, and on
    * an early rejection the queued mappers are dropped while the running ones are left to finish.
+   *
+   * The failure set is the one the mapper declares plus the AggregateError, and it stays open.
    */
-  return function map<T, R>(input: Iterable<T>, mapper: TMapper<T, R>, options?: IMapOptions): TPromiseOf<K, R[]> {
+  return function map<T, R, F = never>(
+    input: Iterable<T>,
+    mapper: TMapper<T, R, K, F>,
+    options?: IMapOptions,
+  ): TPromiseOf<K, R[], F | AggregateError | Unlisted> {
     const concurrency = options?.concurrency !== undefined ? options.concurrency : Infinity;
     const stopOnError = options?.stopOnError !== false;
 
-    return construct<R[], K>(deps.Impl, function (resolve, reject, ctx?: IExecutorCtx) {
+    return construct<R[], K, F | AggregateError | Unlisted>(deps.Impl, function (resolve, reject, ctx?: IExecutorCtx) {
       // Ahead of the empty-input shortcut, so a bad concurrency is rejected either way.
       const limited = limit(concurrency);
       const items = materialize(input);
@@ -125,7 +138,8 @@ export function mapFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IToo
 
           let raw: R | PromiseLike<R>;
           try {
-            raw = mapper(it, idx);
+            // A flavor's promise type is opaque here, and a thenable by construction
+            raw = mapper(it, idx) as R | PromiseLike<R>;
           } catch (reason) {
             if (stopOnError && !settled) {
               settled = true;

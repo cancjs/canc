@@ -1,3 +1,4 @@
+import type { Unlisted } from '../_util';
 import { AbortError } from '../_util';
 import { construct, IExecutorCtx } from './construct';
 import { IToolboxDeps } from './deps';
@@ -12,9 +13,13 @@ import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
 export interface ILimited<K extends IPromiseKind = IPromiseLikeKind> {
   /**
    * Schedules `fn`, calling it with `args` once a slot is free. The returned promise settles with
-   * whatever `fn` produced.
+   * whatever `fn` produced. Its failure set is the one `fn` declares, kept open because a job
+   * dropped from the queue rejects as well.
    */
-  <T, Args extends unknown[]>(fn: (...args: Args) => T | PromiseLike<T>, ...args: Args): TPromiseOf<K, T>;
+  <T, Args extends unknown[], F = never>(
+    fn: (...args: Args) => TPromiseOf<K, T, F> | T | PromiseLike<T>,
+    ...args: Args
+  ): TPromiseOf<K, T, F | Unlisted>;
   /** Jobs that have started and not yet settled. */
   readonly active: number;
   /** Jobs waiting for a slot. None of them has been called. */

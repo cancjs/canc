@@ -1,13 +1,15 @@
 import { CancelablePromise, FailureOf, TimeoutError, Unlisted } from '@cancjs/promise';
 
 import { Eq } from '../../../tests-types/fixtures/common/assert-type';
-import { isTimeoutError } from '../../_util';
+import { AggregateError, isTimeoutError } from '../../_util';
 import {
   cancelify,
   debounce,
   defer,
   delay,
   lazy,
+  limit,
+  map,
   minDelay,
   promisify,
   retry,
@@ -44,11 +46,37 @@ function _declaredFailures(): void {
   const _delayed = delay(work, 100);
   const _delayTakesFailureFromInput: Eq<typeof _delayed, CancelablePromise<number, HttpError>> = true;
 
+  // a superseded call rejects, so the set stays open without naming that rejection
   const _debounced = debounce(callWork, 100);
-  const _debounceTakesFailureFromWork: Eq<ReturnType<typeof _debounced>, CancelablePromise<number, HttpError>> = true;
+  const _debounceKeepsWorkFailureOpen: Eq<
+    ReturnType<typeof _debounced>,
+    CancelablePromise<number, HttpError | Unlisted>
+  > = true;
 
   const _throttled = throttle(callWork, 100);
-  const _throttleTakesFailureFromWork: Eq<ReturnType<typeof _throttled>, CancelablePromise<number, HttpError>> = true;
+  const _throttleKeepsWorkFailureOpen: Eq<
+    ReturnType<typeof _throttled>,
+    CancelablePromise<number, HttpError | Unlisted>
+  > = true;
+
+  // a job dropped from the queue rejects, so the set stays open without naming that rejection
+  const _limited = limit(1)(callWork, 'x');
+  const _limitKeepsJobFailureOpen: Eq<typeof _limited, CancelablePromise<number, HttpError | Unlisted>> = true;
+
+  // `map` names its own aggregate failure next to the mapper's
+  const _mapped = map([1], () => work);
+  const _mapAddsAggregate: Eq<
+    typeof _mapped,
+    CancelablePromise<number[], HttpError | AggregateError | Unlisted>
+  > = true;
+
+  const _mappedPlain = map([1], (item) => item * 2);
+  const _mapOfPlainDeclaresAggregate: Eq<
+    typeof _mappedPlain,
+    CancelablePromise<number[], AggregateError | Unlisted>
+  > = true;
+  const _mapReasonReadsErrors = _mappedPlain.catch((e) => e.errors);
+  const _limitReasonReadsName = limit(1)(callWork, 'x').catch((e) => e.name);
 
   // The helpers with nothing to read a failure set from declare none.
   const _bareDelay = delay(100);
@@ -94,8 +122,13 @@ function _declaredFailures(): void {
     _retryTakesFailureFromWork,
     _minDelayTakesFailureFromInput,
     _delayTakesFailureFromInput,
-    _debounceTakesFailureFromWork,
-    _throttleTakesFailureFromWork,
+    _debounceKeepsWorkFailureOpen,
+    _throttleKeepsWorkFailureOpen,
+    _limitKeepsJobFailureOpen,
+    _mapAddsAggregate,
+    _mapOfPlainDeclaresAggregate,
+    _mapReasonReadsErrors,
+    _limitReasonReadsName,
     _bareDelayDeclaresNothing,
     _deferDeclaresNothing,
     _promisifyDeclaresNothing,
@@ -140,10 +173,10 @@ describe('failure type specs', () => {
     const _minDelayOfPlainInputDeclaresNothing: Eq<typeof floored, CancelablePromise<number, never>> = true;
 
     const _debounced = debounce((_id: string) => {}, 0);
-    const _debounceOfPlainWorkDeclaresNothing: Eq<ReturnType<typeof _debounced>, CancelablePromise<void, never>> = true;
+    const _debounceOfPlainWorkIsOpen: Eq<ReturnType<typeof _debounced>, CancelablePromise<void, Unlisted>> = true;
 
     const _throttled = throttle((_id: string) => {}, 0);
-    const _throttleOfPlainWorkDeclaresNothing: Eq<ReturnType<typeof _throttled>, CancelablePromise<void, never>> = true;
+    const _throttleOfPlainWorkIsOpen: Eq<ReturnType<typeof _throttled>, CancelablePromise<void, Unlisted>> = true;
 
     const promisified = promisify((cb: (err: unknown, value: number) => void) => cb(null, 1));
     const _promisifyDeclaresNothing: Eq<ReturnType<typeof promisified>, CancelablePromise<any, never>> = true;
@@ -174,8 +207,8 @@ describe('failure type specs', () => {
       _delayOfNothingDeclaresNothing,
       _retryOfPlainWorkDeclaresNothing,
       _minDelayOfPlainInputDeclaresNothing,
-      _debounceOfPlainWorkDeclaresNothing,
-      _throttleOfPlainWorkDeclaresNothing,
+      _debounceOfPlainWorkIsOpen,
+      _throttleOfPlainWorkIsOpen,
       _promisifyDeclaresNothing,
       _deferDeclaresNothing,
       _timeoutDeclaresTimeout,

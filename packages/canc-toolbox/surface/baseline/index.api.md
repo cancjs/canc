@@ -110,7 +110,7 @@ resolve: (value?: PromiseLike<T> | T) => void
 ## `ILimited<K extends IPromiseKind = IPromiseLikeKind>` (interface)
 
 ```text
-<T, Args extends unknown[]>(fn: (...args: Args) => PromiseLike<T> | T, ...args: Args): TPromiseOf<K, T>
+<T, Args extends unknown[], F = never>(fn: (...args: Args) => PromiseLike<T> | T | TPromiseOf<K, T, F>, ...args: Args): TPromiseOf<K, T, F | Unlisted>
 readonly active: number
 cancel: (reason?: any) => void
 concurrency: number
@@ -333,10 +333,10 @@ TErrorConstructor | TErrorPredicate | string
 (reason?: any): void
 ```
 
-## `TMapper<T, R>` (type)
+## `TMapper<T, R, K extends IPromiseKind = IPromiseLikeKind, F = never>` (type)
 
 ```text
-(item: T, index: number): PromiseLike<R> | R
+(item: T, index: number): PromiseLike<R> | R | TPromiseOf<K, R, F>
 ```
 
 ## `TTimedInput<T, K extends IPromiseKind = IPromiseLikeKind, F = never>` (type)
@@ -410,7 +410,7 @@ stack?: string | undefined
 ## `debounce` (const)
 
 ```text
-<Args extends unknown[], R, F = never>(fn: (...args: Args) => CancelablePromise<R, F> | PromiseLike<R> | R, ms: number, options?: IDebounceOptions | undefined): IDebounced<Args, R, ICancelableKind, F>
+<Args extends unknown[], R, F = never>(fn: (...args: Args) => CancelablePromise<R, F> | PromiseLike<R> | R, ms: number, options?: IDebounceOptions | undefined): IDebounced<Args, R, ICancelableKind, F | Unlisted>
 ```
 
 ## `defer` (const)
@@ -471,7 +471,7 @@ stack?: string | undefined
 ## `map` (const)
 
 ```text
-<T, R>(input: Iterable<T>, mapper: TMapper<T, R>, options?: IMapOptions | undefined): CancelablePromise<Array<R>, never>
+<T, R, F = never>(input: Iterable<T>, mapper: TMapper<T, R, ICancelableKind, F>, options?: IMapOptions | undefined): CancelablePromise<Array<R>, F | IAggregateError | Unlisted>
 ```
 
 ## `minDelay` (const)
@@ -517,7 +517,7 @@ stack?: string | undefined
 ## `throttle` (const)
 
 ```text
-<Args extends unknown[], R, F = never>(fn: (...args: Args) => CancelablePromise<R, F> | PromiseLike<R> | R, ms: number, options?: IThrottleOptions | undefined): IThrottled<Args, R, ICancelableKind, F>
+<Args extends unknown[], R, F = never>(fn: (...args: Args) => CancelablePromise<R, F> | PromiseLike<R> | R, ms: number, options?: IThrottleOptions | undefined): IThrottled<Args, R, ICancelableKind, F | Unlisted>
 ```
 
 ## `timeout` (const)

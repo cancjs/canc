@@ -1,3 +1,4 @@
+import type { Unlisted } from '../_util';
 import { isSupersededError, SupersededError } from '../_util';
 import { construct, IExecutorCtx, TPromiseCtor } from './construct';
 import { TCallDeps } from './deps';
@@ -57,12 +58,14 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
    * Debounce a function call by waiting for `ms` milliseconds of silence before invoking `fn`.
    * Canceling or superseding a call that already invoked `fn` gives up its result: a cancelable
    * promise is canceled only when it has no other consumer, any other cancelable directly.
+   *
+   * The failure set is the one `fn` declares, kept open because a superseded call rejects as well.
    */
   return function debounce<Args extends unknown[], R, F = never>(
     fn: (...args: Args) => TPromiseOf<K, R, F> | R | PromiseLike<R>,
     ms: number,
     options?: IDebounceOptions,
-  ): IDebounced<Args, R, K, F> {
+  ): IDebounced<Args, R, K, F | Unlisted> {
     const leading = options?.leading === true;
     const trailing = options?.trailing === false ? false : true;
     const maxWait: number | undefined = options != null ? options.maxWait : undefined;
@@ -77,7 +80,7 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
 
     let pendingResolve: ((value: R | PromiseLike<R>) => void) | undefined;
     let pendingReject: ((reason?: any) => void) | undefined;
-    let pendingPromise: TPromiseOf<K, R, F> | undefined;
+    let pendingPromise: TPromiseOf<K, R, F | Unlisted> | undefined;
     let cycle: ICycle = { settled: false, leadingInvoked: false, invoking: false };
     let superseding = false;
 
@@ -231,7 +234,7 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
       maxTimerId = startTimer(timerExpired, ms, timers);
     }
 
-    function makePromise(): TPromiseOf<K, R, F> {
+    function makePromise(): TPromiseOf<K, R, F | Unlisted> {
       const own: ICycle = { settled: false, leadingInvoked: false, invoking: false };
       cycle = own;
 
@@ -318,7 +321,7 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
       cancelCurrent(reason);
     };
 
-    wrapped.flush = function (): TPromiseOf<K, R, F> | undefined {
+    wrapped.flush = function (): TPromiseOf<K, R, F | Unlisted> | undefined {
       if ((timerId === undefined && maxTimerId === undefined) || pendingPromise === undefined) return undefined;
 
       const args = lastArgs;

@@ -1,3 +1,4 @@
+import type { Unlisted } from '../_util';
 import { debounceFactory, IDebounced, IDebounceDeps } from './debounce';
 import { TCallDeps } from './deps';
 import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
@@ -23,7 +24,7 @@ export function throttleFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
     fn: (...args: Args) => TPromiseOf<K, R, F> | R | PromiseLike<R>,
     ms: number,
     options?: IThrottleOptions,
-  ): IThrottled<Args, R, K, F> {
+  ): IThrottled<Args, R, K, F | Unlisted> {
     return debounce<Args, R, F>(fn, ms, {
       ...options,
       leading: options?.leading === false ? false : true,
