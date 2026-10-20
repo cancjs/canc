@@ -6,9 +6,11 @@ import {
   isJsonParseError,
   isNotImplementedError,
   isProcessExitError,
+  isProcessSpawnError,
   JsonParseError,
   NotImplementedError,
   ProcessExitError,
+  ProcessSpawnError,
 } from '../errors/classes';
 import { reviveWorkerError } from './error-revive';
 import { runTask } from './run-task';
@@ -101,6 +103,13 @@ describe('@cancjs/node worker-threads error revival', () => {
       expect(isProcessExitError(reason)).toBe(true);
       expect(reason).toBeInstanceOf(ProcessExitError);
       expect((reason as { exitCode?: number }).exitCode).toBe(3);
+    });
+
+    it('rebuilds a ProcessSpawnError thrown as the real class', async () => {
+      const reason = await reasonOf(runTask(throwing('ProcessSpawnError'), undefined, { eval: true }));
+
+      expect(isProcessSpawnError(reason)).toBe(true);
+      expect(reason).toBeInstanceOf(ProcessSpawnError);
     });
 
     it('rebuilds a JsonParseError thrown as the real class', async () => {
