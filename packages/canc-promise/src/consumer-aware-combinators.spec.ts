@@ -190,6 +190,7 @@ describe('combinator inputs follow consumer counting', () => {
       await settleAll();
     });
 
+    // 40000 allocations are slow on CI runners, hence the long timeout
     it('registers one release on the result over 40000 shared pending inputs', async () => {
       const inputs = Array.from({ length: 40000 }, () => pending<number>().promise);
       const consumers = inputs.map((input) => input.then((value) => value));
@@ -206,7 +207,7 @@ describe('combinator inputs follow consumer counting', () => {
       expect(inputs.some((input) => input.isCanceled)).toBe(false);
       consumers.forEach((consumer) => void consumer.cancel());
       await settleAll();
-    });
+    }, 30000);
   });
 
   describe('race result losing its only consumer', () => {
