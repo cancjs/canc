@@ -37,8 +37,8 @@ const resultThenIdleTask = `
   setInterval(() => {}, 1000);
 `;
 
-// a child process that loads run-task from source and exits on its own once the event loop is empty;
-// the spawn timeout is the bound, so a process that never exits fails the assert instead of the suite
+// a child process loads run-task from source and must exit on its own once the loop is empty.
+// The spawn timeout bounds it, so a leak fails the assert instead of hanging the suite.
 const exitingChildScript = `
   const ts = require(${JSON.stringify(require.resolve('typescript'))});
   const Module = require('module');

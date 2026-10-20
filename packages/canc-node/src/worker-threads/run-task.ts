@@ -100,7 +100,7 @@ export function runTask<TResult = unknown>(
       worker.once('message', (result: TResult) => {
         hasResult = true;
         resolve(result);
-        // the answer is in, and a worker that is still listening would otherwise keep the process alive
+        // a worker still listening would keep the process alive after the answer
         void terminateAndWaitForExit(worker);
       });
 
