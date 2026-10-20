@@ -24,8 +24,8 @@ export interface IReadableTerminalOptions {
   /**
    * Set false to leave the source open when the returned promise is canceled. Default true.
    *
-   * With `false` the source is not destroyed and stays readable, but the read already in flight is
-   * abandoned: chunks it has taken are not handed back, so a later read does not see them.
+   * With `false` the source is not destroyed and stays readable. The read in flight at cancel is
+   * abandoned: the chunk it takes next is consumed and dropped, so a later read starts one chunk after it.
    */
   destroyOnCancel?: boolean;
 }

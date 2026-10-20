@@ -385,7 +385,8 @@ describe('cancel destroys the source stream', () => {
     expect(kept.stream.destroyed).toBe(false);
     expect(seen).toHaveLength(seenAtCancel);
     expect(readAfter).toHaveLength(3);
-    expect(readAfter[0]).toBeGreaterThan(seen[seenAtCancel - 1]);
+    // one chunk, taken by the canceled read after the last one it delivered, is dropped
+    expect(readAfter[0]).toBe(seen[seenAtCancel - 1] + 2);
 
     kept.stream.destroy();
   });
