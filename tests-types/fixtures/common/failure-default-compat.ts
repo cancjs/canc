@@ -11,7 +11,7 @@ import type { FailureOf, Unlisted } from '@cancjs/promise';
 import CancelablePromise, { AbortError, catchCancel, catchErrors, TimeoutError } from '@cancjs/promise';
 import { async as cancAsync, await as cancAwait } from '@cancjs/coroutine';
 import cancelableFetch from '@cancjs/fetch';
-import { delay, minDelay, timeout, waitFor } from '@cancjs/toolbox';
+import { debounce, delay, limit, map, minDelay, timeout, waitFor } from '@cancjs/toolbox';
 
 import type { Assert, Eq } from './assert-type';
 
@@ -242,6 +242,25 @@ const minDelayF = minDelay(f, 10);
 const delayF = delay(f, 10);
 type _minDelayF = Assert<Eq<FailureOf<typeof minDelayF>, FooError>>;
 type _delayF = Assert<Eq<FailureOf<typeof delayF>, FooError>>;
+
+// helpers that reject on their own stay open, and a cancellation stand-in is never listed
+declare const fooJob: () => CancelablePromise<number, FooError>;
+const mapPlain = map([1], (x) => x * 2);
+const mapF = map([1], () => f);
+const limitF = limit(1)(fooJob);
+const debouncedF = debounce(fooJob, 10)();
+type _mapPlain = Assert<Eq<FailureOf<typeof mapPlain>, AggregateErrorShape | Unlisted>>;
+type _mapF = Assert<Eq<FailureOf<typeof mapF>, FooError | AggregateErrorShape | Unlisted>>;
+type _limitF = Assert<Eq<FailureOf<typeof limitF>, FooError | Unlisted>>;
+type _limitNoAbort = Assert<Eq<Exclude<FailureOf<typeof limitF>, AbortError>, FailureOf<typeof limitF>>>;
+type _debouncedF = Assert<Eq<FailureOf<typeof debouncedF>, FooError | Unlisted>>;
+export const mapReason = map([1], (x) => x).catch((e) => e.errors);
+export const limitReason = limit(1)(fooJob).catch((e) => e.name);
+const coMap = cancAsync(function* () {
+  const x = yield* cancAwait(map([1], (x) => x));
+  return x;
+});
+type _coMap = Assert<Eq<FailureOf<ReturnType<typeof coMap>>, AggregateErrorShape>>;
 
 // a coroutine step declares the library error only
 const coTimeoutN = cancAsync(function* () {
