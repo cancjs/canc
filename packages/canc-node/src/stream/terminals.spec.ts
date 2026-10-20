@@ -238,6 +238,32 @@ describe('cancel destroys the source stream', () => {
     expect(stream.destroyed).toBe(true);
   });
 
+  it('leaves the same listeners on a destroyed idle source as node toArray with a signal does', async () => {
+    const LISTENED = ['data', 'readable', 'end', 'error', 'close'];
+
+    // native baseline: abort node's own toArray on an idle stream, then destroy the stream the way cancel does
+    const nativeStream = idleStream();
+    const controller = new AbortController();
+    const nativeSettled = nativeStream.toArray({ signal: controller.signal }).then(
+      () => undefined,
+      () => undefined,
+    );
+    await tick();
+    controller.abort();
+    nativeStream.destroy();
+    await nativeSettled;
+    const native = LISTENED.map((event) => nativeStream.listenerCount(event));
+
+    const canceledStream = idleStream();
+    const p = toArray(canceledStream);
+    await tick();
+    p.cancel();
+    await expectCancelRejection(p);
+    const canc = LISTENED.map((event) => canceledStream.listenerCount(event));
+
+    expect(canc).toEqual(native);
+  });
+
   it('every terminal destroys an idle source on cancel', async () => {
     const calls = [
       (s: Readable) => some(s, () => false),
