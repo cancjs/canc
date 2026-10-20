@@ -46,7 +46,7 @@ import {
 // cancelify does not accept lazy option
 import { cancelify } from '@cancjs/toolbox';
 // the eagerly starting helpers omit the lazy option the same way
-import { debounce, defer, minDelay, throttle } from '@cancjs/toolbox';
+import { debounce, defer, delay, LazyPromise, minDelay, throttle, timeout } from '@cancjs/toolbox';
 import {
   AbortError as NativeAbortError,
   catchAbort as nativeCatchAbort,
@@ -57,6 +57,7 @@ import {
   suppressTimeout as nativeSuppressTimeout,
   TimeoutError as NativeTimeoutError,
 } from '@cancjs/toolbox-native';
+import { delay as nativeDelay, LazyPromise as NativeLazyPromise } from '@cancjs/toolbox-native';
 
 import type { Equal, Expect } from './assert-type';
 
@@ -284,3 +285,17 @@ cancelifyOne();
 cancelifyNone('nope');
 
 export {};
+
+// a helper called with the lazy option returns a lazy promise with the eager failure set
+const lazyDelay = delay(1, { lazy: true });
+type _lazyDelay = Expect<Equal<typeof lazyDelay, LazyPromise<void, never>>>;
+const lazyTimeout = timeout(1, { lazy: true });
+type _lazyTimeout = Expect<Equal<typeof lazyTimeout, LazyPromise<never, TimeoutError | Unlisted>>>;
+const eagerDelay = delay(1);
+type _eagerDelay = Expect<Equal<typeof eagerDelay, CancelablePromise<void, never>>>;
+const lazyTry = LazyPromise.try(() => delay(1));
+type _lazyTry = Expect<Equal<typeof lazyTry, LazyPromise<void, never>>>;
+const nativeLazyDelay = nativeDelay(1, { lazy: true });
+type _nativeLazyDelay = Expect<Equal<typeof nativeLazyDelay, NativeLazyPromise<void>>>;
+// @ts-expect-error the native lazy promise has no cancel
+nativeLazyDelay.cancel();
