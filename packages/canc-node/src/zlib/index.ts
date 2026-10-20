@@ -7,7 +7,6 @@ import {
   TCreateZipArchiveSyncFn,
   TIterableCodecFn,
   TZipFilesFn,
-  TZipFilesOptions,
   TZlibBufferFn,
   TZstdBufferFn,
   TZstdOptions,
