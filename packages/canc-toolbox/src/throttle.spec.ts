@@ -192,7 +192,7 @@ describe('throttle', () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(stamps).toEqual([0, 100, 202]);
+    expect(stamps).toEqual([0, 100, 200]);
   });
 
   it('a trailing invoke re-arms the window, so the next call is not a fresh leading edge', async () => {
@@ -540,6 +540,6 @@ describe('throttle', () => {
     throttled();
     jest.advanceTimersByTime(298);
 
-    expect(timestamps).toEqual([0, 100, 202]);
+    expect(timestamps).toEqual([0, 100, 200]);
   });
 });

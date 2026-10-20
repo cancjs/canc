@@ -229,7 +229,7 @@ name: string
 ## `debounce` (const)
 
 ```text
-<Args extends unknown[], R, F = never>(fn: (...args: Args) => PromiseLike<R> | R, ms: number, options?: IDebounceOptions | undefined): IDebounced<Args, R, IPromiseLikeKind, F>
+<Args extends unknown[], R, F = never>(fn: (...args: Args) => Promise<R> | PromiseLike<R> | R, ms: number, options?: IDebounceOptions | undefined): IDebounced<Args, R, INativeKind, F>
 ```
 
 ## `defer` (const)
@@ -334,7 +334,7 @@ name: string
 ## `throttle` (const)
 
 ```text
-<Args extends unknown[], R, F = never>(fn: (...args: Args) => PromiseLike<R> | R, ms: number, options?: IThrottleOptions | undefined): IThrottled<Args, R, IPromiseLikeKind, F>
+<Args extends unknown[], R, F = never>(fn: (...args: Args) => Promise<R> | PromiseLike<R> | R, ms: number, options?: IThrottleOptions | undefined): IThrottled<Args, R, INativeKind, F>
 ```
 
 ## `timeout` (const)
