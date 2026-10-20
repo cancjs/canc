@@ -29,7 +29,7 @@ const iterZlibSpec = (
   }
 ).getBuiltinModule?.('node:zlib/iter');
 const hasRealCompressGzip = typeof iterZlibSpec?.compressGzip === 'function';
-const hasRealZipFiles = typeof (nodeZlib as unknown as Record<string, unknown>).createZipArchive === 'function';
+const hasRealZipFiles = typeof (nodeZlib as unknown as Record<string, unknown>).zipFiles === 'function';
 
 describe('@cancjs/node/zlib', () => {
   it('gzip then gunzip round-trips a buffer', async () => {

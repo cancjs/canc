@@ -1,6 +1,6 @@
 import { Readable } from 'node:stream';
 
-import { zipFiles } from './index';
+import { createZipArchive, zipFiles } from './index';
 
 // stub shaped like node 26.8 zipFiles: sync, [sourcePath, entryName] pairs in, Readable out
 jest.mock('node:zlib', () => {
@@ -18,7 +18,17 @@ jest.mock('node:zlib', () => {
       },
     });
   };
-  return { __esModule: true, ...actual, default: { ...actual, zipFiles: stubZipFiles }, zipFiles: stubZipFiles };
+  const stubCreateZipArchive = (entries: Iterable<unknown>, options?: unknown) => {
+    void options;
+    return new StubReadable({
+      read() {
+        this.push(Buffer.from(String([...entries].length)));
+        this.push(null);
+      },
+    });
+  };
+  const stubs = { zipFiles: stubZipFiles, createZipArchive: stubCreateZipArchive };
+  return { __esModule: true, ...actual, default: { ...actual, ...stubs }, ...stubs };
 });
 
 describe('zipFiles mirrors node 26.8 zipFiles', () => {
@@ -48,5 +58,13 @@ describe('zipFiles mirrors node 26.8 zipFiles', () => {
     result.destroy();
 
     expect(result.destroyed).toBe(true);
+  });
+
+  it('createZipArchive takes entries and options, returns a Readable, no fd or addEntry', () => {
+    const result = createZipArchive([{ name: 'a.txt' }], { comment: 'c', baseOffset: 0 });
+
+    expect(result).toBeInstanceOf(Readable);
+    expect(typeof (result as unknown as { addEntry?: unknown }).addEntry).toBe('undefined');
+    result.destroy();
   });
 });

@@ -3,7 +3,7 @@
 Generated. Do not edit by hand.
 
 - Declarations: `packages/canc-node/dist/types/zlib/index.d.ts`
-- Exports: 109
+- Exports: 112
 
 ## `BrotliCompress` (class)
 
@@ -83,22 +83,40 @@ new (options?: ZlibOptions | undefined): InflateRaw
 ArrayBuffer | NodeJS.ArrayBufferView<ArrayBufferLike> | string
 ```
 
+## `TCreateZipArchiveFn` (type)
+
+```text
+(entries: AsyncIterable<unknown> | Iterable<unknown>, options?: TZipArchiveOptions | undefined): Readable
+```
+
+## `TCreateZipArchiveSyncFn` (type)
+
+```text
+(entries: Iterable<unknown>, options?: TZipArchiveOptions | undefined): Iterator<Buffer<ArrayBufferLike>, any, any>
+```
+
 ## `TIterableCodecFn` (type)
 
 ```text
 (source: AsyncIterable<InputType> | Iterable<InputType>, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
 ```
 
+## `TZipArchiveOptions` (type)
+
+```text
+Readonly<{ comment?: string; baseOffset?: number; }> | string
+```
+
 ## `TZipFilesFn` (type)
 
 ```text
-(files: Iterable<readonly [string, string]>, options?: Readonly<Record<string, unknown>> | undefined): Readable
+(files: Iterable<readonly [string, string]>, options?: TZipFilesOptions | undefined): Readable
 ```
 
 ## `TZipFilesOptions` (type)
 
 ```text
-{ readonly [x: string]: unknown; }
+Readonly<{ comment?: string; baseOffset?: number; followSymlinks?: boolean; }> | string
 ```
 
 ## `TZstdOptions` (type)
@@ -627,13 +645,13 @@ Z_VERSION_ERROR: number
 ## `createZipArchive` (const)
 
 ```text
-(target: string, options?: Readonly<Record<string, unknown>> | undefined): IZipArchiveWriter
+(entries: AsyncIterable<unknown> | Iterable<unknown>, options?: TZipArchiveOptions | undefined): Readable
 ```
 
 ## `createZipArchiveSync` (const)
 
 ```text
-(target: string, options?: Readonly<Record<string, unknown>> | undefined): IZipArchiveWriter
+(entries: Iterable<unknown>, options?: TZipArchiveOptions | undefined): Iterator<Buffer<ArrayBufferLike>, any, any>
 ```
 
 ## `createZstdCompress` (const)
@@ -795,7 +813,7 @@ Z_VERSION_ERROR: number
 ## `zipFiles` (const)
 
 ```text
-(files: Iterable<readonly [string, string]>, options?: Readonly<Record<string, unknown>> | undefined): Readable
+(files: Iterable<readonly [string, string]>, options?: TZipFilesOptions | undefined): Readable
 ```
 
 ## `zstdCompress` (const)

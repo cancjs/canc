@@ -3,6 +3,8 @@ import nodeZlib from 'node:zlib';
 
 import {
   TBrotliBufferFn,
+  TCreateZipArchiveFn,
+  TCreateZipArchiveSyncFn,
   TIterableCodecFn,
   TZipFilesFn,
   TZipFilesOptions,
@@ -481,37 +483,33 @@ export const ZipBuffer = gatedClassWrapped(
   () => zlibCb.ZipBuffer as unknown as new (...args: unknown[]) => object,
 );
 
-/** The zip archive builder's write surface `zipFiles` depends on, named from the surface manifest's
- * published method list. Node has not shipped the real class on any tracked runtime yet, so this
- * narrows only what the walker below calls, not `ZipBuffer` / `createZipArchive`'s full shape. */
-interface IZipArchiveWriter {
-  addEntry(path: string): unknown;
-  close(): unknown;
-}
-
 /**
- * Opens a zip archive builder backed by a stream, written to `target`. Requires Node 26.8 or later;
- * throws `NotImplementedError` below that, driven by feature detection rather than a version parse.
+ * Builds a zip archive from `ZipEntry` values and returns node's own `Readable` of its bytes, same
+ * signature and return as node's `createZipArchive`. Requires Node 26.8 or later; throws
+ * `NotImplementedError` below that, driven by feature detection rather than a version parse.
+ *
+ * There is no promise to cancel: destroying the returned stream is the cancel.
  */
 export const createZipArchive = gatedWrapped(
   has('createZipArchive'),
   'createZipArchive',
   '26.8.0',
-  () => zlibCb.createZipArchive as (target: string, options?: TZipFilesOptions) => IZipArchiveWriter,
+  () => zlibCb.createZipArchive as TCreateZipArchiveFn,
   'sync',
-) as (target: string, options?: TZipFilesOptions) => IZipArchiveWriter;
+) as TCreateZipArchiveFn;
 
 /**
- * Synchronous counterpart of {@link createZipArchive}. Requires Node 26.8 or later; throws
- * `NotImplementedError` below that, driven by feature detection rather than a version parse.
+ * Synchronous counterpart of {@link createZipArchive}: returns node's iterator of archive chunks.
+ * Requires Node 26.8 or later; throws `NotImplementedError` below that, driven by feature detection
+ * rather than a version parse.
  */
 export const createZipArchiveSync = gatedWrapped(
   has('createZipArchiveSync'),
   'createZipArchiveSync',
   '26.8.0',
-  () => zlibCb.createZipArchiveSync as (target: string, options?: TZipFilesOptions) => IZipArchiveWriter,
+  () => zlibCb.createZipArchiveSync as TCreateZipArchiveSyncFn,
   'sync',
-) as (target: string, options?: TZipFilesOptions) => IZipArchiveWriter;
+) as TCreateZipArchiveSyncFn;
 
 /**
  * Reads the configured maximum decompressed entry size for zip extraction. Requires Node 26.8 or
@@ -543,8 +541,7 @@ export const setMaxZipContentSize = gatedWrapped(
  * bytes, same signature and return as node's `zipFiles`. Requires Node 26.8 or later; throws
  * `NotImplementedError` below that, driven by feature detection rather than a version parse.
  *
- * There is no promise to cancel: destroying the returned stream is the cancel. The per-file walker this package used to ship under
- * this name lives at `/zlib/extra` as `zipFilesCheckpointed`.
+ * There is no promise to cancel: destroying the returned stream is the cancel.
  */
 export const zipFiles = gatedWrapped(
   has('zipFiles'),
@@ -554,7 +551,15 @@ export const zipFiles = gatedWrapped(
   'sync',
 ) as TZipFilesFn;
 
-export type { TIterableCodecFn, TZipFilesFn, TZipFilesOptions, TZstdOptions } from './types';
+export type {
+  TCreateZipArchiveFn,
+  TCreateZipArchiveSyncFn,
+  TIterableCodecFn,
+  TZipArchiveOptions,
+  TZipFilesFn,
+  TZipFilesOptions,
+  TZstdOptions,
+} from './types';
 
 // the synchronous factory surface (createGzip, createInflate, the plain codec classes, constants,
 // and every *Sync buffer codec that has no version gate) passes through untouched, so a caller

@@ -550,12 +550,6 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 | `zstdCompress`      | stops waiting only (skipped if already canceled) | 22+  | yes        | yes        |
 | `zstdDecompress`    | stops waiting only (skipped if already canceled) | 22+  | yes        | yes        |
 
-#### zlib/extra
-
-| Export                 | Cancellation   | Node | Deno       | Bun        |
-| ---------------------- | -------------- | ---- | ---------- | ---------- |
-| `zipFilesCheckpointed` | stops the work | 26+  | unverified | unverified |
-
 <!-- generated:end -->
 
 `walk` and `walkSync` are iterables stopped with `break` or `return()` rather than `.cancel()`, so their cancellation cell reads `-`.
@@ -756,7 +750,7 @@ This subpath ships three different cancellation shapes, and they are not interch
 - One-shot buffer functions (`gzip`, `deflate`, `brotliCompress`, the zstd family, and their decompressing counterparts) run on the threadpool exactly like the crypto functions above. Canceling only stops waiting; the compression or decompression keeps running, and the threadpool slot stays occupied until it finishes, which can delay unrelated `fs` and `dns` work the same way.
 - Stream factories (`createGzip`, `createBrotliCompress`, the zstd stream classes, and the rest of the re-exported factory surface) are genuinely stoppable: calling `destroy()` on the returned stream stops the underlying codec.
 - The iterable codec family (`compressGzip`, `decompressBrotli`, and their six siblings, Node 25.9+, or 24.x with `--experimental-stream-iter`) cancels between chunks: it stops pulling from the source iterable and calls the source iterator's own `return()`, so nothing further reaches the codec after that point.
-- `zipFiles` (Node 26.8+) is node's own synchronous function: `[sourcePath, entryName]` pairs in, node's `Readable` of archive bytes out. It has no promise, so canceling it means destroying the returned stream. The per-file walker that used to live here is `zipFilesCheckpointed` in `@cancjs/node/zlib/extra`: canceling it stops before the next entry, keeps every entry already written, never rolls one back, and closes the archive so its file descriptor is released.
+- `zipFiles` (Node 26.8+) is node's own synchronous function: `[sourcePath, entryName]` pairs in, node's `Readable` of archive bytes out. It has no promise, so canceling it means destroying the returned stream.
 
 The zstd family, the iterable codec family, and the zip archive family are all version-gated and throw `NotImplementedError` on a runtime that does not ship them.
 
@@ -789,7 +783,6 @@ The `@cancjs/node` package provides cancelable promise-based wrappers and extend
 - `@cancjs/node/fs`: cancelable promise-based equivalents for Node.js `node:fs/promises` built-in methods.
 - `@cancjs/node/fs/sync`: synchronous file system methods routing through the registered file system implementation.
 - `@cancjs/node/fs/extra`: extended file system helpers with per-entry cancellation checkpoints.
-- `@cancjs/node/zlib/extra`: `zipFilesCheckpointed`, a per-file zip walker that checkpoints between entries and closes the archive on cancel.
 - `@cancjs/node/fs/register-graceful`: side-effect import registering `graceful-fs` with automatic retry on handle operations.
 
 ### FileHandle

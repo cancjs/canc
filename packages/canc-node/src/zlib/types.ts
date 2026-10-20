@@ -30,14 +30,29 @@ export type TIterableCodecFn = (
   options?: ZlibOptions,
 ) => CancelablePromise<Buffer, Unlisted>;
 
+/** Options shared by `zipFiles` and `createZipArchive`; a string is shorthand for `{ comment }`. */
+export type TZipArchiveOptions = string | Readonly<{ comment?: string; baseOffset?: number }>;
+
 /**
  * `zipFiles`'s options, hand-declared for the same reason as {@link TZstdOptions}: node 26 postdates
  * the pinned typings.
  */
-export type TZipFilesOptions = Readonly<Record<string, unknown>>;
+export type TZipFilesOptions = string | Readonly<{ comment?: string; baseOffset?: number; followSymlinks?: boolean }>;
 
 /**
  * Node's `zipFiles` shape: `[sourcePath, entryName]` pairs in, a `Readable` of archive bytes out.
  * Synchronous; there is no promise, so cancel is destroying the returned stream.
  */
 export type TZipFilesFn = (files: Iterable<readonly [string, string]>, options?: TZipFilesOptions) => Readable;
+
+/**
+ * Node's `createZipArchive` shape: `ZipEntry` values in, a `Readable` of archive bytes out.
+ * Synchronous; there is no promise, so cancel is destroying the returned stream.
+ */
+export type TCreateZipArchiveFn = (
+  entries: AsyncIterable<unknown> | Iterable<unknown>,
+  options?: TZipArchiveOptions,
+) => Readable;
+
+/** Node's `createZipArchiveSync` shape: `ZipEntry` values in, an iterator of archive chunks out. */
+export type TCreateZipArchiveSyncFn = (entries: Iterable<unknown>, options?: TZipArchiveOptions) => Iterator<Buffer>;

@@ -746,7 +746,7 @@
         "deno": "unverified",
         "bun": "unverified"
       },
-      "notes": "opens an archive builder backed by a stream; throws NotImplementedError below 26.8.0",
+      "notes": "node's createZipArchive(entries[, options]), returns its Readable; cancel = destroy the stream; throws NotImplementedError below 26.8.0",
       "callPath": "sync"
     },
     {
@@ -766,7 +766,7 @@
         "deno": "unverified",
         "bun": "unverified"
       },
-      "notes": "synchronous archive builder open, re-exported unchanged; throws NotImplementedError below 26.8.0",
+      "notes": "node's createZipArchiveSync(entries[, options]), returns its chunk iterator; throws NotImplementedError below 26.8.0",
       "callPath": "sync"
     },
     {
@@ -1317,7 +1317,7 @@
         "deno": "unverified",
         "bun": "unverified"
       },
-      "notes": "node's sync zipFiles, returns its Readable; cancel = destroy the stream; throws NotImplementedError below 26.8.0; the per-file walker moved to zlib/extra",
+      "notes": "node's sync zipFiles, returns its Readable; cancel = destroy the stream; throws NotImplementedError below 26.8.0",
       "callPath": "sync"
     },
     {
