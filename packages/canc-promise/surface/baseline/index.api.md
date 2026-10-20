@@ -68,7 +68,6 @@ new <TResult, TFailure = unknown>(executor: TCancelablePromiseExecutor<TResult, 
 static readonly [species]: PromiseConstructor
 static _activeCollector: Array<any> | undefined
 static _adopt: <T>(value: PromiseLike<T> | T, normalizedOptions: ICancelablePromiseOptions) => CancelablePromise<T>
-static _cancelLosers: (inputs: CancelablePromise<any, any>[], winner: CancelablePromise<any, any>) => void
 static _checkOptionsChanged: (instance: ICancelablePromiseOptions, options?: ICancelablePromiseOptions) => boolean
 static _getOptions: (options?: ICancelablePromiseOptions) => ICancelablePromiseOptions & Required<ICancelablePromiseFlagOptions>
 static _pendingInternalCall: boolean
@@ -92,7 +91,6 @@ _cancel: (reason?: any, disposing?: boolean, collector?: any[]) => void
 _cancelHandlers?: Array<TOnCancel> | undefined
 _canceledReason: any
 _chain: (childPromise: CancelablePromise<any, any>, bubbleOnComplete?: boolean) => void
-_chainInput: (resultPromise: CancelablePromise<any, any>, bubbleOnComplete?: boolean) => void
 _chainsCount: number
 _collector?: Array<any> | undefined
 _completedChainsCount: number
@@ -105,6 +103,7 @@ _pendingSyncCancel: boolean
 _pendingSyncCancelReason: any
 _reject: (reason?: any) => void
 _resolve: (value?: any) => void
+_retainRef: (settleTiming?: boolean) => (() => void) | undefined
 _runCancellation: (reason?: any, collector?: any[]) => void
 _runSettlementEffects: () => void
 _setFlag: any
@@ -398,7 +397,6 @@ _cancel: (reason?: any, disposing?: boolean, collector?: any[]) => void
 _cancelHandlers?: Array<TOnCancel> | undefined
 _canceledReason: any
 _chain: (childPromise: CancelablePromise<any, any>, bubbleOnComplete?: boolean) => void
-_chainInput: (resultPromise: CancelablePromise<any, any>, bubbleOnComplete?: boolean) => void
 _chainsCount: number
 _collector?: Array<any> | undefined
 _completedChainsCount: number
@@ -411,6 +409,7 @@ _pendingSyncCancel: boolean
 _pendingSyncCancelReason: any
 _reject: (reason?: any) => void
 _resolve: (value?: any) => void
+_retainRef: (settleTiming?: boolean) => (() => void) | undefined
 _runCancellation: (reason?: any, collector?: any[]) => void
 _runSettlementEffects: () => void
 _setFlag: any
@@ -497,7 +496,6 @@ new <TResult, TFailure = unknown>(executor: TCancelablePromiseExecutor<TResult, 
 static readonly [species]: PromiseConstructor
 static _activeCollector: Array<any> | undefined
 static _adopt: <T>(value: PromiseLike<T> | T, normalizedOptions: ICancelablePromiseOptions) => CancelablePromise<T>
-static _cancelLosers: (inputs: CancelablePromise<any, any>[], winner: CancelablePromise<any, any>) => void
 static _checkOptionsChanged: (instance: ICancelablePromiseOptions, options?: ICancelablePromiseOptions) => boolean
 static _getOptions: (options?: ICancelablePromiseOptions) => ICancelablePromiseOptions & Required<ICancelablePromiseFlagOptions>
 static _pendingInternalCall: boolean
@@ -521,7 +519,6 @@ _cancel: (reason?: any, disposing?: boolean, collector?: any[]) => void
 _cancelHandlers?: Array<TOnCancel> | undefined
 _canceledReason: any
 _chain: (childPromise: CancelablePromise<any, any>, bubbleOnComplete?: boolean) => void
-_chainInput: (resultPromise: CancelablePromise<any, any>, bubbleOnComplete?: boolean) => void
 _chainsCount: number
 _collector?: Array<any> | undefined
 _completedChainsCount: number
@@ -534,6 +531,7 @@ _pendingSyncCancel: boolean
 _pendingSyncCancelReason: any
 _reject: (reason?: any) => void
 _resolve: (value?: any) => void
+_retainRef: (settleTiming?: boolean) => (() => void) | undefined
 _runCancellation: (reason?: any, collector?: any[]) => void
 _runSettlementEffects: () => void
 _setFlag: any

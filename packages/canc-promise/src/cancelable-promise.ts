@@ -2234,7 +2234,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
   }
 
   /**
-   * Bubble-count core shared by `_chain` and `_chainInput`. While this promise is cancelable, raise
+   * Bubble-count core shared by `_chain` and `_retainRef`. While this promise is cancelable, raise
    * its chain count by one and return the matching `onComplete` completion callback; the caller
    * decides how that completion is wired (a child's `handleCancel`, a settle reaction, or a native
    * subscription). Returns `undefined` once this promise is no longer cancelable, so the caller
@@ -2341,6 +2341,8 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
    * function that completes it, or `undefined` once this promise is no longer cancelable. Releasing
    * twice completes the ref once. When the release drops the last consumer, this promise is
    * bubble-canceled on the same schedule as `_chain`; `settleTiming` picks the later race timing.
+   *
+   * @internal
    */
   // cross-copy contract: fixed meaning, an incompatible change takes a new suffixed name
   protected _retainRef(settleTiming?: boolean): (() => void) | undefined {
@@ -2427,32 +2429,6 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
         return running ? settleCleanup(this.constructor as typeof CancelablePromise, running) : undefined;
       });
     }
-  }
-
-  /**
-   * Combinator per-item chain accounting without a species child. Reproduces the exact bubble-count
-   * effect the per-item `.then()`/`.then().catch()` plus `input._chain(resultPromise)` pair produces
-   * today, but with no derived canc promise: the input's count is raised once for the internal
-   * consumer (completed on the input's own cancel, matching a `handleCancel`-registered onComplete)
-   * and once for the result-as-child via the real `_chain(resultPromise)`. Keeping the input at the
-   * same total count preserves the "canceling the result does NOT cascade to inputs" oracle: a
-   * single completed ref never satisfies the count, so the input stays pending.
-   *
-   * @param resultPromise The combinator result promise (chained as this input's downstream child).
-   * @param bubbleOnComplete Race-style completion timing for the result chain (settle vs cancel).
-   */
-  protected _chainInput(resultPromise: CancelablePromise<any, any>, bubbleOnComplete?: boolean): void {
-    // Internal-consumer ref: same increment the per-item derived child raised via its own `_chain`.
-    // Its completion is wired to THIS input's cancel (handleCancel), mirroring the old derived
-    // child whose `onComplete` fired on that child's cancel, so it does not complete when the
-    // result is canceled, acting as count-padding that keeps the input alive.
-    const onComplete = this._addChainRef();
-    if (onComplete) {
-      this.handleCancel(onComplete);
-    }
-
-    // Result-as-child ref: unchanged real chain of the result promise onto this input.
-    this._chain(resultPromise, bubbleOnComplete);
   }
 }
 
