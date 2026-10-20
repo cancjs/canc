@@ -24,8 +24,7 @@ interface INoLazy {
 
 export const defer = tb.deferFactory(deps) as <T = void>(options?: INoLazy) => tb.IDeferred<T, INativeKind>;
 
-// The wrapped promise keeps running after the timeout rejects; a native Promise cannot be
-// aborted.
+// a native input keeps running after the deadline, a cancelable one is released
 export const timeout = tb.timeoutFactory(deps);
 
 export const waitFor = tb.waitForFactory(deps);

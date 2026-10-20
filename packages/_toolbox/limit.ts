@@ -2,6 +2,7 @@ import { AbortError } from '../_util';
 import { construct, IExecutorCtx } from './construct';
 import { IToolboxDeps } from './deps';
 import { isCancelableLike, isThenableLike } from './guards';
+import { followInput, TReleaseInput } from './input';
 import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
 
 /**
@@ -39,8 +40,8 @@ interface IEntry {
   started: boolean;
   /** The promise handed to the caller, once the constructor has returned it. */
   handle: unknown;
-  /** Whatever `fn` returned, kept raw so canceling reaches the job itself and not a wrapper. */
-  job: unknown;
+  /** Gives up the running job, set once `fn` returned a thenable. */
+  releaseJob?: TReleaseInput;
   /** Whether abandon was called before handle was assigned. */
   abandoned?: boolean;
   /** Whether this entry already settled its own promise, tracked locally rather than probed. */
@@ -71,8 +72,9 @@ export function limitFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
    *
    * Against a cancelable implementation, canceling a returned promise while its job is still queued
    * removes it from the queue, so the job never runs at all and the promise rejects with a
-   * CancelError. Canceling it after the job started cancels the job itself, provided the job is
-   * cancelable. A plain Promise implementation has neither: a returned promise cannot be canceled
+   * CancelError. Canceling it after the job started gives up the job: a cancelable promise job is
+   * canceled only when the limiter was its last consumer, any other cancelable job is canceled
+   * directly. A plain Promise implementation has neither: a returned promise cannot be canceled
    * on its own, and `cancel` on the limiter rejects the queued jobs (with an AbortError carrying the reason) while
    * whatever is already running is left to finish.
    *
@@ -129,7 +131,6 @@ export function limitFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
         const entry: IEntry = {
           started: false,
           handle: undefined,
-          job: undefined,
 
           start() {
             entry.started = true;
@@ -154,9 +155,8 @@ export function limitFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
               return;
             }
 
-            entry.job = raw;
-
-            raw.then(
+            entry.releaseJob = followInput(
+              raw,
               (value: T) => {
                 release(entry);
                 resolve(value);
@@ -205,7 +205,7 @@ export function limitFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
 
             // A running non-cancelable job cannot be aborted; its slot remains held in running
             // until settlement (a job that never settles holds its slot forever, leaking capacity).
-            if (isCancelableLike(entry.job)) entry.job.cancel(reason);
+            entry.releaseJob?.(reason);
           });
         }
 

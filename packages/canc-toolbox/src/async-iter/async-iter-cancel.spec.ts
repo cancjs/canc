@@ -62,8 +62,7 @@ function pendingWork(): IWork {
     });
   });
 
-  promise.catch(suppressCancel);
-
+  // no handler of its own: one would count as a second consumer and keep the work running
   return { promise, state };
 }
 

@@ -13,6 +13,13 @@ interface ITestKind extends IPromiseKind {
 const deps: IToolboxDeps<ITestKind> = { Impl: CancelablePromise as unknown as TPromiseCtor };
 const timeout = timeoutFactory(deps);
 
+// the released input is canceled a couple of microtask hops after the helper lets it go
+async function flushMicrotasks(): Promise<void> {
+  for (let i = 0; i < 20; i++) {
+    await Promise.resolve();
+  }
+}
+
 describe('timeout (cancelable)', () => {
   afterEach(() => {
     jest.useRealTimers();
@@ -55,11 +62,10 @@ describe('timeout (cancelable)', () => {
     expect(isTimeoutError(await observed)).toBe(true);
   });
 
-  it('cancels a cancelable input with the TimeoutError as the cancel reason', async () => {
+  it('cancels a non-counted cancelable input with the TimeoutError as the cancel reason', async () => {
     jest.useFakeTimers();
-    const input = new CancelablePromise<string>(() => {});
-    input.catch(() => undefined);
-    const cancelSpy = jest.spyOn(input, 'cancel');
+    const cancel = jest.fn();
+    const input = { then: () => undefined, cancel };
 
     const promise = timeout(input, 50);
     const observed = promise.catch((error: unknown) => error);
@@ -67,8 +73,22 @@ describe('timeout (cancelable)', () => {
     jest.advanceTimersByTime(50);
     await observed;
 
-    expect(cancelSpy).toHaveBeenCalledTimes(1);
-    expect(isTimeoutError(cancelSpy.mock.calls[0][0])).toBe(true);
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(isTimeoutError(cancel.mock.calls[0][0])).toBe(true);
+  });
+
+  it('cancels a cancelable promise input it solely holds once the deadline wins', async () => {
+    jest.useFakeTimers();
+    const input = new CancelablePromise<string>(() => {});
+
+    const promise = timeout(input, 50);
+    const observed = promise.catch((error: unknown) => error);
+
+    jest.advanceTimersByTime(50);
+    expect(isTimeoutError(await observed)).toBe(true);
+    await flushMicrotasks();
+
+    expect(input.canceled).toBe(true);
   });
 
   it('calls a function input immediately, before any tick', () => {
@@ -135,17 +155,17 @@ describe('timeout (cancelable)', () => {
   it('canceling clears the timer and cancels a cancelable input', async () => {
     jest.useFakeTimers();
     const input = new CancelablePromise<string>(() => {});
-    input.catch(() => undefined);
-    const cancelSpy = jest.spyOn(input, 'cancel');
 
     const promise = timeout(input, 1000);
     promise.cancel();
 
-    expect(cancelSpy).toHaveBeenCalledTimes(1);
     expect(jest.getTimerCount()).toBe(0);
 
     const reason = await promise.catch((error: unknown) => error);
     expect(isCancelError(reason)).toBe(true);
+    await flushMicrotasks();
+
+    expect(input.canceled).toBe(true);
   });
 });
 

@@ -94,10 +94,10 @@ describe('map', () => {
     promise.cancel();
 
     expect(isCancelError(await caught)).toBe(true);
-    expect(s.canceled[0]).toBe(true);
 
     await flushMicrotasks();
 
+    expect(s.canceled[0]).toBe(true);
     expect(s.started).toEqual([true, false, false]);
   });
 
@@ -230,7 +230,7 @@ describe('map', () => {
     expect(called).toEqual([0, 1, 2, 3, 4, 5]);
   });
 
-  it('forwards the cancel reason by identity to the in-flight mapper when canceled', async () => {
+  it('cancels the in-flight mapper it solely holds, which sees the released cancel', async () => {
     let observedReason: unknown;
     const customReason = { code: 'MAP_CANCEL' };
 
@@ -246,13 +246,13 @@ describe('map', () => {
 
     promise.catch(() => {});
     promise.cancel(customReason);
+    await flushMicrotasks();
 
-    expect(observedReason).toBe(customReason);
+    expect(isCancelError(observedReason)).toBe(true);
   });
 
-  it('forwards the same cancel reason object to all in-flight mappers at concurrency: 2', async () => {
+  it('cancels every in-flight mapper at concurrency: 2', async () => {
     const observed: unknown[] = [];
-    const customReason = { code: 'MAP_CANCEL' };
 
     const promise = map(
       ['a', 'b', 'c'],
@@ -266,29 +266,22 @@ describe('map', () => {
     );
 
     promise.catch(() => {});
-    promise.cancel(customReason);
+    promise.cancel({ code: 'MAP_CANCEL' });
+    await flushMicrotasks();
 
     expect(observed).toHaveLength(2);
-    expect(observed[0]).toBe(customReason);
-    expect(observed[1]).toBe(customReason);
+    expect(isCancelError(observed[0])).toBe(true);
+    expect(isCancelError(observed[1])).toBe(true);
   });
 
-  it('forwards a string cancel reason as that string', async () => {
-    let observedReason: unknown;
+  it('forwards a string cancel reason to a non-counted cancelable mapper result', async () => {
+    const cancel = jest.fn();
 
-    const promise = map(
-      ['a'],
-      () =>
-        new CancelablePromise<string>((_resolve, _reject, { handleCancel }) => {
-          handleCancel((reason) => {
-            observedReason = reason;
-          });
-        }),
-    );
+    const promise = map(['a'], () => ({ then: () => undefined, cancel }));
 
     promise.catch(() => {});
     promise.cancel('MAP_STRING_CANCEL');
 
-    expect(observedReason).toBe('MAP_STRING_CANCEL');
+    expect(cancel).toHaveBeenCalledWith('MAP_STRING_CANCEL');
   });
 });

@@ -13,6 +13,13 @@ interface ITestKind extends IPromiseKind {
 const deps: IToolboxDeps<ITestKind> = { Impl: CancelablePromise as unknown as TPromiseCtor };
 const minDelay = minDelayFactory(deps);
 
+// the released input is canceled a couple of microtask hops after the helper lets it go
+async function flushMicrotasks(): Promise<void> {
+  for (let i = 0; i < 20; i++) {
+    await Promise.resolve();
+  }
+}
+
 describe('minDelay (cancelable)', () => {
   afterEach(() => {
     jest.useRealTimers();
@@ -127,30 +134,29 @@ describe('minDelay (cancelable)', () => {
   it('canceling clears the floor timer and cancels a cancelable input', async () => {
     jest.useFakeTimers();
     const input = new CancelablePromise<string>(() => {});
-    input.catch(() => undefined);
-    const cancelSpy = jest.spyOn(input, 'cancel');
 
     const promise = minDelay(input, 1000);
     promise.cancel();
 
-    expect(cancelSpy).toHaveBeenCalledTimes(1);
     expect(jest.getTimerCount()).toBe(0);
 
     const reason = await promise.catch((error: unknown) => error);
     expect(isCancelError(reason)).toBe(true);
+    await flushMicrotasks();
+
+    expect(input.canceled).toBe(true);
   });
 
   it('cancels the promise a function input produced', async () => {
     jest.useFakeTimers();
     const input = new CancelablePromise<string>(() => {});
-    input.catch(() => undefined);
-    const cancelSpy = jest.spyOn(input, 'cancel');
 
     const promise = minDelay(() => input, 1000);
     promise.cancel();
 
-    expect(cancelSpy).toHaveBeenCalledTimes(1);
-
     await promise.catch(() => undefined);
+    await flushMicrotasks();
+
+    expect(input.canceled).toBe(true);
   });
 });

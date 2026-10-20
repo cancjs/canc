@@ -2,6 +2,7 @@ import { AbortError, createAggregateError } from '../_util';
 import { construct, IExecutorCtx } from './construct';
 import { IToolboxDeps } from './deps';
 import { isThenableLike } from './guards';
+import { observeRejection } from './input';
 import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
 import { limitFactory } from './limit';
 
@@ -63,8 +64,9 @@ export function mapFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IToo
    * under `stopOnError: false` every item runs to a settlement and the returned promise rejects
    * with an AggregateError carrying the failures in input order.
    *
-   * Against a cancelable implementation, canceling the returned promise cancels whatever is in
-   * flight and drops what is still queued, so a queued mapper is never called at all. A plain
+   * Against a cancelable implementation, canceling the returned promise gives up whatever is in
+   * flight and drops what is still queued, so a queued mapper is never called at all. A cancelable
+   * promise a mapper returned is canceled only when `map` was its last consumer. A plain
    * Promise implementation has no cancel surface: the returned promise cannot be canceled, and on
    * an early rejection the queued mappers are dropped while the running ones are left to finish.
    */
@@ -134,7 +136,7 @@ export function mapFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IToo
           }
 
           if (isThenableLike<R>(raw)) {
-            raw.then(undefined, function (reason: any) {
+            observeRejection(raw, function (reason: any) {
               if (stopOnError && !settled) {
                 settled = true;
                 reject(reason);

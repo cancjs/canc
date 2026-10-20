@@ -57,7 +57,8 @@ undoWindow.cancel();
 
 ```js
 const quotes = timeout(fetchQuotes(), 3000);
-// On timeout the request itself is canceled, not just abandoned.
+// On timeout the request itself is canceled, not just abandoned,
+// unless something else is still waiting on it.
 ```
 
 Wrapping an API that takes a signal is a one-liner, and callers never see the signal again:
@@ -79,8 +80,15 @@ Helpers build their result through the resolved promise implementation, which is
 `CancelablePromise` unless something else is registered (see
 [pluggable implementation](https://github.com/cancjs/canc/tree/master/packages/canc-promise#pluggable-implementation)).
 That is what makes the cleanup possible: `delay` registers a cancel handler that clears its timer,
-`retry` cancels the attempt in flight and drops the backoff wait, `waitFor` stops polling,
-`timeout` cancels the promise it was watching once the deadline wins.
+`retry` gives up the attempt in flight and drops the backoff wait, `waitFor` stops polling,
+`timeout` gives up the promise it was watching once the deadline wins.
+
+A helper only cancels what it created. A cancelable promise passed in (or returned by a callback)
+may have other consumers, so a helper that stops releases its interest in it instead. The input is
+canceled when the helper was its last consumer, and keeps running for the others otherwise, the
+same rule `then` follows. A `.catch` attached to the input counts as a consumer too. Any other
+cancelable input cannot be counted, so it is canceled directly, which assumes the helper is its
+only holder.
 
 `cancelify` works from the other end. It hands the wrapped function a lazy signal thunk. The
 controller is created on the first `getSignal()` call and aborted when the returned promise is
@@ -127,7 +135,7 @@ signal, and passes the value through unraced when the signal is `undefined`, so 
 cancellation does not need a branch at every call site.
 
 To combine an external signal with a deadline, pass both to `timeout`: `timeout(promise, 5000, {
-signal })` races the deadline and the signal together and cancels the underlying promise whichever
+signal })` races the deadline and the signal together and gives up the underlying promise whichever
 wins.
 
 `createAbortSignal()` mints a plain controller and returns its signal with a bound `abort`. For a

@@ -1,7 +1,7 @@
 import { construct, IExecutorCtx } from './construct';
 import { IToolboxDeps, TCallDeps } from './deps';
 import { isDurationShaped, resolveDuration, TDuration } from './duration';
-import { IEagerSource, startInput, TTimedInput } from './input';
+import { followInput, startInput, TTimedInput } from './input';
 import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
 import { resolveTimers, startTimer, stopTimer } from './timers';
 
@@ -20,8 +20,9 @@ export function minDelayFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
    * early as it is known. That is the one behavior separating this from `delay`, whose sequential
    * shape holds everything until its timer completes.
    *
-   * The input is required. Canceling the returned promise clears the floor timer and cancels the
-   * input when it is cancelable. The declared failure set is the input's: the floor delays a value
+   * The input is required. Canceling the returned promise clears the floor timer and gives up the
+   * input: a cancelable promise is canceled only when `minDelay` was its last consumer, any other
+   * cancelable is canceled directly. The declared failure set is the input's: the floor delays a value
    * and passes a rejection straight through.
    */
   return function minDelay<T, F = never>(
@@ -41,10 +42,10 @@ export function minDelayFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
     return construct<T, K, F>(
       deps.Impl,
       (resolve, reject, ctx?: IExecutorCtx) => {
-        let started: IEagerSource<T>;
+        let source: T | PromiseLike<T>;
 
         try {
-          started = startInput<T, K, F>(input);
+          source = startInput<T, K, F>(input).source;
         } catch (error) {
           reject(error);
 
@@ -64,14 +65,8 @@ export function minDelayFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
           timers,
         );
 
-        if (ctx) {
-          ctx.handleCancel(() => {
-            stopTimer(handle, timers);
-            started.cancelable?.cancel();
-          });
-        }
-
-        deps.Impl.resolve(started.source).then(
+        const releaseInput = followInput(
+          source,
           (result: T) => {
             value = result;
             settled = true;
@@ -82,7 +77,15 @@ export function minDelayFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
             stopTimer(handle, timers);
             reject(reason);
           },
+          deps.Impl,
         );
+
+        if (ctx) {
+          ctx.handleCancel(() => {
+            stopTimer(handle, timers);
+            releaseInput();
+          });
+        }
       },
       options,
     );

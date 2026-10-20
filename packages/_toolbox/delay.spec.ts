@@ -16,6 +16,12 @@ const deps: IToolboxDeps<ITestKind> = { Impl: CancelablePromise as unknown as TP
 const delay = delayFactory(deps);
 const minDelay = minDelayFactory(deps);
 
+async function flushMicrotasks(): Promise<void> {
+  for (let i = 0; i < 12; i++) {
+    await Promise.resolve();
+  }
+}
+
 describe('delay (cancelable)', () => {
   afterEach(() => {
     jest.useRealTimers();
@@ -160,12 +166,14 @@ describe('delay (cancelable)', () => {
   it('canceling cancels an eagerly-supplied cancelable input', async () => {
     jest.useFakeTimers();
     const input = new CancelablePromise(() => {});
-    const cancelSpy = jest.spyOn(input, 'cancel');
 
     const promise = delay(input, 1000);
     promise.cancel();
 
-    expect(cancelSpy).toHaveBeenCalledTimes(1);
+    await promise.catch(() => undefined);
+    await flushMicrotasks();
+
+    expect(input.canceled).toBe(true);
   });
 
   // Characterization: CancelablePromise already wires `signal` into a cancel with CancelError as
@@ -208,12 +216,6 @@ describe('delay and minDelay: the rejection-timing contrast', () => {
   afterEach(() => {
     jest.useRealTimers();
   });
-
-  async function flushMicrotasks(): Promise<void> {
-    for (let i = 0; i < 12; i++) {
-      await Promise.resolve();
-    }
-  }
 
   function rejectingAt(ms: number): CancelablePromise<never> {
     const source = new CancelablePromise<never>((_resolve, reject) => {

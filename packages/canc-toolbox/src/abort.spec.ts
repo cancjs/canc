@@ -127,6 +127,10 @@ describe('timeout with an external signal: deadline and signal in one call', () 
     const promise = timeout(underlying, 10_000, { signal: controller.signal }).catch(() => undefined);
     controller.abort();
     await promise;
+    // the released input is canceled a couple of microtask hops later
+    for (let i = 0; i < 12; i++) {
+      await Promise.resolve();
+    }
     expect(canceled).toBe(true);
   });
 });
