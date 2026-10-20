@@ -134,6 +134,8 @@ describe('plain handler', () => {
     res.disconnect();
 
     expect(isCancelError(await outcome)).toBe(true);
+    // the wrapper releases its consumer ref, a sole-consumer source is canceled a few jobs later
+    await flush();
     expect(inner.canceled).toBe(true);
   });
 
