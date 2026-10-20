@@ -316,9 +316,14 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
     const markSettled = () => {
       this._state = 'SETTLED';
     };
-    // Cache settle marker which is await safe since adopting the inner via then keeps A+
-    // microtask ordering
-    inner.then(markSettled, markSettled);
+    const subscribe = (inner as TInnerPromise<T> & { _subscribe?: unknown })._subscribe;
+
+    // a counted then would hold the work alive after every consumer canceled
+    if (isFunction(subscribe)) {
+      subscribe.call(inner, markSettled, markSettled);
+    } else {
+      inner.then(markSettled, markSettled);
+    }
 
     return inner;
   }

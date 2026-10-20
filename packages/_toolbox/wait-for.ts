@@ -2,7 +2,7 @@ import type { Unlisted } from '../_util';
 import { TimeoutError } from '../_util';
 import { IExecutorCtx } from './construct';
 import { constructTimed } from './construct-timed';
-import { IToolboxDeps, TCallDeps } from './deps';
+import { ILazyOn, IToolboxDeps, TCallDeps, TLazyOf } from './deps';
 import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
 import { resolveTimers, startTimer, stopTimer } from './timers';
 
@@ -24,15 +24,20 @@ export function waitForFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: 
    * timer. The condition may be sync or async; an async condition is awaited before the next poll is
    * scheduled, so slow conditions never overlap.
    */
-  return function waitFor(
+  function waitFor(
+    condition: () => unknown,
+    options: IWaitForOptions & ILazyOn,
+  ): TLazyOf<K, void, TimeoutError | Unlisted>;
+  function waitFor(condition: () => unknown, options?: IWaitForOptions): TPromiseOf<K, void, TimeoutError | Unlisted>;
+  function waitFor(
     condition: () => unknown,
     options?: IWaitForOptions,
-  ): TPromiseOf<K, void, TimeoutError | Unlisted> {
+  ): TPromiseOf<K, void, TimeoutError | Unlisted> | TLazyOf<K, void, TimeoutError | Unlisted> {
     const interval = options?.interval ?? 20;
     const limit = options?.timeout ?? Infinity;
     const timers = resolveTimers(options, deps);
 
-    return constructTimed<void, K>(
+    return constructTimed<void, K, TimeoutError | Unlisted>(
       deps,
       (resolve, reject, ctx?: IExecutorCtx) => {
         let timerId: unknown;
@@ -97,5 +102,7 @@ export function waitForFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: 
       },
       options,
     );
-  };
+  }
+
+  return waitFor;
 }

@@ -1,10 +1,26 @@
 import { TimeoutError } from '../_util';
 import { TPromiseCtor } from './construct';
 import { IPromiseKind, IPromiseLikeKind } from './kind';
+import { TLazyExecutor } from './lazy/lazy-base';
 import { TTimersOverride } from './timers';
 
 /** Structural AbortController, so no dependency on the ambient DOM/Node type in envs that polyfill it. */
 export type TAbortControllerCtor = new () => { abort(reason?: any): void; signal: any };
+
+/** The lazy promise class a `{ lazy: true }` call builds its result with. */
+export type TLazyCtor = new (executor: TLazyExecutor<any>, options?: object) => PromiseLike<any>;
+
+/**
+ * What a helper called with `{ lazy: true }` returns for a flavor: the flavor's `lazy` slot when it
+ * names one, a plain thenable otherwise.
+ */
+export type TLazyOf<K extends IPromiseKind, T, F = never> =
+  K extends { lazy: unknown } ? (K & { value: T; failure: F })['lazy'] : PromiseLike<T>;
+
+/** Selects the overload a helper takes when called with `{ lazy: true }`. */
+export interface ILazyOn {
+  lazy: true;
+}
 
 /**
  * The single bag of dependencies every toolbox factory takes. A package builds one at module load
@@ -27,10 +43,15 @@ export type IToolboxDeps<K extends IPromiseKind = IPromiseLikeKind> = TTimersOve
    */
   TimeoutError?: typeof TimeoutError;
   /**
+   * The lazy promise class `{ lazy: true }` builds with. A helper called with that option and no
+   * class here throws a TypeError.
+   */
+  Lazy?: TLazyCtor;
+  /**
    * Whether `Impl` products are cancelable-shaped (expose `cancel` and pass a `handleCancel`-bearing
-   * ctx into the executor). Read by `{ lazy: true }` (`./construct-timed`) and `limit` (`./limit`) to
-   * decide whether a wrapper or queued entry exposes a working `cancel`; other factories feature-detect
-   * cancelability per call through the executor's own `ctx` argument.
+   * ctx into the executor). Read by `limit` (`./limit`) to decide whether a queued entry exposes a
+   * working `cancel`; other factories feature-detect cancelability per call through the executor's
+   * own `ctx` argument.
    */
   cancelable?: boolean;
   /**

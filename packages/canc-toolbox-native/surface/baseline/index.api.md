@@ -115,6 +115,7 @@ _afterSubscribe: () => void
 _beforeSubscribe: () => PromiseLike<T> | undefined
 _executor: TLazyExecutor<T>
 _inner?: TInnerPromise<T> | undefined
+_innerOptions: () => object | undefined
 _isStartable: () => boolean
 _options?: IAbortSignalOptions | undefined
 _resolveImpl: () => TPromiseCtor
@@ -241,7 +242,9 @@ name: string
 ## `delay` (const)
 
 ```text
+<T = void>(ms: TDuration, options: (ILazyOn & TCallDeps) & INativeOptions): LazyPromise<T>
 <T = void>(ms: TDuration, options?: (INativeOptions & TCallDeps) | undefined): Promise<T>
+<T, F = never>(input: TTimedInput<T, INativeKind, F>, ms: TDuration, options: (ILazyOn & TCallDeps) & INativeOptions): LazyPromise<T>
 <T, F = never>(input: TTimedInput<T, INativeKind, F>, ms: TDuration, options?: (INativeOptions & TCallDeps) | undefined): Promise<T>
 ```
 
@@ -302,6 +305,7 @@ name: string
 ## `promisify` (const)
 
 ```text
+(fn: TCallbackFn, options: ILazyOn & IPromisifyOptions): (...args: Array<any>) => LazyPromise<any>
 (fn: TCallbackFn, options?: IPromisifyOptions | undefined): (...args: Array<any>) => Promise<any>
 ```
 
@@ -314,6 +318,7 @@ name: string
 ## `retry` (const)
 
 ```text
+<T, F = never>(input: (attempt: number) => Promise<T> | PromiseLike<T> | T, options: ILazyOn & IRetryOptions<INativeKind>): LazyPromise<T>
 <T, F = never>(input: (attempt: number) => Promise<T> | PromiseLike<T> | T, options?: IRetryOptions<INativeKind> | undefined): Promise<T>
 ```
 
@@ -340,6 +345,7 @@ name: string
 ## `timeout` (const)
 
 ```text
+(ms: TDuration, options: (ILazyOn & TCallDeps) & INativeOptions): LazyPromise<never>
 (ms: TDuration, options?: (INativeOptions & TCallDeps) | undefined): Promise<never>
 <P extends PromiseLike<unknown>>(input: (() => P) | P, ms?: TDuration | undefined, options?: (INativeOptions & TCallDeps) | undefined): Promise<TValueOf<P>>
 <T, F = never>(input: TTimedInput<T>, ms?: TDuration | undefined, options?: (INativeOptions & TCallDeps) | undefined): Promise<T>
@@ -348,5 +354,6 @@ name: string
 ## `waitFor` (const)
 
 ```text
+(condition: () => unknown, options: ILazyOn & IWaitForOptions): LazyPromise<void>
 (condition: () => unknown, options?: IWaitForOptions | undefined): Promise<void>
 ```

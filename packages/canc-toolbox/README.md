@@ -282,7 +282,7 @@ A helper that takes the work as an argument reads the declared failure set off t
 - `timeout` and `waitFor` declare `TimeoutError` inside an open set (`TimeoutError | Unlisted`), because the work they wait on can reject with something else. A `catch` reason on their result is `any`, and a coroutine step over `waitFor` or a bare `timeout(ms)` contributes `TimeoutError`; a step over `timeout(input, ms)` contributes the input's set plus `TimeoutError`. `timeout(input, ms)` adds `TimeoutError` to the input's own set, so a `CancelablePromise<T, FooError>` input gives `FooError | TimeoutError | Unlisted`.
 - `delay(ms)`, `defer` and `promisify` declare a `never` failure set. None of them wraps a promise to read one from.
 - `cancelify` and the terminal operations of the async iterator helpers (`toArray`, `reduce`, `find` and the rest) leave the failure set undeclared (`unknown`), because the function or the source you pass decides what they reject with. Neither carries a wrapped set yet.
-- The `LazyPromise` family declares no failure set, so promise combinators read it as open (`Unlisted`).
+- `LazyPromise.try(fn)` takes the failure set from what `fn` returns, and a helper called with `{ lazy: true }` keeps the set its eager form declares. A lazy promise built any other way leaves the set undeclared (`unknown`).
 
 Cancellation (rejection with a `CancelError`) is part of the cancellation control flow rather than an application failure set. See [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) for details on declared failures and error matching.
 
@@ -311,6 +311,11 @@ and ignoring it.
 
 Laziness is not contagious. `delay(1000, { lazy: true }).then(f)` starts the timer at the `.then`
 call, because a subscription is what wakes it. It does not defer anything further down the chain.
+
+`helper(..., { lazy: true })` equals `LazyPromise.try(() => helper(...))` with the options on the
+work, and returns that `LazyPromise`. Either spelling works. Use `{ lazy: true }` on a helper call,
+`LazyPromise.try(fn)` for a function of your own and `createLazyPromise(x)` when the input's shape
+varies.
 
 ### Timing
 

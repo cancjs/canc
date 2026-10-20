@@ -1,4 +1,5 @@
-import { CancelError, ICancelablePromiseOptions, IPromiseImplOptions, resolvePromiseImpl } from '@cancjs/promise';
+import type { FailureOf, ICancelablePromiseOptions, IPromiseImplOptions, TReason } from '@cancjs/promise';
+import { CancelError, FAILURE, resolvePromiseImpl } from '@cancjs/promise';
 
 import { toCancelError } from '../../_util';
 import { IAbortSignalLike } from '../abort-signal';
@@ -29,16 +30,19 @@ export interface ILazyPromiseOptions extends ICancelablePromiseOptions, IPromise
  * `then`/`catch`/`finally` (or `await`). Canceling before the first subscription means the executor
  * never runs at all. The result is cached: multiple subscribers share a single execution.
  *
+ * `F` is the failure set, read the same way as on a CancelablePromise: a rejection handler receives
+ * `any` unless the set is declared and closed.
+ *
  * This is not a CancelablePromise subclass. It is a bare thenable carrying a `cancel`, which is
  * what every duck-typed cancelability check in this repo already accepts.
  */
-export class LazyPromise<T = any> extends LazyBase<T> {
+export class LazyPromise<T = any, F = unknown> extends LazyBase<T> {
   // Static surface mirrored from CancelablePromise where inherited implementations are narrowed
   // by these declarations to the flavor and options bag without emitting anything
   declare static try: <V, TArgs extends any[]>(
-    fn: (...args: TArgs) => V | PromiseLike<V>,
+    fn: (...args: TArgs) => V,
     ...args: TArgs
-  ) => LazyPromise<V>;
+  ) => LazyPromise<Awaited<V>, FailureOf<V>>;
   declare static resolve: <V>(value?: V | PromiseLike<V>, options?: ILazyPromiseOptions) => LazyPromise<V>;
   declare static reject: <V = never>(reason?: any, options?: ILazyPromiseOptions) => LazyPromise<V>;
   declare static withResolvers: <V>(options?: ILazyPromiseOptions) => ICancelableLazyWithResolvers<V>;
@@ -50,6 +54,7 @@ export class LazyPromise<T = any> extends LazyBase<T> {
   declare static any: <V>(values: Iterable<V | PromiseLike<V>>, options?: ILazyPromiseOptions) => LazyPromise<V>;
   declare static race: <V>(values: Iterable<V | PromiseLike<V>>, options?: ILazyPromiseOptions) => LazyPromise<V>;
 
+  declare readonly [FAILURE]?: F;
   declare protected _options?: ILazyPromiseOptions;
   protected _canceledBeforeStart = false;
   protected _cancelError?: CancelError;
@@ -132,6 +137,19 @@ export class LazyPromise<T = any> extends LazyBase<T> {
     if (this._resettable && this._state === 'RUNNING') {
       this._consumers++;
     }
+  }
+
+  then<TResult1 = T, TResult2 = never>(
+    onFulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | null,
+    onRejected?: ((reason: TReason<F>) => TResult2 | PromiseLike<TResult2>) | null,
+  ): PromiseLike<TResult1 | TResult2> {
+    return super.then(onFulfilled, onRejected);
+  }
+
+  catch<TResult = never>(
+    onRejected?: ((reason: TReason<F>) => TResult | PromiseLike<TResult>) | null,
+  ): PromiseLike<T | TResult> {
+    return super.catch(onRejected);
   }
 
   /**

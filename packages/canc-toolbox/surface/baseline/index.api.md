@@ -30,7 +30,7 @@ resolve: (value: PromiseLike<T> | T) => void
 ```text
 extends ILazyWithResolvers<T, LazyPromise<T>>
 cancel: TLazyOnCancel
-promise: LazyPromise<T>
+promise: LazyPromise<T, unknown>
 reject: (reason?: any) => void
 resolve: (value?: PromiseLike<T> | T | undefined) => void
 ```
@@ -219,11 +219,11 @@ lazy?: boolean | undefined
 timeout?: number | undefined
 ```
 
-## `LazyPromise<T = any>` (class)
+## `LazyPromise<T = any, F = unknown>` (class)
 
 ```text
 extends LazyBase<T>
-new <T = any>(executor: TLazyExecutor<T>, options?: ILazyPromiseOptions | undefined): LazyPromise<T>
+new <T = any, F = unknown>(executor: TLazyExecutor<T>, options?: ILazyPromiseOptions | undefined): LazyPromise<T, F>
 static _new: <V>(executor: TLazyExecutor<V>, options?: object) => LazyBase<V>
 static _optionsChanged: (instance: LazyBase<any>, options?: object) => boolean
 static all: <V>(values: Iterable<PromiseLike<V> | V>, options?: ILazyPromiseOptions) => LazyPromise<V[]>
@@ -232,8 +232,9 @@ static any: <V>(values: Iterable<PromiseLike<V> | V>, options?: ILazyPromiseOpti
 static race: <V>(values: Iterable<PromiseLike<V> | V>, options?: ILazyPromiseOptions) => LazyPromise<V>
 static reject: <V = never>(reason?: any, options?: ILazyPromiseOptions) => LazyPromise<V>
 static resolve: <V>(value?: PromiseLike<V> | V, options?: ILazyPromiseOptions) => LazyPromise<V>
-static try: <V, TArgs extends any[]>(fn: (...args: TArgs) => PromiseLike<V> | V, ...args: TArgs) => LazyPromise<V>
+static try: <V, TArgs extends any[]>(fn: (...args: TArgs) => V, ...args: TArgs) => LazyPromise<Awaited<V>, FailureOf<V>>
 static withResolvers: <V>(options?: ILazyPromiseOptions) => ICancelableLazyWithResolvers<V>
+readonly [FAILURE]?: F | undefined
 readonly [LAZY_PROMISE_BRAND]: true
 _afterSubscribe: () => void
 _beforeSubscribe: () => PromiseLike<T> | undefined
@@ -242,6 +243,7 @@ _canceledBeforeStart: boolean
 _consumers: number
 _executor: TLazyExecutor<T>
 _inner?: TInnerPromise<T> | undefined
+_innerOptions: () => object | undefined
 _isStartable: () => boolean
 _options?: ILazyPromiseOptions | undefined
 _reset: () => void
@@ -252,12 +254,14 @@ _runTeardowns: (reason?: any) => void
 _start: () => PromiseLike<T>
 _state: TLazyState
 _teardowns: Array<TLazyOnCancel>
+_unwatchSignals?: (() => void) | undefined
+_watchSignals: () => void
 cancel: (reason?: any) => void
-catch: <TResult = never>(onRejected?: ((reason: any) => PromiseLike<TResult> | TResult) | null | undefined) => PromiseLike<T | TResult>
+catch: <TResult = never>(onRejected?: ((reason: TReason<F>) => PromiseLike<TResult> | TResult) | null) => PromiseLike<T | TResult>
 execute: () => void
 finally: (onFinally?: (() => void) | null) => PromiseLike<T>
 started: boolean
-then: <TResult1 = T, TResult2 = never>(onFulfilled?: ((value: T) => PromiseLike<TResult1> | TResult1) | null | undefined, onRejected?: ((reason: any) => PromiseLike<TResult2> | TResult2) | null | undefined) => PromiseLike<TResult1 | TResult2>
+then: <TResult1 = T, TResult2 = never>(onFulfilled?: ((value: T) => PromiseLike<TResult1> | TResult1) | null, onRejected?: ((reason: TReason<F>) => PromiseLike<TResult2> | TResult2) | null) => PromiseLike<TResult1 | TResult2>
 ```
 
 ## `SupersededError` (type)
@@ -398,7 +402,7 @@ stack?: string | undefined
 ## `createLazyPromise<T = any>` (function)
 
 ```text
-<T = any>(value: (() => PromiseLike<T> | T) | PromiseLike<T> | T, options?: ILazyPromiseOptions | undefined): LazyPromise<T>
+<T = any>(value: (() => PromiseLike<T> | T) | PromiseLike<T> | T, options?: ILazyPromiseOptions | undefined): LazyPromise<T, unknown>
 ```
 
 ## `createSuppressError<M extends readonly TErrorMatcher[]>` (function)
@@ -422,7 +426,9 @@ stack?: string | undefined
 ## `delay` (const)
 
 ```text
+<T = void>(ms: TDuration, options: (ILazyOn & TCallDeps) & IToolboxOptions): LazyPromise<T, never>
 <T = void>(ms: TDuration, options?: (IToolboxOptions & TCallDeps) | undefined): CancelablePromise<T, never>
+<T, F = never>(input: TTimedInput<T, ICancelableKind, F>, ms: TDuration, options: (ILazyOn & TCallDeps) & IToolboxOptions): LazyPromise<T, F>
 <T, F = never>(input: TTimedInput<T, ICancelableKind, F>, ms: TDuration, options?: (IToolboxOptions & TCallDeps) | undefined): CancelablePromise<T, F>
 ```
 
@@ -459,7 +465,7 @@ stack?: string | undefined
 ## `lazy<T = any>` (function)
 
 ```text
-<T = any>(executor: TLazyExecutor<T>, options?: ILazyPromiseOptions | undefined): LazyPromise<T>
+<T = any>(executor: TLazyExecutor<T>, options?: ILazyPromiseOptions | undefined): LazyPromise<T, unknown>
 ```
 
 ## `limit` (const)
@@ -483,6 +489,7 @@ stack?: string | undefined
 ## `promisify` (const)
 
 ```text
+(fn: TCallbackFn, options: ILazyOn & IPromisifyOptions): (...args: Array<any>) => LazyPromise<any, never>
 (fn: TCallbackFn, options?: IPromisifyOptions | undefined): (...args: Array<any>) => CancelablePromise<any, never>
 ```
 
@@ -495,6 +502,7 @@ stack?: string | undefined
 ## `retry` (const)
 
 ```text
+<T, F = never>(input: (attempt: number) => CancelablePromise<T, F> | PromiseLike<T> | T, options: ILazyOn & IRetryOptions<ICancelableKind>): LazyPromise<T, F>
 <T, F = never>(input: (attempt: number) => CancelablePromise<T, F> | PromiseLike<T> | T, options?: IRetryOptions<ICancelableKind> | undefined): CancelablePromise<T, F>
 ```
 
@@ -523,6 +531,7 @@ stack?: string | undefined
 ## `timeout` (const)
 
 ```text
+(ms: TDuration, options: (ILazyOn & TCallDeps) & IToolboxOptions): LazyPromise<never, (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | Unlisted>
 (ms: TDuration, options?: (IToolboxOptions & TCallDeps) | undefined): CancelablePromise<never, (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | Unlisted>
 <P extends PromiseLike<unknown>>(input: (() => P) | P, ms?: TDuration | undefined, options?: (IToolboxOptions & TCallDeps) | undefined): CancelablePromise<TValueOf<P>, (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | FailureOf<P> | Unlisted>
 <T, F = never>(input: TTimedInput<T>, ms?: TDuration | undefined, options?: (IToolboxOptions & TCallDeps) | undefined): CancelablePromise<T, (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | F | Unlisted>
@@ -537,6 +546,7 @@ stack?: string | undefined
 ## `waitFor` (const)
 
 ```text
+(condition: () => unknown, options: ILazyOn & IWaitForOptions): LazyPromise<void, (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | Unlisted>
 (condition: () => unknown, options?: IWaitForOptions | undefined): CancelablePromise<void, (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | Unlisted>
 ```
 

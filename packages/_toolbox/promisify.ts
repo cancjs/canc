@@ -3,7 +3,7 @@ import { IAbortSignalLike } from './abort-signal';
 import { makeCancelSignal, TGetSignal } from './cancel-signal';
 import { IExecutorCtx } from './construct';
 import { constructTimed } from './construct-timed';
-import { IToolboxDeps, TAbortControllerCtor } from './deps';
+import { ILazyOn, IToolboxDeps, TAbortControllerCtor, TLazyOf } from './deps';
 import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
 
 /** The registered promisify.custom symbol, referenced via Symbol.for to avoid importing node:util. */
@@ -94,10 +94,12 @@ export function promisifyFactory<K extends IPromiseKind = IPromiseLikeKind>(deps
    * Turn an errfirst (or value-first) callback function into one returning a promise built against
    * the bound implementation.
    */
-  return function promisify(
+  function promisify(fn: TCallbackFn, options: IPromisifyOptions & ILazyOn): (...args: any[]) => TLazyOf<K, any>;
+  function promisify(fn: TCallbackFn, options?: IPromisifyOptions): (...args: any[]) => TPromiseOf<K, any, never>;
+  function promisify(
     fn: TCallbackFn,
     options?: IPromisifyOptions,
-  ): (...args: any[]) => TPromiseOf<K, any, never> {
+  ): (...args: any[]) => TPromiseOf<K, any, never> | TLazyOf<K, any> {
     const errorFirst = options?.errorFirst !== false;
     const multiArgs = options?.multiArgs;
     const useCustom = options?.custom !== false;
@@ -108,7 +110,7 @@ export function promisifyFactory<K extends IPromiseKind = IPromiseLikeKind>(deps
     const customImpl = useCustom ? (fn as unknown as Record<PropertyKey, unknown>)[kCustom] : undefined;
     const custom: TCallbackFn | undefined = typeof customImpl === 'function' ? (customImpl as TCallbackFn) : undefined;
 
-    const wrapped = function (this: unknown, ...callArgs: any[]): TPromiseOf<K, any, never> {
+    const wrapped = function (this: unknown, ...callArgs: any[]): TPromiseOf<K, any, never> | TLazyOf<K, any> {
       // `run` is an arrow, so it keeps this function's receiver without aliasing it.
       const run = (resolve: (value: any) => void, reject: (reason?: any) => void, ctx?: IExecutorCtx) => {
         // Custom impl short-circuits the callback path entirely: call it and adopt its promise.
@@ -154,7 +156,9 @@ export function promisifyFactory<K extends IPromiseKind = IPromiseLikeKind>(deps
     };
 
     return setFnName(wrapped, 'promisify', fn, options?.displayName);
-  };
+  }
+
+  return promisify;
 }
 
 const DEFAULT_EXCLUDE = [/.+(?:Sync|Stream)$/];
