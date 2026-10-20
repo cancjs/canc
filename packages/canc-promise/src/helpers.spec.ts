@@ -721,6 +721,21 @@ describe('cancel helpers release a shared source', () => {
       void wrapper.then(undefined, () => {});
     });
 
+    it('cancels a sole-consumer source after a live signal abort', async () => {
+      const source = new CancelablePromise<number>(() => {});
+      const controller = new AbortController();
+      const outcome = wrap(source, { signal: controller.signal }).then(
+        (value) => value,
+        (error: unknown) => error,
+      );
+
+      controller.abort();
+
+      expect(await outcome).toBeInstanceOf(CancelError);
+      await flushPromises();
+      expect(source.isCanceled).toBe(true);
+    });
+
     // a duck cancelable cannot be counted, the wrapper assumes it is the sole holder
     it('cancels a duck cancelable source directly, once', async () => {
       let rejectSource!: (reason?: any) => void;
