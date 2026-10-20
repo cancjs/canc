@@ -146,7 +146,7 @@ function isPipelineOptionsBag(value: unknown): value is Record<string, unknown> 
     return false;
   }
 
-  // web streams have no pipe() or write(); their getWriter/getReader or readable/writable pair marks them
+  // web streams lack pipe() and write(); a getWriter/getReader pair marks them
   const maybeStream = value as { pipe?: unknown; write?: unknown; getWriter?: unknown; getReader?: unknown };
   if (typeof maybeStream.getWriter === 'function' || typeof maybeStream.getReader === 'function') {
     return false;

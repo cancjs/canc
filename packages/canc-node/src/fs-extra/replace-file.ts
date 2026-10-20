@@ -108,8 +108,8 @@ export function replaceFile(
     let isRenameStarted = false;
 
     // the write is not canceled: canceling the wrapper does not stop a write already handed to the
-    // platform, so the temp file can only be removed once the write has actually settled. The
-    // cancelation waits for that, which also keeps a late write from outliving the cleanup
+    // platform, so the temp file is removed only once that write settles, and the
+    // cancelation waits for that, so a late write cannot outlive the cleanup
     const writePromise = writeFile(tempPath, data, options);
     const writeSettled = writePromise.then(
       () => undefined,
@@ -177,7 +177,7 @@ export function replaceFile(
             throw err;
           }
 
-          // after a cancelation with no rename started, the handler removes the temp file once the write settles
+          // no rename started: the handler removes the temp file once the write settles
           if (isCanceled && !isRenameStarted) {
             throw err;
           }

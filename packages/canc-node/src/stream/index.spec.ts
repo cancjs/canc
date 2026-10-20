@@ -102,7 +102,7 @@ describe('pipeline', () => {
       },
     });
 
-    // node types its pipeline overloads against the DOM-era WritableStream; the runtime takes these web streams as-is
+    // node types pipeline against the DOM-era WritableStream; the runtime accepts web streams
     await pipeline(source as never, destination as never);
 
     expect(Buffer.concat(chunks).toString()).toBe('webdestination');

@@ -2,8 +2,8 @@ import { CancelablePromise, isCancelError } from '@cancjs/promise';
 
 import { zipFilesCheckpointed } from './extra';
 
-// synthetic archive in place of node's zip writer, which no tracked runtime ships yet (see ./types.ts):
-// the spec exercises the walk, the entry order and the close, not the bytes the real writer produces
+// synthetic archive: no tracked runtime ships node's zip writer yet (see ./types.ts):
+// the spec checks the walk, entry order and close, not the bytes the real writer makes
 const mockArchive = {
   addEntry: jest.fn(),
   close: jest.fn(),
@@ -30,7 +30,7 @@ describe('@cancjs/node/zlib/extra', () => {
     const files = ['a.txt', 'b.txt', 'c.txt', 'd.txt', 'e.txt'];
     const written: string[] = [];
 
-    // cancel fires from inside the second entry's own step, deterministically, rather than racing the
+    // cancel fires inside the second entry's own step, deterministically, not racing the
     // walk on a timer: `promise` is assigned before the walk reaches index 1, since index 0 runs
     // synchronously inside the executor and everything after that is a later microtask turn
     // eslint-disable-next-line prefer-const -- the addEntry mock below captures promise before it exists
@@ -47,7 +47,7 @@ describe('@cancjs/node/zlib/extra', () => {
     const reason = await promise.catch((err: unknown) => err);
     expect(isCancelError(reason)).toBe(true);
 
-    // partial, no rollback: the entries written before the checkpoint noticed cancel stay in the archive
+    // partial, no rollback: entries written before the checkpoint stay in the archive
     expect(written).toEqual(['a.txt', 'b.txt']);
     expect(mockArchive.close).toHaveBeenCalledTimes(1);
   });

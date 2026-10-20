@@ -102,7 +102,7 @@ export function setInterval<T = number>(
     try {
       await source.return?.(undefined as unknown as T);
     } catch (error) {
-      // the abort above already cleared the timer; node reports that as AbortError, which is not a failure here
+      // the abort already cleared the timer; node reports AbortError, which is not a failure
       if (!isAbortName(error)) {
         throw error;
       }
@@ -115,7 +115,7 @@ export function setInterval<T = number>(
       try {
         return await source.next();
       } catch (error) {
-        // node rejects a pending pull with AbortError when the signal fires; cancel() reads that as done
+        // node rejects a pending pull with AbortError on abort; cancel() reads that as done
         if (canceled && isAbortName(error)) {
           return { value: undefined, done: true };
         }

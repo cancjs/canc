@@ -380,8 +380,8 @@ describe('replaceFile', () => {
     const file = join(dir, 'target.txt');
     await fs.writeFile(file, 'initial content');
 
-    // the platform write is held until the test releases it, so the temp file appears only after the
-    // cancel is already underway; a cleanup that gives up early leaves the file the write creates behind
+    // the platform write is held until released, so the temp file appears after cancel starts;
+    // a cleanup that gives up early leaves the file that the write creates behind
     let releaseWrite!: () => void;
     const writeReleased = new Promise<void>((resolve) => {
       releaseWrite = resolve;
@@ -398,7 +398,7 @@ describe('replaceFile', () => {
       writeFile: (...args: unknown[]) => {
         const callback = args[args.length - 1] as (err: unknown) => void;
         const [target, data, options] = args.slice(0, -1);
-        // the signal is dropped: node would otherwise abort the late write that the cancel already reached
+        // drop the signal: node would otherwise abort the late write that cancel already reached
         const lateOptions =
           typeof options === 'object' && options !== null ? { ...options, signal: undefined } : options;
         void writeReleased.then(() => {
@@ -412,7 +412,7 @@ describe('replaceFile', () => {
 
     try {
       const p = replaceFile(file, 'x'.repeat(10000));
-      // cancel() covers the cleanup, which waits for the held write to land, so release it without awaiting first
+      // cancel() covers the cleanup, which waits for the held write; release it before awaiting
       const cancelled = p.cancel();
       releaseWrite();
       await cancelled;
