@@ -86,9 +86,10 @@ That is what makes the cleanup possible: `delay` registers a cancel handler that
 A helper only cancels what it created. A cancelable promise passed in (or returned by a callback)
 may have other consumers, so a helper that stops releases its interest in it instead. The input is
 canceled when the helper was its last consumer, and keeps running for the others otherwise, the
-same rule `then` follows. A `.catch` attached to the input counts as a consumer too. Any other
-cancelable input cannot be counted, so it is canceled directly, which assumes the helper is its
-only holder.
+same rule `then` follows. A `.catch` attached to the input counts as a consumer too. A released
+input receives a bubbled `CancelError`, not the reason passed to the helper's `cancel()` or the
+`TimeoutError` of a missed deadline. Any other cancelable input cannot be counted, so it is canceled
+directly with that reason, which assumes the helper is its only holder.
 
 `cancelify` works from the other end. It hands the wrapped function a lazy signal thunk. The
 controller is created on the first `getSignal()` call and aborted when the returned promise is
@@ -274,7 +275,7 @@ In addition, async iterables can be consumed and produced with `canc.forAwait` a
 A helper that takes the work as an argument reads the declared failure set off that argument, so the set survives the wrapper with no type argument at the call site.
 
 - `retry`, `minDelay`, `debounce`, `throttle` and `delay(input, ms)` take the failure set from the work they wrap.
-- `timeout` and `waitFor` declare `TimeoutError` inside an open set (`TimeoutError | Unlisted`), because the work they wait on can reject with something else. A `catch` reason on their result is `any`, and a coroutine step over them contributes `TimeoutError`. `timeout` declares it in place of the input's set, not on top of it, so `timeout(input, ms)` lists `TimeoutError` alone.
+- `timeout` and `waitFor` declare `TimeoutError` inside an open set (`TimeoutError | Unlisted`), because the work they wait on can reject with something else. A `catch` reason on their result is `any`, and a coroutine step over them contributes `TimeoutError`. `timeout(input, ms)` adds `TimeoutError` to the input's own set, so a `CancelablePromise<T, FooError>` input gives `FooError | TimeoutError | Unlisted`.
 - `delay(ms)`, `defer` and `promisify` declare a `never` failure set. None of them wraps a promise to read one from.
 - `cancelify` and the terminal operations of the async iterator helpers (`toArray`, `reduce`, `find` and the rest) leave the failure set undeclared (`unknown`), because the function or the source you pass decides what they reject with. Neither carries a wrapped set yet.
 - The `LazyPromise` family declares no failure set, so promise combinators read it as open (`Unlisted`).
@@ -315,7 +316,7 @@ call, because a subscription is what wakes it. It does not defer anything furthe
 | `delay(input, ms, options?)`    | Resolves with `input`'s value after `ms`                      |
 | `minDelay(input, ms, options?)` | Settles no earlier than `ms`, for flicker-free loading states |
 | `timeout(ms, options?)`         | Rejects with `TimeoutError` after `ms`                        |
-| `timeout(input, ms?, options?)` | Settles with `input` and cancels it, unless `ms` passes first |
+| `timeout(input, ms?, options?)` | Settles with `input`, or releases it once `ms` passes first   |
 | `waitFor(condition, options?)`  | Resolves once `condition` is truthy, polling at `interval`    |
 
 `ms` is a number of milliseconds or a `[min, max]` tuple, rolled once per call for a jittered

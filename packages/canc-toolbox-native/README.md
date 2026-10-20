@@ -64,8 +64,10 @@ itself settles.
 An input that is itself cancelable is the exception. When `timeout` misses its deadline, or a
 `signal` aborts `delay`, `minDelay`, `timeout` or `retry`, or `debounce` is canceled, the helper
 releases the input it was given. A cancelable promise from `@cancjs/promise` is canceled only when
-the helper was its last consumer, and keeps running for its other consumers otherwise. Any other
-object with a `cancel` method is canceled directly.
+the helper was its last consumer, and keeps running for its other consumers otherwise. It then
+receives a bubbled `CancelError`, not the signal's reason, the `TimeoutError` of a missed deadline
+or the reason passed to `debounced.cancel()`. Any other object with a `cancel` method is canceled
+directly with that reason.
 
 Under `debounce` and `throttle`, a superseded pending or trailing call rejects with `SupersededError`.
 A fire-and-forget call needs a rejection handler attached so a superseded call is not unhandled.
