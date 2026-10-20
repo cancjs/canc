@@ -65,6 +65,20 @@ function destroyingOnCancel<TResult>(
   });
 }
 
+/**
+ * What node's terminal iterates. A source the caller keeps is read through an iterator that leaves
+ * it open on return, so the abort ends the loop without destroying the stream.
+ */
+function terminalReceiver(stream: Readable, destroy: boolean): unknown {
+  if (destroy) {
+    return stream;
+  }
+
+  return {
+    [Symbol.asyncIterator]: () => stream.iterator({ destroyOnReturn: false }),
+  };
+}
+
 function terminalWrapped<TResult>(
   methodName: string,
   optionsIndex: number,
@@ -77,14 +91,13 @@ function terminalWrapped<TResult>(
     const destroy = destroyOnCancelOption(args[optionsIndex]);
 
     const call = takeCallerSignal(args, optionsIndex);
+    const receiver = terminalReceiver(stream, destroy);
 
-    // node destroys a stream on abort mid-read, so the signal is withheld when the source is kept;
-    // the promise still rejects on cancel
     const promise = withCallerSignal<TResult, Unlisted>(
       call.callerSignal,
-      forwards && destroy,
+      forwards,
       (signal) =>
-        nodeFn.apply(stream, signal ? withSignalAt(call.args, optionsIndex, signal) : call.args) as
+        nodeFn.apply(receiver, signal ? withSignalAt(call.args, optionsIndex, signal) : call.args) as
           TResult | PromiseLike<TResult>,
     );
 
@@ -203,15 +216,17 @@ export function reduce<T = unknown, TAcc = T>(
   }
 
   const call = takeCallerSignal([fn, initial, options], 2);
+  const destroy = destroyOnCancelOption(options);
+  const receiver = terminalReceiver(stream, destroy);
 
   const promise = withCallerSignal<TAcc, Unlisted>(
     call.callerSignal,
     reduceForwardsSignal,
     (signal) =>
-      nodeFn.apply(stream, signal ? withSignalAt(call.args, 2, signal) : call.args) as TAcc | PromiseLike<TAcc>,
+      nodeFn.apply(receiver, signal ? withSignalAt(call.args, 2, signal) : call.args) as TAcc | PromiseLike<TAcc>,
   );
 
-  return destroyingOnCancel(stream, promise, destroyOnCancelOption(options));
+  return destroyingOnCancel(stream, promise, destroy);
 }
 
 // map, filter, take, drop and flatMap are deliberately absent: they return a lazily consumed

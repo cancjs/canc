@@ -338,4 +338,55 @@ describe('cancel destroys the source stream', () => {
     expect(canceledDestroyed).toBe(false);
     expect(signaledDestroyed).toBe(false);
   });
+
+  it('destroys the source on cancel by default, and with destroyOnCancel false hands it back readable', async () => {
+    const destroyed = makeCountingStream();
+    const p = forEach(destroyed.stream, () => undefined);
+    await tick();
+    await tick();
+    p.cancel();
+    await expectCancelRejection(p);
+    await tick();
+    await tick();
+    await tick();
+
+    const kept = makeCountingStream();
+    const seen: number[] = [];
+    const q = forEach<{ current: number }>(
+      kept.stream,
+      (chunk) => {
+        seen.push(chunk.current);
+      },
+      { destroyOnCancel: false },
+    );
+    await tick();
+    await tick();
+    q.cancel();
+    await expectCancelRejection(q);
+    const seenAtCancel = seen.length;
+    expect(seenAtCancel).toBeGreaterThan(0);
+
+    // the terminal's own loop has let go: the source is no longer drained into the canceled
+    // visitor, and reading it again gets fresh chunks
+    await tick();
+    await tick();
+    await tick();
+    expect(seen).toHaveLength(seenAtCancel);
+
+    const readAfter: number[] = [];
+    for await (const chunk of kept.stream.iterator({ destroyOnReturn: false })) {
+      readAfter.push((chunk as { current: number }).current);
+      if (readAfter.length === 3) {
+        break;
+      }
+    }
+
+    expect(destroyed.stream.destroyed).toBe(true);
+    expect(kept.stream.destroyed).toBe(false);
+    expect(seen).toHaveLength(seenAtCancel);
+    expect(readAfter).toHaveLength(3);
+    expect(readAfter[0]).toBeGreaterThan(seen[seenAtCancel - 1]);
+
+    kept.stream.destroy();
+  });
 });
