@@ -147,7 +147,7 @@ describe('version simulation', () => {
       cErr = e;
     }
     expect(isNotImplementedError(cErr)).toBe(true);
-    expect(cErr).toMatchObject({ feature: 'crc32', required: '22' });
+    expect(cErr).toMatchObject({ feature: 'crc32', required: '20.15.0' });
 
     let fErr: unknown;
     try {
