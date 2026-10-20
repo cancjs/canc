@@ -215,11 +215,14 @@ describe('dgram', () => {
         });
 
         const listenerAddr = listener.address();
+        const closed = new Promise<void>((resolve) => client.once('close', resolve));
         const promise = connect(client, listenerAddr.port, 'localhost');
         promise.cancel();
 
         const err = await promise.catch((e) => e);
         expect(isCancelError(err)).toBe(true);
+        await closed;
+        expect(() => client.address()).toThrow();
       } finally {
         listener.close();
       }
