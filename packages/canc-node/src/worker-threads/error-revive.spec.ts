@@ -134,6 +134,25 @@ describe('@cancjs/node worker-threads error revival', () => {
       expect(isTimeoutError((reason as { cause?: unknown }).cause)).toBe(true);
     });
 
+    it.each([
+      ['@cancjs/toolbox:SupersededError', 'SupersededError'],
+      ['@cancjs/coroutine:IterationError', 'IterationError'],
+      ['@cancjs/coroutine:BreakError', 'BreakError'],
+    ])('revives a %s stand-in by its brand key, with no import of the owning package', async (key, name) => {
+      // worker sees only the brand string, as node clone carries it
+      const script = `${workerPrelude()}
+        const error = new Error('stopped');
+        error.name = ${JSON.stringify(name)};
+        error._cancErrorBrand = ${JSON.stringify(key)};
+        throw error;
+      `;
+      const reason = await reasonOf(runTask(script, undefined, { eval: true }));
+
+      expect((reason as Record<symbol, unknown>)[Symbol.for(key)]).toBe(true);
+      expect((reason as Error).name).toBe(name);
+      expect((reason as Error).message).toBe('stopped');
+    });
+
     it('leaves a foreign class named CancelError as a plain error', async () => {
       const script = `${workerPrelude()}
         class CancelError extends Error {
@@ -186,6 +205,12 @@ describe('@cancjs/node worker-threads error revival', () => {
       class LocalTimeout extends Error {}
       const original = new LocalTimeout('mine');
       original.name = 'TimeoutError';
+
+      expect(reviveWorkerError(original)).toBe(original);
+    });
+
+    it('leaves a marker that is not a canc brand key unchanged', () => {
+      const original = Object.assign(serialized('Odd', 'x'), { _cancErrorBrand: 'not-a-brand' });
 
       expect(reviveWorkerError(original)).toBe(original);
     });

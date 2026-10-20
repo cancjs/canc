@@ -16,6 +16,37 @@ const KIND_PROTOTYPES = new Map<string, object>(
   ]),
 );
 
+/** A brand key shaped `@cancjs/<pkg>:<Name>`, the scheme every published canc class is keyed by. */
+const BRAND_KEY_PATTERN = /^@cancjs\/[a-z-]+:([A-Za-z]+)$/;
+
+/**
+ * One cached prototype per generic brand key, for a canc class this package does not ship (such as
+ * `SupersededError` from `@cancjs/toolbox`). It is a plain `Error` subclass that carries the brand
+ * symbol set to `true`, the shape the owning package's guard reads. Nothing is imported from there.
+ */
+const GENERIC_PROTOTYPES = new Map<string, object>();
+
+/** The prototype a brand key revives onto, or `undefined` when the key is not a canc brand. */
+function prototypeFor(key: string): object | undefined {
+  const known = KIND_PROTOTYPES.get(key);
+  if (known !== undefined) {
+    return known;
+  }
+  const match = BRAND_KEY_PATTERN.exec(key);
+  if (match === null) {
+    return undefined;
+  }
+  let generic = GENERIC_PROTOTYPES.get(key);
+  if (generic === undefined) {
+    generic = Object.create(Error.prototype, {
+      name: { value: match[1], writable: true, configurable: true },
+      [Symbol.for(key)]: { value: true },
+    }) as object;
+    GENERIC_PROTOTYPES.set(key, generic);
+  }
+  return generic;
+}
+
 /** The brand key a worker error carries, or `undefined` when it is not a canc error. */
 function brandKeyOf(value: unknown): string | undefined {
   if (typeof value !== 'object' || value === null) {
@@ -30,7 +61,8 @@ function brandKeyOf(value: unknown): string | undefined {
  * the marker itself, so the revived value still answers the brand guards on the next hop.
  */
 function reviveOne(error: object, depth: number): unknown {
-  const prototype = KIND_PROTOTYPES.get(brandKeyOf(error) ?? '');
+  const key = brandKeyOf(error);
+  const prototype = key === undefined ? undefined : prototypeFor(key);
   if (prototype === undefined) {
     return error;
   }
@@ -63,9 +95,10 @@ function reviveDepth(error: unknown, depth: number): unknown {
  * Rebuilds a worker's error on this side of the boundary as the canc class it was, so `isCancelError`
  * and the other brand guards answer for it again.
  *
- * Only an error carrying the brand marker that canc's own constructors set is rebuilt, and the marker
- * decides the class. A plain error, or a caller's own class that merely shares a canc name, carries no
- * marker and comes back unchanged. A `cause` chain is revived the same way, up to a fixed depth.
+ * Only an error carrying a canc brand key is rebuilt, and the key decides the class. A key this package
+ * does not ship revives as a generic stand-in that the owning package's guard still recognizes.
+ * A plain error, or a caller's own class that merely shares a canc name, carries no marker and comes
+ * back unchanged. A `cause` chain is revived the same way, up to a fixed depth.
  *
  * @param error - The error node reported for the worker.
  * @returns The rebuilt canc error, or `error` itself when no revival applies.
