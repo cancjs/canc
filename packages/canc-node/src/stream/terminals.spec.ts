@@ -241,7 +241,7 @@ describe('cancel destroys the source stream', () => {
   it('leaves the same listeners on a destroyed idle source as node toArray with a signal does', async () => {
     const LISTENED = ['data', 'readable', 'end', 'error', 'close'];
 
-    // native baseline: abort node's own toArray on an idle stream, then destroy the stream the way cancel does
+    // native baseline: abort node's toArray on an idle stream, then destroy it as cancel does
     const nativeStream = idleStream();
     const controller = new AbortController();
     const nativeSettled = nativeStream.toArray({ signal: controller.signal }).then(
@@ -312,7 +312,7 @@ describe('cancel destroys the source stream', () => {
     const nativeDestroyed = nativeStream.destroyed;
     nativeStream.destroy();
 
-    // reads in flight are where node destroys the source on abort, so the signal stays withheld here
+    // reads in flight are where node destroys on abort, so the signal stays withheld
     const canceled = makeCountingStream();
     const p = toArray(canceled.stream, { destroyOnCancel: false });
     await tick();

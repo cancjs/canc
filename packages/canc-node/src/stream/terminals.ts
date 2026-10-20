@@ -78,8 +78,8 @@ function terminalWrapped<TResult>(
 
     const call = takeCallerSignal(args, optionsIndex);
 
-    // node destroys a stream whose signal aborts mid-read, so the signal is withheld when the caller
-    // keeps the source; the promise still rejects on cancel either way
+    // node destroys a stream on abort mid-read, so the signal is withheld when the source is kept;
+    // the promise still rejects on cancel
     const promise = withCallerSignal<TResult, Unlisted>(
       call.callerSignal,
       forwards && destroy,
@@ -215,5 +215,5 @@ export function reduce<T = unknown, TAcc = T>(
 }
 
 // map, filter, take, drop and flatMap are deliberately absent: they return a lazily consumed
-// stream, not a promise, so they are not terminals in the sense this module wraps. Use
+// stream, not a promise, so they are not terminals in the sense this module wraps; use
 // @cancjs/toolbox/async-iter for those.

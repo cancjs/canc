@@ -426,7 +426,7 @@ describe('replaceFile', () => {
     try {
       const p = replaceFile(file, 'x'.repeat(10000));
       const cancelled = p.cancel();
-      // the cleanup's retries (12 x 40ms) run out here under a cleanup that does not wait for the write
+      // the cleanup retries (12 x 40ms) run out here, before the write is released
       await jest.advanceTimersByTimeAsync(2000);
       releaseWrite();
       await cancelled;
