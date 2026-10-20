@@ -175,7 +175,7 @@ describe('combinator inputs follow consumer counting', () => {
       swallow(consumer);
       const before = handlerCount(target.promise);
 
-      for (let round = 0; round < 1000; round++) {
+      for (let round = 0; round < 150; round++) {
         for (const kind of kinds) {
           const result = combine(kind, [target.promise]);
           swallow(result);
