@@ -2,10 +2,39 @@
 // in a loop, and both have to run a callback written in any of the four supported forms and be able
 // to abandon one that is still in flight.
 
-import { isGenerator } from '../../_util';
 import type { TAnyFn } from '../../_util/guards';
-import { isCancelableLike, isFunction, isThenableLike } from '../guards';
+import { isCancelableLike, isFunction, isObjectLike, isThenableLike } from '../guards';
 import type { TPromiseCtor } from './types';
+
+const hasMethod = (value: any, key: PropertyKey): boolean => isFunction(value[key]);
+
+// async iterators expose next too, so they are told apart before any body is driven
+function isAsyncIteratorObject(value: unknown): boolean {
+  return isObjectLike(value) && hasMethod(value, 'next') && hasMethod(value, Symbol.asyncIterator);
+}
+
+// transpiled generators have no tag, but unlike built-in iterators they expose throw and return
+function isGeneratorObject(value: unknown): value is Generator {
+  if (!isObjectLike(value) || isAsyncIteratorObject(value)) {
+    return false;
+  }
+  if ((value as any)[Symbol.toStringTag] === 'Generator') {
+    return true;
+  }
+
+  return (
+    hasMethod(value, 'next') &&
+    hasMethod(value, 'throw') &&
+    hasMethod(value, 'return') &&
+    hasMethod(value, Symbol.iterator)
+  );
+}
+
+function checkStep(step: unknown): void {
+  if (!isObjectLike(step) || isThenableLike(step)) {
+    throw new TypeError('A generator callback must yield synchronously, an async generator is not supported');
+  }
+}
 
 export interface IItemRun {
   /** The callback's outcome, whichever form it took. */
@@ -40,7 +69,9 @@ export function callbackFactory(deps: ICallbackDeps) {
   function driveGenerator<T>(gen: Generator<any, T, any>): PromiseLike<T> {
     const resume = (value: any): PromiseLike<any> => {
       try {
-        const { value: yielded, done } = gen.next(value);
+        const step = gen.next(value);
+        checkStep(step);
+        const { value: yielded, done } = step;
 
         if (done) {
           return Impl.resolve(yielded);
@@ -59,7 +90,9 @@ export function callbackFactory(deps: ICallbackDeps) {
     };
 
     const driveUnwind = (g: Generator<any, T, any>, err: any): any => {
-      const { value: yielded, done } = g.throw(err);
+      const step = g.throw(err);
+      checkStep(step);
+      const { value: yielded, done } = step;
 
       if (done) {
         return Impl.resolve(yielded);
@@ -84,7 +117,11 @@ export function callbackFactory(deps: ICallbackDeps) {
       return result;
     }
 
-    if (result && isFunction(result.next)) {
+    if (isAsyncIteratorObject(result)) {
+      return rejected(new TypeError('A callback cannot return an async generator, use an async function instead'));
+    }
+
+    if (isGeneratorObject(result)) {
       return driveGenerator(result);
     }
 
@@ -105,7 +142,7 @@ export function callbackFactory(deps: ICallbackDeps) {
     const watch = (...values: any[]): unknown => {
       const outcome: unknown = callback(...values);
 
-      if (isGenerator(outcome)) {
+      if (isGeneratorObject(outcome)) {
         body = outcome;
 
         return watchGenerator(
