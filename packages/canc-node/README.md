@@ -15,7 +15,7 @@ Node built-in modules with cancelable promises and typed failures.
 
 `@cancjs/node` provides cancelable promise wrappers and typed failure channels for Node.js built-in modules. To migrate, replace built-in imports like `node:fs/promises` or `node:child_process` with `@cancjs/node/<module>` (such as `@cancjs/node/fs` or `@cancjs/node/child-process`). All wrapped functions return `CancelablePromise` instances and propagate cancellations cleanly.
 
-The package ships the `fs`, `fs/sync`, `fs/register-graceful`, `fs/extra`, `child-process`, `timers`, `stream`, `events`, `dns`, `readline`, `crypto`, `zlib`, `zlib/extra`, `worker-threads`, and `dgram` subpaths. The root entry `@cancjs/node` provides shared error classes, errno predicates, and runtime feature detection used across all subpaths.
+The package ships the `fs`, `fs/sync`, `fs/register-graceful`, `fs/extra`, `child-process`, `timers`, `stream`, `events`, `dns`, `readline`, `crypto`, `zlib`, `worker-threads`, and `dgram` subpaths. The root entry `@cancjs/node` provides shared error classes, errno predicates, and runtime feature detection used across all subpaths.
 
 ## Features
 
