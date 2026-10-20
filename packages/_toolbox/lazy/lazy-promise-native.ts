@@ -46,14 +46,12 @@ export class LazyPromise<T = any> extends LazyBase<T> {
   declare protected _options?: ILazyPromiseOptions;
 
   /**
-   * With no signal, this is a pure passthrough to the native `Promise`, byte-identical to before
-   * this option existed. With a signal, `_start()` calls `new Impl(executor)` with no second
-   * argument (unlike every other toolbox helper, which forwards options through `construct()`), so
-   * the signal has to be bound here via closure instead of relying on it being forwarded.
+   * With no signal, this is a pure passthrough to the native `Promise`. With a signal, the work
+   * promise is built through `withAbortSignal`, which honors the options `_start()` passes along.
    *
    * `ctx.handleCancel` from the shared wrapper is threaded to a callback of our own, ahead of the
    * lazy's own executor, so `this._teardowns` (populated by `_start()` from the executor's RETURN
-   * value regardless of a signal being present) also runs on abort - the same two-teardown-forms
+   * value regardless of a signal being present) also runs on abort. That is the same two-teardown-forms
    * coverage the cancelable flavor's `cancel()` gives, just triggered by the signal instead.
    */
   protected _resolveImpl(): TPromiseCtor {
@@ -68,7 +66,7 @@ export class LazyPromise<T = any> extends LazyBase<T> {
 
     type TInnerExecutor = (resolve: (value: any) => void, reject: (reason?: any) => void, ctx?: IExecutorCtx) => void;
 
-    function AbortAwareLazyCtor(executor: TInnerExecutor): PromiseLike<any> {
+    function AbortAwareLazyCtor(executor: TInnerExecutor, innerOptions?: object): PromiseLike<any> {
       return new (AbortAwareCtor as unknown as new (executor: TInnerExecutor, options?: object) => PromiseLike<any>)(
         (resolve, reject, ctx) => {
           if (ctx) {
@@ -77,7 +75,7 @@ export class LazyPromise<T = any> extends LazyBase<T> {
 
           executor(resolve, reject, ctx);
         },
-        options,
+        innerOptions,
       );
     }
 

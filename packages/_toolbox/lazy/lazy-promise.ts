@@ -1,9 +1,11 @@
 import { CancelError, ICancelablePromiseOptions, IPromiseImplOptions, resolvePromiseImpl } from '@cancjs/promise';
 
+import { toCancelError } from '../../_util';
+import { IAbortSignalLike } from '../abort-signal';
 import { TPromiseCtor } from '../construct';
-import { isCancelErrorLike, isFunction } from '../guards';
+import { isFunction } from '../guards';
 import { ISettledResult } from '../settled-result';
-import { ILazyWithResolvers, LazyBase, TLazyExecutor, TLazyOnCancel } from './lazy-base';
+import { ILazyWithResolvers, LazyBase, TInnerPromise, TLazyExecutor, TLazyOnCancel } from './lazy-base';
 
 export type { TLazyExecutor, TLazyOnCancel } from './lazy-base';
 
@@ -55,11 +57,50 @@ export class LazyPromise<T = any> extends LazyBase<T> {
   // Live consumer tally for resettable lazy where each then subscribing before settlement
   // increments and a per consumer cancel decrements triggering teardown and reset on zero
   protected _consumers = 0;
+  protected _unwatchSignals?: () => void;
 
   constructor(executor: TLazyExecutor<T>, options?: ILazyPromiseOptions) {
     super(executor, options);
 
     this._resettable = !!options?.resettable;
+    this._watchSignals();
+  }
+
+  // Until the work starts nothing else observes the signal, an abort then is a cancel before start
+  protected _watchSignals(): void {
+    const signal = this._options?.signal as IAbortSignalLike | IAbortSignalLike[] | undefined;
+
+    if (!signal) {
+      return;
+    }
+
+    const signals = Array.isArray(signal) ? signal : [signal];
+    const preAborted = signals.find((each) => each.aborted);
+
+    if (preAborted) {
+      this.cancel(preAborted.reason);
+      return;
+    }
+
+    const listeners = signals.map((each) => {
+      const listener = () => this.cancel(each.reason);
+      each.addEventListener('abort', listener, { once: true });
+      return listener;
+    });
+
+    this._unwatchSignals = () => {
+      this._unwatchSignals = undefined;
+      signals.forEach((each, index) => each.removeEventListener('abort', listeners[index]));
+    };
+  }
+
+  // The work promise carries the signal from here on
+  protected _start(): PromiseLike<T> {
+    if (this._unwatchSignals) {
+      this._unwatchSignals();
+    }
+
+    return super._start();
   }
 
   /**
@@ -106,8 +147,24 @@ export class LazyPromise<T = any> extends LazyBase<T> {
 
     if (this._state === 'UNSTARTED') {
       this._canceledBeforeStart = true;
-      this._cancelError = isCancelErrorLike(reason) ? reason : new CancelError(reason);
+      this._cancelError = toCancelError(reason, CancelError);
       this._runTeardowns(reason);
+
+      if (this._unwatchSignals) {
+        this._unwatchSignals();
+      }
+
+      return;
+    }
+
+    const inner = this._inner as (TInnerPromise<T> & { shield?: boolean }) | undefined;
+
+    // a shielded work promise decides alone, strict throws there and nothing is torn down
+    if (inner?.shield) {
+      if (isFunction(inner.cancel)) {
+        inner.cancel(reason);
+      }
+
       return;
     }
 
@@ -121,10 +178,9 @@ export class LazyPromise<T = any> extends LazyBase<T> {
       }
     }
 
-    const inner = this._inner;
     this._runTeardowns(reason);
 
-    if (inner && typeof inner.cancel === 'function') {
+    if (inner && isFunction(inner.cancel)) {
       inner.cancel(reason);
     }
 
@@ -141,6 +197,7 @@ export class LazyPromise<T = any> extends LazyBase<T> {
     this._consumers = 0;
     this._canceledBeforeStart = false;
     this._cancelError = undefined;
+    this._watchSignals();
   }
 }
 

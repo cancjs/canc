@@ -263,6 +263,24 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
     return this._resolveImpl() as unknown as ILazyImplStatics;
   }
 
+  // The options the work promise is built with, minus the ones only the lazy itself reads
+  protected _innerOptions(): object | undefined {
+    if (!this._options) {
+      return undefined;
+    }
+
+    const source = this._options as Record<string, unknown>;
+    const stripped: Record<string, unknown> = {};
+
+    for (const key of Object.keys(source)) {
+      if (key !== 'impl' && key !== 'resettable' && key !== 'lazy') {
+        stripped[key] = source[key];
+      }
+    }
+
+    return stripped;
+  }
+
   // Builds and runs underlying promise once wiring executor handleCancel and optional teardown
   // into a single list idempotently returning cached inner once running or settled
   protected _start(): PromiseLike<T> {
@@ -291,7 +309,7 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
       if (isFunction(returned)) {
         this._teardowns.push(returned);
       }
-    }) as TInnerPromise<T>;
+    }, this._innerOptions()) as TInnerPromise<T>;
 
     this._inner = inner;
 
