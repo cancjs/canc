@@ -1,98 +1,207 @@
-import { isCancelError, isTimeoutError, TimeoutError } from '@cancjs/promise';
+import { resolve } from 'node:path';
 
-import { isProcessExitError, ProcessExitError } from '../errors/classes';
+import { CancelError, isCancelError, isTimeoutError, TimeoutError } from '@cancjs/promise';
+
+import {
+  isJsonParseError,
+  isNotImplementedError,
+  isProcessExitError,
+  JsonParseError,
+  NotImplementedError,
+  ProcessExitError,
+} from '../errors/classes';
 import { reviveWorkerError } from './error-revive';
 import { runTask } from './run-task';
 import { Worker } from './worker';
 
-// what node hands over for a thrown error: a plain Error carrying the name, own props and cause
-function serialized(name: string, message: string, extra: Record<string, unknown> = {}): Error {
+const promiseSrc = resolve(__dirname, '../../../canc-promise/src/index.ts');
+const errorClassesSrc = resolve(__dirname, '../errors/classes.ts');
+
+/**
+ * Prelude for a worker thread: transpiles `.ts` on the fly and points `@cancjs/promise` and
+ * `@cancjs/node` at source, so the thread throws the same canc classes this test imports. Only the
+ * error classes of `@cancjs/node` are needed, so that alias skips the rest of the package.
+ */
+function workerPrelude(): string {
+  return `
+    const ts = require(${JSON.stringify(require.resolve('typescript'))});
+    const Module = require('module');
+    const fs = require('fs');
+    const aliases = {
+      '@cancjs/promise': ${JSON.stringify(promiseSrc)},
+      '@cancjs/node': ${JSON.stringify(errorClassesSrc)},
+    };
+    const resolveFilename = Module._resolveFilename;
+    Module._resolveFilename = function (request, ...rest) {
+      return Object.prototype.hasOwnProperty.call(aliases, request)
+        ? aliases[request]
+        : resolveFilename.call(this, request, ...rest);
+    };
+    Module._extensions['.ts'] = function (mod, filename) {
+      const out = ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
+        compilerOptions: {
+          module: ts.ModuleKind.CommonJS,
+          target: ts.ScriptTarget.ES2019,
+          esModuleInterop: true,
+          downlevelIteration: true,
+          useDefineForClassFields: false,
+        },
+      });
+      mod._compile(out.outputText, filename);
+    };
+    const kinds = { ...require('@cancjs/node'), ...require('@cancjs/promise') };
+  `;
+}
+
+/** A worker script that throws the named real canc class. */
+function throwing(kind: string, extra = ''): string {
+  return `${workerPrelude()}
+    const error = new kinds[${JSON.stringify(kind)}]('task stopped');
+    ${extra}
+    throw error;
+  `;
+}
+
+/** A plain Error as node hands it over for a thrown error, carrying the name, own props and cause. */
+function serialized(name: string, message: string): Error {
   const error = new Error(message, { cause: new Error('inner') });
   error.name = name;
-  Object.assign(error, extra);
   return error;
 }
 
-const throwingTask = (name: string, extra: string) => `
-  const error = new Error('task stopped', { cause: new Error('inner') });
-  error.name = ${JSON.stringify(name)};
-  ${extra}
-  throw error;
-`;
+async function reasonOf(promise: PromiseLike<unknown>): Promise<unknown> {
+  return promise.then(
+    () => undefined,
+    (err: unknown) => err,
+  );
+}
 
 describe('@cancjs/node worker-threads error revival', () => {
-  it('rebuilds a CancelError by name, keeping message, cause and stack', () => {
-    const original = serialized('CancelError', 'stopped');
-    const revived = reviveWorkerError(original);
+  describe('from a worker thread', () => {
+    it('rebuilds a CancelError thrown as the real class', async () => {
+      const reason = await reasonOf(runTask(throwing('CancelError'), undefined, { eval: true }));
 
-    expect(isCancelError(revived)).toBe(true);
-    expect((revived as Error).message).toBe('stopped');
-    expect((revived as Error).cause).toEqual(new Error('inner'));
-  });
-
-  it('rebuilds a TimeoutError by name', () => {
-    expect(isTimeoutError(reviveWorkerError(serialized('TimeoutError', 'slow')))).toBe(true);
-  });
-
-  it('keeps own properties such as exitCode on a rebuilt ProcessExitError', () => {
-    const revived = reviveWorkerError(serialized('ProcessExitError', 'exited', { exitCode: 3 }));
-
-    expect(isProcessExitError(revived)).toBe(true);
-    expect((revived as { exitCode?: number }).exitCode).toBe(3);
-  });
-
-  it('leaves a plain Error with an unknown name unchanged', () => {
-    const original = serialized('Boom', 'plain');
-    expect(reviveWorkerError(original)).toBe(original);
-  });
-
-  it('leaves a caller-defined subclass unchanged even when its name matches', () => {
-    class LocalTimeout extends Error {}
-    const original = new LocalTimeout('mine');
-    original.name = 'TimeoutError';
-
-    expect(reviveWorkerError(original)).toBe(original);
-  });
-
-  it('leaves a non-error value unchanged', () => {
-    expect(reviveWorkerError('stopped')).toBe('stopped');
-  });
-
-  it('runTask rejects a CancelError thrown in the worker with the canc brand', async () => {
-    const promise = runTask(throwingTask('CancelError', "error.code = 'E_STOP';"), undefined, { eval: true });
-
-    const reason = await promise.catch((err: unknown) => err);
-    expect(isCancelError(reason)).toBe(true);
-    expect((reason as { code?: string }).code).toBe('E_STOP');
-    expect((reason as Error).message).toBe('task stopped');
-  });
-
-  it('runTask rejects a TimeoutError thrown in the worker with the canc brand', async () => {
-    const reason = await runTask(throwingTask('TimeoutError', ''), undefined, { eval: true }).catch(
-      (err: unknown) => err,
-    );
-    expect(isTimeoutError(reason)).toBe(true);
-    expect(reason).toBeInstanceOf(TimeoutError);
-  });
-
-  it('runTask leaves a plain worker error with an unknown name unchanged', async () => {
-    const reason = await runTask(throwingTask('Boom', ''), undefined, { eval: true }).catch((err: unknown) => err);
-    expect(isCancelError(reason)).toBe(false);
-    expect((reason as Error).name).toBe('Boom');
-  });
-
-  it('Worker promise rejects a revived CancelError from the thread error event', async () => {
-    const worker = new Worker(`const error = new Error('stopped'); error.name = 'CancelError'; throw error;`, {
-      eval: true,
+      expect(isCancelError(reason)).toBe(true);
+      expect(reason).toBeInstanceOf(CancelError);
+      expect((reason as Error).message).toBe('task stopped');
     });
-    worker.once('error', () => undefined);
 
-    const reason = await worker.promise.catch((err: unknown) => err);
-    expect(isCancelError(reason)).toBe(true);
+    it('rebuilds a TimeoutError thrown as the real class', async () => {
+      const reason = await reasonOf(runTask(throwing('TimeoutError'), undefined, { eval: true }));
+
+      expect(isTimeoutError(reason)).toBe(true);
+      expect(reason).toBeInstanceOf(TimeoutError);
+    });
+
+    it('rebuilds a ProcessExitError and keeps its exitCode', async () => {
+      const reason = await reasonOf(
+        runTask(throwing('ProcessExitError', 'error.exitCode = 3;'), undefined, { eval: true }),
+      );
+
+      expect(isProcessExitError(reason)).toBe(true);
+      expect(reason).toBeInstanceOf(ProcessExitError);
+      expect((reason as { exitCode?: number }).exitCode).toBe(3);
+    });
+
+    it('rebuilds a JsonParseError thrown as the real class', async () => {
+      const reason = await reasonOf(runTask(throwing('JsonParseError'), undefined, { eval: true }));
+
+      expect(isJsonParseError(reason)).toBe(true);
+      expect(reason).toBeInstanceOf(JsonParseError);
+    });
+
+    it('rebuilds a NotImplementedError thrown as the real class', async () => {
+      const reason = await reasonOf(runTask(throwing('NotImplementedError'), undefined, { eval: true }));
+
+      expect(isNotImplementedError(reason)).toBe(true);
+      expect(reason).toBeInstanceOf(NotImplementedError);
+    });
+
+    it('revives a canc error reached through cause', async () => {
+      const script = throwing('CancelError', `error.cause = new kinds.TimeoutError('slow');`);
+      const reason = await reasonOf(runTask(script, undefined, { eval: true }));
+
+      expect(isCancelError(reason)).toBe(true);
+      expect(isTimeoutError((reason as { cause?: unknown }).cause)).toBe(true);
+    });
+
+    it('leaves a foreign class named CancelError as a plain error', async () => {
+      const script = `${workerPrelude()}
+        class CancelError extends Error {
+          constructor(message) {
+            super(message);
+            this.name = 'CancelError';
+          }
+        }
+        throw new CancelError('stopped');
+      `;
+      const reason = await reasonOf(runTask(script, undefined, { eval: true }));
+
+      expect(isCancelError(reason)).toBe(false);
+      expect((reason as Error).name).toBe('CancelError');
+    });
+
+    it('leaves a plain worker error with an unknown name unchanged', async () => {
+      const reason = await reasonOf(
+        runTask(`const error = new Error('x'); error.name = 'Boom'; throw error;`, undefined, { eval: true }),
+      );
+
+      expect(isCancelError(reason)).toBe(false);
+      expect((reason as Error).name).toBe('Boom');
+    });
+
+    it('Worker promise rejects a revived CancelError from the thread error event', async () => {
+      const worker = new Worker(throwing('CancelError'), { eval: true });
+      worker.once('error', () => undefined);
+
+      const reason = await reasonOf(worker.promise);
+      expect(isCancelError(reason)).toBe(true);
+    });
   });
 
-  it('keeps a ProcessExitError class reference usable as an instanceof check after revival', () => {
-    const revived = reviveWorkerError(serialized('ProcessExitError', 'x'));
-    expect(revived).toBeInstanceOf(ProcessExitError);
+  describe('reviveWorkerError', () => {
+    it('leaves a plain Error named CancelError unchanged, since it carries no marker', () => {
+      const original = serialized('CancelError', 'stopped');
+
+      expect(reviveWorkerError(original)).toBe(original);
+      expect(isCancelError(original)).toBe(false);
+    });
+
+    it('leaves a plain Error named TimeoutError unchanged', () => {
+      const original = serialized('TimeoutError', 'slow');
+
+      expect(reviveWorkerError(original)).toBe(original);
+    });
+
+    it('leaves a caller-defined subclass unchanged even when its name matches', () => {
+      class LocalTimeout extends Error {}
+      const original = new LocalTimeout('mine');
+      original.name = 'TimeoutError';
+
+      expect(reviveWorkerError(original)).toBe(original);
+    });
+
+    it('leaves a non-error value unchanged', () => {
+      expect(reviveWorkerError('stopped')).toBe('stopped');
+    });
+
+    it('revives a marked instance by its brand key, and keeps the marker on the result', () => {
+      const marked = Object.assign(serialized('Whatever', 'stopped'), {
+        _cancErrorBrand: '@cancjs/promise:CancelError',
+      });
+      const revived = reviveWorkerError(marked) as Error & { _cancErrorBrand: string };
+
+      expect(isCancelError(revived)).toBe(true);
+      expect(revived.message).toBe('stopped');
+      expect(revived._cancErrorBrand).toBe('@cancjs/promise:CancelError');
+    });
+
+    it('keeps a ProcessExitError class reference usable as an instanceof check after revival', () => {
+      const marked = Object.assign(serialized('ProcessExitError', 'x'), {
+        _cancErrorBrand: '@cancjs/node:ProcessExitError',
+      });
+
+      expect(reviveWorkerError(marked)).toBeInstanceOf(ProcessExitError);
+    });
   });
 });

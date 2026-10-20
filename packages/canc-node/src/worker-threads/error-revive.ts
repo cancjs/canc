@@ -1,49 +1,36 @@
 import { JsonParseError, NotImplementedError, ProcessExitError, ProcessSpawnError } from '@cancjs/node';
 import { CancelError, TimeoutError } from '@cancjs/promise';
 
-/**
- * Prototype of each canc-owned error kind a worker can throw, keyed by the `name` node keeps across
- * the thread boundary. Structured clone drops the prototype, and with it the brand that guards read,
- * so the name is the only identity that survives the trip.
- */
-const KIND_PROTOTYPES = new Map<string, object>([
-  ['CancelError', CancelError.prototype],
-  ['TimeoutError', TimeoutError.prototype],
-  ['ProcessExitError', ProcessExitError.prototype],
-  ['ProcessSpawnError', ProcessSpawnError.prototype],
-  ['JsonParseError', JsonParseError.prototype],
-  ['NotImplementedError', NotImplementedError.prototype],
-]);
+/** How far down a `cause` chain revival walks, so a cyclic or very deep cause cannot loop forever. */
+const MAX_CAUSE_DEPTH = 8;
 
-/** A plain `Error` as node reports it, from any realm: its constructor is `Error`, not a subclass. */
-function isPlainError(value: unknown): value is Error {
+/**
+ * Prototype of each canc-owned error kind a worker can throw, keyed by the brand key each one carries
+ * on its prototype. Structured clone drops the prototype with the brand symbol, so the brand key that
+ * the instance keeps as an own property is the only identity that survives the trip.
+ */
+const KIND_PROTOTYPES = new Map<string, object>(
+  [CancelError, TimeoutError, ProcessExitError, ProcessSpawnError, JsonParseError, NotImplementedError].map((kind) => [
+    (kind.prototype as { _cancErrorBrand?: string })._cancErrorBrand!,
+    kind.prototype,
+  ]),
+);
+
+/** The brand key a worker error carries, or `undefined` when it is not a canc error. */
+function brandKeyOf(value: unknown): string | undefined {
   if (typeof value !== 'object' || value === null) {
-    return false;
+    return undefined;
   }
-  const constructor = (value as { constructor?: { name?: unknown } }).constructor;
-  return constructor?.name === 'Error';
+  const key = (value as { _cancErrorBrand?: unknown })._cancErrorBrand;
+  return typeof key === 'string' ? key : undefined;
 }
 
 /**
- * Rebuilds a worker's error on this side of the boundary as the canc class it was, so `isCancelError`
- * and the other brand guards answer for it again.
- *
- * Only a plain `Error` whose `name` is one of the kinds above is rebuilt, which is what node hands
- * over for a thrown canc error. Every own property survives the copy (message, stack, code, cause,
- * `exitCode`, ...). Anything else is returned unchanged, including a caller's own error class that
- * happens to share a name, since its constructor is not `Error`.
- *
- * @param error - The error node reported for the worker.
- * @returns The rebuilt canc error, or `error` itself when no revival applies.
+ * Rebuilds one error as the canc class its brand key names. Every own property is copied, including
+ * the marker itself, so the revived value still answers the brand guards on the next hop.
  */
-export function reviveWorkerError(error: unknown): unknown {
-  // checked by constructor name rather than `instanceof Error`: the thread's Error can come from
-  // another realm (a vm context, a test runner's sandbox), where `instanceof` answers no
-  if (!isPlainError(error)) {
-    return error;
-  }
-
-  const prototype = KIND_PROTOTYPES.get(error.name);
+function reviveOne(error: object, depth: number): unknown {
+  const prototype = KIND_PROTOTYPES.get(brandKeyOf(error) ?? '');
   if (prototype === undefined) {
     return error;
   }
@@ -52,5 +39,37 @@ export function reviveWorkerError(error: unknown): unknown {
   for (const key of Reflect.ownKeys(error)) {
     Object.defineProperty(revived, key, Object.getOwnPropertyDescriptor(error, key)!);
   }
+
+  // a canc error can wrap another one (`cause`), and node's clone keeps the nested value as a plain error
+  if (depth < MAX_CAUSE_DEPTH && typeof revived.cause === 'object' && revived.cause !== null) {
+    Object.defineProperty(revived, 'cause', {
+      value: reviveDepth((revived as { cause: unknown }).cause, depth + 1),
+      writable: true,
+      configurable: true,
+      enumerable: Object.prototype.propertyIsEnumerable.call(revived, 'cause'),
+    });
+  }
   return revived;
+}
+
+function reviveDepth(error: unknown, depth: number): unknown {
+  if (typeof error !== 'object' || error === null || brandKeyOf(error) === undefined) {
+    return error;
+  }
+  return reviveOne(error, depth);
+}
+
+/**
+ * Rebuilds a worker's error on this side of the boundary as the canc class it was, so `isCancelError`
+ * and the other brand guards answer for it again.
+ *
+ * Only an error carrying the brand marker that canc's own constructors set is rebuilt, and the marker
+ * decides the class. A plain error, or a caller's own class that merely shares a canc name, carries no
+ * marker and comes back unchanged. A `cause` chain is revived the same way, up to a fixed depth.
+ *
+ * @param error - The error node reported for the worker.
+ * @returns The rebuilt canc error, or `error` itself when no revival applies.
+ */
+export function reviveWorkerError(error: unknown): unknown {
+  return reviveDepth(error, 0);
 }
