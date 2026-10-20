@@ -1,6 +1,6 @@
 import { isAbortError, isCancelable, isFunction, isObject, isTimeoutError, readProp } from '../../_util';
 import type { TErrorPredicate } from '../../_util/error-matchers';
-import { CancelablePromise } from './cancelable-promise';
+import { CancelablePromise, type TOnCancel } from './cancelable-promise';
 import type { ICatchSuppressOptions } from './helpers';
 
 export interface IErrorMatchDeps {
@@ -45,6 +45,52 @@ function makeIsCaught({ matches, isCancelError, flagsEnabled }: IErrorMatchDeps)
 // A value whose `then` read throws is a raw error to match, not a thenable to wait on
 const isReadableThenable = (value: any): value is PromiseLike<any> =>
   (isObject(value) || isFunction(value)) && isFunction(readProp(value, 'then'));
+
+interface ICountedSource {
+  _subscribe(onFulfilled: (value: any) => unknown, onRejected: (reason: any) => unknown): void;
+  _retainRef(): (() => void) | undefined;
+}
+
+const isCountedSource = (value: any): value is ICountedSource =>
+  isFunction(readProp(value, '_subscribe')) && isFunction(readProp(value, '_retainRef'));
+
+/**
+ * Settle a wrapper from `source` and, when the wrapper is canceled, release the wrapper's interest
+ * in it. A canc source gets one counted consumer ref, so it is canceled only when the wrapper was
+ * its last consumer. A duck cancelable (third party, lazy) cannot be counted: it is canceled
+ * directly, which is correct only while the wrapper is its sole holder.
+ */
+export function followSource(
+  source: PromiseLike<any>,
+  onFulfilled: (value: any) => unknown,
+  onRejected: (reason: any) => unknown,
+  handleCancel: ((onCancel: TOnCancel) => unknown) | undefined,
+): void {
+  if (isCountedSource(source)) {
+    // the public `then` would add a consumer this ref could never release
+    source._subscribe(onFulfilled, onRejected);
+    const release = source._retainRef();
+
+    if (handleCancel && release) {
+      handleCancel(release);
+    }
+  } else {
+    CancelablePromise.resolve(source).then(onFulfilled, onRejected);
+
+    if (handleCancel && isCancelable(source)) {
+      handleCancel((reason?: any) => source.cancel(reason));
+    }
+  }
+}
+
+/**
+ * Release `source` for a wrapper born canceled by a pre-aborted signal: its executor never ran,
+ * so the link `followSource` would have made is made and dropped here.
+ */
+export function releaseUnlinkedSource(source: PromiseLike<any>): void {
+  const ignore = (): void => {};
+  followSource(source, ignore, ignore, (release) => release());
+}
 
 // The original rejection rides along as `cause` unless the predicate error already has one
 function attachCause(predicateError: unknown, original: unknown): void {
@@ -96,20 +142,29 @@ export function makeCatch(deps: IErrorMatchDeps) {
     // works uniformly regardless of what actually produced it. Any promise can reject with a
     // CancelError (not just ones created via cancel()), so this must be recognized here too.
     if (isReadableThenable(errorOrPromise)) {
-      return new CancelablePromise((resolve, reject, ctx) => {
-        CancelablePromise.resolve(errorOrPromise).then(resolve, (error: any) => {
-          settleMatched(
-            () => isCaught(error, options),
-            error,
-            () => resolve(error),
-            reject,
-          );
-        });
-
-        if (ctx && isCancelable(errorOrPromise)) {
-          ctx.handleCancel((reason?: any) => errorOrPromise.cancel(reason));
-        }
+      let linked = false;
+      const wrapper = new CancelablePromise((resolve, reject, ctx) => {
+        linked = true;
+        followSource(
+          errorOrPromise,
+          resolve,
+          (error: any) => {
+            settleMatched(
+              () => isCaught(error, options),
+              error,
+              () => resolve(error),
+              reject,
+            );
+          },
+          ctx?.handleCancel,
+        );
       }, options);
+
+      if (!linked) {
+        releaseUnlinkedSource(errorOrPromise);
+      }
+
+      return wrapper;
     } else if (isCaught(errorOrPromise, options)) {
       return errorOrPromise;
     } else {
@@ -131,20 +186,29 @@ export function makeSuppress(deps: IErrorMatchDeps) {
     // (native Promise, foreign cancelable, other @cancjs/promise copy) rejecting with a
     // CancelError gets suppressed, not just CancelablePromise instances.
     if (isReadableThenable(errorOrPromise)) {
-      return new CancelablePromise((resolve, reject, ctx) => {
-        CancelablePromise.resolve(errorOrPromise).then(resolve, (error: any) => {
-          settleMatched(
-            () => isCaught(error, options),
-            error,
-            () => resolve(undefined),
-            reject,
-          );
-        });
-
-        if (ctx && isCancelable(errorOrPromise)) {
-          ctx.handleCancel((reason?: any) => errorOrPromise.cancel(reason));
-        }
+      let linked = false;
+      const wrapper = new CancelablePromise((resolve, reject, ctx) => {
+        linked = true;
+        followSource(
+          errorOrPromise,
+          resolve,
+          (error: any) => {
+            settleMatched(
+              () => isCaught(error, options),
+              error,
+              () => resolve(undefined),
+              reject,
+            );
+          },
+          ctx?.handleCancel,
+        );
       }, options);
+
+      if (!linked) {
+        releaseUnlinkedSource(errorOrPromise);
+      }
+
+      return wrapper;
     } else if (!isCaught(errorOrPromise, options)) {
       throw errorOrPromise;
     }
