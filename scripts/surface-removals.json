@@ -34,6 +34,12 @@
       "name": "TCancelableFetchFailure",
       "member": "stack",
       "reason": "Fetch failure alias widened to the open failure set; stack member removed by design."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib/extra",
+      "name": "zipFilesCheckpointed",
+      "reason": "Walker never published (npm has only 0.0.0-stage and 1.1.0-beta.0); removed before its first release."
     }
   ]
 }
