@@ -215,6 +215,24 @@ describe('@cancjs/node worker-threads error revival', () => {
       expect(reviveWorkerError(original)).toBe(original);
     });
 
+    it('leaves a generic brand key longer than the length cap unchanged', () => {
+      const key = `@cancjs/pkg:${'A'.repeat(200)}`;
+      const original = Object.assign(serialized('Long', 'x'), { _cancErrorBrand: key });
+
+      expect(reviveWorkerError(original)).toBe(original);
+    });
+
+    it('stops reviving new generic keys once the prototype cache is full', () => {
+      // distinct keys, all under the length cap, so only the cache cap can stop a revival
+      const originals = Array.from({ length: 100 }, (_, index) =>
+        Object.assign(serialized('Gen', 'x'), { _cancErrorBrand: `@cancjs/gen:${'G'.repeat(index + 1)}` }),
+      );
+      const revived = originals.filter((original) => reviveWorkerError(original) !== original);
+
+      expect(revived.length).toBeLessThanOrEqual(64);
+      expect(reviveWorkerError(originals[originals.length - 1])).toBe(originals[originals.length - 1]);
+    });
+
     it('leaves a non-error value unchanged', () => {
       expect(reviveWorkerError('stopped')).toBe('stopped');
     });

@@ -19,6 +19,12 @@ const KIND_PROTOTYPES = new Map<string, object>(
 /** A brand key shaped `@cancjs/<pkg>:<Name>`, the scheme every published canc class is keyed by. */
 const BRAND_KEY_PATTERN = /^@cancjs\/[a-z-]+:([A-Za-z]+)$/;
 
+/** Longest brand key revived as a generic class, so a hostile marker cannot grow the cache per byte. */
+const MAX_GENERIC_KEY_LENGTH = 128;
+
+/** Most generic prototypes kept, so a worker sending endless new keys cannot grow the cache forever. */
+const MAX_GENERIC_PROTOTYPES = 64;
+
 /**
  * One cached prototype per generic brand key, for a canc class this package does not ship (such as
  * `SupersededError` from `@cancjs/toolbox`). It is a plain `Error` subclass that carries the brand
@@ -33,11 +39,14 @@ function prototypeFor(key: string): object | undefined {
     return known;
   }
   const match = BRAND_KEY_PATTERN.exec(key);
-  if (match === null) {
+  if (match === null || key.length > MAX_GENERIC_KEY_LENGTH) {
     return undefined;
   }
   let generic = GENERIC_PROTOTYPES.get(key);
   if (generic === undefined) {
+    if (GENERIC_PROTOTYPES.size >= MAX_GENERIC_PROTOTYPES) {
+      return undefined;
+    }
     generic = Object.create(Error.prototype, {
       name: { value: match[1], writable: true, configurable: true },
       [Symbol.for(key)]: { value: true },
