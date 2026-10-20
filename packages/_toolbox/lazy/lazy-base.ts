@@ -195,7 +195,7 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
     // Aggregate refers to itself to resolve implementation at start time with the same per call
     // precedence a subscription gets since executor cannot run before assignment
     const aggregate: LazyBase<V[]> = this._new<V[]>(
-      (resolve) => resolve(aggregate._resolveImplStatics().all(values) as PromiseLike<V[]>),
+      (resolve) => resolve(aggregate._resolveImplStatics().all(LazyBase._subscribeInputs(values)) as PromiseLike<V[]>),
       options,
     );
 
@@ -206,7 +206,11 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
   static allSettled<V>(values: Iterable<V | PromiseLike<V>>, options?: object): LazyBase<ISettledResult<Awaited<V>>[]> {
     const aggregate: LazyBase<ISettledResult<Awaited<V>>[]> = this._new<ISettledResult<Awaited<V>>[]>(
       (resolve) =>
-        resolve(aggregate._resolveImplStatics().allSettled(values) as PromiseLike<ISettledResult<Awaited<V>>[]>),
+        resolve(
+          aggregate._resolveImplStatics().allSettled(LazyBase._subscribeInputs(values)) as PromiseLike<
+            ISettledResult<Awaited<V>>[]
+          >,
+        ),
       options,
     );
 
@@ -216,7 +220,7 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
   /** A lazy promise for the implementation's `any`. Cold until subscribed, like `all`. */
   static any<V>(values: Iterable<V | PromiseLike<V>>, options?: object): LazyBase<V> {
     const aggregate: LazyBase<V> = this._new<V>(
-      (resolve) => resolve(aggregate._resolveImplStatics().any(values) as PromiseLike<V>),
+      (resolve) => resolve(aggregate._resolveImplStatics().any(LazyBase._subscribeInputs(values)) as PromiseLike<V>),
       options,
     );
 
@@ -226,15 +230,39 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
   /**
    * A lazy promise for the implementation's `race`. Cold until subscribed, like `all`, and the
    * loser handling is the implementation's: the cancelable flavor releases them (one that
-   * nothing else consumes is canceled), the native one cannot.
+   * nothing else consumes is canceled), the native one cannot. An unstarted lazy input listed
+   * after one that has already settled cannot win, so it is left unstarted.
    */
   static race<V>(values: Iterable<V | PromiseLike<V>>, options?: object): LazyBase<V> {
     const aggregate: LazyBase<V> = this._new<V>(
-      (resolve) => resolve(aggregate._resolveImplStatics().race(values) as PromiseLike<V>),
+      (resolve) =>
+        resolve(aggregate._resolveImplStatics().race(LazyBase._subscribeInputs(values, true)) as PromiseLike<V>),
       options,
     );
 
     return aggregate;
+  }
+
+  // a released derived input reaches the lazy's work, an adoption wrapper would not
+  protected static _subscribeInputs(values: Iterable<unknown>, skipAfterSettled?: boolean): unknown[] {
+    const inputs: unknown[] = [];
+    let decided = false;
+
+    for (const value of values) {
+      if (!isLazyPromise(value)) {
+        inputs.push(value);
+        continue;
+      }
+
+      if (decided && value._state === 'UNSTARTED') {
+        continue;
+      }
+
+      decided = decided || (!!skipAfterSettled && value._state === 'SETTLED');
+      inputs.push(value.then());
+    }
+
+    return inputs;
   }
 
   declare readonly [LAZY_PROMISE_BRAND]: true;
@@ -331,6 +359,17 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
 
     this._inner = inner;
 
+    const handleInnerCancel = (inner as TInnerPromise<T> & { handleCancel?: unknown }).handleCancel;
+
+    // the last consumer leaving cancels the work without cancel(), so teardowns run here
+    if (isFunction(handleInnerCancel)) {
+      handleInnerCancel.call(inner, (reason?: any) => {
+        if (this._inner === inner) {
+          this._runTeardowns(reason);
+        }
+      });
+    }
+
     const subscribe = (inner as TInnerPromise<T> & { _subscribe?: unknown })._subscribe;
 
     // a counted then would hold the work alive after every consumer canceled
@@ -383,6 +422,17 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
   // circuits the subscription entirely and returning undefined proceeds to start
   protected _beforeSubscribe(): PromiseLike<T> | undefined {
     return undefined;
+  }
+
+  // cross-copy contract: fixed meaning, an incompatible change takes a new name
+  protected _handleCancel(onCancel: TLazyOnCancel): void {
+    const inner = this._inner as (TInnerPromise<T> & { handleCancel?: unknown }) | undefined;
+
+    if (inner && isFunction(inner.handleCancel)) {
+      inner.handleCancel.call(inner, onCancel, { immediate: true });
+    } else if (this._state !== 'SETTLED') {
+      this._teardowns.push(onCancel);
+    }
   }
 
   // Subclass hook whether executor may still be started so a flavor canceled before it starts

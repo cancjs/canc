@@ -256,6 +256,17 @@ not subscribe to its inputs until the aggregate itself is subscribed. `createLaz
 options?)` is the front door for input whose shape varies, function, lazy promise, plain promise
 or value, and passes a lazy input through unchanged so its laziness survives.
 
+A combinator cancels the lazy inputs it no longer needs. A race loser is canceled once the winner
+settles, unless something else still consumes it:
+
+```js
+const fastest = LazyPromise.race([LazyPromise.try(fetchFromA), LazyPromise.try(fetchFromB)]);
+
+await fastest; // both start here, the slower one is canceled
+```
+
+`toAbortSignal(lazy)` does not start the work either. The signal aborts when the lazy is canceled.
+
 `lazy.execute()` starts the work without subscribing to it, which matters for prefetch-then-await:
 `void lazy.then()` builds a derived promise with no handlers, so a later rejection on it is
 reported unhandled even when the lazy itself is awaited elsewhere. `execute()` has no such node.
@@ -395,16 +406,17 @@ it keeps running for that consumer and its slot stays taken until the work settl
 
 ### Lazy promises
 
-| Export                                        | Description                                                               |
-| --------------------------------------------- | ------------------------------------------------------------------------- |
-| `new LazyPromise(executor, options?)`         | Executor form, deferred to the first subscription                         |
-| `LazyPromise.try(fn, ...args)`                | Deferred call of `fn`, `CancelablePromise.try` semantics                  |
-| `createLazyPromise(x, options?)`, `lazy(run)` | Front door: function, lazy promise, plain promise or value                |
-| `LazyPromise.all/race/any/allSettled(...)`    | Cold combinators, semantics from `CancelablePromise`                      |
-| `LazyPromise.withResolvers(options?)`         | `{ promise, resolve, reject, cancel }`, adoption deferred to subscription |
-| `lazy.execute()`                              | Starts the work now, without subscribing to it                            |
-| `lazy.started`                                | Whether the executor has been triggered                                   |
-| `isLazyPromise(value)`                        | Brand check                                                               |
+| Export                                     | Description                                                               |
+| ------------------------------------------ | ------------------------------------------------------------------------- |
+| `new LazyPromise(executor, options?)`      | Executor form, deferred to the first subscription                         |
+| `LazyPromise.try(fn, ...args)`             | Deferred call of `fn`, `CancelablePromise.try` semantics                  |
+| `createLazyPromise(x, options?)`           | Front door: function, lazy promise, plain promise or value                |
+| `lazy(executor, options?)`                 | Shorthand for `new LazyPromise(executor, options?)`                       |
+| `LazyPromise.all/race/any/allSettled(...)` | Cold combinators, semantics from `CancelablePromise`                      |
+| `LazyPromise.withResolvers(options?)`      | `{ promise, resolve, reject, cancel }`, adoption deferred to subscription |
+| `lazy.execute()`                           | Starts the work now, without subscribing to it                            |
+| `lazy.started`                             | Whether the executor has been triggered                                   |
+| `isLazyPromise(value)`                     | Brand check                                                               |
 
 ### Errors
 

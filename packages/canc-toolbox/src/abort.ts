@@ -1,5 +1,7 @@
 import { createCancelSignal, isCancPromise } from '@cancjs/promise';
 
+import { isLazyPromise } from '../../_toolbox/lazy/lazy-base';
+
 // withSignal has no toolbox options and always returns a plain native promise, so there is no
 // resolved Impl to route through; capture the native constructor once at module load instead of
 // reading the live global on every call.
@@ -37,6 +39,17 @@ export function toAbortSignal(promise: PromiseLike<unknown>): AbortSignal {
     promise.handleCancel(cancel, { immediate: true });
 
     return signal;
+  }
+
+  // subscribing would start a lazy, so listen where its teardowns do
+  if (isLazyPromise(promise)) {
+    const { signal, cancel } = createCancelSignal();
+    const handleCancel = (promise as unknown as { _handleCancel?: unknown })._handleCancel;
+
+    if (typeof handleCancel === 'function') {
+      handleCancel.call(promise, cancel);
+      return signal;
+    }
   }
 
   const controller = new AbortController();

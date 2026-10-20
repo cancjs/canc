@@ -146,6 +146,15 @@ export class LazyPromise<T = any, F = unknown> extends LazyBase<T> {
     return !this._canceledBeforeStart;
   }
 
+  protected _handleCancel(onCancel: TLazyOnCancel): void {
+    if (this._canceledBeforeStart) {
+      onCancel(this._cancelError);
+      return;
+    }
+
+    super._handleCancel(onCancel);
+  }
+
   then<TResult1 = T, TResult2 = never>(
     onFulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | null,
     onRejected?: ((reason: TReason<F>) => TResult2 | PromiseLike<TResult2>) | null,

@@ -226,6 +226,7 @@ extends LazyBase<T>
 new <T = any, F = unknown>(executor: TLazyExecutor<T>, options?: ILazyPromiseOptions | undefined): LazyPromise<T, F>
 static _new: <V>(executor: TLazyExecutor<V>, options?: object) => LazyBase<V>
 static _optionsChanged: (instance: LazyBase<any>, options?: object) => boolean
+static _subscribeInputs: (values: Iterable<unknown>, skipAfterSettled?: boolean) => unknown[]
 static all: <V>(values: Iterable<PromiseLike<V> | V>, options?: ILazyPromiseOptions) => LazyPromise<V[]>
 static allSettled: <V>(values: Iterable<PromiseLike<V> | V>, options?: ILazyPromiseOptions) => LazyPromise<ISettledResult<Awaited<V>>[]>
 static any: <V>(values: Iterable<PromiseLike<V> | V>, options?: ILazyPromiseOptions) => LazyPromise<V>
@@ -241,6 +242,7 @@ _cancelError?: CancelError | undefined
 _canceledBeforeStart: boolean
 _consumers: number
 _executor: TLazyExecutor<T>
+_handleCancel: (onCancel: TLazyOnCancel) => void
 _inner?: TInnerPromise<T> | undefined
 _innerOptions: () => object | undefined
 _isStartable: () => boolean
