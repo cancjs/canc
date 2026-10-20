@@ -47,6 +47,14 @@ function brandPrototype(prototype: object, brand: symbol, key?: string): void {
   }
 }
 
+// Own and non-enumerable, so it stays out of inspect and JSON but still crosses a worker thread: node's
+// worker error path keeps own string-keyed non-enumerable props, and only that path carries it over
+function markInstance(instance: object, brand: string | undefined): void {
+  if (brand !== undefined) {
+    Object.defineProperty(instance, '_cancErrorBrand', { value: brand, configurable: true });
+  }
+}
+
 function defineQuietly(target: object, key: PropertyKey, value: unknown): void {
   try {
     Object.defineProperty(target, key, { value, configurable: true });
@@ -67,6 +75,7 @@ function createDomExceptionClass<TName extends string, TBrand extends string>(
   domException: IDomExceptionConstructor,
   name: TName,
   defaultMessage?: string,
+  brand?: TBrand,
 ): ICancErrorConstructor<TName, TBrand> {
   class DomExceptionBackedError {
     constructor(message?: string) {
@@ -84,6 +93,7 @@ function createDomExceptionClass<TName extends string, TBrand extends string>(
       // DOMException exposes both as getter-only accessors, so plain assignment would throw
       defineWritable(instance, 'name', instance.name);
       defineWritable(instance, 'message', instance.message);
+      markInstance(instance, brand);
 
       return instance;
     }
@@ -97,6 +107,7 @@ function createDomExceptionClass<TName extends string, TBrand extends string>(
 function createNativeErrorClass<TName extends string, TBrand extends string>(
   name: TName,
   defaultMessage?: string,
+  brand?: TBrand,
 ): ICancErrorConstructor<TName, TBrand> {
   class NativeErrorBackedError extends Error {
     name: string;
@@ -108,6 +119,7 @@ function createNativeErrorClass<TName extends string, TBrand extends string>(
       // `instanceof` working for this class and for anything subclassing it.
       Object.setPrototypeOf(this, new.target.prototype);
       this.name = name;
+      markInstance(this, brand);
     }
   }
 
@@ -135,8 +147,8 @@ export function createErrorClass<TName extends string, TBrand extends string = n
 
   const ErrorClass =
     domException ?
-      createDomExceptionClass<TName, TBrand>(domException, name, defaultMessage)
-    : createNativeErrorClass<TName, TBrand>(name, defaultMessage);
+      createDomExceptionClass<TName, TBrand>(domException, name, defaultMessage, brand)
+    : createNativeErrorClass<TName, TBrand>(name, defaultMessage, brand);
 
   // The classes are built inside a factory, so their intrinsic name would otherwise be the local
   // one used above. Callers that match an error by constructor read this.
@@ -149,7 +161,9 @@ export function createErrorClass<TName extends string, TBrand extends string = n
   if (typeof Symbol !== 'undefined' && Symbol.toStringTag) {
     // defineProperty rather than assignment: DOMException.prototype exposes Symbol.toStringTag as
     // a getter with no setter, and assigning through it throws in strict mode.
-    defineQuietly(ErrorClass.prototype, Symbol.toStringTag, name);
+    // 'Error' rather than the class name: structured clone keeps the name of an [object Error] across a
+    // worker thread, so a tag of its own would make every canc kind arrive as a plain Error
+    defineQuietly(ErrorClass.prototype, Symbol.toStringTag, 'Error');
   }
 
   return ErrorClass;
