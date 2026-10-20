@@ -74,18 +74,21 @@ function terminalWrapped<TResult>(
 
   return function terminalCall(stream: Readable, ...args: unknown[]): CancelablePromise<TResult, Unlisted> {
     const nodeFn = (stream as unknown as Record<string, TNodeFn>)[methodName];
+    const destroy = destroyOnCancelOption(args[optionsIndex]);
 
     const call = takeCallerSignal(args, optionsIndex);
 
+    // node destroys a stream whose signal aborts mid-read, so the signal is withheld when the caller
+    // keeps the source; the promise still rejects on cancel either way
     const promise = withCallerSignal<TResult, Unlisted>(
       call.callerSignal,
-      forwards,
+      forwards && destroy,
       (signal) =>
         nodeFn.apply(stream, signal ? withSignalAt(call.args, optionsIndex, signal) : call.args) as
           TResult | PromiseLike<TResult>,
     );
 
-    return destroyingOnCancel(stream, promise, destroyOnCancelOption(args[optionsIndex]));
+    return destroyingOnCancel(stream, promise, destroy);
   };
 }
 

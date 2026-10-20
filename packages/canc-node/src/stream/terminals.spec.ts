@@ -297,4 +297,45 @@ describe('cancel destroys the source stream', () => {
 
     stream.destroy();
   });
+
+  it('with destroyOnCancel false leaves an in-flight source open on cancel and on a caller signal, as native does', async () => {
+    // native baseline: abort node's own toArray on an idle stream and leave the stream alone
+    const nativeStream = idleStream();
+    const nativeController = new AbortController();
+    nativeStream.toArray({ signal: nativeController.signal }).then(
+      () => undefined,
+      () => undefined,
+    );
+    await tick();
+    nativeController.abort();
+    await tick();
+    const nativeDestroyed = nativeStream.destroyed;
+    nativeStream.destroy();
+
+    // reads in flight are where node destroys the source on abort, so the signal stays withheld here
+    const canceled = makeCountingStream();
+    const p = toArray(canceled.stream, { destroyOnCancel: false });
+    await tick();
+    await tick();
+    p.cancel();
+    await expectCancelRejection(p);
+    await tick();
+    const canceledDestroyed = canceled.stream.destroyed;
+    canceled.stream.destroy();
+
+    const signaled = makeCountingStream();
+    const controller = new AbortController();
+    const q = toArray(signaled.stream, { signal: controller.signal, destroyOnCancel: false });
+    await tick();
+    await tick();
+    controller.abort();
+    await expectCancelRejection(q);
+    await tick();
+    const signaledDestroyed = signaled.stream.destroyed;
+    signaled.stream.destroy();
+
+    expect(nativeDestroyed).toBe(false);
+    expect(canceledDestroyed).toBe(false);
+    expect(signaledDestroyed).toBe(false);
+  });
 });
