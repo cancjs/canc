@@ -103,9 +103,9 @@ describe('@cancjs/node/zlib', () => {
     'compressGzip: the iterable wiring cancels between chunks, rejecting CancelError and calling ' +
       'return() on the source iterator, the same regression-proving property as the FileHandle work',
     async () => {
-      // synthetic in place of node's real compressGzip (not shipped on any tracked runtime yet, see
-      // ./types.ts): this exercises iterableCodecWrapped, the exact mechanism ./index.ts's compressGzip
-      // export is built from, so the assertion is about the wiring rather than about a specific codec
+      // synthetic in place of node's compressGzip (not shipped on any tracked runtime yet, see
+      // ./types.ts): this exercises iterableCodecWrapped, which ./index.ts's compressGzip is built
+      // from, so the assertion is about the wiring rather than about a specific codec
       let sourceReturned = false;
       const seen: number[] = [];
 
@@ -169,6 +169,38 @@ describe('@cancjs/node/zlib', () => {
     await wrapped(source);
 
     expect(sourceReturned).toBe(true);
+  });
+
+  it('cancel and a later consumer stop both reach the source, but its return() runs once', async () => {
+    let returns = 0;
+    const source: AsyncIterable<number> = {
+      [Symbol.asyncIterator]() {
+        return {
+          next: () => new Promise<IteratorResult<number>>(() => undefined),
+          return: async () => {
+            returns += 1;
+            return { done: true, value: undefined };
+          },
+        };
+      },
+    };
+
+    // the fake node call keeps hold of the guard, so node can stop it after cancel did
+    let stopLater: () => Promise<unknown> = async () => undefined;
+    const fakeNodeCompress = (guarded: AsyncIterable<unknown>): Promise<Buffer> => {
+      const guard = guarded[Symbol.asyncIterator]() as AsyncIterator<unknown>;
+      stopLater = () => guard.return!();
+      return new Promise<Buffer>(() => undefined);
+    };
+
+    const wrapped = iterableCodecWrapped<Buffer>(fakeNodeCompress as (...args: unknown[]) => unknown);
+    const promise = wrapped(source);
+
+    promise.cancel();
+    await stopLater();
+    await promise.catch(() => undefined);
+
+    expect(returns).toBe(1);
   });
 
   it('a source whose return() rejects on cancel does not surface an unhandledRejection', async () => {
