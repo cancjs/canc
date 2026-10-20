@@ -1,7 +1,8 @@
-import { CancelError, isCancelError } from '@cancjs/promise';
+import { CancelablePromise, CancelError, isCancelError } from '@cancjs/promise';
 
 import { makeCancelSignal } from '../../_toolbox';
-import { toCancelError } from './cancelify';
+import { cancelify, toCancelError } from './cancelify';
+import { promisify } from './index';
 
 // A minimal AbortController stand-in that records construction and abort calls, so tests can assert
 // that reading (or not reading) the injected signal controls whether a controller is ever built.
@@ -49,7 +50,7 @@ describe('makeCancelSignal', () => {
     expect(makeCancelSignal(undefined).getSignal()).toBeUndefined();
   });
 
-  it('builds nothing until getSignal() is first called, then wires a single branded cancel handler', () => {
+  it('builds no controller until getSignal() is first called, and wires one branded cancel handler', () => {
     const { ctor } = makeSpyControllerCtor();
     let registered: ((reason?: any) => void) | undefined;
     const handleCancel = jest.fn((onCancel: (reason?: any) => void) => {
@@ -58,12 +59,10 @@ describe('makeCancelSignal', () => {
 
     const holder = makeCancelSignal(handleCancel as any, ctor, toCancelError);
 
-    // Never calling getSignal() constructs no controller and registers no handler.
+    // the handler is wired up front so a late first call can see the cancel
     expect(ctor).not.toHaveBeenCalled();
-    expect(handleCancel).not.toHaveBeenCalled();
+    expect(handleCancel).toHaveBeenCalledTimes(1);
 
-    // First getSignal() call materializes the controller + wires exactly one handler; the value
-    // is the plain, real AbortSignal (no Proxy: ES5-safe).
     const signal = holder.getSignal();
     expect(ctor).toHaveBeenCalledTimes(1);
     expect(handleCancel).toHaveBeenCalledTimes(1);
@@ -127,5 +126,71 @@ describe('makeCancelSignal', () => {
     expect(signal.aborted).toBe(true);
     expect(signal.reason).toBe('boom');
     expect(isCancelError(signal.reason)).toBe(false);
+  });
+});
+
+describe('getSignal() first called after cancel', () => {
+  it('makeCancelSignal returns an already aborted signal with the branded reason', () => {
+    const { ctor } = makeSpyControllerCtor();
+    let registered: ((reason?: any) => void) | undefined;
+    const handleCancel = ((onCancel: (reason?: any) => void) => {
+      registered = onCancel;
+    }) as any;
+
+    const holder = makeCancelSignal(handleCancel, ctor, toCancelError);
+    registered!('late');
+
+    const signal = holder.getSignal();
+    expect(signal.aborted).toBe(true);
+    expect(isCancelError(signal.reason)).toBe(true);
+    expect(signal.reason.message).toBe('late');
+  });
+
+  it('cancelify fn asking for the signal after an await gets an aborted signal', async () => {
+    let signal: any;
+    const wrapped = cancelify(async ({ getSignal }) => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      signal = getSignal();
+      return new Promise<never>(() => {});
+    });
+
+    const promise = wrapped();
+    promise.cancel();
+    await promise.catch(() => undefined);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+
+    expect(signal.aborted).toBe(true);
+    expect(isCancelError(signal.reason)).toBe(true);
+  });
+
+  it('promisify signal captured in transformArgs and first read after cancel is aborted', async () => {
+    let getLater: (() => any) | undefined;
+    const fn = promisify((_cb: (err: unknown) => void) => undefined, {
+      transformArgs: (args, getSignal) => {
+        getLater = getSignal;
+        return args;
+      },
+    });
+
+    const promise = fn() as CancelablePromise<unknown>;
+    promise.cancel();
+    await promise.catch(() => undefined);
+
+    expect(getLater!().aborted).toBe(true);
+  });
+
+  it('promisify cancel hook reading the signal for the first time sees it aborted', async () => {
+    let hookAborted: boolean | undefined;
+    const fn = promisify((_cb: (err: unknown) => void) => undefined, {
+      handleCancel: (_handle, _args, getSignal) => {
+        hookAborted = getSignal().aborted;
+      },
+    });
+
+    const promise = fn() as CancelablePromise<unknown>;
+    promise.cancel();
+    await promise.catch(() => undefined);
+
+    expect(hookAborted).toBe(true);
   });
 });

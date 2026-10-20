@@ -10,9 +10,9 @@ export type TGetSignal = () => any;
 /**
  * Build a lazy outbound cancel-signal off a promise node's `handleCancel`. The returned `getSignal`
  * thunk constructs the controller only on its first call (via the injected `AbortController` ctor,
- * or the ambient global read at that moment, never at module load) and wires one cancel handler
- * that aborts it with the cancel reason. A callback that never calls `getSignal()` costs nothing:
- * no controller, no listener.
+ * or the ambient global read at that moment, never at module load). A cancel handler is wired up
+ * front, so a first call after the node was canceled returns an already aborted signal. A callback
+ * that never calls `getSignal()` constructs no controller.
  *
  * `normalizeReason` lets a cancelable consumer brand the abort reason (e.g. wrap it in a
  * CancelError) while the plain/native path passes the reason through raw (the default).
@@ -27,23 +27,33 @@ export function makeCancelSignal(
     return { getSignal: () => undefined };
   }
 
-  let signal: unknown;
-  let built = false;
+  let controller: InstanceType<AbortControllerCtor> | undefined;
+  let canceled = false;
+  let cancelReason: unknown;
+
+  const abort = (ac: InstanceType<AbortControllerCtor>) => {
+    ac.abort(normalizeReason ? normalizeReason(cancelReason) : cancelReason);
+  };
+
+  handleCancel((reason?: any) => {
+    canceled = true;
+    cancelReason = reason;
+    if (controller) {
+      abort(controller);
+    }
+  });
 
   return {
     getSignal() {
-      if (!built) {
-        built = true;
+      if (!controller) {
         const Ctor: AbortControllerCtor = AbortControllerCtor || (AbortController as unknown as AbortControllerCtor);
-        const controller = new Ctor();
-        signal = controller.signal;
-
-        (handleCancel as unknown as (onCancel: (reason?: any) => void) => void)((reason?: any) => {
-          controller.abort(normalizeReason ? normalizeReason(reason) : reason);
-        });
+        controller = new Ctor();
+        if (canceled) {
+          abort(controller);
+        }
       }
 
-      return signal;
+      return controller.signal;
     },
   };
 }

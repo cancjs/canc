@@ -31,7 +31,8 @@ export interface IPromisifyOptions {
   /**
    * Cancel-time teardown hook. `handle` is the synchronous return value of the underlying call
    * (e.g. a ClientRequest or ChildProcess), so the hook can stop the work imperatively.
-   * `getSignal()` returns the outbound signal if one was materialized (undefined otherwise).
+   * `getSignal()` returns the outbound signal, already aborted by the time the hook runs (undefined
+   * when `Impl` is not cancelable-shaped).
    */
   handleCancel?: (handle: any, args: any[], getSignal: TGetSignal, reason?: any) => void;
   /** AbortController implementation used to mint the outbound signal. Defaults to the ambient global. */
