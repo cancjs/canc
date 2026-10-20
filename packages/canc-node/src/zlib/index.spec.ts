@@ -23,8 +23,13 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-const hasRealCompressGzip = typeof (nodeZlib as unknown as Record<string, unknown>).compressGzip === 'function';
-const hasRealZipFiles = typeof (nodeZlib as unknown as Record<string, unknown>).createZipArchive === 'function';
+const iterZlibSpec = (
+  process as unknown as {
+    getBuiltinModule?: (id: string) => Record<string, unknown> | undefined;
+  }
+).getBuiltinModule?.('node:zlib/iter');
+const hasRealCompressGzip = typeof iterZlibSpec?.compressGzip === 'function';
+const hasRealZipFiles = typeof (nodeZlib as unknown as Record<string, unknown>).zipFiles === 'function';
 
 describe('@cancjs/node/zlib', () => {
   it('gzip then gunzip round-trips a buffer', async () => {
@@ -84,7 +89,7 @@ describe('@cancjs/node/zlib', () => {
         error = err;
       }
       expect(isNotImplementedError(error)).toBe(true);
-      expect((error as { required?: string }).required).toBe('22');
+      expect((error as { required?: string }).required).toBe('22.15.0');
       return;
     }
 
@@ -98,9 +103,9 @@ describe('@cancjs/node/zlib', () => {
     'compressGzip: the iterable wiring cancels between chunks, rejecting CancelError and calling ' +
       'return() on the source iterator, the same regression-proving property as the FileHandle work',
     async () => {
-      // synthetic in place of node's real compressGzip (not shipped on any tracked runtime yet, see
-      // ./types.ts): this exercises iterableCodecWrapped, the exact mechanism ./index.ts's compressGzip
-      // export is built from, so the assertion is about the wiring rather than about a specific codec
+      // synthetic in place of node's compressGzip (not shipped on any tracked runtime yet, see
+      // ./types.ts): this exercises iterableCodecWrapped, which ./index.ts's compressGzip is built
+      // from, so the assertion is about the wiring rather than about a specific codec
       let sourceReturned = false;
       const seen: number[] = [];
 
@@ -140,7 +145,103 @@ describe('@cancjs/node/zlib', () => {
     },
   );
 
-  it('compressGzip rejects NotImplementedError naming 24 when node has no iterable codec family', async () => {
+  it('a consumer that stops early calls the source return(), so the upstream finally runs', async () => {
+    let sourceReturned = false;
+
+    const source = (async function* () {
+      try {
+        yield 1;
+        yield 2;
+      } finally {
+        sourceReturned = true;
+      }
+    })();
+
+    // node's own consumer breaks out of the loop after the first chunk, which must reach the source
+    const fakeNodeCompress: (guarded: AsyncIterable<unknown>) => Promise<Buffer> = async (guarded) => {
+      for await (const _chunk of guarded) {
+        break;
+      }
+      return Buffer.alloc(0);
+    };
+
+    const wrapped = iterableCodecWrapped<Buffer>(fakeNodeCompress as (...args: unknown[]) => unknown);
+    await wrapped(source);
+
+    expect(sourceReturned).toBe(true);
+  });
+
+  it('cancel and a later consumer stop both reach the source, but its return() runs once', async () => {
+    let returns = 0;
+    const source: AsyncIterable<number> = {
+      [Symbol.asyncIterator]() {
+        return {
+          next: () => new Promise<IteratorResult<number>>(() => undefined),
+          return: async () => {
+            returns += 1;
+            return { done: true, value: undefined };
+          },
+        };
+      },
+    };
+
+    // the fake node call keeps hold of the guard, so node can stop it after cancel did
+    let stopLater: () => Promise<unknown> = async () => undefined;
+    const fakeNodeCompress = (guarded: AsyncIterable<unknown>): Promise<Buffer> => {
+      const guard = guarded[Symbol.asyncIterator]() as AsyncIterator<unknown>;
+      stopLater = () => guard.return!();
+      return new Promise<Buffer>(() => undefined);
+    };
+
+    const wrapped = iterableCodecWrapped<Buffer>(fakeNodeCompress as (...args: unknown[]) => unknown);
+    const promise = wrapped(source);
+
+    promise.cancel();
+    await stopLater();
+    await promise.catch(() => undefined);
+
+    expect(returns).toBe(1);
+  });
+
+  it('a source whose return() rejects on cancel does not surface an unhandledRejection', async () => {
+    let unhandled: unknown;
+    const onUnhandled = (err: unknown): void => {
+      unhandled = err;
+    };
+
+    const source: AsyncIterable<number> = {
+      [Symbol.asyncIterator]() {
+        return {
+          next: () => new Promise<IteratorResult<number>>(() => undefined),
+          return: () => Promise.reject(new Error('source return failed')),
+        };
+      },
+    };
+
+    const fakeNodeCompress: (guarded: AsyncIterable<unknown>) => Promise<Buffer> = async (guarded) => {
+      for await (const _chunk of guarded) {
+        // never reached: the source never yields
+      }
+      return Buffer.alloc(0);
+    };
+
+    const wrapped = iterableCodecWrapped<Buffer>(fakeNodeCompress as (...args: unknown[]) => unknown);
+    const promise = wrapped(source);
+
+    process.on('unhandledRejection', onUnhandled);
+    try {
+      promise.cancel('stop');
+      const reason = await promise.catch((err: unknown) => err);
+      expect(isCancelError(reason)).toBe(true);
+      await sleep(50);
+    } finally {
+      process.off('unhandledRejection', onUnhandled);
+    }
+
+    expect(unhandled).toBeUndefined();
+  });
+
+  it('compressGzip rejects NotImplementedError naming 25.9 when node has no iterable codec module', async () => {
     if (hasRealCompressGzip) {
       return;
     }
@@ -152,17 +253,17 @@ describe('@cancjs/node/zlib', () => {
       error = err;
     }
     expect(isNotImplementedError(error)).toBe(true);
-    expect((error as { required?: string }).required).toBe('24');
+    expect((error as { required?: string }).required).toBe('25.9.0 (or --experimental-stream-iter)');
   });
 
-  it('zipFiles rejects NotImplementedError naming 26 when node has no zip archive family', async () => {
+  it('zipFiles throws NotImplementedError naming 26.8.0 synchronously when node has no zipFiles', () => {
     if (hasRealZipFiles) {
       return;
     }
 
     let error: unknown;
     try {
-      await zlibExports.zipFiles(['a.txt'], 'out.zip');
+      zlibExports.zipFiles([['a.txt', 'a.txt']]);
     } catch (err) {
       error = err;
     }
@@ -170,7 +271,7 @@ describe('@cancjs/node/zlib', () => {
     expect((error as { required?: string }).required).toBe('26.8.0');
   });
 
-  it('crc32 computes a checksum on 22+, throws NotImplementedError naming 22 below that', () => {
+  it('crc32 computes a checksum on 20.15+, throws NotImplementedError naming 20.15 below that', () => {
     if (typeof (nodeZlib as unknown as Record<string, unknown>).crc32 !== 'function') {
       let error: unknown;
       try {
@@ -179,7 +280,7 @@ describe('@cancjs/node/zlib', () => {
         error = err;
       }
       expect(isNotImplementedError(error)).toBe(true);
-      expect((error as { required?: string }).required).toBe('22');
+      expect((error as { required?: string }).required).toBe('20.15.0');
       return;
     }
 
@@ -204,7 +305,7 @@ describe('@cancjs/node/zlib', () => {
     expect(decompressed.equals(original)).toBe(true);
   });
 
-  it('gated exports are reflectable and retain names when available on Node 22/24', () => {
+  it('gated exports are reflectable and retain names when available on Node 22.15+/24', () => {
     const { ZstdCompress, crc32 } = zlibExports;
     if (typeof (nodeZlib as unknown as Record<string, unknown>).ZstdCompress === 'function') {
       expect(() => Object.getOwnPropertyDescriptors(ZstdCompress)).not.toThrow();

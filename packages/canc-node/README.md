@@ -15,7 +15,7 @@ Node built-in modules with cancelable promises and typed failures.
 
 `@cancjs/node` provides cancelable promise wrappers and typed failure channels for Node.js built-in modules. To migrate, replace built-in imports like `node:fs/promises` or `node:child_process` with `@cancjs/node/<module>` (such as `@cancjs/node/fs` or `@cancjs/node/child-process`). All wrapped functions return `CancelablePromise` instances and propagate cancellations cleanly.
 
-The package ships the `fs`, `fs/sync`, `fs/register-graceful`, `fs/extra`, `child-process`, `timers`, `stream`, `events`, `dns`, `readline`, `crypto`, `zlib`, `zlib/extra`, `worker-threads`, and `dgram` subpaths. The root entry `@cancjs/node` provides shared error classes, errno predicates, and runtime feature detection used across all subpaths.
+The package ships the `fs`, `fs/sync`, `fs/register-graceful`, `fs/extra`, `child-process`, `timers`, `stream`, `events`, `dns`, `readline`, `crypto`, `zlib`, `worker-threads`, and `dgram` subpaths. The root entry `@cancjs/node` provides shared error classes, errno predicates, and runtime feature detection used across all subpaths.
 
 ## Features
 
@@ -532,14 +532,14 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 | ------------------- | ------------------------------------------------ | ---- | ---------- | ---------- |
 | `brotliCompress`    | stops waiting only (skipped if already canceled) | 18+  | yes        | yes        |
 | `brotliDecompress`  | stops waiting only (skipped if already canceled) | 18+  | yes        | yes        |
-| `compressBrotli`    | stops the work                                   | 24+  | unverified | unverified |
-| `compressDeflate`   | stops the work                                   | 24+  | unverified | unverified |
-| `compressGzip`      | stops the work                                   | 24+  | unverified | unverified |
-| `compressZstd`      | stops the work                                   | 24+  | unverified | unverified |
-| `decompressBrotli`  | stops the work                                   | 24+  | unverified | unverified |
-| `decompressDeflate` | stops the work                                   | 24+  | unverified | unverified |
-| `decompressGzip`    | stops the work                                   | 24+  | unverified | unverified |
-| `decompressZstd`    | stops the work                                   | 24+  | unverified | unverified |
+| `compressBrotli`    | stops the work                                   | 25+  | unverified | unverified |
+| `compressDeflate`   | stops the work                                   | 25+  | unverified | unverified |
+| `compressGzip`      | stops the work                                   | 25+  | unverified | unverified |
+| `compressZstd`      | stops the work                                   | 25+  | unverified | unverified |
+| `decompressBrotli`  | stops the work                                   | 25+  | unverified | unverified |
+| `decompressDeflate` | stops the work                                   | 25+  | unverified | unverified |
+| `decompressGzip`    | stops the work                                   | 25+  | unverified | unverified |
+| `decompressZstd`    | stops the work                                   | 25+  | unverified | unverified |
 | `deflate`           | stops waiting only (skipped if already canceled) | 18+  | yes        | yes        |
 | `deflateRaw`        | stops waiting only (skipped if already canceled) | 18+  | yes        | yes        |
 | `gunzip`            | stops waiting only (skipped if already canceled) | 18+  | yes        | yes        |
@@ -547,15 +547,8 @@ Cancellation never undoes work that already happened. A canceled `copyFile` leav
 | `inflate`           | stops waiting only (skipped if already canceled) | 18+  | yes        | yes        |
 | `inflateRaw`        | stops waiting only (skipped if already canceled) | 18+  | yes        | yes        |
 | `unzip`             | stops waiting only (skipped if already canceled) | 18+  | yes        | yes        |
-| `zipFiles`          | stops the work                                   | 26+  | unverified | unverified |
 | `zstdCompress`      | stops waiting only (skipped if already canceled) | 22+  | yes        | yes        |
 | `zstdDecompress`    | stops waiting only (skipped if already canceled) | 22+  | yes        | yes        |
-
-#### zlib/extra
-
-| Export                 | Cancellation   | Node | Deno       | Bun        |
-| ---------------------- | -------------- | ---- | ---------- | ---------- |
-| `zipFilesCheckpointed` | stops the work | 26+  | unverified | unverified |
 
 <!-- generated:end -->
 
@@ -658,7 +651,7 @@ One failure that node reports ambiguously gets a typed error: `ProcessSpawnError
 
 Canceling sends `killSignal`, defaulting to `SIGTERM`, which is what node's own `signal` option sends on abort. Awaiting `cancel()` waits for the child to close (exit, and its stdio streams to end), under an upper bound of 5 seconds (5000ms) so that a cancel cannot hang. There is no escalation and no process tree handling. A child that ignores `SIGTERM` keeps running, and the caller decides what to do about it.
 
-For `exec`, `execFile` when given a shell option, and `spawn` with `{ shell: true }`, the promise rejecting does not mean the command stopped. The process being signaled is the shell the function inserted, not the command. `spawn` and `fork` without a shell are unaffected. A caller who needs the command itself stopped should run without a shell, or have the command handle its own termination. Because the command may keep the output pipes open after the shell dies, cancel destroys the child's stdio streams right after the kill, so the parent's event loop is released.
+For `exec`, `execFile` when given a shell option, and `spawn` with `{ shell: true }`, the promise rejecting does not mean the command stopped. The process being signaled is the shell the function inserted, not the command. `spawn` and `fork` without a shell are unaffected. A caller who needs the command itself stopped should run without a shell, or have the command handle its own termination. Because the command may keep the output pipes open after the shell dies, cancel destroys the child's stdio streams right after the kill, so the parent's event loop is released. This holds for `spawn`, `fork`, `exec` and `execFile` alike, with or without a shell.
 
 ```ts
 const child = spawn("npm", ["test"]);
@@ -756,8 +749,8 @@ This subpath ships three different cancellation shapes, and they are not interch
 
 - One-shot buffer functions (`gzip`, `deflate`, `brotliCompress`, the zstd family, and their decompressing counterparts) run on the threadpool exactly like the crypto functions above. Canceling only stops waiting; the compression or decompression keeps running, and the threadpool slot stays occupied until it finishes, which can delay unrelated `fs` and `dns` work the same way.
 - Stream factories (`createGzip`, `createBrotliCompress`, the zstd stream classes, and the rest of the re-exported factory surface) are genuinely stoppable: calling `destroy()` on the returned stream stops the underlying codec.
-- The iterable codec family (`compressGzip`, `decompressBrotli`, and their six siblings, Node 24+) cancels between chunks: it stops pulling from the source iterable and calls the source iterator's own `return()`, so nothing further reaches the codec after that point.
-- `zipFiles` (Node 26.8+) is node's own function, promisified. Canceling stops the wait, not the archive build, which runs on node's threadpool until it finishes. The per-file walker that used to live here is `zipFilesCheckpointed` in `@cancjs/node/zlib/extra`: canceling it stops before the next entry, keeps every entry already written, never rolls one back, and closes the archive so its file descriptor is released.
+- The iterable codec family (`compressGzip`, `decompressBrotli`, and their six siblings, Node 25.9+, or 24.x with `--experimental-stream-iter`) cancels between chunks: it stops pulling from the source iterable and calls the source iterator's own `return()`, so nothing further reaches the codec after that point.
+- `zipFiles` (Node 26.8+) is node's own synchronous function: `[sourcePath, entryName]` pairs in, node's `Readable` of archive bytes out. It has no promise, so canceling it means destroying the returned stream.
 
 The zstd family, the iterable codec family, and the zip archive family are all version-gated and throw `NotImplementedError` on a runtime that does not ship them.
 
@@ -765,7 +758,7 @@ The zstd family, the iterable codec family, and the zip archive family are all v
 
 A `Worker` has exactly one terminal event, `exit`, so it carries a lazy `promise` property that settles when the thread stops: `await worker.promise` resolves to the exit code. The property is built on first access and never shows up in `Object.keys`, a spread, or `JSON.stringify`.
 
-`terminate()` stops a thread at whatever point it happens to be at. There is no `finally`, no flush, no unload hook: a thread mid-write when terminated leaves that write unfinished. `runTask` therefore posts a stop message and gives the worker `gracePeriod` (5000ms by default) to exit on its own before falling back to `terminate()`, so a cooperating worker gets to clean up first. Pass `{ terminate: 'immediate' }` for a worker that does not cooperate, which skips the grace period and terminates right away. An error a worker throws reaches the caller with its canc identity restored: a `CancelError`, `TimeoutError`, `ProcessExitError`, `ProcessSpawnError`, `JsonParseError`, or `NotImplementedError` is rebuilt from the name node keeps across the thread boundary, so `isCancelError` and the other guards answer for it. Any other error arrives as node reports it. Node keeps only the name, not the class, so a caller's own error that happens to be named like one of these is rebuilt too; name your own errors differently. An error a worker posts by hand with `postMessage` is not revived: the identity is restored only where this package owns the boundary, so a raw `postMessage` caller gets a plain `Error` back.
+`terminate()` stops a thread at whatever point it happens to be at. There is no `finally`, no flush, no unload hook: a thread mid-write when terminated leaves that write unfinished. `runTask` therefore posts a stop message and gives the worker `gracePeriod` (5000ms by default) to exit on its own before falling back to `terminate()`, so a cooperating worker gets to clean up first. Pass `{ terminate: 'immediate' }` for a worker that does not cooperate, which skips the grace period and terminates right away. An error a worker throws reaches the caller with its canc identity restored: a `CancelError`, `TimeoutError`, `ProcessExitError`, `ProcessSpawnError`, `JsonParseError`, or `NotImplementedError` is rebuilt from the name node keeps across the thread boundary, so `isCancelError` and the other guards answer for it. A canc class this package does not ship, such as `SupersededError`, `IterationError`, or `BreakError`, comes back as a plain `Error` subclass that answers its own brand guard (for example `isSupersededError`) but is not `instanceof` the owning package's class. Any other error arrives as node reports it. Node keeps only the name, not the class, so a caller's own error that happens to be named like one of these is rebuilt too; name your own errors differently. An error a worker posts by hand with `postMessage` is not revived: the identity is restored only where this package owns the boundary, so a raw `postMessage` caller gets a plain `Error` back.
 
 `requestLock` wraps `worker_threads.locks.request` (Node 24.5.0+). The body receives the lock and an `AbortSignal`. Canceling while waiting for the lock aborts the acquisition. Canceling while holding it rejects the promise with `CancelError` right away and aborts the body's signal (and cancels the body's result when that is a `CancelablePromise`), but the lock is released only when the body's own result settles. A body that ignores the signal therefore never overlaps the next holder; it just keeps the lock until it finishes.
 
@@ -790,7 +783,6 @@ The `@cancjs/node` package provides cancelable promise-based wrappers and extend
 - `@cancjs/node/fs`: cancelable promise-based equivalents for Node.js `node:fs/promises` built-in methods.
 - `@cancjs/node/fs/sync`: synchronous file system methods routing through the registered file system implementation.
 - `@cancjs/node/fs/extra`: extended file system helpers with per-entry cancellation checkpoints.
-- `@cancjs/node/zlib/extra`: `zipFilesCheckpointed`, a per-file zip walker that checkpoints between entries and closes the archive on cancel.
 - `@cancjs/node/fs/register-graceful`: side-effect import registering `graceful-fs` with automatic retry on handle operations.
 
 ### FileHandle

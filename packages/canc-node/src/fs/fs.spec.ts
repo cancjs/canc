@@ -9,6 +9,17 @@ import { isNotFoundError } from '../errors/errno';
 import * as fsExports from './index';
 import { IFsLike, resetFs, setFs } from './registry';
 
+/** Polls until the condition holds, yielding to the loop between checks, and fails after a second. */
+async function waitUntil(condition: () => boolean): Promise<void> {
+  const deadline = Date.now() + 1000;
+  while (!condition()) {
+    if (Date.now() > deadline) {
+      throw new Error('condition not met within 1000 ms');
+    }
+    await new Promise((r) => setImmediate(r));
+  }
+}
+
 function removeTempDir(dir: string): void {
   nodeFs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
 }
@@ -177,8 +188,8 @@ describe('@cancjs/node/fs module exports', () => {
     nodeFs.writeFileSync(src, 'from the source');
     nodeFs.writeFileSync(dest, 'the file that was already there');
 
-    // a real copy that reports back in the same tick, which puts the cancel in the window where the
-    // copy is done and the promise has not adopted it yet. Nothing here waits on a clock
+    // real copy reporting back in the same tick: cancel lands after the copy is done but before
+    // the promise adopts it, with no clock involved
     const fakeFs = {
       ...nodeFs,
       copyFile: (...args: any[]) => {
@@ -210,14 +221,10 @@ describe('@cancjs/node/fs module exports', () => {
     nodeFs.writeFileSync(file, 'hello');
 
     const realPromises = nodeFs.promises;
-    const closeSpy = jest.fn();
-    let markClosed: (() => void) | undefined;
-    const closed = new Promise<void>((r) => {
-      markClosed = r;
-    });
     let proceedOpen: (() => void) | undefined;
     let openCalled: (() => void) | undefined;
     let openPromise: Promise<unknown> | undefined;
+    let openedHandle: { fd: number } | undefined;
     const openStarted = new Promise<void>((r) => {
       openCalled = r;
     });
@@ -231,13 +238,9 @@ describe('@cancjs/node/fs module exports', () => {
             await new Promise<void>((resolve) => {
               proceedOpen = resolve;
             });
+            // the real handle comes back untouched: the spec reads its descriptor state, not a stub
             const fh = await (realPromises.open as (...a: unknown[]) => Promise<any>)(...args);
-            const origClose = fh.close.bind(fh);
-            fh.close = async () => {
-              closeSpy();
-              await origClose();
-              markClosed?.();
-            };
+            openedHandle = fh;
             return fh;
           })();
           openPromise = pr;
@@ -256,9 +259,10 @@ describe('@cancjs/node/fs module exports', () => {
 
       proceedOpen?.();
       await openPromise;
+      // the teardown closes the real handle once the open lands; FileHandle.fd reads -1 after close
+      await waitUntil(() => openedHandle?.fd === -1);
       // windows refuses to remove the dir while the handle is still closing
-      await closed;
-      expect(closeSpy).toHaveBeenCalledTimes(1);
+      expect(openedHandle?.fd).toBe(-1);
     } finally {
       removeTempDir(dir);
     }

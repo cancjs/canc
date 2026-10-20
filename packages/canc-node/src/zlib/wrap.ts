@@ -203,6 +203,17 @@ export function iterableCodecWrapped<R = unknown>(
       (resolve, _reject, { handleCancel }) => {
         const iterator = sourceIterator(source);
         let stopped = false;
+        let sourceReturn: Promise<IteratorResult<unknown>> | undefined;
+
+        // cancel and an early stop by node (a consumer's break or throw) both reach the source.
+        // Its return() runs once: whichever asks first starts it, the other shares that settlement
+        const returnSource = (value?: unknown): Promise<IteratorResult<unknown>> => {
+          stopped = true;
+          if (sourceReturn === undefined) {
+            sourceReturn = (async () => (iterator.return ? iterator.return(value) : { done: true as const, value }))();
+          }
+          return sourceReturn;
+        };
 
         const guarded: AsyncIterable<unknown> = {
           [Symbol.asyncIterator]() {
@@ -213,15 +224,24 @@ export function iterableCodecWrapped<R = unknown>(
                 }
                 return iterator.next();
               },
+              return: (value?: unknown) => returnSource(value),
+              throw: async (error?: unknown) => {
+                stopped = true;
+                if (iterator.throw) {
+                  return iterator.throw(error);
+                }
+                throw error;
+              },
             };
           },
         };
 
         // registered before the call starts, per the register-before-work rule (`../fs/wrap.ts`):
-        // a cancel racing the very first pull still reaches the source's own return()
+        // a cancel racing the very first pull still reaches the source's own return().
+        // The caller already got its CancelError, so a rejecting return() is swallowed here
+        // instead of surfacing as an unhandled rejection
         handleCancel(() => {
-          stopped = true;
-          void iterator.return?.(undefined);
+          returnSource().catch(() => undefined);
         });
 
         resolve(nodeFn.call(this, guarded, ...call.args) as R | PromiseLike<R>);

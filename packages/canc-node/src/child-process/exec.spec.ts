@@ -144,15 +144,20 @@ describe('exec and execFile', () => {
       const child = track(exec(`${nodeBin} -e "setTimeout(() => {}, 60000)"`));
       const promise = child.promise;
 
-      let closed = false;
-      child.on('close', () => {
-        closed = true;
-      });
+      const order: string[] = [];
+      child.on('exit', () => order.push('exit'));
+      child.on('close', () => order.push('close'));
+      child.stdout?.on('close', () => order.push('stdout-close'));
+      child.stderr?.on('close', () => order.push('stderr-close'));
 
       await once(child, 'spawn');
       await promise.cancel();
+      order.push('settle');
 
-      expect(closed).toBe(true);
+      const before = (name: string): boolean => order.includes(name) && order.indexOf(name) < order.indexOf('settle');
+      expect(before('close')).toBe(true);
+      expect(before('stdout-close')).toBe(true);
+      expect(before('stderr-close')).toBe(true);
       expect(child.stdout?.destroyed).toBe(true);
       expect(child.stderr?.destroyed).toBe(true);
       await expect(promise).rejects.toThrow(CancelError);

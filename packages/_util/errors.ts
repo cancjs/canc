@@ -30,8 +30,7 @@ interface IDomExceptionConstructor {
   new (message?: string, name?: string): ICancError;
 }
 
-// The lib set here is es2022 plus the node types, and neither declares DOMException. A local
-// ambient declaration types the feature detect without pulling in the whole DOM library.
+// DOMException is missing from the lib set; a local ambient declaration types it.
 declare const DOMException: IDomExceptionConstructor | undefined;
 
 const resolveMessage = (message: string | undefined, defaultMessage: string | undefined): string | undefined =>
@@ -47,11 +46,19 @@ function brandPrototype(prototype: object, brand: symbol, key?: string): void {
   }
 }
 
+// Own and non-enumerable, so inspect and JSON skip it while a worker thread still carries it over.
+// Node's worker error path keeps own string-keyed non-enumerable props only.
+function markInstance(instance: object, brand: string | undefined): void {
+  if (brand !== undefined) {
+    Object.defineProperty(instance, '_cancErrorBrand', { value: brand, configurable: true });
+  }
+}
+
 function defineQuietly(target: object, key: PropertyKey, value: unknown): void {
   try {
     Object.defineProperty(target, key, { value, configurable: true });
   } catch {
-    // A non-configurable slot on an older engine. Cosmetic metadata is not worth a throw.
+    // Older engines may leave the slot non-configurable; the metadata is not worth a throw.
   }
 }
 
@@ -67,6 +74,7 @@ function createDomExceptionClass<TName extends string, TBrand extends string>(
   domException: IDomExceptionConstructor,
   name: TName,
   defaultMessage?: string,
+  brand?: TBrand,
 ): ICancErrorConstructor<TName, TBrand> {
   class DomExceptionBackedError {
     constructor(message?: string) {
@@ -84,6 +92,7 @@ function createDomExceptionClass<TName extends string, TBrand extends string>(
       // DOMException exposes both as getter-only accessors, so plain assignment would throw
       defineWritable(instance, 'name', instance.name);
       defineWritable(instance, 'message', instance.message);
+      markInstance(instance, brand);
 
       return instance;
     }
@@ -97,6 +106,7 @@ function createDomExceptionClass<TName extends string, TBrand extends string>(
 function createNativeErrorClass<TName extends string, TBrand extends string>(
   name: TName,
   defaultMessage?: string,
+  brand?: TBrand,
 ): ICancErrorConstructor<TName, TBrand> {
   class NativeErrorBackedError extends Error {
     name: string;
@@ -108,6 +118,7 @@ function createNativeErrorClass<TName extends string, TBrand extends string>(
       // `instanceof` working for this class and for anything subclassing it.
       Object.setPrototypeOf(this, new.target.prototype);
       this.name = name;
+      markInstance(this, brand);
     }
   }
 
@@ -135,11 +146,10 @@ export function createErrorClass<TName extends string, TBrand extends string = n
 
   const ErrorClass =
     domException ?
-      createDomExceptionClass<TName, TBrand>(domException, name, defaultMessage)
-    : createNativeErrorClass<TName, TBrand>(name, defaultMessage);
+      createDomExceptionClass<TName, TBrand>(domException, name, defaultMessage, brand)
+    : createNativeErrorClass<TName, TBrand>(name, defaultMessage, brand);
 
-  // The classes are built inside a factory, so their intrinsic name would otherwise be the local
-  // one used above. Callers that match an error by constructor read this.
+  // The factory-built classes would keep the local name otherwise; constructor matching reads this.
   defineQuietly(ErrorClass, 'name', name);
 
   if (brand !== undefined) {
@@ -147,9 +157,9 @@ export function createErrorClass<TName extends string, TBrand extends string = n
   }
 
   if (typeof Symbol !== 'undefined' && Symbol.toStringTag) {
-    // defineProperty rather than assignment: DOMException.prototype exposes Symbol.toStringTag as
-    // a getter with no setter, and assigning through it throws in strict mode.
-    defineQuietly(ErrorClass.prototype, Symbol.toStringTag, name);
+    // defineProperty, not assignment: DOMException's toStringTag getter throws on set.
+    // 'Error', not the class name: a tag of its own makes canc kinds arrive as plain Error.
+    defineQuietly(ErrorClass.prototype, Symbol.toStringTag, 'Error');
   }
 
   return ErrorClass;
@@ -296,9 +306,8 @@ export function createAggregateError(errors: any[], message?: string): IAggregat
   return new AggregateError(errors, message);
 }
 
-// Brand first, name second. The name fallback exists because the platform produces these three
-// kinds itself (fetch, AbortSignal.timeout(), the builtin AggregateError) and an external producer
-// cannot be branded. Errors that only canc produces are matched by brand alone.
+// Brand first, name second: the platform builds three kinds itself, and those cannot be branded.
+// Errors that only canc produces are matched by brand alone.
 
 /**
  * Safely reads a property from an object, returning undefined if property access throws.

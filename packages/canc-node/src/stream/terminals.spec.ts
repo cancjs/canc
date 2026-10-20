@@ -236,7 +236,32 @@ describe('cancel destroys the source stream', () => {
 
     await expectCancelRejection(p);
     expect(stream.destroyed).toBe(true);
-    expect(stream.listenerCount('data')).toBe(0);
+  });
+
+  it('leaves the same listeners on a destroyed idle source as node toArray with a signal does', async () => {
+    const LISTENED = ['data', 'readable', 'end', 'error', 'close'];
+
+    // native baseline: abort node's toArray on an idle stream, then destroy it as cancel does
+    const nativeStream = idleStream();
+    const controller = new AbortController();
+    const nativeSettled = nativeStream.toArray({ signal: controller.signal }).then(
+      () => undefined,
+      () => undefined,
+    );
+    await tick();
+    controller.abort();
+    nativeStream.destroy();
+    await nativeSettled;
+    const native = LISTENED.map((event) => nativeStream.listenerCount(event));
+
+    const canceledStream = idleStream();
+    const p = toArray(canceledStream);
+    await tick();
+    p.cancel();
+    await expectCancelRejection(p);
+    const canc = LISTENED.map((event) => canceledStream.listenerCount(event));
+
+    expect(canc).toEqual(native);
   });
 
   it('every terminal destroys an idle source on cancel', async () => {
@@ -271,5 +296,98 @@ describe('cancel destroys the source stream', () => {
     expect(stream.destroyed).toBe(false);
 
     stream.destroy();
+  });
+
+  it('with destroyOnCancel false leaves an in-flight source open on cancel and on a caller signal, as native does', async () => {
+    // native baseline: abort node's own toArray on an idle stream and leave the stream alone
+    const nativeStream = idleStream();
+    const nativeController = new AbortController();
+    nativeStream.toArray({ signal: nativeController.signal }).then(
+      () => undefined,
+      () => undefined,
+    );
+    await tick();
+    nativeController.abort();
+    await tick();
+    const nativeDestroyed = nativeStream.destroyed;
+    nativeStream.destroy();
+
+    // reads in flight are where node destroys on abort, so the signal stays withheld
+    const canceled = makeCountingStream();
+    const p = toArray(canceled.stream, { destroyOnCancel: false });
+    await tick();
+    await tick();
+    p.cancel();
+    await expectCancelRejection(p);
+    await tick();
+    const canceledDestroyed = canceled.stream.destroyed;
+    canceled.stream.destroy();
+
+    const signaled = makeCountingStream();
+    const controller = new AbortController();
+    const q = toArray(signaled.stream, { signal: controller.signal, destroyOnCancel: false });
+    await tick();
+    await tick();
+    controller.abort();
+    await expectCancelRejection(q);
+    await tick();
+    const signaledDestroyed = signaled.stream.destroyed;
+    signaled.stream.destroy();
+
+    expect(nativeDestroyed).toBe(false);
+    expect(canceledDestroyed).toBe(false);
+    expect(signaledDestroyed).toBe(false);
+  });
+
+  it('destroys the source on cancel by default, and with destroyOnCancel false hands it back readable', async () => {
+    const destroyed = makeCountingStream();
+    const p = forEach(destroyed.stream, () => undefined);
+    await tick();
+    await tick();
+    p.cancel();
+    await expectCancelRejection(p);
+    await tick();
+    await tick();
+    await tick();
+
+    const kept = makeCountingStream();
+    const seen: number[] = [];
+    const q = forEach<{ current: number }>(
+      kept.stream,
+      (chunk) => {
+        seen.push(chunk.current);
+      },
+      { destroyOnCancel: false },
+    );
+    await tick();
+    await tick();
+    q.cancel();
+    await expectCancelRejection(q);
+    const seenAtCancel = seen.length;
+    expect(seenAtCancel).toBeGreaterThan(0);
+
+    // the terminal's own loop has let go: the source is no longer drained into the canceled
+    // visitor, and reading it again gets fresh chunks
+    await tick();
+    await tick();
+    await tick();
+    expect(seen).toHaveLength(seenAtCancel);
+
+    const readAfter: number[] = [];
+    for await (const chunk of kept.stream.iterator({ destroyOnReturn: false })) {
+      readAfter.push((chunk as { current: number }).current);
+      if (readAfter.length === 3) {
+        break;
+      }
+    }
+
+    expect(destroyed.stream.destroyed).toBe(true);
+    expect(kept.stream.destroyed).toBe(false);
+    expect(seen).toHaveLength(seenAtCancel);
+    expect(readAfter).toHaveLength(3);
+    // one chunk, taken by the canceled read after the last one it delivered, is dropped
+    expect(readAfter[0]).toBe(seen[seenAtCancel - 1] + 2);
+
+    kept.stream.destroy();
   });
 });

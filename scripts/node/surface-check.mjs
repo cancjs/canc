@@ -7,8 +7,8 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-// Resolved from the script location so the check works from any cwd. The override exists for the
-// spec that runs this against a throwaway fixture tree; nothing in normal use sets it.
+// Resolved from the script location, so the check works from any cwd.
+// The override is for the spec that runs against a fixture tree; normal use never sets it.
 const ROOT = process.env.CANC_SURFACE_ROOT || join(HERE, '..', '..');
 const surfaceDir = join(ROOT, 'packages', 'canc-node', 'surface');
 const nodeLock = JSON.parse(readFileSync(join(surfaceDir, 'node-api.lock.json'), 'utf8'));
@@ -60,8 +60,8 @@ function warn(msg) {
   console.warn(msg);
 }
 
-// every exclusion entry exists so a reviewer can tell "not shipped" from "forgotten" -- an empty
-// reason defeats that, so it is a fail, not a lint nit
+// Each exclusion entry lets a reviewer tell "not shipped" from "forgotten".
+// An empty reason defeats that, so it fails the check.
 for (const entry of exclusions) {
   const label = entry.module ? `module ${entry.module}` : `name ${entry.name}`;
   if (typeof entry.reason !== 'string' || entry.reason.trim().length === 0) {
@@ -81,10 +81,9 @@ const newestMajor = Object.keys(nodeLock.generatedFrom)
   .map(Number)
   .sort((a, b) => b - a)[0];
 
-// Class families a phase deliberately did not wrap or catalog member-by-member (out-of-scope
-// fence recorded in the phase task, not a module exclusion). Keyed by top-level module, value is
-// the set of class names (matched as the lock key's second segment) to skip entirely, both the
-// class declaration and every member under it.
+// Class families left unwrapped and uncataloged member-by-member, by deliberate scope fence.
+// Keyed by top-level module; the value is the class names to skip entirely.
+// Matches the lock key's second segment, and skips the class and every member under it.
 const OUT_OF_SCOPE_CLASSES = {
   zlib: new Set(['ZipEntry', 'ZipFile']),
 };
@@ -316,10 +315,9 @@ for (const [subpath, mmap] of manifestMap.entries()) {
     const lockExports = nodeLock.modules[mod] || {};
     const prefix = subpath.includes('#') ? subpath.split('#')[1] + '.' + name : name;
 
-    // Every key that names this API, not the first. Node renames a class heading between majors
-    // (`BroadcastChannel` became `BroadcastChannel extends EventTarget` in 26), which leaves the
-    // lock holding one key per spelling, each carrying only the majors that used it. Taking the
-    // first match reports the API as gone from the newest major purely because the heading moved.
+    // Check every key that names this API, not only the first.
+    // Node renames class headings between majors, so each spelling keeps its own key.
+    // The first match would report a moved heading as a removed API.
     const matches = Object.entries(lockExports).filter(([k, _v]) => {
       const p = k.split('.');
       p.shift();
@@ -333,8 +331,8 @@ for (const [subpath, mmap] of manifestMap.entries()) {
       continue;
     }
 
-    // The doc-scraped lock only covers whole modules. A member of a submodule it never collected
-    // (`node:stream/consumers`) has no counterpart there and never will, so it is checked against
+    // The doc-scraped lock covers whole modules only; a submodule member (`node:stream/consumers`)
+    // has no counterpart there and never will, so it is checked against
     // the runtime probe instead of being failed against data that was not gathered.
     const submodule = submoduleOf(manifest, name);
 
@@ -395,33 +393,43 @@ if (existsSync(fileHandlePath)) {
   const fileHandleSrc = readFileSync(fileHandlePath, 'utf8');
   const switchCases = new Set([...fileHandleSrc.matchAll(/case\s+'([^']+)'/g)].map((m) => m[1]));
 
-  const EXPECTED_HANDLE_WRAPPERS = {
-    appendFile: 'cancelify-signal',
-    chmod: 'promisify-custom',
-    chown: 'promisify-custom',
-    close: 'passthrough',
-    datasync: 'promisify-custom',
-    read: 'promisify-custom',
-    readFile: 'cancelify-signal',
-    readv: 'promisify-custom',
-    stat: 'gated',
-    write: 'promisify-custom',
-    writeFile: 'cancelify-signal',
-    sync: 'promisify-custom',
-    truncate: 'promisify-custom',
-    utimes: 'promisify-custom',
-    writev: 'promisify-custom',
+  // Read the routing the switch in file-handle.ts performs.
+  // Each `case` group and its `return` call; the table is the source, not a copy of it..
+  const WRAPPER_OF_COMBINATOR = {
+    adopted: 'promisify-custom',
+    signalWrapped: 'cancelify-signal',
+    passthrough: 'passthrough',
   };
+  const routes = new Map();
+  let pendingLabels = [];
+  for (const line of fileHandleSrc.split('\n')) {
+    const label = line.match(/^\s*case\s+'([^']+)':/);
+    if (label) {
+      pendingLabels.push(label[1]);
+      continue;
+    }
+    const returned = line.match(/^\s*return\s+(\w+)\(/);
+    if (returned) {
+      for (const pending of pendingLabels) {
+        routes.set(pending, returned[1]);
+      }
+      pendingLabels = [];
+    }
+  }
+
+  for (const [label, combinator] of routes) {
+    // `gated` reuses the signal combinator behind a feature gate.
+    const kind = label === 'gated' ? 'cancelify-signal' : label;
+    if (WRAPPER_OF_COMBINATOR[combinator] !== kind) {
+      fail(
+        `Check W failed: file-handle.ts routes wrapper ${label} to ${combinator} (kind ${WRAPPER_OF_COMBINATOR[combinator]})`,
+      );
+    }
+  }
 
   const handleManifest = manifestMap.get('fs#FileHandle');
   if (handleManifest) {
     for (const [name, mentry] of handleManifest.entries()) {
-      const expectedWrapper = EXPECTED_HANDLE_WRAPPERS[name] || 'passthrough';
-      if (mentry.wrapper !== expectedWrapper) {
-        fail(
-          `Check W failed: FileHandle member ${name} routing expects wrapper ${expectedWrapper} but manifest has ${mentry.wrapper}`,
-        );
-      }
       if (mentry.kind === 'fn' && mentry.callPath !== 'sync' && name !== 'close') {
         if (!switchCases.has(mentry.wrapper)) {
           fail(
@@ -438,8 +446,8 @@ if (existsSync(fileHandlePath)) {
 const surfaceDocsPath = join(HERE, 'surface-docs.mjs');
 if (existsSync(surfaceDocsPath) && existsSync(join(ROOT, 'packages', 'canc-node', 'README.md'))) {
   try {
-    // cwd: ROOT, not inherited from the caller -- surface-docs.mjs's own module resolution
-    // (and, transitively, TypeScript's) is anchored to the process cwd, not to argv[1]
+    // cwd: ROOT, not inherited from the caller.
+    // surface-docs.mjs resolves its modules against the process cwd, not argv[1].
     execSync(`node "${surfaceDocsPath}" --check`, { stdio: 'inherit', cwd: ROOT });
   } catch (_err) {
     fail(`Check G failed: generated docs stale`);

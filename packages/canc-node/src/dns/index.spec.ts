@@ -244,7 +244,16 @@ describe('@cancjs/node/dns module-level exports', () => {
       return;
     }
 
-    const server = await startFakeDnsServer((query, reply) => reply(buildResponse(query, [])));
+    // the adopted query runs on after cancel; wait for the server to answer it, so the query
+    // settles inside this test instead of retrying against a closed port
+    let answered: () => void = () => undefined;
+    const queryAnswered = new Promise<void>((resolveAnswered) => {
+      answered = resolveAnswered;
+    });
+    const server = await startFakeDnsServer((query, reply) => {
+      reply(buildResponse(query, []));
+      answered();
+    });
     try {
       dnsExports.setServers([`127.0.0.1:${server.port}`]);
 
@@ -253,6 +262,7 @@ describe('@cancjs/node/dns module-level exports', () => {
       expect(p).toBeInstanceOf(CancelablePromise);
       p.cancel();
       await expect(p).rejects.toThrow();
+      await queryAnswered;
     } finally {
       await server.close();
     }

@@ -19,7 +19,6 @@ module.exports = {
     '^@cancjs/node/fs/register-graceful$': '<rootDir>/src/fs/register-graceful.ts',
     '^@cancjs/node/fs/sync$': '<rootDir>/src/fs/sync.ts',
     '^@cancjs/node/fs/extra$': '<rootDir>/src/fs-extra/index.ts',
-    '^@cancjs/node/zlib/extra$': '<rootDir>/src/zlib/extra.ts',
     '^@cancjs/node/fs$': '<rootDir>/src/fs/index.ts',
     '^@cancjs/node/child-process$': '<rootDir>/src/child-process/index.ts',
     '^@cancjs/node$': '<rootDir>/src/index.ts',

@@ -380,36 +380,56 @@ describe('replaceFile', () => {
     const file = join(dir, 'target.txt');
     await fs.writeFile(file, 'initial content');
 
-    // the platform write creates the temp file only after 1.5s, far past the ~0.5s unlink retry budget,
-    // so a cleanup that gives up early leaves the file the write creates behind
+    // the platform write is held until released, so the temp file appears after cancel starts;
+    // a cleanup that gives up early leaves the file that the write creates behind
+    let releaseWrite!: () => void;
+    const writeReleased = new Promise<void>((resolve) => {
+      releaseWrite = resolve;
+    });
     let writeLandedResolve!: () => void;
     const writeLanded = new Promise<void>((resolve) => {
       writeLandedResolve = resolve;
     });
+    // until the write lands there is no temp file: unlink reports ENOENT without touching disk,
+    // so the retry budget runs on the fake clock and is spent while the write is still held
+    let landed = false;
 
     const originalFs = getFs();
     const realWriteFile = fsCall((originalFs as unknown as Record<string, unknown>).writeFile, 'writeFile');
+    const realUnlink = fsCall(originalFs.promises?.unlink, 'promises.unlink');
     setFs({
       ...originalFs,
       writeFile: (...args: unknown[]) => {
         const callback = args[args.length - 1] as (err: unknown) => void;
         const [target, data, options] = args.slice(0, -1);
-        // the signal is dropped: node would otherwise abort the late write that the cancel already reached
+        // drop the signal: node would otherwise abort the late write that cancel already reached
         const lateOptions =
           typeof options === 'object' && options !== null ? { ...options, signal: undefined } : options;
-        setTimeout(() => {
+        void writeReleased.then(() => {
           realWriteFile(target, data, lateOptions, (err: unknown) => {
+            landed = true;
             writeLandedResolve();
             callback(err);
           });
-        }, 1500);
+        });
+      },
+      promises: {
+        ...originalFs.promises,
+        unlink: (path: string) =>
+          landed ?
+            (realUnlink(path) as Promise<void>)
+          : Promise.reject(Object.assign(new Error(`ENOENT: ${path}`), { code: 'ENOENT' })),
       },
     } as never);
 
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] });
     try {
       const p = replaceFile(file, 'x'.repeat(10000));
-      // awaiting cancel() covers the cleanup, which waits for the late write to land
-      await p.cancel();
+      const cancelled = p.cancel();
+      // the cleanup retries (12 x 40ms) run out here, before the write is released
+      await jest.advanceTimersByTimeAsync(2000);
+      releaseWrite();
+      await cancelled;
 
       await expect(p).rejects.toThrow(CancelError);
       await writeLanded;
@@ -417,6 +437,7 @@ describe('replaceFile', () => {
       expect(leftovers).toEqual([]);
       expect(await fs.readFile(file, 'utf8')).toBe('initial content');
     } finally {
+      jest.useRealTimers();
       resetFs();
     }
   });

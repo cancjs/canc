@@ -250,7 +250,7 @@ function runChild(program: string): Promise<{ stdout: string; elapsedMs: number 
   });
 }
 
-// reported from the child after its cancel or ref decision, read in a setImmediate so the clear has run;
+// the child reports after its cancel or ref decision, read on the next setImmediate;
 // only 'Timeout' entries count, since stdio pipe handles add their own entries to the active list
 const ACTIVE_PROBE = `
 function activeTimeouts() {

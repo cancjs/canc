@@ -98,7 +98,7 @@ describe('version simulation', () => {
         // no locks
       }));
 
-      // we must also mock the internal features to pretend we are on an old node
+      // the internal features are mocked too, so the sim sees an old node
       jest.doMock('./features', () => ({
         features: {
           hasGlob: false,
@@ -147,7 +147,7 @@ describe('version simulation', () => {
       cErr = e;
     }
     expect(isNotImplementedError(cErr)).toBe(true);
-    expect(cErr).toMatchObject({ feature: 'crc32', required: '22' });
+    expect(cErr).toMatchObject({ feature: 'crc32', required: '20.15.0' });
 
     let fErr: unknown;
     try {

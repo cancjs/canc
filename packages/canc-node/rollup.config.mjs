@@ -17,7 +17,6 @@ const configs = createMultiConfigs(
     { input: 'src/readline/index.ts', base: 'readline', name: 'canc_node_readline' },
     { input: 'src/crypto/index.ts', base: 'crypto', name: 'canc_node_crypto' },
     { input: 'src/zlib/index.ts', base: 'zlib', name: 'canc_node_zlib' },
-    { input: 'src/zlib/extra.ts', base: 'zlib/extra', name: 'canc_node_zlib_extra' },
     { input: 'src/worker-threads/index.ts', base: 'worker-threads', name: 'canc_node_worker_threads' },
     { input: 'src/dgram/index.ts', base: 'dgram', name: 'canc_node_dgram' },
   ],

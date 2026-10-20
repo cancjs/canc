@@ -60,10 +60,15 @@ export interface ICancelableResolverCtor {
  * passing `new.target` keeps a further subclass's prototype.
  */
 function CancelableResolver(this: unknown, options?: ResolverOptions): unknown {
-  return Reflect.construct(NodeResolver, [options], new.target ?? CancelableResolver);
+  const owner: unknown = Reflect.construct(NodeResolver, [options], new.target ?? CancelableResolver);
+  resolverOptions.set(owner as object, options);
+  return owner;
 }
 
 type TNodeResolver = InstanceType<typeof NodeResolver>;
+
+/** Constructor options each owner was built with, replayed on every private per-query resolver. */
+const resolverOptions = new WeakMap<object, ResolverOptions | undefined>();
 
 /** Local address each owner was given, kept because node offers no getter to read it back. */
 const localAddresses = new WeakMap<object, [string | undefined, string | undefined]>();
@@ -82,7 +87,7 @@ function inFlightFor(owner: object): Set<TNodeResolver> {
 
 /** A fresh node resolver answering the way `owner` is configured to. */
 function privateResolverFor(owner: ICancelableResolver): TNodeResolver {
-  const query = new NodeResolver();
+  const query = new NodeResolver(resolverOptions.get(owner));
   query.setServers(owner.getServers());
 
   const local = localAddresses.get(owner);

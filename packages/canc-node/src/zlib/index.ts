@@ -3,9 +3,10 @@ import nodeZlib from 'node:zlib';
 
 import {
   TBrotliBufferFn,
+  TCreateZipArchiveFn,
+  TCreateZipArchiveSyncFn,
   TIterableCodecFn,
   TZipFilesFn,
-  TZipFilesOptions,
   TZlibBufferFn,
   TZstdBufferFn,
   TZstdOptions,
@@ -22,6 +23,17 @@ const zlibCb = nodeZlib as unknown as Record<string, TNodeFn>;
  * the node API without claiming that version still get a feature it actually ships.
  */
 const has = (name: string): boolean => typeof zlibCb[name] === 'function';
+
+/**
+ * The iterable codec module. Node keeps these codecs in `node:zlib/iter`, not on `node:zlib`: since
+ * 25.9.0, or behind `--experimental-stream-iter` on 24.x. Resolved once at load through
+ * `process.getBuiltinModule`, not a static import, so a runtime without the module still loads `zlib`.
+ */
+const iterZlib = ((process as unknown as { getBuiltinModule?: (id: string) => unknown }).getBuiltinModule?.(
+  'node:zlib/iter',
+) ?? {}) as Record<string, TNodeFn>;
+
+const hasIter = (name: string): boolean => typeof iterZlib[name] === 'function';
 
 /**
  * Compresses `data` with brotli.
@@ -96,7 +108,7 @@ export const inflateRaw = promisifyWrapped(zlibCb.inflateRaw) as TZlibBufferFn;
 export const unzip = promisifyWrapped(zlibCb.unzip) as TZlibBufferFn;
 
 /**
- * Compresses `data` with zstd. Requires Node 22 or later; throws `NotImplementedError` below that,
+ * Compresses `data` with zstd. Requires Node 22.15 or later; throws `NotImplementedError` below that,
  * driven by feature detection rather than a version parse.
  *
  * Canceling stops the wait, not the work: the call keeps running on node's threadpool and the slot
@@ -111,7 +123,7 @@ export const zstdCompress = gatedWrapped(
 ) as TZstdBufferFn;
 
 /**
- * Decompresses zstd-compressed `data`. Requires Node 22 or later; throws `NotImplementedError` below
+ * Decompresses zstd-compressed `data`. Requires Node 22.15 or later; throws `NotImplementedError` below
  * that, driven by feature detection rather than a version parse.
  *
  * Canceling stops the wait, not the work: the call keeps running on node's threadpool and the slot
@@ -126,7 +138,7 @@ export const zstdDecompress = gatedWrapped(
 ) as TZstdBufferFn;
 
 /**
- * Computes a CRC-32 checksum. Requires Node 22 or later; throws `NotImplementedError` below that,
+ * Computes a CRC-32 checksum. Requires Node 20.15 or later; throws `NotImplementedError` below that,
  * driven by feature detection rather than a version parse.
  *
  * Synchronous; nothing to cancel.
@@ -134,13 +146,13 @@ export const zstdDecompress = gatedWrapped(
 export const crc32 = gatedWrapped(
   has('crc32'),
   'crc32',
-  '22',
+  '20.15.0',
   () => zlibCb.crc32 as (data: unknown, value?: number) => number,
   'sync',
 ) as (data: string | NodeJS.ArrayBufferView, value?: number) => number;
 
 /**
- * Synchronously compresses `data` with zstd. Requires Node 22 or later; throws `NotImplementedError`
+ * Synchronously compresses `data` with zstd. Requires Node 22.15 or later; throws `NotImplementedError`
  * below that, driven by feature detection rather than a version parse.
  *
  * Synchronous; nothing to cancel.
@@ -154,7 +166,7 @@ export const zstdCompressSync = gatedWrapped(
 ) as (data: unknown, options?: TZstdOptions) => Buffer;
 
 /**
- * Synchronously decompresses zstd-compressed `data`. Requires Node 22 or later; throws
+ * Synchronously decompresses zstd-compressed `data`. Requires Node 22.15 or later; throws
  * `NotImplementedError` below that, driven by feature detection rather than a version parse.
  *
  * Synchronous; nothing to cancel.
@@ -168,7 +180,7 @@ export const zstdDecompressSync = gatedWrapped(
 ) as (data: unknown, options?: TZstdOptions) => Buffer;
 
 /**
- * Opens a zstd compression transform stream. Requires Node 22 or later; throws
+ * Opens a zstd compression transform stream. Requires Node 22.15 or later; throws
  * `NotImplementedError` below that, driven by feature detection rather than a version parse.
  *
  * `destroy()` on the returned stream genuinely stops it; unlike the one-shot buffer form of the same
@@ -183,7 +195,7 @@ export const createZstdCompress = gatedWrapped(
 ) as (options?: TZstdOptions) => Transform;
 
 /**
- * Opens a zstd decompression transform stream. Requires Node 22 or later; throws
+ * Opens a zstd decompression transform stream. Requires Node 22.15 or later; throws
  * `NotImplementedError` below that, driven by feature detection rather than a version parse.
  *
  * `destroy()` on the returned stream genuinely stops it; unlike the one-shot buffer form of the same
@@ -198,7 +210,7 @@ export const createZstdDecompress = gatedWrapped(
 ) as (options?: TZstdOptions) => Transform;
 
 /**
- * The zstd compression transform stream class. Requires Node 22 or later; throws
+ * The zstd compression transform stream class. Requires Node 22.15 or later; throws
  * `NotImplementedError` below that, driven by feature detection rather than a version parse.
  */
 export const ZstdCompress = gatedClassWrapped(
@@ -209,7 +221,7 @@ export const ZstdCompress = gatedClassWrapped(
 );
 
 /**
- * The zstd decompression transform stream class. Requires Node 22 or later; throws
+ * The zstd decompression transform stream class. Requires Node 22.15 or later; throws
  * `NotImplementedError` below that, driven by feature detection rather than a version parse.
  */
 export const ZstdDecompress = gatedClassWrapped(
@@ -221,330 +233,332 @@ export const ZstdDecompress = gatedClassWrapped(
 
 /**
  * Compresses an iterable or async iterable of chunks with gzip, resolving one `Buffer`. Requires
- * Node 24 or later; throws `NotImplementedError` below that, driven by feature detection rather than
+ * Node 25.9 or later; throws `NotImplementedError` below that, driven by feature detection rather than
  * a version parse.
  *
  * Canceling genuinely stops the work: it stops pulling from the source between chunks and calls the
  * source iterator's own return(), so nothing more reaches the codec after that point.
  */
 export const compressGzip = gatedWrapped(
-  has('compressGzip'),
+  hasIter('compressGzip'),
   'compressGzip',
-  '24',
-  () => iterableCodecWrapped<Buffer>(zlibCb.compressGzip),
+  '25.9.0 (or --experimental-stream-iter)',
+  () => iterableCodecWrapped<Buffer>(iterZlib.compressGzip),
   'promise',
 ) as TIterableCodecFn;
 
 /**
  * Decompresses an iterable or async iterable of gzip-compressed chunks, resolving one `Buffer`.
- * Requires Node 24 or later; throws `NotImplementedError` below that, driven by feature detection
+ * Requires Node 25.9 or later; throws `NotImplementedError` below that, driven by feature detection
  * rather than a version parse.
  *
  * Canceling genuinely stops the work: it stops pulling from the source between chunks and calls the
  * source iterator's own return(), so nothing more reaches the codec after that point.
  */
 export const decompressGzip = gatedWrapped(
-  has('decompressGzip'),
+  hasIter('decompressGzip'),
   'decompressGzip',
-  '24',
-  () => iterableCodecWrapped<Buffer>(zlibCb.decompressGzip),
+  '25.9.0 (or --experimental-stream-iter)',
+  () => iterableCodecWrapped<Buffer>(iterZlib.decompressGzip),
   'promise',
 ) as TIterableCodecFn;
 
 /**
  * Compresses an iterable or async iterable of chunks with deflate, resolving one `Buffer`. Requires
- * Node 24 or later; throws `NotImplementedError` below that, driven by feature detection rather than
+ * Node 25.9 or later; throws `NotImplementedError` below that, driven by feature detection rather than
  * a version parse.
  *
  * Canceling genuinely stops the work: it stops pulling from the source between chunks and calls the
  * source iterator's own return(), so nothing more reaches the codec after that point.
  */
 export const compressDeflate = gatedWrapped(
-  has('compressDeflate'),
+  hasIter('compressDeflate'),
   'compressDeflate',
-  '24',
-  () => iterableCodecWrapped<Buffer>(zlibCb.compressDeflate),
+  '25.9.0 (or --experimental-stream-iter)',
+  () => iterableCodecWrapped<Buffer>(iterZlib.compressDeflate),
   'promise',
 ) as TIterableCodecFn;
 
 /**
  * Decompresses an iterable or async iterable of deflate-compressed chunks, resolving one `Buffer`.
- * Requires Node 24 or later; throws `NotImplementedError` below that, driven by feature detection
+ * Requires Node 25.9 or later; throws `NotImplementedError` below that, driven by feature detection
  * rather than a version parse.
  *
  * Canceling genuinely stops the work: it stops pulling from the source between chunks and calls the
  * source iterator's own return(), so nothing more reaches the codec after that point.
  */
 export const decompressDeflate = gatedWrapped(
-  has('decompressDeflate'),
+  hasIter('decompressDeflate'),
   'decompressDeflate',
-  '24',
-  () => iterableCodecWrapped<Buffer>(zlibCb.decompressDeflate),
+  '25.9.0 (or --experimental-stream-iter)',
+  () => iterableCodecWrapped<Buffer>(iterZlib.decompressDeflate),
   'promise',
 ) as TIterableCodecFn;
 
 /**
  * Compresses an iterable or async iterable of chunks with brotli, resolving one `Buffer`. Requires
- * Node 24 or later; throws `NotImplementedError` below that, driven by feature detection rather than
+ * Node 25.9 or later; throws `NotImplementedError` below that, driven by feature detection rather than
  * a version parse.
  *
  * Canceling genuinely stops the work: it stops pulling from the source between chunks and calls the
  * source iterator's own return(), so nothing more reaches the codec after that point.
  */
 export const compressBrotli = gatedWrapped(
-  has('compressBrotli'),
+  hasIter('compressBrotli'),
   'compressBrotli',
-  '24',
-  () => iterableCodecWrapped<Buffer>(zlibCb.compressBrotli),
+  '25.9.0 (or --experimental-stream-iter)',
+  () => iterableCodecWrapped<Buffer>(iterZlib.compressBrotli),
   'promise',
 ) as TIterableCodecFn;
 
 /**
  * Decompresses an iterable or async iterable of brotli-compressed chunks, resolving one `Buffer`.
- * Requires Node 24 or later; throws `NotImplementedError` below that, driven by feature detection
+ * Requires Node 25.9 or later; throws `NotImplementedError` below that, driven by feature detection
  * rather than a version parse.
  *
  * Canceling genuinely stops the work: it stops pulling from the source between chunks and calls the
  * source iterator's own return(), so nothing more reaches the codec after that point.
  */
 export const decompressBrotli = gatedWrapped(
-  has('decompressBrotli'),
+  hasIter('decompressBrotli'),
   'decompressBrotli',
-  '24',
-  () => iterableCodecWrapped<Buffer>(zlibCb.decompressBrotli),
+  '25.9.0 (or --experimental-stream-iter)',
+  () => iterableCodecWrapped<Buffer>(iterZlib.decompressBrotli),
   'promise',
 ) as TIterableCodecFn;
 
 /**
  * Compresses an iterable or async iterable of chunks with zstd, resolving one `Buffer`. Requires
- * Node 24 or later; throws `NotImplementedError` below that, driven by feature detection rather than
+ * Node 25.9 or later; throws `NotImplementedError` below that, driven by feature detection rather than
  * a version parse.
  *
  * Canceling genuinely stops the work: it stops pulling from the source between chunks and calls the
  * source iterator's own return(), so nothing more reaches the codec after that point.
  */
 export const compressZstd = gatedWrapped(
-  has('compressZstd'),
+  hasIter('compressZstd'),
   'compressZstd',
-  '24',
-  () => iterableCodecWrapped<Buffer>(zlibCb.compressZstd),
+  '25.9.0 (or --experimental-stream-iter)',
+  () => iterableCodecWrapped<Buffer>(iterZlib.compressZstd),
   'promise',
 ) as TIterableCodecFn;
 
 /**
  * Decompresses an iterable or async iterable of zstd-compressed chunks, resolving one `Buffer`.
- * Requires Node 24 or later; throws `NotImplementedError` below that, driven by feature detection
+ * Requires Node 25.9 or later; throws `NotImplementedError` below that, driven by feature detection
  * rather than a version parse.
  *
  * Canceling genuinely stops the work: it stops pulling from the source between chunks and calls the
  * source iterator's own return(), so nothing more reaches the codec after that point.
  */
 export const decompressZstd = gatedWrapped(
-  has('decompressZstd'),
+  hasIter('decompressZstd'),
   'decompressZstd',
-  '24',
-  () => iterableCodecWrapped<Buffer>(zlibCb.decompressZstd),
+  '25.9.0 (or --experimental-stream-iter)',
+  () => iterableCodecWrapped<Buffer>(iterZlib.decompressZstd),
   'promise',
 ) as TIterableCodecFn;
 
 /**
- * Synchronous counterpart of {@link compressGzip}. Requires Node 24 or later; throws
+ * Synchronous counterpart of {@link compressGzip}. Requires Node 25.9 or later; throws
  * `NotImplementedError` below that, driven by feature detection rather than a version parse.
  *
  * Synchronous; nothing to cancel.
  */
 export const compressGzipSync = gatedWrapped(
-  has('compressGzipSync'),
+  hasIter('compressGzipSync'),
   'compressGzipSync',
-  '24',
-  () => zlibCb.compressGzipSync as (source: unknown, options?: unknown) => Buffer,
+  '25.9.0 (or --experimental-stream-iter)',
+  () => iterZlib.compressGzipSync as (source: unknown, options?: unknown) => Buffer,
   'sync',
 ) as (source: Iterable<unknown>, options?: unknown) => Buffer;
 
 /**
- * Synchronous counterpart of {@link decompressGzip}. Requires Node 24 or later; throws
+ * Synchronous counterpart of {@link decompressGzip}. Requires Node 25.9 or later; throws
  * `NotImplementedError` below that, driven by feature detection rather than a version parse.
  *
  * Synchronous; nothing to cancel.
  */
 export const decompressGzipSync = gatedWrapped(
-  has('decompressGzipSync'),
+  hasIter('decompressGzipSync'),
   'decompressGzipSync',
-  '24',
-  () => zlibCb.decompressGzipSync as (source: unknown, options?: unknown) => Buffer,
+  '25.9.0 (or --experimental-stream-iter)',
+  () => iterZlib.decompressGzipSync as (source: unknown, options?: unknown) => Buffer,
   'sync',
 ) as (source: Iterable<unknown>, options?: unknown) => Buffer;
 
 /**
- * Synchronous counterpart of {@link compressDeflate}. Requires Node 24 or later; throws
+ * Synchronous counterpart of {@link compressDeflate}. Requires Node 25.9 or later; throws
  * `NotImplementedError` below that, driven by feature detection rather than a version parse.
  *
  * Synchronous; nothing to cancel.
  */
 export const compressDeflateSync = gatedWrapped(
-  has('compressDeflateSync'),
+  hasIter('compressDeflateSync'),
   'compressDeflateSync',
-  '24',
-  () => zlibCb.compressDeflateSync as (source: unknown, options?: unknown) => Buffer,
+  '25.9.0 (or --experimental-stream-iter)',
+  () => iterZlib.compressDeflateSync as (source: unknown, options?: unknown) => Buffer,
   'sync',
 ) as (source: Iterable<unknown>, options?: unknown) => Buffer;
 
 /**
- * Synchronous counterpart of {@link decompressDeflate}. Requires Node 24 or later; throws
+ * Synchronous counterpart of {@link decompressDeflate}. Requires Node 25.9 or later; throws
  * `NotImplementedError` below that, driven by feature detection rather than a version parse.
  *
  * Synchronous; nothing to cancel.
  */
 export const decompressDeflateSync = gatedWrapped(
-  has('decompressDeflateSync'),
+  hasIter('decompressDeflateSync'),
   'decompressDeflateSync',
-  '24',
-  () => zlibCb.decompressDeflateSync as (source: unknown, options?: unknown) => Buffer,
+  '25.9.0 (or --experimental-stream-iter)',
+  () => iterZlib.decompressDeflateSync as (source: unknown, options?: unknown) => Buffer,
   'sync',
 ) as (source: Iterable<unknown>, options?: unknown) => Buffer;
 
 /**
- * Synchronous counterpart of {@link compressBrotli}. Requires Node 24 or later; throws
+ * Synchronous counterpart of {@link compressBrotli}. Requires Node 25.9 or later; throws
  * `NotImplementedError` below that, driven by feature detection rather than a version parse.
  *
  * Synchronous; nothing to cancel.
  */
 export const compressBrotliSync = gatedWrapped(
-  has('compressBrotliSync'),
+  hasIter('compressBrotliSync'),
   'compressBrotliSync',
-  '24',
-  () => zlibCb.compressBrotliSync as (source: unknown, options?: unknown) => Buffer,
+  '25.9.0 (or --experimental-stream-iter)',
+  () => iterZlib.compressBrotliSync as (source: unknown, options?: unknown) => Buffer,
   'sync',
 ) as (source: Iterable<unknown>, options?: unknown) => Buffer;
 
 /**
- * Synchronous counterpart of {@link decompressBrotli}. Requires Node 24 or later; throws
+ * Synchronous counterpart of {@link decompressBrotli}. Requires Node 25.9 or later; throws
  * `NotImplementedError` below that, driven by feature detection rather than a version parse.
  *
  * Synchronous; nothing to cancel.
  */
 export const decompressBrotliSync = gatedWrapped(
-  has('decompressBrotliSync'),
+  hasIter('decompressBrotliSync'),
   'decompressBrotliSync',
-  '24',
-  () => zlibCb.decompressBrotliSync as (source: unknown, options?: unknown) => Buffer,
+  '25.9.0 (or --experimental-stream-iter)',
+  () => iterZlib.decompressBrotliSync as (source: unknown, options?: unknown) => Buffer,
   'sync',
 ) as (source: Iterable<unknown>, options?: unknown) => Buffer;
 
 /**
- * Synchronous counterpart of {@link compressZstd}. Requires Node 24 or later; throws
+ * Synchronous counterpart of {@link compressZstd}. Requires Node 25.9 or later; throws
  * `NotImplementedError` below that, driven by feature detection rather than a version parse.
  *
  * Synchronous; nothing to cancel.
  */
 export const compressZstdSync = gatedWrapped(
-  has('compressZstdSync'),
+  hasIter('compressZstdSync'),
   'compressZstdSync',
-  '24',
-  () => zlibCb.compressZstdSync as (source: unknown, options?: unknown) => Buffer,
+  '25.9.0 (or --experimental-stream-iter)',
+  () => iterZlib.compressZstdSync as (source: unknown, options?: unknown) => Buffer,
   'sync',
 ) as (source: Iterable<unknown>, options?: unknown) => Buffer;
 
 /**
- * Synchronous counterpart of {@link decompressZstd}. Requires Node 24 or later; throws
+ * Synchronous counterpart of {@link decompressZstd}. Requires Node 25.9 or later; throws
  * `NotImplementedError` below that, driven by feature detection rather than a version parse.
  *
  * Synchronous; nothing to cancel.
  */
 export const decompressZstdSync = gatedWrapped(
-  has('decompressZstdSync'),
+  hasIter('decompressZstdSync'),
   'decompressZstdSync',
-  '24',
-  () => zlibCb.decompressZstdSync as (source: unknown, options?: unknown) => Buffer,
+  '25.9.0 (or --experimental-stream-iter)',
+  () => iterZlib.decompressZstdSync as (source: unknown, options?: unknown) => Buffer,
   'sync',
 ) as (source: Iterable<unknown>, options?: unknown) => Buffer;
 
 /**
- * The in-memory zip archive builder. Requires Node 26 or later; throws `NotImplementedError` below
+ * The in-memory zip archive builder. Requires Node 26.8 or later; throws `NotImplementedError` below
  * that, driven by feature detection rather than a version parse.
  */
 export const ZipBuffer = gatedClassWrapped(
   has('ZipBuffer'),
   'ZipBuffer',
-  '26',
+  '26.8.0',
   () => zlibCb.ZipBuffer as unknown as new (...args: unknown[]) => object,
 );
 
-/** The zip archive builder's write surface `zipFiles` depends on, named from the surface manifest's
- * published method list. Node has not shipped the real class on any tracked runtime yet, so this
- * narrows only what the walker below calls, not `ZipBuffer` / `createZipArchive`'s full shape. */
-interface IZipArchiveWriter {
-  addEntry(path: string): unknown;
-  close(): unknown;
-}
-
 /**
- * Opens a zip archive builder backed by a stream, written to `target`. Requires Node 26 or later;
- * throws `NotImplementedError` below that, driven by feature detection rather than a version parse.
+ * Builds a zip archive from `ZipEntry` values and returns node's own `Readable` of its bytes, same
+ * signature and return as node's `createZipArchive`. Requires Node 26.8 or later; throws
+ * `NotImplementedError` below that, driven by feature detection rather than a version parse.
+ *
+ * There is no promise to cancel: destroying the returned stream is the cancel.
  */
 export const createZipArchive = gatedWrapped(
   has('createZipArchive'),
   'createZipArchive',
-  '26',
-  () => zlibCb.createZipArchive as (target: string, options?: TZipFilesOptions) => IZipArchiveWriter,
+  '26.8.0',
+  () => zlibCb.createZipArchive as TCreateZipArchiveFn,
   'sync',
-) as (target: string, options?: TZipFilesOptions) => IZipArchiveWriter;
+) as TCreateZipArchiveFn;
 
 /**
- * Synchronous counterpart of {@link createZipArchive}. Requires Node 26 or later; throws
- * `NotImplementedError` below that, driven by feature detection rather than a version parse.
+ * Synchronous counterpart of {@link createZipArchive}: returns node's iterator of archive chunks.
+ * Requires Node 26.8 or later; throws `NotImplementedError` below that, driven by feature detection
+ * rather than a version parse.
  */
 export const createZipArchiveSync = gatedWrapped(
   has('createZipArchiveSync'),
   'createZipArchiveSync',
-  '26',
-  () => zlibCb.createZipArchiveSync as (target: string, options?: TZipFilesOptions) => IZipArchiveWriter,
+  '26.8.0',
+  () => zlibCb.createZipArchiveSync as TCreateZipArchiveSyncFn,
   'sync',
-) as (target: string, options?: TZipFilesOptions) => IZipArchiveWriter;
+) as TCreateZipArchiveSyncFn;
 
 /**
- * Reads the configured maximum decompressed entry size for zip extraction. Requires Node 26 or
+ * Reads the configured maximum decompressed entry size for zip extraction. Requires Node 26.8 or
  * later; throws `NotImplementedError` below that, driven by feature detection rather than a version
  * parse.
  */
 export const getMaxZipContentSize = gatedWrapped(
   has('getMaxZipContentSize'),
   'getMaxZipContentSize',
-  '26',
+  '26.8.0',
   () => zlibCb.getMaxZipContentSize as () => number,
   'sync',
 ) as () => number;
 
 /**
- * Sets the configured maximum decompressed entry size for zip extraction. Requires Node 26 or later;
+ * Sets the configured maximum decompressed entry size for zip extraction. Requires Node 26.8 or later;
  * throws `NotImplementedError` below that, driven by feature detection rather than a version parse.
  */
 export const setMaxZipContentSize = gatedWrapped(
   has('setMaxZipContentSize'),
   'setMaxZipContentSize',
-  '26',
+  '26.8.0',
   () => zlibCb.setMaxZipContentSize as (size: number) => void,
   'sync',
 ) as (size: number) => void;
 
 /**
- * Writes `files` into a zip archive at `target`. Requires Node 26 or later; throws
+ * Builds a zip archive from `[sourcePath, entryName]` pairs and returns node's own `Readable` of its
+ * bytes, same signature and return as node's `zipFiles`. Requires Node 26.8 or later; throws
  * `NotImplementedError` below that, driven by feature detection rather than a version parse.
  *
- * This is node's own `zipFiles`, promisified. Canceling stops the wait, not the work: the call keeps
- * running on node's threadpool and the slot it holds there stays occupied until it finishes. The
- * per-file walker this package used to ship under this name lives at `/zlib/extra` as
- * `zipFilesCheckpointed`.
+ * There is no promise to cancel: destroying the returned stream is the cancel.
  */
 export const zipFiles = gatedWrapped(
   has('zipFiles'),
   'zipFiles',
   '26.8.0',
-  () => promisifyWrapped(zlibCb.zipFiles as TNodeFn),
-  'promise',
+  () => zlibCb.zipFiles as TZipFilesFn,
+  'sync',
 ) as TZipFilesFn;
 
-export type { TIterableCodecFn, TZipFilesFn, TZipFilesOptions, TZstdOptions } from './types';
+export type {
+  TCreateZipArchiveFn,
+  TCreateZipArchiveSyncFn,
+  TIterableCodecFn,
+  TZipArchiveOptions,
+  TZipFilesFn,
+  TZipFilesOptions,
+  TZstdOptions,
+} from './types';
 
 // the synchronous factory surface (createGzip, createInflate, the plain codec classes, constants,
 // and every *Sync buffer codec that has no version gate) passes through untouched, so a caller

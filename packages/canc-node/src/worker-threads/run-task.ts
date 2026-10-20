@@ -72,8 +72,9 @@ function stopWorker(worker: NodeWorker, mode: TTerminateMode, gracePeriod: numbe
  * with `ProcessExitError` carrying the exit code.
  *
  * Canceling posts `STOP_MESSAGE` to the worker and gives it `gracePeriod` milliseconds to exit on
- * its own before the thread is terminated. A worker that does not read its messages never sees that,
- * so pass `{ terminate: 'immediate' }` for one that cannot cooperate. Aborting `options.signal`
+ * its own before the thread is terminated. Once the result arrives the worker is terminated, so a
+ * worker that keeps listening or ticking does not hold the process open. A worker that does not read
+ * its messages never sees the stop, so pass `{ terminate: 'immediate' }` for one that cannot cooperate. Aborting `options.signal`
  * is the same as canceling and rejects `CancelError`.
  *
  * @param script Module path, URL, or source code when `eval` is set.
@@ -99,6 +100,8 @@ export function runTask<TResult = unknown>(
       worker.once('message', (result: TResult) => {
         hasResult = true;
         resolve(result);
+        // a worker still listening would keep the process alive after the answer
+        void terminateAndWaitForExit(worker);
       });
 
       worker.on('error', (error: unknown) => reject(reviveWorkerError(error)));

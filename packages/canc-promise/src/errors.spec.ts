@@ -18,6 +18,7 @@ import {
   TIMEOUT_ERROR_BRAND,
   TimeoutError,
 } from '../../_util';
+import { CancelError } from './cancel-error';
 import { createIsError } from './error-matchers';
 
 const platformDomException = (globalThis as unknown as { DOMException?: new (...args: any[]) => object }).DOMException;
@@ -83,8 +84,17 @@ describe('shared error classes', () => {
       expect(branded).toBe(true);
     });
 
-    it('reports a useful string tag', () => {
-      expect(Object.prototype.toString.call(new AbortError())).toBe('[object AbortError]');
+    it('tags as a plain Error so structured clone keeps the kind across a worker thread', () => {
+      expect(Object.prototype.toString.call(new AbortError())).toBe('[object Error]');
+    });
+
+    it('keeps the brand marker as an own, non-enumerable property on each instance', () => {
+      const error = new AbortError();
+      const descriptor = Object.getOwnPropertyDescriptor(error, '_cancErrorBrand');
+
+      expect(descriptor?.value).toBe('@cancjs/promise:AbortError');
+      expect(descriptor?.enumerable).toBe(false);
+      expect(Object.keys(error)).not.toContain('_cancErrorBrand');
     });
   });
 
@@ -260,6 +270,18 @@ const _checkWidenedConstructor: ICancErrorConstructor = AbortError;
 // allowing arbitrary properties
 // eslint-disable-next-line @typescript-eslint/no-unused-expressions
 new (AbortError as ICancErrorConstructor)().anythingAtAll;
+
+describe('CancelError string marker', () => {
+  it('carries the brand key on the prototype and on each instance, non-enumerable', () => {
+    const error = new CancelError('stopped');
+    const onInstance = Object.getOwnPropertyDescriptor(error, '_cancErrorBrand');
+
+    expect((CancelError.prototype as { _cancErrorBrand?: string })._cancErrorBrand).toBe('@cancjs/promise:CancelError');
+    expect(onInstance?.value).toBe('@cancjs/promise:CancelError');
+    expect(onInstance?.enumerable).toBe(false);
+    expect(Object.keys(error)).not.toContain('_cancErrorBrand');
+  });
+});
 
 describe('superseded error identity', () => {
   const matchesSuperseded = createIsError(SupersededError);

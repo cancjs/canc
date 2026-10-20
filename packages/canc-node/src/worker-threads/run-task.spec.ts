@@ -1,3 +1,5 @@
+import { spawnSync } from 'node:child_process';
+import { resolve } from 'node:path';
 import { Worker as NodeWorker } from 'node:worker_threads';
 
 import { CancelError } from '@cancjs/promise';
@@ -6,6 +8,10 @@ import { isProcessExitError } from '../errors/classes';
 import { runTask, STOP_MESSAGE } from './run-task';
 
 const STOP = JSON.stringify(STOP_MESSAGE);
+
+const runTaskSrc = resolve(__dirname, 'run-task.ts');
+const promiseSrc = resolve(__dirname, '../../../canc-promise/src/index.ts');
+const errorClassesSrc = resolve(__dirname, '../errors/classes.ts');
 
 const echoTask = `
   const { parentPort, workerData } = require('node:worker_threads');
@@ -23,6 +29,45 @@ const cooperatingTask = `
     }
   });
   setInterval(() => {}, 1000);
+`;
+
+const resultThenIdleTask = `
+  const { parentPort } = require('node:worker_threads');
+  parentPort.postMessage(42);
+  setInterval(() => {}, 1000);
+`;
+
+// a child process loads run-task from source and must exit on its own once the loop is empty.
+// The spawn timeout bounds it, so a leak fails the assert instead of hanging the suite.
+const exitingChildScript = `
+  const ts = require(${JSON.stringify(require.resolve('typescript'))});
+  const Module = require('module');
+  const fs = require('fs');
+  const aliases = {
+    '@cancjs/promise': ${JSON.stringify(promiseSrc)},
+    '@cancjs/node': ${JSON.stringify(errorClassesSrc)},
+  };
+  const resolveFilename = Module._resolveFilename;
+  Module._resolveFilename = function (request, ...rest) {
+    return Object.prototype.hasOwnProperty.call(aliases, request)
+      ? aliases[request]
+      : resolveFilename.call(this, request, ...rest);
+  };
+  Module._extensions['.ts'] = function (mod, filename) {
+    const out = ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
+      compilerOptions: {
+        module: ts.ModuleKind.CommonJS,
+        target: ts.ScriptTarget.ES2019,
+        esModuleInterop: true,
+        downlevelIteration: true,
+        useDefineForClassFields: false,
+      },
+    });
+    mod._compile(out.outputText, filename);
+  };
+  const { runTask } = require(${JSON.stringify(runTaskSrc)});
+  const idle = ${JSON.stringify(resultThenIdleTask)};
+  runTask(idle, undefined, { eval: true }).then((value) => console.log('result:' + value));
 `;
 
 const deafTask = `
@@ -76,6 +121,14 @@ describe('runTask', () => {
     await expect(runTask(throwingTask, undefined, { eval: true })).rejects.toThrow('task blew up');
   });
 
+  it('terminates the worker once the result is in, even when it keeps running', async () => {
+    // posts its answer and then keeps the thread busy, so only runTask can let the process go
+    const promise = runTask<number>(resultThenIdleTask, undefined, { eval: true });
+
+    await expect(promise).resolves.toBe(42);
+    expect(terminateSpy).toHaveBeenCalledTimes(1);
+  }, 15000);
+
   it('cancels gracefully: the worker reads the stop message and exits without being terminated', async () => {
     const flag = sharedFlag();
     const promise = runTask(cooperatingTask, flag, { eval: true, gracePeriod: 3000 });
@@ -121,5 +174,15 @@ describe('runTask', () => {
     expect(elapsed).toBeLessThan(1000);
     expect(terminateSpy).toHaveBeenCalledTimes(1);
     await expect(promise).rejects.toThrow(CancelError);
+  }, 15000);
+
+  it('lets the process exit once the result is in, even while the worker keeps running', () => {
+    // the spawn timeout bounds the run: a process still alive after 5 s has timed out, so the
+    // assert fails here instead of the jest run hanging on the leaked worker
+    const child = spawnSync(process.execPath, ['-e', exitingChildScript], { timeout: 5000, encoding: 'utf8' });
+
+    expect(child.error).toBeUndefined();
+    expect(child.status).toBe(0);
+    expect(child.stdout).toContain('result:42');
   }, 15000);
 });
