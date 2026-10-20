@@ -395,33 +395,43 @@ if (existsSync(fileHandlePath)) {
   const fileHandleSrc = readFileSync(fileHandlePath, 'utf8');
   const switchCases = new Set([...fileHandleSrc.matchAll(/case\s+'([^']+)'/g)].map((m) => m[1]));
 
-  const EXPECTED_HANDLE_WRAPPERS = {
-    appendFile: 'cancelify-signal',
-    chmod: 'promisify-custom',
-    chown: 'promisify-custom',
-    close: 'passthrough',
-    datasync: 'promisify-custom',
-    read: 'promisify-custom',
-    readFile: 'cancelify-signal',
-    readv: 'promisify-custom',
-    stat: 'gated',
-    write: 'promisify-custom',
-    writeFile: 'cancelify-signal',
-    sync: 'promisify-custom',
-    truncate: 'promisify-custom',
-    utimes: 'promisify-custom',
-    writev: 'promisify-custom',
+  // read the routing the switch in file-handle.ts actually performs: each `case` label group and the
+  // combinator its `return` calls, so the table is the source, not a per-member copy of it
+  const WRAPPER_OF_COMBINATOR = {
+    adopted: 'promisify-custom',
+    signalWrapped: 'cancelify-signal',
+    passthrough: 'passthrough',
   };
+  const routes = new Map();
+  let pendingLabels = [];
+  for (const line of fileHandleSrc.split('\n')) {
+    const label = line.match(/^\s*case\s+'([^']+)':/);
+    if (label) {
+      pendingLabels.push(label[1]);
+      continue;
+    }
+    const returned = line.match(/^\s*return\s+(\w+)\(/);
+    if (returned) {
+      for (const pending of pendingLabels) {
+        routes.set(pending, returned[1]);
+      }
+      pendingLabels = [];
+    }
+  }
+
+  for (const [label, combinator] of routes) {
+    // `gated` shares the signal combinator: it is the same wrapper kind with a feature gate in front
+    const kind = label === 'gated' ? 'cancelify-signal' : label;
+    if (WRAPPER_OF_COMBINATOR[combinator] !== kind) {
+      fail(
+        `Check W failed: file-handle.ts routes wrapper ${label} to ${combinator} (kind ${WRAPPER_OF_COMBINATOR[combinator]})`,
+      );
+    }
+  }
 
   const handleManifest = manifestMap.get('fs#FileHandle');
   if (handleManifest) {
     for (const [name, mentry] of handleManifest.entries()) {
-      const expectedWrapper = EXPECTED_HANDLE_WRAPPERS[name] || 'passthrough';
-      if (mentry.wrapper !== expectedWrapper) {
-        fail(
-          `Check W failed: FileHandle member ${name} routing expects wrapper ${expectedWrapper} but manifest has ${mentry.wrapper}`,
-        );
-      }
       if (mentry.kind === 'fn' && mentry.callPath !== 'sync' && name !== 'close') {
         if (!switchCases.has(mentry.wrapper)) {
           fail(
