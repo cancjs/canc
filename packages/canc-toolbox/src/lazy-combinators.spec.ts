@@ -153,6 +153,21 @@ describe('toAbortSignal with a lazy promise', () => {
     expect(signal.aborted).toBe(false);
   });
 
+  it('starts the executor once the lazy is awaited', async () => {
+    const work = probe<string>();
+    const signal = toAbortSignal(work.promise);
+    await flush();
+    expect(work.runs()).toBe(0);
+
+    const result = work.promise.then((value) => value);
+    await flush();
+    expect(work.runs()).toBe(1);
+
+    work.settle('done');
+    await expect(result).resolves.toBe('done');
+    expect(signal.aborted).toBe(false);
+  });
+
   it('aborts on a cancel before the lazy starts', () => {
     const work = probe<string>();
     const signal = toAbortSignal(work.promise);
