@@ -390,9 +390,13 @@ describe('replaceFile', () => {
     const writeLanded = new Promise<void>((resolve) => {
       writeLandedResolve = resolve;
     });
+    // until the write lands there is no temp file: unlink reports ENOENT without touching disk,
+    // so the retry budget runs on the fake clock and is spent while the write is still held
+    let landed = false;
 
     const originalFs = getFs();
     const realWriteFile = fsCall((originalFs as unknown as Record<string, unknown>).writeFile, 'writeFile');
+    const realUnlink = fsCall(originalFs.promises?.unlink, 'promises.unlink');
     setFs({
       ...originalFs,
       writeFile: (...args: unknown[]) => {
@@ -403,17 +407,27 @@ describe('replaceFile', () => {
           typeof options === 'object' && options !== null ? { ...options, signal: undefined } : options;
         void writeReleased.then(() => {
           realWriteFile(target, data, lateOptions, (err: unknown) => {
+            landed = true;
             writeLandedResolve();
             callback(err);
           });
         });
       },
+      promises: {
+        ...originalFs.promises,
+        unlink: (path: string) =>
+          landed ?
+            (realUnlink(path) as Promise<void>)
+          : Promise.reject(Object.assign(new Error(`ENOENT: ${path}`), { code: 'ENOENT' })),
+      },
     } as never);
 
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] });
     try {
       const p = replaceFile(file, 'x'.repeat(10000));
-      // cancel() covers the cleanup, which waits for the held write; release it before awaiting
       const cancelled = p.cancel();
+      // the cleanup's retries (12 x 40ms) run out here under a cleanup that does not wait for the write
+      await jest.advanceTimersByTimeAsync(2000);
       releaseWrite();
       await cancelled;
 
@@ -423,6 +437,7 @@ describe('replaceFile', () => {
       expect(leftovers).toEqual([]);
       expect(await fs.readFile(file, 'utf8')).toBe('initial content');
     } finally {
+      jest.useRealTimers();
       resetFs();
     }
   });
