@@ -26,6 +26,19 @@ function pendingInput(): IInput {
   return { promise, resolve };
 }
 
+interface IDuckInput {
+  promise: PromiseLike<string> & { cancel(reason?: unknown): void };
+  cancel: jest.Mock;
+}
+
+// a third-party cancelable: it has `cancel` but no consumer count a helper could release
+function duckInput(): IDuckInput {
+  const cancel = jest.fn();
+  const pending = new Promise<string>(() => undefined);
+
+  return { promise: { then: pending.then.bind(pending), cancel }, cancel };
+}
+
 // an endless source, so the only way the callback stops is through the helper giving it up
 function endless(): AsyncIterable<number> {
   return {
@@ -44,7 +57,7 @@ const suppressError = createSuppressErrorFactory(deps)(() => false);
  * Each case hands the input to the helper and returns a function that makes the helper stop: a
  * cancel of its result, or the deadline it enforces.
  */
-const helpers: [string, (input: CancelablePromise<string>) => () => unknown][] = [
+const helpers: [string, (input: PromiseLike<string>) => () => unknown][] = [
   [
     'timeout canceled',
     (input) => {
@@ -188,6 +201,31 @@ describe('helpers give up an input they did not create', () => {
       await flushMicrotasks();
 
       expect(input.promise.canceled).toBe(true);
+    });
+  });
+});
+
+const duckNames = ['delay', 'minDelay', 'retry', 'debounce', 'catchError', 'suppressError'];
+
+describe('helpers cancel a duck cancelable they are the sole holder of', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  describe.each(helpers.filter(([name]) => duckNames.includes(name)))('%s', (_name, start) => {
+    it('cancels the duck input directly when the helper stops', async () => {
+      const input = duckInput();
+
+      const stop = start(input.promise);
+      await flushMicrotasks();
+      stop();
+      await flushMicrotasks();
+
+      expect(input.cancel).toHaveBeenCalledTimes(1);
     });
   });
 });
