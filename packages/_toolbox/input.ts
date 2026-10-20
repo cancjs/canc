@@ -1,3 +1,4 @@
+import { readProp } from '../_util';
 import { TPromiseCtor } from './construct';
 import { ICancelableLike, isCancelableLike, isFunction, isObjectLike, isThunk } from './guards';
 import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
@@ -47,9 +48,9 @@ interface ICountedInput {
 
 const ignore = (): void => undefined;
 
-/** Whether `value` is a canc promise that counts its consumers. */
+/** Whether `value` is a canc promise that counts its consumers. A throwing getter means it is not. */
 export function isCountedInput(value: unknown): value is ICountedInput {
-  return isObjectLike(value) && isFunction(value._subscribe) && isFunction(value._retainRef);
+  return isObjectLike(value) && isFunction(readProp(value, '_subscribe')) && isFunction(readProp(value, '_retainRef'));
 }
 
 /**
