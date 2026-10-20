@@ -218,7 +218,7 @@ export function retryFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
               // A flavor's promise type is opaque here, and a thenable by construction
               raw = input(n) as T | PromiseLike<T>;
             } catch (reason) {
-              handleFailure(n, reason);
+              if (!canceled) handleFailure(n, reason);
               return;
             }
 

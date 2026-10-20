@@ -208,6 +208,23 @@ describe('retry (cancelable)', () => {
     expect(isCancelError(reason)).toBe(true);
   });
 
+  it('an input that cancels the retry and then throws never reaches shouldRetry', async () => {
+    const shouldRetry = jest.fn(() => true);
+    // the first attempt runs a microtask later, after `promise` is assigned
+    const fn = jest.fn((): never => {
+      promise.cancel();
+      throw new Error('fail');
+    });
+    const promise = retry(fn, { retries: 3, shouldRetry });
+
+    const reason = await promise.catch((error: unknown) => error);
+    await flushMicrotasks();
+
+    expect(isCancelError(reason)).toBe(true);
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(shouldRetry).not.toHaveBeenCalled();
+  });
+
   // Must FAIL on pre-alias code: minTimeout was an unknown key, wait was 300.
   it('minTimeout is honored as a fallback for initialDelay', async () => {
     const pair = createFakeTimers();
