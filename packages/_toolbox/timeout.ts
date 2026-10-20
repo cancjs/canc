@@ -5,7 +5,7 @@ import { constructTimed } from './construct-timed';
 import { IToolboxDeps, TCallDeps } from './deps';
 import { parseTimedArgs, resolveDuration, TDuration } from './duration';
 import { IEagerSource, startInput, TTimedInput } from './input';
-import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
+import { IPromiseKind, IPromiseLikeKind, TFailureOf, TPromiseOf, TValueOf } from './kind';
 import { resolveTimers, startTimer, stopTimer } from './timers';
 
 export { isTimeoutError, TimeoutError };
@@ -28,6 +28,11 @@ export function timeoutFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: 
    * detached. The timer is always cleared once the race settles.
    */
   function timeout(ms: TDuration, options?: K['options'] & TCallDeps): TPromiseOf<K, never, TimeoutError | Unlisted>;
+  function timeout<P extends PromiseLike<unknown>>(
+    input: P | (() => P),
+    ms?: TDuration,
+    options?: K['options'] & TCallDeps,
+  ): TPromiseOf<K, TValueOf<P>, TFailureOf<K, P> | TimeoutError | Unlisted>;
   function timeout<T, F = never>(
     input: TTimedInput<T>,
     ms?: TDuration,

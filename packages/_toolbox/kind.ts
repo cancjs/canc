@@ -1,3 +1,5 @@
+import type { Unlisted } from '../_util';
+
 /**
  * A promise flavor, described at the type level. `value` is the slot a helper fills with the type
  * it resolves to and `promise` reads that slot to build the promise type; `options` is the options
@@ -23,3 +25,14 @@ export interface IPromiseLikeKind extends IPromiseKind {
 
 /** Apply a flavor to a value type and a failure set. */
 export type TPromiseOf<K extends IPromiseKind, T, F = never> = (K & { value: T; failure: F })['promise'];
+
+/**
+ * The failure set a flavor reads off one of its promises. A flavor opts in with an `input` slot
+ * and a `failureOf` slot computed from it; the shared code cannot name the promise type itself.
+ * A flavor without the slots reads every input as open.
+ */
+export type TFailureOf<K extends IPromiseKind, P> =
+  K extends { failureOf: unknown } ? (K & { input: P })['failureOf'] : Unlisted;
+
+/** The value a promise-like input settles with. */
+export type TValueOf<P> = P extends PromiseLike<infer T> ? T : never;

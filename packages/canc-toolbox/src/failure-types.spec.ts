@@ -24,6 +24,8 @@ class HttpError extends Error {
 declare const work: CancelablePromise<number, HttpError>;
 declare const attemptWork: (attempt: number) => CancelablePromise<number, HttpError>;
 declare const callWork: (id: string) => CancelablePromise<number, HttpError>;
+declare const undeclaredWork: CancelablePromise<number>;
+declare const nativeWork: Promise<number>;
 
 // Identity assertions, never annotated assignments: the failure channel is covariant, so
 // `CancelablePromise<number, never>` is assignable to `CancelablePromise<number, HttpError>` and an
@@ -72,9 +74,21 @@ function _declaredFailures(): void {
   const _waited = waitFor(() => true);
   const _waitForDeclaresTimeout: Eq<typeof _waited, CancelablePromise<void, TimeoutError | Unlisted>> = true;
 
-  // `timeout` adds its own failure and does not carry the input's, which is what the docs say.
+  // `timeout` keeps the input's failures next to its own; the set stays open.
   const _bounded = timeout(work, 100);
-  const _timeoutDropsInputFailure: Eq<typeof _bounded, CancelablePromise<number, TimeoutError | Unlisted>> = true;
+  const _timeoutKeepsInputFailure: Eq<
+    typeof _bounded,
+    CancelablePromise<number, HttpError | TimeoutError | Unlisted>
+  > = true;
+
+  const _boundedThunk = timeout(() => work, 100);
+  const _timeoutKeepsThunkFailure: Eq<FailureOf<typeof _boundedThunk>, HttpError | TimeoutError | Unlisted> = true;
+
+  const _boundedUndeclared = timeout(undeclaredWork, 100);
+  const _timeoutOfUndeclaredIsUndeclared: Eq<FailureOf<typeof _boundedUndeclared>, unknown> = true;
+
+  const _boundedNative = timeout(nativeWork, 100);
+  const _timeoutOfNativeIsOpen: Eq<typeof _boundedNative, CancelablePromise<number, TimeoutError | Unlisted>> = true;
 
   void [
     _retryTakesFailureFromWork,
@@ -89,7 +103,10 @@ function _declaredFailures(): void {
     _lazyIsOpen,
     _timeoutDeclaresTimeout,
     _waitForDeclaresTimeout,
-    _timeoutDropsInputFailure,
+    _timeoutKeepsInputFailure,
+    _timeoutKeepsThunkFailure,
+    _timeoutOfUndeclaredIsUndeclared,
+    _timeoutOfNativeIsOpen,
   ];
 }
 
