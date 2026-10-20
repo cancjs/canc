@@ -3,7 +3,6 @@ import { resolve } from 'node:path';
 import { Worker as NodeWorker } from 'node:worker_threads';
 
 import { CancelError } from '@cancjs/promise';
-import ts from 'typescript';
 
 import { isProcessExitError } from '../errors/classes';
 import { runTask, STOP_MESSAGE } from './run-task';
