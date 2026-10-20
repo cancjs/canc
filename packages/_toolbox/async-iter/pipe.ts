@@ -50,6 +50,12 @@ export function applyPipe(source: TPipeSource<unknown>, parts: unknown[]): unkno
 
   const flatOps = flattenOps(allParts);
 
+  for (const part of flatOps) {
+    if (!isPipeOp(part) && !isTermOp(part)) {
+      throw new TypeError('pipe accepts only operators and a terminal, with an optional config object last');
+    }
+  }
+
   // First terminal wins; non-terminal after it is an error
   let terminalIndex = -1;
 
@@ -108,7 +114,8 @@ export function makePipeable<T>(asyncIterable: AsyncIterable<T>): IPipeableAsync
  * `pipe(source, [op1, op2], terminal)` is threaded by a recursive type instead, and keeps the
  * runtime check as its backstop.
  *
- * An optional trailing config object is accepted in any position; the first plain object wins.
+ * An optional config object is accepted as the last argument only. Any other argument that is not
+ * an operator or a terminal is a `TypeError`.
  */
 export function pipe<A>(source: TPipeSource<A>): IPipeableAsyncIterable<A>;
 export function pipe<A, R>(source: TPipeSource<A>, term: ITermOp<A, R>): PromiseLike<R>;

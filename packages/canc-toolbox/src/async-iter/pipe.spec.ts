@@ -143,8 +143,8 @@ describe('pipe', () => {
     const result = anyPipe(
       source,
       anyMap((x: number) => x * 2),
-      {/* config */},
       toArray(),
+      {/* config */},
     );
 
     const value = await result;
