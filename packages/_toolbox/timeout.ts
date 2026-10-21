@@ -37,14 +37,14 @@ export function timeoutFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: 
   function timeout(ms: TDuration, options?: K['options'] & TCallDeps): TPromiseOf<K, never, TimeoutError | Unlisted>;
   function timeout<P extends PromiseLike<unknown>>(
     input: P | (() => P),
-    ms?: TDuration,
-    options?: K['options'] & TCallDeps,
-  ): TPromiseOf<K, TValueOf<P>, TFailureOf<K, P> | TimeoutError | Unlisted>;
-  function timeout<P extends PromiseLike<unknown>>(
-    input: P | (() => P),
     ms: TDuration | undefined,
     options: K['options'] & TCallDeps & ILazyOn,
   ): TLazyOf<K, TValueOf<P>, TFailureOf<K, P> | TimeoutError | Unlisted>;
+  function timeout<P extends PromiseLike<unknown>>(
+    input: P | (() => P),
+    ms?: TDuration,
+    options?: K['options'] & TCallDeps,
+  ): TPromiseOf<K, TValueOf<P>, TFailureOf<K, P> | TimeoutError | Unlisted>;
   function timeout<T, F = never>(
     input: TTimedInput<T>,
     ms?: TDuration,
