@@ -155,8 +155,9 @@ request's lifecycle, so work started outside the return path is still canceled w
 
 ### Combinators
 
-`all` differs from `axios.all` on purpose: it builds a `CancelablePromise`, so canceling one
-request rejects the aggregate and cancels the rest. `spread` is unchanged.
+`all` differs from `axios.all` on purpose: it builds a `CancelablePromise`. Canceling the aggregate
+releases its requests. A request the aggregate holds alone is canceled, and a request that other
+code also consumes keeps running for that code. `spread` is unchanged.
 
 ### Accessing the underlying instance
 
@@ -165,7 +166,7 @@ when handing a request to code that does not understand cancellation.
 
 ### Declared failures
 
-Request methods on wrapped axios instances declare `AxiosError` in their return type's failure set (`CancelablePromise<AxiosResponse<T>, AxiosError<T>>`).
+Request methods on wrapped axios instances declare `AxiosError` in an open failure set (`CancelablePromise<AxiosResponse<T>, AxiosError<T> | Unlisted>`). A `catch` reason stays `any`, the same as on a plain axios promise, and `isAxiosError` narrows it.
 
 When a request is canceled by the caller, the returned promise rejects with a `CancelError`. Cancellation is handled separately from the application failure set. See [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) for declared failure matching and filtering.
 
@@ -178,7 +179,9 @@ interface: `request`, `get`, `delete`, `head`, `options`, `post`, `put`, `patch`
 `cancelableAxios.create(config?)` returns a new wrapped instance.
 
 `cancelableAxios.wrap(axiosInstance)` and `wrapAxios(axiosInstance)` wrap an existing axios instance. The argument is
-structurally typed, so it accepts instances from any axios version without type conflicts.
+structurally typed, so it accepts instances from any axios version without type conflicts. The
+options accept `AbortController` only. A `lazy` option is no longer accepted by the type, and it
+never had an effect: requests always started at once.
 
 `CancelScope` is the per-request cancellation scope class managing request lifecycle and interceptor promises.
 
