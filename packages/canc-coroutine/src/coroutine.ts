@@ -126,7 +126,7 @@ interface IForwardedCancel {
   stopped: boolean;
 }
 
-// shared by both dialects, so a cancel crossing between them stays flat too
+// one stack per bundle entry, so a dialect switch in a nest recurses once
 const forwardedCancels: IForwardedCancel[] = [];
 let forwarding = false;
 

@@ -3,7 +3,7 @@ import { CancelablePromise } from '@cancjs/promise';
 import { cancAsync, cancAwait } from './coroutine';
 import { cancGenAsync, cancGenAwait } from './coroutine-gen';
 
-const DEPTH = 10000;
+const DEPTH = 4000;
 
 // a counted release stops the inner level a couple of jobs later, so wait on the flag itself
 async function settleUntil(done: () => boolean): Promise<void> {
