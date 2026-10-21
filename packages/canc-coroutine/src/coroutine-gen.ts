@@ -30,6 +30,22 @@ export type TCancelableCoroutineGenOptions = ICancelablePromiseOptions & {
 
 const genMethods = ['next', 'throw', 'return'] as const;
 
+function isSignalAborted(signal: ICancelablePromiseOptions['signal']): boolean {
+  if (!signal) {
+    return false;
+  }
+
+  const signals = Array.isArray(signal) ? signal : [signal];
+
+  for (const sig of signals) {
+    if (sig.aborted) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 type TGeneratorMethod = (typeof genMethods)[number];
 
 type TResolveFn = (value: IteratorResult<any, any>) => void;
@@ -195,11 +211,13 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
   const { transformYield, displayName: _displayName, ...promiseOptions } = options;
 
   function coroutineGenWrapper(this: any, ...args: any[]) {
-    const gen: TGeneratorLike = genFn.apply(this, args);
+    // an already aborted signal cancels every step at birth, so the body is never created
+    const bornCanceled = isSignalAborted(promiseOptions.signal);
+    const gen: TGeneratorLike | undefined = bornCanceled ? undefined : genFn.apply(this, args);
 
     let currentStep: TAsyncGeneratorStep | null = null;
     let queuedStep: TAsyncGeneratorStep | null = null;
-    let done = false;
+    let done = bornCanceled;
     // Distinct from `done` (which is also true on normal completion): set only by a cancel, so a
     // source that settles AFTER cancel can be dropped instead of driving the (torn-down) generator.
     let canceled = false;
@@ -213,33 +231,42 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
 
     for (const method of genMethods) {
       asyncGen[method] = (value?: any): CancelablePromise<any, any> => {
-        return new CancelablePromise((resolve, reject, { handleCancel }) => {
-          const step: TAsyncGeneratorStep = {
-            method,
-            value,
-            resolve: resolve as TResolveFn,
-            reject,
-            next: null,
-          };
-
-          // If this exact step's returned promise is canceled, cancel the whole iterator:
-          // return the generator (runs its `finally` blocks) and drain every queued request
-          // with a CancelError, matching the two-way propagation contract.
-          handleCancel((reason?: any) => {
-            cancelIterator(step, reason);
-          });
-
-          if (queuedStep) {
-            queuedStep.next = step;
-            queuedStep = step;
-          } else {
-            queuedStep = step;
-            currentStep = step;
-
-            resume(method, value);
-          }
-        }, promiseOptions);
+        try {
+          return createStep(method, value);
+        } catch (err) {
+          // a strict pre-aborted signal throws at construction, the caller still gets a promise
+          return CancelablePromise.reject(err);
+        }
       };
+    }
+
+    function createStep(method: TGeneratorMethod, value: any): CancelablePromise<any, any> {
+      return new CancelablePromise((resolve, reject, { handleCancel }) => {
+        const step: TAsyncGeneratorStep = {
+          method,
+          value,
+          resolve: resolve as TResolveFn,
+          reject,
+          next: null,
+        };
+
+        // If this exact step's returned promise is canceled, cancel the whole iterator:
+        // return the generator (runs its `finally` blocks) and drain every queued request
+        // with a CancelError, matching the two-way propagation contract.
+        handleCancel((reason?: any) => {
+          cancelIterator(step, reason);
+        });
+
+        if (queuedStep) {
+          queuedStep.next = step;
+          queuedStep = step;
+        } else {
+          queuedStep = step;
+          currentStep = step;
+
+          resume(method, value);
+        }
+      }, promiseOptions);
     }
 
     function resume(method: TGeneratorMethod, sentValue: any) {
@@ -252,7 +279,7 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
       let result: IteratorResult<any, any>;
 
       try {
-        result = gen[method](sentValue);
+        result = gen![method](sentValue);
       } catch (error) {
         done = true;
         settle('throw', error);
@@ -340,7 +367,7 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
 
       // Run the generator's cleanup (`finally` blocks) synchronously.
       try {
-        gen.return(undefined);
+        gen!.return(undefined);
       } catch {
         // swallow cleanup errors so cancellation still proceeds
       }

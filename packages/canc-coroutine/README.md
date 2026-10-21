@@ -135,6 +135,14 @@ const checkout = canc.async(function* (orderId: string) {
 });
 ```
 
+A coroutine stays pending while those `finally` steps run. Right after `cancel()` its `canceled`
+flag is still `false`; it turns `true` when the cleanup is done and the promise rejects. Cancel
+handlers run at that point too, and they receive the reason passed to `cancel()`, not the
+`CancelError`.
+
+If the signal passed in the options is already aborted, the coroutine is canceled from the start
+and its body never runs. With `strict`, calling it returns a rejected promise instead of throwing.
+
 ### Why `yield*` and not `yield`
 
 At runtime `yield promise` and `yield* canc.await(promise)` do the same thing. The difference is

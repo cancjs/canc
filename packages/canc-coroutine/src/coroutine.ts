@@ -1,12 +1,4 @@
-import {
-  AggregateError,
-  CancelablePromise,
-  CancelError,
-  Failing,
-  ICancelablePromiseOptions,
-  isCancelError,
-  ISettledResult,
-} from '@cancjs/promise';
+import { AggregateError, CancelablePromise, Failing, ICancelablePromiseOptions, ISettledResult } from '@cancjs/promise';
 
 import {
   copyFunctionMetadata,
@@ -153,7 +145,8 @@ type TCoroutineYield<TFn extends IGeneratorLikeFn, TReturn = ReturnType<TFn>> =
  *
  * Each `yield` or `yield*` inside the generator represents a cancellation point. Canceling the
  * returned promise triggers generator cleanup by running enclosing `finally` blocks before
- * settling.
+ * settling. The promise stays pending, with `canceled` still `false`, until that cleanup ends; cancel
+ * handlers then run with the original reason. An already aborted `signal` skips the body entirely.
  *
  * @param genFn Generator function defining the coroutine body.
  * @param ctx Optional `this` context bound to the generator function.
@@ -188,11 +181,28 @@ export function cancAsync<
   setFnName(coroutine, 'coroutine', genFn, options?.displayName);
 
   function coroutine(this: any, ...args: TArgs): CancelablePromise<TReturn, TFailure> {
-    const {
-      promise: coroutinePromise,
-      resolve,
-      reject,
-    } = CancelablePromise.withResolvers<TReturn, TFailure>(promiseOptions);
+    let coroutinePromise: CancelablePromise<TReturn, TFailure>;
+    let resolve: (value: TReturn) => void;
+    let reject: (reason?: any) => void;
+
+    try {
+      ({
+        promise: coroutinePromise,
+        resolve,
+        reject,
+      } = CancelablePromise.withResolvers<TReturn, TFailure>(promiseOptions));
+    } catch (err) {
+      // a strict pre-aborted signal throws here, the caller still gets a promise
+      return CancelablePromise.reject<TReturn, any>(err) as CancelablePromise<TReturn, TFailure>;
+    }
+
+    // born canceled by a pre-aborted signal: the body must not run at all
+    if (coroutinePromise.canceled) {
+      return coroutinePromise;
+    }
+
+    // set once a cancel is accepted, so a body error after it still settles the drain awaitable
+    let rejectAfterCancel: ((error: any) => void) | undefined;
 
     try {
       // `this` threading: an explicitly supplied `ctx` wins; otherwise the call-site `this` of the
@@ -243,6 +253,20 @@ export function cancAsync<
         });
       };
 
+      // Core cancel settles the drained coroutine, so handlers get the raw reason and the
+      // rejection follows the core reason rule
+      const settleCanceled = () => {
+        if (!coroutinePromise.cancelable) {
+          return;
+        }
+
+        try {
+          (coroutinePromise as any)._cancel(canceledReason, disposing);
+        } catch (_e) {
+          // the drain has no caller to receive a handler error
+        }
+      };
+
       // Delegates guards to prototype semantics before draining.
       // Defers settlement to the finally drain.
       coroutinePromise.cancel = function (reason?: any, _disposing?: boolean): any {
@@ -272,6 +296,7 @@ export function cancAsync<
         canceled = true;
         canceledReason = reason;
         disposing = _disposing === true;
+        rejectAfterCancel = rejectDrained;
 
         if (self.asyncCancel) {
           const d = CancelablePromise.withResolvers<any>({ shield: true });
@@ -373,7 +398,11 @@ export function cancAsync<
           result = gen.next(value);
         } catch (err) {
           genDone = true;
-          finishCleanups(pendingCleanups, shieldOptions, reject, err);
+          if (canceled) {
+            rejectDrained(err);
+          } else {
+            finishCleanups(pendingCleanups, shieldOptions, reject, err);
+          }
           return;
         } finally {
           executing = false;
@@ -397,7 +426,11 @@ export function cancAsync<
           result = gen.throw(value);
         } catch (err) {
           genDone = true;
-          finishCleanups(pendingCleanups, shieldOptions, reject, err);
+          if (canceled) {
+            rejectDrained(err);
+          } else {
+            finishCleanups(pendingCleanups, shieldOptions, reject, err);
+          }
           return;
         } finally {
           executing = false;
@@ -452,18 +485,11 @@ export function cancAsync<
       // When the generator reports done, settles the coroutine promise as canceled.
       const pumpFinally = (result: IteratorResult<any>) => {
         if (result.done) {
-          // Finally drain complete: settle the coroutine as canceled, preserving the original
-          // cancel reason normalized like core cancel() (CancelError passthrough,
-          // object as cause, string or undefined as message).
           genDone = true;
-          const error =
-            isCancelError(canceledReason) ? canceledReason
-            : isObject(canceledReason) ? new CancelError(undefined, { cause: canceledReason })
-            : new CancelError(canceledReason);
-          if (disposing) {
-            error.disposed = true;
-          }
-          rejectDrained(error);
+          finishCleanups(pendingCleanups, shieldOptions, () => {
+            settleCanceled();
+            settleDrain();
+          });
           return;
         }
 
@@ -559,7 +585,11 @@ export function cancAsync<
     } catch (err) {
       // Sync-throw generators: genFn.apply(...) or the first gen.next() throwing synchronously
       // rejects the coroutine.
-      reject(err);
+      if (rejectAfterCancel) {
+        rejectAfterCancel(err);
+      } else {
+        reject(err);
+      }
     }
 
     return coroutinePromise;
