@@ -27,8 +27,12 @@ export interface IPromisifyOptions {
    * signal-aware callback APIs. `getSignal()` materializes the signal on first call (undefined
    * when `Impl` is not cancelable-shaped); a hook that never calls it allocates no controller.
    * `getSignal.signal` reads the same signal, so `(args, { signal }) => ...` works too. The
-   * property is only installed when the hook declares a second parameter (or rest/no parameters),
-   * so do not give that parameter a default value.
+   * property is installed when the hook declares a second parameter (or rest/no parameters), or
+   * when its source text mentions `signal`, `arguments` or a rest `...`. That check is best-effort
+   * and runs once per `promisify()` call. It misses a hook that reads the property under a computed
+   * or aliased name, and a bound or native function (its source is `[native code]`), which fall back
+   * to the parameter count. A minifier keeps destructured keys but may rename the property read
+   * behind an alias. When in doubt, call `getSignal()` instead.
    */
   transformArgs?: (args: any[], getSignal: TGetSignal) => any[];
   /**
@@ -55,6 +59,25 @@ export interface IPromisifyOptions {
 /** Whether a hook can see its `position`-th (1-based) argument: declared, or reachable via rest/`arguments`. */
 function declaresParam(hook: (...args: any[]) => unknown, position: number): boolean {
   return hook.length === 0 || hook.length >= position;
+}
+
+const SIGNAL_SOURCE = /\bsignal\b|\barguments\b|\.\.\./;
+const NATIVE_SOURCE = /\{\s*\[native code\]\s*\}\s*$/;
+
+/** Best-effort read of a hook's source; unknown (throwing or native) source counts as no mention. */
+function mentionsSignal(hook: (...args: any[]) => unknown): boolean {
+  let source: string;
+  try {
+    source = Function.prototype.toString.call(hook);
+  } catch (_error) {
+    return false;
+  }
+  return !NATIVE_SOURCE.test(source) && SIGNAL_SOURCE.test(source);
+}
+
+/** Whether a hook may read `getSignal.signal`, decided once per promisify() call. */
+function mayReadSignal(hook: ((...args: any[]) => unknown) | undefined, position: number): boolean {
+  return !!hook && (declaresParam(hook, position) || mentionsSignal(hook));
 }
 
 /** Resolve the callback result into the resolved value per errorFirst / multiArgs. */
@@ -115,9 +138,8 @@ export function promisifyFactory<K extends IPromiseKind = IPromiseLikeKind>(deps
     const transformArgs = options?.transformArgs;
     const onCancelHook = options?.handleCancel;
     const AbortControllerCtor = options?.AbortController ?? deps.AbortController;
-    // length stops at a default/rest param; 0 may still reach it via rest or arguments
-    const readsSignal =
-      (!!transformArgs && declaresParam(transformArgs, 2)) || (!!onCancelHook && declaresParam(onCancelHook, 3));
+    // length stops at a default/rest param, so the source sniff covers `{ signal } = {}`
+    const readsSignal = mayReadSignal(transformArgs, 2) || mayReadSignal(onCancelHook, 3);
 
     const customImpl = useCustom ? (fn as unknown as Record<PropertyKey, unknown>)[kCustom] : undefined;
     const custom: TCallbackFn | undefined = typeof customImpl === 'function' ? (customImpl as TCallbackFn) : undefined;

@@ -122,7 +122,11 @@ object.
 
 `promisify` keeps passing `getSignal` positionally to its `transformArgs` and `handleCancel`
 hooks, and that form is not deprecated. The function carries the same `signal` property, so
-`transformArgs: (args, { signal }) => [...args, { signal }]` works as well.
+`transformArgs: (args, { signal }) => [...args, { signal }]` works as well. The property is set up
+only for hooks that can reach it: a hook declaring that parameter, or one whose source mentions
+`signal`, `arguments` or a rest parameter. That source check is best-effort. It misses a hook
+reading the property under a computed or aliased name, and a bound or native function, so in those
+cases call `getSignal()` instead.
 
 For callback-style APIs use `promisify`, which covers error-first and value-first callbacks,
 multiple callback values, and the `nodejs.util.promisify.custom` hook. `promisifyAll` applies it

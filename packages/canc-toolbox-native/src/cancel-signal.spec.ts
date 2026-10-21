@@ -103,6 +103,51 @@ describe('signal accessor', () => {
   });
 });
 
+describe('promisify signal accessor gate', () => {
+  async function abortWith(transformArgs: (args: any[]) => any[]) {
+    const inbound = new AbortController();
+    const fn = promisify((_cb: (err: unknown) => void) => undefined, {
+      lazy: true,
+      signal: inbound.signal,
+      transformArgs,
+    });
+    const settled = fn().then(
+      () => 'fulfilled',
+      () => 'rejected',
+    );
+    await Promise.resolve();
+    inbound.abort(new CancelError('stop'));
+    await settled;
+  }
+
+  it('installs it for hooks of length 1 that mention the signal', async () => {
+    const seen: any[] = [];
+    const sink = (signal: unknown) => {
+      seen.push(signal);
+    };
+    // the es5 spec build would lower the default and grow length to 2, so build it untranspiled
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval -- needs a native default parameter
+    const defaulted = new Function('sink', 'return (args, { signal } = {}) => { sink(signal); return args; };')(
+      sink,
+    ) as (args: any[]) => any[];
+    expect(defaulted.length).toBe(1);
+    await abortWith(defaulted);
+    await abortWith(function (args) {
+      // eslint-disable-next-line prefer-rest-params
+      sink(arguments[1].signal);
+      return args;
+    });
+    await abortWith((args, ...rest: any[]) => {
+      sink(rest[0].signal);
+      return args;
+    });
+    expect(seen).toHaveLength(3);
+    for (const signal of seen) {
+      expect(signal.aborted).toBe(true);
+    }
+  });
+});
+
 describe('getSignal function shape', () => {
   function build() {
     const created: unknown[] = [];

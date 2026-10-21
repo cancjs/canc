@@ -1,6 +1,7 @@
 import { CancelablePromise, CancelError, isCancelError } from '@cancjs/promise';
 
 import { makeCancelSignal } from '../../_toolbox';
+import * as cancelSignalModule from '../../_toolbox/cancel-signal';
 import { cancelify, toCancelError } from './cancelify';
 import { promisify } from './index';
 
@@ -334,6 +335,97 @@ describe('signal accessor', () => {
     promise.cancel();
     await promise.catch(() => undefined);
     expect(injected.aborted).toBe(true);
+  });
+});
+
+describe('promisify signal accessor gate', () => {
+  async function cancelWith(transformArgs: (args: any[], getSignal: any) => any[]) {
+    const fn = promisify((_cb: (err: unknown) => void) => undefined, { transformArgs });
+    const promise = fn() as CancelablePromise<unknown>;
+    promise.cancel();
+    await promise.catch(() => undefined);
+  }
+
+  it('installs it for a hook defaulting the destructured second parameter', async () => {
+    let injected: any;
+    // the es5 spec build would lower the default and grow length to 2, so build it untranspiled
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval -- needs a native default parameter
+    const hook = new Function('sink', 'return (args, { signal } = {}) => { sink(signal); return args; };')(
+      (signal: unknown) => {
+        injected = signal;
+      },
+    ) as (args: any[]) => any[];
+    expect(hook.length).toBe(1);
+    await cancelWith(hook);
+    expect(injected.aborted).toBe(true);
+  });
+
+  it('installs it for a hook reading arguments', async () => {
+    let injected: any;
+    await cancelWith(function (args) {
+      // eslint-disable-next-line prefer-rest-params
+      injected = arguments[1].signal;
+      return args;
+    });
+    expect(injected.aborted).toBe(true);
+  });
+
+  it('installs it for a hook taking a rest parameter after args', async () => {
+    let injected: any;
+    await cancelWith((args, ...rest: any[]) => {
+      injected = rest[0].signal;
+      return args;
+    });
+    expect(injected.aborted).toBe(true);
+  });
+
+  it('leaves it off for a hook of length 1 that never mentions the signal', async () => {
+    const spy = jest.spyOn(cancelSignalModule, 'withSignalAccessor');
+    try {
+      await cancelWith((args) => args.slice());
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('falls back to the parameter count for bound and native hooks', async () => {
+    const spy = jest.spyOn(cancelSignalModule, 'withSignalAccessor');
+    try {
+      await cancelWith(
+        function (args: any[]) {
+          return args.concat([]);
+        }.bind(null),
+      );
+      const fn = promisify((_cb: (err: unknown) => void) => undefined, { handleCancel: Object.freeze });
+      const promise = fn() as CancelablePromise<unknown>;
+      promise.cancel();
+      await expect(promise).rejects.toBeDefined();
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('treats a hook whose source cannot be read as not mentioning the signal', async () => {
+    const spy = jest.spyOn(cancelSignalModule, 'withSignalAccessor');
+    const toString = jest.spyOn(Function.prototype, 'toString').mockImplementation(() => {
+      throw new TypeError('no source');
+    });
+    let fn: (...args: any[]) => unknown;
+    try {
+      fn = promisify((_cb: (err: unknown) => void) => undefined, { transformArgs: (args) => args });
+    } finally {
+      toString.mockRestore();
+    }
+    try {
+      const promise = fn() as CancelablePromise<unknown>;
+      promise.cancel();
+      await expect(promise).rejects.toBeDefined();
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
 
