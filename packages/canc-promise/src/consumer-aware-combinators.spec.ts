@@ -204,9 +204,23 @@ describe('combinator inputs follow consumer counting', () => {
       void result.cancel();
       await settleAll();
       expect(inputs.some((input) => input.isCanceled)).toBe(false);
+    });
+
+    it('cancels the shared inputs once every consumer is canceled after the result', async () => {
+      const inputs = Array.from({ length: 300 }, () => pending<number>().promise);
+      const consumers = inputs.map((input) => input.then((value) => value));
+      consumers.forEach(swallow);
+
+      const result = CancelablePromise.all(inputs);
+      swallow(result);
+
+      void result.cancel();
+      await settleAll();
+      expect(inputs.some((input) => input.isCanceled)).toBe(false);
 
       consumers.forEach((c) => void c.cancel());
       await settleAll();
+      expect(inputs.every((input) => input.isCanceled)).toBe(true);
     });
   });
 
