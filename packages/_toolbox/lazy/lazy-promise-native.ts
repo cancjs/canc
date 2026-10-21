@@ -28,10 +28,7 @@ const NativePromise = Promise;
 export class LazyPromise<T = any> extends LazyBase<T> {
   // Static surface mirrored from cancelable twin so the same code reads identically where these
   // declarations narrow the flavor and its options bag without emitting anything
-  declare static try: <V, TArgs extends any[]>(
-    fn: (...args: TArgs) => V | PromiseLike<V>,
-    ...args: TArgs
-  ) => LazyPromise<V>;
+  declare static try: <V, TArgs extends any[]>(fn: (...args: TArgs) => V, ...args: TArgs) => LazyPromise<Awaited<V>>;
   declare static resolve: <V>(value?: V | PromiseLike<V>, options?: ILazyPromiseOptions) => LazyPromise<V>;
   declare static reject: <V = never>(reason?: any, options?: ILazyPromiseOptions) => LazyPromise<V>;
   declare static withResolvers: <V>(options?: ILazyPromiseOptions) => ILazyWithResolvers<V, LazyPromise<V>>;

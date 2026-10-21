@@ -109,7 +109,7 @@ static any: <V>(values: Iterable<PromiseLike<V> | V>, options?: ILazyPromiseOpti
 static race: <V>(values: Iterable<PromiseLike<V> | V>, options?: ILazyPromiseOptions) => LazyPromise<V>
 static reject: <V = never>(reason?: any, options?: ILazyPromiseOptions) => LazyPromise<V>
 static resolve: <V>(value?: PromiseLike<V> | V, options?: ILazyPromiseOptions) => LazyPromise<V>
-static try: <V, TArgs extends any[]>(fn: (...args: TArgs) => PromiseLike<V> | V, ...args: TArgs) => LazyPromise<V>
+static try: <V, TArgs extends any[]>(fn: (...args: TArgs) => V, ...args: TArgs) => LazyPromise<Awaited<V>>
 static withResolvers: <V>(options?: ILazyPromiseOptions) => ILazyWithResolvers<V, LazyPromise<V>>
 readonly [LAZY_PROMISE_BRAND]: true
 _beforeSubscribe: () => PromiseLike<T> | undefined

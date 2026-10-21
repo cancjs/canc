@@ -98,10 +98,11 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
    * Takes no options bag: the rest arguments occupy that slot, matching `CancelablePromise.try`.
    * Use `createLazyPromise` when options are needed or when the input's shape varies.
    */
-  static try<V, TArgs extends any[]>(fn: (...args: TArgs) => V | PromiseLike<V>, ...args: TArgs): LazyBase<V> {
-    return this._new<V>((resolve, reject) => {
+  static try<V, TArgs extends any[]>(fn: (...args: TArgs) => V, ...args: TArgs): LazyBase<Awaited<V>> {
+    return this._new<Awaited<V>>((resolve, reject) => {
       try {
-        resolve(fn(...args));
+        // V settles as Awaited<V>, not provable generically (as in CancelablePromise.try)
+        resolve(fn(...args) as unknown as Awaited<V> | PromiseLike<Awaited<V>>);
       } catch (error) {
         reject(error);
       }
