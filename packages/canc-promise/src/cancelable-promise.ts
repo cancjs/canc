@@ -902,8 +902,10 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
       reject: rejectResult,
     } = this.withResolvers<T, FailureOf<T>>(options);
 
-    const releaseInputs = createReleaser();
-    // a settled race, canceled or not, needs none of its inputs
+    // a canceled race needs none of its inputs; no reaction on the result itself, which
+    // would mark it handled and hide its rejection from the unhandled-rejection report
+    const releaseInputs = releaseOnCancel(resultPromise);
+    // the first input to settle the race releases every input, the winner included
     const releaseOnSettle = (): void => {
       const prev = _activeCollector;
       _activeCollector = resultPromise._collector;
@@ -913,12 +915,20 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
         _activeCollector = prev;
       }
     };
-    resultPromise._subscribe(releaseOnSettle, releaseOnSettle);
 
     try {
       for (const promiseOrValue of values) {
         const promise = this._adopt<T>(promiseOrValue, INPUT_OPTIONS);
-        promise._subscribe(resolveResult, rejectResult);
+        promise._subscribe(
+          (value) => {
+            resolveResult(value);
+            releaseOnSettle();
+          },
+          (error: unknown) => {
+            rejectResult(error as FailureOf<T>);
+            releaseOnSettle();
+          },
+        );
 
         releaseInputs.add(promise._retainRef(true));
       }
