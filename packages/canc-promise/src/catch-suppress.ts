@@ -1,7 +1,7 @@
 import { isAbortError, isCancelable, isFunction, isObject, isTimeoutError, readProp } from '../../_util';
 import type { TErrorPredicate } from '../../_util/error-matchers';
 import { CancelablePromise, type TOnCancel } from './cancelable-promise';
-import type { ICatchSuppressOptions } from './helpers';
+import { type ICatchSuppressOptions, isCancPromise } from './helpers';
 
 export interface IErrorMatchDeps {
   /** The error kinds this helper catches before any option widening. */
@@ -54,10 +54,19 @@ interface ICountedSource {
 const isCountedSource = (value: any): value is ICountedSource =>
   isFunction(readProp(value, '_subscribe')) && isFunction(readProp(value, '_retainRef'));
 
+interface IChainedSource {
+  _subscribe(onFulfilled: (value: any) => unknown, onRejected: (reason: any) => unknown): void;
+  _chain(child: CancelablePromise<void>): void;
+}
+
+// a canc source from an older package copy: no `_retainRef`, still counts a chained child
+const isChainedSource = (value: any): value is IChainedSource =>
+  isCancPromise(value) && isFunction(readProp(value, '_subscribe')) && isFunction(readProp(value, '_chain'));
+
 /**
  * Settle a wrapper from `source` and, when the wrapper is canceled, release the wrapper's interest
  * in it. A canc source gets one counted consumer ref, so it is canceled only when the wrapper was
- * its last consumer. A duck cancelable (third party, lazy) cannot be counted: it is canceled
+ * its last consumer; an older copy without that ref counts a stand-in child instead. A duck cancelable (third party, lazy) cannot be counted: it is canceled
  * directly, which is correct only while the wrapper is its sole holder.
  */
 export function followSource(
@@ -73,6 +82,15 @@ export function followSource(
 
     if (handleCancel && release) {
       handleCancel(release);
+    }
+  } else if (isChainedSource(source)) {
+    source._subscribe(onFulfilled, onRejected);
+
+    if (handleCancel) {
+      // the canceled stand-in drops its count, the source stops once no consumer is left
+      const standIn = new CancelablePromise<void>(() => {});
+      source._chain(standIn);
+      handleCancel((reason?: any) => standIn.cancel(reason));
     }
   } else {
     CancelablePromise.resolve(source).then(onFulfilled, onRejected);
