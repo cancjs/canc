@@ -116,8 +116,6 @@ describe.each([
   });
 });
 
-const sourceLog: string[] = [];
-
 const tick = (ms: number) => new CancelablePromise<void>((resolve) => setTimeout(resolve, ms));
 
 interface ICleanupNest {
@@ -196,13 +194,13 @@ describe.each([
 describe.each([
   [
     'cancAsync',
-    (source: CancelablePromise<never>) =>
+    (source: CancelablePromise<never>, log: string[]) =>
       cancAsync(
         function* () {
           try {
             return yield* cancAwait(source);
           } finally {
-            sourceLog.push('body finally');
+            log.push('body finally');
           }
         },
         { asyncCancel: true },
@@ -210,13 +208,13 @@ describe.each([
   ],
   [
     'cancGenAsync',
-    (source: CancelablePromise<never>) =>
+    (source: CancelablePromise<never>, log: string[]) =>
       cancGenAsync(
         function* () {
           try {
             yield* cancGenAwait(source);
           } finally {
-            sourceLog.push('body finally');
+            log.push('body finally');
           }
         },
         { asyncCancel: true },
@@ -224,23 +222,26 @@ describe.each([
   ],
 ])('%s awaiting a sole source with an async cancel handler', (_name, run) => {
   it('unwinds only after the source cleanup ends', async () => {
-    sourceLog.length = 0;
+    const log: string[] = [];
     const source = new CancelablePromise<never>(
       (_resolve, _reject, { handleCancel }) => {
         handleCancel(async () => {
-          await tick(2);
-          sourceLog.push('source cleaned');
+          // outlast the microtasks an unwind that skips the wait would need to reach the finally
+          for (let turn = 0; turn < 10; turn++) {
+            await Promise.resolve();
+          }
+          log.push('source cleaned');
         });
       },
       { asyncCancel: true },
     );
-    const top = run(source);
-    top.catch(() => sourceLog.push('top rejected'));
+    const top = run(source, log);
+    top.catch(() => log.push('top rejected'));
     await tick(2);
 
     await top.cancel();
-    sourceLog.push('cancel awaited');
+    log.push('cancel awaited');
 
-    expect(sourceLog).toEqual(['source cleaned', 'body finally', 'top rejected', 'cancel awaited']);
+    expect(log).toEqual(['source cleaned', 'body finally', 'top rejected', 'cancel awaited']);
   });
 });
