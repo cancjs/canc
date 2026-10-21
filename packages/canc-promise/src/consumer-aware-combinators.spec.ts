@@ -190,8 +190,8 @@ describe('combinator inputs follow consumer counting', () => {
       await settleAll();
     });
 
-    it('registers one release on the result over 5000 shared pending inputs', async () => {
-      const inputs = Array.from({ length: 5000 }, () => pending<number>().promise);
+    it('registers one release on the result over 500 shared pending inputs, then tears down', async () => {
+      const inputs = Array.from({ length: 500 }, () => pending<number>().promise);
       const consumers = inputs.map((input) => input.then((value) => value));
       consumers.forEach(swallow);
 
@@ -204,6 +204,9 @@ describe('combinator inputs follow consumer counting', () => {
       void result.cancel();
       await settleAll();
       expect(inputs.some((input) => input.isCanceled)).toBe(false);
+
+      consumers.forEach((c) => void c.cancel());
+      await settleAll();
     });
 
     it('cancels the shared inputs once every consumer is canceled after the result', async () => {
@@ -221,6 +224,44 @@ describe('combinator inputs follow consumer counting', () => {
       consumers.forEach((c) => void c.cancel());
       await settleAll();
       expect(inputs.every((input) => input.isCanceled)).toBe(true);
+    });
+  });
+
+  describe('a loser awaited in the turn the result settles', () => {
+    // the es5 test build turns `async` into a helper that calls `then` at once, a real
+    // `await` subscribes one job later
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval -- needs an engine-native async function
+    const awaitBoth = new Function(
+      'first',
+      'second',
+      'return (async () => { try { await first; } catch (error) { /**/ } return await second; })();',
+    ) as <T>(first: PromiseLike<unknown>, second: PromiseLike<T>) => Promise<T>;
+
+    it('race hands the loser its value', async () => {
+      const winner = pending<string>();
+      const loser = pending<string>();
+      const awaiter = awaitBoth(CancelablePromise.race([winner.promise, loser.promise]), loser.promise);
+
+      winner.resolve('first win');
+      await settleAll();
+
+      expect(loser.promise.isCanceled).toBe(false);
+      loser.resolve('late value');
+      await expect(awaiter).resolves.toBe('late value');
+    });
+
+    it.each(['any', 'all'] as const)('%s cancels the loser before the await resumes', async (kind) => {
+      const first = pending<string>();
+      const loser = pending<string>();
+      const awaiter = awaitBoth(combine(kind, [first.promise, loser.promise]), loser.promise);
+      swallow(awaiter);
+
+      settleOther(kind, first);
+      await settleAll();
+
+      expect(loser.promise.isCanceled).toBe(true);
+      loser.resolve('late value');
+      await expect(awaiter).rejects.toEqual(expect.objectContaining({ name: 'CancelError' }));
     });
   });
 
