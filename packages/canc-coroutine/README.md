@@ -149,6 +149,12 @@ flag is still `false`; it turns `true` when the cleanup is done and the promise 
 handlers run at that point too, and they receive the reason passed to `cancel()`, not the
 `CancelError`.
 
+When the canceled step awaits another coroutine or a `CancelablePromise`, the body's `finally`
+runs only after that step's own cleanup has finished, so the inner levels of a nest clean up
+before the levels that await them. The wait relies on the step's `cancel()` returning a cleanup
+promise, which is the default; for a step created with `asyncCancel: false` the body unwinds
+without waiting.
+
 A cancel unwinds the body through `yield*` delegation too. The `forAwait`, `forAwait.toArray` and
 `cancGen.delegate` helpers, and a generator callback passed to `forAwait`, run their cleanup and
 then keep unwinding, so the code after the helper call never runs. A generator of your own behaves
