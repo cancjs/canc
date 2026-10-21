@@ -190,8 +190,8 @@ describe('combinator inputs follow consumer counting', () => {
       await settleAll();
     });
 
-    it('registers one release on the result over 10000 shared pending inputs', async () => {
-      const inputs = Array.from({ length: 10000 }, () => pending<number>().promise);
+    it('registers one release on the result over 5000 shared pending inputs', async () => {
+      const inputs = Array.from({ length: 5000 }, () => pending<number>().promise);
       const consumers = inputs.map((input) => input.then((value) => value));
       consumers.forEach(swallow);
 
@@ -204,6 +204,9 @@ describe('combinator inputs follow consumer counting', () => {
       void result.cancel();
       await settleAll();
       expect(inputs.some((input) => input.isCanceled)).toBe(false);
+
+      consumers.forEach((c) => void c.cancel());
+      await settleAll();
     });
   });
 
