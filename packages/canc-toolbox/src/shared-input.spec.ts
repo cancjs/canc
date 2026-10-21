@@ -301,3 +301,90 @@ describe('helpers give up an input from an older package copy', () => {
     });
   });
 });
+
+// a finite source, so an async-iter callback runs once over it
+async function* once(): AsyncGenerator<number> {
+  yield 1;
+}
+
+/** Each case hands the input to the helper and returns the helper's result, mapped to the input's value. */
+const settlers: [string, (input: PromiseLike<string>) => PromiseLike<unknown>, (value: string) => unknown][] = [
+  ['timeout', (input) => timeout(input, 1000), (value) => value],
+  ['delay', (input) => delay(input, 1000), (value) => value],
+  ['minDelay', (input) => minDelay(input, 1000), (value) => value],
+  ['retry', (input) => retry(() => input, { retries: 0 }), (value) => value],
+  ['limit', (input) => limit(1)(() => input), (value) => value],
+  ['map', (input) => map(['a'], () => input), (value) => [value]],
+  ['debounce', (input) => debounce(() => input, 1000, { leading: true })(), (value) => value],
+  ['catchError', (input) => catchError(input), (value) => value],
+  ['suppressError', (input) => suppressError(input), (value) => value],
+  [
+    'async-iter operator callback',
+    (input) => asyncIter.pipe(once(), [asyncIter.map(() => input)], asyncIter.toArray<string>()),
+    (value) => [value],
+  ],
+  ['async-iter terminal callback', (input) => asyncIter.forEach<number>(() => input)(once()), () => undefined],
+];
+
+async function settle<T>(result: PromiseLike<T>): Promise<{ value?: T; reason?: unknown }> {
+  const outcome: { value?: T; reason?: unknown; done?: boolean } = {};
+  result.then(
+    (value) => Object.assign(outcome, { value, done: true }),
+    (reason) => Object.assign(outcome, { reason, done: true }),
+  );
+
+  for (let i = 0; i < 5 && !outcome.done; i++) {
+    await flushMicrotasks();
+    jest.advanceTimersByTime(1000);
+  }
+  await flushMicrotasks();
+
+  expect(outcome.done).toBe(true);
+
+  return outcome;
+}
+
+describe('helpers settle from an input of an older package copy', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  describe.each(settlers)('%s', (_name, start, expected) => {
+    it('resolves with the value of the input', async () => {
+      const input = olderCopyInput();
+      const result = start(input.promise);
+
+      await flushMicrotasks();
+      input.resolve('value');
+
+      const outcome = await settle(result);
+      expect(outcome.reason).toBeUndefined();
+      expect(outcome.value).toEqual(expected('value'));
+    });
+
+    it('rejects with the reason of the input', async () => {
+      let reject: (reason: unknown) => void = () => undefined;
+      const promise = new CancelablePromise<string>((_resolve, rej) => {
+        reject = rej;
+      });
+      Object.defineProperty(promise, '_retainRef', {
+        value: undefined,
+        configurable: true,
+      });
+      // observed here too, so a helper that misses the rejection fails the case instead of the run
+      promise.then(undefined, () => undefined);
+      const reason = new Error('input failed');
+      const result = start(promise);
+
+      await flushMicrotasks();
+      reject(reason);
+
+      const outcome = await settle(result);
+      expect(outcome.reason).toBe(reason);
+    });
+  });
+});
