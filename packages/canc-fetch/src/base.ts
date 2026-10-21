@@ -9,7 +9,7 @@ import {
 } from '@cancjs/promise';
 
 import { resolveTimers, startTimer, stopTimer, TTimersOverride } from '../../_toolbox/timers';
-import { isAbortError, isFunction } from '../../_util';
+import { isAbortError, isFunction, isObject } from '../../_util';
 
 // Minimal structural stand-ins so the source stays buildable in environments without
 // DOM/Node fetch lib types
@@ -18,6 +18,7 @@ type Fetch = (input: any, init?: any) => Promise<any>;
 
 declare const fetch: Fetch;
 declare const AbortController: AbortControllerCtor;
+declare const AbortSignal: { any?: (signals: any[]) => any } | undefined;
 
 export interface ICancelableFetchConfig {
   fetch?: Fetch;
@@ -44,16 +45,32 @@ const resolveDep = <T>(config: Record<string, any>, key: string, global: T): T =
 
 /**
  * Shared cancel-signal wiring returned by {@link setupCancellation}. `signal` is what to pass into
- * `fetch`, `finalize` detaches whatever the caller's original signal was wired to, and
- * `toRejection` normalizes a fetch rejection into a CancelError when appropriate.
+ * `fetch`, `abort` aborts it at any time (also after the response arrived, so a body read stops),
+ * `finalize` detaches whatever the caller's original signal was wired to, and `toRejection`
+ * normalizes a fetch rejection into a CancelError when appropriate.
  */
 export interface IFetchCancellation {
   signal: any;
+  abort: (reason?: any) => void;
   finalize: () => void;
   // Normalizes a fetch rejection: an abort becomes a clean CancelError, anything else passes
   // through untouched.
   toRejection: (reason: any) => any;
 }
+
+// AbortSignal.any ties the body read to both signals; undefined where missing or the caller
+// signal is a polyfill it refuses
+const mergeSignals = (own: any, caller: unknown): any => {
+  const anyOf = typeof AbortSignal !== 'undefined' && AbortSignal ? AbortSignal.any : undefined;
+  if (!isFunction(anyOf)) {
+    return undefined;
+  }
+  try {
+    return anyOf.call(AbortSignal, [own, caller]);
+  } catch (_e) {
+    return undefined;
+  }
+};
 
 /**
  * Builds the cancel-signal wiring shared by every product this factory can build (immediate fetch
@@ -107,12 +124,19 @@ export const setupCancellation = (
   // Detaches from caller's long-lived signal so a signal reused across fetches does not
   // accumulate listeners
   let detachSignal = () => {};
+  const merged =
+    originalSignal && !originalSignal.aborted && !injected ? mergeSignals(signal, originalSignal) : undefined;
 
   if (originalSignal) {
     if (originalSignal.aborted) {
       // Forward pre-aborted input reason immediately so a caller cancel signal cancels with
       // its own CancelError verbatim
       abort(originalSignal.reason);
+    } else if (merged) {
+      // covers the body read without a listener on the caller signal
+      merged.addEventListener('abort', () => {
+        abort(merged.reason);
+      });
     } else if (isFunction(originalSignal.addEventListener)) {
       // Prefer addEventListener on native signals as it does not mutate the caller's object
       // and survives onabort reassignment
@@ -147,9 +171,8 @@ export const setupCancellation = (
 
   const toRejection = (reason: any) => {
     if (isCancelSignal(signal) && signal.aborted) {
-      // The cancel signal already aborts with a CancelError; a spec-compliant fetch rejects
-      // with that exact error, so pass it through verbatim.
-      return reason;
+      // a merged signal rejects with the raw caller reason, the own one holds the CancelError
+      return signal.reason;
     }
 
     if (isAbortError(reason)) {
@@ -162,7 +185,8 @@ export const setupCancellation = (
   };
 
   return {
-    signal,
+    signal: merged || signal,
+    abort,
     finalize: () => detachSignal(),
     toRejection,
   };
@@ -177,24 +201,98 @@ export const setupCancellation = (
  */
 export type TCancelableFetchFailure = TimeoutError | Unlisted;
 
+const BODY_READERS = ['arrayBuffer', 'blob', 'bytes', 'formData', 'json', 'text'];
+
+// Own non-enumerable readers shadow the prototype ones so canceling a read (or the chain step
+// that returned it) aborts the body. Returns false when nothing could be wrapped.
+const wrapBodyReaders = (response: any, cancellation: IFetchCancellation): boolean => {
+  if (!isObject(response) || !Object.isExtensible(response)) {
+    return false;
+  }
+
+  let wrapped = false;
+
+  BODY_READERS.forEach((name) => {
+    const read = response[name];
+    if (!isFunction(read)) {
+      return;
+    }
+
+    Object.defineProperty(response, name, {
+      configurable: true,
+      enumerable: false,
+      writable: true,
+      value: function (this: any) {
+        return new CancelablePromise<any, TCancelableFetchFailure>((resolve, reject, { handleCancel }) => {
+          handleCancel((reason) => cancellation.abort(reason));
+
+          let pending: unknown;
+          try {
+            pending = read.call(this);
+          } catch (error) {
+            cancellation.finalize();
+            reject(error);
+            return;
+          }
+
+          CancelablePromise.resolve(pending).then(
+            (value) => {
+              cancellation.finalize();
+              resolve(value);
+            },
+            (reason) => {
+              cancellation.finalize();
+              reject(cancellation.toRejection(reason));
+            },
+          );
+        });
+      },
+    });
+    wrapped = true;
+  });
+
+  return wrapped;
+};
+
 export const cancelableFetchFactory = (config: ICancelableFetchConfig = {}) => {
   return function cancelableFetch(input: any, init?: any): CancelablePromise<any, TCancelableFetchFailure> {
-    return new CancelablePromise<any, TCancelableFetchFailure>((resolve, reject, { handleCancel }) => {
+    let bodyCancellation: IFetchCancellation | undefined;
+
+    const promise = new CancelablePromise<any, TCancelableFetchFailure>((resolve, reject, { handleCancel }) => {
       const _fetch = resolveDep<Fetch>(config, 'fetch', typeof fetch !== 'undefined' ? fetch : (undefined as any));
-      const { signal, finalize, toRejection } = setupCancellation(config, input, init, handleCancel);
+      const cancellation = setupCancellation(config, input, init, handleCancel);
 
-      const settle =
-        <T>(callback: (value: T) => void) =>
-        (value: T) => {
-          finalize();
-          callback(value);
-        };
-
-      _fetch(input, { ...init, signal }).then(
-        settle(resolve),
-        settle((reason: any) => reject(toRejection(reason))),
+      _fetch(input, { ...init, signal: cancellation.signal }).then(
+        (response: any) => {
+          if (wrapBodyReaders(response, cancellation)) {
+            // the caller signal stays wired until the body read settles
+            bodyCancellation = cancellation;
+          } else {
+            cancellation.finalize();
+          }
+          resolve(response);
+        },
+        (reason: any) => {
+          cancellation.finalize();
+          reject(cancellation.toRejection(reason));
+        },
       );
     });
+
+    // a settled promise ignores cancel(), this one still has a body read to stop
+    Object.defineProperty(promise, 'cancel', {
+      configurable: true,
+      enumerable: false,
+      writable: true,
+      value: function (this: CancelablePromise<any, any>, reason?: any, _disposing?: boolean) {
+        if (bodyCancellation) {
+          bodyCancellation.abort(reason);
+        }
+        return CancelablePromise.prototype.cancel.call(this, reason, _disposing);
+      },
+    });
+
+    return promise;
   };
 };
 

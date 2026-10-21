@@ -369,6 +369,39 @@ describe('signal interop', () => {
     expect(external.listeners).toHaveLength(0);
   });
 
+  it('keeps the listener through the body read and detaches when the read settles', async () => {
+    const external = new NativeLikeAbortSignal();
+    const { promise, resolveWith } = makeNativeFactory(external);
+    let finishRead!: (text: string) => void;
+    const response = { text: () => new Promise<string>((resolve) => (finishRead = resolve)) };
+
+    resolveWith(response);
+    await promise;
+    expect(external.listeners).toHaveLength(1);
+
+    const read = response.text();
+    finishRead('done');
+
+    await expect(read).resolves.toBe('done');
+    expect(external.listeners).toHaveLength(0);
+  });
+
+  it('aborts the body read when the external signal fires after the response', async () => {
+    const external = new NativeLikeAbortSignal();
+    const { promise, resolveWith } = makeNativeFactory(external);
+    const response = {
+      text: () =>
+        new Promise<string>((_resolve, reject) => external.addEventListener('abort', () => reject(makeAbortError()))),
+    };
+
+    resolveWith(response);
+    await promise;
+    const read = response.text();
+    external.dispatchEvent(new MockEvent('abort'));
+
+    expect(isCancelError(await read.then(null, (error: unknown) => error))).toBe(true);
+  });
+
   it('detaches the listener after a rejected fetch too', async () => {
     const external = new NativeLikeAbortSignal();
     const backing = deferredFetch();

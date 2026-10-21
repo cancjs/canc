@@ -80,12 +80,22 @@ Each call creates its own `AbortController` and passes the signal to the underly
 cancel aborts that controller, so the request is dropped at the transport level, and the promise
 rejects with a `CancelError` whose `cause` is the abort reason.
 
-That is where cancellation ends. The request stops, the server may have already received it, and
-a response body that is being read stops being read. Whatever the server does with a request it
-already accepted is outside the client's control.
+Cancellation covers the body too. The promise fulfills once the headers arrive, and the body is
+read after that, so the signal stays live until the read is done. Canceling the request, or a chain
+step that reads the body (`request.then((response) => response.json())`), aborts the read and
+drops the connection. The body readers of the response (`json()`, `text()`, `arrayBuffer()`,
+`blob()`, `formData()`, `bytes()`) return a `CancelablePromise` for this. They are set as
+non-enumerable own properties of the response, so `Object.keys(response)` is unchanged. A stream
+read through `response.body` ends with a `CancelError` when the request is canceled.
 
-An `AbortSignal` supplied through `init` keeps working alongside this. Either source can abort the
-request, and a signal that is already aborted rejects the promise without a network call.
+The request stops, but the server may have already received it. Whatever the server does with a
+request it already accepted is outside the client's control.
+
+An `AbortSignal` supplied through `init` keeps working alongside this, body included. Either source
+can abort the request, and a signal that is already aborted rejects the promise without a network
+call. Where `AbortSignal.any` exists, the two signals are merged so a long-lived caller signal gets
+no listener. Without it, or with an injected `AbortController`, the listener stays until the body
+read settles.
 
 ## Description
 
