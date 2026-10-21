@@ -42,7 +42,8 @@ export type TCancelableCoroutineGenOptions = ICancelablePromiseOptions & {
 const genMethods = ['next', 'throw', 'return'] as const;
 
 // a helper the consumer returned into yields this once its cleanup ran, so the driver returns again
-const GEN_RETURN_UNWIND = Symbol.for('@cancjs/coroutine:genReturnUnwind');
+// Symbol.for so both bundle entries agree; no @cancjs/ prefix since it is not an error brand
+const GEN_RETURN_UNWIND = Symbol.for('canc-coroutine.genReturnUnwind');
 
 // a cancel landing on a shielded step waits for it, then unwinds at the next unshielded step
 function isShieldedStep(value: unknown): boolean {
