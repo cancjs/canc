@@ -109,7 +109,7 @@
       "entry": ".",
       "name": "ICancelableAxiosWrapOptions",
       "member": "lazy",
-      "reason": "Wrap options narrowed to eager only; the lazy option was accepted but silently ignored."
+      "reason": "Options narrowed, not a removed export: the lazy value was accepted by the type but ignored at runtime."
     }
   ]
 }
