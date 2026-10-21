@@ -81,12 +81,18 @@ cancel aborts that controller, so the request is dropped at the transport level,
 rejects with a `CancelError` whose `cause` is the abort reason.
 
 Cancellation covers the body too. The promise fulfills once the headers arrive, and the body is
-read after that, so the signal stays live until the read is done. Canceling the request, or a chain
-step that reads the body (`request.then((response) => response.json())`), aborts the read and
-drops the connection. The body readers of the response (`json()`, `text()`, `arrayBuffer()`,
-`blob()`, `formData()`, `bytes()`) return a `CancelablePromise` for this. They are set as
-non-enumerable own properties of the response, so `Object.keys(response)` is unchanged. A stream
-read through `response.body` ends with a `CancelError` when the request is canceled.
+read after that, so the signal stays live until the read is done. Canceling a chain step that reads
+the body (`request.then((response) => response.json())`) aborts the read and drops the connection.
+So does `request.cancel()` after the promise fulfilled: on a settled fetch promise it is not a
+no-op while the body is still streaming.
+
+The body readers of the response (`json()`, `text()`, `arrayBuffer()`, `blob()`, `formData()`,
+`bytes()`) return a `CancelablePromise` at runtime, while the response itself stays typed as `any`.
+They are set as non-enumerable own properties of the response, so `Object.keys(response)` is
+unchanged. A read through them rejects with a `CancelError` whichever source aborted it. A stream
+read through `response.body` gets the raw error of the platform instead. It ends with a
+`CancelError` when the request is canceled, and with the caller's own abort reason when a signal
+from `init` aborts it after the headers.
 
 The request stops, but the server may have already received it. Whatever the server does with a
 request it already accepted is outside the client's control.

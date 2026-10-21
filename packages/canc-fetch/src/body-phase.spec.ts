@@ -144,4 +144,29 @@ describe('body phase', () => {
     void request.cancel();
     await lastStream().closed;
   });
+
+  it('a caller abort after the headers ends a raw body stream with the caller reason', async () => {
+    const cancelableFetch = cancelableFetchFactory();
+    const controller = new AbortController();
+    const reason = new Error('caller stop');
+    const response = await cancelableFetch(baseUrl, { signal: controller.signal });
+    const reader = response.body.getReader();
+
+    await reader.read();
+    controller.abort(reason);
+
+    let error: unknown;
+    for (;;) {
+      try {
+        const { done } = await reader.read();
+        if (done) break;
+      } catch (e) {
+        error = e;
+        break;
+      }
+    }
+
+    expect(error).toBe(reason);
+    await lastStream().closed;
+  });
 });
