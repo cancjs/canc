@@ -105,6 +105,11 @@ function checkedStep(result: unknown): IteratorResult<any> {
   return result;
 }
 
+// a cancel landing on a shielded step waits for it, then unwinds at the next unshielded step
+function isShieldedStep(value: unknown): boolean {
+  return isThenable(value) && (value as { shield?: unknown }).shield === true;
+}
+
 type TCoroutineReturn<TFn extends IGeneratorLikeFn, TReturn = ReturnType<TFn>> = Awaited<
   TReturn extends Generator<infer _Y, infer R, infer _N> ? R : never
 >;
@@ -245,6 +250,9 @@ export function cancAsync<
       let abortableTryBodySource: CancelablePromise<any, any> | undefined;
       // counted consumer ref on a yielded shared source, released instead of canceling it
       let releaseStepSource: (() => void) | undefined;
+      let shieldedStep = false;
+      // cancel accepted mid shielded step: body runs on to its next unshielded step
+      let cancelDeferred = false;
 
       // Loop handles opened by this invocation, so two calls of one coroutine never share sources
       const pendingCleanups: ILoopRegistry = Object.assign([], { _entries: 0 });
@@ -322,9 +330,21 @@ export function cancAsync<
           }
         }
 
-        drainFinally();
+        if (shieldedStep) {
+          cancelDeferred = true;
+        } else {
+          drainFinally();
+        }
 
         return self.asyncCancel ? drainDeferred!.promise : undefined;
+      };
+
+      // a deferred cancel unwinds once the body yields something unshielded
+      const unwindDeferred = () => {
+        if (cancelDeferred && !shieldedStep && !genDone) {
+          cancelDeferred = false;
+          drainFinally();
+        }
       };
 
       const findCurrentLoop = (registry: ILoopRegistry): ILoopHandle | undefined => {
@@ -349,9 +369,16 @@ export function cancAsync<
           // resolve (and do not settle as canceled, as the drain will).
           if (!canceled) {
             finishCleanups(pendingCleanups, shieldOptions, resolve, result.value);
+          } else if (cancelDeferred) {
+            // the body returned before any unshielded step, the accepted cancel still decides
+            cancelDeferred = false;
+            finishCleanups(pendingCleanups, shieldOptions, () => {
+              settleCanceled();
+              settleDrain();
+            });
           }
         } else {
-          if (canceled) {
+          if (canceled && !cancelDeferred) {
             return;
           }
 
@@ -390,10 +417,12 @@ export function cancAsync<
             // the wrapper is ours alone, so the drain cancels it directly
             source = CancelablePromise.resolve(value, stepOptions);
             abortableTryBodySource = source;
+            shieldedStep = isShieldedStep(value);
             void source.then(onFulfilled, onRejected);
             return;
           }
 
+          shieldedStep = isShieldedStep(source);
           const counted = source as unknown as Partial<ICountedSource>;
           if (typeof counted._retainRef === 'function' && typeof counted._subscribe === 'function') {
             // a shared source stops only once its last consumer is gone
@@ -411,8 +440,9 @@ export function cancAsync<
         // This step settled: it is no longer the outstanding try-body step to abort on drain.
         abortableTryBodySource = undefined;
         releaseStepSource = undefined;
+        shieldedStep = false;
         // Coroutine canceled while this step was in flight: drop it (drainFinally owns the rest).
-        if (canceled || genDone) {
+        if ((canceled && !cancelDeferred) || genDone) {
           return;
         }
 
@@ -422,6 +452,7 @@ export function cancAsync<
           result = checkedStep(gen.next(value));
         } catch (err) {
           genDone = true;
+          cancelDeferred = false;
           if (canceled) {
             rejectDrained(err);
           } else {
@@ -431,17 +462,19 @@ export function cancAsync<
         } finally {
           executing = false;
         }
-        if (canceled) {
+        if (canceled && !cancelDeferred) {
           drainFinally();
           return;
         }
         step(result);
+        unwindDeferred();
       };
 
       const onRejected = (value: any) => {
         abortableTryBodySource = undefined;
         releaseStepSource = undefined;
-        if (canceled || genDone) {
+        shieldedStep = false;
+        if ((canceled && !cancelDeferred) || genDone) {
           return;
         }
 
@@ -451,6 +484,7 @@ export function cancAsync<
           result = checkedStep(gen.throw(value));
         } catch (err) {
           genDone = true;
+          cancelDeferred = false;
           if (canceled) {
             rejectDrained(err);
           } else {
@@ -460,11 +494,12 @@ export function cancAsync<
         } finally {
           executing = false;
         }
-        if (canceled) {
+        if (canceled && !cancelDeferred) {
           drainFinally();
           return;
         }
         step(result);
+        unwindDeferred();
       };
 
       // Triggers finally drain via gen.return().

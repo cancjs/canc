@@ -120,8 +120,12 @@ A canceled coroutine rejects with `CancelError`. Without a handler, this trigger
 explicitly with `catchCancel`/`suppressCancel`.
 
 Because the error is thrown into the generator, `try`/`catch` and `try`/`finally` behave the way
-they do in an `async` function. A `finally` block still runs on cancellation, and its own steps
-run shielded, so cleanup cannot be canceled halfway:
+they do in an `async` function. A `finally` block still runs on cancellation, and the steps it
+runs after the cancel are shielded, so cleanup cannot be canceled halfway.
+
+The coroutine cannot tell whether a step sits inside a `finally`, though. When the `try` block
+returns or throws on its own, the `finally` runs as ordinary code, and a cancel arriving during its
+cleanup step would interrupt it. Shield your cleanup to cover that case:
 
 ```ts
 const checkout = canc.async(function* (orderId: string) {
@@ -130,10 +134,15 @@ const checkout = canc.async(function* (orderId: string) {
   try {
     return yield* canc.await(chargeCard(orderId));
   } finally {
-    yield* canc.await(releaseReservation(reservation.id));
+    yield* canc.await(CancelablePromise.resolve(releaseReservation(reservation.id), { shield: true }));
   }
 });
 ```
+
+A cancel that lands while a shielded step runs waits for that step. The body then resumes with the
+step's result and the cancel takes effect at the next step that is not shielded. If the body
+returns first, the coroutine still settles as canceled; if it throws first, it rejects with that
+error. The same rule applies to `cancGen.async` bodies.
 
 A coroutine stays pending while those `finally` steps run. Right after `cancel()` its `canceled`
 flag is still `false`; it turns `true` when the cleanup is done and the promise rejects. Cancel

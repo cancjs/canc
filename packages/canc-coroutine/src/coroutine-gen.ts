@@ -38,6 +38,11 @@ export type TCancelableCoroutineGenOptions = ICancelablePromiseOptions & {
 
 const genMethods = ['next', 'throw', 'return'] as const;
 
+// a cancel landing on a shielded step waits for it, then unwinds at the next unshielded step
+function isShieldedStep(value: unknown): boolean {
+  return isThenable(value) && (value as { shield?: unknown }).shield === true;
+}
+
 function isSignalAborted(signal: ICancelablePromiseOptions['signal']): boolean {
   if (!signal) {
     return false;
@@ -239,6 +244,9 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
     // source that settles AFTER cancel can be dropped instead of driving the (torn-down) generator.
     let canceled = false;
     let pendingSource: CancelablePromise<any, any> | undefined;
+    // cancel accepted mid shielded step: body runs on to its next unshielded step
+    let cancelDeferred: { reason: any } | undefined;
+    let pendingShielded = false;
 
     const asyncGen = {
       [Symbol.asyncIterator]() {
@@ -337,23 +345,62 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
       }
 
       if (isAwaitedValue) {
-        pendingSource = CancelablePromise.resolve(settledValue);
-        pendingSource.then(
-          (value) => {
-            if (canceled) return;
-            pendingSource = undefined;
-            resume('next', value);
-          },
-          (error) => {
-            if (canceled) return;
-            pendingSource = undefined;
-            resume('throw', error);
-          },
-        );
+        awaitStep(settledValue);
       } else {
         // Plain yield: emit to the consumer as `{ value, done: false }`.
         settle('next', settledValue);
       }
+    }
+
+    function awaitStep(settledValue: any): boolean {
+      const source = CancelablePromise.resolve(settledValue);
+      const shielded = isShieldedStep(settledValue);
+      const onSettled = (method: TGeneratorMethod, value: any) => {
+        if (!canceled) {
+          pendingSource = undefined;
+          pendingShielded = false;
+          resume(method, value);
+        } else if (shielded && cancelDeferred) {
+          pendingSource = undefined;
+          pendingShielded = false;
+          resumeDeferred(method, value);
+        }
+      };
+      pendingSource = source;
+      pendingShielded = shielded;
+      source.then(
+        (value) => onSettled('next', value),
+        (error) => onSettled('throw', error),
+      );
+      return shielded;
+    }
+
+    // Drives the body after a deferred cancel: shielded awaits keep running, anything else unwinds
+    function resumeDeferred(method: TGeneratorMethod, sentValue: any) {
+      let result: IteratorResult<any, any>;
+
+      try {
+        result = gen![method](sentValue);
+        assertStepResult(result, 'A coroutine generator body produced an invalid step');
+      } catch {
+        // no step is left to report a body error to
+        cancelDeferred = undefined;
+        return;
+      }
+
+      if (result.done) {
+        cancelDeferred = undefined;
+        return;
+      }
+
+      const rawValue = transformYield ? transformYield(result.value, awaited) : result.value;
+      if (isAwaited(rawValue) && awaitStep(rawValue[awaitedSymbol])) {
+        return;
+      }
+
+      const { reason } = cancelDeferred!;
+      cancelDeferred = undefined;
+      unwind(reason);
     }
 
     function settle(type: TGeneratorMethod, value: any) {
@@ -376,16 +423,10 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
       }
     }
 
-    function cancelIterator(canceledStep: TAsyncGeneratorStep, reason?: any) {
-      if (done) {
-        return;
-      }
-
-      done = true;
-      canceled = true;
-
+    function unwind(reason: any) {
       const outstanding = pendingSource;
       pendingSource = undefined;
+      pendingShielded = false;
       if (outstanding?.cancelable) {
         outstanding.cancel(reason);
       }
@@ -395,6 +436,21 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
         gen!.return(undefined);
       } catch {
         // swallow cleanup errors so cancellation still proceeds
+      }
+    }
+
+    function cancelIterator(canceledStep: TAsyncGeneratorStep, reason?: any) {
+      if (done) {
+        return;
+      }
+
+      done = true;
+      canceled = true;
+
+      if (pendingShielded) {
+        cancelDeferred = { reason };
+      } else {
+        unwind(reason);
       }
 
       const cancelError =
