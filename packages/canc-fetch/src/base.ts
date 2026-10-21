@@ -58,6 +58,44 @@ export interface IFetchCancellation {
   toRejection: (reason: any) => any;
 }
 
+// RequestInit members a class instance or a Request may hold as non-enumerable getters
+const INIT_KEYS = [
+  'activateAfter',
+  'body',
+  'cache',
+  'credentials',
+  'duplex',
+  'headers',
+  'integrity',
+  'keepalive',
+  'method',
+  'mode',
+  'priority',
+  'redirect',
+  'referrer',
+  'referrerPolicy',
+  'window',
+];
+
+// a spread drops inherited and getter members, so a POST built on a prototype went out as a GET
+const copyInit = (init: any, signal: any): any => {
+  const copy: Record<string, any> = {};
+
+  if (isObject(init)) {
+    for (const key in init) {
+      copy[key] = init[key];
+    }
+    INIT_KEYS.forEach((key) => {
+      if (key in init) {
+        copy[key] = init[key];
+      }
+    });
+  }
+
+  copy.signal = signal;
+  return copy;
+};
+
 // DOMException ABORT_ERR and TIMEOUT_ERR legacy codes
 const isAbortShaped = (reason: unknown): boolean =>
   isAbortError(reason) ||
@@ -267,7 +305,7 @@ export const cancelableFetchFactory = (config: ICancelableFetchConfig = {}) => {
       const _fetch = resolveDep<Fetch>(config, 'fetch', typeof fetch !== 'undefined' ? fetch : (undefined as any));
       const cancellation = setupCancellation(config, input, init, handleCancel);
 
-      _fetch(input, { ...init, signal: cancellation.signal }).then(
+      _fetch(input, copyInit(init, cancellation.signal)).then(
         (response: any) => {
           if (wrapBodyReaders(response, cancellation)) {
             // the caller signal stays wired until the body read settles
@@ -373,20 +411,38 @@ export const runFetchLater = (
     return;
   }
 
-  const { signal, finalize } = setupCancellation(config, input, init, handleCancel);
+  const { signal, finalize, toRejection } = setupCancellation(config, input, init, handleCancel);
   handleCancel(finalize);
 
   let result: IFetchLaterResultLike;
   try {
     // A sync throw (quota/range/type) surfaces as a raw rejection, not a CancelError.
-    result = _fetchLater(input, { ...init, signal });
+    result = _fetchLater(input, copyInit(init, signal));
   } catch (error) {
     finalize();
-    reject(error);
+    // a platform fetchLater throws an AbortError for a pre-aborted signal
+    reject(signal.aborted ? toRejection(error) : error);
     return;
   }
 
   setResult(result);
+
+  let stopPolling = () => {};
+  handleCancel(() => stopPolling());
+
+  // an external abort has no cancel() behind it, so it settles the promise itself
+  const onAbort = () => {
+    stopPolling();
+    finalize();
+    reject(toRejection(undefined));
+  };
+  if (signal.aborted) {
+    onAbort();
+    return;
+  }
+  if (isFunction(signal.addEventListener)) {
+    signal.addEventListener('abort', onAbort);
+  }
 
   const activateAfter = init?.activateAfter;
 
@@ -400,6 +456,10 @@ export const runFetchLater = (
   const timers = resolveTimers(undefined, config);
 
   let timerHandle: any;
+  stopPolling = () => {
+    stopPolling = () => {};
+    stopTimer(timerHandle, timers);
+  };
 
   // Recursive setTimeout, not setInterval: a tick that runs long never overlaps the next one, and
   // the handle rebinds every tick so cancel always clears whichever wait is currently pending.
@@ -420,10 +480,6 @@ export const runFetchLater = (
   };
 
   poll();
-
-  handleCancel(() => {
-    stopTimer(timerHandle, timers);
-  });
 };
 
 export const cancelableFetchLaterFactory = (config: ICancelableFetchLaterConfig = {}) => {

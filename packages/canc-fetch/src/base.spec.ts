@@ -293,6 +293,29 @@ describe('cancelableFetchFactory', () => {
   });
 });
 
+describe('init copy', () => {
+  it('passes inherited and getter init members to fetch', async () => {
+    const backing = deferredFetch();
+    const cancelableFetch = cancelableFetchFactory({ fetch: backing.fetch });
+
+    class Init {
+      get headers(): Record<string, string> {
+        return { accept: 'text/plain' };
+      }
+    }
+    Object.assign(Init.prototype, { method: 'POST', body: 'x' });
+
+    const fromPrototype = cancelableFetch('/api', Object.create({ method: 'POST', body: 'x' }));
+    const fromGetters = cancelableFetch('/api', new Init());
+
+    expect(backing.calls[0].init).toMatchObject({ method: 'POST', body: 'x' });
+    expect(backing.calls[1].init).toMatchObject({ method: 'POST', body: 'x', headers: { accept: 'text/plain' } });
+    void fromPrototype.cancel();
+    void fromGetters.cancel();
+    await Promise.all([fromPrototype, fromGetters].map((p) => p.then(null, () => {})));
+  });
+});
+
 describe('signal interop', () => {
   function makeNativeFactory(signal: any) {
     const backing = deferredFetch();
@@ -648,6 +671,54 @@ function createFakeTimers() {
 }
 
 describe('cancelableFetchLaterFactory', () => {
+  it('an external abort rejects with a CancelError, stops polling and detaches', async () => {
+    const fake = createFakeTimers();
+    const external = new NativeLikeAbortSignal();
+    const cancelableFetchLater = cancelableFetchLaterFactory({
+      fetchLater: jest.fn(() => makeFetchLaterResult(1000)) as any,
+      AbortController: MockAbortController as any,
+      pollInterval: 5,
+      ...fake.timers,
+    });
+
+    const promise = cancelableFetchLater('/api', { activateAfter: 1000, signal: external });
+    fake.advance(5);
+    expect(external.listeners).toHaveLength(1);
+
+    external.dispatchEvent(new MockEvent('abort'));
+    const error = await promise.then(null, (e: unknown) => e);
+    const ticks = fake.setTimeout.mock.calls.length;
+    fake.advance(50);
+
+    expect(isCancelError(error)).toBe(true);
+    expect(fake.setTimeout).toHaveBeenCalledTimes(ticks);
+    expect(external.listeners).toHaveLength(0);
+  });
+
+  it('an external abort without activateAfter rejects too', async () => {
+    const external = new AbortController();
+    const cancelableFetchLater = cancelableFetchLaterFactory({
+      fetchLater: jest.fn(() => makeFetchLaterResult(1000)) as any,
+    });
+
+    const promise = cancelableFetchLater('/api', { signal: external.signal });
+    external.abort();
+
+    expect(isCancelError(await promise.then(null, (e: unknown) => e))).toBe(true);
+  });
+
+  it('passes inherited init members to fetchLater', () => {
+    const fetchLater = jest.fn((_input: any, _init?: any) => makeFetchLaterResult(1000));
+    const promise = cancelableFetchLaterFactory({ fetchLater: fetchLater as any })(
+      '/api',
+      Object.create({ method: 'POST', body: 'x' }),
+    );
+
+    expect(fetchLater.mock.calls[0][1]).toMatchObject({ method: 'POST', body: 'x' });
+    void promise.cancel();
+    return promise.then(null, () => {});
+  });
+
   it('polls the FetchLaterResult activated flag and resolves once it flips true', async () => {
     const result = makeFetchLaterResult(1);
     const fetchLater = jest.fn(() => result);
