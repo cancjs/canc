@@ -1,6 +1,6 @@
 import { CancelError, isCancelError } from '@cancjs/promise';
 
-import { isAbortError, isCancelable, isFunction, isObject } from '../../_util';
+import { AggregateError, isAbortError, isCancelable, isFunction, isObject } from '../../_util';
 
 // Structural stand-in so the source builds in environments without DOM/Node lib types.
 export type AbortControllerCtor = new () => { abort: (reason?: any) => void; signal: any };
@@ -45,29 +45,18 @@ const toCancelError = (reason?: any): CancelError => {
   return new CancelError(reason);
 };
 
-/** Builds the CancelError for an abort that came from a caller-supplied signal. The cause is kept
- * AbortError-shaped so `CancelError#aborted` reads true. */
+/** Builds the CancelError for an abort that came from a caller-supplied signal, by the same rule as
+ * cancel(): an object reason (an AbortError or TimeoutError) becomes the cause as is. A signal that
+ * carries no reason gets an AbortError-shaped cause, so `CancelError#aborted` still reads true. */
 const toAbortCancelError = (reason?: any): CancelError => {
-  if (isCancelError(reason)) {
-    return reason;
+  if (reason !== undefined) {
+    return toCancelError(reason);
   }
 
-  if (isAbortError(reason)) {
-    return new CancelError(reason.message, { cause: reason });
-  }
-
-  const message =
-    isObject(reason) ? String((reason as any).message || '')
-    : reason == null ? ''
-    : String(reason);
-  const cause = new Error(message) as Error & { cause?: any };
+  const cause = new Error('') as Error & { cause?: any };
   cause.name = ABORT_ERROR_NAME;
 
-  if (reason !== undefined) {
-    cause.cause = reason;
-  }
-
-  return new CancelError(message, { cause });
+  return new CancelError('', { cause });
 };
 
 /**
@@ -150,9 +139,22 @@ export class CancelScope {
 
     const linked = this._linked;
     this._linked = [];
+    const failures: any[] = [];
 
     for (const promise of linked) {
-      promise.cancel(error);
+      try {
+        promise.cancel(error);
+      } catch (failure) {
+        failures.push(failure);
+      }
+    }
+
+    if (failures.length === 1) {
+      throw failures[0];
+    }
+
+    if (failures.length > 1) {
+      throw new AggregateError(failures, 'Linked promises failed to cancel');
     }
   }
 

@@ -135,4 +135,28 @@ describe('interceptors', () => {
 
     expect(String(response.config.headers['X-Direct'])).toBe('yes');
   });
+
+  it('keeps the live context for interceptors after one that unwraps the response', async () => {
+    const stub = createStubAdapter({ auto: true, data: { id: 1 } });
+    const api = wrapAxios(axios.create({ adapter: stub.adapter }));
+
+    let seenSignal: any;
+    let canceledBefore: boolean | undefined;
+    let canceledAfter: boolean | undefined;
+
+    api.interceptors.response.use((response) => response.data);
+    api.interceptors.response.use((data, ctx) => {
+      seenSignal = ctx.signal;
+      canceledBefore = ctx.isCanceled();
+      ctx.cancel();
+      canceledAfter = ctx.isCanceled();
+      return data;
+    });
+
+    await expect(api.get('/issues')).rejects.toBeInstanceOf(CancelError);
+
+    expect(seenSignal).toBeDefined();
+    expect(canceledBefore).toBe(false);
+    expect(canceledAfter).toBe(true);
+  });
 });

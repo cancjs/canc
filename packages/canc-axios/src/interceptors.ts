@@ -1,5 +1,5 @@
-import { isFunction } from '../../_util';
-import { getScope } from './scope';
+import { isFunction, isObject } from '../../_util';
+import { CancelScope, getScope } from './scope';
 import type { ICancelableAxiosContext, ICancelableInterceptorManager, IInterceptorOptions } from './types';
 
 /** Used when the scope cannot be found, which happens when an interceptor earlier in the chain
@@ -16,6 +16,13 @@ const detachedContext: ICancelableAxiosContext = {
   },
 };
 
+// An interceptor that unwraps the response (`res => res.data`) hands the next one a value with no
+// config on it. Remembering the scope against an object result lets the next interceptor find it.
+const carriedScopes = typeof WeakMap === 'function' ? new WeakMap<object, CancelScope>() : undefined;
+
+const carriedScope = (value: any): CancelScope | undefined =>
+  carriedScopes && isObject(value) ? carriedScopes.get(value) : undefined;
+
 /** Wraps a user handler so it receives the cancel context, and so a cancelable promise it returns
  * is tied to the request. Axios passes one argument and ignores the return arity, so the extra
  * parameter is invisible to it. */
@@ -25,8 +32,12 @@ const wrapHandler = (handler: any): any => {
   }
 
   return function (value: any) {
-    const scope = getScope(value);
+    const scope = getScope(value) || carriedScope(value);
     const result = handler(value, scope || detachedContext);
+
+    if (scope && carriedScopes && isObject(result) && !carriedScopes.has(result)) {
+      carriedScopes.set(result, scope);
+    }
 
     return scope ? scope.link(result) : result;
   };

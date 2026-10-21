@@ -348,6 +348,66 @@ describe('wrapAxios caller abort lifecycle', () => {
   });
 });
 
+describe('wrapAxios timeouts and linked cancels', () => {
+  it('marks a caller AbortSignal.timeout as a timeout with the signal reason as cause', async () => {
+    const stub = createStubAdapter();
+    const api = wrapAxios(axios.create({ adapter: stub.adapter }));
+    const signal = AbortSignal.timeout(5);
+
+    const error = (await api.get('/issues', { signal }).catch((reason) => reason)) as unknown as CancelError;
+
+    expect(isCancelError(error)).toBe(true);
+    expect(error.timedOut).toBe(true);
+    expect(error.cause).toBe(signal.reason);
+    expect((error.cause as Error).name).toBe('TimeoutError');
+  });
+
+  it('keeps a caller abort reason that is not a timeout from reading as one', async () => {
+    const stub = createStubAdapter();
+    const api = wrapAxios(axios.create({ adapter: stub.adapter }));
+    const controller = new AbortController();
+
+    const promise = api.get('/issues', { signal: controller.signal });
+    controller.abort();
+
+    const error = (await promise.catch((reason) => reason)) as unknown as CancelError;
+
+    expect(error.timedOut).toBe(false);
+    expect(error.aborted).toBe(true);
+  });
+
+  it('cancels every linked promise even when one cancel throws', async () => {
+    const stub = createStubAdapter();
+    const api = wrapAxios(axios.create({ adapter: stub.adapter }));
+    const canceled: string[] = [];
+    const linked = (name: string, fail?: boolean) =>
+      Object.assign(new CancelablePromise<void>(() => undefined), {
+        cancel: () => {
+          canceled.push(name);
+
+          if (fail) {
+            throw new Error('cancel failed ' + name);
+          }
+        },
+      });
+
+    api.interceptors.request.use((config, ctx) => {
+      ctx.link(linked('first'));
+      ctx.link(linked('second', true));
+      ctx.link(linked('third'));
+      return config;
+    });
+
+    const promise = api.get('/issues');
+    await nextTick();
+    const scope = stub.calls[0].cancelScope;
+
+    expect(() => scope.cancel()).toThrow('cancel failed second');
+    expect(canceled).toEqual(['first', 'second', 'third']);
+    await expect(promise).rejects.toBeInstanceOf(CancelError);
+  });
+});
+
 describe('wrapAxios instances', () => {
   it('creates wrapped instances that keep their own defaults', async () => {
     const stub = createStubAdapter({ auto: true });
