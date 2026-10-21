@@ -157,10 +157,10 @@ An input stops once its last consumer is gone, on the same schedule as a cancele
 
 - `race` and `any` give up the losers once a winner settles.
 - `all` gives up the remaining inputs on the first rejection.
-- `allSettled` gives up nothing while it waits, by definition it needs every input to settle.
+- `allSettled` gives up nothing while it waits, because it needs every input to settle.
 - Canceling the result of `all`, `allSettled`, `any` or `race` gives up every input it still holds.
 - Options (`shield`, `bubble: false`, `forceCancelable: false`, `signal`) apply to the result only. Inputs are
-  adopted with default flags, and a `signal` adds one abort listener however many inputs there are. An already
+  not reconfigured (a `CancelablePromise` input keeps its own flags), and a `signal` adds one abort listener however many inputs there are. An already
   aborted `signal` behaves like a later abort.
 - An input constructed with `bubble: false` is never canceled by this mechanism.
 
@@ -173,12 +173,12 @@ const fastest = CancelablePromise.race([shared, fetchMirror()]);
 // It is canceled only after `preview` is canceled as well.
 ```
 
-A loser follows the bubble rule above: it is canceled once no consumer remains after the turn in which
-the combinator settles, so a loser awaited in that turn still gets its value.
+A `race` loser follows the bubble rule above: it is canceled once no consumer remains after the turn in which
+the race settles, so a loser awaited in that turn still gets its value. `any` and `all` cancel their losers
+before such an `await` resumes, so a loser awaited there does not get its value.
 
 A cancelable that is not a `CancelablePromise`, such as a Bluebird or p-cancelable promise, cannot be counted.
-When it is the combinator's input, giving it up calls its `cancel()` directly, on the assumption that the
-combinator is its only holder.
+The combinators leave it alone: they never call its `cancel()`, even when they give it up.
 
 ### Disposal
 

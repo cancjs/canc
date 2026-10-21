@@ -385,13 +385,11 @@ describe('adoption cancel propagation', () => {
   });
 
   it('allSettled: a cancelable item keeps its declared-parent link through the internal .then wrap (control, not a new adoption path)', async () => {
-    // allSettled wraps every input in `_adopt(item).then(toSettledResult)` internally.
-    // This is not
-    // a new handler-return adoption path (the item is a declared ancestor of allSettled's
-    // per-item derived child, same as any `.then()` source), but it must keep working post-fix:
-    // canceling the allSettled RESULT does not reach a still-pending item (existing loser
-    // doctrine, see cancel-losers.spec.ts), while the item settling still flows through to the
-    // result's {status, value} entry untouched by the new adoption branch.
+    // allSettled wraps every input in `_adopt(item).then(toSettledResult)` internally
+    // not a new handler-return adoption path: the item is a declared ancestor of the per-item
+    // child, same as any `.then()` source
+    // canceling the result releases a sole-consumer pending item (next test) and a shared one keeps
+    // running; here the item settles and flows into its {status, value} entry unchanged
     const item = CancelablePromise.resolve(5);
     const result = await CancelablePromise.allSettled([item]);
 
