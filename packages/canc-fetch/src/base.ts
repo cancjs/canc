@@ -47,6 +47,8 @@ export interface IFetchCancellation {
   signal: any;
   abort: (reason?: any) => void;
   finalize: () => void;
+  // wires the caller signal again, for a body read still in flight
+  rewire: () => void;
   toRejection: (reason: any) => any;
 }
 
@@ -165,18 +167,26 @@ export const setupCancellation = (
 
   // a caller signal reused across fetches must not collect listeners
   let detachSignal = () => {};
+  let mergedWired = false;
   const merged =
     originalSignal && !originalSignal.aborted && !injected ? mergeSignals(signal, originalSignal) : undefined;
 
-  if (originalSignal) {
+  // wires the caller signal onto the own one, detachSignal undoes it
+  const attachSignal = () => {
+    if (!originalSignal) {
+      return;
+    }
     if (originalSignal.aborted) {
       // a caller cancel signal keeps its own CancelError
       abort(originalSignal.reason);
     } else if (merged) {
       // covers the body read without a listener on the caller signal
-      merged.addEventListener('abort', () => {
-        abort(merged.reason);
-      });
+      if (!mergedWired) {
+        mergedWired = true;
+        merged.addEventListener('abort', () => {
+          abort(merged.reason);
+        });
+      }
     } else if (isFunction(originalSignal.addEventListener)) {
       // survives onabort reassignment and leaves the caller object alone
       const externalAbortListener = () => {
@@ -185,7 +195,10 @@ export const setupCancellation = (
       originalSignal.addEventListener('abort', externalAbortListener);
 
       if (isFunction(originalSignal.removeEventListener)) {
-        detachSignal = () => originalSignal.removeEventListener!('abort', externalAbortListener);
+        detachSignal = () => {
+          detachSignal = () => {};
+          originalSignal.removeEventListener!('abort', externalAbortListener);
+        };
       }
     } else if ('onabort' in originalSignal) {
       // legacy polyfill: chain onabort, restore it on settle
@@ -200,10 +213,13 @@ export const setupCancellation = (
       };
 
       detachSignal = () => {
+        detachSignal = () => {};
         originalSignal.onabort = originalOnAbort ?? null;
       };
     }
-  }
+  };
+
+  attachSignal();
 
   handleCancel((reason) => abort(reason));
 
@@ -223,6 +239,12 @@ export const setupCancellation = (
     signal: merged || signal,
     abort,
     finalize: () => detachSignal(),
+    rewire: () => {
+      if (!done) {
+        detachSignal();
+        attachSignal();
+      }
+    },
     toRejection,
   };
 };
@@ -247,6 +269,7 @@ const wrapBodyReaders = (response: any, cancellation: IFetchCancellation): boole
   }
 
   let wrapped = false;
+  let reads = 0;
 
   BODY_READERS.forEach((name) => {
     const read = response[name];
@@ -262,22 +285,32 @@ const wrapBodyReaders = (response: any, cancellation: IFetchCancellation): boole
         return new CancelablePromise<any, TCancelableFetchFailure>((resolve, reject, { handleCancel }) => {
           handleCancel((reason) => cancellation.abort(reason));
 
+          const end = () => {
+            reads -= 1;
+            if (reads === 0) {
+              cancellation.finalize();
+            }
+          };
+
+          reads += 1;
+          cancellation.rewire();
+
           let pending: unknown;
           try {
             pending = read.call(this);
           } catch (error) {
-            cancellation.finalize();
+            end();
             reject(error);
             return;
           }
 
           CancelablePromise.resolve(pending).then(
             (value) => {
-              cancellation.finalize();
+              end();
               resolve(value);
             },
             (reason) => {
-              cancellation.finalize();
+              end();
               reject(cancellation.toRejection(reason));
             },
           );
@@ -300,12 +333,11 @@ export const cancelableFetchFactory = (config: ICancelableFetchConfig = {}) => {
 
       _fetch(input, copyInit(init, cancellation.signal)).then(
         (response: any) => {
+          // a body read wires the caller signal again while it runs
           if (wrapBodyReaders(response, cancellation)) {
-            // the caller signal stays wired until the body read settles
             bodyCancellation = cancellation;
-          } else {
-            cancellation.finalize();
           }
+          cancellation.finalize();
           resolve(response);
         },
         (reason: any) => {

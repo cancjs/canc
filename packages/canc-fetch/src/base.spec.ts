@@ -415,7 +415,7 @@ describe('signal interop', () => {
     expect(external.listeners).toHaveLength(0);
   });
 
-  it('keeps the listener through the body read and detaches when the read settles', async () => {
+  it('wires the listener only while the body read runs', async () => {
     const external = new NativeLikeAbortSignal();
     const { promise, resolveWith } = makeNativeFactory(external);
     let finishRead!: (text: string) => void;
@@ -423,9 +423,10 @@ describe('signal interop', () => {
 
     resolveWith(response);
     await promise;
-    expect(external.listeners).toHaveLength(1);
+    expect(external.listeners).toHaveLength(0);
 
     const read = response.text();
+    expect(external.listeners).toHaveLength(1);
     finishRead('done');
 
     await expect(read).resolves.toBe('done');

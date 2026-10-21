@@ -1,3 +1,4 @@
+import { getEventListeners } from 'node:events';
 import { createServer, IncomingMessage, Server, ServerResponse } from 'node:http';
 import { AddressInfo } from 'node:net';
 
@@ -167,5 +168,47 @@ describe('body phase', () => {
 
     expect(error).toBe(reason);
     await lastStream().closed;
+  });
+
+  describe.each([
+    ['injected AbortController', { AbortController }],
+    ['no AbortSignal.any', {}],
+  ])('caller signal on a fallback path (%s)', (label, extra) => {
+    const anyDescriptor = Object.getOwnPropertyDescriptor(AbortSignal, 'any')!;
+
+    beforeEach(() => {
+      if (label === 'no AbortSignal.any') {
+        Object.defineProperty(AbortSignal, 'any', { configurable: true, value: undefined });
+      }
+    });
+    afterEach(() => {
+      Object.defineProperty(AbortSignal, 'any', anyDescriptor);
+    });
+
+    it('leaves no caller listener behind for unread responses', async () => {
+      const body = { text: () => Promise.resolve('x') };
+      const cancelableFetch = cancelableFetchFactory({ ...extra, fetch: () => Promise.resolve({ ...body }) });
+      const caller = new AbortController();
+
+      for (let i = 0; i < 100; i++) {
+        await cancelableFetch('http://x', { signal: caller.signal });
+      }
+
+      expect(getEventListeners(caller.signal, 'abort')).toHaveLength(0);
+    });
+
+    it('a caller abort during a wrapped text() rejects it with a CancelError', async () => {
+      const cancelableFetch = cancelableFetchFactory(extra);
+      const caller = new AbortController();
+      const response = await cancelableFetch(baseUrl, { signal: caller.signal });
+      const read = response.text();
+
+      await lastStream().started;
+      caller.abort();
+
+      expect(isCancelError(await settleOf(read))).toBe(true);
+      expect(getEventListeners(caller.signal, 'abort')).toHaveLength(0);
+      await lastStream().closed;
+    });
   });
 });

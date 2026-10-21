@@ -100,8 +100,8 @@ request it already accepted is outside the client's control.
 An `AbortSignal` supplied through `init` keeps working alongside this, body included. Either source
 can abort the request, and a signal that is already aborted rejects the promise without a network
 call. Where `AbortSignal.any` exists, the two signals are merged so a long-lived caller signal gets
-no listener. Without it, or with an injected `AbortController`, the listener stays until the body
-read settles.
+no listener. Without it, or with an injected `AbortController`, the listener is wired only while a
+body reader is running, and a `response.body` stream read there is stopped by `cancel()` only.
 
 ## Description
 
