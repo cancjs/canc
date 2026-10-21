@@ -720,9 +720,10 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
       reject: rejectResults,
     } = this.withResolvers<TAll[], FailureOf<TAll>>(options);
 
+    const releaseInputs = releaseOnCancel(resultsPromise);
+
     try {
       const results: TAll[] = [];
-      const releaseInputs = releaseOnCancel(resultsPromise);
       let count = 0;
 
       for (const promiseOrValue of values) {
@@ -752,6 +753,8 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
         resolveResults(results);
       }
     } catch (error) {
+      // a throwing iterable gives up the inputs it already yielded
+      releaseInputs();
       rejectResults(error);
     }
 
@@ -863,6 +866,8 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
         rejectResult(createAggregateError(errors, 'All promises were rejected'));
       }
     } catch (error) {
+      // a throwing iterable gives up the inputs it already yielded
+      releaseInputs();
       rejectResult(error);
     }
 
@@ -933,7 +938,9 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
         releaseInputs.add(promise._retainRef(true));
       }
     } catch (error) {
+      // a throwing iterable settles the race and gives up the inputs it already yielded
       rejectResult(error);
+      releaseOnSettle();
     }
 
     return resultPromise;

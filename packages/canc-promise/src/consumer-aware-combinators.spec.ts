@@ -224,6 +224,55 @@ describe('combinator inputs follow consumer counting', () => {
     });
   });
 
+  describe('iterable that throws after yielding inputs', () => {
+    function* yieldThenThrow(
+      inputs: CancelablePromise<string>[],
+      error: Error,
+    ): Generator<CancelablePromise<string>, never> {
+      yield* inputs;
+      throw error;
+    }
+
+    describe.each(['all', 'any', 'race'] as const)('%s()', (kind) => {
+      it('rejects with the thrown error, cancels a sole input and keeps a shared one', async () => {
+        const sole = pending<string>();
+        const shared = pending<string>();
+        const consumer = shared.promise.then((value) => value);
+        const boom = new Error('iteration failed');
+
+        const values = yieldThenThrow([sole.promise, shared.promise], boom);
+        const result =
+          kind === 'all' ? CancelablePromise.all(values)
+          : kind === 'any' ? CancelablePromise.any(values)
+          : CancelablePromise.race(values);
+        await expect(result).rejects.toBe(boom);
+        await settleAll();
+
+        expect(sole.promise.isCanceled).toBe(true);
+        expect(shared.promise.isCanceled).toBe(false);
+        shared.resolve('shared value');
+        await expect(consumer).resolves.toBe('shared value');
+      });
+    });
+
+    // allSettled spreads the iterable before taking any input, so the throw is synchronous
+    it('allSettled() throws synchronously and leaves the inputs untouched', async () => {
+      const sole = pending<string>();
+      const shared = pending<string>();
+      const consumer = shared.promise.then((value) => value);
+      const boom = new Error('iteration failed');
+
+      expect(() => CancelablePromise.allSettled(yieldThenThrow([sole.promise, shared.promise], boom))).toThrow(boom);
+      await settleAll();
+
+      expect(sole.promise.isCanceled).toBe(false);
+      expect(shared.promise.isCanceled).toBe(false);
+      sole.resolve('sole value');
+      shared.resolve('shared value');
+      await expect(consumer).resolves.toBe('shared value');
+    });
+  });
+
   describe('race result losing its only consumer', () => {
     it('cancels the race and its input when the then child is canceled', async () => {
       const q0 = pending<string>();
