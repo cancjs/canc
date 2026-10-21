@@ -9,7 +9,15 @@ import {
   ISettledResult,
 } from '@cancjs/promise';
 
-import { isFunction, isGenerator, isObject, isThenable, setFnName } from '../../_util';
+import {
+  assertGeneratorResult,
+  assertStepResult,
+  isFunction,
+  isGenerator,
+  isObject,
+  isThenable,
+  setFnName,
+} from '../../_util';
 import {
   BreakError,
   getStepIterator,
@@ -214,10 +222,19 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
     // an already aborted signal cancels every step at birth, so the body is never created
     const bornCanceled = isSignalAborted(promiseOptions.signal);
     const gen: TGeneratorLike | undefined = bornCanceled ? undefined : genFn.apply(this, args);
+    let bodyError: TypeError | undefined;
+
+    if (gen !== undefined) {
+      try {
+        assertGeneratorResult(gen, 'A coroutine generator body must be a generator function');
+      } catch (error) {
+        bodyError = error as TypeError;
+      }
+    }
 
     let currentStep: TAsyncGeneratorStep | null = null;
     let queuedStep: TAsyncGeneratorStep | null = null;
-    let done = bornCanceled;
+    let done = bornCanceled || bodyError !== undefined;
     // Distinct from `done` (which is also true on normal completion): set only by a cancel, so a
     // source that settles AFTER cancel can be dropped instead of driving the (torn-down) generator.
     let canceled = false;
@@ -270,6 +287,13 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
     }
 
     function resume(method: TGeneratorMethod, sentValue: any) {
+      if (bodyError !== undefined) {
+        const error = bodyError;
+        bodyError = undefined;
+        settle('throw', error);
+        return;
+      }
+
       if (done) {
         // Generator already finished/returned; any residual step just reports completion.
         settle('return', undefined);
@@ -280,6 +304,7 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
 
       try {
         result = gen![method](sentValue);
+        assertStepResult(result, 'A coroutine generator body produced an invalid step');
       } catch (error) {
         done = true;
         settle('throw', error);

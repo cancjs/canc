@@ -1,6 +1,8 @@
 import { AggregateError, CancelablePromise, Failing, ICancelablePromiseOptions, ISettledResult } from '@cancjs/promise';
 
 import {
+  assertGeneratorResult,
+  assertStepResult,
   copyFunctionMetadata,
   IFn,
   isFunction,
@@ -89,10 +91,12 @@ export interface IGeneratorLikeFn<TThis = any> extends IFn {
 // caught even when the two wraps come from different copies of this package.
 const COROUTINE_BRAND = Symbol.for('@cancjs/coroutine:coroutine');
 
-// The driver only ever calls next/throw/return, and TGeneratorLike deliberately omits
-// Symbol.iterator, so isGenerator() would reject generator-likes that drive perfectly well here.
-function isGeneratorLike(value: any): boolean {
-  return isObject(value) && isFunction(value.next) && isFunction(value.throw);
+const BODY_CONTEXT = 'A coroutine body must be a generator function';
+const STEP_CONTEXT = 'A coroutine body produced an invalid step';
+
+function checkedStep(result: unknown): IteratorResult<any> {
+  assertStepResult(result, STEP_CONTEXT);
+  return result;
 }
 
 type TCoroutineReturn<TFn extends IGeneratorLikeFn, TReturn = ReturnType<TFn>> = Awaited<
@@ -209,15 +213,15 @@ export function cancAsync<
       // returned coroutine function is forwarded to the generator function.
       const gen: TGeneratorLike<unknown, TReturn> = genFn.apply(isCtx ? ctx : this, args);
 
-      if (!isGeneratorLike(gen)) {
+      if (isThenable(gen)) {
         throw new TypeError(
-          isThenable(gen) ?
-            'A coroutine body must be a generator function, but this one returned a promise. ' +
-              'An async function cannot be a coroutine body: write a generator and yield* each ' +
-              'awaited step.'
-          : 'A coroutine body must be a generator function',
+          'A coroutine body must be a generator function, but this one returned a promise. ' +
+            'An async function cannot be a coroutine body: write a generator and yield* each ' +
+            'awaited step.',
         );
       }
+
+      assertGeneratorResult(gen, BODY_CONTEXT);
 
       // Tracks whether the generator has reported `done`, guards against re-entering a finished
       // generator via gen.next()/gen.throw().
@@ -395,7 +399,7 @@ export function cancAsync<
         let result: IteratorResult<any>;
         executing = true;
         try {
-          result = gen.next(value);
+          result = checkedStep(gen.next(value));
         } catch (err) {
           genDone = true;
           if (canceled) {
@@ -423,7 +427,7 @@ export function cancAsync<
         let result: IteratorResult<any>;
         executing = true;
         try {
-          result = gen.throw(value);
+          result = checkedStep(gen.throw(value));
         } catch (err) {
           genDone = true;
           if (canceled) {
@@ -467,7 +471,7 @@ export function cancAsync<
         let result: IteratorResult<any>;
         executing = true;
         try {
-          result = gen.return(canceledReason);
+          result = checkedStep(gen.return(canceledReason));
         } catch (err) {
           // A finally block threw synchronously: surface it as the coroutine rejection.
           genDone = true;
@@ -496,7 +500,7 @@ export function cancAsync<
         if (isReturnUnwind(result.value)) {
           let next: IteratorResult<any>;
           try {
-            next = gen.return(canceledReason);
+            next = checkedStep(gen.return(canceledReason));
           } catch (err) {
             genDone = true;
             rejectDrained(err);
@@ -516,7 +520,7 @@ export function cancAsync<
 
           let next: IteratorResult<any>;
           try {
-            next = gen.next(undefined);
+            next = checkedStep(gen.next(undefined));
           } catch (err) {
             genDone = true;
             rejectDrained(err);
@@ -530,7 +534,7 @@ export function cancAsync<
         if (isObject(result.value) && (result.value as any)[CURRENT_LOOP]) {
           let next: IteratorResult<any>;
           try {
-            next = gen.next(findCurrentLoop(pendingCleanups));
+            next = checkedStep(gen.next(findCurrentLoop(pendingCleanups)));
           } catch (err) {
             genDone = true;
             rejectDrained(err);
@@ -546,7 +550,7 @@ export function cancAsync<
           (value: any) => {
             let next: IteratorResult<any>;
             try {
-              next = gen.next(value);
+              next = checkedStep(gen.next(value));
             } catch (err) {
               // Finally block threw after a yield: surface it as the rejection.
               genDone = true;
@@ -558,7 +562,7 @@ export function cancAsync<
           (reason: any) => {
             let next: IteratorResult<any>;
             try {
-              next = gen.throw(reason);
+              next = checkedStep(gen.throw(reason));
             } catch (err) {
               // Finally block threw after a yield in the error handler: surface it.
               genDone = true;
@@ -573,7 +577,7 @@ export function cancAsync<
       executing = true;
       let first: IteratorResult<any>;
       try {
-        first = gen.next();
+        first = checkedStep(gen.next());
       } finally {
         executing = false;
       }
