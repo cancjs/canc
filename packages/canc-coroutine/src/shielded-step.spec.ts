@@ -262,6 +262,45 @@ describe('a cancel landing on a shielded step in cancGenAsync', () => {
     expect(log).toEqual([]);
   });
 
+  it('rejects the step with an error the body throws after a shielded step', async () => {
+    const shielded = controlled<number>();
+    const cleanup = controlled<void>();
+    const log: string[] = [];
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown) => {
+      unhandled.push(reason);
+    };
+    process.on('unhandledRejection', onUnhandled);
+
+    try {
+      const producer = cancGenAsync(function* () {
+        try {
+          yield* cancGenAwait(CancelablePromise.resolve(shielded.promise, { shield: true }));
+          throw new Error('body failed');
+        } finally {
+          yield* cancGenAwait(CancelablePromise.resolve(cleanup.promise, { shield: true }));
+          log.push('cleanup done');
+        }
+      });
+
+      const first = producer().next() as CancelablePromise<any>;
+      const settled = first.catch((error: unknown) => error);
+      await flush();
+      first.cancel();
+      shielded.resolve(1);
+      await flush();
+      expect(log).toEqual([]);
+
+      cleanup.resolve();
+      expect(((await settled) as Error).message).toBe('body failed');
+      expect(log).toEqual(['cleanup done']);
+      await flush();
+      expect(unhandled).toEqual([]);
+    } finally {
+      process.off('unhandledRejection', onUnhandled);
+    }
+  });
+
   it('resumes the body after a shielded step and applies the cancel at the next unshielded one', async () => {
     const shielded = controlled<number>();
     const next = controlled<number>();
