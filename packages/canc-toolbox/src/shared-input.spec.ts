@@ -252,3 +252,52 @@ describe('delay cancels a non thenable duck cancelable it is the sole holder of'
     expect(cancel).toHaveBeenCalledTimes(1);
   });
 });
+
+// An older package copy ships `_chain` and `_subscribe` but predates `_retainRef`
+function olderCopyInput(): IInput {
+  const input = pendingInput();
+  Object.defineProperty(input.promise, '_retainRef', {
+    value: undefined,
+    configurable: true,
+  });
+
+  return input;
+}
+
+describe('helpers give up an input from an older package copy', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  describe.each(helpers)('%s', (_name, start) => {
+    it('leaves an input with another consumer running, and that consumer gets the value', async () => {
+      const input = olderCopyInput();
+      const other = input.promise.then((value) => value);
+
+      const stop = start(input.promise);
+      await flushMicrotasks();
+      stop();
+      await flushMicrotasks();
+
+      expect(input.promise.canceled).toBe(false);
+
+      input.resolve('value');
+      expect(await other).toBe('value');
+    });
+
+    it('cancels an input it was the only consumer of', async () => {
+      const input = olderCopyInput();
+
+      const stop = start(input.promise);
+      await flushMicrotasks();
+      stop();
+      await flushMicrotasks();
+
+      expect(input.promise.canceled).toBe(true);
+    });
+  });
+});
