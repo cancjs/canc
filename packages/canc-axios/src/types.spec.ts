@@ -1,4 +1,4 @@
-import type { CancelablePromise, FailureOf } from '@cancjs/promise';
+import type { CancelablePromise, FailureOf, Unlisted } from '@cancjs/promise';
 import type { AxiosError, AxiosInstance, AxiosResponse } from 'axios';
 import axios from 'axios';
 
@@ -31,11 +31,11 @@ type CreateResult = ReturnType<typeof api.create>;
 type GetFailure = FailureOf<GetResult>;
 
 export type Assertions = [
-  Expect<Equal<GetResult, CancelablePromise<AxiosResponse<Issue>, AxiosError<Issue, any>>>>,
-  Expect<Equal<PostResult, CancelablePromise<AxiosResponse<Issue>, AxiosError<Issue, any>>>>,
-  Expect<Equal<RequestResult, CancelablePromise<AxiosResponse<Issue>, AxiosError<Issue, any>>>>,
+  Expect<Equal<GetResult, CancelablePromise<AxiosResponse<Issue>, AxiosError<Issue, any> | Unlisted>>>,
+  Expect<Equal<PostResult, CancelablePromise<AxiosResponse<Issue>, AxiosError<Issue, any> | Unlisted>>>,
+  Expect<Equal<RequestResult, CancelablePromise<AxiosResponse<Issue>, AxiosError<Issue, any> | Unlisted>>>,
   Expect<Equal<CreateResult, ICancelableAxiosInstance>>,
-  Expect<Equal<GetFailure, AxiosError<Issue, any>>>,
+  Expect<Equal<GetFailure, AxiosError<Issue, any> | Unlisted>>,
 ];
 
 it('wraps an axios instance into the cancelable shape', () => {
