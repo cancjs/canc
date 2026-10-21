@@ -1,3 +1,6 @@
+import { createServer } from 'node:http';
+import { AddressInfo } from 'node:net';
+
 import {
   CancelablePromise,
   CancelError,
@@ -984,6 +987,19 @@ describe('declared failure set', () => {
     expect(error.timedOut).toBe(true);
     expect(error.cause).toBe(timeoutErr);
   });
+
+  it('rejects with the network TypeError for an unreachable port', async () => {
+    const server = createServer();
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const { port } = server.address() as AddressInfo;
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+
+    const error = await cancelableFetch(`http://127.0.0.1:${port}/`).then(null, (e: unknown) => e);
+
+    // undici builds the error in another realm, so the check reads the name
+    expect((error as Error).name).toBe('TypeError');
+    expect(isCancelError(error)).toBe(false);
+  });
 });
 
 type Eq<A, B> =
@@ -992,4 +1008,4 @@ type Eq<A, B> =
       true
     : false
   : false;
-const _checkFetchFailure: Eq<FailureOf<ReturnType<typeof cancelableFetch>>, TimeoutError | Unlisted> = true;
+const _checkFetchFailure: Eq<FailureOf<ReturnType<typeof cancelableFetch>>, TypeError | Unlisted> = true;

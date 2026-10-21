@@ -4,7 +4,6 @@ import {
   createCancelSignal,
   IExecutorContext,
   isCancelSignal,
-  TimeoutError,
   Unlisted,
 } from '@cancjs/promise';
 
@@ -236,18 +235,16 @@ export const setupCancellation = (
 };
 
 /**
- * Failures that a cancelable fetch or fetchLater request can reject with. The set is open: a
- * network failure rejects with the platform error, which is not listed here.
- * Note: a request canceled via canc .cancel() rejects with a CancelError whose cause is an
- * AbortError, NOT a bare AbortError. Cancellation is not a failure, so that path does not
- * contribute to the declared failure set.
+ * Failures that a cancelable fetch or fetchLater request can reject with. A network, URL or CORS
+ * failure rejects with the platform `TypeError`. The set is open, so other rejections stay possible.
+ * A timeout or an abort is a cancellation, not a failure: it rejects with a CancelError, whose
+ * `timedOut` is true for a timeout, and adds nothing to this set.
  */
-export type TCancelableFetchFailure = TimeoutError | Unlisted;
+export type TCancelableFetchFailure = TypeError | Unlisted;
 
 const BODY_READERS = ['arrayBuffer', 'blob', 'bytes', 'formData', 'json', 'text'];
 
-// Own non-enumerable readers shadow the prototype ones so canceling a read (or the chain step
-// that returned it) aborts the body. Returns false when nothing could be wrapped.
+// own readers shadow the prototype ones, so canceling a read aborts the body
 const wrapBodyReaders = (response: any, cancellation: IFetchCancellation): boolean => {
   if (!isObject(response) || !Object.isExtensible(response)) {
     return false;
