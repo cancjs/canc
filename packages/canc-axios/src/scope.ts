@@ -188,7 +188,9 @@ export class CancelScope {
     this._stream = undefined;
 
     if (stream) {
-      stream.destroy();
+      // an error with no listener would crash the process, so only a watched stream gets it
+      const watched = isFunction(stream.listenerCount) && stream.listenerCount('error') > 0;
+      stream.destroy(watched ? this.reason : undefined);
     }
   }
 

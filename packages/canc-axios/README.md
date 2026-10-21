@@ -120,7 +120,7 @@ error regardless of which signal aborted.
 
 A caller abort rejects the promise right away, even when the adapter ignores the signal. An abort that lands while response interceptors are still running rejects as well, and the signal listener is removed as soon as the request settles.
 
-With `responseType: 'stream'` the promise fulfills at the response headers, so the body is still readable afterwards. The request stays abortable until the stream ends or closes: aborting the caller signal, or calling `response.config.cancelScope.cancel()`, destroys the stream.
+With `responseType: 'stream'` the promise fulfills at the response headers, so the body is still readable afterwards. The request stays abortable until the stream ends or closes: aborting the caller signal, or calling `response.config.cancelScope.cancel()`, destroys the stream. A consumer that listens for errors (`for await`, `pipeline`, an `'error'` handler) sees the `CancelError`. A stream nobody listens to for errors is destroyed without one, so the abort cannot crash the process.
 
 The wrapper holds no state beyond what axios itself holds. `defaults` on the wrapper is a live
 accessor onto the underlying instance's defaults, and `interceptors` is a facade over the real

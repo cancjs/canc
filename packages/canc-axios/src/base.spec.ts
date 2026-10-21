@@ -352,6 +352,46 @@ describe('wrapAxios caller abort lifecycle', () => {
     expect(stream.destroyed).toBe(true);
   });
 
+  it('ends a consumed stream with the CancelError on abort', async () => {
+    const stub = createStubAdapter();
+    const api = wrapAxios(axios.create({ adapter: stub.adapter }));
+    const controller = new AbortController();
+    const stream = new PassThrough();
+
+    const promise = api.get('/events', { signal: controller.signal, responseType: 'stream' });
+    await nextTick();
+    stub.respond(stream);
+    await promise;
+
+    const consumed = (async () => {
+      for await (const _chunk of stream) {
+        // drains until the abort
+      }
+    })();
+    controller.abort();
+
+    const error = await consumed.then(null, (reason: unknown) => reason);
+    expect(isCancelError(error)).toBe(true);
+  });
+
+  it('destroys a stream without an error listener quietly', async () => {
+    const stub = createStubAdapter();
+    const api = wrapAxios(axios.create({ adapter: stub.adapter }));
+    const controller = new AbortController();
+    const stream = new PassThrough();
+
+    const promise = api.get('/events', { signal: controller.signal, responseType: 'stream' });
+    await nextTick();
+    stub.respond(stream);
+    await promise;
+
+    controller.abort();
+    await new Promise((resolve) => stream.once('close', resolve));
+
+    expect(stream.destroyed).toBe(true);
+    expect(stream.errored).toBeNull();
+  });
+
   it('removes the watcher when a stream closes on its own', async () => {
     const stub = createStubAdapter();
     const api = wrapAxios(axios.create({ adapter: stub.adapter }));
@@ -365,6 +405,7 @@ describe('wrapAxios caller abort lifecycle', () => {
     await nextTick();
     stub.respond(stream);
     await promise;
+    expect(getEventListeners(controller.signal as any, 'abort')).toHaveLength(1);
 
     stream.destroy();
     await new Promise((resolve) => stream.once('close', resolve));
