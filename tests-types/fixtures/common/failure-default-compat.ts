@@ -222,7 +222,7 @@ const fetchN = cancelableFetch('x');
 const timeoutCaught = catchErrors(timeout(nativeNumber, 10), TimeoutError);
 type _timeoutN = Assert<Eq<FailureOf<typeof timeoutN>, TimeoutError | Unlisted>>;
 type _waitForN = Assert<Eq<FailureOf<typeof waitForN>, TimeoutError | Unlisted>>;
-type _fetchN = Assert<Eq<FailureOf<typeof fetchN>, TypeError | Unlisted>>;
+type _fetchN = Assert<Eq<FailureOf<typeof fetchN>, (TypeError & { readonly name: 'TypeError' }) | Unlisted>>;
 type _timeoutCaught = Assert<Eq<FailureOf<typeof timeoutCaught>, Unlisted>>;
 
 // timeout keeps the input failure next to its own
@@ -274,7 +274,7 @@ const coFetch = cancAsync(function* () {
   return res;
 });
 type _coTimeoutN = Assert<Eq<FailureOf<ReturnType<typeof coTimeoutN>>, TimeoutError>>;
-type _coFetch = Assert<Eq<FailureOf<ReturnType<typeof coFetch>>, TypeError>>;
+type _coFetch = Assert<Eq<FailureOf<ReturnType<typeof coFetch>>, TypeError & { readonly name: 'TypeError' }>>;
 const coTimeoutF = cancAsync(function* () {
   const x = yield* cancAwait(timeout(f, 1));
   return x;

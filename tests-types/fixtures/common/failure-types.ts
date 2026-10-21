@@ -161,4 +161,6 @@ if (isAbortError(rawAbort)) {
 export {};
 
 // fetch declares the network TypeError; a timeout arrives as a CancelError, outside the set
-type _fetchFailure = Assert<Eq<FailureOf<ReturnType<typeof cancelableFetch>>, TypeError | Unlisted>>;
+type _fetchFailure = Assert<
+  Eq<FailureOf<ReturnType<typeof cancelableFetch>>, (TypeError & { readonly name: 'TypeError' }) | Unlisted>
+>;
