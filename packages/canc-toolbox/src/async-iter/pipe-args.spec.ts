@@ -86,6 +86,37 @@ describe('pipe arguments', () => {
       await expect(anyPipe([1], toArray(), Object.create(null))).resolves.toEqual([1]);
     });
 
+    it('ignores a trailing undefined config slot', async () => {
+      await expect(
+        anyPipe(
+          [1, 2],
+          anyMap((x: number) => x + 1),
+          toArray(),
+          undefined,
+        ),
+      ).resolves.toEqual([2, 3]);
+
+      await expect(
+        drain(
+          anyPipe(
+            [1, 2],
+            anyMap((x: number) => x + 1),
+            undefined,
+          ),
+        ),
+      ).resolves.toEqual([2, 3]);
+    });
+
+    it('rejects a trailing null config slot', () => {
+      expect(() =>
+        anyPipe(
+          [1, 2],
+          anyMap((x: number) => x),
+          null,
+        ),
+      ).toThrow(TypeError);
+    });
+
     it('does not take a class instance for config', () => {
       class Options {}
 
@@ -104,6 +135,12 @@ describe('pipe arguments', () => {
 
     it('concat still takes a trailing config object', async () => {
       await expect(drain(anyConcat(from([1]), [2], { signal: undefined }))).resolves.toEqual([1, 2]);
+    });
+
+    it('concat and zip ignore a trailing undefined config slot', async () => {
+      await expect(drain(anyConcat(from([1]), [2], undefined))).resolves.toEqual([1, 2]);
+
+      await expect(drain(anyZip(from([1]), [2], undefined))).resolves.toEqual([[1, 2]]);
     });
 
     it('zip still takes a trailing config object', async () => {
