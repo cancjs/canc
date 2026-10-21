@@ -297,6 +297,28 @@ describe('cancelableFetchFactory', () => {
 });
 
 describe('init copy', () => {
+  it('reads each getter once and skips an own __proto__ key', async () => {
+    const backing = deferredFetch();
+    const cancelableFetch = cancelableFetchFactory({ fetch: backing.fetch });
+    let reads = 0;
+    const init = JSON.parse('{"__proto__": {"method": "POST"}, "body": "x"}');
+    Object.defineProperty(init, 'method', {
+      enumerable: true,
+      get: () => {
+        reads++;
+        return 'PUT';
+      },
+    });
+
+    const promise = cancelableFetch('/api', init);
+
+    expect(reads).toBe(1);
+    expect(Object.getPrototypeOf(backing.calls[0].init)).toBe(Object.prototype);
+    expect(backing.calls[0].init).toMatchObject({ method: 'PUT', body: 'x' });
+    void promise.cancel();
+    await promise.then(null, () => {});
+  });
+
   it('passes inherited and getter init members to fetch', async () => {
     const backing = deferredFetch();
     const cancelableFetch = cancelableFetchFactory({ fetch: backing.fetch });

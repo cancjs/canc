@@ -81,12 +81,18 @@ const copyInit = (init: any, signal: any): any => {
   const copy: Record<string, any> = {};
 
   if (isObject(init)) {
+    const copyKey = (key: string) => {
+      // a JSON.parse own __proto__ would reset the prototype through plain assignment
+      if (key !== '__proto__' && !Object.prototype.hasOwnProperty.call(copy, key)) {
+        copy[key] = init[key];
+      }
+    };
     for (const key in init) {
-      copy[key] = init[key];
+      copyKey(key);
     }
     INIT_KEYS.forEach((key) => {
       if (key in init) {
-        copy[key] = init[key];
+        copyKey(key);
       }
     });
   }
