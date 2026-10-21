@@ -50,25 +50,25 @@ signal: any
 ## `ICancelableAxiosInstance` (interface)
 
 ```text
-<T = any, R = AxiosResponse<T, any, {}>, D = any>(config: AxiosRequestConfig<D>): CancelablePromise<R, AxiosError<T, D>>
-<T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D> | undefined): CancelablePromise<R, AxiosError<T, D>>
+<T = any, R = AxiosResponse<T, any, {}>, D = any>(config: AxiosRequestConfig<D>): CancelablePromise<R, AxiosError<T, D> | Unlisted>
+<T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D> | undefined): CancelablePromise<R, AxiosError<T, D> | Unlisted>
 readonly axios: IAxiosInstanceLike
 create: (config?: AxiosRequestConfig) => ICancelableAxiosInstance
 defaults: Omit<AxiosDefaults<any>, "headers"> & { headers: HeadersDefaults & { [key: string]: AxiosHeaderValue; }; }
-delete: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
-get: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
+delete: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
+get: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
 getUri: (config?: AxiosRequestConfig) => string
-head: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
+head: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
 interceptors: ICancelableAxiosInterceptors
-options: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
-patch: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
-patchForm: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
-post: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
-postForm: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
-put: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
-putForm: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
-query: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
-request: <T = any, R = AxiosResponse<T, any, {}>, D = any>(config: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
+options: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
+patch: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
+patchForm: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
+post: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
+postForm: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
+put: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
+putForm: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
+query: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
+request: <T = any, R = AxiosResponse<T, any, {}>, D = any>(config: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
 ```
 
 ## `ICancelableAxiosInterceptors` (interface)
@@ -88,8 +88,8 @@ AbortController?: AbortControllerCtor | undefined
 
 ```text
 extends ICancelableAxiosInstance
-<T = any, R = AxiosResponse<T, any, {}>, D = any>(config: AxiosRequestConfig<D>): CancelablePromise<R, AxiosError<T, D>>
-<T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D> | undefined): CancelablePromise<R, AxiosError<T, D>>
+<T = any, R = AxiosResponse<T, any, {}>, D = any>(config: AxiosRequestConfig<D>): CancelablePromise<R, AxiosError<T, D> | Unlisted>
+<T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D> | undefined): CancelablePromise<R, AxiosError<T, D> | Unlisted>
 Axios: typeof Axios
 AxiosError?: any
 AxiosHeaders?: any
@@ -102,25 +102,25 @@ all: <T>(values: (PromiseLike<T> | T)[]) => CancelablePromise<T[], FailureOf<T>>
 readonly axios: IAxiosInstanceLike
 create: (config?: AxiosRequestConfig) => ICancelableAxiosInstance
 defaults: Omit<AxiosDefaults<any>, "headers"> & { headers: HeadersDefaults & { [key: string]: AxiosHeaderValue; }; }
-delete: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
+delete: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
 formToJSON?: any
-get: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
+get: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
 getAdapter?: any
 getUri: (config?: AxiosRequestConfig) => string
-head: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
+head: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
 interceptors: ICancelableAxiosInterceptors
 isAxiosError: <T = any, D = any>(payload: any) => payload is AxiosError<T, D>
 isCancel: <T = any>(value: any) => value is CanceledError<T>
 mergeConfig?: any
-options: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
-patch: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
-patchForm: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
-post: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
-postForm: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
-put: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
-putForm: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
-query: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
-request: <T = any, R = AxiosResponse<T, any, {}>, D = any>(config: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
+options: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
+patch: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
+patchForm: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
+post: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
+postForm: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
+put: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
+putForm: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
+query: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
+request: <T = any, R = AxiosResponse<T, any, {}>, D = any>(config: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
 spread: <T, R>(callback: (...args: T[]) => R) => (array: T[]) => R
 toFormData?: any
 wrap: (instance: IAxiosInstanceLike, options?: ICancelableAxiosOptions) => ICancelableAxiosInstance
@@ -157,8 +157,8 @@ synchronous?: boolean | undefined
 ## `cancelableAxios` (const)
 
 ```text
-<T = any, R = AxiosResponse<T, any, {}>, D = any>(config: AxiosRequestConfig<D>): CancelablePromise<R, AxiosError<T, D>>
-<T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D> | undefined): CancelablePromise<R, AxiosError<T, D>>
+<T = any, R = AxiosResponse<T, any, {}>, D = any>(config: AxiosRequestConfig<D>): CancelablePromise<R, AxiosError<T, D> | Unlisted>
+<T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D> | undefined): CancelablePromise<R, AxiosError<T, D> | Unlisted>
 Axios: typeof Axios
 AxiosError?: any
 AxiosHeaders?: any
@@ -171,25 +171,25 @@ all: <T>(values: (PromiseLike<T> | T)[]) => CancelablePromise<T[], FailureOf<T>>
 readonly axios: IAxiosInstanceLike
 create: (config?: AxiosRequestConfig) => ICancelableAxiosInstance
 defaults: Omit<AxiosDefaults<any>, "headers"> & { headers: HeadersDefaults & { [key: string]: AxiosHeaderValue; }; }
-delete: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
+delete: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
 formToJSON?: any
-get: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
+get: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
 getAdapter?: any
 getUri: (config?: AxiosRequestConfig) => string
-head: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
+head: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
 interceptors: ICancelableAxiosInterceptors
 isAxiosError: <T = any, D = any>(payload: any) => payload is AxiosError<T, D>
 isCancel: <T = any>(value: any) => value is CanceledError<T>
 mergeConfig?: any
-options: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
-patch: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
-patchForm: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
-post: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
-postForm: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
-put: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
-putForm: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
-query: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
-request: <T = any, R = AxiosResponse<T, any, {}>, D = any>(config: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
+options: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
+patch: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
+patchForm: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
+post: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
+postForm: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
+put: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
+putForm: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
+query: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
+request: <T = any, R = AxiosResponse<T, any, {}>, D = any>(config: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
 spread: <T, R>(callback: (...args: T[]) => R) => (array: T[]) => R
 toFormData?: any
 wrap: (instance: IAxiosInstanceLike, options?: ICancelableAxiosOptions) => ICancelableAxiosInstance
@@ -198,8 +198,8 @@ wrap: (instance: IAxiosInstanceLike, options?: ICancelableAxiosOptions) => ICanc
 ## `default` (const)
 
 ```text
-<T = any, R = AxiosResponse<T, any, {}>, D = any>(config: AxiosRequestConfig<D>): CancelablePromise<R, AxiosError<T, D>>
-<T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D> | undefined): CancelablePromise<R, AxiosError<T, D>>
+<T = any, R = AxiosResponse<T, any, {}>, D = any>(config: AxiosRequestConfig<D>): CancelablePromise<R, AxiosError<T, D> | Unlisted>
+<T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D> | undefined): CancelablePromise<R, AxiosError<T, D> | Unlisted>
 Axios: typeof Axios
 AxiosError?: any
 AxiosHeaders?: any
@@ -212,25 +212,25 @@ all: <T>(values: (PromiseLike<T> | T)[]) => CancelablePromise<T[], FailureOf<T>>
 readonly axios: IAxiosInstanceLike
 create: (config?: AxiosRequestConfig) => ICancelableAxiosInstance
 defaults: Omit<AxiosDefaults<any>, "headers"> & { headers: HeadersDefaults & { [key: string]: AxiosHeaderValue; }; }
-delete: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
+delete: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
 formToJSON?: any
-get: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
+get: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
 getAdapter?: any
 getUri: (config?: AxiosRequestConfig) => string
-head: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
+head: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
 interceptors: ICancelableAxiosInterceptors
 isAxiosError: <T = any, D = any>(payload: any) => payload is AxiosError<T, D>
 isCancel: <T = any>(value: any) => value is CanceledError<T>
 mergeConfig?: any
-options: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
-patch: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
-patchForm: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
-post: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
-postForm: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
-put: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
-putForm: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
-query: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
-request: <T = any, R = AxiosResponse<T, any, {}>, D = any>(config: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D>>
+options: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
+patch: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
+patchForm: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
+post: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
+postForm: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
+put: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
+putForm: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
+query: <T = any, R = AxiosResponse<T, any, {}>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
+request: <T = any, R = AxiosResponse<T, any, {}>, D = any>(config: AxiosRequestConfig<D>) => CancelablePromise<R, AxiosError<T, D> | Unlisted>
 spread: <T, R>(callback: (...args: T[]) => R) => (array: T[]) => R
 toFormData?: any
 wrap: (instance: IAxiosInstanceLike, options?: ICancelableAxiosOptions) => ICancelableAxiosInstance

@@ -1,4 +1,4 @@
-import type { CancelablePromise, FailureOf } from '@cancjs/promise';
+import type { CancelablePromise, FailureOf, Unlisted } from '@cancjs/promise';
 import type { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosStatic } from 'axios';
 
 import type { AbortControllerCtor } from './scope';
@@ -68,68 +68,70 @@ export interface ICancelableAxiosInterceptors {
  * assignable wherever an AxiosInstance is expected.
  */
 export interface ICancelableAxiosInstance {
-  <T = any, R = AxiosResponse<T>, D = any>(config: AxiosRequestConfig<D>): CancelablePromise<R, AxiosError<T, D>>;
+  <T = any, R = AxiosResponse<T>, D = any>(
+    config: AxiosRequestConfig<D>,
+  ): CancelablePromise<R, AxiosError<T, D> | Unlisted>;
   <T = any, R = AxiosResponse<T>, D = any>(
     url: string,
     config?: AxiosRequestConfig<D>,
-  ): CancelablePromise<R, AxiosError<T, D>>;
+  ): CancelablePromise<R, AxiosError<T, D> | Unlisted>;
 
   request<T = any, R = AxiosResponse<T>, D = any>(
     config: AxiosRequestConfig<D>,
-  ): CancelablePromise<R, AxiosError<T, D>>;
+  ): CancelablePromise<R, AxiosError<T, D> | Unlisted>;
   get<T = any, R = AxiosResponse<T>, D = any>(
     url: string,
     config?: AxiosRequestConfig<D>,
-  ): CancelablePromise<R, AxiosError<T, D>>;
+  ): CancelablePromise<R, AxiosError<T, D> | Unlisted>;
   delete<T = any, R = AxiosResponse<T>, D = any>(
     url: string,
     config?: AxiosRequestConfig<D>,
-  ): CancelablePromise<R, AxiosError<T, D>>;
+  ): CancelablePromise<R, AxiosError<T, D> | Unlisted>;
   head<T = any, R = AxiosResponse<T>, D = any>(
     url: string,
     config?: AxiosRequestConfig<D>,
-  ): CancelablePromise<R, AxiosError<T, D>>;
+  ): CancelablePromise<R, AxiosError<T, D> | Unlisted>;
   options<T = any, R = AxiosResponse<T>, D = any>(
     url: string,
     config?: AxiosRequestConfig<D>,
-  ): CancelablePromise<R, AxiosError<T, D>>;
+  ): CancelablePromise<R, AxiosError<T, D> | Unlisted>;
   post<T = any, R = AxiosResponse<T>, D = any>(
     url: string,
     data?: D,
     config?: AxiosRequestConfig<D>,
-  ): CancelablePromise<R, AxiosError<T, D>>;
+  ): CancelablePromise<R, AxiosError<T, D> | Unlisted>;
   put<T = any, R = AxiosResponse<T>, D = any>(
     url: string,
     data?: D,
     config?: AxiosRequestConfig<D>,
-  ): CancelablePromise<R, AxiosError<T, D>>;
+  ): CancelablePromise<R, AxiosError<T, D> | Unlisted>;
   patch<T = any, R = AxiosResponse<T>, D = any>(
     url: string,
     data?: D,
     config?: AxiosRequestConfig<D>,
-  ): CancelablePromise<R, AxiosError<T, D>>;
+  ): CancelablePromise<R, AxiosError<T, D> | Unlisted>;
 
   /** Mirrored only when the underlying axios exposes them. */
   postForm<T = any, R = AxiosResponse<T>, D = any>(
     url: string,
     data?: D,
     config?: AxiosRequestConfig<D>,
-  ): CancelablePromise<R, AxiosError<T, D>>;
+  ): CancelablePromise<R, AxiosError<T, D> | Unlisted>;
   putForm<T = any, R = AxiosResponse<T>, D = any>(
     url: string,
     data?: D,
     config?: AxiosRequestConfig<D>,
-  ): CancelablePromise<R, AxiosError<T, D>>;
+  ): CancelablePromise<R, AxiosError<T, D> | Unlisted>;
   patchForm<T = any, R = AxiosResponse<T>, D = any>(
     url: string,
     data?: D,
     config?: AxiosRequestConfig<D>,
-  ): CancelablePromise<R, AxiosError<T, D>>;
+  ): CancelablePromise<R, AxiosError<T, D> | Unlisted>;
   query<T = any, R = AxiosResponse<T>, D = any>(
     url: string,
     data?: D,
     config?: AxiosRequestConfig<D>,
-  ): CancelablePromise<R, AxiosError<T, D>>;
+  ): CancelablePromise<R, AxiosError<T, D> | Unlisted>;
 
   create(config?: AxiosRequestConfig): ICancelableAxiosInstance;
   getUri(config?: AxiosRequestConfig): string;
