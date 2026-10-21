@@ -5,8 +5,7 @@ import { CancelablePromise, isCancelError } from '@cancjs/promise';
 
 import { cancelableFetchFactory } from './base';
 
-// Streams one NDJSON line every few ms until the client goes away. `closed` resolves on the
-// server-side close of each request, so a spec awaits the socket drop instead of sleeping.
+// endless NDJSON; `closed` resolves on the server-side close, no sleeps
 interface IStream {
   started: Promise<void>;
   closed: Promise<void>;
