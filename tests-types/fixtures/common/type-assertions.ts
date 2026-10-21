@@ -57,7 +57,11 @@ import {
   suppressTimeout as nativeSuppressTimeout,
   TimeoutError as NativeTimeoutError,
 } from '@cancjs/toolbox-native';
-import { delay as nativeDelay, LazyPromise as NativeLazyPromise } from '@cancjs/toolbox-native';
+import {
+  delay as nativeDelay,
+  LazyPromise as NativeLazyPromise,
+  timeout as nativeTimeout,
+} from '@cancjs/toolbox-native';
 
 import type { Equal, Expect } from './assert-type';
 
@@ -299,3 +303,20 @@ const nativeLazyDelay = nativeDelay(1, { lazy: true });
 type _nativeLazyDelay = Expect<Equal<typeof nativeLazyDelay, NativeLazyPromise<void>>>;
 // @ts-expect-error the native lazy promise has no cancel
 nativeLazyDelay.cancel();
+
+// a lazy timeout over an input is lazy too, with the input's failure set; the eager form is unchanged
+declare const timedInput: CancelablePromise<number, RangeError>;
+const lazyTimeoutOver = timeout(timedInput, 1, { lazy: true });
+type _lazyTimeoutOver = Expect<
+  Equal<typeof lazyTimeoutOver, LazyPromise<number, RangeError | TimeoutError | Unlisted>>
+>;
+const lazyTimeoutFn = timeout(() => timedInput, 1, { lazy: true });
+type _lazyTimeoutFn = Expect<Equal<typeof lazyTimeoutFn, LazyPromise<number, RangeError | TimeoutError | Unlisted>>>;
+const eagerTimeoutOver = timeout(timedInput, 1);
+type _eagerTimeoutOver = Expect<
+  Equal<typeof eagerTimeoutOver, CancelablePromise<number, RangeError | TimeoutError | Unlisted>>
+>;
+const nativeLazyTimeoutOver = nativeTimeout(Promise.resolve(1), 1, { lazy: true });
+type _nativeLazyTimeoutOver = Expect<Equal<typeof nativeLazyTimeoutOver, NativeLazyPromise<number>>>;
+const nativeLazyTimeoutFn = nativeTimeout(() => Promise.resolve(1), 1, { lazy: true });
+type _nativeLazyTimeoutFn = Expect<Equal<typeof nativeLazyTimeoutFn, NativeLazyPromise<number>>>;
