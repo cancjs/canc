@@ -350,6 +350,7 @@ name: string
 (ms: TDuration, options: (ILazyOn & TCallDeps) & INativeOptions): LazyPromise<never>
 (ms: TDuration, options?: (INativeOptions & TCallDeps) | undefined): Promise<never>
 <P extends PromiseLike<unknown>>(input: (() => P) | P, ms?: TDuration | undefined, options?: (INativeOptions & TCallDeps) | undefined): Promise<TValueOf<P>>
+<P extends PromiseLike<unknown>>(input: (() => P) | P, ms: TDuration | undefined, options: (ILazyOn & TCallDeps) & INativeOptions): LazyPromise<TValueOf<P>>
 <T, F = never>(input: TTimedInput<T>, ms?: TDuration | undefined, options?: (INativeOptions & TCallDeps) | undefined): Promise<T>
 ```
 
