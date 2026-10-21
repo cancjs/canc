@@ -31,7 +31,7 @@ readonly activated: boolean
 ## `TCancelableFetchFailure` (type)
 
 ```text
-TypeError | Unlisted
+TNetworkTypeError | Unlisted
 ```
 
 ## `TCancelableFetchLaterPromise` (type)

@@ -234,13 +234,16 @@ export const setupCancellation = (
   };
 };
 
+// the literal name keeps a union with other Error subclasses from reducing to TypeError
+type TNetworkTypeError = TypeError & { readonly name: 'TypeError' };
+
 /**
  * Failures that a cancelable fetch or fetchLater request can reject with. A network, URL or CORS
  * failure rejects with the platform `TypeError`. The set is open, so other rejections stay possible.
  * A timeout or an abort is a cancellation, not a failure: it rejects with a CancelError, whose
  * `timedOut` is true for a timeout, and adds nothing to this set.
  */
-export type TCancelableFetchFailure = TypeError | Unlisted;
+export type TCancelableFetchFailure = TNetworkTypeError | Unlisted;
 
 const BODY_READERS = ['arrayBuffer', 'blob', 'bytes', 'formData', 'json', 'text'];
 

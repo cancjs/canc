@@ -1008,4 +1008,7 @@ type Eq<A, B> =
       true
     : false
   : false;
-const _checkFetchFailure: Eq<FailureOf<ReturnType<typeof cancelableFetch>>, TypeError | Unlisted> = true;
+const _checkFetchFailure: Eq<
+  FailureOf<ReturnType<typeof cancelableFetch>>,
+  (TypeError & { readonly name: 'TypeError' }) | Unlisted
+> = true;
