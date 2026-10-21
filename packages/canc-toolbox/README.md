@@ -346,7 +346,7 @@ floor on success, not a timer. Pick the one that matches what a failure should d
 | `debounce(fn, ms, options?)` | Debounces function calls, returning a wrapper with `cancel()`, `flush()`, `isPending` |
 | `throttle(fn, ms, options?)` | Throttles function calls, returning a wrapper with `cancel()`, `flush()`, `isPending` |
 
-A superseding call cancels an in-flight call on a cancelable promise implementation or rejects a not-yet-invoked call with `SupersededError` on a plain implementation. A fire-and-forget call needs a rejection handler attached so a superseded call is not unhandled.
+A superseding call cancels an in-flight call on a cancelable promise implementation or rejects a not-yet-invoked call with `SupersededError` on a plain implementation. A superseded call counts as handled, so a fire-and-forget call raises no unhandled rejection for it, while a failure of the function itself still surfaces.
 
 ### Concurrency
 

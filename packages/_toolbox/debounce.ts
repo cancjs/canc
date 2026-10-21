@@ -182,8 +182,9 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
         // cancel surface of its own, but reject is still live pre-invoke, so settle it directly.
         // Once invoke() has adopted a thenable this is already undefined and nothing can redirect
         // the promise, matching the native `withAbortSignal` stance of never faking a CancelError.
-        // Branded, not a bare Error, so a caller can tell supersede from a real failure
-        // a fire-and-forget debounced(x) needs its own handler now, or it goes unhandled
+        // Branded, not a bare Error, so a caller can tell supersede from a real failure.
+        // Marked handled here only, so a call nobody subscribed to still reports fn's own failure.
+        if (pendingPromise && isThenableLike(pendingPromise)) pendingPromise.then(undefined, ignore);
         pendingReject(Object.assign(new SupersededError(), { cause: reason }));
       }
       superseding = false;
@@ -264,12 +265,6 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
         },
         options,
       );
-
-      // a cancelable promise reports nothing for a cancel, a native one would report every
-      // superseded call nobody subscribed to, and subscribers still see the rejection
-      if (!isCancelableLike(p) && isThenableLike(p)) {
-        p.then(undefined, ignore);
-      }
 
       pendingPromise = p;
       return p;

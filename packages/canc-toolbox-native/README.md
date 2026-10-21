@@ -73,7 +73,8 @@ abort, and canceling the result of `timeout`, `delay`, `minDelay`, `retry` or a 
 `cancel()` without one.
 
 Under `debounce` and `throttle`, a superseded pending or trailing call rejects with `SupersededError`.
-A fire-and-forget call needs a rejection handler attached so a superseded call is not unhandled.
+A superseded call counts as handled, so a fire-and-forget call raises no unhandled rejection for it,
+while a failure of the function itself still surfaces as unhandled when nobody subscribed.
 
 `fromAbortSignal(signal)` is here, and fulfills once `signal` aborts. Without a cancel channel its
 listener comes off on settle only, so racing it against a signal that never fires holds the listener

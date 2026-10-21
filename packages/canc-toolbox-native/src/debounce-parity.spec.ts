@@ -1,3 +1,5 @@
+import { runInThisContext } from 'vm';
+
 import { debounce, throttle } from './index';
 
 // jest fakes setImmediate with the other timers, and node reports a rejection on a real turn
@@ -227,6 +229,75 @@ describe('debounce and throttle timing (native)', () => {
       await turn();
 
       await expect(first).rejects.toHaveProperty('name', 'SupersededError');
+    });
+  });
+
+  describe('unobserved calls', () => {
+    // the test sandbox has its own `process`, the runtime reports rejections on the host one
+    const host = runInThisContext('process') as NodeJS.Process;
+    let saved: NodeJS.UnhandledRejectionListener[];
+    let unhandled: jest.Mock;
+
+    beforeEach(() => {
+      saved = host.listeners('unhandledRejection');
+      host.removeAllListeners('unhandledRejection');
+      unhandled = jest.fn();
+      host.on('unhandledRejection', unhandled);
+    });
+
+    afterEach(() => {
+      host.removeAllListeners('unhandledRejection');
+      for (const listener of saved) host.on('unhandledRejection', listener);
+    });
+
+    const failing: Array<[string, () => never | Promise<never>]> = [
+      [
+        'throws',
+        () => {
+          throw new Error('boom');
+        },
+      ],
+      ['rejects', () => Promise.reject(new Error('boom'))],
+    ];
+
+    describe.each([
+      ['debounce', debounce],
+      ['throttle', throttle],
+    ])('%s', (_name, wrap) => {
+      it.each(failing)('reports one unhandled rejection per call when fn %s', async (_how, fn) => {
+        const wrapped = wrap(fn, 10, { leading: true, trailing: false });
+
+        wrapped();
+        jest.advanceTimersByTime(20);
+        wrapped();
+        jest.advanceTimersByTime(20);
+        jest.useRealTimers();
+        await turn();
+        await turn();
+
+        expect(unhandled).toHaveBeenCalledTimes(2);
+      });
+
+      it('reports nothing for a superseded call, and an awaiting caller sees SupersededError', async () => {
+        const wrapped = wrap(() => Promise.reject(new Error('boom')), 10, { leading: false });
+
+        wrapped();
+        const awaited = wrapped();
+        wrapped(); // supersedes both calls above, then runs fn and fails
+        const outcome = awaited.then(
+          () => undefined,
+          (e: unknown) => e,
+        );
+        jest.advanceTimersByTime(20);
+        jest.useRealTimers();
+        await turn();
+        await turn();
+
+        expect(await outcome).toHaveProperty('name', 'SupersededError');
+        // only the call that ran fn surfaces its failure
+        expect(unhandled).toHaveBeenCalledTimes(1);
+        expect(unhandled.mock.calls[0][0]).toHaveProperty('message', 'boom');
+      });
     });
   });
 
