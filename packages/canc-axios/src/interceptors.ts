@@ -16,12 +16,24 @@ const detachedContext: ICancelableAxiosContext = {
   },
 };
 
-// An interceptor that unwraps the response (`res => res.data`) hands the next one a value with no
-// config on it. Remembering the scope against an object result lets the next interceptor find it.
-const carriedScopes = typeof WeakMap === 'function' ? new WeakMap<object, CancelScope>() : undefined;
+// an unwrapped result (`res => res.data`) has no config, so its scope is remembered by object;
+// null marks an object two requests returned, which gets the detached context
+const carriedScopes = typeof WeakMap === 'function' ? new WeakMap<object, CancelScope | null>() : undefined;
 
 const carriedScope = (value: any): CancelScope | undefined =>
-  carriedScopes && isObject(value) ? carriedScopes.get(value) : undefined;
+  (carriedScopes && isObject(value) && carriedScopes.get(value)) || undefined;
+
+const carryScope = (result: unknown, scope: CancelScope): void => {
+  if (!carriedScopes || !isObject(result)) {
+    return;
+  }
+  const carried = carriedScopes.get(result as object);
+  if (carried === undefined) {
+    carriedScopes.set(result as object, scope);
+  } else if (carried !== scope) {
+    carriedScopes.set(result as object, null);
+  }
+};
 
 /** Wraps a user handler so it receives the cancel context, and so a cancelable promise it returns
  * is tied to the request. Axios passes one argument and ignores the return arity, so the extra
@@ -35,8 +47,8 @@ const wrapHandler = (handler: any): any => {
     const scope = getScope(value) || carriedScope(value);
     const result = handler(value, scope || detachedContext);
 
-    if (scope && carriedScopes && isObject(result) && !carriedScopes.has(result)) {
-      carriedScopes.set(result, scope);
+    if (scope) {
+      carryScope(result, scope);
     }
 
     return scope ? scope.link(result) : result;

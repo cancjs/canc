@@ -153,6 +153,12 @@ example above, if the request is canceled while the token refresh is in flight, 
 promise is canceled too. `ctx.link(promise)` explicitly ties any cancelable promise to the
 request's lifecycle, so work started outside the return path is still canceled with the request.
 
+An interceptor that unwraps the response (`(response) => response.data`) still hands the next
+interceptor the live context, because the returned object is remembered for its request. The next
+interceptor gets a detached context (`signal` is `undefined`, `cancel()` does nothing) when the
+previous one returned a primitive, a value it resolved from a promise, or an object that another
+request also returned. The request itself still cancels through its signal.
+
 ### Combinators
 
 `all` differs from `axios.all` on purpose: it builds a `CancelablePromise`. Canceling the aggregate

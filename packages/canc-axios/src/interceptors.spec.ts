@@ -159,4 +159,28 @@ describe('interceptors', () => {
     expect(canceledBefore).toBe(false);
     expect(canceledAfter).toBe(true);
   });
+
+  it('never hands one request the context of another through a shared unwrapped value', async () => {
+    const stub = createStubAdapter({ auto: true });
+    const api = wrapAxios(axios.create({ adapter: stub.adapter }));
+    const shared = { cached: true };
+    const signals: any[] = [];
+
+    api.interceptors.response.use(() => shared as any);
+    api.interceptors.response.use((value, ctx) => {
+      signals.push(ctx.signal);
+      // the second request cancels whatever context it was handed
+      if (signals.length === 2) {
+        ctx.cancel();
+      }
+      return value;
+    });
+
+    const first = api.get('/first');
+    const second = api.get('/second');
+
+    await expect(first).resolves.toBe(shared);
+    await second.then(null, () => {});
+    expect(signals[1]).not.toBe(signals[0]);
+  });
 });
