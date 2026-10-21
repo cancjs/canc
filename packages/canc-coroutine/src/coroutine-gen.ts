@@ -29,6 +29,7 @@ import {
   TEachSource,
   TForAwaitCallback,
   TGeneratorLike,
+  unwindAfterRelease,
 } from './coroutine';
 import type { CoFailureOf } from './step-failure';
 
@@ -580,15 +581,14 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
       const outstanding = pendingSource;
       const release = releaseStepSource;
       clearStepSource();
+      const unwindBody = () => pumpDrain('return', undefined);
       forwardCancel(
         () => {
-          if (release) {
-            release();
-          } else if (outstanding?.cancelable) {
+          if (!release && outstanding?.cancelable) {
             outstanding.cancel(cancelReason);
           }
         },
-        () => pumpDrain('return', undefined),
+        release ? () => unwindAfterRelease(release, unwindBody) : unwindBody,
       );
     }
 

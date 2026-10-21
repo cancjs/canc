@@ -172,6 +172,29 @@ export function forwardCancel(stop: () => void, unwind: () => void): void {
   }
 }
 
+const noop = () => {};
+
+// Releasing a step source inside a cancel collects whatever cleanup the release starts: a source
+// left without consumers is canceled and its cleanup, an inner coroutine finally included, ends
+// before the body unwinds; a source other consumers still hold keeps running and adds no wait
+export function unwindAfterRelease(release: () => void, unwind: () => void): void {
+  const collect = new CancelablePromise<never>(
+    (_resolve, _reject, { handleCancel }) => {
+      handleCancel(() => {
+        release();
+      });
+    },
+    { asyncCancel: true },
+  );
+  collect.catch(noop);
+  const cleanup = collect.cancel();
+  if (cleanup) {
+    void cleanup.then(unwind, unwind);
+  } else {
+    unwind();
+  }
+}
+
 // Driver-understood marker, same trick as RETURN_UNWIND: a loop handle hands its cleanup to the
 // driver because the `for...of` return hook that a `break` fires cannot await
 const REGISTER_CLEANUP = Symbol.for('@cancjs/coroutine:registerCleanup');
@@ -633,14 +656,14 @@ export function cancAsync<
         const release = releaseStepSource;
         releaseStepSource = undefined;
 
-        forwardCancel(() => {
-          if (outstanding?.cancelable) {
-            outstanding.cancel(canceledReason);
-          }
-          if (release) {
-            release();
-          }
-        }, returnFromBody);
+        forwardCancel(
+          () => {
+            if (outstanding?.cancelable) {
+              outstanding.cancel(canceledReason);
+            }
+          },
+          release ? () => unwindAfterRelease(release, returnFromBody) : returnFromBody,
+        );
       };
 
       const returnFromBody = () => {

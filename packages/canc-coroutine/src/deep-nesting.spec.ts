@@ -60,7 +60,11 @@ function genNest(depth: number): INest {
       if (depth <= 3) log.push(`finally ${n}`);
     }
   });
-  return { start: () => poll(1).next() as CancelablePromise<unknown>, built: () => built, log };
+  return {
+    start: () => poll(1).next() as CancelablePromise<unknown>,
+    built: () => built,
+    log,
+  };
 }
 
 describe.each([
@@ -101,14 +105,142 @@ describe.each([
     await settleUntil(() => fromTop.built() === 3);
     await top.cancel();
     fromTop.log.push('awaited');
-    await settleUntil(() => fromTop.log.includes('leaf'));
-    expect(fromTop.log).toEqual(['finally 1', 'awaited', 'finally 3', 'finally 2', 'leaf']);
+    expect(fromTop.log).toEqual(['leaf', 'finally 3', 'finally 2', 'finally 1', 'awaited']);
 
     const fromLeaf = nest(3);
     const view = fromLeaf.start().then();
     view.catch(() => {});
     await settleUntil(() => fromLeaf.built() === 3);
     await view.cancel();
-    expect(fromLeaf.log).toEqual(['finally 3', 'finally 2', 'finally 1', 'leaf']);
+    expect(fromLeaf.log).toEqual(['leaf', 'finally 3', 'finally 2', 'finally 1']);
+  });
+});
+
+const sourceLog: string[] = [];
+
+const tick = (ms: number) => new CancelablePromise<void>((resolve) => setTimeout(resolve, ms));
+
+interface ICleanupNest {
+  top: CancelablePromise<unknown>;
+  log: string[];
+}
+
+// every level runs an async finally, so the order shows whether inner cleanup ends first
+function asyncCleanupNest(): ICleanupNest {
+  const log: string[] = [];
+  const level = (name: string, inner?: () => CancelablePromise<unknown>) =>
+    cancAsync(
+      function* (): Generator<any, any, any> {
+        try {
+          if (inner) return yield inner();
+          return yield new CancelablePromise<never>(() => {});
+        } finally {
+          log.push(`${name} start`);
+          yield tick(2);
+          yield tick(2);
+          log.push(`${name} end`);
+        }
+      },
+      { asyncCancel: true },
+    );
+  const top = level('a', level('b', level('c')))();
+  return { top, log };
+}
+
+function genCleanupNest(): ICleanupNest {
+  const log: string[] = [];
+  const level = (name: string, inner?: () => CancelablePromise<unknown>) =>
+    cancGenAsync(
+      function* (): Generator<any, void, any> {
+        try {
+          if (inner) {
+            yield* cancGenAwait(inner());
+            return;
+          }
+          yield* cancGenAwait(new CancelablePromise<never>(() => {}));
+        } finally {
+          log.push(`${name} start`);
+          yield* cancGenAwait(tick(2));
+          yield* cancGenAwait(tick(2));
+          log.push(`${name} end`);
+        }
+      },
+      { asyncCancel: true },
+    );
+  const c = level('c');
+  const b = level('b', () => c().next() as CancelablePromise<unknown>);
+  const a = level('a', () => b().next() as CancelablePromise<unknown>);
+  const top = a().next() as CancelablePromise<unknown>;
+  return { top, log };
+}
+
+describe.each([
+  ['cancAsync', asyncCleanupNest],
+  ['cancGenAsync', genCleanupNest],
+])('%s nest with async cleanup', (_name, nest) => {
+  it('finishes inner cleanup before the outer body unwinds', async () => {
+    const { top, log } = nest();
+    top.catch((error: Error) => log.push(`top ${error.name}`));
+    await tick(5);
+
+    await top.cancel();
+    log.push('cancel awaited');
+
+    expect(log.filter((entry) => entry.endsWith(' end'))).toEqual(['c end', 'b end', 'a end']);
+    expect(log.indexOf('a start')).toBeGreaterThan(log.indexOf('b end'));
+    expect(log.indexOf('b start')).toBeGreaterThan(log.indexOf('c end'));
+    expect(log.slice(-2)).toEqual(['top CancelError', 'cancel awaited']);
+  });
+});
+
+describe.each([
+  [
+    'cancAsync',
+    (source: CancelablePromise<never>) =>
+      cancAsync(
+        function* () {
+          try {
+            return yield* cancAwait(source);
+          } finally {
+            sourceLog.push('body finally');
+          }
+        },
+        { asyncCancel: true },
+      )(),
+  ],
+  [
+    'cancGenAsync',
+    (source: CancelablePromise<never>) =>
+      cancGenAsync(
+        function* () {
+          try {
+            yield* cancGenAwait(source);
+          } finally {
+            sourceLog.push('body finally');
+          }
+        },
+        { asyncCancel: true },
+      )().next() as CancelablePromise<unknown>,
+  ],
+])('%s awaiting a sole source with an async cancel handler', (_name, run) => {
+  it('unwinds only after the source cleanup ends', async () => {
+    sourceLog.length = 0;
+    const source = new CancelablePromise<never>(
+      (_resolve, _reject, { handleCancel }) => {
+        handleCancel(async () => {
+          await tick(2);
+          sourceLog.push('source cleaned');
+        });
+      },
+      { asyncCancel: true },
+    );
+    const top = run(source);
+    top.catch(() => sourceLog.push('top rejected'));
+    await tick(2);
+
+    await top.cancel();
+    sourceLog.push('cancel awaited');
+
+    expect(sourceLog).toEqual(['source cleaned', 'body finally', 'top rejected', 'cancel awaited']);
   });
 });

@@ -303,7 +303,7 @@ describe('cancAsync', () => {
 
         p.cancel();
         // Flush to let cancel handler settle and drain complete
-        await flush(5);
+        await flush();
 
         expect(p.isCanceled).toBe(true);
         // No further steps ran after cancel.
