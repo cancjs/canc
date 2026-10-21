@@ -578,7 +578,7 @@ result of the delegation.
 Canceling a pending step (`iterator.next().cancel()`) or aborting the signal passed in the options
 cancels the producer the same way `canc.async` cancels a coroutine. Its `finally` blocks run to
 the end with shielded steps, the canceled step stays pending until they finish, and an error thrown
-by that cleanup rejects the step. The signal is watched for the whole life of the producer, so an
+by that cleanup rejects the step. The signal is watched from the producer's first pull until it ends, so an
 abort between two pulls cleans it up too. The `finally` that a consumer `return()` or `break` runs
 is protected the same way, so a cancel landing during that cleanup waits for it.
 

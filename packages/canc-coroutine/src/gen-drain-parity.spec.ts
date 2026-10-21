@@ -1,4 +1,5 @@
 import { CancelablePromise, isCancelError } from '@cancjs/promise';
+import { getEventListeners } from 'events';
 
 import { BreakError, cancAsync, cancAwait, cancForAwait } from './coroutine';
 import { cancGenAsync, cancGenAwait, cancGenDelegate, cancGenForAwait } from './coroutine-gen';
@@ -274,6 +275,53 @@ describe('cancGenAsync generator lifetime under cancel', () => {
     await flush();
     expect(finallyRuns).toBe(1);
     expect(isCancelError(await it.next().catch((error: unknown) => error))).toBe(true);
+  });
+
+  it('adds no abort listener for a producer that is never pulled', () => {
+    const controller = new AbortController();
+    const producer = cancGenAsync(
+      function* () {
+        yield 1;
+      },
+      { signal: controller.signal },
+    );
+
+    for (let i = 0; i < 50; i++) {
+      producer();
+    }
+
+    expect(getEventListeners(controller.signal, 'abort')).toHaveLength(0);
+  });
+
+  it('watches the signal once from the first pull on', async () => {
+    const controller = new AbortController();
+    const it = cancGenAsync(
+      function* () {
+        yield 1;
+        yield 2;
+      },
+      { signal: controller.signal },
+    )();
+
+    await it.next();
+    await it.next();
+    expect(getEventListeners(controller.signal, 'abort')).toHaveLength(1);
+  });
+
+  it('skips the body of a producer created with an aborted signal', async () => {
+    const controller = new AbortController();
+    controller.abort('stop');
+    let ran = false;
+    const it = cancGenAsync(
+      function* () {
+        ran = true;
+        yield 1;
+      },
+      { signal: controller.signal },
+    )();
+
+    expect(isCancelError(await it.next().catch((error: unknown) => error))).toBe(true);
+    expect(ran).toBe(false);
   });
 
   it('lets a canceled consumer return() finish its cleanup', async () => {

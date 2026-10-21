@@ -324,8 +324,15 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
       };
     }
 
-    // one subscription per generator, so an abort between pulls still unwinds the body
-    if (!done && signal) {
+    // one subscription per started generator, so an abort between pulls still unwinds the body
+    let watching = false;
+
+    function startListening() {
+      if (watching || done || !signal || isSignalAborted(signal)) {
+        return;
+      }
+
+      watching = true;
       unsubscribe = subscribeAbort(signal, (reason) => {
         cancelGen(reason, undefined, false);
       });
@@ -380,6 +387,8 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
 
         return promise.asyncCancel ? unwound : undefined;
       };
+
+      startListening();
 
       if (queuedStep) {
         queuedStep.next = own;
