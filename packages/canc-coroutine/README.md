@@ -149,6 +149,15 @@ flag is still `false`; it turns `true` when the cleanup is done and the promise 
 handlers run at that point too, and they receive the reason passed to `cancel()`, not the
 `CancelError`.
 
+A cancel unwinds the body through `yield*` delegation too. The `forAwait`, `forAwait.toArray` and
+`cancGen.delegate` helpers, and a generator callback passed to `forAwait`, run their cleanup and
+then keep unwinding, so the code after the helper call never runs. A generator of your own behaves
+differently when its `finally` awaits something. JavaScript resumes the caller once that `finally`
+completes, as if the delegated call had returned normally, so the statements after your `yield*`
+run (their steps are shielded, and the coroutine still settles as canceled). Check the signal you
+passed in the options after such a call, `if (signal.aborted) return;`, or keep awaits out of the
+helper's `finally`.
+
 If the signal passed in the options is already aborted, the coroutine is canceled from the start
 and its body never runs. With `strict`, calling it returns a rejected promise instead of throwing.
 

@@ -20,6 +20,7 @@ import {
 } from '../../_util';
 import {
   BreakError,
+  delegateUnwinding,
   getStepIterator,
   IGeneratorLikeFn,
   returnStepIterator,
@@ -37,6 +38,9 @@ export type TCancelableCoroutineGenOptions = ICancelablePromiseOptions & {
 };
 
 const genMethods = ['next', 'throw', 'return'] as const;
+
+// a helper the consumer returned into yields this once its cleanup ran, so the driver returns again
+const GEN_RETURN_UNWIND = Symbol.for('@cancjs/coroutine:genReturnUnwind');
 
 // a cancel landing on a shielded step waits for it, then unwinds at the next unshielded step
 function isShieldedStep(value: unknown): boolean {
@@ -247,6 +251,8 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
     // cancel accepted mid shielded step: body runs on to its next unshielded step
     let cancelDeferred: { reason: any } | undefined;
     let pendingShielded = false;
+    // value of the consumer return() in flight, handed back when a helper asks to return again
+    let returnValue: any;
 
     const asyncGen = {
       [Symbol.asyncIterator]() {
@@ -308,6 +314,10 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
         return;
       }
 
+      if (method === 'return') {
+        returnValue = sentValue;
+      }
+
       let result: IteratorResult<any, any>;
 
       try {
@@ -316,6 +326,11 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
       } catch (error) {
         done = true;
         settle('throw', error);
+        return;
+      }
+
+      if (!result.done && result.value === GEN_RETURN_UNWIND) {
+        resume('return', returnValue);
         return;
       }
 
@@ -495,9 +510,11 @@ interface ICancGenForAwait {
 export const cancGenForAwait = function* cancGenForAwait(
   source: any,
   cb: (value: any, index: number) => any,
-): Generator<TAwaited<any>, void, any> {
+): Generator<unknown, void, any> {
   const { it, async: isAsync } = getStepIterator(source);
   let index = 0;
+  // stays set only when the consumer returned into the loop, the one case that must re-return
+  let returning = true;
 
   try {
     while (true) {
@@ -514,7 +531,7 @@ export const cancGenForAwait = function* cancGenForAwait(
 
       if (isGenerator(outcome)) {
         // bare-generator cb: delegate, its cancGenAwait steps run on the driver
-        settled = yield* outcome as Generator<TAwaited<any>, void, any>;
+        settled = yield* delegateUnwinding(outcome as Generator<unknown, void | false, any>, GEN_RETURN_UNWIND);
       } else if (isThenable(outcome)) {
         settled = yield awaited(outcome); // cancAsync-coroutine cb (CancelablePromise): marker pull
       } else {
@@ -525,14 +542,22 @@ export const cancGenForAwait = function* cancGenForAwait(
         break;
       }
     }
+    returning = false;
+  } catch (error) {
+    returning = false;
+    throw error;
   } finally {
     yield awaited(returnStepIterator(it));
+    if (returning) {
+      yield GEN_RETURN_UNWIND;
+    }
   }
 } as unknown as ICancGenForAwait;
 
-cancGenForAwait.toArray = function* toArray(source: any): Generator<TAwaited<any>, any[], any> {
+cancGenForAwait.toArray = function* toArray(source: any): Generator<unknown, any[], any> {
   const { it, async: isAsync } = getStepIterator(source);
   const collected: any[] = [];
+  let returning = true;
 
   try {
     while (true) {
@@ -544,8 +569,15 @@ cancGenForAwait.toArray = function* toArray(source: any): Generator<TAwaited<any
 
       collected.push(isAsync ? result.value : yield awaited(result.value));
     }
+    returning = false;
+  } catch (error) {
+    returning = false;
+    throw error;
   } finally {
     yield awaited(returnStepIterator(it));
+    if (returning) {
+      yield GEN_RETURN_UNWIND;
+    }
   }
 
   return collected;
@@ -561,9 +593,10 @@ cancGenForAwait.toArray = function* toArray(source: any): Generator<TAwaited<any
 export function cancGenDelegate<T>(
   source: TEachSource<T>,
 ): Generator<T | (TAwaited<any> & Failing<BreakError>), void, any>;
-export function cancGenDelegate<T>(source: TEachSource<T>): Generator<T | TAwaited<any>, void, any> {
-  return (function* (): Generator<T | TAwaited<any>, void, any> {
+export function cancGenDelegate<T>(source: TEachSource<T>): Generator<unknown, void, any> {
+  return (function* (): Generator<unknown, void, any> {
     const { it, async: isAsync } = getStepIterator(source);
+    let returning = true;
 
     try {
       while (true) {
@@ -572,8 +605,15 @@ export function cancGenDelegate<T>(source: TEachSource<T>): Generator<T | TAwait
         const item = isAsync ? stepResult.value : yield awaited(stepResult.value);
         yield item; // BARE = emit to our consumer
       }
+      returning = false;
+    } catch (error) {
+      returning = false;
+      throw error;
     } finally {
       yield awaited(returnStepIterator(it));
+      if (returning) {
+        yield GEN_RETURN_UNWIND;
+      }
     }
   })();
 }

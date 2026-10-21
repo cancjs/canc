@@ -65,6 +65,61 @@ function isReturnUnwind(value: unknown): boolean {
   return value === RETURN_UNWIND;
 }
 
+// Drives a delegate's return-path cleanup in place of the original return, which a `finally` that
+// yields would otherwise turn into a normal completion of `yield*` and resume the caller
+function* finishReturn(inner: Generator<unknown, any, any>): Generator<unknown, void, any> {
+  let result = inner.return(undefined);
+
+  while (!result.done) {
+    let sent: any;
+    let threw = false;
+
+    try {
+      sent = yield result.value;
+    } catch (error) {
+      sent = error;
+      threw = true;
+    }
+
+    result = threw ? inner.throw(sent) : inner.next(sent);
+  }
+}
+
+/**
+ * `yield*` over a generator that keeps a forwarded return a return. Once the delegate finishes its
+ * cleanup, `marker` asks the driver to return again, so the caller never resumes after the delegate.
+ */
+export function* delegateUnwinding<TReturn>(
+  inner: Generator<unknown, TReturn, any>,
+  marker: symbol,
+): Generator<unknown, TReturn, any> {
+  let result = inner.next();
+
+  while (!result.done) {
+    let resumed = false;
+    let threw = false;
+    let sent: any;
+
+    try {
+      sent = yield result.value;
+      resumed = true;
+    } catch (error) {
+      sent = error;
+      threw = true;
+      resumed = true;
+    } finally {
+      if (!resumed) {
+        yield* finishReturn(inner);
+        yield marker;
+      }
+    }
+
+    result = threw ? inner.throw(sent) : inner.next(sent);
+  }
+
+  return result.value;
+}
+
 // Driver-understood marker, same trick as RETURN_UNWIND: a loop handle hands its cleanup to the
 // driver because the `for...of` return hook that a `break` fires cannot await
 const REGISTER_CLEANUP = Symbol.for('@cancjs/coroutine:registerCleanup');
@@ -162,6 +217,9 @@ type TCoroutineYield<TFn extends IGeneratorLikeFn, TReturn = ReturnType<TFn>> =
  * returned promise triggers generator cleanup by running enclosing `finally` blocks before
  * settling. The promise stays pending, with `canceled` still `false`, until that cleanup ends; cancel
  * handlers then run with the original reason. An already aborted `signal` skips the body entirely.
+ * A cancel never resumes the body after a `cancForAwait` helper, but a generator of your own,
+ * delegated with `yield*`, resumes its caller when its `finally` awaits. Check `signal.aborted`
+ * after such a call.
  *
  * @param genFn Generator function defining the coroutine body.
  * @param ctx Optional `this` context bound to the generator function.
@@ -1079,6 +1137,8 @@ export const cancForAwait = function* cancForAwait(
 
   const { it, async } = getStepIterator(source);
   let index = 0;
+  // stays set only when the driver returned into the loop, the one case that must re-return
+  let returning = true;
 
   try {
     while (true) {
@@ -1094,7 +1154,7 @@ export const cancForAwait = function* cancForAwait(
       // coroutine cancellation points), a thenable (await with a bare `yield`), or a plain value
       const outcome = cb(value, index++);
       const settled =
-        isGenerator(outcome) ? yield* outcome
+        isGenerator(outcome) ? yield* delegateUnwinding(outcome, RETURN_UNWIND)
         : isThenable(outcome) ? yield outcome
         : outcome;
 
@@ -1102,19 +1162,24 @@ export const cancForAwait = function* cancForAwait(
         break;
       }
     }
+    returning = false;
   } catch (err) {
+    returning = false;
     if (!isBreakError(err)) {
       throw err;
     }
   } finally {
     yield returnStepIterator(it);
-    yield RETURN_UNWIND;
+    if (returning) {
+      yield RETURN_UNWIND;
+    }
   }
 } as ICancForAwait;
 
 cancForAwait.toArray = function* toArray(source: any): Generator<unknown, any[], any> {
   const { it, async } = getStepIterator(source);
   const collected: any[] = [];
+  let returning = true;
 
   try {
     while (true) {
@@ -1126,9 +1191,15 @@ cancForAwait.toArray = function* toArray(source: any): Generator<unknown, any[],
 
       collected.push(async ? result.value : yield result.value);
     }
+    returning = false;
+  } catch (err) {
+    returning = false;
+    throw err;
   } finally {
     yield returnStepIterator(it);
-    yield RETURN_UNWIND;
+    if (returning) {
+      yield RETURN_UNWIND;
+    }
   }
 
   return collected;
