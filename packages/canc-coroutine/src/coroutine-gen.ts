@@ -292,6 +292,9 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
     let cancelDisposing = false;
     // the step whose cancel started the unwind receives a cleanup error
     let canceledStep: TAsyncGeneratorStep | undefined;
+    // a cleanup error nobody was waiting for, reported by the next pull once
+    let cleanupFailure: { error: any } | undefined;
+    let cleanupReported = false;
     let drain: { promise: CancelablePromise<any, any>; resolve: (value?: any) => void } | undefined;
     // the generator is on the stack, so a cancel only marks and the running call unwinds after it
     let executing = false;
@@ -348,7 +351,7 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
 
     function createStep(method: TGeneratorMethod, value: any): CancelablePromise<any, any> {
       // after an abort a new step is born canceled by the signal itself
-      const aborted = isSignalAborted(signal);
+      const aborted = !cleanupFailure && !cleanupReported && isSignalAborted(signal);
       let step: TAsyncGeneratorStep | undefined;
       const promise = new CancelablePromise<any, any>(
         (resolve, reject, { handleCancel }) => {
@@ -420,6 +423,14 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
       if (bodyError !== undefined) {
         const error = bodyError;
         bodyError = undefined;
+        settle('throw', error);
+        return;
+      }
+
+      if (cleanupFailure) {
+        const { error } = cleanupFailure;
+        cleanupFailure = undefined;
+        cleanupReported = true;
         settle('throw', error);
         return;
       }
@@ -655,6 +666,8 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
 
       if (errorTarget) {
         errorTarget.reject(error);
+      } else if (failed) {
+        cleanupFailure = { error };
       }
 
       while (step) {

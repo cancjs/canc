@@ -277,6 +277,28 @@ describe('cancGenAsync generator lifetime under cancel', () => {
     expect(isCancelError(await it.next().catch((error: unknown) => error))).toBe(true);
   });
 
+  it('reports a cleanup error on the next pull when no step was waiting', async () => {
+    const controller = new AbortController();
+    const it = cancGenAsync(
+      function* () {
+        try {
+          yield 1;
+          yield 2;
+        } finally {
+          yield* cancGenAwait(Promise.resolve());
+          throw new Error('cleanup failed');
+        }
+      },
+      { signal: controller.signal },
+    )();
+
+    await it.next();
+    controller.abort('stop');
+    await flush();
+    await expect(it.next()).rejects.toThrow('cleanup failed');
+    await expect(it.next()).resolves.toEqual({ value: undefined, done: true });
+  });
+
   it('adds no abort listener for a producer that is never pulled', () => {
     const controller = new AbortController();
     const producer = cancGenAsync(
