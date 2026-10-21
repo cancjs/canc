@@ -2,12 +2,12 @@ import { CancelError, isCancelError } from '@cancjs/promise';
 
 import { AggregateError, isAbortError, isCancelable, isFunction, isObject } from '../../_util';
 
-// Structural stand-in so the source builds in environments without DOM/Node lib types.
+// stand-in so the source builds without DOM or Node lib types
 export type AbortControllerCtor = new () => { abort: (reason?: any) => void; signal: any };
 
 declare const AbortController: AbortControllerCtor;
 
-// A caller signal may be polyfilled and lack addEventListener/onabort, so feature-detect members.
+// a polyfilled signal may lack addEventListener or onabort
 interface PolyfilledAbortSignal {
   aborted?: boolean;
   reason?: any;
@@ -188,7 +188,7 @@ export class CancelScope {
     this._stream = undefined;
 
     if (stream) {
-      // an error with no listener would crash the process, so only a watched stream gets it
+      // an unheard error event crashes, only a watched stream gets one
       const watched = isFunction(stream.listenerCount) && stream.listenerCount('error') > 0;
       stream.destroy(watched ? this.reason : undefined);
     }
@@ -202,9 +202,7 @@ export class CancelScope {
       return;
     }
 
-    // The onabort hook below is a `function` because it must forward the event target's own
-    // receiver to any previously installed handler, so this scope cannot become an arrow.
-    // eslint-disable-next-line @typescript-eslint/no-this-alias -- hook must stay function to forward its receiver
+    // eslint-disable-next-line @typescript-eslint/no-this-alias -- onabort forwards its receiver
     const self = this;
 
     if (original.aborted) {

@@ -16,8 +16,8 @@ const detachedContext: ICancelableAxiosContext = {
   },
 };
 
-// an unwrapped result (`res => res.data`) has no config, so its scope is remembered by object;
-// null marks an object two requests returned, which gets the detached context
+// `res => res.data` loses the config, so the scope is kept by result object;
+// null marks an object two requests returned
 const carriedScopes = typeof WeakMap === 'function' ? new WeakMap<object, CancelScope | null>() : undefined;
 
 const carriedScope = (value: any): CancelScope | undefined =>
@@ -71,7 +71,7 @@ export const createInterceptorFacade = <V>(manager: any): ICancelableInterceptor
     },
   } as ICancelableInterceptorManager<V>;
 
-  // Added after 0.22, mirrored only when present.
+  // only when axios has it (after 0.22)
   if (isFunction(manager.clear)) {
     facade.clear = function (): void {
       manager.clear();
