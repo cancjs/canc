@@ -21,6 +21,7 @@ import {
 import {
   BreakError,
   delegateUnwinding,
+  forwardCancel,
   getStepIterator,
   IGeneratorLikeFn,
   isBreakError,
@@ -578,13 +579,16 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
       const outstanding = pendingSource;
       const release = releaseStepSource;
       clearStepSource();
-      if (release) {
-        release();
-      } else if (outstanding?.cancelable) {
-        outstanding.cancel(cancelReason);
-      }
-
-      pumpDrain('return', undefined);
+      forwardCancel(
+        () => {
+          if (release) {
+            release();
+          } else if (outstanding?.cancelable) {
+            outstanding.cancel(cancelReason);
+          }
+        },
+        () => pumpDrain('return', undefined),
+      );
     }
 
     // Each finally step runs shielded, so a second cancel never cuts the cleanup short

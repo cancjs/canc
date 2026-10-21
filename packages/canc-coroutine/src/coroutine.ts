@@ -120,6 +120,58 @@ export function* delegateUnwinding<TReturn>(
   return result.value;
 }
 
+interface IForwardedCancel {
+  stop: () => void;
+  unwind: () => void;
+  stopped: boolean;
+}
+
+// shared by both dialects, so a cancel crossing between them stays flat too
+const forwardedCancels: IForwardedCancel[] = [];
+let forwarding = false;
+
+/**
+ * Stops the step a canceled body awaits, then unwinds the body. A nested coroutine reached while
+ * stopping only enqueues its own pair, so the outermost call walks the whole nest in a loop and a
+ * deep nest never grows the stack. Inner levels still unwind before the levels that await them.
+ */
+export function forwardCancel(stop: () => void, unwind: () => void): void {
+  forwardedCancels.push({ stop, unwind, stopped: false });
+  if (forwarding) {
+    return;
+  }
+
+  forwarding = true;
+  let failed = false;
+  let failure: unknown;
+  try {
+    while (forwardedCancels.length > 0) {
+      const entry = forwardedCancels[forwardedCancels.length - 1];
+      try {
+        if (entry.stopped) {
+          forwardedCancels.pop();
+          entry.unwind();
+        } else {
+          entry.stopped = true;
+          entry.stop();
+        }
+      } catch (error) {
+        // the rest of the nest still unwinds, the first error reaches the outermost caller
+        if (!failed) {
+          failed = true;
+          failure = error;
+        }
+      }
+    }
+  } finally {
+    forwarding = false;
+  }
+
+  if (failed) {
+    throw failure;
+  }
+}
+
 // Driver-understood marker, same trick as RETURN_UNWIND: a loop handle hands its cleanup to the
 // driver because the `for...of` return hook that a `break` fires cannot await
 const REGISTER_CLEANUP = Symbol.for('@cancjs/coroutine:registerCleanup');
@@ -578,15 +630,20 @@ export function cancAsync<
 
         const outstanding = abortableTryBodySource;
         abortableTryBodySource = undefined;
-        if (outstanding?.cancelable) {
-          outstanding.cancel(canceledReason);
-        }
         const release = releaseStepSource;
         releaseStepSource = undefined;
-        if (release) {
-          release();
-        }
 
+        forwardCancel(() => {
+          if (outstanding?.cancelable) {
+            outstanding.cancel(canceledReason);
+          }
+          if (release) {
+            release();
+          }
+        }, returnFromBody);
+      };
+
+      const returnFromBody = () => {
         let result: IteratorResult<any>;
         executing = true;
         try {
