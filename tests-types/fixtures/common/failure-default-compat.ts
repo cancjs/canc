@@ -8,8 +8,10 @@
  * fit a declared slot.
  */
 import type { FailureOf, Unlisted } from '@cancjs/promise';
+import type { AxiosError } from 'axios';
 import CancelablePromise, { AbortError, catchCancel, catchErrors, TimeoutError } from '@cancjs/promise';
 import { async as cancAsync, await as cancAwait } from '@cancjs/coroutine';
+import canc from '@cancjs/axios';
 import cancelableFetch from '@cancjs/fetch';
 import { debounce, delay, limit, map, minDelay, timeout, waitFor } from '@cancjs/toolbox';
 
@@ -338,3 +340,26 @@ export const timeoutOneArgStepReason = cancAsync(function* () { return yield* ca
 // prettier-ignore
 // @ts-expect-error reason is the timeout error
 export const breakFetch = cancAsync(function* () { const r = yield* cancAwait(cancelableFetch(url)); return r.status; })().catch((e) => e.code);
+
+// axios requests declare AxiosError inside an open set, so a raw reason body keeps compiling
+declare const axiosUrl: string;
+export const axiosReason = canc.get(axiosUrl).catch((e) => e.code);
+export const axiosPostReason = canc.post(axiosUrl, {}).catch((e) => e.code);
+const axiosGet = canc.get(axiosUrl);
+const axiosRequest = canc.request({ url: axiosUrl });
+const axiosPost = canc.post(axiosUrl);
+const axiosCall = canc(axiosUrl);
+type _axiosGet = Assert<Eq<FailureOf<ReturnType<typeof canc.get>>, AxiosError<unknown, unknown> | Unlisted>>;
+type _axiosRequest = Assert<Eq<FailureOf<ReturnType<typeof canc.request>>, AxiosError<unknown, unknown> | Unlisted>>;
+type _axiosPost = Assert<Eq<FailureOf<ReturnType<typeof canc.post>>, AxiosError<unknown, unknown> | Unlisted>>;
+type _axiosCall = Assert<Eq<FailureOf<typeof axiosCall>, AxiosError<any, any> | Unlisted>>;
+type _axiosGetValue = Assert<Eq<FailureOf<typeof axiosGet>, AxiosError<any, any> | Unlisted>>;
+type _axiosRequestValue = Assert<Eq<FailureOf<typeof axiosRequest>, AxiosError<any, any> | Unlisted>>;
+type _axiosPostValue = Assert<Eq<FailureOf<typeof axiosPost>, AxiosError<any, any> | Unlisted>>;
+
+// a coroutine step declares the axios error only
+const coAxios = cancAsync(function* () {
+  const res = yield* cancAwait(canc.get(axiosUrl));
+  return res.status;
+});
+type _coAxios = Assert<Eq<FailureOf<ReturnType<typeof coAxios>>, AxiosError<any, any>>>;
