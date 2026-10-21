@@ -79,7 +79,9 @@ export function limitFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
    * removes it from the queue, so the job never runs at all and the promise rejects with a
    * CancelError. Canceling it after the job started gives up the job: a cancelable promise job is
    * canceled only when the limiter was its last consumer, any other cancelable job is canceled
-   * directly. A plain Promise implementation has neither: a returned promise cannot be canceled
+   * directly. The reason passed to a handle's `cancel` or to `limiter.cancel` is forwarded to such an
+   * input. A released shared job keeps its slot until its other consumers' work settles, because
+   * the work is still running. A plain Promise implementation has neither: a returned promise cannot be canceled
    * on its own, and `cancel` on the limiter rejects the queued jobs (with an AbortError carrying the reason) while
    * whatever is already running is left to finish.
    *

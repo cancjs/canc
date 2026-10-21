@@ -39,7 +39,7 @@ export function delayFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
    * declared set is the input's, held back like everything else until the timer completes.
    *
    * Canceling the returned promise gives up an input passed as a value. A cancelable promise is
-   * canceled only when `delay` was its last consumer, any other cancelable is canceled directly.
+   * canceled only when `delay` was its last consumer, any other cancelable is canceled directly, without a reason.
    */
   function delay<T = void>(ms: TDuration, options?: K['options'] & TCallDeps): TPromiseOf<K, T>;
   function delay<T, F = never>(

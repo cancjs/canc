@@ -74,7 +74,7 @@ export function retryFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
    * wait, gives up an in-flight attempt, and aborts a pending async `shouldRetry` without scheduling
    * another attempt; a plain native Promise has no cancellation and simply runs to its retry budget.
    * An attempt that is a cancelable promise is canceled only when `retry` was its last consumer, any
-   * other cancelable attempt is canceled directly.
+   * other cancelable attempt is canceled directly, without a reason.
    *
    * A throw from `shouldRetry`, `delay` or `onRetry` rejects the returned promise with that error
    * and starts no further attempt.

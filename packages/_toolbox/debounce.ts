@@ -57,7 +57,8 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
   /**
    * Debounce a function call by waiting for `ms` milliseconds of silence before invoking `fn`.
    * Canceling or superseding a call that already invoked `fn` gives up its result: a cancelable
-   * promise is canceled only when it has no other consumer, any other cancelable directly.
+   * promise is canceled only when it has no other consumer, any other cancelable directly, without a reason. `debounced.cancel(reason)` passes its reason
+   * to such an input.
    *
    * The failure set is the one `fn` declares, kept open because a superseded call rejects as well.
    */

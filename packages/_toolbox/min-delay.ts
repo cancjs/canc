@@ -22,7 +22,7 @@ export function minDelayFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
    *
    * The input is required. Canceling the returned promise clears the floor timer and gives up the
    * input: a cancelable promise is canceled only when `minDelay` was its last consumer, any other
-   * cancelable is canceled directly. The declared failure set is the input's: the floor delays a value
+   * cancelable is canceled directly, without a reason. The declared failure set is the input's: the floor delays a value
    * and passes a rejection straight through.
    */
   return function minDelay<T, F = never>(

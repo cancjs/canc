@@ -26,7 +26,8 @@ export function timeoutFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: 
    * optional deadline needs no branch at the call site. When the deadline wins or the result is
    * canceled, `timeout` gives up its interest in the input. A cancelable promise input is canceled
    * when `timeout` was its only consumer, and keeps running for its other consumers otherwise. Any
-   * other cancelable input is canceled directly, with the TimeoutError as the reason on a deadline.
+   * other cancelable input is canceled directly: with the TimeoutError as the reason on a deadline,
+   * without a reason when the returned promise is canceled.
    * The timer is always cleared once the race settles.
    */
   function timeout(ms: TDuration, options?: K['options'] & TCallDeps): TPromiseOf<K, never, TimeoutError | Unlisted>;
