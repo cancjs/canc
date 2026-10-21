@@ -28,8 +28,8 @@ export interface IPromisifyOptions {
    * when `Impl` is not cancelable-shaped); a hook that never calls it allocates no controller.
    * `getSignal.signal` reads the same signal, so `(args, { signal }) => ...` works too. The
    * property is installed when the hook declares a second parameter (or rest/no parameters), or
-   * when its source text mentions `signal`, `arguments` or a rest `...`. That check is best-effort
-   * and runs once per `promisify()` call. It misses a hook that reads the property under a computed
+   * when its source text mentions `signal`, `arguments` or `...` (meant for a rest parameter,
+   * though a spread matches too). That check is best-effort and runs once per `promisify()` call. It misses a hook that reads the property under a computed
    * or aliased name, and a bound or native function (its source is `[native code]`), which fall back
    * to the parameter count. A minifier keeps destructured keys but may rename the property read
    * behind an alias. When in doubt, call `getSignal()` instead.

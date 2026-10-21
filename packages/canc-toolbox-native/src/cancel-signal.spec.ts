@@ -146,6 +146,31 @@ describe('promisify signal accessor gate', () => {
       expect(signal.aborted).toBe(true);
     }
   });
+
+  it('installs it for arguments and rest hooks that never name the property', async () => {
+    const seen: any[] = [];
+    const sink = (value: unknown) => {
+      seen.push(value);
+    };
+    // the property name is computed so each source names only the branch under test
+    const key = ['sig', 'nal'].join('');
+    await abortWith(function (args) {
+      // eslint-disable-next-line prefer-rest-params
+      sink(arguments[1][key]);
+      return args;
+    });
+    // the es5 spec build would lower the rest parameter to arguments, so build it untranspiled
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval -- needs a native rest parameter
+    const rest = new Function('sink', 'k', 'return (args, ...r) => { sink(r[0][k]); return args; };')(sink, key) as (
+      args: any[],
+    ) => any[];
+    expect(rest.length).toBe(1);
+    await abortWith(rest);
+    expect(seen).toHaveLength(2);
+    for (const signal of seen) {
+      expect(signal.aborted).toBe(true);
+    }
+  });
 });
 
 describe('getSignal function shape', () => {

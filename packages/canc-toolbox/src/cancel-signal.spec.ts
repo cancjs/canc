@@ -379,6 +379,56 @@ describe('promisify signal accessor gate', () => {
     expect(injected.aborted).toBe(true);
   });
 
+  // the property name is computed so each source names only the branch under test
+  const key = ['sig', 'nal'].join('');
+
+  it('installs it for a hook reading arguments without naming the property', async () => {
+    let injected: any;
+    await cancelWith(function (args) {
+      // eslint-disable-next-line prefer-rest-params
+      injected = arguments[1][key];
+      return args;
+    });
+    expect(injected.aborted).toBe(true);
+  });
+
+  it('installs it for a hook with a rest parameter without naming the property', async () => {
+    let injected: any;
+    // the es5 spec build would lower the rest parameter to arguments, so build it untranspiled
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval -- needs a native rest parameter
+    const hook = new Function('sink', 'k', 'return (args, ...r) => { sink(r[0][k]); return args; };')(
+      (value: unknown) => {
+        injected = value;
+      },
+      key,
+    ) as (args: any[]) => any[];
+    expect(hook.length).toBe(1);
+    await cancelWith(hook);
+    expect(injected.aborted).toBe(true);
+  });
+
+  it('ignores a mention inside native source text', async () => {
+    const spy = jest.spyOn(cancelSignalModule, 'withSignalAccessor');
+    const hook = (args: any[]) => args;
+    const toString = jest.spyOn(Function.prototype, 'toString').mockImplementation(function (this: unknown) {
+      return this === hook ? 'function signal() { [native code] }' : '';
+    });
+    let fn: (...args: any[]) => unknown;
+    try {
+      fn = promisify((_cb: (err: unknown) => void) => undefined, { transformArgs: hook });
+    } finally {
+      toString.mockRestore();
+    }
+    try {
+      const promise = fn() as CancelablePromise<unknown>;
+      promise.cancel();
+      await expect(promise).rejects.toBeDefined();
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it('leaves it off for a hook of length 1 that never mentions the signal', async () => {
     const spy = jest.spyOn(cancelSignalModule, 'withSignalAccessor');
     try {
