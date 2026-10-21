@@ -278,6 +278,8 @@ describe('catchCancel', () => {
     const inner = new CancelablePromise(() => {});
     const outer = catchCancel(inner);
     outer.cancel();
+    // the release bubbles to a sole-consumer source on the same schedule as a canceled `then`
+    await flushPromises();
     expect(inner.isCanceled).toBe(true);
     expect(outer.isCanceled).toBe(true);
     await expect(outer).rejects.toBeInstanceOf(CancelError);
@@ -472,6 +474,8 @@ describe('suppressCancel', () => {
     const inner = new CancelablePromise(() => {});
     const outer = suppressCancel(inner);
     outer.cancel();
+    // the release bubbles to a sole-consumer source on the same schedule as a canceled `then`
+    await flushPromises();
     expect(inner.isCanceled).toBe(true);
     expect(outer.isCanceled).toBe(true);
     await expect(outer).rejects.toBeInstanceOf(CancelError);
@@ -656,5 +660,99 @@ describe('catchCancel / suppressCancel flag option types', () => {
       _check8,
       _checkS8,
     ];
+  });
+});
+
+describe('cancel helpers release a shared source', () => {
+  const wrappers = [
+    ['catchCancel', (p: PromiseLike<unknown>, o?: ICatchSuppressOptions) => catchCancel(p, o)],
+    ['suppressCancel', (p: PromiseLike<unknown>, o?: ICatchSuppressOptions) => suppressCancel(p, o)],
+    ['makeCancelable', (p: PromiseLike<unknown>, o?: ICatchSuppressOptions) => makeCancelable(p, o)],
+  ] as const;
+
+  describe.each(wrappers)('%s', (_name, wrap) => {
+    it('leaves a source another consumer still holds running', async () => {
+      const source = new CancelablePromise<number>(() => {});
+      const other = source.then((value) => value);
+      const wrapper = wrap(source);
+
+      wrapper.cancel();
+      await flushPromises();
+
+      expect(wrapper.isCanceled).toBe(true);
+      expect(source.isCanceled).toBe(false);
+      expect(other.isCanceled).toBe(false);
+      await expect(wrapper).rejects.toBeInstanceOf(CancelError);
+    });
+
+    it('cancels the source once the other consumer is gone too', async () => {
+      const source = new CancelablePromise<number>(() => {});
+      const other = source.then((value) => value);
+      const wrapper = wrap(source);
+
+      wrapper.cancel();
+      other.cancel();
+      await flushPromises();
+
+      expect(source.isCanceled).toBe(true);
+      void wrapper.then(undefined, () => {});
+    });
+
+    it('cancels a source it is the sole consumer of', async () => {
+      const source = new CancelablePromise<number>(() => {});
+      const wrapper = wrap(source);
+
+      wrapper.cancel();
+      await flushPromises();
+
+      expect(source.isCanceled).toBe(true);
+      void wrapper.then(undefined, () => {});
+    });
+
+    it('releases the source when constructed with an aborted signal', async () => {
+      const source = new CancelablePromise<number>(() => {});
+      const controller = new AbortController();
+      controller.abort();
+
+      const wrapper = wrap(source, { signal: controller.signal });
+      await flushPromises();
+
+      expect(source.isCanceled).toBe(true);
+      void wrapper.then(undefined, () => {});
+    });
+
+    it('cancels a sole-consumer source after a live signal abort', async () => {
+      const source = new CancelablePromise<number>(() => {});
+      const controller = new AbortController();
+      const outcome = wrap(source, { signal: controller.signal }).then(
+        (value) => value,
+        (error: unknown) => error,
+      );
+
+      controller.abort();
+
+      expect(await outcome).toBeInstanceOf(CancelError);
+      await flushPromises();
+      expect(source.isCanceled).toBe(true);
+    });
+
+    // a duck cancelable cannot be counted, the wrapper assumes it is the sole holder
+    it('cancels a duck cancelable source directly, once', async () => {
+      let rejectSource!: (reason?: any) => void;
+      const cancel = jest.fn((reason?: any) => rejectSource(reason));
+      const source = Object.assign(
+        new Promise<never>((_resolve, reject) => {
+          rejectSource = reject;
+        }),
+        { cancel },
+      ) as ICancelable<never>;
+      const wrapper = wrap(source);
+
+      wrapper.cancel();
+      wrapper.cancel();
+
+      expect(cancel).toHaveBeenCalledTimes(1);
+      await expect(wrapper).rejects.toBeInstanceOf(CancelError);
+    });
   });
 });

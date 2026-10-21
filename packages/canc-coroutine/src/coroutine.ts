@@ -354,8 +354,8 @@ export function cancAsync<
           }
 
           abortableTryBodySource = source;
-          const promise = source.then(onFulfilled, onRejected);
-          promise['_chain'](coroutinePromise);
+          // no per-step chain to coroutinePromise: drainFinally cancels the in-flight source itself
+          void source.then(onFulfilled, onRejected);
         }
       };
 

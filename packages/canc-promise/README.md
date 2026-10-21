@@ -94,11 +94,12 @@ const report = loadOrders()
 report.cancel();
 ```
 
-Combinators keep the same behavior, and they stop the work whose result nobody will read:
+Combinators keep the same behavior, and they stop the work whose result nobody else reads:
 
 ```js
 const fastest = CancelablePromise.race([fetchPrimary(), fetchMirror()]);
-// When one wins, the other is canceled instead of running to completion.
+// When one wins, the other is canceled instead of running to completion,
+// unless something else still consumes it.
 ```
 
 For most real tasks, you rarely need to write `new CancelablePromise` directly.
@@ -150,14 +151,34 @@ started.
 
 ### Combinators
 
-`race` and `any` cancel the losers once a winner settles. `all` cancels the remaining inputs on
-the first rejection. `allSettled` cancels nothing, by definition it waits for everything. Inputs
-constructed with `bubble: false` are never canceled by this mechanism. A `race` loser follows the
-bubble rule above: it is canceled once no consumer remains after the turn in which the race
-settles, so a loser awaited in that turn still gets its value.
+A combinator holds one consumer on each input and gives it up when it no longer needs the input.
+It does not cancel the input outright, so an input that something else still consumes keeps running.
+An input stops once its last consumer is gone, on the same schedule as a canceled `then` child.
 
-Canceling a combinator result does not cascade into its inputs, because an input may be shared
-with another consumer.
+- `race` and `any` give up the losers once a winner settles.
+- `all` gives up the remaining inputs on the first rejection.
+- `allSettled` gives up nothing while it waits, because it needs every input to settle.
+- Canceling the result of `all`, `allSettled`, `any` or `race` gives up every input it still holds.
+- Options (`shield`, `bubble: false`, `forceCancelable: false`, `signal`) apply to the result only. Inputs are
+  not reconfigured (a `CancelablePromise` input keeps its own flags), and a `signal` adds one abort listener however many inputs there are. An already
+  aborted `signal` behaves like a later abort.
+- An input constructed with `bubble: false` is never canceled by this mechanism.
+
+```js
+const shared = fetchPrimary();
+const preview = shared.then(renderPreview);
+const fastest = CancelablePromise.race([shared, fetchMirror()]);
+
+// The mirror wins. `shared` is released but keeps running, because `preview` still consumes it.
+// It is canceled only after `preview` is canceled as well.
+```
+
+A `race` loser follows the bubble rule above: it is canceled once no consumer remains after the turn in which
+the race settles, so a loser awaited in that turn still gets its value. `any` and `all` cancel their losers
+before such an `await` resumes, so a loser awaited there does not get its value.
+
+A cancelable that is not a `CancelablePromise`, such as a Bluebird or p-cancelable promise, cannot be counted.
+The combinators leave it alone: they never call its `cancel()`, even when they give it up.
 
 ### Disposal
 
@@ -260,10 +281,15 @@ render(outcome);
 
 `suppressCancel(promise)` is the shorter form when the reason does not matter: it resolves to
 `undefined` on cancellation and rethrows everything else. Both accept options (like `{ bubble: false }`)
-passed through to the underlying promise, wire cancellation (canceling the result cancels the input promise),
-and accept either a promise or a raw caught error. Both also take `{ abort: true }` to treat an
+passed through to the underlying promise, and accept either a promise or a raw caught error. Both also take `{ abort: true }` to treat an
 `AbortError` (or a `CancelError` caused by an abort) as an expected stop, and `{ timeout: true }` for
 a `TimeoutError`.
+
+Canceling the promise a helper returns releases the source instead of canceling it outright. A source that
+something else still consumes keeps running, and is canceled once its last consumer is gone. The source then
+receives a bubbled `CancelError`, not the reason passed to the wrapper's `cancel()`. A source that is not a
+`CancelablePromise` cannot be counted, so the helper calls its `cancel()` directly. The same applies to
+`makeCancelable` and the error matchers.
 
 Error matcher factories (`createSuppressError`, `createCatchError`, `createIsError`), inline matchers
 (`catchErrors`, `suppressErrors`, `isErrorOf`), and standalone error filtering helpers (`catchAbort`,
@@ -484,7 +510,7 @@ and `cancel()` returns nothing.
 
 `makeCancelable(promise)` wraps an existing promise so the chain around it is cancelable. If the
 wrapped promise has its own `cancel()` method, for example a Bluebird or p-cancelable promise,
-canceling the wrapper calls through to it. If the wrapped promise is plain, canceling stops the
+canceling the wrapper calls through to it, directly and once, on the assumption that the wrapper is its only holder. If the wrapped promise is plain, canceling stops the
 chain from continuing but the underlying operation runs to completion. To add cancellation to a
 plain-promise API at its source, use
 [`cancelify` or `promisify`](https://github.com/cancjs/canc/tree/master/packages/canc-toolbox#adapters)
@@ -570,8 +596,8 @@ timeout respectively.
 `catchAbort(promiseOrError, options?)`, `suppressAbort(promiseOrError, options?)`,
 `catchTimeout(promiseOrError, options?)`, `suppressTimeout(promiseOrError, options?)`.
 
-`catchCancel` and `suppressCancel` take promise options (e.g. `{ bubble: false }`), pass cancellation
-down to the input promise, and accept either a promise or a caught error. They also accept `{ abort: true }`
+`catchCancel` and `suppressCancel` take promise options (e.g. `{ bubble: false }`), release the input
+promise when canceled, and accept either a promise or a caught error. They also accept `{ abort: true }`
 to match an abort and `{ timeout: true }` to match a timeout.
 
 `AggregateError`, `AbortError`, `isAbortError(error)`, `TimeoutError`, `isTimeoutError(error)` are exported for use with matchers and combinators.

@@ -2,17 +2,15 @@ import { CancelError } from '../cancel-error';
 import { CancelablePromise } from '../cancelable-promise';
 
 /**
- * Internal subscription primitives (`_subscribe` / `_chainInput` + the `_addChainRef` core).
+ * Internal subscription primitives (`_subscribe` + the `_addChainRef` core).
  *
  * These back the combinator species-bypass: per-item reactions and bubble-count accounting without
- * constructing a derived CancelablePromise. This suite pins the three guarantees the bypass relies
+ * constructing a derived CancelablePromise. This suite pins the guarantees the bypass relies
  * on:
  * - `_subscribe` delivers value/reason with A+ (async microtask) timing and does NOT hand back a
  * canc species (the whole point is skipping species construction).
  * - `_subscribe` marks the source's rejection handled (no unhandled rejection), same as the
  * per-item `.then()` it replaces.
- * - `_chainInput` reproduces today's per-item chain-count so a hand-built mini-combinator passes
- * the oracle-1 "canceling the result does NOT cascade to inputs" test verbatim.
  *
  * Deterministic: microtask draining / a bounded macrotask, no arbitrary sleeps.
  */
@@ -26,7 +24,6 @@ function macrotask(): Promise<void> {
 // Reach protected members for white-box testing (same convention as two-way-propagation.spec.ts).
 interface Internal {
   _subscribe(onF?: ((v: any) => any) | null, onR?: ((r: any) => any) | null): void;
-  _chainInput(resultPromise: any, bubbleOnComplete?: boolean): void;
   _chain(child: any, bubbleOnComplete?: boolean): void;
   _chainsCount: number;
   _completedChainsCount: number;
@@ -97,114 +94,6 @@ describe('internal subscription primitives', () => {
       } finally {
         process.off('unhandledRejection', onUnhandled);
       }
-    });
-  });
-
-  describe('_chainInput chain-accounting parity', () => {
-    it('raises the input chain count to 2 (internal consumer + result child), same as today', () => {
-      const input = new CancelablePromise<any>(() => {
-        /**/
-      });
-      const result = new CancelablePromise<any>(() => {
-        /**/
-      });
-
-      asInternal(input)._chainInput(result);
-
-      // Today all() reaches _chainsCount === 2 per input (internal .then() child + result chain).
-      expect(asInternal(input)._chainsCount).toBe(2);
-      expect(asInternal(input)._completedChainsCount).toBe(0);
-    });
-
-    it('counts a bubble:false input the same, and canceling the result leaves it pending', async () => {
-      const input = new CancelablePromise<any>(
-        () => {
-          /**/
-        },
-        { bubble: false },
-      );
-      const result = new CancelablePromise<any>(() => {
-        /**/
-      });
-
-      asInternal(input)._chainInput(result);
-
-      expect(asInternal(input)._chainsCount).toBe(2);
-      await result.cancel();
-      await macrotask();
-      expect(input.canceled).toBe(false);
-    });
-
-    it('a hand-built mini-combinator on the primitives passes oracle-1 verbatim', async () => {
-      // Mini-all() built ONLY from _subscribe + _chainInput, no per-item species child.
-      function miniAll<T>(values: CancelablePromise<T>[]): CancelablePromise<T[]> {
-        const { promise, resolve, reject } = CancelablePromise.withResolvers<T[]>();
-        const results: T[] = [];
-        let count = values.length;
-
-        values.forEach((input, index) => {
-          asInternal(input)._subscribe(
-            (value) => {
-              results[index] = value;
-              if (!--count) {
-                resolve(results);
-              }
-            },
-            (error) => reject(error),
-          );
-          asInternal(input)._chainInput(promise);
-        });
-
-        return promise;
-      }
-
-      const p1 = new CancelablePromise<any>(() => {
-        /**/
-      });
-      const p2 = new CancelablePromise<any>(() => {
-        /**/
-      });
-
-      const result = miniAll([p1, p2]);
-      result.catch(() => {
-        /**/
-      });
-
-      // Oracle-1 verbatim: canceling the RESULT must NOT cascade down to still-pending inputs.
-      result.cancel();
-      await macrotask();
-
-      expect(result.isCanceled).toBe(true);
-      expect(p1.isCanceled).toBe(false);
-      expect(p2.isCanceled).toBe(false);
-    });
-
-    it('mini-combinator still delivers values through _subscribe', async () => {
-      function miniAll<T>(values: CancelablePromise<T>[]): CancelablePromise<T[]> {
-        const { promise, resolve, reject } = CancelablePromise.withResolvers<T[]>();
-        const results: T[] = [];
-        let count = values.length;
-
-        values.forEach((input, index) => {
-          asInternal(input)._subscribe(
-            (value) => {
-              results[index] = value;
-              if (!--count) {
-                resolve(results);
-              }
-            },
-            (error) => reject(error),
-          );
-          asInternal(input)._chainInput(promise);
-        });
-
-        return promise;
-      }
-
-      const a = new CancelablePromise<number>((resolve) => resolve(1));
-      const b = new CancelablePromise<number>((resolve) => resolve(2));
-
-      await expect(miniAll([a, b])).resolves.toEqual([1, 2]);
     });
   });
 

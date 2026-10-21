@@ -9,7 +9,7 @@ import { isCancelError } from '../helpers';
  * position, not settlement order), empty iterables, sync (non-promise) values, generator-iterable
  * inputs, iterable throwing mid-iteration, mixed native+canc inputs, per-doctrine loser
  * cancellation (re-run as pure black-box observation of isCanceled), cancel result-promise ->
- * inputs canceled (bubble), bubble:false input isolation, and adversarial iterables (sync-`then`
+ * inputs it holds alone canceled (bubble), bubble:false input isolation, and adversarial iterables (sync-`then`
  * thenables).
  *
  * Deterministic: no arbitrary sleeps, a fixed 10ms `macrotask()` drains all pending microtasks and
@@ -189,12 +189,7 @@ describe('combinators', () => {
       expect(shielded.isCanceled).toBe(false);
     });
 
-    // The result promise is the DOWNSTREAM child of the inputs (input._chain(result)).
-    // Cancellation propagates UP when all children cancel, never DOWN from a
-    // child to its parents. So canceling the result cancels the result only; inputs stay pending
-    // because each input also has the internal .then() consumer keeping it alive. Black-box
-    // documentation of actual behavior (see Gap note in tracker re: task wording).
-    it('canceling the result promise does NOT cascade down to inputs', async () => {
+    it('canceling the result promise cancels inputs it holds alone (bubble)', async () => {
       const p1 = new CancelablePromise<any>(() => {
         /**/
       });
@@ -211,8 +206,8 @@ describe('combinators', () => {
       await macrotask();
 
       expect(result.isCanceled).toBe(true);
-      expect(p1.isCanceled).toBe(false);
-      expect(p2.isCanceled).toBe(false);
+      expect(p1.isCanceled).toBe(true);
+      expect(p2.isCanceled).toBe(true);
     });
   });
 
@@ -415,7 +410,7 @@ describe('combinators', () => {
       expect(shielded.isCanceled).toBe(false);
     });
 
-    it('canceling the result promise does NOT cascade down to inputs', async () => {
+    it('canceling the result promise cancels inputs it holds alone (bubble)', async () => {
       const l1 = new CancelablePromise<any>(() => {
         /**/
       });
@@ -432,8 +427,8 @@ describe('combinators', () => {
       await macrotask();
 
       expect(result.isCanceled).toBe(true);
-      expect(l1.isCanceled).toBe(false);
-      expect(l2.isCanceled).toBe(false);
+      expect(l1.isCanceled).toBe(true);
+      expect(l2.isCanceled).toBe(true);
     });
   });
 

@@ -4,7 +4,6 @@ import {
   AggregateError,
   isAbortError,
   isAggregateError,
-  isCancelable,
   isCancelError as isBrandedCancelError,
   isObject,
   isTimeoutError,
@@ -17,7 +16,14 @@ import {
   ICancelableHelperOptions,
   ICancelablePromiseOptions,
 } from './cancelable-promise';
-import { isAbortLike, isTimeoutLike, makeCatch, makeSuppress } from './catch-suppress';
+import {
+  followSource,
+  isAbortLike,
+  isTimeoutLike,
+  makeCatch,
+  makeSuppress,
+  releaseUnlinkedSource,
+} from './catch-suppress';
 
 /**
  * Brand check: a foreign error merely named 'CancelError' is NOT matched, only objects carrying
@@ -181,11 +187,15 @@ export function makeCancelable<T>(
 export function makeCancelable<T>(promise: PromiseLike<T>, options?: ICancelableHelperOptions): CancelablePromise<T> {
   const This = options?.CancelablePromise || CancelablePromise;
 
-  return new This((resolve, reject, { handleCancel }) => {
-    promise.then(resolve, reject);
-
-    if (isCancelable(promise)) {
-      handleCancel((reason?: any) => promise.cancel(reason));
-    }
+  let linked = false;
+  const wrapper = new This<T>((resolve, reject, { handleCancel }) => {
+    linked = true;
+    followSource(promise, resolve, reject, handleCancel);
   }, options);
+
+  if (!linked) {
+    releaseUnlinkedSource(promise);
+  }
+
+  return wrapper;
 }

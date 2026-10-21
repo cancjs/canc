@@ -1,13 +1,14 @@
 import { CancelablePromise } from './cancelable-promise';
 
 /**
- * Cancel-losers doctrine.
+ * Losers of the combinators.
  *
- * Doctrine: any() cancels losers on first fulfill (mirror race); all() cancels remaining on
- * first reject; allSettled no-op (waits all). bubble:false inputs respected (not canceled).
- * Already-settled inputs no-op. Loser rejections suppressed (no unhandled events).
+ * any() gives up its losers on the first fulfill (race does the same); all() gives up the remaining
+ * inputs on the first reject; allSettled gives up nothing while it waits. An input nothing else
+ * consumes is canceled when given up. bubble:false inputs are never canceled. Already-settled
+ * inputs are a no-op. Loser rejections are suppressed (no unhandled events).
  *
- * Matrix covers 12+ cases: winner/rejector settles to cancel losers per doctrine; bubble:false
+ * Matrix covers 12+ cases: winner/rejector settles and losers are given up; bubble:false
  * input NOT canceled; already-settled inputs no-op; canceled-loser rejections suppressed.
  */
 
@@ -17,7 +18,7 @@ function macrotask(): Promise<void> {
   return new NativePromise((resolve) => setTimeout(resolve, 10));
 }
 
-describe('cancel-losers doctrine', () => {
+describe('cancel-losers', () => {
   // Helper to create a promise with exposed resolve/reject for testing
   interface Deferred<T> {
     promise: CancelablePromise<T>;
@@ -35,7 +36,7 @@ describe('cancel-losers doctrine', () => {
     return { promise, resolve, reject };
   }
 
-  it('any() first fulfill cancels other pending inputs (loser doctrine)', async () => {
+  it('any() first fulfill cancels other pending inputs (loser)', async () => {
     const p1 = createDeferred();
     const p2 = createDeferred();
     const p3 = createDeferred();
@@ -66,10 +67,10 @@ describe('cancel-losers doctrine', () => {
     const result = CancelablePromise.any([p1, p2, p3]);
     await result;
 
-    // p1 wins -> p2 and p3 are losers and canceled (doctrine)
+    // p1 wins -> p2 and p3 are losers, given up and canceled
     await macrotask();
-    expect(p2.isCanceled).toBe(true); // loser, canceled by doctrine
-    expect(p3.isCanceled).toBe(true); // loser, canceled by doctrine
+    expect(p2.isCanceled).toBe(true); // loser, given up and canceled
+    expect(p3.isCanceled).toBe(true); // loser, given up and canceled
     expect((result as any).isCanceled).toBe(false); // winner
     // No unhandled rejection from p2; reaching here proves suppression works
   });
@@ -104,6 +105,8 @@ describe('cancel-losers doctrine', () => {
 
     const result = CancelablePromise.any([p1, p2]);
     await result;
+    // the released loser stops once its consumer count is rechecked
+    await macrotask();
 
     expect(p1).toEqual(expect.objectContaining({ isCanceled: false })); // winner, settled
     expect(p2.isCanceled).toBe(true); // loser, canceled
@@ -218,9 +221,9 @@ describe('cancel-losers doctrine', () => {
 
     // allSettled() wraps inputs in .then() that convert all results to {status, reason} objects,
     // so the underlying all() never sees a rejection from p1/p2/p3 themselves.
-    // Thus no loser-cancellation doctrine triggers. p2, p3 remain pending (not canceled).
+    // Thus no input is given up. p2, p3 remain pending (not canceled).
     expect(p2.isCanceled).toBe(false);
-    expect(p3.isCanceled).toBe(false); // allSettled waits, no-op per doctrine
+    expect(p3.isCanceled).toBe(false); // allSettled waits, gives up nothing
   });
 
   it('allSettled() settles with loser rejections included (no suppression by allSettled)', async () => {
@@ -329,7 +332,7 @@ describe('cancel-losers doctrine', () => {
     const result = CancelablePromise.any([p1, loser]);
     await result;
 
-    // loser canceled by doctrine -> CancelError rejection suppressed
+    // loser given up and canceled -> CancelError rejection suppressed
     await macrotask();
     expect(loser.isCanceled).toBe(true);
     // No unhandled rejection; reaching here confirms

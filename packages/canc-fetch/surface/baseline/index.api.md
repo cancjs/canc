@@ -45,7 +45,6 @@ _cancel: (reason?: any, disposing?: boolean, collector?: any[]) => void
 _cancelHandlers?: Array<TOnCancel> | undefined
 _canceledReason: any
 _chain: (childPromise: CancelablePromise<any, any>, bubbleOnComplete?: boolean) => void
-_chainInput: (resultPromise: CancelablePromise<any, any>, bubbleOnComplete?: boolean) => void
 _chainsCount: number
 _collector?: Array<any> | undefined
 _completedChainsCount: number
@@ -58,6 +57,7 @@ _pendingSyncCancel: boolean
 _pendingSyncCancelReason: any
 _reject: (reason?: any) => void
 _resolve: (value?: any) => void
+_retainRef: (settleTiming?: boolean) => (() => void) | undefined
 _runCancellation: (reason?: any, collector?: any[]) => void
 _runSettlementEffects: () => void
 _setFlag: any

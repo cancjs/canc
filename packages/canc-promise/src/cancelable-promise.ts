@@ -418,16 +418,72 @@ function isThisCopy(value: unknown): boolean {
   return value instanceof CancelablePromise;
 }
 
+interface IReleaser {
+  (): void;
+  add(release: (() => void) | undefined): void;
+}
+
+// combinator side of the counted input refs, released all at once
+function createReleaser(): IReleaser {
+  let releases: Array<() => void> | undefined = [];
+  const releaseAll = (() => {
+    const pending = releases;
+    releases = undefined;
+    if (!pending) {
+      return;
+    }
+    for (const release of pending) {
+      try {
+        release();
+      } catch (_e) {
+        // one input's cleanup error must not keep the others held
+      }
+    }
+  }) as IReleaser;
+  releaseAll.add = (release) => {
+    if (!release) {
+      return;
+    }
+    if (releases) {
+      releases.push(release);
+    } else {
+      release();
+    }
+  };
+  return releaseAll;
+}
+
+function releaseOnCancel(result: CancelablePromise<any, any>): IReleaser {
+  const releaseInputs = createReleaser();
+  if (result.canceled) {
+    // born canceled by a pre-aborted signal: each input is released as it is added
+    releaseInputs();
+  } else {
+    // one handler per combinator, the release itself guards against a second run
+    result.handleCancel(() => releaseInputs());
+  }
+  return releaseInputs;
+}
+
 // a canceled child gives up what its callback returned and keeps a late rejection handled
 function reclaimOrphanedResult(value: unknown, reason: unknown): void {
   if (isCancPromise(value)) {
     const linked = value as unknown as {
+      _retainRef?: () => (() => void) | undefined;
       _chain?: (child: CancelablePromise<void>) => void;
       _subscribe?: (onFulfilled: undefined, onRejected: () => void) => void;
     };
     try {
-      if (typeof linked._chain === 'function' && typeof linked._subscribe === 'function') {
+      if (typeof linked._retainRef === 'function' && typeof linked._subscribe === 'function') {
         // skips the consumer count the public `then` would add
+        linked._subscribe(undefined, noop);
+        // release one counted ref; the source stops only when no other consumer is left
+        const release = linked._retainRef();
+        if (release) {
+          release();
+        }
+      } else if (typeof linked._chain === 'function' && typeof linked._subscribe === 'function') {
+        // an older copy without `_retainRef` releases through a canceled stand-in child
         linked._subscribe(undefined, noop);
         // release one counted ref; the source stops only when no other consumer is left
         const standIn = new CancelablePromise<void>(noop);
@@ -475,6 +531,9 @@ let _thenChildForceCancelable = true;
 const INTERNAL_CALL_OPTIONS = Object.freeze({ forceCancelable: true }) as Readonly<
   ReturnType<(typeof CancelablePromise)['_getOptions']>
 >;
+
+// combinator inputs are adopted with default flags whatever the result's options
+const INPUT_OPTIONS: ICancelablePromiseOptions = Object.freeze({});
 
 // a plain constructor so every context shares one map and inherits the signal getter
 const ExecutorContext = function ExecutorContext(
@@ -661,25 +720,17 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
       reject: rejectResults,
     } = this.withResolvers<TAll[], FailureOf<TAll>>(options);
 
+    const releaseInputs = releaseOnCancel(resultsPromise);
+
     try {
       const results: TAll[] = [];
-      const inputs: CancelablePromise<any, any>[] = []; // Track all inputs for loser-cancellation
       let count = 0;
-      let hasRejected = false; // Guard to cancel losers only on first rejection
-      // Options are identical for every item, so normalize once instead of per iteration.
-      const normalizedOptions = this._getOptions(options);
 
       for (const promiseOrValue of values) {
         const index = count++;
-        const promise = this._adopt(promiseOrValue, normalizedOptions);
-        inputs.push(promise);
+        const promise = this._adopt(promiseOrValue, INPUT_OPTIONS);
 
-        // `_subscribe` + `_chainInput` (not a species `.then()`): the per-item reaction is a
-        // pure sink and the input's chain-count is raised explicitly instead of as a side
-        // effect of constructing a derived child.
-        // Keeping the input at the same total count
-        // preserves the oracle that canceling the RESULT promise does not bubble down and
-        // cancel still-pending inputs.
+        // a pure reaction sink, the one counted ref below is the only consumer it adds
         promise._subscribe(
           (value) => {
             results[index] = value;
@@ -689,23 +740,21 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
             }
           },
           (error) => {
-            if (!hasRejected) {
-              hasRejected = true;
-              // Cancel-losers: on first rejection, cancel all other pending inputs
-              // that have bubble:true (doc: remaining pending inputs are canceled).
-              this._cancelLosers(inputs, promise);
-            }
+            // the first rejection settles the result, the other inputs lose their consumer
+            releaseInputs();
             rejectResults(error);
           },
         );
 
-        promise._chainInput(resultsPromise);
+        releaseInputs.add(promise._retainRef());
       }
 
       if (!count) {
         resolveResults(results);
       }
     } catch (error) {
+      // a throwing iterable gives up the inputs it already yielded
+      releaseInputs();
       rejectResults(error);
     }
 
@@ -737,18 +786,15 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
     values: Iterable<T>,
     options?: ICancelablePromiseOptions,
   ): CancelablePromise<ISettledResult<any>[] | { [P in keyof any]: ISettledResult<any> }, never> {
-    // Options are identical for every item, so normalize once instead of per iteration.
     // The spread stays outside any try so an iterable that throws while iterating surfaces
     // synchronously (documented behavior), not as a rejected aggregate.
-    const normalizedOptions = this._getOptions(options);
-
     return this.all(
       [...values].map(
         (promiseOrValue) =>
           // `_adopt` reuses a same-constructor canc input as-is and only wraps raw values /
           // foreign thenables, dropping the former unconditional resolve() wrap that ran a full
           // construction per item on top of the one all() performs on the mapped result.
-          this._adopt(promiseOrValue, normalizedOptions).then(
+          this._adopt(promiseOrValue, INPUT_OPTIONS).then(
             (value) => ({ status: 'fulfilled', value }),
             (reason: unknown) => ({ status: 'rejected', reason }),
           ) as CancelablePromise<ISettledResult<any>, never>,
@@ -786,33 +832,19 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
 
     // Indexed by input position (spec order), not settlement order
     const errors: unknown[] = [];
-    const inputs: CancelablePromise<any, any>[] = []; // Track all inputs for loser-cancellation
+    const releaseInputs = releaseOnCancel(resultPromise);
     let count = 0;
     let rejectedCount = 0;
-    let hasFulfilled = false; // Guard to cancel losers only on first fulfill
-
-    // Options are identical for every item, so normalize once instead of per iteration.
-    const normalizedOptions = this._getOptions(options);
 
     try {
       for (const promiseOrValue of values) {
         const index = count++;
-        const promise = this._adopt(promiseOrValue, normalizedOptions);
-        inputs.push(promise);
+        const promise = this._adopt(promiseOrValue, INPUT_OPTIONS);
 
-        // `_subscribe` + `_chainInput` (not a species `.then().catch()`): a single per-item
-        // reaction sink plus explicit chain-count accounting.
-        // The input reaches the same
-        // total count the derived children raised, so canceling the RESULT promise does not
-        // bubble down and cancel still-pending inputs.
         promise._subscribe(
           (value) => {
-            if (!hasFulfilled) {
-              hasFulfilled = true;
-              // Cancel-losers: on first fulfill, cancel all other pending inputs
-              // that have bubble:true (doc: losers are canceled).
-              this._cancelLosers(inputs, promise);
-            }
+            // the first fulfillment settles the result, the other inputs lose their consumer
+            releaseInputs();
             // value is T (unresolved-thenable element type), not yet Awaited<T>: same
             // looseness the previous `resultPromise._resolve(value)` (typed `any`) had.
             resolveResult(value as Awaited<T>);
@@ -827,13 +859,15 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
           },
         );
 
-        promise._chainInput(resultPromise);
+        releaseInputs.add(promise._retainRef());
       }
 
       if (!count) {
         rejectResult(createAggregateError(errors, 'All promises were rejected'));
       }
     } catch (error) {
+      // a throwing iterable gives up the inputs it already yielded
+      releaseInputs();
       rejectResult(error);
     }
 
@@ -873,23 +907,40 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
       reject: rejectResult,
     } = this.withResolvers<T, FailureOf<T>>(options);
 
-    // Options are identical for every item, so normalize once instead of per iteration.
-    const normalizedOptions = this._getOptions(options);
+    // a canceled race needs none of its inputs; no reaction on the result itself, which
+    // would mark it handled and hide its rejection from the unhandled-rejection report
+    const releaseInputs = releaseOnCancel(resultPromise);
+    // the first input to settle the race releases every input, the winner included
+    const releaseOnSettle = (): void => {
+      const prev = _activeCollector;
+      _activeCollector = resultPromise._collector;
+      try {
+        releaseInputs();
+      } finally {
+        _activeCollector = prev;
+      }
+    };
 
     try {
       for (const promiseOrValue of values) {
-        // `_subscribe` (pure reaction sink, no species child) plus a single bubbleOnComplete
-        // `_chain` of the result directly onto the input.
-        // Race keeps one chain ref per input,
-        // so canceling or settling the result bubbles straight back to the pending inputs (see
-        // the race bubble tests), the cascade race wants (unlike all()/any()).
-        const promise = this._adopt<T>(promiseOrValue, normalizedOptions);
-        promise._subscribe(resolveResult, rejectResult);
+        const promise = this._adopt<T>(promiseOrValue, INPUT_OPTIONS);
+        promise._subscribe(
+          (value) => {
+            resolveResult(value);
+            releaseOnSettle();
+          },
+          (error: unknown) => {
+            rejectResult(error as FailureOf<T>);
+            releaseOnSettle();
+          },
+        );
 
-        promise._chain(resultPromise, true);
+        releaseInputs.add(promise._retainRef(true));
       }
     } catch (error) {
+      // a throwing iterable settles the race and gives up the inputs it already yielded
       rejectResult(error);
+      releaseOnSettle();
     }
 
     return resultPromise;
@@ -934,12 +985,19 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
       return value as unknown as CancelablePromise<Awaited<V>, FailureOf<V>>;
     } else {
       // Wrap other promise instances or reconfigure same instances
-      return new this<Awaited<V>, FailureOf<V>>((resolve) => {
+      let adopted = false;
+      const wrapper = new this<Awaited<V>, FailureOf<V>>((resolve) => {
+        adopted = true;
         // Native Promise.resolve() semantics: coercing V to Awaited<V> here is the same
         // unification lib.es5's own overloaded Promise.resolve signatures encode by hand;
         // there is no single-signature way to prove it generically.
         resolve(value as unknown as Awaited<V> | PromiseLike<Awaited<V>>);
       }, options);
+      if (!adopted && isCancPromise(value)) {
+        // pre-abort skipped the executor, release the source as a live abort would
+        reclaimOrphanedResult(value, wrapper._canceledReason);
+      }
+      return wrapper;
     }
   }
 
@@ -1023,8 +1081,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
    * with the fast path inlined: an already-same-constructor CancelablePromise whose options are
    * unchanged is returned as-is (fast instanceof + constructor check), skipping the extra static
    * dispatch. Any other input (raw value, native thenable, reconfigured canc promise) falls back to
-   * a direct construction. `normalizedOptions` must already be normalized (hoisted once per
-   * combinator call, not per item).
+   * a direct construction. Combinators pass `INPUT_OPTIONS`: their own options apply to the result only.
    */
   protected static _adopt<T>(
     value: T | PromiseLike<T>,
@@ -1071,26 +1128,6 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
     }
 
     return false;
-  }
-
-  /**
-   * Cancel-losers doctrine: cancel all pending inputs except the winner/rejector.
-   * Respects bubble:false inputs, they are never canceled (by the loser-cancellation mechanism).
-   * @param inputs All input promises in the combinator
-   * @param winner The promise that settled first (fulfill in any(), reject in all())
-   */
-  protected static _cancelLosers(inputs: CancelablePromise<any, any>[], winner: CancelablePromise<any, any>): void {
-    for (const input of inputs) {
-      // Shielded inputs are skipped: their cancel() is a no-op anyway, but skipping keeps
-      // the doctrine explicit, a shielded loser is never canceled by a combinator.
-      if (input !== winner && input.cancelable && input.bubble && !input.shield) {
-        try {
-          input.cancel(new CancelError('Canceled as loser in combinator'));
-        } catch (_e) {
-          // one loser's handler error must not spare the remaining losers
-        }
-      }
-    }
   }
 
   // `declare`: type-only, same "no emit" rationale as the static species field above.
@@ -2214,7 +2251,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
   }
 
   /**
-   * Bubble-count core shared by `_chain` and `_chainInput`. While this promise is cancelable, raise
+   * Bubble-count core shared by `_chain` and `_retainRef`. While this promise is cancelable, raise
    * its chain count by one and return the matching `onComplete` completion callback; the caller
    * decides how that completion is wired (a child's `handleCancel`, a settle reaction, or a native
    * subscription). Returns `undefined` once this promise is no longer cancelable, so the caller
@@ -2317,6 +2354,29 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
   }
 
   /**
+   * Counted consumer ref without a child promise: raises the chain count once and returns the
+   * function that completes it, or `undefined` once this promise is no longer cancelable. Releasing
+   * twice completes the ref once. When the release drops the last consumer, this promise is
+   * bubble-canceled on the same schedule as `_chain`; `settleTiming` picks the later race timing.
+   *
+   * @internal
+   */
+  // cross-copy contract: fixed meaning, an incompatible change takes a new suffixed name
+  protected _retainRef(settleTiming?: boolean): (() => void) | undefined {
+    const onComplete = this._addChainRef(settleTiming);
+    if (!onComplete) {
+      return undefined;
+    }
+    let released = false;
+    return () => {
+      if (!released) {
+        released = true;
+        onComplete();
+      }
+    };
+  }
+
+  /**
    * Internal settlement subscription: attach `onFulfilled`/`onRejected` reactions to this promise
    * WITHOUT constructing a derived CancelablePromise. `NativePromise.prototype.then.call` is used
    * with the species machinery NOT engaged (`_pendingInternalCall` stays false), so `new.target`
@@ -2386,32 +2446,6 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
         return running ? settleCleanup(this.constructor as typeof CancelablePromise, running) : undefined;
       });
     }
-  }
-
-  /**
-   * Combinator per-item chain accounting without a species child. Reproduces the exact bubble-count
-   * effect the per-item `.then()`/`.then().catch()` plus `input._chain(resultPromise)` pair produces
-   * today, but with no derived canc promise: the input's count is raised once for the internal
-   * consumer (completed on the input's own cancel, matching a `handleCancel`-registered onComplete)
-   * and once for the result-as-child via the real `_chain(resultPromise)`. Keeping the input at the
-   * same total count preserves the "canceling the result does NOT cascade to inputs" oracle: a
-   * single completed ref never satisfies the count, so the input stays pending.
-   *
-   * @param resultPromise The combinator result promise (chained as this input's downstream child).
-   * @param bubbleOnComplete Race-style completion timing for the result chain (settle vs cancel).
-   */
-  protected _chainInput(resultPromise: CancelablePromise<any, any>, bubbleOnComplete?: boolean): void {
-    // Internal-consumer ref: same increment the per-item derived child raised via its own `_chain`.
-    // Its completion is wired to THIS input's cancel (handleCancel), mirroring the old derived
-    // child whose `onComplete` fired on that child's cancel, so it does not complete when the
-    // result is canceled, acting as count-padding that keeps the input alive.
-    const onComplete = this._addChainRef();
-    if (onComplete) {
-      this.handleCancel(onComplete);
-    }
-
-    // Result-as-child ref: unchanged real chain of the result promise onto this input.
-    this._chain(resultPromise, bubbleOnComplete);
   }
 }
 

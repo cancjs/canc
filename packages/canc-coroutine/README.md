@@ -400,7 +400,8 @@ Write `yield* canc.await(promise)` rather than a bare `yield promise`. A bare yi
 `canc.await.all`, `.race`, `.any`, `.allSettled` and `.try` fold a combinator into a single step.
 Cancellation semantics come from
 [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise#combinators):
-`race` and `any` cancel the losers, `all` cancels the rest on the first rejection.
+`race` and `any` give up the losers, `all` gives up the rest on the first rejection. An input that something else
+still consumes keeps running; only an input with no consumer left is canceled.
 
 ```ts
 const [profile, orders] = yield * canc.await.all([

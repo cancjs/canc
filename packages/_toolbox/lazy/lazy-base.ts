@@ -28,7 +28,7 @@ export type TInnerPromise<T> = PromiseLike<T> & { cancel?: (reason?: any) => any
 /**
  * The static surface a lazy combinator delegates to. Spelled out here rather than borrowed from
  * `PromiseConstructor` so this module needs no particular `lib` setting. Combinator semantics come
- * entirely from the injected implementation, which is why `race` cancels losers on the cancelable
+ * entirely from the injected implementation, which is why `race` gives up losers on the cancelable
  * flavor and cannot on the native one.
  */
 export interface ILazyImplStatics {
@@ -225,8 +225,8 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
 
   /**
    * A lazy promise for the implementation's `race`. Cold until subscribed, like `all`, and the
-   * loser handling is the implementation's: the cancelable flavor cancels them, the native one
-   * cannot.
+   * loser handling is the implementation's: the cancelable flavor releases them (one that
+   * nothing else consumes is canceled), the native one cannot.
    */
   static race<V>(values: Iterable<V | PromiseLike<V>>, options?: object): LazyBase<V> {
     const aggregate: LazyBase<V> = this._new<V>(
