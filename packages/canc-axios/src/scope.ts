@@ -89,6 +89,8 @@ export class CancelScope {
   private _controller: { abort: (reason?: any) => void; signal: any };
   private _linked: { cancel: (reason?: any) => void }[];
   private _detach: () => void;
+  private _reject: ((error: CancelError) => void) | undefined;
+  private _stream: any;
 
   constructor(ControllerCtor?: AbortControllerCtor) {
     const Ctor = ControllerCtor || (typeof AbortController !== 'undefined' ? AbortController : (undefined as any));
@@ -96,6 +98,8 @@ export class CancelScope {
     this._controller = new Ctor();
     this._linked = [];
     this._detach = function () {};
+    this._reject = undefined;
+    this._stream = undefined;
     this.signal = this._controller.signal;
     this.aborted = false;
     this.reason = undefined;
@@ -134,11 +138,55 @@ export class CancelScope {
     this.reason = error;
     this._controller.abort(error);
 
+    const reject = this._reject;
+    this._reject = undefined;
+
+    if (reject) {
+      reject(error);
+    }
+
+    this._destroyStream();
+    this.finalize();
+
     const linked = this._linked;
     this._linked = [];
 
     for (const promise of linked) {
       promise.cancel(error);
+    }
+  }
+
+  /** Registers how to reject the outer promise when the scope aborts, so an adapter that ignores
+   * the signal cannot keep the caller waiting. */
+  rejectOnAbort(reject: (error: CancelError) => void): void {
+    this._reject = reject;
+  }
+
+  /** Keeps the scope armed for a streamed response body: an abort destroys the stream, and the
+   * caller signal is released once the stream closes. */
+  holdStream(stream: any): void {
+    this._stream = stream;
+
+    if (this.aborted) {
+      this._destroyStream();
+      return;
+    }
+
+    const release = () => {
+      this._stream = undefined;
+      this.finalize();
+    };
+
+    stream.on('close', release);
+    stream.on('end', release);
+  }
+
+  private _destroyStream(): void {
+    const stream = this._stream;
+    this._stream = undefined;
+
+    if (stream) {
+      stream.destroy();
     }
   }
 

@@ -11,15 +11,20 @@ Generated. Do not edit by hand.
 new (ControllerCtor?: AbortControllerCtor | undefined): CancelScope
 _chainDetach: any
 _controller: any
+_destroyStream: any
 _detach: any
 _linked: any
+_reject: any
+_stream: any
 abort: (error: CancelError) => void
 aborted: boolean
 cancel: (reason?: any) => void
 finalize: () => void
+holdStream: (stream: any) => void
 isCanceled: () => boolean
 link: <T>(promise: T) => T
 reason: CancelError | undefined
+rejectOnAbort: (reject: (error: CancelError) => void) => void
 signal: any
 toRejection: (reason: any) => any
 watch: (original: PolyfilledAbortSignal | null | undefined) => void

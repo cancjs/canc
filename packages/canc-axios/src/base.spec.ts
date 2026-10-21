@@ -1,5 +1,7 @@
 import { CancelablePromise, CancelError, isCancelError } from '@cancjs/promise';
 import axios from 'axios';
+import { getEventListeners } from 'events';
+import { PassThrough } from 'stream';
 
 import { wrapAxios } from './base';
 import { createStubAdapter } from './stub-adapter.helper';
@@ -213,11 +215,147 @@ describe('wrapAxios', () => {
   });
 });
 
+describe('wrapAxios caller abort lifecycle', () => {
+  it('rejects on caller abort within a macrotask when the adapter ignores the signal', async () => {
+    const calls: any[] = [];
+    const api = wrapAxios(
+      axios.create({
+        adapter: (config: any) => {
+          calls.push(config);
+          return new Promise(() => {});
+        },
+      }),
+    );
+    const controller = new AbortController();
+
+    const promise = api.get('/issues', { signal: controller.signal });
+    await nextTick();
+    controller.abort();
+
+    const outcome = await Promise.race([promise.catch((reason) => reason), nextTick().then(() => 'pending')]);
+
+    expect(isCancelError(outcome)).toBe(true);
+    expect(calls).toHaveLength(1);
+  });
+
+  it('leaves no listeners on a long-lived signal after many canceled requests', async () => {
+    const stub = createStubAdapter();
+    const api = wrapAxios(axios.create({ adapter: stub.adapter }));
+    const controller = new AbortController();
+
+    for (let i = 0; i < 100; i += 1) {
+      const promise = api.get('/issues', { signal: controller.signal });
+      promise.cancel();
+      await promise.catch(() => undefined);
+    }
+
+    expect(getEventListeners(controller.signal as any, 'abort')).toHaveLength(0);
+  });
+
+  it('rejects when the abort happens while a response interceptor awaits', async () => {
+    const stub = createStubAdapter({ auto: true });
+    const api = wrapAxios(axios.create({ adapter: stub.adapter }));
+    const controller = new AbortController();
+    let entered!: () => void;
+    const inside = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+
+    api.interceptors.response.use((response) => {
+      entered();
+      return new Promise((resolve) => setTimeout(() => resolve(response), 50));
+    });
+
+    const promise = api.get('/issues', { signal: controller.signal });
+    await inside;
+    controller.abort();
+
+    await expect(promise).rejects.toBeInstanceOf(CancelError);
+  });
+
+  it('rejects when the abort lands after the adapter succeeded', async () => {
+    const stub = createStubAdapter({ auto: true });
+    const api = wrapAxios(axios.create({ adapter: stub.adapter }));
+    const controller = new AbortController();
+
+    api.interceptors.response.use((response) => {
+      controller.abort();
+      return response;
+    });
+
+    await expect(api.get('/issues', { signal: controller.signal })).rejects.toBeInstanceOf(CancelError);
+  });
+
+  it('keeps a stream response abortable until it closes', async () => {
+    const stub = createStubAdapter();
+    const api = wrapAxios(axios.create({ adapter: stub.adapter }));
+    const controller = new AbortController();
+    const stream = new PassThrough();
+
+    const promise = api.get('/events', {
+      signal: controller.signal,
+      responseType: 'stream',
+    });
+    await nextTick();
+    stub.respond(stream);
+
+    const response = await promise;
+
+    expect(response.data).toBe(stream);
+    expect(getEventListeners(controller.signal as any, 'abort')).toHaveLength(1);
+
+    controller.abort();
+
+    expect(stream.destroyed).toBe(true);
+    await new Promise((resolve) => stream.once('close', resolve));
+    expect(getEventListeners(controller.signal as any, 'abort')).toHaveLength(0);
+  });
+
+  it('destroys a stream response through the scope on the response config', async () => {
+    const stub = createStubAdapter();
+    const api = wrapAxios(axios.create({ adapter: stub.adapter }));
+    const stream = new PassThrough();
+
+    const promise = api.get('/events', { responseType: 'stream' });
+    await nextTick();
+    stub.respond(stream);
+
+    const response = await promise;
+
+    (response.config as any).cancelScope.cancel();
+
+    expect(stream.destroyed).toBe(true);
+  });
+
+  it('removes the watcher when a stream closes on its own', async () => {
+    const stub = createStubAdapter();
+    const api = wrapAxios(axios.create({ adapter: stub.adapter }));
+    const controller = new AbortController();
+    const stream = new PassThrough();
+
+    const promise = api.get('/events', {
+      signal: controller.signal,
+      responseType: 'stream',
+    });
+    await nextTick();
+    stub.respond(stream);
+    await promise;
+
+    stream.destroy();
+    await new Promise((resolve) => stream.once('close', resolve));
+
+    expect(getEventListeners(controller.signal as any, 'abort')).toHaveLength(0);
+  });
+});
+
 describe('wrapAxios instances', () => {
   it('creates wrapped instances that keep their own defaults', async () => {
     const stub = createStubAdapter({ auto: true });
     const api = wrapAxios(axios);
-    const instance = api.create({ baseURL: 'https://example.test', adapter: stub.adapter });
+    const instance = api.create({
+      baseURL: 'https://example.test',
+      adapter: stub.adapter,
+    });
 
     instance.defaults.headers.common['X-Token'] = 'instance-only';
 

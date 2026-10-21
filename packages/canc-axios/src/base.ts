@@ -39,6 +39,14 @@ const STATIC_MEMBERS = [
   'toFormData',
 ];
 
+// Only a Node-style stream can be watched for close and destroyed on abort.
+const isStreamResponse = (response: any): boolean =>
+  isObject(response) &&
+  (response as any).config?.responseType === 'stream' &&
+  isObject((response as any).data) &&
+  isFunction((response as any).data.on) &&
+  isFunction((response as any).data.destroy);
+
 const define = (target: any, name: string, get: () => any, set?: (value: any) => void): void => {
   Object.defineProperty(target, name, {
     configurable: true,
@@ -93,16 +101,31 @@ export function wrapAxios(
     // instance under a plain string key is what survives that merge with its identity intact.
     const requestConfig = { ...config, signal: scope.signal, [SCOPE_KEY]: scope };
 
-    return call(requestConfig).then(
-      function (response) {
-        scope.finalize();
-        return response;
-      },
-      function (error) {
-        scope.finalize();
-        throw scope.toRejection(error);
-      },
-    );
+    return new Promise(function (resolve, reject) {
+      scope.rejectOnAbort(reject);
+
+      call(requestConfig)
+        .then(
+          function (response) {
+            if (isStreamResponse(response)) {
+              scope.holdStream(response.data);
+            } else {
+              scope.finalize();
+            }
+
+            if (scope.aborted) {
+              throw scope.reason;
+            }
+
+            return response;
+          },
+          function (error) {
+            scope.finalize();
+            throw scope.toRejection(error);
+          },
+        )
+        .then(resolve, reject);
+    });
   }, options);
 
   const wrapped: any = function (configOrUrl: any, maybeConfig?: any) {

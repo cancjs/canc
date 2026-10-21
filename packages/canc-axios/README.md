@@ -118,6 +118,10 @@ An existing `config.signal` from the caller is composed with the internal one. E
 abort the request, and in both cases the promise rejects with a `CancelError`, normalizing the
 error regardless of which signal aborted.
 
+A caller abort rejects the promise right away, even when the adapter ignores the signal. An abort that lands while response interceptors are still running rejects as well, and the signal listener is removed as soon as the request settles.
+
+With `responseType: 'stream'` the promise fulfills at the response headers, so the body is still readable afterwards. The request stays abortable until the stream ends or closes: aborting the caller signal, or calling `response.config.cancelScope.cancel()`, destroys the stream.
+
 The wrapper holds no state beyond what axios itself holds. `defaults` on the wrapper is a live
 accessor onto the underlying instance's defaults, and `interceptors` is a facade over the real
 interceptor managers, so IDs stay valid and interceptors added directly on the underlying instance
