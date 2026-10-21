@@ -53,6 +53,12 @@ export function isBreakError(value: unknown): value is BreakError {
   return isObject(value) && (value as Record<symbol, unknown>)[BREAK_ERROR_BRAND] === true;
 }
 
+// cross-copy members of a promise copy that counts consumers without a child promise
+interface ICountedSource {
+  _subscribe(onFulfilled: (value: any) => unknown, onRejected: (reason: any) => unknown): void;
+  _retainRef(): (() => void) | undefined;
+}
+
 const RETURN_UNWIND = Symbol.for('@cancjs/coroutine:returnUnwind');
 
 function isReturnUnwind(value: unknown): boolean {
@@ -237,6 +243,8 @@ export function cancAsync<
       let disposing = false;
 
       let abortableTryBodySource: CancelablePromise<any, any> | undefined;
+      // counted consumer ref on a yielded shared source, released instead of canceling it
+      let releaseStepSource: (() => void) | undefined;
 
       // Loop handles opened by this invocation, so two calls of one coroutine never share sources
       const pendingCleanups: ILoopRegistry = Object.assign([], { _entries: 0 });
@@ -379,18 +387,30 @@ export function cancAsync<
               return;
             }
 
+            // the wrapper is ours alone, so the drain cancels it directly
             source = CancelablePromise.resolve(value, stepOptions);
+            abortableTryBodySource = source;
+            void source.then(onFulfilled, onRejected);
+            return;
           }
 
-          abortableTryBodySource = source;
-          // no per-step chain to coroutinePromise: drainFinally cancels the in-flight source itself
-          void source.then(onFulfilled, onRejected);
+          const counted = source as unknown as Partial<ICountedSource>;
+          if (typeof counted._retainRef === 'function' && typeof counted._subscribe === 'function') {
+            // a shared source stops only once its last consumer is gone
+            counted._subscribe(onFulfilled, onRejected);
+            releaseStepSource = counted._retainRef();
+          } else {
+            // a promise copy without counted refs: the drain cancels the source directly
+            abortableTryBodySource = source;
+            void source.then(onFulfilled, onRejected);
+          }
         }
       };
 
       const onFulfilled = (value: any) => {
         // This step settled: it is no longer the outstanding try-body step to abort on drain.
         abortableTryBodySource = undefined;
+        releaseStepSource = undefined;
         // Coroutine canceled while this step was in flight: drop it (drainFinally owns the rest).
         if (canceled || genDone) {
           return;
@@ -420,6 +440,7 @@ export function cancAsync<
 
       const onRejected = (value: any) => {
         abortableTryBodySource = undefined;
+        releaseStepSource = undefined;
         if (canceled || genDone) {
           return;
         }
@@ -466,6 +487,11 @@ export function cancAsync<
         abortableTryBodySource = undefined;
         if (outstanding?.cancelable) {
           outstanding.cancel(canceledReason);
+        }
+        const release = releaseStepSource;
+        releaseStepSource = undefined;
+        if (release) {
+          release();
         }
 
         let result: IteratorResult<any>;
