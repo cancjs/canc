@@ -103,6 +103,13 @@
       "name": "LazyPromise",
       "member": "_afterSubscribe",
       "reason": "Underscore-prefixed internal hook of the lazy base class, not public API; dropped when lazy combinators started canceling losers."
+    },
+    {
+      "package": "@cancjs/axios",
+      "entry": ".",
+      "name": "ICancelableAxiosWrapOptions",
+      "member": "lazy",
+      "reason": "Wrap options narrowed to eager only; the lazy option was accepted but silently ignored."
     }
   ]
 }
