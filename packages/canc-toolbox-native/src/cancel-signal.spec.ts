@@ -102,3 +102,55 @@ describe('signal accessor', () => {
     expect(injected.aborted).toBe(true);
   });
 });
+
+describe('getSignal function shape', () => {
+  function build() {
+    const created: unknown[] = [];
+    const ctor = jest.fn(function SpyController(this: any) {
+      this.signal = { aborted: false };
+      this.abort = () => undefined;
+      created.push(this.signal);
+    }) as unknown as new () => { abort(reason?: any): void; signal: any };
+    return { ctor, created };
+  }
+
+  it('is a real function that supports call, apply and bind', () => {
+    const { ctor } = build();
+    const getSignal = makeCancelSignal((() => undefined) as any, ctor).getSignal;
+
+    expect(getSignal instanceof Function).toBe(true);
+    expect(typeof getSignal).toBe('function');
+    const signal = getSignal();
+    expect(getSignal.call(undefined)).toBe(signal);
+    expect(getSignal.apply(undefined, [])).toBe(signal);
+    expect(getSignal.bind(undefined)()).toBe(signal);
+    expect(ctor).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the same behavior when the bind based accessor is unavailable', () => {
+    const { ctor } = build();
+    const original = Object.setPrototypeOf;
+    let isolated!: typeof import('../../_toolbox/cancel-signal');
+    (Object as any).setPrototypeOf = undefined;
+    try {
+      jest.isolateModules(() => {
+        isolated = require('../../_toolbox/cancel-signal');
+      });
+    } finally {
+      Object.setPrototypeOf = original;
+    }
+
+    const getSignal = isolated.makeCancelSignal((() => undefined) as any, ctor).getSignal;
+    expect(Object.getOwnPropertyDescriptor(getSignal, 'signal')).toEqual(
+      expect.objectContaining({ enumerable: false, configurable: true }),
+    );
+    expect(Object.keys(getSignal)).not.toContain('signal');
+    expect({ ...getSignal }).toEqual({});
+    expect(JSON.stringify({ getSignal })).toBe('{}');
+    expect(ctor).not.toHaveBeenCalled();
+    expect(getSignal.signal).toBe(getSignal());
+    expect(ctor).toHaveBeenCalledTimes(1);
+    expect(getSignal instanceof Function).toBe(true);
+    expect(getSignal.call(undefined)).toBe(getSignal.signal);
+  });
+});
