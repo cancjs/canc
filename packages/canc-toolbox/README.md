@@ -83,14 +83,15 @@ That is what makes the cleanup possible: `delay` registers a cancel handler that
 `retry` gives up the attempt in flight and drops the backoff wait, `waitFor` stops polling,
 `timeout` gives up the promise it was watching once the deadline wins.
 
-A helper only cancels what it created. A cancelable promise passed in (or returned by a callback)
+A helper only cancels what it created or can count. A cancelable promise passed in (or returned by a callback)
 may have other consumers, so a helper that stops releases its interest in it instead. The input is
 canceled when the helper was its last consumer, and keeps running for the others otherwise, the
 same rule `then` follows. A `.catch` attached to the input counts as a consumer too. A released
 input receives a bubbled `CancelError`, not the reason passed to the helper's `cancel()` or the
 `TimeoutError` of a missed deadline. Any other cancelable input cannot be counted, so it is canceled
-directly, which assumes the helper is its only holder. Only `timeout` and `debounce` forward a reason
-to it; `delay`, `minDelay` and `retry` call `cancel()` without one.
+directly, which assumes the helper is its only holder. `limit`, `map`, `debounced.cancel()` and a
+missed `timeout` deadline forward a reason to it. Canceling the result of `timeout`, `delay`,
+`minDelay`, `retry` or a debounced call calls its `cancel()` without one.
 
 `cancelify` works from the other end. It hands the wrapped function a lazy signal thunk. The
 controller is created on the first `getSignal()` call and aborted when the returned promise is
@@ -278,7 +279,7 @@ A helper that takes the work as an argument reads the declared failure set off t
 - `retry`, `minDelay` and `delay(input, ms)` take the failure set from the work they wrap.
 - `debounce`, `throttle` and a call through `limit` take the set from the work too and keep it open (`F | Unlisted`), because a superseded call or a job dropped from the queue also rejects. That rejection is a cancellation, so it is not listed.
 - `map` adds the `AggregateError` it rejects with under `stopOnError: false` to the mapper's set, which stays open (`F | AggregateError | Unlisted`).
-- `timeout` and `waitFor` declare `TimeoutError` inside an open set (`TimeoutError | Unlisted`), because the work they wait on can reject with something else. A `catch` reason on their result is `any`, and a coroutine step over them contributes `TimeoutError`. `timeout(input, ms)` adds `TimeoutError` to the input's own set, so a `CancelablePromise<T, FooError>` input gives `FooError | TimeoutError | Unlisted`.
+- `timeout` and `waitFor` declare `TimeoutError` inside an open set (`TimeoutError | Unlisted`), because the work they wait on can reject with something else. A `catch` reason on their result is `any`, and a coroutine step over `waitFor` or a bare `timeout(ms)` contributes `TimeoutError`; a step over `timeout(input, ms)` contributes the input's set plus `TimeoutError`. `timeout(input, ms)` adds `TimeoutError` to the input's own set, so a `CancelablePromise<T, FooError>` input gives `FooError | TimeoutError | Unlisted`.
 - `delay(ms)`, `defer` and `promisify` declare a `never` failure set. None of them wraps a promise to read one from.
 - `cancelify` and the terminal operations of the async iterator helpers (`toArray`, `reduce`, `find` and the rest) leave the failure set undeclared (`unknown`), because the function or the source you pass decides what they reject with. Neither carries a wrapped set yet.
 - The `LazyPromise` family declares no failure set, so promise combinators read it as open (`Unlisted`).
@@ -355,7 +356,9 @@ A superseding call cancels an in-flight call on a cancelable promise implementat
 | `map(input, mapper, options?)` | Concurrency-bounded, input-ordered `map`; cancel stops in-flight work and drops the queue                    |
 
 Both are built on the same limiter. Canceling either stops what is running and never starts what is
-queued, and every dropped job still settles provided the underlying job itself settles.
+queued, and every dropped job still settles provided the underlying job itself settles. A job that is a
+cancelable promise with another consumer is released rather than canceled when its handle is canceled;
+it keeps running for that consumer and its slot stays taken until the work settles.
 
 ### Adapters
 
