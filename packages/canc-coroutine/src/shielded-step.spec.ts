@@ -211,13 +211,15 @@ describe('a cancel landing on a shielded step in cancGenAsync', () => {
     await expect(first).resolves.toEqual({ value: 'paid', done: false });
 
     const second = it.next() as CancelablePromise<any>;
+    const settled = second.catch((error: unknown) => error);
     await flush();
     second.cancel();
-    expect(isCancelError(await second.catch((error: unknown) => error))).toBe(true);
+    await flush();
     expect(log).toEqual([]);
+    expect(second.cancelable).toBe(true);
 
     release.resolve();
-    await flush();
+    expect(isCancelError(await settled)).toBe(true);
     expect(log).toEqual(['after release']);
     expect(release.canceledCount()).toBe(0);
     await expect(it.next()).resolves.toEqual({ value: undefined, done: true });
@@ -228,15 +230,17 @@ describe('a cancel landing on a shielded step in cancGenAsync', () => {
     const it = checkout();
 
     const first = it.next() as CancelablePromise<any>;
+    const settled = first.catch((error: unknown) => error);
+    const declined = new Error('declined');
     await flush();
-    charge.reject(new Error('declined'));
+    charge.reject(declined);
     await flush();
     first.cancel();
-    expect(isCancelError(await first.catch((error: unknown) => error))).toBe(true);
+    await flush();
     expect(log).toEqual([]);
 
     release.resolve();
-    await flush();
+    expect(await settled).toBe(declined);
     expect(log).toEqual(['after release']);
     expect(release.canceledCount()).toBe(0);
   });
@@ -277,13 +281,14 @@ describe('a cancel landing on a shielded step in cancGenAsync', () => {
 
     const it = producer();
     const first = it.next() as CancelablePromise<any>;
+    const settled = first.catch((error: unknown) => error);
     await flush();
     first.cancel();
-    expect(isCancelError(await first.catch((error: unknown) => error))).toBe(true);
+    await flush();
     expect(reached).toBe(0);
 
     shielded.resolve(1);
-    await flush();
+    expect(isCancelError(await settled)).toBe(true);
     expect(reached).toBe(1);
     expect(finallyRuns).toBe(1);
     expect(shielded.canceledCount()).toBe(0);

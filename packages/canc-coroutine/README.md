@@ -571,7 +571,16 @@ for await (const progress of exportVideo(chunkIds)) {
 
 `cancGen.forAwait` consumes another source from inside a producer without emitting its items, and
 `cancGen.delegate(source)` re-emits them. Delegation needs its own helper because a synchronous
-generator cannot `yield*` an async iterable.
+generator cannot `yield*` an async iterable. Like `yield*`, it passes the values sent with `next()`
+and the errors sent with `throw()` on to the source, and the source's return value becomes the
+result of the delegation.
+
+Canceling a pending step (`iterator.next().cancel()`) or aborting the signal passed in the options
+cancels the producer the same way `canc.async` cancels a coroutine. Its `finally` blocks run to
+the end with shielded steps, the canceled step stays pending until they finish, and an error thrown
+by that cleanup rejects the step. The signal is watched for the whole life of the producer, so an
+abort between two pulls cleans it up too. The `finally` that a consumer `return()` or `break` runs
+is protected the same way, so a cancel landing during that cleanup waits for it.
 
 ### Class methods
 
