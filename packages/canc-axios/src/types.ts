@@ -158,8 +158,9 @@ export interface ICancelableAxiosStatic extends ICancelableAxiosInstance {
   spread: AxiosStatic['spread'];
   readonly VERSION: string;
 
-  /** Unlike axios.all this composes with CancelablePromise.all, so canceling the aggregate cancels
-   * every request in it. */
+  /** Unlike axios.all this composes with CancelablePromise.all. Canceling the aggregate cancels the
+   * requests nothing else consumes. A request that is also consumed elsewhere keeps running and
+   * completes for its other consumers. */
   all<T>(values: (T | PromiseLike<T>)[]): CancelablePromise<T[], FailureOf<T>>;
 
   AxiosError?: any;

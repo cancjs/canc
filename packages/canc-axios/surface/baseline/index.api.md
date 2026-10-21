@@ -133,7 +133,6 @@ AbortController?: AbortControllerCtor | undefined
 asyncCancel?: boolean | undefined
 bubble?: boolean | undefined
 forceCancelable?: boolean | undefined
-lazy?: boolean | undefined
 shield?: boolean | undefined
 signal?: Array<IAbortSignal> | IAbortSignal | undefined
 strict?: boolean | undefined

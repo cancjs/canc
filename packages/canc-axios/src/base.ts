@@ -1,12 +1,12 @@
 import { CancelablePromise } from '@cancjs/promise';
-import { cancelify, IToolboxOptions } from '@cancjs/toolbox';
+import { cancelify, TEagerToolboxOptions } from '@cancjs/toolbox';
 
 import { isFunction, isObject } from '../../_util';
 import { createInterceptorFacade } from './interceptors';
 import { CancelScope, SCOPE_KEY } from './scope';
 import type { IAxiosInstanceLike, ICancelableAxiosInstance, ICancelableAxiosOptions } from './types';
 
-export type ICancelableAxiosWrapOptions = ICancelableAxiosOptions & IToolboxOptions;
+export type ICancelableAxiosWrapOptions = ICancelableAxiosOptions & TEagerToolboxOptions;
 
 // Marks an instance this module already wrapped, so wrapping twice is a no-op rather than a second
 // layer of signal plumbing.
@@ -174,7 +174,7 @@ export function wrapAxios(
     };
   }
 
-  // Cancelable counterpart of axios.all: canceling the aggregate cancels every request in it.
+  // Cancelable counterpart of axios.all, following the core aggregate cancel rule.
   wrapped.all = function (values: any[]) {
     return CancelablePromise.all(values);
   };

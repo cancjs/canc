@@ -208,6 +208,31 @@ describe('wrapAxios', () => {
     await expect(second).rejects.toBeInstanceOf(CancelError);
   });
 
+  it('cancels only the sole-consumer requests when the aggregate is canceled', async () => {
+    const stubA = createStubAdapter();
+    const stubB = createStubAdapter();
+    const apiA = wrapAxios(axios.create({ adapter: stubA.adapter }));
+    const apiB = wrapAxios(axios.create({ adapter: stubB.adapter }));
+
+    const first = apiA.get('/a');
+    const second = apiB.get('/b');
+    const other = first.then((response) => response.status);
+    const aggregate = (apiA as any).all([first, second]);
+    await nextTick();
+
+    aggregate.cancel();
+
+    await expect(aggregate).rejects.toBeInstanceOf(CancelError);
+    await expect(second).rejects.toBeInstanceOf(CancelError);
+    expect(stubB.aborted).toBe(true);
+    expect(stubA.aborted).toBe(false);
+
+    stubA.respond();
+
+    await expect(first).resolves.toMatchObject({ status: 200 });
+    await expect(other).resolves.toBe(200);
+  });
+
   it('does not wrap an already wrapped instance', () => {
     const api = wrapAxios(axios.create());
 
