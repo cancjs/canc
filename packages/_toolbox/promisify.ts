@@ -1,6 +1,6 @@
 import { setFnName } from '../_util';
 import { IAbortSignalLike } from './abort-signal';
-import { createCancelSignalSource, NO_SIGNAL, TGetSignal } from './cancel-signal';
+import { NO_SIGNAL, TGetSignal, withSignalAccessor } from './cancel-signal';
 import { IExecutorCtx } from './construct';
 import { constructTimed } from './construct-timed';
 import { ILazyOn, IToolboxDeps, TAbortControllerCtor, TLazyOf } from './deps';
@@ -26,7 +26,9 @@ export interface IPromisifyOptions {
    * Invoke-time hook: normalize the call args and/or place the outbound cancel signal for
    * signal-aware callback APIs. `getSignal()` materializes the signal on first call (undefined
    * when `Impl` is not cancelable-shaped); a hook that never calls it allocates no controller.
-   * `getSignal.signal` reads the same signal, so `(args, { signal }) => ...` works too.
+   * `getSignal.signal` reads the same signal, so `(args, { signal }) => ...` works too. The
+   * property is only installed when the hook declares a second parameter (or rest/no parameters),
+   * so do not give that parameter a default value.
    */
   transformArgs?: (args: any[], getSignal: TGetSignal) => any[];
   /**
@@ -48,6 +50,11 @@ export interface IPromisifyOptions {
    */
   signal?: IAbortSignalLike | IAbortSignalLike[];
   [key: string]: unknown;
+}
+
+/** Whether a hook can see its `position`-th (1-based) argument: declared, or reachable via rest/`arguments`. */
+function declaresParam(hook: (...args: any[]) => unknown, position: number): boolean {
+  return hook.length === 0 || hook.length >= position;
 }
 
 /** Resolve the callback result into the resolved value per errorFirst / multiArgs. */
@@ -108,6 +115,9 @@ export function promisifyFactory<K extends IPromiseKind = IPromiseLikeKind>(deps
     const transformArgs = options?.transformArgs;
     const onCancelHook = options?.handleCancel;
     const AbortControllerCtor = options?.AbortController ?? deps.AbortController;
+    // length stops at a default/rest param; 0 may still reach it via rest or arguments
+    const readsSignal =
+      (!!transformArgs && declaresParam(transformArgs, 2)) || (!!onCancelHook && declaresParam(onCancelHook, 3));
 
     const customImpl = useCustom ? (fn as unknown as Record<PropertyKey, unknown>)[kCustom] : undefined;
     const custom: TCallbackFn | undefined = typeof customImpl === 'function' ? (customImpl as TCallbackFn) : undefined;
@@ -122,10 +132,25 @@ export function promisifyFactory<K extends IPromiseKind = IPromiseLikeKind>(deps
         }
 
         const handleCancel = ctx?.handleCancel;
+        // plain state fed by the cancel handler below, so a hook that never asks costs one closure
+        let controller: InstanceType<TAbortControllerCtor> | undefined;
+        let canceled = false;
+        let cancelReason: unknown;
+        let getSignal = NO_SIGNAL;
         // no hook means nobody can ever ask for the signal
-        const source =
-          handleCancel && (transformArgs || onCancelHook) ? createCancelSignalSource(AbortControllerCtor) : undefined;
-        const getSignal = source ? source.getSignal : NO_SIGNAL;
+        if (handleCancel && (transformArgs || onCancelHook)) {
+          const materialize = () => {
+            if (!controller) {
+              const Ctor = AbortControllerCtor || (AbortController as unknown as TAbortControllerCtor);
+              controller = new Ctor();
+              if (canceled) {
+                controller.abort(cancelReason);
+              }
+            }
+            return controller.signal;
+          };
+          getSignal = readsSignal ? withSignalAccessor(materialize) : (materialize as TGetSignal);
+        }
 
         let args = callArgs;
         if (transformArgs) {
@@ -148,8 +173,10 @@ export function promisifyFactory<K extends IPromiseKind = IPromiseLikeKind>(deps
         if (handleCancel) {
           (handleCancel as unknown as (onCancel: (reason?: any) => void) => void)((reason?: any) => {
             settled = true;
-            if (source) {
-              source.onCancel(reason);
+            canceled = true;
+            cancelReason = reason;
+            if (controller) {
+              controller.abort(reason);
             }
             if (onCancelHook) {
               onCancelHook(handle, args, getSignal, reason);

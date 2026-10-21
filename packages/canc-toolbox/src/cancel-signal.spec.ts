@@ -195,6 +195,17 @@ describe('getSignal() first called after cancel', () => {
   });
 });
 
+// the `signal` getter on a getSignal function, own or inherited
+function signalGetter(fn: object): (() => unknown) | undefined {
+  for (let o: object | null = fn; o; o = Object.getPrototypeOf(o)) {
+    const descriptor = Object.getOwnPropertyDescriptor(o, 'signal');
+    if (descriptor) {
+      return descriptor.get;
+    }
+  }
+  return undefined;
+}
+
 describe('signal accessor', () => {
   it('is a non-enumerable getter on the cancelify context; spread and JSON never build a controller', async () => {
     const { ctor } = makeSpyControllerCtor();
@@ -270,9 +281,38 @@ describe('signal accessor', () => {
     expect(ctor).not.toHaveBeenCalled();
     expect(first.signal).toBe(first());
     expect(ctor).toHaveBeenCalledTimes(1);
-    expect(Object.getOwnPropertyDescriptor(first, 'signal')!.get).toBe(
-      Object.getOwnPropertyDescriptor(second, 'signal')!.get,
-    );
+    expect(signalGetter(first)).toBeDefined();
+    expect(signalGetter(first)).toBe(signalGetter(second));
+  });
+
+  it('promisify hooks reaching getSignal through rest parameters still see signal', async () => {
+    const seen: unknown[] = [];
+    const fn = promisify((_cb: (err: unknown) => void) => undefined, {
+      transformArgs: (...hookArgs: any[]) => {
+        seen.push(hookArgs[1].signal, hookArgs[1]());
+        return hookArgs[0];
+      },
+    });
+    const p = fn();
+    expect(seen[0]).toBeDefined();
+    expect(seen[0]).toBe(seen[1]);
+    p.cancel();
+    await expect(p).rejects.toBeDefined();
+  });
+
+  it('promisify hooks without a getSignal parameter still get a callable one', async () => {
+    let signal: any;
+    const fn = promisify((_cb: (err: unknown) => void) => undefined, {
+      transformArgs: function (args) {
+        // eslint-disable-next-line prefer-rest-params
+        signal = arguments[1]();
+        return args;
+      },
+    });
+    const p = fn();
+    p.cancel();
+    await expect(p).rejects.toBeDefined();
+    expect(signal.aborted).toBe(true);
   });
 
   it('reads undefined on the holder and the function when there is no handleCancel', () => {

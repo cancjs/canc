@@ -36,7 +36,23 @@ const FN_SIGNAL_DESCRIPTOR: PropertyDescriptor = {
   },
 };
 
-function withSignalAccessor(getSignal: () => any): TGetSignal {
+// bound fns inherit the target's prototype: shared getter, no per-call defineProperty
+const callReceiver = function (this: () => any): any {
+  return this();
+};
+const BIND_INHERITS = (() => {
+  if (typeof Object.setPrototypeOf !== 'function') {
+    return false;
+  }
+  Object.setPrototypeOf(callReceiver, Object.create(Function.prototype, { signal: FN_SIGNAL_DESCRIPTOR }));
+  return 'signal' in callReceiver.bind(callReceiver);
+})();
+
+/** Give a `getSignal` function its `signal` getter (the shared one). */
+export function withSignalAccessor(getSignal: () => any): TGetSignal {
+  if (BIND_INHERITS) {
+    return callReceiver.bind(getSignal) as TGetSignal;
+  }
   Object.defineProperty(getSignal, 'signal', FN_SIGNAL_DESCRIPTOR);
   return getSignal as TGetSignal;
 }
