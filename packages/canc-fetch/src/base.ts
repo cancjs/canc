@@ -9,7 +9,7 @@ import {
 } from '@cancjs/promise';
 
 import { resolveTimers, startTimer, stopTimer, TTimersOverride } from '../../_toolbox/timers';
-import { isAbortError, isFunction, isObject } from '../../_util';
+import { isAbortError, isFunction, isObject, isTimeoutError, toCancelError } from '../../_util';
 
 // Minimal structural stand-ins so the source stays buildable in environments without
 // DOM/Node fetch lib types
@@ -58,6 +58,12 @@ export interface IFetchCancellation {
   toRejection: (reason: any) => any;
 }
 
+// DOMException ABORT_ERR and TIMEOUT_ERR legacy codes
+const isAbortShaped = (reason: unknown): boolean =>
+  isAbortError(reason) ||
+  isTimeoutError(reason) ||
+  (isObject(reason) && ((reason as { code?: unknown }).code === 20 || (reason as { code?: unknown }).code === 23));
+
 // AbortSignal.any ties the body read to both signals; undefined where missing or the caller
 // signal is a polyfill it refuses
 const mergeSignals = (own: any, caller: unknown): any => {
@@ -105,7 +111,7 @@ export const setupCancellation = (
   if (injected) {
     const controller = new _AbortController();
     signal = controller.signal;
-    cancel = () => controller.abort();
+    cancel = (reason) => controller.abort(reason);
   } else {
     const cancelSignal = createCancelSignal();
     signal = cancelSignal.signal;
@@ -113,10 +119,12 @@ export const setupCancellation = (
   }
 
   let done = false;
+  let abortReason: unknown;
 
   const abort = (reason?: any) => {
     if (!done) {
       done = true;
+      abortReason = reason;
       cancel(reason);
     }
   };
@@ -167,21 +175,18 @@ export const setupCancellation = (
     }
   }
 
-  handleCancel(() => abort());
+  handleCancel((reason) => abort(reason));
 
+  // the error comes from the own abort, whatever shape the fetch implementation rejects with
   const toRejection = (reason: any) => {
-    if (isCancelSignal(signal) && signal.aborted) {
-      // a merged signal rejects with the raw caller reason, the own one holds the CancelError
-      return signal.reason;
+    if (signal.aborted) {
+      if (isCancelSignal(signal)) {
+        return signal.reason;
+      }
+      return toCancelError(abortReason === undefined ? reason : abortReason, CancelError);
     }
 
-    if (isAbortError(reason)) {
-      // Cancellation rejects with a CancelError caused by AbortError rather than bare
-      // AbortError since cancellation is not a failure
-      return new CancelError(reason.message, { cause: reason });
-    }
-
-    return reason;
+    return isAbortShaped(reason) ? toCancelError(reason, CancelError) : reason;
   };
 
   return {

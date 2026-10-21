@@ -2,11 +2,9 @@ import {
   CancelablePromise,
   CancelError,
   createCancelSignal,
-  createIsError,
   FailureOf,
   isAbortError,
   isCancelError,
-  isTimeoutError,
   TimeoutError,
   Unlisted,
 } from '@cancjs/promise';
@@ -904,24 +902,16 @@ describe('declared failure set', () => {
     _p2.catch(() => {});
   });
 
-  it('matches AbortSignal.timeout() driven rejection with isTimeoutError and declared set guard', async () => {
+  it('turns a raw TimeoutError rejection into a timed-out CancelError', async () => {
     const timeoutErr = new TimeoutError('The operation timed out');
     const mockFetch = jest.fn().mockRejectedValue(timeoutErr);
     const fetchFn = cancelableFetchFactory({ fetch: mockFetch });
 
-    const isFetchFailure = createIsError(TimeoutError);
-    const promise = fetchFn('https://example.com');
+    const error: any = await fetchFn('https://example.com').then(null, (e: unknown) => e);
 
-    let caughtError: unknown = null;
-    try {
-      await promise;
-    } catch (err) {
-      caughtError = err;
-    }
-
-    expect(caughtError).not.toBeNull();
-    expect(isTimeoutError(caughtError)).toBe(true);
-    expect(isFetchFailure(caughtError)).toBe(true);
+    expect(isCancelError(error)).toBe(true);
+    expect(error.timedOut).toBe(true);
+    expect(error.cause).toBe(timeoutErr);
   });
 });
 
