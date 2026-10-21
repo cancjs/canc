@@ -83,6 +83,16 @@ export function parseTimedArgs<TInput>(rest: readonly unknown[], defaultDuration
     return { hasInput: false, duration: rest[0] as TDuration, options: undefined };
   }
 
+  if (rest.length === 2 && rest[1] === undefined && !durationOptional && !isDurationShaped(rest[0])) {
+    // an input with the duration left undefined fires as soon as possible, the input is kept
+    return {
+      hasInput: true,
+      input: rest[0] as TInput,
+      duration: undefined as unknown as TDuration,
+      options: undefined,
+    };
+  }
+
   if (rest.length === 2 && !isDurationShaped(rest[1])) {
     // The second argument is not duration-shaped, so it is the options bag.
     if (durationOptional && !isDurationShaped(rest[0])) {

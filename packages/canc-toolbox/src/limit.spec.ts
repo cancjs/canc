@@ -129,11 +129,11 @@ describe('limit', () => {
 
     handle.cancel();
 
-    expect(job.canceled).toBe(true);
     expect(isCancelError(await caught)).toBe(true);
 
     await flushMicrotasks();
 
+    expect(job.canceled).toBe(true);
     expect(limited.active).toBe(0);
   });
 
@@ -170,7 +170,7 @@ describe('limit', () => {
     expect(limited.active).toBe(0);
   });
 
-  it('forwards the cancel reason to the running job when the handle is canceled', async () => {
+  it('cancels a running job it solely holds once the handle is canceled with a reason', async () => {
     const limited = limit(1);
     let observedReason: unknown;
 
@@ -185,27 +185,23 @@ describe('limit', () => {
     const customReason = { code: 'CUSTOM_CANCEL', message: 'stop now' };
 
     handle.cancel(customReason);
+    await flushMicrotasks();
 
-    expect(observedReason).toBe(customReason);
+    // the job is released, not canceled with the handle's reason, so it sees the bubbled cancel
+    expect(isCancelError(observedReason)).toBe(true);
   });
 
-  it('forwards the cancel reason to the running job when the limiter is canceled', async () => {
+  it('forwards the cancel reason to a running non-counted cancelable job when the limiter is canceled', async () => {
     const limited = limit(1);
-    let observedReason: unknown;
-
-    const task = () =>
-      new CancelablePromise<string>((_resolve, _reject, { handleCancel }) => {
-        handleCancel((reason) => {
-          observedReason = reason;
-        });
-      });
+    const cancel = jest.fn();
+    const task = () => ({ then: () => undefined, cancel });
 
     limited(task);
     const customReason = { code: 'LIMITER_CANCEL', message: 'stop pool' };
 
     limited.cancel(customReason);
 
-    expect(observedReason).toBe(customReason);
+    expect(cancel).toHaveBeenCalledWith(customReason);
   });
 
   it('drops the queue and cancels running jobs on cancel', async () => {
@@ -406,8 +402,9 @@ describe('limit', () => {
 
     const caught = handle.catch((reason: unknown) => reason);
 
-    expect(jobCanceled).toBe(true);
     expect(isCancelError(await caught)).toBe(true);
+    await flushMicrotasks();
+    expect(jobCanceled).toBe(true);
     expect(limited.active).toBe(0);
   });
 

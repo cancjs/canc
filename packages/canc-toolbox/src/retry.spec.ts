@@ -170,11 +170,11 @@ describe('retry (cancelable)', () => {
 
     promise.cancel();
 
-    const innerReason = await inner!.catch((error: unknown) => error);
-    expect(isCancelError(innerReason)).toBe(true);
-
     const outerReason = await promise.catch((error: unknown) => error);
     expect(isCancelError(outerReason)).toBe(true);
+
+    await flushMicrotasks();
+    expect(inner!.canceled).toBe(true);
   });
 
   // Assertion 9c
@@ -206,6 +206,23 @@ describe('retry (cancelable)', () => {
     expect(fn).toHaveBeenCalledTimes(1);
     const reason = await promise.catch((error: unknown) => error);
     expect(isCancelError(reason)).toBe(true);
+  });
+
+  it('an input that cancels the retry and then throws never reaches shouldRetry', async () => {
+    const shouldRetry = jest.fn(() => true);
+    // the first attempt runs a microtask later, after `promise` is assigned
+    const fn = jest.fn((): never => {
+      promise.cancel();
+      throw new Error('fail');
+    });
+    const promise = retry(fn, { retries: 3, shouldRetry });
+
+    const reason = await promise.catch((error: unknown) => error);
+    await flushMicrotasks();
+
+    expect(isCancelError(reason)).toBe(true);
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(shouldRetry).not.toHaveBeenCalled();
   });
 
   // Must FAIL on pre-alias code: minTimeout was an unknown key, wait was 300.
@@ -541,11 +558,10 @@ describe('retry (cancelable)', () => {
   });
 
   it('cancel racing the assignment cancels the returned cancelable', async () => {
-    const cancelSpy = jest.fn();
+    let inner: CancelablePromise<string> | undefined;
 
     const fn = jest.fn(() => {
-      const inner = new CancelablePromise<string>((_res) => {});
-      inner.cancel = cancelSpy;
+      inner = new CancelablePromise<string>((_res) => {});
 
       // The race: cancel the outer promise while input() is running!
       // handleCancel will fire synchronously, see currentAttempt as undefined, and miss it.
@@ -557,7 +573,7 @@ describe('retry (cancelable)', () => {
     const promise = retry(fn);
     await flushMicrotasks();
 
-    expect(cancelSpy).toHaveBeenCalledTimes(1);
+    expect(inner!.canceled).toBe(true);
 
     const reason = await promise.catch((e) => e);
     expect(isCancelError(reason)).toBe(true);

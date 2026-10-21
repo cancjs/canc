@@ -2,7 +2,8 @@ import { IExecutorCtx } from './construct';
 import { constructTimed } from './construct-timed';
 import { IToolboxDeps, TCallDeps } from './deps';
 import { resolveDuration } from './duration';
-import { isCancelableLike, isThenableLike } from './guards';
+import { isThenableLike } from './guards';
+import { followInput, TReleaseInput } from './input';
 import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
 import { readClock, resolveTimers, startTimer, stopTimer } from './timers';
 
@@ -70,8 +71,10 @@ export function retryFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
    * rejection triggers a backoff wait before the next attempt, up to `retries` further attempts.
    * The backoff wait and each attempt are built against the bound implementation, so when that
    * implementation is cancelable-shaped, canceling the returned promise stops a pending backoff
-   * wait, cancels an in-flight attempt, and aborts a pending async `shouldRetry` without scheduling
+   * wait, gives up an in-flight attempt, and aborts a pending async `shouldRetry` without scheduling
    * another attempt; a plain native Promise has no cancellation and simply runs to its retry budget.
+   * An attempt that is a cancelable promise is canceled only when `retry` was its last consumer, any
+   * other cancelable attempt is canceled directly, without a reason.
    *
    * A throw from `shouldRetry`, `delay` or `onRetry` rejects the returned promise with that error
    * and starts no further attempt.
@@ -104,13 +107,13 @@ export function retryFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
         const startedAt = readClock();
         let canceled = false;
         let backoffId: unknown;
-        let currentAttempt: (PromiseLike<T> & { cancel?: (reason?: any) => void }) | undefined;
+        let releaseAttempt: TReleaseInput | undefined;
 
         if (ctx) {
           ctx.handleCancel(() => {
             canceled = true;
             if (backoffId !== undefined) stopTimer(backoffId, timers);
-            if (currentAttempt && isCancelableLike(currentAttempt)) currentAttempt.cancel();
+            releaseAttempt?.();
           });
         }
 
@@ -207,36 +210,37 @@ export function retryFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
         const attempt = (n: number) => {
           if (canceled) return;
 
-          deps.Impl.resolve(undefined)
-            .then(() => {
-              if (canceled) return undefined as any;
+          deps.Impl.resolve(undefined).then(() => {
+            if (canceled) return;
 
-              // Captured off the raw return of `input(n)`, not the wrapper chain, so canceling it
-              // reaches the actual work directly rather than depending on adoption cascading a
-              // cancel signal down through an intermediate link.
+            let raw: T | PromiseLike<T>;
+            try {
               // A flavor's promise type is opaque here, and a thenable by construction
-              const raw = input(n) as T | PromiseLike<T>;
+              raw = input(n) as T | PromiseLike<T>;
+            } catch (reason) {
+              if (!canceled) handleFailure(n, reason);
+              return;
+            }
 
-              if (isThenableLike<T>(raw)) {
-                currentAttempt = raw as PromiseLike<T> & { cancel?: (reason?: any) => void };
-                if (canceled && isCancelableLike(currentAttempt)) {
-                  currentAttempt.cancel();
-                }
-              }
-
-              return raw;
-            })
-            .then(
+            // followed directly rather than adopted, so a cancel releases the attempt itself and
+            // a shared attempt keeps running for its other consumers
+            releaseAttempt = followInput(
+              raw,
               (value: T) => {
-                currentAttempt = undefined;
+                releaseAttempt = undefined;
                 if (!canceled) resolve(value);
               },
               (reason: any) => {
-                currentAttempt = undefined;
+                releaseAttempt = undefined;
                 if (canceled) return;
                 handleFailure(n, reason);
               },
+              deps.Impl,
             );
+
+            // `input` itself may have canceled the retry before there was an attempt to release
+            if (canceled && releaseAttempt) releaseAttempt();
+          });
         };
 
         attempt(1);

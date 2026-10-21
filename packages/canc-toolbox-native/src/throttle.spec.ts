@@ -404,6 +404,6 @@ describe('throttle (native)', () => {
     throttled();
     jest.advanceTimersByTime(298);
 
-    expect(timestamps).toEqual([0, 100, 202]);
+    expect(timestamps).toEqual([0, 100, 200]);
   });
 });

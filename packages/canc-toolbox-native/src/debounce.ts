@@ -1,4 +1,4 @@
 import { debounceFactory } from '../../_toolbox/debounce';
-import { deps } from './deps';
+import { deps, INativeKind } from './deps';
 
-export const debounce = debounceFactory(deps);
+export const debounce = debounceFactory<INativeKind>(deps);

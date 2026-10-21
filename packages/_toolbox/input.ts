@@ -1,4 +1,6 @@
-import { ICancelableLike, isCancelableLike, isThunk } from './guards';
+import { readProp } from '../_util';
+import { TPromiseCtor } from './construct';
+import { ICancelableLike, isCancelableLike, isFunction, isObjectLike, isThunk } from './guards';
 import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
 
 /**
@@ -33,4 +35,79 @@ export function startInput<T, K extends IPromiseKind = IPromiseLikeKind, F = nev
   const source = isThunk<T>(input) ? input() : (input as T | PromiseLike<T>);
 
   return { source, cancelable: isCancelableLike(source) ? source : undefined };
+}
+
+/** Gives up a helper's interest in an input it did not create. */
+export type TReleaseInput = (reason?: any) => void;
+
+// the private consumer-counting surface every canc promise copy exposes
+interface ICountedInput {
+  _subscribe(onFulfilled?: ((value: any) => unknown) | null, onRejected?: ((reason: any) => unknown) | null): void;
+  _retainRef?(): (() => void) | undefined;
+  // an older copy predates `_retainRef` and counts a chained child instead
+  _chain?(child: PromiseLike<unknown>): void;
+}
+
+const ignore = (): void => undefined;
+
+/** Whether `value` is a canc promise that counts its consumers. A throwing getter means it is not. */
+export function isCountedInput(value: unknown): value is ICountedInput {
+  return (
+    isObjectLike(value) &&
+    isFunction(readProp(value, '_subscribe')) &&
+    (isFunction(readProp(value, '_retainRef')) || isFunction(readProp(value, '_chain')))
+  );
+}
+
+type TStandInCtor = new (executor: (resolve: () => void) => void) => ICancelableLike & PromiseLike<void>;
+
+/**
+ * Settle from an input the helper did not create, and return the function that gives the helper's
+ * interest in it up again. A canc promise is followed through one counted consumer ref (a chained
+ * stand-in child for an older copy), so releasing it cancels the input only when no other consumer
+ * is left. Any other cancelable cannot be counted: releasing it cancels it directly, which is
+ * correct only while the helper is its sole holder. Anything else is only observed, and releasing it
+ * does nothing.
+ *
+ * Without `Impl` the input must be a thenable, and its own `then` is called.
+ */
+export function followInput<T>(
+  input: T | PromiseLike<T>,
+  onFulfilled: (value: T) => void,
+  onRejected: (reason: any) => void,
+  Impl?: TPromiseCtor,
+): TReleaseInput {
+  if (isCountedInput(input)) {
+    // the public `then` would add a consumer this ref could never release
+    input._subscribe(onFulfilled, onRejected);
+
+    if (isFunction(readProp(input, '_retainRef'))) {
+      const release = input._retainRef!();
+
+      return release ? () => release() : ignore;
+    }
+
+    // a canceled stand-in drops its count; the input stops once no consumer is left
+    const StandIn = readProp(input, 'constructor') as TStandInCtor;
+    const standIn = new StandIn(ignore);
+    input._chain!(standIn);
+
+    return (reason?: any) => standIn.cancel(reason);
+  }
+
+  (Impl ? Impl.resolve(input) : (input as PromiseLike<T>)).then(onFulfilled, onRejected);
+
+  return isCancelableLike(input) ? (reason?: any) => input.cancel(reason) : ignore;
+}
+
+/**
+ * Watch an input for a rejection without becoming one of its consumers, so a canc promise is not
+ * kept alive by the watch alone.
+ */
+export function observeRejection(input: PromiseLike<unknown>, onRejected: (reason: any) => void): void {
+  if (isCountedInput(input)) {
+    input._subscribe(undefined, onRejected);
+  } else {
+    input.then(undefined, onRejected);
+  }
 }

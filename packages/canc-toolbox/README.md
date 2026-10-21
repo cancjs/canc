@@ -57,7 +57,8 @@ undoWindow.cancel();
 
 ```js
 const quotes = timeout(fetchQuotes(), 3000);
-// On timeout the request itself is canceled, not just abandoned.
+// On timeout the request itself is canceled, not just abandoned,
+// unless something else is still waiting on it.
 ```
 
 Wrapping an API that takes a signal is a one-liner, and callers never see the signal again:
@@ -79,8 +80,18 @@ Helpers build their result through the resolved promise implementation, which is
 `CancelablePromise` unless something else is registered (see
 [pluggable implementation](https://github.com/cancjs/canc/tree/master/packages/canc-promise#pluggable-implementation)).
 That is what makes the cleanup possible: `delay` registers a cancel handler that clears its timer,
-`retry` cancels the attempt in flight and drops the backoff wait, `waitFor` stops polling,
-`timeout` cancels the promise it was watching once the deadline wins.
+`retry` gives up the attempt in flight and drops the backoff wait, `waitFor` stops polling,
+`timeout` gives up the promise it was watching once the deadline wins.
+
+A helper only cancels what it created or can count. A cancelable promise passed in (or returned by a callback)
+may have other consumers, so a helper that stops releases its interest in it instead. The input is
+canceled when the helper was its last consumer, and keeps running for the others otherwise, the
+same rule `then` follows. A `.catch` attached to the input counts as a consumer too. A released
+input receives a bubbled `CancelError`, not the reason passed to the helper's `cancel()` or the
+`TimeoutError` of a missed deadline. Any other cancelable input cannot be counted, so it is canceled
+directly, which assumes the helper is its only holder. `limit`, `map`, `debounced.cancel()` and a
+missed `timeout` deadline forward a reason to it. Canceling the result of `timeout`, `delay`,
+`minDelay`, `retry` or a debounced call calls its `cancel()` without one.
 
 `cancelify` works from the other end. It hands the wrapped function a lazy signal thunk. The
 controller is created on the first `getSignal()` call and aborted when the returned promise is
@@ -127,7 +138,7 @@ signal, and passes the value through unraced when the signal is `undefined`, so 
 cancellation does not need a branch at every call site.
 
 To combine an external signal with a deadline, pass both to `timeout`: `timeout(promise, 5000, {
-signal })` races the deadline and the signal together and cancels the underlying promise whichever
+signal })` races the deadline and the signal together and gives up the underlying promise whichever
 wins.
 
 `createAbortSignal()` mints a plain controller and returns its signal with a bound `abort`. For a
@@ -265,8 +276,10 @@ In addition, async iterables can be consumed and produced with `canc.forAwait` a
 
 A helper that takes the work as an argument reads the declared failure set off that argument, so the set survives the wrapper with no type argument at the call site.
 
-- `retry`, `minDelay`, `debounce`, `throttle` and `delay(input, ms)` take the failure set from the work they wrap.
-- `timeout` and `waitFor` declare `TimeoutError` inside an open set (`TimeoutError | Unlisted`), because the work they wait on can reject with something else. A `catch` reason on their result is `any`, and a coroutine step over them contributes `TimeoutError`. `timeout` declares it in place of the input's set, not on top of it, so `timeout(input, ms)` lists `TimeoutError` alone.
+- `retry`, `minDelay` and `delay(input, ms)` take the failure set from the work they wrap.
+- `debounce`, `throttle` and a call through `limit` take the set from the work too and keep it open (`F | Unlisted`), because a superseded call or a job dropped from the queue also rejects. That rejection is a cancellation, so it is not listed.
+- `map` adds the `AggregateError` it rejects with under `stopOnError: false` to the mapper's set, which stays open (`F | AggregateError | Unlisted`).
+- `timeout` and `waitFor` declare `TimeoutError` inside an open set (`TimeoutError | Unlisted`), because the work they wait on can reject with something else. A `catch` reason on their result is `any`, and a coroutine step over `waitFor` or a bare `timeout(ms)` contributes `TimeoutError`; a step over `timeout(input, ms)` contributes the input's set plus `TimeoutError`. `timeout(input, ms)` adds `TimeoutError` to the input's own set, so a `CancelablePromise<T, FooError>` input gives `FooError | TimeoutError | Unlisted`.
 - `delay(ms)`, `defer` and `promisify` declare a `never` failure set. None of them wraps a promise to read one from.
 - `cancelify` and the terminal operations of the async iterator helpers (`toArray`, `reduce`, `find` and the rest) leave the failure set undeclared (`unknown`), because the function or the source you pass decides what they reject with. Neither carries a wrapped set yet.
 - The `LazyPromise` family declares no failure set, so promise combinators read it as open (`Unlisted`).
@@ -307,7 +320,7 @@ call, because a subscription is what wakes it. It does not defer anything furthe
 | `delay(input, ms, options?)`    | Resolves with `input`'s value after `ms`                      |
 | `minDelay(input, ms, options?)` | Settles no earlier than `ms`, for flicker-free loading states |
 | `timeout(ms, options?)`         | Rejects with `TimeoutError` after `ms`                        |
-| `timeout(input, ms?, options?)` | Settles with `input` and cancels it, unless `ms` passes first |
+| `timeout(input, ms?, options?)` | Settles with `input`, or releases it once `ms` passes first   |
 | `waitFor(condition, options?)`  | Resolves once `condition` is truthy, polling at `interval`    |
 
 `ms` is a number of milliseconds or a `[min, max]` tuple, rolled once per call for a jittered
@@ -333,7 +346,7 @@ floor on success, not a timer. Pick the one that matches what a failure should d
 | `debounce(fn, ms, options?)` | Debounces function calls, returning a wrapper with `cancel()`, `flush()`, `isPending` |
 | `throttle(fn, ms, options?)` | Throttles function calls, returning a wrapper with `cancel()`, `flush()`, `isPending` |
 
-A superseding call cancels an in-flight call on a cancelable promise implementation or rejects a not-yet-invoked call with `SupersededError` on a plain implementation. A fire-and-forget call needs a rejection handler attached so a superseded call is not unhandled.
+A superseding call cancels an in-flight call on a cancelable promise implementation or rejects a not-yet-invoked call with `SupersededError` on a plain implementation. A superseded call counts as handled, so a fire-and-forget call raises no unhandled rejection for it, while a failure of the function itself still surfaces.
 
 ### Concurrency
 
@@ -343,7 +356,9 @@ A superseding call cancels an in-flight call on a cancelable promise implementat
 | `map(input, mapper, options?)` | Concurrency-bounded, input-ordered `map`; cancel stops in-flight work and drops the queue                    |
 
 Both are built on the same limiter. Canceling either stops what is running and never starts what is
-queued, and every dropped job still settles provided the underlying job itself settles.
+queued, and every dropped job still settles provided the underlying job itself settles. A job that is a
+cancelable promise with another consumer is released rather than canceled when its handle is canceled;
+it keeps running for that consumer and its slot stays taken until the work settles.
 
 ### Adapters
 

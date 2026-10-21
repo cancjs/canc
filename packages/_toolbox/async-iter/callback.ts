@@ -2,16 +2,46 @@
 // in a loop, and both have to run a callback written in any of the four supported forms and be able
 // to abandon one that is still in flight.
 
-import { isGenerator } from '../../_util';
 import type { TAnyFn } from '../../_util/guards';
-import { isCancelableLike, isFunction, isThenableLike } from '../guards';
+import { isCancelableLike, isFunction, isObjectLike, isThenableLike } from '../guards';
+import { followInput, isCountedInput, TReleaseInput } from '../input';
 import type { TPromiseCtor } from './types';
+
+const hasMethod = (value: any, key: PropertyKey): boolean => isFunction(value[key]);
+
+// async iterators expose next too, so they are told apart before any body is driven
+function isAsyncIteratorObject(value: unknown): boolean {
+  return isObjectLike(value) && hasMethod(value, 'next') && hasMethod(value, Symbol.asyncIterator);
+}
+
+// transpiled generators have no tag, but unlike built-in iterators they expose throw and return
+function isGeneratorObject(value: unknown): value is Generator {
+  if (!isObjectLike(value) || isAsyncIteratorObject(value)) {
+    return false;
+  }
+  if ((value as any)[Symbol.toStringTag] === 'Generator') {
+    return true;
+  }
+
+  return (
+    hasMethod(value, 'next') &&
+    hasMethod(value, 'throw') &&
+    hasMethod(value, 'return') &&
+    hasMethod(value, Symbol.iterator)
+  );
+}
+
+function checkStep(step: unknown): void {
+  if (!isObjectLike(step) || isThenableLike(step)) {
+    throw new TypeError('A generator callback must yield synchronously, an async generator is not supported');
+  }
+}
 
 export interface IItemRun {
   /** The callback's outcome, whichever form it took. */
   result: PromiseLike<any>;
   /**
-   * Abandon the run: cancel what the body waits on, then let the body clean up after itself.
+   * Abandon the run: give up what the body waits on, then let the body clean up after itself.
    * Resolves once a generator body's own cleanup has run to completion; callers that only need to
    * fire the cancel and move on may leave the return value unawaited.
    */
@@ -40,7 +70,9 @@ export function callbackFactory(deps: ICallbackDeps) {
   function driveGenerator<T>(gen: Generator<any, T, any>): PromiseLike<T> {
     const resume = (value: any): PromiseLike<any> => {
       try {
-        const { value: yielded, done } = gen.next(value);
+        const step = gen.next(value);
+        checkStep(step);
+        const { value: yielded, done } = step;
 
         if (done) {
           return Impl.resolve(yielded);
@@ -59,7 +91,9 @@ export function callbackFactory(deps: ICallbackDeps) {
     };
 
     const driveUnwind = (g: Generator<any, T, any>, err: any): any => {
-      const { value: yielded, done } = g.throw(err);
+      const step = g.throw(err);
+      checkStep(step);
+      const { value: yielded, done } = step;
 
       if (done) {
         return Impl.resolve(yielded);
@@ -84,7 +118,11 @@ export function callbackFactory(deps: ICallbackDeps) {
       return result;
     }
 
-    if (result && isFunction(result.next)) {
+    if (isAsyncIteratorObject(result)) {
+      return rejected(new TypeError('A callback cannot return an async generator, use an async function instead'));
+    }
+
+    if (isGeneratorObject(result)) {
       return driveGenerator(result);
     }
 
@@ -94,32 +132,43 @@ export function callbackFactory(deps: ICallbackDeps) {
   /**
    * Run one item's callback and keep a handle on the work it has in flight. The generator form is
    * driven by the shared driver through a wrapper that reports the value the body is suspended on,
-   * which is the only handle there is on a per-item await: canceling that value aborts the real work,
-   * and resuming the body with a return completion runs its own cleanup.
+   * which is the only handle there is on a per-item await: giving that value up aborts the real
+   * work, and resuming the body with a return completion runs its own cleanup. A cancelable promise
+   * is followed through a stand-in, so it is canceled only when this item was its last consumer;
+   * any other cancelable is canceled directly.
    */
   function runItem(callback: TAnyFn, args: any[]): IItemRun {
     let body: Generator<any, any, any> | undefined;
     let awaited: unknown;
+    let releaseAwaited: TReleaseInput | undefined;
     let stopped = false;
+
+    const track = (value: unknown): unknown => {
+      releaseAwaited = undefined;
+      if (!isCountedInput(value)) {
+        awaited = value;
+
+        return value;
+      }
+
+      awaited = undefined;
+
+      // adopting the value itself would add a consumer that a stop could never release
+      return new Impl((resolve, reject) => {
+        releaseAwaited = followInput(value, resolve, reject);
+      });
+    };
 
     const watch = (...values: any[]): unknown => {
       const outcome: unknown = callback(...values);
 
-      if (isGenerator(outcome)) {
+      if (isGeneratorObject(outcome)) {
         body = outcome;
 
-        return watchGenerator(
-          outcome,
-          (suspendedOn) => {
-            awaited = suspendedOn;
-          },
-          () => stopped,
-        );
+        return watchGenerator(outcome, track, () => stopped);
       }
 
-      awaited = outcome;
-
-      return outcome;
+      return track(outcome);
     };
 
     return {
@@ -132,8 +181,12 @@ export function callbackFactory(deps: ICallbackDeps) {
         stopped = true;
 
         const inFlight = awaited;
+        const release = releaseAwaited;
         awaited = undefined;
-        if (isCancelableLike(inFlight)) {
+        releaseAwaited = undefined;
+        if (release) {
+          release();
+        } else if (isCancelableLike(inFlight)) {
           inFlight.cancel();
         }
 
@@ -153,15 +206,20 @@ const PlainImpl = Promise as unknown as TPromiseCtor;
 
 export const { runItem, runCallback, driveGenerator } = callbackFactory({ Impl: PlainImpl });
 
+// `onSuspend` returns what the driver awaits in place of the yielded value
 function watchGenerator(
   body: Generator<any, any, any>,
-  onSuspend: (value: unknown) => void,
+  onSuspend: (value: unknown) => unknown,
   isStopped: () => boolean,
 ): Generator<any, any, any> {
   const report = (step: IteratorResult<any>): IteratorResult<any> => {
-    onSuspend(step.done ? undefined : step.value);
+    if (step.done) {
+      onSuspend(undefined);
 
-    return step;
+      return step;
+    }
+
+    return { done: false, value: onSuspend(step.value) };
   };
 
   const done: IteratorResult<any> = { done: true, value: undefined };

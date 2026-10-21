@@ -4,8 +4,8 @@ import { IExecutorCtx } from './construct';
 import { constructTimed } from './construct-timed';
 import { IToolboxDeps, TCallDeps } from './deps';
 import { parseTimedArgs, resolveDuration, TDuration } from './duration';
-import { IEagerSource, startInput, TTimedInput } from './input';
-import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
+import { followInput, startInput, TReleaseInput, TTimedInput } from './input';
+import { IPromiseKind, IPromiseLikeKind, TFailureOf, TPromiseOf, TValueOf } from './kind';
 import { resolveTimers, startTimer, stopTimer } from './timers';
 
 export { isTimeoutError, TimeoutError };
@@ -23,11 +23,19 @@ export function timeoutFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: 
    * already in flight.
    *
    * `ms` defaults to `Infinity`, which is a passthrough: no timer is scheduled at all, so an
-   * optional deadline needs no branch at the call site. When the deadline does win and the input is
-   * cancelable, the input is canceled with that same TimeoutError so it stops instead of running
-   * detached. The timer is always cleared once the race settles.
+   * optional deadline needs no branch at the call site. When the deadline wins or the result is
+   * canceled, `timeout` gives up its interest in the input. A cancelable promise input is canceled
+   * when `timeout` was its only consumer, and keeps running for its other consumers otherwise. Any
+   * other cancelable input is canceled directly: with the TimeoutError as the reason on a deadline,
+   * without a reason when the returned promise is canceled.
+   * The timer is always cleared once the race settles.
    */
   function timeout(ms: TDuration, options?: K['options'] & TCallDeps): TPromiseOf<K, never, TimeoutError | Unlisted>;
+  function timeout<P extends PromiseLike<unknown>>(
+    input: P | (() => P),
+    ms?: TDuration,
+    options?: K['options'] & TCallDeps,
+  ): TPromiseOf<K, TValueOf<P>, TFailureOf<K, P> | TimeoutError | Unlisted>;
   function timeout<T, F = never>(
     input: TTimedInput<T>,
     ms?: TDuration,
@@ -47,17 +55,19 @@ export function timeoutFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: 
       deps,
       (resolve, reject, ctx?: IExecutorCtx) => {
         let settled = false;
-        let started: IEagerSource<T> | undefined;
+        let source: T | PromiseLike<T> | undefined;
 
         if (hasInput) {
           try {
-            started = startInput<T>(input as TTimedInput<T>);
+            source = startInput<T>(input as TTimedInput<T>).source;
           } catch (error) {
             reject(error);
 
             return;
           }
         }
+
+        let releaseInput: TReleaseInput | undefined;
 
         const id = startTimer(
           () => {
@@ -67,9 +77,8 @@ export function timeoutFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: 
             const Ctor = options?.TimeoutError ?? deps.TimeoutError ?? TimeoutError;
             const error = new Ctor();
 
-            // Deadline won: stop the underlying operation so it does not run detached, and report
-            // the same error the caller sees as the reason it was stopped.
-            started?.cancelable?.cancel(error);
+            // a sole-held input stops with the caller's error, a shared one keeps running
+            releaseInput?.(error);
             reject(error);
           },
           ms,
@@ -80,12 +89,13 @@ export function timeoutFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: 
           ctx.handleCancel(() => {
             settled = true;
             stopTimer(id, timers);
-            started?.cancelable?.cancel();
+            releaseInput?.();
           });
         }
 
-        if (started) {
-          deps.Impl.resolve(started.source).then(
+        if (hasInput) {
+          releaseInput = followInput(
+            source as T | PromiseLike<T>,
             (value: T) => {
               if (settled) return;
               settled = true;
@@ -98,6 +108,7 @@ export function timeoutFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: 
               stopTimer(id, timers);
               reject(reason);
             },
+            deps.Impl,
           );
         }
       },

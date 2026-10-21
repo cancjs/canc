@@ -56,7 +56,7 @@ resolve: (value?: PromiseLike<T> | T) => void
 ## `ILimited<K extends IPromiseKind = IPromiseLikeKind>` (interface)
 
 ```text
-<T, Args extends unknown[]>(fn: (...args: Args) => PromiseLike<T> | T, ...args: Args): TPromiseOf<K, T>
+<T, Args extends unknown[], F = never>(fn: (...args: Args) => PromiseLike<T> | T | TPromiseOf<K, T, F>, ...args: Args): TPromiseOf<K, T, F | Unlisted>
 readonly active: number
 cancel: (reason?: any) => void
 concurrency: number
@@ -174,10 +174,10 @@ TErrorConstructor | TErrorPredicate | string
 (reason?: any): void
 ```
 
-## `TMapper<T, R>` (type)
+## `TMapper<T, R, K extends IPromiseKind = IPromiseLikeKind, F = never>` (type)
 
 ```text
-(item: T, index: number): PromiseLike<R> | R
+(item: T, index: number): PromiseLike<R> | R | TPromiseOf<K, R, F>
 ```
 
 ## `TTimedInput<T, K extends IPromiseKind = IPromiseLikeKind, F = never>` (type)
@@ -229,7 +229,7 @@ name: string
 ## `debounce` (const)
 
 ```text
-<Args extends unknown[], R, F = never>(fn: (...args: Args) => PromiseLike<R> | R, ms: number, options?: IDebounceOptions | undefined): IDebounced<Args, R, IPromiseLikeKind, F>
+<Args extends unknown[], R, F = never>(fn: (...args: Args) => Promise<R> | PromiseLike<R> | R, ms: number, options?: IDebounceOptions | undefined): IDebounced<Args, R, INativeKind, F | Unlisted>
 ```
 
 ## `defer` (const)
@@ -290,7 +290,7 @@ name: string
 ## `map` (const)
 
 ```text
-<T, R>(input: Iterable<T>, mapper: TMapper<T, R>, options?: IMapOptions | undefined): Promise<Array<R>>
+<T, R, F = never>(input: Iterable<T>, mapper: TMapper<T, R, INativeKind, F>, options?: IMapOptions | undefined): Promise<Array<R>>
 ```
 
 ## `minDelay` (const)
@@ -334,13 +334,14 @@ name: string
 ## `throttle` (const)
 
 ```text
-<Args extends unknown[], R, F = never>(fn: (...args: Args) => PromiseLike<R> | R, ms: number, options?: IThrottleOptions | undefined): IThrottled<Args, R, IPromiseLikeKind, F>
+<Args extends unknown[], R, F = never>(fn: (...args: Args) => Promise<R> | PromiseLike<R> | R, ms: number, options?: IThrottleOptions | undefined): IThrottled<Args, R, INativeKind, F | Unlisted>
 ```
 
 ## `timeout` (const)
 
 ```text
 (ms: TDuration, options?: (INativeOptions & TCallDeps) | undefined): Promise<never>
+<P extends PromiseLike<unknown>>(input: (() => P) | P, ms?: TDuration | undefined, options?: (INativeOptions & TCallDeps) | undefined): Promise<TValueOf<P>>
 <T, F = never>(input: TTimedInput<T>, ms?: TDuration | undefined, options?: (INativeOptions & TCallDeps) | undefined): Promise<T>
 ```
 

@@ -1,7 +1,9 @@
+import type { Unlisted } from '../_util';
 import { isSupersededError, SupersededError } from '../_util';
 import { construct, IExecutorCtx, TPromiseCtor } from './construct';
 import { TCallDeps } from './deps';
 import { isCancelableLike, isThenableLike } from './guards';
+import { followInput, isCountedInput, TReleaseInput } from './input';
 import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
 import { resolveTimers, startTimer, stopTimer, TTimersOverride } from './timers';
 
@@ -36,12 +38,17 @@ export type IDebounceDeps = TTimersOverride & {
 };
 
 // per-call state, so a superseded cycle keeps owning the call it started and nothing else
-interface ICycle<R> {
-  result?: PromiseLike<R>;
+interface ICycle {
+  // gives up the in-flight call's result
+  release?: TReleaseInput;
   settled: boolean;
   // the leading edge is a commitment to the caller that opened the window, never taken back
   leadingInvoked: boolean;
+  // set while fn runs, so a call made from inside fn does not supersede the call being served
+  invoking: boolean;
 }
+
+const ignore = (): void => undefined;
 
 /**
  * Bind `debounce` to one promise implementation following the dependency-injection recipe.
@@ -49,12 +56,17 @@ interface ICycle<R> {
 export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IDebounceDeps) {
   /**
    * Debounce a function call by waiting for `ms` milliseconds of silence before invoking `fn`.
+   * Canceling or superseding a call that already invoked `fn` gives up its result: a cancelable
+   * promise is canceled only when it has no other consumer, any other cancelable directly, without a reason. `debounced.cancel(reason)` passes its reason
+   * to such an input.
+   *
+   * The failure set is the one `fn` declares, kept open because a superseded call rejects as well.
    */
   return function debounce<Args extends unknown[], R, F = never>(
     fn: (...args: Args) => TPromiseOf<K, R, F> | R | PromiseLike<R>,
     ms: number,
     options?: IDebounceOptions,
-  ): IDebounced<Args, R, K, F> {
+  ): IDebounced<Args, R, K, F | Unlisted> {
     const leading = options?.leading === true;
     const trailing = options?.trailing === false ? false : true;
     const maxWait: number | undefined = options != null ? options.maxWait : undefined;
@@ -65,46 +77,74 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
     let timerId: unknown;
     let maxTimerId: unknown;
     let lastArgs: Args | undefined;
+    let lastThis: unknown;
 
     let pendingResolve: ((value: R | PromiseLike<R>) => void) | undefined;
     let pendingReject: ((reason?: any) => void) | undefined;
-    let pendingPromise: TPromiseOf<K, R, F> | undefined;
-    let cycle: ICycle<R> = { settled: false, leadingInvoked: false };
+    let pendingPromise: TPromiseOf<K, R, F | Unlisted> | undefined;
+    let cycle: ICycle = { settled: false, leadingInvoked: false, invoking: false };
     let superseding = false;
 
-    function markSettled(own: ICycle<R>): void {
+    function markSettled(own: ICycle): void {
       own.settled = true;
-      own.result = undefined;
+      own.release = undefined;
       // an idle wrapper would otherwise hold the last call's promise for its whole lifetime
       if (own === cycle) pendingPromise = undefined;
     }
 
-    function invoke(args: Args): void {
+    function remember(args: Args, receiver: unknown): void {
+      lastArgs = args;
+      lastThis = receiver;
+    }
+
+    function invoke(args: Args, thisArg: unknown): void {
       lastArgs = undefined;
+      lastThis = undefined;
 
       // a superseded cycle must never write the live wrapper's state
       const own = cycle;
+      // taken before fn runs, so a call made from inside fn cannot redirect this result
+      const resolve = pendingResolve;
+      const reject = pendingReject;
+      pendingResolve = undefined;
+      pendingReject = undefined;
 
+      own.invoking = true;
       let result: R | PromiseLike<R>;
       try {
         // A flavor's promise type is opaque here, and a thenable by construction
-        result = fn(...args) as R | PromiseLike<R>;
+        result = fn.apply(thisArg, args) as R | PromiseLike<R>;
       } catch (e) {
-        if (pendingReject) {
-          pendingReject(e);
-          pendingResolve = undefined;
-          pendingReject = undefined;
+        own.invoking = false;
+        if (reject) {
+          reject(e);
         }
         markSettled(own);
         return;
       }
+      own.invoking = false;
 
-      own.result = isThenableLike<R>(result) ? result : undefined;
+      if (isCountedInput(result)) {
+        // adopting through `resolve` would add a consumer no cancel could release
+        own.release = followInput<R>(
+          result,
+          function (value) {
+            markSettled(own);
+            if (resolve) resolve(value);
+          },
+          function (reason) {
+            markSettled(own);
+            if (reject) reject(reason);
+          },
+        );
+        return;
+      }
 
-      if (pendingResolve) {
-        pendingResolve(result);
-        pendingResolve = undefined;
-        pendingReject = undefined;
+      const cancelable = isCancelableLike(result) ? result : undefined;
+      own.release = cancelable ? (reason?: any) => cancelable.cancel(reason) : undefined;
+
+      if (resolve) {
+        resolve(result);
       }
 
       if (isThenableLike<R>(result)) {
@@ -142,8 +182,9 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
         // cancel surface of its own, but reject is still live pre-invoke, so settle it directly.
         // Once invoke() has adopted a thenable this is already undefined and nothing can redirect
         // the promise, matching the native `withAbortSignal` stance of never faking a CancelError.
-        // Branded, not a bare Error, so a caller can tell supersede from a real failure
-        // a fire-and-forget debounced(x) needs its own handler now, or it goes unhandled
+        // Branded, not a bare Error, so a caller can tell supersede from a real failure.
+        // Marked handled here only, so a call nobody subscribed to still reports fn's own failure.
+        if (pendingPromise && isThenableLike(pendingPromise)) pendingPromise.then(undefined, ignore);
         pendingReject(Object.assign(new SupersededError(), { cause: reason }));
       }
       superseding = false;
@@ -153,17 +194,16 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
     }
 
     /**
-     * Cancel whatever the current cycle is: an in-flight call's cancelable result, plus the
+     * Cancel whatever the current cycle is: give up an in-flight call's result and cancel the
      * wrapper promise handed to that call's caller. Shared by an explicit `.cancel()` and a
      * superseding call so both stop the same in-flight work the same way, whether the prior call
      * already invoked `fn` or is still waiting out the timer. An explicit `.cancel()` always gets
      * here; a superseding call only for a prior call that has not completed.
      */
     function cancelCurrent(reason?: any): void {
-      if (isCancelableLike(cycle.result)) {
-        cycle.result.cancel(reason);
-      }
-      cycle.result = undefined;
+      const release = cycle.release;
+      cycle.release = undefined;
+      if (release) release(reason);
       cancelPending(reason);
     }
 
@@ -178,18 +218,26 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
       }
 
       if (trailing && lastArgs) {
-        invoke(lastArgs);
-        // otherwise the next call reads a closed window and leading-invokes inside the interval
-        if (rearmsWindow) {
-          timerId = startTimer(timerExpired, ms, timers);
-        }
+        invoke(lastArgs, lastThis);
+        rearmWindow();
       } else if (lastArgs) {
+        lastArgs = undefined;
+        lastThis = undefined;
         cancelPending();
       }
     }
 
-    function makePromise(): TPromiseOf<K, R, F> {
-      const own: ICycle<R> = { settled: false, leadingInvoked: false };
+    // otherwise the next call reads a closed window and leading-invokes inside the interval, and
+    // the max window is anchored at the invoke so the next one lands a full interval later
+    function rearmWindow(): void {
+      if (!rearmsWindow || timerId !== undefined || maxTimerId !== undefined) return;
+
+      timerId = startTimer(timerExpired, ms, timers);
+      maxTimerId = startTimer(timerExpired, ms, timers);
+    }
+
+    function makePromise(): TPromiseOf<K, R, F | Unlisted> {
+      const own: ICycle = { settled: false, leadingInvoked: false, invoking: false };
       cycle = own;
 
       const p = construct<R, K, F>(
@@ -201,14 +249,14 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
           if (ctx) {
             ctx.handleCancel(function () {
               if (superseding) return;
-              if (isCancelableLike(own.result)) {
-                own.result.cancel();
-              }
-              own.result = undefined;
+              const release = own.release;
+              own.release = undefined;
+              if (release) release();
               // a superseded cycle owns the call it started, never the wrapper's current state
               if (own !== cycle) return;
               clearTimers();
               lastArgs = undefined;
+              lastThis = undefined;
               pendingResolve = undefined;
               pendingReject = undefined;
               pendingPromise = undefined;
@@ -222,19 +270,19 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
       return p;
     }
 
-    const wrapped = function (...argsArray: Args) {
+    const wrapped = function (this: unknown, ...argsArray: Args) {
       // a closed window decides the leading edge, not `!pendingPromise`
       // `pendingPromise` outlives its cycle, so it allowed one leading call per wrapper lifetime
       const startsWindow = timerId === undefined && maxTimerId === undefined;
 
-      lastArgs = argsArray;
+      remember(argsArray, this);
 
       if (timerId !== undefined) {
         stopTimer(timerId, timers);
         timerId = undefined;
       }
 
-      if (pendingPromise && !cycle.settled && !cycle.leadingInvoked) {
+      if (pendingPromise && !cycle.settled && !cycle.leadingInvoked && !cycle.invoking) {
         // a call that has not completed is superseded, a completed one is owed to its caller
         // not `wrapped.cancel()`, which also clears `maxTimerId` and restarts the maxWait window
         cancelCurrent();
@@ -243,13 +291,14 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
       const promise = makePromise();
 
       if (leading && startsWindow) {
-        invoke(argsArray);
-        cycle.leadingInvoked = true;
-        // armed even with `trailing: false`, because only its expiry closes the window
+        // armed even with `trailing: false`, because only its expiry closes the window, and
+        // before fn runs so a call made from inside fn sees the window already open
         timerId = startTimer(timerExpired, ms, timers);
         if (maxWait !== undefined && maxTimerId === undefined) {
           maxTimerId = startTimer(timerExpired, maxWait, timers);
         }
+        cycle.leadingInvoked = true;
+        invoke(argsArray, this);
         return promise;
       }
 
@@ -264,19 +313,26 @@ export function debounceFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
     wrapped.cancel = function (reason?: any): void {
       clearTimers();
       lastArgs = undefined;
+      lastThis = undefined;
       cancelCurrent(reason);
     };
 
-    wrapped.flush = function (): TPromiseOf<K, R, F> | undefined {
+    wrapped.flush = function (): TPromiseOf<K, R, F | Unlisted> | undefined {
       if ((timerId === undefined && maxTimerId === undefined) || pendingPromise === undefined) return undefined;
 
       const args = lastArgs;
+      const thisArg = lastThis;
       // read before invoking, because a call that completes in this tick releases it
       const p = pendingPromise;
       clearTimers();
 
-      if (args) {
-        invoke(args);
+      if (args && trailing) {
+        invoke(args, thisArg);
+        rearmWindow();
+      } else if (args) {
+        lastArgs = undefined;
+        lastThis = undefined;
+        cancelPending();
       }
 
       pendingPromise = undefined;

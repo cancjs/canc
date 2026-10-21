@@ -53,16 +53,28 @@ const quotes = await timeout(fetchQuotes(), 3000);
 
 ## Description
 
-The difference from the cancelable twin is what happens to work already in flight. Here nothing
-can be stopped: `timeout` rejects but the underlying promise runs to completion, a pending `retry`
+The difference from the cancelable twin is what happens to work already in flight. Here a native
+promise cannot be stopped: `timeout` rejects but the underlying promise runs to completion, a pending `retry`
 attempt finishes even after the returned promise has been abandoned, and a `delay` timer that
 nobody waits for still fires. Same story for `limit` and `map`: `limited.cancel()` rejects the
 still-queued handles but lets running jobs finish, and a `map` in progress cannot be stopped, only
 abandoned by the caller. Every handle still settles, queued or not, provided the underlying job
 itself settles.
 
+An input that is itself cancelable is the exception. When `timeout` misses its deadline, or a
+`signal` aborts `delay`, `minDelay`, `timeout` or `retry`, or `debounce` is canceled, or `limit`,
+`map`, an error matcher built by `createCatchError` or `createSuppressError`, or an async iterator
+callback stops, the helper releases the input it was given. A cancelable promise from
+`@cancjs/promise` is canceled only when the helper was its last consumer, and keeps running for its other consumers otherwise. It then
+receives a bubbled `CancelError`, not the signal's reason, the `TimeoutError` of a missed deadline
+or the reason passed to `debounced.cancel()`. Any other object with a `cancel` method is canceled
+directly. A missed `timeout` deadline and `debounced.cancel()` forward a reason to it. A `signal`
+abort, and canceling the result of `timeout`, `delay`, `minDelay`, `retry` or a debounced call, call
+`cancel()` without one.
+
 Under `debounce` and `throttle`, a superseded pending or trailing call rejects with `SupersededError`.
-A fire-and-forget call needs a rejection handler attached so a superseded call is not unhandled.
+A superseded call counts as handled, so a fire-and-forget call raises no unhandled rejection for it,
+while a failure of the function itself still surfaces as unhandled when nobody subscribed.
 
 `fromAbortSignal(signal)` is here, and fulfills once `signal` aborts. Without a cancel channel its
 listener comes off on settle only, so racing it against a signal that never fires holds the listener

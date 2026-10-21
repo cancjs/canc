@@ -1,4 +1,4 @@
-import { CancelablePromise, TimeoutError } from '@cancjs/promise';
+import { CancelablePromise, FailureOf, TimeoutError } from '@cancjs/promise';
 
 import { IPromiseKind, IToolboxDeps, TPromiseCtor } from '../../_toolbox';
 import { IToolboxOptions } from './options';
@@ -11,6 +11,8 @@ import { IToolboxOptions } from './options';
 export interface ICancelableKind extends IPromiseKind {
   promise: CancelablePromise<this['value'], this['failure']>;
   options: IToolboxOptions;
+  input: unknown;
+  failureOf: FailureOf<this['input']>;
 }
 
 /**

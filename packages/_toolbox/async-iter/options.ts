@@ -7,24 +7,33 @@ export interface ISplitConfigResult<T> {
   rest: T[];
 }
 
+// a prototype without a prototype is some realm's Object.prototype
+function isPlainObject(value: unknown): value is Record<PropertyKey, unknown> {
+  if (!isObjectLike(value)) {
+    return false;
+  }
+
+  const prototype = Object.getPrototypeOf(value);
+
+  return prototype === null || Object.getPrototypeOf(prototype) === null;
+}
+
+/**
+ * Split a trailing config object off an argument list. Only the LAST argument can be config, and
+ * only a plain object: anything iterable, thenable or class-made stays a source or an operator.
+ * A trailing `undefined` is an unset config slot and is dropped, so an optional config can be
+ * forwarded as it is; `null` is not.
+ */
 export function splitConfig<T extends unknown[]>(args: T): ISplitConfigResult<T[number]> {
-  let configIndex = -1;
-
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
-
-    if (isObjectLike(arg) && !Array.isArray(arg) && !isThenableLike(arg) && !isIterable(arg)) {
-      configIndex = i;
-      break;
-    }
+  if (args.length > 0 && args[args.length - 1] === undefined) {
+    return { config: {}, rest: args.slice(0, -1) as T[number][] };
   }
 
-  if (configIndex === -1) {
-    return { config: {}, rest: args as any[] };
+  const last = args[args.length - 1];
+
+  if (args.length > 0 && isPlainObject(last) && !isThenableLike(last) && !isIterable(last)) {
+    return { config: last, rest: args.slice(0, -1) as T[number][] };
   }
 
-  const config = (args[configIndex] || {}) as IAsyncIterOptions;
-  const rest = [...args.slice(0, configIndex), ...args.slice(configIndex + 1)] as T[number][];
-
-  return { config, rest };
+  return { config: {}, rest: args as any[] };
 }

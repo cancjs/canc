@@ -1,8 +1,9 @@
 import { isAbortError, isTimeoutError } from '../_util';
 import { compileErrorMatchers, TErrorMatcher } from '../_util/error-matchers';
-import { construct, IExecutorCtx } from './construct';
+import { construct, IExecutorCtx, TPromiseCtor } from './construct';
 import { IToolboxDeps } from './deps';
-import { isCancelableLike, isCancelErrorLike, isObjectLike, isThenableLike } from './guards';
+import { isCancelErrorLike, isObjectLike, isThenableLike } from './guards';
+import { followInput } from './input';
 import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
 
 function causeNameIs(value: unknown, name: string): boolean {
@@ -29,16 +30,19 @@ export const isAbortLike = (reason: unknown): boolean =>
 export const isTimeoutLike = (reason: unknown): boolean =>
   isTimeoutError(reason) || (isCancelErrorLike(reason) && causeNameIs(reason, 'TimeoutError'));
 
-function wireCancelInput(ctx: IExecutorCtx | undefined, promise: unknown): void {
-  // Inert on the native flavor since a native Promise executor has no third argument but the
-  // cancelable flavor propagates an outer cancel down to a cancelable input like other helpers
-  if (!ctx) return;
+// an outer cancel gives up the input like every other helper, inert without a cancel context
+function followCatchInput(
+  Impl: TPromiseCtor,
+  ctx: IExecutorCtx | undefined,
+  promise: PromiseLike<unknown>,
+  resolve: (value: unknown) => void,
+  onRejected: (reason: any) => void,
+): void {
+  const releaseInput = followInput(promise, resolve, onRejected, Impl);
 
-  ctx.handleCancel(() => {
-    if (isCancelableLike(promise)) {
-      promise.cancel();
-    }
-  });
+  if (ctx) {
+    ctx.handleCancel(() => releaseInput());
+  }
 }
 
 /**
@@ -69,15 +73,17 @@ export function createCatchErrorFactory<K extends IPromiseKind = IPromiseLikeKin
     return function catchError(errorOrPromise: any): any {
       if (isThenableLike(errorOrPromise)) {
         return construct<any, K>(deps.Impl, (resolve, reject, ctx?: IExecutorCtx) => {
-          deps.Impl.resolve(errorOrPromise).then(resolve, (reason: any) => {
-            if (isCaught(reason)) {
-              resolve(reason);
-            } else {
-              reject(reason);
+          followCatchInput(deps.Impl, ctx, errorOrPromise, resolve, (reason: any) => {
+            try {
+              if (isCaught(reason)) {
+                resolve(reason);
+              } else {
+                reject(reason);
+              }
+            } catch (predicateError) {
+              reject(predicateError);
             }
           });
-
-          wireCancelInput(ctx, errorOrPromise);
         });
       }
 
@@ -102,15 +108,17 @@ export function createSuppressErrorFactory<K extends IPromiseKind = IPromiseLike
     return function suppressError(errorOrPromise: any): any {
       if (isThenableLike(errorOrPromise)) {
         return construct<any, K>(deps.Impl, (resolve, reject, ctx?: IExecutorCtx) => {
-          deps.Impl.resolve(errorOrPromise).then(resolve, (reason: any) => {
-            if (isCaught(reason)) {
-              resolve(undefined);
-            } else {
-              reject(reason);
+          followCatchInput(deps.Impl, ctx, errorOrPromise, resolve, (reason: any) => {
+            try {
+              if (isCaught(reason)) {
+                resolve(undefined);
+              } else {
+                reject(reason);
+              }
+            } catch (predicateError) {
+              reject(predicateError);
             }
           });
-
-          wireCancelInput(ctx, errorOrPromise);
         });
       }
 

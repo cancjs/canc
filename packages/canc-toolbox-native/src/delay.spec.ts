@@ -1,5 +1,10 @@
 import { delay } from './index';
 
+// jest fakes setImmediate with the other timers, and node reports a rejection on a real turn
+const realSetImmediate = setImmediate;
+
+const turn = (): Promise<void> => new Promise<void>((resolve) => realSetImmediate(resolve));
+
 describe('delay', () => {
   afterEach(() => {
     jest.useRealTimers();
@@ -79,8 +84,6 @@ describe('delay', () => {
   it('a promise input rejecting early is held until the timer completes (sequential)', async () => {
     jest.useFakeTimers();
     const early = new Promise((_resolve, reject) => setTimeout(() => reject(new Error('early')), 10));
-    // Observe (and silence) the standalone rejection so it does not surface as unhandled.
-    early.catch(() => undefined);
 
     const promise = delay(early, 50);
     const observed = promise.catch((error: unknown) => error);
@@ -100,6 +103,28 @@ describe('delay', () => {
     jest.advanceTimersByTime(1);
     const reason = await observed;
     expect((reason as Error).message).toBe('early');
+  });
+
+  it('a rejecting input the caller catches is not reported as unhandled', async () => {
+    jest.useFakeTimers();
+    // jest fails a test whose promise goes unhandled, so reaching the end proves none did
+    const rejecting = Promise.reject(new Error('early'));
+    const observed = delay(rejecting, 10).catch((error: unknown) => error);
+
+    await turn();
+    await turn();
+    jest.advanceTimersByTime(10);
+
+    expect(((await observed) as Error).message).toBe('early');
+  });
+
+  it('keeps the input when the duration is undefined', async () => {
+    jest.useFakeTimers();
+    const promise = (delay as any)(Promise.resolve('kept'), undefined);
+
+    jest.advanceTimersByTime(0);
+
+    await expect(promise).resolves.toBe('kept');
   });
 
   it('resolves within a [min, max] range, and rolls more than one distinct value', async () => {

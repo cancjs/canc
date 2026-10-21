@@ -2,10 +2,26 @@ import { IExecutorCtx } from './construct';
 import { constructTimed } from './construct-timed';
 import { IToolboxDeps, TCallDeps } from './deps';
 import { parseTimedArgs, resolveDuration, TDuration } from './duration';
-import { isCancelableLike, isThunk } from './guards';
-import { TTimedInput } from './input';
+import { isCancelableLike, isThenableLike, isThunk } from './guards';
+import { followInput, isCountedInput, TReleaseInput, TTimedInput } from './input';
 import { IPromiseKind, IPromiseLikeKind, TPromiseOf } from './kind';
 import { resolveTimers, startTimer, stopTimer } from './timers';
+
+const ignore = (): void => undefined;
+
+// the input is only adopted when the timer fires, so its rejection needs a handler from the start
+function holdInput(input: unknown): TReleaseInput | undefined {
+  if (!isThenableLike(input)) {
+    return isCancelableLike(input) ? (reason?: any) => input.cancel(reason) : undefined;
+  }
+
+  try {
+    return followInput(input, ignore, ignore);
+  } catch {
+    // adopting the input later surfaces the same throw as a rejection
+    return undefined;
+  }
+}
 
 /** Bind `delay` to one promise implementation and set of timers. */
 export function delayFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IToolboxDeps<K>) {
@@ -21,6 +37,9 @@ export function delayFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
    *
    * A bare timer declares no failure set, having no input to take one from. With an input, the
    * declared set is the input's, held back like everything else until the timer completes.
+   *
+   * Canceling the returned promise gives up an input passed as a value. A cancelable promise is
+   * canceled only when `delay` was its last consumer, any other cancelable is canceled directly, without a reason.
    */
   function delay<T = void>(ms: TDuration, options?: K['options'] & TCallDeps): TPromiseOf<K, T>;
   function delay<T, F = never>(
@@ -35,9 +54,8 @@ export function delayFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
     const ms = resolveDuration(parsed.duration);
     const { hasInput, input, options } = parsed;
     const timers = resolveTimers(options, deps);
-    // A cancelable value/promise supplied eagerly (not via a thunk - nothing is in flight for a
-    // thunk until it runs) is canceled if the returned promise is canceled first.
-    const eagerCancelable = hasInput && !isThunk(input) && isCancelableLike(input) ? input : undefined;
+    // only an eager input is held: a thunk has nothing in flight until it runs
+    let releaseInput = hasInput && !isThunk(input) ? holdInput(input) : undefined;
 
     return constructTimed<T, K, F>(
       deps,
@@ -59,6 +77,15 @@ export function delayFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
             return;
           }
 
+          if (releaseInput && isCountedInput(input)) {
+            // adopting through `resolve` would add a consumer no cancel could release
+            const held = releaseInput;
+            releaseInput = followInput<T>(input, resolve, reject);
+            held();
+
+            return;
+          }
+
           resolve(input as T | PromiseLike<T>);
         };
 
@@ -67,7 +94,7 @@ export function delayFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
         if (ctx) {
           ctx.handleCancel(() => {
             stopTimer(handle, timers);
-            eagerCancelable?.cancel();
+            releaseInput?.();
           });
         }
       },

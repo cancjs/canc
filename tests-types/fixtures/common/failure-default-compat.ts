@@ -11,7 +11,7 @@ import type { FailureOf, Unlisted } from '@cancjs/promise';
 import CancelablePromise, { AbortError, catchCancel, catchErrors, TimeoutError } from '@cancjs/promise';
 import { async as cancAsync, await as cancAwait } from '@cancjs/coroutine';
 import cancelableFetch from '@cancjs/fetch';
-import { delay, minDelay, timeout, waitFor } from '@cancjs/toolbox';
+import { debounce, delay, limit, map, minDelay, timeout, waitFor } from '@cancjs/toolbox';
 
 import type { Assert, Eq } from './assert-type';
 
@@ -223,11 +223,44 @@ type _waitForN = Assert<Eq<FailureOf<typeof waitForN>, TimeoutError | Unlisted>>
 type _fetchN = Assert<Eq<FailureOf<typeof fetchN>, TimeoutError | Unlisted>>;
 type _timeoutCaught = Assert<Eq<FailureOf<typeof timeoutCaught>, Unlisted>>;
 
+// timeout keeps the input failure next to its own
+const timeoutF = timeout(f, 1);
+const timeoutU = timeout(u, 1);
+const timeoutNat = timeout(nativeNumber, 1);
+const timeoutBare = timeout(1);
+const timeoutThunkF = timeout(() => f, 1);
+type _timeoutF = Assert<Eq<FailureOf<typeof timeoutF>, FooError | TimeoutError | Unlisted>>;
+type _timeoutU = Assert<Eq<FailureOf<typeof timeoutU>, unknown>>;
+type _timeoutNat = Assert<Eq<FailureOf<typeof timeoutNat>, TimeoutError | Unlisted>>;
+type _timeoutBare = Assert<Eq<typeof timeoutBare, CancelablePromise<never, TimeoutError | Unlisted>>>;
+type _timeoutThunkF = Assert<Eq<FailureOf<typeof timeoutThunkF>, FooError | TimeoutError | Unlisted>>;
+type _timeoutFValue = Assert<Eq<typeof timeoutF, CancelablePromise<number, FooError | TimeoutError | Unlisted>>>;
+export const timeoutFReason = timeout(f, 1).catch((e) => e.response);
+
 // pass-through helpers keep a declared failure closed
 const minDelayF = minDelay(f, 10);
 const delayF = delay(f, 10);
 type _minDelayF = Assert<Eq<FailureOf<typeof minDelayF>, FooError>>;
 type _delayF = Assert<Eq<FailureOf<typeof delayF>, FooError>>;
+
+// helpers that reject on their own stay open, and a cancellation stand-in is never listed
+declare const fooJob: () => CancelablePromise<number, FooError>;
+const mapPlain = map([1], (x) => x * 2);
+const mapF = map([1], () => f);
+const limitF = limit(1)(fooJob);
+const debouncedF = debounce(fooJob, 10)();
+type _mapPlain = Assert<Eq<FailureOf<typeof mapPlain>, AggregateErrorShape | Unlisted>>;
+type _mapF = Assert<Eq<FailureOf<typeof mapF>, FooError | AggregateErrorShape | Unlisted>>;
+type _limitF = Assert<Eq<FailureOf<typeof limitF>, FooError | Unlisted>>;
+type _limitNoAbort = Assert<Eq<Exclude<FailureOf<typeof limitF>, AbortError>, FailureOf<typeof limitF>>>;
+type _debouncedF = Assert<Eq<FailureOf<typeof debouncedF>, FooError | Unlisted>>;
+export const mapReason = map([1], (x) => x).catch((e) => e.errors);
+export const limitReason = limit(1)(fooJob).catch((e) => e.name);
+const coMap = cancAsync(function* () {
+  const x = yield* cancAwait(map([1], (x) => x));
+  return x;
+});
+type _coMap = Assert<Eq<FailureOf<ReturnType<typeof coMap>>, AggregateErrorShape>>;
 
 // a coroutine step declares the library error only
 const coTimeoutN = cancAsync(function* () {
@@ -240,6 +273,11 @@ const coFetch = cancAsync(function* () {
 });
 type _coTimeoutN = Assert<Eq<FailureOf<ReturnType<typeof coTimeoutN>>, TimeoutError>>;
 type _coFetch = Assert<Eq<FailureOf<ReturnType<typeof coFetch>>, TimeoutError>>;
+const coTimeoutF = cancAsync(function* () {
+  const x = yield* cancAwait(timeout(f, 1));
+  return x;
+});
+type _coTimeoutF = Assert<Eq<FailureOf<ReturnType<typeof coTimeoutF>>, FooError | TimeoutError>>;
 
 const withResolversU = CancelablePromise.withResolvers<string>();
 type _withResolversU = Assert<Eq<FailureOf<typeof withResolversU.promise>, unknown>>;
@@ -293,10 +331,9 @@ export const breakAny = cancAsync(function* () { return yield* cancAwait.any([u,
 // prettier-ignore
 // @ts-expect-error reason is the timeout error
 export const breakTimeoutNative = cancAsync(function* () { return yield* cancAwait(timeout(nativeP, 10)); })().catch((e) => e.response);
-// documented break: the step declares its failure
+// an undeclared input keeps the timeout step undeclared, so the 1.0 body compiles
 // prettier-ignore
-// @ts-expect-error reason is the timeout error
-export const breakTimeoutOneArg = cancAsync(function* () { return yield* cancAwait(timeout(u, 10)); })().catch((e) => e.response);
+export const timeoutOneArgStepReason = cancAsync(function* () { return yield* cancAwait(timeout(u, 10)); })().catch((e) => e.response);
 // documented break: the step declares its failure
 // prettier-ignore
 // @ts-expect-error reason is the timeout error
