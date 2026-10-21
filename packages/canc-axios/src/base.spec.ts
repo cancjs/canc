@@ -97,6 +97,56 @@ describe('wrapAxios', () => {
     expect((error as unknown as CancelError).aborted).toBe(true);
   });
 
+  it('aborts a pending request when the instance default signal aborts', async () => {
+    const stub = createStubAdapter();
+    const controller = new AbortController();
+    const api = wrapAxios(axios.create({ adapter: stub.adapter, signal: controller.signal }));
+
+    const promise = api.get('/issues');
+    await nextTick();
+    controller.abort();
+
+    const error = await promise.catch((reason) => reason);
+
+    expect(isCancelError(error)).toBe(true);
+    expect(stub.aborted).toBe(true);
+  });
+
+  it('aborts on a defaults signal assigned after wrapping', async () => {
+    const stub = createStubAdapter();
+    const controller = new AbortController();
+    const api = wrapAxios(axios.create({ adapter: stub.adapter }));
+
+    api.defaults.signal = controller.signal;
+
+    const promise = api.get('/issues');
+    await nextTick();
+    controller.abort();
+
+    await expect(promise).rejects.toBeInstanceOf(CancelError);
+    expect(stub.aborted).toBe(true);
+  });
+
+  it('honors the default signal and a per-call signal together', async () => {
+    const stub = createStubAdapter();
+    const defaultController = new AbortController();
+    const callController = new AbortController();
+    const api = wrapAxios(axios.create({ adapter: stub.adapter, signal: defaultController.signal }));
+
+    const promise = api.get('/issues', { signal: callController.signal });
+    await nextTick();
+    callController.abort();
+
+    await expect(promise).rejects.toBeInstanceOf(CancelError);
+    expect(stub.aborted).toBe(true);
+
+    const second = api.get('/again', { signal: new AbortController().signal });
+    await nextTick();
+    defaultController.abort();
+
+    await expect(second).rejects.toBeInstanceOf(CancelError);
+  });
+
   it('rejects a pre-aborted request before it reaches the adapter', async () => {
     const stub = createStubAdapter();
     const api = wrapAxios(axios.create({ adapter: stub.adapter }));

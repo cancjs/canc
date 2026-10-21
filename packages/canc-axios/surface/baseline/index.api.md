@@ -9,6 +9,7 @@ Generated. Do not edit by hand.
 
 ```text
 new (ControllerCtor?: AbortControllerCtor | undefined): CancelScope
+_chainDetach: any
 _controller: any
 _detach: any
 _linked: any

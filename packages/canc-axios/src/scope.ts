@@ -168,9 +168,9 @@ export class CancelScope {
       original.addEventListener!('abort', listener);
 
       if (isFunction(original.removeEventListener)) {
-        this._detach = function () {
+        this._chainDetach(function () {
           original.removeEventListener!('abort', listener);
-        };
+        });
       }
 
       return;
@@ -187,10 +187,19 @@ export class CancelScope {
         }
       };
 
-      this._detach = function () {
+      this._chainDetach(function () {
         original.onabort = previous || null;
-      };
+      });
     }
+  }
+
+  private _chainDetach(detach: () => void): void {
+    const earlier = this._detach;
+
+    this._detach = function () {
+      earlier();
+      detach();
+    };
   }
 
   /** Detaches everything wired onto a caller signal, so a long-lived signal reused across many

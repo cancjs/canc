@@ -72,7 +72,14 @@ export function wrapAxios(
     const config = configInput || {};
     const scope = new CancelScope(ControllerCtor);
 
-    // A caller-supplied signal aborts the request the same way .cancel() does.
+    // Instance defaults and a per-call signal are both kill switches. Axios would keep only one of
+    // them once the wrapper puts its own signal on the config.
+    const defaultSignal = instance.defaults?.signal;
+
+    if (defaultSignal !== config.signal) {
+      scope.watch(defaultSignal);
+    }
+
     scope.watch(config.signal);
 
     if (isFunction(ctx.handleCancel)) {
