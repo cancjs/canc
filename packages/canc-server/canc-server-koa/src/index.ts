@@ -5,7 +5,7 @@ import type { Context, DefaultContext, DefaultState, Middleware, ParameterizedCo
 import { isUnanswerable, statusOf, toRequestLike, toResponseLike } from '../../../_server/exchange';
 import { ensureRequestCancelState, getNodeRequestSignal, stopRequestDeadline } from '../../../_server/node-signal';
 import { runCancelableHandler } from '../../../_server/run';
-import { shutdownServer } from '../../../_server/shutdown';
+import { createServerShutdown } from '../../../_server/shutdown';
 import { DEFAULT_TIMEOUT_STATUS } from '../../../_server/timeout';
 import {
   ICancelableHandlerOptions,
@@ -138,14 +138,25 @@ export function cancelMiddleware<StateT = DefaultState, ContextT = DefaultContex
 }
 
 /**
- * Stops a server gracefully: no new connections, a grace window for in-flight handlers to finish,
- * and a cancel for any still running when it ends (at once with `cancelOnStart`). Resolves with what
- * happened rather than throwing, and a second call while the first is still running returns that
- * same result, so a pair of signal handlers is safe to wire without a guard.
+ * Sets up a graceful shutdown and returns the function that runs it. Call it right after
+ * `app.listen()`: connections and requests are recorded from this call on.
+ *
+ * The returned function stops the server: no new connections, a grace window for in-flight
+ * handlers to finish, and a cancel for any still running when it ends (at once with
+ * `cancelOnStart`). When it starts, connections carrying no request are closed and every in-flight
+ * response is sent with `Connection: close`, so each connection closes once its response finishes.
+ * It resolves with what happened rather than throwing. A second call while the first is still
+ * running returns that same promise, so a pair of signal handlers is safe to wire without a guard.
+ * Calling `createShutdown` again with the same server returns the same function.
+ *
+ * Created late, the shutdown loses nothing but drains slower, because a connection opened before
+ * the call is unknown to it. Such a connection is closed only when the grace window ends if it has
+ * sent no request yet, or if its request is still in flight and no wrapped handler or request
+ * signal recorded it. That response also goes out without `Connection: close`.
  *
  * Takes the raw `http.Server` `app.listen()` hands back, not the koa application: koa has no `close`
  * of its own to sequence this against.
  */
-export function shutdown(server: Server, options?: IShutdownOptions): Promise<IShutdownResult> {
-  return shutdownServer(server, options);
+export function createShutdown(server: Server): (options?: IShutdownOptions) => Promise<IShutdownResult> {
+  return createServerShutdown(server);
 }

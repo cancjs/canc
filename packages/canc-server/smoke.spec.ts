@@ -124,7 +124,7 @@ describe('raw node', () => {
 
     const pending = httpRequest(port, { path: '/hang' });
     await started.promise;
-    const result = await nodeServer.shutdown(lastServer(), { cancelOnStart: true, timeout: 5000 });
+    const result = await nodeServer.createShutdown(lastServer())({ cancelOnStart: true, timeout: 5000 });
 
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
     expect((await pending).status).toBe(503);
@@ -183,7 +183,7 @@ describe('express under concurrency', () => {
 
     // every handler is parked, so all of them are in flight when the shutdown starts
     await allArrived.promise;
-    const shutting = expressServer.shutdown(lastServer(), { timeout: 5000 });
+    const shutting = expressServer.createShutdown(lastServer())({ timeout: 5000 });
     // the timer queue turns first, so an already closed window would cancel every handler
     setTimeout(release.resolve, 50);
     const result = await shutting;
@@ -225,7 +225,7 @@ describe('express under concurrency', () => {
     });
 
     await started.promise;
-    const result = await expressServer.shutdown(lastServer(), { timeout: 20 });
+    const result = await expressServer.createShutdown(lastServer())({ timeout: 20 });
 
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: true });
     expect(await outcome).toBe('truncated');
@@ -321,7 +321,7 @@ describe('express', () => {
     const port = await listen(createServer(app));
     const pending = httpRequest(port, { path: '/hang' });
     await started.promise;
-    const result = await expressServer.shutdown(lastServer(), { cancelOnStart: true, timeout: 5000 });
+    const result = await expressServer.createShutdown(lastServer())({ cancelOnStart: true, timeout: 5000 });
 
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
     expect((await pending).status).toBe(503);
@@ -414,7 +414,7 @@ describe('koa', () => {
     const port = await listenKoa(app);
     const pending = httpRequest(port, { path: '/hang' });
     await started.promise;
-    const result = await koaServer.shutdown(lastServer(), { cancelOnStart: true, timeout: 5000 });
+    const result = await koaServer.createShutdown(lastServer())({ cancelOnStart: true, timeout: 5000 });
 
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
     expect((await pending).status).toBe(503);
@@ -523,7 +523,7 @@ describe('fastify', () => {
     // the shutdown closes the connection on its way out, so this one is never read back
     httpRequest(port, { path: '/hang' }).catch(() => undefined);
     await started.promise;
-    const result = await fastifyServer.shutdown(app, { cancelOnStart: true, timeout: 5000 });
+    const result = await fastifyServer.createShutdown(app)({ cancelOnStart: true, timeout: 5000 });
 
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
     expect(app.server.listening).toBe(false);
@@ -626,7 +626,7 @@ describe('hono on node', () => {
     const port = await listenHono(app);
     httpRequest(port, { path: '/hang' }).catch(() => undefined);
     await started.promise;
-    const result = await honoServer.shutdown(lastServer(), { cancelOnStart: true, timeout: 5000 });
+    const result = await honoServer.createShutdown(lastServer())({ cancelOnStart: true, timeout: 5000 });
 
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
     expect(lastServer().listening).toBe(false);

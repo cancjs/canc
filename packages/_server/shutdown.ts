@@ -6,9 +6,14 @@ import {
   clearShutdownState,
   getRequestRegistry,
   getRequestState,
+  getShutdownFunction,
   getShutdownState,
+  IConnectionLike,
   IRequestCancelState,
+  setShutdownFunction,
   setShutdownState,
+  trackConnections,
+  TShutdownFunction,
 } from './holder';
 import { ensureRequestCancelState, isResponseClosed } from './node-signal';
 import { SERVER_SHUTDOWN } from './reasons';
@@ -22,12 +27,6 @@ interface IDrainResponse extends IResponseLike {
   headersSent?: boolean;
   setHeader?: (name: string, value: string) => unknown;
   socket?: unknown;
-}
-
-interface ISocketLike {
-  destroyed?: boolean;
-  destroySoon?: () => void;
-  end?: () => unknown;
 }
 
 /** One request a shutdown waits on, counted once its response is over and its tasks settled. */
@@ -51,9 +50,11 @@ interface IDrain {
  * are force-closed. With `cancelOnStart` the handlers are canceled at once instead, a late arrival
  * included, and the window is only the wait for them to unwind.
  *
- * Requests are seen from the first time this layer meets the server: the first wrapped handler or
- * request signal on it, the fastify plugin, or the shutdown itself. A connection opened before that
- * and idle when the window runs out is closed then.
+ * Requests are seen from the first time this layer meets the server: `createShutdown`, the first
+ * wrapped handler or request signal on it, the fastify plugin, or the shutdown itself. Connections
+ * are seen from `createShutdown` on, and at the start each one carrying no request is closed. A
+ * connection opened before that is unknown: if it has not sent a request, or its response is still
+ * in flight, it is closed only when the window runs out.
  *
  * Each request's own cancel signal is canceled as well, once its tasks have been. That stops the
  * consumers a handler never awaited, such as a detached query or a request-scoped database
@@ -112,22 +113,44 @@ export function shutdownServer(
     }
   };
 
-  const closeSocket = (socket: ISocketLike | undefined) => {
+  // a pipelined request still owes a response on its connection
+  const carriesRequest = (socket: IConnectionLike) => {
+    for (const req of registry.open.values()) {
+      if (req.socket === socket) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
+  const closeSocket = (socket: IConnectionLike | undefined) => {
     if (!ownsConnections || !socket || socket.destroyed === true) {
       return;
     }
 
-    // a pipelined request still owes a response on this connection
-    for (const req of registry.open.values()) {
-      if (req.socket === socket) {
-        return;
-      }
+    if (carriesRequest(socket)) {
+      return;
     }
 
     if (isFunction(socket.destroySoon)) {
       socket.destroySoon();
     } else if (isFunction(socket.end)) {
       socket.end();
+    }
+  };
+
+  // closeIdleConnections() skips a connection that never sent a request, so the ones recorded
+  // since createShutdown are closed here; an idle kept-alive one goes the same way
+  const closeRequestless = () => {
+    if (!ownsConnections || !registry.connections) {
+      return;
+    }
+
+    for (const socket of Array.from(registry.connections)) {
+      if (socket.destroyed !== true && !carriesRequest(socket) && isFunction(socket.destroy)) {
+        socket.destroy();
+      }
     }
   };
 
@@ -188,7 +211,7 @@ export function shutdownServer(
 
     if (!drain.over) {
       // node detaches the socket from a finished response, so it is read now
-      const socket = (res.socket ?? req.socket) as ISocketLike | undefined;
+      const socket = (res.socket ?? req.socket) as IConnectionLike | undefined;
 
       res.once('close', () => {
         drain.over = true;
@@ -273,6 +296,7 @@ export function shutdownServer(
     });
   }
   closeIdle();
+  closeRequestless();
 
   if (cancelOnStart) {
     cancelOpenRequests();
@@ -342,6 +366,32 @@ export function shutdownServer(
   });
 
   setShutdownState(server, shutdown);
+
+  return shutdown;
+}
+
+/**
+ * Sets up the graceful shutdown of a server and returns the function that runs it. Connections
+ * and requests are recorded from this call on, which is what lets the shutdown close a connection
+ * that never sent a request and mark every in-flight response `Connection: close`. A second call
+ * for the same server returns the same function.
+ */
+export function createServerShutdown(server: IServerLike): TShutdownFunction {
+  if (server === null || (typeof server !== 'object' && typeof server !== 'function')) {
+    throw new TypeError(
+      `createShutdown() needs the http server as its first argument, got ${server === null ? 'null' : typeof server}.`,
+    );
+  }
+
+  const cached = getShutdownFunction(server);
+  if (cached) {
+    return cached;
+  }
+
+  trackConnections(server);
+
+  const shutdown: TShutdownFunction = (options) => shutdownServer(server, options);
+  setShutdownFunction(server, shutdown);
 
   return shutdown;
 }

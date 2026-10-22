@@ -1,7 +1,7 @@
 import type { HttpBindings } from '@hono/node-server';
 import { Hono } from 'hono';
 
-import { cancelableHandler, shutdown } from './index';
+import { cancelableHandler, createShutdown } from './index';
 
 // compile-time coverage: under strict mode a parameter the contextual type failed to reach is an
 // implicit any, so these cases fail the build rather than an assertion
@@ -80,13 +80,13 @@ describe('handler typing', () => {
   });
 });
 
-describe('shutdown typing', () => {
+describe('createShutdown typing', () => {
   it('rejects the application in place of the server', () => {
     const app = new Hono();
 
-    // @ts-expect-error shutdown takes what serve() returned, never the application itself
-    const pending = shutdown(app);
+    // @ts-expect-error createShutdown takes what serve() returned, never the application itself
+    const wrong = () => createShutdown(app);
 
-    expect(pending).toBeDefined();
+    expect(typeof wrong).toBe('function');
   });
 });

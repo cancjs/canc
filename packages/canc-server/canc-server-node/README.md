@@ -103,12 +103,14 @@ const handler = cancelableHandler(function* (req, res) {
 Shut the server down, giving in-flight requests a grace window:
 
 ```js
-import { shutdown } from '@cancjs/server-node';
+import { createShutdown } from '@cancjs/server-node';
 
 const server = createServer(handler).listen(3000);
+// right after listen(), so the shutdown knows every connection
+const shutdown = createShutdown(server);
 
 process.on('SIGTERM', async () => {
-  const { canceled, completed, timedOut } = await shutdown(server, { timeout: 10_000 });
+  const { canceled, completed, timedOut } = await shutdown({ timeout: 10_000 });
 
   logger.info({ canceled, completed, timedOut }, 'server shut down');
   process.exit(0);
@@ -151,7 +153,7 @@ There is one deadline per request. A wrapped handler calling another wrapped han
 
 ### Shutting down
 
-`shutdown` stops the server accepting connections and closes idle keep-alive sockets. In-flight requests, wrapped or not, keep running for the grace window, and so does a request that arrives on a kept-alive connection meanwhile. Every response sent from then on carries `Connection: close`, and each connection closes as soon as the response on it finishes. When the window ends, handlers still running are canceled with the shutdown reason, so their cleanup runs and one that has not started its response can still answer `503`. Connections still busy after that are closed. Pass `cancelOnStart: true` to cancel handlers as soon as the shutdown starts instead, which suits long-lived responses such as server-sent events or long polling that would otherwise hold the whole window. The cancel reaches the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it. Requests are known from the first wrapped handler or request signal on the server; a connection opened before that and idle when the window ends is closed then. It resolves with counts rather than throwing, and a second call while the first is running returns the same result, so wiring it to both `SIGTERM` and `SIGINT` needs no guard. A `timeout` of `Infinity` waits for the responses however long they take, and a finite one past about 24.8 days is held at that limit.
+`createShutdown(server)` returns the function that runs the shutdown. Call it right after `listen()`: it records connections and requests from that point on. The shutdown stops the server accepting connections, closes the connections that have not sent a request, and closes idle keep-alive sockets. In-flight requests, wrapped or not, keep running for the grace window, and so does a request that arrives on a kept-alive connection meanwhile. Every response sent from then on carries `Connection: close`, and each connection closes as soon as the response on it finishes. When the window ends, handlers still running are canceled with the shutdown reason, so their cleanup runs and one that has not started its response can still answer `503`. Connections still busy after that are closed. Pass `cancelOnStart: true` to cancel handlers as soon as the shutdown starts instead, which suits long-lived responses such as server-sent events or long polling that would otherwise hold the whole window. The cancel reaches the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it. Created late, it drains correctly but slower, because a connection opened before the call is unknown to it. If that connection has not sent a request yet, or its request is still in flight and no wrapped handler or request signal recorded it, the connection is closed only when the grace window ends, and that response goes out without `Connection: close`. It resolves with counts rather than throwing, and a second call while the first is running returns the same result, so wiring it to both `SIGTERM` and `SIGINT` needs no guard. Calling `createShutdown` again with the same server returns the same function. A `timeout` of `Infinity` waits for the responses however long they take, and a finite one past about 24.8 days is held at that limit.
 
 ## Description
 
@@ -194,7 +196,7 @@ Cancelable promise flags (`bubble`, `shield`, `strict`, `asyncCancel`, `forceCan
 
 ### Shutdown
 
-- `shutdown(server, options?)` lets in-flight handlers finish within the grace window, cancels the rest, and resolves with `{ canceled, completed, timedOut }`. Options: `timeout`, `reason`, `closeServer`, `cancelOnStart`
+- `createShutdown(server)` returns `shutdown(options?)`, which lets in-flight handlers finish within the grace window, cancels the rest, and resolves with `{ canceled, completed, timedOut }`. Options: `timeout`, `reason`, `closeServer`, `cancelOnStart`
 
 ### Reasons
 

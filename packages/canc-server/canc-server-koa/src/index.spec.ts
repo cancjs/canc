@@ -6,14 +6,15 @@ import { connect, Socket } from 'net';
 import { Readable } from 'stream';
 import { runInThisContext } from 'vm';
 
+import { describeShutdownSockets } from '../../../_server/__tests__/shutdown-sockets';
 import {
   cancelableHandler,
   cancelMiddleware,
   CLIENT_DISCONNECTED,
+  createShutdown,
   getRequestSignal,
   HANDLER_TIMEOUT,
   SERVER_SHUTDOWN,
-  shutdown,
 } from './index';
 
 const servers: Server[] = [];
@@ -829,7 +830,7 @@ describe('shutdown', () => {
     const pending = httpRequest(port, { path: '/hang' });
 
     await started.promise;
-    const result = await shutdown(lastServer(), { timeout: 200 });
+    const result = await createShutdown(lastServer())({ timeout: 200 });
 
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: true });
     expect((await pending).status).toBe(503);
@@ -858,7 +859,7 @@ describe('shutdown', () => {
     const client = await rawRequest(port, 'GET /shielded HTTP/1.1\r\nHost: localhost\r\n\r\n');
 
     await started.promise;
-    const result = await shutdown(lastServer(), { timeout: 100 });
+    const result = await createShutdown(lastServer())({ timeout: 100 });
     client.destroy();
 
     expect(result.timedOut).toBe(true);
@@ -878,9 +879,9 @@ describe('shutdown', () => {
 
     await listen(app);
     const server = lastServer();
-    const first = shutdown(server, { timeout: 100 });
+    const first = createShutdown(server)({ timeout: 100 });
 
-    expect(shutdown(server)).toBe(first);
+    expect(createShutdown(server)()).toBe(first);
     expect(await first).toEqual({ canceled: 0, completed: 0, timedOut: false });
   });
 });
@@ -985,3 +986,17 @@ function recordWarnings(): { stop: () => string[] } {
 async function* asyncGeneratorHandler(): AsyncGenerator<number> {
   yield 1;
 }
+
+describeShutdownSockets(createShutdown, async (arrived, release) => {
+  const plain = new Koa();
+  plain.use(async (ctx) => {
+    arrived();
+    await release;
+    ctx.body = 'ok';
+  });
+  const server = await new Promise<Server>((resolve) => {
+    const listening = plain.listen(0, '127.0.0.1', () => resolve(listening));
+  });
+
+  return { server, target: server };
+});

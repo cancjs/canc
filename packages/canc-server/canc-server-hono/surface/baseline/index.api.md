@@ -100,14 +100,14 @@ number | { ms: number; status?: number; message?: string; }
 <E extends Env = any, P extends string = any, I extends Input = TBlankInput>(handler: THandlerFn<THonoHandler<E, P, I>, Response>, options?: ICancelableHandlerOptions | undefined): Handler<E, P, I, Promise<Response>>
 ```
 
+## `createShutdown` (function)
+
+```text
+(server: IServerLike): (options?: IShutdownOptions | undefined) => Promise<IShutdownResult>
+```
+
 ## `getRequestSignal` (function)
 
 ```text
 (c: ICancelContext): CancelSignal
-```
-
-## `shutdown` (function)
-
-```text
-(server: IServerLike, options?: IShutdownOptions | undefined): Promise<IShutdownResult>
 ```

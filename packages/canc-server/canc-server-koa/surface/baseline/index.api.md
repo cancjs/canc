@@ -68,14 +68,14 @@ timedOut: boolean
 <StateT = DefaultState, ContextT = DefaultContext, ResponseBodyT = unknown>(handler: THandlerFn<(ctx: ParameterizedContext<StateT, ContextT, ResponseBodyT>) => any>, options?: ICancelableHandlerOptions | undefined): (ctx: ParameterizedContext<StateT, ContextT, ResponseBodyT>) => Promise<void>
 ```
 
+## `createShutdown` (function)
+
+```text
+(server: Server<typeof IncomingMessage, typeof ServerResponse>): (options?: IShutdownOptions | undefined) => Promise<IShutdownResult>
+```
+
 ## `getRequestSignal` (function)
 
 ```text
 (ctx: Context): CancelSignal
-```
-
-## `shutdown` (function)
-
-```text
-(server: Server<typeof IncomingMessage, typeof ServerResponse>, options?: IShutdownOptions | undefined): Promise<IShutdownResult>
 ```

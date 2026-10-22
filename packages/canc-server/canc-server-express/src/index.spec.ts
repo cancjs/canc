@@ -5,15 +5,16 @@ import { IncomingMessage, request, Server } from 'http';
 import { connect, Socket } from 'net';
 import { runInThisContext } from 'vm';
 
+import { describeShutdownSockets } from '../../../_server/__tests__/shutdown-sockets';
 import {
   cancelableHandler,
   cancelErrorHandler,
   cancelMiddleware,
   CLIENT_DISCONNECTED,
+  createShutdown,
   getRequestSignal,
   HANDLER_TIMEOUT,
   SERVER_SHUTDOWN,
-  shutdown,
 } from './index';
 
 const servers: Server[] = [];
@@ -541,7 +542,7 @@ describe('cancellation after the head was sent', () => {
     const port = await listen(app);
     const pending = streamedRequest(port, '/export');
     await started.promise;
-    await shutdown(lastServer(), { timeout: 200 });
+    await createShutdown(lastServer())({ timeout: 200 });
 
     const response = await pending;
 
@@ -602,7 +603,7 @@ describe('shutdown', () => {
     const pending = httpRequest(port, { path: '/hang' });
 
     await started.promise;
-    const result = await shutdown(lastServer(), { timeout: 200 });
+    const result = await createShutdown(lastServer())({ timeout: 200 });
 
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: true });
     expect((await pending).status).toBe(503);
@@ -634,7 +635,7 @@ describe('shutdown', () => {
     const pending = httpRequest(port, { path: '/hang' });
 
     await started.promise;
-    const result = await shutdown(lastServer(), { timeout: 200 });
+    const result = await createShutdown(lastServer())({ timeout: 200 });
 
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: true });
     expect((await pending).status).toBe(503);
@@ -656,7 +657,7 @@ describe('shutdown', () => {
     await started.promise;
     // one macrotask, so the middleware task that already called next() has settled
     await new Promise((resolve) => setImmediate(resolve));
-    const result = await shutdown(lastServer(), { timeout: 1000 });
+    const result = await createShutdown(lastServer())({ timeout: 1000 });
 
     expect(await pending).toEqual({ body: 'plain ok', status: 200 });
     expect(result).toEqual({ canceled: 0, completed: 1, timedOut: false });
@@ -683,7 +684,7 @@ describe('shutdown', () => {
     const client = await rawRequest(port, 'GET /shielded HTTP/1.1\r\nHost: localhost\r\n\r\n');
 
     await started.promise;
-    const result = await shutdown(lastServer(), { timeout: 100 });
+    const result = await createShutdown(lastServer())({ timeout: 100 });
     client.destroy();
 
     expect(result.timedOut).toBe(true);
@@ -701,9 +702,9 @@ describe('shutdown', () => {
 
     await listen(app);
     const server = lastServer();
-    const first = shutdown(server, { timeout: 100 });
+    const first = createShutdown(server)({ timeout: 100 });
 
-    expect(shutdown(server)).toBe(first);
+    expect(createShutdown(server)()).toBe(first);
     expect(await first).toEqual({ canceled: 0, completed: 0, timedOut: false });
   });
 });
@@ -947,3 +948,16 @@ function recordWarnings(): { stop: () => string[] } {
 async function* asyncGeneratorHandler(): AsyncGenerator<number> {
   yield 1;
 }
+
+describeShutdownSockets(createShutdown, async (arrived, release) => {
+  const plain = express();
+  plain.get('/slow', (_req, res) => {
+    arrived();
+    void release.then(() => res.send('ok'));
+  });
+  const server = await new Promise<Server>((resolve) => {
+    const listening = plain.listen(0, '127.0.0.1', () => resolve(listening));
+  });
+
+  return { server, target: server };
+});

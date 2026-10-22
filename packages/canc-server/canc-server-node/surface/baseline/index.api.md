@@ -99,14 +99,14 @@ timedOut: boolean
 <TReq extends IncomingMessage = IncomingMessage, TRes extends ServerResponse = ServerResponse<IncomingMessage>>(handler: THandlerFn<TNodeHandler<TReq, TRes>>, options?: INodeCancelableHandlerOptions<TReq, TRes> | undefined): (req: TReq, res: TRes) => void
 ```
 
+## `createShutdown` (function)
+
+```text
+(server: Server<typeof IncomingMessage, typeof ServerResponse>): (options?: IShutdownOptions | undefined) => Promise<IShutdownResult>
+```
+
 ## `getRequestSignal` (function)
 
 ```text
 (req: IncomingMessage, res: ServerResponse<IncomingMessage>): CancelSignal
-```
-
-## `shutdown` (function)
-
-```text
-(server: Server<typeof IncomingMessage, typeof ServerResponse>, options?: IShutdownOptions | undefined): Promise<IShutdownResult>
 ```

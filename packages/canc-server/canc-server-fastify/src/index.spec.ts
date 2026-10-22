@@ -7,13 +7,14 @@ import { runInThisContext } from 'node:vm';
 import { CancelError, isCancelError, isCancelSignal } from '@cancjs/promise';
 import Fastify, { FastifyInstance, preHandlerAsyncHookHandler } from 'fastify';
 
+import { describeShutdownSockets } from '../../../_server/__tests__/shutdown-sockets';
 import {
   cancelableHandler,
   cancelErrorHandler,
   cancelPlugin,
+  createShutdown,
   getRequestSignal,
   SERVER_SHUTDOWN,
-  shutdown,
 } from './index';
 
 interface IDeferred<T> {
@@ -639,7 +640,7 @@ describe('error handler', () => {
     });
 
     await started.promise;
-    const result = await shutdown(instance, { timeout: 50 });
+    const result = await createShutdown(instance)({ timeout: 50 });
 
     app = undefined;
 
@@ -760,7 +761,7 @@ describe('shutdown', () => {
     const pending = send(port, '/hang');
     await started.promise;
 
-    const result = await shutdown(instance, { timeout: 200 });
+    const result = await createShutdown(instance)({ timeout: 200 });
 
     app = undefined;
 
@@ -791,7 +792,7 @@ describe('shutdown', () => {
     const request = open(port, '/shielded');
 
     await started.promise;
-    const result = await shutdown(instance, { timeout: 100 });
+    const result = await createShutdown(instance)({ timeout: 100 });
 
     app = undefined;
     request.destroy();
@@ -826,7 +827,7 @@ describe('shutdown', () => {
     });
 
     await started.promise;
-    const closing = shutdown(instance, { timeout: 1000 });
+    const closing = createShutdown(instance)({ timeout: 1000 });
 
     app = undefined;
     gate.resolve();
@@ -846,11 +847,11 @@ describe('shutdown', () => {
     );
 
     await listen(instance);
-    const first = shutdown(instance, { timeout: 100 });
+    const first = createShutdown(instance)({ timeout: 100 });
 
     app = undefined;
 
-    expect(shutdown(instance)).toBe(first);
+    expect(createShutdown(instance)()).toBe(first);
     expect(await first).toEqual({ canceled: 0, completed: 0, timedOut: false });
   });
 
@@ -860,13 +861,13 @@ describe('shutdown', () => {
 
     const closeSpy = jest.spyOn(instance, 'close');
 
-    const first = shutdown(instance, { closeServer: false });
+    const first = createShutdown(instance)({ closeServer: false });
     await first;
 
     expect(closeSpy).not.toHaveBeenCalled();
     expect(instance.server.listening).toBe(true);
 
-    const second = shutdown(instance);
+    const second = createShutdown(instance)();
     expect(second).not.toBe(first);
     await second;
     app = undefined;
@@ -882,7 +883,7 @@ describe('shutdown', () => {
     await listen(instance);
 
     try {
-      await expect(shutdown(instance)).resolves.toEqual({ canceled: 0, completed: 0, timedOut: false });
+      await expect(createShutdown(instance)()).resolves.toEqual({ canceled: 0, completed: 0, timedOut: false });
       expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('[@cancjs/server-fastify]'), expect.any(Error));
     } finally {
       errorSpy.mockRestore();
@@ -901,10 +902,10 @@ describe('shutdown', () => {
     instance.close = jest.fn().mockRejectedValueOnce(new Error('close failed')).mockImplementation(originalClose);
 
     try {
-      const first = shutdown(instance);
+      const first = createShutdown(instance)();
       await first;
 
-      const second = shutdown(instance);
+      const second = createShutdown(instance)();
       expect(second).not.toBe(first);
       await second;
     } finally {
@@ -1004,11 +1005,24 @@ async function* asyncGeneratorHandler(): AsyncGenerator<number> {
   yield 1;
 }
 
-describe('shutdown argument', () => {
+describe('createShutdown argument', () => {
   it('names the argument when given something other than a fastify instance', () => {
-    const bad = () => shutdown(undefined as unknown as FastifyInstance);
+    const bad = () => createShutdown(undefined as unknown as FastifyInstance);
 
     expect(bad).toThrow(TypeError);
-    expect(bad).toThrow('shutdown() needs the fastify instance as its first argument, got undefined.');
+    expect(bad).toThrow('createShutdown() needs the fastify instance as its first argument, got undefined.');
   });
+});
+
+describeShutdownSockets(createShutdown, async (arrived, release) => {
+  const plain = Fastify();
+  plain.get('/slow', async () => {
+    arrived();
+    await release;
+
+    return 'ok';
+  });
+  await plain.listen({ host: '127.0.0.1', port: 0 });
+
+  return { server: plain.server, target: plain };
 });

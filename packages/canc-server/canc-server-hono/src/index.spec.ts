@@ -7,13 +7,14 @@ import { serve, ServerType } from '@hono/node-server';
 import { Context, Hono, MiddlewareHandler, Next } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 
+import { describeShutdownSockets } from '../../../_server/__tests__/shutdown-sockets';
 import {
   cancelableHandler,
   cancelErrorHandler,
   cancelMiddleware,
+  createShutdown,
   getRequestSignal,
   SERVER_SHUTDOWN,
-  shutdown,
   THonoHandler,
 } from './index';
 
@@ -619,7 +620,7 @@ describe('shutdown', () => {
     const pending = send(port, '/hang');
     await started.promise;
 
-    const result = await shutdown(instance, { timeout: 200 });
+    const result = await createShutdown(instance)({ timeout: 200 });
 
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: true });
     expect((await pending).statusCode).toBe(503);
@@ -641,8 +642,8 @@ describe('shutdown', () => {
     await listen(app);
 
     const instance = server!;
-    const first = shutdown(instance, { timeout: 1000 });
-    const second = shutdown(instance, { timeout: 1000 });
+    const first = createShutdown(instance)({ timeout: 1000 });
+    const second = createShutdown(instance)({ timeout: 1000 });
 
     expect(await first).toEqual(await second);
   });
@@ -1004,3 +1005,20 @@ function recordWarnings(): { stop: () => string[] } {
 async function* asyncGeneratorHandler(): AsyncGenerator<number> {
   yield 1;
 }
+
+describeShutdownSockets(createShutdown, async (arrived, release) => {
+  const plain = new Hono();
+  plain.get('/slow', async (c) => {
+    arrived();
+    await release;
+
+    return c.text('ok');
+  });
+  const server = await new Promise<http.Server>((resolve) => {
+    const listening = serve({ fetch: plain.fetch, hostname: '127.0.0.1', port: 0 }, () =>
+      resolve(listening as http.Server),
+    );
+  });
+
+  return { server, target: server };
+});

@@ -67,11 +67,13 @@ const server = app.listen(3000);
 
 If the client hangs up while the payment lookup is in flight, the handler unwinds at that `yield` and nothing is written back. If the route takes longer than thirty seconds, the client gets a 503 instead of an open connection.
 
-Shutting down:
+Shutting down, with the shutdown created right after `app.listen()` so it knows every connection:
 
 ```js
+const shutdown = cancServer.createShutdown(server);
+
 process.on('SIGTERM', async () => {
-  const { canceled, completed, timedOut } = await cancServer.shutdown(server, { timeout: 10_000 });
+  const { canceled, completed, timedOut } = await shutdown({ timeout: 10_000 });
 
   console.log(`shut down: ${completed} finished, ${canceled} canceled, gave up: ${timedOut}`);
 });
@@ -132,7 +134,7 @@ Both raise a `CancelError`. The discriminator is `isCancelError(error) && !error
 
 ### Shutting down
 
-`shutdown` takes the `http.Server` that `app.listen()` returns, not the Koa application, because a Koa application has no `close` of its own to sequence against. It stops accepting new connections and closes idle ones. In-flight requests, wrapped or not, keep running for the grace window, and so does a request that arrives on a kept-alive connection meanwhile. Every response sent from then on carries `Connection: close`, and each connection closes as soon as the response on it finishes. When the window ends, handlers still running are canceled with the shutdown reason, so their cleanup runs and one that has not started its response can still answer `503`. Connections still busy after that are closed. Pass `cancelOnStart: true` to cancel handlers as soon as the shutdown starts instead, which suits long-lived responses such as server-sent events or long polling that would otherwise hold the whole window. The cancel reaches the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it. Requests are known from the first wrapped handler or request signal on the server; a connection opened before that and idle when the window ends is closed then. It resolves with what happened rather than throwing, and a second call while the first is still running joins it rather than starting over, so a pair of signal handlers is safe to wire without a guard. A `timeout` of `Infinity` waits for the responses however long they take, and a finite one past about 24.8 days is held at that limit.
+`createShutdown` takes the `http.Server` that `app.listen()` returns, not the Koa application, because a Koa application has no `close` of its own to sequence against. It returns the function that runs the shutdown. Call it right after `app.listen()`: it records connections and requests from that point on. The shutdown stops accepting new connections, closes the connections that have not sent a request, and closes idle ones. In-flight requests, wrapped or not, keep running for the grace window, and so does a request that arrives on a kept-alive connection meanwhile. Every response sent from then on carries `Connection: close`, and each connection closes as soon as the response on it finishes. When the window ends, handlers still running are canceled with the shutdown reason, so their cleanup runs and one that has not started its response can still answer `503`. Connections still busy after that are closed. Pass `cancelOnStart: true` to cancel handlers as soon as the shutdown starts instead, which suits long-lived responses such as server-sent events or long polling that would otherwise hold the whole window. The cancel reaches the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it. Created late, it drains correctly but slower, because a connection opened before the call is unknown to it. If that connection has not sent a request yet, or its request is still in flight and no wrapped handler or request signal recorded it, the connection is closed only when the grace window ends, and that response goes out without `Connection: close`. It resolves with what happened rather than throwing, and a second call while the first is still running joins it rather than starting over, so a pair of signal handlers is safe to wire without a guard. Calling `createShutdown` again with the same server returns the same function. A `timeout` of `Infinity` waits for the responses however long they take, and a finite one past about 24.8 days is held at that limit.
 
 ## API
 
@@ -147,10 +149,10 @@ Both raise a `CancelError`. The discriminator is `isCancelError(error) && !error
 
 ### Registration
 
-| Export             | Signature                                        |
-| ------------------ | ------------------------------------------------ |
-| `cancelMiddleware` | `(options?) => Middleware`                       |
-| `shutdown`         | `(server, options?) => Promise<IShutdownResult>` |
+| Export             | Signature                                            |
+| ------------------ | ---------------------------------------------------- |
+| `cancelMiddleware` | `(options?) => Middleware`                           |
+| `createShutdown`   | `(server) => (options?) => Promise<IShutdownResult>` |
 
 `cancelMiddleware` is optional if every route is wrapped, since a wrapped route installs the signal on its own. Mount it when one deadline or one `onDisconnect` hook should cover a whole router, or when a cancellation raised by request-scoped work outside a wrapped handler still needs an answer. Its `status` option sets the status a shutdown cancellation answers with, 503 by default.
 

@@ -6,4 +6,4 @@
 "@cancjs/server-koa": patch
 ---
 
-The `shutdown()` result counts each request once, so a request that passed through several wrapped middleware is no longer counted once per layer.
+The shutdown result counts each request once, so a request that passed through several wrapped middleware is no longer counted once per layer.

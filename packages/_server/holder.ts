@@ -1,6 +1,14 @@
 import { CancelablePromise, CancelSignal } from '@cancjs/promise';
 
-import { ICancelableHandlerOptions, IRequestLike, IResponseLike, IServerLike, IShutdownResult } from './types';
+import { isFunction } from '../_util';
+import {
+  ICancelableHandlerOptions,
+  IRequestLike,
+  IResponseLike,
+  IServerLike,
+  IShutdownOptions,
+  IShutdownResult,
+} from './types';
 
 /**
  * Key the per-request cancel state is cached under. Registered through `Symbol.for`, so every copy
@@ -22,6 +30,15 @@ export const REQUEST_REGISTRY = Symbol.for('@cancjs/server-node:RequestRegistry'
 
 /** Key the in-flight shutdown promise is cached under, so a second shutdown of the same server is a no-op. */
 export const SHUTDOWN_STATE = Symbol.for('@cancjs/server-node:Shutdown');
+
+/**
+ * Key the function `createShutdown` returned is cached under, on the object it was given, so a
+ * second call for the same server, from any copy of this code, hands back the same function.
+ */
+export const SHUTDOWN_FUNCTION = Symbol.for('@cancjs/server-node:ShutdownFunction');
+
+/** Runs a graceful shutdown, or returns the one already running. */
+export type TShutdownFunction = (options?: IShutdownOptions) => Promise<IShutdownResult>;
 
 /** Everything a request's cancellation is driven from, cached on the raw request object. */
 export interface IRequestCancelState {
@@ -73,6 +90,15 @@ export function getRequestServer(req: IRequestLike): IServerLike | undefined {
   return server && typeof server === 'object' ? (server as IServerLike) : undefined;
 }
 
+/** The part of a connection socket a shutdown closes. */
+export interface IConnectionLike {
+  destroyed?: boolean;
+  destroy?: () => unknown;
+  destroySoon?: () => void;
+  end?: () => unknown;
+  once?: (event: 'close', listener: () => void) => unknown;
+}
+
 /**
  * Every request a server is still answering that this layer has seen, keyed by its response.
  *
@@ -81,6 +107,8 @@ export function getRequestServer(req: IRequestLike): IServerLike | undefined {
  */
 export interface IRequestRegistry {
   open: Map<IResponseLike, IRequestLike>;
+  /** Every connection still open that the server accepted since `createShutdown` was called for it. */
+  connections?: Set<IConnectionLike>;
   /** Set while a shutdown runs, told about each request recorded during it. */
   onArrival?: (req: IRequestLike, res: IResponseLike) => void;
   /** Set while a shutdown runs, told about each request that gains cancel state during it. */
@@ -91,6 +119,9 @@ type TRequestListener = (req: unknown, res: unknown) => void;
 
 interface IListenerHost {
   prependListener?: (event: 'request', listener: TRequestListener) => unknown;
+  on?: (event: 'connection' | 'secureConnection', listener: (socket: unknown) => void) => unknown;
+  // only a TLS server has it, and there a request's socket is the one `secureConnection` hands out
+  addContext?: unknown;
 }
 
 /**
@@ -118,6 +149,43 @@ export function getRequestRegistry(server: IServerLike | undefined, create?: boo
   }
 
   return registry;
+}
+
+/**
+ * Records every connection a server accepts from now on, until it closes, so a shutdown can close
+ * one that never sent a request. Node keeps no such list, and `closeIdleConnections()` skips them.
+ */
+export function trackConnections(server: IServerLike): void {
+  const registry = getRequestRegistry(server, true);
+  if (!registry || registry.connections) {
+    return;
+  }
+
+  const connections = new Set<IConnectionLike>();
+  registry.connections = connections;
+
+  const host = server as IListenerHost;
+  if (isFunction(host.on)) {
+    host.on(isFunction(host.addContext) ? 'secureConnection' : 'connection', (socket) => {
+      const connection = socket as IConnectionLike;
+      connections.add(connection);
+      connection.once?.('close', () => {
+        connections.delete(connection);
+      });
+    });
+  }
+}
+
+/** Reads the shutdown function cached on a server or an application, if any. */
+export function getShutdownFunction(target: object): TShutdownFunction | undefined {
+  const cached = (target as TKeyed)[SHUTDOWN_FUNCTION];
+
+  return typeof cached === 'function' ? (cached as TShutdownFunction) : undefined;
+}
+
+/** Caches the shutdown function on a server or an application. */
+export function setShutdownFunction(target: object, shutdown: TShutdownFunction): void {
+  define(target, SHUTDOWN_FUNCTION, shutdown);
 }
 
 /** Adds a request to a registry until its response closes. A closed response is left out. */

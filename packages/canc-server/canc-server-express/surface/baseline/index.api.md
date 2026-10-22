@@ -74,14 +74,14 @@ timedOut: boolean
 <P = ParamsDictionary, ResBody = any, ReqBody = any, ReqQuery = ParsedQs, Locals extends Record<string, any> = Record<string, any>>(handler: THandlerFn<RequestHandler<P, ResBody, ReqBody, ReqQuery, Locals>>, options?: ICancelableHandlerOptions | undefined): RequestHandler<P, ResBody, ReqBody, ReqQuery, Locals>
 ```
 
+## `createShutdown` (function)
+
+```text
+(server: Server<typeof IncomingMessage, typeof ServerResponse>): (options?: IShutdownOptions | undefined) => Promise<IShutdownResult>
+```
+
 ## `getRequestSignal` (function)
 
 ```text
 (req: IncomingMessage, res: ServerResponse<IncomingMessage>): CancelSignal
-```
-
-## `shutdown` (function)
-
-```text
-(server: Server<typeof IncomingMessage, typeof ServerResponse>, options?: IShutdownOptions | undefined): Promise<IShutdownResult>
 ```

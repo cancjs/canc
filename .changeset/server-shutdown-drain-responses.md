@@ -6,4 +6,4 @@
 "@cancjs/server-koa": patch
 ---
 
-`shutdown()` now waits for in-flight responses to finish, including routes that were never wrapped, and closes remaining connections only when the grace window runs out.
+A shutdown now waits for in-flight responses to finish, including routes that were never wrapped, and closes remaining connections only when the grace window runs out.

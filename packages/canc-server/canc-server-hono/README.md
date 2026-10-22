@@ -100,12 +100,14 @@ app.get('/exports/ledger', (c) => {
 Shut down gracefully, giving in-flight requests a grace window, passing what `serve()` returned:
 
 ```js
-import { shutdown } from '@cancjs/server-hono';
+import { createShutdown } from '@cancjs/server-hono';
 
 const server = serve({ fetch: app.fetch, port: 3000 });
+// right after serve(), so the shutdown knows every connection
+const shutdown = createShutdown(server);
 
 process.on('SIGTERM', async () => {
-  const { canceled, completed, timedOut } = await shutdown(server, { timeout: 10_000 });
+  const { canceled, completed, timedOut } = await shutdown({ timeout: 10_000 });
 
   logger.info({ canceled, completed, timedOut }, 'server shut down');
   process.exit(0);
@@ -161,7 +163,7 @@ Both raise a `CancelError`. The discriminator is `isCancelError(error) && !error
 
 ### Shutting down
 
-`shutdown` takes what `serve()` returned, not the Hono app. On node it stops the server accepting connections and closes idle keep-alive sockets. In-flight requests, wrapped or not, keep running for the grace window, and so does a request that arrives on a kept-alive connection meanwhile. Every response sent from then on carries `Connection: close`, and each connection closes as soon as the response on it finishes. When the window ends, handlers still running are canceled with the shutdown reason, so their cleanup runs and one that has not started its response can still answer `503`. Connections still busy after that are closed. Pass `cancelOnStart: true` to cancel handlers as soon as the shutdown starts instead, which suits long-lived responses such as server-sent events or long polling that would otherwise hold the whole window. The cancel reaches the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it. Requests are known from the first wrapped handler or request signal on the server; a connection opened before that and idle when the window ends is closed then. It resolves with counts rather than throwing, and a second call while the first is running returns the same result. There is no shutdown path for a Web standard runtime without a node server object; that deployment shape has no server to stop accepting connections on in the first place. A `timeout` of `Infinity` waits for the responses however long they take, and a finite one past about 24.8 days is held at that limit.
+`createShutdown` takes what `serve()` returned, not the Hono app, and returns the function that runs the shutdown. Call it right after `serve()`: it records connections and requests from that point on. On node the shutdown stops the server accepting connections, closes the connections that have not sent a request, and closes idle keep-alive sockets. In-flight requests, wrapped or not, keep running for the grace window, and so does a request that arrives on a kept-alive connection meanwhile. Every response sent from then on carries `Connection: close`, and each connection closes as soon as the response on it finishes. When the window ends, handlers still running are canceled with the shutdown reason, so their cleanup runs and one that has not started its response can still answer `503`. Connections still busy after that are closed. Pass `cancelOnStart: true` to cancel handlers as soon as the shutdown starts instead, which suits long-lived responses such as server-sent events or long polling that would otherwise hold the whole window. The cancel reaches the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it. Created late, it drains correctly but slower, because a connection opened before the call is unknown to it. If that connection has not sent a request yet, or its request is still in flight and no wrapped handler or request signal recorded it, the connection is closed only when the grace window ends, and that response goes out without `Connection: close`. It resolves with counts rather than throwing, and a second call while the first is running returns the same result. Calling `createShutdown` again with the same server returns the same function. There is no shutdown path for a Web standard runtime without a node server object; that deployment shape has no server to stop accepting connections on in the first place. A `timeout` of `Infinity` waits for the responses however long they take, and a finite one past about 24.8 days is held at that limit.
 
 ## API
 
@@ -177,7 +179,7 @@ Both raise a `CancelError`. The discriminator is `isCancelError(error) && !error
 
 ### Shutdown
 
-- `shutdown(server, options?)` lets in-flight handlers finish within the grace window, cancels the rest, and resolves with `{ canceled, completed, timedOut }`. Options: `timeout`, `reason`, `closeServer`, `cancelOnStart`
+- `createShutdown(server)` returns `shutdown(options?)`, which lets in-flight handlers finish within the grace window, cancels the rest, and resolves with `{ canceled, completed, timedOut }`. Options: `timeout`, `reason`, `closeServer`, `cancelOnStart`
 
 ### Reasons
 
