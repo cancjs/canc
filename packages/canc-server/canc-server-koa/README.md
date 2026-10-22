@@ -152,7 +152,7 @@ Both raise a `CancelError`. The discriminator is `isCancelError(error) && !error
 | `cancelMiddleware` | `(options?) => Middleware`                       |
 | `shutdown`         | `(server, options?) => Promise<IShutdownResult>` |
 
-`cancelMiddleware` is optional if every route is wrapped, since a wrapped route installs the signal on its own. Mount it when one deadline or one `onDisconnect` hook should cover a whole router, or when a cancellation raised by request-scoped work outside a wrapped handler still needs an answer.
+`cancelMiddleware` is optional if every route is wrapped, since a wrapped route installs the signal on its own. Mount it when one deadline or one `onDisconnect` hook should cover a whole router, or when a cancellation raised by request-scoped work outside a wrapped handler still needs an answer. Its `status` option sets the status a shutdown cancellation answers with, 503 by default.
 
 ### Reasons
 
@@ -167,6 +167,8 @@ Both raise a `CancelError`. The discriminator is `isCancelError(error) && !error
 Node.js 18 and later, Koa 2.13 and later (including Koa 3), TypeScript 4.2 and later. Requires `@cancjs/promise >=1.1.0` and `@cancjs/coroutine >=1.0.0` as peer dependencies. Everything else follows [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise#compatibility).
 
 Client disconnect detection is only as good as the network below it. A connection dropped without a FIN produces no event until TCP times out, and a buffering reverse proxy may never pass a client abort to the origin.
+
+HTTP/1.1 and HTTPS only. HTTP/2 is not supported yet.
 
 ## Documentation
 

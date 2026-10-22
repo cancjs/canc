@@ -159,6 +159,8 @@ Node.js 18 and later, Fastify 5 and later, TypeScript 4.2 and later. Requires `@
 
 Client disconnect detection is only as good as the network below it. A connection dropped without a FIN produces no event until TCP times out, and a buffering reverse proxy may never pass a client abort to the origin.
 
+HTTP/1.1 and HTTPS only. HTTP/2 is not supported yet.
+
 ## Documentation
 
 - [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) for core cancellation semantics and `CancelError`

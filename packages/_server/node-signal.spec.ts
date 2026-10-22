@@ -1,10 +1,14 @@
 import { isCancelError, isCancelSignal } from '@cancjs/promise';
+import { once } from 'events';
+import { connect, createServer } from 'http2';
+import { AddressInfo } from 'net';
 
 import { createExchange, FakeRequest, FakeResponse, flush } from './__tests__/fakes';
 import { getLiveRequests, getRequestState, LIVE_REQUESTS, REQUEST_CANCEL_STATE } from './holder';
 import { ensureRequestCancelState, getNodeRequestSignal } from './node-signal';
 import { CLIENT_DISCONNECTED } from './reasons';
 import { createTimeoutError } from './timeout';
+import { IRequestLike, IResponseLike } from './types';
 
 describe('node request signal', () => {
   it('is a branded cancel signal', () => {
@@ -215,3 +219,45 @@ describe('request deadline edge values', () => {
     expect(state.signal.aborted).toBe(true);
   });
 });
+
+describe('http2 compat server', () => {
+  it('drops a request from the live set once its response is over', async () => {
+    const closed = deferredVoid();
+    let during = -1;
+    const server = createServer((req, res) => {
+      ensureRequestCancelState(req as unknown as IRequestLike, res as unknown as IResponseLike);
+      during = getLiveRequests(server)?.size ?? -1;
+      res.once('close', () => closed.resolve());
+      res.end('ok');
+    });
+
+    server.listen(0, '127.0.0.1');
+    await once(server, 'listening');
+
+    const client = connect(`http://127.0.0.1:${(server.address() as AddressInfo).port}`);
+
+    try {
+      const stream = client.request({ ':path': '/' });
+
+      stream.resume();
+      await once(stream, 'close');
+      await closed.promise;
+      await flush();
+
+      expect(during).toBe(1);
+      expect(getLiveRequests(server)?.size).toBe(0);
+    } finally {
+      client.destroy();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+});
+
+function deferredVoid(): { promise: Promise<void>; resolve: () => void } {
+  let resolve!: () => void;
+  const promise = new Promise<void>((settle) => {
+    resolve = settle;
+  });
+
+  return { promise, resolve };
+}

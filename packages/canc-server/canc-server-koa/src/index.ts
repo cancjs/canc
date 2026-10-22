@@ -9,6 +9,7 @@ import { shutdownServer } from '../../../_server/shutdown';
 import { DEFAULT_TIMEOUT_STATUS } from '../../../_server/timeout';
 import {
   ICancelableHandlerOptions,
+  ICancelErrorHandlerOptions,
   IRequestLike,
   IResponseLike,
   IShutdownOptions,
@@ -80,8 +81,8 @@ export function getRequestSignal(ctx: Context): CancelSignal {
  * and the family exposes no separate `cancelErrorHandler` for koa the way it does for the others.
  *
  * A deadline answers with the status stamped on it (`503` unless the timeout option names another
- * one), a shutdown cancellation with the fallback status, and a response that can no longer be
- * answered gets nothing: `ctx.respond` is set to `false` instead of writing to it.
+ * one), a shutdown cancellation with the `status` option (default `503`), and a response that can
+ * no longer be answered gets nothing: `ctx.respond` is set to `false` instead of writing to it.
  *
  * Optional: a route wrapped with `cancelableHandler` installs the signal on its own. Mounting this is
  * how one deadline or one `onDisconnect` hook covers a whole router, plain routes included, and how a
@@ -92,8 +93,10 @@ export function getRequestSignal(ctx: Context): CancelSignal {
  * callbacks run once per request.
  */
 export function cancelMiddleware<StateT = DefaultState, ContextT = DefaultContext>(
-  options?: ICancelableHandlerOptions,
+  options?: ICancelableHandlerOptions & ICancelErrorHandlerOptions,
 ): Middleware<StateT, ContextT> {
+  const fallback = options?.status ?? DEFAULT_TIMEOUT_STATUS;
+
   return async function cancelMiddlewareRoute(ctx, next) {
     const state = ensureRequestCancelState(toRequestLike(ctx.req), toResponseLike(ctx.res), options);
 
@@ -114,7 +117,7 @@ export function cancelMiddleware<StateT = DefaultState, ContextT = DefaultContex
       // and a json type turns the cleared body into the text null
       ctx.remove('Content-Type');
       ctx.body = null;
-      ctx.status = statusOf(error, DEFAULT_TIMEOUT_STATUS);
+      ctx.status = statusOf(error, fallback);
     } finally {
       stopRequestDeadline(state);
     }

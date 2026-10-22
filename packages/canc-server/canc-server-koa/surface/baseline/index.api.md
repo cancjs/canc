@@ -52,7 +52,7 @@ timedOut: boolean
 ## `cancelMiddleware<StateT = DefaultState, ContextT = DefaultContext>` (function)
 
 ```text
-<StateT = DefaultState, ContextT = DefaultContext>(options?: ICancelableHandlerOptions | undefined): Middleware<StateT, ContextT>
+<StateT = DefaultState, ContextT = DefaultContext>(options?: (ICancelErrorHandlerOptions & ICancelableHandlerOptions) | undefined): Middleware<StateT, ContextT>
 ```
 
 ## `cancelableHandler<StateT = DefaultState, ContextT = DefaultContext, ResponseBodyT = unknown>` (function)

@@ -465,6 +465,25 @@ describe('error handler', () => {
     expect(response.statusCode).toBe(503);
   });
 
+  it('answers a cancellation with the configured status', async () => {
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.setErrorHandler(cancelErrorHandler({ status: 499 }));
+    instance.get(
+      '/give-up',
+      cancelableHandler(function* () {
+        yield Promise.resolve();
+
+        throw new CancelError('gave up');
+      }),
+    );
+
+    const port = await listen(instance);
+    const response = await send(port, '/give-up');
+
+    expect(response.statusCode).toBe(499);
+  });
+
   it('drops a cancellation that surfaces after the client left', async () => {
     const started = deferred();
     const handled = deferred();

@@ -394,6 +394,33 @@ describe('middleware options', () => {
   });
 });
 
+describe('middleware status option', () => {
+  async function statusFor(options?: { status?: number }): Promise<number> {
+    const app = new Koa();
+
+    app.use(cancelMiddleware(options));
+    app.use(
+      cancelableHandler(function* () {
+        yield CancelablePromise.resolve();
+
+        throw new CancelError(SERVER_SHUTDOWN);
+      }),
+    );
+
+    const port = await listen(app);
+
+    return (await httpRequest(port, { path: '/' })).status;
+  }
+
+  it('answers a cancellation with the configured status', async () => {
+    expect(await statusFor({ status: 499 })).toBe(499);
+  });
+
+  it('keeps 503 when no status is configured', async () => {
+    expect(await statusFor()).toBe(503);
+  });
+});
+
 describe('request deadline', () => {
   it('covers a plain route from the moment the middleware is installed', async () => {
     const app = new Koa();

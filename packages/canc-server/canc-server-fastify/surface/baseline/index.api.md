@@ -20,7 +20,7 @@ Generated. Do not edit by hand.
 ## `ICancelErrorHandlerOptions` (interface)
 
 ```text
-canceledStatus?: number | undefined
+status?: number | undefined
 ```
 
 ## `ICancelableHandlerOptions` (interface)

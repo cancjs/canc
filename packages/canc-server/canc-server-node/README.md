@@ -208,6 +208,8 @@ Cancelable promise flags (`bubble`, `shield`, `strict`, `asyncCancel`, `forceCan
 
 Node.js 18 and later, TypeScript 4.2 and later. Requires `@cancjs/promise >=1.1.0` and `@cancjs/coroutine >=1.0.0` as peer dependencies. Everything else follows [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise#compatibility).
 
+HTTP/1.1 and HTTPS only. HTTP/2 is not supported yet.
+
 ## Documentation
 
 - [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) for core cancellation semantics and `CancelError`

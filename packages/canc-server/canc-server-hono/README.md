@@ -193,6 +193,8 @@ Node.js 18 and later, Hono 4 and later, `@hono/node-server` 1 and later, TypeScr
 
 Tested against `@hono/node-server`. Other Web standard runtimes (Cloudflare Workers, Deno, Bun's fetch handler) take the `Request.signal` path and are not independently verified here; their own disconnect-signal reliability is a property of the runtime, not of this package.
 
+HTTP/1.1 and HTTPS only. HTTP/2 is not supported yet.
+
 ## Documentation
 
 - [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) for core cancellation semantics and `CancelError`

@@ -12,7 +12,7 @@ const CANCELED_STATUS = 503;
 /** What an error handler does with a cancellation the wrapper forwarded. */
 export interface ICancelErrorHandlerOptions {
   /** Status sent when a cancellation surfaces on a live connection. Defaults to 503. */
-  canceledStatus?: number;
+  status?: number;
 }
 
 /** The shape `fastify.setErrorHandler` accepts. */
@@ -58,7 +58,7 @@ export const cancelPlugin = fastifyPlugin(plugin, {
  * included, goes to fastify's own handling, which reads the status off the error.
  */
 export function cancelErrorHandler(options?: ICancelErrorHandlerOptions): TCancelErrorHandler {
-  const canceledStatus = options?.canceledStatus ?? CANCELED_STATUS;
+  const status = options?.status ?? CANCELED_STATUS;
 
   return function cancelAwareErrorHandler(error, _request, reply) {
     if (isUnanswerable(error, reply.raw)) {
@@ -70,7 +70,7 @@ export function cancelErrorHandler(options?: ICancelErrorHandlerOptions): TCance
     if (isCancelError(error) && !error.timedOut) {
       // fastify reads status then statusCode off the error, so stamping it is all the mapping a
       // shutdown cancellation needs
-      (error as { statusCode?: number }).statusCode ??= canceledStatus;
+      (error as { statusCode?: number }).statusCode ??= status;
     }
 
     reply.send(error);

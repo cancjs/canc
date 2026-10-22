@@ -29,6 +29,8 @@ export interface IRequestCancelState {
   cancel: (reason?: unknown) => void;
   options: ICancelableHandlerOptions;
   live: Set<CancelablePromise<unknown>>;
+  /** The server the request was recorded on, kept because the socket no longer names it once the exchange is over. */
+  server?: IServerLike;
   /** The response the state was installed with. A shutdown waits on it closing. Absent on the Web path. */
   response?: IResponseLike;
   /** The pending deadline, one per request however many layers set a timeout. */
@@ -93,12 +95,18 @@ export function getLiveRequests(
 
 /** Records a request as live on the server it arrived on. */
 export function trackRequest(req: IRequestLike, state: IRequestCancelState): void {
-  getLiveRequests(getRequestServer(req), true)?.add(state);
+  const server = getRequestServer(req);
+
+  state.server = server;
+  getLiveRequests(server, true)?.add(state);
 }
 
-/** Drops a request from the server registry once its response is over. */
+/**
+ * Drops a request from the server registry once its response is over. Reads the server captured at
+ * track time: an HTTP/2 compat request has no socket server left to read after its stream closes.
+ */
 export function untrackRequest(req: IRequestLike, state: IRequestCancelState): void {
-  getLiveRequests(getRequestServer(req))?.delete(state);
+  getLiveRequests(state.server ?? getRequestServer(req))?.delete(state);
 }
 
 /** Reads the shutdown already running for a server, if any. */
