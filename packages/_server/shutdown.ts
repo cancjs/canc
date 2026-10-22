@@ -26,6 +26,7 @@ export const DEFAULT_SHUTDOWN_TIMEOUT = 10_000;
 interface IDrainResponse extends IResponseLike {
   headersSent?: boolean;
   setHeader?: (name: string, value: string) => unknown;
+  removeHeader?: (name: string) => void;
   socket?: unknown;
 }
 
@@ -140,15 +141,20 @@ export function shutdownServer(
     }
   };
 
-  // closeIdleConnections() skips a connection that never sent a request, so the ones recorded
-  // since createShutdown are closed here; an idle kept-alive one goes the same way
+  // closeIdleConnections() skips a connection that never sent a request, so the empty ones
+  // recorded since createShutdown are closed here; one with request bytes read gets its answer
   const closeRequestless = () => {
     if (!ownsConnections || !registry.connections) {
       return;
     }
 
     for (const socket of Array.from(registry.connections)) {
-      if (socket.destroyed !== true && !carriesRequest(socket) && isFunction(socket.destroy)) {
+      if (
+        socket.destroyed !== true &&
+        socket.bytesRead === 0 &&
+        !carriesRequest(socket) &&
+        isFunction(socket.destroy)
+      ) {
         socket.destroy();
       }
     }
@@ -171,6 +177,7 @@ export function shutdownServer(
   };
 
   const drains = new Map<IResponseLike, IDrain>();
+  const closingResponses = new Map<IConnectionLike, IDrainResponse>();
 
   // outcomes are subscribed BEFORE anything is canceled, so a task that settles during the cancel
   // cascade is still counted
@@ -220,9 +227,18 @@ export function shutdownServer(
         settleDrain(drain);
       });
 
-      // a response not yet started tells its client not to reuse the connection
+      // a response not yet started tells its client not to reuse the connection; node ends the
+      // connection after it, so only the last one queued there carries it
       if (ownsConnections && res.headersSent !== true && isFunction(res.setHeader)) {
+        const previous = socket && closingResponses.get(socket);
+        if (previous && previous.headersSent !== true && isFunction(previous.removeHeader)) {
+          previous.removeHeader('Connection');
+        }
+
         res.setHeader('Connection', 'close');
+        if (socket) {
+          closingResponses.set(socket, res);
+        }
       }
     }
 

@@ -92,6 +92,7 @@ export function getRequestServer(req: IRequestLike): IServerLike | undefined {
 
 /** The part of a connection socket a shutdown closes. */
 export interface IConnectionLike {
+  bytesRead?: number;
   destroyed?: boolean;
   destroy?: () => unknown;
   destroySoon?: () => void;

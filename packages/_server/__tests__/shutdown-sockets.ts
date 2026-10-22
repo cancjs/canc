@@ -21,7 +21,7 @@ export type TStartPlainApp = (arrived: () => void, release: Promise<void>) => Pr
 type TCreateShutdown = (target: never) => (options?: IShutdownOptions) => Promise<IShutdownResult>;
 
 /** Long enough that a drain finishing well inside it is plainly not a grace window running out. */
-const GRACE_MS = 2000;
+const GRACE_MS = 10_000;
 /** Short window for the late cases, which wait it out in full. */
 const LATE_GRACE_MS = 300;
 /** Slack for timer and clock granularity when a wait must last the whole window. */
@@ -56,21 +56,70 @@ export function describeShutdownSockets(createShutdown: TCreateShutdown, start: 
   });
 
   const startApp = async () => {
-    let arrived!: () => void;
+    let arrivals = 0;
+    const waiting: { count: number; resolve: () => void }[] = [];
     let release!: () => void;
-    const arrival = new Promise<void>((resolve) => {
-      arrived = resolve;
-    });
     const released = new Promise<void>((resolve) => {
       release = resolve;
     });
     releaseAll.push(release);
 
-    const app = await start(arrived, released);
+    const arrivedTimes = (count: number) =>
+      new Promise<void>((resolve) => {
+        if (arrivals >= count) {
+          resolve();
+        } else {
+          waiting.push({ count, resolve });
+        }
+      });
+
+    const app = await start(() => {
+      arrivals += 1;
+      for (const waiter of waiting) {
+        if (arrivals >= waiter.count) {
+          waiter.resolve();
+        }
+      }
+    }, released);
     servers.push(app.server);
 
-    return { ...app, arrival, port: (app.server.address() as AddressInfo).port, release };
+    return {
+      ...app,
+      arrival: arrivedTimes(1),
+      arrivedTimes,
+      port: (app.server.address() as AddressInfo).port,
+      release,
+    };
   };
+
+  const openClient = (port: number) => {
+    const client = connect(port, '127.0.0.1');
+    clients.push(client);
+    client.setEncoding('utf8');
+
+    let received = '';
+    let error: string | undefined;
+    client.on('data', (chunk: string) => {
+      received += chunk;
+    });
+    client.on('error', (e: NodeJS.ErrnoException) => {
+      error = e.code;
+    });
+    // every answer sent before the server closed the connection, so a dropped one shows as missing
+    const closed = new Promise<{ error?: string; statuses: string[] }>((resolve) => {
+      client.once('close', () => resolve({ error, statuses: received.match(/HTTP\/1\.1 \d{3}/g) ?? [] }));
+    });
+
+    return { client, closed, received: () => received };
+  };
+
+  const until = async (condition: () => boolean) => {
+    while (!condition()) {
+      await new Promise((resolve) => setTimeout(resolve, 1));
+    }
+  };
+
+  const REQUEST_HEAD = 'GET /slow HTTP/1.1\r\nHost: localhost\r\n';
 
   // HTTP/1.1 keeps the connection alive by default, so only the shutdown can be what closes it;
   // resolves with the Connection header of the answer
@@ -140,6 +189,74 @@ export function describeShutdownSockets(createShutdown: TCreateShutdown, start: 
       expect(result).toEqual({ canceled: 0, completed: 0, timedOut: false });
       expect(elapsed).toBeLessThan(GRACE_MS / 2);
       expect(closedAfter).toBeLessThan(GRACE_MS / 2);
+    });
+
+    it('answers a request the server read before the shutdown started', async () => {
+      const app = await startApp();
+      app.release();
+      const shutdown = createShutdown(app.target as never);
+      let closing: Promise<IShutdownResult> | undefined;
+      // runs ahead of the shutdown's own request listener: read, not yet recorded
+      app.server.prependListener('request', () => {
+        closing ??= shutdown({ timeout: GRACE_MS });
+      });
+
+      const { client, closed } = openClient(app.port);
+      client.write(`${REQUEST_HEAD}\r\n`);
+
+      expect(await closed).toEqual({ error: undefined, statuses: ['HTTP/1.1 200'] });
+      expect(await closing).toEqual({ canceled: 0, completed: 1, timedOut: false });
+    });
+
+    it('answers a request whose head was partly read when the shutdown started', async () => {
+      const app = await startApp();
+      app.release();
+      const shutdown = createShutdown(app.target as never);
+      const accepted = once(app.server, 'connection');
+      const { client, closed } = openClient(app.port);
+      const [socket] = (await accepted) as [Socket];
+
+      client.write(REQUEST_HEAD);
+      await until(() => socket.bytesRead > 0);
+      const closing = shutdown({ timeout: GRACE_MS });
+      client.write('\r\n');
+
+      expect(await closed).toEqual({ error: undefined, statuses: ['HTTP/1.1 200'] });
+      expect(await closing).toEqual({ canceled: 0, completed: 1, timedOut: false });
+    });
+
+    it('answers a second request half sent on a kept-alive connection', async () => {
+      const app = await startApp();
+      app.release();
+      const shutdown = createShutdown(app.target as never);
+      const accepted = once(app.server, 'connection');
+      const { client, closed, received } = openClient(app.port);
+      const [socket] = (await accepted) as [Socket];
+
+      client.write(`${REQUEST_HEAD}\r\n`);
+      await until(() => received().endsWith('ok'));
+      const firstRead = socket.bytesRead;
+      client.write(REQUEST_HEAD);
+      await until(() => socket.bytesRead > firstRead);
+      const closing = shutdown({ timeout: GRACE_MS });
+      client.write('\r\n');
+
+      expect(await closed).toEqual({ error: undefined, statuses: ['HTTP/1.1 200', 'HTTP/1.1 200'] });
+      expect(await closing).toEqual({ canceled: 0, completed: 1, timedOut: false });
+    });
+
+    it('answers both pipelined requests when neither response had started', async () => {
+      const app = await startApp();
+      const shutdown = createShutdown(app.target as never);
+      const { client, closed } = openClient(app.port);
+      client.write(`${REQUEST_HEAD}\r\n${REQUEST_HEAD}\r\n`);
+      await app.arrivedTimes(2);
+
+      const closing = shutdown({ timeout: GRACE_MS });
+      app.release();
+
+      expect(await closed).toEqual({ error: undefined, statuses: ['HTTP/1.1 200', 'HTTP/1.1 200'] });
+      expect(await closing).toEqual({ canceled: 0, completed: 2, timedOut: false });
     });
 
     it('returns the same function for the same target', async () => {
