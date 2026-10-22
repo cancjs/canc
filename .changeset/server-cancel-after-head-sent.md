@@ -1,6 +1,8 @@
 ---
 "@cancjs/server-node": patch
 "@cancjs/server-express": patch
+"@cancjs/server-fastify": patch
+"@cancjs/server-hono": patch
 "@cancjs/server-koa": patch
 ---
 
