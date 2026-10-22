@@ -183,6 +183,33 @@ describe('synchronous handler throw', () => {
     }
   });
 
+  it('cancels a task whose handler aborts the request while the task is still starting', async () => {
+    const { req, res } = createExchange();
+    const state = ensureRequestCancelState(req, res);
+    let outcome: unknown;
+
+    // the abort lands inside the handler call, before the task joins the in-flight set, so the
+    // forwarder has nothing to cancel yet and the task must be canceled once it is registered
+    const task = runCancelableHandler(
+      () => {
+        state.cancel(CLIENT_DISCONNECTED);
+
+        return pending();
+      },
+      req,
+      res,
+    );
+
+    task.catch((error: unknown) => {
+      outcome = error;
+    });
+    await flush();
+
+    expect(isCancelError(outcome)).toBe(true);
+    expect((outcome as CancelError).message).toBe(CLIENT_DISCONNECTED);
+    expect(state.live.size).toBe(0);
+  });
+
   it('stops tracking a task whose handler threw once the response closes', async () => {
     const { req, res } = createExchange();
     const failure = new Error('boom');
