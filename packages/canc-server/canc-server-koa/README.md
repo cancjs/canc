@@ -138,7 +138,7 @@ Both raise a `CancelError`. The discriminator is `isCancelError(error) && !error
 
 `createShutdown` takes the `http.Server` that `app.listen()` returns, not the Koa application, because a Koa application has no `close` of its own to sequence against. It returns the function that runs the shutdown. Call it right after `app.listen()`: it records connections and requests from that point on.
 
-The shutdown stops accepting new connections, closes the connections that have not sent a request, and closes idle ones. In-flight requests, wrapped or not, keep running for the grace window, and so does a request that arrives on a kept-alive connection meanwhile. Every response sent from then on carries `Connection: close`, and each connection closes as soon as the response on it finishes.
+The shutdown stops accepting new connections, closes a connection that has received no bytes, leaves one that has already sent part of a request to finish, and closes idle ones. In-flight requests, wrapped or not, keep running for the grace window, and so does a request that arrives on a kept-alive connection meanwhile. Every response sent from then on carries `Connection: close`, and each connection closes as soon as the response on it finishes.
 
 When the window ends, handlers still running are canceled with the shutdown reason, so their cleanup runs and one that has not started its response can still answer `503`. Connections still busy after that are closed. The cancel reaches the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it.
 
