@@ -20,8 +20,9 @@ export const CANCEL_PROMISE_BRAND = Symbol.for('@cancjs/promise:CancelablePromis
  */
 export const FAILURE: unique symbol = Symbol.for('@cancjs/promise:failure') as symbol as typeof FAILURE;
 
+// cancellation is a separate outcome, never part of the declared set
 export interface Failing<TFailure> {
-  readonly [FAILURE]?: TFailure;
+  readonly [FAILURE]?: Exclude<TFailure, CancelError>;
 }
 
 // a plain value has a result but declares no failure, hence the never fallback
@@ -1140,7 +1141,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
 
   // `declare`: assigned once on prototype at module load so all instances inherit same brand
   declare readonly [CANCEL_PROMISE_BRAND]: true;
-  declare readonly [FAILURE]?: TFailure;
+  declare readonly [FAILURE]?: Exclude<TFailure, CancelError>;
 
   // per-instance own-property layout (kept small; see memory notes below):
   // _flags packed booleans (asyncCancel/forceCancelable/bubble/strict/shield),

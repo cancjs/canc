@@ -81,7 +81,7 @@ static resolve: { <V>(value: V, options?: ICancelablePromiseOptions): Cancelable
 static try: <T, TArgs extends any[]>(fn: (...args: TArgs) => T, ...args: TArgs) => CancelablePromise<Awaited<T>, FailureOf<T>>
 static withResolvers: <TResult, TFailure = unknown>(options?: ICancelablePromiseOptions) => ICancelablePromiseWithResolvers<TResult, TFailure>
 readonly [CANCEL_PROMISE_BRAND]: true
-readonly [FAILURE]?: TFailure | undefined
+readonly [FAILURE]?: Exclude<TFailure, CancelError> | undefined
 readonly [toStringTag]: string
 _abortListeners?: Map<IAbortSignal, any> | undefined
 _abortSignals?: Array<IAbortSignal> | undefined
@@ -135,7 +135,7 @@ typeof FAILURE
 ## `Failing<TFailure>` (interface)
 
 ```text
-readonly [FAILURE]?: TFailure | undefined
+readonly [FAILURE]?: Exclude<TFailure, CancelError> | undefined
 ```
 
 ## `FailureOf<T>` (type)
@@ -387,7 +387,7 @@ readonly _cancUnlisted: true
 
 ```text
 readonly [CANCEL_PROMISE_BRAND]: true
-readonly [FAILURE]?: FailureOf<TPromise> | TFailure | undefined
+readonly [FAILURE]?: Exclude<FailureOf<TPromise>, CancelError> | Exclude<TFailure, CancelError> | undefined
 readonly [toStringTag]: string
 _abortListeners?: Map<IAbortSignal, any> | undefined
 _abortSignals?: Array<IAbortSignal> | undefined
@@ -509,7 +509,7 @@ static resolve: { <V>(value: V, options?: ICancelablePromiseOptions): Cancelable
 static try: <T, TArgs extends any[]>(fn: (...args: TArgs) => T, ...args: TArgs) => CancelablePromise<Awaited<T>, FailureOf<T>>
 static withResolvers: <TResult, TFailure = unknown>(options?: ICancelablePromiseOptions) => ICancelablePromiseWithResolvers<TResult, TFailure>
 readonly [CANCEL_PROMISE_BRAND]: true
-readonly [FAILURE]?: TFailure | undefined
+readonly [FAILURE]?: Exclude<TFailure, CancelError> | undefined
 readonly [toStringTag]: string
 _abortListeners?: Map<IAbortSignal, any> | undefined
 _abortSignals?: Array<IAbortSignal> | undefined
