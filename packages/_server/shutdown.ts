@@ -23,6 +23,9 @@ import { IRequestLike, IResponseLike, IServerLike, IShutdownOptions, IShutdownRe
 /** Grace window a shutdown waits for in-flight requests before it gives up. */
 export const DEFAULT_SHUTDOWN_TIMEOUT = 10_000;
 
+/** Age at which a connection that sent no bytes is closed at shutdown; capped at the grace window. */
+const REQUESTLESS_AGE_MS = 5_000;
+
 interface IDrainResponse extends IResponseLike {
   headersSent?: boolean;
   writableFinished?: boolean;
@@ -54,8 +57,9 @@ interface IDrain {
  *
  * Requests are seen from the first time this layer meets the server: `createShutdown`, the first
  * wrapped handler or request signal on it, the fastify plugin, or the shutdown itself. Connections
- * are seen from `createShutdown` on, and at the start each one that has received no bytes is
- * closed, while one that has already sent part of a request is left to finish. A connection opened
+ * are seen from `createShutdown` on. One that has received no bytes is closed once it is older than
+ * `REQUESTLESS_AGE_MS` (capped at the grace), while one that has already sent part of a request is
+ * left to finish. A connection opened
  * before that is unknown: if it has not sent a request, or its response is still in flight, it is
  * closed only when the window runs out.
  *
@@ -143,22 +147,36 @@ export function shutdownServer(
     }
   };
 
-  // closeIdleConnections() skips a connection that never sent a request, so the empty ones
-  // recorded since createShutdown are closed here; one with request bytes read gets its answer
+  const destroyRequestless = (socket: IConnectionLike) => {
+    if (socket.destroyed !== true && socket.bytesRead === 0 && !carriesRequest(socket) && isFunction(socket.destroy)) {
+      socket.destroy();
+    }
+  };
+
+  // closeIdleConnections() skips a connection that never sent a request
+  // an empty one closes only once old enough that its first request is not cut off
+  // a younger one is checked again at that age
+  // one with request bytes read is left to answer
   const closeRequestless = () => {
     if (!ownsConnections || !registry.connections) {
       return;
     }
 
-    for (const socket of Array.from(registry.connections)) {
-      if (
-        socket.destroyed !== true &&
-        socket.bytesRead === 0 &&
-        !carriesRequest(socket) &&
-        isFunction(socket.destroy)
-      ) {
-        socket.destroy();
+    const now = Date.now();
+    const age = Math.min(REQUESTLESS_AGE_MS, grace);
+    for (const [socket, acceptedAt] of Array.from(registry.connections)) {
+      if (socket.bytesRead !== 0 || carriesRequest(socket)) {
+        continue;
       }
+
+      const remaining = acceptedAt + age - now;
+      if (remaining <= 0) {
+        destroyRequestless(socket);
+        continue;
+      }
+
+      const timer = setTimeout(() => destroyRequestless(socket), remaining);
+      socket.once?.('close', () => clearTimeout(timer));
     }
   };
 
@@ -404,7 +422,8 @@ export function shutdownServer(
 /**
  * Sets up the graceful shutdown of a server and returns the function that runs it. Connections
  * and requests are recorded from this call on, which is what lets the shutdown close a connection
- * that has received no bytes and mark every in-flight response `Connection: close`. A second call
+ * that has received no bytes once it is old enough, and mark every in-flight response
+ * `Connection: close`. A second call
  * for the same server returns the same function.
  */
 export function createServerShutdown(server: IServerLike): TShutdownFunction {

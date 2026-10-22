@@ -24,6 +24,8 @@ type TCreateShutdown = (target: never) => (options?: IShutdownOptions) => Promis
 const GRACE_MS = 10_000;
 /** Short window for the late cases, which wait it out in full. */
 const LATE_GRACE_MS = 300;
+/** How old a connection that sent nothing must be before a shutdown closes it; mirrors the shutdown's age. */
+const REQUESTLESS_AGE_MS = 5_000;
 /** Slack for timer and clock granularity when a wait must last the whole window. */
 const TIMER_SLACK_MS = 20;
 
@@ -176,21 +178,6 @@ export function describeShutdownSockets(createShutdown: TCreateShutdown, start: 
       expect(app.server.listening).toBe(false);
     });
 
-    it('closes a connection that sent no request as soon as it starts', async () => {
-      const app = await startApp();
-      const shutdown = createShutdown(app.target as never);
-      const { closed } = await preconnect(app.server, app.port);
-
-      const startedAt = performance.now();
-      const result = await shutdown({ timeout: GRACE_MS });
-      const elapsed = performance.now() - startedAt;
-      const closedAfter = (await closed) - startedAt;
-
-      expect(result).toEqual({ canceled: 0, completed: 0, timedOut: false });
-      expect(elapsed).toBeLessThan(GRACE_MS / 2);
-      expect(closedAfter).toBeLessThan(GRACE_MS / 2);
-    });
-
     it('answers a request the server read before the shutdown started', async () => {
       const app = await startApp();
       app.release();
@@ -318,6 +305,102 @@ export function describeShutdownSockets(createShutdown: TCreateShutdown, start: 
 
       expect(connection).toBe('keep-alive');
       expect(elapsed).toBeGreaterThanOrEqual(LATE_GRACE_MS - TIMER_SLACK_MS);
+    });
+  });
+
+  // the clock is faked so the age runs on jest's timers; I/O and nextTick stay real
+  describe('a connection that sent no bytes, by age', () => {
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    // faked only once listening, a framework may wait on a timer to start
+    const startAged = async () => {
+      const app = await startApp();
+      jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
+
+      return app;
+    };
+
+    // one turn of the event loop, so a socket closed or read just before has emitted
+    const turn = () => new Promise<void>((resolve) => setImmediate(resolve));
+    // a close the socket would make on its own has long emitted by then
+    const settle = async () => {
+      for (let turns = 0; turns < 10; turns += 1) {
+        await turn();
+      }
+    };
+
+    it('closes a connection that sent nothing once it is older than the age', async () => {
+      const app = await startAged();
+      const shutdown = createShutdown(app.target as never);
+      const { closed } = await preconnect(app.server, app.port);
+      jest.advanceTimersByTime(REQUESTLESS_AGE_MS);
+
+      expect(await shutdown({ timeout: GRACE_MS })).toEqual({ canceled: 0, completed: 0, timedOut: false });
+      await closed;
+    });
+
+    it('closes a younger connection when it reaches the age, not at start', async () => {
+      const app = await startAged();
+      const shutdown = createShutdown(app.target as never);
+      const { closed } = await preconnect(app.server, app.port);
+      let isClosed = false;
+      void closed.then(() => {
+        isClosed = true;
+      });
+
+      const closing = shutdown({ timeout: GRACE_MS });
+      await settle();
+      expect(isClosed).toBe(false);
+
+      jest.advanceTimersByTime(REQUESTLESS_AGE_MS - 1);
+      await settle();
+      expect(isClosed).toBe(false);
+
+      jest.advanceTimersByTime(1);
+      expect(await closing).toEqual({ canceled: 0, completed: 0, timedOut: false });
+      await closed;
+      expect(isClosed).toBe(true);
+    });
+
+    it('serves a request that arrives before the age runs out', async () => {
+      const app = await startAged();
+      app.release();
+      const shutdown = createShutdown(app.target as never);
+      const accepted = once(app.server, 'connection');
+      const { client, closed } = openClient(app.port);
+      const [socket] = (await accepted) as [Socket];
+      const closing = shutdown({ timeout: GRACE_MS });
+
+      client.write(`${REQUEST_HEAD}\r\n`);
+      for (let turns = 0; socket.bytesRead === 0 && turns < 100; turns += 1) {
+        await turn();
+      }
+      jest.advanceTimersByTime(REQUESTLESS_AGE_MS);
+
+      expect(await closed).toEqual({ error: undefined, statuses: ['HTTP/1.1 200'] });
+      expect(await closing).toEqual({ canceled: 0, completed: 1, timedOut: false });
+    });
+
+    it('caps the age at the grace window when the window is shorter', async () => {
+      const app = await startAged();
+      const shutdown = createShutdown(app.target as never);
+      const { closed } = await preconnect(app.server, app.port);
+      let isClosed = false;
+      void closed.then(() => {
+        isClosed = true;
+      });
+
+      const closing = shutdown({ timeout: LATE_GRACE_MS });
+      jest.advanceTimersByTime(LATE_GRACE_MS - 1);
+      await turn();
+      expect(isClosed).toBe(false);
+
+      jest.advanceTimersByTime(1);
+      await closing;
+      await closed;
+      expect(isClosed).toBe(true);
     });
   });
 }

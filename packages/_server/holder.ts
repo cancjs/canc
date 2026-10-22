@@ -108,8 +108,8 @@ export interface IConnectionLike {
  */
 export interface IRequestRegistry {
   open: Map<IResponseLike, IRequestLike>;
-  /** Every connection still open that the server accepted since `createShutdown` was called for it. */
-  connections?: Set<IConnectionLike>;
+  /** Every connection still open that the server accepted since `createShutdown`, with its accept time. */
+  connections?: Map<IConnectionLike, number>;
   /** Set while a shutdown runs, told about each request recorded during it. */
   onArrival?: (req: IRequestLike, res: IResponseLike) => void;
   /** Set while a shutdown runs, told about each request that gains cancel state during it. */
@@ -162,14 +162,14 @@ export function trackConnections(server: IServerLike): void {
     return;
   }
 
-  const connections = new Set<IConnectionLike>();
+  const connections = new Map<IConnectionLike, number>();
   registry.connections = connections;
 
   const host = server as IListenerHost;
   if (isFunction(host.on)) {
     host.on(isFunction(host.addContext) ? 'secureConnection' : 'connection', (socket) => {
       const connection = socket as IConnectionLike;
-      connections.add(connection);
+      connections.set(connection, Date.now());
       connection.once?.('close', () => {
         connections.delete(connection);
       });
