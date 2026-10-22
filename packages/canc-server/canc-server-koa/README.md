@@ -17,7 +17,7 @@ A Koa handler keeps running after the client is gone. The query finishes, the up
 
 This package gives each request one cancel signal, wired from the response side, and a wrapper that runs a handler under it. A generator handler stops at its next `yield`. Request-scoped work started elsewhere, a database context or an outbound fetch, can take the same signal and stop with it, because the signal is installed once per request and shared by every consumer.
 
-It also carries the two things a server needs around that: a per-handler deadline that answers with a status you choose, and a graceful shutdown that cancels everything in flight before the process exits.
+It also carries the two things a server needs around that: a per-handler deadline that answers with a status you choose, and a graceful shutdown that gives in-flight handlers a grace window to finish, then cancels the rest before the process exits.
 
 ## Features
 
@@ -91,9 +91,9 @@ The listener is `ctx.res.on('close')` guarded by `!writableEnded`, never `ctx.re
 
 Koa does not expose a `request.signal` under that name either, so this package listens on `ctx.res`'s close event instead, for the same reason the node and fastify integrations avoid the request-side signal they do have.
 
-### One listener, one cancellation
+### Bounded listeners, one cancellation
 
-The cancel state is cached on the raw request under a registered symbol, so the middleware, the route wrapper, and anything else asking for `getRequestSignal` all reach the same object. A request has exactly one close listener no matter how many consumers want the signal, and one disconnect produces one cancellation.
+The cancel state is cached on the raw request under a registered symbol, so the middleware, the route wrapper, and anything else asking for `getRequestSignal` all reach the same object. However many consumers want the signal, the request's close listeners stay bounded: wrapped layers share the cancel state instead of adding listeners of their own. One disconnect produces one cancellation.
 
 `getRequestSignal` is the guarded replacement for node's own `IncomingMessage.prototype.signal`, which `ctx.req` inherits and which aborts once the request stream finishes reading rather than when the client disconnects, so a body-carrying request would abort on arrival if that signal were adopted as-is.
 
@@ -104,6 +104,8 @@ Koa has no dedicated error-middleware slot. An `await next()` wrapped in a `try`
 ### Nothing is written to a dead socket
 
 A cancellation that arrives with the client already gone is dropped in place: `ctx.respond` is set to `false`, which tells Koa to skip its own response handling entirely. The check reads `writableEnded` and `destroyed` on the raw response rather than `ctx.writable`, because `ctx.writable` reads the socket and reports a departed client as still writable. Everything else is rethrown and travels up the middleware stack as usual.
+
+When the response head has already gone out, no status can follow it. The connection is destroyed instead, so the client sees an aborted response rather than one that ends cleanly with a truncated body.
 
 ## Description
 
@@ -124,7 +126,7 @@ The flag options of `@cancjs/promise` (`asyncCancel`, `bubble`, `forceCancelable
 
 Options given to `cancelMiddleware` are defaults for everything mounted below it. Options given to `cancelableHandler` win on every key they set, so one route can raise or drop the deadline the app registered.
 
-There is one deadline per request. `cancelMiddleware` starts it when the request reaches the middleware, so it covers plain routes too, and a route passing its own `timeout` restarts the clock with that value. It ends once the middleware below `cancelMiddleware` returns, or once a wrapped route settles, so a body Koa streams after that is not cut short by it. A slow response body is for `server.requestTimeout` or the proxy in front of the server. The lifecycle callbacks run once per request. A `timeout` of `0` fires at once, and `Infinity` or leaving it out sets no deadline. A duration past about 24.8 days is held at that limit.
+There is one deadline per request. `cancelMiddleware` starts it when the request reaches the middleware, so it covers plain routes too, and a route passing its own `timeout` restarts the clock with that value. It ends once the middleware below `cancelMiddleware` returns, or once a wrapped route settles, so a body Koa streams after that is not cut short by it. A slow response body is for `server.requestTimeout` or the proxy in front of the server. The lifecycle callbacks run once per request. A `timeout` of `0` fires at once, and `Infinity`, `NaN`, a negative number or leaving it out sets no deadline. A negative value is not an immediate deadline, and on a route that sets its own `timeout` it lifts the deadline set above it, like `Infinity`. A duration past about 24.8 days is held at that limit.
 
 The deadline default status is 503. Set `timeout: { ms: 30_000, status: 504 }` for a gateway-style code.
 

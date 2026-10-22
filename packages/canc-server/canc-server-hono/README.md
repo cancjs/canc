@@ -134,6 +134,8 @@ A cancellation whose client is already gone still has to answer with something, 
 
 Hono does not read a status off a thrown error the way express, fastify and koa do. Without `cancelErrorHandler()` mounted on `app.onError`, a deadline reaches Hono's default handler and answers `500` regardless of the `status` the timeout was given. `cancelErrorHandler()` reads the error itself: a deadline answers with its own status, a shutdown cancellation answers with the fallback status, a departed client gets `499`, and one of Hono's own exceptions (anything with a `getResponse()`) still answers with the response it wanted. Any other error is logged with `console.error` and answered with `500`, as Hono's own default does. Pass `onError` to handle those yourself.
 
+When the response head has already gone out, no status can follow it. On node, `cancelErrorHandler()` destroys the connection in that case, so the client sees an aborted response rather than one that ends cleanly with a truncated body.
+
 ## Description
 
 ### Handler kinds
@@ -155,7 +157,7 @@ Cancelable promise flags (`bubble`, `shield`, `strict`, `asyncCancel`, `forceCan
 
 Options given to `cancelMiddleware` are inherited by every handler on the request. A route's own options are merged over them key by key.
 
-There is one deadline per request. `cancelMiddleware` starts it when the request reaches the middleware, so it covers plain routes too, and a route passing its own `timeout` restarts the clock with that value. It ends once the handlers below `cancelMiddleware` return, or once a wrapped route settles, so a body streamed after that is not cut short by it. A wrapped middleware that awaits `next()` does not end it early. A slow response body is for the server's own request timeout or the proxy in front of it. The lifecycle callbacks run once per request. A `timeout` of `0` fires at once, and `Infinity` or leaving it out sets no deadline. A duration past about 24.8 days is held at that limit.
+There is one deadline per request. `cancelMiddleware` starts it when the request reaches the middleware, so it covers plain routes too, and a route passing its own `timeout` restarts the clock with that value. It ends once the handlers below `cancelMiddleware` return, or once a wrapped route settles, so a body streamed after that is not cut short by it. A wrapped middleware that awaits `next()` does not end it early. A slow response body is for the server's own request timeout or the proxy in front of it. The lifecycle callbacks run once per request. A `timeout` of `0` fires at once, and `Infinity`, `NaN`, a negative number or leaving it out sets no deadline. A negative value is not an immediate deadline, and on a route that sets its own `timeout` it lifts the deadline set above it, like `Infinity`. A duration past about 24.8 days is held at that limit.
 
 ### Telling a disconnect from a deadline
 
