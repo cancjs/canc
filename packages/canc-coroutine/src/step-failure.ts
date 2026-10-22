@@ -1,12 +1,12 @@
-import type { FAILURE, Unlisted } from '@cancjs/promise';
+import type { CancelError, FAILURE, Unlisted } from '@cancjs/promise';
 
-// only declared failures count: the open marker drops, native steps and plain values add nothing
+// declared failures only: open marker and cancellation drop, native steps add nothing
 export type CoFailureOf<T> =
   0 extends 1 & T ? never
   : T extends { readonly [FAILURE]?: infer F } ?
     [F] extends [undefined] ?
       never
-    : Exclude<F, Unlisted>
+    : Exclude<F, Unlisted | CancelError>
   : never;
 
 // a one argument AsyncResult body yields unknown: failure undeclared, not empty
