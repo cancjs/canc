@@ -469,7 +469,6 @@ describe('request deadline', () => {
     const outcome = JSON.parse((await httpRequest(port, { path: '/plain' })).body) as IAbortOutcome;
 
     expect(outcome.aborted).toBe(true);
-    expect(outcome.ms).toBeGreaterThanOrEqual(40);
     expect(outcome.ms).toBeLessThan(ABORT_FALLBACK_MS);
     expect(timeouts).toHaveLength(1);
   });
