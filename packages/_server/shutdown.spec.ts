@@ -4,7 +4,7 @@ import { createServer, globalAgent, IncomingMessage, request, Server, ServerResp
 import { connect, Socket } from 'net';
 
 import { createExchange, FakeResponse, FakeServer, flush, outcomeOf, pending } from './__tests__/fakes';
-import { getRequestRegistry } from './holder';
+import { getRequestRegistry, recordRequest } from './holder';
 import { ensureRequestCancelState, getNodeRequestSignal } from './node-signal';
 import { SERVER_SHUTDOWN } from './reasons';
 import { runCancelableHandler } from './run';
@@ -284,6 +284,28 @@ describe('graceful shutdown', () => {
       completed: 1,
       timedOut: false,
     });
+  });
+
+  it('cancels a request that gains cancel state after the grace window ended', async () => {
+    jest.useFakeTimers();
+
+    try {
+      const server = new FakeServer();
+      const { req, res } = createExchange(server);
+      recordRequest(getRequestRegistry(server, true)!, req, res);
+
+      const shutdown = shutdownServer(server, { timeout: 100 });
+      // only the grace timer fires, the turn that settles the result is still queued
+      jest.advanceTimersToNextTimer();
+      const signal = getNodeRequestSignal(req, res);
+
+      expect(signal.aborted).toBe(true);
+      expect((signal.reason as Error).message).toBe(SERVER_SHUTDOWN);
+      await jest.advanceTimersByTimeAsync(1);
+      await shutdown;
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('finishes the shutdown when a strict, shielded task rejects its own cancel', async () => {
@@ -796,6 +818,103 @@ describe('graceful shutdown over a real socket', () => {
     expect(responses[1]).toMatch(/\r\nConnection: close\r\n/i);
     expect(responses[1]).toMatch(/late$/);
     expect(result).toEqual({ canceled: 0, completed: 2, timedOut: false });
+  });
+
+  it('answers a pipelined request before the connection is closed', async () => {
+    const firstEntered = deferred();
+    const firstGate = deferred();
+    const firstClosed = deferred();
+    const { port, server } = await listen((req, res) => {
+      if (req.url === '/first') {
+        res.writeHead(200, { 'Content-Length': '5' });
+        res.write('fir');
+        firstEntered.resolve();
+        res.once('close', () => setImmediate(firstClosed.resolve));
+        void firstGate.promise.then(() => res.end('st'));
+
+        return;
+      }
+
+      // answers only once the first response is over, which is when its socket would be closed
+      void firstClosed.promise.then(() => res.end('second'));
+    });
+    // met before any request, so both are known to the shutdown
+    getRequestRegistry(server, true);
+
+    const client = await rawClient(port);
+    let received = '';
+    client.on('data', (chunk: Buffer) => {
+      received += chunk.toString('latin1');
+    });
+    const closed = once(client, 'close');
+
+    // both requests are on the wire before the shutdown, and the first head already said keep-alive
+    client.write('GET /first HTTP/1.1\r\nHost: localhost\r\n\r\n' + 'GET /second HTTP/1.1\r\nHost: localhost\r\n\r\n');
+    await firstEntered.promise;
+    const shutdown = shutdownServer(server, { timeout: 1000 });
+    firstGate.resolve();
+
+    const result = await shutdown;
+    await closed;
+    const responses = received.split(/(?=HTTP\/1\.1 )/);
+
+    expect(responses).toHaveLength(2);
+    expect(responses[0]).toMatch(/first$/);
+    expect(responses[1]).toMatch(/^HTTP\/1\.1 200/);
+    expect(responses[1]).toMatch(/second$/);
+    expect(result).toEqual({ canceled: 0, completed: 2, timedOut: false });
+  });
+
+  it('counts a wrapped request that arrived during the drain and outlived it as canceled', async () => {
+    const firstEntered = deferred();
+    const lateEntered = deferred();
+    const firstGate = deferred();
+    const { port, server } = await listen((req, res) => {
+      if (req.url === '/first') {
+        void runCancelableHandler(() => 'next', req, res);
+        res.writeHead(200, { 'Content-Length': '5' });
+        res.write('fir');
+        firstEntered.resolve();
+        void firstGate.promise.then(() => res.end('st'));
+
+        return;
+      }
+
+      answerWith(
+        res,
+        runCancelableHandler(
+          function* () {
+            lateEntered.resolve();
+            yield pending();
+          },
+          req,
+          res,
+        ),
+      );
+    });
+
+    const client = await rawClient(port);
+    let received = '';
+    client.on('data', (chunk: Buffer) => {
+      received += chunk.toString('latin1');
+    });
+    const closed = once(client, 'close');
+
+    client.write('GET /first HTTP/1.1\r\nHost: localhost\r\n\r\n');
+    await firstEntered.promise;
+    const shutdown = shutdownServer(server, { timeout: 200 });
+    client.write('GET /late HTTP/1.1\r\nHost: localhost\r\n\r\n');
+    await lateEntered.promise;
+    firstGate.resolve();
+
+    const result = await shutdown;
+    await closed;
+    const responses = received.split(/(?=HTTP\/1\.1 )/);
+
+    expect(responses).toHaveLength(2);
+    expect(responses[1]).toMatch(/^HTTP\/1\.1 503/);
+    expect(responses[1]).toContain(SERVER_SHUTDOWN);
+    expect(result).toEqual({ canceled: 1, completed: 1, timedOut: true });
   });
 
   it('cancels a wrapped handler at once when asked to cancel on start', async () => {

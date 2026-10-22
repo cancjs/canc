@@ -136,6 +136,7 @@ describe('express under concurrency', () => {
   it('finishes every request that is in flight at shutdown inside the grace window', async () => {
     const total = 100;
     const allArrived = deferred();
+    const release = deferred();
     let arrived = 0;
 
     const app = express();
@@ -147,13 +148,14 @@ describe('express under concurrency', () => {
       next();
     });
     app.use(expressServer.cancelMiddleware());
-    app.get('/plain', (_req, res) => {
-      setImmediate(() => res.send('plain'));
+    app.get('/plain', async (_req, res) => {
+      await release.promise;
+      res.send('plain');
     });
     app.get(
       '/wrapped',
       expressServer.cancelableHandler(function* (_req, res) {
-        yield new CancelablePromise<void>((resolve) => setImmediate(resolve));
+        yield release.promise;
         res.send('wrapped');
       }),
     );
@@ -161,7 +163,7 @@ describe('express under concurrency', () => {
       '/stream',
       expressServer.cancelableHandler(function* (_req, res) {
         res.write('a');
-        yield new CancelablePromise<void>((resolve) => setImmediate(resolve));
+        yield release.promise;
         res.end('b');
       }),
     );
@@ -179,16 +181,17 @@ describe('express under concurrency', () => {
       );
     });
 
+    // every handler is parked, so all of them are in flight when the shutdown starts
     await allArrived.promise;
-    const result = await expressServer.shutdown(lastServer(), { timeout: 5000 });
+    const shutting = expressServer.shutdown(lastServer(), { timeout: 5000 });
+    // the timer queue turns first, so an already closed window would cancel every handler
+    setTimeout(release.resolve, 50);
+    const result = await shutting;
     const settled = await Promise.all(pending);
 
     const resets = settled.filter((outcome) => 'code' in outcome && outcome.code === 'ECONNRESET');
     expect(resets).toEqual([]);
-    // completed counts only requests still running when shutdown began
-    expect(result.canceled).toBe(0);
-    expect(result.timedOut).toBe(false);
-    expect(result.completed).toBeLessThanOrEqual(total);
+    expect(result).toEqual({ canceled: 0, completed: total, timedOut: false });
     for (const outcome of settled) {
       expect(outcome).toEqual({ body: expected[outcome.path as string], path: outcome.path, status: 200 });
     }

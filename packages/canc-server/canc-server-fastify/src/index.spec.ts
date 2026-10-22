@@ -603,6 +603,50 @@ describe('error handler', () => {
     expect(instance.server.listening).toBe(true);
   });
 
+  it('cuts the connection when a cancellation reaches it after the head went out', async () => {
+    const started = deferred();
+
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.setErrorHandler(cancelErrorHandler());
+    // a plain route, so the plugin handler is the only thing between the rejection and the client
+    instance.get('/part', async (request, reply) => {
+      const signal = getRequestSignal(request, reply);
+
+      reply.raw.writeHead(200, { 'content-type': 'text/plain' });
+      reply.raw.write('part1,');
+      started.resolve();
+      await new Promise((_resolve, reject) => {
+        signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+      });
+    });
+
+    const port = await listen(instance);
+    const outcome = new Promise<{ body: string; complete: boolean }>((resolve) => {
+      const outgoing = http.get({ host: '127.0.0.1', path: '/part', port }, (response) => {
+        let body = '';
+
+        response.setEncoding('utf8');
+        response.on('data', (chunk: string) => {
+          body += chunk;
+        });
+        response.on('end', () => resolve({ body, complete: response.complete }));
+        response.on('error', () => resolve({ body, complete: false }));
+        response.on('close', () => resolve({ body, complete: response.complete }));
+      });
+
+      outgoing.on('error', () => resolve({ body: '', complete: false }));
+    });
+
+    await started.promise;
+    const result = await shutdown(instance, { timeout: 50 });
+
+    app = undefined;
+
+    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: true });
+    expect(await outcome).toEqual({ body: 'part1,', complete: false });
+  });
+
   it('passes an ordinary failure through', async () => {
     const instance = Fastify();
     await instance.register(cancelPlugin);
@@ -753,6 +797,42 @@ describe('shutdown', () => {
     request.destroy();
 
     expect(result).toEqual({ canceled: 0, completed: 0, timedOut: true });
+  });
+
+  it('tells a request held before the plugin hook to close its connection', async () => {
+    const started = deferred();
+    const gate = deferred();
+
+    const instance = Fastify();
+    // answers ahead of the plugin's own hook, so the request never gains cancel state and only the
+    // instance's own record of it can make the shutdown aware of it
+    instance.addHook('onRequest', async (_request, reply) => {
+      started.resolve();
+      await gate.promise;
+
+      return reply.send({ ok: true });
+    });
+    await instance.register(cancelPlugin);
+    instance.get('/plain', () => ({ ok: true }));
+
+    const port = await listen(instance);
+    const answer = new Promise<http.IncomingHttpHeaders>((resolve, reject) => {
+      http
+        .get({ host: '127.0.0.1', path: '/plain', port }, (response) => {
+          response.resume();
+          response.on('end', () => resolve(response.headers));
+        })
+        .on('error', reject);
+    });
+
+    await started.promise;
+    const closing = shutdown(instance, { timeout: 1000 });
+
+    app = undefined;
+    gate.resolve();
+
+    expect((await answer).connection).toBe('close');
+    expect(await closing).toEqual({ canceled: 0, completed: 1, timedOut: false });
   });
 
   it('returns the same result to a second call', async () => {
