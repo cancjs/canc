@@ -18,6 +18,7 @@
  * its own type annotation`), fixed only at 5.0+.
  */
 import { cancelableHandler, cancelMiddleware, shutdown, getRequestSignal } from '@cancjs/server-koa';
+import type { ICancelErrorHandlerOptions } from '@cancjs/server-koa';
 import type { Server } from 'http';
 import Koa, { Context, Middleware } from 'koa';
 
@@ -63,6 +64,10 @@ void wrongArityHandler;
 const app = new Koa();
 const middleware: Middleware = cancelMiddleware();
 app.use(middleware);
+
+// the exported options type is what the middleware's `status` key is typed with
+const middlewareOptions: ICancelErrorHandlerOptions = { status: 503 };
+app.use(cancelMiddleware(middlewareOptions));
 
 const ctx = {} as Context;
 // the annotated return type is the assertion: a bare context reaches the signal without a cast
