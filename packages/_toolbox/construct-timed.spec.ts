@@ -2,8 +2,9 @@ import { CancelablePromise, isCancelError } from '@cancjs/promise';
 
 import { TPromiseCtor } from './construct';
 import { delayFactory } from './delay';
-import { IToolboxDeps } from './deps';
+import { IToolboxDeps, TLazyCtor } from './deps';
 import { IPromiseKind } from './kind';
+import { LazyPromise } from './lazy/lazy-promise';
 import { promisifyFactory } from './promisify';
 import { retryFactory } from './retry';
 import { timeoutFactory } from './timeout';
@@ -11,6 +12,7 @@ import { waitForFactory } from './wait-for';
 
 interface ITestKind extends IPromiseKind {
   promise: CancelablePromise<this['value']>;
+  lazy: LazyPromise<this['value'], this['failure']>;
   options: Record<string, unknown>;
 }
 
@@ -21,6 +23,7 @@ function spyDeps(): { deps: IToolboxDeps<ITestKind>; setTimeout: jest.Mock; clea
   return {
     deps: {
       Impl: CancelablePromise as unknown as TPromiseCtor,
+      Lazy: LazyPromise as TLazyCtor,
       cancelable: true,
       setTimeout: scheduled,
       clearTimeout: cleared,
@@ -272,5 +275,16 @@ describe('{ lazy: true } (cancelable)', () => {
       expect(job).toHaveBeenCalledTimes(1);
       p.cancel();
     });
+  });
+});
+
+describe('{ lazy: true } without a lazy class in deps', () => {
+  it('throws a TypeError instead of building an eager promise', () => {
+    const spies = spyDeps();
+    const deps = { ...spies.deps, Lazy: undefined };
+    const delay = delayFactory(deps);
+
+    expect(() => delay(10, { lazy: true })).toThrow(new TypeError('The lazy option needs a lazy promise class'));
+    expect(spies.setTimeout).not.toHaveBeenCalled();
   });
 });

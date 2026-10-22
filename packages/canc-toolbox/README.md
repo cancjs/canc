@@ -66,8 +66,8 @@ Wrapping an API that takes a signal is a one-liner, and callers never see the si
 ```js
 import { cancelify } from '@cancjs/toolbox';
 
-const searchFlights = cancelify(({ getSignal }, query) =>
-  flightApi.search(query, getSignal()),
+const searchFlights = cancelify(({ signal }, query) =>
+  flightApi.search(query, signal),
 );
 
 const search = searchFlights('LIS');
@@ -93,9 +93,11 @@ directly, which assumes the helper is its only holder. `limit`, `map`, `debounce
 missed `timeout` deadline forward a reason to it. Canceling the result of `timeout`, `delay`,
 `minDelay`, `retry` or a debounced call calls its `cancel()` without one.
 
-`cancelify` works from the other end. It hands the wrapped function a lazy signal thunk. The
-controller is created on the first `getSignal()` call and aborted when the returned promise is
-canceled, so a function that never asks for a signal allocates nothing.
+`cancelify` works from the other end. It hands the wrapped function a context whose `signal` is
+created lazily. The controller is created on the first read of `signal` and aborted when the
+returned promise is canceled, so a function that never asks for a signal allocates nothing. A
+first read after the promise was canceled gets an already aborted signal. `getSignal()` on the
+same context still works and returns the same signal, but is deprecated in favor of `signal`.
 
 ## Description
 
@@ -106,17 +108,25 @@ the application code free of the mechanism:
 
 ```js
 const orderApi = {
-  list: cancelify(({ getSignal }, filter) =>
-    rawOrderApi.list(filter, { signal: getSignal() })
+  list: cancelify(({ signal }, filter) =>
+    rawOrderApi.list(filter, { signal })
   ),
-  get: cancelify(({ getSignal }, id) =>
-    rawOrderApi.get(id, { signal: getSignal() })
+  get: cancelify(({ signal }, id) =>
+    rawOrderApi.get(id, { signal })
   ),
 };
 ```
 
-`getSignal()` can be placed anywhere the underlying call wants it, not only in a trailing options
+`signal` can be placed anywhere the underlying call wants it, not only in a trailing options
 object.
+
+`promisify` keeps passing `getSignal` positionally to its `transformArgs` and `handleCancel`
+hooks, and that form is not deprecated. The function carries the same `signal` property, so
+`transformArgs: (args, { signal }) => [...args, { signal }]` works as well. The property is set up
+only for hooks that can reach it: a hook declaring that parameter, or one whose source mentions
+`signal`, `arguments` or a rest parameter. That source check is best-effort. It misses a hook
+reading the property under a computed or aliased name, and a bound or native function, so in those
+cases call `getSignal()` instead.
 
 For callback-style APIs use `promisify`, which covers error-first and value-first callbacks,
 multiple callback values, and the `nodejs.util.promisify.custom` hook. `promisifyAll` applies it
@@ -256,6 +266,21 @@ not subscribe to its inputs until the aggregate itself is subscribed. `createLaz
 options?)` is the front door for input whose shape varies, function, lazy promise, plain promise
 or value, and passes a lazy input through unchanged so its laziness survives.
 
+A combinator cancels the lazy inputs it no longer needs. A race loser is canceled once the winner
+settles, unless something else still consumes it:
+
+```js
+const fastest = LazyPromise.race([LazyPromise.try(fetchFromA), LazyPromise.try(fetchFromB)]);
+
+await fastest; // both start here, the slower one is canceled
+```
+
+Canceling a loser stops its work only if its source returns a cancelable promise, for example
+`fetchFromB` returning a `CancelablePromise`. A plain promise has nothing to cancel, so its work
+runs to the end and the result is ignored.
+
+`toAbortSignal(lazy)` does not start the work either. The signal aborts when the lazy is canceled.
+
 `lazy.execute()` starts the work without subscribing to it, which matters for prefetch-then-await:
 `void lazy.then()` builds a derived promise with no handlers, so a later rejection on it is
 reported unhandled even when the lazy itself is awaited elsewhere. `execute()` has no such node.
@@ -282,7 +307,7 @@ A helper that takes the work as an argument reads the declared failure set off t
 - `timeout` and `waitFor` declare `TimeoutError` inside an open set (`TimeoutError | Unlisted`), because the work they wait on can reject with something else. A `catch` reason on their result is `any`, and a coroutine step over `waitFor` or a bare `timeout(ms)` contributes `TimeoutError`; a step over `timeout(input, ms)` contributes the input's set plus `TimeoutError`. `timeout(input, ms)` adds `TimeoutError` to the input's own set, so a `CancelablePromise<T, FooError>` input gives `FooError | TimeoutError | Unlisted`.
 - `delay(ms)`, `defer` and `promisify` declare a `never` failure set. None of them wraps a promise to read one from.
 - `cancelify` and the terminal operations of the async iterator helpers (`toArray`, `reduce`, `find` and the rest) leave the failure set undeclared (`unknown`), because the function or the source you pass decides what they reject with. Neither carries a wrapped set yet.
-- The `LazyPromise` family declares no failure set, so promise combinators read it as open (`Unlisted`).
+- `LazyPromise.try(fn)` takes the failure set from what `fn` returns, and a helper called with `{ lazy: true }` keeps the set its eager form declares. A lazy promise built any other way leaves the set undeclared (`unknown`).
 
 Cancellation (rejection with a `CancelError`) is part of the cancellation control flow rather than an application failure set. See [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) for details on declared failures and error matching.
 
@@ -311,6 +336,11 @@ and ignoring it.
 
 Laziness is not contagious. `delay(1000, { lazy: true }).then(f)` starts the timer at the `.then`
 call, because a subscription is what wakes it. It does not defer anything further down the chain.
+
+`helper(..., { lazy: true })` equals `LazyPromise.try(() => helper(...))` with the options on the
+work, and returns that `LazyPromise`. Either spelling works. Use `{ lazy: true }` on a helper call,
+`LazyPromise.try(fn)` for a function of your own and `createLazyPromise(x)` when the input's shape
+varies.
 
 ### Timing
 
@@ -390,16 +420,17 @@ it keeps running for that consumer and its slot stays taken until the work settl
 
 ### Lazy promises
 
-| Export                                        | Description                                                               |
-| --------------------------------------------- | ------------------------------------------------------------------------- |
-| `new LazyPromise(executor, options?)`         | Executor form, deferred to the first subscription                         |
-| `LazyPromise.try(fn, ...args)`                | Deferred call of `fn`, `CancelablePromise.try` semantics                  |
-| `createLazyPromise(x, options?)`, `lazy(run)` | Front door: function, lazy promise, plain promise or value                |
-| `LazyPromise.all/race/any/allSettled(...)`    | Cold combinators, semantics from `CancelablePromise`                      |
-| `LazyPromise.withResolvers(options?)`         | `{ promise, resolve, reject, cancel }`, adoption deferred to subscription |
-| `lazy.execute()`                              | Starts the work now, without subscribing to it                            |
-| `lazy.started`                                | Whether the executor has been triggered                                   |
-| `isLazyPromise(value)`                        | Brand check                                                               |
+| Export                                     | Description                                                               |
+| ------------------------------------------ | ------------------------------------------------------------------------- |
+| `new LazyPromise(executor, options?)`      | Executor form, deferred to the first subscription                         |
+| `LazyPromise.try(fn, ...args)`             | Deferred call of `fn`, `CancelablePromise.try` semantics                  |
+| `createLazyPromise(x, options?)`           | Front door: function, lazy promise, plain promise or value                |
+| `lazy(executor, options?)`                 | Shorthand for `new LazyPromise(executor, options?)`                       |
+| `LazyPromise.all/race/any/allSettled(...)` | Cold combinators, semantics from `CancelablePromise`                      |
+| `LazyPromise.withResolvers(options?)`      | `{ promise, resolve, reject, cancel }`, adoption deferred to subscription |
+| `lazy.execute()`                           | Starts the work now, without subscribing to it                            |
+| `lazy.started`                             | Whether the executor has been triggered                                   |
+| `isLazyPromise(value)`                     | Brand check                                                               |
 
 ### Errors
 

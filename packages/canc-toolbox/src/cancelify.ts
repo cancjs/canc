@@ -1,6 +1,6 @@
 import { CancelablePromise, CancelError, ICancelablePromiseOptions, isCancelError } from '@cancjs/promise';
 
-import { makeCancelSignal, TGetSignal } from '../../_toolbox';
+import { createCancelSignalSource } from '../../_toolbox';
 import { setFnName } from '../../_util';
 import { IExecutorCtx, THandleCancel } from './options';
 
@@ -12,7 +12,7 @@ type AbortControllerCtor = new () => { abort(reason?: any): void; signal: any };
  * createCancelSignal: a CancelError passes through unwrapped, a string/undefined becomes the message,
  * any other object becomes the cause. This keeps an aborted outbound signal reading as a genuine
  * cancellation end-to-end (spec consumers reject with signal.reason, which is our CancelError).
- * Passed to makeCancelSignal as the reason normalizer so an aborted outbound signal reads branded.
+ * Passed to the outbound signal source as the reason normalizer so an aborted signal reads branded.
  */
 export function toCancelError(reason?: unknown): CancelError {
   if (isCancelError(reason)) {
@@ -27,9 +27,37 @@ export function toCancelError(reason?: unknown): CancelError {
 }
 
 export interface ICancelifyContext {
-  getSignal: TGetSignal;
+  /**
+   * Get the outbound signal, creating the controller on first call. A first call after the promise
+   * was canceled returns an already aborted signal.
+   * @deprecated Use `signal`.
+   */
+  getSignal: () => any;
   handleCancel: THandleCancel;
+  /**
+   * The outbound signal `getSignal()` returns, created on first read. The property is an inherited
+   * non-enumerable getter, so spread and `JSON.stringify` neither copy it nor create the
+   * controller. Destructuring it (`({ signal }, ...args) => ...`) reads it once.
+   */
+  readonly signal: any;
 }
+
+// a plain constructor so every context shares one map and inherits the signal getter
+const CancelifyContext = function CancelifyContext(
+  this: ICancelifyContext,
+  getSignal: () => any,
+  handleCancel: THandleCancel,
+) {
+  this.getSignal = getSignal;
+  this.handleCancel = handleCancel;
+} as unknown as new (getSignal: () => any, handleCancel: THandleCancel) => ICancelifyContext;
+
+Object.defineProperty(CancelifyContext.prototype, 'signal', {
+  configurable: true,
+  get: function (this: ICancelifyContext): any {
+    return this.getSignal();
+  },
+});
 
 export interface ICancelifyOptions extends ICancelablePromiseOptions {
   /** AbortController implementation used to mint the outbound signal. Defaults to the ambient global. */
@@ -38,15 +66,20 @@ export interface ICancelifyOptions extends ICancelablePromiseOptions {
   displayName?: string;
 }
 
-/** A promise-returning fn that receives the outbound cancel-signal thunk and the call arguments.
- * Call `getSignal()` only when the underlying API needs a signal; ignoring it allocates nothing. */
+function withInjectedController(ctx: IExecutorCtx, Ctor: AbortControllerCtor): ICancelifyContext {
+  const source = createCancelSignalSource(Ctor, toCancelError);
+  ctx.handleCancel(source.onCancel);
+  return new CancelifyContext(source.getSignal, ctx.handleCancel);
+}
+
+/** A promise-returning fn that receives the cancel context and the call arguments. Read `signal`
+ * only when the underlying API needs a signal; ignoring it allocates nothing. */
 export type TCancelifyFn<A extends any[], R> = (ctx: ICancelifyContext, ...args: A) => R | PromiseLike<R>;
 
 /**
  * Add cancellation to an already-promise-returning fn by handing it an outbound signal that aborts
- * when the returned promise is canceled. The result is always a CancelablePromise; calling
- * `getSignal()` inside fn materializes and wires the controller, while a fn that never calls it
- * constructs nothing.
+ * when the returned promise is canceled. The result is always a CancelablePromise; reading
+ * `signal` inside fn materializes the controller, while a fn that never reads it constructs nothing.
  */
 export function cancelify<A extends any[], R>(
   fn: TCancelifyFn<A, R>,
@@ -56,12 +89,9 @@ export function cancelify<A extends any[], R>(
 
   const wrapper = function (...callArgs: A): CancelablePromise<R> {
     const run = (resolve: (value: R | PromiseLike<R>) => void, reject: (reason?: any) => void, ctx?: IExecutorCtx) => {
-      const handleCancel = ctx?.handleCancel;
-      const holder = makeCancelSignal(handleCancel, Ctor, toCancelError);
-      CancelablePromise.resolve(fn({ getSignal: holder.getSignal, handleCancel: handleCancel! }, ...callArgs)).then(
-        resolve,
-        reject,
-      );
+      // the core context already carries a late-safe signal; only an injected controller needs ours
+      const context = Ctor ? withInjectedController(ctx!, Ctor) : (ctx as unknown as ICancelifyContext);
+      CancelablePromise.resolve(fn(context, ...callArgs)).then(resolve, reject);
     };
 
     return new CancelablePromise<R>(run, options);

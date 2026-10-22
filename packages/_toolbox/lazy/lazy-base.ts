@@ -1,5 +1,5 @@
 import { TPromiseCtor } from '../construct';
-import { isCancelableLike, isFunction } from '../guards';
+import { isCancelableLike, isFunction, isThenableLike } from '../guards';
 import { ISettledResult } from '../settled-result';
 
 /**
@@ -98,10 +98,11 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
    * Takes no options bag: the rest arguments occupy that slot, matching `CancelablePromise.try`.
    * Use `createLazyPromise` when options are needed or when the input's shape varies.
    */
-  static try<V, TArgs extends any[]>(fn: (...args: TArgs) => V | PromiseLike<V>, ...args: TArgs): LazyBase<V> {
-    return this._new<V>((resolve, reject) => {
+  static try<V, TArgs extends any[]>(fn: (...args: TArgs) => V, ...args: TArgs): LazyBase<Awaited<V>> {
+    return this._new<Awaited<V>>((resolve, reject) => {
       try {
-        resolve(fn(...args));
+        // V settles as Awaited<V>, not provable generically (as in CancelablePromise.try)
+        resolve(fn(...args) as unknown as Awaited<V> | PromiseLike<Awaited<V>>);
       } catch (error) {
         reject(error);
       }
@@ -195,7 +196,7 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
     // Aggregate refers to itself to resolve implementation at start time with the same per call
     // precedence a subscription gets since executor cannot run before assignment
     const aggregate: LazyBase<V[]> = this._new<V[]>(
-      (resolve) => resolve(aggregate._resolveImplStatics().all(values) as PromiseLike<V[]>),
+      (resolve) => resolve(aggregate._resolveImplStatics().all(LazyBase._subscribeInputs(values)) as PromiseLike<V[]>),
       options,
     );
 
@@ -206,7 +207,11 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
   static allSettled<V>(values: Iterable<V | PromiseLike<V>>, options?: object): LazyBase<ISettledResult<Awaited<V>>[]> {
     const aggregate: LazyBase<ISettledResult<Awaited<V>>[]> = this._new<ISettledResult<Awaited<V>>[]>(
       (resolve) =>
-        resolve(aggregate._resolveImplStatics().allSettled(values) as PromiseLike<ISettledResult<Awaited<V>>[]>),
+        resolve(
+          aggregate._resolveImplStatics().allSettled(LazyBase._subscribeInputs(values)) as PromiseLike<
+            ISettledResult<Awaited<V>>[]
+          >,
+        ),
       options,
     );
 
@@ -216,7 +221,7 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
   /** A lazy promise for the implementation's `any`. Cold until subscribed, like `all`. */
   static any<V>(values: Iterable<V | PromiseLike<V>>, options?: object): LazyBase<V> {
     const aggregate: LazyBase<V> = this._new<V>(
-      (resolve) => resolve(aggregate._resolveImplStatics().any(values) as PromiseLike<V>),
+      (resolve) => resolve(aggregate._resolveImplStatics().any(LazyBase._subscribeInputs(values)) as PromiseLike<V>),
       options,
     );
 
@@ -226,15 +231,39 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
   /**
    * A lazy promise for the implementation's `race`. Cold until subscribed, like `all`, and the
    * loser handling is the implementation's: the cancelable flavor releases them (one that
-   * nothing else consumes is canceled), the native one cannot.
+   * nothing else consumes is canceled), the native one cannot. An unstarted lazy input listed
+   * after one that has already settled cannot win, so it is left unstarted.
    */
   static race<V>(values: Iterable<V | PromiseLike<V>>, options?: object): LazyBase<V> {
     const aggregate: LazyBase<V> = this._new<V>(
-      (resolve) => resolve(aggregate._resolveImplStatics().race(values) as PromiseLike<V>),
+      (resolve) =>
+        resolve(aggregate._resolveImplStatics().race(LazyBase._subscribeInputs(values, true)) as PromiseLike<V>),
       options,
     );
 
     return aggregate;
+  }
+
+  // a released derived input reaches the lazy's work, an adoption wrapper would not
+  protected static _subscribeInputs(values: Iterable<unknown>, skipAfterSettled?: boolean): unknown[] {
+    const inputs: unknown[] = [];
+    let decided = false;
+
+    for (const value of values) {
+      if (!isLazyPromise(value)) {
+        inputs.push(value);
+        continue;
+      }
+
+      if (decided && value._state === 'UNSTARTED') {
+        continue;
+      }
+
+      decided = decided || (!!skipAfterSettled && value._state === 'SETTLED');
+      inputs.push(value.then());
+    }
+
+    return inputs;
   }
 
   declare readonly [LAZY_PROMISE_BRAND]: true;
@@ -244,6 +273,8 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
   protected _state: TLazyState = 'UNSTARTED';
   protected _inner?: TInnerPromise<T>;
   protected _teardowns: TLazyOnCancel[] = [];
+  // a settle from a run dropped by a reset must not mark the new run settled
+  protected _run?: object;
 
   constructor(executor: TLazyExecutor<T>, options?: object) {
     if (!isFunction(executor)) {
@@ -263,6 +294,24 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
     return this._resolveImpl() as unknown as ILazyImplStatics;
   }
 
+  // The options the work promise is built with, minus the ones only the lazy itself reads
+  protected _innerOptions(): object | undefined {
+    if (!this._options) {
+      return undefined;
+    }
+
+    const source = this._options as Record<string, unknown>;
+    const stripped: Record<string, unknown> = {};
+
+    for (const key of Object.keys(source)) {
+      if (key !== 'impl' && key !== 'resettable' && key !== 'lazy') {
+        stripped[key] = source[key];
+      }
+    }
+
+    return stripped;
+  }
+
   // Builds and runs underlying promise once wiring executor handleCancel and optional teardown
   // into a single list idempotently returning cached inner once running or settled
   protected _start(): PromiseLike<T> {
@@ -271,6 +320,14 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
     }
 
     this._state = 'RUNNING';
+
+    const run = {};
+    this._run = run;
+    const markSettled = () => {
+      if (this._run === run) {
+        this._state = 'SETTLED';
+      }
+    };
 
     const Impl = this._resolveImpl();
     const handleCancel = (onCancel: TLazyOnCancel) => {
@@ -282,35 +339,70 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
     // Cancelable impls carry three arg executor with ctx while plain PromiseConstructor ignores
     // the third arg so teardown wiring falls back to the executor return value only
     const inner = new Impl((resolve: (value?: any) => void, reject: (reason?: any) => void, ctx) => {
-      const returned = this._executor(
-        resolve as (value?: T | PromiseLike<T>) => void,
-        reject,
-        ctx ? ctx.handleCancel : handleCancel,
-      );
+      // marked on the settle call itself so a same-turn cancel keeps the result
+      const settleResolve = (value?: T | PromiseLike<T>) => {
+        if (!isThenableLike(value)) {
+          markSettled();
+        }
+
+        resolve(value);
+      };
+      const settleReject = (reason?: any) => {
+        markSettled();
+        reject(reason);
+      };
+      const returned = this._executor(settleResolve, settleReject, ctx ? ctx.handleCancel : handleCancel);
 
       if (isFunction(returned)) {
         this._teardowns.push(returned);
       }
-    }) as TInnerPromise<T>;
+    }, this._innerOptions()) as TInnerPromise<T>;
 
     this._inner = inner;
 
-    const markSettled = () => {
-      this._state = 'SETTLED';
-    };
-    // Cache settle marker which is await safe since adopting the inner via then keeps A+
-    // microtask ordering
-    inner.then(markSettled, markSettled);
+    const handleInnerCancel = (inner as TInnerPromise<T> & { handleCancel?: unknown }).handleCancel;
+
+    // the last consumer leaving cancels the work without cancel(), so teardowns run here
+    if (isFunction(handleInnerCancel)) {
+      handleInnerCancel.call(inner, (reason?: any) => {
+        if (this._inner === inner) {
+          this._runTeardowns(reason);
+        }
+      });
+    }
+
+    const subscribe = (inner as TInnerPromise<T> & { _subscribe?: unknown })._subscribe;
+
+    // a counted then would hold the work alive after every consumer canceled
+    if (isFunction(subscribe)) {
+      subscribe.call(inner, markSettled, markSettled);
+    } else {
+      inner.then(markSettled, markSettled);
+    }
 
     return inner;
   }
 
+  // one throwing teardown must not skip the rest
   protected _runTeardowns(reason?: any): void {
     const teardowns = this._teardowns;
     this._teardowns = [];
+    let failed = false;
+    let firstError: unknown;
 
     for (const teardown of teardowns) {
-      teardown(reason);
+      try {
+        teardown(reason);
+      } catch (error) {
+        if (!failed) {
+          failed = true;
+          firstError = error;
+        }
+      }
+    }
+
+    if (failed) {
+      throw firstError;
     }
   }
 
@@ -324,10 +416,7 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
       return shortCircuit.then(onFulfilled, onRejected);
     }
 
-    const inner = this._start();
-    this._afterSubscribe();
-
-    return inner.then(onFulfilled, onRejected);
+    return this._start().then(onFulfilled, onRejected);
   }
 
   // Subclass hook run at top of every then before starting where returning a PromiseLike short
@@ -336,8 +425,16 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
     return undefined;
   }
 
-  // Subclass hook run after start on a live subscription for things like consumer counting
-  protected _afterSubscribe(): void {}
+  // cross-copy contract: fixed meaning, an incompatible change takes a new name
+  protected _handleCancel(onCancel: TLazyOnCancel): void {
+    const inner = this._inner as (TInnerPromise<T> & { handleCancel?: unknown }) | undefined;
+
+    if (inner && isFunction(inner.handleCancel)) {
+      inner.handleCancel.call(inner, onCancel, { immediate: true });
+    } else if (this._state !== 'SETTLED') {
+      this._teardowns.push(onCancel);
+    }
+  }
 
   // Subclass hook whether executor may still be started so a flavor canceled before it starts
   // reports false and execute stays a no-op instead of building unsubscribed rejection
@@ -370,14 +467,29 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
     return this.then(null, onRejected);
   }
 
-  finally(onFinally?: (() => void) | null): PromiseLike<T> {
+  /**
+   * Run `onFinally` once the lazy settles, then settle the same way. A thenable returned by
+   * `onFinally` is awaited, and its rejection replaces the outcome, as with a native `finally`.
+   */
+  finally(onFinally?: (() => void | PromiseLike<unknown>) | null): PromiseLike<T> {
+    if (!isFunction(onFinally)) {
+      return this.then();
+    }
+
     return this.then(
       (value) => {
-        if (isFunction(onFinally)) onFinally();
-        return value;
+        const result: unknown = onFinally();
+        return isThenableLike(result) ? result.then(() => value) : value;
       },
       (reason) => {
-        if (isFunction(onFinally)) onFinally();
+        const result: unknown = onFinally();
+
+        if (isThenableLike(result)) {
+          return result.then(() => {
+            throw reason;
+          });
+        }
+
         throw reason;
       },
     );

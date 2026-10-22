@@ -93,7 +93,7 @@ function _declaredFailures(): void {
   const _cancelifyDropsWorkFailure: Eq<ReturnType<typeof _cancelified>, CancelablePromise<number>> = true;
 
   const _lazied = lazy<number>((resolve) => resolve(callWork('x')));
-  const _lazyIsOpen: Eq<FailureOf<typeof _lazied>, Unlisted> = true;
+  const _lazyDeclaresNothing: Eq<FailureOf<typeof _lazied>, unknown> = true;
 
   // The two helpers that declare a failure of their own.
   const _timedOut = timeout(100);
@@ -133,7 +133,7 @@ function _declaredFailures(): void {
     _deferDeclaresNothing,
     _promisifyDeclaresNothing,
     _cancelifyDropsWorkFailure,
-    _lazyIsOpen,
+    _lazyDeclaresNothing,
     _timeoutDeclaresTimeout,
     _waitForDeclaresTimeout,
     _timeoutKeepsInputFailure,

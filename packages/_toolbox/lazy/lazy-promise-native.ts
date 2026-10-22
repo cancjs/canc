@@ -2,7 +2,7 @@ import { IAbortSignalOptions, withAbortSignal } from '../abort-signal';
 import { IExecutorCtx, TPromiseCtor } from '../construct';
 import { isFunction } from '../guards';
 import { ISettledResult } from '../settled-result';
-import { ILazyWithResolvers, LazyBase, TLazyExecutor } from './lazy-base';
+import { ILazyImplStatics, ILazyWithResolvers, LazyBase, TLazyExecutor } from './lazy-base';
 
 export type { TLazyExecutor, TLazyOnCancel } from './lazy-base';
 
@@ -28,10 +28,7 @@ const NativePromise = Promise;
 export class LazyPromise<T = any> extends LazyBase<T> {
   // Static surface mirrored from cancelable twin so the same code reads identically where these
   // declarations narrow the flavor and its options bag without emitting anything
-  declare static try: <V, TArgs extends any[]>(
-    fn: (...args: TArgs) => V | PromiseLike<V>,
-    ...args: TArgs
-  ) => LazyPromise<V>;
+  declare static try: <V, TArgs extends any[]>(fn: (...args: TArgs) => V, ...args: TArgs) => LazyPromise<Awaited<V>>;
   declare static resolve: <V>(value?: V | PromiseLike<V>, options?: ILazyPromiseOptions) => LazyPromise<V>;
   declare static reject: <V = never>(reason?: any, options?: ILazyPromiseOptions) => LazyPromise<V>;
   declare static withResolvers: <V>(options?: ILazyPromiseOptions) => ILazyWithResolvers<V, LazyPromise<V>>;
@@ -46,14 +43,12 @@ export class LazyPromise<T = any> extends LazyBase<T> {
   declare protected _options?: ILazyPromiseOptions;
 
   /**
-   * With no signal, this is a pure passthrough to the native `Promise`, byte-identical to before
-   * this option existed. With a signal, `_start()` calls `new Impl(executor)` with no second
-   * argument (unlike every other toolbox helper, which forwards options through `construct()`), so
-   * the signal has to be bound here via closure instead of relying on it being forwarded.
+   * With no signal, this is a pure passthrough to the native `Promise`. With a signal, the work
+   * promise is built through `withAbortSignal`, which honors the options `_start()` passes along.
    *
    * `ctx.handleCancel` from the shared wrapper is threaded to a callback of our own, ahead of the
    * lazy's own executor, so `this._teardowns` (populated by `_start()` from the executor's RETURN
-   * value regardless of a signal being present) also runs on abort - the same two-teardown-forms
+   * value regardless of a signal being present) also runs on abort. That is the same two-teardown-forms
    * coverage the cancelable flavor's `cancel()` gives, just triggered by the signal instead.
    */
   protected _resolveImpl(): TPromiseCtor {
@@ -68,7 +63,7 @@ export class LazyPromise<T = any> extends LazyBase<T> {
 
     type TInnerExecutor = (resolve: (value: any) => void, reject: (reason?: any) => void, ctx?: IExecutorCtx) => void;
 
-    function AbortAwareLazyCtor(executor: TInnerExecutor): PromiseLike<any> {
+    function AbortAwareLazyCtor(executor: TInnerExecutor, innerOptions?: object): PromiseLike<any> {
       return new (AbortAwareCtor as unknown as new (executor: TInnerExecutor, options?: object) => PromiseLike<any>)(
         (resolve, reject, ctx) => {
           if (ctx) {
@@ -77,7 +72,7 @@ export class LazyPromise<T = any> extends LazyBase<T> {
 
           executor(resolve, reject, ctx);
         },
-        options,
+        innerOptions,
       );
     }
 
@@ -86,6 +81,11 @@ export class LazyPromise<T = any> extends LazyBase<T> {
     ).resolve;
 
     return AbortAwareLazyCtor as unknown as TPromiseCtor;
+  }
+
+  // signal lives on the aggregate lazy, not on the inner combinator
+  protected _resolveImplStatics(): ILazyImplStatics {
+    return NativePromise as unknown as ILazyImplStatics;
   }
 }
 

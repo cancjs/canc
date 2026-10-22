@@ -2,7 +2,7 @@ import type { Unlisted } from '../_util';
 import { isTimeoutError, TimeoutError } from '../_util';
 import { IExecutorCtx } from './construct';
 import { constructTimed } from './construct-timed';
-import { IToolboxDeps, TCallDeps } from './deps';
+import { ILazyOn, IToolboxDeps, TCallDeps, TLazyOf } from './deps';
 import { parseTimedArgs, resolveDuration, TDuration } from './duration';
 import { followInput, startInput, TReleaseInput, TTimedInput } from './input';
 import { IPromiseKind, IPromiseLikeKind, TFailureOf, TPromiseOf, TValueOf } from './kind';
@@ -30,7 +30,16 @@ export function timeoutFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: 
    * without a reason when the returned promise is canceled.
    * The timer is always cleared once the race settles.
    */
+  function timeout(
+    ms: TDuration,
+    options: K['options'] & TCallDeps & ILazyOn,
+  ): TLazyOf<K, never, TimeoutError | Unlisted>;
   function timeout(ms: TDuration, options?: K['options'] & TCallDeps): TPromiseOf<K, never, TimeoutError | Unlisted>;
+  function timeout<P extends PromiseLike<unknown>>(
+    input: P | (() => P),
+    ms: TDuration | undefined,
+    options: K['options'] & TCallDeps & ILazyOn,
+  ): TLazyOf<K, TValueOf<P>, TFailureOf<K, P> | TimeoutError | Unlisted>;
   function timeout<P extends PromiseLike<unknown>>(
     input: P | (() => P),
     ms?: TDuration,
@@ -41,7 +50,9 @@ export function timeoutFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: 
     ms?: TDuration,
     options?: K['options'] & TCallDeps,
   ): TPromiseOf<K, T, F | TimeoutError | Unlisted>;
-  function timeout<T, F = never>(...rest: unknown[]): TPromiseOf<K, T, F | TimeoutError | Unlisted> {
+  function timeout<T, F = never>(
+    ...rest: unknown[]
+  ): TPromiseOf<K, T, F | TimeoutError | Unlisted> | TLazyOf<K, T, F | TimeoutError | Unlisted> {
     const parsed = parseTimedArgs<TTimedInput<T>>(rest, Infinity);
     // Resolved (and, for a `[min, max]` range, rolled) BEFORE construct() runs the executor, so a
     // malformed range throws synchronously out of this call instead of becoming a rejection.
@@ -51,7 +62,7 @@ export function timeoutFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: 
 
     // Returned promise owns the timer so canceling the cancelable flavor clears pending timeout
     // stopping underlying operation while plain native Promise lets timer run to completion
-    return constructTimed<T, K>(
+    return constructTimed<T, K, F | TimeoutError | Unlisted>(
       deps,
       (resolve, reject, ctx?: IExecutorCtx) => {
         let settled = false;

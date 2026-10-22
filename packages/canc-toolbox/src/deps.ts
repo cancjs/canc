@@ -1,6 +1,8 @@
 import { CancelablePromise, FailureOf, TimeoutError } from '@cancjs/promise';
 
 import { IPromiseKind, IToolboxDeps, TPromiseCtor } from '../../_toolbox';
+import { TLazyCtor } from '../../_toolbox/deps';
+import { LazyPromise } from '../../_toolbox/lazy/lazy-promise';
 import { IToolboxOptions } from './options';
 
 /**
@@ -10,6 +12,7 @@ import { IToolboxOptions } from './options';
  */
 export interface ICancelableKind extends IPromiseKind {
   promise: CancelablePromise<this['value'], this['failure']>;
+  lazy: LazyPromise<this['value'], this['failure']>;
   options: IToolboxOptions;
   input: unknown;
   failureOf: FailureOf<this['input']>;
@@ -24,9 +27,7 @@ export interface ICancelableKind extends IPromiseKind {
  */
 export const deps: IToolboxDeps<ICancelableKind> = {
   Impl: CancelablePromise as unknown as TPromiseCtor,
-  // CancelablePromise products expose `cancel` and pass a `handleCancel`-bearing ctx into every
-  // executor, which is what lets a `{ lazy: true }` deferred wrapper built from this deps object
-  // cancel before its first subscription and not just after.
+  Lazy: LazyPromise as TLazyCtor,
   cancelable: true,
   TimeoutError,
 };

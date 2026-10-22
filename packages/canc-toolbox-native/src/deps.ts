@@ -1,4 +1,6 @@
 import { IAbortSignalOptions, IPromiseKind, IToolboxDeps, TPromiseCtor, withAbortSignal } from '../../_toolbox';
+import { TLazyCtor } from '../../_toolbox/deps';
+import { LazyPromise } from '../../_toolbox/lazy/lazy-promise-native';
 import { TimeoutError } from '../../_util';
 
 // Captured once at module load per the native-Promise capture invariant; never re-read the
@@ -24,6 +26,7 @@ export interface INativeOptions extends IAbortSignalOptions {
  */
 export interface INativeKind extends IPromiseKind {
   promise: Promise<this['value']>;
+  lazy: LazyPromise<this['value']>;
   options: INativeOptions;
 }
 
@@ -40,5 +43,6 @@ export interface INativeKind extends IPromiseKind {
  */
 export const deps: IToolboxDeps<INativeKind> = {
   Impl: withAbortSignal(NativePromise as unknown as TPromiseCtor),
+  Lazy: LazyPromise as TLazyCtor,
   TimeoutError,
 };

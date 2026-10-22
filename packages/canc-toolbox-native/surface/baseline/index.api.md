@@ -102,30 +102,33 @@ extends LazyBase<T>
 new <T = any>(executor: TLazyExecutor<T>, options?: object | undefined): LazyPromise<T>
 static _new: <V>(executor: TLazyExecutor<V>, options?: object) => LazyBase<V>
 static _optionsChanged: (instance: LazyBase<any>, options?: object) => boolean
+static _subscribeInputs: (values: Iterable<unknown>, skipAfterSettled?: boolean) => unknown[]
 static all: <V>(values: Iterable<PromiseLike<V> | V>, options?: ILazyPromiseOptions) => LazyPromise<V[]>
 static allSettled: <V>(values: Iterable<PromiseLike<V> | V>, options?: ILazyPromiseOptions) => LazyPromise<ISettledResult<Awaited<V>>[]>
 static any: <V>(values: Iterable<PromiseLike<V> | V>, options?: ILazyPromiseOptions) => LazyPromise<V>
 static race: <V>(values: Iterable<PromiseLike<V> | V>, options?: ILazyPromiseOptions) => LazyPromise<V>
 static reject: <V = never>(reason?: any, options?: ILazyPromiseOptions) => LazyPromise<V>
 static resolve: <V>(value?: PromiseLike<V> | V, options?: ILazyPromiseOptions) => LazyPromise<V>
-static try: <V, TArgs extends any[]>(fn: (...args: TArgs) => PromiseLike<V> | V, ...args: TArgs) => LazyPromise<V>
+static try: <V, TArgs extends any[]>(fn: (...args: TArgs) => V, ...args: TArgs) => LazyPromise<Awaited<V>>
 static withResolvers: <V>(options?: ILazyPromiseOptions) => ILazyWithResolvers<V, LazyPromise<V>>
 readonly [LAZY_PROMISE_BRAND]: true
-_afterSubscribe: () => void
 _beforeSubscribe: () => PromiseLike<T> | undefined
 _executor: TLazyExecutor<T>
+_handleCancel: (onCancel: TLazyOnCancel) => void
 _inner?: TInnerPromise<T> | undefined
+_innerOptions: () => object | undefined
 _isStartable: () => boolean
 _options?: IAbortSignalOptions | undefined
 _resolveImpl: () => TPromiseCtor
 _resolveImplStatics: () => ILazyImplStatics
+_run?: object | undefined
 _runTeardowns: (reason?: any) => void
 _start: () => PromiseLike<T>
 _state: TLazyState
 _teardowns: Array<TLazyOnCancel>
 catch: <TResult = never>(onRejected?: ((reason: any) => PromiseLike<TResult> | TResult) | null | undefined) => PromiseLike<T | TResult>
 execute: () => void
-finally: (onFinally?: (() => void) | null) => PromiseLike<T>
+finally: (onFinally?: (() => PromiseLike<unknown> | void) | null) => PromiseLike<T>
 started: boolean
 then: <TResult1 = T, TResult2 = never>(onFulfilled?: ((value: T) => PromiseLike<TResult1> | TResult1) | null | undefined, onRejected?: ((reason: any) => PromiseLike<TResult2> | TResult2) | null | undefined) => PromiseLike<TResult1 | TResult2>
 ```
@@ -241,7 +244,9 @@ name: string
 ## `delay` (const)
 
 ```text
+<T = void>(ms: TDuration, options: (ILazyOn & TCallDeps) & INativeOptions): LazyPromise<T>
 <T = void>(ms: TDuration, options?: (INativeOptions & TCallDeps) | undefined): Promise<T>
+<T, F = never>(input: TTimedInput<T, INativeKind, F>, ms: TDuration, options: (ILazyOn & TCallDeps) & INativeOptions): LazyPromise<T>
 <T, F = never>(input: TTimedInput<T, INativeKind, F>, ms: TDuration, options?: (INativeOptions & TCallDeps) | undefined): Promise<T>
 ```
 
@@ -302,6 +307,7 @@ name: string
 ## `promisify` (const)
 
 ```text
+(fn: TCallbackFn, options: ILazyOn & IPromisifyOptions): (...args: Array<any>) => LazyPromise<any>
 (fn: TCallbackFn, options?: IPromisifyOptions | undefined): (...args: Array<any>) => Promise<any>
 ```
 
@@ -314,6 +320,7 @@ name: string
 ## `retry` (const)
 
 ```text
+<T, F = never>(input: (attempt: number) => Promise<T> | PromiseLike<T> | T, options: ILazyOn & IRetryOptions<INativeKind>): LazyPromise<T>
 <T, F = never>(input: (attempt: number) => Promise<T> | PromiseLike<T> | T, options?: IRetryOptions<INativeKind> | undefined): Promise<T>
 ```
 
@@ -340,7 +347,9 @@ name: string
 ## `timeout` (const)
 
 ```text
+(ms: TDuration, options: (ILazyOn & TCallDeps) & INativeOptions): LazyPromise<never>
 (ms: TDuration, options?: (INativeOptions & TCallDeps) | undefined): Promise<never>
+<P extends PromiseLike<unknown>>(input: (() => P) | P, ms: TDuration | undefined, options: (ILazyOn & TCallDeps) & INativeOptions): LazyPromise<TValueOf<P>>
 <P extends PromiseLike<unknown>>(input: (() => P) | P, ms?: TDuration | undefined, options?: (INativeOptions & TCallDeps) | undefined): Promise<TValueOf<P>>
 <T, F = never>(input: TTimedInput<T>, ms?: TDuration | undefined, options?: (INativeOptions & TCallDeps) | undefined): Promise<T>
 ```
@@ -348,5 +357,6 @@ name: string
 ## `waitFor` (const)
 
 ```text
+(condition: () => unknown, options: ILazyOn & IWaitForOptions): LazyPromise<void>
 (condition: () => unknown, options?: IWaitForOptions | undefined): Promise<void>
 ```

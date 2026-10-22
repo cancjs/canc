@@ -194,18 +194,18 @@ describe('LazyPromise', () => {
         { resettable: true },
       );
 
-      p.then(
+      const leaving = p.then(
         () => undefined,
         () => undefined,
-      );
+      ) as CancelablePromise<undefined>;
       p.then(
         () => undefined,
         () => undefined,
       );
       expect(runs).toBe(1);
 
-      // One consumer cancels; another remains -> stays started, no reset.
-      p.cancel();
+      // One consumer leaves; another remains -> stays started, no reset.
+      void leaving.cancel();
       expect(p.started).toBe(true);
       expect(runs).toBe(1);
       clearTimeout(timer);

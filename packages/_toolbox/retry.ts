@@ -1,6 +1,6 @@
 import { IExecutorCtx } from './construct';
 import { constructTimed } from './construct-timed';
-import { IToolboxDeps, TCallDeps } from './deps';
+import { ILazyOn, IToolboxDeps, TCallDeps, TLazyOf } from './deps';
 import { resolveDuration } from './duration';
 import { isThenableLike } from './guards';
 import { followInput, TReleaseInput } from './input';
@@ -83,10 +83,18 @@ export function retryFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
    * implementation carries its failures out through the returned promise, since a rejection of the
    * last attempt is what the caller sees.
    */
-  return function retry<T, F = never>(
+  function retry<T, F = never>(
+    input: (attempt: number) => TPromiseOf<K, T, F> | T | PromiseLike<T>,
+    options: IRetryOptions<K> & ILazyOn,
+  ): TLazyOf<K, T, F>;
+  function retry<T, F = never>(
     input: (attempt: number) => TPromiseOf<K, T, F> | T | PromiseLike<T>,
     options?: IRetryOptions<K>,
-  ): TPromiseOf<K, T, F> {
+  ): TPromiseOf<K, T, F>;
+  function retry<T, F = never>(
+    input: (attempt: number) => TPromiseOf<K, T, F> | T | PromiseLike<T>,
+    options?: IRetryOptions<K>,
+  ): TPromiseOf<K, T, F> | TLazyOf<K, T, F> {
     const retries = options?.retries ?? 3;
     const initialDelay = options?.initialDelay ?? options?.minTimeout ?? 300;
     const maxDelay = options?.maxDelay ?? options?.maxTimeout ?? 30000;
@@ -247,5 +255,7 @@ export function retryFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
       },
       options,
     );
-  };
+  }
+
+  return retry;
 }

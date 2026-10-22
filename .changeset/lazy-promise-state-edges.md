@@ -1,0 +1,5 @@
+---
+"@cancjs/toolbox": minor
+---
+
+A lazy promise now handles the edges of its own state consistently. A cancel in the same turn as a synchronous settle no longer runs teardown on a delivered result, and a resettable lazy keeps that result instead of running the executor again. A cancel called from inside the executor takes effect once the executor returns. A throwing teardown no longer stops the cancel: every teardown runs, the work is canceled so its consumers reject with `CancelError`, and `cancel()` now returns the cleanup results of the work promise with one entry per teardown, a throwing one as a rejected entry. `finally` awaits a thenable returned by its callback, so a rejection there rejects the result instead of escaping as an unhandled rejection. After a resettable lazy resets, a late settle of the canceled run no longer turns the next cancel into a no-op. On a resettable lazy, `cancel()` now always cancels; a single consumer leaves by canceling the promise its own `then` returned, and the lazy is canceled once every consumer has left.

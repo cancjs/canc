@@ -1,6 +1,6 @@
 import { IExecutorCtx } from './construct';
 import { constructTimed } from './construct-timed';
-import { IToolboxDeps, TCallDeps } from './deps';
+import { ILazyOn, IToolboxDeps, TCallDeps, TLazyOf } from './deps';
 import { parseTimedArgs, resolveDuration, TDuration } from './duration';
 import { isCancelableLike, isThenableLike, isThunk } from './guards';
 import { followInput, isCountedInput, TReleaseInput, TTimedInput } from './input';
@@ -41,13 +41,19 @@ export function delayFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
    * Canceling the returned promise gives up an input passed as a value. A cancelable promise is
    * canceled only when `delay` was its last consumer, any other cancelable is canceled directly, without a reason.
    */
+  function delay<T = void>(ms: TDuration, options: K['options'] & TCallDeps & ILazyOn): TLazyOf<K, T>;
   function delay<T = void>(ms: TDuration, options?: K['options'] & TCallDeps): TPromiseOf<K, T>;
+  function delay<T, F = never>(
+    input: TTimedInput<T, K, F>,
+    ms: TDuration,
+    options: K['options'] & TCallDeps & ILazyOn,
+  ): TLazyOf<K, T, F>;
   function delay<T, F = never>(
     input: TTimedInput<T, K, F>,
     ms: TDuration,
     options?: K['options'] & TCallDeps,
   ): TPromiseOf<K, T, F>;
-  function delay<T, F = never>(...rest: unknown[]): TPromiseOf<K, T, F> {
+  function delay<T, F = never>(...rest: unknown[]): TPromiseOf<K, T, F> | TLazyOf<K, T, F> {
     const parsed = parseTimedArgs<TTimedInput<T>>(rest);
     // Resolved (and, for a `[min, max]` range, rolled) BEFORE construct() runs the executor, so a
     // malformed range throws synchronously out of this call instead of becoming a rejection.

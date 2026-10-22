@@ -46,7 +46,7 @@ import {
 // cancelify does not accept lazy option
 import { cancelify } from '@cancjs/toolbox';
 // the eagerly starting helpers omit the lazy option the same way
-import { debounce, defer, minDelay, throttle } from '@cancjs/toolbox';
+import { debounce, defer, delay, LazyPromise, minDelay, throttle, timeout } from '@cancjs/toolbox';
 import {
   AbortError as NativeAbortError,
   catchAbort as nativeCatchAbort,
@@ -56,6 +56,11 @@ import {
   suppressAbort as nativeSuppressAbort,
   suppressTimeout as nativeSuppressTimeout,
   TimeoutError as NativeTimeoutError,
+} from '@cancjs/toolbox-native';
+import {
+  delay as nativeDelay,
+  LazyPromise as NativeLazyPromise,
+  timeout as nativeTimeout,
 } from '@cancjs/toolbox-native';
 
 import type { Equal, Expect } from './assert-type';
@@ -284,3 +289,34 @@ cancelifyOne();
 cancelifyNone('nope');
 
 export {};
+
+// a helper called with the lazy option returns a lazy promise with the eager failure set
+const lazyDelay = delay(1, { lazy: true });
+type _lazyDelay = Expect<Equal<typeof lazyDelay, LazyPromise<void, never>>>;
+const lazyTimeout = timeout(1, { lazy: true });
+type _lazyTimeout = Expect<Equal<typeof lazyTimeout, LazyPromise<never, TimeoutError | Unlisted>>>;
+const eagerDelay = delay(1);
+type _eagerDelay = Expect<Equal<typeof eagerDelay, CancelablePromise<void, never>>>;
+const lazyTry = LazyPromise.try(() => delay(1));
+type _lazyTry = Expect<Equal<typeof lazyTry, LazyPromise<void, never>>>;
+const nativeLazyDelay = nativeDelay(1, { lazy: true });
+type _nativeLazyDelay = Expect<Equal<typeof nativeLazyDelay, NativeLazyPromise<void>>>;
+// @ts-expect-error the native lazy promise has no cancel
+nativeLazyDelay.cancel();
+
+// a lazy timeout over an input is lazy too, with the input's failure set; the eager form is unchanged
+declare const timedInput: CancelablePromise<number, RangeError>;
+const lazyTimeoutOver = timeout(timedInput, 1, { lazy: true });
+type _lazyTimeoutOver = Expect<
+  Equal<typeof lazyTimeoutOver, LazyPromise<number, RangeError | TimeoutError | Unlisted>>
+>;
+const lazyTimeoutFn = timeout(() => timedInput, 1, { lazy: true });
+type _lazyTimeoutFn = Expect<Equal<typeof lazyTimeoutFn, LazyPromise<number, RangeError | TimeoutError | Unlisted>>>;
+const eagerTimeoutOver = timeout(timedInput, 1);
+type _eagerTimeoutOver = Expect<
+  Equal<typeof eagerTimeoutOver, CancelablePromise<number, RangeError | TimeoutError | Unlisted>>
+>;
+const nativeLazyTimeoutOver = nativeTimeout(Promise.resolve(1), 1, { lazy: true });
+type _nativeLazyTimeoutOver = Expect<Equal<typeof nativeLazyTimeoutOver, NativeLazyPromise<number>>>;
+const nativeLazyTimeoutFn = nativeTimeout(() => Promise.resolve(1), 1, { lazy: true });
+type _nativeLazyTimeoutFn = Expect<Equal<typeof nativeLazyTimeoutFn, NativeLazyPromise<number>>>;
