@@ -1,6 +1,7 @@
 import { CancelablePromise, CancelSignal, isCancelError } from '@cancjs/promise';
 import type { Env, Handler, Input, MiddlewareHandler, TypedResponse } from 'hono';
 
+import { stopRequestDeadline } from '../../../_server/node-signal';
 import { IHandlerCall, runCancelableHandler } from '../../../_server/run';
 import { ICancelableHandlerOptions, IRequestLike, IResponseLike, THandlerFn } from '../../../_server/types';
 import { TAnyFn } from '../../../_util';
@@ -38,9 +39,12 @@ export type THonoHandler<E extends Env = any, P extends string = any, I extends 
   THonoResponse | Promise<THonoResponse>
 >;
 
-interface ISettleShim extends IResponseLike {
-  close(): void;
-}
+// a Web runtime has no response object; the shared core reads only these two members, and its
+// teardown runs when the handler settles, so nothing here has to emit anything
+const WEB_RESPONSE: IResponseLike = {
+  once: noop,
+  writableEnded: false,
+};
 
 /**
  * Wraps a route handler so its work stops when the request does.
@@ -63,26 +67,17 @@ export function cancelableHandler<E extends Env = any, P extends string = any, I
 ): Handler<E, P, I, Promise<Response>> {
   return function cancelableRoute(c, next) {
     const context: ICancelContext = c;
-    const { finish, task } = startTask(handler as TAnyFn, context, options, { args: [c, next] });
+    const task = startTask(handler as TAnyFn, context, options, { args: [c], next });
 
-    return task.then(
-      (response) => {
-        finish();
+    return task.catch((error: unknown) => {
+      // the documented discriminator, never a message check and never instanceof: a deadline
+      // still has a client to answer, a cancellation behind an unreachable response has none
+      if (isCancelError(error) && !error.timedOut && isResponseUnreachable(context)) {
+        return new Response(null, { status: CLIENT_CLOSED_STATUS });
+      }
 
-        return response;
-      },
-      (error: unknown) => {
-        finish();
-
-        // the documented discriminator, never a message check and never instanceof: a deadline
-        // still has a client to answer, a cancellation behind an unreachable response has none
-        if (isCancelError(error) && !error.timedOut && isResponseUnreachable(context)) {
-          return new Response(null, { status: CLIENT_CLOSED_STATUS });
-        }
-
-        throw error;
-      },
-    );
+      throw error;
+    });
   };
 }
 
@@ -106,12 +101,20 @@ export function getRequestSignal(c: ICancelContext): CancelSignal {
  * the request inherits. A route's own options are merged over these, key by key.
  *
  * Optional: a handler wrapped without it installs the signal on its own. Mounting it is how one
- * deadline or one `onDisconnect` hook covers a whole app.
+ * deadline or one `onDisconnect` hook covers a whole app, plain routes included. The deadline starts
+ * here, and a route passing its own `timeout` restarts it. It ends once the downstream handlers
+ * return, so a body streamed after that is not cut short. The lifecycle callbacks run once per
+ * request.
  */
 export function cancelMiddleware<E extends Env = any>(options?: ICancelableHandlerOptions): MiddlewareHandler<E> {
   return async function cancelMiddlewareRoute(c, next) {
-    ensureCancelState(c, options);
-    await next();
+    const state = ensureCancelState(c, options);
+
+    try {
+      await next();
+    } finally {
+      stopRequestDeadline(state);
+    }
   };
 }
 
@@ -120,14 +123,11 @@ function startTask(
   context: ICancelContext,
   options: ICancelableHandlerOptions | undefined,
   call: IHandlerCall,
-): { finish: () => void; task: CancelablePromise<Response> } {
+): CancelablePromise<Response> {
   const bindings = getNodeBindings(context.env);
 
   if (bindings) {
-    return {
-      finish: noop,
-      task: runCancelableHandler<Response>(handler, bindings.incoming, bindings.outgoing, options, call),
-    };
+    return runCancelableHandler<Response>(handler, bindings.incoming, bindings.outgoing, options, call);
   }
 
   // installed before the shared server core reaches for it, so it finds the Web flavored state
@@ -136,40 +136,13 @@ function startTask(
   // exactly as on the node path
   ensureCancelState(context);
 
-  const shim = createSettleShim();
-
-  return {
-    finish: () => shim.close(),
-    task: runCancelableHandler<Response>(handler, context.req.raw as unknown as IRequestLike, shim, options, call),
-  };
-}
-
-// the shared server core hangs its teardown, the deadline timer, the abort listener and the live
-// set off the response close event, which only node has; here that same moment is a handler
-// settling, so the listeners are collected below and fired once through finish()
-function createSettleShim(): ISettleShim {
-  const listeners: (() => void)[] = [];
-  let closed = false;
-
-  return {
-    close(): void {
-      if (closed) {
-        return;
-      }
-
-      closed = true;
-
-      for (const listener of listeners) {
-        listener();
-      }
-    },
-    once(_event: string, listener: () => void): unknown {
-      listeners.push(listener);
-
-      return undefined;
-    },
-    writableEnded: false,
-  };
+  return runCancelableHandler<Response>(
+    handler,
+    context.req.raw as unknown as IRequestLike,
+    WEB_RESPONSE,
+    options,
+    call,
+  );
 }
 
 function noop(): void {

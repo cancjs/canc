@@ -148,6 +148,8 @@ Any **other** handler runs signal-only. The request signal still fires, `onDisco
 
 A deadline aborts the request signal itself rather than the handler's promise, so request-scoped work other consumers started stops with the handler instead of outliving it. The resulting `CancelError` reports `timedOut === true` and carries `status` and `statusCode`, which is what express reads when it picks a response code.
 
+There is one deadline per request. `cancelMiddleware` starts it when the request reaches the middleware, so it covers plain routes too, and a route passing its own `timeout` restarts the clock with that value, longer or shorter. `timeout: Infinity` lifts it for that route. The deadline covers the handler, not the body. It ends once the wrapped handler answering the request settles, so a stream still being written after the handler returned is not cut short by it. A handler that answers from a callback after it returned is no longer covered either. A slow response body is for `server.requestTimeout` or the proxy in front of the server. A wrapped middleware that called `next()` does not end it, and on a plain route it runs until the response finishes.
+
 ### Shutting down
 
 `shutdown` stops the server accepting connections, closes idle keep-alive sockets, cancels every in-flight handler, then waits for them within a grace window before closing what is left. It cancels the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it. It resolves with counts rather than throwing, and a second call while the first is running returns the same result, so wiring it to both `SIGTERM` and `SIGINT` needs no guard.
@@ -160,22 +162,22 @@ Cancellation is always a `CancelError`. What differs between the three triggers 
 
 ### What reaches the error handler
 
-The wrapper forwards errors to express with `next(err)`, with one exception. A cancellation that is not a deadline, on a response whose socket is already gone, is dropped: there is nobody left to answer, and forwarding it only makes the default handler log the request and write to a dead socket. A deadline always reaches the error handler, because the client is still there and expects a response.
+The wrapper forwards errors to express with `next(err)`, with two exceptions. A cancellation that is not a deadline, on a response whose socket is already gone, is dropped: there is nobody left to answer, and forwarding it only makes the default handler log the request and write to a dead socket. A deadline always reaches the error handler, because the client is still there and expects a response. The other exception: a request forwards one cancellation at most. A deadline cancels a wrapped middleware still running after `next()` together with the route behind it, and only the first of the two reaches the error handlers. A second `next(err)` would skip past `cancelErrorHandler` into express's final handler and log a stack for a request that was already answered.
 
 `cancelErrorHandler()` is opt-in and mounted after the routes. It answers a deadline with the status stamped on the error, answers a shutdown cancellation with its fallback status (`503`, or whatever `status` you pass), leaves a departed client alone, and passes anything that is not a cancellation straight through.
 
 ### Options
 
-| Option         | Default | Meaning                                                                                               |
-| -------------- | ------- | ----------------------------------------------------------------------------------------------------- |
-| `timeout`      | none    | Handler deadline. A number is the millisecond shorthand, the object form is `{ ms, status, message }` |
-| `signal`       | none    | An external `AbortSignal`, or an array of them, composed alongside the wired one                      |
-| `onDisconnect` | none    | Called once when the client goes away. Cleanup and metrics only, the response is unreachable          |
-| `onTimeout`    | none    | Called once when the deadline fires. The client is still connected                                    |
+| Option         | Default | Meaning                                                                                                                |
+| -------------- | ------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `timeout`      | none    | Request deadline, one per request. A number is the millisecond shorthand, the object form is `{ ms, status, message }` |
+| `signal`       | none    | An external `AbortSignal`, or an array of them, composed alongside the wired one                                       |
+| `onDisconnect` | none    | Called once per request when the client goes away. Cleanup and metrics only, the response is unreachable               |
+| `onTimeout`    | none    | Called once per request when the deadline fires. The client is still connected                                         |
 
 Cancelable promise flags (`bubble`, `shield`, `strict`, `asyncCancel`, `forceCancelable`) are accepted too and passed to the handler's promise.
 
-Options given to `cancelMiddleware` are inherited by every handler on the request. A route's own options are merged over them key by key, so a router-wide deadline and a per-route override compose the way you would expect.
+Options given to `cancelMiddleware` are inherited by every handler on the request. A route's own options are merged over them key by key, so a router-wide deadline and a per-route override compose the way you would expect. The lifecycle callbacks run once per request, however many wrapped layers it passes through.
 
 ## API
 

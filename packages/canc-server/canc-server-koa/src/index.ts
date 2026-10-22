@@ -3,7 +3,7 @@ import type { Server } from 'http';
 import type { Context, DefaultContext, DefaultState, Middleware, ParameterizedContext } from 'koa';
 
 import { isUnanswerable, statusOf, toRequestLike, toResponseLike } from '../../../_server/exchange';
-import { ensureRequestCancelState, getNodeRequestSignal } from '../../../_server/node-signal';
+import { ensureRequestCancelState, getNodeRequestSignal, stopRequestDeadline } from '../../../_server/node-signal';
 import { runCancelableHandler } from '../../../_server/run';
 import { shutdownServer } from '../../../_server/shutdown';
 import { DEFAULT_TIMEOUT_STATUS } from '../../../_server/timeout';
@@ -84,14 +84,18 @@ export function getRequestSignal(ctx: Context): CancelSignal {
  * answered gets nothing: `ctx.respond` is set to `false` instead of writing to it.
  *
  * Optional: a route wrapped with `cancelableHandler` installs the signal on its own. Mounting this is
- * how one deadline or one `onDisconnect` hook covers a whole router, and how a cancellation raised by
- * request-scoped work outside `cancelableHandler` still gets an answer.
+ * how one deadline or one `onDisconnect` hook covers a whole router, plain routes included, and how a
+ * cancellation raised by request-scoped work outside `cancelableHandler` still gets an answer.
+ *
+ * The deadline starts here, and a route passing its own `timeout` restarts it. It ends once the
+ * downstream middleware returns, so a body koa streams after that is not cut short. The lifecycle
+ * callbacks run once per request.
  */
 export function cancelMiddleware<StateT = DefaultState, ContextT = DefaultContext>(
   options?: ICancelableHandlerOptions,
 ): Middleware<StateT, ContextT> {
   return async function cancelMiddlewareRoute(ctx, next) {
-    ensureRequestCancelState(toRequestLike(ctx.req), toResponseLike(ctx.res), options);
+    const state = ensureRequestCancelState(toRequestLike(ctx.req), toResponseLike(ctx.res), options);
 
     try {
       await next();
@@ -111,6 +115,8 @@ export function cancelMiddleware<StateT = DefaultState, ContextT = DefaultContex
       ctx.remove('Content-Type');
       ctx.body = null;
       ctx.status = statusOf(error, DEFAULT_TIMEOUT_STATUS);
+    } finally {
+      stopRequestDeadline(state);
     }
   };
 }

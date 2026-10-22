@@ -31,7 +31,14 @@ export interface IRequestCancelState {
   live: Set<CancelablePromise<unknown>>;
   /** The response the state was installed with. A shutdown waits on it closing. Absent on the Web path. */
   response?: IResponseLike;
+  /** The pending deadline, one per request however many layers set a timeout. */
   timer?: unknown;
+  /** Lifecycle callbacks of every layer on the request, the latest winning per key. Reported once. */
+  hooks?: Pick<ICancelableHandlerOptions, 'onDisconnect' | 'onTimeout'>;
+  /** Handler tasks still answering for the request rather than handing it on. The deadline ends at zero. */
+  holding?: number;
+  /** Set once a cancellation went to the framework's error pipeline, which takes one per request. */
+  cancelForwarded?: boolean;
   /** Set by a shutdown before it cancels the signal, so a shutdown is not reported as a disconnect. */
   shuttingDown?: boolean;
   /** Set by a shutdown, so a handler task started while it drains is still counted. */

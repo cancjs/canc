@@ -1,8 +1,9 @@
 import http from 'node:http';
+import { runInThisContext } from 'node:vm';
 
 import { CancelError, isCancelError, isCancelSignal } from '@cancjs/promise';
 import { serve, ServerType } from '@hono/node-server';
-import { Hono } from 'hono';
+import { Context, Hono, MiddlewareHandler, Next } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 
 import {
@@ -12,6 +13,7 @@ import {
   getRequestSignal,
   SERVER_SHUTDOWN,
   shutdown,
+  THonoHandler,
 } from './index';
 
 interface IDeferred<T> {
@@ -592,6 +594,156 @@ describe('shutdown', () => {
   });
 });
 
+describe('request deadline', () => {
+  it('covers a plain route from the moment the middleware is installed', async () => {
+    const timeouts: CancelError[] = [];
+
+    const app = new Hono();
+
+    app.use(cancelMiddleware({ onTimeout: (reason) => timeouts.push(reason), timeout: 50 }));
+    app.get('/plain', async (c) => c.json(await untilAborted(getRequestSignal(c))));
+
+    const port = await listen(app);
+    const outcome = JSON.parse((await send(port, '/plain')).body) as IAbortOutcome;
+
+    expect(outcome.aborted).toBe(true);
+    expect(outcome.ms).toBeGreaterThanOrEqual(40);
+    expect(outcome.ms).toBeLessThan(ABORT_FALLBACK_MS);
+    expect(timeouts).toHaveLength(1);
+  });
+
+  it('covers a plain route on a web standard runtime too', async () => {
+    const app = new Hono();
+
+    app.use(cancelMiddleware({ timeout: 50 }));
+    app.get('/plain', async (c) => c.json(await untilAborted(getRequestSignal(c))));
+
+    const response = await app.fetch(new Request('http://canc.test/plain'));
+    const outcome = (await response.json()) as IAbortOutcome;
+
+    expect(outcome.aborted).toBe(true);
+    expect(outcome.ms).toBeLessThan(ABORT_FALLBACK_MS);
+  });
+
+  it('restarts from a route timeout behind a wrapped middleware', async () => {
+    let started = 0;
+
+    const app = new Hono();
+
+    app.onError(cancelErrorHandler());
+    app.use(cancelMiddleware({ timeout: 50 }));
+    app.use(passThrough());
+    app.get(
+      '/slow',
+      cancelableHandler(
+        function* (c) {
+          started = performance.now();
+          yield new Promise(() => undefined);
+
+          return c.text('never');
+        },
+        { timeout: 200 },
+      ),
+    );
+
+    const port = await listen(app);
+    const response = await send(port, '/slow');
+
+    expect(response.statusCode).toBe(503);
+    expect(performance.now() - started).toBeGreaterThanOrEqual(190);
+  });
+
+  it('stops once the handler returned, while its body still streams', async () => {
+    const timeouts: CancelError[] = [];
+    let abortedAtEnd: boolean | undefined;
+
+    const app = new Hono();
+
+    app.get(
+      '/stream',
+      cancelableHandler(
+        function* (c) {
+          const signal = getRequestSignal(c);
+
+          return c.body(
+            slowBody(() => {
+              abortedAtEnd = signal.aborted;
+            }),
+          );
+        },
+        { onTimeout: (reason) => timeouts.push(reason), timeout: 50 },
+      ),
+    );
+
+    const port = await listen(app);
+    const response = await send(port, '/stream');
+
+    expect(response).toEqual({ body: STREAMED_BODY, statusCode: 200 });
+    expect(abortedAtEnd).toBe(false);
+    expect(timeouts).toEqual([]);
+  });
+
+  it('reports a deadline once however many wrapped layers the request passed', async () => {
+    const timeouts: CancelError[] = [];
+
+    const app = new Hono();
+
+    app.onError(cancelErrorHandler());
+    app.use(cancelMiddleware({ onTimeout: (reason) => timeouts.push(reason), timeout: 50 }));
+    app.use(passThrough());
+    app.use(passThrough());
+    app.get(
+      '/slow',
+      cancelableHandler(function* (c) {
+        yield new Promise(() => undefined);
+
+        return c.text('never');
+      }),
+    );
+
+    const port = await listen(app);
+
+    expect((await send(port, '/slow')).statusCode).toBe(503);
+    await tick(5);
+    expect(timeouts).toHaveLength(1);
+  });
+
+  it('keeps one close listener on the response across twelve wrapped layers', async () => {
+    const warnings = recordWarnings();
+    let closeListeners = -1;
+
+    const app = new Hono();
+
+    // read at finish: every layer has registered whatever it registers by then, none removed yet
+    app.use(async (c, next) => {
+      const outgoing = (c.env as { outgoing: http.ServerResponse }).outgoing;
+
+      outgoing.on('finish', () => {
+        closeListeners = outgoing.listenerCount('close');
+      });
+      await next();
+    });
+
+    for (let layer = 0; layer < 11; layer += 1) {
+      app.use(passThrough());
+    }
+
+    app.get(
+      '/deep',
+      cancelableHandler(function* (c) {
+        return c.text('ok');
+      }),
+    );
+
+    const port = await listen(app);
+
+    expect((await send(port, '/deep')).body).toBe('ok');
+    await tick(5);
+    expect(closeListeners).toBeLessThanOrEqual(2);
+    expect(warnings.stop()).toEqual([]);
+  });
+});
+
 describe('web standard runtime', () => {
   it('cancels the handler when the request is aborted', async () => {
     const started = deferred();
@@ -681,6 +833,85 @@ describe('web standard runtime', () => {
     expect(shared).toBe(true);
   });
 });
+
+/** How long a plain route waits for its signal before answering that it never aborted. */
+const ABORT_FALLBACK_MS = 1000;
+
+interface IAbortOutcome {
+  aborted: boolean;
+  ms: number;
+}
+
+/** Waits for a signal to abort, or gives up after the fallback window, and reports which and when. */
+function untilAborted(signal: AbortSignal): Promise<IAbortOutcome> {
+  const started = performance.now();
+
+  return new Promise((resolve) => {
+    const finish = () => {
+      clearTimeout(fallback);
+      resolve({ aborted: signal.aborted, ms: performance.now() - started });
+    };
+    const fallback = setTimeout(finish, ABORT_FALLBACK_MS);
+
+    signal.addEventListener('abort', finish, { once: true });
+  });
+}
+
+const STREAMED_CHUNKS = 6;
+const STREAMED_BODY = 'chunk\n'.repeat(STREAMED_CHUNKS);
+
+/** A body streamed over roughly 300ms after the handler returned, well past a 50ms deadline. */
+function slowBody(onEnd: () => void): ReadableStream<Uint8Array> {
+  const encoder = new TextEncoder();
+  let timer: ReturnType<typeof setInterval> | undefined;
+
+  return new ReadableStream<Uint8Array>({
+    cancel() {
+      clearInterval(timer);
+    },
+    start(controller) {
+      let written = 0;
+
+      timer = setInterval(() => {
+        written += 1;
+        controller.enqueue(encoder.encode('chunk\n'));
+
+        if (written === STREAMED_CHUNKS) {
+          clearInterval(timer);
+          onEnd();
+          controller.close();
+        }
+      }, 50);
+    },
+  });
+}
+
+/** A wrapped middleware that hands the request straight on, the shape of an auth or tenant layer. */
+function passThrough(): MiddlewareHandler {
+  return cancelableHandler(function* (_c: Context, next: Next) {
+    yield next();
+  } as unknown as THonoHandler) as unknown as MiddlewareHandler;
+}
+
+/**
+ * Collects process warnings until stopped. Listens on the host process: the one jest hands a test
+ * file is a copy, and node emits its warnings on the original.
+ */
+function recordWarnings(): { stop: () => string[] } {
+  const host = runInThisContext('process') as NodeJS.Process;
+  const seen: string[] = [];
+  const listener = (warning: Error) => seen.push(`${warning.name}: ${warning.message}`);
+
+  host.on('warning', listener);
+
+  return {
+    stop: () => {
+      host.off('warning', listener);
+
+      return seen;
+    },
+  };
+}
 
 /** An async generator handler, which the types reject and the runtime must refuse too. */
 async function* asyncGeneratorHandler(): AsyncGenerator<number> {

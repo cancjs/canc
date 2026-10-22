@@ -1,6 +1,6 @@
 import { isResponseLive } from '../../../_server/exchange';
 import { getRequestState, IRequestCancelState, setRequestState } from '../../../_server/holder';
-import { ensureRequestCancelState } from '../../../_server/node-signal';
+import { applyRequestOptions, ensureRequestCancelState } from '../../../_server/node-signal';
 import { ICancelableHandlerOptions, IRequestLike, IResponseLike } from '../../../_server/types';
 import { createWebRequestSignal } from '../../../_server/web-signal';
 
@@ -89,6 +89,7 @@ function ensureWebRequestState(request: Request, options?: ICancelableHandlerOpt
   if (existing) {
     if (options) {
       existing.options = { ...existing.options, ...options };
+      applyRequestOptions(existing, options);
     }
 
     return existing;
@@ -102,6 +103,10 @@ function ensureWebRequestState(request: Request, options?: ICancelableHandlerOpt
   const state: IRequestCancelState = { cancel, live: new Set(), options: options ? { ...options } : {}, signal };
 
   setRequestState(keyed, state);
+
+  if (options) {
+    applyRequestOptions(state, options);
+  }
 
   // nothing is tracked for a shutdown here: the live registry hangs off the node server a request
   // arrived on, and a Web runtime has no such object

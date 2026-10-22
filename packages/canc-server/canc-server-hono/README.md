@@ -142,16 +142,18 @@ Any **other** handler runs signal-only. The request signal still fires, `onDisco
 
 ### Options
 
-| Option         | Default | Meaning                                                                                               |
-| -------------- | ------- | ----------------------------------------------------------------------------------------------------- |
-| `timeout`      | none    | Handler deadline. A number is the millisecond shorthand, the object form is `{ ms, status, message }` |
-| `signal`       | none    | An external `AbortSignal`, or an array of them, composed alongside the wired one                      |
-| `onDisconnect` | none    | Called once when the client goes away. Cleanup and metrics only, the response is unreachable          |
-| `onTimeout`    | none    | Called once when the deadline fires. The client is still connected                                    |
+| Option         | Default | Meaning                                                                                                                |
+| -------------- | ------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `timeout`      | none    | Request deadline, one per request. A number is the millisecond shorthand, the object form is `{ ms, status, message }` |
+| `signal`       | none    | An external `AbortSignal`, or an array of them, composed alongside the wired one                                       |
+| `onDisconnect` | none    | Called once per request when the client goes away. Cleanup and metrics only, the response is unreachable               |
+| `onTimeout`    | none    | Called once per request when the deadline fires. The client is still connected                                         |
 
 Cancelable promise flags (`bubble`, `shield`, `strict`, `asyncCancel`, `forceCancelable`) are accepted too and passed to the handler's promise.
 
 Options given to `cancelMiddleware` are inherited by every handler on the request. A route's own options are merged over them key by key.
+
+There is one deadline per request. `cancelMiddleware` starts it when the request reaches the middleware, so it covers plain routes too, and a route passing its own `timeout` restarts the clock with that value. It ends once the handlers below `cancelMiddleware` return, or once a wrapped route settles, so a body streamed after that is not cut short by it. A wrapped middleware that awaits `next()` does not end it early. A slow response body is for the server's own request timeout or the proxy in front of it. The lifecycle callbacks run once per request.
 
 ### Telling a disconnect from a deadline
 

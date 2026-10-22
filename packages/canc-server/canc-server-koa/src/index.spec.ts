@@ -3,6 +3,8 @@ import { once } from 'events';
 import { IncomingMessage, request, Server } from 'http';
 import Koa, { Context, Middleware, Next } from 'koa';
 import { connect, Socket } from 'net';
+import { Readable } from 'stream';
+import { runInThisContext } from 'vm';
 
 import {
   cancelableHandler,
@@ -392,6 +394,142 @@ describe('middleware options', () => {
   });
 });
 
+describe('request deadline', () => {
+  it('covers a plain route from the moment the middleware is installed', async () => {
+    const app = new Koa();
+    const timeouts: CancelError[] = [];
+
+    app.use(cancelMiddleware({ onTimeout: (reason) => timeouts.push(reason), timeout: 50 }));
+    app.use(
+      route('/plain', async (ctx) => {
+        ctx.body = await untilAborted(getRequestSignal(ctx));
+      }),
+    );
+
+    const port = await listen(app);
+    const outcome = JSON.parse((await httpRequest(port, { path: '/plain' })).body) as IAbortOutcome;
+
+    expect(outcome.aborted).toBe(true);
+    expect(outcome.ms).toBeGreaterThanOrEqual(40);
+    expect(outcome.ms).toBeLessThan(ABORT_FALLBACK_MS);
+    expect(timeouts).toHaveLength(1);
+  });
+
+  it('restarts from a timeout set by a wrapped layer further in', async () => {
+    const app = new Koa();
+    let started = 0;
+
+    const inner = cancelableHandler(
+      function* (ctx) {
+        started = performance.now();
+        yield never();
+        ctx.body = 'unreachable';
+      },
+      { timeout: 200 },
+    );
+
+    app.use(cancelMiddleware({ timeout: 50 }));
+    app.use(
+      route(
+        '/slow',
+        cancelableHandler(function* (ctx) {
+          yield inner(ctx);
+        }),
+      ),
+    );
+
+    const port = await listen(app);
+    const response = await httpRequest(port, { path: '/slow' });
+
+    expect(response.status).toBe(503);
+    expect(performance.now() - started).toBeGreaterThanOrEqual(190);
+  });
+
+  it('stops once the handler returned, while its body still streams', async () => {
+    const app = new Koa();
+    const timeouts: CancelError[] = [];
+    let abortedAtEnd: boolean | undefined;
+
+    app.use(cancelMiddleware({ onTimeout: (reason) => timeouts.push(reason), timeout: 50 }));
+    app.use(
+      route(
+        '/stream',
+        cancelableHandler(function* (ctx) {
+          const signal = getRequestSignal(ctx);
+          ctx.body = slowBody(() => {
+            abortedAtEnd = signal.aborted;
+          });
+        }),
+      ),
+    );
+
+    const port = await listen(app);
+    const response = await httpRequest(port, { path: '/stream' });
+
+    expect(response).toEqual({ body: STREAMED_BODY, status: 200 });
+    expect(abortedAtEnd).toBe(false);
+    expect(timeouts).toEqual([]);
+  });
+
+  it('reports a deadline once however many wrapped layers the request passed', async () => {
+    const app = new Koa();
+    const timeouts: CancelError[] = [];
+
+    app.use(cancelMiddleware({ onTimeout: (reason) => timeouts.push(reason), timeout: 50 }));
+    app.use(cancelMiddleware());
+    app.use(
+      route(
+        '/slow',
+        nest(
+          2,
+          cancelableHandler(function* (ctx) {
+            yield never();
+            ctx.body = 'unreachable';
+          }),
+        ),
+      ),
+    );
+
+    const port = await listen(app);
+
+    expect((await httpRequest(port, { path: '/slow' })).status).toBe(503);
+    await settleTurns();
+    expect(timeouts).toHaveLength(1);
+  });
+
+  it('keeps one close listener on the response across twelve wrapped layers', async () => {
+    const app = new Koa();
+    const warnings = recordWarnings();
+    let closeListeners = -1;
+
+    // read at finish: every layer has registered whatever it registers by then, none removed yet
+    app.use(async (ctx, next) => {
+      ctx.res.on('finish', () => {
+        closeListeners = ctx.res.listenerCount('close');
+      });
+      await next();
+    });
+    app.use(
+      route(
+        '/deep',
+        nest(
+          11,
+          cancelableHandler(function* (ctx) {
+            ctx.body = 'ok';
+          }),
+        ),
+      ),
+    );
+
+    const port = await listen(app);
+
+    expect((await httpRequest(port, { path: '/deep' })).body).toBe('ok');
+    await settleTurns();
+    expect(closeListeners).toBeLessThanOrEqual(2);
+    expect(warnings.stop()).toEqual([]);
+  });
+});
+
 describe('request signal', () => {
   it('is one signal per request, shared with work started outside the route', async () => {
     const app = new Koa();
@@ -658,6 +796,102 @@ describe('shutdown', () => {
     expect(await first).toEqual({ canceled: 0, completed: 0, timedOut: false });
   });
 });
+
+/** How long a plain route waits for its signal before answering that it never aborted. */
+const ABORT_FALLBACK_MS = 1000;
+
+interface IAbortOutcome {
+  aborted: boolean;
+  ms: number;
+}
+
+/** Waits for a signal to abort, or gives up after the fallback window, and reports which and when. */
+function untilAborted(signal: AbortSignal): Promise<IAbortOutcome> {
+  const started = performance.now();
+
+  return new Promise((resolve) => {
+    const finish = () => {
+      clearTimeout(fallback);
+      resolve({ aborted: signal.aborted, ms: performance.now() - started });
+    };
+    const fallback = setTimeout(finish, ABORT_FALLBACK_MS);
+
+    signal.addEventListener('abort', finish, { once: true });
+  });
+}
+
+const STREAMED_CHUNKS = 6;
+const STREAMED_BODY = 'chunk\n'.repeat(STREAMED_CHUNKS);
+
+/** A body koa streams over roughly 300ms after the handler returned, well past a 50ms deadline. */
+function slowBody(onEnd: () => void): Readable {
+  let written = 0;
+  let timer: ReturnType<typeof setInterval> | undefined;
+
+  return new Readable({
+    destroy(error, callback) {
+      clearInterval(timer);
+      callback(error);
+    },
+    read() {
+      if (timer) {
+        return;
+      }
+
+      timer = setInterval(() => {
+        written += 1;
+        this.push('chunk\n');
+
+        if (written === STREAMED_CHUNKS) {
+          clearInterval(timer);
+          onEnd();
+          this.push(null);
+        }
+      }, 50);
+    },
+  });
+}
+
+/** Wraps a route in further wrapped layers, each one driving the next as its own handler task. */
+function nest(depth: number, innermost: (ctx: Context) => Promise<void>): (ctx: Context) => Promise<void> {
+  let layer = innermost;
+
+  for (let level = 0; level < depth; level += 1) {
+    const inner = layer;
+    layer = cancelableHandler(function* (ctx) {
+      yield inner(ctx);
+    });
+  }
+
+  return layer;
+}
+
+/** Lets late rejections and emitted warnings land before an assertion reads them. */
+async function settleTurns(): Promise<void> {
+  for (let turn = 0; turn < 5; turn += 1) {
+    await new Promise<void>((resolve) => setImmediate(resolve));
+  }
+}
+
+/**
+ * Collects process warnings until stopped. Listens on the host process: the one jest hands a test
+ * file is a copy, and node emits its warnings on the original.
+ */
+function recordWarnings(): { stop: () => string[] } {
+  const host = runInThisContext('process') as NodeJS.Process;
+  const seen: string[] = [];
+  const listener = (warning: Error) => seen.push(`${warning.name}: ${warning.message}`);
+
+  host.on('warning', listener);
+
+  return {
+    stop: () => {
+      host.off('warning', listener);
+
+      return seen;
+    },
+  };
+}
 
 /** An async generator handler, which the types reject and the runtime must refuse too. */
 async function* asyncGeneratorHandler(): AsyncGenerator<number> {

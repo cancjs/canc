@@ -37,7 +37,7 @@ export type THandlerFn<TFn extends (...args: any) => any, TReturn = unknown> =
   TGeneratorFn<TFn, TReturn> | TPlainHandlerFn<TFn>;
 
 /**
- * Handler deadline. A number is the millisecond shorthand; the object form also carries the HTTP
+ * Request deadline. A number is the millisecond shorthand; the object form also carries the HTTP
  * status the error is stamped with and the message it reports.
  */
 export type TTimeoutOption = number | { ms: number; status?: number; message?: string };
@@ -47,13 +47,25 @@ export type TTimeoutOption = number | { ms: number; status?: number; message?: s
  * on the per-request holder and a route's own options are merged over them.
  */
 export interface ICancelableHandlerOptions extends ICancelablePromiseFlagOptions {
-  /** Handler deadline. A number is the millisecond shorthand. Composed into the same request signal. */
+  /**
+   * Request deadline, one per request. A number is the millisecond shorthand. Set on a plugin or
+   * middleware it starts when that runs and covers every route behind it, plain ones included. Set
+   * on a route it restarts the clock for that route, longer or shorter, and a value with no usable
+   * limit lifts the inherited deadline. Firing aborts the request signal.
+   *
+   * It covers the handler, not the body: it ends once the wrapped handler answering the request
+   * settles, so a stream piped out after the handler returned is not cut short. A response deadline
+   * belongs to the server (`server.requestTimeout`) or the proxy in front of it.
+   */
   timeout?: TTimeoutOption;
   /** Adopt or compose an external signal alongside the wired one. */
   signal?: AbortSignal | AbortSignal[];
-  /** Called once when the client goes away. Cleanup and metrics only, the response is unreachable. */
+  /**
+   * Called once per request when the client goes away, however many layers passed it. Cleanup and
+   * metrics only, the response is unreachable.
+   */
   onDisconnect?: (reason: CancelError) => void;
-  /** Called once when the deadline fires. The client is still connected. */
+  /** Called once per request when the deadline fires. The client is still connected. */
   onTimeout?: (reason: CancelError) => void;
 }
 

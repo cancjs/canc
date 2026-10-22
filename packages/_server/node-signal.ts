@@ -1,8 +1,9 @@
-import { CancelSignal, createCancelSignal } from '@cancjs/promise';
+import { CancelError, CancelSignal, createCancelSignal, isCancelError } from '@cancjs/promise';
 
 import { hasClientLeft } from './exchange';
 import { getRequestState, IRequestCancelState, setRequestState, trackRequest, untrackRequest } from './holder';
 import { CLIENT_DISCONNECTED } from './reasons';
+import { createTimeoutError, normalizeTimeout, startHandlerTimeout, stopHandlerTimeout } from './timeout';
 import { ICancelableHandlerOptions, IRequestLike, IResponseLike } from './types';
 
 /**
@@ -13,7 +14,9 @@ import { ICancelableHandlerOptions, IRequestLike, IResponseLike } from './types'
  * signal and one cancellation instead of racing two.
  *
  * Options passed here are the plugin or middleware level ones. They are merged into the holder so
- * every handler on the request inherits them; a route's own options are merged over them later.
+ * every handler on the request inherits them; a route's own options are merged over them later. A
+ * deadline among them starts now, so it covers the request whether or not a wrapped handler ever
+ * runs, and lifecycle callbacks among them are wired once for the whole request.
  */
 export function ensureRequestCancelState(
   req: IRequestLike,
@@ -24,6 +27,7 @@ export function ensureRequestCancelState(
   if (existing) {
     if (options) {
       existing.options = { ...existing.options, ...options };
+      applyRequestOptions(existing, options);
     }
 
     return existing;
@@ -42,7 +46,94 @@ export function ensureRequestCancelState(
   trackRequest(req, state);
   wireDisconnect(req, res, state);
 
+  if (options) {
+    applyRequestOptions(state, options);
+  }
+
   return state;
+}
+
+/**
+ * Applies one layer's options to the request: its lifecycle callbacks join the ones already wired,
+ * and a timeout it sets restarts the request deadline from now. A timeout with no usable value, an
+ * infinite one included, clears the deadline instead, so a single route can opt out of the one its
+ * router set.
+ */
+export function applyRequestOptions(state: IRequestCancelState, options: ICancelableHandlerOptions): void {
+  adoptHooks(state, options);
+
+  if (options.timeout !== undefined) {
+    armRequestDeadline(state, options);
+  }
+}
+
+/** Stops the request deadline. Tolerates a request that has none pending. */
+export function stopRequestDeadline(state: IRequestCancelState): void {
+  stopHandlerTimeout(state.timer);
+  state.timer = undefined;
+}
+
+function armRequestDeadline(state: IRequestCancelState, options: ICancelableHandlerOptions): void {
+  stopRequestDeadline(state);
+
+  const spec = normalizeTimeout(options.timeout);
+
+  // a closed response never emits close again, so a timer armed now would outlive the request
+  if (!spec || state.signal.aborted || (state.response && isResponseClosed(state.response))) {
+    return;
+  }
+
+  state.timer = startHandlerTimeout(spec.ms, () => {
+    state.timer = undefined;
+    // the deadline aborts the request signal itself rather than the handler's promise, so
+    // request-scoped work other consumers started stops with the handler instead of outliving it
+    state.cancel(createTimeoutError(spec));
+  });
+}
+
+function adoptHooks(state: IRequestCancelState, { onDisconnect, onTimeout }: ICancelableHandlerOptions): void {
+  if (!onDisconnect && !onTimeout) {
+    return;
+  }
+
+  const wired = state.hooks !== undefined;
+  const hooks = state.hooks ?? {};
+
+  if (onDisconnect) hooks.onDisconnect = onDisconnect;
+  if (onTimeout) hooks.onTimeout = onTimeout;
+
+  // one listener per request however many layers bring callbacks, read when the signal aborts
+  if (wired) {
+    return;
+  }
+
+  state.hooks = hooks;
+
+  if (state.signal.aborted) {
+    reportCancel(state);
+
+    return;
+  }
+
+  state.signal.addEventListener('abort', () => reportCancel(state), { once: true });
+}
+
+function reportCancel(state: IRequestCancelState): void {
+  // a shutdown cancels the signal to reach the consumers a handler never awaited, and neither
+  // callback reports that: the client has not left and no deadline was missed
+  if (state.shuttingDown) {
+    return;
+  }
+
+  // the documented discriminator, never a message check: the request signal always aborts with a
+  // CancelError, so anything else came from a foreign signal and reads as a disconnect
+  const reason = state.signal.reason;
+
+  if (isCancelError(reason) && reason.timedOut) {
+    state.hooks?.onTimeout?.(reason);
+  } else {
+    state.hooks?.onDisconnect?.(reason as CancelError);
+  }
 }
 
 /**
@@ -101,6 +192,7 @@ function wireDisconnect(req: IRequestLike, res: IResponseLike, state: IRequestCa
   // once, so the listener count per response stays bounded without a settle hook to remove it
   res.once('close', () => {
     untrackRequest(req, state);
+    stopRequestDeadline(state);
 
     if (hasClientLeft(res)) {
       state.cancel(CLIENT_DISCONNECTED);

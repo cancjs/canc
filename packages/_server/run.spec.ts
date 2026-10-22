@@ -372,6 +372,120 @@ describe('handler deadline', () => {
   });
 });
 
+describe('request deadline', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('starts when the middleware options are installed, with no handler wrapped', () => {
+    const { req, res } = createExchange();
+    const onTimeout = jest.fn();
+    const state = ensureRequestCancelState(req, res, { onTimeout, timeout: 30 });
+
+    jest.advanceTimersByTime(30);
+
+    expect((state.signal.reason as CancelError).timedOut).toBe(true);
+    expect(onTimeout).toHaveBeenCalledTimes(1);
+  });
+
+  it('lets a route lengthen the deadline the middleware set', () => {
+    const { req, res } = createExchange();
+    const state = ensureRequestCancelState(req, res, { timeout: 30 });
+
+    void outcomeOf(runCancelableHandler(() => pending(), req, res, { timeout: 100 }));
+
+    jest.advanceTimersByTime(30);
+    expect(state.signal.aborted).toBe(false);
+
+    jest.advanceTimersByTime(70);
+    expect(state.signal.aborted).toBe(true);
+  });
+
+  it('is lifted by a route timeout with no usable limit', () => {
+    const { req, res } = createExchange();
+    const state = ensureRequestCancelState(req, res, { timeout: 30 });
+
+    void outcomeOf(runCancelableHandler(() => pending(), req, res, { timeout: Infinity }));
+
+    jest.advanceTimersByTime(1000);
+
+    expect(state.signal.aborted).toBe(false);
+    expect(state.timer).toBeUndefined();
+  });
+
+  it('ends once the handler answering the request settles', async () => {
+    const { req, res } = createExchange();
+    const state = ensureRequestCancelState(req, res);
+
+    expect(await runCancelableHandler(() => 'answered', req, res, { timeout: 30 })).toBe('answered');
+
+    jest.advanceTimersByTime(30);
+
+    expect(state.signal.aborted).toBe(false);
+    expect(state.timer).toBeUndefined();
+  });
+
+  it('keeps running for the layer a settled middleware handed the request to', async () => {
+    const { req, res } = createExchange();
+    const state = ensureRequestCancelState(req, res, { timeout: 30 });
+    const next = jest.fn();
+
+    const middleware = runCancelableHandler(
+      function* (passOn: () => void) {
+        passOn();
+      },
+      req,
+      res,
+      undefined,
+      { next },
+    );
+
+    await middleware;
+    jest.advanceTimersByTime(30);
+
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(state.signal.aborted).toBe(true);
+  });
+
+  it('keeps running for the route behind a hook that settled', async () => {
+    const { req, res } = createExchange();
+    const state = ensureRequestCancelState(req, res, { timeout: 30 });
+
+    await runCancelableHandler(() => undefined, req, res, undefined, { handsOn: () => true });
+    jest.advanceTimersByTime(30);
+
+    expect(state.signal.aborted).toBe(true);
+  });
+
+  it('reports to the lifecycle callbacks once however many wrappers inherit them', async () => {
+    const { req, res } = createExchange();
+    const onTimeout = jest.fn();
+    ensureRequestCancelState(req, res, { onTimeout, timeout: 30 });
+
+    const outcomes = [1, 2, 3].map(() => outcomeOf(runCancelableHandler(() => pending(), req, res, { onTimeout })));
+
+    jest.advanceTimersByTime(30);
+    await Promise.all(outcomes);
+
+    expect(onTimeout).toHaveBeenCalledTimes(1);
+  });
+
+  it('adds no close listener per wrapped handler', () => {
+    const { req, res } = createExchange();
+    ensureRequestCancelState(req, res, { timeout: 30 });
+
+    for (let layer = 0; layer < 12; layer += 1) {
+      void outcomeOf(runCancelableHandler(() => pending(), req, res, { timeout: 30 }));
+    }
+
+    expect(res.listenerCount('close')).toBe(1);
+  });
+});
+
 describe('lifecycle callbacks', () => {
   it('reports a disconnect and not a timeout', async () => {
     const { req, res } = createExchange();

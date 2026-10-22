@@ -103,16 +103,18 @@ A generator handler is driven as a coroutine and is canceled at its next suspens
 
 ### Options
 
-| Option         | Default | Meaning                                                                                  |
-| -------------- | ------- | ---------------------------------------------------------------------------------------- |
-| `timeout`      | none    | Handler deadline. A number is milliseconds; the object form is `{ ms, status, message }` |
-| `signal`       | none    | An `AbortSignal`, or an array of them, composed into the request signal                  |
-| `onDisconnect` | none    | Called once when the client goes away. Cleanup and metrics only                          |
-| `onTimeout`    | none    | Called once when the deadline fires, with the client still connected                     |
+| Option         | Default | Meaning                                                                                                   |
+| -------------- | ------- | --------------------------------------------------------------------------------------------------------- |
+| `timeout`      | none    | Request deadline, one per request. A number is milliseconds; the object form is `{ ms, status, message }` |
+| `signal`       | none    | An `AbortSignal`, or an array of them, composed into the request signal                                   |
+| `onDisconnect` | none    | Called once per request when the client goes away. Cleanup and metrics only                               |
+| `onTimeout`    | none    | Called once per request when the deadline fires, with the client still connected                          |
 
 The flag options of `@cancjs/promise` (`asyncCancel`, `bubble`, `forceCancelable`, `shield`, `strict`) are accepted too and passed to the task.
 
 Options given to the plugin are defaults for the whole app. Options given to `cancelableHandler` win on every key they set, so one route can raise or drop the deadline the app registered.
+
+There is one deadline per request. The plugin starts it at `onRequest`, so it covers plain routes too, and a route passing its own `timeout` restarts the clock with that value. A wrapped `preHandler` hook settling does not end it. The deadline covers the handler, not the body. It ends once the wrapped handler answering the request settles, so a stream still being written after the handler returned is not cut short by it. A handler that answers from a callback after it returned is no longer covered either. A slow response body is for `server.requestTimeout` or the proxy in front of the server. On a plain route it runs until the response finishes. The lifecycle callbacks run once per request, however many wrapped hooks it passes.
 
 The deadline default status is 503. Set `timeout: { ms: 30_000, status: 504 }` for a gateway-style code.
 

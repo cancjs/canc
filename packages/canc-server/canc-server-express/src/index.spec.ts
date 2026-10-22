@@ -3,6 +3,7 @@ import { once } from 'events';
 import express, { ErrorRequestHandler, Express, Request, Response } from 'express';
 import { IncomingMessage, request, Server } from 'http';
 import { connect, Socket } from 'net';
+import { runInThisContext } from 'vm';
 
 import {
   cancelableHandler,
@@ -219,6 +220,174 @@ describe('middleware options', () => {
 
     expect((await httpRequest(port, { path: '/inherited' })).status).toBe(504);
     expect((await httpRequest(port, { path: '/overridden' })).status).toBe(507);
+  });
+});
+
+describe('request deadline', () => {
+  it('covers a plain route from the moment the middleware is installed', async () => {
+    const app = express();
+    const timeouts: CancelError[] = [];
+
+    app.use(cancelMiddleware({ onTimeout: (reason) => timeouts.push(reason), timeout: 50 }));
+    app.get('/plain', (req, res) => {
+      void untilAborted(getRequestSignal(req, res)).then((outcome) => res.json(outcome));
+    });
+
+    const port = await listen(app);
+    const outcome = JSON.parse((await httpRequest(port, { path: '/plain' })).body) as IAbortOutcome;
+
+    expect(outcome.aborted).toBe(true);
+    expect(outcome.ms).toBeGreaterThanOrEqual(40);
+    expect(outcome.ms).toBeLessThan(ABORT_FALLBACK_MS);
+    expect(timeouts).toHaveLength(1);
+  });
+
+  it('restarts from a route timeout behind a wrapped middleware', async () => {
+    const app = express();
+    let started = 0;
+
+    app.use(cancelMiddleware({ timeout: 50 }));
+    app.use(
+      cancelableHandler(function* (_req, _res, next) {
+        started = performance.now();
+        next();
+      }),
+    );
+    app.get(
+      '/slow',
+      cancelableHandler(
+        function* (_req, res) {
+          yield never();
+          res.send('unreachable');
+        },
+        { timeout: 200 },
+      ),
+    );
+    app.use(cancelErrorHandler());
+
+    const port = await listen(app);
+    const response = await httpRequest(port, { path: '/slow' });
+
+    expect(response.status).toBe(503);
+    expect(performance.now() - started).toBeGreaterThanOrEqual(190);
+  });
+
+  it('stops once the handler returned, while its body still streams', async () => {
+    const app = express();
+    const timeouts: CancelError[] = [];
+    let abortedAtEnd: boolean | undefined;
+
+    app.get(
+      '/stream',
+      cancelableHandler(
+        function* (req, res) {
+          const signal = getRequestSignal(req, res);
+          streamBody(res, () => {
+            abortedAtEnd = signal.aborted;
+          });
+        },
+        { onTimeout: (reason) => timeouts.push(reason), timeout: 50 },
+      ),
+    );
+
+    const port = await listen(app);
+    const response = await streamedRequest(port, '/stream');
+
+    expect(response).toMatchObject({ body: STREAMED_BODY, complete: true, failed: false, status: 200 });
+    expect(abortedAtEnd).toBe(false);
+    expect(timeouts).toEqual([]);
+  });
+
+  it('reports a deadline once however many wrapped layers the request passed', async () => {
+    const app = express();
+    const timeouts: CancelError[] = [];
+
+    app.use(cancelMiddleware({ onTimeout: (reason) => timeouts.push(reason), timeout: 50 }));
+    app.use(passThrough());
+    app.use(passThrough());
+    app.get(
+      '/slow',
+      cancelableHandler(function* (_req, res) {
+        yield never();
+        res.send('unreachable');
+      }),
+    );
+    app.use(cancelErrorHandler());
+
+    const port = await listen(app);
+
+    expect((await httpRequest(port, { path: '/slow' })).status).toBe(503);
+    await settleTurns();
+    expect(timeouts).toHaveLength(1);
+  });
+
+  it('keeps one close listener on the response across twelve wrapped layers', async () => {
+    const app = express();
+    const warnings = recordWarnings();
+    let closeListeners = -1;
+
+    // read at finish: every layer has registered whatever it registers by then, none removed yet
+    app.use((_req, res, next) => {
+      res.on('finish', () => {
+        closeListeners = res.listenerCount('close');
+      });
+      next();
+    });
+
+    for (let layer = 0; layer < 11; layer += 1) {
+      app.use(passThrough());
+    }
+
+    app.get(
+      '/deep',
+      cancelableHandler(function* (_req, res) {
+        res.send('ok');
+      }),
+    );
+
+    const port = await listen(app);
+
+    expect((await httpRequest(port, { path: '/deep' })).body).toBe('ok');
+    await settleTurns();
+    expect(closeListeners).toBeLessThanOrEqual(2);
+    expect(warnings.stop()).toEqual([]);
+  });
+
+  it('forwards a deadline to next once when a middleware is still running', async () => {
+    const app = express();
+    const handled: unknown[] = [];
+    const fellThrough: unknown[] = [];
+    const answer = cancelErrorHandler();
+
+    app.use(cancelMiddleware({ timeout: 50 }));
+    app.use(
+      cancelableHandler(function* (_req, _res, next) {
+        next();
+        yield never();
+      }),
+    );
+    app.get(
+      '/slow',
+      cancelableHandler(function* (_req, res) {
+        yield never();
+        res.send('unreachable');
+      }),
+    );
+    app.use(((error, req, res, next) => {
+      handled.push(error);
+      answer(error, req, res, next);
+    }) as ErrorRequestHandler);
+    app.use(((error, _req, _res, next) => {
+      fellThrough.push(error);
+      next(error);
+    }) as ErrorRequestHandler);
+
+    const port = await listen(app);
+
+    expect((await httpRequest(port, { path: '/slow' })).status).toBe(503);
+    await settleTurns();
+    expect(handled).toHaveLength(1);
+    expect(fellThrough).toEqual([]);
   });
 });
 
@@ -700,6 +869,84 @@ function httpRequest(port: number, options: IHttpOptions): Promise<{ status: num
 
     outgoing.end();
   });
+}
+
+/** How long a plain route waits for its signal before answering that it never aborted. */
+const ABORT_FALLBACK_MS = 1000;
+
+interface IAbortOutcome {
+  aborted: boolean;
+  ms: number;
+}
+
+/** Waits for a signal to abort, or gives up after the fallback window, and reports which and when. */
+function untilAborted(signal: AbortSignal): Promise<IAbortOutcome> {
+  const started = performance.now();
+
+  return new Promise((resolve) => {
+    const finish = () => {
+      clearTimeout(fallback);
+      resolve({ aborted: signal.aborted, ms: performance.now() - started });
+    };
+    const fallback = setTimeout(finish, ABORT_FALLBACK_MS);
+
+    signal.addEventListener('abort', finish, { once: true });
+  });
+}
+
+const STREAMED_CHUNKS = 6;
+const STREAMED_BODY = 'chunk\n'.repeat(STREAMED_CHUNKS);
+
+/** Writes a chunked body over roughly 300ms, well past a 50ms deadline, then ends it. */
+function streamBody(res: Response, onEnd: () => void): void {
+  let written = 0;
+
+  res.writeHead(200, { 'content-type': 'text/plain' });
+
+  const timer = setInterval(() => {
+    res.write('chunk\n');
+    written += 1;
+
+    if (written === STREAMED_CHUNKS) {
+      clearInterval(timer);
+      onEnd();
+      res.end();
+    }
+  }, 50);
+}
+
+/** A wrapped middleware that hands the request straight on, the shape of an auth or tenant layer. */
+function passThrough() {
+  return cancelableHandler(function* (_req, _res, next) {
+    next();
+  });
+}
+
+/** Lets late rejections, error forwarding and emitted warnings land before an assertion reads them. */
+async function settleTurns(): Promise<void> {
+  for (let turn = 0; turn < 5; turn += 1) {
+    await new Promise<void>((resolve) => setImmediate(resolve));
+  }
+}
+
+/**
+ * Collects process warnings until stopped. Listens on the host process: the one jest hands a test
+ * file is a copy, and node emits its warnings on the original.
+ */
+function recordWarnings(): { stop: () => string[] } {
+  const host = runInThisContext('process') as NodeJS.Process;
+  const seen: string[] = [];
+  const listener = (warning: Error) => seen.push(`${warning.name}: ${warning.message}`);
+
+  host.on('warning', listener);
+
+  return {
+    stop: () => {
+      host.off('warning', listener);
+
+      return seen;
+    },
+  };
 }
 
 /** An async generator handler, which the types reject and the runtime must refuse too. */

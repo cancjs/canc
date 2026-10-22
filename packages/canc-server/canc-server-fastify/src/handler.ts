@@ -65,9 +65,14 @@ export function cancelableHandler<RouteGeneric extends RouteGenericInterface = R
     this: FastifyInstance,
     request: FastifyRequest<RouteGeneric>,
     reply: FastifyReply<RouteGeneric>,
+    ...hookDone: unknown[]
   ): Promise<RouteGeneric['Reply'] | undefined> {
+    // fastify hands a hook a done callback even when the hook is async, and a route handler only
+    // the pair; a hook settling hands the request on, so the deadline stays up for the route
+    const mountedAsHook = hookDone.length > 0;
     const task = runCancelableHandler<RouteGeneric['Reply']>(handler as TAnyFn, request.raw, reply.raw, options, {
       args: [request, reply],
+      handsOn: () => mountedAsHook,
       thisArg: this,
     });
 

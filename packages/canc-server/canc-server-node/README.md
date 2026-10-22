@@ -147,6 +147,8 @@ Any **other** handler runs signal-only. The request signal still fires, `onDisco
 
 A deadline aborts the request signal itself rather than the handler's promise, so request-scoped work other consumers started stops with the handler instead of outliving it. The resulting `CancelError` reports `timedOut === true` and carries `status` and `statusCode`, which is what the default `onError` reads when it picks a response code.
 
+There is one deadline per request. A wrapped handler calling another wrapped handler shares it, and the inner one's own `timeout` restarts the clock with that value. The deadline covers the handler, not the body. It ends once the wrapped handler answering the request settles, so a stream still being written after the handler returned is not cut short by it. A handler that answers from a callback after it returned is no longer covered either. A slow response body is for `server.requestTimeout` or the proxy in front of the server.
+
 ### Shutting down
 
 `shutdown` stops the server accepting connections, closes idle keep-alive sockets, cancels every in-flight handler, then waits for them within a grace window before closing what is left. It cancels the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it. It resolves with counts rather than throwing, and a second call while the first is running returns the same result, so wiring it to both `SIGTERM` and `SIGINT` needs no guard.
@@ -169,13 +171,13 @@ Pass your own `onError` when a caller already has an error pipeline: an adapter 
 
 ### Options
 
-| Option         | Default                | Meaning                                                                                               |
-| -------------- | ---------------------- | ----------------------------------------------------------------------------------------------------- |
-| `timeout`      | none                   | Handler deadline. A number is the millisecond shorthand, the object form is `{ ms, status, message }` |
-| `signal`       | none                   | An external `AbortSignal`, or an array of them, composed alongside the wired one                      |
-| `onDisconnect` | none                   | Called once when the client goes away. Cleanup and metrics only, the response is unreachable          |
-| `onTimeout`    | none                   | Called once when the deadline fires. The client is still connected                                    |
-| `onError`      | `cancelErrorHandler()` | Called with `(error, req, res)` for anything the wrapper does not swallow                             |
+| Option         | Default                | Meaning                                                                                                                |
+| -------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `timeout`      | none                   | Request deadline, one per request. A number is the millisecond shorthand, the object form is `{ ms, status, message }` |
+| `signal`       | none                   | An external `AbortSignal`, or an array of them, composed alongside the wired one                                       |
+| `onDisconnect` | none                   | Called once per request when the client goes away. Cleanup and metrics only, the response is unreachable               |
+| `onTimeout`    | none                   | Called once per request when the deadline fires. The client is still connected                                         |
+| `onError`      | `cancelErrorHandler()` | Called with `(error, req, res)` for anything the wrapper does not swallow                                              |
 
 Cancelable promise flags (`bubble`, `shield`, `strict`, `asyncCancel`, `forceCancelable`) are accepted too and passed to the handler's promise.
 
