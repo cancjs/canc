@@ -1,5 +1,5 @@
-import { isFunction } from '../../_util';
-import { getScope } from './scope';
+import { isFunction, isObject } from '../../_util';
+import { CancelScope, getScope } from './scope';
 import type { ICancelableAxiosContext, ICancelableInterceptorManager, IInterceptorOptions } from './types';
 
 /** Used when the scope cannot be found, which happens when an interceptor earlier in the chain
@@ -16,6 +16,25 @@ const detachedContext: ICancelableAxiosContext = {
   },
 };
 
+// `res => res.data` loses the config, so the scope is kept by result object;
+// null marks an object two requests returned
+const carriedScopes = typeof WeakMap === 'function' ? new WeakMap<object, CancelScope | null>() : undefined;
+
+const carriedScope = (value: any): CancelScope | undefined =>
+  (carriedScopes && isObject(value) && carriedScopes.get(value)) || undefined;
+
+const carryScope = (result: unknown, scope: CancelScope): void => {
+  if (!carriedScopes || !isObject(result)) {
+    return;
+  }
+  const carried = carriedScopes.get(result as object);
+  if (carried === undefined) {
+    carriedScopes.set(result as object, scope);
+  } else if (carried !== scope) {
+    carriedScopes.set(result as object, null);
+  }
+};
+
 /** Wraps a user handler so it receives the cancel context, and so a cancelable promise it returns
  * is tied to the request. Axios passes one argument and ignores the return arity, so the extra
  * parameter is invisible to it. */
@@ -25,8 +44,12 @@ const wrapHandler = (handler: any): any => {
   }
 
   return function (value: any) {
-    const scope = getScope(value);
+    const scope = getScope(value) || carriedScope(value);
     const result = handler(value, scope || detachedContext);
+
+    if (scope) {
+      carryScope(result, scope);
+    }
 
     return scope ? scope.link(result) : result;
   };
@@ -48,7 +71,7 @@ export const createInterceptorFacade = <V>(manager: any): ICancelableInterceptor
     },
   } as ICancelableInterceptorManager<V>;
 
-  // Added after 0.22, mirrored only when present.
+  // only when axios has it (after 0.22)
   if (isFunction(manager.clear)) {
     facade.clear = function (): void {
       manager.clear();

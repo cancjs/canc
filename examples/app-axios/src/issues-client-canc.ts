@@ -1,5 +1,5 @@
 import cancelableAxios, { ICancelableAxiosInstance } from '@cancjs/axios';
-import { CancelablePromise } from '@cancjs/promise';
+import { CancelablePromise, type Unlisted } from '@cancjs/promise';
 import { AxiosError, AxiosInstance } from 'axios';
 
 import { Issue, SearchResult } from './issues';
@@ -11,14 +11,14 @@ import { Issue, SearchResult } from './issues';
  */
 export class CancIssuesClient {
   private api: ICancelableAxiosInstance;
-  private latestSearch: CancelablePromise<SearchResult, AxiosError<SearchResult, any>> | null = null;
-  private latestDetail: CancelablePromise<Issue, AxiosError<Issue, any>> | null = null;
+  private latestSearch: CancelablePromise<SearchResult, AxiosError<SearchResult, any> | Unlisted> | null = null;
+  private latestDetail: CancelablePromise<Issue, AxiosError<Issue, any> | Unlisted> | null = null;
 
   constructor(instance: AxiosInstance) {
     this.api = cancelableAxios.wrap(instance);
   }
 
-  searchIssues(query: string): CancelablePromise<SearchResult, AxiosError<SearchResult, any>> {
+  searchIssues(query: string): CancelablePromise<SearchResult, AxiosError<SearchResult, any> | Unlisted> {
     // Cancel the previous search if it is still pending.
     if (this.latestSearch) {
       this.latestSearch.cancel('superseded by new search');
@@ -34,7 +34,7 @@ export class CancIssuesClient {
     return searchPromise;
   }
 
-  getIssueWithComments(issueId: number): CancelablePromise<Issue, AxiosError<Issue, any>> {
+  getIssueWithComments(issueId: number): CancelablePromise<Issue, AxiosError<Issue, any> | Unlisted> {
     // Cancel the previous detail fetch if it is still pending.
     if (this.latestDetail) {
       this.latestDetail.cancel('new issue selected');

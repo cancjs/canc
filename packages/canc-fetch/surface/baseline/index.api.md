@@ -31,7 +31,7 @@ readonly activated: boolean
 ## `TCancelableFetchFailure` (type)
 
 ```text
-(ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | Unlisted
+TNetworkTypeError | Unlisted
 ```
 
 ## `TCancelableFetchLaterPromise` (type)

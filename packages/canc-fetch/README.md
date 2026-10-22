@@ -80,12 +80,28 @@ Each call creates its own `AbortController` and passes the signal to the underly
 cancel aborts that controller, so the request is dropped at the transport level, and the promise
 rejects with a `CancelError` whose `cause` is the abort reason.
 
-That is where cancellation ends. The request stops, the server may have already received it, and
-a response body that is being read stops being read. Whatever the server does with a request it
-already accepted is outside the client's control.
+Cancellation covers the body too. The promise fulfills once the headers arrive, and the body is
+read after that, so the signal stays live until the read is done. Canceling a chain step that reads
+the body (`request.then((response) => response.json())`) aborts the read and drops the connection.
+So does `request.cancel()` after the promise fulfilled: on a settled fetch promise it is not a
+no-op while the body is still streaming.
 
-An `AbortSignal` supplied through `init` keeps working alongside this. Either source can abort the
-request, and a signal that is already aborted rejects the promise without a network call.
+The body readers of the response (`json()`, `text()`, `arrayBuffer()`, `blob()`, `formData()`,
+`bytes()`) return a `CancelablePromise` at runtime, while the response itself stays typed as `any`.
+They are set as non-enumerable own properties of the response, so `Object.keys(response)` is
+unchanged. A read through them rejects with a `CancelError` whichever source aborted it. A stream
+read through `response.body` gets the raw error of the platform instead. It ends with a
+`CancelError` when the request is canceled, and with the caller's own abort reason when a signal
+from `init` aborts it after the headers.
+
+The request stops, but the server may have already received it. Whatever the server does with a
+request it already accepted is outside the client's control.
+
+An `AbortSignal` supplied through `init` keeps working alongside this, body included. Either source
+can abort the request, and a signal that is already aborted rejects the promise without a network
+call. Where `AbortSignal.any` exists, the two signals are merged so a long-lived caller signal gets
+no listener. Without it, or with an injected `AbortController`, the listener is wired only while a
+body reader is running, and a `response.body` stream read there is stopped by `cancel()` only.
 
 ## Description
 
@@ -134,9 +150,9 @@ beacon.cancel();
 
 ### Declared failures
 
-`cancelableFetch` returns a `CancelablePromise<Response, TimeoutError | Unlisted>`. The set is open: `TimeoutError` is listed, and other rejections, such as the `TypeError` of a network failure, are not. A `catch` reason on the result is `any`, the same as on a native `fetch` promise. A coroutine step over it contributes `TimeoutError`.
+`cancelableFetch` returns a `CancelablePromise<Response, TypeError | Unlisted>`. The listed failure is the network `TypeError`, which `fetch` rejects with when the network, the URL or CORS fails. The set is open, so a `catch` reason on the result is `any`, the same as on a native `fetch` promise. A coroutine step over it contributes `TypeError`.
 
-An abort arrives as a `CancelError` carrying an `AbortError` on its `cause`. Cancellation itself is part of the control flow mechanism and does not alter the declared application failure set. See [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) for details on declared failure handling.
+A timeout is not a failure here. A caller `AbortSignal.timeout()` that fires rejects with a `CancelError` whose `timedOut` is true, so `isCancelError(error) && error.timedOut` tells a deadline from a user cancel. Any other abort arrives as a `CancelError` too, with the abort reason on its `cause`. Cancellation itself is part of the control flow mechanism and does not alter the declared application failure set. See [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) for details on declared failure handling.
 
 ## API
 

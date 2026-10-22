@@ -101,12 +101,23 @@ const loadUser = cancAsync(function* (id: string) {
   }
   return row.name;
 });
-type _loadUser = Assert<Eq<ReturnType<typeof loadUser>, CancelablePromise<string, TimeoutError | NotFoundError>>>;
+type _loadUser = Assert<
+  Eq<
+    ReturnType<typeof loadUser>,
+    CancelablePromise<string, TimeoutError | NotFoundError | (TypeError & { readonly name: 'TypeError' })>
+  >
+>;
 
 // closed result set: guards exhaust it and the last branch reads never
 export const loadUserReason = loadUser('1').catch((e) => {
   if (isTimeoutError(e)) return 'slow';
   if (isErrorOf(e, NotFoundError)) return 'missing';
+  if (e instanceof TypeError) {
+    // the fetch member keeps its literal name, so the branch is that member alone
+    const network: Eq<typeof e, TypeError & { readonly name: 'TypeError' }> = true;
+    void network;
+    return 'offline';
+  }
   const last: Eq<typeof e, never> = true;
   void last;
   throw e;

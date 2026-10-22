@@ -1,12 +1,13 @@
+import { createServer } from 'node:http';
+import { AddressInfo } from 'node:net';
+
 import {
   CancelablePromise,
   CancelError,
   createCancelSignal,
-  createIsError,
   FailureOf,
   isAbortError,
   isCancelError,
-  isTimeoutError,
   TimeoutError,
   Unlisted,
 } from '@cancjs/promise';
@@ -295,6 +296,51 @@ describe('cancelableFetchFactory', () => {
   });
 });
 
+describe('init copy', () => {
+  it('reads each getter once and skips an own __proto__ key', async () => {
+    const backing = deferredFetch();
+    const cancelableFetch = cancelableFetchFactory({ fetch: backing.fetch });
+    let reads = 0;
+    const init = JSON.parse('{"__proto__": {"method": "POST"}, "body": "x"}');
+    Object.defineProperty(init, 'method', {
+      enumerable: true,
+      get: () => {
+        reads++;
+        return 'PUT';
+      },
+    });
+
+    const promise = cancelableFetch('/api', init);
+
+    expect(reads).toBe(1);
+    expect(Object.getPrototypeOf(backing.calls[0].init)).toBe(Object.prototype);
+    expect(backing.calls[0].init).toMatchObject({ method: 'PUT', body: 'x' });
+    void promise.cancel();
+    await promise.then(null, () => {});
+  });
+
+  it('passes inherited and getter init members to fetch', async () => {
+    const backing = deferredFetch();
+    const cancelableFetch = cancelableFetchFactory({ fetch: backing.fetch });
+
+    class Init {
+      get headers(): Record<string, string> {
+        return { accept: 'text/plain' };
+      }
+    }
+    Object.assign(Init.prototype, { method: 'POST', body: 'x' });
+
+    const fromPrototype = cancelableFetch('/api', Object.create({ method: 'POST', body: 'x' }));
+    const fromGetters = cancelableFetch('/api', new Init());
+
+    expect(backing.calls[0].init).toMatchObject({ method: 'POST', body: 'x' });
+    expect(backing.calls[1].init).toMatchObject({ method: 'POST', body: 'x', headers: { accept: 'text/plain' } });
+    void fromPrototype.cancel();
+    void fromGetters.cancel();
+    await Promise.all([fromPrototype, fromGetters].map((p) => p.then(null, () => {})));
+  });
+});
+
 describe('signal interop', () => {
   function makeNativeFactory(signal: any) {
     const backing = deferredFetch();
@@ -367,6 +413,40 @@ describe('signal interop', () => {
     }
 
     expect(external.listeners).toHaveLength(0);
+  });
+
+  it('wires the listener only while the body read runs', async () => {
+    const external = new NativeLikeAbortSignal();
+    const { promise, resolveWith } = makeNativeFactory(external);
+    let finishRead!: (text: string) => void;
+    const response = { text: () => new Promise<string>((resolve) => (finishRead = resolve)) };
+
+    resolveWith(response);
+    await promise;
+    expect(external.listeners).toHaveLength(0);
+
+    const read = response.text();
+    expect(external.listeners).toHaveLength(1);
+    finishRead('done');
+
+    await expect(read).resolves.toBe('done');
+    expect(external.listeners).toHaveLength(0);
+  });
+
+  it('aborts the body read when the external signal fires after the response', async () => {
+    const external = new NativeLikeAbortSignal();
+    const { promise, resolveWith } = makeNativeFactory(external);
+    const response = {
+      text: () =>
+        new Promise<string>((_resolve, reject) => external.addEventListener('abort', () => reject(makeAbortError()))),
+    };
+
+    resolveWith(response);
+    await promise;
+    const read = response.text();
+    external.dispatchEvent(new MockEvent('abort'));
+
+    expect(isCancelError(await read.then(null, (error: unknown) => error))).toBe(true);
   });
 
   it('detaches the listener after a rejected fetch too', async () => {
@@ -617,6 +697,54 @@ function createFakeTimers() {
 }
 
 describe('cancelableFetchLaterFactory', () => {
+  it('an external abort rejects with a CancelError, stops polling and detaches', async () => {
+    const fake = createFakeTimers();
+    const external = new NativeLikeAbortSignal();
+    const cancelableFetchLater = cancelableFetchLaterFactory({
+      fetchLater: jest.fn(() => makeFetchLaterResult(1000)) as any,
+      AbortController: MockAbortController as any,
+      pollInterval: 5,
+      ...fake.timers,
+    });
+
+    const promise = cancelableFetchLater('/api', { activateAfter: 1000, signal: external });
+    fake.advance(5);
+    expect(external.listeners).toHaveLength(1);
+
+    external.dispatchEvent(new MockEvent('abort'));
+    const error = await promise.then(null, (e: unknown) => e);
+    const ticks = fake.setTimeout.mock.calls.length;
+    fake.advance(50);
+
+    expect(isCancelError(error)).toBe(true);
+    expect(fake.setTimeout).toHaveBeenCalledTimes(ticks);
+    expect(external.listeners).toHaveLength(0);
+  });
+
+  it('an external abort without activateAfter rejects too', async () => {
+    const external = new AbortController();
+    const cancelableFetchLater = cancelableFetchLaterFactory({
+      fetchLater: jest.fn(() => makeFetchLaterResult(1000)) as any,
+    });
+
+    const promise = cancelableFetchLater('/api', { signal: external.signal });
+    external.abort();
+
+    expect(isCancelError(await promise.then(null, (e: unknown) => e))).toBe(true);
+  });
+
+  it('passes inherited init members to fetchLater', () => {
+    const fetchLater = jest.fn((_input: any, _init?: any) => makeFetchLaterResult(1000));
+    const promise = cancelableFetchLaterFactory({ fetchLater: fetchLater as any })(
+      '/api',
+      Object.create({ method: 'POST', body: 'x' }),
+    );
+
+    expect(fetchLater.mock.calls[0][1]).toMatchObject({ method: 'POST', body: 'x' });
+    void promise.cancel();
+    return promise.then(null, () => {});
+  });
+
   it('polls the FetchLaterResult activated flag and resolves once it flips true', async () => {
     const result = makeFetchLaterResult(1);
     const fetchLater = jest.fn(() => result);
@@ -871,24 +999,29 @@ describe('declared failure set', () => {
     _p2.catch(() => {});
   });
 
-  it('matches AbortSignal.timeout() driven rejection with isTimeoutError and declared set guard', async () => {
+  it('turns a raw TimeoutError rejection into a timed-out CancelError', async () => {
     const timeoutErr = new TimeoutError('The operation timed out');
     const mockFetch = jest.fn().mockRejectedValue(timeoutErr);
     const fetchFn = cancelableFetchFactory({ fetch: mockFetch });
 
-    const isFetchFailure = createIsError(TimeoutError);
-    const promise = fetchFn('https://example.com');
+    const error: any = await fetchFn('https://example.com').then(null, (e: unknown) => e);
 
-    let caughtError: unknown = null;
-    try {
-      await promise;
-    } catch (err) {
-      caughtError = err;
-    }
+    expect(isCancelError(error)).toBe(true);
+    expect(error.timedOut).toBe(true);
+    expect(error.cause).toBe(timeoutErr);
+  });
 
-    expect(caughtError).not.toBeNull();
-    expect(isTimeoutError(caughtError)).toBe(true);
-    expect(isFetchFailure(caughtError)).toBe(true);
+  it('rejects with the network TypeError for an unreachable port', async () => {
+    const server = createServer();
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const { port } = server.address() as AddressInfo;
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+
+    const error = await cancelableFetch(`http://127.0.0.1:${port}/`).then(null, (e: unknown) => e);
+
+    // undici builds the error in another realm, so the check reads the name
+    expect((error as Error).name).toBe('TypeError');
+    expect(isCancelError(error)).toBe(false);
   });
 });
 
@@ -898,4 +1031,7 @@ type Eq<A, B> =
       true
     : false
   : false;
-const _checkFetchFailure: Eq<FailureOf<ReturnType<typeof cancelableFetch>>, TimeoutError | Unlisted> = true;
+const _checkFetchFailure: Eq<
+  FailureOf<ReturnType<typeof cancelableFetch>>,
+  (TypeError & { readonly name: 'TypeError' }) | Unlisted
+> = true;

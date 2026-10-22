@@ -12,7 +12,7 @@
  * classes are the same type, which makes every subtraction and every narrowing check pass for
  * the wrong reason.
  */
-import type { Failing, FailureOf, TReason } from '@cancjs/promise';
+import type { Failing, FailureOf, TReason, Unlisted } from '@cancjs/promise';
 import CancelablePromise, {
   AbortError,
   CancelError,
@@ -25,6 +25,8 @@ import CancelablePromise, {
   suppressErrors,
   TimeoutError,
 } from '@cancjs/promise';
+
+import cancelableFetch from '@cancjs/fetch';
 
 import type { Assert, Eq } from './assert-type';
 
@@ -157,3 +159,8 @@ if (isAbortError(rawAbort)) {
 }
 
 export {};
+
+// fetch declares the network TypeError; a timeout arrives as a CancelError, outside the set
+type _fetchFailure = Assert<
+  Eq<FailureOf<ReturnType<typeof cancelableFetch>>, (TypeError & { readonly name: 'TypeError' }) | Unlisted>
+>;

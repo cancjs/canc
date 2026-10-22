@@ -118,6 +118,10 @@ An existing `config.signal` from the caller is composed with the internal one. E
 abort the request, and in both cases the promise rejects with a `CancelError`, normalizing the
 error regardless of which signal aborted.
 
+A caller abort rejects the promise right away, even when the adapter ignores the signal. An abort that lands while response interceptors are still running rejects as well, and the signal listener is removed as soon as the request settles.
+
+With `responseType: 'stream'` the promise fulfills at the response headers, so the body is still readable afterwards. The request stays abortable until the stream ends or closes: aborting the caller signal, or calling `response.config.cancelScope.cancel()`, destroys the stream. A consumer that listens for errors (`for await`, `pipeline`, an `'error'` handler) sees the `CancelError`. A stream nobody listens to for errors is destroyed without one, so the abort cannot crash the process.
+
 The wrapper holds no state beyond what axios itself holds. `defaults` on the wrapper is a live
 accessor onto the underlying instance's defaults, and `interceptors` is a facade over the real
 interceptor managers, so IDs stay valid and interceptors added directly on the underlying instance
@@ -149,10 +153,17 @@ example above, if the request is canceled while the token refresh is in flight, 
 promise is canceled too. `ctx.link(promise)` explicitly ties any cancelable promise to the
 request's lifecycle, so work started outside the return path is still canceled with the request.
 
+An interceptor that unwraps the response (`(response) => response.data`) still hands the next
+interceptor the live context, because the returned object is remembered for its request. The next
+interceptor gets a detached context (`signal` is `undefined`, `cancel()` does nothing) when the
+previous one returned a primitive, a value it resolved from a promise, or an object that another
+request also returned. The request itself still cancels through its signal.
+
 ### Combinators
 
-`all` differs from `axios.all` on purpose: it builds a `CancelablePromise`, so canceling one
-request rejects the aggregate and cancels the rest. `spread` is unchanged.
+`all` differs from `axios.all` on purpose: it builds a `CancelablePromise`. Canceling the aggregate
+releases its requests. A request the aggregate holds alone is canceled, and a request that other
+code also consumes keeps running for that code. `spread` is unchanged.
 
 ### Accessing the underlying instance
 
@@ -161,7 +172,7 @@ when handing a request to code that does not understand cancellation.
 
 ### Declared failures
 
-Request methods on wrapped axios instances declare `AxiosError` in their return type's failure set (`CancelablePromise<AxiosResponse<T>, AxiosError<T>>`).
+Request methods on wrapped axios instances declare `AxiosError` in an open failure set (`CancelablePromise<AxiosResponse<T>, AxiosError<T> | Unlisted>`). A `catch` reason stays `any`, the same as on a plain axios promise, and `isAxiosError` narrows it.
 
 When a request is canceled by the caller, the returned promise rejects with a `CancelError`. Cancellation is handled separately from the application failure set. See [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise) for declared failure matching and filtering.
 
@@ -174,7 +185,9 @@ interface: `request`, `get`, `delete`, `head`, `options`, `post`, `put`, `patch`
 `cancelableAxios.create(config?)` returns a new wrapped instance.
 
 `cancelableAxios.wrap(axiosInstance)` and `wrapAxios(axiosInstance)` wrap an existing axios instance. The argument is
-structurally typed, so it accepts instances from any axios version without type conflicts.
+structurally typed, so it accepts instances from any axios version without type conflicts. The
+options accept `AbortController` only. A `lazy` option is no longer accepted by the type, and it
+never had an effect: requests always started at once.
 
 `CancelScope` is the per-request cancellation scope class managing request lifecycle and interceptor promises.
 

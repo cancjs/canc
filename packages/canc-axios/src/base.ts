@@ -1,26 +1,23 @@
 import { CancelablePromise } from '@cancjs/promise';
-import { cancelify, IToolboxOptions } from '@cancjs/toolbox';
+import { cancelify, TEagerToolboxOptions } from '@cancjs/toolbox';
 
 import { isFunction, isObject } from '../../_util';
 import { createInterceptorFacade } from './interceptors';
 import { CancelScope, SCOPE_KEY } from './scope';
 import type { IAxiosInstanceLike, ICancelableAxiosInstance, ICancelableAxiosOptions } from './types';
 
-export type ICancelableAxiosWrapOptions = ICancelableAxiosOptions & IToolboxOptions;
+export type ICancelableAxiosWrapOptions = ICancelableAxiosOptions & TEagerToolboxOptions;
 
-// Marks an instance this module already wrapped, so wrapping twice is a no-op rather than a second
-// layer of signal plumbing.
+// wrapping a wrapped instance again is a no-op
 const BRAND = '__cancelableAxios';
 
-// Aliases taking (url, config).
+// (url, config) aliases
 const URL_METHODS = ['get', 'delete', 'head', 'options'];
 
-// Aliases taking (url, data, config). The *Form and query variants arrived after 0.22 and are
-// mirrored only when the underlying axios has them.
+// (url, data, config) aliases, *Form and query only after 0.22
 const DATA_METHODS = ['post', 'put', 'patch', 'postForm', 'putForm', 'patchForm', 'query'];
 
-// Non-request members mirrored from the source when present. `all` is deliberately absent: it is
-// replaced by the cancelable variant below.
+// `all` is absent on purpose, the cancelable one below replaces it
 const STATIC_MEMBERS = [
   'Axios',
   'AxiosError',
@@ -38,6 +35,14 @@ const STATIC_MEMBERS = [
   'spread',
   'toFormData',
 ];
+
+// only a Node-style stream can be watched and destroyed
+const isStreamResponse = (response: any): boolean =>
+  isObject(response) &&
+  (response as any).config?.responseType === 'stream' &&
+  isObject((response as any).data) &&
+  isFunction((response as any).data.on) &&
+  isFunction((response as any).data.destroy);
 
 const define = (target: any, name: string, get: () => any, set?: (value: any) => void): void => {
   Object.defineProperty(target, name, {
@@ -66,13 +71,18 @@ export function wrapAxios(
 
   const ControllerCtor = options?.AbortController;
 
-  // One cancelable wrap for every call shape. The caller supplies how to reach axios, so the
-  // aliases go through axios's own methods and keep its config merging and form-header handling.
+  // axios's own methods keep its config merging and form headers
   const run = cancelify(function (ctx, call: (config: any) => Promise<any>, configInput: any) {
     const config = configInput || {};
     const scope = new CancelScope(ControllerCtor);
 
-    // A caller-supplied signal aborts the request the same way .cancel() does.
+    // axios would keep only one signal once the wrapper sets its own
+    const defaultSignal = instance.defaults?.signal;
+
+    if (defaultSignal !== config.signal) {
+      scope.watch(defaultSignal);
+    }
+
     scope.watch(config.signal);
 
     if (isFunction(ctx.handleCancel)) {
@@ -81,21 +91,34 @@ export function wrapAxios(
       });
     }
 
-    // The scope travels on the config so interceptors and the adapter can reach it. Axios merges
-    // configs by walking Object.keys and copies non-plain objects by reference, so a class
-    // instance under a plain string key is what survives that merge with its identity intact.
+    // a class instance under a string key survives axios config merging
     const requestConfig = { ...config, signal: scope.signal, [SCOPE_KEY]: scope };
 
-    return call(requestConfig).then(
-      function (response) {
-        scope.finalize();
-        return response;
-      },
-      function (error) {
-        scope.finalize();
-        throw scope.toRejection(error);
-      },
-    );
+    return new Promise(function (resolve, reject) {
+      scope.rejectOnAbort(reject);
+
+      call(requestConfig)
+        .then(
+          function (response) {
+            if (isStreamResponse(response)) {
+              scope.holdStream(response.data);
+            } else {
+              scope.finalize();
+            }
+
+            if (scope.aborted) {
+              throw scope.reason;
+            }
+
+            return response;
+          },
+          function (error) {
+            scope.finalize();
+            throw scope.toRejection(error);
+          },
+        )
+        .then(resolve, reject);
+    });
   }, options);
 
   const wrapped: any = function (configOrUrl: any, maybeConfig?: any) {
@@ -144,7 +167,7 @@ export function wrapAxios(
     };
   }
 
-  // Cancelable counterpart of axios.all: canceling the aggregate cancels every request in it.
+  // follows the core aggregate cancel rule
   wrapped.all = function (values: any[]) {
     return CancelablePromise.all(values);
   };
@@ -171,8 +194,7 @@ export function wrapAxios(
 
   for (const name of STATIC_MEMBERS) {
     if (name in (instance as any)) {
-      // Read through on every access rather than copying, so a later reassignment on the source
-      // is visible here too.
+      // read through, a later reassignment on the source shows here too
       define(
         wrapped,
         name,

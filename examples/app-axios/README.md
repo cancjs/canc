@@ -6,7 +6,7 @@ An issue tracker API client using Axios, demonstrating how to make Axios request
 
 1. **Drop-in Axios wrapper.** Wrapping an existing `AxiosInstance` with `cancelableAxios.wrap(instance)` produces an `ICancelableAxiosInstance` where request methods (e.g., `.get()`, `.post()`, `.delete()`) return a `CancelablePromise` instead of a native `Promise`.
 2. **Transparent request aborting.** Calling `.cancel()` on the returned promise automatically aborts the underlying network request via `AbortSignal`, with the cancellation propagating cleanly through Axios response interceptors.
-3. **Explicit failure signatures.** The returned promises carry declared failure types, such as `CancelablePromise<SearchResult, AxiosError>`, allowing catch blocks to narrow the thrown error type automatically.
+3. **Explicit failure signatures.** The returned promises declare their failure, such as `CancelablePromise<SearchResult, AxiosError | Unlisted>`. The set is open, like a plain axios call, so a `catch` reason stays `any` and an `isAxiosError` check narrows it.
 4. **Boilerplate reduction.** In contrast to the manual vanilla registry pattern (tracking request IDs, holding `AbortController` instances, and cleanup on settle), the cancelable client simply cancels the previous query promise before triggering the next one.
 
 ## Prerequisites

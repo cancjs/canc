@@ -135,4 +135,52 @@ describe('interceptors', () => {
 
     expect(String(response.config.headers['X-Direct'])).toBe('yes');
   });
+
+  it('keeps the live context for interceptors after one that unwraps the response', async () => {
+    const stub = createStubAdapter({ auto: true, data: { id: 1 } });
+    const api = wrapAxios(axios.create({ adapter: stub.adapter }));
+
+    let seenSignal: any;
+    let canceledBefore: boolean | undefined;
+    let canceledAfter: boolean | undefined;
+
+    api.interceptors.response.use((response) => response.data);
+    api.interceptors.response.use((data, ctx) => {
+      seenSignal = ctx.signal;
+      canceledBefore = ctx.isCanceled();
+      ctx.cancel();
+      canceledAfter = ctx.isCanceled();
+      return data;
+    });
+
+    await expect(api.get('/issues')).rejects.toBeInstanceOf(CancelError);
+
+    expect(seenSignal).toBeDefined();
+    expect(canceledBefore).toBe(false);
+    expect(canceledAfter).toBe(true);
+  });
+
+  it('never hands one request the context of another through a shared unwrapped value', async () => {
+    const stub = createStubAdapter({ auto: true });
+    const api = wrapAxios(axios.create({ adapter: stub.adapter }));
+    const shared = { cached: true };
+    const signals: any[] = [];
+
+    api.interceptors.response.use(() => shared as any);
+    api.interceptors.response.use((value, ctx) => {
+      signals.push(ctx.signal);
+      // the second request cancels whatever context it was handed
+      if (signals.length === 2) {
+        ctx.cancel();
+      }
+      return value;
+    });
+
+    const first = api.get('/first');
+    const second = api.get('/second');
+
+    await expect(first).resolves.toBe(shared);
+    await second.then(null, () => {});
+    expect(signals[1]).not.toBe(signals[0]);
+  });
 });

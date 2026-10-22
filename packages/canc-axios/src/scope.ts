@@ -1,13 +1,13 @@
 import { CancelError, isCancelError } from '@cancjs/promise';
 
-import { isAbortError, isCancelable, isFunction, isObject } from '../../_util';
+import { AggregateError, isAbortError, isCancelable, isFunction, isObject } from '../../_util';
 
-// Structural stand-in so the source builds in environments without DOM/Node lib types.
+// stand-in so the source builds without DOM or Node lib types
 export type AbortControllerCtor = new () => { abort: (reason?: any) => void; signal: any };
 
 declare const AbortController: AbortControllerCtor;
 
-// A caller signal may be polyfilled and lack addEventListener/onabort, so feature-detect members.
+// a polyfilled signal may lack addEventListener or onabort
 interface PolyfilledAbortSignal {
   aborted?: boolean;
   reason?: any;
@@ -45,29 +45,18 @@ const toCancelError = (reason?: any): CancelError => {
   return new CancelError(reason);
 };
 
-/** Builds the CancelError for an abort that came from a caller-supplied signal. The cause is kept
- * AbortError-shaped so `CancelError#aborted` reads true. */
+/** Builds the CancelError for an abort that came from a caller-supplied signal, by the same rule as
+ * cancel(): an object reason (an AbortError or TimeoutError) becomes the cause as is. A signal that
+ * carries no reason gets an AbortError-shaped cause, so `CancelError#aborted` still reads true. */
 const toAbortCancelError = (reason?: any): CancelError => {
-  if (isCancelError(reason)) {
-    return reason;
+  if (reason !== undefined) {
+    return toCancelError(reason);
   }
 
-  if (isAbortError(reason)) {
-    return new CancelError(reason.message, { cause: reason });
-  }
-
-  const message =
-    isObject(reason) ? String((reason as any).message || '')
-    : reason == null ? ''
-    : String(reason);
-  const cause = new Error(message) as Error & { cause?: any };
+  const cause = new Error('') as Error & { cause?: any };
   cause.name = ABORT_ERROR_NAME;
 
-  if (reason !== undefined) {
-    cause.cause = reason;
-  }
-
-  return new CancelError(message, { cause });
+  return new CancelError('', { cause });
 };
 
 /**
@@ -89,6 +78,8 @@ export class CancelScope {
   private _controller: { abort: (reason?: any) => void; signal: any };
   private _linked: { cancel: (reason?: any) => void }[];
   private _detach: () => void;
+  private _reject: ((error: CancelError) => void) | undefined;
+  private _stream: any;
 
   constructor(ControllerCtor?: AbortControllerCtor) {
     const Ctor = ControllerCtor || (typeof AbortController !== 'undefined' ? AbortController : (undefined as any));
@@ -96,6 +87,8 @@ export class CancelScope {
     this._controller = new Ctor();
     this._linked = [];
     this._detach = function () {};
+    this._reject = undefined;
+    this._stream = undefined;
     this.signal = this._controller.signal;
     this.aborted = false;
     this.reason = undefined;
@@ -134,11 +127,70 @@ export class CancelScope {
     this.reason = error;
     this._controller.abort(error);
 
+    const reject = this._reject;
+    this._reject = undefined;
+
+    if (reject) {
+      reject(error);
+    }
+
+    this._destroyStream();
+    this.finalize();
+
     const linked = this._linked;
     this._linked = [];
+    const failures: any[] = [];
 
     for (const promise of linked) {
-      promise.cancel(error);
+      try {
+        promise.cancel(error);
+      } catch (failure) {
+        failures.push(failure);
+      }
+    }
+
+    if (failures.length === 1) {
+      throw failures[0];
+    }
+
+    if (failures.length > 1) {
+      throw new AggregateError(failures, 'Linked promises failed to cancel');
+    }
+  }
+
+  /** Registers how to reject the outer promise when the scope aborts, so an adapter that ignores
+   * the signal cannot keep the caller waiting. */
+  rejectOnAbort(reject: (error: CancelError) => void): void {
+    this._reject = reject;
+  }
+
+  /** Keeps the scope armed for a streamed response body: an abort destroys the stream, and the
+   * caller signal is released once the stream closes. */
+  holdStream(stream: any): void {
+    this._stream = stream;
+
+    if (this.aborted) {
+      this._destroyStream();
+      return;
+    }
+
+    const release = () => {
+      this._stream = undefined;
+      this.finalize();
+    };
+
+    stream.on('close', release);
+    stream.on('end', release);
+  }
+
+  private _destroyStream(): void {
+    const stream = this._stream;
+    this._stream = undefined;
+
+    if (stream) {
+      // an unheard error event crashes, only a watched stream gets one
+      const watched = isFunction(stream.listenerCount) && stream.listenerCount('error') > 0;
+      stream.destroy(watched ? this.reason : undefined);
     }
   }
 
@@ -150,9 +202,7 @@ export class CancelScope {
       return;
     }
 
-    // The onabort hook below is a `function` because it must forward the event target's own
-    // receiver to any previously installed handler, so this scope cannot become an arrow.
-    // eslint-disable-next-line @typescript-eslint/no-this-alias -- hook must stay function to forward its receiver
+    // eslint-disable-next-line @typescript-eslint/no-this-alias -- onabort forwards its receiver
     const self = this;
 
     if (original.aborted) {
@@ -168,9 +218,9 @@ export class CancelScope {
       original.addEventListener!('abort', listener);
 
       if (isFunction(original.removeEventListener)) {
-        this._detach = function () {
+        this._chainDetach(function () {
           original.removeEventListener!('abort', listener);
-        };
+        });
       }
 
       return;
@@ -187,10 +237,19 @@ export class CancelScope {
         }
       };
 
-      this._detach = function () {
+      this._chainDetach(function () {
         original.onabort = previous || null;
-      };
+      });
     }
+  }
+
+  private _chainDetach(detach: () => void): void {
+    const earlier = this._detach;
+
+    this._detach = function () {
+      earlier();
+      detach();
+    };
   }
 
   /** Detaches everything wired onto a caller signal, so a long-lived signal reused across many
