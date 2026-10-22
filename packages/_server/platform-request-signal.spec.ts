@@ -3,9 +3,9 @@ import { once } from 'events';
 import { ClientRequest, createServer, IncomingMessage, request as httpRequest, Server, ServerResponse } from 'http';
 import { AddressInfo } from 'net';
 
-import { getNodeRequestSignal } from '../node-signal';
-import { CLIENT_DISCONNECTED } from '../reasons';
-import { IRequestLike, IResponseLike } from '../types';
+import { getNodeRequestSignal } from './node-signal';
+import { CLIENT_DISCONNECTED } from './reasons';
+import { IRequestLike, IResponseLike } from './types';
 
 // pins node core today, a failure of the first case means upstream changed
 
