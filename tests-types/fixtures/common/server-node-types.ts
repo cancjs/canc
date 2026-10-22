@@ -30,6 +30,13 @@ const asyncHandler = cancelableHandler(async (_req, res) => {
 });
 void asyncHandler;
 
+const asyncGeneratorHandler = () =>
+  // @ts-expect-error an async generator handler is never drained, so it is rejected at the call site
+  cancelableHandler(async function* () {
+    yield 1;
+  });
+void asyncGeneratorHandler;
+
 const wrongArityHandler = () =>
   // @ts-expect-error a node request listener takes two arguments, so a third cannot be inferred
   cancelableHandler(function* (_req, _res, _extra) {

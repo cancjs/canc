@@ -44,6 +44,13 @@ const asyncHandler = cancelableHandler(async (ctx) => {
 });
 void asyncHandler;
 
+const asyncGeneratorHandler = () =>
+  // @ts-expect-error an async generator handler is never drained, so it is rejected at the call site
+  cancelableHandler(async function* () {
+    yield 1;
+  });
+void asyncGeneratorHandler;
+
 const wrongArityHandler = () =>
   cancelableHandler(
     // @ts-expect-error a koa handler is called with only the context, never next
