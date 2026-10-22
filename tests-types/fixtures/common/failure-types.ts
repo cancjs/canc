@@ -12,7 +12,7 @@
  * classes are the same type, which makes every subtraction and every narrowing check pass for
  * the wrong reason.
  */
-import type { Failing, FailureOf, TReason, Unlisted } from '@cancjs/promise';
+import type { Failing, FailureOf, TReason, Unlisted, WithFailure } from '@cancjs/promise';
 import CancelablePromise, {
   AbortError,
   CancelError,
@@ -24,6 +24,7 @@ import CancelablePromise, {
   isErrorOf,
   suppressErrors,
   TimeoutError,
+  withFailure,
 } from '@cancjs/promise';
 
 import cancelableFetch from '@cancjs/fetch';
@@ -107,6 +108,31 @@ type _suppressed = Assert<Eq<typeof suppressed, CancelablePromise<number | void,
 
 const cancelCaught = catchCancel(declared);
 type _cancelCaught = Assert<Eq<typeof cancelCaught, CancelablePromise<number | CancelError, MatrixError>>>;
+
+// cancellation is never a declared failure, whichever way it gets named
+declare const declaredWithCancel: CancelablePromise<number, MatrixError | CancelError>;
+type _cancelStripped = Assert<Eq<FailureOf<typeof declaredWithCancel>, MatrixError>>;
+
+declare const declaredOnlyCancel: CancelablePromise<number, CancelError>;
+type _onlyCancelStripped = Assert<Eq<FailureOf<typeof declaredOnlyCancel>, never>>;
+
+declare const failingWithCancel: Failing<MatrixError | CancelError>;
+type _failingStripsCancel = Assert<Eq<FailureOf<typeof failingWithCancel>, MatrixError>>;
+
+type _withFailureTypeStripsCancel = Assert<Eq<FailureOf<WithFailure<typeof declared, CancelError>>, MatrixError>>;
+
+const assertedWithCancel = withFailure<MatrixErrorTwo | CancelError>()(declared);
+type _withFailureStripsCancel = Assert<Eq<FailureOf<typeof assertedWithCancel>, MatrixErrorTwo>>;
+
+declare const declaredUnknown: CancelablePromise<number, unknown>;
+type _unknownUnchanged = Assert<Eq<FailureOf<typeof declaredUnknown>, unknown>>;
+
+declare const declaredAny: CancelablePromise<number, any>;
+type _anyUnchanged = Assert<Eq<FailureOf<typeof declaredAny>, never>>;
+
+// the executor may still reject with a CancelError, it just does not count as declared
+const executorCancel = new CancelablePromise<number, MatrixError>((_resolve, reject) => reject(new CancelError()));
+type _executorCancel = Assert<Eq<FailureOf<typeof executorCancel>, MatrixError>>;
 
 // ============================================================ guard narrowing
 declare const raw: unknown;
