@@ -44,6 +44,9 @@ export function ensureRequestCancelState(
 
   setRequestState(req, state);
   trackRequest(req, state);
+  // one listener forwards the abort to every task in flight. A listener per layer would stack on
+  // the same signal, and EventTarget warns past ten listeners once a request nests that many
+  forwardInFlightCancel(state);
   wireDisconnect(req, res, state);
 
   if (options) {
@@ -116,6 +119,25 @@ function adoptHooks(state: IRequestCancelState, { onDisconnect, onTimeout }: ICa
   }
 
   state.signal.addEventListener('abort', () => reportCancel(state), { once: true });
+}
+
+/**
+ * Installs the one abort listener that forwards a request's cancellation to every task in flight.
+ * Both runtimes call it once per request state; a listener per layer would stack on the same signal.
+ */
+export function forwardInFlightCancel(state: IRequestCancelState): void {
+  state.signal.addEventListener('abort', () => cancelInFlight(state), { once: true });
+}
+
+/** Cancels every task still in flight for a request with the reason its signal aborted with. */
+function cancelInFlight(state: IRequestCancelState): void {
+  for (const task of Array.from(state.live)) {
+    try {
+      task.cancel(state.signal.reason);
+    } catch (_e) {
+      // abort dispatch has no caller to catch this, a throw would surface as uncaught
+    }
+  }
 }
 
 function reportCancel(state: IRequestCancelState): void {

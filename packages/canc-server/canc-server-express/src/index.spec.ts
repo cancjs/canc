@@ -328,8 +328,10 @@ describe('request deadline', () => {
 
     // read at finish: every layer has registered whatever it registers by then, none removed yet
     app.use((_req, res, next) => {
+      // counts only what the wrapped chain adds: Node's own close listeners vary by version
+      const before = res.listenerCount('close');
       res.on('finish', () => {
-        closeListeners = res.listenerCount('close');
+        closeListeners = res.listenerCount('close') - before;
       });
       next();
     });

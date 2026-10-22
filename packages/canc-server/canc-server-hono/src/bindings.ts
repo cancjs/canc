@@ -1,6 +1,6 @@
 import { isResponseLive } from '../../../_server/exchange';
 import { getRequestState, IRequestCancelState, setRequestState } from '../../../_server/holder';
-import { applyRequestOptions, ensureRequestCancelState } from '../../../_server/node-signal';
+import { applyRequestOptions, ensureRequestCancelState, forwardInFlightCancel } from '../../../_server/node-signal';
 import { ICancelableHandlerOptions, IRequestLike, IResponseLike } from '../../../_server/types';
 import { createWebRequestSignal } from '../../../_server/web-signal';
 
@@ -113,6 +113,8 @@ function ensureWebRequestState(request: Request, options?: ICancelableHandlerOpt
   const state: IRequestCancelState = { cancel, live: new Set(), options: options ? { ...options } : {}, signal };
 
   setRequestState(keyed, state);
+  // tracked tasks are canceled through the in-flight set, so this runtime forwards the abort the same way
+  forwardInFlightCancel(state);
 
   if (options) {
     applyRequestOptions(state, options);

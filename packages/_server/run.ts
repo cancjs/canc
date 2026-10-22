@@ -79,7 +79,9 @@ export function runCancelableHandler<TReturn = unknown>(
       canceledTask<TReturn>(Impl, aborted, flags)
     : startHandler<TReturn>(Impl, handler, withPassOn(call, hold.release), {
         ...flags,
-        signal: collectSignals(state, options),
+        // a tracked task is canceled through the request's in-flight set, so the request
+        // signal is not listened to per layer; an untracked one keeps the signal itself
+        signal: tracked ? callerSignals(options) : collectSignals(state, options),
       });
 
   if (!tracked) {
@@ -88,6 +90,9 @@ export function runCancelableHandler<TReturn = unknown>(
 
   state.live.add(task);
   state.watch?.(task);
+  if (state.signal.aborted) {
+    task.cancel(state.signal.reason);
+  }
 
   // the deadline covers the handler, not the body a framework streams after it returned
   const settle = () => {
@@ -228,6 +233,17 @@ function findAbortedSignal(state: IRequestCancelState, options: ICancelableHandl
     : extra.aborted ? extra
     : undefined
   );
+}
+
+/** The signals a layer names itself. The request signal is not among them: the in-flight set carries it. */
+function callerSignals(options: ICancelableHandlerOptions): AbortSignal[] {
+  const extra = options.signal;
+
+  if (!extra) {
+    return [];
+  }
+
+  return Array.isArray(extra) ? extra : [extra];
 }
 
 function collectSignals(state: IRequestCancelState, options: ICancelableHandlerOptions): AbortSignal | AbortSignal[] {

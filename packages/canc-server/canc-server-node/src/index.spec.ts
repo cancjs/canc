@@ -237,9 +237,11 @@ describe('request deadline', () => {
     }
 
     const port = await listen((req, res) => {
+      // counts only what the wrapped chain adds: Node's own close listeners vary by version
+      const before = res.listenerCount('close');
       // read at finish: every layer has registered whatever it registers by then, none removed yet
       res.on('finish', () => {
-        closeListeners = res.listenerCount('close');
+        closeListeners = res.listenerCount('close') - before;
       });
       deep(req, res);
     });

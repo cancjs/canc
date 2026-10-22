@@ -531,8 +531,10 @@ describe('request deadline', () => {
 
     // read at finish: every layer has registered whatever it registers by then, none removed yet
     app.use(async (ctx, next) => {
+      // counts only what the wrapped chain adds: Node's own close listeners vary by version
+      const before = ctx.res.listenerCount('close');
       ctx.res.on('finish', () => {
-        closeListeners = ctx.res.listenerCount('close');
+        closeListeners = ctx.res.listenerCount('close') - before;
       });
       await next();
     });

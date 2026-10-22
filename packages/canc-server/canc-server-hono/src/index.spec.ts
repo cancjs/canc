@@ -729,9 +729,11 @@ describe('request deadline', () => {
     // read at finish: every layer has registered whatever it registers by then, none removed yet
     app.use(async (c, next) => {
       const outgoing = (c.env as { outgoing: http.ServerResponse }).outgoing;
+      // counts only what the wrapped chain adds: Node's own close listeners vary by version
+      const before = outgoing.listenerCount('close');
 
       outgoing.on('finish', () => {
-        closeListeners = outgoing.listenerCount('close');
+        closeListeners = outgoing.listenerCount('close') - before;
       });
       await next();
     });
