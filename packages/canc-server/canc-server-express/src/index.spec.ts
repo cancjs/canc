@@ -950,6 +950,9 @@ async function* asyncGeneratorHandler(): AsyncGenerator<number> {
 
 describeShutdownSockets(createShutdown, async (arrived, release) => {
   const plain = express();
+  plain.get('/fast', (_req, res) => {
+    res.send('ok');
+  });
   plain.get('/slow', (_req, res) => {
     arrived();
     void release.then(() => res.send('ok'));

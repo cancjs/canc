@@ -989,6 +989,11 @@ async function* asyncGeneratorHandler(): AsyncGenerator<number> {
 describeShutdownSockets(createShutdown, async (arrived, release) => {
   const plain = new Koa();
   plain.use(async (ctx) => {
+    if (ctx.path === '/fast') {
+      ctx.body = 'ok';
+      return;
+    }
+
     arrived();
     await release;
     ctx.body = 'ok';

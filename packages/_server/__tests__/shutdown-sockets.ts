@@ -259,6 +259,20 @@ export function describeShutdownSockets(createShutdown: TCreateShutdown, start: 
       expect(await closing).toEqual({ canceled: 0, completed: 2, timedOut: false });
     });
 
+    it('answers a pipelined request already ended while the first one is held', async () => {
+      const app = await startApp();
+      const shutdown = createShutdown(app.target as never);
+      const { client, closed } = openClient(app.port);
+      client.write(`${REQUEST_HEAD}\r\nGET /fast HTTP/1.1\r\nHost: localhost\r\n\r\n`);
+      await app.arrivedTimes(1);
+
+      const closing = shutdown({ timeout: GRACE_MS });
+      app.release();
+
+      expect(await closed).toEqual({ error: undefined, statuses: ['HTTP/1.1 200', 'HTTP/1.1 200'] });
+      expect(await closing).toEqual({ canceled: 0, completed: 2, timedOut: false });
+    });
+
     it('returns the same function for the same target', async () => {
       const app = await startApp();
 

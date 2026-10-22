@@ -1015,6 +1015,7 @@ describe('createShutdown argument', () => {
 
 describeShutdownSockets(createShutdown, async (arrived, release) => {
   const plain = Fastify();
+  plain.get('/fast', async () => 'ok');
   plain.get('/slow', async () => {
     arrived();
     await release;

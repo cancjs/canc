@@ -1007,6 +1007,7 @@ async function* asyncGeneratorHandler(): AsyncGenerator<number> {
 
 describeShutdownSockets(createShutdown, async (arrived, release) => {
   const plain = new Hono();
+  plain.get('/fast', (c) => c.text('ok'));
   plain.get('/slow', async (c) => {
     arrived();
     await release;

@@ -853,7 +853,12 @@ async function* asyncGeneratorHandler(): AsyncGenerator<number> {
 }
 
 describeShutdownSockets(createShutdown, async (arrived, release) => {
-  const server = createServer((_req, res) => {
+  const server = createServer((req, res) => {
+    if (req.url === '/fast') {
+      res.end('ok');
+      return;
+    }
+
     arrived();
     void release.then(() => res.end('ok'));
   });

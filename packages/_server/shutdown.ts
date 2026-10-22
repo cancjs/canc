@@ -25,6 +25,7 @@ export const DEFAULT_SHUTDOWN_TIMEOUT = 10_000;
 
 interface IDrainResponse extends IResponseLike {
   headersSent?: boolean;
+  writableFinished?: boolean;
   setHeader?: (name: string, value: string) => unknown;
   removeHeader?: (name: string) => void;
   socket?: unknown;
@@ -179,6 +180,8 @@ export function shutdownServer(
 
   const drains = new Map<IResponseLike, IDrain>();
   const closingResponses = new Map<IConnectionLike, IDrainResponse>();
+  // the responses whose `Connection: close` this shutdown set, so an app-set one is never touched
+  const closedHere = new WeakSet<IDrainResponse>();
 
   // outcomes are subscribed BEFORE anything is canceled, so a task that settles during the cancel
   // cascade is still counted
@@ -223,23 +226,34 @@ export function shutdownServer(
 
       res.once('close', () => {
         drain.over = true;
-        drain.wasCanceled = drain.wasCanceled || hasClientLeft(res);
+        // a response ended but cut before its bytes left the socket was not completed
+        drain.wasCanceled = drain.wasCanceled || hasClientLeft(res) || res.writableFinished === false;
         closeSocket(socket);
         settleDrain(drain);
       });
 
-      // a response not yet started tells its client not to reuse the connection; node ends the
-      // connection after it, so only the last one queued there carries it
-      if (ownsConnections && res.headersSent !== true && isFunction(res.setHeader)) {
-        const previous = socket && closingResponses.get(socket);
-        if (previous && previous.headersSent !== true && isFunction(previous.removeHeader)) {
-          previous.removeHeader('Connection');
+      // only the last response queued on a connection carries Connection: close
+      // removing an earlier one's header makes node end the connection after it too
+      // so an earlier one set here goes back to keep-alive, even when this one has started
+      if (ownsConnections && socket) {
+        const previous = closingResponses.get(socket);
+        if (
+          previous &&
+          previous !== res &&
+          previous.headersSent !== true &&
+          closedHere.has(previous) &&
+          isFunction(previous.setHeader)
+        ) {
+          previous.setHeader('Connection', 'keep-alive');
+          closedHere.delete(previous);
         }
 
-        res.setHeader('Connection', 'close');
-        if (socket) {
-          closingResponses.set(socket, res);
+        if (res.headersSent !== true && isFunction(res.setHeader)) {
+          res.setHeader('Connection', 'close');
+          closedHere.add(res);
         }
+
+        closingResponses.set(socket, res);
       }
     }
 
