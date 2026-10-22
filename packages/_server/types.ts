@@ -16,7 +16,16 @@ export type TGeneratorFn<TFn extends (...args: any) => any, TReturn = unknown> =
  * async generator. Nothing drains one, so the request would never be answered.
  */
 export type TNonAsyncGeneratorResult =
-  void | null | undefined | string | number | boolean | symbol | bigint | (object & { [Symbol.asyncIterator]?: never });
+  | void
+  | null
+  | undefined
+  | string
+  | number
+  | boolean
+  | symbol
+  | bigint
+  // a stream is async iterable but has no `next`, so it stays open; an async generator has both
+  | (object & ({ next?: never } | { [Symbol.asyncIterator]?: never }));
 
 /**
  * The framework's plain handler with an open result narrowed to `TNonAsyncGeneratorResult`. A

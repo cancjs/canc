@@ -1,5 +1,6 @@
 import { CancelSignal } from '@cancjs/promise';
 import type { IncomingMessage, Server, ServerResponse } from 'http';
+import { Readable } from 'stream';
 
 import { cancelableHandler, getRequestSignal, shutdown } from './index';
 
@@ -21,6 +22,12 @@ describe('handler inference', () => {
     const handler = cancelableHandler(async (_req, res) => {
       res.end('ok');
     });
+
+    expectHandler(handler);
+  });
+
+  it('accepts a plain handler that returns a stream', () => {
+    const handler = cancelableHandler((_req, _res) => Readable.from(['ok']));
 
     expectHandler(handler);
   });
