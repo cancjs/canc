@@ -7,8 +7,9 @@ import { IServerLike, IShutdownOptions, IShutdownResult } from '../../../_server
  *
  * The returned function stops the server: no new connections, a grace window for in-flight
  * handlers to finish, and a cancel for any still running when it ends (at once with
- * `cancelOnStart`). When it starts, connections carrying no request are closed and every in-flight
- * response is sent with `Connection: close`, so each connection closes once its response finishes.
+ * `cancelOnStart`). When it starts, a connection that has received no bytes is closed, while one
+ * that has already sent part of a request is left to finish. Every in-flight response is sent with
+ * `Connection: close`, so each connection closes once its response finishes.
  * It resolves with what happened rather than throwing. A second call while the first is still
  * running returns that same promise, so a pair of signal handlers is safe to wire without a guard.
  * Calling `createShutdown` again with the same server returns the same function.

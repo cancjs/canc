@@ -53,9 +53,10 @@ interface IDrain {
  *
  * Requests are seen from the first time this layer meets the server: `createShutdown`, the first
  * wrapped handler or request signal on it, the fastify plugin, or the shutdown itself. Connections
- * are seen from `createShutdown` on, and at the start each one carrying no request is closed. A
- * connection opened before that is unknown: if it has not sent a request, or its response is still
- * in flight, it is closed only when the window runs out.
+ * are seen from `createShutdown` on, and at the start each one that has received no bytes is
+ * closed, while one that has already sent part of a request is left to finish. A connection opened
+ * before that is unknown: if it has not sent a request, or its response is still in flight, it is
+ * closed only when the window runs out.
  *
  * Each request's own cancel signal is canceled as well, once its tasks have been. That stops the
  * consumers a handler never awaited, such as a detached query or a request-scoped database
@@ -389,7 +390,7 @@ export function shutdownServer(
 /**
  * Sets up the graceful shutdown of a server and returns the function that runs it. Connections
  * and requests are recorded from this call on, which is what lets the shutdown close a connection
- * that never sent a request and mark every in-flight response `Connection: close`. A second call
+ * that has received no bytes and mark every in-flight response `Connection: close`. A second call
  * for the same server returns the same function.
  */
 export function createServerShutdown(server: IServerLike): TShutdownFunction {

@@ -154,7 +154,7 @@ export function getRequestRegistry(server: IServerLike | undefined, create?: boo
 
 /**
  * Records every connection a server accepts from now on, until it closes, so a shutdown can close
- * one that never sent a request. Node keeps no such list, and `closeIdleConnections()` skips them.
+ * one that has received no bytes. Node keeps no such list, and `closeIdleConnections()` skips them.
  */
 export function trackConnections(server: IServerLike): void {
   const registry = getRequestRegistry(server, true);
