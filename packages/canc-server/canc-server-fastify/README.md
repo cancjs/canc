@@ -128,7 +128,21 @@ Both raise a `CancelError`. The discriminator is `isCancelError(error) && !error
 
 ### Shutting down
 
-`createShutdown` takes the Fastify instance, not `app.server`, and returns the function that runs the shutdown. Call it right after `app.listen()`, or earlier: it records connections and requests from that point on. The shutdown closes the server to new connections, closes the connections that have not sent a request, and closes idle ones. In-flight requests, wrapped or not, keep running for the grace window, and so does a request that arrives on a kept-alive connection meanwhile. Every response sent from then on carries `Connection: close`, and each connection closes as soon as the response on it finishes. When the window ends, handlers still running are canceled with the shutdown reason, so their cleanup runs and one that has not started its response can still answer `503`. Connections still busy after that are closed. Pass `cancelOnStart: true` to cancel handlers as soon as the shutdown starts instead, which suits long-lived responses such as server-sent events or long polling that would otherwise hold the whole window. The cancel reaches the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it. Created late, it drains correctly but slower, because a connection opened before the call is unknown to it. If that connection has not sent a request yet, or its request is still in flight and neither `cancelPlugin` nor a wrapped handler recorded it, the connection is closed only when the grace window ends, and that response goes out without `Connection: close`. A second call while the first is still running joins it rather than starting over, and calling `createShutdown` again with the same instance returns the same function. A `timeout` of `Infinity` waits for the responses however long they take, and a finite one past about 24.8 days is held at that limit. Pass `closeServer: false` to leave the instance open, in which case `app.close()` is not called. Otherwise it awaits `app.close()` once the drain has finished, so `onClose` hooks and plugin teardown run against a server that has already finished with its handlers. A failing `onClose` hook is logged, and the counts are still returned.
+`createShutdown` takes the Fastify instance, not `app.server`, and returns the function that runs the shutdown. Call it right after `app.listen()`: it records connections and requests from that point on.
+
+The shutdown closes the server to new connections, closes the connections that have not sent a request, and closes idle ones. In-flight requests, wrapped or not, keep running for the grace window, and so does a request that arrives on a kept-alive connection meanwhile. Every response sent from then on carries `Connection: close`, and each connection closes as soon as the response on it finishes.
+
+When the window ends, handlers still running are canceled with the shutdown reason, so their cleanup runs and one that has not started its response can still answer `503`. Connections still busy after that are closed. The cancel reaches the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it.
+
+Pass `cancelOnStart: true` to cancel handlers as soon as the shutdown starts instead, which suits long-lived responses such as server-sent events or long polling that would otherwise hold the whole window.
+
+Created late, it drains correctly but slower, because a connection opened before the call is unknown to it. If that connection has not sent a request yet, or its request is still in flight and neither `cancelPlugin` nor a wrapped handler recorded it, the connection is closed only when the grace window ends. That response goes out without `Connection: close`.
+
+A second call while the first is still running joins it rather than starting over, and calling `createShutdown` again with the same instance returns the same function.
+
+A `timeout` of `Infinity` waits for the responses however long they take, and a finite one past about 24.8 days is held at that limit.
+
+Pass `closeServer: false` to leave the instance open, in which case `app.close()` is not called. Otherwise it awaits `app.close()` once the drain has finished, so `onClose` hooks and plugin teardown run against a server that has already finished with its handlers. A failing `onClose` hook is logged, and the counts are still returned.
 
 ## API
 
