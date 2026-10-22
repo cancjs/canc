@@ -23,7 +23,6 @@
     "@cancjs/node:ProcessExitError",
     "@cancjs/node:ProcessSpawnError",
     "@cancjs/promise:failure",
-    "@cancjs/server-node:LiveRequests",
     "@cancjs/server-node:RequestCancelState",
     "@cancjs/server-node:RequestRegistry",
     "@cancjs/server-node:Shutdown",
