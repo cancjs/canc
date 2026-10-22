@@ -220,7 +220,7 @@ export function trackRequest(req: IRequestLike, state: IRequestCancelState): voi
 export function getShutdownState(server: IServerLike): CancelablePromise<IShutdownResult, never> | undefined {
   if (server === null || (typeof server !== 'object' && typeof server !== 'function')) {
     throw new TypeError(
-      `shutdown() needs the http server as its first argument, got ${server === null ? 'null' : typeof server}.`,
+      `createShutdown() needs the http server as its first argument, got ${server === null ? 'null' : typeof server}.`,
     );
   }
 
