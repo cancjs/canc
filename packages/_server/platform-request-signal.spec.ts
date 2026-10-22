@@ -9,6 +9,9 @@ import { IRequestLike, IResponseLike } from './types';
 
 // pins node core today, a failure of the first case means upstream changed
 
+// node 18 has no IncomingMessage.prototype.signal, so there is no platform signal to pin there
+const describePlatform = 'signal' in IncomingMessage.prototype ? describe : describe.skip;
+
 interface IExchange {
   cancSignal: CancelSignal;
   platformAborted: Promise<void>;
@@ -17,7 +20,7 @@ interface IExchange {
   res: ServerResponse;
 }
 
-describe('node platform request signal', () => {
+describePlatform('node platform request signal', () => {
   let server: Server;
   let port: number;
   let arrived: (exchange: IExchange) => void;
