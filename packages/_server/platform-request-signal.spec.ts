@@ -9,8 +9,14 @@ import { IRequestLike, IResponseLike } from './types';
 
 // pins node core today, a failure of the first case means upstream changed
 
-// node 18 has no IncomingMessage.prototype.signal, so there is no platform signal to pin there
-const describePlatform = 'signal' in IncomingMessage.prototype ? describe : describe.skip;
+// node 18 has no IncomingMessage.prototype.signal, and node 24.20 stopped aborting it at body end
+const describePlatform = 'signal' in IncomingMessage.prototype && hasBodyEndAbort() ? describe : describe.skip;
+
+function hasBodyEndAbort(): boolean {
+  const [major, minor] = process.versions.node.split('.').map(Number);
+
+  return major < 24 || (major === 24 && minor < 20);
+}
 
 interface IExchange {
   cancSignal: CancelSignal;
