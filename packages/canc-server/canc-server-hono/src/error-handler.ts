@@ -3,7 +3,7 @@ import type { Env, ErrorHandler } from 'hono';
 
 import { statusOf } from '../../../_server/exchange';
 import { DEFAULT_TIMEOUT_STATUS } from '../../../_server/timeout';
-import { alreadySentHeaders, isResponseUnreachable } from './bindings';
+import { abandonIfHeadersSent, alreadySentHeaders, isResponseUnreachable } from './bindings';
 import { CLIENT_CLOSED_STATUS } from './handler';
 
 /** Options for the opt-in error handler. */
@@ -55,6 +55,9 @@ export function cancelErrorHandler<E extends Env = any>(options: ICancelErrorHan
 
       return c.text('Internal Server Error', 500);
     }
+
+    // a head already sent cannot take a status: cut the socket, then answer as unreachable
+    abandonIfHeadersSent(c);
 
     if (isResponseUnreachable(c)) {
       return new Response(null, { headers: alreadySentHeaders(c), status: CLIENT_CLOSED_STATUS });

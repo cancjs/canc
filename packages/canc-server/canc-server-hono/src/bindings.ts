@@ -3,6 +3,7 @@ import { getRequestState, IRequestCancelState, setRequestState } from '../../../
 import { applyRequestOptions, ensureRequestCancelState, forwardInFlightCancel } from '../../../_server/node-signal';
 import { ICancelableHandlerOptions, IRequestLike, IResponseLike } from '../../../_server/types';
 import { createWebRequestSignal } from '../../../_server/web-signal';
+import { isFunction } from '../../../_util';
 
 /**
  * The part of a hono `Context` this package reads.
@@ -78,6 +79,19 @@ export function isResponseUnreachable(c: ICancelContext): boolean {
   }
 
   return !isResponseLive(bindings.outgoing);
+}
+
+/**
+ * Destroys the node response when its head already went out. A status cannot follow a written head,
+ * and a bare error response would make the node adapter write headers on it again, so the socket is
+ * cut instead and the client reads a short body rather than a complete one.
+ */
+export function abandonIfHeadersSent(c: ICancelContext): void {
+  const outgoing = getNodeBindings(c.env)?.outgoing as { headersSent?: boolean; destroy?: () => void } | undefined;
+
+  if (outgoing?.headersSent === true && isFunction(outgoing.destroy)) {
+    outgoing.destroy();
+  }
 }
 
 /**
