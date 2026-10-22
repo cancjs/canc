@@ -484,6 +484,44 @@ describe('error handler', () => {
     expect(response.statusCode).toBe(499);
   });
 
+  it('still reads the deprecated canceledStatus key', async () => {
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.setErrorHandler(cancelErrorHandler({ canceledStatus: 498 }));
+    instance.get(
+      '/give-up',
+      cancelableHandler(function* () {
+        yield Promise.resolve();
+
+        throw new CancelError('gave up');
+      }),
+    );
+
+    const port = await listen(instance);
+    const response = await send(port, '/give-up');
+
+    expect(response.statusCode).toBe(498);
+  });
+
+  it('prefers status over the deprecated canceledStatus key', async () => {
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.setErrorHandler(cancelErrorHandler({ status: 499, canceledStatus: 498 }));
+    instance.get(
+      '/give-up',
+      cancelableHandler(function* () {
+        yield Promise.resolve();
+
+        throw new CancelError('gave up');
+      }),
+    );
+
+    const port = await listen(instance);
+    const response = await send(port, '/give-up');
+
+    expect(response.statusCode).toBe(499);
+  });
+
   it('drops a cancellation that surfaces after the client left', async () => {
     const started = deferred();
     const handled = deferred();

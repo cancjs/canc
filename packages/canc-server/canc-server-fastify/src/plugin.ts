@@ -13,6 +13,8 @@ const CANCELED_STATUS = 503;
 export interface ICancelErrorHandlerOptions {
   /** Status sent when a cancellation surfaces on a live connection. Defaults to 503. */
   status?: number;
+  /** @deprecated Read `status` instead. Kept so existing `canceledStatus` callers keep working. */
+  canceledStatus?: number;
 }
 
 /** The shape `fastify.setErrorHandler` accepts. */
@@ -58,7 +60,7 @@ export const cancelPlugin = fastifyPlugin(plugin, {
  * included, goes to fastify's own handling, which reads the status off the error.
  */
 export function cancelErrorHandler(options?: ICancelErrorHandlerOptions): TCancelErrorHandler {
-  const status = options?.status ?? CANCELED_STATUS;
+  const status = options?.status ?? options?.canceledStatus ?? CANCELED_STATUS;
 
   return function cancelAwareErrorHandler(error, _request, reply) {
     if (isUnanswerable(error, reply.raw)) {

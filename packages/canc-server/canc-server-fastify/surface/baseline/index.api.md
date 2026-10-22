@@ -20,6 +20,7 @@ Generated. Do not edit by hand.
 ## `ICancelErrorHandlerOptions` (interface)
 
 ```text
+canceledStatus?: number | undefined // @deprecated
 status?: number | undefined
 ```
 
