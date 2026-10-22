@@ -2,10 +2,10 @@
  * Server-family type-level fixture: `@cancjs/server-fastify`. Imports the BUILT package
  * (resolved from the installed tarball, never from src) and checks the handler-inference
  * contract it advertises: a bare `function* (request, reply)` infers both parameters with no
- * annotations, a plain async handler typechecks alongside the generator form, `RouteGeneric
- * ['Reply']` constrains the generator return, a wrong-arity handler is a compile error, and
- * `shutdown(app.server)` does not compile because the wrapper is narrowed to the instance so
- * `onClose` hooks run after the shutdown rather than during it.
+ * annotations, a plain async handler typechecks alongside the generator form, a handler may return a
+ * `Readable` stream as its reply, `RouteGeneric['Reply']` constrains the generator return, a
+ * wrong-arity handler is a compile error, and `shutdown(app.server)` does not compile because the
+ * wrapper is narrowed to the instance so `onClose` hooks run after the shutdown rather than during it.
  *
  * Deliberately runtime-dead (nothing executes); exists purely to make `tsc --noEmit` chew through
  * the shipped declaration files.
@@ -21,6 +21,7 @@
  */
 import { cancelableHandler, shutdown } from '@cancjs/server-fastify';
 import Fastify from 'fastify';
+import { Readable } from 'node:stream';
 
 const bareHandler = cancelableHandler(function* (request, reply) {
   const method: string = request.method;
@@ -38,6 +39,16 @@ const asyncHandler = cancelableHandler(async (request, reply) => {
   return { ok: true };
 });
 void asyncHandler;
+
+const streamHandler = cancelableHandler(function* () {
+  yield Promise.resolve();
+
+  return Readable.from(['ok']);
+});
+void streamHandler;
+
+const plainStreamHandler = cancelableHandler(() => Readable.from(['ok']));
+void plainStreamHandler;
 
 const constrainedHandler = cancelableHandler<{ Reply: { ok: boolean } }>(function* () {
   yield Promise.resolve();
