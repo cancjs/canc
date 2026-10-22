@@ -7,10 +7,13 @@ import { getNodeRequestSignal } from './node-signal';
 import { CLIENT_DISCONNECTED } from './reasons';
 import { IRequestLike, IResponseLike } from './types';
 
-// pins node core today, a failure of the first case means upstream changed
+// pins node core today, a failure of either case means upstream changed
 
-// node 18 has no IncomingMessage.prototype.signal, and node 24.20 stopped aborting it at body end
-const describePlatform = 'signal' in IncomingMessage.prototype && hasBodyEndAbort() ? describe : describe.skip;
+// node 18 has no IncomingMessage.prototype.signal, so there is nothing to pin there
+const describePlatform = 'signal' in IncomingMessage.prototype ? describe : describe.skip;
+
+// node 24.20 stopped aborting the platform signal at body end, so expectations branch by version
+const abortsAtBodyEnd = hasBodyEndAbort();
 
 function hasBodyEndAbort(): boolean {
   const [major, minor] = process.versions.node.split('.').map(Number);
@@ -19,6 +22,7 @@ function hasBodyEndAbort(): boolean {
 }
 
 interface IExchange {
+  bodyEnded: Promise<unknown>;
   cancSignal: CancelSignal;
   platformAborted: Promise<void>;
   platformSignal: AbortSignal;
@@ -39,10 +43,11 @@ describePlatform('node platform request signal', () => {
       const platformAborted = new Promise<void>((resolve) => {
         platformSignal.addEventListener('abort', () => resolve(), { once: true });
       });
+      const bodyEnded = once(req, 'end');
 
       // draining the body is what lets the request stream complete and close
       req.resume();
-      arrived({ cancSignal, platformAborted, platformSignal, req, res });
+      arrived({ bodyEnded, cancSignal, platformAborted, platformSignal, req, res });
     });
     server.listen(0, '127.0.0.1');
     await once(server, 'listening');
@@ -68,13 +73,15 @@ describePlatform('node platform request signal', () => {
     return { client, exchange };
   }
 
-  it('platform signal aborts after body end with client still connected', async () => {
+  it('platform signal after body end with client still connected', async () => {
     const { client, exchange } = postWithBody();
-    const { platformAborted, platformSignal, req, res } = await exchange;
+    const { bodyEnded, platformAborted, platformSignal, req, res } = await exchange;
 
-    await platformAborted;
+    // before 24.20 the abort marks the body end; after it, the body end event is the only signal
+    await (abortsAtBodyEnd ? platformAborted : bodyEnded);
 
-    expect(platformSignal.aborted).toBe(true);
+    expect(platformSignal.aborted).toBe(abortsAtBodyEnd);
+    // a fully consumed request stream auto-destroys on every version, the socket is what stays up
     expect(req.destroyed).toBe(true);
     expect(client.socket?.destroyed).toBe(false);
     expect(req.socket.destroyed).toBe(false);
@@ -86,11 +93,11 @@ describePlatform('node platform request signal', () => {
 
   it('canc disconnect signal stays live', async () => {
     const { client, exchange } = postWithBody();
-    const { cancSignal, platformAborted, platformSignal, res } = await exchange;
+    const { bodyEnded, cancSignal, platformAborted, platformSignal, res } = await exchange;
 
-    await platformAborted;
+    await (abortsAtBodyEnd ? platformAborted : bodyEnded);
 
-    expect(platformSignal.aborted).toBe(true);
+    expect(platformSignal.aborted).toBe(abortsAtBodyEnd);
     expect(cancSignal.aborted).toBe(false);
 
     const gone = once(res, 'close');
