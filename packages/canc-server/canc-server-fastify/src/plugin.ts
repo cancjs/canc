@@ -44,8 +44,8 @@ const plugin: FastifyPluginAsync<ICancelableHandlerOptions> = function cancelPlu
  * it sets. A registered deadline starts at `onRequest` and covers plain routes too; a route passing
  * its own `timeout` restarts it. It ends when the response closes, or once the wrapped route handler
  * settles, so a body streamed after the handler returned is not cut short. The lifecycle callbacks
- * run once per request, however many wrapped hooks it passes. Nothing is decorated onto the request or the instance, so no module augmentation is
- * needed to use this.
+ * run once per request, however many wrapped hooks it passes. Nothing is decorated onto the request
+ * or the instance, so no module augmentation is needed to use this.
  */
 export const cancelPlugin = fastifyPlugin(plugin, {
   fastify: '>=5.0.0',

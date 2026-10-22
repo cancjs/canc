@@ -95,6 +95,8 @@ The cancel state is cached on the raw request under a registered symbol, so the 
 
 The wrapper never writes the response. A cancellation that arrives with the client already gone is dropped and the reply is hijacked, because there is nothing to answer on. Everything else is rethrown and reaches your error handler, including a missed deadline, which carries `status` and `statusCode` so Fastify's own error handling reports the code you configured.
 
+`cancelErrorHandler({ status })` sets the status a shutdown cancellation gets on a live connection, `503` by default. The older `canceledStatus` key still works. When the response head already went out, no status can be sent, so the socket is destroyed instead of left looking complete.
+
 ## Description
 
 ### Handler kinds

@@ -248,7 +248,7 @@ describe('request deadline', () => {
 
     expect((await httpRequest(port, { path: '/deep' })).body).toBe('ok');
     await settleTurns();
-    expect(closeListeners).toBeLessThanOrEqual(2);
+    expect(closeListeners).toBe(1);
     expect(warnings.stop()).toEqual([]);
   });
 });

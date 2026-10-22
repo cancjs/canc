@@ -89,7 +89,10 @@ export interface ICancelErrorHandlerOptions {
 
 /** Options for a graceful shutdown. */
 export interface IShutdownOptions {
-  /** Grace window in milliseconds before the shutdown gives up waiting. Defaults to 10000. */
+  /**
+   * Grace window in milliseconds before the shutdown gives up waiting. Defaults to 10000. A negative
+   * value is treated as 0, so the shutdown gives up at once.
+   */
   timeout?: number;
   /** Reason the in-flight requests are canceled with. Defaults to the shutdown reason. */
   reason?: string;

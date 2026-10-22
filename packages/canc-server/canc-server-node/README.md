@@ -161,7 +161,7 @@ Cancellation is always a `CancelError`. What differs between the three triggers 
 
 ### What reaches the error handler
 
-Raw node has no `next(err)` and no error middleware. What settles a request after its handler rejects is `options.onError`, and it defaults to `cancelErrorHandler()`. A cancellation that is not a deadline, on a response whose socket is already gone, is dropped before `onError` is called: there is nobody left to answer. A deadline always reaches `onError`, because the client is still there and expects a response.
+Raw node has no `next(err)` and no error middleware. What settles a request after its handler rejects is `options.onError`, and it defaults to `cancelErrorHandler()`. A cancellation that is not a deadline, on a response whose socket is already gone, is dropped before `onError` is called: there is nobody left to answer. A deadline always reaches `onError`, because the client is still there and expects a response. If the head already went out, a status can no longer be sent, so the socket is destroyed instead: the client sees a cut connection rather than a body that looks complete.
 
 `cancelErrorHandler()` answers a deadline with the status stamped on the error, answers a shutdown cancellation with its fallback status (`503`, or whatever `status` you pass), and leaves a departed client alone. Anything that is not a cancellation, a plain bug in a handler, answers `500` and goes to `console.error`.
 
