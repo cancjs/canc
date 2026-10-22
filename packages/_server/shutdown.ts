@@ -32,6 +32,7 @@ interface ISocketLike {
 
 /** One request a shutdown waits on, counted once its response is over and its tasks settled. */
 interface IDrain {
+  req: IRequestLike;
   outstanding: number;
   wasCanceled: boolean;
   over: boolean;
@@ -39,14 +40,16 @@ interface IDrain {
 }
 
 /**
- * Stops a server gracefully: no new connections, every in-flight request canceled, and a bounded
- * wait for their responses to finish.
+ * Stops a server gracefully: no new connections, a grace window for in-flight requests to finish,
+ * and a cancel for whatever is still running when it ends.
  *
- * The wait is on responses, not on handler tasks, so a route this layer never wrapped still gets to
- * answer inside the grace window. Every response sent from here on carries `Connection: close`, and
- * each connection is closed as soon as the response on it finishes. Connections still busy when the
- * window runs out are force-closed. A request arriving on a kept-alive connection while the shutdown
- * runs is canceled on arrival and answered with `Connection: close`.
+ * Every request runs on until the window ends, wrapped or not, including one that arrives on a
+ * kept-alive connection while the shutdown runs. Every response sent from here on carries
+ * `Connection: close`, and each connection is closed as soon as the response on it finishes. When
+ * the window ends, the handlers still running are canceled with the shutdown reason, so their
+ * cleanup runs and a response not started yet can still answer. Connections still busy after that
+ * are force-closed. With `cancelOnStart` the handlers are canceled at once instead, a late arrival
+ * included, and the window is only the wait for them to unwind.
  *
  * Requests are seen from the first time this layer meets the server: the first wrapped handler or
  * request signal on it, the fastify plugin, or the shutdown itself. A connection opened before that
@@ -77,6 +80,7 @@ export function shutdownServer(
   // passing false owns the server's connection lifecycle, so this layer touches none of it and
   // only cancels the tasks and signals it tracks
   const ownsConnections = options.closeServer !== false;
+  const cancelOnStart = options.cancelOnStart === true;
   // registry precedence only, so a setPromiseImpl consumer gets its own class back from the
   // settled outcome this resolves to, same as the rest of the request-cancellation core
   const Impl = resolvePromiseImpl() as unknown as typeof CancelablePromise;
@@ -86,6 +90,7 @@ export function shutdownServer(
   let canceled = 0;
   let completed = 0;
   let timedOut = false;
+  let graceEnded = false;
   let openRequests = 0;
   let listening = ownsConnections && isFunction(server.close);
   let finish: () => void = noop;
@@ -177,7 +182,7 @@ export function shutdownServer(
       return;
     }
 
-    const drain: IDrain = { counted: false, outstanding: 0, over: isResponseClosed(res), wasCanceled: false };
+    const drain: IDrain = { counted: false, outstanding: 0, over: isResponseClosed(res), req, wasCanceled: false };
     drains.set(res, drain);
     openRequests += 1;
 
@@ -208,25 +213,57 @@ export function shutdownServer(
   };
 
   const cancelRequest = (state: IRequestCancelState) => {
-    state.shuttingDown = true;
-    state.cancel(reason);
+    if (!state.shuttingDown) {
+      state.shuttingDown = true;
+      state.cancel(reason);
+    }
   };
 
-  const inFlight = Array.from(registry.open);
-  for (const [res, req] of inFlight) {
+  const cancelOpenRequests = () => {
+    const states: IRequestCancelState[] = [];
+    for (const drain of drains.values()) {
+      const state = drain.counted ? undefined : getRequestState(drain.req);
+      if (state) {
+        states.push(state);
+      }
+    }
+
+    for (const state of states) {
+      for (const task of Array.from(state.live)) {
+        // a strict shielded task throws on cancel, and that would abort the shutdown midway
+        try {
+          task.cancel(reason);
+        } catch (_e) {
+          // the task still settles through its own shield, the drain counts it
+        }
+      }
+    }
+
+    // the signal goes after the tasks it drives, so anything watching it sees a request whose own
+    // work has already unwound rather than one mid-teardown
+    for (const state of states) {
+      cancelRequest(state);
+    }
+  };
+
+  for (const [res, req] of Array.from(registry.open)) {
     admit(req, res);
   }
 
   // server.close() only stops new connections, so a request can still arrive on a kept-alive one
-  // while this drains
+  // while this drains, and it is served like any other unless the start cancels handlers
   registry.onArrival = (req, res) => {
     admit(req, res);
-    const state = ensureRequestCancelState(req, res);
-    if (!state.shuttingDown) {
+    if (cancelOnStart) {
+      cancelRequest(ensureRequestCancelState(req, res));
+    }
+  };
+  registry.onTrack = (state) => {
+    watchTasks(state);
+    if (cancelOnStart || graceEnded) {
       cancelRequest(state);
     }
   };
-  registry.onTrack = watchTasks;
 
   if (listening && isFunction(server.close)) {
     // fires once every connection is gone, which covers requests this layer never saw
@@ -237,22 +274,8 @@ export function shutdownServer(
   }
   closeIdle();
 
-  const states = inFlight.map(([, req]) => getRequestState(req)).filter(isDefined);
-  for (const state of states) {
-    for (const task of state.live) {
-      // a strict shielded task throws on cancel, and that would abort the shutdown midway
-      try {
-        task.cancel(reason);
-      } catch (_e) {
-        // the task still settles through its own shield, the drain below counts it
-      }
-    }
-  }
-
-  // the signal goes after the tasks it drives, so anything watching it sees a request whose own
-  // work has already unwound rather than one mid-teardown
-  for (const state of states) {
-    cancelRequest(state);
+  if (cancelOnStart) {
+    cancelOpenRequests();
   }
 
   settleIfDrained();
@@ -262,12 +285,15 @@ export function shutdownServer(
     let timer =
       grace === Infinity ? undefined : (
         setTimeout(() => {
+          graceEnded = true;
+          timedOut = openRequests > 0;
+          cancelOpenRequests();
           // a connection opened before this layer met the server and idle now never closes itself
           closeIdle();
           // one more turn lets a response written in answer to a cancel reach its socket first, and
           // an idle connection closed just now count as gone
           timer = setTimeout(() => {
-            timedOut = openRequests > 0 || listening;
+            timedOut = timedOut || openRequests > 0 || listening;
             resolve();
           }, 0);
         }, grace)
@@ -277,8 +303,9 @@ export function shutdownServer(
     handleCancel(() => clearTimeout(timer));
   });
 
+  const onArrival = registry.onArrival;
   const stopDraining = () => {
-    if (registry.onTrack === watchTasks) {
+    if (registry.onArrival === onArrival) {
       registry.onArrival = undefined;
       registry.onTrack = undefined;
     }
@@ -300,7 +327,7 @@ export function shutdownServer(
         stopDraining();
         clearShutdownState(server, shutdown);
         // stragglers only: a drain that finished in time has no connection left to close
-        if (timedOut && ownsConnections && isFunction(server.closeAllConnections)) {
+        if ((openRequests > 0 || listening) && ownsConnections && isFunction(server.closeAllConnections)) {
           server.closeAllConnections();
         }
 
@@ -325,10 +352,6 @@ function resolveGrace(timeout: number | undefined): number {
   }
 
   return timeout === Infinity ? timeout : Math.min(Math.max(timeout, 0), MAX_TIMER_MS);
-}
-
-function isDefined<T>(value: T | undefined): value is T {
-  return value !== undefined;
 }
 
 function noop(): void {

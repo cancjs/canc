@@ -9,8 +9,8 @@ import { IShutdownOptions, IShutdownResult } from '../../../_server/types';
 const running = new WeakMap<FastifyInstance, Promise<IShutdownResult>>();
 
 /**
- * Stops a fastify instance gracefully: no new connections, every in-flight handler canceled, and a
- * bounded wait for them to unwind.
+ * Stops a fastify instance gracefully: no new connections, a grace window for in-flight handlers to
+ * finish, and a cancel for any still running when it ends (at once with `cancelOnStart`).
  *
  * Takes the fastify instance rather than `app.server` so `app.close()` runs last and every
  * `onClose` hook sees a server already shut down instead of one still serving requests. A second

@@ -183,10 +183,10 @@ function logHandlerFailure(error: unknown): void {
 }
 
 /**
- * Stops a server gracefully: no new connections, every in-flight handler canceled, and a bounded
- * wait for them to unwind. Resolves with what happened rather than throwing, and a second call while
- * the first is still running returns that same result, so wiring it to both `SIGTERM` and `SIGINT`
- * needs no guard.
+ * Stops a server gracefully: no new connections, a grace window for in-flight handlers to finish,
+ * and a cancel for any still running when it ends (at once with `cancelOnStart`). Resolves with what
+ * happened rather than throwing, and a second call while the first is still running returns that
+ * same result, so wiring it to both `SIGTERM` and `SIGINT` needs no guard.
  */
 export function shutdown(server: Server, options?: IShutdownOptions): Promise<IShutdownResult> {
   return shutdownServer(server, options);

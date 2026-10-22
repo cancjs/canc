@@ -25,7 +25,7 @@ It also carries the two things a server needs around that: a per-handler deadlin
 - Generator handlers stop mid-flight, at the `yield` they are suspended on
 - Per-route or per-app deadline, with the HTTP status and message of your choosing
 - Never writes to a socket the client has already left
-- Graceful shutdown that cancels in-flight handlers and closes the instance
+- Graceful shutdown that lets in-flight handlers finish within a grace window, then cancels the rest and closes the instance
 - No decorators on the request or the instance, so no module augmentation is needed
 - Route generics flow through, including the reply type
 
@@ -126,7 +126,7 @@ Both raise a `CancelError`. The discriminator is `isCancelError(error) && !error
 
 ### Shutting down
 
-`shutdown` takes the Fastify instance, not `app.server`. It closes the server to new connections, closes idle ones, cancels every in-flight handler with the shutdown reason, waits for them within the grace window, and only then awaits `app.close()`, so `onClose` hooks and plugin teardown run against a server that has already finished canceling its handlers. It cancels the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it. A second call while the first is still running joins it rather than starting over. A `timeout` of `Infinity` waits for the responses however long they take, and a finite one past about 24.8 days is held at that limit. Pass `closeServer: false` to leave the instance open, in which case `app.close()` is not called. A failing `onClose` hook is logged, and the counts are still returned.
+`shutdown` takes the Fastify instance, not `app.server`. It closes the server to new connections and closes idle ones. In-flight requests, wrapped or not, keep running for the grace window, and so does a request that arrives on a kept-alive connection meanwhile. Every response sent from then on carries `Connection: close`, and each connection closes as soon as the response on it finishes. When the window ends, handlers still running are canceled with the shutdown reason, so their cleanup runs and one that has not started its response can still answer `503`. Connections still busy after that are closed. Pass `cancelOnStart: true` to cancel handlers as soon as the shutdown starts instead, which suits long-lived responses such as server-sent events or long polling that would otherwise hold the whole window. Only then does it await `app.close()`, so `onClose` hooks and plugin teardown run against a server that has already finished with its handlers. The cancel reaches the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it. Registering `cancelPlugin` is how the shutdown learns about every request, plain routes included. A second call while the first is still running joins it rather than starting over. A `timeout` of `Infinity` waits for the responses however long they take, and a finite one past about 24.8 days is held at that limit. Pass `closeServer: false` to leave the instance open, in which case `app.close()` is not called. A failing `onClose` hook is logged, and the counts are still returned.
 
 ## API
 

@@ -25,7 +25,7 @@ It also carries the two things a server needs around that: a per-handler deadlin
 - Generator handlers stop mid-flight, at the `yield` they are suspended on
 - Per-route or per-app deadline, with the HTTP status and message of your choosing
 - Never writes to a socket the client has already left
-- Graceful shutdown that cancels in-flight handlers and closes the server
+- Graceful shutdown that lets in-flight handlers finish within a grace window, then cancels the rest and closes the server
 - No properties added to `ctx`, so no module augmentation is needed
 - Koa's context generics flow through, including a bare `function* (ctx)` with no annotations
 - Works with Koa 2 and Koa 3, and with any router that takes a plain middleware
@@ -132,7 +132,7 @@ Both raise a `CancelError`. The discriminator is `isCancelError(error) && !error
 
 ### Shutting down
 
-`shutdown` takes the `http.Server` that `app.listen()` returns, not the Koa application, because a Koa application has no `close` of its own to sequence against. It stops accepting new connections, closes idle ones, cancels every in-flight handler with the shutdown reason, and waits for them within the grace window. It cancels the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it. It resolves with what happened rather than throwing, and a second call while the first is still running joins it rather than starting over, so a pair of signal handlers is safe to wire without a guard. A `timeout` of `Infinity` waits for the responses however long they take, and a finite one past about 24.8 days is held at that limit.
+`shutdown` takes the `http.Server` that `app.listen()` returns, not the Koa application, because a Koa application has no `close` of its own to sequence against. It stops accepting new connections and closes idle ones. In-flight requests, wrapped or not, keep running for the grace window, and so does a request that arrives on a kept-alive connection meanwhile. Every response sent from then on carries `Connection: close`, and each connection closes as soon as the response on it finishes. When the window ends, handlers still running are canceled with the shutdown reason, so their cleanup runs and one that has not started its response can still answer `503`. Connections still busy after that are closed. Pass `cancelOnStart: true` to cancel handlers as soon as the shutdown starts instead, which suits long-lived responses such as server-sent events or long polling that would otherwise hold the whole window. The cancel reaches the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it. Requests are known from the first wrapped handler or request signal on the server; a connection opened before that and idle when the window ends is closed then. It resolves with what happened rather than throwing, and a second call while the first is still running joins it rather than starting over, so a pair of signal handlers is safe to wire without a guard. A `timeout` of `Infinity` waits for the responses however long they take, and a finite one past about 24.8 days is held at that limit.
 
 ## API
 

@@ -98,6 +98,13 @@ export interface IShutdownOptions {
   reason?: string;
   /** Whether to stop accepting new connections first. Gates every connection-closing call, not only the listener itself. Defaults to true. */
   closeServer?: boolean;
+  /**
+   * Cancel in-flight handlers as soon as the shutdown starts, instead of letting them run until the
+   * grace window ends. A request arriving during the shutdown is canceled on arrival too. Suits
+   * long-lived responses, such as server-sent events or long polling, that would otherwise hold the
+   * whole window. Defaults to false.
+   */
+  cancelOnStart?: boolean;
 }
 
 /** What a graceful shutdown reports once the grace window closes or every request has settled. */

@@ -27,7 +27,7 @@ This package targets `http.createServer` directly, with no framework in between.
 - One cancel signal per request, shared with request-scoped work started outside the handler
 - Deadlines as an option rather than a second wrapper, with the HTTP status carried on the error
 - Full inference for a bare `function* (req, res)` with no annotations
-- Graceful shutdown that cancels in-flight handlers and reports what happened
+- Graceful shutdown that lets in-flight handlers finish within a grace window, then cancels the rest
 - An `onError` option, so a canceled request answers correctly with no extra wiring
 - No runtime dependencies
 
@@ -100,7 +100,7 @@ const handler = cancelableHandler(function* (req, res) {
 });
 ```
 
-Shut the server down, canceling in-flight requests:
+Shut the server down, giving in-flight requests a grace window:
 
 ```js
 import { shutdown } from '@cancjs/server-node';
@@ -151,7 +151,7 @@ There is one deadline per request. A wrapped handler calling another wrapped han
 
 ### Shutting down
 
-`shutdown` stops the server accepting connections, closes idle keep-alive sockets, cancels every in-flight handler, then waits for them within a grace window before closing what is left. It cancels the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it. It resolves with counts rather than throwing, and a second call while the first is running returns the same result, so wiring it to both `SIGTERM` and `SIGINT` needs no guard. A `timeout` of `Infinity` waits for the responses however long they take, and a finite one past about 24.8 days is held at that limit.
+`shutdown` stops the server accepting connections and closes idle keep-alive sockets. In-flight requests, wrapped or not, keep running for the grace window, and so does a request that arrives on a kept-alive connection meanwhile. Every response sent from then on carries `Connection: close`, and each connection closes as soon as the response on it finishes. When the window ends, handlers still running are canceled with the shutdown reason, so their cleanup runs and one that has not started its response can still answer `503`. Connections still busy after that are closed. Pass `cancelOnStart: true` to cancel handlers as soon as the shutdown starts instead, which suits long-lived responses such as server-sent events or long polling that would otherwise hold the whole window. The cancel reaches the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it. Requests are known from the first wrapped handler or request signal on the server; a connection opened before that and idle when the window ends is closed then. It resolves with counts rather than throwing, and a second call while the first is running returns the same result, so wiring it to both `SIGTERM` and `SIGINT` needs no guard. A `timeout` of `Infinity` waits for the responses however long they take, and a finite one past about 24.8 days is held at that limit.
 
 ## Description
 
@@ -194,7 +194,7 @@ Cancelable promise flags (`bubble`, `shield`, `strict`, `asyncCancel`, `forceCan
 
 ### Shutdown
 
-- `shutdown(server, options?)` cancels in-flight handlers and resolves with `{ canceled, completed, timedOut }`
+- `shutdown(server, options?)` lets in-flight handlers finish within the grace window, cancels the rest, and resolves with `{ canceled, completed, timedOut }`. Options: `timeout`, `reason`, `closeServer`, `cancelOnStart`
 
 ### Reasons
 

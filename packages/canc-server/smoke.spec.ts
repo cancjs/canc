@@ -124,7 +124,7 @@ describe('raw node', () => {
 
     const pending = httpRequest(port, { path: '/hang' });
     await started.promise;
-    const result = await nodeServer.shutdown(lastServer(), { timeout: 5000 });
+    const result = await nodeServer.shutdown(lastServer(), { cancelOnStart: true, timeout: 5000 });
 
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
     expect((await pending).status).toBe(503);
@@ -221,7 +221,7 @@ describe('express', () => {
     const port = await listen(createServer(app));
     const pending = httpRequest(port, { path: '/hang' });
     await started.promise;
-    const result = await expressServer.shutdown(lastServer(), { timeout: 5000 });
+    const result = await expressServer.shutdown(lastServer(), { cancelOnStart: true, timeout: 5000 });
 
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
     expect((await pending).status).toBe(503);
@@ -314,7 +314,7 @@ describe('koa', () => {
     const port = await listenKoa(app);
     const pending = httpRequest(port, { path: '/hang' });
     await started.promise;
-    const result = await koaServer.shutdown(lastServer(), { timeout: 5000 });
+    const result = await koaServer.shutdown(lastServer(), { cancelOnStart: true, timeout: 5000 });
 
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
     expect((await pending).status).toBe(503);
@@ -423,7 +423,7 @@ describe('fastify', () => {
     // the shutdown closes the connection on its way out, so this one is never read back
     httpRequest(port, { path: '/hang' }).catch(() => undefined);
     await started.promise;
-    const result = await fastifyServer.shutdown(app, { timeout: 5000 });
+    const result = await fastifyServer.shutdown(app, { cancelOnStart: true, timeout: 5000 });
 
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
     expect(app.server.listening).toBe(false);
@@ -526,7 +526,7 @@ describe('hono on node', () => {
     const port = await listenHono(app);
     httpRequest(port, { path: '/hang' }).catch(() => undefined);
     await started.promise;
-    const result = await honoServer.shutdown(lastServer(), { timeout: 5000 });
+    const result = await honoServer.shutdown(lastServer(), { cancelOnStart: true, timeout: 5000 });
 
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
     expect(lastServer().listening).toBe(false);

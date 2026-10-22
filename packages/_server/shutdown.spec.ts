@@ -39,7 +39,46 @@ describe('graceful shutdown', () => {
     expect(server.close).toHaveBeenCalledTimes(1);
   });
 
-  it('cancels a live request with the shutdown reason', async () => {
+  it('cancels a live request with the shutdown reason once the grace window ends', async () => {
+    jest.useFakeTimers();
+
+    try {
+      const server = new FakeServer();
+      const { req, res } = createExchange(server);
+      let settled = false;
+
+      const outcome = answer(
+        runCancelableHandler(
+          function* () {
+            yield pending();
+          },
+          req,
+          res,
+        ),
+        res,
+      ).finally(() => {
+        settled = true;
+      });
+
+      const shutdown = shutdownServer(server, { timeout: 100 });
+      await jest.advanceTimersByTimeAsync(99);
+
+      expect(settled).toBe(false);
+
+      await jest.advanceTimersByTimeAsync(2);
+      const result = await shutdown;
+      const error = (await outcome) as CancelError;
+
+      expect(result).toEqual({ canceled: 1, completed: 0, timedOut: true });
+      expect(isCancelError(error)).toBe(true);
+      expect(error.message).toBe(SERVER_SHUTDOWN);
+      expect(server.allClosed).toBe(0);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('cancels a live request at once when asked to cancel on start', async () => {
     const server = new FakeServer();
     const { req, res } = createExchange(server);
 
@@ -54,11 +93,10 @@ describe('graceful shutdown', () => {
       res,
     );
 
-    const result = await shutdownServer(server);
+    const result = await shutdownServer(server, { cancelOnStart: true });
     const error = (await outcome) as CancelError;
 
-    expect(result.canceled).toBe(1);
-    expect(result.timedOut).toBe(false);
+    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
     expect(isCancelError(error)).toBe(true);
     expect(error.message).toBe(SERVER_SHUTDOWN);
   });
@@ -81,7 +119,7 @@ describe('graceful shutdown', () => {
       ),
     );
 
-    expect((await shutdownServer(server)).canceled).toBe(2);
+    expect((await shutdownServer(server, { cancelOnStart: true })).canceled).toBe(2);
     expect((await Promise.all(outcomes)).every(isCancelError)).toBe(true);
   });
 
@@ -178,7 +216,7 @@ describe('graceful shutdown', () => {
       res,
     );
 
-    const result = await shutdownServer(server);
+    const result = await shutdownServer(server, { cancelOnStart: true });
     const error = (await detached) as CancelError;
 
     expect(isCancelError(error)).toBe(true);
@@ -205,7 +243,7 @@ describe('graceful shutdown', () => {
       res,
     );
 
-    await shutdownServer(server);
+    await shutdownServer(server, { cancelOnStart: true });
 
     expect(onDisconnect).not.toHaveBeenCalled();
     expect(onTimeout).not.toHaveBeenCalled();
@@ -217,7 +255,11 @@ describe('graceful shutdown', () => {
     const signal = getNodeRequestSignal(req, res);
     signal.addEventListener('abort', () => res.end());
 
-    expect(await shutdownServer(server)).toEqual({ canceled: 0, completed: 1, timedOut: false });
+    expect(await shutdownServer(server, { cancelOnStart: true })).toEqual({
+      canceled: 0,
+      completed: 1,
+      timedOut: false,
+    });
     expect(signal.aborted).toBe(true);
     expect((signal.reason as CancelError).message).toBe(SERVER_SHUTDOWN);
   });
@@ -353,7 +395,7 @@ describe('shutdown argument and grace edges', () => {
       ).catch(() => undefined);
 
       let result: unknown;
-      void shutdownServer(server, { timeout }).then((value) => {
+      void shutdownServer(server, { cancelOnStart: true, timeout }).then((value) => {
         result = value;
       });
 
@@ -569,7 +611,7 @@ describe('graceful shutdown over a real socket', () => {
     expect(responses[1]).toMatch(/^HTTP\/1\.1 200/);
     expect(responses[1]).toMatch(/\r\nConnection: close\r\n/i);
     expect(responses[1]).toMatch(/late$/);
-    expect(lateSignalAborted).toBe(true);
+    expect(lateSignalAborted).toBe(false);
     expect(result.timedOut).toBe(false);
   });
 
@@ -595,10 +637,10 @@ describe('graceful shutdown over a real socket', () => {
 
     const answer = get(port, '/stack');
     await entered.promise;
-    const result = await shutdownServer(server, { timeout: 1000 });
+    const result = await shutdownServer(server, { timeout: 200 });
 
     expect(await answer).toMatchObject({ status: 503 });
-    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
+    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: true });
   });
 
   it('counts a request whose response finished during the drain as completed', async () => {
@@ -617,6 +659,147 @@ describe('graceful shutdown over a real socket', () => {
 
     expect(await answer).toMatchObject({ body: 'done', status: 200 });
     expect(await shutdown).toEqual({ canceled: 0, completed: 1, timedOut: false });
+  });
+
+  it('lets a wrapped handler finish inside the grace window', async () => {
+    const entered = deferred();
+    const gate = deferred();
+    const { port, server } = await listen((req, res) => {
+      answerWith(
+        res,
+        runCancelableHandler(
+          function* () {
+            entered.resolve();
+            yield gate.promise;
+
+            return 'done';
+          },
+          req,
+          res,
+        ),
+      );
+    });
+
+    const answer = get(port, '/wrapped');
+    await entered.promise;
+    const shutdown = shutdownServer(server, { timeout: 1000 });
+    gate.resolve();
+
+    expect(await answer).toMatchObject({ body: 'done', connection: 'close', status: 200 });
+    expect(await shutdown).toEqual({ canceled: 0, completed: 1, timedOut: false });
+  });
+
+  it('cancels a wrapped handler still running when the grace window ends', async () => {
+    const entered = deferred();
+    let cleanedUp = false;
+    const { port, server } = await listen((req, res) => {
+      answerWith(
+        res,
+        runCancelableHandler(
+          function* () {
+            entered.resolve();
+            try {
+              yield pending();
+            } finally {
+              cleanedUp = true;
+            }
+          },
+          req,
+          res,
+        ),
+      );
+    });
+
+    const answer = get(port, '/slow');
+    await entered.promise;
+    const startedAt = Date.now();
+    const result = await shutdownServer(server, { timeout: 500 });
+    const outcome = await answer;
+
+    expect(outcome).toMatchObject({ body: SERVER_SHUTDOWN, connection: 'close', status: 503 });
+    expect(outcome.at - startedAt).toBeGreaterThanOrEqual(450);
+    expect(cleanedUp).toBe(true);
+    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: true });
+  });
+
+  it('runs a wrapped handler for a request arriving on a kept-alive connection', async () => {
+    const firstEntered = deferred();
+    const lateEntered = deferred();
+    const firstGate = deferred();
+    const { port, server } = await listen((req, res) => {
+      if (req.url === '/first') {
+        void runCancelableHandler(() => 'next', req, res);
+        res.writeHead(200, { 'Content-Length': '5' });
+        res.write('fir');
+        firstEntered.resolve();
+        void firstGate.promise.then(() => res.end('st'));
+
+        return;
+      }
+
+      answerWith(
+        res,
+        runCancelableHandler(
+          function* () {
+            lateEntered.resolve();
+            yield Promise.resolve();
+
+            return 'late';
+          },
+          req,
+          res,
+        ),
+      );
+    });
+
+    const client = await rawClient(port);
+    let received = '';
+    client.on('data', (chunk: Buffer) => {
+      received += chunk.toString('latin1');
+    });
+    const closed = once(client, 'close');
+
+    client.write('GET /first HTTP/1.1\r\nHost: localhost\r\n\r\n');
+    await firstEntered.promise;
+    const shutdown = shutdownServer(server, { timeout: 1000 });
+    client.write('GET /late HTTP/1.1\r\nHost: localhost\r\n\r\n');
+    await lateEntered.promise;
+    firstGate.resolve();
+
+    const result = await shutdown;
+    await closed;
+    const responses = received.split(/(?=HTTP\/1\.1 )/);
+
+    expect(responses).toHaveLength(2);
+    expect(responses[1]).toMatch(/^HTTP\/1\.1 200/);
+    expect(responses[1]).toMatch(/\r\nConnection: close\r\n/i);
+    expect(responses[1]).toMatch(/late$/);
+    expect(result).toEqual({ canceled: 0, completed: 2, timedOut: false });
+  });
+
+  it('cancels a wrapped handler at once when asked to cancel on start', async () => {
+    const entered = deferred();
+    const { port, server } = await listen((req, res) => {
+      answerWith(
+        res,
+        runCancelableHandler(
+          function* () {
+            entered.resolve();
+            yield pending();
+          },
+          req,
+          res,
+        ),
+      );
+    });
+
+    const answer = get(port, '/stream');
+    await entered.promise;
+    // a window this long only ends early because the handler was canceled at the start
+    const result = await shutdownServer(server, { cancelOnStart: true, timeout: 60_000 });
+
+    expect(await answer).toMatchObject({ body: SERVER_SHUTDOWN, status: 503 });
+    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
   });
 
   it('does not track a signal asked for after the response closed', async () => {
@@ -668,6 +851,19 @@ describe('graceful shutdown over a real socket', () => {
     return client;
   }
 });
+
+/** Answers a real response from a handler task: its value, or a 503 carrying the cancel reason. */
+function answerWith(res: ServerResponse, task: CancelablePromise<unknown>): void {
+  task.then(
+    (value) => res.end(String(value)),
+    (error: Error) => {
+      if (!res.headersSent) {
+        res.statusCode = 503;
+      }
+      res.end(error.message);
+    },
+  );
+}
 
 /** Answers the response once the task settles, the way every adapter does. */
 function answer(task: CancelablePromise<unknown>, res: FakeResponse): Promise<unknown> {

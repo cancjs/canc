@@ -133,10 +133,10 @@ export function cancelMiddleware<StateT = DefaultState, ContextT = DefaultContex
 }
 
 /**
- * Stops a server gracefully: no new connections, every in-flight handler canceled, and a bounded
- * wait for them to unwind. Resolves with what happened rather than throwing, and a second call while
- * the first is still running returns that same result, so a pair of signal handlers is safe to wire
- * without a guard.
+ * Stops a server gracefully: no new connections, a grace window for in-flight handlers to finish,
+ * and a cancel for any still running when it ends (at once with `cancelOnStart`). Resolves with what
+ * happened rather than throwing, and a second call while the first is still running returns that
+ * same result, so a pair of signal handlers is safe to wire without a guard.
  *
  * Takes the raw `http.Server` `app.listen()` hands back, not the koa application: koa has no `close`
  * of its own to sequence this against.

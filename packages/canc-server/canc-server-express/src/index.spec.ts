@@ -543,7 +543,7 @@ describe('cancellation after the head was sent', () => {
     const port = await listen(app);
     const pending = streamedRequest(port, '/export');
     await started.promise;
-    await shutdown(lastServer(), { timeout: 1000 });
+    await shutdown(lastServer(), { timeout: 200 });
 
     const response = await pending;
 
@@ -585,7 +585,7 @@ describe('handler kinds', () => {
 });
 
 describe('shutdown', () => {
-  it('cancels a live request and reports the outcome', async () => {
+  it('cancels a live request when the grace window ends and reports the outcome', async () => {
     const app = express();
     const started = deferred();
     const forwarded: unknown[] = [];
@@ -604,9 +604,9 @@ describe('shutdown', () => {
     const pending = httpRequest(port, { path: '/hang' });
 
     await started.promise;
-    const result = await shutdown(lastServer(), { timeout: 1000 });
+    const result = await shutdown(lastServer(), { timeout: 200 });
 
-    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
+    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: true });
     expect((await pending).status).toBe(503);
     expect(forwarded).toHaveLength(1);
     expect(isCancelError(forwarded[0])).toBe(true);
@@ -636,9 +636,9 @@ describe('shutdown', () => {
     const pending = httpRequest(port, { path: '/hang' });
 
     await started.promise;
-    const result = await shutdown(lastServer(), { timeout: 1000 });
+    const result = await shutdown(lastServer(), { timeout: 200 });
 
-    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
+    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: true });
     expect((await pending).status).toBe(503);
   });
 

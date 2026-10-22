@@ -688,7 +688,7 @@ describe('handler kinds', () => {
 });
 
 describe('shutdown', () => {
-  it('cancels a hung handler instead of waiting for it', async () => {
+  it('cancels a hung handler when the grace window ends', async () => {
     const started = deferred();
 
     const instance = Fastify();
@@ -705,15 +705,15 @@ describe('shutdown', () => {
     );
 
     const port = await listen(instance);
-    // the shutdown kills the connection on its way out, so this one is never read back
-    send(port, '/hang').catch(() => undefined);
+    const pending = send(port, '/hang');
     await started.promise;
 
-    const result = await shutdown(instance, { timeout: 5000 });
+    const result = await shutdown(instance, { timeout: 200 });
 
     app = undefined;
 
-    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
+    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: true });
+    expect((await pending).statusCode).toBe(503);
     expect(instance.server.listening).toBe(false);
   });
 
