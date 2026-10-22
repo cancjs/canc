@@ -69,6 +69,14 @@ export function cancelErrorHandler(options?: ICancelErrorHandlerOptions): TCance
       return;
     }
 
+    // a head already sent cannot take a status, so the socket is cut instead of left looking complete
+    if (isCancelError(error) && reply.raw.headersSent) {
+      reply.raw.destroy();
+      reply.hijack();
+
+      return;
+    }
+
     if (isCancelError(error) && !error.timedOut) {
       // fastify reads status then statusCode off the error, so stamping it is all the mapping a
       // shutdown cancellation needs

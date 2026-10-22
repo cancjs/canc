@@ -259,6 +259,43 @@ describe('deadline', () => {
     expect(JSON.parse(response.body)).toMatchObject({ message: 'route took too long' });
     expect(reported?.timedOut).toBe(true);
   });
+
+  it('cuts the connection instead of completing a body whose head already went out', async () => {
+    const instance = Fastify();
+    await instance.register(cancelPlugin, { timeout: 60_000 });
+    instance.get(
+      '/raw',
+      cancelableHandler(
+        function* (_request, reply) {
+          reply.raw.writeHead(200, { 'content-type': 'text/plain' });
+          reply.raw.write('part1,');
+          yield new Promise(() => undefined);
+
+          return { ok: true };
+        },
+        { timeout: { ms: 20, status: 504 } },
+      ),
+    );
+
+    const port = await listen(instance);
+    const outcome = await new Promise<{ body: string; complete: boolean }>((resolve) => {
+      const outgoing = http.get({ host: '127.0.0.1', path: '/raw', port }, (response) => {
+        let body = '';
+
+        response.setEncoding('utf8');
+        response.on('data', (chunk: string) => {
+          body += chunk;
+        });
+        response.on('end', () => resolve({ body, complete: response.complete }));
+        response.on('error', () => resolve({ body, complete: false }));
+      });
+
+      outgoing.on('error', () => resolve({ body: '', complete: false }));
+    });
+
+    expect(outcome.complete).toBe(false);
+    expect(outcome.body).not.toContain('Cannot write headers');
+  });
 });
 
 describe('plugin options', () => {

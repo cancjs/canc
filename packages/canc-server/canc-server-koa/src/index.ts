@@ -113,6 +113,14 @@ export function cancelMiddleware<StateT = DefaultState, ContextT = DefaultContex
         return;
       }
 
+      // a head already sent cannot take a status, so the socket is cut instead of left looking complete
+      if (ctx.res.headersSent === true) {
+        ctx.res.destroy();
+        ctx.respond = false;
+
+        return;
+      }
+
       // koa keeps a body assigned before the cancel, which would ride along under the error status
       // and a json type turns the cleared body into the text null
       ctx.remove('Content-Type');

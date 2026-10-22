@@ -313,6 +313,46 @@ describe('deadline', () => {
     expect(timeouts[0].timedOut).toBe(true);
   });
 
+  it('cuts the connection instead of completing a body whose head already went out', async () => {
+    const app = new Koa();
+
+    app.use(cancelMiddleware());
+    app.use(
+      route(
+        '/raw',
+        cancelableHandler(
+          function* (ctx) {
+            ctx.res.writeHead(200, { 'content-type': 'text/plain' });
+            ctx.res.write('part1,');
+            yield never();
+            ctx.body = 'unreachable';
+          },
+          { timeout: { ms: 25, status: 504 } },
+        ),
+      ),
+    );
+
+    const port = await listen(app);
+    const outcome = await new Promise<{ body: string; complete: boolean }>((resolve) => {
+      const outgoing = request({ host: '127.0.0.1', path: '/raw', port }, (response) => {
+        let body = '';
+
+        response.setEncoding('utf8');
+        response.on('data', (chunk: string) => {
+          body += chunk;
+        });
+        response.on('end', () => resolve({ body, complete: response.complete }));
+        response.on('error', () => resolve({ body, complete: false }));
+      });
+
+      outgoing.on('error', () => resolve({ body: '', complete: false }));
+      outgoing.end();
+    });
+
+    expect(outcome.complete).toBe(false);
+    expect(outcome.body).not.toContain('Cannot write headers');
+  });
+
   it('drops a body the handler already set when answering the deadline', async () => {
     const app = new Koa();
 

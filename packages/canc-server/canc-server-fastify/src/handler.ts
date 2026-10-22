@@ -1,4 +1,4 @@
-import { CancelSignal } from '@cancjs/promise';
+import { CancelSignal, isCancelError } from '@cancjs/promise';
 import {
   FastifyInstance,
   FastifyReply,
@@ -77,6 +77,14 @@ export function cancelableHandler<RouteGeneric extends RouteGenericInterface = R
     });
 
     return task.catch((error: unknown) => {
+      // a sent head cannot take a status: cut the socket instead of leaving it looking complete
+      if (isCancelError(error) && reply.raw.headersSent) {
+        reply.raw.destroy();
+        reply.hijack();
+
+        return undefined;
+      }
+
       if (!isUnanswerable(error, reply.raw)) {
         throw error;
       }
