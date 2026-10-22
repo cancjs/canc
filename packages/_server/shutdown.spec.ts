@@ -232,6 +232,21 @@ describe('graceful shutdown', () => {
     expect(await shutdownServer(server)).toEqual({ canceled: 0, completed: 0, timedOut: false });
   });
 
+  it('counts a tracked request whose response closed before shutdown and has nothing in flight', async () => {
+    const server = new FakeServer();
+    const { req, res } = createExchange(server);
+
+    ensureRequestCancelState(req, res);
+    // flagged closed before its close event dispatches, so the registry still holds it at admission
+    Object.assign(res, { closed: true });
+
+    await expect(shutdownServer(server, { timeout: 50 })).resolves.toEqual({
+      canceled: 0,
+      completed: 1,
+      timedOut: false,
+    });
+  });
+
   it('finishes the shutdown when a strict, shielded task rejects its own cancel', async () => {
     const server = new FakeServer();
     const { req, res } = createExchange(server);
