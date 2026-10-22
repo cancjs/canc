@@ -88,6 +88,8 @@ router.use(cancelMiddleware({ timeout: 10_000 }));
 router.get('/exports/ledger', cancelableHandler(streamLedger, { timeout: 120_000 }));
 ```
 
+If `streamLedger` has already started writing when the deadline hits, the status line is gone and cannot change. The connection is destroyed instead, so the client sees an aborted response and never mistakes a cut export for a complete one.
+
 Share the request signal with anything else the request owns. This is the guarded stand-in for node's own `IncomingMessage.prototype.signal`, which aborts once the request stream finishes reading rather than when the client actually disconnects:
 
 ```js

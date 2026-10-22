@@ -134,6 +134,50 @@ describe('deadline', () => {
   });
 });
 
+describe('cancellation after the head was sent', () => {
+  it('cuts a chunked body short instead of ending it cleanly', async () => {
+    const port = await listen(
+      cancelableHandler(
+        function* (_req: IncomingMessage, res: ServerResponse) {
+          res.write('[{"row":1},');
+          yield never();
+          res.end('{"row":2}]');
+        },
+        { timeout: 25 },
+      ),
+    );
+
+    const response = await streamedRequest(port, '/export');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toBe('[{"row":1},');
+    expect(response.complete).toBe(false);
+    expect(response.failed).toBe(true);
+  });
+
+  it('cuts a chunked body short when the server shuts down', async () => {
+    const started = deferred();
+
+    const port = await listen(
+      cancelableHandler(function* (_req: IncomingMessage, res: ServerResponse) {
+        res.write('[{"row":1},');
+        started.resolve();
+        yield never();
+        res.end('{"row":2}]');
+      }),
+    );
+
+    const pending = streamedRequest(port, '/export');
+    await started.promise;
+    await shutdown(lastServer(), { timeout: 1000 });
+
+    const response = await pending;
+
+    expect(response.complete).toBe(false);
+    expect(response.failed).toBe(true);
+  });
+});
+
 describe('onError', () => {
   it('defaults to cancelErrorHandler, answering a deadline with its status', async () => {
     const port = await listen(
@@ -349,14 +393,6 @@ describe('cancel error handler', () => {
     expect(calls.ended).toBe(0);
   });
 
-  it('stops writing a response whose head already went out', () => {
-    const { calls, res } = fakeResponse({ headersSent: true });
-
-    cancelErrorHandler()(new CancelError(SERVER_SHUTDOWN), fakeRequest(), res);
-
-    expect(calls.ended).toBe(1);
-  });
-
   it('answers a cancellation carrying no status with the configured fallback', () => {
     const { calls, res } = fakeResponse();
 
@@ -514,6 +550,39 @@ function deferred(): { promise: Promise<void>; resolve: () => void } {
   });
 
   return { promise, resolve };
+}
+
+interface IStreamedResponse {
+  status: number;
+  body: string;
+  complete: boolean;
+  failed: boolean;
+}
+
+/** Reads a response to its close and reports whether the message arrived whole or was cut short. */
+function streamedRequest(port: number, path: string): Promise<IStreamedResponse> {
+  return new Promise((resolve, reject) => {
+    const outgoing = request({ host: '127.0.0.1', method: 'GET', path, port }, (incoming: IncomingMessage) => {
+      const chunks: Buffer[] = [];
+      let failed = false;
+
+      incoming.on('data', (chunk: Buffer) => chunks.push(chunk));
+      incoming.on('error', () => {
+        failed = true;
+      });
+      incoming.on('close', () =>
+        resolve({
+          body: Buffer.concat(chunks).toString('utf8'),
+          complete: incoming.complete,
+          failed,
+          status: incoming.statusCode ?? 0,
+        }),
+      );
+    });
+
+    outgoing.on('error', reject);
+    outgoing.end();
+  });
 }
 
 /** Starts a raw server on an ephemeral port and hands back the port it got. */

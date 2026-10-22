@@ -301,14 +301,6 @@ describe('cancel error handler', () => {
     expect(forwarded).toEqual([]);
   });
 
-  it('stops writing a response whose head already went out', () => {
-    const { calls, res } = fakeResponse({ headersSent: true });
-
-    cancelErrorHandler()(new CancelError(SERVER_SHUTDOWN), fakeRequest(), res, fail);
-
-    expect(calls).toEqual({ ended: 1, status: undefined });
-  });
-
   it('answers a cancellation carrying no status with the configured fallback', () => {
     const { calls, res } = fakeResponse();
 
@@ -333,6 +325,59 @@ describe('cancel error handler', () => {
     cancelErrorHandler()(foreign, fakeRequest(), res, fail);
 
     expect(calls).toEqual({ ended: 1, status: 504 });
+  });
+});
+
+describe('cancellation after the head was sent', () => {
+  it('cuts a chunked body short instead of ending it cleanly', async () => {
+    const app = express();
+
+    app.get(
+      '/export',
+      cancelableHandler(
+        function* (_req, res) {
+          res.write('[{"row":1},');
+          yield never();
+          res.end('{"row":2}]');
+        },
+        { timeout: 25 },
+      ),
+    );
+    app.use(cancelErrorHandler());
+
+    const port = await listen(app);
+    const response = await streamedRequest(port, '/export');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toBe('[{"row":1},');
+    expect(response.complete).toBe(false);
+    expect(response.failed).toBe(true);
+  });
+
+  it('cuts a chunked body short when the server shuts down', async () => {
+    const app = express();
+    const started = deferred();
+
+    app.get(
+      '/export',
+      cancelableHandler(function* (_req, res) {
+        res.write('[{"row":1},');
+        started.resolve();
+        yield never();
+        res.end('{"row":2}]');
+      }),
+    );
+    app.use(cancelErrorHandler());
+
+    const port = await listen(app);
+    const pending = streamedRequest(port, '/export');
+    await started.promise;
+    await shutdown(lastServer(), { timeout: 1000 });
+
+    const response = await pending;
+
+    expect(response.complete).toBe(false);
+    expect(response.failed).toBe(true);
   });
 });
 
@@ -554,6 +599,39 @@ async function rawRequest(port: number, payload: string): Promise<Socket> {
   client.write(payload);
 
   return client;
+}
+
+interface IStreamedResponse {
+  status: number;
+  body: string;
+  complete: boolean;
+  failed: boolean;
+}
+
+/** Reads a response to its close and reports whether the message arrived whole or was cut short. */
+function streamedRequest(port: number, path: string): Promise<IStreamedResponse> {
+  return new Promise((resolve, reject) => {
+    const outgoing = request({ host: '127.0.0.1', method: 'GET', path, port }, (incoming: IncomingMessage) => {
+      const chunks: Buffer[] = [];
+      let failed = false;
+
+      incoming.on('data', (chunk: Buffer) => chunks.push(chunk));
+      incoming.on('error', () => {
+        failed = true;
+      });
+      incoming.on('close', () =>
+        resolve({
+          body: Buffer.concat(chunks).toString('utf8'),
+          complete: incoming.complete,
+          failed,
+          status: incoming.statusCode ?? 0,
+        }),
+      );
+    });
+
+    outgoing.on('error', reject);
+    outgoing.end();
+  });
 }
 
 interface IHttpOptions {

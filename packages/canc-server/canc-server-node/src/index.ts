@@ -128,7 +128,9 @@ export function getRequestSignal(req: IncomingMessage, res: ServerResponse): Can
  *
  * A deadline answers with the status stamped on it (`503` unless the timeout option names another
  * one), a shutdown cancellation with the fallback status, and a response that can no longer be
- * answered gets nothing. Anything that is not a cancellation answers `500` and is logged.
+ * answered gets nothing. A response whose head already went out cannot carry a status, so its
+ * connection is destroyed and the client sees an aborted message instead of a body that looks whole.
+ * Anything that is not a cancellation answers `500` and is logged.
  *
  * The other four adapters hand such an error to the framework's own error handler, and this is the
  * closest raw node gets to the same thing: there is no pipeline behind the wrapper, so it holds the
@@ -165,10 +167,9 @@ function answerWith(res: ServerResponse, status: number): void {
     return;
   }
 
-  // a partially written response cannot carry a status any more, so the only honest move left is
-  // to stop writing and let the client see a truncated body
+  // end() would write the chunked terminator and pass a cut body off as complete
   if (res.headersSent) {
-    res.end();
+    res.destroy();
 
     return;
   }

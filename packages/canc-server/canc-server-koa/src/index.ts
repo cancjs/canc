@@ -106,6 +106,10 @@ export function cancelMiddleware<StateT = DefaultState, ContextT = DefaultContex
         return;
       }
 
+      // koa keeps a body assigned before the cancel, which would ride along under the error status
+      // and a json type turns the cleared body into the text null
+      ctx.remove('Content-Type');
+      ctx.body = null;
       ctx.status = statusOf(error, DEFAULT_TIMEOUT_STATUS);
     }
   };

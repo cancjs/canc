@@ -311,6 +311,30 @@ describe('deadline', () => {
     expect(timeouts[0].timedOut).toBe(true);
   });
 
+  it('drops a body the handler already set when answering the deadline', async () => {
+    const app = new Koa();
+
+    app.use(cancelMiddleware());
+    app.use(
+      route(
+        '/slow',
+        cancelableHandler(
+          function* (ctx) {
+            ctx.body = { ok: true, saved: 1 };
+            yield never();
+          },
+          { timeout: 25 },
+        ),
+      ),
+    );
+
+    const port = await listen(app);
+    const response = await httpRequest(port, { path: '/slow' });
+
+    expect(response.status).toBe(503);
+    expect(response.body).toBe('');
+  });
+
   it('falls back to the default status for the millisecond shorthand', async () => {
     const app = new Koa();
 

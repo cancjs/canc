@@ -102,7 +102,9 @@ export function cancelMiddleware(options?: ICancelableHandlerOptions): RequestHa
  *
  * A deadline answers with the status stamped on it (`503` unless the timeout option names another
  * one), a shutdown cancellation with the fallback status, and a response that can no longer be
- * answered gets nothing. Anything that is not a cancellation passes through untouched.
+ * answered gets nothing. A response whose head already went out cannot carry a status, so its
+ * connection is destroyed and the client sees an aborted message instead of a body that looks whole.
+ * Anything that is not a cancellation passes through untouched.
  */
 export function cancelErrorHandler(options: ICancelErrorHandlerOptions = {}): ErrorRequestHandler {
   const fallback = options.status ?? DEFAULT_TIMEOUT_STATUS;
@@ -118,10 +120,9 @@ export function cancelErrorHandler(options: ICancelErrorHandlerOptions = {}): Er
       return;
     }
 
-    // a partially written response cannot carry a status any more, so the only honest move left is
-    // to stop writing and let the client see a truncated body
+    // end() would write the chunked terminator and pass a cut body off as complete
     if (res.headersSent) {
-      res.end();
+      res.destroy();
 
       return;
     }
