@@ -552,6 +552,36 @@ describe('cancel middleware error path', () => {
   });
 });
 
+describe('handler kinds', () => {
+  it('answers 500 and emits a TypeError on the app for an async generator handler', async () => {
+    const app = new Koa();
+    const errors: unknown[] = [];
+
+    app.on('error', (error: unknown) => errors.push(error));
+    app.use(cancelMiddleware());
+    app.use(cancelableHandler(asyncGeneratorHandler as never));
+
+    const port = await listen(app);
+
+    expect((await httpRequest(port, { path: '/' })).status).toBe(500);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toBeInstanceOf(TypeError);
+  });
+
+  it('skips a handler whose caller signal was already aborted', async () => {
+    const app = new Koa();
+    const handler = jest.fn();
+
+    app.use(cancelMiddleware());
+    app.use(cancelableHandler(handler, { signal: AbortSignal.abort() }));
+
+    const port = await listen(app);
+
+    expect((await httpRequest(port, { path: '/' })).status).toBe(503);
+    expect(handler).not.toHaveBeenCalled();
+  });
+});
+
 describe('shutdown', () => {
   it('cancels a live request and reports the outcome', async () => {
     const app = new Koa();
@@ -628,3 +658,8 @@ describe('shutdown', () => {
     expect(await first).toEqual({ canceled: 0, completed: 0, timedOut: false });
   });
 });
+
+/** An async generator handler, which the types reject and the runtime must refuse too. */
+async function* asyncGeneratorHandler(): AsyncGenerator<number> {
+  yield 1;
+}

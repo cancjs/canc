@@ -381,6 +381,38 @@ describe('cancellation after the head was sent', () => {
   });
 });
 
+describe('handler kinds', () => {
+  it('answers 500 through the error middleware for an async generator handler', async () => {
+    const app = express();
+    const errors: unknown[] = [];
+
+    app.get('/', cancelableHandler(asyncGeneratorHandler as never));
+    app.use(((error, _req, res, _next) => {
+      errors.push(error);
+      res.status(500).end();
+    }) as ErrorRequestHandler);
+
+    const port = await listen(app);
+
+    expect((await httpRequest(port, { path: '/' })).status).toBe(500);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toBeInstanceOf(TypeError);
+  });
+
+  it('skips a handler whose caller signal was already aborted', async () => {
+    const app = express();
+    const handler = jest.fn();
+
+    app.get('/', cancelableHandler(handler, { signal: AbortSignal.abort() }));
+    app.use(cancelErrorHandler());
+
+    const port = await listen(app);
+
+    expect((await httpRequest(port, { path: '/' })).status).toBe(503);
+    expect(handler).not.toHaveBeenCalled();
+  });
+});
+
 describe('shutdown', () => {
   it('cancels a live request and reports the outcome', async () => {
     const app = express();
@@ -668,4 +700,9 @@ function httpRequest(port: number, options: IHttpOptions): Promise<{ status: num
 
     outgoing.end();
   });
+}
+
+/** An async generator handler, which the types reject and the runtime must refuse too. */
+async function* asyncGeneratorHandler(): AsyncGenerator<number> {
+  yield 1;
 }

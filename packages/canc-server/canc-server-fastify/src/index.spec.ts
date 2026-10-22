@@ -436,6 +436,40 @@ describe('cancellation after the response ended', () => {
   });
 });
 
+describe('handler kinds', () => {
+  it('answers 500 through the error handler for an async generator handler', async () => {
+    const errors: unknown[] = [];
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.setErrorHandler((error, _request, reply) => {
+      errors.push(error);
+      void reply.code(500).send();
+    });
+    instance.get('/', cancelableHandler(asyncGeneratorHandler as never));
+
+    const port = await listen(instance);
+    const response = await send(port, '/');
+
+    expect(response.statusCode).toBe(500);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toBeInstanceOf(TypeError);
+  });
+
+  it('skips a handler whose caller signal was already aborted', async () => {
+    const handler = jest.fn();
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.setErrorHandler(cancelErrorHandler());
+    instance.get('/', cancelableHandler(handler, { signal: AbortSignal.abort() }));
+
+    const port = await listen(instance);
+    const response = await send(port, '/');
+
+    expect(response.statusCode).toBe(503);
+    expect(handler).not.toHaveBeenCalled();
+  });
+});
+
 describe('shutdown', () => {
   it('cancels a hung handler instead of waiting for it', async () => {
     const started = deferred();
@@ -548,3 +582,8 @@ describe('shutdown', () => {
     expect(instance.server.listening).toBe(false);
   });
 });
+
+/** An async generator handler, which the types reject and the runtime must refuse too. */
+async function* asyncGeneratorHandler(): AsyncGenerator<number> {
+  yield 1;
+}

@@ -504,6 +504,41 @@ describe('cancellation after the response ended', () => {
   });
 });
 
+describe('handler kinds', () => {
+  it('answers 500 through app.onError for an async generator handler', async () => {
+    const errors: unknown[] = [];
+    const app = new Hono();
+
+    app.onError((error, c) => {
+      errors.push(error);
+
+      return c.text('failed', 500);
+    });
+    app.get('/', cancelableHandler(asyncGeneratorHandler as never));
+
+    const port = await listen(app);
+    const response = await send(port, '/');
+
+    expect(response.statusCode).toBe(500);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toBeInstanceOf(TypeError);
+  });
+
+  it('skips a handler whose caller signal was already aborted', async () => {
+    const handler = jest.fn();
+    const app = new Hono();
+
+    app.onError(cancelErrorHandler());
+    app.get('/', cancelableHandler(handler, { signal: AbortSignal.abort() }));
+
+    const port = await listen(app);
+    const response = await send(port, '/');
+
+    expect(response.statusCode).toBe(503);
+    expect(handler).not.toHaveBeenCalled();
+  });
+});
+
 describe('shutdown', () => {
   it('cancels a hung handler instead of waiting for it', async () => {
     const started = deferred();
@@ -646,3 +681,8 @@ describe('web standard runtime', () => {
     expect(shared).toBe(true);
   });
 });
+
+/** An async generator handler, which the types reject and the runtime must refuse too. */
+async function* asyncGeneratorHandler(): AsyncGenerator<number> {
+  yield 1;
+}

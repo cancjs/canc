@@ -8,7 +8,7 @@ import {
   resolvePromiseImpl,
 } from '@cancjs/promise';
 
-import { isGenerator, isThenable, TAnyFn } from '../_util';
+import { isFunction, isGenerator, isObject, isThenable, readProp, TAnyFn } from '../_util';
 import { IRequestCancelState } from './holder';
 import { ensureRequestCancelState, isResponseClosed } from './node-signal';
 import { createTimeoutError, normalizeTimeout, startHandlerTimeout, stopHandlerTimeout } from './timeout';
@@ -64,11 +64,13 @@ export function runCancelableHandler<TReturn = unknown>(
   // class back from this layer instead of the built-in one
   const Impl = resolvePromiseImpl() as unknown as typeof CancelablePromise;
 
-  // client already gone at wrap time, so the handler is never invoked: there is nobody to answer,
-  // and starting a query for a dead socket is the cost this whole layer exists to avoid
+  // a signal already aborted at wrap time (client gone, or a caller supplied one) means the handler
+  // is never invoked: there is nobody to answer, and starting a query for a dead socket is the
+  // cost this whole layer exists to avoid
+  const aborted = findAbortedSignal(state, options);
   const task =
-    state.signal.aborted ?
-      canceledTask<TReturn>(Impl, state, flags)
+    aborted ?
+      canceledTask<TReturn>(Impl, aborted, flags)
     : startHandler<TReturn>(Impl, handler, call, { ...flags, signal: collectSignals(state, options) });
 
   if (closed) {
@@ -117,23 +119,65 @@ function startHandler<TReturn>(
     return cancAsync(() => result, undefined, promiseOptions)() as CancelablePromise<TReturn>;
   }
 
+  if (isAsyncGeneratorResult(result)) {
+    // an async generator would resolve the task with the generator object itself and no framework
+    // answers for it, so the request would hang or send an empty body
+    return makeCancelable(
+      Impl.reject(
+        new TypeError(
+          'Cancelable handler returned an async generator. Use a synchronous generator or an async function.',
+        ),
+      ),
+      promiseOptions,
+    ) as CancelablePromise<TReturn>;
+  }
+
   const thenable = isThenable(result) ? result : Impl.resolve(result);
 
   return makeCancelable(thenable, promiseOptions) as CancelablePromise<TReturn>;
 }
 
+function isAsyncGeneratorResult(value: unknown): boolean {
+  // read off the result like the sync check above: transpiled async generators are plain objects
+  return (
+    isObject(value) &&
+    !isThenable(value) &&
+    typeof Symbol.asyncIterator === 'symbol' &&
+    isFunction(readProp(value, Symbol.asyncIterator)) &&
+    isFunction(readProp(value, 'next'))
+  );
+}
+
 function canceledTask<TReturn>(
   Impl: typeof CancelablePromise,
-  state: IRequestCancelState,
+  signal: AbortSignal,
   flags: ICancelablePromiseFlagOptions,
 ): CancelablePromise<TReturn> {
   const { cancel, promise } = Impl.withResolvers<TReturn>(flags);
 
-  // the signal reason is already a CancelError, so it travels through cancel() untouched and the
-  // adapter sees the same error a mid-flight cancellation would have produced
-  cancel(state.signal.reason);
+  // the request signal's reason is already a CancelError and travels through cancel() untouched,
+  // a caller signal's reason is wrapped, the same as a mid-flight cancellation would have done
+  cancel(signal.reason);
 
   return promise;
+}
+
+function findAbortedSignal(state: IRequestCancelState, options: ICancelableHandlerOptions): AbortSignal | undefined {
+  if (state.signal.aborted) {
+    return state.signal;
+  }
+
+  const extra = options.signal;
+
+  if (!extra) {
+    return undefined;
+  }
+
+  return (
+    Array.isArray(extra) ? extra.find((signal) => signal.aborted)
+    : extra.aborted ? extra
+    : undefined
+  );
 }
 
 function armDeadline(state: IRequestCancelState, options: ICancelableHandlerOptions): void {

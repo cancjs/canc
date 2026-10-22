@@ -205,6 +205,61 @@ describe('synchronous handler throw', () => {
   });
 });
 
+describe('async generator handler', () => {
+  it('rejects the task with a TypeError instead of resolving the generator', async () => {
+    const { req, res } = createExchange();
+
+    const task = runCancelableHandler(
+      async function* () {
+        yield 1;
+      },
+      req,
+      res,
+    );
+
+    const error = await outcomeOf(task);
+
+    expect(error).toBeInstanceOf(TypeError);
+    expect((error as TypeError).message).toContain('async generator');
+  });
+
+  it('never runs the body of the rejected generator', async () => {
+    const { req, res } = createExchange();
+    let ran = false;
+
+    const task = runCancelableHandler(
+      async function* () {
+        ran = true;
+        yield 1;
+      },
+      req,
+      res,
+    );
+
+    expect(await outcomeOf(task)).toBeInstanceOf(TypeError);
+    expect(ran).toBe(false);
+  });
+
+  it('recognizes a transpiled async generator by its result shape', async () => {
+    const { req, res } = createExchange();
+    const lookalike = {
+      next: () => ({ done: true, value: undefined }),
+      [Symbol.asyncIterator]() {
+        return this;
+      },
+    };
+
+    expect(await outcomeOf(runCancelableHandler(() => lookalike, req, res))).toBeInstanceOf(TypeError);
+  });
+
+  it('leaves a plain object with a next method alone', async () => {
+    const { req, res } = createExchange();
+    const value = { next: () => 1 };
+
+    expect(await runCancelableHandler(() => value, req, res)).toBe(value);
+  });
+});
+
 describe('handler deadline', () => {
   beforeEach(() => {
     jest.useFakeTimers();
@@ -405,5 +460,39 @@ describe('external signals', () => {
     res.disconnect();
 
     expect(isCancelError(await outcome)).toBe(true);
+  });
+
+  it('never invokes the handler when a caller signal was already aborted', async () => {
+    const { req, res } = createExchange();
+    const handler = jest.fn(() => pending());
+
+    const task = runCancelableHandler(handler, req, res, { signal: AbortSignal.abort() });
+
+    expect(isCancelError(await outcomeOf(task))).toBe(true);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('never invokes a generator handler when one of several caller signals was already aborted', async () => {
+    const { req, res } = createExchange();
+    const handler = jest.fn(function* () {
+      yield pending();
+    });
+
+    const task = runCancelableHandler(handler, req, res, {
+      signal: [new AbortController().signal, AbortSignal.abort()],
+    });
+
+    expect(isCancelError(await outcomeOf(task))).toBe(true);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('still invokes the handler when every caller signal is live', async () => {
+    const { req, res } = createExchange();
+    const handler = jest.fn(() => 'done');
+
+    const task = runCancelableHandler(handler, req, res, { signal: new AbortController().signal });
+
+    expect(await task).toBe('done');
+    expect(handler).toHaveBeenCalledTimes(1);
   });
 });

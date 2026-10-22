@@ -11,8 +11,30 @@ export type TGeneratorFn<TFn extends (...args: any) => any, TReturn = unknown> =
   ...args: Parameters<TFn>
 ) => Generator<unknown, TReturn>;
 
-/** Either flavor a wrapper accepts: the generator form, or the framework's plain handler. */
-export type THandlerFn<TFn extends (...args: any) => any, TReturn = unknown> = TGeneratorFn<TFn, TReturn> | TFn;
+/**
+ * What a plain handler may return where the framework leaves the result open: anything except an
+ * async generator. Nothing drains one, so the request would never be answered.
+ */
+export type TNonAsyncGeneratorResult =
+  void | null | undefined | string | number | boolean | symbol | bigint | (object & { [Symbol.asyncIterator]?: never });
+
+/**
+ * The framework's plain handler with an open result narrowed to `TNonAsyncGeneratorResult`. A
+ * framework that already types its result keeps that type.
+ */
+export type TPlainHandlerFn<TFn extends (...args: any) => any> = (
+  this: ThisParameterType<TFn>,
+  ...args: Parameters<TFn>
+) => [ReturnType<TFn>] extends [void] ? TNonAsyncGeneratorResult
+: unknown extends ReturnType<TFn> ? TNonAsyncGeneratorResult
+: ReturnType<TFn>;
+
+/**
+ * Either flavor a wrapper accepts: the generator form, or the framework's plain handler. An async
+ * generator function is neither.
+ */
+export type THandlerFn<TFn extends (...args: any) => any, TReturn = unknown> =
+  TGeneratorFn<TFn, TReturn> | TPlainHandlerFn<TFn>;
 
 /**
  * Handler deadline. A number is the millisecond shorthand; the object form also carries the HTTP
