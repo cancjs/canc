@@ -20,6 +20,14 @@ const running = new WeakMap<FastifyInstance, Promise<IShutdownResult>>();
  * failing in `app.close()` is logged and the outcome is still returned.
  */
 export function shutdown(app: FastifyInstance, options?: IShutdownOptions): Promise<IShutdownResult> {
+  // a fastify instance is a function with properties, so both types are accepted; anything else
+  // would fail on app.server with a raw TypeError that names no argument
+  if (app === null || (typeof app !== 'object' && typeof app !== 'function')) {
+    throw new TypeError(
+      `shutdown() needs the fastify instance as its first argument, got ${app === null ? 'null' : typeof app}.`,
+    );
+  }
+
   const existing = running.get(app);
   if (existing) {
     return existing;

@@ -915,3 +915,12 @@ function recordWarnings(): { stop: () => string[] } {
 async function* asyncGeneratorHandler(): AsyncGenerator<number> {
   yield 1;
 }
+
+describe('shutdown argument', () => {
+  it('names the argument when given something other than a fastify instance', () => {
+    const bad = () => shutdown(undefined as unknown as FastifyInstance);
+
+    expect(bad).toThrow(TypeError);
+    expect(bad).toThrow('shutdown() needs the fastify instance as its first argument, got undefined.');
+  });
+});
