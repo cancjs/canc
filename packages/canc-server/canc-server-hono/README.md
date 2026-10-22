@@ -126,11 +126,11 @@ Hono does not expose a `request.signal` under that name, so there is nothing her
 
 ### The wrapper never writes the response
 
-A cancellation whose client is already gone still has to answer with something, because a Hono handler must resolve to a `Response`. It answers `499`, the status nginx logs for a client that closed the request first, and that response never reaches a reader. A deadline is different: the client is still there, so the error is thrown on to `app.onError` instead of being swallowed.
+A cancellation whose client is already gone still has to answer with something, because a Hono handler must resolve to a `Response`. It answers `499`, the status nginx logs for a client that closed the request first, and that response never reaches a reader. When the route wrote the node response itself, as a streaming route does, the `499` carries `x-hono-already-sent` so `@hono/node-server` skips writing it and logs nothing. A deadline is different: the client is still there, so the error is thrown on to `app.onError` instead of being swallowed.
 
 ### Status codes need an error handler
 
-Hono does not read a status off a thrown error the way express, fastify and koa do. Without `cancelErrorHandler()` mounted on `app.onError`, a deadline reaches Hono's default handler and answers `500` regardless of the `status` the timeout was given. `cancelErrorHandler()` reads the error itself: a deadline answers with its own status, a shutdown cancellation answers with the fallback status, a departed client gets `499`, and one of Hono's own exceptions (anything with a `getResponse()`) still answers with the response it wanted.
+Hono does not read a status off a thrown error the way express, fastify and koa do. Without `cancelErrorHandler()` mounted on `app.onError`, a deadline reaches Hono's default handler and answers `500` regardless of the `status` the timeout was given. `cancelErrorHandler()` reads the error itself: a deadline answers with its own status, a shutdown cancellation answers with the fallback status, a departed client gets `499`, and one of Hono's own exceptions (anything with a `getResponse()`) still answers with the response it wanted. Any other error is logged with `console.error` and answered with `500`, as Hono's own default does. Pass `onError` to handle those yourself.
 
 ## Description
 
@@ -153,7 +153,7 @@ Cancelable promise flags (`bubble`, `shield`, `strict`, `asyncCancel`, `forceCan
 
 Options given to `cancelMiddleware` are inherited by every handler on the request. A route's own options are merged over them key by key.
 
-There is one deadline per request. `cancelMiddleware` starts it when the request reaches the middleware, so it covers plain routes too, and a route passing its own `timeout` restarts the clock with that value. It ends once the handlers below `cancelMiddleware` return, or once a wrapped route settles, so a body streamed after that is not cut short by it. A wrapped middleware that awaits `next()` does not end it early. A slow response body is for the server's own request timeout or the proxy in front of it. The lifecycle callbacks run once per request.
+There is one deadline per request. `cancelMiddleware` starts it when the request reaches the middleware, so it covers plain routes too, and a route passing its own `timeout` restarts the clock with that value. It ends once the handlers below `cancelMiddleware` return, or once a wrapped route settles, so a body streamed after that is not cut short by it. A wrapped middleware that awaits `next()` does not end it early. A slow response body is for the server's own request timeout or the proxy in front of it. The lifecycle callbacks run once per request. A `timeout` of `0` fires at once, and `Infinity` or leaving it out sets no deadline. A duration past about 24.8 days is held at that limit.
 
 ### Telling a disconnect from a deadline
 
@@ -161,7 +161,7 @@ Both raise a `CancelError`. The discriminator is `isCancelError(error) && !error
 
 ### Shutting down
 
-`shutdown` takes what `serve()` returned, not the Hono app. On node it stops the server accepting connections, closes idle keep-alive sockets, cancels every in-flight handler, then waits for them within a grace window before closing what is left. It cancels the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it. It resolves with counts rather than throwing, and a second call while the first is running returns the same result. There is no shutdown path for a Web standard runtime without a node server object; that deployment shape has no server to stop accepting connections on in the first place.
+`shutdown` takes what `serve()` returned, not the Hono app. On node it stops the server accepting connections, closes idle keep-alive sockets, cancels every in-flight handler, then waits for them within a grace window before closing what is left. It cancels the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it. It resolves with counts rather than throwing, and a second call while the first is running returns the same result. There is no shutdown path for a Web standard runtime without a node server object; that deployment shape has no server to stop accepting connections on in the first place. A `timeout` of `Infinity` waits for the responses however long they take, and a finite one past about 24.8 days is held at that limit.
 
 ## API
 

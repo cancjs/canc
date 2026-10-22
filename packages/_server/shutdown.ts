@@ -5,6 +5,7 @@ import { hasClientLeft, toRequestLike, toResponseLike } from './exchange';
 import { clearShutdownState, getLiveRequests, getShutdownState, IRequestCancelState, setShutdownState } from './holder';
 import { ensureRequestCancelState, isResponseClosed } from './node-signal';
 import { SERVER_SHUTDOWN } from './reasons';
+import { MAX_TIMER_MS } from './timeout';
 import { IResponseLike, IServerLike, IShutdownOptions, IShutdownResult } from './types';
 
 /** Grace window a shutdown waits for in-flight requests before it gives up. */
@@ -53,7 +54,7 @@ export function shutdownServer(
     return running;
   }
 
-  const grace = options.timeout ?? DEFAULT_SHUTDOWN_TIMEOUT;
+  const grace = resolveGrace(options.timeout);
   const reason = options.reason ?? SERVER_SHUTDOWN;
   // closeServer gates every connection-closing call, not only the listener itself: a caller
   // passing false owns the server's connection lifecycle, so this layer touches none of it and
@@ -201,10 +202,14 @@ export function shutdownServer(
   settleIfDrained();
 
   const window = new Impl<void>((resolve, _reject, { handleCancel }) => {
-    const timer = setTimeout(() => {
-      timedOut = true;
-      resolve();
-    }, grace);
+    // an infinite grace waits for the drain however long it takes
+    const timer =
+      grace === Infinity ? undefined : (
+        setTimeout(() => {
+          timedOut = true;
+          resolve();
+        }, grace)
+      );
 
     // race cancels the loser, so an early finish or cancel clears this timer through here
     handleCancel(() => clearTimeout(timer));
@@ -250,6 +255,14 @@ export function shutdownServer(
   setShutdownState(server, shutdown);
 
   return shutdown;
+}
+
+function resolveGrace(timeout: number | undefined): number {
+  if (timeout === undefined || timeout !== timeout) {
+    return DEFAULT_SHUTDOWN_TIMEOUT;
+  }
+
+  return timeout === Infinity ? timeout : Math.min(Math.max(timeout, 0), MAX_TIMER_MS);
 }
 
 function noop(): void {

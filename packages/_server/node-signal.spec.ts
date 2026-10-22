@@ -1,9 +1,10 @@
 import { isCancelError, isCancelSignal } from '@cancjs/promise';
 
-import { createExchange, FakeRequest, FakeResponse } from './__tests__/fakes';
+import { createExchange, FakeRequest, FakeResponse, flush } from './__tests__/fakes';
 import { getLiveRequests, getRequestState, LIVE_REQUESTS, REQUEST_CANCEL_STATE } from './holder';
 import { ensureRequestCancelState, getNodeRequestSignal } from './node-signal';
 import { CLIENT_DISCONNECTED } from './reasons';
+import { createTimeoutError } from './timeout';
 
 describe('node request signal', () => {
   it('is a branded cancel signal', () => {
@@ -123,5 +124,94 @@ describe('node request signal', () => {
 
     expect(() => ensureRequestCancelState(req, res)).not.toThrow();
     expect((req as unknown as Record<symbol, unknown>)[LIVE_REQUESTS]).toBeUndefined();
+  });
+});
+
+describe('lifecycle hook failures', () => {
+  let errorSpy: jest.SpyInstance;
+  let uncaught: jest.Mock;
+
+  beforeEach(() => {
+    errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    uncaught = jest.fn();
+    process.on('uncaughtException', uncaught);
+  });
+
+  afterEach(() => {
+    process.removeListener('uncaughtException', uncaught);
+    errorSpy.mockRestore();
+  });
+
+  it('logs a throwing onDisconnect with the package tag instead of crashing', async () => {
+    const failure = new Error('metrics bug');
+    const { req, res } = createExchange();
+    const state = ensureRequestCancelState(req, res, {
+      onDisconnect: () => {
+        throw failure;
+      },
+    });
+
+    res.disconnect();
+    await flush();
+
+    expect(state.signal.aborted).toBe(true);
+    expect(uncaught).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('[@cancjs/server]'), failure);
+  });
+
+  it('logs a throwing onTimeout with the package tag instead of crashing', async () => {
+    const failure = new Error('metrics bug');
+    const { req, res } = createExchange();
+    const state = ensureRequestCancelState(req, res, {
+      onTimeout: () => {
+        throw failure;
+      },
+    });
+
+    state.cancel(createTimeoutError({ message: 'late', ms: 1, status: 503 }));
+    await flush();
+
+    expect(uncaught).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('[@cancjs/server]'), failure);
+  });
+});
+
+describe('request deadline edge values', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('does not fire a deadline past the timer ceiling early', () => {
+    const { req, res } = createExchange();
+    const state = ensureRequestCancelState(req, res, { timeout: 2 ** 31 });
+
+    jest.advanceTimersByTime(60 * 60 * 1000);
+
+    expect(state.signal.aborted).toBe(false);
+  });
+
+  it('arms no timer for an infinite deadline', () => {
+    const { req, res } = createExchange();
+    const state = ensureRequestCancelState(req, res, { timeout: Infinity });
+
+    jest.advanceTimersByTime(60 * 60 * 1000);
+
+    expect(jest.getTimerCount()).toBe(0);
+    expect(state.signal.aborted).toBe(false);
+  });
+
+  it('keeps a zero deadline immediate', () => {
+    const { req, res } = createExchange();
+    const state = ensureRequestCancelState(req, res, { timeout: 0 });
+
+    jest.advanceTimersByTime(1);
+
+    expect(state.signal.aborted).toBe(true);
   });
 });

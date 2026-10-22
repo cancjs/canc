@@ -122,7 +122,7 @@ The flag options of `@cancjs/promise` (`asyncCancel`, `bubble`, `forceCancelable
 
 Options given to `cancelMiddleware` are defaults for everything mounted below it. Options given to `cancelableHandler` win on every key they set, so one route can raise or drop the deadline the app registered.
 
-There is one deadline per request. `cancelMiddleware` starts it when the request reaches the middleware, so it covers plain routes too, and a route passing its own `timeout` restarts the clock with that value. It ends once the middleware below `cancelMiddleware` returns, or once a wrapped route settles, so a body Koa streams after that is not cut short by it. A slow response body is for `server.requestTimeout` or the proxy in front of the server. The lifecycle callbacks run once per request.
+There is one deadline per request. `cancelMiddleware` starts it when the request reaches the middleware, so it covers plain routes too, and a route passing its own `timeout` restarts the clock with that value. It ends once the middleware below `cancelMiddleware` returns, or once a wrapped route settles, so a body Koa streams after that is not cut short by it. A slow response body is for `server.requestTimeout` or the proxy in front of the server. The lifecycle callbacks run once per request. A `timeout` of `0` fires at once, and `Infinity` or leaving it out sets no deadline. A duration past about 24.8 days is held at that limit.
 
 The deadline default status is 503. Set `timeout: { ms: 30_000, status: 504 }` for a gateway-style code.
 
@@ -132,7 +132,7 @@ Both raise a `CancelError`. The discriminator is `isCancelError(error) && !error
 
 ### Shutting down
 
-`shutdown` takes the `http.Server` that `app.listen()` returns, not the Koa application, because a Koa application has no `close` of its own to sequence against. It stops accepting new connections, closes idle ones, cancels every in-flight handler with the shutdown reason, and waits for them within the grace window. It cancels the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it. It resolves with what happened rather than throwing, and a second call while the first is still running joins it rather than starting over, so a pair of signal handlers is safe to wire without a guard.
+`shutdown` takes the `http.Server` that `app.listen()` returns, not the Koa application, because a Koa application has no `close` of its own to sequence against. It stops accepting new connections, closes idle ones, cancels every in-flight handler with the shutdown reason, and waits for them within the grace window. It cancels the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it. It resolves with what happened rather than throwing, and a second call while the first is still running joins it rather than starting over, so a pair of signal handlers is safe to wire without a guard. A `timeout` of `Infinity` waits for the responses however long they take, and a finite one past about 24.8 days is held at that limit.
 
 ## API
 

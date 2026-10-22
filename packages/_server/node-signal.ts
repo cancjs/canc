@@ -129,10 +129,16 @@ function reportCancel(state: IRequestCancelState): void {
   // CancelError, so anything else came from a foreign signal and reads as a disconnect
   const reason = state.signal.reason;
 
-  if (isCancelError(reason) && reason.timedOut) {
-    state.hooks?.onTimeout?.(reason);
-  } else {
-    state.hooks?.onDisconnect?.(reason as CancelError);
+  // a hook runs inside the abort dispatch, where a throw would surface as an uncaught exception
+  // and take the process down, so it is logged instead
+  try {
+    if (isCancelError(reason) && reason.timedOut) {
+      state.hooks?.onTimeout?.(reason);
+    } else {
+      state.hooks?.onDisconnect?.(reason as CancelError);
+    }
+  } catch (error) {
+    console.error('[@cancjs/server] lifecycle hook failed', error);
   }
 }
 

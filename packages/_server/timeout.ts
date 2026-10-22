@@ -6,6 +6,9 @@ import { TTimeoutOption } from './types';
 /** Status stamped on a deadline error when the caller names none. */
 export const DEFAULT_TIMEOUT_STATUS = 503;
 
+/** Longest delay one timer holds. A larger value makes the runtime fire the timer after a millisecond. */
+export const MAX_TIMER_MS = 2 ** 31 - 1;
+
 /** A handler deadline with every default already resolved. */
 export interface ITimeoutSpec {
   ms: number;
@@ -23,7 +26,8 @@ export interface IStatusCancelError extends CancelError {
  * Resolves the shorthand and the object form of the deadline option into one shape.
  *
  * Returns undefined where there is no usable deadline, including an infinite one, so an optional
- * timeout needs no branch at the call site.
+ * timeout needs no branch at the call site. A finite duration past the timer ceiling is clamped to
+ * it, and zero stays an immediate deadline.
  */
 export function normalizeTimeout(option?: TTimeoutOption): ITimeoutSpec | undefined {
   if (option === undefined || option === null) {
@@ -39,7 +43,7 @@ export function normalizeTimeout(option?: TTimeoutOption): ITimeoutSpec | undefi
 
   return {
     message: (spec as { message?: string }).message ?? HANDLER_TIMEOUT,
-    ms,
+    ms: Math.min(ms, MAX_TIMER_MS),
     status: (spec as { status?: number }).status ?? DEFAULT_TIMEOUT_STATUS,
   };
 }
@@ -63,9 +67,8 @@ export function createTimeoutError(spec: ITimeoutSpec): IStatusCancelError {
 
 /** Schedules the deadline, returning the handle that stops it. */
 export function startHandlerTimeout(ms: number, onDeadline: () => void): unknown {
-  // plain setTimeout is right here: a request deadline is seconds, nowhere near the 32-bit
-  // millisecond ceiling where a single timer wraps and fires at once, so the chunked-timer
-  // machinery the toolbox needs for long waits buys nothing and costs a dependency
+  // plain setTimeout: normalizeTimeout already clamped ms to the 32-bit ceiling, so the chunked
+  // timers the toolbox uses for long waits would only add a dependency
   return setTimeout(onDeadline, ms);
 }
 

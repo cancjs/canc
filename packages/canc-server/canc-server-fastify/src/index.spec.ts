@@ -676,8 +676,13 @@ describe('shutdown', () => {
     const instance = Fastify();
     await listen(instance);
 
+    const closeSpy = jest.spyOn(instance, 'close');
+
     const first = shutdown(instance, { closeServer: false });
     await first;
+
+    expect(closeSpy).not.toHaveBeenCalled();
+    expect(instance.server.listening).toBe(true);
 
     const second = shutdown(instance);
     expect(second).not.toBe(first);
@@ -686,19 +691,43 @@ describe('shutdown', () => {
     expect(instance.server.listening).toBe(false);
   });
 
-  it('attempts close again if the first attempt rejected', async () => {
+  it('resolves with the outcome when an onClose hook throws', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const instance = Fastify();
+    instance.addHook('onClose', async () => {
+      throw new Error('pool close failed');
+    });
+    await listen(instance);
+
+    try {
+      await expect(shutdown(instance)).resolves.toEqual({ canceled: 0, completed: 0, timedOut: false });
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('[@cancjs/server-fastify]'), expect.any(Error));
+    } finally {
+      errorSpy.mockRestore();
+    }
+
+    app = undefined;
+    expect(instance.server.listening).toBe(false);
+  });
+
+  it('attempts close again if the first attempt failed', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
     const instance = Fastify();
     await listen(instance);
 
     const originalClose = instance.close.bind(instance);
     instance.close = jest.fn().mockRejectedValueOnce(new Error('close failed')).mockImplementation(originalClose);
 
-    const first = shutdown(instance);
-    await expect(first).rejects.toThrow('close failed');
+    try {
+      const first = shutdown(instance);
+      await first;
 
-    const second = shutdown(instance);
-    expect(second).not.toBe(first);
-    await second;
+      const second = shutdown(instance);
+      expect(second).not.toBe(first);
+      await second;
+    } finally {
+      errorSpy.mockRestore();
+    }
 
     app = undefined;
     expect(instance.close).toHaveBeenCalledTimes(2);

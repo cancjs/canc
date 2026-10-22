@@ -15,6 +15,9 @@ const running = new WeakMap<FastifyInstance, Promise<IShutdownResult>>();
  * Takes the fastify instance rather than `app.server` so `app.close()` runs last and every
  * `onClose` hook sees a server already shut down instead of one still serving requests. A second
  * call while the first is still running returns that same promise, like the rest of the family.
+ *
+ * With `closeServer: false` the instance is not closed either, so the caller keeps its lifecycle. A hook
+ * failing in `app.close()` is logged and the outcome is still returned.
  */
 export function shutdown(app: FastifyInstance, options?: IShutdownOptions): Promise<IShutdownResult> {
   const existing = running.get(app);
@@ -25,11 +28,17 @@ export function shutdown(app: FastifyInstance, options?: IShutdownOptions): Prom
   const result = shutdownServer(app.server, options).then(
     async (outcome) => {
       try {
-        await app.close();
-        return outcome;
+        if (options?.closeServer !== false) {
+          await app.close();
+        }
+      } catch (error) {
+        // the drain outcome is what the caller needs, and a failing onClose hook cannot undo it
+        console.error('[@cancjs/server-fastify] closing the instance failed', error);
       } finally {
         running.delete(app);
       }
+
+      return outcome;
     },
     (error) => {
       running.delete(app);

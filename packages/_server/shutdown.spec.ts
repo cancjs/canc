@@ -295,6 +295,55 @@ describe('graceful shutdown', () => {
   });
 });
 
+describe('shutdown argument and grace edges', () => {
+  it('names the argument when the server is missing', () => {
+    expect(() => shutdownServer(undefined as never)).toThrow(TypeError);
+    expect(() => shutdownServer(undefined as never)).toThrow(/server.*undefined/);
+    expect(() => shutdownServer(null as never)).toThrow(/server.*null/);
+  });
+
+  describe.each([
+    ['an infinite grace', Infinity],
+    ['a grace past the timer ceiling', 2 ** 31],
+  ])('with %s', (_label, timeout) => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('keeps waiting for the response instead of giving up early', async () => {
+      const server = new FakeServer();
+      const { req, res } = createExchange(server);
+
+      runCancelableHandler(
+        function* () {
+          yield pending();
+        },
+        req,
+        res,
+      ).catch(() => undefined);
+
+      let result: unknown;
+      void shutdownServer(server, { timeout }).then((value) => {
+        result = value;
+      });
+
+      await jest.advanceTimersByTimeAsync(60 * 60 * 1000);
+
+      expect(result).toBeUndefined();
+      expect(server.allClosed).toBe(0);
+
+      res.end();
+      await jest.advanceTimersByTimeAsync(0);
+
+      expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
+    });
+  });
+});
+
 describe('graceful shutdown over a real socket', () => {
   const servers: Server[] = [];
   const sockets: Socket[] = [];

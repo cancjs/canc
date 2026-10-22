@@ -432,23 +432,31 @@ describe('error handler', () => {
     expect(response.body).toBe('no coffee');
   });
 
-  it('rethrows an ordinary failure when no handler was supplied', async () => {
+  it('answers 500 and logs an ordinary failure when no handler was supplied', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const failure = new Error('boom');
     const app = new Hono();
 
-    app.onError(cancelErrorHandler());
-    app.get(
-      '/boom',
-      cancelableHandler(function* () {
-        yield Promise.resolve();
+    try {
+      app.onError(cancelErrorHandler());
+      app.get(
+        '/boom',
+        cancelableHandler(function* () {
+          yield Promise.resolve();
 
-        throw new Error('boom');
-      }),
-    );
+          throw failure;
+        }),
+      );
 
-    const port = await listen(app);
-    const response = await send(port, '/boom');
+      const port = await listen(app);
+      const response = await send(port, '/boom');
 
-    expect(response.statusCode).toBe(500);
+      expect(response.statusCode).toBe(500);
+      expect(response.body).toBe('Internal Server Error');
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('[@cancjs/server-hono]'), failure);
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 
   it('passes an ordinary failure to the supplied handler', async () => {
@@ -474,6 +482,7 @@ describe('error handler', () => {
 
 describe('cancellation after the response ended', () => {
   it('is dropped instead of forwarded', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
     const forwarded: unknown[] = [];
     const app = new Hono();
 
@@ -503,6 +512,9 @@ describe('cancellation after the response ended', () => {
 
     expect(response).toEqual({ body: 'answered', statusCode: 200 });
     expect(forwarded).toEqual([]);
+    // the 499 handed back must tell the node server the response is already out
+    expect(errorSpy).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
   });
 });
 

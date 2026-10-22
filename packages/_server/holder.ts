@@ -103,6 +103,12 @@ export function untrackRequest(req: IRequestLike, state: IRequestCancelState): v
 
 /** Reads the shutdown already running for a server, if any. */
 export function getShutdownState(server: IServerLike): CancelablePromise<IShutdownResult, never> | undefined {
+  if (server === null || (typeof server !== 'object' && typeof server !== 'function')) {
+    throw new TypeError(
+      `shutdown() needs the http server as its first argument, got ${server === null ? 'null' : typeof server}.`,
+    );
+  }
+
   return (server as TKeyed)[SHUTDOWN_STATE] as CancelablePromise<IShutdownResult, never> | undefined;
 }
 

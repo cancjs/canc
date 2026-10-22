@@ -3,15 +3,15 @@ import type { Env, ErrorHandler } from 'hono';
 
 import { statusOf } from '../../../_server/exchange';
 import { DEFAULT_TIMEOUT_STATUS } from '../../../_server/timeout';
-import { isResponseUnreachable } from './bindings';
+import { alreadySentHeaders, isResponseUnreachable } from './bindings';
 import { CLIENT_CLOSED_STATUS } from './handler';
 
 /** Options for the opt-in error handler. */
 export interface ICancelErrorHandlerOptions<E extends Env = any> {
   /**
    * What handles everything that is not a cancellation.
-   * Defaults to answering with the response the error carries, if it has one, and rethrowing
-   * otherwise.
+   * Defaults to answering with the response the error carries, if it has one, and otherwise
+   * logging the error and answering `500`, as hono's own default does.
    */
   onError?: ErrorHandler<E>;
   /**
@@ -51,11 +51,13 @@ export function cancelErrorHandler<E extends Env = any>(options: ICancelErrorHan
         return carried.getResponse();
       }
 
-      throw error;
+      console.error('[@cancjs/server-hono] request handler failed', error);
+
+      return c.text('Internal Server Error', 500);
     }
 
     if (isResponseUnreachable(c)) {
-      return new Response(null, { status: CLIENT_CLOSED_STATUS });
+      return new Response(null, { headers: alreadySentHeaders(c), status: CLIENT_CLOSED_STATUS });
     }
 
     return new Response(null, { status: statusOf(error, fallback) });

@@ -1,7 +1,7 @@
 import { isCancelError } from '@cancjs/promise';
 
 import { HANDLER_TIMEOUT } from './reasons';
-import { createTimeoutError, DEFAULT_TIMEOUT_STATUS, normalizeTimeout } from './timeout';
+import { createTimeoutError, DEFAULT_TIMEOUT_STATUS, MAX_TIMER_MS, normalizeTimeout } from './timeout';
 
 describe('handler deadline', () => {
   it('reads a number as the millisecond shorthand', () => {
@@ -42,6 +42,16 @@ describe('handler deadline', () => {
     expect(normalizeTimeout(-1)).toBeUndefined();
     expect(normalizeTimeout(NaN)).toBeUndefined();
     expect(normalizeTimeout({ ms: Infinity })).toBeUndefined();
+  });
+
+  it('clamps a duration past the timer ceiling instead of letting it wrap', () => {
+    expect(normalizeTimeout(2 ** 31)?.ms).toBe(MAX_TIMER_MS);
+    expect(normalizeTimeout({ ms: Number.MAX_SAFE_INTEGER })?.ms).toBe(MAX_TIMER_MS);
+    expect(normalizeTimeout(MAX_TIMER_MS)?.ms).toBe(MAX_TIMER_MS);
+  });
+
+  it('keeps zero as an immediate deadline', () => {
+    expect(normalizeTimeout(0)?.ms).toBe(0);
   });
 
   it('stamps the status a framework error handler reads', () => {

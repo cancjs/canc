@@ -80,6 +80,16 @@ export function isResponseUnreachable(c: ICancelContext): boolean {
   return !isResponseLive(bindings.outgoing);
 }
 
+/**
+ * Headers for a response handed back behind a reply the route already wrote itself. On
+ * `@hono/node-server` the marker header makes it skip writing, where a bare response would make it
+ * write headers on a finished reply and log the failure. A Web runtime has no such reply and gets
+ * none.
+ */
+export function alreadySentHeaders(c: ICancelContext): Record<string, string> | undefined {
+  return getNodeBindings(c.env) ? { 'x-hono-already-sent': 'true' } : undefined;
+}
+
 function ensureWebRequestState(request: Request, options?: ICancelableHandlerOptions): IRequestCancelState {
   // the holder takes structural stand-ins rather than the ambient node types, and a Web Request
   // satisfies them, so the same cache works for a runtime that has no IncomingMessage at all

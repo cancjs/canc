@@ -5,7 +5,13 @@ import { stopRequestDeadline } from '../../../_server/node-signal';
 import { IHandlerCall, runCancelableHandler } from '../../../_server/run';
 import { ICancelableHandlerOptions, IRequestLike, IResponseLike, THandlerFn } from '../../../_server/types';
 import { TAnyFn } from '../../../_util';
-import { ensureCancelState, getNodeBindings, ICancelContext, isResponseUnreachable } from './bindings';
+import {
+  alreadySentHeaders,
+  ensureCancelState,
+  getNodeBindings,
+  ICancelContext,
+  isResponseUnreachable,
+} from './bindings';
 
 /**
  * Status answered with when a cancellation surfaces on a request whose client has already gone.
@@ -73,7 +79,7 @@ export function cancelableHandler<E extends Env = any, P extends string = any, I
       // the documented discriminator, never a message check and never instanceof: a deadline
       // still has a client to answer, a cancellation behind an unreachable response has none
       if (isCancelError(error) && !error.timedOut && isResponseUnreachable(context)) {
-        return new Response(null, { status: CLIENT_CLOSED_STATUS });
+        return new Response(null, { headers: alreadySentHeaders(context), status: CLIENT_CLOSED_STATUS });
       }
 
       throw error;
