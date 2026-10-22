@@ -19,7 +19,12 @@ import {
 import { TAnyFn } from '../../../_util';
 
 export { CLIENT_DISCONNECTED, HANDLER_TIMEOUT, SERVER_SHUTDOWN } from '../../../_server/reasons';
-export type { ICancelableHandlerOptions, IShutdownOptions, IShutdownResult } from '../../../_server/types';
+export type {
+  ICancelableHandlerOptions,
+  ICancelErrorHandlerOptions,
+  IShutdownOptions,
+  IShutdownResult,
+} from '../../../_server/types';
 
 /**
  * Wraps a route handler so its work stops when the request does.

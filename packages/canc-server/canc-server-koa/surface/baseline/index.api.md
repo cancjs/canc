@@ -3,7 +3,7 @@
 Generated. Do not edit by hand.
 
 - Declarations: `packages/canc-server/canc-server-koa/dist/types/index.d.ts`
-- Exports: 10
+- Exports: 11
 
 ## `CLIENT_DISCONNECTED` (const)
 
@@ -15,6 +15,12 @@ Generated. Do not edit by hand.
 
 ```text
 "handler timeout"
+```
+
+## `ICancelErrorHandlerOptions` (interface)
+
+```text
+status?: number | undefined
 ```
 
 ## `ICancelableHandlerOptions` (interface)
