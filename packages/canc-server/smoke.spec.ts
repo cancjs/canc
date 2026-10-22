@@ -132,6 +132,103 @@ describe('raw node', () => {
   });
 });
 
+describe('express under concurrency', () => {
+  it('finishes every request that is in flight at shutdown inside the grace window', async () => {
+    const total = 100;
+    const allArrived = deferred();
+    let arrived = 0;
+
+    const app = express();
+    app.use((_req, _res, next) => {
+      arrived += 1;
+      if (arrived === total) {
+        allArrived.resolve();
+      }
+      next();
+    });
+    app.use(expressServer.cancelMiddleware());
+    app.get('/plain', (_req, res) => {
+      setImmediate(() => res.send('plain'));
+    });
+    app.get(
+      '/wrapped',
+      expressServer.cancelableHandler(function* (_req, res) {
+        yield new CancelablePromise<void>((resolve) => setImmediate(resolve));
+        res.send('wrapped');
+      }),
+    );
+    app.get(
+      '/stream',
+      expressServer.cancelableHandler(function* (_req, res) {
+        res.write('a');
+        yield new CancelablePromise<void>((resolve) => setImmediate(resolve));
+        res.end('b');
+      }),
+    );
+    app.use(expressServer.cancelErrorHandler());
+
+    const port = await listen(createServer(app));
+    const routes = ['/plain', '/wrapped', '/stream'];
+    const expected: Record<string, string> = { '/plain': 'plain', '/wrapped': 'wrapped', '/stream': 'ab' };
+    const pending = Array.from({ length: total }, (_, index) => {
+      const path = routes[index % routes.length];
+
+      return httpRequest(port, { path }).then(
+        (response) => ({ body: response.body, path, status: response.status }),
+        (error: NodeJS.ErrnoException) => ({ code: error.code, path }),
+      );
+    });
+
+    await allArrived.promise;
+    const result = await expressServer.shutdown(lastServer(), { timeout: 5000 });
+    const settled = await Promise.all(pending);
+
+    const resets = settled.filter((outcome) => 'code' in outcome && outcome.code === 'ECONNRESET');
+    expect(resets).toEqual([]);
+    // completed counts only requests still running when shutdown began
+    expect(result.canceled).toBe(0);
+    expect(result.timedOut).toBe(false);
+    expect(result.completed).toBeLessThanOrEqual(total);
+    for (const outcome of settled) {
+      expect(outcome).toEqual({ body: expected[outcome.path as string], path: outcome.path, status: 200 });
+    }
+  });
+
+  it('ends a stream that outlives the grace window with an error, not a clean end', async () => {
+    const started = deferred();
+
+    const app = express();
+    app.get(
+      '/stream',
+      expressServer.cancelableHandler(function* (_req, res) {
+        res.write('a');
+        started.resolve();
+        yield never();
+        res.end('b');
+      }),
+    );
+    app.use(expressServer.cancelErrorHandler());
+
+    const port = await listen(createServer(app));
+    const outcome = new Promise<'clean' | 'truncated'>((resolve) => {
+      const outgoing = sendRequest({ host: '127.0.0.1', path: '/stream', port }, (incoming: IncomingMessage) => {
+        incoming.on('end', () => resolve('clean'));
+        incoming.on('error', () => resolve('truncated'));
+        incoming.on('aborted', () => resolve('truncated'));
+        incoming.on('close', () => resolve(incoming.complete ? 'clean' : 'truncated'));
+      });
+      outgoing.on('error', () => resolve('truncated'));
+      outgoing.end();
+    });
+
+    await started.promise;
+    const result = await expressServer.shutdown(lastServer(), { timeout: 20 });
+
+    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: true });
+    expect(await outcome).toBe('truncated');
+  });
+});
+
 describe('express', () => {
   it('cancels a handler whose client leaves mid-flight', async () => {
     const started = deferred();
