@@ -232,6 +232,16 @@ describe('graceful shutdown', () => {
     expect(await shutdownServer(server)).toEqual({ canceled: 0, completed: 0, timedOut: false });
   });
 
+  it('finishes the shutdown when a strict, shielded task rejects its own cancel', async () => {
+    const server = new FakeServer();
+    const { req, res } = createExchange(server);
+
+    ensureRequestCancelState(req, res).live.add(pending({ shield: true, strict: true }));
+
+    await expect(shutdownServer(server, { timeout: 50 })).resolves.toEqual(expect.objectContaining({ timedOut: true }));
+    expect(server.closed).toBe(1);
+  });
+
   it('allows a real shutdown after a soft shutdown completes', async () => {
     const server = new FakeServer();
 

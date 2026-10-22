@@ -148,6 +148,9 @@ export function shutdownServer(
         response.setHeader('Connection', 'close');
       }
     }
+
+    // a response that closed before admission with nothing in flight never reports again
+    settleRequest();
   };
 
   const cancelRequest = (state: IRequestCancelState) => {
@@ -189,7 +192,12 @@ export function shutdownServer(
 
   for (const state of states) {
     for (const task of state.live) {
-      task.cancel(reason);
+      // a strict shielded task throws on cancel, and that would strand the sweep interval
+      try {
+        task.cancel(reason);
+      } catch (_e) {
+        // the task still settles through its own shield, the drain below counts it
+      }
     }
   }
 
