@@ -1,7 +1,7 @@
 import { CancelError, CancelSignal, createCancelSignal, isCancelError } from '@cancjs/promise';
 
 import { hasClientLeft } from './exchange';
-import { getRequestState, IRequestCancelState, setRequestState, trackRequest, untrackRequest } from './holder';
+import { getRequestState, IRequestCancelState, setRequestState, trackRequest } from './holder';
 import { CLIENT_DISCONNECTED } from './reasons';
 import { createTimeoutError, normalizeTimeout, startHandlerTimeout, stopHandlerTimeout } from './timeout';
 import { ICancelableHandlerOptions, IRequestLike, IResponseLike } from './types';
@@ -43,11 +43,12 @@ export function ensureRequestCancelState(
   };
 
   setRequestState(req, state);
-  trackRequest(req, state);
   // one listener forwards the abort to every task in flight. A listener per layer would stack on
   // the same signal, and EventTarget warns past ten listeners once a request nests that many
   forwardInFlightCancel(state);
-  wireDisconnect(req, res, state);
+  if (wireDisconnect(res, state)) {
+    trackRequest(req, state);
+  }
 
   if (options) {
     applyRequestOptions(state, options);
@@ -181,7 +182,8 @@ export function getNodeRequestSignal(
   return ensureRequestCancelState(req, res, options).signal;
 }
 
-function wireDisconnect(req: IRequestLike, res: IResponseLike, state: IRequestCancelState): void {
+/** Wires the disconnect cancel. Returns false for a response already over, which is left untracked. */
+function wireDisconnect(res: IResponseLike, state: IRequestCancelState): boolean {
   // wired from the response, never the request: IncomingMessage 'close' means the request STREAM
   // completed, so a body-carrying POST behind a body parser fires it at t=0 with the client still
   // connected, and every such request would be canceled on arrival
@@ -203,27 +205,25 @@ function wireDisconnect(req: IRequestLike, res: IResponseLike, state: IRequestCa
   // res.destroyed=false). anything installing the signal later than the same tick as the route,
   // a nest interceptor for one, would cancel every such request on arrival
   if (hasClientLeft(res)) {
-    untrackRequest(req, state);
     state.cancel(CLIENT_DISCONNECTED);
 
-    return;
+    return false;
   }
 
   // installed late, from a hook running after the response closed: a finished exchange keeps an
   // inert signal and stays out of the server registry, which it would otherwise pin for good
   if (isResponseClosed(res)) {
-    untrackRequest(req, state);
-
-    return;
+    return false;
   }
 
   // once, so the listener count per response stays bounded without a settle hook to remove it
   res.once('close', () => {
-    untrackRequest(req, state);
     stopRequestDeadline(state);
 
     if (hasClientLeft(res)) {
       state.cancel(CLIENT_DISCONNECTED);
     }
   });
+
+  return true;
 }

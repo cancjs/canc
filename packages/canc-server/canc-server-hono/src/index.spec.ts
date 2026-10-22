@@ -251,9 +251,9 @@ describe('client disconnect on node', () => {
     expect(response.statusCode).toBe(200);
     expect(sameAsMiddleware).toBe(true);
     expect(cancelable).toBe(true);
-    // one from the disconnect wiring and one from the handler teardown, no matter how many
-    // consumers asked for the signal
-    expect(outgoingListeners).toBeLessThanOrEqual(2);
+    // the disconnect wiring, the handler teardown and the server's request registry, no matter
+    // how many consumers asked for the signal
+    expect(outgoingListeners).toBeLessThanOrEqual(3);
   });
 });
 

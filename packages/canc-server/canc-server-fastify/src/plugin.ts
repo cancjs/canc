@@ -3,6 +3,7 @@ import { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } fro
 import fastifyPlugin from 'fastify-plugin';
 
 import { isUnanswerable } from '../../../_server/exchange';
+import { getRequestRegistry } from '../../../_server/holder';
 import { ensureRequestCancelState } from '../../../_server/node-signal';
 import { ICancelableHandlerOptions } from '../../../_server/types';
 
@@ -26,6 +27,9 @@ export type TCancelErrorHandler = (
 ) => void;
 
 const plugin: FastifyPluginAsync<ICancelableHandlerOptions> = function cancelPlugin(fastify, options) {
+  // the instance holds its server from the start, so a shutdown knows every request, plain ones too
+  getRequestRegistry(fastify.server, true);
+
   // onRequest is the earliest hook, so the signal exists before body parsing and before any
   // request-scoped work a later hook starts
   fastify.addHook('onRequest', (request, reply, done) => {

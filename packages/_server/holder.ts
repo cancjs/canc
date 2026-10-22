@@ -11,14 +11,14 @@ import { ICancelableHandlerOptions, IRequestLike, IResponseLike, IServerLike, IS
 export const REQUEST_CANCEL_STATE = Symbol.for('@cancjs/server-node:RequestCancelState');
 
 /**
- * Key the per-server set of live requests is cached under.
+ * Key the per-server request registry is cached under.
  *
  * This registry hangs off the `http.Server` instance and never off a module-level variable. This
  * directory is inlined into every server package, so a module-scope set would exist once per copy
  * and a shutdown would see only the requests its own copy happened to record. Per-server state has
  * no such split. Load-bearing, do not lift it to module scope.
  */
-export const LIVE_REQUESTS = Symbol.for('@cancjs/server-node:LiveRequests');
+export const REQUEST_REGISTRY = Symbol.for('@cancjs/server-node:RequestRegistry');
 
 /** Key the in-flight shutdown promise is cached under, so a second shutdown of the same server is a no-op. */
 export const SHUTDOWN_STATE = Symbol.for('@cancjs/server-node:Shutdown');
@@ -29,8 +29,6 @@ export interface IRequestCancelState {
   cancel: (reason?: unknown) => void;
   options: ICancelableHandlerOptions;
   live: Set<CancelablePromise<unknown>>;
-  /** The server the request was recorded on, kept because the socket no longer names it once the exchange is over. */
-  server?: IServerLike;
   /** The response the state was installed with. A shutdown waits on it closing. Absent on the Web path. */
   response?: IResponseLike;
   /** The pending deadline, one per request however many layers set a timeout. */
@@ -75,38 +73,79 @@ export function getRequestServer(req: IRequestLike): IServerLike | undefined {
   return server && typeof server === 'object' ? (server as IServerLike) : undefined;
 }
 
-/** Reads the live-request registry of a server, creating it only when asked to. */
-export function getLiveRequests(
-  server: IServerLike | undefined,
-  create?: boolean,
-): Set<IRequestCancelState> | undefined {
+/**
+ * Every request a server is still answering that this layer has seen, keyed by its response.
+ *
+ * Fed by a `request` listener prepended the first time this layer meets the server, so requests
+ * that never reach a wrapped handler are recorded too. An entry leaves when its response closes.
+ */
+export interface IRequestRegistry {
+  open: Map<IResponseLike, IRequestLike>;
+  /** Set while a shutdown runs, told about each request recorded during it. */
+  onArrival?: (req: IRequestLike, res: IResponseLike) => void;
+  /** Set while a shutdown runs, told about each request that gains cancel state during it. */
+  onTrack?: (state: IRequestCancelState) => void;
+}
+
+type TRequestListener = (req: unknown, res: unknown) => void;
+
+interface IListenerHost {
+  prependListener?: (event: 'request', listener: TRequestListener) => unknown;
+}
+
+/**
+ * Reads the request registry of a server. With `create`, a server met for the first time gets one,
+ * and its `request` listener goes first so later arrivals are recorded before the application runs.
+ */
+export function getRequestRegistry(server: IServerLike | undefined, create?: boolean): IRequestRegistry | undefined {
   if (!server) {
     return undefined;
   }
 
-  let live = (server as TKeyed)[LIVE_REQUESTS] as Set<IRequestCancelState> | undefined;
-  if (!live && create) {
-    live = new Set<IRequestCancelState>();
-    define(server, LIVE_REQUESTS, live);
+  let registry = (server as TKeyed)[REQUEST_REGISTRY] as IRequestRegistry | undefined;
+  if (!registry && create) {
+    const created: IRequestRegistry = { open: new Map() };
+    define(server, REQUEST_REGISTRY, created);
+
+    const host = server as IListenerHost;
+    if (typeof host.prependListener === 'function') {
+      host.prependListener('request', (req, res) => {
+        recordRequest(created, req as IRequestLike, res as IResponseLike);
+      });
+    }
+
+    registry = created;
   }
 
-  return live;
+  return registry;
 }
 
-/** Records a request as live on the server it arrived on. */
-export function trackRequest(req: IRequestLike, state: IRequestCancelState): void {
-  const server = getRequestServer(req);
+/** Adds a request to a registry until its response closes. A closed response is left out. */
+export function recordRequest(registry: IRequestRegistry, req: IRequestLike, res: IResponseLike): void {
+  if (registry.open.has(res) || (res as { closed?: unknown }).closed === true) {
+    return;
+  }
 
-  state.server = server;
-  getLiveRequests(server, true)?.add(state);
+  registry.open.set(res, req);
+  res.once('close', () => {
+    registry.open.delete(res);
+  });
+  registry.onArrival?.(req, res);
 }
 
 /**
- * Drops a request from the server registry once its response is over. Reads the server captured at
- * track time: an HTTP/2 compat request has no socket server left to read after its stream closes.
+ * Records a request with cancel state on the server it arrived on. The first request a server is
+ * met through is recorded here, since its own `request` event went out before the listener existed.
  */
-export function untrackRequest(req: IRequestLike, state: IRequestCancelState): void {
-  getLiveRequests(state.server ?? getRequestServer(req))?.delete(state);
+export function trackRequest(req: IRequestLike, state: IRequestCancelState): void {
+  const registry = getRequestRegistry(getRequestServer(req), true);
+
+  if (!registry || !state.response) {
+    return;
+  }
+
+  recordRequest(registry, req, state.response);
+  registry.onTrack?.(state);
 }
 
 /** Reads the shutdown already running for a server, if any. */

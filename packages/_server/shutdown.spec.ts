@@ -4,7 +4,7 @@ import { createServer, globalAgent, IncomingMessage, request, Server, ServerResp
 import { connect, Socket } from 'net';
 
 import { createExchange, FakeResponse, FakeServer, outcomeOf, pending } from './__tests__/fakes';
-import { getLiveRequests } from './holder';
+import { getRequestRegistry } from './holder';
 import { ensureRequestCancelState, getNodeRequestSignal } from './node-signal';
 import { SERVER_SHUTDOWN } from './reasons';
 import { runCancelableHandler } from './run';
@@ -141,7 +141,8 @@ describe('graceful shutdown', () => {
       ensureRequestCancelState(req, res).live.add(pending({ shield: true }));
 
       const shutdown = shutdownServer(server, { timeout: 100 });
-      jest.advanceTimersByTime(100);
+      // the grace timer, then the one turn left for answers to the cancel
+      jest.advanceTimersByTime(101);
 
       expect(await shutdown).toEqual({ canceled: 0, completed: 0, timedOut: true });
       expect(server.allClosed).toBe(1);
@@ -228,7 +229,7 @@ describe('graceful shutdown', () => {
     void outcomeOf(runCancelableHandler(() => pending(), req, res));
     res.end();
 
-    expect(getLiveRequests(server)?.size).toBe(0);
+    expect(getRequestRegistry(server)?.open.size).toBe(0);
     expect(await shutdownServer(server)).toEqual({ canceled: 0, completed: 0, timedOut: false });
   });
 
@@ -300,8 +301,8 @@ describe('graceful shutdown', () => {
       for (let i = 0; i < 20; i++) {
         await Promise.resolve();
       }
-      // the second shutdown's grace timer and idle sweep, nothing left over from the first
-      expect(jest.getTimerCount()).toBe(2);
+      // the second shutdown's grace timer, nothing left over from the first
+      expect(jest.getTimerCount()).toBe(1);
 
       jest.advanceTimersByTime(50);
       for (let i = 0; i < 20; i++) {
@@ -309,7 +310,7 @@ describe('graceful shutdown', () => {
       }
       expect(shutdownServer(server)).toBe(second);
 
-      jest.advanceTimersByTime(50);
+      jest.advanceTimersByTime(51);
       await second;
 
       expect(server.allClosed).toBe(1);
@@ -390,52 +391,162 @@ describe('graceful shutdown over a real socket', () => {
   });
 
   it('lets a plain route answer inside the grace window', async () => {
+    const entered = deferred();
+    const gate = deferred();
     const { port, server } = await listen((_req, res) => {
-      setTimeout(() => res.end('plain ok'), 200);
+      entered.resolve();
+      void gate.promise.then(() => res.end('plain ok'));
     });
     const answer = get(port, '/plain');
-    await sleep(50);
-    const result = await shutdownServer(server, { timeout: 1000 });
+    await entered.promise;
+    const shutdown = shutdownServer(server, { timeout: 300 });
+    gate.resolve();
 
     expect(await answer).toMatchObject({ body: 'plain ok', status: 200 });
-    expect(result.timedOut).toBe(false);
+    expect((await shutdown).timedOut).toBe(false);
   });
 
   it('resets a request still running when the grace window closes', async () => {
-    const { port, server } = await listen((_req, res) => {
-      setTimeout(() => res.end('too late'), 2000).unref();
+    const entered = deferred();
+    const { port, server } = await listen(() => {
+      entered.resolve();
     });
 
     const answer = get(port, '/slow');
-    await sleep(50);
+    await entered.promise;
     const startedAt = Date.now();
-    const result = await shutdownServer(server, { timeout: 1000 });
+    const result = await shutdownServer(server, { timeout: 300 });
     const outcome = await answer;
 
     expect(outcome.error).toBe('ECONNRESET');
-    expect(outcome.at - startedAt).toBeGreaterThanOrEqual(900);
+    expect(outcome.at - startedAt).toBeGreaterThanOrEqual(250);
     expect(result.timedOut).toBe(true);
   });
 
+  describe.each([
+    ['a wrapped', true],
+    ['a plain', false],
+  ])('after %s response', (_label, wrapped) => {
+    it('gives the next request on the same client the same outcome', async () => {
+      const entered = deferred();
+      const gate = deferred();
+      const { port, server } = await listen((req, res) => {
+        if (req.url === '/warm') {
+          void runCancelableHandler(() => 'warm', req, res);
+          res.end('warm');
+
+          return;
+        }
+
+        if (req.url === '/next') {
+          res.end('next');
+
+          return;
+        }
+
+        if (wrapped) {
+          void runCancelableHandler(() => 'next', req, res);
+        }
+        entered.resolve();
+        void gate.promise.then(() => res.end('first'));
+      });
+
+      // an earlier wrapped request is how this layer meets the server, plain routes included
+      await get(port, '/warm');
+
+      // the default client pool keeps the connection alive and reuses it unless told otherwise
+      const first = get(port, '/first');
+      await entered.promise;
+      const shutdown = shutdownServer(server, { timeout: 1000 });
+      gate.resolve();
+      const firstOutcome = await first;
+      const nextOutcome = await get(port, '/next');
+
+      expect(firstOutcome).toMatchObject({ body: 'first', connection: 'close', status: 200 });
+      expect(nextOutcome.error).toBe('ECONNREFUSED');
+      expect((await shutdown).timedOut).toBe(false);
+    });
+  });
+
+  it('keeps no timer besides the grace timer while it drains', async () => {
+    const entered = deferred();
+    const gate = deferred();
+    const { port, server } = await listen((req, res) => {
+      void runCancelableHandler(() => 'next', req, res);
+      entered.resolve();
+      void gate.promise.then(() => res.end('done'));
+    });
+
+    const answer = get(port, '/hold');
+    await entered.promise;
+    const before = countTimers();
+    const shutdown = shutdownServer(server, { timeout: 1000 });
+    const during = countTimers();
+    gate.resolve();
+
+    expect(await answer).toMatchObject({ status: 200 });
+    await shutdown;
+    expect(during - before).toBe(1);
+  });
+
+  it('closes a kept-alive connection within one turn of its response finishing', async () => {
+    const entered = deferred();
+    const gate = deferred();
+    const checked = deferred();
+    let closingInTurn: boolean | undefined;
+    const { port, server } = await listen((req, res) => {
+      const socket = req.socket;
+      void runCancelableHandler(() => 'next', req, res);
+      // the head went out before the shutdown, so it still says keep-alive
+      res.writeHead(200, { 'Content-Length': '5' });
+      res.write('hel');
+      entered.resolve();
+      void gate.promise.then(() => {
+        res.once('close', () => {
+          setImmediate(() => {
+            closingInTurn = socket.writableEnded || socket.destroyed;
+            checked.resolve();
+          });
+        });
+        res.end('lo');
+      });
+    });
+
+    const client = await rawClient(port);
+    client.resume();
+    const closed = once(client, 'close');
+    client.write('GET /held HTTP/1.1\r\nHost: localhost\r\n\r\n');
+    await entered.promise;
+    const shutdown = shutdownServer(server, { timeout: 1000 });
+    gate.resolve();
+    await checked.promise;
+    await closed;
+
+    expect(closingInTurn).toBe(true);
+    expect((await shutdown).timedOut).toBe(false);
+  });
+
   it('answers a request arriving on a kept-alive connection with Connection close', async () => {
+    const firstEntered = deferred();
+    const lateEntered = deferred();
+    const firstGate = deferred();
     let lateSignalAborted: boolean | undefined;
     const { port, server } = await listen((req, res) => {
       if (req.url === '/first') {
         res.writeHead(200, { 'Content-Length': '5' });
         res.write('fir');
-        setTimeout(() => res.end('st'), 200);
+        firstEntered.resolve();
+        void firstGate.promise.then(() => res.end('st'));
 
         return;
       }
 
       lateSignalAborted = getNodeRequestSignal(req, res).aborted;
       res.end('late');
+      lateEntered.resolve();
     });
 
-    const client = connect(port, '127.0.0.1');
-    sockets.push(client);
-    client.on('error', () => {});
-    await once(client, 'connect');
+    const client = await rawClient(port);
     let received = '';
     client.on('data', (chunk: Buffer) => {
       received += chunk.toString('latin1');
@@ -443,10 +554,11 @@ describe('graceful shutdown over a real socket', () => {
     const closed = once(client, 'close');
 
     client.write('GET /first HTTP/1.1\r\nHost: localhost\r\n\r\n');
-    await sleep(50);
+    await firstEntered.promise;
     const shutdown = shutdownServer(server, { timeout: 1000 });
-    await sleep(10);
     client.write('GET /late HTTP/1.1\r\nHost: localhost\r\n\r\n');
+    await lateEntered.promise;
+    firstGate.resolve();
 
     const result = await shutdown;
     await closed;
@@ -462,6 +574,7 @@ describe('graceful shutdown over a real socket', () => {
   });
 
   it('counts one request once however many wrapped layers it went through', async () => {
+    const entered = deferred();
     const { port, server } = await listen((req, res) => {
       const layer = () => runCancelableHandler(() => 'next', req, res);
 
@@ -477,10 +590,11 @@ describe('graceful shutdown over a real socket', () => {
         res.statusCode = 503;
         res.end('canceled');
       });
+      entered.resolve();
     });
 
     const answer = get(port, '/stack');
-    await sleep(50);
+    await entered.promise;
     const result = await shutdownServer(server, { timeout: 1000 });
 
     expect(await answer).toMatchObject({ status: 503 });
@@ -488,37 +602,44 @@ describe('graceful shutdown over a real socket', () => {
   });
 
   it('counts a request whose response finished during the drain as completed', async () => {
+    const entered = deferred();
+    const gate = deferred();
     const { port, server } = await listen((req, res) => {
       void runCancelableHandler(() => 'next', req, res);
-      setTimeout(() => res.end('done'), 200);
+      entered.resolve();
+      void gate.promise.then(() => res.end('done'));
     });
 
     const answer = get(port, '/finish');
-    await sleep(50);
-    const result = await shutdownServer(server, { timeout: 1000 });
+    await entered.promise;
+    const shutdown = shutdownServer(server, { timeout: 1000 });
+    gate.resolve();
 
     expect(await answer).toMatchObject({ body: 'done', status: 200 });
-    expect(result).toEqual({ canceled: 0, completed: 1, timedOut: false });
+    expect(await shutdown).toEqual({ canceled: 0, completed: 1, timedOut: false });
   });
 
   it('does not track a signal asked for after the response closed', async () => {
     const lateSignals: boolean[] = [];
+    let asked = deferred();
     const { port, server } = await listen((req, res) => {
       res.end('ok');
       res.on('close', () => {
         setImmediate(() => {
           lateSignals.push(getNodeRequestSignal(req, res).aborted);
           void runCancelableHandler(() => 'late', req, res, { timeout: 60_000 });
+          asked.resolve();
         });
       });
     });
     for (const path of ['/a', '/b', '/c']) {
       await get(port, path);
+      await asked.promise;
+      asked = deferred();
     }
-    await sleep(20);
 
     expect(lateSignals).toEqual([false, false, false]);
-    expect(getLiveRequests(server)?.size ?? 0).toBe(0);
+    expect(getRequestRegistry(server)?.open.size ?? 0).toBe(0);
     expect(await shutdownServer(server, { timeout: 1000 })).toEqual({ canceled: 0, completed: 0, timedOut: false });
   });
 
@@ -536,6 +657,15 @@ describe('graceful shutdown over a real socket', () => {
     }
 
     return { port: address.port, server };
+  }
+
+  async function rawClient(port: number): Promise<Socket> {
+    const client = connect(port, '127.0.0.1');
+    sockets.push(client);
+    client.on('error', () => {});
+    await once(client, 'connect');
+
+    return client;
   }
 });
 
@@ -574,8 +704,15 @@ function get(port: number, path: string): Promise<IClientOutcome> {
   });
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
+function deferred(): { promise: Promise<void>; resolve: () => void } {
+  let resolve!: () => void;
+  const promise = new Promise<void>((settle) => {
+    resolve = settle;
   });
+
+  return { promise, resolve };
+}
+
+function countTimers(): number {
+  return process.getActiveResourcesInfo().filter((kind) => kind === 'Timeout').length;
 }

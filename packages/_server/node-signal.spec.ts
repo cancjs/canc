@@ -4,7 +4,7 @@ import { connect, createServer } from 'http2';
 import { AddressInfo } from 'net';
 
 import { createExchange, FakeRequest, FakeResponse, flush } from './__tests__/fakes';
-import { getLiveRequests, getRequestState, LIVE_REQUESTS, REQUEST_CANCEL_STATE } from './holder';
+import { getRequestRegistry, getRequestState, REQUEST_CANCEL_STATE, REQUEST_REGISTRY } from './holder';
 import { ensureRequestCancelState, getNodeRequestSignal } from './node-signal';
 import { CLIENT_DISCONNECTED } from './reasons';
 import { createTimeoutError } from './timeout';
@@ -115,11 +115,12 @@ describe('node request signal', () => {
     const { req, res } = createExchange(server);
     const state = ensureRequestCancelState(req, res);
 
-    expect(getLiveRequests(server)).toEqual(new Set([state]));
+    expect(getRequestRegistry(server)?.open).toEqual(new Map([[res, req]]));
+    expect(getRequestState(req)).toBe(state);
 
     res.end();
 
-    expect(getLiveRequests(server)?.size).toBe(0);
+    expect(getRequestRegistry(server)?.open.size).toBe(0);
   });
 
   it('works without a server to track against', () => {
@@ -127,7 +128,7 @@ describe('node request signal', () => {
     const res = new FakeResponse();
 
     expect(() => ensureRequestCancelState(req, res)).not.toThrow();
-    expect((req as unknown as Record<symbol, unknown>)[LIVE_REQUESTS]).toBeUndefined();
+    expect((req as unknown as Record<symbol, unknown>)[REQUEST_REGISTRY]).toBeUndefined();
   });
 });
 
@@ -226,7 +227,7 @@ describe('http2 compat server', () => {
     let during = -1;
     const server = createServer((req, res) => {
       ensureRequestCancelState(req as unknown as IRequestLike, res as unknown as IResponseLike);
-      during = getLiveRequests(server)?.size ?? -1;
+      during = getRequestRegistry(server)?.open.size ?? -1;
       res.once('close', () => closed.resolve());
       res.end('ok');
     });
@@ -245,7 +246,7 @@ describe('http2 compat server', () => {
       await flush();
 
       expect(during).toBe(1);
-      expect(getLiveRequests(server)?.size).toBe(0);
+      expect(getRequestRegistry(server)?.open.size).toBe(0);
     } finally {
       client.destroy();
       await new Promise<void>((resolve) => server.close(() => resolve()));

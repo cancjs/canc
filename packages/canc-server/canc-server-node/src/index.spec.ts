@@ -220,7 +220,7 @@ describe('request deadline', () => {
     expect(timeouts).toHaveLength(1);
   });
 
-  it('keeps one close listener on the response across twelve wrapped layers', async () => {
+  it('keeps the close listeners on the response bounded across twelve wrapped layers', async () => {
     const warnings = recordWarnings();
     let closeListeners = -1;
 
@@ -248,7 +248,8 @@ describe('request deadline', () => {
 
     expect((await httpRequest(port, { path: '/deep' })).body).toBe('ok');
     await settleTurns();
-    expect(closeListeners).toBe(1);
+    // the disconnect wiring, plus the request registry of a server met for the first time
+    expect(closeListeners).toBe(2);
     expect(warnings.stop()).toEqual([]);
   });
 });
