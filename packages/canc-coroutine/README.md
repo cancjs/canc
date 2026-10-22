@@ -120,8 +120,12 @@ A canceled coroutine rejects with `CancelError`. Without a handler, this trigger
 explicitly with `catchCancel`/`suppressCancel`.
 
 Because the error is thrown into the generator, `try`/`catch` and `try`/`finally` behave the way
-they do in an `async` function. A `finally` block still runs on cancellation, and its own steps
-run shielded, so cleanup cannot be canceled halfway:
+they do in an `async` function. A `finally` block still runs on cancellation, and the steps it
+runs after the cancel are shielded, so cleanup cannot be canceled halfway.
+
+The coroutine cannot tell whether a step sits inside a `finally`, though. When the `try` block
+returns or throws on its own, the `finally` runs as ordinary code, and a cancel arriving during its
+cleanup step would interrupt it. Shield your cleanup to cover that case:
 
 ```ts
 const checkout = canc.async(function* (orderId: string) {
@@ -130,10 +134,38 @@ const checkout = canc.async(function* (orderId: string) {
   try {
     return yield* canc.await(chargeCard(orderId));
   } finally {
-    yield* canc.await(releaseReservation(reservation.id));
+    yield* canc.await(CancelablePromise.resolve(releaseReservation(reservation.id), { shield: true }));
   }
 });
 ```
+
+A cancel that lands while a shielded step runs waits for that step. The body then resumes with the
+step's result and the cancel takes effect at the next step that is not shielded. If the body
+returns first, the coroutine still settles as canceled; if it throws first, it rejects with that
+error. The same rule applies to `cancGen.async` bodies.
+
+A coroutine stays pending while those `finally` steps run. Right after `cancel()` its `canceled`
+flag is still `false`; it turns `true` when the cleanup is done and the promise rejects. Cancel
+handlers run at that point too, and they receive the reason passed to `cancel()`, not the
+`CancelError`.
+
+When the canceled step awaits another coroutine or a `CancelablePromise`, the body's `finally`
+runs only after that step's own cleanup has finished, so the inner levels of a nest clean up
+before the levels that await them. The wait relies on the step's `cancel()` returning a cleanup
+promise, which is the default; for a step created with `asyncCancel: false` the body unwinds
+without waiting.
+
+A cancel unwinds the body through `yield*` delegation too. The `forAwait`, `forAwait.toArray` and
+`cancGen.delegate` helpers, and a generator callback passed to `forAwait`, run their cleanup and
+then keep unwinding, so the code after the helper call never runs. A generator of your own behaves
+differently when its `finally` awaits something. JavaScript resumes the caller once that `finally`
+completes, as if the delegated call had returned normally, so the statements after your `yield*`
+run (their steps are shielded, and the coroutine still settles as canceled). Check the signal you
+passed in the options after such a call, `if (signal.aborted) return;`, or keep awaits out of the
+helper's `finally`.
+
+If the signal passed in the options is already aborted, the coroutine is canceled from the start
+and its body never runs. With `strict`, calling it returns a rejected promise instead of throwing.
 
 ### Why `yield*` and not `yield`
 
@@ -545,7 +577,16 @@ for await (const progress of exportVideo(chunkIds)) {
 
 `cancGen.forAwait` consumes another source from inside a producer without emitting its items, and
 `cancGen.delegate(source)` re-emits them. Delegation needs its own helper because a synchronous
-generator cannot `yield*` an async iterable.
+generator cannot `yield*` an async iterable. Like `yield*`, it passes the values sent with `next()`
+and the errors sent with `throw()` on to the source, and the source's return value becomes the
+result of the delegation.
+
+Canceling a pending step (`iterator.next().cancel()`) or aborting the signal passed in the options
+cancels the producer the same way `canc.async` cancels a coroutine. Its `finally` blocks run to
+the end with shielded steps, the canceled step stays pending until they finish, and an error thrown
+by that cleanup rejects the step. The signal is watched from the producer's first pull until it ends, so an
+abort between two pulls cleans it up too. The `finally` that a consumer `return()` or `break` runs
+is protected the same way, so a cancel landing during that cleanup waits for it.
 
 ### Class methods
 

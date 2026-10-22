@@ -178,7 +178,7 @@ describe('catchCancel and in-body catch vs coroutine cancel', () => {
     p.catch(suppressCancel);
     await flush(2);
     p.cancel();
-    await flush(5);
+    await flush();
 
     expect(caughtInBody).toBe(false);
     expect(finallyRan).toBe(true);

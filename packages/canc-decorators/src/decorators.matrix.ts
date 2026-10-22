@@ -65,6 +65,17 @@ async function forceCollect(done: () => boolean, cycles = 25, gap = 20): Promise
   }
 }
 
+// 'timer' wins only if the work leaves the microtask queue idle
+async function settleBeforeTimer(work: Promise<unknown>): Promise<'timer' | { error: unknown }> {
+  const timer = new Promise<'timer'>((resolve) => setTimeout(() => resolve('timer'), 0));
+  const outcome = work.then(
+    () => ({ error: undefined as unknown }),
+    (error: unknown) => ({ error }),
+  );
+
+  return Promise.race([timer, outcome]);
+}
+
 // Access a property for side effect without retaining result since es5 var assignment defeats GC
 function touch(_value: unknown): void {
   // intentionally empty
@@ -1029,6 +1040,22 @@ export function runStage3Matrix({
     });
   });
 
+  describe('decorators (ES stage-3): async generator methods', () => {
+    it('AsyncMethod on an async generator method rejects a TypeError before the next macrotask', async () => {
+      class C {
+        @AsyncMethod()
+        async *method(): AsyncGenerator<number> {
+          yield 1;
+        }
+      }
+
+      const outcome = await settleBeforeTimer((new C().method as any)());
+
+      expect(outcome).not.toBe('timer');
+      expect((outcome as { error: unknown }).error).toBeInstanceOf(TypeError);
+    });
+  });
+
   describe('decorators (ES stage-3): receivers and overrides', () => {
     it('undecorated subclass override of a bound method runs', async () => {
       class Base {
@@ -1371,6 +1398,22 @@ export function runStage3Matrix({
       (inst as any).fn = () => 'stub';
 
       expect(inst.fn()).toBe('stub');
+    });
+  });
+
+  describe.each(legacyFlavors)('decorators ($name, applied as emitted): async generator methods', (flavor) => {
+    it('Async on an async generator method rejects a TypeError before the next macrotask', async () => {
+      class C {
+        async *method(): AsyncGenerator<number> {
+          yield 1;
+        }
+      }
+      flavor.decorate([flavor.Async()], C.prototype, 'method');
+
+      const outcome = await settleBeforeTimer((new C().method as any)());
+
+      expect(outcome).not.toBe('timer');
+      expect((outcome as { error: unknown }).error).toBeInstanceOf(TypeError);
     });
   });
 

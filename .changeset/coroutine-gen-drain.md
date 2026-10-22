@@ -1,0 +1,5 @@
+---
+"@cancjs/coroutine": patch
+---
+
+Canceling a `cancGen.async` producer now unwinds it the way `canc.async` unwinds a coroutine. Its `finally` blocks run to the end with shielded steps instead of stopping at their first await, the canceled step stays pending until that cleanup is done, and an error thrown by the cleanup rejects the step instead of being dropped, or the next pull when no step was waiting. A cancel arriving while the body runs (the body aborting its own signal, for example) no longer skips the `finally` or leaves an unhandled `TypeError`. The signal is watched from the first pull of a producer until it ends, so an abort between two pulls cleans the producer up instead of abandoning it, and a producer that is never pulled holds no listener. The cleanup a consumer `return()` starts can no longer be cut short by canceling that `return()`. A step awaiting a shared promise releases it instead of canceling it for every other consumer. Throwing `BreakError` from a `cancGen.forAwait` callback stops the loop cleanly, and `cancGen.delegate` forwards `next(value)`, `throw(error)` and the source's return value like `yield*`.
