@@ -34,6 +34,7 @@ export function ensureRequestCancelState(
     cancel,
     live: new Set(),
     options: options ? { ...options } : {},
+    response: res,
     signal,
   };
 
@@ -42,6 +43,14 @@ export function ensureRequestCancelState(
   wireDisconnect(req, res, state);
 
   return state;
+}
+
+/**
+ * Whether a response already emitted its close event. Anything wired after that point waits on an
+ * event that never comes again.
+ */
+export function isResponseClosed(res: IResponseLike): boolean {
+  return (res as IResponseLike & { closed?: unknown }).closed === true;
 }
 
 /** The cancel signal for a request, installing and wiring it on first use. */
@@ -77,6 +86,14 @@ function wireDisconnect(req: IRequestLike, res: IResponseLike, state: IRequestCa
   if (hasClientLeft(res)) {
     untrackRequest(req, state);
     state.cancel(CLIENT_DISCONNECTED);
+
+    return;
+  }
+
+  // installed late, from a hook running after the response closed: a finished exchange keeps an
+  // inert signal and stays out of the server registry, which it would otherwise pin for good
+  if (isResponseClosed(res)) {
+    untrackRequest(req, state);
 
     return;
   }

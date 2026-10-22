@@ -10,7 +10,7 @@ import {
 
 import { isGenerator, isThenable, TAnyFn } from '../_util';
 import { IRequestCancelState } from './holder';
-import { ensureRequestCancelState } from './node-signal';
+import { ensureRequestCancelState, isResponseClosed } from './node-signal';
 import { createTimeoutError, normalizeTimeout, startHandlerTimeout, stopHandlerTimeout } from './timeout';
 import { ICancelableHandlerOptions, IRequestLike, IResponseLike } from './types';
 
@@ -51,8 +51,13 @@ export function runCancelableHandler<TReturn = unknown>(
 ): CancelablePromise<TReturn> {
   const state = ensureRequestCancelState(req, res);
   const options = mergeHandlerOptions(state.options, routeOptions);
+  // a closed response never emits close again, so nothing armed here could be torn down
+  const closed = isResponseClosed(res);
 
-  armDeadline(state, options);
+  if (!closed) {
+    armDeadline(state, options);
+  }
+
   const stopWatching = watchCancelReason(state, options);
   const flags = pickFlags(options);
   // resolved once per call, registry precedence only, so a setPromiseImpl consumer gets its own
@@ -66,7 +71,14 @@ export function runCancelableHandler<TReturn = unknown>(
       canceledTask<TReturn>(Impl, state, flags)
     : startHandler<TReturn>(Impl, handler, call, { ...flags, signal: collectSignals(state, options) });
 
+  if (closed) {
+    stopWatching();
+
+    return task;
+  }
+
   state.live.add(task);
+  state.watch?.(task);
 
   // teardown hangs off the response rather than off the task: a `then` here would register as a
   // consumer of the handler's promise and change how a cancel bubbles through its own chain

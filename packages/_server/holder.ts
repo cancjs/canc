@@ -1,6 +1,6 @@
 import { CancelablePromise, CancelSignal } from '@cancjs/promise';
 
-import { ICancelableHandlerOptions, IRequestLike, IServerLike, IShutdownResult } from './types';
+import { ICancelableHandlerOptions, IRequestLike, IResponseLike, IServerLike, IShutdownResult } from './types';
 
 /**
  * Key the per-request cancel state is cached under. Registered through `Symbol.for`, so every copy
@@ -29,9 +29,13 @@ export interface IRequestCancelState {
   cancel: (reason?: unknown) => void;
   options: ICancelableHandlerOptions;
   live: Set<CancelablePromise<unknown>>;
+  /** The response the state was installed with. A shutdown waits on it closing. Absent on the Web path. */
+  response?: IResponseLike;
   timer?: unknown;
   /** Set by a shutdown before it cancels the signal, so a shutdown is not reported as a disconnect. */
   shuttingDown?: boolean;
+  /** Set by a shutdown, so a handler task started while it drains is still counted. */
+  watch?: (task: CancelablePromise<unknown>) => void;
 }
 
 type TKeyed = Record<symbol, unknown>;

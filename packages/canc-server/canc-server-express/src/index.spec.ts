@@ -364,6 +364,58 @@ describe('shutdown', () => {
     expect(isCancelError(forwarded[0])).toBe(true);
   });
 
+  it('counts a request once behind wrapped middleware', async () => {
+    const app = express();
+    const started = deferred();
+
+    app.use(cancelableHandler((_req, _res, next) => next()));
+    app.use(
+      cancelableHandler(function* (_req, _res, next) {
+        next();
+      }),
+    );
+    app.get(
+      '/hang',
+      cancelableHandler(function* (_req, res) {
+        started.resolve();
+        yield never();
+        res.send('unreachable');
+      }),
+    );
+    app.use(cancelErrorHandler());
+
+    const port = await listen(app);
+    const pending = httpRequest(port, { path: '/hang' });
+
+    await started.promise;
+    const result = await shutdown(lastServer(), { timeout: 1000 });
+
+    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
+    expect((await pending).status).toBe(503);
+  });
+
+  it('lets a plain route finish behind wrapped middleware', async () => {
+    const app = express();
+    const started = deferred();
+
+    app.use(cancelableHandler((_req, _res, next) => next()));
+    app.get('/plain', (_req, res) => {
+      started.resolve();
+      setTimeout(() => res.send('plain ok'), 200);
+    });
+
+    const port = await listen(app);
+    const pending = httpRequest(port, { path: '/plain' });
+
+    await started.promise;
+    // one macrotask, so the middleware task that already called next() has settled
+    await new Promise((resolve) => setImmediate(resolve));
+    const result = await shutdown(lastServer(), { timeout: 1000 });
+
+    expect(await pending).toEqual({ body: 'plain ok', status: 200 });
+    expect(result).toEqual({ canceled: 0, completed: 1, timedOut: false });
+  });
+
   it('exits on a handler that ignores its cancellation', async () => {
     const app = express();
     const started = deferred();
