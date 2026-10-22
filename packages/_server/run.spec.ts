@@ -1,4 +1,5 @@
 import { CancelablePromise, CancelError, isCancelError } from '@cancjs/promise';
+import { getEventListeners } from 'events';
 
 import { createExchange, flush, outcomeOf, pending } from './__tests__/fakes';
 import { getRequestState } from './holder';
@@ -511,6 +512,18 @@ describe('request deadline', () => {
 
     expect(res.listenerCount('close')).toBe(1);
   });
+
+  it('adds no abort listener per wrapped handler', () => {
+    const { req, res } = createExchange();
+    const state = ensureRequestCancelState(req, res);
+
+    for (let layer = 0; layer < 12; layer += 1) {
+      void outcomeOf(runCancelableHandler(() => pending(), req, res));
+    }
+
+    // the one in-flight forwarder, however many layers
+    expect(getEventListeners(state.signal, 'abort')).toHaveLength(1);
+  });
 });
 
 describe('lifecycle callbacks', () => {
@@ -578,6 +591,34 @@ describe('lifecycle callbacks', () => {
     await outcome;
 
     expect(onDisconnect).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('in flight forwarder', () => {
+  let uncaught: jest.Mock;
+
+  beforeEach(() => {
+    uncaught = jest.fn();
+    process.on('uncaughtException', uncaught);
+  });
+
+  afterEach(() => {
+    process.removeListener('uncaughtException', uncaught);
+  });
+
+  it('survives a strict shielded task that rejects the disconnect cancel', async () => {
+    const { req, res } = createExchange();
+    const first = pending({ shield: true, strict: true });
+    const second = pending();
+
+    void outcomeOf(runCancelableHandler(() => first, req, res, { shield: true, strict: true }));
+    const follower = outcomeOf(runCancelableHandler(() => second, req, res));
+    res.disconnect();
+
+    // the task after the throwing one is still reached, and the abort dispatch reports nothing
+    expect(isCancelError(await follower)).toBe(true);
+    await flush();
+    expect(uncaught).not.toHaveBeenCalled();
   });
 });
 

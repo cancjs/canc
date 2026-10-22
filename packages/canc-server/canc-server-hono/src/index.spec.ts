@@ -1,3 +1,4 @@
+import { getEventListeners } from 'node:events';
 import http from 'node:http';
 import { runInThisContext } from 'node:vm';
 
@@ -736,6 +737,31 @@ describe('request deadline', () => {
     expect(timeouts).toEqual([]);
   });
 
+  it('stops once a plain route returned, while its body still streams', async () => {
+    const timeouts: CancelError[] = [];
+    let abortedAtEnd: boolean | undefined;
+
+    const app = new Hono();
+
+    app.use(cancelMiddleware({ onTimeout: (reason) => timeouts.push(reason), timeout: 50 }));
+    app.get('/plain', (c) => {
+      const signal = getRequestSignal(c);
+
+      return c.body(
+        slowBody(() => {
+          abortedAtEnd = signal.aborted;
+        }),
+      );
+    });
+
+    const port = await listen(app);
+    const response = await send(port, '/plain');
+
+    expect(response).toEqual({ body: STREAMED_BODY, statusCode: 200 });
+    expect(abortedAtEnd).toBe(false);
+    expect(timeouts).toEqual([]);
+  });
+
   it('reports a deadline once however many wrapped layers the request passed', async () => {
     const timeouts: CancelError[] = [];
 
@@ -761,9 +787,10 @@ describe('request deadline', () => {
     expect(timeouts).toHaveLength(1);
   });
 
-  it('keeps one close listener on the response across twelve wrapped layers', async () => {
+  it('keeps the close listeners on the response bounded across twelve wrapped layers', async () => {
     const warnings = recordWarnings();
     let closeListeners = -1;
+    let abortListeners = -1;
 
     const app = new Hono();
 
@@ -786,6 +813,8 @@ describe('request deadline', () => {
     app.get(
       '/deep',
       cancelableHandler(function* (c) {
+        abortListeners = getEventListeners(getRequestSignal(c), 'abort').length;
+
         return c.text('ok');
       }),
     );
@@ -794,7 +823,10 @@ describe('request deadline', () => {
 
     expect((await send(port, '/deep')).body).toBe('ok');
     await tick(5);
-    expect(closeListeners).toBeLessThanOrEqual(2);
+    // the disconnect wiring, plus the request registry of a server met for the first time
+    expect(closeListeners).toBe(2);
+    // read inside the route, the one in-flight forwarder however many layers
+    expect(abortListeners).toBe(1);
     expect(warnings.stop()).toEqual([]);
   });
 });

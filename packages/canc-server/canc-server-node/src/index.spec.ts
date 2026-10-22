@@ -1,5 +1,5 @@
 import { CancelablePromise, CancelError, isCancelError, isCancelSignal } from '@cancjs/promise';
-import { once } from 'events';
+import { getEventListeners, once } from 'events';
 import { createServer, IncomingMessage, request, Server, ServerResponse } from 'http';
 import { connect, Socket } from 'net';
 import { runInThisContext } from 'vm';
@@ -106,10 +106,7 @@ describe('deadline', () => {
           yield never();
           res.end('unreachable');
         },
-        {
-          onTimeout: (reason) => timeouts.push(reason),
-          timeout: { ms: 25, status: 504 },
-        },
+        { onTimeout: (reason) => timeouts.push(reason), timeout: { ms: 25, status: 504 } },
       ),
     );
 
@@ -223,8 +220,10 @@ describe('request deadline', () => {
   it('keeps the close listeners on the response bounded across twelve wrapped layers', async () => {
     const warnings = recordWarnings();
     let closeListeners = -1;
+    let abortListeners = -1;
 
-    const route = cancelableHandler(function* (_req: IncomingMessage, res: ServerResponse) {
+    const route = cancelableHandler(function* (req: IncomingMessage, res: ServerResponse) {
+      abortListeners = getEventListeners(getRequestSignal(req, res), 'abort').length;
       res.end('ok');
     });
     let deep = route;
@@ -250,6 +249,8 @@ describe('request deadline', () => {
     await settleTurns();
     // the disconnect wiring, plus the request registry of a server met for the first time
     expect(closeListeners).toBe(2);
+    // read inside the route, the one in-flight forwarder however many layers
+    expect(abortListeners).toBe(1);
     expect(warnings.stop()).toEqual([]);
   });
 });
@@ -777,13 +778,7 @@ interface IHttpOptions {
 function httpRequest(port: number, options: IHttpOptions): Promise<{ status: number; body: string }> {
   return new Promise((resolve, reject) => {
     const outgoing = request(
-      {
-        headers: options.headers,
-        host: '127.0.0.1',
-        method: options.method ?? 'GET',
-        path: options.path,
-        port,
-      },
+      { headers: options.headers, host: '127.0.0.1', method: options.method ?? 'GET', path: options.path, port },
       (incoming: IncomingMessage) => {
         const chunks: Buffer[] = [];
         incoming.on('data', (chunk: Buffer) => chunks.push(chunk));

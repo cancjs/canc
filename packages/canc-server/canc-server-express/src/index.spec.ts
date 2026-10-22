@@ -1,5 +1,5 @@
 import { CancelablePromise, CancelError, isCancelError, isCancelSignal } from '@cancjs/promise';
-import { once } from 'events';
+import { getEventListeners, once } from 'events';
 import express, { ErrorRequestHandler, Express, Request, Response } from 'express';
 import { IncomingMessage, request, Server } from 'http';
 import { connect, Socket } from 'net';
@@ -58,9 +58,7 @@ describe('client disconnect', () => {
             finished.resolve();
           }
         },
-        {
-          onDisconnect: (reason) => disconnects.push(reason),
-        },
+        { onDisconnect: (reason) => disconnects.push(reason) },
       ),
     );
     app.use(recordErrors(forwarded));
@@ -123,9 +121,7 @@ describe('request with a body', () => {
           yield CancelablePromise.resolve();
           res.json({ echoed: (req.body as { value: string }).value });
         },
-        {
-          onDisconnect: (reason) => disconnects.push(reason),
-        },
+        { onDisconnect: (reason) => disconnects.push(reason) },
       ),
     );
 
@@ -155,10 +151,7 @@ describe('deadline', () => {
           yield never();
           res.send('unreachable');
         },
-        {
-          onTimeout: (reason) => timeouts.push(reason),
-          timeout: { ms: 25, status: 504 },
-        },
+        { onTimeout: (reason) => timeouts.push(reason), timeout: { ms: 25, status: 504 } },
       ),
     );
     app.use(cancelErrorHandler());
@@ -321,13 +314,14 @@ describe('request deadline', () => {
     expect(timeouts).toHaveLength(1);
   });
 
-  it('keeps one close listener on the response across twelve wrapped layers', async () => {
+  it('keeps the close listeners on the response bounded across twelve wrapped layers', async () => {
     const app = express();
     const warnings = recordWarnings();
     let closeListeners = -1;
+    let abortListeners = -1;
 
     // read at finish: every layer has registered whatever it registers by then, none removed yet
-    app.use((_req, res, next) => {
+    app.use((req, res, next) => {
       // counts only what the wrapped chain adds: Node's own close listeners vary by version
       const before = res.listenerCount('close');
       res.on('finish', () => {
@@ -342,7 +336,8 @@ describe('request deadline', () => {
 
     app.get(
       '/deep',
-      cancelableHandler(function* (_req, res) {
+      cancelableHandler(function* (req, res) {
+        abortListeners = getEventListeners(getRequestSignal(req, res), 'abort').length;
         res.send('ok');
       }),
     );
@@ -351,7 +346,10 @@ describe('request deadline', () => {
 
     expect((await httpRequest(port, { path: '/deep' })).body).toBe('ok');
     await settleTurns();
-    expect(closeListeners).toBeLessThanOrEqual(2);
+    // the disconnect wiring, plus the request registry of a server met for the first time
+    expect(closeListeners).toBe(2);
+    // read inside the route, the one in-flight forwarder however many layers
+    expect(abortListeners).toBe(1);
     expect(warnings.stop()).toEqual([]);
   });
 
@@ -847,13 +845,7 @@ interface IHttpOptions {
 function httpRequest(port: number, options: IHttpOptions): Promise<{ status: number; body: string }> {
   return new Promise((resolve, reject) => {
     const outgoing = request(
-      {
-        headers: options.headers,
-        host: '127.0.0.1',
-        method: options.method ?? 'GET',
-        path: options.path,
-        port,
-      },
+      { headers: options.headers, host: '127.0.0.1', method: options.method ?? 'GET', path: options.path, port },
       (incoming: IncomingMessage) => {
         const chunks: Buffer[] = [];
         incoming.on('data', (chunk: Buffer) => chunks.push(chunk));

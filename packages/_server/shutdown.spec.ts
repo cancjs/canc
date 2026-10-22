@@ -3,7 +3,7 @@ import { once } from 'events';
 import { createServer, globalAgent, IncomingMessage, request, Server, ServerResponse } from 'http';
 import { connect, Socket } from 'net';
 
-import { createExchange, FakeResponse, FakeServer, outcomeOf, pending } from './__tests__/fakes';
+import { createExchange, FakeResponse, FakeServer, flush, outcomeOf, pending } from './__tests__/fakes';
 import { getRequestRegistry } from './holder';
 import { ensureRequestCancelState, getNodeRequestSignal } from './node-signal';
 import { SERVER_SHUTDOWN } from './reasons';
@@ -137,11 +137,7 @@ describe('graceful shutdown', () => {
     state.live.add(work);
     void answer(work, res);
 
-    expect(await shutdownServer(server, { timeout: 2000 })).toEqual({
-      canceled: 0,
-      completed: 1,
-      timedOut: false,
-    });
+    expect(await shutdownServer(server, { timeout: 2000 })).toEqual({ canceled: 0, completed: 1, timedOut: false });
   });
 
   it('does not disturb a handler that already finished', async () => {
@@ -641,6 +637,31 @@ describe('graceful shutdown over a real socket', () => {
 
     expect(await answer).toMatchObject({ status: 503 });
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: true });
+  });
+
+  it('does not count a request again when a task settles after its response closed', async () => {
+    const server = new FakeServer();
+    const first = createExchange(server);
+    const second = createExchange(server);
+    const firstState = ensureRequestCancelState(first.req, first.res);
+    ensureRequestCancelState(second.req, second.res);
+    let settled = false;
+
+    const shutdown = shutdownServer(server, { timeout: 1000 });
+    void shutdown.then(() => {
+      settled = true;
+    });
+
+    first.res.end();
+    // the fake response has no closed flag, so a late task is tracked like one started mid response
+    firstState.watch?.(CancelablePromise.resolve());
+    await flush();
+
+    expect(settled).toBe(false);
+
+    second.res.end();
+
+    expect(await shutdown).toEqual({ canceled: 0, completed: 2, timedOut: false });
   });
 
   it('counts a request whose response finished during the drain as completed', async () => {

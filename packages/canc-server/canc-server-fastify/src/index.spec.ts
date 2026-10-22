@@ -1,4 +1,4 @@
-import { once } from 'node:events';
+import { getEventListeners, once } from 'node:events';
 import http from 'node:http';
 import { AddressInfo, connect, Socket } from 'node:net';
 import { Readable } from 'node:stream';
@@ -421,22 +421,27 @@ describe('request deadline', () => {
     expect(timeouts).toHaveLength(1);
   });
 
-  it('keeps one close listener on the response across twelve wrapped layers', async () => {
+  it('keeps the close listeners on the response bounded across twelve wrapped layers', async () => {
     const warnings = recordWarnings();
     let closeListeners = -1;
+    let abortListeners = -1;
 
     const instance = Fastify();
     // read at finish: every layer has registered whatever it registers by then, none removed yet
     instance.addHook('onRequest', (_request, reply, done) => {
+      // counts only what the wrapped chain adds: Node's own close listeners vary by version
+      const before = reply.raw.listenerCount('close');
       reply.raw.on('finish', () => {
-        closeListeners = reply.raw.listenerCount('close');
+        closeListeners = reply.raw.listenerCount('close') - before;
       });
       done();
     });
     instance.get(
       '/deep',
       { preHandler: Array.from({ length: 11 }, () => passThrough()) },
-      cancelableHandler(function* () {
+      cancelableHandler(function* (request, reply) {
+        abortListeners = getEventListeners(getRequestSignal(request, reply), 'abort').length;
+
         return 'ok';
       }),
     );
@@ -445,7 +450,10 @@ describe('request deadline', () => {
 
     expect((await send(port, '/deep')).body).toBe('ok');
     await tick(5);
-    expect(closeListeners).toBeLessThanOrEqual(2);
+    // the disconnect wiring, plus the request registry of a server met for the first time
+    expect(closeListeners).toBe(2);
+    // read inside the route, the one in-flight forwarder however many layers
+    expect(abortListeners).toBe(1);
     expect(warnings.stop()).toEqual([]);
   });
 });

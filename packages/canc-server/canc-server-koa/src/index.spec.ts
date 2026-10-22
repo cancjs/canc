@@ -1,5 +1,5 @@
 import { CancelablePromise, CancelError, isCancelError, isCancelSignal } from '@cancjs/promise';
-import { once } from 'events';
+import { getEventListeners, once } from 'events';
 import { IncomingMessage, request, Server } from 'http';
 import Koa, { Context, Middleware, Next } from 'koa';
 import { connect, Socket } from 'net';
@@ -91,13 +91,7 @@ interface IHttpOptions {
 function httpRequest(port: number, options: IHttpOptions): Promise<{ status: number; body: string }> {
   return new Promise((resolve, reject) => {
     const outgoing = request(
-      {
-        headers: options.headers,
-        host: '127.0.0.1',
-        method: options.method ?? 'GET',
-        path: options.path,
-        port,
-      },
+      { headers: options.headers, host: '127.0.0.1', method: options.method ?? 'GET', path: options.path, port },
       (incoming: IncomingMessage) => {
         const chunks: Buffer[] = [];
         incoming.on('data', (chunk: Buffer) => chunks.push(chunk));
@@ -297,10 +291,7 @@ describe('deadline', () => {
             yield never();
             ctx.body = 'unreachable';
           },
-          {
-            onTimeout: (reason) => timeouts.push(reason),
-            timeout: { ms: 25, status: 504 },
-          },
+          { onTimeout: (reason) => timeouts.push(reason), timeout: { ms: 25, status: 504 } },
         ),
       ),
     );
@@ -538,6 +529,29 @@ describe('request deadline', () => {
     expect(timeouts).toEqual([]);
   });
 
+  it('stops once a plain route returned, while its body still streams', async () => {
+    const app = new Koa();
+    const timeouts: CancelError[] = [];
+    let abortedAtEnd: boolean | undefined;
+
+    app.use(cancelMiddleware({ onTimeout: (reason) => timeouts.push(reason), timeout: 50 }));
+    app.use(
+      route('/plain', (ctx) => {
+        const signal = getRequestSignal(ctx);
+        ctx.body = slowBody(() => {
+          abortedAtEnd = signal.aborted;
+        });
+      }),
+    );
+
+    const port = await listen(app);
+    const response = await httpRequest(port, { path: '/plain' });
+
+    expect(response).toEqual({ body: STREAMED_BODY, status: 200 });
+    expect(abortedAtEnd).toBe(false);
+    expect(timeouts).toEqual([]);
+  });
+
   it('reports a deadline once however many wrapped layers the request passed', async () => {
     const app = new Koa();
     const timeouts: CancelError[] = [];
@@ -564,10 +578,11 @@ describe('request deadline', () => {
     expect(timeouts).toHaveLength(1);
   });
 
-  it('keeps one close listener on the response across twelve wrapped layers', async () => {
+  it('keeps the close listeners on the response bounded across twelve wrapped layers', async () => {
     const app = new Koa();
     const warnings = recordWarnings();
     let closeListeners = -1;
+    let abortListeners = -1;
 
     // read at finish: every layer has registered whatever it registers by then, none removed yet
     app.use(async (ctx, next) => {
@@ -584,6 +599,7 @@ describe('request deadline', () => {
         nest(
           11,
           cancelableHandler(function* (ctx) {
+            abortListeners = getEventListeners(getRequestSignal(ctx), 'abort').length;
             ctx.body = 'ok';
           }),
         ),
@@ -594,7 +610,10 @@ describe('request deadline', () => {
 
     expect((await httpRequest(port, { path: '/deep' })).body).toBe('ok');
     await settleTurns();
-    expect(closeListeners).toBeLessThanOrEqual(2);
+    // the disconnect wiring, plus the request registry of a server met for the first time
+    expect(closeListeners).toBe(2);
+    // read inside the route, the one in-flight forwarder however many layers
+    expect(abortListeners).toBe(1);
     expect(warnings.stop()).toEqual([]);
   });
 });
