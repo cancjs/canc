@@ -79,7 +79,7 @@ export function cancelErrorHandler(options?: ICancelErrorHandlerOptions): TCance
       return;
     }
 
-    if (isCancelError(error) && !error.timedOut) {
+    if (isCancelError(error)) {
       // fastify reads status then statusCode off the error, so stamping it is all the mapping a
       // shutdown cancellation needs
       const code = cancelStatusOf(error, configured);

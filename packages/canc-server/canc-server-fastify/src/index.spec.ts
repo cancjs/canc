@@ -4,7 +4,7 @@ import { AddressInfo, connect, Socket } from 'node:net';
 import { Readable } from 'node:stream';
 import { runInThisContext } from 'node:vm';
 
-import { CancelError, isCancelError, isCancelSignal } from '@cancjs/promise';
+import { CancelError, isCancelError, isCancelSignal, TimeoutError } from '@cancjs/promise';
 import Fastify, { FastifyInstance, preHandlerAsyncHookHandler } from 'fastify';
 
 import { expectAbortAt, useDeadlineClock } from '../../../_server/__tests__/deadline-clock';
@@ -849,6 +849,22 @@ describe('shutdown cancel status', () => {
     await createShutdown(instance)({ timeout: 200 });
 
     expect((await pending).statusCode).toBe(502);
+  });
+
+  it('takes the handler status for a user timeout that carries no status', async () => {
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.setErrorHandler(cancelErrorHandler({ status: 502 }));
+    instance.get(
+      '/user-timeout',
+      cancelableHandler(function* () {
+        throw new CancelError('user timeout', { cause: new TimeoutError('user timeout') });
+      }),
+    );
+
+    const port = await listen(instance);
+
+    expect((await send(port, '/user-timeout')).statusCode).toBe(502);
   });
 
   it('keeps a deadline status over the handler status', async () => {

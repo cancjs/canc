@@ -79,16 +79,23 @@ export function statusOf(error: CancelError, fallback: number): number {
 /**
  * The status a cancellation answers with in an adapter's handler.
  *
- * A deadline keeps the status stamped on it, so the handler's `status` option cannot re-map a
- * missed deadline. Any other cancellation takes the option when one is named, then the stamped
- * status, then 503.
+ * A stamped status comes first, so a deadline keeps the status it was given and the handler's
+ * `status` option cannot re-map it. Without a stamp, the option applies, then 503. A timeout from
+ * user code carries no stamp, so it takes the option like any other cancellation.
  */
 export function cancelStatusOf(error: CancelError, option: number | undefined): number {
-  if (error.timedOut) {
+  if (error.timedOut && statusStamped(error)) {
     return statusOf(error, DEFAULT_TIMEOUT_STATUS);
   }
 
   return option ?? statusOf(error, DEFAULT_TIMEOUT_STATUS);
+}
+
+/** Whether the cancellation already carries a status on `status` or `statusCode`. */
+function statusStamped(error: CancelError): boolean {
+  const carried = error as CancelError & { status?: unknown; statusCode?: unknown };
+
+  return typeof carried.status === 'number' || typeof carried.statusCode === 'number';
 }
 
 /** Narrows a framework's request object to the structural stand-in this layer reads. */

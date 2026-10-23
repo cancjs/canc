@@ -1,4 +1,4 @@
-import { CancelablePromise, CancelError, isCancelError, isCancelSignal } from '@cancjs/promise';
+import { CancelablePromise, CancelError, isCancelError, isCancelSignal, TimeoutError } from '@cancjs/promise';
 import { getEventListeners, once } from 'events';
 import express, { ErrorRequestHandler, Express, Request, Response } from 'express';
 import { IncomingMessage, request, Server } from 'http';
@@ -679,6 +679,22 @@ describe('shutdown cancel status', () => {
     await createShutdown(lastServer())({ timeout: 200 });
 
     expect((await pending).status).toBe(502);
+  });
+
+  it('takes the handler status for a user timeout that carries no status', async () => {
+    const app = express();
+
+    app.get(
+      '/user-timeout',
+      cancelableHandler(function* () {
+        throw new CancelError('user timeout', { cause: new TimeoutError('user timeout') });
+      }),
+    );
+    app.use(cancelErrorHandler({ status: 502 }));
+
+    const port = await listen(app);
+
+    expect((await httpRequest(port, { path: '/user-timeout' })).status).toBe(502);
   });
 
   it('keeps a deadline status over the handler status', async () => {
