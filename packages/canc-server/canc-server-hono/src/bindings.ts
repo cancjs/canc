@@ -84,14 +84,18 @@ export function isResponseUnreachable(c: ICancelContext): boolean {
 /**
  * Destroys the node response when its head already went out. A status cannot follow a written head,
  * and a bare error response would make the node adapter write headers on it again, so the socket is
- * cut instead and the client reads a short body rather than a complete one.
+ * cut instead and the client reads a short body rather than a complete one. Says whether it cut.
  */
-export function abandonIfHeadersSent(c: ICancelContext): void {
+export function abandonIfHeadersSent(c: ICancelContext): boolean {
   const outgoing = getNodeBindings(c.env)?.outgoing as { headersSent?: boolean; destroy?: () => void } | undefined;
 
   if (outgoing?.headersSent === true && isFunction(outgoing.destroy)) {
     outgoing.destroy();
+
+    return true;
   }
+
+  return false;
 }
 
 /**

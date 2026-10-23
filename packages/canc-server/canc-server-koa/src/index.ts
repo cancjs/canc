@@ -59,6 +59,14 @@ export function cancelableHandler<StateT = DefaultState, ContextT = DefaultConte
         return;
       }
 
+      // a sent head takes no status, so cut the socket
+      if (isCancelError(error) && ctx.res.headersSent === true) {
+        ctx.res.destroy();
+        ctx.respond = false;
+
+        return;
+      }
+
       throw error;
     }
   };

@@ -6,6 +6,7 @@ import { IHandlerCall, runCancelableHandler } from '../../../_server/run';
 import { ICancelableHandlerOptions, IRequestLike, IResponseLike, THandlerFn } from '../../../_server/types';
 import { TAnyFn } from '../../../_util';
 import {
+  abandonIfHeadersSent,
   alreadySentHeaders,
   ensureCancelState,
   getNodeBindings,
@@ -76,9 +77,13 @@ export function cancelableHandler<E extends Env = any, P extends string = any, I
     const task = startTask(handler as TAnyFn, context, options, { args: [c], next });
 
     return task.catch((error: unknown) => {
+      // a sent head cannot take a status: cut the socket first, so the response left behind is
+      // the unreachable one below and nothing is written over the head
+      const headCut = isCancelError(error) && abandonIfHeadersSent(context);
+
       // the documented discriminator, never a message check and never instanceof: a deadline
       // still has a client to answer, a cancellation behind an unreachable response has none
-      if (isCancelError(error) && !error.timedOut && isResponseUnreachable(context)) {
+      if (isCancelError(error) && (!error.timedOut || headCut) && isResponseUnreachable(context)) {
         return new Response(null, { headers: alreadySentHeaders(context), status: CLIENT_CLOSED_STATUS });
       }
 

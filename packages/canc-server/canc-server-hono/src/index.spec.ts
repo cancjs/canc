@@ -332,6 +332,45 @@ describe('deadline', () => {
     expect(outcome.body).not.toContain('Cannot write headers');
   });
 
+  it('cuts the connection on a head-sent deadline with only the wrapper mounted', async () => {
+    const app = new Hono();
+
+    app.get(
+      '/raw',
+      cancelableHandler(
+        function* (c) {
+          const outgoing = (c.env as { outgoing: http.ServerResponse }).outgoing;
+
+          outgoing.writeHead(200, { 'content-type': 'text/plain' });
+          outgoing.write('part1,');
+          yield new Promise(() => undefined);
+
+          return c.text('never');
+        },
+        { timeout: { message: 'route took too long', ms: 20, status: 504 } },
+      ),
+    );
+
+    const port = await listen(app);
+    const outcome = await new Promise<{ body: string; complete: boolean }>((resolve) => {
+      const request = http.get({ host: '127.0.0.1', path: '/raw', port }, (response) => {
+        let body = '';
+
+        response.setEncoding('utf8');
+        response.on('data', (chunk: string) => {
+          body += chunk;
+        });
+        response.on('end', () => resolve({ body, complete: response.complete }));
+        response.on('error', () => resolve({ body, complete: false }));
+      });
+
+      request.on('error', () => resolve({ body: '', complete: false }));
+    });
+
+    expect(outcome.complete).toBe(false);
+    expect(outcome.body).not.toContain('Cannot write headers');
+  });
+
   it('reports the default status when the timeout names none', async () => {
     const app = new Hono();
 
