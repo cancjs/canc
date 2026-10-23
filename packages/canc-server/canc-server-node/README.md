@@ -159,7 +159,7 @@ The shutdown stops the server accepting connections, closes a connection that ha
 
 When the window ends, handlers still running are canceled with the shutdown reason, so their cleanup runs and one that has not started its response can still answer `503`. Connections still busy after that are closed. The cancel reaches the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it.
 
-No `Retry-After` is sent with a shutdown answer. To add one, write the header yourself in your `onError` before answering. A shutdown cancel and a disconnect both reach `onError` as a cancellation, so test `err.status` to tell them apart, since `!err.timedOut` alone matches both. Retry only idempotent requests, because the handler may have partly run.
+No `Retry-After` is sent with a shutdown answer. To add one, write the header yourself in your `onError` before answering. A shutdown cancel and a disconnect both reach `onError` as a cancellation, so test `err.status` to tell them apart, since `!err.timedOut` alone matches both. Retry only idempotent requests, because the handler may have partly run. An abort that a library wraps in its own error answers the framework's 500, for a deadline or a shutdown alike. An abort that a library wraps in its own error answers the framework's 500, for a deadline or a shutdown alike.
 
 Pass `cancelOnStart: true` to cancel handlers as soon as the shutdown starts instead, which suits long-lived responses such as server-sent events or long polling that would otherwise hold the whole window.
 
@@ -183,7 +183,7 @@ Raw node has no `next(err)` and no error middleware. What settles a request afte
 
 That last part is where this package differs from the four framework adapters. Each of those forwards such an error to a framework error handler that already answers and logs. Raw node has no pipeline behind the wrapper, so the wrapper holds the only reference left to a response the client is still waiting on. Pass `cancelErrorHandler({ rethrow: true })` to get the throw back instead. Nothing awaits it, so it surfaces as an unhandled rejection: opt in only where a process level handler is installed to receive it.
 
-Pass your own `onError` when a caller already has an error pipeline: an adapter for restify, AdonisJS, a Pages Router API route, or Nest on the raw server reads the error from there instead. A custom `onError` that rethrows a cancellation does not help: nothing awaits the throw and cancellation rejections are not reported, so it is swallowed. No response is sent, and the client sees the connection reset when the shutdown force-closes it. Answer the response inside `onError`, or hand the error to `cancelErrorHandler()`.
+Pass your own `onError` when a caller already has an error pipeline: an adapter for restify, AdonisJS, a Pages Router API route, or Nest on the raw server reads the error from there instead. A custom `onError` that rethrows a cancellation does not help: nothing awaits the throw and cancellation rejections are not reported, so it is swallowed. On a deadline no response is sent and nothing closes the socket, so the request hangs until the client or the socket timeout ends it. On a shutdown the socket is force-closed, so the client sees a reset. Answer the response inside `onError`, or hand the error to `cancelErrorHandler()`.
 
 ### Options
 
