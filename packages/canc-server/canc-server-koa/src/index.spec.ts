@@ -898,6 +898,143 @@ describe('handler kinds', () => {
   });
 });
 
+describe('shutdown cancel status', () => {
+  /** Reads the status line off the first bytes a raw connection gets back. */
+  async function firstStatus(client: Socket): Promise<number> {
+    const [chunk] = await once(client, 'data');
+
+    return Number(/^HTTP\/1\.1 (\d{3})/.exec(String(chunk))?.[1]);
+  }
+
+  function hangingRoute(started: { resolve: () => void }) {
+    return route(
+      '/hang',
+      cancelableHandler(function* (ctx) {
+        started.resolve();
+        yield never();
+        ctx.body = 'unreachable';
+      }),
+    );
+  }
+
+  it('answers 503 for a shutdown cancel that reaches koa default error handling', async () => {
+    const app = new Koa();
+    const started = deferred();
+
+    app.silent = true;
+    app.use(hangingRoute(started));
+
+    const port = await listen(app);
+    const pending = httpRequest(port, { path: '/hang' });
+
+    await started.promise;
+    await createShutdown(lastServer())({ timeout: 200 });
+
+    expect((await pending).status).toBe(503);
+  });
+
+  it('takes the middleware status over the stamped 503 for a shutdown cancel', async () => {
+    const app = new Koa();
+    const started = deferred();
+
+    app.use(cancelMiddleware({ status: 502 }));
+    app.use(hangingRoute(started));
+
+    const port = await listen(app);
+    const pending = httpRequest(port, { path: '/hang' });
+
+    await started.promise;
+    await createShutdown(lastServer())({ timeout: 200 });
+
+    expect((await pending).status).toBe(502);
+  });
+
+  it('keeps a deadline status over the middleware status', async () => {
+    const app = new Koa();
+
+    app.use(cancelMiddleware({ status: 502 }));
+    app.use(
+      route(
+        '/slow',
+        cancelableHandler(
+          function* (ctx) {
+            yield never();
+            ctx.body = 'unreachable';
+          },
+          { timeout: { ms: 20, status: 504 } },
+        ),
+      ),
+    );
+
+    const port = await listen(app);
+
+    expect((await httpRequest(port, { path: '/slow' })).status).toBe(504);
+  });
+
+  it('gives each in-flight request its own shutdown cancellation', async () => {
+    const app = new Koa();
+    const reasons: unknown[] = [];
+    let entered = 0;
+    const bothStarted = deferred();
+
+    app.use(cancelMiddleware());
+    app.use(
+      route(
+        '/hang',
+        cancelableHandler(function* (ctx) {
+          const signal = getRequestSignal(ctx);
+          signal.addEventListener('abort', () => reasons.push(signal.reason));
+          entered += 1;
+          if (entered === 2) {
+            bothStarted.resolve();
+          }
+          yield never();
+          ctx.body = 'unreachable';
+        }),
+      ),
+    );
+
+    const port = await listen(app);
+    const pending = [httpRequest(port, { path: '/hang' }), httpRequest(port, { path: '/hang' })];
+
+    await bothStarted.promise;
+    await createShutdown(lastServer())({ timeout: 200 });
+    await Promise.all(pending);
+
+    expect(reasons).toHaveLength(2);
+    expect(reasons[0]).not.toBe(reasons[1]);
+  });
+
+  it('answers 503 for a request that arrives during a cancel-on-start drain with no middleware', async () => {
+    const app = new Koa();
+
+    app.silent = true;
+    app.use(
+      route(
+        '/late',
+        cancelableHandler(function* (ctx) {
+          yield never();
+          ctx.body = 'unreachable';
+        }),
+      ),
+    );
+
+    const port = await listen(app);
+    // a connection opened before the drain starts is the only way to deliver a request while it runs
+    const accepted = once(lastServer(), 'connection');
+    const client = connect(port, '127.0.0.1');
+    sockets.push(client);
+    client.on('error', () => {});
+    await accepted;
+
+    const shutdown = createShutdown(lastServer())({ timeout: 500, cancelOnStart: true });
+    client.write('GET /late HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n');
+
+    expect(await firstStatus(client)).toBe(503);
+    await shutdown;
+  });
+});
+
 describe('shutdown', () => {
   it('cancels a live request when the grace window ends and reports the outcome', async () => {
     const app = new Koa();

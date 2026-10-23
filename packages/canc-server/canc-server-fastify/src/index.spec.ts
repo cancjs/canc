@@ -796,6 +796,146 @@ describe('handler kinds', () => {
   });
 });
 
+describe('shutdown cancel status', () => {
+  /** Reads the status line off the first bytes a raw connection gets back. */
+  async function firstStatus(client: Socket): Promise<number> {
+    const [chunk] = await once(client, 'data');
+
+    return Number(/^HTTP\/1\.1 (\d{3})/.exec(String(chunk))?.[1]);
+  }
+
+  it('answers 503 for a shutdown cancel that reaches fastify default error handling', async () => {
+    const started = deferred();
+
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.get(
+      '/hang',
+      cancelableHandler(function* () {
+        started.resolve();
+        yield new Promise(() => undefined);
+
+        return { ok: true };
+      }),
+    );
+
+    const port = await listen(instance);
+    const pending = send(port, '/hang');
+    await started.promise;
+    await createShutdown(instance)({ timeout: 200 });
+
+    expect((await pending).statusCode).toBe(503);
+  });
+
+  it('takes the handler status over the stamped 503 for a shutdown cancel', async () => {
+    const started = deferred();
+
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.setErrorHandler(cancelErrorHandler({ status: 502 }));
+    instance.get(
+      '/hang',
+      cancelableHandler(function* () {
+        started.resolve();
+        yield new Promise(() => undefined);
+
+        return { ok: true };
+      }),
+    );
+
+    const port = await listen(instance);
+    const pending = send(port, '/hang');
+    await started.promise;
+    await createShutdown(instance)({ timeout: 200 });
+
+    expect((await pending).statusCode).toBe(502);
+  });
+
+  it('keeps a deadline status over the handler status', async () => {
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.setErrorHandler(cancelErrorHandler({ status: 502 }));
+    instance.get(
+      '/slow',
+      cancelableHandler(
+        function* () {
+          yield new Promise(() => undefined);
+
+          return { ok: true };
+        },
+        { timeout: { ms: 20, status: 504 } },
+      ),
+    );
+
+    const port = await listen(instance);
+
+    expect((await send(port, '/slow')).statusCode).toBe(504);
+  });
+
+  it('gives each in-flight request its own shutdown cancellation', async () => {
+    const errors: unknown[] = [];
+    const handle = cancelErrorHandler();
+    let entered = 0;
+    const bothStarted = deferred();
+
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.setErrorHandler(function (this: FastifyInstance, error, request, reply) {
+      errors.push(error);
+      handle.call(this, error, request, reply);
+    });
+    instance.get(
+      '/hang',
+      cancelableHandler(function* () {
+        entered += 1;
+        if (entered === 2) {
+          bothStarted.resolve();
+        }
+        yield new Promise(() => undefined);
+
+        return { ok: true };
+      }),
+    );
+
+    const port = await listen(instance);
+    const pending = [send(port, '/hang'), send(port, '/hang')];
+
+    await bothStarted.promise;
+    await createShutdown(instance)({ timeout: 200 });
+    await Promise.all(pending);
+
+    expect(errors).toHaveLength(2);
+    expect(errors[0]).not.toBe(errors[1]);
+  });
+
+  it('answers 503 for a request that arrives during a cancel-on-start drain', async () => {
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.get(
+      '/late',
+      cancelableHandler(function* () {
+        yield new Promise(() => undefined);
+
+        return { ok: true };
+      }),
+    );
+
+    const port = await listen(instance);
+    // a connection opened before the drain starts is the only way to deliver a request while it runs
+    const accepted = once(instance.server, 'connection');
+    const client = connect(port, '127.0.0.1');
+    sockets.push(client);
+    client.on('error', () => {});
+    await accepted;
+
+    const shutdown = createShutdown(instance)({ timeout: 500, cancelOnStart: true });
+    client.write('GET /late HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n');
+
+    expect(await firstStatus(client)).toBe(503);
+    await shutdown;
+  });
+});
+
 describe('shutdown', () => {
   it('cancels a hung handler when the grace window ends', async () => {
     const started = deferred();

@@ -1,5 +1,6 @@
 import { CancelError, isCancelError } from '@cancjs/promise';
 
+import { DEFAULT_TIMEOUT_STATUS } from './timeout';
 import { IRequestLike, IResponseLike } from './types';
 
 /**
@@ -73,6 +74,21 @@ export function statusOf(error: CancelError, fallback: number): number {
   }
 
   return fallback;
+}
+
+/**
+ * The status a cancellation answers with in an adapter's handler.
+ *
+ * A deadline keeps the status stamped on it, so the handler's `status` option cannot re-map a
+ * missed deadline. Any other cancellation takes the option when one is named, then the stamped
+ * status, then 503.
+ */
+export function cancelStatusOf(error: CancelError, option: number | undefined): number {
+  if (error.timedOut) {
+    return statusOf(error, DEFAULT_TIMEOUT_STATUS);
+  }
+
+  return option ?? statusOf(error, DEFAULT_TIMEOUT_STATUS);
 }
 
 /** Narrows a framework's request object to the structural stand-in this layer reads. */

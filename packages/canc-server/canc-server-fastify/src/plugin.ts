@@ -2,13 +2,10 @@ import { isCancelError } from '@cancjs/promise';
 import { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import fastifyPlugin from 'fastify-plugin';
 
-import { isUnanswerable } from '../../../_server/exchange';
+import { cancelStatusOf, isUnanswerable } from '../../../_server/exchange';
 import { getRequestRegistry } from '../../../_server/holder';
 import { ensureRequestCancelState } from '../../../_server/node-signal';
 import { ICancelableHandlerOptions } from '../../../_server/types';
-
-/** Status reported when a cancellation reaches the error handler with the client still connected. */
-const CANCELED_STATUS = 503;
 
 /** What an error handler does with a cancellation the wrapper forwarded. */
 export interface ICancelErrorHandlerOptions {
@@ -65,7 +62,7 @@ export const cancelPlugin = fastifyPlugin(plugin, {
  * included, goes to fastify's own handling, which reads the status off the error.
  */
 export function cancelErrorHandler(options?: ICancelErrorHandlerOptions): TCancelErrorHandler {
-  const status = options?.status ?? options?.canceledStatus ?? CANCELED_STATUS;
+  const configured = options?.status ?? options?.canceledStatus;
 
   return function cancelAwareErrorHandler(error, _request, reply) {
     if (isUnanswerable(error, reply.raw)) {
@@ -85,7 +82,9 @@ export function cancelErrorHandler(options?: ICancelErrorHandlerOptions): TCance
     if (isCancelError(error) && !error.timedOut) {
       // fastify reads status then statusCode off the error, so stamping it is all the mapping a
       // shutdown cancellation needs
-      (error as { statusCode?: number }).statusCode ??= status;
+      const code = cancelStatusOf(error, configured);
+      (error as { status?: number; statusCode?: number }).status = code;
+      (error as { statusCode?: number }).statusCode = code;
     }
 
     reply.send(error);

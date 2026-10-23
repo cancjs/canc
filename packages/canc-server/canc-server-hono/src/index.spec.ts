@@ -1,5 +1,6 @@
-import { getEventListeners } from 'node:events';
+import { getEventListeners, once } from 'node:events';
 import http from 'node:http';
+import { connect, Socket } from 'node:net';
 import { runInThisContext } from 'node:vm';
 
 import { CancelError, isCancelError, isCancelSignal } from '@cancjs/promise';
@@ -51,6 +52,7 @@ function tick(times = 3): Promise<void> {
 }
 
 let server: ServerType | undefined;
+const sockets: Socket[] = [];
 
 function listen(app: Hono): Promise<number> {
   return new Promise((resolve) => {
@@ -633,6 +635,149 @@ describe('handler kinds', () => {
 
     expect(response.statusCode).toBe(503);
     expect(handler).not.toHaveBeenCalled();
+  });
+});
+
+describe('shutdown cancel status', () => {
+  /** Reads the status line off the first bytes a raw connection gets back. */
+  async function firstStatus(client: Socket): Promise<number> {
+    const [chunk] = await once(client, 'data');
+
+    return Number(/^HTTP\/1\.1 (\d{3})/.exec(String(chunk))?.[1]);
+  }
+
+  it('answers 500 for a shutdown cancel with no error handler, since hono default onError reads no status', async () => {
+    const app = new Hono();
+    const started = deferred();
+
+    app.use(cancelMiddleware());
+    app.get(
+      '/hang',
+      cancelableHandler(function* (c) {
+        started.resolve();
+        yield new Promise(() => undefined);
+
+        return c.text('never');
+      }),
+    );
+
+    const port = await listen(app);
+    const pending = send(port, '/hang');
+    await started.promise;
+    await createShutdown(server!)({ timeout: 200 });
+
+    expect((await pending).statusCode).toBe(500);
+  });
+
+  it('takes the handler status over the stamped 503 for a shutdown cancel', async () => {
+    const app = new Hono();
+    const started = deferred();
+
+    app.onError(cancelErrorHandler({ status: 502 }));
+    app.use(cancelMiddleware());
+    app.get(
+      '/hang',
+      cancelableHandler(function* (c) {
+        started.resolve();
+        yield new Promise(() => undefined);
+
+        return c.text('never');
+      }),
+    );
+
+    const port = await listen(app);
+    const pending = send(port, '/hang');
+    await started.promise;
+    await createShutdown(server!)({ timeout: 200 });
+
+    expect((await pending).statusCode).toBe(502);
+  });
+
+  it('keeps a deadline status over the handler status', async () => {
+    const app = new Hono();
+
+    app.onError(cancelErrorHandler({ status: 502 }));
+    app.use(cancelMiddleware());
+    app.get(
+      '/slow',
+      cancelableHandler(
+        function* (c) {
+          yield new Promise(() => undefined);
+
+          return c.text('never');
+        },
+        { timeout: { ms: 20, status: 504 } },
+      ),
+    );
+
+    const port = await listen(app);
+
+    expect((await send(port, '/slow')).statusCode).toBe(504);
+  });
+
+  it('gives each in-flight request its own shutdown cancellation', async () => {
+    const errors: unknown[] = [];
+    const handle = cancelErrorHandler();
+    let entered = 0;
+    const bothStarted = deferred();
+
+    const app = new Hono();
+    app.onError((error, c) => {
+      errors.push(error);
+
+      return handle(error, c);
+    });
+    app.use(cancelMiddleware());
+    app.get(
+      '/hang',
+      cancelableHandler(function* (c) {
+        entered += 1;
+        if (entered === 2) {
+          bothStarted.resolve();
+        }
+        yield new Promise(() => undefined);
+
+        return c.text('never');
+      }),
+    );
+
+    const port = await listen(app);
+    const pending = [send(port, '/hang'), send(port, '/hang')];
+
+    await bothStarted.promise;
+    await createShutdown(server!)({ timeout: 200 });
+    await Promise.all(pending);
+
+    expect(errors).toHaveLength(2);
+    expect(errors[0]).not.toBe(errors[1]);
+  });
+
+  it('answers 500 for a request that arrives during a cancel-on-start drain with no error handler', async () => {
+    const app = new Hono();
+
+    app.use(cancelMiddleware());
+    app.get(
+      '/late',
+      cancelableHandler(function* (c) {
+        yield new Promise(() => undefined);
+
+        return c.text('never');
+      }),
+    );
+
+    const port = await listen(app);
+    // a connection opened before the drain starts is the only way to deliver a request while it runs
+    const accepted = once(server!, 'connection');
+    const client = connect(port, '127.0.0.1');
+    sockets.push(client);
+    client.on('error', () => {});
+    await accepted;
+
+    const shutdown = createShutdown(server!)({ timeout: 500, cancelOnStart: true });
+    client.write('GET /late HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n');
+
+    expect(await firstStatus(client)).toBe(500);
+    await shutdown;
   });
 });
 

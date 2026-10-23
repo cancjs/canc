@@ -65,6 +65,22 @@ export function createTimeoutError(spec: ITimeoutSpec): IStatusCancelError {
   return error;
 }
 
+/**
+ * Mints the cancellation a shutdown raises on one request.
+ *
+ * Stamped with the same status pair as a deadline, so a framework's default error pipeline answers
+ * 503 with no handler. The cause is left empty: `timedOut` stays false, and the handler's status
+ * option still applies to it.
+ */
+export function createShutdownError(message: string): IStatusCancelError {
+  const error = new CancelError(message) as IStatusCancelError;
+
+  error.status = DEFAULT_TIMEOUT_STATUS;
+  error.statusCode = DEFAULT_TIMEOUT_STATUS;
+
+  return error;
+}
+
 /** Schedules the deadline, returning the handle that stops it. */
 export function startHandlerTimeout(ms: number, onDeadline: () => void): unknown {
   // plain setTimeout: normalizeTimeout already clamped ms to the 32-bit ceiling, so the chunked

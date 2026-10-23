@@ -3,12 +3,17 @@ import type { ErrorRequestHandler, RequestHandler } from 'express';
 import type { ParamsDictionary, Query } from 'express-serve-static-core';
 import type { IncomingMessage, Server, ServerResponse } from 'http';
 
-import { isResponseLive, isUnanswerable, statusOf, toRequestLike, toResponseLike } from '../../../_server/exchange';
+import {
+  cancelStatusOf,
+  isResponseLive,
+  isUnanswerable,
+  toRequestLike,
+  toResponseLike,
+} from '../../../_server/exchange';
 import { getRequestState } from '../../../_server/holder';
 import { getNodeRequestSignal } from '../../../_server/node-signal';
 import { runCancelableHandler } from '../../../_server/run';
 import { createServerShutdown } from '../../../_server/shutdown';
-import { DEFAULT_TIMEOUT_STATUS } from '../../../_server/timeout';
 import {
   ICancelableHandlerOptions,
   ICancelErrorHandlerOptions,
@@ -128,14 +133,13 @@ export function cancelMiddleware(options?: ICancelableHandlerOptions): RequestHa
  * Opt-in error handler mapping a cancellation to a response. Mount it last, after the routes.
  *
  * A deadline answers with the status stamped on it (`503` unless the timeout option names another
- * one), a shutdown cancellation with the fallback status, and a response that can no longer be
- * answered gets nothing. A response whose head already went out cannot carry a status, so its
- * connection is destroyed and the client sees an aborted message instead of a body that looks whole.
+ * one), a shutdown cancellation with the `status` option (default `503`), and a response that can no
+ * longer be answered gets nothing. A response whose head already went out cannot carry a status, so
+ * its connection is destroyed and the client sees an aborted message instead of a body that looks
+ * whole.
  * Anything that is not a cancellation passes through untouched.
  */
 export function cancelErrorHandler(options: ICancelErrorHandlerOptions = {}): ErrorRequestHandler {
-  const fallback = options.status ?? DEFAULT_TIMEOUT_STATUS;
-
   return function cancelErrorRoute(error, _req, res, next) {
     if (!isCancelError(error)) {
       next(error);
@@ -154,7 +158,7 @@ export function cancelErrorHandler(options: ICancelErrorHandlerOptions = {}): Er
       return;
     }
 
-    res.status(statusOf(error, fallback)).end();
+    res.status(cancelStatusOf(error, options.status)).end();
   };
 }
 

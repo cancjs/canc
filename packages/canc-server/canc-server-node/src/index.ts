@@ -1,11 +1,16 @@
 import { CancelSignal, isCancelError } from '@cancjs/promise';
 import type { IncomingMessage, Server, ServerResponse } from 'http';
 
-import { isResponseLive, isUnanswerable, statusOf, toRequestLike, toResponseLike } from '../../../_server/exchange';
+import {
+  cancelStatusOf,
+  isResponseLive,
+  isUnanswerable,
+  toRequestLike,
+  toResponseLike,
+} from '../../../_server/exchange';
 import { getNodeRequestSignal } from '../../../_server/node-signal';
 import { runCancelableHandler } from '../../../_server/run';
 import { createServerShutdown } from '../../../_server/shutdown';
-import { DEFAULT_TIMEOUT_STATUS } from '../../../_server/timeout';
 import {
   ICancelableHandlerOptions,
   ICancelErrorHandlerOptions,
@@ -129,9 +134,10 @@ export function getRequestSignal(req: IncomingMessage, res: ServerResponse): Can
  * `onError`; pass it (or a wrapper around it) explicitly when a route needs its own status mapping.
  *
  * A deadline answers with the status stamped on it (`503` unless the timeout option names another
- * one), a shutdown cancellation with the fallback status, and a response that can no longer be
- * answered gets nothing. A response whose head already went out cannot carry a status, so its
- * connection is destroyed and the client sees an aborted message instead of a body that looks whole.
+ * one), a shutdown cancellation with the `status` option (default `503`), and a response that can no
+ * longer be answered gets nothing. A response whose head already went out cannot carry a status, so
+ * its connection is destroyed and the client sees an aborted message instead of a body that looks
+ * whole.
  * Anything that is not a cancellation answers `500` and is logged.
  *
  * The other four adapters hand such an error to the framework's own error handler, and this is the
@@ -143,7 +149,6 @@ export function cancelErrorHandler<
   TReq extends IncomingMessage = IncomingMessage,
   TRes extends ServerResponse = ServerResponse,
 >(options: INodeCancelErrorHandlerOptions = {}): TNodeErrorHandler<TReq, TRes> {
-  const fallback = options.status ?? DEFAULT_TIMEOUT_STATUS;
   const rethrow = options.rethrow === true;
 
   return function cancelErrorRoute(error, _req, res) {
@@ -159,7 +164,7 @@ export function cancelErrorHandler<
       return;
     }
 
-    answerWith(res, statusOf(error, fallback));
+    answerWith(res, cancelStatusOf(error, options.status));
   };
 }
 

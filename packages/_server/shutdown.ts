@@ -17,7 +17,7 @@ import {
 } from './holder';
 import { ensureRequestCancelState, isResponseClosed } from './node-signal';
 import { SERVER_SHUTDOWN } from './reasons';
-import { MAX_TIMER_MS } from './timeout';
+import { createShutdownError, IStatusCancelError, MAX_TIMER_MS } from './timeout';
 import { IRequestLike, IResponseLike, IServerLike, IShutdownOptions, IShutdownResult } from './types';
 
 /** Grace window a shutdown waits for in-flight requests before it gives up. */
@@ -298,27 +298,29 @@ export function shutdownServer(
     settleDrain(drain);
   };
 
-  const cancelRequest = (state: IRequestCancelState) => {
+  // one instance per request: its live tasks and its signal get the same cancellation, and no two
+  // requests share one
+  const cancelRequest = (state: IRequestCancelState, error = createShutdownError(reason)) => {
     if (!state.shuttingDown) {
       state.shuttingDown = true;
-      state.cancel(reason);
+      state.cancel(error);
     }
   };
 
   const cancelOpenRequests = () => {
-    const states: IRequestCancelState[] = [];
+    const states: Array<[IRequestCancelState, IStatusCancelError]> = [];
     for (const drain of drains.values()) {
       const state = drain.counted ? undefined : getRequestState(drain.req);
       if (state) {
-        states.push(state);
+        states.push([state, createShutdownError(reason)]);
       }
     }
 
-    for (const state of states) {
+    for (const [state, error] of states) {
       for (const task of Array.from(state.live)) {
         // a strict shielded task throws on cancel, and that would abort the shutdown midway
         try {
-          task.cancel(reason);
+          task.cancel(error);
         } catch (_e) {
           // the task still settles through its own shield, the drain counts it
         }
@@ -327,8 +329,8 @@ export function shutdownServer(
 
     // the signal goes after the tasks it drives, so anything watching it sees a request whose own
     // work has already unwound rather than one mid-teardown
-    for (const state of states) {
-      cancelRequest(state);
+    for (const [state, error] of states) {
+      cancelRequest(state, error);
     }
   };
 

@@ -2,11 +2,10 @@ import { CancelSignal, isCancelError } from '@cancjs/promise';
 import type { Server } from 'http';
 import type { Context, DefaultContext, DefaultState, Middleware, ParameterizedContext } from 'koa';
 
-import { isUnanswerable, statusOf, toRequestLike, toResponseLike } from '../../../_server/exchange';
+import { cancelStatusOf, isUnanswerable, toRequestLike, toResponseLike } from '../../../_server/exchange';
 import { ensureRequestCancelState, getNodeRequestSignal, stopRequestDeadline } from '../../../_server/node-signal';
 import { runCancelableHandler } from '../../../_server/run';
 import { createServerShutdown } from '../../../_server/shutdown';
-import { DEFAULT_TIMEOUT_STATUS } from '../../../_server/timeout';
 import {
   ICancelableHandlerOptions,
   ICancelErrorHandlerOptions,
@@ -109,8 +108,6 @@ export function getRequestSignal(ctx: Context): CancelSignal {
 export function cancelMiddleware<StateT = DefaultState, ContextT = DefaultContext>(
   options?: ICancelableHandlerOptions & ICancelErrorHandlerOptions,
 ): Middleware<StateT, ContextT> {
-  const fallback = options?.status ?? DEFAULT_TIMEOUT_STATUS;
-
   return async function cancelMiddlewareRoute(ctx, next) {
     const state = ensureRequestCancelState(toRequestLike(ctx.req), toResponseLike(ctx.res), options);
 
@@ -139,7 +136,7 @@ export function cancelMiddleware<StateT = DefaultState, ContextT = DefaultContex
       // and a json type turns the cleared body into the text null
       ctx.remove('Content-Type');
       ctx.body = null;
-      ctx.status = statusOf(error, fallback);
+      ctx.status = cancelStatusOf(error, options?.status);
     } finally {
       stopRequestDeadline(state);
     }

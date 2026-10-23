@@ -628,6 +628,136 @@ describe('handler kinds', () => {
   });
 });
 
+describe('shutdown cancel status', () => {
+  /** Reads the status line off the first bytes a raw connection gets back. */
+  async function firstStatus(client: Socket): Promise<number> {
+    const [chunk] = await once(client, 'data');
+
+    return Number(/^HTTP\/1\.1 (\d{3})/.exec(String(chunk))?.[1]);
+  }
+
+  it('answers 503 for a shutdown cancel with no error handler', async () => {
+    const app = express();
+    const started = deferred();
+
+    app.get(
+      '/hang',
+      cancelableHandler(function* (_req, res) {
+        started.resolve();
+        yield never();
+        res.send('unreachable');
+      }),
+    );
+
+    const port = await listen(app);
+    const pending = httpRequest(port, { path: '/hang' });
+
+    await started.promise;
+    await createShutdown(lastServer())({ timeout: 200 });
+
+    expect((await pending).status).toBe(503);
+  });
+
+  it('takes the handler status over the stamped 503 for a shutdown cancel', async () => {
+    const app = express();
+    const started = deferred();
+
+    app.get(
+      '/hang',
+      cancelableHandler(function* (_req, res) {
+        started.resolve();
+        yield never();
+        res.send('unreachable');
+      }),
+    );
+    app.use(cancelErrorHandler({ status: 502 }));
+
+    const port = await listen(app);
+    const pending = httpRequest(port, { path: '/hang' });
+
+    await started.promise;
+    await createShutdown(lastServer())({ timeout: 200 });
+
+    expect((await pending).status).toBe(502);
+  });
+
+  it('keeps a deadline status over the handler status', async () => {
+    const app = express();
+
+    app.get(
+      '/slow',
+      cancelableHandler(
+        function* (_req, res) {
+          yield never();
+          res.send('unreachable');
+        },
+        { timeout: { ms: 20, status: 504 } },
+      ),
+    );
+    app.use(cancelErrorHandler({ status: 502 }));
+
+    const port = await listen(app);
+
+    expect((await httpRequest(port, { path: '/slow' })).status).toBe(504);
+  });
+
+  it('gives each in-flight request its own shutdown cancellation', async () => {
+    const app = express();
+    const forwarded: unknown[] = [];
+    let entered = 0;
+    const bothStarted = deferred();
+
+    app.get(
+      '/hang',
+      cancelableHandler(function* (_req, res) {
+        entered += 1;
+        if (entered === 2) {
+          bothStarted.resolve();
+        }
+        yield never();
+        res.send('unreachable');
+      }),
+    );
+    app.use(recordErrors(forwarded));
+
+    const port = await listen(app);
+    const pending = [httpRequest(port, { path: '/hang' }), httpRequest(port, { path: '/hang' })];
+
+    await bothStarted.promise;
+    await createShutdown(lastServer())({ timeout: 200 });
+    await Promise.all(pending);
+
+    expect(forwarded).toHaveLength(2);
+    expect(forwarded[0]).not.toBe(forwarded[1]);
+  });
+
+  it('answers 503 for a request that arrives during a cancel-on-start drain', async () => {
+    const app = express();
+
+    app.get(
+      '/late',
+      cancelableHandler(function* (_req, res) {
+        yield never();
+        res.send('unreachable');
+      }),
+    );
+
+    const port = await listen(app);
+    // a connection opened before the drain starts is the only way to deliver a request while it runs
+    const accepted = once(lastServer(), 'connection');
+    const client = connect(port, '127.0.0.1');
+    sockets.push(client);
+    client.on('error', () => {});
+    await accepted;
+
+    const shutdown = createShutdown(lastServer())({ timeout: 500, cancelOnStart: true });
+    client.write('GET /late HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n');
+
+    expect(await firstStatus(client)).toBe(503);
+    await shutdown;
+  });
+});
+
 describe('shutdown', () => {
   it('cancels a live request when the grace window ends and reports the outcome', async () => {
     const app = express();
