@@ -58,7 +58,7 @@ export interface IRequestCancelState {
   cancelForwarded?: boolean;
   /** Set by a shutdown before it cancels the signal, so a shutdown is not reported as a disconnect. */
   shuttingDown?: boolean;
-  /** Set by a shutdown, so a handler task started while it drains is still counted. */
+  /** Set by a shutdown, so a handler task started while shutdown runs is still counted. */
   watch?: (task: CancelablePromise<unknown>) => void;
 }
 

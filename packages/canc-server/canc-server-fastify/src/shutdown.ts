@@ -22,7 +22,7 @@ import { IShutdownOptions, IShutdownResult } from '../../../_server/types';
  * `closeServer: false` the instance is not closed either, so the caller keeps its lifecycle. A hook
  * failing in `app.close()` is logged and the outcome is still returned.
  *
- * Created late, the shutdown loses nothing but drains slower, because a connection opened before
+ * Created late, the shutdown loses nothing but finishes slower, because a connection opened before
  * the call is unknown to it. Such a connection is closed only when the grace window ends if it has
  * sent no request yet, or if its request is still in flight and no wrapped handler or the plugin
  * recorded it. That response also goes out without `Connection: close`.
@@ -58,7 +58,7 @@ export function createShutdown(app: FastifyInstance): (options?: IShutdownOption
             await app.close();
           }
         } catch (error) {
-          // the drain outcome is what the caller needs, and a failing onClose hook cannot undo it
+          // the outcome is what the caller needs; a failing onClose cannot undo it
           console.error('[@cancjs/server-fastify] closing the instance failed', error);
         } finally {
           running = undefined;

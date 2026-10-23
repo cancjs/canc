@@ -156,7 +156,7 @@ export function cancelMiddleware<StateT = DefaultState, ContextT = DefaultContex
  * running returns that same promise, so a pair of signal handlers is safe to wire without a guard.
  * Calling `createShutdown` again with the same server returns the same function.
  *
- * Created late, the shutdown loses nothing but drains slower, because a connection opened before
+ * Created late, the shutdown loses nothing but finishes slower, because a connection opened before
  * the call is unknown to it. Such a connection is closed only when the grace window ends if it has
  * sent no request yet, or if its request is still in flight and no wrapped handler or request
  * signal recorded it. That response also goes out without `Connection: close`.
