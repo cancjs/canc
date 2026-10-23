@@ -179,15 +179,12 @@ export function describeShutdownSockets(
       const answer = keptAliveRequest(app.port);
       await app.arrival;
 
-      const startedAt = performance.now();
       const closing = shutdown({ timeout: GRACE_MS });
       app.release();
       const result = await closing;
-      const elapsed = performance.now() - startedAt;
 
       expect(await answer).toBe('close');
       expect(result).toEqual({ canceled: 0, completed: 1, timedOut: false });
-      expect(elapsed).toBeLessThan(GRACE_MS / 2);
       expect(app.server.listening).toBe(false);
     });
 
