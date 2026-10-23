@@ -245,6 +245,38 @@ describe('graceful shutdown', () => {
     expect(onTimeout).not.toHaveBeenCalled();
   });
 
+  it('hands a live task the signal reason itself', async () => {
+    const server = new FakeServer();
+    const { req, res } = createExchange(server);
+    const signal = getNodeRequestSignal(req, res);
+    const outcome = answer(
+      runCancelableHandler(
+        function* () {
+          yield pending();
+        },
+        req,
+        res,
+      ),
+      res,
+    );
+
+    await shutdownServer(server, { cancelOnStart: true });
+
+    expect(await outcome).toBe(signal.reason);
+  });
+
+  it('gives a disconnect reason no status or statusCode', async () => {
+    const server = new FakeServer();
+    const { req, res } = createExchange(server);
+    const signal = getNodeRequestSignal(req, res);
+
+    res.disconnect();
+
+    expect(isCancelError(signal.reason)).toBe(true);
+    expect(signal.reason).not.toHaveProperty('status');
+    expect(signal.reason).not.toHaveProperty('statusCode');
+  });
+
   it('cancels the signal of a request that has no task in flight yet', async () => {
     const server = new FakeServer();
     const { req, res } = createExchange(server);
