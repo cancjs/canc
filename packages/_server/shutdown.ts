@@ -32,6 +32,7 @@ interface IDrainResponse extends IResponseLike {
   getHeader?: (name: string) => unknown;
   setHeader?: (name: string, value: string) => unknown;
   removeHeader?: (name: string) => void;
+  writeHead?: (...args: unknown[]) => unknown;
   socket?: unknown;
 }
 
@@ -206,6 +207,36 @@ export function shutdownServer(
   // the responses whose `Connection: close` this shutdown set, so an app-set one is never touched
   const closedHere = new WeakSet<IDrainResponse>();
 
+  // koa strips headers before an error answer, so re-assert close at head time
+  // only while this response is still last on its socket; wrap removes itself
+  const reassertCloseAtHead = (socket: IConnectionLike, res: IDrainResponse) => {
+    if (res.headersSent === true || !isFunction(res.writeHead)) {
+      return;
+    }
+
+    const original = res.writeHead;
+    const ownWrap = Object.prototype.hasOwnProperty.call(res, 'writeHead');
+    res.writeHead = function (this: IDrainResponse, ...args: unknown[]) {
+      if (ownWrap) {
+        res.writeHead = original;
+      } else {
+        delete res.writeHead;
+      }
+
+      if (
+        closingResponses.get(socket) === res &&
+        res.headersSent !== true &&
+        isFunction(res.setHeader) &&
+        !closesConnection(res)
+      ) {
+        res.setHeader('Connection', 'close');
+        closedHere.add(res);
+      }
+
+      return original.apply(res, args);
+    };
+  };
+
   // outcomes are subscribed BEFORE anything is canceled, so a task that settles during the cancel
   // cascade is still counted
   const watchTasks = (state: IRequestCancelState) => {
@@ -286,6 +317,7 @@ export function shutdownServer(
         }
 
         closingResponses.set(socket, res);
+        reassertCloseAtHead(socket, res);
       }
     }
 

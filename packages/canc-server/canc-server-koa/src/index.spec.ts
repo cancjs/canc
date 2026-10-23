@@ -1220,3 +1220,41 @@ describeShutdownSockets(
   },
   { appSetHeaders: true },
 );
+
+describe('error response during the shutdown grace', () => {
+  it('keeps Connection: close on a plain koa error, so the kept-alive socket is not reset', async () => {
+    const arrived = deferred();
+    const release = deferred();
+    const app = new Koa();
+    app.use(cancelMiddleware());
+    app.use(async (ctx) => {
+      if (ctx.path === '/boom') {
+        arrived.resolve();
+        await release.promise;
+        throw new Error('boom');
+      }
+      ctx.body = 'ok';
+    });
+    const server = await new Promise<Server>((resolve) => {
+      const listening = app.listen(0, '127.0.0.1', () => resolve(listening));
+    });
+    servers.push(server);
+    const port = (server.address() as { port: number }).port;
+
+    const response = new Promise<IncomingMessage>((resolve, reject) => {
+      const req = request({ host: '127.0.0.1', path: '/boom', port }, resolve);
+      req.on('error', reject);
+      req.end();
+    });
+    await arrived.promise;
+
+    const closing = createShutdown(server)({ timeout: 200 });
+    release.resolve();
+    const answer = await response;
+    answer.resume();
+
+    expect(answer.statusCode).toBe(500);
+    expect(answer.headers.connection).toBe('close');
+    await closing;
+  });
+});
