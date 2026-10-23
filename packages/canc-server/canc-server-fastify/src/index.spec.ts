@@ -7,6 +7,7 @@ import { runInThisContext } from 'node:vm';
 import { CancelError, isCancelError, isCancelSignal } from '@cancjs/promise';
 import Fastify, { FastifyInstance, preHandlerAsyncHookHandler } from 'fastify';
 
+import { expectAbortAt, useDeadlineClock } from '../../../_server/__tests__/deadline-clock';
 import { describeShutdownSockets } from '../../../_server/__tests__/shutdown-sockets';
 import {
   cancelableHandler,
@@ -330,24 +331,74 @@ describe('plugin options', () => {
   });
 });
 
-describe('request deadline', () => {
-  it('covers a plain route from the moment the plugin is registered', async () => {
+describe('request deadline timing', () => {
+  useDeadlineClock();
+
+  it('fires at the configured time on a plain route', async () => {
     const timeouts: CancelError[] = [];
+    const reached = deferred();
+    let signal!: AbortSignal;
 
     const instance = Fastify();
     await instance.register(cancelPlugin, { onTimeout: (reason) => timeouts.push(reason), timeout: 50 });
-    instance.get('/plain', (request, reply) => untilAborted(getRequestSignal(request, reply)));
+    instance.get('/plain', async (request, reply) => {
+      signal = getRequestSignal(request, reply);
+      reached.resolve();
+      await new Promise<void>((resolve) => signal.addEventListener('abort', () => resolve(), { once: true }));
+      void reply.code(504);
+
+      return 'aborted';
+    });
 
     const port = await listen(instance);
-    const outcome = JSON.parse((await send(port, '/plain')).body) as IAbortOutcome;
+    const response = send(port, '/plain');
+    await reached.promise;
 
-    expect(outcome.aborted).toBe(true);
-    expect(outcome.ms).toBeLessThan(ABORT_FALLBACK_MS);
+    expectAbortAt(signal, 50);
+    expect((await response).statusCode).toBe(504);
     expect(timeouts).toHaveLength(1);
   });
 
+  it('counts the time spent in a hook ahead of a wrapped handler', async () => {
+    const upstream = deferred();
+    const release = deferred();
+    const reached = deferred();
+    let signal!: AbortSignal;
+
+    const instance = Fastify();
+    await instance.register(cancelPlugin, { timeout: 100 });
+    instance.get(
+      '/slow',
+      {
+        preHandler: async () => {
+          upstream.resolve();
+          await release.promise;
+        },
+      },
+      cancelableHandler(function* (request, reply) {
+        signal = getRequestSignal(request, reply);
+        reached.resolve();
+        yield new Promise(() => undefined);
+
+        return { ok: true };
+      }),
+    );
+
+    const port = await listen(instance);
+    const response = send(port, '/slow');
+    await upstream.promise;
+
+    jest.advanceTimersByTime(60);
+    release.resolve();
+    await reached.promise;
+
+    expectAbortAt(signal, 40);
+    expect((await response).statusCode).toBe(503);
+  });
+
   it('restarts from a route timeout behind a wrapped hook', async () => {
-    let started = 0;
+    const reached = deferred();
+    let signal!: AbortSignal;
 
     const instance = Fastify();
     await instance.register(cancelPlugin, { timeout: 50 });
@@ -355,8 +406,9 @@ describe('request deadline', () => {
       '/slow',
       { preHandler: passThrough() },
       cancelableHandler(
-        function* () {
-          started = performance.now();
+        function* (request, reply) {
+          signal = getRequestSignal(request, reply);
+          reached.resolve();
           yield new Promise(() => undefined);
 
           return { ok: true };
@@ -366,12 +418,17 @@ describe('request deadline', () => {
     );
 
     const port = await listen(instance);
-    const response = await send(port, '/slow');
+    const response = send(port, '/slow');
+    await reached.promise;
 
-    expect(response.statusCode).toBe(503);
-    expect(performance.now() - started).toBeGreaterThanOrEqual(190);
+    // past the plugin deadline, which the route timeout replaced
+    jest.advanceTimersByTime(100);
+    expectAbortAt(signal, 100);
+    expect((await response).statusCode).toBe(503);
   });
+});
 
+describe('request deadline', () => {
   it('stops once the handler returned, while its body still streams', async () => {
     const timeouts: CancelError[] = [];
     let abortedAtEnd: boolean | undefined;
@@ -916,29 +973,6 @@ describe('shutdown', () => {
     expect(instance.server.listening).toBe(false);
   });
 });
-
-/** How long a plain route waits for its signal before answering that it never aborted. */
-const ABORT_FALLBACK_MS = 1000;
-
-interface IAbortOutcome {
-  aborted: boolean;
-  ms: number;
-}
-
-/** Waits for a signal to abort, or gives up after the fallback window, and reports which and when. */
-function untilAborted(signal: AbortSignal): Promise<IAbortOutcome> {
-  const started = performance.now();
-
-  return new Promise((resolve) => {
-    const finish = () => {
-      clearTimeout(fallback);
-      resolve({ aborted: signal.aborted, ms: performance.now() - started });
-    };
-    const fallback = setTimeout(finish, ABORT_FALLBACK_MS);
-
-    signal.addEventListener('abort', finish, { once: true });
-  });
-}
 
 const STREAMED_CHUNKS = 6;
 const STREAMED_BODY = 'chunk\n'.repeat(STREAMED_CHUNKS);

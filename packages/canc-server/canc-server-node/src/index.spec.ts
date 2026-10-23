@@ -4,6 +4,7 @@ import { createServer, IncomingMessage, request, Server, ServerResponse } from '
 import { connect, Socket } from 'net';
 import { runInThisContext } from 'vm';
 
+import { expectAbortAt, useDeadlineClock } from '../../../_server/__tests__/deadline-clock';
 import { describeShutdownSockets } from '../../../_server/__tests__/shutdown-sockets';
 import {
   cancelableHandler,
@@ -133,13 +134,17 @@ describe('deadline', () => {
   });
 });
 
-describe('request deadline', () => {
+describe('request deadline timing', () => {
+  useDeadlineClock();
+
   it('restarts from a timeout set by a wrapped handler further in', async () => {
-    let started = 0;
+    const reached = deferred();
+    let signal!: AbortSignal;
 
     const inner = cancelableHandler(
-      function* (_req: IncomingMessage, res: ServerResponse) {
-        started = performance.now();
+      function* (req: IncomingMessage, res: ServerResponse) {
+        signal = getRequestSignal(req, res);
+        reached.resolve();
         yield never();
         res.end('unreachable');
       },
@@ -155,12 +160,17 @@ describe('request deadline', () => {
       ),
     );
 
-    const response = await httpRequest(port, { path: '/slow' });
+    const response = httpRequest(port, { path: '/slow' });
+    await reached.promise;
 
-    expect(response.status).toBe(503);
-    expect(performance.now() - started).toBeGreaterThanOrEqual(190);
+    // past the outer deadline, which the inner timeout replaced
+    jest.advanceTimersByTime(100);
+    expectAbortAt(signal, 100);
+    expect((await response).status).toBe(503);
   });
+});
 
+describe('request deadline', () => {
   it('stops once the handler returned, while its body still streams', async () => {
     const timeouts: CancelError[] = [];
     let abortedAtEnd: boolean | undefined;

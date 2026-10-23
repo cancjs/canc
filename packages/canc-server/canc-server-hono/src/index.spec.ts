@@ -7,6 +7,7 @@ import { serve, ServerType } from '@hono/node-server';
 import { Context, Hono, MiddlewareHandler, Next } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 
+import { expectAbortAt, useDeadlineClock } from '../../../_server/__tests__/deadline-clock';
 import { describeShutdownSockets } from '../../../_server/__tests__/shutdown-sockets';
 import {
   cancelableHandler,
@@ -688,38 +689,97 @@ describe('shutdown', () => {
   });
 });
 
-describe('request deadline', () => {
-  it('covers a plain route from the moment the middleware is installed', async () => {
+describe('request deadline timing', () => {
+  useDeadlineClock();
+
+  it('fires at the configured time on a plain route', async () => {
     const timeouts: CancelError[] = [];
+    const reached = deferred();
+    let signal!: AbortSignal;
 
     const app = new Hono();
 
     app.use(cancelMiddleware({ onTimeout: (reason) => timeouts.push(reason), timeout: 50 }));
-    app.get('/plain', async (c) => c.json(await untilAborted(getRequestSignal(c))));
+    app.get('/plain', async (c) => {
+      signal = getRequestSignal(c);
+      reached.resolve();
+      await new Promise<void>((resolve) => signal.addEventListener('abort', () => resolve(), { once: true }));
+
+      return c.text('aborted', 504);
+    });
 
     const port = await listen(app);
-    const outcome = JSON.parse((await send(port, '/plain')).body) as IAbortOutcome;
+    const response = send(port, '/plain');
+    await reached.promise;
 
-    expect(outcome.aborted).toBe(true);
-    expect(outcome.ms).toBeLessThan(ABORT_FALLBACK_MS);
+    expectAbortAt(signal, 50);
+    expect((await response).statusCode).toBe(504);
     expect(timeouts).toHaveLength(1);
   });
 
-  it('covers a plain route on a web standard runtime too', async () => {
+  it('fires at the configured time on a web standard runtime too', async () => {
+    const reached = deferred();
+    let signal!: AbortSignal;
+
     const app = new Hono();
 
     app.use(cancelMiddleware({ timeout: 50 }));
-    app.get('/plain', async (c) => c.json(await untilAborted(getRequestSignal(c))));
+    app.get('/plain', async (c) => {
+      signal = getRequestSignal(c);
+      reached.resolve();
+      await new Promise<void>((resolve) => signal.addEventListener('abort', () => resolve(), { once: true }));
 
-    const response = await app.fetch(new Request('http://canc.test/plain'));
-    const outcome = (await response.json()) as IAbortOutcome;
+      return c.text('aborted', 504);
+    });
 
-    expect(outcome.aborted).toBe(true);
-    expect(outcome.ms).toBeLessThan(ABORT_FALLBACK_MS);
+    const response = app.fetch(new Request('http://canc.test/plain'));
+    await reached.promise;
+
+    expectAbortAt(signal, 50);
+    expect((await response).status).toBe(504);
+  });
+
+  it('counts the time spent in middleware ahead of a wrapped handler', async () => {
+    const upstream = deferred();
+    const release = deferred();
+    const reached = deferred();
+    let signal!: AbortSignal;
+
+    const app = new Hono();
+
+    app.onError(cancelErrorHandler());
+    app.use(cancelMiddleware({ timeout: 100 }));
+    app.use(async (_c, next) => {
+      upstream.resolve();
+      await release.promise;
+      await next();
+    });
+    app.get(
+      '/slow',
+      cancelableHandler(function* (c) {
+        signal = getRequestSignal(c);
+        reached.resolve();
+        yield new Promise(() => undefined);
+
+        return c.text('never');
+      }),
+    );
+
+    const port = await listen(app);
+    const response = send(port, '/slow');
+    await upstream.promise;
+
+    jest.advanceTimersByTime(60);
+    release.resolve();
+    await reached.promise;
+
+    expectAbortAt(signal, 40);
+    expect((await response).statusCode).toBe(503);
   });
 
   it('restarts from a route timeout behind a wrapped middleware', async () => {
-    let started = 0;
+    const reached = deferred();
+    let signal!: AbortSignal;
 
     const app = new Hono();
 
@@ -730,7 +790,8 @@ describe('request deadline', () => {
       '/slow',
       cancelableHandler(
         function* (c) {
-          started = performance.now();
+          signal = getRequestSignal(c);
+          reached.resolve();
           yield new Promise(() => undefined);
 
           return c.text('never');
@@ -740,12 +801,17 @@ describe('request deadline', () => {
     );
 
     const port = await listen(app);
-    const response = await send(port, '/slow');
+    const response = send(port, '/slow');
+    await reached.promise;
 
-    expect(response.statusCode).toBe(503);
-    expect(performance.now() - started).toBeGreaterThanOrEqual(190);
+    // past the middleware deadline, which the route timeout replaced
+    jest.advanceTimersByTime(100);
+    expectAbortAt(signal, 100);
+    expect((await response).statusCode).toBe(503);
   });
+});
 
+describe('request deadline', () => {
   it('stops once the handler returned, while its body still streams', async () => {
     const timeouts: CancelError[] = [];
     let abortedAtEnd: boolean | undefined;
@@ -959,29 +1025,6 @@ describe('web standard runtime', () => {
     expect(shared).toBe(true);
   });
 });
-
-/** How long a plain route waits for its signal before answering that it never aborted. */
-const ABORT_FALLBACK_MS = 1000;
-
-interface IAbortOutcome {
-  aborted: boolean;
-  ms: number;
-}
-
-/** Waits for a signal to abort, or gives up after the fallback window, and reports which and when. */
-function untilAborted(signal: AbortSignal): Promise<IAbortOutcome> {
-  const started = performance.now();
-
-  return new Promise((resolve) => {
-    const finish = () => {
-      clearTimeout(fallback);
-      resolve({ aborted: signal.aborted, ms: performance.now() - started });
-    };
-    const fallback = setTimeout(finish, ABORT_FALLBACK_MS);
-
-    signal.addEventListener('abort', finish, { once: true });
-  });
-}
 
 const STREAMED_CHUNKS = 6;
 const STREAMED_BODY = 'chunk\n'.repeat(STREAMED_CHUNKS);

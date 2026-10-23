@@ -5,6 +5,7 @@ import { IncomingMessage, request, Server } from 'http';
 import { connect, Socket } from 'net';
 import { runInThisContext } from 'vm';
 
+import { expectAbortAt, useDeadlineClock } from '../../../_server/__tests__/deadline-clock';
 import { describeShutdownSockets } from '../../../_server/__tests__/shutdown-sockets';
 import {
   cancelableHandler,
@@ -217,39 +218,79 @@ describe('middleware options', () => {
   });
 });
 
-describe('request deadline', () => {
-  it('covers a plain route from the moment the middleware is installed', async () => {
+describe('request deadline timing', () => {
+  useDeadlineClock();
+
+  it('fires at the configured time on a plain route', async () => {
     const app = express();
     const timeouts: CancelError[] = [];
+    const reached = deferred();
+    let signal!: AbortSignal;
 
     app.use(cancelMiddleware({ onTimeout: (reason) => timeouts.push(reason), timeout: 50 }));
     app.get('/plain', (req, res) => {
-      void untilAborted(getRequestSignal(req, res)).then((outcome) => res.json(outcome));
+      signal = getRequestSignal(req, res);
+      signal.addEventListener('abort', () => res.status(504).end());
+      reached.resolve();
     });
 
     const port = await listen(app);
-    const outcome = JSON.parse((await httpRequest(port, { path: '/plain' })).body) as IAbortOutcome;
+    const response = httpRequest(port, { path: '/plain' });
+    await reached.promise;
 
-    expect(outcome.aborted).toBe(true);
-    expect(outcome.ms).toBeLessThan(ABORT_FALLBACK_MS);
+    expectAbortAt(signal, 50);
+    expect((await response).status).toBe(504);
     expect(timeouts).toHaveLength(1);
+  });
+
+  it('counts the time spent in middleware ahead of a wrapped handler', async () => {
+    const app = express();
+    const upstream = deferred();
+    const release = deferred();
+    const reached = deferred();
+    let signal!: AbortSignal;
+
+    app.use(cancelMiddleware({ timeout: 100 }));
+    app.use((_req, _res, next) => {
+      upstream.resolve();
+      void release.promise.then(() => next());
+    });
+    app.get(
+      '/slow',
+      cancelableHandler(function* (req, res) {
+        signal = getRequestSignal(req, res);
+        reached.resolve();
+        yield never();
+        res.send('unreachable');
+      }),
+    );
+    app.use(cancelErrorHandler());
+
+    const port = await listen(app);
+    const response = httpRequest(port, { path: '/slow' });
+    await upstream.promise;
+
+    jest.advanceTimersByTime(60);
+    release.resolve();
+    await reached.promise;
+
+    expectAbortAt(signal, 40);
+    expect((await response).status).toBe(503);
   });
 
   it('restarts from a route timeout behind a wrapped middleware', async () => {
     const app = express();
-    let started = 0;
+    const reached = deferred();
+    let signal!: AbortSignal;
 
     app.use(cancelMiddleware({ timeout: 50 }));
-    app.use(
-      cancelableHandler(function* (_req, _res, next) {
-        started = performance.now();
-        next();
-      }),
-    );
+    app.use(passThrough());
     app.get(
       '/slow',
       cancelableHandler(
-        function* (_req, res) {
+        function* (req, res) {
+          signal = getRequestSignal(req, res);
+          reached.resolve();
           yield never();
           res.send('unreachable');
         },
@@ -259,12 +300,17 @@ describe('request deadline', () => {
     app.use(cancelErrorHandler());
 
     const port = await listen(app);
-    const response = await httpRequest(port, { path: '/slow' });
+    const response = httpRequest(port, { path: '/slow' });
+    await reached.promise;
 
-    expect(response.status).toBe(503);
-    expect(performance.now() - started).toBeGreaterThanOrEqual(190);
+    // past the middleware deadline, which the route timeout replaced
+    jest.advanceTimersByTime(100);
+    expectAbortAt(signal, 100);
+    expect((await response).status).toBe(503);
   });
+});
 
+describe('request deadline', () => {
   it('stops once the handler returned, while its body still streams', async () => {
     const app = express();
     const timeouts: CancelError[] = [];
@@ -862,29 +908,6 @@ function httpRequest(port: number, options: IHttpOptions): Promise<{ status: num
     }
 
     outgoing.end();
-  });
-}
-
-/** How long a plain route waits for its signal before answering that it never aborted. */
-const ABORT_FALLBACK_MS = 1000;
-
-interface IAbortOutcome {
-  aborted: boolean;
-  ms: number;
-}
-
-/** Waits for a signal to abort, or gives up after the fallback window, and reports which and when. */
-function untilAborted(signal: AbortSignal): Promise<IAbortOutcome> {
-  const started = performance.now();
-
-  return new Promise((resolve) => {
-    const finish = () => {
-      clearTimeout(fallback);
-      resolve({ aborted: signal.aborted, ms: performance.now() - started });
-    };
-    const fallback = setTimeout(finish, ABORT_FALLBACK_MS);
-
-    signal.addEventListener('abort', finish, { once: true });
   });
 }
 
