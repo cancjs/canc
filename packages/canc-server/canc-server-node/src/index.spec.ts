@@ -852,17 +852,28 @@ async function* asyncGeneratorHandler(): AsyncGenerator<number> {
   yield 1;
 }
 
-describeShutdownSockets(createShutdown, async (arrived, release) => {
-  const server = createServer((req, res) => {
-    if (req.url === '/fast') {
-      res.end('ok');
-      return;
-    }
+describeShutdownSockets(
+  createShutdown,
+  async (arrived, release) => {
+    const server = createServer((req, res) => {
+      if (req.url === '/fast') {
+        res.end('ok');
+        return;
+      }
 
-    arrived();
-    void release.then(() => res.end('ok'));
-  });
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+      if (req.url === '/close' || req.url === '/flush') {
+        res.setHeader('Connection', 'close');
+      }
+      if (req.url === '/flush') {
+        res.flushHeaders();
+      }
 
-  return { server, target: server };
-});
+      arrived();
+      void release.then(() => res.end('ok'));
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+
+    return { server, target: server };
+  },
+  { appSetHeaders: true },
+);

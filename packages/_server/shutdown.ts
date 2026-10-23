@@ -29,10 +29,15 @@ const REQUESTLESS_AGE_MS = 5_000;
 interface IDrainResponse extends IResponseLike {
   headersSent?: boolean;
   writableFinished?: boolean;
+  getHeader?: (name: string) => unknown;
   setHeader?: (name: string, value: string) => unknown;
   removeHeader?: (name: string) => void;
   socket?: unknown;
 }
+
+// a close the app set on its own stays the app's and is never undone
+const closesConnection = (res: IDrainResponse) =>
+  isFunction(res.getHeader) && /close/i.test(String(res.getHeader('Connection')));
 
 /** One request a shutdown waits on, counted once its response is over and its tasks settled. */
 interface IDrain {
@@ -242,13 +247,22 @@ export function shutdownServer(
       // node detaches the socket from a finished response, so it is read now
       const socket = (res.socket ?? req.socket) as IConnectionLike | undefined;
 
-      res.once('close', () => {
+      const onClose = () => {
+        if (drain.over) {
+          return;
+        }
+
         drain.over = true;
+        socket?.removeListener?.('close', onClose);
         // a response ended but cut before its bytes left the socket was not completed
         drain.wasCanceled = drain.wasCanceled || hasClientLeft(res) || res.writableFinished === false;
         closeSocket(socket);
         settleDrain(drain);
-      });
+      };
+
+      res.once('close', onClose);
+      // node 18 never closes a response still queued behind one that closed the connection
+      socket?.once?.('close', onClose);
 
       // only the last response queued on a connection carries Connection: close
       // removing an earlier one's header makes node end the connection after it too
@@ -266,7 +280,7 @@ export function shutdownServer(
           closedHere.delete(previous);
         }
 
-        if (res.headersSent !== true && isFunction(res.setHeader)) {
+        if (res.headersSent !== true && isFunction(res.setHeader) && !closesConnection(res)) {
           res.setHeader('Connection', 'close');
           closedHere.add(res);
         }

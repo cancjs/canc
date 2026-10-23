@@ -13,10 +13,19 @@ export interface IPlainApp {
 }
 
 /**
- * Starts an app whose one route, `GET /slow`, calls `arrived` once the request reaches it and
- * answers `ok` after `release` resolves.
+ * Starts an app whose route `GET /slow` calls `arrived` once the request reaches it and answers
+ * `ok` after `release` resolves, and whose `GET /fast` answers `ok` at once.
+ *
+ * With `appSetHeaders`, two more routes behave as `/slow` but first set `Connection: close` on the
+ * response: `GET /close` keeps the head unsent, `GET /flush` sends it at once.
  */
 export type TStartPlainApp = (arrived: () => void, release: Promise<void>) => Promise<IPlainApp>;
+
+/** What the app under test supports beyond the plain routes. */
+export interface IShutdownSocketsOptions {
+  /** The app serves `/close` and `/flush`, its headers landing on the node response as they are set. */
+  appSetHeaders?: boolean;
+}
 
 type TCreateShutdown = (target: never) => (options?: IShutdownOptions) => Promise<IShutdownResult>;
 
@@ -33,7 +42,11 @@ const TIMER_SLACK_MS = 20;
  * Real-socket cases for `createShutdown` on an app that never registered any cancel middleware, so
  * the shutdown knows only what the factory recorded.
  */
-export function describeShutdownSockets(createShutdown: TCreateShutdown, start: TStartPlainApp): void {
+export function describeShutdownSockets(
+  createShutdown: TCreateShutdown,
+  start: TStartPlainApp,
+  options: IShutdownSocketsOptions = {},
+): void {
   const clients: Socket[] = [];
   const servers: Server[] = [];
   let releaseAll: (() => void)[] = [];
@@ -308,6 +321,74 @@ export function describeShutdownSockets(createShutdown: TCreateShutdown, start: 
     });
   });
 
+  if (options.appSetHeaders) {
+    describe('a Connection: close the app set', () => {
+      const FAST_HEAD = 'GET /fast HTTP/1.1\r\nHost: localhost\r\n\r\n';
+
+      // resolves once the server has emitted this many requests
+      const requestsSeen = (server: Server, count: number) => {
+        let seen = 0;
+        server.on('request', () => {
+          seen += 1;
+        });
+
+        return until(() => seen >= count);
+      };
+
+      const connectionHeaders = (received: string) => received.match(/^connection:\s*\S+/gim) ?? [];
+
+      it('is kept when set before the shutdown started, with a pipelined request queued', async () => {
+        const app = await startApp();
+        const shutdown = createShutdown(app.target as never);
+        const seen = requestsSeen(app.server, 2);
+        const { client, closed, received } = openClient(app.port);
+        client.write(`GET /close HTTP/1.1\r\nHost: localhost\r\n\r\n${FAST_HEAD}`);
+        await seen;
+
+        const closing = shutdown({ timeout: GRACE_MS });
+        app.release();
+
+        expect(await closed).toEqual({ error: undefined, statuses: ['HTTP/1.1 200'] });
+        expect(connectionHeaders(received())).toEqual(['Connection: close']);
+        expect(await closing).toEqual({ canceled: 1, completed: 1, timedOut: false });
+      });
+
+      it('is kept when set before the shutdown started, with a request pipelined after it', async () => {
+        const app = await startApp();
+        const shutdown = createShutdown(app.target as never);
+        const seen = requestsSeen(app.server, 2);
+        const { client, closed, received } = openClient(app.port);
+        client.write('GET /close HTTP/1.1\r\nHost: localhost\r\n\r\n');
+        await app.arrival;
+
+        const closing = shutdown({ timeout: GRACE_MS });
+        client.write(FAST_HEAD);
+        await seen;
+        app.release();
+
+        expect(await closed).toEqual({ error: undefined, statuses: ['HTTP/1.1 200'] });
+        expect(connectionHeaders(received())).toEqual(['Connection: close']);
+        expect(await closing).toEqual({ canceled: 1, completed: 1, timedOut: false });
+      });
+
+      it('once sent, leaves a pipelined response that never went out uncounted as completed', async () => {
+        const app = await startApp();
+        const shutdown = createShutdown(app.target as never);
+        const seen = requestsSeen(app.server, 2);
+        const { client, closed, received } = openClient(app.port);
+        client.write(`GET /flush HTTP/1.1\r\nHost: localhost\r\n\r\n${FAST_HEAD}`);
+        await seen;
+
+        const closing = shutdown({ timeout: GRACE_MS });
+        app.release();
+
+        expect(await closed).toEqual({ error: undefined, statuses: ['HTTP/1.1 200'] });
+        expect(connectionHeaders(received())).toEqual(['Connection: close']);
+        expect(await closing).toEqual({ canceled: 1, completed: 1, timedOut: false });
+      });
+    });
+  }
+
   // the clock is faked so the age runs on jest's timers; I/O and nextTick stay real
   describe('a connection that sent no bytes, by age', () => {
     afterEach(() => {
@@ -381,6 +462,27 @@ export function describeShutdownSockets(createShutdown: TCreateShutdown, start: 
 
       expect(await closed).toEqual({ error: undefined, statuses: ['HTTP/1.1 200'] });
       expect(await closing).toEqual({ canceled: 0, completed: 1, timedOut: false });
+    });
+
+    it('leaves no timer behind for a younger connection that closes first', async () => {
+      const app = await startAged();
+      const shutdown = createShutdown(app.target as never);
+      const accepted = once(app.server, 'connection');
+      const client = connect(app.port, '127.0.0.1');
+      clients.push(client);
+      client.on('error', () => undefined);
+      const [socket] = (await accepted) as [Socket];
+      const serverClosed = once(socket, 'close');
+
+      const closing = shutdown({ timeout: GRACE_MS });
+      await settle();
+      client.destroy();
+      await serverClosed;
+
+      expect(await closing).toEqual({ canceled: 0, completed: 0, timedOut: false });
+      // a framework may still hold a zero-delay timer of its own
+      jest.advanceTimersByTime(0);
+      expect(jest.getTimerCount()).toBe(0);
     });
 
     it('caps the age at the grace window when the window is shorter', async () => {

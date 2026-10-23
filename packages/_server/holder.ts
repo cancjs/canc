@@ -98,6 +98,7 @@ export interface IConnectionLike {
   destroySoon?: () => void;
   end?: () => unknown;
   once?: (event: 'close', listener: () => void) => unknown;
+  removeListener?: (event: 'close', listener: () => void) => unknown;
 }
 
 /**

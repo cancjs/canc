@@ -986,21 +986,33 @@ async function* asyncGeneratorHandler(): AsyncGenerator<number> {
   yield 1;
 }
 
-describeShutdownSockets(createShutdown, async (arrived, release) => {
-  const plain = new Koa();
-  plain.use(async (ctx) => {
-    if (ctx.path === '/fast') {
+describeShutdownSockets(
+  createShutdown,
+  async (arrived, release) => {
+    const plain = new Koa();
+    plain.use(async (ctx) => {
+      if (ctx.path === '/fast') {
+        ctx.body = 'ok';
+        return;
+      }
+
+      if (ctx.path === '/close' || ctx.path === '/flush') {
+        ctx.set('Connection', 'close');
+      }
+      if (ctx.path === '/flush') {
+        ctx.status = 200;
+        ctx.flushHeaders();
+      }
+
+      arrived();
+      await release;
       ctx.body = 'ok';
-      return;
-    }
+    });
+    const server = await new Promise<Server>((resolve) => {
+      const listening = plain.listen(0, '127.0.0.1', () => resolve(listening));
+    });
 
-    arrived();
-    await release;
-    ctx.body = 'ok';
-  });
-  const server = await new Promise<Server>((resolve) => {
-    const listening = plain.listen(0, '127.0.0.1', () => resolve(listening));
-  });
-
-  return { server, target: server };
-});
+    return { server, target: server };
+  },
+  { appSetHeaders: true },
+);
