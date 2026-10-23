@@ -26,7 +26,7 @@ export const DEFAULT_SHUTDOWN_TIMEOUT = 10_000;
 /** Age at which a connection that sent no bytes is closed at shutdown; capped at the grace window. */
 const REQUESTLESS_AGE_MS = 5_000;
 
-interface IShutdownResponse extends IResponseLike {
+interface IDrainResponse extends IResponseLike {
   headersSent?: boolean;
   writableFinished?: boolean;
   getHeader?: (name: string) => unknown;
@@ -37,11 +37,11 @@ interface IShutdownResponse extends IResponseLike {
 }
 
 // a close the app set on its own stays the app's and is never undone
-const closesConnection = (res: IShutdownResponse) =>
+const closesConnection = (res: IDrainResponse) =>
   isFunction(res.getHeader) && /close/i.test(String(res.getHeader('Connection')));
 
 /** One request a shutdown waits on, counted once its response is over and its tasks settled. */
-interface IRequestTally {
+interface IDrain {
   req: IRequestLike;
   outstanding: number;
   wasCanceled: boolean;
@@ -109,11 +109,11 @@ export function shutdownServer(
   let listening = ownsConnections && isFunction(server.close);
   let finish: () => void = noop;
 
-  const emptied = new Impl<void>((resolve) => {
+  const drained = new Impl<void>((resolve) => {
     finish = resolve;
   });
 
-  const settleIfEmptied = () => {
+  const settleIfDrained = () => {
     if (openRequests === 0 && !listening) {
       finish();
     }
@@ -186,37 +186,37 @@ export function shutdownServer(
     }
   };
 
-  const settleTally = (tally: IRequestTally) => {
-    if (tally.counted || !tally.over || tally.outstanding > 0) {
+  const settleDrain = (drain: IDrain) => {
+    if (drain.counted || !drain.over || drain.outstanding > 0) {
       return;
     }
 
-    tally.counted = true;
+    drain.counted = true;
     openRequests -= 1;
-    if (tally.wasCanceled) {
+    if (drain.wasCanceled) {
       canceled += 1;
     } else {
       completed += 1;
     }
 
-    settleIfEmptied();
+    settleIfDrained();
   };
 
-  const tallies = new Map<IResponseLike, IRequestTally>();
-  const closingResponses = new Map<IConnectionLike, IShutdownResponse>();
+  const drains = new Map<IResponseLike, IDrain>();
+  const closingResponses = new Map<IConnectionLike, IDrainResponse>();
   // the responses whose `Connection: close` this shutdown set, so an app-set one is never touched
-  const closedHere = new WeakSet<IShutdownResponse>();
+  const closedHere = new WeakSet<IDrainResponse>();
 
   // koa strips headers before an error answer, so re-assert close at head time
   // only while this response is still last on its socket; wrap removes itself
-  const reassertCloseAtHead = (socket: IConnectionLike, res: IShutdownResponse) => {
+  const reassertCloseAtHead = (socket: IConnectionLike, res: IDrainResponse) => {
     if (res.headersSent === true || !isFunction(res.writeHead)) {
       return;
     }
 
     const original = res.writeHead;
     const ownWrap = Object.prototype.hasOwnProperty.call(res, 'writeHead');
-    res.writeHead = function (this: IShutdownResponse, ...args: unknown[]) {
+    res.writeHead = function (this: IDrainResponse, ...args: unknown[]) {
       if (ownWrap) {
         res.writeHead = original;
       } else {
@@ -240,22 +240,22 @@ export function shutdownServer(
   // outcomes are subscribed BEFORE anything is canceled, so a task that settles during the cancel
   // cascade is still counted
   const watchTasks = (state: IRequestCancelState) => {
-    const tally = state.response && tallies.get(state.response);
-    if (!tally) {
+    const drain = state.response && drains.get(state.response);
+    if (!drain) {
       return;
     }
 
     state.watch = (task) => {
-      tally.outstanding += 1;
+      drain.outstanding += 1;
       task.then(
         () => {
-          tally.outstanding -= 1;
-          settleTally(tally);
+          drain.outstanding -= 1;
+          settleDrain(drain);
         },
         (error) => {
-          tally.wasCanceled = tally.wasCanceled || isCancelError(error);
-          tally.outstanding -= 1;
-          settleTally(tally);
+          drain.wasCanceled = drain.wasCanceled || isCancelError(error);
+          drain.outstanding -= 1;
+          settleDrain(drain);
         },
       );
     };
@@ -265,36 +265,30 @@ export function shutdownServer(
     }
   };
 
-  const admit = (req: IRequestLike, res: IShutdownResponse) => {
-    if (tallies.has(res)) {
+  const admit = (req: IRequestLike, res: IDrainResponse) => {
+    if (drains.has(res)) {
       return;
     }
 
-    const tally: IRequestTally = {
-      counted: false,
-      outstanding: 0,
-      over: isResponseClosed(res),
-      req,
-      wasCanceled: false,
-    };
-    tallies.set(res, tally);
+    const drain: IDrain = { counted: false, outstanding: 0, over: isResponseClosed(res), req, wasCanceled: false };
+    drains.set(res, drain);
     openRequests += 1;
 
-    if (!tally.over) {
+    if (!drain.over) {
       // node detaches the socket from a finished response, so it is read now
       const socket = (res.socket ?? req.socket) as IConnectionLike | undefined;
 
       const onClose = () => {
-        if (tally.over) {
+        if (drain.over) {
           return;
         }
 
-        tally.over = true;
+        drain.over = true;
         socket?.removeListener?.('close', onClose);
         // a response ended but cut before its bytes left the socket was not completed
-        tally.wasCanceled = tally.wasCanceled || hasClientLeft(res) || res.writableFinished === false;
+        drain.wasCanceled = drain.wasCanceled || hasClientLeft(res) || res.writableFinished === false;
         closeSocket(socket);
-        settleTally(tally);
+        settleDrain(drain);
       };
 
       res.once('close', onClose);
@@ -333,7 +327,7 @@ export function shutdownServer(
     }
 
     // a response that closed before admission with nothing in flight never reports again
-    settleTally(tally);
+    settleDrain(drain);
   };
 
   // one instance per request: its live tasks and its signal get the same cancellation, and no two
@@ -347,8 +341,8 @@ export function shutdownServer(
 
   const cancelOpenRequests = () => {
     const states: Array<[IRequestCancelState, IStatusCancelError]> = [];
-    for (const tally of tallies.values()) {
-      const state = tally.counted ? undefined : getRequestState(tally.req);
+    for (const drain of drains.values()) {
+      const state = drain.counted ? undefined : getRequestState(drain.req);
       if (state) {
         states.push([state, createShutdownError(reason)]);
       }
@@ -360,7 +354,7 @@ export function shutdownServer(
         try {
           task.cancel(error);
         } catch (_e) {
-          // the task still settles through its own shield, the shutdown counts it
+          // the task still settles through its own shield, the drain counts it
         }
       }
     }
@@ -377,7 +371,7 @@ export function shutdownServer(
   }
 
   // server.close() only stops new connections, so a request can still arrive on a kept-alive one
-  // while shutdown runs, and it is served like any other unless the start cancels handlers
+  // while this drains, and it is served like any other unless the start cancels handlers
   registry.onArrival = (req, res) => {
     admit(req, res);
     if (cancelOnStart) {
@@ -395,7 +389,7 @@ export function shutdownServer(
     // fires once every connection is gone, which covers requests this layer never saw
     server.close(() => {
       listening = false;
-      settleIfEmptied();
+      settleIfDrained();
     });
   }
   closeIdle();
@@ -405,10 +399,10 @@ export function shutdownServer(
     cancelOpenRequests();
   }
 
-  settleIfEmptied();
+  settleIfDrained();
 
   const window = new Impl<void>((resolve, _reject, { handleCancel }) => {
-    // an infinite grace waits for shutdown however long it takes
+    // an infinite grace waits for the drain however long it takes
     let timer =
       grace === Infinity ? undefined : (
         setTimeout(() => {
@@ -431,7 +425,7 @@ export function shutdownServer(
   });
 
   const onArrival = registry.onArrival;
-  const stopWaiting = () => {
+  const stopDraining = () => {
     if (registry.onArrival === onArrival) {
       registry.onArrival = undefined;
       registry.onTrack = undefined;
@@ -439,21 +433,21 @@ export function shutdownServer(
   };
 
   let shutdown: CancelablePromise<IShutdownResult, never>;
-  const settle = Impl.race([emptied, window]);
+  const settle = Impl.race([drained, window]);
 
   // eslint-disable-next-line prefer-const -- assigned after construction to avoid TDZ in executor closure
   shutdown = new Impl<IShutdownResult, never>((resolve, reject, { handleCancel }) => {
     handleCancel(() => {
-      stopWaiting();
+      stopDraining();
       settle.cancel(reason);
       clearShutdownState(server, shutdown);
     });
 
     settle.then(
       () => {
-        stopWaiting();
+        stopDraining();
         clearShutdownState(server, shutdown);
-        // stragglers only: a shutdown that finished in time has no connection left to close
+        // stragglers only: a drain that finished in time has no connection left to close
         if ((openRequests > 0 || listening) && ownsConnections && isFunction(server.closeAllConnections)) {
           server.closeAllConnections();
         }
@@ -461,7 +455,7 @@ export function shutdownServer(
         resolve({ canceled, completed, timedOut });
       },
       (error) => {
-        stopWaiting();
+        stopDraining();
         clearShutdownState(server, shutdown);
         reject(error);
       },

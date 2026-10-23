@@ -58,7 +58,7 @@ export function createShutdown(app: FastifyInstance): (options?: IShutdownOption
             await app.close();
           }
         } catch (error) {
-          // the outcome is what the caller needs; a failing onClose cannot undo it
+          // the drain outcome is what the caller needs, and a failing onClose hook cannot undo it
           console.error('[@cancjs/server-fastify] closing the instance failed', error);
         } finally {
           running = undefined;
