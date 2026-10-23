@@ -153,7 +153,7 @@ There is one deadline per request. A wrapped handler calling another wrapped han
 
 ### Shutting down
 
-`createShutdown(server)` returns the function that runs the shutdown. Call it right after `listen()`: it records connections and requests from that point on.
+`createShutdown(server)` returns the function that runs the shutdown. Call it right after `listen()`: it records connections and requests from that point on. It replaces the prerelease `shutdown(server, o)`: call `createShutdown(server)(o)`.
 
 The shutdown stops the server accepting connections, closes a connection that has received no bytes once it is five seconds old (or at the grace, if shorter), leaves one that has already sent part of a request to finish, and closes idle keep-alive sockets. In-flight requests, wrapped or not, keep running for the grace window, and so does a request that arrives on a kept-alive connection meanwhile. Every response sent from then on carries `Connection: close`, and each connection closes as soon as the response on it finishes.
 
@@ -181,7 +181,7 @@ Raw node has no `next(err)` and no error middleware. What settles a request afte
 
 That last part is where this package differs from the four framework adapters. Each of those forwards such an error to a framework error handler that already answers and logs. Raw node has no pipeline behind the wrapper, so the wrapper holds the only reference left to a response the client is still waiting on. Pass `cancelErrorHandler({ rethrow: true })` to get the throw back instead. Nothing awaits it, so it surfaces as an unhandled rejection: opt in only where a process level handler is installed to receive it.
 
-Pass your own `onError` when a caller already has an error pipeline: an adapter for restify, AdonisJS, a Pages Router API route, or Nest on the raw server reads the error from there instead.
+Pass your own `onError` when a caller already has an error pipeline: an adapter for restify, AdonisJS, a Pages Router API route, or Nest on the raw server reads the error from there instead. A custom `onError` that rethrows a cancellation does not help: nothing awaits the throw and cancellation rejections are not reported, so it is swallowed. No response is sent, and the client sees the connection reset when the shutdown force-closes it. Answer the response inside `onError`, or hand the error to `cancelErrorHandler()`.
 
 ### Options
 

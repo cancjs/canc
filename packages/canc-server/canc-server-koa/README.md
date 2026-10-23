@@ -126,7 +126,7 @@ The flag options of `@cancjs/promise` (`asyncCancel`, `bubble`, `forceCancelable
 
 Options given to `cancelMiddleware` are defaults for everything mounted below it. Options given to `cancelableHandler` win on every key they set, so one route can raise or drop the deadline the app registered.
 
-There is one deadline per request. `cancelMiddleware` starts it when the request reaches the middleware, so it covers plain routes too, and a route passing its own `timeout` restarts the clock with that value. It ends once the middleware below `cancelMiddleware` returns, or once a wrapped route settles, so a body Koa streams after that is not cut short by it. A slow response body is for `server.requestTimeout` or the proxy in front of the server. The lifecycle callbacks run once per request. A `timeout` of `0` fires at once, and `Infinity`, `NaN`, a negative number or leaving it out sets no deadline. A negative value is not an immediate deadline, and on a route that sets its own `timeout` it lifts the deadline set above it, like `Infinity`. A duration past about 24.8 days is held at that limit.
+There is one deadline per request. `cancelMiddleware` starts it when the request reaches the middleware, so it applies to plain routes too. On one, the deadline aborts the request signal and runs `onTimeout`, and the route itself still answers. A route passing its own `timeout` restarts the clock with that value. It ends once the middleware below `cancelMiddleware` returns, or once a wrapped route settles, so a body Koa streams after that is not cut short by it. A slow response body is for `server.requestTimeout` or the proxy in front of the server. The lifecycle callbacks run once per request. A `timeout` of `0` fires at once, and `Infinity`, `NaN`, a negative number or leaving it out sets no deadline. A negative value is not an immediate deadline, and on a route that sets its own `timeout` it lifts the deadline set above it, like `Infinity`. A duration past about 24.8 days is held at that limit.
 
 The deadline default status is 503. Set `timeout: { ms: 30_000, status: 504 }` for a gateway-style code.
 
@@ -136,7 +136,7 @@ Both raise a `CancelError`. The discriminator is `isCancelError(error) && !error
 
 ### Shutting down
 
-`createShutdown` takes the `http.Server` that `app.listen()` returns, not the Koa application, because a Koa application has no `close` of its own to sequence against. It returns the function that runs the shutdown. Call it right after `app.listen()`: it records connections and requests from that point on.
+`createShutdown` takes the `http.Server` that `app.listen()` returns, not the Koa application, because a Koa application has no `close` of its own to sequence against. It returns the function that runs the shutdown. Call it right after `app.listen()`: it records connections and requests from that point on. It replaces the prerelease `shutdown(server, o)`: call `createShutdown(server)(o)`.
 
 The shutdown stops accepting new connections, closes a connection that has received no bytes once it is five seconds old (or at the grace, if shorter), leaves one that has already sent part of a request to finish, and closes idle ones. In-flight requests, wrapped or not, keep running for the grace window, and so does a request that arrives on a kept-alive connection meanwhile. Every response sent from then on carries `Connection: close`, and each connection closes as soon as the response on it finishes.
 
@@ -168,7 +168,7 @@ A `timeout` of `Infinity` waits for the responses however long they take, and a 
 | `cancelMiddleware` | `(options?) => Middleware`                           |
 | `createShutdown`   | `(server) => (options?) => Promise<IShutdownResult>` |
 
-`cancelMiddleware` is optional if every route is wrapped, since a wrapped route installs the signal on its own. Mount it when one deadline or one `onDisconnect` hook should cover a whole router, or when a cancellation raised by request-scoped work outside a wrapped handler still needs an answer. Its `status` option sets the status a shutdown cancellation answers with, 503 by default.
+A wrapped route installs the signal on its own, and cuts the connection when a cancellation arrives after the response head went out, with or without `cancelMiddleware`. The middleware adds the rest: it answers a cancellation that arrives before the head with the deadline's status (503 for a shutdown) instead of leaving it to Koa's default error handling, it gives a whole router one deadline or one `onDisconnect` hook, and it answers a cancellation raised by request-scoped work outside a wrapped handler. Its `status` option sets the status a shutdown cancellation answers with, 503 by default.
 
 ### Reasons
 
