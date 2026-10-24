@@ -669,17 +669,21 @@ describe('framework headers on a cancel answer', () => {
     app.use(cancelErrorHandler());
 
     const port = await listen(app);
-    const first = await socketExchange(port, '/derived');
+    const socket = connect({ host: '127.0.0.1', port });
+
+    await once(socket, 'connect');
+
+    const first = await socketExchange(socket, '/derived');
 
     await new Promise((resolve) => setTimeout(resolve, 200));
 
-    const second = await socketExchange(port, '/ok');
+    const second = await socketExchange(socket, '/ok');
 
-    second.socket?.destroy();
+    socket.destroy();
 
     expect(first.status).toBe(504);
+    expect(second.status).toBe(200);
     expect(second.body).toBe('ok');
-    expect(second.socket).toBe(first.socket);
   });
 
   it('answers a user cancellation carrying status 499 with its own status, not the option', async () => {
@@ -1369,24 +1373,41 @@ interface IHttpOptions {
 }
 
 /**
- * One request over the default keep-alive pool, with the socket it went out on, so a test can tell a
- * reused connection from a new one.
+ * One request written onto an open socket, resolved once its body is complete by `Content-Length`.
+ * Both requests of a reuse test go out on one socket this way, so the reuse does not depend on the
+ * global keep-alive setting, which node 18 leaves off.
  */
-function socketExchange(port: number, path: string): Promise<{ status: number; body: string; socket: Socket | null }> {
+function socketExchange(socket: Socket, path: string): Promise<{ status: number; body: string }> {
   return new Promise((resolve, reject) => {
-    const outgoing = request({ host: '127.0.0.1', method: 'GET', path, port }, (incoming: IncomingMessage) => {
-      const chunks: Buffer[] = [];
-      incoming.on('data', (chunk: Buffer) => chunks.push(chunk));
-      incoming.on('end', () =>
-        resolve({
-          body: Buffer.concat(chunks).toString('utf8'),
-          socket: outgoing.socket,
-          status: incoming.statusCode ?? 0,
-        }),
-      );
-    });
-    outgoing.on('error', reject);
-    outgoing.end();
+    let buffered = '';
+
+    const onData = (chunk: Buffer): void => {
+      buffered += chunk.toString('utf8');
+
+      const head = buffered.indexOf('\r\n\r\n');
+
+      if (head === -1) {
+        return;
+      }
+
+      const length = /content-length: (\d+)/i.exec(buffered.slice(0, head));
+      const size = length ? Number(length[1]) : 0;
+
+      if (buffered.length - (head + 4) < size) {
+        return;
+      }
+
+      socket.off('data', onData);
+      socket.off('error', reject);
+      resolve({
+        body: buffered.slice(head + 4, head + 4 + size),
+        status: Number(/^HTTP\/1\.1 (\d{3})/.exec(buffered)?.[1]),
+      });
+    };
+
+    socket.on('data', onData);
+    socket.once('error', reject);
+    socket.write(`GET ${path} HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n`);
   });
 }
 
