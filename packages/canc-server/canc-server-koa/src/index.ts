@@ -3,6 +3,7 @@ import { type Server, STATUS_CODES } from 'http';
 import type { Context, DefaultContext, DefaultState, Middleware, ParameterizedContext } from 'koa';
 
 import {
+  cancelAttribution,
   cancelHeadersFor,
   cancelStatusOf,
   stampDerivedCancel,
@@ -98,6 +99,11 @@ function prepareCancel(error: unknown, ctx: Context, option?: number): boolean {
     ctx.respond = false;
 
     return true;
+  }
+
+  // ownership comes from the request state, never from a status the error happens to carry
+  if (cancelAttribution(error, state) === undefined) {
+    return false;
   }
 
   stampDerivedCancel(error, state);
