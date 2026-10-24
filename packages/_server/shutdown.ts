@@ -17,7 +17,7 @@ import {
 } from './holder';
 import { ensureRequestCancelState, isResponseClosed } from './node-signal';
 import { SERVER_SHUTDOWN } from './reasons';
-import { createShutdownError, IStatusCancelError, MAX_TIMER_MS } from './timeout';
+import { createShutdownError, IShutdownErrorOptions, IStatusCancelError, MAX_TIMER_MS } from './timeout';
 import { IRequestLike, IResponseLike, IServerLike, IShutdownOptions, IShutdownResult } from './types';
 
 /** Grace window a shutdown waits for in-flight requests before it gives up. */
@@ -91,6 +91,7 @@ export function shutdownServer(
 
   const { cancelAfter, closeAfter } = resolveWindows(options);
   const reason = options.reason ?? SERVER_SHUTDOWN;
+  const cancelError: IShutdownErrorOptions = { status: options.status, headers: options.headers };
   // closeServer gates every connection-closing call, not only the listener itself: a caller
   // passing false owns the server's connection lifecycle, so this layer touches none of it and
   // only cancels the tasks and signals it tracks
@@ -359,7 +360,7 @@ export function shutdownServer(
 
   // one instance per request: its live tasks and its signal get the same cancellation, and no two
   // requests share one
-  const cancelRequest = (state: IRequestCancelState, error = createShutdownError(reason)) => {
+  const cancelRequest = (state: IRequestCancelState, error = createShutdownError(reason, cancelError)) => {
     if (!state.shuttingDown) {
       state.shuttingDown = true;
       state.cancel(error);
@@ -371,7 +372,7 @@ export function shutdownServer(
     for (const drain of drains.values()) {
       const state = drain.counted ? undefined : getRequestState(drain.req);
       if (state) {
-        states.push([state, createShutdownError(reason)]);
+        states.push([state, createShutdownError(reason, cancelError)]);
       }
     }
 

@@ -2,7 +2,7 @@ import { isCancelError } from '@cancjs/promise';
 import { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import fastifyPlugin from 'fastify-plugin';
 
-import { cancelStatusOf, isUnanswerable } from '../../../_server/exchange';
+import { cancelHeadersOf, cancelStatusOf, isUnanswerable } from '../../../_server/exchange';
 import { getRequestRegistry } from '../../../_server/holder';
 import { ensureRequestCancelState } from '../../../_server/node-signal';
 import { ICancelableHandlerOptions } from '../../../_server/types';
@@ -85,6 +85,7 @@ export function cancelErrorHandler(options?: ICancelErrorHandlerOptions): TCance
       const code = cancelStatusOf(error, configured);
       (error as { status?: number; statusCode?: number }).status = code;
       (error as { statusCode?: number }).statusCode = code;
+      reply.headers(cancelHeadersOf(error) ?? {});
     }
 
     reply.send(error);

@@ -1,5 +1,5 @@
 import { getEventListeners, once } from 'node:events';
-import http from 'node:http';
+import http, { IncomingHttpHeaders } from 'node:http';
 import { AddressInfo, connect, Socket } from 'node:net';
 import { Readable } from 'node:stream';
 import { runInThisContext } from 'node:vm';
@@ -26,6 +26,10 @@ interface IDeferred<T> {
 interface IClientResponse {
   body: string;
   statusCode: number | undefined;
+}
+
+interface IClientExchange extends IClientResponse {
+  headers: IncomingHttpHeaders;
 }
 
 function deferred<T = void>(): IDeferred<T> {
@@ -59,6 +63,10 @@ async function listen(instance: FastifyInstance): Promise<number> {
 }
 
 function send(port: number, path: string, method = 'GET', body?: string): Promise<IClientResponse> {
+  return sendExchange(port, path, method, body).then(({ body: text, statusCode }) => ({ body: text, statusCode }));
+}
+
+function sendExchange(port: number, path: string, method = 'GET', body?: string): Promise<IClientExchange> {
   return new Promise((resolve, reject) => {
     const request = http.request(
       {
@@ -72,7 +80,13 @@ function send(port: number, path: string, method = 'GET', body?: string): Promis
         const chunks: Buffer[] = [];
 
         response.on('data', (chunk: Buffer) => chunks.push(chunk));
-        response.on('end', () => resolve({ body: Buffer.concat(chunks).toString(), statusCode: response.statusCode }));
+        response.on('end', () =>
+          resolve({
+            body: Buffer.concat(chunks).toString(),
+            headers: response.headers,
+            statusCode: response.statusCode,
+          }),
+        );
       },
     );
 
@@ -849,6 +863,32 @@ describe('shutdown cancel status', () => {
     await createShutdown(instance)({ cancelAfter: 200 });
 
     expect((await pending).statusCode).toBe(502);
+  });
+
+  it('answers the shutdown status and headers without a handler error handler', async () => {
+    const started = deferred();
+
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.get(
+      '/hang',
+      cancelableHandler(function* () {
+        started.resolve();
+        yield new Promise(() => undefined);
+
+        return { ok: true };
+      }),
+    );
+
+    const port = await listen(instance);
+    const pending = sendExchange(port, '/hang');
+    await started.promise;
+    await createShutdown(instance)({ cancelAfter: 200, headers: { 'Retry-After': '5' }, status: 504 });
+
+    const answer = await pending;
+
+    expect(answer.statusCode).toBe(504);
+    expect(answer.headers['retry-after']).toBe('5');
   });
 
   it('takes the handler status for a user timeout that carries no status', async () => {

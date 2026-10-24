@@ -53,7 +53,9 @@ timeout?: TTimeoutOption | undefined
 cancelAfter?: number | undefined
 closeAfter?: number | undefined
 closeServer?: boolean | undefined
+headers?: Record<string, string> | undefined
 reason?: string | undefined
+status?: number | undefined
 ```
 
 ## `IShutdownResult` (interface)

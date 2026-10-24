@@ -4,6 +4,7 @@ import type { ParamsDictionary, Query } from 'express-serve-static-core';
 import type { IncomingMessage, Server, ServerResponse } from 'http';
 
 import {
+  cancelHeadersOf,
   cancelStatusOf,
   isResponseLive,
   isUnanswerable,
@@ -156,6 +157,12 @@ export function cancelErrorHandler(options: ICancelErrorHandlerOptions = {}): Er
       res.destroy();
 
       return;
+    }
+
+    const headers = cancelHeadersOf(error);
+
+    if (headers) {
+      res.set(headers);
     }
 
     res.status(cancelStatusOf(error, options.status)).end();

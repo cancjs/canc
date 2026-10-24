@@ -1,6 +1,6 @@
 import { CancelError, isCancelError } from '@cancjs/promise';
 
-import { DEFAULT_TIMEOUT_STATUS } from './timeout';
+import { DEFAULT_SHUTDOWN_STATUS, DEFAULT_TIMEOUT_STATUS } from './timeout';
 import { IRequestLike, IResponseLike } from './types';
 
 /**
@@ -88,7 +88,16 @@ export function cancelStatusOf(error: CancelError, option: number | undefined): 
     return statusOf(error, DEFAULT_TIMEOUT_STATUS);
   }
 
+  if (statusStamped(error) && !isDefaultShutdown(error)) {
+    return statusOf(error, DEFAULT_TIMEOUT_STATUS);
+  }
+
   return option ?? statusOf(error, DEFAULT_TIMEOUT_STATUS);
+}
+
+/** The headers a shutdown attached to its cancellation, or `undefined` when it attached none. */
+export function cancelHeadersOf(error: CancelError): Record<string, string> | undefined {
+  return (error as CancelError & { headers?: Record<string, string> }).headers;
 }
 
 /** Whether the cancellation already carries a status on `status` or `statusCode`. */
@@ -96,6 +105,11 @@ function statusStamped(error: CancelError): boolean {
   const carried = error as CancelError & { status?: unknown; statusCode?: unknown };
 
   return typeof carried.status === 'number' || typeof carried.statusCode === 'number';
+}
+
+/** Whether the cancellation is the default one a shutdown raised, with no explicit status. */
+function isDefaultShutdown(error: CancelError): boolean {
+  return (error as unknown as Record<symbol, unknown>)[DEFAULT_SHUTDOWN_STATUS] === true;
 }
 
 /** Narrows a framework's request object to the structural stand-in this layer reads. */

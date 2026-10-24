@@ -2,7 +2,13 @@ import { CancelSignal, isCancelError } from '@cancjs/promise';
 import type { Server } from 'http';
 import type { Context, DefaultContext, DefaultState, Middleware, ParameterizedContext } from 'koa';
 
-import { cancelStatusOf, isUnanswerable, toRequestLike, toResponseLike } from '../../../_server/exchange';
+import {
+  cancelHeadersOf,
+  cancelStatusOf,
+  isUnanswerable,
+  toRequestLike,
+  toResponseLike,
+} from '../../../_server/exchange';
 import { ensureRequestCancelState, getNodeRequestSignal, stopRequestDeadline } from '../../../_server/node-signal';
 import { runCancelableHandler } from '../../../_server/run';
 import { createServerShutdown } from '../../../_server/shutdown';
@@ -136,6 +142,7 @@ export function cancelMiddleware<StateT = DefaultState, ContextT = DefaultContex
       // and a json type turns the cleared body into the text null
       ctx.remove('Content-Type');
       ctx.body = null;
+      ctx.set(cancelHeadersOf(error) ?? {});
       ctx.status = cancelStatusOf(error, options?.status);
     } finally {
       stopRequestDeadline(state);

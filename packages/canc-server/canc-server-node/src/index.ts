@@ -2,6 +2,7 @@ import { CancelSignal, isCancelError } from '@cancjs/promise';
 import type { IncomingMessage, Server, ServerResponse } from 'http';
 
 import {
+  cancelHeadersOf,
   cancelStatusOf,
   isResponseLive,
   isUnanswerable,
@@ -164,12 +165,12 @@ export function cancelErrorHandler<
       return;
     }
 
-    answerWith(res, cancelStatusOf(error, options.status));
+    answerWith(res, cancelStatusOf(error, options.status), cancelHeadersOf(error));
   };
 }
 
 /** Sends a bare status to a response that can still carry one. */
-function answerWith(res: ServerResponse, status: number): void {
+function answerWith(res: ServerResponse, status: number, headers: Record<string, string> = {}): void {
   if (!isResponseLive(res)) {
     return;
   }
@@ -181,6 +182,9 @@ function answerWith(res: ServerResponse, status: number): void {
     return;
   }
 
+  for (const [name, value] of Object.entries(headers)) {
+    res.setHeader(name, value);
+  }
   res.statusCode = status;
   res.end();
 }

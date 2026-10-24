@@ -1,7 +1,8 @@
+import { CancelError } from '@cancjs/promise';
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { cancelStatusOf, hasClientLeft, isResponseLive } from './exchange';
+import { cancelHeadersOf, cancelStatusOf, hasClientLeft, isResponseLive } from './exchange';
 import { createShutdownError, createTimeoutError } from './timeout';
 
 const DISCONNECT_PREDICATE = '!res.writableEnded && (res.destroyed || !res.writable)';
@@ -28,6 +29,38 @@ describe('exchange', () => {
 
     it('answers 503 for a shutdown cancellation when no option is set', () => {
       expect(cancelStatusOf(createShutdownError('closing'), undefined)).toBe(503);
+    });
+
+    // precedence: deadline, explicit shutdown status, handler option, 503
+    it.each<[string, CancelError, number | undefined, number]>([
+      [
+        'a deadline keeps its stamp over the option',
+        createTimeoutError({ ms: 100, message: 'late', status: 504 }),
+        502,
+        504,
+      ],
+      ['a default shutdown takes the option', createShutdownError('closing'), 502, 502],
+      ['an explicit shutdown status beats the option', createShutdownError('closing', { status: 504 }), 502, 504],
+      [
+        'an explicit shutdown status answers without an option',
+        createShutdownError('closing', { status: 504 }),
+        undefined,
+        504,
+      ],
+      ['a route-signal cancel takes the option', new CancelError('aborted'), 502, 502],
+      ['a route-signal cancel answers 503 without an option', new CancelError('aborted'), undefined, 503],
+    ])('%s', (_name, error, option, status) => {
+      expect(cancelStatusOf(error, option)).toBe(status);
+    });
+
+    it('copies the shutdown headers and gives other cancellations none', () => {
+      const headers = { 'Retry-After': '5' };
+      const shutdown = createShutdownError('closing', { headers });
+      headers['Retry-After'] = '30';
+
+      expect(cancelHeadersOf(shutdown)).toEqual({ 'Retry-After': '5' });
+      expect(cancelHeadersOf(createShutdownError('closing'))).toBeUndefined();
+      expect(cancelHeadersOf(createTimeoutError({ ms: 100, message: 'late', status: 504 }))).toBeUndefined();
     });
   });
 

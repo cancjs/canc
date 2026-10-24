@@ -20,6 +20,20 @@ export interface ITimeoutSpec {
 export interface IStatusCancelError extends CancelError {
   status: number;
   statusCode: number;
+  /** Headers a shutdown cancel answers with. Absent on a deadline. */
+  headers?: Record<string, string>;
+}
+
+/**
+ * Marks a shutdown cancel whose status the caller did not set. Keyed in the `@cancjs/server-node:`
+ * namespace so every copy of this module reads the same mark.
+ */
+export const DEFAULT_SHUTDOWN_STATUS = Symbol.for('@cancjs/server-node:defaultShutdownStatus');
+
+/** What a shutdown sets on the cancel it raises on each request. */
+export interface IShutdownErrorOptions {
+  status?: number;
+  headers?: Record<string, string>;
 }
 
 /**
@@ -70,13 +84,20 @@ export function createTimeoutError(spec: ITimeoutSpec): IStatusCancelError {
  *
  * Stamped with the same status pair as a deadline, so a framework's default error pipeline answers
  * 503 with no handler. The cause is left empty: `timedOut` stays false, and the handler's status
- * option still applies to it.
+ * option still applies to it, unless the shutdown set a status of its own.
  */
-export function createShutdownError(message: string): IStatusCancelError {
+export function createShutdownError(message: string, options: IShutdownErrorOptions = {}): IStatusCancelError {
   const error = new CancelError(message) as IStatusCancelError;
+  const status = options.status ?? DEFAULT_TIMEOUT_STATUS;
 
-  error.status = DEFAULT_TIMEOUT_STATUS;
-  error.statusCode = DEFAULT_TIMEOUT_STATUS;
+  error.status = status;
+  error.statusCode = status;
+  if (options.headers) {
+    error.headers = { ...options.headers };
+  }
+  if (options.status === undefined) {
+    Object.defineProperty(error, DEFAULT_SHUTDOWN_STATUS, { value: true });
+  }
 
   return error;
 }

@@ -106,6 +106,13 @@ export interface IShutdownOptions {
   closeAfter?: number;
   /** Reason the in-flight requests are canceled with. Defaults to the shutdown reason. */
   reason?: string;
+  /**
+   * Status a request this shutdown cancels answers with. Set, it beats a handler `status` option; left
+   * unset, the handler option applies, then 503. A handler deadline keeps its own status either way.
+   */
+  status?: number;
+  /** Headers added to the answer of each request this shutdown cancels, such as `Retry-After`. */
+  headers?: Record<string, string>;
   /** Whether to stop accepting new connections first. Gates every connection-closing call, not only the listener itself. Defaults to true. */
   closeServer?: boolean;
 }

@@ -1,6 +1,6 @@
 import { CancelablePromise, CancelError, isCancelError, isCancelSignal } from '@cancjs/promise';
 import { getEventListeners, once } from 'events';
-import { createServer, IncomingMessage, request, Server, ServerResponse } from 'http';
+import { createServer, IncomingHttpHeaders, IncomingMessage, request, Server, ServerResponse } from 'http';
 import { connect, Socket } from 'net';
 import { runInThisContext } from 'vm';
 
@@ -620,6 +620,27 @@ describe('shutdown cancel status', () => {
     expect((await pending).status).toBe(502);
   });
 
+  it('answers the shutdown status and headers without a handler error handler', async () => {
+    const started = deferred();
+
+    const port = await listen(
+      cancelableHandler(function* (_req: IncomingMessage, res: ServerResponse) {
+        started.resolve();
+        yield never();
+        res.end('unreachable');
+      }),
+    );
+    const pending = httpExchange(port, { path: '/hang' });
+
+    await started.promise;
+    await createShutdown(lastServer())({ cancelAfter: 200, headers: { 'Retry-After': '5' }, status: 504 });
+
+    const answer = await pending;
+
+    expect(answer.status).toBe(504);
+    expect(answer.headers['retry-after']).toBe('5');
+  });
+
   it('keeps a deadline status over the handler status', async () => {
     const port = await listen(
       cancelableHandler(
@@ -953,6 +974,13 @@ interface IHttpOptions {
 }
 
 function httpRequest(port: number, options: IHttpOptions): Promise<{ status: number; body: string }> {
+  return httpExchange(port, options).then(({ body, status }) => ({ body, status }));
+}
+
+function httpExchange(
+  port: number,
+  options: IHttpOptions,
+): Promise<{ status: number; body: string; headers: IncomingHttpHeaders }> {
   return new Promise((resolve, reject) => {
     const outgoing = request(
       { headers: options.headers, host: '127.0.0.1', method: options.method ?? 'GET', path: options.path, port },
@@ -960,7 +988,11 @@ function httpRequest(port: number, options: IHttpOptions): Promise<{ status: num
         const chunks: Buffer[] = [];
         incoming.on('data', (chunk: Buffer) => chunks.push(chunk));
         incoming.on('end', () =>
-          resolve({ body: Buffer.concat(chunks).toString('utf8'), status: incoming.statusCode ?? 0 }),
+          resolve({
+            body: Buffer.concat(chunks).toString('utf8'),
+            headers: incoming.headers,
+            status: incoming.statusCode ?? 0,
+          }),
         );
       },
     );
