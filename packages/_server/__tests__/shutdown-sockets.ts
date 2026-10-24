@@ -285,22 +285,45 @@ export function describeShutdownSockets(
       expect(await first).toEqual({ canceled: 0, completed: 0, timedOut: false });
     });
 
-    it('created after a connection opened, closes that connection at the cancel point', async () => {
+    it('created after a connection opened, closes that connection at closeAfter', async () => {
       const app = await startApp();
       const { closed } = await preconnect(app.server, app.port);
       const shutdown = createShutdown(app.target as never);
 
       const startedAt = performance.now();
-      const result = await shutdown({ cancelAfter: LATE_GRACE_MS });
+      const result = await shutdown({ cancelAfter: LATE_GRACE_MS, closeAfter: 2 * LATE_GRACE_MS });
       const elapsed = performance.now() - startedAt;
       const closedAfter = (await closed) - startedAt;
 
-      expect(result.timedOut).toBe(false);
-      expect(elapsed).toBeGreaterThanOrEqual(LATE_GRACE_MS - TIMER_SLACK_MS);
-      expect(closedAfter).toBeGreaterThanOrEqual(LATE_GRACE_MS - TIMER_SLACK_MS);
+      // a connection canc cannot see is open until closeAfter, so the window times out
+      expect(result.timedOut).toBe(true);
+      expect(elapsed).toBeGreaterThanOrEqual(2 * LATE_GRACE_MS - TIMER_SLACK_MS);
+      expect(closedAfter).toBeGreaterThanOrEqual(2 * LATE_GRACE_MS - TIMER_SLACK_MS);
     });
 
-    it('closes an in-flight request with no cancel middleware at the cancel point, not at closeAfter', async () => {
+    it('serves an in-flight request with no cancel middleware to completion, shutdown resolves after it', async () => {
+      const app = await startApp();
+      // created before the request so it is tracked; a late request has its own spec
+      const shutdown = createShutdown(app.target as never);
+      const { client, closed } = openClient(app.port);
+      client.write(`${REQUEST_HEAD}\r\n`);
+      await app.arrival;
+      const order: string[] = [];
+      const closing = shutdown({ cancelAfter: LATE_GRACE_MS, closeAfter: GRACE_MS });
+      closing.then(() => order.push('resolved'));
+
+      // the cancel point passes while the request is still held by the app
+      await new Promise((resolve) => setTimeout(resolve, LATE_GRACE_MS + TIMER_SLACK_MS));
+      order.push('released');
+      app.release();
+      const answer = await closed;
+
+      expect(answer.statuses).toEqual(['HTTP/1.1 200']);
+      expect(await closing).toEqual({ canceled: 0, completed: 1, timedOut: false });
+      expect(order).toEqual(['released', 'resolved']);
+    });
+
+    it('cuts a plain request still running at closeAfter, shutdown resolves timedOut', async () => {
       const app = await startApp();
       const { client, closed } = openClient(app.port);
       client.write(`${REQUEST_HEAD}\r\n`);
@@ -308,14 +331,14 @@ export function describeShutdownSockets(
       const shutdown = createShutdown(app.target as never);
 
       const startedAt = performance.now();
-      const result = await shutdown({ cancelAfter: LATE_GRACE_MS });
+      const result = await shutdown({ cancelAfter: LATE_GRACE_MS, closeAfter: 2 * LATE_GRACE_MS });
       const elapsed = performance.now() - startedAt;
-      await closed;
+      const answer = await closed;
 
-      // untracked by the factory, so not counted; the close itself is what the window measures
-      expect(result).toEqual({ canceled: 0, completed: 0, timedOut: false });
-      expect(elapsed).toBeGreaterThanOrEqual(LATE_GRACE_MS - TIMER_SLACK_MS);
-      expect(elapsed).toBeLessThan(LATE_GRACE_MS + 500);
+      expect(answer.statuses).toEqual([]);
+      expect(result).toEqual({ canceled: 0, completed: 0, timedOut: true });
+      expect(elapsed).toBeGreaterThanOrEqual(2 * LATE_GRACE_MS - TIMER_SLACK_MS);
+      expect(elapsed).toBeLessThan(2 * LATE_GRACE_MS + 500);
     });
 
     it('created after a request arrived, sends its response without Connection: close', async () => {

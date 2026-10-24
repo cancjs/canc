@@ -157,7 +157,7 @@ export function cancelMiddleware<StateT = DefaultState, ContextT = DefaultContex
  * Calling `createShutdown` again with the same server returns the same function.
  *
  * Created late, the shutdown loses nothing but finishes slower, because a connection opened before
- * the call is unknown to it. Such a connection is closed only when the grace window ends if it has
+ * the call is unknown to it. Such a connection is closed only when `closeAfter` ends if it has
  * sent no request yet, or if its request is still in flight and no wrapped handler or request
  * signal recorded it. That response also goes out without `Connection: close`.
  *

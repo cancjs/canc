@@ -498,7 +498,7 @@ describe('graceful shutdown over a real socket', () => {
     expect((await shutdown).timedOut).toBe(false);
   });
 
-  it('resets a request still running when the grace window closes', async () => {
+  it('resets a plain request still running at closeAfter, shutdown resolves timedOut', async () => {
     const entered = deferred();
     const { port, server } = await listen(() => {
       entered.resolve();
@@ -507,12 +507,12 @@ describe('graceful shutdown over a real socket', () => {
     const answer = get(port, '/slow');
     await entered.promise;
     const startedAt = Date.now();
-    const result = await shutdownServer(server, { cancelAfter: 300 });
+    const result = await shutdownServer(server, { cancelAfter: 300, closeAfter: 600 });
     const outcome = await answer;
 
     expect(outcome.error).toBe('ECONNRESET');
-    expect(outcome.at - startedAt).toBeGreaterThanOrEqual(250);
-    expect(result.timedOut).toBe(false);
+    expect(outcome.at - startedAt).toBeGreaterThanOrEqual(550);
+    expect(result.timedOut).toBe(true);
   });
 
   describe.each([

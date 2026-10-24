@@ -138,7 +138,7 @@ No `Retry-After` is sent with a shutdown answer. To add one, set `err.headers` i
 
 Pass `cancelAfter: 0` to cancel handlers as soon as the shutdown starts instead, which suits long-lived responses such as server-sent events or long polling that would otherwise hold the whole window.
 
-Created late, it finishes correctly but slower, because a connection opened before the call is unknown to it. If that connection has not sent a request yet, or its request is still in flight and neither `cancelPlugin` nor a wrapped handler recorded it, the connection is closed only when the grace window ends. That response goes out without `Connection: close`.
+Created late, it finishes correctly but slower, because a connection opened before the call is unknown to it. If that connection has not sent a request yet, or its request is still in flight and neither `cancelPlugin` nor a wrapped handler recorded it, the connection is closed only when `closeAfter` ends. That response goes out without `Connection: close`.
 
 A second call while the first is still running joins it rather than starting over, and calling `createShutdown` again with the same instance returns the same function.
 

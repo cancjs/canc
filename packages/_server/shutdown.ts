@@ -452,9 +452,10 @@ export function shutdownServer(
     endWindow();
   };
 
-  // a request still running holds the window: nothing is force-closed before closeAfter.
-  // a cancel at start also holds it while a connection is open, so a late request is served
-  const holdsWindow = () => openRequests > 0 || (cancelAtStart && listening);
+  // a request or a connection still open holds the window: nothing is force-closed before
+  // closeAfter. server.close fires once every connection has ended, so this also covers a
+  // connection canc never saw
+  const holdsWindow = () => openRequests > 0 || listening;
 
   // only one timer is armed at a time: the cancel point until it fires, then the hard end
   const atCancelPoint = () => {
