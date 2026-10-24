@@ -552,7 +552,8 @@ export function createServerShutdown(server: IServerLike): TShutdownFunction {
 function resolveWindows(options: IShutdownOptions): { cancelAfter: number; closeAfter: number } {
   const cancelAt = usableMs(options.cancelAfter);
   const closeAt = usableMs(options.closeAfter);
-  if (cancelAt !== undefined && closeAt !== undefined && cancelAt > closeAt) {
+  // order is checked on clamped values, so a negative pair clamping to 0 and 0 is not reversed
+  if (cancelAt !== undefined && closeAt !== undefined && clampMs(cancelAt) > clampMs(closeAt)) {
     throw new RangeError(`cancelAfter (${cancelAt}) is greater than closeAfter (${closeAt})`);
   }
   if (cancelAt !== undefined) {

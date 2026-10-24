@@ -9,6 +9,7 @@ import { ensureRequestCancelState, getNodeRequestSignal } from './node-signal';
 import { SERVER_SHUTDOWN } from './reasons';
 import { runCancelableHandler } from './run';
 import { shutdownServer } from './shutdown';
+import type { IShutdownOptions } from './types';
 
 describe('graceful shutdown', () => {
   it('closes the server and its idle connections', async () => {
@@ -1166,5 +1167,40 @@ describe('shutdown cancel point', () => {
 
     expect(() => shutdownServer(server, { cancelAfter: 5_000, closeAfter: 4_000 })).toThrow(RangeError);
     expect(() => shutdownServer(server, { cancelAfter: 5_000, closeAfter: 4_000 })).toThrow(/5000.*4000/);
+  });
+
+  // one row per resolution branch; the handler answers at the cancel point, which is timed
+  it.each<[string, IShutdownOptions, number]>([
+    ['no options', {}, 10_000],
+    ['closeAfter only', { closeAfter: 3_000 }, 2_000],
+    ['cancelAfter only', { cancelAfter: 500 }, 500],
+    ['NaN cancelAfter', { cancelAfter: NaN }, 10_000],
+    ['NaN closeAfter', { closeAfter: NaN }, 10_000],
+    ['negative cancelAfter', { cancelAfter: -5 }, 0],
+    ['negative closeAfter', { closeAfter: -5 }, 0],
+    ['both negative', { cancelAfter: -5, closeAfter: -10 }, 0],
+  ])('resolves the cancel point for %s', async (_name, options, cancelMs) => {
+    const server = new FakeServer();
+    pendingRequest(server);
+
+    let result: unknown;
+    void shutdownServer(server, options).then((value) => {
+      result = value;
+    });
+    if (cancelMs > 0) {
+      await jest.advanceTimersByTimeAsync(cancelMs - 1);
+
+      expect(result).toBeUndefined();
+    }
+
+    await jest.advanceTimersByTimeAsync(cancelMs > 0 ? 2 : 0);
+
+    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
+  });
+
+  it('does not throw for a both-negative pair, which clamps to 0 and 0', () => {
+    const server = new FakeServer();
+
+    expect(() => shutdownServer(server, { cancelAfter: -5, closeAfter: -10 })).not.toThrow();
   });
 });
