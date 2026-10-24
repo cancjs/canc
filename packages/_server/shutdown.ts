@@ -407,9 +407,7 @@ export function shutdownServer(
     for (const drain of drains.values()) {
       const state = drain.counted ? undefined : getRequestState(drain.req);
       if (state) {
-        const error = createShutdownError(reason, cancelError);
-        state.decorateCancel?.(error);
-        states.push([state, error]);
+        states.push([state, createShutdownError(reason, cancelError)]);
       }
     }
 
