@@ -2,7 +2,7 @@ import { isCancelError } from '@cancjs/promise';
 import type { Env, ErrorHandler } from 'hono';
 
 import { ownedStatusOf } from '../../../_server/exchange';
-import { abandonIfHeadersSent, alreadySentHeaders, ensureCancelState, isResponseUnreachable } from './bindings';
+import { abandonIfHeadersSent, alreadySentHeaders, existingCancelState, isResponseUnreachable } from './bindings';
 import { CLIENT_CLOSED_STATUS } from './handler';
 
 /** Options for the opt-in error handler. */
@@ -39,7 +39,8 @@ export function cancelErrorHandler<E extends Env = any>(options: ICancelErrorHan
 
   return function cancelErrorRoute(error, c) {
     // Ownership comes from the request state, so an unowned cancel takes the path below.
-    const status = isCancelError(error) ? ownedStatusOf(error, ensureCancelState(c), options.status) : undefined;
+    const state = isCancelError(error) ? existingCancelState(c) : undefined;
+    const status = state === undefined ? undefined : ownedStatusOf(error, state, options.status);
 
     if (status === undefined) {
       if (onError) {

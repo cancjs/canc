@@ -11,7 +11,8 @@ import {
   toRequestLike,
   toResponseLike,
 } from '../../../_server/exchange';
-import { ensureRequestCancelState, getNodeRequestSignal } from '../../../_server/node-signal';
+import { getRequestState } from '../../../_server/holder';
+import { getNodeRequestSignal } from '../../../_server/node-signal';
 import { runCancelableHandler } from '../../../_server/run';
 import { createServerShutdown } from '../../../_server/shutdown';
 import {
@@ -176,8 +177,8 @@ function answerCancellation(
   signals: readonly AbortSignal[],
 ): void {
   // a cancel the request does not own is the caller's, so it takes the path below
-  const state = ensureRequestCancelState(toRequestLike(req), toResponseLike(res));
-  const status = ownedStatusOf(error, state, options.status, signals);
+  const state = getRequestState(toRequestLike(req));
+  const status = state === undefined ? undefined : ownedStatusOf(error, state, options.status, signals);
 
   if (!isCancelError(error) || status === undefined) {
     if (options.rethrow === true) {

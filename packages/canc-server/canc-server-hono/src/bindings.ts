@@ -48,6 +48,16 @@ export function getNodeBindings(env: unknown): INodeBindings | undefined {
 }
 
 /**
+ * The request cancel state already installed for this request, or `undefined`. Never installs one, so an error
+ * path that only asks whether a cancel is owned does not make a plain request cancelable.
+ */
+export function existingCancelState(c: ICancelContext): IRequestCancelState | undefined {
+  const bindings = getNodeBindings(c.env);
+
+  return getRequestState((bindings ? bindings.incoming : c.req.raw) as unknown as IRequestLike);
+}
+
+/**
  * Installs the request cancel state on either runtime, or returns the one already installed.
  *
  * On node the state is keyed on the raw `IncomingMessage`, so a route, a request scoped database

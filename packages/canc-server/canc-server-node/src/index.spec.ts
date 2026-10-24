@@ -167,6 +167,27 @@ describe('cancel attribution over a real socket', () => {
     expect(response.headers['retry-after']).toBe('5');
   });
 
+  it('leaves a plain handler error that lands during a shutdown uncounted as canceled', async () => {
+    const arrived = deferred();
+    const port = await listen((req, res) => {
+      arrived.resolve();
+      setTimeout(() => {
+        try {
+          cancelErrorHandler({ rethrow: true })(new Error('boom'), req, res);
+        } catch {
+          setTimeout(() => res.end('late'), 120);
+        }
+      }, 30);
+    });
+
+    const response = httpExchange(port, { path: '/plain' });
+
+    await arrived.promise;
+
+    expect((await createShutdown(lastServer())({ cancelAfter: 60 })).canceled).toBe(0);
+    expect((await response).body).toBe('late');
+  });
+
   it('answers a user cancellation stamped 499 with 500, not the caller status, on a live request', async () => {
     const logged = captureErrorLog();
 

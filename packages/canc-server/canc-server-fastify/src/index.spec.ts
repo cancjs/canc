@@ -1098,6 +1098,38 @@ describe('shutdown cancel status', () => {
 });
 
 describe('shutdown', () => {
+  it('leaves a plain route error that lands during a shutdown uncounted as canceled', async () => {
+    const started = deferred();
+
+    const instance = Fastify();
+    // ahead of the plugin hook, so the request has no cancel state until the error path reads it
+    instance.addHook('onRequest', () => {
+      started.resolve();
+
+      return new Promise((_resolve, reject) => {
+        setTimeout(() => reject(new Error('boom')), 30);
+      });
+    });
+    await instance.register(cancelPlugin);
+    const handle = cancelErrorHandler();
+    // answers after the shutdown cancel, so the error path reads state the cancel did not reach
+    instance.setErrorHandler(function (this: FastifyInstance, error, request, reply) {
+      setTimeout(() => handle.call(this, error, request, reply), 150);
+    });
+    instance.get('/plain', () => ({ ok: true }));
+
+    const port = await listen(instance);
+    const pending = send(port, '/plain');
+    await started.promise;
+
+    const result = await createShutdown(instance)({ cancelAfter: 60 });
+
+    app = undefined;
+
+    expect(result.canceled).toBe(0);
+    expect((await pending).statusCode).toBe(500);
+  });
+
   it('cancels a hung handler when the grace window ends', async () => {
     const started = deferred();
 

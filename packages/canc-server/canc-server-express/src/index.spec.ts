@@ -610,6 +610,28 @@ describe('framework headers on a cancel answer', () => {
     consoleError.mockRestore();
   });
 
+  it('leaves a plain route error that lands during a shutdown uncounted as canceled', async () => {
+    const app = express();
+    const arrived = deferred();
+
+    app.get('/plain', (_req, _res, next) => {
+      arrived.resolve();
+      setTimeout(() => next(new Error('boom')), 30);
+    });
+    app.use(cancelErrorHandler());
+    app.use(((_err, _req, res, _next) => {
+      setTimeout(() => res.status(500).end('late'), 150);
+    }) as ErrorRequestHandler);
+
+    const port = await listen(app);
+    const response = httpRequest(port, { path: '/plain' });
+
+    await arrived.promise;
+
+    expect((await createShutdown(lastServer())({ cancelAfter: 60 })).canceled).toBe(0);
+    expect((await response).body).toBe('late');
+  });
+
   it('answers a derived cancel of a plain route with the request deadline status and headers', async () => {
     const app = express();
 

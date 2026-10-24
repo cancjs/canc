@@ -653,6 +653,35 @@ describe('handler kinds', () => {
 });
 
 describe('shutdown cancel status', () => {
+  it('leaves a plain handler error that lands during a shutdown uncounted as canceled', async () => {
+    const app = new Hono();
+    const started = deferred();
+    const handle = cancelErrorHandler();
+
+    // ahead of the cancel middleware: no cancel state exists until the error path reads it
+    app.use(async () => {
+      started.resolve();
+      await new Promise((_resolve, reject) => setTimeout(() => reject(new CancelError('user')), 30));
+    });
+    app.use(cancelMiddleware());
+    // answers after the shutdown canceled the request, so only a state read at once differs
+    app.onError(async (error, c) => {
+      await new Promise((resolve) => setTimeout(resolve, 150));
+
+      return handle(error, c);
+    });
+    app.get('/plain', (c) => c.text('ok'));
+
+    const port = await listen(app);
+    const pending = send(port, '/plain');
+    await started.promise;
+
+    const result = await createShutdown(server!)({ cancelAfter: 60 });
+
+    expect(result.canceled).toBe(0);
+    expect((await pending).statusCode).toBe(500);
+  });
+
   /** Reads the status line off the first bytes a raw connection gets back. */
   async function firstStatus(client: Socket): Promise<number> {
     const [chunk] = await once(client, 'data');

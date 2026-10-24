@@ -11,6 +11,7 @@ import {
   toRequestLike,
   toResponseLike,
 } from '../../../_server/exchange';
+import { getRequestState } from '../../../_server/holder';
 import { ensureRequestCancelState, getNodeRequestSignal, stopRequestDeadline } from '../../../_server/node-signal';
 import { runCancelableHandler } from '../../../_server/run';
 import { createServerShutdown } from '../../../_server/shutdown';
@@ -92,7 +93,20 @@ function prepareCancel(error: unknown, ctx: Context, option?: number, signals: r
     return false;
   }
 
-  const state = ensureRequestCancelState(toRequestLike(ctx.req), toResponseLike(ctx.res));
+  const state = getRequestState(toRequestLike(ctx.req));
+
+  // a request never wrapped has no state, so nothing owns the cancel: a finished response drops it,
+  // anything else goes to koa untouched
+  if (state === undefined) {
+    if (ctx.res.writableEnded === true) {
+      ctx.respond = false;
+
+      return true;
+    }
+
+    return false;
+  }
+
   // a shutdown sets `shuttingDown` before it cancels.
   // a deadline is flagged `timedOut` on the signal's reason.
   // a derived cancel has no flag of its own, so the reason decides.
