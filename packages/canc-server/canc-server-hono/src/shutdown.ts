@@ -1,5 +1,6 @@
 import { createServerShutdown } from '../../../_server/shutdown';
 import { IServerLike, IShutdownOptions, IShutdownResult } from '../../../_server/types';
+import { attachCancelResponse } from './bindings';
 
 /**
  * Sets up a graceful shutdown and returns the function that runs it. Call it right after
@@ -27,5 +28,5 @@ import { IServerLike, IShutdownOptions, IShutdownResult } from '../../../_server
  * application no such object to shut down.
  */
 export function createShutdown(server: IServerLike): (options?: IShutdownOptions) => Promise<IShutdownResult> {
-  return createServerShutdown(server);
+  return createServerShutdown(server, attachCancelResponse);
 }

@@ -1,7 +1,14 @@
-import type { Env, ErrorHandler } from 'hono';
+import type { CancelError } from '@cancjs/promise';
+import type { Context, Env, ErrorHandler } from 'hono';
 
-import { ownedStatusOf } from '../../../_server/exchange';
-import { abandonIfHeadersSent, alreadySentHeaders, existingCancelState, isResponseUnreachable } from './bindings';
+import { cancelHeadersFor, ownedStatusOf, STALE_CONTENT_HEADERS } from '../../../_server/exchange';
+import {
+  abandonIfHeadersSent,
+  alreadySentHeaders,
+  existingCancelState,
+  isHeadSent,
+  isResponseUnreachable,
+} from './bindings';
 import { CLIENT_CLOSED_STATUS } from './handler';
 
 /** Options for the opt-in error handler. */
@@ -51,7 +58,7 @@ export function cancelErrorHandler<E extends Env = any>(options: ICancelErrorHan
       const carried = error as IResponseCarrier;
 
       if (typeof carried.getResponse === 'function') {
-        return carried.getResponse();
+        return withContextHeaders(c, carried.getResponse());
       }
 
       console.error('[@cancjs/server-hono] request handler failed', error);
@@ -62,10 +69,38 @@ export function cancelErrorHandler<E extends Env = any>(options: ICancelErrorHan
     // a head already sent cannot take a status: cut the socket, then answer as unreachable
     abandonIfHeadersSent(c);
 
+    if (isHeadSent(c)) {
+      console.error('[@cancjs/server-hono] response cut after its head was sent', error);
+    }
+
     if (isResponseUnreachable(c)) {
       return new Response(null, { headers: alreadySentHeaders(c), status: CLIENT_CLOSED_STATUS });
     }
 
-    return new Response(null, { status });
+    // the route's headers and the cancellation's own go along
+    // the body's content headers do not
+    const response = new Response(null, { headers: c.body(null).headers, status });
+    const headers = response.headers;
+
+    for (const name of STALE_CONTENT_HEADERS) {
+      headers.delete(name);
+    }
+
+    for (const [name, value] of Object.entries(cancelHeadersFor(error as CancelError, options.status) ?? {})) {
+      headers.set(name, value);
+    }
+
+    return response;
   };
+}
+
+/** Adds the headers the route set on the context to a response that was built without them. */
+function withContextHeaders(c: Context, response: Response): Response {
+  c.body(null).headers.forEach((value, name) => {
+    if (!response.headers.has(name)) {
+      response.headers.set(name, value);
+    }
+  });
+
+  return response;
 }

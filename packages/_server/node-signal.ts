@@ -17,11 +17,15 @@ import { ICancelableHandlerOptions, IRequestLike, IResponseLike } from './types'
  * every handler on the request inherits them; a route's own options are merged over them later. A
  * deadline among them starts now, so it covers the request whether or not a wrapped handler ever
  * runs, and lifecycle callbacks among them are wired once for the whole request.
+ *
+ * `decorateCancel` is set on creation, so every cancel the request mints goes through it, including
+ * one raised before any framework layer has run.
  */
 export function ensureRequestCancelState(
   req: IRequestLike,
   res: IResponseLike,
   options?: ICancelableHandlerOptions,
+  decorateCancel?: (error: CancelError) => void,
 ): IRequestCancelState {
   const existing = getRequestState(req);
   if (existing) {
@@ -38,6 +42,7 @@ export function ensureRequestCancelState(
     cancel,
     live: new Set(),
     options: options ? { ...options } : {},
+    decorateCancel,
     response: res,
     signal,
   };

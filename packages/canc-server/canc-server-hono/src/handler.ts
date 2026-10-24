@@ -81,13 +81,15 @@ export function cancelableHandler<E extends Env = any, P extends string = any, I
     });
 
     return task.catch((error: unknown) => {
-      // a sent head cannot take a status: cut the socket first, so the response left behind is
-      // the unreachable one below and nothing is written over the head
-      const headCut = isCancelError(error) && abandonIfHeadersSent(context);
+      // a sent head cannot take a status: the socket is cut and the error goes on to app.onError,
+      // whose answer is the unreachable one, so nothing is written over the head
+      if (isCancelError(error) && abandonIfHeadersSent(context)) {
+        throw error;
+      }
 
       // the documented discriminator, never a message check and never instanceof: a deadline
       // still has a client to answer, a cancellation behind an unreachable response has none
-      if (isCancelError(error) && (!error.timedOut || headCut) && isResponseUnreachable(context)) {
+      if (isCancelError(error) && !error.timedOut && isResponseUnreachable(context)) {
         return new Response(null, { headers: alreadySentHeaders(context), status: CLIENT_CLOSED_STATUS });
       }
 
@@ -143,6 +145,9 @@ function startTask(
   const bindings = getNodeBindings(context.env);
 
   if (bindings) {
+    // installed first, so a deadline on a route with no middleware still gets its getResponse
+    ensureCancelState(context);
+
     return runCancelableHandler<Response>(handler, bindings.incoming, bindings.outgoing, options, call);
   }
 

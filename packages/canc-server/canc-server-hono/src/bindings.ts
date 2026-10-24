@@ -67,22 +67,17 @@ export function existingCancelState(c: ICancelContext): IRequestCancelState | un
  */
 export function ensureCancelState(c: ICancelContext, options?: ICancelableHandlerOptions): IRequestCancelState {
   const bindings = getNodeBindings(c.env);
-  const state =
-    bindings ?
-      ensureRequestCancelState(bindings.incoming, bindings.outgoing, options)
+  return bindings ?
+      ensureRequestCancelState(bindings.incoming, bindings.outgoing, options, attachCancelResponse)
     : ensureWebRequestState(c.req.raw, options);
-
-  // hono's default error answer honors a `getResponse` on the error, so the cancel carries one
-  state.decorateCancel ??= attachCancelResponse;
-
-  return state;
 }
 
 /**
  * Gives an owned cancellation a non-enumerable `getResponse`, which hono's default error handler
- * answers with, so the status and headers reach the client without an `onError`.
+ * answers with, so the status and headers reach the client without an `onError`. Set on every
+ * request state at creation, and on the shutdown that can create one for a late arrival.
  */
-function attachCancelResponse(error: CancelError): void {
+export function attachCancelResponse(error: CancelError): void {
   const status = cancelStatusOf(error, undefined) ?? 503;
   const headers = cancelHeadersOf(error);
 
@@ -112,20 +107,26 @@ export function isResponseUnreachable(c: ICancelContext): boolean {
 }
 
 /**
- * Destroys the node response when its head already went out. A status cannot follow a written head,
- * and a bare error response would make the node adapter write headers on it again, so the socket is
- * cut instead and the client reads a short body rather than a complete one. Says whether it cut.
+ * Destroys the node response when its head went out and the body is still open. A status cannot
+ * follow a written head, and a bare error response would make the node adapter write headers on it
+ * again, so the socket is cut instead and the client reads a short body rather than a complete one.
+ * A response that already finished is left alone. Says whether it cut.
  */
 export function abandonIfHeadersSent(c: ICancelContext): boolean {
   const outgoing = getNodeBindings(c.env)?.outgoing as { headersSent?: boolean; destroy?: () => void } | undefined;
 
-  if (outgoing?.headersSent === true && isFunction(outgoing.destroy)) {
+  if (outgoing?.headersSent === true && isResponseLive(outgoing as IResponseLike) && isFunction(outgoing.destroy)) {
     outgoing.destroy();
 
     return true;
   }
 
   return false;
+}
+
+/** Whether the node response's head went out, which is the case a cut is answered for. */
+export function isHeadSent(c: ICancelContext): boolean {
+  return (getNodeBindings(c.env)?.outgoing as { headersSent?: boolean } | undefined)?.headersSent === true;
 }
 
 /**
@@ -158,7 +159,13 @@ function ensureWebRequestState(request: Request, options?: ICancelableHandlerOpt
   // external signal cancel the whole request state on the Web path while canceling only the task
   // on node
   const { cancel, signal } = createWebRequestSignal(request);
-  const state: IRequestCancelState = { cancel, live: new Set(), options: options ? { ...options } : {}, signal };
+  const state: IRequestCancelState = {
+    cancel,
+    decorateCancel: attachCancelResponse,
+    live: new Set(),
+    options: options ? { ...options } : {},
+    signal,
+  };
 
   setRequestState(keyed, state);
   // tracked tasks are canceled through the in-flight set, so this runtime forwards the abort the same way

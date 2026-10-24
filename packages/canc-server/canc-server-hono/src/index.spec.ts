@@ -920,7 +920,7 @@ describe('shutdown cancel status', () => {
     expect(errors[0]).not.toBe(errors[1]);
   });
 
-  it('answers 500 for a request that arrives during a cancel-on-start drain with no error handler', async () => {
+  it('answers 503 for a request that arrives during a cancel-on-start drain with no error handler', async () => {
     const app = new Hono();
 
     app.use(cancelMiddleware());
@@ -944,7 +944,7 @@ describe('shutdown cancel status', () => {
     const shutdown = createShutdown(server!)({ cancelAfter: 0, closeAfter: 500 });
     client.write('GET /late HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n');
 
-    expect(await firstStatus(client)).toBe(500);
+    expect(await firstStatus(client)).toBe(503);
     await shutdown;
   });
 
@@ -1485,4 +1485,125 @@ describeShutdownSockets(createShutdown, async (arrived, release) => {
   });
 
   return { server, target: server };
+});
+
+describe('cancel answers without a mounted error handler', () => {
+  it('answers a wrapped-only deadline with its status through hono default answer', async () => {
+    const app = new Hono();
+
+    app.get(
+      '/slow',
+      cancelableHandler(
+        function* (c) {
+          yield new Promise(() => undefined);
+
+          return c.text('never');
+        },
+        { timeout: { message: 'route took too long', ms: 20, status: 504 } },
+      ),
+    );
+
+    const port = await listen(app);
+    const response = await send(port, '/slow');
+
+    expect(response.statusCode).toBe(504);
+  });
+
+  it('answers a deadline on a Web runtime with its status through hono default answer', async () => {
+    const app = new Hono();
+
+    app.get(
+      '/slow',
+      cancelableHandler(
+        function* (c) {
+          yield new Promise(() => undefined);
+
+          return c.text('never');
+        },
+        { timeout: { message: 'route took too long', ms: 20, status: 504 } },
+      ),
+    );
+
+    const response = await app.request('/slow');
+
+    expect(response.status).toBe(504);
+  });
+
+  it('keeps the route headers and the shutdown Retry-After on a deadline answer', async () => {
+    const app = new Hono();
+
+    app.onError(cancelErrorHandler());
+    app.use(async (c, next) => {
+      c.header('x-app', 'routed');
+      c.header('content-type', 'text/html');
+      await next();
+    });
+    app.get(
+      '/slow',
+      cancelableHandler(
+        function* (c) {
+          yield new Promise(() => undefined);
+
+          return c.text('never');
+        },
+        { timeout: { message: 'route took too long', ms: 20, status: 504 } },
+      ),
+    );
+
+    const port = await listen(app);
+    const response = await fetch(`http://127.0.0.1:${port}/slow`);
+
+    expect(response.status).toBe(504);
+    expect(response.headers.get('x-app')).toBe('routed');
+    expect(response.headers.get('content-type')).not.toBe('text/html');
+  });
+
+  it('answers a head-sent cut through app.onError once and logs it', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const forwarded: unknown[] = [];
+    const app = new Hono();
+
+    app.onError((error, c) => {
+      forwarded.push(error);
+
+      return cancelErrorHandler()(error, c);
+    });
+    app.get(
+      '/partial',
+      cancelableHandler(
+        function* (c) {
+          const { outgoing } = c.env as { outgoing: http.ServerResponse };
+
+          outgoing.writeHead(200, { 'content-type': 'text/plain' });
+          outgoing.write('part');
+          yield new Promise(() => undefined);
+
+          return c.text('never');
+        },
+        { timeout: { message: 'route took too long', ms: 20, status: 504 } },
+      ),
+    );
+
+    const port = await listen(app);
+    const outcome = await new Promise<{ body: string; complete: boolean }>((resolve) => {
+      const request = http.get({ host: '127.0.0.1', path: '/partial', port }, (response) => {
+        let body = '';
+
+        response.setEncoding('utf8');
+        response.on('data', (chunk: string) => {
+          body += chunk;
+        });
+        response.on('end', () => resolve({ body, complete: response.complete }));
+        response.on('error', () => resolve({ body, complete: false }));
+      });
+
+      request.on('error', () => resolve({ body: '', complete: false }));
+    });
+    await tick();
+
+    expect(outcome.complete).toBe(false);
+    expect(forwarded).toHaveLength(1);
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    errorSpy.mockRestore();
+  });
 });

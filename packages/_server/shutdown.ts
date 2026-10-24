@@ -1,4 +1,4 @@
-import { CancelablePromise, isCancelError, resolvePromiseImpl } from '@cancjs/promise';
+import { CancelablePromise, CancelError, isCancelError, resolvePromiseImpl } from '@cancjs/promise';
 
 import { isFunction } from '../_util';
 import { hasClientLeft } from './exchange';
@@ -83,6 +83,7 @@ interface IDrain {
 export function shutdownServer(
   server: IServerLike,
   options: IShutdownOptions = {},
+  decorateCancel?: (error: CancelError) => void,
 ): CancelablePromise<IShutdownResult, never> {
   checkCancelAnswer(options);
   const running = getShutdownState(server);
@@ -439,7 +440,7 @@ export function shutdownServer(
   registry.onArrival = (req, res) => {
     admit(req, res);
     if (cancelAtStart) {
-      cancelRequest(ensureRequestCancelState(req, res));
+      cancelRequest(ensureRequestCancelState(req, res, undefined, decorateCancel));
     }
   };
   registry.onTrack = (state) => {
@@ -571,7 +572,10 @@ export function shutdownServer(
  * `Connection: close`. A second call
  * for the same server returns the same function.
  */
-export function createServerShutdown(server: IServerLike): TShutdownFunction {
+export function createServerShutdown(
+  server: IServerLike,
+  decorateCancel?: (error: CancelError) => void,
+): TShutdownFunction {
   if (server === null || (typeof server !== 'object' && typeof server !== 'function')) {
     throw new TypeError(
       `createShutdown() needs the http server as its first argument, got ${server === null ? 'null' : typeof server}.`,
@@ -585,7 +589,7 @@ export function createServerShutdown(server: IServerLike): TShutdownFunction {
 
   trackConnections(server);
 
-  const shutdown: TShutdownFunction = (options) => shutdownServer(server, options);
+  const shutdown: TShutdownFunction = (options) => shutdownServer(server, options, decorateCancel);
   setShutdownFunction(server, shutdown);
 
   return shutdown;
