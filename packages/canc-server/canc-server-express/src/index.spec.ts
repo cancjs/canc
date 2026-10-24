@@ -631,6 +631,35 @@ describe('framework headers on a cancel answer', () => {
     expect(response.headers['retry-after']).toBe('5');
   });
 
+  it('keeps the connection reusable after a real late res.json past a deadline answer', async () => {
+    const app = express();
+
+    app.use(cancelMiddleware({ timeout: { ms: 60, status: 504 } }));
+    app.get(
+      '/derived',
+      cancelableHandler(function* (_req: Request, res: Response) {
+        yield new CancelablePromise<void>((resolve) => setTimeout(resolve, 150)).then(() => res.json({ late: true }));
+      }),
+    );
+    app.get('/ok', (_req, res) => {
+      res.send('ok');
+    });
+    app.use(cancelErrorHandler());
+
+    const port = await listen(app);
+    const first = await socketExchange(port, '/derived');
+
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    const second = await socketExchange(port, '/ok');
+
+    second.socket?.destroy();
+
+    expect(first.status).toBe(504);
+    expect(second.body).toBe('ok');
+    expect(second.socket).toBe(first.socket);
+  });
+
   it('answers a user cancellation carrying status 499 with its own status, not the option', async () => {
     const app = express();
 
@@ -1315,6 +1344,28 @@ interface IHttpOptions {
   method?: string;
   headers?: Record<string, string>;
   body?: string;
+}
+
+/**
+ * One request over the default keep-alive pool, with the socket it went out on, so a test can tell a
+ * reused connection from a new one.
+ */
+function socketExchange(port: number, path: string): Promise<{ status: number; body: string; socket: Socket | null }> {
+  return new Promise((resolve, reject) => {
+    const outgoing = request({ host: '127.0.0.1', method: 'GET', path, port }, (incoming: IncomingMessage) => {
+      const chunks: Buffer[] = [];
+      incoming.on('data', (chunk: Buffer) => chunks.push(chunk));
+      incoming.on('end', () =>
+        resolve({
+          body: Buffer.concat(chunks).toString('utf8'),
+          socket: outgoing.socket,
+          status: incoming.statusCode ?? 0,
+        }),
+      );
+    });
+    outgoing.on('error', reject);
+    outgoing.end();
+  });
 }
 
 function httpRequest(port: number, options: IHttpOptions): Promise<{ status: number; body: string }> {
