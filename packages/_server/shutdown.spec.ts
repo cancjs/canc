@@ -176,7 +176,7 @@ describe('graceful shutdown', () => {
       ensureRequestCancelState(req, res).live.add(pending({ shield: true }));
 
       const shutdown = shutdownServer(server, { cancelAfter: 100 });
-      // the grace timer, then the one turn left for answers to the cancel
+      // the cancel timer, then the one turn left for answers to the cancel
       jest.advanceTimersByTime(1101);
 
       // the shielded task never answers: the cancel is counted, the window ran to closeAfter
@@ -325,7 +325,7 @@ describe('graceful shutdown', () => {
       recordRequest(getRequestRegistry(server, true)!, req, res);
 
       const shutdown = shutdownServer(server, { cancelAfter: 100 });
-      // only the grace timer fires, the turn that settles the result is still queued
+      // only the cancel timer fires, the turn that settles the result is still queued
       jest.advanceTimersToNextTimer();
       const signal = getNodeRequestSignal(req, res);
 
@@ -394,7 +394,7 @@ describe('graceful shutdown', () => {
       for (let i = 0; i < 20; i++) {
         await Promise.resolve();
       }
-      // the second shutdown's grace timer, nothing left over from the first
+      // the second shutdown's cancel timer, nothing left over from the first
       expect(jest.getTimerCount()).toBe(1);
 
       jest.advanceTimersByTime(50);
@@ -561,7 +561,7 @@ describe('graceful shutdown over a real socket', () => {
     });
   });
 
-  it('keeps no timer besides the grace timer while it drains', async () => {
+  it('keeps no timer besides the cancel timer while it drains', async () => {
     const entered = deferred();
     const gate = deferred();
     const { port, server } = await listen((req, res) => {

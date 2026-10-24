@@ -65,7 +65,7 @@ interface IDrain {
  * Requests are seen from the first time this layer meets the server: `createShutdown`, the first
  * wrapped handler or request signal on it, the fastify plugin, or the shutdown itself. Connections
  * are seen from `createShutdown` on. One that has received no bytes is closed once it has been open
- * for five seconds, or for the whole grace if that is shorter (right away if it is already older),
+ * for five seconds, or for the whole cancel window if that is shorter (right away if it is already older),
  * while one that has already sent part of a request is left to finish. A connection opened
  * before that is unknown: if it has not sent a request, or its response is still in flight, it is
  * closed only when the window runs out.

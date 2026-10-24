@@ -29,7 +29,7 @@ export interface IShutdownSocketsOptions {
 
 type TCreateShutdown = (target: never) => (options?: IShutdownOptions) => Promise<IShutdownResult>;
 
-/** Long enough that a drain finishing well inside it is plainly not a grace window running out. */
+/** Long enough that a drain finishing well inside it is plainly not a window running out. */
 const GRACE_MS = 10_000;
 /** Short window for the late cases, which wait it out in full. */
 const LATE_GRACE_MS = 300;
