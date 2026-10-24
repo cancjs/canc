@@ -980,6 +980,58 @@ describe('shutdown cancel status', () => {
     expect(answer.headers['retry-after']).toBe('5');
   });
 
+  it('keeps an explicit shutdown status over the handler status', async () => {
+    const started = deferred();
+
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.setErrorHandler(cancelErrorHandler({ status: 502 }));
+    instance.get(
+      '/hang',
+      cancelableHandler(function* () {
+        started.resolve();
+        yield new Promise(() => undefined);
+
+        return { ok: true };
+      }),
+    );
+
+    const port = await listen(instance);
+    const pending = send(port, '/hang');
+    await started.promise;
+    await createShutdown(instance)({ cancelAfter: 200, status: 504 });
+
+    expect((await pending).statusCode).toBe(504);
+  });
+
+  it('takes the handler status for a route-signal cancel on a live request', async () => {
+    const started = deferred();
+    const routeAbort = new AbortController();
+
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.setErrorHandler(cancelErrorHandler({ status: 502 }));
+    instance.get(
+      '/route',
+      cancelableHandler(
+        function* () {
+          started.resolve();
+          yield new Promise(() => undefined);
+
+          return { ok: true };
+        },
+        { signal: routeAbort.signal },
+      ),
+    );
+
+    const port = await listen(instance);
+    const pending = send(port, '/route');
+    await started.promise;
+    routeAbort.abort();
+
+    expect((await pending).statusCode).toBe(502);
+  });
+
   it('leaves a user timeout that carries no status to fastify', async () => {
     const instance = Fastify();
     await instance.register(cancelPlugin);
