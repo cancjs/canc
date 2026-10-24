@@ -96,7 +96,8 @@ function prepareCancel(error: unknown, ctx: Context, option?: number, signals: r
   const state = getRequestState(toRequestLike(ctx.req));
 
   // a request never wrapped has no state, so nothing owns the cancel: a finished response drops it,
-  // anything else goes to koa untouched
+  // anything else goes to koa untouched. cancelMiddleware ensures state at entry,
+  // so only a route outside it reaches this branch
   if (state === undefined) {
     if (ctx.res.writableEnded === true) {
       ctx.respond = false;
