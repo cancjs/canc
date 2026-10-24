@@ -511,6 +511,11 @@ describe('middleware status option', () => {
     expect(() => cancelMiddleware({ status: 499 })).toThrow(RangeError);
   });
 
+  it('throws a RangeError for a timeout status koa does not answer with, on the middleware and the handler', () => {
+    expect(() => cancelMiddleware({ timeout: { ms: 10, status: 499 } })).toThrow(RangeError);
+    expect(() => cancelableHandler(() => undefined, { timeout: { ms: 10, status: 499 } })).toThrow(RangeError);
+  });
+
   it('keeps 503 when no status is configured', async () => {
     expect(await statusFor()).toBe(503);
   });
