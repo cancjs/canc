@@ -1270,3 +1270,44 @@ describe('cancelErrorHandler status range', () => {
     expect(() => cancelErrorHandler({ status: 599 })).not.toThrow();
   });
 });
+
+describe('onError cancelErrorHandler with an option status', () => {
+  it('answers a route-signal cancel with the handler option status', async () => {
+    const started = deferred();
+    const routeAbort = new AbortController();
+    const port = await listen(
+      cancelableHandler(
+        function* () {
+          started.resolve();
+          yield never();
+        },
+        { signal: routeAbort.signal, onError: cancelErrorHandler({ status: 502 }) },
+      ),
+    );
+    const pending = httpExchange(port, { path: '/route' });
+    await started.promise;
+    routeAbort.abort();
+
+    expect((await pending).status).toBe(502);
+  });
+
+  it('keeps shutdown headers off a handler option status answer', async () => {
+    const started = deferred();
+    const port = await listen(
+      cancelableHandler(
+        function* () {
+          started.resolve();
+          yield never();
+        },
+        { onError: cancelErrorHandler({ status: 502 }) },
+      ),
+    );
+    const pending = httpExchange(port, { path: '/hang' });
+    await started.promise;
+    await createShutdown(lastServer())({ cancelAfter: 100, headers: { 'Retry-After': '5' } });
+    const answer = await pending;
+
+    expect(answer.status).toBe(502);
+    expect(answer.headers['retry-after']).toBeUndefined();
+  });
+});

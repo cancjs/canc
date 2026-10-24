@@ -749,6 +749,7 @@ describe('framework headers on a cancel answer', () => {
 
   it('does not log a late failure inside the test environment', async () => {
     const app = express();
+    app.set('env', 'test');
     const logged = jest.spyOn(console, 'error').mockImplementation(() => undefined);
 
     app.get(
@@ -764,12 +765,15 @@ describe('framework headers on a cancel answer', () => {
     app.use(cancelErrorHandler());
 
     const port = await listen(app);
-    const response = await httpRequest(port, { path: '/late' });
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    try {
+      const response = await httpRequest(port, { path: '/late' });
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
-    expect(response.status).toBe(503);
-    expect(logged).not.toHaveBeenCalled();
-    logged.mockRestore();
+      expect(response.status).toBe(503);
+      expect(logged).not.toHaveBeenCalled();
+    } finally {
+      logged.mockRestore();
+    }
   });
 
   it('logs a late failure once outside the test environment', async () => {
@@ -1749,6 +1753,7 @@ describe('cancelErrorHandler status range', () => {
     expect(() => cancelErrorHandler({ status: 199 })).toThrow(RangeError);
     expect(() => cancelErrorHandler({ status: 600 })).toThrow(RangeError);
     expect(() => cancelErrorHandler({ status: 502.5 })).toThrow(RangeError);
+    expect(() => cancelErrorHandler({ status: NaN })).toThrow(RangeError);
     expect(() => cancelErrorHandler({ status: 200 })).not.toThrow();
     expect(() => cancelErrorHandler({ status: 599 })).not.toThrow();
   });

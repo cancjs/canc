@@ -49,11 +49,9 @@ Wrap a route handler and write it as a generator:
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import * as canc from '@cancjs/coroutine';
-import { cancelableHandler, cancelErrorHandler } from '@cancjs/server-hono';
+import { cancelableHandler } from '@cancjs/server-hono';
 
 const app = new Hono();
-
-app.onError(cancelErrorHandler());
 
 app.get(
   '/invoices/:id',

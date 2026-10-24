@@ -539,6 +539,7 @@ describe('middleware status option', () => {
 
   it('throws a RangeError for a status koa does not answer with', () => {
     expect(() => cancelMiddleware({ status: 499 })).toThrow(RangeError);
+    expect(() => cancelMiddleware({ status: NaN })).toThrow(RangeError);
   });
 
   it('throws a RangeError for a timeout status koa does not answer with, on the middleware and the handler', () => {

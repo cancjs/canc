@@ -1712,6 +1712,9 @@ describe('cancelErrorHandler status range', () => {
     expect(() => cancelErrorHandler({ status: 199 })).toThrow(RangeError);
     expect(() => cancelErrorHandler({ status: 600 })).toThrow(RangeError);
     expect(() => cancelErrorHandler({ status: 502.5 })).toThrow(RangeError);
+    expect(() => cancelErrorHandler({ status: NaN })).toThrow(RangeError);
+    expect(() => cancelErrorHandler({ canceledStatus: 199 })).toThrow(RangeError);
+    expect(() => cancelErrorHandler({ canceledStatus: NaN })).toThrow(RangeError);
     expect(() => cancelErrorHandler({ status: 200 })).not.toThrow();
     expect(() => cancelErrorHandler({ status: 599 })).not.toThrow();
   });
