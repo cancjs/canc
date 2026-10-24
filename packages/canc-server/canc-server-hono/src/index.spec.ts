@@ -1529,6 +1529,29 @@ describe('cancel answers without a mounted error handler', () => {
     expect(response.status).toBe(504);
   });
 
+  it('answers a route-signal cancel with 503 through hono default answer', async () => {
+    const controller = new AbortController();
+    const app = new Hono();
+
+    app.get(
+      '/stop',
+      cancelableHandler(
+        function* (c) {
+          setTimeout(() => controller.abort(), 20);
+          yield new Promise(() => undefined);
+
+          return c.text('never');
+        },
+        { signal: controller.signal },
+      ),
+    );
+
+    const port = await listen(app);
+    const response = await send(port, '/stop');
+
+    expect(response.statusCode).toBe(503);
+  });
+
   it('keeps the route headers and the shutdown Retry-After on a deadline answer', async () => {
     const app = new Hono();
 

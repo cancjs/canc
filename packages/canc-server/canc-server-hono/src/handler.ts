@@ -1,6 +1,7 @@
 import { CancelablePromise, CancelSignal, isCancelError } from '@cancjs/promise';
 import type { Env, Handler, Input, MiddlewareHandler, TypedResponse } from 'hono';
 
+import { ownedStatusOf, routeSignalsOf } from '../../../_server/exchange';
 import { stopRequestDeadline } from '../../../_server/node-signal';
 import { IHandlerCall, runCancelableHandler } from '../../../_server/run';
 import { ICancelableHandlerOptions, IRequestLike, IResponseLike, THandlerFn } from '../../../_server/types';
@@ -8,7 +9,9 @@ import { TAnyFn } from '../../../_util';
 import {
   abandonIfHeadersSent,
   alreadySentHeaders,
+  attachCancelResponse,
   ensureCancelState,
+  existingCancelState,
   getNodeBindings,
   ICancelContext,
   isResponseUnreachable,
@@ -72,6 +75,8 @@ export function cancelableHandler<E extends Env = any, P extends string = any, I
   handler: THandlerFn<THonoHandler<E, P, I>, Response>,
   options?: ICancelableHandlerOptions,
 ): Handler<E, P, I, Promise<Response>> {
+  const signals = routeSignalsOf(options?.signal);
+
   return function cancelableRoute(c, next) {
     const context: ICancelContext = c;
     const task = startTask(handler as TAnyFn, context, options, {
@@ -81,6 +86,15 @@ export function cancelableHandler<E extends Env = any, P extends string = any, I
     });
 
     return task.catch((error: unknown) => {
+      // a route signal cancel is minted without a status, so it gets its getResponse here
+      if (isCancelError(error)) {
+        const state = existingCancelState(context);
+
+        if (state && ownedStatusOf(error, state, undefined, signals) !== undefined) {
+          attachCancelResponse(error);
+        }
+      }
+
       // a sent head cannot take a status: the socket is cut and the error goes on to app.onError,
       // whose answer is the unreachable one, so nothing is written over the head
       if (isCancelError(error) && abandonIfHeadersSent(context)) {
