@@ -828,7 +828,7 @@ describe('cancel middleware error path', () => {
     expect(response.status).toBe(500);
   });
 
-  it('answers a deadline with the status stamped on it', async () => {
+  it("leaves a user cancellation carrying its own status to koa's own handling", async () => {
     const app = new Koa();
 
     app.use(cancelMiddleware());
@@ -842,7 +842,7 @@ describe('cancel middleware error path', () => {
     expect(response.status).toBe(504);
   });
 
-  it('reads the foreign statusCode spelling before the fallback', async () => {
+  it("leaves a user cancellation carrying statusCode to koa's own handling", async () => {
     const app = new Koa();
 
     app.use(cancelMiddleware());
