@@ -5,6 +5,7 @@ import type { IncomingMessage, Server, ServerResponse } from 'http';
 
 import {
   cancelHeadersFor,
+  checkAnswerStatus,
   isResponseLive,
   isUnanswerable,
   ownedStatusOf,
@@ -152,6 +153,8 @@ export function cancelMiddleware(options?: ICancelableHandlerOptions): RequestHa
  * Anything that is not a cancellation the request owns passes through untouched.
  */
 export function cancelErrorHandler(options: ICancelErrorHandlerOptions = {}): ErrorRequestHandler {
+  checkAnswerStatus(options.status);
+
   return function cancelErrorRoute(error, req, res, next) {
     const state = getRequestState(toRequestLike(req));
     const status = state === undefined ? undefined : ownedStatusOf(error, state, options.status);

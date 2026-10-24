@@ -120,7 +120,7 @@ app.setErrorHandler(cancServer.cancelErrorHandler({
 
 A cancellation the request does not own, such as your own `CancelError` or a timeout you raised yourself, goes to Fastify's handling as it is, not to `onError`. A handler you mount with `setErrorHandler` yourself reads the same `statusCode` on a cancellation, `503` for a deadline and a shutdown alike, so it does not need `cancelErrorHandler` for that.
 
-`cancelErrorHandler({ status })` sets the status a shutdown cancellation gets on a live connection, `503` by default. The shutdown's own `status` wins over it, and it wins over the handler's `status` option. The older `canceledStatus` key still works.
+`cancelErrorHandler({ status })` sets the status a shutdown cancellation gets on a live connection, `503` by default. The shutdown's own `status` wins over it, and it wins over the handler's `status` option. The older `canceledStatus` key still works. A `status` outside 200 to 599 throws a `RangeError` when `cancelErrorHandler()` is called, not on the first request.
 
 ## Description
 

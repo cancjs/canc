@@ -2,7 +2,7 @@ import { isCancelError } from '@cancjs/promise';
 import { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import fastifyPlugin from 'fastify-plugin';
 
-import { isUnanswerable, ownedStatusOf, toRequestLike } from '../../../_server/exchange';
+import { checkAnswerStatus, isUnanswerable, ownedStatusOf, toRequestLike } from '../../../_server/exchange';
 import { getRequestRegistry, getRequestState } from '../../../_server/holder';
 import { ensureRequestCancelState } from '../../../_server/node-signal';
 import { ICancelableHandlerOptions } from '../../../_server/types';
@@ -73,6 +73,8 @@ export const cancelPlugin = fastifyPlugin(plugin, {
  */
 export function cancelErrorHandler(options?: ICancelErrorHandlerOptions): TCancelErrorHandler {
   const configured = options?.status ?? options?.canceledStatus;
+
+  checkAnswerStatus(configured);
   const onError = options?.onError;
 
   return function cancelAwareErrorHandler(error, request, reply) {

@@ -3,6 +3,7 @@ import type { IncomingMessage, Server, ServerResponse } from 'http';
 
 import {
   cancelHeadersFor,
+  checkAnswerStatus,
   isResponseLive,
   isUnanswerable,
   ownedStatusOf,
@@ -160,6 +161,8 @@ export function cancelErrorHandler<
   TReq extends IncomingMessage = IncomingMessage,
   TRes extends ServerResponse = ServerResponse,
 >(options: INodeCancelErrorHandlerOptions = {}): TNodeErrorHandler<TReq, TRes> {
+  checkAnswerStatus(options.status);
+
   return function cancelErrorRoute(error, req, res) {
     answerCancellation(error, req, res, options, []);
   };

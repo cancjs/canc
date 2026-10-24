@@ -1675,3 +1675,13 @@ describe('optional error handler', () => {
     expect(logged.filter((line) => line.includes('"level":50'))).toHaveLength(1);
   });
 });
+
+describe('cancelErrorHandler status range', () => {
+  it('throws a RangeError for a status outside 200 to 599 at the factory', () => {
+    expect(() => cancelErrorHandler({ status: 199 })).toThrow(RangeError);
+    expect(() => cancelErrorHandler({ status: 600 })).toThrow(RangeError);
+    expect(() => cancelErrorHandler({ status: 502.5 })).toThrow(RangeError);
+    expect(() => cancelErrorHandler({ status: 200 })).not.toThrow();
+    expect(() => cancelErrorHandler({ status: 599 })).not.toThrow();
+  });
+});

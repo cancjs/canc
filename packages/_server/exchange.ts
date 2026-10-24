@@ -52,6 +52,18 @@ export function hasClientLeft(res: IResponseState): boolean {
 }
 
 /**
+ * Throws a `RangeError` when a handler `status` option is set to a value no response can carry.
+ *
+ * Called once at the factory, so a bad status fails at setup rather than inside a request, the same
+ * check the shutdown's `status` gets.
+ */
+export function checkAnswerStatus(status: number | undefined): void {
+  if (status !== undefined && (!Number.isInteger(status) || status < 200 || status > 599)) {
+    throw new RangeError(`status (${status}) must be an integer from 200 to 599`);
+  }
+}
+
+/**
  * Whether a cancellation surfaced on a response that can no longer be answered.
  *
  * The discriminator is the cancellation kind and the response state, never a message and never
