@@ -100,7 +100,7 @@ export function getRequestSignal(ctx: Context): CancelSignal {
  * and the family exposes no separate `cancelErrorHandler` for koa the way it does for the others.
  *
  * A deadline answers with the status stamped on it (`503` unless the timeout option names another
- * one), a shutdown cancellation with the `status` option (default `503`), and a response that can
+ * one), a shutdown cancellation with the shutdown's `status` option, or the handler's `status` option when the shutdown set none (default `503`), and a response that can
  * no longer be answered gets nothing: `ctx.respond` is set to `false` instead of writing to it.
  *
  * Optional: a route wrapped with `cancelableHandler` installs the signal on its own. Mounting this is

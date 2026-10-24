@@ -1019,6 +1019,35 @@ describe('shutdown cancel status', () => {
     expect(answer.headers['retry-after']).toBe('5');
   });
 
+  it('sends the shutdown headers through the cancel middleware', async () => {
+    const app = new Koa();
+    const started = deferred();
+
+    app.silent = true;
+    app.use(cancelMiddleware({ status: 502 }));
+    app.use(
+      route(
+        '/hang',
+        cancelableHandler(function* (ctx) {
+          started.resolve();
+          yield never();
+          ctx.body = 'unreachable';
+        }),
+      ),
+    );
+
+    const port = await listen(app);
+    const pending = httpExchange(port, { path: '/hang' });
+
+    await started.promise;
+    await createShutdown(lastServer())({ cancelAfter: 200, headers: { 'Retry-After': '5' }, status: 504 });
+
+    const answer = await pending;
+
+    expect(answer.status).toBe(504);
+    expect(answer.headers['retry-after']).toBe('5');
+  });
+
   it('keeps a deadline status over the middleware status', async () => {
     const app = new Koa();
 
