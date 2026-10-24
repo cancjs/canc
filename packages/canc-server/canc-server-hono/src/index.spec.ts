@@ -1592,10 +1592,15 @@ describe('cancel answers without a mounted error handler', () => {
     const app = new Hono();
 
     app.use(cancelMiddleware({ timeout: { ms: 20, status: 504, headers: { 'X-A': '1' } } }));
-    app.get(
-      '/plain',
-      cancelableHandler(() => new Promise<Response>(() => undefined)),
-    );
+    app.get('/plain', async (c) => {
+      const signal = getRequestSignal(c);
+
+      await new Promise((_resolve, reject) => {
+        signal.addEventListener('abort', () => reject(signal.reason));
+      });
+
+      return c.text('never');
+    });
 
     const response = await app.request('/plain');
 
