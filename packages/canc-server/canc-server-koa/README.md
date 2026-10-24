@@ -103,9 +103,9 @@ Koa has no dedicated error-middleware slot. An `await next()` wrapped in a `try`
 
 ### Nothing is written to a dead socket
 
-A cancellation that arrives with the client already gone is dropped in place: `ctx.respond` is set to `false`, which tells Koa to skip its own response handling entirely. The check reads `writableEnded` and `destroyed` on the raw response rather than `ctx.writable`, because `ctx.writable` reads the socket and reports a departed client as still writable. Everything else is rethrown and travels up the middleware stack as usual.
+A cancellation that arrives with the client already gone is dropped in place: `ctx.respond` is set to `false`, which tells Koa to skip its own response handling entirely. The same drop applies when the response already finished before the cancellation arrived. The disconnect check reads the request signal and the raw response rather than `ctx.writable`, because `ctx.writable` reads the socket and reports a departed client as still writable. Every other cancellation is stamped with the status and headers it answers with and rethrown, so it travels up the middleware stack and Koa's own error handling answers it, and `app.on('error')` receives it.
 
-When the response head has already gone out, no status can follow it. The connection is destroyed instead, so the client sees an aborted response rather than one that ends cleanly with a truncated body.
+When the response head has already gone out, no status can follow it. The connection is destroyed instead, so the client sees an aborted response rather than one that ends cleanly with a truncated body. The cancellation is still rethrown, so `app.on('error')` sees the cut too.
 
 ## Description
 
@@ -132,7 +132,7 @@ The deadline default status is 503. Set `timeout: { ms: 30_000, status: 504 }` f
 
 ### Telling a disconnect from a deadline
 
-Both raise a `CancelError`. The discriminator is `isCancelError(error) && !error.timedOut`; a deadline sets `timedOut` through its `TimeoutError` cause. The exported reason strings are for logs and for humans reading them, never for branching.
+Both raise a `CancelError`. A deadline sets `timedOut` through its `TimeoutError` cause, and a shutdown cancel is not a disconnect even though the socket is dead by then. The middleware drops only a real disconnect. Every other cancellation it owns reaches your error middleware with `err.status` set, so that middleware can tell it apart by status. The exported reason strings are for logs and for humans reading them, never for branching.
 
 ### Shutting down
 
@@ -174,7 +174,7 @@ A `cancelAfter` of `Infinity` waits for the responses however long they take, an
 | `cancelMiddleware` | `(options?) => Middleware`                           |
 | `createShutdown`   | `(server) => (options?) => Promise<IShutdownResult>` |
 
-A wrapped route installs the signal on its own, and cuts the connection when a cancellation arrives after the response head went out, with or without `cancelMiddleware`. The middleware adds the rest: it answers a cancellation that arrives before the head with the deadline's status (503 for a shutdown) instead of leaving it to Koa's default error handling, it gives a whole router one deadline or one `onDisconnect` hook, and it answers a cancellation raised by request-scoped work outside a wrapped handler. Its `status` option sets the status a shutdown cancellation answers with, 503 by default.
+A wrapped route installs the signal on its own, and cuts the connection when a cancellation arrives after the response head went out, with or without `cancelMiddleware`. The middleware adds the rest: it gives a whole router one deadline or one `onDisconnect` hook, and it answers a cancellation raised by request-scoped work outside a wrapped handler. Before the head, a cancellation is answered through Koa's error handling with the deadline's status (503 unless `timeout` names another), so `app.on('error')` sees it and a body already set on the context is replaced by Koa's text for that status. Its `status` option sets the status a shutdown cancellation answers with, 503 by default. A `status` or `timeout.status` that Koa does not answer with throws a `RangeError` when the middleware is created.
 
 ### Reasons
 
