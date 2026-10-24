@@ -204,13 +204,13 @@ Pass `closeServer: false` to leave the instance open, in which case `app.close()
 
 ### Readiness and websockets
 
-Node does not list a websocket as a connection once it is upgraded, so `shutdown()` cannot close it with a close frame. When the shutdown window ends it destroys an upgraded socket, without a close frame, which the client sees as code `1006` (abnormal closure), as it does for any socket still open at `closeAfter`. Close your websockets yourself when shutdown starts, with code `1001` (going away), and let the shutdown wait for them:
+Node does not list a websocket as a connection once it is upgraded, so `shutdown()` cannot close it with a close frame. An upgraded socket still open when the shutdown finishes is destroyed without a close frame, which the client sees as code `1006` (abnormal closure), as it does for any socket still open at `closeAfter`. Close your websockets yourself when shutdown starts, with code `1001` (going away), and let the shutdown wait for them:
 
 ```ts
 await Promise.all([closeWebSockets(1001), shutdown({ cancelAfter: 5_000 })]);
 ```
 
-Any upgraded socket still open once the window ends is destroyed. To keep new traffic away first, fail your readiness check and wait a few seconds before calling `shutdown()`. In Kubernetes a `preStop` sleep does the same job.
+Any upgraded socket still open when the shutdown finishes is destroyed. To keep new traffic away first, fail your readiness check and wait a few seconds before calling `shutdown()`. In Kubernetes a `preStop` sleep does the same job.
 
 ## Compatibility
 
