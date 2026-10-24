@@ -71,10 +71,12 @@ export function cancelErrorHandler(options?: ICancelErrorHandlerOptions): TCance
       return;
     }
 
-    // a head already sent cannot take a status, so the socket is cut instead of left looking complete
+    // a head already sent cannot take a status, so the socket is cut instead of left looking whole.
+    // The client sees only a reset, so the cut is logged once here.
     if (isCancelError(error) && reply.raw.headersSent) {
       reply.raw.destroy();
       reply.hijack();
+      request.log.error(error);
 
       return;
     }

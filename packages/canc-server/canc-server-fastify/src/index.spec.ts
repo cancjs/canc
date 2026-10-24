@@ -758,6 +758,55 @@ describe('error handler', () => {
     expect(await outcome).toEqual({ body: 'part1,', complete: false });
   });
 
+  it('logs the cut once at error level when the head already went out', async () => {
+    const started = deferred();
+    const logged: string[] = [];
+
+    const instance = Fastify({
+      logger: {
+        level: 'error',
+        stream: {
+          write(line: string): void {
+            logged.push(line);
+          },
+        },
+      },
+    });
+    await instance.register(cancelPlugin);
+    instance.setErrorHandler(cancelErrorHandler());
+    instance.get('/part', async (request, reply) => {
+      const signal = getRequestSignal(request, reply);
+
+      reply.raw.writeHead(200, { 'content-type': 'text/plain' });
+      reply.raw.write('part1,');
+      started.resolve();
+      await new Promise((_resolve, reject) => {
+        signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+      });
+    });
+
+    const port = await listen(instance);
+    const outcome = new Promise<void>((resolve) => {
+      const outgoing = http.get({ host: '127.0.0.1', path: '/part', port }, (response) => {
+        response.resume();
+        response.on('end', () => resolve());
+        response.on('error', () => resolve());
+        response.on('close', () => resolve());
+      });
+
+      outgoing.on('error', () => resolve());
+    });
+
+    await started.promise;
+    await createShutdown(instance)({ cancelAfter: 50 });
+    await outcome;
+    await tick();
+
+    app = undefined;
+
+    expect(logged.filter((line) => line.includes('"level":50'))).toHaveLength(1);
+  });
+
   it('passes an ordinary failure through', async () => {
     const instance = Fastify();
     await instance.register(cancelPlugin);
