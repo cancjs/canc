@@ -172,7 +172,7 @@ describe('cancel attribution over a real socket', () => {
 
     const port = await listen(
       cancelableHandler(function* () {
-        throw Object.assign(new CancelError('user'), { status: 499 });
+        throw Object.assign(new CancelError('user'), { status: 499, headers: { 'Retry-After': '5' } });
         yield never();
       }),
     );
@@ -180,6 +180,7 @@ describe('cancel attribution over a real socket', () => {
     const response = await httpExchange(port, { path: '/user' });
 
     expect(response.status).toBe(500);
+    expect(response.headers['retry-after']).toBeUndefined();
     expect(logged).toHaveLength(1);
   });
 });
