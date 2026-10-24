@@ -52,7 +52,7 @@ void readSignal;
 const server = {} as Server;
 const goodShutdown = () => createShutdown(server);
 void goodShutdown;
-const runShutdown = (): Promise<IShutdownResult> => createShutdown(server)({ cancelOnStart: true, timeout: 1000 });
+const runShutdown = (): Promise<IShutdownResult> => createShutdown(server)({ cancelAfter: 0, closeAfter: 1000 });
 void runShutdown;
 
 export {};
