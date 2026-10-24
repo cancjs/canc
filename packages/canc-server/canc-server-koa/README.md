@@ -186,7 +186,7 @@ A wrapped route installs the signal on its own, and cuts the connection when a c
 
 ### Readiness and websockets
 
-Node does not list a websocket as a connection once it is upgraded, so `shutdown()` cannot close it. Close your websockets yourself when shutdown starts, with code `1001` (going away), and let the shutdown wait for them:
+Node does not list a websocket as a connection once it is upgraded, so `shutdown()` cannot close it with a close frame. Once the window ends it destroys the socket without one, which the client sees as code `1006` (abnormal closure). Close your websockets yourself when shutdown starts, with code `1001` (going away), and let the shutdown wait for them:
 
 ```ts
 await Promise.all([closeWebSockets(1001), shutdown({ cancelAfter: 5_000 })]);
