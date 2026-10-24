@@ -2,7 +2,7 @@ import { isCancelError } from '@cancjs/promise';
 import { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import fastifyPlugin from 'fastify-plugin';
 
-import { cancelStatusOf, isUnanswerable } from '../../../_server/exchange';
+import { isUnanswerable, ownedStatusOf, toRequestLike, toResponseLike } from '../../../_server/exchange';
 import { getRequestRegistry } from '../../../_server/holder';
 import { ensureRequestCancelState } from '../../../_server/node-signal';
 import { ICancelableHandlerOptions } from '../../../_server/types';
@@ -64,7 +64,7 @@ export const cancelPlugin = fastifyPlugin(plugin, {
 export function cancelErrorHandler(options?: ICancelErrorHandlerOptions): TCancelErrorHandler {
   const configured = options?.status ?? options?.canceledStatus;
 
-  return function cancelAwareErrorHandler(error, _request, reply) {
+  return function cancelAwareErrorHandler(error, request, reply) {
     if (isUnanswerable(error, reply.raw)) {
       reply.hijack();
 
@@ -80,7 +80,8 @@ export function cancelErrorHandler(options?: ICancelErrorHandlerOptions): TCance
     }
 
     // a cancellation the request does not own is the caller's, so fastify's own handling takes it
-    const code = isCancelError(error) ? cancelStatusOf(error, configured) : undefined;
+    const state = ensureRequestCancelState(toRequestLike(request.raw), toResponseLike(reply.raw));
+    const code = isCancelError(error) ? ownedStatusOf(error, state, configured) : undefined;
 
     if (code !== undefined) {
       // fastify reads status then statusCode off the error, so stamping it is all the mapping a

@@ -566,76 +566,116 @@ describe('error handler', () => {
     const instance = Fastify();
     await instance.register(cancelPlugin);
     instance.setErrorHandler(cancelErrorHandler());
+    const routeAbort = new AbortController();
     instance.get(
       '/give-up',
-      cancelableHandler(function* () {
-        yield Promise.resolve();
-
-        throw Object.assign(new CancelError('gave up'), { status: 503 });
-      }),
+      cancelableHandler(
+        function* () {
+          yield new Promise<void>(() => undefined);
+        },
+        { signal: routeAbort.signal },
+      ),
     );
 
     const port = await listen(instance);
-    const response = await send(port, '/give-up');
+    const pending = send(port, '/give-up');
+
+    setTimeout(() => routeAbort.abort(), 20);
+
+    const response = await pending;
 
     expect(response.statusCode).toBe(503);
   });
 
-  it('answers a cancellation with the configured status', async () => {
+  it('leaves a user cancellation to fastify, so its own status goes out and not the option', async () => {
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.setErrorHandler(cancelErrorHandler({ status: 502 }));
+    instance.get(
+      '/user',
+      cancelableHandler(function* () {
+        yield Promise.resolve();
+
+        throw Object.assign(new CancelError('user stop'), { status: 499 });
+      }),
+    );
+
+    const port = await listen(instance);
+    const response = await send(port, '/user');
+
+    expect(response.statusCode).toBe(499);
+  });
+
+  it('answers a shutdown cancellation with the configured status', async () => {
+    const started = deferred();
+
     const instance = Fastify();
     await instance.register(cancelPlugin);
     instance.setErrorHandler(cancelErrorHandler({ status: 499 }));
     instance.get(
-      '/give-up',
+      '/hang',
       cancelableHandler(function* () {
-        yield Promise.resolve();
+        started.resolve();
+        yield new Promise(() => undefined);
 
-        throw Object.assign(new CancelError('gave up'), { status: 503 });
+        return { ok: true };
       }),
     );
 
     const port = await listen(instance);
-    const response = await send(port, '/give-up');
+    const pending = send(port, '/hang');
+    await started.promise;
+    await createShutdown(instance)({ cancelAfter: 200 });
 
-    expect(response.statusCode).toBe(499);
+    expect((await pending).statusCode).toBe(499);
   });
 
   it('still reads the deprecated canceledStatus key', async () => {
+    const started = deferred();
+
     const instance = Fastify();
     await instance.register(cancelPlugin);
     instance.setErrorHandler(cancelErrorHandler({ canceledStatus: 498 }));
     instance.get(
-      '/give-up',
+      '/hang',
       cancelableHandler(function* () {
-        yield Promise.resolve();
+        started.resolve();
+        yield new Promise(() => undefined);
 
-        throw Object.assign(new CancelError('gave up'), { status: 503 });
+        return { ok: true };
       }),
     );
 
     const port = await listen(instance);
-    const response = await send(port, '/give-up');
+    const pending = send(port, '/hang');
+    await started.promise;
+    await createShutdown(instance)({ cancelAfter: 200 });
 
-    expect(response.statusCode).toBe(498);
+    expect((await pending).statusCode).toBe(498);
   });
 
   it('prefers status over the deprecated canceledStatus key', async () => {
+    const started = deferred();
+
     const instance = Fastify();
     await instance.register(cancelPlugin);
     instance.setErrorHandler(cancelErrorHandler({ status: 499, canceledStatus: 498 }));
     instance.get(
-      '/give-up',
+      '/hang',
       cancelableHandler(function* () {
-        yield Promise.resolve();
+        started.resolve();
+        yield new Promise(() => undefined);
 
-        throw Object.assign(new CancelError('gave up'), { status: 503 });
+        return { ok: true };
       }),
     );
 
     const port = await listen(instance);
-    const response = await send(port, '/give-up');
+    const pending = send(port, '/hang');
+    await started.promise;
+    await createShutdown(instance)({ cancelAfter: 200 });
 
-    expect(response.statusCode).toBe(499);
+    expect((await pending).statusCode).toBe(499);
   });
 
   it('drops a cancellation that surfaces after the client left', async () => {
