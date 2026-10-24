@@ -772,6 +772,68 @@ describe('shutdown cancel status', () => {
     expect(await firstStatus(client)).toBe(503);
     await shutdown;
   });
+
+  it('lets a signal-only route answer 503 after the cancel, and counts it canceled', async () => {
+    const app = express();
+    const reached = deferred();
+    const events: string[] = [];
+
+    app.get('/signal', (req, res) => {
+      getRequestSignal(req, res).addEventListener('abort', () => {
+        setTimeout(() => {
+          events.push('answered');
+          res.status(503).end();
+        }, 30);
+      });
+      reached.resolve();
+    });
+
+    const port = await listen(app);
+    const pending = httpRequest(port, { path: '/signal' });
+    await reached.promise;
+
+    const shutdown = createShutdown(lastServer())({ cancelAfter: 50, closeAfter: 2_000 }).then((result) => {
+      events.push('resolved');
+      return result;
+    });
+
+    expect((await pending).status).toBe(503);
+    expect(await shutdown).toEqual({ canceled: 1, completed: 0, timedOut: false });
+    expect(events).toEqual(['answered', 'resolved']);
+  });
+
+  it('holds the window for a cleanup that awaits, then answers 503 and counts it canceled', async () => {
+    const app = express();
+    const started = deferred();
+    const events: string[] = [];
+
+    app.get(
+      '/cleanup',
+      cancelableHandler(function* (_req, res) {
+        started.resolve();
+        try {
+          yield never();
+          res.send('unreachable');
+        } finally {
+          yield new CancelablePromise<void>((resolve) => setTimeout(resolve, 50));
+          events.push('cleaned');
+        }
+      }),
+    );
+
+    const port = await listen(app);
+    const pending = httpRequest(port, { path: '/cleanup' });
+    await started.promise;
+
+    const shutdown = createShutdown(lastServer())({ cancelAfter: 50, closeAfter: 2_000 }).then((result) => {
+      events.push('resolved');
+      return result;
+    });
+
+    expect((await pending).status).toBe(503);
+    expect(await shutdown).toEqual({ canceled: 1, completed: 0, timedOut: false });
+    expect(events).toEqual(['cleaned', 'resolved']);
+  });
 });
 
 describe('shutdown', () => {
