@@ -57,9 +57,10 @@ interface IDrain {
  * kept-alive connection while the shutdown runs. Every response sent from here on carries
  * `Connection: close`, and each connection is closed as soon as the response on it finishes. When
  * the window ends, the handlers still running are canceled with the shutdown reason, so their
- * cleanup runs and a response not started yet can still answer. Connections still busy after that
- * are force-closed. With `cancelAfter: 0` the handlers are canceled at once instead, a late arrival
- * included, and the window is only the wait for them to unwind.
+ * cleanup runs and a response not started yet can still answer. A tracked request still open after
+ * that, one canc never canceled included, runs on until it finishes or `closeAfter`; connections
+ * still busy at `closeAfter` are force-closed. With `cancelAfter: 0` the handlers are canceled at once
+ * instead, a late arrival included.
  *
  * Requests are seen from the first time this layer meets the server: `createShutdown`, the first
  * wrapped handler or request signal on it, the fastify plugin, or the shutdown itself. Connections
@@ -95,8 +96,8 @@ export function shutdownServer(
   // only cancels the tasks and signals it tracks
   const ownsConnections = options.closeServer !== false;
   const cancelAtStart = cancelAfter === 0;
-  // a cancel at start leaves the handlers the whole hard-end window to unwind; the requestless age
-  // is capped at that window
+  // an idle connection that has sent nothing is held for a late request until closeAfter, even when
+  // the cancel is at start; the age is capped at that window
   const windowMs = cancelAtStart ? closeAfter : cancelAfter;
   // registry precedence only, so a setPromiseImpl consumer gets its own class back from the
   // settled outcome this resolves to, same as the rest of the request-cancellation core
@@ -421,8 +422,8 @@ export function shutdownServer(
   closeIdle();
   closeRequestless();
 
-  // a canceled request that still owes a response holds the window open
-  // anything else open at the cancel point is force-closed at once
+  // anything still open at the cancel point holds the window until closeAfter,
+  // an untouched request included; the window ends as soon as nothing is open
   let endWindow: () => void = noop;
   let cancelTimer: ReturnType<typeof setTimeout> | undefined;
   let closeTimer: ReturnType<typeof setTimeout> | undefined;
@@ -436,18 +437,6 @@ export function shutdownServer(
       clearTimeout(closeTimer);
     });
   });
-
-  // a request canceled by this shutdown, with its response still open
-  const awaitedCancels = () => {
-    let owed = 0;
-    for (const drain of drains.values()) {
-      if (!drain.counted && !drain.over && isCanceledHere(drain.req)) {
-        owed += 1;
-      }
-    }
-
-    return owed;
-  };
 
   const hardEnd = (expired: boolean) => {
     if (hardEnded) {
@@ -463,8 +452,9 @@ export function shutdownServer(
     endWindow();
   };
 
-  // a cancel at start keeps the window to closeAfter, so a plain request still running keeps it
-  const holdsWindow = () => cancelAtStart || awaitedCancels() > 0;
+  // a request still running holds the window: nothing is force-closed before closeAfter.
+  // a cancel at start also holds it while a connection is open, so a late request is served
+  const holdsWindow = () => openRequests > 0 || (cancelAtStart && listening);
 
   // only one timer is armed at a time: the cancel point until it fires, then the hard end
   const atCancelPoint = () => {

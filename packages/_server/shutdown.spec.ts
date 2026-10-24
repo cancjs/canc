@@ -330,7 +330,8 @@ describe('graceful shutdown', () => {
 
       expect(signal.aborted).toBe(true);
       expect((signal.reason as Error).message).toBe(SERVER_SHUTDOWN);
-      await jest.advanceTimersByTimeAsync(1);
+      // the request owes its answer, so the window holds until closeAfter (cancelAfter + 1000)
+      await jest.advanceTimersByTimeAsync(1000);
       await shutdown;
     } finally {
       jest.useRealTimers();
