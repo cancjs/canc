@@ -146,7 +146,7 @@ Migrating from `timeout`: rename it to `cancelAfter`. `cancelOnStart: true` beco
 
 A `cancelAfter` of `Infinity` waits for the responses however long they take, and a finite one past about 24.8 days is held at that limit.
 
-Pass `closeServer: false` to leave the instance open, in which case `app.close()` is not called. Otherwise it awaits `app.close()` once the drain has finished, so `onClose` hooks and plugin teardown run against a server that has already finished with its handlers. A failing `onClose` hook is logged, and the counts are still returned.
+Pass `closeServer: false` to leave the instance open, in which case `app.close()` is not called. Otherwise it awaits `app.close()` once the in-flight requests have finished, so `onClose` hooks and plugin teardown run against a server that has already finished with its handlers. A failing `onClose` hook is logged, and the counts are still returned.
 
 ## API
 
