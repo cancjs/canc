@@ -31,12 +31,6 @@ export interface IStatusCancelError extends CancelError {
 }
 
 /**
- * Marks a shutdown cancel whose status the caller did not set. Keyed in the `@cancjs/server-node:`
- * namespace so every copy of this module reads the same mark.
- */
-export const DEFAULT_SHUTDOWN_STATUS = Symbol.for('@cancjs/server-node:defaultShutdownStatus');
-
-/**
  * Marks a cancellation whose status is the deadline's or an explicit shutdown's. That status beats a
  * handler's `status` option; a status the caller set on its own error does not.
  */
@@ -116,9 +110,7 @@ export function createShutdownError(message: string, options: IShutdownErrorOpti
   if (options.headers) {
     error.headers = { ...options.headers };
   }
-  if (options.status === undefined) {
-    Object.defineProperty(error, DEFAULT_SHUTDOWN_STATUS, { value: true });
-  } else {
+  if (options.status !== undefined) {
     Object.defineProperty(error, STAMP_WINS, { value: true });
   }
 
