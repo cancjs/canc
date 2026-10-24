@@ -4,7 +4,7 @@ import { createServer, globalAgent, IncomingMessage, request, Server, ServerResp
 import { connect, Socket } from 'net';
 
 import { createExchange, FakeResponse, FakeServer, flush, outcomeOf, pending } from './__tests__/fakes';
-import { getRequestRegistry, recordRequest } from './holder';
+import { getRequestRegistry, getRequestState, recordRequest } from './holder';
 import { ensureRequestCancelState, getNodeRequestSignal } from './node-signal';
 import { SERVER_SHUTDOWN } from './reasons';
 import { runCancelableHandler } from './run';
@@ -1021,6 +1021,30 @@ describe('graceful shutdown over a real socket', () => {
 
     expect(error.status).toBe(504);
     expect(error.headers).toEqual({ 'Retry-After': '5' });
+  });
+
+  it('runs the decorator the request state carries on a shutdown before it is delivered', async () => {
+    const server = new FakeServer();
+    const { req, res } = createExchange(server);
+
+    const outcome = answer(
+      runCancelableHandler(
+        function* () {
+          yield pending();
+        },
+        req,
+        res,
+      ),
+      res,
+    );
+
+    getRequestState(req)!.decorateCancel = (error) => {
+      Object.assign(error, { marked: true });
+    };
+
+    await shutdownServer(server, { cancelAfter: 0 });
+
+    expect(((await outcome) as CancelError & { marked?: boolean }).marked).toBe(true);
   });
 
   it('cancels a wrapped handler at once when asked to cancel on start', async () => {

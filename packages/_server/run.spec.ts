@@ -2,12 +2,12 @@ import { CancelablePromise, CancelError, isCancelError, TimeoutError } from '@ca
 import { getEventListeners } from 'events';
 
 import { createExchange, flush, outcomeOf, pending } from './__tests__/fakes';
-import { cancelStatusOf, stampDerivedCancel } from './exchange';
+import { cancelHeadersOf, cancelStatusOf, ownedStatusOf, stampDerivedCancel } from './exchange';
 import { getRequestState } from './holder';
 import { ensureRequestCancelState } from './node-signal';
 import { CLIENT_DISCONNECTED, HANDLER_TIMEOUT } from './reasons';
 import { mergeHandlerOptions, runCancelableHandler } from './run';
-import { IStatusCancelError } from './timeout';
+import { createShutdownError, IStatusCancelError } from './timeout';
 
 describe('option merge', () => {
   it('is the base when there is nothing to override with', () => {
@@ -757,6 +757,73 @@ describe('cancel attribution', () => {
 
     expect(error.marked).toBe(true);
   });
+
+  it('stamps a fresh cancel derived after the deadline with the deadline status', async () => {
+    const { req, res } = createExchange();
+    const outcome = outcomeOf(runCancelableHandler(() => pending(), req, res, { timeout: { ms: 30, status: 504 } }));
+
+    jest.advanceTimersByTime(30);
+    await outcome;
+
+    const fresh = new CancelError('derived after the deadline');
+    stampDerivedCancel(fresh, getRequestState(req)!);
+
+    expect(cancelStatusOf(fresh, 418)).toBe(504);
+  });
+
+  it('copies the stamp wins mark and headers of a shutdown onto a fresh derived cancel', async () => {
+    const { req, res } = createExchange();
+    const headers = { 'Retry-After': '5' };
+    const outcome = outcomeOf(runCancelableHandler(() => pending(), req, res));
+    const state = getRequestState(req)!;
+
+    state.cancel(createShutdownError('closing', { status: 504, headers }));
+    await outcome;
+
+    const fresh = new CancelError('derived after the shutdown');
+    stampDerivedCancel(fresh, state);
+
+    expect(cancelStatusOf(fresh, 418)).toBe(504);
+    expect(cancelHeadersOf(fresh)).toEqual(headers);
+  });
+
+  it('leaves a user cancel carrying status 499 unattributed on a live request', async () => {
+    const { req, res } = createExchange();
+    const task = runCancelableHandler(() => pending(), req, res);
+    const outcome = outcomeOf(task);
+    const state = getRequestState(req)!;
+
+    task.cancel(Object.assign(new CancelError('user'), { status: 499 }));
+
+    const error = (await outcome) as CancelError & { status?: number; expose?: boolean };
+
+    stampDerivedCancel(error, state);
+
+    expect(ownedStatusOf(error, state, 418)).toBeUndefined();
+    expect(error.status).toBe(499);
+    expect(error.expose).toBeUndefined();
+  });
+
+  it('leaves a deadline instance that rejects another live request unattributed', async () => {
+    const owner = createExchange();
+    const other = createExchange();
+    const ownerOutcome = outcomeOf(
+      runCancelableHandler(() => pending(), owner.req, owner.res, { timeout: { ms: 30, status: 504 } }),
+    );
+
+    jest.advanceTimersByTime(30);
+
+    const deadline = (await ownerOutcome) as CancelError;
+    const otherTask = runCancelableHandler(() => pending(), other.req, other.res);
+    const otherOutcome = outcomeOf(otherTask);
+
+    otherTask.cancel(deadline);
+
+    const error = await otherOutcome;
+
+    expect(error).toBe(deadline);
+    expect(ownedStatusOf(error, getRequestState(other.req)!, 418)).toBeUndefined();
+  });
 });
 
 describe('late failure of a signal-only handler', () => {
@@ -813,5 +880,49 @@ describe('late failure of a signal-only handler', () => {
     await settleMicrotasks();
 
     expect(onLateFailure).not.toHaveBeenCalled();
+  });
+
+  it('does not hand a failure raised while the request is still running to onLateFailure', async () => {
+    const { req, res } = createExchange();
+    const onLateFailure = jest.fn();
+    let fail: (reason: unknown) => void = () => undefined;
+    const handler = () =>
+      new Promise((_resolve, reject) => {
+        fail = reject;
+      });
+
+    const outcome = outcomeOf(runCancelableHandler(handler, req, res, { timeout: 50 }, { onLateFailure }));
+
+    fail(new Error('early'));
+    await outcome;
+    await settleMicrotasks();
+
+    expect(onLateFailure).not.toHaveBeenCalled();
+  });
+
+  it('keeps a late hook that throws from escaping into the process', async () => {
+    const { req, res } = createExchange();
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const onLateFailure = jest.fn(() => {
+      throw new Error('hook broke');
+    });
+    let fail: (reason: unknown) => void = () => undefined;
+    const handler = () =>
+      new Promise((_resolve, reject) => {
+        fail = reject;
+      });
+
+    const outcome = outcomeOf(runCancelableHandler(handler, req, res, { timeout: 50 }, { onLateFailure }));
+
+    jest.advanceTimersByTime(50);
+    await outcome;
+
+    fail(new Error('late'));
+    await settleMicrotasks();
+
+    expect(onLateFailure).toHaveBeenCalledTimes(1);
+    expect(consoleError).toHaveBeenCalledWith('[@cancjs/server] late failure hook failed', expect.any(Error));
+
+    consoleError.mockRestore();
   });
 });

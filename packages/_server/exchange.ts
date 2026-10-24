@@ -84,8 +84,9 @@ export function statusOf(error: CancelError, fallback: number): number {
  * An unstamped cancellation is the caller's own (a user cancel, a timeout the handler raised on its
  * own), so the adapter passes it through untouched instead of answering it. A deadline's status and
  * an explicit shutdown status come first, so the handler's `status` option cannot re-map them.
- * Otherwise the option applies, then 503. A status the caller set on its own cancellation is not
- * stamped, so it takes the option like any other cancellation.
+ * Otherwise the option applies, then 503. A status the caller set on its own cancellation reads as a
+ * status like any other, so an owned one takes the option. Ownership, not the status, decides whether
+ * an adapter answers at all.
  */
 export function cancelStatusOf(error: CancelError, option: number | undefined): number | undefined {
   if (!statusStamped(error)) {
