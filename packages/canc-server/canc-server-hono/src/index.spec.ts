@@ -3,7 +3,7 @@ import http from 'node:http';
 import { connect, Socket } from 'node:net';
 import { runInThisContext } from 'node:vm';
 
-import { CancelError, isCancelError, isCancelSignal } from '@cancjs/promise';
+import { CancelablePromise, CancelError, isCancelError, isCancelSignal } from '@cancjs/promise';
 import { serve, ServerType } from '@hono/node-server';
 import { Context, Hono, MiddlewareHandler, Next } from 'hono';
 import { HTTPException } from 'hono/http-exception';
@@ -778,6 +778,75 @@ describe('shutdown cancel status', () => {
 
     expect(await firstStatus(client)).toBe(500);
     await shutdown;
+  });
+
+  it('lets a signal-only route answer 503 after the cancel, and counts it canceled', async () => {
+    const app = new Hono();
+    const reached = deferred();
+    const events: string[] = [];
+
+    app.use(cancelMiddleware());
+    app.get(
+      '/signal',
+      (c) =>
+        new Promise<Response>((resolve) => {
+          getRequestSignal(c).addEventListener('abort', () => {
+            setTimeout(() => {
+              events.push('answered');
+              resolve(c.body(null, 503));
+            }, 30);
+          });
+          reached.resolve();
+        }),
+    );
+
+    const port = await listen(app);
+    const pending = send(port, '/signal');
+    await reached.promise;
+
+    const shutdown = createShutdown(server!)({ cancelAfter: 50, closeAfter: 2_000 }).then((result) => {
+      events.push('resolved');
+      return result;
+    });
+
+    expect((await pending).statusCode).toBe(503);
+    expect(await shutdown).toEqual({ canceled: 1, completed: 0, timedOut: false });
+    expect(events).toEqual(['answered', 'resolved']);
+  });
+
+  it('holds the window for a cleanup that awaits, then answers 500 and counts it canceled', async () => {
+    const app = new Hono();
+    const started = deferred();
+    const events: string[] = [];
+
+    app.use(cancelMiddleware());
+    app.get(
+      '/cleanup',
+      cancelableHandler(function* (c) {
+        started.resolve();
+        try {
+          yield new Promise(() => undefined);
+
+          return c.text('never');
+        } finally {
+          yield new CancelablePromise<void>((resolve) => setTimeout(resolve, 50));
+          events.push('cleaned');
+        }
+      }),
+    );
+
+    const port = await listen(app);
+    const pending = send(port, '/cleanup');
+    await started.promise;
+
+    const shutdown = createShutdown(server!)({ cancelAfter: 50, closeAfter: 2_000 }).then((result) => {
+      events.push('resolved');
+      return result;
+    });
+
+    expect((await pending).statusCode).toBe(500);
+    expect(await shutdown).toEqual({ canceled: 1, completed: 0, timedOut: false });
+    expect(events).toEqual(['cleaned', 'resolved']);
   });
 });
 
