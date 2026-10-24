@@ -1,7 +1,7 @@
 import { isCancelError } from '@cancjs/promise';
 import type { Env, ErrorHandler } from 'hono';
 
-import { cancelStatusOf, stampDerivedCancel } from '../../../_server/exchange';
+import { ownedStatusOf } from '../../../_server/exchange';
 import { abandonIfHeadersSent, alreadySentHeaders, ensureCancelState, isResponseUnreachable } from './bindings';
 import { CLIENT_CLOSED_STATUS } from './handler';
 
@@ -38,14 +38,8 @@ export function cancelErrorHandler<E extends Env = any>(options: ICancelErrorHan
   const onError = options.onError;
 
   return function cancelErrorRoute(error, c) {
-    // a cancellation the request raised on itself and that surfaces unwrapped, outside any route
-    // wrapper, is stamped from the request's own state before it is read
-    if (isCancelError(error)) {
-      stampDerivedCancel(error, ensureCancelState(c));
-    }
-
-    // a cancel the request does not own is the caller's, so it takes the path below
-    const status = isCancelError(error) ? cancelStatusOf(error, options.status) : undefined;
+    // Ownership comes from the request state, so an unowned cancel takes the path below.
+    const status = isCancelError(error) ? ownedStatusOf(error, ensureCancelState(c), options.status) : undefined;
 
     if (status === undefined) {
       if (onError) {

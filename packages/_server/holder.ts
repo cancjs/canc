@@ -56,6 +56,8 @@ export interface IRequestCancelState {
   holding?: number;
   /** Set once a cancellation went to the framework's error pipeline, which takes one per request. */
   cancelForwarded?: boolean;
+  /** The route signals of every handler run on the request, so any framework layer can attribute a cancel they raised. */
+  routeSignals?: AbortSignal[];
   /** Set by a shutdown before it cancels the signal, so a shutdown is not reported as a disconnect. */
   shuttingDown?: boolean;
   /** Set by a shutdown, so a handler task started while it drains is still counted. */

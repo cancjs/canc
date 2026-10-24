@@ -84,6 +84,11 @@ export function runCancelableHandler<TReturn = unknown>(
   const Impl = resolvePromiseImpl() as unknown as typeof CancelablePromise;
   const signals = callerSignals(options);
 
+  // Recorded on the request, so a framework layer sees the route's cancels too.
+  if (signals.length > 0) {
+    state.routeSignals = [...(state.routeSignals ?? []), ...signals];
+  }
+
   // set once the task settles, so a late failure is told apart from one the handler raised while
   // the task was still running
   let settled = false;

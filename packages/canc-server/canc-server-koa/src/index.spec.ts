@@ -1556,11 +1556,11 @@ describe('ownership comes from request state', () => {
     expect(response.status).toBe(504);
   });
 
-  it('answers a route-signal cancel on a live request with 503 and no route content headers', async () => {
+  it('answers a route-signal cancel on a live request with the middleware status and no route content headers', async () => {
     const app = new Koa();
     const routeAbort = new AbortController();
 
-    app.use(cancelMiddleware());
+    app.use(cancelMiddleware({ status: 502 }));
     app.use(
       cancelableHandler(
         function* (_ctx: Context) {
@@ -1581,7 +1581,7 @@ describe('ownership comes from request state', () => {
 
     const response = await pending;
 
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(502);
     expect(response.headers['content-encoding']).toBeUndefined();
   });
 });

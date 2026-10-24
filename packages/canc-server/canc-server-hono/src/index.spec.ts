@@ -398,21 +398,28 @@ describe('deadline', () => {
 });
 
 describe('error handler', () => {
-  it('answers a cancellation raised on a live connection', async () => {
+  it('answers a route-signal cancel on a live connection with 503', async () => {
+    const routeAbort = new AbortController();
     const app = new Hono();
 
     app.onError(cancelErrorHandler());
     app.get(
       '/give-up',
-      cancelableHandler(function* () {
-        yield Promise.resolve();
-
-        throw Object.assign(new CancelError('gave up'), { status: 503 });
-      }),
+      cancelableHandler(
+        function* () {
+          yield new Promise<void>(() => undefined);
+          return new Response('late');
+        },
+        { signal: routeAbort.signal },
+      ),
     );
 
     const port = await listen(app);
-    const response = await send(port, '/give-up');
+    const pending = send(port, '/give-up');
+
+    setTimeout(() => routeAbort.abort(), 20);
+
+    const response = await pending;
 
     expect(response.statusCode).toBe(503);
   });
@@ -436,21 +443,28 @@ describe('error handler', () => {
     expect(response.statusCode).toBe(500);
   });
 
-  it('reads a status the cancellation carries as a status code', async () => {
+  it('takes the status option for a route-signal cancel', async () => {
+    const routeAbort = new AbortController();
     const app = new Hono();
 
-    app.onError(cancelErrorHandler());
+    app.onError(cancelErrorHandler({ status: 507 }));
     app.get(
       '/carried',
-      cancelableHandler(function* () {
-        yield Promise.resolve();
-
-        throw Object.assign(new CancelError('gave up'), { statusCode: 507 });
-      }),
+      cancelableHandler(
+        function* () {
+          yield new Promise<void>(() => undefined);
+          return new Response('late');
+        },
+        { signal: routeAbort.signal },
+      ),
     );
 
     const port = await listen(app);
-    const response = await send(port, '/carried');
+    const pending = send(port, '/carried');
+
+    setTimeout(() => routeAbort.abort(), 20);
+
+    const response = await pending;
 
     expect(response.statusCode).toBe(507);
   });

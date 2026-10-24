@@ -178,7 +178,7 @@ export function cancelAttribution(
     return { reason: state.signal.reason };
   }
 
-  const own = signals.find((signal) => signal.aborted);
+  const own = [...signals, ...(state.routeSignals ?? [])].find((signal) => signal.aborted);
 
   return own ? { reason: own.reason } : undefined;
 }
