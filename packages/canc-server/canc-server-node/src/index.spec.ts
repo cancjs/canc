@@ -681,6 +681,62 @@ describe('shutdown cancel status', () => {
     expect(await firstStatus(client)).toBe(503);
     await shutdown;
   });
+
+  it('lets a signal-only route answer 503 after the cancel, and counts it canceled', async () => {
+    const reached = deferred();
+    const events: string[] = [];
+
+    const port = await listen((req, res) => {
+      getRequestSignal(req, res).addEventListener('abort', () => {
+        setTimeout(() => {
+          events.push('answered');
+          res.statusCode = 503;
+          res.end();
+        }, 30);
+      });
+      reached.resolve();
+    });
+    const pending = httpRequest(port, { path: '/signal' });
+    await reached.promise;
+
+    const shutdown = createShutdown(lastServer())({ cancelAfter: 50, closeAfter: 2_000 }).then((result) => {
+      events.push('resolved');
+      return result;
+    });
+
+    expect((await pending).status).toBe(503);
+    expect(await shutdown).toEqual({ canceled: 1, completed: 0, timedOut: false });
+    expect(events).toEqual(['answered', 'resolved']);
+  });
+
+  it('holds the window for a cleanup that awaits, then answers 503 and counts it canceled', async () => {
+    const started = deferred();
+    const events: string[] = [];
+
+    const port = await listen(
+      cancelableHandler(function* (_req: IncomingMessage, res: ServerResponse) {
+        started.resolve();
+        try {
+          yield never();
+          res.end('unreachable');
+        } finally {
+          yield new CancelablePromise<void>((resolve) => setTimeout(resolve, 50));
+          events.push('cleaned');
+        }
+      }),
+    );
+    const pending = httpRequest(port, { path: '/cleanup' });
+    await started.promise;
+
+    const shutdown = createShutdown(lastServer())({ cancelAfter: 50, closeAfter: 2_000 }).then((result) => {
+      events.push('resolved');
+      return result;
+    });
+
+    expect((await pending).status).toBe(503);
+    expect(await shutdown).toEqual({ canceled: 1, completed: 0, timedOut: false });
+    expect(events).toEqual(['cleaned', 'resolved']);
+  });
 });
 
 describe('shutdown', () => {
