@@ -119,6 +119,9 @@ export function shutdownServer(
   });
 
   const settleIfDrained = () => {
+    if (graceEnded && openRequests === 0) {
+      destroyUpgraded();
+    }
     if (openRequests === 0 && !listening) {
       finish();
     }
@@ -155,6 +158,35 @@ export function shutdownServer(
       socket.destroySoon();
     } else if (isFunction(socket.end)) {
       socket.end();
+    }
+  };
+
+  // an upgraded socket leaves node's connection list, so closeAllConnections() skips it and
+  // server.close waits on it; node sets its parser to null at the handoff, keep-alive and
+  // mid-headers sockets keep one
+  const isUpgraded = (socket: IConnectionLike) => (socket as { parser?: unknown }).parser === null;
+
+  const destroyUpgraded = () => {
+    if (!ownsConnections || !registry.connections) {
+      return;
+    }
+
+    for (const socket of Array.from(registry.connections.keys())) {
+      if (socket.destroyed !== true && isUpgraded(socket) && isFunction(socket.destroy)) {
+        socket.destroy();
+      }
+    }
+  };
+
+  const destroyRemaining = () => {
+    if (!ownsConnections || !registry.connections) {
+      return;
+    }
+
+    for (const socket of Array.from(registry.connections.keys())) {
+      if (socket.destroyed !== true && isFunction(socket.destroy)) {
+        socket.destroy();
+      }
     }
   };
 
@@ -463,6 +495,9 @@ export function shutdownServer(
     graceEnded = true;
     cancelOpenRequests();
     closeIdle();
+    if (openRequests === 0) {
+      destroyUpgraded();
+    }
     if (!holdsWindow()) {
       hardEnd(false);
     } else if (closeAfter !== Infinity) {
@@ -505,6 +540,8 @@ export function shutdownServer(
         // stragglers only: a drain that finished in time has no connection left to close
         if ((openRequests > 0 || listening) && ownsConnections && isFunction(server.closeAllConnections)) {
           server.closeAllConnections();
+          // closeAllConnections() skips upgraded sockets, so the hard end closes them here
+          destroyRemaining();
         }
         countForced();
 

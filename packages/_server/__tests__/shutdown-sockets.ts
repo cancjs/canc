@@ -285,6 +285,27 @@ export function describeShutdownSockets(
       expect(await first).toEqual({ canceled: 0, completed: 0, timedOut: false });
     });
 
+    it('ends a held upgraded socket at the grace end, not at closeAfter', async () => {
+      const app = await startApp();
+      app.server.on('upgrade', (_req, socket) => {
+        socket.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: test\r\nConnection: Upgrade\r\n\r\n');
+      });
+      const shutdown = createShutdown(app.target as never);
+      const client = connect(app.port, '127.0.0.1');
+      clients.push(client);
+      await once(client, 'connect');
+      client.write('GET /ws HTTP/1.1\r\nHost: x\r\nUpgrade: test\r\nConnection: Upgrade\r\n\r\n');
+      await once(client, 'data');
+
+      const startedAt = performance.now();
+      const result = await shutdown({ cancelAfter: LATE_GRACE_MS, closeAfter: 2 * LATE_GRACE_MS });
+      const elapsed = performance.now() - startedAt;
+
+      // an upgraded socket leaves the connection list, so the grace end must end it
+      expect(result.timedOut).toBe(false);
+      expect(elapsed).toBeLessThan(2 * LATE_GRACE_MS - TIMER_SLACK_MS);
+    });
+
     it('created after a connection opened, closes that connection at closeAfter', async () => {
       const app = await startApp();
       const { closed } = await preconnect(app.server, app.port);

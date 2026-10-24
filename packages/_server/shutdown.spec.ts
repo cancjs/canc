@@ -8,7 +8,7 @@ import { getRequestRegistry, recordRequest } from './holder';
 import { ensureRequestCancelState, getNodeRequestSignal } from './node-signal';
 import { SERVER_SHUTDOWN } from './reasons';
 import { runCancelableHandler } from './run';
-import { shutdownServer } from './shutdown';
+import { createServerShutdown, shutdownServer } from './shutdown';
 import type { IShutdownOptions } from './types';
 
 describe('graceful shutdown', () => {
@@ -1245,5 +1245,51 @@ describe('shutdown cancel point', () => {
     const server = new FakeServer();
 
     expect(() => shutdownServer(server, { cancelAfter: -5, closeAfter: -10 })).not.toThrow();
+  });
+});
+
+describe('graceful shutdown with an upgraded socket', () => {
+  const servers: Server[] = [];
+  const sockets: Socket[] = [];
+
+  afterEach(async () => {
+    for (const socket of sockets.splice(0)) {
+      socket.destroy();
+    }
+
+    for (const server of servers.splice(0)) {
+      server.closeAllConnections();
+      if (server.listening) {
+        await new Promise<void>((resolve) => server.close(() => resolve()));
+      }
+    }
+  });
+
+  it('ends a held upgraded socket at the grace end instead of waiting for closeAfter', async () => {
+    const server = createServer();
+    servers.push(server);
+    // the shutdown layer meets the server before the client connects, as an adapter does
+    const shutdownOf = createServerShutdown(server);
+    server.on('upgrade', (_req, socket) => {
+      socket.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: test\r\nConnection: Upgrade\r\n\r\n');
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()));
+    const port = (server.address() as { port: number }).port;
+
+    const client = connect(port, '127.0.0.1');
+    sockets.push(client);
+    await once(client, 'connect');
+    client.write('GET /ws HTTP/1.1\r\nHost: x\r\nUpgrade: test\r\nConnection: Upgrade\r\n\r\n');
+    await new Promise<void>((resolve) => client.once('data', () => resolve()));
+
+    const shutdown = shutdownOf({ cancelAfter: 50, closeAfter: 10000 });
+    const outcome = await Promise.race([
+      shutdown.then((result) => result),
+      new Promise<'late'>((resolve) => setTimeout(() => resolve('late'), 2000)),
+    ]);
+
+    expect(outcome).not.toBe('late');
+    expect(outcome).toMatchObject({ timedOut: false });
+    expect(server.listening).toBe(false);
   });
 });

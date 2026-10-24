@@ -223,6 +223,16 @@ Options given to `cancelMiddleware` are inherited by every handler on the reques
 
 - `ICancelableHandlerOptions`, `ICancelErrorHandlerOptions`, `IShutdownOptions`, `IShutdownResult`
 
+### Readiness and websockets
+
+Node does not list a websocket as a connection once it is upgraded, so `shutdown()` cannot close it. Close your websockets yourself when shutdown starts, with code `1001` (going away), and let the shutdown wait for them:
+
+```ts
+await Promise.all([closeWebSockets(1001), shutdown({ cancelAfter: 5_000 })]);
+```
+
+Any upgraded socket still open once the window ends is destroyed. To keep new traffic away first, fail your readiness check and wait a few seconds before calling `shutdown()`. In Kubernetes a `preStop` sleep does the same job.
+
 ## Compatibility
 
 Node.js 18 and later, express 4.18 and later (including express 5), TypeScript 4.2 and later. Requires `@cancjs/promise >=1.1.0` and `@cancjs/coroutine >=1.0.0` as peer dependencies. Everything else follows [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise#compatibility).
