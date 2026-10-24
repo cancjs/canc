@@ -657,23 +657,25 @@ describe('framework headers on a cancel answer', () => {
     const app = express();
 
     let lateWriteRan = false;
+    app.set('env', 'development');
+    const logged = jest.spyOn(console, 'error').mockImplementation(() => undefined);
 
     app.use(cancelMiddleware({ timeout: { ms: 60, status: 504 } }));
     app.get(
       '/derived',
       cancelableHandler((_req: Request, res: Response) => {
-        // a timer outside the canceled chain, so the write after the deadline answer really runs
-        setTimeout(() => {
-          lateWriteRan = true;
+        // the write lands after the deadline answer, so its throw is a late failure
+        return new Promise<void>((_resolve, reject) => {
+          setTimeout(() => {
+            lateWriteRan = true;
 
-          try {
-            res.json({ late: true });
-          } catch {
-            // the deadline answer already ended the response, so this write throws by design
-          }
-        }, 150);
-
-        return new CancelablePromise<void>(() => undefined);
+            try {
+              res.json({ late: true });
+            } catch (error) {
+              reject(error);
+            }
+          }, 150);
+        });
       }),
     );
     app.get('/ok', (_req, res) => {
@@ -698,6 +700,9 @@ describe('framework headers on a cancel answer', () => {
     expect(lateWriteRan).toBe(true);
     expect(second.status).toBe(200);
     expect(second.body).toBe('ok');
+    expect(logged).toHaveBeenCalledTimes(1);
+    expect(String(logged.mock.calls[0][0])).toContain('Cannot set headers after they are sent');
+    logged.mockRestore();
   });
 
   it('answers a user cancellation carrying status 499 with its own status, not the option', async () => {
