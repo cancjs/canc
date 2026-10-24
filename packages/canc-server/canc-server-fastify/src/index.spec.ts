@@ -1220,14 +1220,15 @@ describe('shutdown', () => {
     instance.get('/plain', () => ({ ok: true }));
 
     const port = await listen(instance);
+    const shutdown = createShutdown(instance);
     const pending = send(port, '/plain');
     await started.promise;
 
-    const result = await createShutdown(instance)({ cancelAfter: 60 });
+    const result = await shutdown({ cancelAfter: 60 });
 
     app = undefined;
 
-    expect(result.canceled).toBe(0);
+    expect(result).toEqual({ canceled: 0, completed: 1, timedOut: false });
     expect((await pending).statusCode).toBe(500);
   });
 

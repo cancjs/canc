@@ -624,11 +624,12 @@ describe('framework headers on a cancel answer', () => {
     }) as ErrorRequestHandler);
 
     const port = await listen(app);
+    const shutdown = createShutdown(lastServer());
     const response = httpRequest(port, { path: '/plain' });
 
     await arrived.promise;
 
-    expect((await createShutdown(lastServer())({ cancelAfter: 60 })).canceled).toBe(0);
+    expect(await shutdown({ cancelAfter: 60 })).toEqual({ canceled: 0, completed: 1, timedOut: false });
     expect((await response).body).toBe('late');
   });
 

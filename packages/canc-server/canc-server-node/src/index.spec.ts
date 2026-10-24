@@ -180,11 +180,12 @@ describe('cancel attribution over a real socket', () => {
       }, 30);
     });
 
+    const shutdown = createShutdown(lastServer());
     const response = httpExchange(port, { path: '/plain' });
 
     await arrived.promise;
 
-    expect((await createShutdown(lastServer())({ cancelAfter: 60 })).canceled).toBe(0);
+    expect(await shutdown({ cancelAfter: 60 })).toEqual({ canceled: 0, completed: 1, timedOut: false });
     expect((await response).body).toBe('late');
   });
 

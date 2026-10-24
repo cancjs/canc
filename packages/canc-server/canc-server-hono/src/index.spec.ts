@@ -774,12 +774,13 @@ describe('shutdown cancel status', () => {
     app.get('/plain', (c) => c.text('ok'));
 
     const port = await listen(app);
+    const shutdown = createShutdown(server!);
     const pending = send(port, '/plain');
     await started.promise;
 
-    const result = await createShutdown(server!)({ cancelAfter: 60 });
+    const result = await shutdown({ cancelAfter: 60 });
 
-    expect(result.canceled).toBe(0);
+    expect(result).toEqual({ canceled: 0, completed: 1, timedOut: false });
     expect((await pending).statusCode).toBe(500);
   });
 
