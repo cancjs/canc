@@ -1640,7 +1640,7 @@ describe('cancel answers without a mounted error handler', () => {
     expect(response.headers.get('content-type')).not.toBe('text/html');
   });
 
-  it('answers a head-sent cut through app.onError once and logs it', async () => {
+  it('cuts a head-sent cut without app.onError, logs it once, and writes no node noise', async () => {
     const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
     const forwarded: unknown[] = [];
     const app = new Hono();
@@ -1684,8 +1684,193 @@ describe('cancel answers without a mounted error handler', () => {
     await tick();
 
     expect(outcome.complete).toBe(false);
-    expect(forwarded).toHaveLength(1);
+    expect(forwarded).toHaveLength(0);
     expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(errorSpy.mock.calls[0][0]).toContain('response cut after its head was sent');
     errorSpy.mockRestore();
+  });
+
+  it('keeps a user app.onError from writing over a head-sent cut', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const app = new Hono();
+
+    app.onError((_error, c) => c.text('user answer', 500));
+    app.get(
+      '/partial',
+      cancelableHandler(
+        function* (c) {
+          const { outgoing } = c.env as { outgoing: http.ServerResponse };
+
+          outgoing.writeHead(200, { 'content-type': 'text/plain' });
+          outgoing.write('part');
+          yield new Promise(() => undefined);
+
+          return c.text('never');
+        },
+        { timeout: { message: 'route took too long', ms: 20, status: 504 } },
+      ),
+    );
+
+    const port = await listen(app);
+    await new Promise<void>((resolve) => {
+      const request = http.get({ host: '127.0.0.1', path: '/partial', port }, (response) => {
+        response.resume();
+        response.on('error', () => resolve());
+        response.on('end', () => resolve());
+      });
+
+      request.on('error', () => resolve());
+    });
+    await tick();
+
+    const messages = errorSpy.mock.calls.map((call) => String(call[0]));
+
+    expect(messages.filter((message) => message.includes('Cannot write headers'))).toHaveLength(0);
+    expect(messages.filter((message) => message.includes('response cut after its head was sent'))).toHaveLength(1);
+    errorSpy.mockRestore();
+  });
+});
+
+describe('answer headers', () => {
+  it('answers a wrapped deadline with the middleware headers and the timeout Retry-After, no handler mounted', async () => {
+    const app = new Hono();
+
+    app.use(async (c, next) => {
+      c.header('x-app', 'routed');
+      c.header('access-control-allow-origin', '*');
+      await next();
+    });
+    app.get(
+      '/slow',
+      cancelableHandler(
+        function* (c) {
+          yield new Promise(() => undefined);
+
+          return c.text('never');
+        },
+        { timeout: { headers: { 'retry-after': '5' }, message: 'route took too long', ms: 20 } },
+      ),
+    );
+
+    const port = await listen(app);
+    const response = await fetch(`http://127.0.0.1:${port}/slow`);
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get('x-app')).toBe('routed');
+    expect(response.headers.get('access-control-allow-origin')).toBe('*');
+    expect(response.headers.get('retry-after')).toBe('5');
+  });
+
+  it('answers a plain route deadline through cancelMiddleware with the timeout Retry-After', async () => {
+    const app = new Hono();
+
+    app.use(cancelMiddleware({ timeout: { headers: { 'retry-after': '5' }, ms: 20 } }));
+    app.get('/plain', async (c) => {
+      const signal = getRequestSignal(c);
+
+      await new Promise((_resolve, reject) => {
+        signal.addEventListener('abort', () => reject(signal.reason));
+      });
+
+      return c.text('never');
+    });
+
+    const port = await listen(app);
+    const response = await fetch(`http://127.0.0.1:${port}/plain`);
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get('retry-after')).toBe('5');
+  });
+
+  it('answers a wrapped deadline through cancelErrorHandler with the timeout Retry-After', async () => {
+    const app = new Hono();
+
+    app.onError(cancelErrorHandler());
+    app.get(
+      '/slow',
+      cancelableHandler(
+        function* (c) {
+          yield new Promise(() => undefined);
+
+          return c.text('never');
+        },
+        { timeout: { headers: { 'retry-after': '5' }, message: 'route took too long', ms: 20 } },
+      ),
+    );
+
+    const port = await listen(app);
+    const response = await fetch(`http://127.0.0.1:${port}/slow`);
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get('retry-after')).toBe('5');
+  });
+
+  it('keeps a user onError docs style 500 on a deadline', async () => {
+    const app = new Hono();
+
+    app.onError((_error, c) => c.text('Internal Server Error', 500));
+    app.get(
+      '/slow',
+      cancelableHandler(
+        function* (c) {
+          yield new Promise(() => undefined);
+
+          return c.text('never');
+        },
+        { timeout: { message: 'route took too long', ms: 20 } },
+      ),
+    );
+
+    const port = await listen(app);
+    const response = await send(port, '/slow');
+
+    expect(response.statusCode).toBe(500);
+  });
+
+  it('answers a user onError that returns getResponse with the deadline status', async () => {
+    const app = new Hono();
+
+    app.onError((error, c) => {
+      if (isCancelError(error) && 'getResponse' in error) {
+        return (error as CancelError & { getResponse: () => Response }).getResponse();
+      }
+
+      return c.text('Internal Server Error', 500);
+    });
+    app.get(
+      '/slow',
+      cancelableHandler(
+        function* (c) {
+          yield new Promise(() => undefined);
+
+          return c.text('never');
+        },
+        { timeout: { message: 'route took too long', ms: 20 } },
+      ),
+    );
+
+    const port = await listen(app);
+    const response = await send(port, '/slow');
+
+    expect(response.statusCode).toBe(503);
+  });
+
+  it('keeps the context header on an HTTPException answer through cancelErrorHandler', async () => {
+    const app = new Hono();
+
+    app.onError(cancelErrorHandler());
+    app.use(async (c, next) => {
+      c.header('x-app', 'routed');
+      await next();
+    });
+    app.get('/conflict', () => {
+      throw new HTTPException(409, { message: 'conflict' });
+    });
+
+    const port = await listen(app);
+    const response = await fetch(`http://127.0.0.1:${port}/conflict`);
+
+    expect(response.status).toBe(409);
+    expect(response.headers.get('x-app')).toBe('routed');
   });
 });

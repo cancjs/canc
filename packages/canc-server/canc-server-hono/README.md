@@ -128,13 +128,26 @@ Hono does not expose a `request.signal` under that name, so there is nothing her
 
 ### The wrapper never writes the response
 
-A cancellation whose client is already gone still has to answer with something, because a Hono handler must resolve to a `Response`. It answers `499`, the status nginx logs for a client that closed the request first, and that response never reaches a reader. When the route wrote the node response itself, as a streaming route does, the `499` carries `x-hono-already-sent` so `@hono/node-server` skips writing it and logs nothing. A deadline is different: the client is still there, so the error is thrown on to `app.onError` instead of being swallowed.
+A cancellation whose client is already gone still has to answer with something, because a Hono handler must resolve to a `Response`. It answers `499`, the status nginx logs for a client that closed the request first, and that response never reaches a reader. When the route wrote the node response itself, as a streaming route does, the `499` carries `x-hono-already-sent` so `@hono/node-server` skips writing it and logs nothing. A deadline is different: the client is still there, so the error is thrown on to `app.onError` instead of being swallowed. A cancellation that lands after the response head went out is the one exception: the wrapper cuts the connection and logs it there, so `app.onError` never sees it and nothing reaches stderr.
 
 ### Status codes and the error handler
 
 Hono's default error answer reads a `getResponse()` on the error, and every cancellation the request owns carries one. Without `cancelErrorHandler()` mounted on `app.onError`, a deadline answers with the status its timeout was given, and a shutdown cancellation answers with the shutdown's `status` when it set one, else `503`, each with the headers the shutdown attached. Mounting `cancelErrorHandler()` adds the rest: this handler's `status` option applies to a shutdown cancellation that set no status of its own, a departed client gets `499`, and any other error is logged with `console.error` and answered with `500`, as Hono's own default does. Pass `onError` to handle those yourself.
 
-When the response head has already gone out, no status can follow it. On node, `cancelErrorHandler()` destroys the connection in that case, so the client sees an aborted response rather than one that ends cleanly with a truncated body.
+When the response head has already gone out, no status can follow it. On node, the wrapper destroys the connection in that case, on every wrapped route, with or without `cancelErrorHandler()`, so the client sees an aborted response rather than one that ends cleanly with a truncated body. The cut is logged once per request with `console.error`. A cancellation reaching `app.onError` from a route the wrapper does not wrap is cut by `cancelErrorHandler()` the same way.
+
+Without `cancelErrorHandler()`, write your own `app.onError` and answer a cancellation with the response it carries:
+
+```js
+app.onError((err, c) => {
+  if (isCancelError(err) && 'getResponse' in err) return err.getResponse();
+
+  // your own handling for everything else
+  return c.text('Internal Server Error', 500);
+});
+```
+
+`isCancelError` comes from `@cancjs/promise`. The `getResponse` check skips a cancellation the request does not own, which carries none.
 
 ## Description
 

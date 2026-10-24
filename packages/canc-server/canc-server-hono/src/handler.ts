@@ -67,9 +67,9 @@ const WEB_RESPONSE: IResponseLike = {
  * On `@hono/node-server` the cancellation is wired from the node response. On a Web standard
  * runtime it comes from `Request.signal`, which on that side does mean the client went away.
  *
- * The wrapper never writes the response. A cancellation on a response that can no longer be
- * answered gets `499`, because hono has to be handed something; everything else, deadlines
- * included, is thrown on to whatever `app.onError` is mounted.
+ * The wrapper never writes a status. A cancellation on a response that can no longer be answered
+ * gets `499`, and a head that already went out is cut and logged here, so neither reaches
+ * `app.onError`; everything else, deadlines included, is thrown on to whatever `app.onError` is mounted.
  */
 export function cancelableHandler<E extends Env = any, P extends string = any, I extends Input = TBlankInput>(
   handler: THandlerFn<THonoHandler<E, P, I>, Response>,
@@ -95,10 +95,13 @@ export function cancelableHandler<E extends Env = any, P extends string = any, I
         }
       }
 
-      // a sent head cannot take a status: the socket is cut and the error goes on to app.onError,
-      // whose answer is the unreachable one, so nothing is written over the head
+      // a sent head cannot take a status: the socket is cut and answered here with the marker
+      // response, so node does not write headers over the head
+      // app.onError never sees it; this catch runs once per task, so the log is once per request
       if (isCancelError(error) && abandonIfHeadersSent(context)) {
-        throw error;
+        console.error('[@cancjs/server-hono] response cut after its head was sent', error);
+
+        return new Response(null, { headers: alreadySentHeaders(context), status: CLIENT_CLOSED_STATUS });
       }
 
       // the documented discriminator, never a message check and never instanceof: a deadline
