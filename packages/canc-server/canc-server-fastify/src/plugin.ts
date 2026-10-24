@@ -2,7 +2,13 @@ import { isCancelError } from '@cancjs/promise';
 import { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import fastifyPlugin from 'fastify-plugin';
 
-import { checkAnswerStatus, isUnanswerable, ownedStatusOf, toRequestLike } from '../../../_server/exchange';
+import {
+  checkAnswerStatus,
+  isResponseLive,
+  isUnanswerable,
+  ownedStatusOf,
+  toRequestLike,
+} from '../../../_server/exchange';
 import { getRequestRegistry, getRequestState } from '../../../_server/holder';
 import { ensureRequestCancelState } from '../../../_server/node-signal';
 import { ICancelableHandlerOptions } from '../../../_server/types';
@@ -87,9 +93,13 @@ export function cancelErrorHandler(options?: ICancelErrorHandlerOptions): TCance
     // a head already sent cannot take a status, so the socket is cut instead of left looking whole.
     // The client sees only a reset, so the cut is logged once here.
     if (isCancelError(error) && reply.raw.headersSent) {
+      // a response that finished on its own is not a cut, so there is nothing to log
+      if (isResponseLive(reply.raw)) {
+        request.log.error(error);
+      }
+
       reply.raw.destroy();
       reply.hijack();
-      request.log.error(error);
 
       return;
     }
