@@ -1510,6 +1510,64 @@ describe('cancel answers without a mounted error handler', () => {
     expect(response.statusCode).toBe(504);
   });
 
+  it('answers a shutdown cancel of a late arrival with 503 through hono default answer', async () => {
+    const app = new Hono();
+
+    // no canc wrapper on this route: only the shutdown's own record of the arrival holds the cancel
+    app.get('/plain', async (c) => {
+      const signal = getRequestSignal(c);
+
+      // the arrival is canceled before the route runs, so the abort may already have fired
+      if (signal.aborted) {
+        throw signal.reason;
+      }
+
+      await new Promise((_resolve, reject) => {
+        signal.addEventListener('abort', () => reject(signal.reason));
+      });
+
+      return c.text('never');
+    });
+
+    const port = await listen(app);
+    // a connection opened before the drain is the only way to deliver a request during it
+    const accepted = once(server!, 'connection');
+    const client = connect(port, '127.0.0.1');
+    sockets.push(client);
+    client.on('error', () => {});
+    await accepted;
+
+    const shutdown = createShutdown(server!)({ cancelAfter: 0, closeAfter: 500 });
+    client.write('GET /plain HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n');
+
+    const [chunk] = await once(client, 'data');
+
+    expect(/^HTTP\/1\.1 (\d{3})/.exec(String(chunk))?.[1]).toBe('503');
+    expect(await shutdown).toEqual({ canceled: 1, completed: 0, timedOut: false });
+  });
+
+  it('answers a shutdown cancel of an open plain request with 503 through hono default answer', async () => {
+    const app = new Hono();
+
+    app.get('/plain', async (c) => {
+      const signal = getRequestSignal(c);
+
+      await new Promise((_resolve, reject) => {
+        signal.addEventListener('abort', () => reject(signal.reason));
+      });
+
+      return c.text('never');
+    });
+
+    const port = await listen(app);
+    const pending = send(port, '/plain');
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    const shutdown = createShutdown(server!);
+
+    await shutdown({ cancelAfter: 0 });
+    expect((await pending).statusCode).toBe(503);
+  });
+
   it('answers a deadline on a Web runtime with its status through hono default answer', async () => {
     const app = new Hono();
 
