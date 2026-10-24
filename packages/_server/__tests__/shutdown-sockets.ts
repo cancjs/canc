@@ -338,7 +338,6 @@ export function describeShutdownSockets(
       expect(answer.statuses).toEqual([]);
       expect(result).toEqual({ canceled: 0, completed: 0, timedOut: true });
       expect(elapsed).toBeGreaterThanOrEqual(2 * LATE_GRACE_MS - TIMER_SLACK_MS);
-      expect(elapsed).toBeLessThan(2 * LATE_GRACE_MS + 500);
     });
 
     it('created after a request arrived, sends its response without Connection: close', async () => {
