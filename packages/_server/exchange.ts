@@ -1,6 +1,6 @@
 import { CancelError, isCancelError } from '@cancjs/promise';
 
-import { DEFAULT_SHUTDOWN_STATUS, DEFAULT_TIMEOUT_STATUS } from './timeout';
+import { DEFAULT_TIMEOUT_STATUS, STAMP_WINS } from './timeout';
 import { IRequestLike, IResponseLike } from './types';
 
 /**
@@ -79,12 +79,12 @@ export function statusOf(error: CancelError, fallback: number): number {
 /**
  * The status a cancellation answers with in an adapter's handler.
  *
- * A stamped status comes first, so a deadline keeps the status it was given and the handler's
- * `status` option cannot re-map it. Without a stamp, the option applies, then 503. A timeout from
- * user code carries no stamp, so it takes the option like any other cancellation.
+ * A deadline's status and an explicit shutdown status come first, so the handler's `status` option
+ * cannot re-map them. Otherwise the option applies, then 503. A status the caller set on its own
+ * cancellation is not stamped, so it takes the option like any other cancellation.
  */
 export function cancelStatusOf(error: CancelError, option: number | undefined): number {
-  if (statusStamped(error) && !isDefaultShutdown(error)) {
+  if (stampWins(error) && statusStamped(error)) {
     return statusOf(error, DEFAULT_TIMEOUT_STATUS);
   }
 
@@ -96,16 +96,16 @@ export function cancelHeadersOf(error: CancelError): Record<string, string> | un
   return (error as CancelError & { headers?: Record<string, string> }).headers;
 }
 
-/** Whether the cancellation already carries a status on `status` or `statusCode`. */
+/** Whether the cancellation is the default one a shutdown raised, with no explicit status. */
+/** Whether the cancellation still carries a status on `status` or `statusCode`. */
 function statusStamped(error: CancelError): boolean {
   const carried = error as CancelError & { status?: unknown; statusCode?: unknown };
 
   return typeof carried.status === 'number' || typeof carried.statusCode === 'number';
 }
 
-/** Whether the cancellation is the default one a shutdown raised, with no explicit status. */
-function isDefaultShutdown(error: CancelError): boolean {
-  return (error as unknown as Record<symbol, unknown>)[DEFAULT_SHUTDOWN_STATUS] === true;
+function stampWins(error: CancelError): boolean {
+  return (error as unknown as Record<symbol, unknown>)[STAMP_WINS] === true;
 }
 
 /** Narrows a framework's request object to the structural stand-in this layer reads. */

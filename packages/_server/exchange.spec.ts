@@ -27,6 +27,12 @@ describe('exchange', () => {
       expect(cancelStatusOf(userTimeout, 418)).toBe(418);
     });
 
+    it('lets the handler status option beat a status the caller stamped on its own cancellation', () => {
+      const own = Object.assign(new CancelError('own'), { status: 499 });
+
+      expect(cancelStatusOf(own, 502)).toBe(502);
+    });
+
     it('answers 503 for a shutdown cancellation when no option is set', () => {
       expect(cancelStatusOf(createShutdownError('closing'), undefined)).toBe(503);
     });

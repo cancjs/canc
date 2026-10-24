@@ -30,6 +30,12 @@ export interface IStatusCancelError extends CancelError {
  */
 export const DEFAULT_SHUTDOWN_STATUS = Symbol.for('@cancjs/server-node:defaultShutdownStatus');
 
+/**
+ * Marks a cancellation whose status is the deadline's or an explicit shutdown's. That status beats a
+ * handler's `status` option; a status the caller set on its own error does not.
+ */
+export const STAMP_WINS = Symbol.for('@cancjs/server-node:stampWins');
+
 /** What a shutdown sets on the cancel it raises on each request. */
 export interface IShutdownErrorOptions {
   status?: number;
@@ -75,6 +81,7 @@ export function createTimeoutError(spec: ITimeoutSpec): IStatusCancelError {
 
   error.status = spec.status;
   error.statusCode = spec.status;
+  Object.defineProperty(error, STAMP_WINS, { value: true });
 
   return error;
 }
@@ -97,6 +104,8 @@ export function createShutdownError(message: string, options: IShutdownErrorOpti
   }
   if (options.status === undefined) {
     Object.defineProperty(error, DEFAULT_SHUTDOWN_STATUS, { value: true });
+  } else {
+    Object.defineProperty(error, STAMP_WINS, { value: true });
   }
 
   return error;
