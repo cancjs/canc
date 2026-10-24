@@ -579,6 +579,79 @@ describe('error handler', () => {
   });
 });
 
+describe('error handler gate and late failure', () => {
+  it('answers 500 for an ordinary failure on a request with a live cancel state', async () => {
+    const app = new Hono();
+
+    app.onError(cancelErrorHandler({ status: 502 }));
+    app.use(cancelMiddleware());
+    app.get(
+      '/boom',
+      cancelableHandler(function* () {
+        yield Promise.resolve();
+
+        throw new Error('boom');
+      }),
+    );
+
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const port = await listen(app);
+    const response = await send(port, '/boom');
+
+    expect(response.statusCode).toBe(500);
+    errorSpy.mockRestore();
+  });
+
+  it('leaves a user cancellation carrying its own status to the non-cancellation path', async () => {
+    const app = new Hono();
+
+    app.onError(cancelErrorHandler({ status: 502 }));
+    app.use(cancelMiddleware());
+    app.get(
+      '/user-stop',
+      cancelableHandler(function* () {
+        yield Promise.resolve();
+
+        throw Object.assign(new CancelError('user stop'), { status: 499 });
+      }),
+    );
+
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const port = await listen(app);
+    const response = await send(port, '/user-stop');
+
+    expect(response.statusCode).toBe(500);
+    errorSpy.mockRestore();
+  });
+
+  it('reports a late failure of a signal-only handler to console.error once', async () => {
+    const app = new Hono();
+
+    app.onError(cancelErrorHandler());
+    app.get(
+      '/late',
+      cancelableHandler(
+        async () => {
+          await new Promise((resolve) => setTimeout(resolve, 80));
+
+          throw new Error('late boom');
+        },
+        { timeout: 25 },
+      ),
+    );
+
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const port = await listen(app);
+    const response = await send(port, '/late');
+
+    await new Promise((resolve) => setTimeout(resolve, 150));
+
+    expect(response.statusCode).toBe(503);
+    expect(errorSpy.mock.calls.filter(([label]) => label === '[@cancjs/server-hono] late failure')).toHaveLength(1);
+    errorSpy.mockRestore();
+  });
+});
+
 describe('cancellation after the response ended', () => {
   it('is dropped instead of forwarded', async () => {
     const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -734,6 +807,30 @@ describe('shutdown cancel status', () => {
     await createShutdown(server!)({ cancelAfter: 200 });
 
     expect((await pending).statusCode).toBe(502);
+  });
+
+  it('keeps an explicit shutdown status over the handler status', async () => {
+    const app = new Hono();
+    const started = deferred();
+
+    app.onError(cancelErrorHandler({ status: 502 }));
+    app.use(cancelMiddleware());
+    app.get(
+      '/hang',
+      cancelableHandler(function* (c) {
+        started.resolve();
+        yield new Promise(() => undefined);
+
+        return c.text('never');
+      }),
+    );
+
+    const port = await listen(app);
+    const pending = send(port, '/hang');
+    await started.promise;
+    await createShutdown(server!)({ cancelAfter: 200, status: 504 });
+
+    expect((await pending).statusCode).toBe(504);
   });
 
   it('keeps a deadline status over the handler status', async () => {

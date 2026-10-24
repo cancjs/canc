@@ -74,7 +74,11 @@ export function cancelableHandler<E extends Env = any, P extends string = any, I
 ): Handler<E, P, I, Promise<Response>> {
   return function cancelableRoute(c, next) {
     const context: ICancelContext = c;
-    const task = startTask(handler as TAnyFn, context, options, { args: [c], next });
+    const task = startTask(handler as TAnyFn, context, options, {
+      args: [c],
+      next,
+      onLateFailure: (error) => console.error('[@cancjs/server-hono] late failure', error),
+    });
 
     return task.catch((error: unknown) => {
       // a sent head cannot take a status: cut the socket first, so the response left behind is
