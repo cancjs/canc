@@ -619,6 +619,49 @@ describe('graceful shutdown over a real socket', () => {
     expect((await shutdown).timedOut).toBe(false);
   });
 
+  it('restores the own writeHead an app installed, and calls it once with Connection close', async () => {
+    const entered = deferred();
+    const gate = deferred();
+    const headCalls: string[] = [];
+    let resRef: ServerResponse | undefined;
+    let restored: boolean | undefined;
+    const { port, server } = await listen((req, res) => {
+      void runCancelableHandler(() => 'next', req, res);
+      resRef = res;
+      // the on-headers pattern: an own writeHead that records the header, then calls the original
+      const original = res.writeHead;
+      const appWrite = function (this: ServerResponse, ...args: unknown[]) {
+        headCalls.push(String(this.getHeader('Connection')));
+        return (original as (...rest: unknown[]) => ServerResponse).apply(this, args);
+      };
+      res.writeHead = appWrite as typeof res.writeHead;
+      entered.resolve();
+      void gate.promise.then(() => {
+        res.writeHead(200, { 'Content-Length': '2' });
+        restored = res.writeHead === appWrite;
+        res.end('ok');
+      });
+    });
+
+    const client = await rawClient(port);
+    let received = '';
+    client.on('data', (chunk: Buffer) => {
+      received += chunk.toString('latin1');
+    });
+    const closed = once(client, 'close');
+    client.write('GET /held HTTP/1.1\r\nHost: localhost\r\n\r\n');
+    await entered.promise;
+    const shutdown = shutdownServer(server, { cancelAfter: 1000 });
+    gate.resolve();
+    await shutdown;
+    await closed;
+
+    expect(headCalls).toEqual(['close']);
+    expect(restored).toBe(true);
+    expect(resRef).toBeDefined();
+    expect(received).toMatch(/connection: close/i);
+  });
+
   it('answers a request arriving on a kept-alive connection with Connection close', async () => {
     const firstEntered = deferred();
     const lateEntered = deferred();
