@@ -747,6 +747,31 @@ describe('framework headers on a cancel answer', () => {
     expect(response.headers['retry-after']).toBeUndefined();
   });
 
+  it('does not log a late failure inside the test environment', async () => {
+    const app = express();
+    const logged = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    app.get(
+      '/late',
+      cancelableHandler(
+        async () => {
+          await new Promise((resolve) => setTimeout(resolve, 60));
+          throw new Error('late');
+        },
+        { timeout: 20 },
+      ),
+    );
+    app.use(cancelErrorHandler());
+
+    const port = await listen(app);
+    const response = await httpRequest(port, { path: '/late' });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    expect(response.status).toBe(503);
+    expect(logged).not.toHaveBeenCalled();
+    logged.mockRestore();
+  });
+
   it('logs a late failure once outside the test environment', async () => {
     const app = express();
     app.set('env', 'development');
