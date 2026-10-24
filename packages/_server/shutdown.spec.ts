@@ -1471,17 +1471,13 @@ describe('graceful shutdown with an upgraded socket', () => {
 
     const answer = get(port, '/slow');
     await entered.promise;
-    const shutdown = shutdownOf({ cancelAfter: 50, closeAfter: 10000 });
+    const shutdown = shutdownOf({ cancelAfter: 50, closeAfter: 1000 });
     await canceled.promise;
     gate.resolve();
 
     expect(await answer).toMatchObject({ body: 'late', status: 200 });
-    const outcome = await Promise.race([
-      shutdown.then((result) => result),
-      new Promise<'late'>((resolve) => setTimeout(() => resolve('late'), 2000)),
-    ]);
+    const outcome = await shutdown;
 
-    expect(outcome).not.toBe('late');
     expect(outcome).toMatchObject({ timedOut: false });
     expect(server.listening).toBe(false);
   });
