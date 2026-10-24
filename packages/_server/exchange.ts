@@ -79,15 +79,15 @@ export function statusOf(error: CancelError, fallback: number): number {
 
 /**
  * The status a cancellation answers with in an adapter's handler, or `undefined` when the
- * cancellation is not one the request owns.
+ * cancellation carries no status at all.
  *
  * This reads the status only; it does not decide ownership. An unstamped cancellation (no status
  * on it) yields `undefined`, so the caller's own cancel, a timeout the handler raised on its own,
  * passes through untouched. A deadline's status and an explicit shutdown status both carry the
- * stamp that wins (`STAMP_WINS`), so the handler's `status` option cannot re-map them. Otherwise the option
- * applies, then 503. A status the caller set on its own cancellation reads as a status like any
- * other, so an owned one takes the option. Callers decide whether to answer at all with
- * `ownedStatusOf`, which checks ownership first.
+ * stamp that wins (`STAMP_WINS`), so the handler's `status` option cannot re-map them.
+ * Otherwise the option applies, then 503. A status the caller set on its own cancellation reads as
+ * a status like any other, so an owned one takes the option. Callers decide whether to answer at
+ * all with `ownedStatusOf`, which checks ownership first.
  */
 export function cancelStatusOf(error: CancelError, option: number | undefined): number | undefined {
   if (!statusStamped(error)) {
