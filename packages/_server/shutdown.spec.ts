@@ -69,7 +69,7 @@ describe('graceful shutdown', () => {
       const result = await shutdown;
       const error = (await outcome) as CancelError;
 
-      expect(result).toEqual({ canceled: 1, completed: 0, timedOut: true });
+      expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
       expect(isCancelError(error)).toBe(true);
       expect(error.message).toBe(SERVER_SHUTDOWN);
       expect(server.allClosed).toBe(0);
@@ -176,9 +176,10 @@ describe('graceful shutdown', () => {
 
       const shutdown = shutdownServer(server, { cancelAfter: 100 });
       // the grace timer, then the one turn left for answers to the cancel
-      jest.advanceTimersByTime(101);
+      jest.advanceTimersByTime(1101);
 
-      expect(await shutdown).toEqual({ canceled: 0, completed: 0, timedOut: true });
+      // the shielded task never answers: the cancel is counted, the window ran to closeAfter
+      expect(await shutdown).toEqual({ canceled: 1, completed: 0, timedOut: true });
       expect(server.allClosed).toBe(1);
     } finally {
       jest.useRealTimers();
@@ -283,11 +284,7 @@ describe('graceful shutdown', () => {
     const signal = getNodeRequestSignal(req, res);
     signal.addEventListener('abort', () => res.end());
 
-    expect(await shutdownServer(server, { cancelAfter: 0 })).toEqual({
-      canceled: 0,
-      completed: 1,
-      timedOut: false,
-    });
+    expect(await shutdownServer(server, { cancelAfter: 0 })).toEqual({ canceled: 1, completed: 0, timedOut: false });
     expect(signal.aborted).toBe(true);
     expect((signal.reason as CancelError).message).toBe(SERVER_SHUTDOWN);
   });
@@ -404,7 +401,7 @@ describe('graceful shutdown', () => {
       }
       expect(shutdownServer(server)).toBe(second);
 
-      jest.advanceTimersByTime(51);
+      jest.advanceTimersByTime(1050);
       await second;
 
       expect(server.allClosed).toBe(1);
@@ -514,7 +511,7 @@ describe('graceful shutdown over a real socket', () => {
 
     expect(outcome.error).toBe('ECONNRESET');
     expect(outcome.at - startedAt).toBeGreaterThanOrEqual(250);
-    expect(result.timedOut).toBe(true);
+    expect(result.timedOut).toBe(false);
   });
 
   describe.each([
@@ -692,7 +689,7 @@ describe('graceful shutdown over a real socket', () => {
     const result = await shutdownServer(server, { cancelAfter: 200 });
 
     expect(await answer).toMatchObject({ status: 503 });
-    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: true });
+    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
   });
 
   it('does not count a request again when a task settles after its response closed', async () => {
@@ -762,7 +759,11 @@ describe('graceful shutdown over a real socket', () => {
     const shutdown = shutdownServer(server, { cancelAfter: 1000 });
     gate.resolve();
 
-    expect(await answer).toMatchObject({ body: 'done', connection: 'close', status: 200 });
+    expect(await answer).toMatchObject({
+      body: 'done',
+      connection: 'close',
+      status: 200,
+    });
     expect(await shutdown).toEqual({ canceled: 0, completed: 1, timedOut: false });
   });
 
@@ -793,10 +794,14 @@ describe('graceful shutdown over a real socket', () => {
     const result = await shutdownServer(server, { cancelAfter: 500 });
     const outcome = await answer;
 
-    expect(outcome).toMatchObject({ body: SERVER_SHUTDOWN, connection: 'close', status: 503 });
+    expect(outcome).toMatchObject({
+      body: SERVER_SHUTDOWN,
+      connection: 'close',
+      status: 503,
+    });
     expect(outcome.at - startedAt).toBeGreaterThanOrEqual(450);
     expect(cleanedUp).toBe(true);
-    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: true });
+    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
   });
 
   it('runs a wrapped handler for a request arriving on a kept-alive connection', async () => {
@@ -948,7 +953,7 @@ describe('graceful shutdown over a real socket', () => {
     expect(responses).toHaveLength(2);
     expect(responses[1]).toMatch(/^HTTP\/1\.1 503/);
     expect(responses[1]).toContain(SERVER_SHUTDOWN);
-    expect(result).toEqual({ canceled: 1, completed: 1, timedOut: true });
+    expect(result).toEqual({ canceled: 1, completed: 1, timedOut: false });
   });
 
   it('cancels a wrapped handler at once when asked to cancel on start', async () => {
@@ -970,7 +975,10 @@ describe('graceful shutdown over a real socket', () => {
     const answer = get(port, '/stream');
     await entered.promise;
     // a window this long only ends early because the handler was canceled at the start
-    const result = await shutdownServer(server, { cancelAfter: 0, closeAfter: 60_000 });
+    const result = await shutdownServer(server, {
+      cancelAfter: 0,
+      closeAfter: 60_000,
+    });
 
     expect(await answer).toMatchObject({ body: SERVER_SHUTDOWN, status: 503 });
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
@@ -984,7 +992,9 @@ describe('graceful shutdown over a real socket', () => {
       res.on('close', () => {
         setImmediate(() => {
           lateSignals.push(getNodeRequestSignal(req, res).aborted);
-          void runCancelableHandler(() => 'late', req, res, { timeout: 60_000 });
+          void runCancelableHandler(() => 'late', req, res, {
+            timeout: 60_000,
+          });
           asked.resolve();
         });
       });
@@ -1065,7 +1075,12 @@ function get(port: number, path: string): Promise<IClientOutcome> {
         body += chunk;
       });
       res.on('end', () => {
-        resolve({ at: Date.now(), body, connection: res.headers.connection, status: res.statusCode });
+        resolve({
+          at: Date.now(),
+          body,
+          connection: res.headers.connection,
+          status: res.statusCode,
+        });
       });
       res.on('error', (error: NodeJS.ErrnoException) => resolve({ at: Date.now(), error: error.code }));
     });
@@ -1124,7 +1139,8 @@ describe('shutdown cancel point', () => {
 
     await jest.advanceTimersByTimeAsync(2);
 
-    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: true });
+    // the handler answers the cancel, so the window closes at the cancel point, not at closeAfter
+    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
   });
 
   it('cancels at closeAfter minus 1_000 when only closeAfter is set', async () => {
@@ -1141,7 +1157,7 @@ describe('shutdown cancel point', () => {
 
     await jest.advanceTimersByTimeAsync(2);
 
-    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: true });
+    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
   });
 
   it('throws a RangeError naming both values when cancelAfter is greater than closeAfter', () => {

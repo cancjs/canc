@@ -807,7 +807,7 @@ describe('shutdown', () => {
 
     const result = await createShutdown(instance)({ cancelAfter: 200 });
 
-    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: true });
+    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
     expect((await pending).statusCode).toBe(503);
     expect((instance as http.Server).listening).toBe(false);
   });

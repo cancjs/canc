@@ -796,7 +796,7 @@ describe('shutdown', () => {
     await started.promise;
     const result = await createShutdown(lastServer())({ cancelAfter: 200 });
 
-    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: true });
+    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
     expect((await pending).status).toBe(503);
     expect(forwarded).toHaveLength(1);
     expect(isCancelError(forwarded[0])).toBe(true);
@@ -828,7 +828,7 @@ describe('shutdown', () => {
     await started.promise;
     const result = await createShutdown(lastServer())({ cancelAfter: 200 });
 
-    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: true });
+    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
     expect((await pending).status).toBe(503);
   });
 

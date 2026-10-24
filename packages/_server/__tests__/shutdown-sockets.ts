@@ -285,7 +285,7 @@ export function describeShutdownSockets(
       expect(await first).toEqual({ canceled: 0, completed: 0, timedOut: false });
     });
 
-    it('created after a connection opened, closes that connection only when the window ends', async () => {
+    it('created after a connection opened, closes that connection at the cancel point', async () => {
       const app = await startApp();
       const { closed } = await preconnect(app.server, app.port);
       const shutdown = createShutdown(app.target as never);
@@ -295,9 +295,27 @@ export function describeShutdownSockets(
       const elapsed = performance.now() - startedAt;
       const closedAfter = (await closed) - startedAt;
 
-      expect(result.timedOut).toBe(true);
+      expect(result.timedOut).toBe(false);
       expect(elapsed).toBeGreaterThanOrEqual(LATE_GRACE_MS - TIMER_SLACK_MS);
       expect(closedAfter).toBeGreaterThanOrEqual(LATE_GRACE_MS - TIMER_SLACK_MS);
+    });
+
+    it('closes an in-flight request with no cancel middleware at the cancel point, not at closeAfter', async () => {
+      const app = await startApp();
+      const { client, closed } = openClient(app.port);
+      client.write(`${REQUEST_HEAD}\r\n`);
+      await app.arrival;
+      const shutdown = createShutdown(app.target as never);
+
+      const startedAt = performance.now();
+      const result = await shutdown({ cancelAfter: LATE_GRACE_MS });
+      const elapsed = performance.now() - startedAt;
+      await closed;
+
+      // untracked by the factory, so not counted; the close itself is what the window measures
+      expect(result).toEqual({ canceled: 0, completed: 0, timedOut: false });
+      expect(elapsed).toBeGreaterThanOrEqual(LATE_GRACE_MS - TIMER_SLACK_MS);
+      expect(elapsed).toBeLessThan(LATE_GRACE_MS + 500);
     });
 
     it('created after a request arrived, sends its response without Connection: close', async () => {

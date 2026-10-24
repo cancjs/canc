@@ -700,7 +700,7 @@ describe('error handler', () => {
 
     app = undefined;
 
-    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: true });
+    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
     expect(await outcome).toEqual({ body: 'part1,', complete: false });
   });
 
@@ -977,7 +977,7 @@ describe('shutdown', () => {
 
     app = undefined;
 
-    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: true });
+    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
     expect((await pending).statusCode).toBe(503);
     expect(instance.server.listening).toBe(false);
   });
@@ -1009,7 +1009,7 @@ describe('shutdown', () => {
     app = undefined;
     request.destroy();
 
-    expect(result).toEqual({ canceled: 0, completed: 0, timedOut: true });
+    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: true });
   });
 
   it('tells a request held before the plugin hook to close its connection', async () => {

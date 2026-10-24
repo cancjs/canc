@@ -95,8 +95,8 @@ export function shutdownServer(
   // only cancels the tasks and signals it tracks
   const ownsConnections = options.closeServer !== false;
   const cancelAtStart = cancelAfter === 0;
-  // until the hard end has its own timer, the window ends where the cancel does; a cancel at start
-  // keeps the hard end, so the handlers have the whole window to unwind
+  // a cancel at start leaves the handlers the whole hard-end window to unwind; the requestless age
+  // is capped at that window
   const windowMs = cancelAtStart ? closeAfter : cancelAfter;
   // registry precedence only, so a setPromiseImpl consumer gets its own class back from the
   // settled outcome this resolves to, same as the rest of the request-cancellation core
@@ -289,9 +289,13 @@ export function shutdownServer(
         drain.over = true;
         socket?.removeListener?.('close', onClose);
         // a response ended but cut before its bytes left the socket was not completed
-        drain.wasCanceled = drain.wasCanceled || hasClientLeft(res) || res.writableFinished === false;
+        drain.wasCanceled =
+          drain.wasCanceled || hasClientLeft(res) || res.writableFinished === false || isCanceledHere(req);
         closeSocket(socket);
         settleDrain(drain);
+        if (graceEnded && !hardEnded && !holdsWindow()) {
+          hardEnd(false);
+        }
       };
 
       res.once('close', onClose);
@@ -331,6 +335,25 @@ export function shutdownServer(
 
     // a response that closed before admission with nothing in flight never reports again
     settleDrain(drain);
+  };
+
+  const isCanceledHere = (req: IRequestLike) => getRequestState(req)?.shuttingDown === true;
+
+  // what is still open at the hard end is force-closed, counted here since its close can come later
+  const countForced = () => {
+    for (const drain of drains.values()) {
+      if (drain.counted) {
+        continue;
+      }
+
+      drain.counted = true;
+      openRequests -= 1;
+      if (drain.over && !drain.wasCanceled && !isCanceledHere(drain.req)) {
+        completed += 1;
+      } else {
+        canceled += 1;
+      }
+    }
   };
 
   // one instance per request: its live tasks and its signal get the same cancellation, and no two
@@ -398,34 +421,71 @@ export function shutdownServer(
   closeIdle();
   closeRequestless();
 
-  if (cancelAtStart) {
+  // a canceled request that still owes a response holds the window open
+  // anything else open at the cancel point is force-closed at once
+  let endWindow: () => void = noop;
+  let cancelTimer: ReturnType<typeof setTimeout> | undefined;
+  let closeTimer: ReturnType<typeof setTimeout> | undefined;
+  let hardEnded = false;
+
+  // race cancels the loser, so an early finish or cancel clears the timers through here
+  const window = new Impl<void>((resolve, _reject, { handleCancel }) => {
+    endWindow = resolve;
+    handleCancel(() => {
+      clearTimeout(cancelTimer);
+      clearTimeout(closeTimer);
+    });
+  });
+
+  // a request canceled by this shutdown, with its response still open
+  const awaitedCancels = () => {
+    let owed = 0;
+    for (const drain of drains.values()) {
+      if (!drain.counted && !drain.over && isCanceledHere(drain.req)) {
+        owed += 1;
+      }
+    }
+
+    return owed;
+  };
+
+  const hardEnd = (expired: boolean) => {
+    if (hardEnded) {
+      return;
+    }
+
+    hardEnded = true;
+    clearTimeout(cancelTimer);
+    clearTimeout(closeTimer);
+    timedOut = expired && (openRequests > 0 || listening);
+    // a connection opened before this layer met the server and idle now never closes itself
+    closeIdle();
+    endWindow();
+  };
+
+  // a cancel at start keeps the window to closeAfter, so a plain request still running keeps it
+  const holdsWindow = () => cancelAtStart || awaitedCancels() > 0;
+
+  // only one timer is armed at a time: the cancel point until it fires, then the hard end
+  const atCancelPoint = () => {
+    graceEnded = true;
     cancelOpenRequests();
+    closeIdle();
+    if (!holdsWindow()) {
+      hardEnd(false);
+    } else if (closeAfter !== Infinity) {
+      closeTimer = setTimeout(() => hardEnd(true), closeAfter - cancelAfter);
+    }
+  };
+
+  // an infinite window waits for the drain however long it takes
+  if (cancelAtStart) {
+    atCancelPoint();
+  } else if (cancelAfter !== Infinity) {
+    cancelTimer = setTimeout(atCancelPoint, cancelAfter);
   }
 
   settleIfDrained();
-
-  const window = new Impl<void>((resolve, _reject, { handleCancel }) => {
-    // an infinite grace waits for the drain however long it takes
-    let timer =
-      windowMs === Infinity ? undefined : (
-        setTimeout(() => {
-          graceEnded = true;
-          timedOut = openRequests > 0;
-          cancelOpenRequests();
-          // a connection opened before this layer met the server and idle now never closes itself
-          closeIdle();
-          // one more turn lets a response written in answer to a cancel reach its socket first, and
-          // an idle connection closed just now count as gone
-          timer = setTimeout(() => {
-            timedOut = timedOut || openRequests > 0 || listening;
-            resolve();
-          }, 0);
-        }, windowMs)
-      );
-
-    // race cancels the loser, so an early finish or cancel clears this timer through here
-    handleCancel(() => clearTimeout(timer));
-  });
 
   const onArrival = registry.onArrival;
   const stopDraining = () => {
@@ -454,6 +514,7 @@ export function shutdownServer(
         if ((openRequests > 0 || listening) && ownsConnections && isFunction(server.closeAllConnections)) {
           server.closeAllConnections();
         }
+        countForced();
 
         resolve({ canceled, completed, timedOut });
       },

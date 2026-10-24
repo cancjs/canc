@@ -197,7 +197,7 @@ describe('express under concurrency', () => {
     }
   });
 
-  it('ends a stream that outlives the grace window with an error, not a clean end', async () => {
+  it('ends a stream canceled at the cancel point with an error, not a clean end', async () => {
     const started = deferred();
 
     const app = express();
@@ -227,7 +227,7 @@ describe('express under concurrency', () => {
     await started.promise;
     const result = await expressServer.createShutdown(lastServer())({ cancelAfter: 20 });
 
-    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: true });
+    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
     expect(await outcome).toBe('truncated');
   });
 });
