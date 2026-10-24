@@ -103,7 +103,7 @@ Koa has no dedicated error-middleware slot. An `await next()` wrapped in a `try`
 
 ### Nothing is written to a dead socket
 
-A cancellation that arrives with the client already gone is dropped in place: `ctx.respond` is set to `false`, which tells Koa to skip its own response handling entirely. The same drop applies when the response already finished before the cancellation arrived. The disconnect check reads the request signal and the raw response rather than `ctx.writable`, because `ctx.writable` reads the socket and reports a departed client as still writable. Every other cancellation is stamped with the status and headers it answers with and rethrown, so it travels up the middleware stack and Koa's own error handling answers it, and `app.on('error')` receives it.
+A cancellation that arrives with the client already gone is dropped in place: `ctx.respond` is set to `false`, which tells Koa to skip its own response handling entirely. The same drop applies when the response already finished before the cancellation arrived. The disconnect check reads the request signal and the raw response rather than `ctx.writable`, because `ctx.writable` reads the socket and reports a departed client as still writable. Every other cancellation the request owns is stamped with the status and headers it answers with and rethrown, so it travels up the middleware stack and Koa's own error handling answers it, and `app.on('error')` receives it. A cancellation the request does not own, such as a user cancel, is not touched.
 
 When the response head has already gone out, no status can follow it. The connection is destroyed instead, so the client sees an aborted response rather than one that ends cleanly with a truncated body. The cancellation is still rethrown, so `app.on('error')` sees the cut too.
 
@@ -144,7 +144,7 @@ When the window ends, handlers still running are canceled with the shutdown reas
 
 `status` and `headers` set the answer each request the shutdown cancels gets, for example `shutdown({ cancelAfter: 10_000, status: 504, headers: { 'Retry-After': '5' } })`. For these cancellations `status` takes precedence over a handler's `status` option, and `headers` are added to the answer. A deadline keeps the status it was given. Invalid values throw from `shutdown()`: a `status` outside 200 to 599 raises a `RangeError`, and a header name or value HTTP does not allow raises a `TypeError`.
 
-To add a header to a shutdown answer, set `err.headers` in your own error middleware; koa applies it. A shutdown cancel and a disconnect both reach a handler as a cancellation, so test `err.status` to tell them apart, since `!err.timedOut` alone matches both. Retry only idempotent requests, because the handler may have partly run. An abort that a library wraps in its own error answers the framework's 500, for a deadline or a shutdown alike.
+To add a header to a shutdown answer, set `err.headers` in your own error middleware; koa applies it. Koa's error handling removes every header set on the response before it answers, so a header set with `ctx.set` earlier in the stack does not survive an error answer. Only `err.headers` does, and koa forces the body to `text/plain`. To log, listen on `app.on('error', (err, ctx) => …)`: it receives every cancellation, including the ones a shutdown raises, so filter on `err.status` before writing to your log. A shutdown cancel and a disconnect both reach a handler as a cancellation, so test `err.status` to tell them apart, since `!err.timedOut` alone matches both. Retry only idempotent requests, because the handler may have partly run. An abort that a library wraps in its own error answers the framework's 500, for a deadline or a shutdown alike.
 
 Pass `cancelAfter: 0` to cancel handlers as soon as the shutdown starts instead, which suits long-lived responses such as server-sent events or long polling that would otherwise hold the whole window.
 
@@ -186,7 +186,7 @@ A wrapped route installs the signal on its own, and cuts the connection when a c
 
 ### Readiness and websockets
 
-Node does not list a websocket as a connection once it is upgraded, so `shutdown()` cannot close it with a close frame. Once the window ends it destroys the socket without one, which the client sees as code `1006` (abnormal closure). Close your websockets yourself when shutdown starts, with code `1001` (going away), and let the shutdown wait for them:
+Node does not list a websocket as a connection once it is upgraded, so `shutdown()` cannot close it with a close frame. At the grace period's end (`cancelAfter`) it destroys an upgraded socket that no request holds open, and at the hard end (`closeAfter`) any socket still open, without a close frame, which the client sees as code `1006` (abnormal closure). Close your websockets yourself when shutdown starts, with code `1001` (going away), and let the shutdown wait for them:
 
 ```ts
 await Promise.all([closeWebSockets(1001), shutdown({ cancelAfter: 5_000 })]);
