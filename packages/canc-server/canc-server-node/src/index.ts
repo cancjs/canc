@@ -67,9 +67,9 @@ export interface INodeCancelableHandlerOptions<
 /** Options `cancelErrorHandler` accepts on raw node, adding the opt-in rethrow. */
 export interface INodeCancelErrorHandlerOptions extends ICancelErrorHandlerOptions {
   /**
-   * Throws anything that is not a cancellation instead of answering `500`. Nothing awaits the
-   * throw, so it surfaces as an unhandled rejection and, under node's default settings, ends the
-   * process without answering the request. Opt in only where a process level handler is installed
+   * Throws anything that is not a cancellation the request owns instead of answering `500`. Nothing
+   * awaits the throw, so it surfaces as an unhandled rejection and, under node's default settings,
+   * ends the process without answering the request. Opt in only where a process level handler is installed
    * to receive it.
    * Defaults to `false`.
    */
