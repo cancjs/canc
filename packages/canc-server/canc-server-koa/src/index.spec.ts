@@ -1,4 +1,4 @@
-import { CancelablePromise, CancelError, isCancelError, isCancelSignal } from '@cancjs/promise';
+import { CancelablePromise, CancelError, isCancelError, isCancelSignal, TimeoutError } from '@cancjs/promise';
 import { getEventListeners, once } from 'events';
 import { IncomingHttpHeaders, IncomingMessage, request, Server } from 'http';
 import Koa, { Context, Middleware, Next } from 'koa';
@@ -183,6 +183,36 @@ describe('client disconnect', () => {
     expect(disconnects).toHaveLength(1);
     expect(isCancelError(disconnects[0])).toBe(true);
     expect(disconnects[0].timedOut).toBe(false);
+  });
+
+  it('hands a timed-out error that lands after the client left to app error, not nothing', async () => {
+    const app = new Koa();
+    const started = deferred();
+    const release = deferred();
+    const errors: unknown[] = [];
+
+    app.on('error', (error) => errors.push(error));
+    app.use(cancelMiddleware());
+    app.use(
+      route('/late', async () => {
+        started.resolve();
+        await new Promise((_resolve, reject) => {
+          release.promise.then(() => reject(new CancelError('late', { cause: new TimeoutError('late') })));
+        });
+      }),
+    );
+
+    const port = await listen(app);
+    const client = await rawRequest(port, 'GET /late HTTP/1.1\r\nHost: localhost\r\n\r\n');
+
+    await started.promise;
+    client.destroy();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    release.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+
+    expect(errors).toHaveLength(1);
+    expect(isCancelError(errors[0]) && errors[0].timedOut).toBe(true);
   });
 
   it('never starts a handler whose client left before it was reached', async () => {
