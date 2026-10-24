@@ -1001,6 +1001,28 @@ describe('graceful shutdown over a real socket', () => {
     expect(result).toEqual({ canceled: 1, completed: 1, timedOut: false });
   });
 
+  it('carries the shutdown status and headers on a live request canceled at once', async () => {
+    const server = new FakeServer();
+    const { req, res } = createExchange(server);
+
+    const outcome = answer(
+      runCancelableHandler(
+        function* () {
+          yield pending();
+        },
+        req,
+        res,
+      ),
+      res,
+    );
+
+    await shutdownServer(server, { cancelAfter: 0, headers: { 'Retry-After': '5' }, status: 504 });
+    const error = (await outcome) as CancelError & { status?: number; headers?: Record<string, string> };
+
+    expect(error.status).toBe(504);
+    expect(error.headers).toEqual({ 'Retry-After': '5' });
+  });
+
   it('cancels a wrapped handler at once when asked to cancel on start', async () => {
     const entered = deferred();
     const { port, server } = await listen((req, res) => {
@@ -1291,5 +1313,46 @@ describe('graceful shutdown with an upgraded socket', () => {
     expect(outcome).not.toBe('late');
     expect(outcome).toMatchObject({ timedOut: false });
     expect(server.listening).toBe(false);
+  });
+});
+
+describe('shutdown answer validation', () => {
+  it.each([99, 600, 1000, 1.5, Number.NaN])(
+    'throws a RangeError for status %p before any shutdown starts',
+    (status) => {
+      const server = new FakeServer();
+
+      expect(() => shutdownServer(server as never, { status })).toThrow(RangeError);
+      expect(server.closed).toBe(0);
+    },
+  );
+
+  it.each([
+    ['a name with a space', 'Retry After', '5'],
+    ['an empty name', '', '5'],
+    ['a name with a colon', 'X:Y', '5'],
+  ])('throws a TypeError for a header with %s', (_label, name, value) => {
+    const server = new FakeServer();
+
+    expect(() => shutdownServer(server as never, { headers: { [name]: value } })).toThrow(TypeError);
+    expect(server.closed).toBe(0);
+  });
+
+  it.each([
+    ['a line break', 'a\r\nInjected: 1'],
+    ['a NUL byte', 'a\u0000b'],
+    ['a number', 5],
+  ])('throws a TypeError for a header value with %s', (_label, value) => {
+    const server = new FakeServer();
+
+    expect(() => shutdownServer(server as never, { headers: { 'Retry-After': value as string } })).toThrow(TypeError);
+    expect(server.closed).toBe(0);
+  });
+
+  it('accepts a status of 100, 599 and a tab inside a header value', () => {
+    const server = new FakeServer();
+
+    expect(() => shutdownServer(server as never, { status: 100, headers: { 'X-A': 'a\tb' } })).not.toThrow();
+    expect(() => shutdownServer(server as never, { status: 599 })).not.toThrow();
   });
 });

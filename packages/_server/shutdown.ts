@@ -84,6 +84,7 @@ export function shutdownServer(
   server: IServerLike,
   options: IShutdownOptions = {},
 ): CancelablePromise<IShutdownResult, never> {
+  checkCancelAnswer(options);
   const running = getShutdownState(server);
   if (running) {
     return running;
@@ -585,6 +586,26 @@ export function createServerShutdown(server: IServerLike): TShutdownFunction {
   setShutdownFunction(server, shutdown);
 
   return shutdown;
+}
+
+// a status or header the platform would refuse throws here, not inside a request mid-drain
+const HEADER_NAME = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
+const INVALID_HEADER_VALUE = /[^\t\x20-\x7e\x80-\xff]/;
+
+function checkCancelAnswer(options: IShutdownOptions): void {
+  const { status, headers } = options;
+  if (status !== undefined && (!Number.isInteger(status) || status < 100 || status > 599)) {
+    throw new RangeError(`status (${status}) must be an integer from 100 to 599`);
+  }
+
+  for (const [name, value] of Object.entries(headers ?? {})) {
+    if (!HEADER_NAME.test(name)) {
+      throw new TypeError(`header name (${name}) is not a valid token`);
+    }
+    if (typeof value !== 'string' || INVALID_HEADER_VALUE.test(value)) {
+      throw new TypeError(`header ${name} has an invalid value`);
+    }
+  }
 }
 
 function resolveWindows(options: IShutdownOptions): { cancelAfter: number; closeAfter: number } {
