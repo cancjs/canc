@@ -1314,6 +1314,57 @@ describe('graceful shutdown with an upgraded socket', () => {
     expect(outcome).toMatchObject({ timedOut: false });
     expect(server.listening).toBe(false);
   });
+
+  it('ends a held upgraded socket once a canceled request finishes answering', async () => {
+    const entered = deferred();
+    const canceled = deferred();
+    const gate = deferred();
+    const server = createServer();
+    servers.push(server);
+    const shutdownOf = createServerShutdown(server);
+    server.on('upgrade', (_req, socket) => {
+      socket.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: test\r\nConnection: Upgrade\r\n\r\n');
+    });
+    // a request the grace end cancels, which still owes its answer after the cancel
+    server.on('request', (req, res) => {
+      const task = runCancelableHandler(
+        function* () {
+          entered.resolve();
+          yield pending();
+        },
+        req,
+        res,
+      );
+      void task.catch(() => {
+        canceled.resolve();
+        void gate.promise.then(() => res.end('late'));
+      });
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()));
+    const port = (server.address() as { port: number }).port;
+
+    const client = connect(port, '127.0.0.1');
+    sockets.push(client);
+    await once(client, 'connect');
+    client.write('GET /ws HTTP/1.1\r\nHost: x\r\nUpgrade: test\r\nConnection: Upgrade\r\n\r\n');
+    await new Promise<void>((resolve) => client.once('data', () => resolve()));
+
+    const answer = get(port, '/slow');
+    await entered.promise;
+    const shutdown = shutdownOf({ cancelAfter: 50, closeAfter: 10000 });
+    await canceled.promise;
+    gate.resolve();
+
+    expect(await answer).toMatchObject({ body: 'late', status: 200 });
+    const outcome = await Promise.race([
+      shutdown.then((result) => result),
+      new Promise<'late'>((resolve) => setTimeout(() => resolve('late'), 2000)),
+    ]);
+
+    expect(outcome).not.toBe('late');
+    expect(outcome).toMatchObject({ timedOut: false });
+    expect(server.listening).toBe(false);
+  });
 });
 
 describe('shutdown answer validation', () => {
