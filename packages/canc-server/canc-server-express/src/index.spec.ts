@@ -656,11 +656,24 @@ describe('framework headers on a cancel answer', () => {
   it('keeps the connection reusable after a real late res.json past a deadline answer', async () => {
     const app = express();
 
+    let lateWriteRan = false;
+
     app.use(cancelMiddleware({ timeout: { ms: 60, status: 504 } }));
     app.get(
       '/derived',
-      cancelableHandler(function* (_req: Request, res: Response) {
-        yield new CancelablePromise<void>((resolve) => setTimeout(resolve, 150)).then(() => res.json({ late: true }));
+      cancelableHandler((_req: Request, res: Response) => {
+        // a timer outside the canceled chain, so the write after the deadline answer really runs
+        setTimeout(() => {
+          lateWriteRan = true;
+
+          try {
+            res.json({ late: true });
+          } catch {
+            // the deadline answer already ended the response, so this write throws by design
+          }
+        }, 150);
+
+        return new CancelablePromise<void>(() => undefined);
       }),
     );
     app.get('/ok', (_req, res) => {
@@ -682,6 +695,7 @@ describe('framework headers on a cancel answer', () => {
     socket.destroy();
 
     expect(first.status).toBe(504);
+    expect(lateWriteRan).toBe(true);
     expect(second.status).toBe(200);
     expect(second.body).toBe('ok');
   });
