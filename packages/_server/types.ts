@@ -90,21 +90,24 @@ export interface ICancelErrorHandlerOptions {
 /** Options for a graceful shutdown. */
 export interface IShutdownOptions {
   /**
-   * Grace window in milliseconds before the shutdown gives up waiting. Defaults to 10000. A negative
-   * value is treated as 0, so the shutdown gives up at once.
+   * Milliseconds from the start of the shutdown at which in-flight handlers are canceled with the
+   * shutdown reason. Defaults to 10000, or 1000 before `closeAfter` when only `closeAfter` is set.
+   * `0` cancels at the start, and a request arriving during the shutdown is canceled on arrival too.
+   * Suits long-lived responses, such as server-sent events or long polling, that would otherwise hold
+   * the whole window. A negative value is treated as 0.
    */
-  timeout?: number;
+  cancelAfter?: number;
+  /**
+   * Milliseconds from the start of the shutdown after which the shutdown gives up waiting. Defaults to
+   * 11000, or `cancelAfter` plus 1000 when only `cancelAfter` is set. Keep it within the pod's
+   * termination grace period, less any preStop sleep and a margin. Throws a `RangeError` when
+   * `cancelAfter` is greater than it.
+   */
+  closeAfter?: number;
   /** Reason the in-flight requests are canceled with. Defaults to the shutdown reason. */
   reason?: string;
   /** Whether to stop accepting new connections first. Gates every connection-closing call, not only the listener itself. Defaults to true. */
   closeServer?: boolean;
-  /**
-   * Cancel in-flight handlers as soon as the shutdown starts, instead of letting them run until the
-   * grace window ends. A request arriving during the shutdown is canceled on arrival too. Suits
-   * long-lived responses, such as server-sent events or long polling, that would otherwise hold the
-   * whole window. Defaults to false.
-   */
-  cancelOnStart?: boolean;
 }
 
 /** What a graceful shutdown reports once the grace window closes or every request has settled. */

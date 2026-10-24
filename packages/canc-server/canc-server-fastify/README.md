@@ -69,7 +69,7 @@ Shutting down, with the shutdown created right after `app.listen()` so it knows 
 const shutdown = cancServer.createShutdown(app);
 
 process.on('SIGTERM', async () => {
-  const { canceled, completed, timedOut } = await shutdown({ timeout: 10_000 });
+  const { canceled, completed, timedOut } = await shutdown({ cancelAfter: 10_000 });
 
   console.log(`shut down: ${completed} finished, ${canceled} canceled, gave up: ${timedOut}`);
 });
@@ -136,13 +136,15 @@ When the window ends, handlers still running are canceled with the shutdown reas
 
 No `Retry-After` is sent with a shutdown answer. To add one, set `err.headers` in your own error middleware; fastify applies it. A shutdown cancel and a disconnect both reach a handler as a cancellation, so test `err.status` to tell them apart, since `!err.timedOut` alone matches both. Retry only idempotent requests, because the handler may have partly run. An abort that a library wraps in its own error answers the framework's 500, for a deadline or a shutdown alike.
 
-Pass `cancelOnStart: true` to cancel handlers as soon as the shutdown starts instead, which suits long-lived responses such as server-sent events or long polling that would otherwise hold the whole window.
+Pass `cancelAfter: 0` to cancel handlers as soon as the shutdown starts instead, which suits long-lived responses such as server-sent events or long polling that would otherwise hold the whole window.
 
 Created late, it finishes correctly but slower, because a connection opened before the call is unknown to it. If that connection has not sent a request yet, or its request is still in flight and neither `cancelPlugin` nor a wrapped handler recorded it, the connection is closed only when the grace window ends. That response goes out without `Connection: close`.
 
 A second call while the first is still running joins it rather than starting over, and calling `createShutdown` again with the same instance returns the same function.
 
-A `timeout` of `Infinity` waits for the responses however long they take, and a finite one past about 24.8 days is held at that limit.
+Migrating from `timeout`: rename it to `cancelAfter`. `cancelOnStart: true` becomes `cancelAfter: 0`, and without `closeAfter` the window is then 1 s instead of 10 s, so pass `closeAfter` to keep a longer one. The value is set once per server, so an app that mixes long-lived streams with ordinary routes ends its own streams when the shutdown starts and keeps the default for the rest.
+
+A `cancelAfter` of `Infinity` waits for the responses however long they take, and a finite one past about 24.8 days is held at that limit.
 
 Pass `closeServer: false` to leave the instance open, in which case `app.close()` is not called. Otherwise it awaits `app.close()` once the drain has finished, so `onClose` hooks and plugin teardown run against a server that has already finished with its handlers. A failing `onClose` hook is logged, and the counts are still returned.
 

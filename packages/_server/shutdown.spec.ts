@@ -60,7 +60,7 @@ describe('graceful shutdown', () => {
         settled = true;
       });
 
-      const shutdown = shutdownServer(server, { timeout: 100 });
+      const shutdown = shutdownServer(server, { cancelAfter: 100 });
       await jest.advanceTimersByTimeAsync(99);
 
       expect(settled).toBe(false);
@@ -93,7 +93,7 @@ describe('graceful shutdown', () => {
       res,
     );
 
-    const result = await shutdownServer(server, { cancelOnStart: true });
+    const result = await shutdownServer(server, { cancelAfter: 0 });
     const error = (await outcome) as CancelError;
 
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
@@ -119,7 +119,7 @@ describe('graceful shutdown', () => {
       ),
     );
 
-    expect((await shutdownServer(server, { cancelOnStart: true })).canceled).toBe(2);
+    expect((await shutdownServer(server, { cancelAfter: 0 })).canceled).toBe(2);
     expect((await Promise.all(outcomes)).every(isCancelError)).toBe(true);
   });
 
@@ -137,7 +137,7 @@ describe('graceful shutdown', () => {
     state.live.add(work);
     void answer(work, res);
 
-    expect(await shutdownServer(server, { timeout: 2000 })).toEqual({ canceled: 0, completed: 1, timedOut: false });
+    expect(await shutdownServer(server, { cancelAfter: 2000 })).toEqual({ canceled: 0, completed: 1, timedOut: false });
   });
 
   it('does not disturb a handler that already finished', async () => {
@@ -174,7 +174,7 @@ describe('graceful shutdown', () => {
       const { req, res } = createExchange(server);
       ensureRequestCancelState(req, res).live.add(pending({ shield: true }));
 
-      const shutdown = shutdownServer(server, { timeout: 100 });
+      const shutdown = shutdownServer(server, { cancelAfter: 100 });
       // the grace timer, then the one turn left for answers to the cancel
       jest.advanceTimersByTime(101);
 
@@ -212,7 +212,7 @@ describe('graceful shutdown', () => {
       res,
     );
 
-    const result = await shutdownServer(server, { cancelOnStart: true });
+    const result = await shutdownServer(server, { cancelAfter: 0 });
     const error = (await detached) as CancelError;
 
     expect(isCancelError(error)).toBe(true);
@@ -239,7 +239,7 @@ describe('graceful shutdown', () => {
       res,
     );
 
-    await shutdownServer(server, { cancelOnStart: true });
+    await shutdownServer(server, { cancelAfter: 0 });
 
     expect(onDisconnect).not.toHaveBeenCalled();
     expect(onTimeout).not.toHaveBeenCalled();
@@ -260,7 +260,7 @@ describe('graceful shutdown', () => {
       res,
     );
 
-    await shutdownServer(server, { cancelOnStart: true });
+    await shutdownServer(server, { cancelAfter: 0 });
 
     expect(await outcome).toBe(signal.reason);
   });
@@ -283,7 +283,7 @@ describe('graceful shutdown', () => {
     const signal = getNodeRequestSignal(req, res);
     signal.addEventListener('abort', () => res.end());
 
-    expect(await shutdownServer(server, { cancelOnStart: true })).toEqual({
+    expect(await shutdownServer(server, { cancelAfter: 0 })).toEqual({
       canceled: 0,
       completed: 1,
       timedOut: false,
@@ -311,7 +311,7 @@ describe('graceful shutdown', () => {
     // flagged closed before its close event dispatches, so the registry still holds it at admission
     Object.assign(res, { closed: true });
 
-    await expect(shutdownServer(server, { timeout: 50 })).resolves.toEqual({
+    await expect(shutdownServer(server, { cancelAfter: 50 })).resolves.toEqual({
       canceled: 0,
       completed: 1,
       timedOut: false,
@@ -326,7 +326,7 @@ describe('graceful shutdown', () => {
       const { req, res } = createExchange(server);
       recordRequest(getRequestRegistry(server, true)!, req, res);
 
-      const shutdown = shutdownServer(server, { timeout: 100 });
+      const shutdown = shutdownServer(server, { cancelAfter: 100 });
       // only the grace timer fires, the turn that settles the result is still queued
       jest.advanceTimersToNextTimer();
       const signal = getNodeRequestSignal(req, res);
@@ -346,7 +346,9 @@ describe('graceful shutdown', () => {
 
     ensureRequestCancelState(req, res).live.add(pending({ shield: true, strict: true }));
 
-    await expect(shutdownServer(server, { timeout: 50 })).resolves.toEqual(expect.objectContaining({ timedOut: true }));
+    await expect(shutdownServer(server, { cancelAfter: 50 })).resolves.toEqual(
+      expect.objectContaining({ timedOut: true }),
+    );
     expect(server.closed).toBe(1);
   });
 
@@ -384,10 +386,10 @@ describe('graceful shutdown', () => {
       const { req, res } = createExchange(server);
       ensureRequestCancelState(req, res).live.add(pending({ shield: true }));
 
-      const first = shutdownServer(server, { timeout: 50 });
+      const first = shutdownServer(server, { cancelAfter: 50 });
       first.cancel();
 
-      const second = shutdownServer(server, { timeout: 100 });
+      const second = shutdownServer(server, { cancelAfter: 100 });
       expect(second).not.toBe(first);
       // race loser window timer clears a few jobs after the cancel
       for (let i = 0; i < 20; i++) {
@@ -445,7 +447,7 @@ describe('shutdown argument and grace edges', () => {
       ).catch(() => undefined);
 
       let result: unknown;
-      void shutdownServer(server, { cancelOnStart: true, timeout }).then((value) => {
+      void shutdownServer(server, { cancelAfter: 0, closeAfter: timeout }).then((value) => {
         result = value;
       });
 
@@ -491,7 +493,7 @@ describe('graceful shutdown over a real socket', () => {
     });
     const answer = get(port, '/plain');
     await entered.promise;
-    const shutdown = shutdownServer(server, { timeout: 300 });
+    const shutdown = shutdownServer(server, { cancelAfter: 300 });
     gate.resolve();
 
     expect(await answer).toMatchObject({ body: 'plain ok', status: 200 });
@@ -507,7 +509,7 @@ describe('graceful shutdown over a real socket', () => {
     const answer = get(port, '/slow');
     await entered.promise;
     const startedAt = Date.now();
-    const result = await shutdownServer(server, { timeout: 300 });
+    const result = await shutdownServer(server, { cancelAfter: 300 });
     const outcome = await answer;
 
     expect(outcome.error).toBe('ECONNRESET');
@@ -549,7 +551,7 @@ describe('graceful shutdown over a real socket', () => {
       // the default client pool keeps the connection alive and reuses it unless told otherwise
       const first = get(port, '/first');
       await entered.promise;
-      const shutdown = shutdownServer(server, { timeout: 1000 });
+      const shutdown = shutdownServer(server, { cancelAfter: 1000 });
       gate.resolve();
       const firstOutcome = await first;
       const nextOutcome = await get(port, '/next');
@@ -572,7 +574,7 @@ describe('graceful shutdown over a real socket', () => {
     const answer = get(port, '/hold');
     await entered.promise;
     const before = countTimers();
-    const shutdown = shutdownServer(server, { timeout: 1000 });
+    const shutdown = shutdownServer(server, { cancelAfter: 1000 });
     const during = countTimers();
     gate.resolve();
 
@@ -609,7 +611,7 @@ describe('graceful shutdown over a real socket', () => {
     const closed = once(client, 'close');
     client.write('GET /held HTTP/1.1\r\nHost: localhost\r\n\r\n');
     await entered.promise;
-    const shutdown = shutdownServer(server, { timeout: 1000 });
+    const shutdown = shutdownServer(server, { cancelAfter: 1000 });
     gate.resolve();
     await checked.promise;
     await closed;
@@ -647,7 +649,7 @@ describe('graceful shutdown over a real socket', () => {
 
     client.write('GET /first HTTP/1.1\r\nHost: localhost\r\n\r\n');
     await firstEntered.promise;
-    const shutdown = shutdownServer(server, { timeout: 1000 });
+    const shutdown = shutdownServer(server, { cancelAfter: 1000 });
     client.write('GET /late HTTP/1.1\r\nHost: localhost\r\n\r\n');
     await lateEntered.promise;
     firstGate.resolve();
@@ -687,7 +689,7 @@ describe('graceful shutdown over a real socket', () => {
 
     const answer = get(port, '/stack');
     await entered.promise;
-    const result = await shutdownServer(server, { timeout: 200 });
+    const result = await shutdownServer(server, { cancelAfter: 200 });
 
     expect(await answer).toMatchObject({ status: 503 });
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: true });
@@ -701,7 +703,7 @@ describe('graceful shutdown over a real socket', () => {
     ensureRequestCancelState(second.req, second.res);
     let settled = false;
 
-    const shutdown = shutdownServer(server, { timeout: 1000 });
+    const shutdown = shutdownServer(server, { cancelAfter: 1000 });
     void shutdown.then(() => {
       settled = true;
     });
@@ -729,7 +731,7 @@ describe('graceful shutdown over a real socket', () => {
 
     const answer = get(port, '/finish');
     await entered.promise;
-    const shutdown = shutdownServer(server, { timeout: 1000 });
+    const shutdown = shutdownServer(server, { cancelAfter: 1000 });
     gate.resolve();
 
     expect(await answer).toMatchObject({ body: 'done', status: 200 });
@@ -757,7 +759,7 @@ describe('graceful shutdown over a real socket', () => {
 
     const answer = get(port, '/wrapped');
     await entered.promise;
-    const shutdown = shutdownServer(server, { timeout: 1000 });
+    const shutdown = shutdownServer(server, { cancelAfter: 1000 });
     gate.resolve();
 
     expect(await answer).toMatchObject({ body: 'done', connection: 'close', status: 200 });
@@ -788,7 +790,7 @@ describe('graceful shutdown over a real socket', () => {
     const answer = get(port, '/slow');
     await entered.promise;
     const startedAt = Date.now();
-    const result = await shutdownServer(server, { timeout: 500 });
+    const result = await shutdownServer(server, { cancelAfter: 500 });
     const outcome = await answer;
 
     expect(outcome).toMatchObject({ body: SERVER_SHUTDOWN, connection: 'close', status: 503 });
@@ -836,7 +838,7 @@ describe('graceful shutdown over a real socket', () => {
 
     client.write('GET /first HTTP/1.1\r\nHost: localhost\r\n\r\n');
     await firstEntered.promise;
-    const shutdown = shutdownServer(server, { timeout: 1000 });
+    const shutdown = shutdownServer(server, { cancelAfter: 1000 });
     client.write('GET /late HTTP/1.1\r\nHost: localhost\r\n\r\n');
     await lateEntered.promise;
     firstGate.resolve();
@@ -883,7 +885,7 @@ describe('graceful shutdown over a real socket', () => {
     // both requests are on the wire before the shutdown, and the first head already said keep-alive
     client.write('GET /first HTTP/1.1\r\nHost: localhost\r\n\r\n' + 'GET /second HTTP/1.1\r\nHost: localhost\r\n\r\n');
     await firstEntered.promise;
-    const shutdown = shutdownServer(server, { timeout: 1000 });
+    const shutdown = shutdownServer(server, { cancelAfter: 1000 });
     firstGate.resolve();
 
     const result = await shutdown;
@@ -934,7 +936,7 @@ describe('graceful shutdown over a real socket', () => {
 
     client.write('GET /first HTTP/1.1\r\nHost: localhost\r\n\r\n');
     await firstEntered.promise;
-    const shutdown = shutdownServer(server, { timeout: 200 });
+    const shutdown = shutdownServer(server, { cancelAfter: 200 });
     client.write('GET /late HTTP/1.1\r\nHost: localhost\r\n\r\n');
     await lateEntered.promise;
     firstGate.resolve();
@@ -968,7 +970,7 @@ describe('graceful shutdown over a real socket', () => {
     const answer = get(port, '/stream');
     await entered.promise;
     // a window this long only ends early because the handler was canceled at the start
-    const result = await shutdownServer(server, { cancelOnStart: true, timeout: 60_000 });
+    const result = await shutdownServer(server, { cancelAfter: 0, closeAfter: 60_000 });
 
     expect(await answer).toMatchObject({ body: SERVER_SHUTDOWN, status: 503 });
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
@@ -995,7 +997,7 @@ describe('graceful shutdown over a real socket', () => {
 
     expect(lateSignals).toEqual([false, false, false]);
     expect(getRequestRegistry(server)?.open.size ?? 0).toBe(0);
-    expect(await shutdownServer(server, { timeout: 1000 })).toEqual({ canceled: 0, completed: 0, timedOut: false });
+    expect(await shutdownServer(server, { cancelAfter: 1000 })).toEqual({ canceled: 0, completed: 0, timedOut: false });
   });
 
   async function listen(
@@ -1084,3 +1086,68 @@ function deferred(): { promise: Promise<void>; resolve: () => void } {
 function countTimers(): number {
   return process.getActiveResourcesInfo().filter((kind) => kind === 'Timeout').length;
 }
+
+describe('shutdown cancel point', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  function pendingRequest(server: FakeServer): void {
+    const { req, res } = createExchange(server);
+    answer(
+      runCancelableHandler(
+        function* () {
+          yield pending();
+        },
+        req,
+        res,
+      ),
+      res,
+    ).catch(() => undefined);
+  }
+
+  it('cancels in-flight handlers at 10_000 by default', async () => {
+    const server = new FakeServer();
+    pendingRequest(server);
+
+    let result: unknown;
+    void shutdownServer(server).then((value) => {
+      result = value;
+    });
+    await jest.advanceTimersByTimeAsync(9_999);
+
+    expect(result).toBeUndefined();
+
+    await jest.advanceTimersByTimeAsync(2);
+
+    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: true });
+  });
+
+  it('cancels at closeAfter minus 1_000 when only closeAfter is set', async () => {
+    const server = new FakeServer();
+    pendingRequest(server);
+
+    let result: unknown;
+    void shutdownServer(server, { closeAfter: 3_000 }).then((value) => {
+      result = value;
+    });
+    await jest.advanceTimersByTimeAsync(1_999);
+
+    expect(result).toBeUndefined();
+
+    await jest.advanceTimersByTimeAsync(2);
+
+    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: true });
+  });
+
+  it('throws a RangeError naming both values when cancelAfter is greater than closeAfter', () => {
+    const server = new FakeServer();
+
+    expect(() => shutdownServer(server, { cancelAfter: 5_000, closeAfter: 4_000 })).toThrow(RangeError);
+    expect(() => shutdownServer(server, { cancelAfter: 5_000, closeAfter: 4_000 })).toThrow(/5000.*4000/);
+  });
+});

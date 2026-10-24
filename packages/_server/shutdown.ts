@@ -23,7 +23,7 @@ import { IRequestLike, IResponseLike, IServerLike, IShutdownOptions, IShutdownRe
 /** Grace window a shutdown waits for in-flight requests before it gives up. */
 export const DEFAULT_SHUTDOWN_TIMEOUT = 10_000;
 
-/** Age at which a connection that sent no bytes is closed at shutdown; capped at the grace window. */
+/** Age at which a connection that sent no bytes is closed at shutdown; capped at the window. */
 const REQUESTLESS_AGE_MS = 5_000;
 
 interface IDrainResponse extends IResponseLike {
@@ -58,7 +58,7 @@ interface IDrain {
  * `Connection: close`, and each connection is closed as soon as the response on it finishes. When
  * the window ends, the handlers still running are canceled with the shutdown reason, so their
  * cleanup runs and a response not started yet can still answer. Connections still busy after that
- * are force-closed. With `cancelOnStart` the handlers are canceled at once instead, a late arrival
+ * are force-closed. With `cancelAfter: 0` the handlers are canceled at once instead, a late arrival
  * included, and the window is only the wait for them to unwind.
  *
  * Requests are seen from the first time this layer meets the server: `createShutdown`, the first
@@ -88,13 +88,16 @@ export function shutdownServer(
     return running;
   }
 
-  const grace = resolveGrace(options.timeout);
+  const { cancelAfter, closeAfter } = resolveWindows(options);
   const reason = options.reason ?? SERVER_SHUTDOWN;
   // closeServer gates every connection-closing call, not only the listener itself: a caller
   // passing false owns the server's connection lifecycle, so this layer touches none of it and
   // only cancels the tasks and signals it tracks
   const ownsConnections = options.closeServer !== false;
-  const cancelOnStart = options.cancelOnStart === true;
+  const cancelAtStart = cancelAfter === 0;
+  // until the hard end has its own timer, the window ends where the cancel does; a cancel at start
+  // keeps the hard end, so the handlers have the whole window to unwind
+  const windowMs = cancelAtStart ? closeAfter : cancelAfter;
   // registry precedence only, so a setPromiseImpl consumer gets its own class back from the
   // settled outcome this resolves to, same as the rest of the request-cancellation core
   const Impl = resolvePromiseImpl() as unknown as typeof CancelablePromise;
@@ -169,7 +172,7 @@ export function shutdownServer(
     }
 
     const now = Date.now();
-    const age = Math.min(REQUESTLESS_AGE_MS, grace);
+    const age = Math.min(REQUESTLESS_AGE_MS, windowMs);
     for (const [socket, acceptedAt] of Array.from(registry.connections)) {
       if (socket.bytesRead !== 0 || carriesRequest(socket)) {
         continue;
@@ -374,13 +377,13 @@ export function shutdownServer(
   // while this drains, and it is served like any other unless the start cancels handlers
   registry.onArrival = (req, res) => {
     admit(req, res);
-    if (cancelOnStart) {
+    if (cancelAtStart) {
       cancelRequest(ensureRequestCancelState(req, res));
     }
   };
   registry.onTrack = (state) => {
     watchTasks(state);
-    if (cancelOnStart || graceEnded) {
+    if (cancelAtStart || graceEnded) {
       cancelRequest(state);
     }
   };
@@ -395,7 +398,7 @@ export function shutdownServer(
   closeIdle();
   closeRequestless();
 
-  if (cancelOnStart) {
+  if (cancelAtStart) {
     cancelOpenRequests();
   }
 
@@ -404,7 +407,7 @@ export function shutdownServer(
   const window = new Impl<void>((resolve, _reject, { handleCancel }) => {
     // an infinite grace waits for the drain however long it takes
     let timer =
-      grace === Infinity ? undefined : (
+      windowMs === Infinity ? undefined : (
         setTimeout(() => {
           graceEnded = true;
           timedOut = openRequests > 0;
@@ -417,7 +420,7 @@ export function shutdownServer(
             timedOut = timedOut || openRequests > 0 || listening;
             resolve();
           }, 0);
-        }, grace)
+        }, windowMs)
       );
 
     // race cancels the loser, so an early finish or cancel clears this timer through here
@@ -494,12 +497,29 @@ export function createServerShutdown(server: IServerLike): TShutdownFunction {
   return shutdown;
 }
 
-function resolveGrace(timeout: number | undefined): number {
-  if (timeout === undefined || timeout !== timeout) {
-    return DEFAULT_SHUTDOWN_TIMEOUT;
+function resolveWindows(options: IShutdownOptions): { cancelAfter: number; closeAfter: number } {
+  const cancelAt = usableMs(options.cancelAfter);
+  const closeAt = usableMs(options.closeAfter);
+  if (cancelAt !== undefined && closeAt !== undefined && cancelAt > closeAt) {
+    throw new RangeError(`cancelAfter (${cancelAt}) is greater than closeAfter (${closeAt})`);
   }
+  if (cancelAt !== undefined) {
+    const cancel = clampMs(cancelAt);
+    return { cancelAfter: cancel, closeAfter: closeAt === undefined ? clampMs(cancel + 1000) : clampMs(closeAt) };
+  }
+  if (closeAt !== undefined) {
+    const close = clampMs(closeAt);
+    return { cancelAfter: Math.max(0, close - 1000), closeAfter: close };
+  }
+  return { cancelAfter: DEFAULT_SHUTDOWN_TIMEOUT, closeAfter: DEFAULT_SHUTDOWN_TIMEOUT + 1000 };
+}
 
-  return timeout === Infinity ? timeout : Math.min(Math.max(timeout, 0), MAX_TIMER_MS);
+function usableMs(ms: number | undefined): number | undefined {
+  return ms === undefined || ms !== ms ? undefined : ms;
+}
+
+function clampMs(ms: number): number {
+  return ms === Infinity ? ms : Math.min(Math.max(ms, 0), MAX_TIMER_MS);
 }
 
 function noop(): void {

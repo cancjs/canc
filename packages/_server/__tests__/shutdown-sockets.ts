@@ -179,7 +179,7 @@ export function describeShutdownSockets(
       const answer = keptAliveRequest(app.port);
       await app.arrival;
 
-      const closing = shutdown({ timeout: GRACE_MS });
+      const closing = shutdown({ cancelAfter: GRACE_MS });
       app.release();
       const result = await closing;
 
@@ -195,7 +195,7 @@ export function describeShutdownSockets(
       let closing: Promise<IShutdownResult> | undefined;
       // runs ahead of the shutdown's own request listener: read, not yet recorded
       app.server.prependListener('request', () => {
-        closing ??= shutdown({ timeout: GRACE_MS });
+        closing ??= shutdown({ cancelAfter: GRACE_MS });
       });
 
       const { client, closed } = openClient(app.port);
@@ -215,7 +215,7 @@ export function describeShutdownSockets(
 
       client.write(REQUEST_HEAD);
       await until(() => socket.bytesRead > 0);
-      const closing = shutdown({ timeout: GRACE_MS });
+      const closing = shutdown({ cancelAfter: GRACE_MS });
       client.write('\r\n');
 
       expect(await closed).toEqual({ error: undefined, statuses: ['HTTP/1.1 200'] });
@@ -235,7 +235,7 @@ export function describeShutdownSockets(
       const firstRead = socket.bytesRead;
       client.write(REQUEST_HEAD);
       await until(() => socket.bytesRead > firstRead);
-      const closing = shutdown({ timeout: GRACE_MS });
+      const closing = shutdown({ cancelAfter: GRACE_MS });
       client.write('\r\n');
 
       expect(await closed).toEqual({ error: undefined, statuses: ['HTTP/1.1 200', 'HTTP/1.1 200'] });
@@ -249,7 +249,7 @@ export function describeShutdownSockets(
       client.write(`${REQUEST_HEAD}\r\n${REQUEST_HEAD}\r\n`);
       await app.arrivedTimes(2);
 
-      const closing = shutdown({ timeout: GRACE_MS });
+      const closing = shutdown({ cancelAfter: GRACE_MS });
       app.release();
 
       expect(await closed).toEqual({ error: undefined, statuses: ['HTTP/1.1 200', 'HTTP/1.1 200'] });
@@ -263,7 +263,7 @@ export function describeShutdownSockets(
       client.write(`${REQUEST_HEAD}\r\nGET /fast HTTP/1.1\r\nHost: localhost\r\n\r\n`);
       await app.arrivedTimes(1);
 
-      const closing = shutdown({ timeout: GRACE_MS });
+      const closing = shutdown({ cancelAfter: GRACE_MS });
       app.release();
 
       expect(await closed).toEqual({ error: undefined, statuses: ['HTTP/1.1 200', 'HTTP/1.1 200'] });
@@ -279,7 +279,7 @@ export function describeShutdownSockets(
     it('returns the same promise to a second call while the first runs', async () => {
       const app = await startApp();
       const shutdown = createShutdown(app.target as never);
-      const first = shutdown({ timeout: GRACE_MS });
+      const first = shutdown({ cancelAfter: GRACE_MS });
 
       expect(shutdown()).toBe(first);
       expect(await first).toEqual({ canceled: 0, completed: 0, timedOut: false });
@@ -291,7 +291,7 @@ export function describeShutdownSockets(
       const shutdown = createShutdown(app.target as never);
 
       const startedAt = performance.now();
-      const result = await shutdown({ timeout: LATE_GRACE_MS });
+      const result = await shutdown({ cancelAfter: LATE_GRACE_MS });
       const elapsed = performance.now() - startedAt;
       const closedAfter = (await closed) - startedAt;
 
@@ -307,7 +307,7 @@ export function describeShutdownSockets(
       const shutdown = createShutdown(app.target as never);
 
       const startedAt = performance.now();
-      const closing = shutdown({ timeout: LATE_GRACE_MS });
+      const closing = shutdown({ cancelAfter: LATE_GRACE_MS });
       app.release();
       const connection = await answer;
       await closing;
@@ -342,7 +342,7 @@ export function describeShutdownSockets(
         client.write(`GET /close HTTP/1.1\r\nHost: localhost\r\n\r\n${FAST_HEAD}`);
         await seen;
 
-        const closing = shutdown({ timeout: GRACE_MS });
+        const closing = shutdown({ cancelAfter: GRACE_MS });
         app.release();
 
         expect(await closed).toEqual({ error: undefined, statuses: ['HTTP/1.1 200'] });
@@ -358,7 +358,7 @@ export function describeShutdownSockets(
         client.write('GET /close HTTP/1.1\r\nHost: localhost\r\n\r\n');
         await app.arrival;
 
-        const closing = shutdown({ timeout: GRACE_MS });
+        const closing = shutdown({ cancelAfter: GRACE_MS });
         client.write(FAST_HEAD);
         await seen;
         app.release();
@@ -376,7 +376,7 @@ export function describeShutdownSockets(
         client.write(`GET /flush HTTP/1.1\r\nHost: localhost\r\n\r\n${FAST_HEAD}`);
         await seen;
 
-        const closing = shutdown({ timeout: GRACE_MS });
+        const closing = shutdown({ cancelAfter: GRACE_MS });
         app.release();
 
         expect(await closed).toEqual({ error: undefined, statuses: ['HTTP/1.1 200'] });
@@ -415,7 +415,7 @@ export function describeShutdownSockets(
       const { closed } = await preconnect(app.server, app.port);
       jest.advanceTimersByTime(REQUESTLESS_AGE_MS);
 
-      expect(await shutdown({ timeout: GRACE_MS })).toEqual({ canceled: 0, completed: 0, timedOut: false });
+      expect(await shutdown({ cancelAfter: GRACE_MS })).toEqual({ canceled: 0, completed: 0, timedOut: false });
       await closed;
     });
 
@@ -428,7 +428,7 @@ export function describeShutdownSockets(
         isClosed = true;
       });
 
-      const closing = shutdown({ timeout: GRACE_MS });
+      const closing = shutdown({ cancelAfter: GRACE_MS });
       await settle();
       expect(isClosed).toBe(false);
 
@@ -449,7 +449,7 @@ export function describeShutdownSockets(
       const accepted = once(app.server, 'connection');
       const { client, closed } = openClient(app.port);
       const [socket] = (await accepted) as [Socket];
-      const closing = shutdown({ timeout: GRACE_MS });
+      const closing = shutdown({ cancelAfter: GRACE_MS });
 
       client.write(`${REQUEST_HEAD}\r\n`);
       for (let turns = 0; socket.bytesRead === 0 && turns < 100; turns += 1) {
@@ -471,7 +471,7 @@ export function describeShutdownSockets(
       const [socket] = (await accepted) as [Socket];
       const serverClosed = once(socket, 'close');
 
-      const closing = shutdown({ timeout: GRACE_MS });
+      const closing = shutdown({ cancelAfter: GRACE_MS });
       await settle();
       client.destroy();
       await serverClosed;
@@ -491,7 +491,7 @@ export function describeShutdownSockets(
         isClosed = true;
       });
 
-      const closing = shutdown({ timeout: LATE_GRACE_MS });
+      const closing = shutdown({ cancelAfter: LATE_GRACE_MS });
       jest.advanceTimersByTime(LATE_GRACE_MS - 1);
       await turn();
       expect(isClosed).toBe(false);

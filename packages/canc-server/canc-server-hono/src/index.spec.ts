@@ -664,7 +664,7 @@ describe('shutdown cancel status', () => {
     const port = await listen(app);
     const pending = send(port, '/hang');
     await started.promise;
-    await createShutdown(server!)({ timeout: 200 });
+    await createShutdown(server!)({ cancelAfter: 200 });
 
     expect((await pending).statusCode).toBe(500);
   });
@@ -688,7 +688,7 @@ describe('shutdown cancel status', () => {
     const port = await listen(app);
     const pending = send(port, '/hang');
     await started.promise;
-    await createShutdown(server!)({ timeout: 200 });
+    await createShutdown(server!)({ cancelAfter: 200 });
 
     expect((await pending).statusCode).toBe(502);
   });
@@ -745,7 +745,7 @@ describe('shutdown cancel status', () => {
     const pending = [send(port, '/hang'), send(port, '/hang')];
 
     await bothStarted.promise;
-    await createShutdown(server!)({ timeout: 200 });
+    await createShutdown(server!)({ cancelAfter: 200 });
     await Promise.all(pending);
 
     expect(errors).toHaveLength(2);
@@ -773,7 +773,7 @@ describe('shutdown cancel status', () => {
     client.on('error', () => {});
     await accepted;
 
-    const shutdown = createShutdown(server!)({ timeout: 500, cancelOnStart: true });
+    const shutdown = createShutdown(server!)({ cancelAfter: 0, closeAfter: 500 });
     client.write('GET /late HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n');
 
     expect(await firstStatus(client)).toBe(500);
@@ -805,7 +805,7 @@ describe('shutdown', () => {
     const pending = send(port, '/hang');
     await started.promise;
 
-    const result = await createShutdown(instance)({ timeout: 200 });
+    const result = await createShutdown(instance)({ cancelAfter: 200 });
 
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: true });
     expect((await pending).statusCode).toBe(503);
@@ -827,8 +827,8 @@ describe('shutdown', () => {
     await listen(app);
 
     const instance = server!;
-    const first = createShutdown(instance)({ timeout: 1000 });
-    const second = createShutdown(instance)({ timeout: 1000 });
+    const first = createShutdown(instance)({ cancelAfter: 1000 });
+    const second = createShutdown(instance)({ cancelAfter: 1000 });
 
     expect(await first).toEqual(await second);
   });

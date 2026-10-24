@@ -696,7 +696,7 @@ describe('error handler', () => {
     });
 
     await started.promise;
-    const result = await createShutdown(instance)({ timeout: 50 });
+    const result = await createShutdown(instance)({ cancelAfter: 50 });
 
     app = undefined;
 
@@ -822,7 +822,7 @@ describe('shutdown cancel status', () => {
     const port = await listen(instance);
     const pending = send(port, '/hang');
     await started.promise;
-    await createShutdown(instance)({ timeout: 200 });
+    await createShutdown(instance)({ cancelAfter: 200 });
 
     expect((await pending).statusCode).toBe(503);
   });
@@ -846,7 +846,7 @@ describe('shutdown cancel status', () => {
     const port = await listen(instance);
     const pending = send(port, '/hang');
     await started.promise;
-    await createShutdown(instance)({ timeout: 200 });
+    await createShutdown(instance)({ cancelAfter: 200 });
 
     expect((await pending).statusCode).toBe(502);
   });
@@ -917,7 +917,7 @@ describe('shutdown cancel status', () => {
     const pending = [send(port, '/hang'), send(port, '/hang')];
 
     await bothStarted.promise;
-    await createShutdown(instance)({ timeout: 200 });
+    await createShutdown(instance)({ cancelAfter: 200 });
     await Promise.all(pending);
 
     expect(errors).toHaveLength(2);
@@ -944,7 +944,7 @@ describe('shutdown cancel status', () => {
     client.on('error', () => {});
     await accepted;
 
-    const shutdown = createShutdown(instance)({ timeout: 500, cancelOnStart: true });
+    const shutdown = createShutdown(instance)({ cancelAfter: 0, closeAfter: 500 });
     client.write('GET /late HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n');
 
     expect(await firstStatus(client)).toBe(503);
@@ -973,7 +973,7 @@ describe('shutdown', () => {
     const pending = send(port, '/hang');
     await started.promise;
 
-    const result = await createShutdown(instance)({ timeout: 200 });
+    const result = await createShutdown(instance)({ cancelAfter: 200 });
 
     app = undefined;
 
@@ -1004,7 +1004,7 @@ describe('shutdown', () => {
     const request = open(port, '/shielded');
 
     await started.promise;
-    const result = await createShutdown(instance)({ timeout: 100 });
+    const result = await createShutdown(instance)({ cancelAfter: 100 });
 
     app = undefined;
     request.destroy();
@@ -1039,7 +1039,7 @@ describe('shutdown', () => {
     });
 
     await started.promise;
-    const closing = createShutdown(instance)({ timeout: 1000 });
+    const closing = createShutdown(instance)({ cancelAfter: 1000 });
 
     app = undefined;
     gate.resolve();
@@ -1059,7 +1059,7 @@ describe('shutdown', () => {
     );
 
     await listen(instance);
-    const first = createShutdown(instance)({ timeout: 100 });
+    const first = createShutdown(instance)({ cancelAfter: 100 });
 
     app = undefined;
 

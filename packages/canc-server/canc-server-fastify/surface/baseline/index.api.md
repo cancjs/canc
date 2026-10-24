@@ -37,10 +37,10 @@ timeout?: TTimeoutOption | undefined
 ## `IShutdownOptions` (interface)
 
 ```text
-cancelOnStart?: boolean | undefined
+cancelAfter?: number | undefined
+closeAfter?: number | undefined
 closeServer?: boolean | undefined
 reason?: string | undefined
-timeout?: number | undefined
 ```
 
 ## `IShutdownResult` (interface)

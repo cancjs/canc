@@ -301,7 +301,7 @@ describe('cancellation after the head was sent', () => {
 
     const pending = streamedRequest(port, '/export');
     await started.promise;
-    await createShutdown(lastServer())({ timeout: 200 });
+    await createShutdown(lastServer())({ cancelAfter: 200 });
 
     const response = await pending;
 
@@ -594,7 +594,7 @@ describe('shutdown cancel status', () => {
     const pending = httpRequest(port, { path: '/hang' });
 
     await started.promise;
-    await createShutdown(lastServer())({ timeout: 200 });
+    await createShutdown(lastServer())({ cancelAfter: 200 });
 
     expect((await pending).status).toBe(503);
   });
@@ -615,7 +615,7 @@ describe('shutdown cancel status', () => {
     const pending = httpRequest(port, { path: '/hang' });
 
     await started.promise;
-    await createShutdown(lastServer())({ timeout: 200 });
+    await createShutdown(lastServer())({ cancelAfter: 200 });
 
     expect((await pending).status).toBe(502);
   });
@@ -654,7 +654,7 @@ describe('shutdown cancel status', () => {
     const pending = [httpRequest(port, { path: '/hang' }), httpRequest(port, { path: '/hang' })];
 
     await bothStarted.promise;
-    await createShutdown(lastServer())({ timeout: 200 });
+    await createShutdown(lastServer())({ cancelAfter: 200 });
     await Promise.all(pending);
 
     expect(reasons).toHaveLength(2);
@@ -675,7 +675,7 @@ describe('shutdown cancel status', () => {
     client.on('error', () => {});
     await accepted;
 
-    const shutdown = createShutdown(lastServer())({ timeout: 500, cancelOnStart: true });
+    const shutdown = createShutdown(lastServer())({ cancelAfter: 0, closeAfter: 500 });
     client.write('GET /late HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n');
 
     expect(await firstStatus(client)).toBe(503);
@@ -701,7 +701,7 @@ describe('shutdown', () => {
     const pending = httpRequest(port, { path: '/hang' });
 
     await started.promise;
-    const result = await createShutdown(lastServer())({ timeout: 200 });
+    const result = await createShutdown(lastServer())({ cancelAfter: 200 });
 
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: true });
     expect((await pending).status).toBe(503);
@@ -725,7 +725,7 @@ describe('shutdown', () => {
     const client = await rawRequest(port, 'GET /shielded HTTP/1.1\r\nHost: localhost\r\n\r\n');
 
     await started.promise;
-    const result = await createShutdown(lastServer())({ timeout: 100 });
+    const result = await createShutdown(lastServer())({ cancelAfter: 100 });
     client.destroy();
 
     expect(result.timedOut).toBe(true);
@@ -738,7 +738,7 @@ describe('shutdown', () => {
       }),
     );
     const server = lastServer();
-    const first = createShutdown(server)({ timeout: 100 });
+    const first = createShutdown(server)({ cancelAfter: 100 });
 
     expect(createShutdown(server)()).toBe(first);
     expect(await first).toEqual({ canceled: 0, completed: 0, timedOut: false });

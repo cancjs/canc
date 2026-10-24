@@ -7,7 +7,7 @@ import { IServerLike, IShutdownOptions, IShutdownResult } from '../../../_server
  *
  * The returned function stops the server: no new connections, a grace window for in-flight
  * handlers to finish, and a cancel for any still running when it ends (at once with
- * `cancelOnStart`). A connection that has received no bytes is closed once it is five seconds old (or at the grace, if shorter), while one
+ * `cancelAfter: 0`). A connection that has received no bytes is closed once it is five seconds old (or at the grace, if shorter), while one
  * that has already sent part of a request is left to finish. Every in-flight response is sent with
  * `Connection: close`, so each connection closes once its response finishes.
  * It resolves with what happened rather than throwing. A second call while the first is still
