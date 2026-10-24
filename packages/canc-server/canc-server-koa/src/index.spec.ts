@@ -1555,4 +1555,33 @@ describe('ownership comes from request state', () => {
 
     expect(response.status).toBe(504);
   });
+
+  it('answers a route-signal cancel on a live request with 503 and no route content headers', async () => {
+    const app = new Koa();
+    const routeAbort = new AbortController();
+
+    app.use(cancelMiddleware());
+    app.use(
+      cancelableHandler(
+        function* (_ctx: Context) {
+          yield never();
+        },
+        { signal: routeAbort.signal },
+      ),
+    );
+    app.use(async (ctx, next) => {
+      ctx.set('Content-Encoding', 'gzip');
+      await next();
+    });
+
+    const port = await listen(app);
+    const pending = httpExchange(port, { path: '/' });
+
+    setTimeout(() => routeAbort.abort(), 20);
+
+    const response = await pending;
+
+    expect(response.status).toBe(503);
+    expect(response.headers['content-encoding']).toBeUndefined();
+  });
 });
