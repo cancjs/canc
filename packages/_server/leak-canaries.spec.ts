@@ -1,5 +1,5 @@
 import { createExchange, FakeServer } from './__tests__/fakes';
-import { getLiveRequests, getRequestState, IRequestCancelState } from './holder';
+import { getRequestRegistry, getRequestState, IRequestCancelState } from './holder';
 import { runCancelableHandler } from './run';
 
 /**
@@ -125,7 +125,7 @@ describeIfGC('leak canaries (request state GC probe)', () => {
       await completeOneRequest(server, id, (state, registered) => registry.register(state, registered));
     }
 
-    expect(getLiveRequests(server)?.size ?? 0).toBe(0);
+    expect(getRequestRegistry(server)?.open.size ?? 0).toBe(0);
 
     await drainRegistry(finalized, REQUEST_COUNT);
 

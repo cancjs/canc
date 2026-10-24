@@ -50,9 +50,12 @@ timeout?: TTimeoutOption | undefined
 ## `IShutdownOptions` (interface)
 
 ```text
+cancelAfter?: number | undefined
+closeAfter?: number | undefined
 closeServer?: boolean | undefined
+headers?: Record<string, string> | undefined
 reason?: string | undefined
-timeout?: number | undefined
+status?: number | undefined
 ```
 
 ## `IShutdownResult` (interface)
@@ -78,7 +81,7 @@ timedOut: boolean
 ## `TTimeoutOption` (type)
 
 ```text
-number | { ms: number; status?: number; message?: string; }
+number | { ms: number; status?: number; message?: string; headers?: Record<string, string>; }
 ```
 
 ## `cancelErrorHandler<E extends Env = any>` (function)
@@ -99,14 +102,14 @@ number | { ms: number; status?: number; message?: string; }
 <E extends Env = any, P extends string = any, I extends Input = TBlankInput>(handler: THandlerFn<THonoHandler<E, P, I>, Response>, options?: ICancelableHandlerOptions | undefined): Handler<E, P, I, Promise<Response>>
 ```
 
+## `createShutdown` (function)
+
+```text
+(server: IServerLike): (options?: IShutdownOptions | undefined) => Promise<IShutdownResult>
+```
+
 ## `getRequestSignal` (function)
 
 ```text
 (c: ICancelContext): CancelSignal
-```
-
-## `shutdown` (function)
-
-```text
-(server: IServerLike, options?: IShutdownOptions | undefined): Promise<IShutdownResult>
 ```

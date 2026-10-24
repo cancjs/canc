@@ -1,23 +1,41 @@
 import { cancAsync } from '@cancjs/coroutine';
 import {
   CancelablePromise,
-  CancelError,
   ICancelablePromiseFlagOptions,
   isCancelError,
   makeCancelable,
   resolvePromiseImpl,
 } from '@cancjs/promise';
 
-import { isGenerator, isThenable, TAnyFn } from '../_util';
+import { isFunction, isGenerator, isObject, isThenable, readProp, TAnyFn } from '../_util';
+import { stampDerivedCancel } from './exchange';
 import { IRequestCancelState } from './holder';
-import { ensureRequestCancelState } from './node-signal';
-import { createTimeoutError, normalizeTimeout, startHandlerTimeout, stopHandlerTimeout } from './timeout';
+import { applyRequestOptions, ensureRequestCancelState, isResponseClosed, stopRequestDeadline } from './node-signal';
 import { ICancelableHandlerOptions, IRequestLike, IResponseLike } from './types';
+
+// captured at load: observing a task through its own then would count as a consumer of it
+const NativePromise = Promise;
 
 /** How the wrapped handler is invoked: the receiver it runs against and the framework's arguments. */
 export interface IHandlerCall {
   thisArg?: unknown;
   args?: unknown[];
+  /**
+   * The framework's continuation, passed to the handler after `args`. A handler that calls it has
+   * handed the request on, so its own settling does not end the request deadline.
+   */
+  next?: TAnyFn;
+  /**
+   * Whether the handler hands the request on by settling, the way a hook does, rather than answering
+   * it. Read when the handler settles.
+   */
+  handsOn?: () => boolean;
+  /**
+   * Receives a plain failure a signal-only handler rejects with after a cancel already settled its
+   * task. The response is not written to: the request was answered by the cancel. A cancellation
+   * arriving late is not reported.
+   */
+  onLateFailure?: (error: unknown) => void;
 }
 
 /**
@@ -52,32 +70,122 @@ export function runCancelableHandler<TReturn = unknown>(
   const state = ensureRequestCancelState(req, res);
   const options = mergeHandlerOptions(state.options, routeOptions);
 
-  armDeadline(state, options);
-  const stopWatching = watchCancelReason(state, options);
+  // a route's own timeout restarts the request deadline, an inherited one is already running
+  if (routeOptions) {
+    applyRequestOptions(state, routeOptions);
+  }
+
+  // a closed response is over: nothing here is tracked or holds the deadline open
+  const tracked = !isResponseClosed(res);
+  const hold = holdRequest(state, tracked);
   const flags = pickFlags(options);
   // resolved once per call, registry precedence only, so a setPromiseImpl consumer gets its own
   // class back from this layer instead of the built-in one
   const Impl = resolvePromiseImpl() as unknown as typeof CancelablePromise;
+  const signals = callerSignals(options);
 
-  // client already gone at wrap time, so the handler is never invoked: there is nobody to answer,
-  // and starting a query for a dead socket is the cost this whole layer exists to avoid
+  // Recorded on the request, so a framework layer sees the route's cancels too.
+  if (signals.length > 0) {
+    state.routeSignals = [...(state.routeSignals ?? []), ...signals];
+  }
+
+  // set once the task settles, so a late failure is told apart from one the handler raised while
+  // the task was still running
+  let settled = false;
+  const late = call?.onLateFailure && {
+    report: call.onLateFailure,
+    settled: () => settled,
+  };
+
+  // a signal already aborted at wrap time (client gone, or a caller supplied one) means the handler
+  // is never invoked: there is nobody to answer, and starting a query for a dead socket is the
+  // cost this whole layer exists to avoid
+  const aborted = findAbortedSignal(state, options);
   const task =
-    state.signal.aborted ?
-      canceledTask<TReturn>(Impl, state, flags)
-    : startHandler<TReturn>(Impl, handler, call, { ...flags, signal: collectSignals(state, options) });
+    aborted ?
+      canceledTask<TReturn>(Impl, aborted, flags)
+    : startHandler<TReturn>(
+        Impl,
+        handler,
+        withPassOn(call, hold.release),
+        {
+          ...flags,
+          // a tracked task is canceled through the request's in-flight set, so the request
+          // signal is not listened to per layer; an untracked one keeps the signal itself
+          signal: tracked ? signals : collectSignals(state, options),
+        },
+        late,
+      );
+
+  if (!tracked) {
+    return task;
+  }
 
   state.live.add(task);
+  state.watch?.(task);
+  if (state.signal.aborted) {
+    task.cancel(state.signal.reason);
+  }
 
-  // teardown hangs off the response rather than off the task: a `then` here would register as a
-  // consumer of the handler's promise and change how a cancel bubbles through its own chain
-  res.once('close', () => {
+  // the deadline covers the handler, not the body a framework streams after it returned
+  const settle = () => {
+    settled = true;
     state.live.delete(task);
-    stopHandlerTimeout(state.timer);
-    state.timer = undefined;
-    stopWatching();
+
+    if (hold.release() && state.holding === 0 && call?.handsOn?.() !== true) {
+      stopRequestDeadline(state);
+    }
+  };
+
+  // a cancel the request or a route signal raised is given its status before the adapter's error
+  // handler reads it; a cancel the caller raised on its own is left as it is
+  void NativePromise.prototype.then.call(task, settle, (error: unknown) => {
+    stampDerivedCancel(error, state, signals);
+    settle();
   });
 
   return task;
+}
+
+function holdRequest(state: IRequestCancelState, tracked: boolean): { release: () => boolean } {
+  let holding = tracked;
+
+  if (holding) {
+    state.holding = (state.holding ?? 0) + 1;
+  }
+
+  return {
+    release: () => {
+      if (!holding) {
+        return false;
+      }
+
+      holding = false;
+      state.holding = (state.holding ?? 1) - 1;
+
+      return true;
+    },
+  };
+}
+
+function withPassOn(call: IHandlerCall | undefined, release: () => boolean): IHandlerCall | undefined {
+  const next = call?.next;
+
+  if (!next) {
+    return call;
+  }
+
+  return {
+    ...call,
+    args: [
+      ...(call.args ?? []),
+      function passOn(this: unknown, ...rest: unknown[]): unknown {
+        release();
+
+        return next.apply(this, rest);
+      },
+    ],
+  };
 }
 
 function startHandler<TReturn>(
@@ -85,6 +193,7 @@ function startHandler<TReturn>(
   handler: TAnyFn,
   call: IHandlerCall | undefined,
   promiseOptions: ICancelablePromiseFlagOptions & { signal: AbortSignal | AbortSignal[] },
+  late?: ILateFailure,
 ): CancelablePromise<TReturn> {
   let result: unknown;
 
@@ -105,75 +214,102 @@ function startHandler<TReturn>(
     return cancAsync(() => result, undefined, promiseOptions)() as CancelablePromise<TReturn>;
   }
 
-  const thenable = isThenable(result) ? result : Impl.resolve(result);
+  if (isAsyncGeneratorResult(result)) {
+    // an async generator would resolve the task with the generator object itself and no framework
+    // answers for it, so the request would hang or send an empty body
+    return makeCancelable(
+      Impl.reject(
+        new TypeError(
+          'Cancelable handler returned an async generator. Use a synchronous generator or an async function.',
+        ),
+      ),
+      promiseOptions,
+    ) as CancelablePromise<TReturn>;
+  }
 
-  return makeCancelable(thenable, promiseOptions) as CancelablePromise<TReturn>;
+  const thenable = isThenable(result) ? result : Impl.resolve(result);
+  const task = makeCancelable(thenable, promiseOptions) as CancelablePromise<TReturn>;
+
+  // read off the native then: observing it through the handler's own then counts as a consumer.
+  // attached after makeCancelable, so a failure the task itself takes is settled before this runs
+  if (late && result instanceof NativePromise) {
+    void NativePromise.prototype.then.call(result, undefined, (error: unknown) => {
+      if (late.settled() && !isCancelError(error)) {
+        reportLateFailure(late.report, error);
+      }
+    });
+  }
+
+  return task;
+}
+
+/** The late-failure hook and the settled check it runs behind. */
+interface ILateFailure {
+  report: (error: unknown) => void;
+  settled: () => boolean;
+}
+
+function reportLateFailure(report: (error: unknown) => void, error: unknown): void {
+  // a hook runs inside a rejection reaction, where a throw would surface as an unhandled rejection
+  try {
+    report(error);
+  } catch (hookError) {
+    console.error('[@cancjs/server] late failure hook failed', hookError);
+  }
+}
+
+function isAsyncGeneratorResult(value: unknown): boolean {
+  // read off the result like the sync check above: transpiled async generators are plain objects
+  return (
+    isObject(value) &&
+    !isThenable(value) &&
+    typeof Symbol.asyncIterator === 'symbol' &&
+    isFunction(readProp(value, Symbol.asyncIterator)) &&
+    isFunction(readProp(value, 'next'))
+  );
 }
 
 function canceledTask<TReturn>(
   Impl: typeof CancelablePromise,
-  state: IRequestCancelState,
+  signal: AbortSignal,
   flags: ICancelablePromiseFlagOptions,
 ): CancelablePromise<TReturn> {
   const { cancel, promise } = Impl.withResolvers<TReturn>(flags);
 
-  // the signal reason is already a CancelError, so it travels through cancel() untouched and the
-  // adapter sees the same error a mid-flight cancellation would have produced
-  cancel(state.signal.reason);
+  // the request signal's reason is already a CancelError and travels through cancel() untouched,
+  // a caller signal's reason is wrapped, the same as a mid-flight cancellation would have done
+  cancel(signal.reason);
 
   return promise;
 }
 
-function armDeadline(state: IRequestCancelState, options: ICancelableHandlerOptions): void {
-  const spec = normalizeTimeout(options.timeout);
-
-  if (!spec || state.timer !== undefined || state.signal.aborted) {
-    return;
+function findAbortedSignal(state: IRequestCancelState, options: ICancelableHandlerOptions): AbortSignal | undefined {
+  if (state.signal.aborted) {
+    return state.signal;
   }
 
-  state.timer = startHandlerTimeout(spec.ms, () => {
-    state.timer = undefined;
-    // the deadline aborts the request signal itself rather than the handler's promise, so
-    // request-scoped work other consumers started stops with the handler instead of outliving it
-    state.cancel(createTimeoutError(spec));
-  });
+  const extra = options.signal;
+
+  if (!extra) {
+    return undefined;
+  }
+
+  return (
+    Array.isArray(extra) ? extra.find((signal) => signal.aborted)
+    : extra.aborted ? extra
+    : undefined
+  );
 }
 
-function watchCancelReason(state: IRequestCancelState, options: ICancelableHandlerOptions): () => void {
-  const { onDisconnect, onTimeout } = options;
+/** The signals a layer names itself. The request signal is not among them: the in-flight set carries it. */
+function callerSignals(options: ICancelableHandlerOptions): AbortSignal[] {
+  const extra = options.signal;
 
-  if (!onDisconnect && !onTimeout) {
-    return noop;
+  if (!extra) {
+    return [];
   }
 
-  const notify = () => {
-    // a shutdown cancels the signal to reach the consumers a handler never awaited, and neither
-    // callback reports that: the client has not left and no deadline was missed
-    if (state.shuttingDown) {
-      return;
-    }
-
-    // the documented discriminator, never a message check: the request signal always aborts with a
-    // CancelError, so anything else reaching here came from a foreign signal and reads as a
-    // disconnect
-    const reason = state.signal.reason;
-
-    if (isCancelError(reason) && reason.timedOut) {
-      onTimeout?.(reason);
-    } else {
-      onDisconnect?.(reason as CancelError);
-    }
-  };
-
-  if (state.signal.aborted) {
-    notify();
-
-    return noop;
-  }
-
-  state.signal.addEventListener('abort', notify, { once: true });
-
-  return () => state.signal.removeEventListener('abort', notify);
+  return Array.isArray(extra) ? extra : [extra];
 }
 
 function collectSignals(state: IRequestCancelState, options: ICancelableHandlerOptions): AbortSignal | AbortSignal[] {
@@ -196,8 +332,4 @@ function pickFlags(options: ICancelableHandlerOptions): ICancelablePromiseFlagOp
   if (options.shield !== undefined) flags.shield = options.shield;
 
   return flags;
-}
-
-function noop(): void {
-  /**/
 }

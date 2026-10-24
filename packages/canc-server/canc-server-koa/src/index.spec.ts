@@ -1,17 +1,21 @@
 import { CancelablePromise, CancelError, isCancelError, isCancelSignal } from '@cancjs/promise';
-import { once } from 'events';
-import { IncomingMessage, request, Server } from 'http';
+import { getEventListeners, once } from 'events';
+import { IncomingHttpHeaders, IncomingMessage, request, Server } from 'http';
 import Koa, { Context, Middleware, Next } from 'koa';
 import { connect, Socket } from 'net';
+import { Readable } from 'stream';
+import { runInThisContext } from 'vm';
 
+import { expectAbortAt, useDeadlineClock } from '../../../_server/__tests__/deadline-clock';
+import { describeShutdownSockets } from '../../../_server/__tests__/shutdown-sockets';
 import {
   cancelableHandler,
   cancelMiddleware,
   CLIENT_DISCONNECTED,
+  createShutdown,
   getRequestSignal,
   HANDLER_TIMEOUT,
   SERVER_SHUTDOWN,
-  shutdown,
 } from './index';
 
 const servers: Server[] = [];
@@ -87,20 +91,25 @@ interface IHttpOptions {
 }
 
 function httpRequest(port: number, options: IHttpOptions): Promise<{ status: number; body: string }> {
+  return httpExchange(port, options).then(({ body, status }) => ({ body, status }));
+}
+
+function httpExchange(
+  port: number,
+  options: IHttpOptions,
+): Promise<{ status: number; body: string; headers: IncomingHttpHeaders }> {
   return new Promise((resolve, reject) => {
     const outgoing = request(
-      {
-        headers: options.headers,
-        host: '127.0.0.1',
-        method: options.method ?? 'GET',
-        path: options.path,
-        port,
-      },
+      { headers: options.headers, host: '127.0.0.1', method: options.method ?? 'GET', path: options.path, port },
       (incoming: IncomingMessage) => {
         const chunks: Buffer[] = [];
         incoming.on('data', (chunk: Buffer) => chunks.push(chunk));
         incoming.on('end', () =>
-          resolve({ body: Buffer.concat(chunks).toString('utf8'), status: incoming.statusCode ?? 0 }),
+          resolve({
+            body: Buffer.concat(chunks).toString('utf8'),
+            headers: incoming.headers,
+            status: incoming.statusCode ?? 0,
+          }),
         );
       },
     );
@@ -295,10 +304,7 @@ describe('deadline', () => {
             yield never();
             ctx.body = 'unreachable';
           },
-          {
-            onTimeout: (reason) => timeouts.push(reason),
-            timeout: { ms: 25, status: 504 },
-          },
+          { onTimeout: (reason) => timeouts.push(reason), timeout: { ms: 25, status: 504 } },
         ),
       ),
     );
@@ -309,6 +315,109 @@ describe('deadline', () => {
     expect(response.status).toBe(504);
     expect(timeouts).toHaveLength(1);
     expect(timeouts[0].timedOut).toBe(true);
+  });
+
+  it('cuts the connection instead of completing a body whose head already went out', async () => {
+    const app = new Koa();
+
+    app.use(cancelMiddleware());
+    app.use(
+      route(
+        '/raw',
+        cancelableHandler(
+          function* (ctx) {
+            ctx.res.writeHead(200, { 'content-type': 'text/plain' });
+            ctx.res.write('part1,');
+            yield never();
+            ctx.body = 'unreachable';
+          },
+          { timeout: { ms: 25, status: 504 } },
+        ),
+      ),
+    );
+
+    const port = await listen(app);
+    const outcome = await new Promise<{ body: string; complete: boolean }>((resolve) => {
+      const outgoing = request({ host: '127.0.0.1', path: '/raw', port }, (response) => {
+        let body = '';
+
+        response.setEncoding('utf8');
+        response.on('data', (chunk: string) => {
+          body += chunk;
+        });
+        response.on('end', () => resolve({ body, complete: response.complete }));
+        response.on('error', () => resolve({ body, complete: false }));
+      });
+
+      outgoing.on('error', () => resolve({ body: '', complete: false }));
+      outgoing.end();
+    });
+
+    expect(outcome.complete).toBe(false);
+    expect(outcome.body).not.toContain('Cannot write headers');
+  });
+
+  it('cuts the connection on a head-sent deadline with only the wrapper mounted', async () => {
+    const app = new Koa();
+
+    app.use(
+      route(
+        '/raw',
+        cancelableHandler(
+          function* (ctx) {
+            ctx.res.writeHead(200, { 'content-type': 'text/plain' });
+            ctx.res.write('part1,');
+            yield never();
+            ctx.body = 'unreachable';
+          },
+          { timeout: { ms: 25, status: 504 } },
+        ),
+      ),
+    );
+
+    const port = await listen(app);
+    const outcome = await new Promise<{ body: string; complete: boolean }>((resolve) => {
+      const outgoing = request({ host: '127.0.0.1', path: '/raw', port }, (response) => {
+        let body = '';
+
+        response.setEncoding('utf8');
+        response.on('data', (chunk: string) => {
+          body += chunk;
+        });
+        response.on('end', () => resolve({ body, complete: response.complete }));
+        response.on('error', () => resolve({ body, complete: false }));
+      });
+
+      outgoing.on('error', () => resolve({ body: '', complete: false }));
+      outgoing.end();
+    });
+
+    expect(outcome.complete).toBe(false);
+    expect(outcome.body).not.toContain('Cannot write headers');
+  });
+
+  it('drops a body the handler already set when answering the deadline', async () => {
+    const app = new Koa();
+
+    app.use(cancelMiddleware());
+    app.use(
+      route(
+        '/slow',
+        cancelableHandler(
+          function* (ctx) {
+            ctx.body = { ok: true, saved: 1 };
+            yield never();
+          },
+          { timeout: 25 },
+        ),
+      ),
+    );
+
+    const port = await listen(app);
+    const response = await httpRequest(port, { path: '/slow' });
+
+    expect(response.status).toBe(503);
+    expect(response.body).toBe('Service Unavailable');
   });
 
   it('falls back to the default status for the millisecond shorthand', async () => {
@@ -365,6 +474,265 @@ describe('middleware options', () => {
 
     expect((await httpRequest(port, { path: '/inherited' })).status).toBe(504);
     expect((await httpRequest(port, { path: '/overridden' })).status).toBe(507);
+  });
+});
+
+describe('middleware status option', () => {
+  async function statusFor(options?: { status?: number }): Promise<number> {
+    const app = new Koa();
+    let arrived!: () => void;
+    const started = new Promise<void>((resolve) => {
+      arrived = resolve;
+    });
+
+    app.use(cancelMiddleware(options));
+    app.use(
+      cancelableHandler(function* () {
+        arrived();
+
+        yield new CancelablePromise<void>(() => undefined);
+      }),
+    );
+
+    const port = await listen(app);
+    const pending = httpRequest(port, { path: '/' });
+
+    await started;
+    await createShutdown(lastServer())({ cancelAfter: 0, closeAfter: 500 });
+
+    return (await pending).status;
+  }
+
+  it('answers a cancellation with the configured status', async () => {
+    expect(await statusFor({ status: 429 })).toBe(429);
+  });
+
+  it('throws a RangeError for a status koa does not answer with', () => {
+    expect(() => cancelMiddleware({ status: 499 })).toThrow(RangeError);
+  });
+
+  it('throws a RangeError for a timeout status koa does not answer with, on the middleware and the handler', () => {
+    expect(() => cancelMiddleware({ timeout: { ms: 10, status: 499 } })).toThrow(RangeError);
+    expect(() => cancelableHandler(() => undefined, { timeout: { ms: 10, status: 499 } })).toThrow(RangeError);
+  });
+
+  it('keeps 503 when no status is configured', async () => {
+    expect(await statusFor()).toBe(503);
+  });
+});
+
+describe('request deadline timing', () => {
+  useDeadlineClock();
+
+  it('fires at the configured time on a plain route', async () => {
+    const app = new Koa();
+    const timeouts: CancelError[] = [];
+    const reached = deferred();
+    let signal!: AbortSignal;
+
+    app.use(cancelMiddleware({ onTimeout: (reason) => timeouts.push(reason), timeout: 50 }));
+    app.use(
+      route('/plain', async (ctx) => {
+        signal = getRequestSignal(ctx);
+        reached.resolve();
+        await new Promise<void>((resolve) => signal.addEventListener('abort', () => resolve(), { once: true }));
+        ctx.status = 504;
+      }),
+    );
+
+    const port = await listen(app);
+    const response = httpRequest(port, { path: '/plain' });
+    await reached.promise;
+
+    expectAbortAt(signal, 50);
+    expect((await response).status).toBe(504);
+    expect(timeouts).toHaveLength(1);
+  });
+
+  it('counts the time spent in middleware ahead of a wrapped handler', async () => {
+    const app = new Koa();
+    const upstream = deferred();
+    const release = deferred();
+    const reached = deferred();
+    let signal!: AbortSignal;
+
+    app.use(cancelMiddleware({ timeout: 100 }));
+    app.use(async (_ctx, next) => {
+      upstream.resolve();
+      await release.promise;
+
+      return next();
+    });
+    app.use(
+      cancelableHandler(function* (ctx) {
+        signal = getRequestSignal(ctx);
+        reached.resolve();
+        yield never();
+        ctx.body = 'unreachable';
+      }),
+    );
+
+    const port = await listen(app);
+    const response = httpRequest(port, { path: '/slow' });
+    await upstream.promise;
+
+    jest.advanceTimersByTime(60);
+    release.resolve();
+    await reached.promise;
+
+    expectAbortAt(signal, 40);
+    expect((await response).status).toBe(503);
+  });
+
+  it('restarts from a timeout set by a wrapped layer further in', async () => {
+    const app = new Koa();
+    const reached = deferred();
+    let signal!: AbortSignal;
+
+    const inner = cancelableHandler(
+      function* (ctx) {
+        signal = getRequestSignal(ctx);
+        reached.resolve();
+        yield never();
+        ctx.body = 'unreachable';
+      },
+      { timeout: 200 },
+    );
+
+    app.use(cancelMiddleware({ timeout: 50 }));
+    app.use(
+      route(
+        '/slow',
+        cancelableHandler(function* (ctx) {
+          yield inner(ctx);
+        }),
+      ),
+    );
+
+    const port = await listen(app);
+    const response = httpRequest(port, { path: '/slow' });
+    await reached.promise;
+
+    // past the middleware deadline, which the inner timeout replaced
+    jest.advanceTimersByTime(100);
+    expectAbortAt(signal, 100);
+    expect((await response).status).toBe(503);
+  });
+});
+
+describe('request deadline', () => {
+  it('stops once the handler returned, while its body still streams', async () => {
+    const app = new Koa();
+    const timeouts: CancelError[] = [];
+    let abortedAtEnd: boolean | undefined;
+
+    app.use(cancelMiddleware({ onTimeout: (reason) => timeouts.push(reason), timeout: 50 }));
+    app.use(
+      route(
+        '/stream',
+        cancelableHandler(function* (ctx) {
+          const signal = getRequestSignal(ctx);
+          ctx.body = slowBody(() => {
+            abortedAtEnd = signal.aborted;
+          });
+        }),
+      ),
+    );
+
+    const port = await listen(app);
+    const response = await httpRequest(port, { path: '/stream' });
+
+    expect(response).toEqual({ body: STREAMED_BODY, status: 200 });
+    expect(abortedAtEnd).toBe(false);
+    expect(timeouts).toEqual([]);
+  });
+
+  it('stops once a plain route returned, while its body still streams', async () => {
+    const app = new Koa();
+    const timeouts: CancelError[] = [];
+    let abortedAtEnd: boolean | undefined;
+
+    app.use(cancelMiddleware({ onTimeout: (reason) => timeouts.push(reason), timeout: 50 }));
+    app.use(
+      route('/plain', (ctx) => {
+        const signal = getRequestSignal(ctx);
+        ctx.body = slowBody(() => {
+          abortedAtEnd = signal.aborted;
+        });
+      }),
+    );
+
+    const port = await listen(app);
+    const response = await httpRequest(port, { path: '/plain' });
+
+    expect(response).toEqual({ body: STREAMED_BODY, status: 200 });
+    expect(abortedAtEnd).toBe(false);
+    expect(timeouts).toEqual([]);
+  });
+
+  it('reports a deadline once however many wrapped layers the request passed', async () => {
+    const app = new Koa();
+    const timeouts: CancelError[] = [];
+
+    app.use(cancelMiddleware({ onTimeout: (reason) => timeouts.push(reason), timeout: 50 }));
+    app.use(cancelMiddleware());
+    app.use(
+      route(
+        '/slow',
+        nest(
+          2,
+          cancelableHandler(function* (ctx) {
+            yield never();
+            ctx.body = 'unreachable';
+          }),
+        ),
+      ),
+    );
+
+    const port = await listen(app);
+
+    expect((await httpRequest(port, { path: '/slow' })).status).toBe(503);
+    await settleTurns();
+    expect(timeouts).toHaveLength(1);
+  });
+
+  it('keeps the close listeners on the response bounded across twelve wrapped layers', async () => {
+    const app = new Koa();
+    const warnings = recordWarnings();
+    let closeListeners = -1;
+    let abortListeners = -1;
+
+    // read at finish: every layer has registered whatever it registers by then, none removed yet
+    app.use(async (ctx, next) => {
+      // counts only what the wrapped chain adds: Node's own close listeners vary by version
+      const before = ctx.res.listenerCount('close');
+      ctx.res.on('finish', () => {
+        closeListeners = ctx.res.listenerCount('close') - before;
+      });
+      await next();
+    });
+    app.use(
+      route(
+        '/deep',
+        nest(
+          11,
+          cancelableHandler(function* (ctx) {
+            abortListeners = getEventListeners(getRequestSignal(ctx), 'abort').length;
+            ctx.body = 'ok';
+          }),
+        ),
+      ),
+    );
+
+    const port = await listen(app);
+
+    expect((await httpRequest(port, { path: '/deep' })).body).toBe('ok');
+    await settleTurns();
+    // the disconnect wiring, plus the request registry of a server met for the first time
+    expect(closeListeners).toBe(2);
+    // read inside the route, the one in-flight forwarder however many layers
+    expect(abortListeners).toBe(1);
+    expect(warnings.stop()).toEqual([]);
   });
 });
 
@@ -451,7 +819,7 @@ describe('cancel middleware error path', () => {
     expect(response.status).toBe(500);
   });
 
-  it('answers a cancellation carrying no status with the configured fallback', async () => {
+  it('leaves a cancellation carrying no status to koa', async () => {
     const app = new Koa();
 
     app.use(cancelMiddleware());
@@ -462,10 +830,10 @@ describe('cancel middleware error path', () => {
     const port = await listen(app);
     const response = await httpRequest(port, { path: '/' });
 
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(500);
   });
 
-  it('answers a deadline with the status stamped on it', async () => {
+  it("leaves a user cancellation carrying its own status to koa's own handling", async () => {
     const app = new Koa();
 
     app.use(cancelMiddleware());
@@ -479,7 +847,7 @@ describe('cancel middleware error path', () => {
     expect(response.status).toBe(504);
   });
 
-  it('reads the foreign statusCode spelling before the fallback', async () => {
+  it("leaves a user cancellation carrying statusCode to koa's own handling", async () => {
     const app = new Koa();
 
     app.use(cancelMiddleware());
@@ -528,8 +896,334 @@ describe('cancel middleware error path', () => {
   });
 });
 
+describe('handler kinds', () => {
+  it('answers 500 and emits a TypeError on the app for an async generator handler', async () => {
+    const app = new Koa();
+    const errors: unknown[] = [];
+
+    app.on('error', (error: unknown) => errors.push(error));
+    app.use(cancelMiddleware());
+    app.use(cancelableHandler(asyncGeneratorHandler as never));
+
+    const port = await listen(app);
+
+    expect((await httpRequest(port, { path: '/' })).status).toBe(500);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toBeInstanceOf(TypeError);
+  });
+
+  it('skips a handler whose caller signal was already aborted', async () => {
+    const app = new Koa();
+    const handler = jest.fn();
+
+    app.use(cancelMiddleware());
+    app.use(cancelableHandler(handler, { signal: AbortSignal.abort() }));
+
+    const port = await listen(app);
+
+    expect((await httpRequest(port, { path: '/' })).status).toBe(503);
+    expect(handler).not.toHaveBeenCalled();
+  });
+});
+
+describe('shutdown cancel status', () => {
+  /** Reads the status line off the first bytes a raw connection gets back. */
+  async function firstStatus(client: Socket): Promise<number> {
+    const [chunk] = await once(client, 'data');
+
+    return Number(/^HTTP\/1\.1 (\d{3})/.exec(String(chunk))?.[1]);
+  }
+
+  function hangingRoute(started: { resolve: () => void }) {
+    return route(
+      '/hang',
+      cancelableHandler(function* (ctx) {
+        started.resolve();
+        yield never();
+        ctx.body = 'unreachable';
+      }),
+    );
+  }
+
+  it('answers 503 for a shutdown cancel that reaches koa default error handling', async () => {
+    const app = new Koa();
+    const started = deferred();
+
+    app.silent = true;
+    app.use(hangingRoute(started));
+
+    const port = await listen(app);
+    const pending = httpRequest(port, { path: '/hang' });
+
+    await started.promise;
+    await createShutdown(lastServer())({ cancelAfter: 200 });
+
+    expect((await pending).status).toBe(503);
+  });
+
+  it('takes the middleware status over the stamped 503 for a shutdown cancel', async () => {
+    const app = new Koa();
+    const started = deferred();
+
+    app.use(cancelMiddleware({ status: 502 }));
+    app.use(hangingRoute(started));
+
+    const port = await listen(app);
+    const pending = httpRequest(port, { path: '/hang' });
+
+    await started.promise;
+    await createShutdown(lastServer())({ cancelAfter: 200 });
+
+    expect((await pending).status).toBe(502);
+  });
+
+  it('answers the shutdown status and headers without a middleware error handler', async () => {
+    const app = new Koa();
+    const started = deferred();
+
+    app.silent = true;
+    app.use(
+      route(
+        '/hang',
+        cancelableHandler(function* (ctx) {
+          started.resolve();
+          yield never();
+          ctx.body = 'unreachable';
+        }),
+      ),
+    );
+
+    const port = await listen(app);
+    const pending = httpExchange(port, { path: '/hang' });
+
+    await started.promise;
+    await createShutdown(lastServer())({ cancelAfter: 200, headers: { 'Retry-After': '5' }, status: 504 });
+
+    const answer = await pending;
+
+    expect(answer.status).toBe(504);
+    expect(answer.headers['retry-after']).toBe('5');
+  });
+
+  it('sends the shutdown headers through the cancel middleware', async () => {
+    const app = new Koa();
+    const started = deferred();
+
+    app.silent = true;
+    app.use(cancelMiddleware({ status: 502 }));
+    app.use(
+      route(
+        '/hang',
+        cancelableHandler(function* (ctx) {
+          started.resolve();
+          yield never();
+          ctx.body = 'unreachable';
+        }),
+      ),
+    );
+
+    const port = await listen(app);
+    const pending = httpExchange(port, { path: '/hang' });
+
+    await started.promise;
+    await createShutdown(lastServer())({ cancelAfter: 200, headers: { 'Retry-After': '5' }, status: 504 });
+
+    const answer = await pending;
+
+    expect(answer.status).toBe(504);
+    expect(answer.headers['retry-after']).toBe('5');
+  });
+
+  it('implicit shutdown headers + cancelMiddleware({status: 502}) -> 502 with no shutdown header', async () => {
+    const app = new Koa();
+    const started = deferred();
+
+    app.silent = true;
+    app.use(cancelMiddleware({ status: 502 }));
+    app.use(
+      route(
+        '/hang',
+        cancelableHandler(function* (ctx) {
+          started.resolve();
+          yield never();
+          ctx.body = 'unreachable';
+        }),
+      ),
+    );
+
+    const port = await listen(app);
+    const pending = httpExchange(port, { path: '/hang' });
+
+    await started.promise;
+    await createShutdown(lastServer())({ cancelAfter: 200, headers: { 'Retry-After': '5' } });
+
+    const answer = await pending;
+
+    expect(answer.status).toBe(502);
+    expect(answer.headers['retry-after']).toBeUndefined();
+  });
+
+  it('keeps a deadline status over the middleware status', async () => {
+    const app = new Koa();
+
+    app.use(cancelMiddleware({ status: 502 }));
+    app.use(
+      route(
+        '/slow',
+        cancelableHandler(
+          function* (ctx) {
+            yield never();
+            ctx.body = 'unreachable';
+          },
+          { timeout: { ms: 20, status: 504 } },
+        ),
+      ),
+    );
+
+    const port = await listen(app);
+
+    expect((await httpRequest(port, { path: '/slow' })).status).toBe(504);
+  });
+
+  it('gives each in-flight request its own shutdown cancellation', async () => {
+    const app = new Koa();
+    const reasons: unknown[] = [];
+    let entered = 0;
+    const bothStarted = deferred();
+
+    app.use(cancelMiddleware());
+    app.use(
+      route(
+        '/hang',
+        cancelableHandler(function* (ctx) {
+          const signal = getRequestSignal(ctx);
+          signal.addEventListener('abort', () => reasons.push(signal.reason));
+          entered += 1;
+          if (entered === 2) {
+            bothStarted.resolve();
+          }
+          yield never();
+          ctx.body = 'unreachable';
+        }),
+      ),
+    );
+
+    const port = await listen(app);
+    const pending = [httpRequest(port, { path: '/hang' }), httpRequest(port, { path: '/hang' })];
+
+    await bothStarted.promise;
+    await createShutdown(lastServer())({ cancelAfter: 200 });
+    await Promise.all(pending);
+
+    expect(reasons).toHaveLength(2);
+    expect(reasons[0]).not.toBe(reasons[1]);
+  });
+
+  it('answers 503 for a request that arrives during a cancel-on-start drain with no middleware', async () => {
+    const app = new Koa();
+
+    app.silent = true;
+    app.use(
+      route(
+        '/late',
+        cancelableHandler(function* (ctx) {
+          yield never();
+          ctx.body = 'unreachable';
+        }),
+      ),
+    );
+
+    const port = await listen(app);
+    // a connection opened before the drain starts is the only way to deliver a request while it runs
+    const accepted = once(lastServer(), 'connection');
+    const client = connect(port, '127.0.0.1');
+    sockets.push(client);
+    client.on('error', () => {});
+    await accepted;
+
+    const shutdown = createShutdown(lastServer())({ cancelAfter: 0, closeAfter: 500 });
+    client.write('GET /late HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n');
+
+    expect(await firstStatus(client)).toBe(503);
+    await shutdown;
+  });
+
+  it('lets a signal-only route answer 503 after the cancel, and counts it canceled', async () => {
+    const app = new Koa();
+    const reached = deferred();
+    const events: string[] = [];
+
+    app.silent = true;
+    app.use(
+      route(
+        '/signal',
+        (ctx) =>
+          new Promise<void>((resolve) => {
+            getRequestSignal(ctx).addEventListener('abort', () => {
+              setTimeout(() => {
+                events.push('answered');
+                ctx.status = 503;
+                resolve();
+              }, 30);
+            });
+            reached.resolve();
+          }),
+      ),
+    );
+
+    const port = await listen(app);
+    const pending = httpRequest(port, { path: '/signal' });
+    await reached.promise;
+
+    const shutdown = createShutdown(lastServer())({ cancelAfter: 50, closeAfter: 2_000 }).then((result) => {
+      events.push('resolved');
+      return result;
+    });
+
+    expect((await pending).status).toBe(503);
+    expect(await shutdown).toEqual({ canceled: 1, completed: 0, timedOut: false });
+    expect(events).toEqual(['answered', 'resolved']);
+  });
+
+  it('holds the window for a cleanup that awaits, then answers 503 and counts it canceled', async () => {
+    const app = new Koa();
+    const started = deferred();
+    const events: string[] = [];
+
+    app.silent = true;
+    app.use(
+      route(
+        '/cleanup',
+        cancelableHandler(function* (ctx) {
+          started.resolve();
+          try {
+            yield never();
+            ctx.body = 'unreachable';
+          } finally {
+            yield new CancelablePromise<void>((resolve) => setTimeout(resolve, 50));
+            events.push('cleaned');
+          }
+        }),
+      ),
+    );
+
+    const port = await listen(app);
+    const pending = httpRequest(port, { path: '/cleanup' });
+    await started.promise;
+
+    const shutdown = createShutdown(lastServer())({ cancelAfter: 50, closeAfter: 2_000 }).then((result) => {
+      events.push('resolved');
+      return result;
+    });
+
+    expect((await pending).status).toBe(503);
+    expect(await shutdown).toEqual({ canceled: 1, completed: 0, timedOut: false });
+    expect(events).toEqual(['cleaned', 'resolved']);
+  });
+});
+
 describe('shutdown', () => {
-  it('cancels a live request and reports the outcome', async () => {
+  it('cancels a live request when the grace window ends and reports the outcome', async () => {
     const app = new Koa();
     const started = deferred();
 
@@ -549,7 +1243,7 @@ describe('shutdown', () => {
     const pending = httpRequest(port, { path: '/hang' });
 
     await started.promise;
-    const result = await shutdown(lastServer(), { timeout: 1000 });
+    const result = await createShutdown(lastServer())({ cancelAfter: 200 });
 
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
     expect((await pending).status).toBe(503);
@@ -578,7 +1272,7 @@ describe('shutdown', () => {
     const client = await rawRequest(port, 'GET /shielded HTTP/1.1\r\nHost: localhost\r\n\r\n');
 
     await started.promise;
-    const result = await shutdown(lastServer(), { timeout: 100 });
+    const result = await createShutdown(lastServer())({ cancelAfter: 100 });
     client.destroy();
 
     expect(result.timedOut).toBe(true);
@@ -598,9 +1292,448 @@ describe('shutdown', () => {
 
     await listen(app);
     const server = lastServer();
-    const first = shutdown(server, { timeout: 100 });
+    const first = createShutdown(server)({ cancelAfter: 100 });
 
-    expect(shutdown(server)).toBe(first);
+    expect(createShutdown(server)()).toBe(first);
     expect(await first).toEqual({ canceled: 0, completed: 0, timedOut: false });
+  });
+});
+
+const STREAMED_CHUNKS = 6;
+const STREAMED_BODY = 'chunk\n'.repeat(STREAMED_CHUNKS);
+
+/** A body koa streams over roughly 300ms after the handler returned, well past a 50ms deadline. */
+function slowBody(onEnd: () => void): Readable {
+  let written = 0;
+  let timer: ReturnType<typeof setInterval> | undefined;
+
+  return new Readable({
+    destroy(error, callback) {
+      clearInterval(timer);
+      callback(error);
+    },
+    read() {
+      if (timer) {
+        return;
+      }
+
+      timer = setInterval(() => {
+        written += 1;
+        this.push('chunk\n');
+
+        if (written === STREAMED_CHUNKS) {
+          clearInterval(timer);
+          onEnd();
+          this.push(null);
+        }
+      }, 50);
+    },
+  });
+}
+
+/** Wraps a route in further wrapped layers, each one driving the next as its own handler task. */
+function nest(depth: number, innermost: (ctx: Context) => Promise<void>): (ctx: Context) => Promise<void> {
+  let layer = innermost;
+
+  for (let level = 0; level < depth; level += 1) {
+    const inner = layer;
+    layer = cancelableHandler(function* (ctx) {
+      yield inner(ctx);
+    });
+  }
+
+  return layer;
+}
+
+/** Lets late rejections and emitted warnings land before an assertion reads them. */
+async function settleTurns(): Promise<void> {
+  for (let turn = 0; turn < 5; turn += 1) {
+    await new Promise<void>((resolve) => setImmediate(resolve));
+  }
+}
+
+/**
+ * Collects process warnings until stopped. Listens on the host process: the one jest hands a test
+ * file is a copy, and node emits its warnings on the original.
+ */
+function recordWarnings(): { stop: () => string[] } {
+  const host = runInThisContext('process') as NodeJS.Process;
+  const seen: string[] = [];
+  const listener = (warning: Error) => seen.push(`${warning.name}: ${warning.message}`);
+
+  host.on('warning', listener);
+
+  return {
+    stop: () => {
+      host.off('warning', listener);
+
+      return seen;
+    },
+  };
+}
+
+/** An async generator handler, which the types reject and the runtime must refuse too. */
+async function* asyncGeneratorHandler(): AsyncGenerator<number> {
+  yield 1;
+}
+
+describeShutdownSockets(
+  createShutdown,
+  async (arrived, release) => {
+    const plain = new Koa();
+    plain.use(async (ctx) => {
+      if (ctx.path === '/fast') {
+        ctx.body = 'ok';
+        return;
+      }
+
+      if (ctx.path === '/close' || ctx.path === '/flush') {
+        ctx.set('Connection', 'close');
+      }
+      if (ctx.path === '/flush') {
+        ctx.status = 200;
+        ctx.flushHeaders();
+      }
+
+      arrived();
+      await release;
+      ctx.body = 'ok';
+    });
+    const server = await new Promise<Server>((resolve) => {
+      const listening = plain.listen(0, '127.0.0.1', () => resolve(listening));
+    });
+
+    return { server, target: server };
+  },
+  { appSetHeaders: true },
+);
+
+describe('error response during the shutdown grace', () => {
+  it('keeps Connection: close on a plain koa error, so the kept-alive socket is not reset', async () => {
+    const arrived = deferred();
+    const release = deferred();
+    const app = new Koa();
+    app.use(cancelMiddleware());
+    app.use(async (ctx) => {
+      if (ctx.path === '/boom') {
+        arrived.resolve();
+        await release.promise;
+        throw new Error('boom');
+      }
+      ctx.body = 'ok';
+    });
+    const server = await new Promise<Server>((resolve) => {
+      const listening = app.listen(0, '127.0.0.1', () => resolve(listening));
+    });
+    servers.push(server);
+    const port = (server.address() as { port: number }).port;
+
+    const response = new Promise<IncomingMessage>((resolve, reject) => {
+      const req = request({ host: '127.0.0.1', path: '/boom', port }, resolve);
+      req.on('error', reject);
+      req.end();
+    });
+    await arrived.promise;
+
+    const closing = createShutdown(server)({ cancelAfter: 200 });
+    release.resolve();
+    const answer = await response;
+    answer.resume();
+
+    expect(answer.statusCode).toBe(500);
+    expect(answer.headers.connection).toBe('close');
+    await closing;
+  });
+});
+
+describe('cancellation through koa error handling', () => {
+  it('answers a deadline before the head with koa text and headers, and emits error on the app', async () => {
+    const app = new Koa();
+    const emitted: unknown[] = [];
+    app.on('error', (error) => emitted.push(error));
+    app.use(cancelMiddleware());
+    app.use(
+      route(
+        '/slow',
+        cancelableHandler(
+          function* (ctx) {
+            ctx.body = { partial: true };
+            yield never();
+          },
+          { timeout: { ms: 25, headers: { 'Retry-After': '5' } } },
+        ),
+      ),
+    );
+
+    const port = await listen(app);
+    const response = await httpExchange(port, { path: '/slow' });
+    await settleTurns();
+
+    expect(response.status).toBe(503);
+    expect(response.body).toBe('Service Unavailable');
+    expect(response.headers['retry-after']).toBe('5');
+    expect(emitted).toHaveLength(1);
+    expect(isCancelError(emitted[0])).toBe(true);
+  });
+
+  it('cuts a deadline that fires after the head was sent, and still emits error on the app', async () => {
+    const app = new Koa();
+    const emitted: unknown[] = [];
+    app.on('error', (error) => emitted.push(error));
+    app.use(cancelMiddleware());
+    app.use(
+      route(
+        '/stream',
+        cancelableHandler(
+          function* (ctx) {
+            ctx.status = 200;
+            ctx.flushHeaders();
+            yield never();
+          },
+          { timeout: 25 },
+        ),
+      ),
+    );
+
+    const port = await listen(app);
+    const answer = await new Promise<{ status?: number; complete: boolean }>((resolve) => {
+      const req = request({ host: '127.0.0.1', path: '/stream', port }, (incoming) => {
+        incoming.resume();
+        incoming.on('close', () => resolve({ status: incoming.statusCode, complete: incoming.complete }));
+      });
+      req.on('error', () => undefined);
+      req.end();
+    });
+    await settleTurns();
+
+    expect(answer).toEqual({ status: 200, complete: false });
+    expect(emitted).toHaveLength(1);
+    expect(isCancelError(emitted[0])).toBe(true);
+  });
+
+  it('drops a disconnect: nothing is emitted on the app', async () => {
+    const app = new Koa();
+    const emitted: unknown[] = [];
+    const arrived = deferred();
+    app.on('error', (error) => emitted.push(error));
+    app.use(cancelMiddleware());
+    app.use(
+      route(
+        '/hang',
+        cancelableHandler(function* () {
+          arrived.resolve();
+          yield never();
+        }),
+      ),
+    );
+
+    const port = await listen(app);
+    const req = request({ host: '127.0.0.1', path: '/hang', port }, () => undefined);
+    req.on('error', () => undefined);
+    req.end();
+    await arrived.promise;
+    req.destroy();
+    await settleTurns();
+
+    expect(emitted).toEqual([]);
+  });
+});
+
+describe('ownership comes from request state', () => {
+  it('does not answer a user cancellation by the status it carries on a live request', async () => {
+    const app = new Koa();
+    const emitted: unknown[] = [];
+    const userError = Object.assign(new CancelError('user stop'), { status: 499, headers: { 'X-Trace': 'abc' } });
+
+    app.on('error', (error) => emitted.push(error));
+    app.use(cancelMiddleware({ status: 429 }));
+    app.use(
+      cancelableHandler(function* () {
+        yield CancelablePromise.resolve();
+
+        throw userError;
+      }),
+    );
+
+    const port = await listen(app);
+    const response = await httpExchange(port, { path: '/' });
+
+    expect(response.status).toBe(500);
+    expect(response.headers['x-trace']).toBe('abc');
+    expect(emitted).toHaveLength(1);
+    expect(emitted[0]).toBe(userError);
+  });
+
+  it('answers a derived cancel with the deadline status when a plain route is canceled from the request signal', async () => {
+    const app = new Koa();
+
+    app.use(cancelMiddleware({ timeout: { ms: 50, status: 504 } }));
+    app.use(
+      route('/derived', async (ctx) => {
+        const signal = getRequestSignal(ctx);
+        const child = new CancelablePromise<void>(() => undefined);
+
+        signal.addEventListener(
+          'abort',
+          () => {
+            void child.cancel();
+          },
+          { once: true },
+        );
+        await child;
+      }),
+    );
+
+    const port = await listen(app);
+    const response = await httpRequest(port, { path: '/derived' });
+
+    expect(response.status).toBe(504);
+  });
+
+  it('answers a route-signal cancel on a live request with the middleware status and no route content headers', async () => {
+    const app = new Koa();
+    const routeAbort = new AbortController();
+
+    app.use(cancelMiddleware({ status: 502 }));
+    // set ahead of the route, so the cancel answer is the one that has to drop it
+    app.use(async (ctx, next) => {
+      ctx.set('Content-Encoding', 'gzip');
+      await next();
+    });
+    app.use(
+      cancelableHandler(
+        function* (_ctx: Context) {
+          yield never();
+        },
+        { signal: routeAbort.signal },
+      ),
+    );
+
+    const port = await listen(app);
+    const pending = httpExchange(port, { path: '/' });
+
+    setTimeout(() => routeAbort.abort(), 20);
+
+    const response = await pending;
+
+    expect(response.status).toBe(502);
+    expect(response.headers['content-encoding']).toBeUndefined();
+  });
+});
+
+describe('outer middleware and open cancel paths', () => {
+  // an outer middleware that records what reaches it and rethrows, the way error loggers do
+  function recordOuter(app: Koa, events: string[]): void {
+    app.on('error', (error: { status?: number }) => events.push(`app ${String(error.status)}`));
+    app.use(async (_ctx, next) => {
+      try {
+        await next();
+      } catch (error) {
+        const status = (error as { status?: number }).status;
+
+        events.push(`outer ${String(status)} ${String(isCancelError(error))}`);
+        throw error;
+      }
+    });
+  }
+
+  it('shows the outer middleware and the app error event each one cancellation', async () => {
+    const events: string[] = [];
+    const app = new Koa();
+
+    recordOuter(app, events);
+    app.use(cancelMiddleware());
+    app.use(
+      cancelableHandler(
+        function* () {
+          yield never();
+        },
+        { timeout: { ms: 25, headers: { 'Retry-After': '5' } } },
+      ),
+    );
+
+    const port = await listen(app);
+    const answer = await httpExchange(port, { path: '/' });
+
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(answer.status).toBe(503);
+    expect(answer.body).toBe('Service Unavailable');
+    expect(events).toEqual(['outer 503 true', 'app 503']);
+  });
+
+  it('cuts a head-sent shutdown and reports it once to the outer middleware and app', async () => {
+    const events: string[] = [];
+    const app = new Koa();
+    const started = deferred();
+
+    recordOuter(app, events);
+    app.use(cancelMiddleware());
+    app.use(
+      cancelableHandler(function* (ctx) {
+        ctx.status = 200;
+        ctx.flushHeaders();
+        ctx.res.write('part');
+        started.resolve();
+        yield never();
+      }),
+    );
+
+    const port = await listen(app);
+    const pending = new Promise<{ body: string; complete: boolean; status?: number }>((resolve) => {
+      const outgoing = request({ host: '127.0.0.1', path: '/', port }, (incoming) => {
+        let body = '';
+
+        incoming.on('data', (chunk: Buffer) => (body += chunk.toString()));
+        incoming.on('close', () => resolve({ body, complete: incoming.complete, status: incoming.statusCode }));
+      });
+
+      outgoing.on('error', () => resolve({ body: '', complete: false }));
+      outgoing.end();
+    });
+
+    await started.promise;
+    const result = await createShutdown(lastServer())({ cancelAfter: 0, closeAfter: 2000 });
+    const answer = await pending;
+
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(answer).toMatchObject({ complete: false, status: 200 });
+    expect(result.canceled).toBe(1);
+    expect(events).toEqual(['outer 503 true', 'app 503']);
+  });
+
+  it('sends a late failure of a signal-only handler to the app error event once', async () => {
+    const events: string[] = [];
+    const app = new Koa();
+    const lateFailed = deferred();
+
+    app.on('error', (error: Error) => {
+      events.push(`app ${error.message}`);
+
+      if (error.message === 'late boom') {
+        lateFailed.resolve();
+      }
+    });
+    app.use(cancelMiddleware());
+    const gate = deferred();
+    app.use(
+      cancelableHandler(
+        async () => {
+          await gate.promise;
+          throw new Error('late boom');
+        },
+        { timeout: 25 },
+      ),
+    );
+
+    const port = await listen(app);
+    const answer = await httpExchange(port, { path: '/' });
+
+    gate.resolve();
+    await lateFailed.promise;
+
+    expect(answer.status).toBe(503);
+    expect(events).toEqual(['app handler timeout', 'app late boom']);
   });
 });

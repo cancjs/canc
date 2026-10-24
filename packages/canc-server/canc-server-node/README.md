@@ -27,7 +27,7 @@ This package targets `http.createServer` directly, with no framework in between.
 - One cancel signal per request, shared with request-scoped work started outside the handler
 - Deadlines as an option rather than a second wrapper, with the HTTP status carried on the error
 - Full inference for a bare `function* (req, res)` with no annotations
-- Graceful shutdown that cancels in-flight handlers and reports what happened
+- Graceful shutdown that lets in-flight handlers finish within a grace window, then cancels the rest
 - An `onError` option, so a canceled request answers correctly with no extra wiring
 - No runtime dependencies
 
@@ -100,15 +100,17 @@ const handler = cancelableHandler(function* (req, res) {
 });
 ```
 
-Shut the server down, canceling in-flight requests:
+Shut the server down, giving in-flight requests a grace window:
 
 ```js
-import { shutdown } from '@cancjs/server-node';
+import { createShutdown } from '@cancjs/server-node';
 
 const server = createServer(handler).listen(3000);
+// right after listen(), so the shutdown knows every connection
+const shutdown = createShutdown(server);
 
 process.on('SIGTERM', async () => {
-  const { canceled, completed, timedOut } = await shutdown(server, { timeout: 10_000 });
+  const { canceled, completed, timedOut } = await shutdown({ cancelAfter: 10_000 });
 
   logger.info({ canceled, completed, timedOut }, 'server shut down');
   process.exit(0);
@@ -147,9 +149,29 @@ Any **other** handler runs signal-only. The request signal still fires, `onDisco
 
 A deadline aborts the request signal itself rather than the handler's promise, so request-scoped work other consumers started stops with the handler instead of outliving it. The resulting `CancelError` reports `timedOut === true` and carries `status` and `statusCode`, which is what the default `onError` reads when it picks a response code.
 
+There is one deadline per request. A wrapped handler calling another wrapped handler shares it, and the inner one's own `timeout` restarts the clock with that value. The deadline covers the handler, not the body. It ends once the wrapped handler answering the request settles, so a stream still being written after the handler returned is not cut short by it. A handler that answers from a callback after it returned is no longer covered either. A slow response body is for `server.requestTimeout` or the proxy in front of the server. A `timeout` of `0` fires at once, and `Infinity`, `NaN`, a negative number or leaving it out sets no deadline. A negative value is not an immediate deadline, and on a route that sets its own `timeout` it lifts the deadline set above it, like `Infinity`. A duration past about 24.8 days is held at that limit.
+
 ### Shutting down
 
-`shutdown` stops the server accepting connections, closes idle keep-alive sockets, cancels every in-flight handler, then waits for them within a grace window before closing what is left. It cancels the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it. It resolves with counts rather than throwing, and a second call while the first is running returns the same result, so wiring it to both `SIGTERM` and `SIGINT` needs no guard.
+`createShutdown(server)` returns the function that runs the shutdown. Call it right after `listen()`: it records connections and requests from that point on. It replaces the prerelease `shutdown(server, o)`: call `createShutdown(server)(o)`.
+
+The shutdown stops the server accepting connections, closes a connection that has received no bytes once it is five seconds old (or at the grace, if shorter), leaves one that has already sent part of a request to finish, and closes idle keep-alive sockets. In-flight requests, wrapped or not, keep running for the grace window, and so does a request that arrives on a kept-alive connection meanwhile. Every response sent from then on carries `Connection: close`, and each connection closes as soon as the response on it finishes.
+
+When the window ends, handlers still running are canceled with the shutdown reason, so their cleanup runs and one that has not started its response can still answer `503`. A request still open then runs until it finishes or `closeAfter`, and connections still busy at `closeAfter` are closed. Shutdown resolves as soon as nothing is open. On Kubernetes, keep `closeAfter` at or below `terminationGracePeriodSeconds` minus the preStop sleep, less a margin for the process to exit, or the kubelet kills the process before the window ends. A `cancelAfter` greater than `closeAfter` throws a `RangeError` synchronously; negative values clamp to 0 before that check. The cancel reaches the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it.
+
+`status` and `headers` set the answer each request the shutdown cancels gets, for example `shutdown({ cancelAfter: 10_000, status: 504, headers: { 'Retry-After': '5' } })`. For these cancellations `status` takes precedence over a handler's `status` option, and `headers` are added to the answer. A deadline keeps the status it was given. Invalid values throw from `shutdown()`: a `status` outside 200 to 599 raises a `RangeError`, and a header name or value HTTP does not allow raises a `TypeError`.
+
+To add a header to a shutdown answer, write it yourself in your `onError` before answering. A shutdown cancel and a disconnect both reach `onError` as a cancellation, so test `err.status` to tell them apart, since `!err.timedOut` alone matches both. Retry only idempotent requests, because the handler may have partly run. An abort that a library wraps in its own error answers the framework's 500, for a deadline or a shutdown alike.
+
+Pass `cancelAfter: 0` to cancel handlers as soon as the shutdown starts instead, which suits long-lived responses such as server-sent events or long polling that would otherwise hold the whole window.
+
+Created late, it finishes correctly but slower, because a connection opened before the call is unknown to it. If that connection has not sent a request yet, or its request is still in flight and no wrapped handler or request signal recorded it, the connection is closed only when `closeAfter` ends. That response goes out without `Connection: close`.
+
+It resolves with counts rather than throwing. `canceled` counts requests this shutdown canceled, `completed` requests that finished normally, and `timedOut` is set when `closeAfter` ends the window with a request or connection still open. A second call while a shutdown is running returns the same promise, so wiring it to both `SIGTERM` and `SIGINT` needs no guard. A call after it has settled starts a new run. Calling `createShutdown` again with the same server returns the same function.
+
+Migrating from `timeout`: rename it to `cancelAfter`. `cancelOnStart: true` becomes `cancelAfter: 0`, and without `closeAfter` the window is then 1 s instead of 10 s, so pass `closeAfter` to keep a longer one. The value is set once per server, so an app that mixes long-lived streams with ordinary routes ends its own streams when the shutdown starts and keeps the default for the rest.
+
+A `cancelAfter` of `Infinity` waits for the responses however long they take, and a finite one past about 24.8 days is held at that limit.
 
 ## Description
 
@@ -159,23 +181,25 @@ Cancellation is always a `CancelError`. What differs between the three triggers 
 
 ### What reaches the error handler
 
-Raw node has no `next(err)` and no error middleware. What settles a request after its handler rejects is `options.onError`, and it defaults to `cancelErrorHandler()`. A cancellation that is not a deadline, on a response whose socket is already gone, is dropped before `onError` is called: there is nobody left to answer. A deadline always reaches `onError`, because the client is still there and expects a response.
+Raw node has no `next(err)` and no error middleware. What settles a request after its handler rejects is `options.onError`, and it defaults to `cancelErrorHandler()`. A cancellation that is not a deadline, on a response whose socket is already gone, is dropped before `onError` is called: there is nobody left to answer. A deadline always reaches `onError`, because the client is still there and expects a response. If the head already went out, a status can no longer be sent, so the socket is destroyed instead: the client sees a cut connection rather than a body that looks complete.
 
-`cancelErrorHandler()` answers a deadline with the status stamped on the error, answers a shutdown cancellation with its fallback status (`503`, or whatever `status` you pass), and leaves a departed client alone. Anything that is not a cancellation, a plain bug in a handler, answers `500` and goes to `console.error`.
+`cancelErrorHandler()` answers a deadline with the status stamped on the error, answers a shutdown cancellation with the shutdown's `status` when it set one, else with this handler's `status` option, else `503`, and leaves a departed client alone. Anything that is not a cancellation, a plain bug in a handler, answers `500` and goes to `console.error`. So does a cancellation the request does not own (the app's own `CancelError`, its own timeouts): the adapter does not pass it through.
+
+A cancellation answer also drops the `Content-Type`, `Content-Encoding`, `Content-Language` and `Content-Range` the route set, and sends the cancellation's headers only when the status came from the error. Put a `Retry-After` on a deadline with `timeout: { ms, headers: { 'Retry-After': '5' } }`. A late failure after the deadline goes to `console.error`; to log cancellations, filter with `isCancelError` in your own `onError`.
 
 That last part is where this package differs from the four framework adapters. Each of those forwards such an error to a framework error handler that already answers and logs. Raw node has no pipeline behind the wrapper, so the wrapper holds the only reference left to a response the client is still waiting on. Pass `cancelErrorHandler({ rethrow: true })` to get the throw back instead. Nothing awaits it, so it surfaces as an unhandled rejection: opt in only where a process level handler is installed to receive it.
 
-Pass your own `onError` when a caller already has an error pipeline: an adapter for restify, AdonisJS, a Pages Router API route, or Nest on the raw server reads the error from there instead.
+Pass your own `onError` when a caller already has an error pipeline: an adapter for restify, AdonisJS, a Pages Router API route, or Nest on the raw server reads the error from there instead. A custom `onError` that rethrows a cancellation does not help: nothing awaits the throw and cancellation rejections are not reported, so it is swallowed. On a deadline no response is sent and nothing closes the socket, so the request hangs until the client or the socket timeout ends it. On a shutdown the socket is force-closed, so the client sees a reset. Answer the response inside `onError`, or hand the error to `cancelErrorHandler()`.
 
 ### Options
 
-| Option         | Default                | Meaning                                                                                               |
-| -------------- | ---------------------- | ----------------------------------------------------------------------------------------------------- |
-| `timeout`      | none                   | Handler deadline. A number is the millisecond shorthand, the object form is `{ ms, status, message }` |
-| `signal`       | none                   | An external `AbortSignal`, or an array of them, composed alongside the wired one                      |
-| `onDisconnect` | none                   | Called once when the client goes away. Cleanup and metrics only, the response is unreachable          |
-| `onTimeout`    | none                   | Called once when the deadline fires. The client is still connected                                    |
-| `onError`      | `cancelErrorHandler()` | Called with `(error, req, res)` for anything the wrapper does not swallow                             |
+| Option         | Default                | Meaning                                                                                                                |
+| -------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `timeout`      | none                   | Request deadline, one per request. A number is the millisecond shorthand, the object form is `{ ms, status, message }` |
+| `signal`       | none                   | An external `AbortSignal`, or an array of them, composed alongside the wired one                                       |
+| `onDisconnect` | none                   | Called once per request when the client goes away. Cleanup and metrics only, the response is unreachable               |
+| `onTimeout`    | none                   | Called once per request when the deadline fires. The client is still connected                                         |
+| `onError`      | `cancelErrorHandler()` | Called with `(error, req, res)` for anything the wrapper does not swallow                                              |
 
 Cancelable promise flags (`bubble`, `shield`, `strict`, `asyncCancel`, `forceCancelable`) are accepted too and passed to the handler's promise.
 
@@ -192,7 +216,7 @@ Cancelable promise flags (`bubble`, `shield`, `strict`, `asyncCancel`, `forceCan
 
 ### Shutdown
 
-- `shutdown(server, options?)` cancels in-flight handlers and resolves with `{ canceled, completed, timedOut }`
+- `createShutdown(server)` returns `shutdown(options?)`, which lets in-flight handlers finish until `cancelAfter`, cancels the rest, and resolves with `{ canceled, completed, timedOut }` once they answer or `closeAfter` ends the window. Options: `cancelAfter`, `closeAfter`, `reason`, `closeServer`, `status`, `headers`
 
 ### Reasons
 
@@ -202,9 +226,21 @@ Cancelable promise flags (`bubble`, `shield`, `strict`, `asyncCancel`, `forceCan
 
 - `ICancelableHandlerOptions`, `ICancelErrorHandlerOptions`, `INodeCancelableHandlerOptions`, `IShutdownOptions`, `IShutdownResult`, `TNodeErrorHandler`, `TNodeHandler`
 
+### Readiness and websockets
+
+Node does not list a websocket as a connection once it is upgraded, so `shutdown()` cannot close it with a close frame. When the shutdown window ends it destroys an upgraded socket, without a close frame, which the client sees as code `1006` (abnormal closure), as it does for any socket still open at `closeAfter`. Close your websockets yourself when shutdown starts, with code `1001` (going away), and let the shutdown wait for them:
+
+```ts
+await Promise.all([closeWebSockets(1001), shutdown({ cancelAfter: 5_000 })]);
+```
+
+Any upgraded socket still open once the window ends is destroyed. To keep new traffic away first, fail your readiness check and wait a few seconds before calling `shutdown()`. In Kubernetes a `preStop` sleep does the same job.
+
 ## Compatibility
 
 Node.js 18 and later, TypeScript 4.2 and later. Requires `@cancjs/promise >=1.1.0` and `@cancjs/coroutine >=1.0.0` as peer dependencies. Everything else follows [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise#compatibility).
+
+HTTP/1.1 and HTTPS only. HTTP/2 is not supported yet.
 
 ## Documentation
 

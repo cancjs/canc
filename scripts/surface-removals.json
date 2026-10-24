@@ -110,6 +110,71 @@
       "name": "ICancelableAxiosWrapOptions",
       "member": "lazy",
       "reason": "Options narrowed, not a removed export: the lazy value was accepted by the type but ignored at runtime."
+    },
+    {
+      "package": "@cancjs/server-node",
+      "entry": ".",
+      "name": "shutdown",
+      "reason": "Prerelease-only export replaced by createShutdown, which records connections from startup; never shipped in a stable release."
+    },
+    {
+      "package": "@cancjs/server-express",
+      "entry": ".",
+      "name": "shutdown",
+      "reason": "Prerelease-only export replaced by createShutdown, which records connections from startup; never shipped in a stable release."
+    },
+    {
+      "package": "@cancjs/server-fastify",
+      "entry": ".",
+      "name": "shutdown",
+      "reason": "Prerelease-only export replaced by createShutdown, which records connections from startup; never shipped in a stable release."
+    },
+    {
+      "package": "@cancjs/server-koa",
+      "entry": ".",
+      "name": "shutdown",
+      "reason": "Prerelease-only export replaced by createShutdown, which records connections from startup; never shipped in a stable release."
+    },
+    {
+      "package": "@cancjs/server-hono",
+      "entry": ".",
+      "name": "shutdown",
+      "reason": "Prerelease-only export replaced by createShutdown, which records connections from startup; never shipped in a stable release."
+    },
+    {
+      "package": "@cancjs/server-express",
+      "entry": ".",
+      "name": "IShutdownOptions",
+      "member": "timeout",
+      "reason": "Prerelease-only option replaced by cancelAfter, the grace-end cancel point; never shipped in a stable release."
+    },
+    {
+      "package": "@cancjs/server-fastify",
+      "entry": ".",
+      "name": "IShutdownOptions",
+      "member": "timeout",
+      "reason": "Prerelease-only option replaced by cancelAfter, the grace-end cancel point; never shipped in a stable release."
+    },
+    {
+      "package": "@cancjs/server-hono",
+      "entry": ".",
+      "name": "IShutdownOptions",
+      "member": "timeout",
+      "reason": "Prerelease-only option replaced by cancelAfter, the grace-end cancel point; never shipped in a stable release."
+    },
+    {
+      "package": "@cancjs/server-koa",
+      "entry": ".",
+      "name": "IShutdownOptions",
+      "member": "timeout",
+      "reason": "Prerelease-only option replaced by cancelAfter, the grace-end cancel point; never shipped in a stable release."
+    },
+    {
+      "package": "@cancjs/server-node",
+      "entry": ".",
+      "name": "IShutdownOptions",
+      "member": "timeout",
+      "reason": "Prerelease-only option replaced by cancelAfter, the grace-end cancel point; never shipped in a stable release."
     }
   ]
 }

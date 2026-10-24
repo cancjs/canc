@@ -20,7 +20,9 @@ Generated. Do not edit by hand.
 ## `ICancelErrorHandlerOptions` (interface)
 
 ```text
-canceledStatus?: number | undefined
+canceledStatus?: number | undefined // @deprecated
+onError?: ((error: unknown, request: FastifyRequest, reply: FastifyReply) => void) | undefined
+status?: number | undefined
 ```
 
 ## `ICancelableHandlerOptions` (interface)
@@ -36,9 +38,12 @@ timeout?: TTimeoutOption | undefined
 ## `IShutdownOptions` (interface)
 
 ```text
+cancelAfter?: number | undefined
+closeAfter?: number | undefined
 closeServer?: boolean | undefined
+headers?: Record<string, string> | undefined
 reason?: string | undefined
-timeout?: number | undefined
+status?: number | undefined
 ```
 
 ## `IShutdownResult` (interface)
@@ -70,7 +75,7 @@ timedOut: boolean
 ## `TTimeoutOption` (type)
 
 ```text
-number | { ms: number; status?: number; message?: string; }
+number | { ms: number; status?: number; message?: string; headers?: Record<string, string>; }
 ```
 
 ## `cancelErrorHandler` (function)
@@ -91,14 +96,14 @@ number | { ms: number; status?: number; message?: string; }
 <RouteGeneric extends RouteGenericInterface = RouteGenericInterface>(handler: THandlerFn<TFastifyRouteHandler<RouteGeneric>, RouteGeneric["Reply"]>, options?: ICancelableHandlerOptions | undefined): TFastifyRouteHandler<RouteGeneric>
 ```
 
+## `createShutdown` (function)
+
+```text
+(app: FastifyInstance<RawServerDefault, IncomingMessage, ServerResponse<IncomingMessage>, FastifyBaseLogger, FastifyTypeProviderDefault>): (options?: IShutdownOptions | undefined) => Promise<IShutdownResult>
+```
+
 ## `getRequestSignal` (function)
 
 ```text
 (request: Pick<FastifyRequest<RouteGenericInterface, RawServerDefault, IncomingMessage, FastifySchema, FastifyTypeProviderDefault, unknown, FastifyBaseLogger, ResolveFastifyRequestType<FastifyTypeProviderDefault, FastifySchema, RouteGenericInterface>>, "raw">, reply: Pick<FastifyReply<RouteGenericInterface, RawServerDefault, IncomingMessage, ServerResponse<IncomingMessage>, unknown, FastifySchema, FastifyTypeProviderDefault, unknown>, "raw">): CancelSignal
-```
-
-## `shutdown` (function)
-
-```text
-(app: FastifyInstance<RawServerDefault, IncomingMessage, ServerResponse<IncomingMessage>, FastifyBaseLogger, FastifyTypeProviderDefault>, options?: IShutdownOptions | undefined): Promise<IShutdownResult>
 ```

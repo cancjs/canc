@@ -6,24 +6,48 @@ import { TTimeoutOption } from './types';
 /** Status stamped on a deadline error when the caller names none. */
 export const DEFAULT_TIMEOUT_STATUS = 503;
 
+/** Longest delay one timer holds. A larger value makes the runtime fire the timer after a millisecond. */
+export const MAX_TIMER_MS = 2 ** 31 - 1;
+
 /** A handler deadline with every default already resolved. */
 export interface ITimeoutSpec {
   ms: number;
   status: number;
   message: string;
+  headers?: Record<string, string>;
 }
 
 /** A cancellation carrying the HTTP status a framework error handler reads off it. */
 export interface IStatusCancelError extends CancelError {
   status: number;
   statusCode: number;
+  /**
+   * Headers the cancel answers with: a shutdown's, or a deadline's from its timeout option. Absent
+   * otherwise.
+   */
+  headers?: Record<string, string>;
+  /** Always false on a canc-minted cancel: its message is for the log, never for the response body. */
+  expose: boolean;
+}
+
+/**
+ * Marks a cancellation whose status is the deadline's or an explicit shutdown's. That status beats a
+ * handler's `status` option; a status the caller set on its own error does not.
+ */
+export const STAMP_WINS = Symbol.for('@cancjs/server-node:stampWins');
+
+/** What a shutdown sets on the cancel it raises on each request. */
+export interface IShutdownErrorOptions {
+  status?: number;
+  headers?: Record<string, string>;
 }
 
 /**
  * Resolves the shorthand and the object form of the deadline option into one shape.
  *
  * Returns undefined where there is no usable deadline, including an infinite one, so an optional
- * timeout needs no branch at the call site.
+ * timeout needs no branch at the call site. A finite duration past the timer ceiling is clamped to
+ * it, and zero stays an immediate deadline.
  */
 export function normalizeTimeout(option?: TTimeoutOption): ITimeoutSpec | undefined {
   if (option === undefined || option === null) {
@@ -37,10 +61,13 @@ export function normalizeTimeout(option?: TTimeoutOption): ITimeoutSpec | undefi
     return undefined;
   }
 
+  const { headers } = spec as { headers?: Record<string, string> };
+
   return {
     message: (spec as { message?: string }).message ?? HANDLER_TIMEOUT,
-    ms,
+    ms: Math.min(ms, MAX_TIMER_MS),
     status: (spec as { status?: number }).status ?? DEFAULT_TIMEOUT_STATUS,
+    ...(headers ? { headers: { ...headers } } : {}),
   };
 }
 
@@ -57,15 +84,43 @@ export function createTimeoutError(spec: ITimeoutSpec): IStatusCancelError {
 
   error.status = spec.status;
   error.statusCode = spec.status;
+  error.expose = false;
+  if (spec.headers) {
+    error.headers = { ...spec.headers };
+  }
+  Object.defineProperty(error, STAMP_WINS, { value: true });
+
+  return error;
+}
+
+/**
+ * Mints the cancellation a shutdown raises on one request.
+ *
+ * Stamped with the same status pair as a deadline, so a framework's default error pipeline answers
+ * 503 with no handler. The cause is left empty: `timedOut` stays false, and the handler's status
+ * option still applies to it, unless the shutdown set a status of its own.
+ */
+export function createShutdownError(message: string, options: IShutdownErrorOptions = {}): IStatusCancelError {
+  const error = new CancelError(message) as IStatusCancelError;
+  const status = options.status ?? DEFAULT_TIMEOUT_STATUS;
+
+  error.status = status;
+  error.statusCode = status;
+  error.expose = false;
+  if (options.headers) {
+    error.headers = { ...options.headers };
+  }
+  if (options.status !== undefined) {
+    Object.defineProperty(error, STAMP_WINS, { value: true });
+  }
 
   return error;
 }
 
 /** Schedules the deadline, returning the handle that stops it. */
 export function startHandlerTimeout(ms: number, onDeadline: () => void): unknown {
-  // plain setTimeout is right here: a request deadline is seconds, nowhere near the 32-bit
-  // millisecond ceiling where a single timer wraps and fires at once, so the chunked-timer
-  // machinery the toolbox needs for long waits buys nothing and costs a dependency
+  // plain setTimeout: normalizeTimeout already clamped ms to the 32-bit ceiling, so the chunked
+  // timers the toolbox uses for long waits would only add a dependency
   return setTimeout(onDeadline, ms);
 }
 

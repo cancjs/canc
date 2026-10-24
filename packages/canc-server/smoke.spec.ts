@@ -124,11 +124,111 @@ describe('raw node', () => {
 
     const pending = httpRequest(port, { path: '/hang' });
     await started.promise;
-    const result = await nodeServer.shutdown(lastServer(), { timeout: 5000 });
+    const result = await nodeServer.createShutdown(lastServer())({ cancelAfter: 0, closeAfter: 5000 });
 
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
     expect((await pending).status).toBe(503);
     expect(lastServer().listening).toBe(false);
+  });
+});
+
+describe('express under concurrency', () => {
+  it('finishes every request that is in flight at shutdown inside the grace window', async () => {
+    const total = 100;
+    const allArrived = deferred();
+    const release = deferred();
+    let arrived = 0;
+
+    const app = express();
+    app.use((_req, _res, next) => {
+      arrived += 1;
+      if (arrived === total) {
+        allArrived.resolve();
+      }
+      next();
+    });
+    app.use(expressServer.cancelMiddleware());
+    app.get('/plain', async (_req, res) => {
+      await release.promise;
+      res.send('plain');
+    });
+    app.get(
+      '/wrapped',
+      expressServer.cancelableHandler(function* (_req, res) {
+        yield release.promise;
+        res.send('wrapped');
+      }),
+    );
+    app.get(
+      '/stream',
+      expressServer.cancelableHandler(function* (_req, res) {
+        res.write('a');
+        yield release.promise;
+        res.end('b');
+      }),
+    );
+    app.use(expressServer.cancelErrorHandler());
+
+    const port = await listen(createServer(app));
+    const routes = ['/plain', '/wrapped', '/stream'];
+    const expected: Record<string, string> = { '/plain': 'plain', '/wrapped': 'wrapped', '/stream': 'ab' };
+    const pending = Array.from({ length: total }, (_, index) => {
+      const path = routes[index % routes.length];
+
+      return httpRequest(port, { path }).then(
+        (response) => ({ body: response.body, path, status: response.status }),
+        (error: NodeJS.ErrnoException) => ({ code: error.code, path }),
+      );
+    });
+
+    // every handler is parked, so all of them are in flight when the shutdown starts
+    await allArrived.promise;
+    const shutting = expressServer.createShutdown(lastServer())({ cancelAfter: 5000 });
+    // the timer queue turns first, so an already closed window would cancel every handler
+    setTimeout(release.resolve, 50);
+    const result = await shutting;
+    const settled = await Promise.all(pending);
+
+    const resets = settled.filter((outcome) => 'code' in outcome && outcome.code === 'ECONNRESET');
+    expect(resets).toEqual([]);
+    expect(result).toEqual({ canceled: 0, completed: total, timedOut: false });
+    for (const outcome of settled) {
+      expect(outcome).toEqual({ body: expected[outcome.path as string], path: outcome.path, status: 200 });
+    }
+  });
+
+  it('ends a stream canceled at the cancel point with an error, not a clean end', async () => {
+    const started = deferred();
+
+    const app = express();
+    app.get(
+      '/stream',
+      expressServer.cancelableHandler(function* (_req, res) {
+        res.write('a');
+        started.resolve();
+        yield never();
+        res.end('b');
+      }),
+    );
+    app.use(expressServer.cancelErrorHandler());
+
+    const port = await listen(createServer(app));
+    const outcome = new Promise<'clean' | 'truncated'>((resolve) => {
+      const outgoing = sendRequest({ host: '127.0.0.1', path: '/stream', port }, (incoming: IncomingMessage) => {
+        incoming.on('end', () => resolve('clean'));
+        incoming.on('error', () => resolve('truncated'));
+        incoming.on('aborted', () => resolve('truncated'));
+        incoming.on('close', () => resolve(incoming.complete ? 'clean' : 'truncated'));
+      });
+      outgoing.on('error', () => resolve('truncated'));
+      outgoing.end();
+    });
+
+    await started.promise;
+    const result = await expressServer.createShutdown(lastServer())({ cancelAfter: 20 });
+
+    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
+    expect(await outcome).toBe('truncated');
   });
 });
 
@@ -221,7 +321,7 @@ describe('express', () => {
     const port = await listen(createServer(app));
     const pending = httpRequest(port, { path: '/hang' });
     await started.promise;
-    const result = await expressServer.shutdown(lastServer(), { timeout: 5000 });
+    const result = await expressServer.createShutdown(lastServer())({ cancelAfter: 0, closeAfter: 5000 });
 
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
     expect((await pending).status).toBe(503);
@@ -314,7 +414,7 @@ describe('koa', () => {
     const port = await listenKoa(app);
     const pending = httpRequest(port, { path: '/hang' });
     await started.promise;
-    const result = await koaServer.shutdown(lastServer(), { timeout: 5000 });
+    const result = await koaServer.createShutdown(lastServer())({ cancelAfter: 0, closeAfter: 5000 });
 
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
     expect((await pending).status).toBe(503);
@@ -423,7 +523,7 @@ describe('fastify', () => {
     // the shutdown closes the connection on its way out, so this one is never read back
     httpRequest(port, { path: '/hang' }).catch(() => undefined);
     await started.promise;
-    const result = await fastifyServer.shutdown(app, { timeout: 5000 });
+    const result = await fastifyServer.createShutdown(app)({ cancelAfter: 0, closeAfter: 5000 });
 
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
     expect(app.server.listening).toBe(false);
@@ -526,7 +626,7 @@ describe('hono on node', () => {
     const port = await listenHono(app);
     httpRequest(port, { path: '/hang' }).catch(() => undefined);
     await started.promise;
-    const result = await honoServer.shutdown(lastServer(), { timeout: 5000 });
+    const result = await honoServer.createShutdown(lastServer())({ cancelAfter: 0, closeAfter: 5000 });
 
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
     expect(lastServer().listening).toBe(false);

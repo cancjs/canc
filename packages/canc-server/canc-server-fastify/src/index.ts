@@ -9,4 +9,4 @@ export type { TFastifyRouteHandler } from './handler';
 export { cancelableHandler, getRequestSignal } from './handler';
 export type { ICancelErrorHandlerOptions, TCancelErrorHandler } from './plugin';
 export { cancelErrorHandler, cancelPlugin } from './plugin';
-export { shutdown } from './shutdown';
+export { createShutdown } from './shutdown';

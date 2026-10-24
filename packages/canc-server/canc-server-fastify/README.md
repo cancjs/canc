@@ -17,7 +17,7 @@ A Fastify handler keeps running after the client is gone. The database query fin
 
 This package gives every request one cancel signal, wired from the response side, and a wrapper that runs a route handler under it. A generator handler stops at its next `yield`. Request-scoped work started elsewhere, an ORM context or an outbound fetch, can take the same signal and stop with it, because the signal is installed once per request and shared.
 
-It also carries the two things a server needs around that: a per-handler deadline that answers with a status you choose, and a graceful shutdown that cancels everything in flight before the process exits.
+It also carries the two things a server needs around that: a per-handler deadline that answers with a status you choose, and a graceful shutdown that gives in-flight handlers a grace window to finish, then cancels the rest before the process exits.
 
 ## Features
 
@@ -25,7 +25,7 @@ It also carries the two things a server needs around that: a per-handler deadlin
 - Generator handlers stop mid-flight, at the `yield` they are suspended on
 - Per-route or per-app deadline, with the HTTP status and message of your choosing
 - Never writes to a socket the client has already left
-- Graceful shutdown that cancels in-flight handlers and closes the instance
+- Graceful shutdown that lets in-flight handlers finish within a grace window, then cancels the rest and closes the instance
 - No decorators on the request or the instance, so no module augmentation is needed
 - Route generics flow through, including the reply type
 
@@ -49,7 +49,6 @@ import * as cancServer from '@cancjs/server-fastify';
 const app = Fastify();
 
 await app.register(cancServer.cancelPlugin, { timeout: 30_000 });
-app.setErrorHandler(cancServer.cancelErrorHandler());
 
 app.get('/invoices/:id', cancServer.cancelableHandler(function* (request) {
   const invoice = yield* canc.await(invoices.findById(request.params.id));
@@ -63,11 +62,13 @@ await app.listen({ port: 3000 });
 
 If the client hangs up while the payment lookup is in flight, the handler unwinds at that `yield` and nothing is written back. If the route takes longer than thirty seconds, the client gets a 503 instead of an open connection.
 
-Shutting down:
+Shutting down, with the shutdown created right after `app.listen()` so it knows every connection:
 
 ```js
+const shutdown = cancServer.createShutdown(app);
+
 process.on('SIGTERM', async () => {
-  const { canceled, completed, timedOut } = await cancServer.shutdown(app, { timeout: 10_000 });
+  const { canceled, completed, timedOut } = await shutdown({ cancelAfter: 10_000 });
 
   console.log(`shut down: ${completed} finished, ${canceled} canceled, gave up: ${timedOut}`);
 });
@@ -87,13 +88,39 @@ Platform request signals have the same defect and are not adopted. Node's own `I
 
 Fastify's `request.signal` aborts when the request stream ends, not when the client disconnects. With a body parser on a POST that happens before the handler runs, so work started from that signal is canceled immediately. This package listens on the response instead, and only treats a close as a disconnect while the response has not finished writing.
 
-### One listener, one cancellation
+### Bounded listeners, one cancellation
 
-The cancel state is cached on the raw request under a registered symbol, so the plugin, the route wrapper, and anything else asking for `getRequestSignal` all reach the same object. A request has exactly one close listener no matter how many consumers want the signal, and one disconnect produces one cancellation.
+The cancel state is cached on the raw request under a registered symbol, so the plugin, the route wrapper, and anything else asking for `getRequestSignal` all reach the same object. However many consumers want the signal, the request's close listeners stay bounded: wrapped layers share the cancel state instead of adding listeners of their own. One disconnect produces one cancellation.
 
 ### What the wrapper does and does not answer
 
-The wrapper never writes the response. A cancellation that arrives with the client already gone is dropped and the reply is hijacked, because there is nothing to answer on. Everything else is rethrown and reaches your error handler, including a missed deadline, which carries `status` and `statusCode` so Fastify's own error handling reports the code you configured.
+The wrapper never writes the response. A cancellation that arrives with the client already gone is dropped and the reply is hijacked, because there is nothing to answer on. Everything else is rethrown and reaches Fastify's error handling, including a missed deadline, which carries `status` and `statusCode` so Fastify answers with the code you configured.
+
+When the response head already went out, no status can be sent, so the socket is destroyed instead of left looking complete. The cut is logged once at error level through `request.log`, since the client sees only a reset. A handler that fails after its cancellation has already answered the request is logged the same way, at error level, through `request.log`.
+
+### Composing an error handler
+
+Fastify answers a request's own cancellation with its status by itself, so a wrapped route needs no `setErrorHandler`. A deadline answers `503` (or the `status` in `timeout`), and a shutdown answers with its own `status`, with a handler's `status` option applying where the shutdown set none.
+
+Add one only for your own error mapping. `cancelErrorHandler({ onError })` takes every error that is not a cancellation, and the request's own cancellations still get their status:
+
+```js
+app.setErrorHandler(cancServer.cancelErrorHandler({
+  onError(error, request, reply) {
+    if (error instanceof RateLimitError) {
+      reply.code(429).send({ message: 'slow down' });
+
+      return;
+    }
+
+    reply.send(error);
+  },
+}));
+```
+
+A cancellation the request does not own, such as your own `CancelError` or a timeout you raised yourself, goes to Fastify's handling as it is, not to `onError`. A handler you mount with `setErrorHandler` yourself reads the same `statusCode` on a cancellation, `503` for a deadline and a shutdown alike, so it does not need `cancelErrorHandler` for that.
+
+`cancelErrorHandler({ status })` sets the status a shutdown cancellation gets on a live connection, `503` by default. The shutdown's own `status` wins over it, and it wins over the handler's `status` option. The older `canceledStatus` key still works.
 
 ## Description
 
@@ -103,16 +130,18 @@ A generator handler is driven as a coroutine and is canceled at its next suspens
 
 ### Options
 
-| Option         | Default | Meaning                                                                                  |
-| -------------- | ------- | ---------------------------------------------------------------------------------------- |
-| `timeout`      | none    | Handler deadline. A number is milliseconds; the object form is `{ ms, status, message }` |
-| `signal`       | none    | An `AbortSignal`, or an array of them, composed into the request signal                  |
-| `onDisconnect` | none    | Called once when the client goes away. Cleanup and metrics only                          |
-| `onTimeout`    | none    | Called once when the deadline fires, with the client still connected                     |
+| Option         | Default | Meaning                                                                                                   |
+| -------------- | ------- | --------------------------------------------------------------------------------------------------------- |
+| `timeout`      | none    | Request deadline, one per request. A number is milliseconds; the object form is `{ ms, status, message }` |
+| `signal`       | none    | An `AbortSignal`, or an array of them, composed into the request signal                                   |
+| `onDisconnect` | none    | Called once per request when the client goes away. Cleanup and metrics only                               |
+| `onTimeout`    | none    | Called once per request when the deadline fires, with the client still connected                          |
 
 The flag options of `@cancjs/promise` (`asyncCancel`, `bubble`, `forceCancelable`, `shield`, `strict`) are accepted too and passed to the task.
 
 Options given to the plugin are defaults for the whole app. Options given to `cancelableHandler` win on every key they set, so one route can raise or drop the deadline the app registered.
+
+There is one deadline per request. The plugin starts it at `onRequest`, so it applies to plain routes too. On one, the deadline aborts the request signal and runs `onTimeout`, and the route itself still answers. A route passing its own `timeout` restarts the clock with that value. A wrapped `preHandler` hook settling does not end it. The deadline covers the handler, not the body. It ends once the wrapped handler answering the request settles, so a stream still being written after the handler returned is not cut short by it. A handler that answers from a callback after it returned is no longer covered either. A slow response body is for `server.requestTimeout` or the proxy in front of the server. On a plain route it runs until the response finishes, so `onTimeout` can run while the body is still being written. The lifecycle callbacks run once per request, however many wrapped hooks it passes. A `timeout` of `0` fires at once, and `Infinity`, `NaN`, a negative number or leaving it out sets no deadline. A negative value is not an immediate deadline, and on a route that sets its own `timeout` it lifts the deadline set above it, like `Infinity`. A duration past about 24.8 days is held at that limit.
 
 The deadline default status is 503. Set `timeout: { ms: 30_000, status: 504 }` for a gateway-style code.
 
@@ -122,7 +151,29 @@ Both raise a `CancelError`. The discriminator is `isCancelError(error) && !error
 
 ### Shutting down
 
-`shutdown` takes the Fastify instance, not `app.server`. It closes the server to new connections, closes idle ones, cancels every in-flight handler with the shutdown reason, waits for them within the grace window, and only then awaits `app.close()`, so `onClose` hooks and plugin teardown run against a server that has already finished canceling its handlers. It cancels the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it. A second call while the first is still running joins it rather than starting over.
+`createShutdown` takes the Fastify instance, not `app.server`, and returns the function that runs the shutdown. Call it right after `app.listen()`: it records connections and requests from that point on. It replaces the prerelease `shutdown(app, o)`: call `createShutdown(app)(o)`.
+
+The shutdown closes the server to new connections, closes a connection that has received no bytes once it is five seconds old (or at the grace, if shorter), leaves one that has already sent part of a request to finish, and closes idle ones. In-flight requests, wrapped or not, keep running for the grace window, and so does a request that arrives on a kept-alive connection meanwhile. Every response sent from then on carries `Connection: close`, and each connection closes as soon as the response on it finishes. A `keep-alive` the app sets on the reply is overridden as well, except when it is set through fastify's reply headers, which this shutdown cannot reach.
+
+When the window ends, handlers still running are canceled with the shutdown reason, so their cleanup runs and one that has not started its response can still answer `503`. A request still open then runs until it finishes or `closeAfter`, and connections still busy at `closeAfter` are closed. Shutdown resolves as soon as nothing is open. On Kubernetes, keep `closeAfter` at or below `terminationGracePeriodSeconds` minus the preStop sleep, less a margin for the process to exit, or the kubelet kills the process before the window ends. A `cancelAfter` greater than `closeAfter` throws a `RangeError` synchronously; negative values clamp to 0 before that check. The cancel reaches the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it.
+
+`status` and `headers` set the answer each request the shutdown cancels gets, for example `shutdown({ cancelAfter: 10_000, status: 504, headers: { 'Retry-After': '5' } })`. For these cancellations `status` takes precedence over a handler's `status` option, and `headers` are added to the answer. A deadline keeps the status it was given. Invalid values throw from `shutdown()`: a `status` outside 200 to 599 raises a `RangeError`, and a header name or value HTTP does not allow raises a `TypeError`.
+
+`canceled` counts requests this shutdown canceled, `completed` requests that finished normally, and `timedOut` is set when `closeAfter` ends the window with a request or connection still open.
+
+To add a header to a shutdown answer, set `err.headers` in your own error middleware; fastify applies it. A shutdown cancel and a disconnect both reach a handler as a cancellation, so test `err.status` to tell them apart, since `!err.timedOut` alone matches both. Retry only idempotent requests, because the handler may have partly run. An abort that a library wraps in its own error answers the framework's 500, for a deadline or a shutdown alike.
+
+Pass `cancelAfter: 0` to cancel handlers as soon as the shutdown starts instead, which suits long-lived responses such as server-sent events or long polling that would otherwise hold the whole window.
+
+Created late, it finishes correctly but slower, because a connection opened before the call is unknown to it. If that connection has not sent a request yet, or its request is still in flight and neither `cancelPlugin` nor a wrapped handler recorded it, the connection is closed only when `closeAfter` ends. That response goes out without `Connection: close`.
+
+A second call while the first is still running joins it rather than starting over, and calling `createShutdown` again with the same instance returns the same function.
+
+Migrating from `timeout`: rename it to `cancelAfter`. `cancelOnStart: true` becomes `cancelAfter: 0`, and without `closeAfter` the window is then 1 s instead of 10 s, so pass `closeAfter` to keep a longer one. The value is set once per server, so an app that mixes long-lived streams with ordinary routes ends its own streams when the shutdown starts and keeps the default for the rest.
+
+A `cancelAfter` of `Infinity` waits for the responses however long they take, and a finite one past about 24.8 days is held at that limit.
+
+Pass `closeServer: false` to leave the instance open, in which case `app.close()` is not called. Otherwise it awaits `app.close()` once the in-flight requests have finished, so `onClose` hooks and plugin teardown run against a server that has already finished with its handlers. A failing `onClose` hook is logged, and the counts are still returned.
 
 ## API
 
@@ -137,11 +188,11 @@ Both raise a `CancelError`. The discriminator is `isCancelError(error) && !error
 
 ### Registration
 
-| Export               | Signature                                       |
-| -------------------- | ----------------------------------------------- |
-| `cancelPlugin`       | `FastifyPluginAsync<ICancelableHandlerOptions>` |
-| `cancelErrorHandler` | `(options?) => TCancelErrorHandler`             |
-| `shutdown`           | `(app, options?) => Promise<IShutdownResult>`   |
+| Export               | Signature                                         |
+| -------------------- | ------------------------------------------------- |
+| `cancelPlugin`       | `FastifyPluginAsync<ICancelableHandlerOptions>`   |
+| `cancelErrorHandler` | `(options?) => TCancelErrorHandler`               |
+| `createShutdown`     | `(app) => (options?) => Promise<IShutdownResult>` |
 
 ### Reasons
 
@@ -151,11 +202,23 @@ Both raise a `CancelError`. The discriminator is `isCancelError(error) && !error
 
 `ICancelableHandlerOptions`, `ICancelErrorHandlerOptions`, `IShutdownOptions`, `IShutdownResult`, `TCancelErrorHandler`, `TFastifyRouteHandler`, `TTimeoutOption`.
 
+### Readiness and websockets
+
+Node does not list a websocket as a connection once it is upgraded, so `shutdown()` cannot close it with a close frame. When the shutdown window ends it destroys an upgraded socket, without a close frame, which the client sees as code `1006` (abnormal closure), as it does for any socket still open at `closeAfter`. Close your websockets yourself when shutdown starts, with code `1001` (going away), and let the shutdown wait for them:
+
+```ts
+await Promise.all([closeWebSockets(1001), shutdown({ cancelAfter: 5_000 })]);
+```
+
+Any upgraded socket still open once the window ends is destroyed. To keep new traffic away first, fail your readiness check and wait a few seconds before calling `shutdown()`. In Kubernetes a `preStop` sleep does the same job.
+
 ## Compatibility
 
 Node.js 18 and later, Fastify 5 and later, TypeScript 4.2 and later. Requires `@cancjs/promise >=1.1.0` and `@cancjs/coroutine >=1.0.0` as peer dependencies. Everything else follows [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise#compatibility).
 
 Client disconnect detection is only as good as the network below it. A connection dropped without a FIN produces no event until TCP times out, and a buffering reverse proxy may never pass a client abort to the origin.
+
+HTTP/1.1 and HTTPS only. HTTP/2 is not supported yet.
 
 ## Documentation
 

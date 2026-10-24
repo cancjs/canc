@@ -1,11 +1,20 @@
 import { CancelSignal, isCancelError } from '@cancjs/promise';
 import type { IncomingMessage, Server, ServerResponse } from 'http';
 
-import { isResponseLive, isUnanswerable, statusOf, toRequestLike, toResponseLike } from '../../../_server/exchange';
+import {
+  cancelHeadersFor,
+  isResponseLive,
+  isUnanswerable,
+  ownedStatusOf,
+  routeSignalsOf,
+  STALE_CONTENT_HEADERS,
+  toRequestLike,
+  toResponseLike,
+} from '../../../_server/exchange';
+import { getRequestState } from '../../../_server/holder';
 import { getNodeRequestSignal } from '../../../_server/node-signal';
 import { runCancelableHandler } from '../../../_server/run';
-import { shutdownServer } from '../../../_server/shutdown';
-import { DEFAULT_TIMEOUT_STATUS } from '../../../_server/timeout';
+import { createServerShutdown } from '../../../_server/shutdown';
 import {
   ICancelableHandlerOptions,
   ICancelErrorHandlerOptions,
@@ -58,9 +67,9 @@ export interface INodeCancelableHandlerOptions<
 /** Options `cancelErrorHandler` accepts on raw node, adding the opt-in rethrow. */
 export interface INodeCancelErrorHandlerOptions extends ICancelErrorHandlerOptions {
   /**
-   * Throws anything that is not a cancellation instead of answering `500`. Nothing awaits the
-   * throw, so it surfaces as an unhandled rejection and, under node's default settings, ends the
-   * process without answering the request. Opt in only where a process level handler is installed
+   * Throws anything that is not a cancellation the request owns instead of answering `500`. Nothing
+   * awaits the throw, so it surfaces as an unhandled rejection and, under node's default settings,
+   * ends the process without answering the request. Opt in only where a process level handler is installed
    * to receive it.
    * Defaults to `false`.
    */
@@ -91,11 +100,13 @@ export function cancelableHandler<
   handler: THandlerFn<TNodeHandler<TReq, TRes>>,
   options?: INodeCancelableHandlerOptions<TReq, TRes>,
 ): (req: TReq, res: TRes) => void {
-  const onError = options?.onError ?? cancelErrorHandler<TReq, TRes>();
+  const onError = options?.onError;
+  const signals = routeSignalsOf(options?.signal);
 
   return function cancelableRoute(req, res) {
     const task = runCancelableHandler(handler as TAnyFn, toRequestLike(req), toResponseLike(res), options, {
       args: [req, res],
+      onLateFailure: logLateFailure,
     });
 
     task.catch((error: unknown) => {
@@ -103,16 +114,23 @@ export function cancelableHandler<
         return;
       }
 
-      onError(error, req, res);
+      // the default answer reads the route's signals too, so its own signal can own a cancel
+      if (onError) {
+        onError(error, req, res);
+      } else {
+        answerCancellation(error, req, res, {}, signals);
+      }
     });
   };
 }
 
 /**
- * The guarded replacement for node's own `IncomingMessage.prototype.signal`. That signal aborts once
- * the request stream finishes being read, not when the client disconnects, so a body-carrying request
- * would abort on arrival if a handler read it directly. This one is wired from the response's close
- * event instead, guarded so it fires only when the response has not finished.
+ * The guarded replacement for node's own `IncomingMessage.prototype.signal`. Node 18 has no such
+ * property. Before node 24.20 it aborts once the request stream finishes being read, not when the
+ * client disconnects, so a body-carrying request would abort on arrival if a handler read it
+ * directly; from 24.20 on it no longer aborts at the body end. This one does not depend on the node
+ * version: it is wired from the response's close event, guarded so it fires only when the response
+ * has not finished.
  *
  * The cancel signal for a request, installed and wired on first use and cached for every later
  * caller. Request-scoped work started outside the handler, a database context or a job handle, takes
@@ -127,8 +145,11 @@ export function getRequestSignal(req: IncomingMessage, res: ServerResponse): Can
  * `onError`; pass it (or a wrapper around it) explicitly when a route needs its own status mapping.
  *
  * A deadline answers with the status stamped on it (`503` unless the timeout option names another
- * one), a shutdown cancellation with the fallback status, and a response that can no longer be
- * answered gets nothing. Anything that is not a cancellation answers `500` and is logged.
+ * one), a shutdown cancellation with the shutdown's `status` option, or the handler's `status` option
+ * when the shutdown set none (default `503`), and a response that can no longer be answered gets
+ * nothing. A response whose head already went out cannot carry a status, so its connection is
+ * destroyed and the client sees an aborted message instead of a body that looks whole.
+ * Anything that is not a cancellation the request owns answers `500` and is logged.
  *
  * The other four adapters hand such an error to the framework's own error handler, and this is the
  * closest raw node gets to the same thing: there is no pipeline behind the wrapper, so it holds the
@@ -139,42 +160,70 @@ export function cancelErrorHandler<
   TReq extends IncomingMessage = IncomingMessage,
   TRes extends ServerResponse = ServerResponse,
 >(options: INodeCancelErrorHandlerOptions = {}): TNodeErrorHandler<TReq, TRes> {
-  const fallback = options.status ?? DEFAULT_TIMEOUT_STATUS;
-  const rethrow = options.rethrow === true;
-
-  return function cancelErrorRoute(error, _req, res) {
-    if (!isCancelError(error)) {
-      if (rethrow) {
-        throw error;
-      }
-
-      // the status alone would bury a handler bug: nothing downstream of here ever sees the error
-      logHandlerFailure(error);
-      answerWith(res, HANDLER_FAILED_STATUS);
-
-      return;
-    }
-
-    answerWith(res, statusOf(error, fallback));
+  return function cancelErrorRoute(error, req, res) {
+    answerCancellation(error, req, res, options, []);
   };
 }
 
+/**
+ * Answers an error the way `cancelErrorHandler` does. `signals` are the route's own signals, which
+ * own a cancel of the route's task even when the request itself was not canceled.
+ */
+function answerCancellation(
+  error: unknown,
+  req: IncomingMessage,
+  res: ServerResponse,
+  options: INodeCancelErrorHandlerOptions,
+  signals: readonly AbortSignal[],
+): void {
+  // a cancel the request does not own is the caller's, so it takes the path below
+  const state = getRequestState(toRequestLike(req));
+  const status = state === undefined ? undefined : ownedStatusOf(error, state, options.status, signals);
+
+  if (!isCancelError(error) || status === undefined) {
+    if (options.rethrow === true) {
+      throw error;
+    }
+
+    // the status alone would bury a handler bug: nothing downstream of here ever sees the error
+    logHandlerFailure(error);
+    answerWith(res, HANDLER_FAILED_STATUS);
+
+    return;
+  }
+
+  answerWith(res, status, cancelHeadersFor(error, options.status), true);
+}
+
 /** Sends a bare status to a response that can still carry one. */
-function answerWith(res: ServerResponse, status: number): void {
+function answerWith(res: ServerResponse, status: number, headers: Record<string, string> = {}, cancel = false): void {
   if (!isResponseLive(res)) {
     return;
   }
 
-  // a partially written response cannot carry a status any more, so the only honest move left is
-  // to stop writing and let the client see a truncated body
+  // end() would write the chunked terminator and pass a cut body off as complete
   if (res.headersSent) {
-    res.end();
+    res.destroy();
 
     return;
   }
 
+  // a cancellation answer is not the route's body, so the content headers it set go too
+  if (cancel) {
+    for (const name of STALE_CONTENT_HEADERS) {
+      res.removeHeader(name);
+    }
+  }
+
+  for (const [name, value] of Object.entries(headers)) {
+    res.setHeader(name, value);
+  }
   res.statusCode = status;
   res.end();
+}
+
+function logLateFailure(error: unknown): void {
+  console.error((error as Error | undefined)?.stack || String(error));
 }
 
 function logHandlerFailure(error: unknown): void {
@@ -182,11 +231,23 @@ function logHandlerFailure(error: unknown): void {
 }
 
 /**
- * Stops a server gracefully: no new connections, every in-flight handler canceled, and a bounded
- * wait for them to unwind. Resolves with what happened rather than throwing, and a second call while
- * the first is still running returns that same result, so wiring it to both `SIGTERM` and `SIGINT`
- * needs no guard.
+ * Sets up a graceful shutdown and returns the function that runs it. Call it right after
+ * `listen()`: connections and requests are recorded from this call on.
+ *
+ * The returned function stops the server: no new connections, a grace window for in-flight
+ * handlers to finish, and a cancel for any still running when it ends (at once with
+ * `cancelAfter: 0`). A connection that has received no bytes is closed once it is five seconds old (or at the grace, if shorter), while one
+ * that has already sent part of a request is left to finish. Every in-flight response is sent with
+ * `Connection: close`, so each connection closes once its response finishes.
+ * It resolves with what happened rather than throwing. A second call while the first is still
+ * running returns that same promise, so wiring it to both `SIGTERM` and `SIGINT` needs no guard.
+ * Calling `createShutdown` again with the same server returns the same function.
+ *
+ * Created late, the shutdown loses nothing but finishes slower, because a connection opened before
+ * the call is unknown to it. Such a connection is closed only when `closeAfter` ends if it has
+ * sent no request yet, or if its request is still in flight and no wrapped handler or request
+ * signal recorded it. That response also goes out without `Connection: close`.
  */
-export function shutdown(server: Server, options?: IShutdownOptions): Promise<IShutdownResult> {
-  return shutdownServer(server, options);
+export function createShutdown(server: Server): (options?: IShutdownOptions) => Promise<IShutdownResult> {
+  return createServerShutdown(server);
 }

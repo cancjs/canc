@@ -23,7 +23,7 @@
  * as this one. `@cancjs/server-koa` has its own file too, ./server-koa-types.ts, ungated (koa hits
  * no equivalent TypeScript version floor).
  */
-import { cancelableHandler, shutdown, getRequestSignal } from '@cancjs/server-express';
+import { cancelableHandler, createShutdown, getRequestSignal } from '@cancjs/server-express';
 import type { Express, Request, Response } from 'express';
 import type { ParamsDictionary, Query } from 'express-serve-static-core';
 import type { Server } from 'http';
@@ -57,6 +57,13 @@ const asyncHandler = cancelableHandler(async (_req, res) => {
 });
 void asyncHandler;
 
+const asyncGeneratorHandler = () =>
+  // @ts-expect-error an async generator handler is never drained, so it is rejected at the call site
+  cancelableHandler(async function* () {
+    yield 1;
+  });
+void asyncGeneratorHandler;
+
 const wrongArityHandler = () =>
   // @ts-expect-error express passes three arguments, so a fourth cannot be inferred
   cancelableHandler(function* (_req, _res, _next, _extra) {
@@ -73,10 +80,10 @@ void readSignal;
 
 const server = {} as Server;
 const app = {} as Express;
-const goodShutdown = () => shutdown(server);
+const goodShutdown = () => createShutdown(server);
 const badShutdown = () =>
   // @ts-expect-error a shutdown needs the http server, which is what app.listen() hands back
-  shutdown(app);
+  createShutdown(app);
 void goodShutdown;
 void badShutdown;
 
