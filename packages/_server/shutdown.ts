@@ -597,8 +597,12 @@ const INVALID_HEADER_VALUE = /[^\t\x20-\x7e\x80-\xff]/;
 
 function checkCancelAnswer(options: IShutdownOptions): void {
   const { status, headers } = options;
-  if (status !== undefined && (!Number.isInteger(status) || status < 100 || status > 599)) {
-    throw new RangeError(`status (${status}) must be an integer from 100 to 599`);
+  if (status !== undefined && (!Number.isInteger(status) || status < 200 || status > 599)) {
+    throw new RangeError(`status (${status}) must be an integer from 200 to 599`);
+  }
+
+  if (headers !== undefined && (typeof headers !== 'object' || headers === null || Array.isArray(headers))) {
+    throw new TypeError('headers must be an object of header names to values');
   }
 
   for (const [name, value] of Object.entries(headers ?? {})) {

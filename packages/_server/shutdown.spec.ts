@@ -1392,7 +1392,7 @@ describe('graceful shutdown with an upgraded socket', () => {
 });
 
 describe('shutdown answer validation', () => {
-  it.each([99, 600, 1000, 1.5, Number.NaN])(
+  it.each([99, 100, 199, 600, 1000, 1.5, Number.NaN])(
     'throws a RangeError for status %p before any shutdown starts',
     (status) => {
       const server = new FakeServer();
@@ -1424,10 +1424,21 @@ describe('shutdown answer validation', () => {
     expect(server.closed).toBe(0);
   });
 
-  it('accepts a status of 100, 599 and a tab inside a header value', () => {
+  it.each([
+    ['a string', 'Retry-After: 5'],
+    ['an array', ['Retry-After']],
+    ['null', null],
+  ])('throws a TypeError for headers that are %s', (_label, headers) => {
     const server = new FakeServer();
 
-    expect(() => shutdownServer(server as never, { status: 100, headers: { 'X-A': 'a\tb' } })).not.toThrow();
+    expect(() => shutdownServer(server as never, { headers: headers as never })).toThrow(TypeError);
+    expect(server.closed).toBe(0);
+  });
+
+  it('accepts a status of 200, 599 and a tab inside a header value', () => {
+    const server = new FakeServer();
+
+    expect(() => shutdownServer(server as never, { status: 200, headers: { 'X-A': 'a\tb' } })).not.toThrow();
     expect(() => shutdownServer(server as never, { status: 599 })).not.toThrow();
   });
 });
