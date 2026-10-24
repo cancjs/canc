@@ -1081,6 +1081,31 @@ describe('shutdown cancel status', () => {
     await shutdown;
   });
 
+  it('takes the handler status for a route-signal cancel on a live request', async () => {
+    const started = deferred();
+    const routeAbort = new AbortController();
+    const app = express();
+
+    app.get(
+      '/route',
+      cancelableHandler(
+        function* () {
+          started.resolve();
+          yield new Promise(() => undefined);
+        },
+        { signal: routeAbort.signal },
+      ),
+    );
+    app.use(cancelErrorHandler({ status: 502 }));
+
+    const port = await listen(app);
+    const pending = httpRequest(port, { path: '/route' });
+    await started.promise;
+    routeAbort.abort();
+
+    expect((await pending).status).toBe(502);
+  });
+
   it('lets a signal-only route answer 503 after the cancel, and counts it canceled', async () => {
     const app = express();
     const reached = deferred();
