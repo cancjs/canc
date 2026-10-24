@@ -91,9 +91,12 @@ function prepareCancel(error: unknown, ctx: Context, option?: number): boolean {
   }
 
   const state = ensureRequestCancelState(toRequestLike(ctx.req), toResponseLike(ctx.res));
-  // a shutdown sets `shuttingDown` before it cancels, and a deadline is flagged `timedOut`:
-  // neither is a disconnect
-  const disconnected = state.signal.aborted && state.shuttingDown !== true && error.timedOut !== true;
+  // a shutdown sets `shuttingDown` before it cancels.
+  // a deadline is flagged `timedOut` on the signal's reason.
+  // a derived cancel has no flag of its own, so the reason decides.
+  const reason = state.signal.reason;
+  const deadline = isCancelError(reason) && reason.timedOut === true;
+  const disconnected = state.signal.aborted && state.shuttingDown !== true && !deadline && error.timedOut !== true;
 
   if (disconnected || ctx.res.writableEnded === true) {
     ctx.respond = false;

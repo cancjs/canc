@@ -1504,3 +1504,55 @@ describe('cancellation through koa error handling', () => {
     expect(emitted).toEqual([]);
   });
 });
+
+describe('ownership comes from request state', () => {
+  it('does not answer a user cancellation by the status it carries on a live request', async () => {
+    const app = new Koa();
+    const emitted: unknown[] = [];
+    const userError = Object.assign(new CancelError('user stop'), { status: 499, headers: { 'X-Trace': 'abc' } });
+
+    app.on('error', (error) => emitted.push(error));
+    app.use(cancelMiddleware({ status: 429 }));
+    app.use(
+      cancelableHandler(function* () {
+        yield CancelablePromise.resolve();
+
+        throw userError;
+      }),
+    );
+
+    const port = await listen(app);
+    const response = await httpExchange(port, { path: '/' });
+
+    expect(response.status).toBe(500);
+    expect(response.headers['x-trace']).toBe('abc');
+    expect(emitted).toHaveLength(1);
+    expect(emitted[0]).toBe(userError);
+  });
+
+  it('answers a derived cancel with the deadline status when a plain route is canceled from the request signal', async () => {
+    const app = new Koa();
+
+    app.use(cancelMiddleware({ timeout: { ms: 50, status: 504 } }));
+    app.use(
+      route('/derived', async (ctx) => {
+        const signal = getRequestSignal(ctx);
+        const child = new CancelablePromise<void>(() => undefined);
+
+        signal.addEventListener(
+          'abort',
+          () => {
+            void child.cancel();
+          },
+          { once: true },
+        );
+        await child;
+      }),
+    );
+
+    const port = await listen(app);
+    const response = await httpRequest(port, { path: '/derived' });
+
+    expect(response.status).toBe(504);
+  });
+});
