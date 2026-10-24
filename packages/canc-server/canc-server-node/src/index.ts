@@ -2,10 +2,11 @@ import { CancelSignal, isCancelError } from '@cancjs/promise';
 import type { IncomingMessage, Server, ServerResponse } from 'http';
 
 import {
-  cancelHeadersOf,
+  cancelHeadersFor,
   cancelStatusOf,
   isResponseLive,
   isUnanswerable,
+  STALE_CONTENT_HEADERS,
   toRequestLike,
   toResponseLike,
 } from '../../../_server/exchange';
@@ -102,6 +103,7 @@ export function cancelableHandler<
   return function cancelableRoute(req, res) {
     const task = runCancelableHandler(handler as TAnyFn, toRequestLike(req), toResponseLike(res), options, {
       args: [req, res],
+      onLateFailure: logLateFailure,
     });
 
     task.catch((error: unknown) => {
@@ -168,12 +170,12 @@ export function cancelErrorHandler<
       return;
     }
 
-    answerWith(res, status, cancelHeadersOf(error));
+    answerWith(res, status, cancelHeadersFor(error, options.status), true);
   };
 }
 
 /** Sends a bare status to a response that can still carry one. */
-function answerWith(res: ServerResponse, status: number, headers: Record<string, string> = {}): void {
+function answerWith(res: ServerResponse, status: number, headers: Record<string, string> = {}, cancel = false): void {
   if (!isResponseLive(res)) {
     return;
   }
@@ -185,11 +187,22 @@ function answerWith(res: ServerResponse, status: number, headers: Record<string,
     return;
   }
 
+  // a cancellation answer is not the route's body, so the content headers it set go too
+  if (cancel) {
+    for (const name of STALE_CONTENT_HEADERS) {
+      res.removeHeader(name);
+    }
+  }
+
   for (const [name, value] of Object.entries(headers)) {
     res.setHeader(name, value);
   }
   res.statusCode = status;
   res.end();
+}
+
+function logLateFailure(error: unknown): void {
+  console.error((error as Error | undefined)?.stack || String(error));
 }
 
 function logHandlerFailure(error: unknown): void {

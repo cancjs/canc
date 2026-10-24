@@ -104,6 +104,22 @@ export function cancelHeadersOf(error: CancelError): Record<string, string> | un
   return (error as CancelError & { headers?: Record<string, string> }).headers;
 }
 
+/**
+ * The headers to send with a cancellation answered at `option`. They come along only when the status
+ * came from the error, the way express's finalhandler copies `err.headers` only for `err.status`: a
+ * handler's `status` option that replaces the stamp leaves them behind, unless the stamp wins.
+ */
+export function cancelHeadersFor(error: CancelError, option: number | undefined): Record<string, string> | undefined {
+  if (option !== undefined && !stampWins(error)) {
+    return undefined;
+  }
+
+  return cancelHeadersOf(error);
+}
+
+/** Content headers a route may have set for its own body, which a cancellation answer must not keep. */
+export const STALE_CONTENT_HEADERS = ['Content-Type', 'Content-Encoding', 'Content-Language', 'Content-Range'] as const;
+
 /** What a request's cancellation is attributed to: the reason the request was canceled with. */
 export interface IAttribution {
   reason: unknown;

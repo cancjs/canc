@@ -556,6 +556,49 @@ describe('cancel error handler', () => {
   });
 });
 
+describe('framework headers on a cancel answer', () => {
+  it('answers a deadline clean: no stale content headers, the timeout headers applied', async () => {
+    const port = await listen(
+      cancelableHandler(
+        function* (_req: IncomingMessage, res: ServerResponse) {
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Content-Encoding', 'gzip');
+          yield never();
+          res.end('unreachable');
+        },
+        { timeout: { ms: 25, headers: { 'Retry-After': '5' } } },
+      ),
+    );
+
+    const response = await httpExchange(port, { path: '/slow' });
+
+    expect(response.status).toBe(503);
+    expect(response.headers['retry-after']).toBe('5');
+    expect(response.headers['content-type']).toBeUndefined();
+    expect(response.headers['content-encoding']).toBeUndefined();
+  });
+
+  it('logs a late failure once through the console', async () => {
+    const logged = captureErrorLog();
+
+    const port = await listen(
+      cancelableHandler(
+        async () => {
+          await new Promise((resolve) => setTimeout(resolve, 60));
+          throw new Error('late');
+        },
+        { timeout: 20 },
+      ),
+    );
+
+    const response = await httpRequest(port, { path: '/late' });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    expect(response.status).toBe(503);
+    expect(logged.filter((entry) => String(entry[0]).includes('late'))).toHaveLength(1);
+  });
+});
+
 describe('handler kinds', () => {
   it('answers 500 and logs a TypeError for an async generator handler', async () => {
     const logged = captureErrorLog();
@@ -842,6 +885,8 @@ function fakeResponse(state: { destroyed?: boolean; headersSent?: boolean; writa
       return res;
     },
     headersSent: false,
+    removeHeader: () => undefined,
+    setHeader: () => undefined,
     statusCode: 200,
     writableEnded: false,
     ...state,

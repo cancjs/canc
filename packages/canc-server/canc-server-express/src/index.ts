@@ -1,13 +1,14 @@
 import { CancelSignal, isCancelError } from '@cancjs/promise';
-import type { ErrorRequestHandler, RequestHandler } from 'express';
+import type { Application, ErrorRequestHandler, RequestHandler } from 'express';
 import type { ParamsDictionary, Query } from 'express-serve-static-core';
 import type { IncomingMessage, Server, ServerResponse } from 'http';
 
 import {
-  cancelHeadersOf,
+  cancelHeadersFor,
   cancelStatusOf,
   isResponseLive,
   isUnanswerable,
+  STALE_CONTENT_HEADERS,
   toRequestLike,
   toResponseLike,
 } from '../../../_server/exchange';
@@ -63,6 +64,7 @@ export function cancelableHandler<
     const task = runCancelableHandler(handler as TAnyFn, toRequestLike(req), toResponseLike(res), options, {
       args: [req, res],
       next,
+      onLateFailure: (error) => logLateFailure(req, error),
     });
 
     task.catch((error: unknown) => {
@@ -70,9 +72,23 @@ export function cancelableHandler<
         return;
       }
 
+      // the head is out, so the socket is cut before express's own handling sees the error
+      if (isCancelError(error) && cancelStatusOf(error, undefined) !== undefined && res.headersSent) {
+        res.destroy();
+      }
+
       next(error);
     });
   };
+}
+
+// express's own logerror skips the test environment, and so does this
+function logLateFailure(req: IncomingMessage & { app?: Application }, error: unknown): void {
+  if (req.app?.get('env') === 'test') {
+    return;
+  }
+
+  console.error((error as Error | undefined)?.stack || String(error));
 }
 
 // express keeps one cursor per request, so a second next(err) resumes past the error handler that
@@ -158,11 +174,16 @@ export function cancelErrorHandler(options: ICancelErrorHandlerOptions = {}): Er
     // end() would write the chunked terminator and pass a cut body off as complete
     if (res.headersSent) {
       res.destroy();
+      next(error);
 
       return;
     }
 
-    const headers = cancelHeadersOf(error);
+    for (const name of STALE_CONTENT_HEADERS) {
+      res.removeHeader(name);
+    }
+
+    const headers = cancelHeadersFor(error, options.status);
 
     if (headers) {
       res.set(headers);

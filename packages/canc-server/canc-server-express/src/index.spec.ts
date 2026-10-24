@@ -545,6 +545,78 @@ describe('cancel error handler', () => {
   });
 });
 
+describe('framework headers on a cancel answer', () => {
+  it('answers a deadline clean: no stale content headers, the timeout headers applied', async () => {
+    const app = express();
+
+    app.get(
+      '/slow',
+      cancelableHandler(
+        function* (_req, res) {
+          res.type('json');
+          res.set('Content-Encoding', 'gzip');
+          yield never();
+          res.send('unreachable');
+        },
+        { timeout: { ms: 25, headers: { 'Retry-After': '5' } } },
+      ),
+    );
+    app.use(cancelErrorHandler());
+
+    const port = await listen(app);
+    const response = await httpExchange(port, { path: '/slow' });
+
+    expect(response.status).toBe(503);
+    expect(response.headers['retry-after']).toBe('5');
+    expect(response.headers['content-type']).toBeUndefined();
+    expect(response.headers['content-encoding']).toBeUndefined();
+  });
+
+  it('lets express answer a user cancellation through its own handling', async () => {
+    const app = express();
+
+    app.get(
+      '/cancel',
+      cancelableHandler(() => {
+        throw new CancelError(CLIENT_DISCONNECTED);
+      }),
+    );
+    app.use(cancelErrorHandler());
+
+    const port = await listen(app);
+    const response = await httpRequest(port, { path: '/cancel' });
+
+    expect(response.status).toBe(500);
+  });
+
+  it('logs a late failure once outside the test environment', async () => {
+    const app = express();
+    app.set('env', 'development');
+    const logged = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    app.get(
+      '/late',
+      cancelableHandler(
+        async () => {
+          await new Promise((resolve) => setTimeout(resolve, 60));
+          throw new Error('late');
+        },
+        { timeout: 20 },
+      ),
+    );
+    app.use(cancelErrorHandler());
+
+    const port = await listen(app);
+    const response = await httpRequest(port, { path: '/late' });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    expect(response.status).toBe(503);
+    expect(logged).toHaveBeenCalledTimes(1);
+    expect(String(logged.mock.calls[0][0])).toContain('late');
+    logged.mockRestore();
+  });
+});
+
 describe('cancellation after the head was sent', () => {
   it('cuts a chunked body short instead of ending it cleanly', async () => {
     const app = express();
@@ -1034,6 +1106,8 @@ function fakeResponse(state: { destroyed?: boolean; headersSent?: boolean; writa
       return res;
     },
     headersSent: false,
+    removeHeader: () => undefined,
+    set: () => res,
     status: (code: number) => {
       calls.status = code;
 

@@ -186,6 +186,8 @@ The wrapper forwards errors to express with `next(err)`, with two exceptions. A 
 
 `cancelErrorHandler()` is opt-in and mounted after the routes. It answers a deadline with the status stamped on the error, answers a shutdown cancellation with its fallback status (`503`, or whatever `status` you pass), leaves a departed client alone, and passes anything that is not a cancellation straight through.
 
+Mount it after your own error handlers: express calls them in order, and each one that calls `next(err)` passes the cancellation on. A cancellation answer also drops the `Content-Type`, `Content-Encoding`, `Content-Language` and `Content-Range` the route set, and sends the cancellation's headers only when the status came from the error. Put a `Retry-After` on a deadline with `timeout: { ms, headers: { 'Retry-After': '5' } }`. To log cancellations you care about, filter with `isCancelError` in your own handler before calling `next(err)`. A late failure after the deadline is logged once outside the test environment.
+
 ### Options
 
 | Option         | Default | Meaning                                                                                                                |
