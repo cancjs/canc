@@ -587,7 +587,9 @@ describe('framework headers on a cancel answer', () => {
 
   it('lets express answer a user cancellation through its own handling', async () => {
     const app = express();
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
 
+    app.set('env', 'development');
     app.get(
       '/cancel',
       cancelableHandler(() => {
@@ -599,7 +601,75 @@ describe('framework headers on a cancel answer', () => {
     const port = await listen(app);
     const response = await httpRequest(port, { path: '/cancel' });
 
+    // finalhandler reports the error on the next check phase, after the response is read
+    await new Promise((resolve) => setImmediate(resolve));
+
     expect(response.status).toBe(500);
+    expect(consoleError).toHaveBeenCalledWith(expect.stringContaining('CancelError'));
+
+    consoleError.mockRestore();
+  });
+
+  it('answers a derived cancel of a plain route with the request deadline status and headers', async () => {
+    const app = express();
+
+    app.use(cancelMiddleware({ timeout: { ms: 60, status: 504, headers: { 'Retry-After': '5' } } }));
+    app.get('/derived', (req, res, next) => {
+      const child = never();
+
+      getRequestSignal(req, res).addEventListener('abort', () => {
+        child.cancel();
+      });
+      void child.then(() => res.send('late'), next);
+    });
+    app.use(cancelErrorHandler());
+
+    const port = await listen(app);
+    const response = await httpExchange(port, { path: '/derived' });
+
+    expect(response.status).toBe(504);
+    expect(response.headers['retry-after']).toBe('5');
+  });
+
+  it('answers a user cancellation carrying status 499 with its own status, not the option', async () => {
+    const app = express();
+
+    app.get(
+      '/user',
+      cancelableHandler(() => {
+        throw Object.assign(new CancelError('user'), { status: 499 });
+      }),
+    );
+    app.use(cancelErrorHandler({ status: 502 }));
+
+    const port = await listen(app);
+    const response = await httpRequest(port, { path: '/user' });
+
+    expect(response.status).toBe(499);
+  });
+
+  it('leaves the headers of a shutdown with no status of its own off an option-status answer', async () => {
+    const app = express();
+    const started = deferred();
+
+    app.get(
+      '/hold',
+      cancelableHandler(function* () {
+        started.resolve();
+        yield never();
+      }),
+    );
+    app.use(cancelErrorHandler({ status: 418 }));
+
+    const port = await listen(app);
+    const pending = httpExchange(port, { path: '/hold' });
+
+    await started.promise;
+    await createShutdown(lastServer())({ cancelAfter: 0, headers: { 'Retry-After': '5' } });
+    const response = await pending;
+
+    expect(response.status).toBe(418);
+    expect(response.headers['retry-after']).toBeUndefined();
   });
 
   it('logs a late failure once outside the test environment', async () => {
