@@ -826,6 +826,56 @@ describe('cancellation after the head was sent', () => {
     expect(response.failed).toBe(true);
   });
 
+  it('cuts the socket before a downstream error handler can end a sent body', async () => {
+    const app = express();
+
+    app.get(
+      '/export',
+      cancelableHandler(
+        function* (_req, res) {
+          res.write('[{"row":1},');
+          yield never();
+        },
+        { timeout: 25 },
+      ),
+    );
+    app.use(cancelErrorHandler());
+    // a handler that ends whatever it is given: the only thing that could mark the body complete
+    app.use((_error: unknown, _req: Request, res: Response) => {
+      res.end();
+    });
+
+    const port = await listen(app);
+    const response = await streamedRequest(port, '/export');
+
+    expect(response.body).toBe('[{"row":1},');
+    expect(response.complete).toBe(false);
+  });
+
+  it('cuts the socket before a downstream error handler can end a body the route left open', async () => {
+    const app = express();
+
+    app.get(
+      '/export',
+      cancelableHandler(
+        function* (_req, res) {
+          res.write('[{"row":1},');
+          yield never();
+        },
+        { timeout: 25 },
+      ),
+    );
+    app.use((_error: unknown, _req: Request, res: Response) => {
+      res.end();
+    });
+
+    const port = await listen(app);
+    const response = await streamedRequest(port, '/export');
+
+    expect(response.body).toBe('[{"row":1},');
+    expect(response.complete).toBe(false);
+  });
+
   it('cuts a chunked body short when the server shuts down', async () => {
     const app = express();
     const started = deferred();

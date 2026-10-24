@@ -8,7 +8,6 @@ import {
   isResponseLive,
   isUnanswerable,
   ownedStatusOf,
-  routeSignalsOf,
   STALE_CONTENT_HEADERS,
   toRequestLike,
   toResponseLike,
@@ -61,8 +60,6 @@ export function cancelableHandler<
   handler: THandlerFn<RequestHandler<P, ResBody, ReqBody, ReqQuery, Locals>>,
   options?: ICancelableHandlerOptions,
 ): RequestHandler<P, ResBody, ReqBody, ReqQuery, Locals> {
-  const signals = routeSignalsOf(options?.signal);
-
   return function cancelableRoute(req, res, next) {
     const task = runCancelableHandler(handler as TAnyFn, toRequestLike(req), toResponseLike(res), options, {
       args: [req, res],
@@ -73,13 +70,6 @@ export function cancelableHandler<
     task.catch((error: unknown) => {
       if (isUnanswerable(error, res) || !claimForward(req, error)) {
         return;
-      }
-
-      // the head is out, so the socket is cut before express's own handling sees the error
-      const state = getRequestState(toRequestLike(req));
-
-      if (state !== undefined && ownedStatusOf(error, state, undefined, signals) !== undefined && res.headersSent) {
-        res.destroy();
       }
 
       next(error);
@@ -179,7 +169,6 @@ export function cancelErrorHandler(options: ICancelErrorHandlerOptions = {}): Er
 
     // end() would write the chunked terminator and pass a cut body off as complete
     if (res.headersSent) {
-      res.destroy();
       next(error);
 
       return;
