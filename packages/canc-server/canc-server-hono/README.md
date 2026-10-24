@@ -209,7 +209,7 @@ A `cancelAfter` of `Infinity` waits for the responses however long they take, an
 
 ### Readiness and websockets
 
-Node does not list a websocket as a connection once it is upgraded, so `shutdown()` cannot close it with a close frame. Once the window ends it destroys the socket without one, which the client sees as code `1006` (abnormal closure). Close your websockets yourself when shutdown starts, with code `1001` (going away), and let the shutdown wait for them:
+Node does not list a websocket as a connection once it is upgraded, so `shutdown()` cannot close it with a close frame. At the grace period's end (`cancelAfter`) it destroys an upgraded socket that no request holds open, and at the hard end (`closeAfter`) any socket still open, without a close frame, which the client sees as code `1006` (abnormal closure). Close your websockets yourself when shutdown starts, with code `1001` (going away), and let the shutdown wait for them:
 
 ```ts
 await Promise.all([closeWebSockets(1001), shutdown({ cancelAfter: 5_000 })]);
