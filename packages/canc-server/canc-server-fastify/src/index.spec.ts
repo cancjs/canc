@@ -1590,6 +1590,37 @@ describe('optional error handler', () => {
     expect(found.filter((line) => line.includes('FSTWRN004'))).toEqual([]);
   });
 
+  it('keeps a cancellation away from onError and answers its deadline status through fastify', async () => {
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    const seen: unknown[] = [];
+    instance.setErrorHandler(
+      cancelErrorHandler({
+        onError: (error, _request, reply) => {
+          seen.push(error);
+          void reply.status(500).send('user');
+        },
+      }),
+    );
+    instance.get(
+      '/slow',
+      cancelableHandler(
+        function* () {
+          yield new Promise(() => undefined);
+
+          return 'never';
+        },
+        { timeout: { message: 'route took too long', ms: 20, status: 504 } },
+      ),
+    );
+
+    const port = await listen(instance);
+    const response = await send(port, '/slow');
+
+    expect(response.statusCode).toBe(504);
+    expect(seen).toEqual([]);
+  });
+
   it('logs a signal-only late failure once at error level', async () => {
     const logged: string[] = [];
     const instance = Fastify({
