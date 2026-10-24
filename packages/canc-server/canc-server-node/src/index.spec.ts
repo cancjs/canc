@@ -972,6 +972,38 @@ async function* asyncGeneratorHandler(): AsyncGenerator<number> {
   yield 1;
 }
 
+describe('an app keep-alive set during the shutdown', () => {
+  it('is overridden, so the answer still closes its connection', async () => {
+    const arrived = deferred();
+    const release = deferred();
+
+    const port = await listen((_req, res) => {
+      arrived.resolve();
+      void release.promise.then(() => {
+        res.setHeader('Connection', 'keep-alive');
+        res.end('ok');
+      });
+    });
+    const shutdown = createShutdown(lastServer());
+    const client = await rawRequest(port, 'GET /late HTTP/1.1\r\nHost: localhost\r\n\r\n');
+    client.setEncoding('utf8');
+    let received = '';
+    client.on('data', (chunk: string) => {
+      received += chunk;
+    });
+    const closed = once(client, 'close');
+
+    await arrived.promise;
+    const closing = shutdown({ cancelAfter: 200 });
+    release.resolve();
+    await closed;
+
+    expect(await closing).toEqual({ canceled: 0, completed: 1, timedOut: false });
+    expect(received).toMatch(/^connection: close/im);
+    expect(received).not.toMatch(/keep-alive/i);
+  });
+});
+
 describeShutdownSockets(
   createShutdown,
   async (arrived, release) => {

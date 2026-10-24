@@ -210,7 +210,7 @@ export function shutdownServer(
   // the responses whose `Connection: close` this shutdown set, so an app-set one is never touched
   const closedHere = new WeakSet<IDrainResponse>();
 
-  // koa strips headers before an error answer, so re-assert close at head time
+  // an error answer may rebuild the headers after close was set, so re-assert at head time
   // only while this response is still last on its socket; wrap removes itself
   const reassertCloseAtHead = (socket: IConnectionLike, res: IDrainResponse) => {
     if (res.headersSent === true || !isFunction(res.writeHead)) {
