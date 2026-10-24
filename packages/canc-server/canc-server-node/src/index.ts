@@ -135,7 +135,7 @@ export function getRequestSignal(req: IncomingMessage, res: ServerResponse): Can
  * `onError`; pass it (or a wrapper around it) explicitly when a route needs its own status mapping.
  *
  * A deadline answers with the status stamped on it (`503` unless the timeout option names another
- * one), a shutdown cancellation with the `status` option (default `503`), and a response that can no
+ * one), a shutdown cancellation with the shutdown's `status` option, or the handler's `status` option when the shutdown set none (default `503`), and a response that can no
  * longer be answered gets nothing. A response whose head already went out cannot carry a status, so
  * its connection is destroyed and the client sees an aborted message instead of a body that looks
  * whole.
