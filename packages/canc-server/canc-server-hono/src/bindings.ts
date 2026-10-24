@@ -1,4 +1,6 @@
-import { isResponseLive } from '../../../_server/exchange';
+import type { CancelError } from '@cancjs/promise';
+
+import { cancelHeadersOf, cancelStatusOf, isResponseLive } from '../../../_server/exchange';
 import { getRequestState, IRequestCancelState, setRequestState } from '../../../_server/holder';
 import { applyRequestOptions, ensureRequestCancelState, forwardInFlightCancel } from '../../../_server/node-signal';
 import { ICancelableHandlerOptions, IRequestLike, IResponseLike } from '../../../_server/types';
@@ -65,12 +67,30 @@ export function existingCancelState(c: ICancelContext): IRequestCancelState | un
  */
 export function ensureCancelState(c: ICancelContext, options?: ICancelableHandlerOptions): IRequestCancelState {
   const bindings = getNodeBindings(c.env);
+  const state =
+    bindings ?
+      ensureRequestCancelState(bindings.incoming, bindings.outgoing, options)
+    : ensureWebRequestState(c.req.raw, options);
 
-  if (bindings) {
-    return ensureRequestCancelState(bindings.incoming, bindings.outgoing, options);
-  }
+  // hono's default error answer honors a `getResponse` on the error, so the cancel carries one
+  state.decorateCancel ??= attachCancelResponse;
 
-  return ensureWebRequestState(c.req.raw, options);
+  return state;
+}
+
+/**
+ * Gives an owned cancellation a non-enumerable `getResponse`, which hono's default error handler
+ * answers with, so the status and headers reach the client without an `onError`.
+ */
+function attachCancelResponse(error: CancelError): void {
+  const status = cancelStatusOf(error, undefined) ?? 503;
+  const headers = cancelHeadersOf(error);
+
+  Object.defineProperty(error, 'getResponse', {
+    configurable: true,
+    value: () => new Response(null, { headers, status }),
+    writable: true,
+  });
 }
 
 /**

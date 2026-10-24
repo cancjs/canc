@@ -263,6 +263,29 @@ describe('client disconnect on node', () => {
 });
 
 describe('deadline', () => {
+  it('answers a deadline with its status and no onError, through hono default error answer', async () => {
+    const app = new Hono();
+
+    app.use(cancelMiddleware({ timeout: 60_000 }));
+    app.get(
+      '/slow',
+      cancelableHandler(
+        function* (c) {
+          yield new Promise(() => undefined);
+
+          return c.text('never');
+        },
+        { timeout: { message: 'route took too long', ms: 20, status: 504 } },
+      ),
+    );
+
+    const port = await listen(app);
+    const response = await send(port, '/slow');
+
+    expect(response.statusCode).toBe(504);
+    expect(response.body).not.toContain('Internal Server Error');
+  });
+
   it('answers with the configured status while the client is still connected', async () => {
     let reported: CancelError | undefined;
 
@@ -767,7 +790,7 @@ describe('shutdown cancel status', () => {
     return Number(/^HTTP\/1\.1 (\d{3})/.exec(String(chunk))?.[1]);
   }
 
-  it('answers 500 for a shutdown cancel with no error handler, since hono default onError reads no status', async () => {
+  it('answers 503 for a shutdown cancel with no error handler, through hono default error answer', async () => {
     const app = new Hono();
     const started = deferred();
 
@@ -787,7 +810,7 @@ describe('shutdown cancel status', () => {
     await started.promise;
     await createShutdown(server!)({ cancelAfter: 200 });
 
-    expect((await pending).statusCode).toBe(500);
+    expect((await pending).statusCode).toBe(503);
   });
 
   it('takes the handler status over the stamped 503 for a shutdown cancel', async () => {
@@ -959,7 +982,7 @@ describe('shutdown cancel status', () => {
     expect(events).toEqual(['answered', 'resolved']);
   });
 
-  it('holds the window for a cleanup that awaits, then answers 500 and counts it canceled', async () => {
+  it('holds the window for a cleanup that awaits, then answers 503 and counts it canceled', async () => {
     const app = new Hono();
     const started = deferred();
     const events: string[] = [];
@@ -989,7 +1012,7 @@ describe('shutdown cancel status', () => {
       return result;
     });
 
-    expect((await pending).statusCode).toBe(500);
+    expect((await pending).statusCode).toBe(503);
     expect(await shutdown).toEqual({ canceled: 1, completed: 0, timedOut: false });
     expect(events).toEqual(['cleaned', 'resolved']);
   });
