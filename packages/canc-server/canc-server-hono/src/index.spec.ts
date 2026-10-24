@@ -424,23 +424,28 @@ describe('error handler', () => {
     expect(response.statusCode).toBe(503);
   });
 
-  it('sends the configured fallback status', async () => {
+  it('sends the configured fallback status for a shutdown that set none', async () => {
     const app = new Hono();
+    const started = deferred();
 
     app.onError(cancelErrorHandler({ status: 500 }));
+    app.use(cancelMiddleware());
     app.get(
-      '/give-up',
-      cancelableHandler(function* () {
-        yield Promise.resolve();
+      '/hang',
+      cancelableHandler(function* (c) {
+        started.resolve();
+        yield new Promise(() => undefined);
 
-        throw Object.assign(new CancelError('gave up'), { status: 503 });
+        return c.text('never');
       }),
     );
 
     const port = await listen(app);
-    const response = await send(port, '/give-up');
+    const pending = send(port, '/hang');
+    await started.promise;
+    await createShutdown(server!)({ cancelAfter: 200 });
 
-    expect(response.statusCode).toBe(500);
+    expect((await pending).statusCode).toBe(500);
   });
 
   it('takes the status option for a route-signal cancel', async () => {

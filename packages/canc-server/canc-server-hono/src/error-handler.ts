@@ -1,4 +1,3 @@
-import { isCancelError } from '@cancjs/promise';
 import type { Env, ErrorHandler } from 'hono';
 
 import { ownedStatusOf } from '../../../_server/exchange';
@@ -39,7 +38,7 @@ export function cancelErrorHandler<E extends Env = any>(options: ICancelErrorHan
 
   return function cancelErrorRoute(error, c) {
     // Ownership comes from the request state, so an unowned cancel takes the path below.
-    const state = isCancelError(error) ? existingCancelState(c) : undefined;
+    const state = existingCancelState(c);
     const status = state === undefined ? undefined : ownedStatusOf(error, state, options.status);
 
     if (status === undefined) {
