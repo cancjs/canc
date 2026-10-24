@@ -110,10 +110,21 @@ export interface IShutdownOptions {
   closeServer?: boolean;
 }
 
-/** What a graceful shutdown reports once the grace window closes or every request has settled. */
+/**
+ * What a graceful shutdown reports once the window ends: every request and connection is done, or
+ * `closeAfter` is reached.
+ */
 export interface IShutdownResult {
+  /**
+   * Requests this shutdown canceled: answered cleanly, client left, or force-closed after that.
+   */
   canceled: number;
+  /** Requests that finished normally and were not canceled by this shutdown. */
   completed: number;
+  /**
+   * `closeAfter` was reached with a request or connection still open, and was force-closed. A fired
+   * `cancelAfter` alone does not set it.
+   */
   timedOut: boolean;
 }
 

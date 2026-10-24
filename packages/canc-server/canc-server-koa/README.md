@@ -148,7 +148,7 @@ Pass `cancelAfter: 0` to cancel handlers as soon as the shutdown starts instead,
 
 Created late, it finishes correctly but slower, because a connection opened before the call is unknown to it. If that connection has not sent a request yet, or its request is still in flight and no wrapped handler or request signal recorded it, the connection is closed only when `closeAfter` ends. That response goes out without `Connection: close`.
 
-It resolves with what happened rather than throwing. A second call while the first is still running joins it rather than starting over, so a pair of signal handlers is safe to wire without a guard. Calling `createShutdown` again with the same server returns the same function.
+It resolves with what happened rather than throwing. `canceled` counts requests this shutdown canceled, `completed` requests that finished normally, and `timedOut` is set when `closeAfter` ends the window with a request or connection still open. A second call while the first is still running joins it rather than starting over, so a pair of signal handlers is safe to wire without a guard. Calling `createShutdown` again with the same server returns the same function.
 
 Migrating from `timeout`: rename it to `cancelAfter`. `cancelOnStart: true` becomes `cancelAfter: 0`, and without `closeAfter` the window is then 1 s instead of 10 s, so pass `closeAfter` to keep a longer one. The value is set once per server, so an app that mixes long-lived streams with ordinary routes ends its own streams when the shutdown starts and keeps the default for the rest.
 

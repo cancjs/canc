@@ -211,7 +211,7 @@ Options given to `cancelMiddleware` are inherited by every handler on the reques
 
 ### Shutdown
 
-- `createShutdown(server)` returns `shutdown(options?)`, which lets in-flight handlers finish within the grace window, cancels the rest, and resolves with `{ canceled, completed, timedOut }`. Options: `cancelAfter`, `closeAfter`, `reason`, `closeServer`
+- `createShutdown(server)` returns `shutdown(options?)`, which lets in-flight handlers finish until `cancelAfter`, cancels the rest, and resolves with `{ canceled, completed, timedOut }` once they answer or `closeAfter` ends the window. `canceled` counts requests this shutdown canceled, `completed` requests that finished normally, and `timedOut` is set when `closeAfter` ends the window with a request or connection still open. Options: `cancelAfter`, `closeAfter`, `reason`, `closeServer`
 
 ### Reasons
 

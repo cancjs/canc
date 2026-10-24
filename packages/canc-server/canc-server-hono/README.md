@@ -177,7 +177,7 @@ Pass `cancelAfter: 0` to cancel handlers as soon as the shutdown starts instead,
 
 Created late, it finishes correctly but slower, because a connection opened before the call is unknown to it. If that connection has not sent a request yet, or its request is still in flight and no wrapped handler or request signal recorded it, the connection is closed only when `closeAfter` ends. That response goes out without `Connection: close`.
 
-It resolves with counts rather than throwing. A second call while a shutdown is running returns the same promise, so wiring it to both `SIGTERM` and `SIGINT` needs no guard. A call after it has settled starts a new run. Calling `createShutdown` again with the same server returns the same function. There is no shutdown path for a Web standard runtime without a node server object; that deployment shape has no server to stop accepting connections on in the first place.
+It resolves with counts rather than throwing. `canceled` counts requests this shutdown canceled, `completed` requests that finished normally, and `timedOut` is set when `closeAfter` ends the window with a request or connection still open. A second call while a shutdown is running returns the same promise, so wiring it to both `SIGTERM` and `SIGINT` needs no guard. A call after it has settled starts a new run. Calling `createShutdown` again with the same server returns the same function. There is no shutdown path for a Web standard runtime without a node server object; that deployment shape has no server to stop accepting connections on in the first place.
 
 Migrating from `timeout`: rename it to `cancelAfter`. `cancelOnStart: true` becomes `cancelAfter: 0`, and without `closeAfter` the window is then 1 s instead of 10 s, so pass `closeAfter` to keep a longer one. The value is set once per server, so an app that mixes long-lived streams with ordinary routes ends its own streams when the shutdown starts and keeps the default for the rest.
 
@@ -197,7 +197,7 @@ A `cancelAfter` of `Infinity` waits for the responses however long they take, an
 
 ### Shutdown
 
-- `createShutdown(server)` returns `shutdown(options?)`, which lets in-flight handlers finish within the grace window, cancels the rest, and resolves with `{ canceled, completed, timedOut }`. Options: `cancelAfter`, `closeAfter`, `reason`, `closeServer`
+- `createShutdown(server)` returns `shutdown(options?)`, which lets in-flight handlers finish until `cancelAfter`, cancels the rest, and resolves with `{ canceled, completed, timedOut }` once they answer or `closeAfter` ends the window. Options: `cancelAfter`, `closeAfter`, `reason`, `closeServer`
 
 ### Reasons
 
