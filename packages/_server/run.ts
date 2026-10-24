@@ -139,12 +139,37 @@ export function runCancelableHandler<TReturn = unknown>(
 
   // a cancel the request or a route signal raised is given its status before the adapter's error
   // handler reads it; a cancel the caller raised on its own is left as it is
-  void NativePromise.prototype.then.call(task, settle, (error: unknown) => {
-    stampDerivedCancel(error, state, signals);
-    settle();
-  });
+  // a handler that resolved no longer owns its route signal, so a later cancel on the request
+  // is not its own
+  // a rejected one keeps it: the adapter reads the owner off the request when it answers the error
+  void NativePromise.prototype.then.call(
+    task,
+    () => {
+      forgetRouteSignals(state, signals);
+      settle();
+    },
+    (error: unknown) => {
+      stampDerivedCancel(error, state, signals);
+      settle();
+    },
+  );
 
   return task;
+}
+
+function forgetRouteSignals(state: IRequestCancelState, signals: readonly AbortSignal[]): void {
+  const recorded = state.routeSignals;
+  if (!recorded) {
+    return;
+  }
+
+  for (const signal of signals) {
+    const index = recorded.indexOf(signal);
+
+    if (index >= 0) {
+      recorded.splice(index, 1);
+    }
+  }
 }
 
 function holdRequest(state: IRequestCancelState, tracked: boolean): { release: () => boolean } {

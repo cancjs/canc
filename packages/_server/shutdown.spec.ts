@@ -1143,6 +1143,31 @@ describe('graceful shutdown over a real socket', () => {
     expect(((await outcome) as CancelError & { marked?: boolean }).marked).toBe(true);
   });
 
+  it('decorates a shutdown cancel before the tasks see it, even for a request already shutting down', async () => {
+    const server = new FakeServer();
+    const { req, res } = createExchange(server);
+    const outcome = answer(
+      runCancelableHandler(
+        function* () {
+          yield pending();
+        },
+        req,
+        res,
+      ),
+      res,
+    );
+
+    const state = getRequestState(req)!;
+    state.shuttingDown = true;
+    state.decorateCancel = (error) => {
+      Object.assign(error, { marked: true });
+    };
+
+    await shutdownServer(server, { cancelAfter: 0 });
+
+    expect(((await outcome) as CancelError & { marked?: boolean }).marked).toBe(true);
+  });
+
   it('cancels a wrapped handler at once when asked to cancel on start', async () => {
     const entered = deferred();
     const { port, server } = await listen((req, res) => {

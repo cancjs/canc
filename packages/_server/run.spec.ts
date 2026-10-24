@@ -743,6 +743,16 @@ describe('cancel attribution', () => {
     expect(cancelStatusOf(error, 418)).toBe(418);
   });
 
+  it('forgets a route signal once its handler settles, so it cannot own a later cancel on the request', async () => {
+    const { req, res } = createExchange();
+    const routeAbort = new AbortController();
+
+    await runCancelableHandler(() => 'done', req, res, { signal: routeAbort.signal });
+    routeAbort.abort(new CancelError('route'));
+
+    expect(getRequestState(req)!.routeSignals ?? []).toEqual([]);
+  });
+
   it('runs the decorator the request state carries on a deadline before it is delivered', async () => {
     const { req, res } = createExchange();
     const outcome = outcomeOf(runCancelableHandler(() => pending(), req, res, { timeout: 30 }));
