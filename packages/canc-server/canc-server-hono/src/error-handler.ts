@@ -29,8 +29,7 @@ interface IResponseCarrier {
  *
  * Hono is the one framework in this family that does not read a status off the error, so a deadline
  * would otherwise answer `500` no matter what the timeout option said. This reads it instead: a
- * deadline answers with the status stamped on it, a shutdown cancellation with the `status` option
- * (default `503`), and a cancellation behind a response nobody can read gets `499`.
+ * deadline answers with the status stamped on it, a shutdown cancellation with the shutdown's `status` option, or the handler's `status` option when the shutdown set none (default `503`), and a cancellation behind a response nobody can read gets `499`.
  */
 export function cancelErrorHandler<E extends Env = any>(options: ICancelErrorHandlerOptions<E> = {}): ErrorHandler<E> {
   const onError = options.onError;
