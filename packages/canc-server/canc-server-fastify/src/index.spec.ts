@@ -4,7 +4,7 @@ import { AddressInfo, connect, Socket } from 'node:net';
 import { Readable } from 'node:stream';
 import { runInThisContext } from 'node:vm';
 
-import { CancelError, isCancelError, isCancelSignal, TimeoutError } from '@cancjs/promise';
+import { CancelablePromise, CancelError, isCancelError, isCancelSignal, TimeoutError } from '@cancjs/promise';
 import Fastify, { FastifyInstance, preHandlerAsyncHookHandler } from 'fastify';
 
 import { expectAbortAt, useDeadlineClock } from '../../../_server/__tests__/deadline-clock';
@@ -949,6 +949,71 @@ describe('shutdown cancel status', () => {
 
     expect(await firstStatus(client)).toBe(503);
     await shutdown;
+  });
+
+  it('lets a signal-only route answer 503 after the cancel, and counts it canceled', async () => {
+    const reached = deferred();
+    const events: string[] = [];
+
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.get('/signal', (request, reply) => {
+      getRequestSignal(request, reply).addEventListener('abort', () => {
+        setTimeout(() => {
+          events.push('answered');
+          reply.code(503).send();
+        }, 30);
+      });
+      reached.resolve();
+    });
+
+    const port = await listen(instance);
+    const pending = send(port, '/signal');
+    await reached.promise;
+
+    const shutdown = createShutdown(instance)({ cancelAfter: 50, closeAfter: 2_000 }).then((result) => {
+      events.push('resolved');
+      return result;
+    });
+
+    expect((await pending).statusCode).toBe(503);
+    expect(await shutdown).toEqual({ canceled: 1, completed: 0, timedOut: false });
+    expect(events).toEqual(['answered', 'resolved']);
+  });
+
+  it('holds the window for a cleanup that awaits, then answers 503 and counts it canceled', async () => {
+    const started = deferred();
+    const events: string[] = [];
+
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.get(
+      '/cleanup',
+      cancelableHandler(function* () {
+        started.resolve();
+        try {
+          yield new CancelablePromise<void>(() => undefined);
+
+          return { ok: true };
+        } finally {
+          yield new CancelablePromise<void>((resolve) => setTimeout(resolve, 50));
+          events.push('cleaned');
+        }
+      }),
+    );
+
+    const port = await listen(instance);
+    const pending = send(port, '/cleanup');
+    await started.promise;
+
+    const shutdown = createShutdown(instance)({ cancelAfter: 50, closeAfter: 2_000 }).then((result) => {
+      events.push('resolved');
+      return result;
+    });
+
+    expect((await pending).statusCode).toBe(503);
+    expect(await shutdown).toEqual({ canceled: 1, completed: 0, timedOut: false });
+    expect(events).toEqual(['cleaned', 'resolved']);
   });
 });
 
