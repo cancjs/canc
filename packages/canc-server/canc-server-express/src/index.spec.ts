@@ -706,6 +706,32 @@ describe('shutdown cancel status', () => {
     expect(answer.headers['retry-after']).toBe('5');
   });
 
+  it('sends the shutdown headers through the cancel error handler', async () => {
+    const app = express();
+    const started = deferred();
+
+    app.get(
+      '/hang',
+      cancelableHandler(function* (_req, res) {
+        started.resolve();
+        yield never();
+        res.send('unreachable');
+      }),
+    );
+    app.use(cancelErrorHandler({ status: 502 }));
+
+    const port = await listen(app);
+    const pending = httpExchange(port, { path: '/hang' });
+
+    await started.promise;
+    await createShutdown(lastServer())({ cancelAfter: 200, headers: { 'Retry-After': '5' }, status: 504 });
+
+    const answer = await pending;
+
+    expect(answer.status).toBe(504);
+    expect(answer.headers['retry-after']).toBe('5');
+  });
+
   it('takes the handler status for a user timeout that carries no status', async () => {
     const app = express();
 
