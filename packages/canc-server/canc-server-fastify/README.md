@@ -97,7 +97,7 @@ The cancel state is cached on the raw request under a registered symbol, so the 
 
 The wrapper never writes the response. A cancellation that arrives with the client already gone is dropped and the reply is hijacked, because there is nothing to answer on. Everything else is rethrown and reaches your error handler, including a missed deadline, which carries `status` and `statusCode` so Fastify's own error handling reports the code you configured.
 
-`cancelErrorHandler({ status })` sets the status a shutdown cancellation gets on a live connection, `503` by default. The older `canceledStatus` key still works. When the response head already went out, no status can be sent, so the socket is destroyed instead of left looking complete.
+`cancelErrorHandler({ status })` sets the status a shutdown cancellation gets on a live connection, `503` by default. The shutdown's own `status` wins over it, and it wins over the handler's `status` option. The older `canceledStatus` key still works. When the response head already went out, no status can be sent, so the socket is destroyed instead of left looking complete.
 
 ## Description
 
@@ -134,7 +134,7 @@ The shutdown closes the server to new connections, closes a connection that has 
 
 When the window ends, handlers still running are canceled with the shutdown reason, so their cleanup runs and one that has not started its response can still answer `503`. A request still open then runs until it finishes or `closeAfter`, and connections still busy at `closeAfter` are closed. Shutdown resolves as soon as nothing is open. On Kubernetes, keep `closeAfter` at or below `terminationGracePeriodSeconds` minus the preStop sleep, less a margin for the process to exit, or the kubelet kills the process before the window ends. A `cancelAfter` greater than `closeAfter` throws a `RangeError` synchronously; negative values clamp to 0 before that check. The cancel reaches the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it.
 
-`status` and `headers` set the answer each request the shutdown cancels gets, for example `shutdown({ cancelAfter: 10_000, status: 504, headers: { 'Retry-After': '5' } })`. For these cancellations `status` takes precedence over a handler's `status` option, and `headers` are added to the answer. A deadline keeps the status it was given. Invalid values throw from `shutdown()`: a `status` outside 100 to 599 raises a `RangeError`, and a header name or value HTTP does not allow raises a `TypeError`.
+`status` and `headers` set the answer each request the shutdown cancels gets, for example `shutdown({ cancelAfter: 10_000, status: 504, headers: { 'Retry-After': '5' } })`. For these cancellations `status` takes precedence over a handler's `status` option, and `headers` are added to the answer. A deadline keeps the status it was given. Invalid values throw from `shutdown()`: a `status` outside 200 to 599 raises a `RangeError`, and a header name or value HTTP does not allow raises a `TypeError`.
 
 `canceled` counts requests this shutdown canceled, `completed` requests that finished normally, and `timedOut` is set when `closeAfter` ends the window with a request or connection still open.
 
