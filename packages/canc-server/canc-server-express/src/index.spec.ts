@@ -1,6 +1,6 @@
 import { CancelablePromise, CancelError, isCancelError, isCancelSignal, TimeoutError } from '@cancjs/promise';
 import { getEventListeners, once } from 'events';
-import express, { ErrorRequestHandler, Express, Request, Response } from 'express';
+import express, { ErrorRequestHandler, Express, NextFunction, Request, Response } from 'express';
 import { IncomingHttpHeaders, IncomingMessage, request, Server } from 'http';
 import { connect, Socket } from 'net';
 import { runInThisContext } from 'vm';
@@ -824,6 +824,56 @@ describe('cancellation after the head was sent', () => {
     expect(response.body).toBe('[{"row":1},');
     expect(response.complete).toBe(false);
     expect(response.failed).toBe(true);
+  });
+
+  it('cuts a sent body before a four-argument error handler can end it', async () => {
+    const app = express();
+
+    app.get(
+      '/export',
+      cancelableHandler(
+        function* (_req, res) {
+          res.write('[{"row":1},');
+          yield never();
+        },
+        { timeout: 25 },
+      ),
+    );
+    // express only calls an error handler that declares four parameters, so this one is reached
+    app.use((_error: unknown, _req: Request, res: Response, _next: NextFunction) => {
+      res.end();
+    });
+
+    const port = await listen(app);
+    const response = await streamedRequest(port, '/export');
+
+    expect(response.body).toBe('[{"row":1},');
+    expect(response.complete).toBe(false);
+  });
+
+  it('cuts a sent body before a four-argument error handler when cancelErrorHandler is mounted', async () => {
+    const app = express();
+
+    app.get(
+      '/export',
+      cancelableHandler(
+        function* (_req, res) {
+          res.write('[{"row":1},');
+          yield never();
+        },
+        { timeout: 25 },
+      ),
+    );
+    app.use(cancelErrorHandler());
+    app.use((_error: unknown, _req: Request, res: Response, _next: NextFunction) => {
+      res.end();
+    });
+
+    const port = await listen(app);
+    const response = await streamedRequest(port, '/export');
+
+    expect(response.body).toBe('[{"row":1},');
+    expect(response.complete).toBe(false);
   });
 
   it('cuts the socket before a downstream error handler can end a sent body', async () => {

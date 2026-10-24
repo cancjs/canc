@@ -161,6 +161,7 @@ function ensureWebRequestState(request: Request, options?: ICancelableHandlerOpt
   const { cancel, signal } = createWebRequestSignal(request);
   const state: IRequestCancelState = {
     cancel,
+    decorateCancel: attachCancelResponse,
     live: new Set(),
     options: options ? { ...options } : {},
     signal,

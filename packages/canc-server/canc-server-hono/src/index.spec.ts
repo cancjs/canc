@@ -1588,6 +1588,21 @@ describe('cancel answers without a mounted error handler', () => {
     expect(response.status).toBe(504);
   });
 
+  it('answers a middleware deadline on a Web runtime with its status and headers', async () => {
+    const app = new Hono();
+
+    app.use(cancelMiddleware({ timeout: { ms: 20, status: 504, headers: { 'X-A': '1' } } }));
+    app.get(
+      '/plain',
+      cancelableHandler(() => new Promise<Response>(() => undefined)),
+    );
+
+    const response = await app.request('/plain');
+
+    expect(response.status).toBe(504);
+    expect(response.headers.get('x-a')).toBe('1');
+  });
+
   it('answers a route-signal cancel with 503 through hono default answer', async () => {
     const controller = new AbortController();
     const app = new Hono();
