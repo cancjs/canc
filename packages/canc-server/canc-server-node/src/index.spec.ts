@@ -136,6 +136,54 @@ describe('deadline', () => {
   });
 });
 
+describe('cancel attribution over a real socket', () => {
+  it('answers the deadline status and headers when a derived child rejects with the request', async () => {
+    const port = await listen(
+      cancelableHandler(
+        function* (req: IncomingMessage, res: ServerResponse) {
+          const child = never();
+
+          getRequestSignal(req, res).addEventListener(
+            'abort',
+            () => {
+              child.cancel();
+            },
+            { once: true },
+          );
+          try {
+            yield child;
+          } catch {
+            throw new CancelError('derived');
+          }
+          res.end('unreachable');
+        },
+        { timeout: { ms: 25, status: 504, headers: { 'Retry-After': '5' } } },
+      ),
+    );
+
+    const response = await httpExchange(port, { path: '/derived' });
+
+    expect(response.status).toBe(504);
+    expect(response.headers['retry-after']).toBe('5');
+  });
+
+  it('answers a user cancellation stamped 499 with 500, not the caller status, on a live request', async () => {
+    const logged = captureErrorLog();
+
+    const port = await listen(
+      cancelableHandler(function* () {
+        throw Object.assign(new CancelError('user'), { status: 499 });
+        yield never();
+      }),
+    );
+
+    const response = await httpExchange(port, { path: '/user' });
+
+    expect(response.status).toBe(500);
+    expect(logged).toHaveLength(1);
+  });
+});
+
 describe('request deadline timing', () => {
   useDeadlineClock();
 
