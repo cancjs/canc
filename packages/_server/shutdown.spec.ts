@@ -949,6 +949,102 @@ describe('graceful shutdown over a real socket', () => {
     expect(result).toEqual({ canceled: 0, completed: 2, timedOut: false });
   });
 
+  it('decorates a request admitted after the shutdown start with its status and headers', async () => {
+    const firstEntered = deferred();
+    const firstGate = deferred();
+    let reportLateError: (error: unknown) => void = () => undefined;
+    const lateError = new Promise<unknown>((resolve) => {
+      reportLateError = resolve;
+    });
+    const { port, server } = await listen((req, res) => {
+      if (req.url === '/first') {
+        void runCancelableHandler(() => 'next', req, res);
+        res.writeHead(200, { 'Content-Length': '5' });
+        res.write('fir');
+        firstEntered.resolve();
+        void firstGate.promise.then(() => res.end('st'));
+
+        return;
+      }
+
+      void runCancelableHandler(
+        function* () {
+          yield pending();
+        },
+        req,
+        res,
+      ).catch((error: unknown) => {
+        reportLateError(error);
+        res.end();
+      });
+    });
+
+    const client = await rawClient(port);
+    client.write('GET /first HTTP/1.1\r\nHost: localhost\r\n\r\n');
+    await firstEntered.promise;
+    const shutdown = shutdownServer(server, { cancelAfter: 0, headers: { 'Retry-After': '5' }, status: 504 });
+    client.write('GET /late HTTP/1.1\r\nHost: localhost\r\n\r\n');
+    const error = (await lateError) as CancelError & { status?: number; headers?: Record<string, string> };
+    firstGate.resolve();
+    client.destroy();
+    await shutdown;
+
+    expect(error.status).toBe(504);
+    expect(error.headers).toEqual({ 'Retry-After': '5' });
+  });
+
+  it('runs the decorator on a request admitted after the shutdown start before its cancel is delivered', async () => {
+    const firstEntered = deferred();
+    const firstGate = deferred();
+    let reportLateError: (error: unknown) => void = () => undefined;
+    const lateError = new Promise<unknown>((resolve) => {
+      reportLateError = resolve;
+    });
+    const { port, server } = await listen((req, res) => {
+      if (req.url === '/first') {
+        void runCancelableHandler(() => 'next', req, res);
+        res.writeHead(200, { 'Content-Length': '5' });
+        res.write('fir');
+        firstEntered.resolve();
+        void firstGate.promise.then(() => res.end('st'));
+
+        return;
+      }
+
+      void runCancelableHandler(
+        function* () {
+          yield pending();
+        },
+        req,
+        res,
+      ).catch((error: unknown) => {
+        reportLateError(error);
+        res.end();
+      });
+    });
+
+    const client = await rawClient(port);
+    client.write('GET /first HTTP/1.1\r\nHost: localhost\r\n\r\n');
+    await firstEntered.promise;
+    const shutdown = shutdownServer(server, { cancelAfter: 0 });
+    // a state made after the start reaches the registry hook first, so the decorator is set in time
+    const registry = getRequestRegistry(server)!;
+    const onTrack = registry.onTrack!;
+    registry.onTrack = (state) => {
+      state.decorateCancel = (error) => {
+        (error as CancelError & { marked?: boolean }).marked = true;
+      };
+      onTrack(state);
+    };
+    client.write('GET /late HTTP/1.1\r\nHost: localhost\r\n\r\n');
+    const error = (await lateError) as CancelError & { marked?: boolean };
+    firstGate.resolve();
+    client.destroy();
+    await shutdown;
+
+    expect(error.marked).toBe(true);
+  });
+
   it('counts a wrapped request that arrived during the drain and outlived it as canceled', async () => {
     const firstEntered = deferred();
     const lateEntered = deferred();
