@@ -1365,19 +1365,25 @@ describe('shutdown', () => {
   });
 
   it('resolves with the outcome when an onClose hook throws', async () => {
-    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
-    const instance = Fastify();
+    const logged: string[] = [];
+    const instance = Fastify({
+      logger: {
+        level: 'error',
+        stream: {
+          write(line: string): void {
+            logged.push(line);
+          },
+        },
+      },
+    });
     instance.addHook('onClose', async () => {
       throw new Error('pool close failed');
     });
     await listen(instance);
 
-    try {
-      await expect(createShutdown(instance)()).resolves.toEqual({ canceled: 0, completed: 0, timedOut: false });
-      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('[@cancjs/server-fastify]'), expect.any(Error));
-    } finally {
-      errorSpy.mockRestore();
-    }
+    await expect(createShutdown(instance)()).resolves.toEqual({ canceled: 0, completed: 0, timedOut: false });
+    expect(logged.filter((line) => line.includes('closing the instance failed'))).toHaveLength(1);
+    expect(logged.filter((line) => line.includes('"level":50'))).toHaveLength(1);
 
     app = undefined;
     expect(instance.server.listening).toBe(false);
@@ -1493,4 +1499,178 @@ describeShutdownSockets(createShutdown, async (arrived, release) => {
   await plain.listen({ host: '127.0.0.1', port: 0 });
 
   return { server: plain.server, target: plain };
+});
+
+describe('optional error handler', () => {
+  it('answers a wrapped deadline with the stamped 503 to a user error handler, with no warning', async () => {
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    const seen: unknown[] = [];
+    instance.setErrorHandler((error, _request, reply) => {
+      seen.push((error as { statusCode?: number }).statusCode);
+      void reply.status((error as { statusCode?: number }).statusCode ?? 500).send('user');
+    });
+    instance.get(
+      '/slow',
+      cancelableHandler(
+        function* () {
+          yield new Promise((resolve) => setTimeout(resolve, 1000));
+        },
+        { timeout: 40 },
+      ),
+    );
+
+    const warnings = recordWarnings();
+    const port = await listen(instance);
+    const response = await send(port, '/slow');
+    const found = warnings.stop();
+
+    expect(response).toEqual({ body: 'user', statusCode: 503 });
+    expect(seen).toEqual([503]);
+    expect(found.filter((line) => line.includes('FSTWRN004'))).toEqual([]);
+  });
+
+  it('answers a route-signal cancel with the stamped 503 to a user error handler', async () => {
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    const seen: unknown[] = [];
+    instance.setErrorHandler((error, _request, reply) => {
+      seen.push((error as { statusCode?: number }).statusCode);
+      void reply.status((error as { statusCode?: number }).statusCode ?? 500).send('user');
+    });
+    const route = new AbortController();
+    instance.get(
+      '/route',
+      cancelableHandler(
+        function* () {
+          yield new Promise((resolve) => setTimeout(resolve, 1000));
+        },
+        { signal: route.signal },
+      ),
+    );
+
+    const port = await listen(instance);
+    const pending = send(port, '/route');
+    setTimeout(() => route.abort(), 30);
+    const response = await pending;
+
+    expect(response).toEqual({ body: 'user', statusCode: 503 });
+    expect(seen).toEqual([503]);
+  });
+
+  it('hands a non-cancellation error to onError once, in place of fastify reply.send', async () => {
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    const seen: unknown[] = [];
+    instance.setErrorHandler(
+      cancelErrorHandler({
+        onError: (error, _request, reply) => {
+          seen.push(error);
+          void reply.status(429).send('slow down');
+        },
+      }),
+    );
+    instance.get(
+      '/limited',
+      cancelableHandler(function* () {
+        yield Promise.resolve();
+
+        throw Object.assign(new Error('limited'), { statusCode: 429 });
+      }),
+    );
+
+    const warnings = recordWarnings();
+    const port = await listen(instance);
+    const response = await send(port, '/limited');
+    const found = warnings.stop();
+
+    expect(response).toEqual({ body: 'slow down', statusCode: 429 });
+    expect(seen).toHaveLength(1);
+    expect(found.filter((line) => line.includes('FSTWRN004'))).toEqual([]);
+  });
+
+  it('logs a signal-only late failure once at error level', async () => {
+    const logged: string[] = [];
+    const instance = Fastify({
+      logger: {
+        level: 'error',
+        stream: {
+          write(line: string): void {
+            logged.push(line);
+          },
+        },
+      },
+    });
+    await instance.register(cancelPlugin);
+    instance.get(
+      '/late',
+      cancelableHandler(
+        async (request, reply) => {
+          const signal = getRequestSignal(request, reply);
+
+          await new Promise<void>((resolve) => {
+            signal.addEventListener('abort', () => resolve(), { once: true });
+          });
+
+          throw new Error('late boom');
+        },
+        { timeout: 30 },
+      ),
+    );
+
+    const port = await listen(instance);
+    const response = await send(port, '/late');
+    await tick();
+
+    expect(response.statusCode).toBe(503);
+    expect(logged.filter((line) => line.includes('"level":50') && line.includes('late boom'))).toHaveLength(1);
+  });
+
+  it('logs a wrapped route head cut once at error level', async () => {
+    const started = deferred();
+    const logged: string[] = [];
+    const instance = Fastify({
+      logger: {
+        level: 'error',
+        stream: {
+          write(line: string): void {
+            logged.push(line);
+          },
+        },
+      },
+    });
+    await instance.register(cancelPlugin);
+    instance.get(
+      '/part',
+      cancelableHandler(function* (request, reply) {
+        const signal = getRequestSignal(request, reply);
+
+        reply.raw.writeHead(200, { 'content-type': 'text/plain' });
+        reply.raw.write('part1,');
+        started.resolve();
+        yield new Promise((_resolve, reject) => {
+          signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+        });
+      }),
+    );
+
+    const port = await listen(instance);
+    const outcome = new Promise<void>((resolve) => {
+      const outgoing = http.get({ host: '127.0.0.1', path: '/part', port }, (response) => {
+        response.resume();
+        response.on('close', () => resolve());
+      });
+
+      outgoing.on('error', () => resolve());
+    });
+
+    await started.promise;
+    await createShutdown(instance)({ cancelAfter: 50 });
+    await outcome;
+    await tick();
+
+    app = undefined;
+
+    expect(logged.filter((line) => line.includes('"level":50'))).toHaveLength(1);
+  });
 });

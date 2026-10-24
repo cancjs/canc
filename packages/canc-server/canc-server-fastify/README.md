@@ -49,7 +49,6 @@ import * as cancServer from '@cancjs/server-fastify';
 const app = Fastify();
 
 await app.register(cancServer.cancelPlugin, { timeout: 30_000 });
-app.setErrorHandler(cancServer.cancelErrorHandler());
 
 app.get('/invoices/:id', cancServer.cancelableHandler(function* (request) {
   const invoice = yield* canc.await(invoices.findById(request.params.id));
@@ -95,9 +94,33 @@ The cancel state is cached on the raw request under a registered symbol, so the 
 
 ### What the wrapper does and does not answer
 
-The wrapper never writes the response. A cancellation that arrives with the client already gone is dropped and the reply is hijacked, because there is nothing to answer on. Everything else is rethrown and reaches your error handler, including a missed deadline, which carries `status` and `statusCode` so Fastify's own error handling reports the code you configured.
+The wrapper never writes the response. A cancellation that arrives with the client already gone is dropped and the reply is hijacked, because there is nothing to answer on. Everything else is rethrown and reaches Fastify's error handling, including a missed deadline, which carries `status` and `statusCode` so Fastify answers with the code you configured.
 
-`cancelErrorHandler({ status })` sets the status a shutdown cancellation gets on a live connection, `503` by default. The shutdown's own `status` wins over it, and it wins over the handler's `status` option. The older `canceledStatus` key still works. When the response head already went out, no status can be sent, so the socket is destroyed instead of left looking complete.
+When the response head already went out, no status can be sent, so the socket is destroyed instead of left looking complete. The cut is logged once at error level through `request.log`, since the client sees only a reset. A handler that fails after its cancellation has already answered the request is logged the same way, at error level, through `request.log`.
+
+### Composing an error handler
+
+Fastify answers a request's own cancellation with its status by itself, so a wrapped route needs no `setErrorHandler`. A deadline answers `503` (or the `status` in `timeout`), and a shutdown answers with its own `status`, with a handler's `status` option applying where the shutdown set none.
+
+Add one only for your own error mapping. `cancelErrorHandler({ onError })` takes every error that is not a cancellation, and the request's own cancellations still get their status:
+
+```js
+app.setErrorHandler(cancServer.cancelErrorHandler({
+  onError(error, request, reply) {
+    if (error instanceof RateLimitError) {
+      reply.code(429).send({ message: 'slow down' });
+
+      return;
+    }
+
+    reply.send(error);
+  },
+}));
+```
+
+A cancellation the request does not own, such as your own `CancelError` or a timeout you raised yourself, goes to Fastify's handling as it is, not to `onError`. A handler you mount with `setErrorHandler` yourself reads the same `statusCode` on a cancellation, `503` for a deadline and a shutdown alike, so it does not need `cancelErrorHandler` for that.
+
+`cancelErrorHandler({ status })` sets the status a shutdown cancellation gets on a live connection, `503` by default. The shutdown's own `status` wins over it, and it wins over the handler's `status` option. The older `canceledStatus` key still works.
 
 ## Description
 

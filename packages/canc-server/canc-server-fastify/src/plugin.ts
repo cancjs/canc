@@ -13,6 +13,12 @@ export interface ICancelErrorHandlerOptions {
   status?: number;
   /** @deprecated Read `status` instead. Kept so existing `canceledStatus` callers keep working. */
   canceledStatus?: number;
+  /**
+   * Answers an error that is not a cancellation, in place of fastify's own `reply.send(error)`. Set it
+   * when the app's own error mapping lives in the same handler. Cancellations do not reach it: the
+   * request's own cancel is answered with its status, and any other cancel goes to fastify as it is.
+   */
+  onError?: (error: unknown, request: FastifyRequest, reply: FastifyReply) => void;
 }
 
 /** The shape `fastify.setErrorHandler` accepts. */
@@ -59,10 +65,15 @@ export const cancelPlugin = fastifyPlugin(plugin, {
  *
  * A cancellation that arrives on a response which can no longer be answered is dropped. A
  * cancellation on a live connection answers with a status. Everything else, a missed deadline
- * included, goes to fastify's own handling, which reads the status off the error.
+ * included, goes to fastify's own handling, which reads the status off the error, unless `onError`
+ * takes the non-cancellation errors.
+ *
+ * Not needed on wrapped routes: fastify answers a request's own cancellation with its status by
+ * itself, so this is for an app that wants its own error mapping alongside that answer.
  */
 export function cancelErrorHandler(options?: ICancelErrorHandlerOptions): TCancelErrorHandler {
   const configured = options?.status ?? options?.canceledStatus;
+  const onError = options?.onError;
 
   return function cancelAwareErrorHandler(error, request, reply) {
     if (isUnanswerable(error, reply.raw)) {
@@ -77,6 +88,12 @@ export function cancelErrorHandler(options?: ICancelErrorHandlerOptions): TCance
       reply.raw.destroy();
       reply.hijack();
       request.log.error(error);
+
+      return;
+    }
+
+    if (onError && !isCancelError(error)) {
+      onError(error, request, reply);
 
       return;
     }

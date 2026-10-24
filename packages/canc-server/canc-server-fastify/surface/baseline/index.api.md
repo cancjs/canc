@@ -21,6 +21,7 @@ Generated. Do not edit by hand.
 
 ```text
 canceledStatus?: number | undefined // @deprecated
+onError?: ((error: unknown, request: FastifyRequest, reply: FastifyReply) => void) | undefined
 status?: number | undefined
 ```
 
