@@ -1,7 +1,8 @@
-import { CancelablePromise, CancelError, isCancelError } from '@cancjs/promise';
+import { CancelablePromise, CancelError, isCancelError, TimeoutError } from '@cancjs/promise';
 import { getEventListeners } from 'events';
 
 import { createExchange, flush, outcomeOf, pending } from './__tests__/fakes';
+import { cancelStatusOf, stampDerivedCancel } from './exchange';
 import { getRequestState } from './holder';
 import { ensureRequestCancelState } from './node-signal';
 import { CLIENT_DISCONNECTED, HANDLER_TIMEOUT } from './reasons';
@@ -676,5 +677,141 @@ describe('external signals', () => {
 
     expect(await task).toBe('done');
     expect(handler).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('cancel attribution', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('leaves a user cancel of a live request unattributed', async () => {
+    const { req, res } = createExchange();
+    const task = runCancelableHandler(() => pending(), req, res);
+    const outcome = outcomeOf(task);
+
+    task.cancel(new CancelError('user'));
+
+    const error = (await outcome) as CancelError;
+
+    expect(isCancelError(error)).toBe(true);
+    expect(cancelStatusOf(error, 418)).toBeUndefined();
+  });
+
+  it('leaves a timeout the handler raised on its own unattributed', async () => {
+    const { req, res } = createExchange();
+    const task = runCancelableHandler(() => pending(), req, res);
+    const outcome = outcomeOf(task);
+
+    task.cancel(new CancelError('fetch timed out', { cause: new TimeoutError('fetch timed out') }));
+
+    const error = (await outcome) as CancelError;
+
+    expect(error.timedOut).toBe(true);
+    expect(cancelStatusOf(error, 418)).toBeUndefined();
+  });
+
+  it('stamps a cancel derived from the request deadline with the deadline status', async () => {
+    const { req, res } = createExchange();
+    const task = runCancelableHandler(() => pending(), req, res, { timeout: { ms: 30, status: 504 } });
+    const outcome = outcomeOf(task.then(() => undefined));
+
+    jest.advanceTimersByTime(30);
+
+    const error = (await outcome) as CancelError;
+
+    stampDerivedCancel(error, getRequestState(req)!);
+
+    expect(cancelStatusOf(error, 418)).toBe(504);
+  });
+
+  it('attributes a cancel that came from a route signal and answers 503 by default', async () => {
+    const { req, res } = createExchange();
+    const controller = new AbortController();
+    const task = runCancelableHandler(() => pending(), req, res, { signal: controller.signal });
+    const outcome = outcomeOf(task);
+
+    controller.abort();
+
+    const error = (await outcome) as CancelError;
+
+    expect(cancelStatusOf(error, undefined)).toBe(503);
+    expect(cancelStatusOf(error, 418)).toBe(418);
+  });
+
+  it('runs the decorator the request state carries on a deadline before it is delivered', async () => {
+    const { req, res } = createExchange();
+    const outcome = outcomeOf(runCancelableHandler(() => pending(), req, res, { timeout: 30 }));
+
+    getRequestState(req)!.decorateCancel = (error) => {
+      Object.assign(error, { marked: true });
+    };
+
+    jest.advanceTimersByTime(30);
+
+    const error = (await outcome) as CancelError & { marked?: boolean };
+
+    expect(error.marked).toBe(true);
+  });
+});
+
+describe('late failure of a signal-only handler', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  async function settleMicrotasks(): Promise<void> {
+    for (let i = 0; i < 10; i++) {
+      await Promise.resolve();
+    }
+  }
+
+  it('hands a plain failure that lands after the deadline to onLateFailure once', async () => {
+    const { req, res } = createExchange();
+    const onLateFailure = jest.fn();
+    let fail: (reason: unknown) => void = () => undefined;
+    const handler = () =>
+      new Promise((_resolve, reject) => {
+        fail = reject;
+      });
+
+    const outcome = outcomeOf(runCancelableHandler(handler, req, res, { timeout: 50 }, { onLateFailure }));
+
+    jest.advanceTimersByTime(50);
+    expect(isCancelError(await outcome)).toBe(true);
+
+    fail(new Error('late'));
+    await settleMicrotasks();
+
+    expect(onLateFailure).toHaveBeenCalledTimes(1);
+    expect(onLateFailure).toHaveBeenCalledWith(expect.objectContaining({ message: 'late' }));
+  });
+
+  it('does not hand a late cancellation to onLateFailure', async () => {
+    const { req, res } = createExchange();
+    const onLateFailure = jest.fn();
+    let fail: (reason: unknown) => void = () => undefined;
+    const handler = () =>
+      new Promise((_resolve, reject) => {
+        fail = reject;
+      });
+
+    const outcome = outcomeOf(runCancelableHandler(handler, req, res, { timeout: 50 }, { onLateFailure }));
+
+    jest.advanceTimersByTime(50);
+    await outcome;
+
+    fail(new CancelError('late cancel'));
+    await settleMicrotasks();
+
+    expect(onLateFailure).not.toHaveBeenCalled();
   });
 });

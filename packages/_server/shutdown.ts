@@ -396,6 +396,7 @@ export function shutdownServer(
   const cancelRequest = (state: IRequestCancelState, error = createShutdownError(reason, cancelError)) => {
     if (!state.shuttingDown) {
       state.shuttingDown = true;
+      state.decorateCancel?.(error);
       state.cancel(error);
     }
   };
@@ -405,7 +406,9 @@ export function shutdownServer(
     for (const drain of drains.values()) {
       const state = drain.counted ? undefined : getRequestState(drain.req);
       if (state) {
-        states.push([state, createShutdownError(reason, cancelError)]);
+        const error = createShutdownError(reason, cancelError);
+        state.decorateCancel?.(error);
+        states.push([state, error]);
       }
     }
 

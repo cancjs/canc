@@ -14,14 +14,20 @@ export interface ITimeoutSpec {
   ms: number;
   status: number;
   message: string;
+  headers?: Record<string, string>;
 }
 
 /** A cancellation carrying the HTTP status a framework error handler reads off it. */
 export interface IStatusCancelError extends CancelError {
   status: number;
   statusCode: number;
-  /** Headers a shutdown cancel answers with. Absent on a deadline. */
+  /**
+   * Headers the cancel answers with: a shutdown's, or a deadline's from its timeout option. Absent
+   * otherwise.
+   */
   headers?: Record<string, string>;
+  /** Always false on a canc-minted cancel: its message is for the log, never for the response body. */
+  expose: boolean;
 }
 
 /**
@@ -61,10 +67,13 @@ export function normalizeTimeout(option?: TTimeoutOption): ITimeoutSpec | undefi
     return undefined;
   }
 
+  const { headers } = spec as { headers?: Record<string, string> };
+
   return {
     message: (spec as { message?: string }).message ?? HANDLER_TIMEOUT,
     ms: Math.min(ms, MAX_TIMER_MS),
     status: (spec as { status?: number }).status ?? DEFAULT_TIMEOUT_STATUS,
+    ...(headers ? { headers: { ...headers } } : {}),
   };
 }
 
@@ -81,6 +90,10 @@ export function createTimeoutError(spec: ITimeoutSpec): IStatusCancelError {
 
   error.status = spec.status;
   error.statusCode = spec.status;
+  error.expose = false;
+  if (spec.headers) {
+    error.headers = { ...spec.headers };
+  }
   Object.defineProperty(error, STAMP_WINS, { value: true });
 
   return error;
@@ -99,6 +112,7 @@ export function createShutdownError(message: string, options: IShutdownErrorOpti
 
   error.status = status;
   error.statusCode = status;
+  error.expose = false;
   if (options.headers) {
     error.headers = { ...options.headers };
   }

@@ -89,9 +89,11 @@ function armRequestDeadline(state: IRequestCancelState, options: ICancelableHand
 
   state.timer = startHandlerTimeout(spec.ms, () => {
     state.timer = undefined;
+    const error = createTimeoutError(spec);
+    state.decorateCancel?.(error);
     // the deadline aborts the request signal itself rather than the handler's promise, so
     // request-scoped work other consumers started stops with the handler instead of outliving it
-    state.cancel(createTimeoutError(spec));
+    state.cancel(error);
   });
 }
 

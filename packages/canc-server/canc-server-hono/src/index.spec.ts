@@ -407,7 +407,7 @@ describe('error handler', () => {
       cancelableHandler(function* () {
         yield Promise.resolve();
 
-        throw new CancelError('gave up');
+        throw Object.assign(new CancelError('gave up'), { status: 503 });
       }),
     );
 
@@ -426,7 +426,7 @@ describe('error handler', () => {
       cancelableHandler(function* () {
         yield Promise.resolve();
 
-        throw new CancelError('gave up');
+        throw Object.assign(new CancelError('gave up'), { status: 503 });
       }),
     );
 

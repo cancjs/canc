@@ -100,8 +100,10 @@ export function getRequestSignal(ctx: Context): CancelSignal {
  * and the family exposes no separate `cancelErrorHandler` for koa the way it does for the others.
  *
  * A deadline answers with the status stamped on it (`503` unless the timeout option names another
- * one), a shutdown cancellation with the shutdown's `status` option, or the handler's `status` option when the shutdown set none (default `503`), and a response that can
- * no longer be answered gets nothing: `ctx.respond` is set to `false` instead of writing to it.
+ * one), a shutdown cancellation with the shutdown's `status` option, or the handler's `status` option
+ * when the shutdown set none (default `503`), and a response that can no longer be answered gets
+ * nothing: `ctx.respond` is set to `false` instead of writing to it. A cancellation the request does
+ * not own goes to koa's own error handling.
  *
  * Optional: a route wrapped with `cancelableHandler` installs the signal on its own. Mounting this is
  * how one deadline or one `onDisconnect` hook covers a whole router, plain routes included, and how a
@@ -130,6 +132,13 @@ export function cancelMiddleware<StateT = DefaultState, ContextT = DefaultContex
         return;
       }
 
+      // a cancel the request does not own is the caller's, so koa's error handling takes it
+      const status = cancelStatusOf(error, options?.status);
+
+      if (status === undefined) {
+        throw error;
+      }
+
       // a head already sent cannot take a status, so the socket is cut instead of left looking complete
       if (ctx.res.headersSent === true) {
         ctx.res.destroy();
@@ -143,7 +152,7 @@ export function cancelMiddleware<StateT = DefaultState, ContextT = DefaultContex
       ctx.remove('Content-Type');
       ctx.body = null;
       ctx.set(cancelHeadersOf(error) ?? {});
-      ctx.status = cancelStatusOf(error, options?.status);
+      ctx.status = status;
     } finally {
       stopRequestDeadline(state);
     }

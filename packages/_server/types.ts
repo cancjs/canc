@@ -47,9 +47,10 @@ export type THandlerFn<TFn extends (...args: any) => any, TReturn = unknown> =
 
 /**
  * Request deadline. A number is the millisecond shorthand; the object form also carries the HTTP
- * status the error is stamped with and the message it reports.
+ * status the error is stamped with, the message it reports, and the headers the error answers with.
  */
-export type TTimeoutOption = number | { ms: number; status?: number; message?: string };
+export type TTimeoutOption =
+  number | { ms: number; status?: number; message?: string; headers?: Record<string, string> };
 
 /**
  * Options a plugin, a middleware or a single route passes to the wrapper. Plugin-level options live

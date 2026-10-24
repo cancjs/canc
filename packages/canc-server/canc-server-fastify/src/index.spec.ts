@@ -571,7 +571,7 @@ describe('error handler', () => {
       cancelableHandler(function* () {
         yield Promise.resolve();
 
-        throw new CancelError('gave up');
+        throw Object.assign(new CancelError('gave up'), { status: 503 });
       }),
     );
 
@@ -590,7 +590,7 @@ describe('error handler', () => {
       cancelableHandler(function* () {
         yield Promise.resolve();
 
-        throw new CancelError('gave up');
+        throw Object.assign(new CancelError('gave up'), { status: 503 });
       }),
     );
 
@@ -609,7 +609,7 @@ describe('error handler', () => {
       cancelableHandler(function* () {
         yield Promise.resolve();
 
-        throw new CancelError('gave up');
+        throw Object.assign(new CancelError('gave up'), { status: 503 });
       }),
     );
 
@@ -628,7 +628,7 @@ describe('error handler', () => {
       cancelableHandler(function* () {
         yield Promise.resolve();
 
-        throw new CancelError('gave up');
+        throw Object.assign(new CancelError('gave up'), { status: 503 });
       }),
     );
 
@@ -891,7 +891,7 @@ describe('shutdown cancel status', () => {
     expect(answer.headers['retry-after']).toBe('5');
   });
 
-  it('takes the handler status for a user timeout that carries no status', async () => {
+  it('leaves a user timeout that carries no status to fastify', async () => {
     const instance = Fastify();
     await instance.register(cancelPlugin);
     instance.setErrorHandler(cancelErrorHandler({ status: 502 }));
@@ -904,7 +904,7 @@ describe('shutdown cancel status', () => {
 
     const port = await listen(instance);
 
-    expect((await send(port, '/user-timeout')).statusCode).toBe(502);
+    expect((await send(port, '/user-timeout')).statusCode).toBe(500);
   });
 
   it('keeps a deadline status over the handler status', async () => {

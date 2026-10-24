@@ -1,6 +1,7 @@
 import { CancelError, isCancelError } from '@cancjs/promise';
 
-import { DEFAULT_TIMEOUT_STATUS, STAMP_WINS } from './timeout';
+import { IRequestCancelState } from './holder';
+import { DEFAULT_TIMEOUT_STATUS, IStatusCancelError, STAMP_WINS } from './timeout';
 import { IRequestLike, IResponseLike } from './types';
 
 /**
@@ -77,14 +78,21 @@ export function statusOf(error: CancelError, fallback: number): number {
 }
 
 /**
- * The status a cancellation answers with in an adapter's handler.
+ * The status a cancellation answers with in an adapter's handler, or `undefined` when the
+ * cancellation is not one the request owns.
  *
- * A deadline's status and an explicit shutdown status come first, so the handler's `status` option
- * cannot re-map them. Otherwise the option applies, then 503. A status the caller set on its own
- * cancellation is not stamped, so it takes the option like any other cancellation.
+ * An unstamped cancellation is the caller's own (a user cancel, a timeout the handler raised on its
+ * own), so the adapter passes it through untouched instead of answering it. A deadline's status and
+ * an explicit shutdown status come first, so the handler's `status` option cannot re-map them.
+ * Otherwise the option applies, then 503. A status the caller set on its own cancellation is not
+ * stamped, so it takes the option like any other cancellation.
  */
-export function cancelStatusOf(error: CancelError, option: number | undefined): number {
-  if (stampWins(error) && statusStamped(error)) {
+export function cancelStatusOf(error: CancelError, option: number | undefined): number | undefined {
+  if (!statusStamped(error)) {
+    return undefined;
+  }
+
+  if (stampWins(error)) {
     return statusOf(error, DEFAULT_TIMEOUT_STATUS);
   }
 
@@ -96,7 +104,77 @@ export function cancelHeadersOf(error: CancelError): Record<string, string> | un
   return (error as CancelError & { headers?: Record<string, string> }).headers;
 }
 
-/** Whether the cancellation is the default one a shutdown raised, with no explicit status. */
+/** What a request's cancellation is attributed to: the reason the request was canceled with. */
+export interface IAttribution {
+  reason: unknown;
+}
+
+/**
+ * The request's own cancellation that a cancel belongs to, or `undefined` when the request did not
+ * cancel it.
+ *
+ * A cancel is attributed when the request itself was canceled (a deadline, a shutdown, a
+ * disconnect), or when one of the route's own signals aborted. Every other cancel is the caller's:
+ * a user `cancel()` on a live request, or a timeout the handler raised on its own. The decision
+ * reads the request's state and never the error's identity, so a cancel derived from the owned one
+ * through a `{ signal }` or a child `.cancel()` is still attributed.
+ */
+export function cancelAttribution(
+  error: unknown,
+  state: IRequestCancelState,
+  signals: readonly AbortSignal[] = [],
+): IAttribution | undefined {
+  if (!isCancelError(error)) {
+    return undefined;
+  }
+
+  if (state.signal.aborted) {
+    return { reason: state.signal.reason };
+  }
+
+  const own = signals.find((signal) => signal.aborted);
+
+  return own ? { reason: own.reason } : undefined;
+}
+
+/**
+ * Stamps an owned cancellation that carries no status yet with the status and headers of the
+ * request's cancel, and marks it not exposed. A cancel the request does not own is left untouched.
+ *
+ * A derived cancel of a deadline keeps the deadline's status and its precedence over a handler
+ * option. A route-signal cancel has no status of its own, so it answers 503 and the option applies.
+ */
+export function stampDerivedCancel(error: unknown, state: IRequestCancelState, signals?: readonly AbortSignal[]): void {
+  if (!isCancelError(error) || statusStamped(error)) {
+    return;
+  }
+
+  const attribution = cancelAttribution(error, state, signals);
+
+  if (!attribution) {
+    return;
+  }
+
+  const source =
+    isCancelError(attribution.reason) && statusStamped(attribution.reason) ? attribution.reason : undefined;
+  const status = source ? statusOf(source, DEFAULT_TIMEOUT_STATUS) : DEFAULT_TIMEOUT_STATUS;
+  const stamped = error as IStatusCancelError;
+
+  stamped.status = status;
+  stamped.statusCode = status;
+  stamped.expose = false;
+
+  const headers = source ? cancelHeadersOf(source) : undefined;
+
+  if (headers) {
+    stamped.headers = { ...headers };
+  }
+
+  if (source && stampWins(source)) {
+    Object.defineProperty(error, STAMP_WINS, { value: true });
+  }
+}
+
 /** Whether the cancellation still carries a status on `status` or `statusCode`. */
 function statusStamped(error: CancelError): boolean {
   const carried = error as CancelError & { status?: unknown; statusCode?: unknown };

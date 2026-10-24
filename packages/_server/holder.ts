@@ -1,4 +1,4 @@
-import { CancelablePromise, CancelSignal } from '@cancjs/promise';
+import { CancelablePromise, CancelError, CancelSignal } from '@cancjs/promise';
 
 import { isFunction } from '../_util';
 import {
@@ -60,6 +60,8 @@ export interface IRequestCancelState {
   shuttingDown?: boolean;
   /** Set by a shutdown, so a handler task started while it drains is still counted. */
   watch?: (task: CancelablePromise<unknown>) => void;
+  /** Runs on every cancellation canc mints for the request (deadline, shutdown) before it is delivered. */
+  decorateCancel?: (error: CancelError) => void;
 }
 
 type TKeyed = Record<symbol, unknown>;

@@ -79,10 +79,12 @@ export function cancelErrorHandler(options?: ICancelErrorHandlerOptions): TCance
       return;
     }
 
-    if (isCancelError(error)) {
+    // a cancellation the request does not own is the caller's, so fastify's own handling takes it
+    const code = isCancelError(error) ? cancelStatusOf(error, configured) : undefined;
+
+    if (code !== undefined) {
       // fastify reads status then statusCode off the error, so stamping it is all the mapping a
       // shutdown cancellation needs
-      const code = cancelStatusOf(error, configured);
       (error as { status?: number; statusCode?: number }).status = code;
       (error as { statusCode?: number }).statusCode = code;
     }

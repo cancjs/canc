@@ -7,6 +7,11 @@ import { createShutdownError, createTimeoutError } from './timeout';
 
 const DISCONNECT_PREDICATE = '!res.writableEnded && (res.destroyed || !res.writable)';
 
+/** A cancellation the way attribution stamps a derived one: a status on the error, no shutdown mark. */
+function stamped(error: CancelError, status: number): CancelError {
+  return Object.assign(error, { status, statusCode: status });
+}
+
 describe('exchange', () => {
   describe('cancelStatusOf', () => {
     it('keeps the stamped status of a deadline over the handler status option', () => {
@@ -19,12 +24,17 @@ describe('exchange', () => {
       expect(cancelStatusOf(createShutdownError('closing'), 418)).toBe(418);
     });
 
-    it('applies the handler status option to a user timeout that carries no stamp', () => {
+    it('passes a user timeout that carries no stamp through as undefined, whatever the option', () => {
       const userTimeout = createTimeoutError({ ms: 100, message: 'late', status: 504 });
       delete (userTimeout as { status?: number }).status;
       delete (userTimeout as { statusCode?: number }).statusCode;
 
-      expect(cancelStatusOf(userTimeout, 418)).toBe(418);
+      expect(cancelStatusOf(userTimeout, 418)).toBeUndefined();
+      expect(cancelStatusOf(userTimeout, undefined)).toBeUndefined();
+    });
+
+    it('passes an unstamped cancellation through untouched', () => {
+      expect(cancelStatusOf(new CancelError('user'), 418)).toBeUndefined();
     });
 
     it('lets the handler status option beat a status the caller stamped on its own cancellation', () => {
@@ -53,8 +63,13 @@ describe('exchange', () => {
         undefined,
         504,
       ],
-      ['a route-signal cancel takes the option', new CancelError('aborted'), 502, 502],
-      ['a route-signal cancel answers 503 without an option', new CancelError('aborted'), undefined, 503],
+      ['a stamped route-signal cancel takes the option', stamped(new CancelError('aborted'), 503), 502, 502],
+      [
+        'a stamped route-signal cancel answers 503 without an option',
+        stamped(new CancelError('aborted'), 503),
+        undefined,
+        503,
+      ],
     ])('%s', (_name, error, option, status) => {
       expect(cancelStatusOf(error, option)).toBe(status);
     });

@@ -81,7 +81,7 @@ timedOut: boolean
 ## `TTimeoutOption` (type)
 
 ```text
-number | { ms: number; status?: number; message?: string; }
+number | { ms: number; status?: number; message?: string; headers?: Record<string, string>; }
 ```
 
 ## `cancelErrorHandler<E extends Env = any>` (function)

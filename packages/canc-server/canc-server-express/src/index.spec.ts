@@ -507,21 +507,23 @@ describe('cancel error handler', () => {
   it('drops a cancellation whose client is already gone', () => {
     const forwarded: unknown[] = [];
     const { calls, res } = fakeResponse({ destroyed: true });
+    const shutdown = Object.assign(new CancelError(SERVER_SHUTDOWN), { status: 503 });
 
-    cancelErrorHandler()(new CancelError(SERVER_SHUTDOWN), fakeRequest(), res, (error?: unknown) =>
-      forwarded.push(error),
-    );
+    cancelErrorHandler()(shutdown, fakeRequest(), res, (error?: unknown) => forwarded.push(error));
 
     expect(calls).toEqual({ ended: 0, status: undefined });
     expect(forwarded).toEqual([]);
   });
 
-  it('answers a cancellation carrying no status with the configured fallback', () => {
+  it('forwards a cancellation the request does not own to express', () => {
+    const userCancel = new CancelError(CLIENT_DISCONNECTED);
+    const forwarded: unknown[] = [];
     const { calls, res } = fakeResponse();
 
-    cancelErrorHandler({ status: 499 })(new CancelError(CLIENT_DISCONNECTED), fakeRequest(), res, fail);
+    cancelErrorHandler({ status: 499 })(userCancel, fakeRequest(), res, (error?: unknown) => forwarded.push(error));
 
-    expect(calls).toEqual({ ended: 1, status: 499 });
+    expect(calls).toEqual({ ended: 0, status: undefined });
+    expect(forwarded).toEqual([userCancel]);
   });
 
   it('answers a deadline with the status stamped on it', () => {
@@ -732,7 +734,7 @@ describe('shutdown cancel status', () => {
     expect(answer.headers['retry-after']).toBe('5');
   });
 
-  it('takes the handler status for a user timeout that carries no status', async () => {
+  it('leaves a user timeout that carries no status to express', async () => {
     const app = express();
 
     app.get(
@@ -745,7 +747,7 @@ describe('shutdown cancel status', () => {
 
     const port = await listen(app);
 
-    expect((await httpRequest(port, { path: '/user-timeout' })).status).toBe(502);
+    expect((await httpRequest(port, { path: '/user-timeout' })).status).toBe(500);
   });
 
   it('keeps a deadline status over the handler status', async () => {

@@ -525,13 +525,15 @@ describe('cancel error handler', () => {
     expect(calls.ended).toBe(0);
   });
 
-  it('answers a cancellation carrying no status with the configured fallback', () => {
+  it('treats a cancellation carrying no status like any other failure', () => {
     const { calls, res } = fakeResponse();
+    const logged = jest.spyOn(console, 'error').mockImplementation(() => undefined);
 
     cancelErrorHandler({ status: 499 })(new CancelError(CLIENT_DISCONNECTED), fakeRequest(), res);
 
     expect(calls.ended).toBe(1);
-    expect(res.statusCode).toBe(499);
+    expect(res.statusCode).toBe(500);
+    logged.mockRestore();
   });
 
   it('answers a deadline with the status stamped on it', () => {

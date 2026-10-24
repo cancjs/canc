@@ -1,8 +1,8 @@
 import { isCancelError } from '@cancjs/promise';
 import type { Env, ErrorHandler } from 'hono';
 
-import { cancelStatusOf } from '../../../_server/exchange';
-import { abandonIfHeadersSent, alreadySentHeaders, isResponseUnreachable } from './bindings';
+import { cancelStatusOf, stampDerivedCancel } from '../../../_server/exchange';
+import { abandonIfHeadersSent, alreadySentHeaders, ensureCancelState, isResponseUnreachable } from './bindings';
 import { CLIENT_CLOSED_STATUS } from './handler';
 
 /** Options for the opt-in error handler. */
@@ -29,13 +29,25 @@ interface IResponseCarrier {
  *
  * Hono is the one framework in this family that does not read a status off the error, so a deadline
  * would otherwise answer `500` no matter what the timeout option said. This reads it instead: a
- * deadline answers with the status stamped on it, a shutdown cancellation with the shutdown's `status` option, or the handler's `status` option when the shutdown set none (default `503`), and a cancellation behind a response nobody can read gets `499`.
+ * deadline answers with the status stamped on it, a shutdown cancellation with the shutdown's `status`
+ * option, or the handler's `status` option when the shutdown set none (default `503`). A cancellation
+ * behind a response nobody can read gets `499`, and one the request does not own goes to the
+ * non-cancellation path.
  */
 export function cancelErrorHandler<E extends Env = any>(options: ICancelErrorHandlerOptions<E> = {}): ErrorHandler<E> {
   const onError = options.onError;
 
   return function cancelErrorRoute(error, c) {
-    if (!isCancelError(error)) {
+    // a cancellation the request raised on itself and that surfaces unwrapped, outside any route
+    // wrapper, is stamped from the request's own state before it is read
+    if (isCancelError(error)) {
+      stampDerivedCancel(error, ensureCancelState(c));
+    }
+
+    // a cancel the request does not own is the caller's, so it takes the path below
+    const status = isCancelError(error) ? cancelStatusOf(error, options.status) : undefined;
+
+    if (status === undefined) {
       if (onError) {
         return onError(error, c);
       }
@@ -60,6 +72,6 @@ export function cancelErrorHandler<E extends Env = any>(options: ICancelErrorHan
       return new Response(null, { headers: alreadySentHeaders(c), status: CLIENT_CLOSED_STATUS });
     }
 
-    return new Response(null, { status: cancelStatusOf(error, options.status) });
+    return new Response(null, { status });
   };
 }

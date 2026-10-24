@@ -135,11 +135,11 @@ export function getRequestSignal(req: IncomingMessage, res: ServerResponse): Can
  * `onError`; pass it (or a wrapper around it) explicitly when a route needs its own status mapping.
  *
  * A deadline answers with the status stamped on it (`503` unless the timeout option names another
- * one), a shutdown cancellation with the shutdown's `status` option, or the handler's `status` option when the shutdown set none (default `503`), and a response that can no
- * longer be answered gets nothing. A response whose head already went out cannot carry a status, so
- * its connection is destroyed and the client sees an aborted message instead of a body that looks
- * whole.
- * Anything that is not a cancellation answers `500` and is logged.
+ * one), a shutdown cancellation with the shutdown's `status` option, or the handler's `status` option
+ * when the shutdown set none (default `503`), and a response that can no longer be answered gets
+ * nothing. A response whose head already went out cannot carry a status, so its connection is
+ * destroyed and the client sees an aborted message instead of a body that looks whole.
+ * Anything that is not a cancellation the request owns answers `500` and is logged.
  *
  * The other four adapters hand such an error to the framework's own error handler, and this is the
  * closest raw node gets to the same thing: there is no pipeline behind the wrapper, so it holds the
@@ -153,7 +153,10 @@ export function cancelErrorHandler<
   const rethrow = options.rethrow === true;
 
   return function cancelErrorRoute(error, _req, res) {
-    if (!isCancelError(error)) {
+    // a cancel the request does not own is the caller's, so it takes the path below
+    const status = isCancelError(error) ? cancelStatusOf(error, options.status) : undefined;
+
+    if (!isCancelError(error) || status === undefined) {
       if (rethrow) {
         throw error;
       }
@@ -165,7 +168,7 @@ export function cancelErrorHandler<
       return;
     }
 
-    answerWith(res, cancelStatusOf(error, options.status), cancelHeadersOf(error));
+    answerWith(res, status, cancelHeadersOf(error));
   };
 }
 

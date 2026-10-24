@@ -403,7 +403,7 @@ describe('deadline', () => {
     app.use(async (ctx) => {
       ctx.res.writeHead(200, { 'content-type': 'text/plain' });
       ctx.res.write('part1,');
-      throw new CancelError('stopped');
+      throw Object.assign(new CancelError('stopped'), { status: 503 });
     });
 
     const port = await listen(app);
@@ -517,7 +517,7 @@ describe('middleware status option', () => {
       cancelableHandler(function* () {
         yield CancelablePromise.resolve();
 
-        throw new CancelError(SERVER_SHUTDOWN);
+        throw Object.assign(new CancelError(SERVER_SHUTDOWN), { status: 503 });
       }),
     );
 
@@ -833,7 +833,7 @@ describe('cancel middleware error path', () => {
     expect(response.status).toBe(500);
   });
 
-  it('answers a cancellation carrying no status with the configured fallback', async () => {
+  it('leaves a cancellation carrying no status to koa', async () => {
     const app = new Koa();
 
     app.use(cancelMiddleware());
@@ -844,7 +844,7 @@ describe('cancel middleware error path', () => {
     const port = await listen(app);
     const response = await httpRequest(port, { path: '/' });
 
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(500);
   });
 
   it('answers a deadline with the status stamped on it', async () => {

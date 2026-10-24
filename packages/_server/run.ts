@@ -1,7 +1,14 @@
 import { cancAsync } from '@cancjs/coroutine';
-import { CancelablePromise, ICancelablePromiseFlagOptions, makeCancelable, resolvePromiseImpl } from '@cancjs/promise';
+import {
+  CancelablePromise,
+  ICancelablePromiseFlagOptions,
+  isCancelError,
+  makeCancelable,
+  resolvePromiseImpl,
+} from '@cancjs/promise';
 
 import { isFunction, isGenerator, isObject, isThenable, readProp, TAnyFn } from '../_util';
+import { stampDerivedCancel } from './exchange';
 import { IRequestCancelState } from './holder';
 import { applyRequestOptions, ensureRequestCancelState, isResponseClosed, stopRequestDeadline } from './node-signal';
 import { ICancelableHandlerOptions, IRequestLike, IResponseLike } from './types';
@@ -23,6 +30,12 @@ export interface IHandlerCall {
    * it. Read when the handler settles.
    */
   handsOn?: () => boolean;
+  /**
+   * Receives a plain failure a signal-only handler rejects with after a cancel already settled its
+   * task. The response is not written to: the request was answered by the cancel. A cancellation
+   * arriving late is not reported.
+   */
+  onLateFailure?: (error: unknown) => void;
 }
 
 /**
@@ -69,6 +82,15 @@ export function runCancelableHandler<TReturn = unknown>(
   // resolved once per call, registry precedence only, so a setPromiseImpl consumer gets its own
   // class back from this layer instead of the built-in one
   const Impl = resolvePromiseImpl() as unknown as typeof CancelablePromise;
+  const signals = callerSignals(options);
+
+  // set once the task settles, so a late failure is told apart from one the handler raised while
+  // the task was still running
+  let settled = false;
+  const late = call?.onLateFailure && {
+    report: call.onLateFailure,
+    settled: () => settled,
+  };
 
   // a signal already aborted at wrap time (client gone, or a caller supplied one) means the handler
   // is never invoked: there is nobody to answer, and starting a query for a dead socket is the
@@ -77,12 +99,18 @@ export function runCancelableHandler<TReturn = unknown>(
   const task =
     aborted ?
       canceledTask<TReturn>(Impl, aborted, flags)
-    : startHandler<TReturn>(Impl, handler, withPassOn(call, hold.release), {
-        ...flags,
-        // a tracked task is canceled through the request's in-flight set, so the request
-        // signal is not listened to per layer; an untracked one keeps the signal itself
-        signal: tracked ? callerSignals(options) : collectSignals(state, options),
-      });
+    : startHandler<TReturn>(
+        Impl,
+        handler,
+        withPassOn(call, hold.release),
+        {
+          ...flags,
+          // a tracked task is canceled through the request's in-flight set, so the request
+          // signal is not listened to per layer; an untracked one keeps the signal itself
+          signal: tracked ? signals : collectSignals(state, options),
+        },
+        late,
+      );
 
   if (!tracked) {
     return task;
@@ -96,6 +124,7 @@ export function runCancelableHandler<TReturn = unknown>(
 
   // the deadline covers the handler, not the body a framework streams after it returned
   const settle = () => {
+    settled = true;
     state.live.delete(task);
 
     if (hold.release() && state.holding === 0 && call?.handsOn?.() !== true) {
@@ -103,7 +132,12 @@ export function runCancelableHandler<TReturn = unknown>(
     }
   };
 
-  void NativePromise.prototype.then.call(task, settle, settle);
+  // a cancel the request or a route signal raised is given its status before the adapter's error
+  // handler reads it; a cancel the caller raised on its own is left as it is
+  void NativePromise.prototype.then.call(task, settle, (error: unknown) => {
+    stampDerivedCancel(error, state, signals);
+    settle();
+  });
 
   return task;
 }
@@ -154,6 +188,7 @@ function startHandler<TReturn>(
   handler: TAnyFn,
   call: IHandlerCall | undefined,
   promiseOptions: ICancelablePromiseFlagOptions & { signal: AbortSignal | AbortSignal[] },
+  late?: ILateFailure,
 ): CancelablePromise<TReturn> {
   let result: unknown;
 
@@ -188,8 +223,34 @@ function startHandler<TReturn>(
   }
 
   const thenable = isThenable(result) ? result : Impl.resolve(result);
+  const task = makeCancelable(thenable, promiseOptions) as CancelablePromise<TReturn>;
 
-  return makeCancelable(thenable, promiseOptions) as CancelablePromise<TReturn>;
+  // read off the native then: observing it through the handler's own then counts as a consumer.
+  // attached after makeCancelable, so a failure the task itself takes is settled before this runs
+  if (late && result instanceof NativePromise) {
+    void NativePromise.prototype.then.call(result, undefined, (error: unknown) => {
+      if (late.settled() && !isCancelError(error)) {
+        reportLateFailure(late.report, error);
+      }
+    });
+  }
+
+  return task;
+}
+
+/** The late-failure hook and the settled check it runs behind. */
+interface ILateFailure {
+  report: (error: unknown) => void;
+  settled: () => boolean;
+}
+
+function reportLateFailure(report: (error: unknown) => void, error: unknown): void {
+  // a hook runs inside a rejection reaction, where a throw would surface as an unhandled rejection
+  try {
+    report(error);
+  } catch (hookError) {
+    console.error('[@cancjs/server] late failure hook failed', hookError);
+  }
 }
 
 function isAsyncGeneratorResult(value: unknown): boolean {
