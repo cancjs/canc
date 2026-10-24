@@ -6,6 +6,8 @@ import { runInThisContext } from 'vm';
 
 import { expectAbortAt, useDeadlineClock } from '../../../_server/__tests__/deadline-clock';
 import { describeShutdownSockets } from '../../../_server/__tests__/shutdown-sockets';
+import { toRequestLike, toResponseLike } from '../../../_server/exchange';
+import { ensureRequestCancelState } from '../../../_server/node-signal';
 import {
   cancelableHandler,
   cancelErrorHandler,
@@ -520,9 +522,21 @@ describe('cancel error handler', () => {
   it('drops a cancellation whose client is already gone', () => {
     const { calls, res } = fakeResponse({ destroyed: true });
 
-    cancelErrorHandler()(new CancelError(SERVER_SHUTDOWN), fakeRequest(), res);
+    cancelErrorHandler()(new CancelError(SERVER_SHUTDOWN), ownedRequest(SERVER_SHUTDOWN), res);
 
     expect(calls.ended).toBe(0);
+  });
+
+  it('answers 500 for a stamped cancellation the request never canceled', () => {
+    const logged = captureErrorLog();
+    const stamped = Object.assign(new CancelError(HANDLER_TIMEOUT), { status: 504 });
+    const { calls, res } = fakeResponse();
+
+    cancelErrorHandler()(stamped, fakeRequest(), res);
+
+    expect(calls.ended).toBe(1);
+    expect(res.statusCode).toBe(500);
+    expect(logged).toEqual([[expect.any(String), stamped]]);
   });
 
   it('treats a cancellation carrying no status like any other failure', () => {
@@ -540,7 +554,7 @@ describe('cancel error handler', () => {
     const deadline = Object.assign(new CancelError(HANDLER_TIMEOUT), { status: 504 });
     const { calls, res } = fakeResponse();
 
-    cancelErrorHandler()(deadline, fakeRequest(), res);
+    cancelErrorHandler()(deadline, ownedRequest(HANDLER_TIMEOUT), res);
 
     expect(calls.ended).toBe(1);
     expect(res.statusCode).toBe(504);
@@ -550,7 +564,7 @@ describe('cancel error handler', () => {
     const foreign = Object.assign(new CancelError(HANDLER_TIMEOUT), { statusCode: 504 });
     const { res } = fakeResponse();
 
-    cancelErrorHandler()(foreign, fakeRequest(), res);
+    cancelErrorHandler()(foreign, ownedRequest(HANDLER_TIMEOUT), res);
 
     expect(res.statusCode).toBe(504);
   });
@@ -885,6 +899,7 @@ function fakeResponse(state: { destroyed?: boolean; headersSent?: boolean; writa
       return res;
     },
     headersSent: false,
+    once: () => res,
     removeHeader: () => undefined,
     setHeader: () => undefined,
     statusCode: 200,
@@ -897,6 +912,16 @@ function fakeResponse(state: { destroyed?: boolean; headersSent?: boolean; writa
 
 function fakeRequest(): IncomingMessage {
   return {} as IncomingMessage;
+}
+
+/** A request whose state is canceled with `reason`, the way a deadline or a shutdown cancels it. */
+function ownedRequest(reason: unknown): IncomingMessage {
+  const req = fakeRequest();
+  const { res } = fakeResponse();
+
+  ensureRequestCancelState(toRequestLike(req), toResponseLike(res)).cancel(reason);
+
+  return req;
 }
 
 /** Collects what the default error path logs, and keeps a failing handler from printing mid-run. */

@@ -6,6 +6,7 @@ import {
   cancelAttribution,
   cancelHeadersFor,
   cancelStatusOf,
+  routeSignalsOf,
   stampDerivedCancel,
   toRequestLike,
   toResponseLike,
@@ -55,6 +56,7 @@ export function cancelableHandler<StateT = DefaultState, ContextT = DefaultConte
   options?: ICancelableHandlerOptions,
 ): (ctx: ParameterizedContext<StateT, ContextT, ResponseBodyT>) => Promise<void> {
   checkStatus(timeoutStatus(options?.timeout), 'timeout status');
+  const signals = routeSignalsOf(options?.signal);
 
   return async function cancelableRoute(ctx) {
     const task = runCancelableHandler(handler as TAnyFn, toRequestLike(ctx.req), toResponseLike(ctx.res), options, {
@@ -65,7 +67,7 @@ export function cancelableHandler<StateT = DefaultState, ContextT = DefaultConte
     try {
       await task;
     } catch (error) {
-      if (prepareCancel(error, ctx)) {
+      if (prepareCancel(error, ctx, undefined, signals)) {
         return;
       }
 
@@ -85,7 +87,7 @@ export function cancelableHandler<StateT = DefaultState, ContextT = DefaultConte
  * still rethrows, so the cut is surfaced too. A shutdown's cut arrives with the socket already dead,
  * which is why a dead socket is not by itself a reason to drop.
  */
-function prepareCancel(error: unknown, ctx: Context, option?: number): boolean {
+function prepareCancel(error: unknown, ctx: Context, option?: number, signals: readonly AbortSignal[] = []): boolean {
   if (!isCancelError(error)) {
     return false;
   }
@@ -105,11 +107,11 @@ function prepareCancel(error: unknown, ctx: Context, option?: number): boolean {
   }
 
   // ownership comes from the request state, never from a status the error happens to carry
-  if (cancelAttribution(error, state) === undefined) {
+  if (cancelAttribution(error, state, signals) === undefined) {
     return false;
   }
 
-  stampDerivedCancel(error, state);
+  stampDerivedCancel(error, state, signals);
 
   const status = cancelStatusOf(error, option);
 

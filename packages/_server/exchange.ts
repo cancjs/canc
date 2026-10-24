@@ -99,6 +99,35 @@ export function cancelStatusOf(error: CancelError, option: number | undefined): 
   return option ?? statusOf(error, DEFAULT_TIMEOUT_STATUS);
 }
 
+/**
+ * The status an adapter answers an owned cancellation with, or `undefined` when the request does not
+ * own it. Ownership comes from the request state, and the stamp is applied before the status is read,
+ * so a status the error carries on its own never decides it.
+ */
+export function ownedStatusOf(
+  error: unknown,
+  state: IRequestCancelState,
+  option: number | undefined,
+  signals: readonly AbortSignal[] = [],
+): number | undefined {
+  if (!isCancelError(error) || cancelAttribution(error, state, signals) === undefined) {
+    return undefined;
+  }
+
+  stampDerivedCancel(error, state, signals);
+
+  return cancelStatusOf(error, option);
+}
+
+/** The route's own signals as a list, whichever shape `ICancelableHandlerOptions.signal` has. */
+export function routeSignalsOf(signal: AbortSignal | AbortSignal[] | undefined): AbortSignal[] {
+  if (signal === undefined) {
+    return [];
+  }
+
+  return Array.isArray(signal) ? signal : [signal];
+}
+
 /** The headers a shutdown attached to its cancellation, or `undefined` when it attached none. */
 export function cancelHeadersOf(error: CancelError): Record<string, string> | undefined {
   return (error as CancelError & { headers?: Record<string, string> }).headers;

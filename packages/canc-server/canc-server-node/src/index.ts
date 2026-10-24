@@ -3,14 +3,15 @@ import type { IncomingMessage, Server, ServerResponse } from 'http';
 
 import {
   cancelHeadersFor,
-  cancelStatusOf,
   isResponseLive,
   isUnanswerable,
+  ownedStatusOf,
+  routeSignalsOf,
   STALE_CONTENT_HEADERS,
   toRequestLike,
   toResponseLike,
 } from '../../../_server/exchange';
-import { getNodeRequestSignal } from '../../../_server/node-signal';
+import { ensureRequestCancelState, getNodeRequestSignal } from '../../../_server/node-signal';
 import { runCancelableHandler } from '../../../_server/run';
 import { createServerShutdown } from '../../../_server/shutdown';
 import {
@@ -98,7 +99,8 @@ export function cancelableHandler<
   handler: THandlerFn<TNodeHandler<TReq, TRes>>,
   options?: INodeCancelableHandlerOptions<TReq, TRes>,
 ): (req: TReq, res: TRes) => void {
-  const onError = options?.onError ?? cancelErrorHandler<TReq, TRes>();
+  const onError = options?.onError;
+  const signals = routeSignalsOf(options?.signal);
 
   return function cancelableRoute(req, res) {
     const task = runCancelableHandler(handler as TAnyFn, toRequestLike(req), toResponseLike(res), options, {
@@ -111,7 +113,12 @@ export function cancelableHandler<
         return;
       }
 
-      onError(error, req, res);
+      // the default answer reads the route's signals too, so its own signal can own a cancel
+      if (onError) {
+        onError(error, req, res);
+      } else {
+        answerCancellation(error, req, res, {}, signals);
+      }
     });
   };
 }
@@ -152,26 +159,39 @@ export function cancelErrorHandler<
   TReq extends IncomingMessage = IncomingMessage,
   TRes extends ServerResponse = ServerResponse,
 >(options: INodeCancelErrorHandlerOptions = {}): TNodeErrorHandler<TReq, TRes> {
-  const rethrow = options.rethrow === true;
+  return function cancelErrorRoute(error, req, res) {
+    answerCancellation(error, req, res, options, []);
+  };
+}
 
-  return function cancelErrorRoute(error, _req, res) {
-    // a cancel the request does not own is the caller's, so it takes the path below
-    const status = isCancelError(error) ? cancelStatusOf(error, options.status) : undefined;
+/**
+ * Answers an error the way `cancelErrorHandler` does. `signals` are the route's own signals, which
+ * own a cancel of the route's task even when the request itself was not canceled.
+ */
+function answerCancellation(
+  error: unknown,
+  req: IncomingMessage,
+  res: ServerResponse,
+  options: INodeCancelErrorHandlerOptions,
+  signals: readonly AbortSignal[],
+): void {
+  // a cancel the request does not own is the caller's, so it takes the path below
+  const state = ensureRequestCancelState(toRequestLike(req), toResponseLike(res));
+  const status = ownedStatusOf(error, state, options.status, signals);
 
-    if (!isCancelError(error) || status === undefined) {
-      if (rethrow) {
-        throw error;
-      }
-
-      // the status alone would bury a handler bug: nothing downstream of here ever sees the error
-      logHandlerFailure(error);
-      answerWith(res, HANDLER_FAILED_STATUS);
-
-      return;
+  if (!isCancelError(error) || status === undefined) {
+    if (options.rethrow === true) {
+      throw error;
     }
 
-    answerWith(res, status, cancelHeadersFor(error, options.status), true);
-  };
+    // the status alone would bury a handler bug: nothing downstream of here ever sees the error
+    logHandlerFailure(error);
+    answerWith(res, HANDLER_FAILED_STATUS);
+
+    return;
+  }
+
+  answerWith(res, status, cancelHeadersFor(error, options.status), true);
 }
 
 /** Sends a bare status to a response that can still carry one. */

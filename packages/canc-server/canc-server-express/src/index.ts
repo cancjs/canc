@@ -5,15 +5,16 @@ import type { IncomingMessage, Server, ServerResponse } from 'http';
 
 import {
   cancelHeadersFor,
-  cancelStatusOf,
   isResponseLive,
   isUnanswerable,
+  ownedStatusOf,
+  routeSignalsOf,
   STALE_CONTENT_HEADERS,
   toRequestLike,
   toResponseLike,
 } from '../../../_server/exchange';
 import { getRequestState } from '../../../_server/holder';
-import { getNodeRequestSignal } from '../../../_server/node-signal';
+import { ensureRequestCancelState, getNodeRequestSignal } from '../../../_server/node-signal';
 import { runCancelableHandler } from '../../../_server/run';
 import { createServerShutdown } from '../../../_server/shutdown';
 import {
@@ -60,6 +61,8 @@ export function cancelableHandler<
   handler: THandlerFn<RequestHandler<P, ResBody, ReqBody, ReqQuery, Locals>>,
   options?: ICancelableHandlerOptions,
 ): RequestHandler<P, ResBody, ReqBody, ReqQuery, Locals> {
+  const signals = routeSignalsOf(options?.signal);
+
   return function cancelableRoute(req, res, next) {
     const task = runCancelableHandler(handler as TAnyFn, toRequestLike(req), toResponseLike(res), options, {
       args: [req, res],
@@ -73,7 +76,9 @@ export function cancelableHandler<
       }
 
       // the head is out, so the socket is cut before express's own handling sees the error
-      if (isCancelError(error) && cancelStatusOf(error, undefined) !== undefined && res.headersSent) {
+      const state = ensureRequestCancelState(toRequestLike(req), toResponseLike(res));
+
+      if (ownedStatusOf(error, state, undefined, signals) !== undefined && res.headersSent) {
         res.destroy();
       }
 
@@ -157,8 +162,9 @@ export function cancelMiddleware(options?: ICancelableHandlerOptions): RequestHa
  * Anything that is not a cancellation the request owns passes through untouched.
  */
 export function cancelErrorHandler(options: ICancelErrorHandlerOptions = {}): ErrorRequestHandler {
-  return function cancelErrorRoute(error, _req, res, next) {
-    const status = isCancelError(error) ? cancelStatusOf(error, options.status) : undefined;
+  return function cancelErrorRoute(error, req, res, next) {
+    const state = ensureRequestCancelState(toRequestLike(req), toResponseLike(res));
+    const status = ownedStatusOf(error, state, options.status);
 
     // a cancellation the request does not own is the caller's, so express's own handling takes it
     if (!isCancelError(error) || status === undefined) {

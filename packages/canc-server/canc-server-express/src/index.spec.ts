@@ -7,6 +7,8 @@ import { runInThisContext } from 'vm';
 
 import { expectAbortAt, useDeadlineClock } from '../../../_server/__tests__/deadline-clock';
 import { describeShutdownSockets } from '../../../_server/__tests__/shutdown-sockets';
+import { toRequestLike, toResponseLike } from '../../../_server/exchange';
+import { ensureRequestCancelState } from '../../../_server/node-signal';
 import {
   cancelableHandler,
   cancelErrorHandler,
@@ -509,7 +511,7 @@ describe('cancel error handler', () => {
     const { calls, res } = fakeResponse({ destroyed: true });
     const shutdown = Object.assign(new CancelError(SERVER_SHUTDOWN), { status: 503 });
 
-    cancelErrorHandler()(shutdown, fakeRequest(), res, (error?: unknown) => forwarded.push(error));
+    cancelErrorHandler()(shutdown, ownedRequest(SERVER_SHUTDOWN), res, (error?: unknown) => forwarded.push(error));
 
     expect(calls).toEqual({ ended: 0, status: undefined });
     expect(forwarded).toEqual([]);
@@ -526,11 +528,22 @@ describe('cancel error handler', () => {
     expect(forwarded).toEqual([userCancel]);
   });
 
+  it('forwards a stamped cancellation the request never canceled, whatever status it carries', () => {
+    const stamped = Object.assign(new CancelError(HANDLER_TIMEOUT), { status: 504 });
+    const forwarded: unknown[] = [];
+    const { calls, res } = fakeResponse();
+
+    cancelErrorHandler()(stamped, fakeRequest(), res, (error?: unknown) => forwarded.push(error));
+
+    expect(calls).toEqual({ ended: 0, status: undefined });
+    expect(forwarded).toEqual([stamped]);
+  });
+
   it('answers a deadline with the status stamped on it', () => {
     const deadline = Object.assign(new CancelError(HANDLER_TIMEOUT), { status: 504 });
     const { calls, res } = fakeResponse();
 
-    cancelErrorHandler()(deadline, fakeRequest(), res, fail);
+    cancelErrorHandler()(deadline, ownedRequest(HANDLER_TIMEOUT), res, fail);
 
     expect(calls).toEqual({ ended: 1, status: 504 });
   });
@@ -539,7 +552,7 @@ describe('cancel error handler', () => {
     const foreign = Object.assign(new CancelError(HANDLER_TIMEOUT), { statusCode: 504 });
     const { calls, res } = fakeResponse();
 
-    cancelErrorHandler()(foreign, fakeRequest(), res, fail);
+    cancelErrorHandler()(foreign, ownedRequest(HANDLER_TIMEOUT), res, fail);
 
     expect(calls).toEqual({ ended: 1, status: 504 });
   });
@@ -1106,6 +1119,7 @@ function fakeResponse(state: { destroyed?: boolean; headersSent?: boolean; writa
       return res;
     },
     headersSent: false,
+    once: () => res,
     removeHeader: () => undefined,
     set: () => res,
     status: (code: number) => {
@@ -1122,6 +1136,16 @@ function fakeResponse(state: { destroyed?: boolean; headersSent?: boolean; writa
 
 function fakeRequest(): Request {
   return {} as Request;
+}
+
+/** A request whose state is canceled with `reason`, the way a deadline or a shutdown cancels it. */
+function ownedRequest(reason: unknown): Request {
+  const req = fakeRequest();
+  const { res } = fakeResponse();
+
+  ensureRequestCancelState(toRequestLike(req), toResponseLike(res)).cancel(reason);
+
+  return req;
 }
 
 /** Fails the test if the error handler forwards where it should have answered. */
