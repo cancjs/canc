@@ -1561,6 +1561,11 @@ describe('ownership comes from request state', () => {
     const routeAbort = new AbortController();
 
     app.use(cancelMiddleware({ status: 502 }));
+    // set ahead of the route, so the cancel answer is the one that has to drop it
+    app.use(async (ctx, next) => {
+      ctx.set('Content-Encoding', 'gzip');
+      await next();
+    });
     app.use(
       cancelableHandler(
         function* (_ctx: Context) {
@@ -1569,10 +1574,6 @@ describe('ownership comes from request state', () => {
         { signal: routeAbort.signal },
       ),
     );
-    app.use(async (ctx, next) => {
-      ctx.set('Content-Encoding', 'gzip');
-      await next();
-    });
 
     const port = await listen(app);
     const pending = httpExchange(port, { path: '/' });
@@ -1583,5 +1584,122 @@ describe('ownership comes from request state', () => {
 
     expect(response.status).toBe(502);
     expect(response.headers['content-encoding']).toBeUndefined();
+  });
+});
+
+describe('outer middleware and open cancel paths', () => {
+  // an outer middleware that records what reaches it and rethrows, the way error loggers do
+  function recordOuter(app: Koa, events: string[]): void {
+    app.on('error', (error: { status?: number }) => events.push(`app ${String(error.status)}`));
+    app.use(async (_ctx, next) => {
+      try {
+        await next();
+      } catch (error) {
+        const status = (error as { status?: number }).status;
+
+        events.push(`outer ${String(status)} ${String(isCancelError(error))}`);
+        throw error;
+      }
+    });
+  }
+
+  it('shows the outer middleware and the app error event each one cancellation', async () => {
+    const events: string[] = [];
+    const app = new Koa();
+
+    recordOuter(app, events);
+    app.use(cancelMiddleware());
+    app.use(
+      cancelableHandler(
+        function* () {
+          yield never();
+        },
+        { timeout: { ms: 25, headers: { 'Retry-After': '5' } } },
+      ),
+    );
+
+    const port = await listen(app);
+    const answer = await httpExchange(port, { path: '/' });
+
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(answer.status).toBe(503);
+    expect(answer.body).toBe('Service Unavailable');
+    expect(events).toEqual(['outer 503 true', 'app 503']);
+  });
+
+  it('cuts a head-sent shutdown and reports it once to the outer middleware and app', async () => {
+    const events: string[] = [];
+    const app = new Koa();
+    const started = deferred();
+
+    recordOuter(app, events);
+    app.use(cancelMiddleware());
+    app.use(
+      cancelableHandler(function* (ctx) {
+        ctx.status = 200;
+        ctx.flushHeaders();
+        ctx.res.write('part');
+        started.resolve();
+        yield never();
+      }),
+    );
+
+    const port = await listen(app);
+    const pending = new Promise<{ body: string; complete: boolean; status?: number }>((resolve) => {
+      const outgoing = request({ host: '127.0.0.1', path: '/', port }, (incoming) => {
+        let body = '';
+
+        incoming.on('data', (chunk: Buffer) => (body += chunk.toString()));
+        incoming.on('close', () => resolve({ body, complete: incoming.complete, status: incoming.statusCode }));
+      });
+
+      outgoing.on('error', () => resolve({ body: '', complete: false }));
+      outgoing.end();
+    });
+
+    await started.promise;
+    const result = await createShutdown(lastServer())({ cancelAfter: 0, closeAfter: 2000 });
+    const answer = await pending;
+
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(answer).toMatchObject({ complete: false, status: 200 });
+    expect(result.canceled).toBe(1);
+    expect(events).toEqual(['outer 503 true', 'app 503']);
+  });
+
+  it('sends a late failure of a signal-only handler to the app error event once', async () => {
+    const events: string[] = [];
+    const app = new Koa();
+    const lateFailed = deferred();
+
+    app.on('error', (error: Error) => {
+      events.push(`app ${error.message}`);
+
+      if (error.message === 'late boom') {
+        lateFailed.resolve();
+      }
+    });
+    app.use(cancelMiddleware());
+    const gate = deferred();
+    app.use(
+      cancelableHandler(
+        async () => {
+          await gate.promise;
+          throw new Error('late boom');
+        },
+        { timeout: 25 },
+      ),
+    );
+
+    const port = await listen(app);
+    const answer = await httpExchange(port, { path: '/' });
+
+    gate.resolve();
+    await lateFailed.promise;
+
+    expect(answer.status).toBe(503);
+    expect(events).toEqual(['app handler timeout', 'app late boom']);
   });
 });
