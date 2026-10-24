@@ -84,10 +84,6 @@ export function statusOf(error: CancelError, fallback: number): number {
  * user code carries no stamp, so it takes the option like any other cancellation.
  */
 export function cancelStatusOf(error: CancelError, option: number | undefined): number {
-  if (error.timedOut && statusStamped(error)) {
-    return statusOf(error, DEFAULT_TIMEOUT_STATUS);
-  }
-
   if (statusStamped(error) && !isDefaultShutdown(error)) {
     return statusOf(error, DEFAULT_TIMEOUT_STATUS);
   }
