@@ -417,7 +417,7 @@ Error matching and suppression helpers are available in three families:
 
 #### Error callback parameter typing
 
-The `onRejected` callback parameter in `.then(onFulfilled, onRejected)` and `.catch(onRejected)` receives `TReason<TFailure>`. When the failure set is undeclared (`unknown`), declares nothing (`never`) or is open (includes `Unlisted`), the parameter is typed as `any`, the same as on a native promise. When a failure type is declared, the parameter is typed as `TFailure`.
+The `onRejected` callback parameter in `.then(onFulfilled, onRejected)` and `.catch(onRejected)` receives `TReason<TFailure>`. When the failure set is undeclared (`unknown`), declares nothing (`never`) or is open (includes `Unlisted`), the parameter is typed as `any`, the same as on a native promise. When a failure type is declared, the parameter is typed as `TFailure`. A `catch` handler that rethrows or translates the error keeps the declared failures and adds `Unlisted`, since the handler may throw anything.
 
 #### Handling caught errors in try/catch
 
