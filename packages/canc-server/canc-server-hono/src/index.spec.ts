@@ -1767,6 +1767,52 @@ describe('cancel answers without a mounted error handler', () => {
     errorSpy.mockRestore();
   });
 
+  it('logs one cut for an owned head-cut on a plain route behind cancelErrorHandler', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const app = new Hono();
+
+    app.use(cancelMiddleware({ timeout: { message: 'route took too long', ms: 20, status: 504 } }));
+    app.onError(cancelErrorHandler());
+    app.get('/plain', async (c) => {
+      const { outgoing } = c.env as { outgoing: http.ServerResponse };
+
+      outgoing.writeHead(200, { 'content-type': 'text/plain' });
+      outgoing.write('part');
+
+      await new Promise<void>((_resolve, reject) => {
+        const signal = getRequestSignal(c);
+
+        // the route leaves its body open, so the owned deadline cuts it in the error handler
+        signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+      });
+
+      return c.text('never');
+    });
+
+    const port = await listen(app);
+    const outcome = await new Promise<{ body: string; complete: boolean }>((resolve) => {
+      const request = http.get({ host: '127.0.0.1', path: '/plain', port }, (response) => {
+        let body = '';
+
+        response.setEncoding('utf8');
+        response.on('data', (chunk: string) => {
+          body += chunk;
+        });
+        response.on('end', () => resolve({ body, complete: response.complete }));
+        response.on('error', () => resolve({ body, complete: false }));
+      });
+
+      request.on('error', () => resolve({ body: '', complete: false }));
+    });
+    await tick();
+
+    const messages = errorSpy.mock.calls.map((call) => String(call[0]));
+
+    expect(outcome.complete).toBe(false);
+    expect(messages.filter((message) => message.includes('response cut after its head was sent'))).toHaveLength(1);
+    errorSpy.mockRestore();
+  });
+
   it('cuts a head-sent shutdown cancel on a wrapped route without app.onError, and logs it once', async () => {
     const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
     const app = new Hono();
