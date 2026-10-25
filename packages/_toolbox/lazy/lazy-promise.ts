@@ -47,10 +47,7 @@ export class LazyPromise<T = any, F = unknown> extends LazyBase<T> {
   ) => LazyPromise<Awaited<V>, FailureOf<V>>;
   declare static resolve: <V>(value?: V | PromiseLike<V>, options?: ILazyPromiseOptions) => LazyPromise<V>;
   declare static reject: <V = never>(reason?: any, options?: ILazyPromiseOptions) => LazyPromise<V>;
-  declare static fail: <TError>(
-    error: TError,
-    options?: ILazyPromiseOptions,
-  ) => LazyPromise<never, Exclude<TError, CancelError>>;
+  declare static fail: <TError>(error: TError) => LazyPromise<never, Exclude<TError, CancelError>>;
   declare static withResolvers: <V>(options?: ILazyPromiseOptions) => ICancelableLazyWithResolvers<V>;
   declare static all: <V>(values: Iterable<V | PromiseLike<V>>, options?: ILazyPromiseOptions) => LazyPromise<V[]>;
   declare static allSettled: <V>(

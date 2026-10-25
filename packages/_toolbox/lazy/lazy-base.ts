@@ -136,8 +136,8 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
    * A lazy promise rejected with the given error, deferred like `reject`. The failure type is only
    * declared by the typed flavor's static, so this base returns the untyped shape.
    */
-  static fail<TError>(error: TError, options?: object): LazyBase<never> {
-    return this._new<never>((_resolve, reject) => reject(error), options);
+  static fail<TError>(error: TError): LazyBase<never> {
+    return this._new<never>((_resolve, reject) => reject(error));
   }
 
   /**
