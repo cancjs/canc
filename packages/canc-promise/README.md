@@ -297,6 +297,35 @@ Error matcher factories (`createSuppressError`, `createCatchError`, `createIsErr
 
 ### Declared failures
 
+#### One error list, written once
+
+Write the list of errors once, as a `createIsError` guard. The same guard declares the failure, narrows a caught value, subtracts it from a promise, and names its type:
+
+```ts
+const isUserFailure = createIsError(HttpError, NotFoundError); // the list, once
+type UserFailure = MatchedError<typeof isUserFailure>; // its type, once
+
+const loading = withFailure(isUserFailure)(loadUser(id)); // declare it on a promise
+const rest = catchErrors(loading, isUserFailure); // subtract it again
+const withUserFailure = withFailure(isUserFailure); // or keep the declarer for reuse
+
+try {
+  await loading;
+} catch (e) {
+  if (isUserFailure(e)) {
+    // e is HttpError | NotFoundError
+  } else {
+    throw e;
+  }
+}
+
+isErrorOf(e, isUserFailure, TimeoutError); // composes with more matchers
+```
+
+Use a type guard here. Only a guard proves and subtracts a type, while a plain boolean predicate only proves `Error`. A guard is accepted wherever an error matcher is, so the same value also fits any predicate slot, for example `shouldRetry`.
+
+`withFailure` also takes the types directly, `withFailure<HttpError, NotFoundError>()(promise)`, or the classes, `withFailure(HttpError, NotFoundError)(promise)`. Keep the first call to reuse it, `const withHttpFailure = withFailure<HttpError>()`, and apply it to each promise: `withHttpFailure(loadUser(id))`. The type form takes up to four failure types, and a union covers more. An open set, one that also admits `Unlisted`, is written with the type form, `withFailure<HttpError | Unlisted>()`. The matchers passed to `withFailure` are only read for their types, nothing is checked at runtime.
+
 #### Type annotations
 
 Declared failures can be specified or extracted using three type forms:
@@ -343,6 +372,9 @@ declare function render(user: CancelablePromise<User, HttpError>): void;
 
 render(legacy); // error: an undeclared promise does not fit a declared slot
 render(withFailure<HttpError>()(legacy));
+
+const withHttpFailure = withFailure<HttpError>(); // reusable declarer
+render(withHttpFailure(legacy));
 ```
 
 `withFailure` checks nothing and does nothing at runtime. It records your claim that the promise rejects with `HttpError` and nothing else expected, so use it only where you know that holds.

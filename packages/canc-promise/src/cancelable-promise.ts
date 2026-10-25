@@ -1,5 +1,6 @@
 import type { TAnyFn, Unlisted } from '../../_util';
 import { AggregateError, createAggregateError, isFunction, isObject, isThenable } from '../../_util';
+import type { MatchedOf, TErrorMatcher } from '../../_util/error-matchers';
 import { CancelError } from './cancel-error';
 import { thenSkipsChildExecutor, thenWithOwnChild } from './engine';
 import { isCancelError, isCancPromise } from './helpers';
@@ -67,17 +68,32 @@ export type WithFailure<TPromise extends CancelablePromise<any, any>, TFailure> 
  * const declared: WithFailure<typeof promise, HttpError> = promise;
  * ```
  *
- * Called as `withFailure<HttpError>()(promise)`. The two calls are not currying for its own sake:
- * `TFailure` is the only type parameter a caller ever names, and TypeScript has no syntax for
- * "supply this type argument explicitly, infer the rest from the value argument" in a single
- * call: an explicit type-argument list is all-or-nothing past any parameter without a default,
- * and a defaulted trailing parameter takes the default verbatim rather than being retried against
- * the argument. Splitting the value type into its own call keeps the value type intact through
- * ordinary inference instead of collapsing it to `any` or `unknown`.
+ * The failure is named in the first call and the promise is passed in the second, so the value type
+ * is inferred from the promise instead of being restated. That also makes the first call reusable:
+ *
+ * ```ts
+ * const withHttpFailure = withFailure<HttpError>();
+ * const user = withHttpFailure(loadUser(id));
+ * ```
+ *
+ * The first call takes up to four failure types, `withFailure<HttpError, NotFoundError>()`; name a
+ * union for more. It also takes error matchers, `withFailure(HttpError, NotFoundError)` or a guard
+ * made by `createIsError`, and then declares the type those matchers match. The matchers are not
+ * evaluated at runtime. A plain boolean predicate declares `Error`, so use a type guard.
+ *
+ * Cancellation is never part of a declared set, so a `CancelError` among the arguments is dropped.
  */
-export function withFailure<TFailure>() {
-  return function <TResult>(promise: CancelablePromise<TResult, any>): CancelablePromise<TResult, TFailure> {
-    return promise as unknown as CancelablePromise<TResult, TFailure>;
+export function withFailure<TFirst, TSecond = never, TThird = never, TFourth = never>(): <TResult>(
+  promise: CancelablePromise<TResult, any>,
+) => CancelablePromise<TResult, Exclude<TFirst | TSecond | TThird | TFourth, CancelError>>;
+export function withFailure<TMatchers extends readonly [TErrorMatcher, ...TErrorMatcher[]]>(
+  ...matchers: TMatchers
+): <TResult>(
+  promise: CancelablePromise<TResult, any>,
+) => CancelablePromise<TResult, Exclude<MatchedOf<TMatchers>, CancelError>>;
+export function withFailure() {
+  return function <TResult>(promise: CancelablePromise<TResult, any>): CancelablePromise<TResult, any> {
+    return promise;
   };
 }
 

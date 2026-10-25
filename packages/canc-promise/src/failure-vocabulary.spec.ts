@@ -101,4 +101,19 @@ describe('Failure vocabulary', () => {
 
     void [narrowed, replaced, stillString];
   });
+
+  it('withFailure takes several type arguments or matchers, still a no-op at runtime', () => {
+    const pFoo = null as unknown as CancelablePromise<number, FooError>;
+
+    const two = withFailure<FooError, BarError>()(pFoo);
+    const _twoCheck: Assert<Eq<typeof two, CancelablePromise<number, FooError | BarError>>> = true;
+
+    const matched = withFailure(FooError, BarError)(pFoo);
+    const _matchedCheck: Assert<Eq<typeof matched, CancelablePromise<number, FooError | BarError>>> = true;
+
+    const real = CancelablePromise.resolve(1) as unknown as CancelablePromise<number, FooError>;
+    expect(withFailure(FooError, BarError)(real)).toBe(real);
+
+    void [two, matched];
+  });
 });

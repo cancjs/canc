@@ -656,10 +656,11 @@ then: { <TResult1 extends PromiseLike<never>, TResult2 extends PromiseLike<never
 <TError>(error: TError, options?: ICancelablePromiseOptions | undefined): void
 ```
 
-## `withFailure<TFailure>` (function)
+## `withFailure<TFirst, TSecond = never, TThird = never, TFourth = never>` (function)
 
 ```text
-<TFailure>(): <TResult>(promise: CancelablePromise<TResult, any>) => CancelablePromise<TResult, TFailure>
+<TFirst, TSecond = never, TThird = never, TFourth = never>(): <TResult>(promise: CancelablePromise<TResult, any>) => CancelablePromise<TResult, Exclude<TFirst, CancelError> | Exclude<TFourth, CancelError> | Exclude<TSecond, CancelError> | Exclude<TThird, CancelError>>
+<TMatchers extends readonly [TErrorMatcher, ...TErrorMatcher[]]>(...matchers: TMatchers): <TResult>(promise: CancelablePromise<TResult, any>) => CancelablePromise<TResult, Exclude<MatchedOf<TMatchers>, CancelError>>
 ```
 
 # Internal (not public)
