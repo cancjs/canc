@@ -256,11 +256,23 @@ const failReplaced = CancelablePromise.reject<number, MatrixError>(new MatrixErr
 );
 type _failReplacesInCatch = Assert<Eq<FailureOf<typeof failReplaced>, MatrixErrorTwo>>;
 
-// a rethrowing handler returns never, so the source failure passes through
+// a rethrowing handler keeps the declared failure listed, and Unlisted covers what it may throw
 const rethrown = declared.catch((e) => {
   throw e;
 });
-type _rethrown = Assert<Eq<typeof rethrown, CancelablePromise<number, MatrixError>>>;
+type _rethrown = Assert<Eq<typeof rethrown, CancelablePromise<number, MatrixError | Unlisted>>>;
+
+// a translating handler throws another error; the source failure stays listed, reason is any
+const translated = declared.catch(() => {
+  throw new MatrixErrorTwo();
+});
+type _translated = Assert<Eq<typeof translated, CancelablePromise<number, MatrixError | Unlisted>>>;
+
+// CancelError is stripped from the source before the rethrow, so it never reaches the list
+const declaredCancel = CancelablePromise.reject<number, MatrixError | CancelError>(new MatrixError()).catch((e) => {
+  throw e;
+});
+type _rethrownCancel = Assert<Eq<FailureOf<typeof declaredCancel>, MatrixError | Unlisted>>;
 
 // withFailure narrows only through a guard; a plain boolean predicate declares just Error
 declare const plainPredicate: (e: unknown) => boolean;
