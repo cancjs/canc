@@ -12,7 +12,7 @@
  * classes are the same type, which makes every subtraction and every narrowing check pass for
  * the wrong reason.
  */
-import type { Failing, FailureOf, TReason, Unlisted, WithFailure } from '@cancjs/promise';
+import type { Failing, FailureOf, MatchedError, TReason, Unlisted, WithFailure } from '@cancjs/promise';
 import CancelablePromise, {
   AbortError,
   CancelError,
@@ -123,6 +123,50 @@ type _withFailureTypeStripsCancel = Assert<Eq<FailureOf<WithFailure<typeof decla
 
 const assertedWithCancel = withFailure<MatrixErrorTwo | CancelError>()(declared);
 type _withFailureStripsCancel = Assert<Eq<FailureOf<typeof assertedWithCancel>, MatrixErrorTwo>>;
+
+// withFailure takes several type arguments or error matchers and keeps the value type
+declare const declaredNumber: CancelablePromise<number, MatrixError>;
+
+const multiOne = withFailure<MatrixError>()(declaredNumber);
+type _withFailureOneType = Assert<Eq<typeof multiOne, CancelablePromise<number, MatrixError>>>;
+
+const multiTwo = withFailure<MatrixError, MatrixErrorTwo>()(declaredNumber);
+type _withFailureTwoTypes = Assert<Eq<typeof multiTwo, CancelablePromise<number, MatrixError | MatrixErrorTwo>>>;
+
+const multiFour = withFailure<MatrixError, MatrixErrorTwo, TypeError, RangeError>()(declaredNumber);
+type _withFailureFourTypes = Assert<
+  Eq<typeof multiFour, CancelablePromise<number, MatrixError | MatrixErrorTwo | TypeError | RangeError>>
+>;
+
+const multiUnion = withFailure<MatrixError | MatrixErrorTwo>()(declaredNumber);
+type _withFailureUnionType = Assert<Eq<typeof multiUnion, CancelablePromise<number, MatrixError | MatrixErrorTwo>>>;
+
+const multiCancel = withFailure<MatrixError, CancelError>()(declaredNumber);
+type _withFailureTypesStripCancel = Assert<Eq<typeof multiCancel, CancelablePromise<number, MatrixError>>>;
+
+const matchedClasses = withFailure(MatrixError, MatrixErrorTwo)(declaredNumber);
+type _withFailureClassMatchers = Assert<
+  Eq<typeof matchedClasses, CancelablePromise<number, MatrixError | MatrixErrorTwo>>
+>;
+
+const isMatrixFailure = createIsError(MatrixError, MatrixErrorTwo);
+const matchedGuard = withFailure(isMatrixFailure)(declaredNumber);
+type _withFailureGuardMatcher = Assert<
+  Eq<typeof matchedGuard, CancelablePromise<number, MatrixError | MatrixErrorTwo>>
+>;
+type _withFailureGuardType = Assert<Eq<FailureOf<typeof matchedGuard>, MatchedError<typeof isMatrixFailure>>>;
+
+const matchedName = withFailure('QuotaError')(declaredNumber);
+type _withFailureNameMatcher = Assert<
+  Eq<typeof matchedName, CancelablePromise<number, Error & { name: 'QuotaError' }>>
+>;
+
+const matchedCancel = withFailure(MatrixError, CancelError)(declaredNumber);
+type _withFailureMatchersStripCancel = Assert<Eq<typeof matchedCancel, CancelablePromise<number, MatrixError>>>;
+
+const withMatrixFailure = withFailure<MatrixError>();
+const reusedOnString = withMatrixFailure(null as unknown as CancelablePromise<string, MatrixErrorTwo>);
+type _withFailureReusable = Assert<Eq<typeof reusedOnString, CancelablePromise<string, MatrixError>>>;
 
 declare const declaredUnknown: CancelablePromise<number, unknown>;
 type _unknownUnchanged = Assert<Eq<FailureOf<typeof declaredUnknown>, unknown>>;

@@ -6,7 +6,7 @@
  * next to the raw promise combinators that feed it. Expected values record the current behavior.
  */
 import type { FailureOf, Unlisted } from '@cancjs/promise';
-import CancelablePromise, { CancelError, FAILURE, isErrorOf, isTimeoutError, TimeoutError } from '@cancjs/promise';
+import CancelablePromise, { CancelError, createIsError, FAILURE, isTimeoutError, TimeoutError } from '@cancjs/promise';
 import type { ICancAsyncGenerator } from '@cancjs/coroutine/gen';
 import { async as cancAsync, await as cancAwait, cancThrow } from '@cancjs/coroutine';
 import { async as cancGenAsync, await as cancGenAwait, throw as cancGenThrow } from '@cancjs/coroutine/gen';
@@ -146,9 +146,10 @@ type _loadUser = Assert<
 >;
 
 // closed result set: guards exhaust it and the last branch reads never
+const isNotFound = createIsError(NotFoundError);
 export const loadUserReason = loadUser('1').catch((e) => {
   if (isTimeoutError(e)) return 'slow';
-  if (isErrorOf(e, NotFoundError)) return 'missing';
+  if (isNotFound(e)) return 'missing';
   if (e instanceof TypeError) {
     // the fetch member keeps its literal name, so the branch is that member alone
     const network: Eq<typeof e, TypeError & { readonly name: 'TypeError' }> = true;
