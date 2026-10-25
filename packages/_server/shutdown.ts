@@ -394,16 +394,10 @@ export function shutdownServer(
 
   // one instance per request: its live tasks and its signal get the same cancellation, and no two
   // requests share one
-  const cancelRequest = (
-    state: IRequestCancelState,
-    error = createShutdownError(reason, cancelError),
-    decorated = false,
-  ) => {
+  const cancelRequest = (state: IRequestCancelState, error = createShutdownError(reason, cancelError)) => {
     if (!state.shuttingDown) {
       state.shuttingDown = true;
-      if (!decorated) {
-        state.decorateCancel?.(error);
-      }
+      state.decorateCancel?.(error);
       state.cancel(error);
     }
   };
@@ -434,7 +428,7 @@ export function shutdownServer(
     // the signal goes after the tasks it drives, so anything watching it sees a request whose own
     // work has already unwound rather than one mid-teardown
     for (const [state, error] of states) {
-      cancelRequest(state, error, true);
+      cancelRequest(state, error);
     }
   };
 
