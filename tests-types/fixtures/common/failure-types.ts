@@ -255,3 +255,9 @@ const failReplaced = CancelablePromise.reject<number, MatrixError>(new MatrixErr
   CancelablePromise.fail(new MatrixErrorTwo()),
 );
 type _failReplacesInCatch = Assert<Eq<FailureOf<typeof failReplaced>, MatrixErrorTwo>>;
+
+// a rethrowing handler returns never, so the source failure passes through
+const rethrown = declared.catch((e) => {
+  throw e;
+});
+type _rethrown = Assert<Eq<typeof rethrown, CancelablePromise<number, MatrixError>>>;
