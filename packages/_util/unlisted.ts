@@ -10,4 +10,8 @@ export interface Unlisted {
 }
 
 // a promise that never rejects stays closed instead of gaining the marker
-export type TOrUnlisted<TFailure> = [TFailure] extends [never] ? never : TFailure | Unlisted;
+// an already open set keeps one marker instead of listing it twice
+export type TOrUnlisted<TFailure> =
+  [TFailure] extends [never] ? never
+  : Unlisted extends TFailure ? TFailure
+  : TFailure | Unlisted;
