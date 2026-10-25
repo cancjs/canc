@@ -2,13 +2,7 @@ import type { CancelError } from '@cancjs/promise';
 import type { Context, Env, ErrorHandler } from 'hono';
 
 import { cancelHeadersFor, ownedStatusOf, STALE_CONTENT_HEADERS } from '../../../_server/exchange';
-import {
-  abandonIfHeadersSent,
-  alreadySentHeaders,
-  existingCancelState,
-  isHeadSent,
-  isResponseUnreachable,
-} from './bindings';
+import { abandonIfHeadersSent, alreadySentHeaders, existingCancelState, isResponseUnreachable } from './bindings';
 import { CLIENT_CLOSED_STATUS } from './handler';
 
 /** Options for the opt-in error handler. */
@@ -67,9 +61,7 @@ export function cancelErrorHandler<E extends Env = any>(options: ICancelErrorHan
     }
 
     // a head already sent cannot take a status: cut the socket, then answer as unreachable
-    abandonIfHeadersSent(c);
-
-    if (isHeadSent(c)) {
+    if (abandonIfHeadersSent(c)) {
       console.error('[@cancjs/server-hono] response cut after its head was sent', error);
     }
 

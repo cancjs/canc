@@ -1717,10 +1717,13 @@ describe('cancel answers without a mounted error handler', () => {
     const forwarded: unknown[] = [];
     const app = new Hono();
 
-    app.onError((error) => {
+    app.onError((error, c) => {
       forwarded.push(error);
 
-      return new Response(null, { status: 500 });
+      // app.onError finishes the body, so a silent cut shows as a short body
+      (c.env as { outgoing: http.ServerResponse }).outgoing.end('-end');
+
+      return new Response(null, { headers: { 'x-hono-already-sent': 'true' }, status: 500 });
     });
     app.get(
       '/own',
@@ -1739,14 +1742,19 @@ describe('cancel answers without a mounted error handler', () => {
     );
 
     const port = await listen(app);
-    await new Promise<void>((resolve) => {
+    const outcome = await new Promise<{ body: string; complete: boolean }>((resolve) => {
       const request = http.get({ host: '127.0.0.1', path: '/own', port }, (response) => {
-        response.resume();
-        response.on('error', () => resolve());
-        response.on('end', () => resolve());
+        let body = '';
+
+        response.setEncoding('utf8');
+        response.on('data', (chunk: string) => {
+          body += chunk;
+        });
+        response.on('end', () => resolve({ body, complete: response.complete }));
+        response.on('error', () => resolve({ body, complete: false }));
       });
 
-      request.on('error', () => resolve());
+      request.on('error', () => resolve({ body: '', complete: false }));
     });
     await tick();
 
@@ -1754,7 +1762,100 @@ describe('cancel answers without a mounted error handler', () => {
 
     expect(forwarded).toHaveLength(1);
     expect(isCancelError(forwarded[0])).toBe(true);
+    expect(outcome).toEqual({ body: 'part-end', complete: true });
     expect(messages.filter((message) => message.includes('response cut after its head was sent'))).toHaveLength(0);
+    errorSpy.mockRestore();
+  });
+
+  it('cuts a head-sent shutdown cancel on a wrapped route without app.onError, and logs it once', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const app = new Hono();
+
+    app.get(
+      '/shutdown',
+      cancelableHandler(function* (c) {
+        const { outgoing } = c.env as { outgoing: http.ServerResponse };
+
+        outgoing.writeHead(200, { 'content-type': 'text/plain' });
+        outgoing.write('part');
+        yield new Promise(() => undefined);
+
+        return c.text('never');
+      }),
+    );
+
+    const port = await listen(app);
+    const outcome = await new Promise<{ body: string; complete: boolean }>((resolve) => {
+      const request = http.get({ host: '127.0.0.1', path: '/shutdown', port }, (response) => {
+        let body = '';
+
+        response.setEncoding('utf8');
+        response.on('data', (chunk: string) => {
+          body += chunk;
+        });
+        response.on('end', () => resolve({ body, complete: response.complete }));
+        response.on('error', () => resolve({ body, complete: false }));
+        // the head is out, so the shutdown cancel lands while the body is still open
+        setTimeout(() => {
+          void createShutdown(server!)({ cancelAfter: 0, closeAfter: 500 });
+        }, 20);
+      });
+
+      request.on('error', () => resolve({ body: '', complete: false }));
+    });
+    await tick();
+
+    const messages = errorSpy.mock.calls.map((call) => String(call[0]));
+
+    expect(outcome.complete).toBe(false);
+    expect(messages.filter((message) => message.includes('response cut after its head was sent'))).toHaveLength(1);
+    errorSpy.mockRestore();
+  });
+
+  it('cuts a head-sent route signal cancel without app.onError, and logs it once', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const controller = new AbortController();
+    const app = new Hono();
+
+    app.get(
+      '/signal',
+      cancelableHandler(
+        function* (c) {
+          const { outgoing } = c.env as { outgoing: http.ServerResponse };
+
+          outgoing.writeHead(200, { 'content-type': 'text/plain' });
+          outgoing.write('part');
+          yield new Promise(() => undefined);
+
+          return c.text('never');
+        },
+        { signal: controller.signal },
+      ),
+    );
+
+    const port = await listen(app);
+    const outcome = await new Promise<{ body: string; complete: boolean }>((resolve) => {
+      const request = http.get({ host: '127.0.0.1', path: '/signal', port }, (response) => {
+        let body = '';
+
+        response.setEncoding('utf8');
+        response.on('data', (chunk: string) => {
+          body += chunk;
+        });
+        response.on('end', () => resolve({ body, complete: response.complete }));
+        response.on('error', () => resolve({ body, complete: false }));
+        // the head is out, so the route signal fires while the body is still open
+        setTimeout(() => controller.abort(), 20);
+      });
+
+      request.on('error', () => resolve({ body: '', complete: false }));
+    });
+    await tick();
+
+    const messages = errorSpy.mock.calls.map((call) => String(call[0]));
+
+    expect(outcome.complete).toBe(false);
+    expect(messages.filter((message) => message.includes('response cut after its head was sent'))).toHaveLength(1);
     errorSpy.mockRestore();
   });
 
@@ -1800,6 +1901,53 @@ describe('cancel answers without a mounted error handler', () => {
 
     expect(messages.filter((message) => message.includes('response cut after its head was sent'))).toHaveLength(0);
     expect(messages.filter((message) => message.includes('ERR_HTTP_HEADERS_SENT'))).toHaveLength(0);
+    errorSpy.mockRestore();
+  });
+
+  it('logs no cut when a plain route ends its own head-sent response on the deadline', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const app = new Hono();
+
+    app.use(cancelMiddleware({ timeout: { message: 'route took too long', ms: 20, status: 504 } }));
+    app.onError(cancelErrorHandler());
+    app.get('/plain', async (c) => {
+      const { outgoing } = c.env as { outgoing: http.ServerResponse };
+
+      outgoing.writeHead(200, { 'content-type': 'text/plain' });
+      outgoing.write('part');
+
+      await new Promise<void>((_resolve, reject) => {
+        const signal = getRequestSignal(c);
+
+        signal.addEventListener(
+          'abort',
+          () => {
+            // the route closes its own body, then lets the deadline error through
+            outgoing.end('closed by route');
+            reject(signal.reason);
+          },
+          { once: true },
+        );
+      });
+
+      return c.text('never');
+    });
+
+    const port = await listen(app);
+    await new Promise<void>((resolve) => {
+      const request = http.get({ host: '127.0.0.1', path: '/plain', port }, (response) => {
+        response.resume();
+        response.on('error', () => resolve());
+        response.on('end', () => resolve());
+      });
+
+      request.on('error', () => resolve());
+    });
+    await tick();
+
+    const messages = errorSpy.mock.calls.map((call) => String(call[0]));
+
+    expect(messages.filter((message) => message.includes('response cut after its head was sent'))).toHaveLength(0);
     errorSpy.mockRestore();
   });
 

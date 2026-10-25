@@ -124,11 +124,6 @@ export function abandonIfHeadersSent(c: ICancelContext): boolean {
   return false;
 }
 
-/** Whether the node response's head went out, which is the case a cut is answered for. */
-export function isHeadSent(c: ICancelContext): boolean {
-  return (getNodeBindings(c.env)?.outgoing as { headersSent?: boolean } | undefined)?.headersSent === true;
-}
-
 /**
  * Headers for a response handed back behind a reply the route already wrote itself. On
  * `@hono/node-server` the marker header makes it skip writing, where a bare response would make it
