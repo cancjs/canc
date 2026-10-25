@@ -98,7 +98,7 @@ bubble: boolean // @deprecated
 cancel: (reason?: any, _disposing?: boolean) => CancelablePromise<ISettledResult<unknown>[], never> | void
 cancelable: boolean
 canceled: boolean
-catch: { <R extends PromiseLike<never>>(onRejected: (reason: any) => R): CancelablePromise<Awaited<R> | IExecResult<T>, FailureOf<R>>; <R = never>(onRejected: (reason: any) => R): CancelablePromise<Awaited<R> | IExecResult<T>, FailureOf<R>>; <R = never>(onRejected?: ((reason: any) => R) | null | undefined): CancelablePromise<Awaited<R> | IExecResult<T>, FailureOf<R> | Unlisted>; }
+catch: { <R extends PromiseLike<never>>(onRejected: (reason: any) => R): CancelablePromise<Awaited<R> | IExecResult<T>, ([R] extends [never] ? Unlisted : never) | FailureOf<R>>; <R = never>(onRejected: (reason: any) => R): CancelablePromise<Awaited<R> | IExecResult<T>, FailureOf<R>>; <R = never>(onRejected?: ((reason: any) => R) | null | undefined): CancelablePromise<Awaited<R> | IExecResult<T>, FailureOf<R> | Unlisted>; }
 child: IExecChildProcess<T>
 finally: (onFinally?: (() => PromiseLike<unknown> | void) | null) => CancelablePromise<IExecResult<T>, Unlisted>
 forceCancelable: boolean // @deprecated
