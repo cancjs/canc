@@ -1718,6 +1718,116 @@ describe('optional error handler', () => {
     expect(logged.filter((line) => line.includes('"level":50'))).toHaveLength(0);
   });
 
+  it('cuts a wrapped route-signal head-cut once at error level', async () => {
+    const logged: string[] = [];
+    const controller = new AbortController();
+    const instance = Fastify({
+      logger: {
+        level: 'error',
+        stream: {
+          write(line: string): void {
+            logged.push(line);
+          },
+        },
+      },
+    });
+    await instance.register(cancelPlugin);
+    instance.get(
+      '/route-signal',
+      cancelableHandler(
+        function* (_request, reply) {
+          reply.raw.writeHead(200, { 'content-type': 'text/plain' });
+          reply.raw.write('part1,');
+          yield new Promise(() => undefined);
+
+          return 'never';
+        },
+        { signal: controller.signal },
+      ),
+    );
+
+    const port = await listen(instance);
+    const outcome = await new Promise<{ body: string; complete: boolean }>((resolve) => {
+      const outgoing = http.get({ host: '127.0.0.1', path: '/route-signal', port }, (response) => {
+        let body = '';
+
+        response.setEncoding('utf8');
+        response.on('data', (chunk: string) => {
+          body += chunk;
+        });
+        response.on('end', () => resolve({ body, complete: response.complete }));
+        response.on('error', () => resolve({ body, complete: false }));
+        // the head is out, so the route signal fires while the body is still open
+        setTimeout(() => controller.abort(), 20);
+      });
+
+      outgoing.on('error', () => resolve({ body: '', complete: false }));
+    });
+    await tick();
+
+    app = undefined;
+
+    expect(outcome.complete).toBe(false);
+    expect(logged.filter((line) => line.includes('"level":50'))).toHaveLength(1);
+  });
+
+  it('logs no cut when a wrapped route ends its own reply on the deadline', async () => {
+    const logged: string[] = [];
+    const instance = Fastify({
+      logger: {
+        level: 'error',
+        stream: {
+          write(line: string): void {
+            logged.push(line);
+          },
+        },
+      },
+    });
+    await instance.register(cancelPlugin);
+    instance.get(
+      '/ended',
+      cancelableHandler(
+        function* (request, reply) {
+          reply.raw.writeHead(200, { 'content-type': 'text/plain' });
+          reply.raw.write('part1,');
+          const signal = getRequestSignal(request, reply);
+
+          yield new Promise<void>((_resolve, reject) => {
+            signal.addEventListener(
+              'abort',
+              () => {
+                // the route finishes its own reply before the deadline reaches the wrapper
+                reply.raw.end('closed by route');
+                reject(signal.reason);
+              },
+              { once: true },
+            );
+          });
+
+          return 'never';
+        },
+        { timeout: { ms: 20, status: 504 } },
+      ),
+    );
+
+    const port = await listen(instance);
+    await new Promise<void>((resolve) => {
+      const outgoing = http.get({ host: '127.0.0.1', path: '/ended', port }, (response) => {
+        response.resume();
+        response.on('end', () => resolve());
+        response.on('error', () => resolve());
+        response.on('close', () => resolve());
+      });
+
+      outgoing.on('error', () => resolve());
+    });
+    await tick();
+
+    app = undefined;
+
+    expect(logged.filter((line) => line.includes('"level":50'))).toHaveLength(0);
+  });
+
   it('logs a wrapped route head cut once at error level', async () => {
     const started = deferred();
     const logged: string[] = [];
