@@ -231,12 +231,13 @@ static _subscribeInputs: (values: Iterable<unknown>, skipAfterSettled?: boolean)
 static all: <V>(values: Iterable<PromiseLike<V> | V>, options?: ILazyPromiseOptions) => LazyPromise<V[]>
 static allSettled: <V>(values: Iterable<PromiseLike<V> | V>, options?: ILazyPromiseOptions) => LazyPromise<ISettledResult<Awaited<V>>[]>
 static any: <V>(values: Iterable<PromiseLike<V> | V>, options?: ILazyPromiseOptions) => LazyPromise<V>
+static fail: <TError>(error: TError) => LazyPromise<never, Exclude<TError, CancelError>>
 static race: <V>(values: Iterable<PromiseLike<V> | V>, options?: ILazyPromiseOptions) => LazyPromise<V>
 static reject: <V = never>(reason?: any, options?: ILazyPromiseOptions) => LazyPromise<V>
 static resolve: <V>(value?: PromiseLike<V> | V, options?: ILazyPromiseOptions) => LazyPromise<V>
 static try: <V, TArgs extends any[]>(fn: (...args: TArgs) => V, ...args: TArgs) => LazyPromise<Awaited<V>, FailureOf<V>>
 static withResolvers: <V>(options?: ILazyPromiseOptions) => ICancelableLazyWithResolvers<V>
-readonly [FAILURE]?: F | undefined
+readonly [FAILURE]?: Exclude<F, CancelError> | undefined
 readonly [LAZY_PROMISE_BRAND]: true
 _beforeSubscribe: () => PromiseLike<T> | undefined
 _cancelError?: CancelError | undefined

@@ -133,6 +133,14 @@ export abstract class LazyBase<T = any> implements PromiseLike<T> {
   }
 
   /**
+   * A lazy promise rejected with the given error, deferred like `reject`. The failure type is only
+   * declared by the typed flavor's static, so this base returns the untyped shape.
+   */
+  static fail<TError>(error: TError): LazyBase<never> {
+    return this._new<never>((_resolve, reject) => reject(error));
+  }
+
+  /**
    * A lazy promise plus its settlers. The holder may settle it whenever they like, but the EFFECT
    * is deferred: a settlement made before the first subscription is recorded and replayed when the
    * executor eventually runs, so resolving with another lazy promise does not start it, and

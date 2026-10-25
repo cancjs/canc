@@ -77,6 +77,8 @@ if (mode === 'lazy-reject-unconsumed') {
  LazyPromise.reject(new Error('boom'));
 } else if (mode === 'eager-reject-unconsumed') {
  CancelablePromise.reject(new Error('boom'));
+} else if (mode === 'lazy-fail-unconsumed') {
+ LazyPromise.fail(new Error('boom'));
 } else if (mode === 'with-resolvers-reject-unconsumed') {
  LazyPromise.withResolvers().reject(new Error('boom'));
 } else if (mode === 'execute-then-consume') {
@@ -111,6 +113,10 @@ describe('LazyPromise unhandled rejection (real node process)', () => {
 
   it('control: the eager equivalent does produce one', () => {
     expect(runChild('eager-reject-unconsumed')).toEqual(['plain']);
+  });
+
+  it('produces no event for an unconsumed LazyPromise.fail', () => {
+    expect(runChild('lazy-fail-unconsumed')).toEqual([]);
   });
 
   it('produces no event when a settler rejects an unconsumed lazy', () => {

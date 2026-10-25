@@ -1,5 +1,6 @@
-import type { TAnyFn, Unlisted } from '../../_util';
+import type { TAnyFn, TOrUnlisted, Unlisted } from '../../_util';
 import { AggregateError, createAggregateError, isFunction, isObject, isThenable } from '../../_util';
+import type { MatchedOf, TErrorMatcher } from '../../_util/error-matchers';
 import { CancelError } from './cancel-error';
 import { thenSkipsChildExecutor, thenWithOwnChild } from './engine';
 import { isCancelError, isCancPromise } from './helpers';
@@ -20,8 +21,9 @@ export const CANCEL_PROMISE_BRAND = Symbol.for('@cancjs/promise:CancelablePromis
  */
 export const FAILURE: unique symbol = Symbol.for('@cancjs/promise:failure') as symbol as typeof FAILURE;
 
+// cancellation is a separate outcome, never part of the declared set
 export interface Failing<TFailure> {
-  readonly [FAILURE]?: TFailure;
+  readonly [FAILURE]?: Exclude<TFailure, CancelError>;
 }
 
 // a plain value has a result but declares no failure, hence the never fallback
@@ -66,17 +68,32 @@ export type WithFailure<TPromise extends CancelablePromise<any, any>, TFailure> 
  * const declared: WithFailure<typeof promise, HttpError> = promise;
  * ```
  *
- * Called as `withFailure<HttpError>()(promise)`. The two calls are not currying for its own sake:
- * `TFailure` is the only type parameter a caller ever names, and TypeScript has no syntax for
- * "supply this type argument explicitly, infer the rest from the value argument" in a single
- * call: an explicit type-argument list is all-or-nothing past any parameter without a default,
- * and a defaulted trailing parameter takes the default verbatim rather than being retried against
- * the argument. Splitting the value type into its own call keeps the value type intact through
- * ordinary inference instead of collapsing it to `any` or `unknown`.
+ * The failure is named in the first call and the promise is passed in the second, so the value type
+ * is inferred from the promise instead of being restated. That also makes the first call reusable:
+ *
+ * ```ts
+ * const withHttpFailure = withFailure<HttpError>();
+ * const user = withHttpFailure(loadUser(id));
+ * ```
+ *
+ * The first call takes up to four failure types, `withFailure<HttpError, NotFoundError>()`; name a
+ * union for more. It also takes error matchers, `withFailure(HttpError, NotFoundError)` or a guard
+ * made by `createIsError`, and then declares the type those matchers match. The matchers are not
+ * evaluated at runtime. A plain boolean predicate declares `Error`, so use a type guard.
+ *
+ * Cancellation is never part of a declared set, so a `CancelError` among the arguments is dropped.
  */
-export function withFailure<TFailure>() {
-  return function <TResult>(promise: CancelablePromise<TResult, any>): CancelablePromise<TResult, TFailure> {
-    return promise as unknown as CancelablePromise<TResult, TFailure>;
+export function withFailure<TFirst, TSecond = never, TThird = never, TFourth = never>(): <TResult>(
+  promise: CancelablePromise<TResult, any>,
+) => CancelablePromise<TResult, Exclude<TFirst | TSecond | TThird | TFourth, CancelError>>;
+export function withFailure<TMatchers extends readonly [TErrorMatcher, ...TErrorMatcher[]]>(
+  ...matchers: TMatchers
+): <TResult>(
+  promise: CancelablePromise<TResult, any>,
+) => CancelablePromise<TResult, Exclude<MatchedOf<TMatchers>, CancelError>>;
+export function withFailure() {
+  return function <TResult>(promise: CancelablePromise<TResult, any>): CancelablePromise<TResult, any> {
+    return promise;
   };
 }
 
@@ -963,6 +980,20 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
   }
 
   /**
+   * Creates a rejected promise that declares the type of its error as the failure.
+   * Unlike {@link CancelablePromise.reject}, the error argument infers the failure, so returning it from a
+   * `then` callback declares the failure on the chain. A `CancelError` is cancellation and is never declared.
+   * @param error The error the promise rejects with, as is.
+   * @returns A new rejected promise.
+   */
+  static fail<TError>(error: TError): CancelablePromise<never, Exclude<TError, CancelError>> {
+    // the executor reject accepts any reason, so the declared failure is only the return type
+    return new this<never, any>((_resolve, reject) => {
+      reject(error);
+    });
+  }
+
+  /**
    * Creates a new resolved promise for the provided value.
    * @param value A promise.
    * @param [options]
@@ -1140,7 +1171,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
 
   // `declare`: assigned once on prototype at module load so all instances inherit same brand
   declare readonly [CANCEL_PROMISE_BRAND]: true;
-  declare readonly [FAILURE]?: TFailure;
+  declare readonly [FAILURE]?: Exclude<TFailure, CancelError>;
 
   // per-instance own-property layout (kept small; see memory notes below):
   // _flags packed booleans (asyncCancel/forceCancelable/bubble/strict/shield),
@@ -1838,7 +1869,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
    */
   catch<R extends PromiseLike<never>>(
     onRejected: (reason: TReason<TFailure>) => R,
-  ): CancelablePromise<Awaited<TResult | R>, FailureOf<R>>;
+  ): CancelablePromise<Awaited<TResult | R>, FailureOf<R> | ([R] extends [never] ? TOrUnlisted<TFailure> : never)>;
   catch<R = never>(onRejected: (reason: TReason<TFailure>) => R): CancelablePromise<Awaited<TResult | R>, FailureOf<R>>;
   catch<R = never>(
     onRejected?: ((reason: TReason<TFailure>) => R) | null,

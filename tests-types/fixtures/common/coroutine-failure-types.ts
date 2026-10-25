@@ -6,8 +6,10 @@
  * next to the raw promise combinators that feed it. Expected values record the current behavior.
  */
 import type { FailureOf, Unlisted } from '@cancjs/promise';
-import CancelablePromise, { isErrorOf, isTimeoutError, TimeoutError } from '@cancjs/promise';
+import CancelablePromise, { CancelError, createIsError, FAILURE, isTimeoutError, TimeoutError } from '@cancjs/promise';
+import type { ICancAsyncGenerator } from '@cancjs/coroutine/gen';
 import { async as cancAsync, await as cancAwait, cancThrow } from '@cancjs/coroutine';
+import { async as cancGenAsync, await as cancGenAwait, throw as cancGenThrow } from '@cancjs/coroutine/gen';
 import cancelableFetch from '@cancjs/fetch';
 import { timeout } from '@cancjs/toolbox';
 
@@ -74,6 +76,41 @@ type _coD3 = Assert<Eq<FailureOf<ReturnType<typeof coD3>>, FooError>>;
 type _coH = Assert<Eq<FailureOf<ReturnType<typeof coH>>, FooError | BarError>>;
 type _coH3 = Assert<Eq<FailureOf<ReturnType<typeof coH3>>, BarError>>;
 
+// throwing or awaiting a cancellation adds nothing to the declared set
+declare const declaredWithCancel: CancelablePromise<number, FooError | CancelError>;
+const coCancelThrow = cancAsync(function* () {
+  const n = yield* cancAwait(nativeNumber);
+  if (n) yield* cancThrow(new CancelError());
+  return n;
+});
+const coCancelThrowFoo = cancAsync(function* () {
+  const n = yield* cancAwait(declared);
+  if (n) yield* cancThrow(new CancelError());
+  return n;
+});
+const coCancelAwait = cancAsync(function* () {
+  return yield* cancAwait(declaredWithCancel);
+});
+const genCancelThrow = cancGenAsync(function* () {
+  const n = yield* cancGenAwait(nativeNumber);
+  if (n) yield* cancGenThrow(new CancelError());
+  yield n;
+});
+type _coCancelThrow = Assert<Eq<FailureOf<ReturnType<typeof coCancelThrow>>, never>>;
+type _coCancelThrowFoo = Assert<Eq<FailureOf<ReturnType<typeof coCancelThrowFoo>>, FooError>>;
+type _coCancelAwait = Assert<Eq<FailureOf<ReturnType<typeof coCancelAwait>>, FooError>>;
+type _genCancelThrow = Assert<Eq<FailureOf<ReturnType<typeof genCancelThrow>>, never>>;
+
+// the generator carrier and a bare branded step strip it on their own
+declare const genWithCancel: ICancAsyncGenerator<number, void, any, FooError | CancelError>;
+type _genCarrierStripsCancel = Assert<Eq<FailureOf<typeof genWithCancel>, FooError>>;
+
+declare const brandedCancelStep: PromiseLike<number> & { readonly [FAILURE]?: BarError | CancelError };
+const coBrandedCancel = cancAsync(function* () {
+  return yield* cancAwait(brandedCancelStep);
+});
+type _coBrandedCancel = Assert<Eq<FailureOf<ReturnType<typeof coBrandedCancel>>, BarError>>;
+
 // a declared failure does not fit a slot declaring a different one
 declare function takeNever(p: CancelablePromise<number, never>): void;
 declare function takeFoo(p: CancelablePromise<number, FooError>): void;
@@ -109,9 +146,10 @@ type _loadUser = Assert<
 >;
 
 // closed result set: guards exhaust it and the last branch reads never
+const isNotFound = createIsError(NotFoundError);
 export const loadUserReason = loadUser('1').catch((e) => {
   if (isTimeoutError(e)) return 'slow';
-  if (isErrorOf(e, NotFoundError)) return 'missing';
+  if (isNotFound(e)) return 'missing';
   if (e instanceof TypeError) {
     // the fetch member keeps its literal name, so the branch is that member alone
     const network: Eq<typeof e, TypeError & { readonly name: 'TypeError' }> = true;

@@ -297,6 +297,35 @@ Error matcher factories (`createSuppressError`, `createCatchError`, `createIsErr
 
 ### Declared failures
 
+#### One error list, written once
+
+Write the list of errors once, as a `createIsError` guard. The same guard declares the failure, narrows a caught value, subtracts it from a promise, and names its type:
+
+```ts
+const isUserFailure = createIsError(HttpError, NotFoundError); // the list, once
+type UserFailure = MatchedError<typeof isUserFailure>; // its type, once
+
+const loading = withFailure(isUserFailure)(loadUser(id)); // declare it on a promise
+const rest = catchErrors(loading, isUserFailure); // subtract it again
+const withUserFailure = withFailure(isUserFailure); // or keep the declarer for reuse
+
+try {
+  await loading;
+} catch (e) {
+  if (isUserFailure(e)) {
+    // e is HttpError | NotFoundError
+  } else if (isErrorOf(e, isUserFailure, TimeoutError)) {
+    // composes with more matchers
+  } else {
+    throw e;
+  }
+}
+```
+
+Use a type guard here. Only a guard proves and subtracts a type, while a plain boolean predicate only proves `Error`. A guard is accepted wherever an error matcher is, so the same value also fits any predicate slot, for example `shouldRetry`.
+
+`withFailure` also takes the types directly, `withFailure<HttpError, NotFoundError>()(promise)`, or the classes, `withFailure(HttpError, NotFoundError)(promise)`. Keep the first call to reuse it, `const withHttpFailure = withFailure<HttpError>()`, and apply it to each promise: `withHttpFailure(loadUser(id))`. The type form takes up to four failure types, and a union covers more. An open set, one that also admits `Unlisted`, is written with the type form, `withFailure<HttpError | Unlisted>()`. The matchers passed to `withFailure` are only read for their types, nothing is checked at runtime.
+
 #### Type annotations
 
 Declared failures can be specified or extracted using three type forms:
@@ -343,6 +372,9 @@ declare function render(user: CancelablePromise<User, HttpError>): void;
 
 render(legacy); // error: an undeclared promise does not fit a declared slot
 render(withFailure<HttpError>()(legacy));
+
+const withHttpFailure = withFailure<HttpError>(); // reusable declarer
+render(withHttpFailure(legacy));
 ```
 
 `withFailure` checks nothing and does nothing at runtime. It records your claim that the promise rejects with `HttpError` and nothing else expected, so use it only where you know that holds.
@@ -385,7 +417,7 @@ Error matching and suppression helpers are available in three families:
 
 #### Error callback parameter typing
 
-The `onRejected` callback parameter in `.then(onFulfilled, onRejected)` and `.catch(onRejected)` receives `TReason<TFailure>`. When the failure set is undeclared (`unknown`), declares nothing (`never`) or is open (includes `Unlisted`), the parameter is typed as `any`, the same as on a native promise. When a failure type is declared, the parameter is typed as `TFailure`.
+The `onRejected` callback parameter in `.then(onFulfilled, onRejected)` and `.catch(onRejected)` receives `TReason<TFailure>`. When the failure set is undeclared (`unknown`), declares nothing (`never`) or is open (includes `Unlisted`), the parameter is typed as `any`, the same as on a native promise. When a failure type is declared, the parameter is typed as `TFailure`. A `catch` handler that rethrows or translates the error keeps the declared failures and adds `Unlisted`, since the handler may throw anything.
 
 #### Handling caught errors in try/catch
 
@@ -447,6 +479,13 @@ p.then((v) => {
 ```
 
 Return `CancelablePromise.reject<never, FooError>(reason)` instead of throwing whenever a callback should declare a failure. It threads through ordinary `then` propagation the same way a callback returning any other `CancelablePromise` does.
+
+`CancelablePromise.fail(error)` is the shortcut that infers it: `CancelablePromise.fail(new FooError())` is `CancelablePromise<never, FooError>`, and two branches returning different errors declare their union. It takes no options and rejects with the error as is. A `CancelError` is cancellation, so `fail(new CancelError())` declares nothing and settles as canceled. When the error is typed `any`, the declared failure is `any` too; use the error matchers with `withFailure` there.
+
+```ts
+p.then((v) => (bad ? CancelablePromise.fail(new FooError()) : v));
+// declares FooError
+```
 
 `reject` declares a failure only when you name one. The reason argument never infers it, as on a native promise, so `CancelablePromise.reject(new FooError())` declares nothing and its `catch` reason is `any`. A type annotation on the receiving side names the failure too:
 
@@ -566,6 +605,8 @@ export.
 Statics, each taking an optional trailing options argument: `all`, `allSettled`, `any`, `race`,
 `resolve`, `reject`, `withResolvers`, `try`. The options configure the promise the static returns,
 and combinator inputs are adopted with them.
+
+`fail(error)` returns a rejected promise that declares the type of `error` as its failure and takes no options.
 
 Instance methods: `then`, `catch`, `finally`, `handleCancel(onCancel, options?)`,
 `cancel(reason?)`, `[Symbol.dispose]`, `[Symbol.asyncDispose]`.

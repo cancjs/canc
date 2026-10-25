@@ -346,16 +346,18 @@ Because `canc.throw` returns `Generator<..., never, ...>`, its `never` return ty
 
 #### Error handling inside coroutines
 
-Errors raised by `canc.throw` or rejected promises can be caught inside the generator using standard `try`/`catch` blocks and inspected with error utilities such as `isErrorOf` from `@cancjs/promise`:
+Errors raised by `canc.throw` or rejected promises can be caught inside the generator using standard `try`/`catch` blocks and inspected with a guard made by `createIsError` from `@cancjs/promise`:
 
 ```ts
-import { isErrorOf } from '@cancjs/promise';
+import { createIsError } from '@cancjs/promise';
+
+const isNotFound = createIsError(UserNotFoundError);
 
 const safeLoad = canc.async(function* (id: string) {
   try {
     return yield* canc.await(fetchUser(id));
   } catch (err) {
-    if (isErrorOf(err, UserNotFoundError)) {
+    if (isNotFound(err)) {
       return null;
     }
     throw err;
@@ -395,9 +397,11 @@ const loadUser = canc.async(function* (id: string) {
 The set lists declared failures only, and the promise can still reject with something unlisted at runtime, such as a network `TypeError` from `fetch` or a `SyntaxError` from `json()`. After the guards exhaust the set, the reason in the last branch is `never`. End the handler with a fallback that does not read the value, such as a rethrow, or use `catchErrors`:
 
 ```ts
+const isNotFound = createIsError(NotFoundError);
+
 loadUser('1').catch((e) => {
   if (isTimeoutError(e)) return 'slow';
-  if (isErrorOf(e, NotFoundError)) return 'missing';
+  if (isNotFound(e)) return 'missing';
   throw e; // e is never here, the runtime may still reject with a TypeError or SyntaxError
 });
 ```

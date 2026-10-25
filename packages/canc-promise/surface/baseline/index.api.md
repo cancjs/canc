@@ -75,13 +75,14 @@ static all: { <T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>(values: readonly [T1, T2
 static allSettled: { <T extends readonly [unknown] | readonly unknown[]>(values: T, options?: ICancelablePromiseOptions): CancelablePromise<{ -readonly [P in keyof T]: ISettledResult<Awaited<T[P]>>; }, never>; <T>(values: Iterable<T>, options?: ICancelablePromiseOptions): CancelablePromise<ISettledResult<Awaited<T>>[], never>; }
 static any: { <T extends [] | readonly unknown[]>(values: T, options?: ICancelablePromiseOptions): CancelablePromise<Awaited<T[number]>, AggregateError | Unlisted>; <T>(values: Iterable<PromiseLike<T> | T>, options?: ICancelablePromiseOptions): CancelablePromise<Awaited<T>, AggregateError | Unlisted>; }
 static defaultOptions: Required<ICancelablePromiseFlagOptions>
+static fail: <TError>(error: TError) => CancelablePromise<never, Exclude<TError, CancelError>>
 static race: { <T extends [] | readonly unknown[]>(values: T, options?: ICancelablePromiseOptions): CancelablePromise<Awaited<T[number]>, FailureOf<T[number]>>; <T>(values: readonly T[], options?: ICancelablePromiseOptions): CancelablePromise<Awaited<T>, FailureOf<T>>; <T>(values: Iterable<T>, options?: ICancelablePromiseOptions): CancelablePromise<Awaited<T>, FailureOf<T>>; <T>(values: Iterable<PromiseLike<T> | T>, options?: ICancelablePromiseOptions): CancelablePromise<T, FailureOf<T>>; }
 static reject: <TResult = never, TFailure = never>(reason?: [TFailure] extends [never] ? any : TNoInfer<TFailure>, options?: ICancelablePromiseOptions) => CancelablePromise<TResult, TFailure>
 static resolve: { <V>(value: V, options?: ICancelablePromiseOptions): CancelablePromise<Awaited<V>, FailureOf<V>>; (): CancelablePromise<void, never>; }
 static try: <T, TArgs extends any[]>(fn: (...args: TArgs) => T, ...args: TArgs) => CancelablePromise<Awaited<T>, FailureOf<T>>
 static withResolvers: <TResult, TFailure = unknown>(options?: ICancelablePromiseOptions) => ICancelablePromiseWithResolvers<TResult, TFailure>
 readonly [CANCEL_PROMISE_BRAND]: true
-readonly [FAILURE]?: TFailure | undefined
+readonly [FAILURE]?: Exclude<TFailure, CancelError> | undefined
 readonly [toStringTag]: string
 _abortListeners?: Map<IAbortSignal, any> | undefined
 _abortSignals?: Array<IAbortSignal> | undefined
@@ -114,7 +115,7 @@ bubble: boolean // @deprecated
 cancel: (reason?: any, _disposing?: boolean) => CancelablePromise<ISettledResult<unknown>[], never> | void
 cancelable: boolean
 canceled: boolean
-catch: { <R extends PromiseLike<never>>(onRejected: (reason: TReason<TFailure>) => R): CancelablePromise<Awaited<R | TResult>, FailureOf<R>>; <R = never>(onRejected: (reason: TReason<TFailure>) => R): CancelablePromise<Awaited<R | TResult>, FailureOf<R>>; <R = never>(onRejected?: ((reason: TReason<TFailure>) => R) | null): CancelablePromise<Awaited<R | TResult>, FailureOf<R> | TFailure>; }
+catch: { <R extends PromiseLike<never>>(onRejected: (reason: TReason<TFailure>) => R): CancelablePromise<Awaited<R | TResult>, ([R] extends [never] ? TOrUnlisted<TFailure> : never) | FailureOf<R>>; <R = never>(onRejected: (reason: TReason<TFailure>) => R): CancelablePromise<Awaited<R | TResult>, FailureOf<R>>; <R = never>(onRejected?: ((reason: TReason<TFailure>) => R) | null): CancelablePromise<Awaited<R | TResult>, FailureOf<R> | TFailure>; }
 finally: (onFinally?: (() => PromiseLike<unknown> | void) | null) => CancelablePromise<TResult, TFailure>
 forceCancelable: boolean // @deprecated
 handleCancel: (onCancel: TOnCancel, options?: IHandleCancelOptions) => CancelablePromise<TResult, TFailure>
@@ -135,7 +136,7 @@ typeof FAILURE
 ## `Failing<TFailure>` (interface)
 
 ```text
-readonly [FAILURE]?: TFailure | undefined
+readonly [FAILURE]?: Exclude<TFailure, CancelError> | undefined
 ```
 
 ## `FailureOf<T>` (type)
@@ -387,7 +388,7 @@ readonly _cancUnlisted: true
 
 ```text
 readonly [CANCEL_PROMISE_BRAND]: true
-readonly [FAILURE]?: FailureOf<TPromise> | TFailure | undefined
+readonly [FAILURE]?: Exclude<FailureOf<TPromise>, CancelError> | Exclude<TFailure, CancelError> | undefined
 readonly [toStringTag]: string
 _abortListeners?: Map<IAbortSignal, any> | undefined
 _abortSignals?: Array<IAbortSignal> | undefined
@@ -420,7 +421,7 @@ bubble: boolean // @deprecated
 cancel: (reason?: any, _disposing?: boolean) => CancelablePromise<ISettledResult<unknown>[], never> | void
 cancelable: boolean
 canceled: boolean
-catch: { <R extends PromiseLike<never>>(onRejected: (reason: TReason<FailureOf<TPromise> | TFailure>) => R): CancelablePromise<Awaited<Awaited<TPromise>> | Awaited<R>, FailureOf<R>>; <R = never>(onRejected: (reason: TReason<FailureOf<TPromise> | TFailure>) => R): CancelablePromise<Awaited<Awaited<TPromise>> | Awaited<R>, FailureOf<R>>; <R = never>(onRejected?: ((reason: TReason<FailureOf<TPromise> | TFailure>) => R) | null | undefined): CancelablePromise<Awaited<Awaited<TPromise>> | Awaited<R>, FailureOf<R> | FailureOf<TPromise> | TFailure>; }
+catch: { <R extends PromiseLike<never>>(onRejected: (reason: TReason<FailureOf<TPromise> | TFailure>) => R): CancelablePromise<Awaited<Awaited<TPromise>> | Awaited<R>, ([R] extends [never] ? TOrUnlisted<FailureOf<TPromise> | TFailure> : never) | FailureOf<R>>; <R = never>(onRejected: (reason: TReason<FailureOf<TPromise> | TFailure>) => R): CancelablePromise<Awaited<Awaited<TPromise>> | Awaited<R>, FailureOf<R>>; <R = never>(onRejected?: ((reason: TReason<FailureOf<TPromise> | TFailure>) => R) | null | undefined): CancelablePromise<Awaited<Awaited<TPromise>> | Awaited<R>, FailureOf<R> | FailureOf<TPromise> | TFailure>; }
 finally: (onFinally?: (() => PromiseLike<unknown> | void) | null) => CancelablePromise<Awaited<TPromise>, FailureOf<TPromise> | TFailure>
 forceCancelable: boolean // @deprecated
 handleCancel: (onCancel: TOnCancel, options?: IHandleCancelOptions) => CancelablePromise<Awaited<TPromise>, FailureOf<TPromise> | TFailure>
@@ -503,13 +504,14 @@ static all: { <T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>(values: readonly [T1, T2
 static allSettled: { <T extends readonly [unknown] | readonly unknown[]>(values: T, options?: ICancelablePromiseOptions): CancelablePromise<{ -readonly [P in keyof T]: ISettledResult<Awaited<T[P]>>; }, never>; <T>(values: Iterable<T>, options?: ICancelablePromiseOptions): CancelablePromise<ISettledResult<Awaited<T>>[], never>; }
 static any: { <T extends [] | readonly unknown[]>(values: T, options?: ICancelablePromiseOptions): CancelablePromise<Awaited<T[number]>, AggregateError | Unlisted>; <T>(values: Iterable<PromiseLike<T> | T>, options?: ICancelablePromiseOptions): CancelablePromise<Awaited<T>, AggregateError | Unlisted>; }
 static defaultOptions: Required<ICancelablePromiseFlagOptions>
+static fail: <TError>(error: TError) => CancelablePromise<never, Exclude<TError, CancelError>>
 static race: { <T extends [] | readonly unknown[]>(values: T, options?: ICancelablePromiseOptions): CancelablePromise<Awaited<T[number]>, FailureOf<T[number]>>; <T>(values: readonly T[], options?: ICancelablePromiseOptions): CancelablePromise<Awaited<T>, FailureOf<T>>; <T>(values: Iterable<T>, options?: ICancelablePromiseOptions): CancelablePromise<Awaited<T>, FailureOf<T>>; <T>(values: Iterable<PromiseLike<T> | T>, options?: ICancelablePromiseOptions): CancelablePromise<T, FailureOf<T>>; }
 static reject: <TResult = never, TFailure = never>(reason?: [TFailure] extends [never] ? any : TNoInfer<TFailure>, options?: ICancelablePromiseOptions) => CancelablePromise<TResult, TFailure>
 static resolve: { <V>(value: V, options?: ICancelablePromiseOptions): CancelablePromise<Awaited<V>, FailureOf<V>>; (): CancelablePromise<void, never>; }
 static try: <T, TArgs extends any[]>(fn: (...args: TArgs) => T, ...args: TArgs) => CancelablePromise<Awaited<T>, FailureOf<T>>
 static withResolvers: <TResult, TFailure = unknown>(options?: ICancelablePromiseOptions) => ICancelablePromiseWithResolvers<TResult, TFailure>
 readonly [CANCEL_PROMISE_BRAND]: true
-readonly [FAILURE]?: TFailure | undefined
+readonly [FAILURE]?: Exclude<TFailure, CancelError> | undefined
 readonly [toStringTag]: string
 _abortListeners?: Map<IAbortSignal, any> | undefined
 _abortSignals?: Array<IAbortSignal> | undefined
@@ -542,7 +544,7 @@ bubble: boolean // @deprecated
 cancel: (reason?: any, _disposing?: boolean) => CancelablePromise<ISettledResult<unknown>[], never> | void
 cancelable: boolean
 canceled: boolean
-catch: { <R extends PromiseLike<never>>(onRejected: (reason: TReason<TFailure>) => R): CancelablePromise<Awaited<R | TResult>, FailureOf<R>>; <R = never>(onRejected: (reason: TReason<TFailure>) => R): CancelablePromise<Awaited<R | TResult>, FailureOf<R>>; <R = never>(onRejected?: ((reason: TReason<TFailure>) => R) | null): CancelablePromise<Awaited<R | TResult>, FailureOf<R> | TFailure>; }
+catch: { <R extends PromiseLike<never>>(onRejected: (reason: TReason<TFailure>) => R): CancelablePromise<Awaited<R | TResult>, ([R] extends [never] ? TOrUnlisted<TFailure> : never) | FailureOf<R>>; <R = never>(onRejected: (reason: TReason<TFailure>) => R): CancelablePromise<Awaited<R | TResult>, FailureOf<R>>; <R = never>(onRejected?: ((reason: TReason<TFailure>) => R) | null): CancelablePromise<Awaited<R | TResult>, FailureOf<R> | TFailure>; }
 finally: (onFinally?: (() => PromiseLike<unknown> | void) | null) => CancelablePromise<TResult, TFailure>
 forceCancelable: boolean // @deprecated
 handleCancel: (onCancel: TOnCancel, options?: IHandleCancelOptions) => CancelablePromise<TResult, TFailure>
@@ -656,10 +658,11 @@ then: { <TResult1 extends PromiseLike<never>, TResult2 extends PromiseLike<never
 <TError>(error: TError, options?: ICancelablePromiseOptions | undefined): void
 ```
 
-## `withFailure<TFailure>` (function)
+## `withFailure<TFirst, TSecond = never, TThird = never, TFourth = never>` (function)
 
 ```text
-<TFailure>(): <TResult>(promise: CancelablePromise<TResult, any>) => CancelablePromise<TResult, TFailure>
+<TFirst, TSecond = never, TThird = never, TFourth = never>(): <TResult>(promise: CancelablePromise<TResult, any>) => CancelablePromise<TResult, Exclude<TFirst, CancelError> | Exclude<TFourth, CancelError> | Exclude<TSecond, CancelError> | Exclude<TThird, CancelError>>
+<TMatchers extends readonly [TErrorMatcher, ...TErrorMatcher[]]>(...matchers: TMatchers): <TResult>(promise: CancelablePromise<TResult, any>) => CancelablePromise<TResult, Exclude<MatchedOf<TMatchers>, CancelError>>
 ```
 
 # Internal (not public)

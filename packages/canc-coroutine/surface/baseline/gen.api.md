@@ -18,7 +18,7 @@ throw: (e: any) => IteratorResult<(unknown extends TFailure ? TAwaited<any> : Fa
 
 ```text
 extends AsyncGenerator<T, TReturn, TNext>
-readonly [FAILURE]?: TFailure | undefined
+readonly [FAILURE]?: Exclude<TFailure, CancelError> | undefined
 ```
 
 ## `async<TYield, TReturn, TArgs extends any[], TThis = any>` (function)

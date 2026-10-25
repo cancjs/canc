@@ -18,6 +18,7 @@ import type {
   ICancelablePromiseFlagOptions,
   ICancelablePromiseOptions,
   ICancelablePromiseWithResolvers,
+  FailureOf,
   ICatchErrorFn,
   ISuppressErrorFn,
   Unlisted,
@@ -320,3 +321,12 @@ const nativeLazyTimeoutOver = nativeTimeout(Promise.resolve(1), 1, { lazy: true 
 type _nativeLazyTimeoutOver = Expect<Equal<typeof nativeLazyTimeoutOver, NativeLazyPromise<number>>>;
 const nativeLazyTimeoutFn = nativeTimeout(() => Promise.resolve(1), 1, { lazy: true });
 type _nativeLazyTimeoutFn = Expect<Equal<typeof nativeLazyTimeoutFn, NativeLazyPromise<number>>>;
+
+const lazyFailed = LazyPromise.fail(new ToolboxTimeoutError());
+type _lazyFail = Expect<Equal<typeof lazyFailed, LazyPromise<never, ToolboxTimeoutError>>>;
+const lazyFailedCancel = LazyPromise.fail(new CancelError());
+type _lazyFailCancel = Expect<Equal<typeof lazyFailedCancel, LazyPromise<never, never>>>;
+
+// a lazy carrier strips CancelError like the other carriers
+declare const lazyCarrier: LazyPromise<number, ToolboxTimeoutError | CancelError>;
+type _lazyCarrierStripsCancel = Expect<Equal<FailureOf<typeof lazyCarrier>, ToolboxTimeoutError>>;

@@ -47,7 +47,8 @@ describe('failure chaining and statics', () => {
     const ce: Eq<typeof _e, CancelablePromise<number | string, BarError>> = true;
 
     const _f = pBoth.finally(() => {});
-    const cf: Eq<typeof _f, CancelablePromise<number, FooError | BarError | CancelError>> = true;
+    // naming CancelError stays legal, it just never reads back as a declared failure
+    const cf: Eq<FailureOf<typeof _f>, FooError | BarError> = true;
 
     const chain: Promise<string> = pFoo.then((n) => String(n));
 

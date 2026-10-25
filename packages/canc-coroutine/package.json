@@ -71,7 +71,8 @@
   "jsdelivr": "dist/index.umd.min.js",
   "typesVersions": {
     "<4.7": {
-      "dist/types/*": ["dist/types-ts4.2/*"]
+      "dist/types/*": ["dist/types-ts4.2/*"],
+      "gen": ["dist/types-ts4.2/gen.d.ts"]
     },
     "*": {
       "gen": ["dist/types/gen.d.ts"]

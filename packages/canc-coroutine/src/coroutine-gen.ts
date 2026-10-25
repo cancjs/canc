@@ -232,7 +232,7 @@ export interface ICancAsyncGenerator<T, TReturn = any, TNext = any, TFailure = n
   TReturn,
   TNext
 > {
-  readonly [FAILURE]?: TFailure;
+  readonly [FAILURE]?: Exclude<TFailure, CancelError>;
 }
 
 /**
