@@ -126,7 +126,7 @@ Hono does not expose a `request.signal` under that name, so there is nothing her
 
 ### The wrapper never writes the response
 
-A cancellation whose client is already gone still has to answer with something, because a Hono handler must resolve to a `Response`. It answers `499`, the status nginx logs for a client that closed the request first, and that response never reaches a reader. When the route wrote the node response itself, as a streaming route does, the `499` carries `x-hono-already-sent` so `@hono/node-server` skips writing it and logs nothing. A deadline is different: the client is still there, so the error is thrown on to `app.onError` instead of being swallowed. A cancellation that lands after the response head went out is the one exception: the wrapper cuts the connection and logs it there, so `app.onError` never sees it; the one stderr line is that once-per-request log.
+A cancellation whose client is already gone still has to answer with something, because a Hono handler must resolve to a `Response`. It answers `499`, the status nginx logs for a client that closed the request first, and that response never reaches a reader. When the route wrote the node response itself, as a streaming route does, the `499` carries `x-hono-already-sent` so `@hono/node-server` skips writing it and logs nothing. A deadline is different: while the response is still live the client is there, so the error is thrown on to `app.onError` instead of being swallowed. A cancellation the request owns that lands after the response head went out is the one exception: the wrapper cuts the connection and logs it there, so `app.onError` never sees it; the one stderr line is that once-per-request log. A cancellation the request does not own goes to `app.onError` even then, with no cut and no log. A response the route already finished gets no cut and no log either.
 
 ### Status codes and the error handler
 
@@ -226,7 +226,7 @@ Node does not list a websocket as a connection once it is upgraded, so `shutdown
 await Promise.all([closeWebSockets(1001), shutdown({ cancelAfter: 5_000 })]);
 ```
 
-Any upgraded socket still open when the shutdown finishes is destroyed at `cancelAfter`. To keep new traffic away first, fail your readiness check and wait a few seconds before calling `shutdown()`. In Kubernetes a `preStop` sleep does the same job.
+An upgraded socket still open at `cancelAfter` is destroyed there. To keep new traffic away first, fail your readiness check and wait a few seconds before calling `shutdown()`. In Kubernetes a `preStop` sleep does the same job.
 
 ## Compatibility
 

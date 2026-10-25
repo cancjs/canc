@@ -99,6 +99,8 @@ function open(port: number, path: string): http.ClientRequest {
 }
 
 afterEach(async () => {
+  // a spy a failed expectation left behind would stay on the console for the next spec
+  jest.restoreAllMocks();
   const instance = server;
 
   server = undefined;
@@ -1707,6 +1709,97 @@ describe('cancel answers without a mounted error handler', () => {
     expect(forwarded).toHaveLength(0);
     expect(errorSpy).toHaveBeenCalledTimes(1);
     expect(errorSpy.mock.calls[0][0]).toContain('response cut after its head was sent');
+    errorSpy.mockRestore();
+  });
+
+  it('hands a head-sent error the request does not own to app.onError, with no cut and no log', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const forwarded: unknown[] = [];
+    const app = new Hono();
+
+    app.onError((error) => {
+      forwarded.push(error);
+
+      return new Response(null, { status: 500 });
+    });
+    app.get(
+      '/own',
+      cancelableHandler(function* (c) {
+        const { outgoing } = c.env as { outgoing: http.ServerResponse };
+
+        outgoing.writeHead(200, { 'content-type': 'text/plain' });
+        outgoing.write('part');
+        // a cancel the user raised, on a request whose signal never fired
+        yield CancelablePromise.resolve().then(() => {
+          throw new CancelError('user cancel');
+        });
+
+        return c.text('never');
+      }),
+    );
+
+    const port = await listen(app);
+    await new Promise<void>((resolve) => {
+      const request = http.get({ host: '127.0.0.1', path: '/own', port }, (response) => {
+        response.resume();
+        response.on('error', () => resolve());
+        response.on('end', () => resolve());
+      });
+
+      request.on('error', () => resolve());
+    });
+    await tick();
+
+    const messages = errorSpy.mock.calls.map((call) => String(call[0]));
+
+    expect(forwarded).toHaveLength(1);
+    expect(isCancelError(forwarded[0])).toBe(true);
+    expect(messages.filter((message) => message.includes('response cut after its head was sent'))).toHaveLength(0);
+    errorSpy.mockRestore();
+  });
+
+  it('does not log a cut when the route ended its own response on the deadline', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const app = new Hono();
+
+    app.get(
+      '/ended',
+      cancelableHandler(
+        function* (c) {
+          const { outgoing } = c.env as { outgoing: http.ServerResponse };
+
+          outgoing.writeHead(200, { 'content-type': 'text/plain' });
+          outgoing.write('part');
+
+          try {
+            yield new Promise(() => undefined);
+          } finally {
+            // the route closes its own body before the deadline unwinds it
+            outgoing.end('closed by route');
+          }
+
+          return c.text('never');
+        },
+        { timeout: { message: 'route took too long', ms: 20, status: 504 } },
+      ),
+    );
+
+    const port = await listen(app);
+    await new Promise<void>((resolve) => {
+      const request = http.get({ host: '127.0.0.1', path: '/ended', port }, (response) => {
+        response.resume();
+        response.on('error', () => resolve());
+        response.on('end', () => resolve());
+      });
+
+      request.on('error', () => resolve());
+    });
+    await tick();
+
+    const messages = errorSpy.mock.calls.map((call) => String(call[0]));
+
+    expect(messages.filter((message) => message.includes('response cut after its head was sent'))).toHaveLength(0);
+    expect(messages.filter((message) => message.includes('ERR_HTTP_HEADERS_SENT'))).toHaveLength(0);
     errorSpy.mockRestore();
   });
 

@@ -86,27 +86,32 @@ export function cancelableHandler<E extends Env = any, P extends string = any, I
     });
 
     return task.catch((error: unknown) => {
+      // a cancellation the request does not own is the caller's: it is thrown on untouched, so
+      // app.onError gets it with no cut and no log
+      let owned = false;
+
       // a route signal cancel is minted without a status, so it gets its getResponse here
       if (isCancelError(error)) {
         const state = existingCancelState(context);
 
         if (state && ownedStatusOf(error, state, undefined, signals) !== undefined) {
           attachCancelResponse(error);
+          owned = true;
         }
       }
 
       // a sent head cannot take a status: the socket is cut and answered here with the marker
       // response, so node does not write headers over the head
       // app.onError never sees it; this catch runs once per task, so the log is once per request
-      if (isCancelError(error) && abandonIfHeadersSent(context)) {
+      if (owned && abandonIfHeadersSent(context)) {
         console.error('[@cancjs/server-hono] response cut after its head was sent', error);
 
         return new Response(null, { headers: alreadySentHeaders(context), status: CLIENT_CLOSED_STATUS });
       }
 
-      // the documented discriminator, never a message check and never instanceof: a deadline
-      // still has a client to answer, a cancellation behind an unreachable response has none
-      if (isCancelError(error) && !error.timedOut && isResponseUnreachable(context)) {
+      // the documented discriminator, never a message check and never instanceof: a live response
+      // has a client to answer, a finished one has none, a deadline or not
+      if (isCancelError(error) && isResponseUnreachable(context)) {
         return new Response(null, { headers: alreadySentHeaders(context), status: CLIENT_CLOSED_STATUS });
       }
 
