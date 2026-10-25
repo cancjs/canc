@@ -930,6 +930,35 @@ describe('cancellation after the head was sent', () => {
     expect(response.complete).toBe(false);
   });
 
+  it('cuts the socket when a plain route passes a derived cancel after its head went out', async () => {
+    const app = express();
+
+    app.use(cancelMiddleware({ timeout: 25 }));
+    app.get('/export', (req, res, next) => {
+      res.write('[{"row":1},');
+      getRequestSignal(req, res).addEventListener('abort', () => next(new CancelError('derived')), { once: true });
+    });
+    app.use(cancelErrorHandler());
+    // a handler that ends whatever it is given: the only thing that could mark the body complete
+    app.use((_error: unknown, _req: Request, res: Response) => {
+      res.end();
+    });
+
+    const port = await listen(app);
+    const client = await rawRequest(port, 'GET /export HTTP/1.1\r\nHost: localhost\r\n\r\n');
+    const received: Buffer[] = [];
+    const closed = once(client, 'close');
+
+    client.on('data', (chunk: Buffer) => received.push(chunk));
+    await closed;
+
+    const wire = Buffer.concat(received).toString('utf8');
+
+    expect(client.destroyed).toBe(true);
+    expect(wire).toContain('[{"row":1},');
+    expect(wire).not.toContain('0\r\n\r\n');
+  });
+
   it('cuts a chunked body short when the server shuts down', async () => {
     const app = express();
     const started = deferred();
