@@ -1719,3 +1719,18 @@ describe('cancelErrorHandler status range', () => {
     expect(() => cancelErrorHandler({ status: 599 })).not.toThrow();
   });
 });
+
+describe('cancelErrorHandler cut log on a finished response', () => {
+  it('does not log a timed-out cut when the response already ended', () => {
+    const error = new CancelError('user timeout', { cause: new TimeoutError('user timeout') });
+    const log = { error: jest.fn() };
+    const reply = {
+      hijack: jest.fn(),
+      raw: { destroy: jest.fn(), destroyed: false, headersSent: true, writableEnded: true },
+    };
+
+    cancelErrorHandler().call({} as FastifyInstance, error, { log, raw: {} } as never, reply as never);
+
+    expect(log.error).not.toHaveBeenCalled();
+  });
+});

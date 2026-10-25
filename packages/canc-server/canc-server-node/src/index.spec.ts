@@ -1311,3 +1311,27 @@ describe('onError cancelErrorHandler with an option status', () => {
     expect(answer.headers['retry-after']).toBeUndefined();
   });
 });
+
+describe('onError cancelErrorHandler stamps an owned derived cancel', () => {
+  it('answers a derived cancel of an owned shutdown request with 503', async () => {
+    const started = deferred();
+    const port = await listen(
+      cancelableHandler(
+        function* () {
+          started.resolve();
+          try {
+            yield never();
+          } catch {
+            throw new CancelError('derived');
+          }
+        },
+        { onError: cancelErrorHandler() },
+      ),
+    );
+    const pending = httpExchange(port, { path: '/own' });
+    await started.promise;
+    await createShutdown(lastServer())({ cancelAfter: 100 });
+
+    expect((await pending).status).toBe(503);
+  });
+});

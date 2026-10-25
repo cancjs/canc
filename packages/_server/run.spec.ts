@@ -536,7 +536,6 @@ describe('lifecycle callbacks', () => {
     const outcome = outcomeOf(runCancelableHandler(() => pending(), req, res, { onDisconnect, onTimeout }));
     res.disconnect();
     await outcome;
-
     expect(onDisconnect).toHaveBeenCalledTimes(1);
     expect(onDisconnect.mock.calls[0][0].message).toBe(CLIENT_DISCONNECTED);
     expect(onTimeout).not.toHaveBeenCalled();
@@ -590,7 +589,6 @@ describe('lifecycle callbacks', () => {
     const outcome = outcomeOf(runCancelableHandler(() => pending(), req, res));
     res.disconnect();
     await outcome;
-
     expect(onDisconnect).toHaveBeenCalledTimes(1);
   });
 });
@@ -774,7 +772,6 @@ describe('cancel attribution', () => {
 
     jest.advanceTimersByTime(30);
     await outcome;
-
     const fresh = new CancelError('derived after the deadline');
     stampDerivedCancel(fresh, getRequestState(req)!);
 
@@ -789,7 +786,6 @@ describe('cancel attribution', () => {
 
     state.cancel(createShutdownError('closing', { status: 504, headers }));
     await outcome;
-
     const fresh = new CancelError('derived after the shutdown');
     stampDerivedCancel(fresh, state);
 
@@ -812,6 +808,29 @@ describe('cancel attribution', () => {
     expect(ownedStatusOf(error, state, 418)).toBeUndefined();
     expect(error.status).toBe(499);
     expect(error.expose).toBeUndefined();
+  });
+
+  it('stamps an owned derived cancel and answers with the stamped status', async () => {
+    const { req, res } = createExchange();
+    const outcome = outcomeOf(
+      runCancelableHandler(
+        () =>
+          pending().catch(() => {
+            throw new CancelError('derived');
+          }),
+        req,
+        res,
+        { timeout: { ms: 30, status: 504 } },
+      ),
+    );
+
+    jest.advanceTimersByTime(30);
+
+    await outcome;
+    const direct = new CancelError('derived') as CancelError & { status?: number };
+
+    expect(ownedStatusOf(direct, getRequestState(req)!, 418)).toBe(504);
+    expect(direct.status).toBe(504);
   });
 
   it('leaves a deadline instance that rejects another live request unattributed', async () => {
@@ -885,7 +904,6 @@ describe('late failure of a signal-only handler', () => {
 
     jest.advanceTimersByTime(50);
     await outcome;
-
     fail(new CancelError('late cancel'));
     await settleMicrotasks();
 
@@ -926,7 +944,6 @@ describe('late failure of a signal-only handler', () => {
 
     jest.advanceTimersByTime(50);
     await outcome;
-
     fail(new Error('late'));
     await settleMicrotasks();
 
