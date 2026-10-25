@@ -1,17 +1,21 @@
-import { once } from 'node:events';
-import http from 'node:http';
+import { getEventListeners, once } from 'node:events';
+import http, { IncomingHttpHeaders } from 'node:http';
 import { AddressInfo, connect, Socket } from 'node:net';
+import { Readable } from 'node:stream';
+import { runInThisContext } from 'node:vm';
 
-import { CancelError, isCancelError, isCancelSignal } from '@cancjs/promise';
-import Fastify, { FastifyInstance } from 'fastify';
+import { CancelablePromise, CancelError, isCancelError, isCancelSignal, TimeoutError } from '@cancjs/promise';
+import Fastify, { FastifyInstance, preHandlerAsyncHookHandler } from 'fastify';
 
+import { expectAbortAt, useDeadlineClock } from '../../../_server/__tests__/deadline-clock';
+import { describeShutdownSockets } from '../../../_server/__tests__/shutdown-sockets';
 import {
   cancelableHandler,
   cancelErrorHandler,
   cancelPlugin,
+  createShutdown,
   getRequestSignal,
   SERVER_SHUTDOWN,
-  shutdown,
 } from './index';
 
 interface IDeferred<T> {
@@ -22,6 +26,10 @@ interface IDeferred<T> {
 interface IClientResponse {
   body: string;
   statusCode: number | undefined;
+}
+
+interface IClientExchange extends IClientResponse {
+  headers: IncomingHttpHeaders;
 }
 
 function deferred<T = void>(): IDeferred<T> {
@@ -55,6 +63,10 @@ async function listen(instance: FastifyInstance): Promise<number> {
 }
 
 function send(port: number, path: string, method = 'GET', body?: string): Promise<IClientResponse> {
+  return sendExchange(port, path, method, body).then(({ body: text, statusCode }) => ({ body: text, statusCode }));
+}
+
+function sendExchange(port: number, path: string, method = 'GET', body?: string): Promise<IClientExchange> {
   return new Promise((resolve, reject) => {
     const request = http.request(
       {
@@ -68,7 +80,13 @@ function send(port: number, path: string, method = 'GET', body?: string): Promis
         const chunks: Buffer[] = [];
 
         response.on('data', (chunk: Buffer) => chunks.push(chunk));
-        response.on('end', () => resolve({ body: Buffer.concat(chunks).toString(), statusCode: response.statusCode }));
+        response.on('end', () =>
+          resolve({
+            body: Buffer.concat(chunks).toString(),
+            headers: response.headers,
+            statusCode: response.statusCode,
+          }),
+        );
       },
     );
 
@@ -257,6 +275,43 @@ describe('deadline', () => {
     expect(JSON.parse(response.body)).toMatchObject({ message: 'route took too long' });
     expect(reported?.timedOut).toBe(true);
   });
+
+  it('cuts the connection instead of completing a body whose head already went out', async () => {
+    const instance = Fastify();
+    await instance.register(cancelPlugin, { timeout: 60_000 });
+    instance.get(
+      '/raw',
+      cancelableHandler(
+        function* (_request, reply) {
+          reply.raw.writeHead(200, { 'content-type': 'text/plain' });
+          reply.raw.write('part1,');
+          yield new Promise(() => undefined);
+
+          return { ok: true };
+        },
+        { timeout: { ms: 20, status: 504 } },
+      ),
+    );
+
+    const port = await listen(instance);
+    const outcome = await new Promise<{ body: string; complete: boolean }>((resolve) => {
+      const outgoing = http.get({ host: '127.0.0.1', path: '/raw', port }, (response) => {
+        let body = '';
+
+        response.setEncoding('utf8');
+        response.on('data', (chunk: string) => {
+          body += chunk;
+        });
+        response.on('end', () => resolve({ body, complete: response.complete }));
+        response.on('error', () => resolve({ body, complete: false }));
+      });
+
+      outgoing.on('error', () => resolve({ body: '', complete: false }));
+    });
+
+    expect(outcome.complete).toBe(false);
+    expect(outcome.body).not.toContain('Cannot write headers');
+  });
 });
 
 describe('plugin options', () => {
@@ -287,6 +342,190 @@ describe('plugin options', () => {
 
     expect((await send(port, '/inherited')).statusCode).toBe(504);
     expect((await send(port, '/overridden')).statusCode).toBe(507);
+  });
+});
+
+describe('request deadline timing', () => {
+  useDeadlineClock();
+
+  it('fires at the configured time on a plain route', async () => {
+    const timeouts: CancelError[] = [];
+    const reached = deferred();
+    let signal!: AbortSignal;
+
+    const instance = Fastify();
+    await instance.register(cancelPlugin, { onTimeout: (reason) => timeouts.push(reason), timeout: 50 });
+    instance.get('/plain', async (request, reply) => {
+      signal = getRequestSignal(request, reply);
+      reached.resolve();
+      await new Promise<void>((resolve) => signal.addEventListener('abort', () => resolve(), { once: true }));
+      void reply.code(504);
+
+      return 'aborted';
+    });
+
+    const port = await listen(instance);
+    const response = send(port, '/plain');
+    await reached.promise;
+
+    expectAbortAt(signal, 50);
+    expect((await response).statusCode).toBe(504);
+    expect(timeouts).toHaveLength(1);
+  });
+
+  it('counts the time spent in a hook ahead of a wrapped handler', async () => {
+    const upstream = deferred();
+    const release = deferred();
+    const reached = deferred();
+    let signal!: AbortSignal;
+
+    const instance = Fastify();
+    await instance.register(cancelPlugin, { timeout: 100 });
+    instance.get(
+      '/slow',
+      {
+        preHandler: async () => {
+          upstream.resolve();
+          await release.promise;
+        },
+      },
+      cancelableHandler(function* (request, reply) {
+        signal = getRequestSignal(request, reply);
+        reached.resolve();
+        yield new Promise(() => undefined);
+
+        return { ok: true };
+      }),
+    );
+
+    const port = await listen(instance);
+    const response = send(port, '/slow');
+    await upstream.promise;
+
+    jest.advanceTimersByTime(60);
+    release.resolve();
+    await reached.promise;
+
+    expectAbortAt(signal, 40);
+    expect((await response).statusCode).toBe(503);
+  });
+
+  it('restarts from a route timeout behind a wrapped hook', async () => {
+    const reached = deferred();
+    let signal!: AbortSignal;
+
+    const instance = Fastify();
+    await instance.register(cancelPlugin, { timeout: 50 });
+    instance.get(
+      '/slow',
+      { preHandler: passThrough() },
+      cancelableHandler(
+        function* (request, reply) {
+          signal = getRequestSignal(request, reply);
+          reached.resolve();
+          yield new Promise(() => undefined);
+
+          return { ok: true };
+        },
+        { timeout: 200 },
+      ),
+    );
+
+    const port = await listen(instance);
+    const response = send(port, '/slow');
+    await reached.promise;
+
+    // past the plugin deadline, which the route timeout replaced
+    jest.advanceTimersByTime(100);
+    expectAbortAt(signal, 100);
+    expect((await response).statusCode).toBe(503);
+  });
+});
+
+describe('request deadline', () => {
+  it('stops once the handler returned, while its body still streams', async () => {
+    const timeouts: CancelError[] = [];
+    let abortedAtEnd: boolean | undefined;
+
+    const instance = Fastify();
+    instance.get(
+      '/stream',
+      cancelableHandler(
+        function* (request, reply) {
+          const signal = getRequestSignal(request, reply);
+
+          return slowBody(() => {
+            abortedAtEnd = signal.aborted;
+          });
+        },
+        { onTimeout: (reason) => timeouts.push(reason), timeout: 50 },
+      ),
+    );
+
+    const port = await listen(instance);
+    const response = await send(port, '/stream');
+
+    expect(response).toEqual({ body: STREAMED_BODY, statusCode: 200 });
+    expect(abortedAtEnd).toBe(false);
+    expect(timeouts).toEqual([]);
+  });
+
+  it('reports a deadline once however many wrapped layers the request passed', async () => {
+    const timeouts: CancelError[] = [];
+
+    const instance = Fastify();
+    await instance.register(cancelPlugin, { onTimeout: (reason) => timeouts.push(reason), timeout: 50 });
+    instance.get(
+      '/slow',
+      { preHandler: [passThrough(), passThrough()] },
+      cancelableHandler(function* () {
+        yield new Promise(() => undefined);
+
+        return { ok: true };
+      }),
+    );
+
+    const port = await listen(instance);
+
+    expect((await send(port, '/slow')).statusCode).toBe(503);
+    await tick(5);
+    expect(timeouts).toHaveLength(1);
+  });
+
+  it('keeps the close listeners on the response bounded across twelve wrapped layers', async () => {
+    const warnings = recordWarnings();
+    let closeListeners = -1;
+    let abortListeners = -1;
+
+    const instance = Fastify();
+    // read at finish: every layer has registered whatever it registers by then, none removed yet
+    instance.addHook('onRequest', (_request, reply, done) => {
+      // counts only what the wrapped chain adds: Node's own close listeners vary by version
+      const before = reply.raw.listenerCount('close');
+      reply.raw.on('finish', () => {
+        closeListeners = reply.raw.listenerCount('close') - before;
+      });
+      done();
+    });
+    instance.get(
+      '/deep',
+      { preHandler: Array.from({ length: 11 }, () => passThrough()) },
+      cancelableHandler(function* (request, reply) {
+        abortListeners = getEventListeners(getRequestSignal(request, reply), 'abort').length;
+
+        return 'ok';
+      }),
+    );
+
+    const port = await listen(instance);
+
+    expect((await send(port, '/deep')).body).toBe('ok');
+    await tick(5);
+    // the disconnect wiring, plus the request registry of a server met for the first time
+    expect(closeListeners).toBe(2);
+    // read inside the route, the one in-flight forwarder however many layers
+    expect(abortListeners).toBe(1);
+    expect(warnings.stop()).toEqual([]);
   });
 });
 
@@ -327,19 +566,116 @@ describe('error handler', () => {
     const instance = Fastify();
     await instance.register(cancelPlugin);
     instance.setErrorHandler(cancelErrorHandler());
+    const routeAbort = new AbortController();
     instance.get(
       '/give-up',
+      cancelableHandler(
+        function* () {
+          yield new Promise<void>(() => undefined);
+        },
+        { signal: routeAbort.signal },
+      ),
+    );
+
+    const port = await listen(instance);
+    const pending = send(port, '/give-up');
+
+    setTimeout(() => routeAbort.abort(), 20);
+
+    const response = await pending;
+
+    expect(response.statusCode).toBe(503);
+  });
+
+  it('leaves a user cancellation to fastify, so its own status goes out and not the option', async () => {
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.setErrorHandler(cancelErrorHandler({ status: 502 }));
+    instance.get(
+      '/user',
       cancelableHandler(function* () {
         yield Promise.resolve();
 
-        throw new CancelError('gave up');
+        throw Object.assign(new CancelError('user stop'), { status: 499 });
       }),
     );
 
     const port = await listen(instance);
-    const response = await send(port, '/give-up');
+    const response = await send(port, '/user');
 
-    expect(response.statusCode).toBe(503);
+    expect(response.statusCode).toBe(499);
+  });
+
+  it('answers a shutdown cancellation with the configured status', async () => {
+    const started = deferred();
+
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.setErrorHandler(cancelErrorHandler({ status: 499 }));
+    instance.get(
+      '/hang',
+      cancelableHandler(function* () {
+        started.resolve();
+        yield new Promise(() => undefined);
+
+        return { ok: true };
+      }),
+    );
+
+    const port = await listen(instance);
+    const pending = send(port, '/hang');
+    await started.promise;
+    await createShutdown(instance)({ cancelAfter: 200 });
+
+    expect((await pending).statusCode).toBe(499);
+  });
+
+  it('still reads the deprecated canceledStatus key', async () => {
+    const started = deferred();
+
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.setErrorHandler(cancelErrorHandler({ canceledStatus: 498 }));
+    instance.get(
+      '/hang',
+      cancelableHandler(function* () {
+        started.resolve();
+        yield new Promise(() => undefined);
+
+        return { ok: true };
+      }),
+    );
+
+    const port = await listen(instance);
+    const pending = send(port, '/hang');
+    await started.promise;
+    await createShutdown(instance)({ cancelAfter: 200 });
+
+    expect((await pending).statusCode).toBe(498);
+  });
+
+  it('prefers status over the deprecated canceledStatus key', async () => {
+    const started = deferred();
+
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.setErrorHandler(cancelErrorHandler({ status: 499, canceledStatus: 498 }));
+    instance.get(
+      '/hang',
+      cancelableHandler(function* () {
+        started.resolve();
+        yield new Promise(() => undefined);
+
+        return { ok: true };
+      }),
+    );
+
+    const port = await listen(instance);
+    const pending = send(port, '/hang');
+    await started.promise;
+    await createShutdown(instance)({ cancelAfter: 200 });
+
+    expect((await pending).statusCode).toBe(499);
   });
 
   it('drops a cancellation that surfaces after the client left', async () => {
@@ -376,6 +712,99 @@ describe('error handler', () => {
 
     expect(headersSent).toBe(false);
     expect(instance.server.listening).toBe(true);
+  });
+
+  it('cuts the connection when a cancellation reaches it after the head went out', async () => {
+    const started = deferred();
+
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.setErrorHandler(cancelErrorHandler());
+    // a plain route, so the plugin handler is the only thing between the rejection and the client
+    instance.get('/part', async (request, reply) => {
+      const signal = getRequestSignal(request, reply);
+
+      reply.raw.writeHead(200, { 'content-type': 'text/plain' });
+      reply.raw.write('part1,');
+      started.resolve();
+      await new Promise((_resolve, reject) => {
+        signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+      });
+    });
+
+    const port = await listen(instance);
+    const outcome = new Promise<{ body: string; complete: boolean }>((resolve) => {
+      const outgoing = http.get({ host: '127.0.0.1', path: '/part', port }, (response) => {
+        let body = '';
+
+        response.setEncoding('utf8');
+        response.on('data', (chunk: string) => {
+          body += chunk;
+        });
+        response.on('end', () => resolve({ body, complete: response.complete }));
+        response.on('error', () => resolve({ body, complete: false }));
+        response.on('close', () => resolve({ body, complete: response.complete }));
+      });
+
+      outgoing.on('error', () => resolve({ body: '', complete: false }));
+    });
+
+    await started.promise;
+    const result = await createShutdown(instance)({ cancelAfter: 50 });
+
+    app = undefined;
+
+    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
+    expect(await outcome).toEqual({ body: 'part1,', complete: false });
+  });
+
+  it('logs the cut once at error level when the head already went out', async () => {
+    const started = deferred();
+    const logged: string[] = [];
+
+    const instance = Fastify({
+      logger: {
+        level: 'error',
+        stream: {
+          write(line: string): void {
+            logged.push(line);
+          },
+        },
+      },
+    });
+    await instance.register(cancelPlugin);
+    instance.setErrorHandler(cancelErrorHandler());
+    instance.get('/part', async (request, reply) => {
+      const signal = getRequestSignal(request, reply);
+
+      reply.raw.writeHead(200, { 'content-type': 'text/plain' });
+      reply.raw.write('part1,');
+      started.resolve();
+      await new Promise((_resolve, reject) => {
+        signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+      });
+    });
+
+    const port = await listen(instance);
+    const outcome = new Promise<void>((resolve) => {
+      const outgoing = http.get({ host: '127.0.0.1', path: '/part', port }, (response) => {
+        response.resume();
+        response.on('end', () => resolve());
+        response.on('error', () => resolve());
+        response.on('close', () => resolve());
+      });
+
+      outgoing.on('error', () => resolve());
+    });
+
+    await started.promise;
+    await createShutdown(instance)({ cancelAfter: 50 });
+    await outcome;
+    await tick();
+
+    app = undefined;
+
+    expect(logged.filter((line) => line.includes('"level":50'))).toHaveLength(1);
   });
 
   it('passes an ordinary failure through', async () => {
@@ -436,8 +865,374 @@ describe('cancellation after the response ended', () => {
   });
 });
 
+describe('handler kinds', () => {
+  it('answers 500 through the error handler for an async generator handler', async () => {
+    const errors: unknown[] = [];
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.setErrorHandler((error, _request, reply) => {
+      errors.push(error);
+      void reply.code(500).send();
+    });
+    instance.get('/', cancelableHandler(asyncGeneratorHandler as never));
+
+    const port = await listen(instance);
+    const response = await send(port, '/');
+
+    expect(response.statusCode).toBe(500);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toBeInstanceOf(TypeError);
+  });
+
+  it('skips a handler whose caller signal was already aborted', async () => {
+    const handler = jest.fn();
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.setErrorHandler(cancelErrorHandler());
+    instance.get('/', cancelableHandler(handler, { signal: AbortSignal.abort() }));
+
+    const port = await listen(instance);
+    const response = await send(port, '/');
+
+    expect(response.statusCode).toBe(503);
+    expect(handler).not.toHaveBeenCalled();
+  });
+});
+
+describe('shutdown cancel status', () => {
+  /** Reads the status line off the first bytes a raw connection gets back. */
+  async function firstStatus(client: Socket): Promise<number> {
+    const [chunk] = await once(client, 'data');
+
+    return Number(/^HTTP\/1\.1 (\d{3})/.exec(String(chunk))?.[1]);
+  }
+
+  it('answers 503 for a shutdown cancel that reaches fastify default error handling', async () => {
+    const started = deferred();
+
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.get(
+      '/hang',
+      cancelableHandler(function* () {
+        started.resolve();
+        yield new Promise(() => undefined);
+
+        return { ok: true };
+      }),
+    );
+
+    const port = await listen(instance);
+    const pending = send(port, '/hang');
+    await started.promise;
+    await createShutdown(instance)({ cancelAfter: 200 });
+
+    expect((await pending).statusCode).toBe(503);
+  });
+
+  it('takes the handler status over the stamped 503 for a shutdown cancel', async () => {
+    const started = deferred();
+
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.setErrorHandler(cancelErrorHandler({ status: 502 }));
+    instance.get(
+      '/hang',
+      cancelableHandler(function* () {
+        started.resolve();
+        yield new Promise(() => undefined);
+
+        return { ok: true };
+      }),
+    );
+
+    const port = await listen(instance);
+    const pending = send(port, '/hang');
+    await started.promise;
+    await createShutdown(instance)({ cancelAfter: 200 });
+
+    expect((await pending).statusCode).toBe(502);
+  });
+
+  it('answers the shutdown status and headers without a handler error handler', async () => {
+    const started = deferred();
+
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.get(
+      '/hang',
+      cancelableHandler(function* () {
+        started.resolve();
+        yield new Promise(() => undefined);
+
+        return { ok: true };
+      }),
+    );
+
+    const port = await listen(instance);
+    const pending = sendExchange(port, '/hang');
+    await started.promise;
+    await createShutdown(instance)({ cancelAfter: 200, headers: { 'Retry-After': '5' }, status: 504 });
+
+    const answer = await pending;
+
+    expect(answer.statusCode).toBe(504);
+    expect(answer.headers['retry-after']).toBe('5');
+  });
+
+  it('keeps an explicit shutdown status over the handler status', async () => {
+    const started = deferred();
+
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.setErrorHandler(cancelErrorHandler({ status: 502 }));
+    instance.get(
+      '/hang',
+      cancelableHandler(function* () {
+        started.resolve();
+        yield new Promise(() => undefined);
+
+        return { ok: true };
+      }),
+    );
+
+    const port = await listen(instance);
+    const pending = send(port, '/hang');
+    await started.promise;
+    await createShutdown(instance)({ cancelAfter: 200, status: 504 });
+
+    expect((await pending).statusCode).toBe(504);
+  });
+
+  it('takes the handler status for a route-signal cancel on a live request', async () => {
+    const started = deferred();
+    const routeAbort = new AbortController();
+
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.setErrorHandler(cancelErrorHandler({ status: 502 }));
+    instance.get(
+      '/route',
+      cancelableHandler(
+        function* () {
+          started.resolve();
+          yield new Promise(() => undefined);
+
+          return { ok: true };
+        },
+        { signal: routeAbort.signal },
+      ),
+    );
+
+    const port = await listen(instance);
+    const pending = send(port, '/route');
+    await started.promise;
+    routeAbort.abort();
+
+    expect((await pending).statusCode).toBe(502);
+  });
+
+  it('leaves a user timeout that carries no status to fastify', async () => {
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.setErrorHandler(cancelErrorHandler({ status: 502 }));
+    instance.get(
+      '/user-timeout',
+      cancelableHandler(function* () {
+        throw new CancelError('user timeout', { cause: new TimeoutError('user timeout') });
+      }),
+    );
+
+    const port = await listen(instance);
+
+    expect((await send(port, '/user-timeout')).statusCode).toBe(500);
+  });
+
+  it('keeps a deadline status over the handler status', async () => {
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.setErrorHandler(cancelErrorHandler({ status: 502 }));
+    instance.get(
+      '/slow',
+      cancelableHandler(
+        function* () {
+          yield new Promise(() => undefined);
+
+          return { ok: true };
+        },
+        { timeout: { ms: 20, status: 504 } },
+      ),
+    );
+
+    const port = await listen(instance);
+
+    expect((await send(port, '/slow')).statusCode).toBe(504);
+  });
+
+  it('gives each in-flight request its own shutdown cancellation', async () => {
+    const errors: unknown[] = [];
+    const handle = cancelErrorHandler();
+    let entered = 0;
+    const bothStarted = deferred();
+
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.setErrorHandler(function (this: FastifyInstance, error, request, reply) {
+      errors.push(error);
+      handle.call(this, error, request, reply);
+    });
+    instance.get(
+      '/hang',
+      cancelableHandler(function* () {
+        entered += 1;
+        if (entered === 2) {
+          bothStarted.resolve();
+        }
+        yield new Promise(() => undefined);
+
+        return { ok: true };
+      }),
+    );
+
+    const port = await listen(instance);
+    const pending = [send(port, '/hang'), send(port, '/hang')];
+
+    await bothStarted.promise;
+    await createShutdown(instance)({ cancelAfter: 200 });
+    await Promise.all(pending);
+
+    expect(errors).toHaveLength(2);
+    expect(errors[0]).not.toBe(errors[1]);
+  });
+
+  it('answers 503 for a request that arrives during a cancel-on-start drain', async () => {
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.get(
+      '/late',
+      cancelableHandler(function* () {
+        yield new Promise(() => undefined);
+
+        return { ok: true };
+      }),
+    );
+
+    const port = await listen(instance);
+    // a connection opened before the drain starts is the only way to deliver a request while it runs
+    const accepted = once(instance.server, 'connection');
+    const client = connect(port, '127.0.0.1');
+    sockets.push(client);
+    client.on('error', () => {});
+    await accepted;
+
+    const shutdown = createShutdown(instance)({ cancelAfter: 0, closeAfter: 500 });
+    client.write('GET /late HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n');
+
+    expect(await firstStatus(client)).toBe(503);
+    await shutdown;
+  });
+
+  it('lets a signal-only route answer 503 after the cancel, and counts it canceled', async () => {
+    const reached = deferred();
+    const events: string[] = [];
+
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.get('/signal', (request, reply) => {
+      getRequestSignal(request, reply).addEventListener('abort', () => {
+        setTimeout(() => {
+          events.push('answered');
+          reply.code(503).send();
+        }, 30);
+      });
+      reached.resolve();
+    });
+
+    const port = await listen(instance);
+    const pending = send(port, '/signal');
+    await reached.promise;
+
+    const shutdown = createShutdown(instance)({ cancelAfter: 50, closeAfter: 2_000 }).then((result) => {
+      events.push('resolved');
+      return result;
+    });
+
+    expect((await pending).statusCode).toBe(503);
+    expect(await shutdown).toEqual({ canceled: 1, completed: 0, timedOut: false });
+    expect(events).toEqual(['answered', 'resolved']);
+  });
+
+  it('holds the window for a cleanup that awaits, then answers 503 and counts it canceled', async () => {
+    const started = deferred();
+    const events: string[] = [];
+
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.get(
+      '/cleanup',
+      cancelableHandler(function* () {
+        started.resolve();
+        try {
+          yield new CancelablePromise<void>(() => undefined);
+
+          return { ok: true };
+        } finally {
+          yield new CancelablePromise<void>((resolve) => setTimeout(resolve, 50));
+          events.push('cleaned');
+        }
+      }),
+    );
+
+    const port = await listen(instance);
+    const pending = send(port, '/cleanup');
+    await started.promise;
+
+    const shutdown = createShutdown(instance)({ cancelAfter: 50, closeAfter: 2_000 }).then((result) => {
+      events.push('resolved');
+      return result;
+    });
+
+    expect((await pending).statusCode).toBe(503);
+    expect(await shutdown).toEqual({ canceled: 1, completed: 0, timedOut: false });
+    expect(events).toEqual(['cleaned', 'resolved']);
+  });
+});
+
 describe('shutdown', () => {
-  it('cancels a hung handler instead of waiting for it', async () => {
+  it('leaves a plain route error that lands during a shutdown uncounted as canceled', async () => {
+    const started = deferred();
+
+    const instance = Fastify();
+    // ahead of the plugin hook, so the request has no cancel state until the error path reads it
+    instance.addHook('onRequest', () => {
+      started.resolve();
+
+      return new Promise((_resolve, reject) => {
+        setTimeout(() => reject(new Error('boom')), 30);
+      });
+    });
+    await instance.register(cancelPlugin);
+    const handle = cancelErrorHandler();
+    // answers after the shutdown cancel, so the error path reads state the cancel did not reach
+    instance.setErrorHandler(function (this: FastifyInstance, error, request, reply) {
+      setTimeout(() => handle.call(this, error, request, reply), 150);
+    });
+    instance.get('/plain', () => ({ ok: true }));
+
+    const port = await listen(instance);
+    const shutdown = createShutdown(instance);
+    const pending = send(port, '/plain');
+    await started.promise;
+
+    const result = await shutdown({ cancelAfter: 60 });
+
+    app = undefined;
+
+    expect(result).toEqual({ canceled: 0, completed: 1, timedOut: false });
+    expect((await pending).statusCode).toBe(500);
+  });
+
+  it('cancels a hung handler when the grace window ends', async () => {
     const started = deferred();
 
     const instance = Fastify();
@@ -454,15 +1249,15 @@ describe('shutdown', () => {
     );
 
     const port = await listen(instance);
-    // the shutdown kills the connection on its way out, so this one is never read back
-    send(port, '/hang').catch(() => undefined);
+    const pending = send(port, '/hang');
     await started.promise;
 
-    const result = await shutdown(instance, { timeout: 5000 });
+    const result = await createShutdown(instance)({ cancelAfter: 200 });
 
     app = undefined;
 
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
+    expect((await pending).statusCode).toBe(503);
     expect(instance.server.listening).toBe(false);
   });
 
@@ -488,12 +1283,48 @@ describe('shutdown', () => {
     const request = open(port, '/shielded');
 
     await started.promise;
-    const result = await shutdown(instance, { timeout: 100 });
+    const result = await createShutdown(instance)({ cancelAfter: 100 });
 
     app = undefined;
     request.destroy();
 
-    expect(result).toEqual({ canceled: 0, completed: 0, timedOut: true });
+    expect(result).toEqual({ canceled: 1, completed: 0, timedOut: true });
+  });
+
+  it('tells a request held before the plugin hook to close its connection', async () => {
+    const started = deferred();
+    const gate = deferred();
+
+    const instance = Fastify();
+    // answers ahead of the plugin's own hook, so the request never gains cancel state and only the
+    // instance's own record of it can make the shutdown aware of it
+    instance.addHook('onRequest', async (_request, reply) => {
+      started.resolve();
+      await gate.promise;
+
+      return reply.send({ ok: true });
+    });
+    await instance.register(cancelPlugin);
+    instance.get('/plain', () => ({ ok: true }));
+
+    const port = await listen(instance);
+    const answer = new Promise<http.IncomingHttpHeaders>((resolve, reject) => {
+      http
+        .get({ host: '127.0.0.1', path: '/plain', port }, (response) => {
+          response.resume();
+          response.on('end', () => resolve(response.headers));
+        })
+        .on('error', reject);
+    });
+
+    await started.promise;
+    const closing = createShutdown(instance)({ cancelAfter: 1000 });
+
+    app = undefined;
+    gate.resolve();
+
+    expect((await answer).connection).toBe('close');
+    expect(await closing).toEqual({ canceled: 0, completed: 1, timedOut: false });
   });
 
   it('returns the same result to a second call', async () => {
@@ -507,11 +1338,11 @@ describe('shutdown', () => {
     );
 
     await listen(instance);
-    const first = shutdown(instance, { timeout: 100 });
+    const first = createShutdown(instance)({ cancelAfter: 100 });
 
     app = undefined;
 
-    expect(shutdown(instance)).toBe(first);
+    expect(createShutdown(instance)()).toBe(first);
     expect(await first).toEqual({ canceled: 0, completed: 0, timedOut: false });
   });
 
@@ -519,32 +1350,557 @@ describe('shutdown', () => {
     const instance = Fastify();
     await listen(instance);
 
-    const first = shutdown(instance, { closeServer: false });
+    const closeSpy = jest.spyOn(instance, 'close');
+
+    const first = createShutdown(instance)({ closeServer: false });
     await first;
 
-    const second = shutdown(instance);
+    expect(closeSpy).not.toHaveBeenCalled();
+    expect(instance.server.listening).toBe(true);
+
+    const second = createShutdown(instance)();
     expect(second).not.toBe(first);
     await second;
     app = undefined;
     expect(instance.server.listening).toBe(false);
   });
 
-  it('attempts close again if the first attempt rejected', async () => {
+  it('resolves with the outcome when an onClose hook throws', async () => {
+    const logged: string[] = [];
+    const instance = Fastify({
+      logger: {
+        level: 'error',
+        stream: {
+          write(line: string): void {
+            logged.push(line);
+          },
+        },
+      },
+    });
+    instance.addHook('onClose', async () => {
+      throw new Error('pool close failed');
+    });
+    await listen(instance);
+
+    await expect(createShutdown(instance)()).resolves.toEqual({ canceled: 0, completed: 0, timedOut: false });
+    expect(logged.filter((line) => line.includes('closing the instance failed'))).toHaveLength(1);
+    expect(logged.filter((line) => line.includes('"level":50'))).toHaveLength(1);
+
+    app = undefined;
+    expect(instance.server.listening).toBe(false);
+  });
+
+  it('attempts close again if the first attempt failed', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
     const instance = Fastify();
     await listen(instance);
 
     const originalClose = instance.close.bind(instance);
     instance.close = jest.fn().mockRejectedValueOnce(new Error('close failed')).mockImplementation(originalClose);
 
-    const first = shutdown(instance);
-    await expect(first).rejects.toThrow('close failed');
+    try {
+      const first = createShutdown(instance)();
+      await first;
 
-    const second = shutdown(instance);
-    expect(second).not.toBe(first);
-    await second;
+      const second = createShutdown(instance)();
+      expect(second).not.toBe(first);
+      await second;
+    } finally {
+      errorSpy.mockRestore();
+    }
 
     app = undefined;
     expect(instance.close).toHaveBeenCalledTimes(2);
     expect(instance.server.listening).toBe(false);
+  });
+});
+
+const STREAMED_CHUNKS = 6;
+const STREAMED_BODY = 'chunk\n'.repeat(STREAMED_CHUNKS);
+
+/** A body fastify streams over roughly 300ms after the handler returned, well past a 50ms deadline. */
+function slowBody(onEnd: () => void): Readable {
+  let written = 0;
+  let timer: ReturnType<typeof setInterval> | undefined;
+
+  return new Readable({
+    destroy(error, callback) {
+      clearInterval(timer);
+      callback(error);
+    },
+    read() {
+      if (timer) {
+        return;
+      }
+
+      timer = setInterval(() => {
+        written += 1;
+        this.push('chunk\n');
+
+        if (written === STREAMED_CHUNKS) {
+          clearInterval(timer);
+          onEnd();
+          this.push(null);
+        }
+      }, 50);
+    },
+  });
+}
+
+/** A wrapped hook that hands the request straight on, the shape of an auth or tenant check. */
+function passThrough(): preHandlerAsyncHookHandler {
+  return cancelableHandler(function* () {
+    /**/
+  }) as unknown as preHandlerAsyncHookHandler;
+}
+
+/**
+ * Collects process warnings until stopped. Listens on the host process: the one jest hands a test
+ * file is a copy, and node emits its warnings on the original.
+ */
+function recordWarnings(): { stop: () => string[] } {
+  const host = runInThisContext('process') as NodeJS.Process;
+  const seen: string[] = [];
+  const listener = (warning: Error) => seen.push(`${warning.name}: ${warning.message}`);
+
+  host.on('warning', listener);
+
+  return {
+    stop: () => {
+      host.off('warning', listener);
+
+      return seen;
+    },
+  };
+}
+
+/** An async generator handler, which the types reject and the runtime must refuse too. */
+async function* asyncGeneratorHandler(): AsyncGenerator<number> {
+  yield 1;
+}
+
+describe('createShutdown argument', () => {
+  it('names the argument when given something other than a fastify instance', () => {
+    const bad = () => createShutdown(undefined as unknown as FastifyInstance);
+
+    expect(bad).toThrow(TypeError);
+    expect(bad).toThrow('createShutdown() needs the fastify instance as its first argument, got undefined.');
+  });
+});
+
+describeShutdownSockets(createShutdown, async (arrived, release) => {
+  const plain = Fastify();
+  plain.get('/fast', async () => 'ok');
+  plain.get('/slow', async () => {
+    arrived();
+    await release;
+
+    return 'ok';
+  });
+  await plain.listen({ host: '127.0.0.1', port: 0 });
+
+  return { server: plain.server, target: plain };
+});
+
+describe('optional error handler', () => {
+  it('answers a wrapped deadline with the stamped 503 to a user error handler, with no warning', async () => {
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    const seen: unknown[] = [];
+    instance.setErrorHandler((error, _request, reply) => {
+      seen.push((error as { statusCode?: number }).statusCode);
+      void reply.status((error as { statusCode?: number }).statusCode ?? 500).send('user');
+    });
+    instance.get(
+      '/slow',
+      cancelableHandler(
+        function* () {
+          yield new Promise((resolve) => setTimeout(resolve, 1000));
+        },
+        { timeout: 40 },
+      ),
+    );
+
+    const warnings = recordWarnings();
+    const port = await listen(instance);
+    const response = await send(port, '/slow');
+    const found = warnings.stop();
+
+    expect(response).toEqual({ body: 'user', statusCode: 503 });
+    expect(seen).toEqual([503]);
+    expect(found.filter((line) => line.includes('FSTWRN004'))).toEqual([]);
+  });
+
+  it('answers a route-signal cancel with the stamped 503 to a user error handler', async () => {
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    const seen: unknown[] = [];
+    instance.setErrorHandler((error, _request, reply) => {
+      seen.push((error as { statusCode?: number }).statusCode);
+      void reply.status((error as { statusCode?: number }).statusCode ?? 500).send('user');
+    });
+    const route = new AbortController();
+    instance.get(
+      '/route',
+      cancelableHandler(
+        function* () {
+          yield new Promise((resolve) => setTimeout(resolve, 1000));
+        },
+        { signal: route.signal },
+      ),
+    );
+
+    const port = await listen(instance);
+    const pending = send(port, '/route');
+    setTimeout(() => route.abort(), 30);
+    const response = await pending;
+
+    expect(response).toEqual({ body: 'user', statusCode: 503 });
+    expect(seen).toEqual([503]);
+  });
+
+  it('hands a non-cancellation error to onError once, in place of fastify reply.send', async () => {
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    const seen: unknown[] = [];
+    instance.setErrorHandler(
+      cancelErrorHandler({
+        onError: (error, _request, reply) => {
+          seen.push(error);
+          void reply.status(429).send('slow down');
+        },
+      }),
+    );
+    instance.get(
+      '/limited',
+      cancelableHandler(function* () {
+        yield Promise.resolve();
+
+        throw Object.assign(new Error('limited'), { statusCode: 429 });
+      }),
+    );
+
+    const warnings = recordWarnings();
+    const port = await listen(instance);
+    const response = await send(port, '/limited');
+    const found = warnings.stop();
+
+    expect(response).toEqual({ body: 'slow down', statusCode: 429 });
+    expect(seen).toHaveLength(1);
+    expect(found.filter((line) => line.includes('FSTWRN004'))).toEqual([]);
+  });
+
+  it('keeps a cancellation away from onError and answers its deadline status through fastify', async () => {
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    const seen: unknown[] = [];
+    instance.setErrorHandler(
+      cancelErrorHandler({
+        onError: (error, _request, reply) => {
+          seen.push(error);
+          void reply.status(500).send('user');
+        },
+      }),
+    );
+    instance.get(
+      '/slow',
+      cancelableHandler(
+        function* () {
+          yield new Promise(() => undefined);
+
+          return 'never';
+        },
+        { timeout: { message: 'route took too long', ms: 20, status: 504 } },
+      ),
+    );
+
+    const port = await listen(instance);
+    const response = await send(port, '/slow');
+
+    expect(response.statusCode).toBe(504);
+    expect(seen).toEqual([]);
+  });
+
+  it('logs a signal-only late failure once at error level', async () => {
+    const logged: string[] = [];
+    const instance = Fastify({
+      logger: {
+        level: 'error',
+        stream: {
+          write(line: string): void {
+            logged.push(line);
+          },
+        },
+      },
+    });
+    await instance.register(cancelPlugin);
+    instance.get(
+      '/late',
+      cancelableHandler(
+        async (request, reply) => {
+          const signal = getRequestSignal(request, reply);
+
+          await new Promise<void>((resolve) => {
+            signal.addEventListener('abort', () => resolve(), { once: true });
+          });
+
+          throw new Error('late boom');
+        },
+        { timeout: 30 },
+      ),
+    );
+
+    const port = await listen(instance);
+    const response = await send(port, '/late');
+    await tick();
+
+    expect(response.statusCode).toBe(503);
+    expect(logged.filter((line) => line.includes('"level":50') && line.includes('late boom'))).toHaveLength(1);
+  });
+
+  it('hands a head-sent cancel the request does not own to the error handler, with no cut and no log', async () => {
+    const logged: string[] = [];
+    const forwarded: unknown[] = [];
+    const instance = Fastify({
+      logger: {
+        level: 'error',
+        stream: {
+          write(line: string): void {
+            logged.push(line);
+          },
+        },
+      },
+    });
+    await instance.register(cancelPlugin);
+    instance.setErrorHandler((error, _request, reply) => {
+      forwarded.push(error);
+
+      // the handler finishes the body, so a silent cut shows as a short body
+      reply.hijack();
+      reply.raw.end('-end');
+    });
+    instance.get(
+      '/own',
+      cancelableHandler(function* (request, reply) {
+        reply.raw.writeHead(200, { 'content-type': 'text/plain' });
+        reply.raw.write('part1,');
+        // a cancel the user raised, on a request whose signal never fired
+        yield CancelablePromise.resolve().then(() => {
+          throw new CancelError('user cancel');
+        });
+
+        return 'never';
+      }),
+    );
+
+    const port = await listen(instance);
+    const outcome = await new Promise<{ body: string; complete: boolean }>((resolve) => {
+      const outgoing = http.get({ host: '127.0.0.1', path: '/own', port }, (response) => {
+        let body = '';
+
+        response.setEncoding('utf8');
+        response.on('data', (chunk: string) => {
+          body += chunk;
+        });
+        response.on('end', () => resolve({ body, complete: response.complete }));
+        response.on('error', () => resolve({ body, complete: false }));
+      });
+
+      outgoing.on('error', () => resolve({ body: '', complete: false }));
+    });
+    await tick();
+
+    app = undefined;
+
+    expect(forwarded).toHaveLength(1);
+    expect(isCancelError(forwarded[0])).toBe(true);
+    expect(outcome).toEqual({ body: 'part1,-end', complete: true });
+    expect(logged.filter((line) => line.includes('"level":50'))).toHaveLength(0);
+  });
+
+  it('cuts a wrapped route-signal head-cut once at error level', async () => {
+    const logged: string[] = [];
+    const controller = new AbortController();
+    const instance = Fastify({
+      logger: {
+        level: 'error',
+        stream: {
+          write(line: string): void {
+            logged.push(line);
+          },
+        },
+      },
+    });
+    await instance.register(cancelPlugin);
+    instance.get(
+      '/route-signal',
+      cancelableHandler(
+        function* (_request, reply) {
+          reply.raw.writeHead(200, { 'content-type': 'text/plain' });
+          reply.raw.write('part1,');
+          yield new Promise(() => undefined);
+
+          return 'never';
+        },
+        { signal: controller.signal },
+      ),
+    );
+
+    const port = await listen(instance);
+    const outcome = await new Promise<{ body: string; complete: boolean }>((resolve) => {
+      const outgoing = http.get({ host: '127.0.0.1', path: '/route-signal', port }, (response) => {
+        let body = '';
+
+        response.setEncoding('utf8');
+        response.on('data', (chunk: string) => {
+          body += chunk;
+        });
+        response.on('end', () => resolve({ body, complete: response.complete }));
+        response.on('error', () => resolve({ body, complete: false }));
+        // the head is out, so the route signal fires while the body is still open
+        setTimeout(() => controller.abort(), 20);
+      });
+
+      outgoing.on('error', () => resolve({ body: '', complete: false }));
+    });
+    await tick();
+
+    app = undefined;
+
+    expect(outcome.complete).toBe(false);
+    expect(logged.filter((line) => line.includes('"level":50'))).toHaveLength(1);
+  });
+
+  it('logs no cut when a wrapped route ends its own reply on the deadline', async () => {
+    const logged: string[] = [];
+    const instance = Fastify({
+      logger: {
+        level: 'error',
+        stream: {
+          write(line: string): void {
+            logged.push(line);
+          },
+        },
+      },
+    });
+    await instance.register(cancelPlugin);
+    instance.get(
+      '/ended',
+      cancelableHandler(
+        function* (request, reply) {
+          reply.raw.writeHead(200, { 'content-type': 'text/plain' });
+          reply.raw.write('part1,');
+          const signal = getRequestSignal(request, reply);
+
+          yield new Promise<void>((_resolve, reject) => {
+            signal.addEventListener(
+              'abort',
+              () => {
+                // the route finishes its own reply before the deadline reaches the wrapper
+                reply.raw.end('closed by route');
+                reject(signal.reason);
+              },
+              { once: true },
+            );
+          });
+
+          return 'never';
+        },
+        { timeout: { ms: 20, status: 504 } },
+      ),
+    );
+
+    const port = await listen(instance);
+    await new Promise<void>((resolve) => {
+      const outgoing = http.get({ host: '127.0.0.1', path: '/ended', port }, (response) => {
+        response.resume();
+        response.on('end', () => resolve());
+        response.on('error', () => resolve());
+        response.on('close', () => resolve());
+      });
+
+      outgoing.on('error', () => resolve());
+    });
+    await tick();
+
+    app = undefined;
+
+    expect(logged.filter((line) => line.includes('"level":50'))).toHaveLength(0);
+  });
+
+  it('logs a wrapped route head cut once at error level', async () => {
+    const started = deferred();
+    const logged: string[] = [];
+    const instance = Fastify({
+      logger: {
+        level: 'error',
+        stream: {
+          write(line: string): void {
+            logged.push(line);
+          },
+        },
+      },
+    });
+    await instance.register(cancelPlugin);
+    instance.get(
+      '/part',
+      cancelableHandler(function* (request, reply) {
+        const signal = getRequestSignal(request, reply);
+
+        reply.raw.writeHead(200, { 'content-type': 'text/plain' });
+        reply.raw.write('part1,');
+        started.resolve();
+        yield new Promise((_resolve, reject) => {
+          signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+        });
+      }),
+    );
+
+    const port = await listen(instance);
+    const outcome = new Promise<void>((resolve) => {
+      const outgoing = http.get({ host: '127.0.0.1', path: '/part', port }, (response) => {
+        response.resume();
+        response.on('close', () => resolve());
+      });
+
+      outgoing.on('error', () => resolve());
+    });
+
+    await started.promise;
+    await createShutdown(instance)({ cancelAfter: 50 });
+    await outcome;
+    await tick();
+
+    app = undefined;
+
+    expect(logged.filter((line) => line.includes('"level":50'))).toHaveLength(1);
+  });
+});
+
+describe('cancelErrorHandler status range', () => {
+  it('throws a RangeError for a status outside 200 to 599 at the factory', () => {
+    expect(() => cancelErrorHandler({ status: 199 })).toThrow(RangeError);
+    expect(() => cancelErrorHandler({ status: 600 })).toThrow(RangeError);
+    expect(() => cancelErrorHandler({ status: 502.5 })).toThrow(RangeError);
+    expect(() => cancelErrorHandler({ status: NaN })).toThrow(RangeError);
+    expect(() => cancelErrorHandler({ canceledStatus: 199 })).toThrow(RangeError);
+    expect(() => cancelErrorHandler({ canceledStatus: NaN })).toThrow(RangeError);
+    expect(() => cancelErrorHandler({ status: 200 })).not.toThrow();
+    expect(() => cancelErrorHandler({ status: 599 })).not.toThrow();
+  });
+});
+
+describe('cancelErrorHandler cut log on a finished response', () => {
+  it('does not log a timed-out cut when the response already ended', () => {
+    const error = new CancelError('user timeout', { cause: new TimeoutError('user timeout') });
+    const log = { error: jest.fn() };
+    const reply = {
+      hijack: jest.fn(),
+      raw: { destroy: jest.fn(), destroyed: false, headersSent: true, writableEnded: true },
+    };
+
+    cancelErrorHandler().call({} as FastifyInstance, error, { log, raw: {} } as never, reply as never);
+
+    expect(log.error).not.toHaveBeenCalled();
   });
 });

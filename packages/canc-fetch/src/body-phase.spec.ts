@@ -61,12 +61,16 @@ describe('body phase', () => {
     ['merged signal', {}],
     ['injected AbortController', { AbortController }],
   ])('caller signal after headers (%s)', (_label, extra) => {
-    it('AbortSignal.timeout aborts the text() read with a CancelError', async () => {
+    it('a TimeoutError abort reason aborts the text() read with a CancelError', async () => {
       const cancelableFetch = cancelableFetchFactory(extra);
+      const controller = new AbortController();
+      const response = await cancelableFetch(baseUrl, { signal: controller.signal });
+      await lastStream().started;
       const started = Date.now();
-      const signal = AbortSignal.timeout(100);
 
-      const error: any = await settleOf(cancelableFetch(baseUrl, { signal }).then((r) => r.text()));
+      const read = settleOf(response.text());
+      controller.abort(new DOMException('The operation timed out.', 'TimeoutError'));
+      const error: any = await read;
       const elapsed = Date.now() - started;
 
       expect(isCancelError(error)).toBe(true);

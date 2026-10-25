@@ -1,4 +1,4 @@
-import { CancelSignal } from '@cancjs/promise';
+import { CancelSignal, isCancelError } from '@cancjs/promise';
 import {
   FastifyInstance,
   FastifyReply,
@@ -10,7 +10,14 @@ import {
   RouteHandlerMethod,
 } from 'fastify';
 
-import { isUnanswerable } from '../../../_server/exchange';
+import {
+  isResponseLive,
+  isUnanswerable,
+  ownedStatusOf,
+  routeSignalsOf,
+  toRequestLike,
+} from '../../../_server/exchange';
+import { getRequestState } from '../../../_server/holder';
 import { getNodeRequestSignal } from '../../../_server/node-signal';
 import { runCancelableHandler } from '../../../_server/run';
 import { ICancelableHandlerOptions, THandlerFn } from '../../../_server/types';
@@ -61,17 +68,43 @@ export function cancelableHandler<RouteGeneric extends RouteGenericInterface = R
   handler: THandlerFn<TFastifyRouteHandler<RouteGeneric>, RouteGeneric['Reply']>,
   options?: ICancelableHandlerOptions,
 ): TFastifyRouteHandler<RouteGeneric> {
+  const signals = routeSignalsOf(options?.signal);
   const wrapped = function (
     this: FastifyInstance,
     request: FastifyRequest<RouteGeneric>,
     reply: FastifyReply<RouteGeneric>,
+    ...hookDone: unknown[]
   ): Promise<RouteGeneric['Reply'] | undefined> {
+    // fastify hands a hook a done callback even when the hook is async, and a route handler only
+    // the pair; a hook settling hands the request on, so the deadline stays up for the route
+    const mountedAsHook = hookDone.length > 0;
     const task = runCancelableHandler<RouteGeneric['Reply']>(handler as TAnyFn, request.raw, reply.raw, options, {
       args: [request, reply],
+      handsOn: () => mountedAsHook,
+      // a signal-only handler that fails after its cancel settled the task has no reply to write to
+      onLateFailure: (error) => request.log.error(error),
       thisArg: this,
     });
 
     return task.catch((error: unknown) => {
+      // an unowned cancellation is the caller's: it goes to the error handler uncut
+      const state = isCancelError(error) ? getRequestState(toRequestLike(request.raw)) : undefined;
+      const owned = state !== undefined && ownedStatusOf(error, state, undefined, signals) !== undefined;
+
+      // a sent head cannot take a status, so the socket is cut instead of left looking complete
+      // a response that finished on its own is not a cut
+      // a cut on a live response is logged, since the client sees only a reset
+      if (owned && reply.raw.headersSent) {
+        if (isResponseLive(reply.raw)) {
+          request.log.error(error);
+        }
+
+        reply.raw.destroy();
+        reply.hijack();
+
+        return undefined;
+      }
+
       if (!isUnanswerable(error, reply.raw)) {
         throw error;
       }

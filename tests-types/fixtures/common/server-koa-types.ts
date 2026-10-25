@@ -5,8 +5,8 @@
  * context type flow through to `ctx.state` / `ctx.db`, a plain async handler typechecks alongside
  * the generator form, a wrong-arity handler is a compile error (koa handlers take only the
  * context, never `next`), `cancelMiddleware` is assignable wherever koa expects a `Middleware`,
- * `getRequestSignal` takes the raw context without a cast, and `shutdown` rejects the koa
- * application in place of what `app.listen()` returns.
+ * `getRequestSignal` takes the raw context without a cast, and `createShutdown` rejects the
+ * koa application in place of what `app.listen()` returns.
  *
  * Deliberately runtime-dead (nothing executes); exists purely to make `tsc --noEmit` chew through
  * the shipped declaration files.
@@ -17,7 +17,8 @@
  * limitations on TS 4.7 (`'ReadableByteStreamController' is referenced directly or indirectly in
  * its own type annotation`), fixed only at 5.0+.
  */
-import { cancelableHandler, cancelMiddleware, shutdown, getRequestSignal } from '@cancjs/server-koa';
+import { cancelableHandler, cancelMiddleware, createShutdown, getRequestSignal } from '@cancjs/server-koa';
+import type { ICancelErrorHandlerOptions } from '@cancjs/server-koa';
 import type { Server } from 'http';
 import Koa, { Context, Middleware } from 'koa';
 
@@ -44,6 +45,13 @@ const asyncHandler = cancelableHandler(async (ctx) => {
 });
 void asyncHandler;
 
+const asyncGeneratorHandler = () =>
+  // @ts-expect-error an async generator handler is never drained, so it is rejected at the call site
+  cancelableHandler(async function* () {
+    yield 1;
+  });
+void asyncGeneratorHandler;
+
 const wrongArityHandler = () =>
   cancelableHandler(
     // @ts-expect-error a koa handler is called with only the context, never next
@@ -57,16 +65,20 @@ const app = new Koa();
 const middleware: Middleware = cancelMiddleware();
 app.use(middleware);
 
+// the exported options type is what the middleware's `status` key is typed with
+const middlewareOptions: ICancelErrorHandlerOptions = { status: 503 };
+app.use(cancelMiddleware(middlewareOptions));
+
 const ctx = {} as Context;
 // the annotated return type is the assertion: a bare context reaches the signal without a cast
 const readSignal = (): ReturnType<typeof getRequestSignal> => getRequestSignal(ctx);
 void readSignal;
 
 const server = {} as Server;
-const goodShutdown = () => shutdown(server);
+const goodShutdown = () => createShutdown(server);
 const badShutdown = () =>
   // @ts-expect-error a shutdown needs the http server, which is what app.listen() hands back
-  shutdown(app);
+  createShutdown(app);
 void goodShutdown;
 void badShutdown;
 

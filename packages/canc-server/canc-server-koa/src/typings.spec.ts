@@ -2,7 +2,7 @@ import { CancelSignal } from '@cancjs/promise';
 import type { Server } from 'http';
 import Koa, { Context, Middleware } from 'koa';
 
-import { cancelableHandler, cancelMiddleware, getRequestSignal, shutdown } from './index';
+import { cancelableHandler, cancelMiddleware, createShutdown, getRequestSignal } from './index';
 
 // This suite asserts at compile time. ts-jest reports type errors as test failures, so a signature
 // that stops inferring fails the run rather than passing silently.
@@ -72,10 +72,10 @@ describe('other exports', () => {
   it('shuts down the http server and not the koa application', () => {
     const server = {} as Server;
     const app = {} as Koa;
-    const good = () => shutdown(server);
+    const good = () => createShutdown(server);
     const bad = () =>
       // @ts-expect-error a shutdown needs the http server, which is what app.listen() hands back
-      shutdown(app);
+      createShutdown(app);
 
     expect(good).toBeInstanceOf(Function);
     expect(bad).toBeInstanceOf(Function);

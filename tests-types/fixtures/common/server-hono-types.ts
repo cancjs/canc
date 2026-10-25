@@ -4,8 +4,8 @@
  * advertises: a bare `function* (c, next)` infers both parameters with no annotations, a plain
  * async handler typechecks alongside the generator form, `Bindings` flows through to `c.env`, a
  * generator returning something other than a `Response` is a compile error, a wrong-arity handler
- * is a compile error, and `shutdown` rejects the `Hono` application in place of what `serve()`
- * returns.
+ * is a compile error, and `createShutdown` rejects the `Hono` application in place of what
+ * `serve()` returns.
  *
  * Deliberately runtime-dead (nothing executes); exists purely to make `tsc --noEmit` chew through
  * the shipped declaration files.
@@ -14,7 +14,7 @@
  * `serverHonoTypes: true` (5.9 and newer). Hono requires TS 5.9+ for generic Uint8Array types;
  * 5.4 reports `error TS2315: Type 'Uint8Array' is not generic.` in hono's shipped types.
  */
-import { cancelableHandler, shutdown } from '@cancjs/server-hono';
+import { cancelableHandler, createShutdown } from '@cancjs/server-hono';
 import type { HttpBindings } from '@hono/node-server';
 import { Hono } from 'hono';
 
@@ -65,6 +65,13 @@ const wrongReturnHandler = () =>
   );
 void wrongReturnHandler;
 
+const asyncGeneratorHandler = () =>
+  // @ts-expect-error an async generator handler is never drained, so it is rejected at the call site
+  cancelableHandler(async function* () {
+    yield 1;
+  });
+void asyncGeneratorHandler;
+
 const wrongArityHandler = () =>
   cancelableHandler(
     // @ts-expect-error a route handler is called with the context and next, nothing more
@@ -75,8 +82,8 @@ const wrongArityHandler = () =>
 void wrongArityHandler;
 
 const badShutdown = () =>
-  // @ts-expect-error shutdown takes what serve() returned, never the application itself
-  shutdown(app);
+  // @ts-expect-error createShutdown takes what serve() returned, never the application itself
+  createShutdown(app);
 void badShutdown;
 
 export {};

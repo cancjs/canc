@@ -1,13 +1,23 @@
 import { CancelSignal, isCancelError } from '@cancjs/promise';
-import type { ErrorRequestHandler, RequestHandler } from 'express';
+import type { Application, ErrorRequestHandler, RequestHandler } from 'express';
 import type { ParamsDictionary, Query } from 'express-serve-static-core';
 import type { IncomingMessage, Server, ServerResponse } from 'http';
 
-import { isResponseLive, isUnanswerable, statusOf, toRequestLike, toResponseLike } from '../../../_server/exchange';
+import {
+  cancelHeadersFor,
+  checkAnswerStatus,
+  isResponseLive,
+  isUnanswerable,
+  ownedStatusOf,
+  routeSignalsOf,
+  STALE_CONTENT_HEADERS,
+  toRequestLike,
+  toResponseLike,
+} from '../../../_server/exchange';
+import { getRequestState } from '../../../_server/holder';
 import { getNodeRequestSignal } from '../../../_server/node-signal';
 import { runCancelableHandler } from '../../../_server/run';
-import { shutdownServer } from '../../../_server/shutdown';
-import { DEFAULT_TIMEOUT_STATUS } from '../../../_server/timeout';
+import { createServerShutdown } from '../../../_server/shutdown';
 import {
   ICancelableHandlerOptions,
   ICancelErrorHandlerOptions,
@@ -36,9 +46,11 @@ export type {
  * has no suspension points and runs to completion. Both flavors keep their normal express typings,
  * including a bare `function* (req, res)` with no annotations.
  *
- * Errors reach express through `next(err)`, with one exception: a cancellation that is not a
+ * Errors reach express through `next(err)`, with two exceptions. A cancellation that is not a
  * deadline and whose response can no longer be answered is dropped, because there is nobody left
- * to answer.
+ * to answer. And a request forwards one cancellation at most: when a deadline cancels a middleware
+ * still running after `next()` together with the route behind it, only the first reaches the error
+ * handlers.
  */
 export function cancelableHandler<
   P = ParamsDictionary,
@@ -50,14 +62,25 @@ export function cancelableHandler<
   handler: THandlerFn<RequestHandler<P, ResBody, ReqBody, ReqQuery, Locals>>,
   options?: ICancelableHandlerOptions,
 ): RequestHandler<P, ResBody, ReqBody, ReqQuery, Locals> {
+  const signals = routeSignalsOf(options?.signal);
+
   return function cancelableRoute(req, res, next) {
     const task = runCancelableHandler(handler as TAnyFn, toRequestLike(req), toResponseLike(res), options, {
-      args: [req, res, next],
+      args: [req, res],
+      next,
+      onLateFailure: (error) => logLateFailure(req, error),
     });
 
     task.catch((error: unknown) => {
-      if (isUnanswerable(error, res)) {
+      if (isUnanswerable(error, res) || !claimForward(req, error)) {
         return;
+      }
+
+      // the head is out, so the socket is cut before express's own handling sees the error
+      const state = getRequestState(toRequestLike(req));
+
+      if (state !== undefined && ownedStatusOf(error, state, undefined, signals) !== undefined && res.headersSent) {
+        res.destroy();
       }
 
       next(error);
@@ -65,12 +88,40 @@ export function cancelableHandler<
   };
 }
 
+// express's own logerror skips the test environment, and so does this
+function logLateFailure(req: IncomingMessage & { app?: Application }, error: unknown): void {
+  if (req.app?.get('env') === 'test') {
+    return;
+  }
+
+  console.error((error as Error | undefined)?.stack || String(error));
+}
+
+// express keeps one cursor per request, so a second next(err) resumes past the error handler that
+// answered the first and lands in finalhandler
+function claimForward(req: IncomingMessage, error: unknown): boolean {
+  const state = isCancelError(error) ? getRequestState(toRequestLike(req)) : undefined;
+
+  if (!state) {
+    return true;
+  }
+
+  if (state.cancelForwarded) {
+    return false;
+  }
+
+  state.cancelForwarded = true;
+
+  return true;
+}
+
 /**
- * The guarded replacement for node's own `IncomingMessage.prototype.signal`. That signal aborts once
- * the request stream finishes being read, not when the client disconnects, so a body-carrying POST
- * behind `express.json()` would abort at the start of the handler with the client still connected if
- * a handler read it directly. This one is wired from the response's close event instead, guarded so
- * it fires only when the response has not finished.
+ * The guarded replacement for node's own `IncomingMessage.prototype.signal`. Node 18 has no such
+ * property. Before node 24.20 it aborts once the request stream finishes being read, not when the
+ * client disconnects, so a body-carrying POST behind `express.json()` would abort at the start of the
+ * handler with the client still connected if a handler read it directly; from 24.20 on it no longer
+ * aborts at the body end. This one does not depend on the node version: it is wired from the
+ * response's close event, guarded so it fires only when the response has not finished.
  *
  * The cancel signal for a request, installed and wired on first use and cached for every later
  * caller. Request-scoped work started outside a route, a database context or a job handle, takes
@@ -88,7 +139,11 @@ export function getRequestSignal(req: IncomingMessage, res: ServerResponse): Can
  * every handler on the request inherits. A route's own options are merged over these, key by key.
  *
  * Optional: a handler wrapped without it installs the signal on its own. Mounting it is how one
- * deadline or one `onDisconnect` hook covers a whole router.
+ * deadline or one `onDisconnect` hook covers a whole router, plain routes included. The deadline
+ * starts here, and a route passing its own `timeout` restarts it. It ends when the response closes,
+ * or once the wrapped handler answering the request settles, so a body streamed after the handler
+ * returned is not cut short. The lifecycle callbacks run once per request, however many wrapped
+ * layers it passes.
  */
 export function cancelMiddleware(options?: ICancelableHandlerOptions): RequestHandler {
   return function cancelMiddlewareRoute(req, res, next) {
@@ -101,14 +156,21 @@ export function cancelMiddleware(options?: ICancelableHandlerOptions): RequestHa
  * Opt-in error handler mapping a cancellation to a response. Mount it last, after the routes.
  *
  * A deadline answers with the status stamped on it (`503` unless the timeout option names another
- * one), a shutdown cancellation with the fallback status, and a response that can no longer be
- * answered gets nothing. Anything that is not a cancellation passes through untouched.
+ * one), a shutdown cancellation with the shutdown's `status` option, or the handler's `status` option
+ * when the shutdown set none (default `503`), and a response that can no longer be answered gets
+ * nothing. A response whose head already went out cannot carry a status, so its connection is
+ * destroyed and the client sees an aborted message instead of a body that looks whole.
+ * Anything that is not a cancellation the request owns passes through untouched.
  */
 export function cancelErrorHandler(options: ICancelErrorHandlerOptions = {}): ErrorRequestHandler {
-  const fallback = options.status ?? DEFAULT_TIMEOUT_STATUS;
+  checkAnswerStatus(options.status);
 
-  return function cancelErrorRoute(error, _req, res, next) {
-    if (!isCancelError(error)) {
+  return function cancelErrorRoute(error, req, res, next) {
+    const state = getRequestState(toRequestLike(req));
+    const status = state === undefined ? undefined : ownedStatusOf(error, state, options.status);
+
+    // a cancellation the request does not own is the caller's, so express's own handling takes it
+    if (!isCancelError(error) || status === undefined) {
       next(error);
 
       return;
@@ -118,24 +180,46 @@ export function cancelErrorHandler(options: ICancelErrorHandlerOptions = {}): Er
       return;
     }
 
-    // a partially written response cannot carry a status any more, so the only honest move left is
-    // to stop writing and let the client see a truncated body
+    // end() would write the chunked terminator and pass a cut body off as complete
     if (res.headersSent) {
-      res.end();
+      res.destroy();
+      next(error);
 
       return;
     }
 
-    res.status(statusOf(error, fallback)).end();
+    for (const name of STALE_CONTENT_HEADERS) {
+      res.removeHeader(name);
+    }
+
+    const headers = cancelHeadersFor(error, options.status);
+
+    if (headers) {
+      res.set(headers);
+    }
+
+    res.status(status).end();
   };
 }
 
 /**
- * Stops a server gracefully: no new connections, every in-flight handler canceled, and a bounded
- * wait for them to unwind. Resolves with what happened rather than throwing, and a second call
- * while the first is still running returns that same result, so a pair of signal handlers is safe
- * to wire without a guard.
+ * Sets up a graceful shutdown and returns the function that runs it. Call it right after
+ * `app.listen()`: connections and requests are recorded from this call on.
+ *
+ * The returned function stops the server: no new connections, a grace window for in-flight
+ * handlers to finish, and a cancel for any still running when it ends (at once with
+ * `cancelAfter: 0`). A connection that has received no bytes is closed once it is five seconds old (or at the grace, if shorter), while one
+ * that has already sent part of a request is left to finish. Every in-flight response is sent with
+ * `Connection: close`, so each connection closes once its response finishes.
+ * It resolves with what happened rather than throwing. A second call while the first is still
+ * running returns that same promise, so a pair of signal handlers is safe to wire without a guard.
+ * Calling `createShutdown` again with the same server returns the same function.
+ *
+ * Created late, the shutdown loses nothing but finishes slower, because a connection opened before
+ * the call is unknown to it. Such a connection is closed only when `closeAfter` ends if it has
+ * sent no request yet, or if its request is still in flight and no wrapped handler or request
+ * signal recorded it. That response also goes out without `Connection: close`.
  */
-export function shutdown(server: Server, options?: IShutdownOptions): Promise<IShutdownResult> {
-  return shutdownServer(server, options);
+export function createShutdown(server: Server): (options?: IShutdownOptions) => Promise<IShutdownResult> {
+  return createServerShutdown(server);
 }

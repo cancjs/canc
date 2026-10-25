@@ -2,10 +2,10 @@
  * Server-family type-level fixture: `@cancjs/server-fastify`. Imports the BUILT package
  * (resolved from the installed tarball, never from src) and checks the handler-inference
  * contract it advertises: a bare `function* (request, reply)` infers both parameters with no
- * annotations, a plain async handler typechecks alongside the generator form, `RouteGeneric
- * ['Reply']` constrains the generator return, a wrong-arity handler is a compile error, and
- * `shutdown(app.server)` does not compile because the wrapper is narrowed to the instance so
- * `onClose` hooks run after the shutdown rather than during it.
+ * annotations, a plain async handler typechecks alongside the generator form, a handler may return a
+ * `Readable` stream as its reply, `RouteGeneric['Reply']` constrains the generator return, a
+ * wrong-arity handler is a compile error, and `createShutdown(app.server)` does not compile
+ * because the factory is narrowed to the instance so `onClose` hooks run after the shutdown rather than during it.
  *
  * Deliberately runtime-dead (nothing executes); exists purely to make `tsc --noEmit` chew through
  * the shipped declaration files.
@@ -19,8 +19,9 @@
  * hits the identical wall with or without this package in the middle. This file is compiled only
  * in lanes matrix.config.json marks `serverFastifyTypes: true` (5.4 and newer).
  */
-import { cancelableHandler, shutdown } from '@cancjs/server-fastify';
+import { cancelableHandler, createShutdown } from '@cancjs/server-fastify';
 import Fastify from 'fastify';
+import { Readable } from 'node:stream';
 
 const bareHandler = cancelableHandler(function* (request, reply) {
   const method: string = request.method;
@@ -39,6 +40,16 @@ const asyncHandler = cancelableHandler(async (request, reply) => {
 });
 void asyncHandler;
 
+const streamHandler = cancelableHandler(function* () {
+  yield Promise.resolve();
+
+  return Readable.from(['ok']);
+});
+void streamHandler;
+
+const plainStreamHandler = cancelableHandler(() => Readable.from(['ok']));
+void plainStreamHandler;
+
 const constrainedHandler = cancelableHandler<{ Reply: { ok: boolean } }>(function* () {
   yield Promise.resolve();
 
@@ -55,6 +66,13 @@ const wrongReturnHandler = () =>
   });
 void wrongReturnHandler;
 
+const asyncGeneratorHandler = () =>
+  // @ts-expect-error an async generator handler is never drained, so it is rejected at the call site
+  cancelableHandler(async function* () {
+    yield 1;
+  });
+void asyncGeneratorHandler;
+
 const wrongArityHandler = () =>
   // @ts-expect-error a route handler is called with the request and the reply, nothing more
   cancelableHandler(function* (_request, _reply, _extra: string) {
@@ -63,10 +81,10 @@ const wrongArityHandler = () =>
 void wrongArityHandler;
 
 const app = Fastify();
-const goodShutdown = () => shutdown(app);
+const goodShutdown = () => createShutdown(app);
 const badShutdown = () =>
   // @ts-expect-error the shutdown is narrowed to the instance so onClose hooks run after it
-  shutdown(app.server);
+  createShutdown(app.server);
 void goodShutdown;
 void badShutdown;
 

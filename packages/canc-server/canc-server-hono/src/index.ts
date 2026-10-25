@@ -10,4 +10,4 @@ export type { ICancelErrorHandlerOptions } from './error-handler';
 export { cancelErrorHandler } from './error-handler';
 export type { THonoHandler } from './handler';
 export { cancelableHandler, cancelMiddleware, CLIENT_CLOSED_STATUS, getRequestSignal } from './handler';
-export { shutdown } from './shutdown';
+export { createShutdown } from './shutdown';
