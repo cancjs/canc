@@ -234,3 +234,24 @@ export {};
 type _fetchFailure = Assert<
   Eq<FailureOf<ReturnType<typeof cancelableFetch>>, (TypeError & { readonly name: 'TypeError' }) | Unlisted>
 >;
+
+// fail infers the declared failure from its argument and keeps cancellation out
+declare const failFlag: boolean;
+
+const failOne = CancelablePromise.resolve(1).then((n) => (failFlag ? CancelablePromise.fail(new MatrixError()) : n));
+type _failInfersFailure = Assert<Eq<typeof failOne, CancelablePromise<number, MatrixError>>>;
+
+const failTwo = CancelablePromise.resolve(1).then((n) =>
+  failFlag ? CancelablePromise.fail(new MatrixError())
+  : n > 1 ? CancelablePromise.fail(new MatrixErrorTwo())
+  : n,
+);
+type _failBranchesUnion = Assert<Eq<typeof failTwo, CancelablePromise<number, MatrixError | MatrixErrorTwo>>>;
+
+const failCancel = CancelablePromise.fail(new CancelError());
+type _failStripsCancel = Assert<Eq<typeof failCancel, CancelablePromise<never, never>>>;
+
+const failReplaced = CancelablePromise.reject<number, MatrixError>(new MatrixError()).catch(() =>
+  CancelablePromise.fail(new MatrixErrorTwo()),
+);
+type _failReplacesInCatch = Assert<Eq<FailureOf<typeof failReplaced>, MatrixErrorTwo>>;
