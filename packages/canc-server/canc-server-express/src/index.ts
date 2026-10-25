@@ -182,6 +182,7 @@ export function cancelErrorHandler(options: ICancelErrorHandlerOptions = {}): Er
 
     // end() would write the chunked terminator and pass a cut body off as complete
     if (res.headersSent) {
+      res.destroy();
       next(error);
 
       return;

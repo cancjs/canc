@@ -940,7 +940,7 @@ describe('cancellation after the head was sent', () => {
     });
     app.use(cancelErrorHandler());
     // a handler that ends whatever it is given: the only thing that could mark the body complete
-    app.use((_error: unknown, _req: Request, res: Response) => {
+    app.use((_error: unknown, _req: Request, res: Response, _next: NextFunction) => {
       res.end();
     });
 
