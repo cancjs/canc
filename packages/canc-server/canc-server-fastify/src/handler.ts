@@ -10,7 +10,14 @@ import {
   RouteHandlerMethod,
 } from 'fastify';
 
-import { isResponseLive, isUnanswerable } from '../../../_server/exchange';
+import {
+  isResponseLive,
+  isUnanswerable,
+  ownedStatusOf,
+  routeSignalsOf,
+  toRequestLike,
+} from '../../../_server/exchange';
+import { getRequestState } from '../../../_server/holder';
 import { getNodeRequestSignal } from '../../../_server/node-signal';
 import { runCancelableHandler } from '../../../_server/run';
 import { ICancelableHandlerOptions, THandlerFn } from '../../../_server/types';
@@ -61,6 +68,7 @@ export function cancelableHandler<RouteGeneric extends RouteGenericInterface = R
   handler: THandlerFn<TFastifyRouteHandler<RouteGeneric>, RouteGeneric['Reply']>,
   options?: ICancelableHandlerOptions,
 ): TFastifyRouteHandler<RouteGeneric> {
+  const signals = routeSignalsOf(options?.signal);
   const wrapped = function (
     this: FastifyInstance,
     request: FastifyRequest<RouteGeneric>,
@@ -79,10 +87,14 @@ export function cancelableHandler<RouteGeneric extends RouteGenericInterface = R
     });
 
     return task.catch((error: unknown) => {
+      // an unowned cancellation is the caller's: it goes to the error handler uncut
+      const state = isCancelError(error) ? getRequestState(toRequestLike(request.raw)) : undefined;
+      const owned = state !== undefined && ownedStatusOf(error, state, undefined, signals) !== undefined;
+
       // a sent head cannot take a status, so the socket is cut instead of left looking complete
       // a response that finished on its own is not a cut
       // a cut on a live response is logged, since the client sees only a reset
-      if (isCancelError(error) && reply.raw.headersSent) {
+      if (owned && reply.raw.headersSent) {
         if (isResponseLive(reply.raw)) {
           request.log.error(error);
         }

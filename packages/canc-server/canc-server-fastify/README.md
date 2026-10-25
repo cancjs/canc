@@ -96,7 +96,7 @@ The cancel state is cached on the raw request under a registered symbol, so the 
 
 The wrapper never writes the response. A cancellation that arrives with the client already gone is dropped and the reply is hijacked, because there is nothing to answer on. Everything else is rethrown and reaches Fastify's error handling, including a missed deadline, which carries `status` and `statusCode` so Fastify answers with the code you configured.
 
-When the response head already went out, no status can be sent, so the socket is destroyed instead of left looking complete. The cut is logged once at error level through `request.log`, since the client sees only a reset. A handler that fails after its cancellation has already answered the request is logged the same way, at error level, through `request.log`.
+When the response head already went out, no status can be sent, so the socket is destroyed instead of left looking complete. The cut is logged once at error level through `request.log`, since the client sees only a reset. A cancellation the request does not own, such as one the handler raised itself, is not cut: it goes to the error handler as it is. A handler that fails after its cancellation has already answered the request is logged the same way, at error level, through `request.log`.
 
 ### Composing an error handler
 

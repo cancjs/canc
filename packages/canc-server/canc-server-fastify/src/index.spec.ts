@@ -1658,6 +1658,66 @@ describe('optional error handler', () => {
     expect(logged.filter((line) => line.includes('"level":50') && line.includes('late boom'))).toHaveLength(1);
   });
 
+  it('hands a head-sent cancel the request does not own to the error handler, with no cut and no log', async () => {
+    const logged: string[] = [];
+    const forwarded: unknown[] = [];
+    const instance = Fastify({
+      logger: {
+        level: 'error',
+        stream: {
+          write(line: string): void {
+            logged.push(line);
+          },
+        },
+      },
+    });
+    await instance.register(cancelPlugin);
+    instance.setErrorHandler((error, _request, reply) => {
+      forwarded.push(error);
+
+      // the handler finishes the body, so a silent cut shows as a short body
+      reply.hijack();
+      reply.raw.end('-end');
+    });
+    instance.get(
+      '/own',
+      cancelableHandler(function* (request, reply) {
+        reply.raw.writeHead(200, { 'content-type': 'text/plain' });
+        reply.raw.write('part1,');
+        // a cancel the user raised, on a request whose signal never fired
+        yield CancelablePromise.resolve().then(() => {
+          throw new CancelError('user cancel');
+        });
+
+        return 'never';
+      }),
+    );
+
+    const port = await listen(instance);
+    const outcome = await new Promise<{ body: string; complete: boolean }>((resolve) => {
+      const outgoing = http.get({ host: '127.0.0.1', path: '/own', port }, (response) => {
+        let body = '';
+
+        response.setEncoding('utf8');
+        response.on('data', (chunk: string) => {
+          body += chunk;
+        });
+        response.on('end', () => resolve({ body, complete: response.complete }));
+        response.on('error', () => resolve({ body, complete: false }));
+      });
+
+      outgoing.on('error', () => resolve({ body: '', complete: false }));
+    });
+    await tick();
+
+    app = undefined;
+
+    expect(forwarded).toHaveLength(1);
+    expect(isCancelError(forwarded[0])).toBe(true);
+    expect(outcome).toEqual({ body: 'part1,-end', complete: true });
+    expect(logged.filter((line) => line.includes('"level":50'))).toHaveLength(0);
+  });
+
   it('logs a wrapped route head cut once at error level', async () => {
     const started = deferred();
     const logged: string[] = [];
