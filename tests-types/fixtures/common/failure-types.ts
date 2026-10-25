@@ -261,3 +261,12 @@ const rethrown = declared.catch((e) => {
   throw e;
 });
 type _rethrown = Assert<Eq<typeof rethrown, CancelablePromise<number, MatrixError>>>;
+
+// withFailure narrows only through a guard; a plain boolean predicate declares just Error
+declare const plainPredicate: (e: unknown) => boolean;
+const predicateFailure = withFailure(plainPredicate)(declared);
+type _withFailureBooleanPredicate = Assert<Eq<FailureOf<typeof predicateFailure>, Error>>;
+
+// withFailure takes at most four type arguments
+// @ts-expect-error five type arguments exceed the overload
+withFailure<MatrixError, MatrixErrorTwo, MatrixError, MatrixErrorTwo, CancelError>();
