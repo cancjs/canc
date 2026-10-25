@@ -115,7 +115,7 @@ bubble: boolean // @deprecated
 cancel: (reason?: any, _disposing?: boolean) => CancelablePromise<ISettledResult<unknown>[], never> | void
 cancelable: boolean
 canceled: boolean
-catch: { <R extends PromiseLike<never>>(onRejected: (reason: TReason<TFailure>) => R): CancelablePromise<Awaited<R | TResult>, FailureOf<R>>; <R = never>(onRejected: (reason: TReason<TFailure>) => R): CancelablePromise<Awaited<R | TResult>, FailureOf<R>>; <R = never>(onRejected?: ((reason: TReason<TFailure>) => R) | null): CancelablePromise<Awaited<R | TResult>, FailureOf<R> | TFailure>; }
+catch: { <R extends PromiseLike<never>>(onRejected: (reason: TReason<TFailure>) => R): CancelablePromise<Awaited<R | TResult>, ([R] extends [never] ? TFailure : never) | FailureOf<R>>; <R = never>(onRejected: (reason: TReason<TFailure>) => R): CancelablePromise<Awaited<R | TResult>, FailureOf<R>>; <R = never>(onRejected?: ((reason: TReason<TFailure>) => R) | null): CancelablePromise<Awaited<R | TResult>, FailureOf<R> | TFailure>; }
 finally: (onFinally?: (() => PromiseLike<unknown> | void) | null) => CancelablePromise<TResult, TFailure>
 forceCancelable: boolean // @deprecated
 handleCancel: (onCancel: TOnCancel, options?: IHandleCancelOptions) => CancelablePromise<TResult, TFailure>
@@ -421,7 +421,7 @@ bubble: boolean // @deprecated
 cancel: (reason?: any, _disposing?: boolean) => CancelablePromise<ISettledResult<unknown>[], never> | void
 cancelable: boolean
 canceled: boolean
-catch: { <R extends PromiseLike<never>>(onRejected: (reason: TReason<FailureOf<TPromise> | TFailure>) => R): CancelablePromise<Awaited<Awaited<TPromise>> | Awaited<R>, FailureOf<R>>; <R = never>(onRejected: (reason: TReason<FailureOf<TPromise> | TFailure>) => R): CancelablePromise<Awaited<Awaited<TPromise>> | Awaited<R>, FailureOf<R>>; <R = never>(onRejected?: ((reason: TReason<FailureOf<TPromise> | TFailure>) => R) | null | undefined): CancelablePromise<Awaited<Awaited<TPromise>> | Awaited<R>, FailureOf<R> | FailureOf<TPromise> | TFailure>; }
+catch: { <R extends PromiseLike<never>>(onRejected: (reason: TReason<FailureOf<TPromise> | TFailure>) => R): CancelablePromise<Awaited<Awaited<TPromise>> | Awaited<R>, ([R] extends [never] ? FailureOf<TPromise> | TFailure : never) | FailureOf<R>>; <R = never>(onRejected: (reason: TReason<FailureOf<TPromise> | TFailure>) => R): CancelablePromise<Awaited<Awaited<TPromise>> | Awaited<R>, FailureOf<R>>; <R = never>(onRejected?: ((reason: TReason<FailureOf<TPromise> | TFailure>) => R) | null | undefined): CancelablePromise<Awaited<Awaited<TPromise>> | Awaited<R>, FailureOf<R> | FailureOf<TPromise> | TFailure>; }
 finally: (onFinally?: (() => PromiseLike<unknown> | void) | null) => CancelablePromise<Awaited<TPromise>, FailureOf<TPromise> | TFailure>
 forceCancelable: boolean // @deprecated
 handleCancel: (onCancel: TOnCancel, options?: IHandleCancelOptions) => CancelablePromise<Awaited<TPromise>, FailureOf<TPromise> | TFailure>
@@ -544,7 +544,7 @@ bubble: boolean // @deprecated
 cancel: (reason?: any, _disposing?: boolean) => CancelablePromise<ISettledResult<unknown>[], never> | void
 cancelable: boolean
 canceled: boolean
-catch: { <R extends PromiseLike<never>>(onRejected: (reason: TReason<TFailure>) => R): CancelablePromise<Awaited<R | TResult>, FailureOf<R>>; <R = never>(onRejected: (reason: TReason<TFailure>) => R): CancelablePromise<Awaited<R | TResult>, FailureOf<R>>; <R = never>(onRejected?: ((reason: TReason<TFailure>) => R) | null): CancelablePromise<Awaited<R | TResult>, FailureOf<R> | TFailure>; }
+catch: { <R extends PromiseLike<never>>(onRejected: (reason: TReason<TFailure>) => R): CancelablePromise<Awaited<R | TResult>, ([R] extends [never] ? TFailure : never) | FailureOf<R>>; <R = never>(onRejected: (reason: TReason<TFailure>) => R): CancelablePromise<Awaited<R | TResult>, FailureOf<R>>; <R = never>(onRejected?: ((reason: TReason<TFailure>) => R) | null): CancelablePromise<Awaited<R | TResult>, FailureOf<R> | TFailure>; }
 finally: (onFinally?: (() => PromiseLike<unknown> | void) | null) => CancelablePromise<TResult, TFailure>
 forceCancelable: boolean // @deprecated
 handleCancel: (onCancel: TOnCancel, options?: IHandleCancelOptions) => CancelablePromise<TResult, TFailure>

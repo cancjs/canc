@@ -1869,7 +1869,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
    */
   catch<R extends PromiseLike<never>>(
     onRejected: (reason: TReason<TFailure>) => R,
-  ): CancelablePromise<Awaited<TResult | R>, FailureOf<R>>;
+  ): CancelablePromise<Awaited<TResult | R>, FailureOf<R> | ([R] extends [never] ? TFailure : never)>;
   catch<R = never>(onRejected: (reason: TReason<TFailure>) => R): CancelablePromise<Awaited<TResult | R>, FailureOf<R>>;
   catch<R = never>(
     onRejected?: ((reason: TReason<TFailure>) => R) | null,
