@@ -314,12 +314,12 @@ try {
 } catch (e) {
   if (isUserFailure(e)) {
     // e is HttpError | NotFoundError
+  } else if (isErrorOf(e, isUserFailure, TimeoutError)) {
+    // composes with more matchers
   } else {
     throw e;
   }
 }
-
-isErrorOf(e, isUserFailure, TimeoutError); // composes with more matchers
 ```
 
 Use a type guard here. Only a guard proves and subtracts a type, while a plain boolean predicate only proves `Error`. A guard is accepted wherever an error matcher is, so the same value also fits any predicate slot, for example `shouldRetry`.
