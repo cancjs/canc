@@ -480,6 +480,13 @@ p.then((v) => {
 
 Return `CancelablePromise.reject<never, FooError>(reason)` instead of throwing whenever a callback should declare a failure. It threads through ordinary `then` propagation the same way a callback returning any other `CancelablePromise` does.
 
+`CancelablePromise.fail(error)` is the shortcut that infers it: `CancelablePromise.fail(new FooError())` is `CancelablePromise<never, FooError>`, and two branches returning different errors declare their union. It takes no options and rejects with the error as is. A `CancelError` is cancellation, so `fail(new CancelError())` declares nothing and settles as canceled. When the error is typed `any`, the declared failure is `any` too; use the error matchers with `withFailure` there.
+
+```ts
+p.then((v) => (bad ? CancelablePromise.fail(new FooError()) : v));
+// declares FooError
+```
+
 `reject` declares a failure only when you name one. The reason argument never infers it, as on a native promise, so `CancelablePromise.reject(new FooError())` declares nothing and its `catch` reason is `any`. A type annotation on the receiving side names the failure too:
 
 ```ts
@@ -598,6 +605,8 @@ export.
 Statics, each taking an optional trailing options argument: `all`, `allSettled`, `any`, `race`,
 `resolve`, `reject`, `withResolvers`, `try`. The options configure the promise the static returns,
 and combinator inputs are adopted with them.
+
+`fail(error)` returns a rejected promise that declares the type of `error` as its failure and takes no options.
 
 Instance methods: `then`, `catch`, `finally`, `handleCancel(onCancel, options?)`,
 `cancel(reason?)`, `[Symbol.dispose]`, `[Symbol.asyncDispose]`.

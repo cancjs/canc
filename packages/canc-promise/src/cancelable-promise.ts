@@ -980,6 +980,20 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
   }
 
   /**
+   * Creates a rejected promise that declares the type of its error as the failure.
+   * Unlike {@link CancelablePromise.reject}, the error argument infers the failure, so returning it from a
+   * `then` callback declares the failure on the chain. A `CancelError` is cancellation and is never declared.
+   * @param error The error the promise rejects with, as is.
+   * @returns A new rejected promise.
+   */
+  static fail<TError>(error: TError): CancelablePromise<never, Exclude<TError, CancelError>> {
+    // the executor reject accepts any reason, so the declared failure is only the return type
+    return new this<never, any>((_resolve, reject) => {
+      reject(error);
+    });
+  }
+
+  /**
    * Creates a new resolved promise for the provided value.
    * @param value A promise.
    * @param [options]
