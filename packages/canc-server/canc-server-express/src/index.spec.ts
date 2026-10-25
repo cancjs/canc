@@ -24,6 +24,8 @@ const servers: Server[] = [];
 const sockets: Socket[] = [];
 
 afterEach(async () => {
+  // a spy a failed expectation left behind would stay on the console for the next spec
+  jest.restoreAllMocks();
   for (const socket of sockets.splice(0)) {
     socket.destroy();
   }
