@@ -233,7 +233,7 @@ Node does not list a websocket as a connection once it is upgraded, so `shutdown
 await Promise.all([closeWebSockets(1001), shutdown({ cancelAfter: 5_000 })]);
 ```
 
-Any upgraded socket still open when the shutdown finishes is destroyed. To keep new traffic away first, fail your readiness check and wait a few seconds before calling `shutdown()`. In Kubernetes a `preStop` sleep does the same job.
+Any upgraded socket still open when the shutdown finishes is destroyed at `cancelAfter`. To keep new traffic away first, fail your readiness check and wait a few seconds before calling `shutdown()`. In Kubernetes a `preStop` sleep does the same job.
 
 ## Compatibility
 
