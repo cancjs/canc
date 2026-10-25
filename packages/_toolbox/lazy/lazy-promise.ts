@@ -60,7 +60,7 @@ export class LazyPromise<T = any, F = unknown> extends LazyBase<T> {
   declare static any: <V>(values: Iterable<V | PromiseLike<V>>, options?: ILazyPromiseOptions) => LazyPromise<V>;
   declare static race: <V>(values: Iterable<V | PromiseLike<V>>, options?: ILazyPromiseOptions) => LazyPromise<V>;
 
-  declare readonly [FAILURE]?: F;
+  declare readonly [FAILURE]?: Exclude<F, CancelError>;
   declare protected _options?: ILazyPromiseOptions;
   protected _canceledBeforeStart = false;
   protected _cancelError?: CancelError;
