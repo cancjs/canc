@@ -2,4 +2,4 @@
 "@cancjs/promise": patch
 ---
 
-A `catch` handler that rethrows now keeps the failure type declared by the promise instead of dropping it to `never`.
+A `catch` handler that rethrows or translates the error now keeps the declared failure in the list, alongside any undeclared one, instead of dropping it to `never`.

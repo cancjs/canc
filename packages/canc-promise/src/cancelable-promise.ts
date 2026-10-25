@@ -1,4 +1,4 @@
-import type { TAnyFn, Unlisted } from '../../_util';
+import type { TAnyFn, TOrUnlisted, Unlisted } from '../../_util';
 import { AggregateError, createAggregateError, isFunction, isObject, isThenable } from '../../_util';
 import type { MatchedOf, TErrorMatcher } from '../../_util/error-matchers';
 import { CancelError } from './cancel-error';
@@ -1869,7 +1869,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
    */
   catch<R extends PromiseLike<never>>(
     onRejected: (reason: TReason<TFailure>) => R,
-  ): CancelablePromise<Awaited<TResult | R>, FailureOf<R> | ([R] extends [never] ? TFailure : never)>;
+  ): CancelablePromise<Awaited<TResult | R>, FailureOf<R> | ([R] extends [never] ? TOrUnlisted<TFailure> : never)>;
   catch<R = never>(onRejected: (reason: TReason<TFailure>) => R): CancelablePromise<Awaited<TResult | R>, FailureOf<R>>;
   catch<R = never>(
     onRejected?: ((reason: TReason<TFailure>) => R) | null,
