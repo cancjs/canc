@@ -12,6 +12,7 @@ import {
 import { getRequestRegistry, getRequestState } from '../../../_server/holder';
 import { ensureRequestCancelState } from '../../../_server/node-signal';
 import { ICancelableHandlerOptions } from '../../../_server/types';
+import { installCloseDrain } from './shutdown';
 
 /** What an error handler does with a cancellation the wrapper forwarded. */
 export interface ICancelErrorHandlerOptions {
@@ -38,6 +39,7 @@ export type TCancelErrorHandler = (
 const plugin: FastifyPluginAsync<ICancelableHandlerOptions> = function cancelPlugin(fastify, options) {
   // the instance holds its server from the start, so a shutdown knows every request, plain ones too
   getRequestRegistry(fastify.server, true);
+  installCloseDrain(fastify);
 
   // onRequest is the earliest hook, so the signal exists before body parsing and before any
   // request-scoped work a later hook starts
@@ -60,6 +62,11 @@ const plugin: FastifyPluginAsync<ICancelableHandlerOptions> = function cancelPlu
  * settles, so a body streamed after the handler returned is not cut short. The lifecycle callbacks
  * run once per request, however many wrapped hooks it passes. Nothing is decorated onto the request
  * or the instance, so no module augmentation is needed to use this.
+ *
+ * It also registers a `preClose` hook that drains the server inside fastify's own close, so a plain
+ * `await app.close()` lets in-flight requests finish and cancels the rest, with the options given
+ * to `createShutdown` or the defaults. Register it after plugins whose `preClose` hooks end
+ * long-lived connections: hooks run in registration order.
  */
 export const cancelPlugin = fastifyPlugin(plugin, {
   fastify: '>=5.0.0',
