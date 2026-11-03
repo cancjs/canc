@@ -60,7 +60,7 @@ app.get('/invoices/:id', cancServer.cancelableHandler(function* (request) {
 await app.listen({ port: 3000 });
 ```
 
-If the client hangs up while the payment lookup is in flight, the handler unwinds at that `yield` and nothing is written back. If the route takes longer than thirty seconds, the client gets a 503 instead of an open connection.
+If the client hangs up while the payment lookup is in flight, the handler stops at that `yield` and nothing is written back. If the route takes longer than thirty seconds, the client gets a 503 instead of an open connection.
 
 Shutting down needs nothing more than fastify's own `app.close()`: the plugin drains the server inside it, so in-flight requests finish and the ones still running at `cancelAfter` are canceled. To pick the windows, or to read what happened, create the shutdown before `app.listen()`:
 
@@ -126,7 +126,7 @@ A cancellation the request does not own, such as your own `CancelError` or a tim
 
 ### Handler kinds
 
-A generator handler is driven as a coroutine and is canceled at its next suspension point. Anything else runs signal-only: the request signal still fires, and a cancelable promise the handler returns is canceled, but a plain `async` body has no suspension point to unwind and runs to completion. Use a generator when mid-flight cancellation is the point.
+A generator handler is driven as a coroutine and is canceled at its next suspension point. Anything else runs signal-only: the request signal still fires, and a cancelable promise the handler returns is canceled, but a plain `async` body has nothing to stop at, so it runs to completion. Use a generator when mid-flight cancellation is the point.
 
 ### Options
 
@@ -153,7 +153,7 @@ Both raise a `CancelError`. The discriminator is `isCancelError(error) && !error
 
 `createShutdown` takes the Fastify instance, not `app.server`, and returns the function that runs the shutdown. It replaces the prerelease `shutdown(app, o)`: call `createShutdown(app)(o)`.
 
-The drain runs inside fastify's own close, as a `preClose` hook that `cancelPlugin` registers, so `app.close()`, a close-with-grace helper or a framework built on fastify drains without calling anything from this package. The hook uses the options given to `createShutdown(app, options)`, or the defaults. The returned `shutdown(options)` lays its own options over those and runs `app.close()`, resolving with the drain's counts. Called before `app.listen()` without the plugin, `createShutdown` registers the same hook. Hooks run in registration order, and the drain holds its hook until it ends, so register `cancelPlugin` after plugins whose `preClose` hooks end long-lived connections, such as a websocket server. A `preClose` hook inside an encapsulated plugin runs after the root ones, so after the drain.
+The shutdown runs inside fastify's own close, as a `preClose` hook that `cancelPlugin` registers, so `app.close()`, a close-with-grace helper or a framework built on fastify shuts down gracefully without calling anything from this package. The hook uses the options given to `createShutdown(app, options)`, or the defaults; calling `createShutdown` again with new options replaces the ones a later plain `app.close()` uses. The returned `shutdown(options)` lays its own options over those and runs `app.close()`, resolving with its counts. Called before `app.listen()` without the plugin, `createShutdown` registers the same hook. Hooks run in registration order, and the shutdown holds its hook until it ends, so register `cancelPlugin` after plugins whose `preClose` hooks end long-lived connections, such as a websocket server. A `preClose` hook inside an encapsulated plugin runs after the root ones, so after the shutdown.
 
 A request that arrives on a kept-alive connection during the close is fastify's to answer: it sends `503` while `return503OnClosing` is on, its default. Set `return503OnClosing: false` to serve such requests instead.
 
@@ -181,7 +181,7 @@ Migrating from `timeout`: rename it to `cancelAfter`. `cancelOnStart: true` beco
 
 A `cancelAfter` of `Infinity` waits for the responses however long they take, and a finite one past about 24.8 days is held at that limit.
 
-Pass `closeServer: false` to only drain and leave the instance open, in which case `app.close()` is not called. Otherwise `onClose` hooks and plugin teardown run once the drain has ended, against a server that has already finished with its handlers. A failing `onClose` hook is logged, and the counts are still returned.
+Pass `closeServer: false` to drain the server without closing the instance, in which case `app.close()` is not called. Otherwise `onClose` hooks and plugin teardown run once the shutdown has ended, against a server that has already finished with its handlers. A failing `onClose` hook is logged, and the counts are still returned.
 
 ## API
 

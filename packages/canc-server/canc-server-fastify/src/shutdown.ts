@@ -77,6 +77,8 @@ function fitPluginTimeout(
 /**
  * Registers the `preClose` hook that runs the server drain inside fastify's own close, once per
  * server. Returns false when the instance has already started and takes no more hooks.
+ *
+ * @internal
  */
 export function installCloseDrain(instance: FastifyInstance): boolean {
   const server = instance.server as IServerLike;
@@ -110,32 +112,35 @@ export function installCloseDrain(instance: FastifyInstance): boolean {
 /**
  * Sets up a graceful shutdown for a fastify instance and returns the function that runs it.
  *
- * With `cancelPlugin` registered, or with this called before `app.listen()`, the drain runs inside
- * fastify's own close as a `preClose` hook, so a plain `await app.close()` drains too. `options`
- * here are then what that close uses, and the returned function runs `app.close()` with its own
- * options laid over them. Hooks run in registration order, so a `preClose` hook registered ahead
- * of the drain (one that ends websockets, say) runs when the close starts, and one registered after
- * it waits for the drain. A request arriving on a kept-alive connection during the close is
- * answered by fastify, with 503 unless `return503OnClosing` is false. Fastify cuts a `preClose` hook
- * off at `pluginTimeout` (10 s by default), which the default windows would pass, so there the
- * windows are lowered to end just inside it, and that is logged once through `app.log.warn`.
+ * With `cancelPlugin` registered, or with this called before `app.listen()`, the shutdown runs
+ * inside fastify's own close as a `preClose` hook, so a plain `await app.close()` shuts down
+ * gracefully too. `options` here are then what that close uses, and the returned function runs
+ * `app.close()` with its own options laid over them. Calling this again with new options replaces
+ * the ones a later plain `app.close()` uses. Hooks run in registration order, so a `preClose` hook
+ * registered ahead of this one (one that ends websockets, say) runs when the close starts, and one
+ * registered after it waits until the shutdown has ended. A request arriving on a kept-alive
+ * connection during the close is answered by fastify, with 503 unless `return503OnClosing` is
+ * false. Fastify cuts a `preClose` hook off at `pluginTimeout` (10 s by default), which the default
+ * windows would pass, so there the windows are lowered to end just inside it, and that is logged
+ * once through `app.log.warn`.
  *
- * The drain stops the server: no new connections, a window for in-flight handlers to finish, and
- * a cancel for any still running when `cancelAfter` ends (at once with `cancelAfter: 0`). Every
+ * The shutdown stops the server: no new connections, a window for in-flight handlers to finish,
+ * and a cancel for any still running when `cancelAfter` ends (at once with `cancelAfter: 0`). Every
  * in-flight response is sent with `Connection: close`, so each connection closes once its response
  * finishes. The function resolves with what happened rather than throwing. A second call while the
  * first is still running returns that same promise, so a pair of signal handlers is safe to wire
  * without a guard. Calling `createShutdown` again with the same instance returns the same function.
  *
- * With `closeServer: false` only the drain runs, and the instance is not closed. A hook failing in
+ * With `closeServer: false` the server is drained without closing the instance. A hook failing in
  * `app.close()` is logged and the outcome is still returned.
  *
  * Fastify takes no hook once the instance has started. Created after `app.listen()` without the
- * plugin, the function drains first and then runs `app.close()`, so a late request on a kept-alive
- * connection is served instead of refused. The options given here apply on that path too. Connections and requests are recorded from the call on,
- * so a connection opened before it is closed only when `closeAfter` ends if it has sent no request
- * yet, or if its request is still in flight and no wrapped handler recorded it. That response also
- * goes out without `Connection: close`.
+ * plugin, the function drains the server first, then calls `app.close()`, so a late request on a
+ * kept-alive connection is served instead of refused. The options given here apply on that path
+ * too. Connections and requests are recorded from the call on, so a connection opened before it is
+ * closed only when `closeAfter` ends if it has sent no request yet, or if its request is still in
+ * flight and no wrapped handler recorded it. That response also goes out without
+ * `Connection: close`.
  */
 export function createShutdown(
   app: FastifyInstance,
