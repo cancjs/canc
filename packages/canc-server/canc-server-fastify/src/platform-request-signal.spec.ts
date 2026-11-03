@@ -6,12 +6,13 @@ import { CLIENT_DISCONNECTED } from '../../../_server/reasons';
 import { getRequestSignal } from './handler';
 
 // pins fastify 5 today, a failure of the first case means upstream changed
+// the first fastify 5 releases have no request.signal, so each case skips its platform half there
 
 interface IExchange {
   cancAborted: () => boolean;
   cancReason: () => unknown;
   platformAborted: Promise<void>;
-  platformSignal: AbortSignal;
+  platformSignal: AbortSignal | undefined;
   release: () => void;
   replyClosed: Promise<void>;
   replyEnded: () => boolean;
@@ -28,10 +29,10 @@ describe('fastify platform request signal', () => {
     app = Fastify();
     app.addContentTypeParser('text/plain', { parseAs: 'string' }, (_request, body, done) => done(null, body));
     app.post('/', async (request, reply) => {
-      const platformSignal = request.signal;
+      const platformSignal: AbortSignal | undefined = request.signal;
       const cancSignal = getRequestSignal(request, reply);
       const platformAborted = new Promise<void>((resolve) => {
-        platformSignal.addEventListener('abort', () => resolve(), { once: true });
+        platformSignal?.addEventListener('abort', () => resolve(), { once: true });
       });
       const replyClosed = new Promise<void>((resolve) => {
         reply.raw.once('close', () => resolve());
@@ -89,6 +90,12 @@ describe('fastify platform request signal', () => {
     const { client, exchange } = postWithBody();
     const hold = await exchange;
 
+    if (hold.platformSignal === undefined) {
+      hold.release();
+
+      return;
+    }
+
     await hold.platformAborted;
 
     expect(hold.platformSignal.aborted).toBe(true);
@@ -103,9 +110,12 @@ describe('fastify platform request signal', () => {
     const { client, exchange } = postWithBody();
     const hold = await exchange;
 
-    await hold.platformAborted;
+    if (hold.platformSignal !== undefined) {
+      await hold.platformAborted;
 
-    expect(hold.platformSignal.aborted).toBe(true);
+      expect(hold.platformSignal.aborted).toBe(true);
+    }
+
     expect(hold.cancAborted()).toBe(false);
 
     client.destroy();
