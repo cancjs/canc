@@ -70,7 +70,7 @@
     "@cancjs/coroutine": ">=1.0.0 || >=1.1.0-0",
     "@cancjs/promise": ">=1.1.0-0",
     "@hono/node-server": ">=1",
-    "hono": ">=4"
+    "hono": ">=4.8.0"
   },
   "peerDependenciesMeta": {
     "@hono/node-server": {
