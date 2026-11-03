@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
 
-import { getShutdownFunction, setShutdownFunction } from '../../../_server/holder';
+import { getShutdownFunction, getShutdownState, setShutdownFunction } from '../../../_server/holder';
 import { createServerShutdown, DEFAULT_SHUTDOWN_TIMEOUT } from '../../../_server/shutdown';
 import { IServerLike, IShutdownOptions, IShutdownResult } from '../../../_server/types';
 
@@ -93,8 +93,9 @@ export function installCloseDrain(instance: FastifyInstance): boolean {
 
   try {
     instance.addHook('preClose', async function drainOnClose() {
-      // a shutdown() call already started it, and the server part hands back that same run
-      await shutdownServer(fitPluginTimeout(instance, drain, drain.options));
+      // a shutdown() call already started it with its own options, and the server part hands back
+      // that same run, so the stored ones are fitted only for a plain close
+      await (getShutdownState(server) ?? shutdownServer(fitPluginTimeout(instance, drain, drain.options)));
     });
   } catch (error) {
     if ((error as { code?: unknown } | null)?.code === ALREADY_STARTED) {

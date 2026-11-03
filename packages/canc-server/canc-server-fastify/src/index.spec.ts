@@ -2203,6 +2203,19 @@ describe('drain inside the fastify close', () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
+  it('logs no lowering for shutdown() windows that already fit pluginTimeout', async () => {
+    const instance = Fastify();
+    const warn = jest.spyOn(instance.log, 'warn');
+    await instance.register(cancelPlugin);
+    const shutdown = createShutdown(instance);
+    await listen(instance);
+    app = undefined;
+
+    await shutdown({ cancelAfter: 0, closeAfter: 2_000 });
+
+    expect(warn).not.toHaveBeenCalled();
+  });
+
   it('drains first and closes after when created after listen without the plugin', async () => {
     const order: string[] = [];
     const arrived = deferred();
