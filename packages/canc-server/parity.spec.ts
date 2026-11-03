@@ -194,6 +194,9 @@ for (const adapter of adapters) {
           if (answered !== undefined) {
             expect(base.status).toBe(answered);
           }
+          // a header the app set survives the answer, unless the framework clears them all (koa)
+          // default error response clears every header set so far (koa)
+          expect(base.headers['x-app']).toBe(adapter.name === 'koa' && group.label === 'app default' ? undefined : '1');
 
           // the app's own handler writes its own headers, so only the default answer carries these
           if (group.base === 'W' || group.base === 'P') {
@@ -278,6 +281,11 @@ async function buildExpress(mode: TMode, kind: TKind, harness: IHarness): Promis
 
   const fail = failureFor(kind, rateLimitError);
 
+  app.use((_req, res, next) => {
+    res.set('x-app', '1');
+    next();
+  });
+
   if (mode === 'M') {
     app.use(expressServer.cancelMiddleware());
   }
@@ -325,6 +333,11 @@ async function buildKoa(mode: TMode, kind: TKind, harness: IHarness): Promise<IR
       ctx.body = { user: (error as IHttpError).message };
     }
   };
+
+  app.use(async (ctx, next) => {
+    ctx.set('x-app', '1');
+    await next();
+  });
 
   if (mode === 'UH') {
     app.use(koaServer.cancelMiddleware());
@@ -378,6 +391,10 @@ async function buildFastify(mode: TMode, kind: TKind, harness: IHarness): Promis
       .send({ user: (error as IHttpError).message });
   };
 
+  app.addHook('onRequest', (_request, reply, done) => {
+    reply.header('x-app', '1');
+    done();
+  });
   app.addHook('onError', (_request, _reply, error, done) => {
     harness.events.push(`onError ${error.message}`);
     done();
@@ -429,6 +446,11 @@ async function buildHono(mode: TMode, kind: TKind, harness: IHarness): Promise<I
   const user = (error: IHttpError, c: Context): Response =>
     c.json({ user: error.message }, statusOf(error) as ContentfulStatusCode, { 'x-user': '1' });
 
+  app.use('*', async (c, next) => {
+    c.header('x-app', '1');
+    await next();
+  });
+
   if (mode === 'M') {
     app.use('*', honoServer.cancelMiddleware());
   }
@@ -462,7 +484,7 @@ async function buildHono(mode: TMode, kind: TKind, harness: IHarness): Promise<I
 // access lines carry timings and the listening line a port; neither is part of an error's handling
 const NOISE = /^(incoming request|request completed|Server listening)/;
 
-const OBSERVED_HEADERS = ['content-type', 'retry-after', 'x-user'];
+const OBSERVED_HEADERS = ['content-type', 'retry-after', 'x-app', 'x-user'];
 
 function get(port: number): Promise<Pick<IObserved, 'body' | 'headers' | 'status'>> {
   return new Promise((resolve, reject) => {
