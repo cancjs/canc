@@ -159,7 +159,7 @@ A request that arrives on a kept-alive connection during the close is fastify's 
 
 Fastify gives every `preClose` hook `pluginTimeout` to finish, 10 s by default. A drain longer than that is cut short: `app.close()` rejects with `AVV_ERR_READY_TIMEOUT`, and fastify closes the connections still open. The default windows already reach it (`cancelAfter` 10 s, `closeAfter` 11 s), so under the defaults a request still hung at 10 s hits the timeout. Keep `closeAfter` below `pluginTimeout`, or raise `pluginTimeout` (`0` turns it off).
 
-Fastify takes no hook once the instance has started. Created after `app.listen()` without the plugin, `createShutdown` falls back to draining first and calling `app.close()` after, so a late request on a kept-alive connection is served rather than refused.
+Fastify takes no hook once the instance has started. Created after `app.listen()` without the plugin, `createShutdown` drains the server first, then calls `app.close()`, so a late request on a kept-alive connection is served rather than refused. The options given to `createShutdown(app, options)` apply on that path as well.
 
 The shutdown closes the server to new connections, closes a connection that has received no bytes once it is five seconds old (or at the grace, if shorter), leaves one that has already sent part of a request to finish, and closes idle ones. In-flight requests, wrapped or not, keep running for the grace window. Every response sent from then on carries `Connection: close`, and each connection closes as soon as the response on it finishes. A `keep-alive` the app sets on the reply is overridden as well, except when it is set through fastify's reply headers, which this shutdown cannot reach.
 

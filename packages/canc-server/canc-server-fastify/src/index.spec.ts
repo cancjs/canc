@@ -1933,6 +1933,23 @@ describe('drain inside the fastify close', () => {
     });
   }
 
+  function hangingHandler(started: IDeferred<void>): ReturnType<typeof cancelableHandler> {
+    return cancelableHandler(function* () {
+      started.resolve();
+      yield new Promise(() => undefined);
+    });
+  }
+
+  // a missing drain leaves the close waiting on the hung request, so fail fast instead
+  function withinMs<T>(promise: Promise<T>, ms: number): Promise<T> {
+    let timer: NodeJS.Timeout | undefined;
+    const late = new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => reject(new Error(`still pending after ${ms}ms`)), ms);
+    });
+
+    return Promise.race([promise, late]).finally(() => clearTimeout(timer));
+  }
+
   it('serves an in-flight request through a plain app.close() and closes its connection', async () => {
     const arrived = deferred();
     const gate = deferred();
@@ -2066,15 +2083,18 @@ describe('drain inside the fastify close', () => {
     await closing;
   });
 
-  it('runs a preClose hook registered ahead of the plugin at the start of the close', async () => {
+  it('holds a preClose hook registered after the plugin until the drain has finished', async () => {
+    const order: string[] = [];
     const arrived = deferred();
     const gate = deferred();
-    const hookRan = deferred();
     const instance = Fastify();
-    instance.addHook('preClose', async () => {
-      hookRan.resolve();
-    });
     await instance.register(cancelPlugin);
+    instance.addHook('preClose', async () => {
+      order.push('later hook');
+    });
+    instance.addHook('onResponse', async () => {
+      order.push('answered');
+    });
     gatedRoute(instance, arrived, gate);
 
     const port = await listen(instance);
@@ -2083,12 +2103,85 @@ describe('drain inside the fastify close', () => {
 
     const closing = instance.close();
     app = undefined;
-    // the request is still held, so the hook ran before the drain finished
-    await hookRan.promise;
+    await drainStarted(instance);
+    await tick();
     gate.resolve();
 
     expect((await pending).statusCode).toBe(200);
     await closing;
+    expect(order).toEqual(['answered', 'later hook']);
+  });
+
+  it('cancels at the stored cancelAfter on a plain app.close() without the plugin', async () => {
+    const started = deferred();
+    const instance = Fastify();
+    createShutdown(instance, { cancelAfter: 100 });
+    instance.get('/hang', hangingHandler(started));
+
+    const port = await listen(instance);
+    const pending = send(port, '/hang');
+    await started.promise;
+    app = undefined;
+
+    const startedAt = Date.now();
+    await withinMs(instance.close(), 2_000);
+
+    expect(Date.now() - startedAt).toBeLessThan(1_000);
+    expect((await pending).statusCode).toBe(503);
+  });
+
+  it('lays shutdown() options over large stored options', async () => {
+    const started = deferred();
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    const shutdown = createShutdown(instance, { cancelAfter: 60_000, closeAfter: 60_000 });
+    instance.get('/hang', hangingHandler(started));
+
+    const port = await listen(instance);
+    const pending = send(port, '/hang');
+    await started.promise;
+    app = undefined;
+
+    expect(await withinMs(shutdown({ cancelAfter: 100 }), 2_000)).toEqual({
+      canceled: 1,
+      completed: 0,
+      timedOut: false,
+    });
+    expect((await pending).statusCode).toBe(503);
+  });
+
+  it('uses the stored options for a bare shutdown()', async () => {
+    const started = deferred();
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    const shutdown = createShutdown(instance, { cancelAfter: 100 });
+    instance.get('/hang', hangingHandler(started));
+
+    const port = await listen(instance);
+    const pending = send(port, '/hang');
+    await started.promise;
+    app = undefined;
+
+    expect(await withinMs(shutdown(), 2_000)).toEqual({ canceled: 1, completed: 0, timedOut: false });
+    expect((await pending).statusCode).toBe(503);
+  });
+
+  it('applies the options given after listen without the plugin', async () => {
+    const started = deferred();
+    const instance = Fastify();
+    instance.get('/hang', hangingHandler(started));
+
+    const port = await listen(instance);
+    const shutdown = createShutdown(instance, { cancelAfter: 100 });
+    const pending = send(port, '/hang');
+    await started.promise;
+    app = undefined;
+
+    const startedAt = Date.now();
+
+    expect(await withinMs(shutdown(), 2_000)).toEqual({ canceled: 1, completed: 0, timedOut: false });
+    expect(Date.now() - startedAt).toBeLessThan(1_000);
+    expect((await pending).statusCode).toBe(503);
   });
 
   it('drains first and closes after when created after listen without the plugin', async () => {

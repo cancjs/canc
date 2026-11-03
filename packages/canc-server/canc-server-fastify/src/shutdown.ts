@@ -16,8 +16,6 @@ interface ICloseDrain {
   hooked?: boolean;
   /** Options stored by `createShutdown(app, options)`, used by a plain `app.close()`. */
   options?: IShutdownOptions;
-  /** The drain a `shutdown()` call started for the close it runs, joined by the hook. */
-  pending?: Promise<IShutdownResult>;
 }
 
 const ALREADY_STARTED = 'FST_ERR_INSTANCE_ALREADY_LISTENING';
@@ -51,7 +49,8 @@ export function installCloseDrain(instance: FastifyInstance): boolean {
 
   try {
     instance.addHook('preClose', async function drainOnClose() {
-      await (drain.pending ?? shutdownServer(drain.options));
+      // a shutdown() call already started it, and the server part hands back that same run
+      await shutdownServer(drain.options);
     });
   } catch (error) {
     if ((error as { code?: unknown } | null)?.code === ALREADY_STARTED) {
@@ -90,7 +89,7 @@ export function installCloseDrain(instance: FastifyInstance): boolean {
  *
  * Fastify takes no hook once the instance has started. Created after `app.listen()` without the
  * plugin, the function drains first and then runs `app.close()`, so a late request on a kept-alive
- * connection is served instead of refused. Connections and requests are recorded from the call on,
+ * connection is served instead of refused. The options given here apply on that path too. Connections and requests are recorded from the call on,
  * so a connection opened before it is closed only when `closeAfter` ends if it has sent no request
  * yet, or if its request is still in flight and no wrapped handler recorded it. That response also
  * goes out without `Connection: close`.
@@ -137,7 +136,7 @@ export function createShutdown(
       return running;
     }
 
-    const merged = insideClose ? { ...drain.options, ...callOptions } : callOptions;
+    const merged = { ...drain.options, ...callOptions };
     // started here rather than in the hook, so a bad option throws to the caller before the close
     const drained = shutdownServer(merged);
     let result: Promise<IShutdownResult>;
@@ -145,7 +144,6 @@ export function createShutdown(
     if (merged?.closeServer === false) {
       result = drained;
     } else if (insideClose) {
-      drain.pending = drained;
       result = closeApp().then(() => drained);
     } else {
       result = drained.then(async (outcome) => {
@@ -158,13 +156,11 @@ export function createShutdown(
     const settled = result.then(
       (outcome) => {
         running = undefined;
-        drain.pending = undefined;
 
         return outcome;
       },
       (error) => {
         running = undefined;
-        drain.pending = undefined;
         throw error;
       },
     );
